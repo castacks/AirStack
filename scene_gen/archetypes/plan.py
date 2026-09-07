@@ -44,10 +44,15 @@ if _SCENE_GEN not in sys.path:
 from archetypes import library as lib                          # noqa: E402
 from disaster import levels as L                               # noqa: E402
 
-#: Asset-pack pools that hold INTACT structures worth damaging. `damaged` and
-#: `destroyed` are pre-authored ruins; `rowhouse`/`midrise`/`tower` are urban's
-#: typology pools, all of them intact art.
-STRUCTURE_POOLS = ("intact", "rowhouse", "midrise", "tower")
+#: Asset-pack pools that hold INTACT structures worth damaging, in the LEGACY
+#: layout — `damaged` and `destroyed` are pre-authored ruins, while
+#: `rowhouse`/`midrise`/`tower` are urban's typology pools, all intact art.
+#: Kept for the tests that assert a ruin is never planned; the planner itself
+#: asks `scene_generator.every_building(config, "intact")`, which answers the
+#: same question in either layout (in the current one the condition is a TAG on
+#: the entry, so the pool names carry no condition at all).
+STRUCTURE_POOLS = ("intact", "townhouse", "lowrise", "midrise",
+                   "highrise", "rowhouse", "tower")
 
 #: Where vegetation lives in a pack. TOP-LEVEL lists, not a `vegetation:`
 #: group — `shared.yaml` keeps `trees:` and `street_trees:` beside the props.
@@ -173,8 +178,13 @@ def build_plan(config: dict, disaster: str = "", include_modular: bool = True,
             _add(style, L.STRUCTURE, style, "modular", struct_levels)
 
     if include_library:
-        for usd, sc, au in grouped_pools(usds, "buildings", STRUCTURE_POOLS,
-                                         default_scale):
+        # EVERY intact building, whatever pool it sits in — see
+        # `scene_generator.every_building`. Authored ruins (tagged `damaged` /
+        # `destroyed`, or sitting in those pools) are skipped: baking a ruin's
+        # ruin is meaningless and doubles the library for nothing.
+        from scene_generator import every_building
+        for usd, sc, au in _paths(every_building(config, "intact"),
+                                  default_scale):
             _add(usd, L.STRUCTURE, usd, "library", struct_levels, sc, au)
         for usd, sc, au in flat_pools(usds, VEGETATION_POOLS, default_scale):
             _add(usd, L.VEGETATION, usd, "library", veg_levels, sc, au)

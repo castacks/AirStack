@@ -1,0 +1,34 @@
+#usda 1.0
+(
+    defaultPrim = "Asset"
+)
+
+def "Asset" (
+    prepend references = @omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/rowhouse/graffiti_brick_house/graffiti_brick_house.usdc@
+)
+{
+    over "brick_building_graffiti"
+    {
+        over "Meshes"
+        {
+            over "Sketchfab_model"
+            {
+                over "Collada_visual_scene_group"
+                {
+                    over "Pose"
+                    {
+                        over "graffiti_brick_house"
+                        {
+                            over "defaultMaterial" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+

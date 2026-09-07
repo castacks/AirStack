@@ -207,8 +207,12 @@ def build(config_name, stop_after="disaster"):
     return cfg, layout, placements, res
 
 
-_COLOUR = {"rowhouse": "#b5651d", "midrise": "#7f8fa6",
-           "tower": "#4b5d73", "park": "#5f8d4e"}
+# Keyed by TYPOLOGY name. The legacy spellings are kept beside the current
+# ones so a plan rendered from an older compiled config still colours rather
+# than falling through to the default.
+_COLOUR = {"townhouse": "#b5651d", "rowhouse": "#b5651d",
+           "lowrise": "#9c8f6e", "midrise": "#7f8fa6",
+           "highrise": "#4b5d73", "tower": "#4b5d73", "park": "#5f8d4e"}
 
 # How a building ended up, and how it got there. The distinction that matters
 # is MECHANISM, not severity: a ruin swap is authored art dropped on the
@@ -400,8 +404,8 @@ def draw(cfg, layout, placements, res, out_path, title="",
         # whose terrace layout refused it still carries the rowhouse zone, and
         # coluring off that drew ordinary packed mid-rise in brownstone orange —
         # which reads as a terrace block with far more than two rows.
-        if t == "rowhouse" and "Brownstone" not in os.path.basename(
-                str(p.get("usd", ""))):
+        if t in ("townhouse", "rowhouse") and "Brownstone" not in \
+                os.path.basename(str(p.get("usd", ""))):
             t = "midrise"
         counts[t] = counts.get(t, 0) + 1
         if field is not None and dtype:

@@ -9,7 +9,7 @@
 # severity      : 0.65
 # spec          : scene_gen/config/presets/suburb_mini_wildfire.yaml
 # base          : scene_gen/config/low_level/default.yaml
-# compiled      : 2026-08-25 00:39:58
+# compiled      : 2026-08-29 17:17:44
 # spec extras   : {'epicenter': [-125, -125], 'heading_deg': 45, 'asset-pack': 'suburban_park', 'region_m': [250, 250], 'seed': 3, 'overrides': {'disaster': {'fire': {'flank_mps': 0.7, 'duration_s': 300.0}}, 'instance_categories': ['plant', 'sidewalk', 'streetlight', 'fire_hydrant', 'sign', 'crosswalk'], 'layout': {'region_m': [250, 250]}, 'usds': {'materials': {'grass': 'airstack://scene_gen/assets/materials/Grass_Countryside.usda', 'grass_rough': 'airstack://scene_gen/assets/materials/Grass_Countryside.usda', 'grass_park': 'airstack://scene_gen/assets/materials/Grass_Cut.usda', 'dirt': 'airstack://scene_gen/assets/materials/Dirt.usda', 'asphalt': 'airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda', 'driveway': 'airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda', 'path': 'airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda'}, 'lot_fences': [{'usd': 'objaverse://1cec32aea61e4959bb1ba9a79ada7cd5', 'yaw-offset': 90.0, 'tags': ['low', 'privacy']}], 'trees': [{'usd': 'airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Black_Oak/Black_Oak.usd', 'scale': 0.01}, {'usd': 'airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Shumard_Oak/Shumard_Oak.usd', 'scale': 0.01}, {'usd': 'airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/Largetooth_Aspen.usd', 'scale': 0.01}, {'usd': 'airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Common_Apple/Common_Apple.usd', 'scale': 0.01}, {'usd': 'airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/American_Beech.usd', 'scale': 0.01}, {'usd': 'airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/Douglas_Fir.usd', 'scale': 0.01}], 'street_trees': [{'usd': 'airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Shumard_Oak/Shumard_Oak.usd', 'scale': 0.01}, {'usd': 'airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/Douglas_Fir.usd', 'scale': 0.01}], 'yard_trees': [{'usd': 'airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Shumard_Oak/Shumard_Oak.usd', 'scale': 0.01}], 'yard_shrubs': [], 'plants': []}, 'suburb_net': {'block_area_target_m2': 40000.0, 'block_area_min_m2': 7000.0, 'collectors': 3, 'collector_wander': 0.28, 'min_gap_m': 88.0, 'junction_skew_deg': 38.0, 'four_way_chance': 0.35, 'dead_end_target': 0.24, 'bulb_radius_m': 14.64, 'lollipop_len_m': [55.0, 170.0], 'grain_weight': 2.6, 'grain_swirl_deg': 34.0, 'grain_period_m': 620.0}, 'suburb_parcel': {'modular_houses': True, 'modular_share': 1.0, 'lot_width_m': [30.0, 44.0], 'house_gap_m': 6.0, 'neighbourhood_m': 400.0, 'density_mix': {'tight': 0.15, 'normal': 0.36, 'loose': 0.34, 'estate': 0.15}, 'setback_m': [6.5, 11.0], 'house_w_m': [9.0, 13.0], 'house_d_m': [8.0, 11.0], 'min_lot_depth_m': 21.0, 'driveway_w_m': 3.2, 'house_yaw_offset_deg': -90.0, 'back_trees_per_100m2': 0.055, 'front_tree_chance': 0.45, 'street_tree_spacing_m': [22.0, 40.0], 'open_trees_per_100m2': 0.85, 'infill_trees_per_100m2': 0.45, 'open_tree_gap_m': 6.0, 'open_tree_clear_m': 5.5}}}
 
 seed: 3
@@ -178,6 +178,10 @@ layout:
     neighbour_radius_m: 45.0
     pick_sigma: 0.3
     repeat_penalty: 1.0
+    repeat_radius_m: 0.0
+    repeat_local_penalty: 0.02
+    repeat_local_falloff: 2.0
+    pack_area_band: 0.55
     infill:
       enabled: true
       gap_m: 2.0
@@ -186,23 +190,26 @@ layout:
       to_frac: 0.45
       furniture_scale: 1.0
       mix:
-        tower: 0.85
+        highrise: 0.85
         midrise: 0.15
-        rowhouse: 0.0
+        lowrise: 0.0
+        townhouse: 0.0
     - name: mid
       to_frac: 0.6
       furniture_scale: 1.3
       mix:
-        tower: 0.35
+        highrise: 0.35
         midrise: 0.62
-        rowhouse: 0.03
+        lowrise: 0.1
+        townhouse: 0.03
     - name: edge
       to_frac: 1.01
       furniture_scale: 1.9
       mix:
-        tower: 0.03
+        highrise: 0.03
         midrise: 0.12
-        rowhouse: 0.85
+        lowrise: 0.2
+        townhouse: 0.85
     zoning:
       cell_m: 40.0
       area_m2_per_nucleus: 30000.0
@@ -210,9 +217,10 @@ layout:
       adjacency_ladder: true
       bleed: 0.12
     typologies:
-      rowhouse:
+      townhouse:
         rank: 0
         pools:
+        - townhouse
         - rowhouse
         morphology: terrace
         facing_offset_deg: 0.0
@@ -235,6 +243,20 @@ layout:
         run_gap_m:
         - 3.0
         - 9.0
+      lowrise:
+        rank: 0.5
+        pools:
+        - lowrise
+        morphology: pack
+        perimeter_depth_m: 40.0
+        height_median_m: 13.0
+        height_sigma: 0.25
+        block_short_m:
+        - 55.0
+        - 90.0
+        block_long_m:
+        - 135.0
+        - 200.0
       midrise:
         rank: 1
         pools:
@@ -249,9 +271,10 @@ layout:
         block_long_m:
         - 135.0
         - 200.0
-      tower:
+      highrise:
         rank: 2
         pools:
+        - highrise
         - tower
         morphology: pack
         perimeter_depth_m: 60.0
@@ -277,14 +300,9 @@ disaster:
   damaged_fraction: 0.54
   destroyed_fraction: 0.202
   debris:
-    piles_per_building:
-    - 2
-    - 5
-    pile_max_offset_m: 2.475
-    pieces_per_building:
-    - 9
-    - 17
-    pieces_scatter_m: 3.95
+    shed_m3_per_m: 0.46
+    spread_m: 3.95
+    pile_share: 0.5
     damaged_debris_scale: 0.613
     tilt_chance: 0.148
     tilt_deg:
@@ -293,9 +311,6 @@ disaster:
     sink_m:
     - 0.2
     - 0.6
-    lean_piles:
-    - 1
-    - 3
     path_pieces_per_100m2: 0.885
     path_piles_per_100m2: 0.213
     path_min_intensity: 0.3

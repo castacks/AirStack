@@ -58,13 +58,13 @@ def full_library(config, monkeypatch):
         path=os.path.join(_SCENE_GEN, "assets", "archetypes", DTYPE,
                           lib.MANIFEST_NAME),
         doc={"disaster": DTYPE, "archetypes": recs})
-    monkeypatch.setattr(ds, "_ARCH_CACHE", {DTYPE: library})
+    monkeypatch.setattr(ds, "_ARCH_CACHE", {ds._arch_key(DTYPE): library})
     return library
 
 
 @pytest.fixture
 def no_library(monkeypatch):
-    monkeypatch.setattr(ds, "_ARCH_CACHE", {DTYPE: None})
+    monkeypatch.setattr(ds, "_ARCH_CACHE", {ds._arch_key(DTYPE): None})
 
 
 def _build(config):
@@ -170,7 +170,7 @@ def test_a_partial_library_falls_back_but_still_places(config, monkeypatch):
         path=os.path.join(_SCENE_GEN, "assets", "archetypes", DTYPE,
                           lib.MANIFEST_NAME),
         doc={"disaster": DTYPE, "archetypes": recs})
-    monkeypatch.setattr(ds, "_ARCH_CACHE", {DTYPE: library})
+    monkeypatch.setattr(ds, "_ARCH_CACHE", {ds._arch_key(DTYPE): library})
     placements = _build(config)
     hit = [p for p in placements if p.get("_archetype")]
     assert hit
@@ -343,3 +343,176 @@ def test_export_merges_settled_fragments_per_material(tmp_path):
     pts = UsdGeom.Mesh(rb).GetPointsAttr().Get()
     assert len(UsdGeom.PrimvarsAPI(rb).GetPrimvar("st").Get()) == len(pts)
     assert max(p[0] for p in pts) > 9.0                # world space kept
+
+
+# --------------------------------------------------------------------------
+# the debris a baked archetype carries inside it
+# --------------------------------------------------------------------------
+
+@pytest.fixture
+def library_with_debris(config, monkeypatch):
+    """The same manifest, but every record says how far its rubble reaches."""
+    recs = []
+    for it in P.build_plan(config, DTYPE):
+        for _t, lv in it.combos:
+            recs.append({"type": it.type, "level": lv, "kind": it.kind,
+                         "source": str(it.source),
+                         "usd": lib.archetype_name(it.type, lv) + ".usd",
+                         "debris_r_m": 0.0 if lv == "pristine" else 11.5})
+    library = lib.Library(
+        path=os.path.join(_SCENE_GEN, "assets", "archetypes", DTYPE,
+                          lib.MANIFEST_NAME),
+        doc={"disaster": DTYPE, "archetypes": recs})
+    monkeypatch.setattr(ds, "_ARCH_CACHE", {ds._arch_key(DTYPE): library})
+    return library
+
+
+def test_an_archetype_carries_its_own_debris_and_scatters_none(config,
+                                                               full_library):
+    """The debris is baked INSIDE the archetype USD, so a building that got one
+    must not also have rubble scattered around it — that was the whole cost of
+    doing it at placement time."""
+    placements = _build(config)
+    arch = [p for p in placements if p.get("_archetype")]
+    assert arch
+    loose = [p for p in placements
+             if p.get("category") in ("debris", "debris_pile")]
+    for p in loose:
+        near = min((abs(p["x_m"] - q["x_m"]) + abs(p["y_m"] - q["y_m"]))
+                   for q in arch)
+        assert near > 1.0, "scattered rubble on top of an archetype's own"
+
+
+def test_the_baked_debris_reach_reaches_the_survey(config,
+                                                   library_with_debris):
+    """Once the rubble is inside the USD it is not a placement, and `targets`
+    samples casualties against the placement list — which is how the first
+    debris-aware run put a victim inside a pile. The building carries the
+    reach instead."""
+    import targets as T
+
+    placements = _build(config)
+    arch = [p for p in placements if p.get("_archetype")]
+    assert arch and all(p.get("_debris_r_m") == 11.5 for p in arch)
+
+    survey = T.survey_from_placements(placements, disaster_type=DTYPE)
+    discs = {(round(d["x"], 3), round(d["y"], 3)) for d in survey["debris"]}
+    for p in arch:
+        assert (round(p["x_m"], 3), round(p["y_m"], 3)) in discs
+
+
+def test_archetypes_are_instanced_and_nothing_else_is(config, full_library):
+    """SPEC's "repeated archetypes are instanced so identical references share
+    geometry". The flag has to be on the archetypes and ONLY on them: an
+    instanceable prim has no traversable children, so instancing a building the
+    cutter is about to edit, or one `add_colliders` still has to reach into,
+    breaks the sim silently."""
+    placements = _build(config)
+    arch = [p for p in placements if p.get("_archetype")]
+    assert arch, "a full library was loaded and nothing referenced it"
+    assert all(p.get("_instanceable") for p in arch)
+
+    marked = [p for p in placements if p.get("_instanceable")]
+    assert len(marked) == len(arch), "something that is not an archetype is instanced"
+    # The cutter edits geometry inside its buildings — those must stay unique.
+    assert not any(p.get("_mesh_damage") for p in marked)
+
+
+def test_instancing_shares_one_prototype_per_archetype(tmp_path):
+    """The point of the flag, measured on a stage: N placements of the same
+    asset must compose to ONE prototype, not N copies.
+
+    Self-contained rather than built on `full_library`, which plants a manifest
+    and no USD files — the references cannot compose, so nothing becomes an
+    instance and the test would pass or fail for the wrong reason."""
+    from pxr import Usd, UsdGeom
+
+    import scene_generator as sg
+
+    assets = []
+    for i in range(2):
+        f = str(tmp_path / f"a{i}.usda")
+        a = Usd.Stage.CreateNew(f)
+        UsdGeom.SetStageMetersPerUnit(a, 1.0)
+        c = UsdGeom.Cube.Define(a, "/root")
+        c.CreateSizeAttr(2.0 + i)
+        a.SetDefaultPrim(c.GetPrim())
+        a.GetRootLayer().Save()
+        assets.append(f)
+
+    pls = [{"usd": assets[i % 2], "category": "house", "x_m": 10.0 * i,
+            "y_m": 0.0, "z_m": 0.0, "yaw_deg": 0.0, "roll_deg": 0.0,
+            "pitch_deg": 0.0, "scale": 1.0, "axis_up": "Z",
+            "_instanceable": True} for i in range(6)]
+    st = Usd.Stage.CreateInMemory()
+    UsdGeom.SetStageMetersPerUnit(st, 1.0)
+    sg.apply_placements(st, pls, "/World/gen", 1.0)
+
+    instanced = [p for p in st.Traverse() if p.IsInstance()]
+    assert len(instanced) == 6
+    assert len({p.GetPrototype() for p in instanced}) == 2, "nothing was shared"
+
+    # And WITHOUT the flag the same six are unique prims, which is the default
+    # every other category still relies on.
+    plain = [dict(q, _instanceable=False) for q in pls]
+    st2 = Usd.Stage.CreateInMemory()
+    UsdGeom.SetStageMetersPerUnit(st2, 1.0)
+    sg.apply_placements(st2, plain, "/World/gen", 1.0)
+    assert not [p for p in st2.Traverse() if p.IsInstance()]
+
+
+# --------------------------------------------------------------------------
+# which library a run reads — SCENE_ARCHETYPE_ROOT
+# --------------------------------------------------------------------------
+#
+# An iteration bake lives BESIDE the live library rather than replacing it
+# (`assets/archetypes_urban_v2/` next to `assets/archetypes/`), so a scene has
+# to be able to say which one it means. Getting this wrong is silent: the
+# wrong root simply has fewer types in it, Stage B falls back down the ladder,
+# and the scene comes out gently damaged instead of wrecked.
+
+def _plant(root: str, types=("house_a",), levels=("pristine", "pancaked")):
+    """Write a real manifest under *root* and return its path."""
+    recs = [{"type": t, "level": lv, "kind": L.STRUCTURE, "source": t,
+             "usd": lib.archetype_name(t, lv) + ".usd"}
+            for t in types for lv in levels]
+    path = os.path.join(lib.disaster_dir("", DTYPE, root), lib.MANIFEST_NAME)
+    return lib.write_manifest(path, recs)
+
+
+def test_archetype_root_env_selects_the_library(tmp_path, monkeypatch):
+    monkeypatch.setattr(ds, "_ARCH_CACHE", {})
+    root = str(tmp_path / "archetypes_elsewhere")
+    _plant(root, types=("only_here",))
+
+    monkeypatch.setenv("SCENE_ARCHETYPE_ROOT", root)
+    got = ds._archetypes(DTYPE)
+    assert got is not None
+    assert sorted(got.types()) == ["only_here"]
+    # and it really came from there, not from the repo's own library
+    assert str(got.path).startswith(root)
+
+
+def test_archetype_root_unset_keeps_the_default(tmp_path, monkeypatch):
+    """The default must not move — every existing preset depends on it."""
+    monkeypatch.setattr(ds, "_ARCH_CACHE", {})
+    monkeypatch.delenv("SCENE_ARCHETYPE_ROOT", raising=False)
+    # `_archetypes` returns None when nothing is baked, which is the normal
+    # state of a fresh checkout; either way the PATH it consulted is the point.
+    expected = os.path.join(_SCENE_GEN, lib.DEFAULT_ROOT, DTYPE)
+    assert ds._arch_key(DTYPE) == (DTYPE, "")
+    assert lib.disaster_dir(_SCENE_GEN, DTYPE, "") == expected
+
+
+def test_two_roots_do_not_share_a_cache_entry(tmp_path, monkeypatch):
+    """The bug this keys the cache on the root to prevent: a sweep that
+    switches libraries kept being handed whichever one it loaded first."""
+    monkeypatch.setattr(ds, "_ARCH_CACHE", {})
+    a, b = str(tmp_path / "a"), str(tmp_path / "b")
+    _plant(a, types=("from_a",))
+    _plant(b, types=("from_b",))
+
+    monkeypatch.setenv("SCENE_ARCHETYPE_ROOT", a)
+    assert sorted(ds._archetypes(DTYPE).types()) == ["from_a"]
+    monkeypatch.setenv("SCENE_ARCHETYPE_ROOT", b)
+    assert sorted(ds._archetypes(DTYPE).types()) == ["from_b"]

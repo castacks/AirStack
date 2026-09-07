@@ -1,0 +1,551 @@
+# ASSET SET: urban_v2 — EVERY usable urban asset, in one file.
+#
+# The unification of `urban.yaml` (Nucleus buildings and DestroyedBuildings
+# ruins, DebrisPack rubble, AEC brownstones, the Objaverse/AEC/Downtown_West
+# furniture) with `standalone.yaml` (the repo-local set converted from
+# `~/coasei/new_assets` on 2026-08-26) and the three DowntownCity buildings
+# that were named objects in their source. `extends: shared` and nothing else:
+# `urban.yaml` reached its buildings through `urban <- urban_nucleus <-
+# shared`, and this flattens that chain so one file says what an urban scene
+# is built from. `urban.yaml` / `urban_nucleus.yaml` / `standalone.yaml` stay
+# as they are for the presets that name them; new urban work goes here.
+#
+# WHAT IS IN, WHAT IS NOT
+# - IN: every building `urban.yaml` placed (the nine `intact` Nucleus
+#   buildings by typology, the eleven FactoryDistrict sheds, the eight
+#   Brownstone rows), all fifteen DestroyedBuildings ruins, all 42 DebrisPack /
+#   DestroyedBuildings rubble entries, every `standalone` asset, and
+#   `Amar_Tower` / `Building_11` / `Building_12` from `assets/downtowncity/`.
+# - NOT: the twelve DowntownCity `Carved_*` blocks (carved out of a merged
+#   mesh rather than authored as buildings — user direction), MBuilding03
+#   (`urban.yaml` already left it out of every typology pool), and
+#   `RetroNeighborhood/SM_House_01` (suburban).
+#
+# ROLLING ADDITIONS. `~/coasei/new_assets/` is a live drop folder: new sources
+# are converted into `assets/standalone/` and appended to the pools below,
+# newest last, each marked `# --- added <date> (new_assets drop N)`.
+# `assets/standalone/.sources_processed.json` records which sources have been
+# handled, and `assets/standalone/README.md` has the per-asset procedure.
+#
+# RECLASSIFICATIONS (user calls, not defects):
+#   2026-08-26  abandoned_brick_building  destroyed/midrise -> intact/midrise
+#               (weathered but standing, so it is intact art)
+#   2026-08-26  destroyed_building_12     destroyed -> damaged
+#
+#   2026-08-26  BG_Building_C and SM_MERGED_BP_MBuilding05 were briefly
+#               excluded for "rendering black", then re-enabled: their facades
+#               are REFLECTIVE GLASS and only look black without raytracing.
+#               A dark curtain wall is not evidence of a broken material —
+#               check it in a raytraced frame before judging it.
+#   2026-08-26  new_assets/buildings/296.fbx is NOT in this pack. It is a CAD
+#               site-plan export (`组件#NNNN` components): 659 objects over a
+#               100 x 100 m site, nothing taller than 12 m, and the families
+#               resolve to kerb outlines, railings and floor plates rather
+#               than to any building or prop. Nothing in it reads at the scale
+#               a drone sees. Kept in the drop folder, marked `excluded` in
+#               `assets/standalone/.sources_processed.json`.
+#
+# EVERY ASSET IS ON NUCLEUS (2026-08-27), with no local scheme left. This pack
+# used to reach its repo-local art through `airstack://` and its Objaverse
+# props through `objaverse://`, both of which resolve against the checkout;
+# all 117 are now absolute `omniverse://` URLs under
+# `Projects/SEI-COA/scene_gen/assets/`, where the same files were uploaded.
+# Nothing here needs the AirStack working copy, and the Objaverse PRE-FLIGHT IS
+# NO LONGER REQUIRED for this pack: `prepare_assets.py` finds an asset by
+# scanning for `objaverse://<uid>`, so it now reports nothing to do, and the
+# props load from Nucleus like everything else.
+#
+# `target-size-m` and `fit` are kept on those entries and are now INERT. They
+# were only ever read by `prepare_assets.py`, which bakes the normalisation
+# into the cached USD at conversion time — the file on Nucleus is already the
+# right size. They stay as the record of how each prop was normalised, and so
+# that reverting a path to `objaverse://` still pre-flights correctly.
+#
+# THE COST, so it is not discovered as a mystery: the HOST cannot open an
+# `omniverse://` stage — only Kit can — so host-side tools that MEASURE assets
+# (`tools/plan_png.py`, anything building a scene outside Isaac) now fall back
+# to `fallback_sizes` for these too, and a host-built layout will differ from
+# the one Isaac builds. That was already true of every other Nucleus entry
+# here; it is simply true of more of them now. `tools/localize_nucleus_assets.py`
+# and the `assets/nucleus/` mirror exist for that, and the Cycles gallery
+# resolves these URLs back to the local copies itself.
+#
+# CONVENTIONS. Nucleus and AEC art is centimetre-authored (`scale: 0.01`) —
+# every such entry says so, as `urban.yaml` did. The standalone and
+# DowntownCity USDs are metres, Z-up, base at z = 0 with orientation baked in
+# (cars face +X, street-wall blocks' shopfront +X, terrace houses' door -X),
+# so they carry no scale and no yaw. `material:` is the construction (see
+# `urban.buildings.materials.yaml`, `urban.debris.materials.yaml` and the
+# notes in `standalone.yaml` for how each was judged); it feeds both the
+# fracture core (`mesh_damage.STRUCTURE_OF`) and which rubble a building may
+# shed (`disaster/debris.py`).
+#
+# POOL LAYOUT. `intact` and `destroyed` are split into the typology sub-pools;
+# every flat reader sees the union and `districts` rezones from
+# `intact.<typology>`. The DestroyedBuildings ruins are unmeasured on the
+# host (Nucleus only), so their sub-pool is a best guess by name — the fate
+# pass footprint-checks every swap anyway, so a wrong guess costs nothing.
+# `damaged` stays a flat list: it has no typology reader.
+#
+# The terrace pool mixes 21 m-deep brownstones with 4-9 m-deep plaster
+# houses. `districts._lay_terrace` sizes its strips by the DEEPEST entry, so
+# the default row-house block band (tuned on the brownstones) still applies
+# and the shallow houses simply leave a wider alley behind them.
+
+extends: shared
+
+# Category footprints when a measurement fails — from `urban.yaml`.
+fallback_sizes:
+  street_tree:   [8.0, 8.0, 9.5]
+  traffic_light: [1.65, 8.01, 10.83]
+  trash_can:     [0.6, 0.6, 0.95]
+  phone_booth:   [1.0, 1.0, 2.3]
+  traffic_cone:  [0.4, 0.4, 0.7]
+  billboard:     [3.0, 0.3, 4.0]
+  newspaper_box: [0.6, 0.5, 1.2]
+  manhole:       [0.7, 0.7, 0.05]
+  storm_drain:   [0.6, 0.4, 0.05]
+  house:         [30.0, 20.0, 24.0]
+  planter_fence: [1.5, 1.5, 0.73]
+  cafe_set:      [2.43, 2.42, 1.01]
+  mailbox:       [0.65, 0.52, 1.34]
+  bollard:       [0.25, 0.25, 0.9]
+  bike_lane_delineator: [0.11, 0.11, 1.0]
+  parking_meter: [0.2, 0.2, 1.3]
+  bike_rack:     [1.0, 0.1, 0.8]
+  sign:          [0.4, 0.08, 2.4]
+  utility_pole:  [0.35, 0.35, 11.0]
+  dumpster:      [1.8, 1.2, 1.3]
+  debris_pile:   [3.0, 3.0, 1.5]
+  debris:        [1.5, 1.5, 0.8]
+
+usds:
+  buildings:
+    # KEYED BY TYPOLOGY; the CONDITION IS A TAG on each entry
+    # (`tags: [intact|damaged|destroyed]`, and an untagged entry is intact).
+    # This used to be the other way round — `intact:`/`damaged:`/`destroyed:`
+    # each carrying its own tower/midrise/rowhouse tree — which duplicated the
+    # typology three times and left the flat `damaged` pool with no typology at
+    # all. One list per typology says each thing once: `districts` rezones a
+    # block from the INTACT entries of one typology, the disaster stage's fate
+    # swap draws from the damaged/destroyed ones, and the Stage A baker takes
+    # every intact entry and skips the rest — all through
+    # `scene_generator.building_entries`, which still reads the old layout too.
+    #
+    # A ruin's typology is from its MEASURED height (>= 45 m is a tower), not
+    # from a guess: the old flat `damaged` pool could not state one.
+
+    # TOWERS — 45 m and up. Intact art first, then the authored ruins.
+    tower:
+      # --- intact
+      # --- Nucleus (cm), materials per urban.buildings.materials.yaml
+      - {usd: "DownTown/Assets/BG_Building_A.usd", scale: 0.01, material: concrete, tags: [intact]}   # 51.3 x 51.3 x  44.7 m, 3.5k
+      # READS BLACK IN A NON-RAYTRACED VIEW, AND THAT IS CORRECT (user,
+      # 2026-08-27): the facade is REFLECTIVE GLASS, so with reflections off it
+      # has almost nothing to show and comes out a flat black slab, while under
+      # raytracing it reads as a dark glass tower. An earlier note here called
+      # that a defect and briefly excluded the asset — it is not. Judge this
+      # one (and any dark curtain wall) from a raytraced frame only.
+      - {usd: "DownTown/Assets/BG_Building_C.usd", scale: 0.01, material: glass, tags: [intact]}      # 50.1 x 40.1 x  66.0 m,  756
+      - {usd: "DownTown/Assets/BG_Building_E.usd", scale: 0.01, material: concrete, tags: [intact]}   # 60.5 x 36.5 x 131.0 m, 3.5k
+      - {usd: "DownTown/Assets/BG_Building_B.usd", scale: 0.01, material: concrete, tags: [intact]}   # 60.3 x 40.2 x  84.1 m, 1.8k — dark-grey banded slab, checked in RTX
+      - {usd: "DownTown/Assets/BG_Building_F.usd", scale: 0.01, material: glass, tags: [intact]}      # 80.9 x 50.4 x  72.3 m, 4.6k
+      # Same as BG_Building_C above: `MI_MBuilding05_SkyscraperWindows` is
+      # reflective glass, so it looks black wherever reflections are off and
+      # correct under raytracing. Not a defect.
+      - {usd: "ModernCityEnvironment/Collected_Building05/SM_MERGED_BP_MBuilding05.usd", scale: 0.01, material: glass, tags: [intact]}   # 27.7 x 20.6 x 62.4 m, 311k
+      - {usd: "ModernCityEnvironment/Collected_Building02/SM_MERGED_BP_MBuilding02.usd", scale: 0.01, material: concrete, tags: [intact]}  # 91.1 x 96.1 x 68.7 m, 471k
+      # --- repo-local (metres)
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/tower/office_tower/office_tower.usdc", material: concrete, tags: [intact]}   # 74.9 x 36.8 x 93.3 m, 65k, untextured colours
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Amar_Tower.usdc", material: glass, tags: [intact]}   # 42.3 x 48.8 x 231.4 m, 502k
+      # --- added 2026-08-26 (new_assets drop 2)
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/tower/stepped_tower/stepped_tower.usdc", material: concrete, tags: [intact]}   # 65 x 78 x 81 m — stepped low-poly office cluster (inches, x0.0254), 24 storeys
+      # --- added 2026-08-26 (new_assets drop 2): the BlackthornProd low-poly
+      # city set, split on its object names. EXTREMELY cheap — 60-632 tris
+      # each against 3-500k for the rest of the pool — so these are the
+      # assets to lean on when a map needs many towers. Materials judged
+      # from the gallery heroes.
+      # - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/tower/city_tower_01/city_tower_01.usdc", material: concrete, tags: [intact]}   # 39.9 x 41.2 x 125.0 m
+      # - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/tower/city_tower_02/city_tower_02.usdc", material: concrete, tags: [intact]}   # 60.7 x 60.1 x 234.5 m
+      # - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/tower/city_tower_03/city_tower_03.usdc", material: concrete, tags: [intact]}   # 60.7 x 63.6 x 234.5 m
+      # - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/tower/city_tower_04/city_tower_04.usdc", material: concrete, tags: [intact]}   # 60.7 x 75.4 x 270.6 m
+      # - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/tower/city_tower_05/city_tower_05.usdc", material: brick, tags: [intact]}      # 148.9 x 60.1 x 140.1 m — salmon brick slab, not concrete (gallery hero)
+      # - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/tower/city_tower_06/city_tower_06.usdc", material: concrete, tags: [intact]}   # 148.9 x 60.1 x 185.1 m
+      # - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/tower/city_tower_07/city_tower_07.usdc", material: concrete, tags: [intact]}   # 81.3 x 165.1 x 234.5 m
+      # --- added 2026-08-26 (new_assets drop 3)
+      # EXCLUDED 2026-08-26 after trying to fix it. NOT a conversion fault: every
+      # material in the converted USD matches the source byte for byte, and the
+      # per-face bindings survive as GeomSubsets. The SOURCE is the problem — it
+      # ships three texture files, all `Plaster_*`, and 53% of its surface is a
+      # flat `_White` material (authored at metallic 1.0, roughness 1.0) with
+      # another 18% on a material NAMED `Ceramic_Black_Tiles_001` but authored
+      # pure white. Repairing both (white -> 0.86 non-metallic, tiles -> near
+      # black) is done in the asset on disk and still leaves a white clay model:
+      # the balcony slabs dominate the silhouette and the dark glazing reads as
+      # thin lines. Against a pack of photo-textured buildings it is a white
+      # blob. Re-enable if a white modernist block is wanted.
+      # - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/tower/glass_curved_tower/glass_curved_tower.usdc", material: concrete, tags: [intact]}  # 55.6 x 54.8 x 44.1 m — curved CONCRETE balcony slabs with glazing between (the name says glass, the structure is not); source was 2.8M tris, decimated to 200k
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/tower/slab_tower/slab_tower.usdc", material: concrete, tags: [intact]}                  # 48.7 x 64.6 x 83.3 m — 20-storey white slab over a canopied podium, 310 TRIS; the cheapest tall building in the pack
+      # --- added 2026-08-26 (new_assets drop 4)
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/tower/podium_highrise/podium_highrise.usdc", material: concrete, tags: [intact]}  # 26.7 x 44.0 x 82.5 m, 122k — slender white tower on a wide dark podium, glazed balcony stack and a signed entrance on +X
+      # --- added 2026-08-26 from `selected_citydemo/` on Nucleus: buildings
+      #     picked out of the AEC CityDemo pack and re-split one-per-building
+      #     (that folder's own README has the selection rules). Materials below
+      #     are judged from its `previews/<typology>.png` contact sheets.
+      #
+      #     THEY CARRY NO `scale:` AND THAT IS CORRECT. Every other Nucleus
+      #     entry in this pack is centimetre-authored and needs `scale: 0.01`;
+      #     these are metres, Z-up, XY-centred with the base at z = 0, verified
+      #     asset by asset after mirroring. They are also nearly free — 36-147
+      #     triangles each, textured boxes in the CityEngine manner — so they
+      #     are the assets to lean on when a map needs many buildings.
+      - {usd: "selected_citydemo/tower/tower_01_0006.usd", material: brick, tags: [intact]}             # 36.2 x 49.4 x 106.3 m — brown brick residential tower over a shopfront podium
+      - {usd: "selected_citydemo/tower/tower_02_0011.usd", material: glass, tags: [intact]}             # 54.3 x 24.7 x  81.6 m — slender blue-green curtain wall
+      - {usd: "selected_citydemo/tower/tower_03_0015.usd", material: concrete, tags: [intact]}          # 32.9 x 50.4 x  83.3 m — grey precast tower, deep setbacks
+      - {usd: "selected_citydemo/tower/tower_04_0123.usd", material: stone, tags: [intact]}             # 46.7 x 41.5 x  87.9 m — tan stone office, heavy classical base
+      - {usd: "selected_citydemo/tower/tower_05_0250.usd", material: concrete, tags: [intact]}          # 45.2 x 46.8 x 113.2 m — white masonry tower, the tallest of the set
+      - {usd: "selected_citydemo/tower/tower_06_0273.usd", material: stone, tags: [intact]}             # 51.6 x 29.5 x  75.6 m — the stepped wedding-cake, cream stone with balconies
+      - {usd: "selected_citydemo/tower/tower_07_0276.usd", material: glass, tags: [intact]}             # 42.7 x 38.5 x  95.3 m — blue curtain wall on a podium
+      - {usd: "selected_citydemo/tower/tower_08_0293.usd", material: concrete, tags: [intact]}          # 45.1 x 41.3 x  71.1 m — white/grey office block over a stone base
+      - {usd: "selected_citydemo/tower/tower_09_0295.usd", material: brick, tags: [intact]}             # 57.0 x 51.5 x 106.9 m — red brick residential tower, stepped massing
+      - {usd: "selected_citydemo/tower/tower_10_0453.usd", material: glass, tags: [intact]}             # 47.4 x 39.0 x  95.4 m — dark blue-grey glass, angled crown
+      - {usd: "selected_citydemo/tower/tower_11_0515.usd", material: concrete, tags: [intact]}          # 47.5 x 70.3 x  75.9 m — wide white block over a long podium
+      - {usd: "selected_citydemo/tower/tower_12_0534.usd", material: glass, tags: [intact]}             # 41.8 x 49.3 x  88.9 m — blue-grey glass and panel tower
+      - {usd: "selected_citydemo/tower/tower_14_0672.usd", material: brick, tags: [intact]}             # 51.5 x 36.9 x  72.3 m — tan masonry tower with a deep cornice
+      - {usd: "selected_citydemo/tower/tower_15_0676.usd", material: concrete, tags: [intact]}          # 55.6 x 38.8 x 110.0 m — white modern tower, glazed shaft
+      - {usd: "selected_citydemo/tower/tower_16_0677.usd", material: concrete, tags: [intact]}          # 45.5 x 47.1 x  96.2 m — pale blue-grey panel tower
+      - {usd: "selected_citydemo/tower/tower_17_0682.usd", material: concrete, tags: [intact]}          # 55.7 x 40.7 x  71.0 m — grey-blue office with balcony bands
+      - {usd: "selected_citydemo/tower/tower_19_0728.usd", material: glass, tags: [intact]}             # 53.7 x 39.2 x  95.3 m — blue glass tower on a white podium
+      - {usd: "selected_citydemo/tower/tower_20_0893.usd", material: stone, tags: [intact]}             # 33.9 x 51.2 x  72.6 m — the clock tower, cream stone
+      # --- damaged: authored ruins that STILL STAND. The fate swap picks
+      #     from here for a building that was hit but not levelled.
+      # Authored "damaged but standing" ruins, Nucleus (cm). Flat: no typology reader.
+      - {usd: "DestroyedBuildings/Assets/destroyed_building_4.usd",             scale: 0.01, material: glass, tags: [damaged]}
+      - {usd: "DestroyedBuildings/Assets/destroyed_building_4_variation_1.usd", scale: 0.01, material: glass, tags: [damaged]}
+      - {usd: "DestroyedBuildings/Assets/destroyed_building_9.usd",             scale: 0.01, material: glass, tags: [damaged]}
+      # --- destroyed: authored collapses. Finished art — the fate swap
+      #     drops `_mesh_damage`, so no cutter touches them.
+      # Six ruined high-rises, 48-70 m (standalone; painted-concrete or bare steel frames)
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/destroyed/tower/ruin_tower_01/ruin_tower_01.usdc", material: steel, tags: [destroyed]}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/destroyed/tower/ruin_tower_02/ruin_tower_02.usdc", material: steel, tags: [destroyed]}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/destroyed/tower/ruin_tower_03/ruin_tower_03.usdc", material: steel, tags: [destroyed]}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/destroyed/tower/ruin_tower_04/ruin_tower_04.usdc", material: steel, tags: [destroyed]}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/destroyed/tower/ruin_tower_05/ruin_tower_05.usdc", material: steel, tags: [destroyed]}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/destroyed/tower/ruin_tower_06/ruin_tower_06.usdc", material: steel, tags: [destroyed]}
+      - {usd: "DestroyedBuildings/Assets/destroyed_building_9_variation_1.usd",  scale: 0.01, material: glass, tags: [destroyed]}
+
+    # MID-RISE — street-wall blocks, sheds and 20-40 m ruins.
+    midrise:
+      # --- intact
+      # --- Nucleus (cm unless noted)
+      - {usd: "ModernCityEnvironment/Collected_Building01/SM_MERGED_BP_MBuilding01.usd", scale: 1.0, material: concrete, tags: [intact]}   # 28.5 x 18.5 x 29.0 m, 140k — metre-authored
+      - {usd: "DownTown/Assets/BG_Building_D.usd", scale: 0.01, material: concrete, tags: [intact]}                                        # 64.9 x 34.9 x 33.0 m, 2.8k
+      # FactoryDistrict sheds — metre-authored, 11-17 m, block or steel-frame
+      - {usd: "FactoryDistrict/Meshes/Building_TypeD_A.usd", material: concrete, tags: [intact]}   # 42.0 x 31.5 x 11.7 m
+      - {usd: "FactoryDistrict/Meshes/Building_TypeD_B.usd", material: concrete, tags: [intact]}   # 52.0 x 32.0 x 16.7 m
+      - {usd: "FactoryDistrict/Meshes/Building_TypeA_B.usd", material: steel, tags: [intact]}      # 24.4 x 47.0 x 11.8 m
+      - {usd: "FactoryDistrict/Meshes/Building_TypeA_A.usd", material: steel, tags: [intact]}      # 25.0 x 39.7 x 11.9 m
+      - {usd: "FactoryDistrict/Meshes/Building_TypeB_B.usd", material: concrete, tags: [intact]}   # 45.1 x 30.1 x 12.0 m
+      - {usd: "FactoryDistrict/Meshes/Building_TypeD_C.usd", material: concrete, tags: [intact]}   # 72.0 x 32.0 x 16.7 m
+      - {usd: "FactoryDistrict/Meshes/Building_TypeB_C.usd", material: concrete, tags: [intact]}   # 67.1 x 45.1 x 12.0 m
+      - {usd: "FactoryDistrict/Meshes/Building_TypeA_C.usd", material: steel, tags: [intact]}      # 50.2 x 41.6 x 12.4 m
+      - {usd: "FactoryDistrict/Meshes/Building_TypeC_A.usd", material: steel, tags: [intact]}      # 25.1 x 25.1 x 11.1 m
+      - {usd: "FactoryDistrict/Meshes/Building_TypeC_C.usd", material: steel, tags: [intact]}      # 33.1 x 49.1 x 16.0 m
+      - {usd: "FactoryDistrict/Meshes/Building_TypeC_D.usd", material: steel, tags: [intact]}      # 41.1 x 41.1 x 16.0 m
+      # --- repo-local (metres): nine street-wall shopfront blocks, shopfront on +X
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/block_01/block_01.usdc", material: concrete, tags: [intact]}  # 19.5 x 34.1 x 23.6 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/block_02/block_02.usdc", material: brick, tags: [intact]}     # 22.9 x 40.8 x 26.3 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/block_03/block_03.usdc", material: brick, tags: [intact]}     # 17.1 x 23.2 x 18.8 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/block_04/block_04.usdc", material: brick, tags: [intact]}     # 18.2 x 25.5 x 18.6 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/block_05/block_05.usdc", material: brick, tags: [intact]}     # 19.1 x 29.8 x 18.8 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/block_06/block_06.usdc", material: concrete, tags: [intact]}  # 18.7 x 33.5 x 14.5 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/block_07/block_07.usdc", material: brick, tags: [intact]}     # 16.2 x 24.9 x 14.8 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/block_08/block_08.usdc", material: concrete, tags: [intact]}  # 14.0 x 15.5 x 13.0 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/block_09/block_09.usdc", material: brick, tags: [intact]}     # 13.9 x 16.9 x 11.9 m
+      # DowntownCity — the two named-object buildings
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Building_12.usdc", material: concrete, tags: [intact]}  # 44.3 x 18.7 x 38.9 m,  87k
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Building_11.usdc", material: concrete, tags: [intact]}  # 30.9 x 35.4 x 32.6 m, 222k
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/destroyed/midrise/abandoned_brick_building/abandoned_brick_building.usdc", material: brick, tags: [intact]}   # 15.4 x 18.6 x 21.3 m — 7-storey brick factory block; weathered but STANDING, so it is intact art (user, 2026-08-26)
+      # --- added 2026-08-26 (new_assets drop 2)
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/japanese_building/japanese_building.usdc", material: concrete, tags: [intact]}   # 13.8 x 30.9 x 28.3 m — 8-storey concrete block, external stairs, shopfront on +X
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/mini_auto_service/mini_auto_service.usdc", material: concrete, tags: [intact]}   # 15.0 x 26.3 x  8.5 m — single-storey auto-service showroom, sign on +X
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/federal_bureau/federal_bureau.usdc", material: stone, tags: [intact]}            # 28.0 x 58.2 x 21.1 m — 7-storey stone U-plan office (x0.1), flat facade on +X
+      # --- added 2026-08-26 from `selected_citydemo/` (see the tower pool for
+      #     the provenance and why these carry no `scale:`)
+      - {usd: "selected_citydemo/midrise/midrise_02_0059a.usd", material: concrete, tags: [intact]}     # 19.5 x 13.8 x 16.3 m — European corner block: dark-framed shopfronts under cream render
+      - {usd: "selected_citydemo/midrise/midrise_14_0204a.usd", material: stone, tags: [intact]}        # 23.3 x 26.7 x 14.2 m — pale stone block with a round-arched ground arcade
+      # --- damaged: authored ruins that STILL STAND. The fate swap picks
+      #     from here for a building that was hit but not levelled.
+      - {usd: "DestroyedBuildings/Assets/destroyed_building_5.usd",             scale: 0.01, material: concrete, tags: [damaged]}
+      - {usd: "DestroyedBuildings/Assets/destroyed_building_10.usd",            scale: 0.01, material: concrete, tags: [damaged]}
+      - {usd: "DestroyedBuildings/Assets/destroyed_building_12.usd",             scale: 0.01, material: concrete, tags: [damaged]}
+      # --- destroyed: authored collapses. Finished art — the fate swap
+      #     drops `_mesh_damage`, so no cutter touches them.
+      # Nucleus DestroyedBuildings (cm) — unmeasured here, sub-pool by guess, footprint-checked at swap
+      - {usd: "DestroyedBuildings/Assets/destroyed_building_1.usd",              scale: 0.01, material: concrete, tags: [destroyed]}
+      - {usd: "DestroyedBuildings/Assets/destroyed_building_2.usd",              scale: 0.01, material: concrete, tags: [destroyed]}
+      - {usd: "DestroyedBuildings/Assets/destroyed_building_5_variation_1.usd",  scale: 0.01, material: concrete, tags: [destroyed]}
+      - {usd: "DestroyedBuildings/Assets/destroyed_building_6.usd",              scale: 0.01, material: concrete, tags: [destroyed]}
+      - {usd: "DestroyedBuildings/Assets/destroyed_building_7.usd",              scale: 0.01, material: concrete, tags: [destroyed]}
+      - {usd: "DestroyedBuildings/Assets/destroyed_building_8.usd",              scale: 0.01, material: concrete, tags: [destroyed]}
+      - {usd: "DestroyedBuildings/Assets/destroyed_building_10_variation_1.usd", scale: 0.01, material: concrete, tags: [destroyed]}
+      - {usd: "DestroyedBuildings/Assets/destroyed_building_11_variation_1.usd", scale: 0.01, material: concrete, tags: [destroyed]}
+
+    # ROW HOUSES — laid in party-wall runs by `districts._lay_terrace`,
+    # so their fronts face -X. No wrecked terrace exists in any library yet.
+    rowhouse:
+      # --- intact
+      # --- AEC brownstones (cm), 21.1 m deep, front on -X (eyeballed in urban.yaml's day)
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone02.usd",    scale: 0.01, material: brick, tags: [intact]}  # 21.1 x  6.8 x 14.2 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone2Row.usd",  scale: 0.01, material: brick, tags: [intact]}  # 21.1 x 13.4 x 14.6 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone5Row.usd",  scale: 0.01, material: brick, tags: [intact]}  # 21.1 x 33.4 x 14.8 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone6Row.usd",  scale: 0.01, material: brick, tags: [intact]}  # 21.1 x 40.0 x 14.9 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone8Row.usd",  scale: 0.01, material: brick, tags: [intact]}  # 21.1 x 53.3 x 14.9 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone10Row.usd", scale: 0.01, material: brick, tags: [intact]}  # 21.1 x 66.6 x 15.2 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone11Row.usd", scale: 0.01, material: brick, tags: [intact]}  # 21.1 x 73.4 x 15.2 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone12Row.usd", scale: 0.01, material: brick, tags: [intact]}  # 21.1 x 80.1 x 15.3 m
+      # --- repo-local (metres): three-storey rendered houses, door on -X, 4-9 m deep
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/rowhouse/house_01/house_01.usdc", material: concrete, tags: [intact]}  # 7.9 x 8.6 x 10.8 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/rowhouse/house_02/house_02.usdc", material: concrete, tags: [intact]}  # 6.6 x 5.9 x 11.0 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/rowhouse/house_03/house_03.usdc", material: concrete, tags: [intact]}  # 3.9 x 6.5 x 10.1 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/rowhouse/house_04/house_04.usdc", material: concrete, tags: [intact]}  # 7.5 x 9.3 x 10.6 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/rowhouse/house_05/house_05.usdc", material: concrete, tags: [intact]}  # 5.0 x 10.2 x 11.0 m
+      # --- added 2026-08-26 (new_assets drop 2)
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/rowhouse/old_brick_shop/old_brick_shop.usdc", material: brick, tags: [intact]}          #  5.9 x  7.1 x  9.5 m — three-storey brick corner shop with a boarded shopfront, door on -X (x0.0156: at a plain cm scale it came out 6.1 m, i.e. 2 m a storey)
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/rowhouse/graffiti_brick_house/graffiti_brick_house.usdc", material: brick, tags: [intact]}     #  8.4 x  7.2 x 12.3 m — 3-storey brick end-of-terrace, graffiti and boarded shopfront, door on -X (cm source, yawed 180)
+      # (no destroyed row houses in any library yet)
+
+  debris:
+    pieces:
+      # --- Nucleus (cm), materials per urban.debris.materials.yaml
+      - {usd: "DestroyedBuildings/Assets/debris_2.usd",  scale: 0.01, material: concrete}
+      - {usd: "DestroyedBuildings/Assets/debris_3.usd",  scale: 0.01, material: concrete}
+      - {usd: "DestroyedBuildings/Assets/debris_4.usd",  scale: 0.01, material: concrete}
+      - {usd: "DestroyedBuildings/Assets/debris_5.usd",  scale: 0.01, material: concrete}
+      - {usd: "DestroyedBuildings/Assets/debris_6.usd",  scale: 0.01, material: concrete}
+      - {usd: "DestroyedBuildings/Assets/debris_7.usd",  scale: 0.01, material: concrete}
+      - {usd: "DestroyedBuildings/Assets/debris_8.usd",  scale: 0.01, material: concrete}
+      - {usd: "DestroyedBuildings/Assets/debris_9.usd",  scale: 0.01, material: concrete}
+      - {usd: "DestroyedBuildings/Assets/debris_10.usd", scale: 0.01, material: concrete}
+      - {usd: "DestroyedBuildings/Assets/debris_11.usd", scale: 0.01, material: concrete}
+      - {usd: "DebrisPack/Assets/Debris_01.usd", scale: 0.01, material: concrete}
+      - {usd: "DebrisPack/Assets/Debris_02.usd", scale: 0.01, material: concrete}
+      - {usd: "DebrisPack/Assets/Debris_03.usd", scale: 0.01, material: concrete}
+      - {usd: "DebrisPack/Assets/Debris_04.usd", scale: 0.01, material: concrete}
+      - {usd: "DebrisPack/Assets/Debris_05.usd", scale: 0.01, material: concrete}
+      - {usd: "DebrisPack/Assets/Debris_06.usd", scale: 0.01, material: concrete}
+      - {usd: "DebrisPack/Assets/Debris_07.usd", scale: 0.01, material: concrete}
+      - {usd: "DebrisPack/Assets/Debris_08.usd", scale: 0.01, material: concrete}
+      - {usd: "DebrisPack/Assets/Debris_09.usd", scale: 0.01, material: concrete}
+      - {usd: "DebrisPack/Assets/Debris_10.usd", scale: 0.01, material: concrete}
+      - {usd: "DebrisPack/Assets/Debris_11.usd", scale: 0.01, material: concrete}
+      - {usd: "DebrisPack/Assets/Debris_12.usd", scale: 0.01, material: concrete}
+      - {usd: "DebrisPack/Assets/Blok_1_LODs.usd", scale: 0.01, material: concrete}
+      - {usd: "DebrisPack/Assets/Blok_2_LODs.usd", scale: 0.01, material: concrete}
+      - {usd: "DebrisPack/Assets/Blok_3_LODs.usd", scale: 0.01, material: concrete}
+      - {usd: "DebrisPack/Assets/Blok_4_LODs.usd", scale: 0.01, material: concrete}
+      - {usd: "DebrisPack/Assets/Brick_red_01.usd", scale: 0.01, material: brick}
+      - {usd: "DebrisPack/Assets/Brick_red_02.usd", scale: 0.01, material: brick}
+      - {usd: "DebrisPack/Assets/Brick_red_03.usd", scale: 0.01, material: brick}
+      - {usd: "DebrisPack/Assets/Brick_red_04.usd", scale: 0.01, material: brick}
+      - {usd: "DebrisPack/Assets/Brick_red_05.usd", scale: 0.01, material: brick}
+      - {usd: "DebrisPack/Assets/Brick_red_06.usd", scale: 0.01, material: brick}
+      - {usd: "DebrisPack/Assets/Brick_red_07.usd", scale: 0.01, material: brick}
+      - {usd: "DebrisPack/Assets/Brick_white_01.usd", scale: 0.01, material: brick}
+      - {usd: "DebrisPack/Assets/Brick_white_02.usd", scale: 0.01, material: brick}
+      - {usd: "DebrisPack/Assets/Brick_white_04.usd", scale: 0.01, material: brick}
+      - {usd: "DebrisPack/Assets/Brick_white_05.usd", scale: 0.01, material: brick}
+      - {usd: "DebrisPack/Assets/Brick_white_06.usd", scale: 0.01, material: brick}
+      # --- repo-local (metres, flat colours): slabs / chunks / lumps concrete, sheets / rebar steel
+      # slabs — floor-plate and wall fragments, 2-4.5 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/slab_01/slab_01.usdc", material: concrete}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/slab_02/slab_02.usdc", material: concrete}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/slab_03/slab_03.usdc", material: concrete}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/slab_04/slab_04.usdc", material: concrete}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/slab_05/slab_05.usdc", material: concrete}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/slab_06/slab_06.usdc", material: concrete}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/slab_07/slab_07.usdc", material: concrete}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/slab_08/slab_08.usdc", material: concrete}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/slab_09/slab_09.usdc", material: concrete}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/slab_10/slab_10.usdc", material: concrete}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/slab_11/slab_11.usdc", material: concrete}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/slab_12/slab_12.usdc", material: concrete}
+      # chunks — ~1 m angular lumps
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/chunk_01/chunk_01.usdc", material: concrete}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/chunk_02/chunk_02.usdc", material: concrete}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/chunk_03/chunk_03.usdc", material: concrete}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/chunk_04/chunk_04.usdc", material: concrete}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/chunk_05/chunk_05.usdc", material: concrete}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/chunk_06/chunk_06.usdc", material: concrete}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/chunk_07/chunk_07.usdc", material: concrete}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/chunk_08/chunk_08.usdc", material: concrete}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/chunk_09/chunk_09.usdc", material: concrete}
+      # lumps — 0.2-0.4 m rubble, the brick-sized end of the range
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/lump_01/lump_01.usdc", material: concrete}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/lump_02/lump_02.usdc", material: concrete}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/lump_03/lump_03.usdc", material: concrete}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/lump_04/lump_04.usdc", material: concrete}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/lump_05/lump_05.usdc", material: concrete}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/lump_06/lump_06.usdc", material: concrete}
+      # the steel the old sets never had: bent corrugated sheet and rebar
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/sheet_01/sheet_01.usdc", material: steel}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/sheet_02/sheet_02.usdc", material: steel}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/sheet_03/sheet_03.usdc", material: steel}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/rebar_01/rebar_01.usdc", material: steel}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/rebar_02/rebar_02.usdc", material: steel}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/rebar_03/rebar_03.usdc", material: steel}
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/pieces/rebar_04/rebar_04.usdc", material: steel}
+    piles:
+      # --- Nucleus (cm)
+      - {usd: "DestroyedBuildings/Assets/debris_1.usd",  scale: 0.01, material: concrete}
+      - {usd: "DestroyedBuildings/Assets/debris_12.usd", scale: 0.01, material: concrete}
+      - {usd: "DestroyedBuildings/Assets/debris_14.usd", scale: 0.01, material: concrete}
+      - {usd: "DestroyedBuildings/Assets/debris_15.usd", scale: 0.01, material: concrete}
+      # --- repo-local (metres)
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/piles/concrete_rubble_pile/concrete_rubble_pile.usdc", material: concrete}  # Quixel, 2.7 x 2.2 x 0.2 m — a low spread, not a heap
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/debris/piles/rocky_ground/rocky_ground.usdc", material: earth}                    # Quixel Nordic beach rocks, 3.7 x 3.6 x 0.5 m
+
+  # Appended to the shared cars, all facing +X, all metres.
+  cars+:
+    - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/lowpoly_coupe/lowpoly_coupe.usdc"      # 4.6 m
+    - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/lowpoly_pickup/lowpoly_pickup.usdc"    # 4.6 m
+    - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/lowpoly_sedan/lowpoly_sedan.usdc"      # 4.6 m
+    - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/lowpoly_wagon/lowpoly_wagon.usdc"      # 4.6 m
+    - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/generic_sedan/generic_sedan.usdc"      # 5.0 m, as authored
+    - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/red_car/red_car.usdc"                  # 4.4 m
+    - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/delivery_van/delivery_van.usdc"        # 4.8 m, inch-authored source
+    # Sketchfab rig whose four wheels all sat at the rig origin; they were
+    # put on the axles by hand at conversion (`police_fix.py`, session notes).
+    - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/police_car/police_car.usdc"            # 5.4 m
+    - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/citybus/citybus.usdc"                  # 9.5 m transit bus, front on +X
+    # Burned-out wrecks: pristine scenes park them too, which reads as an
+    # abandoned car rather than a disaster — `cars_toppled_fraction` etc. do
+    # not know the difference. Flagged rather than excluded.
+    - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/burned_car_01/burned_car_01.usdc"      # 4.8 m
+    - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/burned_car_02/burned_car_02.usdc"      # 4.8 m
+
+  # ---- street furniture: the `urban.yaml` category table, copied so this set
+  # ---- stands alone. The measurements and choices are argued there.
+  tiles:
+    trail:
+      usd: "Downtown_West/Assets/ground_walkways/SM_ground_mod_walk_tile_a_4m.usd"
+      scale: 1.0
+    sidewalk:
+      usd: "ModernCityEnvironment01/Meshes/SM_GroundModule01.usd"
+      scale: 0.70
+  park_features:
+    - name: fountain
+      radius_m: 6.0
+      parts:
+        - "Downtown_West/Assets/props/prop_fountain/SM_prop_fountain_full.usd"
+        - "Downtown_West/VFX/Meshes/SM_fountain_water_bottom.usd"
+        - "Downtown_West/VFX/Meshes/SM_fountain_water_middle.usd"
+        - "Downtown_West/VFX/Meshes/SM_fountain_water_top.usd"
+  play_groups:
+    - name: swings_and_slide
+      radius_m: 9.0
+      parts:
+        - {usd: "CivilianArea/Assets/SM_PlaygroundSwings_02.usd", scale: 0.01, offset_m: [0.0, 0.0], yaw_deg: 0.0}
+        - {usd: "CivilianArea/Assets/SM_PlaygroundSlide_01.usd",  scale: 0.01, offset_m: [7.727, 2.071], yaw_deg: -95.0}
+  park_fences:
+    - usd: "Downtown_West/Assets/props/prop_park_railing/SM_prop_park_railing_rail_a.usd"
+      scale: 1.0
+      yaw-offset: 90.0
+  streetlights:
+    - usd: "Downtown_West/Assets/props/props_light_post/SM_lightpost_light_post_b.usd"
+      yaw-offset: 270.0
+  benches:
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/aec/brownstone/Props/ParkBench01/ParkBench01.usd", scale: 0.01, tags: ["sidewalk"]}
+    - {usd: "Downtown_West/Assets/props/prop_bench_wood/SM_bench_wood_a.usd", tags: ["park"]}
+  trash_cans:
+    - "ModernCityEnvironment01/Meshes/SM_MLitterBin.usd"
+  fire_hydrants+:
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/aec/brownstone/Props/Hydrant/Hydrant.usd", scale: 0.01}
+  bus_stops:
+    - {usd: "DownTown/Assets/BusStop.usd", scale: 0.01, yaw-offset: 180.0}
+  traffic_lights_mast:
+    - usd: "Downtown_West/Assets/props/props_streetlight/SM_light_streetlight_complete.usd"
+  traffic_lights_pole:
+    - usd: "ModernCityEnvironment01/Meshes/SM_Traffic_Lamp_001.usd"
+  traffic_lights:
+    - usd: "ModernCityEnvironment01/Meshes/SM_Traffic_Lamp_001.usd"
+  trees:
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/aec/tower/Assets/Vegetation/Shumard_Oak/Shumard_Oak.usd", scale: 0.01}
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/aec/tower/Assets/Vegetation/Black_Oak/Black_Oak.usd", scale: 0.01}
+    - {usd: "CityPark/Props/SM_Stump.prop.usd",    scale: 0.01, tags: ["stump"]}
+    - {usd: "CityPark/Props/SM_Stump_02.prop.usd", scale: 0.01, tags: ["stump"]}
+    - {usd: "CityPark/Props/SM_Stump_03.prop.usd", scale: 0.01, tags: ["stump"]}
+  rocks:
+    - {usd: "CityPark/Props/SM_Stone_04.prop.usd", scale: 0.0053}
+    - {usd: "CityPark/Props/SM_Stone_05.prop.usd", scale: 0.0083}
+    - {usd: "CityPark/Props/SM_Stone_08.prop.usd", scale: 0.0480}
+    - {usd: "CityPark/Props/SM_Stone_09.prop.usd", scale: 0.0394}
+    - "Downtown_West/Assets/props/prop_rocks/SM_rock_large_a_low.usd"
+    - "Downtown_West/Assets/props/prop_rocks/SM_rock_medium_a_low.usd"
+    - "Downtown_West/Assets/props/prop_rocks/SM_rock_medium_b_low.usd"
+  plants:
+    - "ModernCityEnvironment01/Meshes/SM_Grass.usd"
+    - "ModernCityEnvironment01/Meshes/SM_Grass_Flowers.usd"
+    - "ModernCityEnvironment01/Meshes/SM_Grass_Flowers1.usd"
+    - "ModernCityEnvironment01/Meshes/SM_Bush_1.usd"
+    - "ModernCityEnvironment01/Meshes/SM_Bush_2.usd"
+    - {usd: "DownTown/Assets/Plant_Red.usd",    scale: 0.01}
+    - {usd: "DownTown/Assets/Plant_Purple.usd", scale: 0.01}
+    - {usd: "DownTown/Assets/Plant_Pink.usd",   scale: 0.01}
+  street_trees:
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/aec/tower/Assets/Vegetation/Shumard_Oak/Shumard_Oak.usd", scale: 0.01}
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/Douglas_Fir.usd", scale: 0.01}
+  planter_fences: []
+  mailboxes:
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/aec/brownstone/Props/Mailbox/MailboxType01.usd", scale: 0.01}
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/aec/brownstone/Props/Mailbox/MailboxType02.usd", scale: 0.01}
+  cafe_sets:
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/aec/brownstone/Props/Kalmar_TblChr/Kalmar_TblChr.usd", scale: 0.01}
+  bollards:
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/aec/tower/Assets/Bollard_01/Bollard_01.usd", scale: 0.01}
+  bike_lane_delineators:
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/objaverse/532b02858c67410f9a1973544f25dcc4/532b02858c67410f9a1973544f25dcc4.usdc", target-size-m: 1.00, fit: height}
+  parking_meters:
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/objaverse/cfaf0f457ca244e59c746ebdd6f3ad6c/cfaf0f457ca244e59c746ebdd6f3ad6c.usdc", target-size-m: 1.30, fit: height}
+  bike_racks:
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/objaverse/8c8fd4fa06eb4b1c8db5bd3584892f3c/8c8fd4fa06eb4b1c8db5bd3584892f3c.usdc", target-size-m: 0.75, fit: height}
+  dumpsters:
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/objaverse/093e5b05faa947729b1be24c013e563b/093e5b05faa947729b1be24c013e563b.usdc", target-size-m: 1.80}
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/objaverse/f80a2a0af6924562be10be7354b7a72f/f80a2a0af6924562be10be7354b7a72f.usdc", target-size-m: 1.80}
+  signs_stop:
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/objaverse/a3963ab8133b45cab4e60da94d255ac3/a3963ab8133b45cab4e60da94d255ac3.usdc", target-size-m: 2.40, fit: height}
+  signs_street_name:
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/objaverse/555fbab686004738b974373f6ad71d82/555fbab686004738b974373f6ad71d82.usdc", target-size-m: 2.40, fit: height, yaw-offset: 180.0}
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/objaverse/599a74c1c8fd4f19bf6754b8128da6b8/599a74c1c8fd4f19bf6754b8128da6b8.usdc", target-size-m: 2.40, fit: height}
+  phone_booths:
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/objaverse/1ac9bf684da3476d918fd086d554bd5c/1ac9bf684da3476d918fd086d554bd5c.usdc", target-size-m: 2.20, fit: height}
+  manholes:
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/objaverse/a657396d68fa43f0ac7da12a6403d59f/a657396d68fa43f0ac7da12a6403d59f.usdc", target-size-m: 0.62, fit: footprint}
+  storm_drains:
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/objaverse/bbf5c9aa04c24fbaba328728d955777d/bbf5c9aa04c24fbaba328728d955777d.usdc", target-size-m: 0.70, fit: footprint}
+  billboards: []
+  traffic_cones:
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/objaverse/8cdac192abd044988c314eeb6377a3a0/8cdac192abd044988c314eeb6377a3a0.usdc", target-size-m: 0.75, fit: height}
+  utility_poles: []
+  newspaper_boxes: []
+  signs_parking: []
+
+surface_overrides:
+  - categories: [trail]
+    roughness: 0.92
+    metallic: 0.0
+prune_prims:
+  - usd_contains: "599a74c1c8fd4f19bf6754b8128da6b8"
+    prims: ["pCube4", "pCube44"]
+
+# EXCLUDED
+# --------
+# - `new_assets/buildings/buildings.usdz` ground slabs / roof-tile planes:
+#   part of each block, kept.
+# - `simple_low_poly_abandoned_brick_building.usdz` `Material2.003/.004`: the
+#   ground and pavement planes under the building, not the building.
+# - `debris3.FBX` parts 013-015, 040, 043-047, 055, 059-064, 065-103 (except
+#   the four rebar kept), and `debris.FBX` parts 004-105 except the six lumps:
+#   duplicates of kept shapes, hair-thin splinters, or zero-size fragments.
+# - `post_apocalyptic_buildings.usdz` `Building__1_outer_Metal_bar_0.001`:
+#   a 0-size stray, dropped by the grouping.

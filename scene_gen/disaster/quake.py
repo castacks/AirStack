@@ -267,17 +267,17 @@ MECHANISMS = {
     # cleared a low threshold, the block was diced, and the rung came out as a
     # pancake with pieces hanging over it.
     "soft_storey":
-        Mech(0.95, 0.42, 0.34, 0.45, 1.8, 0.35, 0.0, 0.25, 1.00, 0.30, 0.06),
+        Mech(0.95, 0.42, 0.34, 0.45, 1.8, 0.50, 0.0, 0.25, 1.00, 0.30, 0.06),
     # One side shears off full height and leaves the floor plates showing.
     # asymmetry 1.0 with a narrow band makes the boundary an edge: the far
     # side evaluates under `support`, is never cut, and keeps its own
     # textures. `blast` is nearly off — this side should DROP, not scatter.
     "shear_off":
-        Mech(0.95, 0.28, 0.42, 0.45, 2.0, 0.30, 0.5, 1.00, 0.22, 0.00, 0.00),
+        Mech(0.95, 0.28, 0.42, 0.45, 2.0, 0.45, 0.5, 1.00, 0.22, 0.00, 0.00),
     # Everything releases and over half the mass is pulverised into the voids.
     # The one mechanism that really does want the whole building in the soup.
     "pancake":
-        Mech(1.00, 0.12, 0.30, 0.40, 1.6, 0.55, 1.5, 0.20, 1.00, 0.00, 0.00),
+        Mech(1.00, 0.12, 0.30, 0.40, 1.6, 0.75, 1.5, 0.20, 1.00, 0.00, 0.00),
 }
 
 #: WHAT A RUNG IS: a list of ``(mechanism, share of the plan)``, worst first.
@@ -425,7 +425,73 @@ BLAST = 6.0
 #: was hit: a `cracked` building has not pulverised half its mass, and applying
 #: a flat fraction to the gentle rungs of the ladder deletes walls off a
 #: building that is supposed to be standing.
-CONSUME = 0.45
+CONSUME = 0.60
+
+#: WHERE A RUNG'S OWN `consume` IS EXACTLY RIGHT. The fractions on the ladder
+#: were read off buildings that cut into roughly this many pieces — the 23x27 m
+#: midrise comes out at 779 — so this is the pile size at which the curve below
+#: is the identity and nothing changes.
+CONSUME_REF_CELLS = 800
+
+#: HOW MUCH HARDER A BIG PILE IS CONSUMED, per DOUBLING of the fragment count.
+#:
+#: A fixed fraction is the wrong model once the counts spread this far. Rubble
+#: is sized in absolute metres, so fragment count tracks the building's SURFACE
+#: AREA: the 82 m tower cuts into 3794 pieces against the midrise's 779, and
+#: taking 55% of each leaves the tower with 1727 bodies where the midrise keeps
+#: 358. That is not five times the debris a collapse leaves — it is the same
+#: collapse rendered at five times the piece count, and it is also five times
+#: the settle cost, which is what actually made the tower fail to converge.
+#: A taller building pulverises MORE of itself, not the same share.
+#:
+#: THE CURVE IS `c ** p`, NOT `c * k` OR `c + k`, and the exponent is what
+#: makes it safe:
+#:   - `cracked` is 0.00 and must stay 0.00 — a building that is supposed to be
+#:     standing may not lose a third of its walls because it happened to be
+#:     large. `0 ** p` is 0 for every p, so the curve cannot touch it. Anything
+#:     additive, or anything scaling the headroom `1 - c`, breaks exactly here:
+#:     headroom scaling took `cracked` to 0.33 on the tower.
+#:   - `c ** p` with c < 1 is always < 1, so no pile is ever fully consumed
+#:     however large it gets — the growth saturates on its own.
+#:   - `c ** p` is monotonic in c, so the ladder's ORDER survives untouched,
+#:     including that `soft_storey` (0.35) sits above `partial_collapse` (0.30).
+#:
+#: RAISED TO 1.0 because a tower still came out with far too many pieces in it.
+#: The curve only bites above `CONSUME_REF_CELLS`, so this is the knob that
+#: thins a big pile WITHOUT touching a small one: `block_03` at 724 cells is
+#: below the reference and keeps its rung's fraction exactly, while
+#: `BG_Building_C` at 3687 cells goes from consuming 84% to 91%, i.e. from ~590
+#: surviving fragments to ~320. Going through the rung's own `consume` instead
+#: would have thinned the midrises too, and those already read correctly.
+CONSUME_GROWTH = 1.0
+
+#: A pile is never entirely consumed, whatever the arithmetic says. The curve
+#: saturates below 1 by construction; this is the belt-and-braces floor on how
+#: much rubble a collapse has to leave behind.
+#:
+#: RAISED WITH `CONSUME_GROWTH`, because a clamp that binds is a clamp that
+#: flattens the ladder: at 0.85 and growth 1.0, `pancaked` and `soft_storey`
+#: both pinned to 0.85 on a large pile and the harsher rung stopped consuming
+#: any harder than the gentler one. The clamp has to sit above where the
+#: steepest rung lands or it stops being a backstop and starts being the rule.
+CONSUME_MAX = 0.95
+
+
+def consume_fraction(fraction: float, n_fragments: int) -> float:
+    """A rung's `consume`, raised for a pile bigger than `CONSUME_REF_CELLS`.
+
+    Identity at or below the reference size, so every existing rung keeps the
+    fraction it was tuned with on the buildings it was tuned on.
+    """
+    import math
+
+    c = float(fraction)
+    n = int(n_fragments)
+    if c <= 0.0 or c >= 1.0 or n <= CONSUME_REF_CELLS:
+        return c
+    doublings = math.log2(n / float(CONSUME_REF_CELLS))
+    p = 1.0 / (1.0 + CONSUME_GROWTH * doublings)
+    return min(CONSUME_MAX, c ** p)
 
 #: Ceiling, not a target — `settle.run` stops as soon as the pile is at rest
 #: and reports how much of the budget it needed. Raised from 1500 with the
@@ -544,6 +610,10 @@ def consume(stage, report, fraction=CONSUME, pool=1.25, seed=0):
         return 0
 
     order = sorted(size, key=lambda p: -size[p])          # largest first
+    # SCALED BY THE PILE'S OWN SIZE — see `consume_fraction`. `order` is the
+    # candidate list, slabs already excluded, so this is the count that decides
+    # how hard the rung bites.
+    fraction = consume_fraction(fraction, len(order))
     n_drop = int(round(len(order) * float(fraction)))
     if n_drop <= 0:
         return 0

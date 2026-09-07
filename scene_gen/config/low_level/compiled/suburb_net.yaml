@@ -9,8 +9,8 @@
 # severity      : 0.0
 # spec          : scene_gen/config/presets/suburb_net.yaml
 # base          : scene_gen/config/low_level/default.yaml
-# compiled      : 2026-08-25 00:39:58
-# spec extras   : {'asset-pack': 'suburban_park', 'region_m': [1600, 1200], 'seed': 3, 'overrides': {'layout': {'region_m': [1600, 1200]}, 'suburb_net': {'block_area_target_m2': 40000.0, 'block_area_min_m2': 7000.0, 'collectors': 3, 'collector_wander': 0.28, 'min_gap_m': 88.0, 'junction_skew_deg': 38.0, 'four_way_chance': 0.35, 'dead_end_target': 0.24, 'bulb_radius_m': 14.64, 'lollipop_len_m': [55.0, 170.0], 'grain_weight': 2.6, 'grain_swirl_deg': 34.0, 'grain_period_m': 620.0}, 'suburb_parcel': {'modular_houses': True, 'modular_share': 1.0, 'lot_width_m': [30.0, 44.0], 'house_gap_m': 6.0, 'neighbourhood_m': 400.0, 'density_mix': {'tight': 0.15, 'normal': 0.36, 'loose': 0.34, 'estate': 0.15}, 'setback_m': [6.5, 11.0], 'house_w_m': [9.0, 13.0], 'house_d_m': [8.0, 11.0], 'min_lot_depth_m': 21.0, 'driveway_w_m': 3.2, 'house_yaw_offset_deg': -90.0, 'back_trees_per_100m2': 0.055, 'front_tree_chance': 0.45, 'street_tree_spacing_m': [16.0, 30.0]}}}
+# compiled      : 2026-08-29 17:17:44
+# spec extras   : {'asset-pack': 'suburban_park', 'region_m': [1600, 1200], 'seed': 3, 'overrides': {'layout': {'region_m': [1600, 1200]}, 'suburb_net': {'block_area_target_m2': 40000.0, 'block_area_min_m2': 7000.0, 'collectors': 3, 'collector_wander': 0.28, 'min_gap_m': 88.0, 'junction_skew_deg': 38.0, 'four_way_chance': 0.35, 'dead_end_target': 0.24, 'bulb_radius_m': 14.64, 'lollipop_len_m': [55.0, 170.0], 'grain_weight': 2.6, 'grain_swirl_deg': 34.0, 'grain_period_m': 620.0}, 'suburb_park': {'parking_m': [64.0, 40.0], 'parking_apron_w_m': 8.0}, 'suburb_parcel': {'modular_houses': True, 'modular_share': 1.0, 'lot_width_m': [30.0, 44.0], 'neighbourhood_m': 400.0, 'density_mix': {'tight': 0.15, 'normal': 0.36, 'loose': 0.34, 'estate': 0.15}, 'setback_m': [6.5, 11.0], 'row_share': 0.225, 'row_housing': {'unit_gap_m': 2.5, 'units_per_row': [3, 5], 'front_setback_m': 7.5, 'bays_per_dwelling': 1.75, 'green_m': 6.0}, 'house_w_m': [9.0, 13.0], 'house_d_m': [8.0, 11.0], 'house_gap_m': 6.0, 'min_lot_depth_m': 21.0, 'junction_skew_clear_deg': 30.0, 'junction_skew_clear_m': 2.0, 'driveway_w_m': 3.2, 'house_yaw_offset_deg': -90.0, 'back_trees_per_100m2': 0.055, 'front_tree_chance': 0.45, 'street_tree_spacing_m': [16.0, 30.0], 'pool_rear_m': 20.0, 'pool_rear_min_m': 9.5, 'pool_tree_clear_m': 11.0}, 'cars': {'driveway_chance': 0.55, 'court_occupancy': 0.6, 'street_density': 0.12, 'slot_spacing_m': [7.0, 9.0], 'slot_gap_chance': 0.18, 'junction_clear_m': 8.0, 'apron_clear_m': 1.5, 'hydrant_clear_m': 3.0, 'kerb_gap_m': 0.35, 'drive_rear_clear_m': 1.0, 'drive_nose_clear_m': 0.8, 'vintage_chance': 0.06, 'strip_glass': True, 'max_cars': 700}, 'people': {'total': 0}}}
 
 seed: 3
 exclusions:
@@ -178,6 +178,10 @@ layout:
     neighbour_radius_m: 45.0
     pick_sigma: 0.3
     repeat_penalty: 1.0
+    repeat_radius_m: 0.0
+    repeat_local_penalty: 0.02
+    repeat_local_falloff: 2.0
+    pack_area_band: 0.55
     infill:
       enabled: true
       gap_m: 2.0
@@ -186,23 +190,26 @@ layout:
       to_frac: 0.45
       furniture_scale: 1.0
       mix:
-        tower: 0.85
+        highrise: 0.85
         midrise: 0.15
-        rowhouse: 0.0
+        lowrise: 0.0
+        townhouse: 0.0
     - name: mid
       to_frac: 0.6
       furniture_scale: 1.3
       mix:
-        tower: 0.35
+        highrise: 0.35
         midrise: 0.62
-        rowhouse: 0.03
+        lowrise: 0.1
+        townhouse: 0.03
     - name: edge
       to_frac: 1.01
       furniture_scale: 1.9
       mix:
-        tower: 0.03
+        highrise: 0.03
         midrise: 0.12
-        rowhouse: 0.85
+        lowrise: 0.2
+        townhouse: 0.85
     zoning:
       cell_m: 40.0
       area_m2_per_nucleus: 30000.0
@@ -210,9 +217,10 @@ layout:
       adjacency_ladder: true
       bleed: 0.12
     typologies:
-      rowhouse:
+      townhouse:
         rank: 0
         pools:
+        - townhouse
         - rowhouse
         morphology: terrace
         facing_offset_deg: 0.0
@@ -235,6 +243,20 @@ layout:
         run_gap_m:
         - 3.0
         - 9.0
+      lowrise:
+        rank: 0.5
+        pools:
+        - lowrise
+        morphology: pack
+        perimeter_depth_m: 40.0
+        height_median_m: 13.0
+        height_sigma: 0.25
+        block_short_m:
+        - 55.0
+        - 90.0
+        block_long_m:
+        - 135.0
+        - 200.0
       midrise:
         rank: 1
         pools:
@@ -249,9 +271,10 @@ layout:
         block_long_m:
         - 135.0
         - 200.0
-      tower:
+      highrise:
         rank: 2
         pools:
+        - highrise
         - tower
         morphology: pack
         perimeter_depth_m: 60.0
@@ -268,12 +291,7 @@ disaster:
   damaged_fraction: 0.0
   destroyed_fraction: 0.0
   debris:
-    piles_per_building:
-    - 0
-    - 0
-    pieces_per_building:
-    - 0
-    - 0
+    shed_m3_per_m: 0.0
     damaged_debris_scale: 0.0
     tilt_chance: 0.0
     path_pieces_per_100m2: 0.0
@@ -340,6 +358,22 @@ detail:
     density: 0.04
     lane_offset_frac: 0.3
     yaw_jitter_deg: 4.0
+    driveway_chance: 0.55
+    court_occupancy: 0.6
+    street_density: 0.12
+    slot_spacing_m:
+    - 7.0
+    - 9.0
+    slot_gap_chance: 0.18
+    junction_clear_m: 8.0
+    apron_clear_m: 1.5
+    hydrant_clear_m: 3.0
+    kerb_gap_m: 0.35
+    drive_rear_clear_m: 1.0
+    drive_nose_clear_m: 0.8
+    vintage_chance: 0.06
+    strip_glass: true
+    max_cars: 700
   driveways:
     chance: 0.75
     width_m: 3.2
@@ -520,13 +554,17 @@ suburb_net:
   grain_weight: 2.6
   grain_swirl_deg: 34.0
   grain_period_m: 620.0
+suburb_park:
+  parking_m:
+  - 64.0
+  - 40.0
+  parking_apron_w_m: 8.0
 suburb_parcel:
   modular_houses: true
   modular_share: 1.0
   lot_width_m:
   - 30.0
   - 44.0
-  house_gap_m: 6.0
   neighbourhood_m: 400.0
   density_mix:
     tight: 0.15
@@ -536,13 +574,25 @@ suburb_parcel:
   setback_m:
   - 6.5
   - 11.0
+  row_share: 0.225
+  row_housing:
+    unit_gap_m: 2.5
+    units_per_row:
+    - 3
+    - 5
+    front_setback_m: 7.5
+    bays_per_dwelling: 1.75
+    green_m: 6.0
   house_w_m:
   - 9.0
   - 13.0
   house_d_m:
   - 8.0
   - 11.0
+  house_gap_m: 6.0
   min_lot_depth_m: 21.0
+  junction_skew_clear_deg: 30.0
+  junction_skew_clear_m: 2.0
   driveway_w_m: 3.2
   house_yaw_offset_deg: -90.0
   back_trees_per_100m2: 0.055
@@ -550,3 +600,8 @@ suburb_parcel:
   street_tree_spacing_m:
   - 16.0
   - 30.0
+  pool_rear_m: 20.0
+  pool_rear_min_m: 9.5
+  pool_tree_clear_m: 11.0
+people:
+  total: 0

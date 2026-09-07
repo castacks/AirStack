@@ -88,13 +88,52 @@ def write_manifest(path: str, records: list, meta: dict = None) -> str:
     return path
 
 
+#: Fields that describe something a HUMAN did to an archetype after it was
+#: baked. They live only on disk — no bake produces them — so a record coming
+#: out of a bake never has them and must not be allowed to erase them.
+HAND_FIELDS = ("hand_edited_at", "hand_edited_from_fingerprint",
+               "substituted_from", "substituted_at", "material_rebound",
+               # `used_by` is CENSUS-derived, not hand-made, but it is carried
+               # for the same reason: only a run given `--census` produces it,
+               # so a targeted re-bake (`--only`, `--cells`) writes records
+               # without it and silently un-marks assets the scene really does
+               # place. Measured 2026-08-30: 32 records lost their `used_by`
+               # that way and the gallery reported them as not in the census.
+               "used_by")
+
+
 def merge_manifest(path: str, records: list, meta: dict = None) -> str:
-    """`write_manifest`, keeping every existing record this bake did not
-    redo. A record is identified by (type, level); the new one wins."""
+    """`write_manifest`, keeping every existing record this bake did not redo.
+
+    A record is identified by (type, level); the new one wins — EXCEPT for
+    `HAND_FIELDS`, which are carried across from the record already on disk.
+
+    WHY THAT EXCEPTION EXISTS. `--skip-existing` appends each skipped cell's
+    record to `Baker.records` at build time, as a SNAPSHOT of the manifest at
+    that moment, and every later per-cell write puts those records first. So
+    marking an archetype hand-edited while a bake is running is undone by the
+    next cell that lands: the stale in-memory copy wins. Measured 2026-08-30 —
+    20 of 30 hand-edit marks silently vanished from the urban_v3 library that
+    way, and only the `.orig.usd` backups showed which records had lost them.
+
+    Carrying the fields rather than the whole record is deliberate: a re-bake
+    SHOULD replace geometry, size and timings. It just must not claim a file a
+    human posed is untouched bake output.
+    """
     old = read_manifest(path).get("archetypes") or []
+    prev = {(r.get("type"), r.get("level")): r for r in old}
+    out = []
+    for r in records:
+        was = prev.get((r.get("type"), r.get("level")))
+        if was:
+            r = dict(r)
+            for k in HAND_FIELDS:
+                if k in was and k not in r:
+                    r[k] = was[k]
+        out.append(r)
     fresh = {(r.get("type"), r.get("level")) for r in records}
     kept = [r for r in old if (r.get("type"), r.get("level")) not in fresh]
-    return write_manifest(path, list(records) + kept, meta)
+    return write_manifest(path, out + kept, meta)
 
 
 def read_manifest(path: str) -> dict:

@@ -1,0 +1,16 @@
+#usda 1.0
+(
+    defaultPrim = "Asset"
+)
+
+def "Asset" (
+    prepend references = @omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_13.usd@
+)
+{
+    over "LOD0" (
+        prepend apiSchemas = ["PhysicsCollisionAPI"]
+    )
+    {
+    }
+}
+

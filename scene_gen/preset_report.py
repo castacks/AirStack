@@ -38,7 +38,17 @@ assets fall back to fallback_sizes.
 COLUMNS
 -------
     buildings / damaged / destroyed   structures placed, by pool
-    debris                            rubble piles + settled fragments
+    debris                            rubble piles + settled fragments —
+                                      BUT ONLY THE PART THIS PASS PLACES. A
+                                      building the cutter reaches sheds its
+                                      debris during the damage phase, from its
+                                      own report (`disaster/debris.py`), and a
+                                      dry run does no cutting; a baked
+                                      archetype carries its debris inside the
+                                      USD and is never a placement at all. So
+                                      a preset whose buildings are all cut or
+                                      all archetyped reads 0 here and is not
+                                      wrong. Compare presets, not absolutes.
     prone / downed / flipped          casualties, poles, vehicles
     hit%                              share of the region with damage
                                       intensity >= 0.5 (the disaster's extent)
@@ -104,8 +114,9 @@ def build_stats(config_path, args):
         by.setdefault(p["category"], []).append(p)
 
     bld = cfg["usds"].get("buildings") or cfg["usds"].get("houses") or {}
-    damaged_set = _resolved_paths(cfg, bld.get("damaged"))
-    destroyed_set = _resolved_paths(cfg, bld.get("destroyed"))
+    from scene_generator import building_entries
+    damaged_set = _resolved_paths(cfg, building_entries(cfg, condition="damaged"))
+    destroyed_set = _resolved_paths(cfg, building_entries(cfg, condition="destroyed"))
     ruin_set = damaged_set | destroyed_set
 
     houses = by.get("house", [])

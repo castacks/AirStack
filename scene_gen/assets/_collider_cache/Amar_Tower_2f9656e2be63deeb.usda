@@ -1,0 +1,19 @@
+#usda 1.0
+(
+    defaultPrim = "Asset"
+)
+
+def "Asset" (
+    prepend references = @omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/downtowncity/Amar_Tower.usdc@
+)
+{
+    over "Amar_Tower"
+    {
+        over "Amar_Tower" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+        }
+    }
+}
+

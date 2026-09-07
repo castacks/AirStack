@@ -1,0 +1,37 @@
+#usda 1.0
+(
+    defaultPrim = "Asset"
+)
+
+def "Asset" (
+    prepend references = @omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/block_08/block_08.usdc@
+)
+{
+    over "buildings"
+    {
+        over "Meshes"
+        {
+            over "Sketchfab_model"
+            {
+                over "Buildings_fbx"
+                {
+                    over "RootNode"
+                    {
+                        over "Building_08_xform"
+                        {
+                            over "Building_08"
+                            {
+                                over "Building_08_BrickSmallPainted_0" (
+                                    prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                )
+                                {
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+

@@ -9,7 +9,7 @@
 # severity      : 0.0
 # spec          : scene_gen/config/presets/urban_small.yaml
 # base          : scene_gen/config/low_level/default.yaml
-# compiled      : 2026-08-25 00:39:58
+# compiled      : 2026-08-29 17:17:45
 # spec extras   : {'asset-pack': 'urban', 'region_m': [500, 500], 'seed': 42}
 
 seed: 42
@@ -178,6 +178,10 @@ layout:
     neighbour_radius_m: 45.0
     pick_sigma: 0.3
     repeat_penalty: 1.0
+    repeat_radius_m: 0.0
+    repeat_local_penalty: 0.02
+    repeat_local_falloff: 2.0
+    pack_area_band: 0.55
     infill:
       enabled: true
       gap_m: 2.0
@@ -186,23 +190,26 @@ layout:
       to_frac: 0.45
       furniture_scale: 1.0
       mix:
-        tower: 0.85
+        highrise: 0.85
         midrise: 0.15
-        rowhouse: 0.0
+        lowrise: 0.0
+        townhouse: 0.0
     - name: mid
       to_frac: 0.6
       furniture_scale: 1.3
       mix:
-        tower: 0.35
+        highrise: 0.35
         midrise: 0.62
-        rowhouse: 0.03
+        lowrise: 0.1
+        townhouse: 0.03
     - name: edge
       to_frac: 1.01
       furniture_scale: 1.9
       mix:
-        tower: 0.03
+        highrise: 0.03
         midrise: 0.12
-        rowhouse: 0.85
+        lowrise: 0.2
+        townhouse: 0.85
     zoning:
       cell_m: 40.0
       area_m2_per_nucleus: 30000.0
@@ -210,9 +217,10 @@ layout:
       adjacency_ladder: true
       bleed: 0.12
     typologies:
-      rowhouse:
+      townhouse:
         rank: 0
         pools:
+        - townhouse
         - rowhouse
         morphology: terrace
         facing_offset_deg: 0.0
@@ -235,6 +243,20 @@ layout:
         run_gap_m:
         - 3.0
         - 9.0
+      lowrise:
+        rank: 0.5
+        pools:
+        - lowrise
+        morphology: pack
+        perimeter_depth_m: 40.0
+        height_median_m: 13.0
+        height_sigma: 0.25
+        block_short_m:
+        - 55.0
+        - 90.0
+        block_long_m:
+        - 135.0
+        - 200.0
       midrise:
         rank: 1
         pools:
@@ -249,9 +271,10 @@ layout:
         block_long_m:
         - 135.0
         - 200.0
-      tower:
+      highrise:
         rank: 2
         pools:
+        - highrise
         - tower
         morphology: pack
         perimeter_depth_m: 60.0
@@ -268,12 +291,7 @@ disaster:
   damaged_fraction: 0.0
   destroyed_fraction: 0.0
   debris:
-    piles_per_building:
-    - 0
-    - 0
-    pieces_per_building:
-    - 0
-    - 0
+    shed_m3_per_m: 0.0
     damaged_debris_scale: 0.0
     tilt_chance: 0.0
     path_pieces_per_100m2: 0.0

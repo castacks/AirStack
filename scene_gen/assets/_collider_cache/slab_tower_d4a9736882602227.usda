@@ -1,0 +1,37 @@
+#usda 1.0
+(
+    defaultPrim = "Asset"
+)
+
+def "Asset" (
+    prepend references = @omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/tower/slab_tower/slab_tower.usdc@
+)
+{
+    over "_d_building"
+    {
+        over "Meshes"
+        {
+            over "FAB_converted_model"
+            {
+                over "_f7c1535dde64873a612f2f2b5a6baf6_fbx"
+                {
+                    over "RootNode"
+                    {
+                        over "JKT_MTP_61_001"
+                        {
+                            over "slab_tower"
+                            {
+                                over "JKT_MTP_61_001_JKT_MTP_61_0" (
+                                    prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                )
+                                {
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+

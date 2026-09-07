@@ -23,6 +23,14 @@
 #     two of them pebbles. Derive each from its own measured bbox.
 
 extends: suburban_nucleus
+
+# A SIGN, for the `signs_stop` / `signs_street_name` pools added with the
+# 2026-08-29 suburb port. Without it a sign falls back to the 4 x 4 m default,
+# which is a billboard. Measured off the RetroNeighborhood plate. Host-side
+# only — inside Isaac the real asset is measured.
+fallback_sizes:
+  sign:          [0.4, 0.08, 2.4]
+
 usds:
   # A NARROW walk, and only where one exists at all. The paved ring is one tile
   # wide and build_city takes that width as max(tile.sx, tile.sy), so the tile
@@ -112,6 +120,71 @@ usds:
     - usd: "RetroNeighborhood/Props/SM_DriveWay_01.prop.usd"
       scale: 0.01         # RetroNeighborhood is authored in cm
 
+
+  # ---- PORTED FROM `krrishj/disaster-dataset` (their 0bd932c2, 2026-08-24) ----
+  # The graph-suburb chain gained passes that ask this pack for pools it never
+  # carried, and a pool the set does not define is skipped with a log line, not
+  # an error — so the code lands and the feature silently does nothing. These
+  # four are the ones the ported passes read. Verbatim from their set, including
+  # the measurements, except that `house_addons` is written here rather than in
+  # `suburban_nucleus.yaml` (its owner has that file open) — `_merge_asset_pack`
+  # is a DEEP merge, so a `buildings:` carrying one sub-key extends the
+  # inherited map instead of replacing it.
+
+  # suburb_parcel emits 1,974 street trees, which at ~55k each is ~109M points
+  # UN-INSTANCED, against the 89.1M that OOM-killed the urban scene. It is not
+  # un-instanced any more on the graph path: `tree` is one of `suburb_scene`'s
+  # default `instance_categories`, so a species costs its points ONCE and the
+  # copies are transforms. The RECT path (`build_city`) passes no instance
+  # categories and does still pay per copy, so this pool is only affordable
+  # there at low density.
+  #
+  # `build_placements` draws UNIFORMLY and charges NO budget — unlike
+  # `suburb_yardplan`, which has a purse. The one live density lever is
+  # `suburb_parcel.street_tree_spacing_m` [16, 30] in suburb_net.yaml; the front
+  # and back tree knobs beside it are inert, because yardplan owns yard
+  # planting.
+  street_trees:
+    - {usd: "airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Shumard_Oak/Shumard_Oak.usd", scale: 0.01}
+      # 10.29 x 10.47 x 11.43 m, 54,766 pts, 4/4 bound, 0% unbound, oakleaves1
+      # green. A ~10 m crown clears a 9-11 m residential carriageway from a
+      # verge set back 2.6 m; this is urban_v2's primary street tree.
+    - {usd: "airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/Douglas_Fir.usd", scale: 0.01}
+      # 3.02 x 2.77 x 6.03 m, 56,262 pts, 8/8 bound, pine_needles 100% green.
+      # The narrowest crown in the library and the only evergreen — the one tree
+      # that fits between a driveway and a kerb without being shrunk.
+      # "8/8 bound" WAS TRUE AND STILL MISSED A DEFECT: branchM bound a
+      # Default_Material whose MDL module is not in the pack, so 99 points
+      # rendered unshaded on a perfect bind count. Repointed at the trunk's own
+      # TreeBark_10; now 3/3 materials resolve. A bind count cannot see this —
+      # tools/measure_assets.py `mdl` column can. Patch is vendor-side and a
+      # re-extract undoes it: scene_gen/assets/aec/README.md.
+    #
+    # TWO SPECIES, NOT THREE, AND THE LIBRARY IS THE REASON. Every other tree in
+    # it is excluded by urban_v2 on a measured defect or on cost, and those
+    # exclusions are carried across verbatim rather than re-litigated:
+    #   Black_Oak        48,701 pts — the CHEAPEST bound green tree there is,
+    #                    and still out: 19.7 m tall with a 25.4 m crown is a
+    #                    park specimen, not a kerb tree — it would overhang the
+    #                    whole carriageway. It is in `trees` below, which is
+    #                    exactly where urban_v2 put it.
+    #   Largetooth_Aspen 197,775 — right shape for a kerb (5.1 x 5.2 m crown),
+    #                    priced out. urban_v2 excluded it from street_trees on
+    #                    cost at 631 trees; this scene plants 1,974.
+    #   Common_Apple     237,356 — likewise: a 5.9 m crown at 4.3x the cost of
+    #                    the oak. Kept as a rear-garden accent in `yard_trees`.
+    #   American_Beech   305,126, Honey_Locust 331,786, Hawthorn 596,296 —
+    #                    urban_v2's street exclusions on cost, unchanged.
+    #   White_Ash        66k — binds ashtree_leaves_fall1: an AUTUMN variant.
+    #   Service_Berry    84k — 48.0% of faces unbound, renders half white.
+    #   Scarlet_Oak / _fall  40k — 35.5% of faces unbound; _fall is also red.
+    #   Dogwood 184k red, Japanese_Cherry 255k all-blossom — measured in
+    #                    yard_trees below and rejected there for the same reason.
+    #   Blue_Berry_Elder — the one AEC species nobody has measured. NOT added on
+    #                    a guess; measure it with tools/measure_assets.py +
+    #                    material_binding.py first.
+    # The Nucleus alternatives are not available either: every SM_Tree* in the
+    # chain is rejected by name (see the `trees` note above).
 
   # ---- YARD PLANTING  (owner: suburb_yards.py) -------------------------------
   # Front yards and back yards want different material: a front yard is kept and
@@ -295,3 +368,78 @@ usds:
     # precast street planter (Ext_Bench_01's root prim is literally
     # `/World/planter_03`), too big and too urban for a garden. Bollard_01 is
     # 4.8% unbound.
+
+  # SIGNS — the pool the suburban chain never had, so both `suburb_scene` and
+  # `city_detail` logged "signs_stop: no assets in the set — skipped".
+  # `build_signs` reads `signs_stop` (falling back to `traffic_signs`) and puts
+  # one on every minor approach to a junction of degree >= 3: 119 junctions on
+  # the shipped graph preset, seed 3. A suburb is stop-controlled throughout,
+  # which is what the preset says with `traffic_lights.intersection_chance: 0`,
+  # so these are the traffic control the scene claims to have, not decoration.
+  #
+  # THE STOP SIGN IS THE PACK'S OWN, not urban_v2's Objaverse one:
+  # RetroNeighborhood is already this scene's art family — houses, streetlight,
+  # hydrant, driveway tile and sky all come out of it — so the sign matches by
+  # construction, and being on Nucleus it needs no `prepare_assets.py` download.
+  # cm-authored like every other prop in the pack, hence `scale: 0.01`.
+  #
+  # UNVERIFIED HOST-SIDE: this path was read off a Nucleus listing, not measured
+  # — `pxr`/`omni.client` exist only inside the isaac-sim container. It follows
+  # the pack's exact `SM_*.prop.usd` convention and sits beside
+  # SM_StreetLight/SM_FireHydrant, which this chain already resolves. If it comes
+  # up a placeholder prism, the fallback is urban_v2's, cached and known good:
+  #   {usd: "objaverse://a3963ab8133b45cab4e60da94d255ac3", target-size-m: 2.40, fit: height}
+  signs_stop:
+    - usd: "RetroNeighborhood/Props/SM_Sign_Stop.prop.usd"
+      scale: 0.01
+      # FACE POINTED THE WRONG WAY. `build_signs` yaws the sign back down its
+      # own approach so the plate meets the driver; this art needs a further
+      # turn on top of that.
+      # 270, NOT 180: this art's plate faces +-Y, not +-X, so it needs a
+      # QUARTER turn on top of the approach heading, not a half. The urban
+      # path needs no number here at all — `city_detail._prop_yaw` derives
+      # that quarter turn from the MEASURED panel (sx < sy) and discards
+      # the asset's offset. `suburb_scene.build_signs` has no aspect step,
+      # so the correction has to live on the asset until it gains one.
+      yaw-offset: 270.0
+    #
+    # ALSO IN THE PACK, DELIBERATELY NOT WIRED, because no pass would place
+    # either and a pool nothing reads is dead config that reads as intent:
+    #   SM_Sign_Children  a MID-BLOCK warning, and both passes that exist here
+    #     are junction passes (`build_signs` walks approaches to nodes of degree
+    #     >= 3, `city_detail` places at `near_corner_m`). In `signs_stop` it
+    #     would stand at a junction in place of a stop sign. It wants a mid-block
+    #     pass in suburb_scene, which is code, not a config line.
+    #   SM_Sign_OneWay    a one-way plate; a residential street rarely is one,
+    #     and no pool reads it.
+
+  # STILL urban_v2's, because RetroNeighborhood has no street-name blade — the
+  # pack ships a stop, a one-way and a children-crossing sign and nothing that
+  # names a street. Both uids are already cached at this exact size and fit, so
+  # they cost no download either.
+  signs_street_name:
+    - {usd: "objaverse://555fbab686004738b974373f6ad71d82", target-size-m: 2.40, fit: height,
+       yaw-offset: 180.0}  # Road Sign (speed limit), 104f — face was to the kerb
+    - {usd: "objaverse://599a74c1c8fd4f19bf6754b8128da6b8", target-size-m: 2.40, fit: height}  # Street Sign Final, 148f
+    # NOT re-added, urban_v2's findings carried across so nobody retries them:
+    #   13eeb2da… "Road Traffic Sign" (7.2k, 597 likes) — its USD carries a
+    #     `sign_fbx/CINEMA_4D_Editor` prim, the authoring app's editor
+    #     scaffolding exported into the asset, which composes in as junk
+    #     geometry.
+    #   7fac2b1b… "Road signs pack" — 14 signs laid out FLAT in a 2.8 cm plane,
+    #     so it places as a signboard rather than as posts.
+    #   741e5442… "Street Props" — a bench, bins, cones and barriers, i.e. an
+    #     assortment dropped wherever a street-name sign was asked for.
+
+  # ---- HOUSE EXTENSIONS ------------------------------------------------------
+  # `suburb_scene.build_houses` reads `buildings.house_addons`. Deep-merged onto
+  # the `buildings` map `suburban_nucleus.yaml` supplies, so `intact`, `damaged`
+  # and `destroyed` all survive.
+  buildings:
+    house_addons:
+      - usd: "RetroNeighborhood/Props/SM_House_04_Extension.prop.usd"
+        scale: 0.01
+      - usd: "RetroNeighborhood/Props/SM_House_06_Extension.prop.usd"
+        scale: 0.01
+      - usd: "RetroNeighborhood/Props/SM_House_10_Extension.prop.usd"
+        scale: 0.01

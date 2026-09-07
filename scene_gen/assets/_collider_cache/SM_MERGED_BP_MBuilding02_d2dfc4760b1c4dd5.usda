@@ -1,0 +1,16 @@
+#usda 1.0
+(
+    defaultPrim = "Asset"
+)
+
+def "Asset" (
+    prepend references = @omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/ModernCityEnvironment/Collected_Building02/SM_MERGED_BP_MBuilding02.usd@
+)
+{
+    over "LOD0" (
+        prepend apiSchemas = ["PhysicsCollisionAPI"]
+    )
+    {
+    }
+}
+

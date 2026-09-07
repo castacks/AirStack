@@ -54,6 +54,17 @@ def read_asset_pack(name, categories, target_size=0.0):
         node = usds
         for part in dotted.split("."):
             node = (node or {}).get(part) if isinstance(node, dict) else None
+        # `buildings.<condition>` is no longer a KEY in a converted pack — the
+        # condition is a tag on the entry — so fall back to the reader that
+        # knows both layouts rather than reporting the category as missing.
+        if node is None and dotted.startswith("buildings."):
+            from scene_generator import BUILDING_CONDITIONS, building_entries
+            tail = dotted.split(".", 1)[1]
+            if tail in BUILDING_CONDITIONS:
+                node = building_entries(cfg, condition=tail)
+            else:
+                node = building_entries(cfg, condition="intact", typology=tail)
+            node = node or None
         if node is None:
             print(f"[asset_pack] '{name}' has no category '{dotted}'",
                   flush=True)

@@ -303,6 +303,22 @@ That is the shape both benches use, lifted from
    `scene_prep` / `scene_generator` through `sys.path.insert` at the top, so the
    by-path idiom is specifically about this late, optional import, which must
    not depend on a `sys.path` entry set 600 lines earlier still being intact.
+
+   **`from utils import snapshots` is worse than unreliable — it silently
+   imports someone else's module.** Kit's own extensions import a package
+   called `utils` during startup (cv2 ships one), so by the time a launcher
+   runs, `utils` is already in `sys.modules` and the name resolves to
+   `/isaac-sim/exts/omni.pip.compute/pip_prebundle/cv2/utils/` no matter what
+   you inserted at the front of `sys.path`. Measured 2026-08-28:
+
+       ImportError: cannot import name 'snapshots' from 'utils'
+       (/isaac-sim/exts/omni.pip.compute/pip_prebundle/cv2/utils/__init__.py)
+
+   It dies about ten seconds in, before the scene exists, and — like every
+   startup failure — it appears ONLY in the Kit log, not the pane, which shows
+   a plain shell prompt (section 2c). Give the loaded module a distinct name
+   (`spec_from_file_location("airstack_snapshots", path)`) so it cannot collide
+   on the way back in either.
 2. **At the tail, after the banner** — `snapshots.py` does
    `import carb, omni.kit.app` and `from pxr import ...` at module level, and
    `omni.kit.app` / `pxr` only exist once `SimulationApp(...)` has built the Kit

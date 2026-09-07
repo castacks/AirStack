@@ -72,6 +72,22 @@ APPLY_COLLIDERS = os.environ.get("APPLY_COLLIDERS", "true").lower() == "true"
 # -------------------------
 
 
+def _write_people_gt(config):
+    """Survivor ground-truth boxes for the people Stage C just placed.
+
+    Off unless `GT_ANNOTATIONS=1` and `RESULTS_SCENE=<name>` are set — see
+    `utils/scene_annotations.gt_from_env`. Never fails the run: a scene without
+    ground truth is still a scene, and a launch that died writing a JSON file
+    after the stage was built would be the worst trade in this script.
+    """
+    try:
+        import scene_annotations as sa
+
+        sa.gt_for_config(config)
+    except Exception as exc:
+        print(f"[annotations] skipped: {exc}")
+
+
 def _resolve_usd(config: dict) -> str:
     """The baked scene for *config*: an explicit path wins, else the cache."""
     if SCENE_USD:
@@ -122,6 +138,7 @@ class BakedSceneApp:
         _, ssf = get_stage_meters_per_unit(stage)
         disaster = kinds.get(config)
         disaster.place_targets(stage, config, scene_scale_factor=ssf)
+        _write_people_gt(config)
         n = disaster.attach_runtime(stage)
         if n:
             print(f"[baked_scene] attach_runtime applied {n} setting(s)")

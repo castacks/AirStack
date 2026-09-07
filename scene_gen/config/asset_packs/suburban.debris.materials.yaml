@@ -1,0 +1,37 @@
+# Asset material tags — debris, suburban. See the header of
+# `urban.debris.materials.yaml`; applied to `suburban_nucleus.yaml` on
+# 2026-08-25 as per-asset `material:` keys.
+#
+# Rendered from the local Objaverse cache (`render_usd.py`), two angles each.
+source: scene_gen/config/asset_packs/suburban_nucleus.yaml
+category: debris
+updated: '2026-08-25'
+counts:
+  wood: 3
+  brick: 3
+  earth: 2
+  concrete: 0
+  steel: 0
+  glass: 0
+  skipped: 0
+  undecided: 0
+assets:
+  objaverse://1b31413d89a4485e93f4bdb9eb735d88: {material: wood, categories: [debris.pieces],
+    note: Four dark weathered planks lying parallel, sawn ends. Framing lumber.}
+  objaverse://2341e9c2456f4876b2e86a9465724b0d: {material: wood, categories: [debris.pieces],
+    note: 'Two pale boards, fresh-sawn — dimensional lumber, no weathering.'}
+  objaverse://aedb8f44f78944c7a1d53ff14c6d3290: {material: wood, categories: [debris.pieces],
+    note: 'Snapped limb, bark on, splintered at both ends. Wood but not lumber: it
+      is what the trees shed, and it sits in the same pool.'}
+  objaverse://b3b11017332040d6b717839c07a782c4: {material: earth, categories: [debris.piles],
+    note: 'Pale mound, almost white in the render. Ground spoil, not a construction
+      — nothing shed it, the collapse scraped it up.'}
+  objaverse://107f6a1f6aa74449bcd32ef136311d86: {material: earth, categories: [debris.piles],
+    note: Dark soil mound with a shadowed crest. Same reading as the dirt pile.}
+  objaverse://042bc78e7d1d4275b3cd87e97f35d11c: {material: brick, categories: [debris.piles],
+    note: Heap of broken brick and tile over grey chippings, distinctly red overall.}
+  objaverse://0ab5415789a1454a925d82f0650910ff: {material: brick, categories: [debris.piles],
+    note: Heap of old red brick rubble with whole bricks still recognisable in it.}
+  objaverse://c7544d9183c24ed3a716f8255536afa8: {material: brick, categories: [debris.piles],
+    note: 'Flat scatter of broken red clay roof tiles. Called brick because fired
+      clay behaves as masonry; it is the closest label the vocabulary has.'}

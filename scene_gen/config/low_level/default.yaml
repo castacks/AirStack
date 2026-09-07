@@ -500,6 +500,23 @@ layout:
     # small footprints won far more slots and two models took 66% of every
     # building. 0 restores pure height matching.
     repeat_penalty: 1.0
+    # The city-wide count says nothing about WHERE. Two identical towers across
+    # one street read as copy-paste however balanced the histogram is, so every
+    # copy within `repeat_radius_m` of a slot multiplies that model's odds by
+    # `repeat_local_penalty`, graded by distance (`repeat_local_falloff`: a copy
+    # right there counts 1+falloff, one at the rim counts 1). A multiplier and
+    # not a ban — a gap whose only fitting model is one already nearby still
+    # gets filled. OFF here (radius 0 makes the term inert) because turning it
+    # on restyles every scene built on this file; a big-library scene opts in.
+    repeat_radius_m: 0.0
+    repeat_local_penalty: 0.02
+    repeat_local_falloff: 2.0
+    # How far below the largest fitting footprint an asset may be and still
+    # compete for a slot. Too narrow and the biggest fitting model wins every
+    # equivalent gap however hard the repeat penalties push, because there is
+    # nothing else in the band; too wide and a small building wins a big gap.
+    # It is not a diversity knob — it is what leaves the penalties a choice.
+    pack_area_band: 0.55
     infill:
       enabled: true
       gap_m: 2.0              # clearance between infilled buildings
@@ -520,17 +537,29 @@ layout:
       # block of one height. Concentrating rowhouse in `edge` and taking it out
       # of `mid` almost entirely is what turns those buildings from scattered
       # oddities into a neighbourhood.
+      #
+      # A MIX IS RELATIVE WEIGHTS, NOT SHARES — `_pick` normalises by the total,
+      # so these need not sum to 1 and adding a typology does not dilute the
+      # others' proportions to each other. That is what lets `lowrise` be added
+      # here without restyling any pack that has no lowrise stock: districts
+      # prunes every typology this pack cannot build out of the mix before
+      # drawing (see `_buildable`), and dropping a key renormalises the rest
+      # back to exactly the ratio they had before it was added.
       - {name: core, to_frac: 0.45, furniture_scale: 1.0,
-         mix: {tower: 0.85, midrise: 0.15, rowhouse: 0.00}}   # urban, not the measured mix
+         mix: {highrise: 0.85, midrise: 0.15, lowrise: 0.00, townhouse: 0.00}}   # urban, not the measured mix
       - {name: mid,  to_frac: 0.60, furniture_scale: 1.3,
-         mix: {tower: 0.35, midrise: 0.62, rowhouse: 0.03}}
+         mix: {highrise: 0.35, midrise: 0.62, lowrise: 0.10, townhouse: 0.03}}
       # Pulled in from 0.72 and the share raised from 0.75: the terrace ring is
       # the one district that loses blocks to its own geometry, since any block
       # too deep for a pair refuses and rebuilds as mid-rise. Widening the ring
       # is what buys brownstones; raising the share alone just re-rolls blocks
       # that were going to refuse anyway.
+      # `lowrise` sits mainly out here and in `mid`, never in the core: it is
+      # the low wide stock a downtown has AROUND its towers, not in place of
+      # them. 0.20 against townhouse's 0.85 keeps the edge a terrace district
+      # with workshops in it rather than the other way round.
       - {name: edge, to_frac: 1.01, furniture_scale: 1.9,
-         mix: {tower: 0.03, midrise: 0.12, rowhouse: 0.85}}
+         mix: {highrise: 0.03, midrise: 0.12, lowrise: 0.20, townhouse: 0.85}}
 
     # ZONING MAP. Concentric rings alone give a city where every block is the
     # same KIND of place and only the storey count changes. Land use is grown
@@ -561,10 +590,20 @@ layout:
     # TYPOLOGIES. Each owns a building pool, a height profile, a block size and
     # a morphology. `rank` orders them by intensity for the adjacency ladder and
     # for the fallback when a pool cannot fit the block it landed on.
+    # TYPOLOGY NAMES ARE THE ASSET PACK'S CATEGORY NAMES. A typology draws from
+    # the `usds.buildings` pools named in its `pools:` list, and each carries
+    # its LEGACY alias alongside the current name — `townhouse` was `rowhouse`
+    # and `highrise` was `tower` before the packs were reorganised by height
+    # band. A pack supplies one spelling or the other; `_pools_for` merges the
+    # named pools and a pool the pack does not define contributes nothing, so
+    # both vocabularies resolve against the same typology and no pack has to be
+    # rewritten to keep working. Drop an alias only once no pack still uses it
+    # (`urban.yaml`, `urban_v2*.yaml`, `standalone.yaml` and `downtown_city.yaml`
+    # are all still on the legacy names; `urban_v3.yaml` is on the new ones).
     typologies:
-      rowhouse:
+      townhouse:
         rank: 0
-        pools: [rowhouse]
+        pools: [townhouse, rowhouse]
         morphology: terrace     # party-wall runs along the block's long faces
         facing_offset_deg: 0.0  # EYEBALL THIS: if the stoops face the back
                                 # yards, set 180
@@ -637,6 +676,42 @@ layout:
         run_median_m: 45.0
         run_sigma: 0.70
         run_gap_m: [3.0, 9.0]
+      lowrise:
+        # FRACTIONAL ON PURPOSE. `rank` is not an index — `_AreaMap._ladder`
+        # reads the DIFFERENCE between two neighbouring ranks and forbids a
+        # jump greater than 1.0, inserting the nearest intermediate typology
+        # where the gap is too big. Renumbering townhouse/midrise/highrise to
+        # 0/2/3 to make room here would therefore have made townhouse and
+        # midrise non-adjacent — a pairing that has always been legal — and
+        # wedged a lowrise between them in every scene, including scenes built
+        # from packs with no lowrise stock at all. 0.5 leaves every existing
+        # rank difference exactly as it was and gives lowrise both of its
+        # neighbours for free.
+        rank: 0.5
+        pools: [lowrise]
+        morphology: pack
+        # THE LOW, WIDE BAND — what separates it from `townhouse` is FOOTPRINT,
+        # not height. MEASURED over urban_v3's 19 lowrise assets: height p50
+        # 13.0 m (8.5-18.8), footprint p50 39.7 m and up to 72.0 m, against
+        # townhouse's 14.2 m p50 height on a 21.1 m footprint. So the two sit
+        # at the same storey count and are told apart by plan: a terrace is
+        # narrow and deep and comes in runs, a lowrise is a single wide slab —
+        # the strip retail, workshops and small industrial stock a city has
+        # between its terraces and its mid-rise.
+        #
+        # Consequently `pack`, not `terrace`: these have four modelled
+        # elevations and no party walls, so laying them in runs would butt
+        # windowed flanks into each other.
+        perimeter_depth_m: 40.0        # clears the 72 m deepest with room to
+                                       # shuffle; see midrise's note
+        height_median_m: 13.0          # MEASURED p50 13.0 m
+        height_sigma: 0.25             # tight: the whole band is 8.5-18.8 m
+        # Has to hold a 72 m asset plus block_inset (2 m per side), so the
+        # floor cannot go below ~76 m outer and still take the largest of
+        # them; the top stops short of midrise's 80-115 m so the two bands
+        # are distinguishable to the subdivider rather than interleaved.
+        block_short_m: [55.0, 90.0]
+        block_long_m: [135.0, 200.0]
       midrise:
         rank: 1
         pools: [midrise]
@@ -652,9 +727,9 @@ layout:
         height_sigma: 0.45
         block_short_m: [80.0, 115.0]   # MEASURED 81 / 96 / 115 m
         block_long_m: [135.0, 200.0]   # MEASURED 136 / 189 / 202 m
-      tower:
+      highrise:
         rank: 2
-        pools: [tower]
+        pools: [highrise, tower]
         morphology: pack
         # Towers are 50-96 m in plan, so the band has to clear the largest of
         # them or _perimeter_rects falls back to the whole block anyway.
@@ -699,18 +774,36 @@ disaster:
   destroyed_fraction: 0.0    # 0..1 — pick weight for usds.buildings.destroyed art,
                              # with a debris field around it (debris below)
 
-  debris:                    # scattered around each destroyed building
-    piles_per_building: [0, 0]   # [min, max] — rubble piles hugging the ruin
-                                 # (overlap with building/road is fine)
-    pile_max_offset_m: 3.0       # m — max pile offset beyond the footprint edge
-    pieces_per_building: [0, 0]  # [min, max] — smaller fragments just past the
-                                 # footprint; physics-settled like the toppled cars
-    pieces_scatter_m: 6.0        # m — max fragment distance beyond the footprint
+  debris:                    # rubble every damaged building leaves around it
+    # AN AMOUNT, NOT A COUNT. `shed_m3_per_m` is how many cubic metres of loose
+    # rubble a building that came down completely leaves for each metre of its
+    # own perimeter. Multiply, scale by how much actually fell, and pieces are
+    # drawn until that many cubic metres are spent — so a pool of bricks yields
+    # many and a pool of floor slabs yields few. The count knobs this replaced
+    # said neither. `spread_m` is NOT part of the budget: a windstorm throws
+    # the same material further, not more of it.
+    #
+    # WHO PLACES IT depends on how the building was damaged: a building the
+    # cutter reached sheds its debris in the damage phase, from its own report
+    # (`disaster/debris.py`), and a baked archetype carries it inside the USD.
+    # `disaster_stage` places it only for the buildings no cutter reached.
+    shed_m3_per_m: 0.0           # m3 per metre of building perimeter, at
+                                 # total collapse. 0 = no debris
+    spread_m: 6.0                # m — how far past the footprint edge it
+                                 # reaches, at total collapse
+    pile_share: 0.55             # 0..1 — of that volume, how much is laid as
+                                 # mounds rather than as single pieces
+    max_per_building: 200        # cap on the DRAW, not on the amount: the
+                                 # scene's ceiling is prim count, not volume
+    damaged_debris_scale: 0.45   # 0..1 — what a building the cutter never
+                                 # reached sheds when its fate was `damaged`
+                                 # rather than `destroyed`. The one place a
+                                 # fate still decides the amount, because a
+                                 # swapped ruin has no report to read
     tilt_chance: 0.0             # 0..1 — destroyed ruins also lean: slight
                                  # tilt + sink, rubble piled on the caved-in side
     tilt_deg: [2, 6]             # [min, max] deg — lean angle (roll and pitch)
     sink_m: [0.4, 1.2]           # [min, max] m — how far a leaning ruin sinks
-    lean_piles: [2, 3]           # [min, max] — extra piles at the overhanging base
 
   # Aftermath (steps 4-5) — street-level damage.
   streetlights_toppled_fraction: 0.0    # 0..1 — poles snapped flat, random heading
@@ -1090,7 +1183,7 @@ detail:
 # WHO is in the finished scene to be found, and where. Placed at load time by
 # targets.py — NOT baked into the scene USD, so one baked city can be
 # re-populated with a different `seed` below and searched again. Each target is
-# written out with its cohort, pose and visibility class (targets.json + prim
+# written out with its cohort, pose and visibility class (humans.json + prim
 # customData), which is the ground truth a search run is scored against.
 #
 # The cohort model, and the literature it comes from, is documented in

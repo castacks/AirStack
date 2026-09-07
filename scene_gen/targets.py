@@ -7,7 +7,7 @@ one baked city can be re-rolled with a different `targets.seed` and searched
 again — which is the whole point of having ground truth at all.
 
     survey(...)  ──▶  sample_targets(...)  ──▶  place(stage, ...)
-    what is in            WHO is where           prims, labels, targets.json
+    what is in            WHO is where           prims, labels, humans.json
     the scene             (pure Python)
 
 `sample_targets` is pure: no USD, no stage, no Isaac. That is what lets
@@ -62,6 +62,32 @@ buildings — hands its share to the outdoor cohorts rather than special-casing
 severity. So a severity sweep moves the MIX without moving the population: the
 same N people are somewhere in every scene of the sweep, which is what makes
 "how many did the search find" comparable across it.
+
+WHAT IT WRITES, AND WHY THE FORMAT IS NOT OURS
+----------------------------------------------
+`humans.json`, in `disaster/people.py:write_records`'s envelope, field for
+field. That is a deliberate refusal to design one:
+
+    {"schema": "airstack.people/1", "count": N, "alive": N,
+     "by_scenario": {...}, "meta": {...},
+     "people": [{"id": "p0000", "scenario": ..., "group": ..., "usd": ...,
+                 "x": ..., "y": ..., "z": ..., "yaw": ..., "pose": ...,
+                 "alive": ..., "in_vehicle": ..., "nearest_house": ...}, ...]}
+
+The wildfire, tornado and urban-fire planners all write that file. One reader
+(`simulation/isaac-sim/utils/scene_annotations.people_records`) turns any of
+them into `class: "person"` boxes for the annotation files the GCS draws and
+the search scorer reads — so a baseline flies an earthquake scene without
+knowing it is one, and a severity or disaster sweep is scored by one harness.
+A field renamed here is a field renamed for every disaster in the set; a row
+that calls `x` something else scores as nobody being there. `to_records` is
+the mapping and carries the per-field argument, including the one place we
+follow the CONSUMER rather than the wildfire planner (`z` is the support
+surface, with the authored prim height beside it as `z_prim`).
+
+Our own columns ride along on each row — `cohort`, `visibility`, `lying`,
+`damage`, `findability` — because every reader ignores keys it does not want,
+and "was this person findable at all" is the denominator a recall number needs.
 
 DETERMINISM
 -----------
@@ -137,6 +163,11 @@ DEFAULTS = {
     "count_clamp": [4, 60],
     "seed": None,
     "occupancy": "day",
+    # 0.0 = everybody alive, and that is a dataset decision rather than an
+    # oversight: this set is about FINDING LIVE PEOPLE, and a body is a
+    # different labelling problem with different confusers. The knob is here so
+    # the other dataset is one config line — see `_apply_casualties`.
+    "casualty_share": 0.0,
     "owns_humans": False,
     "cohorts": {},
     "bury_frac": [0.3, 0.8],
@@ -257,6 +288,14 @@ def survey_from_placements(placements, layout=None, resolver=None,
     # came back as a picture of the inside of the rubble.
     debris = []
     for p in placements or []:
+        # A BUILDING CAN CARRY ITS OWN. Debris shed during the damage phase is
+        # baked inside the archetype USD (`archetypes.bake.Baker._shed`), so it
+        # is not a placement of its own and the loop below would never see it —
+        # what the building carries instead is how far it reaches.
+        if p.get("_debris_r_m"):
+            debris.append({"x": float(p.get("x_m", 0.0)),
+                           "y": float(p.get("y_m", 0.0)),
+                           "r": float(p["_debris_r_m"]), "z": 0.0})
         if p.get("category") not in _RUBBLE_CATS:
             continue
         w, h, z = _footprint(p, resolver, "debris")
@@ -899,8 +938,13 @@ def sample_targets(survey: dict, config: dict, rng=None) -> list:
 
     min_sep = float(cfg.get("min_separation_m", 1.5))
     out: list = []
+    # GROUPS, because a group is what a drone flies to. 60 people at 30
+    # locations is a different search from 60 at 8, and a scorer that counts
+    # only heads cannot tell them apart. A pure counter — it draws nothing, so
+    # threading it through changes no placement.
+    gid = [0]
 
-    def _emit(cohort, spot) -> bool:
+    def _emit(cohort, spot, group) -> bool:
         x, y, extra = spot
         # Under a pile is where the TRAPPED are, and nobody else — see
         # `_in_debris`. Checked here rather than per sampler so a cohort added
@@ -914,6 +958,10 @@ def sample_targets(survey: dict, config: dict, rng=None) -> list:
         v = {
             "id": len(out),
             "cohort": cohort,
+            "group": int(group),
+            # Everyone lives unless `casualty_share` says otherwise — see
+            # `_apply_casualties`. This set is about finding LIVE people.
+            "alive": True,
             "visibility": _pick(rng, _VISIBILITY[cohort]),
             "pose": pose,
             "lying": pose in LYING,
@@ -940,7 +988,9 @@ def sample_targets(survey: dict, config: dict, rng=None) -> list:
             spot = samplers[cohort]()
             if spot is None:
                 continue
-            if not _emit(cohort, spot):
+            gid[0] += 1
+            g = gid[0]
+            if not _emit(cohort, spot, g):
                 continue
             placed += 1
             if not clustered:
@@ -956,7 +1006,7 @@ def sample_targets(survey: dict, config: dict, rng=None) -> list:
                                       survey["buildings"]) < float(
                                           cfg.get("clearance_m", 8.0)):
                     continue
-                if _emit(cohort, mate):
+                if _emit(cohort, mate, g):
                     placed += 1
         return placed
 
@@ -973,9 +1023,44 @@ def sample_targets(survey: dict, config: dict, rng=None) -> list:
         for cohort in live:
             _fill(cohort, share.get(cohort, 0))
 
-    for i, v in enumerate(out):          # ids are dense after the fallbacks
+    # DENSE ids AND dense group numbers. The counter above ticks on every
+    # candidate that got as far as `_emit`, and `_emit` refuses plenty
+    # (separation, debris), so the raw numbers run into the hundreds for sixty
+    # people — a group id that looks like a coordinate is one somebody will
+    # read as one. Renumbered in first-appearance order, which keeps clusters
+    # together and makes "43 groups" legible in the file itself.
+    seen: dict = {}
+    for i, v in enumerate(out):
         v["id"] = i
+        g = v.get("group")
+        if g not in seen:
+            seen[g] = len(seen)
+        v["group"] = seen[g]
+    _apply_casualties(out, cfg, rng)
     return out
+
+
+def _apply_casualties(victims: list, cfg: dict, rng) -> int:
+    """Mark `casualty_share` of the population dead. Returns the count.
+
+    A SEPARATE PASS AFTER PLACEMENT, and that is the whole reason it is not
+    folded into `_emit`: a per-person draw inside the sampler would take values
+    out of the shared stream and move every victim planned after it, so turning
+    casualties on would silently relay the entire population. Here the default
+    (0.0) draws NOTHING at all, so the stream is bit-identical to before this
+    existed.
+
+    The flag only; no pose is changed. Our lying poses (`prone`, `supine`,
+    `fetal`) already are the casualty postures — a victim is `alive: false`
+    because the ground truth says so, not because they look different.
+    """
+    share = float(cfg.get("casualty_share", 0.0) or 0.0)
+    if share <= 0.0 or not victims:
+        return 0
+    n = int(round(share * len(victims)))
+    for v in rng.sample(victims, min(n, len(victims))):
+        v["alive"] = False
+    return n
 
 
 def summary(victims: list) -> dict:
@@ -1071,6 +1156,12 @@ def to_placements(victims: list, config: dict, resolver, rng) -> list:
             "roll_deg": roll, "pitch_deg": 0.0,
             "scale": sc, "category": "victim", "axis_up": au,
             "pose": v["pose"],
+            # THE LINK BACK TO THE ROW. `apply_placements` stamps the prim path
+            # onto this dict, and `place` copies it onto the victim — so with
+            # these two the mapping is bidirectional and a prim selected in the
+            # viewport names its own ground-truth record.
+            "people_id": "p%04d" % int(v["id"]),
+            "people_scenario": v["cohort"],
         }
         out.append(p)
         v["z"] = round(float(z), 3)
@@ -1182,25 +1273,131 @@ def _label(prim, cls: str, cohort: str) -> None:
             pass
 
 
-def write_ground_truth(victims: list, config: dict, path: str) -> str:
-    """The ground-truth manifest. Returns the path written, or ""."""
+def _nearest_building(x, y, buildings, max_m: float = 120.0):
+    """Prim path of the nearest building within *max_m*, else None."""
+    best, hit = max_m * max_m, None
+    for b in buildings or ():
+        d = (float(b["x"]) - x) ** 2 + (float(b["y"]) - y) ** 2
+        if d < best:
+            best, hit = d, b.get("prim_path")
+    # "" is what an UNAUTHORED placement carries — the offline gate builds the
+    # scene in Python and never writes a prim. An empty string in the ground
+    # truth reads as "a building with no name"; None reads as "none found",
+    # which is the truth.
+    return hit or None
+
+
+def to_records(victims: list, config: dict, survey: dict = None) -> list:
+    """Victims as `humans.json` RECORDS — the interchange format.
+
+    THE FORMAT IS NOT OURS AND IS NOT NEGOTIABLE. It is the one the rest of the
+    stack already reads: `utils/scene_annotations.people_records` pulls
+    `doc["people"]`, `boxes_from_people` reads `x`/`y`/`z` off each row and
+    emits one `class: "person"` box per person into the annotation files the
+    GCS draws and the search scorer reads. A row that renames a field is a row
+    that scores as nobody being there. The field list is
+    `disaster/people.py:_Plan.add_person`'s, and it is deliberately copied
+    rather than adapted:
+
+        id scenario group usd x y z yaw pose alive in_vehicle nearest_house
+
+    WHAT WE ADD, and every one of these is a key an existing reader ignores:
+    `cohort` (the same string as `scenario`, under the name the earthquake
+    model uses for it), `visibility` and `lying` and `damage` from the sampler,
+    `findability` from the stage check, `prim_path`, and `z_prim`.
+
+    `z` IS THE SUPPORT SURFACE, NOT THE PRIM Z, which is what
+    `boxes_from_people` documents ("z in a record is the ground the person
+    stands on, so the box centre is half a body above it") and what
+    `fire_people.to_placements` writes. The wildfire planner writes the prim z
+    into the same field, which agrees for a stander (`base` is ~0) and does not
+    for anyone lying, seated or buried — the reason `tools/people_float_audit.py`
+    exists over there. We follow the CONSUMER, and keep the authored prim
+    height beside it as `z_prim` so nothing is lost: for a trapped victim `z` is
+    the top of the pile a searcher would be looking at and `z_prim` is where the
+    body actually is, and those are genuinely two different questions.
+    """
+    buildings = (survey or {}).get("buildings") or ()
+    out = []
+    for v in victims:
+        z_prim = float(v.get("z", 0.0))
+        rec = {
+            "id": "p%04d" % int(v["id"]),
+            "scenario": v["cohort"],
+            "group": int(v.get("group", v["id"])),
+            "usd": v.get("asset", ""),
+            "x": round(float(v["x"]), 3),
+            "y": round(float(v["y"]), 3),
+            "z": round(float(v.get("surface_z", z_prim)), 3),
+            "yaw": round(float(v.get("yaw_deg", 0.0)), 2),
+            "pose": v["pose"],
+            "alive": bool(v.get("alive", True)),
+            # The vehicle a seated victim is inside, by prim path. Same role as
+            # the wildfire planner's car id: it says this person is behind
+            # glass, which is why they are `partial` and not `open`.
+            "in_vehicle": v.get("vehicle"),
+            "nearest_house": (v.get("building")
+                              or _nearest_building(float(v["x"]),
+                                                   float(v["y"]), buildings)
+                              or None),
+            # ---- ours, ignored by every reader that does not want it -------
+            "cohort": v["cohort"],
+            "visibility": v.get("visibility"),
+            "lying": bool(v.get("lying", False)),
+            "damage": v.get("damage"),
+            "z_prim": round(z_prim, 3),
+        }
+        for k in ("prim_path", "findability", "bury_frac", "level"):
+            if v.get(k) is not None:
+                rec[k] = v[k]
+        out.append(rec)
+    return out
+
+
+def write_ground_truth(victims: list, config: dict, path: str,
+                       survey: dict = None) -> str:
+    """Write `humans.json`. Returns the path written, or "".
+
+    THE ENVELOPE IS `disaster/people.py:write_records`'s, verbatim: an OBJECT
+    with a `people` array rather than a bare array, so the seed and the tally
+    travel with the labels — a ground-truth file that cannot say which run
+    produced it is a file somebody will mix up with another run's. `meta`
+    carries what an earthquake run is reproducible from, in place of the
+    wildfire's burn clock.
+    """
     dis = (config or {}).get("disaster") or {}
     cfg = settings(config)
+    recs = to_records(victims, config, survey)
+    tally = {}
+    for r in recs:
+        tally[r["scenario"]] = tally.get(r["scenario"], 0) + 1
     doc = {
-        "config": config.get("_name", ""),
-        "locale": config.get("locale", ""),
-        "seed": config.get("seed"),
-        "target_seed": cfg.get("seed") if cfg.get("seed") is not None
-                       else int(config.get("seed", 0)) + SEED_OFFSET,
-        "disaster": {"type": dis.get("type"), "severity": dis.get("severity")},
-        "occupancy": cfg.get("occupancy"),
-        "summary": summary(victims),
-        "victims": victims,
+        "schema": "airstack.people/1",
+        "count": len(recs),
+        "alive": sum(1 for r in recs if r.get("alive")),
+        "by_scenario": tally,
+        # OURS, and the reason it is here rather than only in the console line:
+        # "how many were findable at all" is the denominator a recall number
+        # needs, and a file that carries the positions without it invites
+        # scoring against people no camera could have seen.
+        "by_visibility": summary(victims).get("by_visibility", {}),
+        "meta": {
+            "seed": config.get("seed"),
+            "scene_config": config.get("_name", ""),
+            "locale": config.get("locale", ""),
+            "target_seed": cfg.get("seed") if cfg.get("seed") is not None
+                           else int(config.get("seed", 0)) + SEED_OFFSET,
+            "disaster_type": dis.get("type"),
+            "severity": dis.get("severity"),
+            "occupancy": cfg.get("occupancy"),
+            "cohorts": dict(cfg.get("cohorts") or {}),
+        },
+        "people": recs,
     }
     try:
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
         with open(path, "w") as fh:
-            json.dump(doc, fh, indent=2, sort_keys=False)
+            json.dump(doc, fh, indent=1, sort_keys=False)
         return path
     except OSError as exc:
         print(f"[targets] could not write ground truth: {exc}")
@@ -1208,18 +1405,30 @@ def write_ground_truth(victims: list, config: dict, path: str) -> str:
 
 
 def default_gt_path(config: dict) -> str:
-    """Beside the baked scene when there is one, else in `_plans/`."""
+    """Beside the baked scene when there is one, else in `_plans/`.
+
+    `PEOPLE_JSON` overrides, and the basename is `humans*.json` — both because
+    that is what the wildfire side named it and what every consumer and skill
+    refers to. Written with a plain `open()`, so it must be a FILESYSTEM path
+    even when the scene came off Nucleus.
+    """
+    env = os.environ.get("PEOPLE_JSON", "").strip()
+    if env:
+        return env
     here = os.path.dirname(os.path.abspath(__file__))
+    seed = config.get("seed")
     try:
         import scene_cache
         cached = scene_cache.SceneCache().get(config)
         if cached:
-            return os.path.join(os.path.dirname(cached), "targets.json")
+            return os.path.join(os.path.dirname(cached), "humans.json")
     except Exception:
         pass
     name = str(config.get("_name") or
                (config.get("disaster") or {}).get("type") or "scene")
-    return os.path.join(here, "_plans", f"{os.path.splitext(name)[0]}_targets.json")
+    return os.path.join(here, "_plans",
+                        "{0}_humans_{1}.json".format(
+                            os.path.splitext(name)[0], seed))
 
 
 def _layout_for(config: dict, resolver) -> dict:
@@ -1316,7 +1525,8 @@ def place(stage, config: dict, placements=None, layout=None, resolver=None,
         findability.check_placed(stage, victims, scene_scale_factor,
                                  str(config.get("_name") or ""))
 
-    gt = write_ground_truth(victims, config, out_path or default_gt_path(config))
+    gt = write_ground_truth(victims, config,
+                            out_path or default_gt_path(config), survey=sv)
     s = summary(victims)
     print(f"[targets] {s['total']} target(s) under {parent}: "
           f"{s['by_cohort']} / visibility {s['by_visibility']} "

@@ -3,7 +3,7 @@
  "preset": "suburb",
  "seed": 42,
  "severity": 0.0,
- "n_placements": 51351,
+ "n_placements": 52430,
  "counts": {
   "bench": 36,
   "car": 776,
@@ -15,15 +15,16 @@
   "play_structure": 6,
   "rock": 14,
   "sidewalk": 16240,
-  "streetlight": 438,
+  "sign": 1087,
+  "streetlight": 430,
   "trail": 162,
   "trash_can": 14,
   "tree": 10551
  },
  "digests": {
   "geometry": "f07f29fada9bf203",
-  "layout": "2b4bc2eebff4ac8f",
-  "full": "19aa385539544096"
+  "layout": "a3149ff1d5bb721e",
+  "full": "d982954ec3411681"
  },
  "geometry": {
   "region": [

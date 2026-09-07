@@ -1,0 +1,361 @@
+# ASSET SET: standalone — the unified urban set, built from repo-local assets.
+#
+# `extends: shared` and NOTHING ELSE. `urban` reached its buildings through a
+# three-deep chain (urban <- urban_nucleus <- shared) and drew every building
+# and every piece of rubble off Nucleus; this set flattens that chain into one
+# file whose buildings, ruins, debris and extra cars are all files under
+# `scene_gen/assets/standalone/` (plus the three DowntownCity buildings that
+# were named objects in their source, under `assets/downtowncity/`). Nothing
+# here needs the Nucleus server except what `shared.yaml` itself pulls in.
+#
+# WHERE THE ASSETS CAME FROM — `~/coasei/new_assets`, converted 2026-08-26 with
+# `tools/extract_objects_to_usd.py` (one folder per asset so sources that reuse
+# texture file names cannot clobber each other). Every USD is metres, Z-up,
+# footprint centred on the origin, base at z = 0, so no entry below needs a
+# `scale` or an `axis-up`. Orientation is BAKED too: cars face +X (the
+# `car_front: 0` convention), the street-wall blocks have their shopfront on
+# +X, and the terrace houses have their door on -X — which is what
+# `districts._lay_terrace` turns toward the street at `facing_offset_deg: 0`.
+#
+# POOL LAYOUT. `buildings.intact` and `buildings.destroyed` are each split into
+# the three typology sub-pools, which is the structure the generator reads:
+# `build_city` packs from `intact` flattened, `districts` rezones from
+# `intact.<typology>`, and the disaster fate pass swaps a ruin in from
+# `destroyed` flattened, footprint-checked, whichever sub-pool it sits in.
+#
+# `material:` is the CONSTRUCTION, judged by eye from renders of every asset
+# (see `tools/tag_asset_materials.py` for the vocabulary): on a building it is
+# the cladding a break exposes a structure behind, on a piece of rubble it is
+# what the piece came off — `disaster/debris.py` only gives a building rubble
+# its own construction could have shed.
+#
+# AUTHORED RUINS ARE FINISHED. `destroyed.*` is post-apocalyptic art that
+# already reads as collapsed: the fate pass swaps it in as-is (and drops
+# `_mesh_damage`, so no cutter touches it). They are NOT to be baked per
+# disaster type; the one thing they still owe is a single simple debris bake
+# for the ground around them — a follow-up, not done here.
+#
+# EXCLUDED, with reasons, at the bottom of each section.
+#
+# SUPERSEDED as the everything-pack by `urban_v2.yaml`, which unifies this
+# file with `urban.yaml`'s Nucleus/AEC content; this stays as the repo-local
+# subset (no Nucleus buildings at all).
+
+extends: shared
+
+# Category footprints when a measurement fails — copied from `urban.yaml`.
+fallback_sizes:
+  street_tree:   [8.0, 8.0, 9.5]
+  traffic_light: [1.65, 8.01, 10.83]
+  trash_can:     [0.6, 0.6, 0.95]
+  phone_booth:   [1.0, 1.0, 2.3]
+  traffic_cone:  [0.4, 0.4, 0.7]
+  billboard:     [3.0, 0.3, 4.0]
+  newspaper_box: [0.6, 0.5, 1.2]
+  manhole:       [0.7, 0.7, 0.05]
+  storm_drain:   [0.6, 0.4, 0.05]
+  house:         [30.0, 20.0, 24.0]
+  planter_fence: [1.5, 1.5, 0.73]
+  cafe_set:      [2.43, 2.42, 1.01]
+  mailbox:       [0.65, 0.52, 1.34]
+  bollard:       [0.25, 0.25, 0.9]
+  bike_lane_delineator: [0.11, 0.11, 1.0]
+  parking_meter: [0.2, 0.2, 1.3]
+  bike_rack:     [1.0, 0.1, 0.8]
+  sign:          [0.4, 0.08, 2.4]
+  utility_pole:  [0.35, 0.35, 11.0]
+  dumpster:      [1.8, 1.2, 1.3]
+  debris_pile:   [3.0, 3.0, 0.5]
+  debris:        [2.0, 2.0, 0.5]
+
+usds:
+  buildings:
+    # Keyed by TYPOLOGY; the CONDITION is a tag on the entry — see the same
+    # section in `urban_v2.yaml` for why, and `scene_generator.building_entries`
+    # for the reader (which still understands the old condition-keyed layout).
+
+    tower:
+      # --- intact
+      # Cream precast panels in a grid, blue ribbon glazing, on a podium with
+      # a multi-storey car park. From the ASCII FBX (Blender cannot read
+      # those; converted via FBX2glTF first). Untextured, material colours only.
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/intact/tower/office_tower/office_tower.usdc", material: concrete, tags: [intact]}   # 74.9 x 36.8 x 93.3 m, 65k tris
+      # The one DowntownCity tower that was a named object in its source.
+      # Glazing reads as the envelope — see `downtown_city.yaml` for the
+      # packer note about why a slender supertall places rarely.
+      - {usd: "airstack://scene_gen/assets/downtowncity/Amar_Tower.usdc", material: glass, tags: [intact]}   # 42.3 x 48.8 x 231.4 m, 502k
+      # --- added 2026-08-26 (new_assets drop 2)
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/intact/tower/stepped_tower/stepped_tower.usdc", material: concrete, tags: [intact]}   # 65 x 78 x 81 m — stepped low-poly office cluster (inches, x0.0254), 24 storeys
+      # --- added 2026-08-26 (new_assets drop 2): the BlackthornProd low-poly
+      # city set, split on its object names. EXTREMELY cheap — 60-632 tris
+      # each against 3-500k for the rest of the pool — so these are the
+      # assets to lean on when a map needs many towers. Materials judged
+      # from the gallery heroes.
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/intact/tower/city_tower_01/city_tower_01.usdc", material: concrete, tags: [intact]}   # 39.9 x 41.2 x 125.0 m
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/intact/tower/city_tower_02/city_tower_02.usdc", material: concrete, tags: [intact]}   # 60.7 x 60.1 x 234.5 m
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/intact/tower/city_tower_03/city_tower_03.usdc", material: concrete, tags: [intact]}   # 60.7 x 63.6 x 234.5 m
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/intact/tower/city_tower_04/city_tower_04.usdc", material: concrete, tags: [intact]}   # 60.7 x 75.4 x 270.6 m
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/intact/tower/city_tower_05/city_tower_05.usdc", material: brick, tags: [intact]}      # 148.9 x 60.1 x 140.1 m — salmon brick slab, not concrete (gallery hero)
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/intact/tower/city_tower_06/city_tower_06.usdc", material: concrete, tags: [intact]}   # 148.9 x 60.1 x 185.1 m
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/intact/tower/city_tower_07/city_tower_07.usdc", material: concrete, tags: [intact]}   # 81.3 x 165.1 x 234.5 m
+      # --- added 2026-08-26 (new_assets drop 3)
+      # EXCLUDED 2026-08-26 after trying to fix it. NOT a conversion fault: every
+      # material in the converted USD matches the source byte for byte, and the
+      # per-face bindings survive as GeomSubsets. The SOURCE is the problem — it
+      # ships three texture files, all `Plaster_*`, and 53% of its surface is a
+      # flat `_White` material (authored at metallic 1.0, roughness 1.0) with
+      # another 18% on a material NAMED `Ceramic_Black_Tiles_001` but authored
+      # pure white. Repairing both (white -> 0.86 non-metallic, tiles -> near
+      # black) is done in the asset on disk and still leaves a white clay model:
+      # the balcony slabs dominate the silhouette and the dark glazing reads as
+      # thin lines. Against a pack of photo-textured buildings it is a white
+      # blob. Re-enable if a white modernist block is wanted.
+      # - {usd: "airstack://scene_gen/assets/standalone/buildings/intact/tower/glass_curved_tower/glass_curved_tower.usdc", material: concrete, tags: [intact]}  # 55.6 x 54.8 x 44.1 m — curved CONCRETE balcony slabs with glazing between (the name says glass, the structure is not); source was 2.8M tris, decimated to 200k
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/intact/tower/slab_tower/slab_tower.usdc", material: concrete, tags: [intact]}                  # 48.7 x 64.6 x 83.3 m — 20-storey white slab over a canopied podium, 310 TRIS; the cheapest tall building in the pack
+      # --- added 2026-08-26 (new_assets drop 4)
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/intact/tower/podium_highrise/podium_highrise.usdc", material: concrete, tags: [intact]}  # 26.7 x 44.0 x 82.5 m, 122k — slender white tower on a wide dark podium, glazed balcony stack and a signed entrance on +X
+      # --- destroyed
+      # Six ruined high-rises from `post_apocalyptic_buildings.usdz`
+      # (scale x28 -> 48-70 m, ~3.3 m storeys): sheared tops, exposed
+      # floor plates, missing bays. Three read as painted concrete frames,
+      # three as dark steel frames with the glazing gone.
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/destroyed/tower/ruin_tower_01/ruin_tower_01.usdc", material: steel, tags: [destroyed]}
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/destroyed/tower/ruin_tower_02/ruin_tower_02.usdc", material: steel, tags: [destroyed]}
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/destroyed/tower/ruin_tower_03/ruin_tower_03.usdc", material: steel, tags: [destroyed]}
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/destroyed/tower/ruin_tower_04/ruin_tower_04.usdc", material: steel, tags: [destroyed]}
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/destroyed/tower/ruin_tower_05/ruin_tower_05.usdc", material: steel, tags: [destroyed]}
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/destroyed/tower/ruin_tower_06/ruin_tower_06.usdc", material: steel, tags: [destroyed]}
+
+    midrise:
+      # --- intact
+      # Nine street-wall blocks from `buildings.usdz`: 3-7 storeys over a
+      # shopfront base, one detailed face (now +X) and plain brick party
+      # walls on the others. They are drawn as street-wall infill; the
+      # packer does not know which face is the street, so the shopfront
+      # lands where it lands.
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/intact/midrise/block_01/block_01.usdc", material: concrete, tags: [intact]}  # grey precast panels, punched windows on all faces
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/intact/midrise/block_02/block_02.usdc", material: brick, tags: [intact]}     # red brick, rendered top floor, windows on all faces
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/intact/midrise/block_03/block_03.usdc", material: brick, tags: [intact]}     # brick, windows on the front only
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/intact/midrise/block_04/block_04.usdc", material: brick, tags: [intact]}     # red brick, big industrial windows all round
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/intact/midrise/block_05/block_05.usdc", material: brick, tags: [intact]}     # brick, front only
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/intact/midrise/block_06/block_06.usdc", material: concrete, tags: [intact]}  # rendered stone facade, windows all round
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/intact/midrise/block_07/block_07.usdc", material: brick, tags: [intact]}     # brown brick, windows all round
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/intact/midrise/block_08/block_08.usdc", material: concrete, tags: [intact]}  # white render, front only
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/intact/midrise/block_09/block_09.usdc", material: brick, tags: [intact]}     # red brick, front only
+      # The two other DowntownCity buildings that were named objects.
+      - {usd: "airstack://scene_gen/assets/downtowncity/Building_12.usdc", material: concrete, tags: [intact]}  # 44.3 x 18.7 x 38.9 m,  87k — pilaster order
+      - {usd: "airstack://scene_gen/assets/downtowncity/Building_11.usdc", material: concrete, tags: [intact]}  # 30.9 x 35.4 x 32.6 m, 222k — mansard, dormers
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/destroyed/midrise/abandoned_brick_building/abandoned_brick_building.usdc", material: brick, tags: [intact]}   # 15.4 x 18.6 x 21.3 m — 7-storey brick factory block; weathered but STANDING, so it is intact art (user, 2026-08-26)
+      # --- added 2026-08-26 (new_assets drop 2)
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/intact/midrise/japanese_building/japanese_building.usdc", material: concrete, tags: [intact]}   # 13.8 x 30.9 x 28.3 m — 8-storey concrete block, external stairs, shopfront on +X
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/intact/midrise/mini_auto_service/mini_auto_service.usdc", material: concrete, tags: [intact]}   # 15.0 x 26.3 x  8.5 m — single-storey auto-service showroom, sign on +X
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/intact/midrise/federal_bureau/federal_bureau.usdc", material: stone, tags: [intact]}            # 28.0 x 58.2 x 21.1 m — 7-storey stone U-plan office (x0.1), flat facade on +X
+
+    rowhouse:
+      # --- intact
+      # Five AI-generated (Tripo, "stylized_house_tier_i") three-storey
+      # rendered-concrete houses with a rooftop parapet, one detailed face
+      # and plain sides — made to stand shoulder to shoulder, which is what
+      # the terrace morphology does with them. Scaled to ~10.5-11 m eaves
+      # and decimated 1.5M -> 150k tris each. Note the depth: 4-9 m, so the
+      # terrace band in the presets is set for shallow pairs, not the 21 m
+      # brownstones `default.yaml` was tuned on.
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/intact/rowhouse/house_01/house_01.usdc", material: concrete, tags: [intact]}  # cream render
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/intact/rowhouse/house_02/house_02.usdc", material: concrete, tags: [intact]}  # ochre, barred windows
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/intact/rowhouse/house_03/house_03.usdc", material: concrete, tags: [intact]}  # ochre, roof railing, the shallowest
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/intact/rowhouse/house_04/house_04.usdc", material: concrete, tags: [intact]}  # pink render over block
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/intact/rowhouse/house_05/house_05.usdc", material: concrete, tags: [intact]}  # tan, two-tone
+      # --- added 2026-08-26 (new_assets drop 2)
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/intact/rowhouse/old_brick_shop/old_brick_shop.usdc", material: brick, tags: [intact]}          #  5.9 x  7.1 x  9.5 m — three-storey brick corner shop with a boarded shopfront, door on -X (x0.0156: at a plain cm scale it came out 6.1 m, i.e. 2 m a storey)
+      - {usd: "airstack://scene_gen/assets/standalone/buildings/intact/rowhouse/graffiti_brick_house/graffiti_brick_house.usdc", material: brick, tags: [intact]}     #  8.4 x  7.2 x 12.3 m — 3-storey brick end-of-terrace, graffiti and boarded shopfront, door on -X (cm source, yawed 180)
+
+  debris:
+    # `debris3.FBX` and `debris.FBX` arrived with 3ds Max VRay materials and no
+    # maps, so every piece was black; they carry one flat colour each now.
+    pieces:
+      # slabs — floor-plate and wall fragments, 2-4.5 m
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/slab_01/slab_01.usdc", material: concrete}
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/slab_02/slab_02.usdc", material: concrete}
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/slab_03/slab_03.usdc", material: concrete}
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/slab_04/slab_04.usdc", material: concrete}
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/slab_05/slab_05.usdc", material: concrete}
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/slab_06/slab_06.usdc", material: concrete}
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/slab_07/slab_07.usdc", material: concrete}
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/slab_08/slab_08.usdc", material: concrete}
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/slab_09/slab_09.usdc", material: concrete}
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/slab_10/slab_10.usdc", material: concrete}
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/slab_11/slab_11.usdc", material: concrete}
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/slab_12/slab_12.usdc", material: concrete}
+      # chunks — ~1 m angular lumps
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/chunk_01/chunk_01.usdc", material: concrete}
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/chunk_02/chunk_02.usdc", material: concrete}
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/chunk_03/chunk_03.usdc", material: concrete}
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/chunk_04/chunk_04.usdc", material: concrete}
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/chunk_05/chunk_05.usdc", material: concrete}
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/chunk_06/chunk_06.usdc", material: concrete}
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/chunk_07/chunk_07.usdc", material: concrete}
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/chunk_08/chunk_08.usdc", material: concrete}
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/chunk_09/chunk_09.usdc", material: concrete}
+      # lumps — 0.2-0.4 m rubble, the brick-sized end of the range
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/lump_01/lump_01.usdc", material: concrete}
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/lump_02/lump_02.usdc", material: concrete}
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/lump_03/lump_03.usdc", material: concrete}
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/lump_04/lump_04.usdc", material: concrete}
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/lump_05/lump_05.usdc", material: concrete}
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/lump_06/lump_06.usdc", material: concrete}
+      # the steel the old sets never had: bent corrugated sheet and rebar
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/sheet_01/sheet_01.usdc", material: steel}
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/sheet_02/sheet_02.usdc", material: steel}
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/sheet_03/sheet_03.usdc", material: steel}
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/rebar_01/rebar_01.usdc", material: steel}
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/rebar_02/rebar_02.usdc", material: steel}
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/rebar_03/rebar_03.usdc", material: steel}
+      - {usd: "airstack://scene_gen/assets/standalone/debris/pieces/rebar_04/rebar_04.usdc", material: steel}
+    piles:
+      - {usd: "airstack://scene_gen/assets/standalone/debris/piles/concrete_rubble_pile/concrete_rubble_pile.usdc", material: concrete}  # Quixel, 2.7 x 2.2 x 0.2 m — a low spread, not a heap
+      - {usd: "airstack://scene_gen/assets/standalone/debris/piles/rocky_ground/rocky_ground.usdc", material: earth}                    # Quixel Nordic beach rocks, 3.7 x 3.6 x 0.5 m
+
+  # Appended to the shared cars, all facing +X, all metres.
+  cars+:
+    - "airstack://scene_gen/assets/standalone/cars/lowpoly_coupe/lowpoly_coupe.usdc"      # 4.6 m
+    - "airstack://scene_gen/assets/standalone/cars/lowpoly_pickup/lowpoly_pickup.usdc"    # 4.6 m
+    - "airstack://scene_gen/assets/standalone/cars/lowpoly_sedan/lowpoly_sedan.usdc"      # 4.6 m
+    - "airstack://scene_gen/assets/standalone/cars/lowpoly_wagon/lowpoly_wagon.usdc"      # 4.6 m
+    - "airstack://scene_gen/assets/standalone/cars/generic_sedan/generic_sedan.usdc"      # 5.0 m, as authored
+    - "airstack://scene_gen/assets/standalone/cars/red_car/red_car.usdc"                  # 4.4 m
+    - "airstack://scene_gen/assets/standalone/cars/delivery_van/delivery_van.usdc"        # 4.8 m, inch-authored source
+    # Sketchfab rig whose four wheels all sat at the rig origin; they were
+    # put on the axles by hand at conversion (`police_fix.py`, session notes).
+    - "airstack://scene_gen/assets/standalone/cars/police_car/police_car.usdc"            # 5.4 m
+    - "airstack://scene_gen/assets/standalone/cars/citybus/citybus.usdc"                  # 9.5 m transit bus, front on +X
+    # Burned-out wrecks: pristine scenes park them too, which reads as an
+    # abandoned car rather than a disaster — `cars_toppled_fraction` etc. do
+    # not know the difference. Flagged rather than excluded.
+    - "airstack://scene_gen/assets/standalone/cars/burned_car_01/burned_car_01.usdc"      # 4.8 m
+    - "airstack://scene_gen/assets/standalone/cars/burned_car_02/burned_car_02.usdc"      # 4.8 m
+
+  # ---- street furniture: the `urban.yaml` category table, copied so this set
+  # ---- stands alone. The measurements and choices are argued there.
+  tiles:
+    trail:
+      usd: "Downtown_West/Assets/ground_walkways/SM_ground_mod_walk_tile_a_4m.usd"
+      scale: 1.0
+    sidewalk:
+      usd: "ModernCityEnvironment01/Meshes/SM_GroundModule01.usd"
+      scale: 0.70
+  park_features:
+    - name: fountain
+      radius_m: 6.0
+      parts:
+        - "Downtown_West/Assets/props/prop_fountain/SM_prop_fountain_full.usd"
+        - "Downtown_West/VFX/Meshes/SM_fountain_water_bottom.usd"
+        - "Downtown_West/VFX/Meshes/SM_fountain_water_middle.usd"
+        - "Downtown_West/VFX/Meshes/SM_fountain_water_top.usd"
+  play_groups:
+    - name: swings_and_slide
+      radius_m: 9.0
+      parts:
+        - {usd: "CivilianArea/Assets/SM_PlaygroundSwings_02.usd", scale: 0.01, offset_m: [0.0, 0.0], yaw_deg: 0.0}
+        - {usd: "CivilianArea/Assets/SM_PlaygroundSlide_01.usd",  scale: 0.01, offset_m: [7.727, 2.071], yaw_deg: -95.0}
+  park_fences:
+    - usd: "Downtown_West/Assets/props/prop_park_railing/SM_prop_park_railing_rail_a.usd"
+      scale: 1.0
+      yaw-offset: 90.0
+  streetlights:
+    - usd: "Downtown_West/Assets/props/props_light_post/SM_lightpost_light_post_b.usd"
+      yaw-offset: 270.0
+  benches:
+    - {usd: "airstack://scene_gen/assets/aec/brownstone/Props/ParkBench01/ParkBench01.usd", scale: 0.01, tags: ["sidewalk"]}
+    - {usd: "Downtown_West/Assets/props/prop_bench_wood/SM_bench_wood_a.usd", tags: ["park"]}
+  trash_cans:
+    - "ModernCityEnvironment01/Meshes/SM_MLitterBin.usd"
+  fire_hydrants+:
+    - {usd: "airstack://scene_gen/assets/aec/brownstone/Props/Hydrant/Hydrant.usd", scale: 0.01}
+  bus_stops:
+    - {usd: "DownTown/Assets/BusStop.usd", scale: 0.01, yaw-offset: 180.0}
+  traffic_lights_mast:
+    - usd: "Downtown_West/Assets/props/props_streetlight/SM_light_streetlight_complete.usd"
+  traffic_lights_pole:
+    - usd: "ModernCityEnvironment01/Meshes/SM_Traffic_Lamp_001.usd"
+  traffic_lights:
+    - usd: "ModernCityEnvironment01/Meshes/SM_Traffic_Lamp_001.usd"
+  trees:
+    - {usd: "airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Shumard_Oak/Shumard_Oak.usd", scale: 0.01}
+    - {usd: "airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Black_Oak/Black_Oak.usd", scale: 0.01}
+    - {usd: "CityPark/Props/SM_Stump.prop.usd",    scale: 0.01, tags: ["stump"]}
+    - {usd: "CityPark/Props/SM_Stump_02.prop.usd", scale: 0.01, tags: ["stump"]}
+    - {usd: "CityPark/Props/SM_Stump_03.prop.usd", scale: 0.01, tags: ["stump"]}
+  rocks:
+    - {usd: "CityPark/Props/SM_Stone_04.prop.usd", scale: 0.0053}
+    - {usd: "CityPark/Props/SM_Stone_05.prop.usd", scale: 0.0083}
+    - {usd: "CityPark/Props/SM_Stone_08.prop.usd", scale: 0.0480}
+    - {usd: "CityPark/Props/SM_Stone_09.prop.usd", scale: 0.0394}
+    - "Downtown_West/Assets/props/prop_rocks/SM_rock_large_a_low.usd"
+    - "Downtown_West/Assets/props/prop_rocks/SM_rock_medium_a_low.usd"
+    - "Downtown_West/Assets/props/prop_rocks/SM_rock_medium_b_low.usd"
+  plants:
+    - "ModernCityEnvironment01/Meshes/SM_Grass.usd"
+    - "ModernCityEnvironment01/Meshes/SM_Grass_Flowers.usd"
+    - "ModernCityEnvironment01/Meshes/SM_Grass_Flowers1.usd"
+    - "ModernCityEnvironment01/Meshes/SM_Bush_1.usd"
+    - "ModernCityEnvironment01/Meshes/SM_Bush_2.usd"
+    - {usd: "DownTown/Assets/Plant_Red.usd",    scale: 0.01}
+    - {usd: "DownTown/Assets/Plant_Purple.usd", scale: 0.01}
+    - {usd: "DownTown/Assets/Plant_Pink.usd",   scale: 0.01}
+  street_trees:
+    - {usd: "airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Shumard_Oak/Shumard_Oak.usd", scale: 0.01}
+    - {usd: "airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/Douglas_Fir.usd", scale: 0.01}
+  planter_fences: []
+  mailboxes:
+    - {usd: "airstack://scene_gen/assets/aec/brownstone/Props/Mailbox/MailboxType01.usd", scale: 0.01}
+    - {usd: "airstack://scene_gen/assets/aec/brownstone/Props/Mailbox/MailboxType02.usd", scale: 0.01}
+  cafe_sets:
+    - {usd: "airstack://scene_gen/assets/aec/brownstone/Props/Kalmar_TblChr/Kalmar_TblChr.usd", scale: 0.01}
+  bollards:
+    - {usd: "airstack://scene_gen/assets/aec/tower/Assets/Bollard_01/Bollard_01.usd", scale: 0.01}
+  bike_lane_delineators:
+    - {usd: "objaverse://532b02858c67410f9a1973544f25dcc4", target-size-m: 1.00, fit: height}
+  parking_meters:
+    - {usd: "objaverse://cfaf0f457ca244e59c746ebdd6f3ad6c", target-size-m: 1.30, fit: height}
+  bike_racks:
+    - {usd: "objaverse://8c8fd4fa06eb4b1c8db5bd3584892f3c", target-size-m: 0.75, fit: height}
+  dumpsters:
+    - {usd: "objaverse://093e5b05faa947729b1be24c013e563b", target-size-m: 1.80}
+    - {usd: "objaverse://f80a2a0af6924562be10be7354b7a72f", target-size-m: 1.80}
+  signs_stop:
+    - {usd: "objaverse://a3963ab8133b45cab4e60da94d255ac3", target-size-m: 2.40, fit: height}
+  signs_street_name:
+    - {usd: "objaverse://555fbab686004738b974373f6ad71d82", target-size-m: 2.40, fit: height, yaw-offset: 180.0}
+    - {usd: "objaverse://599a74c1c8fd4f19bf6754b8128da6b8", target-size-m: 2.40, fit: height}
+  phone_booths:
+    - {usd: "objaverse://1ac9bf684da3476d918fd086d554bd5c", target-size-m: 2.20, fit: height}
+  manholes:
+    - {usd: "objaverse://a657396d68fa43f0ac7da12a6403d59f", target-size-m: 0.62, fit: footprint}
+  storm_drains:
+    - {usd: "objaverse://bbf5c9aa04c24fbaba328728d955777d", target-size-m: 0.70, fit: footprint}
+  billboards: []
+  traffic_cones:
+    - {usd: "objaverse://8cdac192abd044988c314eeb6377a3a0", target-size-m: 0.75, fit: height}
+  utility_poles: []
+  newspaper_boxes: []
+  signs_parking: []
+
+surface_overrides:
+  - categories: [trail]
+    roughness: 0.92
+    metallic: 0.0
+prune_prims:
+  - usd_contains: "599a74c1c8fd4f19bf6754b8128da6b8"
+    prims: ["pCube4", "pCube44"]
+
+# EXCLUDED
+# --------
+# - `new_assets/buildings/buildings.usdz` ground slabs / roof-tile planes:
+#   part of each block, kept.
+# - `simple_low_poly_abandoned_brick_building.usdz` `Material2.003/.004`: the
+#   ground and pavement planes under the building, not the building.
+# - `debris3.FBX` parts 013-015, 040, 043-047, 055, 059-064, 065-103 (except
+#   the four rebar kept), and `debris.FBX` parts 004-105 except the six lumps:
+#   duplicates of kept shapes, hair-thin splinters, or zero-size fragments.
+# - `post_apocalyptic_buildings.usdz` `Building__1_outer_Metal_bar_0.001`:
+#   a 0-size stray, dropped by the grouping.

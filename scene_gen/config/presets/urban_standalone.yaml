@@ -1,0 +1,44 @@
+# HIGH-LEVEL scene spec — a pristine 800 m downtown on the `standalone` set.
+#
+# The `urban.yaml` scene, re-skinned: same locale, same region, severity 0,
+# but every building, ruin, piece of rubble and half the cars come from
+# `scene_gen/assets/standalone/` (see `config/asset_packs/standalone.yaml`).
+# Nothing below Nucleus except what `shared.yaml` brings.
+#
+# THE ONE LAYOUT CHANGE. The row-house band in `default.yaml` was sized for the
+# 21.1 m-deep brownstones (two rows + a 2-6 m alley = 44-48 m buildable). The
+# terrace houses in this set are 4-9 m deep, so a pair with its alley needs a
+# 20-25 m buildable block (`districts._lay_terrace` sizes strips by the
+# DEEPEST house). `block_short_m` is OUTER — add 2 m of inset a side.
+#
+# Objaverse pre-flight is the same as `urban` (same props):
+#
+#     UV_PYTHON=3.13 uv run --no-project --with objaverse --with pandas \
+#         --with pyyaml --with trimesh \
+#         python scene_gen/prepare_assets.py --asset-pack standalone
+#
+#     SCENE_CONFIG=urban_standalone \
+#     ISAAC_SIM_SCRIPT_NAME=scene_launch_script.py \
+#     airstack up isaac-sim
+
+locale: urban
+severity: 0.0
+
+asset-pack: standalone
+region_m: [800, 800]
+seed: 42
+
+overrides:
+  usds:
+    materials:
+      asphalt: "airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda"
+  layout:
+    districts:
+      typologies:
+        # `rowhouse` before the packs were reorganised by height band; this
+        # pack still spells its POOL `rowhouse`, which the typology's `pools:`
+        # alias in default.yaml still resolves. Only the TYPOLOGY was renamed.
+        townhouse:
+          block_short_m: [22.0, 25.5]
+          alley_m: 2.0
+          alley_max_m: 6.0

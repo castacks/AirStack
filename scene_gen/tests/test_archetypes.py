@@ -151,9 +151,15 @@ def test_plan_excludes_pre_authored_ruins(configs, name):
     """`buildings.damaged` / `.destroyed` are somebody's authored ruin. Baking
     a ruin's ruin is meaningless, and it doubles the library for nothing."""
     cfg = configs[name]
-    ruins = {t[0] for t in P.grouped_pools(cfg.get("usds") or {}, "buildings",
-                                           ("damaged", "destroyed"))}
+    # Through the condition reader, not the pool NAMES: in a converted pack the
+    # condition is a tag and `buildings.damaged` is not a key at all, so the
+    # old lookup would find no ruins and the assertion would pass vacuously.
+    import scene_generator as sg
+    ruins = {e["usd"] if isinstance(e, dict) else e
+             for c in ("damaged", "destroyed")
+             for e in sg.building_entries(cfg, condition=c)}
     planned = {i.source for i in P.build_plan(cfg, "fire")}
+    assert ruins, "the fixture packs all carry authored ruins"
     assert not (ruins & planned)
 
 
@@ -224,3 +230,88 @@ def test_a_partial_bake_merges_into_the_manifest(tmp_path):
     assert set(recs) == {("A", "pristine"), ("A", "pancaked"), ("B", "pristine")}
     assert recs[("A", "pancaked")]["meshes"] == 99          # the new one won
     assert doc["seed"] == 7
+
+
+def test_settle_batch_defaults_are_bounded():
+    """The batch budget is what stops a tower being grouped with anything.
+
+    A 1,195-body `office_tower_cracked` must land in a batch of its own, and an
+    unattended bake must never be one OOM away from losing a night — so both
+    caps are asserted rather than left to whoever edits the constant next.
+    """
+    from archetypes import bake as B
+
+    assert B.SETTLE_BATCH_CELLS >= 1
+    assert B.SETTLE_BATCH_BODIES >= 1
+    # Measured on the 2026-08-27 library: median 135 bodies per archetype.
+    # A budget below that would defeat batching; above ~2,000 approaches the
+    # 5,064-body scene that OOMed the renderer before `_hide_for_settle`.
+    assert 500 <= B.SETTLE_BATCH_BODIES <= 2000
+    assert B.SETTLE_BATCH_CELLS <= 16
+
+
+def test_batch_fills_on_cells_or_on_bodies():
+    """Whichever cap trips first, the queue flushes."""
+    from archetypes import bake as B
+
+    baker = B.Baker.__new__(B.Baker)          # no stage needed for the policy
+    baker._batch_spacing = B.GRID_M
+    one_body = [{"loose": ["x"]}]
+    assert not baker._batch_full(one_body)
+    # The cell cap.
+    assert baker._batch_full(one_body * B.SETTLE_BATCH_CELLS)
+    # The body cap, from a single very heavy cell.
+    heavy = [{"loose": ["x"] * (B.SETTLE_BATCH_BODIES + 1)}]
+    assert baker._batch_full(heavy)
+
+
+def test_a_pristine_cell_contributes_no_bodies_to_a_batch():
+    """`pristine` is a re-export; it must not hold a batch open."""
+    from archetypes import bake as B
+
+    baker = B.Baker.__new__(B.Baker)
+    baker._batch_spacing = B.GRID_M
+    assert not baker._batch_full([{"loose": []}] * (B.SETTLE_BATCH_CELLS - 1))
+
+
+def test_cell_spacing_grows_to_fit_the_asset():
+    """40 m does not fit half this pack, and batching makes that matter.
+
+    `GRID_M` must exceed the asset's footprint or two cells settle into each
+    other. That was harmless while cells were built and unloaded one at a time;
+    with several resident at once it is not, and 45 of the 89 assets in
+    `urban_v2` are 32 m or wider (`SM_MERGED_BP_MBuilding02` is 96 m).
+    """
+    from archetypes import bake as B
+    from archetypes import plan as P
+    from disaster import levels as L
+
+    baker = B.Baker.__new__(B.Baker)
+    baker._src_cache = {}
+    small = P.Item("small", L.STRUCTURE, "s.usd", "library", ["pristine"])
+    wide = P.Item("wide", L.STRUCTURE, "w.usd", "library", ["pristine"])
+
+    # Unmeasured (the modular kit) falls back to the grid.
+    assert baker._spacing_for(small) == B.GRID_M
+    baker._src_cache["small"] = {"src_x_m": 8.0, "src_y_m": 9.0}
+    assert baker._spacing_for(small) == B.GRID_M
+    # A 96 m building gets room for itself and what it throws.
+    baker._src_cache["wide"] = {"src_x_m": 96.1, "src_y_m": 40.0}
+    assert baker._spacing_for(wide) > 96.1
+
+
+def test_a_batch_never_spreads_past_the_ground():
+    """`prepare_stage` lays a finite plane; a cell off its edge has no floor."""
+    from archetypes import bake as B
+
+    baker = B.Baker.__new__(B.Baker)
+    baker._batch_spacing = B.GROUND_HALF_M          # absurdly wide
+    assert baker._batch_full([{"loose": ["a"]}])
+
+
+def test_cell_xy_honours_the_spacing_it_is_given():
+    from archetypes import bake as B
+
+    assert B._cell_xy(1, 4) == (B.GRID_M, 0.0)
+    assert B._cell_xy(1, 4, spacing=150.0) == (150.0, 0.0)
+    assert B._cell_xy(4, 4, spacing=150.0) == (0.0, 150.0)

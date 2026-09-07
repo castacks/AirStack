@@ -1,0 +1,1525 @@
+#usda 1.0
+(
+    defaultPrim = "Asset"
+)
+
+def "Asset" (
+    prepend references = @omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone12Row.usd@
+)
+{
+    over "Reference_Brownstone12Row"
+    {
+        over "Reference_Brownstone02_01"
+        {
+            over "Brownstone02_Referenced"
+            {
+                over "Brownstone02_Origin"
+                {
+                    over "Brownstone02"
+                    {
+                        over "Geometry"
+                        {
+                            over "Casework"
+                            {
+                                over "Casework_2_Casework_2"
+                                {
+                                    over "Casework_910973_910974" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+                            }
+
+                            over "Roofs_440623_18437" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "Mechanical_Equipment"
+                            {
+                                over "EQUIPMENT_RAIL_EQUIPMENT_RAIL"
+                                {
+                                    over "Mechanical_Equipment_841686_0" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+
+                                over "Hyper_Heat_Pump_VRF_Mitsubishi_Electric_Air_Source_MXZ_Series_42000_Btu_h"
+                                {
+                                    over "Mechanical_Equipment_771185_766321" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+
+                                    over "Mechanical_Equipment_770978_766321" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+                            }
+
+                            over "Walls_Exterior"
+                            {
+                                over "Walls_ExteriorFacade" (
+                                    prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                )
+                                {
+                                }
+                            }
+                        }
+
+                        over "LightsEmissive"
+                        {
+                            over "EmissivePlane_01" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_02" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_03" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_04" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_05" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_06" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_07" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_08" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_09" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        over "Reference_Brownstone02_02"
+        {
+            over "Brownstone02_Referenced"
+            {
+                over "Brownstone02_Origin"
+                {
+                    over "Brownstone02"
+                    {
+                        over "Geometry"
+                        {
+                            over "Casework"
+                            {
+                                over "Casework_2_Casework_2"
+                                {
+                                    over "Casework_910973_910974" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+                            }
+
+                            over "Roofs_440623_18437" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "Mechanical_Equipment"
+                            {
+                                over "EQUIPMENT_RAIL_EQUIPMENT_RAIL"
+                                {
+                                    over "Mechanical_Equipment_841686_0" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+
+                                over "Hyper_Heat_Pump_VRF_Mitsubishi_Electric_Air_Source_MXZ_Series_42000_Btu_h"
+                                {
+                                    over "Mechanical_Equipment_771185_766321" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+
+                                    over "Mechanical_Equipment_770978_766321" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+                            }
+
+                            over "Walls_Exterior"
+                            {
+                                over "Walls_ExteriorFacade" (
+                                    prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                )
+                                {
+                                }
+                            }
+                        }
+
+                        over "LightsEmissive"
+                        {
+                            over "EmissivePlane_01" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_02" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_03" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_04" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_05" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_06" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_07" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_08" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_09" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        over "Reference_Brownstone02_03"
+        {
+            over "Brownstone02_Referenced"
+            {
+                over "Brownstone02_Origin"
+                {
+                    over "Brownstone02"
+                    {
+                        over "Geometry"
+                        {
+                            over "Casework"
+                            {
+                                over "Casework_2_Casework_2"
+                                {
+                                    over "Casework_910973_910974" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+                            }
+
+                            over "Roofs_440623_18437" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "Mechanical_Equipment"
+                            {
+                                over "EQUIPMENT_RAIL_EQUIPMENT_RAIL"
+                                {
+                                    over "Mechanical_Equipment_841686_0" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+
+                                over "Hyper_Heat_Pump_VRF_Mitsubishi_Electric_Air_Source_MXZ_Series_42000_Btu_h"
+                                {
+                                    over "Mechanical_Equipment_771185_766321" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+
+                                    over "Mechanical_Equipment_770978_766321" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+                            }
+
+                            over "Walls_Exterior"
+                            {
+                                over "Walls_ExteriorFacade" (
+                                    prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                )
+                                {
+                                }
+                            }
+                        }
+
+                        over "LightsEmissive"
+                        {
+                            over "EmissivePlane_01" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_02" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_03" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_04" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_05" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_06" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_07" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_08" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_09" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        over "Reference_Brownstone02_04"
+        {
+            over "Brownstone02_Referenced"
+            {
+                over "Brownstone02_Origin"
+                {
+                    over "Brownstone02"
+                    {
+                        over "Geometry"
+                        {
+                            over "Casework"
+                            {
+                                over "Casework_2_Casework_2"
+                                {
+                                    over "Casework_910973_910974" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+                            }
+
+                            over "Roofs_440623_18437" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "Mechanical_Equipment"
+                            {
+                                over "EQUIPMENT_RAIL_EQUIPMENT_RAIL"
+                                {
+                                    over "Mechanical_Equipment_841686_0" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+
+                                over "Hyper_Heat_Pump_VRF_Mitsubishi_Electric_Air_Source_MXZ_Series_42000_Btu_h"
+                                {
+                                    over "Mechanical_Equipment_771185_766321" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+
+                                    over "Mechanical_Equipment_770978_766321" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+                            }
+
+                            over "Walls_Exterior"
+                            {
+                                over "Walls_ExteriorFacade" (
+                                    prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                )
+                                {
+                                }
+                            }
+                        }
+
+                        over "LightsEmissive"
+                        {
+                            over "EmissivePlane_01" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_02" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_03" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_04" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_05" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_06" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_07" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_08" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_09" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        over "Reference_Brownstone02_05"
+        {
+            over "Brownstone02_Referenced"
+            {
+                over "Brownstone02_Origin"
+                {
+                    over "Brownstone02"
+                    {
+                        over "Geometry"
+                        {
+                            over "Casework"
+                            {
+                                over "Casework_2_Casework_2"
+                                {
+                                    over "Casework_910973_910974" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+                            }
+
+                            over "Roofs_440623_18437" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "Mechanical_Equipment"
+                            {
+                                over "EQUIPMENT_RAIL_EQUIPMENT_RAIL"
+                                {
+                                    over "Mechanical_Equipment_841686_0" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+
+                                over "Hyper_Heat_Pump_VRF_Mitsubishi_Electric_Air_Source_MXZ_Series_42000_Btu_h"
+                                {
+                                    over "Mechanical_Equipment_771185_766321" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+
+                                    over "Mechanical_Equipment_770978_766321" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+                            }
+
+                            over "Walls_Exterior"
+                            {
+                                over "Walls_ExteriorFacade" (
+                                    prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                )
+                                {
+                                }
+                            }
+                        }
+
+                        over "LightsEmissive"
+                        {
+                            over "EmissivePlane_01" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_02" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_03" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_04" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_05" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_06" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_07" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_08" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_09" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        over "Reference_Brownstone02_06"
+        {
+            over "Brownstone02_Referenced"
+            {
+                over "Brownstone02_Origin"
+                {
+                    over "Brownstone02"
+                    {
+                        over "Geometry"
+                        {
+                            over "Casework"
+                            {
+                                over "Casework_2_Casework_2"
+                                {
+                                    over "Casework_910973_910974" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+                            }
+
+                            over "Roofs_440623_18437" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "Mechanical_Equipment"
+                            {
+                                over "EQUIPMENT_RAIL_EQUIPMENT_RAIL"
+                                {
+                                    over "Mechanical_Equipment_841686_0" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+
+                                over "Hyper_Heat_Pump_VRF_Mitsubishi_Electric_Air_Source_MXZ_Series_42000_Btu_h"
+                                {
+                                    over "Mechanical_Equipment_771185_766321" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+
+                                    over "Mechanical_Equipment_770978_766321" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+                            }
+
+                            over "Walls_Exterior"
+                            {
+                                over "Walls_ExteriorFacade" (
+                                    prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                )
+                                {
+                                }
+                            }
+                        }
+
+                        over "LightsEmissive"
+                        {
+                            over "EmissivePlane_01" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_02" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_03" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_04" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_05" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_06" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_07" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_08" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_09" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        over "Reference_Brownstone02_07"
+        {
+            over "Brownstone02_Referenced"
+            {
+                over "Brownstone02_Origin"
+                {
+                    over "Brownstone02"
+                    {
+                        over "Geometry"
+                        {
+                            over "Casework"
+                            {
+                                over "Casework_2_Casework_2"
+                                {
+                                    over "Casework_910973_910974" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+                            }
+
+                            over "Roofs_440623_18437" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "Mechanical_Equipment"
+                            {
+                                over "EQUIPMENT_RAIL_EQUIPMENT_RAIL"
+                                {
+                                    over "Mechanical_Equipment_841686_0" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+
+                                over "Hyper_Heat_Pump_VRF_Mitsubishi_Electric_Air_Source_MXZ_Series_42000_Btu_h"
+                                {
+                                    over "Mechanical_Equipment_771185_766321" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+
+                                    over "Mechanical_Equipment_770978_766321" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+                            }
+
+                            over "Walls_Exterior"
+                            {
+                                over "Walls_ExteriorFacade" (
+                                    prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                )
+                                {
+                                }
+                            }
+                        }
+
+                        over "LightsEmissive"
+                        {
+                            over "EmissivePlane_01" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_02" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_03" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_04" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_05" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_06" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_07" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_08" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_09" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        over "Reference_Brownstone02_08"
+        {
+            over "Brownstone02_Referenced"
+            {
+                over "Brownstone02_Origin"
+                {
+                    over "Brownstone02"
+                    {
+                        over "Geometry"
+                        {
+                            over "Casework"
+                            {
+                                over "Casework_2_Casework_2"
+                                {
+                                    over "Casework_910973_910974" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+                            }
+
+                            over "Roofs_440623_18437" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "Mechanical_Equipment"
+                            {
+                                over "EQUIPMENT_RAIL_EQUIPMENT_RAIL"
+                                {
+                                    over "Mechanical_Equipment_841686_0" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+
+                                over "Hyper_Heat_Pump_VRF_Mitsubishi_Electric_Air_Source_MXZ_Series_42000_Btu_h"
+                                {
+                                    over "Mechanical_Equipment_771185_766321" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+
+                                    over "Mechanical_Equipment_770978_766321" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+                            }
+
+                            over "Walls_Exterior"
+                            {
+                                over "Walls_ExteriorFacade" (
+                                    prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                )
+                                {
+                                }
+                            }
+                        }
+
+                        over "LightsEmissive"
+                        {
+                            over "EmissivePlane_01" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_02" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_03" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_04" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_05" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_06" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_07" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_08" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_09" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        over "Reference_Brownstone02_09"
+        {
+            over "Brownstone02_Referenced"
+            {
+                over "Brownstone02_Origin"
+                {
+                    over "Brownstone02"
+                    {
+                        over "Geometry"
+                        {
+                            over "Casework"
+                            {
+                                over "Casework_2_Casework_2"
+                                {
+                                    over "Casework_910973_910974" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+                            }
+
+                            over "Roofs_440623_18437" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "Mechanical_Equipment"
+                            {
+                                over "EQUIPMENT_RAIL_EQUIPMENT_RAIL"
+                                {
+                                    over "Mechanical_Equipment_841686_0" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+
+                                over "Hyper_Heat_Pump_VRF_Mitsubishi_Electric_Air_Source_MXZ_Series_42000_Btu_h"
+                                {
+                                    over "Mechanical_Equipment_771185_766321" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+
+                                    over "Mechanical_Equipment_770978_766321" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+                            }
+
+                            over "Walls_Exterior"
+                            {
+                                over "Walls_ExteriorFacade" (
+                                    prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                )
+                                {
+                                }
+                            }
+                        }
+
+                        over "LightsEmissive"
+                        {
+                            over "EmissivePlane_01" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_02" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_03" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_04" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_05" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_06" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_07" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_08" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_09" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        over "Reference_Brownstone02_10"
+        {
+            over "Brownstone02_Referenced"
+            {
+                over "Brownstone02_Origin"
+                {
+                    over "Brownstone02"
+                    {
+                        over "Geometry"
+                        {
+                            over "Casework"
+                            {
+                                over "Casework_2_Casework_2"
+                                {
+                                    over "Casework_910973_910974" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+                            }
+
+                            over "Roofs_440623_18437" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "Mechanical_Equipment"
+                            {
+                                over "EQUIPMENT_RAIL_EQUIPMENT_RAIL"
+                                {
+                                    over "Mechanical_Equipment_841686_0" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+
+                                over "Hyper_Heat_Pump_VRF_Mitsubishi_Electric_Air_Source_MXZ_Series_42000_Btu_h"
+                                {
+                                    over "Mechanical_Equipment_771185_766321" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+
+                                    over "Mechanical_Equipment_770978_766321" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+                            }
+
+                            over "Walls_Exterior"
+                            {
+                                over "Walls_ExteriorFacade" (
+                                    prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                )
+                                {
+                                }
+                            }
+                        }
+
+                        over "LightsEmissive"
+                        {
+                            over "EmissivePlane_01" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_02" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_03" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_04" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_05" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_06" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_07" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_08" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_09" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        over "Reference_Brownstone02_11"
+        {
+            over "Brownstone02_Referenced"
+            {
+                over "Brownstone02_Origin"
+                {
+                    over "Brownstone02"
+                    {
+                        over "Geometry"
+                        {
+                            over "Casework"
+                            {
+                                over "Casework_2_Casework_2"
+                                {
+                                    over "Casework_910973_910974" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+                            }
+
+                            over "Roofs_440623_18437" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "Mechanical_Equipment"
+                            {
+                                over "EQUIPMENT_RAIL_EQUIPMENT_RAIL"
+                                {
+                                    over "Mechanical_Equipment_841686_0" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+
+                                over "Hyper_Heat_Pump_VRF_Mitsubishi_Electric_Air_Source_MXZ_Series_42000_Btu_h"
+                                {
+                                    over "Mechanical_Equipment_771185_766321" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+
+                                    over "Mechanical_Equipment_770978_766321" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+                            }
+
+                            over "Walls_Exterior"
+                            {
+                                over "Walls_ExteriorFacade" (
+                                    prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                )
+                                {
+                                }
+                            }
+                        }
+
+                        over "LightsEmissive"
+                        {
+                            over "EmissivePlane_01" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_02" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_03" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_04" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_05" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_06" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_07" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_08" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_09" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        over "Reference_Brownstone02_12"
+        {
+            over "Brownstone02_Referenced"
+            {
+                over "Brownstone02_Origin"
+                {
+                    over "Brownstone02"
+                    {
+                        over "Geometry"
+                        {
+                            over "Casework"
+                            {
+                                over "Casework_2_Casework_2"
+                                {
+                                    over "Casework_910973_910974" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+                            }
+
+                            over "Roofs_440623_18437" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "Mechanical_Equipment"
+                            {
+                                over "EQUIPMENT_RAIL_EQUIPMENT_RAIL"
+                                {
+                                    over "Mechanical_Equipment_841686_0" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+
+                                over "Hyper_Heat_Pump_VRF_Mitsubishi_Electric_Air_Source_MXZ_Series_42000_Btu_h"
+                                {
+                                    over "Mechanical_Equipment_771185_766321" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+
+                                    over "Mechanical_Equipment_770978_766321" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+                            }
+
+                            over "Walls_Exterior"
+                            {
+                                over "Walls_ExteriorFacade" (
+                                    prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                )
+                                {
+                                }
+                            }
+                        }
+
+                        over "LightsEmissive"
+                        {
+                            over "EmissivePlane_01" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_02" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_03" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_04" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_05" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_06" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_07" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_08" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+
+                            over "EmissivePlane_09" (
+                                prepend apiSchemas = ["PhysicsCollisionAPI"]
+                            )
+                            {
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+

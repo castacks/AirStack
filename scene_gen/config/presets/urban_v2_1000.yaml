@@ -1,0 +1,56 @@
+# HIGH-LEVEL scene spec — a pristine 1000 m downtown on the `urban_v2` set.
+#
+# The `urban.yaml` scene on the unified library: same locale, same region,
+# severity 0, drawing from every usable urban asset — the Nucleus buildings,
+# ruins and rubble `urban.yaml` had, the AEC brownstones, the repo-local
+# `standalone` set and the three named DowntownCity buildings — in one pack
+# (`config/asset_packs/urban_v2.yaml`).
+#
+# No layout overrides: the brownstones put a 21 m-deep entry back in the
+# terrace pool, so `default.yaml`'s row-house band applies as tuned.
+#
+# NO PRE-FLIGHT. Every asset this pack names — the Objaverse props included —
+# is an `omniverse://` URL, so there is nothing to cache locally first.
+# `prepare_assets.py` finds work by scanning for `objaverse://<uid>` and will
+# correctly report nothing to do.
+#
+#     SCENE_CONFIG=urban_v2_1000 \
+#     ISAAC_SIM_SCRIPT_NAME=scene_launch_script.py \
+#     airstack up isaac-sim
+#
+
+# 1000 x 1000 m: 1.6x the area of `urban_v2`, which is what it takes to give
+# the 30-tower pool enough tower blocks to place more than a handful — on the
+# 800 m map `districts` cuts ~6 tower blocks and warns that 20 of 63 large
+# buildings found nowhere to go. Costs ~65k placements and a longer load.
+locale: urban
+severity: 0.0
+
+asset-pack: urban_v2
+region_m: [1000, 1000]
+seed: 42
+
+overrides:
+  usds:
+    materials:
+      asphalt: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/materials/megascans/Road_Asphalt.usda"
+  layout:
+    districts:
+      # THE ONE SCENE WITH A LIBRARY BIG ENOUGH TO NEED THIS. `urban_v2` is 40
+      # towers and 41 mid-rise; a penalty tuned for eight brownstones leaves
+      # most of that unbuilt, so this scene opts in to the harder settings and
+      # every other preset keeps the defaults it was tuned with.
+      #
+      # Superlinear, so a model already used five times draws at ~1.5% of an
+      # unused one rather than 35%.
+      repeat_penalty: 2.2
+      # No copy of a model within 150 m of another copy unless nothing else
+      # fits. One copy across the street is a 50x handicap before the falloff,
+      # ~125,000x for an adjacent twin.
+      repeat_radius_m: 150.0
+      repeat_local_penalty: 0.02
+      repeat_local_falloff: 2.0
+      # Widened from 0.55 so the penalties have somewhere to move the draw TO:
+      # at the default band a large gap's shortlist is often one model and no
+      # penalty can beat a shortlist of one.
+      pack_area_band: 0.45

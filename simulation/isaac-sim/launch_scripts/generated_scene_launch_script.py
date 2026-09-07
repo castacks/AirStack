@@ -109,6 +109,22 @@ for ext in [
 _ENV_CLUTTER = {"GroundPlane", "Environment"}
 
 
+def _write_people_gt(config):
+    """Survivor ground-truth boxes for the people Stage C just placed.
+
+    Off unless `GT_ANNOTATIONS=1` and `RESULTS_SCENE=<name>` are set — see
+    `utils/scene_annotations.gt_from_env`. Never fails the run: a scene without
+    ground truth is still a scene, and a launch that died writing a JSON file
+    after the stage was built would be the worst trade in this script.
+    """
+    try:
+        import scene_annotations as sa
+
+        sa.gt_for_config(config)
+    except Exception as exc:
+        print(f"[annotations] skipped: {exc}")
+
+
 def _remove_env_clutter(stage):
     """Remove or hide GroundPlane and Environment xforms added by the base
     environment load. The scene generator lays its own ground, so these cause
@@ -221,7 +237,7 @@ class PegasusApp:
         # Targets are placed HERE rather than during generation on purpose:
         # they are not part of the scene, they are what is being searched for,
         # so the same city can be re-populated with a different `targets.seed`
-        # (scene_gen/targets.py). Ground truth lands in targets.json.
+        # (scene_gen/targets.py). Ground truth lands in humans.json.
         # `attach_runtime` applies fire's carb settings; every other type
         # returns 0.
         disaster = kinds.get(config)
@@ -229,6 +245,7 @@ class PegasusApp:
                                parent_path="/World/stage/targets",
                                scene_scale_factor=scene_scale_factor)
         disaster.attach_runtime(stage)
+        _write_people_gt(config)
 
         # ----- Spawn drone OmniGraph -----
         graph_handle = spawn_px4_multirotor_node(

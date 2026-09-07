@@ -95,26 +95,45 @@ usds:
   debris:
     # Wood-frame wreckage: lumber and snapped limbs. Instanced by the hundred,
     # so both are deliberately low-poly.
+    #
+    # `material:` is read by `disaster/debris.py`, which only gives a building
+    # the debris its own construction could have shed — see the longer note in
+    # `urban_nucleus.yaml`. Every entry below was rendered and looked at
+    # (2026-08-25); the survey is `suburban.debris.materials.yaml`.
     pieces:
       - usd: "objaverse://1b31413d89a4485e93f4bdb9eb735d88"   # Planches - Planks (weathered, scattered), 512 faces
         target-size-m: 2.5
+        material: wood
       - usd: "objaverse://2341e9c2456f4876b2e86a9465724b0d"   # Planks Of Wood (fresh lumber), 534 faces
         target-size-m: 2.2
+        material: wood
       - usd: "objaverse://aedb8f44f78944c7a1d53ff14c6d3290"   # Wood Stick 08 Remesh (snapped limb), 430 faces
         target-size-m: 2.5
+        material: wood
         fit: max          # scanned standing on end, so pin its length, not its
                           # plan — footprint would stretch it into a 7 m spike.
                           # Debris is dropped and physics-settled, so it lands flat.
 
     # Scraped earth and mounded rubble — the other half of the aftermath.
+    #
+    # The two soil mounds are `earth`, which is not a construction: nothing
+    # shed them, the collapse scraped them up. `debris.SHEDS` reads timber as
+    # `(wood, earth, brick)`, so a house here piles soil first and masonry
+    # rubble as the minority — which is right twice over: its lumber is all in
+    # `pieces`, and the masonry it does have is a chimney and a tiled roof.
     piles:
       - usd: "objaverse://b3b11017332040d6b717839c07a782c4"   # Large Dirt Pile, 200 faces
         target-size-m: 3.0
+        material: earth
       - usd: "objaverse://107f6a1f6aa74449bcd32ef136311d86"   # A pile of sand (dark soil mound)
         target-size-m: 3.0
+        material: earth
       - usd: "objaverse://042bc78e7d1d4275b3cd87e97f35d11c"   # Low Poly Heap of construction debris
         target-size-m: 3.5
+        material: brick    # broken brick and tile over grey chippings
       - usd: "objaverse://0ab5415789a1454a925d82f0650910ff"   # Heap of construction old debris
         target-size-m: 3.0
+        material: brick    # red brick rubble, whole bricks still visible
       - usd: "objaverse://c7544d9183c24ed3a716f8255536afa8"   # Roof Rubble Pile Debris Tiles (flat scatter)
         target-size-m: 4.0
+        material: brick    # clay roof tiles — fired clay, masonry the same way

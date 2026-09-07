@@ -1,0 +1,89 @@
+# HIGH-LEVEL scene spec on the `urban_v3` asset set.
+#
+# A thin sibling of `urban_v2`: same locale, same region, same seed, pointing
+# at the newer pack so a damage run can be compared against v2 with nothing
+# else changed. Written for the fast loop
+# (`scene_gen/tools/damage_loop.sh`, `DAMAGE_CONFIG=urban_v3`), which needs a
+# PRESET rather than a pack — `load_scene_config` compiles a preset, and the
+# pack alone is not one.
+#
+#     DAMAGE_CONFIG=urban_v3 scene_gen/tools/damage_loop.sh <assets> pancaked
+#
+locale: urban
+severity: 0.0
+
+asset-pack: urban_v3
+region_m: [1000, 1000]
+seed: 42
+
+# ASSET DIVERSITY — opted in, not inherited.
+#
+# `low_level/default.yaml` ships the local repeat term OFF (`repeat_radius_m:
+# 0` makes it inert) because turning it on restyles every scene built on that
+# file. A big-library scene has to ask for it, and this is one: 86 intact
+# buildings, against the eight brownstones the inherited defaults were tuned
+# against.
+#
+# MEASURED at seed 42, 1000x1000 m by `archetypes/census.py` — `<50 m` is the
+# share of BUILDINGS standing that close to an identical twin, which is the
+# defect a viewer actually notices:
+#
+#     knobs                          models    top    <50 m   <100 m
+#     inherited (radius 0)            62/86   6.7%    25.3%    49.1%
+#     pen 2.2, r 150, band .55        70/86   6.1%     7.8%    20.3%
+#     pen 2.2, r 150, band .45        70/86   6.9%     6.3%    24.1%
+#     pen 2.2, r 150, band .35        72/86   6.3%     6.0%    16.5%   <- here
+#     pen 2.2, r 150, band .25        68/86   5.8%     9.2%    20.1%
+#     pen 2.6, r 150, band .35        68/86   5.6%     7.0%    16.7%
+#     pen 2.2, r 100, band .55        62/86   7.2%     9.4%    26.7%
+#     pen 2.2, r 200, band .55        65/86   5.9%    11.8%    27.2%
+#
+# THAT TABLE WAS SWEPT ON THE HOST AND IT TRANSFERS, which is worth knowing
+# because the usual rule says it should not: packing keys off measured
+# footprints and a plain `python3` cannot open a Nucleus asset, so host-side
+# layout work is normally an estimate (`plan.used_by_scene` says so at length).
+# It transfers HERE because `measure_cache.py` persists every measurement to
+# `assets/.measurements.json` — 654 entries, 327 of them Nucleus — and the host
+# reads the same file Kit wrote. Checked rather than assumed: the Kit census
+# for the chosen row came back 72/86, top 6.28%, <50 m 6.05%, <100 m 16.51%,
+# closest twin 13.4 m, against a host sweep of 72/86, 6.3%, 6.0%, 16.5%,
+# 13.4 m, and both built 430 buildings.
+#
+# So: sweep knobs on the host, WITH A WARM CACHE, and confirm the chosen row
+# under Kit. On a cold cache the host falls back to `fallback_sizes` and none
+# of this holds.
+#
+# Three things that table says, none of them "more is better":
+#
+#   * 150 m is a genuine optimum. At 200-250 m every slot has a copy of
+#     everything inside the radius, so the local term stops discriminating and
+#     collapses back toward the global histogram.
+#   * `pack_area_band` is INVERTED — it is how far BELOW the largest fitting
+#     footprint an asset may be and still compete, so a LOWER number is a WIDER
+#     shortlist. 0.35 is what gives the penalties somewhere to move the draw
+#     to; at 0.25 the shortlist admits models too small for the slot and the
+#     packer starts taking them, which costs both variety and twins.
+#   * a harder penalty (2.6) buys nothing once the shortlist is wide enough.
+#
+# `repeat_local_penalty` / `repeat_local_falloff` keep their defaults (0.02,
+# 2.0): a copy across the street is already a ~125,000x handicap.
+overrides:
+  layout:
+    districts:
+      repeat_penalty: 2.2
+      repeat_radius_m: 150.0
+      pack_area_band: 0.35
+
+# WHAT THIS DOES NOT FIX. The residual repetition is a POOL SIZE problem, not a
+# penalty problem — measured per typology at these settings:
+#
+#     pool        models   used   buildings   per model
+#     highrise        41     30          75         1.8
+#     midrise         11     11         135        12.3   <- starved
+#     lowrise         19     19         116         6.1
+#     townhouse       15     10          34         2.3
+#
+# 13% of the models carry 36% of the buildings, and all eleven are already in
+# play — no weighting can spread eleven models over 135 slots. Fixing that
+# means adding midrise art to `asset_packs/urban_v3.yaml`, or re-pooling some
+# of the 41 highrise models that only average 1.8 placements each.

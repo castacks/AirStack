@@ -77,90 +77,157 @@ usds:
     # Concrete/masonry mid-rise wreckage — generic chunks plus cinder block
     # and brick. Exclusive to this set: a timber-frame suburb leaves none of
     # it (see suburban.yaml).
+    #
+    # `material:` MEANS THE SAME THING HERE AS ON A BUILDING. A piece of
+    # rubble came off something, and `disaster/debris.py` will only give a
+    # building the debris its own construction could have shed — so a brick
+    # rowhouse drops brick and a concrete frame drops slab. The label is the
+    # facade vocabulary (`tools/tag_asset_materials.py`: wood / concrete /
+    # brick / steel / glass, plus `earth` for ground spoil), turned into a
+    # structure by `mesh_damage.STRUCTURE_OF` exactly as a building's is.
+    # Every entry below was rendered and looked at (2026-08-25) — see
+    # `urban.debris.materials.yaml` for the survey and the per-asset notes.
+    #
+    # NOTHING HERE IS STEEL OR GLASS, and the set has six steel and three
+    # glass buildings. They fall back to concrete rubble (`debris.SHEDS`);
+    # bent sheet, mullion and glazing debris is the gap to fill next.
     pieces:
+      # Broken slabs and block chunks off a cast frame — grey, spalled, some
+      # with the reinforcement showing.
       - usd: "DestroyedBuildings/Assets/debris_2.usd"
         scale: 0.01
+        material: concrete
       - usd: "DestroyedBuildings/Assets/debris_3.usd"
         scale: 0.01
+        material: concrete
       - usd: "DestroyedBuildings/Assets/debris_4.usd"
         scale: 0.01
+        material: concrete
       - usd: "DestroyedBuildings/Assets/debris_5.usd"
         scale: 0.01
+        material: concrete
       - usd: "DestroyedBuildings/Assets/debris_6.usd"
         scale: 0.01
+        material: concrete
       - usd: "DestroyedBuildings/Assets/debris_7.usd"
         scale: 0.01
+        material: concrete
       - usd: "DestroyedBuildings/Assets/debris_8.usd"
         scale: 0.01
+        material: concrete
       - usd: "DestroyedBuildings/Assets/debris_9.usd"
         scale: 0.01
+        material: concrete
       - usd: "DestroyedBuildings/Assets/debris_10.usd"
         scale: 0.01
+        material: concrete
       - usd: "DestroyedBuildings/Assets/debris_11.usd"
         scale: 0.01
+        material: concrete
+      # Smooth pale lumps — `Mat_Debris_Concrete_Inst`. Read as spalled
+      # concrete and render/plaster off it rather than as cut fragments.
       - usd: "DebrisPack/Assets/Debris_01.usd"
         scale: 0.01
+        material: concrete
       - usd: "DebrisPack/Assets/Debris_02.usd"
         scale: 0.01
+        material: concrete
       - usd: "DebrisPack/Assets/Debris_03.usd"
         scale: 0.01
+        material: concrete
       - usd: "DebrisPack/Assets/Debris_04.usd"
         scale: 0.01
+        material: concrete
       - usd: "DebrisPack/Assets/Debris_05.usd"
         scale: 0.01
+        material: concrete
       - usd: "DebrisPack/Assets/Debris_06.usd"
         scale: 0.01
+        material: concrete
       - usd: "DebrisPack/Assets/Debris_07.usd"
         scale: 0.01
+        material: concrete
       - usd: "DebrisPack/Assets/Debris_08.usd"
         scale: 0.01
+        material: concrete
       - usd: "DebrisPack/Assets/Debris_09.usd"
         scale: 0.01
+        material: concrete
       - usd: "DebrisPack/Assets/Debris_10.usd"
         scale: 0.01
+        material: concrete
       - usd: "DebrisPack/Assets/Debris_11.usd"
         scale: 0.01
+        material: concrete
       - usd: "DebrisPack/Assets/Debris_12.usd"
         scale: 0.01
+        material: concrete
+      # Hollow cinder blocks, snapped through the web so the cell shows.
+      # `concrete` and not `brick`: it is a concrete masonry unit and it
+      # renders grey. A brick wall never sheds one.
       - usd: "DebrisPack/Assets/Blok_1_LODs.usd"
         scale: 0.01
+        material: concrete
       - usd: "DebrisPack/Assets/Blok_2_LODs.usd"
         scale: 0.01
+        material: concrete
       - usd: "DebrisPack/Assets/Blok_3_LODs.usd"
         scale: 0.01
+        material: concrete
       - usd: "DebrisPack/Assets/Blok_4_LODs.usd"
         scale: 0.01
+        material: concrete
+      # Single bricks, whole and part-broken. The only masonry in the set, so
+      # the brownstone rows depend on them.
       - usd: "DebrisPack/Assets/Brick_red_01.usd"
         scale: 0.01
+        material: brick
       - usd: "DebrisPack/Assets/Brick_red_02.usd"
         scale: 0.01
+        material: brick
       - usd: "DebrisPack/Assets/Brick_red_03.usd"
         scale: 0.01
+        material: brick
       - usd: "DebrisPack/Assets/Brick_red_04.usd"
         scale: 0.01
+        material: brick
       - usd: "DebrisPack/Assets/Brick_red_05.usd"
         scale: 0.01
+        material: brick
       - usd: "DebrisPack/Assets/Brick_red_06.usd"
         scale: 0.01
+        material: brick
       - usd: "DebrisPack/Assets/Brick_red_07.usd"
         scale: 0.01
+        material: brick
       - usd: "DebrisPack/Assets/Brick_white_01.usd"
         scale: 0.01
+        material: brick
       - usd: "DebrisPack/Assets/Brick_white_02.usd"
         scale: 0.01
+        material: brick
       - usd: "DebrisPack/Assets/Brick_white_04.usd"
         scale: 0.01
+        material: brick
       - usd: "DebrisPack/Assets/Brick_white_05.usd"
         scale: 0.01
+        material: brick
       - usd: "DebrisPack/Assets/Brick_white_06.usd"
         scale: 0.01
+        material: brick
 
+    # Mounds rather than single pieces: crushed grey rubble, one of them with
+    # snapped columns and their rebar still standing out of it.
     piles:
       - usd: "DestroyedBuildings/Assets/debris_1.usd"
         scale: 0.01
+        material: concrete
       - usd: "DestroyedBuildings/Assets/debris_12.usd"
         scale: 0.01
+        material: concrete
       - usd: "DestroyedBuildings/Assets/debris_14.usd"
         scale: 0.01
+        material: concrete
       - usd: "DestroyedBuildings/Assets/debris_15.usd"
         scale: 0.01
+        material: concrete

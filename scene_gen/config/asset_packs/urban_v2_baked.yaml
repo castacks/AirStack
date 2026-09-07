@@ -1,0 +1,115 @@
+# ASSET SET: urban_v2_baked — `urban_v2` narrowed to what Stage A HAS ALREADY
+# BAKED into `assets/archetypes_urban_v2/earthquake`.
+#
+# WHY THIS EXISTS
+# ---------------
+# The overnight bake of 2026-08-27 ([c36a5c]) got through 33 of `urban_v2`'s 89
+# assets before it stopped itself on a disk floor: 146 archetypes, 30 assets
+# with a complete ladder. Stage B does not fail on the other 56 — `Library`
+# falls back DOWN the ladder rather than raising, which is the right default
+# for a partial library and exactly the wrong thing for looking at severe
+# damage. A building whose `pancaked` rung was never baked comes back
+# `cracked`, and the scene quietly under-reports the earthquake.
+#
+# So: keep only the assets whose FULL earthquake ladder exists, and the scene
+# shows the damage it was asked for. Every building you see wrecked here is a
+# real Stage A archetype, not a fallback and not a fracture done live.
+#
+# WHAT "COMPLETE" MEANS
+# ---------------------
+# All five structure rungs of `levels.LADDERS["earthquake"][STRUCTURE]` —
+# pristine, cracked, soft_storey, partial_collapse, pancaked. Derived from
+# `assets/archetypes_urban_v2/earthquake/manifest.json`, not transcribed:
+#
+#     python3 - <<'PY'
+#     import json, collections, sys; sys.path.insert(0, ".")
+#     from archetypes.library import type_slug
+#     L = {"pristine","cracked","soft_storey","partial_collapse","pancaked"}
+#     by = collections.defaultdict(set)
+#     for r in json.load(open(
+#             "assets/archetypes_urban_v2/earthquake/manifest.json"))["archetypes"]:
+#         by[r["type"]].add(r["level"])
+#     print(sorted(t for t, l in by.items() if L <= l))
+#     PY
+#
+# 24 building types survive that cut, and every one is below. Lookups key on
+# `type_slug(usd)` — the basename — so these entries resolve against the bake
+# even though it was made before the Nucleus path migration ([c36a5c]).
+#
+# NO TOWERS. This is the load-bearing consequence and it is not a defect here:
+# NONE of `urban_v2`'s 30 intact tower entries has a complete ladder. Towers
+# are the most expensive thing to fracture (`office_tower`: 257,000 m3, one
+# rung cost 364 s and 1.47 GB) and the bake ordered cheapest-first, so it ran
+# out of disk long before it reached them. `tower: []` is therefore honest
+# rather than tidy — see the preset's `layout.districts` note for how the
+# zoning is kept off tower blocks so none come out bare.
+#
+# NEAR MISSES, deliberately excluded — all three would fall back:
+#   office_tower               cracked, pristine          (2/5)
+#   SM_MERGED_BP_MBuilding01   cracked, pristine          (2/5)
+#   japanese_building          4/5 — `soft_storey` is the bake's one genuine
+#                              failure; its settle never converged
+#
+# NO RUIN ART, for `urban_intact`'s reason: `apply_to_buildings` PREFERS the
+# authored-ruin swap for a destroyed fate, so leaving those pools in would
+# hide the archetypes behind hand-modelled collapses. Emptying both forces
+# every fate onto the library. Debris is KEPT — rubble is what a wrecked
+# building sheds, not a ruin asset.
+#
+# TREES are cut the same way. The earthquake vegetation ladder is
+# pristine/fallen(+stump), and all six species in `urban_v2`'s `trees:` and
+# `street_trees:` pools have all three, so both pools survive intact and are
+# not restated here.
+#
+# EVERYTHING ELSE — street furniture, debris, tiles, road markings — is
+# inherited untouched. None of it has an archetype ladder at all: the disaster
+# stage topples and scatters those in place (`RESPONSE_CLASS`), it does not
+# swap them for baked art, so narrowing them would only empty the scene.
+#
+# USAGE
+#   asset-pack: urban_v2_baked        # in a preset, beside `locale:`
+#   SCENE_ARCHETYPE_ROOT=<repo>/scene_gen/assets/archetypes_urban_v2
+#
+# The root override matters: the LIVE library at `assets/archetypes/earthquake`
+# is a different, older bake (18 types, mostly Nucleus `BG_Building_*` /
+# `Building_Type*`) and does NOT contain most of what is listed below.
+
+extends: urban_v2
+
+usds:
+  buildings:
+    # A bare key REPLACES the inherited list (`<key>+` would append) — see the
+    # `_deep_merge` note in `urban_intact.yaml`.
+
+    # No tower in `urban_v2` has a complete ladder. See the header.
+    tower: []
+
+    midrise:
+      - {usd: "FactoryDistrict/Meshes/Building_TypeA_B.usd", material: steel, tags: [intact]}      # 24.4 x 47.0 x 11.8 m
+      - {usd: "FactoryDistrict/Meshes/Building_TypeA_A.usd", material: steel, tags: [intact]}      # 25.0 x 39.7 x 11.9 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/block_03/block_03.usdc", material: brick, tags: [intact]}     # 17.1 x 23.2 x 18.8 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/block_04/block_04.usdc", material: brick, tags: [intact]}     # 18.2 x 25.5 x 18.6 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/block_05/block_05.usdc", material: brick, tags: [intact]}     # 19.1 x 29.8 x 18.8 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/block_06/block_06.usdc", material: concrete, tags: [intact]}  # 18.7 x 33.5 x 14.5 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/block_07/block_07.usdc", material: brick, tags: [intact]}     # 16.2 x 24.9 x 14.8 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/block_08/block_08.usdc", material: concrete, tags: [intact]}  # 14.0 x 15.5 x 13.0 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/block_09/block_09.usdc", material: brick, tags: [intact]}     # 13.9 x 16.9 x 11.9 m
+      # Weathered but STANDING, so it is intact art (user, 2026-08-26) — the
+      # `destroyed/` in its path is where the source file sits, not its tag.
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/destroyed/midrise/abandoned_brick_building/abandoned_brick_building.usdc", material: brick, tags: [intact]}   # 15.4 x 18.6 x 21.3 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/mini_auto_service/mini_auto_service.usdc", material: concrete, tags: [intact]}   # 15.0 x 26.3 x  8.5 m — single-storey auto-service showroom, sign on +X
+      - {usd: "selected_citydemo/midrise/midrise_02_0059a.usd", material: concrete, tags: [intact]}     # 19.5 x 13.8 x 16.3 m — European corner block: dark-framed shopfronts under cream render
+      - {usd: "selected_citydemo/midrise/midrise_14_0204a.usd", material: stone, tags: [intact]}        # 23.3 x 26.7 x 14.2 m — pale stone block with a round-arched ground arcade
+
+    rowhouse:
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone02.usd",    scale: 0.01, material: brick, tags: [intact]}  # 21.1 x  6.8 x 14.2 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone2Row.usd",  scale: 0.01, material: brick, tags: [intact]}  # 21.1 x 13.4 x 14.6 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone5Row.usd",  scale: 0.01, material: brick, tags: [intact]}  # 21.1 x 33.4 x 14.8 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone6Row.usd",  scale: 0.01, material: brick, tags: [intact]}  # 21.1 x 40.0 x 14.9 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/rowhouse/house_01/house_01.usdc", material: concrete, tags: [intact]}  # 7.9 x 8.6 x 10.8 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/rowhouse/house_02/house_02.usdc", material: concrete, tags: [intact]}  # 6.6 x 5.9 x 11.0 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/rowhouse/house_03/house_03.usdc", material: concrete, tags: [intact]}  # 3.9 x 6.5 x 10.1 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/rowhouse/house_04/house_04.usdc", material: concrete, tags: [intact]}  # 7.5 x 9.3 x 10.6 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/rowhouse/house_05/house_05.usdc", material: concrete, tags: [intact]}  # 5.0 x 10.2 x 11.0 m
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/rowhouse/old_brick_shop/old_brick_shop.usdc", material: brick, tags: [intact]}          #  5.9 x  7.1 x  9.5 m — three-storey brick corner shop, door on -X
+      - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/rowhouse/graffiti_brick_house/graffiti_brick_house.usdc", material: brick, tags: [intact]}     #  8.4 x  7.2 x 12.3 m — 3-storey brick end-of-terrace, door on -X

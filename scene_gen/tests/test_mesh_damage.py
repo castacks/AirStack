@@ -1419,3 +1419,160 @@ def test_a_scene_binds_one_core_per_material_kind():
     cores = [str(p.GetPath()) for p in st.Traverse()
              if p.GetName().startswith("FractureCore_")]
     assert len(cores) == 1, cores
+
+
+def test_the_subdivide_override_reaches_stage_a_too():
+    """`SCENE_SUBDIVIDE_M` is the documented lever for archetype file size, and
+    for a long time it reached only the live cut — a bake with it set produced
+    a byte-identical library. Both paths resolve it through one function now."""
+    import os
+
+    old = os.environ.get("SCENE_SUBDIVIDE_M")
+    try:
+        os.environ.pop("SCENE_SUBDIVIDE_M", None)
+        assert M.subdivide_edge_m(4.0) == 4.0
+        os.environ["SCENE_SUBDIVIDE_M"] = "8"
+        assert M.subdivide_edge_m(4.0) == 8.0
+        # COARSER ONLY: it is a floor, so it can never sharpen the cut below
+        # what the config asked for.
+        assert M.subdivide_edge_m(12.0) == 12.0
+        # Subdivision switched off stays off.
+        assert M.subdivide_edge_m(0.0) == 0.0
+        os.environ["SCENE_SUBDIVIDE_M"] = "nonsense"
+        assert M.subdivide_edge_m(4.0) == 4.0
+    finally:
+        os.environ.pop("SCENE_SUBDIVIDE_M", None)
+        if old is not None:
+            os.environ["SCENE_SUBDIVIDE_M"] = old
+
+
+def test_a_constant_bool_primvar_does_not_kill_subdivision():
+    """A scalar primvar must be skipped, not `len()`-ed.
+
+    `primvars:doNotCastShadows` is a CONSTANT `bool` the Omniverse AEC packs
+    author on every mesh. `len()` on a bool raises rather than returning 0, so
+    the primvar walk in `subdivide` died on it — and because Stage A catches a
+    bad cell and moves on, the whole thing surfaced only as
+    `SKIP Reference_Brownstone02_cracked: TypeError: object of type 'bool' has
+    no len()`, once per rung, for all eight brownstone types: 32 archetypes.
+    """
+    prim = box(scale=8.0, n=2, height=1.0)
+    mesh = UsdGeom.Mesh(prim.GetChild("Mesh"))
+    pv = UsdGeom.PrimvarsAPI(mesh).CreatePrimvar(
+        "doNotCastShadows", Sdf.ValueTypeNames.Bool,
+        UsdGeom.Tokens.constant)
+    pv.Set(False)
+
+    added = M.subdivide(mesh.GetPrim(), 1.0)
+
+    assert added > 0, "subdivision must still run with a scalar primvar present"
+    # And the primvar is left exactly as authored — a constant says the same
+    # thing about the mesh however finely it is cut.
+    assert pv.Get() is False
+    assert pv.GetInterpolation() == UsdGeom.Tokens.constant
+
+
+def test_sized_accepts_arrays_and_rejects_scalars():
+    """The guard itself: arrays through, scalars and empties out."""
+    assert M._sized(None) is None
+    assert M._sized(False) is None
+    assert M._sized(3.5) is None
+    assert M._sized("st") is None
+    assert M._sized([]) is None
+    assert M._sized([1, 2]) == [1, 2]
+
+
+def _soup_and_seeds(n=10, cells=12):
+    """A box's triangle soup plus a handful of Voronoi seeds inside it."""
+    prim = box(scale=8.0, n=n, height=1.0)
+    soup, _taken = M._mesh_soup(M.mesh_prims(prim))
+    cen = soup.centroids()
+    step = max(1, len(cen) // cells)
+    return soup, np.ascontiguousarray(cen[::step][:cells])
+
+
+def test_threaded_clip_loop_matches_the_serial_one_exactly():
+    """Threading `_fracture_soup` is a scheduling change, not a maths one.
+
+    The loop reads a shared immutable `Soup`, calls a pure clip, and touches no
+    USD — so the fragments must come back byte-identical AND in the same order,
+    since Stage A names prims from their index.
+    """
+    soup, seeds = _soup_and_seeds()
+    old_threads, old_min = M.CLIP_THREADS, M.CLIP_THREAD_MIN_FACES
+    try:
+        M.CLIP_THREADS, M.CLIP_THREAD_MIN_FACES = 1, 10 ** 9
+        serial = M._fracture_soup(soup, seeds)
+        # Force the threaded path on a soup far below the production gate.
+        M.CLIP_THREADS, M.CLIP_THREAD_MIN_FACES = 4, 0
+        threaded = M._fracture_soup(soup, seeds)
+    finally:
+        M.CLIP_THREADS, M.CLIP_THREAD_MIN_FACES = old_threads, old_min
+
+    assert len(serial) == len(threaded) > 1
+    for a, b in zip(serial, threaded):
+        assert np.array_equal(a.verts, b.verts)
+        assert np.array_equal(a.faces, b.faces)
+        assert np.array_equal(a.uv, b.uv)
+        assert np.array_equal(a.fmat, b.fmat)
+
+
+def test_small_soups_take_the_serial_path():
+    """The gate is on the SOUP, not the seed count.
+
+    Threading a tiny soup costs more than it saves — measured 0.27 s serial
+    against 0.45 s on four threads for a `selected_citydemo` tower — so the
+    production constant has to sit above anything that small.
+    """
+    assert M.CLIP_THREAD_MIN_FACES >= 1000
+    soup, _seeds = _soup_and_seeds(n=2, cells=4)
+    assert len(soup) < M.CLIP_THREAD_MIN_FACES
+
+
+def test_fragments_keep_the_source_uv_set_name():
+    """A fragment's UVs are useless under a name the material is not reading.
+
+    Materials sample through a `UsdPrimvarReader_float2` that asks for ONE
+    primvar by name. `_author_soup` used to write `st` unconditionally, so a
+    fragment cut from an asset whose UV set is `uv0` carried its texture
+    coordinates under a name nothing looked up: the reader returned nothing,
+    the texture sampled nothing, and every piece rendered as the shader's flat
+    fallback colour. Measured on `midrise_14_0204a` (a `uv0` asset), the whole
+    wreck came out solid pink and off-white beside a fully textured pristine
+    copy — while `old_brick_shop` and `house_04` looked right, which is what
+    made it read as "some assets but not all".
+    """
+    prim = box(scale=6.0, n=3)
+    mesh = UsdGeom.Mesh(prim.GetChild("Mesh"))
+    n_pts = len(mesh.GetPointsAttr().Get())
+    pv = UsdGeom.PrimvarsAPI(mesh).CreatePrimvar(
+        "uv0", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.vertex)
+    pv.Set([(0.25, 0.75)] * n_pts)
+
+    soup, _taken = M._mesh_soup(M.mesh_prims(prim))
+    assert "uv0" in soup.uv_names, "the soup must record what it read"
+
+    out = M._author_soup(prim.GetStage(), Sdf.Path("/Frag"), soup,
+                         soup.verts, np.eye(4))
+    got = {p.GetBaseName()
+           for p in UsdGeom.PrimvarsAPI(
+               prim.GetStage().GetPrimAtPath(out)).GetPrimvars()}
+    # BOTH: `st` for anything that assumes the convention, and the source's own
+    # name for the reader that actually exists on this asset's material.
+    assert "uv0" in got and "st" in got, got
+
+
+def test_uv_names_survive_the_fracture():
+    """The name has to reach the FRAGMENTS, not just the parent soup."""
+    prim = box(scale=6.0, n=3)
+    mesh = UsdGeom.Mesh(prim.GetChild("Mesh"))
+    pv = UsdGeom.PrimvarsAPI(mesh).CreatePrimvar(
+        "uv0", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.vertex)
+    pv.Set([(0.5, 0.5)] * len(mesh.GetPointsAttr().Get()))
+
+    soup, _t = M._mesh_soup(M.mesh_prims(prim))
+    cen = soup.centroids()
+    seeds = np.ascontiguousarray(cen[:: max(1, len(cen) // 6)][:6])
+    frags = M._fracture_soup(soup, seeds)
+    assert frags, "expected the box to break into something"
+    assert all("uv0" in f.uv_names for f in frags)

@@ -1,0 +1,30 @@
+# HIGH-LEVEL scene spec — `urban_standalone` at 300 m, for quick checks.
+#
+# Same set, same overrides; only the region shrinks so a relaunch is minutes.
+# Too small to judge the district gradient — use `urban_standalone` for that.
+#
+#     SCENE_CONFIG=urban_standalone_small \
+#     ISAAC_SIM_SCRIPT_NAME=scene_launch_script.py \
+#     airstack up isaac-sim
+
+locale: urban
+severity: 0.0
+
+asset-pack: standalone
+region_m: [300, 300]
+seed: 42
+
+overrides:
+  usds:
+    materials:
+      asphalt: "airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda"
+  layout:
+    districts:
+      typologies:
+        # `rowhouse` before the packs were reorganised by height band; this
+        # pack still spells its POOL `rowhouse`, which the typology's `pools:`
+        # alias in default.yaml still resolves. Only the TYPOLOGY was renamed.
+        townhouse:
+          block_short_m: [22.0, 25.5]
+          alley_m: 2.0
+          alley_max_m: 6.0

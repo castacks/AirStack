@@ -137,8 +137,7 @@ def compile_none(sev, spec, region):
     return {
         "damaged_fraction": 0.0,
         "destroyed_fraction": 0.0,
-        "debris": {"piles_per_building": [0, 0],
-                   "pieces_per_building": [0, 0],
+        "debris": {"shed_m3_per_m": 0.0,
                    "damaged_debris_scale": 0.0,
                    "tilt_chance": 0.0,
                    "path_pieces_per_100m2": 0.0,
@@ -213,11 +212,15 @@ def compile_earthquake(sev, spec, region):
         "damaged_fraction": lerp(0.05, 0.35, sev),
         "destroyed_fraction": lerp(0.02, 0.55, sev),
         "debris": {
-            # Collapse rubble: lots of it, piled tight against the ruin.
-            "piles_per_building": lerp_pair([1, 2], [4, 7], sev),
-            "pile_max_offset_m": lerp(2.0, 4.0, sev),
-            "pieces_per_building": lerp_pair([4, 8], [14, 26], sev),
-            "pieces_scatter_m": lerp(3.0, 7.0, sev),   # gravity, not wind
+            # Collapse rubble: lots of it, piled tight against the ruin, and
+            # the most of any type. `shed_m3_per_m` is cubic metres per metre
+            # of the building's own perimeter, at total collapse;
+            # `debris.budget_m3` turns it into a budget and the piece count
+            # follows from the piece size. See `disaster/debris.py` for why an
+            # amount and not a count.
+            "shed_m3_per_m": lerp(0.25, 0.7, sev),
+            "spread_m": lerp(3.0, 7.0, sev),           # gravity, not wind
+            "pile_share": 0.55,                        # mounds, not scatter
             # Rubble around buildings that are damaged but still
             # standing, relative to a destroyed one. Not zero: a
             # cracked, half-collapsed building on a spotless lot is
@@ -227,9 +230,9 @@ def compile_earthquake(sev, spec, region):
             "tilt_chance": lerp(0.25, 0.7, sev),
             "tilt_deg": [3, lerp(7.0, 12.0, sev)],
             "sink_m": [0.5, lerp(1.2, 2.2, sev)],
-            "lean_piles": lerp_pair([2, 3], [3, 5], sev),
         },
-        "trees_toppled_fraction": lerp(0.0, 0.1, sev),   # shaking rarely fells a tree
+        # SHAKING DOES NOT FELL TREES — see `levels.LADDERS["earthquake"]`.
+        "trees_toppled_fraction": 0.0,
         "streetlights_toppled_fraction": lerp(0.05, 0.5, sev),
         "traffic_lights_toppled_fraction": lerp(0.04, 0.45, sev),
         "traffic_lights_leaning_fraction": lerp(0.15, 0.5, sev),
@@ -280,11 +283,13 @@ def compile_tornado(sev, spec, region):
         # doing their job away from the centerline and near the corridor edge.
         "destroyed_fraction": lerp(0.15, 1.0, sev),
         "debris": {
-            "piles_per_building": lerp_pair([1, 2], [2, 4], sev),
-            "pile_max_offset_m": lerp(2.0, 3.5, sev),
-            # Signature: many fragments, thrown far.
-            "pieces_per_building": lerp_pair([6, 12], [18, 34], sev),
-            "pieces_scatter_m": lerp(6.0, 18.0, sev),
+            # Signature: many fragments, thrown far. Low `pile_share` is
+            # what makes it a debris FIELD rather than a heap — a storm sorts
+            # by weight and carries the light half away from the lot. The
+            # AMOUNT is no higher than a quake's; only the reach is.
+            "shed_m3_per_m": lerp(0.2, 0.6, sev),
+            "spread_m": lerp(6.0, 18.0, sev),
+            "pile_share": 0.3,
             # Rubble around buildings that are damaged but still
             # standing, relative to a destroyed one. Not zero: a
             # cracked, half-collapsed building on a spotless lot is
@@ -293,7 +298,6 @@ def compile_tornado(sev, spec, region):
             "tilt_chance": lerp(0.05, 0.2, sev),    # ripped, not sunk
             "tilt_deg": [2, 5],
             "sink_m": [0.2, 0.6],
-            "lean_piles": [1, 2],
             # The track itself, not just the lots on it: a continuous band of
             # dirt and splintered wood dragged across everything in the
             # corridor. This is the tornado's most recognisable feature from
@@ -353,10 +357,9 @@ def compile_fire(sev, spec, region):
         "destroyed_fraction": lerp(0.02, 0.30, sev),
         "debris": {
             # Collapsed roof material and charred timber, at the facades.
-            "piles_per_building": lerp_pair([1, 2], [3, 6], sev),
-            "pile_max_offset_m": lerp(1.5, 3.0, sev),
-            "pieces_per_building": lerp_pair([3, 7], [12, 22], sev),
-            "pieces_scatter_m": lerp(2.0, 5.0, sev),   # fire moves no mass
+            "shed_m3_per_m": lerp(0.2, 0.6, sev),
+            "spread_m": lerp(2.0, 5.0, sev),           # fire moves no mass
+            "pile_share": 0.5,
             # Rubble around buildings that are damaged but still
             # standing, relative to a destroyed one. High here: a gutted
             # shell IS the common outcome, and it drops its whole roof.
@@ -364,7 +367,6 @@ def compile_fire(sev, spec, region):
             "tilt_chance": lerp(0.05, 0.2, sev),       # burnt, not undermined
             "tilt_deg": [2, 5],
             "sink_m": [0.2, 0.6],
-            "lean_piles": [1, 3],
             # A thin scatter of ash and burnt debris over the whole scar.
             "path_pieces_per_100m2": lerp(0.3, 1.2, sev),
             "path_piles_per_100m2": lerp(0.05, 0.3, sev),
@@ -413,10 +415,11 @@ def compile_flood(sev, spec, region):
         "damaged_fraction": lerp(0.05, 0.35, sev),
         "destroyed_fraction": lerp(0.0, 0.12, sev),
         "debris": {
-            "piles_per_building": lerp_pair([1, 2], [2, 4], sev),
-            "pile_max_offset_m": lerp(2.5, 5.0, sev),   # deposited, not dropped
-            "pieces_per_building": lerp_pair([3, 7], [10, 20], sev),
-            "pieces_scatter_m": lerp(5.0, 12.0, sev),   # floated outward
+            # Deposited rather than dropped, and floated outward — so much
+            # less material than a collapse leaves, over a wider ring.
+            "shed_m3_per_m": lerp(0.1, 0.3, sev),
+            "spread_m": lerp(5.0, 12.0, sev),
+            "pile_share": 0.5,
             # Rubble around buildings that are damaged but still
             # standing, relative to a destroyed one. Not zero: a
             # cracked, half-collapsed building on a spotless lot is
@@ -425,7 +428,6 @@ def compile_flood(sev, spec, region):
             "tilt_chance": lerp(0.1, 0.4, sev),         # undermined footings
             "tilt_deg": [2, lerp(5.0, 9.0, sev)],
             "sink_m": [0.3, lerp(0.8, 1.5, sev)],
-            "lean_piles": [1, 3],
         },
         "streetlights_toppled_fraction": lerp(0.02, 0.15, sev),   # poles hold
         "traffic_lights_toppled_fraction": lerp(0.02, 0.12, sev),
@@ -471,10 +473,9 @@ def compile_hurricane(sev, spec, region):
         "damaged_fraction": lerp(0.08, 0.4, sev),
         "destroyed_fraction": lerp(0.03, 0.3, sev),
         "debris": {
-            "piles_per_building": lerp_pair([1, 2], [3, 5], sev),
-            "pile_max_offset_m": lerp(2.0, 3.5, sev),
-            "pieces_per_building": lerp_pair([4, 9], [14, 26], sev),
-            "pieces_scatter_m": lerp(5.0, 12.0, sev),
+            "shed_m3_per_m": lerp(0.18, 0.55, sev),
+            "spread_m": lerp(5.0, 12.0, sev),
+            "pile_share": 0.4,
             # Rubble around buildings that are damaged but still
             # standing, relative to a destroyed one. Not zero: a
             # cracked, half-collapsed building on a spotless lot is
@@ -483,7 +484,6 @@ def compile_hurricane(sev, spec, region):
             "tilt_chance": lerp(0.1, 0.3, sev),
             "tilt_deg": [2, 7],
             "sink_m": [0.3, 0.9],
-            "lean_piles": [1, 3],
             # Uniform field: thin scour everywhere rather than a band.
             "path_pieces_per_100m2": lerp(0.2, 0.9, sev),
             "path_piles_per_100m2": lerp(0.05, 0.25, sev),

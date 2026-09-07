@@ -1,0 +1,33 @@
+# HIGH-LEVEL scene spec — a pristine 800 m downtown on the `urban_v2` set,
+# which sources every asset from Nucleus.
+#
+# The `urban.yaml` scene on the unified library: same locale, same region,
+# severity 0, drawing from every usable urban asset — the Nucleus buildings,
+# ruins and rubble `urban.yaml` had, the AEC brownstones, the repo-local
+# `standalone` set and the three named DowntownCity buildings — in one pack
+# (`config/asset_packs/urban_v2.yaml`).
+#
+# No layout overrides: the brownstones put a 21 m-deep entry back in the
+# terrace pool, so `default.yaml`'s row-house band applies as tuned.
+#
+# NO PRE-FLIGHT. Every asset this pack names — the Objaverse props included —
+# is an `omniverse://` URL, so there is nothing to cache locally first.
+# `prepare_assets.py` finds work by scanning for `objaverse://<uid>` and will
+# correctly report nothing to do.
+#
+#     SCENE_CONFIG=urban_v2 \
+#     ISAAC_SIM_SCRIPT_NAME=scene_launch_script.py \
+#     airstack up isaac-sim
+#
+
+locale: urban
+severity: 0.0
+
+asset-pack: urban_v2
+region_m: [800, 800]
+seed: 42
+
+overrides:
+  usds:
+    materials:
+      asphalt: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/materials/megascans/Road_Asphalt.usda"

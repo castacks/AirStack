@@ -258,10 +258,19 @@ def test_no_victim_is_buried(scenes):
 def test_the_gate_is_not_a_rubber_stamp(scenes):
     """It has to be able to fail. Same scene, same people, each one moved to
     the middle of the nearest collapsed footprint — which is where the
-    pre-rim-band sampler was putting them."""
+    pre-rim-band sampler was putting them.
+
+    SKIPS WITHOUT A BAKED LIBRARY, because `cut` is only true for a building
+    backed by a Stage A archetype and the library is gitignored: a fresh
+    checkout has none, and neither does a machine part-way through a re-bake.
+    Failing there reports "the gate is a rubber stamp" when what actually
+    happened is that nobody baked anything, which is how this test spent a
+    while looking like a code regression."""
     _cfg, sv, victims = scenes[("earthquake", 42)]
     ruins = [b for b in sv["buildings"] if b.get("cut")]
-    assert ruins, "no cut buildings to bury anyone in"
+    if not ruins:
+        pytest.skip("no archetype library on disk — nothing is cut, so there "
+                    "is no collapsed footprint to bury anyone in")
     moved = [dict(v, x=ruins[0]["x"], y=ruins[0]["y"], z=-1.0) for v in victims]
     assert not F.summarize(F.check(moved, F.occluders_from_survey(sv)))["pass"]
 

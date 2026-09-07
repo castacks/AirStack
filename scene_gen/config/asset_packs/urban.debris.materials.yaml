@@ -1,0 +1,136 @@
+# Asset material tags — debris. The SURVEY behind the tags, not the tags
+# themselves: applied to `urban_nucleus.yaml` on 2026-08-25 as per-asset
+# `material:` keys, which is what the generator reads
+# (`scene_generator.asset_materials`, then `disaster/debris.py`).
+#
+# The sibling of `urban.buildings.materials.yaml` and the same vocabulary, for
+# the same reason: `disaster/debris.py` only gives a building the debris its
+# own construction could have shed, so a piece of rubble has to say what it
+# came off exactly as a building says what it is clad in.
+#
+# HOW THESE WERE JUDGED. Every asset was mirrored off Nucleus
+# (`tools/nucleus.py`) and rendered from two angles in Cycles
+# (`render_usd.py`), and the call is off the render. The DebrisPack assets
+# corroborate it — each binds one named material instance
+# (`Mat_Debris_Concrete_Inst`, `Mat_Debris_Blocks_Inst`,
+# `Mat_Debris_Bricks_Red_Inst`, `Mat_Bricks_White_Inst`) — while the
+# DestroyedBuildings `debris_*` all share ONE atlas (`MI_debris_1`,
+# `MI_props_1`), so for those the geometry is the only evidence there is.
+source: scene_gen/config/asset_packs/urban_nucleus.yaml
+category: debris
+updated: '2026-08-25'
+materials:
+- wood
+- concrete
+- brick
+- steel
+- glass
+- earth
+counts:
+  concrete: 30
+  brick: 12
+  wood: 0
+  steel: 0
+  glass: 0
+  earth: 0
+  skipped: 0
+  undecided: 0
+gaps:
+  # Six steel and three glass buildings in this set, and no debris for either.
+  # They fall back to concrete through `debris.SHEDS`. What is missing is bent
+  # corrugated sheet, snapped mullion sections, and glazing — none of it is in
+  # DebrisPack or DestroyedBuildings.
+  steel: no asset
+  glass: no asset
+assets:
+  DestroyedBuildings/Assets/debris_2.usd: {material: concrete, categories: [debris.pieces],
+    note: Flat slab fragment, ~square, grey aggregate face over a darker broken edge.}
+  DestroyedBuildings/Assets/debris_3.usd: {material: concrete, categories: [debris.pieces],
+    note: Slab fragment, longer and thinner than debris_2. Same face.}
+  DestroyedBuildings/Assets/debris_4.usd: {material: concrete, categories: [debris.pieces],
+    note: Wide shallow slab, one clean top surface and a shattered underside.}
+  DestroyedBuildings/Assets/debris_5.usd: {material: concrete, categories: [debris.pieces],
+    note: Slab fragment with a stepped break down one side.}
+  DestroyedBuildings/Assets/debris_6.usd: {material: concrete, categories: [debris.pieces],
+    note: Thin slab, dark weathered top. Reads as a floor plate rather than a wall.}
+  DestroyedBuildings/Assets/debris_7.usd: {material: concrete, categories: [debris.pieces],
+    note: Small angular slab chunk.}
+  DestroyedBuildings/Assets/debris_8.usd: {material: concrete, categories: [debris.pieces],
+    note: Wide flat plate, the largest of the slab set.}
+  DestroyedBuildings/Assets/debris_9.usd: {material: concrete, categories: [debris.pieces],
+    note: Slab with a pale fractured end face.}
+  DestroyedBuildings/Assets/debris_10.usd: {material: concrete, categories: [debris.pieces],
+    note: 'Solid blocky chunk, not a slab: white speckled aggregate on the break, brown
+      dirt-crusted top. A lump off a thick element.'}
+  DestroyedBuildings/Assets/debris_11.usd: {material: concrete, categories: [debris.pieces],
+    note: A scatter of eight or so grey plates lying together, not a single piece.
+      Effectively a small field in one prim.}
+  DebrisPack/Assets/Debris_01.usd: {material: concrete, categories: [debris.pieces],
+    note: 'Angular pale lump. Mat_Debris_Concrete_Inst.'}
+  DebrisPack/Assets/Debris_02.usd: {material: concrete, categories: [debris.pieces],
+    note: Pale lump, pitted. Mat_Debris_Concrete_Inst.}
+  DebrisPack/Assets/Debris_03.usd: {material: concrete, categories: [debris.pieces],
+    note: Pale lump with a deep hollow. Mat_Debris_Concrete_Inst.}
+  DebrisPack/Assets/Debris_04.usd: {material: concrete, categories: [debris.pieces],
+    note: 'Smooth rounded lump — the least fracture-like of the twelve; reads as
+      spalled render rather than as cut concrete. Mat_Debris_Concrete_Inst.'}
+  DebrisPack/Assets/Debris_05.usd: {material: concrete, categories: [debris.pieces],
+    note: Flatter irregular lump. Mat_Debris_Concrete_Inst.}
+  DebrisPack/Assets/Debris_06.usd: {material: concrete, categories: [debris.pieces],
+    note: Compact lump. Mat_Debris_Concrete_Inst.}
+  DebrisPack/Assets/Debris_07.usd: {material: concrete, categories: [debris.pieces],
+    note: Long lump with a through-hole. Mat_Debris_Concrete_Inst.}
+  DebrisPack/Assets/Debris_08.usd: {material: concrete, categories: [debris.pieces],
+    note: Elongated lump. Mat_Debris_Concrete_Inst.}
+  DebrisPack/Assets/Debris_09.usd: {material: concrete, categories: [debris.pieces],
+    note: Knobbly lump. Mat_Debris_Concrete_Inst.}
+  DebrisPack/Assets/Debris_10.usd: {material: concrete, categories: [debris.pieces],
+    note: Broad lump with a scooped face. Mat_Debris_Concrete_Inst.}
+  DebrisPack/Assets/Debris_11.usd: {material: concrete, categories: [debris.pieces],
+    note: Small compact lump. Mat_Debris_Concrete_Inst.}
+  DebrisPack/Assets/Debris_12.usd: {material: concrete, categories: [debris.pieces],
+    note: 'Sharp wedge, the most angular of the set. Mat_Debris_Concrete_Inst.'}
+  DebrisPack/Assets/Blok_1_LODs.usd: {material: concrete, categories: [debris.pieces],
+    note: 'Hollow cinder block snapped through the web — the cell is visible from
+      the side. Concrete and not brick: a concrete masonry unit, grey, and a brick
+      wall never sheds one. Mat_Debris_Blocks_Inst.'}
+  DebrisPack/Assets/Blok_2_LODs.usd: {material: concrete, categories: [debris.pieces],
+    note: Cinder block, broken across one end. Mat_Debris_Blocks_Inst.}
+  DebrisPack/Assets/Blok_3_LODs.usd: {material: concrete, categories: [debris.pieces],
+    note: Cinder block, corner missing. Mat_Debris_Blocks_Inst.}
+  DebrisPack/Assets/Blok_4_LODs.usd: {material: concrete, categories: [debris.pieces],
+    note: Cinder block, nearly whole. Mat_Debris_Blocks_Inst.}
+  DebrisPack/Assets/Brick_red_01.usd: {material: brick, categories: [debris.pieces],
+    note: Whole red brick, chipped arris. Mat_Debris_Bricks_Red_Inst.}
+  DebrisPack/Assets/Brick_red_02.usd: {material: brick, categories: [debris.pieces],
+    note: Red brick, one end sheared. Mat_Debris_Bricks_Red_Inst.}
+  DebrisPack/Assets/Brick_red_03.usd: {material: brick, categories: [debris.pieces],
+    note: Red brick with mortar still on two faces. Mat_Debris_Bricks_Red_Inst.}
+  DebrisPack/Assets/Brick_red_04.usd: {material: brick, categories: [debris.pieces],
+    note: Red brick, split lengthwise. Mat_Debris_Bricks_Red_Inst.}
+  DebrisPack/Assets/Brick_red_05.usd: {material: brick, categories: [debris.pieces],
+    note: Red brick, heavily eroded face. Mat_Debris_Bricks_Red_Inst.}
+  DebrisPack/Assets/Brick_red_06.usd: {material: brick, categories: [debris.pieces],
+    note: Red brick half. Mat_Debris_Bricks_Red_Inst.}
+  DebrisPack/Assets/Brick_red_07.usd: {material: brick, categories: [debris.pieces],
+    note: Red brick, mottled and dirt-stained. Mat_Debris_Bricks_Red_Inst.}
+  DebrisPack/Assets/Brick_white_01.usd: {material: brick, categories: [debris.pieces],
+    note: 'Off-white brick fragment, chalky break. Mat_Bricks_White_Inst.'}
+  DebrisPack/Assets/Brick_white_02.usd: {material: brick, categories: [debris.pieces],
+    note: White brick, green algae staining on one face. Mat_Bricks_White_Inst.}
+  DebrisPack/Assets/Brick_white_04.usd: {material: brick, categories: [debris.pieces],
+    note: White brick, nearly whole. Mat_Bricks_White_Inst.}
+  DebrisPack/Assets/Brick_white_05.usd: {material: brick, categories: [debris.pieces],
+    note: White brick, one corner knocked off. Mat_Bricks_White_Inst.}
+  DebrisPack/Assets/Brick_white_06.usd: {material: brick, categories: [debris.pieces],
+    note: White brick with a dark scorched end. Mat_Bricks_White_Inst.}
+  DestroyedBuildings/Assets/debris_1.usd: {material: concrete, categories: [debris.piles],
+    note: Low mound of grey rubble over crushed fines.}
+  DestroyedBuildings/Assets/debris_12.usd: {material: concrete, categories: [debris.piles],
+    note: Wide flat spread of broken slabs and gravel — a collapse footprint rather
+      than a heap.}
+  DestroyedBuildings/Assets/debris_14.usd: {material: concrete, categories: [debris.piles],
+    note: 'The clearest of the set: two snapped columns standing out of the heap with
+      their reinforcement bent and exposed. Unambiguously reinforced concrete.'}
+  DestroyedBuildings/Assets/debris_15.usd: {material: concrete, categories: [debris.piles],
+    note: Conical mound of crushed grey rubble, plate fragments on top.}

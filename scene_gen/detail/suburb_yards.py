@@ -21,19 +21,19 @@ and the lotting can disagree without either having to know about the other.
 
 THE POINT BUDGET IS THE BINDING CONSTRAINT, NOT THE LAYOUT
 ----------------------------------------------------------
-`apply_placements` composes each placement as its own reference and never sets
-`instanceable`, so N copies of a tree cost N x its points. AEC vegetation is
-archviz-grade — the CHEAPEST bound, green tree in the library is 48.7k points
-and the cheapest shrub-scale plant that is not a grass tuft is 34.7k — and the
-urban scene OOM-killed at 89.1M. A tree in every yard of a 500-lot suburb is
-therefore ~25M points before a single shrub goes in.
+`apply_placements` instances only the categories it is explicitly handed, and
+this pipeline hands it none, so N copies of a tree cost N x its points. AEC
+vegetation is archviz-grade — the CHEAPEST bound, green tree in the library is
+48.7k points and the cheapest shrub-scale plant that is not a grass tuft is
+34.7k — and the urban scene OOM-killed at 89.1M. A tree in every yard of a
+500-lot suburb is therefore ~25M points before a single shrub goes in.
 
 So the pass is budget-driven rather than density-driven. `point_budget` is
 divided across the yards IN PROPORTION TO AREA, which makes the spend uniform
 in points per square metre, and under-spend carries forward so the budget is
 used rather than stranded. When it is tight the pass thins out evenly across
-the whole suburb instead of planting the first half lushly and leaving the
-second half bare. Two things that look like details and are not:
+the whole suburb instead of planting the first half lushly and the second bare.
+Two things that look like details and are not:
 
 * TREES GET THEIR OWN PURSE (`tree_budget_frac`). Sharing one with the ground
   cover means the cheap end always wins — a grass tuft is 1,220 points against
@@ -49,10 +49,10 @@ EVERY CATEGORY RESERVES ITS FOOTPRINT, AND SO DOES EVERY OBSTACLE
 One `_Occ` (parks') for the WHOLE pass, not one per yard: yards abut, and a
 front-yard tree and the neighbour's shed are a metre apart. Before anything is
 planted, the houses, driveways, walks, fence lines AND every placement another
-pass already put inside a yard are claimed in that same grid. "Nothing is
-planted on the house, the driveway or the fence" is then a property of the
-reservation, not a separate rule that can be forgotten — and it holds even for
-obstacles the yard record does not describe.
+pass already put inside a yard are claimed in that same grid, so "nothing is
+planted on the house, the driveway or the fence" is a property of the
+reservation rather than a rule each routine has to remember — and it holds even
+for obstacles the yard record does not describe.
 
     python suburb_yards.py --selftest        # no Isaac Sim, no Nucleus
 """
@@ -195,6 +195,28 @@ def _tagged(pool, tag):
     return hit or pool
 
 
+# The roles the prop slots below place. Used only to tell "this pool carries no
+# role tags at all" from "this pool is tagged and simply does not stock one".
+_PROP_ROLES = frozenset(("shed", "patio", "bin", "mailbox"))
+
+
+def _role(pool, tag):
+    """Entries for prop role *tag* — STRICT when the pool is tagged at all.
+
+    `_tagged`'s fall back to the whole pool is right for an UNTAGGED pool, where
+    it is the only way an old config keeps working. It is wrong for a pool that
+    is tagged and deliberately does not stock a role: the shipped suburban pool
+    has no `shed` since the AEC MobilaShelter came out of it (it rendered as the
+    transit shelter it was authored as), and under `_tagged` that hole made
+    every garden's shed slot draw from the WHOLE pool — a wheelie bin or a
+    mailbox stood in the far corner of the lawn, angled to face the house.
+    """
+    hit = [e for e in pool if tag in e["tags"]]
+    if hit:
+        return hit
+    return [] if any(e["tags"] & _PROP_ROLES for e in pool) else list(pool)
+
+
 def _weighted(rng, entries):
     total = sum(e["weight"] for e in entries)
     if total <= 0.0:
@@ -215,19 +237,17 @@ class _Purse:
     """Points spent against a ceiling, shared out by yard AREA.
 
     Per-yard shares rather than one running total, because a single pool would
-    be spent by the first lots reached and the rest of the suburb would come
-    out bare — the failure the park pass hit with rejection sampling, in a
-    different currency. Area-proportional shares make the spend uniform in
-    points per square metre, so a deep lot is planted more heavily than a
-    narrow one without either being special-cased.
+    be spent by the first lots reached and the rest of the suburb would come out
+    bare. Area-proportional shares make the spend uniform in points per square
+    metre, so a deep lot is planted more heavily than a narrow one without
+    either being special-cased.
 
-    Under-spend CARRIES FORWARD, and that is the load-bearing part. The
-    cheapest tree in the library is 48.7k points; at 500 lots a yard's whole
-    share is a fraction of that, so a strict per-yard cap would plant no tree
-    anywhere. Carrying the unspent share means the cap climbs until a yard can
-    afford one, and because the yards are visited in shuffled order the trees
-    that do get planted land evenly across the suburb rather than in the first
-    streets built.
+    Under-spend CARRIES FORWARD, and that is the load-bearing part. The cheapest
+    tree in the library is 48.7k points; at 500 lots a yard's whole share is a
+    fraction of that, so a strict per-yard cap would plant no tree anywhere.
+    Carrying it means the cap climbs until a yard can afford one, and because
+    the yards are visited in shuffled order those trees land evenly across the
+    suburb rather than in the first streets built.
     """
 
     INSTANCE_PTS = 400          # a transform and a prototype pointer, not a mesh
@@ -392,10 +412,10 @@ def yards_from_layout(config: dict, layout: dict) -> list:
 
     Deliberately tolerant. The key `suburb_lots.py` publishes under is brokered
     between two modules built in parallel, so this tries the configured name
-    first and then a short list of candidates, and accepts either a flat list
-    of yard records or a list of LOT records carrying front/rear rects. The
-    planting itself takes an explicit list (`plant`), so none of this is on the
-    path that is tested — wiring is a lookup, not a behaviour.
+    first and then a short list of candidates, and accepts either a flat list of
+    yard records or a list of LOT records carrying front/rear rects. Planting
+    itself takes an explicit list (`plant`); this is wiring only, and `selftest`
+    checks it against a record in the shape the lots pass publishes.
     """
     cfg = config.get("suburb_yards") or {}
     keys = ([cfg["layout_key"]] if cfg.get("layout_key") else list(_LAYOUT_KEYS))
@@ -505,9 +525,7 @@ def plant(config: dict, yards: list, placements: list, resolver, rng) -> dict:
     # Two sources, because neither is complete on its own: the yard record
     # describes the house and driveway of ITS lot, and the placement list
     # carries whatever another pass actually put on the ground — fence modules,
-    # the house art, a bin. Reserving both is what makes "nothing is planted on
-    # the house, driveway or fence line" fall out of the occupancy test instead
-    # of being a rule each planting routine has to remember.
+    # the house art, a bin.
     for y in yards:
         for key, cat in (("house", "house"), ("driveway", "driveway"),
                          ("walk", "walk")):
@@ -630,14 +648,13 @@ def plant(config: dict, yards: list, placements: list, resolver, rng) -> dict:
             implied a 5 m trunk reservation. A suburb of narrow lots is still a
             suburb with trees in it; they are just smaller trees.
 
-            SPECIES FIRST, PRICE SECOND, AND NO SUBSTITUTION. Drawing from
-            only what is affordable looks like the same thing and is not: the
-            purse refills by about half a tree per yard, so a cheap draw is
-            always payable and an accent at 4-6x never is. Sweeping the accent
-            weight from 0.04 to 0.50 moved the accent count from 1 to 3 in 500
-            lots — the filter, not the weight, was choosing the species. Now an
-            unaffordable draw plants nothing and the purse keeps accumulating,
-            so the expensive species land at the rate they were given.
+            SPECIES FIRST, PRICE SECOND, AND NO SUBSTITUTION. The purse refills
+            by about half a tree per yard, so a cheap draw is always payable and
+            an accent at 4-6x never is: drawing from only what is affordable
+            deletes the expensive species outright. Sweeping the accent weight
+            from 0.04 to 0.50 moved the accent count from 1 to 3 in 500 lots —
+            the filter, not the weight, was choosing. An unaffordable draw now
+            plants nothing and the purse keeps accumulating instead.
             """
             if not pool:
                 return None, None
@@ -673,11 +690,10 @@ def plant(config: dict, yards: list, placements: list, resolver, rng) -> dict:
             return math.hypot(px - lawn[0], py - lawn[1]) >= lawn_r + r
 
         # -- the specimen / canopy tree(s). FIRST, ahead of the shrubs: a tree
-        # is the one element of a yard visible from anywhere else in the scene,
-        # and it is the most expensive thing in the pass by a factor of ten. If
-        # it goes in last it competes for the yard's remaining share against
-        # ground cover it should never have been ranked beside, which is how
-        # the first version of this pass produced a treeless suburb.
+        # is the most expensive thing in the pass by a factor of ten, so placed
+        # last it competes for the yard's remaining share against ground cover
+        # it should never have been ranked beside — which is how the first
+        # version of this pass produced a treeless suburb.
         tcfg = style.get("tree") or {}
         n_lo, n_hi = _pair(tcfg.get("count"), (1.0, 1.0))
         want = rng.randint(int(n_lo), int(n_hi)) \
@@ -707,14 +723,13 @@ def plant(config: dict, yards: list, placements: list, resolver, rng) -> dict:
             # is already planted — but the score SATURATES. Taking the strict
             # maximum put every front tree in the same corner of every lot,
             # because with one anchor the furthest point from it is always a
-            # corner; a whole street of that reads as a pattern, not as trees.
-            # Past the setback, one spot is as good as another and the choice
-            # is random.
+            # corner. Past the setback one spot is as good as another, so the
+            # choice is random.
             #
             # The tree does NOT avoid the lawn. A specimen tree standing in a
-            # mown lawn is what a front garden IS — parks protects its
-            # greensward because a greensward is meant to be an open meadow,
-            # and copying that rule here left the small lots treeless.
+            # mown lawn is what a front garden IS; parks protects its greensward
+            # because a greensward is an open meadow, and copying that rule here
+            # left the small lots treeless.
             avoid = anchors + placed_here
             cap2 = (from_house + 2.0) ** 2
             good, best = [], None
@@ -803,7 +818,7 @@ def plant(config: dict, yards: list, placements: list, resolver, rng) -> dict:
             chance = float(style.get(f"{name}_chance", 0.0))
             if not props or rng.random() >= chance:
                 continue
-            pool = budget.other.affordable(_tagged(props, cat_tag))
+            pool = budget.other.affordable(_role(props, cat_tag))
             if not pool:
                 continue
             e = _weighted(rng, pool)
@@ -937,7 +952,6 @@ _MEASURED = {
     "Hibiscus":               (2.31,  2.13,  1.64, 195_688),
     "Yew":                    (1.23,  1.24,  0.73, 324_028),
     # prop
-    "MobilaShelter":          (2.14,  1.95,  2.33,  11_698),
     "Kalmar_TblChr":          (2.43,  2.42,  1.01,  60_806),
     "ParkBench01":            (2.62,  0.79,  0.39,   1_463),
     "TrashCan":               (0.51,  0.51,  0.73,     630),
@@ -994,8 +1008,13 @@ def _selftest_config(budget=25_000_000):
                 _entry("Hibiscus", 195_688, 0.05),
                 _entry("Yew", 324_028, 0.03),
             ],
+            # NO `shed` ENTRY, matching the shipped pool: the AEC
+            # MobilaShelter was the only one and came out of
+            # `asset_packs/suburban.yaml` for rendering as the transit shelter it
+            # was authored as. The shed slot therefore draws from an empty
+            # `_role` list here, which is exactly what it does in a real run —
+            # that is the case worth exercising, not a stand-in that hides it.
             "yard_props": [
-                _entry("MobilaShelter", 11_698, 1.0, ["shed"]),
                 _entry("Kalmar_TblChr", 60_806, 1.0, ["patio"]),
                 _entry("ParkBench01", 1_463, 1.0, ["patio"]),
                 _entry("TrashCan", 630, 1.0, ["bin"]),
@@ -1236,7 +1255,11 @@ def selftest() -> int:
     if not wired:
         fails.append(("adapter", got))
 
-    summary = "ALL PASS" if not fails else f"{len(fails)} FAILURE(S): {fails!r}"
+    # Built outside the f-string: an expression spanning two lines INSIDE the
+    # braces is PEP 701, i.e. Python 3.12 and up, and the Isaac Sim container
+    # runs older than that — inline, this file raised SyntaxError there.
+    summary = ("ALL PASS" if not fails
+               else f"{len(fails)} FAILURE(S): {fails!r}")
     print(f"\n{summary}")
     return 1 if fails else 0
 

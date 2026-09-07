@@ -3,7 +3,7 @@
  "preset": "suburb_earthquake",
  "seed": 7,
  "severity": 0.5,
- "n_placements": 4135,
+ "n_placements": 4259,
  "counts": {
   "bench": 17,
   "car": 67,
@@ -14,6 +14,7 @@
   "play_structure": 4,
   "rock": 12,
   "sidewalk": 1350,
+  "sign": 124,
   "streetlight": 100,
   "trail": 75,
   "trash_can": 5,
@@ -21,8 +22,8 @@
  },
  "digests": {
   "geometry": "379548f8f9292103",
-  "layout": "41fbfb41e042fbdb",
-  "full": "1394fee4258fba18"
+  "layout": "a8e99cb9c3568544",
+  "full": "a84d7f7d799c5e90"
  },
  "geometry": {
   "region": [

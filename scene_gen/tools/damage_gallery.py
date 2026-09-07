@@ -194,7 +194,8 @@ def buildings_of(cfg: dict) -> list:
     producing one.
     """
     usds = cfg.get("usds") or {}
-    pool = (usds.get("buildings") or usds.get("houses") or {}).get("intact")
+    from scene_generator import building_entries
+    pool = building_entries(cfg, condition="intact")
     paths, scale_ovr, axis_ovr, _yaw, _tags = sg._normalize_usd_list(
         pool or [], float(cfg.get("asset_scale", 1.0)),
         str(cfg.get("asset_root", "") or ""))

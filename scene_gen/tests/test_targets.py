@@ -1,7 +1,7 @@
 """Stage C's population model — the parts that are wrong silently.
 
 A target that lands in the wrong place still renders, still gets a label, and
-still shows up in `targets.json`. Nothing raises. What breaks is the ground
+still shows up in `humans.json`. Nothing raises. What breaks is the ground
 truth, and a search run scored against a wrong ground truth is worse than one
 not scored at all — so each of these is a claim `targets.py`'s docstring makes,
 pinned:
@@ -312,15 +312,84 @@ def test_no_cohort_weights_means_no_targets():
 
 # -- 4. the artifacts ------------------------------------------------------
 
-def test_ground_truth_round_trips():
+#: The record fields `disaster/people.py:_Plan.add_person` writes, which is the
+#: interchange format the rest of the stack already reads. Renaming any one of
+#: them is what this list exists to catch — a reader looking for `x` on a row
+#: that calls it `x_m` finds nobody, and scores the run as a total miss.
+PEOPLE_FIELDS = ("id", "scenario", "group", "usd", "x", "y", "z", "yaw",
+                 "pose", "alive", "in_vehicle", "nearest_house")
+
+
+def test_ground_truth_is_the_humans_json_envelope():
+    """The FORMAT, not the contents: `humans.json` as `disaster/people.py`
+    writes it, because that is what every consumer of this dataset expects."""
     vs = _sample()
     with tempfile.TemporaryDirectory() as d:
-        path = T.write_ground_truth(vs, _config(), os.path.join(d, "t.json"))
+        path = T.write_ground_truth(vs, _config(), os.path.join(d, "humans.json"))
         doc = json.load(open(path))
-    assert doc["victims"] == vs
-    assert doc["summary"]["total"] == len(vs)
-    assert doc["disaster"]["type"] == "earthquake"
-    assert sum(doc["summary"]["by_cohort"].values()) == len(vs)
+    assert doc["schema"] == "airstack.people/1"
+    assert doc["count"] == len(vs) == len(doc["people"])
+    assert doc["alive"] == sum(1 for r in doc["people"] if r["alive"])
+    assert sum(doc["by_scenario"].values()) == len(vs)
+    assert doc["meta"]["disaster_type"] == "earthquake"
+    for r in doc["people"]:
+        for k in PEOPLE_FIELDS:
+            assert k in r, (k, r)
+        assert isinstance(r["id"], str) and r["id"].startswith("p")
+        assert r["scenario"] in T.COHORTS
+
+
+def test_ground_truth_feeds_the_annotation_boxes():
+    """The end of the contract that actually scores a run: `humans.json` ->
+    `boxes_from_people` -> one `person` box per person, at the right height.
+
+    `scene_annotations` is deliberately re-implemented here rather than
+    imported — it lives under `simulation/`, which `scene_gen` may not import,
+    and a copy of eight lines is cheaper than a sys.path hack in a host test.
+    If the real one changes, this is the test that should stop passing."""
+    vs = _sample()
+    with tempfile.TemporaryDirectory() as d:
+        path = T.write_ground_truth(vs, _config(), os.path.join(d, "humans.json"))
+        doc = json.load(open(path))
+    people = doc.get("people", [])
+    size = (0.7, 0.7, 1.8)
+    boxes = [{"class": "person",
+              "bbox_world": {"center_xyz_m": [r["x"], r["y"],
+                                              r["z"] + size[2] / 2.0],
+                             "size_xyz_m": list(size)}}
+             for r in people]
+    assert len(boxes) == len(vs) > 0
+    assert {b["class"] for b in boxes} == {"person"}
+    # The box centre is half a body ABOVE the record z, so a record whose z is
+    # the prim height of somebody lying down would put the box in the air. That
+    # is why `z` is the support surface and `z_prim` is beside it.
+    for r, b in zip(people, boxes):
+        assert b["bbox_world"]["center_xyz_m"][2] > r["z"]
+        assert "z_prim" in r
+
+
+def test_groups_are_locations_not_people():
+    """A group is what a drone flies to. `open_space` clusters share one, so
+    the location count is strictly below the head count on any scene that has
+    them, and every person belongs to exactly one."""
+    vs = _sample()
+    groups = {v["group"] for v in vs}
+    assert groups and len(groups) <= len(vs)
+    assert all(isinstance(v["group"], int) for v in vs)
+
+
+def test_casualty_share_is_off_and_does_not_move_anybody():
+    """`casualty_share` defaults to 0 — everyone alive — and turning it on must
+    change WHO IS DEAD without changing where a single person is, or a set with
+    casualties would not be comparable to the set without."""
+    live = _sample()
+    assert all(v["alive"] for v in live)
+    cfg = _config()
+    cfg["targets"]["casualty_share"] = 0.5
+    dead = _sample(cfg)
+    assert [(v["x"], v["y"], v["cohort"]) for v in dead] == \
+           [(v["x"], v["y"], v["cohort"]) for v in live]
+    assert 0 < sum(1 for v in dead if not v["alive"]) <= len(dead)
 
 
 def test_every_pose_is_authored():

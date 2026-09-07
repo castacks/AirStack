@@ -80,14 +80,39 @@ def _parse(argv=None):
                     help="output root (default: scene_gen/assets/archetypes)")
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--skip-existing", action="store_true",
-                    help="leave alone any archetype already baked and in the "
-                         "manifest; the only way to resume an interrupted "
-                         "bake, or to re-cut just what a changed knob affects")
+                    help="leave alone any archetype already baked (per the "
+                         "manifest or the bake trace, cross-checked against "
+                         "the file); how you resume an interrupted bake, or "
+                         "re-cut just what a changed knob affects")
     ap.add_argument("--only", default="",
                     help="comma-separated type slugs to bake")
+    ap.add_argument("--cells", default="",
+                    help="comma-separated TYPE:LEVEL pairs — bake exactly "
+                         "those rungs and nothing else (what the gallery "
+                         "picker sends). Unlike --only x --levels this is not "
+                         "a cross product: picking A:cracked and B:pancaked "
+                         "bakes two cells, not four")
     ap.add_argument("--used-only", action="store_true",
                     help="only the types this scene actually places "
                          "(seed-specific — see plan.used_by_scene)")
+    ap.add_argument("--census", default="",
+                    help="a census written by a scene run under Kit "
+                         "(SCENE_CENSUS=). Marks `used_by` on every record it "
+                         "recognises, and BAKES THE USED TYPES FIRST, "
+                         "most-placed first — so a bake stopped early has "
+                         "finished the archetypes a scene actually needs.")
+    ap.add_argument("--census-only", action="store_true",
+                    help="with --census, bake ONLY the types it saw placed")
+    ap.add_argument("--exclude", default="",
+                    help="comma-separated type slugs to SKIP. For an asset "
+                         "the pipeline cannot currently cut: `SM_Building_28` "
+                         "spun inside vtkClipClosedSurface for 44 minutes on "
+                         "its `cracked` rung, at constant memory and "
+                         "unresponsive to SIGINT and SIGTERM, so the "
+                         "try/except fallback to numpy never fired (a spin "
+                         "raises nothing). Excluding it costs the two "
+                         "placements it has in the 1 km layout and keeps the "
+                         "rest of the bake at VTK speed.")
     ap.add_argument("--gui", action="store_true",
                     help="open a window; default is headless")
     ap.add_argument("--dry-run", action="store_true",
@@ -105,42 +130,116 @@ def _disasters(arg: str, config: dict) -> list:
     return [str((config.get("disaster") or {}).get("type") or "none").lower()]
 
 
-def _select(config, dtype, args):
+def _select(config, dtype, args, census=None):
     """The (type, kind) set to bake, or None for everything."""
     from archetypes import plan as P
+    from archetypes import census as C
 
     items = P.build_plan(config, dtype)
     if args.used_only:
         items = P.used_by_scene(config, items)
+    if census:
+        # USED FIRST, MOST-PLACED FIRST. Not a filter unless asked
+        # (`--census-only`): the rest of the pack is still worth baking, it is
+        # just worth baking second. A bake stopped by the disk or the morning
+        # then has the archetypes the scene actually references.
+        rank = {t: i for i, t in enumerate(C.used_types(census))}
+        if args.census_only:
+            items = [i for i in items if i.type in rank]
+        items.sort(key=lambda i: rank.get(i.type, len(rank)))
+        hit = sum(1 for i in items if i.type in rank)
+        print(f"[stage-a] census '{census.get('config', 'scene')}': "
+              f"{hit} of {len(items)} planned types are placed by that scene")
     if args.only:
-        want = {t.strip() for t in args.only.split(",") if t.strip()}
-        items = [i for i in items if i.type in want]
-        missing = want - {i.type for i in items}
+        # THE ORDER OF --only IS THE BAKE ORDER. `tools/bake_order.py` emits
+        # the list cheapest-first so that a bake stopped by the disk or by the
+        # morning has completed whole assets rather than a third of a tower;
+        # collapsing it to a set here threw that away silently.
+        want = [t.strip() for t in args.only.split(",") if t.strip()]
+        rank = {t: i for i, t in enumerate(want)}
+        items = [i for i in items if i.type in rank]
+        items.sort(key=lambda i: rank[i.type])
+        missing = set(want) - {i.type for i in items}
         if missing:
             print(f"[stage-a] WARNING: --only named {sorted(missing)}, which "
                   f"this config does not plan", file=sys.stderr)
-    if not (args.used_only or args.only):
-        return None, items
-    return {(i.type, i.kind) for i in items}, items
+    if args.cells:
+        # EXACT (type, level) PAIRS. The picker selects individual rungs, and
+        # a type filter crossed with a level filter cannot express that: it
+        # would re-cut rungs the user did not choose, which on this pipeline
+        # costs minutes each and overwrites files they may have hand-posed.
+        want = {}
+        for tok in args.cells.split(","):
+            tok = tok.strip()
+            if not tok:
+                continue
+            t, _, lv = tok.partition(":")
+            want.setdefault(t.strip(), set()).add(lv.strip())
+        items = [i for i in items if i.type in want]
+        for i in items:
+            i.levels = [lv for lv in i.levels if lv in want[i.type]]
+        items = [i for i in items if i.levels]
+        got = {(i.type, lv) for i in items for lv in i.levels}
+        missing = {(t, lv) for t, lvs in want.items() for lv in lvs} - got
+        if missing:
+            print(f"[stage-a] WARNING: --cells named {sorted(missing)}, which "
+                  f"this config does not plan", file=sys.stderr)
+        print(f"[stage-a] --cells selected {len(got)} rung(s)")
+    if args.exclude:
+        drop = {t.strip() for t in args.exclude.split(",") if t.strip()}
+        before = len(items)
+        items = [i for i in items if i.type not in drop]
+        print(f"[stage-a] --exclude dropped {before - len(items)} type(s): "
+              f"{sorted(drop)}")
+    if not (args.used_only or args.only or args.census_only
+            or args.exclude or args.cells):
+        # `None` means "everything", which discards the census ORDER — so a
+        # census run must always pass an explicit selection, even when it
+        # selects the whole plan.
+        if not census:
+            return None, items
+    return [(i.type, i.kind) for i in items], items
+
+
+def _cells_set(spec: str):
+    """`--cells` as a set of ``(type, level)``, or None. See `bake._trim_to_cells`."""
+    if not spec:
+        return None
+    out = set()
+    for tok in spec.split(","):
+        tok = tok.strip()
+        if not tok:
+            continue
+        t, _, lv = tok.partition(":")
+        out.add((t.strip(), lv.strip()))
+    return out or None
 
 
 def _plan_all(args):
     """Resolve the config and the per-disaster selections. Imports `pxr`."""
     from compile_disaster import load_scene_config
     from archetypes import plan as P
+    from archetypes import census as C
 
     config = load_scene_config(args.config)
     targets = _disasters(args.disaster, config)
 
+    census = C.read(args.census) if args.census else {}
+    if args.census and not census:
+        raise SystemExit(f"no census at {args.census} — write one with "
+                         f"SCENE_CENSUS= on a scene run under Kit")
+    if census:
+        print(C.summarise(census))
+
     selections, total = {}, 0
     for dtype in targets:
-        only, items = _select(config, dtype, args)
+        only, items = _select(config, dtype, args, census)
         selections[dtype] = only
         print(P.summarise(items, dtype))
         total += sum(len(i.levels) for i in items)
     if len(targets) > 1:
         print(f"\n{total} archetypes across {len(targets)} disasters")
-    return config, targets, selections, total
+    return config, targets, selections, total, census
 
 
 def main(argv=None) -> int:
@@ -148,7 +247,7 @@ def main(argv=None) -> int:
 
     # --dry-run never starts Kit, so it is free to import `pxr` here.
     if args.dry_run:
-        _c, _t, _s, total = _plan_all(args)
+        _c, _t, _s, total, _cen = _plan_all(args)
         if not total:
             print("[stage-a] nothing to bake", file=sys.stderr)
             return 1
@@ -182,7 +281,7 @@ def main(argv=None) -> int:
         import omni.usd
         from archetypes import bake as stage_a
 
-        config, targets, selections, total = _plan_all(args)
+        config, targets, selections, total, census = _plan_all(args)
         if not total:
             print("[stage-a] nothing to bake", file=sys.stderr)
             return 1
@@ -195,7 +294,8 @@ def main(argv=None) -> int:
             res = stage_a.run(ctx.get_stage(), config, dtype,
                               out_dir=args.out, seed=args.seed,
                               only=selections[dtype],
-                              skip_existing=args.skip_existing)
+                              skip_existing=args.skip_existing,
+                              census=census, cells=_cells_set(args.cells))
             failed += res["wanted"] - res["baked"]
     except BaseException:
         # PRINT IT FIRST. `SimulationApp.close()` hard-exits the process (see

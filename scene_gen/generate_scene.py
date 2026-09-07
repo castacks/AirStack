@@ -512,15 +512,30 @@ def generate_scene_on_stage(stage,
             print(f"[scene_gen] plan: {path}")
 
     ground_snap = sg._make_physx_ground_snap() if snap_to_ground else None
+    # INSTANCE THE TILES. Mirrors the suburb path's idiom (a hardcoded
+    # default the config can override), but the urban list is much shorter
+    # because the disaster authors into most categories. It is worth having
+    # even so: the 1 km city is 69,801 placements drawn from 105 unique
+    # assets, and `concrete` alone is 57,943 of them from a SINGLE usd.
+    # Uninstanced, that is 57,943 resident copies of one tile.
+    #
+    # A category here is only actually instanced per placement if a
+    # collider-ready variant exists (`tools/collider_cache.py`) and no pass
+    # authors inside it -- see `apply_placements`.
     sg.apply_placements(stage, placements, parent_path, scene_scale_factor,
-                        ground_snap, resolver=resolver)
+                        ground_snap, resolver=resolver,
+                        instance_categories=set(
+                            config.get("instance_categories")
+                            or ["concrete", "sidewalk", "house"]))
     # Before any damage runs, so a missing asset is never mistaken for the
     # disaster having removed a building.
     report_empty_placements(stage, placements)
     # Mesh damage needs real prims — it authors a `points` override on
     # geometry inside a referenced layer — so it runs here rather than in
     # `build_scene`, which is pure Python.
-    _mesh = mesh_damage.apply_to_stage(stage, config, placements)
+    # `layout` so the debris a cut building sheds is bounded by the region the
+    # ground plane actually spans — see `mesh_damage._shed_debris`.
+    _mesh = mesh_damage.apply_to_stage(stage, config, placements, layout)
 
     # Fragments are new prims, so they are not in `placements` and the launch
     # script's settle pass would never see them — leaving thrown geometry
@@ -534,7 +549,17 @@ def generate_scene_on_stage(stage,
     # which is the invariant this whole generator is built around. The anchored
     # fragments are cut where the geometry was and belong exactly there; see
     # `mesh_damage.fracture_to_stage`.
+    #
+    # THE SHED RUBBLE IS ALREADY A PLACEMENT. It is in `loose` too — it is
+    # dropped and settled like a fragment — but unlike a fragment it knows
+    # where it is and what asset it is, so it goes in as itself and `targets`
+    # can keep casualties out of it. Added first, and skipped in the loop, so
+    # it is not also entered as an anonymous fragment.
+    _shed = {q.get("prim_path") for q in _mesh.get("debris", ())}
+    placements.extend(_mesh.get("debris", ()))
     for path in _mesh.get("loose", ()):
+        if path in _shed:
+            continue
         placements.append({"usd": "", "category": "debris_fragment",
                            "prim_path": path, "settle": True,
                            "x_m": 0.0, "y_m": 0.0, "z_m": 0.0,

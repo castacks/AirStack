@@ -1,0 +1,102 @@
+# HIGH-LEVEL scene spec — a small urban_v2 block after a SEVERE earthquake,
+# built ENTIRELY from archetypes that were already baked.
+#
+# WHAT MAKES THIS ONE DIFFERENT
+# -----------------------------
+# Every wrecked building here is a Stage A archetype out of
+# `assets/archetypes_urban_v2/earthquake`. No live mesh fracture, no
+# authored-ruin swap, and no silent fallback down the ladder. That is the whole
+# point: `asset-pack: urban_v2_baked` is `urban_v2` cut down to the 24 building
+# types whose COMPLETE five-rung earthquake ladder exists, so a building the
+# field says should be `pancaked` is pancaked rather than quietly served the
+# gentlest rung that happened to bake.
+#
+# `urban_quake_tiny` is the sibling that does the opposite — `urban_intact`
+# plus live `mesh_damage` — to look at the damage CODE. This one looks at the
+# baked LIBRARY, and costs a fraction of the time because nothing is cut at
+# scene time.
+#
+# RUN IT
+#
+#     SCENE_CONFIG=urban_v2_quake_small \
+#     SCENE_ARCHETYPE_ROOT=/isaac-sim/AirStack/scene_gen/assets/archetypes_urban_v2 \
+#     ISAAC_SIM_SCRIPT_NAME=scene_launch_script.py \
+#     airstack up isaac-sim
+#
+# SCENE_ARCHETYPE_ROOT IS NOT OPTIONAL, and getting it wrong fails QUIETLY.
+# The default library at `assets/archetypes/earthquake` is an older, unrelated
+# bake (69 archetypes, 18 types, mostly Nucleus `BG_Building_*` /
+# `Building_Type*`) holding almost none of the types this pack names. Without
+# the override the scene still builds — it just falls through to live fracture
+# and stops being the thing described above. MEASURED, same seed:
+#
+#     default root       archetype=2   damaged=62  (62 buildings cut live)
+#     archetypes_urban_v2  archetype=67  damaged=9  destroyed=58
+#
+# `disaster_stage` prints the library it loaded, WITH ITS PATH. Check that line
+# before believing a frame.
+#
+# NO PRE-FLIGHT: every asset is an `omniverse://` URL or a Nucleus-relative
+# path, so nothing needs caching locally first.
+#
+# WHY 200 m
+# ---------
+# The pack has NO TOWERS — none of `urban_v2`'s 30 intact towers was reached
+# before the overnight bake ran out of disk, because towers are the most
+# expensive thing to fracture and the bake ordered cheapest-first. An empty
+# tower pool is only safe while nothing zones a tower block, and that is what
+# 200 m buys: `districts` reports
+#
+#     region 200x200 m is below min_region_m=300 — single district
+#
+# so the typology zoning never runs and `build_city` packs from the merged
+# pools. VERIFIED, not assumed — building this preset with the tower typology
+# left alone and with its pool repointed at midrise gives byte-identical
+# output (2,965 placements, 85 buildings, the same 20 models), which is what
+# "the tower rung is never reached" looks like from outside.
+#
+# RAISING region_m TO 300 OR MORE RE-ARMS THAT. Districts start zoning, a
+# tower block draws from an empty pool, and it comes out as bare pavement.
+# There is no clean override for it either: `tower: null` does NOT remove the
+# typology, because `config_merge.deep_merge` replaces values and never
+# deletes keys, so the `None` reaches `_AreaMap._ladder` and raises
+# `'NoneType' object has no attribute 'get'`. If you need a bigger region,
+# either bake a tower ladder or repoint `layout.districts.typologies.tower.pools`
+# at `[midrise]` and accept midrise art on tower-sized blocks.
+#
+# SEVERITY 0.9, AND THE FIELD LEFT ALONE
+# --------------------------------------
+# `compile_earthquake` puts `damaged_fraction` at 0.32 and `destroyed_fraction`
+# at 0.50, so ~82% of the buildings at the epicentre are hit and the rest stand
+# as contrast. At 1.0 nothing is left standing to compare against.
+#
+# WHAT THAT ACTUALLY BUILDS (seed 42, measured):
+#
+#     85 buildings   67 archetype-backed, 18 left on their intact art
+#     pancaked          58
+#     partial_collapse   9
+#     intact            18
+#     24 distinct archetypes referenced, 1.64 GB, instanced
+#
+# NOTE THE SHAPE: two rungs, not five. At 200 m the compiled field is an 84 m
+# fully-hit core with a 110 m falloff, and every building in the region sits
+# inside that core — so this is a UNIFORMLY severe quake, which is what
+# severity 0.9 over a 200 m footprint physically is. It is not a ladder demo.
+# If you want the gradient instead — cracked at the edges grading to pancaked
+# at the centre — shrink the core the way `urban_quake_tiny` does:
+#
+#     overrides:
+#       disaster:
+#         field: {radius_m: 20.0, falloff_m: 90.0, outside: 0.1}
+#
+# Sweep against severity 0.0 for a like-for-like pristine twin: the layout is
+# identical by construction (`tests/test_layout_decoupling`), so the only
+# difference in the frame is the damage.
+
+locale: urban
+disaster-type: earthquake
+severity: 0.9
+
+asset-pack: urban_v2_baked
+region_m: [200, 200]
+seed: 42

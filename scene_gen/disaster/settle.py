@@ -31,7 +31,21 @@ shows, and the fix there is `approximation="convexDecomposition"` on that prim
 rather than on all of them.
 """
 
-import carb
+def _warn(msg: str) -> None:
+    """Log through carb inside Kit, print outside it.
+
+    `import carb` used to sit at module scope, which made this whole module
+    un-importable anywhere but inside Isaac Sim — and that is why the settle
+    has no host-side tests while everything around it does. Nothing here needs
+    carb except two warnings, so it is imported where it is used.
+    """
+    try:
+        import carb
+        carb.log_warn(msg)
+    except Exception:                                           # noqa: BLE001
+        print(msg)
+
+
 
 #: Cap on how fast PhysX may push two overlapping bodies apart, m/s. See the
 #: note where it is applied. This is the knob that decides whether a pile
@@ -181,7 +195,8 @@ GPU_CAPACITIES = {
 }
 
 
-def configure_scene(stage, scene_prim=None, gpu: bool = True) -> dict:
+def configure_scene(stage, scene_prim=None, gpu: bool = True,
+                    dt: float = 1.0 / 60.0) -> dict:
     """Put the settle's PhysX settings on a physics scene. Returns what it set.
 
     THE SETTLE IS THE ONE PHASE HERE THAT CAN USE THE CARD — mesh slicing and
@@ -210,8 +225,16 @@ def configure_scene(stage, scene_prim=None, gpu: bool = True) -> dict:
     # TGS converges far better than PGS on deep stacks, which is exactly what
     # a collapsed building is.
     sx.CreateSolverTypeAttr("TGS")
+    # THE SCENE RATE HAS TO AGREE WITH THE CALLER'S dt OR THERE IS NO SPEEDUP.
+    # `timeStepsPerSecond` is PhysX's own rate: left at 60 while the caller
+    # steps at 1/20, PhysX SUBSTEPS each call back into three 1/60 slices and
+    # does exactly as much work as before, for exactly the same result. The
+    # coarse step only becomes cheap once the scene is told to take it.
+    hz = 1.0 / max(float(dt), 1e-6)
+    sx.CreateTimeStepsPerSecondAttr(int(round(hz)))
     was = {"gpu": bool(gpu), "broadphase": "GPU" if gpu else "MBP",
-           "solver": "TGS", "scene": str(scene_prim.GetPath())}
+           "solver": "TGS", "steps_per_second": int(round(hz)),
+           "scene": str(scene_prim.GetPath())}
     if gpu:
         for name, value in GPU_CAPACITIES.items():
             attr = getattr(sx, "Create" + name[0].upper() + name[1:] + "Attr")
@@ -248,6 +271,7 @@ def describe_scene(stage) -> dict:
     out["gpu"] = bool(_get("GetEnableGPUDynamicsAttr", False))
     out["broadphase"] = str(_get("GetBroadphaseTypeAttr", "?"))
     out["solver"] = str(_get("GetSolverTypeAttr", "?"))
+    out["steps_per_second"] = _get("GetTimeStepsPerSecondAttr")
     for name in GPU_CAPACITIES:
         out[name] = _get("Get" + name[0].upper() + name[1:] + "Attr")
     return out
@@ -257,7 +281,7 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
             scene_path="/World/physicsScene", kick=0.0, rng=None,
             dynamic_approximation="convexHull", approx_map=None, gpu=True,
             blast=0.0, blast_center=None, blast_up=0.35, blast_falloff=1.0,
-            depenetration=DEPENETRATION_MS):
+            depenetration=DEPENETRATION_MS, dt=1.0 / 60.0):
     """Physics scene, static colliders, and a rigid body per loose piece."""
     import random as _random
 
@@ -271,7 +295,7 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
     scene.CreateGravityDirectionAttr().Set(Gf.Vec3f(0.0, 0.0, -1.0))
     scene.CreateGravityMagnitudeAttr().Set(abs(float(gravity)))
 
-    configure_scene(stage, scene.GetPrim(), gpu=gpu)
+    configure_scene(stage, scene.GetPrim(), gpu=gpu, dt=dt)
 
     # A true infinite plane as a backstop. Even with the fix above, one
     # uncooked collider is enough to lose a piece to infinity, and a piece
@@ -514,8 +538,76 @@ def _positions(bodies):
             for b in bodies if b and b.IsValid()}
 
 
+def _measure(before, after, settled, keys=None):
+    """The displacement summary for a set of bodies. `keys` restricts it.
+
+    Factored out of `run` so a GROUP can be asked exactly what the whole scene
+    is asked — a batched settle has to judge each wreck on its own numbers, and
+    a second, slightly different implementation of "did this pile fall" is how
+    the batch and the single cell would drift apart.
+
+    *after* is where the bodies were when the step loop stopped; *settled* is
+    20 steps later, with anything thrown clear already removed.
+    """
+    import numpy as np
+
+    if keys is not None:
+        ks = set(keys)
+        before = {k: v for k, v in before.items() if k in ks}
+        after = {k: v for k, v in after.items() if k in ks}
+        settled = {k: v for k, v in settled.items() if k in ks}
+
+    out = {}
+    moved = [float(np.linalg.norm(np.array(settled[k]) - np.array(after[k])))
+             for k in after if k in settled]
+    out["still_moving"] = sum(1 for d in moved if d > 0.004)
+    # HOW FAST, not just how many. The count above trips at 4 mm per 20 steps
+    # (~1 cm/s), which cannot tell a fragment creeping on top of a pile — at
+    # rest to any viewer — from one in free fall that will hang in mid-air the
+    # moment the bake freezes it. Only the second is a picture of an
+    # explosion, and only the speed distinguishes them.
+    out["creep_max_ms"] = (max(moved) * 3.0) if moved else 0.0
+    out["creep_p95_ms"] = (float(np.percentile(moved, 95)) * 3.0
+                           if moved else 0.0)
+
+    # HORIZONTAL vs VERTICAL is the whole question. A collapse drops pieces:
+    # large -Z, small XY. An explosion throws them: large XY. One number for
+    # total displacement cannot tell the two apart, and that is exactly the
+    # judgement being made here.
+    dv = [float(np.array(settled[k])[2] - np.array(before[k])[2])
+          for k in before if k in settled]
+    dh = [float(np.linalg.norm((np.array(settled[k])
+                                - np.array(before[k]))[:2]))
+          for k in before if k in settled]
+    d = [float(np.linalg.norm(np.array(settled[k]) - np.array(before[k])))
+         for k in before if k in settled]
+    out["moved_mean"] = float(np.mean(d)) if d else 0.0
+    out["moved_max"] = float(np.max(d)) if d else 0.0
+    out["drop_mean"] = float(np.mean(dv)) if dv else 0.0
+    # AND THE MEDIAN, which is the one to tune against. A pile is thousands of
+    # bodies and a handful of them get launched — one slab catapulted off the
+    # top of the wreckage carried the mean from -3 m to +7.4 m on BG_Building_F
+    # and read as an explosion that never happened. The median says where the
+    # material went; the mean says whether anything got thrown.
+    out["drop_median"] = float(np.median(dv)) if dv else 0.0
+    out["spread_mean"] = float(np.mean(dh)) if dh else 0.0
+    out["spread_max"] = float(np.max(dh)) if dh else 0.0
+    return out
+
+
 def _step(steps, dt=1.0 / 60.0):
-    """Step physics, explicitly.
+    """Step physics, explicitly, at *dt* seconds per step.
+
+    DT IS A SPEED KNOB, and it was dead until now: the parameter existed but
+    `sc.step()` ran at whatever the context defaulted to (1/60), so a caller
+    asking for a coarser step silently got a fine one.
+
+    Cost is per STEP, not per simulated second, so doubling dt halves the work
+    for the same amount of simulated collapse. What is traded is contact
+    accuracy: a body moves twice as far between solves, so it penetrates
+    deeper before the solver sees it and the depenetration impulse that frees
+    it is correspondingly bigger. TGS and the 16 position iterations on each
+    body (see `prepare`) are what make that survivable.
 
     `timeline.play()` plus `app.update()` is NOT reliably enough in a
     standalone SimulationApp: nothing attaches the physics scene, so the app
@@ -538,7 +630,16 @@ def _step(steps, dt=1.0 / 60.0):
         except Exception:                                       # noqa: BLE001
             sc = None
         if sc is None:
-            sc = SimulationContext(stage_units_in_meters=1.0)
+            sc = SimulationContext(stage_units_in_meters=1.0,
+                                   physics_dt=float(dt))
+        # AND ON AN EXISTING CONTEXT TOO. The one-context rule above means the
+        # instance usually outlives the caller that made it, so setting dt
+        # only at construction would apply to the first settle of a batch and
+        # to no other.
+        try:
+            sc.set_simulation_dt(physics_dt=float(dt), rendering_dt=float(dt))
+        except Exception:                                       # noqa: BLE001
+            pass
         sc.initialize_physics()
         sc.play()
         for _ in range(int(steps)):
@@ -546,7 +647,7 @@ def _step(steps, dt=1.0 / 60.0):
         sc.pause()
         return "SimulationContext"
     except Exception as exc:
-        carb.log_warn("[settle] SimulationContext unavailable ({0}); "
+        _warn("[settle] SimulationContext unavailable ({0}); "
                       "falling back to the timeline".format(exc))
         import omni.kit.app
         import omni.timeline
@@ -563,7 +664,8 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
         gravity=-9.81, kick=0.0, rng=None, bake_result=True,
         dynamic_approximation="convexHull", approx_map=None, gpu=True,
         blast=0.0, blast_center=None, blast_up=0.35, blast_falloff=1.0,
-        depenetration=DEPENETRATION_MS, max_travel_m=40.0):
+        depenetration=DEPENETRATION_MS, max_travel_m=100.0, groups=None,
+        dt=1.0 / 60.0):
     """prepare -> step physics -> measure -> bake. Returns a short report.
 
     MEASURES WHAT MOVED. A settle that silently does nothing looks identical
@@ -575,6 +677,25 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
     hand-testing in the viewport: drag a piece into the air, press play, and
     it should fall. With baking on (the default for capture) every body is
     disabled at the end and pressing play correctly does nothing.
+
+    GROUPS: SETTLING SEVERAL WRECKS AT ONCE
+    ---------------------------------------
+    *groups* is ``{key: [body path, ...]}`` — one key per independent pile, so
+    a caller settling a batch of archetypes gets a verdict on each rather than
+    one verdict on the union. Without it every body is one implicit group and
+    the behaviour is exactly what it always was.
+
+    It matters because the stopping rule used to be a single max over every
+    body in the scene, so ONE piece still tumbling anywhere held the whole
+    batch to the step ceiling — which is what a batched settle failed on
+    before: 5,064 bodies, 975 s, 4,825 still moving at the end and nothing
+    dropped. Per group, the batch costs the SLOWEST pile rather than the SUM
+    of them, and each pile is judged on its own displacement.
+
+    Groups are NOT frozen as they come to rest. `_positions` skips inactive
+    prims, so deactivating a settled group would drop it out of the final
+    measurement entirely; PhysX already sleeps bodies at rest, so a quiet pile
+    costs the solver almost nothing while its neighbours finish.
     """
     import numpy as np
 
@@ -584,9 +705,9 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
                    approx_map=approx_map, gpu=gpu,
                    blast=blast, blast_center=blast_center,
                    blast_up=blast_up, blast_falloff=blast_falloff,
-                   depenetration=depenetration)
+                   depenetration=depenetration, dt=dt)
     if not info["bodies"]:
-        carb.log_warn("[settle] nothing to settle")
+        _warn("[settle] nothing to settle")
         return info
 
     import time as _time
@@ -603,27 +724,60 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
     # once the busiest body in a chunk moves less than a millimetre, and it
     # reports how much of the budget it actually needed — so "not enough
     # steps" becomes visible instead of being inferred from the render.
+    # KEYED OFF THE BODIES THAT EXIST, not off the paths that were asked for.
+    # `prepare` drops anything it could not make a body of, and `_positions`
+    # keys on the prim's own path — so deriving the groups from `info["bodies"]`
+    # is the only way the default group is guaranteed to be exactly the set the
+    # old global rule measured. A mismatch here would look like an instant
+    # convergence and a settle that silently did nothing.
+    live = [str(b.GetPath()) for b in info["bodies"] if b and b.IsValid()]
+    if groups:
+        gmap = {str(k): [x for x in map(str, v) if x in set(live)]
+                for k, v in groups.items()}
+        # Anything the caller forgot still has to hold the loop open, or a
+        # body outside every group would be left tumbling into the bake.
+        claimed = {x for v in gmap.values() for x in v}
+        rest = [x for x in live if x not in claimed]
+        if rest:
+            gmap["_ungrouped"] = rest
+    else:
+        gmap = {"": live}
+
     chunk = max(30, int(steps) // 12)
     used = 0
     prev = before
     info["driver"] = None
+    #: Step at which each group first went quiet, or None if it never did.
+    rest_at = {g: None for g in gmap}
     while used < int(steps):
         n = min(chunk, int(steps) - used)
-        info["driver"] = _step(n)
+        info["driver"] = _step(n, dt)
         used += n
         now = _positions(info["bodies"])
-        moved = max((float(np.linalg.norm(np.array(now[k]) - np.array(prev[k])))
-                     for k in prev if k in now), default=0.0)
+        quiet = True
+        for g, keys in gmap.items():
+            moved = max((float(np.linalg.norm(np.array(now[k]) - np.array(prev[k])))
+                         for k in keys if k in now and k in prev), default=0.0)
+            if moved < 0.001:
+                # First chunk it went quiet in. Re-armed if it starts again,
+                # which is what a piece toppling onto a finished pile does.
+                if rest_at[g] is None:
+                    rest_at[g] = used
+            else:
+                rest_at[g] = None
+                quiet = False
         prev = now
-        if moved < 0.001:
+        if quiet:
             break
     info["steps_used"] = used
+    info["dt"] = float(dt)
+    info["sim_seconds"] = used * float(dt)
     after = _positions(info["bodies"])
 
     # And one last look: how many bodies were STILL MOVING when the budget ran
     # out. Zero means the pile is genuinely at rest and baking is safe; a
     # non-zero count is the scene telling you the ceiling is too low.
-    _step(20)
+    _step(20, dt)
     settled = _positions(info["bodies"])
 
     # WHAT LEFT THE BUILDING IS NOT PART OF THE BUILDING. A handful of pieces
@@ -635,6 +789,16 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
     # they hang in mid-air. So they are deactivated — the same answer
     # `scene_prep.settle_rigid_props` reaches on the live path — and the
     # convergence question is asked of the rubble that is actually still there.
+    #
+    # THE CAP IS LATERAL ONLY — `d[:2]` on a Z-up stage — so a piece is never
+    # discarded for falling, however far it falls. What it measures is how far
+    # the piece got AWAY from the building.
+    #
+    # AND IT IS THE CALLER'S NUMBER, not one scaled behind their back. A
+    # height-derived floor was tried here and removed: with the cap lifted
+    # entirely, `Amar_Tower` reported `spread_max` of 239 m, so the pieces the
+    # cap was catching really were in flight rather than merely falling far.
+    # The cap is a ceiling on that, and it means exactly what it says.
     flung = []
     if max_travel_m:
         lim = float(max_travel_m)
@@ -651,40 +815,18 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
             settled.pop(k, None)
     info["flung"] = len(flung)
 
-    _moved = [float(np.linalg.norm(np.array(settled[k]) - np.array(after[k])))
-              for k in after if k in settled]
-    info["still_moving"] = sum(1 for d in _moved if d > 0.004)
-    # HOW FAST, not just how many. The count above trips at 4 mm per 20 steps
-    # (~1 cm/s), which cannot tell a fragment creeping on top of a pile — at
-    # rest to any viewer — from one in free fall that will hang in mid-air the
-    # moment the bake freezes it. Only the second is a picture of an
-    # explosion, and only the speed distinguishes them.
-    info["creep_max_ms"] = (max(_moved) * 3.0) if _moved else 0.0
-    info["creep_p95_ms"] = (float(np.percentile(_moved, 95)) * 3.0
-                            if _moved else 0.0)
+    info.update(_measure(before, after, settled))
+    # PER GROUP TOO, so a batch reports a verdict on each wreck. `steps_used`
+    # is when that pile went quiet, not when the batch stopped — the number the
+    # caller's convergence gate wants.
+    info["groups"] = {}
+    for g, keys in gmap.items():
+        stat = _measure(before, after, settled, keys)
+        stat["bodies"] = sum(1 for k in keys if k in before)
+        stat["steps_used"] = rest_at[g] if rest_at[g] is not None else used
+        stat["at_rest"] = rest_at[g] is not None
+        info["groups"][g] = stat
     after = settled
-
-    # HORIZONTAL vs VERTICAL is the whole question. A collapse drops pieces:
-    # large -Z, small XY. An explosion throws them: large XY. One number for
-    # total displacement cannot tell the two apart, and that is exactly the
-    # judgement being made here.
-    dv = [float(np.array(after[k])[2] - np.array(before[k])[2])
-          for k in before if k in after]
-    dh = [float(np.linalg.norm((np.array(after[k]) - np.array(before[k]))[:2]))
-          for k in before if k in after]
-    d = [float(np.linalg.norm(np.array(after[k]) - np.array(before[k])))
-         for k in before if k in after]
-    info["moved_mean"] = float(np.mean(d)) if d else 0.0
-    info["moved_max"] = float(np.max(d)) if d else 0.0
-    info["drop_mean"] = float(np.mean(dv)) if dv else 0.0
-    # AND THE MEDIAN, which is the one to tune against. A pile is thousands of
-    # bodies and a handful of them get launched — one slab catapulted off the
-    # top of the wreckage carried the mean from -3 m to +7.4 m on BG_Building_F
-    # and read as an explosion that never happened. The median says where the
-    # material went; the mean says whether anything got thrown.
-    info["drop_median"] = float(np.median(dv)) if dv else 0.0
-    info["spread_mean"] = float(np.mean(dh)) if dh else 0.0
-    info["spread_max"] = float(np.max(dh)) if dh else 0.0
 
     info["solve_s"] = _time.time() - _t0
     info["baked"] = bake(stage, info["bodies"]) if bake_result else 0
@@ -699,7 +841,7 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
                   info.get("creep_max_ms", 0.0), info.get("creep_p95_ms", 0.0)))
         if info.get("flung"):
             print("[settle]   {0} piece(s) thrown past {1:.0f} m and "
-                  "deactivated".format(info["flung"], float(max_travel_m)))
+                  "deactivated".format(info["flung"], lim))
         print("[settle]   {0} of {1} steps used; {2} body(s) STILL MOVING at "
               "bake time{3}".format(
                   info.get("steps_used", steps), steps,

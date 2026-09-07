@@ -59,9 +59,9 @@ import os
 import random
 
 from scene_generator import (_in_exclusion, _normalize_usd_list,
-                             placement_footprint, _stage)
+                             asset_materials, placement_footprint, _stage)
 
-from disaster import kinds, levels
+from disaster import debris, kinds, levels
 
 #: Loaded archetype manifests, by disaster. Reading one is a JSON parse, but
 #: `apply_to_buildings` is called per scene and a preset sweep calls it dozens
@@ -109,6 +109,53 @@ def _archetypes_wanted(dis: dict) -> bool:
     return want
 
 
+def _ruin_swaps_wanted(dis: dict) -> bool:
+    """Whether a wrecked building may be REPLACED by an authored ruin asset.
+
+    On (the default) a destroyed building prefers a purpose-built ruin from
+    `buildings.damaged` / `buildings.destroyed` — modelled collapse, exposed
+    floors, rubble in the mesh — because that reads better than any deformation
+    of an intact model and those pools are the well-stocked ones.
+
+    Off means the ruin pools are never drawn from, so what you see is what the
+    DAMAGE PIPELINE produced: baked archetypes where the library has them, and
+    the tilt-and-sink stand-in where it does not. That is the point of the
+    switch — with swaps on, 222 of 430 buildings in a severe `urban_v3` quake
+    were authored art, which is most of the city and hides exactly how much the
+    library is actually covering.
+
+        disaster: {ruin_swaps: false}    # in a preset's `overrides:`
+        SCENE_RUIN_SWAPS=0               # same thing, per run
+
+    Env wins, matching `_archetypes_wanted` — and for the same reason: the
+    container bakes a fixed environment in at creation, so a run has to be able
+    to override a config it cannot edit.
+    """
+    env = os.environ.get("SCENE_RUIN_SWAPS")
+    if env is not None and env.strip() != "":
+        want = env.strip().lower() not in ("0", "false", "no", "off")
+    else:
+        want = bool((dis or {}).get("ruin_swaps", True))
+    if not want:
+        print("[disaster_stage] ruin swaps disabled — no authored ruin assets; "
+              "archetypes and stand-ins only")
+    return want
+
+
+def _arch_key(disaster_type: str) -> tuple:
+    """The `_ARCH_CACHE` key — `(disaster, root)`.
+
+    The ROOT is part of what identifies a library, not just the disaster: a
+    sweep that switches `SCENE_ARCHETYPE_ROOT` mid-process would otherwise
+    keep being handed the first library it loaded. Tests that pre-seed the
+    cache should key it through here rather than assembling the tuple, so the
+    shape stays in one place and a stray `SCENE_ARCHETYPE_ROOT` in the
+    environment cannot make a seeded cache silently miss.
+    """
+    return (str(disaster_type or "none").lower(),
+            os.environ.get("SCENE_ARCHETYPE_ROOT", "").strip())
+
+
 def _archetypes(disaster_type: str):
     """Stage A's library for *disaster_type*, or None if it was never baked.
 
@@ -118,25 +165,38 @@ def _archetypes(disaster_type: str):
     swap and live mesh damage exactly as it did before Stage A existed. The
     difference a baked library makes is that EVERY building can be damaged
     rather than the 50-80 `mesh_damage.fracture.max_buildings` can afford.
+
+    WHICH LIBRARY. `assets/archetypes/` by default. `SCENE_ARCHETYPE_ROOT`
+    points a run at a different one — an iteration bake kept beside the live
+    library, so it can be looked at without replacing what other scenes read:
+
+        SCENE_ARCHETYPE_ROOT=$PWD/scene_gen/assets/archetypes_urban_v2
+
+    The path is a library ROOT, not a disaster directory: the disaster is
+    appended (`<root>/earthquake/`), the same way the default is built. An
+    empty or unset value keeps the default, and a root with no manifest for
+    this disaster is the "never baked" case above, not an error.
     """
-    key = str(disaster_type or "none").lower()
-    if key in _ARCH_CACHE:
-        return _ARCH_CACHE[key]
+    ckey = _arch_key(disaster_type)
+    key, root = ckey
+    if ckey in _ARCH_CACHE:
+        return _ARCH_CACHE[ckey]
 
     from archetypes import library as _lib
 
     scene_gen = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    path = os.path.join(_lib.disaster_dir(scene_gen, key), _lib.MANIFEST_NAME)
+    path = os.path.join(_lib.disaster_dir(scene_gen, key, root),
+                        _lib.MANIFEST_NAME)
     doc = _lib.read_manifest(path)
     got = _lib.Library(path, doc) if doc.get("archetypes") else None
     if got is not None:
         print(f"[disaster_stage] archetype library: {len(got)} baked for "
-              f"'{key}' ({len(got.types())} types)")
+              f"'{key}' ({len(got.types())} types) from {path}")
     elif key != "none":
-        print(f"[disaster_stage] no archetype library for '{key}' — falling "
-              f"back to live damage. Bake one with "
+        print(f"[disaster_stage] no archetype library for '{key}' at {path} — "
+              f"falling back to live damage. Bake one with "
               f"ISAAC_SIM_SCRIPT_NAME=bake_archetypes_launch_script.py")
-    _ARCH_CACHE[key] = got
+    _ARCH_CACHE[ckey] = got
     return got
 
 # category -> response class. Categories not listed are left alone, which is
@@ -263,6 +323,7 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
     # building can have it. The authored-ruin swap and live mesh damage remain
     # as fallbacks for an unbaked library — see `_archetypes`.
     arch = _archetypes(dtype) if _archetypes_wanted(dis) else None
+    ruin_swaps = _ruin_swaps_wanted(dis)
     arch_ladder = levels.level_names(dtype)
 
     # Pools and per-asset conventions, resolved the same way build_city does.
@@ -284,44 +345,42 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
         axis_of.update(au_ovr or {})
         return paths
 
-    damaged_l = _pool(bld.get("damaged"))
-    destroyed_l = _pool(bld.get("destroyed"))
+    # By CONDITION TAG, not by pool key — `building_entries` reads both pack
+    # layouts, so a tagged pack's ruins reach the fate swap from inside their
+    # typology pool exactly as a legacy pack's reach it from `buildings.damaged`.
+    from scene_generator import building_entries
+    damaged_l = _pool(building_entries(config, condition="damaged"))
+    destroyed_l = _pool(building_entries(config, condition="destroyed"))
     destroyed_set = set(destroyed_l)
 
-    debris_cfg = usds.get("debris") or {}
-    pile_usds = _pool(debris_cfg.get("piles"))
-    piece_usds = _pool(debris_cfg.get("pieces"))
-
     rules = dis.get("debris") or {}
-    piles_per = rules.get("piles_per_building", [2, 4])
-    pile_max_off = float(rules.get("pile_max_offset_m", 3.0))
-    pieces_per = rules.get("pieces_per_building", [10, 20])
-    pieces_scatter = float(rules.get("pieces_scatter_m", 6.0))
     # How much rubble a building that is DAMAGED but still standing sheds,
-    # relative to one that was destroyed. See the emission block below for why
-    # this is not zero — which is what it effectively was.
+    # relative to one that was destroyed. The only thing left of the old
+    # fate-driven amount: `debris.fallen` reads the real number off the cut
+    # report, and a building this pass handles was never cut, so its fate is
+    # all there is to go on.
     damaged_debris = float(rules.get("damaged_debris_scale", 0.45))
     tilt_chance = float(rules.get("tilt_chance", 0.35))
     tilt_deg = rules.get("tilt_deg", [2.0, 6.0])
     sink_m = rules.get("sink_m", [0.4, 1.2])
-    lean_piles = rules.get("lean_piles", [2, 3])
     fp_tol = float(dis.get("ruin_footprint_tolerance", 0.25))
     exclusions = config.get("exclusions") or []
     # Mesh damage: deform the building's geometry instead of swapping the
     # asset. See the note at the fate branch for which fate prefers which.
     mesh_cfg = dis.get("mesh_damage") or {}
+    # WHAT EACH BUILDING IS MADE OF, from the pack — the same table the cutter
+    # reads, so the rubble on the ground and the cut faces above it agree.
+    # Imported here rather than at module scope for the reason
+    # `_apply_standins` does it: `mesh_damage` pulls in `pxr`, and this module
+    # is imported by host-side tools that have no Isaac.
+    from disaster import mesh_damage
+    pack_materials = asset_materials(config)
 
     def _sc(u):
         return float(scale_of.get(u, scale))
 
     def _au(u):
         return str(axis_of.get(u, "Z"))
-
-    def _axis_roll(u):
-        """+90 deg stands a Y-up-authored asset upright in the Z-up world.
-        Mirrors the closure of the same name in `build_city`, which is not
-        importable."""
-        return 90.0 if _au(u) == "Y" else 0.0
 
     def _fp(u, cat):
         """Footprint of an asset from one of THIS pass's pools.
@@ -335,12 +394,6 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
     def _hit(x, y, frac):
         return frac > 0.0 and rng.random() < frac * field(x, y)
 
-    def _hit_count(x, y, rng_pair, scale=1.0):
-        k = field(x, y) * scale
-        if k <= 0.0:
-            return 0
-        return int(round(rng.randint(int(rng_pair[0]), int(rng_pair[1])) * k))
-
     def _fits(cand, base_fp):
         c = _fp(cand, "house")
         for a, b in ((c["sx"], base_fp["sx"]), (c["sy"], base_fp["sy"])):
@@ -351,9 +404,29 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
     tally: dict = {}
     dropped: dict = {}
     new_placements: list = []
+    # One shed request per building this pass will have to place debris for.
+    # Deferred rather than emitted in the loop because whether a building is
+    # cut live is not settled until `_apply_standins` has spent the budget.
+    pending: list = []
     region = layout.get("region")
     rx0, ry0, rx1, ry1 = ([float(v) for v in region] if region
                           else (0.0, 0.0, 0.0, 0.0))
+
+    def _keep(x, y):
+        """Whether debris may be authored at ``(x, y)``.
+
+        Debris is scene content, so it lives in the scene. The ring walks
+        outward from a building's own footprint and knows nothing about the
+        region, and `apply_ground_planes` lays exactly one asphalt mesh
+        spanning `layout["region"]` — so a piece past the edge is not "on the
+        outskirts", it is hanging over nothing.
+        """
+        if exclusions and _in_exclusion(x, y, exclusions):
+            return False
+        if region and not (rx0 <= x <= rx1 and ry0 <= y <= ry1):
+            dropped["debris"] = dropped.get("debris", 0) + 1
+            return False
+        return True
 
     # Which buildings may spend an archetype — see the note at the swap.
     arch_ok = None
@@ -395,6 +468,11 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
             continue
 
         base_fp = placement_footprint(resolver, p, "house")
+        # BEFORE ANY SWAP. Both are properties of the building that stood here,
+        # and both are read after `p["usd"]` may have become a ruin asset: the
+        # pack describes what a `destroyed_building_*` looks like, not what it
+        # used to be, and the archetype branch pops `_mesh_damage`.
+        orig_usd = p.get("usd")
         is_destroyed = False
         tilt_standin = True
 
@@ -402,8 +480,9 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
         # Computed here rather than in the fallback branch because the
         # archetype swap needs it too, and the two must never disagree about
         # which level a building is at.
-        p["_mesh_damage"] = levels.local_damage(k, sev)
-        level = levels.level_at(dtype, p["_mesh_damage"]).name
+        local = levels.local_damage(k, sev)
+        p["_mesh_damage"] = local
+        level = levels.level_at(dtype, local).name
         p["_damage_level"] = level
 
         # --- Stage B, step 5: reference the pre-baked archetype -------------
@@ -428,23 +507,36 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
                 p["scale"] = 1.0
                 p["axis_up"] = "Z"
                 p["z_m"] = 0.0
-                # NOT INSTANCED YET, and that is a known gap against SPEC's
-                # "repeated archetypes are instanced so identical references
-                # share geometry."
+                # INSTANCED — SPEC's "repeated archetypes are instanced so
+                # identical references share geometry", which was an open gap
+                # until the collider question was settled.
                 #
-                # `apply_placements` deliberately does not instance (see its
-                # docstring, and 8187043e): `scene_prep.add_colliders` walks
-                # `GetChildren()` to apply `UsdPhysics.CollisionAPI`, and an
-                # instanceable prim has no traversable children — so an
-                # instanced building gets NO COLLIDER and the drone flies
-                # through it. Marking these instanceable here would trade a
-                # memory win for a silently broken sim.
+                # The objection was real: `apply_placements` does not instance
+                # by default because `scene_prep.add_colliders` walks
+                # `GetChildren()` to apply `UsdPhysics.CollisionAPI`, an
+                # instanceable prim has no traversable children, and a building
+                # with no collider is one the drone flies through. The unblock
+                # named there was to author the collider INSIDE the archetype
+                # at bake time — and `disaster/bake.export_object` has been
+                # doing exactly that all along: every merged mesh it writes
+                # gets `CollisionAPI` and a triangle-mesh approximation. So the
+                # archetype arrives collider-ready, `add_colliders` skips what
+                # already has the API, and there is nothing left to lose.
                 #
-                # The unblock is to author colliders INSIDE the archetype at
-                # bake time: once the collider ships as part of the referenced
-                # asset, instancing is free and correct. That belongs in
-                # `archetypes/bake.py`'s export, not here.
+                # WHAT IT BUYS. A reference is resident in full per placement,
+                # so eighty buildings drawn from thirty archetypes cost eighty
+                # copies of geometry the fracture already inflated ~14x. That
+                # is the whole of why a 500 m map exhausted 125 GB of host RAM
+                # (`QUAKE_STATE.md`). Instanced, the cost is the thirty.
                 p["_archetype"] = True
+                p["_instanceable"] = True
+                # The debris is baked INSIDE the archetype, so it is not a
+                # placement any more and nothing reading the placement list
+                # would know the ground here is covered. The bake recorded how
+                # far it reaches; carry it onto the building so
+                # `targets.survey_from_placements` can keep casualties out.
+                if rec.get("debris_r_m"):
+                    p["_debris_r_m"] = float(rec["debris_r_m"])
                 p.pop("_mesh_damage", None)
                 is_destroyed = level == arch_ladder[-1]
                 tally["archetype"] = tally.get("archetype", 0) + 1
@@ -466,7 +558,7 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
         prefer_mesh = (mesh_cfg.get("enabled", True)
                        and not want_destroyed
                        and mesh_cfg.get("prefer_for_damaged", True))
-        if tilt_standin and not prefer_mesh:
+        if tilt_standin and not prefer_mesh and ruin_swaps:
             for pool in pools:
                 cands = [u for u in pool if _fits(u, base_fp)]
                 if cands:
@@ -504,32 +596,36 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
         tally["damaged" if not is_destroyed else "destroyed"] = \
             tally.get("damaged" if not is_destroyed else "destroyed", 0) + 1
 
-        # HOW MUCH RUBBLE THIS BUILDING SHED.
+        # HOW MUCH RUBBLE THIS BUILDING SHED, AND WHO PLACES IT.
         #
-        # Debris used to be emitted only under `if is_destroyed`, and
-        # `is_destroyed` is true only when a purpose-built ruin asset was
-        # swapped in. So every other outcome — a building the mesh-damage pass
-        # pancaked and shattered, a damaged-pool swap, a destroyed building
-        # whose footprint no ruin fitted — got a wrecked structure standing on
-        # a spotlessly clean lot. That is the single most obviously wrong thing
-        # in an aerial view of a damaged block, and it is also what the search
-        # algorithms fly over: debris is occupancy, so its absence changed what
-        # the scene meant, not just how it looked.
+        # Not this pass, if a cutter is going to touch the building. Debris is
+        # planned from the damage report by `disaster/debris.py` and authored
+        # by whoever did the damage — `mesh_damage.apply_to_stage` for a live
+        # cut, `archetypes.bake` into the cell for a baked wreck — because that
+        # is the only place the amount that actually came down is known, and
+        # because rubble scattered here could never be baked into an archetype.
         #
-        # Now every damaged building drops rubble, in proportion to how ruined
-        # it is. `_hit_count` already scales by the local field, so this is the
-        # fate multiplier on top of it: a collapsed ruin sheds all of it, one
-        # that is merely cracked sheds `damaged_debris_scale` of it, and the
-        # spread shrinks with it too — a standing building drops its rubble at
-        # its own facade, it does not throw it across the street.
-        # `want_destroyed` rather than `is_destroyed`: a building whose fate was
-        # destruction but whose footprint no ruin asset fitted was mesh-damaged
-        # instead. It is still a destroyed building and still sheds a destroyed
-        # building's rubble — `is_destroyed` only records which MECHANISM ran.
-        debris_scale = 1.0 if (is_destroyed or want_destroyed) else damaged_debris
-        if debris_scale <= 0.0:
+        # What is left for this pass is the buildings no cutter reaches: an
+        # authored-ruin swap, and the tilt-and-sink stand-ins outside the
+        # damage budget. They are still damaged buildings and still owe the lot
+        # some rubble — a wrecked structure on a spotlessly clean lot is the
+        # single most obviously wrong thing in an aerial view of a damaged
+        # block, and it is also what the search algorithms fly over, so its
+        # absence changes what the scene MEANS and not just how it looks.
+        #
+        # AN ARCHETYPE IS FINISHED. Its debris is inside the USD, and so is
+        # its pose: the cell was settled and exported sitting on the ground at
+        # z=0, so the lean-and-sink below would push a pile that has already
+        # come to rest back into the floor.
+        if p.get("_archetype"):
             continue
-        reach = 0.35 + 0.65 * debris_scale
+        # `want_destroyed` rather than `is_destroyed`: a building whose fate
+        # was destruction but whose footprint no ruin fitted is still a
+        # destroyed building. `is_destroyed` only records which MECHANISM ran.
+        share = local * (1.0 if (is_destroyed or want_destroyed)
+                         else damaged_debris)
+        if share <= 0.0:
+            continue
 
         # A leaning ruin piles rubble against the side now overhanging.
         lean_dir = None
@@ -552,66 +648,41 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
 
         # Footprint half-extents, recorded by build_city when it packed the
         # slot — the ruin standing on it may be a different asset, but the
-        # rubble belongs to the footprint, not to the model.
-        bw, bh = p.get("_footprint_m") or (base_fp["sx"], base_fp["sy"])
-        hw_, hh_ = bw / 2.0, bh / 2.0
+        # rubble belongs to the footprint, not to the model. Likewise the
+        # MATERIAL is the building's own and not the ruin's: an asset pack
+        # describes what a `destroyed_building_*` looks like, not what stood
+        # there before the event.
+        pending.append({
+            "p": p,
+            "kind": mesh_damage.material_for_asset(
+                orig_usd, mesh_cfg.get("material"), pack_materials),
+            "share": share,
+            "centre": (cx, cy),
+            "footprint_m": p.get("_footprint_m") or (base_fp["sx"],
+                                                     base_fp["sy"]),
+            "height_m": base_fp.get("sz") or 0.0,
+            "bias": lean_dir,
+        })
 
-        def _edge_r(ca, sa):
-            return min(hw_ / max(abs(ca), 1e-6), hh_ / max(abs(sa), 1e-6))
+    standins = _apply_standins(placements, dis, resolver)
+    # AFTER the stand-ins, because that is what decides which of the marked
+    # buildings the live cutter will actually reach. One that will be cut sheds
+    # its debris there, from its own report; one that only tilts and sinks gets
+    # it here, or it stands there wrecked on clean ground.
+    for req in pending:
+        q = req["p"]
+        if q.get("_mesh_damage") and id(q) not in standins:
+            continue
+        new_placements.extend(debris.plan(
+            # A SHARE, NOT A RUNG: nothing here was cut, so there is no rung
+            # to name — `rung_share` takes the number as the multiplier.
+            config, resolver, kind=req["kind"], rung=req["share"],
+            centre=req["centre"], footprint_m=req["footprint_m"],
+            height_m=req["height_m"], rules=rules, rng=rng,
+            bias=req["bias"], keep=_keep))
+    for q in new_placements:
+        tally[q["category"]] = tally.get(q["category"], 0) + 1
 
-        def _ring_pos(lo, hi, ang=None):
-            if ang is None:
-                ang = rng.uniform(0.0, 2.0 * math.pi)
-            ca, sa = math.cos(ang), math.sin(ang)
-            r_ = _edge_r(ca, sa) + rng.uniform(lo, hi)
-            return cx + ca * r_, cy + sa * r_
-
-        def _emit(u, x, y, z, cat, sc, settle=False):
-            if exclusions and _in_exclusion(x, y, exclusions):
-                return
-            # Debris is scene content, so it lives in the scene. `_ring_pos`
-            # walks outward from the building's own footprint and knows nothing
-            # about the region, and `apply_ground_planes` lays exactly one
-            # asphalt mesh spanning `layout["region"]` — so a piece past the
-            # edge is not "on the outskirts", it is hanging over nothing.
-            # `apply_path_scour._point` has always sampled inside the region;
-            # this is the same bound on the other emitter.
-            if region and not (rx0 <= x <= rx1 and ry0 <= y <= ry1):
-                dropped[cat] = dropped.get(cat, 0) + 1
-                return
-            q = {"usd": u, "x_m": x, "y_m": y, "z_m": z,
-                 "yaw_deg": rng.uniform(0.0, 360.0), "roll_deg": _axis_roll(u),
-                 "pitch_deg": 0.0, "scale": sc, "category": cat,
-                 "axis_up": _au(u)}
-            if settle:
-                q["settle"] = True
-            new_placements.append(q)
-            tally[cat] = tally.get(cat, 0) + 1
-
-        if pile_usds:
-            for _ in range(_hit_count(cx, cy, piles_per, debris_scale)):
-                du = rng.choice(pile_usds)
-                x_, y_ = _ring_pos(-1.0, pile_max_off * reach)
-                _emit(du, x_, y_, _fp(du, "debris_pile")["base"] + 0.02,
-                      "debris_pile", _sc(du) * rng.uniform(0.8, 1.2))
-            if lean_dir is not None:
-                base_ang = math.atan2(lean_dir[1], lean_dir[0])
-                for _ in range(rng.randint(int(lean_piles[0]),
-                                           int(lean_piles[1]))):
-                    du = rng.choice(pile_usds)
-                    x_, y_ = _ring_pos(-1.5, 1.0,
-                                       ang=base_ang + rng.uniform(-0.5, 0.5))
-                    _emit(du, x_, y_, _fp(du, "debris_pile")["base"] + 0.02,
-                          "debris_pile", _sc(du) * rng.uniform(0.8, 1.2))
-
-        if piece_usds:
-            for _ in range(_hit_count(cx, cy, pieces_per, debris_scale)):
-                du = rng.choice(piece_usds)
-                x_, y_ = _ring_pos(0.3, pieces_scatter * reach)
-                _emit(du, x_, y_, _fp(du, "debris")["base"] + 0.4,
-                      "debris", _sc(du) * rng.uniform(0.7, 1.2), settle=True)
-
-    _apply_standins(placements, dis, resolver)
     placements.extend(new_placements)
     if tally:
         print("[disaster] buildings  "
@@ -625,8 +696,13 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
     return tally
 
 
-def _apply_standins(placements: list, dis: dict, resolver=None) -> None:
+def _apply_standins(placements: list, dis: dict, resolver=None) -> set:
     """Tilt-and-sink the marked buildings live mesh damage will not cut.
+
+    Returns the ids of the placements it actually tilted — that is, the ones
+    the cutter will NOT reach. `apply_to_buildings` needs the same answer to
+    know whose debris it has to place itself, and asking here is what keeps
+    there being ONE ranking rather than two that agree by construction.
 
     Ranked exactly as `mesh_damage.apply_to_stage` spends its budget — worst
     hit first, placement order breaking ties — so the two never disagree
@@ -643,16 +719,18 @@ def _apply_standins(placements: list, dis: dict, resolver=None) -> None:
 
     marked = [(i, p) for i, p in enumerate(placements) if "_standin" in p]
     if not marked:
-        return
+        return set()
     budget = mesh_damage.damage_budget(dis)[0] if (
         (dis.get("mesh_damage") or {}).get("enabled", True)) else 0
     rank = sorted((ip for ip in marked if ip[1].get("_mesh_damage")),
                   key=lambda ip: (-float(ip[1]["_mesh_damage"]), ip[0]))
     cut = {i for i, _ in rank[:budget]}
+    tilted = set()
     for i, p in marked:
         roll, pitch, sink = p.pop("_standin")
         if i in cut:
             continue
+        tilted.add(id(p))
         axis_roll = 90.0 if p.get("axis_up") == "Y" else 0.0
         lift = 0.0
         if resolver is not None:
@@ -667,6 +745,7 @@ def _apply_standins(placements: list, dis: dict, resolver=None) -> None:
         p["roll_deg"] = roll
         p["pitch_deg"] = pitch
         p["z_m"] -= sink + lift
+    return tilted
 
 
 def apply(config: dict, layout: dict, placements: list,

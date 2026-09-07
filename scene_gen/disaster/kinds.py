@@ -176,20 +176,37 @@ class Disaster:
         print(f"[stage-a]     material: {kind}"
               + (f" (pack says {os.path.basename(str(source))})" if source else ""),
               flush=True)
+        # THE SAME TESSELLATION LEVER THE LIVE PATH HAS. Stage A is where it
+        # bites hardest — an archetype carries its subdivision to disk and a
+        # scene references it dozens of times — and until this it reached only
+        # `mesh_damage.apply_to_stage`, so `SCENE_SUBDIVIDE_M` on a bake was a
+        # no-op. `shatter`'s own default is 4.0; the config may lower it and
+        # the env var may only coarsen it.
+        sub = mcfg.get("subdivide") or {}
+        edge = md.subdivide_edge_m(float(sub.get("max_edge_m", 4.0))
+                                   if sub.get("enabled", True) else 0.0)
+
         script = self.damage_script
         if script is not None:
             # `settle_it=False`: Stage A settles the WHOLE grid in one PhysX
             # pass at the end (`Baker.settle`), so a per-cell settle here would
             # run the solver once per archetype and then again over everything.
-            return getattr(importlib.import_module(script[0]), script[1])(
+            rep = getattr(importlib.import_module(script[0]), script[1])(
                 stage, prim, level, seed=seed, settle_it=False,
-                material=kind, heading_deg=heading)
-
-        thick = mcfg.get("thickness") or {}
-        return md.damage_building(
-            stage, prim, self.name, intensity, seed=seed,
-            wall_m=float(thick.get("wall_m", mat.wall_m)), grain=mat.grain,
-            core_material_kind=kind, heading_deg=heading)
+                material=kind, heading_deg=heading, max_edge_m=edge)
+        else:
+            thick = mcfg.get("thickness") or {}
+            rep = md.damage_building(
+                stage, prim, self.name, intensity, seed=seed,
+                wall_m=float(thick.get("wall_m", mat.wall_m)), grain=mat.grain,
+                core_material_kind=kind, heading_deg=heading,
+                max_edge_m=edge)
+        # ON THE REPORT, so the caller does not repeat the lookup. Stage A
+        # needs it again to decide what the wreck sheds — a break exposes the
+        # structure, and the rubble around the base has to be the same
+        # substance as the cut faces above it (`disaster/debris.py`).
+        rep["material"] = kind
+        return rep
 
     # -- Stage B -----------------------------------------------------------
     def bake_stage_b(self, stage, config, placements, scene_scale_factor=1.0):

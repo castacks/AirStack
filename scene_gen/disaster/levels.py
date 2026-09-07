@@ -135,11 +135,17 @@ LADDERS = {
         ("partial_collapse", 0.65, None),
         ("pancaked",         0.88, None),
     ),
-    # Shaking rarely fells a tree — `compile_earthquake` puts
-    # `trees_toppled_fraction` at 0.0-0.1 — so one rung, and it is uprooting.
+    # SHAKING DOES NOT FELL TREES. One rung, and it is the intact tree.
+    #
+    # This used to carry `fallen` (with a `stump` variant) on the reasoning
+    # that `compile_earthquake` topples a few — but that fraction was
+    # `lerp(0.0, 0.1, sev)`, i.e. nothing at all below the top of the severity
+    # range, and it is not what an earthquake does to a tree in the first
+    # place. Tree damage belongs to fire, which burns them, and to wind, which
+    # breaks them. Baking a ladder for it cost 18 archetypes a run that Stage B
+    # then never asked for, because the field never produced the level.
     VEGETATION: _ladder(
         ("pristine", 0.00, None),
-        ("fallen",   0.55, None, ("stump",)),
     ),
   },
   # Wind strips before it breaks: the roof goes first and the walls last.

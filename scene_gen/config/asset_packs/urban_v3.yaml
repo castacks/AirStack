@@ -1,0 +1,1224 @@
+# ASSET SET: urban_v3 — EVERY usable urban asset, in ONE FLAT FILE.
+#
+# Same content as `urban_v2.yaml`, with `extends: shared` RESOLVED IN PLACE.
+# Nothing here inherits: `asset_root`, `asset_scale`, `sky`, `orientation`,
+# every `fallback_sizes` entry and every `usds` pool that used to come from
+# `shared.yaml` are written out below, and the two `<key>+` appends that v2
+# used (`cars+`, `fire_hydrants+`) are spelled as complete lists with the
+# shared entries first — the order the merge produced. Load this file and you
+# have the whole set; nothing else is read. `urban_v2.yaml` stays as it is for
+# the presets that name it.
+#
+# WHY FLAT. The v2 chain was short (`urban_v2 <- shared`) but still meant that
+# "what does an urban scene build with" could not be answered from one file,
+# and that an edit to `shared.yaml` for a suburb silently moved the urban set.
+# New urban work goes here.
+#
+# WHAT CAME FROM `shared.yaml` (marked `# [shared]` at each block): the ground
+# and material tiles, play structures, trees, plants, rocks, planters,
+# streetlights, bus stops, trash cans, traffic lights, fire hydrants, benches,
+# cars and the RenderPeople humans — minus every pool urban_v2 replaced
+# outright, which is most of the street furniture. Only the pools v2 never
+# named survive from shared as-is: `materials`, `play_structures`, `planters`
+# and `humans`, plus `tiles.concrete`.
+#
+# --- everything below is urban_v2's own documentation, unchanged ------------
+#
+# The unification of `urban.yaml` (Nucleus buildings and DestroyedBuildings
+# ruins, DebrisPack rubble, AEC brownstones, the Objaverse/AEC/Downtown_West
+# furniture) with `standalone.yaml` (the repo-local set converted from
+# `~/coasei/new_assets` on 2026-08-26) and the three DowntownCity buildings
+# that were named objects in their source.
+#
+# WHAT IS IN, WHAT IS NOT
+# - IN: every building `urban.yaml` placed (the nine `intact` Nucleus
+#   buildings by typology, the eleven FactoryDistrict sheds, the eight
+#   Brownstone rows), all fifteen DestroyedBuildings ruins, all 42 DebrisPack /
+#   DestroyedBuildings rubble entries, every `standalone` asset,
+#   `Amar_Tower` / `Building_11` / `Building_12` from `assets/downtowncity/`,
+#   and all 31 GreatAmericanCity buildings (2026-08-29).
+# - NOT: the twelve DowntownCity `Carved_*` blocks (carved out of a merged
+#   mesh rather than authored as buildings — user direction), MBuilding03
+#   (`urban.yaml` already left it out of every typology pool), and
+#   `RetroNeighborhood/SM_House_01` (suburban).
+#
+# GREATAMERICANCITY (added 2026-08-29, user). All 31 buildings, taken from
+# `urban_gac.yaml` — a pack on a DIVERGENT BRANCH whose organisation is not
+# this one's: it extends `urban`, spells every pool `<name>+`, and files the
+# GAC stock across five keys (`intact`, `lowrise`, `midrise_v2`,
+# `brick_midrise`, `tower`, `highrise`), several of which list the same asset
+# twice. Only the GAC assets were taken. Its `assets/archetype/bld_*` kit, its
+# `Dmytro/…/FactoryDistrict` and `Muyang/…` re-spellings of art this pack
+# already has, and its `downtowncity` entries (already here) were NOT.
+#
+# What DID come across verbatim, per asset: `scale: 0.01` (GAC is
+# centimetre-authored), the `yaw-offset`, the measured footprint comment, and
+# the TAGS — `place_mid` / `place_end` / `place_corner`, `front:<compass>` and
+# `blank:<compass list>`. Those were measured over there
+# (`tools/gac_faces.py`: triangle density per elevation against the asset's own
+# best side) and are not re-derivable here, so they are carried, not rebuilt.
+#
+# THE `place_*` TAGS ARE INERT ON THIS BRANCH and that is not a defect. They
+# are read by `districts._order_run`, which orders a terrace run so that a
+# building modelled on one elevation only ever stands between two neighbours —
+# and no such function exists in this checkout (`grep place_mid` finds nothing
+# outside the asset packs). `scene_generator.condition_of` scans the tag list
+# for a CONDITION and ignores everything else, so they ride along harmlessly
+# and are already correct for whenever that layout rule lands here. Until it
+# does, a one-sided GAC building can be placed with its blank walls to a
+# street.
+#
+# TAG COVERAGE (2026-08-29): 34 of the 107 building entries carry a `front:` /
+# `blank:` / `place_*` tag — the 31 GAC buildings and the three `downtowncity`
+# ones. That is EVERY asset `urban_gac.yaml` has a measurement for; the merge
+# took all of it and invented none. The other 73 are untagged, and two
+# different reasons are worth telling apart:
+#
+# - UNTAGGED `place_*` ALREADY MEANS SOMETHING. In urban_gac's scheme the
+#   absence of a `place_*` tag is the fourth case — "4 modelled elevations,
+#   stands anywhere" — which is what the Nucleus, AEC and standalone art
+#   actually is. So these 73 are not a hole in the data; they are the default
+#   case, and `_order_run` would treat them as end-capable stock.
+#
+# - A COMPASS `front:` DOES NOT APPLY TO THE REPO-LOCAL ART. `front:E` records
+#   which side of an UN-NORMALISED source was its best elevation, and pairs
+#   with the `yaw-offset` that turns it to -X. The standalone, downtowncity and
+#   AEC assets were normalised at conversion instead — orientation is baked in,
+#   shopfronts on +X and terrace doors on -X (see CONVENTIONS below) — so their
+#   front is a fixed axis, not a compass direction, and tagging one would state
+#   a fact about a rotation that was already applied.
+#
+# What is genuinely missing is a `place_*` measurement for the 15
+# DestroyedBuildings ruins and the 7 standalone ruins, where "how many sides
+# are modelled" is a real question and nothing here answers it. That needs the
+# equivalent of `tools/gac_faces.py`, which this branch does not have.
+#
+# MATERIALS ON THE GAC ENTRIES WERE JUDGED BY EYE, from RTX renders of every
+# asset (2026-08-29). All 31 were laid out one per station and photographed
+# from two azimuths by
+# `simulation/isaac-sim/launch_scripts/asset_catalogue_launch_script.py`:
+#
+#     CAT_PACK=urban_v3 CAT_POOLS=highrise,midrise,lowrise,townhouse \
+#     CAT_MATCH="^SM_Building_" SNAP_DIR=.../cat_urban_v3 \
+#     ./python.sh .../asset_catalogue_launch_script.py
+#
+# Shots in `~/docker/isaac-sim/logs/cat_urban_v3/`. Every measured size in that
+# run matched the footprint comment on the entry here, so the shots and the
+# entries line up asset for asset. The result: 14 brick, 12 concrete, 5 glass.
+#
+# THIS REPLACED AN EARLIER SET OF GUESSES AND MOVED SEVENTEEN OF THE THIRTY-ONE.
+# The first pass read materials out of `urban_gac.yaml`'s prose: brick from
+# membership of its `brick_midrise` pool, glass from its note that the
+# `highrise` pool is "GLASS CURTAIN-WALL TOWERS". The brick half held up — all
+# ten of those are brick on the render. The glass half did not. SM_Building_10,
+# _13, _17, _18, _20, _23 and _31 are concrete: pier, fin, spandrel-band and
+# precast-panel towers with recessed or punched glazing, not curtain walls.
+# Only _14, _15, _16 of that pool are genuinely glass (plus _19 and _24, which
+# the prose never called). The other ten had no material at all and now do.
+#
+# So: a pool is a DRAW LIST, not a material claim. `brick_midrise` was selected
+# for terrace geometry — depth and the `place_*` tags — and it visibly mixes
+# materials; SM_Building_30 sits in it and is windowed concrete. Do not read
+# cladding off a pool name again.
+#
+# These are eyeball calls on a render, which is what `material:` needs: it
+# picks a fracture core (`mesh_damage.STRUCTURE_OF`) and which rubble a
+# building may shed (`disaster/debris.py`), both of which want the dominant
+# construction, not a spectrophotometer. A banded tower that is half concrete
+# spandrel and half glass is called concrete here.
+#
+# DEBRIS IS PILES / PIECES / SCATTERS (2026-08-29, user), replacing the old
+# `pieces` + `piles`. Every one of the 166 candidates was rendered under RTX
+# and sorted by eye; the header of `usds.debris` below has the rule and the
+# provenance. 122 entries: 81 pieces, 20 piles, 21 scatters.
+#
+# `scatters` IS NOT WIRED INTO THE GENERATOR YET, and that is the one thing to
+# know before using it. `scene_generator.py` reads exactly two keys —
+# `debris.piles` and `debris.pieces` (around line 1644) — and
+# `disaster/debris.py:pools()` builds its `{category: {material: […]}}` from
+# the same pair, mapping them to the `debris_pile` and `debris` placement
+# categories. A third key is simply not read, so the 21 scatter assets are
+# INERT until someone adds `("debris_scatter", "scatters")` to that loop, an
+# `OCCUPANCY` entry for it, and the category to the rubble sets in
+# `targets.py`, `findability.py` and `detail/districts.py`. That was left
+# undone deliberately: `disaster/debris.py` was being actively rewritten by
+# another session on 2026-08-29 (debris placement went Gaussian-about-centre
+# there), and editing it underneath that would have collided.
+#
+# TWO NEW NUCLEUS PACKS WERE MINED FOR THIS, and most of one was left out:
+# - `DebrisConcrete/` — all 28 taken. Ten single upright fragments with rebar
+#   whiskers (pieces), sixteen rubble heaps of 6-190 m3 (piles), and two low
+#   sparse spreads (scatters).
+# - `DebrisGroundScatter/` — 16 of 60 taken, the `SM_Rock_Debris_Pile_*`
+#   family. The other 44 are NOT building rubble: `SM_Dead_Grass_Pile_*` (10)
+#   and `SM_Dead_Leaf_Pile_*` (18) are organic litter — dead grass tufts and
+#   fallen leaves — and would put leaf litter wherever a damaged building is
+#   meant to shed masonry, and `SM_Wall_Patch_Pile_*` (16) are VERTICAL cards
+#   (their y extent measures 0.0), which makes them wall decals rather than
+#   anything that lies on the ground. They stay on Nucleus, unlisted here.
+#
+# EVERY ASSET IN THAT PACK IS A FLAT CARD — zero height, an alpha-masked atlas
+# on a plane. That is fine for a scatter and worth knowing before one is used
+# as a collision or a fracture source. It also means they are INVISIBLE in a
+# normal catalogue render: at the launcher's 20 deg elevation all 60 came back
+# as blank frames, and they were only judged after `CAT_ELEV=85` was added to
+# `asset_catalogue_launch_script.py` to shoot them from overhead.
+#
+# ROLLING ADDITIONS. `~/coasei/new_assets/` is a live drop folder: new sources
+# are converted into `assets/standalone/` and appended to the pools below,
+# newest last, each marked `# --- added <date> (new_assets drop N)`.
+# `assets/standalone/.sources_processed.json` records which sources have been
+# handled, and `assets/standalone/README.md` has the per-asset procedure.
+#
+# RECLASSIFICATIONS AND DEACTIVATIONS (user calls, not defects):
+#   2026-08-29  `usds.buildings` REORGANISED into highrise / midrise /
+#               lowrise / townhouse, and all 31 GreatAmericanCity
+#               buildings added from `urban_gac.yaml`. See below.
+#   2026-08-29  the whole `selected_citydemo/` selection — 18 towers and
+#               2 midrises — DEACTIVATED as too low quality. Commented
+#               out in place rather than deleted; see the note in the
+#               tower pool.
+#   2026-08-26  abandoned_brick_building  destroyed/midrise -> intact/midrise
+#               (weathered but standing, so it is intact art)
+#   2026-08-26  destroyed_building_12     destroyed -> damaged
+#
+#   2026-08-26  BG_Building_C and SM_MERGED_BP_MBuilding05 were briefly
+#               excluded for "rendering black", then re-enabled: their facades
+#               are REFLECTIVE GLASS and only look black without raytracing.
+#               A dark curtain wall is not evidence of a broken material —
+#               check it in a raytraced frame before judging it.
+#   2026-08-26  new_assets/buildings/296.fbx is NOT in this pack. It is a CAD
+#               site-plan export (`组件#NNNN` components): 659 objects over a
+#               100 x 100 m site, nothing taller than 12 m, and the families
+#               resolve to kerb outlines, railings and floor plates rather
+#               than to any building or prop. Nothing in it reads at the scale
+#               a drone sees. Kept in the drop folder, marked `excluded` in
+#               `assets/standalone/.sources_processed.json`.
+#
+# EVERY ASSET IS ON NUCLEUS (2026-08-27), with no local scheme left. This pack
+# used to reach its repo-local art through `airstack://` and its Objaverse
+# props through `objaverse://`, both of which resolve against the checkout;
+# all of it now lives under `Projects/SEI-COA/`, where the same files were
+# uploaded. Nothing here needs the AirStack working copy, and the Objaverse
+# PRE-FLIGHT IS NO LONGER REQUIRED for this pack: `prepare_assets.py` finds an
+# asset by scanning for `objaverse://<uid>`, so it now reports nothing to do,
+# and the props load from Nucleus like everything else.
+#
+# EVERY PATH IS RELATIVE TO `asset_root` (2026-08-29). The repo-local art
+# arrived here written out in full as
+# `omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/…`,
+# which is the same string `asset_root` already puts in front of every relative
+# entry — `_join_asset_root` passes a `://` path through untouched and prefixes
+# everything else, so the two forms resolved identically and the long one just
+# repeated the root 110 times. They are now all relative
+# (`scene_gen/assets/…`, `DownTown/Assets/…`), so the server and the project
+# are named in exactly one place: `asset_root` above. Point that at a different
+# Nucleus and the whole pack follows. Write a path in full only for an asset
+# that genuinely lives outside `asset_root`.
+#
+# `target-size-m` and `fit` are kept on those entries and are now INERT. They
+# were only ever read by `prepare_assets.py`, which bakes the normalisation
+# into the cached USD at conversion time — the file on Nucleus is already the
+# right size. They stay as the record of how each prop was normalised, and so
+# that reverting a path to `objaverse://` still pre-flights correctly.
+#
+# THE COST, so it is not discovered as a mystery: the HOST cannot open an
+# `omniverse://` stage — only Kit can — so host-side tools that MEASURE assets
+# (`tools/plan_png.py`, anything building a scene outside Isaac) now fall back
+# to `fallback_sizes` for these too, and a host-built layout will differ from
+# the one Isaac builds. That was already true of every other Nucleus entry
+# here; it is simply true of more of them now. `tools/localize_nucleus_assets.py`
+# and the `assets/nucleus/` mirror exist for that, and the Cycles gallery
+# resolves these paths back to the local copies itself — `tools/local_mirror.py`
+# (`to_url` then `local_for`) and `building_gallery.resolve` both try the
+# checkout before the mirror, for the relative form as well as the full URL.
+#
+# CONVENTIONS. Nucleus and AEC art is centimetre-authored (`scale: 0.01`) —
+# every such entry says so, as `urban.yaml` did. The standalone and
+# DowntownCity USDs are metres, Z-up, base at z = 0 with orientation baked in
+# (cars face +X, street-wall blocks' shopfront +X, terrace houses' door -X),
+# so they carry no scale and no yaw. `material:` is the construction (see
+# `urban.buildings.materials.yaml`, `urban.debris.materials.yaml` and the
+# notes in `standalone.yaml` for how each was judged); it feeds both the
+# fracture core (`mesh_damage.STRUCTURE_OF`) and which rubble a building may
+# shed (`disaster/debris.py`).
+#
+# Entry forms:  "path.usd"                                (global asset_scale, Z-up)
+#           or  {usd: "path.usd", scale: 1.0, axis-up: "Y", yaw-offset: 90}
+# Per-asset overrides: scale (unit conversion), axis-up ("Y" for Y-up-authored
+# art, fixed via +90° roll), yaw-offset (deg — for art whose front isn't +X;
+# added to every computed yaw, e.g. a streetlight arm that points +Y needs -90).
+# Relative paths are resolved against asset_root; `objaverse://` and
+# `airstack://` resolve to repo-local directories instead (see
+# scene_generator.LOCAL_ASSET_ROOTS).
+#
+# `tags` select *behavior*, not locale — the generator pools on them:
+#   park      furniture used only along park trails (never street frontage)
+#   sidewalk  benches used only on street frontage
+#   tree      planters big enough to hold a street tree
+#   stump     trees that are stumps — park scatter only, never potted
+#
+# POOL LAYOUT — FOUR BANDS (2026-08-29, user): `highrise` / `midrise` /
+# `lowrise` / `townhouse`, replacing `tower` / `midrise` / `rowhouse`. The
+# cuts, what moved and why, and the fact that these names are NOT the ones
+# `config/low_level/default.yaml` still asks for, are all argued at the top of
+# `usds.buildings` below — read that before pointing a preset at this pack.
+#
+# The townhouse pool mixes 21 m-deep brownstones with 4-9 m-deep plaster
+# houses. `districts._lay_terrace` sizes its strips by the DEEPEST entry, so
+# the default row-house block band (tuned on the brownstones) still applies
+# and the shallow houses simply leave a wider alley behind them.
+
+# ---- scene-wide [shared] ---------------------------------------------------
+asset_root: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/"
+                            # prefix for relative usds.* paths; URLs / absolute paths pass through
+asset_scale: 1              # global unit scale — default fits Dmytro assets (authored in meters);
+                            # RetroNeighborhood assets override to 0.01 (authored in cm) per entry
+
+# sky: equirect HDRI (.exr/.hdr) applied to the dome light, OR a stage .usd
+# whose root sky/environment prims (outside its defaultPrim) get borrowed.
+# RetroNeighborhood's /Environment holds a dynamic-sky rig + dome light and
+# no geometry, so borrowing it costs almost nothing at load time.
+sky: "RetroNeighborhood/RetroNeighborhood.stage.usd"
+
+# ---- per-family yaw offsets (deg), added to auto-computed rotations [shared] -
+# For a single misaligned asset, prefer a per-USD yaw-offset in its usds entry.
+orientation:
+  house_front:   0.0        # building front facing offset
+  car_front:     0.0        # 0 = car art faces +X (its direction of travel)
+  traffic_light_front: 0.0  # 0 = art faces +X (auto-yawed toward intersection center)
+
+# Category footprints when a measurement fails — from `urban.yaml`,
+# over the `shared.yaml` defaults (both inlined).
+fallback_sizes:
+  # [shared] categories urban_v2 never overrode
+  concrete:      [4.0, 4.0, 0.1]   # thin slab — z feeds the walking-surface height
+  sidewalk:      [2.0, 2.0, 0.1]   # thin slab — z feeds the walking-surface height
+  trail:         [4.0, 3.0, 0.1]
+  rock:          [1.5, 1.5]
+  tree:          [3.0, 3.0]
+  plant:         [1.0, 1.0]
+  streetlight:   [1.0, 1.0]
+  bench:         [2.0, 0.6, 0.9]
+  car:           [4.5, 2.0, 1.5]
+  fire_hydrant:  [0.5, 0.5, 0.9]
+  human:         [1.2, 0.35, 1.8]  # A-pose bbox; y = body depth (prone lift)
+  bus_stop:      [4.0, 1.5, 2.5]
+  planter:       [1.0, 1.0, 0.5]
+  play_structure: [4.0, 2.0, 2.5]
+  # urban's own — those marked `*` also override a shared value above
+  street_tree:   [8.0, 8.0, 9.5]
+  traffic_light: [1.65, 8.01, 10.83]  # *
+  trash_can:     [0.6, 0.6, 0.95]     # *
+  phone_booth:   [1.0, 1.0, 2.3]
+  traffic_cone:  [0.4, 0.4, 0.7]
+  billboard:     [3.0, 0.3, 4.0]
+  newspaper_box: [0.6, 0.5, 1.2]
+  manhole:       [0.7, 0.7, 0.05]
+  storm_drain:   [0.6, 0.4, 0.05]
+  house:         [30.0, 20.0, 24.0]   # *
+  planter_fence: [1.5, 1.5, 0.73]
+  cafe_set:      [2.43, 2.42, 1.01]
+  mailbox:       [0.65, 0.52, 1.34]
+  bollard:       [0.25, 0.25, 0.9]
+  bike_lane_delineator: [0.11, 0.11, 1.0]
+  parking_meter: [0.2, 0.2, 1.3]
+  bike_rack:     [1.0, 0.1, 0.8]
+  sign:          [0.4, 0.08, 2.4]
+  utility_pole:  [0.35, 0.35, 11.0]
+  dumpster:      [1.8, 1.2, 1.3]
+  debris_pile:   [3.0, 3.0, 1.5]      # *
+  debris:        [1.5, 1.5, 0.8]      # *
+
+usds:
+  buildings:
+    # KEYED BY TYPOLOGY; the CONDITION IS A TAG on each entry
+    # (`tags: [intact|damaged|destroyed]`, and an untagged entry is intact),
+    # so a pool name carries no condition and one list per typology says each
+    # thing once: `districts` rezones a block from the INTACT entries of one
+    # typology, the disaster stage's fate swap draws from the damaged and
+    # destroyed ones by TAG across every pool, and the Stage A baker takes
+    # every intact entry and skips the rest — all through
+    # `scene_generator.building_entries`, which still reads the old layout too.
+    #
+    # FOUR BANDS (2026-08-29, user), replacing `tower` / `midrise` / `rowhouse`:
+    #
+    #   highrise   >= 44 m          the tall stock, one building to a block
+    #   midrise    20 - 44 m        street-wall blocks and free-standing offices
+    #   lowrise    < 20 m           sheds, shopfront blocks, single-storey art
+    #   townhouse  party-wall runs  terrace stock, by MORPHOLOGY not height
+    #
+    # THE TWO NUMERIC CUTS SIT IN GAPS IN THE PACK'S OWN MEASUREMENTS, which is
+    # the only honest place to put them: the intact heights run
+    # … 16.7, 18.6, 18.8, 18.8 | 21.1, 21.3, 23.6 … and … 38.6, 38.9, 43.2 |
+    # 44.1, 44.7, 47.6 …, so 20 m and 44 m each separate two clusters rather
+    # than splitting one. 44 rather than a round 45 keeps BG_Building_A
+    # (44.7 m) in the tall pool it has always been in.
+    #
+    # WHAT MOVED, AND WHY IT MATTERS: the old `midrise` held the eleven
+    # FactoryDistrict sheds (11.1-16.7 m) and seven of the nine street-wall
+    # blocks (11.9-18.8 m). Nineteen of its 28 intact entries were under 20 m,
+    # so a "mid-rise" district built four-storey stock most of the time and the
+    # city came out flat. Those are `lowrise` now and `midrise` means what it
+    # says. `townhouse` is the old `rowhouse` unchanged, renamed for the band.
+    #
+    # A RUIN'S BAND IS ITS SOURCE POOL'S, not a measurement: the authored ruins
+    # are unmeasured on the host (Nucleus only). It costs nothing — the fate
+    # swap picks ruins by CONDITION TAG across every pool and footprint-checks
+    # each swap — so the band only says which scale of ruin it is. `lowrise`
+    # and `townhouse` have none; no library has a wrecked shed or terrace.
+    #
+    # THESE NAMES ARE NOT `config/low_level/default.yaml`'s. Its
+    # `districts.typologies` still name `pools: [rowhouse]` / `[midrise]` /
+    # `[tower]`, so a config that points `asset_pack: urban_v3` at the DEFAULT
+    # typologies finds `rowhouse` and `tower` empty and zones those blocks to
+    # nothing. A preset using this pack has to name these four pools.
+
+    # HIGH-RISE — 44 m and up.
+    highrise:
+      # --- intact
+      # --- Nucleus (cm), materials per urban.buildings.materials.yaml
+      - {usd: "DownTown/Assets/BG_Building_A.usd", scale: 0.01, material: concrete, tags: [intact]}   # 51.3 x 51.3 x  44.7 m, 3.5k
+      # READS BLACK IN A NON-RAYTRACED VIEW, AND THAT IS CORRECT (user,
+      # 2026-08-27): the facade is REFLECTIVE GLASS, so with reflections off it
+      # has almost nothing to show and comes out a flat black slab, while under
+      # raytracing it reads as a dark glass tower. An earlier note here called
+      # that a defect and briefly excluded the asset — it is not. Judge this
+      # one (and any dark curtain wall) from a raytraced frame only.
+      - {usd: "DownTown/Assets/BG_Building_C.usd", scale: 0.01, material: glass, tags: [intact]}      # 50.1 x 40.1 x  66.0 m,  756
+      - {usd: "DownTown/Assets/BG_Building_E.usd", scale: 0.01, material: concrete, tags: [intact]}   # 60.5 x 36.5 x 131.0 m, 3.5k
+      - {usd: "DownTown/Assets/BG_Building_B.usd", scale: 0.01, material: concrete, tags: [intact]}   # 60.3 x 40.2 x  84.1 m, 1.8k — dark-grey banded slab, checked in RTX
+      - {usd: "DownTown/Assets/BG_Building_F.usd", scale: 0.01, material: glass, tags: [intact]}      # 80.9 x 50.4 x  72.3 m, 4.6k
+      # Same as BG_Building_C above: `MI_MBuilding05_SkyscraperWindows` is
+      # reflective glass, so it looks black wherever reflections are off and
+      # correct under raytracing. Not a defect.
+      - {usd: "ModernCityEnvironment/Collected_Building05/SM_MERGED_BP_MBuilding05.usd", scale: 0.01, material: glass, tags: [intact]}   # 27.7 x 20.6 x 62.4 m, 311k
+      - {usd: "ModernCityEnvironment/Collected_Building02/SM_MERGED_BP_MBuilding02.usd", scale: 0.01, material: concrete, tags: [intact]}  # 91.1 x 96.1 x 68.7 m, 471k
+      - {usd: "scene_gen/assets/standalone/buildings/intact/tower/office_tower/office_tower.usdc", material: concrete, tags: [intact]}   # 74.9 x 36.8 x 93.3 m, 65k, untextured colours
+      - {usd: "scene_gen/assets/downtowncity/Amar_Tower.usdc", material: glass, tags: [intact, "front:S"]}   # 42.3 x 48.8 x 231.4 m, 502k
+      # --- added 2026-08-26 (new_assets drop 2)
+      - {usd: "scene_gen/assets/standalone/buildings/intact/tower/stepped_tower/stepped_tower.usdc", material: concrete, tags: [intact]}   # 65 x 78 x 81 m — stepped low-poly office cluster (inches, x0.0254), 24 storeys
+      - {usd: "scene_gen/assets/standalone/buildings/intact/tower/slab_tower/slab_tower.usdc", material: concrete, tags: [intact]}                  # 48.7 x 64.6 x 83.3 m — 20-storey white slab over a canopied podium, 310 TRIS; the cheapest tall building in the pack
+      # --- added 2026-08-26 (new_assets drop 4)
+      - {usd: "scene_gen/assets/standalone/buildings/intact/tower/podium_highrise/podium_highrise.usdc", material: concrete, tags: [intact]}  # 26.7 x 44.0 x 82.5 m, 122k — slender white tower on a wide dark podium, glazed balcony stack and a signed entrance on +X
+      # --- GreatAmericanCity (cm), added 2026-08-29 — 29 of the pack's 31
+      #     buildings; SM_Building_02 and _24 are short enough for `midrise`.
+      #     Tags, yaw-offsets and measurements are carried over VERBATIM from
+      #     `urban_gac.yaml`, where they were measured (`tools/gac_faces.py`,
+      #     triangle density per elevation). See the pool notes at the top of
+      #     this file for what `place_*` means and why it is inert here.
+      - usd: "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_01.usd"
+        scale: 0.01
+        yaw-offset: 180
+        material: brick
+        tags: ["intact", "place_mid", "front:E", "blank:N,W,S"]
+        # 29.1 x 28.4 x 55.4 m — 1-sided mid, front E, blank N,W,S
+      - usd: "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_03.usd"
+        scale: 0.01
+        yaw-offset: 270
+        material: brick
+        tags: ["intact", "place_end", "front:S", "blank:N,W"]
+        # 28.9 x 29.0 x 63.3 m — 2-sided end, front S, blank N,W
+      - usd: "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_04.usd"
+        scale: 0.01
+        yaw-offset: 180
+        material: brick
+        tags: ["intact", "place_mid", "front:E", "blank:N,W,S"]
+        # 31.5 x 28.8 x 52.8 m — 1-sided mid, front E, blank N,W,S
+      - usd: "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_05.usd"
+        scale: 0.01
+        yaw-offset: 180
+        material: brick
+        tags: ["intact", "place_mid", "front:E", "blank:N,W,S"]
+        # 29.9 x 28.4 x 71.8 m — 1-sided mid, front E, blank N,W,S
+      - usd: "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_06_Small.usd"
+        scale: 0.01
+        yaw-offset: 180
+        material: brick
+        tags: ["intact", "place_mid", "front:E", "blank:N,W,S"]
+        # 28.9 x 14.7 x 59.3 m — 1-sided mid, front E, blank N,W,S
+      - usd: "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_07.usd"
+        scale: 0.01
+        yaw-offset: 180
+        material: brick
+        tags: ["intact", "place_mid", "front:E", "blank:N,W,S"]
+        # 28.8 x 14.7 x 71.3 m — 1-sided mid, front E, blank N,W,S
+      - usd: "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_08.usd"
+        scale: 0.01
+        yaw-offset: 0
+        material: brick
+        tags: ["intact", "front:W"]
+        # 86.2 x 58.4 x 58.8 m — 4-sided any, front W, blank -
+      - usd: "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_09.usd"
+        scale: 0.01
+        yaw-offset: 180
+        material: brick
+        tags: ["intact", "place_end", "front:E", "blank:N,W"]
+        # 44.1 x 58.4 x 58.8 m — 2-sided end, front E, blank N,W
+      - usd: "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_10.usd"
+        scale: 0.01
+        yaw-offset: 180
+        material: concrete
+        tags: ["intact", "front:E"]
+        # 86.0 x 60.1 x 135.2 m — 4-sided any, front E, blank -
+      - usd: "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_11.usd"
+        scale: 0.01
+        yaw-offset: 0
+        material: concrete
+        tags: ["intact", "front:W"]
+        # 44.6 x 109.2 x 64.3 m — 4-sided any, front W, blank -
+      - usd: "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_12.usd"
+        scale: 0.01
+        yaw-offset: 0
+        material: concrete
+        tags: ["intact", "front:W"]
+        # 46.2 x 43.7 x 103.7 m — 4-sided any, front W, blank -
+      - usd: "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_13.usd"
+        scale: 0.01
+        yaw-offset: 90
+        material: concrete
+        tags: ["intact", "front:N"]
+        # 29.9 x 44.5 x 139.9 m — 4-sided any, front N, blank -
+      - usd: "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_14.usd"
+        scale: 0.01
+        yaw-offset: 0
+        material: glass
+        tags: ["intact", "front:W"]
+        # 85.4 x 58.0 x 193.5 m — 4-sided any, front W, blank -
+      - usd: "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_15.usd"
+        scale: 0.01
+        yaw-offset: 180
+        material: glass
+        tags: ["intact", "front:E"]
+        # 84.5 x 56.9 x 230.5 m — 4-sided any, front E, blank -
+      - usd: "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_16.usd"
+        scale: 0.01
+        yaw-offset: 90
+        material: glass
+        tags: ["intact", "front:N"]
+        # 84.5 x 56.9 x 312.0 m — 4-sided any, front N, blank -
+      - usd: "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_17.usd"
+        scale: 0.01
+        yaw-offset: 180
+        material: concrete
+        tags: ["intact", "front:E"]
+        # 85.4 x 57.4 x 135.3 m — 4-sided any, front E, blank -
+      - usd: "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_18.usd"
+        scale: 0.01
+        yaw-offset: 0
+        material: concrete
+        tags: ["intact", "front:W"]
+        # 42.0 x 42.0 x 150.1 m — 4-sided any, front W, blank -
+      - usd: "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_19.usd"
+        scale: 0.01
+        yaw-offset: 90
+        material: glass
+        tags: ["intact", "front:N"]
+        # 29.4 x 42.0 x 70.2 m — 4-sided any, front N, blank -
+      - usd: "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_20.usd"
+        scale: 0.01
+        yaw-offset: 90
+        material: concrete
+        tags: ["intact", "place_corner", "front:N", "blank:W"]
+        # 61.5 x 85.4 x 151.0 m — 3-sided corner, front N, blank W
+      - usd: "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_21.usd"
+        scale: 0.01
+        yaw-offset: 180
+        material: brick
+        tags: ["intact", "place_corner", "front:E", "blank:W"]
+        # 58.0 x 72.7 x 77.5 m — 3-sided corner, front E, blank W
+      - usd: "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_22.usd"
+        scale: 0.01
+        yaw-offset: 0
+        material: brick
+        tags: ["intact", "front:W"]
+        # 58.1 x 71.1 x 60.6 m — 4-sided any, front W, blank -
+      - usd: "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_23.usd"
+        scale: 0.01
+        yaw-offset: 0
+        material: concrete
+        tags: ["intact", "front:W"]
+        # 44.6 x 56.6 x 134.4 m — 4-sided any, front W, blank -
+      - usd: "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_25.usd"
+        scale: 0.01
+        yaw-offset: 180
+        material: brick
+        tags: ["intact", "place_mid", "front:E", "blank:N,W,S"]
+        # 28.4 x 28.4 x 69.0 m — 1-sided mid, front E, blank N,W,S
+      - usd: "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_26.usd"
+        scale: 0.01
+        yaw-offset: 180
+        material: brick
+        tags: ["intact", "front:E"]
+        # 14.3 x 28.4 x 69.2 m — 4-sided any, front E, blank -
+      - usd: "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_27.usd"
+        scale: 0.01
+        yaw-offset: 180
+        material: concrete
+        tags: ["intact", "front:E"]
+        # 42.5 x 28.6 x 87.9 m — 4-sided any, front E, blank -
+      - usd: "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_28.usd"
+        scale: 0.01
+        yaw-offset: 270
+        material: concrete
+        tags: ["intact", "front:S"]
+        # 44.5 x 71.1 x 77.3 m — 4-sided any, front S, blank -
+      - usd: "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_29.usd"
+        scale: 0.01
+        yaw-offset: 180
+        material: brick
+        tags: ["intact", "place_mid", "front:E", "blank:N,W,S"]
+        # 14.3 x 28.0 x 47.6 m — 1-sided mid, front E, blank N,W,S
+      - usd: "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_30.usd"
+        scale: 0.01
+        yaw-offset: 180
+        material: concrete
+        tags: ["intact", "front:E"]
+        # 28.4 x 42.4 x 48.0 m — 4-sided any, front E, blank -
+      - usd: "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_31.usd"
+        scale: 0.01
+        yaw-offset: 180
+        material: concrete
+        tags: ["intact", "front:E"]
+        # 60.3 x 142.2 x 302.2 m — 4-sided any, front E, blank -
+      # --- excluded and deactivated art, kept for the record
+      # --- added 2026-08-26 (new_assets drop 2): the BlackthornProd low-poly
+      # city set, split on its object names. EXTREMELY cheap — 60-632 tris
+      # each against 3-500k for the rest of the pool — so these are the
+      # assets to lean on when a map needs many towers. Materials judged
+      # from the gallery heroes.
+      # - {usd: "scene_gen/assets/standalone/buildings/intact/tower/city_tower_01/city_tower_01.usdc", material: concrete, tags: [intact]}   # 39.9 x 41.2 x 125.0 m
+      # - {usd: "scene_gen/assets/standalone/buildings/intact/tower/city_tower_02/city_tower_02.usdc", material: concrete, tags: [intact]}   # 60.7 x 60.1 x 234.5 m
+      # - {usd: "scene_gen/assets/standalone/buildings/intact/tower/city_tower_03/city_tower_03.usdc", material: concrete, tags: [intact]}   # 60.7 x 63.6 x 234.5 m
+      # - {usd: "scene_gen/assets/standalone/buildings/intact/tower/city_tower_04/city_tower_04.usdc", material: concrete, tags: [intact]}   # 60.7 x 75.4 x 270.6 m
+      # - {usd: "scene_gen/assets/standalone/buildings/intact/tower/city_tower_05/city_tower_05.usdc", material: brick, tags: [intact]}      # 148.9 x 60.1 x 140.1 m — salmon brick slab, not concrete (gallery hero)
+      # - {usd: "scene_gen/assets/standalone/buildings/intact/tower/city_tower_06/city_tower_06.usdc", material: concrete, tags: [intact]}   # 148.9 x 60.1 x 185.1 m
+      # - {usd: "scene_gen/assets/standalone/buildings/intact/tower/city_tower_07/city_tower_07.usdc", material: concrete, tags: [intact]}   # 81.3 x 165.1 x 234.5 m
+      # EXCLUDED 2026-08-26 after trying to fix it. NOT a conversion fault: every
+      # material in the converted USD matches the source byte for byte, and the
+      # per-face bindings survive as GeomSubsets. The SOURCE is the problem — it
+      # ships three texture files, all `Plaster_*`, and 53% of its surface is a
+      # flat `_White` material (authored at metallic 1.0, roughness 1.0) with
+      # another 18% on a material NAMED `Ceramic_Black_Tiles_001` but authored
+      # pure white. Repairing both (white -> 0.86 non-metallic, tiles -> near
+      # black) is done in the asset on disk and still leaves a white clay model:
+      # the balcony slabs dominate the silhouette and the dark glazing reads as
+      # thin lines. Against a pack of photo-textured buildings it is a white
+      # blob. Re-enable if a white modernist block is wanted.
+      # - {usd: "scene_gen/assets/standalone/buildings/intact/tower/glass_curved_tower/glass_curved_tower.usdc", material: concrete, tags: [intact]}  # 55.6 x 54.8 x 44.1 m — curved CONCRETE balcony slabs with glazing between (the name says glass, the structure is not); source was 2.8M tris, decimated to 200k
+      # DEACTIVATED 2026-08-29 (user): TOO LOW QUALITY. The whole
+      #     `selected_citydemo/` selection is commented out below and in the
+      #     midrise pool — 36-147 triangles buys a textured box that reads as
+      #     a box from anywhere a drone flies. Kept in place, not deleted, so
+      #     the measurements and material calls survive if a cheap filler
+      #     pool is ever wanted again.
+      # --- added 2026-08-26 from `selected_citydemo/` on Nucleus: buildings
+      #     picked out of the AEC CityDemo pack and re-split one-per-building
+      #     (that folder's own README has the selection rules). Materials below
+      #     are judged from its `previews/<typology>.png` contact sheets.
+      #
+      #     THEY CARRY NO `scale:` AND THAT IS CORRECT. Every other Nucleus
+      #     entry in this pack is centimetre-authored and needs `scale: 0.01`;
+      #     these are metres, Z-up, XY-centred with the base at z = 0, verified
+      #     asset by asset after mirroring. They are also nearly free — 36-147
+      #     triangles each, textured boxes in the CityEngine manner — so they
+      #     are the assets to lean on when a map needs many buildings.
+      # - {usd: "selected_citydemo/tower/tower_01_0006.usd", material: brick, tags: [intact]}             # 36.2 x 49.4 x 106.3 m — brown brick residential tower over a shopfront podium
+      # - {usd: "selected_citydemo/tower/tower_02_0011.usd", material: glass, tags: [intact]}             # 54.3 x 24.7 x  81.6 m — slender blue-green curtain wall
+      # - {usd: "selected_citydemo/tower/tower_03_0015.usd", material: concrete, tags: [intact]}          # 32.9 x 50.4 x  83.3 m — grey precast tower, deep setbacks
+      # - {usd: "selected_citydemo/tower/tower_04_0123.usd", material: stone, tags: [intact]}             # 46.7 x 41.5 x  87.9 m — tan stone office, heavy classical base
+      # - {usd: "selected_citydemo/tower/tower_05_0250.usd", material: concrete, tags: [intact]}          # 45.2 x 46.8 x 113.2 m — white masonry tower, the tallest of the set
+      # - {usd: "selected_citydemo/tower/tower_06_0273.usd", material: stone, tags: [intact]}             # 51.6 x 29.5 x  75.6 m — the stepped wedding-cake, cream stone with balconies
+      # - {usd: "selected_citydemo/tower/tower_07_0276.usd", material: glass, tags: [intact]}             # 42.7 x 38.5 x  95.3 m — blue curtain wall on a podium
+      # - {usd: "selected_citydemo/tower/tower_08_0293.usd", material: concrete, tags: [intact]}          # 45.1 x 41.3 x  71.1 m — white/grey office block over a stone base
+      # - {usd: "selected_citydemo/tower/tower_09_0295.usd", material: brick, tags: [intact]}             # 57.0 x 51.5 x 106.9 m — red brick residential tower, stepped massing
+      # - {usd: "selected_citydemo/tower/tower_10_0453.usd", material: glass, tags: [intact]}             # 47.4 x 39.0 x  95.4 m — dark blue-grey glass, angled crown
+      # - {usd: "selected_citydemo/tower/tower_11_0515.usd", material: concrete, tags: [intact]}          # 47.5 x 70.3 x  75.9 m — wide white block over a long podium
+      # - {usd: "selected_citydemo/tower/tower_12_0534.usd", material: glass, tags: [intact]}             # 41.8 x 49.3 x  88.9 m — blue-grey glass and panel tower
+      # - {usd: "selected_citydemo/tower/tower_14_0672.usd", material: brick, tags: [intact]}             # 51.5 x 36.9 x  72.3 m — tan masonry tower with a deep cornice
+      # - {usd: "selected_citydemo/tower/tower_15_0676.usd", material: concrete, tags: [intact]}          # 55.6 x 38.8 x 110.0 m — white modern tower, glazed shaft
+      # - {usd: "selected_citydemo/tower/tower_16_0677.usd", material: concrete, tags: [intact]}          # 45.5 x 47.1 x  96.2 m — pale blue-grey panel tower
+      # - {usd: "selected_citydemo/tower/tower_17_0682.usd", material: concrete, tags: [intact]}          # 55.7 x 40.7 x  71.0 m — grey-blue office with balcony bands
+      # - {usd: "selected_citydemo/tower/tower_19_0728.usd", material: glass, tags: [intact]}             # 53.7 x 39.2 x  95.3 m — blue glass tower on a white podium
+      # - {usd: "selected_citydemo/tower/tower_20_0893.usd", material: stone, tags: [intact]}             # 33.9 x 51.2 x  72.6 m — the clock tower, cream stone
+      # --- damaged: authored ruins that STILL STAND. The fate swap picks
+      #     from here for a building that was hit but not levelled.
+      #     from here for a building that was hit but not levelled.
+      # Authored "damaged but standing" ruins, Nucleus (cm). Flat: no typology reader.
+      - {usd: "DestroyedBuildings/Assets/destroyed_building_4.usd",             scale: 0.01, material: glass, tags: [damaged]}
+      - {usd: "DestroyedBuildings/Assets/destroyed_building_4_variation_1.usd", scale: 0.01, material: glass, tags: [damaged]}
+      - {usd: "DestroyedBuildings/Assets/destroyed_building_9.usd",             scale: 0.01, material: glass, tags: [damaged]}
+      # --- destroyed: authored collapses. Finished art — the fate swap
+      #     drops `_mesh_damage`, so no cutter touches them.
+      #     drops `_mesh_damage`, so no cutter touches them.
+      # Six ruined high-rises, 48-70 m (standalone; painted-concrete or bare steel frames)
+      - {usd: "scene_gen/assets/standalone/buildings/destroyed/tower/ruin_tower_01/ruin_tower_01.usdc", material: steel, tags: [destroyed]}
+      - {usd: "scene_gen/assets/standalone/buildings/destroyed/tower/ruin_tower_02/ruin_tower_02.usdc", material: steel, tags: [destroyed]}
+      - {usd: "scene_gen/assets/standalone/buildings/destroyed/tower/ruin_tower_03/ruin_tower_03.usdc", material: steel, tags: [destroyed]}
+      - {usd: "scene_gen/assets/standalone/buildings/destroyed/tower/ruin_tower_04/ruin_tower_04.usdc", material: steel, tags: [destroyed]}
+      - {usd: "scene_gen/assets/standalone/buildings/destroyed/tower/ruin_tower_05/ruin_tower_05.usdc", material: steel, tags: [destroyed]}
+      - {usd: "scene_gen/assets/standalone/buildings/destroyed/tower/ruin_tower_06/ruin_tower_06.usdc", material: steel, tags: [destroyed]}
+      - {usd: "DestroyedBuildings/Assets/destroyed_building_9_variation_1.usd",  scale: 0.01, material: glass, tags: [destroyed]}
+
+    # MID-RISE — 20 to 44 m.
+    midrise:
+      # --- intact
+      # --- Nucleus (cm unless noted)
+      - {usd: "ModernCityEnvironment/Collected_Building01/SM_MERGED_BP_MBuilding01.usd", scale: 1.0, material: concrete, tags: [intact]}   # 28.5 x 18.5 x 29.0 m, 140k — metre-authored
+      - {usd: "DownTown/Assets/BG_Building_D.usd", scale: 0.01, material: concrete, tags: [intact]}                                        # 64.9 x 34.9 x 33.0 m, 2.8k
+      - {usd: "scene_gen/assets/standalone/buildings/intact/midrise/block_01/block_01.usdc", material: concrete, tags: [intact]}  # 19.5 x 34.1 x 23.6 m
+      - {usd: "scene_gen/assets/standalone/buildings/intact/midrise/block_02/block_02.usdc", material: brick, tags: [intact]}     # 22.9 x 40.8 x 26.3 m
+      # DowntownCity — the three named-object buildings. `front:S` is carried
+      # from `urban_gac.yaml`, which measured it; the matching `yaw-offset: 270`
+      # it pairs the tag with is NOT carried, because that would turn the asset
+      # in every scene this pack builds and the tags are a record, not a
+      # re-orientation. Apply it with the layout rule that reads `front:`.
+      - {usd: "scene_gen/assets/downtowncity/Building_12.usdc", material: concrete, tags: [intact, "front:S"]}  # 44.3 x 18.7 x 38.9 m,  87k
+      - {usd: "scene_gen/assets/downtowncity/Building_11.usdc", material: concrete, tags: [intact, "front:S"]}  # 30.9 x 35.4 x 32.6 m, 222k
+      - {usd: "scene_gen/assets/standalone/buildings/destroyed/midrise/abandoned_brick_building/abandoned_brick_building.usdc", material: brick, tags: [intact]}   # 15.4 x 18.6 x 21.3 m — 7-storey brick factory block; weathered but STANDING, so it is intact art (user, 2026-08-26)
+      # --- added 2026-08-26 (new_assets drop 2)
+      - {usd: "scene_gen/assets/standalone/buildings/intact/midrise/japanese_building/japanese_building.usdc", material: concrete, tags: [intact]}   # 13.8 x 30.9 x 28.3 m — 8-storey concrete block, external stairs, shopfront on +X
+      - {usd: "scene_gen/assets/standalone/buildings/intact/midrise/federal_bureau/federal_bureau.usdc", material: stone, tags: [intact]}            # 28.0 x 58.2 x 21.1 m — 7-storey stone U-plan office (x0.1), flat facade on +X
+      # --- GreatAmericanCity (cm), added 2026-08-29 — the two members of the
+      #     pack that fall short of 44 m. Both are terrace-shaped (`place_mid`
+      #     / `place_end`); the rest of that family is in `highrise`.
+      - usd: "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_02.usd"
+        scale: 0.01
+        yaw-offset: 180
+        material: brick
+        tags: ["intact", "place_mid", "front:E", "blank:N,W,S"]
+        # 28.0 x 14.4 x 38.6 m — 1-sided mid, front E, blank N,W,S
+      - usd: "GreatAmericanCity/Assets/Game/GreatAmericanCity/Meshes/SM_Building_24.usd"
+        scale: 0.01
+        yaw-offset: 90
+        material: glass
+        tags: ["intact", "place_end", "front:N", "blank:W,S"]
+        # 29.0 x 58.0 x 43.2 m — 2-sided end, front N, blank W,S
+      # --- deactivated art, kept for the record
+      # DEACTIVATED 2026-08-29 (user): TOO LOW QUALITY. The whole
+      #     `selected_citydemo/` selection is commented out below and in the
+      #     midrise pool — 36-147 triangles buys a textured box that reads as
+      #     a box from anywhere a drone flies. Kept in place, not deleted, so
+      #     the measurements and material calls survive if a cheap filler
+      #     pool is ever wanted again.
+      # --- added 2026-08-26 from `selected_citydemo/` (see the tower pool for
+      #     the provenance and why these carry no `scale:`)
+      # - {usd: "selected_citydemo/midrise/midrise_02_0059a.usd", material: concrete, tags: [intact]}     # 19.5 x 13.8 x 16.3 m — European corner block: dark-framed shopfronts under cream render
+      # - {usd: "selected_citydemo/midrise/midrise_14_0204a.usd", material: stone, tags: [intact]}        # 23.3 x 26.7 x 14.2 m — pale stone block with a round-arched ground arcade
+      # --- damaged: authored ruins that STILL STAND. The fate swap picks
+      #     from here for a building that was hit but not levelled.
+      #     from here for a building that was hit but not levelled.
+      - {usd: "DestroyedBuildings/Assets/destroyed_building_5.usd",             scale: 0.01, material: concrete, tags: [damaged]}
+      - {usd: "DestroyedBuildings/Assets/destroyed_building_10.usd",            scale: 0.01, material: concrete, tags: [damaged]}
+      - {usd: "DestroyedBuildings/Assets/destroyed_building_12.usd",             scale: 0.01, material: concrete, tags: [damaged]}
+      # --- destroyed: authored collapses. Finished art — the fate swap
+      #     drops `_mesh_damage`, so no cutter touches them.
+      #     drops `_mesh_damage`, so no cutter touches them.
+      # Nucleus DestroyedBuildings (cm) — unmeasured here, sub-pool by guess, footprint-checked at swap
+      - {usd: "DestroyedBuildings/Assets/destroyed_building_1.usd",              scale: 0.01, material: concrete, tags: [destroyed]}
+      - {usd: "DestroyedBuildings/Assets/destroyed_building_2.usd",              scale: 0.01, material: concrete, tags: [destroyed]}
+      - {usd: "DestroyedBuildings/Assets/destroyed_building_5_variation_1.usd",  scale: 0.01, material: concrete, tags: [destroyed]}
+      - {usd: "DestroyedBuildings/Assets/destroyed_building_6.usd",              scale: 0.01, material: concrete, tags: [destroyed]}
+      - {usd: "DestroyedBuildings/Assets/destroyed_building_7.usd",              scale: 0.01, material: concrete, tags: [destroyed]}
+      - {usd: "DestroyedBuildings/Assets/destroyed_building_8.usd",              scale: 0.01, material: concrete, tags: [destroyed]}
+      - {usd: "DestroyedBuildings/Assets/destroyed_building_10_variation_1.usd", scale: 0.01, material: concrete, tags: [destroyed]}
+      - {usd: "DestroyedBuildings/Assets/destroyed_building_11_variation_1.usd", scale: 0.01, material: concrete, tags: [destroyed]}
+
+    # LOW-RISE — under 20 m, free-standing. Four to five storeys: the sheds,
+    # the shorter street-wall shopfront blocks and the single-storey art.
+    # No ruins: no library has a wrecked shed.
+    lowrise:
+      # --- intact
+      # FactoryDistrict sheds — metre-authored, 11-17 m, block or steel-frame
+      - {usd: "FactoryDistrict/Meshes/Building_TypeD_A.usd", material: concrete, tags: [intact]}   # 42.0 x 31.5 x 11.7 m
+      - {usd: "FactoryDistrict/Meshes/Building_TypeD_B.usd", material: concrete, tags: [intact]}   # 52.0 x 32.0 x 16.7 m
+      - {usd: "FactoryDistrict/Meshes/Building_TypeA_B.usd", material: steel, tags: [intact]}      # 24.4 x 47.0 x 11.8 m
+      - {usd: "FactoryDistrict/Meshes/Building_TypeA_A.usd", material: steel, tags: [intact]}      # 25.0 x 39.7 x 11.9 m
+      - {usd: "FactoryDistrict/Meshes/Building_TypeB_B.usd", material: concrete, tags: [intact]}   # 45.1 x 30.1 x 12.0 m
+      - {usd: "FactoryDistrict/Meshes/Building_TypeD_C.usd", material: concrete, tags: [intact]}   # 72.0 x 32.0 x 16.7 m
+      - {usd: "FactoryDistrict/Meshes/Building_TypeB_C.usd", material: concrete, tags: [intact]}   # 67.1 x 45.1 x 12.0 m
+      - {usd: "FactoryDistrict/Meshes/Building_TypeA_C.usd", material: steel, tags: [intact]}      # 50.2 x 41.6 x 12.4 m
+      - {usd: "FactoryDistrict/Meshes/Building_TypeC_A.usd", material: steel, tags: [intact]}      # 25.1 x 25.1 x 11.1 m
+      - {usd: "FactoryDistrict/Meshes/Building_TypeC_C.usd", material: steel, tags: [intact]}      # 33.1 x 49.1 x 16.0 m
+      - {usd: "FactoryDistrict/Meshes/Building_TypeC_D.usd", material: steel, tags: [intact]}      # 41.1 x 41.1 x 16.0 m
+      - {usd: "scene_gen/assets/standalone/buildings/intact/midrise/block_03/block_03.usdc", material: brick, tags: [intact]}     # 17.1 x 23.2 x 18.8 m
+      - {usd: "scene_gen/assets/standalone/buildings/intact/midrise/block_04/block_04.usdc", material: brick, tags: [intact]}     # 18.2 x 25.5 x 18.6 m
+      - {usd: "scene_gen/assets/standalone/buildings/intact/midrise/block_05/block_05.usdc", material: brick, tags: [intact]}     # 19.1 x 29.8 x 18.8 m
+      - {usd: "scene_gen/assets/standalone/buildings/intact/midrise/block_06/block_06.usdc", material: concrete, tags: [intact]}  # 18.7 x 33.5 x 14.5 m
+      - {usd: "scene_gen/assets/standalone/buildings/intact/midrise/block_07/block_07.usdc", material: brick, tags: [intact]}     # 16.2 x 24.9 x 14.8 m
+      - {usd: "scene_gen/assets/standalone/buildings/intact/midrise/block_08/block_08.usdc", material: concrete, tags: [intact]}  # 14.0 x 15.5 x 13.0 m
+      - {usd: "scene_gen/assets/standalone/buildings/intact/midrise/block_09/block_09.usdc", material: brick, tags: [intact]}     # 13.9 x 16.9 x 11.9 m
+      - {usd: "scene_gen/assets/standalone/buildings/intact/midrise/mini_auto_service/mini_auto_service.usdc", material: concrete, tags: [intact]}   # 15.0 x 26.3 x  8.5 m — single-storey auto-service showroom, sign on +X
+
+    # TOWN HOUSES — laid in party-wall runs by `districts._lay_terrace`, so
+    # their fronts face -X. A band by MORPHOLOGY: every member is under 16 m,
+    # but what puts it here is the party wall, not the height. Was `rowhouse`.
+    # No wrecked terrace exists in any library yet.
+    townhouse:
+      # --- intact
+      - {usd: "scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone02.usd",    scale: 0.01, material: brick, tags: [intact]}  # 21.1 x  6.8 x 14.2 m
+      - {usd: "scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone2Row.usd",  scale: 0.01, material: brick, tags: [intact]}  # 21.1 x 13.4 x 14.6 m
+      - {usd: "scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone5Row.usd",  scale: 0.01, material: brick, tags: [intact]}  # 21.1 x 33.4 x 14.8 m
+      - {usd: "scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone6Row.usd",  scale: 0.01, material: brick, tags: [intact]}  # 21.1 x 40.0 x 14.9 m
+      - {usd: "scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone8Row.usd",  scale: 0.01, material: brick, tags: [intact]}  # 21.1 x 53.3 x 14.9 m
+      - {usd: "scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone10Row.usd", scale: 0.01, material: brick, tags: [intact]}  # 21.1 x 66.6 x 15.2 m
+      - {usd: "scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone11Row.usd", scale: 0.01, material: brick, tags: [intact]}  # 21.1 x 73.4 x 15.2 m
+      - {usd: "scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone12Row.usd", scale: 0.01, material: brick, tags: [intact]}  # 21.1 x 80.1 x 15.3 m
+      - {usd: "scene_gen/assets/standalone/buildings/intact/rowhouse/house_01/house_01.usdc", material: concrete, tags: [intact]}  # 7.9 x 8.6 x 10.8 m
+      - {usd: "scene_gen/assets/standalone/buildings/intact/rowhouse/house_02/house_02.usdc", material: concrete, tags: [intact]}  # 6.6 x 5.9 x 11.0 m
+      - {usd: "scene_gen/assets/standalone/buildings/intact/rowhouse/house_03/house_03.usdc", material: concrete, tags: [intact]}  # 3.9 x 6.5 x 10.1 m
+      - {usd: "scene_gen/assets/standalone/buildings/intact/rowhouse/house_04/house_04.usdc", material: concrete, tags: [intact]}  # 7.5 x 9.3 x 10.6 m
+      - {usd: "scene_gen/assets/standalone/buildings/intact/rowhouse/house_05/house_05.usdc", material: concrete, tags: [intact]}  # 5.0 x 10.2 x 11.0 m
+      # --- added 2026-08-26 (new_assets drop 2)
+      - {usd: "scene_gen/assets/standalone/buildings/intact/rowhouse/old_brick_shop/old_brick_shop.usdc", material: brick, tags: [intact]}          #  5.9 x  7.1 x  9.5 m — three-storey brick corner shop with a boarded shopfront, door on -X (x0.0156: at a plain cm scale it came out 6.1 m, i.e. 2 m a storey)
+      - {usd: "scene_gen/assets/standalone/buildings/intact/rowhouse/graffiti_brick_house/graffiti_brick_house.usdc", material: brick, tags: [intact]}     #  8.4 x  7.2 x 12.3 m — 3-storey brick end-of-terrace, graffiti and boarded shopfront, door on -X (cm source, yawed 180)
+      # (no destroyed town houses in any library yet)
+  # DEBRIS IS IN THREE CATEGORIES (2026-08-29, user), by WHAT THE ASSET IS,
+  # judged from RTX renders of all 166 candidates (`asset_catalogue_launch_script.py`
+  # with `CAT_CATEGORY=debris`; shots in `~/docker/isaac-sim/logs/cat_debris/`
+  # and, for the flat cards, `cat_scatter_top/`):
+  #
+  #   piles     a lot of material heaped into something with volume
+  #   pieces    one fragment, or a couple - a slab, a chunk, a bent rebar
+  #   scatters  small pieces spread thin over ground, too sparse to heap up
+  #
+  # The old split was `pieces` and `piles` only, and it had to put a loose
+  # spread of rubble in one or the other. Measured volume mostly agrees with
+  # the eye and is quoted per entry, but it does NOT decide the category:
+  # `debris_2` is 21 m3 and is ONE slab, so it is a piece.
+  debris:
+    # ---- pieces: one fragment, or a couple ---------------------------------
+    # UNDER 1 m3 IS COMMENTED OUT (2026-08-29, user): 48 of the 81 entries went,
+    # leaving 33. The bounding-box volume is the MEASURED one from the same
+    # catalogue run that sorted these (`~/docker/isaac-sim/logs/cat_debris/`),
+    # and each cut line carries it. What went was the whole small-rubble tail —
+    # every single brick (0.00-0.01 m3), every `lump_*`, the twelve
+    # `Debris_NN` pebbles, the nine `chunk_*` at 0.50-0.80, and
+    # `SM_con_debris_10`. Nothing at that size reads as anything from the
+    # altitude a drone flies; it is geometry and draw calls for pixels nobody
+    # resolves. Re-enable a row if a close-up ever needs it.
+    #
+    # NOT APPLIED TO `scatters`. A scatter is flat by definition — the
+    # `SM_Rock_Debris_Pile_*` cards measure ZERO height, so a bbox rule would
+    # delete the entire category rather than thin it.
+    pieces:
+      - {usd: "DestroyedBuildings/Assets/debris_2.usd", scale: 0.01, material: concrete}
+      - {usd: "DestroyedBuildings/Assets/debris_3.usd", scale: 0.01, material: concrete}
+      - {usd: "DestroyedBuildings/Assets/debris_4.usd", scale: 0.01, material: concrete}
+      - {usd: "DestroyedBuildings/Assets/debris_5.usd", scale: 0.01, material: concrete}
+      # - {usd: "DestroyedBuildings/Assets/debris_6.usd", scale: 0.01, material: concrete}   # 1.2x1.1x0.2 m = 0.26 m3
+      # - {usd: "DestroyedBuildings/Assets/debris_7.usd", scale: 0.01, material: concrete}   # 1.3x1.2x0.2 m = 0.31 m3
+      # - {usd: "DestroyedBuildings/Assets/debris_8.usd", scale: 0.01, material: concrete}   # 1.2x1.3x0.3 m = 0.47 m3
+      - {usd: "DestroyedBuildings/Assets/debris_9.usd", scale: 0.01, material: concrete}
+      - {usd: "DestroyedBuildings/Assets/debris_10.usd", scale: 0.01, material: concrete}
+      # - {usd: "DebrisPack/Assets/Debris_01.usd", scale: 0.01, material: concrete}   # 0.6x0.4x0.5 m = 0.12 m3
+      # - {usd: "DebrisPack/Assets/Debris_02.usd", scale: 0.01, material: concrete}   # 0.7x0.5x0.4 m = 0.14 m3
+      # - {usd: "DebrisPack/Assets/Debris_03.usd", scale: 0.01, material: concrete}   # 0.5x0.3x0.2 m = 0.03 m3
+      # - {usd: "DebrisPack/Assets/Debris_04.usd", scale: 0.01, material: concrete}   # 0.3x0.5x0.3 m = 0.04 m3
+      # - {usd: "DebrisPack/Assets/Debris_05.usd", scale: 0.01, material: concrete}   # 0.5x0.6x0.3 m = 0.09 m3
+      # - {usd: "DebrisPack/Assets/Debris_06.usd", scale: 0.01, material: concrete}   # 0.4x0.4x0.2 m = 0.03 m3
+      # - {usd: "DebrisPack/Assets/Debris_07.usd", scale: 0.01, material: concrete}   # 0.5x0.8x0.6 m = 0.24 m3
+      # - {usd: "DebrisPack/Assets/Debris_08.usd", scale: 0.01, material: concrete}   # 0.4x0.6x0.3 m = 0.07 m3
+      # - {usd: "DebrisPack/Assets/Debris_09.usd", scale: 0.01, material: concrete}   # 0.3x0.3x0.2 m = 0.02 m3
+      # - {usd: "DebrisPack/Assets/Debris_10.usd", scale: 0.01, material: concrete}   # 0.6x0.6x0.3 m = 0.11 m3
+      # - {usd: "DebrisPack/Assets/Debris_11.usd", scale: 0.01, material: concrete}   # 0.9x0.5x0.4 m = 0.18 m3
+      # - {usd: "DebrisPack/Assets/Debris_12.usd", scale: 0.01, material: concrete}   # 0.6x0.5x0.5 m = 0.15 m3
+      # - {usd: "DebrisPack/Assets/Blok_1_LODs.usd", scale: 0.01, material: concrete}   # 0.5x0.2x0.2 m = 0.02 m3
+      # - {usd: "DebrisPack/Assets/Blok_2_LODs.usd", scale: 0.01, material: concrete}   # 0.4x0.2x0.2 m = 0.02 m3
+      # - {usd: "DebrisPack/Assets/Blok_3_LODs.usd", scale: 0.01, material: concrete}   # 0.5x0.2x0.2 m = 0.02 m3
+      # - {usd: "DebrisPack/Assets/Blok_4_LODs.usd", scale: 0.01, material: concrete}   # 0.2x0.2x0.2 m = 0.01 m3
+      # - {usd: "DebrisPack/Assets/Brick_red_01.usd", scale: 0.01, material: brick}   # 0.2x0.2x0.1 m = 0.00 m3
+      # - {usd: "DebrisPack/Assets/Brick_red_02.usd", scale: 0.01, material: brick}   # 0.4x0.2x0.1 m = 0.01 m3
+      # - {usd: "DebrisPack/Assets/Brick_red_03.usd", scale: 0.01, material: brick}   # 0.2x0.2x0.1 m = 0.00 m3
+      # - {usd: "DebrisPack/Assets/Brick_red_04.usd", scale: 0.01, material: brick}   # 0.3x0.2x0.1 m = 0.01 m3
+      # - {usd: "DebrisPack/Assets/Brick_red_05.usd", scale: 0.01, material: brick}   # 0.2x0.2x0.1 m = 0.00 m3
+      # - {usd: "DebrisPack/Assets/Brick_red_06.usd", scale: 0.01, material: brick}   # 0.2x0.2x0.1 m = 0.00 m3
+      # - {usd: "DebrisPack/Assets/Brick_red_07.usd", scale: 0.01, material: brick}   # 0.4x0.2x0.1 m = 0.01 m3
+      # - {usd: "DebrisPack/Assets/Brick_white_01.usd", scale: 0.01, material: brick}   # 0.2x0.2x0.1 m = 0.00 m3
+      # - {usd: "DebrisPack/Assets/Brick_white_02.usd", scale: 0.01, material: brick}   # 0.4x0.2x0.1 m = 0.01 m3
+      # - {usd: "DebrisPack/Assets/Brick_white_04.usd", scale: 0.01, material: brick}   # 0.4x0.2x0.1 m = 0.01 m3
+      # - {usd: "DebrisPack/Assets/Brick_white_05.usd", scale: 0.01, material: brick}   # 0.1x0.2x0.1 m = 0.00 m3
+      # - {usd: "DebrisPack/Assets/Brick_white_06.usd", scale: 0.01, material: brick}   # 0.2x0.2x0.1 m = 0.00 m3
+      - {usd: "scene_gen/assets/standalone/debris/pieces/slab_01/slab_01.usdc", material: concrete}
+      - {usd: "scene_gen/assets/standalone/debris/pieces/slab_02/slab_02.usdc", material: concrete}
+      - {usd: "scene_gen/assets/standalone/debris/pieces/slab_03/slab_03.usdc", material: concrete}
+      - {usd: "scene_gen/assets/standalone/debris/pieces/slab_04/slab_04.usdc", material: concrete}
+      - {usd: "scene_gen/assets/standalone/debris/pieces/slab_05/slab_05.usdc", material: concrete}
+      - {usd: "scene_gen/assets/standalone/debris/pieces/slab_06/slab_06.usdc", material: concrete}
+      # - {usd: "scene_gen/assets/standalone/debris/pieces/slab_07/slab_07.usdc", material: concrete}   # 2.3x1.6x0.2 m = 0.74 m3
+      - {usd: "scene_gen/assets/standalone/debris/pieces/slab_08/slab_08.usdc", material: concrete}
+      - {usd: "scene_gen/assets/standalone/debris/pieces/slab_09/slab_09.usdc", material: concrete}
+      - {usd: "scene_gen/assets/standalone/debris/pieces/slab_10/slab_10.usdc", material: concrete}
+      - {usd: "scene_gen/assets/standalone/debris/pieces/slab_11/slab_11.usdc", material: concrete}
+      - {usd: "scene_gen/assets/standalone/debris/pieces/slab_12/slab_12.usdc", material: concrete}
+      # - {usd: "scene_gen/assets/standalone/debris/pieces/chunk_01/chunk_01.usdc", material: concrete}   # 1.0x1.0x0.8 m = 0.80 m3
+      # - {usd: "scene_gen/assets/standalone/debris/pieces/chunk_02/chunk_02.usdc", material: concrete}   # 0.9x1.0x0.8 m = 0.72 m3
+      # - {usd: "scene_gen/assets/standalone/debris/pieces/chunk_03/chunk_03.usdc", material: concrete}   # 1.0x1.0x0.8 m = 0.80 m3
+      # - {usd: "scene_gen/assets/standalone/debris/pieces/chunk_04/chunk_04.usdc", material: concrete}   # 0.9x1.0x0.8 m = 0.72 m3
+      # - {usd: "scene_gen/assets/standalone/debris/pieces/chunk_05/chunk_05.usdc", material: concrete}   # 0.9x0.7x0.9 m = 0.57 m3
+      # - {usd: "scene_gen/assets/standalone/debris/pieces/chunk_06/chunk_06.usdc", material: concrete}   # 1.0x0.8x0.8 m = 0.64 m3
+      # - {usd: "scene_gen/assets/standalone/debris/pieces/chunk_07/chunk_07.usdc", material: concrete}   # 0.7x1.0x0.8 m = 0.56 m3
+      # - {usd: "scene_gen/assets/standalone/debris/pieces/chunk_08/chunk_08.usdc", material: concrete}   # 0.8x0.7x0.9 m = 0.50 m3
+      # - {usd: "scene_gen/assets/standalone/debris/pieces/chunk_09/chunk_09.usdc", material: concrete}   # 0.9x0.8x0.9 m = 0.65 m3
+      # - {usd: "scene_gen/assets/standalone/debris/pieces/lump_01/lump_01.usdc", material: concrete}   # 0.4x0.4x0.1 m = 0.02 m3
+      # - {usd: "scene_gen/assets/standalone/debris/pieces/lump_02/lump_02.usdc", material: concrete}   # 0.2x0.2x0.1 m = 0.00 m3
+      # - {usd: "scene_gen/assets/standalone/debris/pieces/lump_03/lump_03.usdc", material: concrete}   # 0.2x0.2x0.0 m = 0.00 m3
+      # - {usd: "scene_gen/assets/standalone/debris/pieces/lump_04/lump_04.usdc", material: concrete}   # 0.2x0.2x0.1 m = 0.00 m3
+      # - {usd: "scene_gen/assets/standalone/debris/pieces/lump_05/lump_05.usdc", material: concrete}   # 0.2x0.2x0.1 m = 0.00 m3
+      # - {usd: "scene_gen/assets/standalone/debris/pieces/lump_06/lump_06.usdc", material: concrete}   # 0.2x0.1x0.0 m = 0.00 m3
+      - {usd: "scene_gen/assets/standalone/debris/pieces/sheet_01/sheet_01.usdc", material: steel}
+      - {usd: "scene_gen/assets/standalone/debris/pieces/sheet_02/sheet_02.usdc", material: steel}
+      - {usd: "scene_gen/assets/standalone/debris/pieces/sheet_03/sheet_03.usdc", material: steel}
+      - {usd: "scene_gen/assets/standalone/debris/pieces/rebar_01/rebar_01.usdc", material: steel}
+      - {usd: "scene_gen/assets/standalone/debris/pieces/rebar_02/rebar_02.usdc", material: steel}
+      - {usd: "scene_gen/assets/standalone/debris/pieces/rebar_03/rebar_03.usdc", material: steel}
+      - {usd: "scene_gen/assets/standalone/debris/pieces/rebar_04/rebar_04.usdc", material: steel}
+      # --- added 2026-08-29 from `DebrisConcrete/` on Nucleus: single upright
+      #     concrete fragments with rebar whiskers, 0.5-4.2 m tall. Metres?
+      #     No - centimetre-authored like every Unreal pack here, hence 0.01.
+      - {usd: "DebrisConcrete/Assets/Game/Concrete_debris_v1/Meshes/SM_con_debris_01.usd", scale: 0.01, material: concrete}
+      - {usd: "DebrisConcrete/Assets/Game/Concrete_debris_v1/Meshes/SM_con_debris_02.usd", scale: 0.01, material: concrete}
+      - {usd: "DebrisConcrete/Assets/Game/Concrete_debris_v1/Meshes/SM_con_debris_03.usd", scale: 0.01, material: concrete}
+      - {usd: "DebrisConcrete/Assets/Game/Concrete_debris_v1/Meshes/SM_con_debris_04.usd", scale: 0.01, material: concrete}
+      - {usd: "DebrisConcrete/Assets/Game/Concrete_debris_v1/Meshes/SM_con_debris_05.usd", scale: 0.01, material: concrete}
+      - {usd: "DebrisConcrete/Assets/Game/Concrete_debris_v1/Meshes/SM_con_debris_06.usd", scale: 0.01, material: concrete}
+      - {usd: "DebrisConcrete/Assets/Game/Concrete_debris_v1/Meshes/SM_con_debris_07.usd", scale: 0.01, material: concrete}
+      - {usd: "DebrisConcrete/Assets/Game/Concrete_debris_v1/Meshes/SM_con_debris_08.usd", scale: 0.01, material: concrete}
+      - {usd: "DebrisConcrete/Assets/Game/Concrete_debris_v1/Meshes/SM_con_debris_09.usd", scale: 0.01, material: concrete}
+      # - {usd: "DebrisConcrete/Assets/Game/Concrete_debris_v1/Meshes/SM_con_debris_10.usd", scale: 0.01, material: concrete}   # 0.4x0.7x1.9 m = 0.53 m3
+
+    # ---- piles: a heap with real volume ------------------------------------
+    piles:
+      - {usd: "DestroyedBuildings/Assets/debris_1.usd", scale: 0.01, material: concrete}
+      - {usd: "DestroyedBuildings/Assets/debris_12.usd", scale: 0.01, material: concrete}
+      - {usd: "DestroyedBuildings/Assets/debris_14.usd", scale: 0.01, material: concrete}
+      - {usd: "DestroyedBuildings/Assets/debris_15.usd", scale: 0.01, material: concrete}
+      # --- added 2026-08-29 from `DebrisConcrete/`: rubble heaps.
+      #     `_cor_` is a collapsed corner, `_wall_` a collapsed wall run.
+      #
+      #     `scale: 0.02` IS DELIBERATE AND IS NOT A UNITS BUG (user,
+      #     2026-08-29): the pack is centimetre-authored like every other
+      #     Unreal set here, so 0.01 is its true size and that is what the
+      #     `pieces` and `scatters` entries from the SAME pack still use.
+      #     These sixteen are scaled 2x on purpose, purely as aesthetic
+      #     tuning — a heap that reads as rubble from the air rather than at
+      #     its authored size. At 2x linear the measured 6-190 m3 becomes
+      #     roughly 50-1500 m3. Do not "correct" it to 0.01.
+      - {usd: "DebrisConcrete/Assets/Game/Concrete_debris_v1/Meshes/SM_con_debris_big_01.usd", scale: 0.05, material: concrete}
+      - {usd: "DebrisConcrete/Assets/Game/Concrete_debris_v1/Meshes/SM_con_debris_big_02.usd", scale: 0.05, material: concrete}
+      # - {usd: "DebrisConcrete/Assets/Game/Concrete_debris_v1/Meshes/SM_con_debris_big_cor_01.usd", scale: 0.05, material: concrete}
+      # - {usd: "DebrisConcrete/Assets/Game/Concrete_debris_v1/Meshes/SM_con_debris_big_cor_02.usd", scale: 0.05, material: concrete}
+      # - {usd: "DebrisConcrete/Assets/Game/Concrete_debris_v1/Meshes/SM_con_debris_big_wall_01.usd", scale: 0.05, material: concrete}
+      # - {usd: "DebrisConcrete/Assets/Game/Concrete_debris_v1/Meshes/SM_con_debris_big_wall_02.usd", scale: 0.05, material: concrete}
+      - {usd: "DebrisConcrete/Assets/Game/Concrete_debris_v1/Meshes/SM_con_debris_medium_01.usd", scale: 0.05, material: concrete}
+      - {usd: "DebrisConcrete/Assets/Game/Concrete_debris_v1/Meshes/SM_con_debris_medium_02.usd", scale: 0.05, material: concrete}
+      # - {usd: "DebrisConcrete/Assets/Game/Concrete_debris_v1/Meshes/SM_con_debris_medium_cor_01.usd", scale: 0.05, material: concrete}
+      # - {usd: "DebrisConcrete/Assets/Game/Concrete_debris_v1/Meshes/SM_con_debris_medium_cor_02.usd", scale: 0.05, material: concrete}
+      # - {usd: "DebrisConcrete/Assets/Game/Concrete_debris_v1/Meshes/SM_con_debris_medium_wall_01.usd", scale: 0.05, material: concrete}
+      # - {usd: "DebrisConcrete/Assets/Game/Concrete_debris_v1/Meshes/SM_con_debris_medium_wall_02.usd", scale: 0.05, material: concrete}
+      # - {usd: "DebrisConcrete/Assets/Game/Concrete_debris_v1/Meshes/SM_con_debris_small_cor_01.usd", scale: 0.05, material: concrete}
+      # - {usd: "DebrisConcrete/Assets/Game/Concrete_debris_v1/Meshes/SM_con_debris_small_cor_02.usd", scale: 0.05, material: concrete}
+      # - {usd: "DebrisConcrete/Assets/Game/Concrete_debris_v1/Meshes/SM_con_debris_small_wall_01.usd", scale: 0.05, material: concrete}
+      # - {usd: "DebrisConcrete/Assets/Game/Concrete_debris_v1/Meshes/SM_con_debris_small_wall_02.usd", scale: 0.05, material: concrete}
+
+      # --- added 2026-08-29 from `assets/concrete_rubble_debris/`, the FAB
+      #     "Concrete Elements" pack the user dropped in as ONE 233 MB usdz.
+      #     Split with `tools/extract_objects_to_usd.py --group-by-material`
+      #     (a flag added for it) into `split/<name>/<name>.usdc`.
+      #
+      #     THE SPLIT IS BY MATERIAL, NOT BY OBJECT, and that is the whole
+      #     trick. The pack's exporter (`obj_cleaner_materialmerger_gles`)
+      #     chops every mesh at the 16-bit index limit, so a prop arrives as
+      #     `Object_2` (65,532 verts) PLUS `Object_3` (the remainder) — same
+      #     material, and one bbox NESTED INSIDE the other rather than beside
+      #     it. Splitting on the object names would have produced half-props.
+      #     Three of these ten were reassembled that way. Also dropped: the
+      #     pack's 14.7 m backdrop plane (`GRID_002`, 2 tris) and two empty
+      #     Xforms.
+      #
+      #     NO `scale:` / `axis-up:` ON ANY OF THEM. The extractor writes
+      #     metres, Z-up, footprint centred on the origin, base at z = 0 —
+      #     verified per file after export. The source is Y-up centimetres;
+      #     that conversion is baked into the USD, not deferred to here.
+      #
+      #     PATHS ARE NUCLEUS-RELATIVE AND MIRROR THE LOCAL TREE (user,
+      #     2026-08-29): `Projects/SEI-COA/scene_gen/…` on the server is the
+      #     same layout as `scene_gen/…` in the repo, so one string serves
+      #     both. Uploaded and verified the same day — all ten `.usdc` and
+      #     their twenty textures are byte-identical to the local copies, so
+      #     the `.measurements.json` entries seeded from those copies are
+      #     good for the Nucleus URLs too.
+      #
+      #     ALL `material: concrete` AND ALL UNDER `piles` — user's call.
+      #     The `concrete` half of it is right by eye as well as by fiat: the
+      #     two `brick_debris_pile*` are named for brick but RENDER as grey
+      #     concrete rubble with only a few brick fragments in them
+      #     (`galleries/concrete_pack/`), so nothing is being mislabelled.
+      #     What the `piles` half papers over is worth knowing:
+      #       - `concrete_slabs`, `cracked_paving_slabs`,
+      #         `concrete_sidewalk_elements` and the two `lamppost_block*` are
+      #         street and paving ELEMENTS, not heaps. The last two are
+      #         0.04 m3 — well under the 1 m3 bar that cut the `pieces` tail.
+      #
+      #     `_hp` IS THE SAME PROP AT HIGHER POLY, not a different one. Both
+      #     halves of each pair are listed because the ask was "all"; drawing
+      #     from both means the pool can land near-identical geometry twice at
+      #     2-3x the triangles. Comment out one of each pair to stop that.
+      - {usd: "scene_gen/assets/concrete_rubble_debris/split/huge_concrete_rubble_pile/huge_concrete_rubble_pile.usdc", material: concrete}    # 8.05 x 7.68 x 1.48 m,  71k tris — the one true heap of the set
+      - {usd: "scene_gen/assets/concrete_rubble_debris/split/brick_debris_pile/brick_debris_pile.usdc", material: concrete}                    # 6.07 x 4.90 x 1.20 m,  58k tris — brick rubble spread (see above: tagged concrete)
+      # - {usd: "scene_gen/assets/concrete_rubble_debris/split/brick_debris_pile_hp/brick_debris_pile_hp.usdc", material: concrete}              # 6.07 x 4.93 x 1.20 m, 189k tris — ditto, high poly
+      # - {usd: "scene_gen/assets/concrete_rubble_debris/split/concrete_slabs/concrete_slabs.usdc", material: concrete}                          # 3.64 x 2.46 x 0.67 m,  58k tris — broken slabs, stacked
+      - {usd: "scene_gen/assets/concrete_rubble_debris/split/concrete_debris_elements/concrete_debris_elements.usdc", material: concrete}      # 3.53 x 2.58 x 0.38 m,  97k tris — low spread of mixed fragments
+      # - {usd: "scene_gen/assets/concrete_rubble_debris/split/concrete_debris_elements_hp/concrete_debris_elements_hp.usdc", material: concrete}  # 3.54 x 2.58 x 0.38 m, 125k tris — ditto, high poly
+      # - {usd: "scene_gen/assets/concrete_rubble_debris/split/concrete_sidewalk_elements/concrete_sidewalk_elements.usdc", material: concrete}  # 1.72 x 1.77 x 0.34 m,  29k tris — kerb and sidewalk fragments
+      # - {usd: "scene_gen/assets/concrete_rubble_debris/split/cracked_paving_slabs/cracked_paving_slabs.usdc", material: concrete}              # 1.08 x 1.60 x 0.31 m,  28k tris — cracked paving
+      # - {usd: "scene_gen/assets/concrete_rubble_debris/split/lamppost_block/lamppost_block.usdc", material: concrete}                          # 0.16 x 0.35 x 0.74 m,  21k tris — lamppost base block
+      # - {usd: "scene_gen/assets/concrete_rubble_debris/split/lamppost_block_v2/lamppost_block_v2.usdc", material: concrete}                    # 0.16 x 0.35 x 0.74 m,  21k tris — same block, second texture variant
+
+    # ---- scatters: spread too thin to be a heap ----------------------------
+    # NEW CATEGORY. Nothing in the generator reads it yet - see the note at the
+    # top of this file.
+    scatters:
+      - {usd: "DestroyedBuildings/Assets/debris_11.usd", scale: 0.01, material: concrete}
+      - {usd: "scene_gen/assets/standalone/debris/piles/concrete_rubble_pile/concrete_rubble_pile.usdc", material: concrete}
+      # DEACTIVATED 2026-08-29 (user): the asset is not liked. Not a size call —
+      # it measures 3.7 x 3.6 x 0.5 m, well clear of any threshold.
+      # - {usd: "scene_gen/assets/standalone/debris/piles/rocky_ground/rocky_ground.usdc", material: earth}
+      # --- added 2026-08-29 from `DebrisConcrete/`: the two low sparse spreads
+      #     of the set, 0.3 m tall against 1.1-3.6 m for its heaps.
+      - {usd: "DebrisConcrete/Assets/Game/Concrete_debris_v1/Meshes/SM_con_debris_small_01.usd", scale: 0.01, material: concrete}
+      - {usd: "DebrisConcrete/Assets/Game/Concrete_debris_v1/Meshes/SM_con_debris_small_02.usd", scale: 0.01, material: concrete}
+      # --- added 2026-08-29 from `DebrisGroundScatter/`: flat decal CARDS of
+      #     grey rock chippings, 0.3-4.2 m across and ZERO height. They are
+      #     the only family in that pack that is building rubble - see the
+      #     file header for the three families left out.
+      - {usd: "DebrisGroundScatter/Assets/Game/Trash/VOL2_GroundScatter/Meshes/SM_Rock_Debris_Pile_01a.usd", scale: 0.01, material: stone}
+      - {usd: "DebrisGroundScatter/Assets/Game/Trash/VOL2_GroundScatter/Meshes/SM_Rock_Debris_Pile_01b.usd", scale: 0.01, material: stone}
+      - {usd: "DebrisGroundScatter/Assets/Game/Trash/VOL2_GroundScatter/Meshes/SM_Rock_Debris_Pile_01c.usd", scale: 0.01, material: stone}
+      - {usd: "DebrisGroundScatter/Assets/Game/Trash/VOL2_GroundScatter/Meshes/SM_Rock_Debris_Pile_01d.usd", scale: 0.01, material: stone}
+      - {usd: "DebrisGroundScatter/Assets/Game/Trash/VOL2_GroundScatter/Meshes/SM_Rock_Debris_Pile_01e.usd", scale: 0.01, material: stone}
+      - {usd: "DebrisGroundScatter/Assets/Game/Trash/VOL2_GroundScatter/Meshes/SM_Rock_Debris_Pile_01f.usd", scale: 0.01, material: stone}
+      - {usd: "DebrisGroundScatter/Assets/Game/Trash/VOL2_GroundScatter/Meshes/SM_Rock_Debris_Pile_01g.usd", scale: 0.01, material: stone}
+      - {usd: "DebrisGroundScatter/Assets/Game/Trash/VOL2_GroundScatter/Meshes/SM_Rock_Debris_Pile_01h.usd", scale: 0.01, material: stone}
+      - {usd: "DebrisGroundScatter/Assets/Game/Trash/VOL2_GroundScatter/Meshes/SM_Rock_Debris_Pile_01i.usd", scale: 0.01, material: stone}
+      - {usd: "DebrisGroundScatter/Assets/Game/Trash/VOL2_GroundScatter/Meshes/SM_Rock_Debris_Pile_01j.usd", scale: 0.01, material: stone}
+      - {usd: "DebrisGroundScatter/Assets/Game/Trash/VOL2_GroundScatter/Meshes/SM_Rock_Debris_Pile_01k.usd", scale: 0.01, material: stone}
+      - {usd: "DebrisGroundScatter/Assets/Game/Trash/VOL2_GroundScatter/Meshes/SM_Rock_Debris_Pile_01l.usd", scale: 0.01, material: stone}
+      - {usd: "DebrisGroundScatter/Assets/Game/Trash/VOL2_GroundScatter/Meshes/SM_Rock_Debris_Pile_01m.usd", scale: 0.01, material: stone}
+      - {usd: "DebrisGroundScatter/Assets/Game/Trash/VOL2_GroundScatter/Meshes/SM_Rock_Debris_Pile_01n.usd", scale: 0.01, material: stone}
+      - {usd: "DebrisGroundScatter/Assets/Game/Trash/VOL2_GroundScatter/Meshes/SM_Rock_Debris_Pile_01o.usd", scale: 0.01, material: stone}
+      - {usd: "DebrisGroundScatter/Assets/Game/Trash/VOL2_GroundScatter/Meshes/SM_Rock_Debris_Pile_01p.usd", scale: 0.01, material: stone}
+
+  cars:
+    # [shared] — the base pool urban_v2 appended to via `cars+`.
+    - usd: "RetroNeighborhood/130.usdz"
+      scale: 0.01
+      axis-up: "Y"           # authored Y-up; fixed to Z-up for Isaac Sim
+      yaw-offset: 90.0
+    - usd: "RetroNeighborhood/FREE_GMC_Motorhome_reimagined_low_poly.usdz"
+      scale: 0.01
+      axis-up: "Y"
+      yaw-offset: 90.0
+    # - usd: "RetroNeighborhood/FREE_Merc_Hovercar.usdz"
+    #   scale: 0.01
+    #   axis-up: "Y"
+    - usd: "RetroNeighborhood/Nissan_Fairlady_Z_S30240Z_1978.usdz"
+      scale: 0.01
+      axis-up: "Y"
+      yaw-offset: 90.0
+    # - usd: "RetroNeighborhood/Old_Rusty_Car.usdz"
+    #   scale: 0.01
+    #   axis-up: "Y"
+    # - usd: "RetroNeighborhood/ZIS-101A_Sport_1938.usdz"
+    #   scale: 0.01
+    #   axis-up: "Y"
+    - usd: "ModernCityEnvironment01/Meshes/SK_ConstructionTruck01FullyRigged.usd"
+    - usd: "DownTown/Assets/Vehicle_A.usd"
+      scale: 0.01
+      yaw-offset: 90.0
+    - usd: "DownTown/Assets/Vehicle_Police.usd"
+      scale: 0.01
+      yaw-offset: 90.0
+    - usd: "DownTown/Assets/Vehicle_Taxi.usd"
+      scale: 0.01
+      yaw-offset: 90.0
+    # urban's own, all facing +X, all metres.
+    - "scene_gen/assets/standalone/cars/lowpoly_coupe/lowpoly_coupe.usdc"      # 4.6 m
+    - "scene_gen/assets/standalone/cars/lowpoly_pickup/lowpoly_pickup.usdc"    # 4.6 m
+    - "scene_gen/assets/standalone/cars/lowpoly_sedan/lowpoly_sedan.usdc"      # 4.6 m
+    - "scene_gen/assets/standalone/cars/lowpoly_wagon/lowpoly_wagon.usdc"      # 4.6 m
+    - "scene_gen/assets/standalone/cars/generic_sedan/generic_sedan.usdc"      # 5.0 m, as authored
+    - "scene_gen/assets/standalone/cars/red_car/red_car.usdc"                  # 4.4 m
+    - "scene_gen/assets/standalone/cars/delivery_van/delivery_van.usdc"        # 4.8 m, inch-authored source
+    # Sketchfab rig whose four wheels all sat at the rig origin; they were
+    # put on the axles by hand at conversion (`police_fix.py`, session notes).
+    - "scene_gen/assets/standalone/cars/police_car/police_car.usdc"            # 5.4 m
+    - "scene_gen/assets/standalone/cars/citybus/citybus.usdc"                  # 9.5 m transit bus, front on +X
+    # Burned-out wrecks: pristine scenes park them too, which reads as an
+    # abandoned car rather than a disaster — `cars_toppled_fraction` etc. do
+    # not know the difference. Flagged rather than excluded.
+    - "scene_gen/assets/standalone/cars/burned_car_01/burned_car_01.usdc"      # 4.8 m
+    - "scene_gen/assets/standalone/cars/burned_car_02/burned_car_02.usdc"      # 4.8 m
+
+  # ---- street furniture: the `urban.yaml` category table, copied so this set
+  # ---- stands alone. The measurements and choices are argued there.
+  tiles:
+    concrete: "ModernCityEnvironment01/Meshes/SM_GroundModule01.usd"  # [shared]
+    trail:
+      usd: "Downtown_West/Assets/ground_walkways/SM_ground_mod_walk_tile_a_4m.usd"
+      scale: 1.0
+    sidewalk:
+      usd: "ModernCityEnvironment01/Meshes/SM_GroundModule01.usd"
+      scale: 0.70
+  park_features:
+    - name: fountain
+      radius_m: 6.0
+      parts:
+        - "Downtown_West/Assets/props/prop_fountain/SM_prop_fountain_full.usd"
+        - "Downtown_West/VFX/Meshes/SM_fountain_water_bottom.usd"
+        - "Downtown_West/VFX/Meshes/SM_fountain_water_middle.usd"
+        - "Downtown_West/VFX/Meshes/SM_fountain_water_top.usd"
+  play_groups:
+    - name: swings_and_slide
+      radius_m: 9.0
+      parts:
+        - {usd: "CivilianArea/Assets/SM_PlaygroundSwings_02.usd", scale: 0.01, offset_m: [0.0, 0.0], yaw_deg: 0.0}
+        - {usd: "CivilianArea/Assets/SM_PlaygroundSlide_01.usd",  scale: 0.01, offset_m: [7.727, 2.071], yaw_deg: -95.0}
+  park_fences:
+    - usd: "Downtown_West/Assets/props/prop_park_railing/SM_prop_park_railing_rail_a.usd"
+      scale: 1.0
+      yaw-offset: 90.0
+  streetlights:
+    - usd: "Downtown_West/Assets/props/props_light_post/SM_lightpost_light_post_b.usd"
+      yaw-offset: 270.0
+  benches:
+    - {usd: "scene_gen/assets/aec/brownstone/Props/ParkBench01/ParkBench01.usd", scale: 0.01, tags: ["sidewalk"]}
+    - {usd: "Downtown_West/Assets/props/prop_bench_wood/SM_bench_wood_a.usd", tags: ["park"]}
+  trash_cans:
+    - "ModernCityEnvironment01/Meshes/SM_MLitterBin.usd"
+  fire_hydrants:
+    # [shared]
+    - usd: "RetroNeighborhood/Props/SM_FireHydrant.prop.usd"
+      scale: 0.01
+    - {usd: "scene_gen/assets/aec/brownstone/Props/Hydrant/Hydrant.usd", scale: 0.01}
+  bus_stops:
+    - {usd: "DownTown/Assets/BusStop.usd", scale: 0.01, yaw-offset: 180.0}
+  traffic_lights_mast:
+    - usd: "Downtown_West/Assets/props/props_streetlight/SM_light_streetlight_complete.usd"
+  traffic_lights_pole:
+    - usd: "ModernCityEnvironment01/Meshes/SM_Traffic_Lamp_001.usd"
+  traffic_lights:
+    - usd: "ModernCityEnvironment01/Meshes/SM_Traffic_Lamp_001.usd"
+  trees:
+    - {usd: "scene_gen/assets/aec/tower/Assets/Vegetation/Shumard_Oak/Shumard_Oak.usd", scale: 0.01}
+    - {usd: "scene_gen/assets/aec/tower/Assets/Vegetation/Black_Oak/Black_Oak.usd", scale: 0.01}
+    - {usd: "CityPark/Props/SM_Stump.prop.usd",    scale: 0.01, tags: ["stump"]}
+    - {usd: "CityPark/Props/SM_Stump_02.prop.usd", scale: 0.01, tags: ["stump"]}
+    - {usd: "CityPark/Props/SM_Stump_03.prop.usd", scale: 0.01, tags: ["stump"]}
+  rocks:
+    - {usd: "CityPark/Props/SM_Stone_04.prop.usd", scale: 0.0053}
+    - {usd: "CityPark/Props/SM_Stone_05.prop.usd", scale: 0.0083}
+    - {usd: "CityPark/Props/SM_Stone_08.prop.usd", scale: 0.0480}
+    - {usd: "CityPark/Props/SM_Stone_09.prop.usd", scale: 0.0394}
+    - "Downtown_West/Assets/props/prop_rocks/SM_rock_large_a_low.usd"
+    - "Downtown_West/Assets/props/prop_rocks/SM_rock_medium_a_low.usd"
+    - "Downtown_West/Assets/props/prop_rocks/SM_rock_medium_b_low.usd"
+  plants:
+    - "ModernCityEnvironment01/Meshes/SM_Grass.usd"
+    - "ModernCityEnvironment01/Meshes/SM_Grass_Flowers.usd"
+    - "ModernCityEnvironment01/Meshes/SM_Grass_Flowers1.usd"
+    - "ModernCityEnvironment01/Meshes/SM_Bush_1.usd"
+    - "ModernCityEnvironment01/Meshes/SM_Bush_2.usd"
+    - {usd: "DownTown/Assets/Plant_Red.usd",    scale: 0.01}
+    - {usd: "DownTown/Assets/Plant_Purple.usd", scale: 0.01}
+    - {usd: "DownTown/Assets/Plant_Pink.usd",   scale: 0.01}
+  street_trees:
+    - {usd: "scene_gen/assets/aec/tower/Assets/Vegetation/Shumard_Oak/Shumard_Oak.usd", scale: 0.01}
+    - {usd: "scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/Douglas_Fir.usd", scale: 0.01}
+  planter_fences: []
+  mailboxes:
+    - {usd: "scene_gen/assets/aec/brownstone/Props/Mailbox/MailboxType01.usd", scale: 0.01}
+    - {usd: "scene_gen/assets/aec/brownstone/Props/Mailbox/MailboxType02.usd", scale: 0.01}
+  cafe_sets:
+    - {usd: "scene_gen/assets/aec/brownstone/Props/Kalmar_TblChr/Kalmar_TblChr.usd", scale: 0.01}
+  bollards:
+    - {usd: "scene_gen/assets/aec/tower/Assets/Bollard_01/Bollard_01.usd", scale: 0.01}
+  bike_lane_delineators:
+    - {usd: "scene_gen/assets/objaverse/532b02858c67410f9a1973544f25dcc4/532b02858c67410f9a1973544f25dcc4.usdc", target-size-m: 1.00, fit: height}
+  parking_meters:
+    - {usd: "scene_gen/assets/objaverse/cfaf0f457ca244e59c746ebdd6f3ad6c/cfaf0f457ca244e59c746ebdd6f3ad6c.usdc", target-size-m: 1.30, fit: height}
+  bike_racks:
+    - {usd: "scene_gen/assets/objaverse/8c8fd4fa06eb4b1c8db5bd3584892f3c/8c8fd4fa06eb4b1c8db5bd3584892f3c.usdc", target-size-m: 0.75, fit: height}
+  dumpsters:
+    - {usd: "scene_gen/assets/objaverse/093e5b05faa947729b1be24c013e563b/093e5b05faa947729b1be24c013e563b.usdc", target-size-m: 1.80}
+    - {usd: "scene_gen/assets/objaverse/f80a2a0af6924562be10be7354b7a72f/f80a2a0af6924562be10be7354b7a72f.usdc", target-size-m: 1.80}
+  signs_stop:
+    - {usd: "scene_gen/assets/objaverse/a3963ab8133b45cab4e60da94d255ac3/a3963ab8133b45cab4e60da94d255ac3.usdc", target-size-m: 2.40, fit: height}
+  signs_street_name:
+    - {usd: "scene_gen/assets/objaverse/555fbab686004738b974373f6ad71d82/555fbab686004738b974373f6ad71d82.usdc", target-size-m: 2.40, fit: height, yaw-offset: 180.0}
+    - {usd: "scene_gen/assets/objaverse/599a74c1c8fd4f19bf6754b8128da6b8/599a74c1c8fd4f19bf6754b8128da6b8.usdc", target-size-m: 2.40, fit: height}
+  phone_booths:
+    - {usd: "scene_gen/assets/objaverse/1ac9bf684da3476d918fd086d554bd5c/1ac9bf684da3476d918fd086d554bd5c.usdc", target-size-m: 2.20, fit: height}
+  manholes:
+    - {usd: "scene_gen/assets/objaverse/a657396d68fa43f0ac7da12a6403d59f/a657396d68fa43f0ac7da12a6403d59f.usdc", target-size-m: 0.62, fit: footprint}
+  storm_drains:
+    - {usd: "scene_gen/assets/objaverse/bbf5c9aa04c24fbaba328728d955777d/bbf5c9aa04c24fbaba328728d955777d.usdc", target-size-m: 0.70, fit: footprint}
+  billboards: []
+  traffic_cones:
+    - {usd: "scene_gen/assets/objaverse/8cdac192abd044988c314eeb6377a3a0/8cdac192abd044988c314eeb6377a3a0.usdc", target-size-m: 0.75, fit: height}
+  utility_poles: []
+  newspaper_boxes: []
+  signs_parking: []
+  # ---- [shared] pools urban_v2 never named, so they arrived unchanged -------
+  materials:
+    grass: "StandaloneMaterials/Grass/MI_Grass.usd"
+    asphalt: "StandaloneMaterials/Asphalt/MI_Asphalt.usd"
+
+  planters:
+    - usd: "DownTown/Assets/Planter_A.usd"
+      scale: 0.01
+    - usd: "DownTown/Assets/Planter_B.usd"
+      scale: 0.01
+    - usd: "DownTown/Assets/PlanterLarge_A.usd"
+      scale: 0.01
+      tags: ["tree"]
+
+  play_structures:
+    - usd: "CivilianArea/Assets/SM_PlaygroundSlide_01.usd"
+      scale: 0.01
+    - usd: "CivilianArea/Assets/SM_PlaygroundSwings_01.usd"
+      scale: 0.01
+    - usd: "CivilianArea/Assets/SM_PlaygroundSwings_02.usd"
+      scale: 0.01
+
+  # RenderPeople rigged humans: cm-authored (scale 0.01), art faces -Y
+  # (yaw-offset 90). UsdSkel rigs with no animation clip — the generator
+  # authors static idle/walk poses onto them (see _HUMAN_POSES).
+  humans:
+    - {usd: "People/Assets/rp_carla_rigged_001_ue4.usd", scale: 0.01, yaw-offset: 90}
+    - {usd: "People/Assets/rp_claudia_rigged_002_ue4.usd", scale: 0.01, yaw-offset: 90}
+    - {usd: "People/Assets/rp_eric_rigged_001_ue4.usd", scale: 0.01, yaw-offset: 90}
+    - {usd: "People/Assets/rp_manuel_rigged_001_ue4.usd", scale: 0.01, yaw-offset: 90}
+    - {usd: "People/Assets/rp_nathan_rigged_003_ue4.usd", scale: 0.01, yaw-offset: 90}
+    - {usd: "People/Assets/rp_sophia_rigged_003_ue4.usd", scale: 0.01, yaw-offset: 90}
+
+
+surface_overrides:
+  - categories: [trail]
+    roughness: 0.92
+    metallic: 0.0
+prune_prims:
+  - usd_contains: "599a74c1c8fd4f19bf6754b8128da6b8"
+    prims: ["pCube4", "pCube44"]
+
+# EXCLUDED
+# --------
+# - `new_assets/buildings/buildings.usdz` ground slabs / roof-tile planes:
+#   part of each block, kept.
+# - `simple_low_poly_abandoned_brick_building.usdz` `Material2.003/.004`: the
+#   ground and pavement planes under the building, not the building.
+# - `debris3.FBX` parts 013-015, 040, 043-047, 055, 059-064, 065-103 (except
+#   the four rebar kept), and `debris.FBX` parts 004-105 except the six lumps:
+#   duplicates of kept shapes, hair-thin splinters, or zero-size fragments.
+# - `post_apocalyptic_buildings.usdz` `Building__1_outer_Metal_bar_0.001`:
+#   a 0-size stray, dropped by the grouping.

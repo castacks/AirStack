@@ -1,0 +1,23 @@
+# HIGH-LEVEL scene spec — `urban_v2_small` at 300 m, for quick checks.
+#
+# Same set, same overrides; only the region shrinks so a relaunch is minutes.
+# Too small to judge the district gradient — use `urban_v2` for that.
+#
+# NO PRE-FLIGHT: every asset is an `omniverse://` URL, so nothing needs
+# caching locally first.
+#
+#     SCENE_CONFIG=urban_v2_small \
+#     ISAAC_SIM_SCRIPT_NAME=scene_launch_script.py \
+#     airstack up isaac-sim
+
+locale: urban
+severity: 0.0
+
+asset-pack: urban_v2
+region_m: [300, 300]
+seed: 42
+
+overrides:
+  usds:
+    materials:
+      asphalt: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/materials/megascans/Road_Asphalt.usda"

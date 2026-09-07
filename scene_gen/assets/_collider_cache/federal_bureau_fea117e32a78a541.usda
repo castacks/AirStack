@@ -1,0 +1,40 @@
+#usda 1.0
+(
+    defaultPrim = "Asset"
+)
+
+def "Asset" (
+    prepend references = @omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/federal_bureau/federal_bureau.usdc@
+)
+{
+    over "federal_bureau_of_prisons_low_poly_game_ready"
+    {
+        over "Meshes"
+        {
+            over "Sketchfab_model"
+            {
+                over "Federal_Bureau_of_Prisons_FBX"
+                {
+                    over "RootNode"
+                    {
+                        over "Line001"
+                        {
+                            over "Object_4"
+                            {
+                                over "federal_bureau"
+                                {
+                                    over "Line001_T_Atlas_0" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+

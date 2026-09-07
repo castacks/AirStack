@@ -266,7 +266,10 @@ GEOMETRIC STANDARDS
 * Cul-de-sac turnaround is a fire-apparatus dimension. IFC Appendix D, Table
   D103.4: a dead end over 150 ft needs a turnaround; for 151-500 ft that is a
   96 ft DIAMETER cul-de-sac — a 14.6 m radius to the driving surface. Length is
-  capped at 500-750 ft by most ordinances.
+  capped at 500-750 ft by most ordinances. The paving is only half of what a
+  turnaround is: the LOTS round one are wedges on the arc rather than
+  rectangles on a tangent, which is `suburb_parcel`'s business and the reason
+  :func:`_arc_cap_bulbs` publishes each bulb on the block it belongs to.
 * Local street 10.7 m kerb to kerb (SUDAS Table 5C-1.01 residential + parking),
   collector 11.6 m, arterial 14 m.
 * Residential centreline curve radius bottoms out near 30 m in real
@@ -1018,7 +1021,7 @@ def point_in_polygon(poly, p):
     return inside
 
 
-def _arc_cap_bulbs(poly, frontage, net, eids, verge=3.0):
+def _arc_cap_bulbs(poly, frontage, net, eids, verge=3.0, bulbs_out=None):
     """Replace each cul-de-sac tip in a block boundary with the turnaround ARC.
 
     WHY. A cul-de-sac stem is a DANGLING edge, so `faces()` walks out along it
@@ -1037,12 +1040,36 @@ def _arc_cap_bulbs(poly, frontage, net, eids, verge=3.0):
     Putting the arc into the boundary makes the turnaround real frontage that
     the arclength walk can plat, and demotes the keep-out disc back to a
     belt-and-braces check. *verge* is the strip between kerb and lot line.
+
+    AND IT IS NOT ENOUGH ON ITS OWN. Frontage that curves through 330 degrees
+    is not the same kind of frontage as a street: the lots on it are WEDGES
+    whose side lines converge on the turnaround centre, not rectangles hung off
+    a tangent, and the pass that plats them has to be told which arc is which.
+    So each bulb spliced in is appended to *bulbs_out* as
+    ``{"c": tip, "r": lot-line radius, "r_pave": kerb radius}`` and travels on
+    the block; `suburb_parcel` finds the run of boundary vertices at ``r`` from
+    ``c`` and plats that span radially instead of walking it as arclength. The
+    two radii are both wanted downstream and differ by exactly *verge* — the
+    lot line is where the wedges start, the kerb is where a driveway apron has
+    to reach to touch asphalt.
     """
     R = DEFAULTS["bulb_radius_m"] + verge
+    seen = set()
     for eid in eids:
         e = net.edges.get(eid)
         if e is None or e.street_type != "lollipop" or len(e.pts) < 2:
             continue
+        # ONCE PER EDGE, NOT ONCE PER HALF-EDGE. A cul-de-sac stem is dangling,
+        # so the face traversal walks out along it and back and `eids` names it
+        # TWICE. The second visit found the arc it had just spliced in still
+        # "near" the tip — the vertices are at exactly R and land a float ulp
+        # inside it — and spliced a second copy over the first, leaving a
+        # boundary that ran round the turnaround, back, and round again. The
+        # polygon still closed and still had the right area, so nothing caught
+        # it; what it broke was the ANGLE walk, which needs the arc monotone.
+        if eid in seen:
+            continue
+        seen.add(eid)
         tip = e.pts[-1]
         near = [i for i, q in enumerate(poly) if _dist(q, tip) < R]
         if not near or len(near) >= len(poly) - 2:
@@ -1081,6 +1108,9 @@ def _arc_cap_bulbs(poly, frontage, net, eids, verge=3.0):
         merged = keep[:at + 1] + [(q, True) for q in arc] + keep[at + 1:]
         poly = [q for q, _f in merged]
         frontage = [f for _q, f in merged]
+        if bulbs_out is not None:
+            bulbs_out.append({"c": (float(tip[0]), float(tip[1])), "r": R,
+                              "r_pave": DEFAULTS["bulb_radius_m"]})
     return poly, frontage
 
 
@@ -1109,6 +1139,14 @@ def blocks_from_faces(net, face_list, min_area=400.0, reserve=None,
     the park's face now, so the face it is in covers the reserve and no block
     comes out of it at all. Its ground is drawn by whatever draws the park —
     ``info["park"]["poly"]`` is the extent, and it includes that parcel.
+
+    ``bulbs`` NAMES THE ARCS. :func:`_arc_cap_bulbs` puts each turnaround into
+    the boundary as a run of vertices, and from the polygon alone there is no
+    way back to which circle they came off — the parcelling pass needs the
+    centre and the radius to strike a wedge lot's side lines, and the paved
+    radius to bring a driveway apron to the asphalt. So each spliced bulb is
+    listed as ``{"c": tip, "r": lot-line radius, "r_pave": kerb radius}``. Every
+    block carries the key, empty on the ones with no cul-de-sac in them.
     """
     out = []
     for f in face_list:
@@ -1137,12 +1175,20 @@ def blocks_from_faces(net, face_list, min_area=400.0, reserve=None,
             continue
         # Give every cul-de-sac head its turnaround arc, or the parcel pass has
         # no frontage to plat there. See `_arc_cap_bulbs`.
-        shrunk, frontage = _arc_cap_bulbs(shrunk, frontage, net, eids)
+        bulbs = []
+        shrunk, frontage = _arc_cap_bulbs(shrunk, frontage, net, eids,
+                                          bulbs_out=bulbs)
         a = polygon_area(shrunk)
         if a < min_area:
             continue
+        # `bulbs` is the arc's provenance, not a second copy of the geometry:
+        # the vertices are already in `poly`, and this says which of them are a
+        # turnaround and where its centre is. Every block carries the key so a
+        # consumer can test it without a default, the same contract
+        # `undeveloped` keeps.
         out.append({"poly": shrunk, "area": a, "edges": eids,
                     "frontage": frontage, "undeveloped": undeveloped,
+                    "bulbs": bulbs,
                     "centroid": polygon_centroid(shrunk)})
     return out
 
@@ -1375,17 +1421,57 @@ DEFAULTS = {
     # band; at 1400 it is back to 14.4% and 19.5 cul-de-sacs, i.e. the fabric
     # the band was fit to, with the stubs replatted onto land that has houses
     # on it. The attempts are cheap — 6 s across twelve seeds.
-    # CUL-DE-SACS ARE OFF. The turnaround is the hardest piece of this plat to
-    # get right and it kept coming back wrong: the paved bulb is a disc the
-    # block polygon does not know about, so lots were sited on it, fences ran
-    # out into it and driveways fanned round it. `_arc_cap_bulbs` splices the
-    # arc into the block boundary and fixed most of that, but "most" on the one
-    # feature that draws the eye is not good enough. A plat with no dead ends is
-    # a real morphology — the gridiron and warped-parallel eras both have one —
-    # so this is a step back down the ladder, not a broken plat.
-    # Set true to bring them back; every downstream pass keys off the lollipop
-    # edges, so they simply find none.
-    "cul_de_sacs": False,
+    # CUL-DE-SACS ARE BACK ON. They were off, and the recorded reason was that
+    # the paved bulb is a disc the block polygon does not know about, so lots
+    # were sited on it, fences ran out into it and driveways fanned round it;
+    # `_arc_cap_bulbs` splicing the arc into the boundary fixed most of that,
+    # and "most" on the feature that draws the eye was not good enough.
+    #
+    # WHAT WAS STILL WRONG WAS NOT THE ARC, IT WAS THE LOTS ON IT. Frontage
+    # that turns 330 degrees in 100 m was being walked by the same rule as a
+    # street, so each station got a RECTANGLE on its own tangent: consecutive
+    # lots crossed each other near the kerb, the front lot line was a chord
+    # that cut the paving, and a lot at the throat platted its back yard down
+    # the stem. Three things fixed it, and they needed each other:
+    #
+    #   * `suburb_parcel` plats a head as N WEDGES with radial side lines
+    #     (`_wedge_at`, `_probe_wedge`) — shared exactly between neighbours,
+    #     house yawed to the centre, drive aimed at the paved radius, front
+    #     fence following the arc rather than cutting across it.
+    #   * heads are platted BEFORE the streets that reach them (`_lot_jobs`),
+    #     and a street lot that would stand in a wedge's garden gives way.
+    #     Platted in ring order the stem lots reach the throat first, and a
+    #     stem lot is 30-44 m of frontage against a wedge's 25: the head then
+    #     averaged two houses where it now takes four.
+    #   * `_arc_cap_bulbs` no longer splices the same bulb twice. A dangling
+    #     stem appears in the face cycle in both directions, and the second
+    #     visit laid a second arc over the first — a boundary that still closed
+    #     and still had the right area, so nothing caught it, but that ran
+    #     round the turnaround and back.
+    #
+    # MEASURED ON THE SCENE `tools/fence_png.py` BUILDS — the real catalogue and
+    # the real placements, not the nominal-footprint preview — over seeds 3, 5
+    # and 8, 58 turnarounds:
+    #
+    #                        rectangular    wedges     no cul-de-sacs
+    #   houses on the rings      107          230            —
+    #   heads with none            3            0            —
+    #   lot pairs overlapping    704          456          493
+    #   houses on the tract     1708         1627         1531
+    #
+    # Nothing built, fenced, planted or paved stands on a bulb (0 of each,
+    # tested against the 14.64 m PAVED radius, not the keep-out); every house
+    # on a ring faces the turnaround centre to within a rounding error;
+    # `tools/fence_check.py` is clean on its own seed set. The 81 houses the
+    # wedges cost against rectangular platting are the stem lots that gave way
+    # at the throats, and they buy the 248-pair fall in overlaps — a plat with
+    # cul-de-sacs now overlaps LESS than one without them, on 6% more houses.
+    # Dead-end share 13.4-15.4% against the 12-35% band.
+    # Set false to go back down the ladder to a plat with no dead ends, which
+    # is a real morphology — the gridiron and warped-parallel eras both have
+    # one. Every downstream pass keys off the lollipop edges, so they simply
+    # find none.
+    "cul_de_sacs": True,
     "lollipop_attempts": 1400,
     "loop_share": 0.55,            # of successful locals, how many are loops
     "loop_depth_m": [90.0, 230.0],    # how far a loop bulges from its host

@@ -311,9 +311,12 @@ def validate_config(config: dict, source: str = "<config>") -> dict:
     usds = config["usds"]
     # "buildings" is the current section name; "houses" accepted for
     # backward compatibility.
-    bld = usds.get("buildings") or usds.get("houses") or {}
-    if not bld.get("intact"):
-        raise ValueError("usds.buildings.intact must list at least one building USD")
+    if not building_entries(config, condition=DEFAULT_CONDITION):
+        raise ValueError(
+            "usds.buildings must list at least one INTACT building USD — "
+            "either under a `buildings.intact` pool (legacy layout) or as a "
+            "typology pool entry tagged `tags: [intact]` (or untagged, which "
+            "means intact). See `building_entries`.")
 
     absent = missing_objaverse_assets(config)
     if absent:
@@ -685,6 +688,130 @@ def solid_assets(config: dict) -> set:
     return out
 
 
+# ---------------------------------------------------------------------------
+# buildings: condition x typology
+# ---------------------------------------------------------------------------
+
+#: What CONDITION a building asset is in. Carried as a TAG on the entry, so one
+#: typology pool holds the standing tower and the ruined one side by side::
+#:
+#:     buildings:
+#:       tower:
+#:         - {usd: ".../BG_Building_A.usd", material: concrete, tags: [intact]}
+#:         - {usd: ".../ruin_tower_01.usdc", material: steel,   tags: [destroyed]}
+#:
+#: The older layout put the condition in the KEY instead — `buildings.intact`,
+#: `buildings.damaged`, `buildings.destroyed`, each optionally split by
+#: typology — which duplicated the whole typology tree once per condition and
+#: left a building's typology unstated in the flat `damaged` pool. Both layouts
+#: are read (see `building_entries`); packs are converted one at a time.
+BUILDING_CONDITIONS = ("intact", "damaged", "destroyed")
+
+#: An entry with no condition tag is intact art: that is what nearly every pool
+#: is made of, so only the ruins have to say so.
+DEFAULT_CONDITION = "intact"
+
+
+def _building_section(config: dict) -> dict:
+    """`usds.buildings` (or the legacy `usds.houses`)."""
+    usds = config.get("usds") or {}
+    return usds.get("buildings") or usds.get("houses") or {}
+
+
+def _is_tagged_layout(bld: dict) -> bool:
+    """True when the section is keyed by TYPOLOGY and conditions are tags.
+
+    Decided by the keys rather than by a version field: a section holding any
+    of `intact` / `damaged` / `destroyed` as a key is the old layout, and one
+    that holds none of them is the new one. A pack cannot be half-converted
+    without the mixture being obvious here.
+    """
+    return not any(k in BUILDING_CONDITIONS for k in (bld or {}))
+
+
+def condition_of(entry, default: str = DEFAULT_CONDITION) -> str:
+    """The condition tag on one `usds.buildings` entry, or *default*."""
+    if isinstance(entry, dict):
+        for t in entry.get("tags") or ():
+            if str(t) in BUILDING_CONDITIONS:
+                return str(t)
+    return default
+
+
+def _flatten_pool(node) -> list:
+    """A pool as a flat entry list, whether it is one or a dict of sub-pools."""
+    if isinstance(node, dict) and "usd" not in node:
+        return [e for v in node.values() for e in _flatten_pool(v)]
+    if isinstance(node, (list, tuple)):
+        return [e for v in node for e in _flatten_pool(v)]
+    return [node] if node else []
+
+
+def building_entries(config: dict, condition: str = None,
+                     typology: str = None) -> list:
+    """Raw `usds.buildings` entries for ONE pool, from either layout.
+
+    *condition* is `intact` / `damaged` / `destroyed`; *typology* is a
+    `districts.typologies` name (`tower`, `midrise`, `rowhouse`). Either may be
+    None for "any". Entries come back as the pack wrote them, so a caller still
+    runs them through `_normalize_usd_list`.
+
+    THE LEGACY BRANCH REPRODUCES THE OLD LOOKUPS EXACTLY, and deliberately so:
+    an old pack keeps the same pools it had, because those pools decide the
+    LAYOUT (`build_city` packs from `buildings.intact`) and a wider pool would
+    silently rebuild every scene that pack has ever produced. In that layout a
+    typology pool lives at the TOP level and holds intact art, which is why a
+    typology query looks there first.
+    """
+    bld = _building_section(config)
+    if _is_tagged_layout(bld):
+        out = []
+        for typ, pool in bld.items():
+            if typology is not None and typ != typology:
+                continue
+            for e in _flatten_pool(pool):
+                if condition is None or condition_of(e) == condition:
+                    out.append(e)
+        return out
+
+    if typology is None:
+        if condition is None:
+            return [e for k in bld for e in _flatten_pool(bld[k])]
+        return _flatten_pool(bld.get(condition))
+    if condition in (None, DEFAULT_CONDITION) \
+            and isinstance(bld.get(typology), (list, tuple)):
+        return list(bld[typology])
+    node = bld.get(condition or DEFAULT_CONDITION)
+    return _flatten_pool(node.get(typology)) if isinstance(node, dict) else []
+
+
+def every_building(config: dict, condition: str = DEFAULT_CONDITION) -> list:
+    """Every DISTINCT entry of *condition*, whichever pool it sits in.
+
+    Differs from `building_entries` only in the legacy layout, where the same
+    intact building is listed twice — once in the flat `buildings.intact` pool
+    that `build_city` packs from, once in the typology pool that `districts`
+    rezones from. A generator draws from one pool at a time; the Stage A baker
+    has to enumerate the UNION or it leaves half the library unbaked. In the
+    tagged layout there is only one list and the two agree.
+    """
+    bld = _building_section(config)
+    if _is_tagged_layout(bld):
+        return building_entries(config, condition=condition)
+    keys = [condition]
+    if condition == DEFAULT_CONDITION:
+        keys += [k for k in bld if k not in BUILDING_CONDITIONS]
+    out, seen = [], set()
+    for k in keys:
+        for e in _flatten_pool(bld.get(k)):
+            usd = e.get("usd") if isinstance(e, dict) else e
+            if usd in seen:
+                continue
+            seen.add(usd)
+            out.append(e)
+    return out
+
+
 def asset_materials(config: dict) -> dict:
     """USD path -> the construction the asset pack declares for it.
 
@@ -734,6 +861,12 @@ def _normalize_usd_list(lst, default_scale: float, asset_root: str = ""):
     *yaw_overrides* maps path → yaw-offset degrees for entries that declare one.
     *tag_overrides* maps path → frozenset of tags for entries that declare any.
     """
+    if isinstance(lst, dict) and "usd" not in lst:
+        # A pool split into named sub-pools — `intact: {tower: [...],
+        # midrise: [...]}` — reads flat here; `districts` picks the sub-pools
+        # apart by name.
+        lst = [e for v in lst.values()
+               for e in (v if isinstance(v, (list, tuple)) else [v])]
     if isinstance(lst, (str, dict)):
         lst = [lst]
     paths, scale_ovr, axisup_ovr, yaw_ovr, tag_ovr = [], {}, {}, {}, {}
@@ -1501,10 +1634,12 @@ def build_city(config: dict, resolver: SizeResolver):
     concrete_usds = _nl(tiles.get("concrete") or [])
     sidewalk_usds = _nl(tiles.get("sidewalk") or tiles.get("brick") or [])
     trail_usds    = _nl(tiles.get("trail") or [])
-    bld_cfg = usds.get("buildings") or usds.get("houses") or {}
-    house_intact    = _nl(bld_cfg["intact"])
-    house_damaged   = _nl(bld_cfg.get("damaged") or [])
-    house_destroyed = _nl(bld_cfg.get("destroyed") or [])
+    # By CONDITION, not by pool name: `building_entries` reads the condition
+    # off the entry's tag in the current layout and off the pool key in the
+    # legacy one, so this line means the same thing in both.
+    house_intact    = _nl(building_entries(config, condition="intact"))
+    house_damaged   = _nl(building_entries(config, condition="damaged"))
+    house_destroyed = _nl(building_entries(config, condition="destroyed"))
     debris_usds_cfg   = usds.get("debris") or {}
     debris_pile_usds  = _nl(debris_usds_cfg.get("piles") or [])
     debris_piece_usds = _nl(debris_usds_cfg.get("pieces") or [])
@@ -1856,15 +1991,11 @@ def build_city(config: dict, resolver: SizeResolver):
     house_front_yaw    = float(orient.get("house_front", 0.0))
     # (dis_cfg / fate fractions / eligible_houses were read above, before the
     # anchor pass, so anchors and packing share the same eligibility.)
-    debris_rules   = dis_cfg.get("debris", {})
-    piles_per      = debris_rules.get("piles_per_building", [2, 4])
-    pile_max_off   = float(debris_rules.get("pile_max_offset_m", 3.0))
-    pieces_per     = debris_rules.get("pieces_per_building", [10, 20])
-    pieces_scatter = float(debris_rules.get("pieces_scatter_m", 6.0))
-    tilt_chance    = float(debris_rules.get("tilt_chance", 0.35))
-    tilt_deg       = debris_rules.get("tilt_deg", [2.0, 6.0])
-    sink_m         = debris_rules.get("sink_m", [0.4, 1.2])
-    lean_piles     = debris_rules.get("lean_piles", [2, 3])
+    # (No debris here. It was read from `disaster.debris` at this point and
+    # never used again once the emission moved to `disaster_stage`, and from
+    # there into `disaster/debris.py`. `build_city` lays out a PRISTINE city;
+    # the event happens to it afterwards, which is the invariant this whole
+    # generator is built around.)
 
     house_rects: list = []      # building footprint rects (for tree avoidance)
     placeholder_bldgs: list = []
@@ -2938,6 +3069,37 @@ def _sanitize(name: str) -> str:
 _warned_unresolved: set = set()
 
 
+#: Collider-ready overlays written by `tools/collider_cache.py`. An INSTANCED
+#: placement must reference one of these rather than the raw asset: an
+#: instanceable prim has no traversable children, so `scene_prep.add_colliders`
+#: cannot reach inside it and the placement would silently lose its collision.
+_COLLIDER_CACHE_DIR = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "assets", "_collider_cache")
+_collider_ready_index = {}
+
+
+def _collider_ready(url: str) -> str:
+    """The collider-ready variant of *url*, or "" if it has not been cached."""
+    if url in _collider_ready_index:
+        return _collider_ready_index[url]
+    got = ""
+    try:
+        from tools.collider_cache import cache_path
+        cand = cache_path(url, _COLLIDER_CACHE_DIR)
+        got = cand if os.path.isfile(cand) else ""
+    except Exception:                                            # noqa: BLE001
+        got = ""
+    _collider_ready_index[url] = got
+    return got
+
+
+#: A placement is never instanced while one of these is set, whatever its
+#: category says: each marks a pass that authors INSIDE the asset, and USD
+#: forbids that on an instance. `settle` is `settle_rigid_props`, `pose` is
+#: `_bind_human_pose`, `_mesh_damage` is the cutter.
+_NO_INSTANCE_KEYS = ("settle", "pose", "_mesh_damage")
+
+
 def apply_placements(stage,
                      placements: list,
                      parent_path: str = "/World/stage/generated",
@@ -2975,6 +3137,19 @@ def apply_placements(stage,
     collider-ready, then instance those, which fits the `prepare_assets.py`
     cache pattern. This parameter is the narrow version that works today.
 
+    **STAGE A ARCHETYPES ALREADY MEET THAT BAR**, which is why a placement may
+    also opt itself in with `_instanceable`. `disaster/bake.export_object`
+    authors `UsdPhysics.CollisionAPI` on every merged mesh it writes, and
+    `scene_prep.add_colliders` skips a prim that already has the API — so an
+    instanced archetype loses no collider, and none of the other passes reach
+    inside one either: mesh damage skips it (`disaster_stage` pops
+    `_mesh_damage`), the settle skips it (not marked `settle`), the debris it
+    sheds is authored as a SIBLING scope, and `targets.mark_cut_geometry` reads
+    the survey's `_archetype` flag rather than traversing for a `fragments`
+    scope. That matters because a reference is otherwise resident in full per
+    placement: eighty buildings drawn from thirty archetypes cost eighty
+    copies, which is the whole of why a 500 m map runs the host out of RAM.
+
     Metric coordinates are multiplied by *scene_scale_factor* (= 1 /
     meters_per_unit) to land in stage units. Each prim gets translate /
     rotateXYZ (roll, pitch, yaw) / scale ops. *ground_snap*, if given, is a
@@ -2991,6 +3166,10 @@ def apply_placements(stage,
     pose_cache: dict = {}
     ssf = float(scene_scale_factor)
     n_instanced = 0
+    #: Assets a category asked to instance that have no collider-ready
+    #: variant. Reported once at the end rather than per placement: one
+    #: uncached tile would otherwise print 57,943 identical lines.
+    _uncached_instanceables: set = set()
 
     missing_refs: set = set()
 
@@ -3011,6 +3190,29 @@ def apply_placements(stage,
         # that form), which meant every archetype-backed building came up
         # invisible and the scene showed only its debris.
         ref_url = _expand_scheme(usd) or usd
+
+        # DECIDED BEFORE THE REFERENCE IS ADDED, because an instanced
+        # placement has to reference the COLLIDER-READY variant -- see
+        # `_collider_ready`. A placement that opted itself in
+        # (`_instanceable`, i.e. a Stage A archetype) already carries its
+        # colliders and references the asset directly.
+        self_opted = bool(p.get("_instanceable"))
+        cat_opted = bool(instance_categories
+                         and p.get("category") in instance_categories)
+        if any(p.get(k) for k in _NO_INSTANCE_KEYS):
+            cat_opted = False
+        want_instance = self_opted or cat_opted
+        if cat_opted and not self_opted:
+            ready = _collider_ready(ref_url)
+            if ready:
+                ref_url = ready
+            else:
+                # No cached variant: instancing here would drop the collider,
+                # so DON'T. Placing it uninstanced is the safe failure.
+                want_instance = False
+                if usd not in _uncached_instanceables:
+                    _uncached_instanceables.add(usd)
+
         if ref_url != usd and ref_url not in missing_refs \
                 and not os.path.exists(ref_url):
             missing_refs.add(ref_url)
@@ -3109,10 +3311,22 @@ def apply_placements(stage,
         xform.AddRotateXYZOp().Set(Gf.Vec3f(roll, pitch, yaw))
         s = float(p["scale"])
         xform.AddScaleOp().Set(Gf.Vec3d(s * stx, s * sty, s))
-        if instance_categories and p.get("category") in instance_categories:
+        # PER PLACEMENT, not only per category. The category rule cannot
+        # express the case that matters most: on a damaged map the `house`
+        # category holds intact models, authored ruins, buildings the cutter is
+        # about to edit in place, and pre-baked archetypes — and only the last
+        # of those is safe to instance. `_instanceable` lets whoever KNOWS say
+        # so; see `disaster_stage`'s archetype branch for why an archetype is
+        # the one asset in the scene that qualifies.
+        if want_instance:
             prim.SetInstanceable(True)
             n_instanced += 1
 
+    if _uncached_instanceables:
+        print(f"[scene_gen] {len(_uncached_instanceables)} asset(s) in an "
+              f"instanced category have no collider-ready variant and were "
+              f"placed UNINSTANCED (run tools/collider_cache.py): "
+              f"{sorted(_uncached_instanceables)[:4]}")
     print(f"[scene_gen] Applied {len(placements)} placements under '{parent_path}' "
           f"({len(proto_index)} unique USDs, scale_factor={ssf}"
           + (f", {n_instanced} instanced" if n_instanced else "") + ")")

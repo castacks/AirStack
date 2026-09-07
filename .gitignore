@@ -112,6 +112,11 @@ scene_gen/assets/objaverse/*
 scene_gen/assets/aec/*
 !scene_gen/assets/aec/README.md
 
+# DowntownCity buildings: converted out of the SEI-COA Nucleus pack's joined
+# FBX/glTF exports. 231 MB, and reproducible by the two commands in the README.
+scene_gen/assets/downtowncity/*
+!scene_gen/assets/downtowncity/README.md
+
 # Composited soot/burn maps written by scene_gen/disaster/scorch.py. Keyed by a
 # hash of the source texture and the recipe, so they are a cache, not source:
 # whatever a scene needs is rebuilt on first run. ~200 MB once a wildfire scene
@@ -166,3 +171,27 @@ scene_gen/_bench/
 # Regenerate rather than commit: a sheet runs to tens of MB and is fully
 # reproducible from (asset set, seed, severity).
 scene_gen/galleries/
+
+# standalone asset pack (converted from ~/coasei/new_assets, 2026-08-26): 400 MB of
+# USD + textures, rebuilt by the commands in its README.
+scene_gen/assets/standalone/*
+!scene_gen/assets/standalone/README.md
+# concrete_elements_asset_pack (2026-08-29): a 233 MB source usdz plus the
+# per-prop USDs + textures split out of it by tools/extract_objects_to_usd.py
+# --group-by-material. Same deal as `standalone/` — reproducible from the one
+# command in its README.
+scene_gen/assets/concrete_rubble_debris/*
+!scene_gen/assets/concrete_rubble_debris/README.md
+scene_gen/assets/archetypes_urban_v2/
+scene_gen/_bakelab/
+
+# Stage A bake outputs under a non-default --out root (2026-09-06): 38 GB of
+# welded archetype USDs, same deal as `assets/archetypes/` above — rebuilt by
+# `python3 scene_gen/archetypes/bake_cli.py --out assets/archetypes_welded`.
+scene_gen/assets/archetypes_welded/
+# Bake-parameter sweeps (assets/_lab/xsweep): one full-size USD per knob
+# setting, 4 GB, kept only long enough to compare renders.
+scene_gen/assets/_lab/
+# Scratch output of the bake-stall investigation — one asset, its previews and
+# the trace that recorded where it hung.
+scene_gen/_stalltest/

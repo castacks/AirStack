@@ -64,6 +64,67 @@ def _copy_attrs_by_value(src_prim, dst_prim, skip_xform):
             na.SetMetadata("interpolation", interp)
 
 
+def _portable_asset(ap, out_dir: str):
+    """An asset path that still resolves on the OTHER side of the mount, or None.
+
+    `anchor` below prefers `resolvedPath` because a Nucleus-relative texture
+    would otherwise re-anchor to the archetype's own directory and drop. That is
+    right for Nucleus and WRONG for two cases, both of which bake a path that
+    exists only on the machine that did the baking:
+
+    1. **A bare MDL module name must stay bare.** `OmniPBR.mdl` resolves through
+       Kit's own MDL search path wherever it runs; `resolvedPath` is whichever
+       `isaacsim` package the BAKING INTERPRETER imported from. Baked on the
+       host that is `<repo>/.venv/lib/python3.11/site-packages/isaacsim/kit/
+       mdl/core/Base/OmniPBR.mdl`, a path with no meaning inside the container —
+       Kit mangles it into a module name (`::Z73file_3A::home::...`), fails to
+       load it, and every fracture core falls back to the missing-MDL colour.
+       Measured 2026-08-28: 113 of 146 archetypes, and a whole city rendering as
+       red confetti while its intact shells looked perfect.
+
+    2. **A path inside the repo is written RELATIVE to the output layer.** The
+       repo is bind-mounted at `/isaac-sim/AirStack` in the container and at
+       `~/coasei/AirStack` on the host, so an absolute host path breaks on one
+       side and an absolute container path on the other. A relative path is
+       resolved against the layer and means the same thing from both.
+
+    Anything else — a Nucleus URL, a path outside the repo — is left to
+    `anchor`.
+    """
+    # LOCAL, like every other function here: this module has no module-level
+    # `pxr` import, because it is also read on the host where Kit's USD build
+    # is not on the path until Kit has started. Omitting it here made every
+    # DAMAGED archetype fail to export with `NameError: name 'Sdf' is not
+    # defined`, while `pristine` exported fine — the three uses below are all
+    # on paths only a fracture material reaches (case 1 is the bare
+    # `OmniPBR.mdl` every `FractureCore_*` carries), so nothing that skipped
+    # the damage pipeline ever touched them.
+    from pxr import Sdf
+
+    raw = (ap.path or "").strip()
+    if raw and "/" not in raw and "\\" not in raw and raw.lower().endswith(".mdl"):
+        return Sdf.AssetPath(raw)
+
+    got = ap.resolvedPath or raw
+    if not got or "://" in got:
+        return None
+    got = os.path.abspath(got)
+    # Kit's own MDL library, however it was reached: keep only the module name.
+    if got.lower().endswith(".mdl") and (os.sep + "mdl" + os.sep) in got.lower():
+        return Sdf.AssetPath(os.path.basename(got))
+    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # scene_gen
+    repo = os.path.dirname(repo)                                         # repo root
+    if not got.startswith(repo + os.sep):
+        return None
+    if not out_dir:
+        return None
+    try:
+        rel = os.path.relpath(got, out_dir)
+    except ValueError:
+        return None
+    return Sdf.AssetPath(rel.replace(os.sep, "/"))
+
+
 def _rebuild_material(out, dst_path, src_mat_prim):
     """A fresh Material at dst_path reproducing src, entirely BY VALUE.
 
@@ -82,6 +143,14 @@ def _rebuild_material(out, dst_path, src_mat_prim):
 
     def fix(p):
         return p.ReplacePrefix(old, new) if p.HasPrefix(old) else p
+
+    # WHERE THIS ARCHETYPE IS BEING WRITTEN, so a repo-internal texture can be
+    # made relative to it. Taken from the stage rather than threaded in as an
+    # argument: `_rebuild_material` is called from two places and only one of
+    # them knows the path.
+    _root_layer = out.GetRootLayer()
+    _out_dir = os.path.dirname(_root_layer.realPath or _root_layer.identifier
+                               or "")
 
     def anchor(v, attr=None):
         """Asset paths re-anchored to where they resolve NOW.
@@ -103,6 +172,9 @@ def _rebuild_material(out, dst_path, src_mat_prim):
         asset path means. Absolute paths and URLs pass through untouched.
         """
         def one(ap):
+            portable = _portable_asset(ap, _out_dir)
+            if portable is not None:
+                return portable
             if ap.resolvedPath:
                 return Sdf.AssetPath(ap.resolvedPath)
             raw = ap.path
@@ -148,6 +220,10 @@ def _rebuild_material(out, dst_path, src_mat_prim):
 #: Prim paths with this component are fracture output (`mesh_damage`
 #: authors fragments under `<building>/fragments/`), merged on export.
 FRAGMENT_SCOPE = "fragments"
+
+#: Kept in step with `mesh_damage.INTERIOR_PREFIX`; imported lazily there
+#: because this module must stay importable without `pxr`.
+_INTERIOR_PREFIX = "InteriorStructure"
 
 
 def export_object(src_stage, _flat_unused, obj_paths, out_path, root="/Baked",
@@ -264,7 +340,7 @@ def export_object(src_stage, _flat_unused, obj_paths, out_path, root="/Baked",
 
     if frags:
         n_mesh += _merge_fragments(out, root, frags, xf_cache, _off,
-                                   material_for, unique, _note)
+                                   material_for, unique, _note, unbound)
 
     # UNBOUND MESHES TAKE THE OBJECT'S OWN BARK. Some kit prototypes ship with
     # NO material binding at all — Black_Oak's woody branchlet prototype is the
@@ -272,7 +348,16 @@ def export_object(src_stage, _flat_unused, obj_paths, out_path, root="/Baked",
     # instancer prototypes). They render grey. Bind them to a bark/wood/char
     # material already in this object, or any material as a last resort, which
     # is exactly what `vegetation.bind_bark` does at build time.
-    fallback = wood_mat[0] or (object_mats[0] if object_mats else None)
+    # NOT THE FRACTURE CORE. `object_mats` is every material this object used,
+    # and on a damaged rung the core is in there -- picking it dresses the
+    # rubble in the look of the BREAK rather than in the building's own brick,
+    # which is the complaint this fallback is supposed to answer. Prefer any
+    # source material; fall back to the core only if there is nothing else.
+    _outer = [m for m in object_mats
+              if not m.rsplit("/", 1)[-1].startswith(
+                  ("FractureCore_", "InteriorStructure_"))]
+    fallback = wood_mat[0] or (_outer[0] if _outer
+                               else (object_mats[0] if object_mats else None))
     if fallback:
         for prim in unbound:
             UsdShade.MaterialBindingAPI.Apply(prim).Bind(
@@ -283,7 +368,7 @@ def export_object(src_stage, _flat_unused, obj_paths, out_path, root="/Baked",
 
 
 def _merge_fragments(out, root, frags, xf_cache, off, material_for, unique,
-                     note) -> int:
+                     note, unbound=None) -> int:
     """One `rubble_<material>` mesh per material from *frags*. Returns count."""
     import numpy as np
     from pxr import Gf, Sdf, UsdGeom, UsdPhysics, UsdShade, Vt
@@ -343,7 +428,24 @@ def _merge_fragments(out, root, frags, xf_cache, off, material_for, unique,
 
     n = 0
     for mp, b in buckets.items():
-        name = "rubble_" + (mp.rsplit("/", 1)[-1] if mp else "unbound")
+        # A FACE WHOSE MATERIAL DID NOT RESOLVE lands in its own bucket, and
+        # that bucket has to reach the caller's fallback or it stays bound to
+        # nothing and renders WHITE. The fallback below `_merge_fragments`
+        # exists for exactly this and never saw merged rubble, because only the
+        # copy path collected into `unbound`. Measured 2026-08-30:
+        # `SM_Building_21_partial_collapse` was 50.8% unbound geometry --
+        # 2,580,926 of 5,077,472 verts -- and read as a white wreck.
+        leaf = mp.rsplit("/", 1)[-1] if mp else "unbound"
+        # INTERIOR STRUCTURE IS NOT RUBBLE. `fill_interior` binds its floors
+        # and columns to their own material precisely so they survive this
+        # merge as a separate mesh, instead of being poured into
+        # `rubble_<core>` with the shell's cut faces. Bucketing here is per
+        # FACE, so a Voronoi cell holding both facade and floor slab splits
+        # correctly down the middle.
+        if leaf.startswith(_INTERIOR_PREFIX + "_"):
+            name = "interior_" + leaf[len(_INTERIOR_PREFIX) + 1:]
+        else:
+            name = "rubble_" + leaf
         dm = UsdGeom.Mesh.Define(out, unique(root, name))
         dm.CreatePointsAttr(Vt.Vec3fArray.FromNumpy(
             np.concatenate(b["P"]).astype(np.float32)))
@@ -353,6 +455,8 @@ def _merge_fragments(out, root, frags, xf_cache, off, material_for, unique,
             np.concatenate(b["idx"]).astype(np.int32)))
         dm.CreateDoubleSidedAttr(True)
         dm.CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)
+        if mp is None and unbound is not None:
+            unbound.append(dm.GetPrim())
         UsdGeom.PrimvarsAPI(dm).CreatePrimvar(
             "st", Sdf.ValueTypeNames.TexCoord2fArray,
             UsdGeom.Tokens.vertex).Set(Vt.Vec2fArray.FromNumpy(

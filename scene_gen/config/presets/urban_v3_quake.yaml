@@ -1,0 +1,60 @@
+# HIGH-LEVEL scene spec — the full 1 km urban_v3 city after a SEVERE
+# earthquake, assembled from WHATEVER the Stage A library currently holds.
+#
+# Same locale, region, seed and diversity settings as `urban_v3`, so this is
+# that exact city with the shaking turned on: comparing the two is comparing
+# damage, not layout.
+#
+# BUILT TO TOLERATE A PARTIAL LIBRARY
+# -----------------------------------
+# `assets/archetypes/earthquake` is mid-bake (68 of 476 archetypes when this
+# was written), so most of the city has no wreck to reference. That is fine and
+# is the point of running it now — it shows what the library buys so far.
+# Three behaviours combine to make a partial library degrade quietly:
+#
+#   1. `library.Library.resolve` walks BACK DOWN the ladder toward pristine,
+#      so a building the field says is `pancaked` gets the worst rung that
+#      actually baked, never a worse one than the field called for.
+#   2. Types with NOTHING baked fall through to the tilt-and-sink stand-in,
+#      which leaves the building standing and merely disturbed.
+#   3. `SCENE_DAMAGE_BUDGET=0` on the run keeps step 2 from becoming LIVE mesh
+#      fracture. Without it every unbaked building is cut at load — 40-90 s
+#      each, 250-330 s for the heavy ones — and a 430-building city never
+#      finishes. This is the knob that makes the run minutes instead of days.
+#
+# RUN IT
+#
+#     SCENE_CONFIG=urban_v3_quake SCENE_ARCHETYPES=1 SCENE_DAMAGE_BUDGET=0 \
+#     SNAP_DIR=/isaac-sim/.nvidia-omniverse/logs/urban_v3_quake \
+#     ISAAC_SIM_SCRIPT_NAME=scene_launch_script.py \
+#     airstack up isaac-sim
+#
+# `SCENE_ARCHETYPES=1` IS NOT OPTIONAL AND ITS ABSENCE FAILS QUIETLY.
+# `AirStack/.env` ships `SCENE_ARCHETYPES="0"`, which the compose file bakes
+# into the container's environment at creation — and `_archetypes_wanted` lets
+# the ENV WIN over the config on purpose, so a baked preset can be flipped to
+# live for one run. The cost is that this preset cannot turn the library on
+# from inside itself: without the override the run prints one line,
+# "archetype library disabled — damaging every building live", ignores every
+# baked wreck, and produces a city that looks merely disturbed. Measured
+# 2026-08-30: 260 damaged + 83 destroyed buildings, zero archetypes used.
+#
+# The library is the DEFAULT root (`assets/archetypes/earthquake`), so unlike
+# `urban_v2_quake_small` this needs no `SCENE_ARCHETYPE_ROOT`.
+locale: urban
+disaster-type: earthquake
+severity: 0.9
+
+asset-pack: urban_v3
+region_m: [1000, 1000]
+seed: 42
+
+# Identical to `urban_v3.yaml` — see the long note there for the measurements.
+# Repeated rather than inherited because a preset is not a chain, and a damage
+# run that quietly relaid the city would be comparing two different things.
+overrides:
+  layout:
+    districts:
+      repeat_penalty: 2.2
+      repeat_radius_m: 150.0
+      pack_area_band: 0.35

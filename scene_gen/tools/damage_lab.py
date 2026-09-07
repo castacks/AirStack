@@ -258,7 +258,7 @@ def damage(asset: dict, disaster: str = "earthquake", severity: float = 0.8,
                                                 "max_cells": 120,
                                                 "release": 0.4},
                                    "thickness": {"wall_m": 0.4}}}
-        overrides={"debris": {"pieces_per_building": [40, 60]}}
+        overrides={"debris": {"shed_m3_per_m": 0.9}}
 
     *asset_pack* only supplies the DEBRIS pools (and their scales); the building
     is *asset*, whatever set it came from. `suburban` is the default because its

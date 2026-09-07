@@ -162,8 +162,9 @@ def settle_selection(placements) -> list:
     is placed at a guessed orientation and physics finds the real one. But the
     same pass is also what fires interpenetrating debris across the map — a
     quarter of `debris` pieces spawn inside a standing building's footprint
-    (`disaster_stage` emits on a ring around each damaged building without
-    testing what is already there), and PhysX resolves that with a separating
+    (`disaster/debris.py` lays them on a ring around the damaged building
+    without testing what is already there), and PhysX resolves that with a
+    separating
     impulse. `settle_rigid_props` clamps that with `maxDepenetrationVelocity`
     and reverts anything travelling past `max_travel_m`, but "are the clamps
     holding?" is only answerable against a run with the pass disabled.

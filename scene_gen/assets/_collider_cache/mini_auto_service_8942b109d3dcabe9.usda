@@ -1,0 +1,40 @@
+#usda 1.0
+(
+    defaultPrim = "Asset"
+)
+
+def "Asset" (
+    prepend references = @omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/mini_auto_service/mini_auto_service.usdc@
+)
+{
+    over "mini_auto_srevice"
+    {
+        over "Meshes"
+        {
+            over "FAB_converted_model"
+            {
+                over "root"
+                {
+                    over "GLTF_SceneRootNode"
+                    {
+                        over "Mini_Auto_Srevice_40"
+                        {
+                            over "base_0"
+                            {
+                                over "mini_auto_service"
+                                {
+                                    over "Object_0" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+

@@ -1,0 +1,37 @@
+#usda 1.0
+(
+    defaultPrim = "Asset"
+)
+
+def "Asset" (
+    prepend references = @omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/japanese_building/japanese_building.usdc@
+)
+{
+    over "janpanese_building"
+    {
+        over "Meshes"
+        {
+            over "FAB_converted_model"
+            {
+                over "_2edc921f7ed418999e86d5146882da0_fbx"
+                {
+                    over "RootNode"
+                    {
+                        over "Cube_001"
+                        {
+                            over "japanese_building"
+                            {
+                                over "Cube_001_janpanese_building_0" (
+                                    prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                )
+                                {
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+

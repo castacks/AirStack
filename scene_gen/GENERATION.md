@@ -159,8 +159,20 @@ earthquake compiles to zero weights and places nobody.
 
 Each target carries a **visibility class** (`open` / `partial` / `occluded`),
 so a run can be scored on what was findable rather than on what existed. Ground
-truth lands in three places: `targets.json` beside the scene, `customData
-["airstack:victim"]` on the prim, and a Replicator `class=person` label.
+truth lands in four places: `humans.json` beside the scene, `customData
+["airstack:victim"]` on the prim, a Replicator `class=person` label, and — when
+`GT_ANNOTATIONS=1` and `RESULTS_SCENE=<name>` are set — one `class: "person"`
+box per person in `gcs/.../gcs_visualizer/annotations/<scene>.json`, which is
+what the GCS draws and a search scorer reads.
+
+`humans.json` is **`disaster/people.py`'s envelope, deliberately**
+(`schema: airstack.people/1`, a `people` array of
+`id scenario group usd x y z yaw pose alive in_vehicle nearest_house` rows).
+The wildfire, tornado and urban-fire planners on `krrishj/disaster-dataset`
+write the same file, so one reader — `utils/scene_annotations.people_records` —
+handles every disaster in the set, and a baseline does not need to know which
+one it is flying in. Renaming a field here is renaming it for all of them; see
+`targets.to_records`.
 
 **Earthquake scenes have no scenery humans.** `compile_disaster` zeroes
 `detail.humans.*` and the `humans_prone_fraction` / `humans_strewn` aftermath
@@ -274,9 +286,17 @@ the Isaac Sim launch scripts import it from here.
 | `detail/districts.py` | Zoning: which building typology goes where, and the park superblocks. |
 | `detail/parks.py` | Composes each park superblock as one designed place. |
 | `detail/road_markings.py` | Crosswalks, stop bars, parking bays, hatching (MUTCD). |
-| `detail/suburb_lots.py` / `detail/suburb_yards.py` | Suburban lotting and yard planting. **Not wired yet.** |
+| `layout/suburb_net.py` | The suburban street network as a planar GRAPH — junction-first, curved streets, blocks recovered as faces. Cul-de-sacs ON; `_arc_cap_bulbs` splices each turnaround arc into the block boundary and publishes it as `bulbs`. |
+| `detail/suburb_parcel.py` | Suburban platting: lots off the frontage walk, and cul-de-sac heads platted as radial WEDGES (`_wedge_at`, `_probe_wedge`) before the streets that reach them. Refuses a lot at a skewed block corner. |
+| `detail/suburb_yardplan.py` / `detail/suburb_yards.py` | Per-lot yard composition (screens, patios, seating groups) and the budgeted planting that realises it. |
+| `detail/suburb_park.py` | The suburb's park, including its car park (`parking_layout`). |
+| `detail/modular_house.py` | Houses assembled from the ModularNeighborhood kit; `pool_rings` builds a pool's water/coping/walk/apron rings. |
+| `detail/row_housing.py` | Attached townhouse rows around a shared parking court — a contiguous district patch, not a court dropped on a detached street. |
+| `detail/vehicles.py` | Parked cars: driveways, row-home courts and the kerb, off the pool's `residential` tag. |
+| `detail/suburb_lots.py` | Suburban lotting on the RECT (`build_city`) path. **Not wired yet.** |
 | **`disaster/`** | **Stage 3 — what the event does to the finished scene.** |
-| `disaster/disaster_stage.py` | Building fate, debris, and prop effects by response class rather than per-kind knobs. |
+| `disaster/disaster_stage.py` | Building fate and prop effects by response class rather than per-kind knobs. Places debris only for the buildings no cutter reached. |
+| `disaster/debris.py` | What a damaged building sheds: matched to its own construction (`SHEDS`), budgeted as a VOLUME off how much actually came down, and authored by whoever did the damage — live in `mesh_damage`, baked into the cell in `archetypes/bake.py`. |
 | `disaster/mesh_damage.py` | Deforms a building's actual geometry — the USD port of `scenegen/damage.py`'s operators, plus the profiles the disaster types compose. |
 | `compile_disaster.py` | High-level spec → low-level config, and `load_scene_config()`. |
 | `compile_locale.py` | The locale axis: one function per locale (`urban`/`suburban`/`rural`). |
@@ -313,6 +333,7 @@ survey those tags came from. Sibling declaration: `solid: true` (stage 1 above).
 
 | `config/asset_packs/shared.yaml` | **Shared assets.** Everything every locale builds with — street furniture, greenery, tiles, vehicles, people — plus `asset_root`, `asset_scale`, `sky`, `orientation`, `fallback_sizes`. No `buildings` or `debris`: those read as a specific material (concrete rubble, timber wreckage) and belong entirely to the set whose damage they are. Not named directly by a config. |
 | `config/asset_packs/<locale>.yaml` | **Specialized packs.** `extends: shared`, then only what makes that locale itself: its buildings and the debris they leave. |
+| `config/asset_packs/suburb_v3.yaml` | **The suburb set, FLAT.** The whole `suburban_park <- [park, suburban <- suburban_nucleus] <- shared` chain resolved into one file with no `extends`, each pool marked with the file it came from. Resolves identically to that chain. New suburb asset work goes here. `urban_v3.yaml` is the same idea for the urban set. |
 | `config/low_level/default.yaml` | **The schema tier.** Hand-written, grouped by stage (`layout:` / `detail:` / `disaster:`): what every knob means and a safe default for it, with the full comments and citations. Names an asset pack rather than listing assets. |
 | `config/low_level/locales/<name>.yaml` | Bulky locale-owned tables that cannot live in `default.yaml` because `deep_merge` cannot narrow them — currently urban's 18 street-furniture categories. Loaded by that locale's compiler. |
 | `config/low_level/compiled/*.yaml` | **Generated.** `default.yaml` + the disaster's settings, carrying `asset_pack:` by reference (so it stays short and the set stays single-source). Don't edit — recompile. |
@@ -352,10 +373,18 @@ extends: shared          # asset pack inherits the shared library
 
 usds:
   buildings:             # every set defines its own — never shared
-    intact: [...]
+    intact:
+      - {usd: ".../BG_Building_F.usd", scale: 0.01, material: glass}
   debris:                # ditto: debris reads as a specific material, so it
-    pieces: [...]        # belongs entirely to one set, not shared and appended to
+    pieces:              # belongs entirely to one set, not shared and appended to
+      - {usd: ".../Brick_red_01.usd", scale: 0.01, material: brick}
 ```
+
+`material:` means the same thing on both, and both are read through the same
+`scene_generator.asset_materials`: on a building it is the cladding a break
+exposes a structure behind, on a piece of rubble it is what that piece came
+off. `disaster/debris.py` only gives a building the debris its own
+construction could have shed.
 
 `buildings` and `debris` are the two categories every locale set defines from
 scratch rather than inheriting: concrete rubble reads as a wrecked mid-rise,
@@ -363,6 +392,50 @@ lumber and scraped earth read as a wrecked house, and putting either in
 `shared.yaml` would leak one locale's wreckage into another's. Everything
 *else* — street furniture, greenery, tiles, vehicles, people — genuinely is
 identical across locales and lives in `shared.yaml` once.
+
+#### A building's CONDITION is a tag
+
+`usds.buildings` is keyed by **typology** — `tower`, `midrise`, `rowhouse` —
+and each entry says what condition it is in with a tag:
+
+```yaml
+buildings:
+  tower:
+    - {usd: ".../BG_Building_A.usd", scale: 0.01, material: concrete, tags: [intact]}
+    - {usd: ".../ruin_tower_01.usdc", material: steel, tags: [destroyed]}
+  midrise:
+    - {usd: ".../block_02.usdc", material: brick}          # untagged = intact
+    - {usd: ".../destroyed_building_12.usd", scale: 0.01, tags: [damaged]}
+```
+
+The older layout keyed by CONDITION instead (`buildings.intact`,
+`buildings.damaged`, `buildings.destroyed`, each optionally carrying its own
+`tower`/`midrise`/`rowhouse` tree). That duplicated the typology tree once per
+condition, and the flat `damaged` pool could not state a typology at all.
+
+**One reader answers both**: `scene_generator.building_entries(config,
+condition=..., typology=...)`, with `every_building(config, condition)` for
+"every distinct asset of that condition, whichever pool it sits in". Everything
+downstream goes through them, and each asks for what it actually needs:
+
+| caller | asks for | why |
+|---|---|---|
+| `build_city` | `condition="intact"` / `"damaged"` / `"destroyed"` | the pools it packs and swaps from |
+| `districts._pool_entries` | `condition="intact", typology=<name>` | rezoning rebuilds a block, so it must never draw an authored ruin |
+| `disaster_stage.apply_to_buildings` | `condition="damaged"` / `"destroyed"` | the fate swap |
+| `archetypes.plan.build_plan` | `every_building(cfg, "intact")` | bake every intact asset; baking a ruin's ruin is meaningless |
+
+Converting a pack moves no building: the same entries come out of the same
+pools in the same order, so the layout RNG draws identically. `tests/
+test_building_pools.py` pins that, and `urban_v2` was re-measured against it
+(747 buildings and 43,405 placements before and after).
+
+`urban_v2.yaml` is the current urban set — `extends: shared` only, and every
+usable urban asset in one file: the Nucleus buildings, ruins and rubble
+`urban.yaml` had, the AEC brownstones, the repo-local `standalone` set
+(`assets/standalone/`, see its README; metres, Z-up, orientation baked in
+rather than carried as `yaw-offset`s) and the three named DowntownCity
+buildings. `standalone.yaml` is the repo-local subset on its own.
 
 A category can still be *extended* rather than replaced with a key written
 `<name>+`, which **appends** to whatever the same key held in the parent
@@ -380,6 +453,12 @@ define its `buildings`, append its `debris`, and point a spec at it with
 `suburban.yaml` is exactly this: detached timber-frame houses in place of
 urban blocks, with lumber and scraped earth appended to the debris instead
 of the cinder block a mid-rise leaves behind.
+
+`tools/pack_report.py` reconciles a pack's gallery with the pack itself
+(render what was added, delete what was commented out, re-stitch) and prints
+the inventory — typology x condition, material, per-pool counts with a
+`disabled` column, tags, and where each asset lives. Run it after editing a
+pack by hand.
 
 ### Where assets can live
 
@@ -704,7 +783,7 @@ disaster knob by position. All the `disaster.*` fractions and counts are
 | Type | Field | Signature |
 |------|-------|-----------|
 | `none` | uniform 0 | Pristine. |
-| `earthquake` | wide radial from the epicenter, never reaching zero | Structures fail in place: buildings pancake, lean and sink. Rubble drops at the facades (small `pieces_scatter_m`); nothing is blown anywhere. |
+| `earthquake` | wide radial from the epicenter, never reaching zero | Structures fail in place: buildings pancake, lean and sink. Rubble drops at the facades (small `spread_m`); nothing is blown anywhere. |
 | `tornado` | narrow **path** across the region, zero outside | Total destruction in a corridor, untouched beyond it. Everything light is thrown far — cans fly, cars flipped and strewn. Trees go down inside the track and stand just outside it. A continuous band of dirt and splintered debris is dragged along the corridor across lawns, streets and open ground alike (`debris.path_*`). Low tilt/sink: torn apart, not settled. |
 | `explosion` | tight radial, fast falloff to zero | The sharpest gradient of any type. Ground zero obliterated, the rest barely touched. Debris thrown outward hard. |
 | `fire` | wide radial core, **short** falloff, zero outside | The sharpest *perimeter* of any type, as against the explosion's sharpest gradient. Inside the burn scar every building is a gutted shell — roof consumed and dropped straight in, walls standing, everything charred; a street outside it the houses are untouched. Fire moves no mass, so scatter distances are the lowest of any type. Trees carry it and go almost completely; steel poles stand. |
@@ -803,8 +882,55 @@ for how far light things moved, `humans_*` for casualties, and `field` for
 where any of it applies.
 
 Adding a *knob* (rather than a type) means teaching the generator to read it:
-see the `disaster.*` handling in `build_city`, where `_hit()` and
-`_hit_count()` apply the damage field.
+see the `disaster.*` handling in `build_city`, where `_hit()` applies the
+damage field.
+
+### Debris: what a damaged building sheds
+
+Rubble is part of the damage, not a prop pass over it, so
+[`disaster/debris.py`](disaster/debris.py) plans it and **whoever damaged the
+building authors it**: `mesh_damage.apply_to_stage` for a building cut live,
+`archetypes/bake.py` into the cell — where it settles with the fragments and is
+merged into the exported archetype, so a scene that references that wreck gets
+its rubble for free. `disaster_stage` places it only for the buildings no
+cutter reached: an authored-ruin swap, or a tilt-and-sink stand-in outside the
+damage budget.
+
+Two things follow from planning it there rather than over the placement list.
+
+**It matches the building.** A piece of debris declares a `material:` in the
+asset pack exactly as a building declares its cladding, and `SHEDS` says what
+each structure may shed — brick and concrete for masonry, concrete only for a
+cast frame, lumber for timber, plus `earth` (ground spoil, which nothing shed
+and any collapse scrapes up). The same `mesh_damage.STRUCTURE_OF` table decides
+both the rubble on the ground and the cut faces above it, so they cannot
+disagree. The surveys behind the labels are
+`config/asset_packs/*.debris.materials.yaml`.
+
+**It is an amount, not a count.**
+
+```yaml
+disaster:
+  debris:
+    shed_m3_per_m: 0.35   # m3 of rubble per metre of the building's own
+                          # perimeter, at total collapse
+    spread_m: 7.0         # how far past the footprint edge it reaches
+    pile_share: 0.55      # of that volume, how much is mounds vs single pieces
+    max_per_building: 200 # cap on the DRAW — the scene's ceiling is prims
+```
+
+Pieces are drawn until the budget is spent, so a pool of bricks yields many and
+a pool of floor slabs yields few. `spread_m` is deliberately NOT in the budget:
+a windstorm throws the same material further, not more of it. The amount scales
+with `debris.fallen(report)` — the share of the building that actually came
+free, counting the fragments `quake.consume` pulverised and not the orphaned
+slabs nothing threw — so a `cracked` rung sheds a little and a `pancaked` one
+sheds a lot, continuously. Only the buildings with no report left (a swapped
+ruin) still fall back to a fate multiplier, `damaged_debris_scale`.
+
+`preset_report.py`'s `debris` column therefore only counts what
+`disaster_stage` places: a dry run does no cutting, and a baked archetype's
+debris is not a placement at all.
 
 ### Ground scour along the track
 
@@ -1153,23 +1279,20 @@ switched off, which is the only way to see the two side by side.
 
 ### Debris belongs to every damaged building
 
-`debris.*` counts are per building and scaled by the local field, as everything
-else is. They apply to **every** building the disaster touched, not only the
-ones that got a ruin asset swapped in — a shattered, half-collapsed building
+Rubble applies to **every** building the disaster touched, not only the ones
+that got a ruin asset swapped in — a shattered, half-collapsed building
 standing on a spotless lot is the most obviously wrong thing in an aerial view,
 and debris is occupancy, so its absence changes what the scene *means* to a
 search algorithm and not just how it looks.
 
-```yaml
-disaster:
-  debris:
-    pieces_per_building:  [12, 22]  # a DESTROYED building's share
-    damaged_debris_scale: 0.51      # what one still standing sheds, relative
-```
-
-A damaged building's rubble also stays closer in: it drops at its own facade
-rather than being thrown across the street, so the pile and piece offsets
-shrink with the same factor.
+How much of it is `debris.fallen(report)` — the share of the building that
+actually came free — times `shed_m3_per_m` times its perimeter. See
+[Debris: what a damaged building sheds](#debris-what-a-damaged-building-sheds)
+above; `damaged_debris_scale` is what is left of the old fate-driven amount,
+and it now applies only to the buildings no cutter reached, which have no
+report to read. A damaged building's rubble also stays closer in: it drops at
+its own facade rather than being thrown across the street, so the reach shrinks
+with the same factor.
 
 ### Severity has to reach the individual building
 

@@ -1,0 +1,40 @@
+#usda 1.0
+(
+    defaultPrim = "Asset"
+)
+
+def "Asset" (
+    prepend references = @omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/tower/podium_highrise/podium_highrise.usdc@
+)
+{
+    over "highrise_building"
+    {
+        over "Meshes"
+        {
+            over "FAB_converted_model"
+            {
+                over "root"
+                {
+                    over "GLTF_SceneRootNode"
+                    {
+                        over "HighRise_Building_20"
+                        {
+                            over "HighRise_Building_002_0"
+                            {
+                                over "podium_highrise"
+                                {
+                                    over "Object_0" (
+                                        prepend apiSchemas = ["PhysicsCollisionAPI"]
+                                    )
+                                    {
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+

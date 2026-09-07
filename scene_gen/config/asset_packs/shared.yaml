@@ -237,14 +237,24 @@ usds:
       tags: ["park"]
 
   cars:
+    # TAGS ADDED WITH THE SUBURB PORT (krrishj/disaster-dataset 0bd932c2). The
+    # graph suburb's `detail/vehicles.py` asks this pool for `residential` and
+    # parks those on driveways and in row-home courts; with no entry carrying
+    # the tag it logs "pool carries no `residential` tag" and falls back to
+    # EVERY entry, which parks the police car and the construction truck on
+    # suburban driveways. Only the tags are new — no entry was added, removed
+    # or uncommented. `street` marks what belongs on a carriageway rather than
+    # a drive; `parked_only` is art with no interior worth opening.
     - usd: "RetroNeighborhood/130.usdz"
       scale: 0.01
       axis-up: "Y"           # authored Y-up; fixed to Z-up for Isaac Sim
       yaw-offset: 90.0
+      tags: ["residential", "glass_separable"]
     - usd: "RetroNeighborhood/FREE_GMC_Motorhome_reimagined_low_poly.usdz"
       scale: 0.01
       axis-up: "Y"
       yaw-offset: 90.0
+      tags: ["residential", "rv", "glass_separable"]
     # - usd: "RetroNeighborhood/FREE_Merc_Hovercar.usdz"
     #   scale: 0.01
     #   axis-up: "Y"
@@ -252,6 +262,7 @@ usds:
       scale: 0.01
       axis-up: "Y"
       yaw-offset: 90.0
+      tags: ["residential"]
     # - usd: "RetroNeighborhood/Old_Rusty_Car.usdz"
     #   scale: 0.01
     #   axis-up: "Y"
@@ -259,15 +270,19 @@ usds:
     #   scale: 0.01
     #   axis-up: "Y"
     - usd: "ModernCityEnvironment01/Meshes/SK_ConstructionTruck01FullyRigged.usd"
+      tags: ["commercial", "street"]
     - usd: "DownTown/Assets/Vehicle_A.usd"
       scale: 0.01
       yaw-offset: 90.0
+      tags: ["parked_only"]
     - usd: "DownTown/Assets/Vehicle_Police.usd"
       scale: 0.01
       yaw-offset: 90.0
+      tags: ["livery", "street"]
     - usd: "DownTown/Assets/Vehicle_Taxi.usd"
       scale: 0.01
       yaw-offset: 90.0
+      tags: ["livery", "street"]
 
   # RenderPeople rigged humans: cm-authored (scale 0.01), art faces -Y
   # (yaw-offset 90). UsdSkel rigs with no animation clip — the generator

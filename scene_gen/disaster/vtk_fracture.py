@@ -87,7 +87,40 @@ def ensure_deps(verbose=True):
     except Exception as exc:
         print("[fracture] could not install {0}: {1}".format(missing, exc))
         return False
+    _refresh_trimesh_engines()
     return True
+
+
+def _refresh_trimesh_engines():
+    """Make an ALREADY-IMPORTED trimesh notice what we just installed.
+
+    `trimesh.creation._engines` is a module-level list built at import time —
+    `[('earcut', <bool>), ('manifold', <bool>), ('triangle', <bool>)]` — so a
+    backend installed afterwards is invisible for the life of the process, and
+    `triangulate_polygon` keeps raising "No available triangulation engine!"
+    while the wheel sits on disk.
+
+    Measured 2026-08-30, on a bake that installed `manifold3d` and
+    `mapbox_earcut` at startup and then failed every tree slice anyway: a
+    FRESH interpreter reported `[('earcut', True), ('manifold', True)]` from
+    the very same site-packages. The install worked; the registry was stale.
+
+    Reloading the submodule rebuilds the list. Best-effort: if trimesh is not
+    imported yet there is nothing to fix (the next import gets it right), and
+    a reload failure must not take down a bake.
+    """
+    import importlib
+
+    importlib.invalidate_caches()
+    mod = sys.modules.get("trimesh.creation")
+    if mod is None:
+        return
+    try:
+        importlib.reload(mod)
+        print("[fracture] refreshed trimesh engines: {0}"
+              .format(getattr(mod, "_engines", "?")))
+    except Exception as exc:                                     # noqa: BLE001
+        print("[fracture] could not refresh trimesh engines: {0}".format(exc))
 
 
 

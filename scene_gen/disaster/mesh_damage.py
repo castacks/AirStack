@@ -80,8 +80,10 @@ is numpy and the only Blender-shaped dependency was reading and writing points.
 
 import math
 import os
+import random
 import time
 from collections import namedtuple
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 
@@ -414,7 +416,7 @@ def _filter_by_element(attr, primvar, interpolation, keep, fv_keep) -> None:
             _vt_int(np.asarray(ind)[mask]))
         return
 
-    vals = attr.Get() if attr else None
+    vals = _sized(attr.Get() if attr else None)
     if vals is None or len(vals) != len(mask):
         return
     try:
@@ -506,6 +508,33 @@ def delete_faces(prim, keep, deactivate: bool = True) -> int:
                            keep, fv_keep)
     _renumber_subsets(prim, keep)
     return n_gone
+
+
+def _sized(vals):
+    """*vals* if it is a per-element array, otherwise None.
+
+    A CONSTANT-INTERPOLATION PRIMVAR IS A SCALAR — a `bool`, a float, a string
+    — and `len()` on one RAISES rather than returning 0. The AEC brownstones
+    carry `primvars:doNotCastShadows` (constant, bool) on thirteen of their
+    meshes, and it took out every damaged rung of all eight brownstone types:
+    32 archetypes lost to `TypeError: object of type 'bool' has no len()`,
+    which Stage A reported only as a skipped cell.
+
+    Skipping such a primvar is the CORRECT handling, not a compromise. A
+    constant primvar says the same thing about the mesh before and after the
+    geometry changes, so there is nothing to resample; only per-point,
+    per-face and per-corner data has to be carried through a subdivision or a
+    face deletion.
+
+    Strings are rejected explicitly. A `str` satisfies `len()` but is a scalar
+    here, and a two-character one on a two-face mesh would otherwise be taken
+    for uniform per-face data and resampled character by character.
+    """
+    if vals is None or isinstance(vals, (str, bytes)):
+        return None
+    if not hasattr(vals, "__len__"):
+        return None
+    return vals if len(vals) else None
 
 
 def _flatten_primvar(pv) -> None:
@@ -617,8 +646,8 @@ def subdivide(prim, max_edge: float, max_points: int = 400_000,
         _flatten_primvar(pv)
         entries.append((pv.GetAttr(), pv, pv.GetInterpolation()))
     for attr, pv, interp in entries:
-        vals = attr.Get() if attr else None
-        if vals is None or not len(vals):
+        vals = _sized(attr.Get() if attr else None)
+        if vals is None:
             continue
         try:
             arr, rebuild = _pv_array(vals)
@@ -731,6 +760,431 @@ def subdivide(prim, max_edge: float, max_points: int = 400_000,
             pass
     _resubset(prim, parent)
     return added
+
+
+def _qem_available() -> bool:
+    try:
+        import pymeshlab                                        # noqa: F401
+    except Exception:                                           # noqa: BLE001
+        return False
+    return True
+
+
+def _decimate_qem(prim, target: int, tex_weight: float = 1.0) -> int:
+    """Quadric edge collapse with a UV error term. Returns the new face count.
+
+    THE ALGORITHM CLUSTERING IS AN APPROXIMATION OF. Clustering snaps vertices
+    to a grid and hopes the parameterisation survives; this minimises a real
+    error, and `extratcoordw` puts the texture INTO that error so a collapse
+    that would swim the map is expensive rather than invisible. On a tiled
+    facade — `Amar_Tower` runs 0..51.7 in u — that is the difference between
+    keeping the map and shuffling it.
+
+    PER MATERIAL SUBSET, ONE AT A TIME. A `GeomSubset` is a set of face
+    indices, and a collapse that merges a face from one subset into another
+    silently repaints it; `Amar_Tower` carries 33 of them. Decimating each
+    subset as its own mesh makes that impossible, and hands the collapser a
+    boundary at every material edge which `preserveboundary` then holds — the
+    seam locking, obtained from the data rather than bolted on.
+
+    The budget is split across subsets in proportion to their face counts, so
+    a subset that is 1% of the building stays 1% of it.
+    """
+    import os
+    import shutil
+    import tempfile
+
+    import pymeshlab as ml
+
+    counts, idx = _face_arrays(prim)
+    if counts is None or not len(counts):
+        return 0
+    pts = get_points(prim)
+    slots, face_src = _triangulate(counts)
+    if not len(slots):
+        return 0
+    mesh = UsdGeom.Mesh(prim)
+    n_fv0, n_face0 = int(counts.sum()), len(counts)
+    tri = idx[slots]                                  # (T, 3)
+    n_tri0 = len(tri)
+
+    uv_name = _uv_primvar_name(prim)
+    uv = None
+    if uv_name:
+        pv = UsdGeom.PrimvarsAPI(prim).GetPrimvar(uv_name)
+        if pv:
+            _flatten_primvar(pv)
+            raw = _sized(pv.GetAttr().Get())
+            if raw is not None and len(raw) == n_fv0 \
+                    and pv.GetInterpolation() == UsdGeom.Tokens.faceVarying:
+                uv = np.asarray([tuple(v) for v in raw],
+                                dtype=np.float64)[slots]        # (T, 3, 2)
+
+    # Which subset each ORIGINAL face belongs to, hence each triangle.
+    group = np.full(n_face0, -1, dtype=np.int64)
+    subsets = [c for c in prim.GetChildren() if c.IsA(UsdGeom.Subset)]
+    for g, child in enumerate(subsets):
+        sub = UsdGeom.Subset(child)
+        if sub.GetElementTypeAttr().Get() != UsdGeom.Tokens.face:
+            continue
+        gi = np.asarray(sub.GetIndicesAttr().Get() or [], dtype=np.int64)
+        gi = gi[(gi >= 0) & (gi < n_face0)]
+        group[gi] = g
+    tri_group = group[face_src]
+
+    out_v, out_f, out_uv, out_g = [], [], [], []
+    tmpd = tempfile.mkdtemp(prefix="qem_")
+    # A 2x2 grey PNG is enough: the filter only needs a texture to EXIST so
+    # that faces carry a valid index. It never samples it, and the real
+    # material stays on the USD prim.
+    with open(os.path.join(tmpd, "qem.mtl"), "w") as fh:
+        fh.write("newmtl m0\nmap_Kd qem.png\n")
+    from PIL import Image
+    Image.new("RGB", (4, 4), (128, 128, 128)).save(
+        os.path.join(tmpd, "qem.png"))
+    for g in np.unique(tri_group):
+        sel = np.nonzero(tri_group == g)[0]
+        share = max(4, int(round(target * len(sel) / float(n_tri0))))
+        sub_tri = tri[sel]
+        # VIA AN OBJ ON DISK, and the detour is not optional. The
+        # texture-weighted filter needs a per-FACE texture index, and nothing
+        # in pymeshlab's Python API sets one: building the mesh with
+        # `w_tex_coords_matrix`, attaching an image with `set_texture_per_mesh`,
+        # and round-tripping through `save_current_mesh` all leave it unset and
+        # the filter refuses with "some faces without texture". The OBJ
+        # importer assigns it from `usemtl`, so a hand-written OBJ + MTL is
+        # what makes the algorithm reachable at all.
+        corner_uv = (uv[sel].reshape(-1, 2) if uv is not None
+                     else np.zeros((len(sel) * 3, 2)))
+        keep_pts, remap = np.unique(sub_tri.reshape(-1), return_inverse=True)
+        vpos = pts[keep_pts]
+        vi = remap.reshape(-1, 3) + 1
+        ti = np.arange(len(corner_uv), dtype=np.int64).reshape(-1, 3) + 1
+        obj = os.path.join(tmpd, f"g{g}.obj")
+        with open(obj, "w") as fh:
+            fh.write("mtllib qem.mtl\n")
+            np.savetxt(fh, vpos, fmt="v %.6f %.6f %.6f")
+            np.savetxt(fh, corner_uv, fmt="vt %.6f %.6f")
+            fh.write("usemtl m0\n")
+            np.savetxt(fh, np.stack([vi[:, 0], ti[:, 0], vi[:, 1], ti[:, 1],
+                                     vi[:, 2], ti[:, 2]], axis=1),
+                       fmt="f %d/%d %d/%d %d/%d")
+        ms = ml.MeshSet()
+        ms.load_new_mesh(obj)
+        if share < len(sel):
+            try:
+                ms.meshing_decimation_quadric_edge_collapse_with_texture(
+                    targetfacenum=int(share), extratcoordw=float(tex_weight),
+                    preserveboundary=True, optimalplacement=True,
+                    planarquadric=True)
+            except Exception as exc:                            # noqa: BLE001
+                print(f"[mesh_damage] QEM declined on subset {g}: {exc}")
+        cm = ms.current_mesh()
+        vv = np.asarray(cm.vertex_matrix(), dtype=np.float64)
+        ff = np.asarray(cm.face_matrix(), dtype=np.int64)
+        if not len(ff):
+            continue
+        if uv is not None and cm.has_wedge_tex_coord():
+            ww = np.asarray(cm.wedge_tex_coord_matrix(),
+                            dtype=np.float64).reshape(-1, 3, 2)
+        else:
+            ww = np.zeros((len(ff), 3, 2), dtype=np.float64)
+        out_f.append(ff + sum(len(x) for x in out_v))
+        out_v.append(vv)
+        out_uv.append(ww)
+        out_g.append(np.full(len(ff), g, dtype=np.int64))
+    shutil.rmtree(tmpd, ignore_errors=True)
+    if not out_f:
+        return 0
+
+    verts = np.concatenate(out_v)
+    faces = np.concatenate(out_f)
+    wedge = np.concatenate(out_uv)
+    gid = np.concatenate(out_g)
+
+    mesh.GetFaceVertexCountsAttr().Set(_vt_int(np.full(len(faces), 3)))
+    mesh.GetFaceVertexIndicesAttr().Set(_vt_int(faces.reshape(-1)))
+    set_points(prim, verts)
+
+    # Only the UVs are carried. Normals and every other primvar indexed the old
+    # topology, which no longer exists; a stale array of the wrong length makes
+    # USD drop the primvar as inconsistent, so they are blocked outright and
+    # the renderer computes normals itself.
+    for pv in UsdGeom.PrimvarsAPI(prim).GetPrimvars():
+        if pv.GetBaseName() == uv_name and uv is not None:
+            continue
+        try:
+            pv.GetAttr().Block()
+        except Exception:                                       # noqa: BLE001
+            pass
+    try:
+        mesh.GetNormalsAttr().Block()
+    except Exception:                                           # noqa: BLE001
+        pass
+    if uv is not None:
+        for nm in dict.fromkeys((uv_name, "st")):
+            UsdGeom.PrimvarsAPI(prim).CreatePrimvar(
+                nm, Sdf.ValueTypeNames.TexCoord2fArray,
+                UsdGeom.Tokens.faceVarying).Set(_vec2f(wedge.reshape(-1, 2)))
+
+    # The subsets are rewritten from the group each surviving face came from.
+    for g, child in enumerate(subsets):
+        sub = UsdGeom.Subset(child)
+        if sub.GetElementTypeAttr().Get() != UsdGeom.Tokens.face:
+            continue
+        sub.GetIndicesAttr().Set(_vt_int(np.nonzero(gid == g)[0]))
+    return len(faces)
+
+
+def decimate(prim, fraction: float, min_faces: int = 256) -> int:
+    """Reduce *prim* to about *fraction* of its triangles. Returns faces removed.
+
+    THE COUNTERPART TO `subdivide`, AND FOR THE OPPOSITE PROBLEM. That one
+    exists because assets are modelled too coarse to break well; this one
+    because a few are modelled far too fine to break at all. `Amar_Tower` is
+    501,869 source faces and 741,926 after thickening, on a 46,270 m² envelope
+    that asks for ~12,500 cells — and the cutter's cost is cells x faces. It
+    was never attempted in the overnight bake, and a live run sat in
+    `fracture_to_stage` for 23 minutes without reaching settle.
+
+    VERTEX CLUSTERING, NOT EDGE COLLAPSE. Quadric edge collapse gives a better
+    silhouette per triangle removed, but it has to carry a UV error metric to
+    avoid swimming the texture, and at these ratios (1/50) the silhouette is
+    gone either way. Clustering snaps every vertex in a grid cell to that
+    cell's centroid and drops the triangles that collapse to a line; what it
+    costs is fine detail, which is exactly what is being paid.
+
+    HOW THE TEXTURE SURVIVES: THE CLUSTER KEY IS POSITION **AND** UV.
+    Keeping each corner's authored UV is not enough, and the first version of
+    this did exactly that and broke the texture. Clustering moves positions but
+    not UVs, so a surviving triangle kept a small UV patch while its corners
+    snapped far apart — stretching that patch across a whole wall. On an
+    atlas-packed facade every surviving triangle then lands on a different
+    region of the atlas, and `Amar_Tower` came out a mosaic of unrelated tiles
+    where the source was glass and mullions.
+
+    So the clustering runs over CORNERS keyed on the grid cell of the position
+    and the grid cell of the UV together. Two corners merge only when they are
+    close in both, which is precisely the condition under which welding them
+    preserves the parameterisation: continuous interior edges collapse, and a
+    UV seam — same position, different UV — keeps its corners in separate
+    clusters and stays a seam. Positions and UVs are then averaged WITHIN a
+    cluster, where both are by construction nearly equal.
+
+    The cost is reduction: a seam cannot collapse, so a heavily-atlased asset
+    floors out at more triangles than a naive clustering would give. That is
+    the trade — the floor is the number of triangles it takes to keep the
+    texture, and asking below it returns what it can.
+
+    Uniform primvars are gathered through the surviving faces' parents, and
+    `_resubset` carries the material `GeomSubset`s across, so per-face material
+    assignment is preserved too.
+
+    The cell size is solved for, not guessed: face count falls monotonically
+    with it, so a bisection lands within a few percent of the target.
+    """
+    counts, idx = _face_arrays(prim)
+    if counts is None or not len(counts):
+        return 0
+    pts = get_points(prim)
+    if len(pts) < 3 or int(idx.max()) >= len(pts):
+        return 0
+    slots, face_src = _triangulate(counts)
+    if not len(slots):
+        return 0
+
+    mesh = UsdGeom.Mesh(prim)
+    n_fv0, n_pt0, n_face0 = int(counts.sum()), len(pts), len(counts)
+    pt = idx[slots]                                  # (T, 3)
+    n_tri0 = len(pt)
+    target = max(int(min_faces), int(round(n_tri0 * float(fraction))))
+    if target >= n_tri0:
+        return 0
+
+    # QUADRIC EDGE COLLAPSE WHERE IT IS AVAILABLE. It minimises a real error
+    # with the texture inside it, rather than snapping to a grid and hoping;
+    # the clustering below stays as the fallback when pymeshlab is not
+    # installed, and for meshes it handles fine.
+    if _qem_available():
+        try:
+            left = _decimate_qem(prim, target)
+            if left:
+                return n_tri0 - left
+        except Exception as exc:                                # noqa: BLE001
+            print(f"[mesh_damage] QEM failed ({exc}); clustering instead")
+
+    lo_c = pts.min(axis=0)
+    diag = float(np.linalg.norm(pts.max(axis=0) - lo_c)) or 1.0
+
+    # THE UV SET THE CLUSTERING HAS TO RESPECT. Without one this degrades to
+    # plain position clustering, which is right for a mesh that carries no
+    # parameterisation to protect.
+    uv_arr = None
+    uv_name = _uv_primvar_name(prim)
+    if uv_name:
+        pv = UsdGeom.PrimvarsAPI(prim).GetPrimvar(uv_name)
+        if pv:
+            _flatten_primvar(pv)
+            raw = _sized(pv.GetAttr().Get())
+            if raw is not None and len(raw) == n_fv0 \
+                    and pv.GetInterpolation() == UsdGeom.Tokens.faceVarying:
+                uv_arr = np.asarray([tuple(v) for v in raw],
+                                    dtype=np.float64)[slots]      # (T, 3, 2)
+    # THE UV STEP IS SET BY THE TEXTURE, NOT BY THE GEOMETRY. Tying it to the
+    # geometric cell (uv_span * cell/diag) is what broke the first attempt:
+    # `Amar_Tower`'s facade is a TILED map running 0..51.7 in u, so at the cell
+    # size a 50x reduction needs, that formula gave a uv_cell 7-28x larger than
+    # a whole triangle's UV footprint. Corners from unrelated repeats of the
+    # tile merged and their UVs averaged, which is the mosaic.
+    #
+    # Half the median per-triangle UV extent instead: below one triangle, so a
+    # merge can only ever join corners that were already on the same piece of
+    # texture. Measured on that tower this still reaches 45x — the reduction
+    # and the parameterisation were never actually in conflict.
+    uv_cell = 0.0
+    if uv_arr is not None:
+        per = np.ptp(uv_arr, axis=1)                 # (T, 2) per-triangle span
+        uv_cell = 0.5 * float(np.median(per[per > 0])) if (per > 0).any() else 0.0
+        if not np.isfinite(uv_cell) or uv_cell <= 0.0:
+            uv_arr = None
+
+    cpos = pts[pt].reshape(-1, 3)                    # (T*3, 3) corner positions
+    cuv = uv_arr.reshape(-1, 2) if uv_arr is not None else None
+
+    def cluster(cell: float):
+        """Snap corners to a grid of *cell* metres, and of the matching UV step."""
+        key = np.floor((cpos - lo_c) / max(cell, 1e-9)).astype(np.int64)
+        if cuv is not None and uv_cell > 0.0:
+            key = np.concatenate(
+                [key, np.floor(cuv / uv_cell).astype(np.int64)], axis=1)
+        # A VOID VIEW, NOT `unique(axis=0)`. Row-wise unique compares tuples
+        # and is O(n log n) in PYTHON-level comparisons; on 1.5M corners x 28
+        # bisection steps that was 124 s against 6 s for the position-only
+        # version. Viewing each row as one opaque scalar sorts the same data
+        # exactly, in one pass of a primitive sort.
+        kk = np.ascontiguousarray(key)
+        _u, inv = np.unique(
+            kk.view(np.dtype((np.void, kk.dtype.itemsize * kk.shape[1]))),
+            return_inverse=True)
+        inv = inv.reshape(-1)
+        n_rep = int(inv.max()) + 1
+        rep = np.zeros((n_rep, 3), dtype=np.float64)
+        np.add.at(rep, inv, cpos)
+        cnt = np.bincount(inv, minlength=n_rep).astype(np.float64)
+        rep /= np.maximum(cnt, 1.0)[:, None]
+        if cuv is not None:
+            uv_rep = np.zeros((n_rep, 2), dtype=np.float64)
+            np.add.at(uv_rep, inv, cuv)
+            uv_rep /= np.maximum(cnt, 1.0)[:, None]
+        else:
+            uv_rep = None
+        tri = inv.reshape(-1, 3)                     # (T, 3) cluster ids
+        live = ((tri[:, 0] != tri[:, 1]) & (tri[:, 1] != tri[:, 2])
+                & (tri[:, 0] != tri[:, 2]))
+        # TWO TRIANGLES THAT LAND ON THE SAME THREE CLUSTERS ARE ONE TRIANGLE
+        # NOW. At 1/50 that happens constantly, and left in they are coincident
+        # geometry: doubled face counts, z-fighting, and a solidify that
+        # extrudes the same wall twice.
+        keep = np.nonzero(live)[0]
+        if len(keep):
+            _uu, first = np.unique(np.sort(tri[keep], axis=1), axis=0,
+                                   return_index=True)
+            keep = keep[np.sort(first)]
+        return rep, tri[keep], keep, uv_rep
+
+    # Bisect on the cell size. Face count is monotone in it, so this is safe.
+    #
+    # THE CELL MAY NOT GROW PAST THE BUILDING. With the UV term in the key,
+    # a huge cell still produces distinct clusters — but only because the
+    # TEXTURE separates them, and a tiled facade repeats the same UV on all
+    # four walls. `Amar_Tower` at 1/50 drove the cell past its own 42 m width
+    # and merged opposite walls into one another: the map came out perfect and
+    # the tower came out pinched and wavy. Capping the cell at a quarter of the
+    # short footprint keeps position meaningful, and the price is that the
+    # requested ratio may not be reachable — `decimate` then returns the best
+    # it can do rather than a ruined silhouette.
+    span_xy = float(min(np.ptp(pts[:, 0]), np.ptp(pts[:, 1])))
+    hi = max(min(diag, 0.25 * span_xy), diag * 1e-3)
+    lo = diag * 1e-4
+    best = None
+    for _ in range(28):
+        mid = 0.5 * (lo + hi)
+        rep, faces, keep, uv_rep = cluster(mid)
+        if best is None or abs(len(faces) - target) < abs(best[4] - target):
+            best = (rep, faces, keep, uv_rep, len(faces))
+        if len(faces) > target:
+            lo = mid
+        else:
+            hi = mid
+        if abs(len(faces) - target) <= max(8, target // 50):
+            break
+    rep, faces, keep, uv_rep, _n = best
+    if not len(faces):
+        return 0
+
+    # --- primvars, gathered through the surviving faces ---------------------
+    entries = [(mesh.GetNormalsAttr(), mesh.GetNormalsInterpolation(), "")]
+    for pv in UsdGeom.PrimvarsAPI(prim).GetPrimvars():
+        _flatten_primvar(pv)
+        entries.append((pv.GetAttr(), pv.GetInterpolation(), pv.GetBaseName()))
+    writes = []
+    for attr, interp, pvname in entries:
+        vals = _sized(attr.Get() if attr else None)
+        if vals is None:
+            continue
+        try:
+            arr, rebuild = _pv_array(vals)
+        except Exception:                                       # noqa: BLE001
+            continue
+        if interp == UsdGeom.Tokens.faceVarying and len(arr) == n_fv0:
+            if uv_rep is not None and pvname == uv_name:
+                # THE CLUSTER'S UV, not the original corner's: the corner has
+                # moved to the cluster centroid and its UV moves with it. They
+                # agree to within one uv_cell by construction.
+                writes.append((attr, rebuild,
+                               uv_rep[faces].reshape(-1, 2)))
+            else:
+                writes.append((attr, rebuild,
+                               arr[slots][keep].reshape(-1, *arr.shape[1:])))
+        elif interp == UsdGeom.Tokens.uniform and len(arr) == n_face0:
+            writes.append((attr, rebuild, arr[face_src[keep]]))
+        elif interp in (UsdGeom.Tokens.vertex, UsdGeom.Tokens.varying) \
+                and len(arr) == n_pt0:
+            # A per-point value has no corner to hang on and the clustering is
+            # not re-derivable here, so it is BLOCKED rather than left stale —
+            # see the write loop.
+            writes.append((attr, rebuild, None))
+
+    mesh.GetFaceVertexCountsAttr().Set(_vt_int(np.full(len(faces), 3)))
+    mesh.GetFaceVertexIndicesAttr().Set(_vt_int(faces.reshape(-1)))
+    set_points(prim, rep)
+    for attr, rebuild, arr in writes:
+        if arr is None:
+            # A per-point primvar cannot be gathered without re-deriving the
+            # clustering; blocking it is honest, where leaving a stale array of
+            # the old length makes USD drop the whole primvar as inconsistent.
+            try:
+                attr.Block()
+            except Exception:                                   # noqa: BLE001
+                pass
+            continue
+        try:
+            attr.Set(rebuild(arr))
+        except Exception:                                       # noqa: BLE001
+            pass
+    _resubset(prim, face_src[keep])
+    return n_tri0 - len(faces)
+
+
+def decimate_prims(prims, fraction: float, min_faces: int = 256) -> dict:
+    """`decimate` over a building's meshes. Returns a small tally."""
+    out = {"meshes": 0, "removed": 0}
+    for mp in prims:
+        n = decimate(mp, fraction, min_faces)
+        if n:
+            out["meshes"] += 1
+            out["removed"] += int(n)
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -1737,11 +2191,19 @@ class Soup:
     which is what "shattered building" looked like before: white confetti.
     """
 
-    __slots__ = ("verts", "uv", "faces", "fmat", "mats")
+    __slots__ = ("verts", "uv", "faces", "fmat", "mats", "uv_names")
 
-    def __init__(self, verts, uv, faces, fmat, mats):
+    def __init__(self, verts, uv, faces, fmat, mats, uv_names=()):
         self.verts, self.uv = verts, uv
         self.faces, self.fmat, self.mats = faces, fmat, mats
+        # WHAT THE SOURCE CALLED ITS UV SET. A fragment's UVs are useless
+        # under a name the material's `UsdPrimvarReader_float2` is not asking
+        # for: the reader finds nothing, the texture samples nothing, and the
+        # piece renders as the shader's flat fallback colour. Measured on
+        # `midrise_14_0204a`, whose meshes carry `uv0` and whose fragments were
+        # authored `st` — every one came out solid pink or solid off-white
+        # while the pristine reference beside it was fully textured.
+        self.uv_names = tuple(uv_names or ())
 
     def __len__(self):
         return len(self.faces)
@@ -1749,6 +2211,353 @@ class Soup:
     def centroids(self) -> np.ndarray:
         """Per-triangle centroid, (T, 3) — where the field is sampled."""
         return self.verts[self.faces].mean(axis=1)
+
+
+def _plane_basis(n):
+    """Two orthonormal in-plane axes for a unit normal *n*."""
+    seed = (np.array([1.0, 0.0, 0.0]) if abs(float(n[0])) < 0.9
+            else np.array([0.0, 1.0, 0.0]))
+    u = np.cross(n, seed)
+    u = u / max(np.linalg.norm(u), 1e-12)
+    return u, np.cross(n, u)
+
+
+def _boundary_rings(verts, faces, n, origin, tol):
+    """In-plane boundary edges chained into closed loops of vertex indices.
+
+    WELDED BY POSITION, NOT BY INDEX. `Soup` is deliberately unwelded — three
+    vertices per triangle, never shared, so that faceVarying UVs survive the
+    clip — which means two edges meeting at a corner carry DIFFERENT indices
+    for the same point. Chaining on indices finds no loops at all. Positions
+    are quantised to *tol* and used as the join key; the loops come back as
+    original indices (one representative per welded point), because that is
+    what the returned triangles have to reference.
+
+    Returns ``[loop, ...]`` or None when the boundary is not a clean set of
+    closed loops — a half-open chain means the cross-section is broken and the
+    caller should fall back rather than guess.
+    """
+    d = (verts - np.asarray(origin, dtype=np.float64)) @ n
+    on = np.abs(d) <= tol
+    if on.sum() < 3:
+        return None
+    ea = faces[:, [0, 1, 2]].reshape(-1)
+    eb = faces[:, [1, 2, 0]].reshape(-1)
+    sel = on[ea] & on[eb]
+    a, b = ea[sel], eb[sel]
+    if len(a) < 3:
+        return None
+    live = np.abs(verts[a] - verts[b]).max(axis=1) > tol
+    a, b = a[live], b[live]
+    if len(a) < 3:
+        return None
+
+    q = np.round(verts / max(tol, 1e-12)).astype(np.int64)
+    key = {}
+    def weld(i):
+        k = (int(q[i, 0]), int(q[i, 1]), int(q[i, 2]))
+        if k not in key:
+            key[k] = len(key)
+        return key[k]
+    wa = np.fromiter((weld(int(i)) for i in a), np.int64, len(a))
+    wb = np.fromiter((weld(int(i)) for i in b), np.int64, len(b))
+    rep = {}
+    for w, i in zip(np.concatenate([wa, wb]), np.concatenate([a, b])):
+        rep.setdefault(int(w), int(i))
+
+    # A MULTIMAP, WALKED GREEDILY. Requiring exactly one outgoing edge per
+    # point is the obvious reading of "closed loops" and it rejects almost
+    # everything real: measured, it chained only 7% of cross-sections, because
+    # a point where two wall sheets meet, or where a coplanar face touches the
+    # cut, carries more than one outgoing boundary edge. So every edge is kept
+    # and consumed at most once, and a walk takes whichever outgoing edge at
+    # the current point is still unused.
+    out_edges = {}
+    for e, (x, y) in enumerate(zip(wa, wb)):
+        x, y = int(x), int(y)
+        if x != y:
+            out_edges.setdefault(x, []).append((y, e))
+    if not out_edges:
+        return None
+
+    used, rings = set(), []
+    for start in list(out_edges):
+        while True:
+            if not any(e not in used for _y, e in out_edges.get(start, ())):
+                break
+            loop, cur, closed = [start], start, False
+            # A LOOP THAT CANNOT CLOSE IS DROPPED, not fatal. One ragged chain
+            # — a sliver the clipper left open — must not cost the whole cut
+            # its triangulation when the other rings are perfectly good.
+            for _ in range(len(wa) + 2):
+                step = next(((y, e) for y, e in out_edges.get(cur, ())
+                             if e not in used), None)
+                if step is None:
+                    break
+                used.add(step[1])
+                cur = step[0]
+                if cur == start:
+                    closed = True
+                    break
+                loop.append(cur)
+            if closed and len(loop) >= 3:
+                rings.append([rep[w] for w in loop])
+            if not closed:
+                break
+    # EVERY EDGE MUST BE ACCOUNTED FOR. A boundary edge that no ring consumed
+    # is one the cap will not cover, and an uncovered boundary edge is used
+    # once instead of twice — an open fragment. Dropping them silently is what
+    # took closure from 71% to 61%; they are handed back so the caller can fan
+    # them, which is exactly what the fan does for every edge anyway.
+    stray = [(int(a[e]), int(b[e])) for e in range(len(a)) if e not in used]
+    return (rings, stray) if rings or stray else None
+
+
+def _ring_signed_area(P):
+    """2x the signed area of a closed 2-D loop. Sign gives its winding."""
+    x, y = P[:, 0], P[:, 1]
+    return float(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1)))
+
+
+def _point_in_ring(pt, P) -> bool:
+    """Even-odd containment of *pt* in the closed loop *P* (2-D)."""
+    x, y = float(pt[0]), float(pt[1])
+    xs, ys = P[:, 0], P[:, 1]
+    xj, yj = np.roll(xs, -1), np.roll(ys, -1)
+    straddles = (ys > y) != (yj > y)
+    if not straddles.any():
+        return False
+    with np.errstate(divide="ignore", invalid="ignore"):
+        xint = xs + (y - ys) * (xj - xs) / np.where(yj != ys, yj - ys, 1.0)
+    return bool(np.count_nonzero(straddles & (x < xint)) % 2)
+
+
+def _segments_cross(p, q, A, B) -> bool:
+    """Does open segment p-q properly cross any segment of A[i]-B[i]?"""
+    def side(o, e, pt):
+        return np.sign((e[:, 0] - o[:, 0]) * (pt[1] - o[:, 1])
+                       - (e[:, 1] - o[:, 1]) * (pt[0] - o[:, 0]))
+    d1, d2 = side(A, B, p), side(A, B, q)
+    r = q - p
+    d3 = np.sign(r[0] * (A[:, 1] - p[1]) - r[1] * (A[:, 0] - p[0]))
+    d4 = np.sign(r[0] * (B[:, 1] - p[1]) - r[1] * (B[:, 0] - p[0]))
+    return bool(np.any((d1 * d2 < 0) & (d3 * d4 < 0)))
+
+
+def _bridge_holes(outer, holes, P):
+    """Splice each hole into *outer* with a two-way bridge. Returns one loop.
+
+    The standard earcut construction: take the hole's rightmost point, join it
+    to a visible point on the outer ring, and walk in and back out again. The
+    doubled bridge edge has zero area, so the result is a simple polygon
+    covering exactly the material and nothing over the holes.
+    """
+    loop = list(outer)
+    for hole in sorted(holes, key=lambda h: -float(P[h][:, 0].max())):
+        h = list(hole)
+        hstart = int(np.argmax(P[h][:, 0]))
+        h = h[hstart:] + h[:hstart]
+        px = P[h[0]]
+        # Every edge currently in play, for the visibility test.
+        L = np.array(loop, dtype=np.int64)
+        A, B = P[L], P[np.roll(L, -1)]
+        best = None
+        for pos, idx in sorted(enumerate(loop),
+                               key=lambda t: float(np.linalg.norm(P[t[1]] - px))):
+            if _segments_cross(px, P[idx], A, B):
+                continue
+            best = pos
+            break
+        if best is None:
+            return None
+        loop = (loop[:best + 1] + h + [h[0]] + loop[best:])
+    return loop
+
+
+def _earclip(loop, P):
+    """Ear-clip a simple 2-D polygon. Returns (T, 3) indices into *loop*'s ids.
+
+    Handles NON-CONVEX outlines, which is the point: a fan can only fill a
+    shape that is star-shaped about its centre, and a wall cross-section
+    routinely is not — an L-return, a window reveal or a re-entrant corner all
+    defeat it, which is why so many cut faces came out unfilled.
+    """
+    idx = list(loop)
+    if len(idx) < 3:
+        return None
+    if _ring_signed_area(P[np.array(idx)]) < 0.0:
+        idx.reverse()
+    # TOLERANCES SCALE WITH THE POLYGON. These cross-sections are metres wide
+    # and their rings carry runs of near-collinear points off the clipper, so a
+    # hard `> 0` finds no ear at all and the whole cut falls back to the fan —
+    # measured, that was 55% of the ones that got this far.
+    span = float(np.abs(P[np.array(idx)]).max()) or 1.0
+    eps = 1e-9 * span * span
+
+    out, guard = [], 0
+    # TWO PASSES. The first takes only proper ears; if none is left (a fully
+    # collinear tail, or a self-touching loop the bridge produced) the second
+    # accepts a degenerate one to keep making progress, which costs a
+    # zero-area triangle rather than the whole cap.
+    while len(idx) > 3 and guard < 4 * len(loop) + 64:
+        guard += 1
+        clipped = False
+        for slack in (False, True):
+            n = len(idx)
+            for k in range(n):
+                i, j, m = idx[(k - 1) % n], idx[k], idx[(k + 1) % n]
+                a, b, c = P[i], P[j], P[m]
+                cross = ((b[0] - a[0]) * (c[1] - a[1])
+                         - (b[1] - a[1]) * (c[0] - a[0]))
+                if cross <= (-eps if slack else eps):
+                    continue                   # reflex, not an ear
+                if not slack:
+                    others = [t for t in idx if t not in (i, j, m)]
+                    if others:
+                        Q = P[np.array(others)]
+                        d0 = ((b[0] - a[0]) * (Q[:, 1] - a[1])
+                              - (b[1] - a[1]) * (Q[:, 0] - a[0]))
+                        d1 = ((c[0] - b[0]) * (Q[:, 1] - b[1])
+                              - (c[1] - b[1]) * (Q[:, 0] - b[0]))
+                        d2 = ((a[0] - c[0]) * (Q[:, 1] - c[1])
+                              - (a[1] - c[1]) * (Q[:, 0] - c[0]))
+                        if np.any((d0 >= -eps) & (d1 >= -eps) & (d2 >= -eps)):
+                            continue           # another vertex sits in the ear
+                out.append((i, j, m))
+                idx.pop(k)
+                clipped = True
+                break
+            if clipped:
+                break
+        if not clipped:
+            return None                        # genuinely not a simple polygon
+    if len(idx) == 3:
+        out.append((idx[0], idx[1], idx[2]))
+    return np.array(out, dtype=np.int64) if out else None
+
+
+def _cap_polygon(verts, faces, normal, origin, tol_rel: float = 1e-9):
+    """Close a cut by TRIANGULATING its cross-section. Returns (T, 3) or None.
+
+    What `_cap_fan` does instead is fan every boundary edge to one shared
+    centre — the mean of every in-plane boundary vertex. On a solidified shell
+    the cross-section is an ANNULUS, so that mean lands in the middle of the
+    hollow and every spoke crosses the void. The extra triangles cancel in
+    signed area, which is why the surface still closes and the volume integral
+    is still right, but they are physically there: they render, and PhysX cooks
+    each fragment's collider as a CONVEX HULL of them, so a 0.5 m wall piece
+    becomes a solid block. Measured on `midrise_14_0204a`: 93% of fans reached
+    further than the wall was thick, median 2.50 m against `wall_m` 0.50, and
+    the fragments came out 1.11 m thick with a thin/long ratio of 0.53 — chunks,
+    not panels.
+
+    So the cross-section is triangulated properly: rings chained from the
+    boundary edges, holes classified by containment, bridged in, and ear-clipped.
+    Ear clipping also fixes the OTHER half of the problem — a fan can only fill
+    a shape that is star-shaped about its centre, so every re-entrant wall
+    cross-section was coming back unfilled.
+
+    Returns None whenever the cross-section is not a clean set of closed loops,
+    and the caller keeps the fan for those. This never has to be the only
+    answer; it has to be right when it answers.
+    """
+    n = np.asarray(normal, dtype=np.float64)
+    n = n / max(np.linalg.norm(n), 1e-12)
+    tol = tol_rel * max(1.0, float(np.abs(verts).max()))
+    got = _boundary_rings(verts, faces, n, origin, tol)
+    if not got:
+        return None, None
+    rings, stray = got
+    if not rings:
+        return None, None
+
+    u, v = _plane_basis(n)
+    P = np.stack([verts @ u, verts @ v], axis=1)
+
+    loops = [np.array(r, dtype=np.int64) for r in rings]
+    # A SLIVER RING IS DROPPED, NOT FATAL. A cut routinely leaves one
+    # zero-area chain among three good rings, and rejecting the whole
+    # cross-section for it sent 93% of cuts back to the fan.
+    span = float(np.abs(P).max()) if len(P) else 1.0
+    eps = 1e-10 * max(1.0, span) ** 2
+    dropped = [r for r in loops if abs(_ring_signed_area(P[r])) <= eps]
+    loops = [r for r in loops if abs(_ring_signed_area(P[r])) > eps]
+    if not loops:
+        return None, None
+    areas = np.array([_ring_signed_area(P[r]) for r in loops])
+
+    # OUTER RINGS AND THEIR HOLES. A ring contained by an odd number of others
+    # is a hole; by an even number, a separate solid island. That is the
+    # even-odd rule, and it is what makes several disjoint wall runs in one
+    # cut plane come out right.
+    reps = [P[r[0]] for r in loops]
+    depth = [sum(1 for j, rj in enumerate(loops)
+                 if j != i and _point_in_ring(reps[i], P[rj]))
+             for i in range(len(loops))]
+    # EXACT WHERE POSSIBLE, FANNED WHERE NOT — never dropped. The fan closes
+    # a cut because it emits one triangle per boundary edge, so every edge is
+    # used exactly twice across the fragment and the surface seals. A
+    # triangulation that SKIPS a ring leaves those edges unpaired and the
+    # fragment opens: measured, dropping sliver rings took closure from 71% to
+    # 61%. So anything the triangulator declines is handed to a fan over its
+    # own rings rather than abandoned, and closure is preserved by
+    # construction while the geometry is correct wherever it can be.
+    tris, leftover = [], []
+    done = set()
+    for i, ring in enumerate(loops):
+        if depth[i] % 2 or i in done:
+            continue                                   # a hole, filled below
+        holes = [j for j in range(len(loops))
+                 if depth[j] == depth[i] + 1
+                 and _point_in_ring(reps[j], P[loops[i]])]
+        outer = list(ring if areas[i] > 0 else ring[::-1])
+        hs = [list(loops[j] if _ring_signed_area(P[loops[j]]) < 0
+                   else loops[j][::-1]) for j in holes]
+        loop = _bridge_holes(outer, hs, P) if hs else outer
+        got = _earclip(loop, P) if loop is not None else None
+        if got is None:
+            leftover.append(ring)
+            leftover.extend(loops[j] for j in holes)
+        else:
+            tris.append(got)
+        done.add(i)
+        done.update(holes)
+    leftover.extend(loops[i] for i in range(len(loops)) if i not in done)
+    leftover.extend(dropped)
+
+    centre = None
+    if leftover or stray:
+        pool = [np.asarray(r, dtype=np.int64) for r in leftover]
+        pool += [np.asarray(e, dtype=np.int64) for e in stray]
+        centre = verts[np.unique(np.concatenate(pool))].mean(axis=0)
+        fan = []
+        for r in (np.asarray(x, dtype=np.int64) for x in leftover):
+            fan.append(np.stack([np.full(len(r), -1, dtype=np.int64),
+                                 np.roll(r, -1), r], axis=1))
+        for i, j in stray:
+            fan.append(np.array([[-1, j, i]], dtype=np.int64))
+        tris.append(np.concatenate(fan))
+    if not tris:
+        return None, None
+    out = np.concatenate(tris)
+
+    # WOUND TO FACE +n, the way the fan is: out of the half being kept.
+    real = np.all(out >= 0, axis=1)
+    if real.any():
+        r = out[real]
+        a, b, c = verts[r[:, 0]], verts[r[:, 1]], verts[r[:, 2]]
+        flip = (np.cross(b - a, c - a) @ n) < 0.0
+        r[flip] = r[flip][:, ::-1]
+        out[real] = r
+    if centre is not None and (~real).any():
+        # Fan spokes are wound against the ring the same way `_cap_fan` does.
+        f = out[~real]
+        a = verts[f[:, 1]] - centre
+        b = verts[f[:, 2]] - centre
+        flip = (np.cross(a, b) @ n) < 0.0
+        f[flip] = f[flip][:, [0, 2, 1]]
+        out[~real] = f
+    return centre, out
 
 
 def _cap_fan(verts, faces, normal, origin, tol_rel: float = 1e-9):
@@ -1973,18 +2782,27 @@ def _clip_by_plane(verts, faces, normal, origin, uv=None, fmat=None,
                             if keep_mat is not None and len(keep_mat) else nm)
 
     if cap and len(keep):
-        centre, cf = _cap_fan(verts, keep, n, origin)
-        if len(cf):
-            # `-1` in the fan is the shared centre, appended here so the fan
-            # can be built without knowing where the vertex array will end.
+        # TRIANGULATE THE CROSS-SECTION IF IT IS CLEAN, fan it if it is not.
+        # `_cap_polygon` reuses existing vertices, so it needs no centre point
+        # and no invented UV — and it does not span the hollow of a solidified
+        # wall, which is the whole reason it exists.
+        centre, cf = _cap_polygon(verts, keep, n, origin)
+        if cf is None or not len(cf):
+            centre, cf = _cap_fan(verts, keep, n, origin)
+        if cf is not None and len(cf) and centre is not None and (cf < 0).any():
+            # `-1` is the shared fan centre — appended here so a fan can be
+            # built without knowing where the vertex array will end. Exact
+            # triangles carry no -1 and need no extra point at all.
+            real = cf[cf >= 0]
             cf = np.where(cf < 0, len(verts), cf)
             verts = np.concatenate([verts, centre[None, :]])
             if uv is not None:
                 # The centre sits in the middle of the cut, so the middle of
                 # the UVs around it is the only defensible value; the cut face
                 # has no authored parameterisation of its own.
-                uv = np.concatenate([uv, uv[np.unique(cf[:, 1:])].mean(
+                uv = np.concatenate([uv, uv[np.unique(real)].mean(
                     axis=0, keepdims=True)])
+        if cf is not None and len(cf):
             keep = np.concatenate([keep, cf])
             if fmat is not None:
                 # The cut face is *cap_mat* when the caller supplied one — a
@@ -2016,7 +2834,28 @@ def _clip_by_plane(verts, faces, normal, origin, uv=None, fmat=None,
 
 
 #: Primvar names that hold UVs when the type alone does not say so.
-_UV_NAMES = ("st", "st0", "st_0", "uv", "UVMap", "map1")
+#: UV primvar names seen in this library. Read-side only — the role check
+#: below catches correctly-tagged sets whatever they are called, and `uv0` is
+#: here because the `selected_citydemo` pack uses it.
+_UV_NAMES = ("st", "st0", "st_0", "uv", "uv0", "uv1", "UVMap", "map1")
+
+
+def _uv_primvar_name(prim):
+    """The name of the UV set `_uv_face_varying` would pick, or None.
+
+    Mirrors that function's choice exactly. It exists so the soup can record
+    what the source called its UVs, and `_author_soup` can write them back
+    under the same name instead of the hardcoded `st` a material may not be
+    reading.
+    """
+    chosen = None
+    for pv in UsdGeom.PrimvarsAPI(prim).GetPrimvars():
+        role = getattr(pv.GetTypeName(), "role", "")
+        if role == "TextureCoordinate" or pv.GetBaseName() in _UV_NAMES:
+            chosen = pv
+            if role == "TextureCoordinate":
+                break
+    return chosen.GetBaseName() if chosen is not None else None
 
 
 def _uv_face_varying(prim, counts: np.ndarray, idx: np.ndarray):
@@ -2116,6 +2955,7 @@ def _mesh_soup(prims, select=None, masks=None):
     done by the support graph and not by the field.
     """
     V, UV, F, M, taken = [], [], [], [], []
+    uv_names = set()
     table, index = [], {}
     off = 0
 
@@ -2139,6 +2979,9 @@ def _mesh_soup(prims, select=None, masks=None):
             continue
 
         uv_fv = _uv_face_varying(prim, counts, idx)
+        nm = _uv_primvar_name(prim)
+        if nm:
+            uv_names.add(nm)
         mats = _face_material_ids(prim, len(counts), table, index)
         slots, src = _triangulate(counts)
         if not len(slots):
@@ -2160,9 +3003,10 @@ def _mesh_soup(prims, select=None, masks=None):
     if not V:
         return Soup(np.zeros((0, 3)), np.zeros((0, 2)),
                     np.zeros((0, 3), dtype=np.int64),
-                    np.zeros(0, dtype=np.int64), table), taken
+                    np.zeros(0, dtype=np.int64), table,
+                    sorted(uv_names)), taken
     return Soup(np.concatenate(V), np.concatenate(UV), np.concatenate(F),
-                np.concatenate(M), table), taken
+                np.concatenate(M), table, sorted(uv_names)), taken
 
 
 #: How much faster seed density grows than damage does. Above 1 the worst-hit
@@ -2266,8 +3110,23 @@ MATERIALS = {
     # a fragment cut out of a 0.15 m wall is 0.15 m thick whatever the cut
     # does, which is why `grain`'s z is not the plank's thickness.
     "timber": Material(0.15, (2.6, 1.0, 0.55), 1.2),
-    # A beam: long in one direction and stubby in the other two.
-    "steel": Material(0.30, (3.2, 0.8, 0.8), 2.4),
+    # ISOTROPIC, DELIBERATELY. This was a 4:1 beam grain — "long in one
+    # direction and stubby in the other two" — and measured on
+    # `BG_Building_C` it did exactly that: 1145 fragments at a median 3.6:1:1,
+    # with the long axis on X in 83% of them.
+    #
+    # The trouble is that `grain` is ONE VECTOR IN THE ASSET'S LOCAL FRAME, so
+    # every beam in every steel building points the same way. A real frame
+    # runs beams in both horizontal directions and columns vertically; one
+    # fixed axis gives a stack of parallel members — a woodpile, not a frame —
+    # and on an asset modelled long-side-along-Y the beams run across the
+    # short dimension. An isotropic grain reads as broken structure rather
+    # than as an implausibly ordered one.
+    #
+    # Doing it properly means varying the axis per cell or per region, which
+    # the current one-transform-per-building cut cannot express: cells with
+    # different grain axes cannot share a single scaled soup.
+    "steel": Material(0.30, (1.0, 1.0, 1.0), 2.4),
     # Cast frame and slab: thicker than brick, and it breaks into blocks and
     # slabs rather than into a lump — a floor plate is one of the two things a
     # concrete building sheds, and it is flat.
@@ -2456,6 +3315,248 @@ def fracture_seeds(soup: Soup, failure: Failure, fragment_m: float,
     return kept[:int(max_cells)]
 
 
+#: Threads for the per-cell clip loop in `_fracture_soup`.
+#:
+#: SAFE BY CONSTRUCTION: the loop reads a shared, never-mutated `Soup`, calls
+#: `_clip_by_plane` (a pure function of arrays), touches no USD, and returns
+#: plain `Soup` objects that the caller assembles afterwards. Verified
+#: bit-identical against the serial path on three assets.
+#:
+#: THREADS, NOT PROCESSES, because the soup would have to be pickled to every
+#: worker — 270k faces of it — and numpy releases the GIL inside the clip's
+#: array work, which is where the time is.
+#:
+#: FOUR, not `nproc`. Measured on `mini_auto_service` (270k faces): serial
+#: 34.5 s, 4 threads 10.8 s (3.2x), 8 threads 10.7 s, 16 threads 15.4 s. It is
+#: memory-bandwidth bound, so past four the threads mostly contend, and by
+#: sixteen they lose. `SCENE_FRACTURE_THREADS=1` restores the serial path
+#: exactly.
+CLIP_THREADS = max(1, int(os.environ.get("SCENE_FRACTURE_THREADS", "4") or 1))
+
+#: Which clipper cuts a fragment. `vtk` | `numpy` | `auto` (default).
+#:
+#: `numpy` is `_clip_by_plane` — Sutherland-Hodgman per triangle, capping
+#: INCREMENTALLY, tolerant of anything (unwelded soup, inside-out faces, open
+#: shells), which is why it has always been the default: the packs are full of
+#: all three.
+#:
+#: `vtk` is `vtkClipClosedSurface` over the cell's bisectors as one plane
+#: collection — one filter call per CELL instead of our per-plane Python loop.
+#: MEASURED 5-7.5x faster at equal fragment count and an identical occupancy
+#: profile (99.1% of sample points in exactly one cell, 0% in none, same as
+#: ours). It needs a welded, consistently-wound, closed manifold; `_vtk_prepare`
+#: supplies that once per mesh, and WITHOUT IT VTK silently emits uncapped
+#: shells that look like a 9x speedup because they skip the capping entirely.
+#:
+#: `auto` takes vtk when importable. It is the default because the whole point
+#: of the port is the speedup, and it degrades to numpy rather than failing on
+#: an environment without vtk.
+FRACTURE_BACKEND = (os.environ.get("SCENE_FRACTURE_BACKEND", "auto")
+                    or "auto").strip().lower()
+
+
+def vtk_available() -> bool:
+    try:
+        import vtk                                              # noqa: F401
+        return True
+    except Exception:                                            # noqa: BLE001
+        return False
+
+
+def active_backend() -> str:
+    """`vtk` or `numpy` — what `_fracture_soup` will actually use.
+
+    Recorded on every archetype so a library that was cut by BOTH (which the
+    urban_v3 library is, deliberately) says which fragments came from where.
+    """
+    if FRACTURE_BACKEND == "numpy":
+        return "numpy"
+    if FRACTURE_BACKEND == "vtk":
+        return "vtk" if vtk_available() else "numpy"
+    return "vtk" if vtk_available() else "numpy"
+
+#: Below this many faces, threading COSTS time — the pool costs more than the
+#: clip. Measured on a `selected_citydemo` tower (70 faces, 70 seeds): serial
+#: 0.27 s against 0.45 s on four threads, a 40% loss. The gate is on the SOUP,
+#: not on the seed count: 77% of fracture time is in calls with only 8-12
+#: seeds over a 100k+ face soup (the coarse level of `_fracture_hier`), and a
+#: seed-count gate would skip exactly those.
+CLIP_THREAD_MIN_FACES = 20_000
+
+
+def _vtk_prepare(verts, faces):
+    """A welded, consistently-wound, triangulated closed surface for VTK.
+
+    THE INPUT CONTRACT OURS DOES NOT HAVE. `_clip_by_plane` works on an
+    unwelded soup and judges by signed distance, so duplicated seam vertices
+    and inside-out faces are harmless. `vtkClipClosedSurface` needs a real
+    manifold, and given anything less it caps NOTHING and returns open shells
+    — which is not an error, just wrong, and reads on a benchmark as a huge
+    speedup because the capping never happened.
+
+    Measured on a 10 m box clipped in half (want volume 500, 0 boundary edges):
+
+        raw                          333.3   86 boundary edges
+        welded                       274.2   13
+        welded + consistent normals  500.0    0
+
+    Paid once per mesh, amortised over every cell.
+    """
+    import vtk
+    from vtk.util import numpy_support as ns
+
+    pts = vtk.vtkPoints()
+    pts.SetData(ns.numpy_to_vtk(np.ascontiguousarray(verts, dtype=np.float64),
+                                deep=1))
+    quad = np.empty((len(faces), 4), dtype=np.int64)
+    quad[:, 0] = 3
+    quad[:, 1:] = faces
+    ca = vtk.vtkCellArray()
+    ca.SetCells(len(faces), ns.numpy_to_vtkIdTypeArray(quad.ravel(), deep=1))
+    pd = vtk.vtkPolyData()
+    pd.SetPoints(pts)
+    pd.SetPolys(ca)
+
+    # THE ORIGINAL FACE INDEX RIDES ALONG as cell data, which is how UVs and
+    # material ids survive: VTK gives each output triangle the id of the input
+    # triangle it came from, and everything per-face is looked up through that.
+    src_id = ns.numpy_to_vtk(np.arange(len(faces), dtype=np.int32), deep=1)
+    src_id.SetName("srcFace")
+    pd.GetCellData().AddArray(src_id)
+
+    clean = vtk.vtkCleanPolyData()
+    clean.SetInputData(pd)
+    clean.SetTolerance(1e-8)
+    clean.PointMergingOn()
+    clean.Update()
+    nrm = vtk.vtkPolyDataNormals()
+    nrm.SetInputData(clean.GetOutput())
+    nrm.ConsistencyOn()
+    nrm.AutoOrientNormalsOn()
+    nrm.SplittingOff()
+    nrm.Update()
+    tri = vtk.vtkTriangleFilter()
+    tri.SetInputData(nrm.GetOutput())
+    tri.Update()
+    return tri.GetOutput()
+
+
+def _fracture_soup_vtk(soup: Soup, seeds: np.ndarray, order, min_faces: int,
+                       with_index: bool, cap_mat=None) -> list:
+    """`_fracture_soup` with `vtkClipClosedSurface` doing the cutting.
+
+    Same seeds, same bisectors, same nearest-first order — only the clipper
+    differs. Each cell is ONE filter call over the whole plane collection
+    rather than our loop of one clip per plane, which is where the 5-7x comes
+    from.
+
+    UVS AND MATERIALS COME BACK THROUGH `srcFace`. A cut triangle inherits the
+    per-face material of the input triangle it was cut from, and its UVs are
+    barycentric on that triangle — the same rule `_clip_by_plane` applies when
+    it interpolates at a crossing. Cap triangles have no source face (VTK marks
+    them -1), so they take `cap_mat` and zero UV, which is what our capping
+    does too.
+    """
+    import vtk
+    from vtk.util import numpy_support as ns
+
+    src = _vtk_prepare(soup.verts, soup.faces)
+    tri_pts = soup.verts[soup.faces]                       # (T, 3, 3)
+
+    def _cell(i):
+        p = seeds[i]
+        planes = vtk.vtkPlaneCollection()
+        for j in order[i]:
+            q = seeds[j]
+            n = q - p
+            g = float(np.linalg.norm(n))
+            if g < 1e-9:
+                continue
+            pl = vtk.vtkPlane()
+            pl.SetOrigin(*((p + q) * 0.5))
+            # VTK KEEPS THE POSITIVE SIDE (verified on a half-box), and the
+            # Voronoi cell of p is the side CLOSER to p — so the normal points
+            # away from q, i.e. -(q - p).
+            pl.SetNormal(*(-n / g))
+            planes.AddItem(pl)
+        clip = vtk.vtkClipClosedSurface()
+        clip.SetInputData(src)
+        clip.SetClippingPlanes(planes)
+        clip.GenerateFacesOn()
+        clip.Update()
+        t = vtk.vtkTriangleFilter()
+        t.SetInputData(clip.GetOutput())
+        t.Update()
+        out = t.GetOutput()
+        if out.GetNumberOfPolys() == 0:
+            return None
+        v = ns.vtk_to_numpy(out.GetPoints().GetData()).astype(np.float64)
+        f = ns.vtk_to_numpy(out.GetPolys().GetData()).reshape(-1, 4)[:, 1:]
+        f = np.ascontiguousarray(f, dtype=np.int64)
+        arr = out.GetCellData().GetArray("srcFace")
+        sf = (ns.vtk_to_numpy(arr).astype(np.int64) if arr is not None
+              else np.full(len(f), -1, dtype=np.int64))
+        return v, f, sf
+
+    cells = [_cell(i) for i in range(len(seeds))]
+
+    out_list = []
+    for i, got in enumerate(cells):
+        if got is None:
+            continue
+        v, f, sf = got
+        if len(f) < min_faces:
+            continue
+        fmat = uv = None
+        if soup.fmat is not None:
+            fm = np.zeros(len(f), dtype=np.int64)
+            ok = sf >= 0
+            fm[ok] = np.asarray(soup.fmat)[sf[ok]]
+            if cap_mat is not None and (~ok).any():
+                fm[~ok] = int(cap_mat)
+            fmat = fm
+        if soup.uv is not None:
+            uv = _uv_from_source(v, f, sf, tri_pts, soup.uv, soup.faces)
+        out_list.append((i, Soup(v, uv, f, fmat, soup.mats, soup.uv_names))
+                        if with_index
+                        else Soup(v, uv, f, fmat, soup.mats, soup.uv_names))
+    return out_list
+
+
+def _uv_from_source(verts, faces, src_face, tri_pts, src_uv, src_faces):
+    """UV per output vertex, barycentric on the source triangle it came from.
+
+    A clipped vertex lies ON its source triangle (the cut only ever removes
+    material), so its UV is the barycentric blend of that triangle's three —
+    exactly what `_clip_by_plane` computes at a crossing, just recovered after
+    the fact instead of carried through.
+
+    Cap vertices have no source triangle and get (0, 0); the cut faces take a
+    fracture material rather than a facade texture, so nothing reads them.
+    """
+    uv = np.zeros((len(verts), 2), dtype=np.float64)
+    seen = np.zeros(len(verts), dtype=bool)
+    for t, sf in enumerate(src_face):
+        if sf < 0:
+            continue
+        a, b, c = tri_pts[sf]
+        ua, ub, uc = src_uv[src_faces[sf]]
+        n = np.cross(b - a, c - a)
+        denom = float(n @ n)
+        if denom < 1e-18:
+            continue
+        for vi in faces[t]:
+            if seen[vi]:
+                continue
+            pt = verts[vi]
+            w_a = float(np.cross(b - pt, c - pt) @ n) / denom
+            w_b = float(np.cross(c - pt, a - pt) @ n) / denom
+            w_c = 1.0 - w_a - w_b
+            uv[vi] = w_a * ua + w_b * ub + w_c * uc
+            seen[vi] = True
+    return uv
+
+
 def _fracture_soup(soup: Soup, seeds: np.ndarray, neighbors: int = 24,
                    min_faces: int = 4, cap: bool = True,
                    with_index: bool = False, cap_mat=None) -> list:
@@ -2518,8 +3619,25 @@ def _fracture_soup(soup: Soup, seeds: np.ndarray, neighbors: int = 24,
     np.fill_diagonal(d2, np.inf)
     order = np.argsort(d2, axis=1)[:, :max(1, int(neighbors))]
 
-    out = []
-    for i, p in enumerate(seeds):
+    # THE VTK BACKEND, when one is available and asked for. Same seeds, same
+    # bisectors, same nearest-first order — see `active_backend`. Falls back to
+    # the numpy path on ANY failure rather than losing the cell: a fracture
+    # that raises takes a whole archetype with it, and a slower correct cut is
+    # always better than none.
+    if cap and active_backend() == "vtk":
+        try:
+            got = _fracture_soup_vtk(soup, seeds, order, min_faces,
+                                     with_index, cap_mat)
+            if got:
+                return got
+            print("[mesh_damage] vtk backend produced nothing — using numpy")
+        except Exception as exc:                                # noqa: BLE001
+            print(f"[mesh_damage] vtk backend failed ({type(exc).__name__}: "
+                  f"{exc}) — using numpy")
+
+    def _cell(i):
+        """Clip the soup down to seed *i*'s Voronoi cell. Pure; no shared state."""
+        p = seeds[i]
         cv, cf, cuv, cm = soup.verts, soup.faces, soup.uv, soup.fmat
         for j in order[i]:
             if len(cf) == 0:
@@ -2533,8 +3651,23 @@ def _fracture_soup(soup: Soup, seeds: np.ndarray, neighbors: int = 24,
                 break
             cv, cf, cuv, cm = _clip_by_plane(cv, cf, q - p, (p + q) * 0.5,
                                              cuv, cm, cap=cap, cap_mat=cap_mat)
+        return cv, cf, cuv, cm
+
+    # ORDER IS PRESERVED. `Executor.map` yields in input order, and the
+    # assembly below runs on the main thread — so the fragment list, and the
+    # prim names Stage A derives from its indices, are what they always were.
+    if (CLIP_THREADS > 1 and len(seeds) > 1
+            and len(soup) >= CLIP_THREAD_MIN_FACES):
+        with ThreadPoolExecutor(
+                max_workers=min(CLIP_THREADS, len(seeds))) as ex:
+            cells = list(ex.map(_cell, range(len(seeds))))
+    else:
+        cells = [_cell(i) for i in range(len(seeds))]
+
+    out = []
+    for i, (cv, cf, cuv, cm) in enumerate(cells):
         if len(cf) >= min_faces:
-            frag = Soup(cv, cuv, cf, cm, soup.mats)
+            frag = Soup(cv, cuv, cf, cm, soup.mats, soup.uv_names)
             out.append((i, frag) if with_index else frag)
     return out
 
@@ -2669,8 +3802,9 @@ def fracture(prims, bounds: Bounds, failure: Failure, seed: int = 0,
     g = grain_vec(grain)
     if np.allclose(g, 1.0):
         return _fracture_hier(soup, seeds, neighbors, min_faces, cap=cap)
-    scaled = Soup(soup.verts / g, soup.uv, soup.faces, soup.fmat, soup.mats)
-    return [Soup(f.verts * g, f.uv, f.faces, f.fmat, f.mats)
+    scaled = Soup(soup.verts / g, soup.uv, soup.faces, soup.fmat, soup.mats,
+                  soup.uv_names)
+    return [Soup(f.verts * g, f.uv, f.faces, f.fmat, f.mats, f.uv_names)
             for f in _fracture_hier(scaled, seeds / g, neighbors, min_faces,
                                     cap=cap)]
 
@@ -2698,19 +3832,69 @@ CORE_LOOKS = {
     # out looking like folded paper — the brightness of the concrete read as
     # white under any key light. These are NVIDIA's base materials, which ship
     # the same BaseColor/N/ORM triple the megascans do.
-    "steel": {"texture": _NV_BASE + "Metals/Steel_Carbon/Steel_Carbon_BaseColor.png",
-              "normal": _NV_BASE + "Metals/Steel_Carbon/Steel_Carbon_N.png",
-              "orm": _NV_BASE + "Metals/Steel_Carbon/Steel_Carbon_ORM.png",
-              "tile_m": 1.6, "color": (0.34, 0.34, 0.36), "roughness": 0.55,
-              "metallic": 0.6},
-    "concrete": {"texture": _NV_BASE + "Masonry/Concrete_Rough/Concrete_Rough_BaseColor.png",
+    # NOT A METAL TEXTURE, and the reason is the ORM. `enable_ORM_texture`
+    # routes roughness from the texture's green channel and METALLIC from its
+    # blue, which means `metallic_constant` and
+    # `reflection_roughness_constant` below are overridden wherever an ORM is
+    # bound. Steel_Carbon's ORM is a metal's, so the core stayed fully
+    # metallic no matter what the constants said, and a metallic surface shows
+    # the environment rather than its own diffuse: on the 82 m tower every cut
+    # face mirrored the dome and the pile came out white. Turning the constant
+    # down did nothing, because the constant was never what was being read.
+    #
+    # Concrete_Rough's ORM carries metallic 0, which is why `concrete` reads
+    # correctly dark, so steel borrows that same triple. It is also the more
+    # honest look: a steel-framed building breaks along its concrete floor
+    # slabs and shows dust and torn edges, not polished plate. The tint is
+    # darker than concrete's to keep the two kinds apart.
+    # DARK, and darker than it looks like it should be on paper. 0.20 is
+    # already a dark grey as a NUMBER, but a cut face is lit from the dome on
+    # every side and carries no texture to break it up, so it renders far
+    # lighter than its albedo suggests and the break reads as pale concrete
+    # rather than as the inside of a steel frame. 0.07 is about weathered
+    # asphalt, and that is what puts it where the eye expects.
+    "steel": {"normal": _NV_BASE + "Masonry/Concrete_Rough/Concrete_Rough_N.png",
+              "tile_m": 1.8, "color": (0.07, 0.07, 0.075), "roughness": 0.85},
+    # THE COLOUR HERE IS INERT — a `texture` is bound, so the renderer reads
+    # the map and ignores `diffuse_color_constant` (see `core_material`). The
+    # constant is kept only as the value a future untextured variant would use.
+    # `tint` is what actually darkens it: it MULTIPLIES the sampled albedo.
+    #
+    # Three attempts tuned the wrong knob before this was understood — 0.42,
+    # then 0.30 "to match real weathered concrete's 0.25-0.35 albedo", then
+    # 0.13 — and the cut faces stayed near white every time, most visibly on
+    # `SM_Building_30_cracked` where the core is 946k of the building's faces
+    # and the damaged two thirds read as bright paper. Settled 2026-08-30 by
+    # tinting the core red with the texture blocked (it went red, so the core
+    # WAS the white) and then tinting with the texture intact (it went grey
+    # and kept its detail).
+"concrete": {"texture": _NV_BASE + "Masonry/Concrete_Rough/Concrete_Rough_BaseColor.png",
                  "normal": _NV_BASE + "Masonry/Concrete_Rough/Concrete_Rough_N.png",
                  "orm": _NV_BASE + "Masonry/Concrete_Rough/Concrete_Rough_ORM.png",
-                 "tile_m": 2.2, "color": (0.42, 0.42, 0.40), "roughness": 0.85},
+                 "tile_m": 2.2, "color": (0.30, 0.30, 0.31),
+                 "tint": (0.18, 0.18, 0.19), "roughness": 0.85},
 }
 
 
-def core_material(stage, kind=None) -> str:
+#: Prefix for the interior-structure material. It exists to keep the floors
+#: and columns `fill_interior` authors in their OWN merge bucket: `bake.py`
+#: groups fragments per FACE by bound material, so anything sharing the core
+#: material is indistinguishable from a shell cut face and lands in
+#: `rubble_<material>`. Giving the interior its own material is what makes it
+#: come out of the bake as a separate mesh -- and it separates correctly even
+#: for a Voronoi cell that straddles facade and floor slab, because the split
+#: is per face, not per fragment.
+INTERIOR_PREFIX = "InteriorStructure"
+
+CORE_PREFIX = "FractureCore"
+
+
+def interior_material(stage, kind=None) -> str:
+    """`core_material`'s look, under its own name. See `INTERIOR_PREFIX`."""
+    return core_material(stage, kind, prefix=INTERIOR_PREFIX)
+
+
+def core_material(stage, kind=None, prefix: str = CORE_PREFIX) -> str:
     """The SHARED fracture-core material for *kind*, defined once. Its path.
 
     One material per kind per stage, not per building and never per fragment:
@@ -2726,7 +3910,7 @@ def core_material(stage, kind=None) -> str:
     kind = str(kind or DEFAULT_MATERIAL).lower()
     look = CORE_LOOKS.get(kind, CORE_LOOKS[DEFAULT_MATERIAL])
     scope = "/World/Looks" if stage.GetPrimAtPath("/World") else "/Looks"
-    path = f"{scope}/FractureCore_{kind}"
+    path = f"{scope}/{prefix}_{kind}"
     if stage.GetPrimAtPath(path):
         return path
     UsdGeom.Scope.Define(stage, scope)
@@ -2741,9 +3925,16 @@ def core_material(stage, kind=None) -> str:
                    Sdf.ValueTypeNames.Float).Set(float(look["roughness"]))
     sh.CreateInput("metallic_constant",
                    Sdf.ValueTypeNames.Float).Set(float(look.get("metallic", 0.0)))
-    if look.get("texture"):
-        sh.CreateInput("diffuse_texture", Sdf.ValueTypeNames.Asset).Set(
-            Sdf.AssetPath(sg._join_asset_root(look["texture"], "")))
+    # A DIFFUSE TEXTURE REPLACES `diffuse_color_constant` — it does not tint
+    # it. That is why `steel` stayed white through two colour changes: while a
+    # BaseColor map was bound, the constant was dead code and the pile showed
+    # the map's own light grey. A look may now bring `normal`/`orm` for
+    # surface detail WITHOUT a `texture`, and then the constant is what paints
+    # it, which is the only way to actually specify a colour here.
+    if look.get("texture") or look.get("normal") or look.get("orm"):
+        if look.get("texture"):
+            sh.CreateInput("diffuse_texture", Sdf.ValueTypeNames.Asset).Set(
+                Sdf.AssetPath(sg._join_asset_root(look["texture"], "")))
         if look.get("normal"):
             sh.CreateInput("normalmap_texture", Sdf.ValueTypeNames.Asset).Set(
                 Sdf.AssetPath(sg._join_asset_root(look["normal"], "")))
@@ -2752,6 +3943,18 @@ def core_material(stage, kind=None) -> str:
                            Sdf.ValueTypeNames.Bool).Set(True)
             sh.CreateInput("ORM_texture", Sdf.ValueTypeNames.Asset).Set(
                 Sdf.AssetPath(sg._join_asset_root(look["orm"], "")))
+        # TINT IS THE ONLY WAY TO COLOUR A TEXTURED CORE. `diffuse_tint`
+        # MULTIPLIES the sampled albedo, where `diffuse_color_constant` is
+        # simply ignored while a BaseColor map is bound (see the note above).
+        # `concrete` is the case that needed it: its constant was walked
+        # 0.42 -> 0.30 -> 0.13 across three separate attempts, all of them
+        # tuning a value the renderer never read, while the cut faces stayed
+        # near white. Verified by tinting the core red with the texture
+        # blocked (red appeared) and then with the texture intact and a tint
+        # set (grey appeared, texture detail preserved).
+        if look.get("tint"):
+            sh.CreateInput("diffuse_tint", Sdf.ValueTypeNames.Color3f).Set(
+                Gf.Vec3f(*look["tint"]))
         sh.CreateInput("project_uvw", Sdf.ValueTypeNames.Bool).Set(True)
         sh.CreateInput("world_or_object", Sdf.ValueTypeNames.Bool).Set(True)
         k = 1.0 / float(look.get("tile_m", 2.0))
@@ -3102,7 +4305,8 @@ def fracture_to_stage(stage, root_prim, bounds: Bounds, failure: Failure,
                       collapse: float = 0.80, neighbors: int = 24,
                       min_faces: int = 4, cap: bool = True,
                       shrink: float = 1.0, grain=None,
-                      gap_m: float = 0.0, core=None) -> dict:
+                      gap_m: float = 0.0, core=None,
+                      wall_m: float = 0.5) -> dict:
     """Break *root_prim* along *failure* and author the fragments.
 
     *core* is the path of a material for the CUT faces — see `core_material`.
@@ -3182,12 +4386,14 @@ def fracture_to_stage(stage, root_prim, bounds: Bounds, failure: Failure,
     # the cutter: there is no version of "clip by an ellipsoid" to write.
     g = grain_vec(grain)
     if not np.allclose(g, 1.0):
-        soup = Soup(soup.verts / g, soup.uv, soup.faces, soup.fmat, soup.mats)
+        soup = Soup(soup.verts / g, soup.uv, soup.faces, soup.fmat,
+                    soup.mats, soup.uv_names)
         frags = _fracture_hier(soup, seeds / g, neighbors, min_faces, cap=cap,
                                cap_mat=cap_mat)
-        frags = [Soup(f.verts * g, f.uv, f.faces, f.fmat, f.mats)
+        frags = [Soup(f.verts * g, f.uv, f.faces, f.fmat, f.mats, f.uv_names)
                  for f in frags]
-        soup = Soup(soup.verts * g, soup.uv, soup.faces, soup.fmat, soup.mats)
+        soup = Soup(soup.verts * g, soup.uv, soup.faces, soup.fmat,
+                    soup.mats, soup.uv_names)
     else:
         frags = _fracture_hier(soup, seeds, neighbors, min_faces, cap=cap,
                                cap_mat=cap_mat)
@@ -3294,6 +4500,18 @@ def fracture_to_stage(stage, root_prim, bounds: Bounds, failure: Failure,
         soup, _ = _mesh_soup(prims, masks=masks)
         if not len(soup):
             continue
+        # CLOSE ITS RIM. Nothing else will: a slab is selected, not clipped,
+        # so it never passes through `_clip_by_plane` and never gets a cap.
+        rim = _cap_shell_rim(soup, wall_m)
+        if rim is not None:
+            soup = Soup(soup.verts, soup.uv, rim, 
+                        np.concatenate([soup.fmat,
+                                        np.full(len(rim) - len(soup.faces),
+                                                int(np.bincount(soup.fmat).argmax())
+                                                if len(soup.fmat) else 0,
+                                                dtype=np.int64)])
+                        if soup.fmat is not None else None,
+                        soup.mats, soup.uv_names)
         p = _author_soup(stage, scope.AppendChild(f"slab_{k:03d}"),
                          soup, soup.verts, root_inv)
         paths.append(p)
@@ -3338,6 +4556,72 @@ def fracture_to_stage(stage, root_prim, bounds: Bounds, failure: Failure,
             "slabs": slab_paths, "standing": standing}
 
 
+def _cap_shell_rim(soup: Soup, wall_m: float, tol: float = 1e-6):
+    """Close the open rim of a slab by bridging its two solidified sheets.
+
+    A SLAB IS NEVER CLIPPED, so nothing ever caps it. It is lifted out of the
+    source by selecting faces (`_mesh_soup(..., masks=...)`) — the part of the
+    building that never failed, released whole because what held it up is gone
+    — and wherever that selection ends, the surface simply stops. `solidify`
+    has already made it two sheets a wall apart, so the result reads exactly as
+    it looks: two parallel skins with nothing joining them at the edge.
+
+    The rim is NOT planar, so `_cap_polygon` does not apply. But the two sheets
+    are offset copies of each other by construction, so every open edge on the
+    outer skin has an anti-parallel partner on the inner one about `wall_m`
+    away, and the pair spans a quad. Matching them is local, needs no loop
+    chaining, and closes each edge exactly once.
+
+    Returns new faces, or None when there is nothing open to close.
+    """
+    faces = soup.faces
+    if faces is None or len(faces) < 1:
+        return None
+    w = _weld(soup.verts, max(tol, 1e-6))
+    ea = w[faces[:, [0, 1, 2]].reshape(-1)]
+    eb = w[faces[:, [1, 2, 0]].reshape(-1)]
+    key = np.stack([np.minimum(ea, eb), np.maximum(ea, eb)], axis=1)
+    _u, inv, cnt = np.unique(key, axis=0, return_inverse=True,
+                             return_counts=True)
+    open_slots = np.nonzero(cnt[inv] == 1)[0]
+    if len(open_slots) < 2:
+        return None
+
+    raw = faces[:, [0, 1, 2]].reshape(-1)[open_slots]
+    rawb = faces[:, [1, 2, 0]].reshape(-1)[open_slots]
+    A, B = soup.verts[raw], soup.verts[rawb]
+    mid = 0.5 * (A + B)
+    d = B - A
+    ln = np.linalg.norm(d, axis=1, keepdims=True)
+    dirn = d / np.maximum(ln, 1e-12)
+
+    # A partner sits about a wall away, pointing the other way. The window is
+    # generous at both ends because `solidify` scales the offset per building
+    # and a rim vertex on a corner moves further than one on a flat run.
+    lo, hi = 0.15 * float(wall_m), 2.5 * float(wall_m)
+    used = np.zeros(len(open_slots), dtype=bool)
+    quads = []
+    order = np.argsort(-ln.reshape(-1))          # longest first: most reliable
+    for i in order:
+        if used[i]:
+            continue
+        gap = np.linalg.norm(mid - mid[i], axis=1)
+        anti = dirn @ dirn[i]
+        ok = (~used) & (gap > lo) & (gap < hi) & (anti < -0.5)
+        ok[i] = False
+        if not ok.any():
+            continue
+        j = int(np.argmin(np.where(ok, gap, np.inf)))
+        used[i] = used[j] = True
+        a, b = int(raw[i]), int(rawb[i])
+        c, e = int(raw[j]), int(rawb[j])
+        quads.append((a, b, c))
+        quads.append((a, c, e))
+    if not quads:
+        return None
+    return np.concatenate([faces, np.array(quads, dtype=np.int64)])
+
+
 def _author_soup(stage, path, soup: Soup, verts: np.ndarray, root_inv):
     """One `Soup` as a `UsdGeom.Mesh` under *path*. Returns the path as a str.
 
@@ -3361,9 +4645,16 @@ def _author_soup(stage, path, soup: Soup, verts: np.ndarray, root_inv):
     mesh.CreateDoubleSidedAttr(True)
     # The soup is unwelded, so UVs are already one per vertex.
     if soup.uv is not None and len(soup.uv) == len(verts):
-        pv = UsdGeom.PrimvarsAPI(mesh).CreatePrimvar(
-            "st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.vertex)
-        pv.Set(_vec2f(soup.uv))
+        # `st` ALWAYS, plus whatever the source called it. The material's
+        # primvar reader asks for one specific name and silently yields
+        # nothing for any other, so a fragment authored only `st` off a `uv0`
+        # asset renders as the shader's flat fallback colour. The array is a
+        # float2 per vertex; writing it twice is cheap beside the geometry.
+        vals = _vec2f(soup.uv)
+        for nm in dict.fromkeys(("st",) + tuple(soup.uv_names)):
+            pv = UsdGeom.PrimvarsAPI(mesh).CreatePrimvar(
+                nm, Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.vertex)
+            pv.Set(vals)
     _bind_materials(stage, mesh, soup)
     return str(path)
 
@@ -3825,8 +5116,11 @@ def damage_building(stage, root_prim, disaster_type: str, intensity: float,
     # scene-wide; None keeps them in the material of the piece they close.
     core = (core_material(stage, core_material_kind)
             if core_material_kind else None)
+    # `wall_m` REACHES THE SLAB CAP. It is the offset `solidify` just used, and
+    # `_cap_shell_rim` needs it to recognise which open edges are the two sides
+    # of the same wall.
     cut = fracture_to_stage(stage, root_prim, b, fail, seed=seed, core=core,
-                            **fracture_kw)
+                            wall_m=float(wall_m), **fracture_kw)
     out["paths"] = cut["paths"]
     out["loose"] = cut["loose"]
     out["cells"] = cut["cells"]
@@ -3985,7 +5279,81 @@ def fragment_shape(stage, paths) -> dict:
             "plate_frac": float(np.mean(ratio >= 4.0))}
 
 
-def apply_to_stage(stage, config: dict, placements: list) -> dict:
+def subdivide_edge_m(default: float) -> float:
+    """The pre-fracture edge length for this run, honouring `SCENE_SUBDIVIDE_M`.
+
+    ONE FUNCTION BECAUSE BOTH PATHS NEED IT. The override used to live inline
+    in `apply_to_stage`, so it reached the LIVE cut and not Stage A — and Stage
+    A is where it matters most, because a baked archetype carries all of that
+    tessellation to disk and a scene references it dozens of times. Setting it
+    for a bake did nothing at all, silently: `MBuilding01_cracked` came out at
+    283 MB with the variable set and 283 MB without it, and the budgets table
+    in `QUAKE_STATE.md` has been listing it as the lever for archetype size
+    the whole time.
+
+    Coarser only. The value is a FLOOR on the edge length, so it can make the
+    rubble bigger and never finer than the config asked for.
+    """
+    env = os.environ.get("SCENE_SUBDIVIDE_M", "").strip()
+    if not env or not default:
+        return default
+    try:
+        return max(float(default), float(env))
+    except ValueError:
+        return default
+
+
+def _shed_debris(stage, config, layout, p, kind, report, envelope, seed):
+    """Author the rubble one live-cut building left around itself.
+
+    Thin: `disaster.debris` decides everything, this only supplies the four
+    facts it needs from a placement — where the building is, how big it was
+    before the cut, what it is made of, and how much of it came down.
+
+    A live scene is bounded and an archetype cell is not, so the region and
+    exclusion veto live on this side. Both come from the caller because a
+    placement carries neither.
+    """
+    from disaster import debris as D
+    from scene_generator import _in_exclusion
+
+    if envelope is None or not p.get("prim_path"):
+        return {"placements": [], "paths": [], "statics": [],
+                "radius_m": 0.0}
+    size = envelope.hi - envelope.lo
+    region = (layout or {}).get("region")
+    exclusions = (config or {}).get("exclusions") or []
+    rx0, ry0, rx1, ry1 = ([float(v) for v in region] if region
+                          else (0.0, 0.0, 0.0, 0.0))
+
+    def _keep(x, y):
+        if exclusions and _in_exclusion(x, y, exclusions):
+            return False
+        return not region or (rx0 <= x <= rx1 and ry0 <= y <= ry1)
+
+    out = D.shed(
+        stage, config, kind=kind,
+        # SIZE x RUNG — see `debris.budget_m3`. The rung is what the caller
+        # asked for; `report["level"]` carries it back from `quake.at_level`.
+        rung=(report or {}).get("level"),
+        centre=(float(p.get("x_m", 0.0)), float(p.get("y_m", 0.0))),
+        footprint_m=p.get("_footprint_m") or (float(size[0]), float(size[1])),
+        height_m=float(size[2]),
+        # ITS OWN SCOPE, beside the building. `apply_placements` names prims
+        # by the index within the list it was handed, so two calls sharing a
+        # parent produce the same `debris_0_0` twice and the second silently
+        # overwrites the first.
+        parent_path=str(p["prim_path"]) + "_debris",
+        rng=random.Random(int(seed) + 4703), keep=_keep)
+    # So a scene read back from placements alone still knows the ground here is
+    # covered — see `targets.survey_from_placements`.
+    if out["radius_m"] > 0.0:
+        p["_debris_r_m"] = out["radius_m"]
+    return out
+
+
+def apply_to_stage(stage, config: dict, placements: list,
+                   layout: dict = None) -> dict:
     """Damage the buildings the asset-swap route did not ruin.
 
     Runs after `apply_placements`, because it needs real prims: the damage
@@ -4080,12 +5448,7 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
     # and 800 cells, `MBuilding05_partial_collapse` alone 3 GB, and loading 67
     # of those exhausted 125 GB of host RAM. `SCENE_SUBDIVIDE_M` coarsens it
     # for a run without editing a preset, the way `SCENE_MAX_CELLS` does.
-    env_edge = os.environ.get("SCENE_SUBDIVIDE_M", "").strip()
-    if env_edge and sub_edge:
-        try:
-            sub_edge = max(sub_edge, float(env_edge))
-        except ValueError:
-            pass
+    sub_edge = subdivide_edge_m(sub_edge)
     sub_max_points = int(scfg.get("max_points", 400_000))
     frac_kw = {k: fcfg[k] for k in FRACTURE_KEYS if k in fcfg}
 
@@ -4103,6 +5466,7 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
     fragments: list = []
     loose: list = []
     slabs: list = []
+    debris_pls: list = []
     # Live damage is tens of seconds A BUILDING and prints nothing until the
     # whole pass is done, so a scene that is working looks identical to one
     # that has hung. One line per building, before and after.
@@ -4140,6 +5504,10 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
         if not prim or not prim.IsValid():
             continue
         t_one = time.time()
+        # THE INTACT ENVELOPE, measured before anything moves. It is what the
+        # debris pass sizes its budget against, and after the cut the bounds
+        # are the bounds of the thrown pieces instead.
+        envelope = bounds_of(mesh_prims(prim))
         # Per ASSET, not per scene: see `ASSET_MATERIALS`.
         kind = material_for_asset(p.get("usd"), cfg.get("material"),
                                   pack_materials)
@@ -4221,6 +5589,20 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
             if got.get("slabs"):
                 tally["slabs"] = tally.get("slabs", 0) + len(got["slabs"])
 
+        # WHAT IT SHED, from what actually came down. Authored here and not by
+        # `disaster_stage` because this is the only place the answer exists —
+        # see `disaster/debris.py`. The pieces join `loose`, so the scene's one
+        # settle pass in `scene_prep` drops them the same way it drops the
+        # fragments; they are also returned as placements, so they reach
+        # `targets.survey_from_placements` and casualties are kept out of them.
+        got_debris = _shed_debris(stage, config, layout, p, kind, got,
+                                  envelope, seed + i * 31)
+        if got_debris["placements"]:
+            debris_pls.extend(got_debris["placements"])
+            loose.extend(got_debris["paths"])
+            tally["debris"] = tally.get("debris", 0) + len(
+                got_debris["placements"])
+
     if tally:
         print("[mesh_damage] "
               + "  ".join(f"{k}={v}" for k, v in sorted(tally.items())))
@@ -4229,7 +5611,7 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
     # so anything measuring where an event put the material has to leave them
     # out. See `fracture_to_stage` and the SUPPORT note.
     return {"tally": tally, "fragments": fragments, "loose": loose,
-            "slabs": slabs}
+            "slabs": slabs, "debris": debris_pls}
 
 
 # ---------------------------------------------------------------------------
@@ -4582,7 +5964,11 @@ def fill_interior(stage, root_prim, bounds: Bounds, storey_m: float = 3.5,
 
     mat = None
     if core_kind:
-        mat = UsdShade.Material.Get(stage, core_material(stage, core_kind))
+        # The INTERIOR material, not the core one: see `INTERIOR_PREFIX`.
+        # Binding these to the core made the floors and columns merge into
+        # `rubble_<core>` the moment they were cut, so a finished archetype had
+        # no separable interior structure left in it.
+        mat = UsdShade.Material.Get(stage, interior_material(stage, core_kind))
         if mat and not mat.GetPrim().IsValid():
             mat = None
     if mat is None:
