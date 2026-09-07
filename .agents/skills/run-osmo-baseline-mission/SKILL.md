@@ -412,6 +412,16 @@ eight streams, making both performance and readiness results ambiguous.
 
 ### Camera graph gating does not stop RTX rendering
 
+The scheduling counter in `PegasusApp.run()` advances once per application
+loop / `world.step(render=True)`, **not once per physics substep**. Isaac's
+`SimulationContext.step(render=True)` calls `app.update()`, which can advance
+multiple physics steps. Do not convert groups/burst to milliseconds using
+`PX4_PHYSICS_HZ` alone. Measure actual RGB/depth header-stamp rates and long
+inter-burst gaps with `scripts/measure_camera_rates.py` on the robot's ROS
+domain. Keep simulated FPS distinct from wall-clock FPS and report unique
+timestamps, not merely received messages. A live unsliced 100/30 Hz RAVEN
+configuration measured 33.33 image-header FPS (30 ms gaps), not 100 FPS.
+
 `IsaacSimulationGate.inputs:step=0` stops the downstream ROS helpers, but it
 does not deactivate a render product that Hydra already owns. On pod 56 the
 eight-way gate reduced callback publication to one camera per physics tick yet
