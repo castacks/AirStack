@@ -13,7 +13,7 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 
 | Disaster | Locale | Level | Scene ready | Frontier | Lawnmower | VLFM | CoNavGPT2 | RayFronts/RAVEN |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
-| **Fire** | **Urban** | L1 | 🟩 | 🟩 | 🟧 | 🟩 | 🟩 | 🟦 |
+| **Fire** | **Urban** | L1 | 🟩 | 🟩 | 🟨 | 🟩 | 🟩 | 🟦 |
 | **Fire** | **Urban** | L2 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
 | **Fire** | **Urban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Fire** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
@@ -41,6 +41,16 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 ## Fire
 
 ### Urban
+
+Pod 58 started the five remaining Fire runs at **2026-09-07 06:10:59 UTC**:
+L1 Lawnmower, then L2 Frontier, Lawnmower, VLFM and CoNavGPT2. Results root:
+`urban_fire_remaining_8robot_optimized_pod58/2026-09-07_06-10-59`.
+Its original auto-runner was interrupted cleanly with SIGINT and was not
+uploaded; `mission_launcher.sh` remains stopped to prevent auto-teardown.
+The manual runner is capped below 12 wall hours, with immediate pass-only
+uploads. Owned GPU UUID `GPU-17194e29…` maps to Isaac device 2; both renderer
+and model services are pinned to 2. Original 32/8 camera slicing and full
+scene contacts are retained. Flight RTF is pending initialization.
 
 | Level | What is done | What is left | Intended run folder |
 |---:|---|---|---|
@@ -388,7 +398,8 @@ uploaded.
 | 7 | `airstack-mission-1gpu-57` | Earthquake/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 4/4 | 5 h 12 min | COMPLETE — all four passed/uploaded/NAS-verified at team RTFs 0.19188, 0.19888, 0.21211 and 0.21651 |
 | 8 | `airstack-mission-1gpu-57` | Earthquake/Suburban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 1/4 | ≤12 h | DIAGNOSTICS COMPLETE / RERUN REQUIRED — Frontier passed/uploaded/NAS-verified at team RTF 0.04565. The persistent-callback near-camera-off 512/1 diagnostic measured RTF 0.04227, ruling out camera rendering. The original-sensor ground-only-contact diagnostic disabled 11,343 colliders and halved readiness wall time, but measured RTF 0.04558 and failed 8/8 takeoff when robots 6 and 8 exhausted pre-arm retries. Both diagnostics were stopped and not uploaded. Production specs retain full contacts/original 32/8 sensors with owned GPU pins; accepted queue remains paused |
 | 8 | `airstack-mission-1gpu-56` | Earthquake/Suburban L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 2/4 | ≤12 h per launch | POD EXPIRED / RERUN REQUIRED — Frontier passed/uploaded/NAS-verified at team RTF 0.05664. The fixed Lawnmower retry passed all eight 600.03-s windows at bottleneck RTF 0.04897 and was uploaded/NAS-verified at 17:22 UTC under `earthquake_suburban_l2_remaining_optimized_pod56/2026-09-06_13-18-38/iter_001__earthquakesuburbanl2v1_lawnmower__lawnmower`; rejected partials were never retained on NAS. The full VLFM attempt was deliberately stopped/not uploaded after discovering PhysX was on CPU. GPU-physics smoke testing then identified and fixed the Pegasus direct-GPU-API incompatibility (GPU broadphase/dynamics retained; Fabric and suppressed readback disabled), and all eight PX4/odometry endpoints came ready without the articulation errors. The corrected 100-s smoke was interrupted when workflow 56 reached `FAILED_EXEC_TIMEOUT` and its pod/tunnel disappeared at 20:27 UTC. VLFM and CoNavGPT2 remain outstanding for a fresh pod |
-| 8b | `airstack-mission-1gpu-58` / dev 191 | Earthquake/Suburban L2 VLFM + CoNavGPT2 replacement | 0/2 | 12 h mission / 100 h inspectable pod | DIAGNOSTIC RUNNING / WORKFLOW 58 PENDING — the first dev-191 upload-disabled gate passed GPU/direct-API and all-eight flight/perception gates but was stopped prematurely using the same invalid two-process `/clock` estimate (reported 0.0547). A persistent-callback measurement is active on the 128-group/burst-8 diagnostic. Workflow 58's renderer index must still be corrected after assignment; accepted VLFM and CoNavGPT2 remain outstanding |
+| 8b | Unassigned | Earthquake/Suburban L2 VLFM + CoNavGPT2 replacement | 0/2 | ≤12 h per batch | WAITING — diagnostics did not restore RTF. Pod 58 was reassigned to remaining Urban Fire runs on Sep 7; dev 191 is running Urban Hurricane. No diagnostic counts as an accepted result |
+| 8c | `airstack-mission-1gpu-58` | Fire/Urban L1 Lawnmower + L2 four baselines | 0/5 | <12 h | RUNNING — L1 Lawnmower initialized at 06:10:59 UTC; owned renderer/model GPU 2, original sensors/full contacts, pass-only immediate uploads, auto-launcher held. RTF pending flight |
 | 9 | `airstack-mission-1gpu-57` | Earthquake/Suburban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED — all four methods remain outstanding as upload-gated one-cell missions after L1. Every pass must be NAS-verified before the next method; failed cells retry locally and never upload |
 | 10 | dev pod 191 | Hurricane/Urban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤11 h | RUNNING — Frontier started at 04:58 UTC under `hurricane_urban_l1_8robot_optimized_dev191/2026-09-07_04-58-24`; canonical Nucleus cold-open and material/asset audit passed; 12/12 GT survivors are inside the generated search area; all eight generated spawns have 10.1–11.9 m clearance; Isaac and the detector are verified on the owned GPU UUID `GPU-38264ce2…`; PX4, Mighty bridge, perception, and takeoff gates passed for all 8 robots after one successful MAVROS recovery; persistent 90-s `/clock` samples measured RTF **0.2261** during takeoff, **0.2322** at the start of eight-planner load, and **0.1531** mid-run as the autonomy maps grew and host CPU pressure increased; no result has passed or uploaded yet |
 | 11 | `airstack-mission-1gpu-56` | Hurricane/Urban L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | READY/QUEUED — canonical Nucleus cold-open and material/asset audit passed; 12/12 GT survivors are inside the generated search area; all eight generated spawns have 10.0–11.6 m clearance; mission and overlay validation passed. Starts after Hurricane/Urban L1 under a fresh 12-hour cap |
