@@ -1,6 +1,6 @@
 # Disaster benchmark dashboard
 
-Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-09-06**.
+Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-09-07**.
 
 > **Legend:** 🟩 **DONE** · 🟦 **READY** · 🟧 **RERUN** · 🟨 **VERIFY / IN PROGRESS** · ⬜ **NOT READY**
 >
@@ -19,7 +19,7 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | **Fire** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Fire** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Fire** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Hurricane** | **Urban** | L1 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
+| **Hurricane** | **Urban** | L1 | 🟩 | 🟨 | 🟦 | 🟦 | 🟦 | 🟦 |
 | **Hurricane** | **Urban** | L2 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
 | **Hurricane** | **Urban** | L3 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
 | **Hurricane** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
@@ -104,8 +104,13 @@ Development history only:
 ### Urban
 
 Urban Hurricane L1–L3 are canonically exported and ready for benchmarking.
-Their twelve shared-planner baselines are queued on pod 56 after the active
-Urban Earthquake L2 batch and the already queued Suburban Earthquake L2 batch.
+The L1 four-method production batch started on dev pod 191 at 04:58 UTC on
+2026-09-07 under
+`hurricane_urban_l1_8robot_optimized_dev191/2026-09-07_04-58-24`;
+Frontier is the active first iteration. The batch retains the accepted
+100 Hz physics / 30 Hz rendering and 32-group / 8-tick camera schedule,
+pins both Isaac and the offboard detector to pod 191's owned GPU index 3,
+and disables the unused RayFronts server. Only passed iterations upload.
 No Urban Hurricane benchmark result exists yet.
 
 ### Suburban
@@ -376,7 +381,7 @@ uploaded.
 | 8 | `airstack-mission-1gpu-56` | Earthquake/Suburban L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 2/4 | ≤12 h per launch | POD EXPIRED / RERUN REQUIRED — Frontier passed/uploaded/NAS-verified at team RTF 0.05664. The fixed Lawnmower retry passed all eight 600.03-s windows at bottleneck RTF 0.04897 and was uploaded/NAS-verified at 17:22 UTC under `earthquake_suburban_l2_remaining_optimized_pod56/2026-09-06_13-18-38/iter_001__earthquakesuburbanl2v1_lawnmower__lawnmower`; rejected partials were never retained on NAS. The full VLFM attempt was deliberately stopped/not uploaded after discovering PhysX was on CPU. GPU-physics smoke testing then identified and fixed the Pegasus direct-GPU-API incompatibility (GPU broadphase/dynamics retained; Fabric and suppressed readback disabled), and all eight PX4/odometry endpoints came ready without the articulation errors. The corrected 100-s smoke was interrupted when workflow 56 reached `FAILED_EXEC_TIMEOUT` and its pod/tunnel disappeared at 20:27 UTC. VLFM and CoNavGPT2 remain outstanding for a fresh pod |
 | 8b | `airstack-mission-1gpu-58` / dev 191 | Earthquake/Suburban L2 VLFM + CoNavGPT2 replacement | 0/2 | 12 h mission / 100 h inspectable pod | DIAGNOSTIC RUNNING / WORKFLOW 58 PENDING — the first dev-191 upload-disabled gate passed GPU/direct-API and all-eight flight/perception gates but was stopped prematurely using the same invalid two-process `/clock` estimate (reported 0.0547). A persistent-callback measurement is active on the 128-group/burst-8 diagnostic. Workflow 58's renderer index must still be corrected after assignment; accepted VLFM and CoNavGPT2 remain outstanding |
 | 9 | `airstack-mission-1gpu-57` | Earthquake/Suburban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED — all four methods remain outstanding as upload-gated one-cell missions after L1. Every pass must be NAS-verified before the next method; failed cells retry locally and never upload |
-| 10 | `airstack-mission-1gpu-56` | Hurricane/Urban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | READY/QUEUED — canonical Nucleus cold-open and material/asset audit passed; 12/12 GT survivors are inside the generated search area; all eight generated spawns have 10.1–11.9 m clearance; mission and overlay validation passed. Starts after Suburban Earthquake L2 |
+| 10 | dev pod 191 | Hurricane/Urban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤11 h | RUNNING — Frontier started at 04:58 UTC under `hurricane_urban_l1_8robot_optimized_dev191/2026-09-07_04-58-24`; canonical Nucleus cold-open and material/asset audit passed; 12/12 GT survivors are inside the generated search area; all eight generated spawns have 10.1–11.9 m clearance; Isaac and the detector are verified on the owned GPU UUID `GPU-38264ce2…`; no result has passed or uploaded yet |
 | 11 | `airstack-mission-1gpu-56` | Hurricane/Urban L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | READY/QUEUED — canonical Nucleus cold-open and material/asset audit passed; 12/12 GT survivors are inside the generated search area; all eight generated spawns have 10.0–11.6 m clearance; mission and overlay validation passed. Starts after Hurricane/Urban L1 under a fresh 12-hour cap |
 | 12 | `airstack-mission-1gpu-56` | Hurricane/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | READY/QUEUED — canonical Nucleus cold-open and material/asset audit passed; 22/22 GT survivors are inside the generated search area; all eight generated spawns have 10.1–11.8 m clearance; mission and overlay validation passed. Starts after Hurricane/Urban L2 under a fresh 12-hour cap |
 | 13 | `airstack-mission-1gpu-57` | Tornado/Urban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | READY/QUEUED — canonical Nucleus USD/GT/asset verification and cold open passed; 6/6 survivors are inside the generated search area; generated spawns have 9.1–11.0 m clearance; mission/overlay dry-run passed with GPU PhysX. Starts after pod 57's remaining Earthquake work, after GPU-physics smoke authorization |
