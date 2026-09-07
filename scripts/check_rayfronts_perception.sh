@@ -3,8 +3,6 @@
 # publisher.  Probe all DDS domains concurrently: with sparse camera time
 # slicing, checking them serially adds one complete camera rotation per robot.
 
-set -u
-
 num_robots="${1:-8}"
 probe_s="${RAYFRONTS_PERCEPTION_PROBE_S:-180}"
 probe_dir="$(mktemp -d /tmp/rayfronts-perception.XXXXXX)"
@@ -18,6 +16,7 @@ source /opt/ros/jazzy/setup.bash
 if [[ -f /root/AirStack/robot/ros_ws/install/setup.bash ]]; then
     source /root/AirStack/robot/ros_ws/install/setup.bash
 fi
+set -u
 
 pids=()
 for robot_id in $(seq 1 "$num_robots"); do
