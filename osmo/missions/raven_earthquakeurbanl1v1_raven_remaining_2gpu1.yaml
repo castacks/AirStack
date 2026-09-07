@@ -323,22 +323,9 @@ steps:
       \ | tail -60 || echo \"(pane history already rolled over)\"\nexit 1\n"
     timeout_s: 300
 - run:
-    container: airstack-robot-desktop-{n}
-    cmd: "source /root/.bashrc >/dev/null 2>&1 || true\nexport ROBOT_NAME=robot_{n}\nexport ROS_DOMAIN_ID={n}\n\
-      DISP=/robot_{n}/perception/stereo_image_proc/disparity\nPC=/robot_{n}/perception/stereo_image_proc/point_cloud\n\
-      ok_disp=0; npub=0\n# A 20 s probe can repeatedly land in the empty portion of a 12-group\n# camera schedule. Keep one subscription alive longer than the worst\n# measured inter-burst wall gap instead of phase-aliasing short probes.\nfor i in $(seq 1 3); do\n  if [ \"$ok_disp\" = \"0\" ]; then\n    timeout 180\
-      \ ros2 topic hz \"$DISP\" 2>/dev/null \\\n      | grep -m1 -q \"average rate\" && ok_disp=1\n  fi\n\
-      \  if [ \"$ok_disp\" = \"1\" ]; then\n    npub=$(ros2 topic info \"$PC\" 2>/dev/null \\\n      \
-      \     | grep -oE \"Publisher count: [0-9]+\" | grep -oE \"[0-9]+\")\n    npub=${npub:-0}\n    if\
-      \ [ \"$npub\" -gt 0 ]; then\n      echo \"PERCEPTION_OK robot_{n}: $DISP streaming, $PC has $npub\
-      \ publisher(s)\"\n      exit 0\n    fi\n  fi\n  sleep 5\ndone\necho \"PERCEPTION_DEAD robot_{n}:\
-      \ disparity=$ok_disp cloud_publishers=$npub\"\necho \"--- is the sim publishing to this domain at\
-      \ all ---\"\nros2 topic list 2>/dev/null | grep -c \"/robot_{n}/sensors/\" || true\necho \"--- perception\
-      \ nodes on this domain ---\"\nros2 node list 2>/dev/null | grep -E \"stereo|point_cloud|disparity|global_mapper\"\
-      \ \\\n  || echo \"(no perception nodes)\"\necho \"--- global_mapper log, PointCloudCallback lines\
-      \ ---\"\ngrep -ah \"PointCloudCallback\" /root/.ros/log/global_mapper_node_*.log 2>/dev/null \\\n\
-      \  | tail -20 || echo \"(the callback never fired \u2014 not one line)\"\nexit 1\n"
-    timeout_s: 600
+    container: offboard-compute
+    cmd: RAYFRONTS_PERCEPTION_PROBE_S=180 bash /root/AirStack/scripts/check_rayfronts_perception.sh 8
+    timeout_s: 240
 - action:
     task: takeoff
     goal:
