@@ -20,7 +20,7 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | **Fire** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
 | **Fire** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
 | **Hurricane** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Hurricane** | **Urban** | L2 | 🟩 | 🟩 | 🟩 | 🟨 | 🟦 | 🟦 |
+| **Hurricane** | **Urban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟨 | 🟦 |
 | **Hurricane** | **Urban** | L3 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
 | **Hurricane** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
 | **Hurricane** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
@@ -45,7 +45,7 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | Pod | Current run | Remaining assignment |
 |---|---|---|
 | dev 191 | Idle after two rejected Hurricane Urban L2 Frontier attempts | Pod lifetime was too short for another accepted run |
-| 1-GPU 58 | Hurricane Urban L2 VLFM, started 19:12:31 UTC | **28 standard-baseline cells remain** after the accepted Frontier and Lawnmower replacements |
+| 1-GPU 58 | Hurricane Urban L2 CoNavGPT2, started 20:19:27 UTC | **27 standard-baseline cells remain** after three accepted Hurricane L2 methods |
 | 2-GPU 1 | Fire Suburban L1 RAVEN/RayFronts retry; 8/8 armed, takeoff in progress | Dedicated RAVEN/RayFronts work; monitor owns subsequent ready-scene queue |
 
 Pod 58 now has a detached, durable one-cell-at-a-time queue, not just a list
@@ -66,7 +66,7 @@ remain stopped to prevent automatic teardown.
 Live pod-58 ledger: `/root/AirStack/osmo/results/remaining58_queue/state.json`;
 per-cell logs are alongside it. Queue source:
 `osmo/workspace/remaining_pod58_queue.py`. Current run folder:
-`remaining58_hurricaneurbanl2v1_vlfm/2026-09-07_19-12-31`.
+`remaining58_hurricaneurbanl2v1_conavgpt2_team/2026-09-07_20-19-27`.
 This section supersedes historical pod-56/57 assignments below. Queued or
 currently flying cells are **not new completions** until their acceptance gates pass.
 
@@ -93,10 +93,10 @@ deadline 120 seconds inside that limit; takeoff increased to **900 wall seconds*
 The actual search budget remains **600 simulated seconds**, with unchanged
 acceptance gates and the existing ≤12-hour one-cell launch/cleanup cap.
 
-**11 new accepted runs since the September 6 evening queue**: 4 on dev 191
-and 7 on pod 58. Rechecked all eleven NAS `iteration.json` files (`passed`)
+**12 new accepted runs since the September 6 evening queue**: 4 on dev 191
+and 8 on pod 58. Rechecked all twelve NAS `iteration.json` files (`passed`)
 and nonempty MCAPs on September 7. Failed attempts and short diagnostics are
-excluded. Hurricane Urban L2 VLFM is now active on pod 58.
+excluded. Hurricane Urban L2 CoNavGPT2 is now active on pod 58.
 
 | Pod | Scene | Method | Final team RTF | Storage |
 |---|---|---|---:|---|
@@ -111,10 +111,11 @@ excluded. Hurricane Urban L2 VLFM is now active on pod 58.
 | 58 | Fire Urban L2 | Lawnmower rerun | 0.20944 | Verified |
 | 58 | Hurricane Urban L2 | Frontier rerun | 0.20779 | Verified |
 | 58 | Hurricane Urban L2 | Lawnmower | 0.19375 | Verified |
+| 58 | Hurricane Urban L2 | VLFM | 0.20398 | Verified |
 
 Fire Urban is now **12/12** shared-planner runs complete: L1 **4/4**, L2
 **4/4**, L3 **4/4**.
-Hurricane Urban L1 is **4/4**; L2 is **2/4** and L3 remains **0/4**.
+Hurricane Urban L1 is **4/4**; L2 is **3/4** and L3 remains **0/4**.
 These new bags still need detector-progress/PPL evaluation; completion and
 timing above do not imply that the actual-results tables below include them.
 
@@ -562,7 +563,7 @@ uploaded.
 | 8c | `airstack-mission-1gpu-58` | Fire/Urban L1 Lawnmower + L2 four baselines | 5/5 | 7 h 09 min | COMPLETE — all five passed runs are uploaded/NAS-verified. The focused L2 Lawnmower rerun passed at bottleneck/team **RTF 0.20944** under `remaining58_fireurbanl2v1_lawnmower/2026-09-07_15-47-29`; its verified MCAP is 3.70 GB. This final Fire run retained the original **32/8** sensor schedule and full contacts |
 | 9 | `airstack-mission-1gpu-57` | Earthquake/Suburban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED — all four methods remain outstanding as upload-gated one-cell missions after L1. Every pass must be NAS-verified before the next method; failed cells retry locally and never upload |
 | 10 | dev pod 191 | Hurricane/Urban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 4/4 | 5 h 00 min | **COMPLETE** — all four passed 17/17 steps and are uploaded/NAS-verified under `hurricane_urban_l1_8robot_optimized_dev191/2026-09-07_04-58-24/`. Bottleneck/team RTFs: Frontier **0.17664** (600.03 sim s / 3396.96 wall s), Lawnmower **0.15580** (600.03 / 3851.17), VLFM **0.18885** (600.03 / 3177.28), CoNavGPT2 **0.21270** (600.03 / 2820.96; 84 VLM rounds). Remote nonempty MCAP sizes are 4.11, 4.53, 6.37, and 0.79 GB respectively. The launcher's storage env expanded an unquoted `$` in the password, so each passed iteration was manually uploaded with literal credential parsing and its remote `iteration.json`/MCAP verified |
-| 11 | pod 58 queue | Hurricane/Urban L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 2/4 | ≤12 h per launch | FRONTIER + LAWNMOWER PASSED / VLFM ACTIVE — the pod 58 Frontier and Lawnmower replacements passed all 17 steps at bottleneck/team RTFs **0.20779** and **0.19375**. Their passed metadata and 3.78/3.85 GB MCAPs were independently NAS-verified under `remaining58_hurricaneurbanl2v1_frontier/2026-09-07_16-58-05` and `remaining58_hurricaneurbanl2v1_lawnmower/2026-09-07_18-03-52`. The queue advanced only after each verification and started VLFM at **19:12:31 UTC** under `remaining58_hurricaneurbanl2v1_vlfm/2026-09-07_19-12-31`, runner PID 1684900. These runs use the new **12/8** camera cohort, full contacts and GPU 2/2. Failed attempts never upload |
+| 11 | pod 58 queue | Hurricane/Urban L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 3/4 | ≤12 h per launch | FRONTIER + LAWNMOWER + VLFM PASSED / CONAVGPT2 ACTIVE — the three pod 58 methods passed all 17 steps at bottleneck/team RTFs **0.20779**, **0.19375** and **0.20398**. Their passed metadata and 3.78/3.85/6.38 GB MCAPs were independently NAS-verified under their respective `remaining58_hurricaneurbanl2v1_*` folders. The queue advanced only after each verification and started CoNavGPT2 at **20:19:27 UTC** under `remaining58_hurricaneurbanl2v1_conavgpt2_team/2026-09-07_20-19-27`, runner PID 2270036. These runs use the new **12/8** camera cohort, full contacts and GPU 2/2. Failed attempts never upload |
 | 12 | `airstack-mission-1gpu-56` | Hurricane/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | READY/QUEUED — canonical Nucleus cold-open and material/asset audit passed; 22/22 GT survivors are inside the generated search area; all eight generated spawns have 10.1–11.8 m clearance; mission and overlay validation passed. Starts after Hurricane/Urban L2 under a fresh 12-hour cap |
 | 13 | `airstack-mission-1gpu-57` | Tornado/Urban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | READY/QUEUED — canonical Nucleus USD/GT/asset verification and cold open passed; 6/6 survivors are inside the generated search area; generated spawns have 9.1–11.0 m clearance; mission/overlay dry-run passed with GPU PhysX. Starts after pod 57's remaining Earthquake work, after GPU-physics smoke authorization |
 | 14 | `airstack-mission-1gpu-57` | Tornado/Urban L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | READY/QUEUED — canonical Nucleus USD/GT/asset verification and cold open passed; 9/9 survivors are inside the generated search area; generated spawns have 10.1–11.3 m clearance; mission/overlay dry-run passed with GPU PhysX. Starts after Tornado/Urban L1 under a fresh 12-hour cap |
