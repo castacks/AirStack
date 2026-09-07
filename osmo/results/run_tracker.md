@@ -34,7 +34,7 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | **Earthquake** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Earthquake** | **Urban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Earthquake** | **Urban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Earthquake** | **Suburban** | L1 | 🟩 | 🟩 | 🟧 | 🟦 | 🟦 | 🟦 |
+| **Earthquake** | **Suburban** | L1 | 🟩 | 🟩 | 🟧 | 🟨 | 🟦 | 🟦 |
 | **Earthquake** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟧 | 🟦 | 🟦 |
 | **Earthquake** | **Suburban** | L3 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
 
@@ -292,7 +292,13 @@ The valid search reached 194.37/600 sim seconds at team RTF 0.0362 before it
 was intentionally stopped at 18:56 UTC to apply the newly validated opt-in GPU
 PhysX fix. Its partial bag and diagnostics are retained locally, the attempt is
 not counted and nothing was uploaded. Pod 57's queue watcher is paused and the
-stack is down while the exact-scene 100-second GPU-physics smoke runs on pod 56.
+pod-56 smoke was interrupted by that workflow's expiry. Its corrected
+100-second equivalent started on pod 57 at 02:31 UTC on 2026-09-07 with uploads
+disabled. The authoritative startup gate reports solver CUDA device 2, GPU
+broadphase/dynamics enabled, CPU-facing API readback retained and Fabric
+disabled; flight/perception and measured RTF remain under validation. Workflow
+57 has only about four hours left before its 100-hour execution timeout, so the
+remaining accepted cells are also being prepared for replacement workflows.
 The exact outstanding pod-57 list is L1 Lawnmower, VLFM and CoNavGPT2,
 followed by L3 Frontier, Lawnmower, VLFM and CoNavGPT2. Detached queue watcher
 PID 1776779 enforces the 12-hour cap by stopping the current L1 batch at the
@@ -350,7 +356,7 @@ uploaded.
 | 5 | `airstack-mission-1gpu-57` | Urban Fire L3 Frontier | 1 | 86.7 min total / 54.8 min timed | PASSED — uploaded and verified; RTF 0.183 excluded from performance average due wrong-host-GPU placement |
 | 6 | `airstack-mission-1gpu-57` | Urban Fire L3 × lawnmower, VLFM, CoNavGPT2 | 3 | ≤12 h | COMPLETE — 3/3 passed, uploaded and verified |
 | 7 | `airstack-mission-1gpu-57` | Earthquake/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 4/4 | 5 h 12 min | COMPLETE — all four passed/uploaded/NAS-verified at team RTFs 0.19188, 0.19888, 0.21211 and 0.21651 |
-| 8 | `airstack-mission-1gpu-57` | Earthquake/Suburban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 1/4 | ≤12 h | PAUSED FOR GPU-PHYSICS VALIDATION — Frontier passed/uploaded/NAS-verified at team RTF 0.04565. Verified-fixed Lawnmower attempt 3 reached 194.37/600 sim seconds at RTF 0.0362, then was intentionally stopped/local-only at 18:56 UTC before enabling GPU PhysX. Queue watcher is paused and stack is down pending the pod-56 exact-scene smoke; every later method remains blocked on verified NAS upload |
+| 8 | `airstack-mission-1gpu-57` | Earthquake/Suburban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 1/4 | ≤12 h | GPU-PHYSICS SMOKE RUNNING — Frontier passed/uploaded/NAS-verified at team RTF 0.04565. A corrected, upload-disabled 100-s L1 VLFM smoke started at 02:31 UTC on 2026-09-07; its solver/device/direct-API gate passed on reserved renderer index 2. Flight, perception and RTF gates are still running. Workflow 57 expires in roughly four hours, so the focused remaining-three replacement mission is prepared without duplicating Frontier |
 | 8 | `airstack-mission-1gpu-56` | Earthquake/Suburban L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 2/4 | ≤12 h per launch | POD EXPIRED / RERUN REQUIRED — Frontier passed/uploaded/NAS-verified at team RTF 0.05664. The fixed Lawnmower retry passed all eight 600.03-s windows at bottleneck RTF 0.04897 and was uploaded/NAS-verified at 17:22 UTC under `earthquake_suburban_l2_remaining_optimized_pod56/2026-09-06_13-18-38/iter_001__earthquakesuburbanl2v1_lawnmower__lawnmower`; rejected partials were never retained on NAS. The full VLFM attempt was deliberately stopped/not uploaded after discovering PhysX was on CPU. GPU-physics smoke testing then identified and fixed the Pegasus direct-GPU-API incompatibility (GPU broadphase/dynamics retained; Fabric and suppressed readback disabled), and all eight PX4/odometry endpoints came ready without the articulation errors. The corrected 100-s smoke was interrupted when workflow 56 reached `FAILED_EXEC_TIMEOUT` and its pod/tunnel disappeared at 20:27 UTC. VLFM and CoNavGPT2 remain outstanding for a fresh pod |
 | 8b | `airstack-mission-1gpu-58` | Earthquake/Suburban L2 VLFM + CoNavGPT2 replacement | 0/2 | 12 h mission / 100 h inspectable pod | PENDING — submitted after pod 56 expired; GPU-physics fix and pass-only upload policy are included. Pod 57 runs the corrected 100-s gate first so workflow 58 can start directly on accepted 600-s work once scheduled |
 | 9 | `airstack-mission-1gpu-57` | Earthquake/Suburban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED — all four methods remain outstanding as upload-gated one-cell missions after L1. Every pass must be NAS-verified before the next method; failed cells retry locally and never upload |
