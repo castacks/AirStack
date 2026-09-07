@@ -470,13 +470,23 @@ low observed camera rate reflects the current approximately **0.049 RTF**, not
 a 3-FPS camera setting.
 
 The takeoff step now pre-arms each vehicle through MAVROS and staggers dispatch
-by 3 seconds (`de0bc26b`). A fresh L1→L2→L3 recovery started at
-**15:26:10 UTC**, runner PID **3412951**, under
-`raven_fire_suburban_recovery_2gpu1/2026-09-07_15-26-10`, log
-`/tmp/ray1_fire_recovery_retry.log`. It is currently bringing up Fire/Suburban
-L1. No new RayFronts result is accepted yet. The manual batch uses a <12-hour
-cap, pass-only uploads and the held launcher, without resuming its teardown
-path.
+by 3 seconds (`de0bc26b`). The 15:26 retry reached 8/8 readiness, perception,
+arming and physical climb, but the persistent callback measurement was only
+**0.05002 RTF** over 90.57 wall seconds. Takeoff completed at 19.87 m after
+about 477 wall seconds, after the old 420-second relay deadline had already
+issued an overlapping retry and crashed the action relays. This attempt was
+stopped, retained locally and not uploaded.
+
+The takeoff wall deadline is now 900 seconds while the scored search remains
+exactly 600 simulated seconds (`5bd12d9a`). The corrected L1→L2→L3 recovery
+started at **16:03:20 UTC**, runner PID **3827962**, under
+`raven_fire_suburban_recovery_2gpu1/2026-09-07_16-03-20`, log
+`/tmp/ray1_fire_recovery_t900.log`. A durable queue then covers the other 21
+ready RayFronts cells in seven three-scene, <12-hour batches: Hurricane,
+Tornado and Earthquake Suburban, followed by Fire, Hurricane, Tornado and
+Earthquake Urban. Queue PID **3841863** halts on an exhausted batch for
+investigation; every successful iteration must upload immediately and failed
+attempts never upload. No new RayFronts result is accepted yet.
 
 ## Next work queue
 
