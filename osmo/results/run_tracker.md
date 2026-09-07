@@ -14,13 +14,13 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | Disaster | Locale | Level | Scene ready | Frontier | Lawnmower | VLFM | CoNavGPT2 | RayFronts/RAVEN |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
 | **Fire** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Fire** | **Urban** | L2 | 🟩 | 🟩 | 🟨 | 🟩 | 🟩 | 🟦 |
+| **Fire** | **Urban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Fire** | **Urban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Fire** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟨 |
 | **Fire** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
 | **Fire** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
 | **Hurricane** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Hurricane** | **Urban** | L2 | 🟩 | 🟧 | 🟦 | 🟦 | 🟦 | 🟦 |
+| **Hurricane** | **Urban** | L2 | 🟩 | 🟨 | 🟦 | 🟦 | 🟦 | 🟦 |
 | **Hurricane** | **Urban** | L3 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
 | **Hurricane** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
 | **Hurricane** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
@@ -91,11 +91,10 @@ deadline 120 seconds inside that limit; takeoff increased to **900 wall seconds*
 The actual search budget remains **600 simulated seconds**, with unchanged
 acceptance gates and the existing ≤12-hour one-cell launch/cleanup cap.
 
-**8 new accepted runs since the September 6 evening queue**: 4 on dev 191
-and 4 on pod 58. Rechecked all eight NAS `iteration.json` files (`passed`)
+**9 new accepted runs since the September 6 evening queue**: 4 on dev 191
+and 5 on pod 58. Rechecked all nine NAS `iteration.json` files (`passed`)
 and nonempty MCAPs on September 7. Failed attempts and short diagnostics are
-excluded. New focused production runs started afterward: Fire Urban L2
-Lawnmower on pod 58 and Hurricane Urban L2 Frontier on dev pod 191.
+excluded. Hurricane Urban L2 Frontier is now retrying on pod 58.
 
 | Pod | Scene | Method | Final team RTF | Storage |
 |---|---|---|---:|---|
@@ -107,9 +106,10 @@ Lawnmower on pod 58 and Hurricane Urban L2 Frontier on dev pod 191.
 | 58 | Fire Urban L2 | Frontier | 0.19247 | Verified |
 | 58 | Fire Urban L2 | VLFM | 0.20916 | Verified |
 | 58 | Fire Urban L2 | CoNavGPT2 | 0.25566 | Verified |
+| 58 | Fire Urban L2 | Lawnmower rerun | 0.20944 | Verified |
 
-Fire Urban is now **11/12** shared-planner runs complete: L1 **4/4**, L2
-**3/4**, L3 **4/4**. L2 Lawnmower failed both attempts and was not uploaded.
+Fire Urban is now **12/12** shared-planner runs complete: L1 **4/4**, L2
+**4/4**, L3 **4/4**.
 Hurricane Urban L1 is **4/4**; L2 and L3 remain **0/4** each.
 These new bags still need detector-progress/PPL evaluation; completion and
 timing above do not imply that the actual-results tables below include them.
@@ -149,8 +149,12 @@ completion-gate/tooling failure, not a flight or planner failure.
 Attempt 2 brought seven robots up, but robot 5's three relay results were
 polluted by a missing generated GCS setup-hook warning and failed the takeoff
 gate. It was also rejected and not uploaded. Empty headless-safe setup hooks
-now silence that warning for subsequent runs. L2 Lawnmower remains queued for
-a focused rerun; L2 VLFM started at **10:23:44 UTC**, passed all eight flight
+now silence that warning for subsequent runs. The focused L2 Lawnmower rerun
+then passed all 17 steps and all eight 600-second windows at bottleneck RTF
+**0.20944**. Its passed metadata and 3.70 GB MCAP were uploaded and
+independently verified on NAS at 16:56 UTC under
+`remaining58_fireurbanl2v1_lawnmower/2026-09-07_15-47-29`. L2 VLFM started at
+**10:23:44 UTC**, passed all eight flight
 gates, completed at team/bottleneck **RTF 0.20916**, and its passed metadata
 and 5.92 GB MCAP were verified on NAS. L2 CoNavGPT2 then passed all eight
 flight gates and its 600-s team window at **RTF 0.25566**. It generated one
@@ -160,7 +164,7 @@ passed metadata and 0.63 GB MCAP were verified on NAS at **12:29 UTC**.
 | Level | What is done | What is left | Intended run folder |
 |---:|---|---|---|
 | L1 | Canonical frozen scene; all four shared-planner baselines | RayFronts | `urban_fire_remaining_8robot_optimized_pod58/2026-09-07_06-10-59` |
-| L2 | Canonical frozen scene; Frontier, VLFM and CoNavGPT2 baselines | Lawnmower rerun + RayFronts | `urban_fire_remaining_8robot_optimized_pod58/2026-09-07_06-10-59` |
+| L2 | Canonical frozen scene; all four shared-planner baselines | RayFronts | `urban_fire_remaining_8robot_optimized_pod58/2026-09-07_06-10-59`; `remaining58_fireurbanl2v1_lawnmower/2026-09-07_15-47-29` |
 | L3 | Canonical frozen scene; all four shared-planner baselines | RayFronts | `urban_fire_l3_8robot_optimized_1gpu/2026-09-05_06-00-18`; `urban_fire_l3_remaining_8robot_optimized_pod57/2026-09-05_07-46-06` |
 
 All four Urban Fire L3 shared-planner results are present under
@@ -551,10 +555,10 @@ uploaded.
 | 8 | `airstack-mission-1gpu-57` | Earthquake/Suburban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 1/4 | ≤12 h | DIAGNOSTICS COMPLETE / RERUN REQUIRED — Frontier passed/uploaded/NAS-verified at team RTF 0.04565. The persistent-callback near-camera-off 512/1 diagnostic measured RTF 0.04227, ruling out camera rendering. The original-sensor ground-only-contact diagnostic disabled 11,343 colliders and halved readiness wall time, but measured RTF 0.04558 and failed 8/8 takeoff when robots 6 and 8 exhausted pre-arm retries. Both diagnostics were stopped and not uploaded. Production specs retain full contacts/original 32/8 sensors with owned GPU pins; accepted queue remains paused |
 | 8 | `airstack-mission-1gpu-56` | Earthquake/Suburban L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 2/4 | ≤12 h per launch | POD EXPIRED / RERUN REQUIRED — Frontier passed/uploaded/NAS-verified at team RTF 0.05664. The fixed Lawnmower retry passed all eight 600.03-s windows at bottleneck RTF 0.04897 and was uploaded/NAS-verified at 17:22 UTC under `earthquake_suburban_l2_remaining_optimized_pod56/2026-09-06_13-18-38/iter_001__earthquakesuburbanl2v1_lawnmower__lawnmower`; rejected partials were never retained on NAS. The full VLFM attempt was deliberately stopped/not uploaded after discovering PhysX was on CPU. GPU-physics smoke testing then identified and fixed the Pegasus direct-GPU-API incompatibility (GPU broadphase/dynamics retained; Fabric and suppressed readback disabled), and all eight PX4/odometry endpoints came ready without the articulation errors. The corrected 100-s smoke was interrupted when workflow 56 reached `FAILED_EXEC_TIMEOUT` and its pod/tunnel disappeared at 20:27 UTC. VLFM and CoNavGPT2 remain outstanding for a fresh pod |
 | 8b | Unassigned | Earthquake/Suburban L2 VLFM + CoNavGPT2 replacement | 0/2 | ≤12 h per batch | WAITING — diagnostics did not restore RTF. Pod 58 was reassigned to remaining Urban Fire runs on Sep 7; dev 191 is running Urban Hurricane. No diagnostic counts as an accepted result |
-| 8c | `airstack-mission-1gpu-58` | Fire/Urban L1 Lawnmower + L2 four baselines | 4/5 | 6 h 19 min | RERUN ACTIVE — L1 Lawnmower, L2 Frontier, L2 VLFM and L2 CoNavGPT2 passed/uploaded/NAS-verified at team RTFs **0.17612**, **0.19247**, **0.20916**, and **0.25566**. The focused L2 Lawnmower rerun started at **15:47:29 UTC** under `remaining58_fireurbanl2v1_lawnmower/2026-09-07_15-47-29`; runner PID 4100223, original **32/8** sensors/full contacts and GPU 2/2. All eight flight/altitude gates passed; its slowest robot began the search at 16:06 UTC. A persistent 90.18-wall-second clock probe measured **RTF 0.19128**. Passed results upload immediately and failed attempts do not upload |
+| 8c | `airstack-mission-1gpu-58` | Fire/Urban L1 Lawnmower + L2 four baselines | 5/5 | 7 h 09 min | COMPLETE — all five passed runs are uploaded/NAS-verified. The focused L2 Lawnmower rerun passed at bottleneck/team **RTF 0.20944** under `remaining58_fireurbanl2v1_lawnmower/2026-09-07_15-47-29`; its verified MCAP is 3.70 GB. This final Fire run retained the original **32/8** sensor schedule and full contacts |
 | 9 | `airstack-mission-1gpu-57` | Earthquake/Suburban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED — all four methods remain outstanding as upload-gated one-cell missions after L1. Every pass must be NAS-verified before the next method; failed cells retry locally and never upload |
 | 10 | dev pod 191 | Hurricane/Urban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 4/4 | 5 h 00 min | **COMPLETE** — all four passed 17/17 steps and are uploaded/NAS-verified under `hurricane_urban_l1_8robot_optimized_dev191/2026-09-07_04-58-24/`. Bottleneck/team RTFs: Frontier **0.17664** (600.03 sim s / 3396.96 wall s), Lawnmower **0.15580** (600.03 / 3851.17), VLFM **0.18885** (600.03 / 3177.28), CoNavGPT2 **0.21270** (600.03 / 2820.96; 84 VLM rounds). Remote nonempty MCAP sizes are 4.11, 4.53, 6.37, and 0.79 GB respectively. The launcher's storage env expanded an unquoted `$` in the password, so each passed iteration was manually uploaded with literal credential parsing and its remote `iteration.json`/MCAP verified |
-| 11 | pod 58 queue | Hurricane/Urban L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | FRONTIER RERUN QUEUED — dev 191's focused Frontier mission `hurricane_urban_l2_frontier_dev191/2026-09-07_15-45-08` exhausted both attempts and uploaded nothing. Attempt 1 reached 7/8 takeoff: robot 1's MAVROS state was armed while the interface topic remained false. Attempt 2 again reached 7/8: robot 5 remained genuinely unarmed after three requests. Dev 191 is now idle; there is not enough safe lifetime for another full run plus verified upload. Frontier was inserted next in pod 58's durable queue (30 total cells) after the active Fire L2 Lawnmower. The other three Hurricane L2 methods follow it; failed attempts never upload |
+| 11 | pod 58 queue | Hurricane/Urban L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | FRONTIER ACTIVE — dev 191's two rejected 7/8 attempts uploaded nothing. The pod 58 replacement started at **16:58:05 UTC** under `remaining58_hurricaneurbanl2v1_frontier/2026-09-07_16-58-05`, runner PID 512658, with the new **12/8** camera cohort, full contacts and GPU 2/2. The other three Hurricane L2 methods follow it; failed attempts never upload |
 | 12 | `airstack-mission-1gpu-56` | Hurricane/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | READY/QUEUED — canonical Nucleus cold-open and material/asset audit passed; 22/22 GT survivors are inside the generated search area; all eight generated spawns have 10.1–11.8 m clearance; mission and overlay validation passed. Starts after Hurricane/Urban L2 under a fresh 12-hour cap |
 | 13 | `airstack-mission-1gpu-57` | Tornado/Urban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | READY/QUEUED — canonical Nucleus USD/GT/asset verification and cold open passed; 6/6 survivors are inside the generated search area; generated spawns have 9.1–11.0 m clearance; mission/overlay dry-run passed with GPU PhysX. Starts after pod 57's remaining Earthquake work, after GPU-physics smoke authorization |
 | 14 | `airstack-mission-1gpu-57` | Tornado/Urban L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | READY/QUEUED — canonical Nucleus USD/GT/asset verification and cold open passed; 9/9 survivors are inside the generated search area; generated spawns have 10.1–11.3 m clearance; mission/overlay dry-run passed with GPU PhysX. Starts after Tornado/Urban L1 under a fresh 12-hour cap |
