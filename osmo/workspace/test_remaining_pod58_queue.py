@@ -30,6 +30,12 @@ class RemainingQueueTests(unittest.TestCase):
                 self.assertEqual(spec['env']['ISAAC_SIM_GPU_PHYSICS'], 'false')
                 self.assertTrue(spec['record']['required'])
                 self.assertEqual(spec['on_step_failure'], 'abort_iteration')
+                takeoffs = [s['action'] for s in spec['steps'] if s.get('action', {}).get('task') == 'takeoff']
+                self.assertEqual(len(takeoffs), 1)
+                self.assertEqual(takeoffs[0]['timeout_s'], 900)
+                guards = [s['run'] for s in spec['steps'] if 'benchmark_completion_guard' in s.get('run', {}).get('cmd', '')]
+                self.assertEqual(len(guards), 2)
+                self.assertTrue(all(g['timeout_s'] == 21600 for g in guards))
 
     def test_completion_guard_requires_true_latched_message(self):
         for team in (True, False):

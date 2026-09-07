@@ -85,6 +85,12 @@ the planner or merge sensor-rate comparisons without noting this change.
 Actual 12/8 RGB/depth FPS, wall-clock FPS and RTF are **pending measurement**;
 the ideal baseline scheduling increase is 32/12 ≈ 2.67×, not a measured FPS gain.
 
+Timeout allowance for subsequent pod-58 12/8 runs: completion waits increased
+from 13,800 to **21,600 wall seconds (6 hours)**, with the persistent subscriber
+deadline 120 seconds inside that limit; takeoff increased to **900 wall seconds**.
+The actual search budget remains **600 simulated seconds**, with unchanged
+acceptance gates and the existing ≤12-hour one-cell launch/cleanup cap.
+
 **8 new accepted runs since the September 6 evening queue**: 4 on dev 191
 and 4 on pod 58. Rechecked all eight NAS `iteration.json` files (`passed`)
 and nonempty MCAPs on September 7. Failed attempts and short diagnostics are

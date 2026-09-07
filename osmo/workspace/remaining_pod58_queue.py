@@ -52,7 +52,7 @@ def received(msg):
 qos = QoSProfile(depth=1, reliability=ReliabilityPolicy.RELIABLE,
                  durability=DurabilityPolicy.TRANSIENT_LOCAL)
 sub = node.create_subscription(Bool, '/{robot}/search/run_complete', received, qos)
-deadline = time.monotonic() + 13680
+deadline = time.monotonic() + 21480
 last_report = 0
 while not done[0] and time.monotonic() < deadline:
     rclpy.spin_once(node, timeout_sec=1)
@@ -100,8 +100,13 @@ def prepare(root, output):
                 run = step.get('run', {})
                 if 'ros2 topic echo' in run.get('cmd', '') and '/search/run_complete' in run['cmd']:
                     run['cmd'] = completion_command(run['container'] == 'offboard-compute')
-                    run['timeout_s'] = 13800
+                    run['timeout_s'] = 21600
                     replaced += 1
+                # Higher camera duty can slow the simulated climb. Give the
+                # existing flight action time to finish before any retry.
+                action = step.get('action', {})
+                if action.get('task') == 'takeoff':
+                    action['timeout_s'] = max(900, action.get('timeout_s', 0))
             assert replaced == 2, (source, replaced)
             path = output / (spec['name'] + '.yaml')
             path.write_text(yaml.safe_dump(spec, sort_keys=False))
