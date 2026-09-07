@@ -1,6 +1,6 @@
 # Disaster benchmark dashboard
 
-Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-09-05**.
+Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-09-06**.
 
 > **Legend:** 🟩 **DONE** · 🟦 **READY** · 🟧 **RERUN** · 🟨 **VERIFY / IN PROGRESS** · ⬜ **NOT READY**
 >
@@ -317,7 +317,8 @@ every submitted mission bounded.
 
 ## Next work queue
 
-1. 🟨 Complete Urban Earthquake L2 VLFM and CoNavGPT2 on pod 56;
+1. 🟨 Complete the corrected 100-s GPU-physics smoke on pod 57, then finish
+   Suburban Earthquake L2 VLFM and CoNavGPT2 on replacement workflow 58;
    upload each passed iteration immediately and publish no failures.
 2. 🟦 Run Suburban Earthquake L1 then L3 on pod 57, and L2 on pod 56.
    Any Earthquake method that exhausts its normal attempts is inserted as a
@@ -351,6 +352,7 @@ uploaded.
 | 7 | `airstack-mission-1gpu-57` | Earthquake/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 4/4 | 5 h 12 min | COMPLETE — all four passed/uploaded/NAS-verified at team RTFs 0.19188, 0.19888, 0.21211 and 0.21651 |
 | 8 | `airstack-mission-1gpu-57` | Earthquake/Suburban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 1/4 | ≤12 h | PAUSED FOR GPU-PHYSICS VALIDATION — Frontier passed/uploaded/NAS-verified at team RTF 0.04565. Verified-fixed Lawnmower attempt 3 reached 194.37/600 sim seconds at RTF 0.0362, then was intentionally stopped/local-only at 18:56 UTC before enabling GPU PhysX. Queue watcher is paused and stack is down pending the pod-56 exact-scene smoke; every later method remains blocked on verified NAS upload |
 | 8 | `airstack-mission-1gpu-56` | Earthquake/Suburban L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 2/4 | ≤12 h per launch | POD EXPIRED / RERUN REQUIRED — Frontier passed/uploaded/NAS-verified at team RTF 0.05664. The fixed Lawnmower retry passed all eight 600.03-s windows at bottleneck RTF 0.04897 and was uploaded/NAS-verified at 17:22 UTC under `earthquake_suburban_l2_remaining_optimized_pod56/2026-09-06_13-18-38/iter_001__earthquakesuburbanl2v1_lawnmower__lawnmower`; rejected partials were never retained on NAS. The full VLFM attempt was deliberately stopped/not uploaded after discovering PhysX was on CPU. GPU-physics smoke testing then identified and fixed the Pegasus direct-GPU-API incompatibility (GPU broadphase/dynamics retained; Fabric and suppressed readback disabled), and all eight PX4/odometry endpoints came ready without the articulation errors. The corrected 100-s smoke was interrupted when workflow 56 reached `FAILED_EXEC_TIMEOUT` and its pod/tunnel disappeared at 20:27 UTC. VLFM and CoNavGPT2 remain outstanding for a fresh pod |
+| 8b | `airstack-mission-1gpu-58` | Earthquake/Suburban L2 VLFM + CoNavGPT2 replacement | 0/2 | 12 h mission / 100 h inspectable pod | PENDING — submitted after pod 56 expired; GPU-physics fix and pass-only upload policy are included. Pod 57 runs the corrected 100-s gate first so workflow 58 can start directly on accepted 600-s work once scheduled |
 | 9 | `airstack-mission-1gpu-57` | Earthquake/Suburban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED — all four methods remain outstanding as upload-gated one-cell missions after L1. Every pass must be NAS-verified before the next method; failed cells retry locally and never upload |
 | 10 | `airstack-mission-1gpu-56` | Hurricane/Urban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | READY/QUEUED — canonical Nucleus cold-open and material/asset audit passed; 12/12 GT survivors are inside the generated search area; all eight generated spawns have 10.1–11.9 m clearance; mission and overlay validation passed. Starts after Suburban Earthquake L2 |
 | 11 | `airstack-mission-1gpu-56` | Hurricane/Urban L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | READY/QUEUED — canonical Nucleus cold-open and material/asset audit passed; 12/12 GT survivors are inside the generated search area; all eight generated spawns have 10.0–11.6 m clearance; mission and overlay validation passed. Starts after Hurricane/Urban L1 under a fresh 12-hour cap |
