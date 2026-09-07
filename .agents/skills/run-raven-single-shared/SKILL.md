@@ -285,6 +285,24 @@ entirely untested.
   still active; rejection then killed the relay processes. Pre-arm through
   MAVROS, stagger dispatch, and keep a wall deadline above the measured climb
   duration. This does not change the simulated-time search budget.
+- **Probe time-sliced stereo with one persistent subscription per robot.** With
+  `ZED_TIME_SLICE_GROUPS=12` and an eight-frame burst, a 20-second
+  `ros2 topic hz` probe can repeatedly land in the empty part of the schedule
+  and falsely declare disparity dead. Start all robot-domain probes in
+  parallel, keep each disparity subscription alive for at least 180 wall
+  seconds, and only inspect point-cloud publisher metadata (subscribing to all
+  point clouds adds avoidable load). On the eight-robot run this reduced the
+  gate from about 18.5 minutes serially to 91.8 seconds while still requiring
+  every robot to pass.
+- **Budget semantic-search feedback for sparse-frame collection.** The shared
+  task can legitimately wait up to `RAYFRONTS_WAIT_TIMEOUT_S` while collecting
+  one usable frame from every time-sliced camera. A relay
+  `feedback_timeout_s` shorter than that wait can kill a healthy goal, and an
+  eight-goal simultaneous publish burst can leave one robot without a goal.
+  Use a feedback deadline longer than the shared wait (900 seconds for the
+  measured 600-second wait) and stagger the eight dispatches by about three
+  wall seconds. Still verify that all eight goals were accepted before burning
+  the multi-hour search window.
 
 - **The scene doesn't exist yet.** `_plans/raven_test_scene_runbook.md` §2's
   Isaac launch (build + freeze `RavenSuburbTornado250`) has not been run.
