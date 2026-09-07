@@ -82,8 +82,10 @@ LiDAR configuration, simulation budget and acceptance gates remain unchanged.
 This is a new sensor-rate cohort. The preceding baseline cohort was 32/8;
 preceding RayFronts runs were unsliced. Do not attribute differences solely to
 the planner or merge sensor-rate comparisons without noting this change.
-Actual 12/8 RGB/depth FPS, wall-clock FPS and RTF are **pending measurement**;
-the ideal baseline scheduling increase is 32/12 ≈ 2.67×, not a measured FPS gain.
+The first live 12/8 Hurricane Urban L2 Frontier run measured mean RGB/depth
+cadence **2.303 sim FPS** and **0.491 wall FPS**, with a **2.73-s maximum sim
+gap** on every robot. A persistent 90-s `/clock` probe measured **RTF 0.21440**.
+This is a live cross-scene observation, not a controlled same-scene FPS/RTF A/B.
 
 Timeout allowance for subsequent pod-58 12/8 runs: completion waits increased
 from 13,800 to **21,600 wall seconds (6 hours)**, with the persistent subscriber
@@ -622,6 +624,7 @@ planner running. These are sensor-cadence diagnostics, not accepted search runs.
 | Baseline 32/8, robot 7 | 0.939 | 0.939 | 0.285 | 0.285 | 7.53 |
 | Baseline 32/8, robot 8 | 0.992 | 0.992 | 0.307 | 0.307 | 7.53 |
 | **Baseline 32/8 mean** | **0.958** | **0.962** | **0.288** | **0.289** | **7.53** |
+| **Baseline 12/8 mean, live Frontier** | **2.303** | **2.303** | **0.491** | **0.491** | **2.73** |
 | RAVEN unsliced 1/1, robot 1 | 33.333 | 33.333 | 1.625 | 1.625 | 0.03 |
 
 The official all-eight baseline step passed. Each 120-wall-second sample
@@ -634,6 +637,12 @@ approximately 0.94–0.99 sim-FPS cadence; the mission runner then repeated the
 official per-robot probes sequentially. RAVEN used its own 960×600 stereo
 configuration and a different running scene/load, so this is not a controlled
 RTF comparison.
+
+The 12/8 row is a simultaneous all-eight probe during Hurricane Urban L2
+Frontier's accepted-run attempt. Per-robot RGB and depth delivery matched:
+sim FPS ranged **2.127–2.413** and wall FPS **0.454–0.510**. Frames retained the
+eight-update burst (0.03-s median intra-burst spacing), with the blind interval
+reduced from 7.53 to 2.73 simulated seconds.
 
 **Correction:** scheduling counters advance per application/render-loop update,
 not per 100 Hz physics substep. Earlier 80 ms/2.56-second scheduling estimates
