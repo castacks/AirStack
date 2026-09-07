@@ -340,6 +340,8 @@ steps:
     cancel_on_timeout: true
     cancel_grace_s: 180
     pass_on_feedback: true
+    feedback_timeout_s: 900
+    dispatch_stagger_s: 3
     goal_per_robot: '{{env.goal_per_robot}}'
     goal:
       query: person
