@@ -1278,7 +1278,7 @@ class PegasusApp:
                 return True
             generated = stage.GetPrimAtPath(SCENE_PARENT)
             if (generated and generated.IsValid()
-                    and omni.usd.get_context().get_stage_loading_status()[0] == 0
+                    and not omni.usd.get_context().get_stage_loading_status()[2]
                     and any(p.IsA(UsdGeom.Mesh) for p in Usd.PrimRange(generated))):
                 print("[frozen] composed mesh geometry in {0:.0f} s under {1}".
                       format(time.time() - t0, SCENE_PARENT), flush=True)

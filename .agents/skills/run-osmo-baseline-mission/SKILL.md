@@ -290,6 +290,28 @@ nvidia-smi --query-compute-apps=pid,process_name,used_memory,gpu_uuid \
 The first command is the pod ownership boundary. Every Isaac, detector, and
 VLM PID must resolve to that UUID on a one-GPU mission.
 
+When moving a mission between pods, replace **both** GPU settings; a copied
+offboard ordinal can silently use another tenant's card. Baseline missions
+must explicitly set `START_RAYFRONTS_SERVER=false`: the repository `.env` can
+otherwise start an unnecessary mapping server. When recreating offboard alone,
+preserve the mission's weight/model environment too, especially
+`CONAVGPT2_YOLO_WORLD_WEIGHTS`; the `.env` default may select a different YOLO.
+
+### Measure RTF without ROS startup overhead
+
+Do not divide a simulation delta from two separate `ros2 topic echo --once`
+commands by their shell elapsed time: that includes discovery/startup and can
+spuriously trip the low-RTF gate. Use `scripts/measure_clock_rtf.py` inside a
+sourced domain-0 ROS container for a continuous 90-second paired monotonic
+clock window, after loading and transport changes have settled. Search-window
+watchdog RTF remains the accepted whole-run measure.
+
+Check `df -h /dev/shm` in the pod and ROS containers when ROS reports SHM
+registration errors. On a privileged dev pod the shared mount was only 64 MiB
+and full after repeated launches. `mount -o remount,size=2G /dev/shm` expanded
+its capacity without deleting live transport files; verify the mount scope
+and capacity afterward. Never indiscriminately remove live FastDDS segments.
+
 ### Readiness includes canonical odometry, not only MAVROS
 
 `connected=true` plus live
