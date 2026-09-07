@@ -431,11 +431,22 @@ disabled. Correct device split: Isaac **1**, RayFronts **3**, both belonging
 to the pod's assigned UUIDs. A three-cell Fire Suburban L1–L3 recovery spec
 is prepared at `osmo/missions/raven_fire_suburban_recovery_2gpu1.yaml`.
 The full non-CUDA test harness passed (1,197 passed; CUDA-specific tests not
-requested). Recovery started at **15:04:09 UTC**, runner PID 3163260, under
-`raven_fire_suburban_recovery_2gpu1/2026-09-07_15-04-09`, log
-`/tmp/ray1_fire_recovery.log`. No new RayFronts result or flight RTF is claimed
-yet. The manual batch uses a <12-hour cap, pass-only uploads and the held
-launcher, without resuming its teardown path.
+requested). The first recovery attempt at **15:04:09 UTC** proved that the
+offline RADIO encoder and real CUDA-IPC camera frames work, but robot 1 timed
+out while arming and its action relay exited. That attempt was stopped cleanly
+at 15:24 UTC and was **not uploaded**. A bounded 120-wall-second probe measured
+RGB and depth at **1.624 FPS wall time** (33.33 FPS in simulation time), so the
+low observed camera rate reflects the current approximately **0.049 RTF**, not
+a 3-FPS camera setting.
+
+The takeoff step now pre-arms each vehicle through MAVROS and staggers dispatch
+by 3 seconds (`de0bc26b`). A fresh L1→L2→L3 recovery started at
+**15:26:10 UTC**, runner PID **3412951**, under
+`raven_fire_suburban_recovery_2gpu1/2026-09-07_15-26-10`, log
+`/tmp/ray1_fire_recovery_retry.log`. It is currently bringing up Fire/Suburban
+L1. No new RayFronts result is accepted yet. The manual batch uses a <12-hour
+cap, pass-only uploads and the held launcher, without resuming its teardown
+path.
 
 ## Next work queue
 
