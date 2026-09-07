@@ -13,9 +13,9 @@ class RemainingQueueTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[2]
         with tempfile.TemporaryDirectory() as tmp:
             paths = prepare(root, Path(tmp))
-            self.assertEqual(len(paths), 29)
-            self.assertEqual(len(set(paths)), 29)
-            self.assertNotIn('remaining58_hurricaneurbanl2v1_frontier.yaml', [p.name for p in paths])
+            self.assertEqual(len(paths), 30)
+            self.assertEqual(len(set(paths)), 30)
+            self.assertIn('remaining58_hurricaneurbanl2v1_frontier.yaml', [p.name for p in paths])
             for path in paths:
                 spec = yaml.safe_load(path.read_text())
                 self.assertEqual(spec['iterations'], 1)

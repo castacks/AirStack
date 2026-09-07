@@ -20,8 +20,9 @@ import yaml
 
 def selections():
     yield "urban_fire_remaining_8robot_optimized_pod58.yaml", {"fireurbanl2v1_lawnmower"}
-    # L2 Frontier is reserved for dev191's final run.
-    yield "hurricane_urban_l2_8robot_optimized_dev191.yaml", {"hurricaneurbanl2v1_" + m for m in ("lawnmower", "vlfm", "conavgpt2_team")}
+    # Dev 191 exhausted both Hurricane Urban L2 Frontier attempts without an
+    # accepted run, so pod 58 owns all four L2 methods now.
+    yield "hurricane_urban_l2_8robot_optimized_dev191.yaml", {"hurricaneurbanl2v1_" + m for m in ("frontier", "lawnmower", "vlfm", "conavgpt2_team")}
     yield "hurricane_urban_l3_8robot_optimized_dev191.yaml", None
     for level in (1, 2, 3):
         yield f"tornado_urban_l{level}_8robot_optimized_pod57.yaml", None
@@ -101,7 +102,7 @@ def prepare(root, output):
             path = output / (spec['name'] + '.yaml')
             path.write_text(yaml.safe_dump(spec, sort_keys=False))
             missions.append(path)
-    assert len(missions) == 29, len(missions)
+    assert len(missions) == 30, len(missions)
     return missions
 
 
