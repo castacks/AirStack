@@ -25,6 +25,12 @@ import sector  # noqa: E402
 
 
 GROUPS = {
+    # Prepared but not inserted in the durable queue while the active L1
+    # attempt is still allowed to finish. If that attempt is stopped or fails,
+    # this provides the same one-cell 12/8 retry contract as every later cell.
+    "fire_suburban_l1_retry": [
+        ("FireSuburbanL1V1", "raven_fire_suburban_recovery_2gpu1.yaml"),
+    ],
     "fire_suburban_after_l1": [
         ("FireSuburbanL2V1", "raven_fire_suburban_recovery_2gpu1.yaml"),
         ("FireSuburbanL3V1", "raven_fire_suburban_recovery_2gpu1.yaml"),
