@@ -270,6 +270,15 @@ entirely untested.
   The guard in `rayfronts/visualizers/base.py` must remain. A healthy restart
   has every robot anchored and accumulating frames without the supervisor's
   start counter increasing.
+- **Sanitize visualization layer paths, not only messaging topics.** The
+  mapper deliberately dumps and restarts on CUDA OOM. On the first resumed
+  eight-robot run, its restored runtime query label was the serialized JSON
+  list (`["person", ...]`); `vis_query_result()` embedded that verbatim in a
+  ROS visualization topic and `create_publisher()` terminated the restart
+  with `InvalidTopicNameException`. `Ros2Vis._get_publisher()` now sanitizes
+  each path segment through `sanitize_topic_path()` while retaining `/`
+  hierarchy. Keep the regression case with brackets, quotes, commas and a
+  space-bearing label: an OOM rollover is where this otherwise hides.
 - **Scale action relay wall deadlines by measured RTF.** At about 0.05 RTF, an
   eight-robot 20 m takeoff completed in roughly 550 wall seconds. A 420-second
   relay deadline issued overlapping takeoff goals while the first tasks were
