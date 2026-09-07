@@ -361,6 +361,9 @@ services:
     volumes:
       - ../../common/rayfronts:/root/AirStack/common/rayfronts:rw
       - ../../common/rayfronts_configs:/root/AirStack/common/rayfronts_configs:rw
+      # Mission readiness helpers used by shared RayFronts.  Keep this
+      # read-only: the offboard service only executes the probes.
+      - ../../scripts:/root/AirStack/scripts:ro
     environment:
       # TEAM ARMS NEED THIS. The conavgpt2_team planner runs HERE, not on a
       # robot, and search_planner aborts at construction without it:
