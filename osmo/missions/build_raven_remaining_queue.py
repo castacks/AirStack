@@ -25,6 +25,10 @@ import sector  # noqa: E402
 
 
 GROUPS = {
+    "fire_suburban_after_l1": [
+        ("FireSuburbanL2V1", "raven_fire_suburban_recovery_2gpu1.yaml"),
+        ("FireSuburbanL3V1", "raven_fire_suburban_recovery_2gpu1.yaml"),
+    ],
     "hurricane_suburban": [
         ("HurricaneSuburbanL1V1", "raven_hurricane_suburban_8robot_batch.yaml"),
         ("HurricaneSuburbanL2V1", "raven_hurricane_suburban_8robot_batch.yaml"),
@@ -117,7 +121,7 @@ def main():
     for group, scenes in GROUPS.items():
         mission = deepcopy(template)
         mission["name"] = f"raven_{group}_remaining_2gpu1"
-        mission["iterations"] = 3
+        mission["iterations"] = len(scenes)
         mission["environment_order"] = "round_robin"
         mission["environments"] = [raven_env(*scene) for scene in scenes]
         out = MISSION_DIR / f"raven_{group}_remaining_2gpu1.yaml"

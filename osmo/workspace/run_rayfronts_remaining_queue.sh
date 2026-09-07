@@ -19,6 +19,7 @@ while kill -0 "$current_runner_pid" 2>/dev/null; do
 done
 
 missions=(
+  osmo/missions/raven_fire_suburban_after_l1_remaining_2gpu1.yaml
   osmo/missions/raven_hurricane_suburban_remaining_2gpu1.yaml
   osmo/missions/raven_tornado_suburban_remaining_2gpu1.yaml
   osmo/missions/raven_earthquake_suburban_remaining_2gpu1.yaml
