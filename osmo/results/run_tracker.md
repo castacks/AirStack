@@ -35,8 +35,32 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | **Earthquake** | **Urban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Earthquake** | **Urban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Earthquake** | **Suburban** | L1 | 🟩 | 🟩 | 🟧 | 🟧 | 🟦 | 🟦 |
-| **Earthquake** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟨 | 🟦 | 🟦 |
+| **Earthquake** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟧 | 🟦 | 🟦 |
 | **Earthquake** | **Suburban** | L3 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
+
+## Overnight completion summary — September 7
+
+**8 new accepted runs since the September 6 evening queue**: 4 on dev 191
+and 4 on pod 58. Rechecked all eight NAS `iteration.json` files (`passed`)
+and nonempty MCAPs on September 7. Failed attempts and short diagnostics are
+excluded. Both batches have ended; neither pod currently has a benchmark runner.
+
+| Pod | Scene | Method | Final team RTF | Storage |
+|---|---|---|---:|---|
+| 191 | Hurricane Urban L1 | Frontier | 0.17664 | Verified |
+| 191 | Hurricane Urban L1 | Lawnmower | 0.15580 | Verified |
+| 191 | Hurricane Urban L1 | VLFM | 0.18885 | Verified |
+| 191 | Hurricane Urban L1 | CoNavGPT2 | 0.21270 | Verified |
+| 58 | Fire Urban L1 | Lawnmower | 0.17612 | Verified |
+| 58 | Fire Urban L2 | Frontier | 0.19247 | Verified |
+| 58 | Fire Urban L2 | VLFM | 0.20916 | Verified |
+| 58 | Fire Urban L2 | CoNavGPT2 | 0.25566 | Verified |
+
+Fire Urban is now **11/12** shared-planner runs complete: L1 **4/4**, L2
+**3/4**, L3 **4/4**. L2 Lawnmower failed both attempts and was not uploaded.
+Hurricane Urban L1 is **4/4**; L2 and L3 remain **0/4** each.
+These new bags still need detector-progress/PPL evaluation; completion and
+timing above do not imply that the actual-results tables below include them.
 
 ## Fire
 
@@ -392,15 +416,18 @@ every submitted mission bounded.
 
 ## Next work queue
 
-1. 🟨 Complete persistent-callback RTF diagnostics on pod 57 and dev 191, then finish
-   Suburban Earthquake L2 VLFM and CoNavGPT2 on replacement workflow 58;
-   upload each passed iteration immediately and publish no failures.
-2. 🟦 Run Suburban Earthquake L1 then L3 on pod 57, and L2 on pod 56.
-   Any Earthquake method that exhausts its normal attempts is inserted as a
-   focused rerun before either pod advances beyond its Earthquake queue.
-3. 🟦 Run Urban Hurricane L1–L3 on pod 56 after its Earthquake queue.
-4. 🟧 Rerun Urban Fire L2 Lawnmower; the other shared-planner Fire Urban runs are complete.
-5. 🟦 Run the queued 2-GPU RayFronts/RAVEN suburban missions.
+1. 🟧 Focused Urban Fire L2 Lawnmower rerun; all other shared-planner Fire Urban runs are complete.
+2. 🟦 Urban Hurricane L2–L3 (eight runs); L1 is complete. Use only authorized
+   live pods 191/58, checking remaining lifetime before dispatch. No batch is
+   currently running; prepared specifications are not proof of dispatch.
+3. 🟦 Urban Tornado L1–L3 (twelve shared-planner runs) remain ready.
+4. 🟧 Suburban Earthquake: L1 Lawnmower/VLFM reruns + CoNavGPT2; L2 VLFM
+   rerun + CoNavGPT2; L3 all four. Its low RTF remains unresolved; the completed
+   diagnostics did not justify changing production contacts or sensor cadence.
+5. Evaluate the eight newly uploaded bags and update detector-progress/PPL tables.
+6. Keep the existing 2-GPU RayFronts/RAVEN missions queued. Pods 56/57 are no
+   longer available; do not assign them new work. Upload each passed iteration
+   immediately and publish no failed attempts.
 
 ## Active batch plan
 
@@ -473,7 +500,7 @@ short tuning runs are excluded.
 | Disaster | Urban avg wall / RTF | Suburban avg wall / RTF |
 |---|---:|---:|
 | Fire | — | 97.8 min / 0.102 (n=11) |
-| Hurricane | — | 38.3 min / 0.265 (n=9) |
+| Hurricane | 55.2 min / 0.1835 (n=4) | 38.3 min / 0.265 (n=9) |
 | Tornado | — | 77.4 min / 0.129 (n=11) |
 | Earthquake | 47.5 min / 0.212 (n=12) | 197.8 min / 0.051 (n=2) |
 
