@@ -234,6 +234,6 @@ steps:
     timeout_s: 420
 - run:
     container: airstack-robot-desktop-{n}
-    cmd: source /opt/ros/jazzy/setup.bash; export ROS_DOMAIN_ID={n}; python3 /root/AirStack/scripts/measure_camera_rates.py
+    cmd: source /opt/ros/jazzy/setup.bash; export ROS_DOMAIN_ID={n}; python3 /root/AirStack/robot/ros_ws/measure_camera_rates.py
       --robot robot_{n} --seconds 120
     timeout_s: 180
