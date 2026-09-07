@@ -34,8 +34,8 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | **Earthquake** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Earthquake** | **Urban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Earthquake** | **Urban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Earthquake** | **Suburban** | L1 | 🟩 | 🟩 | 🟧 | 🟧 | 🟦 | 🟦 |
-| **Earthquake** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟧 | 🟦 | 🟦 |
+| **Earthquake** | **Suburban** | L1 | 🟩 | 🟩 | 🟧 | 🟨 | 🟦 | 🟦 |
+| **Earthquake** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟨 | 🟦 | 🟦 |
 | **Earthquake** | **Suburban** | L3 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
 
 ## Fire
@@ -296,23 +296,25 @@ pod-56 smoke was interrupted by that workflow's expiry. Its corrected
 100-second equivalent started on pod 57 at 02:31 UTC on 2026-09-07 with uploads
 disabled. The authoritative startup gate reported solver CUDA device 2, GPU
 broadphase/dynamics enabled, CPU-facing API readback retained and Fabric
-disabled. All eight PX4/odometry, bridge and perception gates passed, but a
-direct `/clock` interval advanced only 1.20 simulated seconds in 22.60 wall
-seconds (RTF 0.053). That is below the 0.12 promotion threshold, so the smoke
-was stopped at 02:56 UTC, retained locally and not uploaded; pod 57's accepted
-queue remains paused for diagnosis/replacement. Peak GPU usage was 11,200 MiB,
-24% utilization and 70 W on the 48,935 MiB card. Workflow 57 has only about
+disabled. All eight PX4/odometry, bridge and perception gates passed. The
+reported 0.053 RTF is **provisional and invalid as a stop gate**: it compared
+two separate `ros2 topic echo --once` processes, so DDS discovery/process
+startup contaminated the wall interval. The smoke was stopped prematurely at
+02:56 UTC, retained locally and not uploaded. Peak GPU usage was 11,200 MiB,
+24% utilization and 70 W on the 48,935 MiB card. A replacement diagnostic is
+running with a single persistent `/clock` subscriber and paired callback
+monotonic timestamps over at least 90 wall seconds. Workflow 57 has only about
 three and a half hours left before its 100-hour execution timeout. A parallel
 corrected L2 VLFM smoke started on dev pod 191 at 02:38 UTC
 with uploads disabled. Its reserved outer UUID `GPU-38264ce2…` maps to Isaac
 index 3. Its authoritative banner also confirms GPU broadphase/dynamics with
 CPU-facing readback and Fabric disabled. After recovering three initially
 wedged MAVROS endpoints, all eight PX4/odometry, bridge and perception gates
-passed. A direct `/clock` interval then measured 1.32 simulated seconds in
-24.12 wall seconds (RTF 0.0547), reproducing pod 57's result and showing that
-GPU PhysX is not the dominant bottleneck. This smoke was stopped, retained
-locally and not uploaded. Its peak GPU usage was 10,625 MiB, 30% utilization
-and 74.6 W on the same card class.
+passed. The reported 0.0547 RTF used the same two-process endpoint method and
+is likewise provisional/invalid for promotion decisions; this smoke was also
+stopped prematurely, retained locally and not uploaded. Its peak GPU usage was
+10,625 MiB, 30% utilization and 74.6 W on the same card class. Dev 191 is now
+re-measuring with the persistent callback method.
 The exact outstanding pod-57 list is L1 Lawnmower, VLFM and CoNavGPT2,
 followed by L3 Frontier, Lawnmower, VLFM and CoNavGPT2. Detached queue watcher
 PID 1776779 enforces the 12-hour cap by stopping the current L1 batch at the
@@ -337,7 +339,7 @@ every submitted mission bounded.
 
 ## Next work queue
 
-1. 🟧 Diagnose the pod-57 GPU-physics smoke's measured RTF 0.053, then finish
+1. 🟨 Complete persistent-callback RTF diagnostics on pod 57 and dev 191, then finish
    Suburban Earthquake L2 VLFM and CoNavGPT2 on replacement workflow 58;
    upload each passed iteration immediately and publish no failures.
 2. 🟦 Run Suburban Earthquake L1 then L3 on pod 57, and L2 on pod 56.
@@ -370,9 +372,9 @@ uploaded.
 | 5 | `airstack-mission-1gpu-57` | Urban Fire L3 Frontier | 1 | 86.7 min total / 54.8 min timed | PASSED — uploaded and verified; RTF 0.183 excluded from performance average due wrong-host-GPU placement |
 | 6 | `airstack-mission-1gpu-57` | Urban Fire L3 × lawnmower, VLFM, CoNavGPT2 | 3 | ≤12 h | COMPLETE — 3/3 passed, uploaded and verified |
 | 7 | `airstack-mission-1gpu-57` | Earthquake/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 4/4 | 5 h 12 min | COMPLETE — all four passed/uploaded/NAS-verified at team RTFs 0.19188, 0.19888, 0.21211 and 0.21651 |
-| 8 | `airstack-mission-1gpu-57` | Earthquake/Suburban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 1/4 | ≤12 h | GPU-PHYSICS SMOKE BELOW CUTOFF / RERUN REQUIRED — Frontier passed/uploaded/NAS-verified at team RTF 0.04565. The corrected upload-disabled L1 VLFM smoke passed the reserved-index-2 GPU solver/direct-API gate and all eight PX4/odometry, bridge and perception gates, but `/clock` advanced 1.20 simulated seconds in 22.60 wall seconds (RTF 0.053). It was stopped at 02:56 UTC, retained locally and not uploaded. The accepted queue remains paused; the focused remaining-three replacement mission is prepared without duplicating Frontier |
+| 8 | `airstack-mission-1gpu-57` | Earthquake/Suburban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 1/4 | ≤12 h | DIAGNOSTIC RUNNING — Frontier passed/uploaded/NAS-verified at team RTF 0.04565. The first upload-disabled GPU-physics smoke passed the reserved-index-2 solver/direct-API and all-eight flight/perception gates, but was stopped prematurely using an invalid two-process `/clock` estimate (reported 0.053). A near-camera-off 512-group/burst-1 diagnostic started at 04:48 UTC; promotion will use one persistent subscriber's paired callback timestamps over ≥90 wall seconds. No diagnostic uploads; accepted queue remains paused |
 | 8 | `airstack-mission-1gpu-56` | Earthquake/Suburban L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 2/4 | ≤12 h per launch | POD EXPIRED / RERUN REQUIRED — Frontier passed/uploaded/NAS-verified at team RTF 0.05664. The fixed Lawnmower retry passed all eight 600.03-s windows at bottleneck RTF 0.04897 and was uploaded/NAS-verified at 17:22 UTC under `earthquake_suburban_l2_remaining_optimized_pod56/2026-09-06_13-18-38/iter_001__earthquakesuburbanl2v1_lawnmower__lawnmower`; rejected partials were never retained on NAS. The full VLFM attempt was deliberately stopped/not uploaded after discovering PhysX was on CPU. GPU-physics smoke testing then identified and fixed the Pegasus direct-GPU-API incompatibility (GPU broadphase/dynamics retained; Fabric and suppressed readback disabled), and all eight PX4/odometry endpoints came ready without the articulation errors. The corrected 100-s smoke was interrupted when workflow 56 reached `FAILED_EXEC_TIMEOUT` and its pod/tunnel disappeared at 20:27 UTC. VLFM and CoNavGPT2 remain outstanding for a fresh pod |
-| 8b | `airstack-mission-1gpu-58` / dev 191 | Earthquake/Suburban L2 VLFM + CoNavGPT2 replacement | 0/2 | 12 h mission / 100 h inspectable pod | PENDING/SCHEDULING — workflow 58 was submitted after pod 56 expired. The parallel upload-disabled VLFM gate on dev 191 passed its reserved-UUID/Isaac-index-3 GPU solver/direct-API and all-eight flight/perception gates after scoped MAVROS recovery, but measured RTF 0.0547 (1.32 sim s / 24.12 wall s). It was stopped and not uploaded. Workflow 58's renderer index must still be corrected after its own pod assignment is known; accepted VLFM and CoNavGPT2 remain outstanding |
+| 8b | `airstack-mission-1gpu-58` / dev 191 | Earthquake/Suburban L2 VLFM + CoNavGPT2 replacement | 0/2 | 12 h mission / 100 h inspectable pod | DIAGNOSTIC RUNNING / WORKFLOW 58 PENDING — the first dev-191 upload-disabled gate passed GPU/direct-API and all-eight flight/perception gates but was stopped prematurely using the same invalid two-process `/clock` estimate (reported 0.0547). A persistent-callback measurement is active on the 128-group/burst-8 diagnostic. Workflow 58's renderer index must still be corrected after assignment; accepted VLFM and CoNavGPT2 remain outstanding |
 | 9 | `airstack-mission-1gpu-57` | Earthquake/Suburban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | QUEUED — all four methods remain outstanding as upload-gated one-cell missions after L1. Every pass must be NAS-verified before the next method; failed cells retry locally and never upload |
 | 10 | `airstack-mission-1gpu-56` | Hurricane/Urban L1 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | READY/QUEUED — canonical Nucleus cold-open and material/asset audit passed; 12/12 GT survivors are inside the generated search area; all eight generated spawns have 10.1–11.9 m clearance; mission and overlay validation passed. Starts after Suburban Earthquake L2 |
 | 11 | `airstack-mission-1gpu-56` | Hurricane/Urban L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | 0/4 | ≤12 h | READY/QUEUED — canonical Nucleus cold-open and material/asset audit passed; 12/12 GT survivors are inside the generated search area; all eight generated spawns have 10.0–11.6 m clearance; mission and overlay validation passed. Starts after Hurricane/Urban L1 under a fresh 12-hour cap |
