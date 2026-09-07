@@ -653,7 +653,7 @@ steps:
 - wait: 5
 - action:
     task: semantic_search
-    timeout_s: 13800
+    timeout_s: 21600
     cancel_on_timeout: true
     cancel_grace_s: 180
     pass_on_feedback: true

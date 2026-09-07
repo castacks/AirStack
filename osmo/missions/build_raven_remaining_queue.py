@@ -124,9 +124,31 @@ def main():
         mission["iterations"] = len(scenes)
         mission["environment_order"] = "round_robin"
         mission["environments"] = [raven_env(*scene) for scene in scenes]
+        mission["env"]["ZED_TIME_SLICE_GROUPS"] = "12"
+        mission["env"]["ZED_TIME_SLICE_BURST"] = "8"
+        mission["env"]["ZED_HYDRA_TIME_SLICE"] = "true"
+        for step in mission["steps"]:
+            if step.get("action", {}).get("task") == "semantic_search":
+                # 600 simulated seconds can take several wall hours at the
+                # observed 8-robot RTF. Keep the science budget unchanged but
+                # leave enough wall-clock margin for a healthy search.
+                step["action"]["timeout_s"] = 21600
         out = MISSION_DIR / f"raven_{group}_remaining_2gpu1.yaml"
         out.write_text(yaml.safe_dump(mission, sort_keys=False, width=100))
         print(out.relative_to(ROOT))
+
+        # Also emit one-scene missions. The held-mission wrapper is capped just
+        # below 12 hours, so an independently bounded process per scene cannot
+        # interrupt a healthy later cell merely because earlier cells were slow.
+        for env in mission["environments"]:
+            single = deepcopy(mission)
+            scene_slug = env["name"]
+            single["name"] = f"raven_{scene_slug}_remaining_2gpu1"
+            single["iterations"] = 1
+            single["environments"] = [deepcopy(env)]
+            single_out = MISSION_DIR / f"raven_{scene_slug}_remaining_2gpu1.yaml"
+            single_out.write_text(yaml.safe_dump(single, sort_keys=False, width=100))
+            print(single_out.relative_to(ROOT))
 
 
 if __name__ == "__main__":
