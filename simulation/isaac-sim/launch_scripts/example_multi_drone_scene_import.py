@@ -1255,14 +1255,15 @@ class PegasusApp:
         `wait_for_stage` is not enough here and would pass instantly: it asks
         whether `/World` has a non-PhysicsScene child, and `DefinePrim` gave it
         one before a byte of the cell was read. What has to be true before
-        colliders are cooked and eight drones are spawned is that
-        `/World/stage/generated/inst` is populated — that is the ~6,000
-        referenced houses and trees, i.e. the scene.
+        colliders are cooked and eight drones are spawned is that actual
+        geometry has composed. Some cells use `generated/inst`, while
+        suburban earthquake cells put `sqh_*` directly under `generated`.
 
         A timeout is a WARNING, not a raise: a plat that is still streaming is
         recoverable (the drones spawn over a scene that fills in), while
         aborting the launch loses the whole iteration.
         """
+        from pxr import Usd, UsdGeom
         app = omni.kit.app.get_app()
         deadline = time.time() + timeout_s
         t0 = time.time()
@@ -1274,6 +1275,13 @@ class PegasusApp:
                       "under {2}/inst".format(
                           time.time() - t0, len(inst.GetChildren()),
                           SCENE_PARENT), flush=True)
+                return True
+            generated = stage.GetPrimAtPath(SCENE_PARENT)
+            if (generated and generated.IsValid()
+                    and omni.usd.get_context().get_stage_loading_status()[0] == 0
+                    and any(p.IsA(UsdGeom.Mesh) for p in Usd.PrimRange(generated))):
+                print("[frozen] composed mesh geometry in {0:.0f} s under {1}".
+                      format(time.time() - t0, SCENE_PARENT), flush=True)
                 return True
         print("[frozen] WARNING: {0}/inst is still empty after {1:.0f} s — the "
               "cell may be streaming, or the reference resolved to nothing. "
