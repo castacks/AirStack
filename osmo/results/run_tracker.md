@@ -538,6 +538,33 @@ short tuning runs are excluded.
 | Tornado | — | 77.4 min / 0.129 (n=11) |
 | Earthquake | 47.5 min / 0.212 (n=12) | 197.8 min / 0.051 (n=2) |
 
+### Measured camera cadence — September 7
+
+Direct read-only image subscribers measured unique RGB/depth header timestamps
+over 120 wall seconds. The production 32-group/8-update schedule was reproduced
+on pod 58 with eight stationary drones, 720×450 mono RGB-D and no search
+planner running. These are sensor-cadence diagnostics, not accepted search runs.
+
+| Configuration / robot | RGB FPS per sim second | Depth FPS per sim second | RGB FPS per wall second | Maximum gap (sim seconds) |
+|---|---:|---:|---:|---:|
+| Baseline 32/8, robot 1 | 0.972 | 0.972 | 0.289 | 7.53 |
+| Baseline 32/8, robot 8 | 0.939 | 0.939 | 0.280 | 7.53 |
+| RAVEN unsliced 1/1, robot 1 | 33.333 | 33.333 | 1.625 | 0.03 |
+
+Baseline measurements contain 31/30 unique frames respectively, spanning
+30.87 simulated seconds between first/last images; four gaps exceeded one
+simulated second. Within bursts, median image spacing was 0.03 simulated
+seconds. RAVEN used its own 960×600 stereo configuration and a different
+running scene/load, so this is not a controlled RTF comparison.
+
+**Correction:** scheduling counters advance per application/render-loop update,
+not per 100 Hz physics substep. Earlier 80 ms/2.56-second scheduling estimates
+and the inferred 3.125 FPS were incorrect. The measured ~1 FPS, with ~7.5-second
+blind intervals, is a potential detection-performance confound. Its causal
+effect requires a higher-cadence A/B; no production sensor settings have been
+changed by this measurement. Probe: `scripts/measure_camera_rates.py`;
+diagnostic: `camera_rate_32x8_pod58/2026-09-07_15-17-40`.
+
 ## Actual results (detector-confirmed team progress and PPL)
 
 A GT victim counts as detected when its world-frame XY location falls inside a **12 m circle around a planner `search_target`** during the 600-s search. A target circle exists only after a `person` detection clears the shared 0.65 confidence gate, is depth-projected, and forms a clustered target instance. One liberal circle can credit multiple GT people; drone proximity alone never counts. Time-integrated progress is normalized area under the cumulative detector-confirmed progress curve; marker chunks were sampled at about 20-s intervals (final persistent target state is always read, so final detection counts are exact). Paths are 1 Hz, world-frame XY odometry. Ideal lengths are OR-Tools oracle estimates for open Euclidean multi-depot routes through victim centres; fixed-sector methods preserve recorded robot ownership, while CoNavGPT2 permits joint assignment. Ground debris does not obstruct an aerial XY geodesic, and no return to launch is required. PPL uses the ideal route through detected GT victims: `progress × ideal_detected / max(actual, ideal_detected)`.
