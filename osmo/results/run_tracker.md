@@ -545,17 +545,29 @@ over 120 wall seconds. The production 32-group/8-update schedule was reproduced
 on pod 58 with eight stationary drones, 720×450 mono RGB-D and no search
 planner running. These are sensor-cadence diagnostics, not accepted search runs.
 
-| Configuration / robot | RGB FPS per sim second | Depth FPS per sim second | RGB FPS per wall second | Maximum gap (sim seconds) |
-|---|---:|---:|---:|---:|
-| Baseline 32/8, robot 1 | 0.972 | 0.972 | 0.289 | 7.53 |
-| Baseline 32/8, robot 8 | 0.939 | 0.939 | 0.280 | 7.53 |
-| RAVEN unsliced 1/1, robot 1 | 33.333 | 33.333 | 1.625 | 0.03 |
+| Configuration / robot | RGB FPS per sim second | Depth FPS per sim second | RGB FPS per wall second | Depth FPS per wall second | Maximum gap (sim seconds) |
+|---|---:|---:|---:|---:|---:|
+| Baseline 32/8, robot 1 | 0.992 | 0.992 | 0.303 | 0.303 | 7.53 |
+| Baseline 32/8, robot 2 | 0.992 | 0.992 | 0.272 | 0.272 | 7.53 |
+| Baseline 32/8, robot 3 | 0.876 | 0.908 | 0.266 | 0.276 | 7.53 |
+| Baseline 32/8, robot 4 | 0.992 | 0.992 | 0.302 | 0.302 | 7.53 |
+| Baseline 32/8, robot 5 | 0.939 | 0.939 | 0.287 | 0.287 | 7.53 |
+| Baseline 32/8, robot 6 | 0.939 | 0.939 | 0.283 | 0.283 | 7.53 |
+| Baseline 32/8, robot 7 | 0.939 | 0.939 | 0.285 | 0.285 | 7.53 |
+| Baseline 32/8, robot 8 | 0.992 | 0.992 | 0.307 | 0.307 | 7.53 |
+| **Baseline 32/8 mean** | **0.958** | **0.962** | **0.288** | **0.289** | **7.53** |
+| RAVEN unsliced 1/1, robot 1 | 33.333 | 33.333 | 1.625 | 1.625 | 0.03 |
 
-Baseline measurements contain 31/30 unique frames respectively, spanning
-30.87 simulated seconds between first/last images; four gaps exceeded one
-simulated second. Within bursts, median image spacing was 0.03 simulated
-seconds. RAVEN used its own 960×600 stereo configuration and a different
-running scene/load, so this is not a controlled RTF comparison.
+The official all-eight baseline step passed. Each 120-wall-second sample
+contained 24–30 unique RGB frames and 24–30 unique depth frames (robot 3
+delivered 28 RGB versus 29 depth frames), spanning 23.19–30.87 simulated
+seconds between its first and last images. Every robot had three or four gaps
+over one simulated second. Within bursts, median image spacing was 0.03
+simulated seconds. A preliminary simultaneous all-eight probe produced the same
+approximately 0.94–0.99 sim-FPS cadence; the mission runner then repeated the
+official per-robot probes sequentially. RAVEN used its own 960×600 stereo
+configuration and a different running scene/load, so this is not a controlled
+RTF comparison.
 
 **Correction:** scheduling counters advance per application/render-loop update,
 not per 100 Hz physics substep. Earlier 80 ms/2.56-second scheduling estimates
