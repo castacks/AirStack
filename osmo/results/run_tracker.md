@@ -300,7 +300,8 @@ disabled. All eight PX4/odometry, bridge and perception gates passed, but a
 direct `/clock` interval advanced only 1.20 simulated seconds in 22.60 wall
 seconds (RTF 0.053). That is below the 0.12 promotion threshold, so the smoke
 was stopped at 02:56 UTC, retained locally and not uploaded; pod 57's accepted
-queue remains paused for diagnosis/replacement. Workflow 57 has only about
+queue remains paused for diagnosis/replacement. Peak GPU usage was 11,200 MiB,
+24% utilization and 70 W on the 48,935 MiB card. Workflow 57 has only about
 three and a half hours left before its 100-hour execution timeout. A parallel
 corrected L2 VLFM smoke started on dev pod 191 at 02:38 UTC
 with uploads disabled. Its reserved outer UUID `GPU-38264ce2…` maps to Isaac
@@ -310,7 +311,8 @@ wedged MAVROS endpoints, all eight PX4/odometry, bridge and perception gates
 passed. A direct `/clock` interval then measured 1.32 simulated seconds in
 24.12 wall seconds (RTF 0.0547), reproducing pod 57's result and showing that
 GPU PhysX is not the dominant bottleneck. This smoke was stopped, retained
-locally and not uploaded.
+locally and not uploaded. Its peak GPU usage was 10,625 MiB, 30% utilization
+and 74.6 W on the same card class.
 The exact outstanding pod-57 list is L1 Lawnmower, VLFM and CoNavGPT2,
 followed by L3 Frontier, Lawnmower, VLFM and CoNavGPT2. Detached queue watcher
 PID 1776779 enforces the 12-hour cap by stopping the current L1 batch at the
