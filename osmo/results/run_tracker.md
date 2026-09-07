@@ -16,15 +16,15 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | **Fire** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Fire** | **Urban** | L2 | 🟩 | 🟩 | 🟧 | 🟩 | 🟩 | 🟦 |
 | **Fire** | **Urban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Fire** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Fire** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Fire** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
+| **Fire** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟨 |
+| **Fire** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
+| **Fire** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
 | **Hurricane** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Hurricane** | **Urban** | L2 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
 | **Hurricane** | **Urban** | L3 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
-| **Hurricane** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Hurricane** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Hurricane** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
+| **Hurricane** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
+| **Hurricane** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
+| **Hurricane** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
 | **Tornado** | **Urban** | L1 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟨 |
 | **Tornado** | **Urban** | L2 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟨 |
 | **Tornado** | **Urban** | L3 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟨 |
@@ -413,6 +413,29 @@ every submitted mission bounded.
 | `hurricane_suburban_8robot/2026-09-02_16-35-56` | Readiness failure, then aborted |
 | `hurricane_suburban_8robot/2026-09-02_19-02-31`, `19-34-47`, `19-48-19`, `19-56-32`, `20-04-16` | Aborted before a scored cell |
 | `hurricane_suburban_l1_conavgpt2_gt600/2026-09-04_14-02-06` | Stale-container/network conflict; superseded by successful `17-23-22` run |
+
+## RayFronts two-GPU pod recovery — September 7
+
+`airstack-mission-8robot-2gpu-1` started at 10:31 UTC. Its original
+`raven_suburban_8robot/2026-09-07_10-36-56` batch failed all six Fire/Hurricane
+cells during setup (two attempts each); the next Tornado L1 attempt was
+interrupted. None is accepted. The encoder could not load missing Hugging Face
+cache files because offline mode was enabled. The original renderer was also
+unpinned despite the container exposing other tenants' GPUs.
+
+At 15:00 UTC the actual launcher PID **59** was held with SIGSTOP, then the
+runner was interrupted with SIGINT (subsequently TERM to finish stopping).
+Launcher remains `T`; the old runner is defunct. The model cache has now been
+warmed and RADIO + siglip2/SAM adapters successfully reloaded with networking
+disabled. Correct device split: Isaac **1**, RayFronts **3**, both belonging
+to the pod's assigned UUIDs. A three-cell Fire Suburban L1–L3 recovery spec
+is prepared at `osmo/missions/raven_fire_suburban_recovery_2gpu1.yaml`.
+The full non-CUDA test harness passed (1,197 passed; CUDA-specific tests not
+requested). Recovery started at **15:04:09 UTC**, runner PID 3163260, under
+`raven_fire_suburban_recovery_2gpu1/2026-09-07_15-04-09`, log
+`/tmp/ray1_fire_recovery.log`. No new RayFronts result or flight RTF is claimed
+yet. The manual batch uses a <12-hour cap, pass-only uploads and the held
+launcher, without resuming its teardown path.
 
 ## Next work queue
 
