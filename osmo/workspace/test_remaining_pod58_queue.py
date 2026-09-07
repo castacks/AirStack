@@ -1,0 +1,45 @@
+import ast
+import tempfile
+import unittest
+from pathlib import Path
+
+import yaml
+
+from remaining_pod58_queue import completion_command, prepare
+
+
+class RemainingQueueTests(unittest.TestCase):
+    def test_preserves_production_and_selects_only_outstanding_cells(self):
+        root = Path(__file__).resolve().parents[2]
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = prepare(root, Path(tmp))
+            self.assertEqual(len(paths), 29)
+            self.assertEqual(len(set(paths)), 29)
+            self.assertNotIn('remaining58_hurricaneurbanl2v1_frontier.yaml', [p.name for p in paths])
+            for path in paths:
+                spec = yaml.safe_load(path.read_text())
+                self.assertEqual(spec['iterations'], 1)
+                self.assertEqual(len(spec['environments']), 1)
+                self.assertEqual(spec['environment_order'], 'round_robin')
+                self.assertEqual(str(spec['env']['ZED_TIME_SLICE_GROUPS']), '32')
+                self.assertEqual(str(spec['env']['ZED_TIME_SLICE_BURST']), '8')
+                self.assertEqual(str(spec['env']['SEARCH_MAX_SIM_SECONDS']), '600')
+                self.assertEqual(spec['env']['ISAAC_SIM_ACTIVE_GPU'], '2')
+                self.assertEqual(spec['env']['OFFBOARD_COMPUTE_GPU'], '2')
+                self.assertEqual(spec['env']['ISAAC_SIM_GPU_PHYSICS'], 'false')
+                self.assertTrue(spec['record']['required'])
+                self.assertEqual(spec['on_step_failure'], 'abort_iteration')
+
+    def test_completion_guard_requires_true_latched_message(self):
+        for team in (True, False):
+            cmd = completion_command(team)
+            python = cmd.split("<<'PY'\n", 1)[1].rsplit('\nPY', 1)[0]
+            ast.parse(python)
+            self.assertIn('TRANSIENT_LOCAL', python)
+            self.assertIn('done[0] or msg.data', python)
+            self.assertIn("raise SystemExit('RUN_DID_NOT_COMPLETE')", python)
+            self.assertNotIn('ros2 topic echo', cmd)
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -40,6 +40,35 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 
 ## Overnight completion summary — September 7
 
+### Active completion queue — September 7, 15:49 UTC
+
+| Pod | Current run | Remaining assignment |
+|---|---|---|
+| dev 191 | Hurricane Urban L2 Frontier, started 15:45:08 UTC | One focused run only; 6000 s wall cap plus cleanup before pod expiry |
+| 1-GPU 58 | Fire Urban L2 Lawnmower rerun, started 15:47:29 UTC | **29 standard-baseline cells:** Fire rerun (1), Hurricane Urban (7), Tornado Urban (12), Earthquake Suburban (9) |
+| 2-GPU 1 | Fire Suburban L1 RAVEN/RayFronts retry; 8/8 armed, takeoff in progress | Dedicated RAVEN/RayFronts work; monitor owns subsequent ready-scene queue |
+
+Pod 58 now has a detached, durable one-cell-at-a-time queue, not just a list
+waiting for manual launches. Each cell retains the original 600-s window,
+32/8 camera settings and flight gates, with renderer/offboard pinned to owned
+GPU 2. The Fire completion gate now uses a persistent reliable, transient-local
+subscriber for `run_complete=true`, replacing repeated ROS CLI processes that
+previously hung. It does **not** accept elapsed wall time or proximity as success.
+
+Every cell has a ≤12-hour launch/cleanup cap and two mission attempts. Exhausted
+failures are marked `needs_investigation` while other ready work proceeds; they
+are not counted or uploaded. Passing results upload immediately, with a further
+upload verification/retry before advancing. An unresolved upload failure stops
+the queue and retains the local result. Both mission pods' original launchers
+remain stopped to prevent automatic teardown.
+
+Live pod-58 ledger: `/root/AirStack/osmo/results/remaining58_queue/state.json`;
+per-cell logs are alongside it. Queue source:
+`osmo/workspace/remaining_pod58_queue.py`. Current Fire run folder:
+`remaining58_fireurbanl2v1_lawnmower/2026-09-07_15-47-29`.
+This section supersedes historical pod-56/57 assignments below. Queued or
+currently flying cells are **not new completions** until their acceptance gates pass.
+
 **8 new accepted runs since the September 6 evening queue**: 4 on dev 191
 and 4 on pod 58. Rechecked all eight NAS `iteration.json` files (`passed`)
 and nonempty MCAPs on September 7. Failed attempts and short diagnostics are
