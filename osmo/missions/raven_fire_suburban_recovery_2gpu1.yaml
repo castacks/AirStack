@@ -787,7 +787,10 @@ steps:
     goal:
       target_altitude_m: 20.0
       velocity_m_s: 2.0
-    timeout_s: 420
+    # At the measured ~0.05 RTF, a 20 m takeoff needs about 480 wall seconds.
+    # Keep the first relay goal alive through completion; retrying at 420 s
+    # overlaps the still-active task and makes action_relay exit on rejection.
+    timeout_s: 900
     dispatch_stagger_s: 3
     prearm_via_mavros: true
     prearm_timeout_s: 60
