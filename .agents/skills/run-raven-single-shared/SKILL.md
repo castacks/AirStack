@@ -254,24 +254,42 @@ user, not something to silently work around (e.g. dropping `RAVEN_LVLM` to
 
 ---
 
-## 6. What is UNVERIFIED (read before trusting a green light above)
+## 6. Runtime failure catalogue and remaining gaps
 
-This build has never been flown against Isaac Sim. Everything in this list
-is either a documented gap, a guessed parameter, or a test-tier result that
-is real but does not by itself prove the shared-mode RUNTIME path works.
+Shared mode first flew end to end on an eight-robot Isaac mission on 2026-09-07.
+The offline RADIO encoder, CUDA-IPC transport, per-domain inputs and shared
+mapping path all processed real 960x600 RGB-D frames. The historical gaps below
+remain useful context, but they are no longer evidence that the runtime path is
+entirely untested.
+
+- **Guard an empty finite-depth selection before visualization.** A newly
+  connected or time-sliced render product can emit an all-inf/all-NaN depth
+  frame. `Visualizer.log_depth_img()` used to call `utils.norm_01()` on the
+  empty finite selection, so `torch.min()` terminated the whole shared mapping
+  server; the supervisor then repeatedly restarted it and discarded the map.
+  The guard in `rayfronts/visualizers/base.py` must remain. A healthy restart
+  has every robot anchored and accumulating frames without the supervisor's
+  start counter increasing.
+- **Scale action relay wall deadlines by measured RTF.** At about 0.05 RTF, an
+  eight-robot 20 m takeoff completed in roughly 550 wall seconds. A 420-second
+  relay deadline issued overlapping takeoff goals while the first tasks were
+  still active; rejection then killed the relay processes. Pre-arm through
+  MAVROS, stagger dispatch, and keep a wall deadline above the measured climb
+  duration. This does not change the simulated-time search budget.
 
 - **The scene doesn't exist yet.** `_plans/raven_test_scene_runbook.md` §2's
   Isaac launch (build + freeze `RavenSuburbTornado250`) has not been run.
   Nothing past that point in this file has been exercised end to end.
-- **RADSeg has never crossed the encoder socket** (2026-09-02 attempt: the
-  weights are absent from `robot/docker/cache` — see prerequisite #0 in §3a;
+- **RADSeg cache remains a deployment prerequisite.** A 2026-09-02 attempt found
+  weights absent from `robot/docker/cache` — see prerequisite #0 in §3a;
   the same rig was proven with `encoder=dummy`, so the wire path itself is
-  fine). Also note `radseg.py` hardcodes `torch.autocast("cuda", ...)` in
+  fine. Also note `radseg.py` hardcodes `torch.autocast("cuda", ...)` in
   three places with `amp: True` defaulted — harmless on the real GPU
   deployment, but a CPU-only smoke of the real model will need
   `encoder.amp=False`.
-- **The shared mapping server has never processed real camera frames.**
-  `scripts/raven_rayfronts_tests.sh`'s container tier proves `import
+- **The static harness still does not process real camera frames.** The live
+  eight-robot mission now covers that runtime gate. In contrast,
+  `scripts/raven_rayfronts_tests.sh`'s container tier only proves `import
   rayfronts` + `import rayfronts_cpp` + `rclpy` + `torch` all work together
   in the robot image and that `pytest` runs against the live-mounted
   source — it does NOT start `multi_robot_mapping_server` itself or feed it
