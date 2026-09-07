@@ -1247,7 +1247,36 @@ class PegasusApp:
             oprim.GetReferences().AddReference(overlay_usd)
             print(f"[frozen] OVERLAY referenced {overlay_usd} -> /World/Overlay",
                   flush=True)
+        self._apply_frozen_ground_only_override(stage)
         self._wait_for_frozen_geometry(stage)
+
+    def _apply_frozen_ground_only_override(self, stage):
+        """Opt-in runtime contact simplification, never a frozen-file edit.
+
+        Diagnostic only unless the benchmark explicitly accepts ground-only
+        contacts. Rendering/depth stay unchanged; rubble no longer collides.
+        Apply before pumping Kit so thousands of baked hulls need not cook.
+        """
+        if os.environ.get("FROZEN_GROUND_ONLY_CONTACTS", "false").lower() != "true":
+            return
+        from pxr import Sdf, Usd, UsdPhysics
+        if COLLIDERS != "ground":
+            raise ValueError("FROZEN_GROUND_ONLY_CONTACTS requires SUBURB_COLLIDERS=ground")
+        ground_path = Sdf.Path(SCENE_PARENT + "/ground")
+        if not stage.GetPrimAtPath(ground_path).IsValid():
+            raise RuntimeError("Cannot simplify contacts without a composed ground prim")
+        root = stage.GetPrimAtPath("/World/stage")
+        count = 0
+        for prim in Usd.PrimRange(root):
+            if prim.GetPath().HasPrefix(ground_path):
+                continue
+            if prim.HasAPI(UsdPhysics.CollisionAPI):
+                api = UsdPhysics.CollisionAPI(prim)
+                if api.GetCollisionEnabledAttr().Get() is not False:
+                    api.CreateCollisionEnabledAttr(False)
+                    count += 1
+        print(f"[frozen-contacts] GROUND-ONLY: disabled {count} non-ground "
+              "colliders in runtime layer; visual/depth geometry unchanged", flush=True)
 
     def _wait_for_frozen_geometry(self, stage, timeout_s=600.0):
         """Pump the app until the referenced plat has actually COMPOSED.
