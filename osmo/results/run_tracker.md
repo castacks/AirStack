@@ -49,9 +49,10 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | 2-GPU 1 | Fire Suburban L1 RAVEN/RayFronts retry; 8/8 armed, takeoff in progress | Dedicated RAVEN/RayFronts work; monitor owns subsequent ready-scene queue |
 
 Pod 58 now has a detached, durable one-cell-at-a-time queue, not just a list
-waiting for manual launches. Each cell retains the original 600-s window,
-32/8 camera settings and flight gates, with renderer/offboard pinned to owned
-GPU 2. The Fire completion gate now uses a persistent reliable, transient-local
+waiting for manual launches. Each cell retains the original 600-s window
+and flight gates, with renderer/offboard pinned to owned GPU 2. The active Fire
+run retains 32/8 cameras; subsequent runs use the user-approved 12/8 cohort
+described below. The Fire completion gate now uses a persistent reliable, transient-local
 subscriber for `run_complete=true`, replacing repeated ROS CLI processes that
 previously hung. It does **not** accept elapsed wall time or proximity as success.
 
@@ -68,6 +69,21 @@ per-cell logs are alongside it. Queue source:
 `remaining58_fireurbanl2v1_lawnmower/2026-09-07_15-47-29`.
 This section supersedes historical pod-56/57 assignments below. Queued or
 currently flying cells are **not new completions** until their acceptance gates pass.
+
+### Camera schedule change — September 7, user approved
+
+For subsequent baseline **and RayFronts** runs, use
+`ZED_TIME_SLICE_GROUPS=12`, `ZED_TIME_SLICE_BURST=8`, and
+`ZED_HYDRA_TIME_SLICE=true`: eight occupied camera groups plus **four empty
+groups**, not four total groups or a four-update burst. Active iterations keep
+their launch settings. Baseline image geometry, RayFronts stereo geometry,
+LiDAR configuration, simulation budget and acceptance gates remain unchanged.
+
+This is a new sensor-rate cohort. The preceding baseline cohort was 32/8;
+preceding RayFronts runs were unsliced. Do not attribute differences solely to
+the planner or merge sensor-rate comparisons without noting this change.
+Actual 12/8 RGB/depth FPS, wall-clock FPS and RTF are **pending measurement**;
+the ideal baseline scheduling increase is 32/12 ≈ 2.67×, not a measured FPS gain.
 
 **8 new accepted runs since the September 6 evening queue**: 4 on dev 191
 and 4 on pod 58. Rechecked all eight NAS `iteration.json` files (`passed`)
