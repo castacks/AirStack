@@ -26,14 +26,14 @@ def selections():
     yield "hurricane_urban_l3_8robot_optimized_dev191.yaml", None
     for level in (1, 2, 3):
         yield f"tornado_urban_l{level}_8robot_optimized_pod57.yaml", None
+    # NAS audit found that two historical CoNavGPT2 cells previously marked
+    # complete had no accepted iteration at all. Keep them ahead of the final
+    # Earthquake block so a safe queue restart prioritizes the missing cells.
+    yield "fire_suburban_l1_conavgpt2_optimized_rerun.yaml", None
+    yield "tornado_suburban_l3_conavgpt2_optimized.yaml", None
     yield "earthquake_suburban_l1_8robot_optimized_pod57.yaml", {"earthquakesuburbanl1v1_" + m for m in ("lawnmower", "vlfm", "conavgpt2_team")}
     yield "earthquake_suburban_l2_8robot_optimized_pod56.yaml", {"earthquakesuburbanl2v1_" + m for m in ("vlfm", "conavgpt2_team")}
     yield "earthquake_suburban_l3_8robot_optimized_pod57.yaml", None
-    # NAS audit found that two historical CoNavGPT2 cells previously marked
-    # complete had no accepted iteration at all. Keep them in the durable
-    # queue so the next safe queue start cannot silently skip them.
-    yield "fire_suburban_l1_conavgpt2_optimized_rerun.yaml", None
-    yield "tornado_suburban_l3_conavgpt2_optimized.yaml", None
 
 
 def completion_command(team):
