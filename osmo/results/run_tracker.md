@@ -25,7 +25,7 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | **Hurricane** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
 | **Hurricane** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
 | **Hurricane** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
-| **Tornado** | **Urban** | L1 | 🟩 | 🟩 | 🟨 | 🟦 | 🟦 | 🟨 |
+| **Tornado** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟧 | 🟨 | 🟨 |
 | **Tornado** | **Urban** | L2 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟨 |
 | **Tornado** | **Urban** | L3 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟨 |
 | **Tornado** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
@@ -45,7 +45,7 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | Pod | Current run | Remaining assignment |
 |---|---|---|
 | dev 191 | Expired: `FAILED_EXEC_TIMEOUT` | No active run |
-| 1-GPU 58 | Tornado Urban L1 Lawnmower, started September 8 03:05:21 UTC; live runner PID 1576277 | **20 standard-baseline cells remain**, including current run; 10/30 queue cells passed/uploaded |
+| 1-GPU 58 | Tornado Urban L1 CoNavGPT2, started September 8 04:49:32 UTC; live runner PID 2623975, verified 05:54 UTC | **19 standard-baseline cells remain**, including current run and VLFM rerun; 11/30 queue cells passed/uploaded |
 | 2-GPU 1 | `FAILED_EVICTED`, confirmed by OSMO; SSH endpoint gone | RayFronts queue cannot advance on this pod; replacement required |
 | 2-GPU 3 | RAVEN camera sweep: 4-empty-group diagnostic started September 8 05:27:57 UTC; runner PID 2156591 | Production lane paused; protected launcher PID 60 in state T; owned renderer GPU 2 (`d239ce7e`), offboard GPU 3 (`38264ce2`) |
 | 2-GPU 4 | Fire Suburban L2 RAVEN, active runner 4089516, search dispatched 02:11 UTC | Protected launcher PID 59 in state T; owned renderer GPU 0 (`1617253c`), offboard GPU 3 (`c90e144e`) |
@@ -304,6 +304,16 @@ are startup-invalid.
 ## Tornado
 
 ### Urban
+
+September 8 05:54 UTC pod-58 update: L1 Frontier and Lawnmower are passed
+and uploaded. Lawnmower's accepted folder is
+`remaining58_tornadourbanl1v1_lawnmower/2026-09-08_03-05-21/iter_001__tornadourbanl1v1_lawnmower__lawnmower`,
+with upload verification logged at 04:18:51 UTC. L1 VLFM failed before search:
+robots 1 and 4 exhausted `PREARM_STATE_TIMEOUT` despite successful MAVROS arm
+RPC responses. Its failed artifacts remain local, are not counted, and were
+explicitly not uploaded; diagnosis and a corrected rerun remain required.
+L1 CoNavGPT2 is now running. Pod 58's durable queue and stopped teardown
+launcher were verified live; successful cells upload and verify before advancing.
 
 Urban Tornado L1–L3 are canonically published on Nucleus and ready for
 benchmarking. Standalone cold opens passed for all three canonical USDs
