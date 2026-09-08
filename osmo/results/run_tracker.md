@@ -733,6 +733,31 @@ diagnostic: `camera_rate_32x8_pod58/2026-09-07_15-17-40`.
 
 ## Actual results (detector-confirmed team progress and PPL)
 
+### Strict 10 m progress — all completed runs
+
+Requested refresh is running in background session `all_progress10`; output
+`osmo/results/completed_progress_10m.json`, log `/tmp/all_progress10.log`.
+Credit each distinct GT person whose world XY position lies within 10 m of
+any detector target during search; one target can credit multiple people.
+No IoU alternative, robot-proximity credit, integrated progress or PPL in this
+refresh. Average progress is the arithmetic mean of per-run detected/GT ratios.
+Failed/partial attempts never count. Multiple accepted reruns of the same
+scene/method count once, using the latest accepted result.
+
+| Method | Storage-confirmed completed / planned eight-robot runs | Average progress, strict 10 m |
+|---|---:|---:|
+| Frontier | 23/24 | Pending full-cohort analysis |
+| Lawnmower | 22/24 | Pending full-cohort analysis |
+| VLFM | 20/24 | Pending full-cohort analysis |
+| CoNavGPT2 | 18/24 | Pending full-cohort analysis |
+| RAVEN | 3/24 | Pending circle-only recomputation |
+
+The full four-plus-eight-robot plan has 48 runs per method; the table above
+tracks the current eight-robot sweep (24 scenes). Two additional CoNavGPT2
+dashboard DONE cells lack matching accepted NAS metadata in this inventory
+and are being reconciled. Completed-run counts are not analysis counts, and
+averages stay pending until every accepted run for that method is evaluated.
+
 A GT victim counts as detected when its world-frame XY location falls inside a **12 m circle around a planner `search_target`** during the 600-s search. A target circle exists only after a `person` detection clears the shared 0.65 confidence gate, is depth-projected, and forms a clustered target instance. One liberal circle can credit multiple GT people; drone proximity alone never counts. Time-integrated progress is normalized area under the cumulative detector-confirmed progress curve; marker chunks were sampled at about 20-s intervals (final persistent target state is always read, so final detection counts are exact). Paths are 1 Hz, world-frame XY odometry. Ideal lengths are OR-Tools oracle estimates for open Euclidean multi-depot routes through victim centres; fixed-sector methods preserve recorded robot ownership, while CoNavGPT2 permits joint assignment. Ground debris does not obstruct an aerial XY geodesic, and no return to launch is required. PPL uses the ideal route through detected GT victims: `progress × ideal_detected / max(actual, ideal_detected)`.
 
 ### Per completed run
