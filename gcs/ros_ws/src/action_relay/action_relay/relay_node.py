@@ -263,7 +263,12 @@ def _make_relay(node0, nodeN, executorN, executorN_lock, topic, suffix,
                 action_type, robot_domain, transform_state):
     """Wire up goal subscriber (domain 0) + action client (domain N)."""
 
-    client = ActionClient(nodeN, action_type, topic)
+    # A robot bringup may be restarted after this GCS node was created.  On
+    # some Cyclone/FastDDS combinations an ActionClient that observed the old
+    # server GID never rediscovers the replacement, even though a fresh ROS
+    # CLI client on the same domain sees it.  Keep the client replaceable so a
+    # server-unavailable edge gets one clean graph rediscovery before failing.
+    client_holder = [ActionClient(nodeN, action_type, topic)]
     cbg = ReentrantCallbackGroup()
 
     feedback_pub = node0.create_publisher(String, f'{topic}/relay_feedback', _RELIABLE_QOS)
@@ -336,7 +341,18 @@ def _make_relay(node0, nodeN, executorN, executorN_lock, topic, suffix,
             return
         node0.get_logger().info(f'[relay] {topic}: goal: {goal_msg}')
 
+        client = client_holder[0]
         _t = time.monotonic()
+        if not client.wait_for_server(timeout_sec=20.0):
+            node0.get_logger().warn(
+                f'[relay] {topic}: server unavailable on existing client; '
+                f'recreating client once after possible robot restart')
+            try:
+                client.destroy()
+            except Exception:
+                pass
+            client = ActionClient(nodeN, action_type, topic)
+            client_holder[0] = client
         if not client.wait_for_server(timeout_sec=20.0):
             node0.get_logger().warn(f'[relay] {topic}: robot server not available')
             _diag(f'{topic} SERVER_UNAVAILABLE after {time.monotonic() - _t:.1f}s')
@@ -493,7 +509,7 @@ def _make_relay(node0, nodeN, executorN, executorN_lock, topic, suffix,
 
     if not hasattr(node0, '_relays'):
         node0._relays = []
-    node0._relays.append((client, feedback_pub, result_pub, status_pub))
+    node0._relays.append((client_holder, feedback_pub, result_pub, status_pub))
 
     node0.get_logger().info(
         f'[relay] {topic}/goal -> client(domain {robot_domain})')
