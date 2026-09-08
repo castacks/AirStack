@@ -62,7 +62,7 @@ def main() -> int:
         assert len(mission["environments"]) == 1
         mission["env"]["ISAAC_SIM_ACTIVE_GPU"] = str(args.isaac_gpu)
         mission["env"]["OFFBOARD_COMPUTE_GPU"] = str(args.offboard_gpu)
-        assert mission["env"]["ZED_TIME_SLICE_GROUPS"] == "12"
+        assert mission["env"]["ZED_TIME_SLICE_GROUPS"] == "8"
         assert mission["env"]["ZED_TIME_SLICE_BURST"] == "8"
         assert mission["env"]["ZED_HYDRA_TIME_SLICE"] == "true"
         search = next(s["action"] for s in mission["steps"]
