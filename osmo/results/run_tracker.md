@@ -1,6 +1,6 @@
 # Disaster benchmark dashboard
 
-Latest completion update: **2026-09-08**. Earthquake Suburban L1 Lawnmower passed its full 600-s team run and was NAS-verified at 19:22:06 UTC; VLFM is now active. Hurricane Suburban L1 RAVEN completed all eight 600-s robot windows at 19:57:07 UTC and is collecting locally before upload verification. Fire Suburban L1 and L2 RAVEN are storage-verified, and Fire Suburban L3 is in a repaired focused rerun. Failed attempts remain local and unuploaded.
+Latest completion update: **2026-09-08**. Hurricane Suburban L1 RAVEN passed all eight 600-s robot windows and was NAS-verified at 20:56:40 UTC. Earthquake Suburban L1 Lawnmower was NAS-verified at 19:22:06 UTC and VLFM is active. Fire Suburban L1 and L2 RAVEN are storage-verified, and Fire Suburban L3 is in a repaired focused rerun. Failed attempts remain local and unuploaded.
 
 > **Legend:** 🟩 **DONE** · 🟦 **READY** · 🟧 **RERUN** · 🟨 **VERIFY / IN PROGRESS** · ⬜ **NOT READY**
 >
@@ -22,7 +22,7 @@ Latest completion update: **2026-09-08**. Earthquake Suburban L1 Lawnmower passe
 | **Hurricane** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Hurricane** | **Urban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Hurricane** | **Urban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Hurricane** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟨 |
+| **Hurricane** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 |
 | **Hurricane** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
 | **Hurricane** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
 | **Tornado** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟧 | 🟩 | 🟨 |
@@ -48,7 +48,7 @@ Latest completion update: **2026-09-08**. Earthquake Suburban L1 Lawnmower passe
 | 1-GPU 58 | Earthquake Suburban L1 Lawnmower **passed and NAS-verified** at 19:22:06 UTC (team RTF 0.04593–0.04601); L1 VLFM cleared **8/8 takeoff** at 19:39:00 UTC, runner PID 1739915 | **19/30 uploaded; 11 outstanding**: eight Earthquake cells including current, plus Tornado L1 VLFM / L2 CoNavGPT2 / L3 Lawnmower needing investigation and rerun |
 | 2-GPU 1 | `FAILED_EVICTED`, confirmed by OSMO; SSH endpoint gone | RayFronts queue cannot advance on this pod; replacement required |
 | 2-GPU 3 | Fire Suburban L1 RAVEN **passed, uploaded and NAS-verified** at 15:53:19 UTC; repaired Fire Suburban L3 mission attempt 2 cleared **8/8 readiness, perception and takeoff** and entered semantic search at 18:30:21 UTC | All eight robots reported at least eight shared-RayFronts frames, spawned RAVEN and accepted their NavigateTask activator. Live persistent-clock RTF **0.0442** over 90.23 wall s / 3.99 sim s. L1 final RTF **0.0398**, 12/49 GT matched (24.5% recall), 5.66 km team path. Earlier failed attempts remain local and unuploaded; commit `bc493b53` repairs stale relay clients after robot recovery. Current runner PID **4054655**, folder `2026-09-08_17-41-24`; acceptance requires all eight per-robot 600-s completion records before upload; launcher PID 60 remains T |
-| 2-GPU 4 | Fire Suburban L2 RAVEN **passed, uploaded and NAS-verified** at 15:06:44 UTC; repaired Hurricane Suburban L1 rerun completed semantic search **8/8** at 19:57:07 UTC and is collecting before upload | Search step wall time **6190.52 s**, equivalent to final team RTF **0.0969** for the 600-s budget. All eight raw robot windows are **599.43–600.06 s**; the semantic-search action succeeded for all eight. Raw `raven_nav` JSON keeps `completion_reason=in_progress` for time-budget exits because `semantic_search_task` owns that budget; commit `561f4414` fixes the future acceptance gate to use 8/8 action success plus the independent duration records. Optional landing was rejected after the completed search and does not affect acceptance. Current runner PID **3842767**, folder `2026-09-08_17-46-57`; launcher PID 59 remains T |
+| 2-GPU 4 | Fire Suburban L2 and Hurricane Suburban L1 RAVEN both **passed, uploaded and NAS-verified**; Hurricane L1 verified at 20:56:40 UTC | Hurricane L1 search wall time **6190.52 s**, final team RTF **0.0969**; all eight raw robot windows are **599.43–600.06 s**. It recorded 250 raw detections (146 visited), 0/55 built-in GT matches, and a 4.66 km team path. NAS verification matched all **152 files / 83,671,457,440 bytes** and the four key result-file checksums. Commit `561f4414` fixes the future acceptance gate to use 8/8 action success plus independent duration records. Folder `raven_hurricanesuburbanl1v1_raven_remaining_2gpu1/2026-09-08_17-46-57`; launcher PID 59 remains T |
 
 September 8 04:05 UTC: user assigned pods 3/4 to RAVEN and reaffirmed pod 58
 for non-RAVEN work. Both RAVEN pods were already protected and running the
@@ -117,6 +117,7 @@ resolution, LiDAR, RAVEN parameters, scene geometry and per-pod GPU pins.
 |---|---|---:|---:|---:|---:|---:|---:|---|
 | Fire Suburban L1 | Passed; uploaded and verified | 8/8, 600.0–600.1 s | 0.0398 | 12/49 | 24.5% | 224 | 5.66 km | `raven_firesuburbanl1v1_raven_remaining_2gpu1/2026-09-08_09-58-54` |
 | Fire Suburban L2 | Passed; uploaded and verified | 8/8, 600.0–600.1 s | 0.0443 | 6/79 | 7.6% | 490 | 8.28 km | `raven_firesuburbanl2v1_raven_remaining_2gpu1/2026-09-08_09-56-33` |
+| Hurricane Suburban L1 | Passed; uploaded and verified | 8/8, 599.4–600.1 s | 0.0969 | 0/55 | 0.0% | 250 | 4.66 km | `raven_hurricanesuburbanl1v1_raven_remaining_2gpu1/2026-09-08_17-46-57` |
 
 The optional post-search land step was rejected in both cells after the complete
 600-second search results had already been written; it does not invalidate the
