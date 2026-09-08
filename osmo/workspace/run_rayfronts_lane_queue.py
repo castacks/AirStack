@@ -81,6 +81,33 @@ def main() -> int:
         assert search["timeout_s"] == 21600
         assert search["goal"]["max_sim_seconds"] == 600.0
 
+        # Action feedback proves that a goal started, but it does not prove
+        # every robot completed the scored window.  A live failure left one
+        # planner orphaned with completion_reason=in_progress while the other
+        # seven returned normally.  Make the per-robot result files the final
+        # acceptance gate before landing, collection, or upload.
+        search_index = next(
+            i for i, step in enumerate(mission["steps"])
+            if step.get("action", {}).get("task") == "semantic_search")
+        mission["steps"].insert(search_index + 1, {
+            "run": {
+                "container": "airstack-robot-desktop-{n}",
+                "timeout_s": 120,
+                "cmd": (
+                    "python3 - <<'PY'\n"
+                    "import json\n"
+                    "p = '/root/.cache/raven_results/robot_{n}.json'\n"
+                    "d = json.load(open(p))\n"
+                    "duration = float(d.get('mission_duration_s') or 0.0)\n"
+                    "reason = d.get('completion_reason')\n"
+                    "assert reason == 'sim_time_budget', (p, reason)\n"
+                    "assert 598.5 <= duration <= 610.0, (p, duration)\n"
+                    "print(f'RAVEN_WINDOW_OK {p} {duration:.2f}s')\n"
+                    "PY\n"
+                ),
+            },
+        })
+
         runtime = Path("/tmp") / f"{source.stem}.lane_{args.lane}.yaml"
         runtime.write_text(yaml.safe_dump(mission, sort_keys=False, width=100))
         print(f"[{scene}] GPU Isaac={args.isaac_gpu} "
