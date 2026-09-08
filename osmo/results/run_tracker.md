@@ -47,6 +47,17 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | dev 191 | Expired: `FAILED_EXEC_TIMEOUT` | No active run |
 | 1-GPU 58 | Tornado Urban L1 Lawnmower, started September 8 03:05:21 UTC; live runner PID 1576277 | **20 standard-baseline cells remain**, including current run; 10/30 queue cells passed/uploaded |
 | 2-GPU 1 | `FAILED_EVICTED`, confirmed by OSMO; SSH endpoint gone | RayFronts queue cannot advance on this pod; replacement required |
+| 2-GPU 3 | Fire Suburban L1 RAVEN, active runner 260888, search dispatched 02:13 UTC | Protected launcher PID 60 in state T; owned renderer GPU 2 (`d239ce7e`), offboard GPU 3 (`38264ce2`) |
+| 2-GPU 4 | Fire Suburban L2 RAVEN, active runner 4089516, search dispatched 02:11 UTC | Protected launcher PID 59 in state T; owned renderer GPU 0 (`1617253c`), offboard GPU 3 (`c90e144e`) |
+
+September 8 04:05 UTC: user assigned pods 3/4 to RAVEN and reaffirmed pod 58
+for non-RAVEN work. Both RAVEN pods were already protected and running the
+current runtime fixes (`9017b418`, RayFronts `128d95e0`); fast-forwarded their
+remaining documentation updates to `f0eed04d` without restarting healthy runs.
+Both active containers confirm 12/8 cameras. Live offboard CUDA processes map
+to the assigned model GPU UUIDs, and the large Isaac allocation maps to each
+assigned renderer UUID. Both RAVEN logs are advancing. These are active runs,
+not accepted completions. The eviction of pod 1 does not stop pods 3/4.
 
 Pod 58 now has a detached, durable one-cell-at-a-time queue, not just a list
 waiting for manual launches. Each cell retains the original 600-s window
