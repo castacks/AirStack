@@ -81,11 +81,19 @@ def main() -> int:
         assert search["timeout_s"] == 21600
         assert search["goal"]["max_sim_seconds"] == 600.0
 
-        # Action feedback proves that a goal started, but it does not prove
-        # every robot completed the scored window.  A live failure left one
-        # planner orphaned with completion_reason=in_progress while the other
-        # seven returned normally.  Make the per-robot result files the final
-        # acceptance gate before landing, collection, or upload.
+        # Action success proves each semantic-search task reached its terminal
+        # condition, but it does not prove every robot accumulated the full
+        # scored window.  A live failure left one planner orphaned while the
+        # other seven returned normally.  Validate the independently dumped
+        # per-robot duration before landing, collection, or upload.
+        #
+        # Do not gate on the raw raven_nav completion_reason here.  The 600 s
+        # budget is owned by semantic_search_task, while raven_nav only writes
+        # `coverage` itself; consequently a healthy budget-limited run leaves
+        # the raw robot JSON reason as `in_progress`.  The preceding action's
+        # 8/8 success plus this duration check is the cross-node completion
+        # contract.  The compiled team result records mission_reason as
+        # `sim_time_budget`.
         search_index = next(
             i for i, step in enumerate(mission["steps"])
             if step.get("action", {}).get("task") == "semantic_search")
@@ -99,8 +107,6 @@ def main() -> int:
                     "p = '/root/.cache/raven_results/robot_{n}.json'\n"
                     "d = json.load(open(p))\n"
                     "duration = float(d.get('mission_duration_s') or 0.0)\n"
-                    "reason = d.get('completion_reason')\n"
-                    "assert reason == 'sim_time_budget', (p, reason)\n"
                     "assert 598.5 <= duration <= 610.0, (p, duration)\n"
                     "print(f'RAVEN_WINDOW_OK {p} {duration:.2f}s')\n"
                     "PY\n"
