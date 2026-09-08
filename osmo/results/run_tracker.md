@@ -47,14 +47,14 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | dev 191 | Expired: `FAILED_EXEC_TIMEOUT` | No active run |
 | 1-GPU 58 | Tornado Urban L1 CoNavGPT2, started September 8 04:49:32 UTC; live runner PID 2623975, verified 05:54 UTC | **19 standard-baseline cells remain**, including current run and VLFM rerun; 11/30 queue cells passed/uploaded |
 | 2-GPU 1 | `FAILED_EVICTED`, confirmed by OSMO; SSH endpoint gone | RayFronts queue cannot advance on this pod; replacement required |
-| 2-GPU 3 | RAVEN production lane A: Fire Suburban L1 passed 8/8 takeoff, entered its 600-s search at 10:20:32 UTC, and all eight RAVEN planners produced live logs by 10:25:54 | Runner 712854; selected zero-empty cadence; persistent-callback takeoff RTF 0.04161 and live search RTF **0.04176** over 90.52 wall seconds. Fresh queue PID 712847; pass-only immediate NAS upload/verification. The valid 24-empty diagnostic remained local/not uploaded. Protected launcher PID 60 remains T; renderer GPU 2 (`d239ce7e`), offboard GPU 3 (`38264ce2`). Run folder `raven_firesuburbanl1v1_raven_remaining_2gpu1/2026-09-08_09-58-54` |
-| 2-GPU 4 | RAVEN production lane B: Fire Suburban L2 passed 8/8 takeoff, entered its 600-s search at 10:14:14 UTC, and all eight RAVEN planners are producing live logs | Runner 48320; selected zero-empty cadence; persistent-callback takeoff RTF 0.05310 and live search RTF **0.05367** over 90.56 wall seconds. Fresh queue PID 48313; pass-only immediate NAS upload/verification. Protected launcher PID 59 remains T; renderer GPU 0 (`1617253c`), offboard GPU 3 (`c90e144e`). Run folder `raven_firesuburbanl2v1_raven_remaining_2gpu1/2026-09-08_09-56-33` |
+| 2-GPU 3 | Fire Suburban L1 RAVEN **passed** all eight 600-s windows; upload in progress since 14:45 UTC | Final RTF **0.0398**, 12/49 GT matched (24.5% recall), 5.66 km team path. NAS transfer is 64/108 GiB at 15:18 UTC; queue will not start Fire Suburban L3 until upload verification succeeds. Runner 712854; launcher PID 60 remains T |
+| 2-GPU 4 | Fire Suburban L2 RAVEN **passed, uploaded and NAS-verified** at 15:06:44 UTC; Hurricane Suburban L1 started next and is taking off | Final RTF **0.0443**, 6/79 GT matched (7.6% recall), 8.28 km team path. Current Hurricane L1 runner 2412979 passed readiness/encoder/bridge/perception and began first-attempt takeoff at 15:17:19. Launcher PID 59 remains T |
 
 September 8 04:05 UTC: user assigned pods 3/4 to RAVEN and reaffirmed pod 58
 for non-RAVEN work. Both RAVEN pods were already protected and running the
 current runtime fixes (`9017b418`, RayFronts `128d95e0`); fast-forwarded their
 remaining documentation updates to `f0eed04d` without restarting healthy runs.
-Both active containers confirm 12/8 cameras. Live offboard CUDA processes map
+Those pre-sweep active containers confirmed 12/8 cameras. Live offboard CUDA processes mapped
 to the assigned model GPU UUIDs, and the large Isaac allocation maps to each
 assigned renderer UUID. Both RAVEN logs are advancing. These are active runs,
 not accepted completions. The eviction of pod 1 does not stop pods 3/4.
@@ -110,6 +110,18 @@ model configuration and GPU pins unchanged throughout the comparison.
 It was the only setting to pass the all-robot RGB/depth gate. Commit `0819ae3d`
 deploys it to every remaining RAVEN 2-GPU mission while preserving stereo
 resolution, LiDAR, RAVEN parameters, scene geometry and per-pod GPU pins.
+
+### Accepted RAVEN 600-second results
+
+| Scene | Status | All robot windows | Final RTF | GT matched / total | Recall | Raw detections | Team path | Run folder |
+|---|---|---:|---:|---:|---:|---:|---:|---|
+| Fire Suburban L1 | Passed; NAS upload in progress | 8/8, 600.0–600.1 s | 0.0398 | 12/49 | 24.5% | 224 | 5.66 km | `raven_firesuburbanl1v1_raven_remaining_2gpu1/2026-09-08_09-58-54` |
+| Fire Suburban L2 | Passed; uploaded and verified | 8/8, 600.0–600.1 s | 0.0443 | 6/79 | 7.6% | 490 | 8.28 km | `raven_firesuburbanl2v1_raven_remaining_2gpu1/2026-09-08_09-56-33` |
+
+The optional post-search land step was rejected in both cells after the complete
+600-second search results had already been written; it does not invalidate the
+required search windows. L2's NAS copy contains the passed `iteration.json`,
+81 GiB of bags and all 11 collected RAVEN result files.
 
 Probe windows start on the first robot-domain clock callback after that robot's
 fresh RAVEN log appears. FPS uses the entire 50-sim-second observation window,
