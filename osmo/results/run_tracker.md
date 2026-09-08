@@ -1,6 +1,6 @@
 # Disaster benchmark dashboard
 
-Latest completion update: **2026-09-08**. Fire Suburban L3 RAVEN passed all eight 600-s robot windows at 22:09:00 UTC (RTF **0.0457**) and began its immediate NAS upload at 22:16:42 UTC. Hurricane Suburban L3 is active on pod 4. Earthquake Suburban L1 Lawnmower was NAS-verified at 19:22:06 UTC and VLFM is active. Failed attempts remain local and unuploaded.
+Latest completion update: **2026-09-08**. Fire Suburban L3 RAVEN passed all eight 600-s robot windows at 22:09:00 UTC (RTF **0.0457**) and began its immediate NAS upload at 22:16:42 UTC. Pod 4 was infrastructure-evicted at 22:37:33 UTC while Hurricane Suburban L3 was partial, so that run needs a replacement and was not uploaded. Earthquake Suburban L1 Lawnmower was NAS-verified at 19:22:06 UTC and VLFM is active. Failed attempts remain local and unuploaded.
 
 > **Legend:** 🟩 **DONE** · 🟦 **READY** · 🟧 **RERUN** · 🟨 **VERIFY / IN PROGRESS** · ⬜ **NOT READY**
 >
@@ -24,7 +24,7 @@ Latest completion update: **2026-09-08**. Fire Suburban L3 RAVEN passed all eigh
 | **Hurricane** | **Urban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Hurricane** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 |
 | **Hurricane** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
-| **Hurricane** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟨 |
+| **Hurricane** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
 | **Tornado** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟧 | 🟩 | 🟨 |
 | **Tornado** | **Urban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 | 🟨 |
 | **Tornado** | **Urban** | L3 | 🟩 | 🟩 | 🟧 | 🟩 | 🟩 | 🟨 |
@@ -48,7 +48,7 @@ Latest completion update: **2026-09-08**. Fire Suburban L3 RAVEN passed all eigh
 | 1-GPU 58 | Earthquake Suburban L1 Lawnmower **passed and NAS-verified** at 19:22:06 UTC (team RTF 0.04593–0.04601); L1 VLFM cleared **8/8 takeoff** at 19:39:00 UTC, runner PID 1739915 | **19/30 uploaded; 11 outstanding**: eight Earthquake cells including current, plus Tornado L1 VLFM / L2 CoNavGPT2 / L3 Lawnmower needing investigation and rerun |
 | 2-GPU 1 | `FAILED_EVICTED`, confirmed by OSMO; SSH endpoint gone | RayFronts queue cannot advance on this pod; replacement required |
 | 2-GPU 3 | Fire Suburban L1 RAVEN is NAS-verified; repaired Fire Suburban L3 attempt 2 passed **8/8 semantic-search actions** with per-robot windows **600.00–600.39 s** and began uploading at 22:16:42 UTC | L3 search wall **13,119.69 s**, final team RTF **0.04573**. Its optional landing failed after all valid search windows; collection and the pass-only gate still completed normally. Passed folder `raven_firesuburbanl3v1_raven_remaining_2gpu1/2026-09-08_17-41-24/iter_001__firesuburbanl3v1_raven__raven` is uploading and remains yellow until NAS verification. Earlier failed attempt remains local and unuploaded; launcher PID 60 remains T |
-| 2-GPU 4 | Fire Suburban L2 and Hurricane Suburban L1 RAVEN both **passed, uploaded and NAS-verified**; Hurricane Suburban L3 cleared **8/8 readiness, perception and takeoff** and entered semantic search at 21:18:22 UTC | Hurricane L1 final team RTF **0.0969**, 8/8 windows **599.43–600.06 s**, 250 raw detections (146 visited), 0/55 built-in GT matches, and a 4.66 km team path. NAS matched all **152 files / 83,671,457,440 bytes** and key checksums. Hurricane L3's targeted readiness recovery restored wedged MAVROS processes without a whole-run retry; robot 8 took off on attempt 2. Its live persistent-clock RTF is **0.09429** over 90.04 wall s / 8.49 sim s. Runner PID **930732**, folder `raven_hurricanesuburbanl3v1_raven_remaining_2gpu1/2026-09-08_20-59-08`, uses Isaac GPU 0 / offboard GPU 3, zero-empty 8/8 camera scheduling, and the corrected full-window gate from `561f4414`; launcher PID 59 remains T |
+| 2-GPU 4 | Fire Suburban L2 and Hurricane Suburban L1 RAVEN both **passed, uploaded and NAS-verified**; Hurricane Suburban L3 needs a replacement rerun | Kubernetes evicted the workspace at **22:37:33 UTC** for exceeding the **400 GiB ephemeral-storage limit**, with the valid L3 search only **416–427/600 s** complete. The interrupted partial run is invalid and was not uploaded. This was infrastructure storage exhaustion, not a simulator or autonomy failure. L3 is orange until rerun on a replacement 2-GPU pod |
 
 September 8 04:05 UTC: user assigned pods 3/4 to RAVEN and reaffirmed pod 58
 for non-RAVEN work. Both RAVEN pods were already protected and running the
