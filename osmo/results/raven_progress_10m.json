@@ -1,0 +1,92 @@
+{
+  "analysis_complete": true,
+  "generated_utc": "2026-09-08T21:40:00Z",
+  "method": "RayFronts/RAVEN",
+  "team_size": 8,
+  "scope": {
+    "accepted_completed_runs": 3,
+    "planned_8_robot_scene_runs": 24,
+    "completed_over_planned_8_robot": "3/24",
+    "planned_if_both_4_and_8_robot_cohorts_are_required": 48,
+    "note": "The current benchmark inventory is the 8-robot cohort, so its denominator is 24 scenes. A future design containing both 4-robot and 8-robot cohorts would contain 48 RAVEN scene runs."
+  },
+  "match_policy": {
+    "target_class": "person",
+    "distance_space": "XY only",
+    "radius_m": 10.0,
+    "team_aggregation": "union of every person-labeled center in compiled_results.json houses",
+    "ground_truth_aggregation": "all canonical person bbox centers",
+    "credit": "a ground-truth person is detected if any team detection center is within 10 m; one detection circle may credit multiple people",
+    "one_to_one_matching": false,
+    "iou_used": false,
+    "status_filter": "both observing and visited compiled detections",
+    "excluded": "failed/stopped production attempts and all 50-s camera diagnostics"
+  },
+  "runs": [
+    {
+      "scene": "Fire / Suburban L1",
+      "scene_key": "FireSuburbanL1V1",
+      "nas_iteration": "raven_firesuburbanl1v1_raven_remaining_2gpu1/2026-09-08_09-58-54/iter_001__firesuburbanl1v1_raven__raven",
+      "iteration_status": "passed",
+      "valid_robot_windows": "8/8",
+      "ground_truth_people": 49,
+      "team_detection_centers": 224,
+      "detected_ground_truth_people": 12,
+      "progress": 0.24489795918367346,
+      "matched_ground_truth_indices_zero_based": [6, 7, 8, 9, 10, 11, 12, 27, 28, 29, 31, 32],
+      "ground_truth": {
+        "source": "robot/ros_ws/src/global/planners/raven_nav/annotations/FireSuburbanL1V1.json on 2-GPU pods 3 and 4",
+        "sha256": "ec57487c44516e6ca2fd32c3d589265f00549ebe16823dddaf75b301ca23b581",
+        "robot_and_gcs_copies_match": true
+      },
+      "compiled_results_sha256": "88326761287c1854f6bdb3133e71734490ae685abc888e050c387800726e67af"
+    },
+    {
+      "scene": "Fire / Suburban L2",
+      "scene_key": "FireSuburbanL2V1",
+      "nas_iteration": "raven_firesuburbanl2v1_raven_remaining_2gpu1/2026-09-08_09-56-33/iter_001__firesuburbanl2v1_raven__raven",
+      "iteration_status": "passed",
+      "valid_robot_windows": "8/8",
+      "ground_truth_people": 79,
+      "team_detection_centers": 490,
+      "detected_ground_truth_people": 6,
+      "progress": 0.0759493670886076,
+      "matched_ground_truth_indices_zero_based": [70, 71, 72, 73, 75, 76],
+      "ground_truth": {
+        "source": "robot/ros_ws/src/global/planners/raven_nav/annotations/FireSuburbanL2V1.json on 2-GPU pod 4",
+        "sha256": "f489814d70527d728bb2fd53490806faccbfabe5e32be7d840ef33fd380b5be1",
+        "robot_and_gcs_copies_match": true
+      },
+      "compiled_results_sha256": "9911405cc596cb47af32c9d3b2f23586b50d79ba45bba510d680eb4cd3483eeb"
+    },
+    {
+      "scene": "Hurricane / Suburban L1",
+      "scene_key": "HurricaneSuburbanL1V1",
+      "nas_iteration": "raven_hurricanesuburbanl1v1_raven_remaining_2gpu1/2026-09-08_17-46-57/iter_001__hurricanesuburbanl1v1_raven__raven",
+      "iteration_status": "passed",
+      "valid_robot_windows": "8/8",
+      "ground_truth_people": 55,
+      "team_detection_centers": 250,
+      "detected_ground_truth_people": 0,
+      "progress": 0.0,
+      "matched_ground_truth_indices_zero_based": [],
+      "ground_truth": {
+        "source": "robot/ros_ws/src/global/planners/raven_nav/annotations/HurricaneSuburbanL1V1.json on 2-GPU pods 3 and 4",
+        "sha256": "1c61ba52fa705bb661f8feb764709463fd43b34e9c9739b723e49143141a6084",
+        "robot_and_gcs_copies_match": true
+      },
+      "compiled_results_sha256": "a96c6eed5a778f788065e5260e2725e067e547a2d4bdab1afcb0de79b299b104"
+    }
+  ],
+  "averages": {
+    "completed_over_planned": "3/24",
+    "macro_average_progress": 0.10694910875742702,
+    "micro_detected_people": 18,
+    "micro_ground_truth_people": 183,
+    "micro_progress": 0.09836065573770492,
+    "average_by_disaster_locale": {
+      "Fire / Suburban": 0.16042366313614054,
+      "Hurricane / Suburban": 0.0
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "audit_complete": true,
+  "generated_utc": "2026-09-08T21:40:00Z",
+  "scope": "All completed valid 600-s production iterations present on 2-GPU pods 3 and 4",
+  "accepted_production_iterations": 3,
+  "missing_from_nas": 0,
+  "excluded": "All failed/stopped attempts and passed 50-s camera diagnostics",
+  "runs": [
+    {
+      "pod": "2-GPU 3",
+      "nas_iteration": "raven_firesuburbanl1v1_raven_remaining_2gpu1/2026-09-08_09-58-54/iter_001__firesuburbanl1v1_raven__raven",
+      "manifest_match": true,
+      "file_count": 151,
+      "total_bytes": 115669919193,
+      "iteration_sha256": "60d952ac2c5fbd012e352885fd35ad420bbe5c0b1d515a833186590ca2976973",
+      "compiled_results_sha256": "88326761287c1854f6bdb3133e71734490ae685abc888e050c387800726e67af",
+      "metrics_sha256": "4a39dc35f0cf3e924ef3f2c699b73907170acdc6fd47ac4f730c193aee1ed9d0",
+      "groundtruth_comparison_sha256": "192983e25f2b1ab423895dbaef455acf73d27ede4da25400e7d95fd8ddeac02c"
+    },
+    {
+      "pod": "2-GPU 4",
+      "nas_iteration": "raven_firesuburbanl2v1_raven_remaining_2gpu1/2026-09-08_09-56-33/iter_001__firesuburbanl2v1_raven__raven",
+      "manifest_match": true,
+      "file_count": 151,
+      "total_bytes": 86862945136,
+      "iteration_sha256": "8e3f0324fb487c4b8633434b3e5cd3d9d1cd83c3cd8a253223e89b3324d66b98",
+      "compiled_results_sha256": "9911405cc596cb47af32c9d3b2f23586b50d79ba45bba510d680eb4cd3483eeb",
+      "metrics_sha256": "c8b061a06eea13b6bf5bea98c27ed10bbcf86ddca958dd326300b917fb48fa92",
+      "groundtruth_comparison_sha256": "be2aca50ce35a72b2f4a45720d5f60c41c0b1e390ec3deb732c3b409a191f633"
+    },
+    {
+      "pod": "2-GPU 4",
+      "nas_iteration": "raven_hurricanesuburbanl1v1_raven_remaining_2gpu1/2026-09-08_17-46-57/iter_001__hurricanesuburbanl1v1_raven__raven",
+      "manifest_match": true,
+      "file_count": 152,
+      "total_bytes": 83671457440,
+      "iteration_sha256": "c920c22871225c37a9fc7503042718cb92b1653747207e94a6f6aa0fe8b672da",
+      "compiled_results_sha256": "a96c6eed5a778f788065e5260e2725e067e547a2d4bdab1afcb0de79b299b104",
+      "metrics_sha256": "6e0795140e0785e50bcae04088b7b0a93814a9eb8872969b3ec8d417b618012f",
+      "groundtruth_comparison_sha256": "eea35f0b3a4e69a0e8eb31951c1d46eedc00724b25cee88c412129bb9f84a61f"
+    }
+  ]
+}
