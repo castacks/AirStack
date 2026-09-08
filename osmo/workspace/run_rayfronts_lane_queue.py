@@ -46,6 +46,10 @@ def main() -> int:
     parser.add_argument("--lane", choices=sorted(LANES), required=True)
     parser.add_argument("--isaac-gpu", required=True)
     parser.add_argument("--offboard-gpu", required=True)
+    parser.add_argument(
+        "--start-at",
+        help="Resume at this scene key instead of replaying earlier lane cells",
+    )
     parser.add_argument("--root", type=Path, default=Path("/root/AirStack"))
     args = parser.parse_args()
 
@@ -53,7 +57,14 @@ def main() -> int:
         raise SystemExit(f"launcher {args.launcher_pid} is not held")
 
     mission_dir = args.root / "osmo" / "missions"
-    for scene in LANES[args.lane]:
+    scenes = LANES[args.lane]
+    if args.start_at:
+        if args.start_at not in scenes:
+            raise SystemExit(
+                f"start scene {args.start_at!r} is not in lane {args.lane}")
+        scenes = scenes[scenes.index(args.start_at):]
+
+    for scene in scenes:
         if not launcher_is_held(args.launcher_pid):
             raise SystemExit(f"launcher {args.launcher_pid} lost its hold")
         source = mission_dir / f"raven_{scene}_raven_remaining_2gpu1.yaml"

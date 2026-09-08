@@ -323,6 +323,8 @@ steps:
       target_altitude_m: 20.0
       velocity_m_s: 2.0
     timeout_s: 900
+    cancel_on_timeout: true
+    cancel_grace_s: 180
     dispatch_stagger_s: 3
     prearm_via_mavros: true
     prearm_timeout_s: 60
