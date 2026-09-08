@@ -735,6 +735,12 @@ diagnostic: `camera_rate_32x8_pod58/2026-09-07_15-17-40`.
 
 ### Strict 10 m progress — all completed runs
 
+Pod 58 upload reconciliation: **23/23 accepted production iterations** match
+the NAS file inventory and sizes, with matching `iteration.json` SHA-256.
+This includes 19 results from the current queue plus four earlier Urban Fire
+results; the camera-rate diagnostic was excluded. No missing accepted upload
+was found on pod 58. Audit: `osmo/results/pod58_upload_audit.json`.
+
 Requested refresh is running in background session `all_progress10`; output
 `osmo/results/completed_progress_10m.json`, log `/tmp/all_progress10.log`.
 Credit each distinct GT person whose world XY position lies within 10 m of
