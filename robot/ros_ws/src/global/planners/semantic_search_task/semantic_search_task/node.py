@@ -1689,6 +1689,24 @@ class SemanticSearchTaskNode(Node):
                         'to navigate to it')
                     _, navigate_send_future = self._send_navigate_activator(
                         robot_name)
+                    if navigate_send_future is None:
+                        # Continuing here leaves raven running without a
+                        # navigation consumer.  Besides producing an invalid
+                        # stationary search, that orphan used to keep the
+                        # action alive past max_sim_seconds because its busy
+                        # feedback path never returned a result.  Fail this
+                        # attempt immediately; the outer mission can restart a
+                        # clean stack instead of accepting partial team data.
+                        self.get_logger().error(
+                            'NavigateTask activator failed; aborting semantic '
+                            'search instead of running raven uncommanded')
+                        goal_handle.abort()
+                        result = SemanticSearchTask.Result()
+                        result.success = False
+                        result.message = (
+                            'NavigateTask activator rejected repeatedly; '
+                            'semantic search aborted')
+                        return result
 
                 # Resend queries whenever rayfronts' subscriber appears (initial
                 # load AND any restart mid-task). All queries (target + background)
