@@ -33,7 +33,10 @@ def discover():
 def evaluate(path):
     scene, method, key = tp.identity(path)
     bag = tp.find_bag(path)
-    candidate = Path('/tmp/eval_gt') / tp.annotation_name(scene)
+    annotation = tp.annotation_name(scene)
+    candidate = Path('/tmp/eval_gt') / annotation
+    if not candidate.exists():
+        candidate = Path('osmo/results/gt_annotations') / annotation
     gt, _, plans, _, _ = tp.load_static_and_plan_starts(
         bag, candidate if candidate.exists() else None)
     starts, shared = tp.parse_starts(path)

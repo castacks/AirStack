@@ -29,6 +29,11 @@ def selections():
     yield "earthquake_suburban_l1_8robot_optimized_pod57.yaml", {"earthquakesuburbanl1v1_" + m for m in ("lawnmower", "vlfm", "conavgpt2_team")}
     yield "earthquake_suburban_l2_8robot_optimized_pod56.yaml", {"earthquakesuburbanl2v1_" + m for m in ("vlfm", "conavgpt2_team")}
     yield "earthquake_suburban_l3_8robot_optimized_pod57.yaml", None
+    # NAS audit found that two historical CoNavGPT2 cells previously marked
+    # complete had no accepted iteration at all. Keep them in the durable
+    # queue so the next safe queue start cannot silently skip them.
+    yield "fire_suburban_l1_conavgpt2_optimized_rerun.yaml", None
+    yield "tornado_suburban_l3_conavgpt2_optimized.yaml", None
 
 
 def completion_command(team):
@@ -111,7 +116,7 @@ def prepare(root, output):
             path = output / (spec['name'] + '.yaml')
             path.write_text(yaml.safe_dump(spec, sort_keys=False))
             missions.append(path)
-    assert len(missions) == 30, len(missions)
+    assert len(missions) == 32, len(missions)
     return missions
 
 
