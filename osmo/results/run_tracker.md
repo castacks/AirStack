@@ -1,6 +1,6 @@
 # Disaster benchmark dashboard
 
-Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-09-08 04:02 UTC**.
+Latest completion update: **2026-09-08**. Fire Suburban L1 and L2 RAVEN both passed their full 600-s runs; L2 is storage-verified, while L1's upload remains in progress. Completion and upload status are tracked separately below.
 
 > **Legend:** 🟩 **DONE** · 🟦 **READY** · 🟧 **RERUN** · 🟨 **VERIFY / IN PROGRESS** · ⬜ **NOT READY**
 >
@@ -16,13 +16,13 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | **Fire** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Fire** | **Urban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Fire** | **Urban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Fire** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟨 |
-| **Fire** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
+| **Fire** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 |
+| **Fire** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 |
 | **Fire** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
 | **Hurricane** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Hurricane** | **Urban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Hurricane** | **Urban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Hurricane** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
+| **Hurricane** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟨 |
 | **Hurricane** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
 | **Hurricane** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
 | **Tornado** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟧 | 🟩 | 🟨 |
@@ -40,7 +40,7 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 
 ## Overnight completion summary — September 7
 
-### Active completion queue — September 8, 04:02 UTC
+### Active completion queue — September 8
 
 | Pod | Current run | Remaining assignment |
 |---|---|---|
