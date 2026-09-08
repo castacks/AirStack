@@ -1,6 +1,6 @@
 # Disaster benchmark dashboard
 
-Latest completion update: **2026-09-08**. Fire Suburban L1 and L2 RAVEN both passed their full 600-s runs; L2 is storage-verified, while L1's upload remains in progress. Completion and upload status are tracked separately below.
+Latest completion update: **2026-09-08**. Fire Suburban L1 and L2 RAVEN both passed their full 600-s runs and are storage-verified. Fire Suburban L3 is in a repaired focused rerun; failed attempts remain local and unuploaded.
 
 > **Legend:** 🟩 **DONE** · 🟦 **READY** · 🟧 **RERUN** · 🟨 **VERIFY / IN PROGRESS** · ⬜ **NOT READY**
 >
@@ -18,11 +18,11 @@ Latest completion update: **2026-09-08**. Fire Suburban L1 and L2 RAVEN both pas
 | **Fire** | **Urban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Fire** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 |
 | **Fire** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 |
-| **Fire** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
+| **Fire** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟨 |
 | **Hurricane** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Hurricane** | **Urban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Hurricane** | **Urban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Hurricane** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟨 |
+| **Hurricane** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
 | **Hurricane** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
 | **Hurricane** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
 | **Tornado** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟧 | 🟩 | 🟨 |
@@ -47,8 +47,8 @@ Latest completion update: **2026-09-08**. Fire Suburban L1 and L2 RAVEN both pas
 | dev 191 | Expired: `FAILED_EXEC_TIMEOUT` | No active run |
 | 1-GPU 58 | Earthquake Suburban L1 Lawnmower, started September 8 15:17:33 UTC; live runner PID 4082324 | **18/30 uploaded; 12 outstanding**: nine Earthquake cells including current, plus Tornado L1 VLFM / L2 CoNavGPT2 / L3 Lawnmower needing investigation and rerun |
 | 2-GPU 1 | `FAILED_EVICTED`, confirmed by OSMO; SSH endpoint gone | RayFronts queue cannot advance on this pod; replacement required |
-| 2-GPU 3 | Fire Suburban L1 RAVEN **passed, uploaded and NAS-verified** at 15:53:19 UTC; Fire Suburban L3 started at 15:53:20 | L1 final RTF **0.0398**, 12/49 GT matched (24.5% recall), 5.66 km team path; NAS has 108 GiB, passed metadata and all 11 RAVEN result files. Current L3 runner 3453645 is in cold readiness. Launcher PID 60 remains T |
-| 2-GPU 4 | Fire Suburban L2 RAVEN **passed, uploaded and NAS-verified** at 15:06:44 UTC; Hurricane Suburban L1 passed 8/8 takeoff, entered search at 15:22:20 and has all eight RAVEN planners live | Fire L2 final RTF **0.0443**, 6/79 GT matched (7.6% recall), 8.28 km team path. Current Hurricane L1 runner 2412979 measured live search RTF **0.10163** over a persistent 90.03-s callback window. Launcher PID 59 remains T |
+| 2-GPU 3 | Fire Suburban L1 RAVEN **passed, uploaded and NAS-verified** at 15:53:19 UTC; repaired Fire Suburban L3 rerun started at 17:41:24 | L1 final RTF **0.0398**, 12/49 GT matched (24.5% recall), 5.66 km team path. The first L3 batch failed 7/8 takeoff twice (robot 7, then robot 5); neither attempt uploaded. Timed-out takeoffs now send a bounded cancel before retry. Current focused runner PID **4054655**, folder `2026-09-08_17-41-24`; launcher PID 60 remains T |
+| 2-GPU 4 | Fire Suburban L2 RAVEN **passed, uploaded and NAS-verified** at 15:06:44 UTC; Hurricane Suburban L1 requires a clean rerun | Fire L2 final RTF **0.0443**, 6/79 GT matched (7.6% recall), 8.28 km team path. Hurricane L1 produced seven valid 600-s robot windows, but robot 1's NavigateTask activator was rejected and the action stayed alive with `completion_reason=in_progress` beyond 808 sim s. Runner PID 2412979 was stopped at 17:41 UTC; this partial is not accepted or uploaded. Commit `11aba8b4` now aborts this condition immediately. Launcher PID 59 remains T |
 
 September 8 04:05 UTC: user assigned pods 3/4 to RAVEN and reaffirmed pod 58
 for non-RAVEN work. Both RAVEN pods were already protected and running the
@@ -732,14 +732,6 @@ diagnostic: `camera_rate_32x8_pod58/2026-09-07_15-17-40`.
 
 ## Actual results (detector-confirmed team progress and PPL)
 
-September 8 analysis refresh is running detached in local tmux `eval_sep8`,
-using the accepted historical roots plus newly uploaded `remaining58_*` runs.
-Outputs: `osmo/results/team_progress_sep8.json`, `/tmp/team_progress_sep8.md`;
-log: `/tmp/team_progress_sep8.log`. Seven evaluator unit tests passed. Existing
-tables below remain the last completed evaluation until the refresh is validated.
-RAVEN's built-in GT-match results are tracked separately: they are not yet
-equivalent to this detector-circle/time-integrated progress/PPL evaluator.
-
 A GT victim counts as detected when its world-frame XY location falls inside a **12 m circle around a planner `search_target`** during the 600-s search. A target circle exists only after a `person` detection clears the shared 0.65 confidence gate, is depth-projected, and forms a clustered target instance. One liberal circle can credit multiple GT people; drone proximity alone never counts. Time-integrated progress is normalized area under the cumulative detector-confirmed progress curve; marker chunks were sampled at about 20-s intervals (final persistent target state is always read, so final detection counts are exact). Paths are 1 Hz, world-frame XY odometry. Ideal lengths are OR-Tools oracle estimates for open Euclidean multi-depot routes through victim centres; fixed-sector methods preserve recorded robot ownership, while CoNavGPT2 permits joint assignment. Ground debris does not obstruct an aerial XY geodesic, and no return to launch is required. PPL uses the ideal route through detected GT victims: `progress × ideal_detected / max(actual, ideal_detected)`.
 
 ### Per completed run
@@ -750,45 +742,67 @@ A GT victim counts as detected when its world-frame XY location falls inside a *
 | Earthquake / Urban L1 | Frontier | `urban_earthquake_l12_8robot_optimized_pod56/2026-09-05_18-02-41/iter_001__earthquakeurbanl1v1__frontier` | 39 | 0 | 0.000 | 0.000 | 3.98 km | 5.27 km | 0.0000 |
 | Earthquake / Urban L1 | Lawnmower | `urban_earthquake_l12_8robot_optimized_pod56/2026-09-05_18-02-41/iter_002__earthquakeurbanl1v1_lawnmower__lawnmower` | 39 | 0 | 0.000 | 0.000 | 7.38 km | 4.81 km | 0.0000 |
 | Earthquake / Urban L1 | VLFM | `urban_earthquake_l12_8robot_optimized_pod56/2026-09-05_18-02-41/iter_003__earthquakeurbanl1v1__vlfm` | 39 | 0 | 0.000 | 0.000 | 4.16 km | 5.35 km | 0.0000 |
+| Earthquake / Urban L2 | CoNavGPT2 | `urban_earthquake_l12_8robot_optimized_pod56/2026-09-05_18-02-41/iter_008__earthquakeurbanl2v1_conavgpt2_team__conavgpt2_team` | 64 | 0 | 0.000 | 0.000 | 8.76 km | 5.02 km | 0.0000 |
+| Earthquake / Urban L2 | Frontier | `urban_earthquake_l12_8robot_optimized_pod56/2026-09-05_18-02-41/iter_005__earthquakeurbanl2v1__frontier` | 64 | 0 | 0.000 | 0.000 | 6.24 km | 8.27 km | 0.0000 |
+| Earthquake / Urban L2 | Lawnmower | `urban_earthquake_l12_8robot_optimized_pod56/2026-09-05_18-02-41/iter_006__earthquakeurbanl2v1_lawnmower__lawnmower` | 64 | 0 | 0.000 | 0.000 | 7.91 km | 8.27 km | 0.0000 |
+| Earthquake / Urban L2 | VLFM | `urban_earthquake_l12_8robot_optimized_pod56/2026-09-05_18-02-41/iter_007__earthquakeurbanl2v1__vlfm` | 64 | 0 | 0.000 | 0.000 | 5.43 km | 8.27 km | 0.0000 |
 | Earthquake / Urban L3 | CoNavGPT2 | `urban_earthquake_l3_8robot_optimized_pod57/2026-09-05_18-31-13/iter_004__earthquakeurbanl3v1_conavgpt2_team__conavgpt2_team` | 64 | 0 | 0.000 | 0.000 | 6.03 km | 5.15 km | 0.0000 |
 | Earthquake / Urban L3 | Frontier | `urban_earthquake_l3_8robot_optimized_pod57/2026-09-05_18-31-13/iter_001__earthquakeurbanl3v1__frontier` | 64 | 0 | 0.000 | 0.000 | 5.15 km | 8.13 km | 0.0000 |
 | Earthquake / Urban L3 | Lawnmower | `urban_earthquake_l3_8robot_optimized_pod57/2026-09-05_18-31-13/iter_002__earthquakeurbanl3v1_lawnmower__lawnmower` | 64 | 0 | 0.000 | 0.000 | 10.35 km | 8.13 km | 0.0000 |
 | Earthquake / Urban L3 | VLFM | `urban_earthquake_l3_8robot_optimized_pod57/2026-09-05_18-31-13/iter_003__earthquakeurbanl3v1__vlfm` | 64 | 0 | 0.000 | 0.000 | 3.31 km | 7.93 km | 0.0000 |
-| Fire / Suburban L1 | Frontier | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_001__firesuburbanl1v1__frontier` | 49 | 10 | 0.204 | 0.175 | 5.59 km | 1.73 km | 0.0033 |
-| Fire / Suburban L1 | Lawnmower | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_002__firesuburbanl1v1_lawnmower__lawnmower` | 49 | 0 | 0.000 | 0.000 | 14.53 km | 1.78 km | 0.0000 |
-| Fire / Suburban L1 | VLFM | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_003__firesuburbanl1v1__vlfm` | 49 | 11 | 0.224 | 0.204 | 4.79 km | 1.69 km | 0.0125 |
+| Fire / Suburban L1 | Frontier | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_001__firesuburbanl1v1__frontier` | 49 | 10 | 0.204 | 0.175 | 5.59 km | 1.71 km | 0.0025 |
+| Fire / Suburban L1 | Lawnmower | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_002__firesuburbanl1v1_lawnmower__lawnmower` | 49 | 0 | 0.000 | 0.000 | 14.53 km | 1.71 km | 0.0000 |
+| Fire / Suburban L1 | VLFM | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_003__firesuburbanl1v1__vlfm` | 49 | 11 | 0.224 | 0.204 | 4.79 km | 1.71 km | 0.0126 |
 | Fire / Suburban L2 | CoNavGPT2 | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_008__firesuburbanl2v1_conavgpt2_team__conavgpt2_team` | 79 | 0 | 0.000 | 0.000 | 5.68 km | 1.53 km | 0.0000 |
-| Fire / Suburban L2 | Frontier | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_005__firesuburbanl2v1__frontier` | 79 | 15 | 0.190 | 0.129 | 14.11 km | 2.27 km | 0.0046 |
-| Fire / Suburban L2 | Lawnmower | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_006__firesuburbanl2v1_lawnmower__lawnmower` | 79 | 0 | 0.000 | 0.000 | 13.37 km | 2.28 km | 0.0000 |
-| Fire / Suburban L2 | VLFM | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_007__firesuburbanl2v1__vlfm` | 79 | 27 | 0.342 | 0.266 | 4.52 km | 2.26 km | 0.0257 |
+| Fire / Suburban L2 | Frontier | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_005__firesuburbanl2v1__frontier` | 79 | 15 | 0.190 | 0.129 | 14.11 km | 2.25 km | 0.0045 |
+| Fire / Suburban L2 | Lawnmower | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_006__firesuburbanl2v1_lawnmower__lawnmower` | 79 | 0 | 0.000 | 0.000 | 13.37 km | 2.25 km | 0.0000 |
+| Fire / Suburban L2 | VLFM | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_007__firesuburbanl2v1__vlfm` | 79 | 27 | 0.342 | 0.266 | 4.52 km | 2.25 km | 0.0258 |
 | Fire / Suburban L3 | CoNavGPT2 | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_012__firesuburbanl3v1_conavgpt2_team__conavgpt2_team` | 84 | 0 | 0.000 | 0.000 | 6.92 km | 1.89 km | 0.0000 |
-| Fire / Suburban L3 | Frontier | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_009__firesuburbanl3v1__frontier` | 84 | 17 | 0.202 | 0.105 | 11.70 km | 2.95 km | 0.0067 |
-| Fire / Suburban L3 | Lawnmower | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_010__firesuburbanl3v1_lawnmower__lawnmower` | 84 | 4 | 0.048 | 0.003 | 14.29 km | 3.00 km | 0.0007 |
-| Fire / Suburban L3 | VLFM | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_011__firesuburbanl3v1__vlfm` | 84 | 0 | 0.000 | 0.000 | 4.22 km | 2.92 km | 0.0000 |
+| Fire / Suburban L3 | Frontier | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_009__firesuburbanl3v1__frontier` | 84 | 17 | 0.202 | 0.105 | 11.70 km | 2.94 km | 0.0071 |
+| Fire / Suburban L3 | Lawnmower | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_010__firesuburbanl3v1_lawnmower__lawnmower` | 84 | 4 | 0.048 | 0.003 | 14.29 km | 2.94 km | 0.0007 |
+| Fire / Suburban L3 | VLFM | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_011__firesuburbanl3v1__vlfm` | 84 | 0 | 0.000 | 0.000 | 4.22 km | 2.94 km | 0.0000 |
+| Fire / Urban L2 | Lawnmower | `remaining58_fireurbanl2v1_lawnmower/2026-09-07_15-47-29/iter_001__fireurbanl2v1_lawnmower__lawnmower` | 68 | 3 | 0.044 | 0.008 | 9.73 km | 2.25 km | 0.0048 |
 | Hurricane / Suburban L1 | CoNavGPT2 | `hurricane_suburban_l1_conavgpt2_gt600/2026-09-04_17-23-22/iter_001__hurricanesuburbanl1v1_conavgpt2_team__conavgpt2_team` | 55 | 0 | 0.000 | 0.000 | 6.47 km | 2.89 km | 0.0000 |
-| Hurricane / Suburban L1 | Frontier | `hurricane_suburban_8robot/2026-09-02_20-13-16/iter_001__hurricanesuburbanl1v1__frontier` | 55 | 1 | 0.018 | 0.018 | 5.21 km | 4.88 km | 0.0001 |
-| Hurricane / Suburban L1 | Lawnmower | `hurricane_suburban_8robot/2026-09-02_20-13-16/iter_002__hurricanesuburbanl1v1_lawnmower__lawnmower` | 55 | 0 | 0.000 | 0.000 | 8.69 km | 3.66 km | 0.0000 |
-| Hurricane / Suburban L1 | VLFM | `hurricane_suburban_8robot/2026-09-02_20-13-16/iter_003__hurricanesuburbanl1v1__vlfm` | 55 | 0 | 0.000 | 0.000 | 0.06 km | 0.00 km | 0.0000 |
+| Hurricane / Suburban L1 | Frontier | `hurricane_suburban_8robot/2026-09-02_20-13-16/iter_001__hurricanesuburbanl1v1__frontier` | 55 | 1 | 0.018 | 0.018 | 5.21 km | 4.86 km | 0.0002 |
+| Hurricane / Suburban L1 | Lawnmower | `hurricane_suburban_8robot/2026-09-02_20-13-16/iter_002__hurricanesuburbanl1v1_lawnmower__lawnmower` | 55 | 0 | 0.000 | 0.000 | 8.69 km | 3.62 km | 0.0000 |
+| Hurricane / Suburban L1 | VLFM | `hurricane_suburban_8robot/2026-09-02_20-13-16/iter_003__hurricanesuburbanl1v1__vlfm` | 55 | 0 | 0.000 | 0.000 | 0.06 km | 2.89 km | 0.0000 |
+| Hurricane / Urban L2 | CoNavGPT2 | `remaining58_hurricaneurbanl2v1_conavgpt2_team/2026-09-07_20-19-27/iter_001__hurricaneurbanl2v1_conavgpt2_team__conavgpt2_team` | 12 | 0 | 0.000 | 0.000 | 5.75 km | 1.67 km | 0.0000 |
+| Hurricane / Urban L2 | Frontier | `remaining58_hurricaneurbanl2v1_frontier/2026-09-07_16-58-05/iter_001__hurricaneurbanl2v1__frontier` | 12 | 0 | 0.000 | 0.000 | 6.07 km | 1.84 km | 0.0000 |
+| Hurricane / Urban L2 | Lawnmower | `remaining58_hurricaneurbanl2v1_lawnmower/2026-09-07_18-03-52/iter_001__hurricaneurbanl2v1_lawnmower__lawnmower` | 12 | 1 | 0.083 | 0.036 | 8.43 km | 1.84 km | 0.0038 |
+| Hurricane / Urban L2 | VLFM | `remaining58_hurricaneurbanl2v1_vlfm/2026-09-07_19-12-31/iter_001__hurricaneurbanl2v1__vlfm` | 12 | 0 | 0.000 | 0.000 | 5.16 km | 1.84 km | 0.0000 |
+| Hurricane / Urban L3 | CoNavGPT2 | `remaining58_hurricaneurbanl3v1_conavgpt2_team/2026-09-08_00-47-54/iter_001__hurricaneurbanl3v1_conavgpt2_team__conavgpt2_team` | 22 | 0 | 0.000 | 0.000 | 8.11 km | 2.54 km | 0.0000 |
+| Hurricane / Urban L3 | Frontier | `remaining58_hurricaneurbanl3v1_frontier/2026-09-07_21-17-47/iter_001__hurricaneurbanl3v1__frontier` | 22 | 0 | 0.000 | 0.000 | 4.80 km | 4.03 km | 0.0000 |
+| Hurricane / Urban L3 | Lawnmower | `remaining58_hurricaneurbanl3v1_lawnmower/2026-09-07_22-29-23/iter_001__hurricaneurbanl3v1_lawnmower__lawnmower` | 22 | 0 | 0.000 | 0.000 | 9.12 km | 4.03 km | 0.0000 |
+| Hurricane / Urban L3 | VLFM | `remaining58_hurricaneurbanl3v1_vlfm/2026-09-07_23-41-35/iter_001__hurricaneurbanl3v1__vlfm` | 22 | 0 | 0.000 | 0.000 | 4.67 km | 4.03 km | 0.0000 |
 | Tornado / Suburban L1 | CoNavGPT2 | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_016__tornadosuburbanl1v1_conavgpt2_team__conavgpt2_team` | 30 | 0 | 0.000 | 0.000 | 1.83 km | 0.85 km | 0.0000 |
-| Tornado / Suburban L1 | Frontier | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_013__tornadosuburbanl1v1__frontier` | 30 | 0 | 0.000 | 0.000 | 10.71 km | 0.94 km | 0.0000 |
-| Tornado / Suburban L1 | Lawnmower | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_014__tornadosuburbanl1v1_lawnmower__lawnmower` | 30 | 2 | 0.067 | 0.017 | 11.66 km | 0.89 km | 0.0002 |
+| Tornado / Suburban L1 | Frontier | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_013__tornadosuburbanl1v1__frontier` | 30 | 0 | 0.000 | 0.000 | 10.71 km | 0.91 km | 0.0000 |
+| Tornado / Suburban L1 | Lawnmower | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_014__tornadosuburbanl1v1_lawnmower__lawnmower` | 30 | 2 | 0.067 | 0.017 | 11.66 km | 0.91 km | 0.0003 |
 | Tornado / Suburban L1 | VLFM | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_015__tornadosuburbanl1v1__vlfm` | 30 | 0 | 0.000 | 0.000 | 5.08 km | 0.91 km | 0.0000 |
 | Tornado / Suburban L2 | CoNavGPT2 | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_020__tornadosuburbanl2v1_conavgpt2_team__conavgpt2_team` | 40 | 0 | 0.000 | 0.000 | 4.57 km | 0.92 km | 0.0000 |
-| Tornado / Suburban L2 | Frontier | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_017__tornadosuburbanl2v1__frontier` | 40 | 4 | 0.100 | 0.068 | 11.38 km | 1.03 km | 0.0016 |
-| Tornado / Suburban L2 | Lawnmower | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_018__tornadosuburbanl2v1_lawnmower__lawnmower` | 40 | 0 | 0.000 | 0.000 | 10.56 km | 1.07 km | 0.0000 |
-| Tornado / Suburban L2 | VLFM | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_019__tornadosuburbanl2v1__vlfm` | 40 | 0 | 0.000 | 0.000 | 4.78 km | 1.04 km | 0.0000 |
-| Tornado / Suburban L3 | Frontier | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_021__tornadosuburbanl3v1__frontier` | 70 | 2 | 0.029 | 0.018 | 9.78 km | 1.79 km | 0.0006 |
-| Tornado / Suburban L3 | Lawnmower | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_022__tornadosuburbanl3v1_lawnmower__lawnmower` | 70 | 2 | 0.029 | 0.012 | 13.29 km | 1.82 km | 0.0004 |
+| Tornado / Suburban L2 | Frontier | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_017__tornadosuburbanl2v1__frontier` | 40 | 4 | 0.100 | 0.068 | 11.38 km | 1.01 km | 0.0015 |
+| Tornado / Suburban L2 | Lawnmower | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_018__tornadosuburbanl2v1_lawnmower__lawnmower` | 40 | 0 | 0.000 | 0.000 | 10.56 km | 1.01 km | 0.0000 |
+| Tornado / Suburban L2 | VLFM | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_019__tornadosuburbanl2v1__vlfm` | 40 | 0 | 0.000 | 0.000 | 4.78 km | 1.01 km | 0.0000 |
+| Tornado / Suburban L3 | Frontier | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_021__tornadosuburbanl3v1__frontier` | 70 | 2 | 0.029 | 0.018 | 9.78 km | 1.76 km | 0.0006 |
+| Tornado / Suburban L3 | Lawnmower | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_022__tornadosuburbanl3v1_lawnmower__lawnmower` | 70 | 2 | 0.029 | 0.012 | 13.29 km | 1.76 km | 0.0004 |
 | Tornado / Suburban L3 | VLFM | `frozen_suburban_8robot/2026-08-31_11-11-42/iter_023__tornadosuburbanl3v1__vlfm` | 70 | 0 | 0.000 | 0.000 | 4.80 km | 1.76 km | 0.0000 |
+| Tornado / Urban L1 | CoNavGPT2 | `remaining58_tornadourbanl1v1_conavgpt2_team/2026-09-08_04-49-32/iter_001__tornadourbanl1v1_conavgpt2_team__conavgpt2_team` | 6 | 0 | 0.000 | 0.000 | 6.35 km | 0.78 km | 0.0000 |
+| Tornado / Urban L1 | Frontier | `remaining58_tornadourbanl1v1_frontier/2026-09-08_01-50-59/iter_001__tornadourbanl1v1__frontier` | 6 | 0 | 0.000 | 0.000 | 5.63 km | 1.29 km | 0.0000 |
+| Tornado / Urban L1 | Lawnmower | `remaining58_tornadourbanl1v1_lawnmower/2026-09-08_03-05-21/iter_001__tornadourbanl1v1_lawnmower__lawnmower` | 6 | 0 | 0.000 | 0.000 | 9.44 km | 1.35 km | 0.0000 |
+| Tornado / Urban L2 | Frontier | `remaining58_tornadourbanl2v1_frontier/2026-09-08_06-00-28/iter_001__tornadourbanl2v1__frontier` | 9 | 0 | 0.000 | 0.000 | 6.41 km | 2.28 km | 0.0000 |
+| Tornado / Urban L2 | Lawnmower | `remaining58_tornadourbanl2v1_lawnmower/2026-09-08_07-17-25/iter_001__tornadourbanl2v1_lawnmower__lawnmower` | 9 | 0 | 0.000 | 0.000 | 7.28 km | 2.28 km | 0.0000 |
+| Tornado / Urban L2 | VLFM | `remaining58_tornadourbanl2v1_vlfm/2026-09-08_08-37-40/iter_001__tornadourbanl2v1__vlfm` | 9 | 1 | 0.111 | 0.021 | 5.80 km | 2.28 km | 0.0025 |
+| Tornado / Urban L3 | CoNavGPT2 | `remaining58_tornadourbanl3v1_conavgpt2_team/2026-09-08_14-02-43/iter_001__tornadourbanl3v1_conavgpt2_team__conavgpt2_team` | 11 | 0 | 0.000 | 0.000 | 6.31 km | 1.50 km | 0.0000 |
+| Tornado / Urban L3 | Frontier | `remaining58_tornadourbanl3v1_frontier/2026-09-08_10-23-40/iter_001__tornadourbanl3v1__frontier` | 11 | 0 | 0.000 | 0.000 | 6.60 km | 2.49 km | 0.0000 |
+| Tornado / Urban L3 | VLFM | `remaining58_tornadourbanl3v1_vlfm/2026-09-08_12-52-38/iter_001__tornadourbanl3v1__vlfm` | 11 | 0 | 0.000 | 0.000 | 5.67 km | 2.49 km | 0.0000 |
 
 ### Average by baseline
 
 | Method | Completed / total runs | Avg progress | Avg time-integrated progress | Avg actual team path | Avg ideal all-target path | Avg PPL |
 |---|---:|---:|---:|---:|---:|---:|
-| CoNavGPT2 | 7/48 | 0.000 | 0.000 | 5.64 km | 2.34 km | 0.0000 |
-| Frontier | 9/48 | 0.083 | 0.057 | 8.62 km | 3.22 km | 0.0019 |
-| Lawnmower | 9/48 | 0.016 | 0.004 | 11.57 km | 3.05 km | 0.0002 |
-| VLFM | 9/48 | 0.063 | 0.052 | 3.97 km | 2.65 km | 0.0042 |
+| CoNavGPT2 | 12/48 | 0.000 | 0.000 | 6.23 km | 2.33 km | 0.0000 |
+| Frontier | 15/48 | 0.050 | 0.034 | 7.56 km | 3.27 km | 0.0011 |
+| Lawnmower | 15/48 | 0.018 | 0.005 | 10.40 km | 3.14 km | 0.0007 |
+| VLFM | 14/48 | 0.048 | 0.035 | 4.46 km | 3.26 km | 0.0029 |
 
 ### Target-circle radius sensitivity
 
@@ -796,10 +810,10 @@ These rows change only the GT-to-target-circle association radius; the detector 
 
 | Method | Runs | 12 m progress | 17 m progress | Gain vs base | 22 m progress | Gain vs base |
 |---|---:|---:|---:|---:|---:|---:|
-| CoNavGPT2 | 7 | 0.000 | 0.000 | +0.000 | 0.000 | +0.000 |
-| Frontier | 9 | 0.083 | 0.106 | +0.023 | 0.130 | +0.047 |
-| Lawnmower | 9 | 0.016 | 0.022 | +0.006 | 0.037 | +0.021 |
-| VLFM | 9 | 0.063 | 0.073 | +0.010 | 0.082 | +0.019 |
+| CoNavGPT2 | 12 | 0.000 | 0.000 | +0.000 | 0.000 | +0.000 |
+| Frontier | 15 | 0.050 | 0.064 | +0.014 | 0.078 | +0.028 |
+| Lawnmower | 15 | 0.018 | 0.024 | +0.006 | 0.036 | +0.018 |
+| VLFM | 14 | 0.048 | 0.055 | +0.007 | 0.061 | +0.012 |
 
 #### Runs with zero detections at 12 m
 
@@ -809,6 +823,10 @@ These rows change only the GT-to-target-circle association radius; the detector 
 | Earthquake / Urban L1 | Frontier | 0/39 | 0/39 | 0/39 |
 | Earthquake / Urban L1 | Lawnmower | 0/39 | 0/39 | 0/39 |
 | Earthquake / Urban L1 | VLFM | 0/39 | 0/39 | 0/39 |
+| Earthquake / Urban L2 | CoNavGPT2 | 0/64 | 0/64 | 0/64 |
+| Earthquake / Urban L2 | Frontier | 0/64 | 0/64 | 0/64 |
+| Earthquake / Urban L2 | Lawnmower | 0/64 | 0/64 | 0/64 |
+| Earthquake / Urban L2 | VLFM | 0/64 | 0/64 | 0/64 |
 | Earthquake / Urban L3 | CoNavGPT2 | 0/64 | 0/64 | 0/64 |
 | Earthquake / Urban L3 | Frontier | 0/64 | 0/64 | 0/64 |
 | Earthquake / Urban L3 | Lawnmower | 0/64 | 0/64 | 0/64 |
@@ -821,6 +839,13 @@ These rows change only the GT-to-target-circle association radius; the detector 
 | Hurricane / Suburban L1 | CoNavGPT2 | 0/55 | 0/55 | 0/55 |
 | Hurricane / Suburban L1 | Lawnmower | 0/55 | 0/55 | 0/55 |
 | Hurricane / Suburban L1 | VLFM | 0/55 | 0/55 | 0/55 |
+| Hurricane / Urban L2 | CoNavGPT2 | 0/12 | 0/12 | 0/12 |
+| Hurricane / Urban L2 | Frontier | 0/12 | 0/12 | 0/12 |
+| Hurricane / Urban L2 | VLFM | 0/12 | 0/12 | 0/12 |
+| Hurricane / Urban L3 | CoNavGPT2 | 0/22 | 0/22 | 0/22 |
+| Hurricane / Urban L3 | Frontier | 0/22 | 0/22 | 0/22 |
+| Hurricane / Urban L3 | Lawnmower | 0/22 | 0/22 | 1/22 |
+| Hurricane / Urban L3 | VLFM | 0/22 | 0/22 | 0/22 |
 | Tornado / Suburban L1 | CoNavGPT2 | 0/30 | 0/30 | 0/30 |
 | Tornado / Suburban L1 | Frontier | 0/30 | 0/30 | 1/30 |
 | Tornado / Suburban L1 | VLFM | 0/30 | 2/30 | 2/30 |
@@ -828,6 +853,14 @@ These rows change only the GT-to-target-circle association radius; the detector 
 | Tornado / Suburban L2 | Lawnmower | 0/40 | 0/40 | 0/40 |
 | Tornado / Suburban L2 | VLFM | 0/40 | 0/40 | 0/40 |
 | Tornado / Suburban L3 | VLFM | 0/70 | 0/70 | 0/70 |
+| Tornado / Urban L1 | CoNavGPT2 | 0/6 | 0/6 | 0/6 |
+| Tornado / Urban L1 | Frontier | 0/6 | 0/6 | 0/6 |
+| Tornado / Urban L1 | Lawnmower | 0/6 | 0/6 | 0/6 |
+| Tornado / Urban L2 | Frontier | 0/9 | 0/9 | 0/9 |
+| Tornado / Urban L2 | Lawnmower | 0/9 | 0/9 | 0/9 |
+| Tornado / Urban L3 | CoNavGPT2 | 0/11 | 0/11 | 0/11 |
+| Tornado / Urban L3 | Frontier | 0/11 | 0/11 | 0/11 |
+| Tornado / Urban L3 | VLFM | 0/11 | 0/11 | 0/11 |
 
 Breakdown opportunities count each GT victim once per completed run/method; the same frozen-scene victim is therefore one opportunity for each baseline that searched that scene.
 
@@ -836,10 +869,10 @@ Breakdown opportunities count each GT victim once per completed run/method; the 
 | Pose | Detected / opportunities | Detection rate |
 |---|---:|---:|
 | crouched | 0/23 | 0.000 |
-| lying | 10/490 | 0.020 |
-| seated | 38/391 | 0.097 |
-| unknown | 20/541 | 0.037 |
-| upright | 27/476 | 0.057 |
+| lying | 10/570 | 0.018 |
+| seated | 39/423 | 0.092 |
+| unknown | 24/943 | 0.025 |
+| upright | 27/500 | 0.054 |
 
 ### Detection breakdown by visibility
 
@@ -847,7 +880,7 @@ Breakdown opportunities count each GT victim once per completed run/method; the 
 |---|---:|---:|
 | full | 7/377 | 0.019 |
 | partial | 4/333 | 0.012 |
-| unknown | 84/1211 | 0.069 |
+| unknown | 89/1749 | 0.051 |
 
 ### Detection breakdown by occlusion
 
@@ -862,23 +895,29 @@ Breakdown opportunities count each GT victim once per completed run/method; the 
 | submerged | 0/60 | 0.000 |
 | torso | 0/37 | 0.000 |
 | torso_head | 0/29 | 0.000 |
-| unknown | 84/1211 | 0.069 |
+| unknown | 89/1749 | 0.051 |
 
 ### Detection breakdown by environment
 
 | Environment | Detected / opportunities | Detection rate |
 |---|---:|---:|
-| Earthquake / unknown | 0/412 | 0.000 |
+| Earthquake / unknown | 0/668 | 0.000 |
 | Fire / at_home | 0/8 | 0.000 |
 | Fire / cul_de_sac | 27/165 | 0.164 |
 | Fire / gridlock | 4/216 | 0.019 |
 | Fire / open_ground | 21/143 | 0.147 |
 | Fire / parking_refuge | 32/224 | 0.143 |
 | Fire / pools | 0/43 | 0.000 |
+| Fire / unknown | 3/68 | 0.044 |
+| Hurricane / flood_stranded | 0/24 | 0.000 |
+| Hurricane / glass_debris_injury | 0/64 | 0.000 |
+| Hurricane / pinned_tree | 0/16 | 0.000 |
 | Hurricane / roof | 1/160 | 0.006 |
+| Hurricane / seated_wind_injury | 1/32 | 0.031 |
 | Hurricane / water | 0/60 | 0.000 |
 | Tornado / pile | 1/141 | 0.007 |
 | Tornado / skirt | 3/127 | 0.024 |
 | Tornado / street | 1/78 | 0.013 |
 | Tornado / trail | 0/4 | 0.000 |
+| Tornado / unknown | 1/78 | 0.013 |
 | Tornado / yard | 5/140 | 0.036 |
