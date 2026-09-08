@@ -16,7 +16,7 @@ Latest completion update: **2026-09-08**. Fire Suburban L3 RAVEN passed all eigh
 | **Fire** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Fire** | **Urban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Fire** | **Urban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Fire** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 | 🟩 |
+| **Fire** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟨 | 🟩 |
 | **Fire** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 |
 | **Fire** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 |
 | **Hurricane** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
@@ -34,7 +34,7 @@ Latest completion update: **2026-09-08**. Fire Suburban L3 RAVEN passed all eigh
 | **Earthquake** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Earthquake** | **Urban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Earthquake** | **Urban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Earthquake** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟨 | 🟦 | 🟦 |
+| **Earthquake** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 | 🟦 |
 | **Earthquake** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟧 | 🟦 | 🟦 |
 | **Earthquake** | **Suburban** | L3 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
 
@@ -45,9 +45,9 @@ Latest completion update: **2026-09-08**. Fire Suburban L3 RAVEN passed all eigh
 | Pod | Current run | Remaining assignment |
 |---|---|---|
 | dev 191 | Expired: `FAILED_EXEC_TIMEOUT` | No active run |
-| 1-GPU 58 | Earthquake Suburban L1 Lawnmower **passed and NAS-verified** at 19:22:06 UTC (team RTF 0.04593–0.04601); L1 VLFM cleared **8/8 takeoff** at 19:39:00 UTC, runner PID 1739915 | **19/30 uploaded; 11 outstanding**: eight Earthquake cells including current, plus Tornado L1 VLFM / L2 CoNavGPT2 / L3 Lawnmower needing investigation and rerun |
+| 1-GPU 58 | Earthquake Suburban L1 VLFM **passed and NAS-verified** at 23:16:49 UTC (team RTF **0.04825**); audited-missing Fire Suburban L1 CoNavGPT2 started at 23:23:19 UTC | **20/32 uploaded; 12 outstanding** including the active Fire L1 CoNav rerun, next-priority Tornado Suburban L3 CoNav rerun, remaining Earthquake cells, and three Tornado Urban failures needing investigation |
 | 2-GPU 1 | `FAILED_EVICTED`, confirmed by OSMO; SSH endpoint gone | RayFronts queue cannot advance on this pod; replacement required |
-| 2-GPU 3 | Fire Suburban L1 and L3 RAVEN are both **passed, uploaded and NAS-verified** | L3 passed **8/8 semantic-search actions** with windows **600.00–600.39 s**; search wall **13,119.69 s**, RTF **0.04573**. NAS exact audit: **151 files / 111,228,924,387 bytes**, identical relative paths/sizes and matching iteration/compiled-result checksums. Strict 10 m progress is **0/84** despite 421 person-labeled compiled centers. Earlier failed attempt remains local and unuploaded; launcher PID 60 remains T |
+| 2-GPU 3 | Fire Suburban L1 and L3 RAVEN are both **passed, uploaded and NAS-verified**; Hurricane Suburban L2 started at 23:22:23 UTC | L3 passed **8/8 semantic-search actions** with windows **600.00–600.39 s**; search wall **13,119.69 s**, RTF **0.04573**. NAS exact audit: **151 files / 111,228,924,387 bytes**, identical relative paths/sizes and matching iteration/compiled-result checksums. Strict 10 m progress is **0/84** despite 421 person-labeled compiled centers. The two verified Fire result roots were removed locally after the exact audit to prevent another 400 GiB pod eviction; they remain recoverable from NAS. Launcher PID 60 remains T |
 | 2-GPU 4 | Fire Suburban L2 and Hurricane Suburban L1 RAVEN both **passed, uploaded and NAS-verified**; Hurricane Suburban L3 needs a replacement rerun | Kubernetes evicted the workspace at **22:37:33 UTC** for exceeding the **400 GiB ephemeral-storage limit**, with the valid L3 search only **416–427/600 s** complete. The interrupted partial run is invalid and was not uploaded. This was infrastructure storage exhaustion, not a simulator or autonomy failure. L3 is orange until rerun on a replacement 2-GPU pod |
 
 September 8 04:05 UTC: user assigned pods 3/4 to RAVEN and reaffirmed pod 58
