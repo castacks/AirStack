@@ -1,11 +1,22 @@
 {
   "audit_complete": true,
-  "generated_utc": "2026-09-08T21:40:00Z",
+  "generated_utc": "2026-09-08T23:18:09Z",
   "scope": "All completed valid 600-s production iterations present on 2-GPU pods 3 and 4",
-  "accepted_production_iterations": 3,
+  "accepted_production_iterations": 4,
   "missing_from_nas": 0,
   "excluded": "All failed/stopped attempts and passed 50-s camera diagnostics",
   "runs": [
+    {
+      "pod": "2-GPU 3",
+      "nas_iteration": "raven_firesuburbanl3v1_raven_remaining_2gpu1/2026-09-08_17-41-24/iter_001__firesuburbanl3v1_raven__raven",
+      "manifest_match": true,
+      "file_count": 151,
+      "total_bytes": 111228924387,
+      "iteration_sha256": "8a235c4771abab9d0da3303922c715a5531d24fddb8aea74069babe002fe647c",
+      "compiled_results_sha256": "db290f42911fc0f35cfd2e83e692da11eba27a0ca045ec282835be7103e2c2f6",
+      "metrics_sha256": "e8b29db88f21d02b9e834aa715114ed7e0d527844138d1cc17c0ae4516a8d091",
+      "groundtruth_comparison_sha256": "79437dd93300ff959a35ace190e5c37dc30d431b83db1b7939c003382d50bf27"
+    },
     {
       "pod": "2-GPU 3",
       "nas_iteration": "raven_firesuburbanl1v1_raven_remaining_2gpu1/2026-09-08_09-58-54/iter_001__firesuburbanl1v1_raven__raven",
