@@ -48,7 +48,7 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | 1-GPU 58 | Tornado Urban L1 CoNavGPT2, started September 8 04:49:32 UTC; live runner PID 2623975, verified 05:54 UTC | **19 standard-baseline cells remain**, including current run and VLFM rerun; 11/30 queue cells passed/uploaded |
 | 2-GPU 1 | `FAILED_EVICTED`, confirmed by OSMO; SSH endpoint gone | RayFronts queue cannot advance on this pod; replacement required |
 | 2-GPU 3 | RAVEN camera sweep: 24-empty-group diagnostic started September 8 08:00:21 UTC; runner PID 3652551 | The 16-empty diagnostic passed locally with valid measurements and no upload. Production lane paused; protected launcher PID 60 in state T; owned renderer GPU 2 (`d239ce7e`), offboard GPU 3 (`38264ce2`) |
-| 2-GPU 4 | RAVEN camera sweep: clean 8-empty-group retry started September 8 07:09:49 UTC; runner PID 2803651 | The 06:42 attempt failed before measurement when robots 4/5 did not complete arming and was not uploaded. Fire Suburban L2 production rerun remains pending; protected launcher PID 59 in state T; renderer GPU 0 (`1617253c`), offboard GPU 3 (`c90e144e`) |
+| 2-GPU 4 | RAVEN camera sweep: zero-empty-group control started September 8 08:12:11 UTC; runner PID 3463884 | The 8-empty diagnostic passed locally with valid measurements and no upload. Fire Suburban L2 production rerun remains pending; protected launcher PID 59 in state T; renderer GPU 0 (`1617253c`), offboard GPU 3 (`c90e144e`) |
 
 September 8 04:05 UTC: user assigned pods 3/4 to RAVEN and reaffirmed pod 58
 for non-RAVEN work. Both RAVEN pods were already protected and running the
@@ -99,8 +99,9 @@ model configuration and GPU pins unchanged throughout the comparison.
 
 | Empty groups | Total groups | Burst updates | Search budget | Min RGB/depth sim FPS | RTF | Maximum frame silence | Status |
 |---:|---:|---:|---:|---:|---:|---:|---|
+| 0 | 8 | 8 | 50 s | — | — | — | Required no-empty control running on 2-GPU 4 since 08:12:11 UTC; runner 3463884, `diagnostic_raven_empty0_50sim/2026-09-08_08-12-11` |
 | 4 | 12 | 8 | 50 s | 2.04 / 2.04 | 0.03799 | 2.73 s | Measured on 2-GPU 3; fails the 2.5-FPS gate; `diagnostic_raven_empty4_50sim/2026-09-08_05-27-57` |
-| 8 | 16 | 8 | 50 s | — | — | — | Clean retry running on 2-GPU 4; runner 2803651, `diagnostic_raven_empty8_50sim/2026-09-08_07-09-49`. The first attempt never started RAVEN (6/8 frame readiness); the 06:42 retry failed 6/8 takeoff; both are excluded and neither was uploaded. |
+| 8 | 16 | 8 | 50 s | 1.56 / 1.56 | 0.04312 | 3.69 s | Measured on 2-GPU 4; fails the 2.5-FPS gate; `diagnostic_raven_empty8_50sim/2026-09-08_07-09-49`. The first attempt never started RAVEN (6/8 frame readiness); the 06:42 retry failed 6/8 takeoff; both are excluded and neither was uploaded. |
 | 16 | 24 | 8 | 50 s | 0.96 / 0.96 | 0.04379 | 5.61 s | Measured on 2-GPU 3; fails the 2.5-FPS gate; `diagnostic_raven_empty16_50sim/2026-09-08_06-41-04` |
 | 24 | 32 | 8 | 50 s | — | — | — | Running on 2-GPU 3 since 08:00:21 UTC with a 2,700-second sparse-frame readiness budget; runner 3652551, `diagnostic_raven_empty24_50sim/2026-09-08_08-00-21` |
 
