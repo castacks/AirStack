@@ -303,6 +303,20 @@ entirely untested.
   measured 600-second wait) and stagger the eight dispatches by about three
   wall seconds. Still verify that all eight goals were accepted before burning
   the multi-hour search window.
+- **Serialize callbacks that share a per-domain relay executor.** The GCS
+  action relay serves takeoff, semantic search and landing with one executor
+  per robot domain. When landing started while a semantic-search result
+  callback was still unwinding, concurrent callbacks both called
+  `executor.spin_once()` and every relay died with `RuntimeError: Executor is
+  already spinning`. Keep one shared lock around both `spin_once()` call sites
+  in `action_relay/relay_node.py`; a lock local to each action is insufficient.
+- **Mission-step `optional` is a sibling of `action`, not an action field.**
+  `mission_runner.py` reads `step_spec.get("optional")`. Putting
+  `optional: true` inside the `action:` mapping is valid YAML and survives a
+  dry-run, but a slow or failed landing still fails the iteration. Write
+  `- optional: true` at the same indentation as `action:` and confirm the
+  freshly launched runner parsed that version before spending the search
+  window.
 
 - **The scene doesn't exist yet.** `_plans/raven_test_scene_runbook.md` §2's
   Isaac launch (build + freeze `RavenSuburbTornado250`) has not been run.
