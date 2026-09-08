@@ -652,13 +652,14 @@ hours for inspection and corrective reruns.
 | Workflow | Cells | State |
 |---|---|---|
 | `airstack-mission-8robot-2gpu-2` | Fire/Suburban L1–L3 RayFronts | QUEUED |
-| `airstack-mission-8robot-2gpu-3` | Hurricane/Suburban L1–L3 RayFronts | QUEUED |
-| `airstack-mission-8robot-2gpu-4` | Tornado/Suburban L1–L3 RayFronts | QUEUED |
+| `airstack-mission-8robot-2gpu-3` | Fire/Suburban recovery lane | RUNNING — L1 NAS-verified; L3 passed 8/8 and is uploading |
+| `airstack-mission-8robot-2gpu-4` | Fire/Suburban L2 + Hurricane/Suburban lane | FAILED_EVICTED — Fire L2 and Hurricane L1 NAS-verified; partial Hurricane L3 discarded after the workspace exceeded 400 GiB ephemeral storage |
 | `airstack-mission-8robot-2gpu-5` | Fire/Urban L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | QUEUED — 12 h mission cap, 48 h inspectable pod |
 | `airstack-mission-8robot-2gpu-6` | Fire/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | QUEUED — 12 h mission cap, 48 h inspectable pod |
 | `airstack-mission-8robot-2gpu-7` | Earthquake/Urban L1–L2 × Frontier, lawnmower, VLFM, CoNavGPT2 | CANCELED — replaced by the active split run on pod 56 |
 | `airstack-mission-8robot-2gpu-8` | Earthquake/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | CANCELED — replaced by the active split run on pod 57 |
 | `airstack-mission-8robot-2gpu-9` | Tornado/Urban L1–L3 RayFronts | PENDING/SCHEDULING — submitted 2026-09-06 15:33 EDT; 12 h mission cap, 48 h inspectable pod; passed-only immediate NAS uploads |
+| `airstack-mission-8robot-2gpu-10` | Hurricane/Suburban L3 replacement, then remaining RAVEN lane | PENDING/SCHEDULING — submitted 2026-09-08 18:42 EDT with a no-op hold mission so GPU UUID/index mapping is inspected before production starts |
 
 The broad Fire and Tornado batches started at `19-51-50` / `19-58-31` were
 stopped during startup once the accepted pre-optimization sweep was found.
