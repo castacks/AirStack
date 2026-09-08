@@ -1,6 +1,6 @@
 # Disaster benchmark dashboard
 
-Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-09-07**.
+Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-09-08 04:02 UTC**.
 
 > **Legend:** 🟩 **DONE** · 🟦 **READY** · 🟧 **RERUN** · 🟨 **VERIFY / IN PROGRESS** · ⬜ **NOT READY**
 >
@@ -21,11 +21,11 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | **Fire** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
 | **Hurricane** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Hurricane** | **Urban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Hurricane** | **Urban** | L3 | 🟩 | 🟩 | 🟨 | 🟦 | 🟦 | 🟦 |
+| **Hurricane** | **Urban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Hurricane** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
 | **Hurricane** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
 | **Hurricane** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
-| **Tornado** | **Urban** | L1 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟨 |
+| **Tornado** | **Urban** | L1 | 🟩 | 🟩 | 🟨 | 🟦 | 🟦 | 🟨 |
 | **Tornado** | **Urban** | L2 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟨 |
 | **Tornado** | **Urban** | L3 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟨 |
 | **Tornado** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
@@ -40,13 +40,13 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 
 ## Overnight completion summary — September 7
 
-### Active completion queue — September 7, 15:49 UTC
+### Active completion queue — September 8, 04:02 UTC
 
 | Pod | Current run | Remaining assignment |
 |---|---|---|
-| dev 191 | Idle after two rejected Hurricane Urban L2 Frontier attempts | Pod lifetime was too short for another accepted run |
-| 1-GPU 58 | Hurricane Urban L3 Lawnmower, started 22:29:23 UTC | **25 standard-baseline cells remain** after L3 Frontier passed |
-| 2-GPU 1 | Fire Suburban L1 RAVEN/RayFronts retry; 8/8 armed, takeoff in progress | Dedicated RAVEN/RayFronts work; monitor owns subsequent ready-scene queue |
+| dev 191 | Expired: `FAILED_EXEC_TIMEOUT` | No active run |
+| 1-GPU 58 | Tornado Urban L1 Lawnmower, started September 8 03:05:21 UTC; live runner PID 1576277 | **20 standard-baseline cells remain**, including current run; 10/30 queue cells passed/uploaded |
+| 2-GPU 1 | `FAILED_EVICTED`, confirmed by OSMO; SSH endpoint gone | RayFronts queue cannot advance on this pod; replacement required |
 
 Pod 58 now has a detached, durable one-cell-at-a-time queue, not just a list
 waiting for manual launches. Each cell retains the original 600-s window
@@ -66,7 +66,7 @@ remain stopped to prevent automatic teardown.
 Live pod-58 ledger: `/root/AirStack/osmo/results/remaining58_queue/state.json`;
 per-cell logs are alongside it. Queue source:
 `osmo/workspace/remaining_pod58_queue.py`. Current run folder:
-`remaining58_hurricaneurbanl3v1_lawnmower/2026-09-07_22-29-23`.
+`remaining58_tornadourbanl1v1_lawnmower/2026-09-08_03-05-21`.
 This section supersedes historical pod-56/57 assignments below. Queued or
 currently flying cells are **not new completions** until their acceptance gates pass.
 
@@ -93,10 +93,10 @@ deadline 120 seconds inside that limit; takeoff increased to **900 wall seconds*
 The actual search budget remains **600 simulated seconds**, with unchanged
 acceptance gates and the existing ≤12-hour one-cell launch/cleanup cap.
 
-**14 new accepted runs since the September 6 evening queue**: 4 on dev 191
-and 10 on pod 58. Rechecked all fourteen NAS `iteration.json` files (`passed`)
-and nonempty MCAPs on September 7. Failed attempts and short diagnostics are
-excluded. Hurricane Urban L3 Lawnmower is now active on pod 58.
+**18 new accepted runs since the September 6 evening queue**: 4 on dev 191
+and 14 on pod 58. The preceding fourteen were verified September 7; the four
+additional rows below were checked September 8 for NAS `iteration.json=passed`
+and nonempty MCAPs. Failed attempts and short diagnostics are excluded.
 
 | Pod | Scene | Method | Final team RTF | Storage |
 |---|---|---|---:|---|
@@ -114,10 +114,14 @@ excluded. Hurricane Urban L3 Lawnmower is now active on pod 58.
 | 58 | Hurricane Urban L2 | VLFM | 0.20398 | Verified |
 | 58 | Hurricane Urban L2 | CoNavGPT2 | 0.22094 | Verified |
 | 58 | Hurricane Urban L3 | Frontier | 0.18542 | Verified |
+| 58 | Hurricane Urban L3 | Lawnmower | 0.18846 | Verified |
+| 58 | Hurricane Urban L3 | VLFM | 0.20569 | Verified |
+| 58 | Hurricane Urban L3 | CoNavGPT2 | 0.20686 | Verified |
+| 58 | Tornado Urban L1 | Frontier | 0.17906 | Verified |
 
 Fire Urban is now **12/12** shared-planner runs complete: L1 **4/4**, L2
 **4/4**, L3 **4/4**.
-Hurricane Urban L1 and L2 are both **4/4**; L3 is **1/4**.
+Hurricane Urban L1–L3 are all **4/4**. Tornado Urban L1 is **1/4**.
 These new bags still need detector-progress/PPL evaluation; completion and
 timing above do not imply that the actual-results tables below include them.
 
