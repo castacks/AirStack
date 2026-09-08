@@ -99,7 +99,7 @@ model configuration and GPU pins unchanged throughout the comparison.
 
 | Empty groups | Total groups | Burst updates | Search budget | Min RGB/depth sim FPS | RTF | Maximum frame silence | Status |
 |---:|---:|---:|---:|---:|---:|---:|---|
-| 4 | 12 | 8 | 50 s | — | — | — | Running on 2-GPU 3; `diagnostic_raven_empty4_50sim/2026-09-08_05-27-57` |
+| 4 | 12 | 8 | 50 s | 2.04 / 2.04 | 0.03799 | 2.73 s | Measured on 2-GPU 3; fails the 2.5-FPS gate; `diagnostic_raven_empty4_50sim/2026-09-08_05-27-57` |
 | 8 | 16 | 8 | 50 s | — | — | — | Running on 2-GPU 4; `diagnostic_raven_empty8_50sim/2026-09-08_06-00-28` |
 | 16 | 24 | 8 | 50 s | — | — | — | Queued next on 2-GPU 3 |
 | 24 | 32 | 8 | 50 s | — | — | — | Queued next on 2-GPU 4 |
