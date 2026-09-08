@@ -1,6 +1,6 @@
 # Disaster benchmark dashboard
 
-Latest completion update: **2026-09-08**. Hurricane Suburban L1 RAVEN passed all eight 600-s robot windows and was NAS-verified at 20:56:40 UTC. Earthquake Suburban L1 Lawnmower was NAS-verified at 19:22:06 UTC and VLFM is active. Fire Suburban L1 and L2 RAVEN are storage-verified, and Fire Suburban L3 is in a repaired focused rerun. Failed attempts remain local and unuploaded.
+Latest completion update: **2026-09-08**. Hurricane Suburban L1 RAVEN passed all eight 600-s robot windows and was NAS-verified at 20:56:40 UTC; Hurricane Suburban L3 started on pod 4 at 20:59:08 UTC. Earthquake Suburban L1 Lawnmower was NAS-verified at 19:22:06 UTC and VLFM is active. Fire Suburban L1 and L2 RAVEN are storage-verified, and Fire Suburban L3 is in a repaired focused rerun. Failed attempts remain local and unuploaded.
 
 > **Legend:** 🟩 **DONE** · 🟦 **READY** · 🟧 **RERUN** · 🟨 **VERIFY / IN PROGRESS** · ⬜ **NOT READY**
 >
@@ -24,7 +24,7 @@ Latest completion update: **2026-09-08**. Hurricane Suburban L1 RAVEN passed all
 | **Hurricane** | **Urban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Hurricane** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 |
 | **Hurricane** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
-| **Hurricane** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
+| **Hurricane** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟨 |
 | **Tornado** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟧 | 🟩 | 🟨 |
 | **Tornado** | **Urban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 | 🟨 |
 | **Tornado** | **Urban** | L3 | 🟩 | 🟩 | 🟧 | 🟩 | 🟩 | 🟨 |
@@ -48,7 +48,7 @@ Latest completion update: **2026-09-08**. Hurricane Suburban L1 RAVEN passed all
 | 1-GPU 58 | Earthquake Suburban L1 Lawnmower **passed and NAS-verified** at 19:22:06 UTC (team RTF 0.04593–0.04601); L1 VLFM cleared **8/8 takeoff** at 19:39:00 UTC, runner PID 1739915 | **19/30 uploaded; 11 outstanding**: eight Earthquake cells including current, plus Tornado L1 VLFM / L2 CoNavGPT2 / L3 Lawnmower needing investigation and rerun |
 | 2-GPU 1 | `FAILED_EVICTED`, confirmed by OSMO; SSH endpoint gone | RayFronts queue cannot advance on this pod; replacement required |
 | 2-GPU 3 | Fire Suburban L1 RAVEN **passed, uploaded and NAS-verified** at 15:53:19 UTC; repaired Fire Suburban L3 mission attempt 2 cleared **8/8 readiness, perception and takeoff** and entered semantic search at 18:30:21 UTC | All eight robots reported at least eight shared-RayFronts frames, spawned RAVEN and accepted their NavigateTask activator. Live persistent-clock RTF **0.0442** over 90.23 wall s / 3.99 sim s. L1 final RTF **0.0398**, 12/49 GT matched (24.5% recall), 5.66 km team path. Earlier failed attempts remain local and unuploaded; commit `bc493b53` repairs stale relay clients after robot recovery. Current runner PID **4054655**, folder `2026-09-08_17-41-24`; acceptance requires all eight per-robot 600-s completion records before upload; launcher PID 60 remains T |
-| 2-GPU 4 | Fire Suburban L2 and Hurricane Suburban L1 RAVEN both **passed, uploaded and NAS-verified**; Hurricane L1 verified at 20:56:40 UTC | Hurricane L1 search wall time **6190.52 s**, final team RTF **0.0969**; all eight raw robot windows are **599.43–600.06 s**. It recorded 250 raw detections (146 visited), 0/55 built-in GT matches, and a 4.66 km team path. NAS verification matched all **152 files / 83,671,457,440 bytes** and the four key result-file checksums. Commit `561f4414` fixes the future acceptance gate to use 8/8 action success plus independent duration records. Folder `raven_hurricanesuburbanl1v1_raven_remaining_2gpu1/2026-09-08_17-46-57`; launcher PID 59 remains T |
+| 2-GPU 4 | Fire Suburban L2 and Hurricane Suburban L1 RAVEN both **passed, uploaded and NAS-verified**; Hurricane Suburban L3 started at 20:59:08 UTC | Hurricane L1 final team RTF **0.0969**, 8/8 windows **599.43–600.06 s**, 250 raw detections (146 visited), 0/55 built-in GT matches, and a 4.66 km team path. NAS matched all **152 files / 83,671,457,440 bytes** and key checksums. Hurricane L3 runner PID **930732**, folder `raven_hurricanesuburbanl3v1_raven_remaining_2gpu1/2026-09-08_20-59-08`, uses Isaac GPU 0 / offboard GPU 3, zero-empty 8/8 camera scheduling, and the corrected full-window gate from `561f4414`; launcher PID 59 remains T |
 
 September 8 04:05 UTC: user assigned pods 3/4 to RAVEN and reaffirmed pod 58
 for non-RAVEN work. Both RAVEN pods were already protected and running the
