@@ -19,7 +19,7 @@
 >   the content. Never rewrite or prune it; correct an old entry only
 >   by appending a newer one.
 >
-> Last updated: 2026-09-02
+> Last updated: 2026-09-08
 
 ## Current direction
 
@@ -35,6 +35,13 @@ Evidence plan: the **five case studies** answering a fixed six-question
 instrument are PRIMARY; Sec. VI (sim fidelity, defect mining, agent
 study, threats) is SUPPORTING
 ([positioning.md §Evidence hierarchy](../ICRA_2027_AirStack_Paper/paper_positioning.md)).
+**Reframed 2026-09-08:** the "where bugs are found" story rests on
+*simulation-in-the-loop* discovery mined from the case studies' git
+histories (desk Isaac runs catching integration defects before
+hardware), not on CI — CI system tests went live 2026-04-28, after
+every case study, so the platform's own CI history is reported as the
+newer, secondary layer. Both measurement studies (LOC reuse, defect
+mining) are now released scripts in the paper submodule's `analysis/`.
 
 Current phase (as of 2026-09-02): **campaign v6 COMPLETE — 40/40
 trials scored** (entry [011](011-agent-study-v6-trials/design_spec.md),
@@ -109,6 +116,7 @@ come from the entries' own labels.
 |---|---|---|---|
 | Agent study (paper Sec. VI-C) | Run the four-arm proxy-developer study on the bring-up-to-flight ladder, judged by the pytest harness | [007-agent-study-prereqs](007-agent-study-prereqs/design_spec.md), [008-droan-gl-r7-avoidance-fix](008-droan-gl-r7-avoidance-fix/design_spec.md), [009-droan-gl-yaw-sweep-unstick](009-droan-gl-yaw-sweep-unstick/design_spec.md), [010-mighty-local-planner-module](010-mighty-local-planner-module/design_spec.md), [011-agent-study-v6-trials](011-agent-study-v6-trials/design_spec.md) | 007 `WIP` (P-5, P-7 open, non-blocking); 008 `DONE` (verdict (c) ❌ under frozen config); 009 `DONE` (sweep works, R7 still 0/10); 010 `DONE` — MIGHTY swapped in as `asm_mighty` v0.1.0; R7 reference solvability 5/5 under frozen v6; 011 `DONE` — 40/40 trials scored + §(d) paper analysis complete 2026-09-02 (figure, tab:agents, cycles, taxonomy) |
 | Paper writing & positioning | Sec. I–V prose, case-study interviews, figures | — (lives in the `ICRA_2027_AirStack_Paper/` submodule; no notebook entries) | Related Work + Design Principles prose done 2026-08-03; interviews not recorded anywhere yet |
+| Measurement studies (paper Table I + Sec. VI-B) | Reproducible LOC-reuse and defect-mining scripts over the five case-study repos, released with the paper | — (`ICRA_2027_AirStack_Paper/analysis/reuse/`, `analysis/defects/`) | `DONE` 2026-09-08 — Table I code rows filled for all five (Hummingbird team-reported); defects mined for RAVEN / DFM2 / Shimizu / Swarm CBF / Hummingbird (team) / AirStack-core; VI-B reframed to sim-in-the-loop |
 | Release gate / v1.0 readiness | The seven paper-blocking items (clone-and-run, verified hardware path, …) | — (no notebook entries yet) | ~63 open `\task{}` vs 1 `\done{}` in `release_gate_and_tasks.tex` |
 | Modular AirStack (RFC #379/#380) | Monolith → modules, stacks, fleets — built to support the paper's modularity positioning: module swapping (C1) and easy upstreaming of features from forked projects (lead, recorded 2026-08-27) | [002-rfc-modular-airstack](002-rfc-modular-airstack/design_spec.md) | `WIP` per its header (impl merged to develop 2026-08-24 as PRs #388–#396; release mechanics, module CI tags, P3 dispatch smoke open) |
 | Launch & CLI developer experience | Kill sim-launch friction — intent flags, readiness signal, scene selection, command groups — purely for developer usage and adoption (lead, recorded 2026-08-27) | [001-pre-rfc-workflow-cleanup](001-pre-rfc-workflow-cleanup/design_spec.md), [003-scene-flag](003-scene-flag/design_spec.md), [004-osmo-command-group](004-osmo-command-group/design_spec.md) | 001 `DONE`; 003 `DONE`; 004 results PASS (no header status) |
@@ -122,6 +130,49 @@ a standing choice flipped. Routine feature completions that don't move
 the strategy get no entry. Format: `### YYYY-MM-DD — what happened`,
 answering *what we learned or decided, what it changed, link to the
 evidence*.
+
+### 2026-09-08 — LOC + defect studies scripted; VI-B pivots from CI to simulation-in-the-loop
+
+Both paper measurement studies now run from released scripts in the
+submodule (`analysis/reuse/`, `analysis/defects/`; pinned fork-point and
+head SHAs in `projects.yaml` / `run_defect_mining.sh`). Table I code
+rows are filled for all five case studies under one rule (source =
+code + config, third-party excluded): authored 5.6k (Swarm CBF) –
+21.2k (DFM2) source lines; base modified in place 0.04–0.61%;
+unmodified AirStack 72–94% of each final system (Hummingbird
+team-reported from a private mirror). Defect mining over the four
+accessible team histories plus Hummingbird's team-run mining yields
+108 provenanced defects, 63% in integration-wiring classes (remap / TF /
+parameter / timing / build), with 40 positively attributed to desk
+simulation runs, 10 to bench hardware, 0 to the field and **0 to
+pre-merge CI — because none of the case-study branches ever went
+through CI** (system tests went live 2026-04-28, after all of them;
+none opened PRs). Decision (lead, 2026-09-08): VI-B's narrative shifts
+from "CI catches bugs pre-merge" to "the full stack flown in Isaac at
+the desk is where integration defects are found and debugged before
+hardware," evidenced from git history; the platform's own CI history
+(52 PRs, 926 runs since April) is reported as the newer, secondary
+layer. *Continuous flight readiness* stays as a design principle (III-D)
+with its scope stated honestly. Changes what: VI-B text, abstract,
+III-D, positioning.md (named-concept scope, evidence hierarchy, release
+gate wording). Evidence: `analysis/reuse/results/summary.md`,
+`analysis/defects/results/summary.md`.
+
+### 2026-09-08 — A4 (bare-parts) R7 verdicts judged against a layout never loaded in its simulator
+
+While producing the Sec. VI-C qualitative scene figure (entry
+[011 §(e)](011-agent-study-v6-trials/results/results_summary.md)), found
+that the judge stages the EVAL pillar world only on the Isaac path; the
+A4/Gazebo path flew `world_practice.sdf` and was clearance-scored
+against `layout_r7.json`. Re-scored against the world actually present,
+6/7 A4 R7 flights are clean (≥1.4 m) and three demonstrably avoided
+practice pillars. **What it changes:** the A4 "0/10 at R7" and
+"pillar penetration, no sense-and-avoid" statements are unsupported as
+written (flagged `\todo{}` in `main.tex`); the platform-gap claim
+(A1–A4) must rest on R1–R6 + cost/null-state evidence until a re-judge
+with the eval world staged (A4 final-state workspaces are retained).
+Same defect class as the 2026-08-26 v4 Isaac retraction. Decision
+pending (paper lead): re-judge vs. report-as-not-judged.
 
 ### 2026-09-02 — Amendment 2: arm labels A3/A4 SWAPPED for presentation (A3 = open loop, A4 = bare parts)
 

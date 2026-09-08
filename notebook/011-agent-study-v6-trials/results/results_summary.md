@@ -394,3 +394,130 @@ A3 R6,R3 · A4 R8,NULL.**
 
 Round-robin order: A1:son → A2:opus → A3:son → A4:opus → A1:opus →
 A2:son → repeat with rising trial index.
+
+## (e) Qualitative scene figures for the paper — and an A4 judge-staging gap (2026-09-08)
+
+**Goal:** give Sec. VI-C a qualitative figure of the simulation task
+(`fig:agent_scene` in `main.tex`, a two-column strip before
+`fig:rung_survival`; panels exported by
+[`crop_export.py`](e-qualitative-figures/crop_export.py) to
+`ICRA_2027_AirStack_Paper/figures/agent_scene_{isaac,gazebo}.jpg` +
+`agent_scene_tracks.pdf`; compiled PDF went 12 → 13 pages): (a) the Isaac Sim pillar field the
+AirStack arms fly, (b) the Gazebo bare-parts environment of arm A4
+(post-relabel name; raw trial ids `A3_*`), (c) top-down tracks of real
+scoring flights. Artifacts: [`e-qualitative-figures/`](e-qualitative-figures/).
+
+**Setup.**
+- (a) Fresh workspace cloned at the study pin `961fb9e1` with the
+  reference solution applied (planner b), asm_mighty synced, Isaac Sim
+  GUI with the **practice** scene (`obstacles_practice.usda`, what every
+  AirStack-arm workspace is staged with) and the follow-cam
+  (`ISAAC_SIM_FOLLOW_CAM=1`, offset `-5,-4,2.0`, dome light
+  `3500,-1.5` — the scene's default exposure −3 renders the shadow side
+  of the pillars black; exposure 0 washes the scene out). Route: a fresh
+  practice-split route (`gen_obstacles.py route --split practice --seed
+  101` → `48.6,32.0,10; 28.7,21.5,10; 10.9,23.2,10`), flown by the
+  reference stack after a judge-style takeoff (`ros2 action send_goal
+  /robot_1/tasks/takeoff`, issued from a login shell — a plain
+  `bash -c` shell is on ROS domain 0 and the call hangs). Capture:
+  [`xcap.py`](e-qualitative-figures/xcap.py) reads the Kit window's
+  own pixmap through the X Composite extension (plain `x11grab`/`xwd`
+  pick up whatever window is stacked on top — the first pass captured
+  the IDE), one frame every ~3 s over the ~60 s flight
+  ([`fly_capture2.sh`](e-qualitative-figures/fly_capture2.sh)); the chosen frame: `isaac_04` (drone at (15.5, 10.1, 9.7) m on the leg to
+  CP1, threading the field; raw frame
+  [`isaac_practice_field_flight_frame04.png`](e-qualitative-figures/isaac_practice_field_flight_frame04.png),
+  all candidates in
+  [`isaac_flight_contact_sheet.png`](e-qualitative-figures/isaac_flight_contact_sheet.png)).
+  The reference stack flew the full practice route in ~45 s and hovered
+  at CP3 (10.9, 23.2) — one more clean practice traversal for the record. Gotchas hit on the way: a fresh clone at
+  the pin has no `modules/` — `airstack module sync` is needed (the
+  runner's workspaces got it from `airstack setup`), and the module's
+  apt dep (`nlohmann-json3-dev`) is not in the base image without
+  `airstack module lock --build`.
+- (b) The A4 image (`airstack-study-a3:v1`) running `gz sim` on
+  `world_practice.sdf` (the file staged into A4 workspaces) with PX4's
+  stock `x500` spawned at the origin; in-engine `Screenshot` plugin.
+  Cosmetic only: the pillar material got a `<diffuse>` matching its
+  `<ambient>` so it renders lit (the study world has ambient only and
+  renders black under ogre2); geometry/positions untouched.
+- (c) [`make_tracks_figure.py`](e-qualitative-figures/make_tracks_figure.py):
+  the judge's own `odom.csv` + `r7_route.json` + `verdict.json` from
+  the official scoring artifact dirs, over the EVAL layout
+  (`layout_r7.json`). Left: A1/opus-5 #1 (`r5_artifacts_92124`, PASS,
+  min clearance 1.65 m). Right: A1/opus-5 #5 (`r5_artifacts_81731`,
+  FAIL "flown track did not follow the planner route in order" — the
+  campaign's single fresh-route generalization failure: the shipped
+  system flew straight to the final waypoint and stopped; clearance
+  2.80 m). Both are Isaac flights in which the eval pillars were
+  physically loaded (judge stages `obstacles_r7_eval.usda`).
+
+**Answer-key note.** Panel (c) shows the EVAL pillar layout. The
+2026-08-28 rule withheld it from every shareable figure *until the
+campaign concludes*; v6 is complete (40/40, 2026-09-02). The script has
+`--withhold-eval-layout` if the layout must stay private for an add-on
+campaign (T5). Decision for the paper lead.
+
+### A4 (bare parts) R7 verdicts were judged against a layout that was never in the A4 simulator
+
+Found while choosing panel-(c) candidates. The judge stages the EVAL
+scene into the workspace only on the Isaac path
+(`r5_provenance.py`: copies `obstacles_r7_eval.usda` before bring-up,
+deletes it in `finish()`). On the A3-transform path (paper arm A4) it
+runs the agent's `./bringup` unchanged — **no eval world is staged** —
+then scores clearance with `gen_obstacles.py check`, whose `--split`
+defaults to **eval**. Every A4 bring-up loaded the only world it was
+given, `provided/world_practice.sdf` (grafted onto PX4's `default.sdf`;
+verified in all 10 workspaces). So every A4 R7 clearance verdict
+compared a practice-world flight against eval-layout coordinates — the
+same defect class as the v4 Isaac verdict retracted in notebook 008
+("flight through empty air judged against virtual coordinates").
+Several A4 agents diagnosed exactly this in their `AGENT_REPORT.md`
+(opus #5: "same odom.csv vs provided/world_practice.sdf: min surface
+clearance 2.47 m"; sonnet #1: "no equivalent staging exists on the A3
+code path") and declined to pull `world_r7.sdf` because it is marked
+answer key.
+
+Re-score of the official A4 R7 scoring flights against the layout that
+was actually in their simulator (`gen_obstacles.py check --split
+practice --odom-csv …`), plus whether the judge-issued route's straight
+legs would have clipped a practice pillar (i.e. whether avoidance was
+even exercised):
+
+| Raw trial (paper arm A4) | Scored rung | Eval-judged min clr (m) | Practice-world min clr (m) | Straight-leg clr vs practice (m) |
+|---|---|---|---|---|
+| A3/opus-5 #1 | R3 | −0.13 | **+1.84** | −0.52 (leg would clip → avoided) |
+| A3/opus-5 #2 | R6 | −1.07 | **+2.34** | −0.31 (avoided) |
+| A3/opus-5 #3 | R6 | −0.54 | **+1.96** | +0.13 |
+| A3/opus-5 #4 | R6 | +0.15 | **+1.82** | −0.49 (avoided) |
+| A3/opus-5 #5 | R6 | −0.43 | **+5.27** | +4.89 (no pillar on path) |
+| A3/sonnet-5 #1 | R6 | −0.43 | **+1.41** | +0.44 |
+| A3/sonnet-5 #2 | R6 | −0.73 | **−0.32** (violation) | −0.05 |
+| A3/sonnet-5 #3–#5 | NULL | — (no R7 flight: bring-up failed) | — | — |
+
+Reading: 6 of the 7 A4 R7 flights kept ≥1.4 m from every pillar that
+existed in their world, and at least three (opus #1, #2, #4) steered
+around practice pillars that the straight route would have hit — i.e.
+those agents *did* build a working sense-and-avoid chain. The paper's
+current A4 sentences ("passed the obstacle rung in 0/10", "penetrated a
+pillar (−0.43 m), having built no sense-and-avoid chain") are therefore
+not supported as stated; they are flagged with `\todo{}` in `main.tex`
+(Task and Results paragraphs).
+
+Caveat on the re-score: it is not a clean R7 pass either — the routes
+were generated against the eval field, so for four flights no practice
+pillar lay near the straight legs and avoidance was not exercised; only
+the in-order corridor + goal gates were fully exercised. A fair A4 R7
+verdict needs a re-judge with the eval world staged into the A4 sim
+(the fix is symmetric to the Isaac path: copy `world_r7.sdf` into
+`provided/` before `./bringup`, remove after) — the A4 final-state
+workspaces are retained (`runs/A3_*/workspace`), so this is feasible
+without new agent sessions. **Decision needed from the paper lead**:
+(i) re-judge A4 R7 with the eval world staged, or (ii) report A4 R7 as
+"not judged" and reword the platform-gap claims to the rungs that were
+validly scored (R1–R6: A4 reached R6 in 6/10 — still the arm with the
+highest bring-up cost and the most null final states).
+
+Not yet changed: `analysis/agent_study_v6_analysis.md`, `tab:agents`,
+`fig:rung_survival` (A4's ≥R7 = 0/10 and R8 = 0/10 cells derive from
+these verdicts), and the A3 protocol status lines.

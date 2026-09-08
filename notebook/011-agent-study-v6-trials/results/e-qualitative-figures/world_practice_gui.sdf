@@ -1,0 +1,159 @@
+<?xml version="1.0" ?>
+<sdf version="1.9">
+  <world name="r7_pillars">
+    <gui fullscreen="false">
+      <plugin filename="MinimalScene" name="3D View">
+        <gz-gui><title>3D View</title><property type="bool" key="showTitleBar">false</property></gz-gui>
+        <engine>ogre2</engine><scene>scene</scene>
+        <ambient_light>0.6 0.6 0.6</ambient_light>
+        <background_color>0.72 0.82 0.92</background_color>
+        <camera_pose>-3.0 -2.2 1.5 0 0.10 0.60</camera_pose>
+      </plugin>
+      <plugin filename="Screenshot" name="Screenshot"><gz-gui><property key="state" type="string">floating</property><property type="bool" key="showTitleBar">false</property></gz-gui></plugin>
+      <plugin filename="GzSceneManager" name="Scene Manager"><gz-gui><property key="state" type="string">floating</property><property type="bool" key="showTitleBar">false</property></gz-gui></plugin>
+      <plugin filename="InteractiveViewControl" name="Interactive view control"><gz-gui><property key="state" type="string">floating</property><property type="bool" key="showTitleBar">false</property></gz-gui></plugin>
+    </gui>
+
+    <physics name="p" type="ignored"><max_step_size>0.004</max_step_size>
+      <real_time_factor>1.0</real_time_factor></physics>
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors"><render_engine>ogre2</render_engine></plugin>
+    <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
+    <light type="directional" name="sun"><cast_shadows>true</cast_shadows>
+      <pose>0 0 10 0 0 0</pose><diffuse>0.8 0.8 0.8 1</diffuse>
+      <direction>-0.5 0.1 -0.9</direction></light>
+    <model name="ground"><static>true</static><link name="l">
+      <collision name="c"><geometry><plane><normal>0 0 1</normal>
+        <size>500 500</size></plane></geometry></collision>
+      <visual name="v"><geometry><plane><normal>0 0 1</normal>
+        <size>500 500</size></plane></geometry></visual></link></model>
+    
+    <model name="pillar_0"><static>true</static>
+      <pose>46.64 8.19 9.0 0 0 0</pose>
+      <link name="l"><collision name="c"><geometry>
+        <cylinder><radius>0.74</radius><length>18</length></cylinder>
+      </geometry></collision><visual name="v"><geometry>
+        <cylinder><radius>0.74</radius><length>18</length></cylinder>
+      </geometry><material><ambient>0.8 0.3 0.1 1</ambient><diffuse>0.8 0.3 0.1 1</diffuse><specular>0.1 0.1 0.1 1</specular></material></visual>
+      </link></model>
+
+    <model name="pillar_1"><static>true</static>
+      <pose>28.34 25.72 9.0 0 0 0</pose>
+      <link name="l"><collision name="c"><geometry>
+        <cylinder><radius>0.91</radius><length>18</length></cylinder>
+      </geometry></collision><visual name="v"><geometry>
+        <cylinder><radius>0.91</radius><length>18</length></cylinder>
+      </geometry><material><ambient>0.8 0.3 0.1 1</ambient><diffuse>0.8 0.3 0.1 1</diffuse><specular>0.1 0.1 0.1 1</specular></material></visual>
+      </link></model>
+
+    <model name="pillar_2"><static>true</static>
+      <pose>32.67 31.75 9.0 0 0 0</pose>
+      <link name="l"><collision name="c"><geometry>
+        <cylinder><radius>1.08</radius><length>18</length></cylinder>
+      </geometry></collision><visual name="v"><geometry>
+        <cylinder><radius>1.08</radius><length>18</length></cylinder>
+      </geometry><material><ambient>0.8 0.3 0.1 1</ambient><diffuse>0.8 0.3 0.1 1</diffuse><specular>0.1 0.1 0.1 1</specular></material></visual>
+      </link></model>
+
+    <model name="pillar_3"><static>true</static>
+      <pose>13.46 32.25 9.0 0 0 0</pose>
+      <link name="l"><collision name="c"><geometry>
+        <cylinder><radius>0.71</radius><length>18</length></cylinder>
+      </geometry></collision><visual name="v"><geometry>
+        <cylinder><radius>0.71</radius><length>18</length></cylinder>
+      </geometry><material><ambient>0.8 0.3 0.1 1</ambient><diffuse>0.8 0.3 0.1 1</diffuse><specular>0.1 0.1 0.1 1</specular></material></visual>
+      </link></model>
+
+    <model name="pillar_4"><static>true</static>
+      <pose>32.63 -0.68 9.0 0 0 0</pose>
+      <link name="l"><collision name="c"><geometry>
+        <cylinder><radius>0.82</radius><length>18</length></cylinder>
+      </geometry></collision><visual name="v"><geometry>
+        <cylinder><radius>0.82</radius><length>18</length></cylinder>
+      </geometry><material><ambient>0.8 0.3 0.1 1</ambient><diffuse>0.8 0.3 0.1 1</diffuse><specular>0.1 0.1 0.1 1</specular></material></visual>
+      </link></model>
+
+    <model name="pillar_5"><static>true</static>
+      <pose>48.31 21.34 9.0 0 0 0</pose>
+      <link name="l"><collision name="c"><geometry>
+        <cylinder><radius>0.94</radius><length>18</length></cylinder>
+      </geometry></collision><visual name="v"><geometry>
+        <cylinder><radius>0.94</radius><length>18</length></cylinder>
+      </geometry><material><ambient>0.8 0.3 0.1 1</ambient><diffuse>0.8 0.3 0.1 1</diffuse><specular>0.1 0.1 0.1 1</specular></material></visual>
+      </link></model>
+
+    <model name="pillar_6"><static>true</static>
+      <pose>36.25 -4.16 9.0 0 0 0</pose>
+      <link name="l"><collision name="c"><geometry>
+        <cylinder><radius>0.91</radius><length>18</length></cylinder>
+      </geometry></collision><visual name="v"><geometry>
+        <cylinder><radius>0.91</radius><length>18</length></cylinder>
+      </geometry><material><ambient>0.8 0.3 0.1 1</ambient><diffuse>0.8 0.3 0.1 1</diffuse><specular>0.1 0.1 0.1 1</specular></material></visual>
+      </link></model>
+
+    <model name="pillar_7"><static>true</static>
+      <pose>29.26 7.45 9.0 0 0 0</pose>
+      <link name="l"><collision name="c"><geometry>
+        <cylinder><radius>0.97</radius><length>18</length></cylinder>
+      </geometry></collision><visual name="v"><geometry>
+        <cylinder><radius>0.97</radius><length>18</length></cylinder>
+      </geometry><material><ambient>0.8 0.3 0.1 1</ambient><diffuse>0.8 0.3 0.1 1</diffuse><specular>0.1 0.1 0.1 1</specular></material></visual>
+      </link></model>
+
+    <model name="pillar_8"><static>true</static>
+      <pose>11.51 -3.08 9.0 0 0 0</pose>
+      <link name="l"><collision name="c"><geometry>
+        <cylinder><radius>0.94</radius><length>18</length></cylinder>
+      </geometry></collision><visual name="v"><geometry>
+        <cylinder><radius>0.94</radius><length>18</length></cylinder>
+      </geometry><material><ambient>0.8 0.3 0.1 1</ambient><diffuse>0.8 0.3 0.1 1</diffuse><specular>0.1 0.1 0.1 1</specular></material></visual>
+      </link></model>
+
+    <model name="pillar_9"><static>true</static>
+      <pose>44.34 30.22 9.0 0 0 0</pose>
+      <link name="l"><collision name="c"><geometry>
+        <cylinder><radius>0.88</radius><length>18</length></cylinder>
+      </geometry></collision><visual name="v"><geometry>
+        <cylinder><radius>0.88</radius><length>18</length></cylinder>
+      </geometry><material><ambient>0.8 0.3 0.1 1</ambient><diffuse>0.8 0.3 0.1 1</diffuse><specular>0.1 0.1 0.1 1</specular></material></visual>
+      </link></model>
+
+    <model name="pillar_10"><static>true</static>
+      <pose>40.13 25.66 9.0 0 0 0</pose>
+      <link name="l"><collision name="c"><geometry>
+        <cylinder><radius>0.87</radius><length>18</length></cylinder>
+      </geometry></collision><visual name="v"><geometry>
+        <cylinder><radius>0.87</radius><length>18</length></cylinder>
+      </geometry><material><ambient>0.8 0.3 0.1 1</ambient><diffuse>0.8 0.3 0.1 1</diffuse><specular>0.1 0.1 0.1 1</specular></material></visual>
+      </link></model>
+
+    <model name="pillar_11"><static>true</static>
+      <pose>49.34 13.57 9.0 0 0 0</pose>
+      <link name="l"><collision name="c"><geometry>
+        <cylinder><radius>0.63</radius><length>18</length></cylinder>
+      </geometry></collision><visual name="v"><geometry>
+        <cylinder><radius>0.63</radius><length>18</length></cylinder>
+      </geometry><material><ambient>0.8 0.3 0.1 1</ambient><diffuse>0.8 0.3 0.1 1</diffuse><specular>0.1 0.1 0.1 1</specular></material></visual>
+      </link></model>
+
+    <model name="pillar_12"><static>true</static>
+      <pose>20.6 21.29 9.0 0 0 0</pose>
+      <link name="l"><collision name="c"><geometry>
+        <cylinder><radius>0.62</radius><length>18</length></cylinder>
+      </geometry></collision><visual name="v"><geometry>
+        <cylinder><radius>0.62</radius><length>18</length></cylinder>
+      </geometry><material><ambient>0.8 0.3 0.1 1</ambient><diffuse>0.8 0.3 0.1 1</diffuse><specular>0.1 0.1 0.1 1</specular></material></visual>
+      </link></model>
+
+    <model name="pillar_13"><static>true</static>
+      <pose>26.82 -2.28 9.0 0 0 0</pose>
+      <link name="l"><collision name="c"><geometry>
+        <cylinder><radius>0.86</radius><length>18</length></cylinder>
+      </geometry></collision><visual name="v"><geometry>
+        <cylinder><radius>0.86</radius><length>18</length></cylinder>
+      </geometry><material><ambient>0.8 0.3 0.1 1</ambient><diffuse>0.8 0.3 0.1 1</diffuse><specular>0.1 0.1 0.1 1</specular></material></visual>
+      </link></model>
+  </world>
+</sdf>

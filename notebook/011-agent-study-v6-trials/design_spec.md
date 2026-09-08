@@ -56,3 +56,7 @@ rerun with the same index and never scored.
   (`results_summary.md` table), round-robin order, dispositions.
 - **(d) analysis for the paper** — rung-survival curves + `tab:agents`
   inputs, produced once cells fill (deferred until enough trials).
+- **(e) qualitative scene figures** — Isaac/Gazebo screenshots of the
+  task environments + top-down tracks of official scoring flights for
+  `fig:agent_scene` (added 2026-09-08); also records the A4
+  judge-staging gap found while making them.
