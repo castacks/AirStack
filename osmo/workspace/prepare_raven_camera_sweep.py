@@ -21,6 +21,7 @@ def prepare(source, output, isaac_gpu, offboard_gpu, skips_list=(4, 8, 16, 24)):
         spec['iteration_attempts'] = 1
         spec['env'].update(ZED_TIME_SLICE_GROUPS=str(8 + skips),
                            ZED_TIME_SLICE_BURST='8', ZED_HYDRA_TIME_SLICE='true',
+                           RAYFRONTS_WAIT_TIMEOUT_S='1800',
                            ISAAC_SIM_ACTIVE_GPU=str(isaac_gpu),
                            OFFBOARD_COMPUTE_GPU=str(offboard_gpu))
         search = next(s['action'] for s in spec['steps']
