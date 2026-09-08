@@ -83,6 +83,33 @@ currently flying cells are **not new completions** until their acceptance gates 
 
 ### Camera schedule change — September 7, user approved
 
+**September 8: controlled RAVEN scheduling sweep requested.** Pod 3 is reserved
+for four 50-sim-second Fire Suburban L1 diagnostics with 4/8/16/24 empty camera
+groups (12/16/24/32 total), keeping eight-update bursts. Pod 4 continues RAVEN
+production and pod 58 continues non-RAVEN production. The interrupted pod-3
+600-second attempt does not count as completed. Diagnostic missions have no
+NAS destination and never enter the accepted-run totals.
+
+Selection rule: among valid eight-robot diagnostics, choose the highest measured
+RTF with **at least 2.5 simulated FPS for both RGB and depth on every robot**.
+Report maximum frame silence separately; never substitute the within-burst rate
+for sustained FPS. If none qualifies, test zero empty groups as an additional
+control before choosing a setting. Keep scene, spawns, stereo geometry, LiDAR,
+model configuration and GPU pins unchanged throughout the comparison.
+
+| Empty groups | Total groups | Burst updates | Search budget | Min RGB/depth sim FPS | RTF | Maximum frame silence | Status |
+|---:|---:|---:|---:|---:|---:|---:|---|
+| 4 | 12 | 8 | 50 s | — | — | — | Prepared |
+| 8 | 16 | 8 | 50 s | — | — | — | Prepared |
+| 16 | 24 | 8 | 50 s | — | — | — | Prepared |
+| 24 | 32 | 8 | 50 s | — | — | — | Prepared |
+
+Probe windows start on the first robot-domain clock callback after that robot's
+fresh RAVEN log appears. FPS uses the entire 50-sim-second observation window,
+including empty intervals; RTF uses paired monotonic clock callbacks. Start/end
+wall timestamps allow matching resource samples to the measured window. These
+short, freshly initialized runs do not establish long-run map-growth performance.
+
 For subsequent baseline **and RayFronts** runs, use
 `ZED_TIME_SLICE_GROUPS=12`, `ZED_TIME_SLICE_BURST=8`, and
 `ZED_HYDRA_TIME_SLICE=true`: eight occupied camera groups plus **four empty
