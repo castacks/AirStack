@@ -89,11 +89,11 @@ def prepare(root, output):
             spec['iterations'] = 1
             spec['environment_order'] = 'round_robin'
             spec['nas_dest'] = '/volume2/coa-sei'
-            # Sep 7 user-approved sensor cohort: eight occupied groups plus
-            # FOUR empty groups. Preserve the eight-update wake burst.
+            # Sep 8 user-approved cohort: eight occupied groups, zero empty
+            # groups. Preserve the eight-update wake burst.
             spec['env'].update(ISAAC_SIM_ACTIVE_GPU='2', OFFBOARD_COMPUTE_GPU='2',
                                START_RAYFRONTS_SERVER='false', ISAAC_SIM_GPU_PHYSICS='false',
-                               ZED_TIME_SLICE_GROUPS='12', ZED_TIME_SLICE_BURST='8',
+                               ZED_TIME_SLICE_GROUPS='8', ZED_TIME_SLICE_BURST='8',
                                ZED_HYDRA_TIME_SLICE='true')
             replaced = 0
             for step in spec['steps']:
