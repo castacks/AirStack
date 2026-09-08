@@ -386,11 +386,11 @@ steps:
       score_threshold: 0.85
       voxel_min_cluster_size: 12
       max_sim_seconds: 600.0
-- action:
+- optional: true
+  action:
     task: land
     goal: {}
     timeout_s: 180
-    optional: true
     robots: all
 - run:
     container: airstack-robot-desktop-{n}
