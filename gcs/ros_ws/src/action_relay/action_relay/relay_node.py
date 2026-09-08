@@ -259,8 +259,8 @@ _GOAL_BUILDERS = {
 
 # ── Relay wiring ─────────────────────────────────────────────────────────────
 
-def _make_relay(node0, nodeN, executorN, topic, suffix, action_type,
-                robot_domain, transform_state):
+def _make_relay(node0, nodeN, executorN, executorN_lock, topic, suffix,
+                action_type, robot_domain, transform_state):
     """Wire up goal subscriber (domain 0) + action client (domain N)."""
 
     client = ActionClient(nodeN, action_type, topic)
@@ -361,7 +361,14 @@ def _make_relay(node0, nodeN, executorN, topic, suffix, action_type,
                 _publish_result(
                     False, 'Robot did not respond to goal (accept timed out)')
                 return
-            executorN.spin_once(timeout_sec=0.05)
+            # All task relays for this robot share executorN.  node0 uses a
+            # MultiThreadedExecutor, so the next task (most commonly `land`)
+            # can arrive while the preceding semantic-search callback is still
+            # unwinding after publishing its result.  Concurrent spin_once()
+            # calls raise "Executor is already spinning" and used to kill the
+            # whole relay at the benchmark/export boundary.
+            with executorN_lock:
+                executorN.spin_once(timeout_sec=0.05)
 
         robot_goal_handle = send_future.result()
         _diag(f'{topic} ACCEPTED in {time.monotonic() - _t:.1f}s '
@@ -402,7 +409,8 @@ def _make_relay(node0, nodeN, executorN, topic, suffix, action_type,
                             f'[relay] {topic}: cancel timed out after '
                             f'{CANCEL_TIMEOUT_SEC:.0f}s — forcing CANCELED result')
                         break
-                executorN.spin_once(timeout_sec=0.05)
+                with executorN_lock:
+                    executorN.spin_once(timeout_sec=0.05)
 
             if result_future.done():
                 wrapped = result_future.result()
@@ -514,6 +522,10 @@ def main(args=None):
 
     executorN = SingleThreadedExecutor(context=ctxN)
     executorN.add_node(nodeN)
+    # node0 dispatches each action suffix in a reentrant callback group.  Keep
+    # the one domain-N executor single-owner even when two suffix callbacks
+    # briefly overlap at an action transition.
+    executorN_lock = threading.Lock()
 
     node0.get_logger().info(
         f'Action relay: robot={robot_name} domain={robot_domain} '
@@ -598,8 +610,8 @@ def main(args=None):
 
     for suffix, action_type in RELAYS:
         topic = f'/{robot_name}/tasks/{suffix}'
-        _make_relay(node0, nodeN, executorN, topic, suffix, action_type,
-                    robot_domain, transform_state)
+        _make_relay(node0, nodeN, executorN, executorN_lock, topic, suffix,
+                    action_type, robot_domain, transform_state)
 
     executor0 = MultiThreadedExecutor(context=ctx0)
     executor0.add_node(node0)
