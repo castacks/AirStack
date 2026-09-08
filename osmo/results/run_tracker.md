@@ -47,7 +47,7 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | dev 191 | Expired: `FAILED_EXEC_TIMEOUT` | No active run |
 | 1-GPU 58 | Tornado Urban L1 Lawnmower, started September 8 03:05:21 UTC; live runner PID 1576277 | **20 standard-baseline cells remain**, including current run; 10/30 queue cells passed/uploaded |
 | 2-GPU 1 | `FAILED_EVICTED`, confirmed by OSMO; SSH endpoint gone | RayFronts queue cannot advance on this pod; replacement required |
-| 2-GPU 3 | Fire Suburban L1 RAVEN, active runner 260888, search dispatched 02:13 UTC | Protected launcher PID 60 in state T; owned renderer GPU 2 (`d239ce7e`), offboard GPU 3 (`38264ce2`) |
+| 2-GPU 3 | RAVEN camera sweep: 4-empty-group diagnostic started September 8 05:27:57 UTC; runner PID 2156591 | Production lane paused; protected launcher PID 60 in state T; owned renderer GPU 2 (`d239ce7e`), offboard GPU 3 (`38264ce2`) |
 | 2-GPU 4 | Fire Suburban L2 RAVEN, active runner 4089516, search dispatched 02:11 UTC | Protected launcher PID 59 in state T; owned renderer GPU 0 (`1617253c`), offboard GPU 3 (`c90e144e`) |
 
 September 8 04:05 UTC: user assigned pods 3/4 to RAVEN and reaffirmed pod 58
@@ -99,7 +99,7 @@ model configuration and GPU pins unchanged throughout the comparison.
 
 | Empty groups | Total groups | Burst updates | Search budget | Min RGB/depth sim FPS | RTF | Maximum frame silence | Status |
 |---:|---:|---:|---:|---:|---:|---:|---|
-| 4 | 12 | 8 | 50 s | — | — | — | Prepared |
+| 4 | 12 | 8 | 50 s | — | — | — | Running on 2-GPU 3; `diagnostic_raven_empty4_50sim/2026-09-08_05-27-57` |
 | 8 | 16 | 8 | 50 s | — | — | — | Prepared |
 | 16 | 24 | 8 | 50 s | — | — | — | Prepared |
 | 24 | 32 | 8 | 50 s | — | — | — | Prepared |
