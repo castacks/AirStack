@@ -33,7 +33,8 @@ class CameraSweepTests(unittest.TestCase):
                 self.assertEqual(candidate['record'], baseline['record'])
                 self.assertEqual(candidate['env']['ZED_TIME_SLICE_GROUPS'], str(8 + skips))
                 self.assertEqual(candidate['env']['ZED_TIME_SLICE_BURST'], '8')
-                self.assertEqual(candidate['env']['RAYFRONTS_WAIT_TIMEOUT_S'], '1800')
+                self.assertEqual(candidate['env']['RAYFRONTS_WAIT_TIMEOUT_S'],
+                                 '2700' if skips >= 24 else '1800')
                 for key in ('ENABLE_LIDAR', 'ZED_PIPELINE', 'ZED_WIDTH', 'ZED_HEIGHT', 'RAYFRONTS_CONFIG'):
                     self.assertEqual(candidate['env'].get(key), baseline['env'].get(key))
                 search = next(s['action'] for s in candidate['steps']
