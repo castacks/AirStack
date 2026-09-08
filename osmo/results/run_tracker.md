@@ -48,7 +48,7 @@ Latest completion update: **2026-09-08**. Fire Suburban L1 and L2 RAVEN both pas
 | 1-GPU 58 | Earthquake Suburban L1 Lawnmower, started September 8 15:17:33 UTC; live runner PID 4082324 | **18/30 uploaded; 12 outstanding**: nine Earthquake cells including current, plus Tornado L1 VLFM / L2 CoNavGPT2 / L3 Lawnmower needing investigation and rerun |
 | 2-GPU 1 | `FAILED_EVICTED`, confirmed by OSMO; SSH endpoint gone | RayFronts queue cannot advance on this pod; replacement required |
 | 2-GPU 3 | Fire Suburban L1 RAVEN **passed** all eight 600-s windows; upload in progress since 14:45 UTC | Final RTF **0.0398**, 12/49 GT matched (24.5% recall), 5.66 km team path. NAS transfer is 64/108 GiB at 15:18 UTC; queue will not start Fire Suburban L3 until upload verification succeeds. Runner 712854; launcher PID 60 remains T |
-| 2-GPU 4 | Fire Suburban L2 RAVEN **passed, uploaded and NAS-verified** at 15:06:44 UTC; Hurricane Suburban L1 passed 8/8 takeoff and entered search at 15:22:20 | Fire L2 final RTF **0.0443**, 6/79 GT matched (7.6% recall), 8.28 km team path. Current Hurricane L1 runner 2412979 dispatched all eight search goals by 15:22:41. Launcher PID 59 remains T |
+| 2-GPU 4 | Fire Suburban L2 RAVEN **passed, uploaded and NAS-verified** at 15:06:44 UTC; Hurricane Suburban L1 passed 8/8 takeoff, entered search at 15:22:20 and has all eight RAVEN planners live | Fire L2 final RTF **0.0443**, 6/79 GT matched (7.6% recall), 8.28 km team path. Current Hurricane L1 runner 2412979 measured live search RTF **0.10163** over a persistent 90.03-s callback window. Launcher PID 59 remains T |
 
 September 8 04:05 UTC: user assigned pods 3/4 to RAVEN and reaffirmed pod 58
 for non-RAVEN work. Both RAVEN pods were already protected and running the
