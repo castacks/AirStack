@@ -47,7 +47,7 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | dev 191 | Expired: `FAILED_EXEC_TIMEOUT` | No active run |
 | 1-GPU 58 | Tornado Urban L1 CoNavGPT2, started September 8 04:49:32 UTC; live runner PID 2623975, verified 05:54 UTC | **19 standard-baseline cells remain**, including current run and VLFM rerun; 11/30 queue cells passed/uploaded |
 | 2-GPU 1 | `FAILED_EVICTED`, confirmed by OSMO; SSH endpoint gone | RayFronts queue cannot advance on this pod; replacement required |
-| 2-GPU 3 | RAVEN camera sweep: 24-empty-group diagnostic started September 8 08:00:21 UTC; runner PID 3652551 | The 16-empty diagnostic passed locally with valid measurements and no upload. Production lane paused; protected launcher PID 60 in state T; owned renderer GPU 2 (`d239ce7e`), offboard GPU 3 (`38264ce2`) |
+| 2-GPU 3 | RAVEN camera sweep: clean 24-empty-group retry started September 8 08:21:39 UTC; runner PID 3914542 | The 08:00 attempt was stopped before measurement after robot 1 exhausted arm-state confirmation and was not uploaded. Production lane paused; protected launcher PID 60 in state T; owned renderer GPU 2 (`d239ce7e`), offboard GPU 3 (`38264ce2`) |
 | 2-GPU 4 | RAVEN camera sweep: zero-empty-group control started September 8 08:12:11 UTC; runner PID 3463884 | The 8-empty diagnostic passed locally with valid measurements and no upload. Fire Suburban L2 production rerun remains pending; protected launcher PID 59 in state T; renderer GPU 0 (`1617253c`), offboard GPU 3 (`c90e144e`) |
 
 September 8 04:05 UTC: user assigned pods 3/4 to RAVEN and reaffirmed pod 58
@@ -103,7 +103,7 @@ model configuration and GPU pins unchanged throughout the comparison.
 | 4 | 12 | 8 | 50 s | 2.04 / 2.04 | 0.03799 | 2.73 s | Measured on 2-GPU 3; fails the 2.5-FPS gate; `diagnostic_raven_empty4_50sim/2026-09-08_05-27-57` |
 | 8 | 16 | 8 | 50 s | 1.56 / 1.56 | 0.04312 | 3.69 s | Measured on 2-GPU 4; fails the 2.5-FPS gate; `diagnostic_raven_empty8_50sim/2026-09-08_07-09-49`. The first attempt never started RAVEN (6/8 frame readiness); the 06:42 retry failed 6/8 takeoff; both are excluded and neither was uploaded. |
 | 16 | 24 | 8 | 50 s | 0.96 / 0.96 | 0.04379 | 5.61 s | Measured on 2-GPU 3; fails the 2.5-FPS gate; `diagnostic_raven_empty16_50sim/2026-09-08_06-41-04` |
-| 24 | 32 | 8 | 50 s | — | — | — | Running on 2-GPU 3 since 08:00:21 UTC with a 2,700-second sparse-frame readiness budget; runner 3652551, `diagnostic_raven_empty24_50sim/2026-09-08_08-00-21` |
+| 24 | 32 | 8 | 50 s | — | — | — | Clean retry running on 2-GPU 3 since 08:21:39 UTC with a 2,700-second sparse-frame readiness budget; runner 3914542, `diagnostic_raven_empty24_50sim/2026-09-08_08-21-39`. The 08:00 attempt failed arm-state confirmation before measurement and was excluded/not uploaded. |
 
 Probe windows start on the first robot-domain clock callback after that robot's
 fresh RAVEN log appears. FPS uses the entire 50-sim-second observation window,
