@@ -1,0 +1,20 @@
+{
+  "source_file": "analysis/reuse/hummingbird/CODE_REUSE_ANALYSIS_HUMMINGBIRD.md",
+  "measured_on": "2026-09-01, branch rough/workshop_demo @ 106dc726",
+  "authored_source_loc": 20979,
+  "authored_runtime_loc": 12200,
+  "authored_docs_loc": 3330,
+  "authored_tests_loc": 5517,
+  "vendored_source_loc": 0,
+  "airstack_base_source_loc": 159967,
+  "base_modified_files": 28,
+  "base_modified_lines": 572,
+  "base_deleted_files": 1,
+  "base_share_of_final": 0.884,
+  "authored_share_of_final": 0.116,
+  "additive_share": 0.973,
+  "name": "Hummingbird",
+  "airstack_base_source_loc_recomputed": 110835,
+  "airstack_base_total_loc_recomputed": 423382,
+  "airstack_base_excluded_loc_recomputed": 36277
+}

@@ -1,0 +1,406 @@
+{
+  "project": {
+    "project": "Shimizu",
+    "components": [
+      "castacks/AirStack"
+    ],
+    "authored_source_loc": 19356,
+    "authored_total_loc": 23281,
+    "authored_source_deleted": 33,
+    "authored_by_category": {
+      "code": 16195,
+      "config": 3161,
+      "docs": 164,
+      "data": 3761,
+      "other": 0
+    },
+    "vendored_source_loc": 1396,
+    "vendored_total_loc": 1396,
+    "base_source_loc": 68693,
+    "airstack_base_source_loc": 68693,
+    "final_source_loc": 89412,
+    "ratios": {
+      "authored_over_base": 0.2817754356339074,
+      "base_share_of_final": 0.7679058739319107,
+      "authored_share_of_final": 0.21648100926050196,
+      "vendored_share_of_final": 0.01561311680758735
+    },
+    "airstack_base_modified_in_place": {
+      "files": 18,
+      "lines_changed": 416,
+      "share_of_base": 0.006055930007424337,
+      "files_share_of_base": 0.015410958904109588,
+      "deleted_files": 0
+    },
+    "airstack_authored_source_loc": 19356,
+    "airstack_additive_share": 0.9802128538954329
+  },
+  "components": [
+    {
+      "repo": "castacks/AirStack",
+      "role": "airstack",
+      "base_ref": "39e5e698cf3404abe70c208b99e7667db5a28ab6",
+      "base_sha": "39e5e698cf3404abe70c208b99e7667db5a28ab6",
+      "head_ref": "a50c19e9edd092f2606432be3e046a090a10da10",
+      "head_sha": "a50c19e9edd092f2606432be3e046a090a10da10",
+      "paths": null,
+      "commits_base_to_head": 55,
+      "files": {
+        "changed": 133,
+        "new": 115,
+        "modified": 18,
+        "deleted": 0,
+        "binary": 1
+      },
+      "delta_added": {
+        "code": 16195,
+        "config": 4557,
+        "docs": 164,
+        "data": 3761,
+        "other": 0,
+        "source": 20752,
+        "total": 24677
+      },
+      "delta_deleted": {
+        "code": 26,
+        "config": 7,
+        "docs": 0,
+        "data": 0,
+        "other": 0,
+        "source": 33,
+        "total": 33
+      },
+      "authored_added": {
+        "code": 16195,
+        "config": 3161,
+        "docs": 164,
+        "data": 3761,
+        "other": 0,
+        "source": 19356,
+        "total": 23281
+      },
+      "authored_deleted": {
+        "code": 26,
+        "config": 7,
+        "docs": 0,
+        "data": 0,
+        "other": 0,
+        "source": 33,
+        "total": 33
+      },
+      "authored_in_new_files": {
+        "code": 16087,
+        "config": 2886,
+        "docs": 164,
+        "data": 3761,
+        "other": 0,
+        "source": 18973,
+        "total": 22898
+      },
+      "authored_in_modified_files_added": {
+        "code": 108,
+        "config": 275,
+        "docs": 0,
+        "data": 0,
+        "other": 0,
+        "source": 383,
+        "total": 383
+      },
+      "authored_in_modified_files_deleted": {
+        "code": 26,
+        "config": 7,
+        "docs": 0,
+        "data": 0,
+        "other": 0,
+        "source": 33,
+        "total": 33
+      },
+      "vendored_added": {
+        "code": 0,
+        "config": 1396,
+        "docs": 0,
+        "data": 0,
+        "other": 0,
+        "source": 1396,
+        "total": 1396
+      },
+      "vendored_files": 3,
+      "vendored_patterns": [
+        {
+          "pattern": "*/CMakeModules/Find*.cmake",
+          "why": "FindOpenVDB/FindBlosc copied from the OpenVDB project"
+        },
+        {
+          "pattern": "*/CMakeModules/OpenVDBUtils.cmake",
+          "why": "copied from the OpenVDB project"
+        }
+      ],
+      "base_files": 1168,
+      "base_loc": {
+        "code": 47748,
+        "config": 20945,
+        "docs": 9507,
+        "data": 110563,
+        "other": 3163,
+        "source": 68693,
+        "total": 191926
+      },
+      "base_excluded_files": 11,
+      "base_excluded_loc": {
+        "code": 22071,
+        "config": 2301,
+        "docs": 0,
+        "data": 0,
+        "other": 0,
+        "source": 24372,
+        "total": 24372
+      },
+      "base_exclude_patterns": [
+        "*/glad/*",
+        "*/stb_image.h",
+        "*/stb_image_write.h",
+        "*/xdot/xdot*.py",
+        "gcs/foxglove_extensions/*/dist/*",
+        "*/CMakeModules/Find*.cmake",
+        "*/CMakeModules/OpenVDBUtils.cmake",
+        "robot/ros_ws/src/perception/natnet_ros2/*",
+        "*/mosquitto.conf"
+      ],
+      "base_modified_files": [
+        {
+          "path": "robot/ros_ws/src/autonomy/3_local/b_planners/trajectory_library/config/acceleration_magnitudes.yaml",
+          "added": 256,
+          "deleted": 0,
+          "category": "config",
+          "base_size": 1298
+        },
+        {
+          "path": "robot/ros_ws/src/autonomy/4_global/b_planners/exploration/src/viewpoint_sampling.cpp",
+          "added": 21,
+          "deleted": 5,
+          "category": "code",
+          "base_size": 488
+        },
+        {
+          "path": "robot/ros_ws/src/autonomy/4_global/b_planners/exploration/src/exploration_logic.cpp",
+          "added": 18,
+          "deleted": 7,
+          "category": "code",
+          "base_size": 762
+        },
+        {
+          "path": "robot/ros_ws/src/autonomy/4_global/b_planners/exploration/src/exploration_node.cpp",
+          "added": 16,
+          "deleted": 0,
+          "category": "code",
+          "base_size": 916
+        },
+        {
+          "path": "robot/ros_ws/src/autonomy/3_local/b_planners/trajectory_library/src/trajectory_library.cpp",
+          "added": 11,
+          "deleted": 3,
+          "category": "code",
+          "base_size": 1336
+        },
+        {
+          "path": "robot/ros_ws/src/autonomy/4_global/b_planners/exploration/config/exploration_config.yaml",
+          "added": 10,
+          "deleted": 2,
+          "category": "config",
+          "base_size": 91
+        },
+        {
+          "path": "robot/ros_ws/src/autonomy/4_global/b_planners/exploration/include/utils/rrt_planner.h",
+          "added": 12,
+          "deleted": 0,
+          "category": "code",
+          "base_size": 187
+        },
+        {
+          "path": "robot/ros_ws/src/autonomy/0_interface/mavros_interface/scripts/position_setpoint_pub.py",
+          "added": 7,
+          "deleted": 3,
+          "category": "code",
+          "base_size": 240
+        },
+        {
+          "path": "robot/ros_ws/src/autonomy/3_local/b_planners/droan_local_planner/config/droan.yaml",
+          "added": 4,
+          "deleted": 4,
+          "category": "config",
+          "base_size": 63
+        },
+        {
+          "path": "robot/ros_ws/src/autonomy/4_global/b_planners/exploration/include/viewpoint_sampling.hpp",
+          "added": 7,
+          "deleted": 1,
+          "category": "code",
+          "base_size": 121
+        },
+        {
+          "path": "robot/ros_ws/manual_exploration.sh",
+          "added": 4,
+          "deleted": 3,
+          "category": "code",
+          "base_size": 12
+        },
+        {
+          "path": "robot/ros_ws/src/autonomy/4_global/b_planners/exploration/include/exploration_logic.hpp",
+          "added": 6,
+          "deleted": 0,
+          "category": "code",
+          "base_size": 222
+        },
+        {
+          "path": "robot/ros_ws/src/autonomy/4_global/b_planners/exploration/src/rrt_planner.cpp",
+          "added": 2,
+          "deleted": 3,
+          "category": "code",
+          "base_size": 784
+        },
+        {
+          "path": ".gitmodules",
+          "added": 4,
+          "deleted": 0,
+          "category": "config",
+          "base_size": 12
+        },
+        {
+          "path": "robot/docker/docker-compose.yaml",
+          "added": 1,
+          "deleted": 1,
+          "category": "config",
+          "base_size": 135
+        },
+        {
+          "path": "robot/ros_ws/src/autonomy/3_local/a_world_models/disparity_graph_cost_map/src/disparity_graph_cost_map.cpp",
+          "added": 2,
+          "deleted": 0,
+          "category": "code",
+          "base_size": 304
+        },
+        {
+          "path": "robot/ros_ws/src/autonomy/4_global/b_planners/exploration/src/collision_checker.cpp",
+          "added": 1,
+          "deleted": 1,
+          "category": "code",
+          "base_size": 255
+        },
+        {
+          "path": "robot/ros_ws/src/autonomy/4_global/b_planners/exploration/include/exploration_node.hpp",
+          "added": 1,
+          "deleted": 0,
+          "category": "code",
+          "base_size": 158
+        }
+      ],
+      "base_deleted_files": [],
+      "new_files_by_dir": [
+        {
+          "dir": "robot/ros_ws/src/autonomy",
+          "added": 24234,
+          "deleted": 0,
+          "files": 114
+        },
+        {
+          "dir": "(root)",
+          "added": 60,
+          "deleted": 0,
+          "files": 1
+        }
+      ],
+      "authored_by_ext": [
+        {
+          "ext": "cpp",
+          "added": 8858,
+          "deleted": 19,
+          "files": 26
+        },
+        {
+          "ext": "py",
+          "added": 6050,
+          "deleted": 3,
+          "files": 18
+        },
+        {
+          "ext": "rviz",
+          "added": 3617,
+          "deleted": 0,
+          "files": 6
+        },
+        {
+          "ext": "xml",
+          "added": 1804,
+          "deleted": 0,
+          "files": 44
+        },
+        {
+          "ext": "hpp",
+          "added": 1271,
+          "deleted": 1,
+          "files": 11
+        },
+        {
+          "ext": "yaml",
+          "added": 693,
+          "deleted": 7,
+          "files": 11
+        },
+        {
+          "ext": "txt",
+          "added": 557,
+          "deleted": 0,
+          "files": 4
+        },
+        {
+          "ext": "md",
+          "added": 164,
+          "deleted": 0,
+          "files": 2
+        },
+        {
+          "ext": "json",
+          "added": 144,
+          "deleted": 0,
+          "files": 3
+        },
+        {
+          "ext": "urdf",
+          "added": 103,
+          "deleted": 0,
+          "files": 1
+        },
+        {
+          "ext": "h",
+          "added": 12,
+          "deleted": 0,
+          "files": 1
+        },
+        {
+          "ext": ".gitmodules",
+          "added": 4,
+          "deleted": 0,
+          "files": 1
+        },
+        {
+          "ext": "sh",
+          "added": 4,
+          "deleted": 3,
+          "files": 1
+        },
+        {
+          "ext": "png",
+          "added": 0,
+          "deleted": 0,
+          "files": 1
+        }
+      ],
+      "base_modified_source": {
+        "files": 18,
+        "lines_changed": 416,
+        "added": 383,
+        "deleted": 33
+      }
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+sha	date	author	added	deleted	files	keyword_hit	subject
+288694dffb24eca834a2afff32b57fcb8adaa341	2025-08-03	Seungchan (airstation-01)	2125	22	11	0	copied working branch of airstation01 for planner-develop branch of forked repo
+82915fde96a9b4bff9d6ce49a34ecef0c6642c75	2025-08-06	Seungchan (airstation-01)	617	428	6	0	modularize behaviors; behavior-manager-tree
+5a9199a650be2f3c95976808966758879b1b13d8	2025-08-07	Seungchan (airstation-01)	72	12	3	0	voxel-based behavior planning
+2bf21a2b605da8f6c977e6122141fe23bcc23c67	2025-08-07	Seungchan (airstation-01)	59	93	2	0	voxel-behavior visualization publisher
+59b8e8808a9be20addcaa4948387990110adcc40	2025-08-07	Seungchan (airstation-01)	12	9	1	1	ray-behavior fix on heading all same directions
+fb1b9ffe46a5d31481b297cbd5b41ab3f35b248e	2025-08-13	Seungchan (airstation-01)	127	47	2	0	voxel-behavior refinement
+f18f92e5ceffe6f738391b29dd6e9ed3e11cbc03	2025-08-17	Seungchan (airstation-01)	66	0	1	0	added neighborhood annotate origin script
+d1f73821da677043ee1adfb7fa4e4bc9a3d91552	2025-08-18	Seungchan (airstation-01)	10	4	1	0	let robot chooses top 5 best frontier randomly
+c4c4516e104aa00ec69eeb7426dbbdd122217ea2	2025-08-19	Seungchan (airstation-01)	153	0	2	0	annotating script for constructionsite/militarybase
+7c57142760bcc18dbfbba5c2cd37bc559d640421	2025-08-22	Seungchan (airstation-01)	165	19	3	0	adding lvlm-guided behavior
+36f030e1cc7190608844507d2f53503ada24c81c	2025-08-24	Seungchan (airstation-01)	15094	0	37	0	transformed annotations by starting_pos
+462c443f400fa553937ad7bdab5a31d9eeeda15f	2025-08-24	Seungchan (airstation-01)	5013	0	9	0	raw annotations file (coordinate transform not applied)
+b1be17508bae18ee9ee7d54cf74ce40c086d525d	2025-08-24	Seungchan (airstation-01)	45	0	1	0	abandoned factory annotations file
+0f4455cf82006507ecc562af4403a80c9aad74c3	2025-08-24	Seungchan (airstation-01)	61	0	1	0	fireacademy annotation file
+134221463775fff58dc9bcba7e589b99b6c70a57	2025-08-24	Seungchan (airstation-01)	33	0	1	0	moderncity downtown annotation file
+5ceb006a3754db222cd35938520208bfa7efad0c	2025-08-24	Seungchan (airstation-01)	58	1	2	0	snowy village annotation file
+01af64c4c8b7a681340ace379d12351f6ced3873	2025-08-24	Seungchan (airstation-01)	57	0	1	0	downtown west annotation file
+2cada6ea5068cf511e4598cfdf0e3b816b41fbdc	2025-08-24	Seungchan (airstation-01)	71	0	1	0	abandonedcity annotation file
+2933ed9f4740c7ab6ce64fee68a3c231c406c75e	2025-08-25	Seungchan (airstation-01)	72	40	6	0	multi-objects query for voxel and ray behaviors
+5d058f158f795422a2ce4e2682a8907faa19c74e	2025-08-25	Seungchan (airstation-01)	85	35	1	1	fixing ray_behavior to select one direction at a time
+96b873146a800fda2e6c85662731d271237c6395	2025-08-25	Seungchan (airstation-01)	24	10	1	1	voxel behavior fix on surface point intersection of cuboid and robot pose ray
+8858896292ea2e023fec489941d27f83a858a188	2025-08-26	Seungchan (airstation-01)	12	4	1	0	added success check and success metric real-time in mission_checker, mode_text_visualizer
+05c51775a4e5ccae3dfb8015f2ee44c8fb8843ac	2025-08-27	Seungchan (airstation-01)	196	0	1	0	mission checker update
+d993234341ed336846808c3bf318edc9b5c3e158	2025-08-28	Seungchan (airstation-01)	669	0	108	0	oracle lengths
+c1b5065bf86e77c51c7812ebf093b70f1fe64744	2025-08-28	Seungchan (airstation-01)	21	21	5	1	fixed ATV to all-terrain vehicle
+413d2c0f3525909d1b8f2699b83885fa416c0801	2025-08-28	Seungchan (airstation-01)	69	69	4	1	small fixes on annotation files
+f0204284a893c5aead300a59f99ac2585afa36fe	2025-08-30	Seungchan (airstation-01)	12	12	3	0	change all-terrain_vechicle -> ATV
+b5e999a0ca5417eb3b836d11a7217e687b993cfd	2025-08-30	Seungchan (airstation-01)	64	64	15	1	construction-site transformed annotation and oracle path fix
+a057f1786829f77d6ba3b0e061b658b844e2759d	2025-09-01	Seungchan (airstation-01)	8	4	1	1	fixed vlfm planner
+5b5912230dab47b7429ecb36e88adb95b65c9360	2025-09-01	Seungchan (airstation-01)	746	12	6	0	adding vlfm implementations
+3c909f85feff37154ad01333d57711b69773ec1b	2025-09-01	Seungchan (airstation-01)	41	18	3	1	filter out rays behind; LVLM behavior fix
+eca66ecb811ee9be9e3efd3098d671e18cf97374	2025-09-05	Seungchan (airstation-01)	10	10	1	0	downtown west new annotation files
+c36fa0e23102d2f43e0d308d9cf4f84e9c980dee	2025-09-05	Seungchan (airstation-01)	351	0	69	0	adding oracle paths to abfac, mb, mcd, sv
+4f2d2ecaf7776cb1d708c3f7070994ca1973dffd	2025-09-05	Seungchan (airstation-01)	64	4	5	1	snowy village annotations fix
+488c4117dcaaedc13fed583ae0da4978e84c6d91	2025-09-06	Seungchan (airstation-01)	139	58	3	0	vlfm manager
+18b1649e9a8a75c94913eca01831d53c5c22b2bf	2025-09-06	Seungchan (airstation-01)	306	165	34	1	snowyvillage car annot fix; downtownwest
+e82ab72435ee1deaf4bcbd8fe5277d3598d5599e	2025-09-07	Seungchan (airstation-01)	1202	0	25	0	added shipyard env annotations
+130679b1940e8a3822efcb31c11160efa4464143	2026-03-02	Seungchan (airstation-01)	5	5	3	0	re-initialize raven:rayfronts
+81802708bad75e27d6b4e89b1f9624d1f1620959	2026-03-02	Seungchan (airstation-01)	10	130	1	0	modify readme for raven rayfronts
+d16861e28ceea1367a7109dd9ccb1017fa1e381e	2026-03-03	Seungchan (airstation-01)	0	27	1	0	remove rf title in readme.md
+58c465c279fd2c1809438b9b0175fcb8d58d0e65	2026-04-27	Seungchan (airstation-01)	9	7	1	0	updated desktop.dockerfile for 5070,80,90 series
+039f18ce3acc9e012d249ec497a57b2c9cfef4ef	2026-04-27	Seungchan (airstation-01)	1	1	1	0	modified depth topic for isaac-sim config
+cd5f9abfc773ed12e3be0697434cb1c25af7820c	2026-04-27	Seungchan (airstation-01)	2	1	1	0	added scikit-learn in dockerfile
+f6f030b28920e26182b850b26be13af5d2862fe6	2026-04-29	Seungchan (airstation-01)	15	12	3	0	removed pitch offset camera; radio large->base; tune the parameters for rayfronts
+27597ae39a89ecdf9864655b6f71c6528145cd7f	2026-04-29	Seungchan (airstation-01)	2	1	1	0	rayfronts container name consistently
+30a8f42d7eb2182be6c3cd5a7c96726d2d6ca45b	2026-04-30	Seungchan (airstation-01)	4	5	3	0	rayfronts default image [448,448]
+7aaad2849d26c2f5f7391961e2540e8580c0bf46	2026-04-30	Seungchan (airstation-01)	12	15	4	0	input_text -> prompt; test.txt -> background.txt; behavior_manager clean
+b9318139be8ab9c1fe6552c16f789a071f5d5c47	2026-05-04	Seungchan (airstation-01)	1	71	4	0	removed comments
+cc98a9fd8463a2c959d6c4dbf8d5c36c801443fc	2026-05-05	Seungchan (airstation-01)	6	6	1	0	xyz axes directions for annotations
+9a8d7aca9ecc0ab1e95b5e74ae6b2d3f7c167d69	2026-05-12	Seungchan (airstation-01)	2477	0	1	0	added retroneighbor
+1327728b480dd7c16ca01cfbec7630f90f0b0f53	2026-05-12	Seungchan (airstation-01)	49	21	1	0	3d annotation box with strong edges and transparent color planes
+aede16bf22e4c3cbccf690acd61589eb97149f7a	2026-05-12	Seungchan (airstation-01)	5	35	1	1	fix on launch_raven inputs
+c6de5834ea872b21898304e6eed03759724a3aac	2026-05-12	Seungchan (airstation-01)	15	8	1	0	drone init x,y,z,qx,qy,qz,qw inputs
+232f1532a9b983272cb0d0ba65703fc98c479682	2026-05-12	Seungchan (airstation-01)	154	0	1	0	annotation_viz v1
+26270c5527b3663fe38f77831c36d33f08f4f4fc	2026-05-18	Seungchan (airstation-01)	197	20309	271	0	removed transformed annotations, oracle paths; updated raw_annotations->annotations
+624a4a8c6c6e9c46d35f1be416de42e8a0b77fe9	2026-05-19	Seungchan (airstation-01)	23	215	3	1	mode text visualizer fix; trajectory length only
+6a405e47fa629dcef12a9da635edc35f8bfdb0d0	2026-05-19	Seungchan (airstation-01)	1	61	1	0	removed cars from AF annot
+abcc6f69b90eeb3c7570097721ffbebcbbeab53c	2026-05-22	Seungchan (airstation-01)	10	20	1	1	fixed yaw orientation for annotation visualization
+9cb58fd49dd95a8640aa98446d00b6f70c23ac08	2026-05-22	Seungchan (airstation-01)	130	330	1	0	fire academy new annotations
+8d838d79e444a035b71865034e4c33020b981fc8	2026-05-23	Seungchan (airstation-01)	4	0	1	1	query label deletion/re-add problem fix

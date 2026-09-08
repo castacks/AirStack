@@ -1,0 +1,126 @@
+{
+  "AirStack-core": {
+    "n": 96,
+    "by_class": {
+      "build": 22,
+      "parameter": 20,
+      "logic": 30,
+      "remap_topic": 6,
+      "other": 9,
+      "timing_clock": 8,
+      "tf_frame": 1
+    },
+    "by_venue": {
+      "ci_premerge": 18,
+      "unknown": 67,
+      "bench_hardware": 3,
+      "sim_interactive": 8
+    },
+    "ruining": {
+      "no": 66,
+      "uncertain": 29,
+      "yes": 1
+    }
+  },
+  "DFM2": {
+    "n": 12,
+    "by_class": {
+      "timing_clock": 2,
+      "logic": 2,
+      "build": 2,
+      "tf_frame": 2,
+      "other": 2,
+      "parameter": 2
+    },
+    "by_venue": {
+      "unknown": 12
+    },
+    "ruining": {
+      "uncertain": 4,
+      "no": 8
+    }
+  },
+  "RAVEN": {
+    "n": 19,
+    "by_class": {
+      "logic": 7,
+      "parameter": 5,
+      "build": 2,
+      "remap_topic": 2,
+      "tf_frame": 3
+    },
+    "by_venue": {
+      "unknown": 18,
+      "sim_interactive": 1
+    },
+    "ruining": {
+      "uncertain": 10,
+      "no": 7,
+      "yes": 2
+    }
+  },
+  "Shimizu": {
+    "n": 16,
+    "by_class": {
+      "build": 2,
+      "other": 3,
+      "parameter": 2,
+      "logic": 4,
+      "remap_topic": 2,
+      "timing_clock": 2,
+      "tf_frame": 1
+    },
+    "by_venue": {
+      "unknown": 16
+    },
+    "ruining": {
+      "no": 5,
+      "uncertain": 9,
+      "yes": 2
+    }
+  },
+  "SwarmCBF": {
+    "n": 15,
+    "by_class": {
+      "remap_topic": 1,
+      "parameter": 6,
+      "logic": 2,
+      "tf_frame": 1,
+      "other": 3,
+      "build": 1,
+      "timing_clock": 1
+    },
+    "by_venue": {
+      "unknown": 4,
+      "sim_interactive": 3,
+      "bench_hardware": 8
+    },
+    "ruining": {
+      "no": 9,
+      "yes": 2,
+      "uncertain": 4
+    }
+  },
+  "Hummingbird": {
+    "n": 46,
+    "by_class": {
+      "tf_frame": 5,
+      "logic": 9,
+      "parameter": 14,
+      "timing_clock": 8,
+      "build": 1,
+      "other": 8,
+      "remap_topic": 1
+    },
+    "by_venue": {
+      "sim_interactive": 36,
+      "unknown": 8,
+      "bench_hardware": 2
+    },
+    "ruining": {
+      "yes": 23,
+      "uncertain": 17,
+      "no": 6
+    }
+  }
+}

@@ -1,0 +1,921 @@
+{
+  "project": {
+    "project": "RAVEN",
+    "components": [
+      "castacks/AirStack",
+      "seungchan-kim/RayFronts",
+      "seungchan-kim/LVLM",
+      "castacks/RAVEN"
+    ],
+    "authored_source_loc": 6726,
+    "authored_total_loc": 12585,
+    "authored_source_deleted": 32,
+    "authored_by_category": {
+      "code": 6602,
+      "config": 124,
+      "docs": 412,
+      "data": 5436,
+      "other": 11
+    },
+    "vendored_source_loc": 0,
+    "vendored_total_loc": 0,
+    "base_source_loc": 100842,
+    "airstack_base_source_loc": 86600,
+    "final_source_loc": 107536,
+    "ratios": {
+      "authored_over_base": 0.06669839947640864,
+      "base_share_of_final": 0.9374535039428656,
+      "authored_share_of_final": 0.06254649605713436,
+      "vendored_share_of_final": 0.0
+    },
+    "airstack_base_modified_in_place": {
+      "files": 5,
+      "lines_changed": 36,
+      "share_of_base": 0.0004157043879907621,
+      "files_share_of_base": 0.003946329913180742,
+      "deleted_files": 0
+    },
+    "airstack_authored_source_loc": 2225,
+    "airstack_additive_share": 0.988314606741573
+  },
+  "components": [
+    {
+      "repo": "castacks/AirStack",
+      "role": "airstack",
+      "base_ref": "2d4f4be313fdb2221b23cf728fd906ae30c6d62a",
+      "base_sha": "2d4f4be313fdb2221b23cf728fd906ae30c6d62a",
+      "head_ref": "278acbffaf748cd6e0102b3a25cfea544e031c83",
+      "head_sha": "278acbffaf748cd6e0102b3a25cfea544e031c83",
+      "paths": null,
+      "commits_base_to_head": 25,
+      "files": {
+        "changed": 27,
+        "new": 20,
+        "modified": 7,
+        "deleted": 0,
+        "binary": 0
+      },
+      "delta_added": {
+        "code": 2194,
+        "config": 31,
+        "docs": 14,
+        "data": 258,
+        "other": 0,
+        "source": 2225,
+        "total": 2497
+      },
+      "delta_deleted": {
+        "code": 7,
+        "config": 3,
+        "docs": 86,
+        "data": 92,
+        "other": 0,
+        "source": 10,
+        "total": 188
+      },
+      "authored_added": {
+        "code": 2194,
+        "config": 31,
+        "docs": 14,
+        "data": 258,
+        "other": 0,
+        "source": 2225,
+        "total": 2497
+      },
+      "authored_deleted": {
+        "code": 7,
+        "config": 3,
+        "docs": 86,
+        "data": 92,
+        "other": 0,
+        "source": 10,
+        "total": 188
+      },
+      "authored_in_new_files": {
+        "code": 2187,
+        "config": 12,
+        "docs": 0,
+        "data": 0,
+        "other": 0,
+        "source": 2199,
+        "total": 2199
+      },
+      "authored_in_modified_files_added": {
+        "code": 7,
+        "config": 19,
+        "docs": 14,
+        "data": 258,
+        "other": 0,
+        "source": 26,
+        "total": 298
+      },
+      "authored_in_modified_files_deleted": {
+        "code": 7,
+        "config": 3,
+        "docs": 86,
+        "data": 92,
+        "other": 0,
+        "source": 10,
+        "total": 188
+      },
+      "vendored_added": {
+        "code": 0,
+        "config": 0,
+        "docs": 0,
+        "data": 0,
+        "other": 0,
+        "source": 0,
+        "total": 0
+      },
+      "vendored_files": 0,
+      "vendored_patterns": [],
+      "base_files": 1267,
+      "base_loc": {
+        "code": 64009,
+        "config": 22591,
+        "docs": 7590,
+        "data": 279534,
+        "other": 2221,
+        "source": 86600,
+        "total": 375945
+      },
+      "base_excluded_files": 13,
+      "base_excluded_loc": {
+        "code": 27680,
+        "config": 2301,
+        "docs": 0,
+        "data": 0,
+        "other": 0,
+        "source": 29981,
+        "total": 29981
+      },
+      "base_exclude_patterns": [
+        "*/glad/*",
+        "*/stb_image.h",
+        "*/stb_image_write.h",
+        "*/xdot/xdot*.py",
+        "gcs/foxglove_extensions/*/dist/*",
+        "*/CMakeModules/Find*.cmake",
+        "*/CMakeModules/OpenVDBUtils.cmake",
+        "robot/ros_ws/src/perception/natnet_ros2/*",
+        "*/mosquitto.conf"
+      ],
+      "base_modified_files": [
+        {
+          "path": "robot/ros_ws/src/robot_bringup/rviz/robot.rviz",
+          "added": 258,
+          "deleted": 92,
+          "category": "data",
+          "base_size": 876
+        },
+        {
+          "path": "docs/README.md",
+          "added": 14,
+          "deleted": 86,
+          "category": "docs",
+          "base_size": 95
+        },
+        {
+          "path": ".env",
+          "added": 10,
+          "deleted": 2,
+          "category": "config",
+          "base_size": 75
+        },
+        {
+          "path": "robot/ros_ws/src/autonomy/3_local/b_planners/droan_gl/src/expand.cpp",
+          "added": 6,
+          "deleted": 6,
+          "category": "code",
+          "base_size": 430
+        },
+        {
+          "path": "simulation/isaac-sim/docker/docker-compose.yaml",
+          "added": 8,
+          "deleted": 0,
+          "category": "config",
+          "base_size": 97
+        },
+        {
+          "path": "docker-compose.yaml",
+          "added": 1,
+          "deleted": 1,
+          "category": "config",
+          "base_size": 19
+        },
+        {
+          "path": "robot/ros_ws/src/autonomy/3_local/c_controls/trajectory_controller/src/trajectory_controller.cpp",
+          "added": 1,
+          "deleted": 1,
+          "category": "code",
+          "base_size": 597
+        }
+      ],
+      "base_deleted_files": [],
+      "new_files_by_dir": [
+        {
+          "dir": "simulation/isaac-sim/launch_scripts",
+          "added": 1525,
+          "deleted": 0,
+          "files": 9
+        },
+        {
+          "dir": "simulation/isaac-sim/utils",
+          "added": 645,
+          "deleted": 0,
+          "files": 2
+        },
+        {
+          "dir": "scenes",
+          "added": 17,
+          "deleted": 0,
+          "files": 1
+        },
+        {
+          "dir": "scenes/AbandonedFactory",
+          "added": 3,
+          "deleted": 0,
+          "files": 2
+        },
+        {
+          "dir": "scenes/ConstructionSite",
+          "added": 3,
+          "deleted": 0,
+          "files": 2
+        },
+        {
+          "dir": "scenes/FireAcademy",
+          "added": 3,
+          "deleted": 0,
+          "files": 2
+        },
+        {
+          "dir": "scenes/RetroNeighborhood",
+          "added": 3,
+          "deleted": 0,
+          "files": 2
+        }
+      ],
+      "authored_by_ext": [
+        {
+          "ext": "py",
+          "added": 2170,
+          "deleted": 0,
+          "files": 11
+        },
+        {
+          "ext": "rviz",
+          "added": 258,
+          "deleted": 92,
+          "files": 1
+        },
+        {
+          "ext": "sh",
+          "added": 17,
+          "deleted": 0,
+          "files": 1
+        },
+        {
+          "ext": "md",
+          "added": 14,
+          "deleted": 86,
+          "files": 1
+        },
+        {
+          "ext": ".gitignore",
+          "added": 12,
+          "deleted": 0,
+          "files": 4
+        },
+        {
+          "ext": ".env",
+          "added": 10,
+          "deleted": 2,
+          "files": 1
+        },
+        {
+          "ext": "yaml",
+          "added": 9,
+          "deleted": 1,
+          "files": 2
+        },
+        {
+          "ext": "cpp",
+          "added": 7,
+          "deleted": 7,
+          "files": 2
+        },
+        {
+          "ext": ".gitkeep",
+          "added": 0,
+          "deleted": 0,
+          "files": 4
+        }
+      ],
+      "base_modified_source": {
+        "files": 5,
+        "lines_changed": 36,
+        "added": 26,
+        "deleted": 10
+      }
+    },
+    {
+      "repo": "seungchan-kim/RayFronts",
+      "role": "extended-library",
+      "base_ref": "cded3eee90ad82fbff44c58e7dff31523c7fe529",
+      "base_sha": "cded3eee90ad82fbff44c58e7dff31523c7fe529",
+      "head_ref": "8d838d79e444a035b71865034e4c33020b981fc8",
+      "head_sha": "8d838d79e444a035b71865034e4c33020b981fc8",
+      "paths": null,
+      "commits_base_to_head": 60,
+      "files": {
+        "changed": 36,
+        "new": 28,
+        "modified": 8,
+        "deleted": 0,
+        "binary": 0
+      },
+      "delta_added": {
+        "code": 3564,
+        "config": 44,
+        "docs": 9,
+        "data": 5178,
+        "other": 11,
+        "source": 3608,
+        "total": 8806
+      },
+      "delta_deleted": {
+        "code": 15,
+        "config": 7,
+        "docs": 156,
+        "data": 0,
+        "other": 8,
+        "source": 22,
+        "total": 186
+      },
+      "authored_added": {
+        "code": 3564,
+        "config": 44,
+        "docs": 9,
+        "data": 5178,
+        "other": 11,
+        "source": 3608,
+        "total": 8806
+      },
+      "authored_deleted": {
+        "code": 15,
+        "config": 7,
+        "docs": 156,
+        "data": 0,
+        "other": 8,
+        "source": 22,
+        "total": 186
+      },
+      "authored_in_new_files": {
+        "code": 3384,
+        "config": 37,
+        "docs": 0,
+        "data": 5178,
+        "other": 0,
+        "source": 3421,
+        "total": 8599
+      },
+      "authored_in_modified_files_added": {
+        "code": 180,
+        "config": 7,
+        "docs": 9,
+        "data": 0,
+        "other": 11,
+        "source": 187,
+        "total": 207
+      },
+      "authored_in_modified_files_deleted": {
+        "code": 15,
+        "config": 7,
+        "docs": 156,
+        "data": 0,
+        "other": 8,
+        "source": 22,
+        "total": 186
+      },
+      "vendored_added": {
+        "code": 0,
+        "config": 0,
+        "docs": 0,
+        "data": 0,
+        "other": 0,
+        "source": 0,
+        "total": 0
+      },
+      "vendored_files": 0,
+      "vendored_patterns": [],
+      "base_files": 130,
+      "base_loc": {
+        "code": 12749,
+        "config": 1493,
+        "docs": 413,
+        "data": 1206,
+        "other": 570,
+        "source": 14242,
+        "total": 16431
+      },
+      "base_excluded_files": 0,
+      "base_excluded_loc": {
+        "code": 0,
+        "config": 0,
+        "docs": 0,
+        "data": 0,
+        "other": 0,
+        "source": 0,
+        "total": 0
+      },
+      "base_exclude_patterns": [
+        "*/glad/*",
+        "*/stb_image.h",
+        "*/stb_image_write.h",
+        "*/xdot/xdot*.py",
+        "gcs/foxglove_extensions/*/dist/*",
+        "*/CMakeModules/Find*.cmake",
+        "*/CMakeModules/OpenVDBUtils.cmake",
+        "robot/ros_ws/src/perception/natnet_ros2/*",
+        "*/mosquitto.conf"
+      ],
+      "base_modified_files": [
+        {
+          "path": "README.md",
+          "added": 9,
+          "deleted": 156,
+          "category": "docs",
+          "base_size": 163
+        },
+        {
+          "path": "rayfronts/mapping/semantic_ray_frontiers_map.py",
+          "added": 153,
+          "deleted": 0,
+          "category": "code",
+          "base_size": 971
+        },
+        {
+          "path": "rayfronts/datasets/ros.py",
+          "added": 25,
+          "deleted": 13,
+          "category": "code",
+          "base_size": 512
+        },
+        {
+          "path": "docker/desktop.Dockerfile",
+          "added": 11,
+          "deleted": 8,
+          "category": "other",
+          "base_size": 76
+        },
+        {
+          "path": "rayfronts/configs/default.yaml",
+          "added": 4,
+          "deleted": 4,
+          "category": "config",
+          "base_size": 59
+        },
+        {
+          "path": "rayfronts/configs/vis/base_vis.yaml",
+          "added": 2,
+          "deleted": 2,
+          "category": "config",
+          "base_size": 15
+        },
+        {
+          "path": "rayfronts/ros_utils.py",
+          "added": 2,
+          "deleted": 2,
+          "category": "code",
+          "base_size": 433
+        },
+        {
+          "path": "rayfronts/configs/encoder/naradio.yaml",
+          "added": 1,
+          "deleted": 1,
+          "category": "config",
+          "base_size": 25
+        }
+      ],
+      "base_deleted_files": [],
+      "new_files_by_dir": [
+        {
+          "dir": "rayfronts/annotations",
+          "added": 5178,
+          "deleted": 0,
+          "files": 10
+        },
+        {
+          "dir": "(root)",
+          "added": 1274,
+          "deleted": 0,
+          "files": 7
+        },
+        {
+          "dir": "rayfronts",
+          "added": 1263,
+          "deleted": 0,
+          "files": 5
+        },
+        {
+          "dir": "rayfronts/behaviors",
+          "added": 851,
+          "deleted": 0,
+          "files": 5
+        },
+        {
+          "dir": "rayfronts/configs/dataset",
+          "added": 33,
+          "deleted": 0,
+          "files": 1
+        }
+      ],
+      "authored_by_ext": [
+        {
+          "ext": "json",
+          "added": 5178,
+          "deleted": 0,
+          "files": 10
+        },
+        {
+          "ext": "py",
+          "added": 3512,
+          "deleted": 15,
+          "files": 16
+        },
+        {
+          "ext": "sh",
+          "added": 52,
+          "deleted": 0,
+          "files": 3
+        },
+        {
+          "ext": "yaml",
+          "added": 40,
+          "deleted": 7,
+          "files": 4
+        },
+        {
+          "ext": "Dockerfile",
+          "added": 11,
+          "deleted": 8,
+          "files": 1
+        },
+        {
+          "ext": "md",
+          "added": 9,
+          "deleted": 156,
+          "files": 1
+        },
+        {
+          "ext": "txt",
+          "added": 4,
+          "deleted": 0,
+          "files": 1
+        }
+      ],
+      "base_modified_source": {
+        "files": 6,
+        "lines_changed": 209,
+        "added": 187,
+        "deleted": 22
+      }
+    },
+    {
+      "repo": "seungchan-kim/LVLM",
+      "role": "new-repo",
+      "base_ref": "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+      "base_sha": "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+      "head_ref": "7e5c652f4c56a4a7f2fe77940d79bf20898dae69",
+      "head_sha": "7e5c652f4c56a4a7f2fe77940d79bf20898dae69",
+      "paths": null,
+      "commits_base_to_head": 11,
+      "files": {
+        "changed": 5,
+        "new": 5,
+        "modified": 0,
+        "deleted": 0,
+        "binary": 0
+      },
+      "delta_added": {
+        "code": 716,
+        "config": 37,
+        "docs": 52,
+        "data": 0,
+        "other": 0,
+        "source": 753,
+        "total": 805
+      },
+      "delta_deleted": {
+        "code": 0,
+        "config": 0,
+        "docs": 0,
+        "data": 0,
+        "other": 0,
+        "source": 0,
+        "total": 0
+      },
+      "authored_added": {
+        "code": 716,
+        "config": 37,
+        "docs": 52,
+        "data": 0,
+        "other": 0,
+        "source": 753,
+        "total": 805
+      },
+      "authored_deleted": {
+        "code": 0,
+        "config": 0,
+        "docs": 0,
+        "data": 0,
+        "other": 0,
+        "source": 0,
+        "total": 0
+      },
+      "authored_in_new_files": {
+        "code": 716,
+        "config": 37,
+        "docs": 52,
+        "data": 0,
+        "other": 0,
+        "source": 753,
+        "total": 805
+      },
+      "authored_in_modified_files_added": {
+        "code": 0,
+        "config": 0,
+        "docs": 0,
+        "data": 0,
+        "other": 0,
+        "source": 0,
+        "total": 0
+      },
+      "authored_in_modified_files_deleted": {
+        "code": 0,
+        "config": 0,
+        "docs": 0,
+        "data": 0,
+        "other": 0,
+        "source": 0,
+        "total": 0
+      },
+      "vendored_added": {
+        "code": 0,
+        "config": 0,
+        "docs": 0,
+        "data": 0,
+        "other": 0,
+        "source": 0,
+        "total": 0
+      },
+      "vendored_files": 0,
+      "vendored_patterns": [],
+      "base_files": 0,
+      "base_loc": {
+        "code": 0,
+        "config": 0,
+        "docs": 0,
+        "data": 0,
+        "other": 0,
+        "source": 0,
+        "total": 0
+      },
+      "base_excluded_files": 0,
+      "base_excluded_loc": {
+        "code": 0,
+        "config": 0,
+        "docs": 0,
+        "data": 0,
+        "other": 0,
+        "source": 0,
+        "total": 0
+      },
+      "base_exclude_patterns": [
+        "*/glad/*",
+        "*/stb_image.h",
+        "*/stb_image_write.h",
+        "*/xdot/xdot*.py",
+        "gcs/foxglove_extensions/*/dist/*",
+        "*/CMakeModules/Find*.cmake",
+        "*/CMakeModules/OpenVDBUtils.cmake",
+        "robot/ros_ws/src/perception/natnet_ros2/*",
+        "*/mosquitto.conf"
+      ],
+      "base_modified_files": [],
+      "base_deleted_files": [],
+      "new_files_by_dir": [
+        {
+          "dir": "(root)",
+          "added": 805,
+          "deleted": 0,
+          "files": 5
+        }
+      ],
+      "authored_by_ext": [
+        {
+          "ext": "py",
+          "added": 705,
+          "deleted": 0,
+          "files": 2
+        },
+        {
+          "ext": "md",
+          "added": 52,
+          "deleted": 0,
+          "files": 1
+        },
+        {
+          "ext": "Dockerfile",
+          "added": 37,
+          "deleted": 0,
+          "files": 1
+        },
+        {
+          "ext": "sh",
+          "added": 11,
+          "deleted": 0,
+          "files": 1
+        }
+      ],
+      "base_modified_source": {
+        "files": 0,
+        "lines_changed": 0,
+        "added": 0,
+        "deleted": 0
+      }
+    },
+    {
+      "repo": "castacks/RAVEN",
+      "role": "new-repo",
+      "base_ref": "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+      "base_sha": "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+      "head_ref": "91ef2e7aacb9d2cbb6bbaf72bdcac7754638a778",
+      "head_sha": "91ef2e7aacb9d2cbb6bbaf72bdcac7754638a778",
+      "paths": [
+        "launch_raven.sh",
+        "RAVEN_setup.sh",
+        "stop_raven.sh",
+        "README.md",
+        "LICENSE",
+        ".gitmodules"
+      ],
+      "commits_base_to_head": 71,
+      "files": {
+        "changed": 6,
+        "new": 6,
+        "modified": 0,
+        "deleted": 0,
+        "binary": 0
+      },
+      "delta_added": {
+        "code": 128,
+        "config": 12,
+        "docs": 337,
+        "data": 0,
+        "other": 0,
+        "source": 140,
+        "total": 477
+      },
+      "delta_deleted": {
+        "code": 0,
+        "config": 0,
+        "docs": 0,
+        "data": 0,
+        "other": 0,
+        "source": 0,
+        "total": 0
+      },
+      "authored_added": {
+        "code": 128,
+        "config": 12,
+        "docs": 337,
+        "data": 0,
+        "other": 0,
+        "source": 140,
+        "total": 477
+      },
+      "authored_deleted": {
+        "code": 0,
+        "config": 0,
+        "docs": 0,
+        "data": 0,
+        "other": 0,
+        "source": 0,
+        "total": 0
+      },
+      "authored_in_new_files": {
+        "code": 128,
+        "config": 12,
+        "docs": 337,
+        "data": 0,
+        "other": 0,
+        "source": 140,
+        "total": 477
+      },
+      "authored_in_modified_files_added": {
+        "code": 0,
+        "config": 0,
+        "docs": 0,
+        "data": 0,
+        "other": 0,
+        "source": 0,
+        "total": 0
+      },
+      "authored_in_modified_files_deleted": {
+        "code": 0,
+        "config": 0,
+        "docs": 0,
+        "data": 0,
+        "other": 0,
+        "source": 0,
+        "total": 0
+      },
+      "vendored_added": {
+        "code": 0,
+        "config": 0,
+        "docs": 0,
+        "data": 0,
+        "other": 0,
+        "source": 0,
+        "total": 0
+      },
+      "vendored_files": 0,
+      "vendored_patterns": [],
+      "base_files": 0,
+      "base_loc": {
+        "code": 0,
+        "config": 0,
+        "docs": 0,
+        "data": 0,
+        "other": 0,
+        "source": 0,
+        "total": 0
+      },
+      "base_excluded_files": 0,
+      "base_excluded_loc": {
+        "code": 0,
+        "config": 0,
+        "docs": 0,
+        "data": 0,
+        "other": 0,
+        "source": 0,
+        "total": 0
+      },
+      "base_exclude_patterns": [
+        "*/glad/*",
+        "*/stb_image.h",
+        "*/stb_image_write.h",
+        "*/xdot/xdot*.py",
+        "gcs/foxglove_extensions/*/dist/*",
+        "*/CMakeModules/Find*.cmake",
+        "*/CMakeModules/OpenVDBUtils.cmake",
+        "robot/ros_ws/src/perception/natnet_ros2/*",
+        "*/mosquitto.conf"
+      ],
+      "base_modified_files": [],
+      "base_deleted_files": [],
+      "new_files_by_dir": [
+        {
+          "dir": "(root)",
+          "added": 477,
+          "deleted": 0,
+          "files": 6
+        }
+      ],
+      "authored_by_ext": [
+        {
+          "ext": "md",
+          "added": 309,
+          "deleted": 0,
+          "files": 1
+        },
+        {
+          "ext": "sh",
+          "added": 128,
+          "deleted": 0,
+          "files": 3
+        },
+        {
+          "ext": "LICENSE",
+          "added": 28,
+          "deleted": 0,
+          "files": 1
+        },
+        {
+          "ext": ".gitmodules",
+          "added": 12,
+          "deleted": 0,
+          "files": 1
+        }
+      ],
+      "base_modified_source": {
+        "files": 0,
+        "lines_changed": 0,
+        "added": 0,
+        "deleted": 0
+      }
+    }
+  ]
+}

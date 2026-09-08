@@ -1,0 +1,499 @@
+{
+  "project": {
+    "project": "DFM2",
+    "components": [
+      "castacks/airstack-dfm2"
+    ],
+    "authored_source_loc": 21167,
+    "authored_total_loc": 24077,
+    "authored_source_deleted": 1147,
+    "authored_by_category": {
+      "code": 20593,
+      "config": 574,
+      "docs": 927,
+      "data": 1983,
+      "other": 0
+    },
+    "vendored_source_loc": 12939,
+    "vendored_total_loc": 15134,
+    "base_source_loc": 88124,
+    "airstack_base_source_loc": 88124,
+    "final_source_loc": 121083,
+    "ratios": {
+      "authored_over_base": 0.24019563342562752,
+      "base_share_of_final": 0.7183254461815449,
+      "authored_share_of_final": 0.17481397058216264,
+      "vendored_share_of_final": 0.10686058323629247
+    },
+    "airstack_base_modified_in_place": {
+      "files": 9,
+      "lines_changed": 173,
+      "share_of_base": 0.0019631428441741184,
+      "files_share_of_base": 0.007053291536050157,
+      "deleted_files": 8
+    },
+    "airstack_authored_source_loc": 21167,
+    "airstack_additive_share": 0.994000094486701
+  },
+  "components": [
+    {
+      "repo": "castacks/airstack-dfm2",
+      "role": "airstack",
+      "base_ref": "19bf91d82380bc5a5cdd44bce06b265a23dd7524",
+      "base_sha": "19bf91d82380bc5a5cdd44bce06b265a23dd7524",
+      "head_ref": "3af8f8e0797207ac9d0c8232012ec1362101d04a",
+      "head_sha": "3af8f8e0797207ac9d0c8232012ec1362101d04a",
+      "paths": null,
+      "commits_base_to_head": 43,
+      "files": {
+        "changed": 243,
+        "new": 225,
+        "modified": 10,
+        "deleted": 8,
+        "binary": 27
+      },
+      "delta_added": {
+        "code": 31995,
+        "config": 2111,
+        "docs": 1337,
+        "data": 3189,
+        "other": 579,
+        "source": 34106,
+        "total": 39211
+      },
+      "delta_deleted": {
+        "code": 1111,
+        "config": 36,
+        "docs": 28,
+        "data": 81,
+        "other": 0,
+        "source": 1147,
+        "total": 1256
+      },
+      "authored_added": {
+        "code": 20593,
+        "config": 574,
+        "docs": 927,
+        "data": 1983,
+        "other": 0,
+        "source": 21167,
+        "total": 24077
+      },
+      "authored_deleted": {
+        "code": 1111,
+        "config": 36,
+        "docs": 28,
+        "data": 81,
+        "other": 0,
+        "source": 1147,
+        "total": 1256
+      },
+      "authored_in_new_files": {
+        "code": 20576,
+        "config": 464,
+        "docs": 927,
+        "data": 1892,
+        "other": 0,
+        "source": 21040,
+        "total": 23859
+      },
+      "authored_in_modified_files_added": {
+        "code": 17,
+        "config": 110,
+        "docs": 0,
+        "data": 91,
+        "other": 0,
+        "source": 127,
+        "total": 218
+      },
+      "authored_in_modified_files_deleted": {
+        "code": 10,
+        "config": 36,
+        "docs": 0,
+        "data": 81,
+        "other": 0,
+        "source": 46,
+        "total": 127
+      },
+      "vendored_added": {
+        "code": 11402,
+        "config": 1537,
+        "docs": 410,
+        "data": 1206,
+        "other": 579,
+        "source": 12939,
+        "total": 15134
+      },
+      "vendored_files": 137,
+      "vendored_patterns": [
+        {
+          "pattern": "*/resilience/RayFronts/*",
+          "why": "pre-existing AirLab RayFronts library copied in as a subtree (130 files)"
+        }
+      ],
+      "base_files": 1276,
+      "base_loc": {
+        "code": 65433,
+        "config": 22691,
+        "docs": 7618,
+        "data": 279534,
+        "other": 2221,
+        "source": 88124,
+        "total": 377497
+      },
+      "base_excluded_files": 13,
+      "base_excluded_loc": {
+        "code": 27680,
+        "config": 2301,
+        "docs": 0,
+        "data": 0,
+        "other": 0,
+        "source": 29981,
+        "total": 29981
+      },
+      "base_exclude_patterns": [
+        "*/glad/*",
+        "*/stb_image.h",
+        "*/stb_image_write.h",
+        "*/xdot/xdot*.py",
+        "gcs/foxglove_extensions/*/dist/*",
+        "*/CMakeModules/Find*.cmake",
+        "*/CMakeModules/OpenVDBUtils.cmake",
+        "robot/ros_ws/src/perception/natnet_ros2/*",
+        "*/mosquitto.conf"
+      ],
+      "base_modified_files": [
+        {
+          "path": "robot/ros_ws/src/robot_bringup/rviz/robot.rviz",
+          "added": 91,
+          "deleted": 81,
+          "category": "data",
+          "base_size": 876
+        },
+        {
+          "path": "robot/docker/Dockerfile.robot",
+          "added": 81,
+          "deleted": 11,
+          "category": "config",
+          "base_size": 214
+        },
+        {
+          "path": "robot/ros_ws/src/autonomy/3_local/local_bringup/launch/local.launch.xml",
+          "added": 17,
+          "deleted": 17,
+          "category": "config",
+          "base_size": 197
+        },
+        {
+          "path": "robot/ros_ws/src/autonomy/5_behavior/behavior_executive/src/behavior_executive.cpp",
+          "added": 7,
+          "deleted": 7,
+          "category": "code",
+          "base_size": 413
+        },
+        {
+          "path": ".env",
+          "added": 6,
+          "deleted": 5,
+          "category": "config",
+          "base_size": 75
+        },
+        {
+          "path": "simulation/isaac-sim/launch_scripts/example_one_px4_pegasus_launch_script.py",
+          "added": 9,
+          "deleted": 0,
+          "category": "code",
+          "base_size": 168
+        },
+        {
+          "path": "robot/ros_ws/src/autonomy/3_local/b_planners/takeoff_landing_planner/config/takeoff_landing_planner.yaml",
+          "added": 2,
+          "deleted": 2,
+          "category": "config",
+          "base_size": 15
+        },
+        {
+          "path": "simulation/isaac-sim/docker/omniverse.toml",
+          "added": 3,
+          "deleted": 1,
+          "category": "config",
+          "base_size": 4
+        },
+        {
+          "path": "simulation/isaac-sim/launch_scripts/barebones_pegasus_launch.py",
+          "added": 1,
+          "deleted": 3,
+          "category": "code",
+          "base_size": 106
+        },
+        {
+          "path": "robot/docker/.bashrc",
+          "added": 1,
+          "deleted": 0,
+          "category": "config",
+          "base_size": 219
+        }
+      ],
+      "base_deleted_files": [
+        {
+          "path": "simulation/isaac-sim/launch_scripts/README.md",
+          "deleted": 28
+        },
+        {
+          "path": "simulation/isaac-sim/launch_scripts/fan_field.py",
+          "deleted": 101
+        },
+        {
+          "path": "simulation/isaac-sim/launch_scripts/launch_sim.py",
+          "deleted": 652
+        },
+        {
+          "path": "simulation/isaac-sim/launch_scripts/pegasus_scene.py",
+          "deleted": 96
+        },
+        {
+          "path": "simulation/isaac-sim/launch_scripts/plane_with_cubes.py",
+          "deleted": 48
+        },
+        {
+          "path": "simulation/isaac-sim/launch_scripts/random_primitive_obstacles.py",
+          "deleted": 172
+        },
+        {
+          "path": "simulation/isaac-sim/launch_scripts/scene_customizer.py",
+          "deleted": 8
+        },
+        {
+          "path": "simulation/isaac-sim/launch_scripts/test_scene.py",
+          "deleted": 24
+        }
+      ],
+      "new_files_by_dir": [
+        {
+          "dir": "robot/ros_ws/src/autonomy",
+          "added": 32776,
+          "deleted": 0,
+          "files": 176
+        },
+        {
+          "dir": "simulation/isaac-sim/scene_library/physics",
+          "added": 2135,
+          "deleted": 0,
+          "files": 9
+        },
+        {
+          "dir": "simulation/isaac-sim/launch_scripts",
+          "added": 1385,
+          "deleted": 0,
+          "files": 4
+        },
+        {
+          "dir": "common/ros_packages/3d-waypoint-rviz2-plugin/src",
+          "added": 907,
+          "deleted": 0,
+          "files": 2
+        },
+        {
+          "dir": "simulation/isaac-sim/scene_library/objects",
+          "added": 503,
+          "deleted": 0,
+          "files": 4
+        },
+        {
+          "dir": "common/ros_packages/3d-waypoint-rviz2-plugin",
+          "added": 404,
+          "deleted": 0,
+          "files": 5
+        },
+        {
+          "dir": "common/ros_packages/3d-waypoint-rviz2-plugin/media",
+          "added": 400,
+          "deleted": 0,
+          "files": 1
+        },
+        {
+          "dir": "common/ros_packages/3d-waypoint-rviz2-plugin/ui",
+          "added": 253,
+          "deleted": 0,
+          "files": 1
+        },
+        {
+          "dir": "common/ros_packages/3d-waypoint-rviz2-plugin/include",
+          "added": 183,
+          "deleted": 0,
+          "files": 2
+        },
+        {
+          "dir": "common/ros_packages/3d-waypoint-rviz2-plugin/launch",
+          "added": 28,
+          "deleted": 0,
+          "files": 1
+        },
+        {
+          "dir": "simulation/isaac-sim/scene_library",
+          "added": 7,
+          "deleted": 0,
+          "files": 1
+        },
+        {
+          "dir": "simulation/isaac-sim/scene_library/environments",
+          "added": 6,
+          "deleted": 0,
+          "files": 1
+        },
+        {
+          "dir": "simulation/isaac-sim/scene_library/utils",
+          "added": 6,
+          "deleted": 0,
+          "files": 1
+        },
+        {
+          "dir": "simulation/isaac-sim/assets/objects",
+          "added": 0,
+          "deleted": 0,
+          "files": 17
+        }
+      ],
+      "authored_by_ext": [
+        {
+          "ext": "py",
+          "added": 19496,
+          "deleted": 1104,
+          "files": 57
+        },
+        {
+          "ext": "md",
+          "added": 927,
+          "deleted": 28,
+          "files": 5
+        },
+        {
+          "ext": "cpp",
+          "added": 914,
+          "deleted": 7,
+          "files": 3
+        },
+        {
+          "ext": "json",
+          "added": 813,
+          "deleted": 0,
+          "files": 1
+        },
+        {
+          "ext": "rviz",
+          "added": 517,
+          "deleted": 81,
+          "files": 2
+        },
+        {
+          "ext": "dae",
+          "added": 400,
+          "deleted": 0,
+          "files": 1
+        },
+        {
+          "ext": "ui",
+          "added": 253,
+          "deleted": 0,
+          "files": 1
+        },
+        {
+          "ext": "hpp",
+          "added": 183,
+          "deleted": 0,
+          "files": 2
+        },
+        {
+          "ext": "txt",
+          "added": 177,
+          "deleted": 0,
+          "files": 2
+        },
+        {
+          "ext": "yaml",
+          "added": 172,
+          "deleted": 2,
+          "files": 3
+        },
+        {
+          "ext": "xml",
+          "added": 95,
+          "deleted": 17,
+          "files": 4
+        },
+        {
+          "ext": "robot",
+          "added": 81,
+          "deleted": 11,
+          "files": 1
+        },
+        {
+          "ext": ".gitignore",
+          "added": 39,
+          "deleted": 0,
+          "files": 1
+        },
+        {
+          "ext": ".env",
+          "added": 6,
+          "deleted": 5,
+          "files": 1
+        },
+        {
+          "ext": "toml",
+          "added": 3,
+          "deleted": 1,
+          "files": 1
+        },
+        {
+          "ext": ".bashrc",
+          "added": 1,
+          "deleted": 0,
+          "files": 1
+        },
+        {
+          "ext": "jpeg",
+          "added": 0,
+          "deleted": 0,
+          "files": 1
+        },
+        {
+          "ext": "png",
+          "added": 0,
+          "deleted": 0,
+          "files": 3
+        },
+        {
+          "ext": "usd",
+          "added": 0,
+          "deleted": 0,
+          "files": 3
+        },
+        {
+          "ext": "usdc",
+          "added": 0,
+          "deleted": 0,
+          "files": 1
+        },
+        {
+          "ext": "jpg",
+          "added": 0,
+          "deleted": 0,
+          "files": 11
+        },
+        {
+          "ext": "exr",
+          "added": 0,
+          "deleted": 0,
+          "files": 1
+        }
+      ],
+      "base_modified_source": {
+        "files": 9,
+        "lines_changed": 173,
+        "added": 127,
+        "deleted": 46
+      }
+    }
+  ]
+}

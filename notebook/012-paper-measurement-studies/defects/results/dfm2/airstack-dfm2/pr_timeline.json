@@ -1,0 +1,91 @@
+[
+ {
+  "number": 1,
+  "title": "Wind sim",
+  "url": "https://github.com/castacks/airstack-dfm2/pull/1",
+  "merged_at": "2026-02-11",
+  "base": "main",
+  "head": "wind_sim",
+  "author": "andrewjong",
+  "additions": 1348,
+  "deletions": 1,
+  "n_commits": 10,
+  "n_review_comments": 0,
+  "n_issue_comments": 0,
+  "commits": [
+   {
+    "sha": "73be73c17f72e684640f7649202ea5bfb4c76e04",
+    "date": "2026-02-10",
+    "subject": "Add fan force field (doesn't work yet)",
+    "runs": [],
+    "in_history": false
+   },
+   {
+    "sha": "0f41de8bba3033650bb462a5c5eb58bfee137477",
+    "date": "2026-02-11",
+    "subject": "Add fan force field (doesn't work yet)",
+    "runs": [],
+    "in_history": false
+   },
+   {
+    "sha": "0a246da011da83e537df7ffb8727858f692aa92d",
+    "date": "2026-02-11",
+    "subject": "Working force field",
+    "runs": [],
+    "in_history": false
+   },
+   {
+    "sha": "038d54cffbfb8445dee663f288c4a25651e19e71",
+    "date": "2026-02-11",
+    "subject": "Multiple force fields",
+    "runs": [],
+    "in_history": false
+   },
+   {
+    "sha": "56fde91a34fd22ee27883636e17922a49e579a28",
+    "date": "2026-02-11",
+    "subject": "working force fields",
+    "runs": [],
+    "in_history": false
+   },
+   {
+    "sha": "24c938ec4d6c864a1473b29a63d81d2a77d47bd3",
+    "date": "2026-02-11",
+    "subject": "Rename wind to spherical force field",
+    "runs": [],
+    "in_history": false
+   },
+   {
+    "sha": "0996a335d5b15be9e6ab987150f95f3d474264c9",
+    "date": "2026-02-11",
+    "subject": "Merge branch 'main' into wind_sim",
+    "runs": [],
+    "in_history": false
+   },
+   {
+    "sha": "abc1ee8d8e50e8d1f380a811a2331c18987d4594",
+    "date": "2026-02-11",
+    "subject": "Refactor force fields into library package",
+    "runs": [],
+    "in_history": false
+   },
+   {
+    "sha": "63652913f9e545ee2c58956c1682929d2981059d",
+    "date": "2026-02-11",
+    "subject": "Turn on visualization",
+    "runs": [],
+    "in_history": false
+   },
+   {
+    "sha": "8e61d76802d6bde1b843c4264c0ecf86caa32b2b",
+    "date": "2026-02-11",
+    "subject": "Make original script use the new scene library API",
+    "runs": [],
+    "in_history": false
+   }
+  ],
+  "red_then_fix": [],
+  "review_comments": [],
+  "issue_comments": []
+ }
+]

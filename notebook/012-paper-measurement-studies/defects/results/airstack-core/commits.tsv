@@ -1,0 +1,172 @@
+sha	date	author	added	deleted	files	keyword_hit	subject
+633a53e942e3fbc6375206777ef0373c1ad464b2	2026-04-28	Andrew Jong	11	0	1	0	Update ci/cd tests to make sure image is present before running tests
+ce6076021e737d1906e63a6cb0c74a6260b8ab28	2026-04-28	Andrew Jong	11	0	1	0	Add omni_pass.env with guest access to AirLab nucleus
+c41ad17bcff9b6f74796ea7305879b75a3ab1252	2026-04-28	Andrew Jong	6	0	1	0	Create dummy file for docker compose push to pass
+5f5726bc4fd46ab748baa4befa0ba491afe46df5	2026-04-28	Andrew Jong	23	0	1	0	Update to always try build all images
+bade96024cca86438df7a7d3a7770fbdbce806d2	2026-04-28	Andrew Jong	1	1	1	0	Increase instance volume size so that space doesn't run out when building docker images
+84456853838b32448d27bfdf677f499a826efc95	2026-04-28	Andrew Jong	3	2	1	0	Enable trigger docker build workflow on via manual dispatch
+4f704f8d748e248388e7970fc1e4050021688f31	2026-04-29	Andrew Jong	4	1	1	0	Log more to GitHub
+8d85f9609766b2b66c35eb3daf28a183840d5dab	2026-04-29	Andrew Jong	7	0	2	0	Recurisve checkout of airstack
+7eb19d56a58ea3153f9b62628d2a25a32422fbe7	2026-04-29	Andrew Jong	2	2	1	0	update comments on workflow
+9b4419143b232ec9b57f52bf38d053f1d1c17da5	2026-04-29	Andrew Jong	14	14	5	0	Change pytest mark 'autonomy' to 'takeoff_hover_land'
+cd589f843f99935cc3e26f10d5bfad9a2a11dd2d	2026-04-29	Andrew Jong	62	0	1	0	Add docker image signing to workflow
+27ba8e6ab4a7cde75188adbd341712b26a058ee7	2026-04-29	Andrew Jong	2	2	1	0	Switch image to desktop so that tests run successfully
+9804274fb386f96c2c32302c6d904e77595d0cad	2026-04-29	Andrew Jong	1	1	1	1	Pin empy version to fix ROS2 jazzy version bug
+5b918aa11461c90a84713041887cfce3d1fed143	2026-04-29	Andrew Jong	4	3	1	0	Make build/pull quiet
+c6f538dd73bc5826ef8ea6a5c72738270926cf03	2026-04-29	Andrew Jong	28	8	1	0	Update system tests to not build images if pull available
+0d3603be862c2e5e003bc5d28a6bd0ac0b96e6eb	2026-04-29	Andrew Jong	13	3	1	0	Make sure images for profiles get built
+92708d54bc104bca7726f0aba7c2b108b9274b8d	2026-04-30	John Liu	195	10	10	1	Johnliu/px4 cpu optimization (#348)
+92edc557beba11424f8837c7174456cbe25093e8	2026-04-30	Andrew Jong	2	2	1	0	Lower default stress-iterations to 1 and single takeoff-velocity to 0.5
+e94e5184eb0af46ab683012d8df440b1a424ab79	2026-04-30	Andrew Jong	17	5	1	0	Auto prepend 'build_packages' mark to ensure code is built before tests
+52d0ade5d398eb6f7139d3bbcc71fdfa73108d6c	2026-04-30	Andrew Jong	13	15	3	0	Update omni_pass_TEMPLATE.env to use 'guest'; update default on system tests to include build_packages
+08ac1717180ae5776c9a62c9287b4aadb5c9d0c3	2026-04-30	Andrew Jong	8	7	1	1	Try fix another bug
+9fc5580ed8620e36084010c34ff380f803bba00d	2026-04-30	Andrew Jong	22	17	1	1	Fix bug
+6f3505ad867ecc40d35841bbeb635b020db9822e	2026-04-30	Andrew Jong	53	41	1	0	Update workflow to comment instead of react
+e37e136de415a0dbd6aa26646f1e15ed1b6f2d7a	2026-04-30	Andrew Jong	9	5	1	1	Fix finding baseline metrics
+6286e3b1e78eee8b36cbc0b75afda6a47a3be0a4	2026-04-30	Andrew Jong	53	1	1	0	Update AGENTS.md
+fecd5a510e9e9967908def5681fa3e9c2757327b	2026-04-30	Andrew Jong	16	3	1	0	Update PR template
+6032f804e5bb9565fde629ce61482526c69cf4bc	2026-04-30	Andrew Jong	213	35	1	0	Make it so that pytest no longer triggers from pushes on PR; make it so we can manually trigger pytest by commenting /pytest
+48315b7ed689fa566b83f0ee43097286481a4c2a	2026-04-30	Andrew Jong	105	1	1	0	Add check system resources before spawning server; if resources not available, report back and try again later
+3373e252b5a810ce501350cbc39d88b12940739c	2026-04-30	Andrew Jong	91	0	2	1	Better error logging for ci/cd orchestrator
+c46c4a4cc1dd7dc9a6aaf922b38d89884ddd0053	2026-05-01	Andrew Jong	1973	3	7	0	Add new skills
+375f5e1bbce9cbb5fd04b75bb6ecffca43f5d325	2026-05-05	Andrew Jong	35	13	1	0	Revise pull request template for clarity and detail
+6a0f9a7fd9f96b9f068662a7fa803813b60504ef	2026-05-08	John Liu	1580	489	43	1	Johnliu/rtx lidar update (#351)
+ae64f970316df8893b071bbd8f365acd7aa6d4d1	2026-05-11	Krrish Jain	9065	457	128	1	Krrish/coord pr (#350)
+cce3977cae9701f73d2eb3f8e0fd76ce6d1a2045	2026-05-20	github-actions[bot]	1	1	1	0	Bump VERSION to  after sync from main
+e4b499d120ef5157232c6ef6b1109488a94c9641	2026-05-20	Andrew Jong	1	1	1	0	Release 0.18.0
+804d34724286a60930310572622e3f0fd4c2dac4	2026-05-20	Andrew Jong	119	10	2	0	Update workflow to handle develop version increment
+6b79accfac43e106dcdeb911111f38a34a961a8b	2026-05-20	Andrew Jong	57	2	1	0	Update docs on branches
+95ae60984e918a2edee141b1c51f441d36fcaf22	2026-05-20	Andrew Jong	52	0	2	0	Add workflows to (1) enforce correct branch merge convention (2) update develop from main
+a26cb2541ffcd84e4411c35f7a69a121b6dd1f34	2026-05-20	Krrish Jain	290	76	9	1	Scene prep bug fix (#354)
+25d52da5759eb731a34f90e9b5e731bb80926418	2026-05-22	Sebastian Scherer	2383	21	19	1	feat(osmo): VS Code/Cursor dev workflow on NVIDIA OSMO (#352)
+dff3dc6f765ec23ca3fbeb324ef83358b989dabc	2026-05-28	Andrew Jong	2	2	2	1	fix(isaac-sim): pegasus drone retains PX4 state across Stop/Play (#363)
+8b927e465c164039fd00c1b9525bb6e7e36629d1	2026-05-29	John Liu	4599	159	73	1	Johnliu/optitrack autonomy (#359)
+6279bea8bea7d3c5e4ea26fb9dde70eda58ff4a5	2026-07-06	Krrish Jain	4	2	3	1	Fix/camera init (#368)
+fa990f4dc03e8bee48d76aa73b1d6285b8bd16f9	2026-07-10	pvkumara	1813	524	23	1	Add fixed-trajectory system tests with cross-track error metrics (#365)
+c476db32a452962d0200a99cda3881aa5ff2783e	2026-07-21	John Liu	47	30	6	1	General robot deployment infra: aarch64 build args + robot-name resolution fixes (#370)
+1a25d60b439e4e9cc98d2f8b1f1116f5fab51a54	2026-07-22	John Liu	89	14	9	1	l4t deployment fixes: make the Jetson profile build + boot on real hardware (#371)
+47f8c798d591b99bc79c152ede75755b582bdbcb	2026-07-31	John Liu	1145	916	27	1	Test infra rework: YAML-driven unit-test collection + integration tier (#372)
+9788b14a867af672f5a112bc23ac16b7e5c30500	2026-08-04	Andrew Jong	0	11	6	0	Remove stray files
+ae2e94202901796d1fc543c8c66526ad50925556	2026-08-04	Andrew Jong	282	8	10	0	Add feature-notebook workflow: per-feature design specs + test results feeding PRs (#381)
+55d9b887d983c4837e350b1102543897f307c4cf	2026-08-04	Andrew Jong	687	2	11	1	Add waypoint_flight system test judged by a standalone track checker (#378)
+234587aa05b1011d5f20bf8c0a2857433eedf3fc	2026-08-05	John Liu	120	31	12	1	Robot deployment fixes: bag recording + adding warning for robot-identity failure (#377)
+5cf595523e3ebec1b7b7fd8ad3c20c271c25af3a	2026-08-14	pvkumara	2708	862	41	1	ci: land OSMO ephemeral runners and system-test harness on develop (#382)
+19402c2223812c9f454c1ffe0dd2d854b48d3e93	2026-08-15	John Liu	2653	1	25	1	OptiTrack (2/3): NatNet server emulator + host integration tests (#375)
+0ae96fe8c40474dfb7b107be7a2a736d50976b11	2026-08-15	John Liu	1956	333	28	1	OptiTrack (1/3): robot-side NatNet client + PX4 external-vision fusion (#374)
+1c41f8c029a6b579fa3910e8c69c0dcc02e78c22	2026-08-17	John Liu	4689	11	41	1	OptiTrack (3/3): Isaac wrapper, mocap EV fusion in sim, and a Circle-trajectory e2e (#376)
+f4697265e40d65a39ba0127593adf172ee51f840	2026-08-18	pvkumara	1377	303	34	1	CI/CD Tuning PR - pytest collection bug fix (#384)
+3852ae2d316616c65ae859fdc86e15eae0246729	2026-08-20	Andrew Jong	1332	8	23	1	P7(rfc-379): marketplace catalog, module-docs fetch, new-developer walkthrough
+b8999066a834321dc4e21a5f8f2d59643b7dc05a	2026-08-20	Andrew Jong	13	3	1	0	P6(rfc-380): airstack down sees generated module/fleet compose services
+2a178e6812d0b8a47096a1eff112d424d86a75f0	2026-08-20	Andrew Jong	7325	0	1	0	P5-E3(rfc-379): bless lite_default wiring baseline
+b0541c15a67b5330d124b24eb4daf4d59ee00750	2026-08-20	Andrew Jong	18	0	1	1	P2(rfc-379): sync self-heals stale partial module checkouts
+e361ef18ac9ab4189dc1976de3c2c73ac2a44b79	2026-08-20	Andrew Jong	10	0	1	0	P3(rfc-379): build module Docker layers in the reusable workflow
+7933f405e8574697312d96290362d8c09e3aa9ad	2026-08-20	Andrew Jong	9	4	1	0	P2(rfc-379): key Isaac overlay placements off targets, not module type
+b408ee7193b465b0793bdc972d929c2b72a9a765	2026-08-20	Andrew Jong	26	0	1	1	fix(tests): wait for the state-estimate watchdog before commanding takeoff
+9cc7b3383ac544417f7d24b5939bcaf061a93a8e	2026-08-20	Andrew Jong	3342	423	27	1	P5-E3b(rfc-379): split stack + bridge.yaml, doctor, interface conventions spec, stack CLI
+e58caad8a24692497b9533c5c52880800b15b030	2026-08-20	Andrew Jong	22	0	1	0	P5(rfc-379): stack entries must never include the dispatcher (contract)
+5efffa3d1b9c867212835d4d509e6782ded3c9dd	2026-08-20	Andrew Jong	23160	0	3	1	P5-E1(rfc-379): observed wiring.md for all three reference stacks
+4a76935c04b5c91427265114c8981d6a9030d2f2	2026-08-20	Andrew Jong	1236	2	8	1	P4(rfc-379): docker module-layer composition, layer plan, modules.lock
+643d0c3475371186153b88832108c4a4f8f2593f	2026-08-20	Andrew Jong	6	0	1	0	P6(rfc-380): single-robot fleets use the historical single-drone prim names
+6f436d879842abb28e1ca6faa3f6af2bc87abdec	2026-08-20	Andrew Jong	644	230	26	1	P5-E3a(rfc-379): flatten perception/sensors/global/behavior into stacks; prefix generic launch args
+76af860239fb895a0601b1524fe78eba39bd0021	2026-08-20	Andrew Jong	40	0	1	1	P2(rfc-379): warn on stale colcon caches for extracted module packages
+19c4adc4e289686716c58533e1d208bc30ad1ab2	2026-08-20	Andrew Jong	1170	299	24	1	P5-E1(rfc-379): reference stack folders (wrap form), --stack dispatch, single-locus lint
+6d40d9aa3e7f8d5f9cc3b98355154e62774321a1	2026-08-20	Andrew Jong	9	10	2	0	P2(rfc-379): update sync hint and docs for automatic module-compose include
+a9f56b0a10d002ece6490fd3249ac54dc1ac9af1	2026-08-20	Andrew Jong	39	9	1	1	P6(rfc-380): doctor --live handles heterogeneous fleets
+115c991acfa1835a9482e9847e7ad75ec94c5b68	2026-08-20	Andrew Jong	185	132	1	0	M3(rfc-379): bless full_macvo wiring baseline on the composed module image
+1477df393826b85b5800fbff2442066c9a919119	2026-08-20	Andrew Jong	8	0	1	0	P3(rfc-379): hook_env input for module host_setup hooks
+73a53ee82ba9ccdd537ea20a6c2ef373aae0f95f	2026-08-20	Andrew Jong	10	0	1	0	P2(rfc-379): auto-include generated module compose override in airstack up
+ff35e368bc5acc619b0f5c1f935eff1ceb0a1247	2026-08-20	Andrew Jong	33	1	3	0	P6(rfc-380): mount .airstack/generated into robot containers; auto-generate bridge router configs
+343fc5c4a4fb93d2215646528bffd96549a7a80e	2026-08-20	Andrew Jong	121	307	4	0	M3(rfc-379): regen wiring baselines post-MACVO removal; exclude sim render-pipeline nodes
+70a6fc665f866e11d197c3fde01f59a8e8f98a1a	2026-08-20	Andrew Jong	616	346	26	0	P5-E2(rfc-379): flatten the local layer into stack files
+326c27a7459eb3dcbf43440e5cb76011ab17760c	2026-08-20	Andrew Jong	1668	0	7	0	P2(rfc-379): airstack module CLI, vcs2l sync, workspace overlay
+efb7c868607089c4168cf6463be3e0976216489e	2026-08-20	Andrew Jong	16	2	2	1	P6(rfc-380): fix fleet-service discovery in ready.sh; clamp harness campaigns to fleet size
+b951fd30abb191ec6a228d4357d10580bf2b204b	2026-08-20	Andrew Jong	81	1371	35	1	M3(rfc-379): remove MACVO from trunk — extracted to castacks/asm_macvo
+70423c4cb17d4f04064552b08675cc709b5ef552	2026-08-20	Andrew Jong	76	11524	101	0	M2(rfc-379): remove OptiTrack/natnet from trunk — extracted to castacks/asm_optitrack
+38f228aa03fcdb9f782961a4c379a58ecfd08dce	2026-08-20	Andrew Jong	2663	15	27	0	P6(rfc-380): airstack.yaml, vehicles, fleets, fleet resolver, generic Isaac spawner
+aa578de902220f1ec43c2dd18ace5d6b06904318	2026-08-20	Andrew Jong	9	2	1	1	fix(tests): widen landing phase-timeout margin — evidence-based
+b2364b96ca540f2af9f1cf376f2af7f7b781afb4	2026-08-20	Andrew Jong	7666	4	3	1	P0(rfc-379): first observed wiring golden + snapshot robustness fixes
+11f51c538b837855233501d34e273396ac52b64f	2026-08-20	Andrew Jong	759	0	4	0	P3(rfc-379): reusable module-system-tests workflow + module CI docs
+5c6c4a4191bdbb249b8fac066a0e557c281610a4	2026-08-20	Andrew Jong	980	0	7	0	P0(rfc-379): observed wiring-snapshot tool, wiring mark, drift check
+05db6c5f9e6176499601244f55fe36ddbe1f278c	2026-08-20	Andrew Jong	2	1	1	1	fix(cli): PID-suffix effective-config run dirs to avoid same-second collisions
+b6e4dba963413e1b74c86926901c2d51496fed79	2026-08-20	Andrew Jong	1074	0	13	0	P1(rfc-379): module.yaml manifest schema, validator, fixture module, contract tests
+262f12679af7c67cb4df40c074e8d2133d79f226	2026-08-20	Andrew Jong	1617	1753	30	1	Pre-RFC workflow cleanup: intent-based launch, readiness gates, launch-script dedup, truthful logs (#386)
+9e2e0e3991cd5130c24f90966a95f1c3c5e2bf54	2026-08-20	Andrew Jong	10	2	3	0	docs(skills): require dates and timestamps in feature notebook entries
+dbead2a748c3e3e7972fc60ff5d707aa7b6746e8	2026-08-21	Andrew Jong	999	282	46	1	audit(docs): link integrity 81->4, truthful CHANGELOG, root README, beginner funnel
+0b7b33d85bbcf4b4179582ff8a4a285e8f1e4693	2026-08-21	Andrew Jong	3815	674	221	1	audit(gcs/sim): fleet-aware GCS, distinct GPS homes, sshd fix, dead-file purge
+8242ae85cbb550b17cb0dabf9be6786eba4bea34	2026-08-21	Andrew Jong	332	31593	62	1	audit(robot): index-collision fix, live plugin param, honest baselines, orphan purge
+9184110beb8a3d0eaaba2c630ac54921fab4bf05	2026-08-21	Andrew Jong	29	0	1	0	docs(stacks): why stacks don't launch standalone — the dispatcher philosophy
+0a13f04c9eda0d9588a5387b3b8e453513a2c91a	2026-08-21	Andrew Jong	852	736	20	1	audit(cli): truthful help/README, one fleet pipeline, shared lib, hardened commands
+c9e3cf6eabed2d84d4c043bf05214baaddd63d7a	2026-08-21	Andrew Jong	13	1	1	1	P2(rfc-379): module remove survives root-owned container artifacts
+46c499bd19758f165de2290a2b96134b4db54a4a	2026-08-21	Andrew Jong	578	9965	83	1	Remove the legacy AUTONOMY_ROLE dispatch — stacks are the only launch path
+1ccbb2024472c4aa7c567ae703415d633d5c89ed	2026-08-21	Andrew Jong	176	1543	47	1	chore(launch): legibility sweep — delete dead launch files, purge dead blocks, header discipline
+2b0274058a0a67b3aa77782fd5ed9d727767c51c	2026-08-21	Andrew Jong	3	268	9	0	chore: delete the stillborn ensemble_planner skeleton
+03ef06564756c2bad8a54a5ca07e954d1d40f7db	2026-08-22	Andrew Jong	5	3	1	1	fix(.env): restore the audited env comments and the 0.20.0-alpha.9 bump
+a871838ee5725221aff87f55d85f34d0f2c8ae7b	2026-08-22	Andrew Jong	20	0	1	0	docs(release-notes): record 0.19.0 — the versioned page now carries the full release history
+f14ad6d6dad92707963ee97230e1c43f819ea26f	2026-08-22	Andrew Jong	24706	3508	219	1	Release 0.19.0 (#398)
+9104249b35f46877b9559c775fdcdbd0a8966b19	2026-08-22	Andrew Jong	3	1	2	0	Release 0.19.0 (#397)
+5efa388877c61701ce5e32d8fa9d7ea56f070339	2026-08-22	Andrew Jong	109	5	2	0	Release 0.19.0
+298cb72eaa08b96beb5edbab3546916a71e7c3a0	2026-08-22	Andrew Jong	1	1	1	0	Bump version to 0.20.0-alpha.8
+86da1f90767d4af0dd41c0ee1c2024f05f823eea	2026-08-22	Andrew Jong	1	1	1	0	Bump version to 0.20.0-alpha.9
+d4802e4082ee8cd256482f95ab7be2c3f730c7c8	2026-08-22	Andrew Jong	4	240	18	0	chore(audit): remove flagged leftovers — vestigial rqt trajectory selector, orphaned images, empty stub page
+385ca6854cfb7989fafdabb0ad9e11708aafd687	2026-08-22	Andrew Jong	773	814	105	1	docs: deep standalone-snapshot audit — RFC scrub, motivation-first openings, code-truth corrections
+c97e30831a6366a995c08724e42f381e6984a5e9	2026-08-22	Andrew Jong	454	188	8	0	docs: versioned Release Notes replace CHANGELOG.md; docs-are-snapshots policy in the writing skill
+c9bc2b43f22852d71513d583a9561207817bc427	2026-08-22	Andrew Jong	0	5836	19	0	chore(audit): delete rqt_behavior_tree — zero referrers after the GUI-set removal
+277b6eb3978c6468ccfb8adaa6ae43f8d35ffcae	2026-08-22	Andrew Jong	21	10	2	1	fix(tests): --stack accepts <name>[:<entry>] like the CLI; re-pin asm_macvo past its stale-import fix
+002dd2366d341b3e0402bf8a454949c35589a9fd	2026-08-22	Andrew Jong	4	3	2	1	fix(simple-sim): source ROS Jazzy, not Humble — sim never started since the Jazzy migration
+8f269766fe8b0a2717ba54366916f9a3b73a496a	2026-08-22	Andrew Jong	435	989	103	0	chore(license): relicense trunk to BSD-3-Clause-Clear; real maintainers + descriptions everywhere
+4cacc81d789d1a68d8cf67554030d2288693009c	2026-08-22	Andrew Jong	1	1	1	0	chore(modules): re-pin asm_macvo to 06f3a8c8 — module now declares rich/tqdm
+96ad668eee9d66765fc075e984ca6c1f86be01da	2026-08-22	Andrew Jong	39	22	3	1	chore(docker): dependency purge — robot image sheds unused apt/pip deps (-152MB)
+4d97b89f19ebccf2975cbd84a36e20d7b1c733db	2026-08-22	Andrew Jong	389	706	17	0	feat(sim): adopt simple-sim as a first-class --sim target; doc isaac-sim-gui; demote prebuilt to tag-only; drop WinTAK CLI
+6ea3e810fd393bef941a8b02c663b4b5ec8fee33	2026-08-22	Andrew Jong	58	42722	599	0	chore(audit): execute owner-ruled deletions — dead interfaces, GUIs, sensors trio, TAK, standalone examples
+4f4a22410bf652a93847d1a2b18c89894d2c843c	2026-08-22	Andrew Jong	1	1	1	0	Bump version to 0.20.0-alpha.7
+17de16f0cc17c28814d666a49da102b6afe8ec14	2026-08-22	Andrew Jong	1	1	1	0	Bump version to 0.20.0-alpha.6
+4044aa15ef3cb6c620efba9cfa691556af256c01	2026-08-22	Andrew Jong	1	1	1	0	Bump version to 0.20.0-alpha.5
+7980fb0bbd8fc0a62cb93055742f85cc4b95140e	2026-08-22	Andrew Jong	1	1	1	0	Bump version to 0.20.0-alpha.4
+f1c1352b5b47d599b921dcc8a33113c17eb1a2a2	2026-08-22	Andrew Jong	1	1	1	0	Bump version to 0.20.0-alpha.3
+592f6cf9d5021f2d41aac7d6d68bedc2500e0859	2026-08-22	Andrew Jong	1	1	1	0	Bump version to 0.20.0-alpha.2
+aebd6e49eb8737d374563184448d60cad8f95737	2026-08-22	Andrew Jong	1	1	1	0	Bump version to 0.20.0-alpha.1
+e5889c06408ead7b14f1dfd15b66e6f8d00453da	2026-08-24	Andrew Jong	663	27	16	1	feat(sim): airstack up --scene <shortname> — simulator-agnostic scene selection
+5c0665fec67b1fcc06fdee4dbb0d9cdcb721ae78	2026-08-24	Andrew Jong	6	1	1	1	fix(cli): config nucleus blank input no longer clobbers an existing token
+f358273a70b90e97dc010bd60416454174ab80c4	2026-08-24	Andrew Jong	451	229	25	1	feat(cli): consolidate osmo/config/image commands into command groups
+bd6d546d16e61c71525f7953f95c1b47a676004e	2026-08-24	Andrew Jong	455	99	3	0	feat(docs): modernize mkdocs-material theme with official CMU palette
+5d367c8dc4aaeba3e7e2f63057ac36d1d21781c2	2026-08-24	Andrew Jong	17	3	3	1	feat(sync): warn when airstack.yaml release: drifts off the .env VERSION line
+2f11a8cb5605f4c594cd72f7f8925d84b1d6d330	2026-08-24	Andrew Jong	61	5	6	1	fix(bringup): loud AUTOLAUNCH FAILED banner instead of silent tmux prompt (#402)
+8e5e8179da41d4ca5b0b555b1de521af566a8ca8	2026-08-24	Andrew Jong	146	24	6	0	feat(gcs): auto-load NUM_ROBOTS-matched Foxglove layout — no manual import (#401)
+e3baec7f3db0e34a7651a8d040bc3d43a3d4ab6c	2026-08-25	Andrew Jong	7	6	1	0	docs: sync How-to Guides landing table with the current nav groups
+7ead8d8ad13ccb38dfcb1d0efd456df541f1c4a4	2026-08-25	Andrew Jong	13	1	3	1	fix(docs): search dropdown rendered behind nav tabs and version text
+66e62efdbeb46ffbb1201a94296dd58ce0218959	2026-08-25	Andrew Jong	3555	3074	90	1	docs: Diátaxis documentation overhaul (#404)
+02a12d56a3227447f12ade265460a91317b60bd3	2026-08-25	Andrew Jong	2	2	2	0	feat(docs): shorten version selector titles to (stable)/(unstable)
+383d344e2e80af0cf31878a14bb577a600ece246	2026-08-25	Andrew Jong	15	0	1	1	fix(docs): prevent landing sections from overflowing on narrow screens
+fce0f4ce56e190c843702efe0e15f1dd4e6109f0	2026-08-25	Andrew Jong	87	2	4	0	feat(docs): version selector shows release numbers, develop listed first
+45e2a652a4187accc785d58af4a803e639a8b54f	2026-08-25	Andrew Jong	61	8	2	1	fix(docs): hero no longer clips CTAs on short viewports
+e5c6629460ef5e27f2025118d9c0b35a709c02c9	2026-08-25	Andrew Jong	16	12	7	0	feat(sim): sim starts playing by default (PLAY_SIM_ON_START=true)
+d036a9ccb19f642130508aff01710e5b657e372b	2026-08-25	Andrew Jong	162	26	4	0	feat(docs): release notes page shows only the docs version being viewed
+a238c5a9ab5fddc2a0bf5eed752dfffbfb58b19a	2026-08-25	Andrew Jong	44	47	15	1	docs: prefer airstack CLI flags over env vars in launch instructions
+bfb17a98d9676c0a4f7dedb49606f54dd9b1ecd4	2026-08-25	Andrew Jong	580	166	17	0	feat(docs): redesign landing page around demonstrated pillars + live demo videos
+d3e746a77d0727d20752a1975f2e4b61dcc9fa69	2026-08-25	Andrew Jong	296	7	4	1	feat(sim): Isaac follow-cam, spawn relocation, and scene light-boost env knobs
+d4a04df6a3b2c8288d2c2ae728dc285fdbcedd6a	2026-08-26	Andrew Jong	9	9	3	0	docs(skills): require branch + commit hash alongside timestamps in feature notebook
+c5fc15c40ef0303147080e7bfbdebf46632ccf7b	2026-08-28	Andrew Jong	64	29	5	0	feat(orchestrator): poll a repos: list — one instance covers trunk + module repos (#400)
+02f7660545cc442a28415edad7674151e908b49e	2026-08-28	Andrew Jong	44	3	4	1	fix(ci): un-red every PR — metrics-job deps and unit-test workflow environment (#407)
+6c0a4e700f1fd0a14c0d3ee0a48a50306eec20b7	2026-08-28	Andrew Jong	335	3	15	1	feat(stacks): full_mighty reference stack + mighty module catalog entry (#405)
+8aed8fc1a007e2b8e3116e9cd014619523583a14	2026-08-29	Andrew Jong	205	5	8	1	hotfix(docs): README-page 404s, link previews, edit-this-page button (0.20.7) (#419)
+6c5671a9d7e0702ecea9bd68b748ddb9ea5ded47	2026-08-29	github-actions[bot]	1	1	1	0	Bump VERSION to 0.21.0-dev.6 after sync from main
+57027c67486dd7f02d356517a269360d1477570b	2026-08-29	Andrew Jong	58	3	4	1	hotfix(docs): dated release-notes sections for 0.20.1–0.20.5; require them for all hotfixes (#418)
+fd50b1a1752a4359ee42084a48ca495f08f1dee6	2026-08-29	github-actions[bot]	1	1	1	0	Bump VERSION to 0.21.0-dev.5 after sync from main
+e0a09f27a8260374407b0d4b623958b3647af50b	2026-08-29	Andrew Jong	10	19	5	1	hotfix(docs): Harbor registry is public — drop docker login from pull instructions (#417)
+58a01c48b7ea27fc9370a90829f77a66327de10d	2026-08-29	github-actions[bot]	1	1	1	0	Bump VERSION to 0.21.0-dev.4 after sync from main
+946ca0164788f65004e06942521b4f2d82e9678c	2026-08-29	Andrew Jong	15	9	6	1	hotfix(docs): pin the site root redirect to the MAJOR.MINOR slug (#416)
+b48d9dbbd23ab46fa0cbd3fdd48e83133f40fdb7	2026-08-29	github-actions[bot]	1	1	1	0	Bump VERSION to 0.21.0-dev.3 after sync from main
+2adc4a30b534081ee0cfea928c157ed277d0fd33	2026-08-29	Andrew Jong	29	11	8	1	hotfix(docs): rename the stable docs alias 'latest' → 'main'; serialize gh-pages pushes (#415)
+05e69bf47d0a2266564fc9fbe7329770190d8207	2026-08-29	github-actions[bot]	1	1	1	0	Bump VERSION to 0.21.0-dev.2 after sync from main
+4c274322765f22c75fa0efe4b49a84ec7009e519	2026-08-29	Andrew Jong	67	40	9	1	hotfix(docs): MAJOR.MINOR docs slugs; retire the duplicate 'main' docs version (#414)
+ac830c567762eeb835e34b1a04c2f310bdc8f454	2026-08-29	github-actions[bot]	1	1	1	0	Bump VERSION to  after sync from main
+7ec95bb75e9bcab02825b934493085c7b0386d60	2026-08-29	Andrew Jong	9	4	2	1	hotfix(ci): post-release main→develop sync must not skip on identical trees (#413)
+e4102b6165caf2236ca568507706ec198226065c	2026-08-29	Andrew Jong	16	6	4	1	Bump version to 0.21.0-dev.0; fix post-release main→develop sync skip (#412)
+c33f3f7f9b70b187349446fe0c19640dda731ba9	2026-08-29	Andrew Jong	178	176	16	0	Release 0.20.0: switch pre-release terminology to -dev.N, single revamped README (#409)
+3b5416cae45fab4a9a1344bd6ad294dc8cbcb08b	2026-08-29	Andrew Jong	312	3	3	0	ci: register sync-modules-index + updated develop-docs deploy on main
+ff7c4c50e463f25e47c41415c6536610ca3cb028	2026-08-29	Andrew Jong	290	4	8	1	feat(ci): registry→trunk catalog sync automation + drift alarm (#408)
+24a80f789c01ec144d5eb0074234a1de16d9b9b4	2026-08-29	Andrew Jong	31	2	3	0	docs(agents): module registration is TWO merges — registry PR must land or the deployed catalog drops the module
+270910ac970032442d7bda4ba30b53302b660d00	2026-08-29	pvkumara	1027	182	33	1	Ci/trustworthy system tests (#403)
+2766c431e6975cc333c9dae8618d7bbebeb4b378	2026-08-30	github-actions[bot]	1	1	1	0	Bump VERSION to 0.21.0-dev.7 after sync from main
+a6dad8caf54722e5eba3481367e914ce213e6135	2026-09-04	Andrew Jong	31	2	4	1	hotfix(docs): exclude AirSim scene binaries from docs builds (0.20.8) (#421)
+3cddcb24d1f190fe936aae91f208935cea5d8e83	2026-09-05	github-actions[bot]	1	1	1	0	Bump VERSION to 0.21.0-dev.8 after sync from main

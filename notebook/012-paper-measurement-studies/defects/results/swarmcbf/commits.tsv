@@ -1,0 +1,22 @@
+sha	date	author	added	deleted	files	keyword_hit	subject
+06a1f6161dada08d50af121495148b030477c215	2026-06-10	yikuan	15	6	1	0	Document ROS domain 1 convention in svg_ground_control tutorial
+df58f9a8132ab833fec03f53121f1e7639bccbe6	2026-06-10	yikuan	1335	0	17	0	Add svg_ground_control: multi-drone mocap ground controller with CBF placeholder
+2025934374b269af51564dadbe5c30a2276b64f8	2026-06-11	yikuan	252	15	7	1	Fix squeeze: intruder was CBF-filtered, causing stall/retreat at the gap
+6a5f7d0b65b88eb96d3488a0ff118183cde8342e	2026-06-11	yikuan	12	0	1	0	Add position monitoring commands to experiment.md
+850e795836be81e5a7176b7c57eb55fc7497d02e	2026-06-11	yikuan	123	58	8	0	Make squeeze geometry explicit: configurable holder posts and intruder waypoints
+6e4b78d9686334c797fb394ca40bb48d2b594e54	2026-06-11	yikuan	1	1	1	0	Add tmux pane-close key to experiment.md
+2bb81f053cf333f2f98174c8623edd5127ba1405	2026-06-11	yikuan	15	0	1	0	Add tmux single-terminal workflow to experiment.md
+11a1237f11ce23612068ea6fdf3229058a4f9091	2026-06-11	yikuan	4838	308	32	0	Implement real CBF filter, drone_soccer scenarios, squeeze test, NatNet bridge
+6d0e206e809559e4ee188caa3861283a9a6feede	2026-06-12	yikuan	92	28	7	1	Fix squeeze in sim: per-drone PX4 local origins broke the shared world frame
+4479ea7c6aa93e9e6e3d1f0672864f0a8d10ecad	2026-06-12	yikuan	10	2	1	1	Fix rosbag recording path in experiment.md: record into the mounted ros_ws
+c105a20de9c0b23f8879233eb4b732a89329734f	2026-06-15	yikuan	16	14	8	0	optimized some parameters
+ff2c23afcd6b5d5dfc2dc98ba1834fe52e7ecfef	2026-06-15	yikuan	17	0	1	0	Document RViz hand-carry / preflight workflow (no flight needed)
+59679402842de6ad925476eb86055c15297f9ecb	2026-06-15	yikuan	1624	247	18	1	Add goal-tracking, hybrid sim/real routing, geofence, RViz viz + tests
+d8b89dd9e98ca9b58d1607ce7a1a5d9a60e68d82	2026-06-18	yikuan	592	154	10	0	SVG: per-task CBF-exempt list, any-drone-any-mode configs, Isaac real-drone avatars
+736b0564e7e61747d99027e927cc9a646e04dbc4	2026-06-20	yikuan	438	40	2	1	SVG docs + VOXL2 real-drone provisioning script
+c1f69fe4dde7c7f2d3488b2f8f311728eb7dbeb0	2026-06-20	yikuan	8621	2790	45	0	Vendor natnet_ros2 (L2S-lab fork) replacing the old package
+d3ed7dc55248be4afecb77ec25f15e79b709bf42	2026-06-21	yikuan	12	9	1	0	Clarify mocap_bridge VIO topic params: which applies in which px4_vio_mode
+f6441c5f5f84ea18a2e1202c0ce9efc85e4733f4	2026-06-21	yikuan	1128	34	6	0	Real-drone external vision: mocap_bridge direct VehicleOdometry path
+a46f04b563a52b8f58aa761c99edccc938caa134	2026-06-23	yikuan	162	26	7	0	goal tracking verified
+94425c2518c714daa1cba3212da5d6305ce27ae6	2026-06-23	yikuan	1	0	1	0	Troubleshooting: takeoff/land work but won't move to a goal (start not succeeded)
+564d43e4542c1e2dd4cd24cebeb21b3fb3843ad2	2026-08-11	yikuan	999	130	15	1	CBF external-velocity reactivity, formation profiles, C5 RC-intruder config

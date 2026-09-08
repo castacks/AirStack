@@ -1,0 +1,223 @@
+[
+ {
+  "closedAt": "2026-08-29T07:33:18Z",
+  "createdAt": "2026-08-29T03:13:23Z",
+  "labels": [],
+  "number": 406,
+  "state": "CLOSED",
+  "title": "AirStack: a reproducible sim-to-real evaluation loop",
+  "url": "https://github.com/castacks/AirStack/issues/406"
+ },
+ {
+  "closedAt": null,
+  "createdAt": "2026-08-22T05:30:20Z",
+  "labels": [],
+  "number": 387,
+  "state": "OPEN",
+  "title": "Design: native PX4 uXRCE-DDS interface as a platform-module capability",
+  "url": "https://github.com/castacks/AirStack/issues/387"
+ },
+ {
+  "closedAt": null,
+  "createdAt": "2026-05-28T03:55:51Z",
+  "labels": [],
+  "number": 364,
+  "state": "OPEN",
+  "title": "Mitigate Fast DDS /usr/local shadowing for reproducible robot bringup",
+  "url": "https://github.com/castacks/AirStack/issues/364"
+ },
+ {
+  "closedAt": null,
+  "createdAt": "2026-05-22T15:48:22Z",
+  "labels": [],
+  "number": 362,
+  "state": "OPEN",
+  "title": "Debug Isaac Sim slow scene load times",
+  "url": "https://github.com/castacks/AirStack/issues/362"
+ },
+ {
+  "closedAt": null,
+  "createdAt": "2026-05-22T01:36:49Z",
+  "labels": [],
+  "number": 360,
+  "state": "OPEN",
+  "title": "FoxGlove: Panel lost WebGL context.",
+  "url": "https://github.com/castacks/AirStack/issues/360"
+ },
+ {
+  "closedAt": null,
+  "createdAt": "2026-05-21T00:50:11Z",
+  "labels": [],
+  "number": 357,
+  "state": "OPEN",
+  "title": "Isaac Sim crashing for guest login for AirLab omniverse Nucleus",
+  "url": "https://github.com/castacks/AirStack/issues/357"
+ },
+ {
+  "closedAt": "2026-04-29T19:14:48Z",
+  "createdAt": "2026-04-29T17:38:20Z",
+  "labels": [],
+  "number": 349,
+  "state": "CLOSED",
+  "title": "MS AirSim failing to run in headless cloud instance gpu.rtxpro5000.1",
+  "url": "https://github.com/castacks/AirStack/issues/349"
+ },
+ {
+  "closedAt": "2026-08-29T12:26:54Z",
+  "createdAt": "2026-04-20T21:33:12Z",
+  "labels": [
+   {
+    "id": "LA_kwDOMGb0288AAAABv2Mu3w",
+    "name": "CI/CD",
+    "description": "",
+    "color": "95FDCD"
+   }
+  ],
+  "number": 343,
+  "state": "CLOSED",
+  "title": "Integrate automated testing with AirLab Cloud CI/CD",
+  "url": "https://github.com/castacks/AirStack/issues/343"
+ },
+ {
+  "closedAt": "2026-05-22T15:46:42Z",
+  "createdAt": "2026-04-20T20:26:24Z",
+  "labels": [
+   {
+    "id": "LA_kwDOMGb0288AAAAB9I4ylQ",
+    "name": "high priority",
+    "description": "",
+    "color": "B60205"
+   }
+  ],
+  "number": 342,
+  "state": "CLOSED",
+  "title": "Figure out runtime bottleneck: Pegasus using whole CPU core?",
+  "url": "https://github.com/castacks/AirStack/issues/342"
+ },
+ {
+  "closedAt": "2026-08-29T23:30:22Z",
+  "createdAt": "2026-04-18T19:19:25Z",
+  "labels": [],
+  "number": 339,
+  "state": "CLOSED",
+  "title": "Public Docker Image Mirror for External Contributors",
+  "url": "https://github.com/castacks/AirStack/issues/339"
+ },
+ {
+  "closedAt": "2026-08-29T12:27:42Z",
+  "createdAt": "2026-03-19T14:32:33Z",
+  "labels": [
+   {
+    "id": "LA_kwDOMGb0288AAAACcAlw6g",
+    "name": "publicity",
+    "description": "",
+    "color": "aaaaaa"
+   }
+  ],
+  "number": 323,
+  "state": "CLOSED",
+  "title": "Revamp home page with parallax",
+  "url": "https://github.com/castacks/AirStack/issues/323"
+ },
+ {
+  "closedAt": "2026-08-29T12:28:04Z",
+  "createdAt": "2025-06-04T22:31:38Z",
+  "labels": [
+   {
+    "id": "LA_kwDOMGb0288AAAABpG5YRw",
+    "name": "bug",
+    "description": "Something isn't working",
+    "color": "d73a4a"
+   },
+   {
+    "id": "LA_kwDOMGb0288AAAABwjA5YA",
+    "name": "comms/networking",
+    "description": "",
+    "color": "ADD8E6"
+   }
+  ],
+  "number": 282,
+  "state": "CLOSED",
+  "title": "Proper multi-agent message sharing with the correct frame ID",
+  "url": "https://github.com/castacks/AirStack/issues/282"
+ },
+ {
+  "closedAt": "2026-08-29T12:29:14Z",
+  "createdAt": "2024-12-19T22:17:14Z",
+  "labels": [],
+  "number": 181,
+  "state": "CLOSED",
+  "title": "GCS: robots have individual \"map\" frame. However, GCS is treating \"map\" as the same",
+  "url": "https://github.com/castacks/AirStack/issues/181"
+ },
+ {
+  "closedAt": "2026-08-29T12:28:28Z",
+  "createdAt": "2024-12-06T00:49:55Z",
+  "labels": [
+   {
+    "id": "LA_kwDOMGb0288AAAABpG5YUQ",
+    "name": "enhancement",
+    "description": "New feature or request",
+    "color": "a2eeef"
+   }
+  ],
+  "number": 172,
+  "state": "CLOSED",
+  "title": "Scope multi-agent command and control",
+  "url": "https://github.com/castacks/AirStack/issues/172"
+ },
+ {
+  "closedAt": "2026-08-29T12:28:44Z",
+  "createdAt": "2024-11-07T16:22:18Z",
+  "labels": [
+   {
+    "id": "LA_kwDOMGb0288AAAABpG5YSw",
+    "name": "documentation",
+    "description": "Improvements or additions to documentation",
+    "color": "0075ca"
+   }
+  ],
+  "number": 137,
+  "state": "CLOSED",
+  "title": "Document sensor topics",
+  "url": "https://github.com/castacks/AirStack/issues/137"
+ },
+ {
+  "closedAt": "2026-08-29T12:29:01Z",
+  "createdAt": "2024-10-23T19:24:25Z",
+  "labels": [
+   {
+    "id": "LA_kwDOMGb0288AAAABwjCX9w",
+    "name": "workflow",
+    "description": "",
+    "color": "0813DD"
+   }
+  ],
+  "number": 110,
+  "state": "CLOSED",
+  "title": "Automatic git workflow to push docker images to AirLab registry from AirLab Cloud",
+  "url": "https://github.com/castacks/AirStack/issues/110"
+ },
+ {
+  "closedAt": "2026-08-29T12:28:52Z",
+  "createdAt": "2024-06-27T16:47:34Z",
+  "labels": [
+   {
+    "id": "LA_kwDOMGb0288AAAABpG5YUQ",
+    "name": "enhancement",
+    "description": "New feature or request",
+    "color": "a2eeef"
+   },
+   {
+    "id": "LA_kwDOMGb0288AAAABx9ZH8Q",
+    "name": "testing",
+    "description": "",
+    "color": "d4c5f9"
+   }
+  ],
+  "number": 16,
+  "state": "CLOSED",
+  "title": "Design Automated Testing / Eval Framework",
+  "url": "https://github.com/castacks/AirStack/issues/16"
+ }
+]

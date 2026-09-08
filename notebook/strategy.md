@@ -41,7 +41,9 @@ histories (desk Isaac runs catching integration defects before
 hardware), not on CI — CI system tests went live 2026-04-28, after
 every case study, so the platform's own CI history is reported as the
 newer, secondary layer. Both measurement studies (LOC reuse, defect
-mining) are now released scripts in the paper submodule's `analysis/`.
+mining) are released scripts in
+[012-paper-measurement-studies](012-paper-measurement-studies/design_spec.md)
+(kept out of the Overleaf-synced paper repo, which drops exec bits).
 
 Current phase (as of 2026-09-02): **campaign v6 COMPLETE — 40/40
 trials scored** (entry [011](011-agent-study-v6-trials/design_spec.md),
@@ -116,7 +118,7 @@ come from the entries' own labels.
 |---|---|---|---|
 | Agent study (paper Sec. VI-C) | Run the four-arm proxy-developer study on the bring-up-to-flight ladder, judged by the pytest harness | [007-agent-study-prereqs](007-agent-study-prereqs/design_spec.md), [008-droan-gl-r7-avoidance-fix](008-droan-gl-r7-avoidance-fix/design_spec.md), [009-droan-gl-yaw-sweep-unstick](009-droan-gl-yaw-sweep-unstick/design_spec.md), [010-mighty-local-planner-module](010-mighty-local-planner-module/design_spec.md), [011-agent-study-v6-trials](011-agent-study-v6-trials/design_spec.md) | 007 `WIP` (P-5, P-7 open, non-blocking); 008 `DONE` (verdict (c) ❌ under frozen config); 009 `DONE` (sweep works, R7 still 0/10); 010 `DONE` — MIGHTY swapped in as `asm_mighty` v0.1.0; R7 reference solvability 5/5 under frozen v6; 011 `DONE` — 40/40 trials scored + §(d) paper analysis complete 2026-09-02 (figure, tab:agents, cycles, taxonomy) |
 | Paper writing & positioning | Sec. I–V prose, case-study interviews, figures | — (lives in the `ICRA_2027_AirStack_Paper/` submodule; no notebook entries) | Related Work + Design Principles prose done 2026-08-03; interviews not recorded anywhere yet |
-| Measurement studies (paper Table I + Sec. VI-B) | Reproducible LOC-reuse and defect-mining scripts over the five case-study repos, released with the paper | — (`ICRA_2027_AirStack_Paper/analysis/reuse/`, `analysis/defects/`) | `DONE` 2026-09-08 — Table I code rows filled for all five (Hummingbird team-reported); defects mined for RAVEN / DFM2 / Shimizu / Swarm CBF / Hummingbird (team) / AirStack-core; VI-B reframed to sim-in-the-loop |
+| Measurement studies (paper Table I + Sec. VI-B) | Reproducible LOC-reuse and defect-mining scripts over the five case-study repos, released with the paper | [012-paper-measurement-studies](012-paper-measurement-studies/design_spec.md) (moved out of the Overleaf-synced paper repo 2026-09-08) | `DONE` 2026-09-08 — Table I code rows filled for all five (Hummingbird team-reported); defects mined for RAVEN / DFM2 / Shimizu / Swarm CBF / Hummingbird (team) / AirStack-core; VI-B reframed to sim-in-the-loop |
 | Release gate / v1.0 readiness | The seven paper-blocking items (clone-and-run, verified hardware path, …) | — (no notebook entries yet) | ~63 open `\task{}` vs 1 `\done{}` in `release_gate_and_tasks.tex` |
 | Modular AirStack (RFC #379/#380) | Monolith → modules, stacks, fleets — built to support the paper's modularity positioning: module swapping (C1) and easy upstreaming of features from forked projects (lead, recorded 2026-08-27) | [002-rfc-modular-airstack](002-rfc-modular-airstack/design_spec.md) | `WIP` per its header (impl merged to develop 2026-08-24 as PRs #388–#396; release mechanics, module CI tags, P3 dispatch smoke open) |
 | Launch & CLI developer experience | Kill sim-launch friction — intent flags, readiness signal, scene selection, command groups — purely for developer usage and adoption (lead, recorded 2026-08-27) | [001-pre-rfc-workflow-cleanup](001-pre-rfc-workflow-cleanup/design_spec.md), [003-scene-flag](003-scene-flag/design_spec.md), [004-osmo-command-group](004-osmo-command-group/design_spec.md) | 001 `DONE`; 003 `DONE`; 004 results PASS (no header status) |
@@ -133,9 +135,11 @@ evidence*.
 
 ### 2026-09-08 — LOC + defect studies scripted; VI-B pivots from CI to simulation-in-the-loop
 
-Both paper measurement studies now run from released scripts in the
-submodule (`analysis/reuse/`, `analysis/defects/`; pinned fork-point and
-head SHAs in `projects.yaml` / `run_defect_mining.sh`). Table I code
+Both paper measurement studies now run from released scripts in
+`notebook/012-paper-measurement-studies/` (`reuse/`, `defects/`; pinned
+fork-point and head SHAs in `projects.yaml` / `run_defect_mining.sh`;
+first landed in the paper submodule's `analysis/`, moved out the same
+day because Overleaf drops executable bits and skips files). Table I code
 rows are filled for all five case studies under one rule (source =
 code + config, third-party excluded): authored 5.6k (Swarm CBF) –
 21.2k (DFM2) source lines; base modified in place 0.04–0.61%;
@@ -155,8 +159,8 @@ hardware," evidenced from git history; the platform's own CI history
 layer. *Continuous flight readiness* stays as a design principle (III-D)
 with its scope stated honestly. Changes what: VI-B text, abstract,
 III-D, positioning.md (named-concept scope, evidence hierarchy, release
-gate wording). Evidence: `analysis/reuse/results/summary.md`,
-`analysis/defects/results/summary.md`.
+gate wording). Evidence: `012-paper-measurement-studies/reuse/results/summary.md`,
+`012-paper-measurement-studies/defects/results/summary.md`.
 
 ### 2026-09-08 — A4 (bare-parts) R7 verdicts judged against a layout never loaded in its simulator
 

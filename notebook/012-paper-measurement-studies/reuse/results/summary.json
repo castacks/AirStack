@@ -1,0 +1,173 @@
+{
+  "projects": [
+    {
+      "project": "RAVEN",
+      "components": [
+        "castacks/AirStack",
+        "seungchan-kim/RayFronts",
+        "seungchan-kim/LVLM",
+        "castacks/RAVEN"
+      ],
+      "authored_source_loc": 6726,
+      "authored_total_loc": 12585,
+      "authored_source_deleted": 32,
+      "authored_by_category": {
+        "code": 6602,
+        "config": 124,
+        "docs": 412,
+        "data": 5436,
+        "other": 11
+      },
+      "vendored_source_loc": 0,
+      "vendored_total_loc": 0,
+      "base_source_loc": 100842,
+      "airstack_base_source_loc": 86600,
+      "final_source_loc": 107536,
+      "ratios": {
+        "authored_over_base": 0.06669839947640864,
+        "base_share_of_final": 0.9374535039428656,
+        "authored_share_of_final": 0.06254649605713436,
+        "vendored_share_of_final": 0.0
+      },
+      "airstack_base_modified_in_place": {
+        "files": 5,
+        "lines_changed": 36,
+        "share_of_base": 0.0004157043879907621,
+        "files_share_of_base": 0.003946329913180742,
+        "deleted_files": 0
+      },
+      "airstack_authored_source_loc": 2225,
+      "airstack_additive_share": 0.988314606741573
+    },
+    {
+      "project": "DFM2",
+      "components": [
+        "castacks/airstack-dfm2"
+      ],
+      "authored_source_loc": 21167,
+      "authored_total_loc": 24077,
+      "authored_source_deleted": 1147,
+      "authored_by_category": {
+        "code": 20593,
+        "config": 574,
+        "docs": 927,
+        "data": 1983,
+        "other": 0
+      },
+      "vendored_source_loc": 12939,
+      "vendored_total_loc": 15134,
+      "base_source_loc": 88124,
+      "airstack_base_source_loc": 88124,
+      "final_source_loc": 121083,
+      "ratios": {
+        "authored_over_base": 0.24019563342562752,
+        "base_share_of_final": 0.7183254461815449,
+        "authored_share_of_final": 0.17481397058216264,
+        "vendored_share_of_final": 0.10686058323629247
+      },
+      "airstack_base_modified_in_place": {
+        "files": 9,
+        "lines_changed": 173,
+        "share_of_base": 0.0019631428441741184,
+        "files_share_of_base": 0.007053291536050157,
+        "deleted_files": 8
+      },
+      "airstack_authored_source_loc": 21167,
+      "airstack_additive_share": 0.994000094486701
+    },
+    {
+      "project": "Shimizu",
+      "components": [
+        "castacks/AirStack"
+      ],
+      "authored_source_loc": 19356,
+      "authored_total_loc": 23281,
+      "authored_source_deleted": 33,
+      "authored_by_category": {
+        "code": 16195,
+        "config": 3161,
+        "docs": 164,
+        "data": 3761,
+        "other": 0
+      },
+      "vendored_source_loc": 1396,
+      "vendored_total_loc": 1396,
+      "base_source_loc": 68693,
+      "airstack_base_source_loc": 68693,
+      "final_source_loc": 89412,
+      "ratios": {
+        "authored_over_base": 0.2817754356339074,
+        "base_share_of_final": 0.7679058739319107,
+        "authored_share_of_final": 0.21648100926050196,
+        "vendored_share_of_final": 0.01561311680758735
+      },
+      "airstack_base_modified_in_place": {
+        "files": 18,
+        "lines_changed": 416,
+        "share_of_base": 0.006055930007424337,
+        "files_share_of_base": 0.015410958904109588,
+        "deleted_files": 0
+      },
+      "airstack_authored_source_loc": 19356,
+      "airstack_additive_share": 0.9802128538954329
+    },
+    {
+      "project": "SwarmCBF",
+      "components": [
+        "castacks/AirStack"
+      ],
+      "authored_source_loc": 5571,
+      "authored_total_loc": 6817,
+      "authored_source_deleted": 10,
+      "authored_by_category": {
+        "code": 4724,
+        "config": 847,
+        "docs": 1180,
+        "data": 66,
+        "other": 0
+      },
+      "vendored_source_loc": 3207,
+      "vendored_total_loc": 9634,
+      "base_source_loc": 99240,
+      "airstack_base_source_loc": 99240,
+      "final_source_loc": 108008,
+      "ratios": {
+        "authored_over_base": 0.056136638452237,
+        "base_share_of_final": 0.9187282423524183,
+        "authored_share_of_final": 0.051579512628694174,
+        "vendored_share_of_final": 0.02969224501888749
+      },
+      "airstack_base_modified_in_place": {
+        "files": 6,
+        "lines_changed": 54,
+        "share_of_base": 0.0005441354292623942,
+        "files_share_of_base": 0.0043541364296081275,
+        "deleted_files": 0
+      },
+      "airstack_authored_source_loc": 5571,
+      "airstack_additive_share": 0.9921019565607611
+    }
+  ],
+  "reported": [
+    {
+      "source_file": "analysis/reuse/hummingbird/CODE_REUSE_ANALYSIS_HUMMINGBIRD.md",
+      "measured_on": "2026-09-01, branch rough/workshop_demo @ 106dc726",
+      "authored_source_loc": 20979,
+      "authored_runtime_loc": 12200,
+      "authored_docs_loc": 3330,
+      "authored_tests_loc": 5517,
+      "vendored_source_loc": 0,
+      "airstack_base_source_loc": 159967,
+      "base_modified_files": 28,
+      "base_modified_lines": 572,
+      "base_deleted_files": 1,
+      "base_share_of_final": 0.884,
+      "authored_share_of_final": 0.116,
+      "additive_share": 0.973,
+      "name": "Hummingbird",
+      "airstack_base_source_loc_recomputed": 110835,
+      "airstack_base_total_loc_recomputed": 423382,
+      "airstack_base_excluded_loc_recomputed": 36277
+    }
+  ]
+}

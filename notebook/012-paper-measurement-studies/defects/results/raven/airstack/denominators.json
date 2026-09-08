@@ -1,0 +1,53 @@
+{
+  "project": "RAVEN",
+  "repo": "/home/andrew/Development/AirStack",
+  "github": null,
+  "base": "2d4f4be313fdb2221b23cf728fd906ae30c6d62a",
+  "heads": {
+    "origin/raven": "278acbffaf748cd6e0102b3a25cfea544e031c83"
+  },
+  "since": null,
+  "until": "2026-09-08",
+  "mined_on": "2026-09-08",
+  "git_version": "git version 2.55.0",
+  "commits_in_window": 25,
+  "merge_commits_in_window": 0,
+  "commits_by_author": {
+    "Seungchan (airstation-01)": 21,
+    "krrishj18": 4
+  },
+  "keyword_candidates": 2,
+  "keyword_regex": "\\b(fix|fixes|fixed|fixing|bug|bugs|broken|breaks?|repair|revert|hotfix|crash|regression|wrong|incorrect|fail(?:s|ed|ing|ure)?|error|issue|typo|workaround|patch)\\b",
+  "commands": [
+    "git --version",
+    "git -C /home/andrew/Development/AirStack log --no-merges --format=%H%x1f%aI%x1f%an%x1f%s%x1f%b%x1e 278acbffaf748cd6e0102b3a25cfea544e031c83 --not 2d4f4be313fdb2221b23cf728fd906ae30c6d62a",
+    "git -C /home/andrew/Development/AirStack rev-list --merges --count 278acbffaf748cd6e0102b3a25cfea544e031c83 --not 2d4f4be313fdb2221b23cf728fd906ae30c6d62a",
+    "git -C /home/andrew/Development/AirStack rev-parse 2d4f4be3",
+    "git -C /home/andrew/Development/AirStack rev-parse origin/raven",
+    "git -C /home/andrew/Development/AirStack show --numstat --format= 0f674fa2f0658fce4687fff672d5561dd63a70c0",
+    "git -C /home/andrew/Development/AirStack show --numstat --format= 1f48484c7270b3de884ba7b36a08d15a60f2048f",
+    "git -C /home/andrew/Development/AirStack show --numstat --format= 278acbffaf748cd6e0102b3a25cfea544e031c83",
+    "git -C /home/andrew/Development/AirStack show --numstat --format= 32532c0efbfca22dd685b4e656874caf89dbaef8",
+    "git -C /home/andrew/Development/AirStack show --numstat --format= 3f5f2a4ecf7d3f7a86921799f1266defcc2cb75e",
+    "git -C /home/andrew/Development/AirStack show --numstat --format= 4241433b28173243f542d335fa949b6747df5793",
+    "git -C /home/andrew/Development/AirStack show --numstat --format= 43e794aa7f882d242b9d7cecdc2d96728f71b123",
+    "git -C /home/andrew/Development/AirStack show --numstat --format= 5667c6b3903d74e20566606594b68bdc11275c77",
+    "git -C /home/andrew/Development/AirStack show --numstat --format= 6b9c0d50921ed071e88ef1315c99e631b43fd260",
+    "git -C /home/andrew/Development/AirStack show --numstat --format= 7fb479be06848e7cbad869d5c87a690a56b9f728",
+    "git -C /home/andrew/Development/AirStack show --numstat --format= 88764bc651fa55daf21fcfb50122a77457a7d567",
+    "git -C /home/andrew/Development/AirStack show --numstat --format= 947a189acc87b0816c07d01201e1e46750a31bc5",
+    "git -C /home/andrew/Development/AirStack show --numstat --format= 94b8d42c4bd549b8cdfa3829a1dc018b2d21fd0e",
+    "git -C /home/andrew/Development/AirStack show --numstat --format= 9a8cfd7c32a4a1c1fa82845467e85a1232e26c1b",
+    "git -C /home/andrew/Development/AirStack show --numstat --format= 9d7c3231b0c0ad8364df5bdac44fffc8437e695c",
+    "git -C /home/andrew/Development/AirStack show --numstat --format= a24530bb332f9e4f972a9d70c49a5e8ebf03e930",
+    "git -C /home/andrew/Development/AirStack show --numstat --format= b9af9df84b7e26f14c3d11d7b23d16341d4f9cc7",
+    "git -C /home/andrew/Development/AirStack show --numstat --format= bc4eb5be3bd4f65b3dde542eadead151eb83fdcc",
+    "git -C /home/andrew/Development/AirStack show --numstat --format= c093d6ea054f39d969a641d9f873c547393e5c7f",
+    "git -C /home/andrew/Development/AirStack show --numstat --format= d074a58a7907e66610d763e60c3b16ec3a6a4f77",
+    "git -C /home/andrew/Development/AirStack show --numstat --format= d7fb468bfc5472fc3b1f016aff68a6a99bbc45d0",
+    "git -C /home/andrew/Development/AirStack show --numstat --format= e7ef77c03c570397443737ab0deb032a4f1ae5af",
+    "git -C /home/andrew/Development/AirStack show --numstat --format= e828ef059e9e42459c1c14ad7a808486f7a88491",
+    "git -C /home/andrew/Development/AirStack show --numstat --format= ec3c9b958d6a5760e5ee7dfd1d11c54a928b1d0f",
+    "git -C /home/andrew/Development/AirStack show --numstat --format= f7ca3698ed37c46e286812592b51a4204e15fe57"
+  ]
+}

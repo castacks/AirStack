@@ -1,0 +1,42 @@
+sha	date	author	added	deleted	files	keyword_hit	subject
+e41e0de6fd7477de395f1721c4154b49b29cea5d	2025-08-12	Junbin Yuan	6823	0	24	0	migrate exploration planner from subt
+dbbe2a33d596e6ccab224abc46d75bd2cba8c55e	2025-08-28	Junbin Yuan	320	3	8	0	config for running in ros2 gazebo env
+7efcea73cbeda8d138f26d067ffe1b192dcde78a	2025-08-31	Junbin Yuan	24	0	2	0	scripts for manual takeoff without gui
+72d5334fd3fc959602d11dca0708d26669aa81c1	2025-08-31	Junbin Yuan	805	50	6	0	gazebo configuration finished
+7d754556c56b10f837611a8f412d77a860ed5bc1	2025-09-03	Junbin Yuan	1	1	1	0	manual launch of robot
+44f2040414f312ea7093163e4ec2f4e7aae267ff	2025-09-03	Junbin Yuan	275	14	5	0	some config change for exploration run
+37b3e0e4d587e056656d7fe0709895b41a66b692	2025-09-03	Junbin Yuan	451	16	7	0	adding a mode for receiving target path instead of extracting frontier
+ed4fdc4e464374a5909f02fa9398e3383b3cdeef	2025-09-06	Junbin Yuan	394	0	1	1	blosc config for build error
+393142b843ec7f85f574daa7ddcee1fc3f8f1301	2025-09-10	Junbin Yuan	3	0	2	0	tiny modification of waypoing routing
+2ed7fecd576e1eed57f1be321554db9ac3791a3f	2025-09-10	Junbin Yuan	1	1	1	1	another fix
+54a1f7e44b8fad5a987f085da5331db7fb428336	2025-09-10	Junbin Yuan	1	1	1	0	manually launch robot
+e579063384cc1e52c07cec9cb885ff005a02b584	2025-09-10	Junbin Yuan	17	12	1	1	fixed docker compoer env
+593be4ac51500706ae78dbc61d25a5202232c4aa	2025-09-10	Junbin Yuan	3	3	1	1	fix cmakelist after merge
+0ea9a854e41fbe2fb1a22206814229062a470ff5	2025-09-10	Junbin Yuan	3	3	1	1	fix cmakelist after merge
+a7a53ae718ad91d8613df673b15d94835a9e833e	2025-09-10	Junbin Yuan	1	6	1	1	repair docker compose
+2d5142109ef4a1887895a954e2111da3ba147e75	2025-09-10	caomuqing	2958	22	14	0	add inspection_planner
+be77510f33427fc96d2e69096373db0585d2772d	2025-09-13	caomuqing	192	69	2	0	publishing inspection pose markers
+be6731472a97b6d72b2826a9965d1016208f2a6d	2025-09-14	caomuqing	4033	55	13	0	add filter prediction semantics
+8cee231cc3ab8a6b4e6aec3801d5108f9631b634	2025-09-15	caomuqing	119	69	1	0	update filter prediction semantics
+b533c76f9f3093665790f92e94951b1eee8e30ec	2025-09-26	Junbin Yuan	1	0	1	0	add doc line in mkdocs
+e69727d82813cdf47b435398c78e38d41646f793	2025-09-26	Junbin Yuan	14	11	1	0	Update README.md
+b3fc0558e1892d024b0e0dadf4404d312caa5c7b	2025-09-26	Junbin Yuan	455	646	15	0	RRT shortening, difference interpolation and extend step size
+4399ab4c146e054808b615905711fae866a2ffff	2025-10-08	Junbin Yuan	1424	23	20	0	shimizu demo
+1dd5bd7105bc421e53d75d25ded3e6a13895134c	2025-11-17	Junbin Yuan	3	0	1	0	gitmodules for vdbedt
+52869a5a2be4444bea16206b4af17a763725c1f2	2025-11-17	Junbin Yuan	10480	0	49	0	add vdb_edt and an integrated planner
+c6f542d2b82a166db3cb3053aca4bf327e3f69e1	2025-11-19	Junbin Yuan	390	5314	18	0	Add trajectory output, clean code
+6ce66123f05f5a6362dc99477a1ade8712286c8d	2025-11-20	Junbin Yuan	492	0	3	0	add a path tracker that subscribe to an entire trajectory
+56a83354a8df6670a9a0365ea0702c882ab747e1	2025-11-20	Junbin Yuan	165	109	8	0	testing traj controller
+da248b1c6bb114b80de0fb3a9d79c0902bb5317a	2025-11-26	Junbin Yuan	1	1	1	0	sync vdb-edt change
+4def27ac860b9474cdca2bca223f3ac3f4d82dab	2025-11-26	Junbin Yuan	1179	264	19	0	add tracking controller for gazebo
+50b44d15b4fffb41aead3b5cf65a05cf3f1632b7	2026-01-03	Junbin Yuan	2646	103	24	0	pre model ai test commit
+3431e263f079b1ebfe4855ffa5a92e6cdf0ef44a	2026-01-19	Junbin Yuan	2042	422	21	0	model ai demo
+dd521a9094466f0c3a08f37631c0b270e0b5e90a	2026-01-27	Junbin Yuan	286	80	11	0	mod for shimizu sim demo
+06e83c961ad8e23ecae956995336e81968eb135e	2026-01-28	Junbin Yuan	61	25	5	0	Update submodule URL to HTTPS and track new commits on frontier_map
+f16d4b956a53ea1292fc425e0178bb360b5a8da4	2026-01-29	Junbin Yuan	154	317	1	0	update rviz for shimizu
+19f88a55c3cc5242158b97206b2a9e57030db0bf	2026-01-29	Junbin Yuan	60	0	1	0	add a lidar config for mid360 in isaac sim
+31f969e66b80f299b5b40648d6727b9509bbdafc	2026-01-30	Junbin Yuan	127	21	6	0	config for shimizu running
+2799a9c15edc030b6a58bdaa571b86c349ce488d	2026-03-07	Junbin Yuan	3455	543	27	0	modal ai and research related development
+f1f655934d3d12e40b65a7ab78c33c4b69c8d183	2026-04-09	YuanJunbin	134	40	5	1	frame fix for superodom lidar
+2a361011826942d97f781b1c6a2bcf0c0fd1f78a	2026-04-09	Junbin Yuan	633	0	4	0	lidar config
+a50c19e9edd092f2606432be3e046a090a10da10	2026-06-08	YuanJunbin	1415	122	21	0	livox config

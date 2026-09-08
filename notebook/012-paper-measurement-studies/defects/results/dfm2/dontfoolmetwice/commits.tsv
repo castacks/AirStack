@@ -1,0 +1,35 @@
+sha	date	author	added	deleted	files	keyword_hit	subject
+10ea40ee0bca352b80d8fb7a7648076a0695f397	2025-08-15	N47IN	8336	0	39	0	Initial commit
+a6b86967ad396f2db3be3ece8f0f0aff5acdd855	2025-08-18	N47IN	2569	1852	16	0	Added refined naradio-heatmap, accurate cause embeddings
+bbd42fbf591a7e3bf5bc3f9d11655b1c903f8f0b	2025-08-21	N47IN	1392	419	9	0	Semantic voxel mapping wip
+47d8e2f521a85aa7f30e80428970fcd3fab5a7bb	2025-08-21	N47IN	1037	53	8	0	Naradio improvements + Octomap Integration
+acb08de6c36cbf49c444e86bd6a1d21b330d5633	2025-08-22	N47IN	525	139	4	1	Voxel Mapping works, need to fix drift
+1316a1153991ea683a6662af8569752d10bc4e70	2025-08-22	N47IN	1149	150	18	0	Semantic voxel mapping wip, hotspots working
+5bbd2c56adb7fb5b5398f4a23798061934222a53	2025-08-23	N47IN	618	99	5	1	Drift fix, will clean and optimise
+4a7eb9a51d0e3f522d824ea995a81a78dc764c5f	2025-08-26	N47IN	280	877	6	0	Perfected Voxel Mapping
+1bf07f4764d0553cfdcedfd21f25072bf5913c6c	2025-09-02	N47IN	885	0	1	0	Voxel centric GP analysis
+4f7d284b78bb68e8e6295cddf8b3294da6ab5e0c	2025-09-02	N47IN	602	0	1	0	3D GP
+310fd867d9aabad20da23aace404adb8796960dd	2025-09-02	N47IN	597	17	3	1	mapping fixes and GP
+1179104418416083d08a53a8aba42b73864532c4	2025-09-03	N47IN	894	239	3	0	Async per-voxel GP fitting
+85d157cc964d21efe5ae76524e5948273fa57b4e	2025-09-03	N47IN	90	635	1	0	true resilience, HA eliminated
+49753051450e32f7be16d98a3ca15ad6a5d69dbe	2025-09-03	N47IN	340	91	5	0	true resilience, HA eliminated
+68268bac3ce9b8896a5a1ea07fbdbdf0753f0824	2025-09-03	N47IN	719	135	7	0	multi cause handling
+c1f3acb9f1f5fe9809053c26bad264ec0e4d5026	2025-09-04	N47IN	227	469	1	0	external path handling enabled
+84f3743adb7d71def9f961a0798f0b3016ad16a5	2025-09-04	N47IN	55	59	4	0	external path handling enabled
+6d188040cf55134cdfc1ab49993264e22bea89db	2025-09-04	N47IN	1173	331	16	0	updated configs and path management
+cd3528066ca7e935002a9e59308b0cec115818d5	2025-09-08	N47IN	60	137	3	1	real-time GP patch, cause pcd
+ec2d6924969d1ace17ca51e3e4d250dd5abae975	2025-09-08	N47IN	7	249	2	0	clean-up
+414480eaf47ccea21f64617a9418e8313bc2a137	2025-09-10	N47IN	1044	50	6	0	proper path handling + FLU convention
+ceb22e27aaa21bf211f45d34acdb8d87fa237a1a	2025-09-10	N47IN	394	0	1	0	mature GP fit
+0e284952f22da19ed7cf4ec83f0ab8710c252f86	2025-09-10	N47IN	127	9	4	0	mature GP fit
+5f65b08fe146b8d945d18c83ffb1bbd8fc4c2e26	2025-09-10	N47IN	1132	57	5	0	realtime GP, partial
+4035af6ed11ead3ac17859194366ae65ed96ae62	2025-09-11	N47IN	1023	110	20	0	evolving costmaps beta
+a5ffb2c24b26227785074fafdf042ccbc553c296	2025-09-11	N47IN	313	137	5	0	standalone resilience without mapping
+d149d257765190e9807c34b0c72816d88aea8303	2025-09-11	N47IN	461	0	1	0	FLU mature?
+85ceb9a68217931c0f001cd82787dbcdaab096d2	2025-09-12	N47IN	529	948	3	0	costmap mature
+e1a99f32799a11d52f73d8526fc197f7c80a91b4	2025-09-14	Navin Sriram	16	14	1	0	Update README.md
+504e117db28c8ebeb6433d3088ff46e094c47d09	2025-09-14	Navin Sriram	4	2	1	0	Update README.md
+cf0197ebf022cb0d1fa29f7d8fee11936bcc5f81	2025-09-14	N47IN	580	1045	9	0	TARo code
+9a580c08927d4fb681bf7a4b32a94c0cd8f5cd71	2026-01-03	Andrew Jong	6	2	2	1	Bump cmake version to fix min version error; also add ros2 build folders to gitignore
+4ec60f84a2416b17ff45e0aef4c613355c49cc62	2026-01-12	N47IN	2	3	1	0	merge all changes
+1ec9c0044d2c0c6d5104f1c3ce4ed37c85a51454	2026-01-12	N47IN	23835	10443	203	0	merge all changes

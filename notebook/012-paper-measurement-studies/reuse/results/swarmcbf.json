@@ -1,0 +1,329 @@
+{
+  "project": {
+    "project": "SwarmCBF",
+    "components": [
+      "castacks/AirStack"
+    ],
+    "authored_source_loc": 5571,
+    "authored_total_loc": 6817,
+    "authored_source_deleted": 10,
+    "authored_by_category": {
+      "code": 4724,
+      "config": 847,
+      "docs": 1180,
+      "data": 66,
+      "other": 0
+    },
+    "vendored_source_loc": 3207,
+    "vendored_total_loc": 9634,
+    "base_source_loc": 99240,
+    "airstack_base_source_loc": 99240,
+    "final_source_loc": 108008,
+    "ratios": {
+      "authored_over_base": 0.056136638452237,
+      "base_share_of_final": 0.9187282423524183,
+      "authored_share_of_final": 0.051579512628694174,
+      "vendored_share_of_final": 0.02969224501888749
+    },
+    "airstack_base_modified_in_place": {
+      "files": 6,
+      "lines_changed": 54,
+      "share_of_base": 0.0005441354292623942,
+      "files_share_of_base": 0.0043541364296081275,
+      "deleted_files": 0
+    },
+    "airstack_authored_source_loc": 5571,
+    "airstack_additive_share": 0.9921019565607611
+  },
+  "components": [
+    {
+      "repo": "castacks/AirStack",
+      "role": "airstack",
+      "base_ref": "e4b499d120ef5157232c6ef6b1109488a94c9641",
+      "base_sha": "e4b499d120ef5157232c6ef6b1109488a94c9641",
+      "head_ref": "564d43e4542c1e2dd4cd24cebeb21b3fb3843ad2",
+      "head_sha": "564d43e4542c1e2dd4cd24cebeb21b3fb3843ad2",
+      "paths": null,
+      "commits_base_to_head": 21,
+      "files": {
+        "changed": 78,
+        "new": 71,
+        "modified": 7,
+        "deleted": 0,
+        "binary": 4
+      },
+      "delta_added": {
+        "code": 7476,
+        "config": 1302,
+        "docs": 1956,
+        "data": 5716,
+        "other": 1,
+        "source": 8778,
+        "total": 16451
+      },
+      "delta_deleted": {
+        "code": 1,
+        "config": 9,
+        "docs": 0,
+        "data": 0,
+        "other": 0,
+        "source": 10,
+        "total": 10
+      },
+      "authored_added": {
+        "code": 4724,
+        "config": 847,
+        "docs": 1180,
+        "data": 66,
+        "other": 0,
+        "source": 5571,
+        "total": 6817
+      },
+      "authored_deleted": {
+        "code": 1,
+        "config": 9,
+        "docs": 0,
+        "data": 0,
+        "other": 0,
+        "source": 10,
+        "total": 10
+      },
+      "authored_in_new_files": {
+        "code": 4717,
+        "config": 810,
+        "docs": 1178,
+        "data": 66,
+        "other": 0,
+        "source": 5527,
+        "total": 6771
+      },
+      "authored_in_modified_files_added": {
+        "code": 7,
+        "config": 37,
+        "docs": 2,
+        "data": 0,
+        "other": 0,
+        "source": 44,
+        "total": 46
+      },
+      "authored_in_modified_files_deleted": {
+        "code": 1,
+        "config": 9,
+        "docs": 0,
+        "data": 0,
+        "other": 0,
+        "source": 10,
+        "total": 10
+      },
+      "vendored_added": {
+        "code": 2752,
+        "config": 455,
+        "docs": 776,
+        "data": 5650,
+        "other": 1,
+        "source": 3207,
+        "total": 9634
+      },
+      "vendored_files": 34,
+      "vendored_patterns": [
+        {
+          "pattern": "robot/ros_ws/src/perception/natnet_ros2/*",
+          "why": "L2S-lab/natnet_ros2 driver vendored verbatim (GPLv3, author Aarsh Thakker); incl. a 5.6k-line Qt .ui"
+        },
+        {
+          "pattern": "robot/ros_ws/src/svg_ground_control/reference/*",
+          "why": "reference copies of other teams' code (pid_path_tracker_px4.cpp is byte-identical to the Shimizu branch)"
+        }
+      ],
+      "base_files": 1378,
+      "base_loc": {
+        "code": 74325,
+        "config": 24915,
+        "docs": 25443,
+        "data": 280409,
+        "other": 2262,
+        "source": 99240,
+        "total": 407354
+      },
+      "base_excluded_files": 16,
+      "base_excluded_loc": {
+        "code": 30024,
+        "config": 2301,
+        "docs": 0,
+        "data": 0,
+        "other": 0,
+        "source": 32325,
+        "total": 32325
+      },
+      "base_exclude_patterns": [
+        "*/glad/*",
+        "*/stb_image.h",
+        "*/stb_image_write.h",
+        "*/xdot/xdot*.py",
+        "gcs/foxglove_extensions/*/dist/*",
+        "*/CMakeModules/Find*.cmake",
+        "*/CMakeModules/OpenVDBUtils.cmake",
+        "robot/ros_ws/src/perception/natnet_ros2/*",
+        "*/mosquitto.conf"
+      ],
+      "base_modified_files": [
+        {
+          "path": "robot/docker/Dockerfile.robot",
+          "added": 19,
+          "deleted": 0,
+          "category": "config",
+          "base_size": 359
+        },
+        {
+          "path": "robot/docker/docker-compose.yaml",
+          "added": 8,
+          "deleted": 7,
+          "category": "config",
+          "base_size": 265
+        },
+        {
+          "path": "robot/ros_ws/src/interface/robot_interface/src/robot_interface_node.cpp",
+          "added": 7,
+          "deleted": 1,
+          "category": "code",
+          "base_size": 171
+        },
+        {
+          "path": "robot/docker/.bashrc",
+          "added": 7,
+          "deleted": 0,
+          "category": "config",
+          "base_size": 222
+        },
+        {
+          "path": ".env",
+          "added": 2,
+          "deleted": 2,
+          "category": "config",
+          "base_size": 56
+        },
+        {
+          "path": "AGENTS.md",
+          "added": 2,
+          "deleted": 0,
+          "category": "docs",
+          "base_size": 434
+        },
+        {
+          "path": ".gitignore",
+          "added": 1,
+          "deleted": 0,
+          "category": "config",
+          "base_size": 101
+        }
+      ],
+      "base_deleted_files": [],
+      "new_files_by_dir": [
+        {
+          "dir": "robot/ros_ws/src/perception",
+          "added": 8698,
+          "deleted": 0,
+          "files": 32
+        },
+        {
+          "dir": "robot/ros_ws/src/svg_ground_control",
+          "added": 7394,
+          "deleted": 0,
+          "files": 38
+        },
+        {
+          "dir": "simulation/isaac-sim/launch_scripts",
+          "added": 313,
+          "deleted": 0,
+          "files": 1
+        }
+      ],
+      "authored_by_ext": [
+        {
+          "ext": "py",
+          "added": 4390,
+          "deleted": 0,
+          "files": 20
+        },
+        {
+          "ext": "md",
+          "added": 1180,
+          "deleted": 0,
+          "files": 3
+        },
+        {
+          "ext": "yaml",
+          "added": 716,
+          "deleted": 7,
+          "files": 8
+        },
+        {
+          "ext": "sh",
+          "added": 327,
+          "deleted": 0,
+          "files": 2
+        },
+        {
+          "ext": "xml",
+          "added": 98,
+          "deleted": 0,
+          "files": 3
+        },
+        {
+          "ext": "rviz",
+          "added": 66,
+          "deleted": 0,
+          "files": 1
+        },
+        {
+          "ext": "robot",
+          "added": 19,
+          "deleted": 0,
+          "files": 1
+        },
+        {
+          "ext": ".bashrc",
+          "added": 7,
+          "deleted": 0,
+          "files": 1
+        },
+        {
+          "ext": "cpp",
+          "added": 7,
+          "deleted": 1,
+          "files": 1
+        },
+        {
+          "ext": "cfg",
+          "added": 4,
+          "deleted": 0,
+          "files": 1
+        },
+        {
+          "ext": ".env",
+          "added": 2,
+          "deleted": 2,
+          "files": 1
+        },
+        {
+          "ext": ".gitignore",
+          "added": 1,
+          "deleted": 0,
+          "files": 1
+        },
+        {
+          "ext": "svg_ground_control",
+          "added": 0,
+          "deleted": 0,
+          "files": 1
+        }
+      ],
+      "base_modified_source": {
+        "files": 6,
+        "lines_changed": 54,
+        "added": 44,
+        "deleted": 10
+      }
+    }
+  ]
+}
