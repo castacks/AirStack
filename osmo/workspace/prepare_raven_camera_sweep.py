@@ -33,10 +33,12 @@ def prepare(source, output, isaac_gpu, offboard_gpu, skips_list=(4, 8, 16, 24)):
             'run': {'container': 'airstack-robot-desktop-{n}', 'timeout_s': 60,
                     'cmd': 'source /opt/ros/jazzy/setup.bash\nexport ROS_DOMAIN_ID={n}\n'
                     'test ! -e /tmp/raven_robot_{n}.log || { echo STALE_RAVEN_LOG; exit 1; }\n'
+                    'rm -f /tmp/raven_camera_benchmark.json /tmp/raven_camera_benchmark.json.tmp\n'
                     'nohup python3 -u -c ' + shlex.quote(probe.read_text()) +
                     ' --robot {robot} --sim-seconds 50 --wall-timeout 18000'
                     ' --wait-for-file /tmp/raven_robot_{n}.log'
-                    ' > /tmp/raven_camera_benchmark.json 2> /tmp/raven_camera_benchmark.err < /dev/null &\n'
+                    ' --output /tmp/raven_camera_benchmark.json'
+                    ' > /tmp/raven_camera_benchmark.stdout 2> /tmp/raven_camera_benchmark.err < /dev/null &\n'
                     'echo $! > /tmp/raven_camera_benchmark.pid\n'}}
         collect_probe = {
             'run': {'container': 'airstack-robot-desktop-{n}', 'timeout_s': 900,

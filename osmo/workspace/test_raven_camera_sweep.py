@@ -42,6 +42,10 @@ class CameraSweepTests(unittest.TestCase):
                 search['goal']['max_sim_seconds'] = 600.0
                 probe_steps = [s for s in candidate['steps'] if 'raven_camera_benchmark' in s.get('run', {}).get('cmd', '')]
                 self.assertEqual(len(probe_steps), 2)
+                self.assertIn('--output /tmp/raven_camera_benchmark.json',
+                              probe_steps[0]['run']['cmd'])
+                self.assertIn('> /tmp/raven_camera_benchmark.stdout',
+                              probe_steps[0]['run']['cmd'])
                 self.assertEqual([s for s in candidate['steps'] if s not in probe_steps], baseline['steps'])
 
 

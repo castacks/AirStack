@@ -36,6 +36,7 @@ def main():
     ap.add_argument('--sim-seconds', type=float, default=50)
     ap.add_argument('--wall-timeout', type=float, default=7200)
     ap.add_argument('--wait-for-file')
+    ap.add_argument('--output', help='atomically write the final JSON here')
     args = ap.parse_args()
     rclpy.init()
     node = rclpy.create_node('camera_sim_window_probe')
@@ -84,7 +85,14 @@ def main():
                       wall_start_unix_s=begin[2], wall_end_unix_s=end[2],
                       image_window_sim_seconds=args.sim_seconds,
                       streams=summarize(samples, args.sim_seconds, elapsed_wall, begin[0]))
-        print(json.dumps(result), flush=True)
+        payload = json.dumps(result)
+        if args.output:
+            output = Path(args.output)
+            temporary = output.with_name(output.name + '.tmp')
+            temporary.write_text(payload + '\n')
+            temporary.replace(output)
+        else:
+            print(payload, flush=True)
         if any(not values for values in samples.values()):
             raise SystemExit('Missing RGB or depth frames')
     finally:
