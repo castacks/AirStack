@@ -25,16 +25,16 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | **Hurricane** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
 | **Hurricane** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
 | **Hurricane** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
-| **Tornado** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟧 | 🟨 | 🟨 |
-| **Tornado** | **Urban** | L2 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟨 |
-| **Tornado** | **Urban** | L3 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟨 |
+| **Tornado** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟧 | 🟩 | 🟨 |
+| **Tornado** | **Urban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 | 🟨 |
+| **Tornado** | **Urban** | L3 | 🟩 | 🟩 | 🟧 | 🟩 | 🟩 | 🟨 |
 | **Tornado** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Tornado** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Tornado** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Earthquake** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Earthquake** | **Urban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Earthquake** | **Urban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Earthquake** | **Suburban** | L1 | 🟩 | 🟩 | 🟧 | 🟧 | 🟦 | 🟦 |
+| **Earthquake** | **Suburban** | L1 | 🟩 | 🟩 | 🟨 | 🟧 | 🟦 | 🟦 |
 | **Earthquake** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟧 | 🟦 | 🟦 |
 | **Earthquake** | **Suburban** | L3 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
 
@@ -45,7 +45,7 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | Pod | Current run | Remaining assignment |
 |---|---|---|
 | dev 191 | Expired: `FAILED_EXEC_TIMEOUT` | No active run |
-| 1-GPU 58 | Tornado Urban L1 CoNavGPT2, started September 8 04:49:32 UTC; live runner PID 2623975, verified 05:54 UTC | **19 standard-baseline cells remain**, including current run and VLFM rerun; 11/30 queue cells passed/uploaded |
+| 1-GPU 58 | Earthquake Suburban L1 Lawnmower, started September 8 15:17:33 UTC; live runner PID 4082324 | **18/30 uploaded; 12 outstanding**: nine Earthquake cells including current, plus Tornado L1 VLFM / L2 CoNavGPT2 / L3 Lawnmower needing investigation and rerun |
 | 2-GPU 1 | `FAILED_EVICTED`, confirmed by OSMO; SSH endpoint gone | RayFronts queue cannot advance on this pod; replacement required |
 | 2-GPU 3 | Fire Suburban L1 RAVEN **passed** all eight 600-s windows; upload in progress since 14:45 UTC | Final RTF **0.0398**, 12/49 GT matched (24.5% recall), 5.66 km team path. NAS transfer is 64/108 GiB at 15:18 UTC; queue will not start Fire Suburban L3 until upload verification succeeds. Runner 712854; launcher PID 60 remains T |
 | 2-GPU 4 | Fire Suburban L2 RAVEN **passed, uploaded and NAS-verified** at 15:06:44 UTC; Hurricane Suburban L1 passed 8/8 takeoff and entered search at 15:22:20 | Fire L2 final RTF **0.0443**, 6/79 GT matched (7.6% recall), 8.28 km team path. Current Hurricane L1 runner 2412979 dispatched all eight search goals by 15:22:41. Launcher PID 59 remains T |
@@ -129,10 +129,12 @@ including empty intervals; RTF uses paired monotonic clock callbacks. Start/end
 wall timestamps allow matching resource samples to the measured window. These
 short, freshly initialized runs do not establish long-run map-growth performance.
 
-For subsequent baseline **and RayFronts** runs, use
-`ZED_TIME_SLICE_GROUPS=12`, `ZED_TIME_SLICE_BURST=8`, and
-`ZED_HYDRA_TIME_SLICE=true`: eight occupied camera groups plus **four empty
-groups**, not four total groups or a four-update burst. Active iterations keep
+September 8, after the RAVEN sweep, the user approved the winner for **all
+remaining baselines as well as RayFronts**:
+`ZED_TIME_SLICE_GROUPS=8`, `ZED_TIME_SLICE_BURST=8`, and
+`ZED_HYDRA_TIME_SLICE=true`: eight occupied camera groups and **zero empty
+groups**. Pod 58's future mission files were regenerated; its active Earthquake
+Suburban L1 Lawnmower retains 12/8. Active iterations keep
 their launch settings. Baseline image geometry, RayFronts stereo geometry,
 LiDAR configuration, simulation budget and acceptance gates remain unchanged.
 
@@ -729,6 +731,14 @@ changed by this measurement. Probe: `scripts/measure_camera_rates.py`;
 diagnostic: `camera_rate_32x8_pod58/2026-09-07_15-17-40`.
 
 ## Actual results (detector-confirmed team progress and PPL)
+
+September 8 analysis refresh is running detached in local tmux `eval_sep8`,
+using the accepted historical roots plus newly uploaded `remaining58_*` runs.
+Outputs: `osmo/results/team_progress_sep8.json`, `/tmp/team_progress_sep8.md`;
+log: `/tmp/team_progress_sep8.log`. Seven evaluator unit tests passed. Existing
+tables below remain the last completed evaluation until the refresh is validated.
+RAVEN's built-in GT-match results are tracked separately: they are not yet
+equivalent to this detector-circle/time-integrated progress/PPL evaluator.
 
 A GT victim counts as detected when its world-frame XY location falls inside a **12 m circle around a planner `search_target`** during the 600-s search. A target circle exists only after a `person` detection clears the shared 0.65 confidence gate, is depth-projected, and forms a clustered target instance. One liberal circle can credit multiple GT people; drone proximity alone never counts. Time-integrated progress is normalized area under the cumulative detector-confirmed progress curve; marker chunks were sampled at about 20-s intervals (final persistent target state is always read, so final detection counts are exact). Paths are 1 Hz, world-frame XY odometry. Ideal lengths are OR-Tools oracle estimates for open Euclidean multi-depot routes through victim centres; fixed-sector methods preserve recorded robot ownership, while CoNavGPT2 permits joint assignment. Ground debris does not obstruct an aerial XY geodesic, and no return to launch is required. PPL uses the ideal route through detected GT victims: `progress × ideal_detected / max(actual, ideal_detected)`.
 
