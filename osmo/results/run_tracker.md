@@ -47,8 +47,8 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | dev 191 | Expired: `FAILED_EXEC_TIMEOUT` | No active run |
 | 1-GPU 58 | Tornado Urban L1 CoNavGPT2, started September 8 04:49:32 UTC; live runner PID 2623975, verified 05:54 UTC | **19 standard-baseline cells remain**, including current run and VLFM rerun; 11/30 queue cells passed/uploaded |
 | 2-GPU 1 | `FAILED_EVICTED`, confirmed by OSMO; SSH endpoint gone | RayFronts queue cannot advance on this pod; replacement required |
-| 2-GPU 3 | RAVEN camera sweep: clean 24-empty-group retry started September 8 08:21:39 UTC; runner PID 3914542 | The 08:00 attempt was stopped before measurement after robot 1 exhausted arm-state confirmation and was not uploaded. Production lane paused; protected launcher PID 60 in state T; owned renderer GPU 2 (`d239ce7e`), offboard GPU 3 (`38264ce2`) |
-| 2-GPU 4 | RAVEN camera sweep: zero-empty-group control passed locally September 8 09:17:58 UTC; pod idle pending final 24-empty result/production handoff | Zero empty groups is the current sole qualifying setting. Fire Suburban L2 production rerun remains pending; protected launcher PID 59 in state T; renderer GPU 0 (`1617253c`), offboard GPU 3 (`c90e144e`) |
+| 2-GPU 3 | RAVEN camera sweep: clean 24-empty-group retry completed its valid 8-robot measurement September 8 09:49:49 UTC; final landing/collection in progress under runner PID 3914542 | The setting measured RTF 0.04207 with only 0.72 simulated RGB/depth FPS and fails the camera gate. Production lane remains paused; protected launcher PID 60 in state T; owned renderer GPU 2 (`d239ce7e`), offboard GPU 3 (`38264ce2`) |
+| 2-GPU 4 | RAVEN camera sweep: zero-empty-group control passed locally September 8 09:17:58 UTC; pod idle pending production handoff | Zero empty groups is the selected setting and has been deployed to all remaining RAVEN mission specs in commit `0819ae3d`. Fire Suburban L2 production rerun remains pending; protected launcher PID 59 in state T; renderer GPU 0 (`1617253c`), offboard GPU 3 (`c90e144e`) |
 
 September 8 04:05 UTC: user assigned pods 3/4 to RAVEN and reaffirmed pod 58
 for non-RAVEN work. Both RAVEN pods were already protected and running the
@@ -84,9 +84,10 @@ currently flying cells are **not new completions** until their acceptance gates 
 ### Camera schedule change — September 7, user approved
 
 **September 8: controlled RAVEN scheduling sweep requested.** Pod 3 is reserved
-for four 50-sim-second Fire Suburban L1 diagnostics with 4/8/16/24 empty camera
-groups (12/16/24/32 total), keeping eight-update bursts. Pod 4 continues RAVEN
-production and pod 58 continues non-RAVEN production. The interrupted pod-3
+for 50-sim-second Fire Suburban L1 diagnostics with 4/8/16/24 empty camera
+groups (12/16/24/32 total), keeping eight-update bursts. Pod 4 ran the 8-empty
+and zero-empty diagnostics in parallel while both RAVEN production lanes were
+paused; pod 58 continued non-RAVEN production. The interrupted pod-3
 600-second attempt does not count as completed. Diagnostic missions have no
 NAS destination and never enter the accepted-run totals.
 
@@ -103,7 +104,12 @@ model configuration and GPU pins unchanged throughout the comparison.
 | 4 | 12 | 8 | 50 s | 2.04 / 2.04 | 0.03799 | 2.73 s | Measured on 2-GPU 3; fails the 2.5-FPS gate; `diagnostic_raven_empty4_50sim/2026-09-08_05-27-57` |
 | 8 | 16 | 8 | 50 s | 1.56 / 1.56 | 0.04312 | 3.69 s | Measured on 2-GPU 4; fails the 2.5-FPS gate; `diagnostic_raven_empty8_50sim/2026-09-08_07-09-49`. The first attempt never started RAVEN (6/8 frame readiness); the 06:42 retry failed 6/8 takeoff; both are excluded and neither was uploaded. |
 | 16 | 24 | 8 | 50 s | 0.96 / 0.96 | 0.04379 | 5.61 s | Measured on 2-GPU 3; fails the 2.5-FPS gate; `diagnostic_raven_empty16_50sim/2026-09-08_06-41-04` |
-| 24 | 32 | 8 | 50 s | — | — | — | Clean retry running on 2-GPU 3 since 08:21:39 UTC with a 2,700-second sparse-frame readiness budget; runner 3914542, `diagnostic_raven_empty24_50sim/2026-09-08_08-21-39`. The 08:00 attempt failed arm-state confirmation before measurement and was excluded/not uploaded. |
+| 24 | 32 | 8 | 50 s | 0.72 / 0.72 | 0.04207 | 7.53 s | Measured on 2-GPU 3; fails the 2.5-FPS gate; `diagnostic_raven_empty24_50sim/2026-09-08_08-21-39`. The 08:00 attempt failed arm-state confirmation before measurement and was excluded/not uploaded. |
+
+**Selected production setting:** zero empty groups (8 total groups), burst 8.
+It was the only setting to pass the all-robot RGB/depth gate. Commit `0819ae3d`
+deploys it to every remaining RAVEN 2-GPU mission while preserving stereo
+resolution, LiDAR, RAVEN parameters, scene geometry and per-pod GPU pins.
 
 Probe windows start on the first robot-domain clock callback after that robot's
 fresh RAVEN log appears. FPS uses the entire 50-sim-second observation window,
