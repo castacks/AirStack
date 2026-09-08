@@ -48,7 +48,7 @@ Last reconciled against `/media/share/coa-sei` and the live OSMO queue: **2026-0
 | 1-GPU 58 | Tornado Urban L1 CoNavGPT2, started September 8 04:49:32 UTC; live runner PID 2623975, verified 05:54 UTC | **19 standard-baseline cells remain**, including current run and VLFM rerun; 11/30 queue cells passed/uploaded |
 | 2-GPU 1 | `FAILED_EVICTED`, confirmed by OSMO; SSH endpoint gone | RayFronts queue cannot advance on this pod; replacement required |
 | 2-GPU 3 | Fire Suburban L1 RAVEN **passed** all eight 600-s windows; upload in progress since 14:45 UTC | Final RTF **0.0398**, 12/49 GT matched (24.5% recall), 5.66 km team path. NAS transfer is 64/108 GiB at 15:18 UTC; queue will not start Fire Suburban L3 until upload verification succeeds. Runner 712854; launcher PID 60 remains T |
-| 2-GPU 4 | Fire Suburban L2 RAVEN **passed, uploaded and NAS-verified** at 15:06:44 UTC; Hurricane Suburban L1 started next and is taking off | Final RTF **0.0443**, 6/79 GT matched (7.6% recall), 8.28 km team path. Current Hurricane L1 runner 2412979 passed readiness/encoder/bridge/perception and began first-attempt takeoff at 15:17:19. Launcher PID 59 remains T |
+| 2-GPU 4 | Fire Suburban L2 RAVEN **passed, uploaded and NAS-verified** at 15:06:44 UTC; Hurricane Suburban L1 passed 8/8 takeoff and entered search at 15:22:20 | Fire L2 final RTF **0.0443**, 6/79 GT matched (7.6% recall), 8.28 km team path. Current Hurricane L1 runner 2412979 dispatched all eight search goals by 15:22:41. Launcher PID 59 remains T |
 
 September 8 04:05 UTC: user assigned pods 3/4 to RAVEN and reaffirmed pod 58
 for non-RAVEN work. Both RAVEN pods were already protected and running the
