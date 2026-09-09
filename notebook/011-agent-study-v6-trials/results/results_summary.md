@@ -445,12 +445,21 @@ scoring flights. Artifacts: [`e-qualitative-figures/`](e-qualitative-figures/).
   the judge's own `odom.csv` + `r7_route.json` + `verdict.json` from
   the official scoring artifact dirs, over the EVAL layout
   (`layout_r7.json`). Left: A1/opus-5 #1 (`r5_artifacts_92124`, PASS,
-  min clearance 1.65 m). Right: A1/opus-5 #5 (`r5_artifacts_81731`,
-  FAIL "flown track did not follow the planner route in order" — the
-  campaign's single fresh-route generalization failure: the shipped
-  system flew straight to the final waypoint and stopped; clearance
-  2.80 m). Both are Isaac flights in which the eval pillars were
-  physically loaded (judge stages `obstacles_r7_eval.usda`).
+  min clearance 1.65 m). Right (since 2026-09-09, paper lead's request — contrast the platform
+  arms rather than two A1 runs): A4/opus-5 #1 (raw
+  `A3_claude-opus-5_ladder_claude_001`, Amendment 3 re-judge artifact
+  `r5_artifacts_9651`, FAIL — all 9 checkpoints reached in order but min
+  clearance 0.31 m vs the 1.0 m gate; the grazed pillar is drawn red).
+  The eval pillars were physically loaded in both flights: A1 via the
+  judge's Isaac staging (`obstacles_r7_eval.usda`), A4 via the re-judged
+  runner's `world_r7.sdf` staging (`results.json → rescore.eval_world_check`:
+  14 eval / 0 practice pillars). Only re-judge artifacts qualify for A4 —
+  the v6-original A4 flights never had the eval field in their sim (§(e)).
+  Previous right panel (until 2026-09-09): A1/opus-5 #5
+  (`r5_artifacts_81731`, FAIL "flown track did not follow the planner
+  route in order" — the campaign's single fresh-route generalization
+  failure; the shipped system flew straight to the final waypoint;
+  clearance 2.80 m).
 
 **Answer-key note.** Panel (c) shows the EVAL pillar layout. The
 2026-08-28 rule withheld it from every shareable figure *until the

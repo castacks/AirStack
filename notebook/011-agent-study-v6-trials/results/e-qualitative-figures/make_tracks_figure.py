@@ -4,11 +4,16 @@
 Two officially scored R7 flights on the EVAL pillar field, drawn from the
 judge's own odometry capture and issued route:
   left  — A1 (AirStack scaffolded, closed loop), claude-opus-5 trial #1:
-          PASS, min clearance 1.65 m
-  right — A1, claude-opus-5 trial #5: FAIL — the fresh evaluation route
-          was not followed in corridor order (two checkpoints never
-          reached), although clearance was kept; the campaign's one
-          fresh-route generalization failure
+          PASS, min clearance 1.65 m (Isaac Sim, PX4-in-the-loop)
+  right — A4 (assemble-it-yourself, raw trial id A3_*), claude-opus-5
+          trial #1, Amendment 3 re-judge: FAIL — every checkpoint reached
+          in order, but the shipped system passed 0.31 m from an eval
+          pillar against the 1.0 m clearance gate (Gazebo, PX4 SITL x500)
+
+History: until 2026-09-09 the right panel was A1 opus-5 #5
+(r5_artifacts_81731), the campaign's one fresh-route generalization
+failure; the paper lead asked for the failing example to come from A4 so
+the panel contrasts the platform arms rather than two A1 runs.
 
 Answer-key note: the EVAL layout was withheld from every figure until the
 campaign concluded (strategy choice 2026-08-28). Campaign v6 is complete
@@ -32,17 +37,19 @@ STUDY = Path.home() / "Development/AirStack/agent_study"
 FLY_Z = 0.3  # matches the judge's clearance check (ground samples ignored)
 
 # (panel title, raw trial dir, official R7 artifact dir)
-# Both flights are AirStack-arm scoring flights: the eval scene is staged
-# into the Isaac workspace at judge time, so the pillars drawn here were
-# physically present in the simulator. (Bare-parts-arm flights are NOT
-# drawn: the judge never staged the eval world into that arm's Gazebo
-# workspace, so their eval-layout clearance verdicts are not ground truth
-# — see results_summary.md §(e).)
+# Both are scoring flights in which the eval pillars were physically present
+# in the simulator. A1: the judge stages the eval scene into the Isaac
+# workspace. A4 (raw A3_*): ONLY the Amendment 3 re-judge artifacts qualify —
+# the v6 judge never staged the eval world on the Gazebo path (see
+# results_summary.md §(e)/(f)); the re-judged runner (agent_study d0a3482)
+# writes obstacles/world_r7.sdf over provided/world_practice.sdf before the
+# agent's ./bringup, and results.json → rescore.eval_world_check records 14
+# eval / 0 practice pillars in the generated world for this trial.
 TRIALS = [
     ("A1 opus-5 #1: PASS", "A1_claude-opus-5_ladder_claude_001",
      "r5_artifacts_92124"),
-    ("A1 opus-5 #5: FAIL (route order)", "A1_claude-opus-5_ladder_claude_005",
-     "r5_artifacts_81731"),
+    ("A4 opus-5 #1: FAIL (clearance)", "A3_claude-opus-5_ladder_claude_001",
+     "r5_artifacts_9651"),
 ]
 
 
@@ -96,9 +103,12 @@ def main():
 
         shown = pillars if not args.withhold_eval_layout else ([hit] if hit else [])
         for px, py, pr, ph in shown:
-            ax.add_patch(Circle((px, py), pr, color="0.45", zorder=2))
-            ax.add_patch(Circle((px, py), pr + 1.0, fill=False, color="0.75",
-                                ls=":", lw=0.5, zorder=1))
+            violated = hit is not None and mc < 1.0 and (px, py) == (hit[0], hit[1])
+            ax.add_patch(Circle((px, py), pr, color="tab:red" if violated else "0.45",
+                                zorder=2))
+            ax.add_patch(Circle((px, py), pr + 1.0, fill=False,
+                                color="tab:red" if violated else "0.75",
+                                ls=":", lw=0.9 if violated else 0.5, zorder=1))
         rx = [0.0] + [w[0] for w in route]
         ry = [0.0] + [w[1] for w in route]
         ax.plot(rx, ry, "k--", lw=0.7, alpha=0.7, zorder=3)
