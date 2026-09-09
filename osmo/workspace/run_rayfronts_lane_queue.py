@@ -78,6 +78,16 @@ def main() -> int:
         assert mission["env"]["ZED_HYDRA_TIME_SLICE"] == "true"
         search = next(s["action"] for s in mission["steps"]
                       if s.get("action", {}).get("task") == "semantic_search")
+        takeoff = next(s["action"] for s in mission["steps"]
+                       if s.get("action", {}).get("task") == "takeoff")
+        # At low RTF the takeoff action can be accepted and ascending for
+        # several wall minutes before the relay forwards its first feedback.
+        # The generic 15 s default then resends a duplicate goal; the task
+        # correctly rejects that duplicate as "another task is already active"
+        # even though the original later succeeds, and the runner falsely
+        # fails an otherwise healthy team takeoff. Wait for the accepted
+        # action's real result/feedback instead of manufacturing duplicates.
+        takeoff["feedback_timeout_s"] = 300
         assert search["timeout_s"] == 21600
         assert search["goal"]["max_sim_seconds"] == 600.0
 
