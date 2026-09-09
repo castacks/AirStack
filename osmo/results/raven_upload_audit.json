@@ -1,8 +1,8 @@
 {
   "audit_complete": true,
-  "generated_utc": "2026-09-09T10:17:26Z",
+  "generated_utc": "2026-09-09T13:15:50Z",
   "scope": "All completed valid 600-s production iterations present on 2-GPU pods 3, 4 and 5",
-  "accepted_production_iterations": 7,
+  "accepted_production_iterations": 8,
   "missing_from_nas": 0,
   "excluded": "All failed/stopped attempts and passed 50-s camera diagnostics",
   "runs": [
@@ -82,6 +82,17 @@
       "compiled_results_sha256": "a43df6697940582f059269ed699c79a2431c72c5fcea101c8f35a9639d574956",
       "metrics_sha256": "1ea310a7dc7603e998c785bc1e864512b121557a9e567bcde4d2a7f2346074d8",
       "groundtruth_comparison_sha256": "1b2fded31e920252f7389bdc51c9f8c5ccdc4e0e8d5b95de1032fed8d0d08904"
+    },
+    {
+      "pod": "2-GPU 3",
+      "nas_iteration": "raven_tornadosuburbanl1v1_raven_remaining_2gpu1/2026-09-09_06-39-21/iter_001__tornadosuburbanl1v1_raven__raven",
+      "manifest_match": true,
+      "file_count": 151,
+      "total_bytes": 157808020637,
+      "iteration_sha256": "d6a5d01fb79f3b37b1e21431186c34358d04de6353a070b400081d9fef4f5d00",
+      "compiled_results_sha256": "4ab08257c08146a77eba28eb945f1d0021c9ece13e7d475c2c06764d9d16be5b",
+      "metrics_sha256": "d61f216e472c8665d9897b09d1c3c24902abfde0110fa88ffe8354daaf23a739",
+      "groundtruth_comparison_sha256": "bb5ecd4b2aa55059c2613102889cd76248157b9d53dc9f07c79d481ae71be3c5"
     }
   ]
 }

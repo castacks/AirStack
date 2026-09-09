@@ -1,6 +1,6 @@
 # Disaster benchmark dashboard
 
-Latest completion update: **2026-09-09**. Tornado Suburban L2 RAVEN passed all eight 600-s robot windows at whole-step RTF **0.0446**, was checksum-verified on NAS, and had 25.11 GB of recoverable local artifacts pruned. Pod 5 restarted Earthquake Suburban L1 at 10:51:45 UTC with the corrected 900-second takeoff-feedback watchdog; pod 3 continues Tornado Suburban L1. Failed attempts remain local and unuploaded.
+Latest completion update: **2026-09-09**. Tornado Suburban L1 RAVEN passed all eight 600-s robot windows at whole-step RTF **0.03498**, was checksum-verified on NAS, and had **157.81 GB** of recoverable local artifacts pruned. Strict 10 m progress is **4/30 = 13.33%**. Pod 3 advanced to Tornado Suburban L3; pod 5 continues the safety-synchronized Earthquake Suburban L1 search. Failed attempts remain local and unuploaded.
 
 > **Legend:** 🟩 **DONE** · 🟦 **READY** · 🟧 **RERUN** · 🟨 **VERIFY / IN PROGRESS** · ⬜ **NOT READY**
 >
@@ -28,9 +28,9 @@ Latest completion update: **2026-09-09**. Tornado Suburban L2 RAVEN passed all e
 | **Tornado** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟧 | 🟩 | 🟨 |
 | **Tornado** | **Urban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 | 🟨 |
 | **Tornado** | **Urban** | L3 | 🟩 | 🟩 | 🟧 | 🟩 | 🟩 | 🟨 |
-| **Tornado** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟨 |
+| **Tornado** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 |
 | **Tornado** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 |
-| **Tornado** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 | 🟦 |
+| **Tornado** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 | 🟨 |
 | **Earthquake** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Earthquake** | **Urban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Earthquake** | **Urban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
@@ -65,7 +65,7 @@ Pods 3 and 5 had no inactive accepted production artifacts left locally.
 | dev 191 | Expired: `FAILED_EXEC_TIMEOUT` | No active run |
 | 1-GPU 58 | Earthquake Suburban L1 VLFM **passed and NAS-verified** at 23:16:49 UTC (team RTF **0.04825**); audited-missing Fire Suburban L1 CoNavGPT2 attempt 2 passed 8/8 PX4/perception/takeoff gates and entered team search at 23:56:24 UTC | Live persistent-clock RTF **0.04701** over 90.62 wall s / 4.26 sim s. Attempt 1 failed before flight on robot 7's transient mono-RGBD cloud gate and was not uploaded. **20/32 uploaded; 12 outstanding** including the active rerun, next-priority Tornado Suburban L3 CoNav rerun, remaining Earthquake cells, and three Tornado Urban failures needing investigation |
 | 2-GPU 1 | `FAILED_EVICTED`, confirmed by OSMO; SSH endpoint gone | RayFronts queue cannot advance on this pod; replacement required |
-| 2-GPU 3 | Fire Suburban L1/L3 and Hurricane Suburban L2 RAVEN are **passed, uploaded and NAS-verified**; Tornado Suburban L1 passed 8/8 at **11:47:44 UTC** under `raven_tornadosuburbanl1v1_raven_remaining_2gpu1/2026-09-09_06-39-21` and is uploading | Tornado L1 whole-step **RTF 0.03498** (600 sim s / 17,150.49 wall s); strict 10 m is **4/30 = 13.33%** from 336 team detection centers. Its 147 GiB result began uploading at 11:55:33 UTC and remains yellow until full NAS checksum verification. Hurricane L2 passed at whole-step **RTF 0.0907**, checksum-verified on NAS, then had **85.72 GB** pruned locally. Rejected attempts remain local and unuploaded. Launcher PID 60 remains T |
+| 2-GPU 3 | Fire Suburban L1/L3, Hurricane Suburban L2 and Tornado Suburban L1 RAVEN are **passed, uploaded, checksum-verified and locally pruned**; Tornado Suburban L3 began at **13:19:11 UTC** | Tornado L1 whole-step **RTF 0.03498** (600 sim s / 17,150.49 wall s); strict 10 m is **4/30 = 13.33%** from 336 team detection centers. Its NAS copy is 151 files / 157,808,020,637 bytes; full checksum verification passed and **157.81 GB** was pruned locally at 13:15:50 UTC. Rejected attempts remain local and unuploaded. Launcher PID 60 remains T |
 | 2-GPU 4 | Fire Suburban L2 and Hurricane Suburban L1 RAVEN both **passed, uploaded and NAS-verified**; Hurricane Suburban L3 needs a replacement rerun | Kubernetes evicted the workspace at **22:37:33 UTC** for exceeding the **400 GiB ephemeral-storage limit**, with the valid L3 search only **416–427/600 s** complete. The interrupted partial run is invalid and was not uploaded. This was infrastructure storage exhaustion, not a simulator or autonomy failure. L3 is orange until rerun on a replacement 2-GPU pod |
 | 2-GPU 5 | Hurricane Suburban L3 and Tornado Suburban L2 RAVEN are **passed, uploaded, checksum-verified and locally pruned**; focused Earthquake Suburban L1 safety-synchronized rerun began search 8/8 at **12:05:44 UTC** under `raven_earthquakesuburbanl1v1_raven_remaining_2gpu1/2026-09-09_11-43-15` | The new safety gate prevented stale-state goal rejection: all eight takeoffs and the post-takeoff odometry gate passed. Live persistent-callback **RTF 0.04676** over 90.45 wall s / 4.23 sim s. The preceding invalid attempts were not uploaded. Commit `0479a97b` requires a fresh safety `false` immediately before dispatch without weakening the 8/8 flight gate. Tornado L2 passed at whole-step **RTF 0.0446**, strict 10 m **0/40**. Launcher PID 61 remains T. |
 
@@ -141,6 +141,7 @@ resolution, LiDAR, RAVEN parameters, scene geometry and per-pod GPU pins.
 | Hurricane Suburban L2 | Passed; uploaded, checksum-verified and pruned | 8/8, 593.5–597.5 s | 0.0907 | 4/66 | 6.1% | 803 | 8.63 km | `raven_hurricanesuburbanl2v1_raven_remaining_2gpu1/2026-09-09_03-09-11` |
 | Hurricane Suburban L3 | Passed; uploaded, checksum-verified and pruned | 8/8, 598.5–599.7 s | 0.1038 | 0/63 | 0.0% | 30 | 0.05 km | `raven_hurricanesuburbanl3v1_raven_remaining_2gpu1/2026-09-09_03-20-27` |
 | Tornado Suburban L2 | Passed; uploaded, checksum-verified and pruned | 8/8, 598.5–599.9 s | 0.0446 | 0/40 | 0.0% | 18 | 0.05 km | `raven_tornadosuburbanl2v1_raven_remaining_2gpu1/2026-09-09_05-56-25` |
+| Tornado Suburban L1 | Passed; uploaded, checksum-verified and pruned | 8/8, 597.1–600.1 s | 0.0350 | 4/30 | 13.3% | 336 | 6.32 km | `raven_tornadosuburbanl1v1_raven_remaining_2gpu1/2026-09-09_06-39-21` |
 
 The optional post-search land step was rejected in both cells after the complete
 600-second search results had already been written; it does not invalidate the
@@ -675,7 +676,7 @@ hours for inspection and corrective reruns.
 | Workflow | Cells | State |
 |---|---|---|
 | `airstack-mission-8robot-2gpu-2` | Fire/Suburban L1–L3 RayFronts | QUEUED |
-| `airstack-mission-8robot-2gpu-3` | RAVEN lane A | RUNNING — Fire Suburban L1/L3 and Hurricane Suburban L2 NAS-verified; Tornado Suburban L1 passed 8/8 and is uploading/checksum-verifying |
+| `airstack-mission-8robot-2gpu-3` | RAVEN lane A | RUNNING — Fire Suburban L1/L3, Hurricane Suburban L2 and Tornado Suburban L1 NAS-verified; Tornado Suburban L3 active from 13:19:11 UTC |
 | `airstack-mission-8robot-2gpu-4` | Fire/Suburban L2 + Hurricane/Suburban lane | FAILED_EVICTED — Fire L2 and Hurricane L1 NAS-verified; partial Hurricane L3 discarded after the workspace exceeded 400 GiB ephemeral storage |
 | `airstack-mission-8robot-2gpu-5` | RAVEN lane B | RUNNING — Hurricane Suburban L3 and Tornado Suburban L2 NAS-verified; Earthquake Suburban L1 safety-synchronized focused rerun active from 11:43:15 UTC |
 | `airstack-mission-8robot-2gpu-6` | Fire/Urban L3 × Frontier, lawnmower, VLFM, CoNavGPT2 | QUEUED — 12 h mission cap, 48 h inspectable pod |
@@ -781,7 +782,7 @@ scene/method count once, using the latest accepted result.
 | Lawnmower | 22/24 | 1.023% |
 | VLFM | 20/24 | 3.242% |
 | CoNavGPT2 | 18/24 | 0.141% |
-| RAVEN | 7/24 | 5.449% |
+| RAVEN | 8/24 | 6.435% |
 
 The full four-plus-eight-robot plan has 48 runs per method; the table above
 tracks the current eight-robot sweep (24 scenes). Two additional CoNavGPT2
