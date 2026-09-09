@@ -52,6 +52,12 @@ is being deployed at safe process boundaries; already-running processes need
 explicit post-upload verification/cleanup. Archived results remain recoverable
 from `/media/share/coa-sei`.
 
+September 9 cleanup audit: pod 58 rechecked 25 inactive accepted production
+iterations against NAS with checksum-mode rsync, then pruned **128.65 GB** of
+local artifacts while retaining 25 completion/upload receipts. The camera-rate
+diagnostic, every failed attempt, and all active iterations were excluded.
+Pods 3 and 5 had no inactive accepted production artifacts left locally.
+
 ### Active completion queue — September 8
 
 | Pod | Current run | Remaining assignment |
