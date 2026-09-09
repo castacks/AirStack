@@ -2039,6 +2039,36 @@ def _ensure_sshpass():
     return _SSHPASS_READY
 
 
+def _prune_verified_iteration(iter_dir, remote_path):
+    """Retain only queue bookkeeping after a checksum-verified NAS upload."""
+    iter_dir = Path(iter_dir)
+    if iter_dir.is_symlink() or not iter_dir.name.startswith("iter_"):
+        raise ValueError(f"unsafe prune target: {iter_dir}")
+    status = json.loads((iter_dir / "iteration.json").read_text())
+    if status.get("status") != "passed":
+        raise ValueError(f"refusing to prune non-passed iteration: {iter_dir}")
+    removed_bytes = sum(p.stat().st_size for p in iter_dir.rglob("*")
+                        if p.is_file() and not p.is_symlink()
+                        and p.name not in ("iteration.json", "upload_receipt.json"))
+    receipt = iter_dir / "upload_receipt.json"
+    receipt.write_text(json.dumps({
+        "remote_path": remote_path, "verification": "rsync checksum dry-run: no differences",
+        "artifacts_pruned": False, "removed_bytes": removed_bytes,
+    }, indent=2) + "\n")
+    for child in iter_dir.iterdir():
+        if child.name in ("iteration.json", "upload_receipt.json"):
+            continue
+        if child.is_symlink() or not child.is_dir():
+            child.unlink()
+        else:
+            shutil.rmtree(child)
+    record = json.loads(receipt.read_text())
+    record["artifacts_pruned"] = True
+    receipt.write_text(json.dumps(record, indent=2) + "\n")
+    log(f"verified NAS backup; removed {removed_bytes / 1e9:.2f} GB local artifacts "
+        f"from {iter_dir}; retained completion metadata and upload receipt")
+
+
 def upload_iteration(iter_dir, results_root=None):
     """rsync one finished iteration to the NAS, then drop its local bags.
 
@@ -2061,6 +2091,17 @@ def upload_iteration(iter_dir, results_root=None):
     No-ops unless the storage credential and a destination are both present, so
     missions without `nas_dest:` are unaffected.
     """
+    iter_dir = Path(iter_dir)
+    # A queue may call this again after the runner uploaded and pruned. Do not
+    # overwrite the full NAS result with bookkeeping or treat it as missing.
+    receipt = iter_dir / "upload_receipt.json"
+    if receipt.exists():
+        saved = json.loads(receipt.read_text())
+        status = json.loads((iter_dir / "iteration.json").read_text())
+        if (saved.get("artifacts_pruned") and status.get("status") == "passed"
+                and {p.name for p in iter_dir.iterdir()} <=
+                {"iteration.json", "upload_receipt.json"}):
+            return True
     dest = os.environ.get("OSMO_MISSION_UPLOAD_DEST") or MISSION_NAS_DEST
     user = os.environ.get("AIRLAB_STORAGE_USER")
     pw = os.environ.get("AIRLAB_STORAGE_PASS")
@@ -2102,43 +2143,23 @@ def upload_iteration(iter_dir, results_root=None):
             f"(rc={r.returncode}): {r.stderr.strip()[:200]} — keeping it local "
             f"for the end-of-mission upload")
         return False
-    # The local copy is the backup for a partial upload, so it is only dropped
-    # when BOTH: the remote genuinely has every mcap, and pod disk is tight
-    # enough to need the space. mission_launcher.sh rsyncs the whole results
-    # tree again at the end, so anything kept here still reaches the NAS.
-    bags = iter_dir / "bags"
-    if not bags.is_dir():
-        return True
-    local = sorted(f.name for f in bags.rglob("*.mcap"))
-    prune = os.environ.get("OSMO_PRUNE_UPLOADED_BAGS", "auto").lower()
-    if prune == "never" or not local:
-        log(f"uploaded {iter_dir.name}; keeping {len(local)} local mcap(s)")
-        return True
-
-    # Verify the remote before deleting anything.
+    # A pod's ephemeral quota is independent of the host filesystem's free
+    # space. Always verify every file by checksum before pruning; basename
+    # counts alone cannot establish that full bags reached storage intact.
     check = subprocess.run(
-        ["sshpass", "-e", "ssh", "-o", "StrictHostKeyChecking=no",
-         "-o", "UserKnownHostsFile=/dev/null", "-o", "LogLevel=ERROR",
-         f"{user}@{host}",
-         f"find {shlex.quote(base + '/' + str(rel))} "
-         f"-name '*.mcap' -printf '%f\\n' 2>/dev/null"],
-        capture_output=True, text=True, env=env, timeout=300)
-    remote = sorted(x for x in check.stdout.split() if x)
-    if check.returncode != 0 or remote != local:
+        ["sshpass", "-e", "rsync", "-rlnc", "--dry-run", "--itemize-changes",
+         "--out-format=%i %n%L", "--omit-dir-times", "--exclude=upload_receipt.json",
+         f"--timeout={BAG_UPLOAD_TIMEOUT_S}", "-e", ssh,
+         str(iter_dir.resolve()) + "/", f"{user}@{host}:{base}/{rel}/"],
+        capture_output=True, text=True, env=env, timeout=BAG_UPLOAD_TIMEOUT_S + 300)
+    if check.returncode != 0 or check.stdout.strip():
         log(f"WARN: {iter_dir.name} remote verify failed "
-            f"(local {len(local)} mcap(s), remote {len(remote)}) — keeping the "
-            f"local copy; the end-of-mission upload will retry it")
+            f"(checksum differences or rc={check.returncode}) — retaining all local artifacts")
         return False
-
-    free_gb = shutil.disk_usage(iter_dir).free / 1e9
-    floor = float(os.environ.get("OSMO_PRUNE_FREE_GB", "150"))
-    if prune != "always" and free_gb > floor:
-        log(f"uploaded + verified {iter_dir.name}; keeping the local copy "
-            f"({free_gb:.0f} GB free > {floor:.0f} GB floor)")
+    if os.environ.get("OSMO_PRUNE_UPLOADED_BAGS", "always").lower() == "never":
+        log(f"uploaded + checksum-verified {iter_dir.name}; pruning explicitly disabled")
         return True
-    shutil.rmtree(bags, ignore_errors=True)
-    log(f"uploaded + verified {iter_dir.name}; pruned {len(local)} local "
-        f"mcap(s) ({free_gb:.0f} GB free)")
+    _prune_verified_iteration(iter_dir, f"{host}:{base}/{rel}/")
     return True
 
 
