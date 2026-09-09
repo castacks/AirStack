@@ -23,7 +23,7 @@ Latest completion update: **2026-09-08**. Fire Suburban L3 RAVEN passed all eigh
 | **Hurricane** | **Urban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Hurricane** | **Urban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Hurricane** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 |
-| **Hurricane** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
+| **Hurricane** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟨 |
 | **Hurricane** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 |
 | **Tornado** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟧 | 🟩 | 🟨 |
 | **Tornado** | **Urban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 | 🟨 |
@@ -47,7 +47,7 @@ Latest completion update: **2026-09-08**. Fire Suburban L3 RAVEN passed all eigh
 | dev 191 | Expired: `FAILED_EXEC_TIMEOUT` | No active run |
 | 1-GPU 58 | Earthquake Suburban L1 VLFM **passed and NAS-verified** at 23:16:49 UTC (team RTF **0.04825**); audited-missing Fire Suburban L1 CoNavGPT2 attempt 2 passed 8/8 PX4/perception/takeoff gates and entered team search at 23:56:24 UTC | Live persistent-clock RTF **0.04701** over 90.62 wall s / 4.26 sim s. Attempt 1 failed before flight on robot 7's transient mono-RGBD cloud gate and was not uploaded. **20/32 uploaded; 12 outstanding** including the active rerun, next-priority Tornado Suburban L3 CoNav rerun, remaining Earthquake cells, and three Tornado Urban failures needing investigation |
 | 2-GPU 1 | `FAILED_EVICTED`, confirmed by OSMO; SSH endpoint gone | RayFronts queue cannot advance on this pod; replacement required |
-| 2-GPU 3 | Fire Suburban L1 and L3 RAVEN are both **passed, uploaded and NAS-verified**; Hurricane Suburban L2 is active 8/8 | Hurr L2 persistent-clock RTF **0.10740** over 90.22 wall s / 9.69 sim s. Fire L3 exact NAS audit: **151 files / 111,228,924,387 bytes** with matching key checksums; strict 10 m progress **0/84**, 421 compiled person centers. Verified Fire roots were removed locally to prevent another 400 GiB pod eviction and remain recoverable from NAS. Launcher PID 60 remains T |
+| 2-GPU 3 | Fire Suburban L1 and L3 RAVEN are both **passed, uploaded and NAS-verified**; Hurricane Suburban L2 retry 2 started at 01:29:46 UTC | The first Hurr L2 attempt was rejected after robot 1 lost MAVROS/converted odometry: robots 2–8 reached 600 s, but robot 1's search clock could not advance. It was stopped, preserved locally and not uploaded. Commit `398e8b8a` adds a 30 s odometry-staleness abort plus an 8/8 advancing-odometry gate before search. Previous live RTF was **0.10740**. Launcher PID 60 remains T |
 | 2-GPU 4 | Fire Suburban L2 and Hurricane Suburban L1 RAVEN both **passed, uploaded and NAS-verified**; Hurricane Suburban L3 needs a replacement rerun | Kubernetes evicted the workspace at **22:37:33 UTC** for exceeding the **400 GiB ephemeral-storage limit**, with the valid L3 search only **416–427/600 s** complete. The interrupted partial run is invalid and was not uploaded. This was infrastructure storage exhaustion, not a simulator or autonomy failure. L3 is orange until rerun on a replacement 2-GPU pod |
 
 September 8 04:05 UTC: user assigned pods 3/4 to RAVEN and reaffirmed pod 58
