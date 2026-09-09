@@ -362,6 +362,17 @@ a bounded startup delay while giving every existing subscriber another state
 publication. Keep action success and 8/8 altitude checks as the real takeoff
 gate; an armed loitering vehicle is not a successful benchmark participant.
 
+The canonical-odometry readiness gate can pass while the safety monitor still
+publishes `state_estimate_timed_out=true`. That Bool is updated by a 1 Hz ROS
+timer, so at RTF 0.04 one stale `true` can persist for roughly 25 wall seconds
+after odometry resumes. On pod 5 (2026-09-09), robot 4 had live converted
+odometry but three takeoff goals spaced 10 wall seconds apart were all rejected
+as `state estimate timed out`. After confirming two armed-state samples, wait
+for one fresh
+`/<robot>/behavior/drone_safety_monitor/state_estimate_timed_out=false`
+publication before dispatching takeoff. Bound this wait; do not bypass the
+safety flag. `mission_runner.prearm` implements this low-RTF synchronization.
+
 ### Do not retry an accepted low-RTF takeoff on a short feedback timer
 
 At low RTF, a takeoff goal can be accepted and the vehicle can spend several
@@ -374,7 +385,8 @@ already active`; the original goal then reached 19.87 m and returned
 whole team.
 
 For low-RTF multi-robot takeoff, set `feedback_timeout_s` above the observed
-wall-time ascent envelope (300 seconds for the eight-robot disaster runs).
+wall-time ascent envelope (900 seconds for the low-RTF eight-robot disaster
+runs; 300 seconds was observed to fire before a healthy ascent completed).
 This timeout only decides whether an otherwise silent GCS-routed goal should
 be retransmitted; retain the action's overall timeout, 8/8 result requirement,
 and altitude validation. Diagnose this signature by matching relay logs: an
