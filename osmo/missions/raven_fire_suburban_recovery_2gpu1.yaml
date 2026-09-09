@@ -797,6 +797,7 @@ steps:
     # Keep the first relay goal alive through completion; retrying at 420 s
     # overlaps the still-active task and makes action_relay exit on rejection.
     timeout_s: 900
+    feedback_timeout_s: 900
     dispatch_stagger_s: 3
     prearm_via_mavros: true
     prearm_timeout_s: 60

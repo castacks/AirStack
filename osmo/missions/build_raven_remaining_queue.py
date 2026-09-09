@@ -130,10 +130,18 @@ def main():
         mission["iterations"] = len(scenes)
         mission["environment_order"] = "round_robin"
         mission["environments"] = [raven_env(*scene) for scene in scenes]
-        mission["env"]["ZED_TIME_SLICE_GROUPS"] = "12"
+        # User-selected camera benchmark winner: zero empty groups, i.e. all
+        # eight robots are scheduled every 8-group cycle.
+        mission["env"]["ZED_TIME_SLICE_GROUPS"] = "8"
         mission["env"]["ZED_TIME_SLICE_BURST"] = "8"
         mission["env"]["ZED_HYDRA_TIME_SLICE"] = "true"
         for step in mission["steps"]:
+            if step.get("action", {}).get("task") == "takeoff":
+                # The runner's feedback watchdog defaults to 300 wall seconds,
+                # independently of timeout_s. At ~0.04 RTF the still-healthy
+                # climb can exceed that and a retry only overlaps/rejects the
+                # original active task.
+                step["action"]["feedback_timeout_s"] = 900
             if step.get("action", {}).get("task") == "semantic_search":
                 # 600 simulated seconds can take several wall hours at the
                 # observed 8-robot RTF. Keep the science budget unchanged but
