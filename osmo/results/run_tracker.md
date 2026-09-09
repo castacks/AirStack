@@ -788,10 +788,8 @@ This includes 19 results from the current queue plus four earlier Urban Fire
 results; the camera-rate diagnostic was excluded. No missing accepted upload
 was found on pod 58. Audit: `osmo/results/pod58_upload_audit.json`.
 
-The previous strict refresh completed **83/83** accepted standard-baseline
-iterations with zero analysis failures. A detached incremental refresh started
-September 9 at 19:02 UTC and discovered **89** accepted standard-baseline cells.
-Updated averages remain pending until all completed runs for that method are scored. Output:
+The September 9 incremental strict refresh completed **89/89** accepted
+standard-baseline cells with zero analysis failures. Output:
 `osmo/results/completed_progress_10m.json`.
 Credit each distinct GT person whose world XY position lies within 10 m of
 any detector target during search; one target can credit multiple people.
@@ -804,8 +802,8 @@ scene/method count once, using the latest accepted result.
 |---|---:|---:|
 | Frontier | 23/24 | 3.882% |
 | Lawnmower | 22/24 | 1.023% |
-| VLFM | 22/24 | Pending refresh |
-| CoNavGPT2 | 22/24 | Pending refresh |
+| VLFM | 22/24 | 2.947% |
+| CoNavGPT2 | 22/24 | 0.115% |
 | RAVEN | 9/24 | Pending refresh (previous 8-run mean: 6.435%) |
 
 The full four-plus-eight-robot plan has 48 runs per method; the table above
