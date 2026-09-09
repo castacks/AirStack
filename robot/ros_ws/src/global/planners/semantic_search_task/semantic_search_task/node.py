@@ -365,9 +365,15 @@ class SemanticSearchTaskNode(Node):
             TrajectoryXYZVYaw,
             f'{self._robot_prefix}/trajectory_controller/trajectory_override', 10)
 
+        # Accept both the local reliable odometry_conversion publisher and the
+        # BEST_EFFORT DDS-router endpoint. Under heavy eight-robot bring-up the
+        # local endpoint can lose its shared-memory match while the routed
+        # stream remains healthy; a RELIABLE-only subscription then receives
+        # no pose or sim stamps and can never finish max_sim_seconds.
         self.create_subscription(
-            Odometry, f'{self._robot_prefix}/odometry',
-            self._odom_cb, 10, callback_group=self._cbg)
+            Odometry, f'{self._robot_prefix}/odometry', self._odom_cb,
+            QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT),
+            callback_group=self._cbg)
 
         self._action_server = ActionServer(
             self, SemanticSearchTask, '~/semantic_search_task',
