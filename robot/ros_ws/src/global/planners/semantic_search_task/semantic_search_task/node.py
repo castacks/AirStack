@@ -379,6 +379,14 @@ class SemanticSearchTaskNode(Node):
         # Latest simulated time seen on odometry; None until the first
         # message. Drives the max_sim_seconds budget.
         self._sim_now_s = None
+        # Wall-clock freshness of the odometry stream that drives both pose and
+        # the simulated-time budget.  A live eight-robot run lost MAVROS
+        # odometry on one robot after takeoff: the other seven reached 600 sim
+        # seconds, while this action could never advance its budget and waited
+        # for the outer six-hour timeout.  Fail the attempt quickly so the
+        # mission runner can restart a clean stack instead of accepting a
+        # partial team run or burning the pod lifetime.
+        self._last_odom_wall = None
         # Real-time factor of the SEARCH phase (sim seconds / wall seconds),
         # measured from the first sim stamp after the search starts. RTF falls
         # as drones are added, so a fixed sim-time budget costs a different
@@ -394,6 +402,7 @@ class SemanticSearchTaskNode(Node):
         # which would also change every timestamp it publishes.
         self._sim_now_s = (float(msg.header.stamp.sec)
                            + float(msg.header.stamp.nanosec) * 1e-9)
+        self._last_odom_wall = time.monotonic()
         p = msg.pose.pose.position
         self._cur_pos = [p.x, p.y, p.z]
         q = msg.pose.pose.orientation
@@ -520,6 +529,22 @@ class SemanticSearchTaskNode(Node):
             wall_t0 = time.time() if sim_t0 is not None else None
             sim_budget_hit = False
             while rclpy.ok():
+                # Odometry owns the search clock.  If it never arrives, or
+                # disappears during flight, max_sim_seconds cannot terminate
+                # this action and the robot's path is invalid anyway.
+                odom_age = (None if self._last_odom_wall is None else
+                            time.monotonic() - self._last_odom_wall)
+                if odom_age is None or odom_age > 30.0:
+                    detail = ('never received' if odom_age is None else
+                              f'stale for {odom_age:.1f}s')
+                    self.get_logger().error(
+                        f'Odometry {detail}; aborting semantic search so the '
+                        'mission can retry a complete team run')
+                    goal_handle.abort()
+                    result = SemanticSearchTask.Result()
+                    result.success = False
+                    result.message = f'Odometry {detail}'
+                    return result
                 if max_sim_s > 0.0 and self._sim_now_s is not None:
                     if sim_t0 is None:
                         sim_t0 = self._sim_now_s
@@ -1562,6 +1587,22 @@ class SemanticSearchTaskNode(Node):
             sim_budget_hit = False
 
             while rclpy.ok():
+                # Odometry owns the search clock.  If it never arrives, or
+                # disappears during flight, max_sim_seconds cannot terminate
+                # this action and the robot's path is invalid anyway.
+                odom_age = (None if self._last_odom_wall is None else
+                            time.monotonic() - self._last_odom_wall)
+                if odom_age is None or odom_age > 30.0:
+                    detail = ('never received' if odom_age is None else
+                              f'stale for {odom_age:.1f}s')
+                    self.get_logger().error(
+                        f'Odometry {detail}; aborting semantic search so the '
+                        'mission can retry a complete team run')
+                    goal_handle.abort()
+                    result = SemanticSearchTask.Result()
+                    result.success = False
+                    result.message = f'Odometry {detail}'
+                    return result
                 if max_sim_s > 0.0 and self._sim_now_s is not None:
                     if sim_t0 is None:
                         sim_t0 = self._sim_now_s

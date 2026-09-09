@@ -81,6 +81,48 @@ def main() -> int:
         assert search["timeout_s"] == 21600
         assert search["goal"]["max_sim_seconds"] == 600.0
 
+        # Takeoff can succeed and then a single MAVROS odometry stream can
+        # disappear.  semantic_search_task intentionally derives both pose and
+        # its 600-s budget from converted odometry, so starting without a fresh
+        # stream produces an invalid robot path and used to hang until the
+        # six-hour outer timeout.  Require two advancing reliable samples on
+        # every robot immediately before dispatching the team search.
+        search_index = next(
+            i for i, step in enumerate(mission["steps"])
+            if step.get("action", {}).get("task") == "semantic_search")
+        mission["steps"].insert(search_index, {
+            "run": {
+                "container": "airstack-robot-desktop-{n}",
+                "timeout_s": 60,
+                "cmd": (
+                    "python3 - <<'PY'\n"
+                    "import time\n"
+                    "import rclpy\n"
+                    "from nav_msgs.msg import Odometry\n"
+                    "from rclpy.qos import QoSProfile, ReliabilityPolicy\n"
+                    "rclpy.init()\n"
+                    "node = rclpy.create_node('benchmark_odom_freshness')\n"
+                    "stamps = []\n"
+                    "qos = QoSProfile(depth=10, "
+                    "reliability=ReliabilityPolicy.RELIABLE)\n"
+                    "def cb(msg):\n"
+                    "    stamp = float(msg.header.stamp.sec) + "
+                    "float(msg.header.stamp.nanosec) * 1e-9\n"
+                    "    if not stamps or stamp > stamps[-1]: stamps.append(stamp)\n"
+                    "node.create_subscription(Odometry, "
+                    "'/robot_{n}/odometry_conversion/odometry', cb, qos)\n"
+                    "deadline = time.monotonic() + 30.0\n"
+                    "while len(stamps) < 2 and time.monotonic() < deadline:\n"
+                    "    rclpy.spin_once(node, timeout_sec=1.0)\n"
+                    "node.destroy_node(); rclpy.shutdown()\n"
+                    "assert len(stamps) >= 2 and stamps[-1] > stamps[0], stamps\n"
+                    "print(f'ODOMETRY_FRESH robot_{n} "
+                    "{stamps[0]:.3f}->{stamps[-1]:.3f}')\n"
+                    "PY\n"
+                ),
+            },
+        })
+
         # Action success proves each semantic-search task reached its terminal
         # condition, but it does not prove every robot accumulated the full
         # scored window.  A live failure left one planner orphaned while the
