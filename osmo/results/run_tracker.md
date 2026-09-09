@@ -1,6 +1,6 @@
 # Disaster benchmark dashboard
 
-Latest completion update: **2026-09-08**. Fire Suburban L3 RAVEN passed all eight 600-s robot windows at 22:09:00 UTC (RTF **0.0457**) and was NAS-verified at 23:17:14 UTC. Pod 4 was infrastructure-evicted at 22:37:33 UTC while Hurricane Suburban L3 was partial, so that run needs a replacement and was not uploaded. Earthquake Suburban L1 VLFM completed its search at 23:13 UTC (RTF **0.04825**) and is uploading. Failed attempts remain local and unuploaded.
+Latest completion update: **2026-09-09**. Hurricane Suburban L3 RAVEN passed all eight 600-s robot windows (RTF **0.1038**), was checksum-verified on NAS at 05:56:25 UTC, and had 33.92 GB of recoverable local artifacts pruned. Hurricane Suburban L2 RAVEN also completed all eight windows (RTF **0.0907**) and is still uploading, so it remains yellow. Pod 5 has advanced to Tornado Suburban L2 RAVEN, which passed every pre-search gate and is running at live callback RTF **0.04760**. Failed attempts remain local and unuploaded.
 
 > **Legend:** 🟩 **DONE** · 🟦 **READY** · 🟧 **RERUN** · 🟨 **VERIFY / IN PROGRESS** · ⬜ **NOT READY**
 >
