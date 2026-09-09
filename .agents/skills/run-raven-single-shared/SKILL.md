@@ -412,6 +412,34 @@ entirely untested.
   `multi_robot_mapping_server` Python processes, which is exactly the gap
   the mission/manual run in §3 closes.
 
+### A passed window can still be a real planner non-motion result
+
+Do not infer that a full 600-second action, a live mapping server, and a high
+`/global_plan` message count imply useful exploration. In the September 9
+Tornado Suburban L2 run, six robots published about 1,187--1,199 plans each,
+`semantic_search_task` accepted its NavigateTask activator, and
+`mighty_bridge` logged both `adopted global_plan` and controller `TRACK`.
+Nevertheless, each robot moved only about 5--6 m because RAVEN kept publishing
+the same locked two-pose Voxel waypoint and never reached the unlock condition.
+The remaining robots emitted no plan (`all ray groups outside search_area` or
+`no viewpoints`). The valid team result was therefore only 51.2 m of motion
+and 0/40 strict-10-m progress.
+
+When a full-window result has suspiciously little motion, distinguish these
+cases before blaming the relay or rerunning:
+
+1. Read each bag's `metadata.yaml` and compare `/global_plan` message counts.
+2. Confirm `semantic_search_task` logged `NavigateTask activator accepted`.
+3. Confirm the bridge logged `adopted global_plan` and `TRACK`.
+4. Decode a few early and late `nav_msgs/Path` messages. An unchanged short
+   two-pose plan plus a tiny final path means a locked/unreachable target, not
+   a missing topic connection.
+5. Separately identify robots with zero plans from RAVEN's explicit notes.
+
+This is a substantive baseline failure and should be retained and disclosed as
+such. Do not silently replace it with a rerun unless the benchmark policy
+explicitly rejects no-motion algorithm outcomes.
+
 ---
 
 ## 7. File list (this work package)
