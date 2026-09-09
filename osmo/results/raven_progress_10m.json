@@ -1,12 +1,12 @@
 {
   "analysis_complete": true,
-  "generated_utc": "2026-09-09T05:56:25Z",
+  "generated_utc": "2026-09-09T06:39:21Z",
   "method": "RayFronts/RAVEN",
   "team_size": 8,
   "scope": {
-    "accepted_completed_runs": 5,
+    "accepted_completed_runs": 6,
     "planned_8_robot_scene_runs": 24,
-    "completed_over_planned_8_robot": "5/24",
+    "completed_over_planned_8_robot": "6/24",
     "planned_if_both_4_and_8_robot_cohorts_are_required": 48,
     "note": "The current benchmark inventory is the 8-robot cohort, so its denominator is 24 scenes. A future design containing both 4-robot and 8-robot cohorts would contain 48 RAVEN scene runs."
   },
@@ -112,17 +112,35 @@
         "robot_and_gcs_copies_match": true
       },
       "compiled_results_sha256": "19495b5657112b3be31f4473848cf4f0f803c0c9ccaca0340acb43beabaa0d1a"
+    },
+    {
+      "scene": "Hurricane / Suburban L2",
+      "scene_key": "HurricaneSuburbanL2V1",
+      "nas_iteration": "raven_hurricanesuburbanl2v1_raven_remaining_2gpu1/2026-09-09_03-09-11/iter_001__hurricanesuburbanl2v1_raven__raven",
+      "iteration_status": "passed",
+      "valid_robot_windows": "8/8",
+      "ground_truth_people": 66,
+      "team_detection_centers": 803,
+      "detected_ground_truth_people": 4,
+      "progress": 0.06060606060606061,
+      "matched_ground_truth_indices_zero_based": [30, 31, 37, 38],
+      "ground_truth": {
+        "source": "robot/ros_ws/src/global/planners/raven_nav/annotations/HurricaneSuburbanL2V1.json on 2-GPU pod 3",
+        "sha256": "c9352cfef4b31d89cfd0acf98c9fecaa370d905d8a2a47a151e87113b7cca523",
+        "robot_and_gcs_copies_match": true
+      },
+      "compiled_results_sha256": "2362d4755974323b411746a84da43fc355c457774e56c0ed94bd1a78307bd1ab"
     }
   ],
   "averages": {
-    "completed_over_planned": "5/24",
-    "macro_average_progress": 0.06416946525445622,
-    "micro_detected_people": 18,
-    "micro_ground_truth_people": 330,
-    "micro_progress": 0.05454545454545454,
+    "completed_over_planned": "6/24",
+    "macro_average_progress": 0.06357556447972362,
+    "micro_detected_people": 22,
+    "micro_ground_truth_people": 396,
+    "micro_progress": 0.05555555555555555,
     "average_by_disaster_locale": {
       "Fire / Suburban": 0.10694910875742702,
-      "Hurricane / Suburban": 0.0
+      "Hurricane / Suburban": 0.020202020202020204
     }
   }
 }
