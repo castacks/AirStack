@@ -13,15 +13,15 @@ class RemainingQueueTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[2]
         with tempfile.TemporaryDirectory() as tmp:
             paths = prepare(root, Path(tmp))
-            self.assertEqual(len(paths), 30)
-            self.assertEqual(len(set(paths)), 30)
+            self.assertEqual(len(paths), 35)
+            self.assertEqual(len(set(paths)), 35)
             self.assertIn('remaining58_hurricaneurbanl2v1_frontier.yaml', [p.name for p in paths])
             for path in paths:
                 spec = yaml.safe_load(path.read_text())
                 self.assertEqual(spec['iterations'], 1)
                 self.assertEqual(len(spec['environments']), 1)
                 self.assertEqual(spec['environment_order'], 'round_robin')
-                self.assertEqual(str(spec['env']['ZED_TIME_SLICE_GROUPS']), '12')
+                self.assertEqual(str(spec['env']['ZED_TIME_SLICE_GROUPS']), '8')
                 self.assertEqual(spec['env']['ZED_HYDRA_TIME_SLICE'], 'true')
                 self.assertEqual(str(spec['env']['ZED_TIME_SLICE_BURST']), '8')
                 self.assertEqual(str(spec['env']['SEARCH_MAX_SIM_SECONDS']), '600')
@@ -33,9 +33,17 @@ class RemainingQueueTests(unittest.TestCase):
                 takeoffs = [s['action'] for s in spec['steps'] if s.get('action', {}).get('task') == 'takeoff']
                 self.assertEqual(len(takeoffs), 1)
                 self.assertEqual(takeoffs[0]['timeout_s'], 900)
+                self.assertEqual(takeoffs[0]['feedback_timeout_s'], 900)
                 guards = [s['run'] for s in spec['steps'] if 'benchmark_completion_guard' in s.get('run', {}).get('cmd', '')]
                 self.assertEqual(len(guards), 2)
                 self.assertTrue(all(g['timeout_s'] == 21600 for g in guards))
+
+            retry_names = {p.stem for p in paths if p.stem.startswith('remaining58_retry_')}
+            self.assertEqual(retry_names, {
+                'remaining58_retry_tornadourbanl1v1_vlfm',
+                'remaining58_retry_tornadourbanl2v1_conavgpt2_team',
+                'remaining58_retry_tornadourbanl3v1_lawnmower',
+            })
 
     def test_completion_guard_requires_true_latched_message(self):
         for team in (True, False):

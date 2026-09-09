@@ -36,6 +36,20 @@ def selections():
     yield "earthquake_suburban_l3_8robot_optimized_pod57.yaml", None
 
 
+# These cells exhausted their original two attempts before the low-RTF takeoff
+# fixes were available.  Keep distinct queue/result names so their archived
+# failures remain immutable and each corrected cell is attempted exactly once
+# after the normal Earthquake block.
+CORRECTED_RERUNS = {
+    "remaining58_retry_tornadourbanl1v1_vlfm":
+        "remaining58_tornadourbanl1v1_vlfm",
+    "remaining58_retry_tornadourbanl2v1_conavgpt2_team":
+        "remaining58_tornadourbanl2v1_conavgpt2_team",
+    "remaining58_retry_tornadourbanl3v1_lawnmower":
+        "remaining58_tornadourbanl3v1_lawnmower",
+}
+
+
 def completion_command(team):
     condition = '!=' if team else '=='
     domain = '0' if team else '{n}'
@@ -112,11 +126,26 @@ def prepare(root, output):
                 action = step.get('action', {})
                 if action.get('task') == 'takeoff':
                     action['timeout_s'] = max(900, action.get('timeout_s', 0))
+                    # A 15-wall-second feedback watchdog is shorter than one
+                    # simulated second at the measured ~0.049 RTF.  It caused
+                    # the runner to resend a takeoff which was already active,
+                    # leaving Tornado Urban L3 robot 4 waiting on duplicate
+                    # goals for the full timeout.  Wait on the accepted goal;
+                    # the action timeout remains the actual failure bound.
+                    action['feedback_timeout_s'] = action['timeout_s']
             assert replaced == 2, (source, replaced)
             path = output / (spec['name'] + '.yaml')
             path.write_text(yaml.safe_dump(spec, sort_keys=False))
             missions.append(path)
-    assert len(missions) == 32, len(missions)
+
+    generated = {path.stem: path for path in missions}
+    for retry_name, original_name in CORRECTED_RERUNS.items():
+        spec = yaml.safe_load(generated[original_name].read_text())
+        spec['name'] = retry_name
+        path = output / (retry_name + '.yaml')
+        path.write_text(yaml.safe_dump(spec, sort_keys=False))
+        missions.append(path)
+    assert len(missions) == 35, len(missions)
     return missions
 
 
@@ -147,6 +176,14 @@ def main():
     hard_deadline = datetime.datetime(2026, 9, 11, 10, 1, tzinfo=datetime.timezone.utc).timestamp()
     for path in missions:
         name = path.stem
+        original_name = CORRECTED_RERUNS.get(name)
+        if original_name and state.get(original_name, {}).get('status') == 'passed_uploaded':
+            state[name] = {
+                'status': 'superseded',
+                'reason': f'{original_name} already passed and uploaded',
+            }
+            save()
+            continue
         if state.get(name, {}).get('status') in ('passed_uploaded', 'needs_investigation'):
             continue
         if hard_deadline - time.time() < 43200:
