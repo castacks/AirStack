@@ -328,6 +328,16 @@ only that robot's bringup with `restart_robot_bringup`; never do this after
 takeoff. `mission_runner.Stack.wait_ready` implements this bounded recovery
 through `ready.dataflow_recover_after_s` and `ready.max_recoveries`.
 
+Repeat the canonical-odometry check immediately after takeoff and before the
+timed search. On pod 3 (2026-09-09), all eight robots passed initial readiness
+and takeoff, then robot 1 lost MAVROS local-position odometry; seven RAVEN
+actions reached 600 simulated seconds while robot 1's odometry-driven search
+clock could never advance. A pre-search gate must observe at least two
+increasing converted-odometry stamps for every robot. The task executor must
+also abort when odometry is absent or stale for 30 seconds so this failure
+causes a clean whole-iteration retry rather than consuming the six-hour action
+timeout. Such a partial team run is invalid and must not be uploaded.
+
 A heartbeat in MAVROS's newest log is historical evidence, not proof that the
 link is live. Pod 57 produced a robot that logged one heartbeat, lost the link,
 and then remained absent from `/mavros/state` while all seven peers were ready;
