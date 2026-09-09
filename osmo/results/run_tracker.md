@@ -40,6 +40,18 @@ Latest completion update: **2026-09-08**. Fire Suburban L3 RAVEN passed all eigh
 
 ## Overnight completion summary — September 7
 
+### Pod storage retention
+
+After each accepted production run: upload to NAS, checksum-compare every local
+artifact against the remote destination, then remove the local artifacts.
+Retain only tiny `iteration.json` and `upload_receipt.json` bookkeeping files
+so completed cells are not rerun. Verification errors preserve all local files.
+This policy no longer depends on host disk free space: pod ephemeral quotas
+can be exhausted while the host reports terabytes free. Runtime fix `7acbb11f`
+is being deployed at safe process boundaries; already-running processes need
+explicit post-upload verification/cleanup. Archived results remain recoverable
+from `/media/share/coa-sei`.
+
 ### Active completion queue — September 8
 
 | Pod | Current run | Remaining assignment |
