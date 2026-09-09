@@ -1328,6 +1328,9 @@ def run_step(stack, container, step_spec, step_index):
             cname = prearm_containers[n - 1]
             service = f"/robot_{n}/interface/mavros/cmd/arming"
             armed_topic = f"/robot_{n}/interface/is_armed"
+            estimate_timeout_topic = (
+                f"/robot_{n}/behavior/drone_safety_monitor/"
+                "state_estimate_timed_out")
             service_timeout = max(1, int(prearm_timeout_s))
             # CommandBool output differs slightly across ros2cli versions
             # (`success=True` versus `success: true`), so accept both.
@@ -1363,11 +1366,27 @@ def run_step(stack, container, step_spec, step_index):
                 "else state_true_count=0; fi; sleep 1; done; "
                 "[ \"$state_ok\" -eq 1 ] "
                 "|| { echo PREARM_STATE_TIMEOUT; exit 3; }; "
+                # The safety monitor's timeout flag is published by a 1 Hz ROS
+                # timer.  At low RTF it can remain true for tens of wall-clock
+                # seconds after fresh odometry resumes.  Dispatching takeoff in
+                # that window is deterministically rejected by the takeoff task,
+                # and a fixed 10 s retry can exhaust all attempts before one ROS
+                # second elapses.  Wait for a fresh false publication here.
+                f"estimate_deadline=$(( $(date +%s) + {service_timeout} )); "
+                "estimate_ok=0; "
+                "while [ \"$(date +%s)\" -lt \"$estimate_deadline\" ]; do "
+                f"estimate_out=$(timeout 8 ros2 topic echo --field data "
+                f"{estimate_timeout_topic} --once 2>/dev/null || true); "
+                "if printf '%s\n' \"$estimate_out\" | "
+                "grep -Eiq '^[[:space:]]*false[[:space:]]*$'; then "
+                "estimate_ok=1; break; fi; sleep 1; done; "
+                "[ \"$estimate_ok\" -eq 1 ] "
+                "|| { echo PREARM_ESTIMATE_TIMEOUT; exit 4; }; "
                 f"echo PREARM_OK robot_{n}"
             )
             r = ros2_exec(
                 cname, cmd, domain_id=n, setup_bash=stack.setup_bash,
-                timeout=service_timeout + 25)
+                timeout=(2 * service_timeout) + 35)
             out = (r.stdout or "") + (r.stderr or "")
             return {
                 "exit": r.returncode,
