@@ -16,7 +16,7 @@ Latest completion update: **2026-09-09**. Tornado Suburban L1 RAVEN passed all e
 | **Fire** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Fire** | **Urban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Fire** | **Urban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Fire** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟨 | 🟩 |
+| **Fire** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 |
 | **Fire** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 |
 | **Fire** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 |
 | **Hurricane** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
@@ -30,13 +30,35 @@ Latest completion update: **2026-09-09**. Tornado Suburban L1 RAVEN passed all e
 | **Tornado** | **Urban** | L3 | 🟩 | 🟩 | 🟧 | 🟩 | 🟩 | 🟨 |
 | **Tornado** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 |
 | **Tornado** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 |
-| **Tornado** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 | 🟨 |
+| **Tornado** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟨 |
 | **Earthquake** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Earthquake** | **Urban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Earthquake** | **Urban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Earthquake** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 | 🟨 |
-| **Earthquake** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟧 | 🟦 | 🟦 |
-| **Earthquake** | **Suburban** | L3 | 🟩 | 🟦 | 🟦 | 🟦 | 🟦 | 🟦 |
+| **Earthquake** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 |
+| **Earthquake** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
+| **Earthquake** | **Suburban** | L3 | 🟩 | 🟨 | 🟦 | 🟦 | 🟦 | 🟦 |
+
+### Accepted completion counts — September 9, 19:03 UTC
+
+Passed and uploaded unique 8-robot scene/method cells only; failures, active runs,
+and duplicate reruns are excluded. These completion counts can precede analysis.
+
+| Method | Completed / planned |
+|---|---:|
+| Frontier | 23 / 24 |
+| Lawnmower | 22 / 24 |
+| VLFM | 22 / 24 |
+| CoNavGPT2 | 22 / 24 |
+| RAVEN / RayFronts | 9 / 24 |
+| **Total** | **98 / 120** |
+
+Pod 58 has uploaded 25/32 cells in its remaining-work queue and is now running
+Earthquake Suburban L3 Frontier. Earthquake Suburban L2 CoNavGPT2 was uploaded
+at 17:38:46 UTC. Pod 5 Earthquake Suburban L1 RAVEN passed and was NAS
+checksum-verified at 16:39:43 UTC; 79.39 GB of local artifacts were pruned.
+The user assigned replacement 2-GPU pod 6 for the timed-out RAVEN lane; handoff
+and pod 5 queue continuation are in progress. This snapshot supersedes older
+active-queue descriptions below.
 
 ## Overnight completion summary — September 7
 
@@ -766,8 +788,10 @@ This includes 19 results from the current queue plus four earlier Urban Fire
 results; the camera-rate diagnostic was excluded. No missing accepted upload
 was found on pod 58. Audit: `osmo/results/pod58_upload_audit.json`.
 
-The strict refresh completed for all **83/83** accepted standard-baseline
-iterations with zero analysis failures. Output:
+The previous strict refresh completed **83/83** accepted standard-baseline
+iterations with zero analysis failures. A detached incremental refresh started
+September 9 at 19:02 UTC and discovered **89** accepted standard-baseline cells.
+Updated averages remain pending until all completed runs for that method are scored. Output:
 `osmo/results/completed_progress_10m.json`.
 Credit each distinct GT person whose world XY position lies within 10 m of
 any detector target during search; one target can credit multiple people.
@@ -780,16 +804,15 @@ scene/method count once, using the latest accepted result.
 |---|---:|---:|
 | Frontier | 23/24 | 3.882% |
 | Lawnmower | 22/24 | 1.023% |
-| VLFM | 20/24 | 3.242% |
-| CoNavGPT2 | 18/24 | 0.141% |
-| RAVEN | 8/24 | 6.435% |
+| VLFM | 22/24 | Pending refresh |
+| CoNavGPT2 | 22/24 | Pending refresh |
+| RAVEN | 9/24 | Pending refresh (previous 8-run mean: 6.435%) |
 
 The full four-plus-eight-robot plan has 48 runs per method; the table above
-tracks the current eight-robot sweep (24 scenes). Two additional CoNavGPT2
-dashboard DONE cells were confirmed to lack accepted NAS results and are now
-orange reruns in the matrix and durable pod 58 queue. Completed-run counts are
-not analysis counts; every currently accepted standard-baseline run above was
-analyzed.
+tracks the current eight-robot sweep (24 scenes). The two previously missing
+CoNavGPT2 cells, Fire Suburban L1 and Tornado Suburban L3, now have accepted
+NAS results. Completed-run counts are not analysis counts; pending averages
+will be filled after the new accepted results are scored.
 
 A GT victim counts as detected when its world-frame XY location falls inside a **12 m circle around a planner `search_target`** during the 600-s search. A target circle exists only after a `person` detection clears the shared 0.65 confidence gate, is depth-projected, and forms a clustered target instance. One liberal circle can credit multiple GT people; drone proximity alone never counts. Time-integrated progress is normalized area under the cumulative detector-confirmed progress curve; marker chunks were sampled at about 20-s intervals (final persistent target state is always read, so final detection counts are exact). Paths are 1 Hz, world-frame XY odometry. Ideal lengths are OR-Tools oracle estimates for open Euclidean multi-depot routes through victim centres; fixed-sector methods preserve recorded robot ownership, while CoNavGPT2 permits joint assignment. Ground debris does not obstruct an aerial XY geodesic, and no return to launch is required. PPL uses the ideal route through detected GT victims: `progress × ideal_detected / max(actual, ideal_detected)`.
 
