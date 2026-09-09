@@ -461,6 +461,24 @@ attitude; only five peers armed. Reject the candidate before timing and keep
 production multi-robot missions at 100 Hz unless a later PX4-specific fix is
 validated with 8/8 takeoff and motion.
 
+### NAS upload does not free the pod's ephemeral-storage quota
+
+Passed-only upload copies an iteration to NAS but deliberately keeps the local
+result. Large eight-robot MCAPs therefore accumulate across cells. On
+2026-09-08 a healthy two-GPU workspace was evicted during a 600-second search
+after its accumulated local artifacts exceeded the workflow's `400Gi`
+ephemeral-storage limit; the active partial run vanished even though prior
+cells were already on NAS. Node-level `df` is misleading here because it shows
+the worker filesystem, not the pod's Kubernetes quota.
+
+After every passed iteration, first require an exact local-to-NAS relative-file
+and byte-size manifest match plus matching `iteration.json` and key result
+checksums. Only then remove that exact local iteration/result root if another
+large cell will run on the same pod. Never prune the active result, failed
+attempts still under investigation, or anything that has not passed this
+independent NAS audit. Record the deletion and the NAS recovery path in the run
+tracker. This bounds local growth while preserving the pass-only upload rule.
+
 ## 4. Never let a pod auto-shut-down while you're still using it
 
 Every one of the above failure modes shares a trap in common: `airstack.sh
