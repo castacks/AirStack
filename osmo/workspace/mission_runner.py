@@ -905,14 +905,19 @@ class Stack:
                 if recovery_after > 0 and elapsed >= recovery_after and connected:
                     containers = robot_containers()
                     for n in list(pending):
-                        if n in connected or recoveries.get(n, 0) >= max_recover:
-                            continue
-                        if elapsed - last_recover.get(n, 0.0) < recovery_after:
-                            continue
                         stale_heartbeat = (
                             lone_pending
                             and stale_heartbeat_recover_after > 0
                             and elapsed >= stale_heartbeat_recover_after)
+                        # A robot that answered once is normally left alone,
+                        # but once every peer is ready and its heartbeat has
+                        # been stale for the configured bound, that historical
+                        # membership must not suppress recovery forever.
+                        if ((n in connected and not stale_heartbeat)
+                                or recoveries.get(n, 0) >= max_recover):
+                            continue
+                        if elapsed - last_recover.get(n, 0.0) < recovery_after:
+                            continue
                         if not stale_heartbeat and not robot_is_wedged(n, containers):
                             continue
                         recoveries[n] = recoveries.get(n, 0) + 1
