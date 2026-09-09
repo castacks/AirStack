@@ -29,7 +29,7 @@ Latest completion update: **2026-09-08**. Fire Suburban L3 RAVEN passed all eigh
 | **Tornado** | **Urban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 | 🟨 |
 | **Tornado** | **Urban** | L3 | 🟩 | 🟩 | 🟧 | 🟩 | 🟩 | 🟨 |
 | **Tornado** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Tornado** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
+| **Tornado** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟨 |
 | **Tornado** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟧 | 🟦 |
 | **Earthquake** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Earthquake** | **Urban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
