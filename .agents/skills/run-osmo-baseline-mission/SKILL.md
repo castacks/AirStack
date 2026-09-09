@@ -362,6 +362,26 @@ a bounded startup delay while giving every existing subscriber another state
 publication. Keep action success and 8/8 altitude checks as the real takeoff
 gate; an armed loitering vehicle is not a successful benchmark participant.
 
+### Do not retry an accepted low-RTF takeoff on a short feedback timer
+
+At low RTF, a takeoff goal can be accepted and the vehicle can spend several
+wall minutes climbing before the GCS relay forwards its first feedback or
+terminal result. On pod 3 (2026-09-09), the runner's generic 15-second
+`feedback_timeout_s` declared robot 2's accepted goal lost and resent it. The
+takeoff task correctly rejected both duplicate goals as `another task is
+already active`; the original goal then reached 19.87 m and returned
+`SUCCEEDED`, but the runner followed the rejected retry and falsely failed the
+whole team.
+
+For low-RTF multi-robot takeoff, set `feedback_timeout_s` above the observed
+wall-time ascent envelope (300 seconds for the eight-robot disaster runs).
+This timeout only decides whether an otherwise silent GCS-routed goal should
+be retransmitted; retain the action's overall timeout, 8/8 result requirement,
+and altitude validation. Diagnose this signature by matching relay logs: an
+original accepted epoch followed by duplicate `Robot rejected goal` replies
+and a later `SUCCEEDED` for the original epoch is transport bookkeeping, not a
+spawn, arm, or controller failure.
+
 ### The simulation budget needs an independent watchdog
 
 Do not check a short benchmark's simulation deadline only between planner
