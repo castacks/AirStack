@@ -162,6 +162,22 @@ III-D, positioning.md (named-concept scope, evidence hierarchy, release
 gate wording). Evidence: `012-paper-measurement-studies/reuse/results/summary.md`,
 `012-paper-measurement-studies/defects/results/summary.md`.
 
+### 2026-09-08 (later) — Amendment 3 re-judge lands: A4 (bare parts) is a consistency/cost gap, not a ceiling
+
+Judge fixed (agent_study `d0a3482`: eval world staged on the Gazebo
+path) and the five re-judgeable A4 final states re-scored on fresh
+routes ([011 §(f)](011-agent-study-v6-trials/results/results_summary.md)):
+opus-5 R3, R7, R8, R8, R8; sonnet-5 unchanged (R6, R6 — systems that
+cannot load the eval field — and three nulls). A4 survival ≥R7 0.0 →
+**0.4**, R8 0.0 → **0.3**. **What it changes:** the paper's platform
+gap (A1–A4) now rests on consistency and cost — A1 8/10 vs A4 3/10 at
+R8, A4 at ~2× A1's wall-clock/tokens/dollars with three non-booting
+final states — not on "no A4 system ever passed the obstacle rung".
+Paper Sec. VI-C rewritten accordingly (Protocol discloses the defect
+and re-judge; Threats notes that A4's in-session R7 feedback was
+invalid and two sonnet-5 systems were dismantled chasing it).
+Non-re-judgeable A4 systems keep R7 = fail by protocol (Amendment 3).
+
 ### 2026-09-08 — A4 (bare-parts) R7 verdicts judged against a layout never loaded in its simulator
 
 While producing the Sec. VI-C qualitative scene figure (entry

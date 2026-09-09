@@ -521,3 +521,61 @@ highest bring-up cost and the most null final states).
 Not yet changed: `analysis/agent_study_v6_analysis.md`, `tab:agents`,
 `fig:rung_survival` (A4's ≥R7 = 0/10 and R8 = 0/10 cells derive from
 these verdicts), and the A3 protocol status lines.
+
+## (f) Amendment 3 re-judge of the bare-parts arm (raw `A3_*`, paper A4) — DONE (2026-09-08)
+
+**Fix.** `r5_provenance.py` (agent_study `d0a3482`) now stages the eval
+obstacle world on the A3 path for R7: `obstacles/world_r7.sdf` is
+written over `provided/world_practice.sdf` before the agent's `./bringup`
+(backup `.v6bak`) and restored in `finish()`. Rationale, alternatives
+and the reporting rule: `agent_study_protocol.md` AMENDMENT 3.
+Confirmed on the first re-judged bring-up: the agent's generated
+`run/world.sdf` contained all 14 eval pillars and none of the practice
+pillars.
+
+**Procedure.** [`runner/rescore_a3_r7.sh`](../../../agent_study/runner/rescore_a3_r7.sh)
+(v2 adds a host-process sweep between trials): per trial, originals kept
+as `results_v6_original.json` / `scoring_R7_v6_original.log`, then
+`./judge --scoring R7` through the workspace's own shim on a fresh
+judge-issued route, `R8` on an R7 pass, `results.json` updated with a
+`rescore` block (amendment, runner commit, original score, eval-world
+evidence). Serial, one GPU, 23:20–23:50 UTC.
+
+| Raw trial (paper A4) | v6 score | Re-judged | R7 flight (eval world staged) | R8 |
+|---|---|---|---|---|
+| A3/opus-5 #1 | R3 | **R3** | FAIL — route flown, min clearance **0.31 m** vs 1.0 m gate (track passes *through* a practice-pillar position: practice field absent) | — |
+| A3/opus-5 #2 | R6 | **R7** | PASS — 7 checkpoints, goal error 0.01 m, min clearance 2.83 m | FAIL — landed (agent log: "landed and disarmed at z=0.03") but its odometry z drifted −0.7 → +1.5 m across the cycle, so "at rest within 0.5 m of start" never held; reproduced in a diagnostic rerun with 1 Hz odometry sampling (`diag_r8_*/`) |
+| A3/opus-5 #3 | R6 | **R8** | PASS — 8 checkpoints, goal error 0.05 m, min clearance 2.03 m (first attempt was an infra bring-up failure — leftover host relays from the previous workspace; rerun per rule 4, log kept as `scoring_R7_rejudge1_infra_bringup_fail.log`) | PASS (−0.06 m) |
+| A3/opus-5 #4 | R6 | **R8** | PASS — 8 checkpoints, goal error 0.17 m, min clearance 1.49 m | PASS (−0.12 m) |
+| A3/opus-5 #5 | R6 | **R8** | PASS — 9 checkpoints, goal error 0.02 m, min clearance 1.87 m | PASS (+0.30 m) |
+| A3/sonnet-5 #1 | R6 | R6 | not re-judgeable: bring-up launches a session-time snapshot of the practice world (`sim/worlds/r7_pillars.sdf`), never reads `provided/` | — |
+| A3/sonnet-5 #2 | R6 | R6 | not re-judgeable: bring-up launches PX4's stock `gz_x500` default world — no obstacles at all | — |
+| A3/sonnet-5 #3–#5 | NULL | NULL | final state fails bring-up (unchanged) | — |
+
+**Was the eval field really in the sim for the passes?** The post-hoc
+world-file check only works for #1 (its R8 never ran); for #2–#5 the R8
+bring-up regenerated the world from the restored practice file. The
+flown tracks decide it: on every route the straight legs would have
+clipped an eval pillar (leg clearance −0.07 … −1.03 m) and the flown
+track stays ≥ 1.49 m from every eval pillar — avoidance of *eval*
+pillars — while three of the five tracks pass through or within 0.15 m
+of a practice-pillar position (practice pillars absent). Recorded per
+trial in `results.json → rescore.eval_world_evidence`.
+
+**New A4 cell:** opus R3, R7, R8, R8, R8 · sonnet R6, R6, NULL, NULL,
+NULL → survival ≥R6 0.6, ≥R7 **0.4**, R8 **0.3** (was 0.0 / 0.0); mean
+rung 4.6 (was 3.9). Everything else unchanged. `d-analysis/analysis.py`
+re-run: it now cross-checks §(c-final) element-wise for non-rescored
+trials, prints A4's pre-amendment values as reference, and emits an
+"Amendment 3 re-judge" table; zero discrepancies.
+[`rung_survival.pdf`](d-analysis/rung_survival.pdf) regenerated and
+copied to the paper with the analysis record.
+
+**What this changes in the paper.** The "platform gap" is no longer a
+ceiling effect (A4 0% ≥R7) but a consistency/cost effect: A4 reached the
+full ladder 3/10 (all opus-5) at ~2× A1's wall-clock, tokens and cost,
+and shipped three non-booting systems. The pillar-penetration sentence
+is gone. A limitation is added: A4's in-session R7 verdicts during the
+campaign were invalid (same defect) and cannot be re-run; two sonnet-5
+trials broke working R6 systems chasing them. §(c-final) and §(d) above
+are the v6 record and are superseded for A4 by this section.

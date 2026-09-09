@@ -76,6 +76,16 @@ EXPECTED_TAB = {  # arm -> (mean rung, mean judge calls, mean agent minutes, mea
     "A4": (4.7, 0.0, 82, 16.07, 10),
 }
 
+# AMENDMENT 3 (2026-09-08): the bare-parts arm's (raw A3) R7/R8 verdicts
+# were re-judged with the eval obstacle world actually staged into the
+# Gazebo workspace (v6 scored those flights against pillars absent from the
+# sim). Re-judged trials carry a `rescore` block in results.json; the
+# EXPECTED_* v6 hand tallies above are cross-checked ELEMENT-WISE for
+# non-rescored trials, and arm-level survival/tab tallies are cross-checked
+# only for arms with no rescored trial (A4's pre-amendment values are
+# emitted as reference).
+rescored = {}   # trial_id -> (original highest rung, new highest rung, rescore block)
+
 flags = []
 
 
@@ -99,6 +109,9 @@ def load_trials():
             flag(f"{d.name}: unexpected config_sha256 {r['config_sha256'][:8]} — excluded")
             continue
         r["_dir"] = d
+        if "rescore" in r:
+            rescored[r["trial_id"]] = (r["rescore"]["original_highest_rung_passed"],
+                                       r["highest_rung_passed"], r["rescore"])
         r["arm_raw"] = r["arm"]
         r["arm"] = RELABEL[r["arm"]]  # present under post-relabel labels
         trials.append(r)
@@ -166,8 +179,13 @@ def main():
             scores = [t["highest_rung_passed"] for t in ts]
             short = model.split("-")[1]
             emit(f"| {arm} {short} | " + " | ".join(s or "NULL" for s in scores) + " |")
-            if scores != EXPECTED_MATRIX[(RELABEL[arm], model)]:
-                flag(f"matrix {arm}/{model} (raw {RELABEL[arm]}): recomputed {scores} != §(c-final) {EXPECTED_MATRIX[(RELABEL[arm], model)]}")
+            exp_scores = EXPECTED_MATRIX[(RELABEL[arm], model)]
+            for t, got, exp in zip(ts, scores, exp_scores):
+                if t["trial_id"] in rescored:
+                    if rescored[t["trial_id"]][0] != exp:
+                        flag(f"matrix {arm}/{model} #{t['trial_index']}: pre-rescore score {rescored[t['trial_id']][0]} != §(c-final) {exp}")
+                elif got != exp:
+                    flag(f"matrix {arm}/{model} (raw {RELABEL[arm]}) #{t['trial_index']}: recomputed {got} != §(c-final) {exp}")
 
     # ------------------------------------------------------------ survival
     emit()
@@ -175,8 +193,10 @@ def main():
     emit()
     survival = {}       # arm -> [8 floats], pooled n=10
     survival_pm = {}    # (arm, model) -> [8 floats], n=5
+    pooled_by_arm = {}
     for arm in ARMS:
         pooled = [t for m in MODELS for t in by_cell[(arm, m)]]
+        pooled_by_arm[arm] = pooled
         survival[arm] = [
             sum(RUNG_NUM[t["highest_rung_passed"]] >= r for t in pooled) / len(pooled)
             for r in range(1, 9)
@@ -191,7 +211,10 @@ def main():
     emit("|---|" + "---|" * 8)
     for arm in ARMS:
         emit(f"| {arm} | " + " | ".join(f"{v:.1f}" for v in survival[arm]) + " |")
-        if any(abs(a - b) > 1e-9 for a, b in zip(survival[arm], EXPECTED_SURVIVAL[RELABEL[arm]])):
+        arm_rescored = any(t["trial_id"] in rescored for t in pooled_by_arm[arm])
+        if arm_rescored:
+            emit(f"| {arm} (v6 pre-Amendment-3 reference) | " + " | ".join(f"{v:.1f}" for v in EXPECTED_SURVIVAL[RELABEL[arm]]) + " |")
+        elif any(abs(a - b) > 1e-9 for a, b in zip(survival[arm], EXPECTED_SURVIVAL[RELABEL[arm]])):
             flag(f"survival {arm} (raw {RELABEL[arm]}): recomputed {survival[arm]} != §(c-final) {EXPECTED_SURVIVAL[RELABEL[arm]]}")
     emit()
     emit("Per model (n=5/cell):")
@@ -234,7 +257,10 @@ def main():
         exp = EXPECTED_TAB[RELABEL[arm]]
         got = (round(s["mean_rung"], 1), round(s["calls"][0], 1),
                round(s["hours"][0] * 60), round(s["cost"][0], 2), s["cost_n"])
-        if got != exp:
+        if any(t["trial_id"] in rescored for t in pooled):
+            emit(f"(tab {arm}: mean rung recomputed {got[0]} vs v6 pre-Amendment-3 {exp[0]}; "
+                 f"calls/time/cost unchanged by the re-judge)")
+        elif got != exp:
             flag(f"tab:agents {arm} (raw {RELABEL[arm]}): recomputed (rung,calls,min,cost,n)={got} != §(c-final) {exp}")
 
     emit("| Arm | R8 success | Mean rung | Hours | Judge calls | Cost USD (n) | ktok out |")
@@ -355,6 +381,17 @@ def main():
     emit()
     emit("Artifacts written: rung_survival.{pdf,png}, rung_survival_per_model.{pdf,png}, tab_agents.tex")
 
+    emit()
+    emit()
+    emit("## Amendment 3 re-judge (bare-parts arm R7/R8 with the eval world staged)")
+    emit()
+    if rescored:
+        emit("| Trial (raw id) | v6 score | re-judged score | eval world verified in sim | runner |")
+        emit("|---|---|---|---|---|")
+        for tid, (o, n, rb) in sorted(rescored.items()):
+            emit(f"| {tid} | {o or 'NULL'} | {n or 'NULL'} | {rb.get('eval_world_loaded_by_bringup')} | {rb['runner_commit'][:7]} |")
+    else:
+        emit("(no rescored trials found)")
     emit()
     if flags:
         emit(f"## DISCREPANCIES vs hand-tallied §(c-final): {len(flags)}")

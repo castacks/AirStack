@@ -17,7 +17,7 @@ airstack_commit: ['961fb9e1']; composed-prompt sha per arm: {'A1': ['afad954d'],
 | A3 sonnet | NULL | R6 | R8 | R3 | R3 |
 | A3 opus | R8 | R3 | R5 | R8 | R3 |
 | A4 sonnet | R6 | R6 | NULL | NULL | NULL |
-| A4 opus | R3 | R6 | R6 | R6 | R6 |
+| A4 opus | R3 | R7 | R8 | R8 | R8 |
 
 ## Rung survival: fraction of trials with score >= rung
 
@@ -26,7 +26,8 @@ airstack_commit: ['961fb9e1']; composed-prompt sha per arm: {'A1': ['afad954d'],
 | A1 | 1.0 | 1.0 | 1.0 | 1.0 | 1.0 | 0.9 | 0.8 | 0.8 |
 | A2 | 1.0 | 1.0 | 1.0 | 1.0 | 1.0 | 0.7 | 0.6 | 0.6 |
 | A3 | 0.9 | 0.9 | 0.9 | 0.5 | 0.5 | 0.4 | 0.3 | 0.3 |
-| A4 | 0.7 | 0.7 | 0.7 | 0.6 | 0.6 | 0.6 | 0.0 | 0.0 |
+| A4 | 0.7 | 0.7 | 0.7 | 0.6 | 0.6 | 0.6 | 0.4 | 0.3 |
+| A4 (v6 pre-Amendment-3 reference) | 0.7 | 0.7 | 0.7 | 0.6 | 0.6 | 0.6 | 0.0 | 0.0 |
 
 Per model (n=5/cell):
 
@@ -39,10 +40,11 @@ Per model (n=5/cell):
 | A3 sonnet | 0.8 | 0.8 | 0.8 | 0.4 | 0.4 | 0.4 | 0.2 | 0.2 |
 | A3 opus | 1.0 | 1.0 | 1.0 | 0.6 | 0.6 | 0.4 | 0.4 | 0.4 |
 | A4 sonnet | 0.4 | 0.4 | 0.4 | 0.4 | 0.4 | 0.4 | 0.0 | 0.0 |
-| A4 opus | 1.0 | 1.0 | 1.0 | 0.8 | 0.8 | 0.8 | 0.0 | 0.0 |
+| A4 opus | 1.0 | 1.0 | 1.0 | 0.8 | 0.8 | 0.8 | 0.8 | 0.6 |
 
 ## tab:agents statistics (mean ± sd)
 
+(tab A4: mean rung recomputed 4.6 vs v6 pre-Amendment-3 3.9; calls/time/cost unchanged by the re-judge)
 | Arm | R8 success | Mean rung | Hours | Judge calls | Cost USD (n) | ktok out |
 |---|---|---|---|---|---|---|
 | A1 | 8/10 | 7.5 | 2.14 ± 0.42 | 9.8 ± 2.6 | 17.25 ± 7.86 (10) | 115 ± 31 |
@@ -50,7 +52,7 @@ Per model (n=5/cell):
 | &nbsp;&nbsp;A2 sonnet | 1/5 | 5.8 | 3.14 ± 0.85 | 11.8 ± 4.8 | 15.87 ± 5.78 (4) | 144 ± 47 |
 | &nbsp;&nbsp;A2 opus | 5/5 | 8.0 | 2.12 ± 0.30 | 9.2 ± 3.1 | 19.90 ± 3.49 (5) | 104 ± 21 |
 | A3 | 3/10 | 4.7 | 1.37 ± 0.29 | 0.0 ± 0.0 | 16.07 ± 4.46 (10) | 117 ± 28 |
-| A4 | 0/10 | 3.9 | 2.66 ± 0.73 | 13.6 ± 2.8 | 28.53 ± 9.18 (9) | 245 ± 52 |
+| A4 | 3/10 | 4.6 | 2.66 ± 0.73 | 13.6 ± 2.8 | 28.53 ± 9.18 (9) | 245 ± 52 |
 
 Total recorded spend: $752.87 over 38 trials; unrecorded (wall-clock kill lost usage event): ['A2_claude-sonnet-5_ladder_claude_005', 'A3_claude-opus-5_ladder_claude_001']
 
@@ -88,5 +90,15 @@ A trial counts once per category if its transcript shows >=1 use;
 
 Artifacts written: rung_survival.{pdf,png}, rung_survival_per_model.{pdf,png}, tab_agents.tex
 
-## DISCREPANCIES vs hand-tallied §(c-final): 1
-- tab:agents A4 (raw A3): recomputed (rung,calls,min,cost,n)=(3.9, 13.6, 159, 28.53, 9) != §(c-final) (3.9, 13.6, 160, 28.53, 9)
+
+## Amendment 3 re-judge (bare-parts arm R7/R8 with the eval world staged)
+
+| Trial (raw id) | v6 score | re-judged score | eval world verified in sim | runner |
+|---|---|---|---|---|
+| A3_claude-opus-5_ladder_claude_001 | R3 | R3 | True | d0a3482 |
+| A3_claude-opus-5_ladder_claude_002 | R6 | R7 | True | d0a3482 |
+| A3_claude-opus-5_ladder_claude_003 | R6 | R8 | True | d0a3482 |
+| A3_claude-opus-5_ladder_claude_004 | R6 | R8 | True | d0a3482 |
+| A3_claude-opus-5_ladder_claude_005 | R6 | R8 | True | d0a3482 |
+
+## DISCREPANCIES vs hand-tallied §(c-final): none — every recomputed value matches.
