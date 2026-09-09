@@ -1,8 +1,8 @@
 {
   "audit_complete": true,
-  "generated_utc": "2026-09-08T23:18:09Z",
-  "scope": "All completed valid 600-s production iterations present on 2-GPU pods 3 and 4",
-  "accepted_production_iterations": 4,
+  "generated_utc": "2026-09-09T06:39:21Z",
+  "scope": "All completed valid 600-s production iterations present on 2-GPU pods 3, 4 and 5",
+  "accepted_production_iterations": 6,
   "missing_from_nas": 0,
   "excluded": "All failed/stopped attempts and passed 50-s camera diagnostics",
   "runs": [
@@ -49,6 +49,28 @@
       "compiled_results_sha256": "a96c6eed5a778f788065e5260e2725e067e547a2d4bdab1afcb0de79b299b104",
       "metrics_sha256": "6e0795140e0785e50bcae04088b7b0a93814a9eb8872969b3ec8d417b618012f",
       "groundtruth_comparison_sha256": "eea35f0b3a4e69a0e8eb31951c1d46eedc00724b25cee88c412129bb9f84a61f"
+    },
+    {
+      "pod": "2-GPU 3",
+      "nas_iteration": "raven_hurricanesuburbanl2v1_raven_remaining_2gpu1/2026-09-09_03-09-11/iter_001__hurricanesuburbanl2v1_raven__raven",
+      "manifest_match": true,
+      "file_count": 151,
+      "total_bytes": 85724178907,
+      "iteration_sha256": "5de4f53b18abb88face1531114aa7ed4c8f94ec004e273e8216a31ee86b307d2",
+      "compiled_results_sha256": "2362d4755974323b411746a84da43fc355c457774e56c0ed94bd1a78307bd1ab",
+      "metrics_sha256": "f6c1206c6e4db73005c8f379f9df2eb00ace707d5af43ded3a5f778622b4eabe",
+      "groundtruth_comparison_sha256": "ef61ce0bd165e4cf9b2d50815335f77a5a4f2d51a43bad2ea90a397b9206a02a"
+    },
+    {
+      "pod": "2-GPU 5",
+      "nas_iteration": "raven_hurricanesuburbanl3v1_raven_remaining_2gpu1/2026-09-09_03-20-27/iter_001__hurricanesuburbanl3v1_raven__raven",
+      "manifest_match": true,
+      "file_count": 151,
+      "total_bytes": 33917870856,
+      "iteration_sha256": "e7a6f36c5831834df8c0c5b4a70f1c113e1cd0167458390dd8c28f9f9373bfd1",
+      "compiled_results_sha256": "19495b5657112b3be31f4473848cf4f0f803c0c9ccaca0340acb43beabaa0d1a",
+      "metrics_sha256": "5e6874d4ce9ebc829060e88e1694342c5fcbfc3b9b9f1f5213417ff2c05ea056",
+      "groundtruth_comparison_sha256": "837e248c37135396725bdecbc3ead8fae105cd07c4a4f9c17973c676006e6b0a"
     }
   ]
 }
