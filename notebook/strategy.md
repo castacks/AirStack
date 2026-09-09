@@ -19,7 +19,7 @@
 >   the content. Never rewrite or prune it; correct an old entry only
 >   by appending a newer one.
 >
-> Last updated: 2026-09-08
+> Last updated: 2026-09-09
 
 ## Current direction
 
@@ -118,7 +118,7 @@ come from the entries' own labels.
 |---|---|---|---|
 | Agent study (paper Sec. VI-C) | Run the four-arm proxy-developer study on the bring-up-to-flight ladder, judged by the pytest harness | [007-agent-study-prereqs](007-agent-study-prereqs/design_spec.md), [008-droan-gl-r7-avoidance-fix](008-droan-gl-r7-avoidance-fix/design_spec.md), [009-droan-gl-yaw-sweep-unstick](009-droan-gl-yaw-sweep-unstick/design_spec.md), [010-mighty-local-planner-module](010-mighty-local-planner-module/design_spec.md), [011-agent-study-v6-trials](011-agent-study-v6-trials/design_spec.md) | 007 `WIP` (P-5, P-7 open, non-blocking); 008 `DONE` (verdict (c) ❌ under frozen config); 009 `DONE` (sweep works, R7 still 0/10); 010 `DONE` — MIGHTY swapped in as `asm_mighty` v0.1.0; R7 reference solvability 5/5 under frozen v6; 011 `DONE` — 40/40 trials scored + §(d) paper analysis complete 2026-09-02 (figure, tab:agents, cycles, taxonomy) |
 | Paper writing & positioning | Sec. I–V prose, case-study interviews, figures | — (lives in the `ICRA_2027_AirStack_Paper/` submodule; no notebook entries) | Related Work + Design Principles prose done 2026-08-03; interviews not recorded anywhere yet |
-| Measurement studies (paper Table I + Sec. VI-B) | Reproducible LOC-reuse and defect-mining scripts over the five case-study repos, released with the paper | [012-paper-measurement-studies](012-paper-measurement-studies/design_spec.md) (moved out of the Overleaf-synced paper repo 2026-09-08) | `DONE` 2026-09-08 — Table I code rows filled for all five (Hummingbird team-reported); defects mined for RAVEN / DFM2 / Shimizu / Swarm CBF / Hummingbird (team) / AirStack-core; VI-B reframed to sim-in-the-loop |
+| Measurement studies (paper Table I + Sec. VI-B) | Reproducible LOC-reuse and defect-mining scripts over the five case-study repos, released with the paper | [012-paper-measurement-studies](012-paper-measurement-studies/design_spec.md) (moved out of the Overleaf-synced paper repo 2026-09-08) | `DONE` 2026-09-08 — Table I code rows filled for all five (Powerline Inspection team-reported); defects mined for RAVEN / DFM2 / Construction Inspection / Safe Swarm / Powerline Inspection (team) / AirStack-core; VI-B reframed to sim-in-the-loop |
 | Release gate / v1.0 readiness | The seven paper-blocking items (clone-and-run, verified hardware path, …) | — (no notebook entries yet) | ~63 open `\task{}` vs 1 `\done{}` in `release_gate_and_tasks.tex` |
 | Modular AirStack (RFC #379/#380) | Monolith → modules, stacks, fleets — built to support the paper's modularity positioning: module swapping (C1) and easy upstreaming of features from forked projects (lead, recorded 2026-08-27) | [002-rfc-modular-airstack](002-rfc-modular-airstack/design_spec.md) | `WIP` per its header (impl merged to develop 2026-08-24 as PRs #388–#396; release mechanics, module CI tags, P3 dispatch smoke open) |
 | Launch & CLI developer experience | Kill sim-launch friction — intent flags, readiness signal, scene selection, command groups — purely for developer usage and adoption (lead, recorded 2026-08-27) | [001-pre-rfc-workflow-cleanup](001-pre-rfc-workflow-cleanup/design_spec.md), [003-scene-flag](003-scene-flag/design_spec.md), [004-osmo-command-group](004-osmo-command-group/design_spec.md) | 001 `DONE`; 003 `DONE`; 004 results PASS (no header status) |
@@ -132,6 +132,17 @@ a standing choice flipped. Routine feature completions that don't move
 the strategy get no entry. Format: `### YYYY-MM-DD — what happened`,
 answering *what we learned or decided, what it changed, link to the
 evidence*.
+
+### 2026-09-09 — Case-study projects renamed for the paper
+
+Paper-facing names are now **Construction Inspection** (was Shimizu),
+**Safe Swarm** (was Swarm CBF), and **Powerline Inspection** (was
+Hummingbird); applied across `main.tex`, `references.bib`,
+`release_gate_and_tasks.tex`, `paper_positioning.md`, and this file's
+in-place sections. Older log entries below keep the codenames they were
+written with. Measurement-study script paths and data under
+`012-paper-measurement-studies/` keep the codenames because they are keyed
+to repo names.
 
 ### 2026-09-08 — LOC + defect studies scripted; VI-B pivots from CI to simulation-in-the-loop
 
