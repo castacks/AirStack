@@ -16,6 +16,22 @@ unuploaded.
 
 ## At-a-glance matrix
 
+September 9, 20:08 UTC pod-58 performance diagnostic: the active Earthquake
+Suburban L3 Frontier search measures **RTF 0.04876** from a continuous domain-0
+clock callback (4.41 simulated seconds / 90.44 wall seconds), corroborated by
+domain 1 at **0.04919** (2.22 / 45.13). At this rate a 600-s search takes
+approximately **3 h 25 min**, excluding startup and upload, not the 50–67 min
+implied by RTF 0.15–0.2. This iteration started 17:38:46 and reached search at
+18:09:55; all eight takeoffs passed, robot 2 on its second action attempt, with
+no full-iteration retry. Isaac and detector UUIDs match the pod's assigned GPU
+(`17194e29-090d-757c-9af0-2b3687c5fee8`), with 12.8 GB VRAM in use. Sampled GPU
+utilization was 0–6%, Isaac's main thread approximately 92% CPU, and its cgroup
+showed no CPU throttling. These observations suggest a CPU-side bottleneck;
+they do not yet establish its exact cause. Camera settings remain 0 empty
+groups / burst 8. Investigation of the three skipped Tornado failures and
+corrected rerun scheduling is underway; spawn changes require collision or
+clearance evidence rather than treating every pre-arm timeout as a spawn bug.
+
 | Disaster | Locale | Level | Scene ready | Frontier | Lawnmower | VLFM | CoNavGPT2 | RayFronts/RAVEN |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
 | **Fire** | **Urban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
