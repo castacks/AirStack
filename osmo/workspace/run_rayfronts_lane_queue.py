@@ -90,7 +90,7 @@ def main() -> int:
         # A live ~0.04-RTF earthquake attempt needed more than 300 wall seconds
         # for the original accepted climb, so match the action's full timeout.
         takeoff["feedback_timeout_s"] = 900
-        assert search["timeout_s"] == 21600
+        assert search["timeout_s"] == 25200
         assert search["goal"]["max_sim_seconds"] == 600.0
 
         # Takeoff can succeed and then a single MAVROS odometry stream can
