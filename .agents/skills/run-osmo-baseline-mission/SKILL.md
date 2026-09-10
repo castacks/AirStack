@@ -312,6 +312,36 @@ and full after repeated launches. `mount -o remount,size=2G /dev/shm` expanded
 its capacity without deleting live transport files; verify the mount scope
 and capacity afterward. Never indiscriminately remove live FastDDS segments.
 
+### A successful colcon summary does not prove its cached libraries are valid
+
+After an interrupted multi-robot build, colcon can retain a zero-byte shared
+library in both `robot/ros_ws/build` and `robot/ros_ws/install`. Later `bws`
+runs report the target as built and the install as up to date because CMake
+checks timestamps, not ELF validity. On pod 6 (2026-09-09), the zero-byte
+`libairstack_msgs__rosidl_typesupport_fastrtps_cpp.so` made
+`takeoff_landing_task`, `pid_controller`, and `trajectory_controller` abort
+with `file too short`; PX4 then armed and auto-disarmed because no takeoff task
+survived. This looked like repeated pre-arm/spawn trouble at the mission layer.
+
+When multiple control nodes abort at launch, inspect every named library in the
+loader error in **both** trees:
+
+```bash
+stat -c '%s %y %n' \
+  robot/ros_ws/build/airstack_msgs/libairstack_msgs__rosidl_typesupport_fastrtps_cpp.so \
+  robot/ros_ws/install/airstack_msgs/lib/libairstack_msgs__rosidl_typesupport_fastrtps_cpp.so
+ldd robot/ros_ws/install/airstack_msgs/lib/libairstack_msgs__rosidl_typesupport_fastrtps_cpp.so
+```
+
+Stop the exact invalid mission first and do not upload it. Rebuild the affected
+package from clean package build/install state, or restore a checksum-matched
+artifact from the exact same Git revision and ABI into **both** build and
+install; repairing only install is undone by the next `bws` install pass. Gate
+the retry on nonzero sizes, matching checksums, successful `ldd`, and live
+instances of the formerly crashing nodes after the actual eight-replica
+startup. Do not diagnose a spawn or relax flight gates until this binary gate
+passes.
+
 ### Readiness includes canonical odometry, not only MAVROS
 
 `connected=true` plus live
