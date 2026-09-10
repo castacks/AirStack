@@ -16,6 +16,17 @@ unuploaded.
 
 ## At-a-glance matrix
 
+September 10 native profiling: five independent main-thread samples on the
+active Earthquake Suburban L3 Lawnmower run all landed in
+`libomni.fabric.plugin.so`; selective symbol loading exposed a caller in
+`libusdrt.hierarchy.plugin.so`. This localizes the sampled CPU hotspot to
+Hydra/Fabric scene hierarchy work, not proven PhysX or detector cost. Memory
+pressure was effectively zero and I/O pressure below 0.5% in the sampled window.
+Brief native stack captures added diagnostic wall-time overhead without
+changing scene settings. A fourth matched 50-s candidate now tests the legacy
+USD scene delegate with the same 8 groups, burst 8, CPU physics, camera geometry
+and flight gates. It is opt-in and **not yet validated for production**.
+
 September 9, 20:08 UTC pod-58 performance diagnostic: the active Earthquake
 Suburban L3 Frontier search measures **RTF 0.04876** from a continuous domain-0
 clock callback (4.41 simulated seconds / 90.44 wall seconds), corroborated by

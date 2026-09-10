@@ -407,6 +407,22 @@ docker exec airstack-robot-desktop-1 bash -c "colcon test-result --test-result-b
 
 ### CPU Profiling
 
+For Isaac Sim, a Python profile ending in `SimulationContext.step ->
+app.update()` does not distinguish physics from rendering/scene synchronization.
+Resolve the simulator PID inside its container, then use a bounded native
+main-thread stack sample. GDB is available in the Isaac image; disable thread
+event printing and automatic shared-library symbol loading to avoid spending
+minutes on hundreds of threads. Always detach, impose a short timeout, and
+record the brief sampling pause as diagnostic overhead. Selectively loading
+the implicated library's symbols may restore additional caller frames even
+when its internal symbols are stripped. Repeated main-PC samples in
+`libomni.fabric.plugin.so` with a `libusdrt.hierarchy.plugin.so` caller implicate
+Hydra/Fabric scene hierarchy work, not automatically CPU physics. Low GPU
+utilization alone cannot make that distinction. The opt-in launcher setting
+`ISAAC_SIM_FABRIC_SCENE_DELEGATE=false` tests the legacy scene delegate on a
+cold launch; it is not a validated production optimization until camera and
+flight correctness, sustained FPS, and RTF are measured on the same scene.
+
 ```bash
 # Install profiling tools (if not in container)
 docker exec -it airstack-robot-desktop-1 bash

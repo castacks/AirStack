@@ -185,6 +185,16 @@ if os.environ.get("ISAAC_SIM_DISABLE_MOTION_BVH", "false").lower() == "true":
     ]
 _DISABLE_VIEWPORT_UPDATES = (
     os.environ.get("ISAAC_SIM_DISABLE_VIEWPORT_UPDATES", "false").lower() == "true")
+# Diagnostic override: the default Fabric scene delegate can spend most of
+# the main thread updating hierarchy on large frozen cells. Leave Kit's
+# default untouched unless explicitly requested; switching delegates requires
+# a cold launch and RGB/depth/flight validation before production use.
+_FABRIC_DELEGATE = os.environ.get("ISAAC_SIM_FABRIC_SCENE_DELEGATE", "").strip().lower()
+if _FABRIC_DELEGATE:
+    if _FABRIC_DELEGATE not in ("true", "false"):
+        raise ValueError("ISAAC_SIM_FABRIC_SCENE_DELEGATE must be true, false, or empty")
+    _RTX_TUNING_ARGS.append(f"--/app/useFabricSceneDelegate={_FABRIC_DELEGATE}")
+
 if _RTX_TUNING_ARGS or _DISABLE_VIEWPORT_UPDATES:
     print(f"[isaac] optional RTX tuning: args={_RTX_TUNING_ARGS}, "
           f"disable_viewport_updates={_DISABLE_VIEWPORT_UPDATES}", flush=True)

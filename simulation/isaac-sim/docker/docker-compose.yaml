@@ -218,6 +218,7 @@ services:
       # before PhysicsContext construction when this is true; setting only
       # World(device=cuda) happens too late to enable GPU dynamics in 5.1.
       - ISAAC_SIM_GPU_PHYSICS=${ISAAC_SIM_GPU_PHYSICS:-false}
+      - ISAAC_SIM_FABRIC_SCENE_DELEGATE=${ISAAC_SIM_FABRIC_SCENE_DELEGATE:-}
       - FROZEN_GROUND_ONLY_CONTACTS=${FROZEN_GROUND_ONLY_CONTACTS:-false}
       - ISAAC_SIM_DLSS_MODE=${ISAAC_SIM_DLSS_MODE:-}
       - ISAAC_SIM_AA_MODE=${ISAAC_SIM_AA_MODE:-}
@@ -574,6 +575,7 @@ services:
       # host-does-not-forward-automatically rule as every other var here.
       - ISAAC_SIM_ACTIVE_GPU=${ISAAC_SIM_ACTIVE_GPU:-}
       - ISAAC_SIM_GPU_PHYSICS=${ISAAC_SIM_GPU_PHYSICS:-false}
+      - ISAAC_SIM_FABRIC_SCENE_DELEGATE=${ISAAC_SIM_FABRIC_SCENE_DELEGATE:-}
       - FROZEN_GROUND_ONLY_CONTACTS=${FROZEN_GROUND_ONLY_CONTACTS:-false}
       - ISAAC_SIM_DLSS_MODE=${ISAAC_SIM_DLSS_MODE:-}
       - ISAAC_SIM_AA_MODE=${ISAAC_SIM_AA_MODE:-}

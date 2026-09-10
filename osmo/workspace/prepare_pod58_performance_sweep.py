@@ -15,16 +15,20 @@ def prepare(source, output):
              'scripts/measure_camera_sim_window.py').read_text()
     output.mkdir(parents=True, exist_ok=True)
     paths = []
-    for groups, gpu_physics in ((8, False), (32, False), (8, True)):
+    for groups, gpu_physics, fabric in ((8, False, True), (8, False, False),
+                                      (32, False, True), (8, True, True)):
         spec = copy.deepcopy(base)
         spec['name'] = f'diagnostic_eqsub_l3_lawn_groups{groups}_gpu{int(gpu_physics)}_50s'
+        if not fabric:
+            spec['name'] += '_usd_delegate'
         spec.pop('nas_dest', None)
         spec['iterations'] = 1
         spec['iteration_attempts'] = 1
         spec['env'].update(SEARCH_MAX_SIM_SECONDS='50',
                            ZED_TIME_SLICE_GROUPS=str(groups),
                            ZED_TIME_SLICE_BURST='8', ZED_HYDRA_TIME_SLICE='true',
-                           ISAAC_SIM_GPU_PHYSICS=str(gpu_physics).lower())
+                           ISAAC_SIM_GPU_PHYSICS=str(gpu_physics).lower(),
+                           ISAAC_SIM_FABRIC_SCENE_DELEGATE=str(fabric).lower())
         for step in spec['steps']:
             action = step.get('action', {})
             if action.get('task') == 'takeoff':
