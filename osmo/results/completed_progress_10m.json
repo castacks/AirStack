@@ -467,6 +467,16 @@
       "marker_messages": 2603
     },
     {
+      "scene": "Earthquake / Suburban L3",
+      "method": "Frontier",
+      "iter_dir": "/media/share/coa-sei/remaining58_earthquakesuburbanl3v1_frontier/2026-09-09_17-38-46/iter_001__earthquakesuburbanl3v1__frontier",
+      "radius_m": 10,
+      "gt_victims": 70,
+      "detected_victims": 0,
+      "progress": 0.0,
+      "marker_messages": 75
+    },
+    {
       "scene": "Fire / Suburban L1",
       "method": "CoNavGPT2",
       "iter_dir": "/media/share/coa-sei/remaining58_firesuburbanl1v1_conavgpt2_team/2026-09-08_23-23-19/iter_001__firesuburbanl1v1_conavgpt2_team__conavgpt2_team",
@@ -898,13 +908,13 @@
     },
     {
       "scene": "Earthquake / Suburban L3",
-      "method": "Frontier",
-      "iter_dir": "/media/share/coa-sei/remaining58_earthquakesuburbanl3v1_frontier/2026-09-09_17-38-46/iter_001__earthquakesuburbanl3v1__frontier",
+      "method": "Lawnmower",
+      "iter_dir": "/media/share/coa-sei/remaining58_earthquakesuburbanl3v1_lawnmower/2026-09-09_22-03-26/iter_001__earthquakesuburbanl3v1_lawnmower__lawnmower",
       "radius_m": 10,
       "gt_victims": 70,
       "detected_victims": 0,
       "progress": 0.0,
-      "marker_messages": 75
+      "marker_messages": 166
     }
   ],
   "summary": [
@@ -926,11 +936,11 @@
     },
     {
       "method": "Lawnmower",
-      "completed_runs": 22,
+      "completed_runs": 23,
       "planned_8robot_runs": 24,
       "planned_all_fleet_sizes": 48,
-      "analyzed_runs": 22,
-      "average_progress": 0.010230455818691113
+      "analyzed_runs": 23,
+      "average_progress": 0.009785653391791499
     },
     {
       "method": "VLFM",
@@ -990,6 +1000,7 @@
     "/media/share/coa-sei/remaining58_earthquakesuburbanl2v1_conavgpt2_team/2026-09-09_14-09-58/iter_001__earthquakesuburbanl2v1_conavgpt2_team__conavgpt2_team",
     "/media/share/coa-sei/remaining58_earthquakesuburbanl2v1_vlfm/2026-09-09_10-47-46/iter_001__earthquakesuburbanl2v1__vlfm",
     "/media/share/coa-sei/remaining58_earthquakesuburbanl3v1_frontier/2026-09-09_17-38-46/iter_001__earthquakesuburbanl3v1__frontier",
+    "/media/share/coa-sei/remaining58_earthquakesuburbanl3v1_lawnmower/2026-09-09_22-03-26/iter_001__earthquakesuburbanl3v1_lawnmower__lawnmower",
     "/media/share/coa-sei/remaining58_firesuburbanl1v1_conavgpt2_team/2026-09-08_23-23-19/iter_001__firesuburbanl1v1_conavgpt2_team__conavgpt2_team",
     "/media/share/coa-sei/remaining58_fireurbanl2v1_lawnmower/2026-09-07_15-47-29/iter_001__fireurbanl2v1_lawnmower__lawnmower",
     "/media/share/coa-sei/remaining58_hurricaneurbanl2v1_conavgpt2_team/2026-09-07_20-19-27/iter_001__hurricaneurbanl2v1_conavgpt2_team__conavgpt2_team",
