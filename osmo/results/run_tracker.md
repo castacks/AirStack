@@ -818,7 +818,7 @@ This includes 19 results from the current queue plus four earlier Urban Fire
 results; the camera-rate diagnostic was excluded. No missing accepted upload
 was found on pod 58. Audit: `osmo/results/pod58_upload_audit.json`.
 
-The September 9 incremental strict refresh completed **89/89** accepted
+The September 10 incremental strict refresh completed **90/90** accepted
 standard-baseline cells with zero analysis failures. Output:
 `osmo/results/completed_progress_10m.json`.
 Credit each distinct GT person whose world XY position lies within 10 m of
@@ -830,7 +830,7 @@ scene/method count once, using the latest accepted result.
 
 | Method | Storage-confirmed completed / planned eight-robot runs | Average progress, strict 10 m |
 |---|---:|---:|
-| Frontier | 23/24 | 3.882% |
+| Frontier | 24/24 | 3.721% |
 | Lawnmower | 22/24 | 1.023% |
 | VLFM | 22/24 | 2.947% |
 | CoNavGPT2 | 22/24 | 0.115% |
