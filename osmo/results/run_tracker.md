@@ -834,14 +834,14 @@ scene/method count once, using the latest accepted result.
 | Lawnmower | 22/24 | 1.023% |
 | VLFM | 22/24 | 2.947% |
 | CoNavGPT2 | 22/24 | 0.115% |
-| RAVEN | 9/24 | 5.720% |
+| RAVEN | 10/24 | 5.148% |
 
 The full four-plus-eight-robot plan has 48 runs per method; the table above
 tracks the current eight-robot sweep (24 scenes). The two previously missing
 CoNavGPT2 cells, Fire Suburban L1 and Tornado Suburban L3, now have accepted
-NAS results. Completed-run counts are not analysis counts. RAVEN's ninth
-accepted result, Earthquake Suburban L1, scored 0/12 at strict 10 m and is now
-included in its average.
+NAS results. Completed-run counts are not analysis counts. RAVEN's ninth and
+tenth accepted results, Earthquake Suburban L1 and L3, scored 0/12 and 0/70 at
+strict 10 m and are now included in its average.
 
 A GT victim counts as detected when its world-frame XY location falls inside a **12 m circle around a planner `search_target`** during the 600-s search. A target circle exists only after a `person` detection clears the shared 0.65 confidence gate, is depth-projected, and forms a clustered target instance. One liberal circle can credit multiple GT people; drone proximity alone never counts. Time-integrated progress is normalized area under the cumulative detector-confirmed progress curve; marker chunks were sampled at about 20-s intervals (final persistent target state is always read, so final detection counts are exact). Paths are 1 Hz, world-frame XY odometry. Ideal lengths are OR-Tools oracle estimates for open Euclidean multi-depot routes through victim centres; fixed-sector methods preserve recorded robot ownership, while CoNavGPT2 permits joint assignment. Ground debris does not obstruct an aerial XY geodesic, and no return to launch is required. PPL uses the ideal route through detected GT victims: `progress × ideal_detected / max(actual, ideal_detected)`.
 
