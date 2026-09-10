@@ -48,7 +48,7 @@ FLY_Z = 0.3  # matches the judge's clearance check (ground samples ignored)
 TRIALS = [
     ("A1 opus-5 #1: PASS", "A1_claude-opus-5_ladder_claude_001",
      "r5_artifacts_92124"),
-    ("A4 opus-5 #1: FAIL (clearance)", "A3_claude-opus-5_ladder_claude_001",
+    ("A4 opus-5 #1: FAIL", "A3_claude-opus-5_ladder_claude_001",
      "r5_artifacts_9651"),
 ]
 
@@ -88,8 +88,10 @@ def main():
     layout = json.loads((STUDY / "obstacles/layout_r7.json").read_text())
     pillars = [(p["x"], p["y"], p["r"], p["h"]) for p in layout["pillars"]]
 
-    plt.rcParams.update({"font.size": 7, "font.family": "serif"})
-    fig, axes = plt.subplots(1, 2, figsize=(3.45, 1.95))
+    # Compact layout (2026-09-09): one-line panel titles, no axis labels
+    # (caption gives the units), shared y ticks — the figure is placed at \columnwidth.
+    plt.rcParams.update({"font.size": 6, "font.family": "serif"})
+    fig, axes = plt.subplots(1, 2, figsize=(3.45, 1.52), sharey=True)
     for ax, (label, trial, art) in zip(axes, TRIALS):
         d = STUDY / "runs" / trial / art
         route = parse_route(json.loads((d / "r7_route.json").read_text())["route"])
@@ -124,18 +126,15 @@ def main():
                 ax.add_patch(Circle((w["target"][0], w["target"][1]), 2.2,
                                     fill=False, color="tab:red", lw=0.9,
                                     zorder=6))
-        ax.set_title(f"{label}\nmin clearance {mc:.2f} m", fontsize=6.5)
+        ax.set_title(f"{label} ({mc:.2f} m)", fontsize=5.5, pad=2)  # (min clearance)
         ax.set_aspect("equal")
-        ax.set_xlim(-3, 53)
-        ax.set_ylim(-8, 38)
+        ax.set_xlim(-3, 52)
+        ax.set_ylim(-7.5, 38)
         ax.set_xticks([0, 25, 50])
         ax.set_yticks([0, 25])
-        ax.tick_params(labelsize=6, length=2, pad=1)
+        ax.tick_params(labelsize=5, length=1.5, pad=1)
         ax.grid(alpha=0.2, lw=0.3)
-    axes[0].set_ylabel("y (m)", labelpad=1)
-    for ax in axes:
-        ax.set_xlabel("x (m)", labelpad=1)
-    fig.tight_layout(pad=0.3, w_pad=0.6)
+    fig.subplots_adjust(left=0.05, right=0.995, bottom=0.085, top=0.93, wspace=0.06)
     for ext in ("pdf", "png"):
         fig.savefig(f"{args.out}.{ext}", dpi=300)
         print("wrote", f"{args.out}.{ext}")
