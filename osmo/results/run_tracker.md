@@ -68,9 +68,9 @@ clearance evidence rather than treating every pre-arm timeout as a spawn bug.
 | **Earthquake** | **Urban** | L3 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
 | **Earthquake** | **Suburban** | L1 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 |
 | **Earthquake** | **Suburban** | L2 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟦 |
-| **Earthquake** | **Suburban** | L3 | 🟩 | 🟩 | 🟨 | 🟦 | 🟦 | 🟨 |
+| **Earthquake** | **Suburban** | L3 | 🟩 | 🟩 | 🟩 | 🟦 | 🟦 | 🟩 |
 
-### Accepted completion counts — September 9, 23:35 UTC
+### Accepted completion counts — September 10, 02:31 UTC
 
 Passed and uploaded unique 8-robot scene/method cells only; failures, active runs,
 and duplicate reruns are excluded. These completion counts can precede analysis.
@@ -78,14 +78,18 @@ and duplicate reruns are excluded. These completion counts can precede analysis.
 | Method | Completed / planned |
 |---|---:|
 | Frontier | 24 / 24 |
-| Lawnmower | 22 / 24 |
+| Lawnmower | 23 / 24 |
 | VLFM | 22 / 24 |
 | CoNavGPT2 | 22 / 24 |
-| RAVEN / RayFronts | 9 / 24 |
-| **Total** | **99 / 120** |
+| RAVEN / RayFronts | 10 / 24 |
+| **Total** | **101 / 120** |
 
-Pod 58 has uploaded 26/32 unique cells in its remaining-work queue and is now
-running Earthquake Suburban L3 Lawnmower. Frontier passed at whole-step RTF
+Pod 58 has uploaded 27/32 unique cells in its remaining-work queue. Earthquake
+Suburban L3 Lawnmower passed and its NAS checksum comparison completed at
+02:21:20 UTC; 16.56 GB was pruned locally. Its queue ledger still says running
+until the intentionally stopped parent resumes. The first matched 50-s
+performance diagnostic started at 02:21:28 UTC; diagnostics never count here.
+Frontier passed at whole-step RTF
 approximately 0.04370 (600 / 13730.12 wall seconds), was checksum-verified at
 22:03:26 UTC, and had 15.99 GB pruned locally. The three Tornado reruns were
 corrected and appended by commit `abb2564b`: fresh pre-arm safety gating and
