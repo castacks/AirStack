@@ -325,7 +325,16 @@ def restart_robot_bringup(n, containers):
     The relaunch is typed into a fresh interactive tmux shell because `sws` is
     a .bashrc ALIAS and would not expand under `docker exec bash -lc`.
     """
-    cname = containers[n - 1] if len(containers) >= n else f"airstack-robot-desktop-{n}"
+    # Do not trust Docker's enumeration order.  `docker ps` is ordered by
+    # creation time, not replica number, so indexing an otherwise complete
+    # list can restart the wrong robot (for example [robot-5, robot-6, ...]
+    # mapped a requested robot_1 recovery to robot-5 on pod 5).  Normal
+    # callers use robot_containers(), which sorts today, but recovery must be
+    # safe even when handed a raw/container-filtered list.
+    suffix = f"-{n}"
+    cname = next((candidate for candidate in containers
+                  if candidate.endswith(suffix)),
+                 f"airstack-robot-desktop-{n}")
     inner = (
         "tmux kill-session -t bringup 2>/dev/null; sleep 2; "
         "pkill -x mavros_node 2>/dev/null; sleep 2; "
