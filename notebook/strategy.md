@@ -133,6 +133,27 @@ the strategy get no entry. Format: `### YYYY-MM-DD — what happened`,
 answering *what we learned or decided, what it changed, link to the
 evidence*.
 
+### 2026-09-10 — CI/CD angle demoted; the system-test harness carries the verifiability claim
+
+Andrew judged the CI/CD angle the paper's weakest evidence and asked to
+replace it with the end-to-end autonomy test harness itself. Agreed and
+applied: the paper claimed per-PR flight tests and that no compared
+platform "flies a full-stack mission on every change", but AirStack's
+own flight marks are opt-in in CI and caught 0 of 96 trunk defects, and
+AAS's CI boots its stack automatically — a reviewer landmine. Changes in
+`main.tex`: abstract/intro/related-work reworded to "full-stack
+simulated flight tests"; "continuous flight readiness" and "shift-left"
+dropped; III-D now defines flight readiness as the harness (desk,
+pre-field, on-demand CI, agent-study judge); architecture paragraph
+describes the harness marks and what they record; Table I row "CI
+system tests" → "Full-stack flight tests"; Table II trunk column cut to
+one sentence of prose; limitations sentence shortened. Release gate:
+"CI ephemeral runners verifiably live" marked DEMOTED (release work,
+not paper-blocking); clone-and-run now carries the harness claim.
+Positioning doc updated in place. What survives is the true
+differentiator: AAS's system test boots the stack but commands no
+flight; AirStack's harness commands takeoff, routes, and landing.
+
 ### 2026-09-09 — Case-study projects renamed for the paper
 
 Paper-facing names are now **Construction Inspection** (was Shimizu),
