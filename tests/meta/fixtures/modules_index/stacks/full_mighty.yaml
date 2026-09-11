@@ -12,6 +12,6 @@ wiring: stacks/full_mighty/wiring.md           # docs site embeds the CI-generat
 notes: >-
   The module-swap demonstration for the modular architecture: the only
   difference vs full_default is one include in launch/stack.launch.xml plus
-  the asm_mighty pin in modules.repos (registry: modules/mighty.yaml — repo
-  private until the agent study concludes). wiring.md is pending the stack's
-  first validated wiring-snapshot run.
+  the asm_mighty pin in modules.repos (registry: modules/mighty.yaml; pin
+  v0.1.3 or newer — earlier bridges hang on 0.20.x, see the module notes).
+  wiring.md is pending the stack's first validated wiring-snapshot run.

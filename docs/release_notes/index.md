@@ -19,6 +19,8 @@ its own notes. -->
 
 ## 0.21.0 (Unreleased)
 
+- Module catalog synced from the registry (`sync-modules-index`): `full_mighty`, `mighty`.
+
 - **Fixed: post-release main→develop sync no longer skips.** The
   `sync-develop-from-main` workflow skipped whenever the merge result was
   content-identical to `develop` — exactly the situation right after a

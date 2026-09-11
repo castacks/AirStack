@@ -12,7 +12,7 @@
 | Type | `ros_package` |
 | Maintainer | ajong@andrew.cmu.edu |
 | License | BSD-3-Clause-Clear |
-| Registered ref | [`v0.1.1`](https://github.com/castacks/asm_mighty/tree/v0.1.1) |
+| Registered ref | [`v0.1.3`](https://github.com/castacks/asm_mighty/tree/v0.1.3) |
 | Declared compat | `>=0.20.0-alpha.16 <0.21.0` |
 | Registry entry | [modules/mighty.yaml](https://github.com/castacks/airstack-modules-index/blob/main/modules/mighty.yaml) |
 
@@ -21,7 +21,7 @@
 From an AirStack checkout ([AirStack Modules guide](../development/modules.md)):
 
 ```bash
-airstack module add https://github.com/castacks/asm_mighty --version v0.1.1
+airstack module add https://github.com/castacks/asm_mighty --version v0.1.3
 airstack up
 ```
 
@@ -42,7 +42,7 @@ matrix, read the declaration as intent.
 
 ## Documentation
 
-- [Module README on GitHub @ `v0.1.1`](https://github.com/castacks/asm_mighty/blob/v0.1.1/README.md)
+- [Module README on GitHub @ `v0.1.3`](https://github.com/castacks/asm_mighty/blob/v0.1.3/README.md)
 - *The module repo was not fetched when this page was generated — the*
   *links above go to GitHub at the registered ref (failure isolation:*
   *an unreachable module repo never fails the docs deploy).*
@@ -53,4 +53,4 @@ matrix, read the declaration as intent.
 
 ## Registry notes
 
-> Repo is PRIVATE until the AirStack agent study (ICRA 2027 paper, Sec. VI-C) concludes, then flips public — until then the repo/README links 404 for non-members. v0.1.1 is code-identical to v0.1.0 (README-only delta); v0.1.0 was validated end-to-end on Isaac Sim: 44/44 vendored gtests, synthetic smoke harness, empty-world NavigateTask flight, 7/7 practice pillar-field traversals, and 5/5 judged obstacle-route flights (min clearances 1.59–1.65 m vs a 1.0 m gate). Wrapper packages are BSD-3-Clause-Clear; vendored upstream packages (mighty, DecompROS2, acl-mapping) keep their own permissive licenses — see the module's VENDORED.md. Consumed by trunk reference stack full_mighty.
+> Public repo. v0.1.0 was validated end-to-end on Isaac Sim: 44/44 vendored gtests, synthetic smoke harness, empty-world NavigateTask flight, 7/7 practice pillar-field traversals, and 5/5 judged obstacle-route flights (min clearances 1.59–1.65 m vs a 1.0 m gate); v0.1.1 is code-identical (README delta). v0.1.2 fixes the bridge for AirStack 0.20.x — takeoff leaves the trajectory controller in ROBOT_POSE, where trajectory_override is merged but never flown, so v0.1.1 commits one trajectory and idles ("never replans"); the bridge now sets TRACK, bounds/preempts NavigateTask goals, drops stale global_plan routes and turns to the goal yaw on arrival (MIGHTY drops the goal orientation). v0.1.3 adds launch args for the mapper->planner grid seam and the altitude band (defaults unchanged). The v0.1.2 fixes were verified in closed-loop Isaac flights; the judged campaign was not re-run. Wrapper packages are BSD-3-Clause-Clear; vendored upstream packages (mighty, DecompROS2, acl-mapping) keep their own permissive licenses — see the module's VENDORED.md. Consumed by trunk reference stack full_mighty (pin v0.1.3 or newer).
