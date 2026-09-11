@@ -12,7 +12,7 @@
 | Type | `ros_package` |
 | Maintainer | ajong@andrew.cmu.edu |
 | License | BSD-3-Clause-Clear |
-| Registered ref | [`v0.1.0`](https://github.com/castacks/asm_exploration_planner/tree/v0.1.0) |
+| Registered ref | [`v0.1.1`](https://github.com/castacks/asm_exploration_planner/tree/v0.1.1) |
 | Declared compat | `>=0.21.0-dev.8 <0.22.0` |
 | Registry entry | [modules/exploration_planner.yaml](https://github.com/castacks/airstack-modules-index/blob/main/modules/exploration_planner.yaml) |
 
@@ -21,7 +21,7 @@
 From an AirStack checkout ([AirStack Modules guide](../development/modules.md)):
 
 ```bash
-airstack module add https://github.com/castacks/asm_exploration_planner --version v0.1.0
+airstack module add https://github.com/castacks/asm_exploration_planner --version v0.1.1
 airstack up
 ```
 
@@ -42,7 +42,7 @@ matrix, read the declaration as intent.
 
 ## Documentation
 
-- [Module README on GitHub @ `v0.1.0`](https://github.com/castacks/asm_exploration_planner/blob/v0.1.0/README.md)
+- [Module README on GitHub @ `v0.1.1`](https://github.com/castacks/asm_exploration_planner/blob/v0.1.1/README.md)
 - *The module repo was not fetched when this page was generated — the*
   *links above go to GitHub at the registered ref (failure isolation:*
   *an unreachable module repo never fails the docs deploy).*

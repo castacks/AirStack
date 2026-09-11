@@ -13,8 +13,9 @@ The single entry point `launch/stack.launch.xml` composes:
 - **Interface** (wrapped by design) plus **Sensors, Perception, Local,
   Behavior — all flat**: module launch files with canonical defaults, the
   same blocks as `full_default` (LiDAR filter, stereo_image_proc + topic
-  keepalive, takeoff/land task server, fixed-trajectory task server, GPU
-  DROAN planner, trajectory controller, PID controller, safety monitor).
+  keepalive, takeoff/land task server, fixed-trajectory task server, the
+  MIGHTY local planner from the `asm_mighty` module, trajectory controller,
+  PID controller, safety monitor).
 - **Cross-domain extras**: the robot↔GCS DDS router (the shared
   `autonomy_bringup/config/dds_router.yaml` allowlist) and the gossip
   coordination layer.
@@ -53,15 +54,14 @@ when `AIRSTACK_STACK_DIR` is set.
 ## Known limits
 
 - **No global planner**: `global_plan` has no publisher in this stack.
-  DROAN's navigate task still works with direct goals; exploration-style
+  MIGHTY's navigate task still works with direct goals; exploration-style
   missions need `full_default` or the `lite_offload_global` split.
 - All layers are flattened in `launch/stack.launch.xml` (same layout as
   `full_default`); the interface stays a wrapped include by design, so read
   [wiring.md](wiring.md) for the observed MAVROS wiring.
-- `modules.repos` pins no external modules yet; every package is
-  trunk-resident.
-- `docker-compose.yaml` is a stub — per-stack image composition arrives with
-  the first module pins; trunk compose profiles provide all services.
+- `modules.repos` pins `asm_mighty` (`airstack up` syncs it when missing);
+  the module has no image-level deps, so `docker-compose.yaml` is a stub and
+  trunk compose profiles provide all services.
 
 ## wiring.md
 

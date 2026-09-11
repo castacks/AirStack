@@ -1,0 +1,16 @@
+# Registry entry for the full_droan trunk reference stack (schema/stack-entry.schema.json).
+name: full_droan
+repo: https://github.com/castacks/AirStack
+path: stacks/full_droan
+description: >-
+  Full autonomy with the GPU DROAN reactive local planner (droan_gl, asm_droan
+  module) in place of the default MIGHTY planner — the 0.20.x full_default
+  topology kept as a named stack for depth-camera-only vehicles and legacy
+  comparisons
+airstack_compat: ">=0.21.0-dev.10 <0.22.0"   # from the stack's modules.repos airstack_compat key
+wiring: stacks/full_droan/wiring.md           # docs site embeds the CI-generated wiring.md from trunk
+notes: >-
+  Requires the droan module (registry: modules/droan.yaml), pinned in the
+  stack's modules.repos and synced by `airstack up`. Identical to full_default
+  except the local-planner include; its wiring.md is the observed baseline of
+  the GPU DROAN graph (formerly full_default's).

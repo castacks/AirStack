@@ -75,10 +75,11 @@ def pytest_addoption(parser):
                           "route-following, not obstacle avoidance.")
     parser.addoption("--waypoint-tolerance", default="15",
                      help="Pass distance (m) to each intermediate waypoint in "
-                          "test_waypoint_flight. Calibrated to stock droan_gl "
+                          "test_waypoint_flight. Calibrated to DROAN (droan_gl) "
                           "plan-following, which trades deviation for path "
                           "progress 1:1 and cuts corners deeply (7-10 m "
-                          "observed in Isaac). Default: 15")
+                          "observed in Isaac); the default MIGHTY planner "
+                          "tracks legs more tightly. Default: 15")
     parser.addoption("--goal-tolerance", default="2.5",
                      help="Pass distance (m) to the FINAL waypoint in "
                           "test_waypoint_flight: NavigateTask goal tolerance "

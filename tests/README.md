@@ -443,8 +443,11 @@ route-following, not obstacle avoidance.
 
 **Tolerance calibration** (validated against stock Isaac Sim flight): the
 stack's navigation contract is *reach the goal precisely, follow the route
-corridor loosely*. Stock `droan_gl` scores candidate trajectories with
-`cost = deviation - path_distance`, which cuts corners (~4–7 m observed), so
+corridor loosely*. Calibrated against the DROAN planner (`droan_gl`, the
+`full_droan` stack), which scores candidate trajectories with
+`cost = deviation - path_distance` and cuts corners (~4–7 m observed); the
+default MIGHTY planner follows route legs more tightly, so the same
+tolerances hold. Hence
 the intermediate tolerance is loose (15 m) while the final goal is tight
 (2.5 m = NavigateTask's 1.5 m goal tolerance + tracking lag). `NavigateTask`
 succeeds on the **tracking point**, which leads the drone by up to the

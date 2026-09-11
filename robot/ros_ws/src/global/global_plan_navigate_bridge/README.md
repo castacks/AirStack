@@ -1,9 +1,11 @@
 # global_plan_navigate_bridge
 
 Adapter between a **topic-publishing global planner** and AirStack's
-**task-executor local planner**. The trunk local planner (`droan_gl`) plans
-only while a `NavigateTask` action goal is active, and it rejects a second goal
-while one is running. The random-walk planner drives it as an action client
+**task-executor local planner**. The DROAN local planner (`droan_gl`, from the
+`asm_droan` module used by the `full_droan*` stacks) plans only while a
+`NavigateTask` action goal is active, and it rejects a second goal while one
+is running. The default MIGHTY local planner (`full_default`) instead follows
+the `global_plan` topic itself and needs no adapter. The random-walk planner drives it as an action client
 itself; planners that simply publish a `nav_msgs/Path` on `global_plan` — the
 [exploration_planner](https://github.com/castacks/asm_exploration_planner)
 and [raven](https://github.com/castacks/asm_raven) modules, or any external
@@ -58,16 +60,16 @@ Service: `/$ROBOT_NAME/global_plan_navigate_bridge/set_enabled` (`std_srvs/SetBo
 
 ## Usage
 
-Include it in a stack whose global planner publishes plans on a topic, right
-after that planner's include (see `stacks/full_exploration` and
-`stacks/full_raven`):
+Include it in a DROAN-based stack whose global planner publishes plans on a
+topic, right after that planner's include (the MIGHTY-based `full_exploration`
+and `full_raven` stacks do not need it):
 
 ```xml
 <include file="$(find-pkg-share global_plan_navigate_bridge)/launch/global_plan_navigate_bridge.launch.xml" />
 ```
 
 `full_default` does not include it: its random-walk planner is its own
-`NavigateTask` client.
+`NavigateTask` client and MIGHTY follows `global_plan` directly.
 
 ## Testing
 

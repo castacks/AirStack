@@ -12,16 +12,16 @@
 # RayFronts sidecar container + raven_bridge relay); everything else is
 # trunk-resident. asm_raven vendors the RayFronts fork as a git submodule —
 # `vcs import --recursive` (what sync runs) pulls it automatically.
-# PLACEHOLDER PIN: v0.1.0 is tagged at the module's first push / first green
+# PIN: v0.1.1 is tagged at the module's first push / first green
 # module CI — update the version below then.
-airstack_compat: ">=0.21.0-dev.8 <0.22.0"
+airstack_compat: ">=0.21.0-dev.10 <0.22.0"
 repositories:
   asm_raven:
     type: git
     url: git@github.com:castacks/asm_raven.git
-    version: v0.1.0
+    version: v0.1.1
   asm_mighty:
     type: git
-    url: git@github.com:castacks/asm_mighty.git
-    version: v0.1.3
+    url: https://github.com/castacks/asm_mighty
+    version: v0.1.4
 x-local-modules: []

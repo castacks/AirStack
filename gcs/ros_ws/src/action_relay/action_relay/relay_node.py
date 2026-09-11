@@ -121,7 +121,7 @@ def _build_navigate_goal(d, ts):
     # Waypoints from the Foxglove editor are in *global* ENU (gcs_visualizer's
     # shared map). The robot's own TF tree uses 'map' rooted at its takeoff
     # position, so we subtract the boot offset and keep the 'map' frame_id —
-    # the on-robot planner (droan_gl, target_frame=map) expects this.
+    # the on-robot local planner (map-frame goals) expects this.
     if in_frame == 'map':
         if ts is None or ts.get('boot') is None:
             raise RuntimeError(

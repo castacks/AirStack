@@ -11,16 +11,16 @@
 # full_exploration pulls the asm_exploration_planner module (frontier-based
 # geometric exploration global planner); everything else — including the
 # global_plan_navigate_bridge that turns its plans into NavigateTask goals —
-# is trunk-resident. v0.1.0 is the module's first tag; move the pin
+# is trunk-resident. v0.1.1 is the module's first tag; move the pin
 # deliberately (airstack module add <url> --version <new-tag>).
-airstack_compat: ">=0.21.0-dev.8 <0.22.0"
+airstack_compat: ">=0.21.0-dev.10 <0.22.0"
 repositories:
   asm_exploration_planner:
     type: git
     url: git@github.com:castacks/asm_exploration_planner.git
-    version: v0.1.0
+    version: v0.1.1
   asm_mighty:
     type: git
-    url: git@github.com:castacks/asm_mighty.git
-    version: v0.1.3
+    url: https://github.com/castacks/asm_mighty
+    version: v0.1.4
 x-local-modules: []

@@ -1,6 +1,6 @@
 # full_exploration
 
-`full_mighty` with the global planner swapped: the random-walk planner is
+`full_default` with the global planner swapped: the random-walk planner is
 replaced by the **frontier-based geometric exploration planner** from the
 external **asm_exploration_planner** module — the planner the Construction
 Project flew on a real construction site. It integrates the filtered Ouster
@@ -12,16 +12,16 @@ topic directly, so no Path→NavigateTask adapter is needed (a droan_gl-based
 variant would add trunk's `global_plan_navigate_bridge`). Everything else —
 MIGHTY local planner + acl-mapping world model (LiDAR-based, so it works in
 unlit scenes), trajectory controller, PID, safety monitor, takeoff/landing,
-VDB mapping, GCS bridge — is unchanged from `full_mighty`.
+VDB mapping, GCS bridge — is unchanged from `full_default`.
 
-The only differences vs `full_mighty` are the global-planner include in
+The only differences vs `full_default` are the global-planner include in
 `launch/stack.launch.xml` and the `asm_exploration_planner` pin in
 `modules.repos`.
 
 Bring-up:
 
 ```bash
-airstack module sync            # pulls asm_exploration_planner per this stack's modules.repos
+# module pins are reconciled by `airstack up` (or: airstack module sync)
 airstack up --stack full_exploration --sim isaac
 airstack ready
 ```
@@ -32,10 +32,10 @@ Then, after takeoff, enable exploration from the GCS Tasks panel (the
 Notes:
 
 
-- The exploration planner needs no extra image dependencies (OpenVDB, PCL,
-  Eigen ship in the trunk robot image); MIGHTY needs its `nlohmann-json3-dev`
-  layer, so run `airstack module lock --build` before `airstack up` (as for
-  `full_mighty`).
+- Neither module needs a composed image layer: OpenVDB, PCL and Eigen ship
+  in the trunk robot image, and since 0.21.0-dev.11 so does MIGHTY's
+  `nlohmann-json3-dev` header dep. `airstack up --stack full_exploration`
+  reconciles the stack's module pins itself (adds/syncs missing modules).
 - Planner tuning lives in the module: `exploration_planner/config/
   exploration_planner.yaml` (open-world defaults) and
   `exploration_planner_construction_site.yaml` (bounded exploration inside

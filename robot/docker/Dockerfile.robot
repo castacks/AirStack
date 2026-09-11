@@ -309,17 +309,15 @@ RUN apt-get ${UPDATE_FLAGS} update && apt-get ${INSTALL_FLAGS} install -y --no-i
   && rm -rf /var/lib/apt/lists/*
 RUN mkdir /var/run/sshd
 
-# droan_gl link deps (assimp/EGL/GL) — declared in its package.xml
-# (robot/ros_ws/src/local/planners/droan_gl: rosdep keys assimp, opengl,
-# libglfw3-dev, libglm-dev). Installed explicitly so the in-container colcon
-# build doesn't rely on ros-desktop transitives. EGL has no rosdep key on
-# jazzy/noble, hence libegl-dev appears only here.
+# Default local planner dep: the asm_mighty module (MIGHTY, pinned by the
+# full_default / lite_default / lite_offload_global stacks) reads its solver
+# config with the header-only nlohmann json library. It is installed in the
+# base image so the default stack builds with no module dependency layer (the
+# module declares no deps of its own). Other modules' deps enter the image via
+# their own tier-1/2 layers (airstack module lock --build) — e.g. asm_droan's
+# assimp/EGL/GLFW/GLM link deps for droan_gl.
 RUN apt-get ${UPDATE_FLAGS} update && apt-get ${INSTALL_FLAGS} install -y --no-install-recommends \
-  libassimp-dev \
-  libgl1-mesa-dev \
-  libegl-dev \
-  libglfw3-dev \
-  libglm-dev \
+  nlohmann-json3-dev \
   && rm -rf /var/lib/apt/lists/*
 
 # Copy build artifacts from the builder stage

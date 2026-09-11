@@ -1,5 +1,5 @@
 <!--
-  full_exploration : full_mighty with the frontier exploration global planner (asm_exploration_planner module) in place of random_walk.
+  full_exploration : full_default with the frontier exploration global planner (asm_exploration_planner module) in place of random_walk.
 
   ALL LAYERS FLATTENED (P5-E2 local, P5-E3 the rest): every layer is composed
   here as a flat set of module-launch includes — each block below reads "this
@@ -27,7 +27,7 @@
   robot_state_publisher, world/map static TF) runs there unconditionally, so
   it is NOT repeated here.
 
-  Provenance: copied from full_mighty (airstack stack new); the ONLY wiring
+  Provenance: copied from full_default (airstack stack new); the ONLY wiring
   difference is the global-planner block — random_walk_planner is replaced by
   the asm_exploration_planner module's exploration_planner.launch.xml. The
   local layer is MIGHTY (asm_mighty), whose bridge follows the global_plan
@@ -86,7 +86,7 @@
        tasks/navigate. Its mighty_bridge also
        FOLLOWS the global_plan topic directly (carrot follower), so a
        topic-publishing global planner drives the vehicle without a
-       NavigateTask adapter. Same local layer as full_mighty (LiDAR-based, so
+       NavigateTask adapter. Same local layer as full_default (LiDAR-based, so
        it works where stereo disparity does not, e.g. unlit scenes). -->
   <!-- Stack-level parameter override (no module edit): the MIGHTY follower
        engages only after the vehicle has climbed follow_min_climb_m (module

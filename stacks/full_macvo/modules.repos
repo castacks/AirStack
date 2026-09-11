@@ -11,11 +11,20 @@
 # NOTE(submodules): asm_macvo's macvo_ros2/macvo_ros2/macvo is a git submodule
 # of that repo (the MAC-VO network). `airstack module sync` imports with
 # `vcs import --recursive`, so the submodule arrives automatically.
-airstack_compat: ">=0.19.0-alpha.18 <0.21.0"
+#
+# full_macvo pulls TWO modules: asm_macvo (the disparity source) and asm_droan
+# (the droan_gl planner that consumes MAC-VO's disparity — the stereo-disparity
+# planner is the point of this stack, so it keeps DROAN rather than the
+# lidar-fed MIGHTY default).
+airstack_compat: ">=0.21.0-dev.10 <0.22.0"
 repositories:
   asm_macvo:
     type: git
     url: https://github.com/castacks/asm_macvo.git
     # SHA pin matching the root modules.repos; retag to v0.1.0 at first release.
     version: 431d7faf1f6fed20d415bb5e5a88d8dcb0d180df
+  asm_droan:
+    type: git
+    url: https://github.com/castacks/asm_droan
+    version: v0.1.0
 x-local-modules: []

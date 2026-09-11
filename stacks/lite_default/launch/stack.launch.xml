@@ -72,11 +72,13 @@
        trajectory controller; action at tasks/fixed_trajectory -->
   <include file="$(find-pkg-share trajectory_controller)/launch/fixed_trajectory_task.launch.xml" />
 
-  <!-- DROAN local planner (GPU): disparity in from stereo_image_proc (canonical),
-       global_plan in from the global planner (offboard or absent in lite),
-       look_ahead/tracking_point in from the trajectory controller,
-       trajectory_segment_to_add out to it; navigate action at tasks/navigate -->
-  <include file="$(find-pkg-share droan_gl)/launch/droan_gl.launch.xml" />
+  <!-- MIGHTY local planner (asm_mighty module, CPU): filtered Ouster cloud in
+       to its acl-mapping voxel world model, odometry in from
+       odometry_conversion, global_plan in from the global planner (offboard
+       or absent in lite); trajectory_override out to the trajectory
+       controller (the bridge sets TRACK mode itself); navigate action at
+       tasks/navigate -->
+  <include file="$(find-pkg-share mighty_bridge)/launch/mighty_module.launch.xml" />
 
   <!-- Trajectory controller: odometry in from odometry_conversion; serves the
        trajectory_controller/* topic group (override, segment, mode, tracking

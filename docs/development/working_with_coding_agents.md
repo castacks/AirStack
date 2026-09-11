@@ -34,7 +34,7 @@ Instead of describing a workflow from scratch, name the skill — *"use the add-
 
 The full catalog with one-line triggers is the table in [`.agents/README.md`](https://github.com/castacks/AirStack/blob/develop/.agents/README.md) (mirrored in `AGENTS.md`). Two other steering moves that cost you one sentence each:
 
-- **Name the reference implementation.** `AGENTS.md` lists one well-structured package per module type (e.g. `droan_local_planner` for local planners, `random_walk` for global planners); *"study the DROAN local planner first, then follow its structure"* anchors the agent to working code instead of invented patterns.
+- **Name the reference implementation.** `AGENTS.md` lists one well-structured package per module type (e.g. the `asm_mighty` module's `mighty_bridge` for local planners, `random_walk` for global planners); *"study the MIGHTY bridge first, then follow its structure"* anchors the agent to working code instead of invented patterns.
 - **Say where the work lands.** Modules get wired in a stack's entry launch file, not in per-layer bringups (the old layer-bringup workflow is legacy) — telling the agent which stack you're targeting up front avoids a wrong-locus integration.
 
 ## 3. Make the agent test and record

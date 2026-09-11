@@ -44,7 +44,7 @@ GCS operator  →  ExplorationTask  →  random_walk_planner
                                          ↓
                                   NavigateTask (/{robot_name}/tasks/navigate)
                                          ↓
-                                    droan_gl (local planner)
+                            local planner (mighty_bridge by default)
                                          ↓
                                  trajectory_controller
 ```

@@ -39,7 +39,7 @@ What crosses (the full rationale is in `bridge.yaml`'s header comments):
 - **offboard → onboard:** `global_plan` (the split's whole point), the
   `robot_command` / `set_takeoff_landing_command` services, and
   `tasks/navigate` goals (the offboard `random_walk` is a NavigateTask client
-  of the onboard `droan_gl` server). `tasks/exploration` crosses the other
+  of the onboard MIGHTY `mighty_bridge` server). `tasks/exploration` crosses the other
   way (its server moves offboard with `random_walk`).
 
 **What must never cross (doctor hard gate):** `control_setpoint` and the
@@ -79,5 +79,6 @@ a running system, `airstack doctor --live --stack lite_offload_global`.
   [docs/development/fleets.md](../../docs/development/fleets.md). The manual
   `--stack lite_offload_global:onboard|:offboard` form above remains for
   single-machine runs.
-- `modules.repos` pins no external modules yet; `docker-compose.yaml` is a
+- `modules.repos` pins `asm_mighty` for the onboard half (`airstack up`
+  syncs it when missing; no image-level deps); `docker-compose.yaml` is a
   stub (trunk compose profiles provide the services).

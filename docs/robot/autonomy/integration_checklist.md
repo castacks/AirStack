@@ -29,7 +29,7 @@ steps, and the documentation requirements.
 | **Activation** | Automatic | On-demand from an action client |
 | **Cancellation** | Not applicable | Caller can cancel mid-flight |
 | **Completion** | Never | Time limit, area covered, goal reached |
-| **Examples** | State estimator, VDB mapper | random_walk, droan_gl |
+| **Examples** | State estimator, VDB mapper | random_walk, mighty_bridge, droan_gl |
 
 **Use a task executor when your module:**
 

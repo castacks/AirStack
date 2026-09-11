@@ -18,7 +18,7 @@ This is the base [Getting Started](index.md) setup — follow it there (clone,
 
 A **stack** is a self-contained folder under [`stacks/`](../development/stacks.md)
 — pinned module list, plain ROS 2 launch entry points, compose file, README.
-Trunk ships five reference stacks; start from the baseline:
+Trunk ships six reference stacks; start from the baseline:
 
 ```bash
 airstack up --stack full_default --sim isaac
@@ -28,6 +28,9 @@ airstack ready    # waits: containers → sim /clock → nodes → PX4 ready
 `--stack full_default` launches
 [`stacks/full_default/launch/stack.launch.xml`](../../stacks/full_default/README.md)
 — a flat list of module includes where every connection is written down.
+Its local planner is itself a module ([mighty](../modules/mighty.md), pinned in
+the stack's `modules.repos`): `airstack up` adds the pin to your checkout and
+syncs it the first time, so the default stack needs no manual module step.
 (Stacks are the only dispatch: with no `--stack`, `full_default` launches
 anyway; this makes the choice explicit.) Command the drone from
 Foxglove exactly as in [Getting Started](index.md#move-robot).
@@ -35,7 +38,7 @@ Foxglove exactly as in [Getting Started](index.md#move-robot).
 ## 3. Read the wiring — the map of the system
 
 Each stack commits a
-[`wiring.md`](../../stacks/full_default/wiring.md) snapshotted **from the
+[`wiring.md`](../../stacks/full_droan/wiring.md) snapshotted **from the
 running graph in CI** (nodes grouped by module, edges labeled
 topic/type/QoS). It cannot lie or rot: CI fails when the running system
 drifts from the committed diagram. When you wonder "who publishes this
