@@ -5757,6 +5757,18 @@ its own notes. -->
 <h2 id="0210-unreleased">0.21.0 (Unreleased)<a class="headerlink" href="#0210-unreleased" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
+<p><strong>Wiring baselines for the MIGHTY stacks.</strong> <code>stacks/full_default/wiring.md</code>
+  and <code>stacks/lite_default/wiring.md</code> are committed from validated Isaac Sim
+  snapshot runs on the 0.21.0-dev.11 robot image (MIGHTY nodes
+  <code>mighty/{global_mapper_ros,mighty_node,mighty_bridge,mighty_init_pose_tf}</code>
+  in place of <code>droan/disparity_expander_node</code>; the two stacks differ only by
+  the global layer). That image carries MAVROS 2.15.1, which names its plugin
+  sub-nodes <code>interface/mavros/mavros/&lt;plugin&gt;</code> (2.14.0: <code>interface/mavros/&lt;plugin&gt;</code>),
+  so goldens captured on older images (<code>full_droan</code>, <code>full_droan_cpu</code>,
+  <code>full_macvo</code>) will report drift on freshly built images until they are
+  regenerated.</p>
+</li>
+<li>
 <p>Module catalog synced from the registry (<code>sync-modules-index</code>): <code>full_mighty</code>, <code>mighty</code>.</p>
 </li>
 <li>
