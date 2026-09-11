@@ -12,7 +12,7 @@
 | Type | `ros_package` |
 | Maintainer | ajong@andrew.cmu.edu |
 | License | BSD-3-Clause-Clear |
-| Registered ref | [`v0.1.4`](https://github.com/castacks/asm_mighty/tree/v0.1.4) |
+| Registered ref | [`v0.1.5`](https://github.com/castacks/asm_mighty/tree/v0.1.5) |
 | Declared compat | `>=0.21.0-dev.10 <0.22.0` |
 | Registry entry | [modules/mighty.yaml](https://github.com/castacks/airstack-modules-index/blob/main/modules/mighty.yaml) |
 
@@ -21,7 +21,7 @@
 From an AirStack checkout ([AirStack Modules guide](../development/modules.md)):
 
 ```bash
-airstack module add https://github.com/castacks/asm_mighty --version v0.1.4
+airstack module add https://github.com/castacks/asm_mighty --version v0.1.5
 airstack up
 ```
 
@@ -42,7 +42,7 @@ matrix, read the declaration as intent.
 
 ## Documentation
 
-- [Module README on GitHub @ `v0.1.4`](https://github.com/castacks/asm_mighty/blob/v0.1.4/README.md)
+- [Module README on GitHub @ `v0.1.5`](https://github.com/castacks/asm_mighty/blob/v0.1.5/README.md)
 - *The module repo was not fetched when this page was generated — the*
   *links above go to GitHub at the registered ref (failure isolation:*
   *an unreachable module repo never fails the docs deploy).*
@@ -55,4 +55,4 @@ matrix, read the declaration as intent.
 
 ## Registry notes
 
-> Public repo. v0.1.0 was validated end-to-end on Isaac Sim: 44/44 vendored gtests, synthetic smoke harness, empty-world NavigateTask flight, 7/7 practice pillar-field traversals, and 5/5 judged obstacle-route flights (min clearances 1.59–1.65 m vs a 1.0 m gate); v0.1.1 is code-identical (README delta). v0.1.2 fixes the bridge for AirStack 0.20.x — takeoff leaves the trajectory controller in ROBOT_POSE, where trajectory_override is merged but never flown, so v0.1.1 commits one trajectory and idles ("never replans"); the bridge now sets TRACK, bounds/preempts NavigateTask goals, drops stale global_plan routes and turns to the goal yaw on arrival (MIGHTY drops the goal orientation). v0.1.3 adds launch args for the mapper->planner grid seam and the altitude band (defaults unchanged). v0.1.4 is code-identical to v0.1.3: it targets AirStack 0.21.x, where MIGHTY is the DEFAULT local planner — the trunk robot image ships the nlohmann-json header dep, so the module declares no image-level deps and the default stack needs no composed layer. The v0.1.2 fixes were verified in closed-loop Isaac flights; the judged campaign was not re-run. Wrapper packages are BSD-3-Clause-Clear; vendored upstream packages (mighty, DecompROS2, acl-mapping) keep their own permissive licenses — see the module's VENDORED.md. Consumed by trunk reference stacks full_default (the no-stack default), lite_default and lite_offload_global (pin v0.1.4 or newer; use v0.1.3 on 0.20.x trunks).
+> Public repo. v0.1.0 was validated end-to-end on Isaac Sim: 44/44 vendored gtests, synthetic smoke harness, empty-world NavigateTask flight, 7/7 practice pillar-field traversals, and 5/5 judged obstacle-route flights (min clearances 1.59–1.65 m vs a 1.0 m gate); v0.1.1 is code-identical (README delta). v0.1.2 fixes the bridge for AirStack 0.20.x — takeoff leaves the trajectory controller in ROBOT_POSE, where trajectory_override is merged but never flown, so v0.1.1 commits one trajectory and idles ("never replans"); the bridge now sets TRACK, bounds/preempts NavigateTask goals, drops stale global_plan routes and turns to the goal yaw on arrival (MIGHTY drops the goal orientation). v0.1.3 adds launch args for the mapper->planner grid seam and the altitude band (defaults unchanged). v0.1.4 is code-identical to v0.1.3: it targets AirStack 0.21.x, where MIGHTY is the DEFAULT local planner — the trunk robot image ships the nlohmann-json header dep, so the module declares no image-level deps and the default stack needs no composed layer. v0.1.5 fixes two mighty_bridge follower defects found in the first MIGHTY-default exploration runs: the follower now arms off takeoff_landing_planner/is_airborne (the 8 m climb gate never triggered after AirStack's ~3 m takeoff; fallback climb gate now 1.5 m), and landing clears the follower's route memory so repeated flights in one session fly again (the "already completed" check is keyed on plan identity, not a 2 m radius). Adds the mighty_is_airborne_topic launch arg. The v0.1.2 fixes were verified in closed-loop Isaac flights; the judged campaign was not re-run. Wrapper packages are BSD-3-Clause-Clear; vendored upstream packages (mighty, DecompROS2, acl-mapping) keep their own permissive licenses — see the module's VENDORED.md. Consumed by trunk reference stacks full_default (the no-stack default), lite_default and lite_offload_global (pin v0.1.5 or newer; use v0.1.3 on 0.20.x trunks).

@@ -8,3 +8,6 @@ pandas
 numpy
 scipy
 usd-core
+# `airstack up` syncs the selected stack's module pins with vcs2l (vcs2l's `vcs`);
+# preinstalled here so the CI test-runner venv never has to pip-install it lazily.
+vcs2l
