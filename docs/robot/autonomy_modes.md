@@ -14,6 +14,8 @@ environment variable is a preflight error.)
 | **`lite_offload_global:offboard`** | Global planner + world model only — runs on the GCS paired with onboard robots |
 | **`full_droan`** | `full_default` with the GPU DROAN reactive local planner (`droan_gl`, `asm_droan` module) in place of MIGHTY |
 | **`full_droan_cpu`** | `full_default` with the CPU DROAN local planner (`droan_local_planner` + `disparity_expansion`, `asm_droan` module) in place of MIGHTY |
+| **`full_exploration`** | `full_default` with the frontier-based geometric exploration planner (`asm_exploration_planner` module) in place of the random walk; MIGHTY's bridge follows the published `global_plan` |
+| **`full_raven`** | `full_default` with RAVEN semantic navigation (`asm_raven` module: RayFronts GPU sidecar + `raven_bridge`) as the global planner — fly toward a natural-language target |
 | **`full_macvo`** | `full_droan` with MAC-VO as the planner's disparity source (`asm_macvo` + `asm_droan` modules) |
 
 Instead of picking a stack per container, `airstack up --fleet <name>` launches

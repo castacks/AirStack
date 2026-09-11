@@ -50,6 +50,8 @@ matrix, read the declaration as intent.
 ## Registered stacks using this module
 
 - [full_default](../../stacks/full_default/README.md)
+- [full_exploration](../../stacks/full_exploration/README.md)
+- [full_raven](../../stacks/full_raven/README.md)
 
 ## Registry notes
 

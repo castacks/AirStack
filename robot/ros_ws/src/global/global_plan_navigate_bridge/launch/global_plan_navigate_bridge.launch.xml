@@ -1,0 +1,37 @@
+<!--
+  global_plan_navigate_bridge : canonical module launch file.
+
+  Adapter between a topic-publishing global planner and the task-executor
+  local planner: every new nav_msgs/Path on the global_plan topic becomes a
+  NavigateTask goal (the active goal is cancelled first — droan_gl rejects a
+  second goal while one is active). Include it in a stack whose global
+  planner publishes plans on a topic instead of driving NavigateTask itself
+  (the exploration_planner and raven modules); full_default's random_walk
+  planner is its own NavigateTask client and does not need it.
+
+  Every endpoint is a declared <arg> defaulting to the canonical name; the
+  set_remap sources stay relative so they resolve under the parent
+  $ROBOT_NAME namespace. Wiring deviations are passed as include args by the
+  stack entry file (single-locus rule: no cross-module remapping here).
+-->
+<launch>
+  <arg name="global_plan_navigate_bridge_config"
+       default="$(find-pkg-share global_plan_navigate_bridge)/config/global_plan_navigate_bridge.yaml"
+       description="Node parameter YAML (loaded with allow_substs)" />
+  <arg name="global_plan_navigate_bridge_global_plan_topic"
+       default="/$(env ROBOT_NAME)/global_plan"
+       description="Input global waypoint path from the global planner (nav_msgs/Path)" />
+  <arg name="global_plan_navigate_bridge_navigate_task_action"
+       default="/$(env ROBOT_NAME)/tasks/navigate"
+       description="NavigateTask action served by the local planner (task_msgs/action/NavigateTask)" />
+
+  <group>
+    <set_remap from="global_plan" to="$(var global_plan_navigate_bridge_global_plan_topic)" />
+    <set_remap from="navigate_task" to="$(var global_plan_navigate_bridge_navigate_task_action)" />
+
+    <node pkg="global_plan_navigate_bridge" exec="global_plan_navigate_bridge_node"
+          name="global_plan_navigate_bridge" output="screen">
+      <param from="$(var global_plan_navigate_bridge_config)" allow_substs="true" />
+    </node>
+  </group>
+</launch>

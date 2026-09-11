@@ -1,18 +1,12 @@
 <!--
-  full_default : trunk reference stack.
+  full_exploration : full_default with the frontier exploration global planner (asm_exploration_planner module) in place of random_walk.
 
-  The full-autonomy topology: every layer on this machine, with the MIGHTY
-  map-based local planner (asm_mighty module — planner + acl-mapping voxel
-  world model + NavigateTask bridge) as the local planner. This is the stack
-  that launches when no stack is selected, and the baseline other stacks are
-  copied from. The DROAN reactive planner it replaced is one include line
-  away in stacks/full_droan (asm_droan module).
-
-  ALL LAYERS FLATTENED: every layer is composed here as a flat set of
-  module-launch includes — each block below reads "this module, these
-  connections". Every module launch file declares its topic endpoints as args
-  with canonical defaults (today's graph), so a bare include means "wired
-  canonically"; only deviations from canonical appear as include args.
+  ALL LAYERS FLATTENED (P5-E2 local, P5-E3 the rest): every layer is composed
+  here as a flat set of module-launch includes — each block below reads "this
+  module, these connections". Every module launch file declares its topic
+  endpoints as args with canonical defaults (today's graph), so a bare
+  include means "wired canonically"; only deviations from canonical appear as
+  include args.
 
   Two blocks stay WRAPPED BY DESIGN (not a migration leftover):
     - interface.launch.py — MAVROS wiring is dense, FCU_URL is env-computed
@@ -27,14 +21,22 @@
   LOG_CONFIG) — there is nothing to flatten.
 
   Launched by autonomy_bringup/launch/robot.launch.xml when AIRSTACK_STACK_DIR
-  points at this folder (set by `airstack up`, with or without `...stack
-  full_default`; see `airstack help up`). The shared preamble (ROBOT_NAME
-  namespace push, use_sim_time, robot_state_publisher, world/map static TF)
-  runs there unconditionally, so it is NOT repeated here.
+  points at this folder (set by `airstack up` with the stack flag,
+  e.g. `airstack up ...stack full_default`; see `airstack help up`). The
+  shared preamble (ROBOT_NAME namespace push, use_sim_time,
+  robot_state_publisher, world/map static TF) runs there unconditionally, so
+  it is NOT repeated here.
 
-  Requires the asm_mighty module (pinned in modules.repos; `airstack up`
-  syncs it when missing — the module has no image-level deps of its own, its
-  nlohmann-json header dep ships in the trunk robot image).
+  Provenance: copied from full_default (airstack stack new); the ONLY wiring
+  difference is the global-planner block — random_walk_planner is replaced by
+  the asm_exploration_planner module's exploration_planner.launch.xml. The
+  local layer is MIGHTY (asm_mighty), whose bridge follows the global_plan
+  topic directly, so no Path->NavigateTask adapter is needed (droan_gl-based
+  stacks would add trunk's global_plan_navigate_bridge). vdb_mapping
+  stays: the GCS/RViz layouts and the topic keepalive consume its map, even
+  though the exploration planner builds its own OpenVDB map from the LiDAR
+  cloud. wiring.md to be generated from the running graph and committed once
+  the stack is validated in sim.
 -->
 <launch>
 
@@ -81,8 +83,11 @@
        to its acl-mapping voxel world model, odometry in from
        odometry_conversion; trajectory_override out to the trajectory
        controller (the bridge sets TRACK mode itself); navigate action at
-       tasks/navigate. The DROAN reactive planner is the same seam one
-       include away (stacks/full_droan). -->
+       tasks/navigate. Its mighty_bridge also
+       FOLLOWS the global_plan topic directly (carrot follower), so a
+       topic-publishing global planner drives the vehicle without a
+       NavigateTask adapter. Same local layer as full_default (LiDAR-based, so
+       it works where stereo disparity does not, e.g. unlit scenes). -->
   <include file="$(find-pkg-share mighty_bridge)/launch/mighty_module.launch.xml" />
 
   <!-- Trajectory controller: odometry in from odometry_conversion; serves the
@@ -105,13 +110,19 @@
     <arg name="config" value="$(find-pkg-share global_bringup)/config/vdb_params.yaml" />
   </include>
 
-  <!-- Global planner: random walk. vdb map visualization + odometry in;
-       global_plan out; navigate/exploration actions under tasks/*. The node
-       self-names random_walk_node at the robot root (no namespace push).
-       Swapping the global planner = replacing this include, e.g. with the
-       asm_exploration_planner module's exploration_planner.launch.xml plus
-       the global_plan_navigate_bridge (see stacks/full_exploration). -->
-  <include file="$(find-pkg-share random_walk_planner)/launch/random_walk_planner.launch.xml" />
+  <!-- Global planner: frontier exploration (asm_exploration_planner module).
+       Filtered Ouster cloud in (the node integrates it into its OWN OpenVDB
+       occupancy map — it does not read vdb_mapping's grid); TF map->base_link
+       for the robot pose; global_plan out (shortened, collision-checked RRT
+       path to the selected frontier viewpoint) plus the plan's final pose on
+       exploration_planner/goal_pose; enabled/disabled via the
+       behavior/global_plan_toggle Trigger service (GCS Tasks panel). The node
+       self-names exploration_planner at the robot root (no namespace push).
+       Canonical-default args, so no args passed; pass
+       exploration_config:=.../exploration_planner_construction_site.yaml for
+       the bounded construction-site tuning. -->
+  <include file="$(find-pkg-share exploration_planner)/launch/exploration_planner.launch.xml" />
+
 
   <!-- ── Behavior, flat ──────────────────────────────────────────────────── -->
 

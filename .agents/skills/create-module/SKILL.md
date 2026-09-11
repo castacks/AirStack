@@ -101,6 +101,27 @@ is remapping other modules' topics or overriding canonical names in module launc
 files: in a conventional stack, including the module must require **zero** remaps,
 so only deviations appear in stack files.)
 
+## Heavy dependencies: overlay layer vs sidecar container
+
+Two patterns exist for deps that do not belong in the trunk robot image:
+
+- **Overlay layer** (`dockerfile: Dockerfile.module`, tier 2) — the module's
+  deps are built ON TOP of the robot image and its nodes run in the robot
+  container (asm_macvo: TensorRT + weights). Right when the module's nodes must
+  share the robot's process space/ROS distro and the deps are compatible with
+  the robot image's Ubuntu/Python.
+- **Sidecar container** (`compose: <fragment>.yaml` with its own `build:`) —
+  a second container next to the robot on `airstack_network`, same
+  `ROS_DOMAIN_ID`, talking DDS (asm_raven: RayFronts on Ubuntu 22.04 / ROS 2
+  Humble / torch cu130 / patched OpenVDB — incompatible with the Jazzy robot
+  image). The overlay absolutizes the fragment's `build.context`,
+  `build.dockerfile`, `env_file` and bind sources; `airstack up` builds the
+  image on first run. Keep a thin robot-side colcon package (`<name>_bridge`)
+  that owns the canonical launch file and relays the sidecar's module-private
+  topics onto canonical names — the launch-arg interface must still exist on
+  the robot side. Cross-distro DDS works for unchanged message types; note it
+  in the README.
+
 ## Steps (by hand, until `airstack module create` lands)
 
 1. Create the repo with the anatomy above; write `module.yaml` first.

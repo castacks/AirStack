@@ -413,6 +413,72 @@ def add_overhead_camera_publisher(parent_graph_path: str,
           f"domain_id={domain_id}")
 
 
+def add_camera_image_publisher(graph_path: str,
+                               camera_prim_path: str,
+                               topic: str,
+                               width: int = 1280,
+                               height: int = 720,
+                               frame_id: str = "follow_cam",
+                               domain_id: int = 1):
+    """Publish an existing USD camera as a raw ``sensor_msgs/Image`` stream.
+
+    Builds a standalone OmniGraph at ``graph_path`` (own ROS2Context on
+    ``domain_id``; OnPlaybackTick → IsaacCreateRenderProduct →
+    ROS2CameraHelper). Used by pegasus_app's follow camera so a headless
+    Isaac Sim (no viewport window) still yields a third-person video feed
+    that ``ros2 bag`` / a recorder node can capture — CI runners and demo
+    captures alike.
+    """
+    import omni.graph.core as og  # lazy so non-sim contexts can import scene_prep
+
+    controller = og.Controller()
+    g = graph_path
+    if og.get_graph_by_path(g) is None:
+        og.Controller.create_graph({"graph_path": g, "evaluator_name": "execution"})
+
+    nodes = {
+        "context":   f"{g}/ROS2Context",
+        "playback":  f"{g}/OnPlaybackTick",
+        "create_rp": f"{g}/CreateRenderProduct",
+        "rgb":       f"{g}/RGBHelper",
+        "frame":     f"{g}/FrameId",
+        "topic":     f"{g}/Topic",
+    }
+    controller.edit(
+        graph_id=g,
+        edit_commands={
+            og.Controller.Keys.CREATE_NODES: [
+                (nodes["context"],   "isaacsim.ros2.bridge.ROS2Context"),
+                (nodes["playback"],  "omni.graph.action.OnPlaybackTick"),
+                (nodes["create_rp"], "isaacsim.core.nodes.IsaacCreateRenderProduct"),
+                (nodes["rgb"],       "isaacsim.ros2.bridge.ROS2CameraHelper"),
+                (nodes["frame"],     "omni.graph.nodes.ConstantString"),
+                (nodes["topic"],     "omni.graph.nodes.ConstantString"),
+            ],
+            og.Controller.Keys.CONNECT: [
+                (f"{nodes['playback']}.outputs:tick",     f"{nodes['create_rp']}.inputs:execIn"),
+                (f"{nodes['create_rp']}.outputs:execOut", f"{nodes['rgb']}.inputs:execIn"),
+                (f"{nodes['create_rp']}.outputs:renderProductPath",
+                 f"{nodes['rgb']}.inputs:renderProductPath"),
+                (f"{nodes['context']}.outputs:context",   f"{nodes['rgb']}.inputs:context"),
+                (f"{nodes['frame']}.inputs:value",        f"{nodes['rgb']}.inputs:frameId"),
+                (f"{nodes['topic']}.inputs:value",        f"{nodes['rgb']}.inputs:topicName"),
+            ],
+            og.Controller.Keys.SET_VALUES: [
+                (("inputs:domain_id",  nodes["context"]),   int(domain_id)),
+                (("inputs:cameraPrim", nodes["create_rp"]), camera_prim_path),
+                (("inputs:width",      nodes["create_rp"]), int(width)),
+                (("inputs:height",     nodes["create_rp"]), int(height)),
+                (("inputs:type",       nodes["rgb"]),       "rgb"),
+                (("inputs:value",      nodes["frame"]),     str(frame_id)),
+                (("inputs:value",      nodes["topic"]),     str(topic)),
+            ],
+        },
+    )
+    print(f"[scene_prep] Camera image publisher wired: {camera_prim_path} -> {topic} "
+          f"({width}x{height} raw Image, domain_id={domain_id})")
+
+
 # ---------------------------------------------------------------------------
 # Consolidate root prims under /World
 # ---------------------------------------------------------------------------

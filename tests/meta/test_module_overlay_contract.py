@@ -217,3 +217,85 @@ def test_add_twice_keeps_single_entry(sandbox):
     data = read_repos(sandbox)
     names = [e["name"] for e in data["x-local-modules"]]
     assert names == ["hello_module"]
+
+
+# ── compose fragments: relative host paths become absolute ──────────────────
+
+SIDECAR_REL = os.path.join("tests", "fixtures", "modules", "sidecar_module")
+
+
+def write_sidecar_module(sb):
+    """A module whose compose fragment declares a whole extra service built
+    from a Dockerfile inside the module (the asm_raven sidecar shape), with
+    every kind of relative host path compose resolves against the declaring
+    file's directory."""
+    root = sb / SIDECAR_REL
+    (root / "docker").mkdir(parents=True)
+    (root / "compose").mkdir()
+    (root / "env").mkdir()
+    (root / "module.yaml").write_text(
+        "name: sidecar_module\n"
+        "description: Compose-fragment sidecar fixture for overlay path rewriting.\n"
+        "maintainer: test@example.com\n"
+        "license: BSD-3-Clause-Clear\n"
+        "type: ros_package\n"
+        'airstack_compat: ">=0.19.0 <0.21.0"\n'
+        "targets: [robot]\n"
+        "compose: compose/sidecar.yaml\n",
+        encoding="utf-8",
+    )
+    (root / "docker" / "Dockerfile.sidecar").write_text("FROM busybox\n", encoding="utf-8")
+    (root / "env" / "sidecar.env").write_text("X=1\n", encoding="utf-8")
+    (root / "compose" / "sidecar.yaml").write_text(
+        "services:\n"
+        "  sidecar:\n"
+        "    image: sidecar:test\n"
+        "    build:\n"
+        "      context: .\n"
+        "      dockerfile: docker/Dockerfile.sidecar\n"
+        "    env_file:\n"
+        "      - ./env/sidecar.env\n"
+        "      - path: env/optional.env\n"
+        "        required: false\n"
+        "    volumes:\n"
+        "      - ./cache:/root/.cache:rw\n"
+        "      - named_vol:/data\n"
+        "    networks: [airstack_network]\n",
+        encoding="utf-8",
+    )
+    return root
+
+
+def test_compose_fragment_paths_are_absolutized(sandbox):
+    root = write_sidecar_module(sandbox)
+    run_airstack(sandbox, "module", "add", SIDECAR_REL)
+    compose = yaml.safe_load((sandbox / GENERATED_REL).read_text(encoding="utf-8"))
+    real = os.path.realpath(root)
+    svc = compose["services"]["sidecar"]
+
+    # build: context "." -> module dir; relative dockerfile resolved against it
+    assert svc["build"]["context"] == real
+    assert svc["build"]["dockerfile"] == os.path.join(real, "docker", "Dockerfile.sidecar")
+    # env_file: strings and {path, required} mappings
+    assert svc["env_file"][0] == os.path.join(real, "env", "sidecar.env")
+    assert svc["env_file"][1] == {"path": os.path.join(real, "env", "optional.env"),
+                                  "required": False}
+    # volumes: relative bind absolutized, named volume untouched
+    assert f"{real}/cache:/root/.cache:rw" in svc["volumes"]
+    assert "named_vol:/data" in svc["volumes"]
+    # verbatim passthrough of everything else
+    assert svc["image"] == "sidecar:test"
+    assert svc["networks"] == ["airstack_network"]
+    # nothing in the generated file is still relative to the fragment
+    text = (sandbox / GENERATED_REL).read_text(encoding="utf-8")
+    assert "context: ." not in text and "./env" not in text and "./cache" not in text
+
+
+def test_compose_fragment_sync_is_idempotent_and_doctor_clean(sandbox):
+    write_sidecar_module(sandbox)
+    run_airstack(sandbox, "module", "add", SIDECAR_REL)
+    before = (sandbox / GENERATED_REL).read_text(encoding="utf-8")
+    run_airstack(sandbox, "module", "sync")
+    assert (sandbox / GENERATED_REL).read_text(encoding="utf-8") == before
+    code, out = run_airstack(sandbox, "module", "doctor")
+    assert code == 0 and "overlay OK" in out

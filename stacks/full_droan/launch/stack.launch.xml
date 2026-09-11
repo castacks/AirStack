@@ -108,9 +108,9 @@
   <!-- Global planner: random walk. vdb map visualization + odometry in;
        global_plan out; navigate/exploration actions under tasks/*. The node
        self-names random_walk_node at the robot root (no namespace push).
-       Swapping the global planner = replacing this include; the alternative
-       trunk planners (exploration) ship no canonical
-       module launch yet — write one in their package first. -->
+       Swapping the global planner = replacing this include, e.g. with the
+       asm_exploration_planner module's exploration_planner.launch.xml plus
+       the global_plan_navigate_bridge (see stacks/full_exploration). -->
   <include file="$(find-pkg-share random_walk_planner)/launch/random_walk_planner.launch.xml" />
 
   <!-- ── Behavior, flat ──────────────────────────────────────────────────── -->

@@ -30,6 +30,8 @@ Anatomy is enforced by a unit test: `tests/meta/test_stack_layout_contract.py`
 | [`full_default`](https://github.com/castacks/AirStack/tree/develop/stacks/full_default) | The full-autonomy topology with the MIGHTY map-based local planner (`asm_mighty` module: planner + acl-mapping voxel world model + NavigateTask bridge) — the baseline, and what launches when no stack is selected. |
 | [`full_droan`](https://github.com/castacks/AirStack/tree/develop/stacks/full_droan) | The GPU DROAN reactive planner (`droan_gl`, `asm_droan` module) in place of MIGHTY — for depth-camera-only vehicles and legacy comparisons. |
 | [`full_droan_cpu`](https://github.com/castacks/AirStack/tree/develop/stacks/full_droan_cpu) | CPU DROAN planner + live `disparity_expansion` (`asm_droan` module) for machines without a GPU planner. |
+| [`full_exploration`](https://github.com/castacks/AirStack/tree/develop/stacks/full_exploration) | `full_default` with the frontier-based geometric exploration planner in place of the random walk. Requires the `asm_exploration_planner` module (pinned in the stack's `modules.repos` alongside `asm_mighty`). |
+| [`full_raven`](https://github.com/castacks/AirStack/tree/develop/stacks/full_raven) | `full_default` with RAVEN open-set semantic navigation as the global planner: RayFronts GPU sidecar container + `raven_bridge`. Requires the `asm_raven` module (pinned alongside `asm_mighty`). |
 | [`full_macvo`](https://github.com/castacks/AirStack/tree/develop/stacks/full_macvo) | MAC-VO as the DROAN planner's disparity source. Requires the `asm_macvo` and `asm_droan` modules. |
 | [`lite_default`](https://github.com/castacks/AirStack/tree/develop/stacks/lite_default) | Onboard-lite topology, unsplit: interface, sensors, perception, flat Local layer, behavior; **no global, no logging**. |
 | [`lite_offload_global`](https://github.com/castacks/AirStack/tree/develop/stacks/lite_offload_global) | A **split stack**: `onboard.launch.xml` (= lite topology) + `offboard.launch.xml` (global layer only) + `bridge.yaml`. |
@@ -296,6 +298,8 @@ ignored. Select the topology with `--stack`:
 | The full-autonomy baseline | Nothing — `full_default` launches by default (or be explicit: `--stack full_default`) |
 | GPU DROAN reactive planner | `--stack full_droan` (`asm_droan` module) |
 | CPU DROAN topology | `--stack full_droan_cpu` (`asm_droan` module) |
+| Frontier exploration global planner | `--stack full_exploration` (requires the `asm_exploration_planner` module) |
+| RAVEN semantic (language-prompted) global planner | `--stack full_raven` (requires the `asm_raven` module; first run builds the sidecar image; Isaac Sim with GUI) |
 | MAC-VO disparity topology | `--stack full_macvo` (`asm_macvo` + `asm_droan` modules) |
 | Onboard-lite, unsplit | `--stack lite_default` |
 | Split onboard/offboard | `--stack lite_offload_global:onboard` / `:offboard` (+ generate the router config from `bridge.yaml`) |

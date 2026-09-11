@@ -19,6 +19,34 @@ its own notes. -->
 
 ## 0.21.0 (Unreleased)
 
+- **New modules: RAVEN semantic planner and the geometric exploration
+  planner.** Two global planners now ship as external modules and pinned
+  reference stacks: [asm_raven](https://github.com/castacks/asm_raven)
+  (RAVEN, ICRA 2026 — RayFronts open-set semantic ray-frontier map + behavior
+  manager in a GPU sidecar container, `raven_bridge` on the robot; stack
+  `full_raven`) and
+  [asm_exploration_planner](https://github.com/castacks/asm_exploration_planner)
+  (the frontier-based geometric exploration planner from the construction-site
+  project, extracted from trunk's `robot/ros_ws/src/global/planners/exploration`
+  with its bounded viewpoint sampling; stack `full_exploration`). Both stacks
+  are one `<include>` swap against `full_default`: the MIGHTY bridge follows
+  the published `global_plan` directly, and its LiDAR-based world model keeps
+  working in unlit scenes where stereo disparity does not.
+- **`global_plan_navigate_bridge`.** New trunk package that turns a
+  `global_plan` topic into `NavigateTask` goals (cancel-then-resend on each new
+  plan), so global planners that only publish a path can drive a
+  task-executor local planner such as `droan_gl` (`asm_droan`, stacks
+  `full_droan*`); the MIGHTY bridge follows the topic itself. `full_default`'s random walk remains its
+  own action client.
+- **Compose fragments may declare sidecar services with a `build:` section.**
+  `airstack module sync` now rewrites a module compose fragment's relative
+  `build.context` / `build.dockerfile` / `env_file` paths to absolute, like it
+  already did for bind-mount sources, so a module can bring its own container
+  (the RAVEN sidecar is the first).
+- **Headless follow-camera video.** `ISAAC_SIM_FOLLOW_CAM_TOPIC` publishes the
+  Isaac Sim follow camera as a raw `sensor_msgs/Image` topic
+  (`ISAAC_SIM_FOLLOW_CAM_RES`, default 1280x720), giving headless runs and CI a
+  third-person video feed.
 - **asm_mighty v0.1.5: follower fixes for the default planner.** The
   `full_default`, `lite_default` and `lite_offload_global` stacks pin
   [`mighty`](../modules/mighty.md) v0.1.5. Its `mighty_bridge` global_plan

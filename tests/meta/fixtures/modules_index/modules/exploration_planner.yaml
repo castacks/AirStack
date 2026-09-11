@@ -1,0 +1,23 @@
+# Registry entry for the exploration_planner module (schema/module-entry.schema.json).
+# airstack_compat is the DECLARED range copied from the module's module.yaml;
+# the VERIFIED matrix lives in compat/exploration_planner.yaml (CI-stamped only).
+name: exploration_planner
+repo: https://github.com/castacks/asm_exploration_planner
+description: >-
+  Frontier-based geometric exploration global planner — OpenVDB occupancy map,
+  frontier clustering, bounded viewpoint sampling and an RRT path to the chosen
+  viewpoint, published as global_plan; developed for the CMU AirLab
+  construction-site project
+maintainer: ajong@andrew.cmu.edu   # Andrew Jong
+license: BSD-3-Clause-Clear
+type: ros_package
+registered_ref: v0.1.1
+airstack_compat: ">=0.21.0-dev.8 <0.22.0"   # DECLARED (from module.yaml)
+notes: >-
+  Extracted from trunk (robot/ros_ws/src/global/planners/exploration, history
+  preserved) together with the bounded-exploration additions from the
+  construction-site demo branch. Publishes a path on global_plan and serves
+  the behavior/global_plan_toggle service; the MIGHTY bridge (full_exploration)
+  follows the published plan directly, while droan_gl-based stacks add the
+  trunk global_plan_navigate_bridge. Consumed by trunk reference stack
+  full_exploration.

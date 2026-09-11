@@ -614,6 +614,29 @@ class PegasusApp:
         except Exception as exc:  # headless variants may have no viewport
             carb.log_warn(f"Could not switch viewport to follow cam: {exc}")
 
+        # ISAAC_SIM_FOLLOW_CAM_TOPIC=<topic>: also publish the follow cam as a
+        # raw sensor_msgs/Image on the followed drone's ROS domain, so a
+        # headless run (CI, video capture without a display) still yields a
+        # third-person feed. ISAAC_SIM_FOLLOW_CAM_RES="WxH" (default 1280x720).
+        topic = os.environ.get("ISAAC_SIM_FOLLOW_CAM_TOPIC", "").strip()
+        if topic:
+            width, height = 1280, 720
+            res_raw = os.environ.get("ISAAC_SIM_FOLLOW_CAM_RES", "").strip().lower()
+            if res_raw:
+                try:
+                    width, height = (int(v) for v in res_raw.split("x"))
+                except ValueError:
+                    carb.log_warn(f"ISAAC_SIM_FOLLOW_CAM_RES='{res_raw}' is not WxH — using 1280x720.")
+            try:
+                from scene_prep import add_camera_image_publisher
+
+                add_camera_image_publisher(
+                    "/World/FollowCamPublisher", FOLLOW_CAM_PATH, topic,
+                    width=width, height=height, frame_id="follow_cam", domain_id=i,
+                )
+            except Exception as exc:
+                carb.log_error(f"[follow_cam] could not wire the ROS image publisher: {exc}")
+
     def _author_follow_cam(self):
         from isaacsim.core.utils.viewports import set_camera_view
 
