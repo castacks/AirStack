@@ -48,9 +48,6 @@ ros2 service call /robot_1/raven/clear_prompt std_srvs/srv/Trigger
 
 Notes:
 
-- `asm_mighty` v0.1.1 has a known fixed-yaw-at-goal bug (the vehicle does not
-  turn toward its goal); a fix is being upstreamed — re-pin `modules.repos`
-  when it lands.
 
 - RAVEN's scenes are the AirLab Nucleus stages already in
   `simulation/scenes.yaml`: `retro-neighborhood`, `construction-site`,

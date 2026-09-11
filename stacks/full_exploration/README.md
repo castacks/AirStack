@@ -31,9 +31,6 @@ Then, after takeoff, enable exploration from the GCS Tasks panel (the
 
 Notes:
 
-- `asm_mighty` v0.1.1 has a known fixed-yaw-at-goal bug (the vehicle does not
-  turn toward its goal); a fix is being upstreamed — re-pin `modules.repos`
-  when it lands.
 
 - The exploration planner needs no extra image dependencies (OpenVDB, PCL,
   Eigen ship in the trunk robot image); MIGHTY needs its `nlohmann-json3-dev`
