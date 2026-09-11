@@ -82,8 +82,9 @@
 
   <!-- MIGHTY local planner (asm_mighty module, CPU): filtered Ouster cloud in
        to its acl-mapping voxel world model, odometry in from
-       odometry_conversion; trajectory_segment_to_add out to the trajectory
-       controller; navigate action at tasks/navigate. Its mighty_bridge also
+       odometry_conversion; trajectory_override out to the trajectory
+       controller (the bridge sets TRACK mode itself); navigate action at
+       tasks/navigate. Its mighty_bridge also
        FOLLOWS the global_plan topic directly (carrot follower), so a
        topic-publishing global planner drives the vehicle without a
        NavigateTask adapter. Same local layer as full_mighty (LiDAR-based, so
