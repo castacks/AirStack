@@ -19,6 +19,17 @@ its own notes. -->
 
 ## 0.21.0 (Unreleased)
 
+- **Wiring baselines for the MIGHTY stacks.** `stacks/full_default/wiring.md`
+  and `stacks/lite_default/wiring.md` are committed from validated Isaac Sim
+  snapshot runs on the 0.21.0-dev.11 robot image (MIGHTY nodes
+  `mighty/{global_mapper_ros,mighty_node,mighty_bridge,mighty_init_pose_tf}`
+  in place of `droan/disparity_expander_node`; the two stacks differ only by
+  the global layer). That image carries MAVROS 2.15.1, which names its plugin
+  sub-nodes `interface/mavros/mavros/<plugin>` (2.14.0: `interface/mavros/<plugin>`),
+  so goldens captured on older images (`full_droan`, `full_droan_cpu`,
+  `full_macvo`) will report drift on freshly built images until they are
+  regenerated.
+
 - Module catalog synced from the registry (`sync-modules-index`): `full_mighty`, `mighty`.
 
 - **MIGHTY is the default local planner; DROAN moved to the `asm_droan`
