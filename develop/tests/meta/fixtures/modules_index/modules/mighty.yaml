@@ -11,7 +11,7 @@ description: >-
 maintainer: ajong@andrew.cmu.edu   # Andrew Jong
 license: BSD-3-Clause-Clear
 type: ros_package
-registered_ref: v0.1.4
+registered_ref: v0.1.5
 airstack_compat: ">=0.21.0-dev.10 <0.22.0"   # DECLARED (from module.yaml)
 notes: >-
   Public repo. v0.1.0 was validated end-to-end on Isaac Sim: 44/44 vendored
@@ -28,9 +28,16 @@ notes: >-
   v0.1.3: it targets AirStack 0.21.x, where MIGHTY is the DEFAULT local
   planner — the trunk robot image ships the nlohmann-json header dep, so the
   module declares no image-level deps and the default stack needs no composed
-  layer. The v0.1.2 fixes were verified in closed-loop Isaac flights; the
+  layer.
+  v0.1.5 fixes two mighty_bridge follower defects found in the first
+  MIGHTY-default exploration runs: the follower now arms off
+  takeoff_landing_planner/is_airborne (the 8 m climb gate never triggered
+  after AirStack's ~3 m takeoff; fallback climb gate now 1.5 m), and landing
+  clears the follower's route memory so repeated flights in one session fly
+  again (the "already completed" check is keyed on plan identity, not a 2 m
+  radius). Adds the mighty_is_airborne_topic launch arg. The v0.1.2 fixes were verified in closed-loop Isaac flights; the
   judged campaign was not re-run. Wrapper packages are BSD-3-Clause-Clear;
   vendored upstream packages (mighty, DecompROS2, acl-mapping) keep their own
   permissive licenses — see the module's VENDORED.md. Consumed by trunk
   reference stacks full_default (the no-stack default), lite_default and
-  lite_offload_global (pin v0.1.4 or newer; use v0.1.3 on 0.20.x trunks).
+  lite_offload_global (pin v0.1.5 or newer; use v0.1.3 on 0.20.x trunks).
