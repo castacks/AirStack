@@ -10,7 +10,7 @@ E2:opus:5 · E1:son:5 · E1:opus:5.
 |---|---|---|---|---|---|---|---|---|
 | E2 sonnet #1 (pilot) | as-e2-sonnet-5-001-1 | 8/32Gi/150Gi | 06:28 | **infra defect** — orphaned agent judge overlapped scoring (see (e)); archived `.pilot-orphan-contaminated`; RERUN queued | (R3, not of record) | 14 | 4.0 (cap) | — |
 | E2 opus #1 | as-e2-opus-5-001-2 | 4/16Gi/100Gi | 11:08 | scored | **R8** | 16 | 3.97 | 26.23 |
-| E2 sonnet #2 | as-e2-sonnet-5-002-2 | 4/16Gi/100Gi | 11:18 | running (R6 passed in-session 12:28; orphan watchdog armed) | | | | |
+| E2 sonnet #2 | as-e2-sonnet-5-002-2 | 4/16Gi/100Gi | 11:18 | scored (agent exited voluntarily; scoring R7 fail on clearance, R6 pass; sweep found no orphans) | **R6** | 7 | 3.89 | 21.53 |
 | E2 sonnet #1 (rerun) | as-e2-sonnet-5-001-2 | 8/32Gi/200Gi | 15:14 | submitted | | | | |
 | E1 sonnet #1 | as-e1-sonnet-5-001-1 | 8/32Gi/200Gi | 15:11 | submitted | | | | |
 | E1 opus #1 | as-e1-opus-5-001-1 | 8/32Gi/200Gi | 15:12 | submitted | | | | |
