@@ -11,7 +11,7 @@ Demonstrates:
    (pass ``save_scene_to=`` below)
 
 Env (see pegasus_app.py): ISAAC_SIM_LIVESTREAM, ISAAC_SIM_HEADLESS,
-PLAY_SIM_ON_START, and ISAAC_SIM_SCENE / ISAAC_SIM_STAGE_SCALE (set by
+PLAY_SIM_ON_START, ISAAC_SIM_SPAWN_XY, and ISAAC_SIM_SCENE / ISAAC_SIM_STAGE_SCALE (set by
 `airstack up --scene <shortname>` — a Pegasus catalog key or USD URL;
 default: Default Environment).
 """
@@ -26,21 +26,29 @@ from pegasus_app import create_simulation_app
 simulation_app = create_simulation_app()
 
 from pegasus.simulator.params import SIMULATION_ENVIRONMENTS  # noqa: E402
-from pegasus_app import PegasusApp, resolve_scene_from_env  # noqa: E402
+from pegasus_app import (  # noqa: E402
+    PegasusApp,
+    resolve_scene_from_env,
+    resolve_spawn_center_from_env,
+)
 
 
 def main():
     # Scene from `airstack up --scene` (or set ISAAC_SIM_SCENE to any
     # catalog key / USD URL); stage_scale converts cm-authored stages to m.
     env_url, stage_scale = resolve_scene_from_env(SIMULATION_ENVIRONMENTS)
-    print(f"[example_one] Scene: {env_url} (stage_scale={stage_scale})")
+    # ISAAC_SIM_SPAWN_XY="x,y" (meters) moves the single drone off the world
+    # origin — several imported stages are enclosed or unlit there.
+    spawn_x, spawn_y = resolve_spawn_center_from_env()
+    print(f"[example_one] Scene: {env_url} (stage_scale={stage_scale}) "
+          f"spawn=({spawn_x}, {spawn_y})")
     PegasusApp(
         env_url=env_url,
         stage_scale=stage_scale,
         drone_configs=[
             {
                 "domain_id": 1,  # MAVLink port = 14540 + vehicle_id (= domain_id)
-                "x_m": 0.0, "y_m": 0.0, "z_m": 0.07,
+                "x_m": spawn_x, "y_m": spawn_y, "z_m": 0.07,
                 # Single-drone scenes keep the historical prim/node names.
                 "prim": "/World/base_link",
                 "node_name": "PX4Multirotor",
