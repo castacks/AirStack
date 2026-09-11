@@ -88,7 +88,16 @@
        topic-publishing global planner drives the vehicle without a
        NavigateTask adapter. Same local layer as full_mighty (LiDAR-based, so
        it works where stereo disparity does not, e.g. unlit scenes). -->
-  <include file="$(find-pkg-share mighty_bridge)/launch/mighty_module.launch.xml" />
+  <!-- Stack-level parameter override (no module edit): the MIGHTY follower
+       engages only after the vehicle has climbed follow_min_climb_m (module
+       default 8 m, from the study routes); TakeoffTask here climbs to ~3 m, so
+       the global_plan follower would never engage. set_parameter scopes to
+       this group; nodes that do not declare these names ignore them. -->
+  <group>
+    <set_parameter name="follow_min_climb_m" value="1.5" />
+    <set_parameter name="follow_airborne_above_m" value="1.5" />
+    <include file="$(find-pkg-share mighty_bridge)/launch/mighty_module.launch.xml" />
+  </group>
 
   <!-- Trajectory controller: odometry in from odometry_conversion; serves the
        trajectory_controller/* topic group (override, segment, mode, tracking
