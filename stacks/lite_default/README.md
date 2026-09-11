@@ -58,15 +58,13 @@ when `AIRSTACK_STACK_DIR` is set.
   missions need `full_default` or the `lite_offload_global` split.
 - All layers are flattened in `launch/stack.launch.xml` (same layout as
   `full_default`); the interface stays a wrapped include by design, so read
-  the wiring snapshot for the observed MAVROS wiring.
+  [wiring.md](wiring.md) for the observed MAVROS wiring.
 - `modules.repos` pins `asm_mighty` (`airstack up` syncs it when missing);
   the module has no image-level deps, so `docker-compose.yaml` is a stub and
   trunk compose profiles provide all services.
 
 ## wiring.md
 
-This stack's observed wiring diagram lives at `wiring.md` once a validated
-wiring-snapshot run commits it; CI then drift-checks the running graph
-against it. Until then the snapshot test passes with a bootstrap instruction
-naming the observed file to validate and copy in. Generate or regenerate via
+This stack's observed wiring diagram is committed at [wiring.md](wiring.md);
+CI drift-checks the running graph against it. Regenerate via
 `airstack test -m wiring --stack lite_default`.
