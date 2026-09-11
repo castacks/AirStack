@@ -10,14 +10,18 @@
 #
 # full_mighty pulls the asm_mighty module (MIGHTY local planner + acl-mapping
 # world model + NavigateTask bridge); everything else is trunk-resident.
-# asm_mighty lives at castacks/asm_mighty (PRIVATE until the AirStack agent
-# study concludes, then public — until the flip, syncing this stack needs
-# castacks-member credentials). v0.1.1 is code-identical to the validated
-# v0.1.0 (README-only delta).
+# asm_mighty lives at castacks/asm_mighty (public). v0.1.0 is the judged-eval
+# validated release (v0.1.1 = README-only delta). v0.1.2 fixes the bridge for
+# AirStack 0.20.x: takeoff leaves the trajectory controller in ROBOT_POSE, where
+# trajectory_override is merged but never flown, so on v0.1.1 MIGHTY commits one
+# trajectory and idles ("never replans"); the bridge now sets TRACK, bounds and
+# preempts NavigateTask goals, and turns to the goal yaw on arrival (MIGHTY drops
+# the goal orientation). v0.1.3 adds launch args for the mapper->planner grid
+# seam and the altitude band (defaults unchanged).
 airstack_compat: ">=0.20.0-alpha.16 <0.21.0"
 repositories:
   asm_mighty:
     type: git
     url: git@github.com:castacks/asm_mighty.git
-    version: v0.1.1
+    version: v0.1.3
 x-local-modules: []

@@ -5887,8 +5887,8 @@
 external <strong>asm_mighty</strong> module (MIT ACL, RA-L 2026), together with its
 acl-mapping voxel world model (fed by the filtered Ouster cloud) and a
 <code>mighty_bridge</code> adapter that serves the same <code>tasks/navigate</code> NavigateTask
-action and publishes <code>trajectory_controller/trajectory_segment_to_add</code>
-segments — so the rest of the stack (trajectory controller, PID, safety
+action and publishes receding-horizon <code>trajectory_controller/trajectory_override</code>
+trajectories — so the rest of the stack (trajectory controller, PID, safety
 monitor, takeoff/landing, GCS) is unchanged from <code>full_default</code>.</p>
 <p>This stack is the module-swap demonstration for the modular architecture:
 the only difference vs <code>full_default</code> is one include in
@@ -5904,16 +5904,30 @@ the only difference vs <code>full_default</code> is one include in
   <code>airstack module lock --build</code> before <code>airstack up</code>.</li>
 <li>Planner/world-model tuning lives in the module
   (<code>mighty_bridge/config/*_airstack.yaml</code>).</li>
-<li>The <a href="https://github.com/castacks/asm_mighty">asm_mighty repo</a> is <strong>private
-  until the AirStack agent study concludes</strong> (then public) — until the flip,
-  <code>airstack module sync</code> needs castacks-member credentials. Registry entry:
+<li>The <a href="https://github.com/castacks/asm_mighty">asm_mighty repo</a> is public.
+  Registry entry:
   <a href="https://github.com/castacks/airstack-modules-index/blob/main/modules/mighty.yaml">modules/mighty.yaml</a>;
   catalog page: <a href="../../docs/modules/mighty/">mighty</a>.</li>
-<li>Validation at the pinned version (Isaac Sim, judged on ground truth):
-  44/44 vendored gtests, empty-world NavigateTask route (goal error 0.14 m),
-  7/7 pillar-field traversals, and 5/5 judged obstacle-route flights with
-  min clearances 1.59–1.65 m against a 1.0 m gate — the motivating DROAN
-  comparison (figures + numbers) is in the module README.</li>
+<li><strong>Pin v0.1.3 or newer on AirStack 0.20.x.</strong> <code>takeoff_landing_task</code> leaves
+  the trajectory controller in ROBOT_POSE, where <code>trajectory_override</code> is
+  merged but never flown; the v0.1.1 bridge assumed no mode management, so
+  MIGHTY committed one trajectory and idled in GOAL_SEEN ("never replans").
+  v0.1.2 sets TRACK before forwarding overrides, bounds and preempts
+  NavigateTask goals, drops stale <code>global_plan</code> routes, and turns the vehicle
+  to the goal pose's yaw on arrival (MIGHTY drops the goal orientation;
+  <code>arrival_yaw</code> param). v0.1.3 adds launch args for the mapper-&gt;planner grid
+  seam (<code>mighty_*_grid_topic</code>, to interpose a constraint node) and the
+  altitude band (<code>mighty_z_min</code>, <code>mighty_mapper_z_ground</code>,
+  <code>mighty_mapper_z_min_unknown</code>, for missions below the takeoff point);
+  defaults unchanged. Changelog in the module README.</li>
+<li>Validation: the judged campaign ran at v0.1.0 (code-identical to v0.1.1;
+  Isaac Sim, judged on ground truth): 44/44 vendored gtests, empty-world
+  NavigateTask route (goal error 0.14 m), 7/7 pillar-field traversals, and
+  5/5 judged obstacle-route flights with min clearances 1.59–1.65 m against a
+  1.0 m gate — the motivating DROAN comparison (figures + numbers) is in the
+  module README. The v0.1.2 bridge fixes were verified in closed-loop Isaac
+  flights (NavigateTask goal reached within 0.1 m; arrival yaw within 10°);
+  the judged campaign has not been re-run at v0.1.3.</li>
 </ul>
 
 
