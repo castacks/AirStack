@@ -288,7 +288,10 @@ def test_dry_run_reports_stack_pins_without_touching_the_checkout(stack):
         assert f"pins module {name} @ {version}" in out, (
             f"dry-run did not report {stack}'s pin of {name}@{version}:\n{out}"
         )
-    assert "(skipped: dry-run)" in out or "keeping the checkout's pin" in out, out
+    # every pin is reported with its status; none of them may act under dry-run
+    assert ("(skipped: dry-run)" in out or "keeping the checkout's pin" in out
+            or "in sync" in out), out
+    assert "adding to modules.repos" not in out and "Composing module dependency layers" not in out
     after = repos.read_text() if repos.exists() else None
     assert after == before, "dry-run modified modules.repos"
 

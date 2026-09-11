@@ -1778,6 +1778,8 @@ PY
                 need_sync=1 ;;
             deviates:*)
                 log_warn "stack $stack_name pins module $name @ $ver but this checkout has it @ ${status#deviates:} — keeping the checkout's pin (named deviation)" ;;
+            ok)
+                (( report_only )) && log_info "stack $stack_name pins module $name @ $ver — in sync" ;;
         esac
     done <<< "$plan"
 
