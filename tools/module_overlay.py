@@ -32,12 +32,19 @@ What it places, per module under ``modules/<name>/``:
   ``optitrack.natnet.emulator``).
 
 - a manifest ``compose:`` fragment → merged verbatim into the generated file,
-  with relative host paths rewritten to absolute (compose files resolve
-  relative bind sources against ambiguous bases when merged via ``-f``; the
-  generated file is machine-local and regenerated on every sync, so absolute
-  paths are the unambiguous choice). When a fragment is declared it is the
-  source of truth for that module's mounts — the ``exts/`` auto-mount is
-  skipped to avoid double mounts (the dfm2 pilot's friction log, item 5).
+  with relative host paths rewritten to absolute: bind-mount sources,
+  ``build.context`` (and a relative ``build.dockerfile``, resolved against
+  the absolute context exactly as compose would), and ``env_file`` entries.
+  Compose resolves all of these against the directory of the file that
+  declares them, which for the generated file is ``.airstack/generated/``,
+  not the module — and relative bind sources resolve against ambiguous bases
+  when files are merged via ``-f``. The generated file is machine-local and
+  regenerated on every sync, so absolute paths are the unambiguous choice.
+  Fragments may declare whole extra services this way — e.g. a GPU sidecar
+  container built from a Dockerfile inside the module (the asm_raven
+  RayFronts sidecar). When a fragment is declared it is the source of truth
+  for that module's mounts — the ``exts/`` auto-mount is skipped to avoid
+  double mounts (the dfm2 pilot's friction log, item 5).
 
 - ``data`` / other types → no overlay action yet (noted).
 
@@ -169,17 +176,73 @@ def desired_isaac_links(root, modules):
     return links
 
 
-def _abs_host_path(src, base_dir):
-    """Rewrite a compose bind source relative to ``base_dir`` into an absolute path."""
-    if src.startswith(("./", "../")):
+def _abs_host_path(src, base_dir, bare_is_relative=False):
+    """Rewrite a compose host path relative to ``base_dir`` into an absolute path.
+
+    Bind-mount sources are only rewritten when they are explicitly relative
+    (``./x``, ``../x``, ``.``) — a bare name there is a named volume. For
+    ``build.context`` / ``build.dockerfile`` / ``env_file`` (``bare_is_relative``)
+    any non-absolute, non-URL path is relative to ``base_dir``, as compose
+    itself would resolve it against the declaring file's directory.
+    """
+    if not isinstance(src, str) or not src:
+        return src
+    if src == "." or src.startswith(("./", "../")):
+        return os.path.normpath(str(base_dir / src))
+    if bare_is_relative and not os.path.isabs(src) and "://" not in src \
+            and not src.startswith("git@") and not src.startswith("~"):
         return os.path.normpath(str(base_dir / src))
     return src
+
+
+def _abs_build(build, module_dir):
+    """Absolutize a compose ``build`` entry (string context or mapping)."""
+    if isinstance(build, str):
+        return _abs_host_path(build, module_dir, bare_is_relative=True)
+    if not isinstance(build, dict):
+        return build
+    build = dict(build)
+    context = _abs_host_path(build.get("context", "."), module_dir, bare_is_relative=True)
+    build["context"] = context
+    dockerfile = build.get("dockerfile")
+    if isinstance(dockerfile, str) and dockerfile and not os.path.isabs(dockerfile) \
+            and os.path.isabs(context):
+        # compose resolves a relative dockerfile against the context dir
+        build["dockerfile"] = os.path.normpath(os.path.join(context, dockerfile))
+    return build
+
+
+def _abs_env_file(env_file, module_dir):
+    """Absolutize a compose ``env_file`` entry (string, list of strings, or
+    list of ``{path, required}`` mappings)."""
+    def one(entry):
+        if isinstance(entry, str):
+            return _abs_host_path(entry, module_dir, bare_is_relative=True)
+        if isinstance(entry, dict) and isinstance(entry.get("path"), str):
+            return {**entry, "path": _abs_host_path(entry["path"], module_dir, bare_is_relative=True)}
+        return entry
+    if isinstance(env_file, list):
+        return [one(e) for e in env_file]
+    return one(env_file)
 
 
 def _merge_service(target, source, module_dir):
     """Merge one compose service definition into ``target`` (fragment semantics)."""
     for key, value in source.items():
-        if key == "volumes" and isinstance(value, list):
+        if key == "build":
+            target["build"] = _abs_build(value, module_dir)
+        elif key == "env_file":
+            value = _abs_env_file(value, module_dir)
+            if isinstance(value, list):
+                merged = target.setdefault("env_file", [])
+                if not isinstance(merged, list):
+                    merged = target["env_file"] = [merged]
+                for entry in value:
+                    if entry not in merged:
+                        merged.append(entry)
+            else:
+                target["env_file"] = value
+        elif key == "volumes" and isinstance(value, list):
             merged = target.setdefault("volumes", [])
             for entry in value:
                 if isinstance(entry, str):

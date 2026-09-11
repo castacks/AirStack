@@ -1,0 +1,22 @@
+# modules.repos : module pins for the full_exploration stack.
+#
+# vcstool format, PINNED to tags/commits (never branches). `airstack module sync`
+# reads this file into the gitignored modules/ dir; a stack with a pinned .repos
+# IS a localized release set.
+#
+# airstack_compat is a top-level sibling of repositories: (vcstool ignores it,
+# AirStack tooling reads it) declaring the trunk semver range this stack was
+# tested against. sync warns on mismatch; it never gates.
+#
+# full_exploration pulls the asm_exploration_planner module (frontier-based
+# geometric exploration global planner); everything else — including the
+# global_plan_navigate_bridge that turns its plans into NavigateTask goals —
+# is trunk-resident. v0.1.0 is the module's first tag; move the pin
+# deliberately (airstack module add <url> --version <new-tag>).
+airstack_compat: ">=0.21.0-dev.8 <0.22.0"
+repositories:
+  asm_exploration_planner:
+    type: git
+    url: git@github.com:castacks/asm_exploration_planner.git
+    version: v0.1.0
+x-local-modules: []

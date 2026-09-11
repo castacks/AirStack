@@ -1,0 +1,18 @@
+/**:
+  ros__parameters:
+    # Passed through in every NavigateTask goal (m).
+    goal_tolerance_m: 1.0
+    # A new plan replaces the active goal only when its final pose moved more
+    # than this (m) or its pose count changed; identical re-publications are
+    # ignored so a planner re-sending its plan at 1 Hz does not thrash droan_gl.
+    replan_min_change_m: 0.5
+    # An empty Path cancels the active goal (planners publish an empty plan to
+    # stop the vehicle).
+    cancel_on_empty_plan: true
+    # droan_gl REJECTS a goal while one is still active; after a cancel the
+    # bridge retries the send at this period, up to max_send_retries times.
+    send_retry_period_s: 0.5
+    max_send_retries: 10
+    # Start enabled; toggle at runtime with the ~/set_enabled std_srvs/SetBool
+    # service (disabling cancels the active goal).
+    enabled: true

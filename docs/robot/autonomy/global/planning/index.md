@@ -91,13 +91,20 @@ that generates a plan by randomly selecting a direction to move in, and is
 useful for testing the robot's ability to follow a plan. It is the reference
 task-executor implementation, serving `tasks/exploration`.
 
-### Exploration planner
+### Exploration planner (module)
 
-The [exploration planner](../../../../../robot/ros_ws/src/global/planners/exploration/README.md)
-(`robot/ros_ws/src/global/planners/exploration`) is a frontier-based
-geometric exploration planner — an alternative to `random_walk`. To use it,
-swap the `random_walk_planner.launch.xml` include in your stack's entry
-launch file for `exploration_launch.xml`, as described in its README.
+The [asm_exploration_planner](https://github.com/castacks/asm_exploration_planner)
+module provides a frontier-based geometric exploration planner: it builds its
+own OpenVDB occupancy map from the LiDAR cloud, extracts and clusters
+frontiers, samples viewpoints around them (optionally confined to a bounding
+box), and publishes a shortened, collision-checked RRT path on `global_plan`.
+The [`full_exploration`](https://github.com/castacks/AirStack/tree/develop/stacks/full_exploration)
+reference stack selects it: `full_default` with the random-walk include
+replaced by the module's `exploration_planner.launch.xml`, followed by the
+[`global_plan_navigate_bridge`](../../../../../robot/ros_ws/src/global/global_plan_navigate_bridge/README.md)
+that turns each published plan into a `NavigateTask` goal for the local
+planner. Run it with `airstack module sync` (the stack pins the module) and
+`airstack up --stack full_exploration --sim isaac`.
 
 ## Writing Your Own Global Planner
 

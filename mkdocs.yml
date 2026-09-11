@@ -187,17 +187,21 @@ nav:
       - Reference Stacks:
           - full_default: stacks/full_default/README.md
           - full_droan_cpu: stacks/full_droan_cpu/README.md
+          - full_exploration: stacks/full_exploration/README.md
           - full_macvo: stacks/full_macvo/README.md
           - full_mighty: stacks/full_mighty/README.md
+          - full_raven: stacks/full_raven/README.md
           - lite_default: stacks/lite_default/README.md
           - lite_offload_global: stacks/lite_offload_global/README.md
       - Modules Catalog:
           - Catalog: docs/modules/index.md
           - module.yaml Schema: common/module_schema/README.md
           - dfm2_disturbances: docs/modules/dfm2_disturbances.md
+          - exploration_planner: docs/modules/exploration_planner.md
           - macvo: docs/modules/macvo.md
           - mighty: docs/modules/mighty.md
           - optitrack: docs/modules/optitrack.md
+          - raven: docs/modules/raven.md
       - Autonomy Packages:
           - Robot Overview: docs/robot/index.md
           - Autonomy Overview: docs/robot/autonomy/index.md
@@ -228,7 +232,7 @@ nav:
               - VDB Mapping: robot/ros_ws/src/global/world_models/vdb_mapping_ros2/README.md
               - Planning: docs/robot/autonomy/global/planning/index.md
               - Random Walk: robot/ros_ws/src/global/planners/random_walk/README.md
-              - Exploration: robot/ros_ws/src/global/planners/exploration/README.md
+              - Global Plan Navigate Bridge: robot/ros_ws/src/global/global_plan_navigate_bridge/README.md
           - Behavior: docs/robot/autonomy/behavior/index.md
           - Coordination: docs/robot/autonomy/coordination/index.md
           - RViz Tasks Panel: common/ros_packages/gui/rviz/rviz_tasks_panel/README.md

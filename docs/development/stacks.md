@@ -31,6 +31,8 @@ Anatomy is enforced by a unit test: `tests/meta/test_stack_layout_contract.py`
 | [`full_droan_cpu`](https://github.com/castacks/AirStack/tree/develop/stacks/full_droan_cpu) | CPU DROAN planner + live `disparity_expansion` (for machines without the GPU planner). |
 | [`full_macvo`](https://github.com/castacks/AirStack/tree/develop/stacks/full_macvo) | MAC-VO as the planner's disparity source. Requires the `asm_macvo` module (`airstack module add asm_macvo`). |
 | [`full_mighty`](https://github.com/castacks/AirStack/tree/develop/stacks/full_mighty) | The MIGHTY map-based local planner (+ acl-mapping voxel world model) in place of `droan_gl`. Requires the `asm_mighty` module (pinned in the stack's `modules.repos`). |
+| [`full_exploration`](https://github.com/castacks/AirStack/tree/develop/stacks/full_exploration) | The frontier-based geometric exploration planner in place of the random walk (plus the `global_plan_navigate_bridge`). Requires the `asm_exploration_planner` module (pinned in the stack's `modules.repos`). |
+| [`full_raven`](https://github.com/castacks/AirStack/tree/develop/stacks/full_raven) | RAVEN open-set semantic navigation as the global planner: RayFronts GPU sidecar container + `raven_bridge` (plus the `global_plan_navigate_bridge`). Requires the `asm_raven` module. |
 | [`lite_default`](https://github.com/castacks/AirStack/tree/develop/stacks/lite_default) | Onboard-lite topology, unsplit: interface, sensors, perception, flat Local layer, behavior; **no global, no logging**. |
 | [`lite_offload_global`](https://github.com/castacks/AirStack/tree/develop/stacks/lite_offload_global) | A **split stack**: `onboard.launch.xml` (= lite topology) + `offboard.launch.xml` (global layer only) + `bridge.yaml`. |
 
@@ -285,5 +287,7 @@ ignored. Select the topology with `--stack`:
 | CPU DROAN topology | `--stack full_droan_cpu` |
 | MAC-VO disparity topology | `--stack full_macvo` (requires the `asm_macvo` module) |
 | MIGHTY map-based local planner | `--stack full_mighty` (requires the `asm_mighty` module) |
+| Frontier exploration global planner | `--stack full_exploration` (requires the `asm_exploration_planner` module) |
+| RAVEN semantic (language-prompted) global planner | `--stack full_raven` (requires the `asm_raven` module; first run builds the sidecar image) |
 | Onboard-lite, unsplit | `--stack lite_default` |
 | Split onboard/offboard | `--stack lite_offload_global:onboard` / `:offboard` (+ generate the router config from `bridge.yaml`) |

@@ -1,0 +1,11 @@
+# Per-stack image composition: the P4 machinery
+# (tools/compose_module_layers.py) composes per-module dependency layers on
+# top of the trunk base image and emits a compose override for `airstack up`.
+#
+# full_exploration pins the asm_exploration_planner module (see
+# modules.repos). The module declares NO extra apt/pip deps — OpenVDB, PCL and
+# Eigen are already in the trunk robot image via its package.xml rosdep keys
+# — so there is no dependency layer to compose and nothing is committed here.
+# The empty services map keeps this file valid YAML for the stack-anatomy
+# contract (tests/meta/test_stack_layout_contract.py).
+services: {}
