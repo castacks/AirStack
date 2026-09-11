@@ -49,14 +49,32 @@ function _module_ensure_vcs {
         log_info "Using vcs binary: $(command -v vcs) (provider: ${provider})"
         return 0
     fi
-    log_info "No 'vcs' binary found — installing vcs2l (maintained vcstool successor) via pip3 --user..."
-    if ! pip3 install --user vcs2l; then
-        log_error "pip3 install --user vcs2l failed. Install it manually and re-run."
-        return 1
+    # Inside a virtualenv (e.g. the CI test runner's .venv, or a developer's
+    # activated env) `--user` is refused ("User site-packages are not visible
+    # in this virtualenv"), so install into the venv itself; outside one, use
+    # --user, falling back to --break-system-packages for PEP 668 distros
+    # (Ubuntu 24.04's externally-managed system python).
+    local in_venv=0
+    if python3 -c 'import sys; sys.exit(0 if sys.prefix != getattr(sys, "base_prefix", sys.prefix) else 1)' 2>/dev/null; then
+        in_venv=1
     fi
-    export PATH="$HOME/.local/bin:$PATH"
+    if [ "$in_venv" = 1 ]; then
+        log_info "No 'vcs' binary found — installing vcs2l (maintained vcstool successor) into the active virtualenv..."
+        if ! pip3 install vcs2l; then
+            log_error "pip3 install vcs2l failed. Install it manually and re-run."
+            return 1
+        fi
+    else
+        log_info "No 'vcs' binary found — installing vcs2l (maintained vcstool successor) via pip3 --user..."
+        if ! pip3 install --user vcs2l 2>/dev/null && ! pip3 install --user --break-system-packages vcs2l; then
+            log_error "pip3 install --user vcs2l failed. Install it manually and re-run."
+            return 1
+        fi
+        export PATH="$HOME/.local/bin:$PATH"
+    fi
+    hash -r 2>/dev/null || true
     if ! command -v vcs >/dev/null 2>&1; then
-        log_error "vcs2l installed but 'vcs' is still not on PATH (expected ~/.local/bin/vcs)."
+        log_error "vcs2l installed but 'vcs' is still not on PATH (expected ~/.local/bin/vcs or the virtualenv's bin/)."
         return 1
     fi
     log_info "Using vcs binary: $(command -v vcs) (provider: vcs2l)"
