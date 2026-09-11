@@ -19,6 +19,16 @@ its own notes. -->
 
 ## 0.21.0 (Unreleased)
 
+- **asm_mighty v0.1.5: follower fixes for the default planner.** The
+  `full_default`, `lite_default` and `lite_offload_global` stacks pin
+  [`mighty`](../modules/mighty.md) v0.1.5. Its `mighty_bridge` global_plan
+  follower now arms off `takeoff_landing_planner/is_airborne` (new
+  `mighty_is_airborne_topic` launch arg) instead of an 8 m climb gate that
+  AirStack's ~3 m TakeoffTask never reached — plans were adopted but never
+  flown — and landing clears the follower's route memory, so a second flight
+  in the same session flies again (the "already completed" check is keyed on
+  the plan's pose list rather than a 2 m radius, which had dropped every
+  later plan to a once-completed target).
 - **Wiring baselines for the MIGHTY stacks.** `stacks/full_default/wiring.md`
   and `stacks/lite_default/wiring.md` are committed from validated Isaac Sim
   snapshot runs on the 0.21.0-dev.11 robot image (MIGHTY nodes
