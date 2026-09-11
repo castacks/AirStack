@@ -297,23 +297,24 @@ Study a working similar module:
 
 ```bash
 # Find reference implementation
-# Example: if debugging a planner, study droan_local_planner
+# Example: if debugging a planner, study the default MIGHTY bridge
+# (modules/asm_mighty/mighty_bridge after `airstack up` synced it)
 
 # Compare:
 # 1. Package structure
-ls -la robot/ros_ws/src/local/planners/droan_local_planner/
+ls -la modules/asm_mighty/mighty_bridge/
 ls -la robot/ros_ws/src/local/planners/your_planner/
 
 # 2. Topic structure
-docker exec airstack-robot-desktop-1 bash -c "ros2 node info /robot/droan/droan_planner"
+docker exec airstack-robot-desktop-1 bash -c "ros2 node info /robot/mighty/mighty_bridge"
 docker exec airstack-robot-desktop-1 bash -c "ros2 node info /robot/your_planner/your_node"
 
 # 3. Message timing
-docker exec airstack-robot-desktop-1 bash -c "ros2 topic hz /robot/droan/output"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic hz /robot/trajectory_controller/trajectory_override"
 docker exec airstack-robot-desktop-1 bash -c "ros2 topic hz /robot/your_planner/output"
 
 # 4. Data ranges
-docker exec airstack-robot-desktop-1 bash -c "ros2 topic echo /robot/droan/output --once"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic echo /robot/trajectory_controller/trajectory_override --once"
 docker exec airstack-robot-desktop-1 bash -c "ros2 topic echo /robot/your_planner/output --once"
 ```
 

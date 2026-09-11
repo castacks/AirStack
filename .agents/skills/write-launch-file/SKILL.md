@@ -100,7 +100,7 @@ A stack folder (`stacks/<name>/`) is the unit of topology — see [docs/developm
 2. **One `<include>` per module.** Pass the module's declared topic args to wire it:
 
 ```xml
-<!-- Local planner: disparity from MAC-VO instead of stereo -->
+<!-- Local planner (asm_droan module): disparity from MAC-VO instead of stereo — stacks/full_macvo -->
 <include file="$(find-pkg-share droan_gl)/launch/droan_gl.launch.xml">
   <arg name="droan_gl_disparity_topic"
        value="/$(env ROBOT_NAME)/perception/macvo/disparity" />
@@ -191,7 +191,7 @@ If `ros2 node info` shows a node subscribing to `/odometry` instead of `/<robot_
 
 - **Stacks:** [docs/development/stacks.md](../../../docs/development/stacks.md) — anatomy, wiring.md generation, the AUTONOMY_ROLE removal/migration table
 - **Canonical topic names:** [docs/robot/autonomy/integration_checklist.md](../../../docs/robot/autonomy/integration_checklist.md)
-- **Reference stack launch files:** `stacks/full_default/launch/stack.launch.xml`, `stacks/full_droan_cpu/`, `stacks/full_macvo/`
+- **Reference stack launch files:** `stacks/full_default/launch/stack.launch.xml` (MIGHTY module include), `stacks/full_droan/`, `stacks/full_droan_cpu/`, `stacks/full_macvo/`
 - **Lint:** `tests/meta/test_launch_single_locus.py` + `tests/meta/launch_lint_allowlist.txt`
 - **ROS 2 docs:** [Launch tutorials](https://docs.ros.org/en/jazzy/Tutorials/Intermediate/Launch/Launch-Main.html) · [Launch XML format](https://design.ros2.org/articles/roslaunch_xml.html)
 - **Related skills:** [add-ros2-package](../add-ros2-package) · [integrate-module-into-layer](../integrate-module-into-layer) (legacy wrap-form path) · [debug-module](../debug-module) · [test-in-simulation](../test-in-simulation)

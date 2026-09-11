@@ -1,0 +1,12 @@
+# Per-stack image composition: the P4 machinery
+# (tools/compose_module_layers.py) composes per-module dependency layers on
+# top of the trunk base image and emits a compose override for `airstack up`.
+#
+# full_droan pins the asm_droan module (see modules.repos); the droan_gl link
+# deps (assimp/EGL/GLFW/GLM) enter the robot image via the module's
+# content-addressed tier-1 dependency layer — `airstack module lock --build`
+# (run by `airstack up` when the layer is missing) GENERATES that override at
+# lock time, so nothing is committed here. The empty services map keeps this
+# file valid YAML for the stack-anatomy contract
+# (tests/meta/test_stack_layout_contract.py).
+services: {}

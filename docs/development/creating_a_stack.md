@@ -26,6 +26,14 @@ airstack stack new full_default my_experiment  # airstack stack new <source-stac
 </include>
 ```
 
+(That is `stacks/full_macvo`: the `asm_droan` module's GPU DROAN planner
+fed by MAC-VO's disparity instead of the canonical `stereo_image_proc`
+topic. A stack that keeps the default MIGHTY planner includes
+`mighty_module.launch.xml` bare — no args — as `full_default` does.)
+
+```xml
+```
+
 Rules the unit lints enforce: every declared `<arg>` needs a `description=`; never include `robot.launch.xml` (it is the dispatcher that includes *you* — infinite recursion); remaps are legal only under `stacks/*/launch/`. Update `README.md` too — the layout contract rejects READMEs under 200 characters. Canonical topic names/types are in the [Interface Conventions Spec](../robot/autonomy/interface_conventions.md); authoring details in the [create-stack skill](https://github.com/castacks/AirStack/blob/develop/.agents/skills/create-stack/SKILL.md).
 
 **Verify:** `airstack test -m unit -v` passes the layout contract and single-locus lint.

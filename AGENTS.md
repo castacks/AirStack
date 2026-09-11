@@ -64,7 +64,7 @@ Sensors → Perception → World Models → Planners → Controllers → Interfa
 ```
 
 Each layer has:
-- **Module packages**: Individual algorithm implementations (e.g., `droan_local_planner`)
+- **Module packages**: Individual algorithm implementations (e.g., `takeoff_landing_planner`, or a module repo's `mighty_bridge`)
 - **Stack entry launch files**: The launch topology and topic remapping live in the selected stack (e.g., `stacks/full_default/launch/stack.launch.xml`), not in per-layer bringup packages (the old `local_bringup`-style packages were removed)
 
 **Key Insight:** Understanding "what connects to what" is critical. See [Integration Checklist](docs/robot/autonomy/integration_checklist.md) and [System Architecture](docs/robot/autonomy/system_architecture.md).
@@ -150,8 +150,8 @@ Study these well-structured modules as examples for different types:
 
 | Module Type | Reference Package | Location |
 |------------|------------------|----------|
-| **Local Planner** | DROAN Local Planner | `robot/ros_ws/src/local/planners/droan_local_planner` |
-| **Local World Model** | Disparity Expansion | `robot/ros_ws/src/local/world_models/disparity_expansion` |
+| **Local Planner** | MIGHTY bridge (module, default) / DROAN Local Planner (module) | [asm_mighty](https://github.com/castacks/asm_mighty) `mighty_bridge/` · [asm_droan](https://github.com/castacks/asm_droan) `droan_local_planner/` |
+| **Local World Model** | Disparity Expansion (module) | [asm_droan](https://github.com/castacks/asm_droan) `disparity_expansion/` |
 | **Controller** | Trajectory Controller | `robot/ros_ws/src/local/controls/trajectory_controller` |
 | **Global Planner** | Random Walk | `robot/ros_ws/src/global/planners/random_walk` |
 | **Global World Model** | VDB Mapping | `robot/ros_ws/src/global/world_models/vdb_mapping_ros2` |

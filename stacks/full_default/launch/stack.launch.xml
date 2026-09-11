@@ -1,12 +1,18 @@
 <!--
   full_default : trunk reference stack.
 
-  ALL LAYERS FLATTENED (P5-E2 local, P5-E3 the rest): every layer is composed
-  here as a flat set of module-launch includes — each block below reads "this
-  module, these connections". Every module launch file declares its topic
-  endpoints as args with canonical defaults (today's graph), so a bare
-  include means "wired canonically"; only deviations from canonical appear as
-  include args.
+  The full-autonomy topology: every layer on this machine, with the MIGHTY
+  map-based local planner (asm_mighty module — planner + acl-mapping voxel
+  world model + NavigateTask bridge) as the local planner. This is the stack
+  that launches when no stack is selected, and the baseline other stacks are
+  copied from. The DROAN reactive planner it replaced is one include line
+  away in stacks/full_droan (asm_droan module).
+
+  ALL LAYERS FLATTENED: every layer is composed here as a flat set of
+  module-launch includes — each block below reads "this module, these
+  connections". Every module launch file declares its topic endpoints as args
+  with canonical defaults (today's graph), so a bare include means "wired
+  canonically"; only deviations from canonical appear as include args.
 
   Two blocks stay WRAPPED BY DESIGN (not a migration leftover):
     - interface.launch.py — MAVROS wiring is dense, FCU_URL is env-computed
@@ -21,16 +27,14 @@
   LOG_CONFIG) — there is nothing to flatten.
 
   Launched by autonomy_bringup/launch/robot.launch.xml when AIRSTACK_STACK_DIR
-  points at this folder (set by `airstack up` with the stack flag,
-  e.g. `airstack up ...stack full_default`; see `airstack help up`). The
-  shared preamble (ROBOT_NAME namespace push, use_sim_time,
-  robot_state_publisher, world/map static TF) runs there unconditionally, so
-  it is NOT repeated here.
+  points at this folder (set by `airstack up`, with or without `...stack
+  full_default`; see `airstack help up`). The shared preamble (ROBOT_NAME
+  namespace push, use_sim_time, robot_state_publisher, world/map static TF)
+  runs there unconditionally, so it is NOT repeated here.
 
-  Equivalence: machine-proven identical to the removed AUTONOMY_ROLE=full
-  dispatch (wiring-snapshot diff); this folder's wiring.md is the committed
-  observed baseline. AUTONOMY_ROLE is gone from this branch — stacks are the
-  only dispatch.
+  Requires the asm_mighty module (pinned in modules.repos; `airstack up`
+  syncs it when missing — the module has no image-level deps of its own, its
+  nlohmann-json header dep ships in the trunk robot image).
 -->
 <launch>
 
@@ -73,11 +77,13 @@
        trajectory controller; action at tasks/fixed_trajectory -->
   <include file="$(find-pkg-share trajectory_controller)/launch/fixed_trajectory_task.launch.xml" />
 
-  <!-- DROAN local planner (GPU): disparity in from stereo_image_proc (canonical),
-       global_plan in from the global planner, look_ahead/tracking_point in from
-       the trajectory controller, trajectory_segment_to_add out to it;
-       navigate action at tasks/navigate -->
-  <include file="$(find-pkg-share droan_gl)/launch/droan_gl.launch.xml" />
+  <!-- MIGHTY local planner (asm_mighty module, CPU): filtered Ouster cloud in
+       to its acl-mapping voxel world model, odometry in from
+       odometry_conversion; trajectory_override out to the trajectory
+       controller (the bridge sets TRACK mode itself); navigate action at
+       tasks/navigate. The DROAN reactive planner is the same seam one
+       include away (stacks/full_droan). -->
+  <include file="$(find-pkg-share mighty_bridge)/launch/mighty_module.launch.xml" />
 
   <!-- Trajectory controller: odometry in from odometry_conversion; serves the
        trajectory_controller/* topic group (override, segment, mode, tracking

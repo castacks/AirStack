@@ -115,7 +115,7 @@ Define package metadata and dependencies:
 </package>
 ```
 
-**Reference:** `robot/ros_ws/src/local/planners/droan_local_planner/package.xml`
+**Reference:** `robot/ros_ws/src/local/planners/takeoff_landing_planner/package.xml`
 
 ### 4. Create CMakeLists.txt (for C++)
 
@@ -183,7 +183,7 @@ endif()
 ament_package()
 ```
 
-**Reference:** `robot/ros_ws/src/local/planners/droan_local_planner/CMakeLists.txt`
+**Reference:** `robot/ros_ws/src/local/planners/takeoff_landing_planner/CMakeLists.txt`
 
 ### 5. Create setup.py (for Python)
 
@@ -514,7 +514,7 @@ After creating the package:
   - [Using Parameters](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Using-Parameters-In-A-Class-CPP.html)
   
 - **AirStack Examples:**
-  - Reference planner: `robot/ros_ws/src/local/planners/droan_local_planner`
+  - Reference planner (task server): `robot/ros_ws/src/local/planners/takeoff_landing_planner`; module-shipped local planners: asm_mighty `mighty_bridge/`, asm_droan `droan_local_planner/`
   - Reference controller: `robot/ros_ws/src/local/controls/trajectory_controller`
   - Package template: `assets/package_template/`
 

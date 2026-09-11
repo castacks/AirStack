@@ -1,16 +1,16 @@
 # Local Packages
 
-The **local** layer closes the robot's short-range sense-plan-act loop: a fast local world model built from live sensor data, a reactive local planner that avoids obstacles the global map is too slow or too coarse to capture, and the controllers that turn planned trajectories into commands for the [interface](../interface/index.md). The loop is coupled through the trajectory controller's **look-ahead point** — the local planner plans forward from where the controller will soon be, and streams trajectory segments back to it.
+The **local** layer closes the robot's short-range sense-plan-act loop: a fast local world model built from live sensor data, a local planner that avoids obstacles the global map is too slow or too coarse to capture, and the controllers that turn planned trajectories into commands for the [interface](../interface/index.md). The loop is coupled through the trajectory controller's trajectory group — the local planner streams trajectories (receding-horizon overrides for MIGHTY, look-ahead-anchored segments for DROAN) to the controller, which tracks them.
 
 ## Sub-layers
 
-- [**World Model**](world_model/index.md) — disparity-based C-space obstacle representation for fast collision queries
-- [**Planning**](planning/index.md) — the DROAN local planner: turns the global plan into short, collision-free trajectory segments
+- [**World Model**](world_model/index.md) — the planner's short-range obstacle representation: MIGHTY's sliding voxel map (default) or DROAN's disparity-space C-space expansion
+- [**Planning**](planning/index.md) — the local planner (MIGHTY by default; DROAN as the alternative): turns the global plan into short, collision-free trajectories
 - [**Controls**](controls/index.md) — trajectory controller (tracking/look-ahead point management) and PID controller (attitude/thrust commands)
 
 ## Launch
 
-Local modules ship their own canonical launch files and are composed flat by the selected stack's entry launch file (`stacks/<name>/launch/*.launch.xml`) — the trunk stacks include `takeoff_landing_planner`, the trajectory controller, `droan_gl`, and the PID controller directly; see `stacks/full_default/launch/stack.launch.xml` for the composed wiring.
+Local modules ship their own canonical launch files and are composed flat by the selected stack's entry launch file (`stacks/<name>/launch/*.launch.xml`) — the trunk stacks include `takeoff_landing_planner`, the trajectory controller, the local planner (`mighty_module.launch.xml` from the `asm_mighty` module in `full_default`; `droan_gl.launch.xml` from `asm_droan` in `full_droan`), and the PID controller directly; see `stacks/full_default/launch/stack.launch.xml` for the composed wiring. The planner modules are external repos pinned in each stack's `modules.repos`; `airstack up` syncs them when missing.
 
 ## Key Interchanges
 

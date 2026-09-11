@@ -58,7 +58,7 @@ graph LR
 
 ## Dependencies
 
-- `disparity_expansion` - Obstacle map
+- `my_world_model` - Obstacle map
 - `trajectory_controller` - Trajectory execution
 
 ## Topics

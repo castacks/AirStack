@@ -73,7 +73,7 @@ Units: SI throughout (meters, seconds); image encodings per ROS convention.
 | `odometry_conversion/odometry` **(v1 canonical)** | `nav_msgs/msg/Odometry` | RELIABLE | state | produced onboard |
 
 > **v2 target:** plain `odometry` (`/{robot_name}/odometry`) is the intended
-> canonical name; today every consumer (safety monitor, PID, DROAN,
+> canonical name; today every consumer (safety monitor, PID, the local planner,
 > random_walk, trajectory controller, task servers) subscribes to
 > `odometry_conversion/odometry`, so **v1 records reality**. Renaming is a
 > spec-major change (see deprecation policy) with a coexistence window.
@@ -164,7 +164,7 @@ skill). All types come from `task_msgs`:
 |---|---|---|
 | `tasks/takeoff` | `task_msgs/action/TakeoffTask` | takeoff_landing_planner (onboard) |
 | `tasks/land` | `task_msgs/action/LandTask` | takeoff_landing_planner (onboard) |
-| `tasks/navigate` | `task_msgs/action/NavigateTask` | droan (local planner, onboard) |
+| `tasks/navigate` | `task_msgs/action/NavigateTask` | the local planner (mighty_bridge by default, or droan; onboard) |
 | `tasks/fixed_trajectory` | `task_msgs/action/FixedTrajectoryTask` | trajectory_controller pkg (onboard) |
 | `tasks/exploration` | `task_msgs/action/ExplorationTask` | random_walk (global planner) |
 | `tasks/semantic_search` | `task_msgs/action/SemanticSearchTask` | (module-provided) |

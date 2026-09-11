@@ -186,15 +186,16 @@ nav:
       - Platform Matrix: docs/real_world/supported_platforms.md
       - Reference Stacks:
           - full_default: stacks/full_default/README.md
+          - full_droan: stacks/full_droan/README.md
           - full_droan_cpu: stacks/full_droan_cpu/README.md
           - full_macvo: stacks/full_macvo/README.md
-          - full_mighty: stacks/full_mighty/README.md
           - lite_default: stacks/lite_default/README.md
           - lite_offload_global: stacks/lite_offload_global/README.md
       - Modules Catalog:
           - Catalog: docs/modules/index.md
           - module.yaml Schema: common/module_schema/README.md
           - dfm2_disturbances: docs/modules/dfm2_disturbances.md
+          - droan: docs/modules/droan.md
           - macvo: docs/modules/macvo.md
           - mighty: docs/modules/mighty.md
           - optitrack: docs/modules/optitrack.md
@@ -211,15 +212,10 @@ nav:
           - Local:
               - Overview: docs/robot/autonomy/local/index.md
               - World Model: docs/robot/autonomy/local/world_model/index.md
-              - Disparity Expansion: robot/ros_ws/src/local/world_models/disparity_expansion/README.md
-              - Disparity Graph: robot/ros_ws/src/local/world_models/disparity_graph/README.md
-              - Disparity Graph Cost Map: robot/ros_ws/src/local/world_models/disparity_graph_cost_map/README.md
               - Planning: docs/robot/autonomy/local/planning/index.md
               - Trajectory Library: robot/ros_ws/src/local/planners/trajectory_library/README.md
               - Takeoff Landing Planner: robot/ros_ws/src/local/planners/takeoff_landing_planner/README.md
               - Takeoff Landing Testing: robot/ros_ws/src/local/planners/takeoff_landing_planner/test/README.md
-              - DROAN Local Planner: robot/ros_ws/src/local/planners/droan_local_planner/README.md
-              - DROAN GL: robot/ros_ws/src/local/planners/droan_gl/README.md
               - Controls: docs/robot/autonomy/local/controls/index.md
               - Trajectory Controller: robot/ros_ws/src/local/controls/trajectory_controller/README.md
           - Global:

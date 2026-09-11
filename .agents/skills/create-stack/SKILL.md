@@ -45,7 +45,7 @@ airstack stack new full_default my_experiment  # refuses overwrite
 ```
 
 Pick the closest starting point: `full_default` (everything onboard),
-`lite_default` (no global/logging), `full_droan_cpu`, `full_macvo`.
+`lite_default` (no global/logging), `full_droan`, `full_droan_cpu`, `full_macvo`.
 `stack new` deliberately does **not** copy `wiring.md` — that file is the
 *source* stack's observed graph and would lie about yours.
 

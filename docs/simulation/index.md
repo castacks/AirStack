@@ -83,7 +83,7 @@ An open-source drone simulator built on Unreal Engine with native PX4 SITL integ
 **Use cases:**
 
 - PX4-in-the-loop testing with photorealistic environments
-- Depth-based obstacle avoidance testing (DROAN)
+- Depth-based obstacle avoidance testing (the DROAN stacks)
 - Environments from the Unreal Engine ecosystem
 
 **Launch:** `airstack up --sim airsim`

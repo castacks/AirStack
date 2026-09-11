@@ -13,8 +13,8 @@ The operator sends high-level task goals from the GCS (Foxglove robot-commands p
 ```mermaid
 graph TD
     GCS[GCS operator] -->|ExplorationTask| RW[random_walk_planner]
-    RW -->|NavigateTask| DG[droan_gl / droan_local_planner]
-    DG -->|TrajectoryXYZVYaw| TC[trajectory_controller]
+    RW -->|NavigateTask| LP[local planner: mighty_bridge / droan_gl / droan_local_planner]
+    LP -->|TrajectoryXYZVYaw| TC[trajectory_controller]
 ```
 
 All task action servers are remapped to `/{robot_name}/tasks/{task_name}` in their module launch files.
@@ -139,7 +139,7 @@ Follow a pre-defined trajectory specified by shape type and parameters. With `lo
 
 **File:** `action/NavigateTask.action`
 **Action server:** `/{robot_name}/tasks/navigate`
-**Implemented by:** `droan_gl`, `droan_local_planner`
+**Implemented by:** the local planner — `mighty_bridge` (MIGHTY, the default; [asm_mighty](https://github.com/castacks/asm_mighty) module), `droan_gl` / `droan_local_planner` (DROAN; [asm_droan](https://github.com/castacks/asm_droan) module)
 
 Navigate along a global plan path using local obstacle avoidance. This is the lowest-level task action — it is the sink for all higher-level tasks that involve flying somewhere.
 

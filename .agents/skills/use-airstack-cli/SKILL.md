@@ -184,8 +184,11 @@ airstack stack diff <a> <b> [--json] # compare generated wiring graphs (nodes/ed
 airstack up --stack <name>[:<entry>] # run one
 ```
 
-Reference stacks today: `full_default` (the no-stack default), `full_droan_cpu`,
-`full_macvo`, `lite_default`, `lite_offload_global` (split: `:onboard`/`:offboard`).
+Reference stacks today: `full_default` (the no-stack default; MIGHTY planner via
+the `asm_mighty` module), `full_droan`, `full_droan_cpu`, `full_macvo`
+(`asm_droan` module), `lite_default`, `lite_offload_global` (split:
+`:onboard`/`:offboard`). `airstack up` reconciles the selected stack's
+`modules.repos` pins (add + sync + `lock --build`) before launching.
 
 ### Fleets
 

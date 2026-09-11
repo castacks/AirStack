@@ -1,4 +1,4 @@
-# modules.repos : module pins for the full_default reference stack.
+# modules.repos : module pins for the full_droan reference stack.
 #
 # vcstool format, PINNED to tags/commits (never branches). `airstack up` adds a
 # stack's pins to the checkout-root modules.repos and syncs them when they are
@@ -9,16 +9,13 @@
 # AirStack tooling reads it) declaring the trunk semver range this stack was
 # tested against. sync warns on mismatch; it never gates.
 #
-# full_default pulls the asm_mighty module (MIGHTY local planner + acl-mapping
-# voxel world model + NavigateTask bridge — the default local planner);
-# everything else is trunk-resident. The module declares no image-level deps:
-# its nlohmann-json header dep ships in the trunk robot image, so the default
-# stack runs on the base image with no module layer. Registry:
-# modules/mighty.yaml in castacks/airstack-modules-index.
+# full_droan pulls the asm_droan module (the GPU droan_gl planner, the CPU
+# droan_local_planner and its disparity_* world model); everything else is
+# trunk-resident. Registry: modules/droan.yaml in castacks/airstack-modules-index.
 airstack_compat: ">=0.21.0-dev.10 <0.22.0"
 repositories:
-  asm_mighty:
+  asm_droan:
     type: git
-    url: https://github.com/castacks/asm_mighty
-    version: v0.1.4
+    url: https://github.com/castacks/asm_droan
+    version: v0.1.0
 x-local-modules: []

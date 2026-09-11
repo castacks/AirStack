@@ -356,7 +356,7 @@ nav:
           - Local:
               # Existing modules
               - Trajectory Library: robot/ros_ws/src/local/planners/trajectory_library/README.md
-              - DROAN Local Planner: robot/ros_ws/src/local/planners/droan_local_planner/README.md
+              - Takeoff Landing Planner: robot/ros_ws/src/local/planners/takeoff_landing_planner/README.md
                   # Add your module HERE
                   - Your Module Name:
                       - robot/ros_ws/src/local/planners/your_package/README.md
@@ -393,8 +393,8 @@ trajectory generation based on local sensor observations.
 
 ## Available Modules
 
-### DROAN Local Planner
-Disparity-space representation for obstacle avoidance. See [DROAN Local Planner](../../../robot/ros_ws/src/local/planners/droan_local_planner/README.md).
+### MIGHTY (default, module)
+Map-based Hermite-spline local planner with its acl-mapping voxel world model. See the [mighty module page](../../../docs/modules/mighty.md).
 
 ### Your Module Name
 Brief one-sentence description of your module.
@@ -465,7 +465,7 @@ graph TB
     GlobalPlanning[Global Planning] -->|Global Plan| LocalPlanning
     
     subgraph "Local Planning Layer"
-        LocalPlanning --> DROAN[DROAN Planner]
+        LocalPlanning --> MIGHTY[MIGHTY Planner]
         LocalPlanning --> YourModule[Your Module]
         LocalPlanning --> TakeoffLanding[Takeoff/Landing]
     end
@@ -739,7 +739,7 @@ feat: Add YourModule local planner
 
 - **AirStack:**
   - Documentation template: `../add-ros2-package/assets/package_template/README.md`
-  - Example README: `robot/ros_ws/src/local/planners/droan_local_planner/README.md`
+  - Example README: `robot/ros_ws/src/local/planners/takeoff_landing_planner/README.md`
   - mkdocs.yml: Repository root
 
 - **Related Skills:**

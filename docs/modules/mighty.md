@@ -4,7 +4,7 @@
      python3 tools/gen_docs_catalog.py --index <registry-checkout>
      (the docs deploy workflows regenerate it against the live registry at build time) -->
 
-> MIGHTY Hermite-spline local planner (MIT ACL, RA-L 2026) with its acl-mapping voxel world model and a bridge to AirStack's NavigateTask / trajectory_controller seam — a map-based replacement for the DROAN local planner
+> MIGHTY Hermite-spline local planner (MIT ACL, RA-L 2026) with its acl-mapping voxel world model and a bridge to AirStack's NavigateTask / trajectory_controller seam — AirStack's default local planner (the map-based replacement for DROAN)
 
 | | |
 |---|---|
@@ -12,8 +12,8 @@
 | Type | `ros_package` |
 | Maintainer | ajong@andrew.cmu.edu |
 | License | BSD-3-Clause-Clear |
-| Registered ref | [`v0.1.3`](https://github.com/castacks/asm_mighty/tree/v0.1.3) |
-| Declared compat | `>=0.20.0-alpha.16 <0.21.0` |
+| Registered ref | [`v0.1.4`](https://github.com/castacks/asm_mighty/tree/v0.1.4) |
+| Declared compat | `>=0.21.0-dev.10 <0.22.0` |
 | Registry entry | [modules/mighty.yaml](https://github.com/castacks/airstack-modules-index/blob/main/modules/mighty.yaml) |
 
 ## Install
@@ -21,7 +21,7 @@
 From an AirStack checkout ([AirStack Modules guide](../development/modules.md)):
 
 ```bash
-airstack module add https://github.com/castacks/asm_mighty --version v0.1.3
+airstack module add https://github.com/castacks/asm_mighty --version v0.1.4
 airstack up
 ```
 
@@ -31,7 +31,7 @@ generated compose override that mounts it into the containers.
 
 ## Compatibility: declared vs verified
 
-The range `>=0.20.0-alpha.16 <0.21.0` is **DECLARED** by the module author
+The range `>=0.21.0-dev.10 <0.22.0` is **DECLARED** by the module author
 (copied from the module's `module.yaml`). The **VERIFIED** record — rows
 stamped exclusively by CI runs of the reusable
 [module-system-tests workflow](../development/module_ci.md) — lives in the
@@ -42,15 +42,15 @@ matrix, read the declaration as intent.
 
 ## Documentation
 
-- [Module README on GitHub @ `v0.1.3`](https://github.com/castacks/asm_mighty/blob/v0.1.3/README.md)
+- [Module README on GitHub @ `v0.1.4`](https://github.com/castacks/asm_mighty/blob/v0.1.4/README.md)
 - *The module repo was not fetched when this page was generated — the*
   *links above go to GitHub at the registered ref (failure isolation:*
   *an unreachable module repo never fails the docs deploy).*
 
 ## Registered stacks using this module
 
-- [full_mighty](../../stacks/full_mighty/README.md)
+- [full_default](../../stacks/full_default/README.md)
 
 ## Registry notes
 
-> Public repo. v0.1.0 was validated end-to-end on Isaac Sim: 44/44 vendored gtests, synthetic smoke harness, empty-world NavigateTask flight, 7/7 practice pillar-field traversals, and 5/5 judged obstacle-route flights (min clearances 1.59–1.65 m vs a 1.0 m gate); v0.1.1 is code-identical (README delta). v0.1.2 fixes the bridge for AirStack 0.20.x — takeoff leaves the trajectory controller in ROBOT_POSE, where trajectory_override is merged but never flown, so v0.1.1 commits one trajectory and idles ("never replans"); the bridge now sets TRACK, bounds/preempts NavigateTask goals, drops stale global_plan routes and turns to the goal yaw on arrival (MIGHTY drops the goal orientation). v0.1.3 adds launch args for the mapper->planner grid seam and the altitude band (defaults unchanged). The v0.1.2 fixes were verified in closed-loop Isaac flights; the judged campaign was not re-run. Wrapper packages are BSD-3-Clause-Clear; vendored upstream packages (mighty, DecompROS2, acl-mapping) keep their own permissive licenses — see the module's VENDORED.md. Consumed by trunk reference stack full_mighty (pin v0.1.3 or newer).
+> Public repo. v0.1.0 was validated end-to-end on Isaac Sim: 44/44 vendored gtests, synthetic smoke harness, empty-world NavigateTask flight, 7/7 practice pillar-field traversals, and 5/5 judged obstacle-route flights (min clearances 1.59–1.65 m vs a 1.0 m gate); v0.1.1 is code-identical (README delta). v0.1.2 fixes the bridge for AirStack 0.20.x — takeoff leaves the trajectory controller in ROBOT_POSE, where trajectory_override is merged but never flown, so v0.1.1 commits one trajectory and idles ("never replans"); the bridge now sets TRACK, bounds/preempts NavigateTask goals, drops stale global_plan routes and turns to the goal yaw on arrival (MIGHTY drops the goal orientation). v0.1.3 adds launch args for the mapper->planner grid seam and the altitude band (defaults unchanged). v0.1.4 is code-identical to v0.1.3: it targets AirStack 0.21.x, where MIGHTY is the DEFAULT local planner — the trunk robot image ships the nlohmann-json header dep, so the module declares no image-level deps and the default stack needs no composed layer. The v0.1.2 fixes were verified in closed-loop Isaac flights; the judged campaign was not re-run. Wrapper packages are BSD-3-Clause-Clear; vendored upstream packages (mighty, DecompROS2, acl-mapping) keep their own permissive licenses — see the module's VENDORED.md. Consumed by trunk reference stacks full_default (the no-stack default), lite_default and lite_offload_global (pin v0.1.4 or newer; use v0.1.3 on 0.20.x trunks).

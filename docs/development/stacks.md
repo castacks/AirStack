@@ -27,10 +27,10 @@ Anatomy is enforced by a unit test: `tests/meta/test_stack_layout_contract.py`
 
 | Stack | Topology |
 |-------|----------|
-| [`full_default`](https://github.com/castacks/AirStack/tree/develop/stacks/full_default) | The full-autonomy topology (GPU `droan_gl` planner) — the baseline, and what launches when no stack is selected. |
-| [`full_droan_cpu`](https://github.com/castacks/AirStack/tree/develop/stacks/full_droan_cpu) | CPU DROAN planner + live `disparity_expansion` (for machines without the GPU planner). |
-| [`full_macvo`](https://github.com/castacks/AirStack/tree/develop/stacks/full_macvo) | MAC-VO as the planner's disparity source. Requires the `asm_macvo` module (`airstack module add asm_macvo`). |
-| [`full_mighty`](https://github.com/castacks/AirStack/tree/develop/stacks/full_mighty) | The MIGHTY map-based local planner (+ acl-mapping voxel world model) in place of `droan_gl`. Requires the `asm_mighty` module (pinned in the stack's `modules.repos`). |
+| [`full_default`](https://github.com/castacks/AirStack/tree/develop/stacks/full_default) | The full-autonomy topology with the MIGHTY map-based local planner (`asm_mighty` module: planner + acl-mapping voxel world model + NavigateTask bridge) — the baseline, and what launches when no stack is selected. |
+| [`full_droan`](https://github.com/castacks/AirStack/tree/develop/stacks/full_droan) | The GPU DROAN reactive planner (`droan_gl`, `asm_droan` module) in place of MIGHTY — for depth-camera-only vehicles and legacy comparisons. |
+| [`full_droan_cpu`](https://github.com/castacks/AirStack/tree/develop/stacks/full_droan_cpu) | CPU DROAN planner + live `disparity_expansion` (`asm_droan` module) for machines without a GPU planner. |
+| [`full_macvo`](https://github.com/castacks/AirStack/tree/develop/stacks/full_macvo) | MAC-VO as the DROAN planner's disparity source. Requires the `asm_macvo` and `asm_droan` modules. |
 | [`lite_default`](https://github.com/castacks/AirStack/tree/develop/stacks/lite_default) | Onboard-lite topology, unsplit: interface, sensors, perception, flat Local layer, behavior; **no global, no logging**. |
 | [`lite_offload_global`](https://github.com/castacks/AirStack/tree/develop/stacks/lite_offload_global) | A **split stack**: `onboard.launch.xml` (= lite topology) + `offboard.launch.xml` (global layer only) + `bridge.yaml`. |
 
@@ -67,6 +67,18 @@ effective config.
 `--stack <name>:<entry>` selects an alternate entry file
 (`launch/<entry>.launch.xml`) — reserved for
 [split stacks](#split-stacks-and-bridgeyaml).
+
+**Module pins are reconciled at launch.** Before starting services,
+`airstack up` reads the selected stack's `modules.repos`: a pinned module
+absent from the checkout is added at the stack's pin and synced
+(`airstack module add` + `module sync`); one present at a *different* pin is
+left alone and named in a warning (an explicit local deviation wins); and
+when the resulting layer plan has dependency steps that are not yet
+composed, `airstack module lock --build` runs (unless
+`AIRSTACK_NO_IMAGE_BUILD=1`). `--dry-run` / `--config-only` only report;
+`AIRSTACK_NO_STACK_MODULE_SYNC=1` skips the step. This is what lets the
+default stack pin the `asm_mighty` planner module and still work out of the
+box.
 
 Stack launch files need no `colcon build` — they are read from the bind mount;
 edit and re-launch.
@@ -282,8 +294,8 @@ ignored. Select the topology with `--stack`:
 | You want | Command |
 |----------|---------|
 | The full-autonomy baseline | Nothing — `full_default` launches by default (or be explicit: `--stack full_default`) |
-| CPU DROAN topology | `--stack full_droan_cpu` |
-| MAC-VO disparity topology | `--stack full_macvo` (requires the `asm_macvo` module) |
-| MIGHTY map-based local planner | `--stack full_mighty` (requires the `asm_mighty` module) |
+| GPU DROAN reactive planner | `--stack full_droan` (`asm_droan` module) |
+| CPU DROAN topology | `--stack full_droan_cpu` (`asm_droan` module) |
+| MAC-VO disparity topology | `--stack full_macvo` (`asm_macvo` + `asm_droan` modules) |
 | Onboard-lite, unsplit | `--stack lite_default` |
 | Split onboard/offboard | `--stack lite_offload_global:onboard` / `:offboard` (+ generate the router config from `bridge.yaml`) |

@@ -2,7 +2,7 @@
 
 Contact: John Keller
 
-`trajectory_library` is a C++ library (no node of its own) for generating and manipulating candidate trajectories for obstacle-avoidance planners. It provides the `Trajectory`/`Waypoint` classes used throughout the local layer to interpolate, transform, trim, merge, and visualize waypoint paths, plus a `TrajectoryLibrary` class that loads a *library* of candidate trajectory generators from a YAML config file — the file the DROAN local planner points its `trajectory_library_config` parameter at. Every trajectory converts to/from [`airstack_msgs/msg/TrajectoryXYZVYaw`](../../../../../../common/ros_packages/msgs/airstack_msgs/README.md), the trajectory-controller command type (see the [Interface Conventions Specification §5](../../../../../../docs/robot/autonomy/interface_conventions.md)).
+`trajectory_library` is a C++ library (no node of its own) for generating and manipulating candidate trajectories for obstacle-avoidance planners. It provides the `Trajectory`/`Waypoint` classes used throughout the local layer to interpolate, transform, trim, merge, and visualize waypoint paths, plus a `TrajectoryLibrary` class that loads a *library* of candidate trajectory generators from a YAML config file — the file the DROAN local planner ([asm_droan](https://github.com/castacks/asm_droan) module) points its `trajectory_library_config` parameter at. Every trajectory converts to/from [`airstack_msgs/msg/TrajectoryXYZVYaw`](../../../../../../common/ros_packages/msgs/airstack_msgs/README.md), the trajectory-controller command type (see the [Interface Conventions Specification §5](../../../../../../docs/robot/autonomy/interface_conventions.md)).
 
 ## Core classes
 
@@ -114,13 +114,13 @@ Installed to `share/trajectory_library/config/`; reference them with `$(find-pkg
 
 | Package | How it uses this library |
 |---|---|
-| [`droan_local_planner`](../droan_local_planner/README.md) | Constructs `TrajectoryLibrary` from its `trajectory_library_config` parameter (default `$(find-pkg-share trajectory_library)/config/long.yaml`, set in `config/droan.yaml`); each planning cycle calls `get_dynamic_trajectories(look_ahead_odom)` to get the candidate set it collision-checks and scores |
-| [`droan_gl`](../droan_gl/README.md) | Links the library for the `Trajectory`/`Waypoint` utility classes (e.g. wrapping the incoming `nav_msgs/Path` global plan); it does **not** load a YAML library — its candidates come from its own graph expansion |
+| [`droan_local_planner`](https://github.com/castacks/asm_droan/blob/main/droan_local_planner/README.md) (asm_droan module) | Constructs `TrajectoryLibrary` from its `trajectory_library_config` parameter (default `$(find-pkg-share trajectory_library)/config/long.yaml`, set in `config/droan.yaml`); each planning cycle calls `get_dynamic_trajectories(look_ahead_odom)` to get the candidate set it collision-checks and scores |
+| [`droan_gl`](https://github.com/castacks/asm_droan/blob/main/droan_gl/README.md) (asm_droan module) | Links the library for the `Trajectory`/`Waypoint` utility classes (e.g. wrapping the incoming `nav_msgs/Path` global plan); it does **not** load a YAML library — its candidates come from its own graph expansion |
 | [`takeoff_landing_planner`](../takeoff_landing_planner/README.md) | Constructs `TakeoffTrajectory` generators programmatically for takeoff and landing |
 
 ## See also
 
-- [DROAN Local Planner README](../droan_local_planner/README.md) — the primary consumer of the YAML library
-- [DROAN GL README](../droan_gl/README.md) — GPU DROAN variant
+- [DROAN Local Planner README](https://github.com/castacks/asm_droan/blob/main/droan_local_planner/README.md) — the primary consumer of the YAML library (asm_droan module)
+- [DROAN GL README](https://github.com/castacks/asm_droan/blob/main/droan_gl/README.md) — GPU DROAN variant (asm_droan module)
 - [Trajectory Controller README](../../controls/trajectory_controller/README.md) — where the generated `TrajectoryXYZVYaw` trajectories are sent
 - [Interface Conventions Specification](../../../../../../docs/robot/autonomy/interface_conventions.md) — canonical topics/types for the trajectory group

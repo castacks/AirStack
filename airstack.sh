@@ -176,6 +176,9 @@ function print_command_help {
             echo "  --stack NAME        Launch a stack folder (stacks/NAME/launch/stack.launch.xml)."
             echo "                      Stacks are the only launch dispatch; no --stack (and no stack"
             echo "                      env) launches the trunk reference stack full_default."
+            echo "                      The stack's modules.repos pins are reconciled before launch:"
+            echo "                      missing modules are added + synced, and their dependency"
+            echo "                      layers composed (airstack module lock --build) when absent."
             echo "                      NAME:ENTRY selects an alternate entry file"
             echo "                      (launch/ENTRY.launch.xml). See docs/development/stacks.md."
             echo "  --fleet NAME        Launch a fleet (config/fleets/NAME.yaml): exports FLEET_CONFIG_FILE,"
@@ -1693,6 +1696,116 @@ function preflight_up {
     return $errors
 }
 
+# Reconcile the selected stack's module pins with the checkout (RFC #379 §3:
+# a stack's pinned modules.repos IS its release set). For every git repo the
+# stack's stacks/<name>/modules.repos pins:
+#   - absent from the checkout-root modules.repos → added at the stack's pin
+#     (then one `airstack module sync`);
+#   - present at a DIFFERENT pin → left alone and named (an explicit local
+#     deviation wins; every deviation is reported, never silently overridden);
+#   - present at the same pin but not checked out under modules/ → synced.
+# Then, when the layer plan has docker-relevant steps and the generated
+# compose carries no image override, the dependency layers are composed
+# (`airstack module lock --build`) unless AIRSTACK_NO_IMAGE_BUILD=1 forbids
+# implicit builds. --dry-run / --config-only only REPORT what would happen —
+# they never touch modules.repos, clone, or build. Opt out entirely with
+# AIRSTACK_NO_STACK_MODULE_SYNC=1.
+function reconcile_stack_modules {
+    [[ "${AIRSTACK_NO_STACK_MODULE_SYNC:-}" == "1" ]] && return 0
+    local stack_dir_container stack_name stack_repos
+    stack_dir_container=$(resolve_launch_var AIRSTACK_STACK_DIR "$@")
+    stack_name="${stack_dir_container##*/}"
+    [[ -z "$stack_name" ]] && return 0
+    stack_repos="$PROJECT_ROOT/stacks/$stack_name/modules.repos"
+    [[ -f "$stack_repos" ]] || return 0
+    command -v python3 >/dev/null 2>&1 || return 0
+
+    # One line per pinned git module: <name>\t<url>\t<version>\t<status>
+    # status ∈ add | resync | deviates:<local-version> | ok
+    local plan
+    plan=$(STACK_REPOS="$stack_repos" ROOT_REPOS="$PROJECT_ROOT/modules.repos" \
+           MODULES_DIR="$PROJECT_ROOT/modules" python3 - <<'PY'
+import os, yaml
+def load(path):
+    if not os.path.isfile(path):
+        return {}
+    with open(path, encoding="utf-8") as f:
+        return yaml.safe_load(f) or {}
+stack = (load(os.environ["STACK_REPOS"])).get("repositories") or {}
+root_doc = load(os.environ["ROOT_REPOS"])
+root = root_doc.get("repositories") or {}
+# a local-path module of the same name is an explicit deviation too
+local = {e.get("name"): e.get("path", "") for e in (root_doc.get("x-local-modules") or []) if isinstance(e, dict)}
+mods = os.environ["MODULES_DIR"]
+for name, entry in sorted(stack.items()):
+    if not isinstance(entry, dict) or entry.get("type", "git") != "git":
+        continue
+    url, ver = entry.get("url", ""), str(entry.get("version", ""))
+    checkout = os.path.join(mods, name)
+    if name in local:
+        status = "deviates:local path " + local[name]
+    elif name not in root:
+        status = "add"
+    elif str(root[name].get("version", "")) != ver:
+        status = "deviates:" + str(root[name].get("version", ""))
+    elif not (os.path.isdir(os.path.join(checkout, ".git")) or os.path.islink(checkout)):
+        status = "resync"
+    else:
+        status = "ok"
+    print(f"{name}\t{url}\t{ver}\t{status}")
+PY
+) || return 0
+    [[ -z "$plan" ]] && return 0
+
+    local report_only=0
+    [[ "$AIRSTACK_DRY_RUN" == "1" || "$AIRSTACK_CONFIG_ONLY" == "1" ]] && report_only=1
+
+    local need_sync=0 name url ver status
+    while IFS=$'\t' read -r name url ver status; do
+        [[ -z "$name" ]] && continue
+        case "$status" in
+            add)
+                if (( report_only )); then
+                    log_info "stack $stack_name pins module $name @ $ver — would add + sync (skipped: dry-run)"
+                else
+                    log_info "stack $stack_name pins module $name @ $ver — adding to modules.repos"
+                    MODULE_ENTRY_NAME="$name" MODULE_ENTRY_KIND="git" \
+                        MODULE_ENTRY_URL="$url" MODULE_ENTRY_VERSION="$ver" _module_repos_upsert || return 1
+                fi
+                need_sync=1 ;;
+            resync)
+                (( report_only )) || log_info "stack $stack_name pins module $name @ $ver — checkout missing, syncing"
+                need_sync=1 ;;
+            deviates:*)
+                log_warn "stack $stack_name pins module $name @ $ver but this checkout has it @ ${status#deviates:} — keeping the checkout's pin (named deviation)" ;;
+        esac
+    done <<< "$plan"
+
+    if (( need_sync )) && (( ! report_only )); then
+        cmd_module_sync || return 1
+    fi
+
+    # Dependency layers: plan has steps but nothing composed → build (implicit
+    # image build, same policy as compose's own missing-image build).
+    local plan_json="$PROJECT_ROOT/.airstack/generated/layer_plan.json"
+    local gen_compose="$PROJECT_ROOT/.airstack/generated/docker-compose.modules.yaml"
+    if [[ -f "$plan_json" ]] && ! grep -q "image:" "$gen_compose" 2>/dev/null && \
+       LAYER_PLAN_JSON="$plan_json" python3 -c '
+import json, os, sys
+plan = json.load(open(os.environ["LAYER_PLAN_JSON"]))
+sys.exit(0 if any(h.get("steps") for h in plan.values()) else 1)' 2>/dev/null; then
+        if (( report_only )); then
+            log_info "module dependency layers are planned but not composed — would run: airstack module lock --build (skipped: dry-run)"
+        elif [[ "${AIRSTACK_NO_IMAGE_BUILD:-}" == "1" ]]; then
+            log_warn "module dependency layers are planned but not composed and AIRSTACK_NO_IMAGE_BUILD=1 — containers will run the BASE image. Run: airstack module lock --build"
+        else
+            log_info "Composing module dependency layers (airstack module lock --build)..."
+            cmd_module_lock --build || return 1
+        fi
+    fi
+    return 0
+}
+
 function cmd_up {
     # Airstack launch-intent flags (consumed before compose sees the args)
     local rest_args=()
@@ -1700,6 +1813,13 @@ function cmd_up {
     apply_launch_intent "${rest_args[@]}" || exit 1
     if [[ "$AIRSTACK_CONFIG_ONLY" != "1" ]]; then
         check_docker
+    fi
+    # Stack module pins → checkout (add/sync/compose as needed; reports only
+    # under --dry-run / --config-only). Runs before the module overlay check
+    # below so a freshly synced module's compose override is picked up.
+    if ! reconcile_stack_modules "${rest_args[@]}"; then
+        log_error "Could not reconcile the selected stack's module pins — not starting services. (AIRSTACK_NO_STACK_MODULE_SYNC=1 to skip.)"
+        exit 1
     fi
 
     local global_args=()
