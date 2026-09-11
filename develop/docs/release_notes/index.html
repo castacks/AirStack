@@ -3955,6 +3955,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -4072,6 +4076,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../stacks/full_exploration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    full_exploration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../stacks/full_macvo/" class="md-nav__link">
         
   
@@ -4080,6 +4112,34 @@
     
   
     full_macvo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stacks/full_raven/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    full_raven
   
 
     
@@ -4168,6 +4228,10 @@
       
         
           
+        
+      
+        
+      
         
       
         
@@ -4327,6 +4391,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../modules/exploration_planner/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    exploration_planner
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../modules/macvo/" class="md-nav__link">
         
   
@@ -4391,6 +4483,34 @@
     
   
     optitrack
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../modules/raven/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    raven
   
 
     
@@ -5248,14 +5368,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../robot/ros_ws/src/global/planners/exploration/" class="md-nav__link">
+      <a href="../../robot/ros_ws/src/global/global_plan_navigate_bridge/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Exploration
+    Global Plan Navigate Bridge
   
 
     
@@ -5756,6 +5876,34 @@ its own notes. -->
 
 <h2 id="0210-unreleased">0.21.0 (Unreleased)<a class="headerlink" href="#0210-unreleased" title="Permanent link">&para;</a></h2>
 <ul>
+<li><strong>New modules: RAVEN semantic planner and the geometric exploration
+  planner.</strong> Two global planners now ship as external modules and pinned
+  reference stacks: <a href="https://github.com/castacks/asm_raven">asm_raven</a>
+  (RAVEN, ICRA 2026 — RayFronts open-set semantic ray-frontier map + behavior
+  manager in a GPU sidecar container, <code>raven_bridge</code> on the robot; stack
+  <code>full_raven</code>) and
+  <a href="https://github.com/castacks/asm_exploration_planner">asm_exploration_planner</a>
+  (the frontier-based geometric exploration planner from the construction-site
+  project, extracted from trunk's <code>robot/ros_ws/src/global/planners/exploration</code>
+  with its bounded viewpoint sampling; stack <code>full_exploration</code>). Both stacks
+  are one <code>&lt;include&gt;</code> swap against <code>full_default</code>: the MIGHTY bridge follows
+  the published <code>global_plan</code> directly, and its LiDAR-based world model keeps
+  working in unlit scenes where stereo disparity does not.</li>
+<li><strong><code>global_plan_navigate_bridge</code>.</strong> New trunk package that turns a
+  <code>global_plan</code> topic into <code>NavigateTask</code> goals (cancel-then-resend on each new
+  plan), so global planners that only publish a path can drive a
+  task-executor local planner such as <code>droan_gl</code> (<code>asm_droan</code>, stacks
+  <code>full_droan*</code>); the MIGHTY bridge follows the topic itself. <code>full_default</code>'s random walk remains its
+  own action client.</li>
+<li><strong>Compose fragments may declare sidecar services with a <code>build:</code> section.</strong>
+  <code>airstack module sync</code> now rewrites a module compose fragment's relative
+  <code>build.context</code> / <code>build.dockerfile</code> / <code>env_file</code> paths to absolute, like it
+  already did for bind-mount sources, so a module can bring its own container
+  (the RAVEN sidecar is the first).</li>
+<li><strong>Headless follow-camera video.</strong> <code>ISAAC_SIM_FOLLOW_CAM_TOPIC</code> publishes the
+  Isaac Sim follow camera as a raw <code>sensor_msgs/Image</code> topic
+  (<code>ISAAC_SIM_FOLLOW_CAM_RES</code>, default 1280x720), giving headless runs and CI a
+  third-person video feed.</li>
 <li><strong>asm_mighty v0.1.5: follower fixes for the default planner.</strong> The
   <code>full_default</code>, <code>lite_default</code> and <code>lite_offload_global</code> stacks pin
   <a href="../modules/mighty/"><code>mighty</code></a> v0.1.5. Its <code>mighty_bridge</code> global_plan

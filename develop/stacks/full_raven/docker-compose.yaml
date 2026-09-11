@@ -1,0 +1,13 @@
+# Per-stack image composition: the P4 machinery
+# (tools/compose_module_layers.py) composes per-module dependency layers on
+# top of the trunk base image and emits a compose override for `airstack up`.
+#
+# full_raven pins the asm_raven module (see modules.repos). asm_raven adds no
+# robot-image layer (raven_bridge is plain rclpy); its heavy half — the
+# RayFronts GPU SIDECAR container — is declared by the module's own compose
+# fragment (asm_raven/compose/raven.yaml), which `airstack module sync`
+# merges into .airstack/generated/docker-compose.modules.yaml and `airstack
+# up` includes automatically. Nothing is committed here. The empty services
+# map keeps this file valid YAML for the stack-anatomy contract
+# (tests/meta/test_stack_layout_contract.py).
+services: {}

@@ -9,12 +9,10 @@
 # the lint until its line is removed; adding a NEW line needs the same
 # scrutiny as an RFC change.
 #
-# What remains: a standalone utility, a vendored driver tree, a module launch
-# awaiting its canonical rewrite, and the interface safety boundary (wrapped
-# by design until RFC #380 Part 2).
+# What remains: a standalone utility, a vendored driver tree, and the
+# interface safety boundary (wrapped by design until RFC #380 Part 2).
 #
 # Paths are relative to the repo root, one per line; '#' starts a comment.
 common/ros_packages/airstack_common/launch/playback.launch.xml
 robot/docker/zed/ws/src/zed_wrapper/launch/zed_camera.launch.py
-robot/ros_ws/src/global/planners/exploration/launch/exploration_launch.xml
 robot/ros_ws/src/interface/interface_bringup/launch/interface.launch.py

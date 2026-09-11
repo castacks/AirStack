@@ -65,6 +65,11 @@ services:
       # offset in meters.
       - ISAAC_SIM_FOLLOW_CAM=${ISAAC_SIM_FOLLOW_CAM:-}
       - ISAAC_SIM_FOLLOW_CAM_OFFSET=${ISAAC_SIM_FOLLOW_CAM_OFFSET:-}
+      # Optional raw sensor_msgs/Image feed of the follow camera (topic name,
+      # published on the followed drone's ROS domain) and its "WxH" resolution
+      # — a third-person video source for headless runs.
+      - ISAAC_SIM_FOLLOW_CAM_TOPIC=${ISAAC_SIM_FOLLOW_CAM_TOPIC:-}
+      - ISAAC_SIM_FOLLOW_CAM_RES=${ISAAC_SIM_FOLLOW_CAM_RES:-}
       # Spawn-row center "x,y" in meters (default origin) — for scenes whose
       # origin is cluttered; see launch_scripts/pegasus_app.py.
       - ISAAC_SIM_SPAWN_XY=${ISAAC_SIM_SPAWN_XY:-}

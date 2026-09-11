@@ -1,0 +1,16 @@
+# Registry entry for the full_exploration trunk reference stack (schema/stack-entry.schema.json).
+name: full_exploration
+repo: https://github.com/castacks/AirStack
+path: stacks/full_exploration
+description: >-
+  Full autonomy (full_default topology: MIGHTY LiDAR-based local planner) with
+  the frontier-based geometric exploration planner (exploration_planner
+  module) in place of the random walk; everything else is identical to
+  full_default
+airstack_compat: ">=0.21.0-dev.8 <0.22.0"   # from the stack's modules.repos airstack_compat key
+wiring: stacks/full_exploration/wiring.md   # docs site embeds the CI-generated wiring.md from trunk
+notes: >-
+  Requires the exploration_planner module (registry:
+  modules/exploration_planner.yaml) and the mighty module, both pinned in the
+  stack's modules.repos.
+  wiring.md is pending the stack's first validated wiring-snapshot run.

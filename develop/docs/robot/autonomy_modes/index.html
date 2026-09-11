@@ -4093,6 +4093,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -4213,6 +4217,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../stacks/full_exploration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    full_exploration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../stacks/full_macvo/" class="md-nav__link">
         
   
@@ -4221,6 +4253,34 @@
     
   
     full_macvo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../stacks/full_raven/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    full_raven
   
 
     
@@ -4309,6 +4369,10 @@
       
         
           
+        
+      
+        
+      
         
       
         
@@ -4471,6 +4535,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../modules/exploration_planner/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    exploration_planner
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../modules/macvo/" class="md-nav__link">
         
   
@@ -4535,6 +4627,34 @@
     
   
     optitrack
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modules/raven/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    raven
   
 
     
@@ -5395,14 +5515,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../robot/ros_ws/src/global/planners/exploration/" class="md-nav__link">
+      <a href="../../../robot/ros_ws/src/global/global_plan_navigate_bridge/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Exploration
+    Global Plan Navigate Bridge
   
 
     
@@ -5867,6 +5987,14 @@ environment variable is a preflight error.)</p>
 <tr>
 <td><strong><code>full_droan_cpu</code></strong></td>
 <td><code>full_default</code> with the CPU DROAN local planner (<code>droan_local_planner</code> + <code>disparity_expansion</code>, <code>asm_droan</code> module) in place of MIGHTY</td>
+</tr>
+<tr>
+<td><strong><code>full_exploration</code></strong></td>
+<td><code>full_default</code> with the frontier-based geometric exploration planner (<code>asm_exploration_planner</code> module) in place of the random walk; MIGHTY's bridge follows the published <code>global_plan</code></td>
+</tr>
+<tr>
+<td><strong><code>full_raven</code></strong></td>
+<td><code>full_default</code> with RAVEN semantic navigation (<code>asm_raven</code> module: RayFronts GPU sidecar + <code>raven_bridge</code>) as the global planner — fly toward a natural-language target</td>
 </tr>
 <tr>
 <td><strong><code>full_macvo</code></strong></td>

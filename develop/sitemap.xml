@@ -237,6 +237,10 @@
          <lastmod>2026-09-11</lastmod>
     </url>
     <url>
+         <loc>https://docs.theairlab.org/docs/develop/docs/modules/exploration_planner/</loc>
+         <lastmod>2026-09-11</lastmod>
+    </url>
+    <url>
          <loc>https://docs.theairlab.org/docs/develop/docs/modules/macvo/</loc>
          <lastmod>2026-09-11</lastmod>
     </url>
@@ -246,6 +250,10 @@
     </url>
     <url>
          <loc>https://docs.theairlab.org/docs/develop/docs/modules/optitrack/</loc>
+         <lastmod>2026-09-11</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.theairlab.org/docs/develop/docs/modules/raven/</loc>
          <lastmod>2026-09-11</lastmod>
     </url>
     <url>
@@ -485,7 +493,7 @@
          <lastmod>2026-09-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/global/planners/exploration/</loc>
+         <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/global/global_plan_navigate_bridge/</loc>
          <lastmod>2026-09-11</lastmod>
     </url>
     <url>
@@ -545,11 +553,19 @@
          <lastmod>2026-09-11</lastmod>
     </url>
     <url>
+         <loc>https://docs.theairlab.org/docs/develop/stacks/full_exploration/</loc>
+         <lastmod>2026-09-11</lastmod>
+    </url>
+    <url>
          <loc>https://docs.theairlab.org/docs/develop/stacks/full_macvo/</loc>
          <lastmod>2026-09-11</lastmod>
     </url>
     <url>
          <loc>https://docs.theairlab.org/docs/develop/stacks/full_macvo/wiring/</loc>
+         <lastmod>2026-09-11</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.theairlab.org/docs/develop/stacks/full_raven/</loc>
          <lastmod>2026-09-11</lastmod>
     </url>
     <url>

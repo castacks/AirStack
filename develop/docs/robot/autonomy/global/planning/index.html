@@ -3969,6 +3969,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -4089,6 +4093,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../../../stacks/full_exploration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    full_exploration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../../../stacks/full_macvo/" class="md-nav__link">
         
   
@@ -4097,6 +4129,34 @@
     
   
     full_macvo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../../stacks/full_raven/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    full_raven
   
 
     
@@ -4185,6 +4245,10 @@
       
         
           
+        
+      
+        
+      
         
       
         
@@ -4347,6 +4411,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../../modules/exploration_planner/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    exploration_planner
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../../modules/macvo/" class="md-nav__link">
         
   
@@ -4411,6 +4503,34 @@
     
   
     optitrack
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../modules/raven/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    raven
   
 
     
@@ -5352,10 +5472,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#exploration-planner" class="md-nav__link">
+  <a href="#exploration-planner-module" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Exploration planner
+        Exploration planner (module)
       
     </span>
   </a>
@@ -5422,14 +5542,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../robot/ros_ws/src/global/planners/exploration/" class="md-nav__link">
+      <a href="../../../../../robot/ros_ws/src/global/global_plan_navigate_bridge/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Exploration
+    Global Plan Navigate Bridge
   
 
     
@@ -5989,12 +6109,19 @@ replans when the robot is getting close to the goal. It is a trivial planner
 that generates a plan by randomly selecting a direction to move in, and is
 useful for testing the robot's ability to follow a plan. It is the reference
 task-executor implementation, serving <code>tasks/exploration</code>.</p>
-<h3 id="exploration-planner">Exploration planner<a class="headerlink" href="#exploration-planner" title="Permanent link">&para;</a></h3>
-<p>The <a href="../../../../../robot/ros_ws/src/global/planners/exploration/">exploration planner</a>
-(<code>robot/ros_ws/src/global/planners/exploration</code>) is a frontier-based
-geometric exploration planner — an alternative to <code>random_walk</code>. To use it,
-swap the <code>random_walk_planner.launch.xml</code> include in your stack's entry
-launch file for <code>exploration_launch.xml</code>, as described in its README.</p>
+<h3 id="exploration-planner-module">Exploration planner (module)<a class="headerlink" href="#exploration-planner-module" title="Permanent link">&para;</a></h3>
+<p>The <a href="https://github.com/castacks/asm_exploration_planner">asm_exploration_planner</a>
+module provides a frontier-based geometric exploration planner: it builds its
+own OpenVDB occupancy map from the LiDAR cloud, extracts and clusters
+frontiers, samples viewpoints around them (optionally confined to a bounding
+box), and publishes a shortened, collision-checked RRT path on <code>global_plan</code>.
+The <a href="https://github.com/castacks/AirStack/tree/develop/stacks/full_exploration"><code>full_exploration</code></a>
+reference stack selects it: <code>full_default</code> with the random-walk include
+replaced by the module's <code>exploration_planner.launch.xml</code>, followed by the
+<a href="../../../../../robot/ros_ws/src/global/global_plan_navigate_bridge/"><code>global_plan_navigate_bridge</code></a>
+that turns each published plan into a <code>NavigateTask</code> goal for the local
+planner. Run it with <code>airstack module sync</code> (the stack pins the module) and
+<code>airstack up --stack full_exploration --sim isaac</code>.</p>
 <h2 id="writing-your-own-global-planner">Writing Your Own Global Planner<a class="headerlink" href="#writing-your-own-global-planner" title="Permanent link">&para;</a></h2>
 <ol>
 <li>Follow the <a href="../../integration_checklist/">Module Integration Checklist</a>

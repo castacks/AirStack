@@ -4153,6 +4153,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -4270,6 +4274,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../stacks/full_exploration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    full_exploration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../stacks/full_macvo/" class="md-nav__link">
         
   
@@ -4278,6 +4310,34 @@
     
   
     full_macvo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../stacks/full_raven/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    full_raven
   
 
     
@@ -4366,6 +4426,10 @@
       
         
           
+        
+      
+        
+      
         
       
         
@@ -4525,6 +4589,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../modules/exploration_planner/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    exploration_planner
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../modules/macvo/" class="md-nav__link">
         
   
@@ -4589,6 +4681,34 @@
     
   
     optitrack
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modules/raven/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    raven
   
 
     
@@ -5446,14 +5566,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../robot/ros_ws/src/global/planners/exploration/" class="md-nav__link">
+      <a href="../../../robot/ros_ws/src/global/global_plan_navigate_bridge/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Exploration
+    Global Plan Navigate Bridge
   
 
     
@@ -5985,6 +6105,14 @@ their owners (a lab keeps a private stack repo wiring together public modules
 <td>CPU DROAN planner + live <code>disparity_expansion</code> (<code>asm_droan</code> module) for machines without a GPU planner.</td>
 </tr>
 <tr>
+<td><a href="https://github.com/castacks/AirStack/tree/develop/stacks/full_exploration"><code>full_exploration</code></a></td>
+<td><code>full_default</code> with the frontier-based geometric exploration planner in place of the random walk. Requires the <code>asm_exploration_planner</code> module (pinned in the stack's <code>modules.repos</code> alongside <code>asm_mighty</code>).</td>
+</tr>
+<tr>
+<td><a href="https://github.com/castacks/AirStack/tree/develop/stacks/full_raven"><code>full_raven</code></a></td>
+<td><code>full_default</code> with RAVEN open-set semantic navigation as the global planner: RayFronts GPU sidecar container + <code>raven_bridge</code>. Requires the <code>asm_raven</code> module (pinned alongside <code>asm_mighty</code>).</td>
+</tr>
+<tr>
 <td><a href="https://github.com/castacks/AirStack/tree/develop/stacks/full_macvo"><code>full_macvo</code></a></td>
 <td>MAC-VO as the DROAN planner's disparity source. Requires the <code>asm_macvo</code> and <code>asm_droan</code> modules.</td>
 </tr>
@@ -6238,6 +6366,14 @@ ignored. Select the topology with <code>--stack</code>:</p>
 <tr>
 <td>CPU DROAN topology</td>
 <td><code>--stack full_droan_cpu</code> (<code>asm_droan</code> module)</td>
+</tr>
+<tr>
+<td>Frontier exploration global planner</td>
+<td><code>--stack full_exploration</code> (requires the <code>asm_exploration_planner</code> module)</td>
+</tr>
+<tr>
+<td>RAVEN semantic (language-prompted) global planner</td>
+<td><code>--stack full_raven</code> (requires the <code>asm_raven</code> module; first run builds the sidecar image; Isaac Sim with GUI)</td>
 </tr>
 <tr>
 <td>MAC-VO disparity topology</td>
