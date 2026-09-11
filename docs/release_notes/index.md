@@ -19,6 +19,8 @@ its own notes. -->
 
 ## 0.21.0 (Unreleased)
 
+- Module catalog synced from the registry (`sync-modules-index`): `droan`, `full_default`, `full_droan`, `full_droan_cpu`, `full_macvo`, `full_mighty`, `mighty`.
+
 - Module catalog synced from the registry (`sync-modules-index`): `full_mighty`, `mighty`.
 
 - **Fixed: post-release main→develop sync no longer skips.** The
