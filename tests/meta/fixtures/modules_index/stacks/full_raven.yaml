@@ -3,12 +3,14 @@ name: full_raven
 repo: https://github.com/castacks/AirStack
 path: stacks/full_raven
 description: >-
-  Full autonomy with RAVEN open-set semantic navigation as the global planner
-  (RayFronts GPU sidecar container + raven_bridge, driving droan_gl through the
-  global_plan_navigate_bridge); everything else is identical to full_default
+  Full autonomy (full_mighty topology: MIGHTY LiDAR-based local planner) with
+  RAVEN open-set semantic navigation as the global planner (RayFronts GPU
+  sidecar container + raven_bridge); everything else is identical to
+  full_mighty
 airstack_compat: ">=0.21.0-dev.8 <0.22.0"   # from the stack's modules.repos airstack_compat key
 wiring: stacks/full_raven/wiring.md         # docs site embeds the CI-generated wiring.md from trunk
 notes: >-
-  Requires the raven module (registry: modules/raven.yaml) pinned in the
-  stack's modules.repos; the first `airstack up` builds the sidecar image.
+  Requires the raven module (registry: modules/raven.yaml) and the mighty
+  module, both pinned in the stack's modules.repos; the first `airstack up`
+  builds the sidecar image.
   wiring.md is pending the stack's first validated wiring-snapshot run.

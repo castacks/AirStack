@@ -15,8 +15,8 @@ environment variable is a preflight error.)
 | **`full_droan_cpu`** | `full_default` with the CPU DROAN local planner (`droan_local_planner` + `disparity_expansion`) instead of the GPU `droan_gl` node |
 | **`full_macvo`** | `full_default` with MAC-VO as the disparity source — requires `airstack module add asm_macvo` first |
 | **`full_mighty`** | `full_default` with the MIGHTY map-based local planner (`asm_mighty` module: planner + acl-mapping voxel world model + NavigateTask bridge) in place of `droan_gl` |
-| **`full_exploration`** | `full_default` with the frontier-based geometric exploration planner (`asm_exploration_planner` module) in place of the random walk, driving `droan_gl` through the `global_plan_navigate_bridge` |
-| **`full_raven`** | `full_default` with RAVEN semantic navigation (`asm_raven` module: RayFronts GPU sidecar + `raven_bridge`) as the global planner — fly toward a natural-language target |
+| **`full_exploration`** | `full_mighty` with the frontier-based geometric exploration planner (`asm_exploration_planner` module) in place of the random walk; MIGHTY's bridge follows the published `global_plan` |
+| **`full_raven`** | `full_mighty` with RAVEN semantic navigation (`asm_raven` module: RayFronts GPU sidecar + `raven_bridge`) as the global planner — fly toward a natural-language target |
 
 Instead of picking a stack per container, `airstack up --fleet <name>` launches
 a whole **fleet**: `config/fleets/<name>.yaml` declares who exists, which

@@ -28,13 +28,16 @@ its own notes. -->
   [asm_exploration_planner](https://github.com/castacks/asm_exploration_planner)
   (the frontier-based geometric exploration planner from the construction-site
   project, extracted from trunk's `robot/ros_ws/src/global/planners/exploration`
-  with its bounded viewpoint sampling; stack `full_exploration`). Both plug in
-  as one `<include>` swap against `full_default`.
+  with its bounded viewpoint sampling; stack `full_exploration`). Both stacks
+  are one `<include>` swap against `full_mighty`: the MIGHTY bridge follows
+  the published `global_plan` directly, and its LiDAR-based world model keeps
+  working in unlit scenes where stereo disparity does not.
 - **`global_plan_navigate_bridge`.** New trunk package that turns a
   `global_plan` topic into `NavigateTask` goals (cancel-then-resend on each new
   plan), so global planners that only publish a path can drive the
-  task-executor local planner `droan_gl`. Included by `full_exploration` and
-  `full_raven`; `full_default`'s random walk remains its own action client.
+  task-executor local planner `droan_gl` (for droan-based stacks; the MIGHTY
+  bridge follows the topic itself). `full_default`'s random walk remains its
+  own action client.
 - **Compose fragments may declare sidecar services with a `build:` section.**
   `airstack module sync` now rewrites a module compose fragment's relative
   `build.context` / `build.dockerfile` / `env_file` paths to absolute, like it

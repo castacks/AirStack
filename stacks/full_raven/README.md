@@ -1,6 +1,6 @@
 # full_raven
 
-`full_default` with the global planner swapped: the random-walk planner
+`full_mighty` with the global planner swapped: the random-walk planner
 (`random_walk_planner`) is replaced by **RAVEN** — *Resilient Aerial
 Navigation via Open-Set Semantic Memory and Behavior Adaptation* (Kim,
 Alama, Kurdydyk, Keller, Keetha, Wang, Bisk, Scherer — CMU AirLab, ICRA
@@ -9,8 +9,10 @@ semantic ray-frontier map from the ZED left RGB + ground-truth depth and
 picks a behavior each frame (voxel-based → ray-based → LVLM-guided →
 frontier exploration) to publish a semantic `global_plan` toward an
 operator's open-vocabulary prompt ("fire hydrant"). The rest of the stack
-(droan_gl local planner, trajectory controller, PID, safety monitor,
-takeoff/landing, GCS) is unchanged from `full_default`.
+(MIGHTY local planner from the `asm_mighty` module, trajectory controller,
+PID, safety monitor, takeoff/landing, GCS) is unchanged from `full_mighty`.
+MIGHTY plans on the Ouster LiDAR, so navigation keeps working in dark or
+untextured scenes where stereo disparity (the DROAN planners' input) does not.
 
 The module has two halves:
 
@@ -20,11 +22,11 @@ The module has two halves:
 - **`raven_bridge`** in the robot container, relaying the sidecar's plan onto
   the canonical `global_plan` and holding the operator prompt.
 
-Because RAVEN publishes plans on a topic (it is not a NavigateTask client),
-the stack also includes trunk's `global_plan_navigate_bridge`, which turns
-each new plan into a `tasks/navigate` goal for droan_gl. The only
-differences vs `full_default` are those two includes in
-`launch/stack.launch.xml` plus the `asm_raven` pin in `modules.repos`.
+RAVEN publishes plans on a topic (it is not a NavigateTask client); the
+MIGHTY bridge follows the `global_plan` topic directly, so no adapter is
+needed. The only difference vs `full_mighty` is the global-planner include in
+`launch/stack.launch.xml` plus the `asm_raven` pin in `modules.repos` (a
+droan_gl-based variant would add trunk's `global_plan_navigate_bridge`).
 
 Bring-up:
 
@@ -45,6 +47,10 @@ ros2 service call /robot_1/raven/clear_prompt std_srvs/srv/Trigger
 ```
 
 Notes:
+
+- `asm_mighty` v0.1.1 has a known fixed-yaw-at-goal bug (the vehicle does not
+  turn toward its goal); a fix is being upstreamed — re-pin `modules.repos`
+  when it lands.
 
 - RAVEN's scenes are the AirLab Nucleus stages already in
   `simulation/scenes.yaml`: `retro-neighborhood`, `construction-site`,

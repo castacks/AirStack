@@ -19,4 +19,8 @@ repositories:
     type: git
     url: git@github.com:castacks/asm_exploration_planner.git
     version: v0.1.0
+  asm_mighty:
+    type: git
+    url: git@github.com:castacks/asm_mighty.git
+    version: v0.1.1
 x-local-modules: []

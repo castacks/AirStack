@@ -1,5 +1,5 @@
 <!--
-  full_raven : full_default with the RAVEN semantic global planner (asm_raven module) in place of random_walk.
+  full_raven : full_mighty with the RAVEN semantic global planner (asm_raven module) in place of random_walk.
 
   ALL LAYERS FLATTENED (P5-E2 local, P5-E3 the rest): every layer is composed
   here as a flat set of module-launch includes — each block below reads "this
@@ -27,13 +27,15 @@
   robot_state_publisher, world/map static TF) runs there unconditionally, so
   it is NOT repeated here.
 
-  Provenance: copied from full_default (airstack stack new); the ONLY wiring
+  Provenance: copied from full_mighty (airstack stack new); the ONLY wiring
   difference is the global-planner block: random_walk_planner -> asm_raven's
-  raven_module.launch.xml (RayFronts GPU sidecar + raven_bridge relay)
-  followed by trunk's global_plan_navigate_bridge (Path -> NavigateTask
-  goals; RAVEN publishes plans on a topic and is not a NavigateTask client).
-  vdb_mapping is kept although nothing here consumes it (one-include swap +
-  one addition keeps the diff reviewable and GCS/rviz VDB displays alive).
+  raven_module.launch.xml (RayFronts GPU sidecar + raven_bridge relay). The
+  local layer is MIGHTY (asm_mighty), whose bridge follows the global_plan
+  topic directly, so RAVEN's topic-published plans drive the vehicle with no
+  Path->NavigateTask adapter (droan_gl-based stacks would add trunk's
+  global_plan_navigate_bridge). vdb_mapping is kept although nothing here
+  consumes it (one-include swap keeps the diff reviewable and GCS/rviz VDB
+  displays alive).
   wiring.md to be generated from the running graph and committed once the
   stack is validated in sim.
 -->
@@ -78,11 +80,15 @@
        trajectory controller; action at tasks/fixed_trajectory -->
   <include file="$(find-pkg-share trajectory_controller)/launch/fixed_trajectory_task.launch.xml" />
 
-  <!-- DROAN local planner (GPU): disparity in from stereo_image_proc (canonical),
-       global_plan in from the global planner, look_ahead/tracking_point in from
-       the trajectory controller, trajectory_segment_to_add out to it;
-       navigate action at tasks/navigate -->
-  <include file="$(find-pkg-share droan_gl)/launch/droan_gl.launch.xml" />
+  <!-- MIGHTY local planner (asm_mighty module, CPU): filtered Ouster cloud in
+       to its acl-mapping voxel world model, odometry in from
+       odometry_conversion; trajectory_segment_to_add out to the trajectory
+       controller; navigate action at tasks/navigate. Its mighty_bridge also
+       FOLLOWS the global_plan topic directly (carrot follower), so a
+       topic-publishing global planner drives the vehicle without a
+       NavigateTask adapter. Same local layer as full_mighty (LiDAR-based, so
+       it works where stereo disparity does not, e.g. unlit scenes). -->
+  <include file="$(find-pkg-share mighty_bridge)/launch/mighty_module.launch.xml" />
 
   <!-- Trajectory controller: odometry in from odometry_conversion; serves the
        trajectory_controller/* topic group (override, segment, mode, tracking
@@ -114,18 +120,9 @@
        include) relays that Path onto the canonical global_plan and holds the
        operator prompt (raven/set_prompt topic, raven/clear_prompt service ->
        /input_prompt for RayFronts). Replaces random_walk_planner (module-swap:
-       this include + the bridge below are the only difference vs full_default). -->
+       this include is the only difference vs full_mighty). -->
   <include file="$(find-pkg-share raven_bridge)/launch/raven_module.launch.xml" />
 
-  <!-- global_plan -> NavigateTask adapter (trunk). droan_gl is a task
-       executor: it plans only while a NavigateTask goal is active and rejects
-       a second goal — a Path on global_plan alone does NOT move the vehicle.
-       random_walk drove the action itself; RAVEN publishes Paths (1–2 poses
-       whose final pose changes as targets change), so this bridge turns each
-       new Path into a NavigateTask goal (cancel-then-resend, identical
-       re-publications deduped). Canonical defaults: global_plan in,
-       tasks/navigate out. -->
-  <include file="$(find-pkg-share global_plan_navigate_bridge)/launch/global_plan_navigate_bridge.launch.xml" />
 
   <!-- ── Behavior, flat ──────────────────────────────────────────────────── -->
 

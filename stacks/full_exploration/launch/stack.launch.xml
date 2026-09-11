@@ -1,5 +1,5 @@
 <!--
-  full_exploration : full_default with the frontier exploration global planner (asm_exploration_planner module) in place of random_walk.
+  full_exploration : full_mighty with the frontier exploration global planner (asm_exploration_planner module) in place of random_walk.
 
   ALL LAYERS FLATTENED (P5-E2 local, P5-E3 the rest): every layer is composed
   here as a flat set of module-launch includes — each block below reads "this
@@ -27,10 +27,12 @@
   robot_state_publisher, world/map static TF) runs there unconditionally, so
   it is NOT repeated here.
 
-  Provenance: copied from full_default (airstack stack new); the ONLY wiring
+  Provenance: copied from full_mighty (airstack stack new); the ONLY wiring
   difference is the global-planner block — random_walk_planner is replaced by
-  the asm_exploration_planner module's exploration_planner.launch.xml plus
-  the trunk global_plan_navigate_bridge (see that block for why). vdb_mapping
+  the asm_exploration_planner module's exploration_planner.launch.xml. The
+  local layer is MIGHTY (asm_mighty), whose bridge follows the global_plan
+  topic directly, so no Path->NavigateTask adapter is needed (droan_gl-based
+  stacks would add trunk's global_plan_navigate_bridge). vdb_mapping
   stays: the GCS/RViz layouts and the topic keepalive consume its map, even
   though the exploration planner builds its own OpenVDB map from the LiDAR
   cloud. wiring.md to be generated from the running graph and committed once
@@ -77,11 +79,15 @@
        trajectory controller; action at tasks/fixed_trajectory -->
   <include file="$(find-pkg-share trajectory_controller)/launch/fixed_trajectory_task.launch.xml" />
 
-  <!-- DROAN local planner (GPU): disparity in from stereo_image_proc (canonical),
-       global_plan in from the global planner, look_ahead/tracking_point in from
-       the trajectory controller, trajectory_segment_to_add out to it;
-       navigate action at tasks/navigate -->
-  <include file="$(find-pkg-share droan_gl)/launch/droan_gl.launch.xml" />
+  <!-- MIGHTY local planner (asm_mighty module, CPU): filtered Ouster cloud in
+       to its acl-mapping voxel world model, odometry in from
+       odometry_conversion; trajectory_segment_to_add out to the trajectory
+       controller; navigate action at tasks/navigate. Its mighty_bridge also
+       FOLLOWS the global_plan topic directly (carrot follower), so a
+       topic-publishing global planner drives the vehicle without a
+       NavigateTask adapter. Same local layer as full_mighty (LiDAR-based, so
+       it works where stereo disparity does not, e.g. unlit scenes). -->
+  <include file="$(find-pkg-share mighty_bridge)/launch/mighty_module.launch.xml" />
 
   <!-- Trajectory controller: odometry in from odometry_conversion; serves the
        trajectory_controller/* topic group (override, segment, mode, tracking
@@ -116,16 +122,6 @@
        the bounded construction-site tuning. -->
   <include file="$(find-pkg-share exploration_planner)/launch/exploration_planner.launch.xml" />
 
-  <!-- global_plan -> NavigateTask bridge (trunk global_plan_navigate_bridge).
-       WHY: the exploration planner only PUBLISHES nav_msgs/Path on
-       global_plan, but droan_gl is a task executor — it plans only while a
-       NavigateTask goal is active and rejects a second goal — so a published
-       plan alone never moves the vehicle (random_walk is its own NavigateTask
-       client, which is why full_default has no bridge). The bridge turns each
-       new plan into a NavigateTask goal (cancelling the active one first).
-       global_plan in from the exploration planner, tasks/navigate action to
-       droan_gl — both canonical, so no args passed. -->
-  <include file="$(find-pkg-share global_plan_navigate_bridge)/launch/global_plan_navigate_bridge.launch.xml" />
 
   <!-- ── Behavior, flat ──────────────────────────────────────────────────── -->
 

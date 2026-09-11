@@ -53,4 +53,4 @@ matrix, read the declaration as intent.
 
 ## Registry notes
 
-> Extracted from trunk (robot/ros_ws/src/global/planners/exploration, history preserved) together with the bounded-exploration additions from the construction-site demo branch. Publishes a path on global_plan and serves the behavior/global_plan_toggle service; the trunk global_plan_navigate_bridge turns each plan into a NavigateTask goal for droan_gl. Consumed by trunk reference stack full_exploration.
+> Extracted from trunk (robot/ros_ws/src/global/planners/exploration, history preserved) together with the bounded-exploration additions from the construction-site demo branch. Publishes a path on global_plan and serves the behavior/global_plan_toggle service; the MIGHTY bridge (full_exploration) follows the published plan directly, while droan_gl-based stacks add the trunk global_plan_navigate_bridge. Consumed by trunk reference stack full_exploration.
