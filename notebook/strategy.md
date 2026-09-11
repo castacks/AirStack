@@ -19,7 +19,7 @@
 >   the content. Never rewrite or prune it; correct an old entry only
 >   by appending a newer one.
 >
-> Last updated: 2026-09-09
+> Last updated: 2026-09-11
 
 ## Current direction
 
@@ -116,7 +116,7 @@ come from the entries' own labels.
 
 | Campaign | Goal | Entries | Status |
 |---|---|---|---|
-| Agent study (paper Sec. VI-C) | Run the four-arm proxy-developer study on the bring-up-to-flight ladder, judged by the pytest harness | [007-agent-study-prereqs](007-agent-study-prereqs/design_spec.md), [008-droan-gl-r7-avoidance-fix](008-droan-gl-r7-avoidance-fix/design_spec.md), [009-droan-gl-yaw-sweep-unstick](009-droan-gl-yaw-sweep-unstick/design_spec.md), [010-mighty-local-planner-module](010-mighty-local-planner-module/design_spec.md), [011-agent-study-v6-trials](011-agent-study-v6-trials/design_spec.md) | 007 `WIP` (P-5, P-7 open, non-blocking); 008 `DONE` (verdict (c) ❌ under frozen config); 009 `DONE` (sweep works, R7 still 0/10); 010 `DONE` — MIGHTY swapped in as `asm_mighty` v0.1.0; R7 reference solvability 5/5 under frozen v6; 011 `DONE` — 40/40 trials scored + §(d) paper analysis complete 2026-09-02 (figure, tab:agents, cycles, taxonomy) |
+| Agent study (paper Sec. VI-C) | Run the four-arm proxy-developer study on the bring-up-to-flight ladder, judged by the pytest harness | [007-agent-study-prereqs](007-agent-study-prereqs/design_spec.md), [008-droan-gl-r7-avoidance-fix](008-droan-gl-r7-avoidance-fix/design_spec.md), [009-droan-gl-yaw-sweep-unstick](009-droan-gl-yaw-sweep-unstick/design_spec.md), [010-mighty-local-planner-module](010-mighty-local-planner-module/design_spec.md), [011-agent-study-v6-trials](011-agent-study-v6-trials/design_spec.md), [014-agent-study-external-stacks](014-agent-study-external-stacks/design_spec.md) | 007 `WIP` (P-5, P-7 open, non-blocking); 008 `DONE` (verdict (c) ❌ under frozen config); 009 `DONE` (sweep works, R7 still 0/10); 010 `DONE` — MIGHTY swapped in as `asm_mighty` v0.1.0; R7 reference solvability 5/5 under frozen v6; 011 `DONE` — 40/40 trials scored + §(d) paper analysis complete 2026-09-02 (figure, tab:agents, cycles, taxonomy); 014 `WIP` — campaign v7-external (E1 Unified Autonomy Stack, E2 Aerostack2) on OSMO pods, started 2026-09-11 |
 | Paper writing & positioning | Sec. I–V prose, case-study interviews, figures | — (lives in the `ICRA_2027_AirStack_Paper/` submodule; no notebook entries) | Related Work + Design Principles prose done 2026-08-03; interviews not recorded anywhere yet |
 | Measurement studies (paper Table I + Sec. VI-B) | Reproducible LOC-reuse and defect-mining scripts over the five case-study repos, released with the paper | [012-paper-measurement-studies](012-paper-measurement-studies/design_spec.md) (moved out of the Overleaf-synced paper repo 2026-09-08) | `DONE` 2026-09-08 — Table I code rows filled for all five (Powerline Inspection team-reported); defects mined for RAVEN / DFM2 / Construction Inspection / Safe Swarm / Powerline Inspection (team) / AirStack-core; VI-B reframed to sim-in-the-loop |
 | Release gate / v1.0 readiness | The seven paper-blocking items (clone-and-run, verified hardware path, …) | — (no notebook entries yet) | ~63 open `\task{}` vs 1 `\done{}` in `release_gate_and_tasks.tex` |
@@ -132,6 +132,25 @@ a standing choice flipped. Routine feature completions that don't move
 the strategy get no entry. Format: `### YYYY-MM-DD — what happened`,
 answering *what we learned or decided, what it changed, link to the
 evidence*.
+
+
+### 2026-09-11 — Agent study extended to two external platforms (campaign v7-external) on the lab OSMO pool
+
+Andrew asked, with time left before the deadline, to run the proxy-
+developer ladder on two related public stacks — the NTNU Unified
+Autonomy Stack and Aerostack2 — so Sec. VI-C can situate AirStack's
+agent-legibility result against comparable platforms rather than only
+its own ablation and a bare-parts counterfactual. Decisions: same frozen
+prompt/planners/caps/judge parameters as v6, new arms E1/E2 judged
+through the arm-neutral host-mode path (as the bare-parts arm), a
+separate campaign hash (v7 reported beside v6, never pooled), A1-parity
+provisioning (platform images pre-built once and mirrored, sources at
+exact pins), compute = OSMO pool `airstack` with a hard cap of 4 GPUs
+(lab policy), Claude enterprise seat via `claude setup-token` in pods. If
+a platform cannot be made to launch despite best effort, substitute one
+from `tab:comparison`. Evidence and infrastructure:
+[014](014-agent-study-external-stacks/design_spec.md), protocol
+Amendment 4 (draft), `agent_study/osmo/`.
 
 ### 2026-09-10 — CI/CD angle demoted; the system-test harness carries the verifiability claim
 
