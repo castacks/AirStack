@@ -124,10 +124,15 @@ Placement is driven by the manifest's `type` and `targets`:
   `sys.path.insert(0, os.environ.get("AIRSTACK_LAUNCH_SCRIPTS_DIR", "/isaac-sim/AirStack/simulation/isaac-sim/launch_scripts"))`
   instead of baking in the mount path.
 - **`compose:` fragments** (any type) — the fragment's `services:` are merged
-  into the generated file, with relative host paths rewritten to absolute
-  (compose resolves relative bind sources against different bases depending on
-  how files are merged; the generated file is machine-local and regenerated on
-  every sync, so absolute is the unambiguous choice).
+  into the generated file, with relative host paths rewritten to absolute:
+  bind-mount sources, `build.context` / `build.dockerfile`, and `env_file`
+  entries (compose resolves relative paths against different bases depending
+  on how files are merged; the generated file is machine-local and regenerated
+  on every sync, so absolute is the unambiguous choice). A fragment may
+  therefore declare a whole **sidecar service** with its own `build:` section
+  — a second container next to the robot, built on first `airstack up` — which
+  is how the `raven` module runs its GPU-heavy RayFronts mapper on the robot's
+  DDS domain without touching the robot image.
 - **`data`** — no overlay action yet (asset fetching lands with a later phase).
 
 Everything is idempotent: re-running `sync` converges, `module remove` (or
