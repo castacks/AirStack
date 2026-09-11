@@ -75,8 +75,9 @@
 
   <!-- MIGHTY local planner (asm_mighty module, CPU): filtered Ouster cloud in
        to its acl-mapping voxel world model, odometry in from
-       odometry_conversion; trajectory_segment_to_add out to the trajectory
-       controller; navigate action at tasks/navigate. Replaces droan_gl
+       odometry_conversion; trajectory_override out to the trajectory
+       controller (the bridge sets TRACK mode itself); navigate action at
+       tasks/navigate. Replaces droan_gl
        (module-swap: this include is the only local-layer difference vs
        full_default). -->
   <include file="$(find-pkg-share mighty_bridge)/launch/mighty_module.launch.xml" />
