@@ -14,9 +14,11 @@ independent of any particular planner implementation — swap the global or
 local planner and the same test still judges the flight.
 
 Tolerance calibration: the stack's navigation contract is "reach the goal
-precisely, follow the route corridor loosely" — stock droan_gl scores
-candidate trajectories with cost = deviation - path_distance, which cuts
-corners deeply (7-10 m observed in Isaac). Hence the loose default
+precisely, follow the route corridor loosely" — calibrated against the
+DROAN planner (droan_gl), which scores candidate trajectories with
+cost = deviation - path_distance and cuts corners deeply (7-10 m observed
+in Isaac); the default MIGHTY planner follows its route legs more tightly,
+so the same tolerances hold. Hence the loose default
 intermediate tolerance (15 m) with a tight final goal tolerance
 (2.5 m = NavigateTask's 1.5 m + tracking-point lag; capture continues
 after action success until the drone is stationary, since the action

@@ -18,7 +18,7 @@ should follow the `create-module` skill (`.agents/skills/create-module`).
 
 | Path | What it is | Committed? |
 |------|------------|------------|
-| `modules.repos` | Which modules this checkout uses: a [vcs2l](https://github.com/ros-infrastructure/vcs2l)-format `repositories:` list (pinned) plus an `x-local-modules:` list for local paths (vcs tools ignore that key) | gitignored in trunk (a *stack* commits its own copy — see [Stacks](stacks.md)) |
+| `modules.repos` | Which modules this checkout uses: a [vcs2l](https://github.com/ros-infrastructure/vcs2l)-format `repositories:` list (pinned) plus an `x-local-modules:` list for local paths (vcs tools ignore that key) | gitignored in trunk (a *stack* commits its own copy — see [Stacks](stacks.md); `airstack up` adds the selected stack's pins here when they are missing) |
 | `modules/<name>/` | The synced checkouts (git clones, or symlinks to local paths) | gitignored |
 | `robot/ros_ws/src/modules/<name>` | Overlay symlink so colcon builds the module's ROS packages | gitignored |
 | `simulation/isaac-sim/launch_scripts/modules/<name>/` | Overlay symlinks exposing a module's Isaac launch scripts | gitignored |
@@ -136,7 +136,12 @@ deleting `modules.repos` and syncing) restores a clean tree, and
 
 ## Starting the stack with modules
 
-`airstack up` includes the generated override automatically whenever
+`airstack up` first reconciles the selected stack's `modules.repos` pins with
+the checkout (missing modules are added and synced, differing pins are named
+but kept, uncomposed dependency layers are built — see
+[Stacks → Running a stack](stacks.md#running-a-stack)), so a reference stack that
+pins a module — `full_default` pins the `asm_mighty` planner — works with no
+manual `module add`. It then includes the generated override automatically whenever
 `.airstack/generated/docker-compose.modules.yaml` exists (an info line names
 it in the launch output). No modules synced → no file → byte-identical
 behavior to a module-free checkout.

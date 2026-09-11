@@ -8,13 +8,13 @@ environment variable is a preflight error.)
 
 | Stack | What runs |
 |---|---|
-| **`full_default`** | Every autonomy module: interface, sensors, perception, local planning, global planning, behavior, logging — the default when no stack is selected |
+| **`full_default`** | Every autonomy module: interface, sensors, perception, local planning (MIGHTY, `asm_mighty` module), global planning, behavior, logging — the default when no stack is selected |
 | **`lite_default`** | Lite modules only: interface, sensors, perception, local planning, behavior — no global planner |
 | **`lite_offload_global:onboard`** | The lite set on the vehicle, bridged to an offboard global half per the stack's `bridge.yaml` |
 | **`lite_offload_global:offboard`** | Global planner + world model only — runs on the GCS paired with onboard robots |
-| **`full_droan_cpu`** | `full_default` with the CPU DROAN local planner (`droan_local_planner` + `disparity_expansion`) instead of the GPU `droan_gl` node |
-| **`full_macvo`** | `full_default` with MAC-VO as the disparity source — requires `airstack module add asm_macvo` first |
-| **`full_mighty`** | `full_default` with the MIGHTY map-based local planner (`asm_mighty` module: planner + acl-mapping voxel world model + NavigateTask bridge) in place of `droan_gl` |
+| **`full_droan`** | `full_default` with the GPU DROAN reactive local planner (`droan_gl`, `asm_droan` module) in place of MIGHTY |
+| **`full_droan_cpu`** | `full_default` with the CPU DROAN local planner (`droan_local_planner` + `disparity_expansion`, `asm_droan` module) in place of MIGHTY |
+| **`full_macvo`** | `full_droan` with MAC-VO as the planner's disparity source (`asm_macvo` + `asm_droan` modules) |
 
 Instead of picking a stack per container, `airstack up --fleet <name>` launches
 a whole **fleet**: `config/fleets/<name>.yaml` declares who exists, which

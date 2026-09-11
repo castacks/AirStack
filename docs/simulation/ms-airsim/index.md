@@ -13,7 +13,7 @@ Microsoft AirSim (legacy) provides an alternative simulation backend for AirStac
 
 - **PX4 SITL integration** - Native MAVLink lockstep with PX4 autopilot
 - **Unreal Engine environments** - Photorealistic scenes (UE 4.27)
-- **Depth camera simulation** - Used by DROAN for obstacle avoidance
+- **Depth camera simulation** - Stereo + depth for the disparity-based DROAN stacks (`full_droan`, `full_droan_cpu`)
 - **Lightweight setup** - Pre-built binary environments, no Omniverse required
 
 **Trade-offs vs Isaac Sim:**
@@ -82,7 +82,7 @@ airstack connect ms-airsim
 │   PX4 SITL ×N ─── MAVLink UDP ─┼─────┼─► 24540+i/24580+i    │
 │      ▲                         │     │    │                 │
 │      │                         │     │    ▼                 │
-│   Bridge Node ×N ─── ROS 2 DDS─┼─────┼─► Perception → DROAN │
+│   Bridge Node ×N ─── ROS 2 DDS─┼─────┼─► Perception → local planner │
 │   (stereo RGB + depth + info)  │     │                      │
 └────────────────────────────────┘     └──────────────────────┘
             airstack_network (172.31.0.0/24)
@@ -94,7 +94,7 @@ airstack connect ms-airsim
 2. N PX4 SITL instances run in lockstep with AirSim via TCP (port `4560+i`)
 3. MAVROS in the robot container connects to PX4 SITL via MAVLink UDP (offboard `14540 + ROS_DOMAIN_ID`, see `interface.launch.py`; ports `24540+i`/`24580+i` in `settings.json` are AirSim's own PX4 control channel)
 4. Bridge nodes (one per robot) publish stereo RGB + depth + camera_info to ROS 2 topics
-5. `disparity_expansion` converts depth to disparity for DROAN
+5. Perception publishes disparity; the selected stack's local planner consumes it (the `full_droan_cpu` stack's `disparity_expansion` expands it into C-space)
 
 ## Configuration
 

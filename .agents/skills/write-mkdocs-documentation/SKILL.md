@@ -207,7 +207,7 @@ The `mkdocs-same-dir` plugin is enabled, allowing references to files outside `d
 nav:
   - Robot:
       - Local Planners:
-          - DROAN: robot/ros_ws/src/local/planners/droan_local_planner/README.md
+          - Takeoff Landing Planner: robot/ros_ws/src/local/planners/takeoff_landing_planner/README.md
           - My Planner: robot/ros_ws/src/local/planners/my_planner/README.md
 ```
 
@@ -223,7 +223,7 @@ nav:
 - Module-specific interfaces, parameters, configuration
 - Usage examples for that specific module
 
-**Example:** `robot/ros_ws/src/local/planners/droan_local_planner/README.md`
+**Example:** `robot/ros_ws/src/local/planners/takeoff_landing_planner/README.md`
 
 ### System-Level Documentation
 
@@ -1071,7 +1071,7 @@ docs: Add comprehensive guide for new feature
 - [GitHub Flavored Markdown](https://github.github.com/gfm/)
 
 **AirStack Examples:**
-- Module README: `robot/ros_ws/src/local/planners/droan_local_planner/README.md`
+- Module README: `robot/ros_ws/src/local/planners/takeoff_landing_planner/README.md`
 - System docs: `docs/robot/autonomy/system_architecture.md`
 - Tutorial: `docs/development/beginner/key_concepts.md`
 

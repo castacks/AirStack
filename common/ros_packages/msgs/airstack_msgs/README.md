@@ -27,7 +27,7 @@ A number of definitions in this package have **no consumer in the AirStack trunk
 
 ### Odometry
 
-Extended odometry: `nav_msgs/Odometry` minus the covariances, plus feed-forward acceleration and jerk. This is the type the trajectory controller publishes on `trajectory_controller/tracking_point` and `trajectory_controller/look_ahead` (note: **airstack_msgs**, not nav_msgs — a classic type mismatch when wiring new modules; see spec §5). Consumers include the PID controller, both DROAN planners, the takeoff/landing planner, the random-walk global planner, and the drone safety monitor.
+Extended odometry: `nav_msgs/Odometry` minus the covariances, plus feed-forward acceleration and jerk. This is the type the trajectory controller publishes on `trajectory_controller/tracking_point` and `trajectory_controller/look_ahead` (note: **airstack_msgs**, not nav_msgs — a classic type mismatch when wiring new modules; see spec §5). Consumers include the PID controller, the local planners (DROAN's two planners; MIGHTY's bridge consumes odometry instead), the takeoff/landing planner, the random-walk global planner, and the drone safety monitor.
 
 | Field | Type | Meaning |
 |---|---|---|
@@ -40,7 +40,7 @@ Extended odometry: `nav_msgs/Odometry` minus the covariances, plus feed-forward 
 
 ### TrajectoryXYZVYaw and WaypointXYZVYaw
 
-The trajectory command interchange (spec §5, **onboard-only**): planners send these to the trajectory controller on `trajectory_controller/trajectory_override` (replaces the current trajectory) and `trajectory_controller/trajectory_segment_to_add` (appends). Producers in the trunk: `droan_local_planner`, `droan_gl`, `takeoff_landing_planner`, and the `fixed_trajectory_task` server; the [trajectory_library](../../../../robot/ros_ws/src/local/planners/trajectory_library/README.md) package converts between this type and its internal `Trajectory` class.
+The trajectory command interchange (spec §5, **onboard-only**): planners send these to the trajectory controller on `trajectory_controller/trajectory_override` (replaces the current trajectory) and `trajectory_controller/trajectory_segment_to_add` (appends). Producers: the local planner modules (`mighty_bridge` publishes `trajectory_override`; `droan_local_planner` and `droan_gl` publish `trajectory_segment_to_add`), and in the trunk `takeoff_landing_planner` and the `fixed_trajectory_task` server; the [trajectory_library](../../../../robot/ros_ws/src/local/planners/trajectory_library/README.md) package converts between this type and its internal `Trajectory` class.
 
 `TrajectoryXYZVYaw`:
 

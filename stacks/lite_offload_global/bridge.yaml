@@ -98,7 +98,7 @@ bridge:
   - topic: global_plan
     type: nav_msgs/msg/Path
     direction: offboard_to_onboard
-    qos: reliable        # random_walk (offboard) → droan_gl (onboard)
+    qos: reliable        # random_walk (offboard) → mighty_bridge (onboard)
 
   # ── services: ground/offboard requests into the vehicle ─────────────────
 
@@ -114,7 +114,7 @@ bridge:
 
   - action: tasks/navigate
     type: task_msgs/action/NavigateTask
-    direction: offboard_to_onboard   # offboard random_walk → onboard droan_gl
+    direction: offboard_to_onboard   # offboard random_walk → onboard mighty_bridge
 
   - action: tasks/exploration
     type: task_msgs/action/ExplorationTask

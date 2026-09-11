@@ -1,27 +1,19 @@
 <!--
-  full_macvo : trunk reference stack.
+  full_droan : trunk reference stack — full autonomy with the GPU DROAN local
+  planner (droan_gl) from the asm_droan module.
 
-  Preset that absorbed (and FIXED) the deleted MAC-VO obstacle-avoidance
-  local bringup variant (see README): full autonomy with MAC-VO as the
-  disparity source for the DROAN local planner. MAC-VO arrives via the
-  asm_macvo MODULE and droan_gl via the asm_droan MODULE (both pinned in
-  modules.repos; `airstack up` syncs them and composes their dep layers —
-  neither lives in trunk, see the README). Two include-line differences from
-  full_droan/launch/stack.launch.xml (the GPU DROAN topology):
-    1. The macvo_ros2 module launch is included under the perception
-       namespace, so it publishes /$ROBOT_NAME/perception/macvo/disparity.
-    2. The droan_gl include overrides its disparity arg to point at MAC-VO's
-       real output topic instead of the canonical stereo_image_proc default.
-  (The legacy variant file was broken: it passed arg names local.launch.xml
-  never declared, and pointed at the stale /$ROBOT_NAME/macvo/disparity
-  topic. It was deleted in P5-E2; the README records the details.)
+  This is the previous default topology (the 0.20.x full_default), kept as a
+  named stack: identical to full_default except the local-planner include —
+  droan_gl (asm_droan module, stereo-disparity reactive planner) instead of
+  the MIGHTY module's mighty_module.launch.xml. Diff against
+  full_default/launch/stack.launch.xml and exactly two deltas appear: this
+  header comment block and the local-planner block.
 
-  ALL LAYERS FLATTENED (P5-E2 local, P5-E3 the rest): every layer is composed
-  here as a flat set of module-launch includes — each block below reads "this
-  module, these connections". Every module launch file declares its topic
-  endpoints as args with canonical defaults (today's graph), so a bare
-  include means "wired canonically"; only deviations from canonical appear as
-  include args.
+  ALL LAYERS FLATTENED: every layer is composed here as a flat set of
+  module-launch includes — each block below reads "this module, these
+  connections". Every module launch file declares its topic endpoints as args
+  with canonical defaults (today's graph), so a bare include means "wired
+  canonically"; only deviations from canonical appear as include args.
 
   Two blocks stay WRAPPED BY DESIGN (not a migration leftover):
     - interface.launch.py — MAVROS wiring is dense, FCU_URL is env-computed
@@ -36,9 +28,14 @@
   LOG_CONFIG) — there is nothing to flatten.
 
   Launched by autonomy_bringup/launch/robot.launch.xml when AIRSTACK_STACK_DIR
-  points at this folder (set by `airstack up` with the stack flag). The shared
-  preamble (ROBOT_NAME namespace push, use_sim_time, robot_state_publisher,
-  world/map static TF) runs there unconditionally, so it is NOT repeated here.
+  points at this folder (set by `airstack up ...stack full_droan`; see
+  `airstack help up`). The shared preamble (ROBOT_NAME namespace push,
+  use_sim_time, robot_state_publisher, world/map static TF) runs there
+  unconditionally, so it is NOT repeated here.
+
+  Requires the asm_droan module (pinned in modules.repos; `airstack up`
+  syncs it when missing). This folder's wiring.md is the committed observed
+  baseline of this graph.
 -->
 <launch>
 
@@ -61,21 +58,14 @@
 
   <!-- Stereo disparity + point cloud (stereo_image_proc pair): rectified
        stereo pair in from sensors/front_stereo (canonical); disparity and
-       point_cloud out under perception/stereo_image_proc. Runs alongside
-       MAC-VO below, exactly as the baseline graph does. -->
+       point_cloud out under perception/stereo_image_proc. (MAC-VO comes via
+       the asm_macvo module — see stacks/full_macvo; OptiTrack via the
+       asm_optitrack module.) -->
   <include file="$(find-pkg-share perception_bringup)/launch/stereo_image_proc.launch.xml" />
 
   <!-- Topic keepalive: silently subscribes Isaac Sim's on-demand publishers
        so they keep publishing with rviz off; no topic endpoints declared -->
   <include file="$(find-pkg-share perception_bringup)/launch/topic_keepalive.launch.xml" />
-
-  <!-- MAC-VO (asm_macvo module) : canonical-default args, so no args passed.
-       Namespaced under perception so outputs land on
-       /$ROBOT_NAME/perception/macvo/{odometry,point_cloud,disparity}. -->
-  <group>
-    <push-ros-namespace namespace="perception" />
-    <include file="$(find-pkg-share macvo_ros2)/launch/macvo.launch.xml" />
-  </group>
 
   <!-- ── Local layer, flat (module launch files; canonical defaults) ────── -->
 
@@ -88,16 +78,12 @@
        trajectory controller; action at tasks/fixed_trajectory -->
   <include file="$(find-pkg-share trajectory_controller)/launch/fixed_trajectory_task.launch.xml" />
 
-  <!-- DROAN local planner (GPU, asm_droan module): disparity in from MAC-VO instead of the
-       canonical stereo_image_proc topic — the one wiring deviation of this
-       stack. global_plan in from the global planner, look_ahead /
-       tracking_point in from the trajectory controller,
-       trajectory_segment_to_add out to it; navigate action at tasks/navigate.
-       (macvo_ros2 publishes no depth, so no depth wiring exists here.) -->
-  <include file="$(find-pkg-share droan_gl)/launch/droan_gl.launch.xml">
-    <arg name="droan_gl_disparity_topic"
-      value="/$(env ROBOT_NAME)/perception/macvo/disparity" />
-  </include>
+  <!-- DROAN local planner (GPU, asm_droan module): disparity in from
+       stereo_image_proc (canonical),
+       global_plan in from the global planner, look_ahead/tracking_point in from
+       the trajectory controller, trajectory_segment_to_add out to it;
+       navigate action at tasks/navigate -->
+  <include file="$(find-pkg-share droan_gl)/launch/droan_gl.launch.xml" />
 
   <!-- Trajectory controller: odometry in from odometry_conversion; serves the
        trajectory_controller/* topic group (override, segment, mode, tracking

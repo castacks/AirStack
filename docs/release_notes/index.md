@@ -21,6 +21,36 @@ its own notes. -->
 
 - Module catalog synced from the registry (`sync-modules-index`): `full_mighty`, `mighty`.
 
+- **MIGHTY is the default local planner; DROAN moved to the `asm_droan`
+  module.** The `full_default` stack (and the lite stacks `lite_default` /
+  `lite_offload_global`) now include the MIGHTY map-based planner from the
+  [`mighty`](../modules/mighty.md) module (planner + acl-mapping voxel world
+  model + NavigateTask bridge, CPU-only, lidar-fed) in place of the GPU
+  `droan_gl` node. The judged obstacle-route comparison behind the change is
+  in the module README: DROAN's reactive, map-free design could not clear a
+  1.0 m clearance gate in dense clutter (absorbing hover states, close-quarters
+  near-contacts), MIGHTY passed 5/5 with 1.59–1.65 m clearances behind the
+  same controller. The six DROAN packages (`droan_gl`, `droan_local_planner`,
+  `disparity_expansion`, `disparity_graph`, `disparity_graph_cost_map`,
+  `cost_map_interface`) left trunk for
+  [castacks/asm_droan](https://github.com/castacks/asm_droan) (history
+  preserved; registered as the [`droan`](../modules/droan.md) module). The
+  previous default topology is kept as the new
+  [`full_droan`](../../stacks/full_droan/README.md) reference stack (it
+  inherits `full_default`'s wiring baseline); `full_droan_cpu` and
+  `full_macvo` pin `asm_droan`; the opt-in `full_mighty` stack was folded into
+  `full_default`. Trunk's robot image swaps the `droan_gl` GL link deps for
+  MIGHTY's `nlohmann-json3-dev` header dep, so the default stack runs with no
+  composed module layer (asm_mighty **v0.1.4**, compat `>=0.21.0-dev.10`).
+- **`airstack up` reconciles the selected stack's module pins.** A stack's
+  `modules.repos` is now honoured at launch: pinned modules missing from the
+  checkout are added and synced, differing local pins are kept and named, and
+  uncomposed dependency layers are built (`airstack module lock --build`,
+  unless `AIRSTACK_NO_IMAGE_BUILD=1`). `--dry-run` / `--config-only` only
+  report; `AIRSTACK_NO_STACK_MODULE_SYNC=1` opts out. Previously a
+  module-pinned stack required a manual `airstack module add` first — which
+  the module-pinned default stack would have made a first-run failure.
+
 - **Fixed: post-release main→develop sync no longer skips.** The
   `sync-develop-from-main` workflow skipped whenever the merge result was
   content-identical to `develop` — exactly the situation right after a
@@ -180,7 +210,7 @@ its own notes. -->
   bridge, packaged as the external
   [asm_mighty](https://github.com/castacks/asm_mighty) module (pinned at
   v0.1.1 in the stack's `modules.repos`; repo private until the AirStack
-  agent study concludes). [`full_mighty`](../../stacks/full_mighty/README.md)
+  agent study concludes). [`full_mighty`](https://github.com/castacks/AirStack/tree/0.20.0/stacks/full_mighty) (folded into `full_default` in 0.21.0)
   is `full_default` with only the local-planner include swapped — the
   module-swap demonstration for the modular architecture. Registered in the
   [module catalog](../modules/index.md); validated on Isaac Sim (44/44

@@ -1,20 +1,24 @@
 # `full_macvo` — trunk reference stack
 
-Full autonomy with **MAC-VO** as the disparity source for the local planner.
-Local-planner variants are expressed as named stacks a few include lines
-apart — rather than as launch-file arguments — so each variant is directly
-selectable and carries its own observed wiring baseline.
+Full autonomy with **MAC-VO** as the disparity source for the **DROAN**
+stereo-disparity local planner. Local-planner variants are expressed as named
+stacks a few include lines apart — rather than as launch-file arguments — so
+each variant is directly selectable and carries its own observed wiring
+baseline.
 
-**Requires: `airstack module add asm_macvo`.** MAC-VO is not trunk-resident —
-the `macvo_ros2` package, its Python/TensorRT dependencies, and the model
-weights all ship in the [asm_macvo](https://github.com/castacks/asm_macvo)
-module. Until the module is synced (`modules.repos` pins it),
-`$(find-pkg-share macvo_ros2)` in this stack's launch file will not resolve
-and bring-up fails at the macvo include.
+**Requires two modules**, both pinned in this stack's `modules.repos` and
+synced by `airstack up` when missing: [asm_macvo](https://github.com/castacks/asm_macvo)
+(the `macvo_ros2` package, its Python/TensorRT dependencies and model
+weights) and [asm_droan](https://github.com/castacks/asm_droan) (the
+`droan_gl` planner — this stack keeps DROAN rather than the lidar-fed MIGHTY
+default because a disparity source is exactly what it exercises). Until both
+are synced, the `$(find-pkg-share ...)` lookups in the launch file will not
+resolve and bring-up fails at those includes.
 
 ## What it launches
 
-Identical to [`full_default`](../full_default/README.md) except:
+Identical to [`full_droan`](../full_droan/README.md) (the GPU DROAN
+topology) except:
 
 1. The module-provided `macvo_ros2/launch/macvo.launch.xml` is included under
    the `perception` namespace, so the `macvo_ros2` node runs and publishes
@@ -27,13 +31,17 @@ Identical to [`full_default`](../full_default/README.md) except:
 ## How to run
 
 ```bash
-# One-time: pull the asm_macvo module and build its dependency layer
-airstack module add asm_macvo
-airstack module sync
-airstack module lock --build
-
-airstack up --stack full_macvo --sim isaac --robots 1
+airstack up --stack full_macvo --sim isaac --robots 1   # syncs both pins, composes the dep layers
 airstack ready
+```
+
+Explicitly, the one-time steps `airstack up` performs when the modules are
+missing:
+
+```bash
+airstack module add https://github.com/castacks/asm_macvo.git --version <pin>
+airstack module add https://github.com/castacks/asm_droan --version v0.1.0
+airstack module lock --build      # MAC-VO's tier-2 layer + droan_gl's tier-1 apt layer
 ```
 
 ## Known limits
@@ -48,9 +56,9 @@ airstack ready
 - MAC-VO is GPU-heavy; expect reduced sim real-time factor on a shared GPU.
 - The committed `wiring.md` — captured from this stack's own first validated
   snapshot run — is the baseline.
-- `modules.repos` pins `asm_macvo`; `docker-compose.yaml` stays an empty stub
-  until `airstack module lock --build` generates the per-module compose
-  override.
+- `modules.repos` pins `asm_macvo` and `asm_droan`; `docker-compose.yaml`
+  stays an empty stub — `airstack module lock --build` generates the
+  per-module compose override.
 
 ## wiring.md
 

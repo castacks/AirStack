@@ -65,7 +65,7 @@
   <!-- Trajectory generation (for planners) -->
   <!-- <depend>trajectory_library</depend> -->
   
-  <!-- Cost maps (for local planners) -->
+  <!-- Cost maps (for DROAN-style local planners; ships in the asm_droan module) -->
   <!-- <depend>cost_map_interface</depend> -->
   
   <!-- ============================================ -->

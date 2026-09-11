@@ -77,22 +77,22 @@ robot-commands panel or the RViz Tasks Panel) cascade down through the stack:
 ```mermaid
 graph TD
     GCS[GCS operator] -->|ExplorationTask| RW[random_walk_planner]
-    RW -->|NavigateTask| DG[droan_gl]
-    DG -->|trajectory_segment_to_add| TC[trajectory_controller]
+    RW -->|NavigateTask| LP[mighty_bridge]
+    LP -->|trajectory_override| TC[trajectory_controller]
 
     style GCS fill:#cce5ff
     style TC fill:#cce5ff
     style RW fill:#d4edda
-    style DG fill:#d4edda
+    style LP fill:#d4edda
 ```
 
 *Blue = perpetual node / external client, green = task executor.*
 
 The global-layer task executor (e.g. `random_walk_planner`) decides
 *where* to go and delegates the actual flying to the local-layer task
-executor (`droan_gl` or `droan_local_planner`) via a `NavigateTask`
-action, which feeds trajectory segments to the perpetual trajectory
-controller.
+executor (the MIGHTY `mighty_bridge` in the default stack; `droan_gl` or
+`droan_local_planner` in the DROAN stacks) via a `NavigateTask` action,
+which feeds trajectories to the perpetual trajectory controller.
 
 See [Task Executors](tasks.md) for the full list of task action types
 and their interfaces.
@@ -182,8 +182,9 @@ See the [Perception layer documentation](perception/index.md) and the
 ### Local Layer
 
 The local layer is the reactive, short-horizon part of the stack, organized in
-three sub-layers: **world models** (e.g. disparity expansion) maintain an
-obstacle representation around the robot, **planners** (DROAN, takeoff/landing)
+three sub-layers: **world models** (e.g. MIGHTY's acl-mapping voxel map, or
+DROAN's disparity expansion) maintain an obstacle representation around the
+robot, **planners** (MIGHTY or DROAN, takeoff/landing)
 generate collision-free trajectories through it, and **controllers**
 (trajectory controller, PID controller) track those trajectories at high rate
 and hand setpoints to the interface layer.
@@ -232,7 +233,7 @@ along the way) to the GCS:
 sequenceDiagram
     participant GCS as GCS (action client)
     participant GLO as Global Task Executor<br/>(random_walk_planner)
-    participant LOC as Local Task Executor<br/>(droan_gl)
+    participant LOC as Local Task Executor<br/>(mighty_bridge)
     participant CTL as Trajectory Controller
     participant IF as Interface
     participant HW as Hardware/Sim

@@ -259,6 +259,48 @@ def test_autonomy_role_fatal_even_with_stack_selected():
     assert "AUTONOMY_ROLE was removed" in out
 
 
+# ── stack module-pin reconciliation (RFC #379 §3) ───────────────────────────
+# `airstack up` reads the selected stack's modules.repos and adds/syncs missing
+# pins before launch. Under --dry-run / --config-only it must only REPORT —
+# never touch modules.repos, clone, or build — so a module-pinned default stack
+# stays testable without network access.
+
+def _pinned_modules(stack):
+    import yaml
+    data = yaml.safe_load((REPO / "stacks" / stack / "modules.repos").read_text())
+    return {n: str(e["version"]) for n, e in (data.get("repositories") or {}).items()}
+
+
+def test_default_stack_pins_a_module():
+    """The no-stack default pins the MIGHTY planner module — the reason the
+    reconcile step exists at all."""
+    assert "asm_mighty" in _pinned_modules("full_default")
+
+
+@pytest.mark.parametrize("stack", ["full_default", "full_droan_cpu"])
+def test_dry_run_reports_stack_pins_without_touching_the_checkout(stack):
+    repos = REPO / "modules.repos"
+    before = repos.read_text() if repos.exists() else None
+    pins = _pinned_modules(stack)
+    assert pins, f"{stack} pins no modules — pick a module-pinned stack"
+    _, out, _ = run_up_dry("--sim", "isaac", "--stack", stack)
+    for name, version in pins.items():
+        assert f"pins module {name} @ {version}" in out, (
+            f"dry-run did not report {stack}'s pin of {name}@{version}:\n{out}"
+        )
+    assert "(skipped: dry-run)" in out or "keeping the checkout's pin" in out, out
+    after = repos.read_text() if repos.exists() else None
+    assert after == before, "dry-run modified modules.repos"
+
+
+def test_stack_module_sync_can_be_disabled():
+    _, out, _ = run_up_dry(
+        "--sim", "isaac", "--stack", "full_default",
+        env={"AIRSTACK_NO_STACK_MODULE_SYNC": "1"},
+    )
+    assert "pins module" not in out
+
+
 # ── override-file golden equivalence (RFC #380 P6, deliverable 8) ───────────
 # overrides/*.env select sims/hardware, not topology — they must keep passing
 # `up --dry-run` unchanged as the fleet/stack machinery lands on top of them.

@@ -122,9 +122,9 @@ Study these before implementing similar modules:
 
 | Module Type | Reference | Location |
 |------------|-----------|----------|
-| Local Planner | DROAN | `robot/ros_ws/src/local/planners/droan_local_planner` |
+| Local Planner | MIGHTY bridge (module) | [asm_mighty](https://github.com/castacks/asm_mighty) `mighty_bridge/`; DROAN: [asm_droan](https://github.com/castacks/asm_droan) `droan_local_planner/` |
 | Controller | Trajectory Controller | `robot/ros_ws/src/local/controls/trajectory_controller` |
-| World Model | Disparity Expansion | `robot/ros_ws/src/local/world_models/disparity_expansion` |
+| Local World Model | Disparity Expansion (module) | [asm_droan](https://github.com/castacks/asm_droan) `disparity_expansion/` |
 | Global Planner | Random Walk | `robot/ros_ws/src/global/planners/random_walk` |
 | Behavior / Safety | Drone Safety Monitor | `robot/ros_ws/src/behavior/drone_safety_monitor` |
 
