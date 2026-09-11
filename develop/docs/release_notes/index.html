@@ -5876,12 +5876,17 @@ its own notes. -->
 
 <h2 id="0210-unreleased">0.21.0 (Unreleased)<a class="headerlink" href="#0210-unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Fixed: post-release main→develop sync no longer skips.</strong> The
+<li>
+<p>Module catalog synced from the registry (<code>sync-modules-index</code>): <code>full_mighty</code>, <code>mighty</code>.</p>
+</li>
+<li>
+<p><strong>Fixed: post-release main→develop sync no longer skips.</strong> The
   <code>sync-develop-from-main</code> workflow skipped whenever the merge result was
   content-identical to <code>develop</code> — exactly the situation right after a
   release — so it never pushed the ancestry-advancing merge commit or
   rolled <code>develop</code>'s VERSION forward. It now skips only when <code>main</code> is
-  already an ancestor of <code>develop</code>.</li>
+  already an ancestor of <code>develop</code>.</p>
+</li>
 </ul>
 
 
