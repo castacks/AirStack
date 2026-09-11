@@ -6217,10 +6217,15 @@ act: re-run <code>module add &lt;url&gt; --version &lt;new-tag&gt;</code> (upser
   <code>sys.path.insert(0, os.environ.get("AIRSTACK_LAUNCH_SCRIPTS_DIR", "/isaac-sim/AirStack/simulation/isaac-sim/launch_scripts"))</code>
   instead of baking in the mount path.
 - <strong><code>compose:</code> fragments</strong> (any type) — the fragment's <code>services:</code> are merged
-  into the generated file, with relative host paths rewritten to absolute
-  (compose resolves relative bind sources against different bases depending on
-  how files are merged; the generated file is machine-local and regenerated on
-  every sync, so absolute is the unambiguous choice).
+  into the generated file, with relative host paths rewritten to absolute:
+  bind-mount sources, <code>build.context</code> / <code>build.dockerfile</code>, and <code>env_file</code>
+  entries (compose resolves relative paths against different bases depending
+  on how files are merged; the generated file is machine-local and regenerated
+  on every sync, so absolute is the unambiguous choice). A fragment may
+  therefore declare a whole <strong>sidecar service</strong> with its own <code>build:</code> section
+  — a second container next to the robot, built on first <code>airstack up</code> — which
+  is how the <code>raven</code> module runs its GPU-heavy RayFronts mapper on the robot's
+  DDS domain without touching the robot image.
 - <strong><code>data</code></strong> — no overlay action yet (asset fetching lands with a later phase).</p>
 <p>Everything is idempotent: re-running <code>sync</code> converges, <code>module remove</code> (or
 deleting <code>modules.repos</code> and syncing) restores a clean tree, and
