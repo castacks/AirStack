@@ -4407,6 +4407,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../../stacks/full_droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    full_droan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../../stacks/full_droan_cpu/" class="md-nav__link">
         
   
@@ -4443,34 +4471,6 @@
     
   
     full_macvo
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../stacks/full_mighty/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    full_mighty
   
 
     
@@ -4559,6 +4559,8 @@
       
         
           
+        
+      
         
       
         
@@ -4668,6 +4670,34 @@
     
   
     dfm2_disturbances
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    droan
   
 
     
@@ -5155,16 +5185,6 @@
       
         
       
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
     
     
     
@@ -5234,90 +5254,6 @@
     
   
     World Model
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/world_models/disparity_expansion/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Expansion
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/world_models/disparity_graph/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/world_models/disparity_graph_cost_map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph Cost Map
   
 
     
@@ -5430,62 +5366,6 @@
     
   
     Takeoff Landing Testing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/planners/droan_local_planner/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN Local Planner
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/planners/droan_gl/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN GL
   
 
     
@@ -6281,19 +6161,19 @@ action client sends them a goal. They have a well-defined lifecycle:</p>
 robot-commands panel or the RViz Tasks Panel) cascade down through the stack:</p>
 <pre class="mermaid"><code>graph TD
     GCS[GCS operator] --&gt;|ExplorationTask| RW[random_walk_planner]
-    RW --&gt;|NavigateTask| DG[droan_gl]
-    DG --&gt;|trajectory_segment_to_add| TC[trajectory_controller]
+    RW --&gt;|NavigateTask| LP[mighty_bridge]
+    LP --&gt;|trajectory_override| TC[trajectory_controller]
 
     style GCS fill:#cce5ff
     style TC fill:#cce5ff
     style RW fill:#d4edda
-    style DG fill:#d4edda</code></pre>
+    style LP fill:#d4edda</code></pre>
 <p><em>Blue = perpetual node / external client, green = task executor.</em></p>
 <p>The global-layer task executor (e.g. <code>random_walk_planner</code>) decides
 <em>where</em> to go and delegates the actual flying to the local-layer task
-executor (<code>droan_gl</code> or <code>droan_local_planner</code>) via a <code>NavigateTask</code>
-action, which feeds trajectory segments to the perpetual trajectory
-controller.</p>
+executor (the MIGHTY <code>mighty_bridge</code> in the default stack; <code>droan_gl</code> or
+<code>droan_local_planner</code> in the DROAN stacks) via a <code>NavigateTask</code> action,
+which feeds trajectories to the perpetual trajectory controller.</p>
 <p>See <a href="../tasks/">Task Executors</a> for the full list of task action types
 and their interfaces.</p>
 <hr />
@@ -6400,8 +6280,9 @@ rather than in the trunk.</p>
 <a href="../interface_conventions/#2-odometry-primary-state-estimate"><code>odometry</code> contract (§2)</a>.</p>
 <h3 id="local-layer">Local Layer<a class="headerlink" href="#local-layer" title="Permanent link">&para;</a></h3>
 <p>The local layer is the reactive, short-horizon part of the stack, organized in
-three sub-layers: <strong>world models</strong> (e.g. disparity expansion) maintain an
-obstacle representation around the robot, <strong>planners</strong> (DROAN, takeoff/landing)
+three sub-layers: <strong>world models</strong> (e.g. MIGHTY's acl-mapping voxel map, or
+DROAN's disparity expansion) maintain an obstacle representation around the
+robot, <strong>planners</strong> (MIGHTY or DROAN, takeoff/landing)
 generate collision-free trajectories through it, and <strong>controllers</strong>
 (trajectory controller, PID controller) track those trajectories at high rate
 and hand setpoints to the interface layer.</p>
@@ -6438,7 +6319,7 @@ along the way) to the GCS:</p>
 <pre class="mermaid"><code>sequenceDiagram
     participant GCS as GCS (action client)
     participant GLO as Global Task Executor&lt;br/&gt;(random_walk_planner)
-    participant LOC as Local Task Executor&lt;br/&gt;(droan_gl)
+    participant LOC as Local Task Executor&lt;br/&gt;(mighty_bridge)
     participant CTL as Trajectory Controller
     participant IF as Interface
     participant HW as Hardware/Sim

@@ -16,7 +16,7 @@
         <link rel="prev" href="../">
       
       
-        <link rel="next" href="../../../../../robot/ros_ws/src/local/world_models/disparity_expansion/">
+        <link rel="next" href="../planning/">
       
       
         
@@ -4033,6 +4033,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../../../stacks/full_droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    full_droan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../../../stacks/full_droan_cpu/" class="md-nav__link">
         
   
@@ -4069,34 +4097,6 @@
     
   
     full_macvo
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../../stacks/full_mighty/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    full_mighty
   
 
     
@@ -4185,6 +4185,8 @@
       
         
           
+        
+      
         
       
         
@@ -4297,6 +4299,34 @@
     
   
     dfm2_disturbances
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../modules/droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    droan
   
 
     
@@ -4791,16 +4821,6 @@
       
         
       
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
     
     
     
@@ -4888,90 +4908,6 @@
 
       </a>
       
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../../robot/ros_ws/src/local/world_models/disparity_expansion/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Expansion
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../../robot/ros_ws/src/local/world_models/disparity_graph/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../../robot/ros_ws/src/local/world_models/disparity_graph_cost_map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph Cost Map
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -5076,62 +5012,6 @@
     
   
     Takeoff Landing Testing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../../robot/ros_ws/src/local/planners/droan_local_planner/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN Local Planner
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../../robot/ros_ws/src/local/planners/droan_gl/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN GL
   
 
     
@@ -5902,13 +5782,12 @@
 
 
 <h1 id="local-world-model">Local World Model<a class="headerlink" href="#local-world-model" title="Permanent link">&para;</a></h1>
-<p>Local world models give the local planner a fast, short-range obstacle representation built directly from sensor data — cheaper and lower-latency than the global map, at the cost of limited spatial extent. AirStack's local world model is disparity-based:</p>
+<p>Local world models give the local planner a fast, short-range obstacle representation built directly from sensor data — cheaper and lower-latency than the global map, at the cost of limited spatial extent. A local world model and its planner are paired: there is no spec-level interchange between them (see <a href="../../adding_a_world_model_and_planner/">Adding a World Model and Planner</a>), so each planner module ships the representation it consumes.</p>
 <ul>
-<li><a href="../../../../../robot/ros_ws/src/local/world_models/disparity_expansion/"><strong>Disparity Expansion</strong></a> — C-space expansion of stereo disparity images by the robot radius</li>
-<li><a href="../../../../../robot/ros_ws/src/local/world_models/disparity_graph/"><strong>Disparity Graph</strong></a> — rolling window of expanded-disparity keyframes with their camera poses</li>
-<li><a href="../../../../../robot/ros_ws/src/local/world_models/disparity_graph_cost_map/"><strong>Disparity Graph Cost Map</strong></a> — cost-map plugin answering collision-cost queries for the DROAN local planner</li>
+<li><strong>acl-mapping voxel map</strong> (<a href="https://github.com/castacks/asm_mighty">asm_mighty</a> module, <code>global_mapper_ros</code>) — the default. A sliding-window voxel map that follows the drone, publishing occupied <strong>and unknown</strong> voxel clouds from the filtered 3D lidar cloud (<code>sensors/ouster/point_cloud</code>), registered through TF. The MIGHTY planner plans A* fronts and convex safe corridors through it with an explicit clearance margin. The mapper→planner grid seam is exposed as launch args (<code>mighty_mapper_*_topic</code> / <code>mighty_*_grid_topic</code>) so a stack can interpose its own constraint node — e.g. lidar occupancy ∪ no-fly volumes — without copying the module launch file.</li>
+<li><strong>Disparity pipeline</strong> (<a href="https://github.com/castacks/asm_droan">asm_droan</a> module) — for the DROAN planners. <code>disparity_expansion</code> performs C-space expansion of stereo disparity images by the robot radius; <code>disparity_graph</code> keeps a rolling window of expanded-disparity keyframes with their camera poses; <code>disparity_graph_cost_map</code> is the cost-map plugin (through <code>cost_map_interface</code>) answering collision-cost queries for the CPU <code>droan_local_planner</code>. The GPU planner <code>droan_gl</code> performs the expansion and graph internally in OpenGL shaders and uses none of these nodes.</li>
 </ul>
-<p>The GPU planner <code>droan_gl</code> performs the expansion and graph internally on the GPU; the CPU pipeline uses these packages as separate nodes.</p>
+<p>Either representation is selected implicitly by the stack's planner include: <code>full_default</code> / <code>lite_*</code> (MIGHTY + voxel map), <code>full_droan</code> / <code>full_macvo</code> (GPU DROAN, internal graph), <code>full_droan_cpu</code> (CPU DROAN + live <code>disparity_expansion</code>).</p>
 
 
 
@@ -5961,13 +5840,13 @@
         
         
           
-          <a href="../../../../../robot/ros_ws/src/local/world_models/disparity_expansion/" class="md-footer__link md-footer__link--next" aria-label="Next: Disparity Expansion">
+          <a href="../planning/" class="md-footer__link md-footer__link--next" aria-label="Next: Planning">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Disparity Expansion
+                Planning
               </div>
             </div>
             <div class="md-footer__button md-icon">

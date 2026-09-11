@@ -4,10 +4,10 @@
   Preset that absorbed the deleted CPU-DROAN local bringup variant (see
   README): identical to the full_default stack except the local-planner include —
   the CPU droan_local_planner plus a live disparity_expansion world model
-  instead of the GPU droan_gl module. Diff against
+  (asm_droan module) instead of the MIGHTY module include. Diff against
   full_default/launch/stack.launch.xml and exactly two deltas appear: this
   header comment block, and the local-planner block (the droan_local_planner
-  + disparity_expansion includes replacing the single droan_gl include).
+  + disparity_expansion includes replacing the single MIGHTY include).
   Every other line is byte-identical.
 
   ALL LAYERS FLATTENED (P5-E2 local, P5-E3 the rest): every layer is composed

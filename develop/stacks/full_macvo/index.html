@@ -16,7 +16,7 @@
         <link rel="prev" href="../full_droan_cpu/">
       
       
-        <link rel="next" href="../full_mighty/">
+        <link rel="next" href="../lite_default/">
       
       
         
@@ -4035,6 +4035,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../full_droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    full_droan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../full_droan_cpu/" class="md-nav__link">
         
   
@@ -4182,34 +4210,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../full_mighty/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    full_mighty
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../lite_default/" class="md-nav__link">
         
   
@@ -4278,6 +4278,8 @@
       
         
           
+        
+      
         
       
         
@@ -4390,6 +4392,34 @@
     
   
     dfm2_disturbances
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/modules/droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    droan
   
 
     
@@ -4880,16 +4910,6 @@
       
         
       
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
     
     
     
@@ -4959,90 +4979,6 @@
     
   
     World Model
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../robot/ros_ws/src/local/world_models/disparity_expansion/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Expansion
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../robot/ros_ws/src/local/world_models/disparity_graph/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../robot/ros_ws/src/local/world_models/disparity_graph_cost_map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph Cost Map
   
 
     
@@ -5155,62 +5091,6 @@
     
   
     Takeoff Landing Testing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../robot/ros_ws/src/local/planners/droan_local_planner/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN Local Planner
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../robot/ros_ws/src/local/planners/droan_gl/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN GL
   
 
     
@@ -5963,18 +5843,22 @@
 
 
 <h1 id="full_macvo-trunk-reference-stack"><code>full_macvo</code> — trunk reference stack<a class="headerlink" href="#full_macvo-trunk-reference-stack" title="Permanent link">&para;</a></h1>
-<p>Full autonomy with <strong>MAC-VO</strong> as the disparity source for the local planner.
-Local-planner variants are expressed as named stacks a few include lines
-apart — rather than as launch-file arguments — so each variant is directly
-selectable and carries its own observed wiring baseline.</p>
-<p><strong>Requires: <code>airstack module add asm_macvo</code>.</strong> MAC-VO is not trunk-resident —
-the <code>macvo_ros2</code> package, its Python/TensorRT dependencies, and the model
-weights all ship in the <a href="https://github.com/castacks/asm_macvo">asm_macvo</a>
-module. Until the module is synced (<code>modules.repos</code> pins it),
-<code>$(find-pkg-share macvo_ros2)</code> in this stack's launch file will not resolve
-and bring-up fails at the macvo include.</p>
+<p>Full autonomy with <strong>MAC-VO</strong> as the disparity source for the <strong>DROAN</strong>
+stereo-disparity local planner. Local-planner variants are expressed as named
+stacks a few include lines apart — rather than as launch-file arguments — so
+each variant is directly selectable and carries its own observed wiring
+baseline.</p>
+<p><strong>Requires two modules</strong>, both pinned in this stack's <code>modules.repos</code> and
+synced by <code>airstack up</code> when missing: <a href="https://github.com/castacks/asm_macvo">asm_macvo</a>
+(the <code>macvo_ros2</code> package, its Python/TensorRT dependencies and model
+weights) and <a href="https://github.com/castacks/asm_droan">asm_droan</a> (the
+<code>droan_gl</code> planner — this stack keeps DROAN rather than the lidar-fed MIGHTY
+default because a disparity source is exactly what it exercises). Until both
+are synced, the <code>$(find-pkg-share ...)</code> lookups in the launch file will not
+resolve and bring-up fails at those includes.</p>
 <h2 id="what-it-launches">What it launches<a class="headerlink" href="#what-it-launches" title="Permanent link">&para;</a></h2>
-<p>Identical to <a href="../full_default/"><code>full_default</code></a> except:</p>
+<p>Identical to <a href="../full_droan/"><code>full_droan</code></a> (the GPU DROAN
+topology) except:</p>
 <ol>
 <li>The module-provided <code>macvo_ros2/launch/macvo.launch.xml</code> is included under
    the <code>perception</code> namespace, so the <code>macvo_ros2</code> node runs and publishes
@@ -5985,13 +5869,14 @@ and bring-up fails at the macvo include.</p>
    wiring the planner's disparity input to MAC-VO's real output topic.</li>
 </ol>
 <h2 id="how-to-run">How to run<a class="headerlink" href="#how-to-run" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># One-time: pull the asm_macvo module and build its dependency layer</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>airstack<span class="w"> </span>module<span class="w"> </span>add<span class="w"> </span>asm_macvo
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>airstack<span class="w"> </span>module<span class="w"> </span>sync
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>airstack<span class="w"> </span>module<span class="w"> </span>lock<span class="w"> </span>--build
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>airstack<span class="w"> </span>up<span class="w"> </span>--stack<span class="w"> </span>full_macvo<span class="w"> </span>--sim<span class="w"> </span>isaac<span class="w"> </span>--robots<span class="w"> </span><span class="m">1</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>airstack<span class="w"> </span>ready
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>airstack<span class="w"> </span>up<span class="w"> </span>--stack<span class="w"> </span>full_macvo<span class="w"> </span>--sim<span class="w"> </span>isaac<span class="w"> </span>--robots<span class="w"> </span><span class="m">1</span><span class="w">   </span><span class="c1"># syncs both pins, composes the dep layers</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>airstack<span class="w"> </span>ready
+</span></code></pre></div>
+<p>Explicitly, the one-time steps <code>airstack up</code> performs when the modules are
+missing:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>airstack<span class="w"> </span>module<span class="w"> </span>add<span class="w"> </span>https://github.com/castacks/asm_macvo.git<span class="w"> </span>--version<span class="w"> </span>&lt;pin&gt;
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>airstack<span class="w"> </span>module<span class="w"> </span>add<span class="w"> </span>https://github.com/castacks/asm_droan<span class="w"> </span>--version<span class="w"> </span>v0.1.0
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>airstack<span class="w"> </span>module<span class="w"> </span>lock<span class="w"> </span>--build<span class="w">      </span><span class="c1"># MAC-VO's tier-2 layer + droan_gl's tier-1 apt layer</span>
 </span></code></pre></div>
 <h2 id="known-limits">Known limits<a class="headerlink" href="#known-limits" title="Permanent link">&para;</a></h2>
 <ul>
@@ -6005,9 +5890,9 @@ and bring-up fails at the macvo include.</p>
 <li>MAC-VO is GPU-heavy; expect reduced sim real-time factor on a shared GPU.</li>
 <li>The committed <code>wiring.md</code> — captured from this stack's own first validated
   snapshot run — is the baseline.</li>
-<li><code>modules.repos</code> pins <code>asm_macvo</code>; <code>docker-compose.yaml</code> stays an empty stub
-  until <code>airstack module lock --build</code> generates the per-module compose
-  override.</li>
+<li><code>modules.repos</code> pins <code>asm_macvo</code> and <code>asm_droan</code>; <code>docker-compose.yaml</code>
+  stays an empty stub — <code>airstack module lock --build</code> generates the
+  per-module compose override.</li>
 </ul>
 <h2 id="wiringmd">wiring.md<a class="headerlink" href="#wiringmd" title="Permanent link">&para;</a></h2>
 <p>This stack's observed wiring diagram is committed at <a href="wiring/">wiring.md</a>;
@@ -6065,13 +5950,13 @@ CI drift-checks the running graph against it. Regenerate via
         
         
           
-          <a href="../full_mighty/" class="md-footer__link md-footer__link--next" aria-label="Next: full_mighty">
+          <a href="../lite_default/" class="md-footer__link md-footer__link--next" aria-label="Next: lite_default">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                full_mighty
+                lite_default
               </div>
             </div>
             <div class="md-footer__button md-icon">

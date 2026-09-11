@@ -4033,6 +4033,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../stacks/full_droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    full_droan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../stacks/full_droan_cpu/" class="md-nav__link">
         
   
@@ -4069,34 +4097,6 @@
     
   
     full_macvo
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../stacks/full_mighty/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    full_mighty
   
 
     
@@ -4187,6 +4187,8 @@
       
         
           
+        
+      
         
       
         
@@ -4299,6 +4301,34 @@
     
   
     dfm2_disturbances
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    droan
   
 
     
@@ -4891,16 +4921,6 @@
       
         
       
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
     
     
     
@@ -4970,90 +4990,6 @@
     
   
     World Model
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../robot/ros_ws/src/local/world_models/disparity_expansion/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Expansion
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../robot/ros_ws/src/local/world_models/disparity_graph/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../robot/ros_ws/src/local/world_models/disparity_graph_cost_map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph Cost Map
   
 
     
@@ -5166,62 +5102,6 @@
     
   
     Takeoff Landing Testing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../robot/ros_ws/src/local/planners/droan_local_planner/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN Local Planner
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../robot/ros_ws/src/local/planners/droan_gl/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN GL
   
 
     
@@ -5979,7 +5859,7 @@
      (the docs deploy workflows regenerate it against the live registry at build time) -->
 
 <blockquote>
-<p>MIGHTY Hermite-spline local planner (MIT ACL, RA-L 2026) with its acl-mapping voxel world model and a bridge to AirStack's NavigateTask / trajectory_controller seam — a map-based replacement for the DROAN local planner</p>
+<p>MIGHTY Hermite-spline local planner (MIT ACL, RA-L 2026) with its acl-mapping voxel world model and a bridge to AirStack's NavigateTask / trajectory_controller seam — AirStack's default local planner (the map-based replacement for DROAN)</p>
 </blockquote>
 <table>
 <thead>
@@ -6007,11 +5887,11 @@
 </tr>
 <tr>
 <td>Registered ref</td>
-<td><a href="https://github.com/castacks/asm_mighty/tree/v0.1.3"><code>v0.1.3</code></a></td>
+<td><a href="https://github.com/castacks/asm_mighty/tree/v0.1.4"><code>v0.1.4</code></a></td>
 </tr>
 <tr>
 <td>Declared compat</td>
-<td><code>&gt;=0.20.0-alpha.16 &lt;0.21.0</code></td>
+<td><code>&gt;=0.21.0-dev.10 &lt;0.22.0</code></td>
 </tr>
 <tr>
 <td>Registry entry</td>
@@ -6021,14 +5901,14 @@
 </table>
 <h2 id="install">Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h2>
 <p>From an AirStack checkout (<a href="../../development/modules/">AirStack Modules guide</a>):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>airstack<span class="w"> </span>module<span class="w"> </span>add<span class="w"> </span>https://github.com/castacks/asm_mighty<span class="w"> </span>--version<span class="w"> </span>v0.1.3
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>airstack<span class="w"> </span>module<span class="w"> </span>add<span class="w"> </span>https://github.com/castacks/asm_mighty<span class="w"> </span>--version<span class="w"> </span>v0.1.4
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>airstack<span class="w"> </span>up
 </span></code></pre></div>
 <p><code>module add</code> pins the module in <code>modules.repos</code> and syncs it into the
 gitignored <code>modules/</code> overlay; <code>airstack up</code> automatically includes the
 generated compose override that mounts it into the containers.</p>
 <h2 id="compatibility-declared-vs-verified">Compatibility: declared vs verified<a class="headerlink" href="#compatibility-declared-vs-verified" title="Permanent link">&para;</a></h2>
-<p>The range <code>&gt;=0.20.0-alpha.16 &lt;0.21.0</code> is <strong>DECLARED</strong> by the module author
+<p>The range <code>&gt;=0.21.0-dev.10 &lt;0.22.0</code> is <strong>DECLARED</strong> by the module author
 (copied from the module's <code>module.yaml</code>). The <strong>VERIFIED</strong> record — rows
 stamped exclusively by CI runs of the reusable
 <a href="../../development/module_ci/">module-system-tests workflow</a> — lives in the
@@ -6038,17 +5918,17 @@ A compatibility claim that isn't CI-verified rots: trust the
 matrix, read the declaration as intent.</p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="https://github.com/castacks/asm_mighty/blob/v0.1.3/README.md">Module README on GitHub @ <code>v0.1.3</code></a></li>
+<li><a href="https://github.com/castacks/asm_mighty/blob/v0.1.4/README.md">Module README on GitHub @ <code>v0.1.4</code></a></li>
 <li>A snapshot of the module repo was fetched into <code>modules/mighty/</code> when
   this page was generated (docs deploy fetch step).</li>
 </ul>
 <h2 id="registered-stacks-using-this-module">Registered stacks using this module<a class="headerlink" href="#registered-stacks-using-this-module" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../../../stacks/full_mighty/">full_mighty</a></li>
+<li><a href="../../../stacks/full_default/">full_default</a></li>
 </ul>
 <h2 id="registry-notes">Registry notes<a class="headerlink" href="#registry-notes" title="Permanent link">&para;</a></h2>
 <blockquote>
-<p>Public repo. v0.1.0 was validated end-to-end on Isaac Sim: 44/44 vendored gtests, synthetic smoke harness, empty-world NavigateTask flight, 7/7 practice pillar-field traversals, and 5/5 judged obstacle-route flights (min clearances 1.59–1.65 m vs a 1.0 m gate); v0.1.1 is code-identical (README delta). v0.1.2 fixes the bridge for AirStack 0.20.x — takeoff leaves the trajectory controller in ROBOT_POSE, where trajectory_override is merged but never flown, so v0.1.1 commits one trajectory and idles ("never replans"); the bridge now sets TRACK, bounds/preempts NavigateTask goals, drops stale global_plan routes and turns to the goal yaw on arrival (MIGHTY drops the goal orientation). v0.1.3 adds launch args for the mapper-&gt;planner grid seam and the altitude band (defaults unchanged). The v0.1.2 fixes were verified in closed-loop Isaac flights; the judged campaign was not re-run. Wrapper packages are BSD-3-Clause-Clear; vendored upstream packages (mighty, DecompROS2, acl-mapping) keep their own permissive licenses — see the module's VENDORED.md. Consumed by trunk reference stack full_mighty (pin v0.1.3 or newer).</p>
+<p>Public repo. v0.1.0 was validated end-to-end on Isaac Sim: 44/44 vendored gtests, synthetic smoke harness, empty-world NavigateTask flight, 7/7 practice pillar-field traversals, and 5/5 judged obstacle-route flights (min clearances 1.59–1.65 m vs a 1.0 m gate); v0.1.1 is code-identical (README delta). v0.1.2 fixes the bridge for AirStack 0.20.x — takeoff leaves the trajectory controller in ROBOT_POSE, where trajectory_override is merged but never flown, so v0.1.1 commits one trajectory and idles ("never replans"); the bridge now sets TRACK, bounds/preempts NavigateTask goals, drops stale global_plan routes and turns to the goal yaw on arrival (MIGHTY drops the goal orientation). v0.1.3 adds launch args for the mapper-&gt;planner grid seam and the altitude band (defaults unchanged). v0.1.4 is code-identical to v0.1.3: it targets AirStack 0.21.x, where MIGHTY is the DEFAULT local planner — the trunk robot image ships the nlohmann-json header dep, so the module declares no image-level deps and the default stack needs no composed layer. The v0.1.2 fixes were verified in closed-loop Isaac flights; the judged campaign was not re-run. Wrapper packages are BSD-3-Clause-Clear; vendored upstream packages (mighty, DecompROS2, acl-mapping) keep their own permissive licenses — see the module's VENDORED.md. Consumed by trunk reference stacks full_default (the no-stack default), lite_default and lite_offload_global (pin v0.1.4 or newer; use v0.1.3 on 0.20.x trunks).</p>
 </blockquote>
 
 

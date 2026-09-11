@@ -16,7 +16,7 @@
         <link rel="prev" href="../../docs/real_world/supported_platforms/">
       
       
-        <link rel="next" href="../full_droan_cpu/">
+        <link rel="next" href="../full_droan/">
       
       
         
@@ -4035,6 +4035,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../full_droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    full_droan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../full_droan_cpu/" class="md-nav__link">
         
   
@@ -4071,34 +4099,6 @@
     
   
     full_macvo
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../full_mighty/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    full_mighty
   
 
     
@@ -4187,6 +4187,8 @@
       
         
           
+        
+      
         
       
         
@@ -4299,6 +4301,34 @@
     
   
     dfm2_disturbances
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/modules/droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    droan
   
 
     
@@ -4789,16 +4819,6 @@
       
         
       
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
     
     
     
@@ -4868,90 +4888,6 @@
     
   
     World Model
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../robot/ros_ws/src/local/world_models/disparity_expansion/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Expansion
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../robot/ros_ws/src/local/world_models/disparity_graph/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../robot/ros_ws/src/local/world_models/disparity_graph_cost_map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph Cost Map
   
 
     
@@ -5064,62 +5000,6 @@
     
   
     Takeoff Landing Testing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../robot/ros_ws/src/local/planners/droan_local_planner/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN Local Planner
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../robot/ros_ws/src/local/planners/droan_gl/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN GL
   
 
     
@@ -5879,25 +5759,50 @@ baseline other stacks are copied from.</p>
 <p>The entry point <code>launch/stack.launch.xml</code> composes <strong>every layer as a flat
 set of module-launch includes</strong>: LiDAR near-range filter, stereo
 disparity/point-cloud pair, topic keepalive, takeoff/land task server,
-fixed-trajectory task server, GPU DROAN planner, trajectory controller, PID
-controller, VDB mapping, random-walk global planner, and the drone safety
-monitor — each module launch file declares its topic endpoints as args with
-canonical defaults, so bare includes mean canonical wiring. Two cross-domain
-extras run alongside: the DDS-router domain bridge to the GCS and the gossip
-coordination layer. Two blocks stay wrapped by design: <code>interface.launch.py</code>
-(the safety boundary) and <code>logging.launch.xml</code> (already a single
-self-contained module).</p>
+fixed-trajectory task server, the <strong>MIGHTY local planner</strong> (planner +
+acl-mapping voxel world model fed by the filtered Ouster cloud + NavigateTask
+bridge, from the <a href="https://github.com/castacks/asm_mighty">asm_mighty</a>
+module), trajectory controller, PID controller, VDB mapping, random-walk
+global planner, and the drone safety monitor — each module launch file
+declares its topic endpoints as args with canonical defaults, so bare
+includes mean canonical wiring. Two cross-domain extras run alongside: the
+DDS-router domain bridge to the GCS and the gossip coordination layer. Two
+blocks stay wrapped by design: <code>interface.launch.py</code> (the safety boundary)
+and <code>logging.launch.xml</code> (already a single self-contained module).</p>
+<h2 id="the-local-planner">The local planner<a class="headerlink" href="#the-local-planner" title="Permanent link">&para;</a></h2>
+<p>MIGHTY (MIT ACL, RA-L 2026) is a map-based planner: a sliding voxel map with
+explicit unknown-space handling, convex safe corridors with a tunable
+clearance margin, and a Hermite-spline trajectory optimiser, CPU-only. It
+serves the same seam every AirStack local planner does — the <code>tasks/navigate</code>
+<code>NavigateTask</code> action in, <code>trajectory_controller/*</code> trajectories out — so the
+trajectory controller, PID, safety monitor, takeoff/landing and GCS are
+planner-agnostic. Planner and world-model tuning lives in the module
+(<code>mighty_bridge/config/*_airstack.yaml</code>); the launch args it exposes (lidar
+and odometry inputs, the mapper→planner grid seam, the altitude band) are
+listed in the module README.</p>
+<p>The DROAN reactive planner is the alternative, one include line away:
+<a href="../full_droan/"><code>full_droan</code></a> (GPU) and
+<a href="../full_droan_cpu/"><code>full_droan_cpu</code></a> (CPU) pin the
+<a href="https://github.com/castacks/asm_droan">asm_droan</a> module. Pick DROAN for
+depth-camera-only vehicles or minimal compute; pick MIGHTY (this stack) where
+clutter is dense and clearance margins matter — the judged comparison is in
+the asm_mighty README.</p>
 <h2 id="baseline">Baseline<a class="headerlink" href="#baseline" title="Permanent link">&para;</a></h2>
 <p>This stack is the default: with no stack selected, <code>robot.launch.xml</code>
-launches it. Its committed <a href="wiring/">wiring.md</a> is the observed-graph
-baseline that other full stacks are compared against. Verify with the wiring
-snapshot test:</p>
+launches it. Its <code>wiring.md</code> is the observed-graph baseline other full stacks
+are compared against; it is generated by the wiring snapshot test, never
+hand-edited:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>wiring<span class="w"> </span>--stack<span class="w"> </span>full_default<span class="w"> </span>--sim<span class="w"> </span>isaacsim<span class="w"> </span>--num-robots<span class="w"> </span><span class="m">1</span>
 </span></code></pre></div>
 <h2 id="how-to-run">How to run<a class="headerlink" href="#how-to-run" title="Permanent link">&para;</a></h2>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>airstack<span class="w"> </span>up<span class="w"> </span>--stack<span class="w"> </span>full_default<span class="w"> </span>--sim<span class="w"> </span>isaac<span class="w"> </span>--robots<span class="w"> </span><span class="m">1</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>airstack<span class="w"> </span>ready
 </span></code></pre></div>
+<p><code>airstack up</code> adds the <code>asm_mighty</code> pin from this stack's <code>modules.repos</code> to
+the checkout and syncs it when it is missing (<code>airstack module list</code> shows
+it). The module declares no image-level dependencies — its nlohmann-json
+header dep ships in the trunk robot image — so no module layer is composed
+and containers run the trunk images as-is.</p>
 <p>The shared per-robot preamble (ROBOT_NAME namespace, <code>use_sim_time</code>,
 <code>robot_state_publisher</code>, world→map static TF) runs in
 <code>autonomy_bringup/launch/robot.launch.xml</code>, which dispatches to this stack when
@@ -5905,16 +5810,22 @@ snapshot test:</p>
 <h2 id="known-limits">Known limits<a class="headerlink" href="#known-limits" title="Permanent link">&para;</a></h2>
 <ul>
 <li>The interface layer is a wrapped include (<code>interface.launch.py</code>) — its
-  MAVROS wiring is not visible in <code>stack.launch.xml</code>; read <code>wiring.md</code> for
-  the observed graph.</li>
-<li><code>modules.repos</code> pins no external modules yet; every package is trunk-resident.</li>
-<li><code>docker-compose.yaml</code> is a stub — per-stack image composition arrives with
-  the first module pins; trunk compose profiles provide all services.</li>
+  MAVROS wiring is not visible in <code>stack.launch.xml</code>; read the wiring
+  snapshot for the observed graph.</li>
+<li>MIGHTY needs a 3D lidar cloud (<code>sensors/ouster/point_cloud</code> by default);
+  depth-camera-only vehicles use <code>full_droan</code> / <code>full_droan_cpu</code>.</li>
+<li><code>docker-compose.yaml</code> is a stub: the pinned module has no dependency layer,
+  so trunk compose profiles provide all services.</li>
 </ul>
 <h2 id="wiringmd">wiring.md<a class="headerlink" href="#wiringmd" title="Permanent link">&para;</a></h2>
-<p>This stack's observed wiring diagram is committed at <a href="wiring/">wiring.md</a>;
-CI drift-checks the running graph against it. Regenerate via
-<code>airstack test -m wiring --stack full_default</code>.</p>
+<p>This stack's observed wiring diagram lives at <code>wiring.md</code> once a validated
+wiring-snapshot run commits it; CI then drift-checks the running graph
+against it. Until then the snapshot test passes with a bootstrap instruction
+naming the observed file to validate and copy in (mechanism:
+<a href="../../docs/development/stacks/#wiringmd-generation-and-drift-checking">Stacks → wiring.md</a>).
+Generate or regenerate via <code>airstack test -m wiring --stack full_default</code>.
+The previous default topology's baseline is
+<a href="../full_droan/wiring/"><code>full_droan/wiring.md</code></a>.</p>
 
 
 
@@ -5967,13 +5878,13 @@ CI drift-checks the running graph against it. Regenerate via
         
         
           
-          <a href="../full_droan_cpu/" class="md-footer__link md-footer__link--next" aria-label="Next: full_droan_cpu">
+          <a href="../full_droan/" class="md-footer__link md-footer__link--next" aria-label="Next: full_droan">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                full_droan_cpu
+                full_droan
               </div>
             </div>
             <div class="md-footer__button md-icon">

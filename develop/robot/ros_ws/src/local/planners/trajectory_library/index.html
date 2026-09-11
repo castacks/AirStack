@@ -4033,6 +4033,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../../../../stacks/full_droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    full_droan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../../../../stacks/full_droan_cpu/" class="md-nav__link">
         
   
@@ -4069,34 +4097,6 @@
     
   
     full_macvo
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../../../stacks/full_mighty/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    full_mighty
   
 
     
@@ -4185,6 +4185,8 @@
       
         
           
+        
+      
         
       
         
@@ -4297,6 +4299,34 @@
     
   
     dfm2_disturbances
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../../../docs/modules/droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    droan
   
 
     
@@ -4791,16 +4821,6 @@
       
         
       
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
     
     
     
@@ -4870,90 +4890,6 @@
     
   
     World Model
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../world_models/disparity_expansion/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Expansion
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../world_models/disparity_graph/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../world_models/disparity_graph_cost_map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph Cost Map
   
 
     
@@ -5185,62 +5121,6 @@
     
   
     Takeoff Landing Testing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../droan_local_planner/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN Local Planner
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../droan_gl/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN GL
   
 
     
@@ -6012,7 +5892,7 @@
 
 <h1 id="trajectory-library">Trajectory Library<a class="headerlink" href="#trajectory-library" title="Permanent link">&para;</a></h1>
 <p>Contact: John Keller</p>
-<p><code>trajectory_library</code> is a C++ library (no node of its own) for generating and manipulating candidate trajectories for obstacle-avoidance planners. It provides the <code>Trajectory</code>/<code>Waypoint</code> classes used throughout the local layer to interpolate, transform, trim, merge, and visualize waypoint paths, plus a <code>TrajectoryLibrary</code> class that loads a <em>library</em> of candidate trajectory generators from a YAML config file — the file the DROAN local planner points its <code>trajectory_library_config</code> parameter at. Every trajectory converts to/from <a href="../../../../../../common/ros_packages/msgs/airstack_msgs/"><code>airstack_msgs/msg/TrajectoryXYZVYaw</code></a>, the trajectory-controller command type (see the <a href="../../../../../../docs/robot/autonomy/interface_conventions/">Interface Conventions Specification §5</a>).</p>
+<p><code>trajectory_library</code> is a C++ library (no node of its own) for generating and manipulating candidate trajectories for obstacle-avoidance planners. It provides the <code>Trajectory</code>/<code>Waypoint</code> classes used throughout the local layer to interpolate, transform, trim, merge, and visualize waypoint paths, plus a <code>TrajectoryLibrary</code> class that loads a <em>library</em> of candidate trajectory generators from a YAML config file — the file the DROAN local planner (<a href="https://github.com/castacks/asm_droan">asm_droan</a> module) points its <code>trajectory_library_config</code> parameter at. Every trajectory converts to/from <a href="../../../../../../common/ros_packages/msgs/airstack_msgs/"><code>airstack_msgs/msg/TrajectoryXYZVYaw</code></a>, the trajectory-controller command type (see the <a href="../../../../../../docs/robot/autonomy/interface_conventions/">Interface Conventions Specification §5</a>).</p>
 <h2 id="core-classes">Core classes<a class="headerlink" href="#core-classes" title="Permanent link">&para;</a></h2>
 <p>Defined in <a href="include/trajectory_library/trajectory_library.hpp"><code>include/trajectory_library/trajectory_library.hpp</code></a>, implemented in <a href="src/trajectory_library.cpp"><code>src/trajectory_library.cpp</code></a>:</p>
 <table>
@@ -6249,11 +6129,11 @@
 </thead>
 <tbody>
 <tr>
-<td><a href="../droan_local_planner/"><code>droan_local_planner</code></a></td>
+<td><a href="https://github.com/castacks/asm_droan/blob/main/droan_local_planner/README.md"><code>droan_local_planner</code></a> (asm_droan module)</td>
 <td>Constructs <code>TrajectoryLibrary</code> from its <code>trajectory_library_config</code> parameter (default <code>$(find-pkg-share trajectory_library)/config/long.yaml</code>, set in <code>config/droan.yaml</code>); each planning cycle calls <code>get_dynamic_trajectories(look_ahead_odom)</code> to get the candidate set it collision-checks and scores</td>
 </tr>
 <tr>
-<td><a href="../droan_gl/"><code>droan_gl</code></a></td>
+<td><a href="https://github.com/castacks/asm_droan/blob/main/droan_gl/README.md"><code>droan_gl</code></a> (asm_droan module)</td>
 <td>Links the library for the <code>Trajectory</code>/<code>Waypoint</code> utility classes (e.g. wrapping the incoming <code>nav_msgs/Path</code> global plan); it does <strong>not</strong> load a YAML library — its candidates come from its own graph expansion</td>
 </tr>
 <tr>
@@ -6264,8 +6144,8 @@
 </table>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../droan_local_planner/">DROAN Local Planner README</a> — the primary consumer of the YAML library</li>
-<li><a href="../droan_gl/">DROAN GL README</a> — GPU DROAN variant</li>
+<li><a href="https://github.com/castacks/asm_droan/blob/main/droan_local_planner/README.md">DROAN Local Planner README</a> — the primary consumer of the YAML library (asm_droan module)</li>
+<li><a href="https://github.com/castacks/asm_droan/blob/main/droan_gl/README.md">DROAN GL README</a> — GPU DROAN variant (asm_droan module)</li>
 <li><a href="../../controls/trajectory_controller/">Trajectory Controller README</a> — where the generated <code>TrajectoryXYZVYaw</code> trajectories are sent</li>
 <li><a href="../../../../../../docs/robot/autonomy/interface_conventions/">Interface Conventions Specification</a> — canonical topics/types for the trajectory group</li>
 </ul>

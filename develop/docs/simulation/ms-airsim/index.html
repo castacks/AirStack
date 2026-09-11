@@ -4242,6 +4242,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../stacks/full_droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    full_droan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../stacks/full_droan_cpu/" class="md-nav__link">
         
   
@@ -4278,34 +4306,6 @@
     
   
     full_macvo
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../stacks/full_mighty/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    full_mighty
   
 
     
@@ -4394,6 +4394,8 @@
       
         
           
+        
+      
         
       
         
@@ -4503,6 +4505,34 @@
     
   
     dfm2_disturbances
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modules/droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    droan
   
 
     
@@ -4990,16 +5020,6 @@
       
         
       
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
     
     
     
@@ -5069,90 +5089,6 @@
     
   
     World Model
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../robot/ros_ws/src/local/world_models/disparity_expansion/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Expansion
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../robot/ros_ws/src/local/world_models/disparity_graph/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../robot/ros_ws/src/local/world_models/disparity_graph_cost_map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph Cost Map
   
 
     
@@ -5265,62 +5201,6 @@
     
   
     Takeoff Landing Testing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../robot/ros_ws/src/local/planners/droan_local_planner/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN Local Planner
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../robot/ros_ws/src/local/planners/droan_gl/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN GL
   
 
     
@@ -6080,7 +5960,7 @@
 <ul>
 <li><strong>PX4 SITL integration</strong> - Native MAVLink lockstep with PX4 autopilot</li>
 <li><strong>Unreal Engine environments</strong> - Photorealistic scenes (UE 4.27)</li>
-<li><strong>Depth camera simulation</strong> - Used by DROAN for obstacle avoidance</li>
+<li><strong>Depth camera simulation</strong> - Stereo + depth for the disparity-based DROAN stacks (<code>full_droan</code>, <code>full_droan_cpu</code>)</li>
 <li><strong>Lightweight setup</strong> - Pre-built binary environments, no Omniverse required</li>
 </ul>
 <p><strong>Trade-offs vs Isaac Sim:</strong></p>
@@ -6126,7 +6006,7 @@
 </span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>│   PX4 SITL ×N ─── MAVLink UDP ─┼─────┼─► 24540+i/24580+i    │
 </span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>│      ▲                         │     │    │                 │
 </span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>│      │                         │     │    ▼                 │
-</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>│   Bridge Node ×N ─── ROS 2 DDS─┼─────┼─► Perception → DROAN │
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>│   Bridge Node ×N ─── ROS 2 DDS─┼─────┼─► Perception → local planner │
 </span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>│   (stereo RGB + depth + info)  │     │                      │
 </span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>└────────────────────────────────┘     └──────────────────────┘
 </span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>            airstack_network (172.31.0.0/24)
@@ -6137,7 +6017,7 @@
 <li>N PX4 SITL instances run in lockstep with AirSim via TCP (port <code>4560+i</code>)</li>
 <li>MAVROS in the robot container connects to PX4 SITL via MAVLink UDP (offboard <code>14540 + ROS_DOMAIN_ID</code>, see <code>interface.launch.py</code>; ports <code>24540+i</code>/<code>24580+i</code> in <code>settings.json</code> are AirSim's own PX4 control channel)</li>
 <li>Bridge nodes (one per robot) publish stereo RGB + depth + camera_info to ROS 2 topics</li>
-<li><code>disparity_expansion</code> converts depth to disparity for DROAN</li>
+<li>Perception publishes disparity; the selected stack's local planner consumes it (the <code>full_droan_cpu</code> stack's <code>disparity_expansion</code> expands it into C-space)</li>
 </ol>
 <h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
 <h3 id="settingsjson">settings.json<a class="headerlink" href="#settingsjson" title="Permanent link">&para;</a></h3>

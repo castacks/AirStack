@@ -3,10 +3,11 @@
 
   Preset that absorbed (and FIXED) the deleted MAC-VO obstacle-avoidance
   local bringup variant (see README): full autonomy with MAC-VO as the
-  disparity source for the local planner. MAC-VO arrives via the asm_macvo
-  MODULE (`airstack module add asm_macvo`, then `module sync` and the lock
-  build step; macvo_ros2 no longer lives in trunk — see the README). Two
-  include-line differences from full_default/launch/stack.launch.xml:
+  disparity source for the DROAN local planner. MAC-VO arrives via the
+  asm_macvo MODULE and droan_gl via the asm_droan MODULE (both pinned in
+  modules.repos; `airstack up` syncs them and composes their dep layers —
+  neither lives in trunk, see the README). Two include-line differences from
+  full_droan/launch/stack.launch.xml (the GPU DROAN topology):
     1. The macvo_ros2 module launch is included under the perception
        namespace, so it publishes /$ROBOT_NAME/perception/macvo/disparity.
     2. The droan_gl include overrides its disparity arg to point at MAC-VO's
@@ -87,7 +88,7 @@
        trajectory controller; action at tasks/fixed_trajectory -->
   <include file="$(find-pkg-share trajectory_controller)/launch/fixed_trajectory_task.launch.xml" />
 
-  <!-- DROAN local planner (GPU): disparity in from MAC-VO instead of the
+  <!-- DROAN local planner (GPU, asm_droan module): disparity in from MAC-VO instead of the
        canonical stereo_image_proc topic — the one wiring deviation of this
        stack. global_plan in from the global planner, look_ahead /
        tracking_point in from the trajectory controller,

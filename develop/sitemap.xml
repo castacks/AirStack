@@ -233,6 +233,10 @@
          <lastmod>2026-09-11</lastmod>
     </url>
     <url>
+         <loc>https://docs.theairlab.org/docs/develop/docs/modules/droan/</loc>
+         <lastmod>2026-09-11</lastmod>
+    </url>
+    <url>
          <loc>https://docs.theairlab.org/docs/develop/docs/modules/macvo/</loc>
          <lastmod>2026-09-11</lastmod>
     </url>
@@ -501,14 +505,6 @@
          <lastmod>2026-09-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/local/planners/droan_gl/</loc>
-         <lastmod>2026-09-11</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/local/planners/droan_local_planner/</loc>
-         <lastmod>2026-09-11</lastmod>
-    </url>
-    <url>
          <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/local/planners/takeoff_landing_planner/</loc>
          <lastmod>2026-09-11</lastmod>
     </url>
@@ -521,18 +517,6 @@
          <lastmod>2026-09-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/local/world_models/disparity_expansion/</loc>
-         <lastmod>2026-09-11</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/local/world_models/disparity_graph/</loc>
-         <lastmod>2026-09-11</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/local/world_models/disparity_graph_cost_map/</loc>
-         <lastmod>2026-09-11</lastmod>
-    </url>
-    <url>
          <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/sensors/lidar_point_cloud_filter/</loc>
          <lastmod>2026-09-11</lastmod>
     </url>
@@ -541,7 +525,11 @@
          <lastmod>2026-09-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.theairlab.org/docs/develop/stacks/full_default/wiring/</loc>
+         <loc>https://docs.theairlab.org/docs/develop/stacks/full_droan/</loc>
+         <lastmod>2026-09-11</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.theairlab.org/docs/develop/stacks/full_droan/wiring/</loc>
          <lastmod>2026-09-11</lastmod>
     </url>
     <url>
@@ -561,15 +549,7 @@
          <lastmod>2026-09-11</lastmod>
     </url>
     <url>
-         <loc>https://docs.theairlab.org/docs/develop/stacks/full_mighty/</loc>
-         <lastmod>2026-09-11</lastmod>
-    </url>
-    <url>
          <loc>https://docs.theairlab.org/docs/develop/stacks/lite_default/</loc>
-         <lastmod>2026-09-11</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/stacks/lite_default/wiring/</loc>
          <lastmod>2026-09-11</lastmod>
     </url>
     <url>

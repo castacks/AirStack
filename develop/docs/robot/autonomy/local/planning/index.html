@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://docs.theairlab.org/docs/develop/docs/robot/autonomy/local/planning/">
       
       
-        <link rel="prev" href="../../../../../robot/ros_ws/src/local/world_models/disparity_graph_cost_map/">
+        <link rel="prev" href="../world_model/">
       
       
         <link rel="next" href="../../../../../robot/ros_ws/src/local/planners/trajectory_library/">
@@ -4033,6 +4033,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../../../stacks/full_droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    full_droan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../../../stacks/full_droan_cpu/" class="md-nav__link">
         
   
@@ -4069,34 +4097,6 @@
     
   
     full_macvo
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../../stacks/full_mighty/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    full_mighty
   
 
     
@@ -4185,6 +4185,8 @@
       
         
           
+        
+      
         
       
         
@@ -4297,6 +4299,34 @@
     
   
     dfm2_disturbances
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../modules/droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    droan
   
 
     
@@ -4791,16 +4821,6 @@
       
         
       
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
     
     
     
@@ -4870,90 +4890,6 @@
     
   
     World Model
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../../robot/ros_ws/src/local/world_models/disparity_expansion/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Expansion
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../../robot/ros_ws/src/local/world_models/disparity_graph/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../../robot/ros_ws/src/local/world_models/disparity_graph_cost_map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph Cost Map
   
 
     
@@ -5076,62 +5012,6 @@
     
   
     Takeoff Landing Testing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../../robot/ros_ws/src/local/planners/droan_local_planner/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN Local Planner
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../../robot/ros_ws/src/local/planners/droan_gl/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN GL
   
 
     
@@ -5902,14 +5782,49 @@
 
 
 <h1 id="local-planning">Local Planning<a class="headerlink" href="#local-planning" title="Permanent link">&para;</a></h1>
-<p>Local planners turn the coarse global plan into short, collision-free trajectory segments, reacting to obstacles the global map is too slow or too coarse to capture. They plan from the trajectory controller's look-ahead point and feed segments to it continuously.</p>
-<p>AirStack's baseline local planner is DROAN, in two implementations:</p>
-<ul>
-<li><a href="../../../../../robot/ros_ws/src/local/planners/droan_gl/"><strong>DROAN GL</strong></a> (<code>droan_gl</code>) — GPU-accelerated, true-sphere disparity expansion via OpenGL shaders; the default in the <code>full_default</code> stack</li>
-<li><a href="../../../../../robot/ros_ws/src/local/planners/droan_local_planner/"><strong>DROAN Local Planner</strong></a> (<code>droan_local_planner</code>) — the CPU implementation, selected by the <code>full_droan_cpu</code> stack</li>
-</ul>
-<p>Both are task executors serving <code>NavigateTask</code> at <code>/{robot_name}/tasks/navigate</code>.</p>
-<p>Specialized maneuvers are handled by the <a href="../../../../../robot/ros_ws/src/local/planners/takeoff_landing_planner/">Takeoff Landing Planner</a>, and candidate trajectories come from the <a href="../../../../../robot/ros_ws/src/local/planners/trajectory_library/">Trajectory Library</a>.</p>
+<p>Local planners turn the coarse global plan into short, collision-free trajectories, reacting to obstacles the global map is too slow or too coarse to capture. Every AirStack local planner serves the same seam — the <code>NavigateTask</code> action at <code>/{robot_name}/tasks/navigate</code> in, trajectories to the <a href="../controls/">trajectory controller</a> out — so the controllers, safety monitor, takeoff/landing pipeline and GCS are planner-agnostic, and swapping planners is one include line in a stack's entry launch file.</p>
+<p>AirStack's default local planner is <strong>MIGHTY</strong>, and the <strong>DROAN</strong> reactive planner is available as an alternative. Both ship as modules:</p>
+<table>
+<thead>
+<tr>
+<th>Planner</th>
+<th>Module</th>
+<th>Stacks</th>
+<th>World model</th>
+<th>Sensor input</th>
+<th>Compute</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../../../../modules/mighty/"><strong>MIGHTY</strong></a> (<code>mighty_bridge</code> + <code>mighty_node</code>) — Hermite-spline planner over convex safe corridors (MIT ACL, RA-L 2026)</td>
+<td><a href="https://github.com/castacks/asm_mighty">asm_mighty</a></td>
+<td><code>full_default</code> (default), <code>lite_default</code>, <code>lite_offload_global</code></td>
+<td>sliding voxel map with explicit unknown space (<a href="../world_model/">acl-mapping</a>)</td>
+<td>3D lidar cloud (<code>sensors/ouster/point_cloud</code>)</td>
+<td>CPU</td>
+</tr>
+<tr>
+<td><a href="../../../../modules/droan/"><strong>DROAN GL</strong></a> (<code>droan_gl</code>) — GPU disparity-space reactive planner (OpenGL shaders)</td>
+<td><a href="https://github.com/castacks/asm_droan">asm_droan</a></td>
+<td><code>full_droan</code>, <code>full_macvo</code></td>
+<td>disparity graph, held on the GPU</td>
+<td>stereo disparity image</td>
+<td>GPU</td>
+</tr>
+<tr>
+<td><a href="../../../../modules/droan/"><strong>DROAN Local Planner</strong></a> (<code>droan_local_planner</code>) — the CPU implementation</td>
+<td><a href="https://github.com/castacks/asm_droan">asm_droan</a></td>
+<td><code>full_droan_cpu</code></td>
+<td><code>disparity_expansion</code> → <code>disparity_graph</code> → <code>disparity_graph_cost_map</code> nodes</td>
+<td>stereo disparity (or depth) image</td>
+<td>CPU</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Choosing:</strong> MIGHTY holds a persistent map with tunable clearance margins and takes the full 360° lidar, so it is the choice where clutter is dense and clearance matters. DROAN keeps no map and needs only a stereo/depth camera, so it suits depth-camera-only vehicles and minimal compute budgets; its accumulated collision votes cannot be erased by looking again, which can turn cluttered pockets into hover states. The judged side-by-side evaluation behind the default is in the <a href="https://github.com/castacks/asm_mighty#why-mighty-replaced-droan">asm_mighty README</a>.</p>
+<p>The trajectory controller's <strong>look-ahead point</strong> couples planner and controller: DROAN plans forward from it and appends <code>trajectory_segment_to_add</code> segments; MIGHTY replans anchored on the vehicle and publishes receding-horizon <code>trajectory_override</code> trajectories. Both are the <a href="../../interface_conventions/#5-trajectory-group-the-trajectory-controllers-contract-onboard-only">trajectory group (§5)</a> interchange.</p>
+<p>Specialized maneuvers are handled by the <a href="../../../../../robot/ros_ws/src/local/planners/takeoff_landing_planner/">Takeoff Landing Planner</a>, and DROAN's candidate trajectories come from the trunk <a href="../../../../../robot/ros_ws/src/local/planners/trajectory_library/">Trajectory Library</a>.</p>
 
 
 
@@ -5945,7 +5860,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../../../../../robot/ros_ws/src/local/world_models/disparity_graph_cost_map/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Disparity Graph Cost Map">
+          <a href="../world_model/" class="md-footer__link md-footer__link--prev" aria-label="Previous: World Model">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -5955,7 +5870,7 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                Disparity Graph Cost Map
+                World Model
               </div>
             </div>
           </a>

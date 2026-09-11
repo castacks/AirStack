@@ -1,0 +1,21 @@
+# modules.repos : module pins for the full_droan reference stack.
+#
+# vcstool format, PINNED to tags/commits (never branches). `airstack up` adds a
+# stack's pins to the checkout-root modules.repos and syncs them when they are
+# missing; `airstack module sync` reads that file into the gitignored modules/
+# dir. A stack with a pinned .repos IS a localized release set.
+#
+# airstack_compat is a top-level sibling of repositories: (vcstool ignores it,
+# AirStack tooling reads it) declaring the trunk semver range this stack was
+# tested against. sync warns on mismatch; it never gates.
+#
+# full_droan pulls the asm_droan module (the GPU droan_gl planner, the CPU
+# droan_local_planner and its disparity_* world model); everything else is
+# trunk-resident. Registry: modules/droan.yaml in castacks/airstack-modules-index.
+airstack_compat: ">=0.21.0-dev.10 <0.22.0"
+repositories:
+  asm_droan:
+    type: git
+    url: https://github.com/castacks/asm_droan
+    version: v0.1.0
+x-local-modules: []

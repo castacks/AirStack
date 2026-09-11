@@ -4214,6 +4214,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../stacks/full_droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    full_droan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../stacks/full_droan_cpu/" class="md-nav__link">
         
   
@@ -4250,34 +4278,6 @@
     
   
     full_macvo
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../stacks/full_mighty/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    full_mighty
   
 
     
@@ -4366,6 +4366,8 @@
       
         
           
+        
+      
         
       
         
@@ -4475,6 +4477,34 @@
     
   
     dfm2_disturbances
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modules/droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    droan
   
 
     
@@ -4962,16 +4992,6 @@
       
         
       
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
     
     
     
@@ -5041,90 +5061,6 @@
     
   
     World Model
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../robot/ros_ws/src/local/world_models/disparity_expansion/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Expansion
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../robot/ros_ws/src/local/world_models/disparity_graph/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../robot/ros_ws/src/local/world_models/disparity_graph_cost_map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph Cost Map
   
 
     
@@ -5237,62 +5173,6 @@
     
   
     Takeoff Landing Testing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../robot/ros_ws/src/local/planners/droan_local_planner/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN Local Planner
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../robot/ros_ws/src/local/planners/droan_gl/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN GL
   
 
     
@@ -6094,19 +5974,19 @@ their owners (a lab keeps a private stack repo wiring together public modules
 <tbody>
 <tr>
 <td><a href="https://github.com/castacks/AirStack/tree/develop/stacks/full_default"><code>full_default</code></a></td>
-<td>The full-autonomy topology (GPU <code>droan_gl</code> planner) — the baseline, and what launches when no stack is selected.</td>
+<td>The full-autonomy topology with the MIGHTY map-based local planner (<code>asm_mighty</code> module: planner + acl-mapping voxel world model + NavigateTask bridge) — the baseline, and what launches when no stack is selected.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/castacks/AirStack/tree/develop/stacks/full_droan"><code>full_droan</code></a></td>
+<td>The GPU DROAN reactive planner (<code>droan_gl</code>, <code>asm_droan</code> module) in place of MIGHTY — for depth-camera-only vehicles and legacy comparisons.</td>
 </tr>
 <tr>
 <td><a href="https://github.com/castacks/AirStack/tree/develop/stacks/full_droan_cpu"><code>full_droan_cpu</code></a></td>
-<td>CPU DROAN planner + live <code>disparity_expansion</code> (for machines without the GPU planner).</td>
+<td>CPU DROAN planner + live <code>disparity_expansion</code> (<code>asm_droan</code> module) for machines without a GPU planner.</td>
 </tr>
 <tr>
 <td><a href="https://github.com/castacks/AirStack/tree/develop/stacks/full_macvo"><code>full_macvo</code></a></td>
-<td>MAC-VO as the planner's disparity source. Requires the <code>asm_macvo</code> module (<code>airstack module add asm_macvo</code>).</td>
-</tr>
-<tr>
-<td><a href="https://github.com/castacks/AirStack/tree/develop/stacks/full_mighty"><code>full_mighty</code></a></td>
-<td>The MIGHTY map-based local planner (+ acl-mapping voxel world model) in place of <code>droan_gl</code>. Requires the <code>asm_mighty</code> module (pinned in the stack's <code>modules.repos</code>).</td>
+<td>MAC-VO as the DROAN planner's disparity source. Requires the <code>asm_macvo</code> and <code>asm_droan</code> modules.</td>
 </tr>
 <tr>
 <td><a href="https://github.com/castacks/AirStack/tree/develop/stacks/lite_default"><code>lite_default</code></a></td>
@@ -6144,6 +6024,17 @@ effective config.</p>
 <p><code>--stack &lt;name&gt;:&lt;entry&gt;</code> selects an alternate entry file
 (<code>launch/&lt;entry&gt;.launch.xml</code>) — reserved for
 <a href="#split-stacks-and-bridgeyaml">split stacks</a>.</p>
+<p><strong>Module pins are reconciled at launch.</strong> Before starting services,
+<code>airstack up</code> reads the selected stack's <code>modules.repos</code>: a pinned module
+absent from the checkout is added at the stack's pin and synced
+(<code>airstack module add</code> + <code>module sync</code>); one present at a <em>different</em> pin is
+left alone and named in a warning (an explicit local deviation wins); and
+when the resulting layer plan has dependency steps that are not yet
+composed, <code>airstack module lock --build</code> runs (unless
+<code>AIRSTACK_NO_IMAGE_BUILD=1</code>). <code>--dry-run</code> / <code>--config-only</code> only report;
+<code>AIRSTACK_NO_STACK_MODULE_SYNC=1</code> skips the step. This is what lets the
+default stack pin the <code>asm_mighty</code> planner module and still work out of the
+box.</p>
 <p>Stack launch files need no <code>colcon build</code> — they are read from the bind mount;
 edit and re-launch.</p>
 <h3 id="why-stacks-dont-launch-standalone">Why stacks don't launch standalone<a class="headerlink" href="#why-stacks-dont-launch-standalone" title="Permanent link">&para;</a></h3>
@@ -6341,16 +6232,16 @@ ignored. Select the topology with <code>--stack</code>:</p>
 <td>Nothing — <code>full_default</code> launches by default (or be explicit: <code>--stack full_default</code>)</td>
 </tr>
 <tr>
+<td>GPU DROAN reactive planner</td>
+<td><code>--stack full_droan</code> (<code>asm_droan</code> module)</td>
+</tr>
+<tr>
 <td>CPU DROAN topology</td>
-<td><code>--stack full_droan_cpu</code></td>
+<td><code>--stack full_droan_cpu</code> (<code>asm_droan</code> module)</td>
 </tr>
 <tr>
 <td>MAC-VO disparity topology</td>
-<td><code>--stack full_macvo</code> (requires the <code>asm_macvo</code> module)</td>
-</tr>
-<tr>
-<td>MIGHTY map-based local planner</td>
-<td><code>--stack full_mighty</code> (requires the <code>asm_mighty</code> module)</td>
+<td><code>--stack full_macvo</code> (<code>asm_macvo</code> + <code>asm_droan</code> modules)</td>
 </tr>
 <tr>
 <td>Onboard-lite, unsplit</td>

@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://docs.theairlab.org/docs/develop/stacks/full_droan_cpu/">
       
       
-        <link rel="prev" href="../full_default/">
+        <link rel="prev" href="../full_droan/">
       
       
         <link rel="next" href="../full_macvo/">
@@ -4032,6 +4032,34 @@
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../full_droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    full_droan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -4182,34 +4210,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../full_mighty/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    full_mighty
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../lite_default/" class="md-nav__link">
         
   
@@ -4278,6 +4278,8 @@
       
         
           
+        
+      
         
       
         
@@ -4390,6 +4392,34 @@
     
   
     dfm2_disturbances
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/modules/droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    droan
   
 
     
@@ -4880,16 +4910,6 @@
       
         
       
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
     
     
     
@@ -4959,90 +4979,6 @@
     
   
     World Model
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../robot/ros_ws/src/local/world_models/disparity_expansion/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Expansion
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../robot/ros_ws/src/local/world_models/disparity_graph/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../robot/ros_ws/src/local/world_models/disparity_graph_cost_map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph Cost Map
   
 
     
@@ -5155,62 +5091,6 @@
     
   
     Takeoff Landing Testing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../robot/ros_ws/src/local/planners/droan_local_planner/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN Local Planner
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../robot/ros_ws/src/local/planners/droan_gl/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN GL
   
 
     
@@ -5964,10 +5844,11 @@
 
 <h1 id="full_droan_cpu-trunk-reference-stack"><code>full_droan_cpu</code> — trunk reference stack<a class="headerlink" href="#full_droan_cpu-trunk-reference-stack" title="Permanent link">&para;</a></h1>
 <p>Full autonomy with the <strong>CPU DROAN local planner</strong> (<code>droan_local_planner</code> +
-a live <code>disparity_expansion</code> world model) instead of the GPU <code>droan_gl</code> node.
-Local-planner variants are expressed as named stacks a few include lines
-apart — rather than as launch-file arguments — so each variant is directly
-selectable and carries its own observed wiring baseline.</p>
+a live <code>disparity_expansion</code> world model) from the
+<a href="https://github.com/castacks/asm_droan">asm_droan</a> module, in place of the
+default MIGHTY planner. Local-planner variants are expressed as named stacks
+a few include lines apart — rather than as launch-file arguments — so each
+variant is directly selectable and carries its own observed wiring baseline.</p>
 <h2 id="what-it-launches">What it launches<a class="headerlink" href="#what-it-launches" title="Permanent link">&para;</a></h2>
 <p>Identical to <a href="../full_default/"><code>full_default</code></a> except the DROAN
 include lines — <code>droan_local_planner.launch.xml</code> plus
@@ -5978,16 +5859,22 @@ behavior, logging, DDS router, gossip — matches <code>full_default</code> exac
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>airstack<span class="w"> </span>up<span class="w"> </span>--stack<span class="w"> </span>full_droan_cpu<span class="w"> </span>--sim<span class="w"> </span>isaac<span class="w"> </span>--robots<span class="w"> </span><span class="m">1</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>airstack<span class="w"> </span>ready
 </span></code></pre></div>
+<p><code>airstack up</code> adds the <code>asm_droan</code> pin from this stack's <code>modules.repos</code> to
+the checkout and syncs it when it is missing, and composes the module's
+dependency layer when it is absent (explicitly: <code>airstack module add
+https://github.com/castacks/asm_droan --version v0.1.0</code> then
+<code>airstack module lock --build</code>).</p>
 <h2 id="known-limits">Known limits<a class="headerlink" href="#known-limits" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Every layer is composed module-by-module in <code>stack.launch.xml</code>, except
   <code>interface.launch.py</code> (wrapped by design — the safety boundary) and
   <code>logging.launch.xml</code> (already a single self-contained module).</li>
-<li>CPU DROAN is the slower planner path — use <code>full_default</code> (GPU <code>droan_gl</code>)
-  unless you need to run without the GPU planner or are debugging
-  <code>disparity_expansion</code>.</li>
-<li><code>modules.repos</code> pins no external modules yet; <code>docker-compose.yaml</code> is a
-  stub (trunk compose profiles provide all services).</li>
+<li>CPU DROAN is the slower planner path — use <a href="../full_droan/"><code>full_droan</code></a>
+  (GPU <code>droan_gl</code>) unless you need to run without the GPU planner or are
+  debugging <code>disparity_expansion</code>; use the default <code>full_default</code> (MIGHTY)
+  where clearance margins in clutter matter.</li>
+<li><code>modules.repos</code> pins <code>asm_droan</code>; <code>docker-compose.yaml</code> stays an empty stub
+  (<code>airstack module lock --build</code> generates the per-module compose override).</li>
 </ul>
 <h2 id="wiringmd">wiring.md<a class="headerlink" href="#wiringmd" title="Permanent link">&para;</a></h2>
 <p>This stack's observed wiring diagram is committed at <a href="wiring/">wiring.md</a>;
@@ -6028,7 +5915,7 @@ CI drift-checks the running graph against it. Regenerate via
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../full_default/" class="md-footer__link md-footer__link--prev" aria-label="Previous: full_default">
+          <a href="../full_droan/" class="md-footer__link md-footer__link--prev" aria-label="Previous: full_droan">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -6038,7 +5925,7 @@ CI drift-checks the running graph against it. Regenerate via
                 Previous
               </span>
               <div class="md-ellipsis">
-                full_default
+                full_droan
               </div>
             </div>
           </a>

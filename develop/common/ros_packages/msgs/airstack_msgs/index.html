@@ -4035,6 +4035,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../../stacks/full_droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    full_droan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../../stacks/full_droan_cpu/" class="md-nav__link">
         
   
@@ -4071,34 +4099,6 @@
     
   
     full_macvo
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../stacks/full_mighty/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    full_mighty
   
 
     
@@ -4187,6 +4187,8 @@
       
         
           
+        
+      
         
       
         
@@ -4299,6 +4301,34 @@
     
   
     dfm2_disturbances
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../docs/modules/droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    droan
   
 
     
@@ -4789,16 +4819,6 @@
       
         
       
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
     
     
     
@@ -4868,90 +4888,6 @@
     
   
     World Model
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/world_models/disparity_expansion/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Expansion
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/world_models/disparity_graph/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/world_models/disparity_graph_cost_map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph Cost Map
   
 
     
@@ -5064,62 +5000,6 @@
     
   
     Takeoff Landing Testing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/planners/droan_local_planner/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN Local Planner
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/planners/droan_gl/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN GL
   
 
     
@@ -5958,7 +5838,7 @@
 </table>
 <h2 id="messages">Messages<a class="headerlink" href="#messages" title="Permanent link">&para;</a></h2>
 <h3 id="odometry">Odometry<a class="headerlink" href="#odometry" title="Permanent link">&para;</a></h3>
-<p>Extended odometry: <code>nav_msgs/Odometry</code> minus the covariances, plus feed-forward acceleration and jerk. This is the type the trajectory controller publishes on <code>trajectory_controller/tracking_point</code> and <code>trajectory_controller/look_ahead</code> (note: <strong>airstack_msgs</strong>, not nav_msgs — a classic type mismatch when wiring new modules; see spec §5). Consumers include the PID controller, both DROAN planners, the takeoff/landing planner, the random-walk global planner, and the drone safety monitor.</p>
+<p>Extended odometry: <code>nav_msgs/Odometry</code> minus the covariances, plus feed-forward acceleration and jerk. This is the type the trajectory controller publishes on <code>trajectory_controller/tracking_point</code> and <code>trajectory_controller/look_ahead</code> (note: <strong>airstack_msgs</strong>, not nav_msgs — a classic type mismatch when wiring new modules; see spec §5). Consumers include the PID controller, the local planners (DROAN's two planners; MIGHTY's bridge consumes odometry instead), the takeoff/landing planner, the random-walk global planner, and the drone safety monitor.</p>
 <table>
 <thead>
 <tr>
@@ -6001,7 +5881,7 @@
 </tbody>
 </table>
 <h3 id="trajectoryxyzvyaw-and-waypointxyzvyaw">TrajectoryXYZVYaw and WaypointXYZVYaw<a class="headerlink" href="#trajectoryxyzvyaw-and-waypointxyzvyaw" title="Permanent link">&para;</a></h3>
-<p>The trajectory command interchange (spec §5, <strong>onboard-only</strong>): planners send these to the trajectory controller on <code>trajectory_controller/trajectory_override</code> (replaces the current trajectory) and <code>trajectory_controller/trajectory_segment_to_add</code> (appends). Producers in the trunk: <code>droan_local_planner</code>, <code>droan_gl</code>, <code>takeoff_landing_planner</code>, and the <code>fixed_trajectory_task</code> server; the <a href="../../../../robot/ros_ws/src/local/planners/trajectory_library/">trajectory_library</a> package converts between this type and its internal <code>Trajectory</code> class.</p>
+<p>The trajectory command interchange (spec §5, <strong>onboard-only</strong>): planners send these to the trajectory controller on <code>trajectory_controller/trajectory_override</code> (replaces the current trajectory) and <code>trajectory_controller/trajectory_segment_to_add</code> (appends). Producers: the local planner modules (<code>mighty_bridge</code> publishes <code>trajectory_override</code>; <code>droan_local_planner</code> and <code>droan_gl</code> publish <code>trajectory_segment_to_add</code>), and in the trunk <code>takeoff_landing_planner</code> and the <code>fixed_trajectory_task</code> server; the <a href="../../../../robot/ros_ws/src/local/planners/trajectory_library/">trajectory_library</a> package converts between this type and its internal <code>Trajectory</code> class.</p>
 <p><code>TrajectoryXYZVYaw</code>:</p>
 <table>
 <thead>

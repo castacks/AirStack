@@ -4033,6 +4033,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../../stacks/full_droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    full_droan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../../stacks/full_droan_cpu/" class="md-nav__link">
         
   
@@ -4069,34 +4097,6 @@
     
   
     full_macvo
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../stacks/full_mighty/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    full_mighty
   
 
     
@@ -4185,6 +4185,8 @@
       
         
           
+        
+      
         
       
         
@@ -4297,6 +4299,34 @@
     
   
     dfm2_disturbances
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    droan
   
 
     
@@ -4791,16 +4821,6 @@
       
         
       
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
     
     
     
@@ -4870,90 +4890,6 @@
     
   
     World Model
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/world_models/disparity_expansion/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Expansion
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/world_models/disparity_graph/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/world_models/disparity_graph_cost_map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph Cost Map
   
 
     
@@ -5066,62 +5002,6 @@
     
   
     Takeoff Landing Testing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/planners/droan_local_planner/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN Local Planner
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/planners/droan_gl/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN GL
   
 
     
@@ -5892,15 +5772,15 @@
 
 
 <h1 id="local-packages">Local Packages<a class="headerlink" href="#local-packages" title="Permanent link">&para;</a></h1>
-<p>The <strong>local</strong> layer closes the robot's short-range sense-plan-act loop: a fast local world model built from live sensor data, a reactive local planner that avoids obstacles the global map is too slow or too coarse to capture, and the controllers that turn planned trajectories into commands for the <a href="../interface/">interface</a>. The loop is coupled through the trajectory controller's <strong>look-ahead point</strong> — the local planner plans forward from where the controller will soon be, and streams trajectory segments back to it.</p>
+<p>The <strong>local</strong> layer closes the robot's short-range sense-plan-act loop: a fast local world model built from live sensor data, a local planner that avoids obstacles the global map is too slow or too coarse to capture, and the controllers that turn planned trajectories into commands for the <a href="../interface/">interface</a>. The loop is coupled through the trajectory controller's trajectory group — the local planner streams trajectories (receding-horizon overrides for MIGHTY, look-ahead-anchored segments for DROAN) to the controller, which tracks them.</p>
 <h2 id="sub-layers">Sub-layers<a class="headerlink" href="#sub-layers" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="world_model/"><strong>World Model</strong></a> — disparity-based C-space obstacle representation for fast collision queries</li>
-<li><a href="planning/"><strong>Planning</strong></a> — the DROAN local planner: turns the global plan into short, collision-free trajectory segments</li>
+<li><a href="world_model/"><strong>World Model</strong></a> — the planner's short-range obstacle representation: MIGHTY's sliding voxel map (default) or DROAN's disparity-space C-space expansion</li>
+<li><a href="planning/"><strong>Planning</strong></a> — the local planner (MIGHTY by default; DROAN as the alternative): turns the global plan into short, collision-free trajectories</li>
 <li><a href="controls/"><strong>Controls</strong></a> — trajectory controller (tracking/look-ahead point management) and PID controller (attitude/thrust commands)</li>
 </ul>
 <h2 id="launch">Launch<a class="headerlink" href="#launch" title="Permanent link">&para;</a></h2>
-<p>Local modules ship their own canonical launch files and are composed flat by the selected stack's entry launch file (<code>stacks/&lt;name&gt;/launch/*.launch.xml</code>) — the trunk stacks include <code>takeoff_landing_planner</code>, the trajectory controller, <code>droan_gl</code>, and the PID controller directly; see <code>stacks/full_default/launch/stack.launch.xml</code> for the composed wiring.</p>
+<p>Local modules ship their own canonical launch files and are composed flat by the selected stack's entry launch file (<code>stacks/&lt;name&gt;/launch/*.launch.xml</code>) — the trunk stacks include <code>takeoff_landing_planner</code>, the trajectory controller, the local planner (<code>mighty_module.launch.xml</code> from the <code>asm_mighty</code> module in <code>full_default</code>; <code>droan_gl.launch.xml</code> from <code>asm_droan</code> in <code>full_droan</code>), and the PID controller directly; see <code>stacks/full_default/launch/stack.launch.xml</code> for the composed wiring. The planner modules are external repos pinned in each stack's <code>modules.repos</code>; <code>airstack up</code> syncs them when missing.</p>
 <h2 id="key-interchanges">Key Interchanges<a class="headerlink" href="#key-interchanges" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../interface_conventions/#4-global_plan-global-waypoint-path"><code>global_plan</code> (§4)</a> — the coarse path handed down from the global layer; the local planner's main input</li>

@@ -4313,6 +4313,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../../stacks/full_droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    full_droan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../../stacks/full_droan_cpu/" class="md-nav__link">
         
   
@@ -4349,34 +4377,6 @@
     
   
     full_macvo
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../stacks/full_mighty/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    full_mighty
   
 
     
@@ -4465,6 +4465,8 @@
       
         
           
+        
+      
         
       
         
@@ -4574,6 +4576,34 @@
     
   
     dfm2_disturbances
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    droan
   
 
     
@@ -5061,16 +5091,6 @@
       
         
       
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
     
     
     
@@ -5140,90 +5160,6 @@
     
   
     World Model
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/world_models/disparity_expansion/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Expansion
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/world_models/disparity_graph/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/world_models/disparity_graph_cost_map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph Cost Map
   
 
     
@@ -5336,62 +5272,6 @@
     
   
     Takeoff Landing Testing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/planners/droan_local_planner/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN Local Planner
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/planners/droan_gl/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN GL
   
 
     
@@ -6143,7 +6023,7 @@
 <h1 id="adding-a-world-model-and-planner">Adding a World Model and Planner<a class="headerlink" href="#adding-a-world-model-and-planner" title="Permanent link">&para;</a></h1>
 <p>AirStack has two planner slots — and behind each, a world-model slot. The first decision is which one you are filling: a local planner (Path A), a global planner (Path B), or a world model paired with a planner (Path C):</p>
 <ul>
-<li><strong>Local planner</strong> — a perpetual node plus a <code>NavigateTask</code> server that consumes the <a href="../interface_conventions/#4-global_plan-global-waypoint-path"><code>global_plan</code> (spec §4)</a>, a world model input (disparity or point clouds), and the trajectory controller's <code>look_ahead</code>/<code>tracking_point</code>, and emits short collision-free segments on the <a href="../interface_conventions/#5-trajectory-group-the-trajectory-controllers-contract-onboard-only">trajectory-controller surface (spec §5)</a> (<code>trajectory_controller/trajectory_segment_to_add</code>, <code>airstack_msgs/msg/TrajectoryXYZVYaw</code>). Reference: <a href="../../../../robot/ros_ws/src/local/planners/droan_local_planner/">DROAN</a> (<a href="../local/planning/">overview</a>). Spec §5 is <strong>onboard-only</strong> — a local planner can never run offboard.</li>
+<li><strong>Local planner</strong> — a perpetual node plus a <code>NavigateTask</code> server that consumes the <a href="../interface_conventions/#4-global_plan-global-waypoint-path"><code>global_plan</code> (spec §4)</a>, a world model input (a lidar voxel map, disparity, or point clouds), and the trajectory controller's <code>look_ahead</code>/<code>tracking_point</code>, and emits short collision-free trajectories on the <a href="../interface_conventions/#5-trajectory-group-the-trajectory-controllers-contract-onboard-only">trajectory-controller surface (spec §5)</a> (<code>trajectory_controller/trajectory_segment_to_add</code> or <code>trajectory_override</code>, <code>airstack_msgs/msg/TrajectoryXYZVYaw</code>). References: the default <a href="../../../modules/mighty/">MIGHTY</a> module's <code>mighty_bridge</code> (a thin adapter serving <code>NavigateTask</code> in front of an existing planner) and <a href="../../../modules/droan/">DROAN</a> (a native AirStack planner; <a href="../local/planning/">overview</a>). Spec §5 is <strong>onboard-only</strong> — a local planner can never run offboard.</li>
 <li>
 <p><strong>Global planner</strong> — a <a href="../tasks/">task executor</a>: an action server at <code>tasks/&lt;task_name&gt;</code> (<a href="../interface_conventions/#8-tasks-task-action-servers">spec §8</a>) that plans only while a goal is active, publishes the coarse path on <a href="../interface_conventions/#4-global_plan-global-waypoint-path"><code>global_plan</code> (spec §4)</a>, and delegates flying to the local planner via <code>tasks/navigate</code>. Reference: <a href="../../../../robot/ros_ws/src/global/planners/random_walk/">Random Walk</a> (<a href="../global/planning/">overview</a>). <code>global_plan</code> is the one interchange that may cross a machine boundary, so a global planner may run offboard (<code>lite_offload_global</code>).</p>
 </li>
@@ -6152,8 +6032,8 @@
 </li>
 </ul>
 <h2 id="world-models-a-matched-pair-locally-a-specd-interchange-globally">World models: a matched pair locally, a spec'd interchange globally<a class="headerlink" href="#world-models-a-matched-pair-locally-a-specd-interchange-globally" title="Permanent link">&para;</a></h2>
-<p><strong>Local world models</strong> feed the local planner a fast short-range obstacle representation. The reference is the disparity pipeline (<a href="../local/world_model/">overview</a>): <a href="../../../../robot/ros_ws/src/local/world_models/disparity_expansion/">disparity_expansion</a> (C-space expansion of stereo disparity by the robot radius) → <a href="../../../../robot/ros_ws/src/local/world_models/disparity_graph/">disparity_graph</a> (rolling window of expanded-disparity keyframes with camera poses) → <a href="../../../../robot/ros_ws/src/local/world_models/disparity_graph_cost_map/">disparity_graph_cost_map</a> (a <code>cost_map_interface</code> plugin the CPU DROAN planner loads via its <code>cost_map</code> parameter to score candidate trajectories). The GPU planner <code>droan_gl</code> does the expansion and graph internally on the GPU and consumes raw disparity directly.</p>
-<p><strong>Be honest about the local contract: there isn't a spec-level one.</strong> Unlike <code>global_plan</code> or the trajectory group, the local world-model ↔ planner interface is <strong>not</strong> an interchange in the <a href="../interface_conventions/">Interface Conventions Specification</a> — a local planner and its world model are a <strong>matched pair</strong>, wired together in the stack entry. Compare the reference stacks: <code>full_default</code> includes <code>droan_gl</code> alone (disparity in from <code>perception/stereo_image_proc/disparity</code>, world model internal), while <code>full_droan_cpu</code> includes <code>droan_local_planner</code> <strong>plus</strong> <code>disparity_expansion</code>, the planner consuming the expansion clouds by relative name in the shared <code>droan</code> namespace. Adding a new local world model therefore usually means adapting a planner to consume it (e.g. implementing the <code>cost_map_interface</code> plugin API) or bringing a paired planner with it.</p>
+<p><strong>Local world models</strong> feed the local planner a fast short-range obstacle representation (<a href="../local/world_model/">overview</a>). The default is MIGHTY's acl-mapping voxel map (<code>global_mapper_ros</code>, in the <a href="https://github.com/castacks/asm_mighty">asm_mighty</a> module): a sliding-window voxel map of occupied and unknown space built from the filtered lidar cloud, consumed by the planner over an exposed grid-topic seam. The other worked example is DROAN's disparity pipeline (in the <a href="https://github.com/castacks/asm_droan">asm_droan</a> module): <code>disparity_expansion</code> (C-space expansion of stereo disparity by the robot radius) → <code>disparity_graph</code> (rolling window of expanded-disparity keyframes with camera poses) → <code>disparity_graph_cost_map</code> (a <code>cost_map_interface</code> plugin the CPU DROAN planner loads via its <code>cost_map</code> parameter to score candidate trajectories). The GPU planner <code>droan_gl</code> does the expansion and graph internally on the GPU and consumes raw disparity directly.</p>
+<p><strong>Be honest about the local contract: there isn't a spec-level one.</strong> Unlike <code>global_plan</code> or the trajectory group, the local world-model ↔ planner interface is <strong>not</strong> an interchange in the <a href="../interface_conventions/">Interface Conventions Specification</a> — a local planner and its world model are a <strong>matched pair</strong>, wired together in the stack entry. Compare the reference stacks: <code>full_default</code> includes one <code>mighty_module.launch.xml</code> (mapper + planner + bridge as a unit, the mapper→planner grid seam exposed as launch args), <code>full_droan</code> includes <code>droan_gl</code> alone (disparity in from <code>perception/stereo_image_proc/disparity</code>, world model internal), while <code>full_droan_cpu</code> includes <code>droan_local_planner</code> <strong>plus</strong> <code>disparity_expansion</code>, the planner consuming the expansion clouds by relative name in the shared <code>droan</code> namespace. Adding a new local world model therefore usually means adapting a planner to consume it (e.g. implementing DROAN's <code>cost_map_interface</code> plugin API, or feeding MIGHTY's <code>mighty_occupancy_grid_topic</code> seam) or bringing a paired planner with it.</p>
 <p><strong>Global world models</strong> <em>are</em> spec'd: <a href="../interface_conventions/#3-global_map-global-world-model"><code>global_map</code> (spec §3)</a> — today the <a href="../../../robot/ros_ws/src/global/world_models/vdb_mapping_ros2/README.md">vdb_mapping_ros2</a> topics (<code>vdb_mapping/vdb_map_visualization</code> is the de-facto interchange the reference global planner consumes, plus the update-grid and point-cloud exports). A new global world model that produces the §3 surface drops in for the global planner without touching it.</p>
 <p>This guide assumes you know the <a href="../">layered architecture</a> and have flown a stack in sim. Link the <a href="../interface_conventions/">Interface Conventions Specification</a> from your README instead of restating its tables.</p>
 <h2 id="package-or-module">Package or module?<a class="headerlink" href="#package-or-module" title="Permanent link">&para;</a></h2>
@@ -6171,12 +6051,12 @@
 <p>Inputs: <code>global_plan</code> (§4, <code>nav_msgs/Path</code>, <code>map</code> frame), your world model topic, <code>odometry_conversion/odometry</code> (<a href="../interface_conventions/#2-odometry-primary-state-estimate">§2</a>), and the controller's <code>look_ahead</code> (§5 — plan from the look-ahead point, not the current pose). Output: <code>trajectory_controller/trajectory_segment_to_add</code> (§5). Serve <code>NavigateTask</code> at <code>tasks/navigate</code> (goal/feedback/result fields in <a href="../tasks/#navigatetask">Task Executors → NavigateTask</a>); the <a href="https://github.com/castacks/AirStack/blob/develop/.agents/skills/add-task-executor/SKILL.md">add-task-executor skill</a> covers the four action callbacks. Emitting <code>trajectory_segment_to_add</code> (rather than commanding the interface directly) is what buys you arming, safety monitoring, and takeover for free — the spec's safety floor. For candidate-trajectory generation, scoring helpers, and <code>TrajectoryXYZVYaw</code> conversion, use the <a href="../../../../robot/ros_ws/src/local/planners/trajectory_library/">trajectory_library</a> instead of rolling your own.</p>
 <p><strong>Verify:</strong> with the node running under a full stack, <code>docker exec airstack-robot-desktop-1 bash -c "sws &amp;&amp; ros2 topic info /robot_1/trajectory_controller/trajectory_segment_to_add"</code> lists your node as a publisher and the trajectory controller as the subscriber, and <code>ros2 action list</code> shows <code>/robot_1/tasks/navigate</code>.</p>
 <h3 id="3-wire-it-into-a-stack">3. Wire it into a stack<a class="headerlink" href="#3-wire-it-into-a-stack" title="Permanent link">&para;</a></h3>
-<p>Planner variants are named stacks, not launch arguments — the <a href="../../../development/stacks/#the-single-locus-rule-and-its-lint">single-locus rule</a> puts every wiring deviation in the stack entry file. The worked swap example is <a href="../../../../stacks/full_droan_cpu/">full_droan_cpu</a>: byte-identical to <code>full_default</code> except the local-planner block, where <code>stacks/full_droan_cpu/launch/stack.launch.xml</code> replaces the single <code>droan_gl.launch.xml</code> include with two lines:</p>
+<p>Planner variants are named stacks, not launch arguments — the <a href="../../../development/stacks/#the-single-locus-rule-and-its-lint">single-locus rule</a> puts every wiring deviation in the stack entry file. The worked swap examples are <a href="../../../../stacks/full_droan/">full_droan</a> — byte-identical to <code>full_default</code> except the local-planner block, where the MIGHTY module's <code>mighty_module.launch.xml</code> include becomes the <code>asm_droan</code> module's <code>droan_gl.launch.xml</code> — and <a href="../../../../stacks/full_droan_cpu/">full_droan_cpu</a>, where that block is two lines:</p>
 <div class="language-xml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">&lt;include</span><span class="w"> </span><span class="na">file=</span><span class="s">"$(find-pkg-share droan_local_planner)/launch/droan_local_planner.launch.xml"</span><span class="w"> </span><span class="nt">/&gt;</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">&lt;include</span><span class="w"> </span><span class="na">file=</span><span class="s">"$(find-pkg-share disparity_expansion)/launch/disparity_expansion.launch.xml"</span><span class="w"> </span><span class="nt">/&gt;</span>
 </span></code></pre></div>
-<p>Do the same for yours: <code>airstack stack new full_default full_my_planner</code>, then in <code>stacks/full_my_planner/launch/stack.launch.xml</code> replace the DROAN include with your planner's include (plus any world-model include it needs). Only deviations from canonical names appear as include args — see how <code>full_macvo</code> passes exactly one (<code>droan_gl_disparity_topic</code>). For a planner that ships as an <strong>external module</strong>, the worked example is <a href="../../../../stacks/full_mighty/">full_mighty</a>: its <code>modules.repos</code> pins the <a href="../../../modules/mighty/">mighty module</a> (planner + voxel world model + bridge), and the local-planner block is one <code>mighty_module.launch.xml</code> include.</p>
-<p><strong>Verify:</strong> <code>airstack up --stack full_my_planner --sim isaac --robots 1 &amp;&amp; airstack ready</code> succeeds and <code>ros2 node list</code> shows your planner in place of DROAN.</p>
+<p>Do the same for yours: <code>airstack stack new full_default full_my_planner</code>, then in <code>stacks/full_my_planner/launch/stack.launch.xml</code> replace the MIGHTY include with your planner's include (plus any world-model include it needs). Only deviations from canonical names appear as include args — see how <code>full_macvo</code> passes exactly one (<code>droan_gl_disparity_topic</code>). Every reference planner ships as an <strong>external module</strong>: the stack's <code>modules.repos</code> pins it (<code>full_default</code> pins the <a href="../../../modules/mighty/">mighty module</a>, <code>full_droan</code> the <a href="../../../modules/droan/">droan module</a>) and <code>airstack up</code> syncs the pin when it is missing — do the same for a module-shipped planner of yours.</p>
+<p><strong>Verify:</strong> <code>airstack up --stack full_my_planner --sim isaac --robots 1 &amp;&amp; airstack ready</code> succeeds and <code>ros2 node list</code> shows your planner in place of the <code>mighty/*</code> nodes.</p>
 <h3 id="4-verify-with-wiring-and-a-flight">4. Verify with wiring and a flight<a class="headerlink" href="#4-verify-with-wiring-and-a-flight" title="Permanent link">&para;</a></h3>
 <ol>
 <li>Snapshot and diff the wiring: <code>airstack test -m wiring --stack full_my_planner</code> regenerates <code>stacks/full_my_planner/wiring.md</code>; the diff against <code>full_default</code> should be exactly your planner block. <code>airstack stack diff full_default full_my_planner</code> compares the generated wiring directly.</li>
@@ -6205,11 +6085,11 @@
 <h3 id="2-produce-the-right-surface">2. Produce the right surface<a class="headerlink" href="#2-produce-the-right-surface" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Global:</strong> produce the <a href="../interface_conventions/#3-global_map-global-world-model"><code>global_map</code> (spec §3)</a> surface — at minimum the visualization-topic interchange the reference global planner consumes today — from your sensor input (the VDB map takes the filtered LiDAR cloud). Conform and the existing global planner needs no changes.</li>
-<li><strong>Local:</strong> there is no spec surface to hit — produce the representation your <strong>paired planner</strong> consumes, and treat the disparity pipeline as the worked example of the pairing: <code>disparity_expansion</code> publishes expansion clouds the CPU DROAN planner reads by relative name, while the graph + cost map reach the planner as a <code>cost_map_interface</code> plugin selected by its <code>cost_map</code> parameter. If you keep DROAN, implementing that plugin API is the smallest integration; a different planner means adapting it to your representation (or writing one — Path A).</li>
+<li><strong>Local:</strong> there is no spec surface to hit — produce the representation your <strong>paired planner</strong> consumes. Two worked pairings: MIGHTY consumes occupied/unknown voxel-centre clouds on its <code>mighty_occupancy_grid_topic</code> / <code>mighty_unknown_grid_topic</code> launch args, so a world model that publishes those (or a constraint node interposed on the mapper→planner seam) needs no planner change; DROAN's <code>disparity_expansion</code> publishes expansion clouds the CPU planner reads by relative name, while the graph + cost map reach it as a <code>cost_map_interface</code> plugin selected by its <code>cost_map</code> parameter. A different planner means adapting it to your representation (or writing one — Path A).</li>
 </ul>
 <p><strong>Verify (local):</strong> with the pair running, <code>ros2 topic info</code> on your world-model output lists the planner as a subscriber (or the planner logs loading your cost-map plugin). <strong>Verify (global):</strong> <code>ros2 topic info /robot_1/vdb_mapping/vdb_map_visualization</code>-equivalent shows your node as publisher and the global planner as subscriber.</p>
 <h3 id="3-wire-the-pair-into-a-stack">3. Wire the pair into a stack<a class="headerlink" href="#3-wire-the-pair-into-a-stack" title="Permanent link">&para;</a></h3>
-<p>A local world model and its planner are swapped <strong>together</strong> — <a href="../../../../stacks/full_droan_cpu/">full_droan_cpu</a> is the template, replacing <code>full_default</code>'s single <code>droan_gl</code> include with the <code>droan_local_planner</code> + <code>disparity_expansion</code> pair (the two-line swap shown in Path A step 3). Do the same: <code>airstack stack new full_default full_my_wm</code>, then swap in your world-model include plus its paired planner's include in <code>stacks/full_my_wm/launch/stack.launch.xml</code>. For a global world model, replace the <code>vdb_mapping_ros2</code> include (and its <code>config</code> arg) with yours.</p>
+<p>A local world model and its planner are swapped <strong>together</strong> — <a href="../../../../stacks/full_droan_cpu/">full_droan_cpu</a> is the template, replacing <code>full_default</code>'s single MIGHTY include (mapper + planner as one unit) with the <code>droan_local_planner</code> + <code>disparity_expansion</code> pair (the two-line swap shown in Path A step 3). Do the same: <code>airstack stack new full_default full_my_wm</code>, then swap in your world-model include plus its paired planner's include in <code>stacks/full_my_wm/launch/stack.launch.xml</code>. For a global world model, replace the <code>vdb_mapping_ros2</code> include (and its <code>config</code> arg) with yours.</p>
 <p><strong>Verify:</strong> <code>airstack up --stack full_my_wm --sim isaac --robots 1 &amp;&amp; airstack ready</code>; <code>ros2 node list</code> shows the new pair.</p>
 <h3 id="4-verify-with-wiring-and-a-flight_2">4. Verify with wiring and a flight<a class="headerlink" href="#4-verify-with-wiring-and-a-flight_2" title="Permanent link">&para;</a></h3>
 <p>Same as Path A step 4: <code>airstack test -m wiring --stack full_my_wm</code>, <code>airstack stack diff full_default full_my_wm</code> (the delta is exactly the pair swap), <code>airstack doctor --live --stack full_my_wm</code>, then <code>airstack test -m waypoint_flight</code> — a waypoint route through obstacles is what actually consults the world model. For a global world model, also confirm <code>ros2 topic echo /robot_1/global_plan --once</code> updates while an exploration-type task runs against your map.</p>

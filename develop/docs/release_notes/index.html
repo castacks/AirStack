@@ -4016,6 +4016,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../stacks/full_droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    full_droan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../stacks/full_droan_cpu/" class="md-nav__link">
         
   
@@ -4052,34 +4080,6 @@
     
   
     full_macvo
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../stacks/full_mighty/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    full_mighty
   
 
     
@@ -4168,6 +4168,8 @@
       
         
           
+        
+      
         
       
         
@@ -4277,6 +4279,34 @@
     
   
     dfm2_disturbances
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../modules/droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    droan
   
 
     
@@ -4764,16 +4794,6 @@
       
         
       
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
     
     
     
@@ -4843,90 +4863,6 @@
     
   
     World Model
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../robot/ros_ws/src/local/world_models/disparity_expansion/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Expansion
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../robot/ros_ws/src/local/world_models/disparity_graph/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../robot/ros_ws/src/local/world_models/disparity_graph_cost_map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph Cost Map
   
 
     
@@ -5039,62 +4975,6 @@
     
   
     Takeoff Landing Testing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../robot/ros_ws/src/local/planners/droan_local_planner/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN Local Planner
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../robot/ros_ws/src/local/planners/droan_gl/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN GL
   
 
     
@@ -5878,6 +5758,39 @@ its own notes. -->
 <ul>
 <li>
 <p>Module catalog synced from the registry (<code>sync-modules-index</code>): <code>full_mighty</code>, <code>mighty</code>.</p>
+</li>
+<li>
+<p><strong>MIGHTY is the default local planner; DROAN moved to the <code>asm_droan</code>
+  module.</strong> The <code>full_default</code> stack (and the lite stacks <code>lite_default</code> /
+  <code>lite_offload_global</code>) now include the MIGHTY map-based planner from the
+  <a href="../modules/mighty/"><code>mighty</code></a> module (planner + acl-mapping voxel world
+  model + NavigateTask bridge, CPU-only, lidar-fed) in place of the GPU
+  <code>droan_gl</code> node. The judged obstacle-route comparison behind the change is
+  in the module README: DROAN's reactive, map-free design could not clear a
+  1.0 m clearance gate in dense clutter (absorbing hover states, close-quarters
+  near-contacts), MIGHTY passed 5/5 with 1.59–1.65 m clearances behind the
+  same controller. The six DROAN packages (<code>droan_gl</code>, <code>droan_local_planner</code>,
+  <code>disparity_expansion</code>, <code>disparity_graph</code>, <code>disparity_graph_cost_map</code>,
+  <code>cost_map_interface</code>) left trunk for
+  <a href="https://github.com/castacks/asm_droan">castacks/asm_droan</a> (history
+  preserved; registered as the <a href="../modules/droan/"><code>droan</code></a> module). The
+  previous default topology is kept as the new
+  <a href="../../stacks/full_droan/"><code>full_droan</code></a> reference stack (it
+  inherits <code>full_default</code>'s wiring baseline); <code>full_droan_cpu</code> and
+  <code>full_macvo</code> pin <code>asm_droan</code>; the opt-in <code>full_mighty</code> stack was folded into
+  <code>full_default</code>. Trunk's robot image swaps the <code>droan_gl</code> GL link deps for
+  MIGHTY's <code>nlohmann-json3-dev</code> header dep, so the default stack runs with no
+  composed module layer (asm_mighty <strong>v0.1.4</strong>, compat <code>&gt;=0.21.0-dev.10</code>).</p>
+</li>
+<li>
+<p><strong><code>airstack up</code> reconciles the selected stack's module pins.</strong> A stack's
+  <code>modules.repos</code> is now honoured at launch: pinned modules missing from the
+  checkout are added and synced, differing local pins are kept and named, and
+  uncomposed dependency layers are built (<code>airstack module lock --build</code>,
+  unless <code>AIRSTACK_NO_IMAGE_BUILD=1</code>). <code>--dry-run</code> / <code>--config-only</code> only
+  report; <code>AIRSTACK_NO_STACK_MODULE_SYNC=1</code> opts out. Previously a
+  module-pinned stack required a manual <code>airstack module add</code> first — which
+  the module-pinned default stack would have made a first-run failure.</p>
 </li>
 <li>
 <p><strong>Fixed: post-release main→develop sync no longer skips.</strong> The

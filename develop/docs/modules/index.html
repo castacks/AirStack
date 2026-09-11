@@ -4033,6 +4033,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../stacks/full_droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    full_droan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../stacks/full_droan_cpu/" class="md-nav__link">
         
   
@@ -4069,34 +4097,6 @@
     
   
     full_macvo
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../stacks/full_mighty/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    full_mighty
   
 
     
@@ -4187,6 +4187,8 @@
       
         
           
+        
+      
         
       
         
@@ -4299,6 +4301,34 @@
     
   
     dfm2_disturbances
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    droan
   
 
     
@@ -4789,16 +4819,6 @@
       
         
       
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
     
     
     
@@ -4868,90 +4888,6 @@
     
   
     World Model
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../robot/ros_ws/src/local/world_models/disparity_expansion/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Expansion
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../robot/ros_ws/src/local/world_models/disparity_graph/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../robot/ros_ws/src/local/world_models/disparity_graph_cost_map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph Cost Map
   
 
     
@@ -5064,62 +5000,6 @@
     
   
     Takeoff Landing Testing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../robot/ros_ws/src/local/planners/droan_local_planner/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN Local Planner
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../robot/ros_ws/src/local/planners/droan_gl/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN GL
   
 
     
@@ -5906,6 +5786,14 @@ directory and is never hand-edited.</p>
 <td><a href="https://github.com/castacks/asm_dfm2_disturbances">repo</a></td>
 </tr>
 <tr>
+<td><a href="droan/">droan</a></td>
+<td>DROAN disparity-space local obstacle avoidance — the GPU (OpenGL) droan_gl planner and the CPU droan_local_planner with its disparity_expansion / disparity_graph / disparity_graph_cost_map world model, serving AirStack's NavigateTask / trajectory_controller seam from a stereo disparity image</td>
+<td><code>ros_package</code></td>
+<td><a href="&#109;&#97;&#105;&#108;&#116;&#111;&#58;&#97;&#106;&#111;&#110;&#103;&#64;&#97;&#110;&#100;&#114;&#101;&#119;&#46;&#99;&#109;&#117;&#46;&#101;&#100;&#117;">&#97;&#106;&#111;&#110;&#103;&#64;&#97;&#110;&#100;&#114;&#101;&#119;&#46;&#99;&#109;&#117;&#46;&#101;&#100;&#117;</a></td>
+<td><code>&gt;=0.21.0-dev.10 &lt;0.22.0</code></td>
+<td><a href="https://github.com/castacks/asm_droan">repo</a> · <a href="../../stacks/full_droan/">full_droan</a> · <a href="../../stacks/full_droan_cpu/">full_droan_cpu</a> · <a href="../../stacks/full_macvo/">full_macvo</a></td>
+</tr>
+<tr>
 <td><a href="macvo/">macvo</a></td>
 <td>MAC-VO learned stereo visual odometry (ICRA 2025 best paper) — macvo_ros2 wrapper around the MAC-VO network, publishing odometry, a covariance-aware point cloud, and the disparity image the local planner can consume</td>
 <td><code>ros_package</code></td>
@@ -5915,11 +5803,11 @@ directory and is never hand-edited.</p>
 </tr>
 <tr>
 <td><a href="mighty/">mighty</a></td>
-<td>MIGHTY Hermite-spline local planner (MIT ACL, RA-L 2026) with its acl-mapping voxel world model and a bridge to AirStack's NavigateTask / trajectory_controller seam — a map-based replacement for the DROAN local planner</td>
+<td>MIGHTY Hermite-spline local planner (MIT ACL, RA-L 2026) with its acl-mapping voxel world model and a bridge to AirStack's NavigateTask / trajectory_controller seam — AirStack's default local planner (the map-based replacement for DROAN)</td>
 <td><code>ros_package</code></td>
 <td><a href="&#109;&#97;&#105;&#108;&#116;&#111;&#58;&#97;&#106;&#111;&#110;&#103;&#64;&#97;&#110;&#100;&#114;&#101;&#119;&#46;&#99;&#109;&#117;&#46;&#101;&#100;&#117;">&#97;&#106;&#111;&#110;&#103;&#64;&#97;&#110;&#100;&#114;&#101;&#119;&#46;&#99;&#109;&#117;&#46;&#101;&#100;&#117;</a></td>
-<td><code>&gt;=0.20.0-alpha.16 &lt;0.21.0</code></td>
-<td><a href="https://github.com/castacks/asm_mighty">repo</a> · <a href="../../stacks/full_mighty/">full_mighty</a></td>
+<td><code>&gt;=0.21.0-dev.10 &lt;0.22.0</code></td>
+<td><a href="https://github.com/castacks/asm_mighty">repo</a> · <a href="../../stacks/full_default/">full_default</a></td>
 </tr>
 <tr>
 <td><a href="optitrack/">optitrack</a></td>
@@ -5950,31 +5838,31 @@ The stacks below are the ones REGISTERED in the index; the site nav's
 <tbody>
 <tr>
 <td><a href="../../stacks/full_default/">full_default</a></td>
-<td>The current full-autonomy topology as a self-contained stack folder — the baseline most users start from and the stack other stacks are copied from</td>
-<td><code>&gt;=0.19.0-alpha.18 &lt;0.21.0</code></td>
-<td><a href="../../stacks/full_default/wiring/">wiring.md</a></td>
+<td>The full-autonomy topology as a self-contained stack folder, with the MIGHTY map-based local planner (asm_mighty module: planner + acl-mapping voxel world model + NavigateTask bridge) — the baseline most users start from, the default when no stack is selected, and the stack other stacks are copied from</td>
+<td><code>&gt;=0.21.0-dev.10 &lt;0.22.0</code></td>
+<td><em>not committed yet</em></td>
 <td><a href="https://github.com/castacks/airstack-modules-index/blob/main/stacks/full_default.yaml">full_default.yaml</a></td>
 </tr>
 <tr>
+<td><a href="../../stacks/full_droan/">full_droan</a></td>
+<td>Full autonomy with the GPU DROAN reactive local planner (droan_gl, asm_droan module) in place of the default MIGHTY planner — the 0.20.x full_default topology kept as a named stack for depth-camera-only vehicles and legacy comparisons</td>
+<td><code>&gt;=0.21.0-dev.10 &lt;0.22.0</code></td>
+<td><a href="../../stacks/full_droan/wiring/">wiring.md</a></td>
+<td><a href="https://github.com/castacks/airstack-modules-index/blob/main/stacks/full_droan.yaml">full_droan.yaml</a></td>
+</tr>
+<tr>
 <td><a href="../../stacks/full_droan_cpu/">full_droan_cpu</a></td>
-<td>Full autonomy with the CPU DROAN local planner (droan_local_planner + live disparity_expansion world model) instead of the GPU droan_gl node</td>
-<td><code>&gt;=0.19.0-alpha.18 &lt;0.21.0</code></td>
+<td>Full autonomy with the CPU DROAN local planner (droan_local_planner + live disparity_expansion world model, asm_droan module) in place of the default MIGHTY planner</td>
+<td><code>&gt;=0.21.0-dev.10 &lt;0.22.0</code></td>
 <td><a href="../../stacks/full_droan_cpu/wiring/">wiring.md</a></td>
 <td><a href="https://github.com/castacks/airstack-modules-index/blob/main/stacks/full_droan_cpu.yaml">full_droan_cpu.yaml</a></td>
 </tr>
 <tr>
 <td><a href="../../stacks/full_macvo/">full_macvo</a></td>
-<td>Full autonomy with MAC-VO learned stereo visual odometry as the disparity source for the local planner (droan_gl consumes /$ROBOT_NAME/perception/macvo/disparity)</td>
-<td><code>&gt;=0.19.0-alpha.18 &lt;0.21.0</code></td>
+<td>Full autonomy with MAC-VO learned stereo visual odometry as the disparity source for the DROAN local planner (droan_gl, asm_droan module, consumes /$ROBOT_NAME/perception/macvo/disparity)</td>
+<td><code>&gt;=0.21.0-dev.10 &lt;0.22.0</code></td>
 <td><a href="../../stacks/full_macvo/wiring/">wiring.md</a></td>
 <td><a href="https://github.com/castacks/airstack-modules-index/blob/main/stacks/full_macvo.yaml">full_macvo.yaml</a></td>
-</tr>
-<tr>
-<td><a href="../../stacks/full_mighty/">full_mighty</a></td>
-<td>Full autonomy with the local planning layer swapped to the MIGHTY module (mighty planner + acl-mapping voxel world model fed by the filtered Ouster cloud + NavigateTask bridge) in place of droan_gl; everything else is identical to full_default</td>
-<td><code>&gt;=0.20.0-alpha.16 &lt;0.21.0</code></td>
-<td><em>not committed yet</em></td>
-<td><a href="https://github.com/castacks/airstack-modules-index/blob/main/stacks/full_mighty.yaml">full_mighty.yaml</a></td>
 </tr>
 </tbody>
 </table>

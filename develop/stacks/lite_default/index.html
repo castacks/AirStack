@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://docs.theairlab.org/docs/develop/stacks/lite_default/">
       
       
-        <link rel="prev" href="../full_mighty/">
+        <link rel="prev" href="../full_macvo/">
       
       
         <link rel="next" href="../lite_offload_global/">
@@ -4035,6 +4035,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../full_droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    full_droan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../full_droan_cpu/" class="md-nav__link">
         
   
@@ -4071,34 +4099,6 @@
     
   
     full_macvo
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../full_mighty/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    full_mighty
   
 
     
@@ -4301,6 +4301,8 @@
       
         
       
+        
+      
     
     
     
@@ -4401,6 +4403,34 @@
     
   
     dfm2_disturbances
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/modules/droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    droan
   
 
     
@@ -4891,16 +4921,6 @@
       
         
       
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
     
     
     
@@ -4970,90 +4990,6 @@
     
   
     World Model
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../robot/ros_ws/src/local/world_models/disparity_expansion/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Expansion
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../robot/ros_ws/src/local/world_models/disparity_graph/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../robot/ros_ws/src/local/world_models/disparity_graph_cost_map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph Cost Map
   
 
     
@@ -5166,62 +5102,6 @@
     
   
     Takeoff Landing Testing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../robot/ros_ws/src/local/planners/droan_local_planner/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN Local Planner
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../robot/ros_ws/src/local/planners/droan_gl/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN GL
   
 
     
@@ -5985,8 +5865,9 @@ cannot host.</p>
 <li><strong>Interface</strong> (wrapped by design) plus <strong>Sensors, Perception, Local,
   Behavior — all flat</strong>: module launch files with canonical defaults, the
   same blocks as <code>full_default</code> (LiDAR filter, stereo_image_proc + topic
-  keepalive, takeoff/land task server, fixed-trajectory task server, GPU
-  DROAN planner, trajectory controller, PID controller, safety monitor).</li>
+  keepalive, takeoff/land task server, fixed-trajectory task server, the
+  MIGHTY local planner from the <code>asm_mighty</code> module, trajectory controller,
+  PID controller, safety monitor).</li>
 <li><strong>Cross-domain extras</strong>: the robot↔GCS DDS router (the shared
   <code>autonomy_bringup/config/dds_router.yaml</code> allowlist) and the gossip
   coordination layer.</li>
@@ -6017,19 +5898,20 @@ when <code>AIRSTACK_STACK_DIR</code> is set.</p>
 <h2 id="known-limits">Known limits<a class="headerlink" href="#known-limits" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>No global planner</strong>: <code>global_plan</code> has no publisher in this stack.
-  DROAN's navigate task still works with direct goals; exploration-style
+  MIGHTY's navigate task still works with direct goals; exploration-style
   missions need <code>full_default</code> or the <code>lite_offload_global</code> split.</li>
 <li>All layers are flattened in <code>launch/stack.launch.xml</code> (same layout as
   <code>full_default</code>); the interface stays a wrapped include by design, so read
-  <a href="wiring/">wiring.md</a> for the observed MAVROS wiring.</li>
-<li><code>modules.repos</code> pins no external modules yet; every package is
-  trunk-resident.</li>
-<li><code>docker-compose.yaml</code> is a stub — per-stack image composition arrives with
-  the first module pins; trunk compose profiles provide all services.</li>
+  the wiring snapshot for the observed MAVROS wiring.</li>
+<li><code>modules.repos</code> pins <code>asm_mighty</code> (<code>airstack up</code> syncs it when missing);
+  the module has no image-level deps, so <code>docker-compose.yaml</code> is a stub and
+  trunk compose profiles provide all services.</li>
 </ul>
 <h2 id="wiringmd">wiring.md<a class="headerlink" href="#wiringmd" title="Permanent link">&para;</a></h2>
-<p>This stack's observed wiring diagram is committed at <a href="wiring/">wiring.md</a>;
-CI drift-checks the running graph against it. Regenerate via
+<p>This stack's observed wiring diagram lives at <code>wiring.md</code> once a validated
+wiring-snapshot run commits it; CI then drift-checks the running graph
+against it. Until then the snapshot test passes with a bootstrap instruction
+naming the observed file to validate and copy in. Generate or regenerate via
 <code>airstack test -m wiring --stack lite_default</code>.</p>
 
 
@@ -6066,7 +5948,7 @@ CI drift-checks the running graph against it. Regenerate via
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../full_mighty/" class="md-footer__link md-footer__link--prev" aria-label="Previous: full_mighty">
+          <a href="../full_macvo/" class="md-footer__link md-footer__link--prev" aria-label="Previous: full_macvo">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -6076,7 +5958,7 @@ CI drift-checks the running graph against it. Regenerate via
                 Previous
               </span>
               <div class="md-ellipsis">
-                full_mighty
+                full_macvo
               </div>
             </div>
           </a>

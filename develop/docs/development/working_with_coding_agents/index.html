@@ -4174,6 +4174,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../stacks/full_droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    full_droan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../stacks/full_droan_cpu/" class="md-nav__link">
         
   
@@ -4210,34 +4238,6 @@
     
   
     full_macvo
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../stacks/full_mighty/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    full_mighty
   
 
     
@@ -4326,6 +4326,8 @@
       
         
           
+        
+      
         
       
         
@@ -4435,6 +4437,34 @@
     
   
     dfm2_disturbances
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modules/droan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    droan
   
 
     
@@ -4922,16 +4952,6 @@
       
         
       
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
     
     
     
@@ -5001,90 +5021,6 @@
     
   
     World Model
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../robot/ros_ws/src/local/world_models/disparity_expansion/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Expansion
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../robot/ros_ws/src/local/world_models/disparity_graph/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../robot/ros_ws/src/local/world_models/disparity_graph_cost_map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Disparity Graph Cost Map
   
 
     
@@ -5197,62 +5133,6 @@
     
   
     Takeoff Landing Testing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../robot/ros_ws/src/local/planners/droan_local_planner/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN Local Planner
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../robot/ros_ws/src/local/planners/droan_gl/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DROAN GL
   
 
     
@@ -6051,7 +5931,7 @@
 </table>
 <p>The full catalog with one-line triggers is the table in <a href="https://github.com/castacks/AirStack/blob/develop/.agents/README.md"><code>.agents/README.md</code></a> (mirrored in <code>AGENTS.md</code>). Two other steering moves that cost you one sentence each:</p>
 <ul>
-<li><strong>Name the reference implementation.</strong> <code>AGENTS.md</code> lists one well-structured package per module type (e.g. <code>droan_local_planner</code> for local planners, <code>random_walk</code> for global planners); <em>"study the DROAN local planner first, then follow its structure"</em> anchors the agent to working code instead of invented patterns.</li>
+<li><strong>Name the reference implementation.</strong> <code>AGENTS.md</code> lists one well-structured package per module type (e.g. the <code>asm_mighty</code> module's <code>mighty_bridge</code> for local planners, <code>random_walk</code> for global planners); <em>"study the MIGHTY bridge first, then follow its structure"</em> anchors the agent to working code instead of invented patterns.</li>
 <li><strong>Say where the work lands.</strong> Modules get wired in a stack's entry launch file, not in per-layer bringups (the old layer-bringup workflow is legacy) — telling the agent which stack you're targeting up front avoids a wrong-locus integration.</li>
 </ul>
 <h2 id="3-make-the-agent-test-and-record">3. Make the agent test and record<a class="headerlink" href="#3-make-the-agent-test-and-record" title="Permanent link">&para;</a></h2>
