@@ -61,6 +61,27 @@ def load_v7():
         r["_dir"] = d
         pod = d / "pod_env.json"
         r["_pod"] = json.loads(pod.read_text()) if pod.exists() else {}
+        # in-session best rung: highest rung the AGENT saw pass through the
+        # counted shim (scoring=0 events); final-state scoring may be lower
+        best = 0
+        jl = d / "judge_log.jsonl"
+        if jl.exists():
+            for line in jl.read_text().splitlines():
+                try:
+                    e = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if e.get("event") == "run" and e.get("exit") == 0 and e.get("scoring") in (0, "0", False):
+                    best = max(best, RUNG_NUM.get(e.get("rung"), 0))
+        r["_insession_best"] = best
+        # rule-5 audit (direct executions of judge internals)
+        r["_audit"] = None
+        try:
+            sys.path.insert(0, str(REPO / "agent_study" / "runner"))
+            import audit_direct_harness as adh  # noqa: E402
+            r["_audit"] = adh.audit(d)
+        except Exception:  # noqa: BLE001
+            pass
         trials.append(r)
     return trials
 
@@ -108,15 +129,30 @@ def main():
     emit()
     emit("## v7 score matrix (highest_rung_passed)")
     emit()
-    emit("| Cell | trials (index: rung, judge calls, agent h, USD) |")
+    emit("| Cell | trials (index: final rung [in-session best], judge calls (+direct execs), agent h, USD) |")
     emit("|---|---|")
     for arm in E_ARMS:
         for model in MODELS:
             ts = by_cell.get((arm, model), [])
-            cells = [f"#{t['trial_index']}: {t['highest_rung_passed'] or 'NULL'}, "
-                     f"{t['judge_invocations']}, {t['agent']['agent_wallclock_s'] / 3600:.1f}h, "
-                     f"{(t['agent']['cost_usd'] or float('nan')):.2f}" for t in ts]
+            cells = []
+            for t in ts:
+                best = f"R{t['_insession_best']}" if t["_insession_best"] else "—"
+                dx = (t["_audit"] or {}).get("direct_harness_EXEC", 0)
+                cost = t["agent"]["cost_usd"]
+                cells.append(f"#{t['trial_index']}: {t['highest_rung_passed'] or 'NULL'} [{best}], "
+                             f"{t['judge_invocations']}{f' (+{dx})' if dx else ''}, "
+                             f"{t['agent']['agent_wallclock_s'] / 3600:.1f}h"
+                             f"{' cap' if t['agent'].get('timed_out') else ''}, "
+                             f"{'—' if cost is None else f'{cost:.2f}'}")
             emit(f"| {arm} {model.split('-')[1]} (n={len(ts)}) | " + ("; ".join(cells) or "—") + " |")
+    emit()
+    emit("In-session best vs final (final-state regressions = trials whose agent saw a higher rung pass than the final scoring):")
+    for arm in E_ARMS:
+        for model in MODELS:
+            ts = by_cell.get((arm, model), [])
+            reg = sum(1 for t in ts if t["_insession_best"] > RUNG_NUM[t["highest_rung_passed"]])
+            r8_any = sum(1 for t in ts if t["_insession_best"] == 8 or RUNG_NUM[t["highest_rung_passed"]] == 8)
+            emit(f"- {arm} {model.split('-')[1]}: {reg}/{len(ts)} regressed; reached R8 at any point: {r8_any}/{len(ts)}; final R8: {sum(1 for t in ts if RUNG_NUM[t['highest_rung_passed']]==8)}/{len(ts)}")
 
     # ------------------------------------------------------------ survival
     emit()
