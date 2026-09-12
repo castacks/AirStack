@@ -1,12 +1,12 @@
 # Design Spec: Agent Proxy Study on External Stacks (UAS + Aerostack2) via OSMO
 
-> Notebook entry: `notebook/014-agent-study-external-stacks/` · Date started: 2026-09-11 04:41 · Last updated: 2026-09-11 05:30 · Branch: `airstack-paper` · Commit: `4556d8233` (agent_study submodule `38be204`)
+> Notebook entry: `notebook/014-agent-study-external-stacks/` · Date started: 2026-09-11 04:41 · Last updated: 2026-09-12 10:45 · Branch: `airstack-paper` · Commit: `4556d8233` (agent_study submodule `38be204`)
 >
 > Campaign: `Agent study (paper Sec. VI-C)` — extends
 > [011](../011-agent-study-v6-trials/design_spec.md) (v6, AirStack arms)
 > with two **external-platform arms** run on the lab's OSMO GPU pool.
 >
-> **Status: `WIP`** <!-- DESIGN/TODO → WIP → DONE. Overall status = least-advanced section below. -->
+> **Status: `DONE`** <!-- 20/20 trials scored 2026-09-12 10:28 EDT; results/results_summary.md -->
 >
 > **Canonical spec:** `agent_study/agent_study_protocol.md` (PRIVATE
 > submodule). This entry is the execution record for the external-stack
@@ -160,7 +160,7 @@ flowchart LR
   `2026-09-icra27-vic-v7-external`): `judge:` block copied verbatim from
   v6; `airstack:` block retained for provenance but unused by E arms.
 
-### 2.2 OSMO trial pod image + entrypoint — `WIP` (image building; vcstool via pip on 24.04)
+### 2.2 OSMO trial pod image + entrypoint — `DONE` (agent-study-pod:v1; sshd transport, auth probe, CIFS optional)
 
 `agent_study/osmo/pod/Dockerfile` → `airlab-docker.andrew.cmu.edu/airstack/agent-study-pod:v1`:
 FROM `airstack-osmo-workspace:latest` (Ubuntu 24.04, docker-ce + compose,
@@ -174,7 +174,7 @@ wait for the rsync'd study bundle marker, run the arm's provisioning
 (pull/retag images, clone repos), run `run_trial.py`, write `DONE` marker,
 sleep until cancelled (so results can be downloaded).
 
-### 2.3 Provisioning workflow (one-off) — `DESIGN/TODO`
+### 2.3 Provisioning workflow (one-off) — `DONE` (results/d-provisioning)
 
 `agent_study/osmo/workflows/provision.yaml`: a CPU-heavy pod that clones
 UAS at the pin, imports repos (`--exact`), runs `make images`, and pushes
@@ -183,7 +183,7 @@ each `unified_autonomy:<target>` to harbor as
 Harmonic variant if the upstream Dockerfile exists and pushes it too.
 Needs the `airlab-docker-login` OSMO credential (lead to register).
 
-### 2.4 Trial workflow + local orchestrator — `DESIGN/TODO`
+### 2.4 Trial workflow + local orchestrator — `DONE` (rsync-over-ssh transport; per-arm resources; HIGH priority; ENOSPC-tolerant)
 
 `agent_study/osmo/workflows/trial.yaml` (privileged, gpu 1, cpu 16,
 64Gi, 300Gi, `exec_timeout` 9h; env `STUDY_ARM/MODEL/TRIAL_INDEX`;
@@ -210,7 +210,7 @@ hints beyond what the platform's own README gives):
   (`ros2`), and network access; ROS 2 topics published on the host network
   are visible at `ROS_DOMAIN_ID=1`. You may install additional packages."
 
-### 2.6 Protocol Amendment 4 (draft, needs lead approval) — `DESIGN/TODO`
+### 2.6 Protocol Amendment 4 (draft, needs lead approval) — `WIP` (text in agent_study_protocol.md; approval pending)
 
 External-platform arms E1/E2: same frozen prompt, planners, ladder, caps,
 judge parameters, host-mode judging as the bare-parts arm; provisioning

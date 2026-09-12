@@ -1,4 +1,4 @@
-# (f) Trial matrix — running record (campaign 2026-09-icra27-vic-v7-external)
+# (f) Trial matrix — COMPLETE 2026-09-12 10:28 ET (20/20 scored) (campaign 2026-09-icra27-vic-v7-external)
 
 Orchestrator: `agent_study/osmo/osmo_orchestrator.py`, state in `agent_study/osmo/state/`,
 log `orch_pilot_real.log` (scratchpad). Cap: 4 pods. Queue order (round-robin):
@@ -22,6 +22,7 @@ E2:opus:5 · E1:son:5 · E1:opus:5.
 | E1 sonnet #4 | as-e1-sonnet-5-004-1 | 8/32Gi/200Gi | 02:43 | scored (cap hit; in-session R1–R6 then R7 ×4 fail; final: R7 fail clearance, R6 fail `./takeoff` exit 1, R5/R4 fail alpha not running, R3 pass; audit clean; no usage event) | **R3** | 14 | 4.0 (cap) | — |
 | E1 opus #4 | as-e1-opus-5-004-1 | 8/32Gi/200Gi | 03:33 | scored (voluntary exit at 3.9 h; first judge call only at 3.5 h, then R1→R8 in 30 min; audit: 7 direct executions of check internals — review) | **R8** | 9 | 3.89 | 27.40 |
 | E1 opus #5 | as-e1-opus-5-005-1 | 8/32Gi/200Gi | 07:47 | scored (voluntary exit at 1.7 h; audit: 9 direct executions of check internals — review) | **R8** | 10 | 1.72 | 14.74 |
+| E1 sonnet #5 | as-e1-sonnet-5-005-1 | 8/32Gi/200Gi | 06:32 | scored (voluntary exit at 3.5 h; in-session R8 passed 10:16; final: R7/R6 fail goal error 3.8 m, R5/R4 fail alpha not running, R3 pass; **audit flag: 25 direct executions of judge internals**) | **R3** | 8 (+25 direct) | 3.50 | 17.93 |
 | E1 sonnet #1 (attempt 2) | as-e1-sonnet-5-001-2 | 8/32Gi/200Gi | 19:04 (agent 19:45) | scored (cap hit; in-session R1–R6 by 22:44, R7 ×3 fail; final: R7 fail clearance, R6 fail goal error 7.9 m, R5/R4 fail alpha not running; audit clean; provisioning 853 s) | **R3** | 11 | 4.0 (cap) | — |
 | E2 opus #3 | as-e2-opus-5-003-1 | 4/16Gi/100Gi | 21:31 | scored (cap hit while re-verifying R7 after in-session R8 at 22:57; final scoring R7+R8 pass; audit clean; no usage event) | **R8** | 7 | 4.0 (cap) | — |
 | E2 sonnet #4 | as-e2-sonnet-5-004-1 | 4/16Gi/100Gi | 00:36 | scored (voluntary exit at 1.45 h; **in-session R6/R7/R8 all passed 01:59–02:06**; final-state scoring 5 min later: R7 fail clearance, R6 fail track order, R5/R4 fail alpha not running, R3 pass; audit clean) | **R3** | 9 | 1.45 | 10.60 |
