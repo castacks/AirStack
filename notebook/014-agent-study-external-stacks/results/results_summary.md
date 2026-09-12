@@ -136,7 +136,19 @@ Final-state retention (final score ≥ best in-session rung; from judge logs, al
 | E1 UAS (v7) | 6/10 | 1/5 | 5/5 | 3/5 sonnet sessions passed R8 in-session, 1 shipped it |
 | E2 Aerostack2 (v7) | 7/10 | 2/5 | 5/5 | 3/5 sonnet sessions passed R8 in-session, 1 shipped it |
 
-The seven external regressions: all seven final states were left in one planner's configuration (six with alpha stopped, one with beta stopped), so the other planner's rungs fail by construction; six flew the fresh-route R7 re-flight and missed (five clearance, one goal error); two no longer took off at R6.
+The seven external regressions, one primary failure each at the rung where the score was lost (from `scoring_R*.log`):
+
+| Trial | best → final | R7 (fresh route) | R6 (unobstructed) | primary class |
+|---|---|---|---|---|
+| E1 sonnet #2 | R8 → R4 | beta not found | beta not found | shipped in alpha configuration, beta absent (sibling of v6 swap-not-persisted); R5 alpha route failed geometry |
+| E1 sonnet #4 | R6 → R3 | clearance 0.14 m | `./takeoff` exited 1 | takeoff failed |
+| E2 sonnet #1 | R6 → R3 | clearance 0.23 m | `./takeoff` timed out (180 s) | takeoff hung |
+| E1 sonnet #1 | R6 → R3 | clearance 0.11 m | goal error 7.9 m | R6 flight missed goal |
+| E1 sonnet #5 | R8 → R3 | goal error 3.8 m | goal error 3.8 m | R6 flight missed goal |
+| E2 sonnet #4 | R8 → R3 | clearance 0.32 m | track out of order | R6 flight missed waypoint order |
+| E2 sonnet #5 | R8 → R3 | clearance 0.63 m | route fails geometry check | planner route on fresh route |
+
+The six R3 trials shipped with only beta running, so once R6 failed, R5 and R4 failed by construction (alpha not found) and the score fell to R3 rather than R6. Paper wording (Sec. VI-C "Final-state retention") follows this table; paper commit `a95a10f`.
 
 LaTeX rows: [g-analysis/tab_agents_external.tex](g-analysis/tab_agents_external.tex); full output incl. the in-session/final regression counts: [g-analysis/analysis_v7_output.md](g-analysis/analysis_v7_output.md). Pod environment uniform: RTX PRO 5000 Blackwell, driver 580.126.20.
 
