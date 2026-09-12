@@ -22,6 +22,7 @@ E2:opus:5 · E1:son:5 · E1:opus:5.
 | E1 sonnet #1 (attempt 2) | as-e1-sonnet-5-001-2 | 8/32Gi/200Gi | 19:04 (agent 19:45) | scored (cap hit; in-session R1–R6 by 22:44, R7 ×3 fail; final: R7 fail clearance, R6 fail goal error 7.9 m, R5/R4 fail alpha not running; audit clean; provisioning 853 s) | **R3** | 11 | 4.0 (cap) | — |
 | E2 opus #3 | as-e2-opus-5-003-1 | 4/16Gi/100Gi | 21:31 | scored (cap hit while re-verifying R7 after in-session R8 at 22:57; final scoring R7+R8 pass; audit clean; no usage event) | **R8** | 7 | 4.0 (cap) | — |
 | E2 sonnet #4 | as-e2-sonnet-5-004-1 | 4/16Gi/100Gi | 00:36 | scored (voluntary exit at 1.45 h; **in-session R6/R7/R8 all passed 01:59–02:06**; final-state scoring 5 min later: R7 fail clearance, R6 fail track order, R5/R4 fail alpha not running, R3 pass; audit clean) | **R3** | 9 | 1.45 | 10.60 |
+| E2 sonnet #5 | as-e2-sonnet-5-005-1 | 4/16Gi/100Gi | 01:56 | scored (voluntary exit at 3.4 h; in-session R8 passed 04:41 then R7 ×2 fail; final: R7 fail clearance, R6 fail route geometry, R5/R4 fail alpha not running, R3 pass; audit: 4 direct check executions) | **R3** | 7 | 3.38 | 32.38 |
 | E1 opus #1 | as-e1-opus-5-001-1 | 8/32Gi/200Gi | 15:12 (agent 15:53) | scored (agent exited voluntarily; provisioning 1078 s; audit: 0 direct harness execs) | **R8** | 14 | 2.19 | 22.57 |
 
 Notes
