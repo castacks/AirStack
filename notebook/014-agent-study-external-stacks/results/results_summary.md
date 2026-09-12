@@ -126,6 +126,18 @@ Per model (n=5): E1 opus 1.00 at every rung; E1 sonnet 1.00/1.00/1.00/0.40/0.20/
 | E1 | 6/10 | 3.0 ± 1.0 | 11.3 ± 2.5 | 20.09 ± 4.17 (8) |
 | E2 | 6/10 | 3.1 ± 1.0 | 10.0 ± 3.4 | 21.29 ± 6.95 (7) |
 
+Final-state retention (final score ≥ best in-session rung; from judge logs, all closed-loop arms; A3 open-loop undefined):
+
+| Arm | retained (pooled) | sonnet-5 | opus-5 | note |
+|---|---|---|---|---|
+| A1 (v6) | 8/10 | 4/5 | 4/5 | sonnet #5 R8→R5 (swap not persisted), opus #5 R7→R6 (fresh-route miss) |
+| A2 (v6) | 7/10 | 2/5 | 5/5 | |
+| A4 bare parts (v6) | 6/10 | 2/5 | 4/5 | |
+| E1 UAS (v7) | 6/10 | 1/5 | 5/5 | 3/5 sonnet sessions passed R8 in-session, 1 shipped it |
+| E2 Aerostack2 (v7) | 7/10 | 2/5 | 5/5 | 3/5 sonnet sessions passed R8 in-session, 1 shipped it |
+
+The seven external regressions: all seven final states were left in one planner's configuration (six with alpha stopped, one with beta stopped), so the other planner's rungs fail by construction; six flew the fresh-route R7 re-flight and missed (five clearance, one goal error); two no longer took off at R6.
+
 LaTeX rows: [g-analysis/tab_agents_external.tex](g-analysis/tab_agents_external.tex); full output incl. the in-session/final regression counts: [g-analysis/analysis_v7_output.md](g-analysis/analysis_v7_output.md). Pod environment uniform: RTX PRO 5000 Blackwell, driver 580.126.20.
 
 **Interpretation for the paper:** both external platforms land between AirStack A1 (0.80 at R8) and its ablation A2 (0.60) — exactly 0.60 each, pooled over models — and well above bare parts (0.30). The model interaction seen on A2 (opus 5/5, sonnet 1/5) reappears on both external stacks (opus 5/5, sonnet 1/5), while A1 was the only arm where sonnet also reached 4/5. The v7 sonnet losses are dominated by final-state regressions (7/8 sub-R8 trials had passed ≥R6 in-session). Caveats to state: n=5 per cell; pods differed in CPU/memory request across trials (recorded per trial); external arms used the host-mode judge path (same as A4/bare parts) rather than the pytest harness path (A1/A2); cluster contention meant the cap of 4 concurrent pods was the effective rate.

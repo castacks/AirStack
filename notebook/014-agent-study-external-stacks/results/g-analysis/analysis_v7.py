@@ -262,6 +262,35 @@ def make_figure(survival, survival_pm, n_by_arm):
     fig.savefig(HERE / "rung_survival_ext.png")
     plt.close(fig)
 
+    # --- paper variant: all six arms at full strength, Wilson bands (n=10 each)
+    fig, ax = plt.subplots(figsize=(3.45, 2.45), dpi=300)
+    for arm in v6.ARMS:
+        y = survival[arm]
+        lo, hi = zip(*[v6.wilson(p, 10) for p in y])
+        ax.fill_between(x, lo, hi, color=v6.ARM_COLOR[arm], alpha=0.08, lw=0)
+        ax.plot(x, y, color=v6.ARM_COLOR[arm], lw=1.5, ls=v6.ARM_LS[arm],
+                marker=v6.ARM_MARKER[arm], ms=3.4, mfc="white", mew=1.0,
+                label=v6.ARM_LABEL[arm], clip_on=False, zorder=3)
+    for arm in E_ARMS:
+        y = survival[arm]
+        if any(v != v for v in y) or n_by_arm[arm] == 0:
+            continue
+        lo, hi = zip(*[v6.wilson(p, n_by_arm[arm]) for p in y])
+        ax.fill_between(x, lo, hi, color=E_COLOR[arm], alpha=0.08, lw=0)
+        ax.plot(x, y, color=E_COLOR[arm], lw=1.7, ls=(0, (5, 2)) if arm == "E1" else (0, (3, 1.5)),
+                marker=E_MARKER[arm], ms=3.8,
+                mfc="white", mew=1.1, label={"E1": "E1 Unified Autonomy Stack", "E2": "E2 Aerostack2"}[arm],
+                clip_on=False, zorder=4)
+    v6.style_ax(ax)
+    ax.set_xlabel("Ladder rung", color="#0b0b0b")
+    ax.set_ylabel("Fraction of trials scoring $\\geq$ rung", color="#0b0b0b")
+    ax.legend(loc="lower left", frameon=False, handlelength=2.0, borderaxespad=0.1,
+              labelspacing=0.28, fontsize=6.0)
+    fig.tight_layout(pad=0.3)
+    fig.savefig(HERE / "rung_survival_paper.pdf")
+    fig.savefig(HERE / "rung_survival_paper.png")
+    plt.close(fig)
+
 
 def write_tab(rows):
     lines = [
