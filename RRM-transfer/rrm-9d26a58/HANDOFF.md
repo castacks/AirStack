@@ -217,6 +217,44 @@ Actual GPU VRAM, driver/runtime compatibility, active workflow ID, remote branch
 persistent result/cache location still need remote inspection. Do not assume the old
 A10G model budget or precision restrictions apply to Blackwell.
 
+### Current live Isaac / OSMO operating procedure (2026-09-13)
+
+This later GPU workflow is live. The user started it through the normal AirStack
+OSMO workflow procedure with the one-GPU fair-use request (1 GPU, 12 CPU, 48 GiB
+RAM), opened the IDE tunnel with `./airstack.sh osmo ide`, and connected VS Code
+to `airstack-osmo`. The AirStack Isaac livestream, robot desktop, and GCS
+containers are running. This supersedes the earlier CPU-only transfer-workspace
+observations in `docs/scrum-8/remote-state.md`; retain those only as historical
+diagnosis of that separate `gpu: 0` workspace.
+
+The user manually launched the Pegasus PX4 scene inside the Isaac container's
+tmux session with livestream enabled and all of the following runtime flags:
+
+```sh
+--/renderer/activeGpu=0
+--/renderer/multiGpu/enabled=false
+--/physics/cudaDevice=0
+```
+
+These flags are the deliberate single-GPU fix. In the nested OSMO runtime, Isaac
+can enumerate all four physical GPUs even when the workflow requested one; without
+the flags, its renderer can initialize allocations on all four. The flags constrain
+rendering and physics to GPU 0. They are supplied by the manual launch command, so
+there is **no pending Compose edit** and no simulator restart is authorized just to
+make the flags durable. Leave the Isaac/PX4 tmux process running after it reports
+`Received first heartbeat` and `Ready for takeoff!`; interrupting it can leave a
+stale PX4 process that blocks the next launch.
+
+For remote viewing, the user starts the patched Mac-side forwarder with the patched
+OSMO binary first in `PATH`, then connects the AirLab Isaac Sim WebRTC Streaming
+Client to `127.0.0.1`. The patch is required for the known stock OSMO 6.3.1 UDP
+49099 forwarding failure.
+
+OSMO workspace storage and Codex conversation memory are not durable across a
+workflow replacement. Persist source and this handoff by committing and pushing;
+export non-source evidence separately before workflow termination. In particular,
+the AirStack feature `notebook/` is gitignored and is not a handoff mechanism.
+
 Guide supplied by user:
 https://docs.theairlab.org/0.20/docs/tutorials/airstack_on_osmo/
 

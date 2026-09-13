@@ -1,5 +1,36 @@
 # Remote inspection — 2026-09-13 UTC
 
+## Current live workflow correction
+
+The observations below originally describe a separate, deliberately CPU-only
+transfer workspace (`gpu: 0`). They must not be used to diagnose the later live
+GPU workflow. The user has since started the normal AirStack OSMO workflow at the
+fair-use profile (1 GPU, 12 CPU, 48 GiB RAM), connected through
+`./airstack.sh osmo ide`, and has a running Isaac livestream, robot desktop and
+GCS stack. This checkout observed those three containers running; the exact OSMO
+allocation remains an OSMO control-plane fact rather than something inferred from
+host-visible devices.
+
+Inside the Isaac container, the user launched the Pegasus PX4 scene manually in
+tmux, with livestream enabled and these runtime arguments:
+
+```text
+--/renderer/activeGpu=0
+--/renderer/multiGpu/enabled=false
+--/physics/cudaDevice=0
+```
+
+The flags are required because this nested runtime can expose all four physical
+GPUs to Isaac despite a one-GPU workflow request. They concentrate the renderer
+and physics workload on GPU 0; they are not a request to edit Compose or restart
+the live simulator. The running PX4/Isaac process must not be interrupted merely
+to change configuration. The user uses the patched Mac-side OSMO WebRTC forwarder
+and connects the streaming client to `127.0.0.1`.
+
+Neither OSMO workspace files nor Codex chat history are persistent across a new
+workflow. The durable project record is the committed, pushed repository; export
+runtime evidence separately, and do not rely on gitignored `notebook/` content.
+
 ## Observed state
 
 ## Pool baseline and allocation distinction
@@ -48,9 +79,9 @@ docker run --rm --gpus all nvidia/cuda:12.8.0-base-ubuntu22.04 nvidia-smi
 
 The CUDA image is an infrastructure smoke test only. It neither changes RRM nor authorizes model downloads. If it succeeds, rerun AirStack's normal `airstack up`/`airstack ready` flow and record the actual assigned GPU UUID/count, VRAM, driver/runtime versions and container mount mapping. Isaac SIL can then proceed without changing RRM code or downloading a different model. Do not manually bind host driver paths or install a driver inside the pod.
 
-## Readiness and next remote operation
+## Historical readiness and next remote operation
 
-The [AirStack OSMO guide](https://docs.theairlab.org/0.20/docs/tutorials/airstack_on_osmo/) describes a workspace with nested Docker and port-forwarded access. This workspace has the nested Docker layout, but integrated SIL is not running. First establish the active workflow and allocation from an authenticated OSMO client, then repair NVIDIA device/library injection at that workspace boundary and verify `nvidia-smi` inside a GPU container. Do not infer VRAM or user allocation from host `/proc` entries. No unrelated containers or workflows were stopped.
+The [AirStack OSMO guide](https://docs.theairlab.org/0.20/docs/tutorials/airstack_on_osmo/) describes a workspace with nested Docker and port-forwarded access. The preceding paragraph applies only to the earlier CPU-only transfer workspace. It is superseded for the current live GPU workflow by the correction at the top of this file: do not diagnose driver injection, alter Compose, or restart Isaac merely because host visibility differs from the one-GPU workflow request. Do not infer VRAM or user allocation from host `/proc` entries. No unrelated containers or workflows were stopped.
 
 For CPU verification, the source is explicitly bind-mounted at `/workspace/rrm` and session evidence at `/evidence` inside an isolated robot-image container. Pydantic is installed into a temporary container directory, without altering the base image or using the historical GPU provisioning script. This mount mapping must be reconsidered for future Isaac and robot containers; host paths are not automatically available inside them.
 
