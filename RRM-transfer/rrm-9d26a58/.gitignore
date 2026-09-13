@@ -1,0 +1,40 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Model weights and caches — never commit, re-pull from source
+*.safetensors
+*.pt
+*.pth
+*.ckpt
+.cache/
+hf_cache/
+
+# Isaac Sim / Omniverse
+*.usd.bak
+.nvidia-omniverse/
+kit/logs/
+
+# Experiment outputs
+datasets/**/*.parquet
+datasets/**/*.mp4
+experiments/**/runs/
+benchmarks/results/**/*.json
+!benchmarks/results/.gitkeep
+traces/
+*.log
+
+# ROS 2
+build/
+install/
+log/
+
+# Generated — rebuild with scripts/make_tracker.py
+# (the .xlsx IS committed; this marks the intent that docs/ is the source of truth)
+
+# OS / editor
+.DS_Store
+.idea/
+*.swp

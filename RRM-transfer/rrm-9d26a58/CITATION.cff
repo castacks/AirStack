@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use RRM-1 in your research, please cite it as below."
+title: "RRM-1: A Reference Architecture and Benchmark for Embodied Reasoning"
+abstract: >-
+  RRM-1 is a modular embodied-reasoning architecture and reproducible benchmark.
+  Perception feeds a persistent semantic world model, a reasoner plans over
+  symbolic state, a deterministic verifier gates every action, and a
+  vision-language-action policy converts abstract verbs into motion. The
+  benchmark measures whether an explicit world model, predictive planning and an
+  independent safety verifier improve task success, recovery and safety over
+  end-to-end VLA control.
+type: software
+authors:
+  - family-names: Abolade
+    given-names: Ore
+repository-code: "https://github.com/o-abolade/rrm"
+license: Apache-2.0
+keywords:
+  - robotics
+  - embodied AI
+  - world models
+  - vision-language-action
+  - task planning
+  - robot safety
+  - simulation
+  - benchmark

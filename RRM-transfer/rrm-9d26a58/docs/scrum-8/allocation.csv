@@ -1,0 +1,12 @@
+requirement_id,behavior,parent_source,primary_owner,supporting_owners,contracts,verification_scenarios,evidence_target
+RRM-SYS-REQ-001,Interpret contextual objective,STK-001,R,"O, W","C01, C02, C04","Demonstration/test S01, S03","S01/intent.json, S03/dialogue.jsonl"
+RRM-SYS-REQ-002,Maintain current task/world state,STK-002,W,"E, M","C02, C07, C09","Inspection/test S01, S02, S10",S02/states.jsonl
+RRM-SYS-REQ-003,Decompose permitted multi-step task,STK-002,P,"R, S","C04, C05",Test S01,S01/plans.jsonl
+RRM-SYS-REQ-004,Check capabilities/limits before dispatch,STK-004,S,"P, E","C03, C05, C06, C07","Test S04, S09",S04/admission.jsonl
+RRM-SYS-REQ-005,Compare outcomes against expected effects,STK-002,M,"W, E","C02, C05, C07","Test S02, S07, S10",S07/effect-comparisons.jsonl
+RRM-SYS-REQ-006,"Recover, assist or reach safe condition","STK-002, STK-003",M,"R, P, S, O, E",C04–C08,"Off-nominal S02, S06–S08, S10",S08/recovery.jsonl
+RRM-SYS-REQ-007,Clarify or obtain approval under material uncertainty,STK-003,O,"R, W, S","C01, C02, C04, C06","Scenario S03, S05, S10",S03/interventions.jsonl
+RRM-SYS-REQ-008,Check safety and permissions before dispatch,STK-003,S,"O, P, E","C01, C03, C06, C07","Safety test S05, S06, S10",S05/decisions.jsonl
+RRM-SYS-REQ-009,Support stop/override before and during execution,STK-003,S,"O, M, E","C07, C08",Demonstration/test S06,S06/stop-timeline.jsonl
+RRM-SYS-REQ-010,Reuse reasoning across declared embodiments,STK-004,R,"P, E","C02–C05, C07","Demonstration/inspection S04, S09",S09/core-and-profile-hashes.json
+RRM-SYS-REQ-011,Reconstruct objectives through failures/interventions,CONOPS success criteria,T,All,C01–C09,Inspection/replay S01–S10,"replay-report.json, manifest.json"
