@@ -50,6 +50,24 @@ an RRM adapter consumes it. The first integration remains a model-free, read-onl
 shadow adapter; it must mark state availability unknown until it has a confirmed,
 fresh observation source.
 
+### Live state-stream readiness blocker (2026-09-13 UTC)
+
+Follow-up read-only graph and log inspection found that the odometry publisher uses
+reliable QoS and has multiple downstream subscribers, so the lack of samples is not
+explained by the shadow observer choosing an incompatible best-effort subscription.
+The robot-desktop logs repeatedly report that the trajectory controller is waiting for
+odometry and show unresolved TF trees (`map` to `base_link`, `ouster`, and
+`camera_left`). Current Isaac logs show PX4 receiving its first heartbeat, then a
+preflight `ekf2 missing data` failure followed by `PX4 Exiting...`. No `/clock` or
+odometry sample arrived during bounded read-only observation.
+
+This is a live SIL-readiness blocker for any RRM world-state or command integration,
+not a reason to change RRM's uncertainty semantics. Do not restart, reconfigure, or
+send a task action from this session without user direction. The next diagnostic step
+is to establish the simulator/PX4 lifecycle and the ROS bridge/state publication path
+using AirStack's normal readiness procedure; only then can the shadow adapter attach
+to a confirmed state source.
+
 ## Observed state
 
 ## Pool baseline and allocation distinction
