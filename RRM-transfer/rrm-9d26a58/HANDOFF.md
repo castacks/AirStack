@@ -39,6 +39,10 @@ Do not send Jira comments or other messages without the user's authorization.
 - Avoid detailed implementation choices until architecture allocation is clear.
 - The current focus is SIL. AirStack/OSMO is the primary execution environment; PSC
   is a possible fallback if problems arise. PSC access and configuration are unknown.
+- Do not select, download, run, fine-tune, or integrate an open VLA, VLM, NLP model,
+  or other learned model without first obtaining the user's approval of the exact
+  model, license, resource needs, interface role, and evaluation plan. Begin the
+  drone-SIL integration with a model-free deterministic/shadow baseline.
 - The capstone website, including Weeks 1–11, is an intended technical and evaluation
   reference. The full curriculum has NOT yet been reviewed in this session.
 - The user intends to ZIP RRM locally and unzip it in the remote AirStack workspace.
