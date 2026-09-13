@@ -31,6 +31,25 @@ Neither OSMO workspace files nor Codex chat history are persistent across a new
 workflow. The durable project record is the committed, pushed repository; export
 runtime evidence separately, and do not rely on gitignored `notebook/` content.
 
+### Read-only ROS 2 task-interface inventory (2026-09-13 UTC)
+
+From `airstack-robot-desktop-1`, a read-only `ros2 action list -t` confirmed these
+task endpoints: `/robot_1/tasks/takeoff` (`TakeoffTask`),
+`/robot_1/tasks/navigate` (`NavigateTask`), and `/robot_1/tasks/land` (`LandTask`),
+along with exploration, fixed-trajectory, and semantic-search actions. One server
+was present for each candidate first-RRM action: takeoff/land were served by
+`/robot_1/takeoff_landing_planner/takeoff_landing_task`, and navigate by
+`/robot_1/droan/disparity_expander_node`. No goal, cancellation, service, trajectory,
+or PX4 command was sent.
+
+The graph also advertised `/robot_1/odometry_conversion/odometry`
+(`nav_msgs/msg/Odometry`), but a bounded eight-second `ros2 topic echo --once`
+produced no sample. That is a negative observation, not evidence that the vehicle has
+no state or that the stream is broken: clock/QoS/topic selection must be checked before
+an RRM adapter consumes it. The first integration remains a model-free, read-only
+shadow adapter; it must mark state availability unknown until it has a confirmed,
+fresh observation source.
+
 ## Observed state
 
 ## Pool baseline and allocation distinction
