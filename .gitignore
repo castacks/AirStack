@@ -124,3 +124,4 @@ stacks/.external/
 # local overrides — never shared through trunk. The README stays committed.
 /config/local/*
 !/config/local/README.md
+gcs/ros_ws/core
