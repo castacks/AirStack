@@ -109,6 +109,24 @@ The live SIL state source is now suitable for *read-only* RRM observation and ev
 Reasoning-model integration, task-action correlation during a user/GCS-initiated task,
 and any execution integration remain separate increments.
 
+### User-initiated GCS task correlation (2026-09-14 UTC)
+
+Foxglove Desktop was connected through `airstack osmo foxglove`; the browser client was
+usable for visualization but could not load AirStack's local Robot Tasks extension.
+With the shadow observer running, the user initiated one GCS takeoff and one GCS land.
+The observer recorded both task status sequences as `EXECUTING` (2) then `SUCCEEDED`
+(4). It emitted 160 snapshots, of which 158 were observation-ready after two explicit
+startup-incomplete snapshots; all remained execution-inhibited. The final replay
+report marked observation complete and dispatch disabled. Independent final state
+observation found MAVROS connected, `armed: false`, ground-level `z≈0.01 m`, and
+near-zero velocity. The two high-level task actions came from GCS; RRM created no
+action, service, trajectory, or PX4 command.
+
+This is successful *shadow correlation*, not evidence that RRM may dispatch a task.
+The next increment is offline evaluation of RRM's abstract interpretation/plan against
+this evidence, then additional failure/staleness scenarios before any gated action
+authority is designed.
+
 ## Observed state
 
 ## Pool baseline and allocation distinction

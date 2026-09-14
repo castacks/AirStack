@@ -287,6 +287,15 @@ the deterministic oracle suite (5/5) passed. The next safe increment is shadow
 correlation of a separately user/GCS-initiated task, followed by offline RRM reasoning
 evaluation; do not add dispatch authority as part of that work.
 
+The first user-initiated task correlation is also complete. The user connected
+Foxglove Desktop through the GCS websocket, then submitted one takeoff and one land;
+the shadow observer recorded `EXECUTING → SUCCEEDED` for each. It recorded 160
+snapshots (158 fresh after two explicit startup gaps), all execution-inhibited. Final
+MAVROS/odometry evidence was connected, disarmed, near ground height, and effectively
+stationary; its replay report was observation-complete and dispatch-disabled. GCS,
+not RRM, issued the two task actions. Treat this as an evaluation baseline only; no
+RRM action authority has been added.
+
 For remote viewing, the user starts the patched Mac-side forwarder with the patched
 OSMO binary first in `PATH`, then connects the AirLab Isaac Sim WebRTC Streaming
 Client to `127.0.0.1`. The patch is required for the known stock OSMO 6.3.1 UDP
