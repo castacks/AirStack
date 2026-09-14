@@ -47,37 +47,43 @@ or PX4 command was sent.
 
 The graph also advertised `/robot_1/odometry_conversion/odometry`
 (`nav_msgs/msg/Odometry`), but a bounded eight-second `ros2 topic echo --once`
-produced no sample. That is a negative observation, not evidence that the vehicle has
-no state or that the stream is broken: clock/QoS/topic selection must be checked before
-an RRM adapter consumes it. The first integration remains a model-free, read-only
-shadow adapter; it must mark state availability unknown until it has a confirmed,
-fresh observation source.
+produced no sample. The later live follow-up below establishes the cause. The first
+integration remains a model-free, read-only shadow adapter; it must mark state
+availability unknown until the canonical stream is repaired and a fresh observation
+has been confirmed.
 
-### Live state-stream readiness blocker (2026-09-13 UTC)
+### Live state-stream diagnosis and lifecycle update (2026-09-14 UTC)
 
-Follow-up read-only graph and log inspection found that the odometry publisher uses
-reliable QoS and has multiple downstream subscribers, so the lack of samples is not
-explained by the shadow observer choosing an incompatible best-effort subscription.
-The robot-desktop logs repeatedly report that the trajectory controller is waiting for
-odometry and show unresolved TF trees (`map` to `base_link`, `ouster`, and
-`camera_left`). Current Isaac logs show PX4 receiving its first heartbeat, then a
-preflight `ekf2 missing data` failure followed by `PX4 Exiting...`. No `/clock` or
-odometry sample arrived during bounded read-only observation.
+The first observation occurred while the Pegasus timeline was stopped. Its local
+`OgnPegasusMultirotorNodeBase` stop callback explicitly stops each PX4 backend while
+retaining the Isaac process and vehicle registrations. After the user pressed **Play**
+in the streaming client, read-only checks confirmed a new PX4 process, a MAVROS state
+with `connected: true`, and Isaac's `Received first heartbeat` / `Ready for takeoff!`
+log messages. Isaac Sim therefore needs to remain open and playing; it is not the
+remaining cause of the robot stack appearing hung.
+
+The remaining blocker is a confirmed ROS namespace error in the live interface launch.
+MAVROS publishes valid odometry at
+`/robot_1/interface/mavros/mavros/local_position/odom`, while the canonical
+`odometry_conversion` node and `robot_interface` subscribe to
+`/robot_1/interface/mavros/local_position/odom`. The expected topic has zero
+publishers. This leaves canonical odometry and TF absent, makes the trajectory
+controller wait for odometry, and also disconnects the interface's MAVROS state,
+command, and service paths.
+
+Local launch source explains the extra level: `interface.launch.py` pushes the
+`interface` namespace and includes `mavros_px4.launch.xml`, whose default
+`namespace="mavros"` names the MAVROS node under `/interface/mavros`. MAVROS itself
+uses relative topic names beginning `mavros/`, producing `/interface/mavros/mavros/*`.
+The intended canonical topology is MAVROS under `/interface` (node name `mavros`) so
+those topics resolve to `/interface/mavros/*`. The prospective fix is to pass an empty
+MAVROS launch namespace from `interface.launch.py` (or equivalently correct the
+include configuration), then recreate the affected robot stack. It has not been
+applied: a restart/reconfiguration or any task command requires user direction.
 
 This is a live SIL-readiness blocker for any RRM world-state or command integration,
-not a reason to change RRM's uncertainty semantics. Do not restart, reconfigure, or
-send a task action from this session without user direction. The next diagnostic step
-is to establish the simulator/PX4 lifecycle and the ROS bridge/state publication path
-using AirStack's normal readiness procedure; only then can the shadow adapter attach
-to a confirmed state source.
-
-The observed lifecycle is consistent with the Pegasus timeline being stopped: its
-`OgnPegasusMultirotorNodeBase` stop callback explicitly stops (kills) each PX4 backend
-but keeps the Isaac/Python process and vehicle registrations alive for a later timeline
-play event. This mechanism is confirmed in the local source. The process observation
-and missing PX4 make a stopped timeline the leading diagnosis, but the triggering event
-was not captured, so it remains to be verified before any restart or configuration
-change.
+not a reason to weaken RRM's uncertainty semantics. Until the correction is deployed,
+the shadow adapter must not attach to the nested topic as a permanent workaround.
 
 ## Observed state
 

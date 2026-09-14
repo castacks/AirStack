@@ -252,11 +252,24 @@ desired manual procedure as not applied to the current process. Do not alter Com
 or restart the live simulator solely to change this without user direction; apply the
 pinned command at the next controlled launch.
 
-The same inspection found no live PX4 process, no ROS `/clock` or odometry samples,
-and PX4 exits after its heartbeat. Pegasus stops the PX4 backend when the Isaac
-timeline stops while leaving the Python process alive. The simulator must be in a
-continuously playing, PX4-ready state before any RRM observation or command adapter
-is attempted.
+The initial inspection occurred with the Pegasus timeline stopped, which stops the
+PX4 backend while leaving the Isaac Python process alive. The user then pressed Play;
+read-only checks confirmed PX4 running, MAVROS connected, and Isaac reporting its
+first heartbeat and `Ready for takeoff!`. Leave Isaac open and playing while using the
+robot stack.
+
+The live robot stack is still not ready for RRM because of a confirmed MAVROS namespace
+duplication. MAVROS currently publishes valid state and odometry under
+`/robot_1/interface/mavros/mavros/*`, but AirStack's `robot_interface` and
+`odometry_conversion` subscribe/publish through the intended canonical
+`/robot_1/interface/mavros/*` paths. The expected odometry input has zero publishers,
+so canonical odometry/TF does not form and the trajectory controller waits forever.
+The source cause is `interface.launch.py` pushing `interface` while
+`mavros_px4.launch.xml` also supplies `namespace="mavros"`; MAVROS's own relative
+`mavros/*` topic names add the second level. Correct the include to pass an empty
+MAVROS namespace so the MAVROS node lives directly under `/interface`, then recreate
+the affected robot stack. This correction has not been applied and no task has been
+sent; do not restart or reconfigure the live stack without user direction.
 
 For remote viewing, the user starts the patched Mac-side forwarder with the patched
 OSMO binary first in `PATH`, then connects the AirLab Isaac Sim WebRTC Streaming
