@@ -275,6 +275,18 @@ nodes, MAVROS-to-PX4 connectivity, and EKF odometry. No task or flight command w
 sent. A model-free RRM shadow adapter may now consume the canonical state stream;
 retain the separate safety gate before any execution integration.
 
+The first adapter has been implemented and passively verified. Its deterministic core
+is `rrm/airstack_shadow.py`; `scripts/airstack_shadow.py` is an `rclpy` observer that
+subscribes only to canonical MAVROS odometry/state, `/tf`, and task-status topics. It
+has no ROS action client, publisher, service client, trajectory, or PX4 command path.
+Every snapshot remains `execution_inhibited=True`; the evidence manifest also declares
+`execution_dispatch_enabled: false`. A 15-second live session emitted 15 snapshots
+(14 fresh after one explicit startup-incomplete snapshot), with an observation-complete
+final replay report. The shadow tests (5), existing safety/contract tests (14), and
+the deterministic oracle suite (5/5) passed. The next safe increment is shadow
+correlation of a separately user/GCS-initiated task, followed by offline RRM reasoning
+evaluation; do not add dispatch authority as part of that work.
+
 For remote viewing, the user starts the patched Mac-side forwarder with the patched
 OSMO binary first in `PATH`, then connects the AirLab Isaac Sim WebRTC Streaming
 Client to `127.0.0.1`. The patch is required for the known stock OSMO 6.3.1 UDP

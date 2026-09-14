@@ -1,5 +1,6 @@
 # Python
 .venv/
+.deps/
 __pycache__/
 *.py[cod]
 *.egg-info/

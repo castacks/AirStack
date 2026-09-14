@@ -47,6 +47,28 @@ Other entry points:
 .venv/bin/python simulation/isaac_backend.py                # relation-inference test
 ```
 
+## AirStack drone shadow mode
+
+`scripts/airstack_shadow.py` is the first SIL adapter. It observes canonical MAVROS
+odometry/state, `map -> base_link` TF, and existing task-status topics and writes an
+append-only evidence bundle. It creates subscriptions and a timer only: it has no ROS
+action client, publisher, service client, trajectory, or PX4 command path. A fresh
+bundle permits RRM evaluation in shadow mode; it never permits task dispatch.
+
+Run it inside `airstack-robot-desktop-1` after the stack is ready, with RRM and its
+declared `pydantic` dependency available in that container:
+
+```bash
+source /root/AirStack/robot/ros_ws/install/local_setup.bash
+PYTHONPATH=/path/to/rrm-deps:/path/to/rrm:${PYTHONPATH} \
+  python3 /path/to/rrm/scripts/airstack_shadow.py \
+  --robot-name robot_1 --duration-s 30 --output-dir /path/to/evidence
+```
+
+The output has `manifest.json`, `events.jsonl`, and `replay-report.json`. Preserve it
+outside the ephemeral OSMO workflow. Start with the model-free adapter and compare any
+future reasoning model against the same recorded state/evidence conditions.
+
 ## Layout
 
 | Path | |

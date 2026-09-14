@@ -85,10 +85,29 @@ The obsolete nested topic no longer exists.
 
 `airstack ready --json` was then run with short bounded readiness budgets and returned
 `ready: true`: robot container, simulator `/clock`, autonomy sentinel nodes, MAVROS
-connection, and PX4 EKF odometry all passed. No action goal, service, trajectory, or
-PX4 command was sent. The live SIL state source is now suitable for a *read-only*
-RRM shadow adapter; execution integration still requires its separate safety and
-interface work.
+connection, and PX4 EKF odometry all passed.
+
+### Read-only RRM shadow-adapter session (2026-09-14 UTC)
+
+The initial shadow adapter is now implemented in `rrm/airstack_shadow.py`, with the
+optional ROS observer at `scripts/airstack_shadow.py`. It has no execution surface:
+the ROS process creates only subscriptions and a timer for canonical MAVROS odometry,
+MAVROS state, `/tf`, and task-status topics. The core marks each snapshot
+`execution_inhibited=True` regardless of observation completeness and writes an
+append-only manifest/events/replay-report evidence bundle.
+
+A bounded 15-second passive session in `airstack-robot-desktop-1` produced 15
+snapshots. One startup snapshot was explicitly incomplete; the remaining 14 had fresh
+odometry, MAVROS state, and `map -> base_link` TF under a two-second freshness bound.
+The final replay report marked observation completeness true and execution dispatch
+false. No task-status event, action goal, service, trajectory, or PX4 command was
+created or sent. Five shadow-adapter unit tests, 14 existing safety/contract tests,
+and the five-case deterministic oracle suite passed. Local notebook artifacts are
+gitignored; retain/export evidence separately from the committed implementation.
+
+The live SIL state source is now suitable for *read-only* RRM observation and evaluation.
+Reasoning-model integration, task-action correlation during a user/GCS-initiated task,
+and any execution integration remain separate increments.
 
 ## Observed state
 
