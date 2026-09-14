@@ -32,7 +32,7 @@
 # name is robot_<domain>, so behavior is identical to the old domain-derived
 # paths — but fleets with custom robot names now gate on the right graph.
 READY_SENTINEL_TEMPLATES=(
-    "/%s/interface/mavros/mavros"
+    "/%s/interface/mavros"
     "/%s/robot_state_publisher"
     "/%s/trajectory_controller/trajectory_control_node"
 )

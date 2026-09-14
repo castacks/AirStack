@@ -19,8 +19,16 @@
        description="MAVLink protocol version" />
   <arg name="respawn_mavros" default="false"
        description="Respawn the MAVROS node if it dies" />
-  <arg name="namespace" default="mavros"
-       description="Namespace for the MAVROS node" />
+  <arg name="namespace" default=""
+       description="Extra namespace for the MAVROS node. EMPTY by design: since
+                    mavros 2.15 the mavros_node hosts its plugins under a UAS
+                    sub-node literally named 'mavros', so it already supplies
+                    that level. Setting this to 'mavros' (as we did for mavros
+                    2.12, where plugins published into the node namespace)
+                    doubles it: /ROBOT/interface/mavros/mavros/state instead of
+                    /ROBOT/interface/mavros/state, which every consumer in the
+                    stack -- and airstack ready -- subscribes to. Matches the
+                    upstream node.launch default." />
 
   <include file="$(find-pkg-share mavros)/launch/node.launch">
     <arg name="pluginlists_yaml" value="$(find-pkg-share mavros)/launch/px4_pluginlists.yaml" />
