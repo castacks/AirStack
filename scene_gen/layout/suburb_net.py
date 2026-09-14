@@ -577,6 +577,114 @@ def min_area_rect(poly):
     return best or 0.0
 
 
+def simple_rings(poly, min_area=0.25):
+    """Split a self-crossing ring into simple, positively-wound ones.
+
+    :func:`offset_polygon` insets each vertex along its own bisector, which is
+    exact at a convex corner and CROSSES ITSELF wherever the inset is deeper
+    than the local half-width — a narrow neck, a shallow notch, a re-entrant
+    corner. On a generated block that is rare and the slivers are tiny; on a
+    block traced from real streets it is routine, and the folded-back lobe is a
+    negative-area loop lying on top of the real surface. Anything that
+    triangulates the ring as-is therefore lays a second sheet at the same
+    height as the first, which is what z-fighting looks like.
+
+    The ring is cut at its own crossings and only the positively-wound pieces
+    survive.
+    """
+    out, stack, guard = [], [list(poly)], 0
+    while stack and guard < 200:
+        guard += 1
+        ring = stack.pop()
+        n = len(ring)
+        if n < 3:
+            continue
+        cut = None
+        for i in range(n):
+            a0, a1 = ring[i], ring[(i + 1) % n]
+            for j in range(i + 2, n):
+                if i == 0 and j == n - 1:
+                    continue
+                hit = _seg_intersect(a0, a1, ring[j], ring[(j + 1) % n])
+                if hit is not None:
+                    cut = (i, j, hit[0])
+                    break
+            if cut:
+                break
+        if cut is None:
+            if polygon_area(ring) >= min_area:
+                out.append(ring)
+            continue
+        i, j, p = cut
+        stack.append([p] + ring[i + 1:j + 1])
+        stack.append([p] + ring[j + 1:] + ring[:i + 1])
+    return out
+
+
+def earclip(ring):
+    """Triangulate a simple polygon, concave included, as index triples.
+
+    A fan — from vertex 0 or from the centroid — is only valid for a STAR
+    SHAPED polygon, and a traced block need not be one: `disaster_city`'s
+    largest block wraps the west and north of the site and its centroid falls
+    outside it, so a centroid fan sweeps triangles clear across the region and
+    covers every other block. Ear clipping assumes only simplicity, which
+    :func:`simple_rings` provides.
+    """
+    n = len(ring)
+    if n < 3:
+        return []
+    idx = list(range(n))
+    if polygon_area(ring) < 0:
+        idx.reverse()
+
+    def cr(o, a, b):
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+    def inside(p, a, b, c):
+        d1, d2, d3 = cr(a, b, p), cr(b, c, p), cr(c, a, p)
+        return (d1 >= 0 and d2 >= 0 and d3 >= 0) or (d1 <= 0 and d2 <= 0 and d3 <= 0)
+
+    def quality(a, b, c):
+        """4*sqrt(3)*area / sum of squared sides — 1 for equilateral, 0 for a
+        sliver. Standard triangle-quality measure."""
+        s2 = ((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2
+              + (c[0] - b[0]) ** 2 + (c[1] - b[1]) ** 2
+              + (a[0] - c[0]) ** 2 + (a[1] - c[1]) ** 2)
+        return 6.928203 * abs(cr(a, b, c)) / 2.0 / s2 if s2 > 1e-18 else 0.0
+
+    tris, guard = [], 0
+    while len(idx) > 3 and guard < 4 * n + 16:
+        guard += 1
+        # THE BEST EAR, NOT THE FIRST ONE. Clipping the first valid ear is what
+        # the textbook says and it tiles the polygon exactly — the area is
+        # right — but on a traced block it produces a fan of needles: 576 of
+        # ~1000 zone triangles came out as slivers, and a sliver seen at a
+        # grazing angle shades and rasterises as a black wedge. Picking the ear
+        # with the best aspect ratio costs one extra pass over a shrinking
+        # vertex list and makes the same surface out of triangles that survive
+        # being looked at.
+        best, best_q = None, -1.0
+        for k in range(len(idx)):
+            ia, ib, ic = idx[k - 1], idx[k], idx[(k + 1) % len(idx)]
+            a, b, c = ring[ia], ring[ib], ring[ic]
+            if cr(a, b, c) <= 1e-12:
+                continue
+            if any(inside(ring[m], a, b, c) for m in idx if m not in (ia, ib, ic)):
+                continue
+            q = quality(a, b, c)
+            if q > best_q:
+                best, best_q = (k, ia, ib, ic), q
+        if best is None:
+            break
+        k, ia, ib, ic = best
+        tris.append((ia, ib, ic))
+        idx.pop(k)
+    if len(idx) == 3:
+        tris.append((idx[0], idx[1], idx[2]))
+    return tris
+
+
 def rectangularity(poly):
     """Area over the area of the polygon's own minimum-area bounding rectangle.
 

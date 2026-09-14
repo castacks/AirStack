@@ -88,6 +88,21 @@ usds:
       scale: 0.01   # RetroNeighborhood authored in cm; override the global default
 
   materials:
+    # ---- ZONE GROUND, ALL LOCAL ON PURPOSE ---------------------------------
+    # `layout/site_plan.py` blocks carry a `role`, and `suburb_scene.ZONE_GROUND`
+    # dresses each one from these. They are `airstack://` rather than Nucleus
+    # because a scene has to render for whoever opens it: the container here
+    # authenticates as `guest`, so every `Library/Stages/...` material below
+    # resolves to ACCESS_DENIED and binds nothing at all. These are the 8K
+    # Megascans wrappers already in the repo, OmniPBR with `project_uvw` on —
+    # world-space triplanar, so tiling is `texture_scale` and no ground mesh
+    # needs UVs for them to sit flat.
+    asphalt_worn: "airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda"
+    concrete_worn: "airstack://scene_gen/assets/materials/megascans/Worn_Pavement.usda"
+    rubble_ground: "airstack://scene_gen/assets/materials/megascans/Crushed_Asphalt_Ground.usda"
+    debris_ground: "airstack://scene_gen/assets/materials/megascans/Damaged_Asphalt.usda"
+    dirt_rough: "airstack://scene_gen/assets/materials/megascans/Dirt_Rough.usda"
+
     grass: "Muyang/StandaloneMaterials/Grass/MI_Grass.usd"
     asphalt: "Muyang/StandaloneMaterials/Asphalt/MI_Asphalt.usd"
     # Procedural downtown block paving. One UV-tiled quad is authored per block

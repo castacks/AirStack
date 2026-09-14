@@ -1,0 +1,201 @@
+# asset_tags.yaml — THE controlled vocabulary for tagging Nucleus assets.
+#
+# `tools/tag_assets.py` reads nothing else. Every tag an asset can carry is
+# defined here, once, with the patterns that assign it — so "which tags exist"
+# is answered by reading this file rather than by grepping the output.
+#
+# HOW A TAG EARNS ITS PLACE. Two rules, both learned from the first pass:
+#
+#   1. NO NEAR-SYNONYMS. `curb`/`kerb`, `foliage`/`plant`, `wreckage`/`debris`
+#      and `destroyed`/`ruined` each collapse to ONE canonical tag. Two tags
+#      that would always be applied together, or that a person would have to
+#      think about to choose between, are one tag with two patterns.
+#   2. A TAG MUST BE DECIDABLE FROM THE NAME. Everything here is assigned by
+#      matching the asset's path and file name — no geometry is opened. A
+#      property that needs looking at the model (is this ruin a house or a
+#      warehouse?) is not a tag, it is a question, and those go to the
+#      `--unsure` list instead.
+#
+# SUPPRESSION. A tag may declare `suppresses: [other]`, dropping a broader tag
+# when a more specific one also matched. It is the only precedence mechanism
+# here, and it is deliberately explicit rather than ordering-based.
+#
+# GROUPS. `kind` is what sort of file it is; `class` is what the thing is;
+# `material` is what it is made of; `state` is what has happened to it. An
+# asset normally gets one `kind`, zero or more `class`, and any number of the
+# rest. `class` is the group the unsure list is computed from: an asset with no
+# `class` tag is one nothing could be discerned about.
+#
+# PATTERNS are lowercased regular expressions matched against the file name
+# PLUS the asset's INTERMEDIATE directories, with the TOP-LEVEL PACK DROPPED,
+# separators normalised to spaces so `\b` works at word boundaries the way a
+# reader expects.
+#
+# Matching the full path let a pack name leak onto every asset inside it:
+# `Old_Shipyard/` gave all 692 of its files `vessel` where about 40 are
+# vessels, and `Trainyard/` gave all 167 `rail`. But every directory BELOW the
+# pack is real curation — `.../Vegetation/Hawthorn/` is a tree, and no list of
+# species names would have caught `Forsythia`, `Kousa_Dogwood` and
+# `Prairie_Dropseed` the way one `Vegetation` folder does. The pack itself is
+# kept as its own `pack` column: where the asset lives, not what it is.
+
+groups: [kind, class, material, state]
+
+tags:
+
+  # ---- kind: what the FILE is -----------------------------------------------
+  material:
+    group: kind
+    patterns: ['\bmi [a-z0-9]', '\bm [a-z0-9]', '\bmat [a-z0-9]', '\.mdl$',
+               '\bdefaultmaterial\b', '\bmaterials?\b.*\binst\b']
+    note: UE naming — MI_ is a material instance, M_ a material, plus .mdl.
+  payload:
+    group: kind
+    patterns: ['payload']
+    note: >
+      A sub-file of a parent asset, not independently placeable. Half of some
+      packs are these; they matter because a naive "count the USDs" doubles.
+  stage:
+    group: kind
+    patterns: ['\boverview\b', '\bstage\b', '\bmap\b', '\bpersistentlevel\b',
+               '\bdemonstration\b']
+    note: A whole composed scene rather than one asset — harvest from, do not place.
+  instanced:
+    group: kind
+    patterns: ['\binst\b', '\binstanced\b']
+
+  # ---- class: what the THING is ---------------------------------------------
+  building:
+    group: class
+    patterns: ['\bbuilding\b', '\bmbuilding', '\bhouse\b', '\bhouses\b',
+               '\btower\b', '\bmidrise\b', '\bskyscraper\b', '\boffice\b',
+               '\bfactorybuilding\b', '\bwarehouse\b', '\bcafe\b', '\bshop\b']
+  building_part:
+    group: class
+    patterns: ['\bfacade\b', '\broof\b', '\bwall\b', '\bfloor\b', '\bwindow\b',
+               '\bdoor\b', '\bpillar\b', '\bcolumn\b', '\bstair', '\brailing\b',
+               '\bbalcon', '\bawning\b', '\bporch\b', '\bchimney\b', '\bbeam\b',
+               '\btrim\b', '\bcorner\b', '\bfirstfloor\b', '\bceiling\b']
+    suppresses: [building]
+    note: >
+      A piece of a building, not a building. Kit parts live here, and this
+      SUPPRESSES `building`: `SM_MBuilding02_Railing` and
+      `SM_Spiral_Staircase_1` both contain a building word and are both
+      staircases. 488 of the first pass's 1,490 `building` tags were parts, and
+      it showed in the extents — the median "building" was 4.9 m across.
+  road:
+    group: class
+    patterns: ['\broad\b', '\basphalt\b', '\bhighway\b', '\bstreet\b(?! ?sign)',
+               '\bpavement\b', '\bcrosswalk\b', '\blane\b', '\bintersection\b']
+  sidewalk:
+    group: class
+    patterns: ['\bsidewalk\b', '\bkerb\b', '\bcurb\b', '\bpaving\b', '\bpath\b',
+               '\bwalkway\b']
+  streetside:
+    group: class
+    patterns: ['\bstreetlight\b', '\blamp', '\blantern\b', '\bbench\b',
+               '\bplanter\b', '\bbin\b', '\btrash', '\bmailbox\b',
+               '\bbollard\b', '\bmeter\b', '\bbus ?stop\b', '\bshelter\b',
+               '\butility ?pole\b', '\bpole\b', '\bwires?\b']
+    note: Furniture that stands on the verge or the footway.
+  fire_hydrant:
+    group: class
+    patterns: ['\bhydrant\b']
+  sign:
+    group: class
+    patterns: ['\bsign\b', '\bsigns\b', '\bsignage\b', '\bbillboard\b',
+               '\bposter\b', '\bstreetsigns\b', '\btrafficlight\b',
+               '\btraffic ?signal\b']
+  traffic_cone:
+    group: class
+    patterns: ['\btrafficcone\b', '\btraffic ?cone\b', '\bcone\b']
+  fence:
+    group: class
+    patterns: ['\bfence\b', '\brailing ?fence\b', '\bgate\b', '\bbarrier\b',
+               '\bguardrail\b']
+  vehicle:
+    group: class
+    patterns: ['\bcar\b', '\bvehicle\b', '\btruck\b', '\bvan\b', '\bbus\b',
+               '\btrailer\b', '\bsemitrailer\b', '\bforklift\b', '\bwheels?\b',
+               '\btyre\b', '\btire\b']
+  rail:
+    group: class
+    patterns: ['\brailcar\b', '\btrain\b', '\brail\b', '\blocomotive\b',
+               '\bwagon\b', '\btrack\b', '\bmetro\b', '\btrainyard\b']
+  vessel:
+    group: class
+    patterns: ['\bvessel\b', '\bboat\b', '\bship\b', '\bbarge\b', '\bpier\b',
+               '\bdock\b', '\bcontainer\b', '\bcrane\b']
+  person:
+    group: class
+    patterns: ['\brp [a-z]+ (rigged|posed)', '\bperson\b', '\bpeople\b',
+               '\bcharacter\b', '\bhuman\b']
+  tree:
+    group: class
+    patterns: ['\btree\b', '\boak\b', '\bmaple\b', '\bbeech\b', '\baspen\b',
+               '\bfir\b', '\bpine\b', '\bbirch\b', '\bwillow\b', '\bshrub\b',
+               '\bbush\b', '\bhedge\b']
+  plant:
+    group: class
+    patterns: ['\bplant\b', '\bivy\b', '\bfern\b', '\bflower\b', '\bvine\b',
+               '\bfoliage\b', '\bleaf\b', '\bleaves\b', '\bmoss\b']
+  grass:
+    group: class
+    patterns: ['\bgrass\b', '\blawn\b', '\bturf\b', '\bmeadow\b']
+  terrain:
+    group: class
+    patterns: ['\bterrain\b', '\blandscape\b', '\bground\b', '\bsoil\b',
+               '\bdirt\b', '\bmud\b', '\bgreen ?area\b']
+  rock:
+    group: class
+    patterns: ['\brock\b', '\bstone\b', '\bboulder\b', '\bgravel\b']
+  debris:
+    group: class
+    patterns: ['\bdebris\b', '\bscatter\b', '\bfragment\b', '\bshard\b',
+               '\bwreckage\b', '\bscrap\b']
+    note: Loose material lying about. A heaped one also gets `rubble_pile`.
+  rubble_pile:
+    group: class
+    patterns: ['\bpile\b', '\bheap\b', '\bmound\b', '\brubble\b']
+  ruins:
+    group: class
+    patterns: ['\bruins?\b', '\bflatten', '\bcollapse']
+  prop:
+    group: class
+    patterns: ['\bprop\b', '\bdesk\b', '\bchair\b', '\btable\b', '\bcrate\b',
+               '\bbarrel\b', '\bpallet\b', '\bbox\b', '\bfurniture\b',
+               '\bskateboard\b', '\bmonument\b', '\bstatue\b', '\bfountain\b',
+               '\bplayground\b', '\bequipment\b', '\btank\b', '\bpipe\b']
+  tile:
+    group: class
+    patterns: ['\btile\b', '\btiles\b', '\btileable\b', '\bslab\b', '\bslabs\b',
+               '\bmodule\b', '\bpanel\b']
+    note: >
+      A repeating unit meant to be laid out rather than placed once. Kit pieces
+      and paving modules both land here.
+
+  # ---- material: what it is MADE of -----------------------------------------
+  concrete:  {group: material, patterns: ['\bconcrete\b', '\bcon \b', '\bcement\b']}
+  brick:     {group: material, patterns: ['\bbrick\b', '\bmasonry\b']}
+  wood:      {group: material, patterns: ['\bwood\b', '\btimber\b', '\bplank\b',
+                                          '\blumber\b', '\bosb\b']}
+  metal:     {group: material, patterns: ['\bmetal\b', '\bsteel\b', '\biron\b',
+                                          '\bcorrugated\b', '\baluminium\b']}
+  glass:     {group: material, patterns: ['\bglass\b', '\bwindowpane\b']}
+  fabric:    {group: material, patterns: ['\bcloth\b', '\bfabric\b', '\bcanvas\b',
+                                          '\btarp\b', '\bherringbone\b', '\btweed\b']}
+  asphalt_mat: {group: material, patterns: ['\basphalt\b', '\bbitumen\b']}
+
+  # ---- state: what has HAPPENED to it ---------------------------------------
+  damaged:
+    group: state
+    patterns: ['\bdamaged?\b', '\bcracked\b', '\bbroken\b', '\bruined\b',
+               '\bdestroyed\b', '\bburnt\b', '\bburned\b', '\bcharred\b',
+               '\bdg[0-9]\b', '\bdead\b']
+  merged:
+    group: state
+    patterns: ['\bmerged\b']
+    note: One prim for a whole building — cannot be damaged piecewise.
+  modular:
+    group: state
+    patterns: ['\bmodular\b', '\bmod \b', '\bkit\b']

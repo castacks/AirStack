@@ -1,0 +1,186 @@
+# HIGH-LEVEL scene spec — a REAL PLACE, not a generated one.
+#
+# The street fabric comes from `config/site_plans/disaster_city.yaml`, traced
+# off an aerial of a purpose-built disaster-response training site: a small
+# rectilinear grid of service roads with a rubble field, two collapsed-structure
+# blocks, concrete staging pads, wooded lots and a 2,200 m² parking lot.
+#
+#     photo -> tools/trace_site_plan.py -> config/site_plans/disaster_city.yaml
+#           -> layout/site_plan.py -> suburb_scene.generate_suburb_on_stage
+#
+# Check the plan against the photo on the host, no Isaac Sim needed:
+#     SITE_PLAN_AERIALS=<dir holding disaster-city.png> \
+#     ../.venv/bin/python tools/site_plan_png.py \
+#         --plan disaster_city --out _plans/disaster_city.png
+#
+# In the sim:
+#     SCENE_CONFIG=disaster_city \
+#     ISAAC_SIM_SCRIPT_NAME=suburb_preview_launch_script.py \
+#     airstack up isaac-sim
+
+locale: suburban
+disaster-type: none
+severity: 0.0
+asset-set: suburban_park
+
+# NOT A KNOB HERE. `site_plan.generate` takes the region from the spec — the
+# traced extent is the place, and asking for a different box would crop or pad
+# it. This is the spec's own 309.79 x 227.22 m, repeated so a reader of the
+# preset alone knows how big the scene is.
+region_m: [309.79, 227.22]
+# A traced plan draws nothing from the rng, so the seed only reaches the passes
+# downstream (props, vehicles, people). The LAYOUT is identical at every seed,
+# which is the point: this is one specific place.
+seed: 3
+
+overrides:
+  layout:
+    region_m: [309.79, 227.22]
+
+  # ---- MATERIALS THAT ACTUALLY RESOLVE HERE ---------------------------------
+  # The shared set points `asphalt`, `concrete` and the road tile at
+  # `Library/Stages/...` on Nucleus, and this box authenticates as `guest`, so
+  # every one of them comes back ACCESS_DENIED and binds nothing — the roads
+  # render as flat displayColor. Repointed at the repo's own 8K Megascans
+  # wrappers, which need no credentials. Drop this block once the container is
+  # started with the real `omni_pass.env` and the Nucleus set is preferable.
+  usds:
+    materials:
+      asphalt: "airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda"
+      asphalt_road_tile: "airstack://scene_gen/assets/materials/megascans/Damaged_Asphalt_B.usda"
+      concrete: "airstack://scene_gen/assets/materials/megascans/Worn_Pavement.usda"
+      sidewalk: "airstack://scene_gen/assets/materials/megascans/Worn_Pavement.usda"
+      path: "airstack://scene_gen/assets/materials/megascans/Worn_Pavement.usda"
+      # THE ONLY SAND SURFACE IN THE LIBRARY. A sweep of every ground material
+      # on Nucleus and in scene_gen/assets turned up exactly one thing named
+      # sand; the local megascans set is asphalt, dirt, mud and grass, and the
+      # vMaterials_2 subset that ships with the brownstone has no Ground/Sand.
+      # Vendored local rather than referenced on Nucleus, because a remote
+      # ground material binds nothing for an unauthenticated build.
+      sand_ground: "airstack://scene_gen/assets/materials/megascans/Sand_Ground_A.usda"
+      # Painted bay lines for the car park, and the kerb band round every
+      # block. Both local, so neither needs Nucleus.
+      road_line_white: "airstack://scene_gen/assets/materials/megascans/Road_Line_White.usda"
+      kerb: "airstack://scene_gen/assets/materials/megascans/Worn_Pavement.usda"
+
+    # ---- NO APPLE ------------------------------------------------------------
+    # `Common_Apple` is dropped from both tree pools. It is the ONLY asset in
+    # this whole scene that reports an unresolved texture at render time —
+    # `Apple_leaf_Mat`'s normalmap points at a `./Library/AEC/...` path that
+    # does not exist inside the pack — and it is a white-blossom species, which
+    # is what the pale flecking in the canopies was. A TEEX training site is
+    # oak and scrub; nothing here is in blossom.
+    # These lists REPLACE the inherited ones (no `+`), so they are the whole
+    # pool: the same species as suburban.yaml, minus the apple.
+    trees:
+      - {usd: "airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Black_Oak/Black_Oak.usd", scale: 0.01}
+      - {usd: "airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Shumard_Oak/Shumard_Oak.usd", scale: 0.01}
+      - {usd: "airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/Largetooth_Aspen.usd", scale: 0.01}
+      - {usd: "airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/American_Beech.usd", scale: 0.01}
+    yard_trees:
+      - {usd: "airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Black_Oak/Black_Oak.usd", scale: 0.01}
+      - {usd: "airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Shumard_Oak/Shumard_Oak.usd", scale: 0.01}
+      - {usd: "airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/Douglas_Fir.usd", scale: 0.01}
+      - {usd: "airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/Largetooth_Aspen.usd", scale: 0.01}
+      - {usd: "airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/American_Beech.usd", scale: 0.01}
+
+  # WHERE A FEATURE'S `asset:` IS RESOLVED FROM. Nucleus needs credentials
+  # (OMNI_USER / OMNI_PASS); without them these references bind nothing and
+  # `site_features` falls back to the stand-in prism, which is the intended
+  # degradation rather than a failure.
+  site_assets_root: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA"
+
+  # THE WHOLE SWITCH. Naming a site plan replaces `suburb_net.generate`
+  # outright; every pass after the layout is unchanged. See
+  # `suburb_scene.generate_suburb_on_stage`.
+  site_plan: disaster_city
+
+  # ---- LIGHT, GROUND WEAR AND DEAD TREES -----------------------------------
+  # The sun, as a compass bearing: 0 = north, 90 = east, so 135 = south-east.
+  # The borrowed environment's own sun sits at 242 (WSW) and is replaced.
+  site_sun_az_deg: 135.0
+  site_sun_el_deg: 38.0
+
+  # Grass giving way to dirt. `heavy` applies to blocks whose centroid is both
+  # west and south of the thresholds — the wooded south-west, which the aerial
+  # shows as mostly bare between the trees. Everywhere else gets `light`.
+  # DARKER GRASS. The AEC grass maps are bright spring green and the site read
+  # as a golf course against the aerial, which is a duller, deeper turf. These
+  # MDLs re-export OmniPBR with `(*)`, so every OmniPBR parameter is live on the
+  # shader: `albedo_brightness` scales the baked map without touching the file,
+  # and a slight green `diffuse_tint` keeps it from going grey as it darkens.
+  # Applies to both the mown and the rough grass so lawn and open land stay one
+  # landscape.
+  site_material_tweaks:
+    grass: {albedo_brightness: 0.62, diffuse_tint: [0.88, 1.0, 0.80]}
+    grass_rough: {albedo_brightness: 0.62, diffuse_tint: [0.88, 1.0, 0.80]}
+    grass_park: {albedo_brightness: 0.62, diffuse_tint: [0.88, 1.0, 0.80]}
+
+  site_ground_wear:
+    heavy: 0.55
+    light: 0.06
+    heavy_west_of_x: -30.0
+    heavy_south_of_y: 0.0
+    # One WORN SPOT per this much ground, not one mesh: each spot is a solid
+    # core plus `fringe_rings` of progressively smaller islands, so it dissolves
+    # into the grass instead of ending at an edge.
+    blob_area_m2: 240.0
+    fringe_rings: 3
+    # Share of islands drawn on the FINE dirt tile (~9 m repeat); the rest get
+    # the coarse one (~33 m). Both are world-projected, so this is the only way
+    # to break the repeat -- a mesh UV does nothing to these materials.
+    fine_share: 0.35
+
+  # Bare/sparse trees for the westmost blocks. These are the burnt-tree
+  # archetypes — bare branching trunks, the right silhouette for a dead tree —
+  # authored in METRES, hence scale 1.0 against the live pack's 0.01.
+  site_dead_trees:
+    west_of_x: -70.0
+    scale: 1.0
+    assets:
+      - "scene_gen/assets/archetypes/tree_Black_Oak_torched.usd"
+      - "scene_gen/assets/archetypes/tree_Shumard_Oak_torched.usd"
+      - "scene_gen/assets/archetypes/tree_Largetooth_Aspen_torched.usd"
+      - "scene_gen/assets/archetypes/tree_Shumard_Oak_scorched.usd"
+
+  # Bay geometry MEASURED off the aerial over the south-east lot: bright-pixel
+  # row profiling put the four aisle spines at these y values and the stall
+  # ticks at a 2.50 m median pitch.
+  site_parking_bays:
+    # `[y, x_from, x_to]` per aisle, or a bare y to run the full width. The
+    # rows are NOT all the same length in the photograph -- they step back from
+    # the east side as you go south, where the hatched no-parking wedges are.
+    # Whatever is asked for here is still cut to the lot outline: `edge_m` is
+    # the inset, and a stall whose far end lands outside it is not drawn.
+    spines:
+    - [-23.5, 72.5, 105.0]
+    - [-40.8, 72.5, 103.0]
+    - [-62.2, 73.5, 98.0]
+    - [-80.5, 72.0, 93.0]
+    stall_pitch_m: 2.5
+    stall_depth_m: 5.5
+    line_width_m: 0.12
+    edge_m: 2.5
+
+  # ONE ROAD SURFACE, NOT TWO. `road_tile_share` defaults to 0.5, which lays a
+  # second material (`asphalt_road_tile`, Damaged_Asphalt_B) over half the
+  # carriageway on purpose — real streets are patched and a single tile reads
+  # flat. On THIS site it reads as light and dark stretches of the same road,
+  # which the aerial does not show: the carriageways here are one uniform dark
+  # asphalt. Sidewalks and paths keep their own lighter material.
+  roads:
+    road_tile_share: 0.0
+
+  # ---- what NOT to build ----------------------------------------------------
+  # Every block on this site is `undeveloped` — the roles are rubble, pads,
+  # trees and a car park, and not one of them is a housing parcel. So the
+  # parcelling pass has nothing to plat and the house count is zero BY
+  # CONSTRUCTION rather than by these knobs; they are set to match so that a
+  # reader is not left wondering why a suburb preset produced no suburb.
+  suburb_parcel:
+    modular_houses: false
+  cars:
+    driveway_chance: 0.0
+    street_density: 0.0
+  people:
+    total: 0

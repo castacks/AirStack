@@ -1703,12 +1703,21 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
 
 
 def report(stats):
-    t = "  ".join(f"{k}={v}" for k, v in sorted(stats["tally"].items()))
-    pct = 100.0 * stats["points"] / max(1.0, stats["budget"])
-    lots = max(1, stats["lots"])
-    canopy = stats["tally"].get("tree", 0)
+    # THE EMPTY PLAT IS A REAL CASE and its stats dict is a short one. `plan`
+    # returns `{"lots": 0, "row_skipped": n}` and nothing else when no lot has a
+    # house on it, which never happened while every scene was a suburb — a
+    # traced site plan whose blocks are all rubble, pads and car park has no
+    # houses at all, and this raised `KeyError: 'tally'` on it. Every key the
+    # short dict omits is read through `.get` now; the rest of the line already
+    # was.
+    tally = stats.get("tally") or {}
+    t = "  ".join(f"{k}={v}" for k, v in sorted(tally.items()))
+    pct = 100.0 * stats.get("points", 0) / max(1.0, stats.get("budget", 0))
+    lots = max(1, stats.get("lots", 0))
+    canopy = tally.get("tree", 0)
     row = stats.get("row_skipped", 0)
-    print(f"[yardplan] {stats['placed']} placed across {stats['lots']} lots"
+    print(f"[yardplan] {stats.get('placed', 0)} placed across "
+          f"{stats.get('lots', 0)} lots"
           + (f" ({row} row homes skipped: shared ground, no private yard)"
              if row else "") + "\n"
           f"[yardplan]   {t}\n"
@@ -1740,7 +1749,8 @@ def report(stats):
           f"[yardplan]   fences: {stats.get('fence_neighbour', 0)} stations "
           f"refused by a NEIGHBOUR's fence, {stats.get('fence_ghost', 0)} "
           f"freed from a platted one that was never built\n"
-          f"[yardplan]   {stats['points']:,} of {int(stats['budget']):,} points "
-          f"({pct:.0f}%), {stats['refused']} refused on budget "
+          f"[yardplan]   {stats.get('points', 0):,} of "
+          f"{int(stats.get('budget', 0)):,} points "
+          f"({pct:.0f}%), {stats.get('refused', 0)} refused on budget "
           f"({stats.get('tree_points', 0):,} of "
           f"{int(stats.get('tree_budget', 0)):,} of it canopy)")

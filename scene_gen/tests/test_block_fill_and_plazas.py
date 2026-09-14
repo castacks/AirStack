@@ -103,6 +103,10 @@ if _SCENE_GEN not in sys.path:
 # on the path (a real `pxr`/`scene_generator` already cached by an earlier
 # file, if any, is untouched -- it was never in the "added" set).
 _pre_existing_modules = set(sys.modules)
+_saved_pxr_attrs = {_n: getattr(sys.modules["pxr"], _n, None)
+                    for _n in ("Gf", "Sdf", "Usd", "UsdGeom", "UsdShade",
+                               "UsdSkel", "Vt", "UsdPhysics")} \
+    if "pxr" in sys.modules else {}
 
 for _m in ("pxr", "pxr.Gf", "pxr.Sdf", "pxr.Usd", "pxr.UsdGeom",
            "pxr.UsdShade", "pxr.UsdSkel", "pxr.Vt", "pxr.UsdPhysics"):
@@ -120,6 +124,22 @@ from detail import city_detail as cd                      # noqa: E402
 # what the NEXT file to import any of them sees.
 for _m in set(sys.modules) - _pre_existing_modules:
     del sys.modules[_m]
+
+# RESTORE WHAT THE STUB CLOBBERED. `setattr(sys.modules["pxr"], ...)` above
+# does not care whether `pxr` is the stub or the REAL usd-core package — if an
+# earlier-collected file already imported it, this overwrites `pxr.Usd` and its
+# siblings with empty modules for the rest of the session, and every later file
+# that legitimately writes USD dies on `module 'Usd' has no attribute 'Stage'`.
+# Evicting `sys.modules` entries cannot undo that: the real `pxr` was never in
+# the "added" set. So the attributes are snapshotted and put back.
+for _n, _v in _saved_pxr_attrs.items():
+    if _v is None:
+        try:
+            delattr(sys.modules["pxr"], _n)
+        except AttributeError:
+            pass
+    else:
+        setattr(sys.modules["pxr"], _n, _v)
 
 FAILS = []
 

@@ -57,6 +57,11 @@ if _SCENE_GEN not in sys.path:
 
 # `scene_generator` imports pxr at module scope; nothing reached from here
 # touches it. Same stub `tools/plan_png.py` installs.
+_pre_existing_modules = set(sys.modules)
+_saved_pxr_attrs = {_n: getattr(sys.modules["pxr"], _n, None)
+                    for _n in ("Gf", "Sdf", "Usd", "UsdGeom", "UsdShade",
+                               "UsdSkel", "Vt", "UsdPhysics")} \
+    if "pxr" in sys.modules else {}
 for _m in ("pxr", "pxr.Gf", "pxr.Sdf", "pxr.Usd", "pxr.UsdGeom",
            "pxr.UsdShade", "pxr.UsdSkel", "pxr.Vt", "pxr.UsdPhysics"):
     sys.modules.setdefault(_m, types.ModuleType(_m))
@@ -65,6 +70,27 @@ for _n in ("Gf", "Sdf", "Usd", "UsdGeom", "UsdShade", "UsdSkel", "Vt",
     setattr(sys.modules["pxr"], _n, types.ModuleType(_n))
 
 from detail import districts as dd                    # noqa: E402
+
+# Same leak `test_block_fill_and_plazas.py` documents at length: evict every
+# module this file's own imports added, so the next file gets a clean import.
+for _m in set(sys.modules) - _pre_existing_modules:
+    del sys.modules[_m]
+
+# RESTORE WHAT THE STUB CLOBBERED. `setattr(sys.modules["pxr"], ...)` above
+# does not care whether `pxr` is the stub or the REAL usd-core package — if an
+# earlier-collected file already imported it, this overwrites `pxr.Usd` and its
+# siblings with empty modules for the rest of the session, and every later file
+# that legitimately writes USD dies on `module 'Usd' has no attribute 'Stage'`.
+# Evicting `sys.modules` entries cannot undo that: the real `pxr` was never in
+# the "added" set. So the attributes are snapshotted and put back.
+for _n, _v in _saved_pxr_attrs.items():
+    if _v is None:
+        try:
+            delattr(sys.modules["pxr"], _n)
+        except AttributeError:
+            pass
+    else:
+        setattr(sys.modules["pxr"], _n, _v)
 
 FAILS = []
 

@@ -278,8 +278,61 @@ class SuburbPreviewApp:
 
         self.timeline.play()
 
+    def snapshot_site(self, out_dir):
+        """Viewport PNGs of what was built, framed off the plate.
+
+        THIS LAUNCHER COULD NOT BE REVIEWED WITHOUT A PERSON AT THE GUI. Its log
+        says "16 block meshes" and "171 trees" whether or not a single material
+        resolved — and materials are exactly what cannot be checked any other
+        way, because they are MDL: Blender renders an OmniPBR ground as solid
+        black, so the offline preview (`scene_gen/tools/site_scene_png.py`)
+        proves geometry and nothing else. Kit is the only renderer here that
+        evaluates them. Mirrors `scene_launch_script.snapshot_city`.
+        """
+        import importlib.util as _ilu
+        sp = os.path.join(_ISAAC_SIM_DIR, "utils", "snapshots.py")
+        spec = _ilu.spec_from_file_location("snapshots", sp)
+        sn = _ilu.module_from_spec(spec)
+        spec.loader.exec_module(sn)
+        os.makedirs(out_dir, exist_ok=True)
+        stage = omni.usd.get_context().get_stage()
+        bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+        r = bc.ComputeWorldBound(stage.GetPseudoRoot()).ComputeAlignedRange()
+        if r.IsEmpty():
+            print("[suburb] nothing to capture")
+            return
+        mn, mx = r.GetMin(), r.GetMax()
+        cx, cy = 0.5 * (mn[0] + mx[0]), 0.5 * (mn[1] + mx[1])
+        span = max(mx[0] - mn[0], mx[1] - mn[1])
+        tall = max(mx[2], 1.0)
+        sn.place_camera(stage, (cx, cy, tall + span / 1.10), (cx, cy, 0.0))
+        sn.snapshot(os.path.join(out_dir, "site_top.png"))
+        for nm, (ax, ay) in (("e", (1, 0)), ("ne", (0.75, 0.75)),
+                             ("sw", (-0.75, -0.75))):
+            d = span * 0.80
+            sn.place_camera(stage, (cx + ax * d, cy + ay * d,
+                                    0.44 * d + tall * 0.5),
+                            (cx, cy, tall * 0.2))
+            sn.snapshot(os.path.join(out_dir, "site_" + nm + ".png"))
+        # GROUND LEVEL, because tiling is what a nadir cannot show: a 9 m
+        # asphalt repeat and a 4 m rubble repeat look identical from 300 m up.
+        sn.place_camera(stage, (cx - span * 0.18, cy - span * 0.10, 12.0),
+                        (cx + span * 0.25, cy + span * 0.05, 2.0))
+        sn.snapshot(os.path.join(out_dir, "site_ground.png"))
+        print("[suburb] snapshots -> {0}".format(out_dir))
+
     def run(self):
         app = omni.kit.app.get_app()
+        snap = (os.environ.get("SNAP_DIR") or "").strip()
+        if snap:
+            for _ in range(120):        # let the renderer converge first
+                app.update()
+            try:
+                self.snapshot_site(snap)
+            except Exception as exc:
+                import traceback
+                traceback.print_exc()
+                print("[suburb] snapshots FAILED: {0}".format(exc))
         while simulation_app.is_running():
             app.update()
         self.timeline.stop()

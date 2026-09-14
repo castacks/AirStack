@@ -46,6 +46,7 @@ the Isaac Sim launch scripts import it from here.
 | `layout/city_layout.py` | Anisotropic block subdivision — real grids are directional (Manhattan ~80 m x ~280 m), the built-in BSP tends to 1:1. |
 | `layout/suburb_layout.py` | Hierarchical suburb streets with cul-de-sacs, composed as rects. |
 | `layout/suburb_net.py` | The suburb as a planar **graph** — polyline centrelines, blocks recovered as faces. A junction is the primitive, so streets curve and meet cleanly. |
+| `layout/site_plan.py` | **A real place, traced off an aerial** instead of generated. Same `(net, blocks, info)` as `suburb_net.generate`, read from `config/site_plans/*.yaml`; blocks carry a `role` (rubble, pad, wooded, parking…) and the `features` standing on them. See *Tracing a real site* below. |
 | **`detail/`** | **Stage 2 — what is placed on that plan.** |
 | `detail/city_detail.py` | Street furniture against NACTO sidewalk zones, instead of everything on one kerb line. |
 | `detail/districts.py` | Zoning: which building typology goes where, and the park superblocks. |
@@ -62,6 +63,7 @@ the Isaac Sim launch scripts import it from here.
 | `prepare_assets.py` | **Run this before `airstack up`** — caches the Objaverse assets a scene needs (see below). |
 | `objaverse_assets.py` / `convert_to_usd.py` / `render_usd.py` | The Objaverse → USD asset pipeline that backs it: search, download, Blender conversion, preview. |
 | `inspect_usd_asset.py` | Print a USD's prims, bbox and up-axis. |
+| `config/site_plans/*.yaml` | **Traced site plans.** Road centrelines in metres plus a block role per interior point — the committed output of `tools/trace_site_plan.py`, and the source of truth from then on. |
 | `config/presets/*.yaml` | **High-level specs.** Hand-written, one per scenario. Name a locale, a disaster type and a severity. |
 | `config/asset_sets/shared.yaml` | **Shared assets.** Everything every locale builds with — street furniture, greenery, tiles, vehicles, people — plus `asset_root`, `asset_scale`, `sky`, `orientation`, `fallback_sizes`. No `buildings` or `debris`: those read as a specific material (concrete rubble, timber wreckage) and belong entirely to the set whose damage they are. Not named directly by a config. |
 | `config/asset_sets/<locale>.yaml` | **Specialized sets.** `extends: shared`, then only what makes that locale itself: its buildings and the debris they leave. |
@@ -351,6 +353,273 @@ The short version: **downtown's default ground surface is pavement and its
 default state is full; a suburb's default ground surface is grass and its
 default state is mostly empty.** Almost every difference below follows from
 that one sentence.
+
+## Tracing a real site
+
+The locale axis invents a plausible place. Sometimes the scene has to be **one
+particular place** instead — a real training ground, a neighbourhood a mission
+was flown over, a site a partner asked for by name. That path replaces the
+layout stage and nothing else:
+
+```
+photos/<site>.png          the aerial (NOT in this repo — see below)
+   │  tools/trace_site_plan.py        run ONCE
+   ▼
+config/site_plans/<site>.yaml         committed; the source of truth
+   │  layout/site_plan.py             generate() -> (net, blocks, info)
+   ▼
+suburb_scene.generate_suburb_on_stage        unchanged from here down
+```
+
+`layout/site_plan.generate()` has the same signature and return as
+`layout/suburb_net.generate()`, so parcelling, ground, markings and the disaster
+stage all run as they are. A preset switches the two with one line:
+
+```yaml
+overrides:
+  site_plan: disaster_city      # names config/site_plans/disaster_city.yaml
+```
+
+**The YAML is the source of truth, not the image.** Segmentation is a guess
+that is right about most of a site and wrong about some of it; if the scene were
+a function of that guess, re-tuning one threshold would silently move twelve
+streets. So the tracer runs once, the result is committed, and a wrong street is
+fixed by editing four numbers. Hand edits are listed in the spec's header so a
+re-trace knows what to re-apply.
+
+### What the tracer does, and what it cannot do
+
+| Stage | Notes |
+|---|---|
+| pavement mask | Asphalt is the one surface that is both desaturated *and* blue-shifted (LAB `b*` < 0). Concrete pads, bare earth and dry grass all sit warm of neutral, where brightness alone cannot separate them. |
+| lots removed, rims kept | Pavement wider than `--blob-r` is a car park, not a street — but its **perimeter drive** is a road and is the same asphalt, so the lot's rim goes back into the mask. Without that the lot bounds nothing and comes back as no block at all. |
+| skeleton → graph | 8-connected thinning; junction pixels clustered so a fat four-way is one node. Every path's ends are snapped to their junction's centroid — without that the streets never join and `faces()` returns one polygon the size of the whole crop, which looks exactly like a working build. |
+| pruned | Short spurs, then leaves down to the 2-connected core, **except** at the crop edge where a leaf is a road leaving the photo. |
+| `--min-width-m` | The filter spur length cannot be: tracks worn across a rubble field read as asphalt *and close loops*, so they survive pruning however obviously they are not streets. They are 2–3 m across and no road on a site is. |
+| widths | 2× the median distance transform along each centreline — measured, not assumed. `road_class` is only the nearest of `suburb_net.CLASSES`, and the measured width is what is kept. |
+| roles | Blocks are classified by what covers them (`grass`, `wooded`, `pad`, `parking`, `staging`). **`rubble` and `collapsed` cannot be found this way** — broken concrete photographs as grey aggregate, exactly like an intact apron — so they are set by hand. |
+
+**Scale is the one thing an aerial cannot tell you.** There is no
+georeferencing in a screenshot, so pick a feature of known size and measure it:
+`disaster_city` is calibrated off the parking lot, whose stall-row head lines
+repeat every 119.3 px against a standard 18.3 m double-loaded module. Two
+independent measurements off the same lot agree with it. Record the derivation
+in `source.calibration`; a scale that is 10% wrong makes every building the
+wrong size and nothing downstream will notice.
+
+**The aerial is not committed.** Third-party imagery is not ours to
+redistribute, and `coasei/CLAUDE.md` forbids a path escaping the repo root, so
+the spec records only a file name. `tools/site_plan_png.py` looks for it in the
+working directory, beside the spec, and then `$SITE_PLAN_AERIALS`; without it
+the plan still draws, on a blank sheet.
+
+### The loop
+
+```bash
+# once, to author the spec
+AirStack/.venv/bin/python scene_gen/tools/trace_site_plan.py \
+    --image photos/disaster-city.png --mpp 0.1534 --name disaster_city \
+    --out scene_gen/config/site_plans/disaster_city.yaml
+
+# after every hand edit — this reads the YAML and nothing else
+SITE_PLAN_AERIALS=photos AirStack/.venv/bin/python \
+    scene_gen/tools/site_plan_png.py --plan disaster_city --out /tmp/plan.png
+```
+
+`tests/test_site_plan.py` is the gate: it checks the graph closes (the biggest
+block is not the whole region), that measured widths survive the build, that
+every block still carries a role from the spec, and that every feature lands on
+a block.
+
+### Features: what stands on a block
+
+A role says the block is a concrete pad. A **feature** says there is a 17 × 6 m
+container on it, here, at this bearing. They live in the same spec:
+
+```yaml
+features:
+- kind: building          # building rubble wreck pit vehicle container mast debris
+  at: [33.7, 71.2]        # centre, metres, region-centred — the roads' frame
+  size_m: [21.0, 17.2]    # [long, short] footprint
+  yaw_deg: 0              # bearing of the LONG axis, CCW from east
+  note: gabled steel shed
+- kind: rubble
+  at: [-63.5, 38.8]
+  poly: [[...], ...]      # an outline, where a box will not do
+```
+
+`layout/site_plan._attach_features` hangs each on the block whose polygon
+contains `at` — falling back to the block containing any vertex of the outline,
+because a block is inset half a carriageway from the street centreline and a
+33 m trailer parked along the edge of a pad has its midpoint in that margin.
+One that touches no block (a trailer stopped on the kerb) keeps `block: None`.
+They arrive as `block["features"]` and as a flat `info["features"]`.
+
+**They are hand-authored, and that is the design, not a shortcut.** Detection
+was tried and half works: local texture separates broken concrete from every
+smooth surface (grass 6, concrete 3, roof 2.5, rubble 29), but canopy scores 20
+and only saturation splits those two (concrete is neutral, foliage is not, even
+in shadow). That pair of rules finds the real rubble fields *and* finds bare
+ground between trunks along the wood line just as confidently — and below that
+scale, a shipping container and a garden shed are the same bright rectangle. So
+footprints are read off the aerial at 2–3× zoom against a 25 px grid and
+converted once. The `rubble` entries keep their traced outlines, because a
+debris field is not a rectangle.
+
+Check them the same way they were checked here — score each footprint against
+the pixels it claims, rather than eyeballing the overlay. Every entry in
+`disaster_city` scores ≥ 0.60 "built-like or rough" inside its own outline, and
+the ones at the bottom of that range are boxes that include an apron.
+
+**A shadow is not a footprint.** This is the failure mode a single nadir image
+cannot protect you from: the sun on `disaster_city` is SSE, so everything tall
+lays a streak to the NNW, and a five-storey drill tower standing on bright
+concrete reads from directly above as one long dark object. It was first
+authored as a 33 × 6 m "trailer"; its plan is a 7 m square. Suspect any footprint
+elongated toward the NNW, and settle it against a **second, oblique view** —
+`source.oblique` in the spec names one. A tall structure is unmistakable there
+and its base is visible. Nothing reads the oblique; it is for the person doing
+the authoring.
+
+### Building the scene
+
+`suburb_scene.generate_suburb_on_stage` writes the features as **rectangular
+prisms** (`detail/site_features.py`) after the ground pass — one Xform per
+feature carrying the measured translate and Z rotation, with an axis-aligned box
+beneath it. The prism is a stand-in that is *correct in footprint, position and
+bearing* and honest about the rest; swapping in real assets later changes one
+function, because everything deciding WHERE things go already happened in the
+layout.
+
+`height_m` is the one dimension a nadir image cannot give, so it is read off the
+oblique by counting storeys. `site_features.DEFAULT_H` covers a feature that has
+none and is a guess by construction — `test_site_features` asserts the committed
+plan relies on none of them.
+
+Each prim carries `featureKind`, `featureNote`, `featureSizeM` and
+`standIn: true` in `customData`, so selecting one in a viewport answers what it
+is without regenerating anything.
+
+Preview it host-side, no Isaac needed:
+
+```bash
+uv run --script scene_gen/tools/site_scene_png.py scene.usda -o shot.png \
+    --azimuth 0 --elev 30        # camera due east looking west, as the oblique was shot
+```
+
+That tool colours by prim NAME, which is why `site_features` names the box after
+its feature (`building_07_box`) rather than `box`: a USD importer that collapses
+a single-child Xform keeps the mesh's name and drops the parent's, and a scene
+of stand-ins all called `box` cannot be checked against anything. Trees and
+signs are Nucleus references — deactivate them before rendering outside the
+container, or they resolve to nothing.
+
+### Zone ground, and the triangulation it needs
+
+A block's ground is drawn from its role: `ZONE_GROUND` in `suburb_scene` maps
+`parking` to asphalt, `pad`/`staging`/`rubble` to dirt, `wooded` to rough grass
+and so on, colour and material together. A block with **no** role — every block
+in a generated suburb — is untouched and draws the grass it always did.
+
+Getting there needed a real triangulator, and the reason is worth keeping:
+
+* `_make_polygon` used to fan from the block's CENTROID, on the stated
+  assumption that blocks are "convex or mildly concave". A traced block need
+  not be. `disaster_city`'s largest block wraps the west and north of the site
+  and **its centroid falls outside it**, so the fan swept triangles clear
+  across the region and drew that one block over all fifteen others.
+* `offset_polygon` insets each vertex along its own bisector, which self-crosses
+  wherever the inset is deeper than the local half-width. **Nine of sixteen**
+  traced blocks come out self-crossing, and the folded-back lobe is a
+  negative-area loop sitting on top of the real surface — a second sheet of
+  ground at exactly the same height as the first.
+
+Both produce coplanar overlapping geometry, which is what z-fighting is. The
+fix is `suburb_net.simple_rings` (cut the ring at its own crossings, keep the
+positively-wound pieces) followed by `suburb_net.earclip` (triangulate a simple
+concave polygon). `test_site_plan` asserts every committed block triangulates
+to its own area within 3%, and separately that the largest block still defeats
+a centroid fan — so nobody puts the fan back once the symptom is gone.
+
+`site_features` uses the same pair to EXTRUDE a feature that carries a `poly`
+instead of boxing it: a rubble field is concave, and its bounding box is half
+again its area standing as a plateau over ground that is not debris.
+
+### Roads: runs, fillets and junctions
+
+A traced centreline is Douglas-Peucker output over a pixel skeleton, and the
+naive way to draw it is one mitred ribbon per graph edge. That produces exactly
+what it sounds like — "segments with overlap and disconnection". Four separate
+things had to change, each measured:
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| a seam every few metres | `_connect_route` splits a street at every crossing, so one road arrives as a dozen edges joined at **degree-2 nodes** — 52 of them, where nothing actually meets | `_road_runs` merges through them: 123 ribbons became **70 runs** |
+| roads overlapping in a lens at every crossing | every ribbon butt-capped AT the node, all at the same z | `_trim_run` pulls each back by the junction radius; **43 junction patches** fill the middle, so surfaces MEET instead of interpenetrating |
+| a visibly scalloped kerb | `_mitre_offsets` widens by 1/cos(θ/2), and a traced corner is sharp: the carriageway bulged to **1.58x** its width | corners get a **fillet**, not an interpolating spline — see below — and the mitre limit is 1.4 rather than 2.86 |
+| the fillet not helping | all 10 remaining bulges sat on a node where two traced roads met end to end, and a fillet pins each road's ends | `merge_chains` joins them first: 130 spec roads → **93**, degree-2 nodes 52 → **16**, bulge p99 1.31 → **1.08** |
+
+**Why a fillet and not a spline.** Catmull-Rom passes *through* every control
+point, so a right-angle corner stays a right-angle corner however finely it is
+sampled — measured, it still turned 38° at one vertex and the bulge was
+unchanged. `site_plan.spline` cuts a corner instead: it leaves the straight
+`radius_m` before the vertex, arcs through, and rejoins after. Straights stay
+exactly on the traced line and the corner never moves further from it than the
+radius, so the road still lies where the aerial put it.
+
+Widths are averaged **length-weighted** when two runs merge, because the tracer
+measures width per skeleton edge and two halves of one street come back 5.4 m
+and 5.8 m. That is measurement noise, not a change of carriageway — demanding
+exact agreement rejected 51 of the 52 real joins.
+
+Smoothing happens in `site_plan.generate`, BEFORE the routes are cut into the
+graph, so the blocks are inset from the smoothed line too: the kerb the ribbon
+sweeps is the kerb the block stops at.
+
+### Zone materials and planting
+
+`ZONE_GROUND` gives each role a `(colour, material key, tile_m)`. `tile_m` is
+the world size one texture repeat covers and it is not cosmetic: every ground
+material here is OmniPBR with `project_uvw`/`world_or_object` set, so the map is
+projected in **world space** and `inputs:texture_scale` is the only thing
+setting the grain — the mesh's UVs are ignored entirely. `_load_mat(key,
+tile_m)` authors that scale and returns a separate prim per grain, because the
+scale lives on the shader rather than on the binding. A car park tiled at a
+lawn's 6 m reads as corduroy; rubble tiled at 12 m reads as a photograph of
+rubble rather than rubble.
+
+| role | material | tile |
+|---|---|---|
+| `parking` | `Road_Asphalt` | 9 m |
+| `pad` | `Worn_Pavement` | 7 m |
+| `staging` | `Dirt_Rough` | 6 m |
+| `rubble` | `Crushed_Asphalt_Ground` | 4 m |
+| `collapsed` | `Damaged_Asphalt` | 5 m |
+| `wooded` / `grass` | `Grass_Countryside` | 8 m / 6 m |
+
+**All local, on purpose.** The shared asset set points `asphalt`, `concrete`,
+`sidewalk` and `asphalt_road_tile` at `Library/Stages/...` on Nucleus, and the
+container here authenticates as `guest` — so every one of them returns
+ACCESS_DENIED, binds nothing, and the surface renders as flat displayColor with
+no warning anywhere. The zone materials are the repo's own 8K Megascans
+wrappers under `assets/materials/`, and `disaster_city.yaml` repoints the road
+materials at them too. `test_site_plan` asserts every zone material is declared,
+is `airstack://`, and resolves to a file that exists.
+
+`ZONE_PLANTING` is a multiplier on `open_planting.open_rate`, and zero means do
+not plant. `undeveloped` used to mean both "no houses" and "open ground, plant
+it"; on a site plan it only means the first, and planting at the open rate put a
+wood in the middle of the car park. The numbers were set against the aerial: at
+`grass` 0.45 the 27,798 m² open block took 138 of 171 trees and read as
+woodland, where the photograph shows mown field with the tree line outside the
+crop. At 0.10 / 3.2 it is 79 trees, 37 of them in the three genuinely wooded
+lots.
+
+**These materials cannot be checked in the offline preview.** They are MDL, and
+Blender renders an OmniPBR ground as solid black — `site_scene_png.py
+--keep-materials` will show you that. Kit is the only renderer here that
+evaluates them, so `suburb_preview_launch_script.py` now honours `SNAP_DIR` the
+way `scene_launch_script.py` does.
 
 ## Characteristics
 

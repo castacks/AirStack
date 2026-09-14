@@ -19,7 +19,7 @@ import math
 import os
 import random
 
-from pxr import Gf, Sdf, UsdGeom, Vt
+from pxr import Gf, Sdf, Usd, UsdGeom, Vt
 
 import scene_generator as sg
 from layout import suburb_net as sn
@@ -38,6 +38,55 @@ from detail import suburb_park as spk
 # metres and the sheets interpenetrate into flickering edges. Paint does not
 # really sit 14 cm above a road, but at this capture altitude that is far below
 # a pixel and the z-fighting is not. Keep the order and keep the gaps.
+# GROUND PER ZONE ROLE — `(displayColor, material key)`. Only a block that
+# carries a `role` (i.e. one from `layout/site_plan.py`) consults this; a
+# generated suburb has none and keeps the grass it always had. The material
+# keys resolve against whatever the asset set actually declares and fall back
+# to nothing, so a set with no `dirt` still draws the colour.
+# `(displayColor, material key, metres per texture repeat)`. The colour is the
+# fallback a set with no such material still renders in; `tile_m` is the world
+# size one repeat covers, and it matters — every one of these is OmniPBR with
+# `project_uvw` on, so the texture is projected in WORLD space and its scale is
+# the only thing setting the grain. A car park tiled at a lawn's 6 m reads as
+# corduroy; broken concrete tiled at 12 m reads as a photograph of rubble
+# rather than rubble.
+#
+# Only a block that carries a `role` (i.e. one from `layout/site_plan.py`)
+# consults this; a generated suburb has none and keeps the grass it always had.
+ZONE_GROUND = {
+    "parking":   ((0.17, 0.17, 0.18), "asphalt_worn", 9.0),
+    # SAND, not concrete. The training pads on this site are graded sand, and
+    # `concrete_worn` read as a grey slab. See the `sand_ground` note in
+    # config/presets/disaster_city.yaml for what the library actually has.
+    "pad":       ((0.76, 0.69, 0.55), "sand_ground", 2.0),
+    "staging":   ((0.55, 0.48, 0.38), "dirt_rough", 6.0),
+    "rubble":    ((0.42, 0.39, 0.36), "rubble_ground", 4.0),
+    "collapsed": ((0.40, 0.36, 0.33), "debris_ground", 5.0),
+    "wooded":    ((0.18, 0.28, 0.13), "grass_rough", 8.0),
+    "grass":     ((0.26, 0.40, 0.17), "grass_rough", 6.0),
+    "water":     ((0.16, 0.28, 0.35), "", 0.0),
+}
+
+# Tree density per zone role, as a MULTIPLE of `open_planting.open_rate`.
+# Absent or zero means do not plant: a rubble field being cleared has no trees
+# on it, and neither has a car park. `wooded` is the only role the aerial shows
+# under canopy, so it is the only one above 1.
+# MEASURED AGAINST THE AERIAL, not guessed. At `grass` 0.45 the 27,798 m2 open
+# block north-west of the site took 138 of the 171 trees and rendered as
+# woodland — but the photograph shows it as mown field with the tree line
+# OUTSIDE the crop, and the three `wooded` lots, which are genuinely under
+# canopy, took 33 between them. The ratio has to run the other way.
+ZONE_PLANTING = {
+    "wooded": 3.2,
+    "grass": 0.10,
+    "staging": 0.0,
+    "pad": 0.0,
+    "parking": 0.0,
+    "rubble": 0.0,
+    "collapsed": 0.0,
+    "water": 0.0,
+}
+
 _Z_GRASS = 0.02
 _Z_ASPHALT = 0.10
 _Z_DRIVE = 0.16
@@ -533,6 +582,31 @@ class _WallIndex:
         return out
 
 
+def _feature_box(f):
+    """A site feature's footprint as an `_ObbIndex` box, or None.
+
+    Takes the measured `size_m` and `yaw_deg` when present — that is the
+    rectangle traced off the aerial — and falls back to the bounds of the
+    traced outline for a feature that has only a polygon (a rubble field).
+    """
+    at = f.get("at")
+    if not at:
+        return None
+    cx, cy = float(at[0]), float(at[1])
+    size = f.get("size_m")
+    if size:
+        hl, hw = float(size[0]) * 0.5, float(size[1]) * 0.5
+        a = math.radians(float(f.get("yaw_deg", 0.0)))
+        return (cx, cy, math.cos(a), math.sin(a), hl, hw)
+    poly = f.get("poly") or []
+    if len(poly) < 3:
+        return None
+    xs = [q[0] for q in poly]
+    ys = [q[1] for q in poly]
+    return (0.5 * (min(xs) + max(xs)), 0.5 * (min(ys) + max(ys)), 1.0, 0.0,
+            0.5 * (max(xs) - min(xs)), 0.5 * (max(ys) - min(ys)))
+
+
 def _rect_box(corners):
     """A four-corner rectangle (in ring order) as an `_ObbIndex` box, or None.
 
@@ -851,12 +925,90 @@ def _mitre_offsets(pts, half_w):
             d0 = sn._unit(sn._sub(pts[i], pts[i - 1]))
             d1 = sn._unit(sn._sub(pts[i + 1], pts[i]))
             m = sn._unit(sn._add(sn._perp(d0), sn._perp(d1)))
-            cos_half = max(0.35, abs(sn._dot(m, sn._perp(d0))))
+            # MITRE LIMIT 1.4, not 2.86. The cap exists so a hairpin cannot
+            # throw the edge to infinity, but 0.35 allows the carriageway to
+            # widen to 2.86x at a sharp vertex, and a bulge that size reads as
+            # a blister on the kerb. Clamping to 1.4 trades it for a small
+            # notch on the OUTSIDE of a very sharp corner, which is both less
+            # visible and what a real kerb does there. Curves laid by
+            # `suburb_net` bottom out at a 30 m radius and never reach it.
+            cos_half = max(0.714, abs(sn._dot(m, sn._perp(d0))))
             scale = 1.0 / cos_half
         off = sn._mul(m, half_w * scale)
         left.append(sn._add(pts[i], off))
         right.append(sn._sub(pts[i], off))
     return left, right
+
+
+def _road_runs(net):
+    """Maximal road paths through nodes that are not junctions.
+
+    `_connect_route` splits a street at every crossing it makes, so one traced
+    road arrives as a dozen edges joined at nodes of DEGREE 2 — nodes where
+    nothing meets, they are only where the graph was cut. Ribboning per edge
+    puts a butt-capped seam at each of them (49 of them on `disaster_city`),
+    and a seam between two mitred strips is exactly the "segments with overlap
+    and disconnection" the eye picks up. Merging first means one strip per
+    actual run of road, mitred all the way through.
+
+    Returns ``[{"pts", "half_w", "street_id", "ends"}, ...]``.
+    """
+    def road_edges(nid):
+        return [eid for eid in net.nodes[nid].edges
+                if net.edges[eid].road_class != "boundary"]
+
+    seen, runs = set(), []
+    for e0 in net.edges.values():
+        if e0.road_class == "boundary" or e0.id in seen:
+            continue
+        chain, a, b = [e0], e0.a, e0.b
+        seen.add(e0.id)
+        for end in (0, 1):
+            node = b if end else a
+            while len(road_edges(node)) == 2:
+                nxt = [eid for eid in road_edges(node) if eid not in seen]
+                if not nxt:
+                    break
+                e = net.edges[nxt[0]]
+                seen.add(e.id)
+                node = e.b if e.a == node else e.a
+                chain.append(e) if end else chain.insert(0, e)
+            if end:
+                b = node
+            else:
+                a = node
+        # Stitch the chain's geometry head to tail, flipping where needed.
+        pts, node = [], a
+        for e in chain:
+            seg = e.pts if e.a == node else list(reversed(e.pts))
+            node = e.b if e.a == node else e.a
+            pts.extend(seg if not pts else seg[1:])
+        runs.append({"pts": pts, "half_w": max(e.half_w for e in chain),
+                     "street_id": chain[0].street_id, "ends": (a, b)})
+    return runs
+
+
+def _trim_run(pts, r_a, r_b):
+    """Pull a run back from its junctions so the patch can fill the gap.
+
+    Butt-capping every strip AT the node is what makes two roads overlap in a
+    visible lens at every crossing, and all of it coplanar: the same z, the
+    same material, drawn twice. Stopping short and filling the middle with one
+    polygon means the surfaces MEET instead of interpenetrating, which is both
+    what an intersection looks like and the only version that cannot z-fight.
+    """
+    total = sn.polyline_length(pts)
+    if total <= 1.0:
+        return pts
+    # Never eat more than a third of a short run from each end: two junctions
+    # 12 m apart would otherwise leave nothing to draw between them.
+    r_a = min(r_a, total / 3.0)
+    r_b = min(r_b, total / 3.0)
+    if r_a > 0.05:
+        _h, pts = sn.split_polyline(pts, r_a)
+    if r_b > 0.05:
+        pts, _t = sn.split_polyline(pts, max(0.1, sn.polyline_length(pts) - r_b))
+    return pts
 
 
 def _make_ribbon(stage, path, pts, half_w, z, ssf, uv_scale, color, mat="",
@@ -970,27 +1122,106 @@ def polygon_minus_convex(poly, hole):
     return pieces or [poly]
 
 
-def _make_polygon(stage, path, poly, z, ssf, uv_scale, color, mat=""):
-    """A block polygon as one fan-triangulated mesh.
+def _point_in_poly_xy(pt, poly):
+    """Even-odd ray cast, for scattering inside a block outline."""
+    x, y = pt
+    inside = False
+    n = len(poly)
+    for i in range(n):
+        x0, y0 = poly[i]
+        x1, y1 = poly[(i + 1) % n]
+        if (y0 > y) != (y1 > y):
+            xc = x0 + (y - y0) * (x1 - x0) / (y1 - y0)
+            if x < xc:
+                inside = not inside
+    return inside
 
-    Fan from the centroid rather than from vertex 0: block polygons are convex
-    or mildly concave, and a centroid fan degrades gracefully on the concave
-    ones where a corner fan folds over itself.
+
+def block_ring(b, config):
+    """A block's outline as it is DRAWN. It is the face polygon, untouched.
+
+    THE BLOCK EDGE IS THE ROAD EDGE. `blocks_from_faces` insets each face by
+    half of the carriageway on THAT side, per edge, so the polygon already
+    follows a road that is 11 m wide at one end and 5.8 m at the other. Nothing
+    here may move it:
+
+      * the kerb is drawn on this ring, and a kerb that is not on the edge of
+        the carriageway is not a kerb;
+      * the zone fill is drawn on this ring, and the road ribbon is swept from
+        the centreline at its true width, so anything that pulls the ring
+        inward opens a strip of bare ground between the two.
+
+    This pass used to simplify the ring by 2 m and fillet its corners by 6 m,
+    to tidy the steps where a wide street meets a narrow service road.
+    MEASURED, that moved the edge by up to 8.68 m: the kerb left the road and
+    the sand pads showed grass around their corners. Those steps are not noise,
+    they are the carriageway changing width, and the kerb is supposed to show
+    it.
+
+    The wobble the tidy-up was aimed at belongs upstream, in the CENTRELINES —
+    see `site_plan.simplify`, which straightens the trace before the faces are
+    cut, so blocks and roads stay derived from the same geometry.
+
+    Kept as the one accessor both passes call, so neither can start drawing a
+    different outline from the other.
+    """
+    return [(float(x), float(y)) for x, y in b["poly"]]
+
+
+def _span_at_y(poly, y):
+    """`(x_lo, x_hi)` where the horizontal line *y* crosses *poly*, or None.
+
+    Outermost crossings only, so a line struck between them stays inside a
+    convex outline — which is what a car park is. It exists so the bay markings
+    can be cut to the LOT rather than to its bounding box: on a rounded
+    rectangle the two differ by the corner radius, and that difference is bays
+    painted on the grass.
+    """
+    xs = []
+    n = len(poly)
+    for i in range(n):
+        x0, y0 = poly[i]
+        x1, y1 = poly[(i + 1) % n]
+        if (y0 > y) != (y1 > y):
+            xs.append(x0 + (y - y0) * (x1 - x0) / (y1 - y0))
+    if len(xs) < 2:
+        return None
+    return min(xs), max(xs)
+
+
+def _make_polygon(stage, path, poly, z, ssf, uv_scale, color, mat=""):
+    """A block polygon as one triangulated mesh.
+
+    Ear-clipped, and self-crossings excised first — see `suburb_net.earclip`
+    and `suburb_net.simple_rings` for what each is defending against. The pieces share one
+    mesh: they are one block, and a consumer that deactivates or re-materials
+    "the grass on block 7" should not have to find three prims.
     """
     if len(poly) < 3:
         return None
     s = ssf
-    cx, cy = sn.polygon_centroid(poly)
-    verts = [Gf.Vec3f(cx * s, cy * s, z * s)]
-    uvs = [Gf.Vec2f(cx / uv_scale, cy / uv_scale)]
-    for (x, y) in poly:
-        verts.append(Gf.Vec3f(x * s, y * s, z * s))
-        uvs.append(Gf.Vec2f(x / uv_scale, y / uv_scale))
-    counts, idx = [], []
-    n = len(poly)
-    for i in range(n):
-        counts.append(3)
-        idx.extend([0, 1 + i, 1 + (i + 1) % n])
+    # WINDING FIRST, AND BEFORE `simple_rings` — it keeps only the positively
+    # wound pieces, so a clockwise ring goes in and NOTHING comes out: no
+    # faces, no mesh, None, no error. It has cost two passes already. The
+    # hand-drawn ground patches are traced clockwise and drew nothing; every
+    # south-facing car-park stall is authored downward from its aisle, which
+    # reverses the rectangle, and was missing while the pass counted it.
+    # Normalising here rather than at each call site is the point: a caller has
+    # no reason to know that a rectangle's orientation decides whether it
+    # exists.
+    if sn.polygon_area(poly) < 0.0:
+        poly = list(reversed(poly))
+    verts, uvs, counts, idx = [], [], [], []
+    for ring in sn.simple_rings(poly):
+        base = len(verts)
+        for (x, y) in ring:
+            verts.append(Gf.Vec3f(x * s, y * s, z * s))
+            uvs.append(Gf.Vec2f(x / uv_scale, y / uv_scale))
+        for (a, b, c) in sn.earclip(ring):
+            counts.append(3)
+            idx.extend([base + a, base + b, base + c])
+    if not counts:
+        return None
     return _define_mesh(stage, path, verts, counts, idx, uvs, color, mat)
 
 
@@ -1159,7 +1390,7 @@ def ground_z_scale(config, region):
 
 def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
                  pool_rects=None,
-                 park=None):
+                 park=None, mats_out=None):
     """Asphalt ribbons, block grass, driveways and centreline dashes."""
     roads_cfg = config.get("roads", {}) or {}
 
@@ -1204,19 +1435,88 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
     UsdGeom.Scope.Define(stage, Sdf.Path(mat_scope))
     mat_cfg = (config.get("usds", {}) or {}).get("materials", {}) or {}
     asset_root = str(config.get("asset_root", "") or "").rstrip("/")
+    # PER-MATERIAL SHADER OVERRIDES from the preset, e.g.
+    #   site_material_tweaks: {grass_rough: {albedo_brightness: 0.7}}
+    # These packs wrap OmniPBR with `(*)`, so every OmniPBR parameter is
+    # exposed on the Shader prim and can be set from USD — which is the only
+    # way to grade one of them, the map being baked and shared by every scene
+    # that uses it. Applied per LOADED PRIM, so a material re-tiled to two
+    # grains gets the same grade on both.
+    mat_tweaks = (config.get("site_material_tweaks") or {})
 
-    def _load_mat(key):
+    def _load_mat(key, tile_m=0.0):
+        """Reference a material, optionally re-tiling it.
+
+        *tile_m* is the world size one texture repeat should cover. These are
+        OmniPBR shaders with `project_uvw`/`world_or_object` set, so the map is
+        projected in world space and `inputs:texture_scale` — repeats per metre
+        — is the only control over grain; the mesh's own UVs are ignored. The
+        shipped scales were chosen for whatever surface each was imported for,
+        so a ground pass that wants the same swatch at two grains has to say
+        so, and gets a SEPARATE prim per grain because the scale lives on the
+        shader rather than on the binding.
+        """
         url = mat_cfg.get(key, "")
         if not url:
             return ""
         url = sg._join_asset_root(url, asset_root)
         p = mat_scope + "/" + key
+        if tile_m > 0.0:
+            p += "_t%d" % round(tile_m * 10)
+        if stage.GetPrimAtPath(Sdf.Path(p)).IsValid():
+            return p
         prim = stage.DefinePrim(Sdf.Path(p))
         prim.GetReferences().AddReference(url)
         prim.Load()
+        if tile_m > 0.0:
+            n = 1.0 / tile_m
+            for sh in Usd.PrimRange(prim):
+                if sh.GetTypeName() == "Shader" and sh.GetAttribute("inputs:texture_scale"):
+                    sh.GetAttribute("inputs:texture_scale").Set(Gf.Vec2f(n, n))
+        _tw = mat_tweaks.get(key) or {}
+        for _nm, _val in _tw.items():
+            for sh in Usd.PrimRange(prim):
+                if sh.GetTypeName() != "Shader":
+                    continue
+                if isinstance(_val, (list, tuple)):
+                    sh.CreateAttribute("inputs:" + _nm,
+                                       Sdf.ValueTypeNames.Color3f).Set(
+                        Gf.Vec3f(*[float(v) for v in _val]))
+                else:
+                    sh.CreateAttribute("inputs:" + _nm,
+                                       Sdf.ValueTypeNames.Float).Set(
+                        float(_val))
+        # HAND THE PATH BACK rather than let a later pass reconstruct it. The
+        # prim name encodes the tiling (`sand_ground_t20`), so a caller that
+        # wants to bind the same material would have to duplicate that rule and
+        # would break silently the day the tiling changes.
+        if mats_out is not None:
+            mats_out[key] = p
+            # AND under the grain, because `key` alone cannot hold two. The
+            # same swatch at two tilings is two prims, and a caller that wants
+            # a specific one — the ground-wear pass overlays 9 m and 30 m — has
+            # no way to ask for it if the last load silently wins the name.
+            if tile_m > 0.0:
+                mats_out["%s@%g" % (key, tile_m)] = p
         return p
 
     asphalt_mat, grass_mat = _load_mat("asphalt"), _load_mat("grass")
+    # PRE-LOAD THE SURFACES LATER PASSES BIND BY NAME. `_load_mat` is what
+    # references the material onto the stage AND records it in `mats_out`, so a
+    # key nothing loads here is simply absent downstream — the kerb ring and
+    # the car-park bay lines both skipped silently the first time for exactly
+    # that reason, with no error and no geometry.
+    for _pre in ("kerb", "road_line_white"):
+        _load_mat(_pre, 2.0)
+    # DIRT AT TWO GRAINS. `_load_mat`'s `tile_m` OVERWRITES the shader's
+    # `inputs:texture_scale`, so asking for it here at 2 m — which is what the
+    # kerb and the bay paint want — re-tiled a 1 m gravel texture to a 2 m
+    # repeat and the worn ground came out visibly quilted. 9 m is roughly what
+    # the swatch was imported at; 30 m is the same map coarse enough that a
+    # whole patch sits inside one tile, and the two overlaid is what stops
+    # either period being legible.
+    for _tile in (9.0, 30.0):
+        _load_mat("dirt_rough", _tile)
     # A SECOND road surface, mixed with the first. `asphalt_road_tile` is the
     # ModularNeighborhood road material — a cross-section trim sheet, so it
     # needs the trim-sheet UVs above; the original is a plain tileable swatch.
@@ -1265,24 +1565,61 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
                           -0.005, ssf, uv_grass, (0.24, 0.36, 0.17), rough_mat)
 
     n_road = n_road_alt = 0
-    # Per STREET, not per segment: a road that changes surface halfway along
-    # reads as a patch job. `e.id` keeps the choice stable across rebuilds.
-    for e in net.edges.values():
-        if e.road_class == "boundary":
-            continue
-        use_alt = alt_share > 0.0 and (hash(("road_surf", e.id)) % 1000) / 1000.0 < alt_share
+    # ONE STRIP PER RUN OF ROAD, trimmed back from every junction, with the
+    # junctions filled separately below. See `_road_runs` and `_trim_run`.
+    runs = _road_runs(net)
+    # How far each junction pulls its roads back: enough to clear the widest
+    # carriageway meeting there, so the patch spans the whole crossing.
+    node_r = {}
+    for nid, node in net.nodes.items():
+        if node.road_degree(net) >= 3:
+            node_r[nid] = _junction_radius(net, node) + 0.5
+    ends_at = {}
+    for ri, run in enumerate(runs):
+        a, b = run["ends"]
+        pts = _trim_run(run["pts"], node_r.get(a, 0.0), node_r.get(b, 0.0))
+        run["draw"] = pts
+        # Per STREET, not per segment: a road that changes surface halfway
+        # along reads as a patch job.
+        use_alt = alt_share > 0.0 and \
+            (hash(("road_surf", run["street_id"])) % 1000) / 1000.0 < alt_share
         if use_alt:
-            ok = _make_ribbon(stage, f"{gnd}/road_{e.id}", e.pts, e.half_w,
+            ok = _make_ribbon(stage, f"{gnd}/road_{ri}", pts, run["half_w"],
                               z_asphalt, ssf, uv_asphalt, (0.15, 0.15, 0.15),
                               asphalt_alt, uv_along_m=ROAD_TRIM_REPEAT_M,
                               v_span=ROAD_TRIM_V)
         else:
-            ok = _make_ribbon(stage, f"{gnd}/road_{e.id}", e.pts, e.half_w,
+            ok = _make_ribbon(stage, f"{gnd}/road_{ri}", pts, run["half_w"],
                               z_asphalt, ssf, uv_asphalt, (0.15, 0.15, 0.15),
                               asphalt_mat)
         if ok is not None:
             n_road += 1
             n_road_alt += 1 if use_alt else 0
+        if len(pts) >= 2:
+            left, right = _mitre_offsets(pts, run["half_w"])
+            for nid, k in ((a, 0), (b, -1)):
+                if nid in node_r:
+                    ends_at.setdefault(nid, []).extend([left[k], right[k]])
+
+    # THE JUNCTION ITSELF, one polygon per node, built from the strips' own end
+    # corners so the fill starts exactly where they stopped: no seam, no second
+    # sheet of asphalt over the first.
+    #
+    # Ordered BY BEARING around the node, not hulled. The convex hull of the
+    # same points is the smallest polygon CONTAINING them, which at a T
+    # junction bulges out past the roads and lays a wedge of asphalt into the
+    # block. Walking the corners in angular order joins each road end to the
+    # next one round and hugs the crossing instead.
+    n_junc = 0
+    for nid, corners in ends_at.items():
+        if len(corners) < 3:
+            continue
+        cx, cy = net.nodes[nid].p
+        hull = sorted(corners, key=lambda q: math.atan2(q[1] - cy, q[0] - cx))
+        if len(hull) >= 3 and _make_polygon(
+                stage, f"{gnd}/junction_{nid}", hull, z_asphalt, ssf,
+                uv_asphalt, (0.15, 0.15, 0.15), asphalt_mat) is not None:
+            n_junc += 1
 
     bulb_r = float(sn.DEFAULTS["bulb_radius_m"])
     n_bulb = 0
@@ -1299,12 +1636,29 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
 
     n_grass = n_rough = 0
     n_cut = 0
+    n_zoned = 0
     for i, b in enumerate(blocks):
         wild = bool(b.get("undeveloped"))
         col = (0.26, 0.34, 0.16) if wild else (0.2, 0.5, 0.1)
+        # A TRACED BLOCK KNOWS WHAT IT IS. `undeveloped` is a two-way flag that
+        # was enough while every block was somebody's lawn; a site plan tags
+        # each one `parking`, `pad`, `rubble`, `wooded`… and rendering all of
+        # them in the same green throws that away — the car park, the concrete
+        # apron and the wood come out one colour and the zoning is invisible in
+        # the scene it was traced for. A block with no role is untouched, so
+        # the generated suburb draws exactly what it drew before.
+        role = b.get("role")
+        name = f"grass_{i}"
+        if role and role in ZONE_GROUND:
+            col, mat_key, tile_m = ZONE_GROUND[role]
+            zone_mat = _load_mat(mat_key, tile_m) if mat_key else ""
+            name = f"zone_{role}_{i}"
+            n_zoned += 1
+        else:
+            zone_mat = None
         # Subtract any pool whose rectangle lands on this block, so the lawn has
         # a hole to see the water through rather than a sheet over the top.
-        parts = [b["poly"]]
+        parts = [block_ring(b, config)]
         for rect in (pool_rects or ()):
             nxt = []
             for q in parts:
@@ -1316,9 +1670,10 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
         ok = False
         for k, q in enumerate(parts):
             suffix = "" if len(parts) == 1 else f"_{k}"
-            if _make_polygon(stage, f"{gnd}/grass_{i}{suffix}", q, z_grass,
-                             ssf, uv_grass, col,
-                             rough_mat if wild else grass_mat) is not None:
+            surface = (rough_mat if wild else grass_mat) if zone_mat is None \
+                else zone_mat
+            if _make_polygon(stage, f"{gnd}/{name}{suffix}", q, z_grass,
+                             ssf, uv_grass, col, surface) is not None:
                 ok = True
         if ok:
             n_grass += 1
@@ -1504,9 +1859,11 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
         apply_park_ground(stage, config, park, gnd, ssf,
                           (asphalt_mat, grass_mat, park_grass_mat, dirt_mat))
 
-    print(f"[suburb_scene] ground: {n_road} road ribbons "
-          f"({n_road_alt} on the road tile), {n_bulb} turnarounds, "
-          f"{n_grass} block meshes ({n_rough} rough/undeveloped), "
+    print(f"[suburb_scene] ground: {n_road} road runs "
+          f"({n_road_alt} on the road tile), {n_junc} junction patches, "
+          f"{n_bulb} turnarounds, "
+          f"{n_grass} block meshes ({n_rough} rough/undeveloped"
+          + (f", {n_zoned} by zone role" if n_zoned else "") + "), "
           f"{n_drive} driveways ({n_drive_alt} asphalt), {n_walk} front "
           f"walks, {n_apron} pool apron pieces around "
           f"{len(pool_rects or ())} pool(s)")
@@ -3930,8 +4287,26 @@ def build_open_planting(config, resolver, net, blocks, rng, pools,
     # -- what to plant, and how thickly ------------------------------------
     regions = []                     # (poly, trees per 100 m2, tag)
     for b in blocks:
-        if b.get("undeveloped"):
-            regions.append((b["poly"], pc["open_rate"], "undeveloped"))
+        if not b.get("undeveloped"):
+            continue
+        # A TRACED BLOCK SAYS WHETHER IT IS PLANTABLE. `undeveloped` means "no
+        # houses here", which for `suburb_net` always also meant "open ground,
+        # plant it". On a site plan it does not: the car park, the concrete
+        # staging pads and the rubble fields are all `undeveloped` and planting
+        # them at the open rate put a wood in the middle of the asphalt. A
+        # block with no role keeps the old behaviour exactly.
+        # AN EXPLICIT `plant: false` BEATS THE ROLE. A grass block is planted
+        # by default, but the photograph is the authority on any given one.
+        if b.get("plant") is False:
+            continue
+        rate = pc["open_rate"]
+        role = b.get("role")
+        if role is not None:
+            mult = ZONE_PLANTING.get(role, 0.0)
+            if mult <= 0.0:
+                continue
+            rate *= mult
+        regions.append((b["poly"], rate, role or "undeveloped"))
     for p in parcels:
         regions.append((p["block"], pc["fill_rate"], "interior"))
     pinfo = (info or {}).get("park") or {}
@@ -3959,6 +4334,13 @@ def build_open_planting(config, resolver, net, blocks, rng, pools,
     keepout = [b for b in (_rect_box(h.get("lot_corners")) for h in houses)
                if b is not None]
     keepout += [b for b in (_rect_box(r) for r in (pool_rects or ()))
+                if b is not None]
+    # AND EVERY SITE FEATURE. This pass only ever knew about houses that
+    # `suburb_parcel` platted, so on a site plan the traced buildings, tanks
+    # and rubble fields were invisible to it and a tree could be planted inside
+    # one — which is how an oak came to be growing out of the open bay of F8.
+    keepout += [b for b in (_feature_box(f)
+                            for f in ((info or {}).get("features") or ()))
                 if b is not None]
     lot_idx = _ObbIndex(keepout, reach=max(20.0, pc["clear_m"] + 1.0))
     # AND THE POOLS AGAIN, ON THEIR OWN, AT THE DEBRIS RADIUS. Above they are
@@ -5071,9 +5453,24 @@ def generate_suburb_on_stage(stage, config,
     region = config.get("layout", {}).get("region_m") or [1600.0, 1200.0]
     w_m, h_m = float(region[0]), float(region[1])
 
-    net, blocks, info = sn.generate(w_m, h_m, rng, layout_cfg)
+    # `site_plan:` NAMES A REAL PLACE and replaces the generator outright. Both
+    # produce the same `(net, blocks, info)`, so everything below this line —
+    # parcelling, ground, markings, the disaster stage — is unchanged; the only
+    # difference is that one invented the streets and the other measured them.
+    # See `layout/site_plan.py`.
+    site = config.get("site_plan")
+    if site:
+        from layout import site_plan as spl
+        spec = spl.load_spec(site) if isinstance(site, str) else dict(site)
+        cfg = dict(config.get("site_plan_opts") or {})
+        cfg["_spec"] = spec
+        net, blocks, info = spl.generate(w_m, h_m, rng, cfg)
+        w_m, h_m = spl.region_of(spec) or (w_m, h_m)
+    else:
+        net, blocks, info = sn.generate(w_m, h_m, rng, layout_cfg)
     stats = sn.stats(net, blocks, info["region"])
-    print(f"[suburb_scene] {w_m:.0f} x {h_m:.0f} m  seed {seed}")
+    print(f"[suburb_scene] {w_m:.0f} x {h_m:.0f} m  seed {seed}"
+          + (f"  site_plan {info.get('site_plan')}" if site else ""))
     print(sn.format_stats(stats))
 
     # Undeveloped parcels are land the plat has not built on -- drainage
@@ -5260,11 +5657,101 @@ def generate_suburb_on_stage(stage, config,
                   f"{_pool_clear:.1f} m of a pool — a planting pass is not "
                   f"seeing the pool rings")
         placements = _kept
+
+    # A GLADE ROUND EVERY SURVIVOR. The planting pass keeps trees off a
+    # person's own point, but a trunk keep-out is not a clearing: these crowns
+    # are 10-25 m across, so a figure can satisfy every clearance rule and
+    # still stand under closed canopy where a drone sees only leaves. MEASURED
+    # on this site from a plumb camera — four of six survivor groups were
+    # invisible from directly overhead, which is the one view that decides
+    # whether a target is findable at all. Same remedy `scene_api` uses for
+    # `open_ground`, applied to the same effect: the ground is opened.
+    # 16 m, the value `open_ground` uses and for the same measured reason: an
+    # 11 m disc dropped exactly ONE tree across all 13 figures here and left
+    # four groups still under canopy, because what shades a figure is a crown
+    # 10-25 m ACROSS whose trunk stands well outside any small radius.
+    _glade = float((config.get("site_person_glade_m") or 16.0))
+    _people = [(float(f["at"][0]), float(f["at"][1]))
+               for f in (info.get("features") or [])
+               if f.get("kind") == "person"]
+    if _glade > 0.0 and _people:
+        _g2 = _glade * _glade
+        _kept, _cut = [], 0
+        for q in placements:
+            if str(q.get("category", "")).endswith("tree"):
+                _qx, _qy = q.get("x_m", 0.0), q.get("y_m", 0.0)
+                if any((_qx - _sx) ** 2 + (_qy - _sy) ** 2 <= _g2
+                       for _sx, _sy in _people):
+                    _cut += 1
+                    continue
+            _kept.append(q)
+        if _cut:
+            print(f"[suburb_scene] survivor glades: {_cut} tree(s) dropped "
+                  f"within {_glade:.0f} m of {len(_people)} figure(s)")
+        placements = _kept
     import collections as _c
     print("[suburb_scene] placements by category: %s"
           % dict(_c.Counter(p["category"] for p in placements)))
 
     ground_snap = sg._make_physx_ground_snap() if snap_to_ground else None
+    # ---- DEAD TREES IN THE WESTMOST BLOCKS --------------------------------
+    # The burnt-tree archetypes are bare branching trunks — the right shape for
+    # a sparse or dead tree — and they are swapped in by POSITION rather than
+    # by giving the planting pass a second pool, because which block a tree
+    # lands in is only known after it is placed. Their MDL is repaired at build
+    # time (see `build_site_scene`), without which they render magenta.
+    #
+    # BEFORE `apply_placements`, and that is the whole point of where it sits.
+    # `apply_placements` is what turns a placement dict into a prim, so editing
+    # `q["usd"]` after it has run edits a dict nothing reads again: the pass
+    # printed "4 tree(s) swapped" for two builds while the stage kept four live
+    # oaks. Counting intent is not counting geometry.
+    #
+    # The swap also re-tags them `dead_tree`. `instance_categories` is matched
+    # EXACTLY, so that keeps them out of instancing -- an instanced prim is an
+    # instance proxy, `stage.Traverse()` skips it, and the MDL repair that stops
+    # them rendering magenta would never see their shaders. `endswith("tree")`
+    # is what the tree sweeps test, and that still holds.
+    _dead = (config.get("site_dead_trees") or {})
+    _dead_pool = list(_dead.get("assets") or [])
+    _dead_x = _dead.get("west_of_x")
+    if _dead_pool and _dead_x is not None:
+        _root = str(config.get("site_assets_root", "") or "")
+        _west = [b for b in blocks if b["centroid"][0] < float(_dead_x)]
+        _polys = [[(float(x), float(y)) for x, y in b["poly"]] for b in _west]
+
+        def _in_any(q):
+            for _pl in _polys:
+                inside = False
+                n = len(_pl)
+                for i in range(n):
+                    x0, y0 = _pl[i]
+                    x1, y1 = _pl[(i + 1) % n]
+                    if (y0 > q[1]) != (y1 > q[1]):
+                        xc = x0 + (q[1] - y0) * (x1 - x0) / (y1 - y0)
+                        if q[0] < xc:
+                            inside = not inside
+                if inside:
+                    return True
+            return False
+
+        _rngd = random.Random(int(config.get("seed", 0)) ^ 0x5EED)
+        _swapped = 0
+        for q in placements:
+            if not str(q.get("category", "")).endswith("tree"):
+                continue
+            if not _in_any((q.get("x_m", 0.0), q.get("y_m", 0.0))):
+                continue
+            q["usd"] = sg._join_asset_root(_rngd.choice(_dead_pool), _root)
+            # These archetypes are authored in METRES; the live pack is
+            # centimetres at scale 0.01, so carrying the old scale over would
+            # shrink a 17 m tree to 17 cm.
+            q["scale"] = float(_dead.get("scale", 1.0))
+            q["category"] = "dead_tree"
+            _swapped += 1
+        if _swapped:
+            print(f"[suburb_scene] dead trees: {_swapped} tree(s) in "
+                  f"{len(_west)} westmost block(s) swapped for bare archetypes")
     # INSTANCE THE REPEATED CATEGORIES. apply_placements does not instance by
     # default -- its docstring and the README both claimed it did, and neither
     # was true, so N copies of a tree cost N x its points. At ~55k points a
@@ -5332,9 +5819,337 @@ def generate_suburb_on_stage(stage, config,
         n_pal = mh.apply_palette(stage, placements, parent_path)
         print(f"[suburb_scene] palette: {n_pal} subsets rebound")
 
+    ground_mats = {}
     apply_ground(stage, config, net, blocks, parcels, info["region"],
                  parent_path, scene_scale_factor, pool_rects=_pool_holes,
-                 park=park)
+                 park=park, mats_out=ground_mats)
+
+    # A RUBBLE PILE SITS ON BARE GROUND, NOT ON LAWN. Measured off the aerial
+    # around the north-west pile: the ground reads bare out to ~16 m from its
+    # centre and only turns green by 24 m — RGB (139,133,134) at 8 m and
+    # (153,148,148) at 16 m against (157,157,140) at 24 m. That apron is part
+    # of what makes a collapse read as a collapse from the air; without it a
+    # debris field looks dropped onto a golf course.
+    #
+    # Authored as its own polygon rather than by re-roling the block: the pile
+    # is a traced OUTLINE that sits inside a much larger grass block, and the
+    # block is the wrong unit — re-roling it would strip the lawn from the
+    # whole face. Grown by `rubble_apron_m` so the bare ground shows past the
+    # debris, exactly as it does in the photograph.
+
+    # ---- WORN GROUND: GRASS GIVING WAY TO DIRT ----------------------------
+    # A block of uniform lawn reads as a golf course. Real ground under trees
+    # is patchy — bare where it is walked or shaded, grassy between.
+    #
+    # TWO THINGS MAKE IT A GRADIENT RATHER THAN A DECAL, and the first version
+    # had neither: it laid ONE hard-edged blob per site at a 3 m texture repeat,
+    # so from the air the wear read as tan confetti with a visible quilt in it.
+    #
+    #  1. COVERAGE, not opacity. These are opaque MDL surfaces — there is no
+    #     alpha to ramp, and this renderer forces fractional opacity to 1.0
+    #     anyway. So the ramp is made of AREA: a solid core, then rings of
+    #     progressively smaller islands at progressively larger radius, until
+    #     the outermost are specks. Fully covered at the middle, half covered
+    #     part way out, a few flecks at the rim — a dissolve, which is what
+    #     worn ground actually looks like from above.
+    #  2. TWO TILE SIZES OVERLAID. The mesh `st` primvar is IRRELEVANT here:
+    #     `Dirt_Rough.usda` sets `project_uvw` and `world_or_object`, so OmniPBR
+    #     projects in WORLD space and `inputs:texture_scale` is the only control
+    #     — which `_load_mat` OVERWRITES from its `tile_m`. Pre-loaded at 2 m
+    #     alongside the kerb paint, a texture with 1 m gravel clumps in it
+    #     repeated twice per patch and read as a quilt from the air. So the
+    #     pre-load asks for it at 9 m and at 30 m, and islands take one or the
+    #     other: world projection makes same-grain neighbours seamless, and the
+    #     two periods beating against each other stops either being legible.
+    #
+    # `wear` is per-block and deliberately lopsided — the wooded south-west is
+    # heavily worn, everywhere else barely at all, which is what the aerial
+    # shows and what was asked for.
+    _wear_cfg = (config.get("site_ground_wear") or {})
+    _dirt_mat = ground_mats.get("dirt_rough@9", "") or ground_mats.get("dirt_rough", "")
+    _dirt_coarse = ground_mats.get("dirt_rough@30", "") or _dirt_mat
+    if _dirt_mat and _wear_cfg:
+        _zs4 = ground_z_scale(config, info["region"])
+        _heavy = float(_wear_cfg.get("heavy", 0.55))
+        _light = float(_wear_cfg.get("light", 0.06))
+        _hx = float(_wear_cfg.get("heavy_west_of_x", -30.0))
+        _hy = float(_wear_cfg.get("heavy_south_of_y", 0.0))
+        _fine_share = float(_wear_cfg.get("fine_share", 0.35))
+        _rings = int(_wear_cfg.get("fringe_rings", 3))
+        _rngw = random.Random(int(config.get("seed", 0)) ^ 0xD127)
+        _n_site, _n_patch = 0, 0
+
+        def _blob(cx, cy, r, squash=1.0, rot=0.0, seg=11):
+            out = []
+            for _t in range(seg):
+                a = 2.0 * math.pi * _t / seg
+                rr = r * _rngw.uniform(0.62, 1.38)
+                dx, dy = rr * math.cos(a), rr * squash * math.sin(a)
+                out.append((cx + dx * math.cos(rot) - dy * math.sin(rot),
+                            cy + dx * math.sin(rot) + dy * math.cos(rot)))
+            return out
+
+        for _bi, _b in enumerate(blocks):
+            if _b.get("role") not in ("grass", "wooded"):
+                continue
+            _cxb, _cyb = _b["centroid"]
+            _sw = (_cxb < _hx and _cyb < _hy)
+            _frac = _heavy if _sw else _light
+            _poly = [(float(x), float(y)) for x, y in _b["poly"]]
+            _xs = [q[0] for q in _poly]
+            _ys = [q[1] for q in _poly]
+            _area = abs(sn.polygon_area(_poly))
+            # One SITE per `blob_area_m2` of ground, scaled by the wear factor;
+            # each site is a core plus its fringe, so the count is of worn
+            # spots, not of meshes.
+            _nf = _frac * _area / float(_wear_cfg.get("blob_area_m2", 240.0))
+            # Round the REMAINDER by lot, not down. At light wear a 1,700 m2
+            # lawn scores 0.42 spots, and truncating meant every block but the
+            # big one came out mown — "much lighter" turned into "none".
+            _n = int(_nf) + (1 if _rngw.random() < (_nf - int(_nf)) else 0)
+            for _k in range(_n):
+                _px = _rngw.uniform(min(_xs), max(_xs))
+                _py = _rngw.uniform(min(_ys), max(_ys))
+                if not _point_in_poly_xy((_px, _py), _poly):
+                    continue
+                _r = _rngw.uniform(2.4, 9.0 if _sw else 4.5)
+                _sq = _rngw.uniform(0.55, 1.0)
+                _rot = _rngw.uniform(0.0, math.pi)
+                _j = 0
+                # Each island gets its own hair-thin z step. They overlap by
+                # design and two coplanar sheets of the same material z-fight.
+                for _ring in range(_rings + 1):
+                    if _ring == 0:
+                        _pieces = [(_px, _py, _r * 0.62)]
+                    else:
+                        # Further out, smaller, and more of them: the island
+                        # count rises while the island size falls, which is
+                        # what makes coverage decay smoothly instead of in
+                        # steps.
+                        _t = _ring / float(_rings)
+                        _cnt = 3 + 3 * _ring
+                        _rad = _r * (0.55 + 0.62 * _t)
+                        _sz = _r * 0.34 * (1.0 - 0.72 * _t)
+                        _a0 = _rngw.uniform(0.0, 2.0 * math.pi)
+                        _pieces = []
+                        for _m in range(_cnt):
+                            _a = _a0 + 2.0 * math.pi * _m / _cnt
+                            _a += _rngw.uniform(-0.35, 0.35)
+                            _d = _rad * _rngw.uniform(0.82, 1.18)
+                            _dx, _dy = _d * math.cos(_a), _d * _sq * math.sin(_a)
+                            _pieces.append((
+                                _px + _dx * math.cos(_rot) - _dy * math.sin(_rot),
+                                _py + _dx * math.sin(_rot) + _dy * math.cos(_rot),
+                                _sz * _rngw.uniform(0.6, 1.4)))
+                    for _cx, _cy, _cr in _pieces:
+                        if _cr < 0.25:
+                            continue
+                        _wz = (_Z_GRASS + 0.004 + 0.00002 * _j) * _zs4
+                        _j += 1
+                        _m = (_dirt_mat if _rngw.random() < _fine_share
+                              else _dirt_coarse)
+                        if _make_polygon(
+                                stage,
+                                f"{parent_path}/ground/wear_{_bi}_{_k}_{_j}",
+                                _blob(_cx, _cy, _cr, _sq, _rot), _wz,
+                                scene_scale_factor, 4.0,
+                                (0.42, 0.35, 0.26), _m) is not None:
+                            _n_patch += 1
+                _n_site += 1
+        if _n_patch:
+            print(f"[suburb_scene] ground wear: {_n_site} worn spot(s), "
+                  f"{_n_patch} island(s), {_fine_share:.0%} on the fine dirt "
+                  f"tile and the rest on the coarse one")
+
+    # ---- KERBS ------------------------------------------------------------
+    # A block edge meeting the carriageway with nothing between them reads as
+    # tarmac painted up to a lawn. A real kerb is a raised concrete band, and
+    # from the air it is the pale line that makes a block legible as a block.
+    # Authored as a mitred RING — `offset_polygon` gives an inner contour with
+    # the same vertex count, so outer vertex i pairs with inner vertex i and
+    # the corners mitre instead of leaving a notch.
+    _kerb_w = float(config.get("site_kerb_width_m") or 0.45)
+    _kerb_mat = ground_mats.get("kerb", "") or ground_mats.get("concrete", "")
+    if _kerb_w > 0.0 and _kerb_mat:
+        _zs2 = ground_z_scale(config, info["region"])
+        # ABOVE the asphalt, not the grass: the kerb's visible face is the step
+        # up from the carriageway, and the road is the higher of the two.
+        _kz = (_Z_ASPHALT + 0.05) * _zs2
+        _n_kerb = 0
+        for _i, _b in enumerate(blocks):
+            # THE SAME ring the fill drew — see `block_ring`. Drawn off
+            # `_b["poly"]` instead, the kerb traced the raw face while the
+            # surface beside it was the straightened one, and the two edges
+            # parted company by a metre wherever the trace wobbled.
+            _poly = [(float(x), float(y)) for x, y in block_ring(_b, config)]
+            if len(_poly) < 3:
+                continue
+            if sn.polygon_area(_poly) < 0.0:
+                _poly = list(reversed(_poly))
+            _inner = sn.offset_polygon(_poly, [_kerb_w])
+            if len(_inner) != len(_poly):
+                continue
+            _quads = []
+            for _k in range(len(_poly)):
+                _k2 = (_k + 1) % len(_poly)
+                _quads.append([_poly[_k], _poly[_k2], _inner[_k2], _inner[_k]])
+            for _q, _quad in enumerate(_quads):
+                _make_polygon(stage, f"{parent_path}/ground/kerb_{_i}_{_q}",
+                              _quad, _kz, scene_scale_factor, 2.0,
+                              (0.82, 0.81, 0.78), _kerb_mat)
+            _n_kerb += 1
+        if _n_kerb:
+            print(f"[suburb_scene] kerbs: {_n_kerb} block(s) ringed at "
+                  f"{_kerb_w:.2f} m")
+
+    # ---- CAR PARK BAY MARKINGS --------------------------------------------
+    # MEASURED OFF THE AERIAL, not invented: bright-pixel row profiling over
+    # the lot puts the aisle spines at y = -23.5, -40.8, -62.2 and -80.5, and
+    # the vertical stall ticks at a median 2.50 m pitch — a standard bay. Each
+    # spine is double-loaded, which is what the photograph shows.
+    #
+    # CLIPPED TO THE LOT, and that is the point of the inset ring below. The
+    # first version struck every line across the lot's BOUNDING BOX, so where
+    # the boundary curved in — and it curved on all four sides, the face having
+    # been traced off the road spline — bays ran out over the kerb and onto the
+    # grass. Now the block carries a surveyed rounded rectangle (see the
+    # `outline` override in `site_plan`), the ring is pulled in by `edge_m`,
+    # and a stall is drawn only if BOTH ends of it land inside.
+    _bay_mat = ground_mats.get("road_line_white", "")
+    _bays = (config.get("site_parking_bays") or {})
+    if _bay_mat and _bays.get("spines"):
+        _zs3 = ground_z_scale(config, info["region"])
+        _bz = (_Z_ASPHALT + 0.02) * _zs3
+        _pitch = float(_bays.get("stall_pitch_m", 2.5))
+        _depth = float(_bays.get("stall_depth_m", 5.5))
+        _lw = float(_bays.get("line_width_m", 0.12))
+        _edge = float(_bays.get("edge_m", 2.5))
+        _n_line, _n_clip = 0, 0
+        for _lot in [b for b in blocks if b.get("role") == "parking"]:
+            _lp = [(float(x), float(y)) for x, y in _lot["poly"]]
+            if sn.polygon_area(_lp) < 0.0:
+                _lp = list(reversed(_lp))
+            _in = sn.offset_polygon(_lp, [_edge]) or _lp
+            for _si, _spec in enumerate(_bays["spines"]):
+                # A spine is either a y (run it the full width) or
+                # `[y, x0, x1]` — the aerial's rows are not all the same
+                # length, the lower ones stopping short of the east side.
+                if isinstance(_spec, (list, tuple)):
+                    _sy = float(_spec[0])
+                    _want = (float(_spec[1]), float(_spec[2]))
+                else:
+                    _sy, _want = float(_spec), None
+                _span = _span_at_y(_in, _sy)
+                if _span is None:
+                    continue
+                _x0, _x1 = _span
+                if _want:
+                    _x0, _x1 = max(_x0, _want[0]), min(_x1, _want[1])
+                if _x1 - _x0 < _pitch:
+                    continue
+                if _make_polygon(
+                        stage, f"{parent_path}/ground/bay_spine_{_si}",
+                        [(_x0, _sy - _lw / 2), (_x1, _sy - _lw / 2),
+                         (_x1, _sy + _lw / 2), (_x0, _sy + _lw / 2)],
+                        _bz, scene_scale_factor, 2.0,
+                        (0.92, 0.92, 0.90), _bay_mat) is not None:
+                    _n_line += 1
+                _x = _x0
+                while _x <= _x1:
+                    # `n`/`s`, not `int(_sgn)`: that spelt the south side
+                    # `bay_0_25_-1`, a hyphen is not legal in a USD identifier,
+                    # and every south-facing stall was dropped where it was
+                    # authored. Each aisle came out single-loaded while the
+                    # counter below still reported both sides — 140 lines
+                    # claimed, 50 prims on the stage. The photograph shows
+                    # every aisle double-loaded.
+                    for _sgn, _side in ((-1.0, "s"), (1.0, "n")):
+                        _tip = _sy + _sgn * _depth
+                        if not _point_in_poly_xy((_x, _tip), _in):
+                            _n_clip += 1
+                            continue
+                        if _make_polygon(
+                                stage,
+                                f"{parent_path}/ground/bay_{_si}_"
+                                f"{int(round((_x - _x0) * 10))}_{_side}",
+                                [(_x - _lw / 2, _sy), (_x + _lw / 2, _sy),
+                                 (_x + _lw / 2, _tip), (_x - _lw / 2, _tip)],
+                                _bz, scene_scale_factor, 2.0,
+                                (0.92, 0.92, 0.90), _bay_mat) is not None:
+                            _n_line += 1
+                    _x += _pitch
+        if _n_line:
+            print(f"[suburb_scene] car park: {_n_line} bay line(s) at "
+                  f"{_pitch:.2f} m pitch, {_n_clip} stall(s) clipped at the "
+                  f"lot edge")
+
+    # ---- HAND-DRAWN GROUND PATCHES ----------------------------------------
+    # Some ground is bare for reasons no role or feature outline describes —
+    # the graded apron that runs from the north-west pile round the collapsed
+    # hall and out to the roads, for instance. MEASURED off the aerial on a
+    # 2 m grid: green-dominant only west of about x = -80 at the north end and
+    # x = -66 at the south, bare everywhere from there to the road at x = -30
+    # and the road at y = 6. The block is 31,000 m2 and mostly lawn, so its
+    # ROLE is the wrong unit; the patch is its own outline in the manifest.
+    #
+    # Below the rubble aprons in the z ladder, so where the two overlap the
+    # apron is what draws.
+    for _pi, _pat in enumerate(info.get("ground_patches") or []):
+        _poly = [(float(x), float(y)) for x, y in (_pat.get("poly") or [])]
+        _mat = ground_mats.get(str(_pat.get("material", "sand_ground")), "")
+        if len(_poly) < 3 or not _mat:
+            continue
+        # `corner_r` rounds the outline, so a kerbed island can be written as
+        # four corners in the manifest instead of thirty arc samples.
+        _cr = float(_pat.get("corner_r") or 0.0)
+        if _cr > 0.0:
+            from layout import site_plan as _spl
+            _poly = _spl.rounded_poly(_poly, _cr)
+        _pz = (_Z_GRASS + 0.003) * ground_z_scale(config, info["region"])
+        if _make_polygon(stage, f"{parent_path}/ground/patch_{_pi}", _poly,
+                         _pz, scene_scale_factor, 2.0,
+                         (0.76, 0.69, 0.55), _mat) is not None:
+            print(f"[suburb_scene] ground patch {_pi}: "
+                  f"{abs(sn.polygon_area(_poly)):.0f} m2 of "
+                  f"{_pat.get('material','sand_ground')}")
+
+    _apron_m = float(config.get("site_rubble_apron_m") or 4.0)
+    _apron_mat = ground_mats.get("sand_ground", "")
+    if _apron_m > 0.0 and _apron_mat:
+        _zs = ground_z_scale(config, info["region"])
+        # Just above the zone fill: the block's own grass is at `_Z_GRASS`, and
+        # two coplanar sheets z-fight. One tenth of the grass step is far below
+        # anything visible at this scale and far above the depth resolution.
+        _az = (_Z_GRASS + 0.006) * _zs
+        _n = 0
+        for _f in (info.get("features") or []):
+            if _f.get("kind") not in ("rubble", "debris", "collapsed"):
+                continue
+            _poly = [(float(x), float(y)) for x, y in (_f.get("poly") or [])]
+            if len(_poly) < 3:
+                continue
+            # `offset_polygon` shrinks a CCW ring, so a negative inset grows it
+            # and the winding has to be right or the apron comes out inside out.
+            if sn.polygon_area(_poly) < 0.0:
+                _poly = list(reversed(_poly))
+            _grown = sn.offset_polygon(_poly, [-_apron_m]) or _poly
+            if _make_polygon(stage, f"{parent_path}/ground/rubble_apron_{_n}",
+                             _grown, _az, scene_scale_factor, 2.0,
+                             (0.76, 0.69, 0.55), _apron_mat) is not None:
+                _n += 1
+        if _n:
+            print(f"[suburb_scene] rubble aprons: {_n} bare-ground patch(es), "
+                  f"outline grown {_apron_m:.1f} m")
+
+    # AFTER the ground, so a prism sits ON the surface rather than being
+    # covered by a block mesh drawn later. A traced site plan is the only
+    # source of these; a generated suburb has none and the pass is a no-op.
+    if info.get("features"):
+        from detail import site_features
+        placements += site_features.build(
+            stage, info["features"], parent_path, scene_scale_factor,
+            asset_root=str(config.get("site_assets_root", "") or ""),
+            kind_materials={"pit": ground_mats.get("sand_ground", "")})
     if info_out is not None:
         info_out.update(region=tuple(info["region"]),
                         pool_rects=[list(r) for r in _pool_holes],
