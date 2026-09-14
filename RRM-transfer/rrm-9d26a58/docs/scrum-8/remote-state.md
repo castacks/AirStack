@@ -11,8 +11,8 @@ GCS stack. This checkout observed those three containers running; the exact OSMO
 allocation remains an OSMO control-plane fact rather than something inferred from
 host-visible devices.
 
-Inside the Isaac container, the user launched the Pegasus PX4 scene manually in
-tmux, with livestream enabled and these runtime arguments:
+The desired manual Pegasus PX4 launch inside the Isaac container uses livestream and
+these runtime arguments:
 
 ```text
 --/renderer/activeGpu=0
@@ -22,10 +22,13 @@ tmux, with livestream enabled and these runtime arguments:
 
 The flags are required because this nested runtime can expose all four physical
 GPUs to Isaac despite a one-GPU workflow request. They concentrate the renderer
-and physics workload on GPU 0; they are not a request to edit Compose or restart
-the live simulator. The running PX4/Isaac process must not be interrupted merely
-to change configuration. The user uses the patched Mac-side OSMO WebRTC forwarder
-and connects the streaming client to `127.0.0.1`.
+and physics workload on GPU 0. However, read-only inspection on 2026-09-14 found
+the currently running Isaac Python process was Compose auto-launched with
+`AUTOLAUNCH=true` and only `--/app/livestream/enabled=true`; it did not carry the
+three pinning arguments. A controlled future launch must use the pinned command.
+Do not alter Compose or restart the live simulator merely to change configuration.
+The user uses the patched Mac-side OSMO WebRTC forwarder and connects the streaming
+client to `127.0.0.1`.
 
 Neither OSMO workspace files nor Codex chat history are persistent across a new
 workflow. The durable project record is the committed, pushed repository; export
@@ -67,6 +70,14 @@ send a task action from this session without user direction. The next diagnostic
 is to establish the simulator/PX4 lifecycle and the ROS bridge/state publication path
 using AirStack's normal readiness procedure; only then can the shadow adapter attach
 to a confirmed state source.
+
+The observed lifecycle is consistent with the Pegasus timeline being stopped: its
+`OgnPegasusMultirotorNodeBase` stop callback explicitly stops (kills) each PX4 backend
+but keeps the Isaac/Python process and vehicle registrations alive for a later timeline
+play event. This mechanism is confirmed in the local source. The process observation
+and missing PX4 make a stopped timeline the leading diagnosis, but the triggering event
+was not captured, so it remains to be verified before any restart or configuration
+change.
 
 ## Observed state
 

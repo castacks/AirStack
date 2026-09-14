@@ -39,10 +39,10 @@ Do not send Jira comments or other messages without the user's authorization.
 - Avoid detailed implementation choices until architecture allocation is clear.
 - The current focus is SIL. AirStack/OSMO is the primary execution environment; PSC
   is a possible fallback if problems arise. PSC access and configuration are unknown.
-- Do not select, download, run, fine-tune, or integrate an open VLA, VLM, NLP model,
-  or other learned model without first obtaining the user's approval of the exact
-  model, license, resource needs, interface role, and evaluation plan. Begin the
-  drone-SIL integration with a model-free deterministic/shadow baseline.
+- Select any future VLA, VLM, NLP, or other learned model for the best capability per
+  available compute; record the exact model, license, resource needs, interface role,
+  and evaluation plan before integration. Begin the drone-SIL integration with a
+  model-free deterministic/shadow baseline; no model is needed for that increment.
 - The capstone website, including Weeks 1–11, is an intended technical and evaluation
   reference. The full curriculum has NOT yet been reviewed in this session.
 - The user intends to ZIP RRM locally and unzip it in the remote AirStack workspace.
@@ -231,8 +231,8 @@ containers are running. This supersedes the earlier CPU-only transfer-workspace
 observations in `docs/scrum-8/remote-state.md`; retain those only as historical
 diagnosis of that separate `gpu: 0` workspace.
 
-The user manually launched the Pegasus PX4 scene inside the Isaac container's
-tmux session with livestream enabled and all of the following runtime flags:
+The desired manual Pegasus PX4 launch uses livestream and all of the following
+runtime flags:
 
 ```sh
 --/renderer/activeGpu=0
@@ -243,11 +243,20 @@ tmux session with livestream enabled and all of the following runtime flags:
 These flags are the deliberate single-GPU fix. In the nested OSMO runtime, Isaac
 can enumerate all four physical GPUs even when the workflow requested one; without
 the flags, its renderer can initialize allocations on all four. The flags constrain
-rendering and physics to GPU 0. They are supplied by the manual launch command, so
-there is **no pending Compose edit** and no simulator restart is authorized just to
-make the flags durable. Leave the Isaac/PX4 tmux process running after it reports
-`Received first heartbeat` and `Ready for takeoff!`; interrupting it can leave a
-stale PX4 process that blocks the next launch.
+rendering and physics to GPU 0.
+
+Read-only process inspection on 2026-09-14 found that the *current* Isaac process was
+instead started by the Compose `AUTOLAUNCH=true` command. Its command line includes
+only `--/app/livestream/enabled=true`, not the three pinning flags above. Treat the
+desired manual procedure as not applied to the current process. Do not alter Compose
+or restart the live simulator solely to change this without user direction; apply the
+pinned command at the next controlled launch.
+
+The same inspection found no live PX4 process, no ROS `/clock` or odometry samples,
+and PX4 exits after its heartbeat. Pegasus stops the PX4 backend when the Isaac
+timeline stops while leaving the Python process alive. The simulator must be in a
+continuously playing, PX4-ready state before any RRM observation or command adapter
+is attempted.
 
 For remote viewing, the user starts the patched Mac-side forwarder with the patched
 OSMO binary first in `PATH`, then connects the AirLab Isaac Sim WebRTC Streaming
