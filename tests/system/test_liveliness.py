@@ -28,7 +28,7 @@ from conftest import (
 
 
 SENTINEL_NODE_TEMPLATES = [
-    "/robot_{N}/interface/mavros/mavros",
+    "/robot_{N}/interface/mavros",
     "/robot_{N}/robot_state_publisher",
     "/robot_{N}/trajectory_controller/trajectory_control_node",
 ]

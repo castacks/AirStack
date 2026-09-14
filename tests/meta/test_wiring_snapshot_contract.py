@@ -117,7 +117,7 @@ def _sample_graph():
         edges.extend(topic_edges)
     nodes = [
         "/launch_ros_12345",
-        "/robot_1/interface/mavros/mavros",
+        "/robot_1/interface/mavros",
         "/robot_1/robot_state_publisher",
         "/robot_1/trajectory_controller/trajectory_control_node",
         "/robot_1/transform_listener_impl_55d0a1b2c3d4",
@@ -138,7 +138,7 @@ def test_parser_extracts_endpoints_types_and_qos():
     assert len(edges) == 2
     pub, sub = edges
     assert pub["dir"] == "pub"
-    assert pub["node"] == "/robot_1/interface/mavros/mavros"
+    assert pub["node"] == "/robot_1/interface/mavros"
     assert pub["type"] == "nav_msgs/msg/Odometry"
     assert sub["dir"] == "sub"
     assert sub["node"] == "/robot_1/trajectory_controller/trajectory_control_node"

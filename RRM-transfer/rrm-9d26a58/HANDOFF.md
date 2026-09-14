@@ -258,18 +258,22 @@ read-only checks confirmed PX4 running, MAVROS connected, and Isaac reporting it
 first heartbeat and `Ready for takeoff!`. Leave Isaac open and playing while using the
 robot stack.
 
-The live robot stack is still not ready for RRM because of a confirmed MAVROS namespace
-duplication. MAVROS currently publishes valid state and odometry under
-`/robot_1/interface/mavros/mavros/*`, but AirStack's `robot_interface` and
-`odometry_conversion` subscribe/publish through the intended canonical
-`/robot_1/interface/mavros/*` paths. The expected odometry input has zero publishers,
-so canonical odometry/TF does not form and the trajectory controller waits forever.
-The source cause is `interface.launch.py` pushing `interface` while
-`mavros_px4.launch.xml` also supplies `namespace="mavros"`; MAVROS's own relative
-`mavros/*` topic names add the second level. Correct the include to pass an empty
-MAVROS namespace so the MAVROS node lives directly under `/interface`, then recreate
-the affected robot stack. This correction has not been applied and no task has been
-sent; do not restart or reconfigure the live stack without user direction.
+The live robot stack initially had a MAVROS namespace duplication: MAVROS published
+under `/robot_1/interface/mavros/mavros/*`, while AirStack's `robot_interface` and
+`odometry_conversion` expected the canonical `/robot_1/interface/mavros/*` paths.
+The source cause was `interface.launch.py` pushing `interface` while
+`mavros_px4.launch.xml` also supplied `namespace="mavros"`; MAVROS's own relative
+`mavros/*` topic names added the second level.
+
+With user authorization, `interface.launch.py` was corrected to pass an empty MAVROS
+namespace, and only `robot-desktop` was recreated (Isaac and GCS stayed running).
+The workspace rebuilt successfully. MAVROS now lives at `/robot_1/interface/mavros`;
+canonical MAVROS odometry has one publisher and feeds `odometry_conversion`, converted
+odometry and `map -> base_link` TF stream, and the obsolete nested topic is absent.
+A bounded `airstack ready --json` passed all gates: containers, `/clock`, autonomy
+nodes, MAVROS-to-PX4 connectivity, and EKF odometry. No task or flight command was
+sent. A model-free RRM shadow adapter may now consume the canonical state stream;
+retain the separate safety gate before any execution integration.
 
 For remote viewing, the user starts the patched Mac-side forwarder with the patched
 OSMO binary first in `PATH`, then connects the AirLab Isaac Sim WebRTC Streaming

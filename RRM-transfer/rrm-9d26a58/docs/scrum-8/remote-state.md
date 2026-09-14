@@ -63,12 +63,12 @@ log messages. Isaac Sim therefore needs to remain open and playing; it is not th
 remaining cause of the robot stack appearing hung.
 
 The remaining blocker is a confirmed ROS namespace error in the live interface launch.
-MAVROS publishes valid odometry at
+Before the correction, MAVROS published valid odometry at
 `/robot_1/interface/mavros/mavros/local_position/odom`, while the canonical
-`odometry_conversion` node and `robot_interface` subscribe to
-`/robot_1/interface/mavros/local_position/odom`. The expected topic has zero
-publishers. This leaves canonical odometry and TF absent, makes the trajectory
-controller wait for odometry, and also disconnects the interface's MAVROS state,
+`odometry_conversion` node and `robot_interface` subscribed to
+`/robot_1/interface/mavros/local_position/odom`. The expected topic had zero
+publishers. This left canonical odometry and TF absent, made the trajectory
+controller wait for odometry, and also disconnected the interface's MAVROS state,
 command, and service paths.
 
 Local launch source explains the extra level: `interface.launch.py` pushes the
@@ -76,14 +76,19 @@ Local launch source explains the extra level: `interface.launch.py` pushes the
 `namespace="mavros"` names the MAVROS node under `/interface/mavros`. MAVROS itself
 uses relative topic names beginning `mavros/`, producing `/interface/mavros/mavros/*`.
 The intended canonical topology is MAVROS under `/interface` (node name `mavros`) so
-those topics resolve to `/interface/mavros/*`. The prospective fix is to pass an empty
-MAVROS launch namespace from `interface.launch.py` (or equivalently correct the
-include configuration), then recreate the affected robot stack. It has not been
-applied: a restart/reconfiguration or any task command requires user direction.
+those topics resolve to `/interface/mavros/*`. With user authorization, the include
+was corrected to pass an empty MAVROS namespace and only `robot-desktop` was
+recreated; Isaac and GCS remained running. The container rebuilt all 43 ROS packages.
+Afterward, the canonical input has one publisher and one odometry-converter
+subscription, canonical converted odometry is fresh, and `map -> base_link` TF streams.
+The obsolete nested topic no longer exists.
 
-This is a live SIL-readiness blocker for any RRM world-state or command integration,
-not a reason to weaken RRM's uncertainty semantics. Until the correction is deployed,
-the shadow adapter must not attach to the nested topic as a permanent workaround.
+`airstack ready --json` was then run with short bounded readiness budgets and returned
+`ready: true`: robot container, simulator `/clock`, autonomy sentinel nodes, MAVROS
+connection, and PX4 EKF odometry all passed. No action goal, service, trajectory, or
+PX4 command was sent. The live SIL state source is now suitable for a *read-only*
+RRM shadow adapter; execution integration still requires its separate safety and
+interface work.
 
 ## Observed state
 

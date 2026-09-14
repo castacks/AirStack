@@ -64,6 +64,12 @@ def launch_setup(context, *args, **kwargs):
                 launch_arguments={
                     'fcu_url': fcu_url,
                     'tgt_system': tgt_system,
+                    # MAVROS publishes relative `mavros/*` topic names.  This
+                    # launch is already scoped by `PushRosNamespace('interface')`,
+                    # so adding a `mavros` namespace here would produce
+                    # `/interface/mavros/mavros/*` and disconnect the canonical
+                    # AirStack interface paths.
+                    'namespace': '',
                 }.items(),
             ),
         ])
