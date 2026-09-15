@@ -3,7 +3,7 @@
 
     FREEZE_OUT=/isaac-sim/AirStack/final_disaster_dataset/Fire/Suburban/level_1/1 \
     SCENE_CONFIG=suburb_wildfire_1000 \
-    ARCH_DIR=/isaac-sim/AirStack/scene_gen/assets/archetypes \
+    ARCH_DIR=omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetypes \
     ISAAC_SIM_SCRIPT_NAME=freeze_dataset_launch_script.py \
     airstack up isaac-sim
 

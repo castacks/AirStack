@@ -94,8 +94,7 @@ from disaster import people as ppl                              # noqa: E402
 PARENT = "/World/stage/generated"
 SCENE_CONFIG = os.environ.get("SCENE_CONFIG", "suburb_wildfire")
 SEED = int(os.environ.get("CLUSTER_SEED", "5"))
-ARCH_DIR = os.environ.get(
-    "ARCH_DIR", "/isaac-sim/AirStack/scene_gen/assets/archetypes")
+ARCH_DIR = os.environ.get("ARCH_DIR") or None   # None -> scene_api.default_arch_dir()
 SNAP_DIR = os.environ.get("SNAP_DIR", "")
 if SNAP_DIR:
     os.makedirs(SNAP_DIR, exist_ok=True)
@@ -299,9 +298,8 @@ def main():
     span_y = (court_d / 2.0 + FRONT_SETBACK_M + UNIT_D_M) * 2.2
 
     mats = build_ground_and_light(stage, ssf, span_x, span_y)
-    arch = {os.path.splitext(f)[0]: os.path.join(ARCH_DIR, f)
-            for f in os.listdir(ARCH_DIR) if f.endswith(".usd")} \
-        if os.path.isdir(ARCH_DIR) else {}
+    from scene_api import default_arch_dir, load_archetypes
+    arch = load_archetypes(ARCH_DIR or default_arch_dir())
 
     bays = build_court(stage, ssf, mats, court_w, court_d)
     units = build_units(stage, ssf, arch, court_w, court_d)

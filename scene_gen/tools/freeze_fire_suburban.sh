@@ -33,7 +33,7 @@
 
 set -u
 
-ARCH=/isaac-sim/AirStack/scene_gen/assets/archetypes
+ARCH=omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetypes
 BASE=/isaac-sim/final_disaster_dataset/Fire/Suburban
 LAUNCH=/isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/freeze_dataset_launch_script.py
 EXTS=~/.local/share/ov/data/documents/Kit/shared/exts

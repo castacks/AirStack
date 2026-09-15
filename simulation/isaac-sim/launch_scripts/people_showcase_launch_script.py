@@ -112,8 +112,7 @@ from detail import modular_house as mh                          # noqa: E402
 PARENT = "/World/stage/generated"
 SEED = int(os.environ.get("PEOPLE_SEED", "11"))
 SCENE_CONFIG = os.environ.get("SCENE_CONFIG", "suburb_wildfire")
-ARCH_DIR = os.environ.get(
-    "ARCH_DIR", "/isaac-sim/AirStack/scene_gen/assets/archetypes")
+ARCH_DIR = os.environ.get("ARCH_DIR") or None   # None -> scene_api.default_arch_dir()
 SNAP_DIR = os.environ.get("SNAP_DIR", "")
 if SNAP_DIR:
     os.makedirs(SNAP_DIR, exist_ok=True)
@@ -700,9 +699,8 @@ def main():
     ctx = {"asset_pools": pools, "resolver": resolver, "glassy": glassy,
            "pick": pick, "pick_car": pick_car}
 
-    arch = {os.path.splitext(f)[0]: os.path.join(ARCH_DIR, f)
-            for f in os.listdir(ARCH_DIR) if f.endswith(".usd")} \
-        if os.path.isdir(ARCH_DIR) else {}
+    from scene_api import default_arch_dir, load_archetypes
+    arch = load_archetypes(ARCH_DIR or default_arch_dir())
     print("[bench] {0} archetype(s) available".format(len(arch)))
 
     bench = Bench(ctx, rng)

@@ -96,7 +96,7 @@ stats = build_scene(stage, scene_config, scene_scale_factor, *,
 | `stage` | the composed stage. Must already exist — get it from `omni.usd.get_context().get_stage()` after `load_environment`. |
 | `scene_config` | preset NAME (`"suburb_wildfire"`) or an already-loaded config dict. |
 | `scene_scale_factor` | stage units per metre, from `scene_prep.get_stage_meters_per_unit(stage)`. Everything is authored in metres x this. |
-| `arch_dir` | the damage bake. `None` -> `default_arch_dir()`: the local `scene_gen/assets/archetypes` if it exists, else `$AIRSTACK_ASSET_ROOT/scene_gen/assets/archetypes`. Accepts an `omniverse://` URL (section 5). |
+| `arch_dir` | the damage bake. `None` -> `default_arch_dir()`: `$AIRSTACK_ASSET_ROOT/scene_gen/assets/archetypes` when that is a URL, else the SEI-COA Nucleus copy (`NUCLEUS_ARCH_DIR`). Accepts an `omniverse://` URL (section 5). |
 | `seed` | one seed drives layout, damage levels, vegetation outcome and the survivor plan. |
 | `burn_frac` | share of houses inside the burn. |
 | `elapsed` | seconds of fire; overrides `burn_frac` outright. `None`/`0` derives it. |
@@ -195,7 +195,7 @@ Read by the drone launcher only when `SCENE_CONFIG` is set, and by
 | `MINI_SEED` | `11` | the one seed. |
 | `MINI_BURN_FRAC` | `0.45` | share of houses inside the burn. |
 | `MINI_ELAPSED` | `0` | seconds of fire; overrides `MINI_BURN_FRAC`. |
-| `ARCH_DIR` | local bake, else `$AIRSTACK_ASSET_ROOT/scene_gen/assets/archetypes` | the damage bake; local path or URL. |
+| `ARCH_DIR` | Nucleus `Projects/SEI-COA/scene_gen/assets/archetypes` (or under `$AIRSTACK_ASSET_ROOT`) | the damage bake; local path or URL. |
 | `PEOPLE_JSON` | `scene_gen/assets/archetypes/humans_<seed>.json` | survivor ground truth. Filesystem only. |
 | `PEOPLE_POLES` | off | `1`/`true`/`yes` REVEALS the locator markers. It does not create them: the magenta survivor poles are authored on every run and left deactivated, so the usual route is to toggle `<parent>/_people_poles` active in the stage tree — no re-assembly. **Not in a scored run:** a 25 m pole over every survivor group is the answer key, and a camera-driven planner can steer by it. |
 | `AIRSTACK_ASSET_ROOT` | repo | repoints `airstack://`. **Read by `scene_generator` at IMPORT time** — it must be in the environment before the process starts; nothing in either launcher writes it. |
@@ -411,9 +411,9 @@ authored.
 - Only DISCOVERY is filesystem-bound. `GetReferences().AddReference` takes an
   `omniverse://` URL happily, so nothing downstream cares.
 
-`default_arch_dir()` falls back to `$AIRSTACK_ASSET_ROOT/scene_gen/assets/archetypes`
-only when the local bake is genuinely absent, so a workstation run is
-unchanged and a pod needs no second variable beyond `AIRSTACK_ASSET_ROOT`.
+`default_arch_dir()` reads the bake from Nucleus — `$AIRSTACK_ASSET_ROOT/scene_gen/assets/archetypes`
+when that is a URL, else the SEI-COA project copy — so a workstation and a pod
+read the same bake with no extra variable.
 
 **Zero archetypes raises.** It is not an error anywhere downstream — it builds
 a plat with roads and no houses, which reads as a bad scene rather than as a

@@ -94,8 +94,7 @@ from detail import vehicles as veh                              # noqa: E402
 
 PARENT = "/World/stage/generated"
 SCENE_CONFIG = os.environ.get("SCENE_CONFIG", "suburb_wildfire")
-ARCH_DIR = os.environ.get(
-    "ARCH_DIR", "/isaac-sim/AirStack/scene_gen/assets/archetypes")
+ARCH_DIR = os.environ.get("ARCH_DIR") or None   # None -> scene_api.default_arch_dir()
 SNAP_DIR = os.environ.get("SNAP_DIR", "")
 if SNAP_DIR:
     os.makedirs(SNAP_DIR, exist_ok=True)
@@ -449,9 +448,8 @@ def main():
     glassy = frozenset(pools.load_tagged(raw_c, "glass_separable"))
     ctx = {"asset_pools": pools, "resolver": resolver, "glassy": glassy}
 
-    arch = {os.path.splitext(f)[0]: os.path.join(ARCH_DIR, f)
-            for f in os.listdir(ARCH_DIR) if f.endswith(".usd")} \
-        if os.path.isdir(ARCH_DIR) else {}
+    from scene_api import default_arch_dir, load_archetypes
+    arch = load_archetypes(ARCH_DIR or default_arch_dir())
     build_blockage(stage, ssf, arch, random.Random(7))
     build_fire(stage, ssf)
 

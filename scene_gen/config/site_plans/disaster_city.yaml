@@ -930,7 +930,7 @@ features:
   yaw_deg: 90
   note: "damaged 2-storey, west section \u2014 destroyed archetype"
   height_m: 7.0
-  asset: airstack://scene_gen/assets/archetypes/earthquake/wide_house_partial_collapse.usd
+  asset: scene_gen/assets/archetypes_urban_v3/earthquake/wide_house_partial_collapse.usd
   asset_why: "wide_house partial collapse: 16.1x13.8 m standing, collapses to 21.9x19.1x7.0 \u2014 the\
     \ 7.0 m damaged height is exactly this section's measured height"
 - kind: building
@@ -1032,7 +1032,7 @@ features:
   yaw_deg: 82
   note: "collapsed hall on the pile's east edge \u2014 destroyed archetype"
   height_m: 6.0
-  asset: airstack://scene_gen/assets/archetypes/earthquake/ranch_partial_collapse.usd
+  asset: scene_gen/assets/archetypes_urban_v3/earthquake/ranch_partial_collapse.usd
   asset_why: "ranch partial collapse: 21.1x12.8 m standing, collapses to 27.6x16.9x6.5 against a 28.4x13.1\
     \ m hall at 6.0 m \u2014 and 0.4 MB where mini_auto_service scored 0.06 higher for 50 MB"
 - kind: vehicle
@@ -1051,7 +1051,7 @@ features:
   yaw_deg: 90
   note: "red-roof unit, partly standing \u2014 destroyed archetype"
   height_m: 5.0
-  asset: airstack://scene_gen/assets/archetypes/earthquake/two_storey_partial_collapse.usd
+  asset: scene_gen/assets/archetypes_urban_v3/earthquake/two_storey_partial_collapse.usd
   asset_why: 'two_storey partial collapse: 11.1x12.8 m standing vs the 12.2x9.8 target, collapses to 18.6x17.9x6.1'
 - kind: building
   at: [-3.5, 21.33]
@@ -1059,7 +1059,7 @@ features:
   yaw_deg: 0
   note: "red-roof unit, partly standing \u2014 destroyed archetype"
   height_m: 5.0
-  asset: airstack://scene_gen/assets/archetypes/earthquake/cottage_partial_collapse.usd
+  asset: scene_gen/assets/archetypes_urban_v3/earthquake/cottage_partial_collapse.usd
   asset_why: "cottage partial collapse: collapses to 16.6x15.5x5.0 \u2014 damaged height matches the measured\
     \ 5.0 m exactly; this unit sits INSIDE the rubble field"
 - kind: tank

@@ -51,7 +51,11 @@ from scene_generator import resolve_sky
 from suburb_scene import generate_suburb_on_stage
 
 _SCENE_GEN_DIR = os.path.dirname(os.path.abspath(__file__))
+# Local home of the survivor JSON `build_scene` WRITES (plain `open()`, so it
+# cannot go to Nucleus). The bake itself is read from `default_arch_dir()`.
 LOCAL_ARCH_DIR = os.path.join(_SCENE_GEN_DIR, "assets", "archetypes")
+NUCLEUS_ARCH_DIR = ("omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/"
+                    "SEI-COA/scene_gen/assets/archetypes")
 
 PARENT_DEFAULT = "/World/stage/generated"
 POLE_SCOPE = "/_people_poles"
@@ -82,19 +86,16 @@ TREE_SPECIES = {
 # ---------------------------------------------------------------------------
 
 def default_arch_dir():
-    """Where the damage bake lives when the caller does not say.
+    """Where the damage bake lives when the caller does not say: on Nucleus.
 
-    `scene_gen/assets/archetypes/` is UNTRACKED, so a fresh clone on a pod has
-    no such directory. The bake sits under `AIRSTACK_ASSET_ROOT` on Nucleus at
-    the same relative path it has in the repo, so fall back there — and only
-    when the local bake is genuinely absent, so a workstation run is unchanged.
+    The bake is not kept in the repo. It sits at the same relative path under
+    `AIRSTACK_ASSET_ROOT` when that is a URL, else in the SEI-COA project, so a
+    workstation and a pod read the same copy.
     """
-    if os.path.isdir(LOCAL_ARCH_DIR):
-        return LOCAL_ARCH_DIR
     root = os.environ.get("AIRSTACK_ASSET_ROOT", "").strip().rstrip("/")
     if "://" in root:
         return root + "/scene_gen/assets/archetypes"
-    return LOCAL_ARCH_DIR
+    return NUCLEUS_ARCH_DIR
 
 
 def _arch_from_nucleus(base):

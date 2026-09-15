@@ -140,6 +140,7 @@ scene_gen/**/*_preview.png
 scene_gen/**/*_turntable.gif
 scene_gen/assets/baked/
 scene_gen/assets/archetypes/
+scene_gen/assets/archetypes_urban_v3/
 scene_gen/assets/materials/scorched/
 nucleus_upload/
 

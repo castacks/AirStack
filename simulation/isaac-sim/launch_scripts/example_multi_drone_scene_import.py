@@ -284,10 +284,9 @@ if _GENERATED:
 
 if _BUILT:
     SEED = int(os.environ.get("MINI_SEED", "11"))
-    # None -> scene_api.default_arch_dir(): the local bake if it exists, else
-    # the copy under AIRSTACK_ASSET_ROOT on Nucleus. A URL is fine — the bake
-    # directory is untracked, so a pod's fresh clone has none, and
-    # `os.listdir` cannot enumerate `omniverse://`.
+    # None -> scene_api.default_arch_dir(): the bake on Nucleus (under
+    # AIRSTACK_ASSET_ROOT when that is a URL). `load_archetypes` enumerates a
+    # URL or a local path alike.
     ARCH_DIR = os.environ.get("ARCH_DIR") or None
     # Survivor ground truth is written with plain `open()`, so it lands on the
     # FILESYSTEM even when the bake it is named after lives on Nucleus.

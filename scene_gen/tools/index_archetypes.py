@@ -47,7 +47,7 @@ def split_state(stem):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--roots", default="assets/archetypes,assets/archetypes_tornado,"
+    ap.add_argument("--roots", default="assets/archetypes_urban_v3,assets/archetypes_tornado,"
                                        "assets/archetypes_hurricane,assets/archetype,"
                                        "assets/archetype_r15,"
                                        "assets/standalone/buildings/destroyed")

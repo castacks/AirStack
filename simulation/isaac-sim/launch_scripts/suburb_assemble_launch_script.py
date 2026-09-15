@@ -2,7 +2,7 @@
 """
 Assemble the 1600 x 1200 burnt plat by REFERENCE — no live fracture or settle.
 
-    ARCH_DIR=/isaac-sim/AirStack/scene_gen/assets/archetypes \
+    ARCH_DIR=omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetypes \
     SCENE_CONFIG=suburb_wildfire \
     ISAAC_SIM_SCRIPT_NAME=suburb_assemble_launch_script.py airstack up isaac-sim
 

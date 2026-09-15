@@ -540,7 +540,7 @@ which is why it is first.
     docker exec isaac-sim tmux clear-history -t isaac
     docker exec isaac-sim tmux send-keys -t isaac 'clear; \
       SCENE_CONFIG=suburb_wildfire_1000 \
-      ARCH_DIR=/isaac-sim/AirStack/scene_gen/assets/archetypes \
+      ARCH_DIR=omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/archetypes \
       MINI_SEED=11 MINI_BURN_FRAC=0.45 MINI_ELAPSED=0 \
       PEOPLE_VARIANT=0 FREEZE_DISASTER=wildfire FREEZE_SNAPS=1 \
       FREEZE_OUT=/isaac-sim/AirStack/final_disaster_dataset/Fire/Suburban/level_1/1 \
