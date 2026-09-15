@@ -450,6 +450,12 @@ class SwarmCommander(Node):
         self.viz_pub = (self.create_publisher(MarkerArray, '/svg/viz/markers', 10)
                         if self.publish_viz else None)
 
+        # ---- CBF activity (consumed by led_controller -> onboard LEDs red) ---
+        # Comma-separated names of commanded drones whose command the CBF is
+        # altering THIS tick (empty string = none). Published every control tick;
+        # any hold/latch is the consumer's job.
+        self.cbf_active_pub = self.create_publisher(String, '/svg/cbf_active', 10)
+
         rate = float(self.get_parameter('control_rate_hz').value)
         self.timer = self.create_timer(1.0 / rate, self.control_loop)
         self._cbf_warn_count = 0
@@ -817,6 +823,16 @@ class SwarmCommander(Node):
                     self.get_logger().info(
                         f'CBF active on: {", ".join(active)} '
                         f'(residual {result.residual:.4f})')
+        # Which commanded drones are being corrected right now (for the LEDs).
+        # Exempt obstacles are not "corrected" (their row is fixed); an
+        # emergency push-apart involves every commanded drone.
+        if result.used_emergency_stop:
+            cbf_names = [d.name for d in tracked if d.commanded]
+        else:
+            cbf_names = [tracked[i].name
+                         for i in np.flatnonzero(result.corrected)
+                         if i not in exempt_rows and tracked[i].commanded]
+        self.cbf_active_pub.publish(String(data=','.join(cbf_names)))
         # ======================================================
 
         # Publish commands; handle landing completion.
@@ -985,8 +1001,7 @@ def main(args=None):
         pass
     finally:
         node.destroy_node()
-        rclpy.shutdown()
-
-
+        if rclpy.ok():
+            rclpy.shutdown()
 if __name__ == '__main__':
     main()

@@ -45,7 +45,7 @@ swarm_commander:
     drone_modes: "real,real,real"
     teleop_drones: ""
     external_drones: ""
-    cbf_exempt_drones: "drone_1, drone_2, drone_3"
+    cbf_exempt_drones: ""
 
     scenario: "goal"
     scenario_speed_mps: 0.6
@@ -63,9 +63,9 @@ swarm_commander:
                              0.0, 0.0, 0.0]
     # goal scenario: takeoff targets = initial goals. One x,y,z row per drone,
     # separated by > 2*cbf_safety_radius_m (1.1 m). Fit to your capture volume.
-    hover_positions: [0.0, -1.00,  1.2,
-                      -1.0, 1.00, 1.2,
-                      0.0, 3.00, 1.2]
+    hover_positions: [0.0, -2.00,  1.2,
+                      -1.0, 0.00, 1.2,
+                      0.0, 2.00, 1.2]
 
     # ---- Formation profiles: single-command swarm re-targeting ---------
     # Each profile is a full set of goals, one x,y,z row per drone (world
@@ -108,8 +108,8 @@ swarm_commander:
     cbf_alpha: 2.5
 
     fence_enabled: true
-    fence_min: [-3.0, -6.0, 0.0]
-    fence_max: [5.0, 5.0, 3.0]
+    fence_min: [-4.5, -5.2, 0.0]
+    fence_max: [5.5, 5.5, 3.0]
 
 # Mocap -> PX4 external-vision bridge (used when launched with use_mocap:=true).
 # REAL: feeds each /{name}/fmu/in/vehicle_visual_odometry so EKF2 fuses a
@@ -135,3 +135,17 @@ mocap_bridge:
     mocap_frame: "map"
     velocity_filter_alpha: 0.4                                       # via_interface only
     mocap_qos_best_effort: false
+
+# Onboard LED strips (REAL drones only — list the drones whose slot in
+# drone_modes is "real" and that run svg-led, B1(d)). Green by default; a drone
+# turns red while the CBF is altering its command (paths crossing).
+#   ros2 topic pub --once /svg/led_command std_msgs/msg/String "{data: 'drone_2 blue'}"   # any time
+#   ros2 topic pub --once /svg/led_command std_msgs/msg/String "{data: 'all white'}"
+led_controller:
+  ros__parameters:
+    drone_names: ["drone_1", "drone_2", "drone_3"]
+    default_color: "green"
+    cbf_color: "red"
+    cbf_hold_s: 0.5           # minimum red time per correction (visibility)
+    brightness: 80
+    heartbeat_port: 47901

@@ -153,6 +153,13 @@ Check `echo $ROS_DOMAIN_ID` in every shell — a mismatch shows up as "service
 unavailable" / missing topics.
 
 **tmux** (when you `./airstack.sh connect robot` without `--command=bash`):
+the `bringup` window opens as a 5-over-3 grid — top-left pane runs the autonomy
+launch, the other 7 are shells that wait for that pane's `bws` to finish and
+then `sws` automatically, so they are ready to use once the build is done
+(layout and auto-source set by the `after-new-session` hook in
+[`common/.tmux.conf`](../../../../common/.tmux.conf), helper `sws_after_build`
+in [`robot/docker/.bashrc`](../../../docker/.bashrc)). `Ctrl-b` + arrow or
+`Ctrl-b q [n]` jumps between panes, `Ctrl-b z` zooms one pane full-screen.
 `Ctrl-b c` new window · `Ctrl-b n/p` or `Ctrl-b 0..9` switch · `Ctrl-b ,`
 rename · `Ctrl-b %`/`"` split · `Ctrl-b x` close pane · `Ctrl-b [` scroll
 (`q` exits) · `Ctrl-b d` detach (keeps running). Every new window is a fresh
@@ -422,6 +429,16 @@ vision (GPS off indoors), an RC kill switch, and an offboard-loss failsafe — s
 [Part D](#part-d--real-hardware-first-flight--reference). The script wires up
 *comms only*.
 
+> **`MAV_SYS_ID` (per drone).** Give each drone a distinct id (drone_N → N) so
+> QGC can show all of them. PX4's commander **drops any VehicleCommand whose
+> `target_system` ≠ its own `MAV_SYS_ID`** — this filter applies to uXRCE-DDS
+> commands too, the DDS domain id has nothing to do with it. `px4_interface`
+> therefore has a `target_system` parameter; `real_interfaces.launch.py` sets it
+> from the trailing number of each name by default (`drone_2` → 2), or pass
+> `target_systems:=1,2,3` explicitly. Symptom of a mismatch: "Arm command sent"
+> / `arm -> success=True` in the logs, the drone never arms, and **no**
+> `fmu/out/vehicle_command_ack` ever appears.
+
 **(c) Motive / NatNet (mocap) — one-time.** Name one rigid body per drone
 `drone_1`, `drone_2`, … in Motive, set the OptiTrack streaming **Up Axis = Z**,
 enable Broadcast Frame, and pick the right Local Interface IP. The vendored
@@ -444,6 +461,51 @@ not just TF). Override per run if needed:
 > it `false` you get **only** `/tf` and no `/…/pose`). Name your Motive bodies
 > `drone_1`/`drone_2`/… and discover them with `ros2 topic list | grep pose`.
 > Unlabeled markers are configured in `config/initiate.yaml`.
+
+**(d) Onboard LED strip — one-time per drone.** Each drone's NeoPixel strip
+(11 RGBW pixels on the ESC LED output) is driven by a small **no-ROS** daemon on
+the VOXL, [`scripts/svg_led_daemon.py`](scripts/svg_led_daemon.py), which
+writes the ESC LED packet into voxl-px4's `/run/mpa/modal_io_bridge` pipe (port
+of the ModalAI `modal_io.c` reference in `led_ws/`) and takes color commands
+over **UDP** from the ground node `led_controller` (started by
+`ground_control.launch.py`, `use_led:=true` by default). No ROS on the VOXL on
+purpose — its Foxy DDS must stay off the Jazzy ground domain ([B6](#b6-voxl2-diagnostics-cheat-sheet)).
+The daemon shows **green at boot** (before any ground link), sends a 1 Hz
+heartbeat to the ground PC (IP read from the `-h` flag in `voxl-px4-start`, so
+run (a) first), and falls back to green 10 s after the ground goes silent.
+```bash
+# over Wi-Fi, from the ground PC (package dir) — scp + ssh + installer in one go
+# (VOXL root password: oelinux123; `ssh-copy-id root@<ip>` once to stop the prompts):
+scripts/voxl_push_led.sh drone_1 <drone_ip>            # [ground_pc_ip] [num_leds=11]
+#   = scp scripts/svg_led_daemon.py scripts/voxl_setup_led.sh root@<drone_ip>:/usr/bin/
+#     ssh root@<drone_ip> 'chmod +x /usr/bin/voxl_setup_led.sh && voxl_setup_led.sh drone_1'
+#   RGB (not RGBW) strip / other brightness:  LED_EXTRA_ARGS="--rgb --brightness 60" scripts/voxl_push_led.sh drone_1 <ip>
+# over USB instead:
+adb push scripts/svg_led_daemon.py scripts/voxl_setup_led.sh /usr/bin/
+adb shell 'chmod +x /usr/bin/voxl_setup_led.sh && voxl_setup_led.sh drone_1'
+# on the VOXL, to check:
+systemctl status svg-led ; journalctl -u svg-led -n 20   # "opened MAVLink tunnel sink", "PX4 ESC LED bits muted"
+```
+*Ground side, once:* the heartbeats arrive on **UDP 47901** — this host runs
+`ufw`, so `sudo ufw allow 47901/udp`. The robot container is `network_mode: host`,
+so nothing else to map. Verify in the commander terminal:
+`[led_controller]: drone_1: LED daemon online at <ip>:47900`. Recolor live:
+```bash
+ros2 topic pub --once /svg/led_command std_msgs/msg/String "{data: 'drone_1 blue'}"        # name …
+ros2 topic pub --once /svg/led_command std_msgs/msg/String "{data: 'drone_1 255,60,0'}"    # … or r,g,b[,w]
+ros2 topic pub --once /svg/led_command std_msgs/msg/String "{data: 'all green blink'}"     # all drones, blink
+# same thing as a service:
+ros2 service call /svg/drone_1/set_led_color airstack_msgs/srv/SetLedColor "{color: blue}"
+```
+Works whenever `led_controller` is running (it is part of `ground_control.launch.py`;
+standalone: `ros2 run svg_ground_control led_controller --ros-args --params-file <config>.yaml`),
+regardless of arming or flight state.
+The daemon also mutes PX4's ESC status-LED bits (`px4-qshell voxl_esc -l 0 led`),
+otherwise the driver repaints the strip with its own red/green/blue arm state and
+it flickers orange — see the troubleshooting row. Colors: off/red/green/blue/white/yellow/cyan/magenta/orange/purple, scaled by
+`led_controller.brightness` (80/255 default — bright white washes out the
+OptiTrack IR view). A manual color is the drone's *base* color; the CBF red
+(below) overrides it while active, then returns to it.
 
 ### B2. uXRCE-DDS agent (ground PC)
 
@@ -695,6 +757,9 @@ odometry)`:
 
 # REAL drones — px4_interface stack (uXRCE-DDS, no MAVROS); comma-separate names:
 ros2 launch svg_ground_control real_interfaces.launch.py drones:=drone_1   # ,drone_2,...
+# target_system (= the drone's MAV_SYS_ID) defaults to the name's number (drone_2 -> 2);
+# override with target_systems:=1,2,3 if your ids differ. Check the startup line:
+#   [drone_2.fmu.px4_interface]: PX4Interface initialized (uXRCE-DDS), target_system=2
 ```
 
 For a **real** drone this is the analogue of A3 — it brings up `px4_interface`
@@ -721,11 +786,30 @@ position indoors — see [B4b](#b4b-external-vision--ekf2-the-arm-blocker)); in
 in A3; for `real`, connect the drone per [Part B](#part-b--bring-in-a-real-drone-connect--verify)
 and set the EKF2 params (B4b) first.
 
+Before flying:
 ```bash
-cd ~/AirStack/robot/ros_ws && sws
+# REAL drones — px4_interface stack (uXRCE-DDS, no MAVROS); comma-separate names.
+# target_system = MAV_SYS_ID is taken from the name (drone_2 -> 2), see C0:
+ros2 launch svg_ground_control real_interfaces.launch.py drones:=drone_1   # ,drone_2,...
+```
+If flying Drone 1:
+```bash
+MicroXRCEAgent udp4 -p 8888 -v4
+```
+If flying Drone 2:
+```bash
+MicroXRCEAgent udp4 -p 8889 -v4
+```
+If flying Drone 3:
+```bash
+MicroXRCEAgent udp4 -p 8892 -v4
+```
+```bash
 ros2 launch svg_ground_control ground_control.launch.py \
   config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/goal_single.yaml \
   use_mocap:=true
+```
+```bash
 # control terminal:
 ros2 service call /swarm_commander/takeoff std_srvs/srv/Trigger
 ros2 service call /swarm_commander/start   std_srvs/srv/Trigger
@@ -734,6 +818,19 @@ ros2 topic pub --once /svg/drone_1/goal_command geometry_msgs/msg/PoseStamped \
 ros2 topic pub --once /svg/drone_1/speed_command std_msgs/msg/Float32 "{data: 0.8}"
 ros2 service call /swarm_commander/land std_srvs/srv/Trigger
 ```
+**LEDs:** the strip is **green** throughout (daemon default + `led_controller`
+block in `goal_single.yaml`; a single drone is never CBF-corrected). Recolor at
+**any** time — armed or not, before takeoff, on the bench — the same way you
+retarget a formation:
+```bash
+ros2 topic pub --once /svg/led_command std_msgs/msg/String "{data: 'drone_1 blue'}"        # name …
+ros2 topic pub --once /svg/led_command std_msgs/msg/String "{data: 'drone_1 255,60,0'}"    # … or r,g,b[,w]
+ros2 topic pub --once /svg/led_command std_msgs/msg/String "{data: 'drone_1 red blink'}"   # blink
+ros2 topic pub --once /svg/led_command std_msgs/msg/String "{data: 'all green'}"           # every drone
+```
+(or the service `/svg/drone_1/set_led_color`, `airstack_msgs/srv/SetLedColor`).
+Colors: off red green blue white yellow cyan magenta orange purple. Setup per
+drone: [B1(d)](#b1-per-drone-one-time-setup); disable with `use_led:=false`.
 
 ### C2. Multi-drone goal (`goal_tracking.yaml`)
 
@@ -748,7 +845,7 @@ are a no-op, same as C1).
 `drone_names`** (the multi-drone part people miss; each drone needs its own
 full chain in THIS session):
 * each drone connected per [Part B](#part-b--bring-in-a-real-drone-connect--verify)
-  on its **own agent port** (drone_1→8888, drone_2→8889, drone_3→8890) → run
+  on its **own agent port** (drone_1→8888, drone_2→8889, drone_3→8892) → run
   **one `MicroXRCEAgent udp4 -p <port> -v4` per drone** on the ground PC —
   including any agent you had running for a previous single-drone test (a
   closed C1 terminal ≠ a running agent);
@@ -768,7 +865,23 @@ full chain in THIS session):
   drone's Isaac spawn (`x = 2*(i-1)-(N-1)`), e.g. hybrid `"real,sim"` →
   `[0,0,0, 1,0,0]`. All-real (current config) = all zeros; the commander's
   "offsets are all zero" startup warning is expected/benign in that case.
-
+Before flying:
+```bash
+# REAL drones — px4_interface stack (uXRCE-DDS, no MAVROS); comma-separate names:
+ros2 launch svg_ground_control real_interfaces.launch.py drones:=drone_1   # ,drone_2,...
+```
+If flying Drone 1:
+```bash
+MicroXRCEAgent udp4 -p 8888 -v4
+```
+If flying Drone 2:
+```bash
+MicroXRCEAgent udp4 -p 8889 -v4
+```
+If flying Drone 3:
+```bash
+MicroXRCEAgent udp4 -p 8892 -v4
+```
 ```bash
 ros2 launch svg_ground_control ground_control.launch.py \
   config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/goal_tracking.yaml \
@@ -783,6 +896,15 @@ ros2 topic pub --once /svg/drone_2/goal_command geometry_msgs/msg/PoseStamped \
 ros2 topic pub --once /svg/drone_1/speed_command std_msgs/msg/Float32 "{data: 0.6}"
 ros2 topic pub --once /svg/drone_2/speed_command std_msgs/msg/Float32 "{data: 1.0}"
 ```
+**LEDs:** all real drones **green**; a drone turns **red for as long as the CBF
+is altering its command** (paths crossing — the same moments the commander logs
+`CBF active on: …`), then back to green. Recolor any time (works disarmed too), formation-style:
+`ros2 topic pub --once /svg/led_command std_msgs/msg/String "{data: 'drone_2 blue'}"`,
+`"{data: 'all white'}"`, `"{data: 'drone_1 red blink'}"` (per-drone topic
+`/svg/<name>/led_command` takes just `"<color> [blink]"`; services
+`/svg/<name>/set_led_color` still exist). Only drones listed in the config's
+`led_controller.drone_names` (the real ones) are driven — setup per drone in
+[B1(d)](#b1-per-drone-one-time-setup).
 
 **Formation profiles — retarget the whole swarm with ONE command.** The config
 defines named profiles (`formation_profiles` + one `formation_<name>` array
@@ -889,7 +1011,7 @@ for indoor RC **Position mode** — set the B4b.1 EKF2/mag params on all three
 drones, not just the holders.
 
 Prerequisites (all three drones per [Part B](#part-b--bring-in-a-real-drone-connect--verify)):
-* own agent port per drone (e.g. 8888/8889/8890) → **three** `MicroXRCEAgent`s;
+* own agent port per drone (8888/8889/8892) → **three** `MicroXRCEAgent`s;
 * B4b.1 params set + saved + rebooted on **each** drone;
 * Motive bodies `drone_1..3` streaming; interfaces for **all three** (drone_3's
   px4_interface is state-only, but without it the commander can't see drone_3
@@ -918,6 +1040,17 @@ ros2 service call /swarm_commander/land    std_srvs/srv/Trigger   # lands ONLY t
 > *holder* still freezes the holders as usual. Also: if drone_3's odometry goes
 > stale (mocap dropout), the commander pauses the scenario and the holders fall
 > back to holding position — by design.
+
+**LEDs (`led_controller` block in `squeeze_rc_intruder.yaml`, all three drones
+set up per [B1(d)](#b1-per-drone-one-time-setup)):** everyone is **green**. A
+**holder turns red while the CBF is pushing it out of the intruder's way** (the
+commander publishes the corrected names on `/svg/cbf_active` every tick; the LED
+node holds red ≥ 0.5 s so short corrections are visible) and returns to green
+when its command is no longer altered. drone_3 is external — never commanded,
+so never "corrected" — and stays green; give the pilot's drone its own color if
+useful: `ros2 topic pub --once /svg/led_command std_msgs/msg/String "{data: 'drone_3 blue'}"`.
+A CBF **emergency push-apart** turns every holder red. Watch the signal itself
+with `ros2 topic echo /svg/cbf_active`.
 
 ---
 
@@ -1060,6 +1193,10 @@ come up before starting a test.
 | Symptom | Cause / fix |
 |---|---|
 | `[ERROR] Docker daemon is not running` but it is | user not in `docker` group: `sudo usermod -aG docker $USER`, then a real logout/login (lock screen doesn't count), or `newgrp docker` per shell |
+| LED strip **dark** on a drone | On the VOXL: `systemctl status svg-led`, `journalctl -u svg-led -n 30`. "cannot open /run/mpa/modal_io_bridge" = this voxl-px4 build has no FIFO (Starling 2 Max SDK) — the daemon then sends the same packet as a **MAVLink TUNNEL** through `voxl-mavlink-server` (`/run/mpa/mavlink_onboard/control`; needs that service active; journal: "opened MAVLink tunnel sink"). The tunnel payload type is a ModalAI enum; `voxl_setup_led.sh` reads it from the mavlink headers (211 on SDK 1.8) — wrong value = dark strip. Still dark: strip is RGB not RGBW (`LED_EXTRA_ARGS="--rgb"`), `--brightness 0`, or the strip is not on ESC **id 0** (fw ≥ 39 only lets id 0 drive it). Hardware check with PX4 stopped: `voxl-esc` wrapper procedure + `python3 voxl-esc-neopixel-test.py --mode all -n 11 --brightness 40 --id 0` in `/usr/share/modalai/voxl-esc-tools` |
+| LED strip **flickers orange** (green shows for an instant, then orange blink; steady only while voxl-px4 is stopped) | PX4's `voxl_esc` driver stamps its **status-LED bits** into every motor command (disarmed: red; armed: blue / position: green / **offboard: red**) and ESC fw 39.21 mirrors them onto an active NeoPixel strip, alternating with our frames at the 20 Hz passthrough rate. Fix = freeze the driver's LED bits: `px4-qshell voxl_esc -l 0 led` (**options before the verb**, `voxl_esc led -l 0` is silently ignored). `svg_led_daemon.py` does this itself at start and after every voxl-px4 restart (journal: "PX4 ESC LED bits muted"); `--no-px4-led-mute` disables it. Side effect: the ESCs' own tiny status LEDs no longer show the arm state. Verify: `systemctl restart voxl-px4` → strip flickers for ~10 s, then back to steady green |
+| `led_controller`: **"no LED heartbeat yet"** for a drone | Daemon not running (`systemctl status svg-led` on the VOXL), its ground IP is wrong (`grep -- --ground-ip /etc/systemd/system/svg-led.service` — re-run `voxl_setup_led.sh <name> <ground_ip>` after re-pointing the drone), UDP 47901 blocked on the ground PC (`sudo ufw allow 47901/udp`), or the name is missing from the config's `led_controller.drone_names`. `ros2 topic list` does not show it — it is plain UDP; use `sudo tcpdump -ni any udp port 47901` |
+| drone stays **red** after the CBF episode / colors do not change | red is only held while `/svg/cbf_active` is fresh (< `cbf_stale_s`, 1 s) — a dead commander clears it by itself; a color that never changes = the daemon is not receiving (see the row above) or is replaying its 10 s fallback (ground silent → green). `ros2 topic echo /svg/cbf_active` shows the raw per-tick signal |
 | `airstack connect` shows no prompt | it attaches to the container tmux; `Ctrl-b c` new window, `Ctrl-b d` detach — or use `--command=bash` |
 | 3 robot containers appear | `.env NUM_ROBOTS` also scales container replicas; keep it `"1"`, pass drone count inline to the sim script |
 | service `waiting for service to become available…` forever | `ROS_DOMAIN_ID` mismatch between shells; also `ros2 daemon stop` |
@@ -1068,10 +1205,13 @@ come up before starting a test.
 | `MicroXRCEAgent: command not found` | your robot image predates the bake-in — rebuild it (`./airstack.sh image-build robot-desktop`; [`Dockerfile.robot`](../../../docker/Dockerfile.robot) ~L198/L364 installs v2.4.3 to `/opt/uxrce`). No-rebuild alternative: build it in the workspace (clone eProsima Micro-XRCE-DDS-Agent into `ros_ws/src`, `bws --packages-select microxrcedds_agent && sws` — see B2). Last resort: the `microros/micro-ros-agent:jazzy` host container. Keep `ROS_DOMAIN_ID=1` on the agent |
 | `px4-microdds_client` keeps stopping (must ssh in and `start` it by hand) | Two layers of auto-restart, both installed by re-running [`voxl_setup_real_drone.sh`](scripts/voxl_setup_real_drone.sh): a boot-time retry loop in `voxl-px4-start` (survives slow Wi-Fi at boot) and the **`svg-microdds-watchdog` systemd service** (checks every 1 s, restarts a stopped client mid-session). Verify: `systemctl status svg-microdds-watchdog`; find why it died: `journalctl -u voxl-px4 -b \| grep -i microdds`. "Running, disconnected" is NOT dead — the client reconnects itself once the ground agent is back |
 | Drone not reachable / wrong or stale IP (e.g. old static `192.168.30.x`) | ADB in and reset `wlan0` to DHCP: `ip addr flush dev wlan0 && ip link set wlan0 up && udhcpc -i wlan0` (or `dhclient -v wlan0`), then `ip addr show wlan0`. Make it persistent via the `systemd-networkd` `*wlan0*.network` (`DHCP=yes`) or a router-side DHCP reservation — see [B0](#b0-get-the-drone-onto-your-lan-wi-fi--dhcp) |
+| "Arm command sent" / `arm -> success=True` but the drone **never arms**, and `ros2 topic echo /<name>/fmu/out/vehicle_command_ack --qos-reliability best_effort` prints **nothing** | Those "success" values only mean the command was *published*. No ack at all = PX4's commander dropped it: `target_system` ≠ the drone's `MAV_SYS_ID` (`px4-param show MAV_SYS_ID` on the VOXL). `real_interfaces.launch.py` derives it from the name (drone_2 → 2) or takes `target_systems:=…`; confirm in the `PX4Interface initialized … target_system=N` line. An ack that says `DENIED`/`TEMPORARILY_REJECTED` (now logged as WARN by px4_interface) means PX4 *did* hear you and refused — run `px4-commander check` on the VOXL for the reason (usually the B4b EKF2 params, or an RC/kill-switch requirement) |
 | real drone **won't arm** ("fuse failure" / "no position"), no `/fmu/out/vehicle_odometry` | EKF2 has no position source. Set `EKF2_EV_CTRL`/`EKF2_HGT_REF=Vision`/`EKF2_GPS_CTRL=0` (B4b), and verify `/{name}/fmu/in/vehicle_visual_odometry` is streaming. The SVG real path feeds it via `mocap_bridge` (`px4_vio_mode: direct`) — **not** MAVROS |
 | QGC: **"yaw estimate error"**, won't get ready | EKF's yaw is contested or has no source. `px4-listener estimator_status_flags`: `cs_mag_hdg: True` → mag still fused — set `EKF2_MAG_TYPE=5` **and** `SYS_HAS_MAG=0`, `px4-param save`, restart voxl-px4 (B4b.1); `cs_ev_yaw: False` → yaw bit missing — `EKF2_EV_CTRL=11`. If both look right: mocap yaw itself is bad — quaternion flipping while still (`ros2 topic echo /<name>/pose --field pose.orientation`; symmetric Motive markers → re-create body), wrong frame (`px4_vio_frame`), or lossy Wi-Fi EV stream |
 | QGC: **"no local position estimate"** (after mag/GPS were disabled) | Disabling mag+GPS removed the old sources but EV isn't fusing in their place: `EKF2_EV_CTRL` must include position bits (11, not yaw-only 8), `EKF2_HGT_REF=3`; params saved + PX4 restarted (unsaved params die on power loss; fusion config applies at EKF init). Params are **per drone** — re-check after re-provisioning/renaming. Verify with `px4-listener estimator_status_flags` (`cs_ev_pos/cs_ev_hgt`) and `px4-listener vehicle_local_position` (`xy_valid`) |
 | `ros2 topic echo /…/fmu/out/…` shows nothing (but the topic exists) | PX4 `/fmu/*` are **best_effort**; add `--qos-reliability best_effort --qos-durability volatile` to echo. Not a real outage |
+| **one drone behaves differently** from the others (e.g. drone_1 **balloons 15-20 cm at every stop** in Position mode, then sinks back over ~2 s; drone_2 does 4-8 cm for the same 30-37° bank reversals) | First diff PX4 params between a good and a bad drone's ulog: `python3 scripts/ulog_param_diff.py bad.ulg good.ulg MPC_ EKF2_` (needs `pip install pyulog`). drone_1 vs drone_2: **identical** params, thrust curve, motor/ESC response, attitude tracking, mocap latency (~49 ms, `EKF2_EV_DELAY`=50 is right), no lever arm, no saturation. What differed: drone_1's EKF **vertical velocity lags truth by ~0.2 m/s for ~0.5 s after braking with a negative roll** (only that direction), so the height controller keeps pushing after the reversal; drone_2's EKF tracks within 0.07 m/s. Cause consistent with a small IMU-to-airframe misalignment on drone_1 (EKF-vs-mocap roll offset −0.5°, pitch disagreement ±1.5° with roll; vertical-accel error antisymmetric in roll). Fixes, in order: (1) tighten mocap fusion so the EKF trusts EV height over the IMU transient — `EKF2_EVP_NOISE 0.03` (or `EKF2_EV_NOISE_MD 1`, which uses the bridge's 1 cm variance, as drone_3 already does) on **all** drones; (2) redo accel + level-horizon calibration on drone_1 (`CAL_ACC0_*SCALE`=1.0 on every drone = never fully calibrated); (3) recreate drone_1's Motive rigid body with the airframe squared up (EV yaw is fused; its yaw is 1.5° off the IMU). Does not affect offboard swarm flights (≤1.2 m/s, no 30° banks). Do NOT "fix" by copying drone_3's `MPC_VEL_MANUAL`=2 — that is drone_3's intentional speed limit, not the cause |
+| drone **yaws slowly by itself** in Position/Altitude mode (steady ~10-20°/s, sticks released) while EKF yaw, mocap yaw and gyro all agree in the ulog | Not the estimator, not the controller: PX4 is being *commanded* a yaw rate by the RC yaw channel. In the ulog, `manual_control_setpoint.yaw` sits at a non-zero value (e.g. +0.21) with the stick released, because `RC<n>_TRIM` (n = `RC_MAP_YAW`) no longer matches the transmitter's centre (seen: TRIM=1427 vs centre 1540 µs; ch1-3 fine). PX4 applies `MPC_HOLD_DZ`=0.1 then `MPC_YAW_EXPO` and `MPC_MAN_Y_MAX` — (0.21−0.1)/0.9 → expo → ×150°/s ≈ 12.7°/s, exactly the observed drift. Fix: recalibrate the radio in QGC (or `px4-param set RC4_TRIM <centre>` + `px4-param save`) and check the transmitter's yaw trim/subtrim. Offboard flights ignore sticks, but a Position-mode takeover will spin until this is fixed. Verify at rest: `px4-listener manual_control_setpoint` → `yaw` ≈ 0 |
 | EV accepted but drone drifts / flies the wrong way / position mirrored | mocap frame ≠ ROS-ENU. Do the B4b hand-check; set `px4_vio_frame: "modalai_flip"` (the reference transform) in `swarm_real.yaml` |
 | Isaac Sim segfaults at startup, backtrace in `librtx.scenedb.plugin.so` / `libcarb.scenerenderer-rtx.plugin.so` at `carbOnPluginStartup` — **also crashes headless**, and a bare empty `SimulationApp({"headless":True})` crashes identically | GPU driver ↔ Isaac Sim RTX incompatibility, NOT an AirStack bug. App boots to `app ready` then the RTX renderer faults on the first frame. Confirmed on RTX 5080 / Blackwell + NVIDIA driver **595.x** + Isaac Sim 5.1.0. Headless and clearing the shader cache do **not** help (the renderer plugin loads at app init regardless; there is no renderer-less path through Kit). **Fix:** install a driver Isaac Sim 5.1 supports — Linux **580.65.06**, or **591.74** (a Blackwell user's confirmed-good version) — using the *open* kernel module variant required for RTX 50-series; or upgrade to a newer Isaac Sim release. ([NVIDIA forum report](https://forums.developer.nvidia.com/t/isaac-sim-5-1-gui-crash-access-violation-on-rtx-5070-ti-blackwell-fixed-by-driver-downgrade-to-591-74/365335)) |
 | MAVROS `connected: false`, no odometry | PX4 SITL not launched: Isaac timeline not playing (`PLAY_SIM_ON_START=true`, or press Play) |

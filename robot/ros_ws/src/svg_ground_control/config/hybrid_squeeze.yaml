@@ -91,3 +91,14 @@ mocap_bridge:
     mocap_frame: "map"
     velocity_filter_alpha: 0.4
     mocap_qos_best_effort: false
+
+# Onboard LED strips — REAL holders only (drone_3 is simulated, no strip).
+# Green by default, red while the CBF yields to the sim intruder.
+led_controller:
+  ros__parameters:
+    drone_names: ["drone_1", "drone_2"]
+    default_color: "green"
+    cbf_color: "red"
+    cbf_hold_s: 0.5
+    brightness: 80
+    heartbeat_port: 47901

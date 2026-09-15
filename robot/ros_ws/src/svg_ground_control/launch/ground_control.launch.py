@@ -46,6 +46,18 @@ def launch_setup(context, *args, **kwargs):
             parameters=[config],
             condition=IfCondition(LaunchConfiguration('use_mocap')),
         ),
+        # Onboard LED strips (real drones): green by default, red while the CBF
+        # corrects a drone, per-drone /svg/<name>/set_led_color service. Talks
+        # UDP to scripts/svg_led_daemon.py on each VOXL; harmless when no drone
+        # answers (sim runs).
+        Node(
+            package='svg_ground_control',
+            executable='led_controller',
+            name='led_controller',
+            output='screen',
+            parameters=[config],
+            condition=IfCondition(LaunchConfiguration('use_led')),
+        ),
     ]
 
 
@@ -64,5 +76,9 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'use_mocap', default_value='false',
             description='Start the mocap bridge (hardware only)'),
+        DeclareLaunchArgument(
+            'use_led', default_value='true',
+            description='Start the onboard-LED controller (UDP to svg_led_daemon on '
+                        'each real drone; no-op without drones)'),
         OpaqueFunction(function=launch_setup),
     ])

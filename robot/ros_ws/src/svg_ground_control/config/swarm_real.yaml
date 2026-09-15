@@ -90,3 +90,15 @@ mocap_bridge:
     mocap_frame: "map"
     velocity_filter_alpha: 0.4                                    # via_interface only
     mocap_qos_best_effort: false
+
+# Onboard LED strips (all real; svg-led on each VOXL, B1(d)): green by default,
+# red while the CBF corrects a drone. Recolor any time:
+#   ros2 topic pub --once /svg/led_command std_msgs/msg/String "{data: 'drone_2 blue'}"
+led_controller:
+  ros__parameters:
+    drone_names: ["drone_1", "drone_2", "drone_3"]
+    default_color: "green"
+    cbf_color: "red"
+    cbf_hold_s: 0.5
+    brightness: 80
+    heartbeat_port: 47901

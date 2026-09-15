@@ -30,6 +30,20 @@ function sws(){
         echo "Workspace not built yet. Please make sure to build first with 'bws'"
     fi
 }
+function sws_after_build(){
+    # Wait for a `bws` running in another pane (e.g. the autonomy launch pane of the
+    # tmux bringup session) to finish, then source the workspace. bws holds
+    # .build.lock for the duration of the build, so: give it up to 10 s to start,
+    # then block until the lock is released. Falls through to a plain sws if no
+    # build ever starts (AUTOLAUNCH=false, or the build already finished).
+    local lock="$ROS2_WS_DIR/.build.lock" waited=0
+    while [ $waited -lt 10 ] && flock -n "$lock" true; do sleep 1; waited=$((waited+1)); done
+    if ! flock -n "$lock" true; then
+        echo "Waiting for the workspace build (bws) in another pane to finish..."
+        flock "$lock" true
+    fi
+    sws
+}
 
 # Function to prompt user for confirmation
 confirm_cws() {

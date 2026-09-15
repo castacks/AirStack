@@ -17,7 +17,8 @@ setup(
          glob('launch/*.launch.py') + glob('launch/*.launch.xml')),
         (os.path.join('share', package_name, 'config'),
          glob('config/*.yaml') + glob('config/*.rviz')),
-        (os.path.join('share', package_name, 'scripts'), glob('scripts/*.sh')),
+        (os.path.join('share', package_name, 'scripts'),
+         glob('scripts/*.sh') + glob('scripts/*.py')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -30,6 +31,7 @@ setup(
             'swarm_commander = svg_ground_control.swarm_commander:main',
             'mocap_bridge = svg_ground_control.mocap_bridge:main',
             'keyboard_teleop = svg_ground_control.keyboard_teleop:main',
+            'led_controller = svg_ground_control.led_controller:main',
         ],
     },
 )

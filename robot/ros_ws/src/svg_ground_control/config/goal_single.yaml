@@ -26,7 +26,7 @@
 
 swarm_commander:
   ros__parameters:
-    drone_names: ["drone_3"]
+    drone_names: ["drone_1"]
     # ---- Per-drone axes (any drone, any combination) -------------------
     # mode   : drone_modes       "sim"  -> /{name}/interface/* (MAVROS/SITL)
     #                            "real" -> /{name}/fmu/*        (px4_interface/HW)
@@ -38,7 +38,7 @@ swarm_commander:
     drone_modes: "real"
     teleop_drones: ""
     external_drones: ""
-    cbf_exempt_drones: "drone_3"
+    cbf_exempt_drones: "drone_1"
 
     scenario: "goal"
     scenario_speed_mps: 0.6          # default per-drone speed (override live)
@@ -48,7 +48,7 @@ swarm_commander:
     # anchors the EKF to the shared origin. offset 0 is correct for both.
     drone_position_offsets: [0.0, 0.0, 0.0]
     # goal scenario: takeoff target = initial goal
-    hover_positions: [-0.4, 1.0, 0.8]
+    hover_positions: [0.0, 0.0, 1.0]
 
     # State topic is identical for sim & real. Command/service routing is
     # picked per drone by drone_modes via the built-in mode templates
@@ -69,8 +69,8 @@ swarm_commander:
     fence_enabled: true
     # fence_min: [-0.6, -0.5, 0.0]
     # fence_max: [1.3, 1.8, 1.9]
-    fence_min: [-2.0, -6.0, 0.0]
-    fence_max: [5.0, 5.0, 3.0]
+    fence_min: [-4.5, -5.2, 0.0]
+    fence_max: [5.5, 5.5, 3.0]
 
 # Mocap -> PX4 external-vision bridge (used when launched with use_mocap:=true).
 # REAL: feeds /drone_1/fmu/in/vehicle_visual_odometry so EKF2 fuses a position
@@ -78,7 +78,7 @@ swarm_commander:
 # /drone_1/pose publisher exists, so this node idles (harmless).
 mocap_bridge:
   ros__parameters:
-    drone_names: ["drone_3"]
+    drone_names: ["drone_1"]
     # Mocap pose topic per drone (natnet_ros2 / Motive body named drone_3).
     # Check the exact prefix with `ros2 topic list | grep pose`.
     mocap_topic_template: "/{name}/pose"
@@ -96,3 +96,15 @@ mocap_bridge:
     mocap_frame: "map"
     velocity_filter_alpha: 0.4                                       # via_interface only
     mocap_qos_best_effort: false
+
+# Onboard LED strip (real drone; needs svg-led running on the VOXL — B1(d)).
+# Green by default, red while the CBF corrects the drone (a single drone is
+# never corrected, so effectively always green here). Change it live:
+#   ros2 topic pub --once /svg/led_command std_msgs/msg/String "{data: 'drone_1 blue'}"   # any time
+led_controller:
+  ros__parameters:
+    drone_names: ["drone_1"]
+    default_color: "green"
+    cbf_color: "red"
+    brightness: 80            # 0-255 scale on every color; keep low near the mocap cameras
+    heartbeat_port: 47901     # daemons send heartbeats here (open it in ufw)

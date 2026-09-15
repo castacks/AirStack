@@ -26,6 +26,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/RobotCommand.srv"
   "srv/TrajectoryMode.srv"
   "srv/TakeoffLandingCommand.srv"
+  "srv/SetLedColor.srv"
   DEPENDENCIES std_msgs geometry_msgs sensor_msgs diagnostic_msgs
 )
 

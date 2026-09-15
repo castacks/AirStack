@@ -61,8 +61,19 @@
  *   in/vehicle_visual_odometry    ← visual / mocap odometry fusion input
  *
  * Feedback ← PX4:
- *   out/vehicle_status    → arm state, nav state
- *   out/vehicle_odometry  → odometry (republished as nav_msgs/Odometry in ENU)
+ *   out/vehicle_status       → arm state, nav state
+ *   out/vehicle_odometry     → odometry (republished as nav_msgs/Odometry in ENU)
+ *   out/vehicle_command_ack  → result of each VehicleCommand (logged; a DENIED
+ *                              arm/mode request is the only visible symptom of
+ *                              a failed preflight check or a target_system
+ *                              mismatch)
+ *
+ * ## Parameters
+ *   target_system (int, default 1) — MAVLink system id stamped on every
+ *     VehicleCommand. MUST equal the drone's MAV_SYS_ID: PX4's commander
+ *     silently drops commands addressed to another system, even over
+ *     uXRCE-DDS. Multi-drone fleets give each drone a distinct MAV_SYS_ID (so
+ *     QGC can tell them apart), so set this per interface instance.
  */
 
 #include <chrono>
@@ -84,6 +95,7 @@
 #include <px4_msgs/msg/trajectory_setpoint.hpp>
 #include <px4_msgs/msg/vehicle_attitude_setpoint.hpp>
 #include <px4_msgs/msg/vehicle_command.hpp>
+#include <px4_msgs/msg/vehicle_command_ack.hpp>
 #include <px4_msgs/msg/vehicle_odometry.hpp>
 #include <px4_msgs/msg/vehicle_rates_setpoint.hpp>
 #include <px4_msgs/msg/vehicle_status.hpp>
@@ -145,6 +157,10 @@ class PX4Interface : public robot_interface::RobotInterface
 public:
     PX4Interface() : RobotInterface("px4_interface")
     {
+        // MAVLink system id of the autopilot we command (must match MAV_SYS_ID).
+        target_system_ = static_cast<uint8_t>(
+            this->declare_parameter<int>("target_system", 1));
+
         // Use BEST_EFFORT + VOLATILE to match PX4's default uXRCE-DDS QoS.
         auto qos = rclcpp::QoS(rclcpp::KeepLast(1))
                        .best_effort()
@@ -188,6 +204,12 @@ public:
                 std::bind(&PX4Interface::on_vehicle_odometry, this,
                           std::placeholders::_1));
 
+        vehicle_cmd_ack_sub_ =
+            this->create_subscription<px4_msgs::msg::VehicleCommandAck>(
+                "out/vehicle_command_ack", qos,
+                std::bind(&PX4Interface::on_vehicle_command_ack, this,
+                          std::placeholders::_1));
+
         // ---- AirStack odometry output ----
         odometry_pub_ =
             this->create_publisher<nav_msgs::msg::Odometry>("odometry", 10);
@@ -206,7 +228,9 @@ public:
             std::chrono::milliseconds(100),
             std::bind(&PX4Interface::publish_offboard_heartbeat, this));
 
-        RCLCPP_INFO(this->get_logger(), "PX4Interface initialized (uXRCE-DDS)");
+        RCLCPP_INFO(this->get_logger(),
+                    "PX4Interface initialized (uXRCE-DDS), target_system=%u",
+                    static_cast<unsigned>(target_system_));
     }
 
     virtual ~PX4Interface() = default;
@@ -467,6 +491,7 @@ private:
     // -----------------------------------------------------------------------
 
     ControlMode control_mode_{ControlMode::NONE};
+    uint8_t target_system_{1};   ///< MAV_SYS_ID of the commanded autopilot
 
     px4_msgs::msg::VehicleStatus vehicle_status_{};
     bool status_received_{false};
@@ -482,6 +507,8 @@ private:
     // Subscribers ← PX4
     rclcpp::Subscription<px4_msgs::msg::VehicleStatus>::SharedPtr vehicle_status_sub_;
     rclcpp::Subscription<px4_msgs::msg::VehicleOdometry>::SharedPtr vehicle_odom_sub_;
+    rclcpp::Subscription<px4_msgs::msg::VehicleCommandAck>::SharedPtr
+        vehicle_cmd_ack_sub_;
 
     // AirStack I/O
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odometry_pub_;
@@ -521,7 +548,8 @@ private:
     /**
      * @brief Send a VehicleCommand to PX4.
      *
-     * All unused params default to 0.  target_system = 1 (the autopilot).
+     * All unused params default to 0.  target_system comes from the
+     * `target_system` parameter and must equal the drone's MAV_SYS_ID.
      */
     void send_vehicle_command(uint32_t command,
                                float p1 = 0.f, float p2 = 0.f,
@@ -539,7 +567,7 @@ private:
         cmd.param5           = p5;  // float64
         cmd.param6           = p6;  // float64
         cmd.param7           = p7;
-        cmd.target_system    = 1;
+        cmd.target_system    = target_system_;
         cmd.target_component = 1;
         cmd.source_system    = 1;
         cmd.source_component = 1;   // uint16
@@ -556,6 +584,35 @@ private:
     {
         vehicle_status_  = *msg;
         status_received_ = true;
+    }
+
+    /// Log PX4's verdict on each command we sent. ACCEPTED at INFO; anything
+    /// else at WARN — this is where "Arm command sent" but nothing happens
+    /// becomes diagnosable (preflight failure, or target_system != MAV_SYS_ID,
+    /// in which case NO ack arrives at all).
+    void on_vehicle_command_ack(
+        const px4_msgs::msg::VehicleCommandAck::SharedPtr msg)
+    {
+        using Ack = px4_msgs::msg::VehicleCommandAck;
+        const char *result = "UNKNOWN";
+        switch (msg->result) {
+            case Ack::VEHICLE_CMD_RESULT_ACCEPTED:             result = "ACCEPTED"; break;
+            case Ack::VEHICLE_CMD_RESULT_TEMPORARILY_REJECTED: result = "TEMPORARILY_REJECTED"; break;
+            case Ack::VEHICLE_CMD_RESULT_DENIED:               result = "DENIED"; break;
+            case Ack::VEHICLE_CMD_RESULT_UNSUPPORTED:          result = "UNSUPPORTED"; break;
+            case Ack::VEHICLE_CMD_RESULT_FAILED:               result = "FAILED"; break;
+            case Ack::VEHICLE_CMD_RESULT_IN_PROGRESS:          result = "IN_PROGRESS"; break;
+            default: break;
+        }
+        if (msg->result == Ack::VEHICLE_CMD_RESULT_ACCEPTED) {
+            RCLCPP_INFO(this->get_logger(), "PX4 ack: command %u -> %s",
+                        msg->command, result);
+        } else {
+            RCLCPP_WARN(this->get_logger(),
+                        "PX4 ack: command %u -> %s (result_param1=%u)",
+                        msg->command, result,
+                        static_cast<unsigned>(msg->result_param1));
+        }
     }
 
     /**

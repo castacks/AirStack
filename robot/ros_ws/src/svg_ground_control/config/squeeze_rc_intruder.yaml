@@ -52,8 +52,8 @@ swarm_commander:
 
     # The two holders' posts: flat [x1,y1,z1,  x2,y2,z2] (ENU, m). Must be
     # > 2*cbf_safety_radius_m apart; fit to your capture volume.
-    squeeze_holder_positions: [ 1.5, 0.5, 1.4,
-                                 1.5, -1.5, 1.4]
+    squeeze_holder_positions: [ 0.5, 1.0, 1.4,
+                                 0.5, -1.0, 1.4]
     # Required by the squeeze scenario but IGNORED here: drone_3 is external,
     # so its scenario policy is never commanded — the RC pilot is the policy.
     squeeze_intruder_waypoints: [ 0.5, -0.5, 1.4,
@@ -97,8 +97,8 @@ swarm_commander:
     # Geofence: freezes the HOLDERS if a holder leaves the box. It does NOT
     # police the external drone_3 (see safety note above). Fit to your volume.
     fence_enabled: true
-    fence_min: [-2.0, -6.0, 0.0]
-    fence_max: [5.0, 5.0, 3.0]
+    fence_min: [-4.5, -5.2, 0.0]
+    fence_max: [5.5, 5.5, 3.0]
 
 # Mocap -> PX4 external vision for ALL THREE drones (direct mode, mirrors the
 # proven model_ai_tfpub.cpp). Holders need it to fly offboard; drone_3 needs
@@ -117,3 +117,17 @@ mocap_bridge:
     mocap_frame: "map"
     velocity_filter_alpha: 0.4
     mocap_qos_best_effort: false
+
+# Onboard LED strips, all three drones (svg-led on each VOXL, B1(d)):
+# everyone GREEN by default; a HOLDER turns RED while the CBF is pushing it
+# away from the RC-flown intruder, then back to green. drone_3 is external
+# (never commanded, so never "corrected") and stays green — recolor it by hand:
+#   ros2 topic pub --once /svg/led_command std_msgs/msg/String "{data: 'drone_3 blue'}"   # any time
+led_controller:
+  ros__parameters:
+    drone_names: ["drone_1", "drone_2", "drone_3"]
+    default_color: "green"
+    cbf_color: "red"
+    cbf_hold_s: 0.5           # minimum red time per correction (visibility)
+    brightness: 80
+    heartbeat_port: 47901
