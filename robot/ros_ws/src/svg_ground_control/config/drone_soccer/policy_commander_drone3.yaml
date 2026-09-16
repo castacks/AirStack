@@ -13,7 +13,7 @@
   ros__parameters:
     drone: "drone_3"
     ball_name: "VolleyBall"
-    model_path: "/root/drone_soccer/drone_soccer/saved_policies/train_tune_dynamic.zip"
+    model_path: "/root/drone_soccer/drone_soccer/saved_policies/motor_dynamics.zip"
     # Random ball goals used by the planar policy observation. One goal is
     # sampled uniformly inside this ENU rectangle. When the drone comes within
     # goal_arrival_radius, a new goal is sampled. /policy_commander/start also
@@ -26,7 +26,7 @@
     goal_phase_rad: 0.0
     goal_rotation_rad: 1.5707963267948966
     goal_spawn_min_xy: [-1.0, -1.0]
-    goal_spawn_max_xy: [1.0, 1.0]
+    goal_spawn_max_xy: [0.3, 0.3]
     goal_arrival_radius: 0.3
     # Set >= 0 for repeatable tests; -1 draws nondeterministically.
     goal_random_seed: 0

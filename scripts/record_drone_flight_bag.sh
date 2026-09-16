@@ -146,7 +146,7 @@ for drone in "${DRONES[@]}"; do
         "/${drone}/fmu/out/battery_status"
         # Temporarily unavailable on drone_2; restore when PX4 publishes them.
         # "/${drone}/fmu/out/hover_thrust_estimate"
-        # "/${drone}/fmu/out/actuator_motors"
+        "/${drone}/fmu/out/actuator_motors"
         "/${drone}/fmu/out/failsafe_flags"
     )
 done
