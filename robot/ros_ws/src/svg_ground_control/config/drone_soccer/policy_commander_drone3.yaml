@@ -25,8 +25,8 @@
     goal_period_s: 32.0
     goal_phase_rad: 0.0
     goal_rotation_rad: 1.5707963267948966
-    goal_spawn_min_xy: [-1.0, -1.0]
-    goal_spawn_max_xy: [0.3, 0.3]
+    goal_spawn_min_xy: [-2.0, -2.0]
+    goal_spawn_max_xy: [2.0, 2.0]
     goal_arrival_radius: 0.3
     # Set >= 0 for repeatable tests; -1 draws nondeterministically.
     goal_random_seed: 0
@@ -36,8 +36,8 @@
     action_high: [3.0, 3.0, 1.5]
     # XY waypoints clamp only after the drone enters this distance from a
     # horizontal fence face. Altitude always remains clamped.
-    bounds_min: [-4.0, -5.0, 0.5]
-    bounds_max: [4.0, 5.0, 1.5]
+    bounds_min: [-4.7, -6.0, 0.5]
+    bounds_max: [5.0, 5.0, 1.5]
     geofence_buffer_m: 0.5
     odom_topic_template: "/{name}/odometry_conversion/odometry"
     ball_odom_topic_template: "/{name}/mocap_odometry"
