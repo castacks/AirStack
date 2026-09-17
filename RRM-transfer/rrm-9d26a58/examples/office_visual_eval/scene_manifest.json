@@ -1,0 +1,19 @@
+{
+  "scene_id": "isaac-office-rrm-visual-eval-v1",
+  "scene_shortname": "office",
+  "launch_script": "rrm_office_visual_eval.py",
+  "camera_topic": "/robot_1/sensors/front_stereo/left/image_rect",
+  "entity_catalog": "entity_catalog.json",
+  "teacher_source_ref": "isaac-office-rrm-visual-eval-v1",
+  "markers": {
+    "blue_marker": {
+      "kind": "blue navigation marker",
+      "scene_prim": "/World/RRMMarkers/blue_marker",
+      "map_waypoint": {"x": 3.2, "y": 0.0, "z": 1.5}
+    },
+    "orange_marker": {
+      "kind": "orange navigation marker",
+      "scene_prim": "/World/RRMMarkers/orange_marker"
+    }
+  }
+}

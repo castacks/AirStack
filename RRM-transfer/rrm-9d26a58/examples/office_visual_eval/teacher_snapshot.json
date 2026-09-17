@@ -1,0 +1,63 @@
+{
+  "snapshot_id": "office-visual-001/teacher-snapshot-1",
+  "revision": "office-visual-001/teacher-1",
+  "task_id": "office-visual-001",
+  "episode_id": "office-visual-001",
+  "evidence": [
+    {
+      "key": {"subject": "blue_marker", "predicate": "exists", "obj": null},
+      "truth": "TRUE",
+      "provenance": "SIMULATOR",
+      "source_ref": "isaac-office-rrm-visual-eval-v1",
+      "observed_monotonic_s": 0.0,
+      "received_monotonic_s": 0.0,
+      "max_age_s": 10.0
+    },
+    {
+      "key": {"subject": "blue_marker", "predicate": "kind", "obj": "blue navigation marker"},
+      "truth": "TRUE",
+      "provenance": "SIMULATOR",
+      "source_ref": "isaac-office-rrm-visual-eval-v1",
+      "observed_monotonic_s": 0.0,
+      "received_monotonic_s": 0.0,
+      "max_age_s": 10.0
+    },
+    {
+      "key": {"subject": "blue_marker", "predicate": "localized", "obj": null},
+      "truth": "TRUE",
+      "provenance": "SIMULATOR",
+      "source_ref": "isaac-office-rrm-visual-eval-v1",
+      "observed_monotonic_s": 0.0,
+      "received_monotonic_s": 0.0,
+      "max_age_s": 10.0
+    },
+    {
+      "key": {"subject": "orange_marker", "predicate": "exists", "obj": null},
+      "truth": "TRUE",
+      "provenance": "SIMULATOR",
+      "source_ref": "isaac-office-rrm-visual-eval-v1",
+      "observed_monotonic_s": 0.0,
+      "received_monotonic_s": 0.0,
+      "max_age_s": 10.0
+    },
+    {
+      "key": {"subject": "orange_marker", "predicate": "kind", "obj": "orange navigation marker"},
+      "truth": "TRUE",
+      "provenance": "SIMULATOR",
+      "source_ref": "isaac-office-rrm-visual-eval-v1",
+      "observed_monotonic_s": 0.0,
+      "received_monotonic_s": 0.0,
+      "max_age_s": 10.0
+    },
+    {
+      "key": {"subject": "orange_marker", "predicate": "localized", "obj": null},
+      "truth": "TRUE",
+      "provenance": "SIMULATOR",
+      "source_ref": "isaac-office-rrm-visual-eval-v1",
+      "observed_monotonic_s": 0.0,
+      "received_monotonic_s": 0.0,
+      "max_age_s": 10.0
+    }
+  ],
+  "complete_domains": []
+}

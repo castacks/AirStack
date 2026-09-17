@@ -94,6 +94,9 @@ tests/results/
 # See .agents/skills/use-feature-notebook
 /notebook/
 
+# Captured RRM evaluation media/results; export to Ocean before ending OSMO.
+/.rrm-artifacts/
+
 # Local-only — embedded sibling repo, not part of this branch
 common/rayfronts/
 

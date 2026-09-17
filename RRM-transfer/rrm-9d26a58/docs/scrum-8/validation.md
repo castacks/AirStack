@@ -112,3 +112,93 @@ The optional dispatcher verification mode has read-only odometry/state subscript
 the pre-existing explicit task-action gate, and optional JSON evidence output. No live
 goal was sent to validate this code increment; its focused synthetic outcome tests are
 recorded with the general regression results.
+
+## Body-agnostic drone decision bridge — 2026-09-17 UTC
+
+`rrm/drone_decision.py` now demonstrates the missing **decision-to-proposal** seam
+without adding execution authority. It accepts a C01 `TaskRequest`, C02
+`StateSnapshot`, and C03 `CapabilityDeclaration`; the deterministic baseline recognizes
+only `navigate to <semantic-target-id>`. It produces C04 intent and C05 plan records
+that retain the target ID, authored `NAVIGATE_TO` semantics and revision references.
+Only the AirStack drone embodiment adapter owns its map-frame waypoint binding and can
+then emit the existing typed `DroneTaskProposal` for `/robot_1/tasks/navigate`.
+
+`scripts/rrm_drone_decision.py` provides a JSON-in/JSON-out dry-run entry point for
+that pipeline; it is intentionally separate from `airstack_drone_dispatch.py` and has
+no ROS or execution option. This makes model-free capstone evaluation possible now:
+freeze the task, evidence snapshot, capability profile and target binding as input
+artifacts, compare decisions, then pass a proposal to later supervision only after the
+relevant C06/C08 gates exist.
+
+Fresh explicit `localized(target)` evidence and the declared generic `NAVIGATE_TO`
+operation plus an available `airframe` resource are required. Missing/stale state holds;
+unknown target text requests clarification; unsupported profile or wrong embodiment
+refuses. All non-ready outcomes contain no plan or proposal. The bridge imports neither
+ROS nor an action client and does not call the separately gated dispatcher. Its four
+focused unit tests, the complete 40-test suite, and the legacy 5/5 oracle suite passed
+inside the current AirStack robot container. Read-only ROS inspection confirmed the
+live endpoint remains `/robot_1/tasks/navigate [task_msgs/action/NavigateTask]`; no
+goal was sent.
+
+## Ground-truth world-builder teacher pipeline — 2026-09-17 UTC
+
+`rrm/ground_truth.py` now turns explicitly labelled simulator facts into immutable C02
+`StateSnapshot` records. It distinguishes simulator provenance from future sensor,
+inferred/VLM and operator evidence; stores the latest evidence only per `(source,
+fact)`; rejects received-time regression within a source; preserves cross-source
+disagreement so a query resolves to `UNKNOWN`; and clears all belief at an explicit new
+simulation episode. The convenience entity API emits semantic `exists`, `kind` and
+optional `localized` facts only. It contains no Isaac, ROS, geometry, physics, control
+or model dependency.
+
+Four focused tests show a fresh labelled target drives the existing proposal-only RRM
+bridge, while stale, contradictory, removed and prior-episode target states withhold a
+proposal. The full unit suite passed 44/44, with the 5/5 Oracle regression unchanged.
+This is a **teacher/scoring pipeline**, not a claim that MAVROS or a simulator label is
+perception. A controlled, read-only scene-specific label extractor must be the next
+adapter; the later VLM path must emit the same C02 schema and be evaluated against this
+teacher rather than replacing it.
+
+## Learned Cosmos Reason2 RRM cognition — 2026-09-17 UTC
+
+`rrm/cosmos_reason2.py` and `scripts/rrm_cosmos_reason2.py` now form the learned,
+body-agnostic C01/C02/C03-to-C04/C05 boundary. The runner sends only an immutable task,
+semantic evidence snapshot and declared capability profile to a locally cached Cosmos
+Reason2 model, then records the raw response and either a validated intent/semantic plan
+or a replayable refusal. It has no ROS, simulator-control, action-client, safety-admission,
+geometry, physics/IK or execution-dispatch surface.
+
+On PSC Bridges-2, the local `nvidia/Cosmos-Reason2-8B` revision
+`a9fae2cf89dc64db96b12860417f0eb403013bb9` ran on an H100 80GB allocation against the
+labelled navigation episode. An initial correct-looking response was rejected solely
+because it omitted explicit `grounded_entities`; the contract deliberately did not infer
+that missing provenance from the action target. After a prompt-only schema repair, a
+second real inference produced `candidate_status=ACCEPTED`, which means the candidate
+validated into C04/C05. The persisted record states `execution_dispatch=false`; no
+AirStack goal or control action was made.
+
+The complete RRM unit suite passed 51/51 and the legacy Oracle regression passed 5/5
+after the repair. This is one text-plus-ground-truth cognition evaluation, not evidence
+that the model visually understands an Isaac scene. The next increment must produce
+C02 from image/video evidence and score it against this ground-truth teacher before
+testing reasoning robustness across the scene-difficulty ladder.
+
+## Visual C02 evidence and persistent PSC evaluation seam — 2026-09-17 UTC
+
+`rrm/visual_world_builder.py` now validates a VLM's catalog-bound visual claims into
+the same C02 schema used by the simulator teacher. Each admitted claim is explicitly
+`INFERRED`, names a task-scoped known entity only, and carries a durable media source
+reference plus SHA-256 digest; unknown IDs, unsupported predicates, malformed JSON and
+missing manifest information are refusals. It does not infer unobserved facts, produce
+C04/C05 plans, access Isaac/ROS, or control a vehicle.
+
+`scripts/rrm_cosmos_visual_grounding.py` invokes the cached Cosmos model on one frozen
+image or video, retains its raw output, emits the validated visual snapshot and can
+score it fact-by-fact against a frozen ground-truth C02 snapshot. The score reports
+exact matches, mismatches, missed teacher facts and extra candidate facts with explicit
+precision/recall denominators; missing VLM evidence remains a miss/UNKNOWN rather than
+being converted to a negative claim. `scripts/psc_rrm_cosmos_visual.sbatch` is the
+unattended H100 route: it writes persistent PSC logs/results and survives a laptop
+disconnect. Unit coverage is now 56/56 and the legacy Oracle remains 5/5. A real
+visual-performance result is still pending one selected, frozen Isaac capture and
+matching label bundle.

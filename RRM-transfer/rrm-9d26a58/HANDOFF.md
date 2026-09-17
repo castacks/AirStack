@@ -1,5 +1,43 @@
 # RRM remote Codex handoff
 
+## Current continuation — 2026-09-17
+
+This update supersedes the historical hand-first/shadow-only/PSC-unknown notes below.
+User explicitly requests learned RRM driving an AirStack drone in Isaac Office,
+visible via WebRTC and Foxglove. Control is the embodiment adapter, not RRM's purpose.
+Physics/IK and VLA are deferred. Preserve the body-agnostic reasoning contracts.
+
+Cosmos-Reason2-8B revision `a9fae2cf89dc64db96b12860417f0eb403013bb9` is cached on
+PSC Ocean, project `eng260004p`, user `oabolade`, root
+`/ocean/projects/eng260004p/oabolade/physical-ai`. One prior ground-truth-label
+inference was ACCEPTED but no real Office inference/flight exists locally yet.
+PSC requires user authentication; existing temporary SSH key was denied. Do not ask
+for passwords in chat or claim an authenticated remote session. The user submitted
+the Office inference job `46273277` on 2026-09-17. It is queued/running independently
+of OSMO under `runs/rrm/office/46273277`; obtain its final state with
+`squeue -j 46273277`, then inspect its persistent `console.log` and `result.json`.
+
+Office scene is running as `isaac-sim-livestream`, with single-GPU flags in
+`rrm_office_visual_eval.py`. Robot/GCS remain running. Camera frame captured;
+PX4 ready, connected and disarmed; GCS robot markers ~10 Hz. Frozen original image:
+`/root/AirStack/.rrm-artifacts/office-v1/rrm-office-frozen-v1.png`. Local files are
+still ephemeral until transferred; no commit/push/upload claimed.
+
+New learned `compile_plan` preserves C05/action IDs; importer checks hashes and
+reparses raw model output. Navigation verification now checks independent endpoint
+and causal odometry. Public task dispatcher has bounded waits/cancel requests.
+66 unit tests pass. Actual flight, live scene revalidation, mission supervision and
+independent stop proof remain unverified/incomplete. Do not substitute baseline
+navigation or synthetic test outputs for Cosmos.
+
+Next: wait for job `46273277` to finish, retrieve its actual inference bundle,
+validate live scene
+and path, finish supervision, then execute/observe takeoff→learned navigation→land.
+See [Office demo runbook](docs/scrum-8/office-live-demo.md) for exact commands,
+viewing instructions and limitations. Mac patched OSMO forwarding remains needed.
+
+---
+
 Prepared 2026-09-13. Read this before implementing changes. This file captures the
 user's instructions and the findings from the local review; it does not claim that
 the proposed architecture or SIL integration has been implemented or approved as a

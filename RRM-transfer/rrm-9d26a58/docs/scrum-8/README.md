@@ -12,6 +12,9 @@ Read in order:
 4. [Remote inspection and readiness](remote-state.md)
 5. [Implementation and validation record](validation.md)
 6. [End-to-end SIL integration plan](integration-plan.md)
+7. [Scene difficulty and reasoning-evaluation ladder](scene-selection.md)
+8. [Model and artifact persistence](model-and-artifact-persistence.md)
+9. [Cosmos Reason2 model-selection gate](model-selection-gate.md)
 
 ## Source authority
 

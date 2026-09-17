@@ -128,6 +128,26 @@ class DroneProposalTests(unittest.TestCase):
         self.assertIn("task_result_unsuccessful", result.reasons)
         self.assertIn("post_odometry_stale", result.reasons)
 
+    def test_navigation_checks_endpoint_and_causal_odometry(self):
+        nav = proposal(DroneTaskKind.NAVIGATE, frame_id="map",
+                       waypoints=(MapWaypoint(x=3, y=0, z=1.5),), goal_tolerance_m=0.3)
+        pre = OdometryEvidence(received_monotonic_s=10, source_stamp_ns=100,
+                               frame_id="map", child_frame_id="base_link", x=0, y=0, z=1.5)
+        post = pre.model_copy(update={"received_monotonic_s": 11,
+                                      "source_stamp_ns": 200, "x": 3})
+        for observation, expected in (
+            (post, DroneOutcomeVerdict.VERIFIED),
+            (post.model_copy(update={"x": 2}), DroneOutcomeVerdict.MISMATCH),
+            (post.model_copy(update={"source_stamp_ns": 100}), DroneOutcomeVerdict.UNCONFIRMED),
+            (post.model_copy(update={"received_monotonic_s": 10}), DroneOutcomeVerdict.UNCONFIRMED),
+        ):
+            result = verify_drone_outcome(
+                nav, action_success=True, action_message="complete", pre_odometry=pre,
+                post_odometry=observation, post_vehicle_state=None,
+                dispatch_monotonic_s=10.1, now_monotonic_s=11.1,
+            )
+            self.assertEqual(result.verdict, expected)
+
 
 if __name__ == "__main__":
     unittest.main()

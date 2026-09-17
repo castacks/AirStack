@@ -195,8 +195,8 @@ def verify_drone_outcome(
     """Evaluate a task outcome without granting or changing execution authority.
 
     ``VERIFIED`` requires a successful task result plus fresh independent evidence. A
-    missing/stale sample is never inferred from a result, and navigation remains
-    unconfirmed until an endpoint/tolerance contract is added.
+    missing/stale sample is never inferred from a result. Navigation additionally
+    requires the independently observed endpoint within the proposal's tolerance.
     """
     parameters = (dispatch_monotonic_s, now_monotonic_s, max_observation_age_s,
                   takeoff_acceptance_distance_m, landing_max_altitude_m)
@@ -219,9 +219,19 @@ def verify_drone_outcome(
         reasons.append("post_odometry_missing")
     elif _is_stale(post_odometry.received_monotonic_s, now_monotonic_s, max_observation_age_s):
         reasons.append("post_odometry_stale")
+    if post_odometry is not None:
+        if post_odometry.received_monotonic_s <= dispatch_monotonic_s:
+            reasons.append("post_odometry_predates_dispatch")
+        if pre_odometry is not None and post_odometry.source_stamp_ns <= pre_odometry.source_stamp_ns:
+            reasons.append("odometry_source_clock_not_advanced")
 
     if proposal.kind is DroneTaskKind.NAVIGATE:
-        reasons.append("navigate_effect_verification_not_implemented")
+        if post_odometry is not None:
+            target = proposal.waypoints[-1]
+            distance = math.dist((post_odometry.x, post_odometry.y, post_odometry.z),
+                                 (target.x, target.y, target.z))
+            if distance > proposal.goal_tolerance_m:
+                reasons.append("navigation_endpoint_mismatch")
     elif proposal.kind is DroneTaskKind.TAKEOFF and post_odometry is not None:
         if post_vehicle_state is None:
             reasons.append("post_vehicle_state_missing")

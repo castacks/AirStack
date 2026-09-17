@@ -1,0 +1,48 @@
+{
+  "task": {
+    "task_id": "episode-nav-001",
+    "revision": "task-1",
+    "objective": "navigate to loading_bay_marker",
+    "context_refs": ["scene:warehouse-basic"],
+    "constraints_revision": "constraints-1",
+    "issuer_id": "operator-eval",
+    "permission_revision": "permission-none",
+    "requested_embodiment_id": "aerial-eval"
+  },
+  "snapshot": {
+    "snapshot_id": "warehouse-basic/snapshot-1",
+    "revision": "warehouse-basic/state-1",
+    "task_id": "episode-nav-001",
+    "episode_id": "warehouse-basic",
+    "evidence": [
+      {
+        "key": {"subject": "loading_bay_marker", "predicate": "exists", "obj": null},
+        "truth": "TRUE",
+        "provenance": "SIMULATOR",
+        "source_ref": "isaac-ground-truth",
+        "observed_monotonic_s": 10.0,
+        "received_monotonic_s": 10.0,
+        "max_age_s": 5.0
+      },
+      {
+        "key": {"subject": "loading_bay_marker", "predicate": "localized", "obj": null},
+        "truth": "TRUE",
+        "provenance": "SIMULATOR",
+        "source_ref": "isaac-ground-truth",
+        "observed_monotonic_s": 10.0,
+        "received_monotonic_s": 10.0,
+        "max_age_s": 5.0
+      }
+    ],
+    "complete_domains": ["scene-labels"]
+  },
+  "capabilities": {
+    "embodiment_id": "aerial-eval",
+    "revision": "aerial-eval/capabilities-1",
+    "operations": ["NAVIGATE_TO", "INSPECT"],
+    "resources": ["airframe"],
+    "available_resources": ["airframe"],
+    "limits_ref": "aerial-eval/limits-1"
+  },
+  "now_monotonic_s": 10.2
+}

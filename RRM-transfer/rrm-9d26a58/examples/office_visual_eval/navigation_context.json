@@ -1,0 +1,32 @@
+{
+  "task": {
+    "task_id": "office-nav-001",
+    "revision": "office-task-v1",
+    "objective": "Approach the blue navigation marker. Do not approach the orange marker. Use NAVIGATE_TO for the selected entity.",
+    "context_refs": ["scene:isaac-office-rrm-visual-eval-v1", "evidence-mode:ground-truth-assisted-frozen-evaluation"],
+    "constraints_revision": "office-bounded-nav-v1",
+    "issuer_id": "operator-eval",
+    "permission_revision": "inference-only",
+    "requested_embodiment_id": "aerial-eval"
+  },
+  "snapshot": {
+    "snapshot_id": "office-frozen-001",
+    "revision": "office-frozen-state-v1",
+    "task_id": "office-nav-001",
+    "episode_id": "isaac-office-rrm-visual-eval-v1",
+    "evidence": [
+      {"key": {"subject": "blue_marker", "predicate": "exists"}, "truth": "TRUE", "provenance": "OPERATOR", "source_ref": "scene-fixture:rrm_office_visual_eval.py", "observed_monotonic_s": 0, "received_monotonic_s": 0, "max_age_s": 10},
+      {"key": {"subject": "blue_marker", "predicate": "kind", "obj": "blue navigation marker"}, "truth": "TRUE", "provenance": "OPERATOR", "source_ref": "scene-fixture:rrm_office_visual_eval.py", "observed_monotonic_s": 0, "received_monotonic_s": 0, "max_age_s": 10},
+      {"key": {"subject": "blue_marker", "predicate": "localized"}, "truth": "TRUE", "provenance": "OPERATOR", "source_ref": "adapter-binding:scene_manifest.json", "observed_monotonic_s": 0, "received_monotonic_s": 0, "max_age_s": 10},
+      {"key": {"subject": "orange_marker", "predicate": "exists"}, "truth": "TRUE", "provenance": "OPERATOR", "source_ref": "scene-fixture:rrm_office_visual_eval.py", "observed_monotonic_s": 0, "received_monotonic_s": 0, "max_age_s": 10},
+      {"key": {"subject": "orange_marker", "predicate": "kind", "obj": "orange navigation marker"}, "truth": "TRUE", "provenance": "OPERATOR", "source_ref": "scene-fixture:rrm_office_visual_eval.py", "observed_monotonic_s": 0, "received_monotonic_s": 0, "max_age_s": 10}
+    ],
+    "complete_domains": []
+  },
+  "capabilities": {
+    "embodiment_id": "aerial-eval", "revision": "office-airframe-v1",
+    "operations": ["NAVIGATE_TO"], "resources": ["airframe"],
+    "available_resources": ["airframe"], "limits_ref": "office-bounded-nav-v1"
+  },
+  "now_monotonic_s": 0.1
+}

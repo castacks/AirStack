@@ -17,6 +17,16 @@ The task-level core interprets objectives and plans over entity IDs, predicates 
 
 These are logical responsibilities, not eight required processes or new ROS packages. Perception and sensing enter W through E's observation boundary. Manipulation, navigation, motion generation and control stay behind E. The simulator supplies observations and receives actuation through the same contracts; evaluation ground truth is a separate evidence channel. Memory is W's task/context history. Learning is an offline candidate-production/evaluation activity supporting R/P/E, not an authorized online mutation of safety rules or action semantics. This accounts for all capability blocks in the architecture outline without inventing a requirement for a learner or humanoid deployment.
 
+R is deliberately **not required to be deterministic**. A deterministic interpreter or
+oracle is useful only as a reproducible lower-bound/reference condition: it exercises
+the contracts, isolates adapter defects, and lets an evaluation show what a learned
+reasoner actually adds. The RRM research path is to compare candidate VLM/LLM or
+hybrid reasoners at C04 under identical task, state, capability and scene inputs. A
+candidate may return an intent, a plan proposal, clarification request or uncertainty;
+it cannot directly become S, bypass W's evidence, redefine authored semantics, or
+issue controller commands. This separation is what makes non-deterministic reasoning
+measurable and auditable rather than merely a different route to motion.
+
 ```mermaid
 flowchart LR
   O[Operator] --> R[Reasoning]
@@ -73,10 +83,30 @@ The adapter owns physical protective behavior when upstream communication fails.
 
 Use resource IDs and supported operation semantics: a hand can expose one or more grasp resources, an arm may additionally reposition them, a bimanual system can expose concurrent resources, and a mobile manipulator can add navigation. A humanoid adds validated mobility/balance contracts behind E. No core `one gripper` or `radial reach` assumption is allowed in the new contracts. Support for a verb alone is insufficient: resource availability, target grounding, numeric limits and task constraints must also pass.
 
-Initial SIL should implement a dexterous-hand-compatible structured manipulation scenario against the CONOPS progression. Which hand asset/controller can achieve the representative multi-step task remains a feasibility selection, not a hidden Panda substitution. Profile-only tests can test portability logic but cannot demonstrate cross-robot execution.
+Body-agnostic here means that an intent such as reaching a semantic location remains
+an intent over entities and effects while the adapter determines whether a particular
+body can realize it and how. It is analogous to preserving a goal while changing the
+body that carries it out, not a claim that robots (or people) are literally independent
+of embodiment: perception, feasible actions, limits, risk and safe state remain
+embodiment-specific evidence at E. Aerial, ground and manipulation adapters are
+therefore comparable only through the same contracts and measured outcomes—not by
+passing controller coordinates or product-specific behavior into R/P.
 
-Implementation sequence: contract foundation → world/task evidence and operator interaction → capability-aware planning and real supervision/telemetry → conforming deterministic simulator adapter → integrated SIL → matched candidate model experiments. Keep the old oracle suite as a regression baseline throughout. Before AirStack launch changes, follow its module/stack skills and choose a manipulation test stack; the default drone scene is not the RRM scenario.
+Current SIL selection (2026-09-17): AirStack drone in the controlled Office scene,
+then warehouse-shelves. The earlier hand-first plan is superseded by the user's
+aerial-first decision. Manipulation, VLA and physics/IK research remain later work.
+Profile-only tests can test portability logic but cannot demonstrate cross-robot execution.
+
+Current sequence: ground-truth evidence → learned Cosmos C04/C05 → drone embodiment
+adapter → supervised task execution and observed effects → visual evidence and matched
+robustness trials. The core reasoner is learned, not the deterministic baseline text
+parser. Validation and adapter binding are deterministic contract checks, not a claim
+that cognition must be deterministic. Keep the oracle suite as a regression baseline.
 
 ## Open decisions and closure gates
 
-Logical allocation is complete. Implementation still needs a selected hand scene and observable safe condition, freshness/deadline/retry values justified by hazards and experiments, transport/QoS and authenticated operator binding, persistent remote artifacts/cache, and working GPU access. Those are owned by E/S, S/M, O/S, T and remote infrastructure respectively. SCRUM-8 closure requires review of this design against the live requirements; SCRUM-9 needs actual integrated evidence. No model selection, operational performance acceptance or Jira Done status is implied.
+Office, Cosmos-Reason2-8B and PSC Ocean persistence are selected. Still open are the
+actual Office inference-to-flight evidence, live scene/target revalidation, independent
+stop proof, repeated robustness trials and cross-embodiment execution. PSC batch
+submission presently requires user authentication. SCRUM-8 closure requires review
+against live requirements; SCRUM-9 needs integrated evidence, not only schema acceptance.

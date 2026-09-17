@@ -31,6 +31,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--proposal-json", type=Path, required=True)
     parser.add_argument("--execute", action="store_true", help="send exactly one task action goal")
     parser.add_argument("--server-timeout-s", type=float, default=5.0)
+    parser.add_argument("--action-timeout-s", type=float, default=90.0,
+                        help="deadline for completion; requests cancel on expiry")
     parser.add_argument("--verify-observation", action="store_true",
                         help="require fresh read-only odometry/state evidence for the result")
     parser.add_argument("--outcome-json", type=Path,
@@ -49,10 +51,10 @@ def _load(path: Path) -> DroneTaskProposal:
 def _execute(proposal: DroneTaskProposal, timeout_s: float, *, verify_observation: bool,
              outcome_json: Path | None, observation_timeout_s: float,
              max_observation_age_s: float, takeoff_acceptance_distance_m: float,
-             landing_max_altitude_m: float) -> int:
+             landing_max_altitude_m: float, action_timeout_s: float = 90.0) -> int:
     """Use only the existing task-action server selected by the proposal."""
-    if timeout_s <= 0:
-        raise ValueError("server timeout must be positive")
+    if not all(math.isfinite(t) and t > 0 for t in (timeout_s, action_timeout_s)):
+        raise ValueError("server and action timeouts must be finite and positive")
     verification_bounds = (observation_timeout_s, max_observation_age_s,
                            takeoff_acceptance_distance_m, landing_max_altitude_m)
     if (not all(math.isfinite(value) for value in verification_bounds)
@@ -114,12 +116,19 @@ def _execute(proposal: DroneTaskProposal, timeout_s: float, *, verify_observatio
             raise RuntimeError(f"task server unavailable: {proposal.action_name}")
         if verify_observation:
             deadline = time.monotonic() + observation_timeout_s
-            while rclpy.ok() and latest_odometry is None and time.monotonic() < deadline:
+            while (rclpy.ok() and (latest_odometry is None or latest_vehicle_state is None)
+                   and time.monotonic() < deadline):
                 rclpy.spin_once(node, timeout_sec=min(0.25, deadline - time.monotonic()))
             if (latest_odometry is None
                     or time.monotonic() - latest_odometry.received_monotonic_s
                     > max_observation_age_s):
                 raise RuntimeError("fresh map -> base_link odometry unavailable before dispatch")
+            if (latest_vehicle_state is None or not latest_vehicle_state.connected
+                    or time.monotonic() - latest_vehicle_state.received_monotonic_s
+                    > max_observation_age_s):
+                raise RuntimeError("fresh connected vehicle state unavailable before dispatch")
+            if proposal.kind is DroneTaskKind.NAVIGATE and not latest_vehicle_state.armed:
+                raise RuntimeError("navigation requires an already airborne/armed vehicle; perform takeoff first")
         pre_odometry = latest_odometry
         dispatch_monotonic_s = time.monotonic()
         if proposal.kind is DroneTaskKind.TAKEOFF:
@@ -145,7 +154,10 @@ def _execute(proposal: DroneTaskProposal, timeout_s: float, *, verify_observatio
             print(json.dumps({"event": "feedback", "status": message.feedback.status}), flush=True)
 
         response = client.send_goal_async(goal, feedback_callback=feedback_callback)
-        rclpy.spin_until_future_complete(node, response)
+        rclpy.spin_until_future_complete(node, response, timeout_sec=timeout_s)
+        if not response.done():
+            # Acceptance may have happened remotely. Never retry blindly.
+            raise RuntimeError("goal acknowledgement timed out; remote goal state UNKNOWN; inspect before retry")
         handle = response.result()
         if handle is None or not handle.accepted:
             print(json.dumps({"event": "goal_rejected", "action_id": proposal.action_id}))
@@ -172,7 +184,27 @@ def _execute(proposal: DroneTaskProposal, timeout_s: float, *, verify_observatio
                 return 4
             return 2
         result = handle.get_result_async()
-        rclpy.spin_until_future_complete(node, result)
+        try:
+            rclpy.spin_until_future_complete(node, result, timeout_sec=action_timeout_s)
+        except KeyboardInterrupt:
+            cancel = handle.cancel_goal_async()
+            rclpy.spin_until_future_complete(node, cancel, timeout_sec=timeout_s)
+            raise
+        if not result.done():
+            cancel = handle.cancel_goal_async()
+            rclpy.spin_until_future_complete(node, cancel, timeout_sec=timeout_s)
+            cancel_reply = cancel.result() if cancel.done() else None
+            timeout_record = {"event": "action_timeout", "action_id": proposal.action_id,
+                              "task_id": proposal.task_id, "verdict": "UNCONFIRMED",
+                              "cancel_acknowledged": bool(cancel_reply and cancel_reply.goals_canceling),
+                              "physical_stop_verified": False}
+            print(json.dumps(timeout_record), flush=True)
+            if outcome_json is not None:
+                outcome_json.parent.mkdir(parents=True, exist_ok=True)
+                outcome_json.write_text(json.dumps(timeout_record, indent=2) + "\n", encoding="utf-8")
+            # Cancellation acknowledgement is not proof that the vehicle stopped.
+            # Do not continue a mission or retry when completion is unknown.
+            return 5
         wrapped = result.result()
         outcome = wrapped.result
         print(json.dumps({"event": "result", "action_id": proposal.action_id,
@@ -241,6 +273,7 @@ def main() -> int:
         max_observation_age_s=args.max_observation_age_s,
         takeoff_acceptance_distance_m=args.takeoff_acceptance_distance_m,
         landing_max_altitude_m=args.landing_max_altitude_m,
+        action_timeout_s=args.action_timeout_s,
     )
 
 
