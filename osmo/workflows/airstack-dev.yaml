@@ -79,10 +79,10 @@ workflow:
 
   resources:
     default:
-      cpu: 16
+      cpu: 22
       # 3 robots + Isaac Sim on GPU 0 — see airstack-mission.yaml.
-      gpu: 4
-      memory: 64Gi
+      gpu: 1
+      memory: 100Gi
       # AirStack image set is large: airstack-dev-9 (2026-05-14) hit the
       # 100Gi container ephemeral cap during inner Compose's first image
       # extract, before the second image even started downloading. So the
@@ -92,9 +92,9 @@ workflow:
       # recordings. The airstack pool's workers have 4.2Ti of ephemeral
       # capacity each (root disks resized 2026-05-14), so this leaves
       # plenty of room for other tenants on the shared workers.
-      storage: 100Gi
+      storage: 500Gi
 
   timeout:
     # 8h covers a normal dev session. Bump for longer runs; cancel manually
     # before the timeout if you want to free the GPU early.
-    exec_timeout: 8h
+    exec_timeout: 4d12h
