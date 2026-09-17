@@ -1,0 +1,8 @@
+{
+  "task_id": "rrm-sim-demo-1",
+  "action_id": "takeoff-1",
+  "robot_name": "robot_1",
+  "kind": "TAKEOFF",
+  "target_altitude_m": 2.0,
+  "velocity_m_s": 1.0
+}

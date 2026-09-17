@@ -1,0 +1,7 @@
+{
+  "task_id": "rrm-sim-demo-1",
+  "action_id": "land-1",
+  "robot_name": "robot_1",
+  "kind": "LAND",
+  "velocity_m_s": 1.0
+}

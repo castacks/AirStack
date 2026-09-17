@@ -394,3 +394,118 @@ Begin with the architecture allocation and metrics mapping above; inspect the re
 environment in parallel with that read-only work. Then make the smallest requirement-
 backed changes and verify them locally within the remote development environment,
 before advancing to integrated GPU SIL trials.
+
+## Continuation — 2026-09-17 UTC
+
+The complete staged SIL integration plan is now in
+[`docs/scrum-8/integration-plan.md`](docs/scrum-8/integration-plan.md). It translates
+the logical C01–C09 allocation into gates: freeze the shadow baseline; select a
+CONOPS-compatible hand workspace; make task/context/state/plan contracts executable in
+shadow; build a dry-run adapter; implement independent supervision and safe-state proof;
+then enable the narrow simulator-only command path and run the frozen S01–S10 campaign.
+Do not skip directly from the existing read-only drone observer to PX4 or task-action
+authority.
+
+The current AirStack process was intentionally started by the user and is the existing
+`example_one_px4_pegasus_launch_script.py` / Iris / PX4 drone launch. It remains an
+aerial transport baseline, not the RRM manipulation scene. Do not modify or repurpose
+it in place. The configured Isaac asset root is
+`omniverse://airlab-nucleus.andrew.cmu.edu/NVIDIA/Assets/Isaac/5.1`; the image enables
+Franka and robot-motion/Lula infrastructure, but no local hand, Allegro, Shadow Hand,
+or Franka USD asset is cached. Standalone Python does not expose `omni.client`, so no
+Nucleus browse was attempted by opening a second Kit process. Select and record a
+versioned dexterous-hand asset/controller, reset method, observation channels and safe
+state before a separate controlled hand-scene launch. Foxglove is not required for the
+contract work and was not started by this continuation.
+
+`rrm/task_contracts.py` and `tests/test_task_contracts.py` now implement the first
+proposal-only C01/C04/C05 foundation. `TaskRequest`, `Interaction`, `ReasoningResult`,
+`PlannedAction` and `PlanProposal` are immutable Pydantic records. Plans require a
+ready intent with matching task/state/capability revisions, authored verb arity, unique
+action IDs and acyclic dependencies. Material ambiguity cannot become a plan. These
+records have no ROS dependency and do **not** implement C06 admission, C07 dispatch, a
+controller command, a publisher, an action client, a service client or any execution
+authority.
+
+Validation on 2026-09-17 used Pydantic in an isolated `/tmp/rrm-contract-deps` target
+because host Python has neither the dependency nor `venv` support; no system packages,
+AirStack image, simulator scene, or Foxglove client were changed. Results: 5/5 new
+task-contract tests, 24/24 total shadow/contract/unit tests, and the original Oracle
+suite 5/5 (T1, T2, T6, T8, T9). The local feature notebook is gitignored and is not a
+handoff mechanism; durable source/doc changes still need commit and push, while runtime
+evidence must be exported separately before workflow replacement.
+
+`rrm/state_contracts.py` and `tests/test_state_contracts.py` now add the C02
+evidence-backed state foundation. `FactEvidence` records semantic fact identity, truth,
+provenance, source reference and freshness bounds; `StateSnapshot` resolves a fact only
+from fresh, explicit, non-contradictory evidence. Missing, stale, UNKNOWN,
+contradictory and negated-UNKNOWN evidence resolve to UNKNOWN. Coverage metadata does
+not silently convert an absent fact into negative evidence. This deliberately remains
+separate from the legacy mock `WorldState` and creates no ROS, adapter, safety-admission
+or execution path. Five state-contract tests passed; the total unit suite is now 29/29
+and the Oracle regression remains 5/5. The feature notebook is gitignored; commit/push
+the source and documentation changes before workflow replacement.
+
+The user clarified that “planning” means RRM output to the current drone, not merely
+symbolic planning. The chosen integration seam is AirStack's public task-action boundary
+used by Foxglove: `/{robot}/tasks/takeoff`, `/navigate`, and `/land`. Do not issue raw
+PX4/MAVROS/service/trajectory commands. `rrm/airstack_drone.py` contains immutable
+typed proposals; `scripts/airstack_drone_dispatch.py` maps them to the exact
+`task_msgs` action goal shape. It prints a dry-run by default without importing ROS;
+only `--execute` creates one ActionClient and sends one selected task goal. A dry-run
+takeoff fixture verified `/robot_1/tasks/takeoff`, `TakeoffTask`, altitude 2.0 m and
+velocity 1.0 m/s with `execution_requested: false`. No live task was sent. Four adapter
+tests passed; the total unit suite is 33/33 and the Oracle regression is still 5/5.
+This is an output adapter, not the complete C06 admission/C08 stop authority; require an
+explicit user-approved simulation proposal before the first `--execute` invocation.
+
+## First controlled drone-action SIL run — 2026-09-17 UTC
+
+The user explicitly approved the bounded Isaac/PX4 sequence “take off to 2 m at 1 m/s,
+then land.” This was treated as two separately completed public AirStack task actions,
+not a direct PX4/MAVROS command or an autonomous multi-action chain. The live
+`airstack-robot-desktop-1`, `isaac-sim-livestream`, and `airstack-gcs-1` containers were
+up; `/robot_1/tasks/takeoff` and `/robot_1/tasks/land` each reported one task-action
+server at `/robot_1/takeoff_landing_planner/takeoff_landing_task`.
+
+The runner and its Pydantic dependency were staged only under the robot container's
+temporary paths `/tmp/rrm-sim-adapter` and `/tmp/rrm-sim-deps`; neither the source
+workspace nor the AirStack image is mounted or persistently modified. Both proposals
+first completed dry run in that same container: `takeoff-1` mapped to
+`TakeoffTask(target_altitude_m=2.0, velocity_m_s=1.0)` and `land-1` mapped to
+`LandTask(velocity_m_s=1.0)`.
+
+An initial execution attempt failed before an ActionClient was created because staging
+overwrote the ROS `PYTHONPATH`, so no goal was sent. Preserving the existing ROS path
+and adding the temporary adapter/dependency paths passed `import rclpy` and
+`TakeoffTask` preflight. The subsequent takeoff returned
+`success: true, message: "takeoff complete"`; after that terminal result, the land goal
+returned `success: true, message: "landing complete"`. The task-server feedback was
+received throughout (empty status for takeoff; `landing` for land). This establishes one
+successful command-and-result path through RRM → AirStack task actions → existing
+drone stack. It does **not** independently prove pose/visual observation agreement,
+C06 admission, C08 stop authority, fault handling, repeatability, or autonomous
+sequencing; those remain required before any flight-readiness claim.
+
+## Outcome-verification increment — 2026-09-17 UTC
+
+The next robustness increment adds `OdometryEvidence`, `VehicleStateEvidence` and
+`verify_drone_outcome` to `rrm/airstack_drone.py`. It is a pure, fail-closed evaluator:
+it verifies a successful takeoff only with fresh independent `map -> base_link`
+odometry within the AirStack planner's 0.3 m absolute-altitude acceptance distance and
+a fresh connected/armed vehicle state; it verifies landing only with fresh near-ground
+odometry plus connected/disarmed vehicle state. Missing, stale, future, wrong-frame,
+unsuccessful or mismatched evidence remains `UNCONFIRMED` or `MISMATCH`; navigation is
+explicitly unconfirmed pending a defined endpoint/effect contract.
+
+`scripts/airstack_drone_dispatch.py --verify-observation` now adds only read-only
+subscriptions to `/{robot}/odometry_conversion/odometry` and
+`/{robot}/interface/mavros/state`. It requires fresh pre-dispatch odometry, captures
+post-result samples, writes a JSON outcome when `--outcome-json` is supplied and exits
+nonzero unless the independent evidence verifies the action-server success. It retains
+the explicit `--execute` gate and has no publisher, service client, direct PX4/MAVROS
+command or trajectory interface. No task was dispatched while implementing this
+increment. A separate eight-second observer-only run after the first SIL sequence
+reported `observation_complete: true`, MAVROS connected/disarmed, fresh map/base-link
+evidence and `z=0.0201 m`; it corroborates the final landed state but is not causally
+attached to either earlier action.

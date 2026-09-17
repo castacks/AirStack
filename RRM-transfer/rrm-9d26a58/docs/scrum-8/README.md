@@ -11,6 +11,7 @@ Read in order:
 3. [SIL scenarios, metrics and curriculum mapping](evaluation.md)
 4. [Remote inspection and readiness](remote-state.md)
 5. [Implementation and validation record](validation.md)
+6. [End-to-end SIL integration plan](integration-plan.md)
 
 ## Source authority
 

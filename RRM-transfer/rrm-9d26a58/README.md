@@ -69,6 +69,43 @@ The output has `manifest.json`, `events.jsonl`, and `replay-report.json`. Preser
 outside the ephemeral OSMO workflow. Start with the model-free adapter and compare any
 future reasoning model against the same recorded state/evidence conditions.
 
+## AirStack drone task adapter
+
+`scripts/airstack_drone_dispatch.py` is RRM's output seam for the existing public
+AirStack task actions: `takeoff`, `navigate`, and `land`. It uses the same
+`task_msgs` action servers exposed to Foxglove; it does not issue PX4, MAVROS, service,
+publisher, or trajectory commands directly. A proposal defaults to dry-run:
+
+```bash
+PYTHONPATH=/path/to/rrm-deps:/path/to/rrm:${PYTHONPATH} \
+  python3 /path/to/rrm/scripts/airstack_drone_dispatch.py \
+  --proposal-json /path/to/takeoff.json
+```
+
+An actual simulated task goal requires the explicit `--execute` flag and a
+user-approved proposal. The adapter is not yet the complete C06 supervision or C08
+stop implementation; do not use it for unattended or physical-robot operation.
+
+For a future explicitly approved simulator goal, `--verify-observation` makes the
+runner require fresh, read-only `/odometry_conversion/odometry` before dispatch and
+then corroborate the task result with post-result odometry plus MAVROS state. Pair it
+with `--outcome-json` to retain the immutable record:
+
+```bash
+PYTHONPATH=/path/to/rrm-deps:/path/to/rrm:${PYTHONPATH} \
+  python3 /path/to/rrm/scripts/airstack_drone_dispatch.py \
+  --proposal-json /path/to/takeoff.json --execute --verify-observation \
+  --outcome-json /path/to/evidence/takeoff-outcome.json
+```
+
+The process exits nonzero unless the independent evidence verifies the action result.
+Takeoff verification requires the requested absolute `map` altitude within the
+configured 0.3 m tolerance and a connected, armed vehicle state. Landing verification
+requires near-ground odometry (default <=0.3 m), a connected, disarmed state, and a
+successful task result. Navigation deliberately remains `UNCONFIRMED` until its
+endpoint/effect contract is implemented. These are observation checks, not C06/C08
+safety authority.
+
 ## Layout
 
 | Path | |
