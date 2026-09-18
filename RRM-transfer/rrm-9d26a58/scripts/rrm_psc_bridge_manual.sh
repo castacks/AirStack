@@ -24,8 +24,12 @@ psc_target="$RRM_PSC_USER@$RRM_PSC_HOST"
 remote_request="$RRM_PSC_ROOT/incoming/rrm/$run_id"
 remote_source="$RRM_PSC_ROOT/src/rrm-submissions/$run_id"
 local_source=$(cd "$(dirname "$0")/.." && pwd)
-ssh_args=( -o StrictHostKeyChecking=accept-new "$psc_target")
-rsync_ssh='ssh  -o StrictHostKeyChecking=accept-new'
+ssh_args=( -o StrictHostKeyChecking=accept-new -o ControlMaster=auto -o ControlPath=/tmp/ssh-%r@%h:%p -o ControlPersist=10m "$psc_target")
+rsync_ssh='ssh -o StrictHostKeyChecking=accept-new -o ControlMaster=auto -o ControlPath=/tmp/ssh-%r@%h:%p'
+
+# Establish the master connection once so the user only types their password/Duo once.
+ssh -o StrictHostKeyChecking=accept-new -o ControlMaster=yes -o ControlPath=/tmp/ssh-%r@%h:%p -o ControlPersist=10m -fN "$psc_target"
+trap 'ssh -O exit -o ControlPath=/tmp/ssh-%r@%h:%p "$psc_target" 2>/dev/null || true' EXIT
 
 ssh "${ssh_args[@]}" "mkdir -p $remote_request $remote_source"
 rsync -a --delete -e "$rsync_ssh" -- "$request_dir/" "$psc_target:$remote_request/"
