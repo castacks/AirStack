@@ -424,6 +424,29 @@ def make_handler(app: Console):
             self.respond({"error": "Not found"}, status=404)
 
         def do_POST(self):
+            # manual-import endpoint does not require the X-RRM-Token because it comes from a local terminal
+            path = urlsplit(self.path).path
+            if path == "/api/requests/manual-import":
+                try:
+                    length = int(self.headers.get("Content-Length", "0"))
+                    payload = json.loads(self.rfile.read(length))
+                    run_id = payload.get("run_id")
+                    job_id = payload.get("job_id")
+                    bundle_dir = payload.get("bundle_dir")
+                    if not all(isinstance(x, str) and x for x in (run_id, job_id, bundle_dir)):
+                        return self.respond({"error": "Missing manual import fields"}, status=400)
+                    if app.queue is None:
+                        return self.respond({"error": "PSC bridge disabled"}, status=400)
+                    run = app.store.get_run(run_id)
+                    if run is None:
+                        return self.respond({"error": "Saved run not found"}, status=400)
+                    request_dir = Path(run["artifact_dir"]).resolve()
+                    app.store.set_lifecycle(run_id, status="INFERENCE_RUNNING", psc_job_id=job_id)
+                    app.queue._import_result(run_id, request_dir, Path(bundle_dir))
+                    return self.respond({"status": "imported"})
+                except Exception as e:
+                    return self.respond({"error": str(e)}, status=400)
+
             if not secrets.compare_digest(self.headers.get("X-RRM-Token", ""), app.token):
                 return self.respond({"error": "Reload this page before submitting."}, status=403)
             try:

@@ -54,4 +54,6 @@ local_bundle="$request_dir/psc-bridge-bundle-$job_id"
 [[ ! -e "$local_bundle" ]] || { echo "local PSC bundle already exists" >&2; exit 1; }
 rsync -a -e "$rsync_ssh" -- "$psc_target:$RRM_PSC_ROOT/runs/rrm/office/$job_id/" "$local_bundle/"
 [[ -f "$local_bundle/result.json" ]] || { echo "PSC job $job_id produced no result bundle" >&2; exit 1; }
-printf '{"job_id":"%s","bundle_dir":"%s"}\n' "$job_id" "$local_bundle"
+json_result=$(printf '{"run_id":"%s","job_id":"%s","bundle_dir":"%s"}\n' "$run_id" "$job_id" "$local_bundle")
+echo "$json_result"
+curl -s -X POST -H "Content-Type: application/json" -d "$json_result" http://127.0.0.1:8787/api/requests/manual-import || echo "Warning: could not notify GUI."
