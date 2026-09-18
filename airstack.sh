@@ -1274,7 +1274,7 @@ with open(os.environ["FLEET_HOST"], encoding="utf-8") as f:
     # ISAAC_SIM_SCRIPT_NAME still wins; the stock defaults get switched.
     local profiles script
     profiles=$(resolve_launch_var COMPOSE_PROFILES "$@")
-    if [[ ",$profiles," == *",isaac-sim,"* ]]; then
+    if [[ ",$profiles," == *",isaac-sim,"* || ",$profiles," == *",isaac-sim-livestream,"* ]]; then
         if [[ -n "${ISAAC_SIM_SCRIPT_NAME:-}" ]]; then
             [[ "$ISAAC_SIM_SCRIPT_NAME" != "fleet_spawn.py" ]] && \
                 log_warn "OVERRIDE: explicit ISAAC_SIM_SCRIPT_NAME='$ISAAC_SIM_SCRIPT_NAME' wins over the fleet spawner — make sure it spawns fleet '$fleet_name' (reads FLEET_CONFIG_FILE)."
@@ -1347,10 +1347,17 @@ function apply_launch_intent {
     fi
 
     if [[ -n "$AIRSTACK_INTENT_SIM" ]]; then
-        local sim_profile urdf=""
+        local sim_profile urdf="" profiles
+        profiles=$(resolve_launch_var COMPOSE_PROFILES "$@")
         case "$AIRSTACK_INTENT_SIM" in
             isaac|isaacsim)
-                sim_profile="isaac-sim"
+                # Preserve the OSMO/WebRTC Isaac variant when it is already
+                # selected; otherwise use the standard local Isaac profile.
+                if [[ ",$profiles," == *",isaac-sim-livestream,"* ]]; then
+                    sim_profile="isaac-sim-livestream"
+                else
+                    sim_profile="isaac-sim"
+                fi
                 urdf="robot_descriptions/iris/urdf/iris_with_sensors.pegasus.robot.urdf";;
             airsim|msairsim|ms-airsim)
                 sim_profile="ms-airsim"
@@ -1366,12 +1373,11 @@ function apply_launch_intent {
         esac
         # Swap only the simulator profile; preserve the others (desktop, l4t, ...)
         # — except for simple, which also drops 'desktop' (see above).
-        local profiles kept=() p
-        profiles=$(resolve_launch_var COMPOSE_PROFILES "$@")
+        local kept=() p
         IFS=',' read -ra _parr <<< "$profiles"
         for p in "${_parr[@]}"; do
             case "$p" in
-                isaac-sim|ms-airsim|simple|"") ;;
+                isaac-sim|isaac-sim-livestream|ms-airsim|simple|"") ;;
                 desktop) [[ "$sim_profile" == "simple" ]] || kept+=("$p");;
                 *) kept+=("$p");;
             esac
@@ -1409,7 +1415,7 @@ function apply_launch_intent {
     # with it means N robot containers and 1 drone in sim (silent today).
     local profiles_final
     profiles_final=$(resolve_launch_var COMPOSE_PROFILES "$@")
-    if [[ -n "$AIRSTACK_INTENT_ROBOTS" && ",$profiles_final," == *",isaac-sim,"* ]]; then
+    if [[ -n "$AIRSTACK_INTENT_ROBOTS" && ( ",$profiles_final," == *",isaac-sim,"* || ",$profiles_final," == *",isaac-sim-livestream,"* ) ]]; then
         local script want=""
         script=$(resolve_launch_var ISAAC_SIM_SCRIPT_NAME "$@")
         case "$script" in
@@ -1433,7 +1439,9 @@ function apply_launch_intent {
     # wrong simulator = the resolver prints the availability table and we fail.
     if [[ -n "$AIRSTACK_INTENT_SCENE" ]]; then
         local scene_sim=""
-        [[ ",$profiles_final," == *",isaac-sim,"* ]] && scene_sim="isaac"
+        if [[ ",$profiles_final," == *",isaac-sim,"* || ",$profiles_final," == *",isaac-sim-livestream,"* ]]; then
+            scene_sim="isaac"
+        fi
         [[ ",$profiles_final," == *",ms-airsim,"* ]] && scene_sim="msairsim"
         if [[ -z "$scene_sim" ]]; then
             log_error "--scene requires an Isaac or MS AirSim profile (resolved profiles: ${profiles_final:-<none>}); simple-sim has no scene catalog. Use 'airstack up --sim isaac|airsim --scene $AIRSTACK_INTENT_SCENE'."
@@ -1527,7 +1535,7 @@ function print_launch_config {
     local profiles
     profiles=$(resolve_launch_var COMPOSE_PROFILES "$@")
     log_info "Launch config: profiles=$profiles robots=$(resolve_launch_var NUM_ROBOTS "$@") autolaunch=$(resolve_launch_var AUTOLAUNCH "$@") play_on_start=$(resolve_launch_var PLAY_SIM_ON_START "$@")"
-    if [[ ",$profiles," == *",isaac-sim,"* ]]; then
+    if [[ ",$profiles," == *",isaac-sim,"* || ",$profiles," == *",isaac-sim-livestream,"* ]]; then
         local _isaac_scene
         _isaac_scene=$(resolve_launch_var ISAAC_SIM_SCENE "$@")
         log_info "  isaac: script=$(resolve_launch_var ISAAC_SIM_SCRIPT_NAME "$@") headless=$(resolve_launch_var ISAAC_SIM_HEADLESS "$@")${_isaac_scene:+ scene=$_isaac_scene}"
@@ -1610,9 +1618,11 @@ function preflight_up {
 
     # 1. Exactly one simulator profile
     local n=0 s
-    for s in isaac-sim ms-airsim simple; do [[ ",$profiles," == *",$s,"* ]] && n=$((n+1)); done
+    for s in isaac-sim isaac-sim-livestream ms-airsim simple; do
+        [[ ",$profiles," == *",$s,"* ]] && n=$((n+1))
+    done
     if (( n > 1 )); then
-        _pf_error "Only one simulator profile can be active at a time (isaac-sim, ms-airsim, simple). Resolved: $profiles"
+        _pf_error "Only one simulator profile can be active at a time (isaac-sim, isaac-sim-livestream, ms-airsim, simple). Resolved: $profiles"
     elif (( n == 0 )); then
         log_warn "No simulator profile active — robot containers will wait for a sim that never starts. Use 'airstack up --sim isaac|airsim|simple' (or add a sim profile)."
     fi
@@ -1622,10 +1632,10 @@ function preflight_up {
     urdf=$(resolve_launch_var URDF_FILE "${_pf_global[@]}")
     if [[ -n "$urdf" ]]; then
         [[ ",$profiles," == *",ms-airsim,"* && "$urdf" != *.ms-airsim.* ]] && log_warn "URDF_FILE ($urdf) does not match ms-airsim profile. Expected *.ms-airsim.* URDF (or use --sim airsim)."
-        [[ ",$profiles," == *",isaac-sim,"* && "$urdf" != *.pegasus.* && "$urdf" != *.isaacsim.* ]] && log_warn "URDF_FILE ($urdf) does not match isaac-sim profile. Expected *.pegasus.* or *.isaacsim.* URDF (or use --sim isaac)."
+        [[ ( ",$profiles," == *",isaac-sim,"* || ",$profiles," == *",isaac-sim-livestream,"* ) && "$urdf" != *.pegasus.* && "$urdf" != *.isaacsim.* ]] && log_warn "URDF_FILE ($urdf) does not match an Isaac Sim profile. Expected *.pegasus.* or *.isaacsim.* URDF (or use --sim isaac)."
     fi
 
-    if [[ ",$profiles," == *",isaac-sim,"* ]]; then
+    if [[ ",$profiles," == *",isaac-sim,"* || ",$profiles," == *",isaac-sim-livestream,"* ]]; then
         # 3. NUM_ROBOTS vs single-drone launch script (the silent 3-containers-1-drone footgun)
         local num script
         num=$(resolve_launch_var NUM_ROBOTS "${_pf_global[@]}")

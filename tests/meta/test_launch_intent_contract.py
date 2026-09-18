@@ -72,6 +72,18 @@ def test_sim_isaac_derives_profile_and_urdf():
     assert cfg["URDF_FILE"].endswith("iris_with_sensors.pegasus.robot.urdf")
 
 
+def test_sim_isaac_preserves_osmo_livestream_variant():
+    """--sim isaac must not add the local service beside OSMO's livestream one."""
+    _, _, cfg = run_up_dry(
+        "--sim", "isaac",
+        env={"COMPOSE_PROFILES": "desktop,isaac-sim-livestream"},
+    )
+    profiles = cfg["COMPOSE_PROFILES"].split(",")
+    assert "isaac-sim-livestream" in profiles
+    assert "isaac-sim" not in profiles
+    assert cfg["URDF_FILE"].endswith("iris_with_sensors.pegasus.robot.urdf")
+
+
 def test_sim_preserves_non_sim_profiles():
     """--sim swaps only the simulator profile; 'desktop' etc. survive."""
     _, _, cfg = run_up_dry("--sim", "airsim")
@@ -80,6 +92,15 @@ def test_sim_preserves_non_sim_profiles():
 
 def test_robots_selects_multi_script_on_isaac():
     _, _, cfg = run_up_dry("--sim", "isaac", "--robots", "3")
+    assert cfg["NUM_ROBOTS"] == "3"
+    assert cfg["ISAAC_SIM_SCRIPT_NAME"] == "example_multi_px4_pegasus_launch_script.py"
+
+
+def test_robots_selects_multi_script_on_osmo_livestream():
+    _, _, cfg = run_up_dry(
+        "--robots", "3",
+        env={"COMPOSE_PROFILES": "desktop,isaac-sim-livestream"},
+    )
     assert cfg["NUM_ROBOTS"] == "3"
     assert cfg["ISAAC_SIM_SCRIPT_NAME"] == "example_multi_px4_pegasus_launch_script.py"
 
@@ -130,6 +151,35 @@ def test_two_sim_profiles_is_fatal():
     )
     assert code != 0
     assert "one simulator" in out.lower()
+
+
+def test_standard_and_livestream_isaac_profiles_are_fatal():
+    code, out, _ = run_up_dry(
+        env={"COMPOSE_PROFILES": "desktop,isaac-sim,isaac-sim-livestream"},
+        check=False,
+    )
+    assert code != 0
+    assert "one simulator" in out.lower()
+
+
+def test_scene_resolves_on_osmo_livestream_profile():
+    _, _, cfg = run_up_dry(
+        "--scene", "office",
+        env={"COMPOSE_PROFILES": "desktop,isaac-sim-livestream"},
+    )
+    assert cfg["COMPOSE_PROFILES"] == "desktop,isaac-sim-livestream"
+    assert cfg["ISAAC_SIM_SCENE"] == "Office"
+
+
+def test_livestream_compose_command_pins_renderer_and_physics_to_gpu_zero():
+    compose = (
+        REPO / "simulation" / "isaac-sim" / "docker" / "docker-compose.yaml"
+    ).read_text()
+    livestream = compose.split("\n  isaac-sim-livestream:", 1)[1]
+    command = livestream.split("\n    environment:", 1)[0]
+    assert "--/renderer/activeGpu=0" in command
+    assert "--/renderer/multiGpu/enabled=false" in command
+    assert "--/physics/cudaDevice=0" in command
 
 
 def test_headless_and_play_flags():

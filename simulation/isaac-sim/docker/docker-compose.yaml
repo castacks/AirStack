@@ -157,7 +157,7 @@ services:
     command: >
       bash -c "
       tmux new -d -s isaac;
-      tmux send-keys -t isaac 'PYTHONPATH=\"$$ISAAC_SIM_PYTHONPATH\" /isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/${ISAAC_SIM_SCRIPT_NAME} --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts --/app/livestream/enabled=true' ENTER;
+      tmux send-keys -t isaac 'PYTHONPATH=\"$$ISAAC_SIM_PYTHONPATH\" /isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/${ISAAC_SIM_SCRIPT_NAME} --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts --/app/livestream/enabled=true --/renderer/activeGpu=0 --/renderer/multiGpu/enabled=false --/physics/cudaDevice=0' ENTER;
       sleep infinity"
     environment:
       # Inherit everything from isaac-sim and append:
