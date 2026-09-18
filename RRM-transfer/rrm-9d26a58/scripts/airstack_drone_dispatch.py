@@ -40,6 +40,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--observation-timeout-s", type=float, default=5.0)
     parser.add_argument("--max-observation-age-s", type=float, default=1.0)
     parser.add_argument("--takeoff-acceptance-distance-m", type=float, default=0.3)
+    parser.add_argument("--takeoff-max-horizontal-displacement-m", type=float, default=0.3,
+                        help="maximum XY motion allowed while a takeoff completes")
     parser.add_argument("--landing-max-altitude-m", type=float, default=0.3)
     return parser
 
@@ -51,15 +53,20 @@ def _load(path: Path) -> DroneTaskProposal:
 def _execute(proposal: DroneTaskProposal, timeout_s: float, *, verify_observation: bool,
              outcome_json: Path | None, observation_timeout_s: float,
              max_observation_age_s: float, takeoff_acceptance_distance_m: float,
+             takeoff_max_horizontal_displacement_m: float,
              landing_max_altitude_m: float, action_timeout_s: float = 90.0) -> int:
     """Use only the existing task-action server selected by the proposal."""
     if not all(math.isfinite(t) and t > 0 for t in (timeout_s, action_timeout_s)):
         raise ValueError("server and action timeouts must be finite and positive")
     verification_bounds = (observation_timeout_s, max_observation_age_s,
-                           takeoff_acceptance_distance_m, landing_max_altitude_m)
+                           takeoff_acceptance_distance_m,
+                           takeoff_max_horizontal_displacement_m,
+                           landing_max_altitude_m)
     if (not all(math.isfinite(value) for value in verification_bounds)
             or observation_timeout_s <= 0 or max_observation_age_s <= 0
-            or takeoff_acceptance_distance_m <= 0 or landing_max_altitude_m < 0):
+            or takeoff_acceptance_distance_m <= 0
+            or takeoff_max_horizontal_displacement_m <= 0
+            or landing_max_altitude_m < 0):
         raise ValueError("outcome verification bounds are invalid")
     import rclpy
     from rclpy.action import ActionClient
@@ -113,7 +120,23 @@ def _execute(proposal: DroneTaskProposal, timeout_s: float, *, verify_observatio
         node.create_subscription(State, f"{prefix}/interface/mavros/state", on_vehicle_state, qos)
     try:
         if not client.wait_for_server(timeout_sec=timeout_s):
-            raise RuntimeError(f"task server unavailable: {proposal.action_name}")
+            record = {
+                "event": "task_server_unavailable",
+                "task_id": proposal.task_id,
+                "action_id": proposal.action_id,
+                "kind": proposal.kind.value,
+                "action_name": proposal.action_name,
+                "goal_sent": False,
+                "physical_outcome": "NOT_DISPATCHED",
+                "verdict": "UNCONFIRMED",
+                "reasons": ["task_server_unavailable"],
+            }
+            print(json.dumps(record, sort_keys=True), flush=True)
+            if outcome_json is not None:
+                outcome_json.parent.mkdir(parents=True, exist_ok=True)
+                outcome_json.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n",
+                                        encoding="utf-8")
+            return 6
         if verify_observation:
             deadline = time.monotonic() + observation_timeout_s
             while (rclpy.ok() and (latest_odometry is None or latest_vehicle_state is None)
@@ -173,6 +196,8 @@ def _execute(proposal: DroneTaskProposal, timeout_s: float, *, verify_observatio
                     now_monotonic_s=time.monotonic(),
                     max_observation_age_s=max_observation_age_s,
                     takeoff_acceptance_distance_m=takeoff_acceptance_distance_m,
+                    takeoff_max_horizontal_displacement_m=(
+                        takeoff_max_horizontal_displacement_m),
                     landing_max_altitude_m=landing_max_altitude_m,
                 )
                 record = verification.model_dump(mode="json")
@@ -238,6 +263,7 @@ def _execute(proposal: DroneTaskProposal, timeout_s: float, *, verify_observatio
             now_monotonic_s=time.monotonic(),
             max_observation_age_s=max_observation_age_s,
             takeoff_acceptance_distance_m=takeoff_acceptance_distance_m,
+            takeoff_max_horizontal_displacement_m=takeoff_max_horizontal_displacement_m,
             landing_max_altitude_m=landing_max_altitude_m,
         )
         record = verification.model_dump(mode="json")
@@ -272,6 +298,7 @@ def main() -> int:
         observation_timeout_s=args.observation_timeout_s,
         max_observation_age_s=args.max_observation_age_s,
         takeoff_acceptance_distance_m=args.takeoff_acceptance_distance_m,
+        takeoff_max_horizontal_displacement_m=args.takeoff_max_horizontal_displacement_m,
         landing_max_altitude_m=args.landing_max_altitude_m,
         action_timeout_s=args.action_timeout_s,
     )

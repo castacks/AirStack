@@ -1,4 +1,4 @@
-> **SCRUM-8 continuation (2026-09-13):** Read the [current allocation, contracts and verification status](docs/scrum-8/README.md). The material below records the original prototype; its hardware/model prescriptions and oracle-ceiling claims do not override the Phase 1 baseline. Existing mock passes are not SIL compliance.
+> **Current continuation (2026-09-18):** Read [HANDOFF.md](HANDOFF.md) first. The [localhost command console](docs/scrum-8/command-console.md) supports SQLite goal/attempt history, task intake and read-only Isaac camera refresh alongside Foxglove. Office job `46288765` is downloaded, verified and imported as an unexecuted navigation proposal; see [evidence](docs/scrum-8/evidence/office-inference-46288765.md). Full model-to-drone connection remains deferred. See the [architecture and verification status](docs/scrum-8/README.md). The prototype material below is historical and does not override the Phase 1 baseline or current handoff.
 
 # RRM-1 — Robotics Reasoning Model
 
@@ -100,11 +100,13 @@ PYTHONPATH=/path/to/rrm-deps:/path/to/rrm:${PYTHONPATH} \
 
 The process exits nonzero unless the independent evidence verifies the action result.
 Takeoff verification requires the requested absolute `map` altitude within the
-configured 0.3 m tolerance and a connected, armed vehicle state. Landing verification
-requires near-ground odometry (default <=0.3 m), a connected, disarmed state, and a
-successful task result. Navigation deliberately remains `UNCONFIRMED` until its
-endpoint/effect contract is implemented. These are observation checks, not C06/C08
-safety authority.
+configured 0.3 m tolerance, no more than 0.3 m horizontal displacement by default,
+and a connected, armed vehicle state. Landing verification requires near-ground
+odometry (default <=0.3 m), a connected, disarmed state, and a successful task result.
+Navigation verifies fresh causal endpoint odometry against its proposal tolerance.
+If an action server is unavailable, the runner records `goal_sent=false` and
+`physical_outcome=NOT_DISPATCHED`. These are observation checks, not C06/C08 safety
+authority.
 
 ## Layout
 

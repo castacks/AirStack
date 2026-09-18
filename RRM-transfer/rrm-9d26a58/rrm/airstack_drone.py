@@ -190,6 +190,7 @@ def verify_drone_outcome(
     now_monotonic_s: float,
     max_observation_age_s: float = 1.0,
     takeoff_acceptance_distance_m: float = 0.3,
+    takeoff_max_horizontal_displacement_m: float = 0.3,
     landing_max_altitude_m: float = 0.3,
 ) -> DroneOutcomeVerification:
     """Evaluate a task outcome without granting or changing execution authority.
@@ -199,12 +200,15 @@ def verify_drone_outcome(
     requires the independently observed endpoint within the proposal's tolerance.
     """
     parameters = (dispatch_monotonic_s, now_monotonic_s, max_observation_age_s,
-                  takeoff_acceptance_distance_m, landing_max_altitude_m)
+                  takeoff_acceptance_distance_m, takeoff_max_horizontal_displacement_m,
+                  landing_max_altitude_m)
     if not all(math.isfinite(value) for value in parameters):
         raise ValueError("outcome verification parameters must be finite")
     if dispatch_monotonic_s < 0 or now_monotonic_s < dispatch_monotonic_s or max_observation_age_s <= 0:
         raise ValueError("outcome verification time bounds must be positive")
-    if takeoff_acceptance_distance_m <= 0 or landing_max_altitude_m < 0:
+    if (takeoff_acceptance_distance_m <= 0
+            or takeoff_max_horizontal_displacement_m <= 0
+            or landing_max_altitude_m < 0):
         raise ValueError("outcome verification distance bounds are invalid")
 
     reasons: list[str] = []
@@ -245,6 +249,13 @@ def verify_drone_outcome(
         altitude_error = abs(post_odometry.z - proposal.target_altitude_m)
         if altitude_error > takeoff_acceptance_distance_m:
             reasons.append("takeoff_altitude_mismatch")
+        if pre_odometry is not None:
+            horizontal_displacement = math.hypot(
+                post_odometry.x - pre_odometry.x,
+                post_odometry.y - pre_odometry.y,
+            )
+            if horizontal_displacement > takeoff_max_horizontal_displacement_m:
+                reasons.append("takeoff_horizontal_displacement_mismatch")
     elif proposal.kind is DroneTaskKind.LAND:
         if post_vehicle_state is None:
             reasons.append("post_vehicle_state_missing")

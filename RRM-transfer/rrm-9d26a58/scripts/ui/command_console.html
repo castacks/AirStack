@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RRM · Office console</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#0c1420;color:#e3eaf4}*{box-sizing:border-box}
+body{max-width:1300px;margin:auto;padding:28px}header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:25px}
+h1{font-size:26px;margin:0}h2{font-size:18px;margin:0 0 15px}.muted,small{color:#a6b8cd}.pill{background:#20364a;padding:7px 12px;border-radius:20px;font-size:13px}
+main{display:grid;grid-template-columns:1.25fr 1fr;gap:20px}.panel{background:#132131;border:1px solid #2a3c50;border-radius:14px;padding:22px;margin-bottom:20px}
+img{width:100%;max-height:410px;object-fit:contain;background:#080e17;border-radius:8px}.toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:12px 0}
+button,.linkbutton{background:#62d4be;color:#081d23;border:0;border-radius:7px;padding:11px 15px;font:inherit;font-weight:600;cursor:pointer;text-decoration:none}button:disabled{opacity:.45;cursor:wait}
+a{color:#87d9fc}textarea{width:100%;min-height:145px;resize:vertical;background:#0c1724;color:#edf3ff;border:1px solid #49607b;border-radius:8px;padding:13px;font:inherit;line-height:1.6;margin:10px 0}
+textarea:focus,button:focus-visible,a:focus-visible{outline:2px solid #62d4be;outline-offset:3px}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.55;background:#0b1724;border-radius:8px;padding:14px}
+.notice{font-size:14px;line-height:1.6}.status{min-height:22px;color:#b6c8db}.error{color:#ffad9e}details{margin-top:14px}summary{cursor:pointer}.goal{font-size:22px;color:#8ae0ca;margin:14px 0}
+.history-item{border-top:1px solid #2a3c50;padding:16px 0}.history-item p{overflow-wrap:anywhere}.run{background:#0c1724;border-radius:7px;padding:12px;margin:8px 0;font-size:13px;line-height:1.7}.secondary{background:#263b50;color:#e3eaf4}.downloads a{display:inline-block;margin-right:12px}
+@media(max-width:850px){main{grid-template-columns:1fr}body{padding:16px}header{align-items:flex-start;flex-direction:column}}
+</style>
+<header><div><small>ROBOTICS REASONING MODEL / OFFICE</small><h1>Observe. Instruct. Review.</h1></div><span class="pill">Task intake · execution disconnected</span></header>
+<main><section>
+<div class="panel"><h2>Isaac camera</h2><img id="camera" alt="A current camera snapshot will appear after refresh" hidden>
+<p id="camera-status" class="status" role="status">Refresh to capture the drone’s current front-camera view.</p>
+<div class="toolbar"><button id="refresh" disabled>Refresh camera</button><a href="https://app.foxglove.dev/" target="_blank" rel="noopener noreferrer">Open Foxglove ↗</a></div>
+<p class="muted notice">This is a read-only snapshot, not a video stream. Keep Foxglove alongside this page for live trajectories and telemetry. With the existing Foxglove forwarding active, connect it to <code>ws://127.0.0.1:8766</code>.</p></div>
+<div class="panel"><h2>Goal and request</h2><form id="task-form"><label for="objective">What should RRM reason about?</label><textarea id="objective" maxlength="5000" required placeholder="Describe the target, task, and constraints…"></textarea><p id="selection" class="muted notice">Saving creates a new goal and its first request.</p><div class="toolbar"><button id="save" disabled>Save new goal &amp; request</button><button type="button" id="new-goal" class="secondary">New goal</button></div></form>
+<p class="notice muted">Requests use the frozen Office image and declared scene facts below. Saving creates a new request bundle; it does not run Cosmos or move the drone. Camera refreshes do not change the model’s input.</p>
+<p id="request-status" class="status" role="status"></p><div id="downloads"></div></div>
+<div class="panel"><h2>Saved goals &amp; history</h2><p class="muted notice">Choose a goal to prepare another request. Previous attempts and results are retained.</p><button id="reload-history" class="secondary">Reload history</button><div id="history" aria-live="polite">Loading saved goals…</div><p class="muted notice">History survives console restarts. This OSMO workspace is temporary; preserve its database and request files before ending the workflow.</p></div>
+</section><aside>
+<div class="panel"><small>PREVIOUS VERIFIED INFERENCE · PSC 46288765</small><h2 style="margin-top:12px">Last accepted plan</h2><div class="goal" id="goal">Loading…</div><p id="explanation" class="notice"></p><pre id="plan"></pre><small>This result belongs to the previous task. New requests have no model result yet.</small></div>
+<div class="panel"><h2>Frozen model context</h2><img src="/reference.png" alt="Frozen Office image used in the accepted inference"><p class="notice muted">Recorded image · not a live view. The semantic context is ground-truth assisted.</p><details><summary>Entities, capabilities and original task</summary><pre id="context"></pre></details></div>
+</aside></main>
+<script>
+let token, selectedGoal=null;
+const byId=id=>document.getElementById(id);
+async function post(path,value){const response=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','X-RRM-Token':token},body:JSON.stringify(value)});const data=await response.json();if(!response.ok)throw new Error(data.error||'Request failed');return data;}
+function matchesSelection(){return selectedGoal && byId('objective').value.trim()===selectedGoal.objective;}
+function updateSelection(){byId('selection').textContent=matchesSelection()?'Using saved goal '+selectedGoal.goal_id+'. Saving creates a separate request.':selectedGoal?'Edited text will be saved as a new goal. The selected goal stays unchanged.':'Saving creates a new goal and its first request.';byId('save').textContent=matchesSelection()?'Save another request':'Save new goal & request';}
+function fileLinks(parent,runId,files){for(const file of files){const link=document.createElement('a');link.href='/runs/'+runId+'/'+file;link.download=file;link.textContent=file;link.style.marginRight='14px';parent.append(link);}}
+async function loadHistory(){try{const response=await fetch('/api/goals');if(!response.ok)throw new Error('History unavailable; reload after the console is restarted.');const {goals}=await response.json();const history=byId('history');history.replaceChildren();if(!goals.length){history.textContent='No saved goals yet.';return;}for(const goal of goals){const card=document.createElement('article');card.className='history-item';const text=document.createElement('p');text.textContent=goal.objective;card.append(text);const use=document.createElement('button');use.className='secondary';use.textContent='Use goal';use.addEventListener('click',()=>{selectedGoal=goal;byId('objective').value=goal.objective;updateSelection();byId('objective').focus();});card.append(use);const detail=document.createElement('details');const summary=document.createElement('summary');summary.textContent=goal.runs.length+' attempt'+(goal.runs.length===1?'':'s')+' · '+goal.constraints_revision;detail.append(summary);for(const run of goal.runs){const row=document.createElement('div');row.className='run';const label=document.createElement('div');label.textContent=(run.status==='CANDIDATE_ACCEPTED'?'Accepted candidate':'Saved · not submitted')+' · not dispatched';row.append(label);const when=document.createElement('div');when.textContent='Recorded '+new Date(run.created_at).toLocaleString();row.append(when);const links=document.createElement('div');links.className='downloads';fileLinks(links,run.run_id,['input.json','input.png',run.status==='CANDIDATE_ACCEPTED'?'result.json':'request.json']);row.append(links);detail.append(row);}card.append(detail);history.append(card);}}catch(error){byId('history').textContent=error.message;}}
+fetch('/api/state').then(r=>{if(!r.ok)throw new Error('Could not load console');return r.json();}).then(data=>{
+ token=data.token;byId('save').disabled=false;byId('refresh').disabled=false;
+ byId('objective').value=data.context.task.objective;
+ const action=data.decision.plan.actions[0].action;
+ byId('goal').textContent=action.verb+' → '+action.targets.join(', ');
+ byId('explanation').textContent=data.decision.intent.explanation;
+ byId('plan').textContent=JSON.stringify({goal:data.decision.intent.grounded_goal,adapter_waypoints:data.decision.proposal.waypoints,tolerance_m:data.decision.proposal.goal_tolerance_m,execution:'Not dispatched'},null,2);
+ byId('context').textContent=JSON.stringify({task:data.context.task,capabilities:data.context.capabilities,evidence:data.context.snapshot.evidence},null,2);
+ loadHistory();
+}).catch(error=>{byId('request-status').textContent=error.message;});
+byId('objective').addEventListener('input',updateSelection);
+byId('new-goal').addEventListener('click',()=>{selectedGoal=null;byId('objective').value='';updateSelection();byId('objective').focus();});
+byId('reload-history').addEventListener('click',loadHistory);
+byId('task-form').addEventListener('submit',async event=>{event.preventDefault();byId('save').disabled=true;byId('downloads').replaceChildren();byId('request-status').classList.remove('error');byId('request-status').textContent='Saving…';const objective=byId('objective').value;try{const result=await post('/api/requests',{objective,goal_id:matchesSelection()?selectedGoal.goal_id:null});byId('request-status').textContent='Saved · not submitted to Cosmos. Request '+result.request_id;fileLinks(byId('downloads'),result.request_id,['input.json','input.png','request.json']);selectedGoal={goal_id:result.goal_id,objective:objective.trim()};updateSelection();await loadHistory();}catch(error){byId('request-status').textContent=error.message;byId('request-status').classList.add('error');}finally{byId('save').disabled=false;}});
+byId('refresh').addEventListener('click',async()=>{byId('refresh').disabled=true;byId('camera-status').textContent='Capturing from Isaac…';try{const result=await post('/api/camera',{});byId('camera').src='/camera.png?t='+Date.now();byId('camera').hidden=false;byId('camera-status').textContent='Captured '+new Date(result.captured_at).toLocaleTimeString()+' · simulation stamp '+result.source_stamp_ns+(result.source_stamp_advanced===false?' · source timestamp unchanged; simulator may be paused':'');}catch(error){byId('camera').hidden=true;byId('camera-status').textContent=error.message;}finally{byId('refresh').disabled=false;}});
+</script></html>

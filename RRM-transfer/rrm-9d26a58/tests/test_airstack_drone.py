@@ -53,6 +53,8 @@ class DroneProposalTests(unittest.TestCase):
         )
         self.assertIn('"--execute"', runner)
         self.assertIn('"--verify-observation"', runner)
+        self.assertIn('"goal_sent": False', runner)
+        self.assertIn('"physical_outcome": "NOT_DISPATCHED"', runner)
         self.assertIn("ActionClient", runner)
         self.assertIn("create_subscription(", runner)
         for prohibited in ("create_publisher(", "create_client(",
@@ -86,6 +88,17 @@ class DroneProposalTests(unittest.TestCase):
         )
         self.assertEqual(mismatch.verdict, DroneOutcomeVerdict.MISMATCH)
         self.assertIn("takeoff_altitude_mismatch", mismatch.reasons)
+
+        horizontal_mismatch = verify_drone_outcome(
+            takeoff, action_success=True, action_message="takeoff complete",
+            pre_odometry=pre,
+            post_odometry=post.model_copy(update={"x": 0.31}),
+            post_vehicle_state=VehicleStateEvidence(
+                received_monotonic_s=11.1, connected=True, armed=True),
+            dispatch_monotonic_s=10.1, now_monotonic_s=11.2,
+        )
+        self.assertEqual(horizontal_mismatch.verdict, DroneOutcomeVerdict.MISMATCH)
+        self.assertIn("takeoff_horizontal_displacement_mismatch", horizontal_mismatch.reasons)
 
     def test_landing_outcome_fails_closed_without_fresh_disarmed_evidence(self):
         land = proposal(DroneTaskKind.LAND, velocity_m_s=1.0)

@@ -1,21 +1,22 @@
 #!/bin/bash
 # Actual pinned Cosmos inference; survives disconnect. No robot execution here.
-# Usage: sbatch -A eng260004p scripts/psc_rrm_office.sbatch <frozen-image.png>
+# Usage: sbatch -A eng260004p scripts/psc_rrm_office.sbatch <frozen-image.png> [source-root]
 #SBATCH --job-name=rrm-office
 #SBATCH --partition=GPU-shared
 #SBATCH --gres=gpu:h100-80:1
-#SBATCH --time=00:20:00
+#SBATCH --time=00:30:00
 #SBATCH --output=/ocean/projects/eng260004p/oabolade/physical-ai/runs/rrm/office-%j.out
 #SBATCH --error=/ocean/projects/eng260004p/oabolade/physical-ai/runs/rrm/office-%j.err
 set -euo pipefail
-[[ $# == 1 ]] || { echo 'Usage: sbatch -A eng260004p psc_rrm_office.sbatch <image.png>' >&2; exit 2; }
+[[ $# -ge 1 && $# -le 2 ]] || { echo 'Usage: sbatch -A eng260004p psc_rrm_office.sbatch <image.png> [source-root]' >&2; exit 2; }
 : "${PROJECT:?PSC PROJECT is required}"
 : "${SLURM_JOB_ID:?Submit using sbatch on a GPU allocation}"
 rrm_root="${RRM_PERSIST_ROOT:-$PROJECT/physical-ai}"
-rrm_source="${RRM_SOURCE_ROOT:-$rrm_root/src/rrm}"
+rrm_source="${2:-${RRM_SOURCE_ROOT:-$rrm_root/src/rrm}}"
 rrm_run="$rrm_root/runs/rrm/office/$SLURM_JOB_ID"
 mkdir -p "$rrm_run"
 exec > >(tee "$rrm_run/console.log") 2>&1
+echo "source_root=$rrm_source"
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONUNBUFFERED=1
 rrm_python="$rrm_root/src/cosmos-reason2/.venv/bin/python"
 rrm_model="$rrm_root/checkpoints/cosmos/hf/models--nvidia--Cosmos-Reason2-8B/snapshots/a9fae2cf89dc64db96b12860417f0eb403013bb9"

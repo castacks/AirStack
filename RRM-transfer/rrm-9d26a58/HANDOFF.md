@@ -1,5 +1,203 @@
 # RRM remote Codex handoff
 
+## STOP HERE: exact continuation state — 2026-09-18 00:20 UTC
+
+This section is authoritative over older “deferred / not implemented” language
+below. Work has progressed to a **verified learned-plan → public drone-action
+dispatch boundary**, but a full end-to-end Office navigation flight is deliberately
+not claimed yet.
+
+### What is complete and verified
+
+- PSC Office inference job `46288765` completed ACCEPTED after the canonical-ID
+  prompt fix. Its verified decision is `near($self, blue_marker)` with action
+  `NAVIGATE_TO(blue_marker)`. The source result is persistent at PSC; an imported,
+  hash-checked OSMO copy is under
+  `/root/AirStack/.rrm-artifacts/psc-office-46288765.FCRcPE/`.
+- The original rejection from job `46280177` was caused by label prose
+  (`blue navigation marker`) rather than canonical scene IDs. Regression coverage
+  lives in `tests/fixtures/office_46280177_response.json` and
+  `tests/test_cosmos_reason2.py`.
+- `rrm/airstack_drone.py` and `scripts/airstack_drone_dispatch.py` translate the
+  approved RRM action only through AirStack's public ROS 2 ActionClient. They do
+  not directly publish PX4/MAVROS setpoints or call PX4/MAVROS services. Takeoff and
+  landing were independently proven; takeoff now rejects horizontal displacement
+  greater than 0.3 m. An unavailable navigation action server produces a recorded
+  `NOT_DISPATCHED` / `UNCONFIRMED` outcome rather than pretending a goal was sent.
+- The localhost command console is implemented at port `8787`: immutable saved
+  goals, attempts, frozen inference evidence, limited read-only camera refresh, and
+  no implicit inference or flight dispatch. Its SQLite data is intentionally ignored
+  at `/root/AirStack/.rrm-artifacts/command-requests/tasks.sqlite3`. See
+  `docs/scrum-8/command-console.md`. On the laptop, forward port 8787 in the IDE.
+  Foxglove remains separate through the laptop's `ws://127.0.0.1:8766` forwarding.
+- Test evidence: `PYTHONPATH=/tmp/rrm-canonical-deps:/tmp/rrm-canonical-source
+  python3 -m pytest tests -q` inside the robot container passed **75 tests**.
+  `python -m py_compile` for changed Python and
+  `COMPOSE_PROFILES=desktop docker compose config -q` passed. `git diff --check`
+  passed before this handoff update.
+
+### Last simulator diagnosis and current safe state
+
+The first learned-navigation attempt did not move the drone: it correctly withheld
+the navigation goal when its live action server was unavailable. The cause was
+identified as stale `/tmp/.X99-lock` and `/tmp/.X11-unix/X99` after a robot-container
+restart, which made `droan_gl_node` fail its GLAD/OpenGL initialization. Stale DDS
+discovery could still show an action name, so always require a live ActionClient
+server check immediately before dispatch.
+
+`robot/docker/docker-compose.yaml` now removes only those two stale X99 files, only
+when no `Xvfb` process exists, before starting Xvfb. This was manually validated:
+Xvfb started, `droan_gl` reported Mesa OpenGL 4.5 and loaded shaders, and a live
+`/robot_1/tasks/navigate` server was observed.
+
+The robot desktop container was recreated with the patched Compose file and left
+running. At the last check it was connected, disarmed, and at ground altitude near
+map position `(-1.269, -0.870, -0.001)`. No action is currently in flight and no
+manual diagnostic node remains. Do **not** shut down the OSMO workflow/container;
+the user wants it left running until its scheduled 06:00 expiry.
+
+### Next operator/agent steps (do not skip the safety gates)
+
+1. Confirm the running stack, vehicle connection/disarmed state, fresh odometry and
+   a live navigation ActionClient server. Do not trust a stale `ros2 action list`.
+2. Start the command console only if it is not already running:
+   `cd /root/AirStack/RRM-transfer/rrm-9d26a58 && bash scripts/rrm_command_console.sh`.
+   It should bind to host loopback `8787`; inspect rather than modify the SQLite DB.
+3. Use the imported proposal associated with PSC job `46288765`; re-check its hashes
+   and live scene/marker correspondence before any physical action. The Office
+   waypoint currently used by the adapter is map `(3.2, 0, 1.5)`, tolerance 0.3 m.
+4. Only after the above, run the bounded public dispatcher for a supervised
+   takeoff → learned `NAVIGATE_TO` → landing trial. Keep Foxglove/camera observation
+   open and record all outcomes. If the server is unavailable or observation is
+   stale, stop at `NOT_DISPATCHED`; do not add direct PX4/MAVROS control as a bypass.
+5. Preserve runtime evidence before OSMO ends. `.rrm-artifacts` is ignored and
+   ephemeral; source changes are committed, but flight/console evidence must be
+   archived separately if needed.
+
+Flight-attempt evidence, including the bounded takeoff/land and withheld navigation
+outcomes, is in
+`/root/AirStack/.rrm-artifacts/office-flight-46288765-20260918T0020Z/`.
+It is intentionally not in Git. Never include core dumps from that directory in a
+source commit.
+
+## Current database/GUI — 2026-09-18 00:04 UTC
+
+User approved SQLite goal history and selection. Implemented `rrm/task_store.py`:
+immutable goals and separate attempt records with artifact paths; current statuses
+SAVED_NOT_SUBMITTED and CANDIDATE_ACCEPTED, both NOT_DISPATCHED. Console indexes the
+verified historical inference and recovers saved request folders idempotently,
+checking hashes. New request manifests carry goal_id. Editing selected goal text
+creates a new goal; selecting a goal alone does not submit anything.
+
+Database: `/root/AirStack/.rrm-artifacts/command-requests/tasks.sqlite3`.
+Console restarted on host loopback 8787; existing IDE port forwarding remains valid.
+Refresh browser to see Saved goals & history / Use goal / Save another request.
+75 CPU tests pass, JS syntax checked, live history/download HTTP checked, SQLite
+integrity_check=ok. Production store has one historical goal/run from 46288765;
+no synthetic requests added. Original bundle checksums still pass.
+
+8787 suffices for GUI and read-only camera refresh. Separate Foxglove requires the
+previous forwarding command running on the laptop, with ws://127.0.0.1:8766.
+No inference/dispatch integration added. DB/history survive console restarts but are
+on ephemeral OSMO storage; preserve DB plus referenced files before workflow ends.
+See `docs/scrum-8/command-console.md`.
+
+## Current UI — 2026-09-17 23:53 UTC
+
+User requested a localhost command GUI with an Isaac view where feasible, allowing
+Foxglove alongside it. Implemented `scripts/rrm_command_console.py`, launcher `.sh`,
+and `scripts/ui/command_console.html`. Running on OSMO host loopback port 8787.
+Forward 8787 in VS Code/Cursor's Ports panel to open from Mac. See
+`docs/scrum-8/command-console.md` for restart command and scope.
+
+GUI shows previous verified plan, frozen input image, bounded read-only front-camera
+refresh, task form and download links. Saves new inference requests only, with
+original frozen evidence times; it does not run Cosmos or dispatch. New request
+artifacts go under `/root/AirStack/.rrm-artifacts/command-requests/<uuid>/`.
+Foxglove remains a separate viewer using the existing ws://127.0.0.1:8766 forwarding.
+Two real camera captures succeeded with advancing source timestamps; view is mostly
+floor/wall, not proof of current Office alignment. 71 CPU tests pass; JS syntax and
+live HTTP camera endpoints checked. Browser graphical rendering not automated.
+Full model-to-drone connection remains deferred. The earlier UI-deferred notes below
+are historical; this first command-entry/observation GUI is now implemented.
+
+## Current verified state — PSC job 46288765 imported, 2026-09-17 23:27 UTC
+
+Actual PSC bundle was downloaded and imported successfully. Verified locally:
+all four SHA256SUMS entries, both recorded inference-source hashes, exact prompt,
+raw model response reparse, stored candidate equality and local scene binding.
+A fresh import exactly matches the saved decision and proposal. Import status READY;
+action ID NAVIGATE_TO retained; target blue_marker; goal near($self, blue_marker).
+Adapter waypoint (3.2, 0, 1.5) in map, tolerance 0.3 m. Inference wall time recorded
+as 900.1816659809556 s (includes loading); execution_dispatch=false.
+
+Host artifacts:
+`/root/AirStack/.rrm-artifacts/psc-office-46288765.FCRcPE/bundle/`
+and sibling `imported/decision.json`, `imported/proposal.json`.
+Evidence summary: `docs/scrum-8/evidence/office-inference-46288765.md`.
+PSC original remains persistent; OSMO copies are ephemeral. No flight, live scene
+revalidation or stop verification performed. Full simulator connection remains
+deferred. Visual command-entry interface is still a future idea, not implemented.
+The authorized retrieval/import milestone is complete; do not repeat it.
+
+## Previous retrieval instructions — completed
+
+User supplied a completed inference console with ACCEPTED, execution_dispatch=false,
+and 14m39s checkpoint loading. Pasted raw output selects NAVIGATE_TO blue_marker,
+goal near($self, blue_marker), grounded entities blue_marker and orange_marker,
+action ID NAVIGATE_TO, no dependencies, recovery budget 0. Avoidance is expressed
+in the explanation; it is not independent path-clearance evidence.
+
+User authorized retrieving, preserving and importing this actual bundle into an
+unexecuted proposal. Full simulator connection and visual command UI remain deferred.
+The unattended DTN SSH check was denied. The actual result bundle has not yet been
+retrieved or hash-verified here. Run on OSMO host (authenticate in terminal):
+
+```bash
+cd /root/AirStack/RRM-transfer/rrm-9d26a58
+bash scripts/rrm_office_fetch_import.sh 46288765
+```
+
+This verifies SHA256SUMS and runs the existing importer (hashes, prompt, raw-output
+reparse, candidate equality, scene binding), preserving downloads and proposal under
+a new `.rrm-artifacts/psc-office-46288765.*` directory. Uses running robot container
+and isolated Pydantic 2 at `/tmp/rrm-canonical-deps`, verified available this session.
+No model rerun or robot dispatch. PSC original remains persistent; OSMO copy is ephemeral.
+
+## Latest failure — PSC job 46288321
+
+User supplied accounting: FAILED, exit 1:0, elapsed 1 second, time limit 30 minutes.
+Console: missing `/src/rrm/examples/office_visual_eval/navigation_context.json`.
+The intended timestamped source directory was not used; the environment-based
+source selection fell back to the default. Exact cause of lost/overridden variable
+has not been established. Local batch/transfer scripts now pass source-root as a
+positional argument and log it; batch default is also 30 minutes.
+The already uploaded snapshot can be retried without another transfer by exporting
+the intended `RRM_SOURCE_ROOT` in the PSC login shell and submitting with
+`sbatch --export=ALL --time=00:30:00 ...`. No new submission claimed here.
+
+## Latest continuation — 2026-09-17, canonical-ID retry
+
+User supplied the console and candidate from PSC Office job `46280177` (later than
+`46273277`). The batch reached its completion message with `execution_dispatch=false`.
+The candidate was REJECTED for `ungrounded_entity:blue navigation marker` and
+`ungrounded_entity:orange navigation marker`: the model used descriptions instead of
+`blue_marker` / `orange_marker`. Its goal also used prose instead of symbolic `near`.
+The pasted JSON is a test transcription; the actual PSC bundle has not been retrieved.
+Slurm accounting was not checked; the completion message alone is not an accounting record.
+
+Prompt now explicitly supplies canonical entity IDs, declared operation semantics
+and the navigation goal template; console output includes rejection reasons.
+Strict parsing is unchanged. Retry transfer script reuses the prior PSC `input.png`
+and prints a new source-snapshot submission command with 30-minute walltime (observed
+checkpoint loading was 18m08s). Retry has not been submitted from this session.
+See `docs/scrum-8/office-live-demo.md` for the command.
+
+Current user scope: fix/retry inference quickly; defer full simulator connection.
+A visual command-entry interface feeding RRM is a later idea, not yet implemented.
+This supersedes the older immediate-flight next step below. The current workspace
+has no PSC SSH credentials; authentication must occur in the user's terminal.
+
 ## Current continuation — 2026-09-17
 
 This update supersedes the historical hand-first/shadow-only/PSC-unknown notes below.
@@ -534,7 +732,7 @@ odometry within the AirStack planner's 0.3 m absolute-altitude acceptance distan
 a fresh connected/armed vehicle state; it verifies landing only with fresh near-ground
 odometry plus connected/disarmed vehicle state. Missing, stale, future, wrong-frame,
 unsuccessful or mismatched evidence remains `UNCONFIRMED` or `MISMATCH`; navigation is
-explicitly unconfirmed pending a defined endpoint/effect contract.
+verified only with fresh causal odometry within its proposal endpoint tolerance.
 
 `scripts/airstack_drone_dispatch.py --verify-observation` now adds only read-only
 subscriptions to `/{robot}/odometry_conversion/odometry` and
@@ -547,3 +745,40 @@ increment. A separate eight-second observer-only run after the first SIL sequenc
 reported `observation_complete: true`, MAVROS connected/disarmed, fresh map/base-link
 evidence and `z=0.0201 m`; it corroborates the final landed state but is not causally
 attached to either earlier action.
+
+## Office learned-proposal flight attempt — 2026-09-18 UTC
+
+PSC job `46288765` produced an accepted canonical proposal:
+`NAVIGATE_TO blue_marker`, mapped by the importer to `(3.2, 0.0, 1.5)` in `map`
+with 0.3 m tolerance. The retrieved bundle passed its manifest hashes, local source
+hashes, raw-response reparse, candidate equality, and scene-binding import checks.
+
+The running simulator was replaced with `rrm_office_visual_eval.py` and the Office
+scene. Restarting Isaac without the older robot stack initially reset `/clock` under
+retained TF state; continuous `TF_OLD_DATA` warnings accompanied a drifting takeoff.
+That attempt was stopped before navigation and landed/disarmed. Restarting Isaac first
+and the robot stack second cleared the warnings. A final hardened takeoff was verified
+from `(0.0152,-0.0134,0.0091)` to `(-0.1913,-0.0384,1.2755)`, connected and armed,
+with about 0.21 m XY displacement. `verify_drone_outcome` now rejects takeoff XY
+motion over the configurable default of 0.3 m.
+
+The learned navigation goal was **not sent**. The `droan_gl_node` owning
+`/robot_1/tasks/navigate` had already segfaulted at startup (`exit -11`). Its stale DDS
+action name remained visible, but the dispatcher's live `wait_for_server` handshake
+failed closed. Server-unavailable attempts now write `goal_sent=false`,
+`physical_outcome=NOT_DISPATCHED`, `verdict=UNCONFIRMED` rather than raising without
+an outcome record. Recovery landing independently verified
+`(-1.2527,-0.8684,0.0061)`, connected and disarmed. Navigation was not retried in
+flight, and raw control interfaces were not used.
+
+Ground-only follow-up isolated that crash to OpenGL initialization. Xvfb display 99's
+lock/socket survived the robot-container restart while the Xvfb process did not, so
+the replacement X server exited with “Server is already active” and `droan_gl_node`
+then printed `Failed to initialize GLAD` before dumping core. AirStack's
+`robot/docker/docker-compose.yaml` now removes only `/tmp/.X99-lock` and
+`/tmp/.X11-unix/X99`, and only after proving no Xvfb process exists. Repeating that
+startup path on the grounded vehicle produced Mesa OpenGL 4.5, loaded all Droan GL
+shaders, kept the node alive, and exposed a live navigate action server. Compose
+configuration validation passed. The manual diagnostic node was stopped afterward;
+apply the patched Compose command through a clean robot-container recreation and rerun
+preflight before any later flight.

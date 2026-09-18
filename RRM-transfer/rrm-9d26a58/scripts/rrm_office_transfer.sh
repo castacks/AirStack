@@ -22,6 +22,6 @@ if [[ -f "$rrm_scene" ]]; then
     "data.bridges2.psc.edu:$rrm_psc/src/$rrm_tag/rrm_office_visual_eval.py"
 fi
 echo 'Transfer finished. On the PSC login terminal, run:'
-printf 'RRM_SOURCE_ROOT=%q sbatch -A eng260004p %q %q\n' \
-  "$rrm_psc/src/$rrm_tag" "$rrm_psc/src/$rrm_tag/scripts/psc_rrm_office.sbatch" \
-  "$rrm_psc/src/$rrm_tag/office-input.png"
+printf 'sbatch -A eng260004p %q %q %q\n' \
+  "$rrm_psc/src/$rrm_tag/scripts/psc_rrm_office.sbatch" \
+  "$rrm_psc/src/$rrm_tag/office-input.png" "$rrm_psc/src/$rrm_tag"

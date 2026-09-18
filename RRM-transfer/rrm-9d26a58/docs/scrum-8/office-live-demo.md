@@ -1,5 +1,57 @@
 # Office learned-plan demonstration
 
+Verified 2026-09-17 23:27 UTC: job `46288765` has been downloaded, hash-checked
+and imported successfully. Fresh reimport matches saved decision and proposal;
+status READY, action ID NAVIGATE_TO, target blue_marker, waypoint (3.2, 0, 1.5).
+No dispatch. See [evidence](evidence/office-inference-46288765.md).
+Full connection and visual command-entry UI remain deferred.
+
+The retrieval instructions below are retained for reproducibility; this job's
+retrieval/import milestone is complete.
+
+Current next step: job `46288765` completed with ACCEPTED and execution_dispatch=false
+according to the user's console/raw-output transcript. It selects NAVIGATE_TO
+blue_marker with goal near($self, blue_marker). Actual bundle verification remains
+pending authentication. Run in the **OSMO host terminal**:
+
+```bash
+cd /root/AirStack/RRM-transfer/rrm-9d26a58
+bash scripts/rrm_office_fetch_import.sh 46288765
+```
+
+This downloads into a new `.rrm-artifacts/psc-office-46288765.*` directory, verifies
+SHA256SUMS and runs the existing offline importer using isolated Pydantic dependencies
+in the running robot container. It prints the unexecuted proposal path. Source evidence
+stays on PSC; the OSMO copy is ephemeral. No flight or model rerun occurs. The helper
+requires `/tmp/rrm-canonical-deps` prepared in this session and fails early if absent.
+
+Follow-up: retry job `46288321` failed before inference because its source path
+fell back to `/src/rrm`. Updated transfer scripts pass source-root as a positional
+batch argument and the batch logs it. For the already uploaded older snapshot,
+explicitly export its `RRM_SOURCE_ROOT` and use `sbatch --export=ALL` to retry.
+Accounting confirmed the requested 30-minute limit; elapsed time was one second.
+
+Latest update, 2026-09-17: job `46280177` finished its inference bundle but its
+candidate was REJECTED for using marker descriptions as entity IDs. The prompt
+has been clarified. Full simulator connection is deferred at the user's request;
+a visual command-entry interface for RRM is a later step. No retry result is claimed.
+
+Run this in the **OSMO host terminal** to transfer the updated source:
+
+```bash
+cd /root/AirStack/RRM-transfer/rrm-9d26a58
+bash scripts/rrm_office_retry_transfer.sh 46280177
+```
+
+Authenticate to PSC in that terminal. Then run the printed `sbatch` command in the
+**PSC login terminal**. It reuses `46280177/input.png`, creates a new source snapshot
+and result directory, and requests 30 minutes because the prior model load took
+18m08s. It does not connect to ROS or execute a flight. The original rejected bundle
+remains evidence; do not edit it into an accepted candidate. New results must be
+checked against the matching updated source/prompt before any later import.
+
+The following section records the earlier integration state and plan:
+
 Status, 2026-09-17: Office camera/PX4/GCS live. PSC job `46273277` has been
 submitted for actual Office Cosmos inference; learned flight remains pending its
 hash-checked result and live revalidation. An earlier accepted warehouse-label
@@ -80,6 +132,19 @@ acknowledgement is not proof of physical stop. No automatic retry/resume is allo
 after unknown acceptance/completion. The live mission supervisor, current-scene
 revalidation and independent stop evidence are still integration work, not claimed
 complete by this runbook.
+
+The 2026-09-18 live attempt stopped at this gate: `droan_gl_node`, the owner of the
+navigate action, exited `-11` during startup. The action name remained transiently
+visible in graph discovery, but the live server handshake failed and no navigation
+goal was sent. Fix and verify that node before repeating the mission. A server
+unavailability record must say `goal_sent=false` and `physical_outcome=NOT_DISPATCHED`.
+
+The failure was traced to stale Xvfb display-99 lock/socket files after a robot
+container restart. The Compose startup now removes those exact files only when no
+Xvfb process exists. A grounded diagnostic then initialized Mesa OpenGL 4.5, loaded
+the Droan GL shaders, and exposed a live navigate server. Recreate the robot container
+from the patched Compose definition and repeat all preflight gates before the next
+flight; the one-off diagnostic node was stopped.
 
 ## Viewers
 

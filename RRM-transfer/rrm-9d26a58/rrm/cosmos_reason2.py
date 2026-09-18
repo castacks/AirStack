@@ -18,6 +18,7 @@ from .contracts import CapabilityDeclaration, Truth
 from .schema import AbstractAction, Predicate, Verb
 from .state_contracts import StateSnapshot
 from .task_contracts import IntentStatus, PlanProposal, PlannedAction, ReasoningResult, TaskRequest
+from .verbs import VERB_TABLE
 
 
 class CosmosCandidateStatus(str, Enum):
@@ -91,6 +92,7 @@ def render_cosmos_prompt(context: CosmosReasoningInput) -> str:
             "snapshot_id": context.snapshot.snapshot_id,
             "revision": context.snapshot.revision,
             "episode_id": context.snapshot.episode_id,
+            "entity_ids": sorted(_fresh_entities(context)),
             "evidence": [_evidence_record(item, now_monotonic_s=context.now_monotonic_s)
                          for item in context.snapshot.evidence],
         },
@@ -103,7 +105,15 @@ def render_cosmos_prompt(context: CosmosReasoningInput) -> str:
             "limits_ref": context.capabilities.limits_ref,
         },
     }
-    allowed_verbs = [verb.value for verb in Verb]
+    allowed_verbs = sorted(context.capabilities.operations & {verb.value for verb in Verb})
+    action_semantics = {
+        verb: {
+            "target_count": VERB_TABLE[Verb(verb)].arity,
+            "expected_effect_templates": [effect.model_dump(mode="json")
+                                          for effect in VERB_TABLE[Verb(verb)].expected_effects],
+        }
+        for verb in allowed_verbs
+    }
     return "\n".join((
         "You are the learned reasoning component of a body-agnostic robotics reasoning model.",
         "Interpret the task using only the evidence and capabilities supplied below. ",
@@ -120,6 +130,19 @@ def render_cosmos_prompt(context: CosmosReasoningInput) -> str:
         "by grounded_goal.subject, grounded_goal.obj, or an action target. For example, "
         "if an action targets loading_bay_marker, then grounded_entities must include "
         "loading_bay_marker. Do not leave it empty. ",
+        "Use exact strings from state.entity_ids for grounded_entities and action targets. "
+        "Evidence object values such as kind/color descriptions are properties, not entity IDs. "
+        "Never replace an ID with its descriptive label. Do not put $self in grounded_entities.",
+        "grounded_goal.name is a symbolic predicate, never the task sentence. "
+        "grounded_goal.subject is an entity ID or $self (the acting embodiment). "
+        "An entity-valued grounded_goal.obj must use its exact ID. "
+        "For NAVIGATE_TO with targets=[TARGET_ID], the goal is "
+        '{"name":"near","subject":"$self","obj":TARGET_ID}. '
+        "Select TARGET_ID from the evidence according to the task; this template does not select it.",
+        "Authored action semantics follow. $0/$1 refer to action targets by index; "
+        "$self refers to the acting embodiment. Expected effects describe intended outcomes, "
+        "not observations that those outcomes have occurred:",
+        json.dumps(action_semantics, sort_keys=True, separators=(",", ":")),
         "For NEEDS_CLARIFICATION, provide nonempty ambiguity_refs and no actions. ",
         "For UNSUPPORTED, provide no goal and no actions.",
         f"Allowed action verbs: {json.dumps(allowed_verbs)}.",

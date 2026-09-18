@@ -1,0 +1,13 @@
+{
+  "status": "READY",
+  "grounded_goal": {
+    "name": "Approach the blue navigation marker",
+    "subject": "blue navigation marker",
+    "obj": "blue_marker"
+  },
+  "grounded_entities": ["blue navigation marker", "orange navigation marker"],
+  "ambiguity_refs": [],
+  "explanation": "The blue navigation marker is the target for the approach task, and the orange navigation marker is explicitly excluded from the approach. The agent must navigate to the blue marker while avoiding the orange one, using the NAVIGATE_TO action as specified in the task objective. The environment provides clear visual cues for both markers, ensuring the agent can distinguish between them and focus on the correct target.",
+  "actions": [{"id": "NAVIGATE_TO", "verb": "NAVIGATE_TO", "targets": ["blue navigation marker"], "dependencies": []}],
+  "recovery_budget": 0
+}

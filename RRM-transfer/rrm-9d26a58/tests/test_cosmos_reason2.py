@@ -20,8 +20,8 @@ from rrm.task_contracts import TaskRequest
 _FIXTURE = Path(__file__).parents[1] / "examples" / "cosmos_reason2" / "navigation_ground_truth.json"
 
 
-def _context() -> CosmosReasoningInput:
-    payload = json.loads(_FIXTURE.read_text(encoding="utf-8"))
+def _context(path: Path = _FIXTURE) -> CosmosReasoningInput:
+    payload = json.loads(path.read_text(encoding="utf-8"))
     return CosmosReasoningInput(
         task=TaskRequest.model_validate(payload["task"]),
         snapshot=StateSnapshot.model_validate(payload["snapshot"]),
@@ -38,6 +38,28 @@ def _context() -> CosmosReasoningInput:
 
 
 class CosmosReason2ContractTest(unittest.TestCase):
+    def test_office_prompt_exposes_ids_and_authored_goal_semantics(self) -> None:
+        path = Path(__file__).parents[1] / "examples/office_visual_eval/navigation_context.json"
+        prompt = render_cosmos_prompt(_context(path))
+        payload = json.loads(prompt.split("C01/C02/C03 input follows:\n", 1)[1])
+        self.assertEqual(payload["state"]["entity_ids"], ["blue_marker", "orange_marker"])
+        self.assertIn('"name":"near"', prompt)
+        self.assertIn('"subject":"$self"', prompt)
+        self.assertIn('Allowed action verbs: ["NAVIGATE_TO"]', prompt)
+
+    def test_pasted_psc_office_response_remains_rejected(self) -> None:
+        # Transcription supplied by the user, not the retrieved PSC result bundle.
+        root = Path(__file__).parents[1]
+        raw = (root / "tests/fixtures/office_46280177_response.json").read_text()
+        context = _context(root / "examples/office_visual_eval/navigation_context.json")
+        candidate = parse_cosmos_candidate("```json\n" + raw + "\n```", context)
+        self.assertEqual(candidate.status, CosmosCandidateStatus.REJECTED)
+        self.assertEqual(candidate.reasons, (
+            "ungrounded_entity:blue navigation marker",
+            "ungrounded_entity:orange navigation marker",
+        ))
+        self.assertIsNone(candidate.plan)
+
     def test_prompt_uses_evidence_and_declares_non_control_boundary(self) -> None:
         prompt = render_cosmos_prompt(_context())
         self.assertIn("loading_bay_marker", prompt)
