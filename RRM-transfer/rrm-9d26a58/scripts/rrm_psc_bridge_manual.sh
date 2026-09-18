@@ -27,22 +27,13 @@ local_source=$(cd "$(dirname "$0")/.." && pwd)
 ssh_args=( -o StrictHostKeyChecking=accept-new "$psc_target")
 rsync_ssh='ssh  -o StrictHostKeyChecking=accept-new'
 
-ssh "${ssh_args[@]}" bash -s -- "$remote_request" "$remote_source" <<'REMOTE'
-set -euo pipefail
-mkdir -p "$1" "$2"
-REMOTE
+ssh "${ssh_args[@]}" "mkdir -p $remote_request $remote_source"
 rsync -a --delete -e "$rsync_ssh" -- "$request_dir/" "$psc_target:$remote_request/"
 rsync -a --delete --exclude .git --exclude __pycache__ -e "$rsync_ssh" -- \
   "$local_source/" "$psc_target:$remote_source/"
 
-job_id=$(ssh "${ssh_args[@]}" bash -s -- "$RRM_PSC_PROJECT" "$RRM_PSC_ROOT" "$remote_request" "$remote_source" <<'REMOTE'
-set -euo pipefail
-project="$1" root="$2" request="$3" source="$4"
-PROJECT="$project" RRM_PERSIST_ROOT="$root" sbatch -A "$project" \
-  "$source/scripts/psc_rrm_office.sbatch" "$request" "$source" | awk '/Submitted batch job/{print $4}'
-REMOTE
-)
-[[ "$job_id" =~ ^[0-9]+$ ]] || { echo "PSC submission did not return a Slurm job ID" >&2; exit 1; }
+job_id=$(ssh "${ssh_args[@]}" "PROJECT=$RRM_PSC_PROJECT RRM_PERSIST_ROOT=$RRM_PSC_ROOT sbatch -A $RRM_PSC_PROJECT $remote_source/scripts/psc_rrm_office.sbatch $remote_request $remote_source | awk '/Submitted batch job/{print \$4}'")
+[[ "$job_id" =~ ^[0-9]+$ ]] || { echo "PSC submission did not return a Slurm job ID (got: $job_id)" >&2; exit 1; }
 
 deadline=$((SECONDS + RRM_PSC_WAIT_S))
 while ssh "${ssh_args[@]}" squeue -h -j "$job_id" 2>/dev/null | grep -q .; do
