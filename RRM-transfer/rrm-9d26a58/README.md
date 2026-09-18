@@ -52,6 +52,29 @@ Other entry points:
 .venv/bin/python simulation/isaac_backend.py                # relation-inference test
 ```
 
+## RRM Command Console & PSC Bridge
+
+The RRM GUI (Command Console) is used for visual intake, reviewing, and approving execution commands. It uses an asynchronous bridge to communicate with PSC.
+
+**Start the console:**
+```bash
+# Requires a previously fetched PSC bundle directory to initialize:
+RRM_PSC_BRIDGE=1 RRM_PSC_USER=<your-psc-username> bash scripts/rrm_command_console.sh <verified-bundle-directory> [port]
+```
+*(The console will be accessible at `http://127.0.0.1:8787` by default)*
+
+**Fetch a historical PSC bundle:**
+```bash
+bash scripts/rrm_office_fetch_import.sh <PSC_JOB_ID>
+```
+
+**Manual PSC Job Submission:**
+If the console's automated background submission fails (due to MFA/Duo prompts blocking the non-interactive SSH key), use this helper script in your terminal to manually push a request created in the GUI:
+```bash
+RRM_PSC_USER=<your-psc-username> bash scripts/rrm_psc_bridge_manual.sh /root/AirStack/.rrm-artifacts/command-requests/<REQUEST_ID>
+```
+*(Reload the GUI history after the Slurm job finishes to view results).*
+
 ## AirStack drone shadow mode
 
 `scripts/airstack_shadow.py` is the first SIL adapter. It observes canonical MAVROS
