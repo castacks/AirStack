@@ -21,10 +21,14 @@ attempt statuses and download inputs or its historical result.
 The database is `/root/AirStack/.rrm-artifacts/command-requests/tasks.sqlite3`.
 The `goals` table stores text, constraint revision, embodiment reference and creation
 time; `runs` stores task linkage, status, artifact directory and execution state.
-Images, request contexts and model results stay in files. No API marks tasks running
-or completed: currently supported statuses are SAVED_NOT_SUBMITTED and
-CANDIDATE_ACCEPTED, both NOT_DISPATCHED. Inference and execution integration are future
-work, so an accepted historical candidate is not presented as a successful flight.
+Images, request contexts and model results stay in files. The lifecycle is explicit:
+`SAVED_NOT_SUBMITTED`, `INFERENCE_QUEUED`, `INFERENCE_RUNNING`, accepted/rejected or
+failed candidate, then `REVIEW_REQUIRED` or recorded approval. Every history entry also
+shows allow-listed downloadable evidence: grounded reconciliation, admission, dispatch
+outcome, STOP delivery/outcome, landing, PSC submission/receipt/result, and exact
+candidate approval. The existing public-action dispatcher is deliberately not enabled
+for a newly approved PSC result in this increment; approval is evidence, not an
+automatic flight.
 
 History survives server restarts. Startup idempotently indexes existing request
 folders, including legacy manifests, and checks their content hashes. Manifests
@@ -56,11 +60,14 @@ the foreground console; it does not stop the simulator.
 
 ## What the controls do
 
-- **Refresh camera** subscribes briefly to the current front-camera image, with an
-  eight-second observation timeout. The snapshot shows capture time and source
-  simulation timestamp; an unchanged timestamp is flagged. It is not a video stream.
-- **Save inference request** preserves a new `input.json`, original frozen
-  `input.png` and `request.json` under `.rrm-artifacts/command-requests/<request-id>/`.
+- **Refresh camera** subscribes briefly and read-only to the current front-camera image,
+  canonical MAVROS state and canonical odometry. Refresh twice: the second capture must
+  prove that the Isaac image timestamp advanced. It rejects a non-`camera_left` image,
+  disconnected MAVROS, non-`map → base_link` odometry, malformed values, stale capture,
+  or image/metadata checksum mismatch.
+- **Save inference request** preserves a new `input.json`, live `input.png`,
+  `observation.json` and `request.json` under
+  `.rrm-artifacts/command-requests/<request-id>/`.
   Files are also downloadable through the page. Each request has new task/state
   identifiers, while its frozen observation times and declared capabilities stay
   unchanged. The existing inference CLI can load the saved input.
@@ -69,11 +76,19 @@ the foreground console; it does not stop the simulator.
 - **Open Foxglove** opens the Foxglove web app. Keep the existing Mac forwarding
   active and connect to `ws://127.0.0.1:8766` as in the Office runbook.
 
-Saving does not submit a PSC job, run Cosmos, import a new result, or dispatch a
-drone task. The current PSC Office batch still uses its fixed example context;
-do not assume it will automatically consume these new request files. Camera
-refreshes do not replace the frozen model input or establish fresh semantic facts.
-The current camera view is mostly floor/wall; stage/map alignment is not validated.
+**Submit to PSC** queues only that immutable, live-observation-validated request in a
+background worker. It records the PSC job ID and accepts a result only when the returned
+input/image hashes, reviewed scene manifest, C04/C05 candidate and drone-adapter
+proposal all validate. The browser accepts no PSC password, SSH private key or Hugging
+Face token. To enable the bridge, the operator must have an approved non-interactive
+PSC key/agent, set `RRM_PSC_USER`, and start the console with `RRM_PSC_BRIDGE=1`.
+Without that configuration, submission fails closed.
+
+The static scene catalog is labelled separately from the live observation; a camera
+image alone does not establish that a marker is currently visible or that a new plan is
+safe to execute. **Approve reviewed candidate** binds a recorded operator approval to
+the candidate's exact proposal SHA-256 and still does not dispatch. A later dispatch
+increment must consume that exact record and recheck fresh scene/vehicle evidence.
 
 ## Exact-proposal approval and stop
 

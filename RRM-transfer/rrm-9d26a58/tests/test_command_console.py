@@ -1,7 +1,10 @@
 """Task intake and HTTP boundary tests; no model, ROS or drone execution."""
 from datetime import datetime, timezone
+import hashlib
 import json
 from pathlib import Path
+import shutil
+import secrets
 import sys
 import threading
 import tempfile
@@ -14,6 +17,7 @@ from urllib.request import Request, urlopen
 sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
 from rrm_command_console import Console, make_handler, save_request
 from rrm_cosmos_reason2 import load_context
+from rrm.cosmos_reason2 import parse_cosmos_candidate, render_cosmos_prompt
 from rrm.airstack_drone import DroneTaskKind, DroneTaskProposal, MapWaypoint
 from rrm.execution_supervisor import ExecutionSupervisor, RunningDispatch
 import test_office_import
@@ -68,6 +72,37 @@ def grounded_evidence(**changes):
     }
     values.update(changes)
     return values
+
+
+def live_observation(**changes):
+    values = {
+        "capture_mode": "read_only",
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "source_stamp_ns": 456,
+        "source_stamp_advanced": True,
+        "frame_id": "camera_left",
+        "sha256": "a" * 64,
+        "vehicle": {
+            "connected": True,
+            "armed": False,
+            "odometry_frame_id": "map",
+            "odometry_child_frame_id": "base_link",
+            "odometry_stamp_ns": 123,
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.02,
+            "linear_speed_m_s": 0.01,
+        },
+    }
+    values.update(changes)
+    return values
+
+
+def seed_live_capture(app):
+    app.latest_camera = b"live-image"
+    app.latest_camera_metadata = live_observation(
+        sha256=hashlib.sha256(app.latest_camera).hexdigest()
+    )
 
 
 class ExecutionSupervisorTests(unittest.TestCase):
@@ -306,6 +341,7 @@ class CommandConsoleTests(unittest.TestCase):
 
     def test_goal_reuse_and_restart_preserve_independent_runs(self):
         app = Console(self.bundle, self.output, "/unused-capture.py")
+        seed_live_capture(app)
         one = app.save("Approach the blue marker.")
         two = app.save("Approach the blue marker.", one["goal_id"])
         self.assertNotEqual(one["request_id"], two["request_id"])
@@ -321,12 +357,119 @@ class CommandConsoleTests(unittest.TestCase):
 
     def test_selected_goal_cannot_be_rewritten(self):
         app = Console(self.bundle, self.output, "/unused-capture.py")
+        seed_live_capture(app)
         original = app.save("Blue marker only.")
         before = sorted(self.output.glob("*/request.json"))
         with self.assertRaisesRegex(ValueError, "new goal"):
             app.save("Orange marker instead.", original["goal_id"])
         self.assertEqual(before, sorted(self.output.glob("*/request.json")))
         self.assertEqual(app.store.get_goal(original["goal_id"])["objective"], "Blue marker only.")
+
+    def test_live_observation_refuses_stale_paused_or_wrong_frame_before_save(self):
+        cases = (
+            {"source_stamp_advanced": False},
+            {"frame_id": "other_camera"},
+            {"captured_at": "2000-01-01T00:00:00+00:00"},
+            {"vehicle": {"connected": False}},
+        )
+        for changes in cases:
+            with self.subTest(changes=changes):
+                app = Console(self.bundle, self.output / secrets.token_hex(2), "/unused-capture.py")
+                seed_live_capture(app)
+                if "vehicle" in changes:
+                    app.latest_camera_metadata["vehicle"].update(changes["vehicle"])
+                else:
+                    app.latest_camera_metadata.update(changes)
+                with self.assertRaises(ValueError):
+                    app.save("Approach the blue marker.")
+
+    def test_async_psc_result_is_run_bound_validated_and_requires_approval(self):
+        fixture_bundle = self.bundle
+
+        class FakeBridge:
+            def run(self, request_dir):
+                bundle = request_dir.parent / "fake-psc-result"
+                bundle.mkdir()
+                shutil.copy(request_dir / "input.json", bundle / "input.json")
+                shutil.copy(request_dir / "input.png", bundle / "input.png")
+                shutil.copy(fixture_bundle / "scene_manifest.json", bundle / "scene_manifest.json")
+                context = load_context(bundle / "input.json")
+                raw = json.dumps({
+                    "status": "READY", "grounded_entities": ["blue_marker"],
+                    "grounded_goal": {"name": "near", "subject": "$self", "obj": "blue_marker"},
+                    "ambiguity_refs": [], "explanation": "fresh synthetic result",
+                    "actions": [{"id": "fresh-nav", "verb": "NAVIGATE_TO",
+                                 "targets": ["blue_marker"], "dependencies": []}],
+                    "recovery_budget": 0,
+                })
+                (bundle / "result.json").write_text(json.dumps({
+                    "raw_response": raw, "prompt": render_cosmos_prompt(context),
+                    "candidate": parse_cosmos_candidate(raw, context).model_dump(mode="json"),
+                    "input_sha256": hashlib.sha256((bundle / "input.json").read_bytes()).hexdigest(),
+                    "media_sha256": hashlib.sha256((bundle / "input.png").read_bytes()).hexdigest(),
+                    "execution_dispatch": False,
+                }))
+                return {"job_id": "999", "bundle_dir": str(bundle)}
+
+        app = Console(self.bundle, self.output, "/unused-capture.py", psc_bridge=FakeBridge())
+        seed_live_capture(app)
+        saved = app.save("Approach the blue marker.")
+        app.submit_to_psc(saved["request_id"])
+        wait_for(lambda: app.store.get_run(saved["request_id"])["status"] == "CANDIDATE_ACCEPTED")
+        run = app.store.get_run(saved["request_id"])
+        self.assertEqual(run["execution_state"], "REVIEW_REQUIRED")
+        self.assertEqual(run["psc_job_id"], "999")
+        with self.assertRaisesRegex(ValueError, "changed"):
+            app.approve_candidate(saved["request_id"], "0" * 64)
+        approved = app.approve_candidate(saved["request_id"], run["proposal_sha256"])
+        self.assertEqual(approved["execution_state"], "APPROVED")
+        events = next(run for goal in app.store.history() for run in goal["runs"]
+                      if run["run_id"] == saved["request_id"])["events"]
+        self.assertEqual({event["kind"] for event in events},
+                         {"live_observation", "psc_submission", "psc_receipt", "psc_result",
+                          "proposal", "candidate_approval"})
+        self.assertFalse((self.output / "execution").exists())
+
+    def test_async_psc_mismatched_result_fails_without_candidate_or_dispatch(self):
+        fixture_bundle = self.bundle
+
+        class BadBridge:
+            def run(self, request_dir):
+                bundle = request_dir.parent / "bad-psc-result"
+                bundle.mkdir()
+                for name in ("input.json", "input.png"):
+                    shutil.copy(request_dir / name, bundle / name)
+                shutil.copy(fixture_bundle / "scene_manifest.json", bundle / "scene_manifest.json")
+                (bundle / "input.png").write_bytes(b"substituted-image")
+                (bundle / "result.json").write_text("{}")
+                return {"job_id": "998", "bundle_dir": str(bundle)}
+
+        app = Console(self.bundle, self.output, "/unused-capture.py", psc_bridge=BadBridge())
+        seed_live_capture(app)
+        saved = app.save("Approach the blue marker.")
+        app.submit_to_psc(saved["request_id"])
+        wait_for(lambda: app.store.get_run(saved["request_id"])["status"] == "INFERENCE_FAILED")
+        run = app.store.get_run(saved["request_id"])
+        self.assertEqual(run["execution_state"], "NOT_DISPATCHED")
+        events = next(run for goal in app.store.history() for run in goal["runs"]
+                      if run["run_id"] == saved["request_id"])["events"]
+        self.assertEqual(events[-1]["kind"], "psc_failure")
+        self.assertFalse((self.output / "execution").exists())
+
+    def test_reference_execution_evidence_is_visible_and_allow_listed(self):
+        app = Console(self.bundle, self.output, "/unused-capture.py")
+        app.execution.decide("REJECT", app.execution.proposal_sha256)
+        app.index_execution_evidence()
+        reference = next(run for goal in app.store.history() for run in goal["runs"]
+                         if run["run_id"] == app.reference_run_id)
+        admission = next(event for event in reference["events"] if event["kind"] == "admission")
+        server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(app))
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        with urlopen(f"http://127.0.0.1:{server.server_port}/runs/{app.reference_run_id}/evidence/{admission['event_id']}") as response:
+            self.assertEqual(json.load(response)["decision"], "REJECT")
 
     def test_legacy_and_unindexed_requests_are_recovered_once(self):
         saved = save_request(self.bundle, self.output, "Stored before database existed.")
@@ -373,6 +516,7 @@ class CommandConsoleTests(unittest.TestCase):
 
     def test_http_intake_requires_nonce_and_serves_only_request_files(self):
         app = Console(self.bundle, self.output, "/unused-capture.py")
+        seed_live_capture(app)
         server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(app))
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()

@@ -1,5 +1,47 @@
 # RRM remote Codex handoff
 
+## LATEST: per-attempt evidence, live-observation intake and PSC bridge boundary — 2026-09-18 16:20 UTC
+
+The command console now records and displays immutable run history for both the
+historical reference and new goals. A run can expose only allow-listed, checksum-checked
+downloads for reconciliation, admission, dispatch outcome, STOP request/delivery,
+landing, live observation, PSC submission/receipt/result, proposal and approval
+records. The SQLite migration preserves old goals/runs and adds explicit inference and
+review lifecycle states.
+
+New requests no longer use the historical frozen image. The console requires two
+read-only Isaac captures so the second image proves source-timestamp progression; it
+then binds the image checksum, `camera_left` frame, capture time, MAVROS connection,
+and canonical `map -> base_link` odometry to `observation.json`. Paused timestamps,
+wrong frames, stale wall captures, disconnected vehicles, malformed state and checksum
+mismatches fail before a request is saved or submitted. A live Office capture confirmed
+`camera_left`, MAVROS connected/disarmed and canonical grounded odometry. This is
+transport/freshness evidence only, not a claim that a camera image establishes marker
+visibility or flight safety.
+
+`rrm/psc_pipeline.py` runs one immutable request in a background worker through a
+configured non-interactive bridge. The bridge stages that request and source snapshot,
+submits the PSC batch, waits/fetches its own result bundle, and returns a PSC job ID.
+The result is accepted only when returned input/image hashes, reviewed scene manifest,
+C04/C05 candidate and drone-adapter proposal all validate. Candidate approval requires
+the exact stored proposal SHA-256 and writes `execution_dispatch: false`; it does not
+yet route a new plan into the public ActionClient dispatcher. A substituted result fails
+as `INFERENCE_FAILED`, with no candidate or dispatcher.
+
+**External prerequisite:** PSC key management must provide the approved
+non-interactive key/agent used by `RRM_PSC_BRIDGE=1`; the known password-authenticated
+transfer is intentionally not automated by a browser/server process. Do not enter PSC,
+SSH or Hugging Face credentials into the console or repository. The historical PSC
+bundle is absent from the current recreated OSMO workspace, so the live console was not
+restarted here. The simulator and robot were not restarted and no PSC job or robot task
+was sent.
+
+Validation: 94 RRM tests passed, Python sources compiled, relevant shell scripts passed
+`bash -n`, and `git diff --check` passed. The next engineering increment, after PSC
+key authorization, is a single controlled live PSC job followed by a separate design
+for binding result-age/scene/vehicle revalidation and the existing STOP/LAND/reconcile
+supervisor to an explicitly approved new proposal. Do not bypass that boundary.
+
 ## LATEST: grounded reconciliation and verified STOP → LAND trial — 2026-09-18 06:36 UTC
 
 The console can now begin a new execution attempt only after a read-only observer

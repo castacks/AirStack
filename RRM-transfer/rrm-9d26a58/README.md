@@ -1,10 +1,9 @@
-> **Current continuation (2026-09-18):** Read [HANDOFF.md](HANDOFF.md) first. The [localhost command console](docs/scrum-8/command-console.md) supports goal/attempt history, grounded-state reconciliation, explicit exact-plan approval, measured STOP / HOLD, verified LAND NOW, task intake, and read-only Isaac camera refresh alongside Foxglove. The latest public-action simulator trial verified cancellation acknowledgement, physical motion stopping, and a connected/disarmed landing. New text commands still stop at saved intake; connecting them to PSC inference and a newly reviewed plan remains deferred. See [evidence](docs/scrum-8/evidence/office-inference-46288765.md) and the [architecture status](docs/scrum-8/README.md). The prototype material below is historical and does not override the current handoff.
+> **Current continuation (2026-09-18):** Read [HANDOFF.md](HANDOFF.md) first. The [localhost command console](docs/scrum-8/command-console.md) now shows immutable reconciliation/admission/STOP/landing evidence in goal history, captures read-only live Isaac image plus canonical vehicle state, and queues each new live-observation request through a credential-free PSC bridge boundary. Returned PSC bundles must pass input/image hashes, scene binding, C04/C05 and adapter validation before an exact-proposal approval can be recorded. Approval remains non-dispatching in this increment. A real PSC worker needs an approved non-interactive PSC key/agent; the browser never accepts credentials. See [evidence](docs/scrum-8/evidence/office-inference-46288765.md) and the [architecture status](docs/scrum-8/README.md). The prototype material below is historical and does not override the current handoff.
 
-The ordered route to full model-to-drone operation is: expose execution evidence in
-history; submit saved goals to PSC inference; validate and explicitly approve each new
-plan; dispatch only through public AirStack task actions; then replace frozen replay
-with fresh live observations and pass an end-to-end simulator suite. The detailed
-safety conditions for all five steps are in `HANDOFF.md`.
+The remaining route to full model-to-drone operation is: provision the approved PSC
+bridge; dispatch only a separately revalidated and explicitly approved plan through
+public AirStack task actions; then prove renewed scene/result/vehicle freshness in an
+end-to-end simulator suite. The detailed safety conditions are in `HANDOFF.md`.
 
 # RRM-1 — Robotics Reasoning Model
 

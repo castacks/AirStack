@@ -3,6 +3,7 @@
   "scene_shortname": "office",
   "launch_script": "rrm_office_visual_eval.py",
   "camera_topic": "/robot_1/sensors/front_stereo/left/image_rect",
+  "camera_frame_id": "camera_left",
   "entity_catalog": "entity_catalog.json",
   "teacher_source_ref": "isaac-office-rrm-visual-eval-v1",
   "markers": {
