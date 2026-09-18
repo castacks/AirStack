@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import sys
 import threading
+import tempfile
 import unittest
 from http.server import ThreadingHTTPServer
 from urllib.error import HTTPError
@@ -11,7 +12,109 @@ from urllib.request import Request, urlopen
 sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
 from rrm_command_console import Console, make_handler, save_request
 from rrm_cosmos_reason2 import load_context
+from rrm.airstack_drone import DroneTaskKind, DroneTaskProposal, MapWaypoint
+from rrm.execution_supervisor import ExecutionSupervisor, RunningDispatch
 import test_office_import
+
+
+class FakeProcess:
+    def __init__(self):
+        self.finished = threading.Event()
+        self.return_code = 0
+
+    def poll(self):
+        return self.return_code if self.finished.is_set() else None
+
+    def wait(self):
+        self.finished.wait(2)
+        return self.return_code
+
+
+def navigation_proposal():
+    return DroneTaskProposal(
+        task_id="office-task", action_id="NAVIGATE_TO", kind=DroneTaskKind.NAVIGATE,
+        frame_id="map", waypoints=(MapWaypoint(x=3.2, y=0.0, z=1.5),),
+        goal_tolerance_m=0.3,
+    )
+
+
+class ExecutionSupervisorTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.launches = []
+        self.stop_calls = 0
+
+        def launch(dispatch_id, run_dir, proposal_path):
+            process = FakeProcess()
+            self.launches.append((dispatch_id, run_dir, proposal_path, process))
+
+            def stop():
+                self.stop_calls += 1
+                process.return_code = 130
+                process.finished.set()
+
+            return RunningDispatch(
+                process=process,
+                request_stop=stop,
+                finalize=lambda code: {"return_code": code, "verdict": "UNCONFIRMED"},
+            )
+
+        self.supervisor = ExecutionSupervisor(
+            navigation_proposal(), Path(self.temp.name), launch
+        )
+
+    def test_exact_explicit_approval_records_before_single_launch(self):
+        with self.assertRaisesRegex(ValueError, "changed"):
+            self.supervisor.decide("APPROVE", "0" * 64)
+        self.assertFalse(self.launches)
+        status = self.supervisor.decide(
+            "APPROVE", self.supervisor.proposal_sha256
+        )
+        self.assertEqual(status["state"], "RUNNING")
+        self.assertEqual(len(self.launches), 1)
+        dispatch_id, run_dir, proposal_path, _ = self.launches[0]
+        admission = json.loads((run_dir / "admission.json").read_text())
+        self.assertEqual(admission["dispatch_id"], dispatch_id)
+        self.assertEqual(admission["proposal_sha256"], self.supervisor.proposal_sha256)
+        self.assertTrue(admission["execution_requested"])
+        self.assertEqual(json.loads(proposal_path.read_text())["action_id"], "NAVIGATE_TO")
+        with self.assertRaisesRegex(ValueError, "already active"):
+            self.supervisor.decide("APPROVE", self.supervisor.proposal_sha256)
+
+    def test_reject_is_durable_and_never_launches(self):
+        status = self.supervisor.decide("REJECT", self.supervisor.proposal_sha256)
+        self.assertEqual(status["state"], "REJECTED")
+        self.assertEqual(status["last_result"]["verdict"], "NOT_DISPATCHED")
+        self.assertFalse(self.launches)
+        admission = next(Path(self.temp.name).glob("*/admission.json"))
+        self.assertFalse(json.loads(admission.read_text())["execution_requested"])
+
+    def test_stop_latches_without_motion_and_blocks_admission(self):
+        status = self.supervisor.request_stop()
+        self.assertTrue(status["stop_latched"])
+        self.assertEqual(status["safety_claim"], "SAFE_UNCONFIRMED")
+        self.assertEqual(self.stop_calls, 0)
+        with self.assertRaisesRegex(ValueError, "stopped"):
+            self.supervisor.decide("APPROVE", self.supervisor.proposal_sha256)
+
+    def test_restart_with_prior_admission_requires_reconciliation(self):
+        self.supervisor.decide("REJECT", self.supervisor.proposal_sha256)
+        restarted = ExecutionSupervisor(
+            navigation_proposal(), Path(self.temp.name), lambda *_: self.fail("must not launch")
+        )
+        status = restarted.status()
+        self.assertEqual(status["state"], "RECONCILIATION_REQUIRED")
+        self.assertTrue(status["stop_latched"])
+
+    def test_stop_interrupts_active_dispatch_once_without_safe_claim(self):
+        self.supervisor.decide("APPROVE", self.supervisor.proposal_sha256)
+        status = self.supervisor.request_stop()
+        self.assertEqual(self.stop_calls, 1)
+        self.assertEqual(status["state"], "STOP_REQUESTED")
+        self.assertEqual(status["safety_claim"], "SAFE_UNCONFIRMED")
+        stop_record = next(Path(self.temp.name).glob("*/stop-1.json"))
+        self.assertTrue(json.loads(stop_record.read_text())["cancel_requested"])
 
 
 class CommandConsoleTests(unittest.TestCase):
@@ -114,6 +217,11 @@ class CommandConsoleTests(unittest.TestCase):
         with urlopen(base + "/api/goals") as response:
             goals = json.load(response)["goals"]
             self.assertEqual(len(goals), 2)
+        with urlopen(base + "/api/execution") as response:
+            execution = json.load(response)
+            self.assertEqual(execution["state"], "READY_FOR_APPROVAL")
+            self.assertFalse(execution["active"])
+            self.assertEqual(len(execution["proposal_sha256"]), 64)
         with urlopen(base + f"/runs/{saved['request_id']}/request.json") as response:
             self.assertEqual(json.load(response)["goal_id"], saved["goal_id"])
         with self.assertRaises(HTTPError) as error:

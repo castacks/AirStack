@@ -2,7 +2,8 @@
 
 The console combines task entry, the previous verified Cosmos plan, a frozen model
 reference image and a refreshable read-only Isaac camera view. Foxglove can stay
-open alongside it for continuous telemetry and trajectories.
+open alongside it for continuous telemetry and trajectories. It now also exposes a
+narrow, explicitly gated Office-demo execution boundary for that one imported plan.
 
 Update 2026-09-18: SQLite-backed goal and attempt history is available on the same
 port. Refresh the browser after the console update. The previous accepted inference
@@ -73,6 +74,39 @@ drone task. The current PSC Office batch still uses its fixed example context;
 do not assume it will automatically consume these new request files. Camera
 refreshes do not replace the frozen model input or establish fresh semantic facts.
 The current camera view is mostly floor/wall; stage/map alignment is not validated.
+
+## Exact-proposal approval and stop
+
+The **Exact proposal execution** panel displays the imported proposal, public task
+action, exact goal payload and a canonical SHA-256 digest. **Approve & dispatch**
+requires a second confirmation and sends that exact digest to the loopback server.
+The server writes `admission.json` before launching the existing
+`airstack_drone_dispatch.py --execute --verify-observation` adapter. A changed digest,
+duplicate active execution, prior decision or latched stop fails closed. Approval is
+for the displayed historical PSC proposal only; it does not approve newly saved
+requests, and no approval happens automatically.
+
+**Reject** records `NOT_DISPATCHED` and makes that console instance terminal for the
+proposal. **STOP** first closes admission and increments the stop generation, then
+interrupts an active dispatcher. Once its ROS goal has been accepted, the dispatcher
+handles that interrupt by requesting public action cancellation. The page intentionally
+reports `SAFE_UNCONFIRMED`: cancellation delivery, acknowledgement or process exit is
+not independent proof that the drone stopped. Reconcile vehicle state and restart the
+console before any later admission.
+
+Execution evidence is stored under
+`.rrm-artifacts/command-requests/execution/<dispatch-id>/`, including the exact
+proposal, admission record, dispatcher log, outcome when available and stop records.
+These artifacts are ephemeral and gitignored.
+
+The separate **Restart simulation (development)** button preserves earlier development
+functionality. It restarts simulator/robot services and drops WebRTC temporarily. It is
+not C08, not an emergency stop, and not evidence of a safe physical state.
+
+This is a narrow single-process demonstration boundary, not the complete distributed
+C06/C08 design in `interfaces.md`: it does not provide authenticated multi-user
+authority, durable cross-host deduplication, restart reconciliation, or independent
+motion-stopped/safe-confirmed sensing. Those omissions must remain explicit in results.
 
 ## Verification, 2026-09-17
 

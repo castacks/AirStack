@@ -1,5 +1,48 @@
 # RRM remote Codex handoff
 
+## LATEST: C06 approval and C08 stop demo boundary — 2026-09-18 05:18 UTC
+
+This section supersedes the later “Pending Implementation” lines near the bottom of
+the file. The narrow command-console boundary is included in the current safety
+checkpoint. No flight or valid approval was sent while implementing it.
+
+- `rrm/execution_supervisor.py` binds the one imported PSC proposal to a canonical
+  SHA-256 digest, writes an admission record before launch, permits one active
+  dispatcher, and launches only the existing public-ActionClient dispatcher.
+- The console/UI now displays the exact action and goal, requires explicit
+  **Approve & send** or **Reject**, and rejects stale plan fingerprints. New task-intake
+  requests are still inference-only and cannot inherit this historical approval.
+- **STOP** latches admission closed first, increments a stop generation, and then
+  interrupts the active dispatcher. After action acceptance, the existing dispatcher
+  requests ROS cancellation on SIGINT. The UI correctly reports `SAFE_UNCONFIRMED`;
+  cancellation delivery/acknowledgement or process exit is not physical-stop proof.
+- A console restart with any prior admission artifact starts inhibited as
+  `RECONCILIATION_REQUIRED`. This is a narrow single-process demo, not the complete
+  authenticated/distributed C06/C08 contract.
+- The prior uncommitted simulator-restart control remains, but is relabeled
+  **Restart simulation (development)** and explicitly distinguished from C08.
+- Operator-facing text uses plain language such as “plan fingerprint,” “send,” and
+  “new commands blocked”; protocol names remain in evidence and developer docs.
+
+Validation: all 80 RRM tests pass in the robot container; Python compilation,
+`git diff --check`, exact-digest negative-path HTTP validation and the no-direct-control
+source scan pass. No JavaScript engine is installed in the current host or containers,
+so automated JS parsing was unavailable; the live server successfully served the new
+HTML and required controls. The live invalid-digest attempt returned HTTP 400 and left
+state `READY_FOR_APPROVAL`, `active=false`, `dispatch_id=null`.
+
+Runtime at the last check: console PID 208669 on host loopback port 8787; proposal
+digest `29fe66c2914b27577f285089e598d6a15413e44e023b40e530c19194d221707e`;
+no `airstack_drone_dispatch.py` process; MAVROS connected and disarmed. Isaac, robot
+and GCS containers were left running. Refresh the forwarded browser page to load the
+new controls. Do not click approval without a fresh scene/path review and supervised
+viewer; the current proposal remains `(3.2, 0, 1.5)`.
+
+The checkpoint also includes the later flight's DROAN radius tuning, Office flight
+evidence document, simulator reset UI/backend and appended analysis. The console work
+adds `rrm/execution_supervisor.py`, tests and documentation. Notebook evidence remains
+local and ignored under `notebook/005-rrm-admission-stop/`.
+
 ## STOP HERE: exact continuation state — 2026-09-18 00:20 UTC
 
 This section is authoritative over older “deferred / not implemented” language
@@ -782,3 +825,29 @@ shaders, kept the node alive, and exposed a live navigate action server. Compose
 configuration validation passed. The manual diagnostic node was stopped afterward;
 apply the patched Compose command through a clean robot-container recreation and rerun
 preflight before any later flight.
+
+## Office Learned-Proposal Navigation Fix — 2026-09-18 UTC
+
+A subsequent flight trial was executed with the patched Xvfb startup. The dispatcher successfully connected to the `NAVIGATE_TO` action server. The takeoff and land actions were fully verified, yielding perfectly clean odometry (the drone maintained a stable `(0, 0)` XY hold due to a clean simulator boot). However, the `NAVIGATE_TO` goal (waypoint `3.2, 0, 1.5`) timed out after 120s with the drone hovering near the origin.
+
+Root cause analysis revealed that the `droan_local_planner` configuration (`config/droan.yaml`) had a highly restrictive `robot_radius: 1.0` and `obstacle_check_radius: 1.0`. The `blue_marker` cube in the scene is located at `x=4.0` with a size of 0.8m (front face at 3.6m). With a 1.0m radius, the drone perceived the target waypoint `3.2` as being deep inside an obstacle inflation zone and refused to plan a forward path. The planner configuration was subsequently tuned to realistic dimensions (`robot_radius: 0.3`, `obstacle_check_radius: 0.4`) and the autonomy nodes restarted.
+
+## C06/C08 UI & Autonomy Pipeline Requirements
+
+In preparation for closing the execution loop, the following architectural and UI changes were discussed and/or implemented in the Command Console (`scripts/ui/command_console.html`):
+
+1. **GUI Fixes & Reset Functionality:**
+   - The "Saved goals & history" panel was made scrollable (`overflow-y: auto`) to accommodate lengthy evaluation sessions.
+   - A `Stop & Reset Drone` button was added, which invokes an `/api/reset` endpoint to cleanly run `airstack down` and `airstack up`. (Note: restarting the containers causes the WebRTC stream on `127.0.0.1` to temporarily drop, reinforcing the need for ROS-level stop/cancel controls).
+   - Foxglove's `/map` voxel grid was adjusted to be transparent to allow clear visualization of the robot.
+
+2. **C08 Stop Authority & Quick Actions (Pending Implementation):**
+   - The user requested dedicated Play/Pause, Takeoff, Land, and Reset (RTL) buttons.
+   - Instead of restarting the simulator to reset the position, a ROS-level RTL (`NAVIGATE_TO (0, 0, 0.07)`) and a ROS-level Task Cancel (C08 Stop Authority) should be implemented to abort actions mid-flight without breaking the WebRTC feed.
+
+3. **C06 Admission Control (Pending Implementation):**
+   - The GUI explicitly displays "Task intake · execution disconnected", enforcing that the console is an intake boundary, not an autonomous dispatcher.
+   - The user requested that the GUI natively present the Cosmos-Reason2 `result.json` flight plan and require explicit "Accept/Reject" approval. This fulfills the **C06 Admission Control** milestone.
+   - While the user articulated a Level 5 autonomy vision (where the `NumericSafetyVerifier` replaces the need for human C06 approval and prioritizes its own queue), the immediate Sprint 8 requirement demands that C06 remains in place until the model's bounds are fully validated.
+
+Next operator: Implement the C06 Admission Control UI to read `result.json` and trigger `airstack_drone_dispatch.py` upon approval, and add the C08 ROS-level Stop button to the GUI.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Local task intake and read-only camera snapshots. No inference or dispatch."""
+"""Local task intake, observation, and explicitly admitted Office demo dispatch."""
 from __future__ import annotations
 
 import argparse
@@ -19,6 +19,7 @@ import uuid
 
 from rrm_cosmos_reason2 import load_context
 from rrm_import_office import import_bundle
+from rrm.execution_supervisor import ExecutionSupervisor, RunningDispatch
 from rrm.task_store import TaskStore
 
 
@@ -70,6 +71,79 @@ class Console:
         self.camera_lock = threading.Lock()
         self.last_stamp = None
         self.latest_camera = None
+        self.execution = ExecutionSupervisor(
+            self.decision.proposal,
+            self.output / "execution",
+            self._launch_dispatch,
+        )
+
+    def _launch_dispatch(self, dispatch_id: str, run_dir: Path,
+                         proposal_path: Path) -> RunningDispatch:
+        """Stage and launch the existing ActionClient-only adapter in the robot container."""
+        container = "airstack-robot-desktop-1"
+        remote_root = f"/tmp/rrm-console-dispatch-{dispatch_id}"
+        remote_source = remote_root + "/source"
+        remote_proposal = remote_root + "/proposal.json"
+        remote_outcome = remote_root + "/outcome.json"
+        remote_pid = remote_root + "/dispatcher.pid"
+        source_root = Path(__file__).resolve().parents[1]
+        subprocess.run(["docker", "exec", container, "mkdir", "-p", remote_source],
+                       check=True, capture_output=True, timeout=10)
+        subprocess.run(["docker", "cp", str(source_root) + "/.",
+                        f"{container}:{remote_source}"],
+                       check=True, capture_output=True, timeout=30)
+        subprocess.run(["docker", "cp", str(proposal_path),
+                        f"{container}:{remote_proposal}"],
+                       check=True, capture_output=True, timeout=10)
+        command = (
+            "source /root/AirStack/robot/ros_ws/install/local_setup.bash; "
+            f"echo \"$$\" > {remote_pid}; "
+            f"PYTHONPATH=/tmp/rrm-canonical-deps:{remote_source} exec python3 "
+            f"{remote_source}/scripts/airstack_drone_dispatch.py "
+            f"--proposal-json {remote_proposal} --execute --verify-observation "
+            f"--action-timeout-s 120 --outcome-json {remote_outcome}"
+        )
+        log_handle = (run_dir / "dispatcher.log").open("wb")
+        try:
+            process = subprocess.Popen(
+                ["docker", "exec", "-e", "ROS_DOMAIN_ID=1", container,
+                 "bash", "-lc", command],
+                stdout=log_handle,
+                stderr=subprocess.STDOUT,
+            )
+        except Exception:
+            log_handle.close()
+            raise
+
+        def request_stop() -> None:
+            pid_result = subprocess.run(
+                ["docker", "exec", container, "cat", remote_pid],
+                check=True, capture_output=True, text=True, timeout=5,
+            )
+            pid = pid_result.stdout.strip()
+            if not pid.isdigit():
+                raise RuntimeError("dispatcher PID record is invalid")
+            subprocess.run(["docker", "exec", container, "kill", "-INT", pid],
+                           check=True, capture_output=True, timeout=5)
+
+        def finalize(return_code: int) -> dict:
+            log_handle.close()
+            outcome_path = run_dir / "outcome.json"
+            exists = subprocess.run(
+                ["docker", "exec", container, "test", "-r", remote_outcome],
+                capture_output=True, timeout=5,
+            ).returncode == 0
+            if exists:
+                subprocess.run(["docker", "cp", f"{container}:{remote_outcome}",
+                                str(outcome_path)],
+                               check=True, capture_output=True, timeout=10)
+                result = json.loads(outcome_path.read_text(encoding="utf-8"))
+                result["return_code"] = return_code
+                return result
+            return {"return_code": return_code, "verdict": "UNCONFIRMED",
+                    "reason": "dispatcher_produced_no_outcome_record"}
+
+        return RunningDispatch(process=process, request_stop=request_stop, finalize=finalize)
 
     def recover_requests(self):
         """Idempotently index older folders or requests saved before an interrupted DB write."""
@@ -151,6 +225,8 @@ def make_handler(app: Console):
                                      "decision": app.decision.model_dump(mode="json")})
             if path == "/api/goals":
                 return self.respond({"goals": app.store.history()})
+            if path == "/api/execution":
+                return self.respond(app.execution.status())
             if path == "/reference.png":
                 return self.respond((app.bundle / "input.png").read_bytes(), "image/png")
             if path == "/camera.png" and app.latest_camera is not None:
@@ -185,9 +261,25 @@ def make_handler(app: Console):
                     return self.respond(app.save(value.get("objective"), value.get("goal_id")), status=201)
                 if self.path == "/api/camera":
                     return self.respond(app.capture())
+                if self.path == "/api/admission":
+                    return self.respond(app.execution.decide(
+                        value.get("decision"), value.get("proposal_sha256")
+                    ))
+                if self.path == "/api/stop":
+                    return self.respond(app.execution.request_stop())
+                if self.path == "/api/reset":
+                    import subprocess
+                    try:
+                        subprocess.run(["./airstack.sh", "down", "isaac-sim-livestream", "robot-desktop"], cwd="/root/AirStack", check=True)
+                        subprocess.run(["./airstack.sh", "up", "--sim", "isaac", "--scene", "office", "--wait"], cwd="/root/AirStack", check=True)
+                        return self.respond({"status": "reset complete"})
+                    except subprocess.SubprocessError as e:
+                        return self.respond({"error": f"Failed to reset: {str(e)}"}, status=500)
                 self.respond({"error": "Not found"}, status=404)
             except (ValueError, TypeError) as error:
                 self.respond({"error": str(error)}, status=400)
+            except RuntimeError as error:
+                self.respond({"error": str(error)}, status=409)
             except sqlite3.Error:
                 self.respond({"error": "Task database unavailable. Saved artifacts are retained; restart to reindex."}, status=503)
             except (subprocess.SubprocessError, OSError):
@@ -204,7 +296,7 @@ def main():
     args = parser.parse_args()
     app = Console(args.bundle, args.output_dir, args.camera_script)
     server = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(app))
-    print(f"RRM console: http://127.0.0.1:{server.server_port} — intake and camera only", flush=True)
+    print(f"RRM console: http://127.0.0.1:{server.server_port} — intake, review, and gated execution", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
