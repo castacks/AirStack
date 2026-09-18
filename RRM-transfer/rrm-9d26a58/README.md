@@ -83,6 +83,25 @@ RRM_PSC_USER=<your-psc-username> bash scripts/rrm_psc_bridge_manual.sh /root/Air
 ```
 *(Reload the GUI history after the Slurm job finishes to view results).*
 
+## Loading an Isaac Sim Scene (AirStack)
+
+When running AirStack (either locally or via OSMO), you can specify which Isaac Sim scene to load using the `--scene` flag or the equivalent environment variable `ISAAC_SIM_SCENE`.
+
+**Locally (via airstack CLI):**
+```bash
+./airstack.sh up --sim isaac --scene office
+```
+
+**Remotely (via OSMO workflow):**
+When submitting the `airstack-dev.yaml` workflow to OSMO, use the `--set-env` argument to override the default scene:
+```bash
+osmo workflow submit osmo/workflows/airstack-dev.yaml \
+  --pool <gpu-pool> \
+  --set-env "SSH_PUB_KEY=$(cat ~/.ssh/id_ed25519.pub)" \
+  --set-env "ISAAC_SIM_SCENE=office"
+```
+*(Other configurable parameters like `NUM_ROBOTS=1` or `ISAAC_SIM_HEADLESS=1` can also be passed this way. Refer to the AirStack documentation and `airstack.sh --help` for the full list of parameters).*
+
 ## AirStack drone shadow mode (OSMO)
 
 `scripts/airstack_shadow.py` is the first SIL adapter. It observes canonical MAVROS
