@@ -1,4 +1,5 @@
 """Task intake and HTTP boundary tests; no model, ROS or drone execution."""
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 import sys
@@ -47,6 +48,26 @@ def wait_for(predicate, timeout=2.0):
             return
         time.sleep(0.01)
     raise AssertionError("condition was not reached before timeout")
+
+
+def grounded_evidence(**changes):
+    values = {
+        "schema_version": "rrm-grounded-observation/v1",
+        "observed_at": datetime.now(timezone.utc).isoformat(),
+        "robot_name": "robot_1",
+        "connected": True,
+        "armed": False,
+        "frame_id": "map",
+        "child_frame_id": "base_link",
+        "source_stamp_ns": 123,
+        "odometry_samples": 3,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.02,
+        "linear_speed_m_s": 0.01,
+    }
+    values.update(changes)
+    return values
 
 
 class ExecutionSupervisorTests(unittest.TestCase):
@@ -132,6 +153,55 @@ class ExecutionSupervisorTests(unittest.TestCase):
         stop_record = next(Path(self.temp.name).glob("*/stop-1.json"))
         self.assertTrue(json.loads(stop_record.read_text())["cancel_requested"])
 
+    def test_stop_reports_verified_only_from_physical_motion_evidence(self):
+        def launch(*_):
+            process = FakeProcess()
+
+            def stop():
+                process.return_code = 7
+                process.finished.set()
+
+            return RunningDispatch(
+                process=process,
+                request_stop=stop,
+                finalize=lambda code: {
+                    "return_code": code,
+                    "verdict": "MOTION_STOPPED",
+                    "cancel_acknowledged": True,
+                    "physical_stop_verified": True,
+                },
+            )
+
+        supervisor = ExecutionSupervisor(
+            navigation_proposal(), Path(self.temp.name) / "verified-stop", launch
+        )
+        supervisor.decide("APPROVE", supervisor.proposal_sha256)
+        supervisor.request_stop()
+        wait_for(lambda: supervisor.status()["state"] == "STOPPED_VERIFIED")
+        self.assertEqual(supervisor.status()["safety_claim"], "MOTION_STOP_VERIFIED")
+
+    def test_land_completion_distinguishes_verified_from_unconfirmed(self):
+        for verdict, expected_state, expected_claim in (
+            ("VERIFIED", "LAND_VERIFIED", "GROUNDED_VERIFIED"),
+            ("UNCONFIRMED", "LAND_FINISHED_UNCONFIRMED", "SAFE_UNCONFIRMED"),
+        ):
+            with self.subTest(verdict=verdict):
+                root = Path(self.temp.name) / verdict.lower()
+
+                def launch(*_):
+                    process = FakeProcess()
+                    return RunningDispatch(
+                        process=process,
+                        request_stop=lambda: None,
+                        finalize=lambda code: {"return_code": code, "verdict": verdict},
+                    )
+
+                supervisor = ExecutionSupervisor(navigation_proposal(), root, launch)
+                supervisor.request_land()
+                supervisor.running.process.finished.set()
+                wait_for(lambda: supervisor.status()["state"] == expected_state)
+                self.assertEqual(supervisor.status()["safety_claim"], expected_claim)
+
     def test_land_now_launches_typed_public_land_action_when_idle(self):
         status = self.supervisor.request_land()
         self.assertEqual(status["state"], "LANDING")
@@ -193,6 +263,35 @@ class ExecutionSupervisorTests(unittest.TestCase):
         self.assertEqual(self.stop_calls, 1)
         self.assertIn(status["state"], {"STOP_REQUESTED", "STOPPED_UNCONFIRMED"})
         wait_for(lambda: self.supervisor.status()["state"] == "STOPPED_UNCONFIRMED")
+
+    def test_grounded_reconciliation_persists_and_reopens_exact_plan(self):
+        self.supervisor.request_stop()
+        status = self.supervisor.reconcile_grounded(grounded_evidence())
+        self.assertEqual(status["state"], "READY_FOR_APPROVAL")
+        self.assertFalse(status["stop_latched"])
+        self.assertIsNotNone(status["reconciliation_id"])
+        record_path = next(Path(self.temp.name).glob("reconciliations/*.json"))
+        record = json.loads(record_path.read_text())
+        self.assertTrue(record["normal_admission_reopened"])
+        self.assertFalse(record["evidence"]["armed"])
+
+    def test_reconciliation_rejects_unproven_ground_state(self):
+        bad_cases = (
+            {"connected": False},
+            {"armed": True},
+            {"z": 0.31},
+            {"linear_speed_m_s": 0.11},
+            {"frame_id": "odom"},
+            {"odometry_samples": 2},
+            {"observed_at": "not-a-time"},
+        )
+        for index, changes in enumerate(bad_cases):
+            root = Path(self.temp.name) / f"bad-{index}"
+            supervisor = ExecutionSupervisor(navigation_proposal(), root, lambda *_: None)
+            supervisor.request_stop()
+            with self.subTest(changes=changes), self.assertRaisesRegex(ValueError, "Cannot"):
+                supervisor.reconcile_grounded(grounded_evidence(**changes))
+            self.assertTrue(supervisor.status()["stop_latched"])
 
 
 class CommandConsoleTests(unittest.TestCase):
@@ -306,6 +405,14 @@ class CommandConsoleTests(unittest.TestCase):
                             headers={"X-RRM-Token": state["token"]})) as response:
             self.assertEqual(json.load(response)["state"], "LANDING")
         self.assertEqual(land_calls, [True])
+        reconcile_calls = []
+        app.reconcile_grounded = lambda: reconcile_calls.append(True) or {
+            "state": "READY_FOR_APPROVAL"
+        }
+        with urlopen(Request(base + "/api/reconcile", data=b"{}",
+                            headers={"X-RRM-Token": state["token"]})) as response:
+            self.assertEqual(json.load(response)["state"], "READY_FOR_APPROVAL")
+        self.assertEqual(reconcile_calls, [True])
         with urlopen(base + f"/runs/{saved['request_id']}/request.json") as response:
             self.assertEqual(json.load(response)["goal_id"], saved["goal_id"])
         with self.assertRaises(HTTPError) as error:
@@ -316,6 +423,12 @@ class CommandConsoleTests(unittest.TestCase):
         source = (Path(__file__).parents[1] / "scripts" / "rrm_command_console.py").read_text()
         self.assertIn(":$PYTHONPATH", source)
         self.assertIn('"--observation-timeout-s 10 --max-observation-age-s 2 "', source)
+
+    def test_grounded_observer_has_no_command_surface(self):
+        source = (Path(__file__).parents[1] / "scripts" / "airstack_vehicle_observe.py").read_text()
+        self.assertIn("create_subscription(", source)
+        for prohibited in ("ActionClient", "create_publisher(", "create_client("):
+            self.assertNotIn(prohibited, source)
 
 
 if __name__ == "__main__":

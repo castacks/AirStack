@@ -203,6 +203,27 @@ class Console:
         finally:
             self.camera_lock.release()
 
+    def reconcile_grounded(self):
+        observer = "/tmp/rrm-grounded-state-observer.py"
+        source = Path(__file__).with_name("airstack_vehicle_observe.py")
+        subprocess.run(
+            ["docker", "cp", str(source), f"airstack-robot-desktop-1:{observer}"],
+            check=True, capture_output=True, timeout=10,
+        )
+        command = (
+            "source /root/AirStack/robot/ros_ws/install/local_setup.bash; "
+            f"exec python3 {observer} --timeout-s 10 --minimum-odometry-samples 3"
+        )
+        completed = subprocess.run(
+            ["docker", "exec", "-e", "ROS_DOMAIN_ID=1", "airstack-robot-desktop-1",
+             "bash", "-lc", command],
+            check=True, capture_output=True, text=True, timeout=15,
+        )
+        lines = [line for line in completed.stdout.splitlines() if line.startswith("{")]
+        if not lines:
+            raise RuntimeError("The drone state could not be read.")
+        return self.execution.reconcile_grounded(json.loads(lines[-1]))
+
 
 def make_handler(app: Console):
     class Handler(BaseHTTPRequestHandler):
@@ -271,6 +292,8 @@ def make_handler(app: Console):
                     return self.respond(app.execution.request_stop())
                 if self.path == "/api/land":
                     return self.respond(app.execution.request_land())
+                if self.path == "/api/reconcile":
+                    return self.respond(app.reconcile_grounded())
                 if self.path == "/api/reset":
                     import subprocess
                     try:

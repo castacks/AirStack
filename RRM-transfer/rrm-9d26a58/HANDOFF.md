@@ -1,5 +1,68 @@
 # RRM remote Codex handoff
 
+## LATEST: grounded reconciliation and verified STOP → LAND trial — 2026-09-18 06:36 UTC
+
+The console can now begin a new execution attempt only after a read-only observer
+proves a fresh, connected, disarmed, stationary, near-ground vehicle state. The
+observer creates no publisher, service client, or action client. Reconciliation
+preserves all prior evidence, writes a new record under
+`.rrm-artifacts/command-requests/execution/reconciliations/`, increments the stop
+generation, and then reopens the exact proposal for approval. The GUI exposes this as
+**Confirm safe state / new attempt**; it is not an operator-only assertion.
+
+The ROS interrupt race was fixed in `airstack_drone_dispatch.py`: rclpy no longer
+consumes SIGINT and closes its context before the adapter requests cancellation.
+Shutdown is also guarded. A clean simulator trial then produced the first valid stop
+measurement through the public AirStack task actions:
+
+- Takeoff to the 1.5 m request was VERIFIED at z=1.326 m, connected and armed.
+- Navigation dispatch `3b28f3724c104be9be26aeb5ed10f02b` was accepted and reported
+  `navigating` before STOP / HOLD.
+- HTTP STOP returned in 160.034 ms; supervisor-to-process signal delivery was
+  157.980 ms; the action server acknowledged cancellation in 200.890 ms.
+- Three fresh odometry samples verified speed at or below 0.10 m/s in 241.277 ms;
+  observed speed was 0.0112 m/s. Outcome: `MOTION_STOPPED`, not merely acknowledged.
+- LAND NOW dispatch `34f784eee3744f048904a09060522a61` was VERIFIED at z=0.012 m,
+  connected and disarmed.
+
+Runtime evidence is intentionally ignored by git at
+`.rrm-artifacts/command-requests/execution/<dispatch-id>/`. The operator states now
+distinguish `STOPPED_VERIFIED` from `STOPPED_UNCONFIRMED`, and `LAND_VERIFIED` from
+`LAND_FINISHED_UNCONFIRMED`; the browser uses plain-language labels.
+
+Validation: **90 tests and 26 subtests passed**, changed Python compiled, and
+`git diff --check` passed. The console was restarted with the current source and is
+running as PID `236504` on host loopback port 8787. After restart, a fresh grounded
+reconciliation (`9f4d89b2a8264054aaf48c67e9779f8e`) restored
+`READY_FOR_APPROVAL`. The drone is landed/disarmed and no dispatcher is active.
+
+The next engineering step is not another blind flight. Preserve this checkpoint,
+then make the reconciled execution epoch and verified stop/land evidence visible in
+the history UI (and later connect new console goals to PSC inference rather than the
+current frozen Office result). Full model-to-drone automatic connection remains
+deferred.
+
+### Five steps to the full model-to-drone path
+
+1. **Expose execution evidence in the console.** Add reconciliation, approval,
+   dispatch, STOP timing, and landing outcomes to each immutable goal/attempt history
+   entry, using plain operator language.
+2. **Submit saved goals to PSC inference.** Package each newly saved command with its
+   frozen or explicitly refreshed observation, submit it as a tracked PSC job, and
+   import the resulting bundle without blocking the web process.
+3. **Validate and review the new plan.** Apply the existing canonical-ID, capability,
+   constraint, and safety gates to that exact result; show its action payload and plan
+   fingerprint for explicit approval. Never reuse the historical Office approval.
+4. **Dispatch the approved plan through AirStack.** Translate only validated verbs to
+   the existing public task actions, serialize execution, retain STOP / HOLD and LAND
+   NOW priority, and record independent outcome evidence after every action.
+5. **Replace frozen replay with live observations.** Feed timestamped Isaac/Foxglove
+   camera and vehicle state into the request, reject stale or frame-mismatched data,
+   then run an end-to-end simulator acceptance suite before considering real hardware.
+
+Do these in order. Steps 2–5 must retain the current fail-closed reconciliation,
+explicit approval, no-direct-PX4/MAVROS-command boundary, and evidence records.
+
 ## LATEST: latency instrumentation complete; live trial safely aborted — 2026-09-18 06:12 UTC
 
 The dispatcher now records operator-stop receipt, cancellation acknowledgement

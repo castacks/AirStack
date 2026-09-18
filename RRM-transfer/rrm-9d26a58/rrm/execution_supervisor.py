@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
 import json
+import math
 from pathlib import Path
 import threading
 import time
@@ -51,6 +52,7 @@ class ExecutionSupervisor:
         self.active_is_land = False
         self.pending_land: tuple[str, Path, Path] | None = None
         self.last_result: dict | None = None
+        self.reconciliation_id: str | None = None
         self.proposal_bytes = (
             json.dumps(proposal.model_dump(mode="json"), sort_keys=True,
                        separators=(",", ":")) + "\n"
@@ -70,6 +72,14 @@ class ExecutionSupervisor:
             return self._status_locked()
 
     def _status_locked(self) -> dict:
+        safety_claim = None
+        if self.stop_latched:
+            if self.state == "STOPPED_VERIFIED":
+                safety_claim = "MOTION_STOP_VERIFIED"
+            elif self.state == "LAND_VERIFIED":
+                safety_claim = "GROUNDED_VERIFIED"
+            else:
+                safety_claim = "SAFE_UNCONFIRMED"
         return {
             "state": self.state,
             "proposal_sha256": self.proposal_sha256,
@@ -84,8 +94,82 @@ class ExecutionSupervisor:
             ),
             "land_pending": self.pending_land is not None,
             "last_result": self.last_result,
-            "safety_claim": "SAFE_UNCONFIRMED" if self.stop_latched else None,
+            "reconciliation_id": self.reconciliation_id,
+            "safety_claim": safety_claim,
         }
+
+    def reconcile_grounded(self, evidence: dict) -> dict:
+        """Open a new attempt only from fresh, independently observed ground state."""
+        required = {
+            "schema_version", "observed_at", "robot_name", "connected", "armed",
+            "frame_id", "child_frame_id", "source_stamp_ns", "odometry_samples",
+            "x", "y", "z", "linear_speed_m_s",
+        }
+        if not isinstance(evidence, dict) or not required.issubset(evidence):
+            raise ValueError("Safe-state observation is incomplete.")
+        reasons = []
+        if evidence["schema_version"] != "rrm-grounded-observation/v1":
+            reasons.append("unsupported_observation")
+        try:
+            observed_at = datetime.fromisoformat(evidence["observed_at"])
+            observation_age_s = (datetime.now(timezone.utc) - observed_at).total_seconds()
+            if observed_at.tzinfo is None or observation_age_s < -1 or observation_age_s > 5:
+                reasons.append("stale_observation")
+        except (TypeError, ValueError):
+            reasons.append("invalid_observation_time")
+        if evidence["robot_name"] != self.proposal.robot_name:
+            reasons.append("wrong_robot")
+        if evidence["connected"] is not True:
+            reasons.append("vehicle_not_connected")
+        if evidence["armed"] is not False:
+            reasons.append("vehicle_still_armed")
+        if evidence["frame_id"] != "map" or evidence["child_frame_id"] != "base_link":
+            reasons.append("wrong_odometry_frame")
+        if type(evidence["source_stamp_ns"]) is not int or evidence["source_stamp_ns"] < 0:
+            reasons.append("invalid_source_time")
+        if type(evidence["odometry_samples"]) is not int or evidence["odometry_samples"] < 3:
+            reasons.append("insufficient_odometry_samples")
+        numeric = (evidence["x"], evidence["y"], evidence["z"],
+                   evidence["linear_speed_m_s"])
+        if (not all(type(value) in {int, float} and math.isfinite(value) for value in numeric)
+                or abs(evidence["z"]) > 0.30):
+            reasons.append("vehicle_not_near_ground")
+        if (type(evidence["linear_speed_m_s"]) not in {int, float}
+                or not math.isfinite(evidence["linear_speed_m_s"])
+                or evidence["linear_speed_m_s"] > 0.10
+                or evidence["linear_speed_m_s"] < 0):
+            reasons.append("vehicle_not_stationary")
+        with self.lock:
+            if self.running and self.running.process.poll() is None:
+                reasons.append("dispatch_still_active")
+            if self.pending_land is not None:
+                reasons.append("landing_still_pending")
+            if not self.stop_latched:
+                reasons.append("reconciliation_not_required")
+            if reasons:
+                raise ValueError("Cannot start a new attempt: " + ", ".join(reasons))
+            reconciliation_id = uuid.uuid4().hex
+            self.stop_generation += 1
+            record = {
+                "schema_version": "rrm-office-reconciliation/v1",
+                "reconciliation_id": reconciliation_id,
+                "recorded_at": datetime.now(timezone.utc).isoformat(),
+                "new_stop_generation": self.stop_generation,
+                "normal_admission_reopened": True,
+                "evidence": evidence,
+            }
+            directory = self.artifact_root / "reconciliations"
+            directory.mkdir(parents=True, exist_ok=True)
+            (directory / f"{reconciliation_id}.json").write_text(
+                json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+            self.stop_latched = False
+            self.state = "READY_FOR_APPROVAL"
+            self.dispatch_id = None
+            self.last_result = {"verdict": "GROUNDED_RECONCILED",
+                                "reconciliation_id": reconciliation_id}
+            self.reconciliation_id = reconciliation_id
+            return self._status_locked()
 
     def decide(self, decision: str, proposal_sha256: str) -> dict:
         if decision not in {"APPROVE", "REJECT"}:
@@ -288,6 +372,15 @@ class ExecutionSupervisor:
             elif completed_land and self.state == "STOP_REQUESTED":
                 self.state = "STOPPED_UNCONFIRMED"
             elif completed_land:
-                self.state = "LAND_FINISHED"
+                self.state = (
+                    "LAND_VERIFIED"
+                    if result.get("verdict") == "VERIFIED"
+                    else "LAND_FINISHED_UNCONFIRMED"
+                )
             else:
-                self.state = "STOPPED_UNCONFIRMED" if self.stop_latched else "FINISHED"
+                self.state = (
+                    "STOPPED_VERIFIED"
+                    if self.stop_latched and result.get("physical_stop_verified") is True
+                    else "STOPPED_UNCONFIRMED" if self.stop_latched
+                    else "FINISHED"
+                )

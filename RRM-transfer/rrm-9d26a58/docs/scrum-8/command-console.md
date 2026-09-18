@@ -90,10 +90,11 @@ requests, and no approval happens automatically.
 proposal. **STOP / HOLD** first closes admission and increments the stop generation,
 then interrupts an active dispatcher. Once its ROS goal has been accepted, the
 dispatcher handles that interrupt by requesting public action cancellation and writing
-a bounded cancellation record. The page intentionally reports the plain-language
-equivalent of `SAFE_UNCONFIRMED`: cancellation delivery, acknowledgement or process
-exit is not independent proof of stable hover. Reconcile vehicle state before any
-later normal admission.
+a bounded cancellation record. Cancellation delivery, acknowledgement, or process
+exit alone remains `STOPPED_UNCONFIRMED`. When the action server acknowledges the
+cancel and three new odometry samples show speed at or below 0.10 m/s, the console may
+instead report `STOPPED_VERIFIED`. This proves the measured motion stopped; it does
+not make a broader collision-free or hardware-safe claim.
 
 **LAND NOW** is a separate operator safety override; it does not wait for RRM inference
 or normal proposal approval. It writes a typed LAND proposal and override record, blocks
@@ -103,6 +104,14 @@ acknowledgement. Missing acknowledgement leaves `LAND_BLOCKED_UNCONFIRMED` inste
 running two actions concurrently. STOP / HOLD remains able to cancel an active or
 pending landing. Landing completion still requires fresh near-ground odometry and a
 connected, disarmed vehicle before the existing verifier returns VERIFIED.
+
+After any stop or prior execution survives a console restart, **Confirm safe state /
+new attempt** runs a read-only vehicle observer. Normal approval reopens only when the
+drone is connected, disarmed, within 0.30 m of ground, moving no faster than 0.10 m/s,
+and at least three fresh `map` to `base_link` odometry samples agree. The complete
+observation is written before the new attempt opens; old admission and outcome files
+are retained. An airborne, armed, disconnected, moving, stale, or wrong-frame reading
+fails closed.
 
 There is deliberately no generic Pause or Resume. STOP / HOLD cancels the command;
 continuation should begin with fresh observations and a newly reviewed RRM plan rather
@@ -119,8 +128,10 @@ not C08, not an emergency stop, and not evidence of a safe physical state.
 
 This is a narrow single-process demonstration boundary, not the complete distributed
 C06/C08 design in `interfaces.md`: it does not provide authenticated multi-user
-authority, durable cross-host deduplication, restart reconciliation, or independent
-motion-stopped/safe-confirmed sensing. Those omissions must remain explicit in results.
+authority or durable cross-host deduplication. Its grounded reconciliation and
+motion-stopped checks are narrow single-host evidence gates, not an independent safety
+controller or a general `safe_confirmed` guarantee. Those limits must remain explicit
+in results.
 
 ## Verification, 2026-09-17
 

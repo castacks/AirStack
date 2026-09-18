@@ -71,6 +71,7 @@ def _execute(proposal: DroneTaskProposal, timeout_s: float, *, verify_observatio
         raise ValueError("outcome verification bounds are invalid")
     import rclpy
     from rclpy.action import ActionClient
+    from rclpy.signals import SignalHandlerOptions
     from geometry_msgs.msg import Point, PoseStamped
     from nav_msgs.msg import Path
     from task_msgs.action import LandTask, NavigateTask, TakeoffTask
@@ -80,7 +81,9 @@ def _execute(proposal: DroneTaskProposal, timeout_s: float, *, verify_observatio
         DroneTaskKind.NAVIGATE: NavigateTask,
         DroneTaskKind.LAND: LandTask,
     }[proposal.kind]
-    rclpy.init()
+    # Keep ROS from consuming SIGINT and shutting its context down before this
+    # adapter can ask the active AirStack action server to cancel the goal.
+    rclpy.init(signal_handler_options=SignalHandlerOptions.NO)
     node = rclpy.create_node("rrm_drone_task_adapter")
     client = ActionClient(node, action_type, proposal.action_name)
     latest_odometry: OdometryEvidence | None = None
@@ -332,7 +335,8 @@ def _execute(proposal: DroneTaskProposal, timeout_s: float, *, verify_observatio
     finally:
         client.destroy()
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 def main() -> int:
