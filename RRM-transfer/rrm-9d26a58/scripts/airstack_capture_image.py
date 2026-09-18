@@ -24,8 +24,8 @@ def main() -> None:
     parser.add_argument("--topic", required=True, help="ROS sensor_msgs/Image topic")
     parser.add_argument("--odometry-topic", required=True,
                         help="canonical nav_msgs/Odometry topic matched to the image")
-    parser.add_argument("--state-topic", required=True,
-                        help="canonical MAVROS state topic matched to the image")
+    parser.add_argument("--state-topic", default=None,
+                        help="optional MAVROS state topic; capture proceeds without it")
     parser.add_argument("--output", type=Path, required=True, help="PNG destination")
     parser.add_argument("--timeout-s", type=float, default=15.0)
     args = parser.parse_args()
@@ -38,8 +38,11 @@ def main() -> None:
     from rclpy.node import Node
     from rclpy.qos import QoSProfile, ReliabilityPolicy
     from nav_msgs.msg import Odometry
-    from mavros_msgs.msg import State
     from sensor_msgs.msg import Image
+
+    has_mavros_state = args.state_topic is not None
+    if has_mavros_state:
+        from mavros_msgs.msg import State
 
     class Capture(Node):
         def __init__(self) -> None:
@@ -48,7 +51,7 @@ def main() -> None:
             self.record: dict[str, object] | None = None
             self.image: Image | None = None
             self.odometry: Odometry | None = None
-            self.state: State | None = None
+            self.state = None  # Optional: may remain None if MAVROS is absent
             self.subscription = self.create_subscription(
                 Image, args.topic, self.callback,
                 QoSProfile(depth=1, reliability=ReliabilityPolicy.BEST_EFFORT),
@@ -57,10 +60,11 @@ def main() -> None:
                 Odometry, args.odometry_topic, self.odometry_callback,
                 QoSProfile(depth=1, reliability=ReliabilityPolicy.BEST_EFFORT),
             )
-            self.state_subscription = self.create_subscription(
-                State, args.state_topic, self.state_callback,
-                QoSProfile(depth=1, reliability=ReliabilityPolicy.BEST_EFFORT),
-            )
+            if has_mavros_state:
+                self.state_subscription = self.create_subscription(
+                    State, args.state_topic, self.state_callback,
+                    QoSProfile(depth=1, reliability=ReliabilityPolicy.BEST_EFFORT),
+                )
 
         def callback(self, message: Image) -> None:
             if self.record is not None:
@@ -73,13 +77,16 @@ def main() -> None:
                 self.odometry = message
                 self.write_if_complete()
 
-        def state_callback(self, message: State) -> None:
+        def state_callback(self, message) -> None:
             if self.record is None:
                 self.state = message
                 self.write_if_complete()
 
         def write_if_complete(self) -> None:
-            if self.record is not None or self.image is None or self.odometry is None or self.state is None:
+            if self.record is not None or self.image is None or self.odometry is None:
+                return
+            # MAVROS state is optional; proceed without it if not configured
+            if has_mavros_state and self.state is None:
                 return
             image = self.bridge.imgmsg_to_cv2(self.image, desired_encoding="bgr8")
             args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -99,8 +106,8 @@ def main() -> None:
                 "capture_mode": "read_only",
                 "captured_at": datetime.now(timezone.utc).isoformat(),
                 "vehicle": {
-                    "connected": self.state.connected,
-                    "armed": self.state.armed,
+                    "connected": self.state.connected if self.state is not None else None,
+                    "armed": self.state.armed if self.state is not None else None,
                     "odometry_frame_id": odometry.header.frame_id,
                     "odometry_child_frame_id": odometry.child_frame_id,
                     "odometry_stamp_ns": stamp_ns,

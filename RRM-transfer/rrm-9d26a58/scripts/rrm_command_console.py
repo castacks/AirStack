@@ -326,8 +326,7 @@ class Console:
                 'source /root/AirStack/robot/ros_ws/install/local_setup.bash; '
                 'exec timeout 12 python3 "$1" --topic '
                 '/robot_1/sensors/front_stereo/left/image_rect '
-                '--odometry-topic /robot_1/interface/mavros/local_position/odom '
-                '--state-topic /robot_1/interface/mavros/state '
+                '--odometry-topic /robot_1/odometry_conversion/odometry '
                 '--output "$2" --timeout-s 8',
                 "rrm-camera", self.camera_script, remote]
             subprocess.run(command, check=True, capture_output=True, timeout=16)

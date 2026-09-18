@@ -41,12 +41,14 @@ def validate_live_observation(metadata: dict, *, expected_camera_frame: str,
         raise ValueError("Live camera capture is stale.")
     vehicle = metadata["vehicle"]
     vehicle_required = {
-        "connected", "odometry_frame_id", "odometry_child_frame_id",
+        "odometry_frame_id", "odometry_child_frame_id",
         "odometry_stamp_ns", "x", "y", "z", "linear_speed_m_s",
     }
     if not isinstance(vehicle, dict) or not vehicle_required.issubset(vehicle):
         raise ValueError("Matched vehicle state is incomplete.")
-    if vehicle["connected"] is not True:
+    # connected may be None when MAVROS is not running (pure Isaac Sim);
+    # connected=False is still rejected (means MAVROS is up but disconnected).
+    if vehicle.get("connected") is False:
         raise ValueError("Vehicle is not connected.")
     if vehicle["odometry_frame_id"] != "map" or vehicle["odometry_child_frame_id"] != "base_link":
         raise ValueError("Vehicle odometry frame does not match map to base_link.")
