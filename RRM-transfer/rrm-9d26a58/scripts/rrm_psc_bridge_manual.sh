@@ -15,7 +15,7 @@ done
 
 : "${RRM_PSC_PROJECT:=eng260004p}"
 : "${RRM_PSC_ROOT:=/ocean/projects/eng260004p/oabolade/physical-ai}"
-: "${RRM_PSC_HOST:=data.bridges2.psc.edu}"
+: "${RRM_PSC_HOST:=bridges2.psc.edu}"
 : "${RRM_PSC_USER:?Set RRM_PSC_USER; use an approved non-interactive PSC SSH key.}"
 : "${RRM_PSC_WAIT_S:=3600}"
 [[ "$RRM_PSC_WAIT_S" =~ ^[1-9][0-9]*$ ]] || { echo "RRM_PSC_WAIT_S must be positive" >&2; exit 2; }
