@@ -33,6 +33,11 @@ services:
       - ../../.devcontainer/robot/launch.json:/root/AirStack/.vscode/launch.json:rw
       - ../../.devcontainer/robot/tasks.json:/root/AirStack/.vscode/tasks.json:rw
       - ./robot_name_map:/root/AirStack/robot/docker/robot_name_map:rw
+      # Foxglove: custom panels (installed into ~/.foxglove-studio at container
+      # start, see the robot-desktop command) + Studio's own config/layouts so
+      # an imported layout survives container recreation
+      - ../../gcs/foxglove_extensions:/root/AirStack/gcs/foxglove_extensions:rw
+      - ./Foxglove:/root/.config/Foxglove:rw
       # autonomy stack stuff
       - ../../common/ros_packages:/root/AirStack/robot/ros_ws/src/common:rw
       - ../../common/fastdds.xml:/root/AirStack/robot/ros_ws/src/fastdds.xml

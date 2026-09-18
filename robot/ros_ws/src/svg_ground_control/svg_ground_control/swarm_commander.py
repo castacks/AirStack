@@ -78,6 +78,31 @@ class FlightState(Enum):
     LANDING = 4    # descending; disarm at land_complete_altitude
 
 
+# Drone body mesh. Same asset and axis convention as the GCS visualiser
+# (gcs_visualizer/foxglove_visualizer_node.py) so both views agree. Foxglove
+# resolves package:// server-side through foxglove_bridge's asset capability,
+# so robot_descriptions must be built into this workspace.
+# STL, not the OBJ: the OBJ carries an `mtllib` line, so Foxglove fetches the
+# sibling .mtl and takes the "mesh provides its own material" path, which fights
+# the status colour. STL is self-contained (one asset, no sibling fetch) and
+# Foxglove always treats it as material-less, so marker.color is what shows.
+DRONE_MESH = 'package://robot_descriptions/iris/meshes/base_link_body_body.stl'
+# Rotates the OBJ from its authored axes to belly -Z / nose +X.
+AXIS_CORRECTION = (-0.5, -0.5, 0.5, 0.5)
+
+
+def _quat_mul(a, b):
+    """Hamilton product of two (x, y, z, w) quaternions."""
+    ax, ay, az, aw = a
+    bx, by, bz, bw = b
+    return (
+        aw * bx + ax * bw + ay * bz - az * by,
+        aw * by - ax * bz + ay * bw + az * bx,
+        aw * bz + ax * by - ay * bx + az * bw,
+        aw * bw - ax * bx - ay * by - az * bz,
+    )
+
+
 # Seconds after entering ARMING at which each step fires.
 ARMING_OFFBOARD_S = 1.0    # request offboard (REQUEST_CONTROL)
 ARMING_ARM_S = 1.5         # arm
@@ -96,6 +121,7 @@ class DroneHandle:
         self.hold_target = None           # np (3,), position to hold when not in mission
         self.state = FlightState.IDLE
         self.position = None              # np (3,) ENU, None until first odometry
+        self.orientation = (0.0, 0.0, 0.0, 1.0)  # (x,y,z,w), identity until first odometry
         self.velocity = np.zeros(3)
         self.last_odom_time = None        # rclpy Time
         self.arming_start = None          # rclpy Time
@@ -325,6 +351,10 @@ class SwarmCommander(Node):
             **scenario_kwargs)
         self.scenario_name = scenario_name
         self.mission_active = False
+        # mission_active alone cannot tell "never started" from "stopped after
+        # running" — after ~/hold both are ACTIVE with mission_active False.
+        # This latch separates them, which is what the viz colour keys off.
+        self.mission_ever_started = False
         if scenario_name == 'squeeze':
             posts = self.scenario.holder_posts
             gap = float(np.linalg.norm(posts[0] - posts[1]))
@@ -490,7 +520,9 @@ class SwarmCommander(Node):
         v = msg.twist.twist.linear
         # position_offset shifts each drone's local-origin odometry into the
         # shared world frame (velocities are origin-independent).
+        q = msg.pose.pose.orientation
         drone.position = np.array([p.x, p.y, p.z]) + drone.position_offset
+        drone.orientation = (q.x, q.y, q.z, q.w)
         drone.velocity = np.array([v.x, v.y, v.z])
         drone.last_odom_time = self.get_clock().now()
 
@@ -543,6 +575,8 @@ class SwarmCommander(Node):
 
     def handle_takeoff(self, request, response):
         now = self.get_clock().now()
+        # A new sortie has not run the planner yet.
+        self.mission_ever_started = False
         started = []
         for d in self.drones:
             if not d.commanded or d.state != FlightState.IDLE:
@@ -573,6 +607,7 @@ class SwarmCommander(Node):
             response.message = 'not all drones holding yet: ' + ', '.join(not_ready)
             return response
         self.mission_active = True
+        self.mission_ever_started = True
         response.success = True
         response.message = f'scenario "{self.scenario_name}" running'
         self.get_logger().info(response.message)
@@ -674,8 +709,13 @@ class SwarmCommander(Node):
             except Exception as e:  # noqa: BLE001 - log any service failure
                 self.get_logger().error(f'{name}: {label} failed: {e}')
                 return
-            level = self.get_logger().info if ok else self.get_logger().error
-            level(f'{name}: {label} -> success={ok}')
+            # rclpy caches severity per call site; success and failure need
+            # separate sites or alternating async replies raise
+            # "Logger severity cannot be changed between calls" and kill the node.
+            if ok:
+                self.get_logger().info(f'{name}: {label} -> success={ok}')
+            else:
+                self.get_logger().error(f'{name}: {label} -> success={ok}')
 
         future.add_done_callback(report)
 
@@ -853,6 +893,9 @@ class SwarmCommander(Node):
                     and d.position[2] <= self.land_complete_alt:
                 self.send_robot_command(d, RobotCommand.Request.DISARM, 'disarm')
                 d.state = FlightState.IDLE
+                if all(o.state == FlightState.IDLE
+                       for o in self.drones if o.commanded):
+                    self.mission_ever_started = False
                 self.get_logger().info(f'{d.name}: landed, disarmed')
                 continue
 
@@ -874,13 +917,26 @@ class SwarmCommander(Node):
     # ------------------------------------------------------------------
 
     def _drone_color(self, drone: DroneHandle):
+        """Body colour = CBF planner status, with role/safety overrides on top.
+
+        The overrides come first on purpose: an 'external' drone is tracked but
+        never commanded by the planner, so painting it a planner state would
+        claim something untrue. Mode (sim/real) is deliberately NOT encoded —
+        it is already in the marker label and the basestation Mode column.
+        """
         if self.fence_breached:
             return (1.0, 0.3, 0.0)                 # orange = frozen on breach
         if drone.role == 'teleop':
             return (1.0, 0.85, 0.1)                # yellow = operator obstacle
         if drone.role == 'external':
             return (0.6, 0.6, 0.6)                 # gray = tracked, uncommanded
-        return (0.9, 0.2, 0.2) if drone.mode == 'real' else (0.2, 0.7, 1.0)
+        if drone.state == FlightState.LANDING:
+            return (0.45, 0.45, 0.45)              # dim gray = descending
+        if self.mission_active:
+            return (0.2, 0.7, 1.0)                 # blue  = planner running
+        if self.mission_ever_started:
+            return (0.9, 0.2, 0.2)                 # red   = planner stopped
+        return (0.2, 0.85, 0.35)                   # green = planner not launched
 
     def publish_markers(self, now):
         if self.viz_pub is None:
@@ -900,13 +956,22 @@ class SwarmCommander(Node):
             body.header.stamp = stamp
             body.ns = 'body'
             body.id = base
-            body.type = Marker.SPHERE
+            body.type = Marker.MESH_RESOURCE
             body.action = Marker.ADD
+            body.mesh_resource = DRONE_MESH
+            # The OBJ ships a flat-grey .mtl that Foxglove does not fetch, so the
+            # marker colour is what actually tints the mesh — leave embedded
+            # materials off or the status colour would be ignored.
+            body.mesh_use_embedded_materials = False
             body.pose.position.x = float(d.position[0])
             body.pose.position.y = float(d.position[1])
             body.pose.position.z = float(d.position[2])
-            body.pose.orientation.w = 1.0
-            body.scale.x = body.scale.y = body.scale.z = 0.3
+            qx, qy, qz, qw = _quat_mul(d.orientation, AXIS_CORRECTION)
+            body.pose.orientation.x = qx
+            body.pose.orientation.y = qy
+            body.pose.orientation.z = qz
+            body.pose.orientation.w = qw
+            body.scale.x = body.scale.y = body.scale.z = 1.0
             body.color = ColorRGBA(r=r, g=g, b=b, a=1.0)
             arr.markers.append(body)
 

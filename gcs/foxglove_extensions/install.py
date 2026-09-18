@@ -4,8 +4,8 @@ import os
 import re
 import shutil
 
-src = '/root/AirStack/gcs/foxglove_extensions'
-dst = '/root/.foxglove-studio/extensions'
+src = os.path.dirname(os.path.abspath(__file__))
+dst = os.path.expanduser('~/.foxglove-studio/extensions')
 os.makedirs(dst, exist_ok=True)
 
 

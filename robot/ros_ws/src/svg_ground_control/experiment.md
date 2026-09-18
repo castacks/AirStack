@@ -14,10 +14,11 @@
 7. [Part C — Tasks: any drone in any mode](#part-c--tasks-any-drone-in-any-mode)
 8. [Part D — Real hardware: first flight & reference](#part-d--real-hardware-first-flight--reference)
 9. [RViz visualization](#rviz-visualization)
-10. [Geofence](#geofence)
-11. [Recording rosbags / monitoring](#recording-rosbags)
-12. [Automated tests](#automated-tests)
-13. [Troubleshooting](#troubleshooting)
+10. [Foxglove visualization (SVG Basestation panel)](#foxglove-visualization)
+11. [Geofence](#geofence)
+12. [Recording rosbags / monitoring](#recording-rosbags)
+13. [Automated tests](#automated-tests)
+14. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -182,6 +183,7 @@ The standard demo: 3 SITL drones, scenario from the config.
 ```bash
 cd ~/AirStack
 git checkout yikuan/SVG_ground_control
+./airstack.sh setup                         # FIRST TIME on a machine only — see note
 ./airstack.sh image-build robot-desktop     # REQUIRED after pulling this branch — see note
 # .env: COMPOSE_PROFILES="desktop,isaac-sim", AUTOLAUNCH="false", NUM_ROBOTS="1"
 grep -E '^(COMPOSE_PROFILES|AUTOLAUNCH|NUM_ROBOTS)' .env
@@ -189,6 +191,18 @@ grep -E '^(COMPOSE_PROFILES|AUTOLAUNCH|NUM_ROBOTS)' .env
 ./airstack.sh status        # robot-desktop-1 and isaac-sim Up
 ```
 
+> **First time on a machine: `./airstack.sh setup`.** It adds the `airstack`
+> command to your shell profile (open a new terminal afterwards) and runs
+> `config`, which creates two git-ignored files the Isaac Sim compose mounts:
+> `simulation/isaac-sim/docker/omni_pass.env` and `user.config.json`. Without
+> them `./airstack.sh up` fails with `env file ... omni_pass.env not found`.
+> Press Enter at the Nucleus API-token prompt to keep the `guest` defaults, or
+> copy the two `*_TEMPLATE*` files yourself (`omni_pass_TEMPLATE.env →
+> omni_pass.env`, `user_TEMPLATE.config.json → user.config.json`). Also make
+> sure your user is in the `docker` group (`sudo usermod -aG docker $USER`,
+> then log out/in) — otherwise every command reports
+> `Docker daemon is not running` even though it is.
+>
 > **⚠️ Always rebuild the robot image after pulling this branch.** This branch
 > changes the robot **Docker image** itself (not just the bind-mounted workspace) —
 > e.g. `MicroXRCEAgent` is now baked into the image
@@ -1087,9 +1101,13 @@ ros2 service call /swarm_commander/land    std_srvs/srv/Trigger
 
 The commander publishes all drones' **world** positions (offset-corrected, so
 real + simulated share one frame) as a `MarkerArray` on `/svg/viz/markers`:
-solid sphere per drone (red=real, cyan=sim, yellow=teleop, gray=external,
-orange=frozen-on-breach), translucent safety sphere (2r), name/mode/role
-label, goal points, and the geofence box.
+an Iris body mesh per drone coloured by planner status — green = planner not
+launched, blue = running, red = stopped after running, dim gray = landing; with
+overrides orange = frozen-on-breach, yellow = teleop, gray = external —
+translucent safety sphere (2r), name/mode/role label, goal points, and the
+geofence box. The mesh is
+`package://robot_descriptions/iris/meshes/base_link_body_body.stl`, so
+`robot_descriptions` must be built in this workspace (`bws` does it).
 
 ```bash
 # from a robot-container shell (./airstack.sh connect robot --command=bash):
@@ -1099,6 +1117,10 @@ rviz2 -d $(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/s
 The config sets fixed frame `map` and adds the MarkerArray display. If you
 open a bare `rviz2`: set Fixed Frame = `map`, Add → By topic →
 `/svg/viz/markers`. This is the unified "see all drones" view for hybrid runs.
+
+For the operator view with the safety stop and telemetry, see
+[Foxglove visualization](#foxglove-visualization) — same markers, plus the
+SVG Basestation panel.
 
 **Hand-carry / preflight (no flight needed).** The markers come from
 `swarm_commander`, not the drones directly, so the chain is: interface layer
@@ -1119,6 +1141,110 @@ skipped in the markers).
 
 ---
 
+## Foxglove visualization
+
+Foxglove is the operator-facing alternative to RViz: the same `/svg/viz/markers`
+3D view (Iris body mesh per drone, coloured by planner status — see the RViz
+section for the legend) plus the **SVG Basestation** panel (agent wiring,
+two-click land-all safety stop, Hold All, link safety, battery / RTB, formation
+dropdown). The panel and a ready-made layout live in
+[`gcs/foxglove_extensions/`](../../../../gcs/foxglove_extensions/) — see its
+[README](../../../../gcs/foxglove_extensions/svg-basestation/README.md) for what
+every column means.
+
+**Everything runs from the robot container — nothing to start by hand.**
+
+* [`ground_control.launch.py`](launch/ground_control.launch.py) starts
+  `foxglove_bridge` next to the commander (`use_foxglove_bridge:=false` to opt
+  out, `foxglove_port:=` to move it off 8765). Expect
+  `[foxglove_bridge]: Server listening on 0.0.0.0:8765` in the A4 terminal.
+* The robot container mounts `gcs/foxglove_extensions/` and runs its
+  `install.py` at start-up, so the four panels (SVG Basestation, Robot Tasks,
+  Waypoint / Polygon editors) are installed in the container's own Foxglove
+  Studio. Studio's config/layouts persist in `robot/docker/Foxglove/`
+  (git-ignored, mounted at `/root/.config/Foxglove`).
+* `robot-desktop` is on `network_mode: host` and pins `ROS_DOMAIN_ID=1`, so a
+  Studio on the **host** reaches the bridge at `ws://localhost:8765` too. The
+  `gcs` container is deliberately not used: it sits on the Docker bridge network
+  at domain 0 and never sees the drone topics.
+
+> **After pulling this change** (once): recreate the robot container so the new
+> mounts appear — `./airstack.sh up` recreates on compose changes, which kills
+> anything running inside — then rebuild the packages it touches:
+> `bws --packages-select robot_descriptions interface_bringup svg_ground_control`
+> (drone mesh, per-drone TF frames, launch file). If you were running a
+> hand-started `foxglove_bridge`, stop it first: two bridges on one port is a
+> bind error and a respawn loop.
+
+### F1. Studio on the host (default)
+
+```bash
+cd ~/AirStack
+python3 gcs/foxglove_extensions/install.py   # once per pull: installs the panels
+                                             # into ~/.foxglove-studio/extensions
+foxglove-studio
+```
+Then **Open connection** → Foxglove WebSocket → `ws://localhost:8765`, and
+**Layouts → Import from file…** →
+`~/AirStack/gcs/foxglove_extensions/svg_basestation.json`. Pick the imported
+layout from the layout dropdown (top-right).
+
+### F2. Studio inside the container (alternative)
+
+```bash
+# with the rest of ground control (pre-connected to the bridge):
+ros2 launch svg_ground_control ground_control.launch.py use_foxglove_studio:=true
+# or on its own, from any robot-container shell:
+foxglove-studio --no-sandbox
+```
+Import the layout once from
+`/root/AirStack/gcs/foxglove_extensions/svg_basestation.json`; it is kept in the
+mounted config dir, so it is still there after the container is recreated.
+`install.py` prints one `Installed Foxglove extension: airlab-cmu.<name>-<ver>`
+line per panel in `docker logs airstack-robot-desktop-1`; **Extensions** in
+Studio's left sidebar lists what is loaded.
+
+The layout is preset for `drone_1,drone_2,drone_3` with **Modes** blank, so each
+agent is detected from the wire (`/{name}/interface/…` ⇒ sim,
+`/{name}/fmu/…` ⇒ real) — the panel's **Wiring** card says which it decided.
+For a different drone list or explicit modes, edit the panel settings (gear icon)
+and mirror the config's `drone_names` / `drone_modes` / `drone_position_offsets`.
+The 3D panel's display frame is `map`: the markers are published in bare `map`
+while each drone's TF is namespaced (`drone_N/map → drone_N/base_link`, see
+[`sim_drone_interface.launch.xml`](launch/sim_drone_interface.launch.xml)), so
+three drones no longer fight over one `map → base_link` transform.
+
+### F3. What you should see
+
+| Stage | Panel |
+| --- | --- |
+| Only the bridge up | Everything rendered but reading `--` (no topic list yet) |
+| A3 interfaces up | Agents listed, Battery & Power live from `/{name}/interface/mavros/battery`, Link Safety Rate/Drop from odometry |
+| A4 commander up | 3D view shows the drone meshes (green until `start`) + geofence; Tasks chip names the scenario topics it found |
+| Config with `formation_profiles` (e.g. `cbf_sim.yaml scenario:=goal`) | Formation dropdown lists the profiles; Tasks chip shows `formation` |
+| Real drone (Part B) | Mocap age, EKF, Ping (uXRCE-DDS `timesync_status`) columns appear for that agent |
+
+Sections hide themselves when nothing publishes what they need (**Sections:
+Auto**); set **Show all** in the settings to force every card on.
+
+**Safety controls.** The red **LAND ALL** bar is two-click (arm → fire within
+4 s) and calls `/swarm_commander/land`; **Hold All** calls `/swarm_commander/hold`.
+Takeoff / Start / Reset Fence are in the command strip below. These are the same
+services as A6, so the CLI and the panel can be mixed freely.
+
+**If the panel is empty:** in a robot shell `ros2 topic list | grep drone_1`
+must show the interface topics and `ros2 topic hz /svg/viz/markers` must tick
+(~20 Hz). If the topics exist but Foxglove sees none, the bridge is on the wrong
+domain — `echo $ROS_DOMAIN_ID` in the A4 shell must print `1`. If the panel's
+services all fail, check the A4 terminal: a dead `swarm_commander` leaves stale
+service names in `ros2 service list`. If the **SVG Basestation** panel type is
+missing from *Add panel*, `install.py` ran for a different user / `HOME` than the
+one running `foxglove-studio`. If the drones render as nothing / a warning about
+`package://robot_descriptions/...`, `robot_descriptions` is not built in this
+workspace (`bws`).
+
+---
+
 ## Geofence
 
 A safety latch in `swarm_commander`. If any **airborne, holding/active** drone
@@ -1133,12 +1259,30 @@ fence_enabled: true
 fence_min: [-2.5, -2.5, 0.3]    # x,y,z lower limits (world ENU, m)
 fence_max: [ 2.5,  2.5, 2.5]    # x,y,z upper limits
 ```
-Recover:
+Recover — **no relaunch needed**:
 ```bash
 ros2 service call /swarm_commander/reset_fence std_srvs/srv/Trigger
+# or the "Reset Fence" button in the SVG Basestation panel
 ```
+`reset_fence` only clears the latch — it does not move anything. If a drone is
+**still hovering outside** the box, clearing is not enough: the check runs
+every control tick and re-latches immediately (the reply warns
+`still outside: drone_1`). The recovery is:
+
+1. `land` — descent is fence-exempt; the drone touches down where it is and
+   disarms.
+2. `takeoff` — the climb-out is fence-exempt too and flies to the drone's
+   takeoff target (`hover_positions` / the initial goal), which is inside the
+   box, so it arrives holding inside and `start` is accepted again.
+
+(`land` / `takeoff` act on every commanded drone, so the others cycle with it.)
+A drone that **landed** outside needs only step 2. Also fix what sent it out —
+a `goal_command` or formation profile beyond the wall will do it again on the
+next `start`; the commander does not clamp goals to the fence.
+
 This is a freeze-in-place, not a motor cutoff — the RC kill switch remains the
-true cutoff. The fence box is drawn in RViz (green normally, red when latched).
+true cutoff. The fence box is drawn in RViz / Foxglove (green normally, red
+when latched).
 
 ---
 
