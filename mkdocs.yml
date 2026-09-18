@@ -163,7 +163,6 @@ nav:
       - Foxglove:
           - Visualization: docs/gcs/foxglove.md
           - Adding Waypoints & Geofences: docs/gcs/waypoints_and_geofences.md
-          - SVG Basestation Panel: gcs/foxglove_extensions/svg-basestation/README.md
       - Command Center:
           - docs/gcs/command_center/command_center.md
       - Casualty Assessment:

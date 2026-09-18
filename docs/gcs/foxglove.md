@@ -21,25 +21,6 @@ To use the locally-rendered, `NUM_ROBOTS`-matched layout:
 
 Foxglove keeps the imported layout in its IndexedDB and re-activates it on subsequent launches — re-import only when you change `NUM_ROBOTS` or edit the template.
 
-## Custom panel extensions
-
-Custom Foxglove panels live in `gcs/foxglove_extensions/`, one directory per extension with a `package.json` and a prebuilt `dist/extension.js`. On every GCS container start, `install.py` copies each of them into `~/.foxglove-studio/extensions`, so they are available in Foxglove without any manual install step.
-
-| Extension | Panel | Purpose |
-|---|---|---|
-| `robot-commands` | Robot Tasks | Send goals to AirStack task executors (ROS 2 actions) |
-| `waypoint-editor` | Waypoint Editor | Click-to-place waypoints, see [Adding Waypoints & Geofences](waypoints_and_geofences.md) |
-| `polygon-editor` | Polygon Editor | Click-to-draw geofences, see [Adding Waypoints & Geofences](waypoints_and_geofences.md) |
-| `svg-basestation` | SVG Basestation | Swarm basestation: agent wiring, land-all safety stop, link safety, battery and RTB, see the [SVG Basestation README](../../gcs/foxglove_extensions/svg-basestation/README.md) |
-
-`gcs/foxglove_extensions/svg_basestation.json` is a ready-made layout that pairs the SVG Basestation panel with a 3D view of `/svg/viz/markers`. Load it with **Layouts → Import from file...** the same way as the rendered AirStack layout above.
-
-To install the extensions on a host Foxglove instead of inside the container, run the same script locally:
-
-```bash
-python3 gcs/foxglove_extensions/install.py
-```
-
 ## What gets visualized
 
 The visualizer auto-discovers any robot whose topics match the AirStack convention (default prefix: `robot`). For each discovered robot it subscribes to a fixed set of suffixes:
