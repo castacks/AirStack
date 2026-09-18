@@ -28,7 +28,10 @@ ssh_args=( -o StrictHostKeyChecking=accept-new -o ControlMaster=auto -o ControlP
 rsync_ssh='ssh -o StrictHostKeyChecking=accept-new -o ControlMaster=auto -o ControlPath=/tmp/ssh-%r@%h:%p'
 
 # Establish the master connection once so the user only types their password/Duo once.
-ssh -o StrictHostKeyChecking=accept-new -o ControlMaster=yes -o ControlPath=/tmp/ssh-%r@%h:%p -o ControlPersist=10m -fN "$psc_target"
+if ! ssh -o StrictHostKeyChecking=accept-new -o ControlMaster=yes -o ControlPath=/tmp/ssh-%r@%h:%p -o ControlPersist=10m -fN "$psc_target"; then
+  echo "Authentication failed or connection closed. Please try running the script again." >&2
+  exit 1
+fi
 trap 'ssh -O exit -o ControlPath=/tmp/ssh-%r@%h:%p "$psc_target" 2>/dev/null || true' EXIT
 
 ssh "${ssh_args[@]}" "mkdir -p $remote_request $remote_source"
