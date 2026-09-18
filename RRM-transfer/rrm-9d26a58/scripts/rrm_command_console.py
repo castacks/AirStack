@@ -98,9 +98,11 @@ class Console:
         command = (
             "source /root/AirStack/robot/ros_ws/install/local_setup.bash; "
             f"echo \"$$\" > {remote_pid}; "
-            f"PYTHONPATH=/tmp/rrm-canonical-deps:{remote_source} exec python3 "
+            f"export PYTHONPATH=/tmp/rrm-canonical-deps:{remote_source}:$PYTHONPATH; "
+            "exec python3 "
             f"{remote_source}/scripts/airstack_drone_dispatch.py "
             f"--proposal-json {remote_proposal} --execute --verify-observation "
+            f"--observation-timeout-s 10 --max-observation-age-s 2 "
             f"--action-timeout-s 120 --outcome-json {remote_outcome}"
         )
         log_handle = (run_dir / "dispatcher.log").open("wb")
@@ -267,6 +269,8 @@ def make_handler(app: Console):
                     ))
                 if self.path == "/api/stop":
                     return self.respond(app.execution.request_stop())
+                if self.path == "/api/land":
+                    return self.respond(app.execution.request_land())
                 if self.path == "/api/reset":
                     import subprocess
                     try:

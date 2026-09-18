@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 import threading
 import tempfile
+import time
 import unittest
 from http.server import ThreadingHTTPServer
 from urllib.error import HTTPError
@@ -21,6 +22,7 @@ class FakeProcess:
     def __init__(self):
         self.finished = threading.Event()
         self.return_code = 0
+        self.cancel_acknowledged = False
 
     def poll(self):
         return self.return_code if self.finished.is_set() else None
@@ -38,6 +40,15 @@ def navigation_proposal():
     )
 
 
+def wait_for(predicate, timeout=2.0):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if predicate():
+            return
+        time.sleep(0.01)
+    raise AssertionError("condition was not reached before timeout")
+
+
 class ExecutionSupervisorTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -51,13 +62,18 @@ class ExecutionSupervisorTests(unittest.TestCase):
 
             def stop():
                 self.stop_calls += 1
+                process.cancel_acknowledged = True
                 process.return_code = 130
                 process.finished.set()
 
             return RunningDispatch(
                 process=process,
                 request_stop=stop,
-                finalize=lambda code: {"return_code": code, "verdict": "UNCONFIRMED"},
+                finalize=lambda code: {
+                    "return_code": code,
+                    "verdict": "UNCONFIRMED",
+                    "cancel_acknowledged": process.cancel_acknowledged,
+                },
             )
 
         self.supervisor = ExecutionSupervisor(
@@ -111,10 +127,72 @@ class ExecutionSupervisorTests(unittest.TestCase):
         self.supervisor.decide("APPROVE", self.supervisor.proposal_sha256)
         status = self.supervisor.request_stop()
         self.assertEqual(self.stop_calls, 1)
-        self.assertEqual(status["state"], "STOP_REQUESTED")
+        self.assertIn(status["state"], {"STOP_REQUESTED", "STOPPED_UNCONFIRMED"})
         self.assertEqual(status["safety_claim"], "SAFE_UNCONFIRMED")
         stop_record = next(Path(self.temp.name).glob("*/stop-1.json"))
         self.assertTrue(json.loads(stop_record.read_text())["cancel_requested"])
+
+    def test_land_now_launches_typed_public_land_action_when_idle(self):
+        status = self.supervisor.request_land()
+        self.assertEqual(status["state"], "LANDING")
+        self.assertTrue(status["stop_latched"])
+        self.assertEqual(status["active_command"], "LAND")
+        self.assertEqual(len(self.launches), 1)
+        _, run_dir, proposal_path, process = self.launches[0]
+        proposal = json.loads(proposal_path.read_text())
+        self.assertEqual(proposal["kind"], "LAND")
+        self.assertEqual(proposal["velocity_m_s"], 1.0)
+        record = json.loads((run_dir / "operator-land.json").read_text())
+        self.assertTrue(record["normal_admission_blocked"])
+        self.assertTrue(record["execution_requested"])
+        duplicate = self.supervisor.request_land()
+        self.assertEqual(duplicate["dispatch_id"], status["dispatch_id"])
+        self.assertEqual(len(self.launches), 1)
+        process.finished.set()
+
+    def test_land_now_cancels_active_command_before_launching_land(self):
+        self.supervisor.decide("APPROVE", self.supervisor.proposal_sha256)
+        status = self.supervisor.request_land()
+        self.assertIn(status["state"], {"LAND_CANCELING_ACTIVE", "LANDING"})
+        self.assertEqual(self.stop_calls, 1)
+        wait_for(lambda: len(self.launches) == 2)
+        proposal = json.loads(self.launches[1][2].read_text())
+        self.assertEqual(proposal["kind"], "LAND")
+        self.assertEqual(self.supervisor.status()["active_command"], "LAND")
+        self.launches[1][3].finished.set()
+
+    def test_land_is_blocked_when_active_cancel_is_not_acknowledged(self):
+        launches = []
+
+        def launch(dispatch_id, run_dir, proposal_path):
+            process = FakeProcess()
+            launches.append((dispatch_id, run_dir, proposal_path, process))
+
+            def stop():
+                process.return_code = 130
+                process.finished.set()
+
+            return RunningDispatch(
+                process=process, request_stop=stop,
+                finalize=lambda code: {
+                    "return_code": code, "verdict": "UNCONFIRMED",
+                    "cancel_acknowledged": False,
+                },
+            )
+
+        supervisor = ExecutionSupervisor(navigation_proposal(), Path(self.temp.name) / "no-ack", launch)
+        supervisor.decide("APPROVE", supervisor.proposal_sha256)
+        supervisor.request_land()
+        wait_for(lambda: supervisor.status()["state"] == "LAND_BLOCKED_UNCONFIRMED")
+        self.assertEqual(len(launches), 1)
+        self.assertFalse(supervisor.status()["active"])
+
+    def test_stop_hold_can_cancel_active_landing(self):
+        self.supervisor.request_land()
+        status = self.supervisor.request_stop()
+        self.assertEqual(self.stop_calls, 1)
+        self.assertIn(status["state"], {"STOP_REQUESTED", "STOPPED_UNCONFIRMED"})
+        wait_for(lambda: self.supervisor.status()["state"] == "STOPPED_UNCONFIRMED")
 
 
 class CommandConsoleTests(unittest.TestCase):
@@ -222,11 +300,22 @@ class CommandConsoleTests(unittest.TestCase):
             self.assertEqual(execution["state"], "READY_FOR_APPROVAL")
             self.assertFalse(execution["active"])
             self.assertEqual(len(execution["proposal_sha256"]), 64)
+        land_calls = []
+        app.execution.request_land = lambda: land_calls.append(True) or {"state": "LANDING"}
+        with urlopen(Request(base + "/api/land", data=b"{}",
+                            headers={"X-RRM-Token": state["token"]})) as response:
+            self.assertEqual(json.load(response)["state"], "LANDING")
+        self.assertEqual(land_calls, [True])
         with urlopen(base + f"/runs/{saved['request_id']}/request.json") as response:
             self.assertEqual(json.load(response)["goal_id"], saved["goal_id"])
         with self.assertRaises(HTTPError) as error:
             urlopen(base + "/requests/../result.json")
         self.assertEqual(error.exception.code, 404)
+
+    def test_dispatch_launcher_preserves_ros_python_path_and_uses_measured_state_rate(self):
+        source = (Path(__file__).parents[1] / "scripts" / "rrm_command_console.py").read_text()
+        self.assertIn(":$PYTHONPATH", source)
+        self.assertIn('"--observation-timeout-s 10 --max-observation-age-s 2 "', source)
 
 
 if __name__ == "__main__":

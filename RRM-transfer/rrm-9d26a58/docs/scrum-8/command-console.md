@@ -87,12 +87,26 @@ for the displayed historical PSC proposal only; it does not approve newly saved
 requests, and no approval happens automatically.
 
 **Reject** records `NOT_DISPATCHED` and makes that console instance terminal for the
-proposal. **STOP** first closes admission and increments the stop generation, then
-interrupts an active dispatcher. Once its ROS goal has been accepted, the dispatcher
-handles that interrupt by requesting public action cancellation. The page intentionally
-reports `SAFE_UNCONFIRMED`: cancellation delivery, acknowledgement or process exit is
-not independent proof that the drone stopped. Reconcile vehicle state and restart the
-console before any later admission.
+proposal. **STOP / HOLD** first closes admission and increments the stop generation,
+then interrupts an active dispatcher. Once its ROS goal has been accepted, the
+dispatcher handles that interrupt by requesting public action cancellation and writing
+a bounded cancellation record. The page intentionally reports the plain-language
+equivalent of `SAFE_UNCONFIRMED`: cancellation delivery, acknowledgement or process
+exit is not independent proof of stable hover. Reconcile vehicle state before any
+later normal admission.
+
+**LAND NOW** is a separate operator safety override; it does not wait for RRM inference
+or normal proposal approval. It writes a typed LAND proposal and override record, blocks
+new RRM commands, and uses the same public ActionClient-only dispatcher. If another
+command is active, landing is launched only after that adapter records cancellation
+acknowledgement. Missing acknowledgement leaves `LAND_BLOCKED_UNCONFIRMED` instead of
+running two actions concurrently. STOP / HOLD remains able to cancel an active or
+pending landing. Landing completion still requires fresh near-ground odometry and a
+connected, disarmed vehicle before the existing verifier returns VERIFIED.
+
+There is deliberately no generic Pause or Resume. STOP / HOLD cancels the command;
+continuation should begin with fresh observations and a newly reviewed RRM plan rather
+than resuming a potentially stale trajectory.
 
 Execution evidence is stored under
 `.rrm-artifacts/command-requests/execution/<dispatch-id>/`, including the exact

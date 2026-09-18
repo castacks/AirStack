@@ -11,6 +11,7 @@ topic directly.
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import json
 import math
 from pathlib import Path
@@ -84,6 +85,7 @@ def _execute(proposal: DroneTaskProposal, timeout_s: float, *, verify_observatio
     client = ActionClient(node, action_type, proposal.action_name)
     latest_odometry: OdometryEvidence | None = None
     latest_vehicle_state: VehicleStateEvidence | None = None
+    latest_linear_speed_m_s: float | None = None
 
     if verify_observation:
         from mavros_msgs.msg import State
@@ -91,7 +93,7 @@ def _execute(proposal: DroneTaskProposal, timeout_s: float, *, verify_observatio
         from rclpy.qos import QoSProfile, ReliabilityPolicy
 
         def on_odometry(message: Odometry) -> None:
-            nonlocal latest_odometry
+            nonlocal latest_odometry, latest_linear_speed_m_s
             stamp = message.header.stamp
             try:
                 latest_odometry = OdometryEvidence(
@@ -102,6 +104,10 @@ def _execute(proposal: DroneTaskProposal, timeout_s: float, *, verify_observatio
                     x=message.pose.pose.position.x,
                     y=message.pose.pose.position.y,
                     z=message.pose.pose.position.z,
+                )
+                velocity = message.twist.twist.linear
+                latest_linear_speed_m_s = math.sqrt(
+                    velocity.x ** 2 + velocity.y ** 2 + velocity.z ** 2
                 )
             except ValueError as exc:
                 node.get_logger().warning(f"ignored incompatible outcome odometry: {exc}")
@@ -212,9 +218,59 @@ def _execute(proposal: DroneTaskProposal, timeout_s: float, *, verify_observatio
         try:
             rclpy.spin_until_future_complete(node, result, timeout_sec=action_timeout_s)
         except KeyboardInterrupt:
+            stop_received_at = datetime.now(timezone.utc).isoformat()
+            stop_received_monotonic_s = time.monotonic()
             cancel = handle.cancel_goal_async()
             rclpy.spin_until_future_complete(node, cancel, timeout_sec=timeout_s)
-            raise
+            cancel_reply = cancel.result() if cancel.done() else None
+            cancel_ack_monotonic_s = time.monotonic()
+            cancel_acknowledged = bool(cancel_reply and cancel_reply.goals_canceling)
+            motion_stopped = False
+            motion_stopped_monotonic_s = None
+            stop_speed_threshold_m_s = 0.10
+            consecutive_low_speed_samples = 0
+            last_sample_received_s = None
+            if verify_observation and cancel_acknowledged:
+                deadline = time.monotonic() + observation_timeout_s
+                while rclpy.ok() and time.monotonic() < deadline:
+                    rclpy.spin_once(node, timeout_sec=min(0.1, deadline - time.monotonic()))
+                    if (latest_odometry is None or latest_linear_speed_m_s is None
+                            or latest_odometry.received_monotonic_s == last_sample_received_s
+                            or latest_odometry.received_monotonic_s < stop_received_monotonic_s):
+                        continue
+                    last_sample_received_s = latest_odometry.received_monotonic_s
+                    if latest_linear_speed_m_s <= stop_speed_threshold_m_s:
+                        consecutive_low_speed_samples += 1
+                        if consecutive_low_speed_samples >= 3:
+                            motion_stopped = True
+                            motion_stopped_monotonic_s = time.monotonic()
+                            break
+                    else:
+                        consecutive_low_speed_samples = 0
+            interrupt_record = {
+                "event": "operator_stop",
+                "action_id": proposal.action_id,
+                "task_id": proposal.task_id,
+                "verdict": "MOTION_STOPPED" if motion_stopped else "UNCONFIRMED",
+                "operator_stop_received_at": stop_received_at,
+                "cancel_acknowledged": cancel_acknowledged,
+                "cancel_ack_latency_ms": round(
+                    (cancel_ack_monotonic_s - stop_received_monotonic_s) * 1000, 3
+                ),
+                "motion_stop_threshold_m_s": stop_speed_threshold_m_s,
+                "observed_linear_speed_m_s": latest_linear_speed_m_s,
+                "motion_stopped_latency_ms": (
+                    round((motion_stopped_monotonic_s - stop_received_monotonic_s) * 1000, 3)
+                    if motion_stopped_monotonic_s is not None else None
+                ),
+                "physical_stop_verified": motion_stopped,
+            }
+            print(json.dumps(interrupt_record), flush=True)
+            if outcome_json is not None:
+                outcome_json.parent.mkdir(parents=True, exist_ok=True)
+                outcome_json.write_text(json.dumps(interrupt_record, indent=2) + "\n",
+                                        encoding="utf-8")
+            return 7
         if not result.done():
             cancel = handle.cancel_goal_async()
             rclpy.spin_until_future_complete(node, cancel, timeout_sec=timeout_s)

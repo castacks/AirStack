@@ -1,5 +1,70 @@
 # RRM remote Codex handoff
 
+## LATEST: latency instrumentation complete; live trial safely aborted — 2026-09-18 06:12 UTC
+
+The dispatcher now records operator-stop receipt, cancellation acknowledgement
+latency, fresh odometry speed and time to three consecutive samples at or below
+0.10 m/s. The supervisor separately records GUI/server-to-signal delivery latency.
+All 85 tests and Python compilation passed; no direct-control surface was added.
+
+The first live measurement was **aborted at takeoff**. The public Takeoff task returned
+`failed to arm`; PX4 logged `Arming denied: Resolve system health failures first`,
+Isaac/PX4 logged repeated time jumps, and robot mapping logged transform future-
+extrapolation errors. Fresh odometry was about `(3.16, 11.71, 0.96)` while MAVROS was
+connected and disarmed, so this was not the required clean origin. Navigation,
+STOP / HOLD and LAND NOW were not sent. No stop-latency number is valid.
+
+Runtime evidence:
+`/root/AirStack/.rrm-artifacts/stop-latency-20260918.PbmhyF/takeoff-outcome.json`.
+The console remains on port 8787, normal state `READY_FOR_APPROVAL`, and no dispatcher
+is active. Before retry: coordinated clean restart in simulator-then-robot order;
+prove stable time/TF, origin, connected/disarmed state and takeoff gate, then repeat
+navigation → STOP / HOLD → LAND NOW. Do not bypass the failed arming gate.
+
+Follow-up in the same session: a coordinated Isaac-then-robot restart restored origin
+and connectivity. A final takeoff retry with a 10 s observation window and 2 s age
+bound was VERIFIED. The console navigation dispatcher then exited before ROS import
+because its inline `PYTHONPATH` replaced ROS's path (`ModuleNotFoundError: rclpy`); no
+navigation goal was sent. STOP / HOLD latched in 1.9 ms at HTTP level, but that is not
+a physical-stop measurement. A direct public-action recovery LAND was VERIFIED at
+z=0.006 m, connected and disarmed. The launcher now appends its dependencies to the
+sourced ROS path and uses the measured ~0.75 Hz state rate bounds. Do not claim a
+stop-latency result until a new clean trial exercises the fixed launcher.
+
+Final state for handoff: recovery landing VERIFIED, MAVROS connected/disarmed, no
+dispatcher process, console PID 228483 on port 8787. The console correctly starts in
+`RECONCILIATION_REQUIRED` with normal admission stopped because the failed admission
+evidence still exists. Do not delete it or bypass the latch. The next increment should
+record an explicit grounded reconciliation/new execution epoch, then repeat the fixed
+launcher trial; no further flight was attempted in this turn.
+
+## LATEST: STOP / HOLD and LAND NOW controls — 2026-09-18 05:40 UTC
+
+This supersedes the earlier single STOP-button description below. The GUI now uses the
+minimal operator surface agreed with the user: normal **Approve & send**,
+**STOP / HOLD**, and **LAND NOW**. There is deliberately no generic Pause/Resume;
+continuation requires fresh state and a new RRM plan.
+
+- STOP / HOLD blocks normal admission first and requests cancellation of the active
+  public task action. It never claims stable hover from acknowledgement alone.
+- LAND NOW is an operator safety override that writes a typed LAND proposal/evidence,
+  blocks normal RRM commands, cancels an active command first, and starts the existing
+  public Land action only after cancellation acknowledgement. If acknowledgement is
+  missing, it fails closed as `LAND_BLOCKED_UNCONFIRMED` rather than overlapping task
+  actions. STOP / HOLD can cancel an active or pending landing.
+- The dispatcher now writes an `operator_stop` outcome containing separate
+  `cancel_acknowledged` and `physical_stop_verified=false` fields on SIGINT.
+- The GUI uses plain-language states. Protocol terms remain in evidence/docs.
+
+Validation before live-console restart: **84 tests passed**, Python compilation,
+`git diff --check`, and the no-direct-control scan passed. No live approval, stop,
+landing or ROS goal was sent during implementation. Notebook:
+ignored `notebook/006-rrm-flight-controls/`.
+
+Live non-motion validation also passed: console PID 215786 on loopback port 8787,
+state `READY_FOR_APPROVAL`, no dispatcher process, vehicle connected and disarmed.
+Both new controls were served; Pause/Resume are absent. Refresh the forwarded browser.
+
 ## LATEST: C06 approval and C08 stop demo boundary — 2026-09-18 05:18 UTC
 
 This section supersedes the later “Pending Implementation” lines near the bottom of

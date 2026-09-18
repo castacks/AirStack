@@ -55,6 +55,8 @@ class DroneProposalTests(unittest.TestCase):
         self.assertIn('"--verify-observation"', runner)
         self.assertIn('"goal_sent": False', runner)
         self.assertIn('"physical_outcome": "NOT_DISPATCHED"', runner)
+        self.assertIn('"event": "operator_stop"', runner)
+        self.assertIn('"physical_stop_verified": False', runner)
         self.assertIn("ActionClient", runner)
         self.assertIn("create_subscription(", runner)
         for prohibited in ("create_publisher(", "create_client(",
