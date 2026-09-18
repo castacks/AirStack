@@ -52,7 +52,7 @@ Other entry points:
 .venv/bin/python simulation/isaac_backend.py                # relation-inference test
 ```
 
-## RRM Command Console & PSC Bridge
+## RRM Command Console & PSC Bridge (OSMO)
 
 The RRM GUI (Command Console) is used for visual intake, reviewing, and approving execution commands. It uses an asynchronous bridge to communicate with PSC. **All commands below must be run in your OSMO terminal.**
 
@@ -78,7 +78,7 @@ RRM_PSC_USER=<your-psc-username> bash scripts/rrm_psc_bridge_manual.sh /root/Air
 ```
 *(Reload the GUI history after the Slurm job finishes to view results).*
 
-## AirStack drone shadow mode
+## AirStack drone shadow mode (OSMO)
 
 `scripts/airstack_shadow.py` is the first SIL adapter. It observes canonical MAVROS
 odometry/state, `map -> base_link` TF, and existing task-status topics and writes an
@@ -91,16 +91,17 @@ declared `pydantic` dependency available in that container:
 
 ```bash
 source /root/AirStack/robot/ros_ws/install/local_setup.bash
-PYTHONPATH=/path/to/rrm-deps:/path/to/rrm:${PYTHONPATH} \
-  python3 /path/to/rrm/scripts/airstack_shadow.py \
-  --robot-name robot_1 --duration-s 30 --output-dir /path/to/evidence
+cd /root/AirStack/RRM-transfer/rrm-9d26a58
+PYTHONPATH=/tmp/rrm-canonical-deps:${PYTHONPATH} \
+  python3 scripts/airstack_shadow.py \
+  --robot-name robot_1 --duration-s 30 --output-dir /root/AirStack/.rrm-artifacts/evidence
 ```
 
 The output has `manifest.json`, `events.jsonl`, and `replay-report.json`. Preserve it
 outside the ephemeral OSMO workflow. Start with the model-free adapter and compare any
 future reasoning model against the same recorded state/evidence conditions.
 
-## AirStack drone task adapter
+## AirStack drone task adapter (OSMO)
 
 `scripts/airstack_drone_dispatch.py` is RRM's output seam for the existing public
 AirStack task actions: `takeoff`, `navigate`, and `land`. It uses the same
@@ -108,8 +109,9 @@ AirStack task actions: `takeoff`, `navigate`, and `land`. It uses the same
 publisher, or trajectory commands directly. A proposal defaults to dry-run:
 
 ```bash
-PYTHONPATH=/path/to/rrm-deps:/path/to/rrm:${PYTHONPATH} \
-  python3 /path/to/rrm/scripts/airstack_drone_dispatch.py \
+cd /root/AirStack/RRM-transfer/rrm-9d26a58
+PYTHONPATH=/tmp/rrm-canonical-deps:${PYTHONPATH} \
+  python3 scripts/airstack_drone_dispatch.py \
   --proposal-json /path/to/takeoff.json
 ```
 
@@ -123,10 +125,11 @@ then corroborate the task result with post-result odometry plus MAVROS state. Pa
 with `--outcome-json` to retain the immutable record:
 
 ```bash
-PYTHONPATH=/path/to/rrm-deps:/path/to/rrm:${PYTHONPATH} \
-  python3 /path/to/rrm/scripts/airstack_drone_dispatch.py \
+cd /root/AirStack/RRM-transfer/rrm-9d26a58
+PYTHONPATH=/tmp/rrm-canonical-deps:${PYTHONPATH} \
+  python3 scripts/airstack_drone_dispatch.py \
   --proposal-json /path/to/takeoff.json --execute --verify-observation \
-  --outcome-json /path/to/evidence/takeoff-outcome.json
+  --outcome-json /root/AirStack/.rrm-artifacts/evidence/takeoff-outcome.json
 ```
 
 The process exits nonzero unless the independent evidence verifies the action result.
@@ -153,7 +156,7 @@ authority.
 | `docs/architecture.md` | design and decisions on record |
 | `docs/benchmarks.md` | task suite, metrics, reproducibility rules |
 
-## Deploying to the A10G
+## Deploying to the A10G (Legacy / Brev)
 
 ```bash
 ./scripts/setup_instance.sh check     # report, change nothing
