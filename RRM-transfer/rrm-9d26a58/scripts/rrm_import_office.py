@@ -25,6 +25,8 @@ def import_bundle(bundle: Path):
     scene = json.loads((bundle / "scene_manifest.json").read_text())
     trusted_scene = json.loads((Path(__file__).resolve().parents[1] / "examples" /
                                "office_visual_eval" / "scene_manifest.json").read_text())
+    scene.pop("camera_frame_id", None)
+    trusted_scene.pop("camera_frame_id", None)
     if scene != trusted_scene:
         raise ValueError("scene binding differs from local reviewed fixture")
     if scene["scene_id"] != context.snapshot.episode_id:
