@@ -18,7 +18,8 @@ def test_xbox_usb_profile():
     # Right stick moves, left stick climbs/yaws, left bumper locks.
     assert (p.forward_axis, p.left_axis, p.climb_axis, p.yaw_axis) == (4, 3, 1, 0)
     assert p.lock_button == 4
-    assert p.left_sign == -1.0
+    # All signs +1: joy_node's negation already makes stick-left read +.
+    assert (p.forward_sign, p.left_sign, p.climb_sign, p.yaw_sign) == (1, 1, 1, 1)
 
 
 def test_dragonrise_usb_profile():

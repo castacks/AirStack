@@ -22,16 +22,21 @@ device is one new entry there.
 
 | control | effect |
 |---------|--------|
-| right stick | horizontal velocity. Release and it stops. |
-| left stick up/down | raises and lowers a target altitude. Release and the target stays where it is. |
+| right stick | horizontal velocity. Release and the drone stops **and holds that spot**. |
+| left stick up/down | vertical velocity. Release and the drone holds that height. |
 | left stick left/right | yaw rate — turns the drone in place. Release and it stops turning. |
-| left bumper | locks the left stick, so neither altitude nor yaw can move |
+| left bumper | locks the left stick, so neither height nor yaw can move |
 
-The right stick is a direct mapping: stick position is velocity. The left
-stick sets a *rate* — hold it and the target climbs, let go and it stops
-climbing but keeps the height it reached. The vertical velocity sent is
-computed from the gap between the target and the drone's measured altitude, so
-the height is actively held rather than left to drift.
+This is **position mode**, the way PX4's own Position mode behaves. The
+sticks do not drive the vehicle directly: they move a target position that
+the commander tracks (a P-controller plus the stick velocity as feedforward,
+`position_hold.py`). Let go of everything and the target stops where it is,
+so the drone is actively flown back to that point if it drifts, on all three
+axes. The target is seeded from the drone's *measured* position the moment
+the sticks get control (`/start`, and again after any `hold`/`land`), so
+nothing is ever chased from before takeoff — that was the altitude drop.
+A leash (`teleop_lead_m`, 0.5 m) stops the target running ahead of a drone
+that the CBF or the fence is holding back.
 
 Yaw bypasses the CBF: the filter constrains drone-to-drone distance, which
 turning in place cannot change.
@@ -176,8 +181,9 @@ docker exec -it airstack-robot-desktop-1 tmux attach -t commander
 **`solo`** — the teleop mapping itself:
 
 - right stick forward moves the drone one consistent direction
-- left stick up climbs; release and the altitude holds instead of sagging
-- left bumper: the node logs `left stick locked`, and the altitude stops moving
+- left stick up climbs; release and the height holds instead of sagging;
+  release the right stick and the drone parks instead of coasting
+- left bumper: the node logs `left stick locked`, and the height stops moving
 - Ctrl-C on the teleop node publishes a zero velocity before exiting
 
 **`squeeze`** — the holders yield to you:
@@ -227,12 +233,11 @@ Everything up to the sticks is checkable on the ground. With the stack up and
 ros2 topic echo /svg/drone_1/teleop_command      # or raw, in the container
 ```
 
-- right stick: `vx`/`vy` follow the sticks, correct directions, zero at rest
-- carry the drone up and down by hand: the altitude target seeds from the
-  measured height, and `vz` pushes back toward the target
+- right stick: `vx`/`vy` follow the sticks, correct directions, zero at rest;
+  left stick up/down: `vz` follows, zero at rest
 - the drone's marker tracks in RViz as you carry it (the B5 preflight)
-- unplug the pad: horizontal zeros, the altitude hold stays — that is the
-  intended dead-pad behavior (see [Safety](#safety))
+- unplug the pad: every stick velocity goes to zero, and the commander keeps
+  holding position (see [Safety](#safety))
 
 **Yaw cannot be ground-checked.** The real path negates the yaw rate where the
 sim path does not (`px4_interface` vs `mavros_interface`), so sim flights
@@ -356,14 +361,14 @@ mode stays at `teleop_real.yaml`'s slower caps.
 | `drone` | `drone_1` | which drone this instance drives |
 | `teleop_controller` | `xbox_usb` | input device; supplies the defaults for the axis / sign / button rows below |
 | `max_speed_mps` | `1.0` | horizontal speed at full right stick |
-| `climb_rate_mps` | `0.5` | how fast the target altitude moves at full left stick |
-| `altitude_gain` | `1.0` | target-to-measured gap converted to vertical velocity |
-| `max_climb_speed_mps` | `0.8` | cap on the vertical velocity sent |
-| `min_altitude_m` | `0.3` | lower clamp on the target altitude |
-| `max_altitude_m` | `2.5` | upper clamp on the target altitude |
+| `max_climb_speed_mps` | `0.8` | vertical speed at full left stick |
 | `deadzone` | `0.15` | stick slop ignored around center, rescaled so full deflection still reaches 1.0 |
 | `joy_timeout_s` | `0.5` | zero the command if `/joy` goes quiet |
 | `print_hz` | `0` (`teleop.launch.py`: `1.0`) | print the stick reading and published velocity this often |
+
+The position hold itself is tuned in the **commander's** block of the same
+config: `teleop_kp` (gain on target − position, 1.0), `teleop_lead_m` (leash,
+0.5 m), `teleop_max_speed_mps` (cap on what is sent).
 | `odometry_timeout_s` | `0.5` | zero the command if odometry goes quiet |
 | `yaw_rate_rad_s` | `1.0` | yaw rate at full left-stick deflection |
 | `forward_axis` / `left_axis` / `climb_axis` / `yaw_axis` | from the controller (`xbox_usb`: `4` / `3` / `1` / `0`) | axis index per direction |
@@ -393,10 +398,15 @@ If a direction is backwards after a pad or driver change, flip that one sign.
 `./svg_teleop.sh monitor` shows raw axis, signed value and published velocity
 in one view.
 
-The altitude clamps are the only floor and ceiling limit in the mapping. The
-CBF filter constrains drone-to-drone separation only; it has no model of the
-floor, ceiling, walls, or people. The geofence (`fence_min` / `fence_max` in
-the config) freezes all drones after a breach rather than braking before one.
+There is no floor or ceiling in the mapping itself. The CBF filter
+constrains drone-to-drone separation only; it has no model of the floor,
+ceiling, walls, or people. The geofence (`fence_min` / `fence_max`) is the
+boundary, and `fence_behavior` decides how it acts: `hold_all` freezes every
+drone after a breach (the autonomous-run default), `keep_in` — set in the
+teleop configs — brakes *before* one: outward speed is clipped to
+`fence_keep_in_gain` × distance-to-wall, the target position is clamped into
+the box, and a drone that is somehow outside is pushed back in. Fly at a wall
+in keep_in and you simply slow to a stop on it.
 
 ## Safety
 
@@ -414,12 +424,11 @@ applies on hardware; see `squeeze_rc_intruder.yaml`.
 This stack bypasses `drone_safety_monitor`. PX4 failsafes and the RC kill
 switch are the safety net.
 
-The two timeouts fail differently, on purpose. A stale pad (unplugged, dead
-battery) zeros horizontal and yaw but **keeps the altitude hold**, so the
-drone parks in the air at its held height rather than latching whatever it was
-last told — bring it down with `land` (or `hold`), or the RC kill switch.
-Stale odometry zeros everything including the vertical command — without a
-height measurement the altitude hold would be flying blind — and drops the
-altitude target, which re-seeds from the measured height when odometry
-returns. Neither case is a position hold: a drone commanded zero velocity
-stays roughly put but can drift.
+Losing the pad or the teleop node is benign by construction. A stale pad
+(unplugged, dead battery) makes `safe_teleop` publish zero velocity; a dead
+`safe_teleop` makes the commander's teleop topic go stale, which it also
+treats as zero. Zero stick velocity means the target stops moving and the
+commander keeps holding the drone at it — a real position hold, not a
+"stays roughly put". Bring it down with `land` (or `hold`), or the RC kill
+switch. Stale *odometry* is the commander's concern (its `state_timeout_s`):
+it commands zero velocity to that drone until odometry returns.

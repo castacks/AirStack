@@ -54,8 +54,8 @@ like any autonomous drone unless it is also listed in `cbf_exempt_drones`
 filter but never commanded (e.g. RC-flown).
 
 The maintained way to hand-fly a drone is the **`safe_teleop`** gamepad driver
-(direct horizontal velocity, rate-controlled altitude with active hold, stick
-lock), brought up end to end by `scripts/svg_teleop.sh` — sim experiments
+(sticks = velocity, flown in position mode by the commander so released
+sticks hold position; stick lock), brought up end to end by `scripts/svg_teleop.sh` — sim experiments
 (`solo`/`squeeze`/`hover`) and one real drone (`real`,
 [config/teleop_real.yaml](config/teleop_real.yaml)). See
 **[teleop.md](teleop.md)** for controls, pad diagnostics, axis signs, and the
@@ -73,8 +73,14 @@ velocity, no altitude hold) remains as an ad-hoc utility.
   commands route to MAVROS (`/{name}/interface/…`, sim) or px4_interface
   (`/{name}/fmu/…`, hardware), all under one CBF. See
   [config/hybrid_squeeze.yaml](config/hybrid_squeeze.yaml).
-- **Geofence**: `fence_enabled` + `fence_min`/`fence_max`; any airborne drone
-  leaving the box latches a swarm-wide freeze until `~/reset_fence`.
+- **Geofence**: `fence_enabled` + `fence_min`/`fence_max`, watched for every
+  role. `fence_behavior: hold_all` — any airborne drone leaving the box
+  latches a swarm-wide freeze until `~/reset_fence`; `keep_in` — commanded
+  drones are braked at the walls (per-axis velocity clip) and pushed back in,
+  nobody stops.
+- **Teleop position mode**: a hand-flown drone tracks a target the sticks
+  move (seeded from its position at `/start`), so released sticks hold
+  position on all axes (`teleop_kp`, `teleop_lead_m`).
 - **RViz**: all drones' world positions on `/svg/viz/markers`
   (`rviz2 -d $(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/svg_drones.rviz`).
 
@@ -102,9 +108,9 @@ squeeze rollout), and [test/functional_squeeze_test.py](test/functional_squeeze_
 - This stack bypasses `drone_safety_monitor`; PX4 failsafes and the RC kill
   switch are the safety net. Configure them before flying.
 - Stale odometry (> `state_timeout_s`) → zero-velocity command. A stale
-  *teleop topic* (> `teleop_timeout_s`, i.e. the teleop node died) → zero. A
-  dead *gamepad* is different and intentional: `safe_teleop` keeps publishing,
-  zeroing horizontal but holding altitude, so the drone parks in the air — see
+  *teleop topic* (> `teleop_timeout_s`, i.e. the teleop node died) or a dead
+  *gamepad* (safe_teleop publishes zeros) both mean "sticks at rest": the
+  commander keeps holding the drone at its position-mode target — see
   teleop.md "Safety". `~/hold` is the panic button.
 - `CBF emergency push-apart engaged` in the log means the QP went infeasible
   (drones inside each other's safety spheres) — land and investigate.

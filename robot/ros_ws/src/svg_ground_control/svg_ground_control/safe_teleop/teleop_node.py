@@ -1,13 +1,16 @@
 """Gamepad teleop node: /joy in, TwistStamped out on the commander's topic.
 
-Reads sensor_msgs/Joy from the standard `joy` node and the drone's odometry,
-runs VelocityMapper, and publishes a world-frame ENU velocity on
-/svg/{drone}/teleop_command.
+Reads sensor_msgs/Joy from the standard `joy` node, runs VelocityMapper, and
+publishes a world-frame ENU *stick velocity* on /svg/{drone}/teleop_command:
+right stick = horizontal velocity, left stick = vertical velocity + yaw rate.
 
-The right stick sets horizontal velocity directly. The left stick sets the
-rate of change of a target altitude, so releasing it holds the current height
-and the vertical velocity is a correction toward that target. This is why the
-node needs odometry, unlike a teleop node that only maps sticks to velocity.
+Position holding is NOT done here. The swarm commander flies teleop drones in
+position mode (position_hold.py): it integrates this velocity into a target
+it tracks, seeded from the drone's own position when control is handed over,
+so releasing the sticks holds position on all three axes. That is why this
+node no longer needs odometry (it only shows the altitude in its status line
+when it happens to have it) and no longer keeps an altitude target of its own
+— two integrators would fight.
 
 The drone must be listed in the commander's `teleop_drones`, and teleop takes
 effect only after /swarm_commander/start.
@@ -26,8 +29,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import Joy
 
 from .pad import PadState
-from .velocity import (ALTITUDE_GAIN, CLIMB_RATE_MPS, DEADZONE, MAX_ALTITUDE_M,
-                       MAX_CLIMB_SPEED_MPS, MAX_SPEED_MPS, MIN_ALTITUDE_M,
+from .velocity import (DEADZONE, MAX_CLIMB_SPEED_MPS, MAX_SPEED_MPS,
                        YAW_RATE_RAD_S, VelocityMapper)
 from .controllers import DEFAULT_CONTROLLER, controller_names, get_controller
 
@@ -57,18 +59,13 @@ class SafeTeleopNode(Node):
                                '/{name}/odometry_conversion/odometry')
         self.declare_parameter('publish_rate_hz', 20.0)
         self.declare_parameter('joy_timeout_s', 0.5)
-        self.declare_parameter('odometry_timeout_s', 0.5)
         # Print the stick reading + published velocity this often (0 = never).
         # teleop.launch.py sets 1 Hz so the pad can be checked before the
         # commander is up.
         self.declare_parameter('print_hz', 0.0)
 
-        self.declare_parameter('max_speed_mps', MAX_SPEED_MPS)
-        self.declare_parameter('climb_rate_mps', CLIMB_RATE_MPS)
-        self.declare_parameter('altitude_gain', ALTITUDE_GAIN)
-        self.declare_parameter('max_climb_speed_mps', MAX_CLIMB_SPEED_MPS)
-        self.declare_parameter('min_altitude_m', MIN_ALTITUDE_M)
-        self.declare_parameter('max_altitude_m', MAX_ALTITUDE_M)
+        self.declare_parameter('max_speed_mps', MAX_SPEED_MPS)        # full right stick
+        self.declare_parameter('max_climb_speed_mps', MAX_CLIMB_SPEED_MPS)  # full left stick
         self.declare_parameter('deadzone', DEADZONE)
 
         # Axis map: defaults come from the controller profile. Set one of
@@ -81,12 +78,9 @@ class SafeTeleopNode(Node):
             return self.get_parameter(name).value
 
         self.mapper = VelocityMapper(
+            direct_vertical=True,
             max_speed=float(value('max_speed_mps')),
-            climb_rate=float(value('climb_rate_mps')),
-            altitude_gain=float(value('altitude_gain')),
             max_climb_speed=float(value('max_climb_speed_mps')),
-            min_altitude=float(value('min_altitude_m')),
-            max_altitude=float(value('max_altitude_m')),
             deadzone_width=float(value('deadzone')),
             forward_axis=int(value('forward_axis')),
             left_axis=int(value('left_axis')),
@@ -101,8 +95,6 @@ class SafeTeleopNode(Node):
         )
 
         self.joy_timeout = Duration(seconds=float(value('joy_timeout_s')))
-        self.odometry_timeout = Duration(
-            seconds=float(value('odometry_timeout_s')))
 
         self.joy = None
         self.last_joy_time = None
@@ -203,18 +195,6 @@ class SafeTeleopNode(Node):
         dt = 1e-9 * (now - self.last_tick).nanoseconds if self.last_tick else 0.0
         self.last_tick = now
 
-        # No odometry means no altitude to hold against. Publish zero and drop
-        # the target so it is re-adopted from wherever the drone actually is
-        # when odometry comes back, instead of correcting to a stale height.
-        if not self._fresh(self.last_odometry_time, self.odometry_timeout):
-            if self.mapper.target_altitude is not None:
-                self.get_logger().warn('odometry stale, holding zero velocity',
-                                       throttle_duration_sec=2.0)
-                self.mapper.target_altitude = None
-            self.last_command = None
-            self.publish(0.0, 0.0, 0.0)
-            return
-
         joy_fresh = self._fresh(self.last_joy_time, self.joy_timeout)
         if self.joy is None or not joy_fresh:
             self.get_logger().warn('joy stale, holding zero velocity',
@@ -233,13 +213,15 @@ class SafeTeleopNode(Node):
 
         state = self.pad_state(joy_fresh)
 
-        command = self.mapper.update(state, dt, self.altitude)
+        # Altitude is display-only here (position hold lives in the commander).
+        command = self.mapper.update(
+            state, dt, self.altitude if self.altitude is not None else 0.0)
         self.last_command = command
         if command.held != self.was_locked:
             self.was_locked = command.held
             self.get_logger().info(
-                f'left stick {"locked" if command.held else "released"}, '
-                f'target altitude {command.target_altitude:.2f} m')
+                f'left stick {"locked" if command.held else "released"} '
+                '(vertical + yaw ignored while locked)')
         self.publish(command.vx, command.vy, command.vz, command.yaw_rate)
 
     def print_status(self):
@@ -270,16 +252,15 @@ class SafeTeleopNode(Node):
                 f'({", ".join(f"{n} on axis {i}" for n, i in self.suspect_axes.items())} '
                 f'rests at full scale; wrong teleop_controller?)')
             return
-        if self.last_command is None:
-            self.get_logger().info(
-                f'pad: {sticks} | NO odometry -> publishing zero velocity '
-                '(sticks work; vz needs the drone height)')
-            return
         c = self.last_command
+        if c is None:
+            self.get_logger().info(f'pad: {sticks} | publishing zero velocity')
+            return
+        alt = (f' | alt {self.altitude:.2f} m' if self.altitude is not None
+               else ' | (no odometry yet)')
         self.get_logger().info(
             f'pad: {sticks} | cmd vx {c.vx:+.2f} vy {c.vy:+.2f} vz {c.vz:+.2f} '
-            f'yaw {c.yaw_rate:+.2f} | alt {c.altitude:.2f} -> {c.target_altitude:.2f} m'
-            f'{" | LOCKED" if c.held else ""}')
+            f'yaw {c.yaw_rate:+.2f}{alt}{" | LOCKED" if c.held else ""}')
 
     def pad_state(self, connected: bool) -> PadState:
         """A Joy message as the PadState the mapper expects."""

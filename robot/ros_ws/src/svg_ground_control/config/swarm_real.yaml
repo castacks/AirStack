@@ -62,6 +62,17 @@ swarm_commander:
 
     # Geofence: SET TO YOUR CAPTURE VOLUME. breach -> all hold, ~/reset_fence to clear
     fence_enabled: true
+    # fence_behavior: what a breach of [fence_min, fence_max] does.
+    #   "hold_all" - any ACTIVE drone (auto, teleop OR external) outside the
+    #                box latches: everyone freezes, scenario stops, until
+    #                ~/reset_fence. Safe default for autonomous runs.
+    #   "keep_in"  - nobody stops. Commanded drones are held inside the box by
+    #                a per-axis velocity barrier (outward speed <= gain *
+    #                distance to the wall, pushed back if outside); external
+    #                drones cannot be steered and are only reported.
+    fence_behavior: "hold_all"
+    fence_keep_in_gain: 1.0   # keep_in: 1/s
+    fence_margin_m: 0.0       # keep_in: meet the wall this early (m)
     fence_min: [-4.0, -2.0, 0.0]
     fence_max: [4.0, 2.0, 3.0]
 

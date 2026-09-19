@@ -33,7 +33,7 @@ LEFT_AXIS = 3           # right stick left/right
 CLIMB_AXIS = 1          # left stick up/down
 YAW_AXIS = 0            # left stick left/right
 FORWARD_SIGN = 1.0
-LEFT_SIGN = -1.0
+LEFT_SIGN = 1.0         # stick left -> +y (ENU left); joy_node already negates
 CLIMB_SIGN = 1.0
 YAW_SIGN = 1.0
 YAW_RATE_RAD_S = 1.0
@@ -94,7 +94,14 @@ class VelocityMapper:
                  climb_axis=CLIMB_AXIS, yaw_axis=YAW_AXIS,
                  yaw_rate=YAW_RATE_RAD_S, lock_button=FREEZE_BUTTON,
                  forward_sign=FORWARD_SIGN, left_sign=LEFT_SIGN,
-                 climb_sign=CLIMB_SIGN, yaw_sign=YAW_SIGN):
+                 climb_sign=CLIMB_SIGN, yaw_sign=YAW_SIGN,
+                 direct_vertical=False):
+        # direct_vertical: the left stick IS the vertical velocity (up to
+        # max_climb_speed), no altitude target here. This is what the teleop
+        # node uses: the commander holds position (all three axes) itself, so
+        # a second altitude integrator here would fight it. The hold logic
+        # below stays for the desk preview.
+        self.direct_vertical = direct_vertical
         self.max_speed = max_speed
         self.climb_rate = climb_rate
         self.altitude_gain = altitude_gain
@@ -124,6 +131,8 @@ class VelocityMapper:
 
         # A vanished pad must not leave the last stick deflection latched.
         if not state.connected:
+            if self.direct_vertical:
+                return self._direct(0.0, 0.0, 0.0, altitude, 0.0)
             return self._command(0.0, 0.0, altitude, 0.0)
 
         forward = deadzone(state.axis(self.forward_axis),
@@ -137,6 +146,12 @@ class VelocityMapper:
             deadzone(state.axis(self.yaw_axis),
                      self.deadzone_width) * self.yaw_sign)
 
+        if self.direct_vertical:
+            self.target_altitude = altitude
+            return self._direct(forward * self.max_speed, left * self.max_speed,
+                                climb * self.max_climb_speed, altitude,
+                                yaw * self.yaw_rate)
+
         # This is the whole difference from a direct mapping: the stick moves
         # the target, it does not set the velocity.
         self.target_altitude = min(self.max_altitude, max(
@@ -144,6 +159,12 @@ class VelocityMapper:
 
         return self._command(forward * self.max_speed, left * self.max_speed,
                              altitude, yaw * self.yaw_rate)
+
+    def _direct(self, vx: float, vy: float, vz: float, altitude: float,
+                yaw_rate: float) -> Command:
+        return Command(vx=vx + 0.0, vy=vy + 0.0, vz=vz + 0.0,
+                       yaw_rate=yaw_rate + 0.0, target_altitude=altitude,
+                       altitude=altitude, held=self.lock.engaged)
 
     def _command(self, vx: float, vy: float, altitude: float,
                  yaw_rate: float = 0.0) -> Command:

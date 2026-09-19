@@ -52,7 +52,7 @@ class Monitor(Node):
         self.t_joy = self.t_cmd = self.t_odom = 0.0
         self.n_joy = self.n_cmd = 0
 
-        self.mapper = VelocityMapper()
+        self.mapper = VelocityMapper(direct_vertical=True)
         self.last_update = time.monotonic()
         self.target: float | None = None
         self.locked = False
@@ -153,8 +153,8 @@ def render(screen, mon: Monitor) -> None:
         line(f"    measured {mon.alt:+6.2f} m     target "
              f"{'--' if tgt is None else f'{tgt:+6.2f} m'}     "
              f"error {'--' if tgt is None else f'{tgt - mon.alt:+6.2f} m'}")
-        line(f"    clamps [{m.min_altitude:.2f}, {m.max_altitude:.2f}] m   "
-             f"climb_rate {m.climb_rate} m/s   gain {m.altitude_gain}")
+        line(f"    vertical: left stick x {m.max_climb_speed} m/s (position hold is "
+             "in the commander)")
     line()
 
     line("  PUBLISHED VELOCITY   /svg/%s/teleop_command" % mon.drone)

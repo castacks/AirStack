@@ -14,10 +14,10 @@
 # drones:=drone_1, natnet_ros2 streaming /drone_1/pose, EKF2 external-vision
 # params set and verified (B4b), hand-carry RViz preflight done (B5).
 #
-# ALTITUDE CLAMP CAVEAT: safe_teleop's min/max_altitude_m (defaults 0.3–2.5 m)
-# clamp the target against raw odometry z, which on hardware is height above
-# the MOCAP ORIGIN, not the floor. Verify Motive's ground plane is at floor
-# level before trusting the floor clamp.
+# ALTITUDE: there is no separate altitude clamp any more. The commander flies
+# the teleop drone in position mode (sticks move a target it tracks) and the
+# fence in keep_in mode is what bounds it — fence_min/max z below are height
+# above the MOCAP ORIGIN, so verify Motive's ground plane is at floor level.
 #
 # YAW CAVEAT: yaw sign cannot be verified in sim (px4_interface negates
 # angular.z, mavros_interface does not). Test yaw slowly at low altitude on the
@@ -62,9 +62,26 @@ swarm_commander:
     cbf_max_speed_mps: 0.7
     cbf_alpha: 2.5
     teleop_max_speed_mps: 0.7
+    # Position-mode teleop: the sticks move a target the commander tracks
+    # (P + feedforward), seeded from the drone's position at /start, so
+    # released sticks hold position. teleop_lead_m leashes the target to the
+    # drone (a drone held back by the CBF/fence does not bank up error).
+    teleop_kp: 1.0
+    teleop_lead_m: 0.5
 
     # Geofence: SET TO YOUR CAPTURE VOLUME. breach -> hold, ~/reset_fence to clear
     fence_enabled: true
+    # fence_behavior: what a breach of [fence_min, fence_max] does.
+    #   "hold_all" - any ACTIVE drone (auto, teleop OR external) outside the
+    #                box latches: everyone freezes, scenario stops, until
+    #                ~/reset_fence. Safe default for autonomous runs.
+    #   "keep_in"  - nobody stops. Commanded drones are held inside the box by
+    #                a per-axis velocity barrier (outward speed <= gain *
+    #                distance to the wall, pushed back if outside); external
+    #                drones cannot be steered and are only reported.
+    fence_behavior: "keep_in"
+    fence_keep_in_gain: 1.0   # keep_in: 1/s
+    fence_margin_m: 0.0       # keep_in: meet the wall this early (m)
     fence_min: [-4.0, -2.0, 0.0]
     fence_max: [4.0, 2.0, 3.0]
 
@@ -98,8 +115,5 @@ safe_teleop:
     # Set this to "xbox_usb" if you swap in a real Xbox pad. Check an unknown
     # pad with `ros2 run svg_ground_control joy_map` before flying it.
     teleop_controller: "dragonrise_usb"
-    max_speed_mps: 0.7        # first hardware flights: slow (= caps above)
-    climb_rate_mps: 0.4
-    max_climb_speed_mps: 0.5
-    min_altitude_m: 0.3       # above the MOCAP origin, see caveat at top
-    max_altitude_m: 2.0
+    max_speed_mps: 0.7        # full right stick, first hardware flights: slow (= caps above)
+    max_climb_speed_mps: 0.5  # full left stick (vertical). Position hold is the commander's.

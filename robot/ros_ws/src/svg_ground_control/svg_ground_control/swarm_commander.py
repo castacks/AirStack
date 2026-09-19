@@ -33,10 +33,21 @@ px4_interface/uXRCE-DDS hardware interface (``/{name}/fmu/...``). The state
 topic is identical for both. This lets one run mix real and simulated drones
 (e.g. squeeze with real holders + a simulated intruder), all in one CBF.
 
-Geofence: with ``fence_enabled``, if any airborne drone leaves
-[``fence_min``, ``fence_max``] the commander latches a breach — every drone
-freezes at its current position, the scenario stops, and ``start`` is
-blocked until ``~/reset_fence``.
+Teleop drones fly in POSITION MODE (position_hold.py): the sticks move a
+target the commander tracks (P + feedforward), seeded from the drone's own
+position when ``~/start`` hands control over, so releasing the sticks holds
+position instead of drifting.
+
+Geofence: with ``fence_enabled`` and the box [``fence_min``, ``fence_max``],
+``fence_behavior`` picks what happens:
+    hold_all — any ACTIVE drone (any role) outside the box latches a breach:
+               every drone freezes, the scenario stops, ``start`` is blocked
+               until ``~/reset_fence``.
+    keep_in  — nobody stops. Every commanded drone's velocity is clipped per
+               axis so it cannot cross a wall and is pushed back inside if it
+               is out (fence.keep_in_velocity); the teleop target is clamped
+               into the box. External drones cannot be steered, so they are
+               only reported.
 
 Visualization: every drone's WORLD position (offset-corrected, so real and
 simulated drones share one frame) is published as a MarkerArray on
@@ -67,6 +78,9 @@ from visualization_msgs.msg import Marker, MarkerArray
 from airstack_msgs.srv import RobotCommand
 
 from svg_ground_control.cbf_filter import filter_velocities
+from svg_ground_control.fence import (BEHAVIORS as FENCE_BEHAVIORS, clamp_to_box,
+                                      keep_in_velocity, outside, violation_text)
+from svg_ground_control.position_hold import advance_target, tracking_velocity
 from svg_ground_control.scenarios import Bounds, make_scenario
 
 
@@ -105,6 +119,9 @@ class DroneHandle:
         self.teleop_twist = np.zeros(3)
         self.teleop_yaw_rate = 0.0
         self.last_teleop_time = None
+        # Position-mode teleop setpoint (world ENU). None = re-seed from the
+        # drone's position the next time the sticks get control.
+        self.teleop_target = None
 
     @property
     def commanded(self) -> bool:
@@ -209,6 +226,14 @@ class SwarmCommander(Node):
         self.declare_parameter('fence_enabled', False)
         self.declare_parameter('fence_min', [-1000.0, -1000.0, -1000.0])
         self.declare_parameter('fence_max', [1000.0, 1000.0, 1000.0])
+        # 'hold_all': breach -> everyone freezes (latch, ~/reset_fence).
+        # 'keep_in' : nobody stops; commanded drones are held inside the box
+        #             by a per-axis velocity barrier (see fence.py).
+        self.declare_parameter('fence_behavior', 'hold_all')
+        # keep_in only: outward speed allowed = gain * distance to the wall
+        # (1/s); margin shrinks the box so the wall is met that early (m).
+        self.declare_parameter('fence_keep_in_gain', 1.0)
+        self.declare_parameter('fence_margin_m', 0.0)
 
         # ---- Visualization ----------------------------------------------
         self.declare_parameter('publish_viz', True)
@@ -231,6 +256,11 @@ class SwarmCommander(Node):
         self.declare_parameter('cbf_max_speed_mps', 1.2)
         self.declare_parameter('cbf_alpha', 2.5)
         self.declare_parameter('teleop_max_speed_mps', 1.2)
+        # Position-mode teleop: P-gain on (target - position) and the leash,
+        # i.e. how far the target may run ahead of a drone that is being held
+        # back (CBF, fence, wall). 0 = no leash.
+        self.declare_parameter('teleop_kp', 1.0)
+        self.declare_parameter('teleop_lead_m', 0.5)
         # Gain on an EXTERNAL drone's measured velocity as seen by the CBF.
         # 1.0 = react to its true approach speed; > 1 pretends it is faster,
         # so commanded drones start yielding earlier and dodge harder.
@@ -281,6 +311,13 @@ class SwarmCommander(Node):
         self.fence_enabled = bool(self.get_parameter('fence_enabled').value)
         self.fence_min = np.array(self.get_parameter('fence_min').value, dtype=float)
         self.fence_max = np.array(self.get_parameter('fence_max').value, dtype=float)
+        self.fence_behavior = str(self.get_parameter('fence_behavior').value).strip()
+        if self.fence_behavior not in FENCE_BEHAVIORS:
+            raise ValueError(
+                f"fence_behavior '{self.fence_behavior}' unknown; "
+                f"use one of {', '.join(FENCE_BEHAVIORS)}")
+        self.fence_keep_in_gain = float(self.get_parameter('fence_keep_in_gain').value)
+        self.fence_margin = float(self.get_parameter('fence_margin_m').value)
         self.fence_breached = False
 
         self.state_timeout = float(self.get_parameter('state_timeout_s').value)
@@ -294,6 +331,8 @@ class SwarmCommander(Node):
         self.cbf_max_speed = float(self.get_parameter('cbf_max_speed_mps').value)
         self.cbf_alpha = float(self.get_parameter('cbf_alpha').value)
         self.teleop_max_speed = float(self.get_parameter('teleop_max_speed_mps').value)
+        self.teleop_kp = float(self.get_parameter('teleop_kp').value)
+        self.teleop_lead = float(self.get_parameter('teleop_lead_m').value)
         self.cbf_external_velocity_gain = float(
             self.get_parameter('cbf_external_velocity_gain').value)
 
@@ -458,7 +497,8 @@ class SwarmCommander(Node):
         self.cbf_active_pub = self.create_publisher(String, '/svg/cbf_active', 10)
 
         rate = float(self.get_parameter('control_rate_hz').value)
-        self.timer = self.create_timer(1.0 / rate, self.control_loop)
+        self.control_dt = 1.0 / rate
+        self.timer = self.create_timer(self.control_dt, self.control_loop)
         self._cbf_warn_count = 0
 
         self.get_logger().info(
@@ -470,7 +510,7 @@ class SwarmCommander(Node):
                 for d in self.drones)
             + f' | CBF r={self.cbf_safety_radius} m, vmax={self.cbf_max_speed} m/s,'
             + f' alpha={self.cbf_alpha}, ext_vel_gain={self.cbf_external_velocity_gain}'
-            + (f' | FENCE {self.fence_min}..{self.fence_max}'
+            + (f' | FENCE {self.fence_behavior} {self.fence_min}..{self.fence_max}'
                if self.fence_enabled else ' | fence OFF'))
         if np.any(position_offsets):
             self.get_logger().info(
@@ -577,6 +617,8 @@ class SwarmCommander(Node):
             response.message = 'not all drones holding yet: ' + ', '.join(not_ready)
             return response
         self.mission_active = True
+        for d in self.drones:
+            d.teleop_target = None      # seed from where the drone IS, now
         response.success = True
         response.message = f'scenario "{self.scenario_name}" running'
         self.get_logger().info(response.message)
@@ -589,6 +631,7 @@ class SwarmCommander(Node):
             if d.commanded and d.position is not None \
                     and d.state in (FlightState.ASCEND, FlightState.ACTIVE):
                 d.hold_target = d.position.copy()
+                d.teleop_target = None
                 d.state = FlightState.ACTIVE
                 held.append(d.name)
         response.success = bool(held)
@@ -601,6 +644,7 @@ class SwarmCommander(Node):
         for d in self.drones:
             if d.commanded and d.state in (FlightState.ASCEND, FlightState.ACTIVE):
                 d.state = FlightState.LANDING
+                d.teleop_target = None
                 landing.append(d.name)
         response.success = bool(landing)
         response.message = ('landing: ' + ', '.join(landing)) if landing \
@@ -622,7 +666,7 @@ class SwarmCommander(Node):
     # Geofence
     # ------------------------------------------------------------------
 
-    def enforce_fence(self):
+    def enforce_fence(self, now):
         """Latch a breach if any airborne drone is outside the fence box.
 
         On breach: stop the scenario and freeze every airborne commanded
@@ -631,12 +675,16 @@ class SwarmCommander(Node):
         """
         if not self.fence_enabled or self.fence_breached:
             return
+        if self.fence_behavior == 'keep_in':
+            self.report_keep_in(now)
+            return
         airborne = (FlightState.ASCEND, FlightState.ACTIVE, FlightState.LANDING)
         for d in self.drones:
-            # Only police drones that have finished taking off (ACTIVE);
-            # ASCEND climbs up through the fence floor and LANDING descends
-            # through it on purpose, so those are exempt from detection.
-            if d.position is None or d.state != FlightState.ACTIVE:
+            # Police every role: commanded drones once they have finished
+            # taking off (ACTIVE; ASCEND climbs through the fence floor and
+            # LANDING descends through it on purpose), and external drones
+            # whenever they are in the air (they have no state machine).
+            if not self.policed(d, now):
                 continue
             below = d.position < self.fence_min
             above = d.position > self.fence_max
@@ -644,19 +692,66 @@ class SwarmCommander(Node):
                 continue
             self.fence_breached = True
             self.mission_active = False
-            axes = 'xyz'
-            viol = ', '.join(
-                f'{axes[k]}{"<min" if below[k] else ">max"}'
-                for k in range(3) if below[k] or above[k])
+            viol = violation_text(d.position, self.fence_min, self.fence_max)
             for o in self.drones:
                 if o.commanded and o.position is not None and o.state in airborne:
                     o.hold_target = o.position.copy()
+                    o.teleop_target = None
                     o.state = FlightState.ACTIVE
             self.get_logger().error(
-                f'GEOFENCE BREACH by {d.name} at '
+                f'GEOFENCE BREACH by {d.name} ({d.role}) at '
                 f'[{d.position[0]:.2f}, {d.position[1]:.2f}, {d.position[2]:.2f}] '
                 f'({viol}) — ALL DRONES HOLD. Call ~/reset_fence to clear.')
             return
+
+    def policed(self, d: DroneHandle, now) -> bool:
+        """Whether the fence watches this drone right now (either behaviour).
+
+        Commanded drones: only while ACTIVE. External (RC-flown) drones have
+        no flight state, so they count while airborne — fresh odometry and
+        higher than the landing-complete altitude — and are ignored on the
+        ground, where being outside the box means nothing.
+        """
+        if d.position is None:
+            return False
+        if d.role != 'external':
+            return d.state == FlightState.ACTIVE
+        fresh = (d.last_odom_time is not None
+                 and (now - d.last_odom_time) < Duration(seconds=self.state_timeout))
+        return fresh and d.position[2] > self.land_complete_alt
+
+    def report_keep_in(self, now):
+        """keep_in mode: nothing to latch, but say who is out and unsteerable."""
+        for d in self.drones:
+            if not self.policed(d, now):
+                continue
+            if not outside(d.position, self.fence_min, self.fence_max).any():
+                continue
+            if d.role == 'external':
+                self.get_logger().warn(
+                    f'{d.name} (external, not commanded) is outside the fence '
+                    f'({violation_text(d.position, self.fence_min, self.fence_max)}) '
+                    '— keep_in cannot steer it',
+                    throttle_duration_sec=2.0)
+            else:
+                self.get_logger().warn(
+                    f'{d.name} outside the fence '
+                    f'({violation_text(d.position, self.fence_min, self.fence_max)}), '
+                    'keep_in pushing it back',
+                    throttle_duration_sec=2.0)
+
+    def keep_in(self, drone: DroneHandle, velocity: np.ndarray) -> np.ndarray:
+        """Clip a commanded velocity at the fence walls (keep_in behaviour)."""
+        clipped = keep_in_velocity(velocity, drone.position, self.fence_min,
+                                   self.fence_max, self.fence_keep_in_gain,
+                                   self.fence_margin)
+        if np.linalg.norm(clipped - velocity) > 0.05:
+            self.get_logger().info(
+                f'fence keep-in: {drone.name} limited on '
+                + ''.join('xyz'[k] for k in range(3)
+                          if abs(clipped[k] - velocity[k]) > 1e-6),
+                throttle_duration_sec=1.0)
+        return clipped
 
     # ------------------------------------------------------------------
     # Robot interface helpers
@@ -688,6 +783,7 @@ class SwarmCommander(Node):
     # ------------------------------------------------------------------
 
     def teleop_command(self, drone: DroneHandle, now) -> np.ndarray:
+        """The operator's stick velocity (zero when the teleop topic is stale)."""
         stale = (drone.last_teleop_time is None
                  or (now - drone.last_teleop_time)
                  > Duration(seconds=self.teleop_timeout))
@@ -696,6 +792,31 @@ class SwarmCommander(Node):
         if speed > self.teleop_max_speed:
             cmd *= self.teleop_max_speed / speed
         return cmd
+
+    def teleop_position_mode(self, drone: DroneHandle, now) -> np.ndarray:
+        """Position-mode teleop (see position_hold.py).
+
+        Sticks steer ``drone.teleop_target``; the command is a P-track toward
+        it plus the stick velocity as feedforward. The target is seeded from
+        the drone's live position when it is None (every hand-over resets it
+        to None), leashed to ``teleop_lead_m``, and in keep_in fence mode
+        clamped into the box so the sticks cannot drag it outside.
+        """
+        stick = self.teleop_command(drone, now)
+        if drone.teleop_target is None:
+            self.get_logger().info(
+                f'{drone.name}: sticks live, holding '
+                f'[{drone.position[0]:.2f}, {drone.position[1]:.2f}, '
+                f'{drone.position[2]:.2f}] until moved')
+        drone.teleop_target = advance_target(
+            drone.teleop_target, drone.position, stick, self.control_dt,
+            self.teleop_lead)
+        if self.fence_enabled and self.fence_behavior == 'keep_in':
+            drone.teleop_target = clamp_to_box(
+                drone.teleop_target, self.fence_min, self.fence_max,
+                self.fence_margin)
+        return tracking_velocity(drone.teleop_target, drone.position, stick,
+                                 self.teleop_kp, self.teleop_max_speed)
 
     def control_loop(self):
         now = self.get_clock().now()
@@ -717,7 +838,7 @@ class SwarmCommander(Node):
                 self.get_logger().info(f'{d.name}: ascending to {d.hold_target}')
 
         # Geofence: may latch a breach and freeze everyone before commanding.
-        self.enforce_fence()
+        self.enforce_fence(now)
 
         # Swarm state: every drone with a known position (any role) feeds the
         # CBF; freshness only gates whether a drone gets commands published.
@@ -772,7 +893,7 @@ class SwarmCommander(Node):
                     self.get_logger().info(f'{d.name}: holding takeoff position')
             elif d.state == FlightState.ACTIVE:
                 if d.role == 'teleop' and self.mission_active:
-                    nominal[i] = self.teleop_command(d, now)
+                    nominal[i] = self.teleop_position_mode(d, now)
                 elif self.mission_active and scenario_nominal is not None:
                     drone_index = self.drones.index(d)
                     nominal[i] = scenario_nominal[drone_index]
@@ -860,7 +981,14 @@ class SwarmCommander(Node):
                 self.get_logger().info(f'{d.name}: landed, disarmed')
                 continue
 
-            self.publish_velocity(d, safe[index[d.name]], now)
+            velocity = safe[index[d.name]]
+            # keep_in fence: the wall is the last word, after the CBF (a
+            # per-axis clip never turns a stop into motion). Only ACTIVE
+            # drones: ASCEND/LANDING legitimately cross the floor.
+            if self.fence_enabled and self.fence_behavior == 'keep_in' \
+                    and d.state == FlightState.ACTIVE:
+                velocity = self.keep_in(d, velocity)
+            self.publish_velocity(d, velocity, now)
 
         self.publish_markers(now)
 

@@ -85,7 +85,8 @@ Five executables (`robot/ros_ws/src/svg_ground_control/svg_ground_control/`):
    cbf_filter.filter_velocities()   ◄── sees ALL drones' world positions
         │  (collision-safe velocities; cbf_exempt rows restored after)
         ▼
-   geofence check (latch + freeze all if any drone outside the box)
+   geofence check (hold_all: latch + freeze all if any drone outside the box;
+                   keep_in: clip each command at the walls instead)
         │
         ▼
    publish /{name}/<iface>/velocity_command   +   /svg/viz/markers (RViz)
@@ -317,7 +318,8 @@ cd ~/AirStack/robot/ros_ws && sws
 ros2 launch svg_ground_control teleop.launch.py drone:=drone_3
 # terminal 2: the commander, same config
 ros2 launch svg_ground_control ground_control.launch.py scenario:=squeeze teleop_drones:=drone_3
-# right stick = move, left stick = altitude (rate, held on release) + yaw, LB = lock
+# right stick = move, left stick = up/down + yaw, LB = lock. Position mode: release
+# the sticks and the commander holds the drone where it is (teleop_kp / teleop_lead_m).
 ```
 
 ### A6. Fly (fresh terminal)
@@ -1056,12 +1058,12 @@ ros2 service call /swarm_commander/land    std_srvs/srv/Trigger   # lands ONLY t
                                                                   # the RC pilot lands drone_3
 ```
 
-> ⚠️ **Safety — the geofence does NOT police drone_3.** The fence only watches
-> commander-flown (ACTIVE) drones; an external drone never trips it. The RC
-> pilot (and their kill switch) is drone_3's only safety layer. A breach by a
-> *holder* still freezes the holders as usual. Also: if drone_3's odometry goes
-> stale (mocap dropout), the commander pauses the scenario and the holders fall
-> back to holding position — by design.
+> ⚠️ **Safety — the geofence can only *watch* drone_3, not steer it.** In
+> `hold_all` (this config) an airborne drone_3 leaving the box freezes the
+> holders like any other breach; in `keep_in` it is merely logged. Either
+> way the RC pilot (and their kill switch) is drone_3's only control layer.
+> Also: if drone_3's odometry goes stale (mocap dropout), the commander pauses
+> the scenario and the holders fall back to holding position — by design.
 
 **LEDs (`led_controller` block in `squeeze_rc_intruder.yaml`, all three drones
 set up per [B1(d)](#b1-per-drone-one-time-setup)):** everyone is **green**. A
@@ -1143,15 +1145,31 @@ skipped in the markers).
 
 ## Geofence
 
-A safety latch in `swarm_commander`. If any **airborne, holding/active** drone
-leaves the box `[fence_min, fence_max]` (world ENU), the commander latches a
-breach: every drone freezes at its current position, the scenario stops, and
-`start` is refused until you call `~/reset_fence`. Climb-out and landing pass
-through the floor on purpose and are exempt from detection.
+The box `[fence_min, fence_max]` (world ENU) in `swarm_commander`, watched
+for every role — commanded drones once they are ACTIVE (climb-out and landing
+pass through the floor on purpose), external RC-flown drones whenever they
+are airborne (above `land_complete_altitude_m`, fresh odometry). What a
+breach does is `fence_behavior`:
+
+- **`hold_all`** (default, every autonomous config): a safety latch. Any
+  watched drone outside the box freezes *every* drone at its current
+  position, stops the scenario, and refuses `start` until `~/reset_fence`.
+  An external drone trips it too — the holders stop; the RC pilot must bring
+  their own drone back.
+- **`keep_in`** (the teleop configs): nobody stops. Each commanded drone's
+  velocity is clipped per axis so it cannot cross a wall — outward speed is
+  at most `fence_keep_in_gain` × the distance left to that wall, so it brakes
+  to a stop on the boundary — and a drone found outside is pushed back in at
+  the same gain. A hand-flown drone's position target is clamped into the box
+  as well. External drones cannot be steered; keep_in only logs them.
+  `fence_margin_m` shrinks the box so the wall is met that early.
 
 Config (per profile):
 ```yaml
 fence_enabled: true
+fence_behavior: "hold_all"      # or "keep_in"
+fence_keep_in_gain: 1.0         # keep_in: 1/s
+fence_margin_m: 0.0             # keep_in: m
 fence_min: [-2.5, -2.5, 0.3]    # x,y,z lower limits (world ENU, m)
 fence_max: [ 2.5,  2.5, 2.5]    # x,y,z upper limits
 ```
@@ -1159,8 +1177,9 @@ Recover:
 ```bash
 ros2 service call /swarm_commander/reset_fence std_srvs/srv/Trigger
 ```
-This is a freeze-in-place, not a motor cutoff — the RC kill switch remains the
-true cutoff. The fence box is drawn in RViz (green normally, red when latched).
+`hold_all` is a freeze-in-place, not a motor cutoff, and `keep_in` is a
+velocity clip, not a wall — the RC kill switch remains the true cutoff. The
+fence box is drawn in RViz (green normally, red when latched).
 
 ---
 

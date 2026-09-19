@@ -16,8 +16,10 @@ stream plus an axis map. A device that needs a different driver package
 
 Currently supported:
 
-    xbox_usb   Microsoft Xbox 360 wired controller through the Linux ``xpad``
-               driver and the standard ROS 2 ``joy`` node.
+    dragonrise_usb  generic DragonRise/SHANWAN "Android gamepad" (hid-generic
+                    + ros2 joy_node) — the pad on the bench
+    xbox_usb        Microsoft Xbox 360 wired controller (Linux ``xpad`` +
+                    ros2 joy_node)
 """
 
 from __future__ import annotations
@@ -31,7 +33,11 @@ from typing import Any, Dict, List, Tuple
 #   buttons 0 A  1 B  2 X  3 Y  4 LB  5 RB  6 Back  7 Start  8 Guide
 #           9 LS click  10 RS click
 # joy_node negates every axis relative to the raw device (stick left / up
-# read positive), which the signs below already account for.
+# read positive), which the signs below already account for: stick up ->
+# +forward (+x), stick left -> +left (+y, ENU), stick left on the yaw stick
+# -> +yaw rate (counter-clockwise). All +1.0; flip one only if a pad or
+# driver build really runs backwards (verified on the bench 2026-09-19 that
+# left_sign = -1.0 moved the drone the wrong way).
 
 
 @dataclass(frozen=True)
@@ -103,7 +109,7 @@ XBOX_USB = ControllerProfile(
     # Right stick = horizontal velocity, left stick = altitude rate + yaw,
     # left bumper = lock the left stick (see teleop.md "Controls").
     forward_axis=4, left_axis=3, climb_axis=1, yaw_axis=0, lock_button=4,
-    forward_sign=1.0, left_sign=-1.0, climb_sign=1.0, yaw_sign=1.0,
+    forward_sign=1.0, left_sign=1.0, climb_sign=1.0, yaw_sign=1.0,
 )
 
 # The very common generic "Android gamepad" (DragonRise / SHANWAN, USB
@@ -133,7 +139,7 @@ DRAGONRISE_USB = ControllerProfile(
     ),
     joy_topic='/joy',
     forward_axis=3, left_axis=2, climb_axis=1, yaw_axis=0, lock_button=6,
-    forward_sign=1.0, left_sign=-1.0, climb_sign=1.0, yaw_sign=1.0,
+    forward_sign=1.0, left_sign=1.0, climb_sign=1.0, yaw_sign=1.0,
 )
 
 CONTROLLERS: Dict[str, ControllerProfile] = {
