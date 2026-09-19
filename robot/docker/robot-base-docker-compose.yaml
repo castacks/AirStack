@@ -37,6 +37,11 @@ services:
       - ../../common/ros_packages:/root/AirStack/robot/ros_ws/src/common:rw
       - ../../common/fastdds.xml:/root/AirStack/robot/ros_ws/src/fastdds.xml
       - ../ros_ws:/root/AirStack/robot/ros_ws:rw
+      # gamepads / joysticks (svg_ground_control teleop -> joy_node).
+      # A bind mount, not `devices:`: privileged only populates /dev at
+      # container start, so a pad plugged in later would stay invisible.
+      # This directory stays in sync, so hotplug works without a restart.
+      - /dev/input:/dev/input
       # bags
       - ../bags:/bags:rw
 

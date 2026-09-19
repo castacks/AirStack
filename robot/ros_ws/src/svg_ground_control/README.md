@@ -62,7 +62,7 @@ lock), brought up end to end by `scripts/svg_teleop.sh` — sim experiments
 real-drone ground check. `teleop.launch.py` starts the input driver and
 `safe_teleop` in their own terminal (printing the pad reading, so it is
 checked before the commander comes up); the device is the
-`teleop_controller` parameter (`xbox_usb` today; registry in
+`teleop_controller` parameter (`dragonrise_usb`, `xbox_usb`; registry in
 [safe_teleop/controllers.py](svg_ground_control/safe_teleop/controllers.py)).
 The old keyboard teleop has been removed; `xbox_teleop` (direct stick-to-
 velocity, no altitude hold) remains as an ad-hoc utility.

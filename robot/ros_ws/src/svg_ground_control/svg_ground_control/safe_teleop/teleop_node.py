@@ -124,6 +124,11 @@ class SafeTeleopNode(Node):
         self.timer = self.create_timer(1.0 / rate, self.tick)
 
         self.last_command = None
+        # Axes that read full scale on the first /joy message. An analog
+        # trigger rests there, so a map that points a velocity axis at one
+        # commands full speed with nothing touched — the usual symptom of the
+        # wrong teleop_controller for the pad. None = not checked yet.
+        self.suspect_axes = None
         print_hz = float(value('print_hz'))
         if print_hz > 0.0:
             self.create_timer(1.0 / print_hz, self.print_status)
@@ -137,6 +142,54 @@ class SafeTeleopNode(Node):
     def joy_callback(self, msg: Joy):
         self.joy = msg
         self.last_joy_time = self.get_clock().now()
+        if self.suspect_axes is None:
+            self.check_axis_map(msg)
+
+    def mapped_axes(self) -> dict:
+        """The four velocity axes by the name this node uses for them."""
+        m = self.mapper
+        return {'forward': m.forward_axis, 'left': m.left_axis,
+                'climb': m.climb_axis, 'yaw': m.yaw_axis}
+
+    def check_axis_map(self, msg: Joy):
+        """First /joy message: is this map plausible for the pad that sent it?
+
+        Two ways a wrong ``teleop_controller`` shows up here. An axis index the
+        pad does not have reads as a constant 0.0 — dead, but harmless. An axis
+        that rests at full scale is an analog trigger, and pointing a velocity
+        axis at one means full speed commanded with nothing touched, so those
+        block the command until they move into a plausible range.
+        """
+        missing = {n: i for n, i in self.mapped_axes().items()
+                   if i >= len(msg.axes)}
+        if missing:
+            self.get_logger().error(
+                f'{self.controller.name} expects axes {sorted(self.mapped_axes().values())} '
+                f'but this pad reports only {len(msg.axes)}: '
+                f'{", ".join(f"{n} (axis {i})" for n, i in missing.items())} '
+                'will never move. Wrong teleop_controller for this pad?')
+        self.suspect_axes = {n: i for n, i in self.mapped_axes().items()
+                             if i < len(msg.axes) and abs(msg.axes[i]) > 0.9}
+        if self.suspect_axes:
+            self.get_logger().error(
+                'REFUSING TO COMMAND: '
+                + ', '.join(f'{n} (axis {i}) rests at {msg.axes[i]:+.2f}'
+                            for n, i in self.suspect_axes.items())
+                + f'. An axis at full scale untouched is an analog trigger, so '
+                f'{self.controller.name} is probably the wrong teleop_controller '
+                'for this pad — it would command full speed with nothing held. '
+                'Check the pad with `ros2 run svg_ground_control joy_map`, then '
+                'pick or add the right profile in safe_teleop/controllers.py.')
+
+    def clear_settled_axes(self, msg: Joy):
+        """Drop suspects that have come back into range (a stick held at start)."""
+        settled = [n for n, i in self.suspect_axes.items()
+                   if i < len(msg.axes) and abs(msg.axes[i]) <= 0.9]
+        for name in settled:
+            del self.suspect_axes[name]
+        if settled and not self.suspect_axes:
+            self.get_logger().info(
+                f'{", ".join(settled)} back in range, commanding again')
 
     def odometry_callback(self, msg: Odometry):
         self.altitude = msg.pose.pose.position.z
@@ -166,6 +219,18 @@ class SafeTeleopNode(Node):
         if self.joy is None or not joy_fresh:
             self.get_logger().warn('joy stale, holding zero velocity',
                                    throttle_duration_sec=2.0)
+        if self.suspect_axes:
+            self.clear_settled_axes(self.joy)
+        if self.suspect_axes:
+            self.get_logger().error(
+                'axis map looks wrong, holding zero velocity: '
+                + ', '.join(f'{n} (axis {i})'
+                            for n, i in self.suspect_axes.items()),
+                throttle_duration_sec=5.0)
+            self.last_command = None
+            self.publish(0.0, 0.0, 0.0)
+            return
+
         state = self.pad_state(joy_fresh)
 
         command = self.mapper.update(state, dt, self.altitude)
@@ -199,6 +264,12 @@ class SafeTeleopNode(Node):
                   if len(self.joy.axes) > max(m.forward_axis, m.left_axis,
                                                m.climb_axis, m.yaw_axis)
                   else f'{len(self.joy.axes)} axes (fewer than the map needs!)')
+        if self.suspect_axes:
+            self.get_logger().info(
+                f'pad: {sticks} | axis map REFUSED -> publishing zero velocity '
+                f'({", ".join(f"{n} on axis {i}" for n, i in self.suspect_axes.items())} '
+                f'rests at full scale; wrong teleop_controller?)')
+            return
         if self.last_command is None:
             self.get_logger().info(
                 f'pad: {sticks} | NO odometry -> publishing zero velocity '

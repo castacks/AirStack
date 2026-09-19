@@ -56,10 +56,31 @@ ros2 launch svg_ground_control teleop.launch.py drone:=drone_3 teleop_controller
 
 | value | device | driver started | axis map |
 |-------|--------|----------------|----------|
-| `xbox_usb` | Xbox 360 wired USB pad (Linux `xpad`) | `joy` / `joy_node` on `/joy` | right stick move, left stick altitude + yaw, LB lock ([Axis signs](#axis-signs)) |
+| `dragonrise_usb` | Generic DragonRise / SHANWAN "Android gamepad" (`hid-generic`, USB `0079:181c` and relatives) — the pad on the bench | `joy` / `joy_node` on `/joy` | right stick on axes **2/3**, left stick 0/1, lock on button **6** |
+| `xbox_usb` | Xbox 360 wired USB pad (Linux `xpad`) | `joy` / `joy_node` on `/joy` | right stick on axes **3/4**, left stick 0/1, lock on button **4** |
 
+Both fly the same way ([Controls](#controls)); only the axis numbers differ.
 An unknown value fails the launch (and the node) with the list of supported
 names, rather than flying with a wrong axis map.
+
+**Check the pad before trusting a profile.** A generic gamepad is not an Xbox
+pad even when it is shaped like one. On the DragonRise layout axes 4 and 5 are
+the analog triggers and they rest at **full scale**, so flying it on the
+`xbox_usb` map would read an untouched trigger as a fully pushed forward
+stick. `safe_teleop` refuses to command when a mapped axis rests at full
+scale and says so:
+
+```
+[safe_teleop] REFUSING TO COMMAND: forward (axis 4) rests at +1.00. ... probably the
+wrong teleop_controller for this pad ... it would command full speed with nothing held.
+```
+
+That guard catches a trigger, not a merely rearranged stick, so identify an
+unknown pad properly:
+
+```bash
+ros2 run svg_ground_control joy_map      # wiggle one control, read its number
+```
 
 ## Two terminals: pad first, then the commander
 
@@ -291,6 +312,27 @@ full-speed descent. Both tools show triggers as a squeeze percentage.
 If a device exists but is not readable, add yourself to the `input` group and
 log out and back in.
 
+### The container must be able to see the pad
+
+`joy_node` runs in the robot container, and a container does not get host
+devices by hotplug: `privileged` populates `/dev` once, when the container
+starts, so a pad plugged in later stays invisible and `safe_teleop` prints
+`pad: NO /joy` forever. The compose file therefore bind-mounts the directory
+itself (`/dev/input:/dev/input` in `robot/docker/robot-base-docker-compose.yaml`),
+which does track hotplug. A container created before that line existed needs
+recreating, not just restarting:
+
+```bash
+ls /dev/input/js0                                          # on the host: the pad is there
+docker exec airstack-robot-desktop-1 ls /dev/input/js0     # in the container: must also be there
+cd ~/AirStack && AUTOLAUNCH=false airstack up robot-desktop   # recreate if it is not
+docker exec airstack-robot-desktop-1 bash -lc "ros2 run joy joy_enumerate_devices"
+```
+
+The last command lists the pad by name once the container can see it. SDL
+prints `Failed loading udev_device_get_action` on the way; that is harmless,
+it falls back to scanning the devices directly.
+
 ### joy_node on the host
 
 Do **not** run `joy_node` on the host unless the host has the same ROS distro
@@ -331,12 +373,16 @@ mode stays at `teleop_real.yaml`'s slower caps.
 
 ### Axis signs
 
-| control | axis | sign |
-|---------|------|------|
-| right stick up = forward | 4 | `+1.0` |
-| right stick right = right | 3 | `-1.0` |
-| left stick up = climb | 1 | `+1.0` |
-| left stick left = yaw | 0 | `+1.0` |
+Axis numbers come from the `teleop_controller` profile; the signs are the same
+for both, because every Linux pad follows the same convention (stick up is
+negative, right is positive) and `joy_node` negates all of them alike.
+
+| control | `dragonrise_usb` axis | `xbox_usb` axis | sign |
+|---------|----------------------|-----------------|------|
+| right stick up = forward | 3 | 4 | `+1.0` |
+| right stick right = right | 2 | 3 | `-1.0` |
+| left stick up = climb | 1 | 1 | `+1.0` |
+| left stick left = yaw | 0 | 0 | `+1.0` |
 
 The signs apply to `/joy`, not to the raw device. `joy_node` negates every
 axis, so `/dev/input` reports the opposite sign to the topic for the same stick

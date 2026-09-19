@@ -89,10 +89,15 @@ mocap_bridge:
 # starts the same nodes by hand). The input device is teleop_controller — an
 # entry of svg_ground_control/safe_teleop/controllers.py (driver node + axis
 # map).
-# Supported today: "xbox_usb" (Xbox 360 wired pad). Add new devices there.
+# Supported today: "dragonrise_usb", "xbox_usb". Add new devices there.
 safe_teleop:
   ros__parameters:
-    teleop_controller: "xbox_usb"
+    # The pad on the bench is a SHANWAN/DragonRise "Android gamepad", whose
+    # DirectInput layout is NOT the Xbox one (right stick on axes 2/3, left
+    # bumper button 6, and axes 4/5 are triggers that rest at FULL SCALE).
+    # Set this to "xbox_usb" if you swap in a real Xbox pad. Check an unknown
+    # pad with `ros2 run svg_ground_control joy_map` before flying it.
+    teleop_controller: "dragonrise_usb"
     max_speed_mps: 0.7        # first hardware flights: slow (= caps above)
     climb_rate_mps: 0.4
     max_climb_speed_mps: 0.5

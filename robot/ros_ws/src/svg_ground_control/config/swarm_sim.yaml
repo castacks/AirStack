@@ -78,8 +78,13 @@ swarm_commander:
 # commander; needs teleop_drones non-empty here or via teleop_drones:= on the
 # commander launch). teleop_controller names the input device — an entry of svg_ground_control/safe_teleop/controllers.py,
 # which supplies the driver node (joy_node) and the axis map for it.
-# Supported today: "xbox_usb" (Xbox 360 wired pad). Add new devices there.
+# Supported today: "dragonrise_usb", "xbox_usb". Add new devices there.
 safe_teleop:
   ros__parameters:
-    teleop_controller: "xbox_usb"
+    # The pad on the bench is a SHANWAN/DragonRise "Android gamepad", whose
+    # DirectInput layout is NOT the Xbox one (right stick on axes 2/3, left
+    # bumper button 6, and axes 4/5 are triggers that rest at FULL SCALE).
+    # Set this to "xbox_usb" if you swap in a real Xbox pad. Check an unknown
+    # pad with `ros2 run svg_ground_control joy_map` before flying it.
+    teleop_controller: "dragonrise_usb"
     max_speed_mps: 2.0        # full right stick; keep <= teleop/cbf_max_speed_mps above

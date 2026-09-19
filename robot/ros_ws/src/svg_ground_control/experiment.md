@@ -298,13 +298,23 @@ Any config takes a hand-flown drone by listing it in `teleop_drones` (or
 it FIRST, check the pad line it prints once a second, then start the
 commander in a second terminal. Which device is the **`teleop_controller`**
 parameter (config `safe_teleop` block or `teleop_controller:=`), an entry of
-`svg_ground_control/safe_teleop/controllers.py` — currently only `xbox_usb`
-(Xbox 360 wired pad, `xpad` + `joy_node`); new devices are added there.
+`svg_ground_control/safe_teleop/controllers.py`: `dragonrise_usb` (the generic
+SHANWAN/DragonRise "Android gamepad" on the bench — the configs' default) or
+`xbox_usb` (a real Xbox 360 pad); new devices are added there. The two differ
+in axis numbers, not in how they fly. Identify an unknown pad with
+`ros2 run svg_ground_control joy_map` before flying it — see
+[teleop.md](teleop.md).
+
+The pad must be visible **inside the container**: `docker exec
+airstack-robot-desktop-1 ls /dev/input/js0`. If it is missing, recreate the
+container (`AUTOLAUNCH=false airstack up robot-desktop`); `/dev` is populated
+once at container start, so a pad plugged in later needs the `/dev/input`
+bind mount that `robot-base-docker-compose.yaml` now sets.
 
 ```bash
 # terminal 1: the pad (prints "pad: fwd .. left .. climb .. yaw .. | cmd vx .." — move the sticks)
 cd ~/AirStack/robot/ros_ws && sws
-ros2 launch svg_ground_control teleop.launch.py drone:=drone_3 teleop_controller:=xbox_usb
+ros2 launch svg_ground_control teleop.launch.py drone:=drone_3
 # terminal 2: the commander, same config
 ros2 launch svg_ground_control ground_control.launch.py scenario:=squeeze teleop_drones:=drone_3
 # right stick = move, left stick = altitude (rate, held on release) + yaw, LB = lock
@@ -1238,4 +1248,7 @@ come up before starting a test.
 | `start` says "geofence breached" | a drone left the box; `ros2 service call /swarm_commander/reset_fence std_srvs/srv/Trigger` after recovering |
 | drones fly right *shapes* in wrong *places*; intruder misses the gap | per-drone PX4 local origins: `drone_position_offsets` must equal the sim spawn positions (`x = 2*(i-1) - (N-1)` → `[-2,0,0, 0,0,0, 2,0,0]` for 3). Zeros only for mocap-anchored hardware |
 | hybrid: a "real" drone never moves | nothing is consuming `/{name}/fmu/velocity_command` — real-mode drones need px4_interface up (Part B); validate the routing first with `functional_hybrid_test.py` |
+| teleop: `pad: NO /joy` although the pad **is** plugged in | the container cannot see the device. `ls /dev/input/js0` on the host, then `docker exec airstack-robot-desktop-1 ls /dev/input/js0` — `privileged` populates `/dev` only at container start, so a pad plugged in afterwards is invisible. `robot-base-docker-compose.yaml` bind-mounts `/dev/input`; a container created before that needs **recreating** (`AUTOLAUNCH=false airstack up robot-desktop`), not restarting. Confirm with `ros2 run joy joy_enumerate_devices` (SDL's `Failed loading udev_device_get_action` line is harmless). |
+| teleop: `REFUSING TO COMMAND: forward (axis 4) rests at +1.00` | wrong `teleop_controller` for this pad: that axis is an analog trigger, which rests at full scale and would command full speed untouched. The bench pad is `dragonrise_usb` (right stick on axes 2/3), an Xbox pad is `xbox_usb` (3/4). Check with `ros2 run svg_ground_control joy_map`. |
+| teleop: sticks move the wrong drone axis (but nothing is refused) | a rearranged stick layout is not detectable automatically — only a resting trigger is. Verify each direction on the ground against the printed `cmd vx/vy/vz`, then fix the profile's axis numbers in `safe_teleop/controllers.py` (or override `forward_axis` etc. in the config's `safe_teleop` block). |
 | RViz empty | Fixed Frame must be `map`; check `ros2 topic hz /svg/viz/markers`; needs an X display (`echo $DISPLAY`) |

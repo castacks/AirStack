@@ -104,8 +104,14 @@ led_controller:
     heartbeat_port: 47901
 
 # Gamepad teleop (teleop.launch.py drone:=drone_3), only if a drone is
-# hand-flown (teleop_drones:=drone_3 on the commander launch, or set above). teleop_controller = input device, an entry of
-# svg_ground_control/safe_teleop/controllers.py ("xbox_usb" today).
+# hand-flown (teleop_drones:=drone_3 on the commander launch, or set above).
+# teleop_controller = input device, an entry of
+# svg_ground_control/safe_teleop/controllers.py ("dragonrise_usb", "xbox_usb").
 safe_teleop:
   ros__parameters:
-    teleop_controller: "xbox_usb"
+    # The pad on the bench is a SHANWAN/DragonRise "Android gamepad", whose
+    # DirectInput layout is NOT the Xbox one (right stick on axes 2/3, left
+    # bumper button 6, and axes 4/5 are triggers that rest at FULL SCALE).
+    # Set this to "xbox_usb" if you swap in a real Xbox pad. Check an unknown
+    # pad with `ros2 run svg_ground_control joy_map` before flying it.
+    teleop_controller: "dragonrise_usb"
