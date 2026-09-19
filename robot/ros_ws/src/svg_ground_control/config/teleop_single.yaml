@@ -51,3 +51,13 @@ swarm_commander:
     fence_enabled: true
     fence_min: [-4.0, -2.0, 0.0]
     fence_max: [4.0, 2.0, 3.0]
+
+# Gamepad teleop (started by ground_control.launch.py whenever teleop_drones
+# is non-empty, here or via teleop_drones:=). teleop_controller names the
+# input device — an entry of svg_ground_control/safe_teleop/controllers.py,
+# which supplies the driver node (joy_node) and the axis map for it.
+# Supported today: "xbox_usb" (Xbox 360 wired pad). Add new devices there.
+safe_teleop:
+  ros__parameters:
+    teleop_controller: "xbox_usb"
+    max_speed_mps: 2.0        # full right stick; keep <= teleop/cbf_max_speed_mps above

@@ -160,7 +160,7 @@ bringup() {
     [ "$bad" = 1 ] && { red "Run ./svg_teleop.sh stop and try again."; exit 1; }
 
     step "Ground controller"
-    rtmux commander "cd $WS && source install/setup.bash && ros2 launch svg_ground_control ground_control.launch.py config:=$SHARE/config/$config $overrides 2>&1 | tee /tmp/commander.log"
+    rtmux commander "cd $WS && source install/setup.bash && ros2 launch svg_ground_control ground_control.launch.py config:=$SHARE/config/$config use_teleop:=false $overrides 2>&1 | tee /tmp/commander.log"
     wait_for "commander up" 60 \
         "docker exec $ROBOT bash -lc 'grep -q \"SwarmCommander up\" /tmp/commander.log 2>/dev/null'" || {
         red "Commander never started. ./svg_teleop.sh logs commander"; exit 1; }
@@ -263,7 +263,7 @@ bringup_real() {
         red "serverIP, or the rigid body is not named $drone. ./svg_teleop.sh logs natnet"; exit 1; }
 
     step "Ground controller + mocap bridge"
-    rtmux commander "cd $WS && source install/setup.bash && ros2 launch svg_ground_control ground_control.launch.py config:=$SHARE/config/$config use_mocap:=true 2>&1 | tee /tmp/commander.log"
+    rtmux commander "cd $WS && source install/setup.bash && ros2 launch svg_ground_control ground_control.launch.py config:=$SHARE/config/$config use_mocap:=true use_teleop:=false 2>&1 | tee /tmp/commander.log"
     wait_for "commander up" 60 \
         "docker exec $ROBOT bash -lc 'grep -q \"SwarmCommander up\" /tmp/commander.log 2>/dev/null'" || {
         red "Commander never started. ./svg_teleop.sh logs commander"; exit 1; }

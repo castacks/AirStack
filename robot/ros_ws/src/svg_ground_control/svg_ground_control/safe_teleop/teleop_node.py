@@ -11,6 +11,11 @@ node needs odometry, unlike a teleop node that only maps sticks to velocity.
 
 The drone must be listed in the commander's `teleop_drones`, and teleop takes
 effect only after /swarm_commander/start.
+
+Which physical device is in use is the `teleop_controller` parameter (see
+controllers.py). It supplies the default axis numbers, signs, lock button and
+joy topic for that device; the individual axis parameters can still override
+them for an odd driver build.
 """
 
 import rclpy
@@ -21,12 +26,10 @@ from rclpy.node import Node
 from sensor_msgs.msg import Joy
 
 from .pad import PadState
-from .velocity import (ALTITUDE_GAIN, CLIMB_AXIS, CLIMB_RATE_MPS, CLIMB_SIGN,
-                       DEADZONE, FORWARD_AXIS, FORWARD_SIGN, LEFT_AXIS,
-                       LEFT_SIGN, MAX_ALTITUDE_M, MAX_CLIMB_SPEED_MPS,
-                       YAW_AXIS, YAW_RATE_RAD_S, YAW_SIGN,
-                       MAX_SPEED_MPS, MIN_ALTITUDE_M, VelocityMapper)
-from .latch import FREEZE_BUTTON
+from .velocity import (ALTITUDE_GAIN, CLIMB_RATE_MPS, DEADZONE, MAX_ALTITUDE_M,
+                       MAX_CLIMB_SPEED_MPS, MAX_SPEED_MPS, MIN_ALTITUDE_M,
+                       YAW_RATE_RAD_S, VelocityMapper)
+from .controllers import DEFAULT_CONTROLLER, controller_names, get_controller
 
 
 class SafeTeleopNode(Node):
@@ -35,7 +38,19 @@ class SafeTeleopNode(Node):
         super().__init__('safe_teleop')
 
         self.declare_parameter('drone', 'drone_1')
-        self.declare_parameter('joy_topic', '/joy')
+        # Input device. Names an entry of controllers.CONTROLLERS; its axis
+        # map becomes the default for the axis/sign/button parameters below.
+        self.declare_parameter('teleop_controller', DEFAULT_CONTROLLER)
+        controller_name = str(self.get_parameter('teleop_controller').value)
+        try:
+            self.controller = get_controller(controller_name)
+        except KeyError as error:
+            self.get_logger().fatal(str(error))
+            raise SystemExit(
+                f"teleop_controller must be one of {controller_names()}")
+        profile = self.controller
+
+        self.declare_parameter('joy_topic', profile.joy_topic)
         self.declare_parameter('teleop_topic_template',
                                '/svg/{name}/teleop_command')
         self.declare_parameter('odometry_topic_template',
@@ -52,15 +67,10 @@ class SafeTeleopNode(Node):
         self.declare_parameter('max_altitude_m', MAX_ALTITUDE_M)
         self.declare_parameter('deadzone', DEADZONE)
 
-        self.declare_parameter('forward_axis', FORWARD_AXIS)
-        self.declare_parameter('left_axis', LEFT_AXIS)
-        self.declare_parameter('climb_axis', CLIMB_AXIS)
-        self.declare_parameter('lock_button', FREEZE_BUTTON)
-        self.declare_parameter('forward_sign', FORWARD_SIGN)
-        self.declare_parameter('left_sign', LEFT_SIGN)
-        self.declare_parameter('climb_sign', CLIMB_SIGN)
-        self.declare_parameter('yaw_axis', YAW_AXIS)
-        self.declare_parameter('yaw_sign', YAW_SIGN)
+        # Axis map: defaults come from the controller profile. Set one of
+        # these explicitly only to correct a driver that maps differently.
+        for key, default in profile.mapping_parameters().items():
+            self.declare_parameter(key, default)
         self.declare_parameter('yaw_rate_rad_s', YAW_RATE_RAD_S)
 
         def value(name):
@@ -110,7 +120,8 @@ class SafeTeleopNode(Node):
         self.timer = self.create_timer(1.0 / rate, self.tick)
 
         self.get_logger().info(
-            f'safe_teleop driving {drone}: publishing {self.publisher.topic_name}, '
+            f'safe_teleop driving {drone} with {profile.name} '
+            f'({profile.description}): publishing {self.publisher.topic_name}, '
             f'reading {value("joy_topic")} and '
             f'{str(value("odometry_topic_template")).format(name=drone)}')
 
@@ -176,7 +187,13 @@ class SafeTeleopNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = SafeTeleopNode()
+    try:
+        node = SafeTeleopNode()
+    except SystemExit as error:
+        print(error)
+        if rclpy.ok():
+            rclpy.shutdown()
+        return 1
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:

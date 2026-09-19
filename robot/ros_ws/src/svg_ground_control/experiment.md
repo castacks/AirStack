@@ -71,7 +71,7 @@ Five executables (`robot/ros_ws/src/svg_ground_control/svg_ground_control/`):
 | `scenarios.py` | (library) | Nominal-velocity policies: `hover`, `goal`, `random_walk`, `random_goals`, `head_on`, `antipodal`, `squeeze`. Pure NumPy, ported from `~/drone_soccer`. |
 | `cbf_filter.py` | (library) | The velocity-CBF collision filter (`filter_velocities`), a verbatim port of `drone_soccer/cbf.py`. |
 | `mocap_bridge.py` | `mocap_bridge` | Hardware only: `/{name}/pose` (mocap) → `/{name}/fmu/visual_odometry_in` for the PX4 EKF. |
-| `keyboard_teleop.py` | `keyboard_teleop` | Drives one teleop drone (`-p drone:=drone_3`) with the keyboard. |
+| `safe_teleop/` | `safe_teleop` | Gamepad teleop for one `teleop_drones` drone: `/joy` → altitude-held ENU velocity on the teleop topic. Device = `teleop_controller` (`xbox_usb`; registry `safe_teleop/controllers.py`). See [teleop.md](teleop.md). |
 
 **Data flow inside `swarm_commander` each tick:**
 
@@ -128,7 +128,7 @@ For each drone `{name}` (e.g. `drone_1`):
 | `/{name}/interface/velocity_command` (sim) | out | `geometry_msgs/TwistStamped` | commander → MAVROS interface |
 | `/{name}/fmu/velocity_command` (real) | out | `geometry_msgs/TwistStamped` | commander → px4_interface |
 | `/{name}/interface/robot_command` or `/{name}/fmu/robot_command` | call | `airstack_msgs/srv/RobotCommand` | commander → arm/offboard/disarm |
-| `/svg/{name}/teleop_command` | in | `geometry_msgs/TwistStamped` | keyboard_teleop → commander (teleop drones) |
+| `/svg/{name}/teleop_command` | in | `geometry_msgs/TwistStamped` | safe_teleop → commander (teleop drones) |
 | `/svg/{name}/goal_command` | in | `geometry_msgs/PoseStamped` | you → commander (`goal` scenario) |
 | `/svg/{name}/speed_command` | in | `std_msgs/Float32` | you → commander (`goal` scenario) |
 | `/{name}/pose` | in | `geometry_msgs/PoseStamped` | mocap → mocap_bridge (hardware) |
@@ -285,19 +285,26 @@ ros2 launch svg_ground_control ground_control.launch.py \
   config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/squeeze_3drone.yaml
 ```
 
-### A5. Keyboard teleop (optional utility — NOT used by any standard experiment)
+### A5. Gamepad teleop (optional — NOT used by any standard experiment)
 
 > In the standard experiments a drone is **sim**, **real**, or **external**
-> (RC-flown, tracked-only) — none of the Part C tasks use teleop. This tool
-> remains available for ad-hoc debugging only. Gamepad teleop is a separate,
-> maintained path with its own configs (`teleop_single.yaml` sim,
+> (RC-flown, tracked-only) — none of the Part C tasks use teleop. Hand-flying
+> is its own path with its own configs (`teleop_single.yaml` sim,
 > `teleop_real.yaml` one real drone via `./svg_teleop.sh real`) — see
-> [teleop.md](teleop.md).
+> [teleop.md](teleop.md). The keyboard teleop has been removed.
+
+Any config takes a hand-flown drone by listing it in `teleop_drones` (or
+`teleop_drones:=` on the launch line). The launch then also starts the input
+device's driver and `safe_teleop`. Which device is the **`teleop_controller`**
+parameter (config `safe_teleop` block or `teleop_controller:=`), an entry of
+`svg_ground_control/safe_teleop/controllers.py` — currently only `xbox_usb`
+(Xbox 360 wired pad, `xpad` + `joy_node`); new devices are added there.
 
 ```bash
 cd ~/AirStack/robot/ros_ws && sws
-ros2 run svg_ground_control keyboard_teleop --ros-args -p drone:=drone_3
-# w/s=±x  a/d=±y  r/f=up/down  space=stop  +/-=speed  q=quit
+ros2 launch svg_ground_control ground_control.launch.py scenario:=squeeze \
+    teleop_drones:=drone_3 teleop_controller:=xbox_usb
+# right stick = move, left stick = altitude (rate, held on release) + yaw, LB = lock
 ```
 
 ### A6. Fly (fresh terminal)

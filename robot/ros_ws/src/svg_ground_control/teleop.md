@@ -12,8 +12,11 @@ listed in `cbf_exempt_drones`.
 pad -> joy_node -> /joy -> safe_teleop -> /svg/{drone}/teleop_command -> swarm_commander -> PX4
 ```
 
-There is also `keyboard_teleop`, which maps keys to velocity directly and
-needs no odometry. See the bottom of this file.
+Which physical device does the flying is the **`teleop_controller`**
+parameter — see [Choosing the controller](#choosing-the-controller). Today
+that is `xbox_usb` (an Xbox 360 wired pad); the axis map and driver for each
+supported device live in one registry, `safe_teleop/controllers.py`, so a new
+device is one new entry there.
 
 ## Controls
 
@@ -35,6 +38,41 @@ turning in place cannot change.
 
 `vx` and `vy` are room-fixed, not nose-relative. The drone's heading does not
 affect which way the sticks move it.
+
+## Choosing the controller
+
+`teleop_controller` names the input device. It is read from the config's
+`safe_teleop` block, or overridden on the launch line:
+
+```yaml
+safe_teleop:
+  ros__parameters:
+    teleop_controller: "xbox_usb"
+```
+
+```bash
+ros2 launch svg_ground_control ground_control.launch.py teleop_drones:=drone_3 teleop_controller:=xbox_usb
+```
+
+| value | device | driver started | axis map |
+|-------|--------|----------------|----------|
+| `xbox_usb` | Xbox 360 wired USB pad (Linux `xpad`) | `joy` / `joy_node` on `/joy` | right stick move, left stick altitude + yaw, LB lock ([Axis signs](#axis-signs)) |
+
+An unknown value fails the launch (and the node) with the list of supported
+names, rather than flying with a wrong axis map.
+
+`ground_control.launch.py` starts the device's driver node(s) and one
+`safe_teleop` for the **first** drone in `teleop_drones` whenever that list is
+non-empty (`use_teleop:=auto`, the default). A second hand-flown drone would
+need its own pad and a hand-started `safe_teleop -p drone:=<name>`.
+`use_teleop:=false` starts nothing; `scripts/svg_teleop.sh` passes that and
+runs `joy_node` / `safe_teleop` in its own tmux sessions so its `logs` and
+`monitor` commands can find them.
+
+To add a device, add a `ControllerProfile` to
+`svg_ground_control/safe_teleop/controllers.py`: the ROS node(s) that turn it
+into a `sensor_msgs/Joy` stream plus the axis numbers, signs and lock button
+on that stream. The teleop node never sees the device itself, only `/joy`.
 
 ## One-command bring-up
 
@@ -244,6 +282,7 @@ mode stays at `teleop_real.yaml`'s slower caps.
 | param | default | meaning |
 |-------|---------|---------|
 | `drone` | `drone_1` | which drone this instance drives |
+| `teleop_controller` | `xbox_usb` | input device; supplies the defaults for the axis / sign / button rows below |
 | `max_speed_mps` | `1.0` | horizontal speed at full right stick |
 | `climb_rate_mps` | `0.5` | how fast the target altitude moves at full left stick |
 | `altitude_gain` | `1.0` | target-to-measured gap converted to vertical velocity |
@@ -254,10 +293,10 @@ mode stays at `teleop_real.yaml`'s slower caps.
 | `joy_timeout_s` | `0.5` | zero the command if `/joy` goes quiet |
 | `odometry_timeout_s` | `0.5` | zero the command if odometry goes quiet |
 | `yaw_rate_rad_s` | `1.0` | yaw rate at full left-stick deflection |
-| `forward_axis` / `left_axis` / `climb_axis` / `yaw_axis` | `4` / `3` / `1` / `0` | axis index per direction |
-| `lock_button` | `4` | button that locks the left stick |
-| `forward_sign` / `climb_sign` / `yaw_sign` | `1.0` | flip an axis that runs backwards |
-| `left_sign` | `-1.0` | as above |
+| `forward_axis` / `left_axis` / `climb_axis` / `yaw_axis` | from the controller (`xbox_usb`: `4` / `3` / `1` / `0`) | axis index per direction |
+| `lock_button` | from the controller (`xbox_usb`: `4`) | button that locks the left stick |
+| `forward_sign` / `climb_sign` / `yaw_sign` | from the controller (`xbox_usb`: `1.0`) | flip an axis that runs backwards |
+| `left_sign` | from the controller (`xbox_usb`: `-1.0`) | as above |
 
 ### Axis signs
 
@@ -307,14 +346,3 @@ height measurement the altitude hold would be flying blind — and drops the
 altitude target, which re-seeds from the measured height when odometry
 returns. Neither case is a position hold: a drone commanded zero velocity
 stays roughly put but can drift.
-
-## Keyboard teleop
-
-Maps keys straight to velocity. No odometry, no altitude hold.
-
-```bash
-docker exec -it airstack-robot-desktop-1 bash -lc "cd ~/AirStack/robot/ros_ws && sws && ros2 run svg_ground_control keyboard_teleop --ros-args -p drone:=drone_1"
-```
-
-`w`/`s` = ±x, `a`/`d` = ±y, `r`/`f` = ±z, space = stop, `+`/`-` = speed step,
-`q` = quit. It puts the TTY in raw mode, so give it its own terminal.
