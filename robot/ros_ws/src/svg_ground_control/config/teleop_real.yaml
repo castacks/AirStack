@@ -85,10 +85,10 @@ mocap_bridge:
     velocity_filter_alpha: 0.4
     mocap_qos_best_effort: false
 
-# Gamepad teleop (started by ground_control.launch.py because teleop_drones
-# is set above; ./svg_teleop.sh real starts it by hand instead). The input
-# device is teleop_controller — an entry of
-# svg_ground_control/safe_teleop/controllers.py (driver node + axis map).
+# Gamepad teleop (teleop.launch.py reads this block; ./svg_teleop.sh real
+# starts the same nodes by hand). The input device is teleop_controller — an
+# entry of svg_ground_control/safe_teleop/controllers.py (driver node + axis
+# map).
 # Supported today: "xbox_usb" (Xbox 360 wired pad). Add new devices there.
 safe_teleop:
   ros__parameters:

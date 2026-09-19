@@ -58,6 +58,10 @@ class SafeTeleopNode(Node):
         self.declare_parameter('publish_rate_hz', 20.0)
         self.declare_parameter('joy_timeout_s', 0.5)
         self.declare_parameter('odometry_timeout_s', 0.5)
+        # Print the stick reading + published velocity this often (0 = never).
+        # teleop.launch.py sets 1 Hz so the pad can be checked before the
+        # commander is up.
+        self.declare_parameter('print_hz', 0.0)
 
         self.declare_parameter('max_speed_mps', MAX_SPEED_MPS)
         self.declare_parameter('climb_rate_mps', CLIMB_RATE_MPS)
@@ -119,6 +123,11 @@ class SafeTeleopNode(Node):
         rate = float(value('publish_rate_hz'))
         self.timer = self.create_timer(1.0 / rate, self.tick)
 
+        self.last_command = None
+        print_hz = float(value('print_hz'))
+        if print_hz > 0.0:
+            self.create_timer(1.0 / print_hz, self.print_status)
+
         self.get_logger().info(
             f'safe_teleop driving {drone} with {profile.name} '
             f'({profile.description}): publishing {self.publisher.topic_name}, '
@@ -149,6 +158,7 @@ class SafeTeleopNode(Node):
                 self.get_logger().warn('odometry stale, holding zero velocity',
                                        throttle_duration_sec=2.0)
                 self.mapper.target_altitude = None
+            self.last_command = None
             self.publish(0.0, 0.0, 0.0)
             return
 
@@ -159,12 +169,46 @@ class SafeTeleopNode(Node):
         state = self.pad_state(joy_fresh)
 
         command = self.mapper.update(state, dt, self.altitude)
+        self.last_command = command
         if command.held != self.was_locked:
             self.was_locked = command.held
             self.get_logger().info(
                 f'left stick {"locked" if command.held else "released"}, '
                 f'target altitude {command.target_altitude:.2f} m')
         self.publish(command.vx, command.vy, command.vz, command.yaw_rate)
+
+    def print_status(self):
+        """One line: what the pad reads and what is being published.
+
+        Meant for the terminal teleop.launch.py runs in, so the sticks can be
+        checked with nothing else up. Without the pad it says so; without
+        odometry it shows the sticks but a zero command (the altitude hold
+        needs the drone's height).
+        """
+        joy_ok = self._fresh(self.last_joy_time, self.joy_timeout)
+        if not joy_ok:
+            self.get_logger().info(
+                f'pad: NO /joy (is {self.get_parameter("joy_topic").value} '
+                'publishing? pad plugged in?) -> publishing zero velocity')
+            return
+        m = self.mapper
+        sticks = (f'fwd {self.joy.axes[m.forward_axis]:+.2f} '
+                  f'left {self.joy.axes[m.left_axis]:+.2f} '
+                  f'climb {self.joy.axes[m.climb_axis]:+.2f} '
+                  f'yaw {self.joy.axes[m.yaw_axis]:+.2f}'
+                  if len(self.joy.axes) > max(m.forward_axis, m.left_axis,
+                                               m.climb_axis, m.yaw_axis)
+                  else f'{len(self.joy.axes)} axes (fewer than the map needs!)')
+        if self.last_command is None:
+            self.get_logger().info(
+                f'pad: {sticks} | NO odometry -> publishing zero velocity '
+                '(sticks work; vz needs the drone height)')
+            return
+        c = self.last_command
+        self.get_logger().info(
+            f'pad: {sticks} | cmd vx {c.vx:+.2f} vy {c.vy:+.2f} vz {c.vz:+.2f} '
+            f'yaw {c.yaw_rate:+.2f} | alt {c.altitude:.2f} -> {c.target_altitude:.2f} m'
+            f'{" | LOCKED" if c.held else ""}')
 
     def pad_state(self, connected: bool) -> PadState:
         """A Joy message as the PadState the mapper expects."""

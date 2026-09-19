@@ -14,16 +14,15 @@
     ros2 launch svg_ground_control ground_control.launch.py \
         config:=<path>/swarm_real.yaml use_mocap:=true
 
-Teleop: whenever the run has teleop drones (the config's `teleop_drones` or
-the `teleop_drones:=` override), the input-device driver and `safe_teleop`
-are started here too. Which device is wired up is the `teleop_controller`
-parameter — the config's `safe_teleop` block, or `teleop_controller:=` on
-the launch line — resolved against `safe_teleop/controllers.py` (currently
-`xbox_usb`). `use_teleop:=false` leaves both to be started by hand (as
-scripts/svg_teleop.sh does, in its own tmux sessions).
+Teleop is NOT started here by default. Start it first, in its own terminal,
+and check the printed stick readings before bringing up the commander:
+    ros2 launch svg_ground_control teleop.launch.py config:=<same config>
+`use_teleop:=true` bundles the input-device driver and `safe_teleop` (for the
+first drone in `teleop_drones`) into this launch instead; `use_teleop:=auto`
+does so only when the run has teleop drones. The device is the
+`teleop_controller` parameter (config `safe_teleop` block or
+`teleop_controller:=`), an entry of `safe_teleop/controllers.py` (xbox_usb).
 """
-
-import yaml
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, LogInfo, OpaqueFunction
@@ -32,71 +31,22 @@ from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
-from svg_ground_control.safe_teleop.controllers import (DEFAULT_CONTROLLER,
-                                                        get_controller)
-
-
-def _node_params(config_path: str, node_name: str) -> dict:
-    """The ``ros__parameters`` of one node block in the config YAML ({} if absent)."""
-    try:
-        with open(config_path) as f:
-            doc = yaml.safe_load(f) or {}
-    except OSError:
-        return {}
-    block = doc.get(node_name) or {}
-    return block.get('ros__parameters') or {}
-
-
-def _name_list(value) -> list:
-    if isinstance(value, (list, tuple)):
-        return [str(v).strip() for v in value if str(v).strip()]
-    return [n.strip() for n in str(value or '').split(',') if n.strip()]
+from svg_ground_control.safe_teleop.launch_helpers import (
+    config_teleop_drones, resolve_controller, teleop_actions)
 
 
 def teleop_nodes(context, config_path: str, teleop_drones: list) -> list:
-    """Input driver + safe_teleop for a run that hand-flies a drone.
-
-    Registry-driven: the controller profile says which driver nodes make the
-    device a sensor_msgs/Joy stream and what its axis map is. One physical
-    device can only fly one drone, so safe_teleop is started for the FIRST
-    teleop drone; extra ones need their own device and a hand-started node.
-    """
+    """Optionally bundle the input driver + safe_teleop (see teleop.launch.py)."""
     use_teleop = LaunchConfiguration('use_teleop').perform(context).lower()
     if use_teleop == 'false' or (use_teleop != 'true' and not teleop_drones):
         return []
     if not teleop_drones:
         return [LogInfo(msg='use_teleop:=true but no teleop drones are '
                             'configured; not starting teleop')]
-
-    name = (LaunchConfiguration('teleop_controller').perform(context).strip()
-            or str(_node_params(config_path, 'safe_teleop')
-                   .get('teleop_controller', '')).strip()
-            or DEFAULT_CONTROLLER)
-    profile = get_controller(name)      # KeyError lists the supported names
-
-    drone = teleop_drones[0]
-    actions = [LogInfo(msg=f'teleop: {profile.name} ({profile.description}) '
-                           f'-> {drone}')]
-    if len(teleop_drones) > 1:
-        actions.append(LogInfo(
-            msg=f'teleop: only {drone} gets the {profile.name} controller; '
-                f'{", ".join(teleop_drones[1:])} need their own device '
-                f'(start safe_teleop by hand with -p drone:=<name>)'))
-    for driver in profile.drivers:
-        actions.append(Node(
-            package=driver.package, executable=driver.executable,
-            name=driver.name, output='screen',
-            # Profile defaults first, so a matching block in the config
-            # (e.g. joy_node: {ros__parameters: {device_id: 1}}) wins.
-            parameters=[dict(driver.parameters), config_path],
-        ))
-    actions.append(Node(
-        package='svg_ground_control', executable='safe_teleop',
-        name='safe_teleop', output='screen',
-        parameters=[config_path,
-                    {'drone': drone, 'teleop_controller': profile.name}],
-    ))
-    return actions
+    profile = resolve_controller(
+        config_path, LaunchConfiguration('teleop_controller').perform(context))
+    return teleop_actions(config_path, teleop_drones[0], profile,
+                          others=teleop_drones[1:])
 
 
 def launch_setup(context, *args, **kwargs):
@@ -111,9 +61,7 @@ def launch_setup(context, *args, **kwargs):
     if teleop_drones:
         commander_params.append({'teleop_drones': teleop_drones})
 
-    teleop_names = _name_list(
-        teleop_drones or _node_params(config_path, 'swarm_commander')
-        .get('teleop_drones', ''))
+    teleop_names = config_teleop_drones(config_path, teleop_drones)
 
     return teleop_nodes(context, config_path, teleop_names) + [
         Node(
@@ -168,10 +116,11 @@ def generate_launch_description():
             'use_mocap', default_value='false',
             description='Start the mocap bridge (hardware only)'),
         DeclareLaunchArgument(
-            'use_teleop', default_value='auto',
-            description='Start the input-device driver + safe_teleop for the '
-                        'first teleop drone: auto (when the run has teleop '
-                        'drones), true, or false (start them by hand)'),
+            'use_teleop', default_value='false',
+            description='Also start the input-device driver + safe_teleop for '
+                        'the first teleop drone here: false (default: use '
+                        'teleop.launch.py in its own terminal first), true, '
+                        'or auto (only when the run has teleop drones)'),
         DeclareLaunchArgument(
             'teleop_controller', default_value='',
             description='Input device for teleop, an entry of '

@@ -294,16 +294,19 @@ ros2 launch svg_ground_control ground_control.launch.py \
 > [teleop.md](teleop.md). The keyboard teleop has been removed.
 
 Any config takes a hand-flown drone by listing it in `teleop_drones` (or
-`teleop_drones:=` on the launch line). The launch then also starts the input
-device's driver and `safe_teleop`. Which device is the **`teleop_controller`**
+`teleop_drones:=` on the commander launch). Teleop has its own launch: start
+it FIRST, check the pad line it prints once a second, then start the
+commander in a second terminal. Which device is the **`teleop_controller`**
 parameter (config `safe_teleop` block or `teleop_controller:=`), an entry of
 `svg_ground_control/safe_teleop/controllers.py` — currently only `xbox_usb`
 (Xbox 360 wired pad, `xpad` + `joy_node`); new devices are added there.
 
 ```bash
+# terminal 1: the pad (prints "pad: fwd .. left .. climb .. yaw .. | cmd vx .." — move the sticks)
 cd ~/AirStack/robot/ros_ws && sws
-ros2 launch svg_ground_control ground_control.launch.py scenario:=squeeze \
-    teleop_drones:=drone_3 teleop_controller:=xbox_usb
+ros2 launch svg_ground_control teleop.launch.py drone:=drone_3 teleop_controller:=xbox_usb
+# terminal 2: the commander, same config
+ros2 launch svg_ground_control ground_control.launch.py scenario:=squeeze teleop_drones:=drone_3
 # right stick = move, left stick = altitude (rate, held on release) + yaw, LB = lock
 ```
 

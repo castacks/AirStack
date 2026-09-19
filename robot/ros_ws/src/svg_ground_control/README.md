@@ -59,8 +59,9 @@ lock), brought up end to end by `scripts/svg_teleop.sh` — sim experiments
 (`solo`/`squeeze`/`hover`) and one real drone (`real`,
 [config/teleop_real.yaml](config/teleop_real.yaml)). See
 **[teleop.md](teleop.md)** for controls, pad diagnostics, axis signs, and the
-real-drone ground check. `ground_control.launch.py` starts the input driver
-and `safe_teleop` itself whenever a run has teleop drones; the device is the
+real-drone ground check. `teleop.launch.py` starts the input driver and
+`safe_teleop` in their own terminal (printing the pad reading, so it is
+checked before the commander comes up); the device is the
 `teleop_controller` parameter (`xbox_usb` today; registry in
 [safe_teleop/controllers.py](svg_ground_control/safe_teleop/controllers.py)).
 The old keyboard teleop has been removed; `xbox_teleop` (direct stick-to-

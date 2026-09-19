@@ -51,7 +51,7 @@ safe_teleop:
 ```
 
 ```bash
-ros2 launch svg_ground_control ground_control.launch.py teleop_drones:=drone_3 teleop_controller:=xbox_usb
+ros2 launch svg_ground_control teleop.launch.py drone:=drone_3 teleop_controller:=xbox_usb
 ```
 
 | value | device | driver started | axis map |
@@ -61,13 +61,43 @@ ros2 launch svg_ground_control ground_control.launch.py teleop_drones:=drone_3 t
 An unknown value fails the launch (and the node) with the list of supported
 names, rather than flying with a wrong axis map.
 
-`ground_control.launch.py` starts the device's driver node(s) and one
-`safe_teleop` for the **first** drone in `teleop_drones` whenever that list is
-non-empty (`use_teleop:=auto`, the default). A second hand-flown drone would
-need its own pad and a hand-started `safe_teleop -p drone:=<name>`.
-`use_teleop:=false` starts nothing; `scripts/svg_teleop.sh` passes that and
-runs `joy_node` / `safe_teleop` in its own tmux sessions so its `logs` and
-`monitor` commands can find them.
+## Two terminals: pad first, then the commander
+
+Teleop has its own launch so the pad can be checked before anything is
+armed. `teleop.launch.py` starts the device's driver node(s) and one
+`safe_teleop` for `drone:=` (default: the first drone in the config's
+`teleop_drones`), and once a second prints what the pad reads and what is
+being published:
+
+```bash
+# terminal 1 — the pad
+ros2 launch svg_ground_control teleop.launch.py \
+    config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/teleop_real.yaml
+#   [safe_teleop]: pad: fwd +0.00 left +0.00 climb +0.00 yaw +0.00 | NO odometry -> publishing zero velocity ...
+#   [safe_teleop]: pad: fwd +0.63 left -0.10 climb +0.00 yaw +0.00 | cmd vx +0.40 vy -0.00 vz +0.01 yaw +0.00 | alt 0.02 -> 0.30 m
+```
+
+Move each stick and watch the `fwd / left / climb / yaw` numbers follow. `NO
+/joy` means the driver does not see the pad (plugged in? readable? see
+[Reading the pad](#reading-the-pad)). `NO odometry` is normal until the
+drone's interface and mocap are up — the horizontal axes are already
+proven, only `vz` waits for the drone's height. Then, in a second terminal,
+the commander with the **same config**:
+
+```bash
+# terminal 2 — the commander
+ros2 launch svg_ground_control ground_control.launch.py \
+    config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/teleop_real.yaml use_mocap:=true
+```
+
+The commander forwards the sticks only after `/swarm_commander/start`, and
+only for drones in its `teleop_drones`. Either launch can be restarted
+without the other. `print_hz:=0` silences the pad line; a second hand-flown
+drone needs its own pad and a second `teleop.launch.py drone:=<name>`.
+
+`ground_control.launch.py use_teleop:=true` bundles the same nodes into the
+commander launch instead (one terminal, no pre-check). `scripts/svg_teleop.sh`
+runs `joy_node` / `safe_teleop` in its own tmux sessions.
 
 To add a device, add a `ControllerProfile` to
 `svg_ground_control/safe_teleop/controllers.py`: the ROS node(s) that turn it
@@ -291,6 +321,7 @@ mode stays at `teleop_real.yaml`'s slower caps.
 | `max_altitude_m` | `2.5` | upper clamp on the target altitude |
 | `deadzone` | `0.15` | stick slop ignored around center, rescaled so full deflection still reaches 1.0 |
 | `joy_timeout_s` | `0.5` | zero the command if `/joy` goes quiet |
+| `print_hz` | `0` (`teleop.launch.py`: `1.0`) | print the stick reading and published velocity this often |
 | `odometry_timeout_s` | `0.5` | zero the command if odometry goes quiet |
 | `yaw_rate_rad_s` | `1.0` | yaw rate at full left-stick deflection |
 | `forward_axis` / `left_axis` / `climb_axis` / `yaw_axis` | from the controller (`xbox_usb`: `4` / `3` / `1` / `0`) | axis index per direction |

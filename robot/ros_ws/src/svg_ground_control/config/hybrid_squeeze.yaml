@@ -103,8 +103,8 @@ led_controller:
     brightness: 80
     heartbeat_port: 47901
 
-# Gamepad teleop, only if a drone is hand-flown (teleop_drones:=drone_3 on the
-# launch line, or set above). teleop_controller = input device, an entry of
+# Gamepad teleop (teleop.launch.py drone:=drone_3), only if a drone is
+# hand-flown (teleop_drones:=drone_3 on the commander launch, or set above). teleop_controller = input device, an entry of
 # svg_ground_control/safe_teleop/controllers.py ("xbox_usb" today).
 safe_teleop:
   ros__parameters:
