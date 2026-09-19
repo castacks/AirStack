@@ -160,7 +160,14 @@ class SwarmCommander(Node):
         # Scenario selection — see scenarios.py. NOTE: for 'squeeze' the
         # drone_names order matters: [holder, holder, intruder].
         self.declare_parameter('scenario', 'hover')
+        # Nominal speed (m/s). Changeable in flight with
+        #   ros2 param set /swarm_commander scenario_speed_mps 1.0
+        # (applies to every scenario-driven drone; per-drone overrides via the
+        # goal scenario's speed_command topic). Effective speed is also capped
+        # by cbf_max_speed_mps and, near a goal, by goal_approach_gain.
         self.declare_parameter('scenario_speed_mps', 0.6)
+        # goal scenario: speed near the goal = min(speed, gain * distance).
+        self.declare_parameter('goal_approach_gain', 1.5)
         self.declare_parameter('scenario_seed', 7)
         self.declare_parameter('arena_low', [-2.0, -2.0, 0.8])
         self.declare_parameter('arena_high', [2.0, 2.0, 2.0])
@@ -346,6 +353,8 @@ class SwarmCommander(Node):
             # Goals start at the takeoff layout; retargeted live via topics.
             scenario_kwargs['initial_goals'] = np.array(
                 self.get_parameter('hover_positions').value)
+            scenario_kwargs['approach_gain'] = float(
+                self.get_parameter('goal_approach_gain').value)
         elif scenario_name == 'squeeze':
             scenario_kwargs['holder_positions'] = np.array(
                 self.get_parameter('squeeze_holder_positions').value)
@@ -499,6 +508,12 @@ class SwarmCommander(Node):
         rate = float(self.get_parameter('control_rate_hz').value)
         self.control_dt = 1.0 / rate
         self.timer = self.create_timer(self.control_dt, self.control_loop)
+
+        # `ros2 param set` used to answer "successful" and change nothing:
+        # every value above is read once at construction. The speed-related
+        # ones are now applied live; anything else is refused with a reason
+        # instead of being silently ignored.
+        self.add_on_set_parameters_callback(self.on_parameter_change)
         self._cbf_warn_count = 0
 
         self.get_logger().info(
@@ -508,6 +523,7 @@ class SwarmCommander(Node):
                 + ('/cbf-exempt' if d.name in self.cbf_exempt_names else '')
                 + ')'
                 for d in self.drones)
+            + f' | speed={self.scenario.nominal_speed} m/s'
             + f' | CBF r={self.cbf_safety_radius} m, vmax={self.cbf_max_speed} m/s,'
             + f' alpha={self.cbf_alpha}, ext_vel_gain={self.cbf_external_velocity_gain}'
             + (f' | FENCE {self.fence_behavior} {self.fence_min}..{self.fence_max}'
@@ -548,10 +564,65 @@ class SwarmCommander(Node):
         if hasattr(self.scenario, 'set_goal'):
             p = msg.pose.position
             self.scenario.set_goal(index, np.array([p.x, p.y, p.z]))
+            self.get_logger().info(
+                f'{self.drones[index].name}: goal -> [{p.x:.2f}, {p.y:.2f}, {p.z:.2f}]')
 
     def speed_callback(self, index: int, msg: Float32):
         if hasattr(self.scenario, 'set_speed'):
             self.scenario.set_speed(index, msg.data)
+            self.get_logger().info(
+                f'{self.drones[index].name}: speed -> {msg.data:.2f} m/s'
+                + self.speed_cap_note(msg.data))
+
+    def speed_cap_note(self, speed: float) -> str:
+        """Why a requested speed will not be flown as asked, if it will not."""
+        notes = []
+        if speed > self.cbf_max_speed:
+            notes.append(f'capped to cbf_max_speed_mps={self.cbf_max_speed}')
+        gain = getattr(self.scenario, 'approach_gain', None)
+        if gain:
+            notes.append(f'only reached farther than {speed / gain:.2f} m from '
+                         f'the goal (goal_approach_gain={gain})')
+        return f' ({"; ".join(notes)})' if notes else ''
+
+    def on_parameter_change(self, params):
+        """Live parameter updates (`ros2 param set /swarm_commander ...`)."""
+        from rcl_interfaces.msg import SetParametersResult
+        for p in params:
+            if p.name == 'scenario_speed_mps':
+                speed = float(p.value)
+                if hasattr(self.scenario, 'set_all_speeds'):
+                    self.scenario.set_all_speeds(speed)
+                else:
+                    self.scenario.nominal_speed = max(0.0, speed)
+                self.get_logger().info(
+                    f'scenario_speed_mps -> {speed:.2f} m/s (live, all scenario '
+                    f'drones){self.speed_cap_note(speed)}')
+            elif p.name == 'cbf_max_speed_mps':
+                self.cbf_max_speed = float(p.value)
+                self.get_logger().info(f'cbf_max_speed_mps -> {self.cbf_max_speed} (live)')
+            elif p.name == 'teleop_max_speed_mps':
+                self.teleop_max_speed = float(p.value)
+                self.get_logger().info(f'teleop_max_speed_mps -> {self.teleop_max_speed} (live)')
+            elif p.name == 'goal_approach_gain':
+                if not hasattr(self.scenario, 'approach_gain'):
+                    return SetParametersResult(
+                        successful=False,
+                        reason='goal_approach_gain only applies to the goal scenario')
+                self.scenario.approach_gain = float(p.value)
+                self.get_logger().info(f'goal_approach_gain -> {p.value} (live)')
+            elif p.name in ('teleop_kp', 'teleop_lead_m', 'hover_kp'):
+                setattr(self, {'teleop_kp': 'teleop_kp', 'teleop_lead_m': 'teleop_lead',
+                               'hover_kp': 'hover_kp'}[p.name], float(p.value))
+                self.get_logger().info(f'{p.name} -> {p.value} (live)')
+            else:
+                return SetParametersResult(
+                    successful=False,
+                    reason=f'{p.name} is read once at startup; change the YAML '
+                           'and relaunch (live: scenario_speed_mps, '
+                           'cbf_max_speed_mps, teleop_max_speed_mps, '
+                           'goal_approach_gain, teleop_kp, teleop_lead_m, hover_kp)')
+        return SetParametersResult(successful=True)
 
     def formation_callback(self, msg: String):
         """Retarget every scenario-driven drone to a named formation profile.

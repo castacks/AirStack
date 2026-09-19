@@ -26,7 +26,9 @@ swarm_commander:
     # squeeze. Override per run: ros2 launch ... scenario:=head_on
     # NOTE squeeze expects drone_names order [holder, holder, intruder].
     scenario: "hover"
-    scenario_speed_mps: 0.6
+    scenario_speed_mps: 0.6     # nominal speed. Live: ros2 param set /swarm_commander scenario_speed_mps X
+    # (also capped by cbf_max_speed_mps below; near a goal the speed is
+    # min(speed, goal_approach_gain * distance), so short hops never reach it)
     scenario_seed: 7
     # Arena box (ENU, meters) used by the scenarios — keep inside the
     # Isaac default environment / your lab space.

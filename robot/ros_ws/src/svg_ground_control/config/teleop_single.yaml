@@ -19,7 +19,9 @@ swarm_commander:
     cbf_exempt_drones: ""
 
     scenario: "hover"
-    scenario_speed_mps: 0.6
+    scenario_speed_mps: 0.6     # nominal speed. Live: ros2 param set /swarm_commander scenario_speed_mps X
+    # (also capped by cbf_max_speed_mps below; near a goal the speed is
+    # min(speed, goal_approach_gain * distance), so short hops never reach it)
     scenario_seed: 7
     arena_low: [-2.0, -2.0, 0.8]
     arena_high: [2.0, 2.0, 2.0]

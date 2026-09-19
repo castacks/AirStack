@@ -404,13 +404,21 @@ class GoalScenario(Scenario):
     tracking tests.
     """
 
-    _APPROACH_GAIN = 1.5
+    # Speed near the goal is min(speed, approach_gain * distance): the drone
+    # flies at its speed setting only while farther than speed/approach_gain
+    # from the goal, then eases in exponentially (time constant
+    # 1/approach_gain). With 1.5 and a 1.2 m/s setting the plateau needs a
+    # goal more than 0.8 m away, which is why short hops look the same at
+    # every speed setting. Raise the gain for sharper stops.
+    DEFAULT_APPROACH_GAIN = 1.5
 
-    def __init__(self, *args, initial_goals: np.ndarray, **kwargs) -> None:
+    def __init__(self, *args, initial_goals: np.ndarray,
+                 approach_gain: float = DEFAULT_APPROACH_GAIN, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self._goals = np.asarray(
             initial_goals, dtype=float).reshape(self.num_drones, 3)
         self._speeds = np.full(self.num_drones, self.nominal_speed)
+        self.approach_gain = float(approach_gain)
 
     def set_goal(self, index: int, point: np.ndarray) -> None:
         self._goals[index] = np.asarray(point, dtype=float)
@@ -418,13 +426,22 @@ class GoalScenario(Scenario):
     def set_speed(self, index: int, speed: float) -> None:
         self._speeds[index] = max(0.0, float(speed))
 
+    def set_all_speeds(self, speed: float) -> None:
+        """New default for every drone (a live ``scenario_speed_mps`` change)."""
+        self.nominal_speed = max(0.0, float(speed))
+        self._speeds[:] = self.nominal_speed
+
+    @property
+    def speeds(self) -> np.ndarray:
+        return self._speeds.copy()
+
     def initial_positions(self) -> np.ndarray:
         return self._goals.copy()
 
     def nominal_velocity(self, positions: np.ndarray) -> np.ndarray:
         to_goal = self._goals - positions
         distance = np.linalg.norm(to_goal, axis=-1, keepdims=True)
-        speed = np.minimum(self._speeds[:, None], self._APPROACH_GAIN * distance)
+        speed = np.minimum(self._speeds[:, None], self.approach_gain * distance)
         direction = to_goal / np.maximum(distance, 1e-9)
         return direction * speed
 

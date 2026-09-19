@@ -48,7 +48,10 @@ swarm_commander:
     cbf_exempt_drones: ""
 
     scenario: "goal"
-    scenario_speed_mps: 0.6
+    scenario_speed_mps: 0.6     # nominal speed. Live: ros2 param set /swarm_commander scenario_speed_mps X
+    # (also capped by cbf_max_speed_mps below; near a goal the speed is
+    # min(speed, goal_approach_gain * distance), so short hops never reach it)
+    goal_approach_gain: 1.5          # raise for sharper stops / longer plateau
     arena_low: [-3.0, -3.0, 0.5]
     arena_high: [3.0, 3.0, 2.5]
     # PER-DRONE offset added to that drone's local odometry -> shared world:
