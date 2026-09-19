@@ -9,8 +9,17 @@ rrm_source=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 rrm_artifacts="$rrm_source/../../.rrm-artifacts"
 rrm_container=airstack-robot-desktop-1
 rrm_deps=/tmp/rrm-canonical-deps
-# Reuse the isolated dependencies prepared in this session; fail before transfer
-# if the container or dependencies have disappeared.
+# The robot container can be recreated while OSMO is running, which removes the
+# session-local dependency directory. Recreate only this isolated import dependency;
+# do not modify the image or ROS workspace.
+if ! docker exec "$rrm_container" env PYTHONPATH="$rrm_deps" \
+  python3 -c 'import pydantic; assert int(pydantic.__version__.split(".")[0]) == 2' \
+  >/dev/null 2>&1; then
+  echo "Preparing isolated RRM import dependencies in $rrm_container..." >&2
+  docker exec "$rrm_container" bash -c \
+    'python3 -m pip install --disable-pip-version-check --target "$1" "pydantic>=2.0"' \
+    _ "$rrm_deps"
+fi
 docker exec "$rrm_container" env PYTHONPATH="$rrm_deps" \
   python3 -c 'import pydantic; assert int(pydantic.__version__.split(".")[0]) == 2'
 mkdir -p "$rrm_artifacts"

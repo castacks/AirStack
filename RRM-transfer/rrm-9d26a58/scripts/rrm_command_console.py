@@ -97,6 +97,8 @@ class Console:
         self.latest_camera_metadata = None
         scene = json.loads((self.bundle / "scene_manifest.json").read_text())
         self.expected_camera_frame = scene.get("camera_frame_id", "camera_left")
+        self.import_queue = InferenceQueue(self.store, trusted_scene=self.bundle / "scene_manifest.json",
+                                           bridge=None)
         self.queue = (InferenceQueue(self.store, trusted_scene=self.bundle / "scene_manifest.json",
                                      bridge=psc_bridge) if psc_bridge is not None else None)
         self.execution = ExecutionSupervisor(
@@ -322,14 +324,21 @@ class Console:
         try:
             capture_id = uuid.uuid4().hex
             remote = f"/tmp/rrm-console-{capture_id}.png"
+            remote_script = f"/tmp/rrm-console-{capture_id}-capture.py"
+            subprocess.run(["docker", "cp", self.camera_script,
+                            f"airstack-robot-desktop-1:{remote_script}"],
+                           check=True, capture_output=True, timeout=10)
             command = ["docker", "exec", "airstack-robot-desktop-1", "bash", "-c",
                 'source /root/AirStack/robot/ros_ws/install/local_setup.bash; '
                 'exec timeout 12 python3 "$1" --topic '
                 '/robot_1/sensors/front_stereo/left/image_rect '
                 '--odometry-topic /robot_1/odometry_conversion/odometry '
                 '--output "$2" --timeout-s 8',
-                "rrm-camera", self.camera_script, remote]
-            subprocess.run(command, check=True, capture_output=True, timeout=16)
+                "rrm-camera", remote_script, remote]
+            try:
+                subprocess.run(command, check=True, capture_output=True, timeout=16)
+            except subprocess.CalledProcessError as error:
+                raise ValueError("Isaac camera capture failed; wait for the current simulator to be ready.") from error
             image = subprocess.run(["docker", "exec", "airstack-robot-desktop-1",
                 "cat", remote], check=True, capture_output=True, timeout=5).stdout
             metadata = json.loads(subprocess.run(["docker", "exec", "airstack-robot-desktop-1",
@@ -426,6 +435,27 @@ def make_handler(app: Console):
         def do_POST(self):
             # manual-import endpoint does not require the X-RRM-Token because it comes from a local terminal
             path = urlsplit(self.path).path
+            if path == "/api/requests/manual-submitted":
+                try:
+                    payload = json.loads(self.rfile.read(int(self.headers.get("Content-Length", "0"))))
+                    run_id, job_id = payload.get("run_id"), payload.get("job_id")
+                    run = app.store.get_run(run_id) if isinstance(run_id, str) else None
+                    if run is None or not isinstance(job_id, str) or not job_id.isdigit():
+                        return self.respond({"error": "Invalid manual submission"}, status=400)
+                    if run["psc_job_id"]:
+                        if run["psc_job_id"] != job_id:
+                            return self.respond({"error": "A different PSC job is already bound to this immutable request."}, status=409)
+                        return self.respond({"status": "already_recorded", "job_id": job_id})
+                    if run["status"] != "SAVED_NOT_SUBMITTED":
+                        return self.respond({"error": "Only a newly saved request can be submitted manually."}, status=409)
+                    receipt = Path(run["artifact_dir"]) / "psc-manual-submission.json"
+                    receipt.write_text(json.dumps({"run_id": run_id, "job_id": job_id, "execution_dispatch": False}) + "\n")
+                    app.store.set_lifecycle(run_id, status="INFERENCE_RUNNING", psc_job_id=job_id)
+                    app.store.record_event(run_id, kind="psc_submission", artifact_path=receipt,
+                                           summary={"job_id": job_id, "state": "MANUAL_SUBMITTED"})
+                    return self.respond({"status": "recorded", "job_id": job_id})
+                except Exception as e:
+                    return self.respond({"error": str(e)}, status=400)
             if path == "/api/requests/manual-import":
                 try:
                     length = int(self.headers.get("Content-Length", "0"))
@@ -435,15 +465,25 @@ def make_handler(app: Console):
                     bundle_dir = payload.get("bundle_dir")
                     if not all(isinstance(x, str) and x for x in (run_id, job_id, bundle_dir)):
                         return self.respond({"error": "Missing manual import fields"}, status=400)
-                    if app.queue is None:
-                        return self.respond({"error": "PSC bridge disabled"}, status=400)
                     run = app.store.get_run(run_id)
                     if run is None:
                         return self.respond({"error": "Saved run not found"}, status=400)
                     request_dir = Path(run["artifact_dir"]).resolve()
+                    if run["psc_job_id"] and run["psc_job_id"] != job_id:
+                        return self.respond({"error": "PSC job ID does not match the job recorded for this immutable request."}, status=409)
+                    if run["status"] == "CANDIDATE_ACCEPTED":
+                        return self.respond({"status": "already_imported", "psc_job_id": run["psc_job_id"]})
+                    if run["status"] == "CANDIDATE_REJECTED":
+                        return self.respond({"status": "already_rejected", "psc_job_id": run["psc_job_id"]})
+                    if run["status"] == "INFERENCE_FAILED":
+                        return self.respond({"error": "This immutable PSC result was already recorded as failed; save a new request to retry."}, status=409)
                     app.store.set_lifecycle(run_id, status="INFERENCE_RUNNING", psc_job_id=job_id)
-                    app.queue._import_result(run_id, request_dir, Path(bundle_dir))
-                    return self.respond({"status": "imported"})
+                    try:
+                        app.import_queue._import_result(run_id, request_dir, Path(bundle_dir))
+                    except Exception as error:
+                        app.import_queue.record_failure(run_id, request_dir, error)
+                        raise
+                    return self.respond({"status": app.store.get_run(run_id)["status"]})
                 except Exception as e:
                     return self.respond({"error": str(e)}, status=400)
 

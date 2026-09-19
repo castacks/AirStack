@@ -1,5 +1,48 @@
 # RRM remote Codex handoff
 
+## LATEST: shadow-only live action → replan orchestration foundation — 2026-09-19
+
+`rrm/live_replan.py` now persists a provider-neutral mission cycle intended for the
+future continuous Cosmos/VLM loop. Each step requires a fresh checksum-bound camera
+capture and a separate live entity-verifier record; the provider response is bound to
+that exact observation. A multi-action model proposal is retained for planning, but
+only its first action is exposed for review. A reviewed, independently verified outcome
+is mandatory before a fresh observation/replan is accepted; an unverified outcome or
+non-accepted candidate halts the cycle. No ROS, PSC, model-runtime, dispatch, PX4, or
+MAVROS capability was added.
+
+This is deliberately not yet wired to the console or a persistent Cosmos service.
+The next integration must implement the entity verifier and a warm OSMO provider,
+then expose the cycle in shadow mode before connecting any per-step explicit approval
+to the existing public ActionClient dispatcher. Validation: six live-cycle unit tests
+passed, including observation/response binding, outcome gating, restart identity, and
+no-control-surface scan.
+
+### Worker provisioning update — 2026-09-19
+
+The warm-provider code and OSMO workflow are now prepared but not submitted:
+`scripts/rrm_cosmos_worker.py` loads one local Cosmos snapshot at startup and exposes
+only private `GET /healthz` and `POST /v1/propose` endpoints. The request/response are
+bound to a cycle ID, step, and image SHA-256 and return `execution_dispatch: false`.
+`osmo/workflows/airstack-live-replan.yaml` starts the existing Isaac workspace and a
+separate one-GPU `cosmos-worker` task in the same OSMO group; OSMO substitutes the
+worker's private address into `RRM_COSMOS_WORKER_URL`. It requests two fair-share GPUs
+total (24 CPU / 96 GiB memory).
+
+The image is published at
+`airlab-docker.andrew.cmu.edu/airstack/airstack-rrm-cosmos-worker:latest` (manifest
+digest `sha256:ddd2fcbfa57a0b981beca5f66a294c7288c264f0082f3b8852e028553564828c`).
+No persistent OSMO model mount is documented in AirStack or its public docs, so the
+workflow now downloads the approved pinned `nvidia/Cosmos-Reason2-8B` snapshot into
+the worker's task-local storage at every workflow start. The only remaining operator
+prerequisite is a user-owned generic OSMO credential named `rrm-huggingface-read`, with
+key `hf_token`, after the user accepts the model terms in Hugging Face. The workflow
+injects that token only into the worker, uses it for `hf download`, then unsets it
+before the private HTTP service starts. It must not be written to source, images,
+artifacts, or the Isaac workspace. Validation: worker RPC boundary, live-cycle, Cosmos
+parser, console and Office import tests: 52 passed; YAML parsed; source has no
+vehicle/scheduler control surface.
+
 ## LATEST: per-attempt evidence, live-observation intake and PSC bridge boundary — 2026-09-18 16:20 UTC
 
 The command console now records and displays immutable run history for both the

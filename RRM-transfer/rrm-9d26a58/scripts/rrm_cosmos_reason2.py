@@ -15,8 +15,10 @@ from rrm.state_contracts import StateSnapshot
 from rrm.task_contracts import TaskRequest
 
 
-def load_context(path: Path) -> CosmosReasoningInput:
-    payload = json.loads(path.read_text(encoding="utf-8"))
+def load_context_payload(payload: dict) -> CosmosReasoningInput:
+    """Build C01/C02/C03 from a decoded immutable request payload."""
+    if not isinstance(payload, dict):
+        raise ValueError("reasoning input must be a JSON object")
     capability = CapabilityDeclaration(
         embodiment_id=payload["capabilities"]["embodiment_id"],
         revision=payload["capabilities"]["revision"],
@@ -33,35 +35,53 @@ def load_context(path: Path) -> CosmosReasoningInput:
     )
 
 
+def load_context(path: Path) -> CosmosReasoningInput:
+    return load_context_payload(json.loads(path.read_text(encoding="utf-8")))
+
+
+class CosmosGenerator:
+    """One loaded Cosmos model, reusable by the live OSMO worker."""
+
+    def __init__(self, model_path: str):
+        import torch
+        import transformers
+
+        self.processor = transformers.Qwen3VLProcessor.from_pretrained(model_path)
+        self.model = transformers.Qwen3VLForConditionalGeneration.from_pretrained(
+            model_path, dtype=torch.bfloat16, device_map="auto", attn_implementation="sdpa",
+        )
+
+    def generate(self, *, prompt: str, image_path: str | None,
+                 video_path: str | None, max_new_tokens: int) -> str:
+        """Generate one response without reloading checkpoint shards."""
+        if image_path and video_path:
+            raise ValueError("provide at most one image or video")
+        media: list[dict[str, str]] = []
+        if image_path:
+            media.append({"type": "image", "image": image_path})
+        if video_path:
+            media.append({"type": "video", "video": video_path})
+        conversation = [
+            {"role": "system", "content": [{"type": "text", "text": "Follow the requested JSON schema."}]},
+            {"role": "user", "content": [*media, {"type": "text", "text": prompt}]},
+        ]
+        inputs = self.processor.apply_chat_template(
+            conversation, tokenize=True, add_generation_prompt=True, return_dict=True,
+            return_tensors="pt", fps=4,
+        ).to(self.model.device)
+        generated = self.model.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=False)
+        trimmed = [out[len(source):] for source, out in zip(inputs.input_ids, generated, strict=False)]
+        return self.processor.batch_decode(trimmed, skip_special_tokens=True,
+                                           clean_up_tokenization_spaces=False)[0]
+
+
 def generate(*, model_path: str, prompt: str, image_path: str | None,
              video_path: str | None, max_new_tokens: int) -> str:
-    """Lazy heavyweight import: core contracts remain CPU/unit-testable."""
-    import torch
-    import transformers
-
-    if image_path and video_path:
-        raise ValueError("provide at most one image or video")
-    media: list[dict[str, str]] = []
-    if image_path:
-        media.append({"type": "image", "image": image_path})
-    if video_path:
-        media.append({"type": "video", "video": video_path})
-    conversation = [
-        {"role": "system", "content": [{"type": "text", "text": "Follow the requested JSON schema."}]},
-        {"role": "user", "content": [*media, {"type": "text", "text": prompt}]},
-    ]
-    processor = transformers.Qwen3VLProcessor.from_pretrained(model_path)
-    model = transformers.Qwen3VLForConditionalGeneration.from_pretrained(
-        model_path, dtype=torch.bfloat16, device_map="auto", attn_implementation="sdpa",
+    """One-shot batch compatibility wrapper; live workers reuse ``CosmosGenerator``."""
+    return CosmosGenerator(model_path).generate(
+        prompt=prompt, image_path=image_path, video_path=video_path,
+        max_new_tokens=max_new_tokens,
     )
-    inputs = processor.apply_chat_template(
-        conversation, tokenize=True, add_generation_prompt=True, return_dict=True,
-        return_tensors="pt", fps=4,
-    ).to(model.device)
-    generated = model.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=False)
-    trimmed = [out[len(source):] for source, out in zip(inputs.input_ids, generated, strict=False)]
-    return processor.batch_decode(trimmed, skip_special_tokens=True,
-                                  clean_up_tokenization_spaces=False)[0]
 
 
 def main() -> None:

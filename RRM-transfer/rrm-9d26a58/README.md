@@ -64,14 +64,20 @@ The RRM GUI (Command Console) is used for visual intake, reviewing, and approvin
 *(This downloads a completed inference job from PSC. Look for the `Verified bundle:` path in the output).*
 ```bash
 cd /root/AirStack/RRM-transfer/rrm-9d26a58
-bash scripts/rrm_office_fetch_import.sh <PSC_JOB_ID>
+bash scripts/rrm_office_fetch_import.sh <psc-job-id>
 ```
+
+The PSC job ID is an operator-provided value, not a folder in a recreated
+VS Code/OSMO workspace. Run the command in an MFA-capable terminal to download and
+verify its bundle, then use the printed `Verified bundle:` path below. The transferred
+handoff records `46288765` as the prior accepted Office inference; use it only when
+you intentionally want that historical result, not as a default for a new scene.
 
 **2. Start the console:**
 ```bash
 # Provide the verified bundle directory path that was output by the fetch script above:
 cd /root/AirStack/RRM-transfer/rrm-9d26a58
-RRM_PSC_BRIDGE=1 RRM_PSC_USER=<your-psc-username> bash scripts/rrm_command_console.sh <verified-bundle-directory> [port]
+bash scripts/rrm_command_console.sh <verified-bundle-directory> [port]
 ```
 *(The console will be accessible at `http://127.0.0.1:8787` by default)*
 
@@ -82,6 +88,68 @@ cd /root/AirStack/RRM-transfer/rrm-9d26a58
 RRM_PSC_USER=<your-psc-username> bash scripts/rrm_psc_bridge_manual.sh /root/AirStack/.rrm-artifacts/command-requests/<REQUEST_ID>
 ```
 *(Reload the GUI history after the Slurm job finishes to view results).*
+
+For PSC password/Duo MFA, the manual bridge submits once and exits after printing the
+job ID. Monitor it with `squeue -j <job-id>`; when it has completed, fetch and import
+that exact result without submitting another job:
+```bash
+RRM_PSC_USER=<your-psc-username> bash scripts/rrm_psc_fetch_result.sh \
+  /root/AirStack/.rrm-artifacts/command-requests/<REQUEST_ID> <PSC_JOB_ID>
+```
+The GUI records the submitted job ID in its history when the console is running, then
+shows the terminal result after the fetch/import command completes. A result is
+reviewable only when it is `CANDIDATE_ACCEPTED`; malformed/mismatched evidence is
+`INFERENCE_FAILED`, and a model plan that the single-navigation Office adapter cannot
+represent is `CANDIDATE_REJECTED`. Both terminal non-accepted states retain evidence,
+do not dispatch, and must be retried with a new saved request rather than resubmitting
+the same immutable request.
+
+The manual bridge defaults to one `h100-80` GPU. To trial the lower-queue L40S 48 GB
+option without cancelling a queued H100 job, explicitly set `RRM_PSC_GRES=gpu:l40s-48:1`.
+Treat that as a separate validation run: import and review its result only if it
+completes successfully.
+
+### Live action → replan workflow (foundation)
+
+`rrm/live_replan.py` is the provider-neutral, shadow-only coordinator for the future
+continuous workflow. It records a fresh camera image plus separately verified live
+scene state before each provider request; binds the provider result to that exact
+observation; exposes only the first action of a multi-action plan for review; and then
+requires a reviewed, independently verified outcome before it will accept another
+observation/replan. It has no ROS, model-runtime, PSC, or dispatch dependency.
+
+The next integration supplies a warm OSMO Cosmos worker (or approved VLM API) as the
+provider. PSC batch jobs remain an offline evaluation path and must not be used as the
+per-action control loop. The current coordinator is not connected to the GUI or flight
+dispatcher yet, so it cannot move the drone.
+
+### Persistent Cosmos worker on OSMO
+
+The two-GPU workflow is [`osmo/workflows/airstack-live-replan.yaml`](../../osmo/workflows/airstack-live-replan.yaml):
+one GPU is the existing Isaac workspace and one is a private warm Cosmos worker. They
+are in one OSMO workflow group, so the workspace receives the internal worker URL
+through `RRM_COSMOS_WORKER_URL`; port `8090` must not be port-forwarded to a browser.
+
+The worker image is published at
+`airlab-docker.andrew.cmu.edu/airstack/airstack-rrm-cosmos-worker:latest`. Before
+submitting, accept the Cosmos model terms in Hugging Face and create the user-owned
+OSMO generic credential `rrm-huggingface-read` described in
+[`osmo/cosmos-worker/README.md`](../../osmo/cosmos-worker/README.md). At every new
+workflow start, only the worker task downloads the approved pinned
+`nvidia/Cosmos-Reason2-8B` snapshot into its own ephemeral storage, unsets the token,
+then loads the model once. No model is stored in Git, the worker image, the registry,
+or the Isaac workspace. Once that credential exists, submit a new workflow (do not
+restart the shared pool):
+
+```bash
+cd /root/AirStack
+osmo workflow submit osmo/workflows/airstack-live-replan.yaml \
+  --pool <gpu-pool> \
+  --set-env "SSH_PUB_KEY=$(cat ~/.ssh/id_ed25519.pub)"
+```
+
+This requests two GPUs, 24 CPU cores, and 96 GiB memory total. It is a shadow-only
+model service until the provider adapter and GUI cycle view are connected.
 
 ## Loading an Isaac Sim Scene (AirStack)
 
@@ -101,6 +169,25 @@ osmo workflow submit osmo/workflows/airstack-dev.yaml \
   --set-env "ISAAC_SIM_SCENE=office"
 ```
 *(Other configurable parameters like `NUM_ROBOTS=1` or `ISAAC_SIM_HEADLESS=1` can also be passed this way. Refer to the AirStack documentation and `airstack.sh --help` for the full list of parameters).*
+
+### OSMO WebRTC streaming
+
+The standard `isaac-sim` profile does not publish WebRTC ports, so a remote Isaac
+streaming client will be blank even when the simulator itself is healthy. For an
+OSMO/VS Code remote session, launch the livestream profile instead:
+
+```bash
+cd /root/AirStack
+COMPOSE_PROFILES=desktop,isaac-sim-livestream \
+  ./airstack.sh up --sim isaac --scene office
+```
+
+This starts `isaac-sim-livestream` and publishes TCP port `49100` for WebRTC
+signaling and UDP port `49099` for media. Forward TCP `49100` in VS Code's **Ports**
+panel before connecting the streaming client. Switching from an already running
+standard `isaac-sim` container requires stopping/removing that container first, then
+starting the livestream profile; the scene will load again. `airstack ready` only
+reports readiness—it does not make Isaac load faster.
 
 ## AirStack drone shadow mode (OSMO)
 

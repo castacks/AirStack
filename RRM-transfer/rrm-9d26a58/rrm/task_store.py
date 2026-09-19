@@ -121,7 +121,13 @@ class TaskStore:
             db.execute("""INSERT OR IGNORE INTO runs
                 (run_id,goal_id,task_id,created_at,status,artifact_dir) VALUES (?,?,?,?,?,?)""", run)
             existing_run = db.execute("SELECT * FROM runs WHERE run_id=?", (run_id,)).fetchone()
-            if tuple(existing_run)[:6] != run:
+            # A recovered immutable request may have progressed from its manifest's
+            # initial SAVED_NOT_SUBMITTED state to PSC/review lifecycle states. Verify
+            # only identity-bearing evidence here; never overwrite that lifecycle.
+            existing_identity = (existing_run[0], existing_run[1], existing_run[2],
+                                 existing_run[3], existing_run[5])
+            expected_identity = (run[0], run[1], run[2], run[3], run[5])
+            if existing_identity != expected_identity:
                 raise ValueError("Run ID already refers to different evidence.")
 
     def record_request(self, manifest: dict, payload: dict, directory: Path):

@@ -105,6 +105,28 @@ def seed_live_capture(app):
     )
 
 
+def write_bound_psc_result(request_dir, bundle, fixture_bundle, actions):
+    """Create a transport-only PSC result with exact saved request evidence."""
+    bundle.mkdir()
+    for name in ("input.json", "input.png"):
+        shutil.copy(request_dir / name, bundle / name)
+    shutil.copy(fixture_bundle / "scene_manifest.json", bundle / "scene_manifest.json")
+    context = load_context(bundle / "input.json")
+    raw = json.dumps({
+        "status": "READY", "grounded_entities": ["blue_marker", "orange_marker"],
+        "grounded_goal": {"name": "near", "subject": "$self", "obj": "blue_marker"},
+        "ambiguity_refs": [], "explanation": "fresh synthetic result",
+        "actions": actions, "recovery_budget": 0,
+    })
+    (bundle / "result.json").write_text(json.dumps({
+        "raw_response": raw, "prompt": render_cosmos_prompt(context),
+        "candidate": parse_cosmos_candidate(raw, context).model_dump(mode="json"),
+        "input_sha256": hashlib.sha256((bundle / "input.json").read_bytes()).hexdigest(),
+        "media_sha256": hashlib.sha256((bundle / "input.png").read_bytes()).hexdigest(),
+        "execution_dispatch": False,
+    }))
+
+
 class ExecutionSupervisorTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -455,6 +477,91 @@ class CommandConsoleTests(unittest.TestCase):
                       if run["run_id"] == saved["request_id"])["events"]
         self.assertEqual(events[-1]["kind"], "psc_failure")
         self.assertFalse((self.output / "execution").exists())
+
+    def test_async_psc_multi_action_result_is_rejected_before_retention(self):
+        fixture_bundle = self.bundle
+
+        class MultiActionBridge:
+            def run(self, request_dir):
+                bundle = request_dir.parent / "multi-action-psc-result"
+                write_bound_psc_result(request_dir, bundle, fixture_bundle, [
+                    {"id": "blue", "verb": "NAVIGATE_TO", "targets": ["blue_marker"],
+                     "dependencies": []},
+                    {"id": "orange", "verb": "NAVIGATE_TO", "targets": ["orange_marker"],
+                     "dependencies": ["blue"]},
+                ])
+                return {"job_id": "997", "bundle_dir": str(bundle)}
+
+        app = Console(self.bundle, self.output, "/unused-capture.py", psc_bridge=MultiActionBridge())
+        seed_live_capture(app)
+        saved = app.save("Approach the blue marker.")
+        app.submit_to_psc(saved["request_id"])
+        wait_for(lambda: app.store.get_run(saved["request_id"])["status"] == "CANDIDATE_REJECTED")
+        request_dir = self.output / saved["request_id"]
+        self.assertFalse((request_dir / "psc-result").exists())
+        run = app.store.get_run(saved["request_id"])
+        self.assertEqual(run["execution_state"], "NOT_DISPATCHED")
+        events = next(run for goal in app.store.history() for run in goal["runs"]
+                      if run["run_id"] == saved["request_id"])["events"]
+        rejection = next(event for event in events if event["kind"] == "psc_rejected")
+        self.assertEqual(rejection["summary"]["reason"], "adapter_refused_plan")
+        self.assertFalse((self.output / "execution").exists())
+
+    def test_manual_import_recovers_old_partial_copy_as_terminal_rejection(self):
+        app = Console(self.bundle, self.output, "/unused-capture.py")
+        seed_live_capture(app)
+        saved = app.save("Approach the blue marker.")
+        request_dir = self.output / saved["request_id"]
+        source = request_dir.parent / "manual-multi-action-result"
+        write_bound_psc_result(request_dir, source, self.bundle, [
+            {"id": "blue", "verb": "NAVIGATE_TO", "targets": ["blue_marker"],
+             "dependencies": []},
+            {"id": "orange", "verb": "NAVIGATE_TO", "targets": ["orange_marker"],
+             "dependencies": ["blue"]},
+        ])
+        shutil.copytree(source, request_dir / "psc-result")
+        server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(app))
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        endpoint = f"http://127.0.0.1:{server.server_port}/api/requests/manual-import"
+        payload = json.dumps({"run_id": saved["request_id"], "job_id": "996",
+                              "bundle_dir": str(source)}).encode()
+        with urlopen(Request(endpoint, data=payload,
+                             headers={"Content-Type": "application/json"})) as response:
+            self.assertEqual(json.load(response)["status"], "CANDIDATE_REJECTED")
+        self.assertEqual(app.store.get_run(saved["request_id"])["status"], "CANDIDATE_REJECTED")
+        self.assertFalse((request_dir / "psc-result" / "proposal.json").exists())
+        with urlopen(Request(endpoint, data=payload,
+                             headers={"Content-Type": "application/json"})) as response:
+            self.assertEqual(json.load(response)["status"], "already_rejected")
+
+    def test_manual_submission_is_idempotent_and_cannot_rebind_a_job(self):
+        app = Console(self.bundle, self.output, "/unused-capture.py")
+        seed_live_capture(app)
+        saved = app.save("Approach the blue marker.")
+        server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(app))
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        endpoint = f"http://127.0.0.1:{server.server_port}/api/requests/manual-submitted"
+
+        def submit(job_id):
+            return Request(endpoint, data=json.dumps({"run_id": saved["request_id"],
+                                                       "job_id": job_id}).encode(),
+                           headers={"Content-Type": "application/json"})
+
+        with urlopen(submit("995")) as response:
+            self.assertEqual(json.load(response)["status"], "recorded")
+        with urlopen(submit("995")) as response:
+            self.assertEqual(json.load(response)["status"], "already_recorded")
+        with self.assertRaises(HTTPError) as error:
+            urlopen(submit("994"))
+        self.assertEqual(error.exception.code, 409)
+        run = app.store.get_run(saved["request_id"])
+        self.assertEqual((run["status"], run["psc_job_id"]), ("INFERENCE_RUNNING", "995"))
 
     def test_reference_execution_evidence_is_visible_and_allow_listed(self):
         app = Console(self.bundle, self.output, "/unused-capture.py")
