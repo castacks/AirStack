@@ -46,11 +46,21 @@ Ported from drone_soccer plus goal-tracking and a squeeze profile:
   two holders goal-track explicit posts; the intruder shuttles through the
   gap; the holders must yield and return. Order: `[holder, holder, intruder]`.
 
-`teleop_drones` (comma-separated string) lists operator-driven, **CBF-exempt**
-drones (the moving obstacles) — empty = fully autonomous. `external_drones`
-are tracked for the filter but never commanded (e.g. RC-flown). Drive a
-teleop drone with `ros2 run svg_ground_control keyboard_teleop --ros-args -p
-drone:=drone_3` (one instance per teleop drone).
+`teleop_drones` (comma-separated string) lists operator-driven drones — empty
+= fully autonomous. Teleop is a control-source role, not a safety exemption:
+a teleop drone's commanded velocity is still passed through the CBF filter
+like any autonomous drone unless it is also listed in `cbf_exempt_drones`
+(separate, opt-in, empty by default). `external_drones` are tracked for the
+filter but never commanded (e.g. RC-flown).
+
+The maintained way to hand-fly a drone is the **`safe_teleop`** gamepad driver
+(direct horizontal velocity, rate-controlled altitude with active hold, stick
+lock), brought up end to end by `scripts/svg_teleop.sh` — sim experiments
+(`solo`/`squeeze`/`hover`) and one real drone (`real`,
+[config/teleop_real.yaml](config/teleop_real.yaml)). See
+**[teleop.md](teleop.md)** for controls, pad diagnostics, axis signs, and the
+real-drone ground check. `keyboard_teleop` (latched speed steps, one instance
+per drone) and `xbox_teleop` remain as ad-hoc utilities.
 
 ## Hybrid sim/real, geofence, RViz
 
@@ -79,11 +89,17 @@ squeeze rollout), and [test/functional_squeeze_test.py](test/functional_squeeze_
 
 ## Safety notes
 
-- Teleop drones are CBF-exempt by design — the autonomous drones do the
-  dodging. The operator (you) is the safety authority for the obstacle.
+- Teleop drones are CBF-protected by default, same as autonomous ones — the
+  filter corrects an operator's command like any other drone's. Add a drone
+  to `cbf_exempt_drones` if you deliberately want it uncorrected (e.g. it
+  should act as the moving obstacle the others dodge); in that case the
+  operator becomes the safety authority for it instead of the filter.
 - This stack bypasses `drone_safety_monitor`; PX4 failsafes and the RC kill
   switch are the safety net. Configure them before flying.
-- Stale odometry (> `state_timeout_s`) → zero-velocity command; stale teleop
-  input → zero. `~/hold` is the panic button.
+- Stale odometry (> `state_timeout_s`) → zero-velocity command. A stale
+  *teleop topic* (> `teleop_timeout_s`, i.e. the teleop node died) → zero. A
+  dead *gamepad* is different and intentional: `safe_teleop` keeps publishing,
+  zeroing horizontal but holding altitude, so the drone parks in the air — see
+  teleop.md "Safety". `~/hold` is the panic button.
 - `CBF emergency push-apart engaged` in the log means the QP went infeasible
   (drones inside each other's safety spheres) — land and investigate.

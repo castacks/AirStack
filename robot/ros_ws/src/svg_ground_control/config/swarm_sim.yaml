@@ -63,9 +63,11 @@ swarm_commander:
 
     # CBF safety filter (real — ported from ~/drone_soccer)
     cbf_safety_radius_m: 0.55
-    cbf_max_speed_mps: 1.2
+    # 2.0 so a hand-flown intruder can reach 2 m/s (also bounds how fast the
+    # holders may dodge — matches squeeze_rc_intruder.yaml's hardware value).
+    cbf_max_speed_mps: 2.0
     cbf_alpha: 2.5
-    teleop_max_speed_mps: 1.2
+    teleop_max_speed_mps: 2.0
 
     # Geofence: breach -> all drones hold, scenario stops, ~/reset_fence to clear
     fence_enabled: true
