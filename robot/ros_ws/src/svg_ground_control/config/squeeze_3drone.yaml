@@ -86,6 +86,9 @@ swarm_commander:
     hover_kp: 1.0
     arrival_threshold_m: 0.15
     land_speed_mps: 0.3
+    takeoff_speed_mps: 0.5    # climb profile speed (braking law to the target)
+    hold_lead_m: 0.2          # reference leash while taking off/landing/holding:
+                              # PX4's z loop is stiff, keep it close (C1_0920_203148)
     land_complete_altitude_m: 0.15
 
     cbf_safety_radius_m: 0.55

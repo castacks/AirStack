@@ -95,7 +95,7 @@ from svg_ground_control.fence import (BEHAVIORS as FENCE_BEHAVIORS, clamp_to_box
                                       keep_in_velocity, outside, violation_text)
 from svg_ground_control.position_hold import advance_reference, tracking_velocity
 from svg_ground_control.scenarios import Bounds, make_scenario
-from svg_ground_control.trajectory import stopping_distance
+from svg_ground_control.trajectory import seek_velocity, stopping_distance
 
 
 class FlightState(Enum):
@@ -293,6 +293,16 @@ class SwarmCommander(Node):
         self.declare_parameter('hover_kp', 1.0)
         self.declare_parameter('arrival_threshold_m', 0.15)
 
+        # Takeoff climb speed (a braking-law profile toward the takeoff
+        # target, not a P-law: a 1 m target must not mean a 1 m/s step).
+        self.declare_parameter('takeoff_speed_mps', 0.5)
+        # Leash of the reference point while ASCENDING / LANDING / holding
+        # outside a mission. PX4's altitude loop is stiff (MPC_Z_P = 5) and a
+        # drone cannot follow anything during its takeoff thrust ramp
+        # (~1.5 s), so the reference must stay close: bag C1_0920_203148 had
+        # it 1.3 m above a drone still on the ground and the drone shot to
+        # twice the hover height when the motors caught up.
+        self.declare_parameter('hold_lead_m', 0.2)
         # Landing
         self.declare_parameter('land_speed_mps', 0.3)
         self.declare_parameter('land_complete_altitude_m', 0.15)
@@ -374,6 +384,8 @@ class SwarmCommander(Node):
         self.hover_kp = float(self.get_parameter('hover_kp').value)
         self.arrival_threshold = float(self.get_parameter('arrival_threshold_m').value)
         self.land_speed = float(self.get_parameter('land_speed_mps').value)
+        self.takeoff_speed = float(self.get_parameter('takeoff_speed_mps').value)
+        self.hold_lead = float(self.get_parameter('hold_lead_m').value)
         self.land_complete_alt = float(
             self.get_parameter('land_complete_altitude_m').value)
         self.cbf_safety_radius = float(self.get_parameter('cbf_safety_radius_m').value)
@@ -682,9 +694,12 @@ class SwarmCommander(Node):
             elif p.name == 'goal_lead_m':
                 self.goal_lead = float(p.value)
                 self.get_logger().info(f'goal_lead_m -> {p.value} (live)')
-            elif p.name in ('teleop_kp', 'teleop_lead_m', 'hover_kp'):
+            elif p.name in ('teleop_kp', 'teleop_lead_m', 'hover_kp',
+                            'hold_lead_m', 'takeoff_speed_mps'):
                 setattr(self, {'teleop_kp': 'teleop_kp', 'teleop_lead_m': 'teleop_lead',
-                               'hover_kp': 'hover_kp'}[p.name], float(p.value))
+                               'hover_kp': 'hover_kp', 'hold_lead_m': 'hold_lead',
+                               'takeoff_speed_mps': 'takeoff_speed'}[p.name],
+                        float(p.value))
                 self.get_logger().info(f'{p.name} -> {p.value} (live)')
             else:
                 return SetParametersResult(
@@ -694,7 +709,8 @@ class SwarmCommander(Node):
                            'cbf_max_speed_mps, teleop_max_speed_mps, '
                            'goal_accel_mps2, goal_settle_s, goal_lead_m, '
                            'goal_velocity_only_settle_s, teleop_kp, '
-                           'teleop_lead_m, hover_kp)')
+                           'teleop_lead_m, hover_kp, hold_lead_m, '
+                           'takeoff_speed_mps)')
         return SetParametersResult(successful=True)
 
     def formation_callback(self, msg: String):
@@ -956,7 +972,10 @@ class SwarmCommander(Node):
     def advance_reference(self, drone: DroneHandle):
         """Step a commanded drone's reference point by what it was told to fly."""
         seeded = drone.ref is None
-        lead = self.teleop_lead if drone.role == 'teleop' else self.goal_lead
+        if drone.state == FlightState.ACTIVE and self.mission_active:
+            lead = self.teleop_lead if drone.role == 'teleop' else self.goal_lead
+        else:
+            lead = self.hold_lead     # takeoff, landing, holding: stay close
         drone.ref, drone.applied = advance_reference(
             drone.ref, drone.position, drone.applied, drone.velocity,
             self.control_dt, lead)
@@ -1056,7 +1075,10 @@ class SwarmCommander(Node):
                 nominal[i] = np.array([0.0, 0.0, -self.land_speed])
             elif d.state == FlightState.ASCEND:
                 error = d.hold_target - d.position
-                nominal[i] = self.hover_kp * error
+                nominal[i] = seek_velocity(
+                    d.position[None], d.hold_target[None], self.takeoff_speed,
+                    self.scenario.tracker.accel,
+                    self.scenario.velocity_only_settle)[0]
                 if np.linalg.norm(error) < self.arrival_threshold:
                     d.state = FlightState.ACTIVE
                     self.get_logger().info(f'{d.name}: holding takeoff position')

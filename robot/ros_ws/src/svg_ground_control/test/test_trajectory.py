@@ -211,3 +211,44 @@ def test_reference_is_leashed_and_reattaches():
     ref, applied = advance_reference([5, 2, 3], [1, 2, 3], [1, 0, 0], [0.5, 0, 0], DT, 2.0)
     assert ref == pytest.approx([3, 2, 3])             # leashed to 2 m
     assert applied == pytest.approx([0.5, 0, 0])       # -> re-attach signal
+
+
+# ------------------------------------------------------------- takeoff
+
+def fly_takeoff(lead, speed=0.5, target=1.0, ramp=1.5, seconds=8.0):
+    """Climb to ``target`` with PX4's altitude loop (MPC_Z_P = 5) while the
+    motors produce no lift for the first ``ramp`` seconds (takeoff thrust
+    ramp). Bag C1_0920_203148: with a 2 m leash the drone reached 1.94 m."""
+    plant = Px4OffboardPlant()
+    ref = None
+    applied = np.zeros(3)
+    log = []
+    for k in range(int(seconds / DT)):
+        t = k * DT
+        pm, vm = plant.measure()
+        ref, applied = advance_reference(ref, [0, 0, pm], applied, [0, 0, vm], DT, lead)
+        v = seek_velocity([[0, 0, pm]], [[0, 0, target]], speed, 3.0, 1.0)[0]
+        # stiff z loop: P = 5 instead of 0.95
+        plant.link.append((ref[2], v[2], 0.0))
+        pos_sp, vel_sp, _ = plant.link.pop(0)
+        vsp = vel_sp + 5.0 * (pos_sp - plant.p)
+        if t < ramp:
+            plant.p = plant.v = plant.a = 0.0          # no lift yet
+        else:
+            err = vsp - plant.v
+            asp = float(np.clip(8.0 * err, -4.0, 4.0))   # MPC_Z_VEL_P_ACC, ACC_UP_MAX
+            plant.a += (asp - plant.a) * DT / 0.1
+            plant.v += plant.a * DT
+            plant.p += plant.v * DT
+        applied = v.copy()
+        log.append((t, plant.p, plant.v))
+    return np.array(log)
+
+
+def test_takeoff_reference_stays_with_the_drone_during_the_thrust_ramp():
+    log = fly_takeoff(lead=0.2)
+    assert log[:, 1].max() < 1.05            # 1 m target, no dash to the sky
+    assert log[:, 2].max() < 1.1             # ~2x the climb speed at most
+    assert abs(log[-1, 1] - 1.0) < 0.05
+    # what the bag showed: a loose leash lets the reference run 1+ m ahead
+    assert fly_takeoff(lead=2.0)[:, 1].max() > 1.3
