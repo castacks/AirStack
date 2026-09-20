@@ -56,8 +56,10 @@ swarm_commander:
     #   goal_accel_mps2  acceleration/braking of the reference profile
     #                    (PX4 auto default 3; drone_2 flew 5.5 in the logs)
     #   goal_settle_s    exponential tail into the goal (0.3 = PX4-like)
-    #   goal_lead_m      leash: how far the reference may lead a drone the
-    #                    CBF/fence holds back (PX4 MPC_XY_ERR_MAX = 2)
+    #   goal_lead_m      leash: max distance the reference may get AHEAD of
+    #                    the drone (tracking lag at speed, wall, gust) before
+    #                    it is pulled back to the drone and the profile
+    #                    restarts from the drone's speed (PX4 MPC_XY_ERR_MAX)
     #   goal_velocity_only_settle_s  same law for velocity-only (sim/MAVROS)
     #                    drones, longer to absorb PX4's ~0.7 s velocity lag
     goal_accel_mps2: 3.0

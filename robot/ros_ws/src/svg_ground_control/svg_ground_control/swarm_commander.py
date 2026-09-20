@@ -191,8 +191,10 @@ class SwarmCommander(Node):
         # a cruise cap; the drone accelerates and brakes at goal_accel_mps2
         # and eases into the goal with time constant goal_settle_s, so it
         # only reaches the cap if the goal is farther than
-        # v^2/(2 a) + v * settle. goal_lead_m leashes the reference point to
-        # the drone (PX4: MPC_XY_ERR_MAX). Velocity-only drones (sim) use the
+        # v^2/(2 a) + v * settle. goal_lead_m: how far the reference point may
+        # get ahead of the drone (tracking lag, wall, gust) before it is
+        # pulled back and the profile restarts from the drone's own speed
+        # (PX4: MPC_XY_ERR_MAX). Velocity-only drones (sim) use the
         # same law at their own position with the longer settle, which
         # absorbs PX4's ~0.7 s velocity-loop lag without a feedforward.
         self.declare_parameter('goal_accel_mps2', 3.0)

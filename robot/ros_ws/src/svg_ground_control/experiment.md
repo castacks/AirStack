@@ -859,7 +859,7 @@ plant model (`test/test_trajectory.py`). Knobs, all live with
 | `scenario_speed_mps` / `speed_command` | config | cruise cap; reached only if the goal is farther than `v²/(2a) + v·settle` (the commander logs this distance for every speed it receives) |
 | `goal_accel_mps2` | 3.0 | acceleration and braking of the profile (drone_2 managed 5.5 in the logs; PX4 auto uses 3) |
 | `goal_settle_s` | 0.3 | exponential tail into the goal; larger = softer stop, slower arrival |
-| `goal_lead_m` | 2.0 | leash: how far the reference may lead a drone held back by the CBF/fence (PX4 `MPC_XY_ERR_MAX`) |
+| `goal_lead_m` | 2.0 | leash: how far the reference may get ahead of the drone (tracking lag at speed, a wall, a gust) before it is pulled back and the profile restarts from the drone's speed; the CBF does not need it (the reference only moves by the *published* velocity). PX4's `MPC_XY_ERR_MAX` |
 | `real_command_mode` | `trajectory` | `velocity` sends the old TwistStamped instead (the px4_interface must be rebuilt for `trajectory`: `bws --packages-select px4_interface`) |
 | `takeoff_speed_mps` | 0.5 | climb speed of the takeoff profile (braking law into the takeoff target, no P-law step) |
 | `hold_lead_m` | 0.2 | reference leash while taking off / landing / holding outside a mission — keep small, PX4's altitude loop is stiff |
