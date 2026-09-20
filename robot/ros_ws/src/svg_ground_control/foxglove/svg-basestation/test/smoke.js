@@ -122,10 +122,12 @@ function statusMsg(overrides = {}) {
     command_seq: missionState.seq, last_command: missionState.last,
     drones: [
       { name: "drone_1", role: "auto", mode: "sim", commanded: true, cbf_exempt: false, state: "ACTIVE",
-        position_offset: [-2, 0, 0], position: [-1.234, 0.5, 1.2], speed_mps: 0.1, hold_target: [-1.2, 0.5, 1.2], odom_fresh: true, odom_age_s: 0.02,
+        position_offset: [-2, 0, 0], position: [-1.234, 0.5, 1.2],
+        odom_rx_total: Math.round((t - 1.7e9) * 30), odom_lost_total: Math.round((t - 1.7e9) * 30 / 20), odom_loss_counter: "dds", speed_mps: 0.1, hold_target: [-1.2, 0.5, 1.2], odom_fresh: true, odom_age_s: 0.02,
         cbf_active: false, robot_command: { label: "arm", result: "ok", message: "", stamp: t - 20 } },
       { name: "drone_2", role: "auto", mode: "sim", commanded: true, cbf_exempt: false, state: "ACTIVE",
-        position_offset: [0, 0, 0], position: [0.0, 0.0, 1.21], speed_mps: 0.6, hold_target: null, odom_fresh: true, odom_age_s: 0.03,
+        position_offset: [0, 0, 0], position: [0.0, 0.0, 1.21],
+        odom_rx_total: Math.round((t - 1.7e9) * 30), odom_lost_total: 0, odom_loss_counter: "dds", speed_mps: 0.6, hold_target: null, odom_fresh: true, odom_age_s: 0.03,
         cbf_active: true, robot_command: { label: "arm", result: "rejected", message: "interface returned success=False", stamp: t - 20 } },
       { name: "drone_3", role: "auto", mode: "sim", commanded: true, cbf_exempt: false, state: "IDLE",
         position: null, speed_mps: null, hold_target: null, odom_fresh: false, odom_age_s: null,
@@ -186,6 +188,16 @@ const text = () => root.textContent;
   assert(txt.includes("correcting drone_2"), "CBF live readout names the corrected drone");
   assert(txt.includes("live 2.50"), "CBF alpha live value shown from snapshot");
   assert(txt.includes("arm ✓") && txt.includes("arm ✗"), "interface (arm) results rendered per drone");
+  {
+    // Measured drop: several snapshots spanning > 5 samples -> dds-tagged cells.
+    for (let i = 0; i < 5; i++) { t += 0.2; feedStatus(); feedCmd("drone_1"); }
+    render();
+    const dropCells = findAll(root, (n) => n.tagName === "td" && n.title.startsWith("Measured:"));
+    assert(dropCells.length >= 2, "Drop column uses the commander's DDS counters (tagged dds)");
+    const d1 = dropCells[0].textContent, d2 = dropCells[1].textContent;
+    assert(/4\.\d\d %dds|5\.\d\d %dds/.test(d1), `drone_1 measured drop ~4.8 % from counters (got "${d1}")`);
+    assert(d2.startsWith("0.00 %"), `drone_2 measured drop 0 % (got "${d2}")`);
+  }
   assert(/\d+ Hz/.test(txt), "velocity command stream rate rendered");
   findButton(root, "Use Current").click();
   const goalX = findAll(root, (n) => n.tagName === "input" && n.classList.contains("sb-goal-in"))[0];

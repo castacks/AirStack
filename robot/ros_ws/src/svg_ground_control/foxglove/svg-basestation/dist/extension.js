@@ -388,7 +388,12 @@ function streamOnMessage(st, rxSec, stampSec) {
       const clean = st.dts.filter((d) => d < 2.5 * med);
       st.period = median(clean) ?? med;
       if (dt <= LINK_LOSS_TIMEOUT_S) {
-        const expected = Math.max(1, Math.round(dt / st.period));
+        // floor, not round: publisher jitter routinely reaches 1.5–1.9·P
+        // (PX4 SITL lockstep, MAVLink stream pacing) and must not be scored
+        // as loss; a real loss lands at ≥ 2·P. This is still only an
+        // ESTIMATE — arrival timing cannot tell late from lost — which is why
+        // the Drop column prefers the commander's DDS loss counters.
+        const expected = Math.max(1, Math.floor(dt / st.period + 1e-6));
         st.gaps.push([rxSec, expected, expected - 1]);
       }
       // A gap longer than the loss timeout is an outage, not packet loss: it is
@@ -429,6 +434,29 @@ function streamDropRatePct(st, now) {
   }
   if (expected < 5) return null;
   return (missed / expected) * 100;
+}
+
+// MEASURED drop rate from the commander's DDS reader counters. Each status
+// snapshot carries cumulative odom_rx_total / odom_lost_total for the drone's
+// odometry subscription; the RTPS layer numbers every sample and the reader
+// reports the gaps it could not fill (message_lost event). Differencing the
+// counters over the window gives lost / (lost + received) — no timing
+// heuristics involved. Null until two snapshots inside the window exist and
+// enough samples flowed, or when the newest counter is stale.
+function ddsDropRatePct(a, now) {
+  const h = a.ddsHist;
+  if (h.length < 2 || now - h[h.length - 1][0] > COMMANDER_TIMEOUT_S) return null;
+  const cutoff = now - METRIC_WINDOW_S;
+  let first = 0;
+  while (first < h.length - 1 && h[first][0] < cutoff) first++;
+  if (first > 0) first--;   // one sample before the window anchors the difference
+  const [, rx0, lost0] = h[first];
+  const [, rx1, lost1] = h[h.length - 1];
+  const rx = rx1 - rx0, lost = lost1 - lost0;
+  if (rx < 0 || lost < 0) return null;     // commander restarted: counters reset
+  const total = rx + lost;
+  if (total < 5) return null;
+  return (lost / total) * 100;
 }
 
 // Age of the newest sample, in ms: how far behind wall time the data is.
@@ -530,6 +558,8 @@ function newAgent(name) {
     fmuOdom: newStream(null),   // raw PX4 odometry — the pre-conversion hop
     cmd: newStream(null),       // velocity commands the commander sends this drone
     cmdr: null,                 // this drone's entry in the commander's status snapshot
+    ddsHist: [],                // [t, odom_rx_total, odom_lost_total] from snapshots
+    ddsCounter: null,           // "dds" | "unsupported" | null (no snapshot yet)
     bridge: null,               // {state, detail} — see evaluateBridge
     reported: null,             // {linkStatusTopicTemplate} JSON
     reportedAt: null,
@@ -676,8 +706,22 @@ function evaluateLink(agent, cfg, now) {
   const timesyncOffsetMs = agent.timesync != null && num(agent.timesync.estimated_offset) != null
     ? Number(agent.timesync.estimated_offset) / 1000 : null;
 
+  // Drop, best source first: an explicit link report, then the commander's
+  // DDS reader counters (measured: sequence-number gaps), then the
+  // arrival-timing estimate — which cannot tell late from lost and is
+  // labelled as an estimate for that reason.
+  let dropPct = null, dropSource = null;
+  const reportedDrop = num(r?.drop_rate);
+  const ddsDrop = ddsDropRatePct(agent, now);
+  if (reportedDrop != null) { dropPct = reportedDrop; dropSource = "report"; }
+  else if (ddsDrop != null) { dropPct = ddsDrop; dropSource = "dds"; }
+  else {
+    const est = streamDropRatePct(st, now);
+    if (est != null) { dropPct = est; dropSource = "est"; }
+  }
+
   agent.metrics = {
-    dropPct: num(r?.drop_rate) != null ? Number(r.drop_rate) : streamDropRatePct(st, now),
+    dropPct, dropSource,
     pingMs, pingSource,
     clockOffsetMs: timesyncOffsetMs != null ? timesyncOffsetMs
       : num(r?.clock_offset_ms) != null ? Number(r.clock_offset_ms) : clock.offsetMs,
@@ -1245,6 +1289,16 @@ function activate(extensionContext) {
         const byName = new Map(s.drones.map((d) => [d.name, d]));
         for (const a of agents) {
           a.cmdr = byName.get(a.name) ?? null;
+          // DDS reception counters -> measured drop rate (see ddsDropRatePct).
+          const c = a.cmdr;
+          if (c && typeof c.odom_loss_counter === "string") {
+            a.ddsCounter = c.odom_loss_counter;
+            const rxTotal = num(c.odom_rx_total), lostTotal = num(c.odom_lost_total);
+            if (a.ddsCounter === "dds" && rxTotal != null && lostTotal != null) {
+              a.ddsHist.push([rx, rxTotal, lostTotal]);
+              prune(a.ddsHist, rx - METRIC_WINDOW_S * 2);
+            }
+          }
           // Adopt the commander's drone_position_offsets so this panel's
           // odometry-derived positions — and the goals built from them — are
           // in the same world frame the commander plans in. A mismatch here
@@ -2537,6 +2591,19 @@ function activate(extensionContext) {
 
           const tdDrop = el("td");
           gradeCell(tdDrop, m.dropPct, Number(cfg.dropTargetPct), 2, " %");
+          if (m.dropSource) {
+            tdDrop.appendChild(el("span", "sb-src", m.dropSource));
+            tdDrop.title = m.dropSource === "dds"
+              ? "Measured: the commander's DDS reader counts odometry samples lost by sequence number "
+                + "(message_lost event), differenced over the window. lost / (lost + received)."
+              : m.dropSource === "report"
+                ? "From this agent's link report (comms/link_status)."
+                : "ESTIMATE from arrival timing at the Foxglove bridge (gaps ≥ 2 periods count as loss). "
+                  + "Arrival timing cannot tell a late sample from a lost one; the measured value appears "
+                  + "once the commander's status snapshot is live.";
+          } else if (a.ddsCounter === "unsupported") {
+            tdDrop.title = "The commander's rmw has no message_lost event; no measured drop count is available.";
+          }
 
           tr.append(tdName, tdMode, tdTier, tdRate, tdPing, tdDrop);
 

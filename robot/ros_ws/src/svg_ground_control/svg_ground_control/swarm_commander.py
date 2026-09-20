@@ -72,6 +72,7 @@ import numpy as np
 import rclpy
 from rclpy.node import Node
 from rclpy.duration import Duration
+from rclpy.event_handler import SubscriptionEventCallbacks, UnsupportedEventTypeError
 from rclpy.parameter import Parameter
 
 from geometry_msgs.msg import Point, PoseStamped, TwistStamped
@@ -150,6 +151,15 @@ class DroneHandle:
         self.orientation = (0.0, 0.0, 0.0, 1.0)  # (x,y,z,w), identity until first odometry
         self.velocity = np.zeros(3)
         self.last_odom_time = None        # rclpy Time
+        # Odometry reception counters for the status topic. odom_lost_total is
+        # the DDS reader's own count of samples it saw go missing (RTPS
+        # sequence-number gaps, via the message_lost subscription event) — a
+        # measured loss, unlike anything derived from arrival timing.
+        # odom_loss_counter is 'dds' when that event is wired, else
+        # 'unsupported' (rmw without the event) and odom_lost_total stays 0.
+        self.odom_rx_total = 0
+        self.odom_lost_total = 0
+        self.odom_loss_counter = 'unsupported'
         self.arming_start = None          # rclpy Time
         self.arming_steps_done = set()
         self.cmd_pub = None
@@ -470,9 +480,7 @@ class SwarmCommander(Node):
                 self.create_subscription(
                     Float32, speed_tmpl.format(name=name),
                     lambda msg, idx=i: self.speed_callback(idx, msg), 10)
-            self.create_subscription(
-                Odometry, state_tmpl.format(name=name),
-                lambda msg, d=drone: self.odometry_callback(d, msg), 10)
+            self._subscribe_odometry(drone, state_tmpl.format(name=name))
             self.drones.append(drone)
 
         # ---- Formation profiles (single-command swarm re-targeting) --------
@@ -689,6 +697,11 @@ class SwarmCommander(Node):
                                 else None),
                 'odom_fresh': bool(fresh),
                 'odom_age_s': None if odom_age is None else round(odom_age, 3),
+                # Cumulative counters; the panel differences them over its
+                # window to get a measured drop rate (lost / (lost + received)).
+                'odom_rx_total': d.odom_rx_total,
+                'odom_lost_total': d.odom_lost_total,
+                'odom_loss_counter': d.odom_loss_counter,
                 'cbf_active': d.name in self._cbf_active_names,
                 'robot_command': d.last_robot_command,
             })
@@ -724,7 +737,40 @@ class SwarmCommander(Node):
     # Inputs
     # ------------------------------------------------------------------
 
+    def _subscribe_odometry(self, drone: DroneHandle, topic: str):
+        """Subscribe to a drone's odometry with DDS loss accounting.
+
+        The reader-side ``message_lost`` event is the only true drop counter
+        available: the RTPS layer numbers every sample a writer sends and the
+        reader reports the gaps it could not fill. (With a RELIABLE pairing a
+        gap only counts once the writer's history has aged the sample out, i.e.
+        once it is genuinely unrecoverable — which is the loss the commander
+        actually experiences.) An rmw without the event falls back to a plain
+        subscription and the status topic says so.
+        """
+        callback = (lambda msg, d=drone: self.odometry_callback(d, msg))
+        events = SubscriptionEventCallbacks(
+            message_lost=lambda info, d=drone: self._on_odometry_lost(d, info))
+        try:
+            self.create_subscription(Odometry, topic, callback, 10,
+                                     event_callbacks=events)
+            drone.odom_loss_counter = 'dds'
+        except UnsupportedEventTypeError:
+            self.get_logger().warn(
+                f'{drone.name}: rmw has no message_lost event; odometry drop '
+                'count unavailable (status reports odom_loss_counter=unsupported)')
+            self.create_subscription(Odometry, topic, callback, 10)
+
+    def _on_odometry_lost(self, drone: DroneHandle, info):
+        # info.total_count is cumulative for the life of the subscription.
+        drone.odom_lost_total = int(info.total_count)
+        self.get_logger().warn(
+            f'{drone.name}: odometry samples lost: +{int(info.total_count_change)} '
+            f'(total {drone.odom_lost_total})',
+            throttle_duration_sec=2.0)
+
     def odometry_callback(self, drone: DroneHandle, msg: Odometry):
+        drone.odom_rx_total += 1
         p = msg.pose.pose.position
         v = msg.twist.twist.linear
         # position_offset shifts each drone's local-origin odometry into the

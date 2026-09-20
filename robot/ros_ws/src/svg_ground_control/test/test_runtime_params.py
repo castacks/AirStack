@@ -278,3 +278,27 @@ def test_marker_label_is_name_only_and_dark_on_white() -> None:
             assert 0.0 < m.color.a < 1.0
     finally:
         node.destroy_node()
+
+
+# ------------------------------------------------------------ drop counters
+
+def test_status_reports_dds_reception_counters() -> None:
+    from types import SimpleNamespace
+    from nav_msgs.msg import Odometry
+
+    node = make_commander()
+    try:
+        d1 = node.drones[0]
+        # rmw_fastrtps supports the message_lost event -> measured counter.
+        assert d1.odom_loss_counter == "dds"
+        for _ in range(7):
+            node.odometry_callback(d1, Odometry())
+        # The DDS event delivers a cumulative total (and the change).
+        node._on_odometry_lost(d1, SimpleNamespace(total_count=3, total_count_change=3))
+        s = {d["name"]: d for d in node.build_status()["drones"]}
+        assert s["drone_1"]["odom_rx_total"] == 7
+        assert s["drone_1"]["odom_lost_total"] == 3
+        assert s["drone_1"]["odom_loss_counter"] == "dds"
+        assert s["drone_2"]["odom_rx_total"] == 0 and s["drone_2"]["odom_lost_total"] == 0
+    finally:
+        node.destroy_node()

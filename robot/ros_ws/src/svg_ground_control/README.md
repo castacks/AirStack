@@ -70,8 +70,10 @@ drone:=drone_3` (one instance per teleop drone).
   `fence_breached`), the outcome of the last lifecycle service
   (`last_command` + a `command_seq` counter), the live CBF gains and which
   drones the CBF is correcting, and per drone its `FlightState`, world
-  position, speed, odometry freshness and the result of its last
-  `robot_command` (offboard / arm / disarm). Built by `build_status()`; the
+  position, speed, odometry freshness, DDS reception counters
+  (`odom_rx_total` / `odom_lost_total` from the reader's `message_lost`
+  event — a measured drop count, not a timing guess) and the result of its
+  last `robot_command` (offboard / arm / disarm). Built by `build_status()`; the
   [SVG Basestation Foxglove panel](foxglove/svg-basestation/README.md)
   (in this package's `foxglove/` directory, with the `svg_basestation.json`
   layout and its `install.py`) uses it to confirm Start really took effect
