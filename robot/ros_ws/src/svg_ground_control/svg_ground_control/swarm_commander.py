@@ -1240,6 +1240,15 @@ class SwarmCommander(Node):
             accel = accel_ff[row]
             if np.linalg.norm(velocity - nominal[row]) > 1e-6:
                 accel = np.zeros(3)
+                # The filter overrode the profile, so the reference may be
+                # ahead of the drone along a path the CBF no longer endorses.
+                # PX4's onboard pull toward the reference is not filtered;
+                # keep it on the short hold leash until the drone is free.
+                if d.ref is not None:
+                    lead = d.ref - d.position
+                    dist = float(np.linalg.norm(lead))
+                    if dist > self.hold_lead:
+                        d.ref = d.position + lead * (self.hold_lead / dist)
             self.publish_command(d, velocity, accel, now)
 
         self.publish_markers(now)

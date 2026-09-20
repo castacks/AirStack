@@ -882,6 +882,14 @@ ros2 topic pub --once /svg/drone_1/goal_command geometry_msgs/msg/PoseStamped \
 ros2 topic pub --once /svg/drone_1/speed_command std_msgs/msg/Float32 "{data: 0.8}"
 ros2 service call /swarm_commander/land std_srvs/srv/Trigger
 ```
+**Safety with the CBF.** The CBF still filters velocities, and that is
+still everything that moves a drone: the reference point (PX4's position
+setpoint) is integrated from the *published*, filtered velocity, so it stops
+when the CBF says stop; the acceleration feedforward is dropped whenever the
+CBF or the fence alters a velocity; and while they do, the reference is held
+on the short `hold_lead_m` leash so PX4's own, unfiltered pull toward the
+reference stays below ~0.2 m/s.
+
 **Heading.** Real drones on the trajectory output get an absolute yaw with
 every setpoint: the goal's `theta` in the goal scenario, and **nose on +X
 (0°) in every other scenario** (hover, squeeze, random goals, …) and while
