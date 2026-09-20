@@ -202,3 +202,54 @@ def test_status_publisher_can_be_disabled() -> None:
         node.publish_status()   # no-op, must not raise
     finally:
         node.destroy_node()
+
+
+# --------------------------------------------------------------- fence grid
+
+def test_fence_grid_is_clipped_to_fence_and_world_aligned() -> None:
+    from visualization_msgs.msg import Marker
+
+    node = make_commander(
+        fence_enabled=True,
+        fence_min=[-3.0, -6.0, 0.0], fence_max=[5.0, 5.0, 3.0],   # cbf_sim.yaml
+        fence_grid_cell_m=0.5,
+    )
+    try:
+        m = node._fence_grid_marker(node.get_clock().now().to_msg())
+        assert m is not None and m.type == Marker.LINE_LIST
+        assert m.ns == "fence_grid"
+        xs = sorted({p.x for p in m.points})
+        ys = sorted({p.y for p in m.points})
+        # Every line spans exactly the fence footprint on the fence floor...
+        assert xs[0] == -3.0 and xs[-1] == 5.0
+        assert ys[0] == -6.0 and ys[-1] == 5.0
+        assert all(p.z == 0.0 for p in m.points)
+        # ...and the lines sit on world multiples of the cell: 17 x-lines
+        # (-3.0 .. 5.0) + 23 y-lines (-6.0 .. 5.0), two points each.
+        assert len(m.points) == 2 * (17 + 23)
+        assert len(m.colors) == len(m.points)
+        assert 0.0 in xs and 0.0 in ys              # origin is on the grid
+        # Whole-metre lines are brighter than half-metre ones.
+        by_x = {}
+        for pt, c in zip(m.points, m.colors):
+            by_x.setdefault(pt.x, set()).add(round(c.a, 3))
+        # x = 0.5 is a vertical minor line; x = 1.0 a major one. (Endpoints of
+        # horizontal lines at x=-3/5 also carry their own line's colour.)
+        assert min(by_x[0.5]) < max(by_x[1.0])
+
+    finally:
+        node.destroy_node()
+
+
+def test_fence_grid_disabled_or_oversized_returns_none() -> None:
+    off = make_commander(fence_enabled=True, fence_grid_cell_m=0.0)
+    try:
+        assert off._fence_grid_marker(off.get_clock().now().to_msg()) is None
+    finally:
+        off.destroy_node()
+    # The default ±1000 m fence would be thousands of lines: skipped, not drawn.
+    huge = make_commander(fence_enabled=True, fence_grid_cell_m=0.5)
+    try:
+        assert huge._fence_grid_marker(huge.get_clock().now().to_msg()) is None
+    finally:
+        huge.destroy_node()

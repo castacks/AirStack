@@ -114,9 +114,9 @@
       },
       "layers": {
         "grid": {
-          "visible": true,
+          "visible": false,
           "drawBehind": false,
-          "label": "Grid",
+          "label": "Grid (built-in, fixed 8 m square — off: the commander draws a fence-aligned grid in /svg/viz/markers)",
           "instanceId": "svg-grid",
           "layerId": "foxglove.Grid",
           "size": 8,

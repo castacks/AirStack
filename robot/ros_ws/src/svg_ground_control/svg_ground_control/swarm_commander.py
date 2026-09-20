@@ -74,7 +74,7 @@ from rclpy.node import Node
 from rclpy.duration import Duration
 from rclpy.parameter import Parameter
 
-from geometry_msgs.msg import PoseStamped, TwistStamped
+from geometry_msgs.msg import Point, PoseStamped, TwistStamped
 from nav_msgs.msg import Odometry
 from rcl_interfaces.msg import SetParametersResult
 from std_msgs.msg import ColorRGBA, Float32, String
@@ -255,6 +255,12 @@ class SwarmCommander(Node):
         self.declare_parameter('fence_enabled', False)
         self.declare_parameter('fence_min', [-1000.0, -1000.0, -1000.0])
         self.declare_parameter('fence_max', [1000.0, 1000.0, 1000.0])
+        # Ground-plane grid drawn on the fence floor, clipped to the fence
+        # footprint and aligned to world multiples of this cell size (so x=0 /
+        # y=0 fall on lines and whole metres are drawn brighter). Replaces the
+        # 3D panel's built-in grid, which is a fixed square centred on the
+        # origin and never matches the fence. 0 disables it.
+        self.declare_parameter('fence_grid_cell_m', 0.5)
 
         # ---- Visualization ----------------------------------------------
         self.declare_parameter('publish_viz', True)
@@ -332,6 +338,7 @@ class SwarmCommander(Node):
         self.fence_enabled = bool(self.get_parameter('fence_enabled').value)
         self.fence_min = np.array(self.get_parameter('fence_min').value, dtype=float)
         self.fence_max = np.array(self.get_parameter('fence_max').value, dtype=float)
+        self.fence_grid_cell = float(self.get_parameter('fence_grid_cell_m').value)
         self.fence_breached = False
 
         self.state_timeout = float(self.get_parameter('state_timeout_s').value)
@@ -1231,6 +1238,9 @@ class SwarmCommander(Node):
 
         if self.fence_enabled:
             arr.markers.append(self._fence_marker(stamp))
+            grid = self._fence_grid_marker(stamp)
+            if grid is not None:
+                arr.markers.append(grid)
 
         self.viz_pub.publish(arr)
 
@@ -1256,12 +1266,67 @@ class SwarmCommander(Node):
         breached = self.fence_breached
         m.color = ColorRGBA(r=1.0, g=0.2, b=0.2, a=0.9) if breached \
             else ColorRGBA(r=0.2, g=1.0, b=0.3, a=0.5)
-        from geometry_msgs.msg import Point
         for a, c in edges:
             for idx in (a, c):
                 m.points.append(Point(x=float(corners[idx][0]),
                                       y=float(corners[idx][1]),
                                       z=float(corners[idx][2])))
+        return m
+
+    # Grid lines are only ever drawn for a footprint this many cells across;
+    # a huge default fence (±1000 m) with a 0.5 m cell would be 8000 lines.
+    FENCE_GRID_MAX_LINES = 400
+
+    @staticmethod
+    def _grid_ticks(lo: float, hi: float, cell: float) -> list:
+        """World-aligned tick positions in [lo, hi]: multiples of ``cell``."""
+        first = math.ceil(lo / cell - 1e-9)
+        last = math.floor(hi / cell + 1e-9)
+        return [round(k * cell, 6) for k in range(first, last + 1)]
+
+    def _fence_grid_marker(self, stamp):
+        """Ground grid on the fence floor, clipped to the fence footprint.
+
+        Lines sit on world multiples of ``fence_grid_cell_m`` (not on the
+        fence corner), so x=0 / y=0 are on the grid and a drone's position can
+        be read off it directly; whole-metre lines are drawn brighter. Returns
+        None when the grid is disabled or the fence is too large to grid.
+        """
+        cell = self.fence_grid_cell
+        if not (cell > 0.0):
+            return None
+        lo, hi = self.fence_min, self.fence_max
+        xs = self._grid_ticks(float(lo[0]), float(hi[0]), cell)
+        ys = self._grid_ticks(float(lo[1]), float(hi[1]), cell)
+        if not xs or not ys or len(xs) + len(ys) > self.FENCE_GRID_MAX_LINES:
+            return None
+        z = float(lo[2])
+        minor = ColorRGBA(r=0.55, g=0.7, b=1.0, a=0.22)
+        major = ColorRGBA(r=0.55, g=0.7, b=1.0, a=0.55)
+
+        m = Marker()
+        m.header.frame_id = self.viz_frame
+        m.header.stamp = stamp
+        m.ns = 'fence_grid'
+        m.id = 9001
+        m.type = Marker.LINE_LIST
+        m.action = Marker.ADD
+        m.pose.orientation.w = 1.0
+        m.scale.x = 0.012
+
+        def is_major(v: float) -> bool:
+            return abs(v - round(v)) < 1e-6
+
+        for x in xs:
+            c = major if is_major(x) else minor
+            m.points.append(Point(x=x, y=float(lo[1]), z=z))
+            m.points.append(Point(x=x, y=float(hi[1]), z=z))
+            m.colors.extend([c, c])
+        for y in ys:
+            c = major if is_major(y) else minor
+            m.points.append(Point(x=float(lo[0]), y=y, z=z))
+            m.points.append(Point(x=float(hi[0]), y=y, z=z))
+            m.colors.extend([c, c])
         return m
 
 

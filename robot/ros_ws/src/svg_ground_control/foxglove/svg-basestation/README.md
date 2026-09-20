@@ -50,6 +50,10 @@ instances** of this panel plus a 3D view of `/svg/viz/markers`:
 The **View** setting (gear icon → Swarm) picks what an instance shows: `main`
 (everything except Battery & Power), `power` (Battery & Power only, with the
 power chip and clock in its banner), or `full` (the old single-panel form).
+The 3D view's built-in grid layer is off: it is a fixed 8 m square on the
+origin and never matches the fence. The commander draws a grid on the fence
+floor instead (`fence_grid_cell_m`), clipped to the fence and aligned to world
+metres, inside `/svg/viz/markers`.
 There are no separate battery plots — SoC, pack voltage, sag and the RTB budget
 all live in the power instance; plots against `…/fmu/out/battery_status` only
 exist on real hardware and read blank in simulation. Load the layout with

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Battery and telemetry display in GCS RQT control panel (voltage and percentage per robot when MAVROS battery topic is bridged)
+- `svg_ground_control`: `swarm_commander` draws a world-aligned ground grid clipped to the geofence footprint (`fence_grid_cell_m`) in `/svg/viz/markers`; the Foxglove layout's fixed built-in grid is turned off
 - `svg_ground_control`: `swarm_commander` publishes a JSON status snapshot on `/svg/commander_status` (mission state, last lifecycle command outcome, live CBF gains, per-drone flight state / world position / odometry freshness / last robot_command result) and accepts `cbf_alpha` changes at runtime
 - SVG Basestation Foxglove panel: mission chip and command log confirmed against the commander snapshot (not just the service reply), CBF alpha slider with live readout via `get/set_parameters`, an Agent State table with numeric per-drone positions and velocity-command stream rate, a `view` setting (main / power) with a two-instance layout, and goals in the commander's own frame (offsets adopted from the status snapshot)
 

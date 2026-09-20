@@ -1283,7 +1283,12 @@ next `start`; the commander does not clamp goals to the fence.
 
 This is a freeze-in-place, not a motor cutoff — the RC kill switch remains the
 true cutoff. The fence box is drawn in RViz / Foxglove (green normally, red
-when latched).
+when latched), together with a **ground grid on the fence floor** clipped to
+the fence footprint: lines on world multiples of `fence_grid_cell_m` (default
+0.5 m; `0` disables), whole metres brighter, so x=0 / y=0 are on the grid and a
+drone's position reads straight off it. It follows whatever fence the loaded
+config has — the 3D panel's own grid is a fixed 8 m square on the origin and is
+turned off in `svg_basestation.json` for that reason.
 
 ---
 

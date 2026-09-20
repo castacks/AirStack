@@ -59,7 +59,9 @@ drone:=drone_3` (one instance per teleop drone).
   (`/{name}/fmu/…`, hardware), all under one CBF. See
   [config/hybrid_squeeze.yaml](config/hybrid_squeeze.yaml).
 - **Geofence**: `fence_enabled` + `fence_min`/`fence_max`; any airborne drone
-  leaving the box latches a swarm-wide freeze until `~/reset_fence`.
+  leaving the box latches a swarm-wide freeze until `~/reset_fence`. The box
+  and a fence-clipped ground grid (`fence_grid_cell_m`, world-aligned, whole
+  metres brighter) are published with the drone markers.
 - **RViz**: all drones' world positions on `/svg/viz/markers`
   (`rviz2 -d $(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/svg_drones.rviz`).
 - **Status snapshot** (`status_topic`, default `/svg/commander_status`,
