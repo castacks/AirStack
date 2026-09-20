@@ -998,8 +998,13 @@ class SwarmCommander(Node):
                  > Duration(seconds=self.teleop_timeout))
         cmd = np.zeros(3) if stale else drone.teleop_twist.copy()
         speed = np.linalg.norm(cmd)
-        if speed > self.teleop_max_speed:
+        if speed > self.teleop_max_speed + 1e-3:
             cmd *= self.teleop_max_speed / speed
+            self.get_logger().warn(
+                f'{drone.name}: stick velocity {speed:.2f} m/s capped to '
+                f'teleop_max_speed_mps={self.teleop_max_speed} (raise it in the '
+                'commander block or: ros2 param set /swarm_commander '
+                'teleop_max_speed_mps X)', throttle_duration_sec=2.0)
         return cmd
 
     def teleop_position_mode(self, drone: DroneHandle, now) -> np.ndarray:

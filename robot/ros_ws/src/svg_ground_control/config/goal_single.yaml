@@ -83,6 +83,7 @@ swarm_commander:
 
     cbf_safety_radius_m: 0.55
     cbf_max_speed_mps: 1.2
+    teleop_max_speed_mps: 1.2   # ceiling on the stick velocity (must be >= safe_teleop max_speed_mps)
     cbf_alpha: 2.5
 
     # Geofence: a generous box around the arena; breach -> all hold.
