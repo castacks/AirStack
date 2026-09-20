@@ -7,10 +7,12 @@
 > and no proposal can dispatch a drone. PSC material below is historical/offline
 > reference only; it is not the live control-loop path.
 
-The remaining route to full model-to-drone operation is: independently verify live
-entities; bind each exact proposal to C06 admission and C08 stop/landing supervision;
-then prove fresh scene/result/vehicle evidence in an end-to-end simulator suite. The
-detailed safety conditions are in `HANDOFF.md`.
+The repository now contains the full injected observe/propose/ground/check/admit/
+dispatch/verify/replan composition and a narrow read-only AirStack corridor provider.
+The remaining route to validated model-to-drone operation is an explicitly supervised
+end-to-end simulator trial from a compatible already-airborne state, followed by
+takeoff/route-planning integration and broader scenario evidence. The GUI remains
+proposal-only. Detailed safety conditions and current blockers are in `HANDOFF.md`.
 
 # RRM-1 — Robotics Reasoning Model
 
@@ -146,12 +148,16 @@ observation/replan. It has no ROS or dispatch dependency; the private warm worke
 one proposal provider.
 
 `rrm/authorized_live_mission.py` is the separate, explicitly invoked composition
-boundary for a future simulator mission. It accepts injected per-frame entity-verifier
-C02 context, C05 provider, deterministic drone compiler, and independently verified
-public-action outcome adapter; it enforces the bounded task/revision/verb/target/action
-authorization and halts on any failed verification or compilation. It is not wired to
-the worker, console, OSMO workflow, Docker, or ROS. A worker starting successfully
-therefore cannot acquire a flight path.
+boundary for a simulator mission. It accepts injected per-frame entity-verifier
+C02 context, C05 provider, deterministic embodiment compiler, dynamic C03 feasibility
+evaluator, single-use admission, and independently verified public-action outcome
+adapter. It enforces the bounded task/revision/verb/target/action authorization and
+halts on any failed grounding, feasibility, admission, compilation, or effect
+verification. Learned feasibility evidence is advisory; `grounding`, `body_limits`,
+`physics`, `controller`, `resources`, and `stop_channel` must all have authoritative
+PASS evidence for the exact observation and command. The core has no worker, console,
+OSMO, Docker, or ROS dependency; the explicitly started runner injects those
+boundaries. A worker starting successfully therefore cannot acquire a flight path.
 
 ### Explicit simulator mission runner
 
@@ -176,6 +182,11 @@ authorization file that exactly matches the immutable context, for example:
 First use the default shadow path; it captures, visually verifies, and proposes one
 action, but never creates an ActionClient:
 
+If this checkout does not already have its isolated Python dependencies, run
+`bash scripts/test_rrm.sh` once. The standalone mission runner and bundled feasibility
+provider resolve the repository and `.rrm-deps` themselves; they do not rely on a
+Remote-SSH shell inheriting `PYTHONPATH`.
+
 ```bash
 cd /root/AirStack/RRM-transfer/rrm-9d26a58
 python3 scripts/rrm_authorized_live_mission.py \
@@ -188,9 +199,27 @@ python3 scripts/rrm_authorized_live_mission.py \
 ```
 
 The public AirStack task-action adapter is unavailable unless the operator adds both
-`--execute --simulator-only`. Those flags are deliberately not shown as a routine
-startup command: use them only after the worker image deployment, fresh simulator
-readiness/reconciliation, independent observer coverage, and a supervised review.
+`--execute --simulator-only` and configures an executable
+`--feasibility-provider`. The provider receives the exact C03 query on stdin, may
+query embodiment-specific simulator physics and planning, and must return a typed,
+short-lived result on stdout. The bundled Office profile is
+`scripts/airstack_drone_feasibility_provider.py`. It combines fresh read-only vehicle,
+controller, planner and action-graph state with a map-frame Ouster point-cloud corridor
+check; it stores checksum-bound inline evidence and fails closed on stale channels,
+unknown coverage, obstacles, grounded/no-control state, or a missing stop path. It is
+limited to an already-airborne, nearly stationary vehicle and one straight `NAVIGATE`
+waypoint; it is not a global route planner or a takeoff sequencer. These execution
+flags are deliberately not shown as a routine startup command: use them only after
+the worker image deployment, fresh simulator readiness/reconciliation, independent
+observer coverage, and a supervised review.
+
+The configured profile is intentionally exact: embodiment `aerial-eval`, capability
+revision `office-airframe-v1`, and limits reference `office-bounded-nav-v1`. The
+corridor start must agree with the checksum-bound camera observation within 0.25 m,
+its target must exactly match the compiled waypoint, and its odometry must be
+`map -> base_link`. Any changed profile, stale channel, detached corridor, or
+insufficient point/range coverage blocks admission. The current GUI does not invoke
+this provider and has no execution control.
 
 The warm OSMO Cosmos worker is the active proposal provider and is connected to the
 console's shadow cycle. PSC batch jobs remain an offline evaluation path and must not
@@ -342,8 +371,10 @@ PYTHONPATH=/tmp/rrm-canonical-deps:${PYTHONPATH} \
 ```
 
 An actual simulated task goal requires the explicit `--execute` flag and a
-user-approved proposal. The adapter is not yet the complete C06 supervision or C08
-stop implementation; do not use it for unattended or physical-robot operation.
+user-approved proposal. This low-level adapter is not a complete C06/C08 system by
+itself; the separate authorized mission runner composes dynamic feasibility and
+single-use admission around it. Do not invoke the adapter directly for autonomous,
+unattended, or physical-robot operation.
 
 For a future explicitly approved simulator goal, `--verify-observation` makes the
 runner require fresh, read-only `/odometry_conversion/odometry` before dispatch and

@@ -12,12 +12,18 @@ from dataclasses import dataclass
 import hashlib
 import json
 from pathlib import Path
+import time
 from typing import Callable, Protocol
 
 from rrm.airstack_drone import DroneOutcomeVerdict, DroneOutcomeVerification, DroneTaskProposal
 from rrm.continuous_replan import MissionAuthorization
 from rrm.cosmos_reason2 import CosmosReasoningInput
 from rrm.drone_decision import DroneDecision, DroneDecisionStatus
+from rrm.dynamic_feasibility import (
+    DynamicFeasibilityEvaluator,
+    FailClosedFeasibilityEvaluator,
+    SingleUseAdmission,
+)
 from rrm.live_replan import LiveInferenceProvider, LiveReplanCycle
 from rrm.state_contracts import FactKey
 from rrm.contracts import Truth
@@ -66,7 +72,9 @@ class AuthorizedLiveMission:
 
     def __init__(self, cycle: LiveReplanCycle, authorization: MissionAuthorization,
                  source: LiveEntityContextSource, provider: LiveInferenceProvider,
-                 compiler: Compiler, dispatcher: VerifiedProposalDispatcher):
+                 compiler: Compiler, dispatcher: VerifiedProposalDispatcher,
+                 feasibility: DynamicFeasibilityEvaluator | None = None,
+                 *, stop_generation: int = 0):
         if (cycle.state["task_id"] != authorization.task_id
                 or cycle.state["task_revision"] != authorization.task_revision):
             raise ValueError("Mission authorization must match the immutable live cycle task.")
@@ -78,6 +86,11 @@ class AuthorizedLiveMission:
         self.provider = provider
         self.compiler = compiler
         self.dispatcher = dispatcher
+        self.feasibility = feasibility or FailClosedFeasibilityEvaluator()
+        if stop_generation < 0:
+            raise ValueError("Stop generation must be nonnegative.")
+        self.stop_generation = stop_generation
+        self.admission = SingleUseAdmission()
         self.authorized = False
         self.actions_completed = 0
         self._context: CosmosReasoningInput | None = None
@@ -117,6 +130,41 @@ class AuthorizedLiveMission:
             })
             return self._halt(action["id"], "compiler_exception:" + type(error).__name__)
         _write_json(step_dir / "compiled-proposal.json", proposal.model_dump(mode="json"))
+        observation = json.loads((step_dir / "observation.json").read_text(encoding="utf-8"))
+        scene_state = json.loads((step_dir / "scene-state.json").read_text(encoding="utf-8"))
+        try:
+            feasibility = self.feasibility.evaluate(
+                action, proposal, self._context, observation, scene_state,
+                stop_generation=self.stop_generation,
+            )
+            _write_json(step_dir / "feasibility.json", feasibility.model_dump(mode="json"))
+            admission = self.admission.consume(
+                feasibility, proposal, self._context, observation, scene_state,
+                stop_generation=self.stop_generation,
+                now_monotonic_s=time.monotonic(),
+            )
+            _write_json(step_dir / "admission.json", {
+                **admission, "execution_requested": True,
+            })
+            _write_json(step_dir / "dispatch-intent.json", {
+                "schema_version": "rrm-bounded-dispatch-intent/v1",
+                "task_id": proposal.task_id,
+                "action_id": proposal.action_id,
+                "proposal_sha256": admission["proposal_sha256"],
+                "feasibility_result_id": admission["result_id"],
+                "stop_generation": self.stop_generation,
+                "action_index": self.actions_completed,
+                "maximum_actions": self.authorization.max_actions,
+                "execution_dispatch": True,
+            })
+        except Exception as error:
+            _write_json(step_dir / "dispatch-refusal.json", {
+                "action_id": action["id"],
+                "reason": "feasibility_not_admitted:" + type(error).__name__,
+                "detail": str(error),
+                "execution_dispatch": False,
+            })
+            return self._halt(action["id"], "feasibility_not_admitted:" + type(error).__name__)
         try:
             outcome = self.dispatcher.dispatch(proposal, step_dir)
         except Exception as error:
@@ -132,13 +180,14 @@ class AuthorizedLiveMission:
         )
         if not verified:
             return {**result, "reason": "action_outcome_not_verified", "next_action": None,
-                    "execution_dispatch": False}
+                    "action_dispatched": True, "execution_dispatch": False}
         self.actions_completed += 1
         if self.actions_completed >= self.authorization.max_actions:
             self.cycle.state.update({"state": "HALTED", "halt_reason": "mission_action_budget_exhausted"})
             self.cycle._persist()
             return {"state": "HALTED", "reason": "mission_action_budget_exhausted",
-                    "next_action": None, "execution_dispatch": False}
+                    "next_action": None, "action_dispatched": True,
+                    "execution_dispatch": False}
         result = self._capture_and_propose()
         if result.get("next_action") is None:
             return {**result, "execution_dispatch": False}

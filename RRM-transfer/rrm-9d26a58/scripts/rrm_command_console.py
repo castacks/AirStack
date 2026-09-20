@@ -21,6 +21,7 @@ import uuid
 from rrm_cosmos_reason2 import load_context
 from rrm_import_office import import_bundle
 from rrm.execution_supervisor import ExecutionSupervisor, RunningDispatch
+from rrm.cosmos_entity_verifier_client import CosmosEntityVerifierClient
 from rrm.cosmos_worker_client import CosmosWorkerClient
 from rrm.live_replan import LiveReplanCycle
 from rrm.live_observation import validate_live_observation
@@ -156,6 +157,17 @@ class Console:
                                  else context_template.resolve())
         self.scene_manifest = ((self.bundle / "scene_manifest.json") if self.bundle is not None
                                else scene_manifest.resolve())
+        catalog_name = json.loads(self.scene_manifest.read_text(encoding="utf-8")).get(
+            "entity_catalog", "entity_catalog.json"
+        )
+        bundled_catalog = self.scene_manifest.parent / catalog_name
+        # Historical import bundles carry a copy of the manifest but older ones did
+        # not contain its separately checked-in entity catalog.  Live-only launches
+        # use the checked-in Office context, so use that same immutable catalog only
+        # when the copied bundle lacks it.
+        self.entity_catalog_path = (bundled_catalog if bundled_catalog.is_file()
+                                    else Path(__file__).parents[1] / "examples" /
+                                    "office_visual_eval" / catalog_name)
         self.context = json.loads(self.context_template.read_text())
         self.store = TaskStore(self.output / "tasks.sqlite3")
         self.storage_lock = threading.Lock()
@@ -524,13 +536,16 @@ class Console:
                                 expected_camera_frame=self.expected_camera_frame)
         return run, directory, context, cycle
 
-    def _record_live_observation_and_propose(self, run_id: str, scene_state: dict) -> dict:
+    def _record_live_observation_and_propose(self, run_id: str, scene_state: dict,
+                                             *, verified_context=None) -> dict:
         self._require_scene_context()
         if not self.cosmos_worker_url:
             raise RuntimeError("No private Cosmos worker URL is configured for this workspace.")
         if self.latest_camera is None or self.latest_camera_metadata is None:
             raise ValueError("Capture a fresh Isaac camera image before live replanning.")
         _, directory, context, cycle = self._live_cycle(run_id)
+        if verified_context is not None:
+            context = verified_context
         cycle.record_observation(self.latest_camera_metadata, self.latest_camera, scene_state)
         result = cycle.request_next_action(context, CosmosWorkerClient(self.cosmos_worker_url))
         step_dir = directory / "live-cycle" / "steps" / f"{cycle.state['active_step_index']:04d}"
@@ -541,6 +556,38 @@ class Console:
                                          "next_action_id": (result.get("next_action") or {}).get("action", {}).get("id"),
                                          "execution_dispatch": False})
         return {"cycle_id": cycle.cycle_id, **result}
+
+    def propose_live_goal(self, run_id: str) -> dict:
+        """Ground and propose one saved goal from the current live image.
+
+        This is deliberately proposal-only. Visual grounding proves neither a
+        collision-free route nor a physically feasible flight, so no execution path
+        is made available from this method.
+        """
+        with self.live_lock:
+            self._require_scene_context()
+            if not self.cosmos_worker_url:
+                raise RuntimeError("No private Cosmos worker URL is configured for this workspace.")
+            if self.latest_camera is None or self.latest_camera_metadata is None:
+                raise ValueError("Capture a fresh Isaac camera image before asking RRM to propose an action.")
+            _, _, context, cycle = self._live_cycle(run_id)
+            if cycle.phase.value != "AWAITING_OBSERVATION":
+                raise ValueError("This goal already has a live proposal; record a verified outcome before replanning.")
+            try:
+                catalog = json.loads(self.entity_catalog_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as error:
+                raise RuntimeError("The Office entity catalog is unavailable.") from error
+            scene_state, verified_context = CosmosEntityVerifierClient(self.cosmos_worker_url).verify(
+                cycle_id=cycle.cycle_id,
+                step_index=cycle.state["next_step_index"],
+                metadata=self.latest_camera_metadata,
+                image=self.latest_camera,
+                context=context,
+                entity_catalog=catalog,
+            )
+            return self._record_live_observation_and_propose(
+                run_id, scene_state, verified_context=verified_context,
+            )
 
     def start_live_replan(self, run_id: str, scene_state: dict) -> dict:
         """Start shadow-only live planning from a new capture and verifier record."""
@@ -725,6 +772,9 @@ def make_handler(app: Console):
                     raise ValueError("Request must be an object.")
                 if self.path == "/api/requests":
                     return self.respond(app.save(value.get("objective"), value.get("goal_id")), status=201)
+                propose_match = re.fullmatch(r"/api/runs/([0-9a-f]{32})/propose", self.path)
+                if propose_match:
+                    return self.respond(app.propose_live_goal(propose_match[1]))
                 submit_match = re.fullmatch(r"/api/runs/([0-9a-f]{32})/submit", self.path)
                 if submit_match:
                     return self.respond(app.submit_to_psc(submit_match[1]), status=202)

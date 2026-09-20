@@ -16,12 +16,19 @@ import subprocess
 import sys
 import time
 
+# Keep the explicit runner usable from a normal repository shell. Dependencies are
+# prepared in the isolated .rrm-deps directory by scripts/test_rrm.sh.
+SOURCE_ROOT = Path(__file__).parents[1]
+sys.path.insert(0, str(SOURCE_ROOT))
+sys.path.insert(0, str(SOURCE_ROOT / ".rrm-deps"))
+
 from rrm.airstack_drone import DroneOutcomeVerification, MapWaypoint
 from rrm.authorized_live_mission import (AuthorizedLiveMission, VerifiedLiveStep)
 from rrm.continuous_replan import MissionAuthorization
 from rrm.cosmos_entity_verifier_client import CosmosEntityVerifierClient
 from rrm.cosmos_worker_client import CosmosWorkerClient
 from rrm.drone_decision import AirStackDroneDecisionBridge, DroneNavigationTarget
+from rrm.dynamic_feasibility import DynamicFeasibilityResult
 from rrm.live_replan import LiveReplanCycle
 from rrm_cosmos_reason2 import load_context
 
@@ -109,6 +116,48 @@ class DockerPublicTaskDispatcher:
         return DroneOutcomeVerification.model_validate_json(copied.stdout)
 
 
+class CommandFeasibilityEvaluator:
+    """Invoke one configured embodiment preflight provider without a shell.
+
+    The provider is adapter-owned. It may query Isaac/AirStack physics, motion
+    planning, body limits, controller readiness, resources, and the stop channel.
+    Its stdout must be exactly one ``DynamicFeasibilityResult`` JSON document.
+    """
+
+    def __init__(self, executable: Path, *, timeout_s: float = 30.0):
+        if not executable.is_file():
+            raise ValueError("Configured feasibility provider does not exist.")
+        self.executable = executable.resolve()
+        self.timeout_s = timeout_s
+
+    def evaluate(self, semantic_action, proposal, context, observation, scene_state, *, stop_generation):
+        request = {
+            "schema_version": "rrm-feasibility-query/v1",
+            "semantic_action": semantic_action,
+            "proposal": proposal.model_dump(mode="json"),
+            "task": context.task.model_dump(mode="json"),
+            "snapshot": context.snapshot.model_dump(mode="json"),
+            "capabilities": {
+                "embodiment_id": context.capabilities.embodiment_id,
+                "revision": context.capabilities.revision,
+                "operations": sorted(context.capabilities.operations),
+                "resources": sorted(context.capabilities.resources),
+                "available_resources": sorted(context.capabilities.available_resources),
+                "limits_ref": context.capabilities.limits_ref,
+            },
+            "now_monotonic_s": context.now_monotonic_s,
+            "observation": observation,
+            "scene_state": scene_state,
+            "stop_generation": stop_generation,
+            "execution_dispatch": False,
+        }
+        completed = subprocess.run(
+            [str(self.executable)], input=json.dumps(request), text=True,
+            capture_output=True, timeout=self.timeout_s, check=True,
+        )
+        return DynamicFeasibilityResult.model_validate_json(completed.stdout)
+
+
 def parser() -> argparse.ArgumentParser:
     value = argparse.ArgumentParser(description=__doc__)
     value.add_argument("--context", required=True, type=Path)
@@ -119,6 +168,8 @@ def parser() -> argparse.ArgumentParser:
     value.add_argument("--run-dir", required=True, type=Path)
     value.add_argument("--execute", action="store_true")
     value.add_argument("--simulator-only", action="store_true")
+    value.add_argument("--feasibility-provider", type=Path,
+                       help="Executable C03 provider; required for simulator execution")
     value.add_argument("--container", default="airstack-robot-desktop-1")
     return value
 
@@ -147,6 +198,8 @@ def main() -> int:
     args = parser().parse_args()
     if args.execute != args.simulator_only:
         raise SystemExit("Public action dispatch requires both --execute and --simulator-only.")
+    if args.execute and args.feasibility_provider is None:
+        raise SystemExit("Simulator execution requires an embodiment --feasibility-provider.")
     context, authorization = load_context(args.context), _authorization(args.authorization)
     if args.run_dir.exists():
         raise SystemExit("--run-dir must be new; preserve prior mission evidence instead of overwriting it.")
@@ -160,7 +213,9 @@ def main() -> int:
         cycle, authorization, source, CosmosWorkerClient(args.worker_url),
         lambda plan, live: bridge.compile_plan(plan, live.task, live.snapshot, live.capabilities,
                                                now_monotonic_s=live.now_monotonic_s),
-        DockerPublicTaskDispatcher(Path(__file__).parents[1], enabled=args.execute, container=args.container),
+        DockerPublicTaskDispatcher(SOURCE_ROOT, enabled=args.execute, container=args.container),
+        (CommandFeasibilityEvaluator(args.feasibility_provider)
+         if args.feasibility_provider is not None else None),
     )
     proposal = mission.propose_initial_action()
     print(json.dumps(proposal, indent=2, sort_keys=True))

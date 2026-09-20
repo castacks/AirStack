@@ -69,8 +69,10 @@ class PrivateCosmosWorkerUrlTests(unittest.TestCase):
 class CommandConsoleUiTests(unittest.TestCase):
     def test_mission_console_removes_manual_shadow_workflow_controls(self):
         ui = (Path(__file__).parents[1] / "scripts" / "ui" / "command_console.html").read_text()
-        self.assertIn("Autonomous simulator mission", ui)
-        self.assertIn("Runtime integration in progress", ui)
+        self.assertIn("RRM proposal", ui)
+        self.assertIn("Ask RRM for a proposed action", ui)
+        self.assertIn("Physics/feasibility admission", ui)
+        self.assertIn("/propose", ui)
         self.assertNotIn("PSC", ui)
         self.assertNotIn("/submit", ui)
         self.assertNotIn("rrm_psc_bridge_manual.sh", ui)
@@ -580,6 +582,56 @@ class CommandConsoleTests(unittest.TestCase):
             })
         self.assertEqual(second["state"], "REVIEW_REQUIRED")
         self.assertEqual(FakeWorkerClient.requests[1].prior_outcome["action_id"], "blue")
+        self.assertFalse((self.output / "execution").exists())
+
+    def test_gui_proposal_uses_worker_entity_evidence_and_remains_motion_inhibited(self):
+        class FakeWorkerClient:
+            def __init__(self, url):
+                self.url = url
+
+            def propose(self, request):
+                raw = json.dumps({
+                    "status": "READY", "grounded_entities": ["blue_marker"],
+                    "grounded_goal": {"name": "near", "subject": "$self", "obj": "blue_marker"},
+                    "ambiguity_refs": [], "explanation": "grounded live candidate",
+                    "actions": [{"id": "blue", "verb": "NAVIGATE_TO",
+                                 "targets": ["blue_marker"], "dependencies": []}],
+                    "recovery_budget": 0,
+                })
+                return LiveCycleResponse(cycle_id=request.cycle_id, step_index=request.step_index,
+                    observation_sha256=request.observation["sha256"],
+                    candidate=parse_cosmos_candidate(raw, request.context))
+
+        class FakeEntityVerifier:
+            calls = []
+
+            def __init__(self, url):
+                self.url = url
+
+            def verify(self, **values):
+                self.calls.append(values)
+                return ({
+                    "source_stamp_ns": values["metadata"]["source_stamp_ns"],
+                    "observation_sha256": values["metadata"]["sha256"],
+                    "verified_entities": ["blue_marker"],
+                    "provenance": "test-physics-independent-entity-verifier/v1",
+                }, values["context"])
+
+        app = Console(self.bundle, self.output, "/unused-capture.py")
+        app.cosmos_worker_url = "http://cosmos-worker:8090"
+        app._save_active_scene("office")
+        app.active_scene_shortname = "office"
+        app.scene_context_matches = True
+        seed_live_capture(app)
+        saved = app.save("Approach the blue marker.")
+        with patch("rrm_command_console.CosmosEntityVerifierClient", FakeEntityVerifier), \
+                patch("rrm_command_console.CosmosWorkerClient", FakeWorkerClient):
+            result = app.propose_live_goal(saved["request_id"])
+        self.assertEqual(result["state"], "REVIEW_REQUIRED")
+        self.assertEqual(result["next_action"]["action"]["targets"], ["blue_marker"])
+        self.assertEqual(FakeEntityVerifier.calls[0]["entity_catalog"]["blue_marker"], "blue navigation marker")
+        evidence = self.output / saved["request_id"] / "live-cycle" / "steps" / "0000"
+        self.assertTrue((evidence / "provider-response.json").is_file())
         self.assertFalse((self.output / "execution").exists())
 
     def test_async_psc_result_is_run_bound_validated_and_requires_approval(self):

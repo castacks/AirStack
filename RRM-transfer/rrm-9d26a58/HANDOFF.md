@@ -1,5 +1,73 @@
 # RRM remote Codex handoff
 
+## LATEST: configured AirStack feasibility adapter — 2026-09-20
+
+The Office simulator now has a deterministic, read-only C03 provider at
+`scripts/airstack_drone_feasibility_provider.py` and a ROS observer at
+`scripts/airstack_feasibility_observer.py`. For each exact grounded single-waypoint
+`NAVIGATE` proposal it samples fresh map odometry, MAVROS connection/arming, airborne
+and control state, planner-stuck state, Ouster point cloud, and Navigate/Land action
+endpoints. The cloud is transformed to `map` and checked against a 0.4 m clearance
+threshold along the straight 3D corridor, with explicit point/range coverage. Its
+canonical observation JSON is SHA-256-bound into the feasibility result and single-use
+admission evidence.
+
+The provider is intentionally fail-closed and narrow. It admits only an already
+airborne, armed, controlled, nearly stationary vehicle with a clear currently observed
+straight corridor. It does not perform takeoff, global route search, occlusion
+inference, or control. A live read-only probe succeeded, but the current simulator
+state was correctly rejected: the vehicle was grounded/disarmed without control, the
+planner reported stuck, and the sampled corridor did not meet 0.4 m clearance. No
+task, action goal, or vehicle command was sent. No learned physics model is required
+for this initial profile; learned feasibility can remain advisory as experience is
+collected.
+
+The reviewed provider profile is exact, not inferred from arbitrary capability text:
+`aerial-eval`, capability revision `office-airframe-v1`, and limits reference
+`office-bounded-nav-v1`. A changed or unknown profile fails the body-limits check.
+The corridor start must remain within 0.25 m of the checksum-bound camera observation,
+the corridor target must equal the compiled waypoint, and odometry must be canonical
+`map -> base_link`. Stale channels or detached corridor evidence return `UNCERTAIN`.
+
+The GUI remains proposal-only. Full composition is available only through the
+explicit mission runner with `--execute --simulator-only` and this provider path,
+after operator authorization and readiness review. Preserve this separation when
+adding GUI execution controls.
+
+Validation after the provider and evidence-binding changes: **148 tests passed** via
+`bash scripts/test_rrm.sh`; changed Python sources compiled; standalone runner/provider
+launch no longer depends on an inherited `PYTHONPATH`; and `git diff --check` passed.
+
+## Body-agnostic dynamic feasibility and full mission composition — 2026-09-20
+
+The live mission composition now implements the complete causal sequence:
+
+`observe → semantic proposal → embodiment grounding → dynamic feasibility → single-use
+admission → bounded dispatch → independent effect verification → fresh observation/replan`.
+
+`rrm/dynamic_feasibility.py` defines the C03 result and admission guard. Every result
+is bound to the exact grounded proposal digest, image checksum, state/capability/scene/
+profile revisions, and stop generation, and expires on the adapter clock. A feasible
+result requires authoritative PASS evidence for grounding, body limits, physics,
+controller readiness, resources, and the stop channel. Learned feasibility evidence
+is explicitly advisory and cannot substitute for any of those checks. Admission is
+single-use and append-before-dispatch evidence is written before the public adapter is
+invoked.
+
+`rrm/authorized_live_mission.py` composes those gates with the existing visual entity
+verifier, warm Cosmos proposal provider, deterministic embodiment compiler, public
+task-action dispatcher, independent outcome verifier, and observation/replan loop.
+Every action repeats all gates; an unverified effect or any missing/stale/mismatched
+feasibility dependency halts the mission. `scripts/rrm_authorized_live_mission.py`
+accepts an adapter-owned executable via `--feasibility-provider`; simulator execution
+requires it in addition to `--execute --simulator-only`. The default evaluator is
+`UNCERTAIN`, so a missing provider cannot move the drone.
+
+The localhost GUI connects a saved fresh goal to private-worker entity grounding and
+a visible RRM proposal. It remains proposal-only. The subsequently added AirStack C03
+adapter supplies current sensor-derived corridor evidence; action-server availability
+and visual grounding alone are still not treated as collision-free evidence.
+
 ## LATEST: any catalog Isaac scene can now switch in-place from the GUI — 2026-09-20
 
 The localhost Command Console now populates **Change Isaac scene** from every `isaac`

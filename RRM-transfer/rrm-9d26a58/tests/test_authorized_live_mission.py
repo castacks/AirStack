@@ -6,6 +6,7 @@ from pathlib import Path
 import shutil
 import sys
 import tempfile
+import time
 import unittest
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
@@ -15,6 +16,10 @@ from rrm.authorized_live_mission import AuthorizedLiveMission, VerifiedLiveStep
 from rrm.continuous_replan import MissionAuthorization
 from rrm.cosmos_reason2 import parse_cosmos_candidate
 from rrm.drone_decision import AirStackDroneDecisionBridge, DroneNavigationTarget
+from rrm.dynamic_feasibility import (
+    DynamicFeasibilityResult, EvidenceAuthority, FeasibilityCheck,
+    FeasibilityVerdict, proposal_sha256,
+)
 from rrm.live_replan import LiveCycleResponse, LiveReplanCycle
 from rrm_cosmos_reason2 import load_context
 
@@ -73,6 +78,33 @@ class Dispatcher:
         )
 
 
+class Feasibility:
+    def evaluate(self, semantic_action, proposal, context, observation, scene_state, *, stop_generation):
+        checked = time.monotonic()
+        return DynamicFeasibilityResult(
+            task_id=proposal.task_id, action_id=proposal.action_id,
+            embodiment_id=context.capabilities.embodiment_id,
+            proposal_sha256=proposal_sha256(proposal),
+            observation_sha256=observation["sha256"],
+            state_revision=context.snapshot.revision,
+            capability_revision=context.capabilities.revision,
+            scene_revision=scene_state["provenance"],
+            profile_revision=context.capabilities.limits_ref,
+            stop_generation=stop_generation,
+            checked_monotonic_s=checked,
+            expires_monotonic_s=checked + 1.0,
+            verdict=FeasibilityVerdict.FEASIBLE,
+            checks=tuple(FeasibilityCheck(
+                name=name, passed=True, authority=EvidenceAuthority.AUTHORITATIVE,
+                evidence_ref=f"test:{name}",
+                source_revision="test/v1", detail=f"{name} passed",
+            ) for name in (
+                "grounding", "body_limits", "physics", "controller",
+                "resources", "stop_channel",
+            )),
+        )
+
+
 class AuthorizedLiveMissionTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -99,7 +131,8 @@ class AuthorizedLiveMissionTests(unittest.TestCase):
             MissionAuthorization(task_id=self.context.task.task_id, task_revision=self.context.task.revision,
                                  allowed_verbs=frozenset({"NAVIGATE_TO"}),
                                  allowed_targets=frozenset({"blue_marker"}), max_actions=max_actions),
-            Source(self.context), provider or Provider(), self.compiler, dispatcher or Dispatcher())
+            Source(self.context), provider or Provider(), self.compiler, dispatcher or Dispatcher(),
+            Feasibility())
 
     def test_authorized_verified_actions_replan_until_the_budget_is_exhausted(self):
         dispatcher = Dispatcher()
@@ -112,8 +145,14 @@ class AuthorizedLiveMissionTests(unittest.TestCase):
         final = mission.dispatch_and_replan()
         self.assertEqual(final["state"], "HALTED")
         self.assertEqual(len(dispatcher.proposals), 2)
-        self.assertTrue((self.cycle.root / "steps" / "0000" / "compiled-proposal.json").is_file())
-        self.assertTrue((self.cycle.root / "steps" / "0001" / "dispatch-outcome.json").is_file())
+        for step_index in range(2):
+            step = self.cycle.root / "steps" / f"{step_index:04d}"
+            for evidence in (
+                "observation.json", "scene-state.json", "provider-response.json",
+                "compiled-proposal.json", "feasibility.json", "admission.json",
+                "dispatch-intent.json", "dispatch-outcome.json", "outcome.json",
+            ):
+                self.assertTrue((step / evidence).is_file(), f"missing {step_index}/{evidence}")
 
     def test_unverified_outcome_halts_without_a_second_dispatch_or_replan(self):
         dispatcher = Dispatcher(DroneOutcomeVerdict.MISMATCH)
@@ -139,6 +178,26 @@ class AuthorizedLiveMissionTests(unittest.TestCase):
         for forbidden in ("import rclpy", "ActionClient", "mavros", "px4",
                           "import subprocess", "subprocess."):
             self.assertNotIn(forbidden.lower(), source.lower())
+
+    def test_missing_physics_provider_fails_closed_before_dispatch(self):
+        dispatcher = Dispatcher()
+        mission = AuthorizedLiveMission(
+            self.cycle,
+            MissionAuthorization(task_id=self.context.task.task_id,
+                                 task_revision=self.context.task.revision,
+                                 allowed_verbs=frozenset({"NAVIGATE_TO"}),
+                                 allowed_targets=frozenset({"blue_marker"}), max_actions=1),
+            Source(self.context), Provider(), self.compiler, dispatcher,
+        )
+        mission.propose_initial_action()
+        mission.approve_mission()
+        result = mission.dispatch_and_replan()
+        self.assertEqual(result["state"], "HALTED")
+        self.assertIn("feasibility_not_admitted", result["reason"])
+        self.assertEqual(dispatcher.proposals, [])
+        step = self.cycle.root / "steps" / "0000"
+        self.assertTrue((step / "feasibility.json").is_file())
+        self.assertFalse((step / "admission.json").exists())
 
 
 if __name__ == "__main__":

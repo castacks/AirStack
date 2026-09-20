@@ -2,6 +2,23 @@
 
 Source baseline: RRM archive `9d26a58eb8516b6754c5d12b041cdc789950e047`, AirStack `ore_proj` at `a6dad8caf54722e5eba3481367e914ce213e6135`. Changes are staged source files, not a new Git revision or published baseline.
 
+## Current validation checkpoint — 2026-09-20 UTC
+
+The body-agnostic live-mission composition now includes dynamic C03 feasibility,
+dependency-bound single-use C06 admission, bounded public-task dispatch, independent
+effect verification, and re-observation/replanning. The AirStack Office adapter is a
+read-only deterministic provider for one straight, single-waypoint `NAVIGATE` action;
+it uses current vehicle/controller/planner state, action endpoints and a map-frame
+Ouster corridor rather than a learned model as safety authority.
+
+A live read-only probe observed all required channels and task endpoints. It returned
+blocking evidence for the current state: grounded/disarmed/no-control, planner-stuck,
+and approximately 0.391 m minimum observed clearance against the 0.4 m threshold. No
+goal or vehicle command was sent. The complete suite passed **148 tests**; standalone
+runner/provider launch was checked without inherited `PYTHONPATH`; Python compilation
+and `git diff --check` passed. This validates contracts and the non-dispatching probe,
+not an admitted navigation flight or general collision-free route planner.
+
 ## Implemented increment
 
 [`rrm/contracts.py`](../../rrm/contracts.py) adds independent primitives for C02 evidence truth, C03 declared semantic support, C06 immutable context/single-use admission and C08 stop-generation/reset checks. A fresh authority epoch prevents permits from a previous guard instance being reused after reset. The initial guard starts inhibited. These primitives do not change `rrm/loop.py`, `rrm/verbs.py`, the oracle, mock safety or the Isaac stubs.

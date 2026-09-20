@@ -4,6 +4,13 @@ Status: implementation plan as of 2026-09-17. This turns the SCRUM-8 logical
 allocation into an ordered, testable integration programme. It does not grant RRM
 control authority or mark SCRUM-8 complete.
 
+Update 2026-09-20: the Office drone path now has a narrow, deterministic C03 adapter
+and full injected observe/propose/ground/check/admit/dispatch/verify/replan composition.
+The GUI remains proposal-only, and the current grounded simulator state fails
+admission. This is an aerial transport/profile validation increment; it does not
+replace the separately planned CONOPS manipulation embodiment or satisfy the later
+SIL campaign gates below.
+
 ## Starting point and non-negotiable boundary
 
 AirStack and RRM have proven **one-way observation compatibility**: the committed

@@ -25,6 +25,16 @@ class AuthorizedLiveMissionRunnerTests(unittest.TestCase):
         ])
         self.assertFalse(parsed.execute)
         self.assertFalse(parsed.simulator_only)
+        self.assertIsNone(parsed.feasibility_provider)
+
+    def test_execution_requires_embodiment_feasibility_provider(self):
+        base = ["rrm_authorized_live_mission.py", "--context", "context.json",
+                "--scene-manifest", "scene.json", "--entity-catalog", "catalog.json",
+                "--authorization", "authorization.json", "--worker-url", "http://worker",
+                "--run-dir", "new-run", "--execute", "--simulator-only"]
+        with patch.object(sys, "argv", base), self.assertRaisesRegex(
+                SystemExit, "feasibility-provider"):
+            runner.main()
 
 
 if __name__ == "__main__":
