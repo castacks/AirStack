@@ -909,7 +909,18 @@ ros2 topic pub --once /svg/led_command std_msgs/msg/String "{data: 'drone_1 255,
 ros2 topic pub --once /svg/led_command std_msgs/msg/String "{data: 'drone_1 red blink'}"   # blink
 ros2 topic pub --once /svg/led_command std_msgs/msg/String "{data: 'all green'}"           # every drone
 ```
-(or the service `/svg/drone_1/set_led_color`, `airstack_msgs/srv/SetLedColor`).
+Or as a **service call** (`airstack_msgs/srv/SetLedColor`: `color` = a name or
+`"r,g,b[,w]"`, `mode` 0 = solid / 1 = blink; the reply says whether the strip
+took it):
+```bash
+ros2 service call /svg/drone_1/set_led_color airstack_msgs/srv/SetLedColor "{color: blue}"
+ros2 service call /svg/drone_1/set_led_color airstack_msgs/srv/SetLedColor "{color: '255,60,0', mode: 0}"
+ros2 service call /svg/drone_1/set_led_color airstack_msgs/srv/SetLedColor "{color: red, mode: 1}"   # blink
+ros2 service call /svg/set_led_color         airstack_msgs/srv/SetLedColor "{color: green}"          # every drone
+```
+(`ros2 service list | grep led` shows one `/svg/<drone>/set_led_color` per
+drone in the `led_controller` block; quote the `r,g,b` form so YAML does not
+read it as a list.)
 Colors: off red green blue white yellow cyan magenta orange purple. Setup per
 drone: [B1(d)](#b1-per-drone-one-time-setup); disable with `use_led:=false`.
 
