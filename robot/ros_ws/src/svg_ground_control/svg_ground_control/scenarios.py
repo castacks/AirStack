@@ -23,6 +23,14 @@ Scenarios:
 
 Any drone listed in the commander's ``teleop_drones`` has its scenario row
 replaced by operator input, so e.g. the squeeze intruder can be hand-flown.
+
+Go-to-goal law (every scenario but ``random_walk``): see trajectory.py. A
+drone the commander tracks with a reference point (real drones on the
+trajectory output) gets an acceleration-limited velocity profile evaluated at
+that reference plus its acceleration as feedforward; a velocity-only drone
+gets the stateless braking law at its own position. ``nominal_velocity``
+therefore takes the commander's ``references``/``applied``/``dt`` and the
+acceleration comes back through ``nominal_acceleration``.
 """
 
 from __future__ import annotations
@@ -32,6 +40,12 @@ from dataclasses import dataclass
 from typing import Optional
 
 import numpy as np
+
+from svg_ground_control.trajectory import (  # noqa: F401 (seek_velocity re-exported)
+    DEFAULT_ACCEL, DEFAULT_SETTLE, DEFAULT_VELOCITY_ONLY_SETTLE, ReferenceTracker,
+    seek_velocity)
+
+DEFAULT_DT = 0.05   # s, the commander's control period when none is given
 
 
 @dataclass(frozen=True)
@@ -55,25 +69,6 @@ class Bounds:
         return self.high - self.low
 
 
-def seek_velocity(
-    positions: np.ndarray,
-    goals: np.ndarray,
-    max_speed: float,
-    approach_gain: float = 2.0,
-) -> np.ndarray:
-    """Proportional go-to-goal velocity, capped at ``max_speed``.
-
-    Flies straight at each goal at ``max_speed`` when far and eases off within
-    ``max_speed / approach_gain`` meters so the drone settles instead of
-    overshooting.
-    """
-    to_goal = goals - positions
-    distance = np.linalg.norm(to_goal, axis=-1, keepdims=True)
-    speed = np.minimum(max_speed, approach_gain * distance)
-    direction = to_goal / np.maximum(distance, 1e-9)
-    return direction * speed
-
-
 class Scenario(ABC):
     """A takeoff layout plus a nominal go-where policy for the swarm."""
 
@@ -84,12 +79,21 @@ class Scenario(ABC):
         nominal_speed: float,
         rng: np.random.Generator,
         safety_radius: float,
+        accel: float = DEFAULT_ACCEL,
+        settle_s: float = DEFAULT_SETTLE,
+        velocity_only_settle_s: float = DEFAULT_VELOCITY_ONLY_SETTLE,
     ) -> None:
         self.num_drones = int(num_drones)
         self.bounds = bounds
         self.nominal_speed = float(nominal_speed)
         self.rng = rng
         self.safety_radius = float(safety_radius)
+        # Go-to-goal law (trajectory.py): accel-limited reference profile for
+        # drones the commander tracks with a reference point, stateless
+        # braking law with the longer settle for velocity-only drones.
+        self.tracker = ReferenceTracker(self.num_drones, accel, settle_s)
+        self.velocity_only_settle = float(velocity_only_settle_s)
+        self._acceleration = np.zeros((self.num_drones, 3))
 
     @abstractmethod
     def initial_positions(self) -> np.ndarray:
@@ -97,9 +101,54 @@ class Scenario(ABC):
         ...
 
     @abstractmethod
-    def nominal_velocity(self, positions: np.ndarray) -> np.ndarray:
-        """Return shape (N, 3) nominal (pre-CBF) velocities for this state."""
+    def nominal_velocity(self, positions: np.ndarray, references=None,
+                         applied=None, dt: float = DEFAULT_DT) -> np.ndarray:
+        """Return shape (N, 3) nominal (pre-CBF) velocities for this state.
+
+        Args:
+            positions: (N, 3) measured drone positions.
+            references: (N, 3) the commander's per-drone reference points;
+                a row of NaN (or ``None``) means that drone is velocity-only
+                and gets the stateless law at its position.
+            applied: (N, 3) velocity each reference point moved with since
+                the last call (published, post-CBF), for re-attachment.
+            dt: control period (s).
+        The matching feedforward is in ``nominal_acceleration`` afterwards.
+        """
         ...
+
+    def seek(self, positions: np.ndarray, goals: np.ndarray, speeds,
+             references=None, applied=None, dt: float = DEFAULT_DT) -> np.ndarray:
+        """Go-to-goal velocities for all drones (see ``nominal_velocity``)."""
+        positions = np.asarray(positions, dtype=float).reshape(self.num_drones, 3)
+        goals = np.asarray(goals, dtype=float).reshape(self.num_drones, 3)
+        speeds = np.broadcast_to(np.asarray(speeds, dtype=float).reshape(-1),
+                                 (self.num_drones,))
+        v = seek_velocity(positions, goals, speeds, self.tracker.accel,
+                          self.velocity_only_settle)
+        self._acceleration[:] = 0.0
+        if references is None:
+            return v
+        refs = np.asarray(references, dtype=float).reshape(self.num_drones, 3)
+        tracked = np.isfinite(refs).all(axis=1)
+        if tracked.any():
+            # The tracker steps every row; rows without a reference are
+            # evaluated at the drone itself and simply not used.
+            safe_refs = np.where(tracked[:, None], refs, positions)
+            vt, at = self.tracker.step(safe_refs, goals, speeds, dt, applied)
+            v[tracked] = vt[tracked]
+            self._acceleration[tracked] = at[tracked]
+        return v
+
+    @property
+    def nominal_acceleration(self) -> np.ndarray:
+        """(N, 3) acceleration feedforward matching the last nominal_velocity."""
+        return self._acceleration.copy()
+
+    def reset_tracking(self) -> None:
+        """Forget reference velocities (mission start / hold hand-overs)."""
+        self.tracker.reset()
+        self._acceleration[:] = 0.0
 
     @property
     def goals(self) -> Optional[np.ndarray]:
@@ -137,7 +186,7 @@ class HoverScenario(Scenario):
 
     def __init__(self, *args, hover_positions: np.ndarray, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self._targets = np.asarray(hover_positions, dtype=float).reshape(-1, 3)
+        self._targets = np.array(hover_positions, dtype=float).reshape(-1, 3)
         if self._targets.shape[0] != self.num_drones:
             raise ValueError(
                 f'hover scenario needs {self.num_drones} hover positions, '
@@ -146,8 +195,10 @@ class HoverScenario(Scenario):
     def initial_positions(self) -> np.ndarray:
         return self._targets.copy()
 
-    def nominal_velocity(self, positions: np.ndarray) -> np.ndarray:
-        return seek_velocity(positions, self._targets, self.nominal_speed)
+    def nominal_velocity(self, positions, references=None, applied=None,
+                         dt: float = DEFAULT_DT) -> np.ndarray:
+        return self.seek(positions, self._targets, self.nominal_speed,
+                         references, applied, dt)
 
     @property
     def goals(self) -> Optional[np.ndarray]:
@@ -166,7 +217,9 @@ class RandomWalkScenario(Scenario):
     def initial_positions(self) -> np.ndarray:
         return self._random_positions(min_separation=2.4 * self.safety_radius)
 
-    def nominal_velocity(self, positions: np.ndarray) -> np.ndarray:
+    def nominal_velocity(self, positions, references=None, applied=None,
+                         dt: float = DEFAULT_DT) -> np.ndarray:
+        self._acceleration[:] = 0.0
         # Reflect any drone that has reached a wall and is still heading out.
         beyond_low = (positions <= self.bounds.low) & (self._velocities < 0.0)
         beyond_high = (positions >= self.bounds.high) & (self._velocities > 0.0)
@@ -196,7 +249,8 @@ class RandomGoalsScenario(Scenario):
     def initial_positions(self) -> np.ndarray:
         return self._positions.copy()
 
-    def nominal_velocity(self, positions: np.ndarray) -> np.ndarray:
+    def nominal_velocity(self, positions, references=None, applied=None,
+                         dt: float = DEFAULT_DT) -> np.ndarray:
         reached = (
             np.linalg.norm(positions - self._goals, axis=-1)
             < self._ARRIVAL_RADIUS_M
@@ -204,7 +258,8 @@ class RandomGoalsScenario(Scenario):
         if np.any(reached):
             fresh = self._sample_goals()
             self._goals[reached] = fresh[reached]
-        return seek_velocity(positions, self._goals, self.nominal_speed)
+        return self.seek(positions, self._goals, self.nominal_speed,
+                         references, applied, dt)
 
     @property
     def goals(self) -> Optional[np.ndarray]:
@@ -265,14 +320,16 @@ class HeadOnScenario(Scenario):
     def initial_positions(self) -> np.ndarray:
         return self._positions.copy()
 
-    def nominal_velocity(self, positions: np.ndarray) -> np.ndarray:
+    def nominal_velocity(self, positions, references=None, applied=None,
+                         dt: float = DEFAULT_DT) -> np.ndarray:
         reached = (
             np.linalg.norm(positions - self._goals, axis=-1)
             < self._ARRIVAL_RADIUS_M
         )
         # Flip x target on arrival so the groups cross back and forth forever.
         self._goals[reached, 0] *= -1.0
-        return seek_velocity(positions, self._goals, self.nominal_speed)
+        return self.seek(positions, self._goals, self.nominal_speed,
+                         references, applied, dt)
 
     @property
     def goals(self) -> Optional[np.ndarray]:
@@ -304,14 +361,16 @@ class AntipodalScenario(Scenario):
     def initial_positions(self) -> np.ndarray:
         return self._positions.copy()
 
-    def nominal_velocity(self, positions: np.ndarray) -> np.ndarray:
+    def nominal_velocity(self, positions, references=None, applied=None,
+                         dt: float = DEFAULT_DT) -> np.ndarray:
         reached = (
             np.linalg.norm(positions - self._goals, axis=-1)
             < self._ARRIVAL_RADIUS_M
         )
         if np.any(reached):
             self._goals[reached] = 2.0 * self._center - self._goals[reached]
-        return seek_velocity(positions, self._goals, self.nominal_speed)
+        return self.seek(positions, self._goals, self.nominal_speed,
+                         references, applied, dt)
 
     @property
     def goals(self) -> Optional[np.ndarray]:
@@ -378,13 +437,15 @@ class SqueezeScenario(Scenario):
     def initial_positions(self) -> np.ndarray:
         return np.vstack([self._holder_posts, self._intruder_ends[0]])
 
-    def nominal_velocity(self, positions: np.ndarray) -> np.ndarray:
+    def nominal_velocity(self, positions, references=None, applied=None,
+                         dt: float = DEFAULT_DT) -> np.ndarray:
         intruder_goal = self._intruder_ends[self._intruder_goal_index]
         if np.linalg.norm(positions[2] - intruder_goal) < self._arrival_radius:
             self._intruder_goal_index = 1 - self._intruder_goal_index
             intruder_goal = self._intruder_ends[self._intruder_goal_index]
         goals = np.vstack([self._holder_posts, intruder_goal])
-        return seek_velocity(positions, goals, self.nominal_speed)
+        return self.seek(positions, goals, self.nominal_speed,
+                         references, applied, dt)
 
     @property
     def goals(self) -> Optional[np.ndarray]:
@@ -404,21 +465,17 @@ class GoalScenario(Scenario):
     tracking tests.
     """
 
-    # Speed near the goal is min(speed, approach_gain * distance): the drone
-    # flies at its speed setting only while farther than speed/approach_gain
-    # from the goal, then eases in exponentially (time constant
-    # 1/approach_gain). With 1.5 and a 1.2 m/s setting the plateau needs a
-    # goal more than 0.8 m away, which is why short hops look the same at
-    # every speed setting. Raise the gain for sharper stops.
-    DEFAULT_APPROACH_GAIN = 1.5
+    # The speed setting is a cruise cap: the drone reaches it only if the
+    # goal is farther than stopping_distance(speed, accel, settle) — see
+    # trajectory.py — and brakes at goal_accel_mps2 from there.
 
-    def __init__(self, *args, initial_goals: np.ndarray,
-                 approach_gain: float = DEFAULT_APPROACH_GAIN, **kwargs) -> None:
+    def __init__(self, *args, initial_goals: np.ndarray, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self._goals = np.asarray(
+        # np.array (not asarray): set_goal writes in place and must never
+        # alias the caller's array.
+        self._goals = np.array(
             initial_goals, dtype=float).reshape(self.num_drones, 3)
         self._speeds = np.full(self.num_drones, self.nominal_speed)
-        self.approach_gain = float(approach_gain)
 
     def set_goal(self, index: int, point: np.ndarray) -> None:
         self._goals[index] = np.asarray(point, dtype=float)
@@ -438,12 +495,10 @@ class GoalScenario(Scenario):
     def initial_positions(self) -> np.ndarray:
         return self._goals.copy()
 
-    def nominal_velocity(self, positions: np.ndarray) -> np.ndarray:
-        to_goal = self._goals - positions
-        distance = np.linalg.norm(to_goal, axis=-1, keepdims=True)
-        speed = np.minimum(self._speeds[:, None], self.approach_gain * distance)
-        direction = to_goal / np.maximum(distance, 1e-9)
-        return direction * speed
+    def nominal_velocity(self, positions, references=None, applied=None,
+                         dt: float = DEFAULT_DT) -> np.ndarray:
+        return self.seek(positions, self._goals, self._speeds,
+                         references, applied, dt)
 
     @property
     def goals(self) -> Optional[np.ndarray]:
@@ -481,7 +536,10 @@ def make_scenario(
         safety_radius: CBF safety radius r (m), used for spacing decisions.
         seed: RNG seed for the randomized scenarios.
         **kwargs: scenario-specific options (``hover_positions`` for hover,
-            ``gap_factor`` / ``run_length`` for squeeze).
+            ``initial_goals`` for goal, ``holder_positions`` /
+            ``intruder_waypoints`` for squeeze) and the go-to-goal law's
+            ``accel`` (m/s^2), ``settle_s`` and ``velocity_only_settle_s``
+            (s) — see trajectory.py.
 
     Raises:
         ValueError: if ``name`` is unknown.

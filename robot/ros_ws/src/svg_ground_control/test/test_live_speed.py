@@ -67,20 +67,45 @@ def test_unsupported_param_set_is_refused_with_reason():
         node.destroy_node()
 
 
-def test_goal_approach_gain_param_and_live_update():
+def test_goal_law_params_and_live_update():
     node = make(drone_names=["drone_1"], scenario="goal", hover_positions=[0.0, 0.0, 1.0],
-                scenario_speed_mps=1.2, goal_approach_gain=3.0)
+                scenario_speed_mps=1.2, goal_accel_mps2=2.0, goal_settle_s=0.5,
+                goal_lead_m=1.0)
     try:
-        assert node.scenario.approach_gain == 3.0
-        # 0.3 m from the goal: gain 3 -> 0.9 m/s; the old fixed 1.5 gave 0.45.
-        v = node.scenario.nominal_velocity(np.array([[0.3, 0.0, 1.0]]))
-        assert np.linalg.norm(v) == pytest.approx(0.9)
-        node.set_parameters([Parameter("goal_approach_gain", value=1.5)])
-        v = node.scenario.nominal_velocity(np.array([[0.3, 0.0, 1.0]]))
-        assert np.linalg.norm(v) == pytest.approx(0.45)
+        assert node.scenario.tracker.accel == 2.0
+        assert node.scenario.tracker.settle == 0.5
+        assert node.goal_lead == 1.0
+        for name, value in (("goal_accel_mps2", 4.0), ("goal_settle_s", 0.2),
+                            ("goal_lead_m", 3.0), ("goal_velocity_only_settle_s", 0.8)):
+            assert node.set_parameters([Parameter(name, value=value)])[0].successful
+        assert node.scenario.tracker.accel == 4.0
+        assert node.scenario.tracker.settle == 0.2
+        assert node.goal_lead == 3.0
+        assert node.scenario.velocity_only_settle == 0.8
+        # the speed note tells how far a goal must be to reach the setting
+        assert "goal >" in node.speed_cap_note(1.2)
     finally:
         node.destroy_node()
 
 
-def test_goal_scenario_default_gain_unchanged():
-    assert GoalScenario.DEFAULT_APPROACH_GAIN == 1.5
+def test_real_drones_get_the_trajectory_output_by_default():
+    node = make(drone_names=["drone_1", "drone_2"], drone_modes="real,sim", scenario="goal",
+                hover_positions=[0.0, 0.0, 1.0, 1.0, 0.0, 1.0])
+    try:
+        real, sim = node.drones
+        assert real.output == "trajectory"
+        assert real.cmd_pub.topic_name == "/drone_1/fmu/trajectory_command"
+        assert sim.output == "velocity"
+        assert sim.cmd_pub.topic_name == "/drone_2/interface/velocity_command"
+    finally:
+        node.destroy_node()
+
+
+def test_real_command_mode_velocity_keeps_the_old_topic():
+    node = make(drone_names=["drone_1"], drone_modes="real", scenario="hover",
+                hover_positions=[0.0, 0.0, 1.0], real_command_mode="velocity")
+    try:
+        assert node.drones[0].output == "velocity"
+        assert node.drones[0].cmd_pub.topic_name == "/drone_1/fmu/velocity_command"
+    finally:
+        node.destroy_node()

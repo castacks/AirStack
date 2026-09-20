@@ -54,7 +54,7 @@
  *
  * Commands → PX4:
  *   in/offboard_control_mode      ← heartbeat, mode selection
- *   in/trajectory_setpoint        ← position / velocity setpoint
+ *   in/trajectory_setpoint        ← position / velocity / acceleration setpoint
  *   in/vehicle_attitude_setpoint  ← attitude setpoint
  *   in/vehicle_rates_setpoint     ← body-rate setpoint
  *   in/vehicle_command            ← arm / disarm / set-mode / takeoff / land
@@ -84,6 +84,7 @@
 
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/twist_stamped.hpp>
+#include <trajectory_msgs/msg/multi_dof_joint_trajectory.hpp>
 #include <mav_msgs/msg/attitude_thrust.hpp>
 #include <mav_msgs/msg/rate_thrust.hpp>
 #include <mav_msgs/msg/roll_pitch_yawrate_thrust.hpp>
@@ -221,6 +222,17 @@ public:
                 std::bind(&PX4Interface::on_visual_odometry_in, this,
                           std::placeholders::_1));
 
+        // ---- Optional: full trajectory setpoint from AirStack ----
+        // Position + velocity + acceleration in ONE message (ENU), so PX4
+        // closes the position loop onboard with velocity and acceleration
+        // feedforward — exactly what its own Position mode does. Used by
+        // svg_ground_control for real drones; see trajectory_callback().
+        trajectory_sub_ =
+            this->create_subscription<trajectory_msgs::msg::MultiDOFJointTrajectory>(
+                "trajectory_command", 1,
+                std::bind(&PX4Interface::trajectory_callback, this,
+                          std::placeholders::_1));
+
         // ---- Heartbeat timer at 10 Hz ----
         // PX4 requires offboard_control_mode to be published at ≥ 2 Hz while
         // in offboard mode.  We publish at 10 Hz to guarantee margin.
@@ -301,6 +313,64 @@ public:
 
         // Yaw-rate: ENU CCW+ → NED CW+ → negate
         sp.yawspeed = static_cast<float>(-cmd->twist.angular.z);
+
+        trajectory_sp_pub_->publish(sp);
+    }
+
+    /**
+     * @brief Position + velocity + acceleration setpoint (ENU → NED).
+     *
+     * One MultiDOFJointTrajectory point: transforms[0].translation is the
+     * position, velocities[0] the velocity (angular.z = yaw rate),
+     * accelerations[0] the acceleration. A missing array or a NaN component
+     * is passed to PX4 as NaN (= "not commanded" on that axis). PX4 then
+     * flies vel_sp = velocity + MPC_XY_P * (position - pos) and adds the
+     * acceleration to its velocity-loop output as feedforward, so the vehicle
+     * tracks a smooth trajectory with ~0.1 s lag instead of the ~0.7 s of a
+     * bare velocity setpoint, and holds position when the velocity is zero.
+     */
+    void trajectory_callback(
+        const trajectory_msgs::msg::MultiDOFJointTrajectory::SharedPtr cmd)
+    {
+        if (cmd->points.empty()) {
+            RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                                 "trajectory_command with no points ignored");
+            return;
+        }
+        const auto& pt = cmd->points.front();
+
+        set_control_mode(ControlMode::TRAJECTORY);
+        publish_offboard_heartbeat();
+
+        px4_msgs::msg::TrajectorySetpoint sp{};
+        sp.timestamp = now_us();
+
+        // ENU (x East, y North, z Up) → NED (N, E, D): swap x/y, negate z.
+        auto enu_to_ned = [](double x, double y, double z, float* out) {
+            out[0] = static_cast<float>(y);
+            out[1] = static_cast<float>(x);
+            out[2] = static_cast<float>(-z);
+        };
+        sp.position[0] = sp.position[1] = sp.position[2] = NAN;
+        sp.velocity[0] = sp.velocity[1] = sp.velocity[2] = NAN;
+        sp.acceleration[0] = sp.acceleration[1] = sp.acceleration[2] = NAN;
+        sp.yaw = NAN;
+        sp.yawspeed = NAN;
+
+        if (!pt.transforms.empty()) {
+            const auto& t = pt.transforms.front().translation;
+            enu_to_ned(t.x, t.y, t.z, sp.position.data());
+        }
+        if (!pt.velocities.empty()) {
+            const auto& v = pt.velocities.front();
+            enu_to_ned(v.linear.x, v.linear.y, v.linear.z, sp.velocity.data());
+            // Yaw-rate: ENU CCW+ → NED CW+ → negate
+            sp.yawspeed = static_cast<float>(-v.angular.z);
+        }
+        if (!pt.accelerations.empty()) {
+            const auto& a = pt.accelerations.front();
+            enu_to_ned(a.linear.x, a.linear.y, a.linear.z, sp.acceleration.data());
+        }
 
         trajectory_sp_pub_->publish(sp);
     }
@@ -484,6 +554,7 @@ private:
         VELOCITY  = 2,
         ATTITUDE  = 3,
         BODY_RATE = 4,
+        TRAJECTORY = 5,   // position + velocity + acceleration together
     };
 
     // -----------------------------------------------------------------------
@@ -513,6 +584,7 @@ private:
     // AirStack I/O
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odometry_pub_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr visual_odom_in_sub_;
+    rclcpp::Subscription<trajectory_msgs::msg::MultiDOFJointTrajectory>::SharedPtr trajectory_sub_;
 
     // Heartbeat timer
     rclcpp::TimerBase::SharedPtr heartbeat_timer_;
@@ -537,9 +609,14 @@ private:
 
         px4_msgs::msg::OffboardControlMode msg{};
         msg.timestamp    = now_us();
-        msg.position     = (control_mode_ == ControlMode::POSITION);
-        msg.velocity     = (control_mode_ == ControlMode::VELOCITY);
-        msg.acceleration = false;
+        // TRAJECTORY sets all three: PX4 only uses the setpoint fields whose
+        // flag is on, and a position setpoint with velocity + acceleration
+        // feedforward is what makes the onboard tracking as tight as PX4's
+        // own Position mode.
+        const bool traj = (control_mode_ == ControlMode::TRAJECTORY);
+        msg.position     = traj || (control_mode_ == ControlMode::POSITION);
+        msg.velocity     = traj || (control_mode_ == ControlMode::VELOCITY);
+        msg.acceleration = traj;
         msg.attitude     = (control_mode_ == ControlMode::ATTITUDE);
         msg.body_rate    = (control_mode_ == ControlMode::BODY_RATE);
         offboard_mode_pub_->publish(msg);

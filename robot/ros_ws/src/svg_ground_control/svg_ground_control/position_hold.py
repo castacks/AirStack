@@ -52,3 +52,30 @@ def tracking_velocity(target: np.ndarray, position: np.ndarray,
     if max_speed > 0.0 and speed > max_speed:
         v = v * (max_speed / speed)
     return v
+
+
+def advance_reference(ref: Optional[np.ndarray], position: np.ndarray,
+                      applied: np.ndarray, measured_velocity: np.ndarray,
+                      dt: float, lead_max: float):
+    """Move a drone's reference point by the velocity it was last told to fly.
+
+    The reference is what PX4 is asked to hold (position setpoint) and where
+    the go-to-goal profile is evaluated (trajectory.py). It is seeded at the
+    drone when ``None`` and leashed to ``lead_max`` like ``advance_target``.
+
+    Returns ``(ref, applied)``: the velocity the reference really moved with.
+    It equals ``applied`` normally, but is the drone's ``measured_velocity``
+    when the reference was just seeded or pulled back by the leash — the
+    signal for the profile to re-attach to what the drone is actually doing.
+    """
+    p = np.asarray(position, dtype=float)
+    v_meas = np.asarray(measured_velocity, dtype=float).copy()
+    if ref is None:
+        return p.copy(), v_meas
+    v_applied = np.asarray(applied, dtype=float)
+    r = np.asarray(ref, dtype=float) + v_applied * dt
+    lead = r - p
+    dist = float(np.linalg.norm(lead))
+    if lead_max > 0.0 and dist > lead_max:
+        return p + lead * (lead_max / dist), v_meas
+    return r, v_applied.copy()

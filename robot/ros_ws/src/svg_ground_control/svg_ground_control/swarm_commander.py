@@ -6,6 +6,10 @@ on hardware — only the topic templates in the config YAML differ):
 
     state in:    {state_topic_template}            nav_msgs/Odometry (ENU)
     command out: {velocity_command_topic_template} geometry_msgs/TwistStamped (ENU)
+                 real drones (real_command_mode: trajectory):
+                 {real_trajectory_command_topic_template}
+                     trajectory_msgs/MultiDOFJointTrajectory, one point =
+                     position + velocity + acceleration (ENU)
     services:    {robot_command_service_template}  airstack_msgs/srv/RobotCommand
 
 Nominal commands come from a *scenario* (hover, random_walk, random_goals,
@@ -33,10 +37,18 @@ px4_interface/uXRCE-DDS hardware interface (``/{name}/fmu/...``). The state
 topic is identical for both. This lets one run mix real and simulated drones
 (e.g. squeeze with real holders + a simulated intruder), all in one CBF.
 
-Teleop drones fly in POSITION MODE (position_hold.py): the sticks move a
-target the commander tracks (P + feedforward), seeded from the drone's own
-position when ``~/start`` hands control over, so releasing the sticks holds
-position instead of drifting.
+Position hold and trajectories (trajectory.py, position_hold.py): every
+commanded drone has a REFERENCE POINT — where it was told to be, integrated
+from the velocity actually published (post-CBF, post-fence), seeded at the
+drone whenever control changes hands and leashed so it never runs far from a
+drone that is held back. Scenario drones fly an acceleration-limited profile
+toward their goal evaluated at that reference; teleop sticks are a velocity
+that moves it. Real drones (``real_command_mode: trajectory``) get the
+reference, the velocity and the acceleration in ONE setpoint, so PX4 closes
+the position loop onboard with feedforward — as tight as its own Position
+mode — and holds position instead of drifting whenever the velocity is zero.
+Velocity-only drones (sim/MAVROS) fly the stateless braking law at their own
+position, plus the commander's P term on the reference for teleop.
 
 Geofence: with ``fence_enabled`` and the box [``fence_min``, ``fence_max``],
 ``fence_behavior`` picks what happens:
@@ -45,9 +57,9 @@ Geofence: with ``fence_enabled`` and the box [``fence_min``, ``fence_max``],
                until ``~/reset_fence``.
     keep_in  — nobody stops. Every commanded drone's velocity is clipped per
                axis so it cannot cross a wall and is pushed back inside if it
-               is out (fence.keep_in_velocity); the teleop target is clamped
-               into the box. External drones cannot be steered, so they are
-               only reported.
+               is out (fence.keep_in_velocity); the reference point is
+               clamped into the box. External drones cannot be steered, so
+               they are only reported.
 
 Visualization: every drone's WORLD position (offset-corrected, so real and
 simulated drones share one frame) is published as a MarkerArray on
@@ -70,18 +82,20 @@ import rclpy
 from rclpy.node import Node
 from rclpy.duration import Duration
 
-from geometry_msgs.msg import PoseStamped, TwistStamped
+from geometry_msgs.msg import PoseStamped, Transform, Twist, TwistStamped
 from nav_msgs.msg import Odometry
 from std_msgs.msg import ColorRGBA, Float32, String
 from std_srvs.srv import Trigger
+from trajectory_msgs.msg import MultiDOFJointTrajectory, MultiDOFJointTrajectoryPoint
 from visualization_msgs.msg import Marker, MarkerArray
 from airstack_msgs.srv import RobotCommand
 
 from svg_ground_control.cbf_filter import filter_velocities
 from svg_ground_control.fence import (BEHAVIORS as FENCE_BEHAVIORS, clamp_to_box,
                                       keep_in_velocity, outside, violation_text)
-from svg_ground_control.position_hold import advance_target, tracking_velocity
+from svg_ground_control.position_hold import advance_reference, tracking_velocity
 from svg_ground_control.scenarios import Bounds, make_scenario
+from svg_ground_control.trajectory import stopping_distance
 
 
 class FlightState(Enum):
@@ -105,6 +119,7 @@ class DroneHandle:
         self.name = name
         self.role = role                  # 'auto' | 'teleop' | 'external'
         self.mode = 'sim'                 # 'sim' | 'real' (command routing)
+        self.output = 'velocity'          # 'velocity' | 'trajectory' (see below)
         self.position_offset = np.zeros(3)  # local-frame -> world correction
         self.takeoff_target = None        # np (3,), set from the scenario
         self.hold_target = None           # np (3,), position to hold when not in mission
@@ -119,9 +134,15 @@ class DroneHandle:
         self.teleop_twist = np.zeros(3)
         self.teleop_yaw_rate = 0.0
         self.last_teleop_time = None
-        # Position-mode teleop setpoint (world ENU). None = re-seed from the
-        # drone's position the next time the sticks get control.
-        self.teleop_target = None
+        # Reference point (world ENU): where the drone was told to be,
+        # integrated from the published velocity (position_hold.advance_
+        # reference). PX4's position setpoint on the trajectory output, the
+        # point the go-to-goal profile is evaluated at, and the teleop hold
+        # point. None = re-seed at the drone next tick (control hand-over).
+        self.ref = None
+        # Velocity the reference last moved with (what was published, or the
+        # measured velocity after a seed/leash) — the profile re-attaches to it.
+        self.applied = np.zeros(3)
 
     @property
     def commanded(self) -> bool:
@@ -164,10 +185,20 @@ class SwarmCommander(Node):
         #   ros2 param set /swarm_commander scenario_speed_mps 1.0
         # (applies to every scenario-driven drone; per-drone overrides via the
         # goal scenario's speed_command topic). Effective speed is also capped
-        # by cbf_max_speed_mps and, near a goal, by goal_approach_gain.
+        # by cbf_max_speed_mps and, near a goal, by the braking law (goal_accel_mps2, goal_settle_s).
         self.declare_parameter('scenario_speed_mps', 0.6)
-        # goal scenario: speed near the goal = min(speed, gain * distance).
-        self.declare_parameter('goal_approach_gain', 1.5)
+        # Go-to-goal law (trajectory.py), all scenarios. The speed setting is
+        # a cruise cap; the drone accelerates and brakes at goal_accel_mps2
+        # and eases into the goal with time constant goal_settle_s, so it
+        # only reaches the cap if the goal is farther than
+        # v^2/(2 a) + v * settle. goal_lead_m leashes the reference point to
+        # the drone (PX4: MPC_XY_ERR_MAX). Velocity-only drones (sim) use the
+        # same law at their own position with the longer settle, which
+        # absorbs PX4's ~0.7 s velocity-loop lag without a feedforward.
+        self.declare_parameter('goal_accel_mps2', 3.0)
+        self.declare_parameter('goal_settle_s', 0.3)
+        self.declare_parameter('goal_lead_m', 2.0)
+        self.declare_parameter('goal_velocity_only_settle_s', 1.0)
         self.declare_parameter('scenario_seed', 7)
         self.declare_parameter('arena_low', [-2.0, -2.0, 0.8])
         self.declare_parameter('arena_high', [2.0, 2.0, 2.0])
@@ -219,6 +250,14 @@ class SwarmCommander(Node):
                                '/{name}/fmu/velocity_command')
         self.declare_parameter('real_robot_command_service_template',
                                '/{name}/fmu/robot_command')
+        # What real drones are sent: 'trajectory' = position + velocity +
+        # acceleration in one MultiDOFJointTrajectory (PX4 holds position and
+        # tracks with feedforward, like its own Position mode — needs the
+        # px4_interface with trajectory_command); 'velocity' = the old bare
+        # TwistStamped velocity setpoint.
+        self.declare_parameter('real_command_mode', 'trajectory')
+        self.declare_parameter('real_trajectory_command_topic_template',
+                               '/{name}/fmu/trajectory_command')
 
         # ---- Goal scenario live retargeting -----------------------------
         self.declare_parameter('goal_command_topic_template',
@@ -263,9 +302,12 @@ class SwarmCommander(Node):
         self.declare_parameter('cbf_max_speed_mps', 1.2)
         self.declare_parameter('cbf_alpha', 2.5)
         self.declare_parameter('teleop_max_speed_mps', 1.2)
-        # Position-mode teleop: P-gain on (target - position) and the leash,
-        # i.e. how far the target may run ahead of a drone that is being held
-        # back (CBF, fence, wall). 0 = no leash.
+        # Position-mode teleop: leash of the teleop reference point (how far
+        # it may run ahead of a drone that is held back by the CBF, fence or
+        # a wall; 0 = no leash) and, for velocity-only drones, the
+        # commander's P-gain on (reference - position). On the trajectory
+        # output PX4 holds the reference itself (MPC_XY_P) and teleop_kp is
+        # unused.
         self.declare_parameter('teleop_kp', 1.0)
         self.declare_parameter('teleop_lead_m', 0.5)
         # Gain on an EXTERNAL drone's measured velocity as seen by the CBF.
@@ -340,12 +382,23 @@ class SwarmCommander(Node):
         self.teleop_max_speed = float(self.get_parameter('teleop_max_speed_mps').value)
         self.teleop_kp = float(self.get_parameter('teleop_kp').value)
         self.teleop_lead = float(self.get_parameter('teleop_lead_m').value)
+        self.goal_lead = float(self.get_parameter('goal_lead_m').value)
+        real_command_mode = str(self.get_parameter('real_command_mode').value).strip()
+        if real_command_mode not in ('trajectory', 'velocity'):
+            raise ValueError(
+                f"real_command_mode '{real_command_mode}' unknown; "
+                "use trajectory|velocity")
         self.cbf_external_velocity_gain = float(
             self.get_parameter('cbf_external_velocity_gain').value)
 
         # ---- Scenario -----------------------------------------------------
         scenario_name = str(self.get_parameter('scenario').value)
-        scenario_kwargs = {}
+        scenario_kwargs = {
+            'accel': float(self.get_parameter('goal_accel_mps2').value),
+            'settle_s': float(self.get_parameter('goal_settle_s').value),
+            'velocity_only_settle_s': float(
+                self.get_parameter('goal_velocity_only_settle_s').value),
+        }
         if scenario_name == 'hover':
             scenario_kwargs['hover_positions'] = np.array(
                 self.get_parameter('hover_positions').value)
@@ -353,8 +406,6 @@ class SwarmCommander(Node):
             # Goals start at the takeoff layout; retargeted live via topics.
             scenario_kwargs['initial_goals'] = np.array(
                 self.get_parameter('hover_positions').value)
-            scenario_kwargs['approach_gain'] = float(
-                self.get_parameter('goal_approach_gain').value)
         elif scenario_name == 'squeeze':
             scenario_kwargs['holder_positions'] = np.array(
                 self.get_parameter('squeeze_holder_positions').value)
@@ -396,17 +447,21 @@ class SwarmCommander(Node):
             self.get_parameter('real_velocity_command_topic_template').value)
         real_srv_tmpl = str(
             self.get_parameter('real_robot_command_service_template').value)
+        real_traj_tmpl = str(
+            self.get_parameter('real_trajectory_command_topic_template').value)
         teleop_tmpl = str(self.get_parameter('teleop_topic_template').value)
         goal_tmpl = str(self.get_parameter('goal_command_topic_template').value)
         speed_tmpl = str(self.get_parameter('speed_command_topic_template').value)
 
         def command_templates(mode):
-            """(velocity-cmd topic, robot_command service) templates for a mode."""
+            """(output kind, command topic, robot_command service) for a mode."""
             if not self._use_mode_templates:
-                return default_cmd_tmpl, default_srv_tmpl
+                return 'velocity', default_cmd_tmpl, default_srv_tmpl
             if mode == 'real':
-                return real_cmd_tmpl, real_srv_tmpl
-            return sim_cmd_tmpl, sim_srv_tmpl
+                if real_command_mode == 'trajectory':
+                    return 'trajectory', real_traj_tmpl, real_srv_tmpl
+                return 'velocity', real_cmd_tmpl, real_srv_tmpl
+            return 'velocity', sim_cmd_tmpl, sim_srv_tmpl
 
         # ---- Per-drone wiring --------------------------------------------
         takeoff_targets = self.scenario.initial_positions()
@@ -420,9 +475,11 @@ class SwarmCommander(Node):
             drone.takeoff_target = takeoff_targets[i].copy()
             drone.hold_target = takeoff_targets[i].copy()
             if drone.commanded:
-                cmd_t, srv_t = command_templates(drone.mode)
+                drone.output, cmd_t, srv_t = command_templates(drone.mode)
                 drone.cmd_pub = self.create_publisher(
-                    TwistStamped, cmd_t.format(name=name), 10)
+                    MultiDOFJointTrajectory if drone.output == 'trajectory'
+                    else TwistStamped,
+                    cmd_t.format(name=name), 10)
                 drone.robot_command_client = self.create_client(
                     RobotCommand, srv_t.format(name=name))
             if role == 'teleop':
@@ -524,6 +581,11 @@ class SwarmCommander(Node):
                 + ')'
                 for d in self.drones)
             + f' | speed={self.scenario.nominal_speed} m/s'
+            + f' (accel {self.scenario.tracker.accel} m/s2, settle '
+            + f'{self.scenario.tracker.settle} s, lead {self.goal_lead} m)'
+            + ' | real output: ' + ', '.join(sorted({
+                f'{d.output}' for d in self.drones if d.commanded and d.mode == 'real'
+            }) or ['none'])
             + f' | CBF r={self.cbf_safety_radius} m, vmax={self.cbf_max_speed} m/s,'
             + f' alpha={self.cbf_alpha}, ext_vel_gain={self.cbf_external_velocity_gain}'
             + (f' | FENCE {self.fence_behavior} {self.fence_min}..{self.fence_max}'
@@ -579,10 +641,13 @@ class SwarmCommander(Node):
         notes = []
         if speed > self.cbf_max_speed:
             notes.append(f'capped to cbf_max_speed_mps={self.cbf_max_speed}')
-        gain = getattr(self.scenario, 'approach_gain', None)
-        if gain:
-            notes.append(f'only reached farther than {speed / gain:.2f} m from '
-                         f'the goal (goal_approach_gain={gain})')
+        tracker = getattr(self.scenario, 'tracker', None)
+        if tracker is not None:
+            reach = stopping_distance(min(speed, self.cbf_max_speed),
+                                      tracker.accel, tracker.settle)
+            notes.append(f'reached only with a goal > {reach:.2f} m away '
+                         f'(goal_accel_mps2={tracker.accel}, '
+                         f'goal_settle_s={tracker.settle})')
         return f' ({"; ".join(notes)})' if notes else ''
 
     def on_parameter_change(self, params):
@@ -604,13 +669,19 @@ class SwarmCommander(Node):
             elif p.name == 'teleop_max_speed_mps':
                 self.teleop_max_speed = float(p.value)
                 self.get_logger().info(f'teleop_max_speed_mps -> {self.teleop_max_speed} (live)')
-            elif p.name == 'goal_approach_gain':
-                if not hasattr(self.scenario, 'approach_gain'):
-                    return SetParametersResult(
-                        successful=False,
-                        reason='goal_approach_gain only applies to the goal scenario')
-                self.scenario.approach_gain = float(p.value)
-                self.get_logger().info(f'goal_approach_gain -> {p.value} (live)')
+            elif p.name == 'goal_accel_mps2':
+                self.scenario.tracker.accel = max(0.1, float(p.value))
+                self.get_logger().info(f'goal_accel_mps2 -> {p.value} (live)')
+            elif p.name == 'goal_settle_s':
+                self.scenario.tracker.settle = max(0.0, float(p.value))
+                self.get_logger().info(f'goal_settle_s -> {p.value} (live)')
+            elif p.name == 'goal_velocity_only_settle_s':
+                self.scenario.velocity_only_settle = max(0.0, float(p.value))
+                self.get_logger().info(
+                    f'goal_velocity_only_settle_s -> {p.value} (live)')
+            elif p.name == 'goal_lead_m':
+                self.goal_lead = float(p.value)
+                self.get_logger().info(f'goal_lead_m -> {p.value} (live)')
             elif p.name in ('teleop_kp', 'teleop_lead_m', 'hover_kp'):
                 setattr(self, {'teleop_kp': 'teleop_kp', 'teleop_lead_m': 'teleop_lead',
                                'hover_kp': 'hover_kp'}[p.name], float(p.value))
@@ -621,7 +692,9 @@ class SwarmCommander(Node):
                     reason=f'{p.name} is read once at startup; change the YAML '
                            'and relaunch (live: scenario_speed_mps, '
                            'cbf_max_speed_mps, teleop_max_speed_mps, '
-                           'goal_approach_gain, teleop_kp, teleop_lead_m, hover_kp)')
+                           'goal_accel_mps2, goal_settle_s, goal_lead_m, '
+                           'goal_velocity_only_settle_s, teleop_kp, '
+                           'teleop_lead_m, hover_kp)')
         return SetParametersResult(successful=True)
 
     def formation_callback(self, msg: String):
@@ -688,8 +761,9 @@ class SwarmCommander(Node):
             response.message = 'not all drones holding yet: ' + ', '.join(not_ready)
             return response
         self.mission_active = True
+        self.scenario.reset_tracking()
         for d in self.drones:
-            d.teleop_target = None      # seed from where the drone IS, now
+            d.ref = None                # seed from where the drone IS, now
         response.success = True
         response.message = f'scenario "{self.scenario_name}" running'
         self.get_logger().info(response.message)
@@ -702,7 +776,7 @@ class SwarmCommander(Node):
             if d.commanded and d.position is not None \
                     and d.state in (FlightState.ASCEND, FlightState.ACTIVE):
                 d.hold_target = d.position.copy()
-                d.teleop_target = None
+                d.ref = None
                 d.state = FlightState.ACTIVE
                 held.append(d.name)
         response.success = bool(held)
@@ -715,7 +789,7 @@ class SwarmCommander(Node):
         for d in self.drones:
             if d.commanded and d.state in (FlightState.ASCEND, FlightState.ACTIVE):
                 d.state = FlightState.LANDING
-                d.teleop_target = None
+                d.ref = None
                 landing.append(d.name)
         response.success = bool(landing)
         response.message = ('landing: ' + ', '.join(landing)) if landing \
@@ -767,7 +841,7 @@ class SwarmCommander(Node):
             for o in self.drones:
                 if o.commanded and o.position is not None and o.state in airborne:
                     o.hold_target = o.position.copy()
-                    o.teleop_target = None
+                    o.ref = None
                     o.state = FlightState.ACTIVE
             self.get_logger().error(
                 f'GEOFENCE BREACH by {d.name} ({d.role}) at '
@@ -867,27 +941,33 @@ class SwarmCommander(Node):
     def teleop_position_mode(self, drone: DroneHandle, now) -> np.ndarray:
         """Position-mode teleop (see position_hold.py).
 
-        Sticks steer ``drone.teleop_target``; the command is a P-track toward
-        it plus the stick velocity as feedforward. The target is seeded from
-        the drone's live position when it is None (every hand-over resets it
-        to None), leashed to ``teleop_lead_m``, and in keep_in fence mode
-        clamped into the box so the sticks cannot drag it outside.
+        The sticks are a velocity that moves ``drone.ref`` (advanced from
+        what is published, leashed to ``teleop_lead_m``, clamped into a
+        keep_in fence — all in ``advance_reference``). On the trajectory
+        output PX4 holds the reference itself, so the sticks are pure
+        feedforward; on the velocity output the commander adds the P term.
         """
         stick = self.teleop_command(drone, now)
-        if drone.teleop_target is None:
+        if drone.output == 'trajectory' or drone.ref is None:
+            return stick
+        return tracking_velocity(drone.ref, drone.position, stick,
+                                 self.teleop_kp, self.teleop_max_speed)
+
+    def advance_reference(self, drone: DroneHandle):
+        """Step a commanded drone's reference point by what it was told to fly."""
+        seeded = drone.ref is None
+        lead = self.teleop_lead if drone.role == 'teleop' else self.goal_lead
+        drone.ref, drone.applied = advance_reference(
+            drone.ref, drone.position, drone.applied, drone.velocity,
+            self.control_dt, lead)
+        if self.fence_enabled and self.fence_behavior == 'keep_in':
+            drone.ref = clamp_to_box(drone.ref, self.fence_min, self.fence_max,
+                                     self.fence_margin)
+        if seeded and drone.role == 'teleop' and self.mission_active:
             self.get_logger().info(
                 f'{drone.name}: sticks live, holding '
                 f'[{drone.position[0]:.2f}, {drone.position[1]:.2f}, '
                 f'{drone.position[2]:.2f}] until moved')
-        drone.teleop_target = advance_target(
-            drone.teleop_target, drone.position, stick, self.control_dt,
-            self.teleop_lead)
-        if self.fence_enabled and self.fence_behavior == 'keep_in':
-            drone.teleop_target = clamp_to_box(
-                drone.teleop_target, self.fence_min, self.fence_max,
-                self.fence_margin)
-        return tracking_velocity(drone.teleop_target, drone.position, stick,
-                                 self.teleop_kp, self.teleop_max_speed)
 
     def control_loop(self):
         now = self.get_clock().now()
@@ -919,18 +999,36 @@ class SwarmCommander(Node):
         index = {d.name: i for i, d in enumerate(tracked)}
         positions = np.stack([d.position for d in tracked])
 
+        # Reference points: where each commanded drone was told to be. PX4's
+        # position setpoint on the trajectory output, and the point the
+        # go-to-goal profile is evaluated at.
+        for d in self.drones:
+            if d.commanded and d.state != FlightState.IDLE and d.position is not None:
+                self.advance_reference(d)
+
         # Scenario nominal velocities — only meaningful (and stateful: goal
-        # resampling, wall bounces) once the mission runs and all drones are
-        # tracked, so it is stepped exactly then.
+        # resampling, wall bounces, reference profiles) once the mission runs
+        # and all drones are tracked, so it is stepped exactly then.
         scenario_nominal = None
+        scenario_accel = None
         if self.mission_active and len(tracked) == len(self.drones):
             all_positions = np.stack([d.position for d in self.drones])
-            scenario_nominal = self.scenario.nominal_velocity(all_positions)
+            references = np.full((len(self.drones), 3), np.nan)
+            applied = np.zeros((len(self.drones), 3))
+            for k, d in enumerate(self.drones):
+                if d.output == 'trajectory' and d.ref is not None:
+                    references[k] = d.ref
+                applied[k] = d.applied
+            scenario_nominal = self.scenario.nominal_velocity(
+                all_positions, references=references, applied=applied,
+                dt=self.control_dt)
+            scenario_accel = self.scenario.nominal_acceleration
 
         scenario_exempt = (set(self.scenario.cbf_exempt_indices)
                            if self.mission_active else set())
 
         nominal = np.zeros((len(tracked), 3))
+        accel_ff = np.zeros((len(tracked), 3))   # feedforward, trajectory rows
         exempt_rows = set()   # commanded obstacle rows: published uncorrected
         # Rows the solver must NOT adjust (their nominal is what that drone
         # will fly regardless): external drones + exempt obstacles. Without
@@ -968,6 +1066,7 @@ class SwarmCommander(Node):
                 elif self.mission_active and scenario_nominal is not None:
                     drone_index = self.drones.index(d)
                     nominal[i] = scenario_nominal[drone_index]
+                    accel_ff[i] = scenario_accel[drone_index]
                     if drone_index in scenario_exempt:
                         exempt_rows.add(i)
                 else:
@@ -1042,7 +1141,7 @@ class SwarmCommander(Node):
                 self.get_logger().warn(
                     f'{d.name}: odometry stale, commanding zero velocity',
                     throttle_duration_sec=1.0)
-                self.publish_velocity(d, np.zeros(3), now)
+                self.publish_command(d, np.zeros(3), np.zeros(3), now)
                 continue
 
             if d.state == FlightState.LANDING \
@@ -1052,30 +1151,74 @@ class SwarmCommander(Node):
                 self.get_logger().info(f'{d.name}: landed, disarmed')
                 continue
 
-            velocity = safe[index[d.name]]
+            row = index[d.name]
+            velocity = safe[row]
             # keep_in fence: the wall is the last word, after the CBF (a
             # per-axis clip never turns a stop into motion). Only ACTIVE
             # drones: ASCEND/LANDING legitimately cross the floor.
             if self.fence_enabled and self.fence_behavior == 'keep_in' \
                     and d.state == FlightState.ACTIVE:
                 velocity = self.keep_in(d, velocity)
-            self.publish_velocity(d, velocity, now)
+            # The acceleration feedforward belongs to the profile; once the
+            # CBF or the fence has altered the velocity it would push toward
+            # the very thing they steered away from, so it is dropped.
+            accel = accel_ff[row]
+            if np.linalg.norm(velocity - nominal[row]) > 1e-6:
+                accel = np.zeros(3)
+            self.publish_command(d, velocity, accel, now)
 
         self.publish_markers(now)
 
-    def publish_velocity(self, drone: DroneHandle, velocity: np.ndarray, now):
-        msg = TwistStamped()
-        msg.header.stamp = now.to_msg()
-        msg.header.frame_id = 'map'
-        msg.twist.linear.x = float(velocity[0])
-        msg.twist.linear.y = float(velocity[1])
-        msg.twist.linear.z = float(velocity[2])
+    def publish_command(self, drone: DroneHandle, velocity: np.ndarray,
+                        acceleration: np.ndarray, now):
+        """Send one drone its command and remember it as the applied velocity.
+
+        Trajectory output: one MultiDOFJointTrajectory point carrying the
+        reference point (position setpoint), the velocity and the
+        acceleration feedforward. Velocity output: a TwistStamped.
+        """
+        velocity = np.asarray(velocity, dtype=float)
+        yaw_rate = 0.0
         if drone.role == 'teleop':
             stale = (drone.last_teleop_time is None
                      or (now - drone.last_teleop_time)
                      > Duration(seconds=self.teleop_timeout))
-            msg.twist.angular.z = 0.0 if stale else drone.teleop_yaw_rate
+            yaw_rate = 0.0 if stale else drone.teleop_yaw_rate
+        if drone.output == 'trajectory':
+            msg = MultiDOFJointTrajectory()
+            msg.header.stamp = now.to_msg()
+            msg.header.frame_id = 'map'
+            msg.joint_names = [drone.name]
+            point = MultiDOFJointTrajectoryPoint()
+            ref = drone.ref if drone.ref is not None else drone.position
+            pose = Transform()
+            pose.translation.x = float(ref[0])
+            pose.translation.y = float(ref[1])
+            pose.translation.z = float(ref[2])
+            pose.rotation.w = 1.0
+            vel = Twist()
+            vel.linear.x = float(velocity[0])
+            vel.linear.y = float(velocity[1])
+            vel.linear.z = float(velocity[2])
+            vel.angular.z = float(yaw_rate)
+            acc = Twist()
+            acc.linear.x = float(acceleration[0])
+            acc.linear.y = float(acceleration[1])
+            acc.linear.z = float(acceleration[2])
+            point.transforms = [pose]
+            point.velocities = [vel]
+            point.accelerations = [acc]
+            msg.points = [point]
+        else:
+            msg = TwistStamped()
+            msg.header.stamp = now.to_msg()
+            msg.header.frame_id = 'map'
+            msg.twist.linear.x = float(velocity[0])
+            msg.twist.linear.y = float(velocity[1])
+            msg.twist.linear.z = float(velocity[2])
+            msg.twist.angular.z = float(yaw_rate)
         drone.cmd_pub.publish(msg)
+        drone.applied = velocity.copy()
 
     # ------------------------------------------------------------------
     # Visualization (RViz MarkerArray, world frame)

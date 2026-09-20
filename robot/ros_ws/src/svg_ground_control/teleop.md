@@ -28,15 +28,18 @@ device is one new entry there.
 | left bumper | locks the left stick, so neither height nor yaw can move |
 
 This is **position mode**, the way PX4's own Position mode behaves. The
-sticks do not drive the vehicle directly: they move a target position that
-the commander tracks (a P-controller plus the stick velocity as feedforward,
-`position_hold.py`). Let go of everything and the target stops where it is,
-so the drone is actively flown back to that point if it drifts, on all three
-axes. The target is seeded from the drone's *measured* position the moment
-the sticks get control (`/start`, and again after any `hold`/`land`), so
-nothing is ever chased from before takeoff — that was the altitude drop.
-A leash (`teleop_lead_m`, 0.5 m) stops the target running ahead of a drone
-that the CBF or the fence is holding back.
+sticks do not drive the vehicle directly: they move the drone's *reference
+point* (`position_hold.py`), and the drone is held at that point. On a real
+drone the reference is sent to PX4 as its position setpoint together with
+the stick velocity (`trajectory_command`), so PX4 itself holds it at 250 Hz
+with no ground latency; on a sim drone the commander adds the P term
+(`teleop_kp`). Let go of everything and the reference stops where it is, so
+the drone is actively flown back to that point if it drifts, on all three
+axes. The reference is seeded from the drone's *measured* position the
+moment the sticks get control (`/start`, and again after any `hold`/`land`),
+so nothing is ever chased from before takeoff — that was the altitude drop.
+A leash (`teleop_lead_m`, 0.5 m) stops it running ahead of a drone that the
+CBF or the fence is holding back.
 
 Yaw bypasses the CBF: the filter constrains drone-to-drone distance, which
 turning in place cannot change.
@@ -367,8 +370,10 @@ mode stays at `teleop_real.yaml`'s slower caps.
 | `print_hz` | `0` (`teleop.launch.py`: `1.0`) | print the stick reading and published velocity this often |
 
 The position hold itself is tuned in the **commander's** block of the same
-config: `teleop_kp` (gain on target − position, 1.0), `teleop_lead_m` (leash,
-0.5 m), `teleop_max_speed_mps` (cap on what is sent).
+config: `teleop_lead_m` (leash, 0.5 m), `teleop_max_speed_mps` (cap on what
+is sent), and for sim/velocity-only drones `teleop_kp` (the commander's gain
+on reference − position, 1.0; a real drone on the trajectory output is held
+by PX4's own `MPC_XY_P` instead).
 | `odometry_timeout_s` | `0.5` | zero the command if odometry goes quiet |
 | `yaw_rate_rad_s` | `1.0` | yaw rate at full left-stick deflection |
 | `forward_axis` / `left_axis` / `climb_axis` / `yaw_axis` | from the controller (`xbox_usb`: `4` / `3` / `1` / `0`) | axis index per direction |

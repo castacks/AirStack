@@ -20,7 +20,9 @@ Starling 2 Max airframe).
  /{name}/odometry_        │ swarm_commander  (20 Hz)                   │
  conversion/odometry ──▶  │  scenario nominal | per-drone teleop       │
  /svg/{name}/teleop ───▶  │  → cbf_filter.filter_velocities()  [REAL]  │
-                          │  → /{name}/.../velocity_command            │
+                          │  → real: /{name}/fmu/trajectory_command    │
+                          │          (reference + velocity + accel)    │
+                          │    sim:  /{name}/interface/velocity_command│
                           │  services: takeoff / start / hold / land   │
                           └────────────────────────────────────────────┘
                                    │ per-drone robot_interface
@@ -78,9 +80,16 @@ velocity, no altitude hold) remains as an ad-hoc utility.
   latches a swarm-wide freeze until `~/reset_fence`; `keep_in` — commanded
   drones are braked at the walls (per-axis velocity clip) and pushed back in,
   nobody stops.
-- **Teleop position mode**: a hand-flown drone tracks a target the sticks
-  move (seeded from its position at `/start`), so released sticks hold
-  position on all axes (`teleop_kp`, `teleop_lead_m`).
+- **Position hold and trajectories** (`trajectory.py`, `position_hold.py`):
+  every commanded drone has a reference point (where it was told to be),
+  which real drones receive as PX4's position setpoint together with the
+  velocity and acceleration feedforward, so PX4 holds position onboard and
+  tracks like its own Position mode. Scenario drones fly an
+  acceleration-limited profile with PX4's braking law toward their goal
+  (`goal_accel_mps2`, `goal_settle_s`, `goal_lead_m`); hand-flown drones move
+  the reference with the sticks, so released sticks hold position on all
+  axes (`teleop_lead_m`). Measured on drone_2: the old `1.5 × distance`
+  velocity P-law overshot a 5 m/s leg by 1 m; see experiment.md C1.
 - **RViz**: all drones' world positions on `/svg/viz/markers`
   (`rviz2 -d $(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/svg_drones.rviz`).
 

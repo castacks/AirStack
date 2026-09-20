@@ -67,8 +67,9 @@ Five executables (`robot/ros_ws/src/svg_ground_control/svg_ground_control/`):
 
 | Script | Node | What it does |
 |---|---|---|
-| `swarm_commander.py` | `swarm_commander` | **The brain.** 20 Hz loop: build each drone's *nominal* velocity (from the scenario or teleop) → run the **CBF safety filter** → publish a per-drone velocity command. Owns takeoff/start/hold/land/reset_fence services, the geofence, and the RViz markers. |
+| `swarm_commander.py` | `swarm_commander` | **The brain.** 20 Hz loop: build each drone's *nominal* velocity (from the scenario or teleop) → run the **CBF safety filter** → publish a per-drone command (real: reference position + velocity + acceleration; sim: velocity). Owns each drone's reference point, takeoff/start/hold/land/reset_fence services, the geofence, and the RViz markers. |
 | `scenarios.py` | (library) | Nominal-velocity policies: `hover`, `goal`, `random_walk`, `random_goals`, `head_on`, `antipodal`, `squeeze`. Pure NumPy, ported from `~/drone_soccer`. |
+| `trajectory.py` | (library) | The go-to-goal law: PX4-style braking law + acceleration-limited reference profile (`goal_accel_mps2`, `goal_settle_s`). See [C1](#c1-single-drone-goal-goal_singleyaml). |
 | `cbf_filter.py` | (library) | The velocity-CBF collision filter (`filter_velocities`), a verbatim port of `drone_soccer/cbf.py`. |
 | `mocap_bridge.py` | `mocap_bridge` | Hardware only: `/{name}/pose` (mocap) → `/{name}/fmu/visual_odometry_in` for the PX4 EKF. |
 | `safe_teleop/` | `safe_teleop` | Gamepad teleop for one `teleop_drones` drone: `/joy` → altitude-held ENU velocity on the teleop topic. Device = `teleop_controller` (`xbox_usb`; registry `safe_teleop/controllers.py`). See [teleop.md](teleop.md). |
@@ -79,8 +80,12 @@ Five executables (`robot/ros_ws/src/svg_ground_control/svg_ground_control/`):
  per-drone odometry  ──► (add drone_position_offsets → shared world frame)
         │
         ▼
+   reference point per drone (where it was told to be; PX4 holds it)
+        │
+        ▼
    scenario.nominal_velocity()   ── OR ──  teleop / goal-command input
-        │  (per-drone desired velocity, ENU)
+        │  (per-drone desired velocity + acceleration feedforward, ENU;
+        │   accel-limited profile evaluated at the reference, trajectory.py)
         ▼
    cbf_filter.filter_velocities()   ◄── sees ALL drones' world positions
         │  (collision-safe velocities; cbf_exempt rows restored after)
@@ -89,7 +94,9 @@ Five executables (`robot/ros_ws/src/svg_ground_control/svg_ground_control/`):
                    keep_in: clip each command at the walls instead)
         │
         ▼
-   publish /{name}/<iface>/velocity_command   +   /svg/viz/markers (RViz)
+   publish  real: /{name}/fmu/trajectory_command (reference + velocity + accel)
+            sim:  /{name}/interface/velocity_command
+         +  /svg/viz/markers (RViz)
 ```
 
 **Three independent per-drone axes** — set any combination in *any* task
@@ -833,6 +840,28 @@ ros2 launch svg_ground_control ground_control.launch.py \
   config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/goal_single.yaml \
   use_mocap:=true
 ```
+**How it flies (since 2026-09-20).** Real drones no longer get a bare
+velocity setpoint. The commander keeps a *reference point* per drone (where
+it was told to be, integrated from the published velocity) and flies an
+acceleration-limited profile toward the goal from it, using PX4's own
+braking law `v = -aL + sqrt((aL)² + 2ad)`; the reference, the velocity and
+the acceleration go to PX4 in one `trajectory_command`, so PX4 closes the
+position loop onboard with feedforward — the same structure as its Position
+mode. Measured on drone_2 (px4_logs/, bag `drone_2_auto_goal_0920_192853`):
+the old `1.5 × distance` P-law overshot a 7 m / 5 m/s leg by **1.0 m** and
+needed 4.7 s to settle; PX4 Position mode stops from 5.8 m/s in 4.2 m with
+0.35 m overshoot; the new law stops on the goal within ~0.05 m in the same
+plant model (`test/test_trajectory.py`). Knobs, all live with
+`ros2 param set /swarm_commander …`:
+
+| param | default | meaning |
+|---|---|---|
+| `scenario_speed_mps` / `speed_command` | config | cruise cap; reached only if the goal is farther than `v²/(2a) + v·settle` (the commander logs this distance for every speed it receives) |
+| `goal_accel_mps2` | 3.0 | acceleration and braking of the profile (drone_2 managed 5.5 in the logs; PX4 auto uses 3) |
+| `goal_settle_s` | 0.3 | exponential tail into the goal; larger = softer stop, slower arrival |
+| `goal_lead_m` | 2.0 | leash: how far the reference may lead a drone held back by the CBF/fence (PX4 `MPC_XY_ERR_MAX`) |
+| `real_command_mode` | `trajectory` | `velocity` sends the old TwistStamped instead (the px4_interface must be rebuilt for `trajectory`: `bws --packages-select px4_interface`) |
+
 ```bash
 # control terminal:
 ros2 service call /swarm_commander/takeoff std_srvs/srv/Trigger
@@ -1270,5 +1299,6 @@ come up before starting a test.
 | teleop: `pad: NO /joy` although the pad **is** plugged in | the container cannot see the device. `ls /dev/input/js0` on the host, then `docker exec airstack-robot-desktop-1 ls /dev/input/js0` — `privileged` populates `/dev` only at container start, so a pad plugged in afterwards is invisible. `robot-base-docker-compose.yaml` bind-mounts `/dev/input`; a container created before that needs **recreating** (`AUTOLAUNCH=false airstack up robot-desktop`), not restarting. Confirm with `ros2 run joy joy_enumerate_devices` (SDL's `Failed loading udev_device_get_action` line is harmless). |
 | teleop: `REFUSING TO COMMAND: forward (axis 4) rests at +1.00` | wrong `teleop_controller` for this pad: that axis is an analog trigger, which rests at full scale and would command full speed untouched. The bench pad is `dragonrise_usb` (right stick on axes 2/3), an Xbox pad is `xbox_usb` (3/4). Check with `ros2 run svg_ground_control joy_map`. |
 | teleop: sticks move the wrong drone axis (but nothing is refused) | a rearranged stick layout is not detectable automatically — only a resting trigger is. Verify each direction on the ground against the printed `cmd vx/vy/vz`, then fix the profile's axis numbers in `safe_teleop/controllers.py` (or override `forward_axis` etc. in the config's `safe_teleop` block). |
-| **speed does not change** (`scenario_speed_mps`, `speed_command`, `ros2 param set`) | Three separate things. (1) `ros2 param set /swarm_commander scenario_speed_mps X` used to answer *successful* and do nothing (read once at startup) — it is now applied live, and other params answer with a reason. (2) The goal scenario eases in: speed = min(speed, `goal_approach_gain`·distance), so at 1.5 a 1.2 m/s setting is only reached > 0.8 m from the goal — 1–2 m hops look alike at every setting; raise `goal_approach_gain` or fly longer legs. (3) `cbf_max_speed_mps` caps everything (1.2 in the goal configs). The commander now logs every `speed ->` / `goal ->` it receives and what caps it; the bags show the drone tracks the commanded speed within 0.05 m/s, so if the log says 1.0 the drone flies 1.0. |
+| **speed does not change** (`scenario_speed_mps`, `speed_command`, `ros2 param set`) | Three separate things. (1) `ros2 param set /swarm_commander scenario_speed_mps X` used to answer *successful* and do nothing (read once at startup) — it is now applied live, and other params answer with a reason. (2) The speed is a cruise cap: the drone brakes at `goal_accel_mps2` and eases in over `goal_settle_s`, so it reaches the setting only if the goal is farther than `v²/(2a) + v·settle` (0.6 m at 1.2 m/s, 5.7 m at 5 m/s with the defaults) — the commander prints that distance with every speed it receives. (3) `cbf_max_speed_mps` caps everything (1.2 in the goal configs). The bags show the drone tracks the commanded speed within 0.05 m/s, so if the log says 1.0 the drone flies 1.0. |
+| **overshoots the goal / stops sluggishly / oscillates around it** | Make sure the drone is on the trajectory output: the startup log says `real output: trajectory` and `ros2 topic hz /drone_N/fmu/trajectory_command` shows 20 Hz (it needs the rebuilt px4_interface; with `velocity` output PX4 has no position loop and no feedforward, and the ground loop cannot beat its ~0.7 s velocity lag). Then `goal_accel_mps2` too high for the airframe (drop to 2), or `goal_settle_s` too small (raise to 0.5). A sim/MAVROS drone always flies the softer velocity-only law (`goal_velocity_only_settle_s`). |
 | RViz empty | Fixed Frame must be `map`; check `ros2 topic hz /svg/viz/markers`; needs an X display (`echo $DISPLAY`) |
