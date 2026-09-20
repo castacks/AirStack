@@ -713,9 +713,15 @@ function evaluateLink(agent, cfg, now) {
   let dropPct = null, dropSource = null;
   const reportedDrop = num(r?.drop_rate);
   const ddsDrop = ddsDropRatePct(agent, now);
+  const ddsLive = agent.ddsCounter === "dds" && agent.ddsHist.length > 0
+    && now - agent.ddsHist[agent.ddsHist.length - 1][0] <= COMMANDER_TIMEOUT_S;
   if (reportedDrop != null) { dropPct = reportedDrop; dropSource = "report"; }
   else if (ddsDrop != null) { dropPct = ddsDrop; dropSource = "dds"; }
-  else {
+  else if (ddsLive) {
+    // Counters are flowing but the window is not filled yet: show "--"
+    // rather than falling back to a guess that the measurement will contradict.
+    dropPct = null; dropSource = "dds";
+  } else {
     const est = streamDropRatePct(st, now);
     if (est != null) { dropPct = est; dropSource = "est"; }
   }
@@ -741,7 +747,11 @@ function evaluateLink(agent, cfg, now) {
     next = LINK_STATE.LOST;
   } else {
     const m = agent.metrics;
-    const badDrop = m.dropPct != null && m.dropPct > Number(cfg.dropTargetPct);
+    // Only a measured or reported drop rate can degrade the link: the
+    // arrival-timing estimate is inflated by any burstiness between the
+    // publisher and Studio (the bridge batches) and must not raise alarms.
+    const badDrop = m.dropPct != null && m.dropSource !== "est"
+      && m.dropPct > Number(cfg.dropTargetPct);
     // On the VPN path the acceptable ping is the (looser) cellular target.
     const pingTarget = tier === "vpn" ? Number(cfg.vpnPingTargetMs) : Number(cfg.pingTargetMs);
     const badPing = m.pingMs != null && m.pingMs > pingTarget;
@@ -2591,6 +2601,9 @@ function activate(extensionContext) {
 
           const tdDrop = el("td");
           gradeCell(tdDrop, m.dropPct, Number(cfg.dropTargetPct), 2, " %");
+          // An estimate is informational only: shown muted, never coloured as
+          // a fault (and it does not feed the link health state either).
+          if (m.dropSource === "est") tdDrop.className = "sb-muted";
           if (m.dropSource) {
             tdDrop.appendChild(el("span", "sb-src", m.dropSource));
             tdDrop.title = m.dropSource === "dds"

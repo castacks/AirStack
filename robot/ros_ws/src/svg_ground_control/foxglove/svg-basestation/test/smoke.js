@@ -197,6 +197,10 @@ const text = () => root.textContent;
     const d1 = dropCells[0].textContent, d2 = dropCells[1].textContent;
     assert(/4\.\d\d %dds|5\.\d\d %dds/.test(d1), `drone_1 measured drop ~4.8 % from counters (got "${d1}")`);
     assert(d2.startsWith("0.00 %"), `drone_2 measured drop 0 % (got "${d2}")`);
+    // Before the counters were flowing, the same odometry stream fed the
+    // arrival estimate; an estimate must never grade the link as DEGRADED.
+    const estCells = findAll(root, (n) => n.tagName === "td" && n.title.startsWith("ESTIMATE"));
+    assert(estCells.every((n) => n.className.includes("sb-muted")), "estimated drop cells are muted, not graded");
   }
   assert(/\d+ Hz/.test(txt), "velocity command stream rate rendered");
   findButton(root, "Use Current").click();
