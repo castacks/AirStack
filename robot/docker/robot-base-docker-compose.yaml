@@ -35,7 +35,9 @@ services:
       - ./robot_name_map:/root/AirStack/robot/docker/robot_name_map:rw
       # Foxglove: custom panels (installed into ~/.foxglove-studio at container
       # start, see the robot-desktop command) + Studio's own config/layouts so
-      # an imported layout survives container recreation
+      # an imported layout survives container recreation. The SVG Basestation
+      # panel lives in robot/ros_ws/src/svg_ground_control/foxglove (already
+      # inside the ros_ws mount below); this mount is the general AirStack panels.
       - ../../gcs/foxglove_extensions:/root/AirStack/gcs/foxglove_extensions:rw
       - ./Foxglove:/root/.config/Foxglove:rw
       # autonomy stack stuff

@@ -62,6 +62,22 @@ drone:=drone_3` (one instance per teleop drone).
   leaving the box latches a swarm-wide freeze until `~/reset_fence`.
 - **RViz**: all drones' world positions on `/svg/viz/markers`
   (`rviz2 -d $(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/svg_drones.rviz`).
+- **Status snapshot** (`status_topic`, default `/svg/commander_status`,
+  `std_msgs/String` JSON at `status_rate_hz` = 5 Hz): mission state
+  (`mission_active`, `mission_ever_started`, `mission_started_at`,
+  `fence_breached`), the outcome of the last lifecycle service
+  (`last_command` + a `command_seq` counter), the live CBF gains and which
+  drones the CBF is correcting, and per drone its `FlightState`, world
+  position, speed, odometry freshness and the result of its last
+  `robot_command` (offboard / arm / disarm). Built by `build_status()`; the
+  [SVG Basestation Foxglove panel](foxglove/svg-basestation/README.md)
+  (in this package's `foxglove/` directory, with the `svg_basestation.json`
+  layout and its `install.py`) uses it to confirm Start really took effect
+  and to show numeric positions.
+- **Runtime tuning**: `cbf_alpha` can be changed while flying and applies on
+  the next control tick (`ros2 param set /swarm_commander cbf_alpha 4.0`, or
+  the panel's CBF slider via `set_parameters`); non-positive / non-finite
+  values are rejected. Other parameters are read once at startup.
 
 Full how-to for all of the above: **[experiment.md](experiment.md)**.
 
@@ -71,10 +87,14 @@ Full how-to for all of the above: **[experiment.md](experiment.md)**.
 `drone_soccer/cbf.py`: pairwise barrier `h = ||p_i−p_j||² − (2r)²`,
 constraint `ḣ + αh ≥ 0` (linear in velocities), least-squares projection via
 parallel Dykstra + Gauss-Seidel polish, constraint pruning, and an emergency
-push-apart fallback when the QP is infeasible. Tests:
+push-apart fallback when the QP is infeasible. `cbf_alpha` is the class-K
+gain: lower = gentler (yields earlier, softer corrections), higher = more
+aggressive (approaches closer, corrects harder). Tests:
 [test/test_cbf.py](test/test_cbf.py) (kinematic suite from drone_soccer),
 [test/test_scenarios.py](test/test_scenarios.py) (includes a kinematic
-squeeze rollout), and [test/functional_squeeze_test.py](test/functional_squeeze_test.py)
+squeeze rollout), [test/test_runtime_params.py](test/test_runtime_params.py)
+(runtime `cbf_alpha` set/reject and the status snapshot), and
+[test/functional_squeeze_test.py](test/functional_squeeze_test.py)
 (closed-loop ROS test against fake drones — barrier held at exactly 2r).
 
 ## Safety notes

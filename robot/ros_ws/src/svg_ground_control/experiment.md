@@ -1147,10 +1147,11 @@ Foxglove is the operator-facing alternative to RViz: the same `/svg/viz/markers`
 3D view (Iris body mesh per drone, coloured by planner status — see the RViz
 section for the legend) plus the **SVG Basestation** panel (agent wiring,
 two-click land-all safety stop, Hold All, link safety, battery / RTB, formation
-dropdown). The panel and a ready-made layout live in
-[`gcs/foxglove_extensions/`](../../../../gcs/foxglove_extensions/) — see its
-[README](../../../../gcs/foxglove_extensions/svg-basestation/README.md) for what
-every column means.
+dropdown). The panel, a ready-made layout and its installer live in this
+package's [`foxglove/`](foxglove/) directory — see the panel's
+[README](foxglove/svg-basestation/README.md) for what every column means. (The
+general AirStack panels — Robot Tasks, Waypoint / Polygon editors — stay in
+`gcs/foxglove_extensions/`.)
 
 **Everything runs from the robot container — nothing to start by hand.**
 
@@ -1158,10 +1159,10 @@ every column means.
   `foxglove_bridge` next to the commander (`use_foxglove_bridge:=false` to opt
   out, `foxglove_port:=` to move it off 8765). Expect
   `[foxglove_bridge]: Server listening on 0.0.0.0:8765` in the A4 terminal.
-* The robot container mounts `gcs/foxglove_extensions/` and runs its
-  `install.py` at start-up, so the four panels (SVG Basestation, Robot Tasks,
-  Waypoint / Polygon editors) are installed in the container's own Foxglove
-  Studio. Studio's config/layouts persist in `robot/docker/Foxglove/`
+* The robot container runs `svg_ground_control/foxglove/install.py` (SVG
+  Basestation, from the mounted `ros_ws`) and `gcs/foxglove_extensions/install.py`
+  (Robot Tasks, Waypoint / Polygon editors) at start-up, so all four panels are
+  installed in the container's own Foxglove Studio. Studio's config/layouts persist in `robot/docker/Foxglove/`
   (git-ignored, mounted at `/root/.config/Foxglove`).
 * `robot-desktop` is on `network_mode: host` and pins `ROS_DOMAIN_ID=1`, so a
   Studio on the **host** reaches the bridge at `ws://localhost:8765` too. The
@@ -1180,13 +1181,13 @@ every column means.
 
 ```bash
 cd ~/AirStack
-python3 gcs/foxglove_extensions/install.py   # once per pull: installs the panels
-                                             # into ~/.foxglove-studio/extensions
-foxglove-studio
+python3 robot/ros_ws/src/svg_ground_control/foxglove/install.py   # once per pull: installs the
+                                                                  # panel into ~/.foxglove-studio/extensions
+foxglove-studio                                                   # (re)start Studio AFTER installing
 ```
 Then **Open connection** → Foxglove WebSocket → `ws://localhost:8765`, and
 **Layouts → Import from file…** →
-`~/AirStack/gcs/foxglove_extensions/svg_basestation.json`. Pick the imported
+`~/AirStack/robot/ros_ws/src/svg_ground_control/foxglove/svg_basestation.json`. Pick the imported
 layout from the layout dropdown (top-right).
 
 ### F2. Studio inside the container (alternative)
@@ -1198,7 +1199,7 @@ ros2 launch svg_ground_control ground_control.launch.py use_foxglove_studio:=tru
 foxglove-studio --no-sandbox
 ```
 Import the layout once from
-`/root/AirStack/gcs/foxglove_extensions/svg_basestation.json`; it is kept in the
+`/root/AirStack/robot/ros_ws/src/svg_ground_control/foxglove/svg_basestation.json`; it is kept in the
 mounted config dir, so it is still there after the container is recreated.
 `install.py` prints one `Installed Foxglove extension: airlab-cmu.<name>-<ver>`
 line per panel in `docker logs airstack-robot-desktop-1`; **Extensions** in

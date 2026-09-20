@@ -1,12 +1,15 @@
 {
   "configById": {
     "svg-basestation.SVG Basestation!sbmain": {
+      "view": "main",
       "drones": "drone_1,drone_2,drone_3",
       "modes": "",
       "sections": "auto",
       "commanderNs": "/swarm_commander",
       "formationTopic": "/svg/formation_command",
       "formationProfiles": "home, line, triangle, diagonal",
+      "statusTopic": "/svg/commander_status",
+      "cbfAlphaMax": 10,
       "stateTopicTemplate": "/{name}/odometry_conversion/odometry",
       "simBatteryTopicTemplate": "/{name}/interface/mavros/battery",
       "simCommandTopicTemplate": "/{name}/interface/velocity_command",
@@ -32,7 +35,7 @@
       "mocapAgeTargetMs": 50,
       "mocapTimeoutS": 0.5,
       "padPosition": "0,0,0",
-      "positionOffsets": "-2,0,0, 0,0,0, 2,0,0",
+      "positionOffsets": "",
       "cruiseSpeedMps": 0.6,
       "landSpeedMps": 0.5,
       "reservePct": 8,
@@ -40,6 +43,25 @@
       "rtbGatedPct": 20,
       "selected": "drone_1",
       "formation": ""
+    },
+    "svg-basestation.SVG Basestation!sbpower": {
+      "view": "power",
+      "drones": "drone_1,drone_2,drone_3",
+      "modes": "",
+      "sections": "auto",
+      "statusTopic": "/svg/commander_status",
+      "commanderNs": "/swarm_commander",
+      "stateTopicTemplate": "/{name}/odometry_conversion/odometry",
+      "simBatteryTopicTemplate": "/{name}/interface/mavros/battery",
+      "realBatteryTopicTemplate": "/{name}/fmu/out/battery_status",
+      "padPosition": "0,0,0",
+      "positionOffsets": "",
+      "cruiseSpeedMps": 0.6,
+      "landSpeedMps": 0.5,
+      "reservePct": 8,
+      "rtbNominalPct": 30,
+      "rtbGatedPct": 20,
+      "selected": "drone_1"
     },
     "3D!sbview": {
       "cameraState": {
@@ -134,7 +156,12 @@
   "layout": {
     "direction": "row",
     "first": "svg-basestation.SVG Basestation!sbmain",
-    "second": "3D!sbview",
-    "splitPercentage": 44
+    "second": {
+      "direction": "column",
+      "first": "3D!sbview",
+      "second": "svg-basestation.SVG Basestation!sbpower",
+      "splitPercentage": 60
+    },
+    "splitPercentage": 50
   }
 }

@@ -42,6 +42,18 @@ Visualization: every drone's WORLD position (offset-corrected, so real and
 simulated drones share one frame) is published as a MarkerArray on
 ``/svg/viz/markers`` for RViz.
 
+Status: a JSON snapshot (std_msgs/String) goes out on ``status_topic``
+(default ``/svg/commander_status``) at ``status_rate_hz``: mission state,
+the outcome of the last lifecycle command, the live CBF gains, and per drone
+its flight state, world position, odometry freshness and the result of its
+last robot_command (offboard / arm / disarm). The SVG Basestation Foxglove
+panel reads it to confirm a command actually reached the commander and to
+show numeric positions. See ``build_status``.
+
+Runtime tuning: ``cbf_alpha`` is applied on the next control tick when set
+at runtime (``ros2 param set /swarm_commander cbf_alpha 4.0`` or the panel's
+CBF slider); non-positive or non-finite values are rejected.
+
 Lifecycle (std_srvs/Trigger services):
     ~/takeoff — arm + offboard + ascend everyone to the scenario's initial
                 positions, then HOLD there
@@ -51,6 +63,8 @@ Lifecycle (std_srvs/Trigger services):
     ~/reset_fence — clear a latched geofence breach
 """
 
+import json
+import math
 import re
 from enum import Enum
 
@@ -58,9 +72,11 @@ import numpy as np
 import rclpy
 from rclpy.node import Node
 from rclpy.duration import Duration
+from rclpy.parameter import Parameter
 
 from geometry_msgs.msg import PoseStamped, TwistStamped
 from nav_msgs.msg import Odometry
+from rcl_interfaces.msg import SetParametersResult
 from std_msgs.msg import ColorRGBA, Float32, String
 from std_srvs.srv import Trigger
 from visualization_msgs.msg import Marker, MarkerArray
@@ -130,6 +146,11 @@ class DroneHandle:
         self.robot_command_client = None
         self.teleop_twist = np.zeros(3)
         self.last_teleop_time = None
+        # Outcome of the most recent robot_command (offboard / arm / disarm)
+        # sent to this drone, for the status topic:
+        # {'label', 'result': 'pending'|'ok'|'rejected'|'error'|'skipped',
+        #  'message', 'stamp'}. None until the first one is sent.
+        self.last_robot_command = None
 
     @property
     def commanded(self) -> bool:
@@ -238,6 +259,11 @@ class SwarmCommander(Node):
         # ---- Visualization ----------------------------------------------
         self.declare_parameter('publish_viz', True)
         self.declare_parameter('viz_frame', 'map')
+
+        # ---- Status snapshot (std_msgs/String, JSON) ----------------------
+        # Read by the SVG Basestation panel. 0 disables it.
+        self.declare_parameter('status_topic', '/svg/commander_status')
+        self.declare_parameter('status_rate_hz', 5.0)
 
         self.declare_parameter('control_rate_hz', 20.0)
         self.declare_parameter('state_timeout_s', 0.5)
@@ -355,6 +381,16 @@ class SwarmCommander(Node):
         # running" — after ~/hold both are ACTIVE with mission_active False.
         # This latch separates them, which is what the viz colour keys off.
         self.mission_ever_started = False
+        self.mission_started_at = None    # seconds, wall/ROS clock of last ~/start
+        # Last lifecycle service outcome, for the status topic: {'seq',
+        # 'name', 'success', 'message', 'stamp'}. The operator's panel shows
+        # this to prove a command reached the commander, independently of
+        # whether the service reply made it back over the link.
+        self._command_seq = 0
+        self._last_command = None
+        # Names the CBF corrected on the latest control tick (status topic).
+        self._cbf_active_names = []
+        self._cbf_emergency = False
         if scenario_name == 'squeeze':
             posts = self.scenario.holder_posts
             gap = float(np.linalg.norm(posts[0] - posts[1]))
@@ -486,9 +522,32 @@ class SwarmCommander(Node):
         # any hold/latch is the consumer's job.
         self.cbf_active_pub = self.create_publisher(String, '/svg/cbf_active', 10)
 
+        # ---- Status snapshot -------------------------------------------------
+        self.status_topic = str(self.get_parameter('status_topic').value)
+        status_rate = float(self.get_parameter('status_rate_hz').value)
+        self.status_pub = None
+        self.status_timer = None
+        if self.status_topic and status_rate > 0.0:
+            self.status_pub = self.create_publisher(String, self.status_topic, 10)
+            self.status_timer = self.create_timer(1.0 / status_rate, self.publish_status)
+
         rate = float(self.get_parameter('control_rate_hz').value)
         self.timer = self.create_timer(1.0 / rate, self.control_loop)
         self._cbf_warn_count = 0
+
+        # ---- Runtime-tunable parameters ---------------------------------------
+        # cbf_alpha is read from self.cbf_alpha on every control tick, so a
+        # `ros2 param set` (or the basestation panel's CBF slider) takes effect
+        # on the next tick. Validation happens in the pre-set callback; the
+        # value is applied only once the parameter has actually been stored, so
+        # a rejected batch never leaves the node running with an unset gain.
+        # Registered LAST: rclpy also runs these callbacks for every
+        # declare_parameter above.
+        self.add_on_set_parameters_callback(self._validate_parameters)
+        if hasattr(self, 'add_post_set_parameters_callback'):   # rclpy >= Iron
+            self.add_post_set_parameters_callback(self._apply_parameters)
+        else:
+            self._apply_in_validate = True
 
         self.get_logger().info(
             f'SwarmCommander up | scenario={scenario_name} | '
@@ -510,6 +569,139 @@ class SwarmCommander(Node):
                 'drone_position_offsets are all zero — correct for mocap, but '
                 'in SIM each PX4 local origin is its spawn point; set the '
                 'offsets to the spawn positions or all geometry is per-drone!')
+
+    # ------------------------------------------------------------------
+    # Runtime parameters
+    # ------------------------------------------------------------------
+
+    # Parameters that may change while flying, and how they are applied.
+    # Everything else is wiring/geometry read once at startup; changing it at
+    # runtime is accepted by rclpy but has no effect until restart.
+    RUNTIME_PARAMS = ('cbf_alpha',)
+    _apply_in_validate = False
+
+    def _validate_parameters(self, params):
+        for p in params:
+            if p.name not in self.RUNTIME_PARAMS:
+                continue
+            if p.type_ not in (Parameter.Type.DOUBLE, Parameter.Type.INTEGER):
+                return SetParametersResult(
+                    successful=False,
+                    reason=f'{p.name} must be a number, got {p.type_.name}')
+            value = float(p.value)
+            if not math.isfinite(value) or value <= 0.0:
+                return SetParametersResult(
+                    successful=False,
+                    reason=f'{p.name} must be finite and > 0, got {p.value}')
+        if self._apply_in_validate:
+            self._apply_parameters(params)
+        return SetParametersResult(successful=True)
+
+    def _apply_parameters(self, params):
+        for p in params:
+            if p.name == 'cbf_alpha':
+                new = float(p.value)
+                if new != self.cbf_alpha:
+                    self.get_logger().info(
+                        f'cbf_alpha {self.cbf_alpha:g} -> {new:g} '
+                        '(applied on the next control tick)')
+                self.cbf_alpha = new
+
+    # ------------------------------------------------------------------
+    # Status snapshot
+    # ------------------------------------------------------------------
+
+    def _now_s(self) -> float:
+        return self.get_clock().now().nanoseconds * 1e-9
+
+    @staticmethod
+    def _finite_list(vec):
+        """3-vector -> list of rounded floats, or None if any entry is not finite.
+
+        JSON has no NaN/Inf; a drone with a broken estimate must read as
+        "no position" rather than poison the whole snapshot.
+        """
+        if vec is None:
+            return None
+        vals = [float(v) for v in vec]
+        if not all(math.isfinite(v) for v in vals):
+            return None
+        return [round(v, 3) for v in vals]
+
+    def _record_command(self, name: str, response):
+        """Remember a lifecycle service outcome for the status topic."""
+        self._command_seq += 1
+        self._last_command = {
+            'seq': self._command_seq,
+            'name': name,
+            'success': bool(response.success),
+            'message': str(response.message),
+            'stamp': self._now_s(),
+        }
+        return response
+
+    def build_status(self) -> dict:
+        """The snapshot published on status_topic (JSON-serialisable)."""
+        now = self.get_clock().now()
+        timeout = Duration(seconds=self.state_timeout)
+        drones = []
+        for d in self.drones:
+            odom_age = (None if d.last_odom_time is None
+                        else (now - d.last_odom_time).nanoseconds * 1e-9)
+            fresh = d.last_odom_time is not None and (now - d.last_odom_time) < timeout
+            position = self._finite_list(d.position)
+            speed = None
+            if position is not None:
+                s = float(np.linalg.norm(d.velocity))
+                speed = round(s, 3) if math.isfinite(s) else None
+            drones.append({
+                'name': d.name,
+                'role': d.role,
+                'mode': d.mode,
+                'commanded': d.commanded,
+                'cbf_exempt': d.name in self.cbf_exempt_names,
+                'state': d.state.name,
+                # World ENU = odometry + this offset. Published so the panel
+                # can put its own odometry-derived numbers (and the goals it
+                # sends) in exactly the frame the commander plans in.
+                'position_offset': self._finite_list(d.position_offset),
+                'position': position,
+                'speed_mps': speed,
+                'hold_target': (self._finite_list(d.hold_target)
+                                if d.state in (FlightState.ASCEND, FlightState.ACTIVE)
+                                else None),
+                'odom_fresh': bool(fresh),
+                'odom_age_s': None if odom_age is None else round(odom_age, 3),
+                'cbf_active': d.name in self._cbf_active_names,
+                'robot_command': d.last_robot_command,
+            })
+        return {
+            'stamp': round(now.nanoseconds * 1e-9, 3),
+            'node': self.get_fully_qualified_name(),
+            'scenario': self.scenario_name,
+            'mission_active': self.mission_active,
+            'mission_ever_started': self.mission_ever_started,
+            'mission_started_at': self.mission_started_at,
+            'fence_enabled': self.fence_enabled,
+            'fence_breached': self.fence_breached,
+            'cbf': {
+                'alpha': self.cbf_alpha,
+                'safety_radius_m': self.cbf_safety_radius,
+                'max_speed_mps': self.cbf_max_speed,
+                'external_velocity_gain': self.cbf_external_velocity_gain,
+                'active': list(self._cbf_active_names),
+                'emergency': self._cbf_emergency,
+            },
+            'command_seq': self._command_seq,
+            'last_command': self._last_command,
+            'drones': drones,
+        }
+
+    def publish_status(self):
+        if self.status_pub is None:
+            return
+        self.status_pub.publish(String(data=json.dumps(
+            self.build_status(), separators=(',', ':'), allow_nan=False)))
 
     # ------------------------------------------------------------------
     # Inputs
@@ -593,25 +785,26 @@ class SwarmCommander(Node):
         response.success = bool(started)
         response.message = ('takeoff: ' + ', '.join(started)) if started \
             else 'no drone eligible for takeoff (missing odometry or not IDLE)'
-        return response
+        return self._record_command('takeoff', response)
 
     def handle_start(self, request, response):
         if self.fence_breached:
             response.success = False
             response.message = 'geofence breached — call ~/reset_fence first'
-            return response
+            return self._record_command('start', response)
         not_ready = [d.name for d in self.drones
                      if d.commanded and d.state != FlightState.ACTIVE]
         if not_ready:
             response.success = False
             response.message = 'not all drones holding yet: ' + ', '.join(not_ready)
-            return response
+            return self._record_command('start', response)
         self.mission_active = True
         self.mission_ever_started = True
+        self.mission_started_at = self._now_s()
         response.success = True
         response.message = f'scenario "{self.scenario_name}" running'
         self.get_logger().info(response.message)
-        return response
+        return self._record_command('start', response)
 
     def handle_hold(self, request, response):
         self.mission_active = False
@@ -624,7 +817,7 @@ class SwarmCommander(Node):
                 held.append(d.name)
         response.success = bool(held)
         response.message = 'holding: ' + ', '.join(held) if held else 'nothing to hold'
-        return response
+        return self._record_command('hold', response)
 
     def handle_land(self, request, response):
         self.mission_active = False
@@ -636,7 +829,7 @@ class SwarmCommander(Node):
         response.success = bool(landing)
         response.message = ('landing: ' + ', '.join(landing)) if landing \
             else 'no airborne drone to land'
-        return response
+        return self._record_command('land', response)
 
     def handle_reset_fence(self, request, response):
         still_out = [d.name for d in self.drones if d.position is not None
@@ -647,7 +840,7 @@ class SwarmCommander(Node):
         response.message = 'geofence latch cleared' + (
             f' (WARNING still outside: {", ".join(still_out)})' if still_out else '')
         self.get_logger().info(response.message)
-        return response
+        return self._record_command('reset_fence', response)
 
     # ------------------------------------------------------------------
     # Geofence
@@ -694,28 +887,41 @@ class SwarmCommander(Node):
     # ------------------------------------------------------------------
 
     def send_robot_command(self, drone: DroneHandle, command: int, label: str):
+        def note(result, message=''):
+            # Surfaced on the status topic so the operator can see whether
+            # offboard / arm / disarm actually reached this drone's interface.
+            drone.last_robot_command = {
+                'label': label, 'result': result, 'message': message,
+                'stamp': self._now_s(),
+            }
+
         client = drone.robot_command_client
         if not client.service_is_ready():
             self.get_logger().warn(
                 f'{drone.name}: robot_command service not ready, skipping {label}')
+            note('skipped', 'robot_command service not ready')
             return
         req = RobotCommand.Request()
         req.command = command
         future = client.call_async(req)
+        note('pending')
 
         def report(fut, name=drone.name, label=label):
             try:
                 ok = fut.result().success
             except Exception as e:  # noqa: BLE001 - log any service failure
                 self.get_logger().error(f'{name}: {label} failed: {e}')
+                note('error', str(e))
                 return
             # rclpy caches severity per call site; success and failure need
             # separate sites or alternating async replies raise
             # "Logger severity cannot be changed between calls" and kill the node.
             if ok:
                 self.get_logger().info(f'{name}: {label} -> success={ok}')
+                note('ok')
             else:
                 self.get_logger().error(f'{name}: {label} -> success={ok}')
+                note('rejected', 'interface returned success=False')
 
         future.add_done_callback(report)
 
@@ -873,6 +1079,8 @@ class SwarmCommander(Node):
                          for i in np.flatnonzero(result.corrected)
                          if i not in exempt_rows and tracked[i].commanded]
         self.cbf_active_pub.publish(String(data=','.join(cbf_names)))
+        self._cbf_active_names = cbf_names
+        self._cbf_emergency = bool(result.used_emergency_stop)
         # ======================================================
 
         # Publish commands; handle landing completion.

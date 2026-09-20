@@ -91,8 +91,10 @@ def launch_setup(context, *args, **kwargs):
         # Foxglove Studio INSIDE the container, pre-connected to the bridge.
         # Off by default (most runs use a Studio on the host). Needs the X
         # display docker-compose passes through; --no-sandbox because the
-        # container runs as root. Panels come from gcs/foxglove_extensions,
-        # installed into ~/.foxglove-studio at container start.
+        # container runs as root. The SVG Basestation panel comes from this
+        # package's foxglove/ directory (general AirStack panels from
+        # gcs/foxglove_extensions), installed into ~/.foxglove-studio at
+        # container start.
         ExecuteProcess(
             cmd=['foxglove-studio', '--no-sandbox',
                  'foxglove://open?ds=foxglove-websocket'

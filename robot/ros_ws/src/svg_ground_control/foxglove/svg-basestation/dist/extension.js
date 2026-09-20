@@ -43,6 +43,12 @@
 //   cellular  /{name}/comms/cellular                     std_msgs/String, JSON
 //   lifecycle /swarm_commander/{takeoff,start,hold,land,reset_fence}  std_srvs/Trigger
 //   formation /svg/formation_command                     std_msgs/String
+//   status    /svg/commander_status                      std_msgs/String, JSON
+//             (swarm_commander.build_status: mission state, last command
+//             outcome, live CBF gains, per-drone flight state + position)
+//   cbf gain  /swarm_commander/{get,set}_parameters      rcl_interfaces (cbf_alpha)
+//   velocity  /{name}/interface/velocity_command | /{name}/fmu/velocity_command
+//             (rate only — proves the commander is driving that drone)
 
 // ─────────────────────────── constants ────────────────────────────────────────
 
@@ -113,6 +119,42 @@ const MODES = {
   real: { id: "real", label: "REAL", color: "#b45309" },
 };
 
+// Swarm-level mission verdicts, derived from the commander's status snapshot
+// (never from what this panel *sent* — the whole point is to show what the
+// commander actually did).
+const MISSION_STATE = {
+  RUNNING:   { label: "RUNNING",       color: "#10b981" },
+  READY:     { label: "READY TO START", color: "#2563eb" },
+  PARTIAL:   { label: "NOT READY",     color: "#f59e0b" },
+  TAKEOFF:   { label: "TAKING OFF",    color: "#3b82f6" },
+  HOLDING:   { label: "HOLDING",       color: "#f59e0b" },
+  LANDING:   { label: "LANDING",       color: "#6b7280" },
+  GROUND:    { label: "ON GROUND",     color: "#6b7280" },
+  FENCE:     { label: "FENCE BREACH",  color: "#dc2626" },
+  NO_DATA:   { label: "NO COMMANDER",  color: "#6b7280" },
+};
+
+// swarm_commander.FlightState names -> colour.
+const FLIGHT_STATE = {
+  IDLE:    { label: "IDLE",    color: "#6b7280" },
+  ARMING:  { label: "ARMING",  color: "#3b82f6" },
+  ASCEND:  { label: "ASCEND",  color: "#3b82f6" },
+  ACTIVE:  { label: "ACTIVE",  color: "#10b981" },
+  LANDING: { label: "LANDING", color: "#6b7280" },
+};
+
+// What "the command took effect" means for each lifecycle service, checked
+// against the commander's status snapshot after the service reply. A reply
+// can be lost on a bad link while the command still ran (or vice versa), so
+// the snapshot is the verdict, the reply only the first hint.
+const LIFECYCLE_EFFECT = {
+  takeoff: (s) => s.drones.some((d) => d.commanded && ["ARMING", "ASCEND", "ACTIVE"].includes(d.state)),
+  start: (s) => s.mission_active === true,
+  hold: (s) => s.mission_active === false,
+  land: (s) => s.drones.some((d) => d.commanded && ["LANDING", "IDLE"].includes(d.state)),
+  reset_fence: (s) => s.fence_breached === false,
+};
+
 const METRIC_WINDOW_S = 10;     // sliding window for drop rate / derived RTT
 const CLOCK_WINDOW_S = 120;     // sliding window for clock-offset drift slope
 const LINK_LOSS_TIMEOUT_S = 1.0;
@@ -124,6 +166,19 @@ const SAFETY_ARM_S = 4;         // safety button stays armed this long
 // Deliberately longer than LINK_LOSS_TIMEOUT_S: the slowest stream feeding a
 // bridge verdict is timesync_status at ~1 Hz, so a 1 s window would flap.
 const BRIDGE_TIMEOUT_S = 2.5;
+// The commander publishes its status snapshot at 5 Hz (status_rate_hz).
+const COMMANDER_TIMEOUT_S = 2.0;
+// A lifecycle / parameter service call with no reply by then is reported as
+// such instead of sitting on "Calling ..." forever.
+const SERVICE_TIMEOUT_S = 6;
+// How long after a service reply the panel waits for the commander's snapshot
+// to reflect the command before calling it "not confirmed".
+const VERIFY_WINDOW_S = 3;
+const MAX_CMD_LOG = 4;
+// Velocity commands stream at control_rate_hz (20 Hz) while a drone is
+// commanded; silence past this means the commander is not driving it.
+const CMD_STREAM_TIMEOUT_S = 0.5;
+const CBF_ALPHA_MIN = 0.1;
 
 // ─────────────────────────── defaults ─────────────────────────────────────────
 
@@ -139,6 +194,13 @@ const DEFAULTS = {
   // what fills the formation dropdown. "next" is not listed: it is a verb the
   // commander reserves, and the Next button sends it.
   formationProfiles: "home, line, triangle, diagonal",
+  // swarm_commander's status snapshot (status_topic parameter). Mission
+  // state, last command outcome, live CBF gains and per-drone positions all
+  // come from here.
+  statusTopic: "/svg/commander_status",
+  // Upper end of the CBF alpha slider. The gain has no natural ceiling; 10 is
+  // already far past "aggressive" for the 0.55 m / 1.2 m/s defaults.
+  cbfAlphaMax: 10,
 
   // shared
   stateTopicTemplate: "/{name}/odometry_conversion/odometry",
@@ -192,6 +254,11 @@ const DEFAULTS = {
 
   // "auto" hides sections with no topic source; "all" forces everything on.
   sections: "auto",
+  // Which part of the panel this instance shows. "full" = everything in one
+  // panel; "main" = everything except Battery & Power; "power" = only Battery
+  // & Power. The shipped layout uses one "main" and one "power" instance so
+  // the power cards sit under the 3D view instead of stacking on the left.
+  view: "full",
 };
 
 // ─────────────────────────── helpers ──────────────────────────────────────────
@@ -461,6 +528,8 @@ function newAgent(name) {
     tiers: { lan: newStream(null), vpn: newStream(null) },
     mocap: newStream(null),
     fmuOdom: newStream(null),   // raw PX4 odometry — the pre-conversion hop
+    cmd: newStream(null),       // velocity commands the commander sends this drone
+    cmdr: null,                 // this drone's entry in the commander's status snapshot
     bridge: null,               // {state, detail} — see evaluateBridge
     reported: null,             // {linkStatusTopicTemplate} JSON
     reportedAt: null,
@@ -472,7 +541,9 @@ function newAgent(name) {
     transitions: [],            // [{t, from, to, tier}]
     // state estimate
     offset: [0, 0, 0],          // drone_position_offsets entry, added to odometry
-    pos: null,                  // [x, y, z] world ENU
+    offsetSource: "panel",      // "panel" (settings) | "commander" (status snapshot)
+    rawPos: null,               // [x, y, z] as received, before the offset
+    pos: null,                  // [x, y, z] world ENU (= rawPos + offset)
     speed: null,
     posAt: null,
     ekfFlags: null, ekfAt: null,
@@ -820,6 +891,18 @@ const STYLES = `
 .sb-goal-in { width: 72px; flex: 0 0 auto; }
 .sb-status { font-family: ui-monospace, monospace; font-size: 11px; opacity: 0.8; min-height: 14px; }
 
+/* mission strip + CBF gain row (inside the command card) */
+.sb-mission { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+.sb-mission .sb-note { flex: 1; min-width: 160px; }
+.sb-cbf { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+.sb-cbf-label { font-weight: 700; opacity: 0.8; white-space: nowrap; }
+.sb-range { flex: 1; min-width: 120px; accent-color: #4f46e5; }
+.sb-cbf-in { width: 64px; flex: 0 0 auto; }
+.sb-cbf-live { font-family: ui-monospace, monospace; font-size: 11px; white-space: nowrap; }
+.sb-cbf-scale { display: flex; justify-content: space-between; font-size: 9.5px; opacity: 0.55; margin-top: -2px; }
+.sb-cmdlog { max-height: 74px; margin-top: 5px; }   /* ~4 lines */
+.sb-pos { font-family: ui-monospace, monospace; }
+
 /* layout */
 .sb-columns { display: grid; grid-template-columns: minmax(190px, 240px) minmax(0, 1fr); gap: 8px; align-items: start; }
 @media (max-width: 680px) { .sb-columns { grid-template-columns: 1fr; } }
@@ -997,6 +1080,30 @@ function activate(extensionContext) {
       let statusText = "";
       let lastTopoKey = null;
       let safetyArmedUntil = 0;
+      // The commander's latest status snapshot (swarm_commander.build_status)
+      // and when it arrived. Everything mission-related is read from here.
+      let commander = null, commanderAt = null;
+      // Lifecycle command outcomes, newest first:
+      // {t, name, phase: "sent"|"ok"|"rejected"|"failed"|"timeout",
+      //  message, verified: null|true|false, verifyBy}
+      let cmdLog = [];
+      // CBF alpha: what get_parameters last returned, what the operator last
+      // asked for (to confirm the commander really took it), and the draft in
+      // the slider/box.
+      let alphaParam = null;            // {v, t}
+      let alphaRequested = null;        // {v, t}
+      let alphaDraftTouched = false;
+      let alphaSetting = false;         // set_parameters call in flight
+      let lastAlphaRefresh = 0;
+
+      // Commander timestamps are ROS time — wall clock normally, sim time
+      // under use_sim_time — so they are never compared with panel time.
+      // Rendered as a clock only when they look like epoch seconds.
+      function stampLabel(t) {
+        const v = num(t);
+        if (v == null) return "";
+        return v > 1e9 ? clockStamp(v) : `t=${v.toFixed(1)}s`;
+      }
       // "Now" is anchored on the newest receive time and advanced by real
       // elapsed time. Live, that is just the wall clock; during playback it
       // tracks bag time, and it keeps advancing when the data stops so link
@@ -1076,7 +1183,12 @@ function activate(extensionContext) {
         agents = names.map((name, i) => {
           const at = (k) => (Number.isFinite(offsets[i * 3 + k]) ? offsets[i * 3 + k] : 0);
           const agent = prev.get(name) ?? newAgent(name);
-          agent.offset = [at(0), at(1), at(2)];
+          // The commander's own offsets (from its status snapshot) win over
+          // the panel setting: they define the frame goals are flown in.
+          if (agent.offsetSource !== "commander") {
+            agent.offset = [at(0), at(1), at(2)];
+            if (agent.rawPos) agent.pos = agent.rawPos.map((v, k) => v + agent.offset[k]);
+          }
           return agent;
         });
         if (!agents.some((a) => a.name === selected)) selected = agents[0]?.name ?? null;
@@ -1113,8 +1225,44 @@ function activate(extensionContext) {
           add(tpl(cfg.timesyncTopicTemplate, n), a, "timesync");
           add(tpl(cfg.cellularTopicTemplate, n), a, "cellular");
           add(tpl(cfg.linkStatusTopicTemplate, n), a, "linkstatus");
+          // Both command shapes, like the batteries: whichever the commander
+          // publishes on is the one that proves it is driving this drone.
+          add(tpl(cfg.simCommandTopicTemplate, n), a, "cmd");
+          add(tpl(cfg.realCommandTopicTemplate, n), a, "cmd");
         }
+        // Swarm-wide, not per agent.
+        add(cfg.statusTopic, null, "status");
         panelContext.subscribe([...byTopic.keys()].map((topic) => ({ topic })));
+      }
+
+      // Commander snapshot -> per-agent handles, so the render code can read
+      // agent.cmdr without searching the drones array every tick.
+      function handleCommanderStatus(msg, rx) {
+        const s = handleJson(msg);
+        if (!s || typeof s !== "object" || !Array.isArray(s.drones)) return;
+        commander = s;
+        commanderAt = rx;
+        const byName = new Map(s.drones.map((d) => [d.name, d]));
+        for (const a of agents) {
+          a.cmdr = byName.get(a.name) ?? null;
+          // Adopt the commander's drone_position_offsets so this panel's
+          // odometry-derived positions — and the goals built from them — are
+          // in the same world frame the commander plans in. A mismatch here
+          // is exactly how "Use Current" ends up sending a goal 2 m off.
+          const off = a.cmdr?.position_offset;
+          if (Array.isArray(off) && off.length === 3 && off.every((v) => Number.isFinite(Number(v)))) {
+            const next = off.map(Number);
+            if (a.offsetSource !== "commander" || next.some((v, k) => v !== a.offset[k])) {
+              a.offset = next;
+              a.offsetSource = "commander";
+              if (a.rawPos) a.pos = a.rawPos.map((v, k) => v + next[k]);
+            }
+          }
+        }
+      }
+
+      function commanderFresh(now) {
+        return commander != null && commanderAt != null && now - commanderAt <= COMMANDER_TIMEOUT_S;
       }
 
       // ── section visibility ───────────────────────────────────────────────
@@ -1163,7 +1311,8 @@ function activate(extensionContext) {
         const p = msg?.pose?.pose?.position;
         if (p && num(p.x) != null) {
           const o = a.offset;
-          a.pos = [Number(p.x) + o[0], Number(p.y) + o[1], Number(p.z) + o[2]];
+          a.rawPos = [Number(p.x), Number(p.y), Number(p.z)];
+          a.pos = [a.rawPos[0] + o[0], a.rawPos[1] + o[1], a.rawPos[2] + o[2]];
           a.posAt = rx;
         }
         const v = msg?.twist?.twist?.linear;
@@ -1203,6 +1352,10 @@ function activate(extensionContext) {
             resolveModes();
             recomputeCaps();
             buildRoster();
+            // A new topic list usually means the commander (re)started — its
+            // parameter services are the only way to read cbf_alpha before
+            // the first status snapshot arrives.
+            refreshCbfAlpha();
           }
         }
         const frame = renderState.currentFrame;
@@ -1215,6 +1368,10 @@ function activate(extensionContext) {
             const stamp = toSec(evt.message?.header?.stamp);
             for (const { agent, kind } of entries) {
               switch (kind) {
+                case "status":
+                  try { handleCommanderStatus(evt.message, rx); } catch { /* malformed snapshot: keep the last one */ }
+                  break;
+                case "cmd": agent.cmd.topic = evt.topic; streamOnMessage(agent.cmd, rx, stamp); break;
                 case "state": handleState(agent, evt.message, rx); break;
                 case "battery": handleBattery(agent, evt.message, rx); break;
                 case "ekfflags": agent.ekfFlags = evt.message; agent.ekfAt = rx; break;
@@ -1301,6 +1458,60 @@ function activate(extensionContext) {
       }
       cmdCard.appendChild(cmdRow);
 
+      // Mission strip — what the commander says it is doing, from its status
+      // snapshot. This, not the button click, is the confirmation that a
+      // Start (or any command) actually took effect.
+      const missionRow = el("div", "sb-mission");
+      const missionChip = el("span", "sb-chip", "NO COMMANDER");
+      const missionNote = el("span", "sb-note");
+      const lastCmdChip = el("span", "sb-chip sb-quiet");
+      missionRow.append(missionChip, missionNote, lastCmdChip);
+      cmdCard.appendChild(missionRow);
+
+      // CBF gain — alpha (class-K gain of the barrier constraint). Small alpha:
+      // the filter starts yielding early and softly; large alpha: it lets the
+      // drones get close and then corrects hard. Slider and box are one draft
+      // value; Apply sends it to the commander's set_parameters service and the
+      // live readout shows what the commander is actually running with.
+      const cbfRow = el("div", "sb-cbf");
+      const cbfLabel = el("span", "sb-cbf-label", "CBF α");
+      cbfLabel.title = "cbf_alpha — gain in the barrier constraint h_dot + alpha*h >= 0. " +
+        "Lower = gentler (yields earlier, softer corrections); higher = more aggressive " +
+        "(lets drones approach closer, then corrects harder). Safety radius and max speed are unchanged.";
+      const cbfRange = el("input", "sb-range");
+      cbfRange.type = "range";
+      cbfRange.min = String(CBF_ALPHA_MIN);
+      cbfRange.step = "0.1";
+      const cbfInput = el("input", "sb-input sb-cbf-in");
+      cbfInput.type = "number";
+      cbfInput.min = String(CBF_ALPHA_MIN);
+      cbfInput.step = "0.1";
+      cbfInput.placeholder = "alpha";
+      const syncAlphaDraft = (from) => {
+        alphaDraftTouched = true;
+        if (from === cbfRange) cbfInput.value = cbfRange.value;
+        else if (cbfInput.value !== "") cbfRange.value = cbfInput.value;
+      };
+      cbfRange.addEventListener("input", () => syncAlphaDraft(cbfRange));
+      cbfInput.addEventListener("input", () => syncAlphaDraft(cbfInput));
+      cbfInput.addEventListener("keydown", (ev) => { if (ev.key === "Enter") setCbfAlpha(cbfInput.value); });
+      const cbfApply = el("button", "sb-btn", "Apply");
+      cbfApply.style.background = "#4f46e5";
+      cbfApply.title = `Set cbf_alpha on the commander via ${cfg.commanderNs}/set_parameters (takes effect next control tick)`;
+      cbfApply.addEventListener("click", () => setCbfAlpha(cbfInput.value));
+      const cbfLive = el("span", "sb-cbf-live", "live --");
+      const cbfRefresh = el("button", "sb-btn", "↻");
+      cbfRefresh.style.cssText = "background:#4b5563;padding:5px 8px;";
+      cbfRefresh.title = "Re-read cbf_alpha from the commander (get_parameters)";
+      cbfRefresh.addEventListener("click", () => refreshCbfAlpha(true));
+      cbfRow.append(cbfLabel, cbfRange, cbfInput, cbfApply, cbfLive, cbfRefresh);
+      cmdCard.appendChild(cbfRow);
+      const cbfScale = el("div", "sb-cbf-scale");
+      cbfScale.append(
+        el("span", null, "← gentle: yields early, soft corrections"),
+        el("span", null, "aggressive: yields late, hard corrections →"));
+      cmdCard.appendChild(cbfScale);
+
       const formRow = el("div", "sb-cmd-row");
       formRow.style.marginTop = "6px";
       const formLabel = el("span", null, "Formation:");
@@ -1336,6 +1547,10 @@ function activate(extensionContext) {
       const statusEl = el("div", "sb-status");
       statusEl.style.marginTop = "5px";
       cmdCard.appendChild(statusEl);
+      // Command outcome log: sent -> reply -> confirmed by the commander's
+      // snapshot (or not). Kept short; the link transition log is elsewhere.
+      const cmdLogBox = el("div", "sb-log sb-cmdlog");
+      cmdCard.appendChild(cmdLogBox);
       root.appendChild(cmdCard);
 
       // Goal card — per-agent position + speed for the 'goal' scenario.
@@ -1440,6 +1655,31 @@ function activate(extensionContext) {
       wireCard.appendChild(wireNote);
       leftCol.appendChild(wireCard);
 
+      // Agent state section — flight state and numeric position per drone.
+      // Positions prefer the commander's own view (the numbers the CBF is
+      // actually filtering on); without a commander they fall back to this
+      // panel's odometry + offset, and the source is labelled either way.
+      const stateCard = el("div", "sb-card");
+      const stateTitle = el("div", "sb-title");
+      stateTitle.append(document.createTextNode("Agent State "));
+      stateTitle.appendChild(el("span", "sb-sub", "— flight state · position (world ENU, m) · command stream"));
+      stateCard.appendChild(stateTitle);
+      const stateScroll = el("div", "sb-scroll");
+      const stateTable = el("table", "sb-table");
+      const stateHead = el("thead");
+      const stateHeadRow = el("tr");
+      const stateCols = ["Agent", "State", "x", "y", "z", "Speed", "Cmd stream", "CBF", "Interface", "Odom"];
+      for (const c of stateCols) stateHeadRow.appendChild(el("th", null, c));
+      stateHead.appendChild(stateHeadRow);
+      const stateBody = el("tbody");
+      stateTable.append(stateHead, stateBody);
+      stateScroll.appendChild(stateTable);
+      stateCard.appendChild(stateScroll);
+      const stateNote = el("div", "sb-note");
+      stateNote.style.marginTop = "5px";
+      stateCard.appendChild(stateNote);
+      rightCol.appendChild(stateCard);
+
       // Link safety section
       const commCard = el("div", "sb-card");
       const commTitle = el("div", "sb-title");
@@ -1502,6 +1742,30 @@ function activate(extensionContext) {
       powerCard.appendChild(powerNote);
       rightCol.appendChild(powerCard);
 
+      // ── view: which part of the panel this instance shows ────────────────
+      //
+      // One panel holding everything runs off the bottom of a half-width
+      // column. The shipped layout therefore uses two instances of this panel:
+      // "main" on the left (everything but Battery & Power) and "power" under
+      // the 3D view on the right (Battery & Power only). "full" is the
+      // single-panel form.
+      function currentView() {
+        return ["full", "main", "power"].includes(cfg.view) ? cfg.view : "full";
+      }
+      function applyView() {
+        const powerOnly = currentView() === "power";
+        show(safetyBar, !powerOnly);
+        show(cmdCard, !powerOnly);
+        show(goalCard, !powerOnly);
+        show(columns, !powerOnly);
+        if (powerOnly) {
+          if (powerCard.parentNode !== root) root.appendChild(powerCard);
+        } else if (powerCard.parentNode !== rightCol) {
+          rightCol.appendChild(powerCard);
+        }
+        panelContext.setDefaultPanelTitle(powerOnly ? "SVG Battery & Power" : "SVG Basestation");
+      }
+
       // Confirmation dialog
       let overlay = null;
       function askConfirm(title, message, onConfirm) {
@@ -1539,21 +1803,184 @@ function activate(extensionContext) {
         return typeof panelContext.callService === "function";
       }
 
+      function commanderService(suffix) {
+        return `${String(cfg.commanderNs).replace(/\/$/, "")}/${suffix}`;
+      }
+
+      // callService with a deadline: a call the bridge never answers (link
+      // dropped mid-request) must surface as a timeout, not hang the UI.
+      function callWithTimeout(service, request) {
+        return new Promise((resolve, reject) => {
+          const timer = setTimeout(
+            () => reject(new Error(`no reply within ${SERVICE_TIMEOUT_S} s`)),
+            SERVICE_TIMEOUT_S * 1000);
+          Promise.resolve()
+            .then(() => panelContext.callService(service, request))
+            .then((res) => { clearTimeout(timer); resolve(res); },
+              (err) => { clearTimeout(timer); reject(err); });
+        });
+      }
+
+      function logCommand(entry) {
+        cmdLog.unshift(entry);
+        if (cmdLog.length > MAX_CMD_LOG) cmdLog.length = MAX_CMD_LOG;
+        return entry;
+      }
+
       function callLifecycle(id) {
-        const service = `${String(cfg.commanderNs).replace(/\/$/, "")}/${id}`;
+        const service = commanderService(id);
         if (!servicesAvailable()) {
           setStatus(`Service calls unavailable in this data source (wanted ${service})`);
           return;
         }
+        const entry = logCommand({
+          t: nowSec(), name: id, phase: "sent", message: "", verified: null, verifyBy: null,
+          // The commander numbers every lifecycle call it handles; a higher
+          // number in a later snapshot proves this request arrived.
+          seqBefore: commander ? num(commander.command_seq) : null,
+        });
         setStatus(`Calling ${service} ...`);
-        Promise.resolve()
-          .then(() => panelContext.callService(service, {}))
+        callWithTimeout(service, {})
           .then((res) => {
             const okFlag = res?.success;
-            const msg = res?.message ? ` — ${res.message}` : "";
-            setStatus(`${service}: ${okFlag === false ? "REJECTED" : "ok"}${msg}`);
+            const msg = res?.message ? String(res.message) : "";
+            entry.message = msg;
+            if (okFlag === false) {
+              // The commander answered and said no: that IS the verdict.
+              entry.phase = "rejected";
+              entry.verified = false;
+              setStatus(`${service}: REJECTED${msg ? ` — ${msg}` : ""}`);
+              return;
+            }
+            entry.phase = "ok";
+            // Now wait for the commander's snapshot to show the effect.
+            entry.verifyBy = nowSec() + VERIFY_WINDOW_S;
+            setStatus(`${service}: accepted${msg ? ` — ${msg}` : ""} · waiting for the commander to confirm`);
           })
-          .catch((err) => setStatus(`${service} failed: ${err?.message ?? err}`));
+          .catch((err) => {
+            const m = String(err?.message ?? err);
+            entry.message = m;
+            entry.phase = /no reply within/.test(m) ? "timeout" : "failed";
+            // A lost reply does not mean a lost command — the snapshot decides.
+            entry.verifyBy = nowSec() + VERIFY_WINDOW_S;
+            setStatus(`${service} ${entry.phase.toUpperCase()}: ${m} · checking the commander's status`);
+          })
+          .finally(render);
+      }
+
+      // Resolve pending command verifications against the commander snapshot.
+      // Runs every render tick; cheap.
+      function verifyCommands(now) {
+        for (const e of cmdLog) {
+          if (e.verified != null) continue;
+          const effect = LIFECYCLE_EFFECT[e.name];
+          if (commanderFresh(now) && commanderAt >= e.t && effect) {
+            const last = commander.last_command;
+            // The commander's own record of the newest lifecycle call is the
+            // strongest evidence — it proves the request arrived even when the
+            // reply did not (so this runs even while still "awaiting reply").
+            const seq = num(commander.command_seq);
+            const seenByCommander = last && last.name === e.name
+              && e.seqBefore != null && seq != null && seq > e.seqBefore;
+            if (seenByCommander) {
+              if (last.success === false) {
+                e.verified = false;
+                e.message = e.message || last.message || "";
+                if (e.phase === "ok") e.phase = "rejected";
+                continue;
+              }
+              if (effect(commander)) {
+                e.verified = true;
+                if (!e.message && last.message) e.message = last.message;
+                continue;
+              }
+            } else if (e.verifyBy != null && effect(commander)) {
+              // The reply (or its loss) is in and the snapshot shows the
+              // effect. Without a sequence baseline this is the best evidence
+              // there is — never used while a reply is still pending, because
+              // the effect could predate the command (e.g. hold when already
+              // holding).
+              e.verified = true;
+              continue;
+            }
+          }
+          if (e.verifyBy != null && now > e.verifyBy) {
+            e.verified = false;
+            if (!commanderFresh(now)) e.message = e.message || "no status snapshot from the commander";
+          }
+        }
+      }
+
+      // ── CBF alpha (rcl_interfaces parameter services) ─────────────────────
+      const PARAM_DOUBLE = 3, PARAM_INTEGER = 2;
+
+      function paramNumber(pv) {
+        if (!pv) return null;
+        const t = Number(pv.type);
+        if (t === PARAM_DOUBLE) return num(pv.double_value);
+        if (t === PARAM_INTEGER) return num(pv.integer_value);
+        return null;
+      }
+
+      function refreshCbfAlpha(force) {
+        if (!servicesAvailable()) return;
+        const t = Date.now() / 1000;
+        if (!force && t - lastAlphaRefresh < 2) return;   // topic lists can churn
+        lastAlphaRefresh = t;
+        const service = commanderService("get_parameters");
+        callWithTimeout(service, { names: ["cbf_alpha"] })
+          .then((res) => {
+            const v = paramNumber(res?.values?.[0]);
+            if (v == null) {
+              if (force) setStatus(`${service}: cbf_alpha not set on the commander`);
+              return;
+            }
+            alphaParam = { v, t: nowSec() };
+            if (force) setStatus(`cbf_alpha = ${v.toFixed(2)} (read from the commander)`);
+            render();
+          })
+          .catch((err) => {
+            // Silent on the automatic refresh: the commander may simply not be
+            // up yet. The status snapshot supersedes this once it arrives.
+            if (force) setStatus(`${service} failed: ${err?.message ?? err}`);
+          });
+      }
+
+      // What the commander is running with right now, and where that came
+      // from. Snapshot first (live, 5 Hz), then the last parameter read.
+      function liveAlpha(now) {
+        const s = commanderFresh(now) ? commander : null;
+        const fromStatus = num(s?.cbf?.alpha);
+        if (fromStatus != null) return { v: fromStatus, source: "commander", t: commanderAt };
+        if (alphaParam) return { v: alphaParam.v, source: "param read", t: alphaParam.t };
+        return null;
+      }
+
+      function setCbfAlpha(raw) {
+        const v = num(String(raw).trim());
+        if (v == null || !(v > 0)) { setStatus("CBF alpha must be a positive number"); return; }
+        const service = commanderService("set_parameters");
+        if (!servicesAvailable()) {
+          setStatus(`Service calls unavailable in this data source (wanted ${service})`);
+          return;
+        }
+        alphaSetting = true;
+        setStatus(`Setting cbf_alpha = ${v.toFixed(2)} via ${service} ...`);
+        callWithTimeout(service, {
+          parameters: [{ name: "cbf_alpha", value: { type: PARAM_DOUBLE, double_value: v } }],
+        })
+          .then((res) => {
+            const r = res?.results?.[0];
+            if (r && r.successful === false) {
+              setStatus(`cbf_alpha REJECTED by the commander${r.reason ? ` — ${r.reason}` : ""}`);
+              return;
+            }
+            alphaRequested = { v, t: nowSec() };
+            setStatus(`cbf_alpha = ${v.toFixed(2)} accepted · waiting for the commander to report it`);
+            refreshCbfAlpha(true);
+          })
+          .catch((err) => setStatus(`${service} failed: ${err?.message ?? err}`))
+          .finally(() => { alphaSetting = false; render(); });
       }
 
       function onSafetyClick() {
@@ -1609,14 +2036,26 @@ function activate(extensionContext) {
         return raw === "" ? null : num(raw);
       }
 
+      // The position the goal frame is defined in: the commander's own view of
+      // the drone when its snapshot is fresh (odometry + ITS offsets, the
+      // numbers it plans against), else this panel's odometry + adopted offsets.
+      function goalFramePosition(a, now) {
+        const c = commanderFresh(now) ? a.cmdr : null;
+        if (c && Array.isArray(c.position) && c.position.length === 3) {
+          return { pos: c.position.map(Number), source: "commander" };
+        }
+        if (a.pos) return { pos: a.pos, source: a.offsetSource === "commander" ? "odom + commander offsets" : "odom + panel offsets" };
+        return null;
+      }
+
       function useCurrentPosition() {
         const a = agents.find((x) => x.name === selected);
-        if (!a?.pos) { setStatus("No position for the selected agent yet"); return; }
-        // a.pos already carries the position offset, which is exactly how
-        // swarm_commander builds drone.position — so this is the goal frame.
+        const p = a ? goalFramePosition(a, nowSec()) : null;
+        if (!p) { setStatus("No position for the selected agent yet"); return; }
         const e = (goalEntry[selected] ??= {});
-        [e.x, e.y, e.z] = a.pos.map((v) => v.toFixed(2));
+        [e.x, e.y, e.z] = p.pos.map((v) => v.toFixed(2));
         persist();
+        setStatus(`${a.name} current position [${p.pos.map((v) => v.toFixed(2)).join(", ")}] (${p.source}) copied into the goal`);
         render();
       }
 
@@ -1747,6 +2186,282 @@ function activate(extensionContext) {
         show(formSelect, names.length > 0);
       }
 
+      // Swarm mission verdict from the commander snapshot.
+      function missionVerdict(now) {
+        if (!commander) {
+          return { state: MISSION_STATE.NO_DATA,
+            note: `nothing received on ${cfg.statusTopic} — commander not up, or an older build without status_topic` };
+        }
+        if (!commanderFresh(now)) {
+          return { state: MISSION_STATE.NO_DATA,
+            note: `status snapshot stale for ${fmtDuration(now - commanderAt)} — commander or link down` };
+        }
+        const s = commander;
+        const commanded = s.drones.filter((d) => d.commanded);
+        const states = commanded.map((d) => d.state);
+        const scenario = s.scenario ? `scenario "${s.scenario}"` : "scenario";
+        if (s.fence_breached) {
+          return { state: MISSION_STATE.FENCE, note: `${scenario} stopped, every drone frozen — Reset Fence to clear` };
+        }
+        if (s.mission_active) {
+          // Both stamps are the commander's clock, so the difference is valid
+          // under sim time too.
+          const since = num(s.mission_started_at), at = num(s.stamp);
+          const dur = since != null && at != null ? fmtDuration(at - since) : null;
+          return { state: MISSION_STATE.RUNNING,
+            note: `${scenario} running${since != null ? ` since ${stampLabel(since)}` : ""}${dur ? ` (${dur})` : ""}` };
+        }
+        if (states.some((x) => x === "LANDING")) {
+          return { state: MISSION_STATE.LANDING, note: "descending; each drone disarms on touchdown" };
+        }
+        if (states.some((x) => x === "ARMING" || x === "ASCEND")) {
+          const climbing = commanded.filter((d) => d.state === "ARMING" || d.state === "ASCEND").map((d) => d.name);
+          return { state: MISSION_STATE.TAKEOFF, note: `arming / climbing: ${climbing.join(", ")}` };
+        }
+        if (commanded.length && states.every((x) => x === "ACTIVE")) {
+          return s.mission_ever_started
+            ? { state: MISSION_STATE.HOLDING, note: `${scenario} stopped — every drone holding position; Start resumes it` }
+            : { state: MISSION_STATE.READY, note: "all drones holding at takeoff positions — Start begins the scenario" };
+        }
+        if (commanded.length && states.every((x) => x === "IDLE")) {
+          return { state: MISSION_STATE.GROUND, note: `${scenario} loaded; Takeoff to begin` };
+        }
+        const holding = commanded.filter((d) => d.state === "ACTIVE").map((d) => d.name);
+        const idle = commanded.filter((d) => d.state === "IDLE").map((d) => d.name);
+        return { state: MISSION_STATE.PARTIAL,
+          note: `holding: ${holding.join(", ") || "none"} · on ground: ${idle.join(", ") || "none"} — ` +
+            "Start is rejected until every commanded drone is holding" };
+      }
+
+      function renderMission(now) {
+        const v = missionVerdict(now);
+        missionChip.textContent = v.state.label;
+        missionChip.style.background = v.state.color;
+        missionNote.textContent = v.note;
+
+        // The commander's own record of the last lifecycle call it received.
+        const last = commanderFresh(now) ? commander.last_command : null;
+        show(lastCmdChip, Boolean(last));
+        if (last) {
+          const ok = last.success !== false;
+          lastCmdChip.textContent = `${ok ? "✓" : "✗"} ${last.name} ${stampLabel(last.stamp)}`;
+          lastCmdChip.style.borderColor = ok ? "#10b981" : "#dc2626";
+          lastCmdChip.style.color = ok ? "#10b981" : "#dc2626";
+          lastCmdChip.title = `Last lifecycle command the commander received: ${last.name} → ` +
+            `${ok ? "accepted" : "REJECTED"}${last.message ? ` — ${last.message}` : ""}`;
+        }
+
+        // Command log: newest first.
+        if (!cmdLog.length) {
+          cmdLogBox.textContent = "No commands sent from this panel yet.";
+        } else {
+          cmdLogBox.textContent = cmdLog.map((e) => {
+            const reply = e.phase === "sent" ? "sent, awaiting reply"
+              : e.phase === "ok" ? "reply: accepted"
+              : e.phase === "rejected" ? "reply: REJECTED"
+              : e.phase === "timeout" ? "reply: TIMEOUT"
+              : "reply: FAILED";
+            const verdict = e.verified === true ? "✓ confirmed by commander"
+              : e.verified === false ? (e.phase === "rejected" ? "✗ not executed" : "✗ NOT CONFIRMED")
+              : e.verifyBy != null ? "… confirming" : "";
+            const msg = e.message ? `  "${e.message}"` : "";
+            return `${clockStamp(e.t)}  ${e.name.padEnd(11)} ${reply.padEnd(22)} ${verdict}${msg}`;
+          }).join("\n");
+        }
+      }
+
+      function renderCbf(now) {
+        cbfRange.max = String(Math.max(Number(cfg.cbfAlphaMax) || 10, CBF_ALPHA_MIN + 0.1));
+        const live = liveAlpha(now);
+        const s = commanderFresh(now) ? commander?.cbf : null;
+        const ready = servicesAvailable();
+        cbfApply.disabled = !ready || alphaSetting;
+        cbfRange.disabled = !ready;
+        cbfInput.disabled = !ready;
+        cbfRefresh.disabled = !ready;
+
+        if (live) {
+          let text = `live ${live.v.toFixed(2)}`;
+          let cls = "sb-ok";
+          if (alphaRequested && now - alphaRequested.t < 10) {
+            if (Math.abs(live.v - alphaRequested.v) < 1e-6) {
+              text += " ✓";
+              // Confirmed: from here on the live value drives the draft again
+              // (so a change made from the CLI shows up in the box too).
+              alphaDraftTouched = false;
+            } else if (live.source === "commander" && commanderAt > alphaRequested.t + 1) {
+              // The commander has reported since the set and still shows the
+              // old gain — the set did not take.
+              text += ` (asked ${alphaRequested.v.toFixed(2)})`;
+              cls = "sb-warn";
+            } else {
+              text += ` (asked ${alphaRequested.v.toFixed(2)}…)`;
+            }
+          }
+          // CBF activity is worth a glance next to the gain.
+          if (s?.emergency) {
+            text += " · EMERGENCY push-apart";
+            cls = "sb-bad";
+          } else if (s?.active?.length) {
+            text += ` · correcting ${s.active.join(", ")}`;
+          }
+          cbfLive.textContent = text;
+          cbfLive.className = `sb-cbf-live ${cls}`;
+          cbfLive.title = `cbf_alpha as reported by the ${live.source}` +
+            (s ? ` · safety radius ${fmt(num(s.safety_radius_m), 2, " m")}, ` +
+              `vmax ${fmt(num(s.max_speed_mps), 2, " m/s")}` +
+              (s.active?.length ? ` · correcting now: ${s.active.join(", ")}` : " · not correcting anyone right now") +
+              (s.emergency ? " · EMERGENCY push-apart engaged (drones inside each other's safety spheres)" : "")
+              : "");
+          // Seed the draft from the live value until the operator touches it.
+          if (!alphaDraftTouched && document.activeElement !== cbfInput && document.activeElement !== cbfRange) {
+            cbfInput.value = live.v.toFixed(2);
+            cbfRange.value = String(clamp(live.v, CBF_ALPHA_MIN, Number(cbfRange.max)));
+          }
+        } else {
+          cbfLive.textContent = ready ? "live --" : "live -- (no services)";
+          cbfLive.className = "sb-cbf-live sb-muted";
+          cbfLive.title = ready
+            ? `No value yet: nothing on ${cfg.statusTopic} and ${commanderService("get_parameters")} has not answered. Click ↻ to retry.`
+            : "This data source cannot call services";
+        }
+      }
+
+      function renderAgentTable(now) {
+        stateBody.textContent = "";
+        const fresh = commanderFresh(now);
+        for (const a of agents) {
+          const c = fresh ? a.cmdr : null;
+          const tr = el("tr");
+          if (a.name === selected) tr.className = "sb-selected";
+
+          const tdName = el("td", null, a.name);
+
+          const fs = c ? (FLIGHT_STATE[c.state] ?? { label: c.state, color: "#6b7280" }) : null;
+          const tdState = el("td");
+          if (fs) {
+            const chip = el("span", "sb-chip", fs.label);
+            chip.style.background = fs.color;
+            chip.style.fontSize = "10px";
+            tdState.appendChild(chip);
+            tdState.title = `${c.role}${c.cbf_exempt ? " · CBF-exempt" : ""}` +
+              (c.hold_target ? ` · hold target [${c.hold_target.map((v) => v.toFixed(2)).join(", ")}]` : "");
+            if (!c.commanded) tdState.title += " · tracked, never commanded";
+          } else {
+            tdState.textContent = "--";
+            tdState.className = "sb-muted";
+            tdState.title = "flight state comes from the commander's status snapshot";
+          }
+
+          // Position: commander's view first, then this panel's odometry.
+          let pos = null, posSrc = null, posAge = null;
+          if (c && Array.isArray(c.position) && c.position.length === 3) {
+            pos = c.position.map(Number);
+            posSrc = "cmdr";
+            posAge = c.odom_age_s;
+          } else if (a.pos) {
+            pos = a.pos;
+            posSrc = "odom";
+            posAge = a.posAt == null ? null : now - a.posAt;
+          }
+          const posCells = [0, 1, 2].map((k) => {
+            const td = el("td", "sb-pos", pos ? pos[k].toFixed(2) : "--");
+            if (!pos) td.classList.add("sb-muted");
+            return td;
+          });
+          if (pos) {
+            const tip = posSrc === "cmdr"
+              ? "World ENU position as the commander sees it (odometry + drone_position_offsets) — the numbers the CBF filters on and the frame goals are flown in"
+              : a.offsetSource === "commander"
+                ? "World ENU from this panel's odometry + the offsets last reported by the commander (snapshot currently stale)"
+                : "World ENU from this panel's odometry + the Position offsets setting (no commander snapshot yet — may not match the commander's frame)";
+            for (const td of posCells) td.title = tip;
+            posCells[2].appendChild(el("span", "sb-src", posSrc));
+          }
+
+          const speed = c && num(c.speed_mps) != null ? num(c.speed_mps) : a.speed;
+          const tdSpeed = el("td", speed == null ? "sb-muted" : null, fmt(speed, 2, " m/s"));
+
+          // Command stream: is the commander publishing velocity to this drone?
+          const tdCmd = el("td");
+          const cmdFresh = streamFresh(a.cmd, now, CMD_STREAM_TIMEOUT_S);
+          if (cmdFresh) {
+            tdCmd.textContent = fmt(streamRateHz(a.cmd), 0, " Hz");
+            tdCmd.className = "sb-ok";
+            tdCmd.title = `velocity commands arriving on ${a.cmd.topic ?? "the command topic"}`;
+          } else if (a.cmd.everSeen) {
+            tdCmd.textContent = `silent ${fmtDuration(now - a.cmd.lastRx)}`;
+            tdCmd.className = c && c.state !== "IDLE" ? "sb-bad" : "sb-muted";
+            tdCmd.title = c && c.state !== "IDLE"
+              ? "the commander thinks this drone is airborne but no velocity commands are reaching its topic"
+              : "no velocity commands — expected while the drone is IDLE";
+          } else {
+            tdCmd.textContent = "--";
+            tdCmd.className = "sb-muted";
+            tdCmd.title = "no velocity command seen yet on either the sim or real command topic";
+          }
+
+          const tdCbf = el("td");
+          if (c?.cbf_active) {
+            tdCbf.textContent = "correcting";
+            tdCbf.className = "sb-warn";
+            tdCbf.title = "the CBF is altering this drone's command right now";
+          } else if (c?.cbf_exempt) {
+            tdCbf.textContent = "exempt";
+            tdCbf.className = "sb-muted";
+          } else {
+            tdCbf.textContent = c ? "clear" : "--";
+            tdCbf.className = "sb-muted";
+          }
+
+          // Last robot_command (offboard / arm / disarm) result at the interface.
+          const tdIf = el("td");
+          const rc = c?.robot_command;
+          if (rc) {
+            const glyph = rc.result === "ok" ? "✓" : rc.result === "pending" ? "…" : "✗";
+            tdIf.textContent = `${rc.label} ${glyph}`;
+            tdIf.className = rc.result === "ok" ? "sb-ok" : rc.result === "pending" ? "sb-muted" : "sb-bad";
+            tdIf.title = `${rc.label}: ${rc.result}${rc.message ? ` — ${rc.message}` : ""}` +
+              (rc.stamp != null ? ` (${stampLabel(rc.stamp)})` : "");
+          } else {
+            tdIf.textContent = "--";
+            tdIf.className = "sb-muted";
+            tdIf.title = "no offboard / arm / disarm command sent to this drone yet";
+          }
+
+          const tdOdom = el("td");
+          if (c) {
+            tdOdom.textContent = c.odom_fresh ? "fresh" : (c.position ? "STALE" : "none");
+            tdOdom.className = c.odom_fresh ? "sb-ok" : "sb-bad";
+            tdOdom.title = c.odom_fresh
+              ? `commander received odometry ${fmt(num(c.odom_age_s), 2, " s")} ago`
+              : "commander is not receiving fresh odometry — it commands zero velocity until it does";
+          } else {
+            tdOdom.textContent = posAge == null ? "--" : fmt(posAge, 1, " s");
+            tdOdom.className = "sb-muted";
+            tdOdom.title = "age of the newest odometry sample seen by this panel";
+          }
+
+          tr.append(tdName, tdState, ...posCells, tdSpeed, tdCmd, tdCbf, tdIf, tdOdom);
+          tr.addEventListener("click", () => { selected = a.name; persist(); render(); });
+          tr.style.cursor = "pointer";
+          stateBody.appendChild(tr);
+        }
+        if (!agents.length) {
+          const tr = el("tr");
+          const td = el("td", "sb-note", "No agents configured.");
+          td.colSpan = stateCols.length;
+          tr.appendChild(td);
+          stateBody.appendChild(tr);
+        }
+        stateNote.textContent = fresh
+          ? `Flight state, positions and interface results from ${cfg.statusTopic} ` +
+            `(${fmt(now - commanderAt, 1, " s")} old). "Cmd stream" is the rate of velocity commands ` +
+            "on this drone's command topic — the proof that the commander is driving it."
+          : `No fresh commander snapshot on ${cfg.statusTopic}: positions fall back to this panel's ` +
+            "odometry + Position offsets; flight state and interface results need the commander.";
+      }
+
       function renderGoal() {
         const a = agents.find((x) => x.name === selected);
         goalTitleSub.textContent = a
@@ -1759,11 +2474,15 @@ function activate(extensionContext) {
           input.disabled = !a;
         }
         goalSendBtn.disabled = !a;
-        goalHereBtn.disabled = !a?.pos;
+        const here = a ? goalFramePosition(a, nowSec()) : null;
+        goalHereBtn.disabled = !here;
         if (!a) { goalNote.textContent = ""; return; }
+        const frame = a.offsetSource === "commander"
+          ? "same frame as the Agent State positions (commander's world ENU: odometry + its drone_position_offsets)"
+          : "world ENU per this panel's Position offsets setting \u2014 no commander snapshot yet, so the frame is unconfirmed";
         goalNote.textContent =
-          `${tpl(cfg.goalTopicTemplate, a.name)} (PoseStamped, world ENU) \u00b7 ` +
-          `${tpl(cfg.speedTopicTemplate, a.name)} (Float32). ` +
+          `${tpl(cfg.goalTopicTemplate, a.name)} (PoseStamped) \u00b7 ` +
+          `${tpl(cfg.speedTopicTemplate, a.name)} (Float32). ${frame}. ` +
           "Applied while swarm_commander runs the 'goal' scenario.";
       }
 
@@ -2048,21 +2767,27 @@ function activate(extensionContext) {
 
         renderSafety();
 
-        // Section visibility follows the topics actually on the wire.
+        // Section visibility follows the topics actually on the wire, within
+        // what this instance's view shows at all.
+        const view = currentView();
+        const powerOnly = view === "power";
+        const showPower = powerOnly || (view !== "main" && caps.battery);
         show(cellCard, caps.cellular);
-        show(powerCard, caps.battery);
+        show(powerCard, showPower);
         show(formRow, caps.formation);
         const lanes = TIERS.filter((t) => t.id === "lan" || caps.vpnLane);
         commSub.textContent = caps.mocap || caps.ekf
           ? "— ping · mocap delay · EKF status · transport"
           : "— ping · packet drop · transport";
 
-        // Banner
+        // Banner — a power-only instance keeps just the power chip and clock;
+        // the link / EKF / task chips belong to the main instance beside it.
         const worstLink = worst(agents.map((a) => a.linkState), LINK_STATE);
+        show(linkChip, !powerOnly);
         linkChip.textContent = `LINK ${worstLink.label}`;
         linkChip.style.background = worstLink.color;
 
-        show(estChip, caps.ekf || caps.mocap);
+        show(estChip, !powerOnly && (caps.ekf || caps.mocap));
         if (caps.ekf || caps.mocap) {
           const realAgents = agents.filter((a) => a.mode === "real");
           const worstEst = worst(realAgents.map((a) => a.estimate?.state), EKF_STATE);
@@ -2078,9 +2803,10 @@ function activate(extensionContext) {
         }
 
         const sims = agents.filter((a) => a.mode === "sim").length;
+        show(modeChip, !powerOnly);
         modeChip.textContent = `${sims} sim · ${agents.length - sims} real`;
         const tasks = detectedTasks();
-        show(taskChip, tasks.length > 0);
+        show(taskChip, !powerOnly && tasks.length > 0);
         taskChip.textContent = `Tasks: ${tasks.join(", ")}`;
         taskChip.title = caps.discovered
           ? "Inferred from the topics on this data source; sections with no source are hidden."
@@ -2115,6 +2841,10 @@ function activate(extensionContext) {
         renderWiring();
         renderFormation();
         renderGoal();
+        verifyCommands(now);
+        renderMission(now);
+        renderCbf(now);
+        renderAgentTable(now);
 
         // Topology — reparsing SVG markup 5x/s is wasteful, so only redraw when
         // the picture would actually change.
@@ -2143,7 +2873,7 @@ function activate(extensionContext) {
           : "No link state transitions recorded yet.";
 
         if (caps.cellular) renderCellular(now);
-        if (caps.battery) renderPower();
+        if (showPower) renderPower();
 
         statusEl.textContent = statusText;
       }
@@ -2152,7 +2882,7 @@ function activate(extensionContext) {
       const NUMERIC = new Set([
         "cruiseSpeedMps", "landSpeedMps", "reservePct", "rtbNominalPct",
         "rtbGatedPct", "dropTargetPct", "pingTargetMs", "vpnPingTargetMs",
-        "mocapAgeTargetMs", "mocapTimeoutS",
+        "mocapAgeTargetMs", "mocapTimeoutS", "cbfAlphaMax",
       ]);
       const ROSTER_KEYS = new Set([
         "drones", "modes", "stateTopicTemplate", "lanTopicTemplate",
@@ -2160,12 +2890,12 @@ function activate(extensionContext) {
         "mocapTopicTemplate", "ekfFlagsTopicTemplate", "localPositionTopicTemplate",
         "timesyncTopicTemplate", "fmuOdometryTopicTemplate",
         "cellularTopicTemplate", "linkStatusTopicTemplate",
-        "positionOffsets",
+        "positionOffsets", "statusTopic",
+        "simCommandTopicTemplate", "realCommandTopicTemplate",
       ]);
       const CAPS_KEYS = new Set([
         "sections", "formationTopic", "teleopTopicTemplate", "goalTopicTemplate",
         "speedTopicTemplate",
-        "simCommandTopicTemplate", "realCommandTopicTemplate",
         "simRobotCommandTemplate", "realRobotCommandTemplate",
       ]);
 
@@ -2179,6 +2909,7 @@ function activate(extensionContext) {
             persist();
             if (ROSTER_KEYS.has(key)) rebuildAgents();
             else if (CAPS_KEYS.has(key)) recomputeCaps();
+            else if (key === "view") applyView();
             updateSettingsEditor();
             render();
           },
@@ -2186,6 +2917,14 @@ function activate(extensionContext) {
             swarm: {
               label: "Swarm",
               fields: {
+                view: { label: "View", input: "select", value: currentView(),
+                  options: [
+                    { label: "Everything (one panel)", value: "full" },
+                    { label: "Main — without Battery & Power", value: "main" },
+                    { label: "Battery & Power only", value: "power" },
+                  ],
+                  help: "Split the panel across two instances: a 'main' one and a 'power' one " +
+                        "placed under the 3D view, as in svg_basestation.json" },
                 drones: { label: "Agents", input: "string", value: cfg.drones,
                   help: "Comma-separated agent names, in drone_names order" },
                 modes: { label: "Modes (wiring)", input: "string", value: cfg.modes,
@@ -2198,7 +2937,13 @@ function activate(extensionContext) {
                   ],
                   help: "Auto hides any section whose topics are not being published" },
                 commanderNs: { label: "Commander namespace", input: "string", value: cfg.commanderNs,
-                  help: "std_srvs/Trigger lifecycle services live under this namespace" },
+                  help: "std_srvs/Trigger lifecycle services and the get/set_parameters services " +
+                        "(CBF alpha) live under this namespace" },
+                statusTopic: { label: "Commander status topic", input: "string", value: cfg.statusTopic,
+                  help: "std_msgs/String JSON from swarm_commander (status_topic parameter): mission " +
+                        "state, last command outcome, live CBF gains, per-drone state and position" },
+                cbfAlphaMax: { label: "CBF alpha slider max", input: "number", value: cfg.cbfAlphaMax, step: 1,
+                  help: "Upper end of the CBF alpha slider; the number box accepts any positive value" },
                 formationTopic: { label: "Formation topic", input: "string", value: cfg.formationTopic },
                 formationProfiles: { label: "Formation profiles", input: "string", value: cfg.formationProfiles,
                   help: "Comma-separated profile names filling the formation dropdown — mirror the " +
@@ -2266,8 +3011,10 @@ function activate(extensionContext) {
               label: "Power & RTB",
               fields: {
                 padPosition: { label: "Landing pad (x,y,z)", input: "string", value: cfg.padPosition },
-                positionOffsets: { label: "Position offsets", input: "string", value: cfg.positionOffsets,
-                  help: "Flat x,y,z per agent, matching drone_position_offsets; blank = none" },
+                positionOffsets: { label: "Position offsets (fallback)", input: "string", value: cfg.positionOffsets,
+                  help: "Flat x,y,z per agent added to odometry while no commander snapshot has arrived. " +
+                        "Once swarm_commander publishes its status, its own drone_position_offsets take " +
+                        "over automatically so positions and goals share the commander's frame. Blank = none" },
                 cruiseSpeedMps: { label: "Cruise speed (m/s)", input: "number", value: cfg.cruiseSpeedMps, step: 0.1 },
                 landSpeedMps: { label: "Land speed (m/s)", input: "number", value: cfg.landSpeedMps, step: 0.1 },
                 reservePct: { label: "Reserve (%)", input: "number", value: cfg.reservePct, step: 1 },
@@ -2280,10 +3027,11 @@ function activate(extensionContext) {
       }
 
       // ── boot ─────────────────────────────────────────────────────────────
-      panelContext.setDefaultPanelTitle("SVG Basestation");
       rebuildAgents();
+      applyView();
       updateSettingsEditor();
       render();
+      refreshCbfAlpha();
 
       const timer = setInterval(render, UI_REFRESH_MS);
 

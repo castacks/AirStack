@@ -23,21 +23,22 @@ Foxglove keeps the imported layout in its IndexedDB and re-activates it on subse
 
 ## Custom panel extensions
 
-Custom Foxglove panels live in `gcs/foxglove_extensions/`, one directory per extension with a `package.json` and a prebuilt `dist/extension.js`. On every GCS and robot-desktop container start, `install.py` copies each of them into `~/.foxglove-studio/extensions`, so they are available in that container's Foxglove Studio without any manual install step. The SVG ground-control launch (`svg_ground_control/ground_control.launch.py`) also starts a `foxglove_bridge` inside the robot container, so a Studio on the host can connect to `ws://localhost:8765` when the robot container runs on host networking.
+Custom Foxglove panels live in `gcs/foxglove_extensions/`, one directory per extension with a `package.json` and a prebuilt `dist/extension.js`. On every GCS and robot-desktop container start, `install.py` copies each of them into `~/.foxglove-studio/extensions`, so they are available in that container's Foxglove Studio without any manual install step. The SVG-specific panel is the exception: it lives with the rest of SVG ground control in `robot/ros_ws/src/svg_ground_control/foxglove/` and has its own `install.py`, which the robot-desktop container also runs at start. The SVG ground-control launch (`svg_ground_control/ground_control.launch.py`) starts a `foxglove_bridge` inside the robot container, so a Studio on the host can connect to `ws://localhost:8765` when the robot container runs on host networking.
 
 | Extension | Panel | Purpose |
 |---|---|---|
 | `robot-commands` | Robot Tasks | Send goals to AirStack task executors (ROS 2 actions) |
 | `waypoint-editor` | Waypoint Editor | Click-to-place waypoints, see [Adding Waypoints & Geofences](waypoints_and_geofences.md) |
 | `polygon-editor` | Polygon Editor | Click-to-draw geofences, see [Adding Waypoints & Geofences](waypoints_and_geofences.md) |
-| `svg-basestation` | SVG Basestation | Swarm basestation: agent wiring, land-all safety stop, link safety, battery and RTB, see the [SVG Basestation README](../../gcs/foxglove_extensions/svg-basestation/README.md) |
+| `svg-basestation` (in `robot/ros_ws/src/svg_ground_control/foxglove/`) | SVG Basestation | Swarm basestation: agent wiring, land-all safety stop, mission confirmation from the commander's status snapshot, live CBF alpha readout/slider, per-drone flight state and numeric position, link safety, battery and RTB, see the [SVG Basestation README](../../robot/ros_ws/src/svg_ground_control/foxglove/svg-basestation/README.md) |
 
-`gcs/foxglove_extensions/svg_basestation.json` is a ready-made layout that pairs the SVG Basestation panel with a 3D view of `/svg/viz/markers`. Load it with **Layouts → Import from file...** the same way as the rendered AirStack layout above.
+`robot/ros_ws/src/svg_ground_control/foxglove/svg_basestation.json` is a ready-made layout: the SVG Basestation panel on the left, and on the right a 3D view of `/svg/viz/markers` above a Battery & Power instance of the same panel. Load it with **Layouts → Import from file...** the same way as the rendered AirStack layout above.
 
-To install the extensions on a host Foxglove instead of inside the container, run the same script locally:
+To install the extensions on a host Foxglove instead of inside the container, run the same scripts locally, then restart Studio (extensions load at start-up only):
 
 ```bash
-python3 gcs/foxglove_extensions/install.py
+python3 gcs/foxglove_extensions/install.py                              # general AirStack panels
+python3 robot/ros_ws/src/svg_ground_control/foxglove/install.py         # SVG Basestation
 ```
 
 ## What gets visualized
