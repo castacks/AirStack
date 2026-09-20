@@ -1,9 +1,16 @@
-> **Current continuation (2026-09-18):** Read [HANDOFF.md](HANDOFF.md) first. The [localhost command console](docs/scrum-8/command-console.md) now shows immutable reconciliation/admission/STOP/landing evidence in goal history, captures read-only live Isaac image plus canonical vehicle state, and queues each new live-observation request through a credential-free PSC bridge boundary. Returned PSC bundles must pass input/image hashes, scene binding, C04/C05 and adapter validation before an exact-proposal approval can be recorded. Approval remains non-dispatching in this increment. A real PSC worker needs an approved non-interactive PSC key/agent; the browser never accepts credentials. See [evidence](docs/scrum-8/evidence/office-inference-46288765.md) and the [architecture status](docs/scrum-8/README.md). The prototype material below is historical and does not override the current handoff.
+> **Current continuation (2026-09-20):** Read [HANDOFF.md](HANDOFF.md) first. The
+> active OSMO path is a two-GPU workflow: one Isaac/AirStack workspace and one private
+> warm Cosmos worker. The [localhost command console](docs/scrum-8/command-console.md)
+> captures checksum-bound live observations and uses that worker only for shadow-only
+> proposals. The console recovers the worker's private URL from the OSMO workspace init
+> environment when a Remote-SSH process does not inherit it. No worker port is public,
+> and no proposal can dispatch a drone. PSC material below is historical/offline
+> reference only; it is not the live control-loop path.
 
-The remaining route to full model-to-drone operation is: provision the approved PSC
-bridge; dispatch only a separately revalidated and explicitly approved plan through
-public AirStack task actions; then prove renewed scene/result/vehicle freshness in an
-end-to-end simulator suite. The detailed safety conditions are in `HANDOFF.md`.
+The remaining route to full model-to-drone operation is: independently verify live
+entities; bind each exact proposal to C06 admission and C08 stop/landing supervision;
+then prove fresh scene/result/vehicle evidence in an end-to-end simulator suite. The
+detailed safety conditions are in `HANDOFF.md`.
 
 # RRM-1 — Robotics Reasoning Model
 
@@ -72,17 +79,17 @@ Other entry points:
 .venv/bin/python simulation/isaac_backend.py                # relation-inference test
 ```
 
-## RRM Command Console & PSC Bridge (OSMO)
+## RRM Command Console & two-GPU Cosmos workflow (OSMO)
 
 The RRM GUI (Command Console) is used for live visual intake and proposal review.
-It can use the private warm Cosmos worker without PSC. A historical PSC bundle is
-optional reference evidence, not a startup prerequisite. **All commands below must
-be run in your OSMO terminal.**
+The active workflow pairs Isaac with a private warm Cosmos worker; it is not a batch
+submission path. The GUI presents one task-level proposal at a time and stays
+shadow-only: review and outcome records never send a drone command.
 
 **Prerequisite:** Isaac Sim and AirStack must be running so the console can pull live
 camera images and robot odometry.
 
-**Start live-only mode (no PSC job ID):**
+**Start the live console:**
 ```bash
 cd /root/AirStack/RRM-transfer/rrm-9d26a58
 bash scripts/rrm_command_console.sh
@@ -92,45 +99,41 @@ This mode uses the checked-in Office C01/C02/C03 template and scene manifest. It
 capture/save live requests and call the configured private Cosmos worker, but it
 loads no historical proposal and cannot dispatch a flight command.
 
-**Optional historical reference mode:** fetch a completed PSC bundle in an
-MFA-capable terminal, then pass the printed `Verified bundle:` path:
+### Start a new two-GPU Office workflow
+
+Use the two-GPU workflow for a fresh Isaac workspace plus warm Cosmos worker. The
+catalog shortname is `office`, but direct environment configuration must use the
+resolved Pegasus key `Office` (capital `O`). **Run this from your local machine or
+an authenticated OSMO control terminal, not from the Remote-SSH shell inside an
+already-running OSMO workspace.** That workspace intentionally does not carry your
+personal OSMO client login or `~/.ssh/id_ed25519.pub`.
+
+```bash
+cd /root/AirStack
+osmo workflow submit osmo/workflows/airstack-live-replan.yaml \
+  --pool <gpu-pool> \
+  --set-env "SSH_PUB_KEY=$(cat ~/.ssh/id_ed25519.pub)" \
+  --set-env "ISAAC_SIM_SCENE=Office" \
+  --set-env "ISAAC_SIM_STAGE_SCALE=1.0"
+```
+
+`airstack-dev.yaml` remains the one-GPU developer workflow; do not use it for the
+live Cosmos replan path. Do not run `airstack.sh up --sim isaac --scene office` merely
+to change the scene of an already-running workspace: it can recreate simulator
+containers. For a local fresh launch, that command remains the supported shortname
+form and resolves `office` through `simulation/scenes.yaml`.
+
+After submission, attach with your local OSMO helper/port-forward workflow. Inside the
+remote workspace, use the already-running AirStack stack and start only the console:
+
 ```bash
 cd /root/AirStack/RRM-transfer/rrm-9d26a58
-bash scripts/rrm_office_fetch_import.sh <psc-job-id>
-bash scripts/rrm_command_console.sh <verified-bundle-directory> [port]
+bash scripts/rrm_command_console.sh
 ```
 
-The PSC job ID is an operator-provided value, not a folder in a recreated OSMO
-workspace. Reference mode preserves the existing static-proposal review surface; it
-does not connect a worker result to automatic flight.
-
-**Manual PSC Job Submission:**
-If the console's automated background submission fails (due to MFA/Duo prompts blocking the non-interactive SSH key), use this helper script in your terminal to manually push a request created in the GUI:
-```bash
-cd /root/AirStack/RRM-transfer/rrm-9d26a58
-RRM_PSC_USER=<your-psc-username> bash scripts/rrm_psc_bridge_manual.sh /root/AirStack/.rrm-artifacts/command-requests/<REQUEST_ID>
-```
-*(Reload the GUI history after the Slurm job finishes to view results).*
-
-For PSC password/Duo MFA, the manual bridge submits once and exits after printing the
-job ID. Monitor it with `squeue -j <job-id>`; when it has completed, fetch and import
-that exact result without submitting another job:
-```bash
-RRM_PSC_USER=<your-psc-username> bash scripts/rrm_psc_fetch_result.sh \
-  /root/AirStack/.rrm-artifacts/command-requests/<REQUEST_ID> <PSC_JOB_ID>
-```
-The GUI records the submitted job ID in its history when the console is running, then
-shows the terminal result after the fetch/import command completes. A result is
-reviewable only when it is `CANDIDATE_ACCEPTED`; malformed/mismatched evidence is
-`INFERENCE_FAILED`, and a model plan that the single-navigation Office adapter cannot
-represent is `CANDIDATE_REJECTED`. Both terminal non-accepted states retain evidence,
-do not dispatch, and must be retried with a new saved request rather than resubmitting
-the same immutable request.
-
-The manual bridge defaults to one `h100-80` GPU. To trial the lower-queue L40S 48 GB
-option without cancelling a queued H100 job, explicitly set `RRM_PSC_GRES=gpu:l40s-48:1`.
-Treat that as a separate validation run: import and review its result only if it
-completes successfully.
+Historical PSC bundles can still be imported for reference review with
+`scripts/rrm_office_fetch_import.sh`; they are not exposed in the live GUI and do not
+participate in the warm-worker cycle.
 
 ### Live action → replan workflow (foundation)
 
@@ -139,7 +142,8 @@ continuous workflow. It records a fresh camera image plus separately verified li
 scene state before each provider request; binds the provider result to that exact
 observation; exposes only the first action of a multi-action plan for review; and then
 requires a reviewed, independently verified outcome before it will accept another
-observation/replan. It has no ROS, model-runtime, PSC, or dispatch dependency.
+observation/replan. It has no ROS or dispatch dependency; the private warm worker is
+one proposal provider.
 
 `rrm/authorized_live_mission.py` is the separate, explicitly invoked composition
 boundary for a future simulator mission. It accepts injected per-frame entity-verifier
@@ -188,10 +192,10 @@ The public AirStack task-action adapter is unavailable unless the operator adds 
 startup command: use them only after the worker image deployment, fresh simulator
 readiness/reconciliation, independent observer coverage, and a supervised review.
 
-The next integration supplies a warm OSMO Cosmos worker (or approved VLM API) as the
-provider. PSC batch jobs remain an offline evaluation path and must not be used as the
-per-action control loop. The current coordinator is not connected to the GUI or flight
-dispatcher yet, so it cannot move the drone.
+The warm OSMO Cosmos worker is the active proposal provider and is connected to the
+console's shadow cycle. PSC batch jobs remain an offline evaluation path and must not
+be used as the per-action control loop. The coordinator is not connected to a flight
+dispatcher, so it cannot move the drone.
 
 ### Persistent Cosmos worker on OSMO
 
@@ -215,11 +219,14 @@ restart the shared pool):
 cd /root/AirStack
 osmo workflow submit osmo/workflows/airstack-live-replan.yaml \
   --pool <gpu-pool> \
-  --set-env "SSH_PUB_KEY=$(cat ~/.ssh/id_ed25519.pub)"
+  --set-env "SSH_PUB_KEY=$(cat ~/.ssh/id_ed25519.pub)" \
+  --set-env "ISAAC_SIM_SCENE=Office" \
+  --set-env "ISAAC_SIM_STAGE_SCALE=1.0"
 ```
 
 This requests two GPUs, 24 CPU cores, and 96 GiB memory total. It is a shadow-only
-model service until the provider adapter and GUI cycle view are connected.
+model service; the GUI can record proposals and evidence, but it cannot dispatch a
+flight command.
 
 ### Attach AirStack helpers to a manually submitted OSMO workflow
 
@@ -250,18 +257,31 @@ restart, cancel, or otherwise modify the running workflow.
 
 When running AirStack (either locally or via OSMO), you can specify which Isaac Sim scene to load using the `--scene` flag or the equivalent environment variable `ISAAC_SIM_SCENE`.
 
+In the two-GPU command console, the optional **Isaac scene launcher** is catalog-driven:
+it exposes every `isaac` entry in `simulation/scenes.yaml`, including custom USD
+stages. Choosing one restarts only the inner Isaac and robot services; it does not
+submit a new OSMO workflow or restart the warm Cosmos worker. It is a convenience,
+not the owner of the stage: edits made in Isaac Sim and scene parameters supplied from
+the terminal remain valid. Capture a fresh observation after any external change.
+
 **Locally (via airstack CLI):**
 ```bash
 ./airstack.sh up --sim isaac --scene office
 ```
 
 **Remotely (via OSMO workflow):**
-When submitting the `airstack-dev.yaml` workflow to OSMO, use the `--set-env` argument to override the default scene:
+For the active two-GPU Cosmos workflow, use the `airstack-live-replan.yaml` command
+above. The one-GPU `airstack-dev.yaml` workflow remains valid for ordinary development,
+but a direct environment override must use the resolved Pegasus key `Office`, not the
+catalog shortname `office`. Submit it from a local/authenticated OSMO control terminal,
+not from inside a Remote-SSH workspace:
+
 ```bash
 osmo workflow submit osmo/workflows/airstack-dev.yaml \
   --pool <gpu-pool> \
   --set-env "SSH_PUB_KEY=$(cat ~/.ssh/id_ed25519.pub)" \
-  --set-env "ISAAC_SIM_SCENE=office"
+  --set-env "ISAAC_SIM_SCENE=Office" \
+  --set-env "ISAAC_SIM_STAGE_SCALE=1.0"
 ```
 *(Other configurable parameters like `NUM_ROBOTS=1` or `ISAAC_SIM_HEADLESS=1` can also be passed this way. Refer to the AirStack documentation and `airstack.sh --help` for the full list of parameters).*
 

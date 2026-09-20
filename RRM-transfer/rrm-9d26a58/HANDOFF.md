@@ -1,5 +1,42 @@
 # RRM remote Codex handoff
 
+## LATEST: any catalog Isaac scene can now switch in-place from the GUI — 2026-09-20
+
+The localhost Command Console now populates **Change Isaac scene** from every `isaac`
+entry in `/root/AirStack/simulation/scenes.yaml` (including custom USD references and
+their stage scales). Selecting an entry restarts only `isaac-sim-livestream` and
+`robot-desktop` through AirStack; it does **not** submit/recreate the OSMO workflow or
+restart the warm private Cosmos worker. The endpoint accepts only a catalog shortname,
+uses the resolved Isaac reference and scale, prevents concurrent switches, and clears
+the prior camera state.
+
+The checked-in RRM manifest is Office-specific. After selecting a non-Office scene,
+the GUI accurately reports that live proposals are inhibited rather than applying the
+Office entity catalog to a different stage. The selected scene is persisted under the
+ignored command-request artifacts so a console restart remains fail-closed; before an
+operator selects a scene, it reports `active_scene: null` and disables live proposals.
+The console was restarted on port 8787 after this change; it currently lists 21 catalog
+scenes and has not restarted Isaac or changed the active scene. Validation: 131 tests
+passed, including the catalog parser and a mocked switch verifying its scene/scale
+environment and nonmatching-manifest gate.
+
+## LATEST: workspace worker URL is rendered; Remote-SSH console now recovers it — 2026-09-20
+
+The submitted OSMO workflow did render `RRM_COSMOS_WORKER_URL` in the workspace
+init process. The value is the worker's private pod hostname on the workflow
+cluster network, and a read-only `GET /healthz` returned 200 with
+`execution_dispatch: false`. The earlier empty result came from the Remote-SSH / IDE
+process tree: it does not inherit the init process environment, so a console launched
+from that shell had no worker URL even though the group token was correctly rendered.
+
+`scripts/rrm_command_console.py` now prefers an explicitly inherited
+`RRM_COSMOS_WORKER_URL`, then (only when absent) reads that one non-secret variable
+from `/proc/1/environ`. It neither queries the scheduler nor exposes a port, reads a
+credential, or adds a control path. Restart the localhost console after pulling this
+change so its live shadow cycle receives the private endpoint. Validation: 127 RRM
+tests passed, including explicit-value precedence, init-environment fallback and
+unreadable-init fail-closed cases. The worker remains private and shadow-only.
+
 ## LATEST: OSMO worker discovery is not wired in the submitted workflow — 2026-09-20
 
 The `cosmos-worker` task is healthy and listening on `0.0.0.0:8090`; its

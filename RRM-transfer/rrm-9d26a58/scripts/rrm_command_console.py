@@ -28,6 +28,68 @@ from rrm.psc_pipeline import CommandPscBridge, InferenceQueue, PscBridge
 from rrm.task_store import TaskStore
 
 
+AIRSTACK_ROOT = Path("/root/AirStack")
+ISAAC_SCENE_CATALOG = AIRSTACK_ROOT / "simulation/scenes.yaml"
+ACTIVE_SCENE_FILENAME = "active_isaac_scene.json"
+
+
+def isaac_scene_catalog(path: Path = ISAAC_SCENE_CATALOG) -> dict[str, dict[str, str]]:
+    """Read Isaac entries from AirStack's scene catalog without a YAML dependency."""
+    catalog: dict[str, dict[str, str]] = {}
+    current = None
+    nested = False
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        scene = re.fullmatch(r"  ([a-z0-9][a-z0-9-]*):\s*", raw)
+        if scene:
+            current, nested = scene.group(1), False
+            continue
+        if current is None:
+            continue
+        leaf = re.fullmatch(r"    isaac:\s*(.+)", raw)
+        if leaf and leaf.group(1).strip():
+            catalog[current] = {"ref": leaf.group(1).strip(), "stage_scale": "1.0"}
+            nested = False
+            continue
+        if raw == "    isaac:":
+            catalog[current] = {"stage_scale": "1.0"}
+            nested = True
+            continue
+        if nested:
+            field = re.fullmatch(r"      (ref|stage_scale):\s*(.+)", raw)
+            if field:
+                catalog[current][field.group(1)] = field.group(2).strip()
+    return {name: value for name, value in catalog.items() if value.get("ref")}
+
+
+def private_cosmos_worker_url(*, environment: dict[str, str] | None = None,
+                              init_environment_path: Path = Path("/proc/1/environ")) -> str:
+    """Find the OSMO-injected private worker URL without exposing credentials.
+
+    A console launched from a Remote-SSH/IDE process can have a different
+    environment from the workspace init process.  OSMO renders the group-local
+    ``{{host:cosmos-worker}}`` token into the latter.  Prefer an explicit value
+    supplied to this process; only when it is absent read the one non-secret URL
+    from PID 1.  This is discovery only: it neither probes the worker nor opens
+    a control path.
+    """
+    values = os.environ if environment is None else environment
+    configured = values.get("RRM_COSMOS_WORKER_URL", "").strip()
+    if configured:
+        return configured
+    try:
+        entries = init_environment_path.read_bytes().split(b"\0")
+    except OSError:
+        return ""
+    prefix = b"RRM_COSMOS_WORKER_URL="
+    for entry in entries:
+        if entry.startswith(prefix):
+            try:
+                return entry[len(prefix):].decode("utf-8", errors="strict").strip()
+            except UnicodeDecodeError:
+                return ""
+    return ""
+
+
 def save_request(bundle: Path, output: Path, objective: str, goal_id: str | None = None,
                  *, image: bytes | None = None, observation: dict | None = None) -> dict:
     if not isinstance(objective, str) or not objective.strip() or len(objective) > 5000:
@@ -108,8 +170,17 @@ class Console:
         self.latest_camera = None
         self.latest_camera_metadata = None
         self.live_lock = threading.Lock()
-        self.cosmos_worker_url = os.environ.get("RRM_COSMOS_WORKER_URL", "").strip()
+        self.scene_switch_lock = threading.Lock()
+        self.cosmos_worker_url = private_cosmos_worker_url()
         scene = json.loads(self.scene_manifest.read_text())
+        self.isaac_scenes = isaac_scene_catalog()
+        self.manifest_scene_shortname = scene.get("scene_shortname")
+        self.active_scene_shortname = self._load_active_scene()
+        # A scene is unknown after a new workspace starts.  Do not assume that
+        # its static Office manifest still describes the live Isaac stage.
+        self.scene_context_matches = (
+            self.active_scene_shortname == self.manifest_scene_shortname
+        )
         self.expected_camera_frame = scene.get("camera_frame_id", "camera_left")
         self.import_queue = InferenceQueue(self.store, trusted_scene=self.scene_manifest,
                                            bridge=None)
@@ -125,6 +196,54 @@ class Console:
             self.store.set_lifecycle(self.reference_run_id,
                                      proposal_sha256=self.execution.proposal_sha256)
             self.index_execution_evidence()
+
+    def switch_scene(self, scene_shortname: str) -> dict:
+        """Restart only inner Isaac/robot services with a catalog-validated scene."""
+        if not isinstance(scene_shortname, str) or scene_shortname not in self.isaac_scenes:
+            raise ValueError("Choose an Isaac scene from the AirStack scene catalog.")
+        if not self.scene_switch_lock.acquire(blocking=False):
+            raise RuntimeError("A scene switch is already in progress.")
+        try:
+            selected = self.isaac_scenes[scene_shortname]
+            environment = os.environ.copy()
+            environment.update({"COMPOSE_PROFILES": "desktop,isaac-sim-livestream",
+                                "ISAAC_SIM_LIVESTREAM": "true", "AUTOLAUNCH": "true",
+                                "ISAAC_SIM_SCENE": selected["ref"],
+                                "ISAAC_SIM_STAGE_SCALE": selected["stage_scale"]})
+            subprocess.run(["./airstack.sh", "down", "isaac-sim-livestream", "robot-desktop"],
+                           cwd=AIRSTACK_ROOT, env=environment, check=True, timeout=180)
+            subprocess.run(["./airstack.sh", "up", "--sim", "isaac", "--wait"],
+                           cwd=AIRSTACK_ROOT, env=environment, check=True, timeout=900)
+            self.latest_camera = self.latest_camera_metadata = None
+            self._save_active_scene(scene_shortname)
+            self.active_scene_shortname = scene_shortname
+            self.scene_context_matches = scene_shortname == self.manifest_scene_shortname
+            return {"status": "scene switch complete", "scene": scene_shortname,
+                    "rrm_live_enabled": self.scene_context_matches,
+                    "execution_dispatch": False}
+        finally:
+            self.scene_switch_lock.release()
+
+    def _load_active_scene(self) -> str | None:
+        """Return the last GUI-selected catalog scene, or unknown if absent."""
+        path = self.output / ACTIVE_SCENE_FILENAME
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        scene = value.get("scene") if isinstance(value, dict) else None
+        return scene if isinstance(scene, str) and scene in self.isaac_scenes else None
+
+    def _save_active_scene(self, scene_shortname: str) -> None:
+        """Persist the selected scene so a console restart remains fail-closed."""
+        path = self.output / ACTIVE_SCENE_FILENAME
+        temporary = path.with_suffix(".tmp")
+        temporary.write_text(json.dumps({"scene": scene_shortname}) + "\n", encoding="utf-8")
+        temporary.replace(path)
+
+    def _require_scene_context(self) -> None:
+        if not self.scene_context_matches:
+            raise RuntimeError("This scene has no matching RRM manifest/catalog; live proposals are inhibited.")
 
     @staticmethod
     def _canonical_proposal_sha256(path: Path) -> str:
@@ -406,6 +525,7 @@ class Console:
         return run, directory, context, cycle
 
     def _record_live_observation_and_propose(self, run_id: str, scene_state: dict) -> dict:
+        self._require_scene_context()
         if not self.cosmos_worker_url:
             raise RuntimeError("No private Cosmos worker URL is configured for this workspace.")
         if self.latest_camera is None or self.latest_camera_metadata is None:
@@ -491,7 +611,11 @@ def make_handler(app: Console):
                 return self.respond({"token": app.token, "context": app.context,
                                      "decision": (app.decision.model_dump(mode="json")
                                                   if app.decision is not None else None),
-                                     "mode": "REFERENCE" if app.decision is not None else "LIVE_ONLY"})
+                                     "mode": "REFERENCE" if app.decision is not None else "LIVE_ONLY",
+                                     "isaac_scenes": sorted(app.isaac_scenes),
+                                     "manifest_scene": app.manifest_scene_shortname,
+                                     "active_scene": app.active_scene_shortname,
+                                     "rrm_live_enabled": app.scene_context_matches})
             if path == "/api/goals":
                 app.index_execution_evidence()
                 return self.respond({"goals": app.store.history()})
@@ -643,13 +767,8 @@ def make_handler(app: Console):
                     if app.execution is None:
                         raise ValueError("Historical-proposal dispatch is unavailable in live-only mode.")
                     return self.respond(app.reconcile_grounded())
-                if self.path == "/api/reset":
-                    try:
-                        subprocess.run(["./airstack.sh", "down", "isaac-sim-livestream", "robot-desktop"], cwd="/root/AirStack", check=True)
-                        subprocess.run(["./airstack.sh", "up", "--sim", "isaac", "--scene", "office", "--wait"], cwd="/root/AirStack", check=True)
-                        return self.respond({"status": "reset complete"})
-                    except subprocess.SubprocessError as e:
-                        return self.respond({"error": f"Failed to reset: {str(e)}"}, status=500)
+                if self.path == "/api/scene":
+                    return self.respond(app.switch_scene(value.get("scene")))
                 self.respond({"error": "Not found"}, status=404)
             except (ValueError, TypeError) as error:
                 self.respond({"error": str(error)}, status=400)

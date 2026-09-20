@@ -16,13 +16,123 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
-from rrm_command_console import Console, make_handler, save_request
+from rrm_command_console import Console, isaac_scene_catalog, make_handler, private_cosmos_worker_url, save_request
 from rrm_cosmos_reason2 import load_context
 from rrm.cosmos_reason2 import parse_cosmos_candidate, render_cosmos_prompt
 from rrm.airstack_drone import DroneTaskKind, DroneTaskProposal, MapWaypoint
 from rrm.execution_supervisor import ExecutionSupervisor, RunningDispatch
 from rrm.live_replan import LiveCycleResponse
 import test_office_import
+
+
+class PrivateCosmosWorkerUrlTests(unittest.TestCase):
+    def test_explicit_process_value_takes_precedence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            init_environment = Path(directory) / "environ"
+            init_environment.write_bytes(b"RRM_COSMOS_WORKER_URL=http://init-worker:8090\0")
+            self.assertEqual(
+                private_cosmos_worker_url(
+                    environment={"RRM_COSMOS_WORKER_URL": "http://explicit-worker:8090"},
+                    init_environment_path=init_environment,
+                ),
+                "http://explicit-worker:8090",
+            )
+
+    def test_falls_back_to_osmo_init_environment_only_when_missing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            init_environment = Path(directory) / "environ"
+            init_environment.write_bytes(
+                b"UNRELATED=value\0RRM_COSMOS_WORKER_URL=http://private-worker:8090\0"
+            )
+            self.assertEqual(
+                private_cosmos_worker_url(environment={}, init_environment_path=init_environment),
+                "http://private-worker:8090",
+            )
+
+    def test_missing_or_unreadable_init_environment_leaves_worker_unconfigured(self):
+        self.assertEqual(
+            private_cosmos_worker_url(
+                environment={}, init_environment_path=Path("/nonexistent/rrm-init-environ")
+            ),
+            "",
+        )
+
+    def test_malformed_init_value_leaves_worker_unconfigured(self):
+        with tempfile.TemporaryDirectory() as directory:
+            init_environment = Path(directory) / "environ"
+            init_environment.write_bytes(b"RRM_COSMOS_WORKER_URL=http://\xff:8090\0")
+            self.assertEqual(
+                private_cosmos_worker_url(environment={}, init_environment_path=init_environment), ""
+            )
+
+
+class CommandConsoleUiTests(unittest.TestCase):
+    def test_mission_console_removes_manual_shadow_workflow_controls(self):
+        ui = (Path(__file__).parents[1] / "scripts" / "ui" / "command_console.html").read_text()
+        self.assertIn("Autonomous simulator mission", ui)
+        self.assertIn("Runtime integration in progress", ui)
+        self.assertNotIn("PSC", ui)
+        self.assertNotIn("/submit", ui)
+        self.assertNotIn("rrm_psc_bridge_manual.sh", ui)
+        self.assertNotIn('id="live-run-id"', ui)
+        self.assertNotIn('id="live-entities"', ui)
+        self.assertNotIn('id="live-review"', ui)
+        self.assertNotIn("Approve &amp; send", ui)
+        self.assertIn('id="scene-select"', ui)
+        self.assertIn("/api/scene", ui)
+        self.assertNotIn("/api/reset", ui)
+        self.assertIn("Isaac Sim edits and terminal launch parameters remain valid", ui)
+        self.assertIn("max-height:min(72vh,680px);overflow:auto", ui)
+
+
+class IsaacSceneCatalogTests(unittest.TestCase):
+    def test_catalog_accepts_leaf_and_scaled_usd_isaac_entries_only(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "scenes.yaml"
+            path.write_text("""scenes:
+  office:
+    isaac: Office
+  custom:
+    isaac:
+      ref: omniverse://example/Custom.usd
+      stage_scale: 0.01
+  blocks:
+    msairsim: blocks
+""")
+            self.assertEqual(isaac_scene_catalog(path), {
+                "office": {"ref": "Office", "stage_scale": "1.0"},
+                "custom": {"ref": "omniverse://example/Custom.usd", "stage_scale": "0.01"},
+            })
+
+
+class IsaacSceneSwitchTests(unittest.TestCase):
+    def test_switch_uses_selected_catalog_entry_and_persists_it(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "output"
+            output.mkdir()
+            app = object.__new__(Console)
+            app.output = output
+            app.isaac_scenes = {
+                "custom": {"ref": "omniverse://example/Custom.usd", "stage_scale": "0.01"},
+            }
+            app.manifest_scene_shortname = "office"
+            app.scene_switch_lock = threading.Lock()
+            app.latest_camera = object()
+            app.latest_camera_metadata = object()
+            with patch("rrm_command_console.subprocess.run") as run:
+                result = app.switch_scene("custom")
+
+            self.assertEqual(run.call_count, 2)
+            first_environment = run.call_args_list[0].kwargs["env"]
+            second_environment = run.call_args_list[1].kwargs["env"]
+            self.assertEqual(first_environment["ISAAC_SIM_SCENE"], "omniverse://example/Custom.usd")
+            self.assertEqual(second_environment["ISAAC_SIM_STAGE_SCALE"], "0.01")
+            self.assertEqual(second_environment["COMPOSE_PROFILES"], "desktop,isaac-sim-livestream")
+            self.assertEqual(result["scene"], "custom")
+            self.assertFalse(result["rrm_live_enabled"])
+            self.assertEqual(json.loads((output / "active_isaac_scene.json").read_text())["scene"], "custom")
+            with self.assertRaisesRegex(RuntimeError, "matching RRM manifest"):
+                app._require_scene_context()
 
 
 class FakeProcess:
@@ -444,6 +554,11 @@ class CommandConsoleTests(unittest.TestCase):
 
         app = Console(self.bundle, self.output, "/unused-capture.py")
         app.cosmos_worker_url = "http://cosmos-worker:8090"
+        # This fixture is explicitly the Office scene; model a completed GUI
+        # selection rather than relying on an unknown initial simulator state.
+        app._save_active_scene("office")
+        app.active_scene_shortname = "office"
+        app.scene_context_matches = True
         seed_live_capture(app)
         saved = app.save("Approach the blue marker.")
         scene = {"source_stamp_ns": app.latest_camera_metadata["source_stamp_ns"],
