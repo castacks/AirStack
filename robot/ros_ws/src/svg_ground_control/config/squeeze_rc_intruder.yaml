@@ -21,9 +21,10 @@
 # (drone_3 needs its px4_interface ONLY for state — the commander must see
 # /drone_3/odometry_conversion/odometry or the scenario pauses.)
 #
-# ⚠ SAFETY: the geofence only polices commander-flown (ACTIVE) drones — the
-# EXTERNAL drone_3 never trips it. The RC pilot is drone_3's only safety;
-# a breach BY A HOLDER still freezes the holders.
+# ⚠ SAFETY: fence_behavior is keep_in below — the holders are held inside
+# the box, the EXTERNAL drone_3 cannot be steered and is only reported when
+# outside. The RC pilot is drone_3's only safety. (With hold_all instead, an
+# airborne drone_3 leaving the box would freeze the holders.)
 
 swarm_commander:
   ros__parameters:
@@ -40,10 +41,13 @@ swarm_commander:
     cbf_exempt_drones: ""
 
     scenario: "squeeze"
-    scenario_speed_mps: 0.5     # nominal speed. Live: ros2 param set /swarm_commander scenario_speed_mps X
+    scenario_speed_mps: 4.0     # nominal speed. Live: ros2 param set /swarm_commander scenario_speed_mps X
     # (also capped by cbf_max_speed_mps below; it is a cruise cap — the drone
     # brakes at goal_accel_mps2, so a goal closer than v^2/(2a) + v*settle
-    # never sees the full speed)
+    # never sees the full speed). Here it only bounds the HOLDERS' return to
+    # their posts (drone_3 is RC-flown): a 1.5 m return peaks near 1.9 m/s
+    # with the default goal law (goal_accel_mps2 3.0, goal_settle_s 0.3,
+    # goal_lead_m 2.0 — set them here to change that).
     arena_low: [-2.0, -2.0, 0.8]
     arena_high: [2.0, 2.0, 2.0]
 
@@ -86,11 +90,13 @@ swarm_commander:
     # fed as a fixed row), so the holders yield BEFORE it reaches the
     # barrier. With the intruder approaching at s m/s, yielding starts
     # where  alpha*(d^2 - (2r)^2) = 2*d*s*gain  (d = center distance).
-    cbf_safety_radius_m: 0.7    # bubble size. CAREFUL: posts are 2.2 m
-                                 # apart -> r > 1.1 makes the two holders'
+    cbf_safety_radius_m: 0.7    # bubble size. CAREFUL: posts are 2.0 m
+                                 # apart -> r > 1.0 makes the two holders'
                                  # own posts mutually infeasible.
-    cbf_max_speed_mps: 2.0       # how FAST holders may dodge (2.0 is quick
-                                 # for indoors — verify in the C3 rehearsal)
+    cbf_max_speed_mps: 6.0       # how FAST holders may dodge. 6.0 is a hard
+                                 # shove indoors (a dodge is a bare velocity
+                                 # command: no feedforward, PX4 lag ~0.5 s) —
+                                 # the keep_in fence below is the backstop.
     cbf_alpha: 2.5               # earliness: LOWER = yield earlier and
                                  # gentler (alpha 1.0 & s=1 m/s -> starts
                                  # ~3.2 m out; 2.5 -> ~2.4 m out). Higher =
@@ -100,8 +106,8 @@ swarm_commander:
     # dodge harder. The single easiest "more reactive" knob (try 1.5-2.0).
     cbf_external_velocity_gain: 1.0
 
-    # Geofence: freezes the HOLDERS if a holder leaves the box. It does NOT
-    # police the external drone_3 (see safety note above). Fit to your volume.
+    # Geofence (keep_in): holds the HOLDERS inside the box; drone_3 is only
+    # reported (see safety note above). Fit to your volume.
     fence_enabled: true
     # fence_behavior: what a breach of [fence_min, fence_max] does.
     #   "hold_all" - any ACTIVE drone (auto, teleop OR external) outside the
@@ -111,7 +117,7 @@ swarm_commander:
     #                a per-axis velocity barrier (outward speed <= gain *
     #                distance to the wall, pushed back if outside); external
     #                drones cannot be steered and are only reported.
-    fence_behavior: "hold_all"
+    fence_behavior: "keep_in"
     fence_keep_in_gain: 1.0   # keep_in: 1/s
     fence_margin_m: 0.0       # keep_in: meet the wall this early (m)
     fence_min: [-4.5, -5.2, 0.0]
