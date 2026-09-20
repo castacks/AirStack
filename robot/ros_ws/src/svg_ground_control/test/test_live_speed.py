@@ -109,3 +109,31 @@ def test_real_command_mode_velocity_keeps_the_old_topic():
         assert node.drones[0].cmd_pub.topic_name == "/drone_1/fmu/velocity_command"
     finally:
         node.destroy_node()
+
+
+def test_goal_heading_from_xyzt_and_quaternion():
+    from std_msgs.msg import Float64MultiArray
+    from geometry_msgs.msg import PoseStamped
+    from svg_ground_control.swarm_commander import heading_to_yaw, yaw_to_heading
+    assert heading_to_yaw(90.0) == pytest.approx(-np.pi / 2)     # clockwise = -yaw
+    assert yaw_to_heading(heading_to_yaw(-135.0)) == pytest.approx(-135.0)
+    node = make(drone_names=["drone_1"], drone_modes="real", scenario="goal",
+                hover_positions=[0.0, 0.0, 1.0])
+    try:
+        assert node.scenario.headings[0] == 0.0                       # nose on +X
+        node.goal_xyzt_callback(0, Float64MultiArray(data=[1.0, 2.0, 1.5, 90.0]))
+        np.testing.assert_allclose(node.scenario.goals[0], [1.0, 2.0, 1.5])
+        assert node.scenario.headings[0] == pytest.approx(-np.pi / 2)
+        node.goal_xyzt_callback(0, Float64MultiArray(data=[0.0, 0.0, 1.0]))
+        assert node.scenario.headings[0] == 0.0
+        msg = PoseStamped()
+        msg.pose.position.z = 1.0
+        msg.pose.orientation.z = np.sin(0.25 * np.pi)                  # ENU yaw +90 deg
+        msg.pose.orientation.w = np.cos(0.25 * np.pi)
+        node.goal_callback(0, msg)
+        assert node.scenario.headings[0] == pytest.approx(np.pi / 2)
+        node.goal_callback(0, PoseStamped())                            # unset quaternion
+        assert node.scenario.headings[0] == 0.0
+        assert node.desired_heading(node.drones[0]) == 0.0
+    finally:
+        node.destroy_node()

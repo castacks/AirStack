@@ -321,9 +321,10 @@ public:
      * @brief Position + velocity + acceleration setpoint (ENU → NED).
      *
      * One MultiDOFJointTrajectory point: transforms[0].translation is the
-     * position, velocities[0] the velocity (angular.z = yaw rate),
-     * accelerations[0] the acceleration. A missing array or a NaN component
-     * is passed to PX4 as NaN (= "not commanded" on that axis). PX4 then
+     * position and transforms[0].rotation the heading (ENU; all-zero = none,
+     * then velocities[0].angular.z is the yaw rate), velocities[0] the
+     * velocity, accelerations[0] the acceleration. A missing array or a NaN
+     * component is passed to PX4 as NaN (= "not commanded" on that axis). PX4 then
      * flies vel_sp = velocity + MPC_XY_P * (position - pos) and adds the
      * acceleration to its velocity-loop output as feedforward, so the vehicle
      * tracks a smooth trajectory with ~0.1 s lag instead of the ~0.7 s of a
@@ -357,15 +358,28 @@ public:
         sp.yaw = NAN;
         sp.yawspeed = NAN;
 
+        bool have_yaw = false;
         if (!pt.transforms.empty()) {
             const auto& t = pt.transforms.front().translation;
             enu_to_ned(t.x, t.y, t.z, sp.position.data());
+            // Rotation = absolute heading (ENU yaw), same convention as
+            // pose_callback: yaw_ned = π/2 − yaw_enu. An all-zero quaternion
+            // (not normalisable) means "no yaw setpoint" → yaw-rate control.
+            const auto& r = pt.transforms.front().rotation;
+            if (r.x * r.x + r.y * r.y + r.z * r.z + r.w * r.w > 0.5) {
+                tf2::Quaternion q_enu(r.x, r.y, r.z, r.w);
+                double roll{}, pitch{}, yaw_enu{};
+                tf2::Matrix3x3(q_enu).getRPY(roll, pitch, yaw_enu);
+                sp.yaw = static_cast<float>(M_PI_2 - yaw_enu);
+                have_yaw = true;
+            }
         }
         if (!pt.velocities.empty()) {
             const auto& v = pt.velocities.front();
             enu_to_ned(v.linear.x, v.linear.y, v.linear.z, sp.velocity.data());
-            // Yaw-rate: ENU CCW+ → NED CW+ → negate
-            sp.yawspeed = static_cast<float>(-v.angular.z);
+            // Yaw-rate: ENU CCW+ → NED CW+ → negate. Only without an absolute
+            // yaw; with one, PX4 holds the heading itself.
+            if (!have_yaw) sp.yawspeed = static_cast<float>(-v.angular.z);
         }
         if (!pt.accelerations.empty()) {
             const auto& a = pt.accelerations.front();

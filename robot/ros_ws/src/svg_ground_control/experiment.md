@@ -874,11 +874,23 @@ clean stop in the plant model; below that the tail gets sharp). At 5 m/s:
 # control terminal:
 ros2 service call /swarm_commander/takeoff std_srvs/srv/Trigger
 ros2 service call /swarm_commander/start   std_srvs/srv/Trigger
+# goal with heading: [x, y, z, theta]; theta in DEGREES, 0 = +X, CLOCKWISE
+ros2 topic pub --once /svg/drone_1/goal_xyzt std_msgs/msg/Float64MultiArray "{data: [1.0, 0.5, 1.4, 90.0]}"
+# (position-only form still works; its heading is +X = 0 deg)
 ros2 topic pub --once /svg/drone_1/goal_command geometry_msgs/msg/PoseStamped \
   "{header: {frame_id: map}, pose: {position: {x: 1.0, y: 0.5, z: 1.4}}}"
 ros2 topic pub --once /svg/drone_1/speed_command std_msgs/msg/Float32 "{data: 0.8}"
 ros2 service call /swarm_commander/land std_srvs/srv/Trigger
 ```
+**Heading.** Real drones on the trajectory output get an absolute yaw with
+every setpoint: the goal's `theta` in the goal scenario, and **nose on +X
+(0°) in every other scenario** (hover, squeeze, random goals, …) and while
+taking off / holding. `theta` is degrees, 0 = +X of the mocap frame,
+clockwise positive seen from above (90 = nose on −Y). A `goal_command`
+PoseStamped may carry the heading as its quaternion (ENU yaw, the usual ROS
+sense); an all-zero quaternion means 0°. Teleop drones keep the yaw-rate
+stick instead. RViz shows the commanded heading as a white arrow. Sim /
+velocity-only drones are not heading-controlled.
 **LEDs:** the strip is **green** throughout (daemon default + `led_controller`
 block in `goal_single.yaml`; a single drone is never CBF-corrected). Recolor at
 **any** time — armed or not, before takeoff, on the bench — the same way you

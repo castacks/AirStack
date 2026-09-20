@@ -38,7 +38,8 @@ Ported from drone_soccer plus goal-tracking and a squeeze profile:
 
 - `hover` — hold configured positions
 - `goal` — each drone seeks a per-drone goal you set live via
-  `/svg/{name}/goal_command` (PoseStamped) + `/svg/{name}/speed_command`
+  `/svg/{name}/goal_xyzt` (`[x, y, z, theta_deg]`, theta 0 = +X, clockwise)
+  or `/svg/{name}/goal_command` (PoseStamped) + `/svg/{name}/speed_command`
   (Float32); backs the single- and multi-drone tracking tests
 - `random_walk` — fixed-speed drift with wall bounces
 - `random_goals` — random goal seeking, resampled on arrival
@@ -90,6 +91,9 @@ velocity, no altitude hold) remains as an ad-hoc utility.
   the reference with the sticks, so released sticks hold position on all
   axes (`teleop_lead_m`). Measured on drone_2: the old `1.5 × distance`
   velocity P-law overshot a 5 m/s leg by 1 m; see experiment.md C1.
+- **Heading**: real drones are told an absolute yaw with every setpoint —
+  the goal's `theta` in the goal scenario, nose on +X everywhere else
+  (0° = +X, clockwise positive). Teleop keeps the yaw-rate stick.
 - **RViz**: all drones' world positions on `/svg/viz/markers`
   (`rviz2 -d $(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/svg_drones.rviz`).
 

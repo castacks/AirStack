@@ -5,6 +5,10 @@ abstraction (works unchanged over MAVROS in sim and px4_interface/uXRCE-DDS
 on hardware — only the topic templates in the config YAML differ):
 
     state in:    {state_topic_template}            nav_msgs/Odometry (ENU)
+    goals in:    /svg/{name}/goal_command   PoseStamped (position + optional
+                 orientation; an all-zero quaternion = nose on +X)
+                 /svg/{name}/goal_xyzt      Float64MultiArray [x, y, z, theta]
+                 theta in DEGREES, 0 = +X, CLOCKWISE positive (seen from above)
     command out: {velocity_command_topic_template} geometry_msgs/TwistStamped (ENU)
                  real drones (real_command_mode: trajectory):
                  {real_trajectory_command_topic_template}
@@ -84,7 +88,7 @@ from rclpy.duration import Duration
 
 from geometry_msgs.msg import PoseStamped, Transform, Twist, TwistStamped
 from nav_msgs.msg import Odometry
-from std_msgs.msg import ColorRGBA, Float32, String
+from std_msgs.msg import ColorRGBA, Float32, Float64MultiArray, String
 from std_srvs.srv import Trigger
 from trajectory_msgs.msg import MultiDOFJointTrajectory, MultiDOFJointTrajectoryPoint
 from visualization_msgs.msg import Marker, MarkerArray
@@ -96,6 +100,16 @@ from svg_ground_control.fence import (BEHAVIORS as FENCE_BEHAVIORS, clamp_to_box
 from svg_ground_control.position_hold import advance_reference, tracking_velocity
 from svg_ground_control.scenarios import Bounds, make_scenario
 from svg_ground_control.trajectory import seek_velocity, stopping_distance
+
+
+def heading_to_yaw(theta_deg: float) -> float:
+    """Operator heading (degrees, 0 = +X, clockwise positive) -> ENU yaw (rad)."""
+    return -np.radians(float(theta_deg))
+
+
+def yaw_to_heading(yaw: float) -> float:
+    """ENU yaw (rad) -> operator heading in degrees (0 = +X, clockwise)."""
+    return float((-np.degrees(yaw) + 180.0) % 360.0 - 180.0)
 
 
 class FlightState(Enum):
@@ -266,6 +280,9 @@ class SwarmCommander(Node):
                                '/svg/{name}/goal_command')
         self.declare_parameter('speed_command_topic_template',
                                '/svg/{name}/speed_command')
+        # [x, y, z, theta_deg]: one flat goal with heading (theta: 0 = +X,
+        # clockwise positive). 3 values = heading +X.
+        self.declare_parameter('goal_xyzt_topic_template', '/svg/{name}/goal_xyzt')
 
         # ---- Geofence (safety latch) ------------------------------------
         # If any airborne drone leaves [fence_min, fence_max] (world ENU, m),
@@ -466,6 +483,7 @@ class SwarmCommander(Node):
         teleop_tmpl = str(self.get_parameter('teleop_topic_template').value)
         goal_tmpl = str(self.get_parameter('goal_command_topic_template').value)
         speed_tmpl = str(self.get_parameter('speed_command_topic_template').value)
+        xyzt_tmpl = str(self.get_parameter('goal_xyzt_topic_template').value)
 
         def command_templates(mode):
             """(output kind, command topic, robot_command service) for a mode."""
@@ -507,6 +525,9 @@ class SwarmCommander(Node):
                 self.create_subscription(
                     Float32, speed_tmpl.format(name=name),
                     lambda msg, idx=i: self.speed_callback(idx, msg), 10)
+                self.create_subscription(
+                    Float64MultiArray, xyzt_tmpl.format(name=name),
+                    lambda msg, idx=i: self.goal_xyzt_callback(idx, msg), 10)
             self.create_subscription(
                 Odometry, state_tmpl.format(name=name),
                 lambda msg, d=drone: self.odometry_callback(d, msg), 10)
@@ -636,12 +657,37 @@ class SwarmCommander(Node):
         drone.last_teleop_time = self.get_clock().now()
 
     def goal_callback(self, index: int, msg: PoseStamped):
-        # World-frame goal for the 'goal' scenario; ignored otherwise.
-        if hasattr(self.scenario, 'set_goal'):
-            p = msg.pose.position
-            self.scenario.set_goal(index, np.array([p.x, p.y, p.z]))
-            self.get_logger().info(
-                f'{self.drones[index].name}: goal -> [{p.x:.2f}, {p.y:.2f}, {p.z:.2f}]')
+        # World-frame goal for the 'goal' scenario; ignored otherwise. The
+        # orientation's yaw is the heading; an all-zero (unset) quaternion,
+        # which is what a position-only `topic pub` sends, means nose on +X.
+        q = msg.pose.orientation
+        yaw = 0.0
+        if q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w > 0.5:
+            yaw = float(np.arctan2(2.0 * (q.w * q.z + q.x * q.y),
+                                   1.0 - 2.0 * (q.y * q.y + q.z * q.z)))
+        p = msg.pose.position
+        self.retarget(index, np.array([p.x, p.y, p.z]), yaw)
+
+    def goal_xyzt_callback(self, index: int, msg: Float64MultiArray):
+        """[x, y, z, theta_deg]: theta 0 = +X, clockwise positive; 3 values = +X."""
+        data = list(msg.data)
+        if len(data) not in (3, 4):
+            self.get_logger().warn(
+                f'{self.drones[index].name}: goal_xyzt needs [x, y, z] or '
+                f'[x, y, z, theta_deg], got {len(data)} values')
+            return
+        theta = data[3] if len(data) == 4 else 0.0
+        self.retarget(index, np.array(data[:3], dtype=float),
+                      heading_to_yaw(theta))
+
+    def retarget(self, index: int, point: np.ndarray, yaw: float):
+        if not hasattr(self.scenario, 'set_goal'):
+            return
+        self.scenario.set_goal(index, point, yaw)
+        self.get_logger().info(
+            f'{self.drones[index].name}: goal -> [{point[0]:.2f}, {point[1]:.2f}, '
+            f'{point[2]:.2f}] heading {yaw_to_heading(yaw):.0f} deg '
+            '(0 = +X, clockwise)')
 
     def speed_callback(self, index: int, msg: Float32):
         if hasattr(self.scenario, 'set_speed'):
@@ -1219,7 +1265,13 @@ class SwarmCommander(Node):
             pose.translation.x = float(ref[0])
             pose.translation.y = float(ref[1])
             pose.translation.z = float(ref[2])
-            pose.rotation.w = 1.0
+            # Heading: an absolute ENU yaw for scenario drones (nose on +X
+            # unless a goal says otherwise); teleop keeps the yaw-rate stick,
+            # so its rotation is left zero (= "no yaw setpoint" downstream).
+            if drone.role != 'teleop':
+                yaw = self.desired_heading(drone)
+                pose.rotation.z = float(np.sin(0.5 * yaw))
+                pose.rotation.w = float(np.cos(0.5 * yaw))
             vel = Twist()
             vel.linear.x = float(velocity[0])
             vel.linear.y = float(velocity[1])
@@ -1247,6 +1299,10 @@ class SwarmCommander(Node):
     # ------------------------------------------------------------------
     # Visualization (RViz MarkerArray, world frame)
     # ------------------------------------------------------------------
+
+    def desired_heading(self, drone: DroneHandle) -> float:
+        """ENU yaw (rad) a scenario drone should hold right now."""
+        return float(self.scenario.headings[self.drones.index(drone)])
 
     def _drone_color(self, drone: DroneHandle):
         if self.fence_breached:
@@ -1284,6 +1340,22 @@ class SwarmCommander(Node):
             body.scale.x = body.scale.y = body.scale.z = 0.3
             body.color = ColorRGBA(r=r, g=g, b=b, a=1.0)
             arr.markers.append(body)
+
+            if d.role != 'teleop':
+                nose = Marker()
+                nose.header.frame_id = self.viz_frame
+                nose.header.stamp = stamp
+                nose.ns = 'heading'
+                nose.id = base + 4
+                nose.type = Marker.ARROW
+                nose.action = Marker.ADD
+                nose.pose.position = body.pose.position
+                yaw = self.desired_heading(d)
+                nose.pose.orientation.z = float(np.sin(0.5 * yaw))
+                nose.pose.orientation.w = float(np.cos(0.5 * yaw))
+                nose.scale.x, nose.scale.y, nose.scale.z = 0.45, 0.05, 0.05
+                nose.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=0.9)
+                arr.markers.append(nose)
 
             keepout = Marker()
             keepout.header.frame_id = self.viz_frame

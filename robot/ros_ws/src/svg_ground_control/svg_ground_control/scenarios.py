@@ -94,6 +94,9 @@ class Scenario(ABC):
         self.tracker = ReferenceTracker(self.num_drones, accel, settle_s)
         self.velocity_only_settle = float(velocity_only_settle_s)
         self._acceleration = np.zeros((self.num_drones, 3))
+        # Desired heading per drone, ENU yaw (rad, CCW from +X). Every
+        # scenario keeps the nose on +X; the goal scenario retargets it.
+        self._headings = np.zeros(self.num_drones)
 
     @abstractmethod
     def initial_positions(self) -> np.ndarray:
@@ -144,6 +147,11 @@ class Scenario(ABC):
     def nominal_acceleration(self) -> np.ndarray:
         """(N, 3) acceleration feedforward matching the last nominal_velocity."""
         return self._acceleration.copy()
+
+    @property
+    def headings(self) -> np.ndarray:
+        """(N,) desired ENU yaw per drone (rad, CCW from +X); zeros = nose on +X."""
+        return self._headings.copy()
 
     def reset_tracking(self) -> None:
         """Forget reference velocities (mission start / hold hand-overs)."""
@@ -477,8 +485,10 @@ class GoalScenario(Scenario):
             initial_goals, dtype=float).reshape(self.num_drones, 3)
         self._speeds = np.full(self.num_drones, self.nominal_speed)
 
-    def set_goal(self, index: int, point: np.ndarray) -> None:
+    def set_goal(self, index: int, point: np.ndarray, yaw: float = 0.0) -> None:
+        """Retarget one drone: world point and ENU yaw (rad; 0 = nose on +X)."""
         self._goals[index] = np.asarray(point, dtype=float)
+        self._headings[index] = float(yaw)
 
     def set_speed(self, index: int, speed: float) -> None:
         self._speeds[index] = max(0.0, float(speed))
