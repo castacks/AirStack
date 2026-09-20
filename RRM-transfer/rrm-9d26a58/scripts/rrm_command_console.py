@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import os
 from pathlib import Path
 import re
 import secrets
@@ -20,6 +21,8 @@ import uuid
 from rrm_cosmos_reason2 import load_context
 from rrm_import_office import import_bundle
 from rrm.execution_supervisor import ExecutionSupervisor, RunningDispatch
+from rrm.cosmos_worker_client import CosmosWorkerClient
+from rrm.live_replan import LiveReplanCycle
 from rrm.live_observation import validate_live_observation
 from rrm.psc_pipeline import CommandPscBridge, InferenceQueue, PscBridge
 from rrm.task_store import TaskStore
@@ -95,6 +98,8 @@ class Console:
         self.last_stamp = None
         self.latest_camera = None
         self.latest_camera_metadata = None
+        self.live_lock = threading.Lock()
+        self.cosmos_worker_url = os.environ.get("RRM_COSMOS_WORKER_URL", "").strip()
         scene = json.loads((self.bundle / "scene_manifest.json").read_text())
         self.expected_camera_frame = scene.get("camera_frame_id", "camera_left")
         self.import_queue = InferenceQueue(self.store, trusted_scene=self.bundle / "scene_manifest.json",
@@ -376,6 +381,80 @@ class Console:
             raise RuntimeError("The drone state could not be read.")
         return self.execution.reconcile_grounded(json.loads(lines[-1]))
 
+    def _live_cycle(self, run_id: str) -> tuple[dict, Path, object, LiveReplanCycle]:
+        run = self.store.get_run(run_id)
+        if run is None:
+            raise ValueError("Saved run not found.")
+        directory = Path(run["artifact_dir"])
+        context = load_context(directory / "input.json")
+        cycle = LiveReplanCycle(directory / "live-cycle", task_id=context.task.task_id,
+                                task_revision=context.task.revision,
+                                expected_camera_frame=self.expected_camera_frame)
+        return run, directory, context, cycle
+
+    def _record_live_observation_and_propose(self, run_id: str, scene_state: dict) -> dict:
+        if not self.cosmos_worker_url:
+            raise RuntimeError("No private Cosmos worker URL is configured for this workspace.")
+        if self.latest_camera is None or self.latest_camera_metadata is None:
+            raise ValueError("Capture a fresh Isaac camera image before live replanning.")
+        _, directory, context, cycle = self._live_cycle(run_id)
+        cycle.record_observation(self.latest_camera_metadata, self.latest_camera, scene_state)
+        result = cycle.request_next_action(context, CosmosWorkerClient(self.cosmos_worker_url))
+        step_dir = directory / "live-cycle" / "steps" / f"{cycle.state['active_step_index']:04d}"
+        self.store.record_event(run_id, kind="live_replan_proposal",
+                                artifact_path=step_dir / "provider-response.json",
+                                summary={"cycle_id": cycle.cycle_id,
+                                         "state": result["state"],
+                                         "next_action_id": (result.get("next_action") or {}).get("action", {}).get("id"),
+                                         "execution_dispatch": False})
+        return {"cycle_id": cycle.cycle_id, **result}
+
+    def start_live_replan(self, run_id: str, scene_state: dict) -> dict:
+        """Start shadow-only live planning from a new capture and verifier record."""
+        with self.live_lock:
+            _, _, _, cycle = self._live_cycle(run_id)
+            if cycle.phase.value != "AWAITING_OBSERVATION":
+                raise ValueError("This live cycle already exists; record its reviewed outcome before replanning.")
+            return self._record_live_observation_and_propose(run_id, scene_state)
+
+    def live_status(self, run_id: str) -> dict:
+        run = self.store.get_run(run_id)
+        if run is None:
+            raise ValueError("Saved run not found.")
+        directory = Path(run["artifact_dir"])
+        if not (directory / "live-cycle" / "cycle.json").is_file():
+            return {"state": "NOT_STARTED", "execution_dispatch": False}
+        _, _, _, cycle = self._live_cycle(run_id)
+        return {"cycle_id": cycle.cycle_id, "state": cycle.phase.value,
+                "active_action_id": cycle.state.get("active_action_id"),
+                "remaining_action_ids": cycle.state.get("remaining_action_ids", []),
+                "halt_reason": cycle.state.get("halt_reason"), "execution_dispatch": False}
+
+    def replan_live(self, run_id: str, scene_state: dict) -> dict:
+        """Capture/propose after the previous step has a reviewed verified outcome."""
+        with self.live_lock:
+            _, _, _, cycle = self._live_cycle(run_id)
+            if cycle.phase.value != "AWAITING_OBSERVATION":
+                raise ValueError("A reviewed, verified outcome is required before another replan.")
+            return self._record_live_observation_and_propose(run_id, scene_state)
+
+    def review_live_action(self, run_id: str, action_id: str) -> dict:
+        with self.live_lock:
+            _, _, _, cycle = self._live_cycle(run_id)
+            return {"cycle_id": cycle.cycle_id, **cycle.mark_reviewed(action_id)}
+
+    def record_live_outcome(self, run_id: str, action_id: str, *, verified: bool, detail: str) -> dict:
+        with self.live_lock:
+            if type(verified) is not bool:
+                raise ValueError("Live outcome verification must be explicitly true or false.")
+            _, directory, _, cycle = self._live_cycle(run_id)
+            result = cycle.record_outcome(action_id, verified=verified, detail=detail)
+            step_dir = directory / "live-cycle" / "steps" / f"{cycle.state['active_step_index']:04d}"
+            self.store.record_event(run_id, kind="live_replan_outcome", artifact_path=step_dir / "outcome.json",
+                                    summary={"cycle_id": cycle.cycle_id, "action_id": action_id,
+                                             "verified": verified, "execution_dispatch": False})
+            return {"cycle_id": cycle.cycle_id, **result}
+
 
 def make_handler(app: Console):
     class Handler(BaseHTTPRequestHandler):
@@ -403,6 +482,12 @@ def make_handler(app: Console):
                 return self.respond({"goals": app.store.history()})
             if path == "/api/execution":
                 return self.respond(app.execution.status())
+            live_match = re.fullmatch(r"/api/live/([0-9a-f]{32})", path)
+            if live_match:
+                try:
+                    return self.respond(app.live_status(live_match[1]))
+                except ValueError as error:
+                    return self.respond({"error": str(error)}, status=404)
             if path == "/reference.png":
                 return self.respond((app.bundle / "input.png").read_bytes(), "image/png")
             if path == "/camera.png" and app.latest_camera is not None:
@@ -508,6 +593,20 @@ def make_handler(app: Console):
                     ))
                 if self.path == "/api/camera":
                     return self.respond(app.capture())
+                live_start = re.fullmatch(r"/api/live/([0-9a-f]{32})/start", self.path)
+                if live_start:
+                    return self.respond(app.start_live_replan(live_start[1], value.get("scene_state")))
+                live_replan = re.fullmatch(r"/api/live/([0-9a-f]{32})/replan", self.path)
+                if live_replan:
+                    return self.respond(app.replan_live(live_replan[1], value.get("scene_state")))
+                live_review = re.fullmatch(r"/api/live/([0-9a-f]{32})/review", self.path)
+                if live_review:
+                    return self.respond(app.review_live_action(live_review[1], value.get("action_id")))
+                live_outcome = re.fullmatch(r"/api/live/([0-9a-f]{32})/outcome", self.path)
+                if live_outcome:
+                    return self.respond(app.record_live_outcome(
+                        live_outcome[1], value.get("action_id"), verified=value.get("verified"),
+                        detail=value.get("detail")))
                 if self.path == "/api/admission":
                     return self.respond(app.execution.decide(
                         value.get("decision"), value.get("proposal_sha256")

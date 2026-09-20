@@ -10,6 +10,7 @@ import threading
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 from http.server import ThreadingHTTPServer
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -20,6 +21,7 @@ from rrm_cosmos_reason2 import load_context
 from rrm.cosmos_reason2 import parse_cosmos_candidate, render_cosmos_prompt
 from rrm.airstack_drone import DroneTaskKind, DroneTaskProposal, MapWaypoint
 from rrm.execution_supervisor import ExecutionSupervisor, RunningDispatch
+from rrm.live_replan import LiveCycleResponse
 import test_office_import
 
 
@@ -404,6 +406,53 @@ class CommandConsoleTests(unittest.TestCase):
                     app.latest_camera_metadata.update(changes)
                 with self.assertRaises(ValueError):
                     app.save("Approach the blue marker.")
+
+    def test_live_worker_cycle_requires_reviewed_verified_outcome_before_replan(self):
+        class FakeWorkerClient:
+            requests = []
+
+            def __init__(self, url):
+                self.url = url
+
+            def propose(self, request):
+                self.requests.append(request)
+                raw = json.dumps({
+                    "status": "READY", "grounded_entities": ["blue_marker", "orange_marker"],
+                    "grounded_goal": {"name": "near", "subject": "$self", "obj": "blue_marker"},
+                    "ambiguity_refs": [], "explanation": "shadow-only live candidate",
+                    "actions": [
+                        {"id": "blue", "verb": "NAVIGATE_TO", "targets": ["blue_marker"], "dependencies": []},
+                        {"id": "orange", "verb": "NAVIGATE_TO", "targets": ["orange_marker"], "dependencies": ["blue"]},
+                    ], "recovery_budget": 0,
+                })
+                return LiveCycleResponse(cycle_id=request.cycle_id, step_index=request.step_index,
+                    observation_sha256=request.observation["sha256"],
+                    candidate=parse_cosmos_candidate(raw, request.context))
+
+        app = Console(self.bundle, self.output, "/unused-capture.py")
+        app.cosmos_worker_url = "http://cosmos-worker:8090"
+        seed_live_capture(app)
+        saved = app.save("Approach the blue marker.")
+        scene = {"source_stamp_ns": app.latest_camera_metadata["source_stamp_ns"],
+                 "verified_entities": ["blue_marker", "orange_marker"],
+                 "provenance": "test-entity-verifier/v1"}
+        with patch("rrm_command_console.CosmosWorkerClient", FakeWorkerClient):
+            first = app.start_live_replan(saved["request_id"], scene)
+            self.assertEqual(first["state"], "REVIEW_REQUIRED")
+            self.assertEqual(first["next_action"]["action"]["id"], "blue")
+            with self.assertRaisesRegex(ValueError, "verified outcome"):
+                app.replan_live(saved["request_id"], scene)
+            app.review_live_action(saved["request_id"], "blue")
+            app.record_live_outcome(saved["request_id"], "blue", verified=True,
+                                    detail="operator recorded independently verified shadow outcome")
+            app.latest_camera_metadata["source_stamp_ns"] += 1
+            app.latest_camera_metadata["vehicle"]["odometry_stamp_ns"] += 1
+            second = app.replan_live(saved["request_id"], {
+                **scene, "source_stamp_ns": app.latest_camera_metadata["source_stamp_ns"],
+            })
+        self.assertEqual(second["state"], "REVIEW_REQUIRED")
+        self.assertEqual(FakeWorkerClient.requests[1].prior_outcome["action_id"], "blue")
+        self.assertFalse((self.output / "execution").exists())
 
     def test_async_psc_result_is_run_bound_validated_and_requires_approval(self):
         fixture_bundle = self.bundle
