@@ -1,5 +1,25 @@
 # RRM remote Codex handoff
 
+## LATEST: OSMO worker discovery is not wired in the submitted workflow — 2026-09-20
+
+The `cosmos-worker` task is healthy and listening on `0.0.0.0:8090`; its
+`GET /healthz` returned 200 from the group network. The submitted workflow did
+**not**, however, place `RRM_COSMOS_WORKER_URL` in the workspace environment:
+it was empty when inspected. Nor did `cosmos-worker` resolve from the workspace.
+OSMO query reported the worker as `RUNNING` with Pod IP `172.16.231.62` and no
+host/address field. Consequently the workspace cannot call the private
+`/v1/verify-entities` endpoint through the intended configuration.
+
+The current YAML assumes that `RRM_COSMOS_WORKER_URL:
+"http://{{host:cosmos-worker}}:8090"` will be substituted and that the task name
+will be DNS-resolvable. That assumption is invalid for this submitted workflow;
+do not treat the worker task name as a Kubernetes service name. Before submitting
+another two-GPU workflow, validate the rendered workflow spec and use the OSMO
+supported group-task address mechanism for the deployed OSMO version (or inject
+the worker Pod IP through a documented runtime bootstrap). Keep the endpoint
+private and preserve `execution_dispatch: false`; do not work around this with a
+public worker port-forward.
+
 ## LATEST: shadow-only live action → replan orchestration foundation — 2026-09-19
 
 `rrm/live_replan.py` now persists a provider-neutral mission cycle intended for the

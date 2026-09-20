@@ -29,8 +29,26 @@ Isaac Sim ──► Perception ──► WORLD MODEL ──► Reasoner ──�
 ## Run it now — no GPU, no models, no Isaac Sim
 
 ```bash
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+bash scripts/test_rrm.sh
+```
+
+This is the standard RRM test entry point. It creates or reuses the gitignored
+`.venv/`, installs `requirements.txt` only when Pydantic v2 is unavailable, and runs
+the complete unit suite. On a minimal host without Python `venv` support, it instead
+uses the gitignored `.rrm-deps/` directory through `PYTHONPATH`; neither path modifies
+system Python. Do not run the suite with bare host `python3`: a host Python without
+Pydantic will fail before test collection. The script does not start or alter Docker,
+OSMO, Isaac, GPUs, or robot state.
+
+To run just the original CPU-only Oracle demonstration after bootstrap, use the
+interpreter selected by the bootstrap:
+
+```bash
+# Normal venv-capable host:
 .venv/bin/python scripts/oracle_loop.py --suite
+
+# Minimal host where the bootstrap reported .rrm-deps fallback:
+PYTHONPATH=.rrm-deps python3 scripts/oracle_loop.py --suite
 ```
 
 ```
@@ -46,6 +64,8 @@ T9    PASS           3        4       24        0         0%
 Other entry points:
 
 ```bash
+# Use .venv/bin/python on a venv-capable host, or prefix these with
+# PYTHONPATH=.rrm-deps python3 on the minimal-host fallback.
 .venv/bin/python scripts/oracle_loop.py --fail-grasp        # divergence + recovery
 .venv/bin/python scripts/oracle_loop.py --human             # safety rejection
 .venv/bin/python scripts/oracle_loop.py --suite --trace-dir traces/
@@ -54,32 +74,35 @@ Other entry points:
 
 ## RRM Command Console & PSC Bridge (OSMO)
 
-The RRM GUI (Command Console) is used for visual intake, reviewing, and approving execution commands. It uses an asynchronous bridge to communicate with PSC. **All commands below must be run in your OSMO terminal.**
+The RRM GUI (Command Console) is used for live visual intake and proposal review.
+It can use the private warm Cosmos worker without PSC. A historical PSC bundle is
+optional reference evidence, not a startup prerequisite. **All commands below must
+be run in your OSMO terminal.**
 
-**Prerequisites:** Before you can start the console, two things must happen:
-1. **Isaac Sim and AirStack must be running:** The console needs to connect to the active simulation to pull live camera images and robot odometry.
-2. **You must fetch a historical PSC bundle:** The console requires an initial, previously completed inference job from PSC to bootstrap its internal state and UI. (This is what the "fetch" script does).
+**Prerequisite:** Isaac Sim and AirStack must be running so the console can pull live
+camera images and robot odometry.
 
-**1. Fetch a historical PSC bundle:**
-*(This downloads a completed inference job from PSC. Look for the `Verified bundle:` path in the output).*
+**Start live-only mode (no PSC job ID):**
+```bash
+cd /root/AirStack/RRM-transfer/rrm-9d26a58
+bash scripts/rrm_command_console.sh
+```
+
+This mode uses the checked-in Office C01/C02/C03 template and scene manifest. It can
+capture/save live requests and call the configured private Cosmos worker, but it
+loads no historical proposal and cannot dispatch a flight command.
+
+**Optional historical reference mode:** fetch a completed PSC bundle in an
+MFA-capable terminal, then pass the printed `Verified bundle:` path:
 ```bash
 cd /root/AirStack/RRM-transfer/rrm-9d26a58
 bash scripts/rrm_office_fetch_import.sh <psc-job-id>
-```
-
-The PSC job ID is an operator-provided value, not a folder in a recreated
-VS Code/OSMO workspace. Run the command in an MFA-capable terminal to download and
-verify its bundle, then use the printed `Verified bundle:` path below. The transferred
-handoff records `46288765` as the prior accepted Office inference; use it only when
-you intentionally want that historical result, not as a default for a new scene.
-
-**2. Start the console:**
-```bash
-# Provide the verified bundle directory path that was output by the fetch script above:
-cd /root/AirStack/RRM-transfer/rrm-9d26a58
 bash scripts/rrm_command_console.sh <verified-bundle-directory> [port]
 ```
-*(The console will be accessible at `http://127.0.0.1:8787` by default)*
+
+The PSC job ID is an operator-provided value, not a folder in a recreated OSMO
+workspace. Reference mode preserves the existing static-proposal review surface; it
+does not connect a worker result to automatic flight.
 
 **Manual PSC Job Submission:**
 If the console's automated background submission fails (due to MFA/Duo prompts blocking the non-interactive SSH key), use this helper script in your terminal to manually push a request created in the GUI:
@@ -118,6 +141,53 @@ observation; exposes only the first action of a multi-action plan for review; an
 requires a reviewed, independently verified outcome before it will accept another
 observation/replan. It has no ROS, model-runtime, PSC, or dispatch dependency.
 
+`rrm/authorized_live_mission.py` is the separate, explicitly invoked composition
+boundary for a future simulator mission. It accepts injected per-frame entity-verifier
+C02 context, C05 provider, deterministic drone compiler, and independently verified
+public-action outcome adapter; it enforces the bounded task/revision/verb/target/action
+authorization and halts on any failed verification or compilation. It is not wired to
+the worker, console, OSMO workflow, Docker, or ROS. A worker starting successfully
+therefore cannot acquire a flight path.
+
+### Explicit simulator mission runner
+
+The private worker now also exposes `/v1/verify-entities`, which returns only
+checksum-bound, catalog-limited visual C02 evidence with `execution_dispatch: false`.
+It must be rebuilt and deployed before an existing worker instance can serve that
+endpoint; this repository change does not restart a worker or workflow.
+
+The mission runner is separate from both the worker and the console. Create a bounded
+authorization file that exactly matches the immutable context, for example:
+
+```json
+{
+  "task_id": "office-nav-001",
+  "task_revision": "office-task-v1",
+  "allowed_verbs": ["NAVIGATE_TO"],
+  "allowed_targets": ["blue_marker"],
+  "max_actions": 2
+}
+```
+
+First use the default shadow path; it captures, visually verifies, and proposes one
+action, but never creates an ActionClient:
+
+```bash
+cd /root/AirStack/RRM-transfer/rrm-9d26a58
+python3 scripts/rrm_authorized_live_mission.py \
+  --context examples/office_visual_eval/navigation_context.json \
+  --scene-manifest examples/office_visual_eval/scene_manifest.json \
+  --entity-catalog examples/office_visual_eval/entity_catalog.json \
+  --authorization /secure/operator/office-mission.json \
+  --worker-url "$RRM_COSMOS_WORKER_URL" \
+  --run-dir /root/AirStack/.rrm-artifacts/live-missions/<new-run-id>
+```
+
+The public AirStack task-action adapter is unavailable unless the operator adds both
+`--execute --simulator-only`. Those flags are deliberately not shown as a routine
+startup command: use them only after the worker image deployment, fresh simulator
+readiness/reconciliation, independent observer coverage, and a supervised review.
+
 The next integration supplies a warm OSMO Cosmos worker (or approved VLM API) as the
 provider. PSC batch jobs remain an offline evaluation path and must not be used as the
 per-action control loop. The current coordinator is not connected to the GUI or flight
@@ -150,6 +220,31 @@ osmo workflow submit osmo/workflows/airstack-live-replan.yaml \
 
 This requests two GPUs, 24 CPU cores, and 96 GiB memory total. It is a shadow-only
 model service until the provider adapter and GUI cycle view are connected.
+
+### Attach AirStack helpers to a manually submitted OSMO workflow
+
+`./airstack.sh osmo up` records its submitted workflow ID in
+`~/.airstack/osmo-state`. If a workflow was instead submitted directly with
+`osmo workflow submit`, helper commands such as `ide`, `logs`, `webrtc`, and
+`foxglove` may still target an older cancelled workflow.
+
+For one command, override the saved workflow ID without changing it:
+
+```bash
+AIRSTACK_OSMO_WF=airstack-live-replan-1 ./airstack.sh osmo ide
+```
+
+To make that workflow the normal target for all helper commands, update the saved
+state, then attach:
+
+```bash
+printf '%s\n' 'airstack-live-replan-1' > ~/.airstack/osmo-state
+./airstack.sh osmo ide
+```
+
+Replace `airstack-live-replan-1` with the actual workflow ID returned by your
+submission. This only changes the local helper's selected workflow; it does not
+restart, cancel, or otherwise modify the running workflow.
 
 ## Loading an Isaac Sim Scene (AirStack)
 

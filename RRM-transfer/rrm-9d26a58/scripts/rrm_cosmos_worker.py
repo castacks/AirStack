@@ -20,6 +20,8 @@ import threading
 import time
 
 from rrm.cosmos_reason2 import parse_cosmos_candidate, render_cosmos_prompt
+from rrm.visual_world_builder import (MediaArtifact, VisualGroundingInput,
+                                      parse_visual_candidate, render_visual_prompt)
 from rrm_cosmos_reason2 import CosmosGenerator, load_context_payload
 
 
@@ -87,6 +89,42 @@ class CosmosWorker:
             "execution_dispatch": False,
         }
 
+    def verify_entities(self, value: dict) -> dict:
+        """Return catalog-bound visual C02 evidence; never an action or plan."""
+        cycle_id, step_index, observation_sha256, payload, image = decode_request(value)
+        catalog = value.get("entity_catalog")
+        if (not isinstance(catalog, dict) or not catalog
+                or not all(isinstance(key, str) and isinstance(item, str)
+                           for key, item in catalog.items())):
+            raise ValueError("entity verifier requires a nonempty string catalog")
+        context = load_context_payload(payload)
+        now = time.monotonic()
+        visual = VisualGroundingInput(
+            task_id=context.task.task_id, episode_id=context.snapshot.episode_id,
+            state_revision=context.snapshot.revision, entity_catalog=catalog,
+            media=MediaArtifact(source_ref=f"live/{cycle_id}/{step_index}",
+                                sha256=observation_sha256, observed_monotonic_s=now),
+            received_monotonic_s=now, max_age_s=5.0,
+            model_ref="cosmos-reason2-live-entity-verifier/v1",
+        )
+        prompt = render_visual_prompt(visual)
+        with tempfile.TemporaryDirectory(prefix="rrm-cosmos-verify-") as temporary:
+            image_path = Path(temporary) / "input.png"
+            image_path.write_bytes(image)
+            started = time.monotonic()
+            with self.lock:
+                raw = self.generator.generate(prompt=prompt, image_path=str(image_path),
+                                              video_path=None, max_new_tokens=self.max_new_tokens)
+        candidate = parse_visual_candidate(raw, visual)
+        return {
+            "cycle_id": cycle_id, "step_index": step_index,
+            "observation_sha256": observation_sha256,
+            "visual_candidate": candidate.model_dump(mode="json"),
+            "now_monotonic_s": now,
+            "inference_wall_s": round(time.monotonic() - started, 3),
+            "execution_dispatch": False,
+        }
+
 
 def make_handler(worker: CosmosWorker):
     class Handler(BaseHTTPRequestHandler):
@@ -106,14 +144,16 @@ def make_handler(worker: CosmosWorker):
             self.respond({"error": "Not found"}, status=404)
 
         def do_POST(self):
-            if self.path != "/v1/propose":
+            if self.path not in {"/v1/propose", "/v1/verify-entities"}:
                 return self.respond({"error": "Not found"}, status=404)
             try:
                 length = int(self.headers.get("Content-Length", "0"))
                 if not 0 < length <= MAX_REQUEST_BYTES:
                     raise ValueError("worker request size is invalid")
                 value = json.loads(self.rfile.read(length))
-                return self.respond(worker.propose(value))
+                if self.path == "/v1/propose":
+                    return self.respond(worker.propose(value))
+                return self.respond(worker.verify_entities(value))
             except (ValueError, TypeError, json.JSONDecodeError) as error:
                 self.respond({"error": str(error)}, status=400)
             except Exception:

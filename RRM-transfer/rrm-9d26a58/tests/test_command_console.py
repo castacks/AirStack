@@ -363,6 +363,19 @@ class CommandConsoleTests(unittest.TestCase):
         self.bundle = self.fixture.bundle
         self.output = self.bundle / "requests"
 
+    def test_live_only_mode_needs_no_historical_psc_bundle(self):
+        office = Path(__file__).parents[1] / "examples" / "office_visual_eval"
+        app = Console(None, self.output, "/unused-capture.py",
+                      context_template=office / "navigation_context.json",
+                      scene_manifest=office / "scene_manifest.json")
+        self.assertIsNone(app.decision)
+        self.assertIsNone(app.execution)
+        self.assertEqual(app.store.history(), [])
+        seed_live_capture(app)
+        saved = app.save("Approach the blue marker from the current scene.")
+        self.assertEqual(saved["context_mode"], "live-isaac-observation")
+        self.assertEqual(len(app.store.history()), 1)
+
     def test_goal_reuse_and_restart_preserve_independent_runs(self):
         app = Console(self.bundle, self.output, "/unused-capture.py")
         seed_live_capture(app)

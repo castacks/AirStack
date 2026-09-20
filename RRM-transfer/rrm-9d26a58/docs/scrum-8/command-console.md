@@ -48,9 +48,15 @@ If restarting, run on the OSMO host:
 
 ```bash
 cd /root/AirStack/RRM-transfer/rrm-9d26a58
-bash scripts/rrm_command_console.sh \
-  /root/AirStack/.rrm-artifacts/psc-office-46288765.FCRcPE/bundle
+bash scripts/rrm_command_console.sh
 ```
+
+That starts **live-only** mode from the checked-in Office context and scene manifest;
+it needs no PSC job ID or imported bundle. It can capture/save live requests and use
+the private worker, but has no historical proposal and no flight-dispatch surface.
+To inspect the historical reference instead, pass its verified bundle directory as
+the first argument. Historical reference mode remains separate from the automatic
+mission work.
 
 The launcher reuses this session's Pydantic 2 dependencies from the robot container
 and copies the existing read-only capture utility to a separate temporary directory.

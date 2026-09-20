@@ -1,26 +1,30 @@
 #!/bin/bash
 # Localhost task console; dependencies reused from this session's robot container.
 set -euo pipefail
-rrm_historical_psc_job_id="${RRM_HISTORICAL_PSC_JOB_ID:-}"
-[[ $# -ge 1 && $# -le 2 ]] || {
+[[ $# -le 3 ]] || {
   cat >&2 <<EOF
-Usage: bash scripts/rrm_command_console.sh <verified-bundle-directory> [port]
+Usage: bash scripts/rrm_command_console.sh [verified-bundle-directory] [port]
 
-No verified bundle is bundled with a recreated OSMO workspace. A PSC Slurm job ID
-is not a VS Code folder. Fetch the job you intend to use in an MFA-capable terminal,
-then pass the printed "Verified bundle:" path:
+With no bundle, the console starts in live-only mode from the checked-in Office
+context and scene manifest. It can capture/save live requests and use the private
+Cosmos worker, but it has no historical proposal or flight-dispatch panel.
+
+Pass a verified historical bundle only when reference review is wanted:
   bash scripts/rrm_office_fetch_import.sh <psc-job-id>
 EOF
-  if [[ -n "$rrm_historical_psc_job_id" ]]; then
-    echo "Configured historical reference: $rrm_historical_psc_job_id" >&2
-  else
-    echo "Set RRM_HISTORICAL_PSC_JOB_ID to display your current historical reference here." >&2
-  fi
   exit 2
 }
 rrm_source=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-rrm_bundle=$(cd "$1" && pwd)
+rrm_console_args=()
+if [[ $# -ge 1 && -n "${1:-}" ]]; then
+  rrm_bundle=$(cd "$1" && pwd)
+  rrm_console_args+=(--bundle "$rrm_bundle")
+fi
 rrm_port="${2:-8787}"
+if [[ $# -eq 0 ]]; then
+  rrm_console_args+=(--context-template "$rrm_source/examples/office_visual_eval/navigation_context.json"
+                     --scene-manifest "$rrm_source/examples/office_visual_eval/scene_manifest.json")
+fi
 rrm_deps=$(mktemp -d /tmp/rrm-console-deps.XXXXXX)
 rrm_container_deps=/tmp/rrm-canonical-deps
 # The robot container may have been recreated while switching Isaac profiles.
@@ -41,6 +45,6 @@ if [[ "${RRM_PSC_BRIDGE:-0}" == "1" ]]; then
   rrm_psc_args=(--psc-bridge "$rrm_source/scripts/rrm_psc_bridge.sh")
 fi
 PYTHONPATH="$rrm_deps:$rrm_source:$rrm_source/scripts" exec python3 \
-  "$rrm_source/scripts/rrm_command_console.py" --bundle "$rrm_bundle" \
+  "$rrm_source/scripts/rrm_command_console.py" "${rrm_console_args[@]}" \
   --output-dir "$rrm_source/../../.rrm-artifacts/command-requests" \
   --camera-script "$rrm_source/scripts/airstack_capture_image.py" --port "$rrm_port" "${rrm_psc_args[@]}"

@@ -1,5 +1,6 @@
 # Python
 .venv/
+.rrm-deps/
 .deps/
 __pycache__/
 *.py[cod]

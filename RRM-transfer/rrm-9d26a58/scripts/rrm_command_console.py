@@ -34,7 +34,8 @@ def save_request(bundle: Path, output: Path, objective: str, goal_id: str | None
         raise ValueError("Enter a task between 1 and 5000 characters.")
     if goal_id is not None and (not isinstance(goal_id, str) or not re.fullmatch(r"[0-9a-f]{32}", goal_id)):
         raise ValueError("Invalid goal ID.")
-    payload = json.loads((bundle / "input.json").read_text())
+    context_path = bundle if bundle.is_file() else bundle / "input.json"
+    payload = json.loads(context_path.read_text())
     request_id = uuid.uuid4().hex
     task_id = f"office-command-{request_id}"
     payload["task"].update(task_id=task_id, revision=f"{task_id}/v1",
@@ -56,7 +57,7 @@ def save_request(bundle: Path, output: Path, objective: str, goal_id: str | None
     (destination / "input.json").write_text(json.dumps(payload, indent=2) + "\n")
     load_context(destination / "input.json")
     if image is None:
-        shutil.copyfile(bundle / "input.png", destination / "input.png")
+        shutil.copyfile(context_path.parent / "input.png", destination / "input.png")
     else:
         (destination / "input.png").write_bytes(image)
     if observation is not None:
@@ -69,7 +70,7 @@ def save_request(bundle: Path, output: Path, objective: str, goal_id: str | None
         "created_at": datetime.now(timezone.utc).isoformat(),
         "status": "SAVED_NOT_SUBMITTED", "execution_dispatch": False,
         "context_mode": "live-isaac-observation" if observation is not None else "frozen-office-replay",
-        "source_bundle": str(bundle),
+        "source_context": str(context_path),
         "input_sha256": hashlib.sha256((destination / "input.json").read_bytes()).hexdigest(),
         "media_sha256": hashlib.sha256((destination / "input.png").read_bytes()).hexdigest(),
     }
@@ -82,15 +83,23 @@ def save_request(bundle: Path, output: Path, objective: str, goal_id: str | None
 
 
 class Console:
-    def __init__(self, bundle: Path, output: Path, camera_script: str,
-                 psc_bridge: PscBridge | None = None):
-        self.bundle = bundle.resolve()
+    def __init__(self, bundle: Path | None, output: Path, camera_script: str,
+                 psc_bridge: PscBridge | None = None, *, context_template: Path | None = None,
+                 scene_manifest: Path | None = None):
+        if bundle is None and (context_template is None or scene_manifest is None):
+            raise ValueError("Live-only console requires a context template and scene manifest.")
+        self.bundle = bundle.resolve() if bundle is not None else None
         self.output = output.resolve()
-        self.decision = import_bundle(self.bundle)
-        self.context = json.loads((self.bundle / "input.json").read_text())
+        self.context_template = ((self.bundle / "input.json") if self.bundle is not None
+                                 else context_template.resolve())
+        self.scene_manifest = ((self.bundle / "scene_manifest.json") if self.bundle is not None
+                               else scene_manifest.resolve())
+        self.context = json.loads(self.context_template.read_text())
         self.store = TaskStore(self.output / "tasks.sqlite3")
         self.storage_lock = threading.Lock()
-        self.reference_run_id = self.store.record_reference(self.bundle)
+        self.decision = import_bundle(self.bundle) if self.bundle is not None else None
+        self.reference_run_id = (self.store.record_reference(self.bundle)
+                                 if self.bundle is not None else None)
         self.recover_requests()
         self.token = secrets.token_urlsafe(32)
         self.camera_script = camera_script
@@ -100,20 +109,22 @@ class Console:
         self.latest_camera_metadata = None
         self.live_lock = threading.Lock()
         self.cosmos_worker_url = os.environ.get("RRM_COSMOS_WORKER_URL", "").strip()
-        scene = json.loads((self.bundle / "scene_manifest.json").read_text())
+        scene = json.loads(self.scene_manifest.read_text())
         self.expected_camera_frame = scene.get("camera_frame_id", "camera_left")
-        self.import_queue = InferenceQueue(self.store, trusted_scene=self.bundle / "scene_manifest.json",
+        self.import_queue = InferenceQueue(self.store, trusted_scene=self.scene_manifest,
                                            bridge=None)
-        self.queue = (InferenceQueue(self.store, trusted_scene=self.bundle / "scene_manifest.json",
+        self.queue = (InferenceQueue(self.store, trusted_scene=self.scene_manifest,
                                      bridge=psc_bridge) if psc_bridge is not None else None)
-        self.execution = ExecutionSupervisor(
-            self.decision.proposal,
-            self.output / "execution",
-            self._launch_dispatch,
-        )
-        self.store.set_lifecycle(self.reference_run_id,
-                                 proposal_sha256=self.execution.proposal_sha256)
-        self.index_execution_evidence()
+        self.execution = None
+        if self.decision is not None:
+            self.execution = ExecutionSupervisor(
+                self.decision.proposal,
+                self.output / "execution",
+                self._launch_dispatch,
+            )
+            self.store.set_lifecycle(self.reference_run_id,
+                                     proposal_sha256=self.execution.proposal_sha256)
+            self.index_execution_evidence()
 
     @staticmethod
     def _canonical_proposal_sha256(path: Path) -> str:
@@ -127,6 +138,8 @@ class Console:
         proposal, so it remains linked to the reference run until the per-run dispatcher
         is enabled in a later step. Nothing is copied or rewritten.
         """
+        if self.execution is None or self.reference_run_id is None:
+            return
         root = self.output / "execution"
         if not root.is_dir():
             return
@@ -266,7 +279,7 @@ class Console:
             )
             if hashlib.sha256(self.latest_camera).hexdigest() != observation["sha256"]:
                 raise ValueError("Live camera image does not match its capture metadata.")
-            manifest = save_request(self.bundle, self.output, objective, goal_id,
+            manifest = save_request(self.context_template, self.output, objective, goal_id,
                                     image=self.latest_camera, observation=observation)
             directory = self.output / manifest["request_id"]
             self.store.record_request(manifest, json.loads((directory / "input.json").read_text()), directory)
@@ -476,19 +489,24 @@ def make_handler(app: Console):
                                     "text/html; charset=utf-8")
             if path == "/api/state":
                 return self.respond({"token": app.token, "context": app.context,
-                                     "decision": app.decision.model_dump(mode="json")})
+                                     "decision": (app.decision.model_dump(mode="json")
+                                                  if app.decision is not None else None),
+                                     "mode": "REFERENCE" if app.decision is not None else "LIVE_ONLY"})
             if path == "/api/goals":
                 app.index_execution_evidence()
                 return self.respond({"goals": app.store.history()})
             if path == "/api/execution":
-                return self.respond(app.execution.status())
+                return self.respond(app.execution.status() if app.execution is not None else {
+                    "state": "UNAVAILABLE_LIVE_ONLY", "execution_dispatch": False,
+                    "reason": "No historical proposal was imported into this console.",
+                })
             live_match = re.fullmatch(r"/api/live/([0-9a-f]{32})", path)
             if live_match:
                 try:
                     return self.respond(app.live_status(live_match[1]))
                 except ValueError as error:
                     return self.respond({"error": str(error)}, status=404)
-            if path == "/reference.png":
+            if path == "/reference.png" and app.bundle is not None:
                 return self.respond((app.bundle / "input.png").read_bytes(), "image/png")
             if path == "/camera.png" and app.latest_camera is not None:
                 return self.respond(app.latest_camera, "image/png")
@@ -608,17 +626,24 @@ def make_handler(app: Console):
                         live_outcome[1], value.get("action_id"), verified=value.get("verified"),
                         detail=value.get("detail")))
                 if self.path == "/api/admission":
+                    if app.execution is None:
+                        raise ValueError("Historical-proposal dispatch is unavailable in live-only mode.")
                     return self.respond(app.execution.decide(
                         value.get("decision"), value.get("proposal_sha256")
                     ))
                 if self.path == "/api/stop":
+                    if app.execution is None:
+                        raise ValueError("Historical-proposal dispatch is unavailable in live-only mode.")
                     return self.respond(app.execution.request_stop())
                 if self.path == "/api/land":
+                    if app.execution is None:
+                        raise ValueError("Historical-proposal dispatch is unavailable in live-only mode.")
                     return self.respond(app.execution.request_land())
                 if self.path == "/api/reconcile":
+                    if app.execution is None:
+                        raise ValueError("Historical-proposal dispatch is unavailable in live-only mode.")
                     return self.respond(app.reconcile_grounded())
                 if self.path == "/api/reset":
-                    import subprocess
                     try:
                         subprocess.run(["./airstack.sh", "down", "isaac-sim-livestream", "robot-desktop"], cwd="/root/AirStack", check=True)
                         subprocess.run(["./airstack.sh", "up", "--sim", "isaac", "--scene", "office", "--wait"], cwd="/root/AirStack", check=True)
@@ -639,15 +664,23 @@ def make_handler(app: Console):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--bundle", required=True, type=Path)
+    parser.add_argument("--bundle", type=Path,
+                        help="optional verified historical PSC bundle for reference-only review")
+    parser.add_argument("--context-template", type=Path,
+                        help="live-only C01/C02/C03 template; required without --bundle")
+    parser.add_argument("--scene-manifest", type=Path,
+                        help="trusted scene manifest; required without --bundle")
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--camera-script", required=True, help="Capture utility path inside robot container")
     parser.add_argument("--psc-bridge", nargs="+", default=None,
                         help="non-interactive bridge command; appends the immutable request directory")
     parser.add_argument("--port", type=int, default=8787)
     args = parser.parse_args()
+    if args.bundle is None and (args.context_template is None or args.scene_manifest is None):
+        parser.error("--context-template and --scene-manifest are required without --bundle")
     bridge = CommandPscBridge(args.psc_bridge) if args.psc_bridge else None
-    app = Console(args.bundle, args.output_dir, args.camera_script, psc_bridge=bridge)
+    app = Console(args.bundle, args.output_dir, args.camera_script, psc_bridge=bridge,
+                  context_template=args.context_template, scene_manifest=args.scene_manifest)
     server = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(app))
     print(f"RRM console: http://127.0.0.1:{server.server_port} — intake, review, and gated execution", flush=True)
     try:
