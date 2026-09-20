@@ -106,6 +106,16 @@ DRONE_MESH = 'package://robot_descriptions/iris/meshes/base_link_body_body.stl'
 # Rotates the OBJ from its authored axes to belly -Z / nose +X.
 AXIS_CORRECTION = (-0.5, -0.5, 0.5, 0.5)
 
+# Drone name label (TEXT_VIEW_FACING). Foxglove's 3D renderer always draws a
+# text marker on a contrasting box — black behind light text, white behind
+# dark text (relative luminance < 0.5) — with the box's alpha equal to the
+# text's, and the font is its own sans-serif atlas (same family the panel
+# uses). Neither the box nor the font can be switched off from the message, so
+# the text is the panel's dark slate (#1f2937): it gets a white chip instead
+# of a black one, matching the panel's chips, and 0.9 alpha keeps both text
+# and chip slightly translucent over the scene.
+LABEL_COLOR = ColorRGBA(r=0.122, g=0.161, b=0.216, a=0.9)
+
 
 def _quat_mul(a, b):
     """Hamilton product of two (x, y, z, w) quaternions."""
@@ -1137,7 +1147,7 @@ class SwarmCommander(Node):
         The overrides come first on purpose: an 'external' drone is tracked but
         never commanded by the planner, so painting it a planner state would
         claim something untrue. Mode (sim/real) is deliberately NOT encoded —
-        it is already in the marker label and the basestation Mode column.
+        it is in the basestation panel's Mode column.
         """
         if self.fence_breached:
             return (1.0, 0.3, 0.0)                 # orange = frozen on breach
@@ -1215,9 +1225,11 @@ class SwarmCommander(Node):
             label.pose.position.y = float(d.position[1])
             label.pose.position.z = float(d.position[2]) + 0.4
             label.pose.orientation.w = 1.0
-            label.scale.z = 0.25
-            label.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=1.0)
-            label.text = f'{d.name} [{d.mode}/{d.role}]'
+            label.scale.z = 0.22
+            label.color = LABEL_COLOR
+            # Name only: mode and role are in the basestation panel's Agents /
+            # Wiring / Agent State views, and a shorter label stays legible.
+            label.text = d.name
             arr.markers.append(label)
 
             if goals is not None and di < len(goals):

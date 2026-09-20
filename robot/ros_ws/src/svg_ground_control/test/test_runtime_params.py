@@ -253,3 +253,28 @@ def test_fence_grid_disabled_or_oversized_returns_none() -> None:
         assert huge._fence_grid_marker(huge.get_clock().now().to_msg()) is None
     finally:
         huge.destroy_node()
+
+
+# ---------------------------------------------------------------- name label
+
+def test_marker_label_is_name_only_and_dark_on_white() -> None:
+    import numpy as np
+    from visualization_msgs.msg import Marker
+
+    node = make_commander(drone_modes="sim,real,sim", external_drones="drone_3")
+    try:
+        for d in node.drones:
+            d.position = np.zeros(3)
+        published = []
+        node.viz_pub.publish = published.append          # capture instead of sending
+        node.publish_markers(node.get_clock().now())
+        labels = [m for m in published[0].markers if m.ns == "label"]
+        assert [m.text for m in labels] == ["drone_1", "drone_2", "drone_3"]
+        for m in labels:
+            assert m.type == Marker.TEXT_VIEW_FACING
+            # Relative luminance < 0.5 -> Foxglove draws a white chip, not black.
+            lum = 0.2126 * m.color.r + 0.7152 * m.color.g + 0.0722 * m.color.b
+            assert lum < 0.5
+            assert 0.0 < m.color.a < 1.0
+    finally:
+        node.destroy_node()

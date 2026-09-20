@@ -1215,6 +1215,13 @@ while each drone's TF is namespaced (`drone_N/map → drone_N/base_link`, see
 [`sim_drone_interface.launch.xml`](launch/sim_drone_interface.launch.xml)), so
 three drones no longer fight over one `map → base_link` transform.
 
+Each drone carries a name label (`drone_1` …; mode and role are in the panel,
+not the label). Foxglove always draws a text marker on a contrasting box —
+black behind light text, white behind dark — with the box as opaque as the
+text, and uses its own sans-serif font; neither can be turned off from the
+marker. The label is therefore the panel's dark slate on a white chip
+(`LABEL_COLOR` in `swarm_commander.py`), slightly translucent.
+
 ### F3. What you should see
 
 | Stage | Panel |
