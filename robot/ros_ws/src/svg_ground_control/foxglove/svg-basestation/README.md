@@ -93,8 +93,13 @@ nothing is being published to it).
 
 ## CBF gains (alpha, safety radius, max speed)
 
-Three slider rows read and set `swarm_commander`'s runtime CBF parameters. Each
-row is slider + number box (one draft value) + **Apply** + a **live** readout.
+One slider row edits `swarm_commander`'s runtime CBF parameters. The **dropdown**
+on the left picks which gain the row is editing; slider and number box are one
+draft value (kept per gain, so switching does not lose a half-typed number);
+**Apply** sends that gain; the fixed-width **live** readout shows what the
+commander is running with plus a mark: `✓` confirmed, `…` waiting, `✗` rejected
+or not taken. The readout never grows, so the slider keeps its length — the
+reason for a rejection goes to the status line under the row.
 
 | Row | Parameter | Meaning |
 | --- | --- | --- |

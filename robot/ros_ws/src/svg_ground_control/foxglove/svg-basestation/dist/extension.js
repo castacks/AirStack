@@ -47,7 +47,8 @@
 //             (swarm_commander.build_status: mission state, last command
 //             outcome, live CBF gains, per-drone flight state + position)
 //   cbf gains /swarm_commander/{get,set}_parameters      rcl_interfaces
-//             (cbf_alpha, cbf_safety_radius_m, cbf_max_speed_mps)
+//             (cbf_alpha, cbf_safety_radius_m, cbf_max_speed_mps — one slider
+//             row, the gain is picked from a dropdown)
 //   velocity  /{name}/interface/velocity_command | /{name}/fmu/velocity_command
 //             (rate only — proves the commander is driving that drone)
 
@@ -974,12 +975,15 @@ const STYLES = `
 /* mission strip + CBF gain row (inside the command card) */
 .sb-mission { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
 .sb-mission .sb-note { flex: 1; min-width: 160px; }
-.sb-cbf { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
-.sb-cbf-label { font-weight: 700; opacity: 0.8; white-space: nowrap; }
-.sb-range { flex: 1; min-width: 120px; accent-color: #4f46e5; }
-.sb-cbf-in { width: 64px; flex: 0 0 auto; }
-.sb-cbf-live { font-family: ui-monospace, monospace; font-size: 11px; white-space: nowrap; }
+/* One line, never wraps: every control but the slider has a fixed width, so the
+   slider's length depends only on the panel width — not on the readout text. */
+.sb-cbf { display: flex; gap: 6px; align-items: center; flex-wrap: nowrap; margin-top: 6px; }
+.sb-cbf-sel { flex: 0 0 auto; width: 92px; font-weight: 700; padding: 5px 4px; }
+.sb-range { flex: 1 1 0; min-width: 60px; accent-color: #4f46e5; }
+.sb-cbf-in { width: 60px; flex: 0 0 auto; }
+.sb-cbf-live { font-family: ui-monospace, monospace; font-size: 11px; white-space: nowrap; width: 104px; flex: 0 0 auto; overflow: hidden; text-overflow: ellipsis; }
 .sb-cbf-scale { display: flex; justify-content: space-between; font-size: 9.5px; opacity: 0.55; margin-top: -2px; }
+.sb-cbf-note { font-size: 11px; opacity: 0.8; min-height: 14px; margin-top: 2px; }
 .sb-cmdlog { max-height: 74px; margin-top: 5px; }   /* ~4 lines */
 .sb-pos { font-family: ui-monospace, monospace; }
 
@@ -1173,9 +1177,12 @@ function activate(extensionContext) {
       // been touched, and whether a set_parameters call is in flight.
       const cbfState = {};
       for (const p of CBF_PARAMS) {
-        cbfState[p.id] = { param: null, requested: null, draftTouched: false, setting: false };
+        cbfState[p.id] = { param: null, requested: null, rejected: null, draft: "", draftTouched: false, setting: false };
       }
       let lastCbfRefresh = 0;
+      // Which CBF gain the single slider row is editing (dropdown), persisted.
+      let cbfSel = CBF_PARAMS.some((p) => p.id === persisted.cbfSel) ? persisted.cbfSel : CBF_PARAMS[0].id;
+      const cbfSelected = () => CBF_PARAMS.find((p) => p.id === cbfSel);
 
       // Commander timestamps are ROS time — wall clock normally, sim time
       // under use_sim_time — so they are never compared with panel time.
@@ -1196,7 +1203,7 @@ function activate(extensionContext) {
         return clockRx == null ? wall : clockRx + (wall - clockWall);
       }
       function persist() {
-        panelContext.saveState({ ...cfg, selected, formation, goalEntry });
+        panelContext.saveState({ ...cfg, selected, formation, goalEntry, cbfSel });
       }
 
       // ── wiring: mode → topics ────────────────────────────────────────────
@@ -1436,7 +1443,7 @@ function activate(extensionContext) {
 
       panelContext.onRender = (renderState, done) => {
         if (renderState.topics) {
-          const key = renderState.topics.map((t) => t.name).join(" ");
+          const key = renderState.topics.map((t) => t.name).join("\u0000");
           if (key !== topicsKey) {
             topicsKey = key;
             available = new Set(renderState.topics.map((t) => t.name));
@@ -1559,49 +1566,59 @@ function activate(extensionContext) {
       missionRow.append(missionChip, missionNote, lastCmdChip);
       cmdCard.appendChild(missionRow);
 
-      // CBF gains — one row per CBF_PARAMS entry: alpha (class-K gain of the
-      // barrier constraint), safety radius and max speed. Slider and box are
-      // one draft value; Apply sends it to the commander's set_parameters
-      // service and the live readout shows what the commander is actually
-      // running with.
-      const cbfRows = {};
+      // CBF gains — ONE slider row; the dropdown picks which gain it edits
+      // (alpha, safety radius, max speed). Slider and box are one draft value
+      // per gain; Apply sends the selected gain to the commander's
+      // set_parameters service. The readout is fixed-width and only says what
+      // the commander runs with plus ✓ / … / ✗ — the reason for a rejection
+      // goes to the status line below, so the slider never changes length.
+      const cbfRow = el("div", "sb-cbf");
+      const cbfSelect = el("select", "sb-input sb-cbf-sel");
       for (const p of CBF_PARAMS) {
-        const row = el("div", "sb-cbf");
-        const label = el("span", "sb-cbf-label", p.label);
-        label.title = p.hint;
-        const range = el("input", "sb-range");
-        range.type = "range";
-        range.min = String(p.min);
-        range.step = String(p.step);
-        const input = el("input", "sb-input sb-cbf-in");
-        input.type = "number";
-        input.min = String(p.min);
-        input.step = String(p.step);
-        input.placeholder = p.placeholder;
-        const syncDraft = (from) => {
-          cbfState[p.id].draftTouched = true;
-          if (from === range) input.value = range.value;
-          else if (input.value !== "") range.value = input.value;
-        };
-        range.addEventListener("input", () => syncDraft(range));
-        input.addEventListener("input", () => syncDraft(input));
-        input.addEventListener("keydown", (ev) => { if (ev.key === "Enter") setCbfParam(p, input.value); });
-        const apply = el("button", "sb-btn", "Apply");
-        apply.style.background = "#4f46e5";
-        apply.title = `Set ${p.param} on the commander via ${cfg.commanderNs}/set_parameters (takes effect next control tick)`;
-        apply.addEventListener("click", () => setCbfParam(p, input.value));
-        const live = el("span", "sb-cbf-live", "live --");
-        const refresh = el("button", "sb-btn", "↻");
-        refresh.style.cssText = "background:#4b5563;padding:5px 8px;";
-        refresh.title = "Re-read the CBF gains from the commander (get_parameters)";
-        refresh.addEventListener("click", () => refreshCbfParams(true));
-        row.append(label, range, input, apply, live, refresh);
-        cmdCard.appendChild(row);
-        const scale = el("div", "sb-cbf-scale");
-        scale.append(el("span", null, p.scale[0]), el("span", null, p.scale[1]));
-        cmdCard.appendChild(scale);
-        cbfRows[p.id] = { range, input, apply, live, refresh };
+        const opt = el("option", null, p.label);
+        opt.value = p.id;
+        opt.title = p.hint;
+        cbfSelect.appendChild(opt);
       }
+      cbfSelect.value = cbfSel;
+      cbfSelect.addEventListener("change", () => {
+        if (!CBF_PARAMS.some((p) => p.id === cbfSelect.value)) return;
+        cbfSel = cbfSelect.value;
+        persist();
+        render();
+      });
+      const cbfRange = el("input", "sb-range");
+      cbfRange.type = "range";
+      const cbfInput = el("input", "sb-input sb-cbf-in");
+      cbfInput.type = "number";
+      const syncDraft = (from) => {
+        const st = cbfState[cbfSel];
+        st.draftTouched = true;
+        if (from === cbfRange) cbfInput.value = cbfRange.value;
+        else if (cbfInput.value !== "") cbfRange.value = cbfInput.value;
+        st.draft = cbfInput.value;
+      };
+      cbfRange.addEventListener("input", () => syncDraft(cbfRange));
+      cbfInput.addEventListener("input", () => syncDraft(cbfInput));
+      cbfInput.addEventListener("keydown", (ev) => { if (ev.key === "Enter") setCbfParam(cbfSelected(), cbfInput.value); });
+      const cbfApply = el("button", "sb-btn", "Apply");
+      cbfApply.style.background = "#4f46e5";
+      cbfApply.addEventListener("click", () => setCbfParam(cbfSelected(), cbfInput.value));
+      const cbfLive = el("span", "sb-cbf-live", "live --");
+      const cbfRefresh = el("button", "sb-btn", "↻");
+      cbfRefresh.style.cssText = "background:#4b5563;padding:5px 8px;";
+      cbfRefresh.title = "Re-read the CBF gains from the commander (get_parameters)";
+      cbfRefresh.addEventListener("click", () => refreshCbfParams(true));
+      cbfRow.append(cbfSelect, cbfRange, cbfInput, cbfApply, cbfLive, cbfRefresh);
+      cmdCard.appendChild(cbfRow);
+      const cbfScale = el("div", "sb-cbf-scale");
+      const cbfScaleLo = el("span"), cbfScaleHi = el("span");
+      cbfScale.append(cbfScaleLo, cbfScaleHi);
+      cmdCard.appendChild(cbfScale);
+      // CBF activity (who is being corrected / emergency) lives on its own
+      // line, off the slider row.
+      const cbfNote = el("div", "sb-cbf-note");
+      cmdCard.appendChild(cbfNote);
 
       const formRow = el("div", "sb-cmd-row");
       formRow.style.marginTop = "6px";
@@ -2054,6 +2071,7 @@ function activate(extensionContext) {
         }
         const st = cbfState[p.id];
         st.setting = true;
+        st.rejected = null;
         setStatus(`Setting ${p.param} = ${v.toFixed(2)} via ${service} ...`);
         callWithTimeout(service, {
           parameters: [{ name: p.param, value: { type: PARAM_DOUBLE, double_value: v } }],
@@ -2061,14 +2079,18 @@ function activate(extensionContext) {
           .then((res) => {
             const r = res?.results?.[0];
             if (r && r.successful === false) {
-              setStatus(`${p.param} REJECTED by the commander${r.reason ? ` — ${r.reason}` : ""}`);
+              st.rejected = { v, t: nowSec(), reason: r.reason || "no reason given" };
+              setStatus(`${p.param} = ${v.toFixed(2)} REJECTED by the commander — ${st.rejected.reason}`);
               return;
             }
             st.requested = { v, t: nowSec() };
             setStatus(`${p.param} = ${v.toFixed(2)} accepted · waiting for the commander to report it`);
             refreshCbfParams(true);
           })
-          .catch((err) => setStatus(`${service} failed: ${err?.message ?? err}`))
+          .catch((err) => {
+            st.rejected = { v, t: nowSec(), reason: `${service} failed: ${err?.message ?? err}` };
+            setStatus(st.rejected.reason);
+          })
           .finally(() => { st.setting = false; render(); });
       }
 
@@ -2358,62 +2380,84 @@ function activate(extensionContext) {
       function renderCbf(now) {
         const s = commanderFresh(now) ? commander?.cbf : null;
         const ready = servicesAvailable();
-        for (const p of CBF_PARAMS) {
-          const w = cbfRows[p.id];
-          const st = cbfState[p.id];
-          w.range.max = String(Math.max(Number(cfg[p.maxCfg]) || p.min * 10, p.min + p.step));
-          w.apply.disabled = !ready || st.setting;
-          w.range.disabled = !ready;
-          w.input.disabled = !ready;
-          w.refresh.disabled = !ready;
+        const p = cbfSelected();
+        const st = cbfState[p.id];
+        if (cbfSelect.value !== p.id) cbfSelect.value = p.id;
+        cbfSelect.title = p.hint;
+        cbfRange.min = String(p.min);
+        cbfRange.step = String(p.step);
+        cbfRange.max = String(Math.max(Number(cfg[p.maxCfg]) || p.min * 10, p.min + p.step));
+        cbfInput.min = String(p.min);
+        cbfInput.step = String(p.step);
+        cbfInput.placeholder = p.placeholder;
+        cbfApply.title = `Set ${p.param} on the commander via ${cfg.commanderNs}/set_parameters (takes effect next control tick)`;
+        cbfScaleLo.textContent = p.scale[0];
+        cbfScaleHi.textContent = p.scale[1];
+        cbfApply.disabled = !ready || st.setting;
+        cbfRange.disabled = !ready;
+        cbfInput.disabled = !ready;
+        cbfRefresh.disabled = !ready;
 
-          const live = liveCbf(p, now);
-          if (live) {
-            let text = `live ${live.v.toFixed(2)}${p.unit}`;
-            let cls = "sb-ok";
-            if (st.requested && now - st.requested.t < 10) {
-              if (Math.abs(live.v - st.requested.v) < 1e-6) {
-                text += " ✓";
-                // Confirmed: from here on the live value drives the draft again
-                // (so a change made from the CLI shows up in the box too).
-                st.draftTouched = false;
-              } else if (live.source === "commander" && commanderAt > st.requested.t + 1) {
-                // The commander has reported since the set and still shows the
-                // old value — the set did not take.
-                text += ` (asked ${st.requested.v.toFixed(2)})`;
-                cls = "sb-warn";
-              } else {
-                text += ` (asked ${st.requested.v.toFixed(2)}…)`;
-              }
+        const live = liveCbf(p, now);
+        const editing = document.activeElement === cbfInput || document.activeElement === cbfRange;
+        if (live) {
+          // Fixed vocabulary so the width never changes: "live <value><unit> <mark>"
+          let mark = "", cls = "sb-ok", detail = `${p.param} as reported by the ${live.source}`;
+          if (st.rejected && now - st.rejected.t < 10) {
+            mark = "✗"; cls = "sb-bad";
+            detail = `${p.param} = ${st.rejected.v.toFixed(2)} was REJECTED: ${st.rejected.reason}`;
+          } else if (st.requested && now - st.requested.t < 10) {
+            if (Math.abs(live.v - st.requested.v) < 1e-6) {
+              mark = "✓";
+              detail = `${p.param} = ${live.v.toFixed(2)} confirmed by the commander`;
+              // Confirmed: from here on the live value drives the draft again
+              // (so a change made from the CLI shows up in the box too).
+              st.draftTouched = false;
+            } else if (live.source === "commander" && commanderAt > st.requested.t + 1) {
+              mark = "✗"; cls = "sb-warn";
+              detail = `asked ${st.requested.v.toFixed(2)} but the commander still reports ${live.v.toFixed(2)} — the set did not take`;
+            } else {
+              mark = "…";
+              detail = `asked ${st.requested.v.toFixed(2)} — waiting for the commander to report it`;
             }
-            // CBF activity is worth a glance next to the gain — on the first
-            // row only, so it is not repeated three times.
-            if (p === CBF_PARAMS[0]) {
-              if (s?.emergency) {
-                text += " · EMERGENCY push-apart";
-                cls = "sb-bad";
-              } else if (s?.active?.length) {
-                text += ` · correcting ${s.active.join(", ")}`;
-              }
-            }
-            w.live.textContent = text;
-            w.live.className = `sb-cbf-live ${cls}`;
-            w.live.title = `${p.param} as reported by the ${live.source}` +
-              (s ? (s.active?.length ? ` · correcting now: ${s.active.join(", ")}` : " · not correcting anyone right now") +
-                (s.emergency ? " · EMERGENCY push-apart engaged (drones inside each other's safety spheres)" : "")
-                : "");
-            // Seed the draft from the live value until the operator touches it.
-            if (!st.draftTouched && document.activeElement !== w.input && document.activeElement !== w.range) {
-              w.input.value = live.v.toFixed(2);
-              w.range.value = String(clamp(live.v, p.min, Number(w.range.max)));
-            }
-          } else {
-            w.live.textContent = ready ? "live --" : "live -- (no services)";
-            w.live.className = "sb-cbf-live sb-muted";
-            w.live.title = ready
-              ? `No value yet: nothing on ${cfg.statusTopic} and ${commanderService("get_parameters")} has not answered. Click ↻ to retry.`
-              : "This data source cannot call services";
           }
+          cbfLive.textContent = `live ${live.v.toFixed(2)}${p.unit} ${mark}`.trimEnd();
+          cbfLive.className = `sb-cbf-live ${cls}`;
+          cbfLive.title = detail;
+          // Seed the draft from the live value until the operator touches it;
+          // a touched draft is kept per gain so switching the dropdown does
+          // not lose it.
+          if (!st.draftTouched) {
+            if (!editing) {
+              cbfInput.value = live.v.toFixed(2);
+              cbfRange.value = String(clamp(live.v, p.min, Number(cbfRange.max)));
+            }
+          } else if (!editing && cbfInput.value !== st.draft) {
+            cbfInput.value = st.draft;
+            if (st.draft !== "") cbfRange.value = st.draft;
+          }
+        } else {
+          cbfLive.textContent = ready ? "live --" : "live -- (no services)";
+          cbfLive.className = "sb-cbf-live sb-muted";
+          cbfLive.title = ready
+            ? `No value yet: nothing on ${cfg.statusTopic} and ${commanderService("get_parameters")} has not answered. Click ↻ to retry.`
+            : "This data source cannot call services";
+          if (st.draftTouched && !editing && cbfInput.value !== st.draft) cbfInput.value = st.draft;
+        }
+
+        // Activity note, off the slider row.
+        if (s?.emergency) {
+          cbfNote.textContent = "CBF EMERGENCY push-apart engaged — drones inside each other's safety spheres";
+          cbfNote.className = "sb-cbf-note sb-bad";
+        } else if (s?.active?.length) {
+          cbfNote.textContent = `CBF correcting ${s.active.join(", ")}`;
+          cbfNote.className = "sb-cbf-note sb-warn";
+        } else if (s) {
+          cbfNote.textContent = "CBF not correcting anyone right now";
+          cbfNote.className = "sb-cbf-note sb-muted";
+        } else {
+          cbfNote.textContent = "";
+          cbfNote.className = "sb-cbf-note";
         }
       }
 

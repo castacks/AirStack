@@ -104,6 +104,7 @@ const panelContext = {
       const v = value.double_value;
       if (!(name in params)) return { results: [{ successful: false, reason: `unknown parameter ${name}` }] };
       if (!(v > 0)) return { results: [{ successful: false, reason: `${name} must be > 0` }] };
+      if (name === "cbf_max_speed_mps" && v > 5) return { results: [{ successful: false, reason: "too fast for indoors" }] };
       params[name] = v;
       return { results: [{ successful: true, reason: "" }] };
     }
@@ -219,12 +220,19 @@ const text = () => root.textContent;
   const numBox = (ph) => findAll(root, (n) => n.tagName === "input" && n.type === "number" && n.placeholder === ph)[0];
   const alphaBox = numBox("alpha");
   assert(alphaBox && alphaBox.value === "2.50", "alpha draft seeded from the live value");
-  const radiusBox = numBox("radius"), speedBox = numBox("vmax");
-  assert(radiusBox && radiusBox.value === "0.55", "safety radius draft seeded from the live value");
-  assert(speedBox && speedBox.value === "1.20", "max speed draft seeded from the live value");
-  assert(text().includes("live 0.55 m") && text().includes("live 1.20 m/s"), "radius and max speed live readouts carry units");
-  const applyBtns = findAll(root, (n) => n.tagName === "button" && n.textContent.trim() === "Apply");
-  assert(applyBtns.length === 3, "one Apply button per CBF gain (alpha, radius, max speed)");
+  // One slider row; the dropdown picks the gain.
+  const cbfSel = findAll(root, (n) => n.tagName === "select" && n.children.some((o) => o.value === "radius"))[0];
+  assert(cbfSel, "CBF gain dropdown lists alpha / radius / speed");
+  assert(findAll(root, (n) => n.tagName === "button" && n.textContent.trim() === "Apply").length === 1, "a single Apply button for the CBF row");
+  const pickCbf = (id) => { cbfSel.value = id; cbfSel.fire("change"); render(); };
+  pickCbf("radius");
+  assert(numBox("radius") && numBox("radius").value === "0.55", "selecting radius seeds its draft from the live value");
+  assert(text().includes("live 0.55 m"), "radius live readout carries its unit");
+  pickCbf("speed");
+  assert(numBox("vmax") && numBox("vmax").value === "1.20", "selecting max speed seeds its draft from the live value");
+  assert(text().includes("live 1.20 m/s"), "max speed live readout carries its unit");
+  pickCbf("alpha");
+  assert(numBox("alpha") && numBox("alpha").value === "2.50", "back to alpha, draft restored");
 
   // Click Start -> confirm dialog -> Confirm.
   findButton(root, "Start").click();
@@ -262,10 +270,12 @@ const text = () => root.textContent;
   render();
   assert(text().includes("must be a positive number"), "negative alpha rejected client-side");
 
-  // Apply a new safety radius from its own row; alpha must be untouched.
+  // Apply a new safety radius via the dropdown; alpha must be untouched.
+  pickCbf("radius");
+  const radiusBox = numBox("radius");
   radiusBox.value = "0.8";
   radiusBox.fire("input");
-  applyBtns[1].click();
+  findButton(root, "Apply").click();
   await new Promise((r) => setTimeout(r, 10));
   const radiusCall = calls.filter((c) => c.service === "/swarm_commander/set_parameters").pop();
   assert(radiusCall && radiusCall.req.parameters[0].name === "cbf_safety_radius_m"
@@ -274,7 +284,20 @@ const text = () => root.textContent;
   t += 0.3; feedStatus();
   render();
   assert(text().includes("live 0.80 m ✓"), "live radius updates to the applied value and is ticked");
-  assert(text().includes("live 4.00"), "alpha row still shows its own live value");
+  pickCbf("alpha");
+  assert(text().includes("live 4.00") && numBox("alpha").value === "4.00", "switching back to alpha shows its own live value");
+
+  // A commander-side rejection shows ✗ in the readout and the reason in the status line.
+  pickCbf("speed");
+  const speedBox = numBox("vmax");
+  speedBox.value = "9"; speedBox.fire("input");
+  findButton(root, "Apply").click();
+  await new Promise((r) => setTimeout(r, 10));
+  render();
+  assert(text().includes("live 1.20 m/s ✗"), "rejected set marks the readout with ✗ but keeps the live value");
+  assert(text().includes("REJECTED") && text().includes("too fast for indoors"), "rejection reason shown in the status line");
+  assert(params.cbf_max_speed_mps === 1.2, "rejected value not applied");
+  pickCbf("alpha");
 
   // Formation: dropdown + Send only — no free-text box, no Next.
   assert(!findButton(root, "Next"), "no Next button");
