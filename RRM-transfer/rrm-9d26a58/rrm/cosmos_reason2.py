@@ -126,10 +126,11 @@ def render_cosmos_prompt(context: CosmosReasoningInput) -> str:
         '"actions":[{"id":str,"verb":str,"targets":[str],"dependencies":[str]}],'
         '"recovery_budget":nonnegative_integer}',
         "For READY, give a grounded_goal, no ambiguity_refs, and one or more actions. ",
-        "For READY, grounded_entities is mandatory: list every fresh C02 entity named "
+        "For READY, grounded_entities is mandatory and must list every fresh C02 entity named "
         "by grounded_goal.subject, grounded_goal.obj, or an action target. For example, "
         "if an action targets loading_bay_marker, then grounded_entities must include "
-        "loading_bay_marker. Do not leave it empty. ",
+        "loading_bay_marker. It may be empty only when every action has target_count 0 "
+        "and the grounded goal refers only to $self. ",
         "Use exact strings from state.entity_ids for grounded_entities and action targets. "
         "Evidence object values such as kind/color descriptions are properties, not entity IDs. "
         "Never replace an ID with its descriptive label. Do not put $self in grounded_entities.",
@@ -139,6 +140,9 @@ def render_cosmos_prompt(context: CosmosReasoningInput) -> str:
         "For NAVIGATE_TO with targets=[TARGET_ID], the goal is "
         '{"name":"near","subject":"$self","obj":TARGET_ID}. '
         "Select TARGET_ID from the evidence according to the task; this template does not select it.",
+        "For TAKEOFF with targets=[], the goal is "
+        '{"name":"airborne","subject":"$self","obj":null}. '
+        "Altitude and velocity are adapter-owned limits, not model parameters.",
         "Authored action semantics follow. $0/$1 refer to action targets by index; "
         "$self refers to the acting embodiment. Expected effects describe intended outcomes, "
         "not observations that those outcomes have occurred:",
@@ -243,7 +247,7 @@ def parse_cosmos_candidate(raw_response: str, context: CosmosReasoningInput, *,
                          "ready_candidate_missing_actions")
 
     entities_value = value.get("grounded_entities", [])
-    if not isinstance(entities_value, list) or not entities_value or not all(
+    if not isinstance(entities_value, list) or not all(
             isinstance(item, str) and item.strip() for item in entities_value):
         return _rejected(context, raw_response, CosmosCandidateStatus.REJECTED,
                          "invalid_grounded_entities")
@@ -259,6 +263,19 @@ def parse_cosmos_candidate(raw_response: str, context: CosmosReasoningInput, *,
     if isinstance(goal_object, str) and goal_object not in fresh_entities and goal_object != "$self":
         return _rejected(context, raw_response, CosmosCandidateStatus.REJECTED,
                          f"ungrounded_goal_object:{goal_object}")
+    if not entities_value:
+        try:
+            targetless = all(
+                VERB_TABLE[Verb(raw_action["verb"])].arity == 0
+                and raw_action.get("targets", []) == []
+                for raw_action in actions_value
+                if isinstance(raw_action, dict)
+            ) and len(actions_value) > 0
+        except (KeyError, ValueError):
+            targetless = False
+        if not targetless or goal_value.get("subject") != "$self" or goal_object is not None:
+            return _rejected(context, raw_response, CosmosCandidateStatus.REJECTED,
+                             "empty_grounded_entities_for_targeted_plan")
 
     try:
         goal = Predicate(name=goal_value["name"], subject=goal_value["subject"], obj=goal_object)

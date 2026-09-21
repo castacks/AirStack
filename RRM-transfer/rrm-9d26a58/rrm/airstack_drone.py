@@ -17,6 +17,7 @@ class DroneTaskKind(str, Enum):
     TAKEOFF = "TAKEOFF"
     NAVIGATE = "NAVIGATE"
     LAND = "LAND"
+    EXPLORE = "EXPLORE"
 
 
 class DroneOutcomeVerdict(str, Enum):
@@ -57,13 +58,21 @@ class DroneTaskProposal(BaseModel):
     frame_id: str | None = None
     waypoints: tuple[MapWaypoint, ...] = ()
     goal_tolerance_m: float | None = None
+    min_altitude_agl_m: float | None = None
+    max_altitude_agl_m: float | None = None
+    min_flight_speed_m_s: float | None = None
+    max_flight_speed_m_s: float | None = None
+    time_limit_s: float | None = None
 
     @model_validator(mode="after")
     def validate_proposal(self) -> "DroneTaskProposal":
         for name in ("task_id", "action_id", "robot_name"):
             if not getattr(self, name).strip():
                 raise ValueError(f"{name} is required")
-        numeric = (self.target_altitude_m, self.velocity_m_s, self.goal_tolerance_m)
+        numeric = (self.target_altitude_m, self.velocity_m_s, self.goal_tolerance_m,
+                   self.min_altitude_agl_m, self.max_altitude_agl_m,
+                   self.min_flight_speed_m_s, self.max_flight_speed_m_s,
+                   self.time_limit_s)
         if any(value is not None and not math.isfinite(value) for value in numeric):
             raise ValueError("task parameters must be finite")
         if self.kind is DroneTaskKind.TAKEOFF:
@@ -71,26 +80,55 @@ class DroneTaskProposal(BaseModel):
                 raise ValueError("takeoff target_altitude_m must be positive")
             if self.velocity_m_s is None or self.velocity_m_s <= 0:
                 raise ValueError("takeoff velocity_m_s must be positive")
-            if self.waypoints or self.frame_id is not None or self.goal_tolerance_m is not None:
+            if (self.waypoints or self.frame_id is not None or self.goal_tolerance_m is not None
+                    or any(value is not None for value in (
+                        self.min_altitude_agl_m, self.max_altitude_agl_m,
+                        self.min_flight_speed_m_s, self.max_flight_speed_m_s,
+                        self.time_limit_s))):
                 raise ValueError("takeoff proposal contains navigation fields")
         elif self.kind is DroneTaskKind.NAVIGATE:
             if self.frame_id != "map" or not self.waypoints:
                 raise ValueError("navigate requires one or more robot-local map waypoints")
             if self.goal_tolerance_m is None or self.goal_tolerance_m <= 0:
                 raise ValueError("navigate goal_tolerance_m must be positive")
-            if self.target_altitude_m is not None or self.velocity_m_s is not None:
+            if (self.target_altitude_m is not None or self.velocity_m_s is not None
+                    or any(value is not None for value in (
+                        self.min_altitude_agl_m, self.max_altitude_agl_m,
+                        self.min_flight_speed_m_s, self.max_flight_speed_m_s,
+                        self.time_limit_s))):
                 raise ValueError("navigate proposal contains takeoff/land fields")
-        else:
+        elif self.kind is DroneTaskKind.LAND:
             if self.velocity_m_s is None or self.velocity_m_s < 0:
                 raise ValueError("land velocity_m_s must be nonnegative")
             if (self.target_altitude_m is not None or self.waypoints or self.frame_id is not None
-                    or self.goal_tolerance_m is not None):
+                    or self.goal_tolerance_m is not None
+                    or any(value is not None for value in (
+                        self.min_altitude_agl_m, self.max_altitude_agl_m,
+                        self.min_flight_speed_m_s, self.max_flight_speed_m_s,
+                        self.time_limit_s))):
                 raise ValueError("land proposal contains takeoff/navigation fields")
+        else:
+            values = (self.min_altitude_agl_m, self.max_altitude_agl_m,
+                      self.min_flight_speed_m_s, self.max_flight_speed_m_s,
+                      self.time_limit_s)
+            if any(value is None for value in values):
+                raise ValueError("explore proposal requires altitude, speed, and time limits")
+            if (self.min_altitude_agl_m <= 0
+                    or self.max_altitude_agl_m < self.min_altitude_agl_m
+                    or self.min_flight_speed_m_s <= 0
+                    or self.max_flight_speed_m_s < self.min_flight_speed_m_s
+                    or self.time_limit_s <= 0):
+                raise ValueError("explore proposal limits are invalid")
+            if (self.target_altitude_m is not None or self.velocity_m_s is not None
+                    or self.waypoints or self.frame_id is not None
+                    or self.goal_tolerance_m is not None):
+                raise ValueError("explore proposal contains fields from another task kind")
         return self
 
     @property
     def action_name(self) -> str:
-        return f"/{self.robot_name}/tasks/{self.kind.value.lower()}"
+        suffix = "exploration" if self.kind is DroneTaskKind.EXPLORE else self.kind.value.lower()
+        return f"/{self.robot_name}/tasks/{suffix}"
 
     def preview(self) -> dict[str, Any]:
         """The action endpoint and goal fields an execution adapter would send."""
@@ -101,6 +139,15 @@ class DroneTaskProposal(BaseModel):
             }
         elif self.kind is DroneTaskKind.LAND:
             goal = {"velocity_m_s": self.velocity_m_s}
+        elif self.kind is DroneTaskKind.EXPLORE:
+            goal = {
+                "search_bounds": [],
+                "min_altitude_agl": self.min_altitude_agl_m,
+                "max_altitude_agl": self.max_altitude_agl_m,
+                "min_flight_speed": self.min_flight_speed_m_s,
+                "max_flight_speed": self.max_flight_speed_m_s,
+                "time_limit_sec": self.time_limit_s,
+            }
         else:
             goal = {
                 "global_plan": {
@@ -117,7 +164,9 @@ class DroneTaskProposal(BaseModel):
             "task_id": self.task_id,
             "action_id": self.action_id,
             "action_name": self.action_name,
-            "action_type": f"task_msgs/action/{self.kind.value.title()}Task",
+            "action_type": ("task_msgs/action/ExplorationTask"
+                            if self.kind is DroneTaskKind.EXPLORE
+                            else f"task_msgs/action/{self.kind.value.title()}Task"),
             "goal": goal,
             "execution_requested": False,
         }

@@ -226,7 +226,15 @@ class AuthorizedLiveMission:
         if action.get("verb") not in self.authorization.allowed_verbs:
             raise ValueError("C05 action verb is outside the mission authorization.")
         targets = action.get("targets")
-        if not isinstance(targets, list) or not targets or not set(targets) <= self.authorization.allowed_targets:
+        if not isinstance(targets, list):
+            raise ValueError("C05 action targets are outside the mission authorization.")
+        if action.get("verb") == "TAKEOFF":
+            if targets:
+                raise ValueError("TAKEOFF must not carry semantic targets.")
+            if self._context is None:
+                raise ValueError("Current C02 verifier context is unavailable.")
+            return
+        if not targets or not set(targets) <= self.authorization.allowed_targets:
             raise ValueError("C05 action targets are outside the mission authorization.")
         if self._context is None:
             raise ValueError("Current C02 verifier context is unavailable.")

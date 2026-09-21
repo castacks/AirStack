@@ -182,6 +182,26 @@ def test_livestream_compose_command_pins_renderer_and_physics_to_gpu_zero():
     assert "--/physics/cudaDevice=0" in command
 
 
+def test_livestream_compose_pins_the_forwarded_udp_media_port_on_kit_cli():
+    compose = (
+        REPO / "simulation" / "isaac-sim" / "docker" / "docker-compose.yaml"
+    ).read_text()
+    livestream = compose.split("\n  isaac-sim-livestream:", 1)[1]
+    command = livestream.split("\n    environment:", 1)[0]
+    port = "${ISAAC_SIM_LIVESTREAM_UDP_PORT:-49099}"
+    assert f"--/app/livestream/fixedHostPort={port}" in command
+    assert f"--/app/livestream/minHostPort={port}" in command
+    assert f"--/app/livestream/maxHostPort={port}" in command
+
+
+def test_readiness_rejects_robot_graph_from_an_older_isaac_clock_epoch():
+    ready = (REPO / ".airstack/modules/ready.sh").read_text()
+    assert "_gate_clock_epoch_ok" in ready
+    assert "TF_OLD_DATA" in ready
+    assert "results[clock_epoch]=failed" in ready
+    assert f'"{port}:{port}/udp"' in livestream
+
+
 def test_headless_and_play_flags():
     _, _, cfg = run_up_dry("--sim", "isaac", "--headless", "--no-play")
     assert cfg["ISAAC_SIM_HEADLESS"] == "true"

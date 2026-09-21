@@ -23,6 +23,9 @@ WILDCARD = "*"
 
 class Verb(str, Enum):
     LOCATE = "LOCATE"
+    TAKEOFF = "TAKEOFF"
+    LAND = "LAND"
+    EXPLORE = "EXPLORE"
     NAVIGATE_TO = "NAVIGATE_TO"
     GRASP = "GRASP"
     RELEASE = "RELEASE"
@@ -225,5 +228,3 @@ class ActionPolicy(Protocol):
 
     def reset(self, action_id: str) -> None:
         ...
-
-

@@ -25,6 +25,21 @@ VERB_TABLE: dict[Verb, VerbSpec] = {
         preconditions=[_p("exists", "$0")],
         expected_effects=[_p("localized", "$0")],
     ),
+    Verb.TAKEOFF: VerbSpec(
+        verb=Verb.TAKEOFF,
+        arity=0,
+        expected_effects=[_p("airborne", SELF)],
+    ),
+    Verb.LAND: VerbSpec(
+        verb=Verb.LAND,
+        arity=0,
+        expected_effects=[_p("grounded", SELF)],
+    ),
+    Verb.EXPLORE: VerbSpec(
+        verb=Verb.EXPLORE,
+        arity=0,
+        expected_effects=[_p("area_explored", SELF)],
+    ),
     Verb.NAVIGATE_TO: VerbSpec(
         verb=Verb.NAVIGATE_TO,
         arity=1,
@@ -151,5 +166,3 @@ def _holds_positive(pred: Predicate, ws: WorldState) -> bool:
 
     log.warning("unknown predicate %r evaluated as False", name)
     return False
-
-

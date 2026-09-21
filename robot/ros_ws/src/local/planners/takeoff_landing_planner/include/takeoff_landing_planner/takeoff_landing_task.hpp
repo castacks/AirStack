@@ -56,6 +56,7 @@ private:
   double default_landing_velocity_;
   double takeoff_acceptance_distance_;
   double takeoff_acceptance_time_;
+  double takeoff_max_horizontal_displacement_;
   double landing_stationary_distance_;
   double landing_acceptance_time_;
   double landing_tracking_point_ahead_time_;

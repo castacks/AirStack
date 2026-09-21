@@ -86,6 +86,23 @@ function _gate_clock_ok {
     _ready_ros2_exec "$container" 1 "ros2 topic echo --once /clock" 10 | grep -q "nanosec"
 }
 
+function _gate_clock_epoch_ok {
+    local robot_container="$1" sim_container="" name robot_started sim_started
+    for name in isaac-sim-livestream isaac-sim; do
+        if docker inspect "$name" >/dev/null 2>&1; then
+            sim_container="$name"
+            break
+        fi
+    done
+    # This ordering gate is specific to Isaac's resettable simulation clock.
+    # Other simulators continue through their existing readiness checks.
+    [ -z "$sim_container" ] && return 0
+    robot_started=$(docker inspect -f '{{.State.StartedAt}}' "$robot_container" 2>/dev/null)
+    sim_started=$(docker inspect -f '{{.State.StartedAt}}' "$sim_container" 2>/dev/null)
+    [ -n "$robot_started" ] && [ -n "$sim_started" ] &&
+        [[ "$robot_started" > "$sim_started" || "$robot_started" == "$sim_started" ]]
+}
+
 function _gate_nodes_ok {
     local domain="$1" name="$2" container="$3" nodes tmpl missing=0
     nodes=$(_ready_ros2_exec "$container" "$domain" "ros2 node list" 10)
@@ -147,6 +164,25 @@ function _ready_run_gates {
             results[sim_clock]=failed
             log_error "Sim never published /clock. Inspect the sim: airstack connect isaac-sim (or ms-airsim), or airstack logs <sim>"
             log_error "If PLAY_SIM_ON_START=false, press Play in the Isaac Sim window."
+            READY_OVERALL=1
+        fi
+
+        # Isaac resets /clock to zero when recreated. Long-lived robot TF
+        # buffers then reject the new epoch as TF_OLD_DATA, so flight must not
+        # be declared ready until every robot started after the current sim.
+        local epoch_ok=true
+        for c in "${containers[@]}"; do
+            if ! _gate_clock_epoch_ok "$c"; then
+                epoch_ok=false
+                break
+            fi
+        done
+        if $epoch_ok; then
+            results[clock_epoch]=ok
+            echo -e "  ${GREEN}✓${NC} robot control graph matches simulator clock epoch"
+        else
+            results[clock_epoch]=failed
+            log_error "A robot container predates the current Isaac instance. While grounded, restart the robot stack after Isaac to clear stale TF/controller state."
             READY_OVERALL=1
         fi
     fi

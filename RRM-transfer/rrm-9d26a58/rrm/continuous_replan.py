@@ -28,8 +28,10 @@ class MissionAuthorization:
 
     def __post_init__(self) -> None:
         if (not self.task_id or not self.task_revision or not self.allowed_verbs or
-                not self.allowed_targets or self.max_actions <= 0):
+                self.max_actions <= 0):
             raise ValueError("Mission authorization requires a nonempty bounded action scope.")
+        if not self.allowed_targets and self.allowed_verbs != frozenset({"TAKEOFF"}):
+            raise ValueError("Only a takeoff-only mission may have an empty target scope.")
 
 
 class ContinuousReplanMission:
@@ -111,5 +113,11 @@ class ContinuousReplanMission:
         if action.get("verb") not in self.authorization.allowed_verbs:
             raise ValueError("Proposed action verb is outside the authorized mission scope.")
         targets = action.get("targets")
-        if not isinstance(targets, list) or not targets or not set(targets) <= self.authorization.allowed_targets:
+        if not isinstance(targets, list):
+            raise ValueError("Proposed action targets are outside the authorized mission scope.")
+        if action.get("verb") == "TAKEOFF":
+            if targets:
+                raise ValueError("TAKEOFF must not carry semantic targets.")
+            return
+        if not targets or not set(targets) <= self.authorization.allowed_targets:
             raise ValueError("Proposed action targets are outside the authorized mission scope.")

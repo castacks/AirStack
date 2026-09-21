@@ -6,8 +6,9 @@ set -euo pipefail
 Usage: bash scripts/rrm_command_console.sh [verified-bundle-directory] [port]
 
 With no bundle, the console starts in live-only mode from the checked-in Office
-context and scene manifest. It can capture/save live requests and use the private
-Cosmos worker, but it has no historical proposal or flight-dispatch panel.
+context and scene manifest. It can save and execute deterministic movement commands
+through discovered public AirStack task servers. The camera and private Cosmos worker
+remain optional evidence/model paths.
 
 Pass a verified historical bundle only when reference review is wanted:
   bash scripts/rrm_office_fetch_import.sh <psc-job-id>

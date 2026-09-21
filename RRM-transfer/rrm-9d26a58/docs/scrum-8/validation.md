@@ -2,7 +2,33 @@
 
 Source baseline: RRM archive `9d26a58eb8516b6754c5d12b041cdc789950e047`, AirStack `ore_proj` at `a6dad8caf54722e5eba3481367e914ce213e6135`. Changes are staged source files, not a new Git revision or published baseline.
 
+## Direct GUI command execution — 2026-09-21
+
+The console now performs deterministic command-to-public-task translation and serial
+simulator execution for takeoff, land, exploration, map waypoint routes, and relative
+movement. It dynamically discovers actual action servers rather than trusting client
+advertisements, binds relative commands to fresh pose/heading, requires fresh canonical
+flight state, and requires a fresh map-frame VDB feed for exploration. STOP requests
+public action cancellation; missing physical-stop evidence remains unconfirmed.
+
+Live read-only validation against `full_default` observed fresh `map -> base_link`
+odometry, connected grounded vehicle state, a fresh VDB point cloud, and real servers
+for TakeoffTask, LandTask, NavigateTask, FixedTrajectoryTask, and ExplorationTask.
+SemanticSearchTask was correctly excluded because only a client exists. No goal was
+sent. Python compilation passed and the complete CPU suite passed **169/169** tests.
+
 ## Current validation checkpoint — 2026-09-20 UTC
+
+The later expanded flight-profile increment adds distinct fail-closed paths for
+targetless `TAKEOFF` and exact supplied multi-waypoint `NAVIGATE`. It does not alter the
+historical live probe below. Synthetic contract/provider validation now covers
+adapter-owned takeoff parameters, grounded/disarmed takeoff state, Takeoff/Land stop
+endpoints, complete route binding, per-segment corridor evidence, route truncation and
+targetless authorization. The complete suite passes **156 tests**; changed Python
+sources compile and `git diff --check` passes. No live task was dispatched for this
+increment.
+
+### Original single-waypoint live probe
 
 The body-agnostic live-mission composition now includes dynamic C03 feasibility,
 dependency-bound single-use C06 admission, bounded public-task dispatch, independent

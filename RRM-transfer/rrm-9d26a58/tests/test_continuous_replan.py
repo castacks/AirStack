@@ -86,6 +86,20 @@ class ContinuousReplanTests(unittest.TestCase):
         for forbidden in ("rclpy", "mavros", "px4", "ActionClient", "subprocess", "sbatch"):
             self.assertNotIn(forbidden, source)
 
+    def test_takeoff_only_authorization_has_an_explicit_targetless_scope(self):
+        authorization = MissionAuthorization(
+            task_id="takeoff-task", task_revision="v1",
+            allowed_verbs=frozenset({"TAKEOFF"}), allowed_targets=frozenset(),
+            max_actions=1,
+        )
+        self.assertEqual(authorization.allowed_targets, frozenset())
+        with self.assertRaises(ValueError):
+            MissionAuthorization(
+                task_id="nav-task", task_revision="v1",
+                allowed_verbs=frozenset({"NAVIGATE_TO"}), allowed_targets=frozenset(),
+                max_actions=1,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

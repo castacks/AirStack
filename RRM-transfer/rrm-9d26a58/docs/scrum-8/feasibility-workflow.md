@@ -1,5 +1,11 @@
 # Dynamic embodiment feasibility and admission workflow
 
+Update 2026-09-21: the GUI now also has a separate deterministic direct-command path
+for scene-independent takeoff, land, exploration, map waypoint, and relative-motion
+commands. That path discovers live public task executors and delegates planning to
+AirStack; it is documented in `command-console.md`. The Office semantic-target path
+described below remains the stricter model/manifest/feasibility composition.
+
 This design preserves RRM's body-agnostic task reasoning while making execution
 decisions depend on the current body, scene, and physics. It refines C03, C05, C06,
 and C07; it does not make a learned model a safety authority or permit a proposal to
@@ -137,31 +143,37 @@ evaluated for an arm instead of a humanoid. Different adapters may return differ
 feasibility outcomes for the same semantic proposal; that is intended portability,
 not divergent task reasoning.
 
-## Current AirStack Office increment
+## AirStack Office semantic-target increment
 
 The current command console now captures a fresh image, calls the private worker for
 catalog-bound visual entity evidence, and asks RRM for a C05 proposal. That is C02
 visual grounding plus C04/C05 proposal generation; it is not a physics feasibility
 result and remains motion-inhibited.
 
-The bundled AirStack C03 adapter now binds a proposed single-waypoint navigation
+The bundled AirStack C03 adapter now binds a proposed navigation route or takeoff
 command to:
 
 1. canonical fresh `map -> base_link` odometry, MAVROS state, airborne/control state,
    and live action-server availability;
-2. a read-only Ouster point-cloud check of the exact straight 3D corridor, transformed
-   into `map`, with minimum point/range coverage and 0.4 m clearance;
-3. declared waypoint altitude, distance and tolerance limits;
-4. the exact grounded navigation digest, current planner/resource state and the live
-   Navigate/Land stop path; and
+2. a read-only Ouster point-cloud check of every exact 3D route segment, including the
+   vertical takeoff segment, transformed into `map`, with minimum point/range coverage
+   and 0.4 m clearance;
+3. declared route limits or adapter-owned takeoff altitude and velocity limits;
+4. the exact grounded command digest, current planner/resource state and the applicable
+   Navigate/Land or Takeoff/Land stop path; and
 5. a canonical inline evidence payload whose SHA-256 is carried through the
    short-expiry, single-use admission record.
 
-The current profile accepts only `aerial-eval` / `office-airframe-v1` /
-`office-bounded-nav-v1`. It additionally requires canonical `map -> base_link`
-odometry, a live corridor start within 0.25 m of the checksum-bound camera pose, and a
-corridor target equal to the compiled waypoint. This prevents a physically valid
-check for one state or target from admitting a different command. A profile change,
+The legacy profile accepts `aerial-eval` / `office-airframe-v1` /
+`office-bounded-nav-v1` for single-waypoint navigation. The expanded profile is exactly
+`aerial-eval` / `office-airframe-v2` / `office-bounded-flight-v2`; it admits at most 16
+supplied route waypoints and 25 m total length, or targetless takeoff from a connected,
+grounded, disarmed, nearly stationary vehicle to 0.5–3.0 m at 0.1–1.0 m/s. Takeoff
+altitude and velocity are fixed by the embodiment adapter, never copied from model
+output. Both profiles require canonical `map -> base_link` odometry, a live corridor
+start within 0.25 m of the checksum-bound camera pose, and an observed waypoint list
+equal to the compiled command. This prevents a physically valid check for one state or
+route from admitting a different command. A profile change,
 stale channel, or detached corridor produces a blocking result.
 
 The existing public AirStack ActionClient remains the only C07 execution seam. It must
@@ -186,12 +198,12 @@ valid typed result on stdout. Execution mode requires that provider in addition 
 `scripts/airstack_feasibility_observer.py`. Both are read-only until a separate,
 single-use admission reaches the existing public ActionClient dispatcher.
 
-This first profile is intentionally narrow: it supports one `NAVIGATE` waypoint,
-requires the aircraft already to be armed, airborne, in control and nearly stationary,
-and evaluates only the currently observed straight corridor. It does not synthesize a
-takeoff sequence, predict around occlusion, reserve energy, or claim global route
-planning. Any missing/stale channel, insufficient sensor coverage, obstacle, planner
-stuck state, grounded vehicle, or absent stop endpoint blocks admission. A learned
+Navigation requires the aircraft already to be armed, airborne, in control and nearly
+stationary; takeoff instead requires connected, grounded and disarmed state. The
+implementation does not synthesize routes, predict around occlusion, reserve energy,
+or claim global route planning. Any missing/stale channel, insufficient sensor
+coverage, obstacle, incompatible vehicle state, or absent stop endpoint blocks
+admission. A learned
 sensor model may later contribute advisory risk or route candidates, but is not needed
 for this deterministic profile and cannot turn unknown physical evidence into PASS.
 

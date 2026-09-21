@@ -6,8 +6,10 @@ control authority or mark SCRUM-8 complete.
 
 Update 2026-09-20: the Office drone path now has a narrow, deterministic C03 adapter
 and full injected observe/propose/ground/check/admit/dispatch/verify/replan composition.
-The GUI remains proposal-only, and the current grounded simulator state fails
-admission. This is an aerial transport/profile validation increment; it does not
+The later 2026-09-21 direct-command increment exposes confirmed GUI execution through
+discovered public AirStack tasks for scene-independent movement commands; the Office
+semantic proposal path remains separate. This is an aerial transport/profile validation
+increment; it does not
 replace the separately planned CONOPS manipulation embodiment or satisfy the later
 SIL campaign gates below.
 

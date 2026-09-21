@@ -1,0 +1,29 @@
+{
+  "task": {
+    "task_id": "office-takeoff-001",
+    "revision": "office-takeoff-task-v1",
+    "objective": "Take off using TAKEOFF. Do not select an altitude or velocity; those are owned by the embodiment adapter.",
+    "context_refs": ["scene:isaac-office-rrm-visual-eval-v1"],
+    "constraints_revision": "office-bounded-flight-v2",
+    "issuer_id": "operator-eval",
+    "permission_revision": "inference-only",
+    "requested_embodiment_id": "aerial-eval"
+  },
+  "snapshot": {
+    "snapshot_id": "office-takeoff-state-001",
+    "revision": "office-takeoff-state-v1",
+    "task_id": "office-takeoff-001",
+    "episode_id": "isaac-office-rrm-visual-eval-v1",
+    "evidence": [],
+    "complete_domains": []
+  },
+  "capabilities": {
+    "embodiment_id": "aerial-eval",
+    "revision": "office-airframe-v2",
+    "operations": ["TAKEOFF"],
+    "resources": ["airframe"],
+    "available_resources": ["airframe"],
+    "limits_ref": "office-bounded-flight-v2"
+  },
+  "now_monotonic_s": 0.1
+}

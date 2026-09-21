@@ -38,6 +38,33 @@ def _context(path: Path = _FIXTURE) -> CosmosReasoningInput:
 
 
 class CosmosReason2ContractTest(unittest.TestCase):
+    def test_targetless_takeoff_candidate_is_valid_only_with_takeoff_capability(self) -> None:
+        context = _context()
+        context = CosmosReasoningInput(
+            task=context.task, snapshot=context.snapshot,
+            capabilities=CapabilityDeclaration(
+                embodiment_id=context.capabilities.embodiment_id,
+                revision=context.capabilities.revision,
+                operations=frozenset({"TAKEOFF"}),
+                resources=context.capabilities.resources,
+                available_resources=context.capabilities.available_resources,
+                limits_ref=context.capabilities.limits_ref,
+            ),
+            now_monotonic_s=context.now_monotonic_s,
+        )
+        raw = json.dumps({
+            "status": "READY",
+            "grounded_goal": {"name": "airborne", "subject": "$self", "obj": None},
+            "grounded_entities": [], "ambiguity_refs": [],
+            "explanation": "Take off using the adapter-owned flight profile.",
+            "actions": [{"id": "takeoff-1", "verb": "TAKEOFF",
+                         "targets": [], "dependencies": []}],
+            "recovery_budget": 0,
+        })
+        candidate = parse_cosmos_candidate(raw, context)
+        self.assertEqual(candidate.status, CosmosCandidateStatus.ACCEPTED)
+        self.assertEqual(candidate.plan.actions[0].action.targets, [])
+
     def test_office_prompt_exposes_ids_and_authored_goal_semantics(self) -> None:
         path = Path(__file__).parents[1] / "examples/office_visual_eval/navigation_context.json"
         prompt = render_cosmos_prompt(_context(path))

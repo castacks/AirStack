@@ -139,10 +139,11 @@ def create_simulation_app(launch_config=None):
         # the `NVST_CCE_DISCONNECTED when m_connectionCount 0 != 1` underflow
         # storm in the Kit log.
         #
-        # Set all three settings so whichever code path the plugin reads, it
-        # lands on UDP 49099. The value of 49099 is picked as one-off from the
-        # 49100 signaling port — same range, easy to remember, and TCP/UDP can
-        # coexist on the same number if anyone later wants a single port.
+        # These Python settings document and preserve the standalone-script
+        # contract. For the Compose livestream service, the same values are
+        # also passed on Kit's command line. That higher-precedence source is
+        # essential because the WebRTC extension applies extension.toml
+        # defaults while loading and can overwrite settings made here.
         port = int(os.environ.get("ISAAC_SIM_LIVESTREAM_UDP_PORT", "49099"))
         app.set_setting("/app/livestream/fixedHostPort", port)
         app.set_setting("/app/livestream/minHostPort", port)

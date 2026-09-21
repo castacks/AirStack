@@ -22,6 +22,7 @@
 
 #include <airstack_common/ros2_helper.hpp>
 #include <std_msgs/msg/float32.hpp>
+#include <cmath>
 #include <thread>
 
 TakeoffLandingTaskNode::TakeoffLandingTaskNode()
@@ -32,6 +33,8 @@ TakeoffLandingTaskNode::TakeoffLandingTaskNode()
   default_landing_velocity_ = airstack::get_param(this, "landing_velocity", 0.3);
   takeoff_acceptance_distance_ = airstack::get_param(this, "takeoff_acceptance_distance", 0.3);
   takeoff_acceptance_time_ = airstack::get_param(this, "takeoff_acceptance_time", 1.0);
+  takeoff_max_horizontal_displacement_ =
+    airstack::get_param(this, "takeoff_max_horizontal_displacement", 0.0);
   landing_stationary_distance_ = airstack::get_param(this, "landing_stationary_distance", 0.02);
   landing_acceptance_time_ = airstack::get_param(this, "landing_acceptance_time", 5.0);
   landing_tracking_point_ahead_time_ =
@@ -272,21 +275,22 @@ void TakeoffLandingTaskNode::takeoff_execute(std::shared_ptr<TakeoffGoalHandle> 
   }
 
   // generate and publish takeoff trajectory
+  double takeoff_start_x;
+  double takeoff_start_y;
   {
     std::lock_guard<std::mutex> odom_lock(odom_mutex_);
-    std::lock_guard<std::mutex> tp_lock(tracking_point_mutex_);
 
+    // A tracking point can survive a simulator /clock reset in a long-lived
+    // controller process. A takeoff must begin at the current physical pose;
+    // otherwise that stale setpoint becomes an unintended horizontal command.
     airstack_msgs::msg::Odometry start_point;
-    if (got_tracking_point_) {
-      start_point = tracking_point_odom_;
-    } else {
-      // fall back to current robot odom as start point
-      start_point.header = robot_odom_.header;
-      start_point.pose.position.x = robot_odom_.pose.pose.position.x;
-      start_point.pose.position.y = robot_odom_.pose.pose.position.y;
-      start_point.pose.position.z = robot_odom_.pose.pose.position.z;
-      start_point.pose.orientation = robot_odom_.pose.pose.orientation;
-    }
+    start_point.header = robot_odom_.header;
+    start_point.pose.position.x = robot_odom_.pose.pose.position.x;
+    start_point.pose.position.y = robot_odom_.pose.pose.position.y;
+    start_point.pose.position.z = robot_odom_.pose.pose.position.z;
+    start_point.pose.orientation = robot_odom_.pose.pose.orientation;
+    takeoff_start_x = robot_odom_.pose.pose.position.x;
+    takeoff_start_y = robot_odom_.pose.pose.position.y;
 
     // height is relative offset; target_altitude_m is absolute
     float current_z = robot_odom_.pose.pose.position.z;
@@ -327,14 +331,34 @@ void TakeoffLandingTaskNode::takeoff_execute(std::shared_ptr<TakeoffGoalHandle> 
       return;
     }
 
+    float current_x;
+    float current_y;
     float current_z;
     {
       std::lock_guard<std::mutex> lock(odom_mutex_);
+      current_x = robot_odom_.pose.pose.position.x;
+      current_y = robot_odom_.pose.pose.position.y;
       current_z = robot_odom_.pose.pose.position.z;
     }
 
     feedback->current_altitude_m = current_z;
     goal_handle->publish_feedback(feedback);
+
+    const double horizontal_displacement =
+      std::hypot(current_x - takeoff_start_x, current_y - takeoff_start_y);
+    if (takeoff_max_horizontal_displacement_ > 0.0 &&
+      horizontal_displacement > takeoff_max_horizontal_displacement_)
+    {
+      RCLCPP_ERROR(this->get_logger(),
+        "TakeoffTask aborted: horizontal displacement %.2fm exceeds %.2fm",
+        horizontal_displacement, takeoff_max_horizontal_displacement_);
+      set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE);
+      result->success = false;
+      result->message = "horizontal displacement limit exceeded";
+      goal_handle->abort(result);
+      task_active_ = false;
+      return;
+    }
 
     // check completion: within acceptance distance of target for acceptance_time
     float dist = std::abs(current_z - target_altitude);

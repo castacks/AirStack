@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -74,12 +75,13 @@ def _execute(proposal: DroneTaskProposal, timeout_s: float, *, verify_observatio
     from rclpy.signals import SignalHandlerOptions
     from geometry_msgs.msg import Point, PoseStamped
     from nav_msgs.msg import Path
-    from task_msgs.action import LandTask, NavigateTask, TakeoffTask
+    from task_msgs.action import ExplorationTask, LandTask, NavigateTask, TakeoffTask
 
     action_type = {
         DroneTaskKind.TAKEOFF: TakeoffTask,
         DroneTaskKind.NAVIGATE: NavigateTask,
         DroneTaskKind.LAND: LandTask,
+        DroneTaskKind.EXPLORE: ExplorationTask,
     }[proposal.kind]
     # Keep ROS from consuming SIGINT and shutting its context down before this
     # adapter can ask the active AirStack action server to cancel the goal.
@@ -89,6 +91,8 @@ def _execute(proposal: DroneTaskProposal, timeout_s: float, *, verify_observatio
     latest_odometry: OdometryEvidence | None = None
     latest_vehicle_state: VehicleStateEvidence | None = None
     latest_linear_speed_m_s: float | None = None
+    latest_global_plan_sha256: str | None = None
+    dispatch_monotonic_s: float | None = None
 
     if verify_observation:
         from mavros_msgs.msg import State
@@ -123,10 +127,40 @@ def _execute(proposal: DroneTaskProposal, timeout_s: float, *, verify_observatio
                 armed=message.armed,
             )
 
+        def on_global_plan(message: Path) -> None:
+            nonlocal latest_global_plan_sha256
+            if dispatch_monotonic_s is None:
+                return
+            points = [
+                [pose.pose.position.x, pose.pose.position.y, pose.pose.position.z]
+                for pose in message.poses
+            ]
+            digest = hashlib.sha256(json.dumps(points, separators=(",", ":")).encode()).hexdigest()
+            if digest == latest_global_plan_sha256:
+                return
+            latest_global_plan_sha256 = digest
+            path_length_m = sum(
+                math.dist(points[index - 1], points[index])
+                for index in range(1, len(points))
+            )
+            stamp = message.header.stamp
+            print(json.dumps({
+                "event": "global_plan_update",
+                "action_id": proposal.action_id,
+                "source_stamp_ns": stamp.sec * 1_000_000_000 + stamp.nanosec,
+                "frame_id": message.header.frame_id,
+                "waypoint_count": len(points),
+                "path_length_m": round(path_length_m, 3),
+                "start": points[0] if points else None,
+                "goal": points[-1] if points else None,
+                "plan_sha256": digest,
+            }, sort_keys=True), flush=True)
+
         qos = QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT)
         prefix = f"/{proposal.robot_name}"
         node.create_subscription(Odometry, f"{prefix}/odometry_conversion/odometry", on_odometry, qos)
         node.create_subscription(State, f"{prefix}/interface/mavros/state", on_vehicle_state, qos)
+        node.create_subscription(Path, f"{prefix}/global_plan", on_global_plan, qos)
     try:
         if not client.wait_for_server(timeout_sec=timeout_s):
             record = {
@@ -159,8 +193,9 @@ def _execute(proposal: DroneTaskProposal, timeout_s: float, *, verify_observatio
                     or time.monotonic() - latest_vehicle_state.received_monotonic_s
                     > max_observation_age_s):
                 raise RuntimeError("fresh connected vehicle state unavailable before dispatch")
-            if proposal.kind is DroneTaskKind.NAVIGATE and not latest_vehicle_state.armed:
-                raise RuntimeError("navigation requires an already airborne/armed vehicle; perform takeoff first")
+            if (proposal.kind in {DroneTaskKind.NAVIGATE, DroneTaskKind.EXPLORE}
+                    and not latest_vehicle_state.armed):
+                raise RuntimeError("airborne task requires an armed vehicle; perform takeoff first")
         pre_odometry = latest_odometry
         dispatch_monotonic_s = time.monotonic()
         if proposal.kind is DroneTaskKind.TAKEOFF:
@@ -170,6 +205,13 @@ def _execute(proposal: DroneTaskProposal, timeout_s: float, *, verify_observatio
         elif proposal.kind is DroneTaskKind.LAND:
             goal = LandTask.Goal()
             goal.velocity_m_s = proposal.velocity_m_s
+        elif proposal.kind is DroneTaskKind.EXPLORE:
+            goal = ExplorationTask.Goal()
+            goal.min_altitude_agl = proposal.min_altitude_agl_m
+            goal.max_altitude_agl = proposal.max_altitude_agl_m
+            goal.min_flight_speed = proposal.min_flight_speed_m_s
+            goal.max_flight_speed = proposal.max_flight_speed_m_s
+            goal.time_limit_sec = proposal.time_limit_s
         else:
             goal = NavigateTask.Goal()
             goal.goal_tolerance_m = proposal.goal_tolerance_m
@@ -183,7 +225,18 @@ def _execute(proposal: DroneTaskProposal, timeout_s: float, *, verify_observatio
                 goal.global_plan.poses.append(pose)
 
         def feedback_callback(message) -> None:
-            print(json.dumps({"event": "feedback", "status": message.feedback.status}), flush=True)
+            feedback = message.feedback
+            record = {"event": "feedback", "action_id": proposal.action_id,
+                      "status": getattr(feedback, "status", None)}
+            for field in ("progress", "distance_to_goal", "best_confidence"):
+                if hasattr(feedback, field):
+                    record[field] = getattr(feedback, field)
+            position = getattr(feedback, "current_position", None)
+            if position is not None:
+                record["current_position"] = {
+                    "x": position.x, "y": position.y, "z": position.z,
+                }
+            print(json.dumps(record, sort_keys=True), flush=True)
 
         response = client.send_goal_async(goal, feedback_callback=feedback_callback)
         rclpy.spin_until_future_complete(node, response, timeout_sec=timeout_s)
@@ -304,7 +357,7 @@ def _execute(proposal: DroneTaskProposal, timeout_s: float, *, verify_observatio
                 and latest_odometry.received_monotonic_s >= completion_monotonic_s
             )
             post_state_ready = (
-                proposal.kind is DroneTaskKind.NAVIGATE
+                proposal.kind in {DroneTaskKind.NAVIGATE, DroneTaskKind.EXPLORE}
                 or (latest_vehicle_state is not None
                     and latest_vehicle_state.received_monotonic_s >= completion_monotonic_s)
             )

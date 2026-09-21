@@ -1,0 +1,7 @@
+{
+  "task_id": "office-takeoff-001",
+  "task_revision": "office-takeoff-task-v1",
+  "allowed_verbs": ["TAKEOFF"],
+  "allowed_targets": [],
+  "max_actions": 1
+}

@@ -9,9 +9,9 @@ from rrm.drone_decision import (
     DroneDecisionStatus,
     DroneNavigationTarget,
 )
-from rrm.schema import Verb
+from rrm.schema import AbstractAction, Predicate, SELF, Verb
 from rrm.state_contracts import FactEvidence, FactKey, FactProvenance, StateSnapshot
-from rrm.task_contracts import TaskRequest
+from rrm.task_contracts import IntentStatus, PlanProposal, PlannedAction, ReasoningResult, TaskRequest
 
 
 def task(objective="navigate to waypoint-a", embodiment="iris-v1"):
@@ -51,6 +51,52 @@ def bridge():
 
 
 class DroneDecisionBridgeTests(unittest.TestCase):
+    def test_targetless_takeoff_uses_adapter_owned_flight_parameters(self):
+        request = task("Take off", embodiment="iris-v1")
+        state = snapshot()
+        capabilities = profile(operations=frozenset({Verb.TAKEOFF.value}))
+        intent = ReasoningResult(
+            task_id=request.task_id, task_revision=request.revision,
+            state_revision=state.revision, capability_revision=capabilities.revision,
+            status=IntentStatus.READY,
+            grounded_goal=Predicate(name="airborne", subject=SELF),
+            grounded_entities=(),
+        )
+        action = AbstractAction(id="takeoff-1", verb=Verb.TAKEOFF, targets=[])
+        plan = PlanProposal(
+            plan_id="task-1/takeoff", version=0, task_id=request.task_id,
+            task_revision=request.revision, intent=intent,
+            state_revision=state.revision, capability_revision=capabilities.revision,
+            actions=(PlannedAction(
+                action=action, semantics_revision="rrm/verbs/v1",
+                feasibility_ref="iris/v1/TAKEOFF/takeoff-1",
+                expected_effect_window_revision="airframe/takeoff-effect/v1",
+            ),), recovery_budget=0,
+        )
+        result = AirStackDroneDecisionBridge(
+            embodiment_id="iris-v1", robot_name="robot_1", targets=(),
+            takeoff_altitude_m=1.75, takeoff_velocity_m_s=0.4,
+        ).compile_plan(plan, request, state, capabilities, now_monotonic_s=10.5)
+        self.assertIs(result.status, DroneDecisionStatus.READY)
+        self.assertEqual(result.proposal.kind.value, "TAKEOFF")
+        self.assertEqual(result.proposal.target_altitude_m, 1.75)
+        self.assertEqual(result.proposal.velocity_m_s, 0.4)
+
+    def test_multi_waypoint_binding_is_preserved_as_one_route(self):
+        route_bridge = AirStackDroneDecisionBridge(
+            embodiment_id="iris-v1", robot_name="robot_1",
+            targets=(DroneNavigationTarget(
+                entity_id="waypoint-a",
+                waypoints=(MapWaypoint(x=1.0, y=1.0, z=1.5),
+                           MapWaypoint(x=3.0, y=2.0, z=1.5)),
+                goal_tolerance_m=0.4,
+            ),),
+        )
+        result = route_bridge.decide(task(), snapshot(), profile(), now_monotonic_s=10.5)
+        self.assertIs(result.status, DroneDecisionStatus.READY)
+        self.assertEqual(len(result.proposal.waypoints), 2)
+        self.assertEqual(result.proposal.waypoints[-1].x, 3.0)
+
     def test_learned_plan_is_preserved_without_objective_reinterpretation(self):
         original = bridge().decide(task(), snapshot(), profile(), now_monotonic_s=10.5)
         natural_task = task("Please approach the blue marker beside the doorway")

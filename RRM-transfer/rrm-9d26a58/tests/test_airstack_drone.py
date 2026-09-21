@@ -37,6 +37,15 @@ class DroneProposalTests(unittest.TestCase):
         self.assertEqual(navigate["action_name"], "/robot_1/tasks/navigate")
         self.assertEqual(navigate["goal"]["global_plan"]["header"]["frame_id"], "map")
 
+    def test_explore_maps_to_global_planner_task(self):
+        explore = proposal(
+            DroneTaskKind.EXPLORE, min_altitude_agl_m=1.0, max_altitude_agl_m=3.0,
+            min_flight_speed_m_s=0.5, max_flight_speed_m_s=2.0, time_limit_s=30.0,
+        ).preview()
+        self.assertEqual(explore["action_name"], "/robot_1/tasks/exploration")
+        self.assertEqual(explore["action_type"], "task_msgs/action/ExplorationTask")
+        self.assertEqual(explore["goal"]["time_limit_sec"], 30.0)
+
     def test_invalid_parameters_and_frames_are_rejected(self):
         with self.assertRaises(ValidationError):
             proposal(DroneTaskKind.TAKEOFF, target_altitude_m=0.0, velocity_m_s=1.0)
@@ -45,6 +54,10 @@ class DroneProposalTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             proposal(DroneTaskKind.NAVIGATE, frame_id="earth",
                      waypoints=(MapWaypoint(x=0, y=0, z=1),), goal_tolerance_m=1.0)
+        with self.assertRaises(ValidationError):
+            proposal(DroneTaskKind.EXPLORE, min_altitude_agl_m=3.0,
+                     max_altitude_agl_m=1.0, min_flight_speed_m_s=0.5,
+                     max_flight_speed_m_s=2.0, time_limit_s=30.0)
 
     def test_runner_is_explicitly_gated_and_has_no_direct_control_surface(self):
         from pathlib import Path
@@ -61,6 +74,8 @@ class DroneProposalTests(unittest.TestCase):
         self.assertIn("if rclpy.ok():", runner)
         self.assertIn("ActionClient", runner)
         self.assertIn("create_subscription(", runner)
+        self.assertIn('"event": "global_plan_update"', runner)
+        self.assertIn('f"{prefix}/global_plan"', runner)
         for prohibited in ("create_publisher(", "create_client(",
                            "trajectory_override", "RobotCommand"):
             self.assertNotIn(prohibited, runner)

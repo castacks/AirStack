@@ -91,6 +91,8 @@ class AirStackDroneDecisionBridge:
 
     def __init__(self, *, embodiment_id: str, robot_name: str,
                  targets: tuple[DroneNavigationTarget, ...],
+                 takeoff_altitude_m: float = 1.5,
+                 takeoff_velocity_m_s: float = 0.5,
                  semantics_revision: str = "rrm/verbs/v1",
                  effect_window_revision: str = "airframe/navigation-effect/v1") -> None:
         if not embodiment_id.strip() or not robot_name.strip():
@@ -103,6 +105,10 @@ class AirStackDroneDecisionBridge:
         self.embodiment_id = embodiment_id
         self.robot_name = robot_name
         self.targets = {target.entity_id: target for target in targets}
+        if takeoff_altitude_m <= 0 or takeoff_velocity_m_s <= 0:
+            raise ValueError("takeoff altitude and velocity must be positive")
+        self.takeoff_altitude_m = takeoff_altitude_m
+        self.takeoff_velocity_m_s = takeoff_velocity_m_s
         self.semantics_revision = semantics_revision
         self.effect_window_revision = effect_window_revision
 
@@ -192,9 +198,34 @@ class AirStackDroneDecisionBridge:
                 or plan.capability_revision != capabilities.revision):
             return self._refusal(DroneDecisionStatus.HOLD, task, "plan_context_mismatch")
         if len(plan.actions) != 1 or plan.actions[0].dependencies:
-            return self._refusal(DroneDecisionStatus.UNSUPPORTED, task, "requires_single_navigation_node")
+            return self._refusal(DroneDecisionStatus.UNSUPPORTED, task, "requires_single_action_node")
         node = plan.actions[0]
         action = node.action
+        if action.verb is Verb.TAKEOFF:
+            if action.targets or action.params:
+                return self._refusal(DroneDecisionStatus.UNSUPPORTED, task,
+                                     "unsupported_takeoff_node")
+            if (plan.intent.grounded_goal is None
+                    or plan.intent.grounded_goal.name != "airborne"
+                    or plan.intent.grounded_goal.subject != SELF
+                    or plan.intent.grounded_goal.obj is not None
+                    or plan.intent.grounded_entities
+                    or plan.intent.ambiguity_refs):
+                return self._refusal(DroneDecisionStatus.HOLD, task,
+                                     "ungrounded_or_ambiguous_takeoff_plan")
+            reasons = capabilities.rejection_reasons(action.verb.value, _AIRFRAME_RESOURCE)
+            if reasons:
+                return self._refusal(DroneDecisionStatus.UNSUPPORTED, task, *reasons)
+            return DroneDecision(
+                status=DroneDecisionStatus.READY, task_id=task.task_id,
+                intent=plan.intent, plan=plan,
+                proposal=DroneTaskProposal(
+                    task_id=task.task_id, action_id=action.id, robot_name=self.robot_name,
+                    kind=DroneTaskKind.TAKEOFF,
+                    target_altitude_m=self.takeoff_altitude_m,
+                    velocity_m_s=self.takeoff_velocity_m_s,
+                ),
+            )
         if (action.verb is not Verb.NAVIGATE_TO or len(action.targets) != 1
                 or action.params):
             return self._refusal(DroneDecisionStatus.UNSUPPORTED, task, "unsupported_navigation_node")

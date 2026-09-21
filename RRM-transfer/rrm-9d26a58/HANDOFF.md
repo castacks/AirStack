@@ -1,5 +1,93 @@
 # RRM remote Codex handoff
 
+## LATEST: GUI commands now execute through AirStack planning tasks — 2026-09-21
+
+This supersedes the proposal-only GUI status below. The command console now saves a
+movement command without requiring the Office camera/catalog, discovers actual ROS
+action **servers** and current flight state in the active `robot_1` configuration,
+compiles the command into typed public AirStack tasks, records the exact plan before
+launch, executes tasks serially, verifies each result from fresh causal state, and
+halts the sequence on failure or STOP/HOLD.
+
+Supported direct text covers takeoff, land, bounded-duration exploration/survey,
+single or multiple robot-local map waypoints, and current-heading-relative
+forward/back/left/right/up/down motion. Navigation or exploration from the ground
+automatically prepends takeoff. Unsupported text and missing executors fail without
+dispatch. Command saving and task compilation are scene-independent, so every catalog
+scene and manual Isaac stage configuration uses the same path; scene switching is
+blocked during an active mission.
+
+The implementation deliberately reuses AirStack's ownership boundaries:
+
+- `ExplorationTask` activates the configured VDB-aware global planner, which produces
+  collision-checked plans and repeatedly delegates to `NavigateTask`.
+- `NavigateTask` owns the active DROAN local planner and trajectory-controller cascade.
+- `TakeoffTask` and `LandTask` own vertical transitions.
+- RRM never publishes trajectories or sends PX4/MAVROS commands directly.
+
+New files are `rrm/airstack_command.py`, `scripts/airstack_task_discovery.py`, and
+`scripts/airstack_command_mission.py`; the typed proposal/dispatcher, console, UI, and
+tests were extended accordingly. Exploration admission also requires a fresh
+map-frame VDB point-cloud feed. Live read-only discovery found fresh state and real
+takeoff, land, navigate, fixed-trajectory, and exploration servers. It correctly
+excluded `SemanticSearchTask`, which has a client but no server in `full_default`.
+Therefore arbitrary object-language commands such as "find the red chair" remain
+non-executable until a real semantic-search/grounding executor is served; the GUI does
+not fabricate that capability.
+
+The GUI now treats the compiled plan and subsequent planner publications as evidence,
+not a per-plan approval gate. The single **Plan and run** click starts execution; two
+bounded, scrollable panels show the exact typed action sequence and recent structured
+task/planner events. The dispatcher records each distinct post-dispatch
+`/robot_1/global_plan` publication with its frame, endpoints, waypoint count, path
+length, timestamp, and digest, so exploration replans become visible while the mission
+continues automatically. STOP/HOLD remains independently available.
+
+Takeoff plans now also contain a predeclared, digest-bound public `LandTask`
+contingency. When takeoff returns terminal success but fresh causal evidence reports a
+physical mismatch while the vehicle is connected, armed, and above 0.3 m, the requested
+sequence halts and the contingency lands. The landing is independently verified and
+reported as `RECOVERED_HALT`; an unverified recovery is `RECOVERY_FAILED`. Unknown or
+timed-out takeoff state never causes a blind second command.
+
+The 2026-09-21 drift incident was admitted after Isaac had been recreated at 02:22 UTC
+while the robot container and its tracking state remained from 23:35 UTC. The takeoff
+server formerly preferred its retained tracking point as the trajectory origin and
+checked only altitude for completion. RRM now rejects that container/clock ordering;
+`airstack ready` exposes the same epoch gate. `TakeoffTask` anchors at current odometry
+and aborts/holds if horizontal displacement exceeds the production 0.3 m bound. The
+robot container was restarted after Isaac while grounded, the new package was built,
+the parameter is live at 0.3, and readiness passes. A subsequent bounded operator-run
+mission took off toward 1.0 m and landed normally: both actions were independently
+`VERIFIED`, the takeoff endpoint was 0.182 m horizontally from its start (below the
+0.3 m abort bound), and MAVROS confirmed the final connected, disarmed, on-ground
+state. The contingency landing was not needed.
+
+Validation: **177 RRM tests passed**, the modified C++ package builds, changed Python
+sources compile, `airstack ready` passes all gates, live task/VDB
+discovery passed, and the bounded takeoff/landing mission above passed. The completed
+GUI command, replanning-evidence, WebRTC, and takeoff-safety work is checkpointed on
+`ore_proj`.
+
+## LATEST: separate takeoff and multi-waypoint route gates — 2026-09-20
+
+The AirStack feasibility adapter now preserves the legacy one-waypoint navigation
+profile and adds an opt-in `office-airframe-v2` / `office-bounded-flight-v2` profile.
+The expanded profile supports targetless semantic `TAKEOFF`, compiled only to
+adapter-owned altitude/velocity, and `NAVIGATE_TO` targets bound to an exact manifest
+`map_route` of at most 16 waypoints and 25 m total length. The read-only observer checks
+the vertical takeoff corridor or every route segment, and feasibility binds the complete
+observed waypoint list to the compiled proposal.
+
+Takeoff and navigation have distinct controller/resource rules. Takeoff requires a
+connected, grounded, disarmed, nearly stationary vehicle plus live Takeoff/Land task
+endpoints. Navigation requires armed, airborne, controlled state, a non-stuck planner,
+and live Navigate/Land endpoints. Both require fresh canonical odometry, exact command
+binding, sufficient point-cloud range, 0.4 m clearance, and single-use admission. The
+adapter still does not generate routes or treat absence of observed points as global
+free-space planning. The command console remains proposal-only. Validation: 156 tests
+passed, changed Python sources compiled, and `git diff --check` passed.
+
 ## LATEST: configured AirStack feasibility adapter — 2026-09-20
 
 The Office simulator now has a deterministic, read-only C03 provider at

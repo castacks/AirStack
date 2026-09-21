@@ -1,18 +1,12 @@
-> **Current continuation (2026-09-20):** Read [HANDOFF.md](HANDOFF.md) first. The
-> active OSMO path is a two-GPU workflow: one Isaac/AirStack workspace and one private
-> warm Cosmos worker. The [localhost command console](docs/scrum-8/command-console.md)
-> captures checksum-bound live observations and uses that worker only for shadow-only
-> proposals. The console recovers the worker's private URL from the OSMO workspace init
-> environment when a Remote-SSH process does not inherit it. No worker port is public,
-> and no proposal can dispatch a drone. PSC material below is historical/offline
-> reference only; it is not the live control-loop path.
-
-The repository now contains the full injected observe/propose/ground/check/admit/
-dispatch/verify/replan composition and a narrow read-only AirStack corridor provider.
-The remaining route to validated model-to-drone operation is an explicitly supervised
-end-to-end simulator trial from a compatible already-airborne state, followed by
-takeoff/route-planning integration and broader scenario evidence. The GUI remains
-proposal-only. Detailed safety conditions and current blockers are in `HANDOFF.md`.
+> **Current continuation (2026-09-21):** Read [HANDOFF.md](HANDOFF.md) first. The
+> [localhost command console](docs/scrum-8/command-console.md) now has a real,
+> explicitly confirmed simulator execution path. It translates scene-independent
+> movement text into typed goals only for task action servers discovered in the active
+> AirStack configuration, executes them serially, verifies outcomes from fresh state,
+> and exposes STOP/HOLD. It does not send PX4/MAVROS or trajectory commands directly.
+> The older Cosmos/PSC proposal flows remain available as research/evidence paths; they
+> are not required for direct takeoff, land, exploration, waypoint, or relative-motion
+> commands.
 
 # RRM-1 — Robotics Reasoning Model
 
@@ -81,15 +75,35 @@ Other entry points:
 .venv/bin/python simulation/isaac_backend.py                # relation-inference test
 ```
 
-## RRM Command Console & two-GPU Cosmos workflow (OSMO)
+## RRM Command Console (OSMO)
 
-The RRM GUI (Command Console) is used for live visual intake and proposal review.
-The active workflow pairs Isaac with a private warm Cosmos worker; it is not a batch
-submission path. The GUI presents one task-level proposal at a time and stays
-shadow-only: review and outcome records never send a drone command.
+The GUI accepts a movement command, records an immutable attempt, discovers the real
+public task executors in the running robot stack, compiles a typed action sequence, and
+runs it after browser confirmation. Supported scene-independent command forms are:
 
-**Prerequisite:** Isaac Sim and AirStack must be running so the console can pull live
-camera images and robot odometry.
+- `take off`, `land`;
+- `explore`, `survey`, `roam`, or `map the ...`, optionally `for N seconds`;
+- one or more robot-local map points, such as `fly to x=2 y=-1 z=1.5` or
+  `fly through (1,2,1.5), (4,-2,2)`;
+- current-heading-relative movement such as `move forward 2 meters`, `move left 1m`,
+  or `move up 1m`.
+
+Grounded navigation/exploration automatically inserts takeoff. Exploration invokes
+AirStack's `ExplorationTask`, whose active global planner uses the live VDB map and
+continually delegates/replans through `NavigateTask`; coordinate and relative routes
+use `NavigateTask` and its active DROAN local planner. Commands are rejected when the
+required action server, canonical state, or exploration map feed is absent. A request
+to move to an arbitrary visually described object still requires a real
+`SemanticSearchTask`/equivalent executor; the current `full_default` stack advertises
+that interface to clients but does not serve it, so RRM does not invent that capability.
+
+The camera is optional for these movement commands. It remains available for visual
+evidence and the older model-grounding workflow. Commands therefore work after any
+catalog scene switch or manual stage edit; execution relies on current robot/map state,
+not the Office entity catalog.
+
+**Prerequisite:** Isaac Sim and AirStack must be running so the console can discover
+task servers and canonical robot state.
 
 **Start the live console:**
 ```bash
@@ -97,9 +111,20 @@ cd /root/AirStack/RRM-transfer/rrm-9d26a58
 bash scripts/rrm_command_console.sh
 ```
 
-This mode uses the checked-in Office C01/C02/C03 template and scene manifest. It can
-capture/save live requests and call the configured private Cosmos worker, but it
-loads no historical proposal and cannot dispatch a flight command.
+The page exposes **Plan and run** plus **Stop / hold**. The single Plan and run click
+starts the autonomous mission; its compiled task plan, task feedback, and published
+global-plan/replan updates are shown as scrollable evidence without an approval pause.
+Plans that include takeoff also predeclare a public `LandTask` contingency. A terminal
+takeoff result that fails physical verification while fresh evidence still shows an
+armed airborne vehicle halts the requested sequence, executes that recovery landing,
+and reports whether grounded/disarmed recovery was independently verified.
+RRM refuses dispatch when the robot container predates the current Isaac process,
+preventing retained TF/controller state from crossing a simulation-clock reset. The
+takeoff server itself starts from current physical odometry and aborts at 0.3 m of
+unexpected horizontal displacement.
+Plan records and independently observed task outcomes are stored below
+`/root/AirStack/.rrm-artifacts/command-requests/<request-id>/`. Scene switching is
+blocked while a command mission is active.
 
 ### Start a new two-GPU Office workflow
 
@@ -137,7 +162,7 @@ Historical PSC bundles can still be imported for reference review with
 `scripts/rrm_office_fetch_import.sh`; they are not exposed in the live GUI and do not
 participate in the warm-worker cycle.
 
-### Live action → replan workflow (foundation)
+### Legacy model action → replan workflow
 
 `rrm/live_replan.py` is the provider-neutral, shadow-only coordinator for the future
 continuous workflow. It records a fresh camera image plus separately verified live
@@ -198,6 +223,12 @@ python3 scripts/rrm_authorized_live_mission.py \
   --run-dir /root/AirStack/.rrm-artifacts/live-missions/<new-run-id>
 ```
 
+For the separate targetless takeoff path, use
+`examples/office_visual_eval/takeoff_context.json` with a reviewed copy of
+`takeoff_authorization.example.json`. The checked-in authorization is an example, not
+an operator approval. Execution still requires all explicit flags and live feasibility
+admission described below.
+
 The public AirStack task-action adapter is unavailable unless the operator adds both
 `--execute --simulator-only` and configures an executable
 `--feasibility-provider`. The provider receives the exact C03 query on stdin, may
@@ -206,25 +237,30 @@ short-lived result on stdout. The bundled Office profile is
 `scripts/airstack_drone_feasibility_provider.py`. It combines fresh read-only vehicle,
 controller, planner and action-graph state with a map-frame Ouster point-cloud corridor
 check; it stores checksum-bound inline evidence and fails closed on stale channels,
-unknown coverage, obstacles, grounded/no-control state, or a missing stop path. It is
-limited to an already-airborne, nearly stationary vehicle and one straight `NAVIGATE`
-waypoint; it is not a global route planner or a takeoff sequencer. These execution
+unknown coverage, obstacles, incompatible vehicle state, or a missing stop path. The
+legacy `office-airframe-v1` / `office-bounded-nav-v1` profile remains limited to an
+already-airborne vehicle and one straight `NAVIGATE` waypoint. The opt-in
+`office-airframe-v2` / `office-bounded-flight-v2` profile adds separately checked
+targetless `TAKEOFF` and multi-waypoint `NAVIGATE` paths. A marker may bind an exact
+route with `map_route`, a nonempty list of map-frame XYZ objects. The adapter validates
+a supplied route; it does not invent or globally search for one. These execution
 flags are deliberately not shown as a routine startup command: use them only after
 the worker image deployment, fresh simulator readiness/reconciliation, independent
 observer coverage, and a supervised review.
 
-The configured profile is intentionally exact: embodiment `aerial-eval`, capability
-revision `office-airframe-v1`, and limits reference `office-bounded-nav-v1`. The
-corridor start must agree with the checksum-bound camera observation within 0.25 m,
-its target must exactly match the compiled waypoint, and its odometry must be
+The configured profiles are intentionally exact: embodiment `aerial-eval`, legacy
+capability/limits `office-airframe-v1` / `office-bounded-nav-v1`, or expanded
+capability/limits `office-airframe-v2` / `office-bounded-flight-v2`. The corridor start
+must agree with the checksum-bound camera observation within 0.25 m, every observed
+route waypoint must exactly match the compiled command, and odometry must be
 `map -> base_link`. Any changed profile, stale channel, detached corridor, or
-insufficient point/range coverage blocks admission. The current GUI does not invoke
-this provider and has no execution control.
+insufficient point/range coverage blocks admission. This remains the stricter
+Office/catalog semantic-target path; the GUI's direct command path instead delegates
+planning to the active public AirStack task executor and records its discovered state.
 
-The warm OSMO Cosmos worker is the active proposal provider and is connected to the
-console's shadow cycle. PSC batch jobs remain an offline evaluation path and must not
-be used as the per-action control loop. The coordinator is not connected to a flight
-dispatcher, so it cannot move the drone.
+The warm OSMO Cosmos worker remains an optional proposal provider for the legacy visual
+semantic cycle. PSC batch jobs remain an offline evaluation path and are not the direct
+GUI command loop.
 
 ### Persistent Cosmos worker on OSMO
 
@@ -253,9 +289,10 @@ osmo workflow submit osmo/workflows/airstack-live-replan.yaml \
   --set-env "ISAAC_SIM_STAGE_SCALE=1.0"
 ```
 
-This requests two GPUs, 24 CPU cores, and 96 GiB memory total. It is a shadow-only
-model service; the GUI can record proposals and evidence, but it cannot dispatch a
-flight command.
+This requests two GPUs, 24 CPU cores, and 96 GiB memory total. The Cosmos worker is a
+shadow-only model service and never receives dispatch authority. The GUI's separate
+deterministic command path can dispatch only through discovered public AirStack task
+servers after local confirmation; it does not grant the worker a control path.
 
 ### Attach AirStack helpers to a manually submitted OSMO workflow
 

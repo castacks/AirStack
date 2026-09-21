@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only AirStack preflight observer for one navigation corridor.
+"""Read-only AirStack preflight observer for a takeoff or navigation route.
 
 This process subscribes and inspects the ROS graph. It creates no publisher, service
 client, or action client and cannot send a task or vehicle command.
@@ -67,7 +67,7 @@ def _rotation_translation(transform):
     return rotation, np.array([t.x, t.y, t.z])
 
 
-def _corridor_report(node: Observer, target: np.ndarray, clearance: float) -> dict:
+def _corridor_report(node: Observer, targets: list[np.ndarray], clearance: float) -> dict:
     cloud = node.cloud
     transform = node.tf_buffer.lookup_transform(
         "map", cloud.header.frame_id, Time(), timeout=Duration(seconds=1)
@@ -79,46 +79,69 @@ def _corridor_report(node: Observer, target: np.ndarray, clearance: float) -> di
     mapped = points @ rotation.T + translation
     pose = node.odometry.pose.pose.position
     start = np.array([pose.x, pose.y, pose.z], dtype=float)
-    vector = target - start
-    length = float(np.linalg.norm(vector))
-    if length <= 1e-6:
-        minimum_clearance, obstacle_count = math.inf, 0
-    else:
-        relative = mapped - start
-        fraction = np.clip((relative @ vector) / (length * length), 0.0, 1.0)
-        closest = start + fraction[:, None] * vector
-        distances = np.linalg.norm(mapped - closest, axis=1)
-        # Ignore returns immediately around the vehicle body while retaining the
-        # endpoint. The Ouster does not normally see the vehicle itself, but this
-        # keeps fixture/mount points from becoming false obstacles.
-        start_distance = np.linalg.norm(mapped - start, axis=1)
-        relevant = distances[start_distance > clearance]
-        minimum_clearance = float(np.min(relevant)) if relevant.size else math.inf
-        obstacle_count = int(np.count_nonzero(relevant < clearance))
+    route = [start, *targets]
+    start_distance = np.linalg.norm(mapped - start, axis=1)
+    segments = []
+    for index, (segment_start, segment_target) in enumerate(zip(route, route[1:])):
+        vector = segment_target - segment_start
+        length = float(np.linalg.norm(vector))
+        if length <= 1e-6:
+            minimum_clearance, obstacle_count = math.inf, 0
+        else:
+            relative = mapped - segment_start
+            fraction = np.clip((relative @ vector) / (length * length), 0.0, 1.0)
+            closest = segment_start + fraction[:, None] * vector
+            distances = np.linalg.norm(mapped - closest, axis=1)
+            # Ignore returns immediately around the vehicle body while retaining
+            # every later route waypoint and segment.
+            relevant = (distances[start_distance > clearance]
+                        if index == 0 else distances)
+            minimum_clearance = float(np.min(relevant)) if relevant.size else math.inf
+            obstacle_count = int(np.count_nonzero(relevant < clearance))
+        segments.append({
+            "index": index,
+            "start": {"x": float(segment_start[0]), "y": float(segment_start[1]),
+                      "z": float(segment_start[2])},
+            "target": {"x": float(segment_target[0]), "y": float(segment_target[1]),
+                       "z": float(segment_target[2])},
+            "length_m": length,
+            "minimum_observed_clearance_m": minimum_clearance,
+            "obstacle_point_count": obstacle_count,
+            "collision_free": obstacle_count == 0,
+        })
     sensor_ranges = np.linalg.norm(points, axis=1)
     observed_range = float(np.percentile(sensor_ranges, 90)) if sensor_ranges.size else 0.0
-    coverage = bool(points.shape[0] >= 500 and observed_range >= length + clearance)
+    farthest = max(float(np.linalg.norm(target - start)) for target in targets)
+    coverage = bool(points.shape[0] >= 500 and observed_range >= farthest + clearance)
+    minimum_clearance = min(segment["minimum_observed_clearance_m"] for segment in segments)
+    obstacle_count = sum(segment["obstacle_point_count"] for segment in segments)
     return {
         "cloud_frame": cloud.header.frame_id,
         "point_count": int(points.shape[0]),
         "observed_range_m": observed_range,
-        "corridor_length_m": length,
+        "route_length_m": sum(segment["length_m"] for segment in segments),
         "required_clearance_m": clearance,
         "minimum_observed_clearance_m": minimum_clearance,
         "obstacle_point_count": obstacle_count,
         "coverage_sufficient": coverage,
         "collision_free": coverage and obstacle_count == 0,
         "start": {"x": float(start[0]), "y": float(start[1]), "z": float(start[2])},
-        "target": {"x": float(target[0]), "y": float(target[1]), "z": float(target[2])},
+        "target": {"x": float(targets[-1][0]), "y": float(targets[-1][1]),
+                   "z": float(targets[-1][2])},
+        "waypoints": [
+            {"x": float(target[0]), "y": float(target[1]), "z": float(target[2])}
+            for target in targets
+        ],
+        "segments": segments,
     }
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--robot", default="robot_1")
-    parser.add_argument("--target-x", required=True, type=float)
-    parser.add_argument("--target-y", required=True, type=float)
-    parser.add_argument("--target-z", required=True, type=float)
+    target = parser.add_mutually_exclusive_group(required=True)
+    target.add_argument("--route-json")
+    target.add_argument("--takeoff-altitude-m", type=float)
     parser.add_argument("--clearance-m", default=0.4, type=float)
     parser.add_argument("--timeout-s", default=8.0, type=float)
     args = parser.parse_args()
@@ -154,8 +177,20 @@ def main() -> int:
                 "odometry_child_frame_id": node.odometry.child_frame_id,
             })
             try:
+                pose = node.odometry.pose.pose.position
+                if args.route_json is not None:
+                    route_value = json.loads(args.route_json)
+                    if (not isinstance(route_value, list) or not route_value
+                            or any(not isinstance(point, list) or len(point) != 3
+                                   for point in route_value)):
+                        raise ValueError("route must be a nonempty list of xyz triples")
+                    targets = [np.array(point, dtype=float) for point in route_value]
+                else:
+                    targets = [np.array([pose.x, pose.y, args.takeoff_altitude_m], dtype=float)]
+                if not all(np.isfinite(point).all() for point in targets):
+                    raise ValueError("route coordinates must be finite")
                 report["corridor"] = _corridor_report(
-                    node, np.array([args.target_x, args.target_y, args.target_z]), args.clearance_m,
+                    node, targets, args.clearance_m,
                 )
             except Exception as error:
                 report["corridor_error"] = type(error).__name__

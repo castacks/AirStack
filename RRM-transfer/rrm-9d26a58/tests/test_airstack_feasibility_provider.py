@@ -90,6 +90,73 @@ class AirStackFeasibilityProviderTests(unittest.TestCase):
         failed = {check.name for check in result.checks if check.passed is False}
         self.assertEqual(failed, {"physics", "controller"})
 
+    def test_multi_waypoint_route_requires_exact_complete_route_evidence(self):
+        self.query["capabilities"]["revision"] = provider.FLIGHT_CAPABILITY_REVISION
+        self.query["capabilities"]["limits_ref"] = provider.FLIGHT_LIMITS_REF
+        proposal = DroneTaskProposal(
+            task_id=self.query["task"]["task_id"], action_id="nav-blue",
+            kind=DroneTaskKind.NAVIGATE, frame_id="map",
+            waypoints=(MapWaypoint(x=1.5, y=0.0, z=1.5),
+                       MapWaypoint(x=3.2, y=0.0, z=1.5)),
+            goal_tolerance_m=0.3,
+        )
+        self.query["proposal"] = proposal.model_dump(mode="json")
+        report = {**self.report, "corridor": {
+            **self.report["corridor"],
+            "waypoints": [
+                {"x": 1.5, "y": 0.0, "z": 1.5},
+                {"x": 3.2, "y": 0.0, "z": 1.5},
+            ],
+        }}
+        with patch.object(provider, "_observe", return_value=report):
+            accepted = provider.evaluate(self.query)
+        self.assertEqual(accepted.verdict, FeasibilityVerdict.FEASIBLE)
+
+        detached = {**report, "corridor": {
+            **report["corridor"], "waypoints": report["corridor"]["waypoints"][:1],
+        }}
+        with patch.object(provider, "_observe", return_value=detached):
+            rejected = provider.evaluate(self.query)
+        self.assertEqual(rejected.verdict, FeasibilityVerdict.UNCERTAIN)
+
+    def test_grounded_takeoff_has_its_own_state_and_vertical_corridor_gate(self):
+        self.query["semantic_action"] = {
+            "id": "takeoff-1", "verb": "TAKEOFF", "targets": [], "params": {},
+        }
+        self.query["capabilities"]["revision"] = provider.FLIGHT_CAPABILITY_REVISION
+        self.query["capabilities"]["limits_ref"] = provider.FLIGHT_LIMITS_REF
+        self.query["capabilities"]["operations"] = ["NAVIGATE_TO", "TAKEOFF"]
+        self.query["observation"]["vehicle"] = {"x": 0.0, "y": 0.0, "z": 0.0}
+        self.query["proposal"] = DroneTaskProposal(
+            task_id=self.query["task"]["task_id"], action_id="takeoff-1",
+            kind=DroneTaskKind.TAKEOFF, target_altitude_m=1.5, velocity_m_s=0.5,
+        ).model_dump(mode="json")
+        report = {
+            **self.report,
+            "armed": False, "airborne": False, "has_control": False,
+            "planner_stuck": True,
+            "actions": {
+                "/robot_1/tasks/takeoff": ["task_msgs/action/TakeoffTask"],
+                "/robot_1/tasks/land": ["task_msgs/action/LandTask"],
+            },
+            "corridor": {
+                "collision_free": True, "coverage_sufficient": True,
+                "start": {"x": 0.0, "y": 0.0, "z": 0.0},
+                "target": {"x": 0.0, "y": 0.0, "z": 1.5},
+                "waypoints": [{"x": 0.0, "y": 0.0, "z": 1.5}],
+            },
+        }
+        with patch.object(provider, "_observe", return_value=report):
+            result = provider.evaluate(self.query)
+        self.assertEqual(result.verdict, FeasibilityVerdict.FEASIBLE)
+
+        already_airborne = {**report, "armed": True, "airborne": True}
+        with patch.object(provider, "_observe", return_value=already_airborne):
+            blocked = provider.evaluate(self.query)
+        self.assertEqual(blocked.verdict, FeasibilityVerdict.INFEASIBLE)
+        self.assertFalse(next(check for check in blocked.checks
+                              if check.name == "controller").passed)
+
     def test_missing_corridor_coverage_is_uncertain(self):
         report = {**self.report, "corridor": {}}
         with patch.object(provider, "_observe", return_value=report):

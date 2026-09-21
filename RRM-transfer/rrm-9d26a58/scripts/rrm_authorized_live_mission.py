@@ -186,10 +186,19 @@ def _bridge(manifest: Path):
     markers = json.loads(manifest.read_text(encoding="utf-8"))["markers"]
     targets = []
     for entity_id, marker in markers.items():
+        route = marker.get("map_route")
         waypoint = marker.get("map_waypoint")
-        if waypoint is not None:
+        if route is not None:
+            if not isinstance(route, list) or not route:
+                raise ValueError(f"map_route for {entity_id} must be a nonempty list")
+            waypoints = tuple(MapWaypoint(**point) for point in route)
+        elif waypoint is not None:
+            waypoints = (MapWaypoint(**waypoint),)
+        else:
+            waypoints = ()
+        if waypoints:
             targets.append(DroneNavigationTarget(entity_id=entity_id,
-                waypoints=(MapWaypoint(**waypoint),), goal_tolerance_m=0.3))
+                waypoints=waypoints, goal_tolerance_m=0.3))
     return AirStackDroneDecisionBridge(embodiment_id="aerial-eval", robot_name="robot_1",
                                        targets=tuple(targets))
 

@@ -69,10 +69,12 @@ class PrivateCosmosWorkerUrlTests(unittest.TestCase):
 class CommandConsoleUiTests(unittest.TestCase):
     def test_mission_console_removes_manual_shadow_workflow_controls(self):
         ui = (Path(__file__).parents[1] / "scripts" / "ui" / "command_console.html").read_text()
-        self.assertIn("RRM proposal", ui)
-        self.assertIn("Ask RRM for a proposed action", ui)
-        self.assertIn("Physics/feasibility admission", ui)
-        self.assertIn("/propose", ui)
+        self.assertIn("RRM mission", ui)
+        self.assertIn("Plan and run", ui)
+        self.assertIn("AirStack task planning and execution", ui)
+        self.assertIn("/execute", ui)
+        self.assertIn("/api/mission/stop", ui)
+        self.assertNotIn("/propose", ui)
         self.assertNotIn("PSC", ui)
         self.assertNotIn("/submit", ui)
         self.assertNotIn("rrm_psc_bridge_manual.sh", ui)
@@ -85,6 +87,34 @@ class CommandConsoleUiTests(unittest.TestCase):
         self.assertNotIn("/api/reset", ui)
         self.assertIn("Isaac Sim edits and terminal launch parameters remain valid", ui)
         self.assertIn("max-height:min(72vh,680px);overflow:auto", ui)
+        self.assertIn('id="mission-plan"', ui)
+        self.assertIn('id="mission-events"', ui)
+        self.assertIn("max-height:240px;overflow:auto", ui)
+        self.assertNotIn("confirm('Run this command", ui)
+
+    def test_mission_log_exposes_only_recent_structured_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "mission.log"
+            path.write_text(
+                "ROS noise\n"
+                + "\n".join(json.dumps({"event": "feedback", "sequence": number})
+                              for number in range(5))
+                + "\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(
+                [event["sequence"] for event in Console._mission_events(path, limit=2)],
+                [3, 4],
+            )
+
+    def test_mission_log_collapses_identical_feedback(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "mission.log"
+            feedback = json.dumps({"event": "feedback", "action_id": "takeoff", "status": ""})
+            path.write_text("\n".join([feedback, feedback, feedback]) + "\n", encoding="utf-8")
+            self.assertEqual(Console._mission_events(path), [{
+                "event": "feedback", "action_id": "takeoff", "status": "", "repeat_count": 3,
+            }])
 
 
 class IsaacSceneCatalogTests(unittest.TestCase):
@@ -108,6 +138,22 @@ class IsaacSceneCatalogTests(unittest.TestCase):
 
 
 class IsaacSceneSwitchTests(unittest.TestCase):
+    def test_clock_epoch_rejects_robot_started_before_current_isaac(self):
+        starts = {
+            "airstack-robot-desktop-1": "2026-09-20T23:35:35+00:00\n",
+            "isaac-sim-livestream": "2026-09-21T02:22:48+00:00\n",
+        }
+
+        def inspect(command, **_kwargs):
+            container = command[-1]
+            return type("Completed", (), {
+                "returncode": 0 if container in starts else 1,
+                "stdout": starts.get(container, ""),
+            })()
+
+        with patch("rrm_command_console.subprocess.run", side_effect=inspect):
+            self.assertFalse(Console._clock_epoch_consistent())
+
     def test_switch_uses_selected_catalog_entry_and_persists_it(self):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "output"
@@ -119,6 +165,8 @@ class IsaacSceneSwitchTests(unittest.TestCase):
             }
             app.manifest_scene_shortname = "office"
             app.scene_switch_lock = threading.Lock()
+            app.mission_lock = threading.Lock()
+            app.mission_runtime = None
             app.latest_camera = object()
             app.latest_camera_metadata = object()
             with patch("rrm_command_console.subprocess.run") as run:
@@ -487,6 +535,79 @@ class CommandConsoleTests(unittest.TestCase):
         saved = app.save("Approach the blue marker from the current scene.")
         self.assertEqual(saved["context_mode"], "live-isaac-observation")
         self.assertEqual(len(app.store.history()), 1)
+
+    def test_movement_command_can_be_saved_without_scene_specific_camera(self):
+        office = Path(__file__).parents[1] / "examples" / "office_visual_eval"
+        app = Console(None, self.output, "/unused-capture.py",
+                      context_template=office / "navigation_context.json",
+                      scene_manifest=office / "scene_manifest.json")
+        saved = app.save("Take off and explore for 30 seconds, then land.")
+        self.assertEqual(saved["context_mode"], "command-only")
+        self.assertFalse((self.output / saved["request_id"] / "observation.json").exists())
+
+    def test_command_mission_compiles_against_discovered_public_tasks(self):
+        office = Path(__file__).parents[1] / "examples" / "office_visual_eval"
+        app = Console(None, self.output, "/unused-capture.py",
+                      context_template=office / "navigation_context.json",
+                      scene_manifest=office / "scene_manifest.json")
+        saved = app.save("Take off and explore for 30 seconds, then land.")
+        discovery = {
+            "schema_version": "airstack-task-discovery/v1",
+            "task_servers": {
+                "/robot_1/tasks/takeoff": ["task_msgs/action/TakeoffTask"],
+                "/robot_1/tasks/exploration": ["task_msgs/action/ExplorationTask"],
+                "/robot_1/tasks/land": ["task_msgs/action/LandTask"],
+            },
+            "missing_state": [], "stale_state": [], "connected": True,
+            "airborne": False, "frame_id": "map", "child_frame_id": "base_link",
+            "position": {"x": 0.0, "y": 0.0, "z": 0.0}, "yaw_rad": 0.0,
+            "vdb_map_fresh": True, "vdb_map_frame_id": "map",
+            "execution_dispatch": False,
+        }
+        process = FakeProcess()
+        with patch.object(app, "discover_tasks", return_value=discovery), \
+                patch("rrm_command_console.subprocess.run"), \
+                patch("rrm_command_console.subprocess.Popen", return_value=process):
+            status = app.start_command_mission(saved["request_id"])
+        self.addCleanup(app.mission_runtime["log_handle"].close)
+        self.assertTrue(status["active"])
+        self.assertEqual([item["kind"] for item in status["plan"]["actions"]],
+                         ["TAKEOFF", "EXPLORE", "LAND"])
+        self.assertEqual(status["plan"]["recovery"]["trigger"],
+                         "verified_takeoff_mismatch_while_airborne")
+        self.assertEqual(status["plan"]["recovery"]["action"]["kind"], "LAND")
+        plan = json.loads((self.output / saved["request_id"] / "command-plan.json").read_text())
+        self.assertTrue(plan["execution_dispatch"])
+        self.assertEqual(plan["discovery"]["task_servers"], discovery["task_servers"])
+        self.assertEqual(app.store.get_run(saved["request_id"])["execution_state"],
+                         "DISPATCHING")
+        events = next(run for goal in app.store.history() for run in goal["runs"]
+                      if run["run_id"] == saved["request_id"])["events"]
+        self.assertEqual(events[-1]["kind"], "command_plan")
+
+    def test_exploration_is_not_dispatched_without_fresh_vdb_map(self):
+        office = Path(__file__).parents[1] / "examples" / "office_visual_eval"
+        app = Console(None, self.output, "/unused-capture.py",
+                      context_template=office / "navigation_context.json",
+                      scene_manifest=office / "scene_manifest.json")
+        saved = app.save("Explore for 30 seconds.")
+        discovery = {
+            "schema_version": "airstack-task-discovery/v1",
+            "task_servers": {
+                "/robot_1/tasks/takeoff": ["task_msgs/action/TakeoffTask"],
+                "/robot_1/tasks/exploration": ["task_msgs/action/ExplorationTask"],
+                "/robot_1/tasks/land": ["task_msgs/action/LandTask"],
+            },
+            "missing_state": [], "stale_state": [], "connected": True,
+            "airborne": False, "frame_id": "map", "child_frame_id": "base_link",
+            "position": {"x": 0.0, "y": 0.0, "z": 0.0}, "yaw_rad": 0.0,
+            "vdb_map_fresh": False, "vdb_map_frame_id": None,
+            "execution_dispatch": False,
+        }
+        with patch.object(app, "discover_tasks", return_value=discovery), \
+                self.assertRaisesRegex(RuntimeError, "VDB"):
+            app.start_command_mission(saved["request_id"])
+        self.assertFalse((self.output / saved["request_id"] / "command-plan.json").exists())
 
     def test_goal_reuse_and_restart_preserve_independent_runs(self):
         app = Console(self.bundle, self.output, "/unused-capture.py")

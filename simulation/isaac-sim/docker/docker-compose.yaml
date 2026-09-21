@@ -136,8 +136,10 @@ services:
   # WebRTC livestream variant for OSMO / remote dev. Headless: no X server,
   # no display, no GUI window. Kit's `omni.kit.livestream.webrtc` extension
   # serves WebSocket signaling on TCP 49100 and SRTP media on UDP 49099 (the
-  # latter pinned by `app.livestream.fixedHostPort/minHostPort/maxHostPort=49099`
-  # in the Pegasus launch script — see example_one_px4_pegasus_launch_script.py).
+  # latter pinned by command-line
+  # `app.livestream.fixedHostPort/minHostPort/maxHostPort=49099` settings below.
+  # Command-line precedence is required: the WebRTC extension applies its own
+  # dynamic-port defaults when it loads and otherwise overwrites Python settings.
   # Those two ports are published into the host (the OSMO workspace pod's
   # network namespace) so `osmo workflow port-forward` can reach them. Kit
   # 107's default media-port range is wider and dynamic, so pinning to a
@@ -157,11 +159,12 @@ services:
     command: >
       bash -c "
       tmux new -d -s isaac;
-      tmux send-keys -t isaac 'PYTHONPATH=\"$$ISAAC_SIM_PYTHONPATH\" /isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/${ISAAC_SIM_SCRIPT_NAME} --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts --/app/livestream/enabled=true --/renderer/activeGpu=0 --/renderer/multiGpu/enabled=false --/physics/cudaDevice=0' ENTER;
+      tmux send-keys -t isaac 'PYTHONPATH=\"$$ISAAC_SIM_PYTHONPATH\" /isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/${ISAAC_SIM_SCRIPT_NAME} --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts --/app/livestream/enabled=true --/app/livestream/fixedHostPort=${ISAAC_SIM_LIVESTREAM_UDP_PORT:-49099} --/app/livestream/minHostPort=${ISAAC_SIM_LIVESTREAM_UDP_PORT:-49099} --/app/livestream/maxHostPort=${ISAAC_SIM_LIVESTREAM_UDP_PORT:-49099} --/renderer/activeGpu=0 --/renderer/multiGpu/enabled=false --/physics/cudaDevice=0' ENTER;
       sleep infinity"
     environment:
       # Inherit everything from isaac-sim and append:
       - ISAAC_SIM_LIVESTREAM=true
+      - ISAAC_SIM_LIVESTREAM_UDP_PORT=${ISAAC_SIM_LIVESTREAM_UDP_PORT:-49099}
       - ISAAC_SIM_USE_STANDALONE=true
       - ISAAC_SIM_HEADLESS=true
     # Publish the WebRTC livestream ports to the pod NS. Bridge-mode +
@@ -169,7 +172,7 @@ services:
     # airstack_network for DDS multicast.
     ports:
       - "49100:49100/tcp"      # WebSocket signaling (omni.kit.livestream.webrtc, app.livestream.port=49100)
-      - "49099:49099/udp"      # SRTP media (pinned via app.livestream.fixedHostPort=49099 in the launch script)
+      - "${ISAAC_SIM_LIVESTREAM_UDP_PORT:-49099}:${ISAAC_SIM_LIVESTREAM_UDP_PORT:-49099}/udp"
     # Drop X11-specific volume mounts inherited from the isaac-sim service —
     # there is no X server in an OSMO pod.
     volumes: !override

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 from datetime import datetime, timezone
 import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -20,6 +21,7 @@ import uuid
 
 from rrm_cosmos_reason2 import load_context
 from rrm_import_office import import_bundle
+from rrm.airstack_command import plan_command, takeoff_recovery_action
 from rrm.execution_supervisor import ExecutionSupervisor, RunningDispatch
 from rrm.cosmos_entity_verifier_client import CosmosEntityVerifierClient
 from rrm.cosmos_worker_client import CosmosWorkerClient
@@ -32,6 +34,10 @@ from rrm.task_store import TaskStore
 AIRSTACK_ROOT = Path("/root/AirStack")
 ISAAC_SCENE_CATALOG = AIRSTACK_ROOT / "simulation/scenes.yaml"
 ACTIVE_SCENE_FILENAME = "active_isaac_scene.json"
+COMMAND_ONLY_PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42Y"
+    "AAAAASUVORK5CYII="
+)
 
 
 def isaac_scene_catalog(path: Path = ISAAC_SCENE_CATALOG) -> dict[str, dict[str, str]]:
@@ -92,7 +98,8 @@ def private_cosmos_worker_url(*, environment: dict[str, str] | None = None,
 
 
 def save_request(bundle: Path, output: Path, objective: str, goal_id: str | None = None,
-                 *, image: bytes | None = None, observation: dict | None = None) -> dict:
+                 *, image: bytes | None = None, observation: dict | None = None,
+                 context_mode: str | None = None) -> dict:
     if not isinstance(objective, str) or not objective.strip() or len(objective) > 5000:
         raise ValueError("Enter a task between 1 and 5000 characters.")
     if goal_id is not None and (not isinstance(goal_id, str) or not re.fullmatch(r"[0-9a-f]{32}", goal_id)):
@@ -120,7 +127,11 @@ def save_request(bundle: Path, output: Path, objective: str, goal_id: str | None
     (destination / "input.json").write_text(json.dumps(payload, indent=2) + "\n")
     load_context(destination / "input.json")
     if image is None:
-        shutil.copyfile(context_path.parent / "input.png", destination / "input.png")
+        source_image = context_path.parent / "input.png"
+        if source_image.is_file():
+            shutil.copyfile(source_image, destination / "input.png")
+        else:
+            (destination / "input.png").write_bytes(COMMAND_ONLY_PNG)
     else:
         (destination / "input.png").write_bytes(image)
     if observation is not None:
@@ -132,7 +143,9 @@ def save_request(bundle: Path, output: Path, objective: str, goal_id: str | None
         "goal_id": goal_id or uuid.uuid4().hex,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "status": "SAVED_NOT_SUBMITTED", "execution_dispatch": False,
-        "context_mode": "live-isaac-observation" if observation is not None else "frozen-office-replay",
+        "context_mode": (context_mode or
+                         ("live-isaac-observation" if observation is not None
+                          else "frozen-office-replay")),
         "source_context": str(context_path),
         "input_sha256": hashlib.sha256((destination / "input.json").read_bytes()).hexdigest(),
         "media_sha256": hashlib.sha256((destination / "input.png").read_bytes()).hexdigest(),
@@ -182,6 +195,8 @@ class Console:
         self.latest_camera = None
         self.latest_camera_metadata = None
         self.live_lock = threading.Lock()
+        self.mission_lock = threading.Lock()
+        self.mission_runtime = None
         self.scene_switch_lock = threading.Lock()
         self.cosmos_worker_url = private_cosmos_worker_url()
         scene = json.loads(self.scene_manifest.read_text())
@@ -213,6 +228,9 @@ class Console:
         """Restart only inner Isaac/robot services with a catalog-validated scene."""
         if not isinstance(scene_shortname, str) or scene_shortname not in self.isaac_scenes:
             raise ValueError("Choose an Isaac scene from the AirStack scene catalog.")
+        with self.mission_lock:
+            if self._mission_status_locked().get("active"):
+                raise RuntimeError("Stop the active command mission before switching scenes.")
         if not self.scene_switch_lock.acquire(blocking=False):
             raise RuntimeError("A scene switch is already in progress.")
         try:
@@ -235,6 +253,256 @@ class Console:
                     "execution_dispatch": False}
         finally:
             self.scene_switch_lock.release()
+
+    def discover_tasks(self) -> dict:
+        """Read actual action servers and flight state from the active stack."""
+        source = Path(__file__).with_name("airstack_task_discovery.py")
+        remote = "/tmp/rrm-airstack-task-discovery.py"
+        subprocess.run(["docker", "cp", str(source),
+                        f"airstack-robot-desktop-1:{remote}"],
+                       check=True, capture_output=True, timeout=10)
+        command = (
+            "source /root/AirStack/robot/ros_ws/install/local_setup.bash; "
+            f"exec python3 {remote} --robot robot_1 --timeout-s 4"
+        )
+        completed = subprocess.run(
+            ["docker", "exec", "-e", "ROS_DOMAIN_ID=1",
+             "airstack-robot-desktop-1", "bash", "-lc", command],
+            check=True, capture_output=True, text=True, timeout=10,
+        )
+        lines = [line for line in completed.stdout.splitlines() if line.startswith("{")]
+        if not lines:
+            raise RuntimeError("AirStack task discovery returned no state.")
+        report = json.loads(lines[-1])
+        if (report.get("schema_version") != "airstack-task-discovery/v1"
+                or report.get("execution_dispatch") is not False):
+            raise RuntimeError("AirStack task discovery returned an invalid report.")
+        report["clock_epoch_consistent"] = self._clock_epoch_consistent()
+        return report
+
+    @staticmethod
+    def _clock_epoch_consistent() -> bool | None:
+        """Reject a robot graph retained across an Isaac simulation-clock reset."""
+        def started_at(container: str) -> datetime | None:
+            completed = subprocess.run(
+                ["docker", "inspect", "--format", "{{.State.StartedAt}}", container],
+                capture_output=True, text=True, timeout=5,
+            )
+            if completed.returncode != 0:
+                return None
+            try:
+                return datetime.fromisoformat(completed.stdout.strip().replace("Z", "+00:00"))
+            except ValueError:
+                return None
+
+        robot_started = started_at("airstack-robot-desktop-1")
+        simulator_started = next((stamp for name in ("isaac-sim-livestream", "isaac-sim")
+                                  if (stamp := started_at(name)) is not None), None)
+        if robot_started is None or simulator_started is None:
+            return None
+        return robot_started >= simulator_started
+
+    def start_command_mission(self, run_id: str) -> dict:
+        """Compile and launch one GUI command through discovered public task actions."""
+        with self.mission_lock:
+            status = self._mission_status_locked()
+            if status.get("active"):
+                raise RuntimeError("A command mission is already active.")
+            run = self.store.get_run(run_id)
+            if run is None:
+                raise ValueError("Saved run not found.")
+            if (run["status"] != "SAVED_NOT_SUBMITTED"
+                    or run["execution_state"] != "NOT_DISPATCHED"):
+                raise RuntimeError("Only a new, undispatched command attempt can be executed.")
+            goal = self.store.get_goal(run["goal_id"])
+            discovery = self.discover_tasks()
+            if (discovery.get("missing_state") or discovery.get("stale_state")
+                    or discovery.get("connected") is not True
+                    or discovery.get("frame_id") != "map"
+                    or discovery.get("child_frame_id") != "base_link"):
+                raise RuntimeError("Fresh canonical AirStack flight state is unavailable.")
+            if discovery.get("clock_epoch_consistent") is False:
+                raise RuntimeError(
+                    "Robot control nodes predate the current Isaac clock epoch. While grounded, "
+                    "restart the robot stack after Isaac before dispatching a mission."
+                )
+            action_types = {
+                action_type
+                for values in discovery.get("task_servers", {}).values()
+                for action_type in values
+            }
+            proposals = plan_command(
+                goal["objective"], task_id=run["task_id"], robot_name="robot_1",
+                action_servers=action_types, airborne=discovery["airborne"],
+                current_position=(
+                    tuple(discovery["position"][key] for key in ("x", "y", "z"))
+                    if discovery.get("position") else None
+                ),
+                yaw_rad=discovery.get("yaw_rad"),
+            )
+            if (any(proposal.kind.value == "EXPLORE" for proposal in proposals)
+                    and (discovery.get("vdb_map_fresh") is not True
+                         or discovery.get("vdb_map_frame_id") != "map")):
+                raise RuntimeError(
+                    "Fresh map-frame VDB evidence is required for exploration planning."
+                )
+            directory = Path(run["artifact_dir"])
+            plan_path = directory / "command-plan.json"
+            if plan_path.exists():
+                raise RuntimeError("This immutable mission attempt already has a command plan.")
+            plan_record = {
+                "schema_version": "rrm-airstack-command-plan/v1",
+                "run_id": run_id,
+                "active_scene": self.active_scene_shortname,
+                "discovery": discovery,
+                "actions": [proposal.model_dump(mode="json") for proposal in proposals],
+                "recovery": None,
+                "execution_dispatch": True,
+            }
+            recovery = takeoff_recovery_action(proposals)
+            if recovery is not None:
+                plan_record["recovery"] = {
+                    "trigger": "verified_takeoff_mismatch_while_airborne",
+                    "action": recovery.model_dump(mode="json"),
+                }
+            plan_path.write_text(json.dumps(plan_record, indent=2, sort_keys=True) + "\n",
+                                 encoding="utf-8")
+            plan_sha256 = hashlib.sha256(plan_path.read_bytes()).hexdigest()
+            self.store.record_event(
+                run_id, kind="command_plan", artifact_path=plan_path,
+                summary={"actions": len(proposals), "plan_sha256": plan_sha256},
+            )
+            mission_id = uuid.uuid4().hex
+            remote_root = f"/tmp/rrm-command-mission-{mission_id}"
+            remote_source = remote_root + "/source"
+            remote_plan = remote_root + "/plan.json"
+            remote_evidence = remote_root + "/evidence"
+            remote_pid = remote_root + "/mission.pid"
+            subprocess.run(["docker", "exec", "airstack-robot-desktop-1",
+                            "mkdir", "-p", remote_source],
+                           check=True, capture_output=True, timeout=10)
+            source_root = Path(__file__).resolve().parents[1]
+            subprocess.run(["docker", "cp", str(source_root) + "/.",
+                            f"airstack-robot-desktop-1:{remote_source}"],
+                           check=True, capture_output=True, timeout=30)
+            subprocess.run(["docker", "cp", str(plan_path),
+                            f"airstack-robot-desktop-1:{remote_plan}"],
+                           check=True, capture_output=True, timeout=10)
+            command = (
+                "source /root/AirStack/robot/ros_ws/install/local_setup.bash; "
+                f"echo \"$$\" > {remote_pid}; "
+                f"export PYTHONPATH=/tmp/rrm-canonical-deps:{remote_source}:$PYTHONPATH; "
+                f"exec python3 {remote_source}/scripts/airstack_command_mission.py "
+                f"--plan-json {remote_plan} --evidence-dir {remote_evidence} --execute"
+            )
+            log_path = directory / "command-mission.log"
+            log_handle = log_path.open("wb")
+            try:
+                process = subprocess.Popen(
+                    ["docker", "exec", "-e", "ROS_DOMAIN_ID=1",
+                     "airstack-robot-desktop-1", "bash", "-lc", command],
+                    stdout=log_handle, stderr=subprocess.STDOUT,
+                )
+            except Exception:
+                log_handle.close()
+                raise
+            self.mission_runtime = {
+                "mission_id": mission_id, "run_id": run_id, "process": process,
+                "log_handle": log_handle, "log_path": log_path, "remote_pid": remote_pid,
+                "remote_evidence": remote_evidence,
+                "evidence_dir": directory / "command-mission-evidence",
+                "plan": plan_record, "finalized": False, "stop_requested": False,
+            }
+            self.store.set_lifecycle(
+                run_id, execution_state="DISPATCHING", proposal_sha256=plan_sha256,
+            )
+            return self._mission_status_locked()
+
+    def command_mission_status(self) -> dict:
+        with self.mission_lock:
+            return self._mission_status_locked()
+
+    @staticmethod
+    def _mission_events(log_path: Path, *, limit: int = 100) -> list[dict]:
+        """Return recent structured adapter records without exposing raw log noise."""
+        try:
+            with log_path.open("rb") as stream:
+                size = stream.seek(0, os.SEEK_END)
+                start = max(0, size - 262_144)
+                stream.seek(start)
+                if start:
+                    stream.readline()
+                lines = stream.read().decode("utf-8", errors="replace").splitlines()
+        except OSError:
+            return []
+        events = []
+        for line in lines:
+            try:
+                value = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(value, dict):
+                if value.get("event") == "feedback" and events:
+                    previous = dict(events[-1])
+                    repeat_count = previous.pop("repeat_count", 1)
+                    if previous == value:
+                        events[-1]["repeat_count"] = repeat_count + 1
+                        continue
+                events.append(value)
+        return events[-limit:]
+
+    def _mission_status_locked(self) -> dict:
+        runtime = self.mission_runtime
+        if runtime is None:
+            return {"state": "IDLE", "active": False, "execution_dispatch": False}
+        code = runtime["process"].poll()
+        events = self._mission_events(runtime["log_path"])
+        if code is None:
+            return {"state": "STOPPING" if runtime["stop_requested"] else "RUNNING",
+                    "active": True, "mission_id": runtime["mission_id"],
+                    "run_id": runtime["run_id"], "plan": runtime["plan"], "events": events,
+                    "execution_dispatch": True}
+        if not runtime["finalized"]:
+            runtime["log_handle"].close()
+            evidence_dir = runtime["evidence_dir"]
+            copied = subprocess.run(
+                ["docker", "cp",
+                 f"airstack-robot-desktop-1:{runtime['remote_evidence']}",
+                 str(evidence_dir)], capture_output=True, timeout=15,
+            )
+            runtime["finalized"] = True
+            outcome_path = evidence_dir / "mission-outcome.json"
+            runtime["outcome"] = (json.loads(outcome_path.read_text())
+                                  if copied.returncode == 0 and outcome_path.is_file()
+                                  else {"status": "HALTED", "reason": "outcome_unavailable"})
+            if outcome_path.is_file():
+                self.store.record_event(runtime["run_id"], kind="command_mission_outcome",
+                                        artifact_path=outcome_path,
+                                        summary={"status": runtime["outcome"].get("status"),
+                                                 "return_code": code})
+            self.store.set_lifecycle(runtime["run_id"], execution_state="FINISHED")
+        return {"state": runtime["outcome"].get("status", "HALTED"),
+                "active": False, "mission_id": runtime["mission_id"],
+                "run_id": runtime["run_id"], "return_code": code,
+                "plan": runtime["plan"], "outcome": runtime["outcome"], "events": events,
+                "execution_dispatch": True}
+
+    def stop_command_mission(self) -> dict:
+        with self.mission_lock:
+            runtime = self.mission_runtime
+            if runtime is None or runtime["process"].poll() is not None:
+                raise RuntimeError("No command mission is active.")
+            pid = subprocess.run(
+                ["docker", "exec", "airstack-robot-desktop-1", "cat", runtime["remote_pid"]],
+                check=True, capture_output=True, text=True, timeout=5,
+            ).stdout.strip()
+            if not pid.isdigit():
+                raise RuntimeError("Active mission PID is unavailable.")
+            subprocess.run(["docker", "exec", "airstack-robot-desktop-1",
+                            "kill", "-INT", pid],
+                           check=True, capture_output=True, timeout=5)
+            runtime["stop_requested"] = True
+            return self._mission_status_locked()
 
     def _load_active_scene(self) -> str | None:
         """Return the last GUI-selected catalog scene, or unknown if absent."""
@@ -403,24 +671,30 @@ class Console:
                 if (goal["constraints_revision"] != task["constraints_revision"] or
                         goal["embodiment_id"] != task["requested_embodiment_id"]):
                     raise ValueError("Saved goal context differs; save a new goal for this context.")
-            if self.latest_camera is None or self.latest_camera_metadata is None:
-                raise ValueError("Refresh the live Isaac camera twice before saving an inference request.")
-            observation = validate_live_observation(
-                self.latest_camera_metadata, expected_camera_frame=self.expected_camera_frame
+            observation = None
+            if self.latest_camera is not None or self.latest_camera_metadata is not None:
+                if self.latest_camera is None or self.latest_camera_metadata is None:
+                    raise ValueError("Live camera capture is incomplete.")
+                observation = validate_live_observation(
+                    self.latest_camera_metadata, expected_camera_frame=self.expected_camera_frame
+                )
+                if hashlib.sha256(self.latest_camera).hexdigest() != observation["sha256"]:
+                    raise ValueError("Live camera image does not match its capture metadata.")
+            manifest = save_request(
+                self.context_template, self.output, objective, goal_id,
+                image=self.latest_camera if observation is not None else None,
+                observation=observation, context_mode=(None if observation is not None else "command-only"),
             )
-            if hashlib.sha256(self.latest_camera).hexdigest() != observation["sha256"]:
-                raise ValueError("Live camera image does not match its capture metadata.")
-            manifest = save_request(self.context_template, self.output, objective, goal_id,
-                                    image=self.latest_camera, observation=observation)
             directory = self.output / manifest["request_id"]
             self.store.record_request(manifest, json.loads((directory / "input.json").read_text()), directory)
-            self.store.record_event(manifest["request_id"], kind="live_observation",
-                                    artifact_path=directory / "observation.json",
-                                    summary={
-                                        "frame_id": observation["frame_id"],
-                                        "source_stamp_ns": observation["source_stamp_ns"],
-                                        "connected": observation["vehicle"]["connected"],
-                                    })
+            if observation is not None:
+                self.store.record_event(manifest["request_id"], kind="live_observation",
+                                        artifact_path=directory / "observation.json",
+                                        summary={
+                                            "frame_id": observation["frame_id"],
+                                            "source_stamp_ns": observation["source_stamp_ns"],
+                                            "connected": observation["vehicle"]["connected"],
+                                        })
             return manifest
 
     def submit_to_psc(self, run_id: str) -> dict:
@@ -671,6 +945,8 @@ def make_handler(app: Console):
                     "state": "UNAVAILABLE_LIVE_ONLY", "execution_dispatch": False,
                     "reason": "No historical proposal was imported into this console.",
                 })
+            if path == "/api/mission":
+                return self.respond(app.command_mission_status())
             live_match = re.fullmatch(r"/api/live/([0-9a-f]{32})", path)
             if live_match:
                 try:
@@ -785,6 +1061,11 @@ def make_handler(app: Console):
                     ))
                 if self.path == "/api/camera":
                     return self.respond(app.capture())
+                mission_start = re.fullmatch(r"/api/runs/([0-9a-f]{32})/execute", self.path)
+                if mission_start:
+                    return self.respond(app.start_command_mission(mission_start[1]), status=202)
+                if self.path == "/api/mission/stop":
+                    return self.respond(app.stop_command_mission())
                 live_start = re.fullmatch(r"/api/live/([0-9a-f]{32})/start", self.path)
                 if live_start:
                     return self.respond(app.start_live_replan(live_start[1], value.get("scene_state")))
@@ -827,7 +1108,7 @@ def make_handler(app: Console):
             except sqlite3.Error:
                 self.respond({"error": "Task database unavailable. Saved artifacts are retained; restart to reindex."}, status=503)
             except (subprocess.SubprocessError, OSError):
-                self.respond({"error": "Camera or storage unavailable. Use Foxglove and try again."}, status=503)
+                self.respond({"error": "Simulator task service or storage is unavailable."}, status=503)
     return Handler
 
 
@@ -857,6 +1138,11 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
+        try:
+            if app.command_mission_status().get("active"):
+                app.stop_command_mission()
+        except Exception:
+            pass
         server.server_close()
 
 
