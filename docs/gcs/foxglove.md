@@ -30,7 +30,7 @@ Custom Foxglove panels live in `gcs/foxglove_extensions/`, one directory per ext
 | `robot-commands` | Robot Tasks | Send goals to AirStack task executors (ROS 2 actions) |
 | `waypoint-editor` | Waypoint Editor | Click-to-place waypoints, see [Adding Waypoints & Geofences](waypoints_and_geofences.md) |
 | `polygon-editor` | Polygon Editor | Click-to-draw geofences, see [Adding Waypoints & Geofences](waypoints_and_geofences.md) |
-| `svg-basestation` (in `robot/ros_ws/src/svg_ground_control/foxglove/`) | SVG Basestation | Swarm basestation: agent wiring, land-all safety stop, mission confirmation from the commander's status snapshot, live CBF alpha / safety radius / max speed readouts and sliders, formation profile dropdown, per-drone flight state and numeric position, link safety, battery and RTB, see the [SVG Basestation README](../../robot/ros_ws/src/svg_ground_control/foxglove/svg-basestation/README.md) |
+| `svg-basestation` (in `robot/ros_ws/src/svg_ground_control/foxglove/`) | SVG Basestation | Swarm basestation: agent wiring, land-all safety stop, mission confirmation from the commander's status snapshot, live CBF alpha readout/slider, per-drone flight state and numeric position, link safety, battery and RTB, see the [SVG Basestation README](../../robot/ros_ws/src/svg_ground_control/foxglove/svg-basestation/README.md) |
 
 `robot/ros_ws/src/svg_ground_control/foxglove/svg_basestation.json` is a ready-made layout: the SVG Basestation panel on the left, and on the right a 3D view of `/svg/viz/markers` above a Battery & Power instance of the same panel. Load it with **Layouts → Import from file...** the same way as the rendered AirStack layout above.
 

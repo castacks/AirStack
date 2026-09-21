@@ -1,8 +1,7 @@
 // Smoke test for the SVG Basestation panel: loads ../dist/extension.js under a
 // tiny DOM stub and a fake Foxglove panel context, feeds it a commander status
-// snapshot + odometry + velocity commands, clicks Start, Apply (CBF alpha and
-// safety radius) and Send (formation), and checks the rendered text. Catches
-// runtime errors the syntax check cannot.
+// snapshot + odometry + velocity commands, clicks Start and Apply (CBF alpha),
+// and checks the rendered text. Catches runtime errors the syntax check cannot.
 //
 // Run (no local Node needed):
 //   docker run --rm -v "$PWD/robot/ros_ws/src/svg_ground_control/foxglove/svg-basestation:/p" -w /p node:20-alpine \
@@ -68,9 +67,7 @@ let saved = null;
 let subscribed = [];
 let onRender = null;
 let settingsNodes = null;
-// The commander's runtime CBF parameters, as get/set_parameters see them.
-const params = { cbf_alpha: 2.5, cbf_safety_radius_m: 0.55, cbf_max_speed_mps: 1.2 };
-const published = [];
+let paramValue = 2.5;
 const missionState = { active: false, seq: 0, last: null };
 
 const panelContext = {
@@ -81,7 +78,7 @@ const panelContext = {
   watch() {},
   setDefaultPanelTitle() {},
   updatePanelSettingsEditor: (ed) => { settingsNodes = ed.nodes; },
-  advertise() {}, publish(topic, message) { published.push({ topic, message }); },
+  advertise() {}, publish() {},
   set onRender(fn) { onRender = fn; },
   get onRender() { return onRender; },
   callService: async (service, req) => {
@@ -96,15 +93,11 @@ const panelContext = {
       missionState.last = { seq: missionState.seq, name: "hold", success: true, message: "holding: drone_1", stamp: 1.7e9 + 9 };
       return { success: true, message: "holding: drone_1" };
     }
-    if (service.endsWith("/get_parameters")) {
-      return { values: req.names.map((n) => (n in params ? { type: 3, double_value: params[n] } : { type: 0 })) };
-    }
+    if (service.endsWith("/get_parameters")) return { values: [{ type: 3, double_value: paramValue }] };
     if (service.endsWith("/set_parameters")) {
-      const { name, value } = req.parameters[0];
-      const v = value.double_value;
-      if (!(name in params)) return { results: [{ successful: false, reason: `unknown parameter ${name}` }] };
-      if (!(v > 0)) return { results: [{ successful: false, reason: `${name} must be > 0` }] };
-      params[name] = v;
+      const v = req.parameters[0].value.double_value;
+      if (!(v > 0)) return { results: [{ successful: false, reason: "cbf_alpha must be > 0" }] };
+      paramValue = v;
       return { results: [{ successful: true, reason: "" }] };
     }
     throw new Error("unknown service " + service);
@@ -125,8 +118,7 @@ function statusMsg(overrides = {}) {
     mission_active: missionState.active, mission_ever_started: missionState.active,
     mission_started_at: missionState.active ? 1.7e9 + 5 : null,
     fence_enabled: true, fence_breached: false,
-    cbf: { alpha: params.cbf_alpha, safety_radius_m: params.cbf_safety_radius_m, max_speed_mps: params.cbf_max_speed_mps,
-      external_velocity_gain: 1.0, active: ["drone_2"], emergency: false },
+    cbf: { alpha: paramValue, safety_radius_m: 0.55, max_speed_mps: 1.2, external_velocity_gain: 1.0, active: ["drone_2"], emergency: false },
     command_seq: missionState.seq, last_command: missionState.last,
     drones: [
       { name: "drone_1", role: "auto", mode: "sim", commanded: true, cbf_exempt: false, state: "ACTIVE",
@@ -167,7 +159,6 @@ const text = () => root.textContent;
   assert(subscribed.includes("/drone_1/interface/velocity_command"), "subscribes to sim velocity commands");
   assert(subscribed.includes("/drone_1/fmu/velocity_command"), "subscribes to real velocity commands");
   assert(settingsNodes.swarm.fields.statusTopic && settingsNodes.swarm.fields.cbfAlphaMax, "settings editor exposes statusTopic + cbfAlphaMax");
-  assert(settingsNodes.swarm.fields.cbfRadiusMax && settingsNodes.swarm.fields.cbfSpeedMax, "settings editor exposes the radius + max-speed slider maxima");
 
   // Before any data.
   render();
@@ -216,15 +207,8 @@ const text = () => root.textContent;
   const goalX = findAll(root, (n) => n.tagName === "input" && n.classList.contains("sb-goal-in"))[0];
   assert(goalX && goalX.value === "-1.23", "Use Current copies the commander's own position (goal frame) into x");
   assert(text().includes("same frame as the Agent State positions"), "goal note confirms the frame matches the commander");
-  const numBox = (ph) => findAll(root, (n) => n.tagName === "input" && n.type === "number" && n.placeholder === ph)[0];
-  const alphaBox = numBox("alpha");
+  const alphaBox = findAll(root, (n) => n.tagName === "input" && n.type === "number" && n.placeholder === "alpha")[0];
   assert(alphaBox && alphaBox.value === "2.50", "alpha draft seeded from the live value");
-  const radiusBox = numBox("radius"), speedBox = numBox("vmax");
-  assert(radiusBox && radiusBox.value === "0.55", "safety radius draft seeded from the live value");
-  assert(speedBox && speedBox.value === "1.20", "max speed draft seeded from the live value");
-  assert(text().includes("live 0.55 m") && text().includes("live 1.20 m/s"), "radius and max speed live readouts carry units");
-  const applyBtns = findAll(root, (n) => n.tagName === "button" && n.textContent.trim() === "Apply");
-  assert(applyBtns.length === 3, "one Apply button per CBF gain (alpha, radius, max speed)");
 
   // Click Start -> confirm dialog -> Confirm.
   findButton(root, "Start").click();
@@ -261,37 +245,6 @@ const text = () => root.textContent;
   await new Promise((r) => setTimeout(r, 10));
   render();
   assert(text().includes("must be a positive number"), "negative alpha rejected client-side");
-
-  // Apply a new safety radius from its own row; alpha must be untouched.
-  radiusBox.value = "0.8";
-  radiusBox.fire("input");
-  applyBtns[1].click();
-  await new Promise((r) => setTimeout(r, 10));
-  const radiusCall = calls.filter((c) => c.service === "/swarm_commander/set_parameters").pop();
-  assert(radiusCall && radiusCall.req.parameters[0].name === "cbf_safety_radius_m"
-    && radiusCall.req.parameters[0].value.double_value === 0.8, "radius Apply sets cbf_safety_radius_m only");
-  assert(params.cbf_alpha === 4, "alpha unchanged by the radius Apply");
-  t += 0.3; feedStatus();
-  render();
-  assert(text().includes("live 0.80 m ✓"), "live radius updates to the applied value and is ticked");
-  assert(text().includes("live 4.00"), "alpha row still shows its own live value");
-
-  // Formation: dropdown + Send only — no free-text box, no Next.
-  assert(!findButton(root, "Next"), "no Next button");
-  assert(!findAll(root, (n) => n.tagName === "input" && n.type === "text" && /next/i.test(n.placeholder ?? "")).length,
-    "no free-text formation box");
-  const formSel = findAll(root, (n) => n.tagName === "select" && n.children.some((o) => o.value === "line"))[0];
-  assert(formSel, "formation dropdown lists the configured profiles");
-  formSel.value = "line";
-  formSel.fire("change");
-  findButton(root, "Send").click();
-  const pub = published.find((p) => p.topic === "/svg/formation_command");
-  assert(pub && pub.message.data === "line", "Send publishes the selected profile on /svg/formation_command");
-  assert(saved && saved.formation === "line", "selected profile persisted");
-  formSel.value = "";
-  formSel.fire("change");
-  findButton(root, "Send").click();
-  assert(text().includes("Pick a formation profile first"), "Send with nothing selected is refused");
 
   // Stale commander -> NO COMMANDER, positions fall back.
   t += 5; feedOdom("drone_1", 9.87, 0, 1);

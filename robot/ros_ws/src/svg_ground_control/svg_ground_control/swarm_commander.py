@@ -50,12 +50,9 @@ last robot_command (offboard / arm / disarm). The SVG Basestation Foxglove
 panel reads it to confirm a command actually reached the commander and to
 show numeric positions. See ``build_status``.
 
-Runtime tuning: the CBF gains ``cbf_alpha``, ``cbf_safety_radius_m`` and
-``cbf_max_speed_mps`` are applied on the next control tick when set at
-runtime (``ros2 param set /swarm_commander cbf_alpha 4.0`` or the panel's CBF
-sliders); non-positive or non-finite values are rejected. The scenario keeps
-the safety radius it was built with for its own spacing checks (holder posts,
-random goals) — only the filter, the speed cap and the viz spheres follow.
+Runtime tuning: ``cbf_alpha`` is applied on the next control tick when set
+at runtime (``ros2 param set /swarm_commander cbf_alpha 4.0`` or the panel's
+CBF slider); non-positive or non-finite values are rejected.
 
 Lifecycle (std_srvs/Trigger services):
     ~/takeoff — arm + offboard + ascend everyone to the scenario's initial
@@ -564,9 +561,9 @@ class SwarmCommander(Node):
         self._cbf_warn_count = 0
 
         # ---- Runtime-tunable parameters ---------------------------------------
-        # The CBF gains (alpha, safety radius, max speed) are read from their
-        # self.cbf_* attributes on every control tick, so a `ros2 param set`
-        # (or the basestation panel's CBF sliders) takes effect on the next tick. Validation happens in the pre-set callback; the
+        # cbf_alpha is read from self.cbf_alpha on every control tick, so a
+        # `ros2 param set` (or the basestation panel's CBF slider) takes effect
+        # on the next tick. Validation happens in the pre-set callback; the
         # value is applied only once the parameter has actually been stored, so
         # a rejected batch never leaves the node running with an unset gain.
         # Registered LAST: rclpy also runs these callbacks for every
@@ -605,13 +602,7 @@ class SwarmCommander(Node):
     # Parameters that may change while flying, and how they are applied.
     # Everything else is wiring/geometry read once at startup; changing it at
     # runtime is accepted by rclpy but has no effect until restart.
-    RUNTIME_PARAMS = ('cbf_alpha', 'cbf_safety_radius_m', 'cbf_max_speed_mps')
-    # parameter name -> attribute the control loop reads
-    _RUNTIME_ATTRS = {
-        'cbf_alpha': 'cbf_alpha',
-        'cbf_safety_radius_m': 'cbf_safety_radius',
-        'cbf_max_speed_mps': 'cbf_max_speed',
-    }
+    RUNTIME_PARAMS = ('cbf_alpha',)
     _apply_in_validate = False
 
     def _validate_parameters(self, params):
@@ -633,16 +624,13 @@ class SwarmCommander(Node):
 
     def _apply_parameters(self, params):
         for p in params:
-            attr = self._RUNTIME_ATTRS.get(p.name)
-            if attr is None:
-                continue
-            new = float(p.value)
-            old = getattr(self, attr)
-            if new != old:
-                self.get_logger().info(
-                    f'{p.name} {old:g} -> {new:g} '
-                    '(applied on the next control tick)')
-            setattr(self, attr, new)
+            if p.name == 'cbf_alpha':
+                new = float(p.value)
+                if new != self.cbf_alpha:
+                    self.get_logger().info(
+                        f'cbf_alpha {self.cbf_alpha:g} -> {new:g} '
+                        '(applied on the next control tick)')
+                self.cbf_alpha = new
 
     # ------------------------------------------------------------------
     # Status snapshot
