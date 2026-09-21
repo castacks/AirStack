@@ -3,7 +3,7 @@
 Ground-station panel for the SVG counter-UAS demonstration — the SVG analogue of
 the DTC *Robot Control Panel* that anchors the `foxglove_ws` basestation layout.
 One panel owns agent selection, the swarm-wide safety command, mission
-confirmation, the CBF gain, per-drone state and position, and the operator's
+confirmation, the CBF gains, per-drone state and position, and the operator's
 health picture.
 
 Three ideas drive the whole panel:
@@ -91,29 +91,47 @@ velocity commands arriving on its command topic (`Cmd stream`, ~20 Hz while the
 commander drives it, `silent` in red if the commander thinks it is airborne but
 nothing is being published to it).
 
-## CBF gain (alpha)
+## CBF gains (alpha, safety radius, max speed)
 
-The `CBF α` row reads and sets `swarm_commander`'s `cbf_alpha` parameter — the
-class-K gain in the barrier constraint `ḣ + α h ≥ 0`. **Lower is gentler**: the
-filter starts yielding early and corrects softly. **Higher is more aggressive**:
-drones are allowed to approach closer before a harder correction. Safety radius
-and speed cap are unchanged.
+Three slider rows read and set `swarm_commander`'s runtime CBF parameters. Each
+row is slider + number box (one draft value) + **Apply** + a **live** readout.
+
+| Row | Parameter | Meaning |
+| --- | --- | --- |
+| `CBF α` | `cbf_alpha` | Class-K gain in the barrier constraint `ḣ + α h ≥ 0`. **Lower is gentler**: the filter starts yielding early and corrects softly. **Higher is more aggressive**: drones approach closer before a harder correction |
+| `CBF r` | `cbf_safety_radius_m` | Each drone's safety bubble; every pair of centres is kept more than `2r` apart. Larger = wider berth. Goals or squeeze posts closer than `2r` become infeasible and trigger the emergency push-apart |
+| `CBF vmax` | `cbf_max_speed_mps` | Cap on every velocity command the filter emits, exempt drones included. Higher lets drones dodge (and fly) faster |
 
 - **live** is what the commander is running with right now — from the status
-  snapshot when it is fresh, else from a `get_parameters` read (↻ re-reads).
-  Next to it: which drones the CBF is correcting this tick, and a red
-  `EMERGENCY push-apart` if the QP went infeasible.
-- Move the slider or type a value, then **Apply**. The panel calls
+  snapshot when it is fresh, else from a `get_parameters` read (↻ re-reads all
+  three). Next to the α value: which drones the CBF is correcting this tick,
+  and a red `EMERGENCY push-apart` if the QP went infeasible.
+- Move a slider or type a value, then that row's **Apply**. The panel calls
   `<commander ns>/set_parameters` (`rcl_interfaces/srv/SetParameters`,
-  double). The commander validates (finite, `> 0`) and applies it on its next
-  control tick; a rejection reason is shown in the status line. Until the
-  snapshot reports the new value the readout shows `(asked 4.00…)`; if the
-  commander keeps reporting the old value after the set, it turns amber.
-- The same parameter can be set from a shell and the panel follows:
-  `ros2 param set /swarm_commander cbf_alpha 4.0`.
+  double) for that one parameter. The commander validates (finite, `> 0`) and
+  applies it on its next control tick; a rejection reason is shown in the
+  status line. Until the snapshot reports the new value the readout shows
+  `(asked 0.80…)`; if the commander keeps reporting the old value after the
+  set, it turns amber.
+- The same parameters can be set from a shell and the panel follows:
+  `ros2 param set /swarm_commander cbf_safety_radius_m 0.8`.
+- The scenario keeps the radius it was launched with for its own spacing
+  checks (holder posts, random goals); only the filter, the speed cap and the
+  keep-out spheres in `/svg/viz/markers` follow a runtime change.
 
-The slider's upper end is the `CBF alpha slider max` setting (default 10);
-the number box accepts any positive value.
+The sliders' upper ends are the `CBF alpha slider max` (10), `CBF radius
+slider max` (2 m) and `CBF max-speed slider max` (3 m/s) settings; the number
+boxes accept any positive value.
+
+## Formation
+
+The **Formation** row is a dropdown of the profiles named in the `Formation
+profiles` setting (mirror the commander's `formation_profiles` parameter) and a
+**Send** button, which publishes the selected name on `/svg/formation_command`
+(`std_msgs/String`). The row only appears while that topic has a subscriber.
+The commander's reserved `next` verb and ad-hoc profile names are not exposed
+here — send them from a shell if needed:
+`ros2 topic pub --once /svg/formation_command std_msgs/msg/String "{data: next}"`.
 
 ## Agent State
 
@@ -244,7 +262,7 @@ why a section is or is not there:
 | mocap/hardware | `/{name}/pose`, `/{name}/fmu/out/estimator_status_flags` |
 | cellular | `/{name}/comms/cellular`, `/{name}/cellular/odometry` |
 
-The Swarm Command, CBF gain and Agent State sections are controls and always
+The Swarm Command, CBF gains and Agent State sections are controls and always
 shown; their contents say `NO COMMANDER` / `--` until the commander is up.
 
 ## Development

@@ -46,7 +46,8 @@
 //   status    /svg/commander_status                      std_msgs/String, JSON
 //             (swarm_commander.build_status: mission state, last command
 //             outcome, live CBF gains, per-drone flight state + position)
-//   cbf gain  /swarm_commander/{get,set}_parameters      rcl_interfaces (cbf_alpha)
+//   cbf gains /swarm_commander/{get,set}_parameters      rcl_interfaces
+//             (cbf_alpha, cbf_safety_radius_m, cbf_max_speed_mps)
 //   velocity  /{name}/interface/velocity_command | /{name}/fmu/velocity_command
 //             (rate only — proves the commander is driving that drone)
 
@@ -178,7 +179,30 @@ const MAX_CMD_LOG = 4;
 // Velocity commands stream at control_rate_hz (20 Hz) while a drone is
 // commanded; silence past this means the commander is not driving it.
 const CMD_STREAM_TIMEOUT_S = 0.5;
-const CBF_ALPHA_MIN = 0.1;
+// Runtime-tunable CBF gains, one slider row each. `param` is the commander's
+// parameter name (rcl_interfaces get/set_parameters), `statusKey` where the
+// live value sits under "cbf" in its status snapshot, `maxCfg` the panel
+// setting holding the slider's upper end. The number box accepts any value
+// above `min`. Order matters: the first row is the one the smoke test drives.
+const CBF_PARAMS = [
+  { id: "alpha", param: "cbf_alpha", statusKey: "alpha", label: "CBF α", unit: "",
+    min: 0.1, step: 0.1, maxCfg: "cbfAlphaMax", placeholder: "alpha",
+    hint: "cbf_alpha — gain in the barrier constraint h_dot + alpha*h >= 0. " +
+      "Lower = gentler (yields earlier, softer corrections); higher = more aggressive " +
+      "(lets drones approach closer, then corrects harder).",
+    scale: ["← gentle: yields early, soft corrections", "aggressive: yields late, hard corrections →"] },
+  { id: "radius", param: "cbf_safety_radius_m", statusKey: "safety_radius_m", label: "CBF r", unit: " m",
+    min: 0.05, step: 0.05, maxCfg: "cbfRadiusMax", placeholder: "radius",
+    hint: "cbf_safety_radius_m — each drone's safety bubble. The filter keeps every pair of " +
+      "centres more than 2r apart. Larger = wider berth; goals or posts closer than 2r " +
+      "become infeasible (emergency push-apart).",
+    scale: ["← tight: drones may pass close", "wide: big keep-out spheres →"] },
+  { id: "speed", param: "cbf_max_speed_mps", statusKey: "max_speed_mps", label: "CBF vmax", unit: " m/s",
+    min: 0.1, step: 0.1, maxCfg: "cbfSpeedMax", placeholder: "vmax",
+    hint: "cbf_max_speed_mps — cap on every velocity command the filter emits (exempt drones " +
+      "are capped too). Higher lets drones dodge, and fly, faster.",
+    scale: ["← slow: gentle dodges", "fast: quick dodges →"] },
+];
 
 // ─────────────────────────── defaults ─────────────────────────────────────────
 
@@ -191,16 +215,18 @@ const DEFAULTS = {
   formationTopic: "/svg/formation_command",
   // Mirrors the commander's formation_profiles parameter. Profiles are ROS
   // parameters, not topics, so the panel cannot discover them — this list is
-  // what fills the formation dropdown. "next" is not listed: it is a verb the
-  // commander reserves, and the Next button sends it.
+  // what fills the formation dropdown (pick one, press Send).
   formationProfiles: "home, line, triangle, diagonal",
   // swarm_commander's status snapshot (status_topic parameter). Mission
   // state, last command outcome, live CBF gains and per-drone positions all
   // come from here.
   statusTopic: "/svg/commander_status",
-  // Upper end of the CBF alpha slider. The gain has no natural ceiling; 10 is
-  // already far past "aggressive" for the 0.55 m / 1.2 m/s defaults.
+  // Upper ends of the CBF sliders (see CBF_PARAMS). Alpha has no natural
+  // ceiling; 10 is already far past "aggressive" for the 0.55 m / 1.2 m/s
+  // defaults. 2 m radius and 3 m/s comfortably cover an indoor arena.
   cbfAlphaMax: 10,
+  cbfRadiusMax: 2,
+  cbfSpeedMax: 3,
 
   // shared
   stateTopicTemplate: "/{name}/odometry_conversion/odometry",
@@ -1141,14 +1167,15 @@ function activate(extensionContext) {
       // {t, name, phase: "sent"|"ok"|"rejected"|"failed"|"timeout",
       //  message, verified: null|true|false, verifyBy}
       let cmdLog = [];
-      // CBF alpha: what get_parameters last returned, what the operator last
-      // asked for (to confirm the commander really took it), and the draft in
-      // the slider/box.
-      let alphaParam = null;            // {v, t}
-      let alphaRequested = null;        // {v, t}
-      let alphaDraftTouched = false;
-      let alphaSetting = false;         // set_parameters call in flight
-      let lastAlphaRefresh = 0;
+      // CBF gains, per CBF_PARAMS row: what get_parameters last returned
+      // ({v, t}), what the operator last asked for ({v, t} — to confirm the
+      // commander really took it), whether the draft in the slider/box has
+      // been touched, and whether a set_parameters call is in flight.
+      const cbfState = {};
+      for (const p of CBF_PARAMS) {
+        cbfState[p.id] = { param: null, requested: null, draftTouched: false, setting: false };
+      }
+      let lastCbfRefresh = 0;
 
       // Commander timestamps are ROS time — wall clock normally, sim time
       // under use_sim_time — so they are never compared with panel time.
@@ -1417,9 +1444,9 @@ function activate(extensionContext) {
             recomputeCaps();
             buildRoster();
             // A new topic list usually means the commander (re)started — its
-            // parameter services are the only way to read cbf_alpha before
+            // parameter services are the only way to read the CBF gains before
             // the first status snapshot arrives.
-            refreshCbfAlpha();
+            refreshCbfParams();
           }
         }
         const frame = renderState.currentFrame;
@@ -1532,80 +1559,69 @@ function activate(extensionContext) {
       missionRow.append(missionChip, missionNote, lastCmdChip);
       cmdCard.appendChild(missionRow);
 
-      // CBF gain — alpha (class-K gain of the barrier constraint). Small alpha:
-      // the filter starts yielding early and softly; large alpha: it lets the
-      // drones get close and then corrects hard. Slider and box are one draft
-      // value; Apply sends it to the commander's set_parameters service and the
-      // live readout shows what the commander is actually running with.
-      const cbfRow = el("div", "sb-cbf");
-      const cbfLabel = el("span", "sb-cbf-label", "CBF α");
-      cbfLabel.title = "cbf_alpha — gain in the barrier constraint h_dot + alpha*h >= 0. " +
-        "Lower = gentler (yields earlier, softer corrections); higher = more aggressive " +
-        "(lets drones approach closer, then corrects harder). Safety radius and max speed are unchanged.";
-      const cbfRange = el("input", "sb-range");
-      cbfRange.type = "range";
-      cbfRange.min = String(CBF_ALPHA_MIN);
-      cbfRange.step = "0.1";
-      const cbfInput = el("input", "sb-input sb-cbf-in");
-      cbfInput.type = "number";
-      cbfInput.min = String(CBF_ALPHA_MIN);
-      cbfInput.step = "0.1";
-      cbfInput.placeholder = "alpha";
-      const syncAlphaDraft = (from) => {
-        alphaDraftTouched = true;
-        if (from === cbfRange) cbfInput.value = cbfRange.value;
-        else if (cbfInput.value !== "") cbfRange.value = cbfInput.value;
-      };
-      cbfRange.addEventListener("input", () => syncAlphaDraft(cbfRange));
-      cbfInput.addEventListener("input", () => syncAlphaDraft(cbfInput));
-      cbfInput.addEventListener("keydown", (ev) => { if (ev.key === "Enter") setCbfAlpha(cbfInput.value); });
-      const cbfApply = el("button", "sb-btn", "Apply");
-      cbfApply.style.background = "#4f46e5";
-      cbfApply.title = `Set cbf_alpha on the commander via ${cfg.commanderNs}/set_parameters (takes effect next control tick)`;
-      cbfApply.addEventListener("click", () => setCbfAlpha(cbfInput.value));
-      const cbfLive = el("span", "sb-cbf-live", "live --");
-      const cbfRefresh = el("button", "sb-btn", "↻");
-      cbfRefresh.style.cssText = "background:#4b5563;padding:5px 8px;";
-      cbfRefresh.title = "Re-read cbf_alpha from the commander (get_parameters)";
-      cbfRefresh.addEventListener("click", () => refreshCbfAlpha(true));
-      cbfRow.append(cbfLabel, cbfRange, cbfInput, cbfApply, cbfLive, cbfRefresh);
-      cmdCard.appendChild(cbfRow);
-      const cbfScale = el("div", "sb-cbf-scale");
-      cbfScale.append(
-        el("span", null, "← gentle: yields early, soft corrections"),
-        el("span", null, "aggressive: yields late, hard corrections →"));
-      cmdCard.appendChild(cbfScale);
+      // CBF gains — one row per CBF_PARAMS entry: alpha (class-K gain of the
+      // barrier constraint), safety radius and max speed. Slider and box are
+      // one draft value; Apply sends it to the commander's set_parameters
+      // service and the live readout shows what the commander is actually
+      // running with.
+      const cbfRows = {};
+      for (const p of CBF_PARAMS) {
+        const row = el("div", "sb-cbf");
+        const label = el("span", "sb-cbf-label", p.label);
+        label.title = p.hint;
+        const range = el("input", "sb-range");
+        range.type = "range";
+        range.min = String(p.min);
+        range.step = String(p.step);
+        const input = el("input", "sb-input sb-cbf-in");
+        input.type = "number";
+        input.min = String(p.min);
+        input.step = String(p.step);
+        input.placeholder = p.placeholder;
+        const syncDraft = (from) => {
+          cbfState[p.id].draftTouched = true;
+          if (from === range) input.value = range.value;
+          else if (input.value !== "") range.value = input.value;
+        };
+        range.addEventListener("input", () => syncDraft(range));
+        input.addEventListener("input", () => syncDraft(input));
+        input.addEventListener("keydown", (ev) => { if (ev.key === "Enter") setCbfParam(p, input.value); });
+        const apply = el("button", "sb-btn", "Apply");
+        apply.style.background = "#4f46e5";
+        apply.title = `Set ${p.param} on the commander via ${cfg.commanderNs}/set_parameters (takes effect next control tick)`;
+        apply.addEventListener("click", () => setCbfParam(p, input.value));
+        const live = el("span", "sb-cbf-live", "live --");
+        const refresh = el("button", "sb-btn", "↻");
+        refresh.style.cssText = "background:#4b5563;padding:5px 8px;";
+        refresh.title = "Re-read the CBF gains from the commander (get_parameters)";
+        refresh.addEventListener("click", () => refreshCbfParams(true));
+        row.append(label, range, input, apply, live, refresh);
+        cmdCard.appendChild(row);
+        const scale = el("div", "sb-cbf-scale");
+        scale.append(el("span", null, p.scale[0]), el("span", null, p.scale[1]));
+        cmdCard.appendChild(scale);
+        cbfRows[p.id] = { range, input, apply, live, refresh };
+      }
 
       const formRow = el("div", "sb-cmd-row");
       formRow.style.marginTop = "6px";
       const formLabel = el("span", null, "Formation:");
       formLabel.style.opacity = "0.65";
-      // Dropdown picks a configured profile; the text box stays the single
-      // source of truth so an ad-hoc name still works.
+      // Dropdown of the configured profiles (formationProfiles setting); Send
+      // publishes the selected one. Ad-hoc names go via the shell:
+      //   ros2 topic pub --once /svg/formation_command std_msgs/msg/String "{data: line}"
       const formSelect = el("select", "sb-input");
+      formSelect.style.flex = "1";
       formSelect.title = "Profiles from the commander's formation_profiles parameter";
       formSelect.addEventListener("change", () => {
-        if (!formSelect.value) return;
-        formInput.value = formSelect.value;
         formation = formSelect.value;
         persist();
       });
-      const formInput = el("input", "sb-input");
-      formInput.type = "text";
-      formInput.placeholder = "profile name, or 'next'";
-      formInput.value = formation;
-      formInput.style.flex = "1";
-      formInput.addEventListener("change", () => { formation = formInput.value.trim(); persist(); });
       const formBtn = el("button", "sb-btn", "Send");
       formBtn.style.background = "#4f46e5";
-      formBtn.title = `Publish the profile name on ${cfg.formationTopic} (std_msgs/String) to retarget the swarm`;
-      formBtn.addEventListener("click", () => sendFormation(formInput.value.trim()));
-      const formNextBtn = el("button", "sb-btn", "Next");
-      formNextBtn.style.background = "#0891b2";
-      formNextBtn.title = "Roll to the next profile in formation_profiles order — " +
-        "the commander's reserved \"next\" command, repeatable to step through the set";
-      formNextBtn.addEventListener("click", () => sendFormation("next"));
-      formRow.append(formLabel, formSelect, formInput, formBtn, formNextBtn);
+      formBtn.title = `Publish the selected profile on ${cfg.formationTopic} (std_msgs/String) to retarget the swarm`;
+      formBtn.addEventListener("click", () => sendFormation(formSelect.value));
+      formRow.append(formLabel, formSelect, formBtn);
       cmdCard.appendChild(formRow);
 
       const statusEl = el("div", "sb-status");
@@ -1975,7 +1991,7 @@ function activate(extensionContext) {
         }
       }
 
-      // ── CBF alpha (rcl_interfaces parameter services) ─────────────────────
+      // ── CBF gains (rcl_interfaces parameter services) ─────────────────────
       const PARAM_DOUBLE = 3, PARAM_INTEGER = 2;
 
       function paramNumber(pv) {
@@ -1986,21 +2002,27 @@ function activate(extensionContext) {
         return null;
       }
 
-      function refreshCbfAlpha(force) {
+      function refreshCbfParams(force) {
         if (!servicesAvailable()) return;
         const t = Date.now() / 1000;
-        if (!force && t - lastAlphaRefresh < 2) return;   // topic lists can churn
-        lastAlphaRefresh = t;
+        if (!force && t - lastCbfRefresh < 2) return;   // topic lists can churn
+        lastCbfRefresh = t;
         const service = commanderService("get_parameters");
-        callWithTimeout(service, { names: ["cbf_alpha"] })
+        // One call for all gains; values come back in the order of `names`.
+        callWithTimeout(service, { names: CBF_PARAMS.map((p) => p.param) })
           .then((res) => {
-            const v = paramNumber(res?.values?.[0]);
-            if (v == null) {
-              if (force) setStatus(`${service}: cbf_alpha not set on the commander`);
+            const got = [];
+            CBF_PARAMS.forEach((p, i) => {
+              const v = paramNumber(res?.values?.[i]);
+              if (v == null) return;
+              cbfState[p.id].param = { v, t: nowSec() };
+              got.push(`${p.param} = ${v.toFixed(2)}`);
+            });
+            if (!got.length) {
+              if (force) setStatus(`${service}: CBF gains not set on the commander`);
               return;
             }
-            alphaParam = { v, t: nowSec() };
-            if (force) setStatus(`cbf_alpha = ${v.toFixed(2)} (read from the commander)`);
+            if (force) setStatus(`${got.join(", ")} (read from the commander)`);
             render();
           })
           .catch((err) => {
@@ -2010,41 +2032,44 @@ function activate(extensionContext) {
           });
       }
 
-      // What the commander is running with right now, and where that came
-      // from. Snapshot first (live, 5 Hz), then the last parameter read.
-      function liveAlpha(now) {
+      // What the commander is running with right now for one CBF gain, and
+      // where that came from. Snapshot first (live, 5 Hz), then the last
+      // parameter read.
+      function liveCbf(p, now) {
         const s = commanderFresh(now) ? commander : null;
-        const fromStatus = num(s?.cbf?.alpha);
+        const fromStatus = num(s?.cbf?.[p.statusKey]);
         if (fromStatus != null) return { v: fromStatus, source: "commander", t: commanderAt };
-        if (alphaParam) return { v: alphaParam.v, source: "param read", t: alphaParam.t };
+        const st = cbfState[p.id];
+        if (st.param) return { v: st.param.v, source: "param read", t: st.param.t };
         return null;
       }
 
-      function setCbfAlpha(raw) {
+      function setCbfParam(p, raw) {
         const v = num(String(raw).trim());
-        if (v == null || !(v > 0)) { setStatus("CBF alpha must be a positive number"); return; }
+        if (v == null || !(v > 0)) { setStatus(`${p.label} must be a positive number`); return; }
         const service = commanderService("set_parameters");
         if (!servicesAvailable()) {
           setStatus(`Service calls unavailable in this data source (wanted ${service})`);
           return;
         }
-        alphaSetting = true;
-        setStatus(`Setting cbf_alpha = ${v.toFixed(2)} via ${service} ...`);
+        const st = cbfState[p.id];
+        st.setting = true;
+        setStatus(`Setting ${p.param} = ${v.toFixed(2)} via ${service} ...`);
         callWithTimeout(service, {
-          parameters: [{ name: "cbf_alpha", value: { type: PARAM_DOUBLE, double_value: v } }],
+          parameters: [{ name: p.param, value: { type: PARAM_DOUBLE, double_value: v } }],
         })
           .then((res) => {
             const r = res?.results?.[0];
             if (r && r.successful === false) {
-              setStatus(`cbf_alpha REJECTED by the commander${r.reason ? ` — ${r.reason}` : ""}`);
+              setStatus(`${p.param} REJECTED by the commander${r.reason ? ` — ${r.reason}` : ""}`);
               return;
             }
-            alphaRequested = { v, t: nowSec() };
-            setStatus(`cbf_alpha = ${v.toFixed(2)} accepted · waiting for the commander to report it`);
-            refreshCbfAlpha(true);
+            st.requested = { v, t: nowSec() };
+            setStatus(`${p.param} = ${v.toFixed(2)} accepted · waiting for the commander to report it`);
+            refreshCbfParams(true);
           })
           .catch((err) => setStatus(`${service} failed: ${err?.message ?? err}`))
-          .finally(() => { alphaSetting = false; render(); });
+          .finally(() => { st.setting = false; render(); });
       }
 
       function onSafetyClick() {
@@ -2076,17 +2101,13 @@ function activate(extensionContext) {
       }
 
       function sendFormation(nameArg) {
-        const value = nameArg || formInput.value.trim();
-        if (!value) { setStatus("Enter a formation profile name first"); return; }
+        const value = String(nameArg ?? formSelect.value).trim();
+        if (!value) { setStatus("Pick a formation profile first"); return; }
         try {
           panelContext.advertise(cfg.formationTopic, "std_msgs/msg/String");
           panelContext.publish(cfg.formationTopic, { data: value });
-          // "next" is a verb, not a profile — remembering it would leave the
-          // box stuck on it across reloads.
-          if (value !== "next") {
-            formation = value;
-            persist();
-          }
+          formation = value;
+          persist();
           setStatus(`Formation "${value}" → ${cfg.formationTopic}`);
         } catch (err) {
           setStatus(`Formation publish failed: ${err?.message ?? err}`);
@@ -2238,7 +2259,7 @@ function activate(extensionContext) {
         if (key === formOptionsKey) return;
         formOptionsKey = key;
         formSelect.textContent = "";
-        const blank = el("option", null, names.length ? "\u2014 profile \u2014" : "\u2014 none set \u2014");
+        const blank = el("option", null, names.length ? "\u2014 select profile \u2014" : "\u2014 none set \u2014");
         blank.value = "";
         formSelect.appendChild(blank);
         for (const n of names) {
@@ -2335,59 +2356,64 @@ function activate(extensionContext) {
       }
 
       function renderCbf(now) {
-        cbfRange.max = String(Math.max(Number(cfg.cbfAlphaMax) || 10, CBF_ALPHA_MIN + 0.1));
-        const live = liveAlpha(now);
         const s = commanderFresh(now) ? commander?.cbf : null;
         const ready = servicesAvailable();
-        cbfApply.disabled = !ready || alphaSetting;
-        cbfRange.disabled = !ready;
-        cbfInput.disabled = !ready;
-        cbfRefresh.disabled = !ready;
+        for (const p of CBF_PARAMS) {
+          const w = cbfRows[p.id];
+          const st = cbfState[p.id];
+          w.range.max = String(Math.max(Number(cfg[p.maxCfg]) || p.min * 10, p.min + p.step));
+          w.apply.disabled = !ready || st.setting;
+          w.range.disabled = !ready;
+          w.input.disabled = !ready;
+          w.refresh.disabled = !ready;
 
-        if (live) {
-          let text = `live ${live.v.toFixed(2)}`;
-          let cls = "sb-ok";
-          if (alphaRequested && now - alphaRequested.t < 10) {
-            if (Math.abs(live.v - alphaRequested.v) < 1e-6) {
-              text += " ✓";
-              // Confirmed: from here on the live value drives the draft again
-              // (so a change made from the CLI shows up in the box too).
-              alphaDraftTouched = false;
-            } else if (live.source === "commander" && commanderAt > alphaRequested.t + 1) {
-              // The commander has reported since the set and still shows the
-              // old gain — the set did not take.
-              text += ` (asked ${alphaRequested.v.toFixed(2)})`;
-              cls = "sb-warn";
-            } else {
-              text += ` (asked ${alphaRequested.v.toFixed(2)}…)`;
+          const live = liveCbf(p, now);
+          if (live) {
+            let text = `live ${live.v.toFixed(2)}${p.unit}`;
+            let cls = "sb-ok";
+            if (st.requested && now - st.requested.t < 10) {
+              if (Math.abs(live.v - st.requested.v) < 1e-6) {
+                text += " ✓";
+                // Confirmed: from here on the live value drives the draft again
+                // (so a change made from the CLI shows up in the box too).
+                st.draftTouched = false;
+              } else if (live.source === "commander" && commanderAt > st.requested.t + 1) {
+                // The commander has reported since the set and still shows the
+                // old value — the set did not take.
+                text += ` (asked ${st.requested.v.toFixed(2)})`;
+                cls = "sb-warn";
+              } else {
+                text += ` (asked ${st.requested.v.toFixed(2)}…)`;
+              }
             }
+            // CBF activity is worth a glance next to the gain — on the first
+            // row only, so it is not repeated three times.
+            if (p === CBF_PARAMS[0]) {
+              if (s?.emergency) {
+                text += " · EMERGENCY push-apart";
+                cls = "sb-bad";
+              } else if (s?.active?.length) {
+                text += ` · correcting ${s.active.join(", ")}`;
+              }
+            }
+            w.live.textContent = text;
+            w.live.className = `sb-cbf-live ${cls}`;
+            w.live.title = `${p.param} as reported by the ${live.source}` +
+              (s ? (s.active?.length ? ` · correcting now: ${s.active.join(", ")}` : " · not correcting anyone right now") +
+                (s.emergency ? " · EMERGENCY push-apart engaged (drones inside each other's safety spheres)" : "")
+                : "");
+            // Seed the draft from the live value until the operator touches it.
+            if (!st.draftTouched && document.activeElement !== w.input && document.activeElement !== w.range) {
+              w.input.value = live.v.toFixed(2);
+              w.range.value = String(clamp(live.v, p.min, Number(w.range.max)));
+            }
+          } else {
+            w.live.textContent = ready ? "live --" : "live -- (no services)";
+            w.live.className = "sb-cbf-live sb-muted";
+            w.live.title = ready
+              ? `No value yet: nothing on ${cfg.statusTopic} and ${commanderService("get_parameters")} has not answered. Click ↻ to retry.`
+              : "This data source cannot call services";
           }
-          // CBF activity is worth a glance next to the gain.
-          if (s?.emergency) {
-            text += " · EMERGENCY push-apart";
-            cls = "sb-bad";
-          } else if (s?.active?.length) {
-            text += ` · correcting ${s.active.join(", ")}`;
-          }
-          cbfLive.textContent = text;
-          cbfLive.className = `sb-cbf-live ${cls}`;
-          cbfLive.title = `cbf_alpha as reported by the ${live.source}` +
-            (s ? ` · safety radius ${fmt(num(s.safety_radius_m), 2, " m")}, ` +
-              `vmax ${fmt(num(s.max_speed_mps), 2, " m/s")}` +
-              (s.active?.length ? ` · correcting now: ${s.active.join(", ")}` : " · not correcting anyone right now") +
-              (s.emergency ? " · EMERGENCY push-apart engaged (drones inside each other's safety spheres)" : "")
-              : "");
-          // Seed the draft from the live value until the operator touches it.
-          if (!alphaDraftTouched && document.activeElement !== cbfInput && document.activeElement !== cbfRange) {
-            cbfInput.value = live.v.toFixed(2);
-            cbfRange.value = String(clamp(live.v, CBF_ALPHA_MIN, Number(cbfRange.max)));
-          }
-        } else {
-          cbfLive.textContent = ready ? "live --" : "live -- (no services)";
-          cbfLive.className = "sb-cbf-live sb-muted";
-          cbfLive.title = ready
-            ? `No value yet: nothing on ${cfg.statusTopic} and ${commanderService("get_parameters")} has not answered. Click ↻ to retry.`
-            : "This data source cannot call services";
         }
       }
 
@@ -2962,7 +2988,7 @@ function activate(extensionContext) {
       const NUMERIC = new Set([
         "cruiseSpeedMps", "landSpeedMps", "reservePct", "rtbNominalPct",
         "rtbGatedPct", "dropTargetPct", "pingTargetMs", "vpnPingTargetMs",
-        "mocapAgeTargetMs", "mocapTimeoutS", "cbfAlphaMax",
+        "mocapAgeTargetMs", "mocapTimeoutS", "cbfAlphaMax", "cbfRadiusMax", "cbfSpeedMax",
       ]);
       const ROSTER_KEYS = new Set([
         "drones", "modes", "stateTopicTemplate", "lanTopicTemplate",
@@ -3018,16 +3044,20 @@ function activate(extensionContext) {
                   help: "Auto hides any section whose topics are not being published" },
                 commanderNs: { label: "Commander namespace", input: "string", value: cfg.commanderNs,
                   help: "std_srvs/Trigger lifecycle services and the get/set_parameters services " +
-                        "(CBF alpha) live under this namespace" },
+                        "(CBF alpha, safety radius, max speed) live under this namespace" },
                 statusTopic: { label: "Commander status topic", input: "string", value: cfg.statusTopic,
                   help: "std_msgs/String JSON from swarm_commander (status_topic parameter): mission " +
                         "state, last command outcome, live CBF gains, per-drone state and position" },
                 cbfAlphaMax: { label: "CBF alpha slider max", input: "number", value: cfg.cbfAlphaMax, step: 1,
                   help: "Upper end of the CBF alpha slider; the number box accepts any positive value" },
+                cbfRadiusMax: { label: "CBF radius slider max (m)", input: "number", value: cfg.cbfRadiusMax, step: 0.5,
+                  help: "Upper end of the CBF safety radius slider; the number box accepts any positive value" },
+                cbfSpeedMax: { label: "CBF max-speed slider max (m/s)", input: "number", value: cfg.cbfSpeedMax, step: 0.5,
+                  help: "Upper end of the CBF max speed slider; the number box accepts any positive value" },
                 formationTopic: { label: "Formation topic", input: "string", value: cfg.formationTopic },
                 formationProfiles: { label: "Formation profiles", input: "string", value: cfg.formationProfiles,
-                  help: "Comma-separated profile names filling the formation dropdown — mirror the " +
-                        "commander's formation_profiles parameter. Blank hides the dropdown." },
+                  help: "Comma-separated profile names filling the formation dropdown (pick one, Send) — " +
+                        "mirror the commander's formation_profiles parameter. Blank hides the row." },
               },
             },
             simWiring: {
@@ -3111,7 +3141,7 @@ function activate(extensionContext) {
       applyView();
       updateSettingsEditor();
       render();
-      refreshCbfAlpha();
+      refreshCbfParams();
 
       const timer = setInterval(render, UI_REFRESH_MS);
 
