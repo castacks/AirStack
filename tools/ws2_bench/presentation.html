@@ -1,0 +1,68 @@
+<!doctype html><meta charset="utf-8"><title>WS2 Automated Test Bench</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#101820;color:#eef4f6;font:16px Arial;padding:20px}h1{font-size:25px;margin:0 0 8px}h2{font-size:18px;margin:0 0 10px}.controls,.chips{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.panel{background:#1b2b37;padding:14px;border-radius:8px;margin:12px 0}.controls{margin:14px 0}button,select,input{background:#293e4e;color:white;border:1px solid #546c7f;border-radius:5px;padding:9px;font-size:15px}input[type=number]{width:80px}input[type=range]{width:105px;padding:0}button{cursor:pointer}button.primary{background:#137688}button.danger{background:#803f40}button:disabled{opacity:.4;cursor:default}label{white-space:nowrap}.chip{background:#293e4e;padding:8px;border-radius:4px}.views{display:grid;grid-template-columns:1fr 1fr;gap:15px}.views img{width:100%;height:340px;object-fit:contain;background:#070c10}.caption,.small{color:#b6c5cf;font-size:13px;line-height:1.5}.caption{min-height:25px}.tablewrap{max-height:280px;overflow:auto}table{width:100%;border-collapse:collapse;font-size:14px}td,th{text-align:left;padding:8px;border-bottom:1px solid #344b5b}.good{color:#7de1b0}.bad{color:#ffb08b}a{color:#76dded}#notice{color:#ffd198}#analysis{white-space:pre-wrap}@media(max-width:1000px){.views{grid-template-columns:1fr}}
+</style>
+<h1>WS2 Automated Test Bench</h1><div class="small">One target model · Conditions → Flight → Evaluation → Next test · No LLM</div>
+<div class="controls">
+<label>Target <select id="target" onchange="selectModel()"><option value="">Select model</option><option value="kim">Kim et al.</option><option value="mononav">MonoNav</option></select></label>
+<label>Difficulty <select id="difficulty"><option value="easy">Easy · 1 plant + 1 column</option><option value="medium">Medium · 3 plants + 3 columns</option><option value="hard">Hard · 5 plants + 5 columns</option></select></label>
+<label>Attack <select id="profile"><option value="combined">Noise + delay + patch</option><option value="noise">Noise only</option><option value="delay">Delay only</option><option value="patch">Patch only</option><option value="sensors">Noise + delay</option></select></label>
+<label>Flights <input id="budget" type="number" min="2" max="100" step="2" value="8"></label>
+<label><span id="duration-label">Duration</span> <input id="duration" type="number" min="60" max="600" value="120"> sim s</label>
+<label id="goal-control" hidden>Goal <input id="goal" type="number" min="2" max="30" value="8"> m</label>
+<button id="start" class="primary" onclick="start()" disabled>Start tests</button>
+<button id="pause" onclick="control('pause')" disabled>Pause</button><button id="resume" onclick="control('run')" disabled>Resume</button><button id="stop" class="danger" onclick="control('stop')" disabled>Stop &amp; land</button>
+</div><div id="notice"></div>
+<div class="panel"><h2><span id="phase">Select a target model</span> · <span id="total"></span></h2><div id="mission"></div><p id="reason"></p><div class="chips" id="chips"></div><p class="small" id="layout"></p></div>
+<div class="views">
+<section class="panel"><h2>AirStack / Isaac Sim</h2><div id="scene-caption" class="caption">Waiting for simulator</div><img id="scene-image" alt="Simulator view" style="visibility:hidden">
+<div class="controls"><select id="camera" onchange="cameraUpdate()"><option value="follow">Follow drone</option><option value="overview">Office overview</option><option value="free">Fixed camera</option></select>
+<label>Distance <input id="distance" type="range" min="1.5" max="20" step=".5" value="2.5" oninput="cameraUpdate()"></label>
+<label>Height <input id="height" type="range" min=".5" max="10" step=".5" value="1.5" oninput="cameraUpdate()"></label>
+<label>Orbit <input id="azimuth" type="range" min="0" max="360" step="5" value="180" oninput="cameraUpdate()"></label></div><div class="small">Observer camera only. Zoom and angle persist between tests; the model sensor camera is unchanged.</div></section>
+<section class="panel"><h2 id="model-title">Model inference</h2><div id="model-caption" class="caption">Select a model</div><img id="model-image" alt="Model inference" style="visibility:hidden"><div id="model-detail" class="small"></div></section>
+</div>
+<div class="panel"><h2>Results <span id="rates" class="small"></span></h2><div class="tablewrap"><table><thead><tr><th>Round</th><th>Condition</th><th>Outcome</th><th>Flight time</th><th>Distance</th><th>Mean speed</th><th>Min / mean clearance</th></tr></thead><tbody id="rows"></tbody></table></div><div class="small">Kim: complete the observation period without collision and with sufficient movement. MonoNav: reach the target region. Clean/attack pairs share scene placement. Operator stops are excluded.</div></div>
+<div class="panel"><h2>Vulnerability analysis <a id="report-link" href="/report" target="_blank" hidden>Open report</a></h2><div id="analysis">Appears after each completed clean/attack pair and on stop/completion.</div></div>
+<script>
+const el=id=>document.getElementById(id),esc=x=>String(x??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),num=x=>x==null?'—':Number(x).toFixed(2);
+const successes=['goal_reached','completed_horizon'];let viewSynced=false,cameraTimer;
+async function post(path,payload){const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}),d=await r.json();if(!r.ok)throw Error(d.error);return d}
+function selectModel(){el('duration').value=el('target').value==='mononav'?180:120;el('duration-label').textContent=el('target').value==='mononav'?'Timeout':'Observation';refresh()}
+async function start(){el('start').disabled=true;try{await post('/start/feedback',{planner:el('target').value,budget:Number(el('budget').value),timeout:Number(el('duration').value),goal_distance:Number(el('goal').value),profile:el('profile').value,difficulty:el('difficulty').value});el('notice').textContent='Preparing campaign…'}catch(e){el('notice').textContent=e.message}}
+async function control(action){try{await post('/control',{action});el('notice').textContent=action==='stop'?'Stop requested: stopping planner and landing.':action==='pause'?'Pause requested. Any takeoff/landing action finishes first.':'Resuming…'}catch(e){el('notice').textContent=e.message}}
+function cameraUpdate(){clearTimeout(cameraTimer);cameraTimer=setTimeout(async()=>{try{await post('/view',{mode:el('camera').value,distance:Number(el('distance').value),height:Number(el('height').value),azimuth:Number(el('azimuth').value)})}catch(e){el('notice').textContent=e.message}},120)}
+function showImage(id,url){const img=el(id);if(img.dataset.url!==url){img.dataset.url=url;img.onload=()=>img.style.visibility='visible';img.src=url}}
+async function refresh(){try{
+const d=await(await fetch('/state')).json(),saved=d.campaign||{};
+if(!el('target').value&&saved.target_planner){el('target').value=saved.target_planner;el('duration').value=saved.mission?.timeout||(saved.target_planner==='mononav'?180:120)}
+if(d.running&&saved.target_planner){el('target').value=saved.target_planner;el('budget').value=saved.budget;if(saved.mission){el('duration').value=saved.mission.timeout;el('goal').value=saved.mission.goal_distance}if(saved.profile)el('profile').value=saved.profile;if(saved.difficulty)el('difficulty').value=saved.difficulty}
+const target=el('target').value,a=target&&saved.target_planner===target?saved:{},e=a.output&&d.episode?.directory?.startsWith(a.output+'/')?d.episode:{},trial=a.trial||{},c=(a.phase==='running'?trial.condition:null)||a.decision?.condition||e.condition||{},paused=e.phase==='paused'||a.phase==='paused',requested=d.control?.action;
+for(const id of ['target','profile','difficulty','budget','duration','goal'])el(id).disabled=d.running;
+el('goal-control').hidden=target!=='mononav';el('start').disabled=d.running||!target||d.read_only;
+el('duration-label').textContent=target==='mononav'?'Timeout':'Observation';
+el('pause').disabled=!d.running||paused||requested==='pause'||requested==='stop'||d.read_only;
+el('resume').disabled=!d.running||!(paused||requested==='pause')||requested==='stop'||d.read_only;
+el('stop').disabled=!d.running||requested==='stop'||d.read_only;
+el('total').textContent=a.budget?a.completed+' / '+a.budget+' flights':'';
+const phases={startup:'Starting simulator',takeoff:'Taking off',model_loading:'Loading model',planner:'Flying',cleanup:'Finishing flight / landing',paused:'Paused',preflight:'Preparing'};
+el('phase').textContent=paused?'Paused':a.phase==='complete'?'Campaign complete':a.phase==='stopped'?'Campaign stopped':a.phase==='running'?'Round '+a.decision?.round+' · '+(trial.role||'')+' · '+(phases[e.phase]||'Preparing'):a.phase==='reviewing_results'?'Results → next configuration':a.phase==='trial_complete'?trial.role+' · '+trial.result?.outcome:target?'Ready to start':'Select a target model';
+if(requested==='stop'&&d.running)el('phase').textContent='Stopping / landing…';
+if(!d.running&&a.phase&&!['complete','stopped'].includes(a.phase))el('phase').textContent='Campaign interrupted — inspect log before resuming';
+if(paused||a.phase==='complete'||a.phase==='stopped')el('notice').textContent='';
+el('reason').textContent=(a.phase==='complete'?'Next proposal (budget finished; not executed): ':'')+(a.decision?.reason||'Each clean/attack pair chooses the next test for this model.');
+const m=a.mission;el('mission').textContent=m?(target==='kim'?'Observation '+m.timeout+'s · no goal':'Goal '+m.goal_distance+'m · radius '+m.goal_radius+'m · timeout '+m.timeout+'s'):'';
+el('chips').innerHTML=[['Layout',c.layout==null?'—':c.layout+' / seed '+c.layout_seed],['Light',num(c.light)],['Noise σ',num(c.rgb_noise)],['Delay',c.delay==null?'—':Number(c.delay).toFixed(3)+'s'],['Patch',c.patch_enabled?num(c.patch_size)+'m / '+num(c.patch_strength)+' contrast':'off']].map(([k,v])=>'<span class="chip">'+esc(k)+': <b>'+esc(v)+'</b></span>').join('');
+const layout=a.layout_description,shifts=layout?.objects.map(o=>o.shift_from_previous_m).filter(v=>v!=null)||[];el('layout').textContent=layout?layout.library+'. '+(layout.same_as_previous?'Same layout retained. ':shifts.length?'Object shifts from previous layout: '+num(Math.min(...shifts))+'–'+num(Math.max(...shifts))+'m. ':'Seeded placements; original walls and furniture retained. '):'';
+if(!viewSynced&&d.view_settings){const v=d.view_settings;el('camera').value=v.mode;for(const k of ['distance','height','azimuth'])el(k).value=v[k];viewSynced=true}
+if(d.view){showImage('scene-image','/scene.jpg?t='+d.view.wall_time);el('scene-caption').textContent=(Date.now()/1000-d.view.wall_time<3?'Live':'Last rendered frame')+' · simulation '+num(d.view.sim_time)+'s · headless renderer'}
+el('model-title').textContent=target==='mononav'?'MonoNav: RGB → ZoeDepth → TSDF / path':target==='kim'?'Kim et al.: RGB → FCRN → D3QN action':'Model inference';
+const p=d.inference?.[target],matching=p&&a.output&&p.run_id.startsWith(a.output+'/');
+if(matching){showImage('model-image','/inference/'+target+'.jpg?t='+p.wall_time);el('model-caption').textContent=(p.run_id===e.directory&&e.phase==='planner'&&d.running&&Date.now()/1000-p.wall_time<5?'Live inference':'Last processed frame')+' · frame '+p.sequence+' · '+num(p.inference_ms)+'ms';el('model-detail').textContent=target==='kim'?'Action '+p.action+' · command speed '+num(p.speed)+'m/s':'Primitive '+p.primitive+' · TSDF '+p.tsdf_points+' points · goal '+num(p.goal_distance)+'m'}
+else{el('model-image').style.visibility='hidden';el('model-caption').textContent='Waiting for this model / campaign';el('model-detail').textContent=''}
+const rows=a.rows||[];el('rows').innerHTML=rows.map(r=>'<tr><td>'+r.round+'</td><td>'+esc(r.role)+'</td><td class="'+(successes.includes(r.outcome)?'good':'bad')+'">'+esc(r.outcome)+'</td><td>'+num(r.mission_duration_sim_s)+'s</td><td>'+num(r.path_length_m)+'m</td><td>'+num(r.mean_speed_m_s)+'m/s</td><td>'+num(r.minimum_obstacle_clearance_m)+' / '+num(r.mean_obstacle_clearance_m)+'m</td></tr>').join('');
+const valid=rows.filter(r=>!['infrastructure_error','user_stopped'].includes(r.outcome));el('rates').textContent=valid.length?'— Passed '+valid.filter(r=>successes.includes(r.outcome)).length+'/'+valid.length+'; collision '+valid.filter(r=>r.outcome==='collision').length+'/'+valid.length:'';
+const report=a.output?d.analysis:null;el('report-link').hidden=!report;el('analysis').textContent=report?report.conclusion+'\n'+report.findings.map(f=>f.status+': '+f.failures+'/'+f.valid_pairs+' valid pairs; '+f.active_factors.join(' + ')+'. '+f.interpretation).join('\n')+'\nClean-baseline failures: '+report.conditions_with_clean_failure.length+'. See report for settings and metric differences.':'Appears after each completed pair and when stopped.';
+}catch(e){el('phase').textContent='Waiting for bench connection'}}
+setInterval(refresh,150);refresh();
+</script>

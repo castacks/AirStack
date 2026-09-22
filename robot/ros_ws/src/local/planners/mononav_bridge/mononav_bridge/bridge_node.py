@@ -20,10 +20,13 @@ from rclpy.duration import Duration
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 from rclpy.time import Time
-from sensor_msgs.msg import CameraInfo, Image
+from rcl_interfaces.msg import SetParametersResult
+from sensor_msgs.msg import CameraInfo, Image, CompressedImage
 from std_msgs.msg import String
 from tf2_ros import Buffer, TransformException, TransformListener
 from visualization_msgs.msg import Marker, MarkerArray
+
+from .disturbances import DelayedSampleBuffer, add_depth_noise, add_rgb_noise
 
 
 def _transform_matrix(transform):
@@ -67,6 +70,19 @@ class _BridgeRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
+        if self.path.split("?")[0] in ("/image.jpg", "/raw.jpg"):
+            sample = self.server.node.latest_sample()
+            jpeg = self.server.node._raw_jpeg if self.path.startswith("/raw.jpg") else (sample[1] if sample else None)
+            if jpeg is None:
+                self._json_response(503, {"error": "no camera sample"})
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "image/jpeg")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(jpeg)))
+            self.end_headers()
+            self.wfile.write(jpeg)
+            return
         if self.path == "/health":
             self._json_response(200, self.server.node.health())
             return
@@ -117,6 +133,10 @@ class VisionPlannerBridge(Node):
         self.declare_parameter("execute_commands", False)
         self.declare_parameter("command_velocity", 0.35)
         self.declare_parameter("anchor_trajectory_to_odometry", True)
+        self.declare_parameter("disturbance_seed", 0)
+        self.declare_parameter("fixed_sensor_delay_s", 0.0)
+        self.declare_parameter("rgb_noise_stddev", 0.0)
+        self.declare_parameter("depth_noise_stddev_m", 0.0)
 
         self._planner_name = str(self.get_parameter("planner_name").value)
         self._target_frame = self.get_parameter("target_frame").value
@@ -127,12 +147,34 @@ class VisionPlannerBridge(Node):
         self._anchor_to_odometry = bool(
             self.get_parameter("anchor_trajectory_to_odometry").value
         )
+        self._disturbance_seed = int(self.get_parameter("disturbance_seed").value)
+        self._fixed_sensor_delay_s = float(
+            self.get_parameter("fixed_sensor_delay_s").value
+        )
+        self._rgb_noise_stddev = float(
+            self.get_parameter("rgb_noise_stddev").value
+        )
+        self._depth_noise_stddev_m = float(
+            self.get_parameter("depth_noise_stddev_m").value
+        )
+        for name, value in (
+            ("fixed_sensor_delay_s", self._fixed_sensor_delay_s),
+            ("rgb_noise_stddev", self._rgb_noise_stddev),
+            ("depth_noise_stddev_m", self._depth_noise_stddev_m),
+        ):
+            if not math.isfinite(value) or value < 0.0:
+                raise ValueError(f"{name} must be finite and nonnegative")
         self._lock = threading.Lock()
         self._camera_info = None
         self._depth_sample = None
         self._sample = None
+        self._raw_jpeg = None
+        self._disturbance_revision = 0
+        self._sample_buffer = DelayedSampleBuffer(self._fixed_sensor_delay_s)
         self._sequence = 0
-        self._last_frame_wall_time = 0.0
+        self._depth_sequence = 0
+        self.add_on_set_parameters_callback(self._update_disturbance)
+        self._last_frame_time_s = 0.0
         self._last_odom_stamp = None
         self._last_odom_position = None
         self._last_command = None
@@ -152,6 +194,9 @@ class VisionPlannerBridge(Node):
         )
         self._marker_publisher = self.create_publisher(MarkerArray, "trajectory_markers", 1)
         self._status_publisher = self.create_publisher(String, "status", 10)
+        self._input_publisher = self.create_publisher(CompressedImage, "planner_input/compressed", 10)
+        self._input_metadata_publisher = self.create_publisher(String, "input_metadata", 10)
+        self._last_recorded_sample = None
         self._mode_client = self.create_client(TrajectoryMode, "set_trajectory_mode")
         self.create_timer(1.0, self._publish_status)
 
@@ -162,13 +207,42 @@ class VisionPlannerBridge(Node):
         self._http_thread.start()
         self.get_logger().info(
             f"Vision planner bridge ({self._planner_name}) listening on {address}:{port}; "
-            f"execute_commands={self._execute_commands}"
+            f"execute_commands={self._execute_commands}; "
+            f"delay={self._fixed_sensor_delay_s:.3f}s; "
+            f"rgb_noise={self._rgb_noise_stddev:.3f}; "
+            f"depth_noise={self._depth_noise_stddev_m:.3f}m; "
+            f"seed={self._disturbance_seed}"
         )
 
     def destroy_node(self):
         self._http_server.shutdown()
         self._http_server.server_close()
         return super().destroy_node()
+
+    def _clock_now_s(self) -> float:
+        """Node clock in seconds (sim time under use_sim_time, wall otherwise)."""
+        return self.get_clock().now().nanoseconds * 1.0e-9
+
+    def _update_disturbance(self, parameters):
+        fields = {"disturbance_seed": "_disturbance_seed",
+                  "fixed_sensor_delay_s": "_fixed_sensor_delay_s",
+                  "rgb_noise_stddev": "_rgb_noise_stddev",
+                  "depth_noise_stddev_m": "_depth_noise_stddev_m"}
+        changed = {p.name: p.value for p in parameters if p.name in fields}
+        for name, value in changed.items():
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
+                return SetParametersResult(successful=False, reason=f"{name} must be finite and nonnegative")
+            if name == "disturbance_seed" and not isinstance(value, int):
+                return SetParametersResult(successful=False, reason="seed must be an integer")
+        if changed:
+            with self._lock:
+                for name, value in changed.items():
+                    setattr(self, fields[name], value)
+                self._sample_buffer = DelayedSampleBuffer(self._fixed_sensor_delay_s)
+                self._sample = None
+                self._depth_sample = None
+                self._disturbance_revision += 1
+        return SetParametersResult(successful=True)
 
     def _camera_info_callback(self, msg):
         with self._lock:
@@ -220,14 +294,21 @@ class VisionPlannerBridge(Node):
         except ValueError as exc:
             self.get_logger().warn(f"Skipping depth frame: {exc}", throttle_duration_sec=2.0)
             return
+        depth = add_depth_noise(
+            depth,
+            self._depth_noise_stddev_m,
+            self._disturbance_seed,
+            self._depth_sequence,
+        )
+        self._depth_sequence += 1
         stamp = msg.header.stamp.sec + 1.0e-9 * msg.header.stamp.nanosec
         compressed = zlib.compress(depth.astype("<f4", copy=False).tobytes(), level=1)
         with self._lock:
             self._depth_sample = (stamp, msg.width, msg.height, compressed)
 
     def _image_callback(self, msg):
-        now = time.monotonic()
-        if now - self._last_frame_wall_time < 1.0 / max(self._max_frame_rate, 0.1):
+        now = self._clock_now_s()
+        if now - self._last_frame_time_s < 1.0 / max(self._max_frame_rate, 0.1):
             return
         with self._lock:
             camera_info = self._camera_info
@@ -250,6 +331,16 @@ class VisionPlannerBridge(Node):
                     timeout=Duration(seconds=0.03),
                 )
             image = self._image_to_bgr(msg)
+            raw_image = image.copy()
+            raw_ok, raw_jpeg = cv2.imencode(".jpg", raw_image, [cv2.IMWRITE_JPEG_QUALITY, self._jpeg_quality])
+            if raw_ok:
+                self._raw_jpeg = raw_jpeg.tobytes()
+            image = add_rgb_noise(
+                image,
+                self._rgb_noise_stddev,
+                self._disturbance_seed,
+                self._sequence,
+            )
             ok, encoded = cv2.imencode(
                 ".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, self._jpeg_quality]
             )
@@ -269,6 +360,9 @@ class VisionPlannerBridge(Node):
             "height": msg.height,
             "k": camera_info["k"],
             "t_world_camera": _transform_matrix(transform.transform).reshape(-1).tolist(),
+            "sensor_disturbance": self.sensor_disturbance(),
+            "rgb_noise_rmse": float(np.sqrt(np.mean((image.astype(np.float32) - raw_image.astype(np.float32)) ** 2))),
+            "disturbance_revision": self._disturbance_revision,
         }
         depth_bytes = b""
         if depth_sample is not None:
@@ -282,16 +376,40 @@ class VisionPlannerBridge(Node):
                 }
             )
         with self._lock:
-            self._sample = (metadata, encoded.tobytes(), depth_bytes)
+            self._sample_buffer.push(
+                (metadata, encoded.tobytes(), depth_bytes), self._clock_now_s()
+            )
+            self._sample = self._sample_buffer.latest(self._clock_now_s())
             self._sequence += 1
-        self._last_frame_wall_time = now
+        self._last_frame_time_s = now
 
     def latest_sample(self):
         with self._lock:
+            self._sample = self._sample_buffer.latest(self._clock_now_s())
+            if self._sample is not None:
+                metadata,jpeg,_ = self._sample
+                identity=(metadata['sequence'],metadata['disturbance_revision'])
+                if identity != self._last_recorded_sample:
+                    msg=CompressedImage();msg.header.frame_id=metadata['camera_frame']
+                    msg.header.stamp=Time(nanoseconds=round(metadata['stamp']*1e9)).to_msg()
+                    msg.format='jpeg';msg.data=jpeg
+                    self._input_publisher.publish(msg)
+                    self._input_metadata_publisher.publish(String(data=json.dumps(metadata)))
+                    self._last_recorded_sample=identity
             return self._sample
+
+    def sensor_disturbance(self):
+        return {
+            "seed": self._disturbance_seed,
+            "fixed_delay_s": self._fixed_sensor_delay_s,
+            "rgb_noise_stddev": self._rgb_noise_stddev,
+            "depth_noise_stddev_m": self._depth_noise_stddev_m,
+            "revision": self._disturbance_revision,
+        }
 
     def health(self):
         with self._lock:
+            self._sample = self._sample_buffer.latest(self._clock_now_s())
             sample = self._sample
             odom_stamp = self._last_odom_stamp
             last_command = self._last_command
@@ -304,6 +422,8 @@ class VisionPlannerBridge(Node):
             "odometry_stamp": odom_stamp,
             "depth_stamp": None if depth_sample is None else depth_sample[0],
             "execute_commands": self._execute_commands,
+            "sensor_disturbance": self.sensor_disturbance(),
+            "pending_delayed_samples": self._sample_buffer.pending_count,
             "last_command": last_command,
         }
 
@@ -356,6 +476,9 @@ class VisionPlannerBridge(Node):
                 "primitive_index": command_index,
                 "waypoint_count": len(points),
                 "stamp": time.time(),
+                "sim_stamp": self._clock_now_s(),
+                "execute_requested": execute_requested,
+                "published": False,
             }
 
         if not self._execute_commands or not execute_requested:
@@ -380,6 +503,8 @@ class VisionPlannerBridge(Node):
             self._trajectory_override_publisher.publish(trajectory)
         else:
             self._trajectory_publisher.publish(trajectory)
+        with self._lock:
+            self._last_command["published"] = True
         self.get_logger().info(
             f"Published {self._planner_name} command {command_index} with {len(points)} waypoints "
             f"({'override' if replace_trajectory else 'segment'})"

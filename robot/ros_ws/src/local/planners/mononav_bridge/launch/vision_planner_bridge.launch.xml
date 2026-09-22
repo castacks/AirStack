@@ -19,6 +19,10 @@
        default="$(find-pkg-share mononav_bridge)/config/mononav_bridge.yaml" />
   <arg name="vision_planner_max_frame_rate" default="3.0" />
   <arg name="vision_planner_execute_commands" default="false" />
+  <arg name="vision_planner_disturbance_seed" default="0" />
+  <arg name="vision_planner_fixed_sensor_delay_s" default="0.0" />
+  <arg name="vision_planner_rgb_noise_stddev" default="0.0" />
+  <arg name="vision_planner_depth_noise_stddev_m" default="0.0" />
 
   <group>
     <push-ros-namespace namespace="$(var vision_planner_namespace)" />
@@ -28,6 +32,10 @@
       <param name="planner_name" value="$(var vision_planner_name)" />
       <param name="max_frame_rate" value="$(var vision_planner_max_frame_rate)" />
       <param name="execute_commands" value="$(var vision_planner_execute_commands)" />
+      <param name="disturbance_seed" value="$(var vision_planner_disturbance_seed)" />
+      <param name="fixed_sensor_delay_s" value="$(var vision_planner_fixed_sensor_delay_s)" />
+      <param name="rgb_noise_stddev" value="$(var vision_planner_rgb_noise_stddev)" />
+      <param name="depth_noise_stddev_m" value="$(var vision_planner_depth_noise_stddev_m)" />
       <remap from="image" to="$(var vision_planner_image_in_topic)" />
       <remap from="camera_info" to="$(var vision_planner_camera_info_in_topic)" />
       <remap from="depth_image" to="$(var vision_planner_depth_in_topic)" />

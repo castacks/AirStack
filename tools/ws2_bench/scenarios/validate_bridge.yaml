@@ -1,0 +1,3 @@
+name: validate_missing_bridge
+planner: kim
+fault: bridge_unavailable

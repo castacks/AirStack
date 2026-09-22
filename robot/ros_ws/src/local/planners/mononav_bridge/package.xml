@@ -10,6 +10,7 @@
   <buildtool_depend>ament_python</buildtool_depend>
 
   <depend>rclpy</depend>
+  <depend>rcl_interfaces</depend>
   <depend>airstack_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>nav_msgs</depend>

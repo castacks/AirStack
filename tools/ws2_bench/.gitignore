@@ -1,0 +1,5 @@
+assets/*.png
+!assets/learned_patch.png
+diagnostic_patch.png
+__pycache__/
+.pytest_cache/

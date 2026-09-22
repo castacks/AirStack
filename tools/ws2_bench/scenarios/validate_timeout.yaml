@@ -1,0 +1,5 @@
+name: validate_sim_time_timeout
+planner: kim
+timeout: 0.5
+condition:
+  layout: stock

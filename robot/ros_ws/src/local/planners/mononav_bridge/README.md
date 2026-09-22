@@ -6,7 +6,7 @@ original `mononav_bridge` package name for branch compatibility.
 
 The node samples the front camera, optional simulator depth, calibration, odometry, and
 the `map -> camera` optical transform. A compact HTTP interface exposes the latest
-synchronized sample and accepts map-frame waypoint trajectories. External dependencies
+associated sample and accepts map-frame waypoint trajectories. External dependencies
 therefore remain in planner-specific containers instead of the AirStack robot image.
 
 ```mermaid
@@ -32,6 +32,31 @@ Flight execution is disabled by default. When `execute_commands` is false, recei
 paths are visualized but not forwarded to the trajectory controller.
 
 ## Configuration
+
+### Runtime sensor conditions
+
+`disturbance_seed`, `rgb_noise_stddev` (0–255 pixel units),
+`depth_noise_stddev_m`, and `fixed_sensor_delay_s` can be changed through the
+standard atomic ROS parameter service. Invalid nonfinite/negative values are
+rejected; accepted changes clear buffered samples and increment the disturbance
+revision. Delay selects an older sample using the ROS clock; launch with
+`use_sim_time=true` for simulation seconds. RGB noise precedes JPEG encoding.
+Depth noise affects optional simulator depth, not a worker's predicted depth.
+
+`GET /raw.jpg` exposes the latest original camera JPEG; `GET /image.jpg` exposes
+the selected delayed/disturbed input. With delay they show different instants.
+Frame metadata includes disturbance settings, revision and measured RGB noise
+RMSE before JPEG. Selected HTTP input samples are also published on relative
+topics `planner_input/compressed` and `input_metadata` for recording the actual
+disturbed JPEG and camera pose/settings. Publication is deduplicated by frame
+sequence and disturbance revision. `last_command.published` distinguishes a
+trajectory actually published from a visualization-only request; it is not an
+acknowledgment of controller execution.
+
+See the [Office bench](../../../../../../tools/ws2_bench/README.md) for validated
+scene/parameter sequencing. Bridge sample rate and delay use the node's ROS
+clock; worker inference scheduling remains wall-time based. Existing
+RGB/depth/odometry association is not strict time synchronization.
 
 | Parameter | Default | Purpose |
 |---|---:|---|

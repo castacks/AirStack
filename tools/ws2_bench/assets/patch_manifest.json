@@ -1,0 +1,10 @@
+{
+  "filename": "learned_patch.png",
+  "sha256": "5b152747392afea6cc5af14aa25a3e8be9feb843781f1806bdde9753ceeccd80",
+  "width": 128,
+  "height": 128,
+  "source": "Rui, supplied by Mason on 2026-09-22 for config_depth_fcrn.yaml",
+  "download": "Bundled in AirStack at tools/ws2_bench/assets/learned_patch.png; restored with the repository. No separate public download URL.",
+  "training_config": "Humanflow/attk/configs/goal_depth_estimation/config_depth_fcrn.yaml",
+  "note": "Physical size, placement and timing are WS2 test parameters, not prerequisites from Rui. Training dataset and attack efficacy are not inferred from this image."
+}

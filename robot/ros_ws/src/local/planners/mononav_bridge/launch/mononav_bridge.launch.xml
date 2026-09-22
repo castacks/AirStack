@@ -17,6 +17,10 @@
        default="$(find-pkg-share mononav_bridge)/config/mononav_bridge.yaml" />
   <arg name="mononav_bridge_max_frame_rate" default="3.0" />
   <arg name="mononav_bridge_execute_commands" default="false" />
+  <arg name="mononav_bridge_disturbance_seed" default="0" />
+  <arg name="mononav_bridge_fixed_sensor_delay_s" default="0.0" />
+  <arg name="mononav_bridge_rgb_noise_stddev" default="0.0" />
+  <arg name="mononav_bridge_depth_noise_stddev_m" default="0.0" />
 
   <group>
     <push-ros-namespace namespace="mononav" />
@@ -26,6 +30,10 @@
       <param name="planner_name" value="mononav" />
       <param name="max_frame_rate" value="$(var mononav_bridge_max_frame_rate)" />
       <param name="execute_commands" value="$(var mononav_bridge_execute_commands)" />
+      <param name="disturbance_seed" value="$(var mononav_bridge_disturbance_seed)" />
+      <param name="fixed_sensor_delay_s" value="$(var mononav_bridge_fixed_sensor_delay_s)" />
+      <param name="rgb_noise_stddev" value="$(var mononav_bridge_rgb_noise_stddev)" />
+      <param name="depth_noise_stddev_m" value="$(var mononav_bridge_depth_noise_stddev_m)" />
       <remap from="image" to="$(var mononav_bridge_image_in_topic)" />
       <remap from="camera_info" to="$(var mononav_bridge_camera_info_in_topic)" />
       <remap from="depth_image" to="$(var mononav_bridge_depth_in_topic)" />

@@ -1,0 +1,15 @@
+name: MonoNav with Rui patch
+planner: mononav
+height: 1.2
+goal_distance: 4.5
+goal_radius: 1.0
+timeout: 60
+condition:
+  name: Office with Rui patch
+  layout: furnished_a
+  layout_seed: 2
+  light: 1800
+  patch_enabled: true
+  patch_strength: 1.0
+  patch_size: 0.9
+  patch_height: 1.2

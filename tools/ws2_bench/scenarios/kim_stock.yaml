@@ -1,0 +1,9 @@
+name: kim_office_stock
+planner: kim
+condition:
+  layout: stock
+  light: 2200
+height: 1.2
+goal_distance: 2.5
+goal_radius: 1.0
+timeout: 60

@@ -1,0 +1,19 @@
+name: Kim with timed patch and sensor noise
+planner: kim
+height: 1.2
+goal_distance: 4.5
+goal_radius: 1.0
+timeout: 30
+patch_start_s: 2
+patch_duration_s: 3
+condition:
+  name: Timed Rui patch with noise and delay
+  layout: furnished_a
+  layout_seed: 2
+  light: 1800
+  rgb_noise: 12
+  delay: 0.15
+  patch_enabled: true
+  patch_strength: 1.0
+  patch_size: 0.9
+  patch_height: 1.2

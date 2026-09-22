@@ -10,3 +10,7 @@
     execute_commands: false
     command_velocity: 0.35
     anchor_trajectory_to_odometry: true
+    disturbance_seed: 0
+    fixed_sensor_delay_s: 0.0
+    rgb_noise_stddev: 0.0
+    depth_noise_stddev_m: 0.0

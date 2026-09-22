@@ -1,0 +1,5 @@
+name: validate_all_scene_contact
+planner: kim
+condition:
+  layout: stock
+fault: contact_probe
