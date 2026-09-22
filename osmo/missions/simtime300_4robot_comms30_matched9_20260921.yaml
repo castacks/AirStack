@@ -1,0 +1,413 @@
+# Explicitly requested independent repeat of all s1/s2/s3 starts in MilitaryBase, DowntownWest, FireAcademy.
+# 30 m communication, 4 robots, 300 simulated seconds.
+# Robots 1–3 copy source three-robot poses and orientations; verified against saved 3-robot trajectory anchors.
+# Robot 4 retains each existing nearby four-robot pose (nearest separation 2.88–16.32 m).
+# Keep original scores and these reproducibility repeats separately, regardless of outcome.
+name: simtime300_4robot_comms30_matched9_20260921
+nas_dest: /volume4/dsta/raven-simtime300/
+stack:
+  services:
+  - isaac-sim
+  - robot-desktop
+  - gcs
+env:
+  NUM_ROBOTS: 4
+  RAYFRONTS_COMPUTE_PROB: 'True'
+  ISAAC_SIM_HEADLESS: 'true'
+  ISAAC_SIM_USE_STANDALONE: 'true'
+  ISAAC_SIM_SCRIPT_NAME: example_multi_drone_scene_import.py
+  PLAY_SIM_ON_START: 'true'
+  FRONTIER_ONLY_BASELINE: 'false'
+  VLFM_BASELINE: 'false'
+  LVLM_BASELINE: 'false'
+  CONAVGPT_BASELINE: 'false'
+environments:
+- FRONTIER_ONLY_BASELINE: 'false'
+  VLFM_BASELINE: 'false'
+  LVLM_BASELINE: 'false'
+  method: multi-raven
+  ENV_URL: Library/Stages/Dmytro/MilitaryBase_t_x1100_y200_z0_o_x0_y0_z90.scene.usd
+  STAGE_SCALE: '1.0'
+  SPAWN_HEIGHT_M: '1.0'
+  RESULTS_SCENE: MilitaryBase
+  query: guard tower, radio tower, bridge, helicopter
+  background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond,
+    rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse,
+    house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power
+    line, street lamp, street light, traffic signal, sign, mast, ground
+  voxel_score_threshold: 0.5
+  score_threshold: -1
+  voxel_min_cluster_size: 50
+  search_area:
+    points:
+    - x: 1295.0
+      y: 360.0
+      z: 0.0
+    - x: 1000.0
+      y: 360.0
+      z: 0.0
+    - x: 1000.0
+      y: -165.0
+      z: 0.0
+    - x: 1295.0
+      y: -165.0
+      z: 0.0
+  name: militarybase_s1_multiraven_comms30_4r
+  SPAWN_CONFIGS: '[{"x_m": 1110.0, "y_m": 220.0, "orient": [0.0, 0.0, -0.585, 0.811]}, {"x_m": 1116.0, "y_m": 227.0,
+    "orient": [0.0, 0.0, -0.606, 0.795]}, {"x_m": 1122.0, "y_m": 234.0, "orient": [0.0, 0.0, -0.625, 0.78]}, {"x_m":
+    1105.5, "y_m": 239.5, "orient": [0.0, 0.0, -0.6436, 0.7654]}]'
+  COMMS_RANGE_M: 30
+- FRONTIER_ONLY_BASELINE: 'false'
+  VLFM_BASELINE: 'false'
+  LVLM_BASELINE: 'false'
+  method: multi-raven
+  ENV_URL: Library/Stages/Dmytro/MilitaryBase_t_x1100_y200_z0_o_x0_y0_z90.scene.usd
+  STAGE_SCALE: '1.0'
+  SPAWN_HEIGHT_M: '1.0'
+  RESULTS_SCENE: MilitaryBase
+  query: guard tower, radio tower, bridge, helicopter
+  background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond,
+    rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse,
+    house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power
+    line, street lamp, street light, traffic signal, sign, mast, ground
+  voxel_score_threshold: 0.5
+  score_threshold: -1
+  voxel_min_cluster_size: 50
+  search_area:
+    points:
+    - x: 1295.0
+      y: 360.0
+      z: 0.0
+    - x: 1000.0
+      y: 360.0
+      z: 0.0
+    - x: 1000.0
+      y: -165.0
+      z: 0.0
+    - x: 1295.0
+      y: -165.0
+      z: 0.0
+  name: militarybase_s2_multiraven_comms30_4r
+  SPAWN_CONFIGS: '[{"x_m": 1015.0, "y_m": 325.0, "orient": [0.0, 0.0, -0.8289, 0.5594]}, {"x_m": 1023.0, "y_m":
+    333.0, "orient": [0.0, 0.0, -0.5149, 0.8573]}, {"x_m": 1031.0, "y_m": 341.0, "orient": [0.0, 0.0, -0.1043, 0.9945]},
+    {"x_m": 1013.972, "y_m": 334.386, "orient": [0.0, 0.0, -0.8603891721326119, 0.5096375893485082]}]'
+  COMMS_RANGE_M: 30
+- FRONTIER_ONLY_BASELINE: 'false'
+  VLFM_BASELINE: 'false'
+  LVLM_BASELINE: 'false'
+  method: multi-raven
+  ENV_URL: Library/Stages/Dmytro/MilitaryBase_t_x1100_y200_z0_o_x0_y0_z90.scene.usd
+  STAGE_SCALE: '1.0'
+  SPAWN_HEIGHT_M: '1.0'
+  RESULTS_SCENE: MilitaryBase
+  query: guard tower, radio tower, bridge, helicopter
+  background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond,
+    rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse,
+    house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power
+    line, street lamp, street light, traffic signal, sign, mast, ground
+  voxel_score_threshold: 0.5
+  score_threshold: -1
+  voxel_min_cluster_size: 50
+  search_area:
+    points:
+    - x: 1295.0
+      y: 360.0
+      z: 0.0
+    - x: 1000.0
+      y: 360.0
+      z: 0.0
+    - x: 1000.0
+      y: -165.0
+      z: 0.0
+    - x: 1295.0
+      y: -165.0
+      z: 0.0
+  name: militarybase_s3_multiraven_comms30_4r
+  SPAWN_CONFIGS: '[{"x_m": 1200.0, "y_m": 209.0, "orient": [0.0, 0.0, -0.9858, 0.1679]}, {"x_m": 1204.0, "y_m":
+    214.0, "orient": [0.0, 0.0, -0.8225, 0.5688]}, {"x_m": 1207.0, "y_m": 219.0, "orient": [0.0, 0.0, -0.5051, 0.8631]},
+    {"x_m": 1210.273, "y_m": 217.481, "orient": [0.0, 0.0, 0.55853962998132, 0.8294778367987479]}]'
+  COMMS_RANGE_M: 30
+- FRONTIER_ONLY_BASELINE: 'false'
+  VLFM_BASELINE: 'false'
+  LVLM_BASELINE: 'false'
+  method: multi-raven
+  ENV_URL: Library/Stages/Dmytro/downtown_edited_v3_818.usd
+  STAGE_SCALE: '1.0'
+  SPAWN_HEIGHT_M: '0.2'
+  RESULTS_SCENE: DowntownWest
+  query: fountain, car, truck
+  background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond,
+    rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse,
+    house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power
+    line, street lamp, street light, traffic signal, sign, mast, ground
+  voxel_score_threshold: 0.5
+  score_threshold: -1
+  voxel_min_cluster_size: 50
+  search_area:
+    points:
+    - x: 160.0
+      y: 100.0
+      z: 0.0
+    - x: 160.0
+      y: -100.0
+      z: 0.0
+    - x: -260.0
+      y: -100.0
+      z: 0.0
+    - x: -260.0
+      y: 100.0
+      z: 0.0
+  name: downtownwest_s1_multiraven_comms30_4r
+  SPAWN_CONFIGS: '[{"x_m": -1.0, "y_m": -41.0, "orient": [0.0, 0.0, 0.698, 0.716]}, {"x_m": 3.0, "y_m": -35.0, "orient":
+    [0.0, 0.0, 0.736, 0.677]}, {"x_m": 7.0, "y_m": -30.0, "orient": [0.0, 0.0, 0.784, 0.621]}, {"x_m": 8.5, "y_m":
+    -42.5, "orient": [0.0, 0.0, 0.8277, 0.5612]}]'
+  COMMS_RANGE_M: 30
+- FRONTIER_ONLY_BASELINE: 'false'
+  VLFM_BASELINE: 'false'
+  LVLM_BASELINE: 'false'
+  method: multi-raven
+  ENV_URL: Library/Stages/Dmytro/downtown_edited_v3_818.usd
+  STAGE_SCALE: '1.0'
+  SPAWN_HEIGHT_M: '0.2'
+  RESULTS_SCENE: DowntownWest
+  query: fountain, car, truck
+  background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond,
+    rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse,
+    house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power
+    line, street lamp, street light, traffic signal, sign, mast, ground
+  voxel_score_threshold: 0.5
+  score_threshold: -1
+  voxel_min_cluster_size: 50
+  search_area:
+    points:
+    - x: 160.0
+      y: 100.0
+      z: 0.0
+    - x: 160.0
+      y: -100.0
+      z: 0.0
+    - x: -260.0
+      y: -100.0
+      z: 0.0
+    - x: -260.0
+      y: 100.0
+      z: 0.0
+  name: downtownwest_s2_multiraven_comms30_4r
+  SPAWN_CONFIGS: '[{"x_m": -33.0, "y_m": 59.0, "orient": [0.0, 0.0, -0.8583, 0.5132]}, {"x_m": -25.0, "y_m": 62.0,
+    "orient": [0.0, 0.0, -0.561, 0.8278]}, {"x_m": -16.0, "y_m": 64.5, "orient": [0.0, 0.0, -0.1586, 0.9873]}, {"x_m":
+    -10.5, "y_m": 56.5, "orient": [0.0, 0.0, 0.2735, 0.9619]}]'
+  COMMS_RANGE_M: 30
+- FRONTIER_ONLY_BASELINE: 'false'
+  VLFM_BASELINE: 'false'
+  LVLM_BASELINE: 'false'
+  method: multi-raven
+  ENV_URL: Library/Stages/Dmytro/downtown_edited_v3_818.usd
+  STAGE_SCALE: '1.0'
+  SPAWN_HEIGHT_M: '0.2'
+  RESULTS_SCENE: DowntownWest
+  query: fountain, car, truck
+  background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond,
+    rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse,
+    house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power
+    line, street lamp, street light, traffic signal, sign, mast, ground
+  voxel_score_threshold: 0.5
+  score_threshold: -1
+  voxel_min_cluster_size: 50
+  search_area:
+    points:
+    - x: 160.0
+      y: 100.0
+      z: 0.0
+    - x: 160.0
+      y: -100.0
+      z: 0.0
+    - x: -260.0
+      y: -100.0
+      z: 0.0
+    - x: -260.0
+      y: 100.0
+      z: 0.0
+  name: downtownwest_s3_multiraven_comms30_4r
+  SPAWN_CONFIGS: '[{"x_m": -120.0, "y_m": -0.5, "orient": [0.0, 0.0, -0.4343, 0.9007]}, {"x_m": -115.5, "y_m": 3.0,
+    "orient": [0.0, 0.0, -0.013, 0.9999]}, {"x_m": -111.0, "y_m": 6.5, "orient": [0.0, 0.0, 0.4108, 0.9117]}, {"x_m":
+    -123.7, "y_m": 1.1, "orient": [0.0, 0.0, -0.7742, 0.6329]}]'
+  COMMS_RANGE_M: 30
+- FRONTIER_ONLY_BASELINE: 'false'
+  VLFM_BASELINE: 'false'
+  LVLM_BASELINE: 'false'
+  method: multi-raven
+  ENV_URL: Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd
+  STAGE_SCALE: '0.01'
+  SPAWN_HEIGHT_M: '0.2'
+  RESULTS_SCENE: FireAcademy
+  query: red building, water tower, fuel tank, radio tower
+  background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond,
+    rubble, tree, shrub, hedge, forest, tree canopy, building facade, roof, window, door, warehouse, house, garage,
+    shed, hangar, fence, railing, stairs, parking lot, runway, electrical pole, power line, street lamp, street
+    light, traffic signal, sign, mast, ground
+  voxel_score_threshold: 0.5
+  score_threshold: -1
+  voxel_min_cluster_size: 30
+  search_area:
+    points:
+    - x: 13.0
+      y: -135.0
+      z: 0.0
+    - x: 135.0
+      y: -13.0
+      z: 0.0
+    - x: 13.0
+      y: 135.0
+      z: 0.0
+    - x: -135.0
+      y: 13.0
+      z: 0.0
+  name: fireacademy_s1_multiraven_comms30_4r
+  SPAWN_CONFIGS: '[{"x_m": 27.34, "y_m": 5.359, "orient": [0.0, 0.0, 0.9757, 0.2192]}, {"x_m": 25.982, "y_m": 12.241,
+    "orient": [0.0, 0.0, -0.2076, 0.9782]}, {"x_m": 26.223, "y_m": 15.534, "orient": [0.0, 0.0, -0.3285, 0.9445]},
+    {"x_m": 29.05, "y_m": 9.3, "orient": [0.0, 0.0, -0.4442, 0.8959]}]'
+  COMMS_RANGE_M: 30
+- FRONTIER_ONLY_BASELINE: 'false'
+  VLFM_BASELINE: 'false'
+  LVLM_BASELINE: 'false'
+  method: multi-raven
+  ENV_URL: Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd
+  STAGE_SCALE: '0.01'
+  SPAWN_HEIGHT_M: '0.2'
+  RESULTS_SCENE: FireAcademy
+  query: red building, water tower, fuel tank, radio tower
+  background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond,
+    rubble, tree, shrub, hedge, forest, tree canopy, building facade, roof, window, door, warehouse, house, garage,
+    shed, hangar, fence, railing, stairs, parking lot, runway, electrical pole, power line, street lamp, street
+    light, traffic signal, sign, mast, ground
+  voxel_score_threshold: 0.5
+  score_threshold: -1
+  voxel_min_cluster_size: 30
+  search_area:
+    points:
+    - x: 13.0
+      y: -135.0
+      z: 0.0
+    - x: 135.0
+      y: -13.0
+      z: 0.0
+    - x: 13.0
+      y: 135.0
+      z: 0.0
+    - x: -135.0
+      y: 13.0
+      z: 0.0
+  name: fireacademy_s2_multiraven_comms30_4r
+  SPAWN_CONFIGS: '[{"x_m": 5.57, "y_m": 29.69, "orient": [0.0, 0.0, -0.9581, 0.2865]}, {"x_m": 8.02, "y_m": 31.76,
+    "orient": [0.0, 0.0, -0.7472, 0.6646]}, {"x_m": 10.46, "y_m": 33.82, "orient": [0.0, 0.0, -0.3964, 0.9181]},
+    {"x_m": 8.35, "y_m": 28.9, "orient": [0.0, 0.0, 0.0286, 0.9996]}]'
+  COMMS_RANGE_M: 30
+- FRONTIER_ONLY_BASELINE: 'false'
+  VLFM_BASELINE: 'false'
+  LVLM_BASELINE: 'false'
+  method: multi-raven
+  ENV_URL: Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd
+  STAGE_SCALE: '0.01'
+  SPAWN_HEIGHT_M: '0.2'
+  RESULTS_SCENE: FireAcademy
+  query: red building, water tower, fuel tank, radio tower
+  background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond,
+    rubble, tree, shrub, hedge, forest, tree canopy, building facade, roof, window, door, warehouse, house, garage,
+    shed, hangar, fence, railing, stairs, parking lot, runway, electrical pole, power line, street lamp, street
+    light, traffic signal, sign, mast, ground
+  voxel_score_threshold: 0.5
+  score_threshold: -1
+  voxel_min_cluster_size: 30
+  search_area:
+    points:
+    - x: 13.0
+      y: -135.0
+      z: 0.0
+    - x: 135.0
+      y: -13.0
+      z: 0.0
+    - x: 13.0
+      y: 135.0
+      z: 0.0
+    - x: -135.0
+      y: 13.0
+      z: 0.0
+  name: fireacademy_s3_multiraven_comms30_4r
+  SPAWN_CONFIGS: '[{"x_m": -46.4, "y_m": 12.8, "orient": [0.0, 0.0, -0.5535, 0.8328]}, {"x_m": -49.2, "y_m": 17.2,
+    "orient": [0.0, 0.0, -0.1497, 0.9887]}, {"x_m": -44.8, "y_m": 18.8, "orient": [0.0, 0.0, 0.2822, 0.9594]}, {"x_m":
+    -42.25, "y_m": 14.95, "orient": [0.0, 0.0, 0.6612, 0.7502]}]'
+  COMMS_RANGE_M: 30
+command_route: gcs
+environment_order: grouped
+iterations: 1
+iteration_attempts: 3
+ready:
+  timeout_s: 1200
+record:
+  enabled: true
+  scope: both
+  required: true
+  topics:
+  - /tf
+  - /tf_static
+  - /{robot}/odometry_conversion/odometry
+  - /gcs/robot_markers
+  - /gcs/payload/{robot}/filtered_rays
+  - /gcs/payload/{robot}/filtered_frontiers
+  - /gcs/payload/{robot}/explored_area_coverage
+  - /gcs/payload/{robot}/confirmed_targets
+  - /gcs/payload/{robot}/auction_table
+  - /gcs/sim_ground
+  - /gcs/annotations/bboxes
+  robot_topics:
+  - /robot_{n}/rayfronts/voxel_rgb
+  - /robot_{n}/rayfronts/msg_serv/voxels_sim/all
+on_step_failure: abort_iteration
+steps:
+- run:
+    container: pod
+    cmd: 'echo "[pod] shm: $(df -h /dev/shm | tail -1) segments=$(ls -1 /dev/shm 2>/dev/null | wc -l)"; echo "[pod]
+      disk: $(df -h / | tail -1)"'
+    timeout_s: 60
+    expect_success: false
+  optional: true
+- run:
+    container: robot_1
+    cmd: python3 -c "import torch; torch.hub.load('NVlabs/RADIO', 'radio_model', version='c-radio_v3-b', skip_validation=True,
+      adaptor_names=['siglip2','sam'])"
+    timeout_s: 900
+    attempts: 5
+    retry_delay_s: 15
+- run:
+    container: robot_1
+    cmd: python3 -c "from huggingface_hub import snapshot_download; snapshot_download('OpenGVLab/InternVL3-2B')"
+    timeout_s: 900
+    attempts: 5
+    retry_delay_s: 15
+- action:
+    task: takeoff
+    goal:
+      target_altitude_m: 12.0
+      velocity_m_s: 1.0
+    timeout_s: 180
+- wait: 5
+- action:
+    task: semantic_search
+    timeout_s: 2400
+    cancel_on_timeout: false
+    pass_on_feedback: false
+    goal:
+      query: '{{env.query}}'
+      background_queries: '{{env.background_queries}}'
+      search_area: '{{env.search_area}}'
+      min_altitude_agl: 5.0
+      max_altitude_agl: 20.0
+      min_flight_speed: 0.5
+      max_flight_speed: 1.0
+      confidence_threshold: 0.95
+      voxel_score_threshold: '{{env.voxel_score_threshold}}'
+      score_threshold: '{{env.score_threshold}}'
+      voxel_min_cluster_size: '{{env.voxel_min_cluster_size}}'
+      bundle_len: 3
+      max_sim_seconds: 300
+    attempts: 1
