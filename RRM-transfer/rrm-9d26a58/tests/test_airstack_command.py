@@ -2,7 +2,8 @@
 import unittest
 
 from rrm.airstack_command import (
-    EXPLORATION_ACTION, LAND_ACTION, NAVIGATE_ACTION, TAKEOFF_ACTION, plan_command,
+    CommandClarificationRequired, CommandEnvironment, EXPLORATION_ACTION, LAND_ACTION,
+    NAVIGATE_ACTION, ParameterSource, TAKEOFF_ACTION, ground_command, plan_command,
     takeoff_recovery_action,
 )
 from rrm.airstack_drone import DroneTaskKind
@@ -84,6 +85,81 @@ class AirStackCommandTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Unsupported movement command"):
             plan_command("do something interesting", task_id="t1", robot_name="robot_1",
                          action_servers=ALL, airborne=False)
+
+    def test_vague_live_goal_is_grounded_bounded_and_returns_to_start(self):
+        grounded = ground_command(
+            "Fly and explore the world for a couple of seconds, then come back and land",
+            task_id="t1", robot_name="robot_1", action_servers=ALL, airborne=False,
+            environment=CommandEnvironment(
+                active_scene="office", current_position=(0.2, -0.4, 0.02), yaw_rad=0.0,
+                map_fresh=True, map_point_count=852,
+                map_bounds_xy=(-5.0, 5.0, -4.0, 4.0),
+            ),
+        )
+        self.assertEqual([item.kind for item in grounded.actions], [
+            DroneTaskKind.TAKEOFF, DroneTaskKind.EXPLORE,
+            DroneTaskKind.NAVIGATE, DroneTaskKind.LAND,
+        ])
+        explore = grounded.actions[1]
+        self.assertEqual(explore.time_limit_s, 5.0)
+        self.assertEqual(len(explore.search_bounds), 4)
+        self.assertEqual(
+            [(point.x, point.y, point.z) for point in grounded.actions[2].waypoints],
+            [(0.2, -0.4, 1.5)],
+        )
+        duration = next(item for item in grounded.parameter_grounding
+                        if item.action_id == explore.action_id
+                        and item.parameter == "time_limit_s")
+        self.assertEqual(duration.requested_value, 2.0)
+        self.assertEqual(duration.source, ParameterSource.VEHICLE_ENVELOPE)
+        bounds = next(item for item in grounded.parameter_grounding
+                      if item.action_id == explore.action_id
+                      and item.parameter == "search_bounds")
+        self.assertEqual(bounds.source, ParameterSource.ENVIRONMENT_OBSERVATION)
+        self.assertTrue(any("supported minimum" in item for item in grounded.assumptions))
+
+    def test_numeric_duration_and_missing_duration_have_distinct_provenance(self):
+        explicit = ground_command(
+            "explore for 2 minutes", task_id="t1", robot_name="robot_1",
+            action_servers=ALL, airborne=True,
+            environment=CommandEnvironment(current_position=(0.0, 0.0, 1.5)),
+        )
+        default = ground_command(
+            "explore", task_id="t2", robot_name="robot_1",
+            action_servers=ALL, airborne=True,
+            environment=CommandEnvironment(current_position=(0.0, 0.0, 1.5)),
+        )
+        explicit_duration = next(item for item in explicit.parameter_grounding
+                                 if item.parameter == "time_limit_s")
+        default_duration = next(item for item in default.parameter_grounding
+                                if item.parameter == "time_limit_s")
+        self.assertEqual((explicit.actions[0].time_limit_s, explicit_duration.source),
+                         (120.0, ParameterSource.OPERATOR_EXPLICIT))
+        self.assertEqual((default.actions[0].time_limit_s, default_duration.source),
+                         (30.0, ParameterSource.POLICY_DEFAULT))
+
+    def test_material_ambiguity_asks_one_targeted_question(self):
+        with self.assertRaisesRegex(CommandClarificationRequired, "map coordinate"):
+            ground_command("fly there", task_id="t1", robot_name="robot_1",
+                           action_servers=ALL, airborne=True)
+        with self.assertRaisesRegex(CommandClarificationRequired, "between 0.5 and 3"):
+            ground_command("take off to 20 meters", task_id="t1", robot_name="robot_1",
+                           action_servers=ALL, airborne=False)
+
+    def test_fresh_map_extent_can_tighten_exploration_bounds(self):
+        grounded = ground_command(
+            "explore for 10 seconds", task_id="t1", robot_name="robot_1",
+            action_servers=ALL, airborne=True,
+            environment=CommandEnvironment(
+                current_position=(0.0, 0.0, 1.5), map_fresh=True,
+                map_bounds_xy=(-2.0, 2.0, -2.0, 2.0),
+            ),
+        )
+        xs = [point.x for point in grounded.actions[0].search_bounds]
+        self.assertEqual((min(xs), max(xs)), (-1.6, 1.6))
+        bounds = next(item for item in grounded.parameter_grounding
+                      if item.parameter == "search_bounds")
+        self.assertEqual(bounds.source, ParameterSource.ENVIRONMENT_OBSERVATION)
 
 
 if __name__ == "__main__":

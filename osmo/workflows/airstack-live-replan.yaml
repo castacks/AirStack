@@ -7,7 +7,13 @@
 #
 # Submit with an existing pool (this does not create or restart a pool):
 #   osmo workflow submit osmo/workflows/airstack-live-replan.yaml --pool <gpu-pool> \
-#     --set-env "SSH_PUB_KEY=$(cat ~/.ssh/id_ed25519.pub)"
+#     --set-env "SSH_PUB_KEY=$(cat ~/.ssh/id_ed25519.pub)" \
+#     --set-env "ISAAC_SIM_SCENE=Office" \
+#     --set-env "ISAAC_SIM_STAGE_SCALE=1.0"
+#
+# No scene environment is set below: an omitted override deliberately launches
+# Pegasus's Default Environment.  `Office` is the resolved Pegasus key (not the
+# AirStack catalog shortname `office`) required by the checked-in Office RRM examples.
 
 workflow:
   name: airstack-live-replan
@@ -30,6 +36,8 @@ workflow:
         NUM_ROBOTS: "1"
         AIRSTACK_BRANCH: "main"
         AIRSTACK_REPO_URL: "https://github.com/castacks/AirStack.git"
+        # Set ISAAC_SIM_SCENE / ISAAC_SIM_STAGE_SCALE at submission time to
+        # select a non-default scene; see the command above and the RRM README.
         # The current console does not call this yet. The future provider adapter
         # receives this private URL; no worker port-forward is required.
         RRM_COSMOS_WORKER_URL: "http://{{host:cosmos-worker}}:8090"

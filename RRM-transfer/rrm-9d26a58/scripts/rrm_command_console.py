@@ -21,7 +21,7 @@ import uuid
 
 from rrm_cosmos_reason2 import load_context
 from rrm_import_office import import_bundle
-from rrm.airstack_command import plan_command, takeoff_recovery_action
+from rrm.airstack_command import CommandEnvironment, ground_command, takeoff_recovery_action
 from rrm.execution_supervisor import ExecutionSupervisor, RunningDispatch
 from rrm.cosmos_entity_verifier_client import CosmosEntityVerifierClient
 from rrm.cosmos_worker_client import CosmosWorkerClient
@@ -331,15 +331,40 @@ class Console:
                 for values in discovery.get("task_servers", {}).values()
                 for action_type in values
             }
-            proposals = plan_command(
+            position = (
+                tuple(discovery["position"][key] for key in ("x", "y", "z"))
+                if discovery.get("position") else None
+            )
+            raw_bounds = discovery.get("vdb_map_bounds")
+            map_bounds_xy = (
+                tuple(raw_bounds[key] for key in ("min_x", "max_x", "min_y", "max_y"))
+                if isinstance(raw_bounds, dict)
+                and all(isinstance(raw_bounds.get(key), (int, float))
+                        for key in ("min_x", "max_x", "min_y", "max_y"))
+                else None
+            )
+            grounded = ground_command(
                 goal["objective"], task_id=run["task_id"], robot_name="robot_1",
                 action_servers=action_types, airborne=discovery["airborne"],
-                current_position=(
-                    tuple(discovery["position"][key] for key in ("x", "y", "z"))
-                    if discovery.get("position") else None
+                environment=CommandEnvironment(
+                    active_scene=self.active_scene_shortname,
+                    current_position=position,
+                    yaw_rad=discovery.get("yaw_rad"),
+                    map_fresh=discovery.get("vdb_map_fresh") is True,
+                    map_point_count=discovery.get("vdb_map_point_count"),
+                    map_bounds_xy=map_bounds_xy,
                 ),
-                yaw_rad=discovery.get("yaw_rad"),
             )
+            proposals = grounded.actions
+            state_reasons = discovery.get("flight_state_reasons") or []
+            if (discovery.get("flight_state_consistent") is False
+                    and any(proposal.kind.value != "LAND" for proposal in proposals)):
+                raise RuntimeError(
+                    "Canonical airborne state contradicts map altitude ("
+                    + ", ".join(state_reasons)
+                    + "). Only an explicit landing/reconciliation command is allowed "
+                      "before another mission."
+                )
             if (any(proposal.kind.value == "EXPLORE" for proposal in proposals)
                     and (discovery.get("vdb_map_fresh") is not True
                          or discovery.get("vdb_map_frame_id") != "map")):
@@ -356,13 +381,28 @@ class Console:
                 "active_scene": self.active_scene_shortname,
                 "discovery": discovery,
                 "actions": [proposal.model_dump(mode="json") for proposal in proposals],
+                "grounding": {
+                    "schema_version": grounded.schema_version,
+                    "objective": grounded.objective,
+                    "parameter_grounding": [
+                        item.model_dump(mode="json") for item in grounded.parameter_grounding
+                    ],
+                    "assumptions": list(grounded.assumptions),
+                    "environment": grounded.environment.model_dump(mode="json"),
+                    "vehicle_envelope_revision": grounded.vehicle_envelope_revision,
+                },
+                "replan_policy": {
+                    "mode": "observe_between_actions",
+                    "state_max_age_s": 2.0,
+                    "blind_retry": False,
+                },
                 "recovery": None,
                 "execution_dispatch": True,
             }
             recovery = takeoff_recovery_action(proposals)
             if recovery is not None:
                 plan_record["recovery"] = {
-                    "trigger": "verified_takeoff_mismatch_while_airborne",
+                    "trigger": "verified_mission_halt_while_airborne",
                     "action": recovery.model_dump(mode="json"),
                 }
             plan_path.write_text(json.dumps(plan_record, indent=2, sort_keys=True) + "\n",

@@ -26,18 +26,32 @@ def proposal(kind: DroneTaskKind, action_id: str) -> DroneTaskProposal:
     )
 
 
-def write_plan(path: Path) -> None:
+def write_plan(path: Path, *, replan: bool = False) -> None:
     takeoff = proposal(DroneTaskKind.TAKEOFF, "takeoff-0")
     explore = proposal(DroneTaskKind.EXPLORE, "explore-1")
     recovery = proposal(DroneTaskKind.LAND, "takeoff-0-recovery-land")
-    path.write_text(json.dumps({
+    value = {
         "schema_version": "rrm-airstack-command-plan/v1",
         "actions": [takeoff.model_dump(mode="json"), explore.model_dump(mode="json")],
         "recovery": {
             "trigger": "verified_takeoff_mismatch_while_airborne",
             "action": recovery.model_dump(mode="json"),
         },
-    }), encoding="utf-8")
+    }
+    if replan:
+        value["replan_policy"] = {
+            "mode": "observe_between_actions", "blind_retry": False,
+        }
+    path.write_text(json.dumps(value), encoding="utf-8")
+
+
+def state(*, airborne: bool, armed: bool, position=None) -> dict:
+    return {
+        "schema_version": "airstack-task-discovery/v1",
+        "missing_state": [], "stale_state": [], "connected": True,
+        "airborne": airborne, "armed": armed,
+        "position": position or {"x": 0.0, "y": 0.0, "z": 1.5},
+    }
 
 
 class CommandMissionRecoveryTests(unittest.TestCase):
@@ -104,6 +118,110 @@ class CommandMissionRecoveryTests(unittest.TestCase):
             mission._recovery_action(
                 {"actions": [takeoff.model_dump(mode="json")]}, (takeoff,)
             )
+
+    def test_verified_action_observes_and_reconciles_before_next_dispatch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan_path = root / "plan.json"
+            evidence = root / "evidence"
+            write_plan(plan_path, replan=True)
+            calls = []
+
+            def execute(item, _timeout, **kwargs):
+                calls.append(item.kind)
+                kwargs["outcome_json"].write_text(json.dumps({
+                    "action_success": True, "verdict": "VERIFIED", "reasons": [],
+                }), encoding="utf-8")
+                return 0
+
+            argv = ["airstack_command_mission.py", "--plan-json", str(plan_path),
+                    "--evidence-dir", str(evidence), "--execute"]
+            with patch.object(sys, "argv", argv), patch.object(
+                    mission.dispatcher, "_execute", side_effect=execute), patch.object(
+                    mission, "_observe_state", return_value=state(airborne=True, armed=True)):
+                self.assertEqual(mission.main(), 0)
+
+            self.assertEqual(calls, [DroneTaskKind.TAKEOFF, DroneTaskKind.EXPLORE])
+            decision = json.loads(
+                (evidence / "replan-0001-explore-1.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(decision["decision"], "CONTINUE")
+            outcome = json.loads((evidence / "mission-outcome.json").read_text())
+            self.assertEqual(outcome["status"], "VERIFIED")
+            self.assertEqual(len(outcome["replans"]), 1)
+
+    def test_incompatible_fresh_state_halts_without_dispatch_or_retry(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan_path = root / "plan.json"
+            evidence = root / "evidence"
+            write_plan(plan_path, replan=True)
+            calls = []
+
+            def execute(item, _timeout, **kwargs):
+                calls.append(item.kind)
+                kwargs["outcome_json"].write_text(json.dumps({
+                    "action_success": True, "verdict": "VERIFIED", "reasons": [],
+                }), encoding="utf-8")
+                return 0
+
+            argv = ["airstack_command_mission.py", "--plan-json", str(plan_path),
+                    "--evidence-dir", str(evidence), "--execute"]
+            with patch.object(sys, "argv", argv), patch.object(
+                    mission.dispatcher, "_execute", side_effect=execute), patch.object(
+                    mission, "_observe_state", return_value=state(airborne=False, armed=False)):
+                self.assertEqual(mission.main(), 4)
+
+            self.assertEqual(calls, [DroneTaskKind.TAKEOFF])
+            outcome = json.loads((evidence / "mission-outcome.json").read_text())
+            self.assertEqual(outcome["status"], "HALTED")
+            self.assertEqual(outcome["replans"][0]["reason"],
+                             "airborne_action_without_flight_state")
+
+    def test_replan_can_skip_only_an_independently_satisfied_action(self):
+        land = proposal(DroneTaskKind.LAND, "land-1")
+        decision = mission._replan_decision(
+            land, state(airborne=False, armed=False, position={"x": 0, "y": 0, "z": 0.02})
+        )
+        self.assertEqual(decision["decision"], "SKIP_SATISFIED")
+        unavailable = state(airborne=True, armed=True)
+        unavailable["stale_state"] = ["odometry"]
+        self.assertEqual(mission._replan_decision(land, unavailable)["decision"], "HALT")
+        explore = proposal(DroneTaskKind.EXPLORE, "explore-2")
+        contradictory = state(
+            airborne=True, armed=True, position={"x": 0, "y": 0, "z": 0.02}
+        )
+        decision = mission._replan_decision(explore, contradictory)
+        self.assertEqual((decision["decision"], decision["reason"]),
+                         ("HALT", "contradictory_airborne_altitude"))
+        inconsistent = state(
+            airborne=False, armed=False, position={"x": 0, "y": 0, "z": 1.2}
+        )
+        inconsistent["flight_state_consistent"] = False
+        decision = mission._replan_decision(land, inconsistent)
+        self.assertEqual((decision["decision"], decision["reason"]),
+                         ("HALT", "contradictory_flight_state"))
+
+    def test_replan_recovery_requires_fresh_meaningful_airborne_evidence(self):
+        airborne = {
+            "decision": "HALT",
+            "observation": state(
+                airborne=True, armed=True,
+                position={"x": 0.0, "y": 0.0, "z": 1.2},
+            ),
+        }
+        self.assertTrue(mission._needs_replan_recovery(airborne))
+        low = json.loads(json.dumps(airborne))
+        low["observation"]["position"]["z"] = 0.1
+        self.assertFalse(mission._needs_replan_recovery(low))
+        stale = json.loads(json.dumps(airborne))
+        stale["observation"]["stale_state"] = ["odometry"]
+        self.assertFalse(mission._needs_replan_recovery(stale))
+        contradictory = json.loads(json.dumps(airborne))
+        contradictory["observation"]["flight_state_consistent"] = False
+        self.assertFalse(mission._needs_replan_recovery(contradictory))
+        unknown = {"decision": "HALT", "reason": "observation_failed"}
+        self.assertFalse(mission._needs_replan_recovery(unknown))
 
 
 if __name__ == "__main__":

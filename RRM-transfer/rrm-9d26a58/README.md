@@ -82,11 +82,15 @@ public task executors in the running robot stack, compiles a typed action sequen
 runs it after browser confirmation. Supported scene-independent command forms are:
 
 - `take off`, `land`;
-- `explore`, `survey`, `roam`, or `map the ...`, optionally `for N seconds`;
+- `explore`, `survey`, `roam`, or `map the ...`, optionally with numeric or common
+  language durations such as `for 20 seconds`, `for 2 minutes`, `briefly`, or
+  `for a couple of seconds`;
 - one or more robot-local map points, such as `fly to x=2 y=-1 z=1.5` or
   `fly through (1,2,1.5), (4,-2,2)`;
 - current-heading-relative movement such as `move forward 2 meters`, `move left 1m`,
-  or `move up 1m`.
+  or `move up 1m`;
+- `come back`, `go back`, or `return home/to the start`, which inserts navigation to
+  the fresh command-start map pose before any requested landing.
 
 Grounded navigation/exploration automatically inserts takeoff. Exploration invokes
 AirStack's `ExplorationTask`, whose active global planner uses the live VDB map and
@@ -94,13 +98,23 @@ continually delegates/replans through `NavigateTask`; coordinate and relative ro
 use `NavigateTask` and its active DROAN local planner. Commands are rejected when the
 required action server, canonical state, or exploration map feed is absent. A request
 to move to an arbitrary visually described object still requires a real
-`SemanticSearchTask`/equivalent executor; the current `full_default` stack advertises
-that interface to clients but does not serve it, so RRM does not invent that capability.
+`SemanticSearchTask`/equivalent executor. Likewise, a return leg requires a currently
+served `NavigateTask`. ROS graph names created only by action clients are excluded, so
+RRM does not invent either capability when its server is absent.
 
 The camera is optional for these movement commands. It remains available for visual
 evidence and the older model-grounding workflow. Commands therefore work after any
 catalog scene switch or manual stage edit; execution relies on current robot/map state,
 not the Office entity catalog.
+
+The deterministic compiler records the origin of every numeric parameter in
+`command-plan.json`: operator value, semantic interpretation, current environment,
+versioned vehicle envelope, or policy default. Exploration receives a conservative
+XY polygon around the start pose, tightened by fresh VDB extents when those extents
+enclose the vehicle. Semantic estimates that fall outside a supported minimum are
+adjusted visibly—for example, “a couple of seconds” is interpreted as 2 seconds and
+recorded as a 5-second task minimum, rather than silently becoming 60 seconds.
+Material ambiguity produces one targeted clarification and no plan.
 
 **Prerequisite:** Isaac Sim and AirStack must be running so the console can discover
 task servers and canonical robot state.
@@ -117,7 +131,10 @@ global-plan/replan updates are shown as scrollable evidence without an approval 
 Plans that include takeoff also predeclare a public `LandTask` contingency. A terminal
 takeoff result that fails physical verification while fresh evidence still shows an
 armed airborne vehicle halts the requested sequence, executes that recovery landing,
-and reports whether grounded/disarmed recovery was independently verified.
+and reports whether grounded/disarmed recovery was independently verified. The same
+predeclared landing is available if a later inter-action reconciliation halts with
+fresh evidence of meaningful armed flight; absent that evidence, RRM does not issue a
+blind landing.
 RRM refuses dispatch when the robot container predates the current Isaac process,
 preventing retained TF/controller state from crossing a simulation-clock reset. The
 takeoff server itself starts from current physical odometry and aborts at 0.3 m of
@@ -125,6 +142,46 @@ unexpected horizontal displacement.
 Plan records and independently observed task outcomes are stored below
 `/root/AirStack/.rrm-artifacts/command-requests/<request-id>/`. Scene switching is
 blocked while a command mission is active.
+
+Between verified actions, the mission runner reacquires canonical airborne, armed,
+connected, and odometry state. It records a `CONTINUE`, `SKIP_SATISFIED`, or `HALT`
+decision before the next action. It never retries an unknown or failed action. Task
+feedback includes elapsed time, pose, speed, and takeoff displacement when available;
+terminal evidence includes numeric metrics and symptom classifications. These diagnose
+what was observed but do not claim an unproven controller root cause.
+
+An `airborne=true` report at or below 0.3 m map altitude is treated as contradictory
+post-abort state, not permission to skip takeoff and begin navigation. RRM blocks all
+new motion except an explicit landing/reconciliation command until the state is
+cleared. This threshold matches the command adapter's existing recovery boundary and
+assumes the supported AirStack configuration's map-zero ground convention.
+
+### Command-mission history and evidence
+
+Each saved goal produces an immutable `<request-id>` directory under
+`/root/AirStack/.rrm-artifacts/command-requests/`. These gitignored files are the
+source of truth for past runs:
+
+| File | Evidence retained |
+|------|-------------------|
+| `input.json` | The saved goal at `task.objective`, task identity, and bound context. |
+| `request.json` | Request/goal IDs, creation time, lifecycle state, and input/media hashes. |
+| `command-plan.json` | Fresh discovered state, exact typed actions, parameter provenance/assumptions, inter-action policy, and any takeoff recovery action. |
+| `command-mission.log` | Timestamped preflight state, task feedback, pose/speed/displacement telemetry, replan decisions, and results. |
+| `command-mission-evidence/*-outcome.json` | Independently observed outcome for each dispatched action, including its verdict and reason. |
+| `command-mission-evidence/replan-*.json` | Fresh inter-action observation and the resulting continue/skip/halt decision. |
+| `command-mission-evidence/mission-outcome.json` | The terminal mission result: `VERIFIED`, `HALTED`, `RECOVERED_HALT`, or `RECOVERY_FAILED`, with action, replan, and recovery results. |
+
+`tasks.sqlite3` at the command-request root is a convenience index for saved goals,
+runs, lifecycle state, and checksum-bound evidence events; it is not a replacement for
+the per-request files. The GUI's **Saved goals** panel shows the goal and attempt
+count. Read the files above to audit exact actions and success/failure evidence.
+
+Summarize all retained takeoff attempts without sending a command:
+
+```bash
+python3 scripts/rrm_takeoff_history.py
+```
 
 ### Start a new two-GPU Office workflow
 
@@ -134,6 +191,22 @@ resolved Pegasus key `Office` (capital `O`). **Run this from your local machine 
 an authenticated OSMO control terminal, not from the Remote-SSH shell inside an
 already-running OSMO workspace.** That workspace intentionally does not carry your
 personal OSMO client login or `~/.ssh/id_ed25519.pub`.
+
+#### Scene selection in the two-GPU workflow
+
+This uses the same `ISAAC_SIM_SCENE` / `ISAAC_SIM_STAGE_SCALE` environment contract
+as AirStack's normal Isaac launch, but values are supplied at **workflow submission**.
+The checked-in two-GPU YAML deliberately leaves both values unset, so a submission
+without them loads Pegasus's `Default Environment`. You need no scene flags when that
+is what you want. Each OSMO workflow is a fresh workspace, so include the two flags
+again for every new Office workflow; they do not persist across submissions.
+
+The checked-in RRM semantic examples and Office manifest require `Office` with scale
+`1.0`. `Office` is the Pegasus key; do not pass the catalog shortname `office` as the
+environment value. Selecting another catalog scene through the console changes only
+the current workspace's Isaac and robot services; it does not affect the next OSMO
+submission and disables the Office-specific semantic path until its scene binding
+matches again.
 
 ```bash
 cd /root/AirStack

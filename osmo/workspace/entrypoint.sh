@@ -260,9 +260,68 @@ else
 fi
 
 cd "$AIRSTACK_ROOT"
+
+# Compose starts independent services concurrently.  Isaac owns a resettable
+# simulation clock, so a robot that starts first can retain TF/controller state from
+# a prior clock epoch if Isaac is recreated during bring-up.  Reconcile that ordering
+# once, while this fresh workspace has no operator task in flight.  This mirrors the
+# fail-closed ordering check in `airstack ready`, but repairs the known safe boot case
+# instead of handing the operator a stack that must be restarted manually.
+reconcile_isaac_clock_epoch() {
+  local timeout_s="${OSMO_EPOCH_RECONCILE_TIMEOUT_S:-120}"
+  local deadline=$(( $(date +%s) + timeout_s ))
+  local sim_container="" candidate
+  local robot_containers=() robot_container
+
+  while (( $(date +%s) < deadline )); do
+    sim_container=""
+    for candidate in isaac-sim-livestream isaac-sim; do
+      if docker inspect "$candidate" >/dev/null 2>&1; then
+        sim_container="$candidate"
+        break
+      fi
+    done
+    robot_containers=()
+    while IFS= read -r robot_container; do
+      [ -n "$robot_container" ] && robot_containers+=("$robot_container")
+    done < <(docker ps --filter 'label=com.docker.compose.service=robot-desktop' \
+             --format '{{.Names}}')
+    if [ -n "$sim_container" ] && [ "${#robot_containers[@]}" -gt 0 ]; then
+      break
+    fi
+    sleep 2
+  done
+
+  if [ -z "$sim_container" ] || [ "${#robot_containers[@]}" -eq 0 ]; then
+    log "WARN: could not establish Isaac/robot container ordering within ${timeout_s}s; airstack ready will report any remaining readiness issue."
+    return 0
+  fi
+
+  local sim_started robot_started stale_robots=()
+  sim_started=$(docker inspect -f '{{.State.StartedAt}}' "$sim_container" 2>/dev/null)
+  if [ -z "$sim_started" ]; then
+    log "WARN: could not read Isaac container start time; airstack ready will report any remaining readiness issue."
+    return 0
+  fi
+  for robot_container in "${robot_containers[@]}"; do
+    robot_started=$(docker inspect -f '{{.State.StartedAt}}' "$robot_container" 2>/dev/null)
+    if [ -n "$robot_started" ] && [[ "$robot_started" < "$sim_started" ]]; then
+      stale_robots+=("$robot_container")
+    fi
+  done
+  if [ "${#stale_robots[@]}" -gt 0 ]; then
+    log "robot container(s) predate ${sim_container}; restarting only ${stale_robots[*]} to align the Isaac clock epoch"
+    docker restart "${stale_robots[@]}" >/dev/null \
+      || log "WARN: robot epoch reconciliation restart failed; run airstack ready for diagnostics."
+  else
+    log "robot control graph already matches the Isaac container clock epoch"
+  fi
+}
+
 if [ "${OSMO_AIRSTACK_UP:-true}" = "true" ]; then
   log "airstack up (COMPOSE_PROFILES=$COMPOSE_PROFILES, NUM_ROBOTS=$NUM_ROBOTS, livestream=$ISAAC_SIM_LIVESTREAM)"
   ./airstack.sh up || log "WARN: airstack up exited non-zero — pod stays alive for debugging via SSH"
+  reconcile_isaac_clock_epoch
 else
   log "OSMO_AIRSTACK_UP=false — skipping airstack up; SSH in and run ./airstack.sh up manually"
 fi

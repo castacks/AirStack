@@ -44,6 +44,21 @@ class MapWaypoint(BaseModel):
         return self
 
 
+class SearchBoundPoint(BaseModel):
+    """One map-frame XY vertex for an exploration search polygon."""
+
+    model_config = ConfigDict(frozen=True)
+
+    x: float
+    y: float
+
+    @model_validator(mode="after")
+    def validate_coordinates(self) -> "SearchBoundPoint":
+        if not all(math.isfinite(value) for value in (self.x, self.y)):
+            raise ValueError("search-bound coordinates must be finite")
+        return self
+
+
 class DroneTaskProposal(BaseModel):
     """One RRM proposal mapped to the exact AirStack task-action goal schema."""
 
@@ -63,6 +78,7 @@ class DroneTaskProposal(BaseModel):
     min_flight_speed_m_s: float | None = None
     max_flight_speed_m_s: float | None = None
     time_limit_s: float | None = None
+    search_bounds: tuple[SearchBoundPoint, ...] = ()
 
     @model_validator(mode="after")
     def validate_proposal(self) -> "DroneTaskProposal":
@@ -80,7 +96,8 @@ class DroneTaskProposal(BaseModel):
                 raise ValueError("takeoff target_altitude_m must be positive")
             if self.velocity_m_s is None or self.velocity_m_s <= 0:
                 raise ValueError("takeoff velocity_m_s must be positive")
-            if (self.waypoints or self.frame_id is not None or self.goal_tolerance_m is not None
+            if (self.waypoints or self.search_bounds or self.frame_id is not None
+                    or self.goal_tolerance_m is not None
                     or any(value is not None for value in (
                         self.min_altitude_agl_m, self.max_altitude_agl_m,
                         self.min_flight_speed_m_s, self.max_flight_speed_m_s,
@@ -92,6 +109,7 @@ class DroneTaskProposal(BaseModel):
             if self.goal_tolerance_m is None or self.goal_tolerance_m <= 0:
                 raise ValueError("navigate goal_tolerance_m must be positive")
             if (self.target_altitude_m is not None or self.velocity_m_s is not None
+                    or self.search_bounds
                     or any(value is not None for value in (
                         self.min_altitude_agl_m, self.max_altitude_agl_m,
                         self.min_flight_speed_m_s, self.max_flight_speed_m_s,
@@ -100,7 +118,8 @@ class DroneTaskProposal(BaseModel):
         elif self.kind is DroneTaskKind.LAND:
             if self.velocity_m_s is None or self.velocity_m_s < 0:
                 raise ValueError("land velocity_m_s must be nonnegative")
-            if (self.target_altitude_m is not None or self.waypoints or self.frame_id is not None
+            if (self.target_altitude_m is not None or self.waypoints or self.search_bounds
+                    or self.frame_id is not None
                     or self.goal_tolerance_m is not None
                     or any(value is not None for value in (
                         self.min_altitude_agl_m, self.max_altitude_agl_m,
@@ -123,6 +142,8 @@ class DroneTaskProposal(BaseModel):
                     or self.waypoints or self.frame_id is not None
                     or self.goal_tolerance_m is not None):
                 raise ValueError("explore proposal contains fields from another task kind")
+            if self.search_bounds and len(self.search_bounds) < 3:
+                raise ValueError("explore search_bounds requires at least three vertices")
         return self
 
     @property
@@ -141,7 +162,7 @@ class DroneTaskProposal(BaseModel):
             goal = {"velocity_m_s": self.velocity_m_s}
         elif self.kind is DroneTaskKind.EXPLORE:
             goal = {
-                "search_bounds": [],
+                "search_bounds": [point.model_dump() for point in self.search_bounds],
                 "min_altitude_agl": self.min_altitude_agl_m,
                 "max_altitude_agl": self.max_altitude_agl_m,
                 "min_flight_speed": self.min_flight_speed_m_s,
@@ -225,6 +246,8 @@ class DroneOutcomeVerification(BaseModel):
     pre_odometry: OdometryEvidence | None
     post_odometry: OdometryEvidence | None
     post_vehicle_state: VehicleStateEvidence | None
+    metrics: dict[str, float] = Field(default_factory=dict)
+    diagnostics: tuple[str, ...] = ()
 
 
 def verify_drone_outcome(
@@ -261,6 +284,9 @@ def verify_drone_outcome(
         raise ValueError("outcome verification distance bounds are invalid")
 
     reasons: list[str] = []
+    metrics: dict[str, float] = {
+        "elapsed_s": now_monotonic_s - dispatch_monotonic_s,
+    }
     if not action_success:
         reasons.append("task_result_unsuccessful")
     if pre_odometry is None:
@@ -277,12 +303,19 @@ def verify_drone_outcome(
             reasons.append("post_odometry_predates_dispatch")
         if pre_odometry is not None and post_odometry.source_stamp_ns <= pre_odometry.source_stamp_ns:
             reasons.append("odometry_source_clock_not_advanced")
+        if pre_odometry is not None:
+            metrics["horizontal_displacement_m"] = math.hypot(
+                post_odometry.x - pre_odometry.x,
+                post_odometry.y - pre_odometry.y,
+            )
+            metrics["vertical_displacement_m"] = post_odometry.z - pre_odometry.z
 
     if proposal.kind is DroneTaskKind.NAVIGATE:
         if post_odometry is not None:
             target = proposal.waypoints[-1]
             distance = math.dist((post_odometry.x, post_odometry.y, post_odometry.z),
                                  (target.x, target.y, target.z))
+            metrics["navigation_endpoint_error_m"] = distance
             if distance > proposal.goal_tolerance_m:
                 reasons.append("navigation_endpoint_mismatch")
     elif proposal.kind is DroneTaskKind.TAKEOFF and post_odometry is not None:
@@ -296,13 +329,13 @@ def verify_drone_outcome(
         elif not post_vehicle_state.armed:
             reasons.append("post_vehicle_not_armed")
         altitude_error = abs(post_odometry.z - proposal.target_altitude_m)
+        metrics["takeoff_altitude_error_m"] = altitude_error
+        metrics["takeoff_target_altitude_m"] = proposal.target_altitude_m
+        metrics["takeoff_observed_altitude_m"] = post_odometry.z
         if altitude_error > takeoff_acceptance_distance_m:
             reasons.append("takeoff_altitude_mismatch")
         if pre_odometry is not None:
-            horizontal_displacement = math.hypot(
-                post_odometry.x - pre_odometry.x,
-                post_odometry.y - pre_odometry.y,
-            )
+            horizontal_displacement = metrics["horizontal_displacement_m"]
             if horizontal_displacement > takeoff_max_horizontal_displacement_m:
                 reasons.append("takeoff_horizontal_displacement_mismatch")
     elif proposal.kind is DroneTaskKind.LAND:
@@ -326,6 +359,21 @@ def verify_drone_outcome(
         verdict = DroneOutcomeVerdict.MISMATCH
     else:
         verdict = DroneOutcomeVerdict.UNCONFIRMED
+    diagnostics: list[str] = []
+    if not action_success:
+        diagnostics.append("TASK_REPORTED_FAILURE")
+    if any(reason.endswith("_missing") or reason.endswith("_stale")
+           or reason in {"post_odometry_predates_dispatch", "odometry_source_clock_not_advanced"}
+           for reason in reasons):
+        diagnostics.append("STATE_EVIDENCE_INCOMPLETE")
+    if "takeoff_horizontal_displacement_mismatch" in reasons:
+        diagnostics.append("LATERAL_INSTABILITY_OBSERVED")
+    if "takeoff_altitude_mismatch" in reasons:
+        diagnostics.append("ALTITUDE_TARGET_MISMATCH")
+    if "navigation_endpoint_mismatch" in reasons:
+        diagnostics.append("NAVIGATION_ENDPOINT_NOT_REACHED")
+    if "landing_altitude_mismatch" in reasons or "post_vehicle_still_armed" in reasons:
+        diagnostics.append("LANDING_NOT_CONFIRMED")
     return DroneOutcomeVerification(
         task_id=proposal.task_id,
         action_id=proposal.action_id,
@@ -339,6 +387,8 @@ def verify_drone_outcome(
         pre_odometry=pre_odometry,
         post_odometry=post_odometry,
         post_vehicle_state=post_vehicle_state,
+        metrics=metrics,
+        diagnostics=tuple(diagnostics),
     )
 
 

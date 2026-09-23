@@ -1,5 +1,6 @@
 """RRM drone proposals map only to the public AirStack task action boundary."""
 
+from pathlib import Path
 import unittest
 
 from pydantic import ValidationError
@@ -10,6 +11,7 @@ from rrm.airstack_drone import (
     DroneTaskProposal,
     MapWaypoint,
     OdometryEvidence,
+    SearchBoundPoint,
     VehicleStateEvidence,
     verify_drone_outcome,
 )
@@ -41,10 +43,13 @@ class DroneProposalTests(unittest.TestCase):
         explore = proposal(
             DroneTaskKind.EXPLORE, min_altitude_agl_m=1.0, max_altitude_agl_m=3.0,
             min_flight_speed_m_s=0.5, max_flight_speed_m_s=2.0, time_limit_s=30.0,
+            search_bounds=(SearchBoundPoint(x=-1, y=-2), SearchBoundPoint(x=1, y=-2),
+                           SearchBoundPoint(x=1, y=2), SearchBoundPoint(x=-1, y=2)),
         ).preview()
         self.assertEqual(explore["action_name"], "/robot_1/tasks/exploration")
         self.assertEqual(explore["action_type"], "task_msgs/action/ExplorationTask")
         self.assertEqual(explore["goal"]["time_limit_sec"], 30.0)
+        self.assertEqual(explore["goal"]["search_bounds"][0], {"x": -1.0, "y": -2.0})
 
     def test_invalid_parameters_and_frames_are_rejected(self):
         with self.assertRaises(ValidationError):
@@ -76,9 +81,21 @@ class DroneProposalTests(unittest.TestCase):
         self.assertIn("create_subscription(", runner)
         self.assertIn('"event": "global_plan_update"', runner)
         self.assertIn('f"{prefix}/global_plan"', runner)
+        self.assertIn('"event": "preflight_observation"', runner)
+        self.assertIn('"horizontal_displacement_m"', runner)
+        self.assertIn('"current_altitude_m"', runner)
+        self.assertIn("goal.search_bounds.points.append", runner)
         for prohibited in ("create_publisher(", "create_client(",
                            "trajectory_override", "RobotCommand"):
             self.assertNotIn(prohibited, runner)
+
+    def test_takeoff_task_populates_feedback_status(self):
+        source = (Path(__file__).parents[3] / "robot" / "ros_ws" / "src" / "local"
+                  / "planners" / "takeoff_landing_planner" / "src"
+                  / "takeoff_landing_task.cpp").read_text(encoding="utf-8")
+        self.assertIn('"ascending"', source)
+        self.assertIn('"stabilizing_at_target"', source)
+        self.assertIn("feedback->status =", source)
 
     def test_takeoff_outcome_requires_fresh_independent_target_observation(self):
         takeoff = proposal(DroneTaskKind.TAKEOFF, target_altitude_m=2.0, velocity_m_s=1.0)
@@ -118,6 +135,9 @@ class DroneProposalTests(unittest.TestCase):
         )
         self.assertEqual(horizontal_mismatch.verdict, DroneOutcomeVerdict.MISMATCH)
         self.assertIn("takeoff_horizontal_displacement_mismatch", horizontal_mismatch.reasons)
+        self.assertIn("LATERAL_INSTABILITY_OBSERVED", horizontal_mismatch.diagnostics)
+        self.assertAlmostEqual(horizontal_mismatch.metrics["horizontal_displacement_m"], 0.31)
+        self.assertAlmostEqual(horizontal_mismatch.metrics["takeoff_altitude_error_m"], 0.2)
 
     def test_landing_outcome_fails_closed_without_fresh_disarmed_evidence(self):
         land = proposal(DroneTaskKind.LAND, velocity_m_s=1.0)

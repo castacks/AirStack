@@ -341,7 +341,10 @@ void TakeoffLandingTaskNode::takeoff_execute(std::shared_ptr<TakeoffGoalHandle> 
       current_z = robot_odom_.pose.pose.position.z;
     }
 
+    const float dist = std::abs(current_z - target_altitude);
     feedback->current_altitude_m = current_z;
+    feedback->status =
+      dist <= takeoff_acceptance_distance_ ? "stabilizing_at_target" : "ascending";
     goal_handle->publish_feedback(feedback);
 
     const double horizontal_displacement =
@@ -361,7 +364,6 @@ void TakeoffLandingTaskNode::takeoff_execute(std::shared_ptr<TakeoffGoalHandle> 
     }
 
     // check completion: within acceptance distance of target for acceptance_time
-    float dist = std::abs(current_z - target_altitude);
     if (dist <= takeoff_acceptance_distance_) {
       if (!in_acceptance_window) {
         in_acceptance_window = true;

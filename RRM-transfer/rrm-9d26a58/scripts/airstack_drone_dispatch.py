@@ -73,7 +73,7 @@ def _execute(proposal: DroneTaskProposal, timeout_s: float, *, verify_observatio
     import rclpy
     from rclpy.action import ActionClient
     from rclpy.signals import SignalHandlerOptions
-    from geometry_msgs.msg import Point, PoseStamped
+    from geometry_msgs.msg import Point, Point32, PoseStamped
     from nav_msgs.msg import Path
     from task_msgs.action import ExplorationTask, LandTask, NavigateTask, TakeoffTask
 
@@ -196,8 +196,25 @@ def _execute(proposal: DroneTaskProposal, timeout_s: float, *, verify_observatio
             if (proposal.kind in {DroneTaskKind.NAVIGATE, DroneTaskKind.EXPLORE}
                     and not latest_vehicle_state.armed):
                 raise RuntimeError("airborne task requires an armed vehicle; perform takeoff first")
+            if (proposal.kind in {DroneTaskKind.NAVIGATE, DroneTaskKind.EXPLORE}
+                    and latest_odometry.z <= 0.3):
+                raise RuntimeError(
+                    "airborne state contradicts map altitude; land/reconcile before motion"
+                )
         pre_odometry = latest_odometry
         dispatch_monotonic_s = time.monotonic()
+        print(json.dumps({
+            "event": "preflight_observation",
+            "action_id": proposal.action_id,
+            "kind": proposal.kind.value,
+            "armed": latest_vehicle_state.armed if latest_vehicle_state else None,
+            "connected": latest_vehicle_state.connected if latest_vehicle_state else None,
+            "position": ({
+                "x": pre_odometry.x, "y": pre_odometry.y, "z": pre_odometry.z,
+            } if pre_odometry else None),
+            "linear_speed_m_s": latest_linear_speed_m_s,
+            "source_stamp_ns": pre_odometry.source_stamp_ns if pre_odometry else None,
+        }, sort_keys=True), flush=True)
         if proposal.kind is DroneTaskKind.TAKEOFF:
             goal = TakeoffTask.Goal()
             goal.target_altitude_m = proposal.target_altitude_m
@@ -207,6 +224,8 @@ def _execute(proposal: DroneTaskProposal, timeout_s: float, *, verify_observatio
             goal.velocity_m_s = proposal.velocity_m_s
         elif proposal.kind is DroneTaskKind.EXPLORE:
             goal = ExplorationTask.Goal()
+            for point in proposal.search_bounds:
+                goal.search_bounds.points.append(Point32(x=point.x, y=point.y, z=0.0))
             goal.min_altitude_agl = proposal.min_altitude_agl_m
             goal.max_altitude_agl = proposal.max_altitude_agl_m
             goal.min_flight_speed = proposal.min_flight_speed_m_s
@@ -228,7 +247,8 @@ def _execute(proposal: DroneTaskProposal, timeout_s: float, *, verify_observatio
             feedback = message.feedback
             record = {"event": "feedback", "action_id": proposal.action_id,
                       "status": getattr(feedback, "status", None)}
-            for field in ("progress", "distance_to_goal", "best_confidence"):
+            for field in ("progress", "distance_to_goal", "best_confidence",
+                          "current_altitude_m", "target_altitude_m"):
                 if hasattr(feedback, field):
                     record[field] = getattr(feedback, field)
             position = getattr(feedback, "current_position", None)
@@ -236,6 +256,23 @@ def _execute(proposal: DroneTaskProposal, timeout_s: float, *, verify_observatio
                 record["current_position"] = {
                     "x": position.x, "y": position.y, "z": position.z,
                 }
+            record["elapsed_s"] = round(time.monotonic() - dispatch_monotonic_s, 3)
+            record["linear_speed_m_s"] = latest_linear_speed_m_s
+            if latest_odometry is not None:
+                record["odometry"] = {
+                    "x": latest_odometry.x,
+                    "y": latest_odometry.y,
+                    "z": latest_odometry.z,
+                    "source_stamp_ns": latest_odometry.source_stamp_ns,
+                }
+                if pre_odometry is not None:
+                    record["horizontal_displacement_m"] = round(math.hypot(
+                        latest_odometry.x - pre_odometry.x,
+                        latest_odometry.y - pre_odometry.y,
+                    ), 4)
+                    record["vertical_displacement_m"] = round(
+                        latest_odometry.z - pre_odometry.z, 4
+                    )
             print(json.dumps(record, sort_keys=True), flush=True)
 
         response = client.send_goal_async(goal, feedback_callback=feedback_callback)

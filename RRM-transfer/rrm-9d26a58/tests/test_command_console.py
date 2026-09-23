@@ -67,6 +67,18 @@ class PrivateCosmosWorkerUrlTests(unittest.TestCase):
 
 
 class CommandConsoleUiTests(unittest.TestCase):
+    def test_goal_field_starts_empty_without_losing_its_label(self):
+        ui = (Path(__file__).parents[1] / "scripts" / "ui" / "command_console.html").read_text()
+        self.assertIn('<label for="objective">What should RRM accomplish?</label>', ui)
+        self.assertIn('id="objective" maxlength="5000" required', ui)
+        self.assertNotIn("byId('objective').value=data.context.task.objective", ui)
+
+    def test_compiled_plan_panel_exposes_grounding_and_replan_policy(self):
+        ui = (Path(__file__).parents[1] / "scripts" / "ui" / "command_console.html").read_text()
+        self.assertIn("Compiled task plan and parameter grounding", ui)
+        self.assertIn("grounding:result.plan.grounding", ui)
+        self.assertIn("replan_policy:result.plan.replan_policy", ui)
+
     def test_mission_console_removes_manual_shadow_workflow_controls(self):
         ui = (Path(__file__).parents[1] / "scripts" / "ui" / "command_console.html").read_text()
         self.assertIn("RRM mission", ui)
@@ -562,6 +574,10 @@ class CommandConsoleTests(unittest.TestCase):
             "airborne": False, "frame_id": "map", "child_frame_id": "base_link",
             "position": {"x": 0.0, "y": 0.0, "z": 0.0}, "yaw_rad": 0.0,
             "vdb_map_fresh": True, "vdb_map_frame_id": "map",
+            "vdb_map_point_count": 100,
+            "vdb_map_bounds": {"min_x": -5.0, "max_x": 5.0,
+                               "min_y": -4.0, "max_y": 4.0,
+                               "min_z": 0.0, "max_z": 3.0},
             "execution_dispatch": False,
         }
         process = FakeProcess()
@@ -574,11 +590,15 @@ class CommandConsoleTests(unittest.TestCase):
         self.assertEqual([item["kind"] for item in status["plan"]["actions"]],
                          ["TAKEOFF", "EXPLORE", "LAND"])
         self.assertEqual(status["plan"]["recovery"]["trigger"],
-                         "verified_takeoff_mismatch_while_airborne")
+                         "verified_mission_halt_while_airborne")
         self.assertEqual(status["plan"]["recovery"]["action"]["kind"], "LAND")
         plan = json.loads((self.output / saved["request_id"] / "command-plan.json").read_text())
         self.assertTrue(plan["execution_dispatch"])
         self.assertEqual(plan["discovery"]["task_servers"], discovery["task_servers"])
+        self.assertEqual(plan["grounding"]["schema_version"], "rrm-grounded-command/v1")
+        self.assertTrue(plan["grounding"]["parameter_grounding"])
+        self.assertEqual(plan["replan_policy"]["mode"], "observe_between_actions")
+        self.assertFalse(plan["replan_policy"]["blind_retry"])
         self.assertEqual(app.store.get_run(saved["request_id"])["execution_state"],
                          "DISPATCHING")
         events = next(run for goal in app.store.history() for run in goal["runs"]
@@ -606,6 +626,32 @@ class CommandConsoleTests(unittest.TestCase):
         }
         with patch.object(app, "discover_tasks", return_value=discovery), \
                 self.assertRaisesRegex(RuntimeError, "VDB"):
+            app.start_command_mission(saved["request_id"])
+        self.assertFalse((self.output / saved["request_id"] / "command-plan.json").exists())
+
+    def test_contradictory_airborne_state_allows_only_reconciliation(self):
+        office = Path(__file__).parents[1] / "examples" / "office_visual_eval"
+        app = Console(None, self.output, "/unused-capture.py",
+                      context_template=office / "navigation_context.json",
+                      scene_manifest=office / "scene_manifest.json")
+        saved = app.save("Explore briefly, then land.")
+        discovery = {
+            "schema_version": "airstack-task-discovery/v1",
+            "task_servers": {
+                "/robot_1/tasks/exploration": ["task_msgs/action/ExplorationTask"],
+                "/robot_1/tasks/land": ["task_msgs/action/LandTask"],
+            },
+            "missing_state": [], "stale_state": [], "connected": True,
+            "armed": True, "airborne": True,
+            "frame_id": "map", "child_frame_id": "base_link",
+            "position": {"x": 0.6, "y": 1.2, "z": 0.015}, "yaw_rad": 0.0,
+            "flight_state_consistent": False,
+            "flight_state_reasons": ["airborne_flag_below_0.3m_map_altitude"],
+            "vdb_map_fresh": True, "vdb_map_frame_id": "map",
+            "execution_dispatch": False,
+        }
+        with patch.object(app, "discover_tasks", return_value=discovery), \
+                self.assertRaisesRegex(RuntimeError, "Only an explicit landing"):
             app.start_command_mission(saved["request_id"])
         self.assertFalse((self.output / saved["request_id"] / "command-plan.json").exists())
 
