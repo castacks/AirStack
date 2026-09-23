@@ -39,6 +39,9 @@ def audit_campaign(root):
             configs=[json.loads((f/'scenario.json').read_text()) for f in [clean,changed]]
             errors=[]
             for key in ['layout','layout_seed','seed','light','patch_size','patch_height']:
+                if key=='patch_height':
+                    if configs[0]['condition'].get(key)!=configs[1]['condition'].get(key):errors.append('different scene '+key)
+                    continue
                 if configs[0]['condition'][key]!=configs[1]['condition'][key]:errors.append('different scene '+key)
             for key in ['planner','height','goal_distance','goal_radius','timeout']:
                 if configs[0][key]!=configs[1][key]:errors.append('different mission '+key)

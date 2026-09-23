@@ -93,6 +93,11 @@ clean은 센서 noise/delay와 patch만 끈다. 공격 실패를 재확인할 �
 
 기본 Combined는 noise/delay/patch를 함께 바꾼다. 원인을 나눠 보려면 Attack에서
 **Noise only / Delay only / Patch only**를 골라 별도 campaign을 실행한다.
+
+Patch는 **원본 이미지 그대로 on/off와 크기만** 바꾼다. 부착 높이는1.2m로
+고정이며 contrast·투명도 조절은 없다. 크기가 커진다고 공격 효과가 반드시
+커지는 것은 아니므로 결과로 확인한다. 이전 contrast 설정이 들어간 campaign은
+보존하되 이어 실행하지 않고, **Start tests로 새 campaign**을 시작한다.
 자동으로 모든 단일 요인 재시험까지 수행하는 것은 아니다.
 
 완료된 쌍마다, 그리고 campaign 완료/정지 시 **Vulnerability analysis → Open report**에

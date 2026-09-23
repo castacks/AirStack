@@ -10,6 +10,28 @@ provenance/audit reports remain. The results below describe the completed checks
 raw-data verification now requires rerunning the saved scenario. The user's newer
 recording run was preserved. The actual learned PNG is bundled in AirStack.
 
+## Original patch texture; on/off and size only (latest)
+
+User requested removing contrast/opacity modulation. New conditions expose only
+`patch_enabled` and `patch_size`; center height is fixed at1.2m. The production
+USD shader uses opacity1, texture scale(1,1,1,1) and bias(0,0,0,0). Feedback,
+random/grid generation, hover-demo sampling and all example YAMLs use these
+controls. Patch size is not a calibrated attack-effect strength. Existing
+on/off scheduling remains available; the original PNG and its hash are unchanged.
+
+43CPUtests passed: pairing, sampled profiles, confirmation/resume, YAML validity,
+legacy-field rejection and refusal to resume historical campaigns with changed
+patch semantics. Independently exercised the production USD material setup and
+`apply_condition` in the existing Isaac Python environment on an in-memory stage:
+0.1/0.45/0.95m, each on/off/on (9checks). Size, fixed center height, visibility,
+opaque material, identity color transform and original texture path all passed.
+No SimulationApp, GPU rendering or flight was started for this change.
+
+Historical contrast runs described below retain their original meaning and files.
+They are not original-texture results. Use their original source revision for
+replay/audit; new runs must use a new campaign directory. The web labels old patch
+settings as historical rather than claiming they used the new material behavior.
+
 ## Difficulty tiers (latest)
 
 Before the authorized repository backup, the full35bench CPU tests passed,

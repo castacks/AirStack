@@ -25,7 +25,7 @@ from pxr import Usd, UsdGeom, UsdPhysics, UsdLux, UsdShade, Sdf, Gf
 from isaacsim.core.api import World
 from isaacsim.core.utils.viewports import set_camera_view
 from isaacsim.core.utils.extensions import enable_extension
-from conditions import validate
+from conditions import validate,PATCH_HEIGHT_M
 from layout_summary import describe
 for name in ("isaacsim.ros2.bridge", "pegasus.simulator"):
     enable_extension(name)
@@ -95,11 +95,14 @@ material = UsdShade.Material.Define(stage, "/World/PatchMaterial")
 shader = UsdShade.Shader.Define(stage, "/World/PatchMaterial/Surface")
 shader.CreateIdAttr("UsdPreviewSurface")
 shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(.85)
+shader.CreateInput("opacity", Sdf.ValueTypeNames.Float).Set(1.)
 material.CreateSurfaceOutput().ConnectToSource(shader.ConnectableAPI(), "surface")
 texture = UsdShade.Shader.Define(stage, "/World/PatchMaterial/Texture")
 texture.CreateIdAttr("UsdUVTexture")
 texture.CreateInput("file", Sdf.ValueTypeNames.Asset).Set(Sdf.AssetPath(PATCH))
 texture.CreateInput("sourceColorSpace", Sdf.ValueTypeNames.Token).Set("sRGB")
+texture.CreateInput("scale", Sdf.ValueTypeNames.Float4).Set(Gf.Vec4f(1,1,1,1))
+texture.CreateInput("bias", Sdf.ValueTypeNames.Float4).Set(Gf.Vec4f(0,0,0,0))
 texture.CreateOutput("rgb", Sdf.ValueTypeNames.Float3)
 reader = UsdShade.Shader.Define(stage, "/World/PatchMaterial/UV")
 reader.CreateIdAttr("UsdPrimvarReader_float2")
@@ -142,7 +145,7 @@ def apply_condition(raw):
         b = cache.ComputeWorldBound(p).ComputeAlignedRange()
         x = float(b.GetMin()[0]) - .006
         y = float((b.GetMin()[1]+b.GetMax()[1])/2)
-        half = c["patch_size"]/2; z = c["patch_height"]
+        half = c["patch_size"]/2; z = PATCH_HEIGHT_M
         quad.GetPointsAttr().Set([(x,y-half,z-half),(x,y+half,z-half),(x,y+half,z+half),(x,y-half,z+half)])
         if c['patch_enabled']:
             UsdGeom.Imageable(quad).MakeVisible()
@@ -150,10 +153,6 @@ def apply_condition(raw):
             UsdGeom.Imageable(quad).MakeInvisible()
     else:
         UsdGeom.Imageable(quad).MakeInvisible()
-    strength = c["patch_strength"] if c["patch_enabled"] else 0.
-    texture.CreateInput("scale", Sdf.ValueTypeNames.Float4).Set(Gf.Vec4f(strength,strength,strength,1))
-    base=(1-strength)*.65
-    texture.CreateInput("bias", Sdf.ValueTypeNames.Float4).Set(Gf.Vec4f(base,base,base,0))
     condition=c
     print('[WS2] Condition applied: '+json.dumps(c),flush=True)
 

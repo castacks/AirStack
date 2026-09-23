@@ -4,11 +4,11 @@ from pathlib import Path
 from episode import resolved,fingerprint,atomic,run_episode,RUNTIME
 from ravi_reporting import write_campaign_report
 from mission import SUCCESSES,EXCLUDED,defaults
-from conditions import DIFFICULTY_COUNTS
+from conditions import DIFFICULTY_COUNTS,PATCH_POLICY
 
 def clean_twin(c):
     clean=copy.deepcopy(c)
-    clean['condition'].update(rgb_noise=0.,depth_noise=0.,delay=0.,patch_enabled=False,patch_strength=0.)
+    clean['condition'].update(rgb_noise=0.,depth_noise=0.,delay=0.,patch_enabled=False)
     return resolved(clean)
 
 def candidates(backend,budget,seed,planners,matrix=False,profile='sensors',difficulty=None):
@@ -38,9 +38,7 @@ def candidates(backend,budget,seed,planners,matrix=False,profile='sensors',diffi
     if profile in ('patch','combined'):
         for i,c in enumerate(proposals):
             c['condition'].update(patch_enabled=True,
-                patch_size=rng.uniform(.3,.9) if backend=='random' else [.3,.6,.9][i%3],
-                patch_height=rng.uniform(.8,1.6) if backend=='random' else 1.2,
-                patch_strength=rng.uniform(.5,1.) if backend=='random' else 1.)
+                patch_size=rng.uniform(.3,.9) if backend=='random' else [.3,.6,.9][i%3])
             if profile=='patch':c['condition'].update(rgb_noise=0.,depth_noise=0.,delay=0.)
     return proposals
 
@@ -54,12 +52,14 @@ def verdict(clean,attacked):
 def run_campaign(output,backend,budget,seed,planners,retries=1,matrix=False,profile='sensors',difficulty=None):
     root=Path(output).resolve();root.relative_to(RUNTIME.resolve());root.mkdir(parents=True,exist_ok=True)
     lock=(root/'campaign.lock').open('w');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-    config={'backend':backend,'flight_budget':budget,'seed':seed,'planners':planners,'infrastructure_retries':retries}
+    config={'backend':backend,'flight_budget':budget,'seed':seed,'planners':planners,'infrastructure_retries':retries,
+            'patch_policy':PATCH_POLICY}
     if matrix:config['matrix']=True
     if profile!='sensors':config['profile']=profile
     if difficulty is not None:config['difficulty']=difficulty
     if (root/'config.json').exists():
         previous=json.loads((root/'config.json').read_text())
+        if previous.get('patch_policy')!=PATCH_POLICY:raise ValueError('patch policy changed; start a new campaign and preserve the old results')
         if any(previous.get(k)!=config[k] for k in config if k!='infrastructure_retries') or previous.get('matrix',False)!=matrix or previous.get('profile','sensors')!=profile or retries<previous['infrastructure_retries']:
             raise ValueError('resume configuration differs; only increasing infrastructure retries is allowed')
     atomic(root/'config.json',config)

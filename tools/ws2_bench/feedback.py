@@ -12,7 +12,7 @@ from mission import SUCCESSES,EXCLUDED,defaults
 from operator_control import wait_between_trials,UserStop
 from vulnerability_report import write_report
 from layout_summary import describe
-from conditions import DIFFICULTY_COUNTS
+from conditions import DIFFICULTY_COUNTS,PATCH_POLICY,validate
 
 LAYOUTS=[('furnished_a',2),('furnished_a',4),('furnished_a',5),
          ('furnished_b',2),('furnished_a',0),('furnished_b',4),('furnished_b',5),('furnished_a',1)]
@@ -24,6 +24,7 @@ def choose_next(history,seed=42,profile='combined',difficulty=None):
     reason='Start with a clear launch corridor and moderate disturbances.'
     evidence=[];rule='initial'
     if history:
+        for r in history:validate(r['decision']['condition'])
         targets={p['planner'] for r in history for p in r['pairs']}
         if len(targets)!=1 or any(len(r['pairs'])!=1 for r in history):
             raise ValueError('feedback history must contain exactly one target model; start a separate campaign per model')
@@ -46,10 +47,10 @@ def choose_next(history,seed=42,profile='combined',difficulty=None):
                         'evidence':evidence,'condition':condition}
             if level>.05:
                 level=max(.05,round(level/2,3));rule='reduce_attack'
-                reason='Clean passed but a perturbed flight failed: keep the scene and reduce disturbance strength.'
+                reason='Failure repeated: keep the scene and try lower sensor settings / a smaller patch, according to the selected profile.'
             else:
                 index=(index+1)%len(LAYOUTS);level=.25;rule='explore_after_failure'
-                reason='Failure persisted at the minimum tested level: explore a different scene.'
+                reason='Failure persisted at the minimum search setting: explore a different scene.'
         else:
             values=[p['perturbed']['metrics'].get('minimum_obstacle_clearance_m') for p in pairs]
             near=any(v is not None and v<.35 for v in values)
@@ -58,16 +59,15 @@ def choose_next(history,seed=42,profile='combined',difficulty=None):
             # explore another saved layout. Changes remain paired in the next round.
             if not near:index=(index+1)%len(LAYOUTS)
             rule='refine_near_obstacle' if near else 'increase_and_explore'
-            reason=('Both passed with low clearance: increase disturbances slightly in the same scene.' if near else
-                    'Both passed: increase disturbances and explore another object layout.')
+            reason=('Both passed with low clearance: try slightly higher sensor settings / a larger patch in the same scene.' if near else
+                    'Both passed: try higher sensor settings / a larger patch in another object layout.')
     layout,layout_seed=LAYOUTS[index]
     if difficulty is not None:layout=difficulty;layout_seed=[2,4,5,0,1,3,6,7][index]
     condition={'name':f'Round {len(history)+1} | level {level:.3f}',
                'layout':layout,'layout_seed':layout_seed,'seed':seed,'light':1800.-80*index,
                'rgb_noise':round(30*level,3) if profile in ['noise','sensors','combined'] else 0.,
                'delay':round(.3*level,4) if profile in ['delay','sensors','combined'] else 0.,
-               'patch_enabled':profile in ['patch','combined'],'patch_size':round(.3+.6*level,3),
-               'patch_height':1.2,'patch_strength':round(.4+.6*level,3) if profile in ['patch','combined'] else 0.}
+               'patch_enabled':profile in ['patch','combined'],'patch_size':round(.3+.6*level,3)}
     return {'round':len(history)+1,'layout_index':index,'level':level,'rule':rule,
             'reason':reason,'evidence':evidence,'condition':condition}
 
@@ -112,12 +112,15 @@ def run_feedback(output,budget=8,seed=42,planners=None,profile='combined',retrie
     lock=(root/'campaign.lock').open('w');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
     config={'backend':'feedback','budget':budget,'seed':seed,'planners':planners,'profile':profile,
             'record_bags':record_bags,'timeout':timeout,'retries':retries,
-            'mission':defaults(planners[0])}
+            'mission':defaults(planners[0]),'patch_policy':PATCH_POLICY}
     if timeout is not None:config['mission']['timeout']=timeout
     if goal_distance is not None:config['mission']['goal_distance']=goal_distance
     if difficulty is not None:config['difficulty']=difficulty
     resolved({'planner':planners[0],**config['mission']})
-    if (root/'config.json').exists() and json.loads((root/'config.json').read_text())!=config:raise ValueError('resume configuration changed')
+    if (root/'config.json').exists():
+        previous=json.loads((root/'config.json').read_text())
+        if previous.get('patch_policy')!=PATCH_POLICY:raise ValueError('patch policy changed; start a new campaign and preserve the old results')
+        if previous!=config:raise ValueError('resume configuration changed')
     atomic(root/'config.json',config)
     control_path=root/'operator_control.json';atomic(control_path,{'action':'run'})
     history=[];completed=0;actual_attempts=0;live_rows=[]

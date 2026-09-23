@@ -10,11 +10,11 @@ import campaign
 
 def test_pair_preserves_realized_scene():
     c=resolved({'planner':'kim','condition':{'layout':'furnished_b','layout_seed':7,'seed':19,'light':800,
-                'rgb_noise':20,'delay':.2,'patch_enabled':True,'patch_strength':.8}})
+                'rgb_noise':20,'delay':.2,'patch_enabled':True,'patch_size':.8}})
     clean=clean_twin(c)
     assert clean['condition']['rgb_noise']==0 and clean['condition']['delay']==0
     assert not clean['condition']['patch_enabled']
-    for k in ['layout','layout_seed','seed','light','patch_size','patch_height']:assert clean['condition'][k]==c['condition'][k]
+    for k in ['layout','layout_seed','seed','light','patch_size']:assert clean['condition'][k]==c['condition'][k]
     assert c['condition']['rgb_noise']==20
     assert fingerprint(clean)!=fingerprint(c)
 
@@ -39,7 +39,7 @@ def test_failed_clean_not_attack_success():
     assert verdict({'outcome':'goal_reached'},{'outcome':'infrastructure_error'})=='infrastructure_error'
 
 def test_patch_schedule_and_clean_twin():
-    c=resolved({'condition':{'patch_enabled':True,'patch_strength':1},'patch_start_s':2,'patch_duration_s':3})
+    c=resolved({'condition':{'patch_enabled':True},'patch_start_s':2,'patch_duration_s':3})
     assert not patch_active(c,1.99) and patch_active(c,2) and patch_active(c,4.99) and not patch_active(c,5)
     assert not patch_active(clean_twin(c),3)
     with pytest.raises(ValueError):resolved({'patch_start_s':-1})
@@ -51,6 +51,21 @@ def test_patch_campaign_profiles():
     combined=candidates('random',4,42,['kim'],profile='combined')
     assert combined==candidates('random',4,42,['kim'],profile='combined')
     assert all(.3<=x['condition']['patch_size']<=.9 and x['condition']['rgb_noise']>0 for x in combined)
+    for backend in ['random','grid']:
+        for profile in ['patch','combined']:
+            trials=candidates(backend,8,42,['kim'],profile=profile)
+            assert len({x['condition']['patch_size'] for x in trials})>1
+            for x in trials:
+                assert {k for k in x['condition'] if k.startswith('patch_')}=={'patch_enabled','patch_size'}
+
+def test_legacy_campaign_cannot_resume_with_new_patch_semantics(tmp_path,monkeypatch):
+    monkeypatch.setattr(campaign,'RUNTIME',tmp_path)
+    root=tmp_path/'legacy';root.mkdir()
+    config={'backend':'random','flight_budget':2,'seed':42,'planners':['kim'],'infrastructure_retries':1}
+    saved=json.dumps(config);(root/'config.json').write_text(saved)
+    with pytest.raises(ValueError,match='patch policy changed'):
+        campaign.run_campaign(root,'random',2,42,['kim'])
+    assert (root/'config.json').read_text()==saved
 
 def test_infrastructure_excluded_from_rate():
     report=build_campaign_report({'trials':[{'outcome':x} for x in ['goal_reached','collision','infrastructure_error']]})

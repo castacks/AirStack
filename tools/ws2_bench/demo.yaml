@@ -7,7 +7,7 @@ conditions:
   - {name: "Different layout and lighting", layout: furnished_b, light: 800}
   - {name: "Same scene - clean input", layout: furnished_a, light: 2200}
   - {name: "RGB noise and sensor delay", layout: furnished_a, light: 2200, rgb_noise: 25, delay: 0.25}
-  - {name: "Patch - 40 percent contrast", layout: furnished_a, light: 2200, patch_enabled: true, patch_strength: 0.4}
-  - {name: "Patch - full contrast", layout: furnished_a, light: 2200, patch_enabled: true, patch_strength: 1.0}
-  - {name: "Combined conditions", layout: furnished_a, light: 1600, rgb_noise: 15, delay: 0.15, patch_enabled: true, patch_strength: 1.0, patch_size: 0.9}
+  - {name: "Patch on - 0.3 m", layout: furnished_a, light: 2200, patch_enabled: true, patch_size: 0.3}
+  - {name: "Patch on - 0.9 m", layout: furnished_a, light: 2200, patch_enabled: true, patch_size: 0.9}
+  - {name: "Combined conditions", layout: furnished_a, light: 1600, rgb_noise: 15, delay: 0.15, patch_enabled: true, patch_size: 0.9}
   - {name: "Restored clean input", layout: furnished_a, light: 2200}

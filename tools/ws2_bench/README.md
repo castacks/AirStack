@@ -30,7 +30,9 @@ configuration using only that target model's completed results:
 
 - Clean fails: try another saved layout before attributing failure to attacks.
 - Clean passes, perturbed fails: repeat the same pair once to check reproducibility;
-  if that also fails, keep the scene and halve disturbance strength.
+  if that also fails, keep the scene and lower the search setting: lower sensor
+  noise/delay and/or a smaller patch, depending on the profile. Patch size is a
+  test condition, not a calibrated or necessarily monotonic attack strength.
 - Both pass with low clearance: increase disturbances slightly in the same scene.
 - Both pass comfortably: increase disturbances and explore another layout.
 - Infrastructure error: keep configuration; do not optimize against that error.
@@ -38,7 +40,7 @@ configuration using only that target model's completed results:
 This is deterministic rule-based feedback search, not an LLM or Bayesian optimizer.
 Planned LLM support includes sampling new obstacle positions beyond the saved
 sets; see [AGENT_ROADMAP.md](AGENT_ROADMAP.md).
-Noise/delay/patch magnitude share a scalar level; this is not per-parameter causal
+Noise/delay values and patch size share a scalar search level; this is not per-parameter causal
 attribution. Decisions, input results and explanations are saved. Random/grid
 remain predefined baselines and do not use result feedback.
 
@@ -123,7 +125,7 @@ The clean twin preserves layout/seed, initial pose, illumination, mission and
 planner, and switches off RGB/depth noise, additional delay and the surface
 patch. Here lighting/layout are **scene conditions**, not attack parameters.
 Random/grid baselines use local engineering bounds. The default `--profile sensors`
-varies RGB noise and delay; `--profile patch` varies Rui patch size/contrast/height;
+varies RGB noise and delay; `--profile patch` varies only Rui patch size;
 `--profile combined` varies both. Grid enumerates fixed combinations; it is not
 LLM- or Bayesian-guided search. These bounds are chosen for WS2 testing, not
 claimed to be Rui's training setup or a finalized CyLab threat model.
@@ -290,10 +292,18 @@ Every episode verifies and records its hash. The obsolete diagnostic checker was
 removed during cleanup; the supplied learned image is the retained asset.
 
 The patch is a noncolliding plane on an added column face. The column remains
-collidable. Size (0.1–0.95 m), center height (0.5–2.4 m), enable state and contrast
-(0–1) can change live. Clean disables the plane and shows the original column;
-the actual obstacle geometry and placement are unchanged. Contrast blends the
-visible texture toward gray and is not an attack-performance score.
+collidable. The only patch controls are **on/off** (`patch_enabled`) and physical
+side length (`patch_size`, 0.1–0.95 m). The center height is fixed at1.2m on the
+same column face. The original PNG is rendered opaque, with identity texture
+scale and zero bias: no gray mixing, contrast or opacity adjustment. Lighting
+and ordinary material shading still affect the camera image. Clean hides the
+plane and shows the original column without changing obstacle geometry.
+
+New campaigns record patch policy `original_texture_size_only_v1`. Old configs
+containing `patch_strength` or `patch_height` are rejected, and old campaigns
+cannot resume under the new policy. Preserve their original results; start a
+new campaign (or remove those fields from a copy of a scenario for a new trial).
+Historical runs used the previous behavior and are not rewritten or relabeled.
 
 Optional episode `patch_start_s` and `patch_duration_s` control activation relative
 to the first executed planner command, using simulator time. Start defaults to

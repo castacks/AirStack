@@ -38,10 +38,23 @@ def test_feedback_resume_and_bounded_retry(tmp_path,monkeypatch):
     h=feedback.run_feedback(tmp_path/'case',6,42,['mononav'],pause_seconds=0)
     assert len(calls)==7 and h[1]['decision']['rule']=='confirm_failure' and h[2]['decision']['rule']=='reduce_attack'
     assert calls[0]['condition']==calls[1]['condition']  # Same retry config.
-    assert calls[2]['condition']['patch_strength']==calls[4]['condition']['patch_strength']>calls[6]['condition']['patch_strength']
+    assert calls[2]['condition']['patch_size']==calls[4]['condition']['patch_size']>calls[6]['condition']['patch_size']
+    for c in calls:
+        assert {k for k in c['condition'] if k.startswith('patch_')}=={'patch_enabled','patch_size'}
     feedback.run_feedback(tmp_path/'case',6,42,['mononav'],pause_seconds=0)
     assert len(calls)==7
     with pytest.raises(ValueError):feedback.run_feedback(tmp_path/'bad',6,42,['mononav','kim'],pause_seconds=0)
+
+def test_legacy_feedback_cannot_resume_or_reissue_contrast(tmp_path,monkeypatch):
+    monkeypatch.setattr(feedback,'RUNTIME',tmp_path)
+    root=tmp_path/'legacy';root.mkdir()
+    saved='{"backend":"feedback"}';(root/'config.json').write_text(saved)
+    with pytest.raises(ValueError,match='patch policy changed'):
+        feedback.run_feedback(root,4,planners=['kim'],pause_seconds=0)
+    assert (root/'config.json').read_text()==saved
+    old=history(attack='collision');old[0]['decision']['condition']['patch_strength']=.55
+    with pytest.raises(ValueError,match='Legacy patch controls'):
+        feedback.choose_next(old)
 
 def test_models_have_separate_feedback_histories(tmp_path,monkeypatch):
     monkeypatch.setattr(feedback,'RUNTIME',tmp_path);calls=[]

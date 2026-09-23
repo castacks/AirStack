@@ -3,11 +3,14 @@ import argparse,json,math
 from pathlib import Path
 from audit_results import audit_episode
 from feedback import choose_next,summary
+from conditions import PATCH_POLICY
 
 def audit(root):
     root=Path(root)
     read=lambda p:json.loads(p.read_text())
     config=read(root/'config.json');history=read(root/'history.json')
+    if config.get('patch_policy')!=PATCH_POLICY:
+        raise ValueError('Historical patch policy: use the original code revision to audit these saved decisions')
     errors=[];trials=[];pairs=[]
     if sum(len(r['pairs'])*2 for r in history)!=config['budget']:errors.append('incomplete budget')
     for i,round_ in enumerate(history):
@@ -24,6 +27,9 @@ def audit(root):
             evidence=[read(p/'condition_evidence.json') for p in locations]
             failures=[]
             for key in ['layout','layout_seed','seed','light','patch_size','patch_height']:
+                if key=='patch_height':
+                    if configs[0]['condition'].get(key)!=configs[1]['condition'].get(key):failures.append('scene differs: '+key)
+                    continue
                 if configs[0]['condition'][key]!=configs[1]['condition'][key]:failures.append('scene differs: '+key)
             for key in ['planner','height','goal_distance','goal_radius','timeout']:
                 if configs[0][key]!=configs[1][key]:failures.append('mission differs: '+key)

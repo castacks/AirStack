@@ -15,6 +15,9 @@ instead of only selecting one of those saved sets.
   Easy1+1, Medium3+3 and Hard5+5plants/columns can remain baseline presets.
   Environment changes and sensor/patch attack parameters stay independently
   configurable so results can be interpreted.
+- Patch actions are limited to on/off and physical size. Preserve the supplied
+  texture colors and opaque material; do not expose contrast, opacity or patch
+  height as an agent action. Size is not a calibrated attack-effect strength.
 - Use the bench's validated scene interface. Check floor support, intersections,
   protected start/goal space, allowed objects/regions and route feasibility.
   Preserve structural walls. Geometry checks alone do not prove a planner passes.

@@ -98,7 +98,7 @@ def main():
         conditions=[validate(dict(name=f"Random condition {i+1}",layout=rng.choice(["furnished_a","furnished_b"]),layout_seed=rng.randrange(8),
                     seed=rng.randrange(2**31),light=rng.uniform(800,2400),rgb_noise=rng.uniform(0,30),
                     delay=rng.uniform(0,.3),patch_enabled=rng.choice([True,False]),
-                    patch_strength=rng.uniform(.3,1),patch_size=rng.uniform(.5,.9),patch_height=rng.uniform(.9,1.5)))
+                    patch_size=rng.uniform(.5,.9)))
                     for i in range(args.random_count)]
     dwell=args.dwell if args.dwell is not None else cfg.get("dwell_sim_s",8)
     if dwell<0:raise ValueError("dwell must be nonnegative")
