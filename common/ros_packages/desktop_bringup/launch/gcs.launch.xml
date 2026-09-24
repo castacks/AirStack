@@ -17,7 +17,7 @@
 
 
   <executable
-    cmd="bash -c 'DISPLAY=$DISPLAY XAUTHORITY=$XAUTHORITY foxglove-studio --no-sandbox &quot;foxglove://open?ds=foxglove-websocket&amp;ds.url=ws://localhost:8765&amp;layoutId=$(cat /root/.config/Foxglove/airstack/layout_id 2>/dev/null || echo airstack_default_${NUM_ROBOTS:-1}_robots)&quot;'"
+    cmd="bash -c 'DISPLAY=$DISPLAY XAUTHORITY=$XAUTHORITY foxglove-studio --no-sandbox &quot;foxglove://open?ds=foxglove-websocket&amp;ds.url=ws://localhost:8765&amp;layoutId=`cat /root/.config/Foxglove/airstack/layout_id 2>/dev/null || echo airstack_default_${NUM_ROBOTS:-1}_robots`&quot;'"
     output="screen"/>
 
   <node pkg="foxglove_bridge" exec="foxglove_bridge" output="screen" respawn="true" respawn_delay="1">
