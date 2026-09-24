@@ -118,7 +118,7 @@ def generate_launch_description():
             description='Override the scenario from the config: hover, '
                         'random_walk, random_goals, head_on, antipodal, squeeze'),
         DeclareLaunchArgument(
-            'use_mocap', default_value='false',
+            'use_mocap', default_value='true',
             description='Start the mocap bridge (hardware only)'),
         DeclareLaunchArgument(
             'use_led', default_value='true',
