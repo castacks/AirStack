@@ -5,13 +5,22 @@ Functions:
     get_stage_meters_per_unit   — Read stage unit scale
     scale_stage_prim            — Apply a uniform scale transform to a prim
     add_colliders               — Recursively apply CollisionAPI to all meshes
+    seat_rigid_props            — Point-seat authored toppled props, no simulation
+    settle_rigid_props          — Physics-drop toppled props to rest, then freeze
     add_dome_light              — Add or update a dome light on the stage
+    add_sky                     — Skybox from HDRI (dome texture) or borrowed stage prims
+    boost_scene_lights          — Multiply the scene's own lights (exposure += log2 f)
+    add_orthographic_camera     — Top-down "map" camera over the plate
+    add_overhead_camera_publisher — Wire that camera to a raw Image + spec topics
+    add_camera_image_publisher  — Wire any camera to a raw Image topic
     save_scene_as_contained_usd — Collect all assets into a self-contained directory
 """
 
 import asyncio
 import math
-
+import os
+import re
+import time as _time
 import omni.kit.app
 import omni.usd
 from pxr import Gf, Usd, UsdGeom, UsdPhysics, UsdLux, Sdf
@@ -125,32 +134,204 @@ def dedupe_physics_scenes(stage) -> str | None:
 # Collision
 # ---------------------------------------------------------------------------
 
-def add_colliders(prim):
-    """Recursively apply UsdPhysics.CollisionAPI to every UsdGeom.Mesh under *prim*.
+def add_colliders(prim, gprims: bool = False):
+    """Recursively apply UsdPhysics.CollisionAPI under *prim*.
+
+    ``gprims=False`` (the default) collides UsdGeom.Mesh only — what every
+    ENV_URL scene has always done. ``gprims=True`` widens it to every gprim
+    (Cube, Sphere, …), which a generated/frozen plat needs.
 
     Skips prims that already have the API applied.
     """
-    if prim.IsA(UsdGeom.Mesh):
+    if prim.IsA(UsdGeom.Gprim if gprims else UsdGeom.Mesh):
         if not prim.HasAPI(UsdPhysics.CollisionAPI):
             UsdPhysics.CollisionAPI.Apply(prim)
             print(f"[scene_prep] Added collider: {prim.GetPath()}")
 
     for child in prim.GetChildren():
-        add_colliders(child)
+        add_colliders(child, gprims=gprims)
+
+
+# ---------------------------------------------------------------------------
+# Physics settling
+# ---------------------------------------------------------------------------
+
+def seat_rigid_props(stage, ground_z_by_path) -> int:
+    """Seat already-posed props on horizontal surfaces without running PhysX.
+
+    ``ground_z_by_path`` maps each top-level prop path to its target WORLD-Z
+    surface in stage units.  The generator has already authored the intended
+    toppled/flipped rotation; all this pass does is translate the complete
+    prop in world Z until its lowest transformed mesh vertex touches that
+    surface.
+
+    Mesh points are deliberate.  ``UsdGeom.BBoxCache`` transforms and then
+    re-axis-aligns a local bounding box, so thin diagonal meshes can appear to
+    touch the ground while their real geometry is still visibly airborne.
+    ``disaster.bake.world_point_bounds`` is the repository's validated tight
+    points-based measurement.
+
+    The top-level local transform is rebuilt from its world transform and its
+    parent's inverse.  This preserves rotation and scale and also makes the
+    world-Z correction exact under a translated or rotated city parent.
+    Returns the number of props successfully seated.
+    """
+    from disaster import bake
+
+    items = (ground_z_by_path.items()
+             if hasattr(ground_z_by_path, "items")
+             else ((path, 0.0) for path in ground_z_by_path))
+    seated = missing = no_mesh = 0
+    max_abs_dz = 0.0
+
+    for path, target_z in items:
+        prim = stage.GetPrimAtPath(path)
+        if not prim or not prim.IsValid():
+            missing += 1
+            continue
+
+        # A fresh cache per prop is required: XformCache does not notice the
+        # transform mutation made at the end of the preceding iteration.
+        cache = UsdGeom.XformCache(Usd.TimeCode.Default())
+        lowest = None
+        for child in Usd.PrimRange(prim):
+            if not child.IsA(UsdGeom.Mesh):
+                continue
+            bounds = bake.world_point_bounds(child, cache)
+            if bounds is not None:
+                z = float(bounds[0][2])
+                lowest = z if lowest is None else min(lowest, z)
+        if lowest is None:
+            no_mesh += 1
+            continue
+
+        dz = float(target_z) - lowest
+        world = cache.GetLocalToWorldTransform(prim)
+        parent_world = cache.GetLocalToWorldTransform(prim.GetParent())
+        translation = world.ExtractTranslation()
+        world.SetTranslateOnly(Gf.Vec3d(
+            translation[0], translation[1], translation[2] + dz))
+        local = world * parent_world.GetInverse()
+
+        xform = UsdGeom.Xformable(prim)
+        xform.ClearXformOpOrder()
+        xform.AddTransformOp().Set(local)
+        seated += 1
+        max_abs_dz = max(max_abs_dz, abs(dz))
+
+    print("[scene_prep] point-seat: seated {0} prop(s), max |dz|={1:.4f}".format(
+        seated, max_abs_dz)
+        + (", {0} missing".format(missing) if missing else "")
+        + (", {0} without mesh points".format(no_mesh) if no_mesh else ""))
+    return seated
+
+
+def settle_rigid_props(stage, prim_paths, sim_seconds: float = 3.0,
+                       ground_path: str = None) -> int:
+    """Drop props to a natural resting pose under physics, then freeze them.
+
+    The scene generator places toppled/strewn props (flipped cars, downed
+    streetlights) at *approximated* orientations, which leaves some floating
+    or interpenetrating. This gives each prim in *prim_paths* a dynamic rigid
+    body with convex-hull colliders, plays the timeline for *sim_seconds* so
+    they fall to rest, captures the settled transforms, stops the timeline
+    (which resets the sim), authors the captured transforms back, and strips
+    the rigid bodies — so the props stay parked exactly where physics left
+    them. Colliders are kept, so the settled props remain solid to sensors
+    and the drone.
+
+    *ground_path*, if given, gets static colliders applied first (the props
+    need something to land on — pass the generated ground subtree).
+
+    Call BEFORE spawning robot/vehicle graphs: the timeline runs briefly.
+    Returns the number of props settled.
+    """
+    import omni.timeline
+
+    prims = [stage.GetPrimAtPath(p) for p in prim_paths]
+    prims = [p for p in prims if p and p.IsValid()]
+    if not prims:
+        return 0
+
+    if ground_path:
+        ground = stage.GetPrimAtPath(ground_path)
+        if ground.IsValid():
+            add_colliders(ground)
+
+    # Physics needs a scene; standalone preview stages may not have one.
+    roots = list(stage.GetPseudoRoot().GetChildren())
+    two_levels = roots + [c for r in roots for c in r.GetChildren()]
+    if not any(p.IsA(UsdPhysics.Scene) for p in two_levels):
+        UsdPhysics.Scene.Define(stage, Sdf.Path("/World/PhysicsScene"))
+        print("[scene_prep] settle: defined /World/PhysicsScene")
+
+    # Dynamic rigid bodies need convex colliders (triangle-mesh collision is
+    # static-only in PhysX) — approximate every gprim under each prop.
+    for prim in prims:
+        UsdPhysics.RigidBodyAPI.Apply(prim)
+        for gp in Usd.PrimRange(prim):
+            if gp.IsA(UsdGeom.Gprim):
+                UsdPhysics.CollisionAPI.Apply(gp)
+            if gp.IsA(UsdGeom.Mesh):
+                mc = UsdPhysics.MeshCollisionAPI.Apply(gp)
+                mc.CreateApproximationAttr().Set(UsdPhysics.Tokens.convexHull)
+
+    app = omni.kit.app.get_app()
+    timeline = omni.timeline.get_timeline_interface()
+    timeline.stop()
+    timeline.play()
+    steps = max(1, int(sim_seconds * 60.0))
+    print(f"[scene_prep] settle: simulating {len(prims)} props "
+          f"for ~{sim_seconds:.1f}s ({steps} frames)…")
+    for _ in range(steps):
+        app.update()
+
+    # Capture settled transforms before stopping (stop resets the sim pose).
+    mpu = UsdGeom.GetStageMetersPerUnit(stage) or 1.0
+    floor_z = -2.0 / mpu    # anything below fell through the ground
+    cache = UsdGeom.XformCache()
+    settled = {}
+    for prim in prims:
+        world = cache.GetLocalToWorldTransform(prim)
+        parent_world = cache.GetLocalToWorldTransform(prim.GetParent())
+        settled[prim.GetPath()] = (world * parent_world.GetInverse(),
+                                   world.ExtractTranslation()[2])
+    timeline.stop()
+    app.update()
+
+    n_ok = n_lost = 0
+    for prim in prims:
+        local, world_z = settled[prim.GetPath()]
+        if world_z < floor_z:
+            n_lost += 1     # tunnelled through the ground — keep authored pose
+        else:
+            xform = UsdGeom.Xformable(prim)
+            xform.ClearXformOpOrder()
+            xform.AddTransformOp().Set(local)
+            n_ok += 1
+        prim.RemoveAPI(UsdPhysics.RigidBodyAPI)
+    print(f"[scene_prep] settle: froze {n_ok} props at rest"
+          + (f", {n_lost} fell through the ground (kept authored pose)"
+             if n_lost else ""))
+    return n_ok
 
 
 # ---------------------------------------------------------------------------
 # Lighting
 # ---------------------------------------------------------------------------
 
-def add_dome_light(stage, prim_path: str = "/World/DomeLight", intensity: float = 3500.0, exposure: float = -3.0):
+def add_dome_light(stage, prim_path: str = "/World/DomeLight", intensity: float = 3500.0,
+                    exposure: float = -3.0, texture_file: str = None):
     """Add a dome light to the stage, or update it if it already exists.
 
     Args:
-        stage:     Active USD stage.
-        prim_path: Stage path for the dome light prim.
-        intensity: Light intensity value.
-        exposure:  Light exposure value.
+        stage:        Active USD stage.
+        prim_path:    Stage path for the dome light prim.
+        intensity:    Light intensity value.
+        exposure:     Light exposure value.
+        texture_file: Optional path/URL to an HDRI/.exr texture. When set,
+                      the dome renders that image as the skybox instead of a
+                      flat color.
     """
     if stage.GetPrimAtPath(prim_path).IsValid():
         dome = UsdLux.DomeLight.Get(stage, prim_path)
@@ -158,7 +339,40 @@ def add_dome_light(stage, prim_path: str = "/World/DomeLight", intensity: float 
         dome = UsdLux.DomeLight.Define(stage, Sdf.Path(prim_path))
     dome.CreateIntensityAttr(intensity)
     dome.CreateExposureAttr(exposure)
-    print(f"[scene_prep] Dome light set at '{prim_path}' (intensity={intensity}, exposure={exposure})")
+    if texture_file:
+        dome.CreateTextureFileAttr(Sdf.AssetPath(texture_file))
+        # Latitude-longitude mapping is the standard projection for full-sphere
+        # panoramic HDRIs (as opposed to "MirroredBall" or "Automatic" cross formats).
+        dome.CreateTextureFormatAttr(UsdLux.Tokens.latlong)
+    print(f"[scene_prep] Dome light set at '{prim_path}' "
+          f"(intensity={intensity}, exposure={exposure}, texture={texture_file})")
+
+
+def add_sky(stage, sky_path: str = "", prim_path: str = "/World/DomeLight",
+            intensity: float = 3500.0, exposure: float = -3.0):
+    """Set up sky + ambient lighting from a config-resolved *sky_path*.
+
+    Dispatches on the path:
+      - ``.usd``/``.usda``/``.usdc`` — borrow the sky: reference the stage's
+        root prims that sit *outside* its defaultPrim (sky sphere, sun,
+        environment lights) under /World. Only those subtrees are composed,
+        not the stage's main geometry, so this stays cheap. Skips the plain
+        dome light when it pulls something in (borrowed stages bring their
+        own lighting).
+      - anything else non-empty — treated as an equirect HDRI for the dome
+        light's skybox texture.
+      - empty — plain untextured dome light.
+    """
+    if sky_path and os.path.splitext(sky_path.split("?")[0])[1].lower() in (
+            ".usd", ".usda", ".usdc"):
+        pulled = reference_root_prims_under_world(stage, sky_path)
+        if pulled:
+            print(f"[scene_prep] Sky borrowed from {sky_path}: {pulled}")
+            return
+        print(f"[scene_prep] No borrowable root prims in {sky_path}; "
+              f"falling back to plain dome light")
+        sky_path = ""
+    add_dome_light(stage, prim_path, intensity, exposure, texture_file=sky_path or None)
 
 
 # ---------------------------------------------------------------------------
@@ -273,7 +487,9 @@ def add_overhead_camera_publisher(parent_graph_path: str,
                                   center_y_m: float = 0.0,
                                   pixels_per_meter: float = 4.0,
                                   max_resolution: int = 2048,
-                                  domain_id: int = 0):
+                                  domain_id: int = 0,
+                                  render_step: int = 1,
+                                  manage_render_updates: bool = False):
     """Wire an orthographic camera to a raw ``sensor_msgs/Image`` topic, plus
     three spec ``std_msgs/Float32`` topics carrying ``coverage_m``,
     ``center_x_m``, ``center_y_m`` so consumers can size **and place** the
@@ -281,18 +497,30 @@ def add_overhead_camera_publisher(parent_graph_path: str,
 
     The image resolution is auto-derived from ``coverage_m × pixels_per_meter``
     and capped at ``max_resolution`` so a typo can't blow up bandwidth. Sim
-    scene is static, so we only need one valid frame — the GCS visualizer
-    catches it then unsubscribes, making the brief startup burst the only
-    network cost.
+    scene is static, so we only need occasional valid frames. ``render_step``
+    gates publication while the tiny scalar spec publishers continue at the
+    historical rate. A value of 1 preserves the original every-tick behavior.
+
+    A SimulationGate does not necessarily pause an already-created Hydra
+    texture. When ``manage_render_updates`` is true, this helper creates the
+    render product through Replicator, returns its handle with the gate's step
+    attribute, and lets the launcher pause actual texture updates between
+    short capture bursts. This mirrors the fleet ZED scheduling path.
 
     Builds a standalone OmniGraph at ``parent_graph_path`` with its own
     ROS2Context targeting ``domain_id`` regardless of which domain the
-    drones are using.
+    drones are using.  The graph also publishes the authoritative simulation
+    ``/clock`` for that domain.  In the multi-robot benchmark this is the one
+    domain-0 clock used by the shared planner; do not bridge the per-drone
+    clocks into domain 0 because that creates multiple competing publishers.
     """
     import omni.graph.core as og  # lazy so non-sim contexts can import scene_prep
 
     res = max(64, min(int(round(float(coverage_m) * float(pixels_per_meter))),
                       int(max_resolution)))
+    render_step = int(render_step)
+    if render_step < 1:
+        raise ValueError("overhead render_step must be >= 1")
 
     controller = og.Controller()
     g = parent_graph_path
@@ -303,6 +531,9 @@ def add_overhead_camera_publisher(parent_graph_path: str,
     nodes = {
         "context":      f"{g}/MapCameraROS2Context",
         "playback":     f"{g}/MapCameraOnPlaybackTick",
+        "sim_time":     f"{g}/MapCameraReadSimTime",
+        "clock":        f"{g}/MapCameraClockPublisher",
+        "gate":         f"{g}/MapCameraRenderGate",
         "create_rp":    f"{g}/MapCameraCreateRenderProduct",
         "rgb":          f"{g}/MapCameraRGBHelper",
         "frame":        f"{g}/MapCameraFrameId",
@@ -321,13 +552,50 @@ def add_overhead_camera_publisher(parent_graph_path: str,
         "cy_pub":       f"{g}/MapCameraCenterYPublisher",
     }
 
+    managed_render_products = []
+    if manage_render_updates:
+        import omni.replicator.core as rep
+
+        overhead_rp = rep.create.render_product(
+            camera_prim_path, (res, res), name="MapCamera_overhead_rp")
+        managed_render_products.append(overhead_rp)
+        image_nodes = []
+        image_connections = [
+            (f"{nodes['playback']}.outputs:tick", f"{nodes['gate']}.inputs:execIn"),
+            (f"{nodes['gate']}.outputs:execOut", f"{nodes['rgb']}.inputs:execIn"),
+        ]
+        image_values = [
+            (("inputs:step", nodes["gate"]), 1),
+            (("inputs:renderProductPath", nodes["rgb"]), str(overhead_rp.path)),
+        ]
+    else:
+        image_nodes = [
+            (nodes["create_rp"], "isaacsim.core.nodes.IsaacCreateRenderProduct"),
+        ]
+        image_connections = [
+            (f"{nodes['playback']}.outputs:tick", f"{nodes['gate']}.inputs:execIn"),
+            (f"{nodes['gate']}.outputs:execOut", f"{nodes['create_rp']}.inputs:execIn"),
+            (f"{nodes['create_rp']}.outputs:execOut", f"{nodes['rgb']}.inputs:execIn"),
+            (f"{nodes['create_rp']}.outputs:renderProductPath",
+             f"{nodes['rgb']}.inputs:renderProductPath"),
+        ]
+        image_values = [
+            (("inputs:step", nodes["gate"]), render_step),
+            (("inputs:cameraPrim", nodes["create_rp"]), camera_prim_path),
+            (("inputs:width", nodes["create_rp"]), res),
+            (("inputs:height", nodes["create_rp"]), res),
+        ]
+
     controller.edit(
         graph_id=g,
         edit_commands={
             og.Controller.Keys.CREATE_NODES: [
                 (nodes["context"],    "isaacsim.ros2.bridge.ROS2Context"),
                 (nodes["playback"],   "omni.graph.action.OnPlaybackTick"),
-                (nodes["create_rp"],  "isaacsim.core.nodes.IsaacCreateRenderProduct"),
+                (nodes["sim_time"],   "isaacsim.core.nodes.IsaacReadSimulationTime"),
+                (nodes["clock"],      "isaacsim.ros2.bridge.ROS2PublishClock"),
+                (nodes["gate"],       "isaacsim.core.nodes.IsaacSimulationGate"),
+                *image_nodes,
                 (nodes["rgb"],        "isaacsim.ros2.bridge.ROS2CameraHelper"),
                 (nodes["frame"],      "omni.graph.nodes.ConstantString"),
                 (nodes["topic"],      "omni.graph.nodes.ConstantString"),
@@ -342,11 +610,14 @@ def add_overhead_camera_publisher(parent_graph_path: str,
                 (nodes["cy_pub"],     "isaacsim.ros2.bridge.ROS2Publisher"),
             ],
             og.Controller.Keys.CONNECT: [
+                # Exactly one clock for the graph's ROS domain.  This branch
+                # is intentionally not gated with the expensive image render.
+                (f"{nodes['playback']}.outputs:tick",     f"{nodes['clock']}.inputs:execIn"),
+                (f"{nodes['sim_time']}.outputs:simulationTime",
+                 f"{nodes['clock']}.inputs:timeStamp"),
+                (f"{nodes['context']}.outputs:context",   f"{nodes['clock']}.inputs:context"),
                 # Image branch
-                (f"{nodes['playback']}.outputs:tick",     f"{nodes['create_rp']}.inputs:execIn"),
-                (f"{nodes['create_rp']}.outputs:execOut", f"{nodes['rgb']}.inputs:execIn"),
-                (f"{nodes['create_rp']}.outputs:renderProductPath",
-                 f"{nodes['rgb']}.inputs:renderProductPath"),
+                *image_connections,
                 (f"{nodes['context']}.outputs:context",   f"{nodes['rgb']}.inputs:context"),
                 (f"{nodes['frame']}.inputs:value",        f"{nodes['rgb']}.inputs:frameId"),
                 (f"{nodes['topic']}.inputs:value",        f"{nodes['rgb']}.inputs:topicName"),
@@ -365,9 +636,8 @@ def add_overhead_camera_publisher(parent_graph_path: str,
             ],
             og.Controller.Keys.SET_VALUES: [
                 (("inputs:domain_id",         nodes["context"]),  int(domain_id)),
-                (("inputs:cameraPrim",        nodes["create_rp"]), camera_prim_path),
-                (("inputs:width",             nodes["create_rp"]), res),
-                (("inputs:height",            nodes["create_rp"]), res),
+                (("inputs:topicName",         nodes["clock"]),    "/clock"),
+                *image_values,
                 (("inputs:type",              nodes["rgb"]), "rgb"),
                 (("inputs:value",             nodes["frame"]), str(frame_id)),
                 (("inputs:value",             nodes["topic"]), str(topic)),
@@ -410,7 +680,11 @@ def add_overhead_camera_publisher(parent_graph_path: str,
     print(f"[scene_prep] Overhead camera publisher wired: "
           f"{topic} ({res}x{res} raw Image), {spec_topic} ({coverage_m} m), "
           f"{center_x_topic}={center_x_m} m, {center_y_topic}={center_y_m} m, "
-          f"domain_id={domain_id}")
+          f"domain_id={domain_id}, render_step={render_step}, "
+          f"managed_hydra={manage_render_updates}")
+    if manage_render_updates:
+        gate_attribute = controller.attribute(f"{nodes['gate']}.inputs:step")
+        return gate_attribute, managed_render_products
 
 
 def add_camera_image_publisher(graph_path: str,
@@ -528,6 +802,81 @@ def reference_root_prims_under_world(stage, source_usd_url: str) -> list:
     return siblings
 
 
+def move_root_prims_to_world_live(stage) -> list:
+    """Move any non-/World root prims (e.g. /Environment, /Sun, /Sky) under /World
+    on the currently active live stage.
+
+    Useful when loading a USD from Nucleus whose sky/sun/environment prims sit at
+    the root rather than under /World, causing them to be invisible to the sim.
+
+    Args:
+        stage: Active USD stage (from omni.usd.get_context().get_stage()).
+
+    Returns:
+        List of prim names that were moved.
+    """
+    root_layer = stage.GetRootLayer()
+    all_root = [spec.name for spec in root_layer.rootPrims]
+    print(f"[scene_prep] move_root_prims_to_world_live: root prims = {all_root}", flush=True)
+
+    to_move = [name for name in all_root if name != 'World']
+    if not to_move:
+        print("[scene_prep] move_root_prims_to_world_live: nothing to move", flush=True)
+        return []
+
+    edit = Sdf.BatchNamespaceEdit()
+    for name in to_move:
+        edit.Add(Sdf.Path(f"/{name}"), Sdf.Path(f"/World/{name}"))
+
+    if not root_layer.Apply(edit):
+        print(f"[scene_prep] move_root_prims_to_world_live: namespace edit failed for {to_move}", flush=True)
+        return []
+
+    print(f"[scene_prep] Moved root prims under /World: {to_move}", flush=True)
+    return to_move
+
+
+def move_root_prims_to_world(usd_path: str) -> list:
+    """Move any non-/World root prims (e.g. /Environment) under /World.
+
+    After export_as_stage_async, sibling root prims like /Environment are
+    excluded when pg.load_environment references the file via defaultPrim=/World.
+    This function opens the flat exported USD layer directly and relocates
+    those prims under /World so they are included in the reference.
+
+    Args:
+        usd_path: Path to the flat exported USD file to patch in-place.
+
+    Returns:
+        List of prim names that were moved.
+    """
+    layer = Sdf.Layer.Find(usd_path) or Sdf.Layer.FindOrOpen(usd_path)
+    if layer is None:
+        print(f"[scene_prep] move_root_prims_to_world: could not open {usd_path}", flush=True)
+        return []
+
+    all_root = [spec.name for spec in layer.rootPrims]
+    print(f"[scene_prep] move_root_prims_to_world: root prims in exported USD: {all_root}", flush=True)
+    print(f"[scene_prep] move_root_prims_to_world: sublayers: {layer.subLayerPaths}", flush=True)
+
+    to_move = [name for name in all_root if name != 'World']
+    if not to_move:
+        print(f"[scene_prep] move_root_prims_to_world: nothing to move", flush=True)
+        return []
+
+    edit = Sdf.BatchNamespaceEdit()
+    for name in to_move:
+        edit.Add(Sdf.Path(f"/{name}"), Sdf.Path(f"/World/{name}"))
+
+    if not layer.Apply(edit):
+        print(f"[scene_prep] move_root_prims_to_world: namespace edit failed for {to_move}", flush=True)
+        return []
+
+    layer.Save()
+    print(f"[scene_prep] Moved root prims under /World: {to_move}", flush=True)
+    return to_move
+
+
 # ---------------------------------------------------------------------------
 # Save as self-contained USD collection
 # ---------------------------------------------------------------------------
@@ -586,3 +935,99 @@ def save_scene_as_contained_usd(source_usd_url: str, output_dir: str) -> bool:
 
     collector.destroy()
     return result[0]
+
+
+# ---------------------------------------------------------------------------
+# Fix missing MDL textures
+# ---------------------------------------------------------------------------
+
+def _resolve_nucleus_url(base_url: str, relative: str) -> str:
+    """Resolve a relative path against a Nucleus base directory URL."""
+    parts = base_url.rstrip('/').split('/')
+    for segment in relative.replace('\\', '/').split('/'):
+        if segment == '..':
+            parts.pop()
+        elif segment and segment != '.':
+            parts.append(segment)
+    return '/'.join(parts)
+
+
+def fix_missing_mdl_textures(output_dir: str, nucleus_env_url: str) -> int:
+    """Download textures referenced in MDL files that the Collector missed.
+
+    The Collector rewrites texture paths inside MDL files to relative local
+    paths but does not always copy the actual texture files. This function
+    downloads the original Nucleus MDL to find the real texture URLs, then
+    downloads any missing textures to the expected local paths.
+
+    Args:
+        output_dir:       Local directory written by the Collector.
+        nucleus_env_url:  Original omniverse:// URL of the source scene.
+
+    Returns:
+        Number of textures downloaded.
+    """
+    import omni.client
+    import tempfile
+
+    nucleus_base = nucleus_env_url.rsplit('/', 1)[0]
+    nucleus_materials_dir = f"{nucleus_base}/Materials"
+
+    texture_pattern = re.compile(
+        r'["\']([^"\']*\.(?:png|jpg|jpeg|exr|hdr|dds|tga|bmp))["\']',
+        re.IGNORECASE,
+    )
+    downloaded = 0
+
+    for root, dirs, files in os.walk(output_dir):
+        for fname in files:
+            if not fname.endswith('.mdl'):
+                continue
+
+            local_mdl = os.path.join(root, fname)
+
+            # Download the original Nucleus MDL to a temp file
+            nucleus_mdl_url = f"{nucleus_materials_dir}/{fname}"
+            tmp_mdl = os.path.join(tempfile.gettempdir(), f"orig_{fname}")
+            copy_result = omni.client.copy(
+                nucleus_mdl_url, tmp_mdl, omni.client.CopyBehavior.OVERWRITE
+            )
+            if copy_result != omni.client.Result.OK:
+                print(f"[scene_prep] Could not fetch original MDL from Nucleus: {nucleus_mdl_url}")
+                continue
+
+            with open(tmp_mdl, 'r', errors='replace') as f:
+                orig_content = f.read()
+            os.remove(tmp_mdl)
+
+            with open(local_mdl, 'r', errors='replace') as f:
+                local_content = f.read()
+
+            orig_refs = [m.group(1) for m in texture_pattern.finditer(orig_content)]
+            local_refs = [m.group(1) for m in texture_pattern.finditer(local_content)]
+
+            for orig_ref, local_ref in zip(orig_refs, local_refs):
+                # Resolve local expected path
+                local_abs = os.path.normpath(os.path.join(os.path.dirname(local_mdl), local_ref))
+
+                if os.path.exists(local_abs):
+                    continue
+
+                # Resolve absolute Nucleus URL for the texture
+                if orig_ref.startswith('omniverse:'):
+                    nucleus_tex_url = orig_ref
+                else:
+                    nucleus_tex_url = _resolve_nucleus_url(nucleus_materials_dir, orig_ref)
+
+                os.makedirs(os.path.dirname(local_abs), exist_ok=True)
+                result = omni.client.copy(
+                    nucleus_tex_url, local_abs, omni.client.CopyBehavior.OVERWRITE
+                )
+                if result == omni.client.Result.OK:
+                    downloaded += 1
+                    print(f"[scene_prep] Downloaded: {os.path.basename(local_abs)}")
+                else:
+                    print(f"[scene_prep] Failed ({result}): {nucleus_tex_url}")
+
+    print(f"[scene_prep] fix_missing_mdl_textures: {downloaded} texture(s) downloaded.")
+    return downloaded

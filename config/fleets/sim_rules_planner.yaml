@@ -1,0 +1,37 @@
+# Fleet: sim_rules_planner — one "large" and two "small" quads on the
+# rules_planner stack. All three are quad_default airframes today; the
+# large/small split is a label in the task_assigner fleet file
+# (task_assigner/config/rules_planner/examples/fleet_1large_2small.yaml), not
+# in the vehicle. robot_1 = large_1 runs the fleet-level rules planner; the
+# others set RULES_PLANNER=false.
+#
+#     airstack up --fleet sim_rules_planner --sim isaac
+
+defaults:
+  vehicle: quad_default
+  stack: stacks/rules_planner
+
+robots:
+  robot_1:
+    spawn: [-2, 0, 0.07]
+  robot_2:
+    spawn: [0, 0, 0.07]
+  robot_3:
+    spawn: [2, 0, 0.07]
+
+sim:
+  # `default` stays. A FROZEN DATASET CELL CANNOT BE NAMED HERE:
+  # `fleet_spawn.fleet_env_url` resolves this to a Pegasus
+  # SIMULATION_ENVIRONMENTS key or a USD reference and hands it to
+  # `pg.load_environment`, while a frozen cell is composed prim-by-prim by
+  # example_multi_drone_scene_import.py, which also authors its sky, its sun
+  # and its asset rebase. Naming the cell's .usd here would load the geometry
+  # unlit and un-rebased. Point at a cell through the environment instead
+  # (FROZEN_SCENE / FROZEN_DATASET_ROOT / SPAWN_CONFIGS); see
+  # stacks/rules_planner/README.md, "Scene". --fleet and FROZEN_SCENE are not
+  # combinable today.
+  scene: default
+
+network:
+  domain_policy: auto
+  gossip_domain: 99

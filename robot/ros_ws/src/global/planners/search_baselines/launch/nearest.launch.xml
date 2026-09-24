@@ -1,0 +1,16 @@
+<!-- Geometric control: nearest in-bounds frontier, no model of any kind.
+     The floor every semantic method has to beat, and the one arm that needs no
+     GPU service at all. -->
+<launch>
+  <arg name="scene_params_file" />
+  <arg name="num_robots" default="$(env NUM_ROBOTS 1)" />
+  <arg name="results_dir" default="" />
+
+  <include file="$(find-pkg-share search_baselines)/launch/_planner.launch.xml">
+    <arg name="method_params_file"
+         value="$(find-pkg-share search_baselines)/config/nearest.yaml" />
+    <arg name="scene_params_file" value="$(var scene_params_file)" />
+    <arg name="num_robots" value="$(var num_robots)" />
+    <arg name="results_dir" value="$(var results_dir)" />
+  </include>
+</launch>

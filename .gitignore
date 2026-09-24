@@ -94,8 +94,6 @@ tests/results/
 # See .agents/skills/use-feature-notebook
 /notebook/
 
-# Local-only — embedded sibling repo, not part of this branch
-common/rayfronts/
 
 # Docker build cache (root-owned subdirs cause permission warnings on `git add`)
 robot/docker/cache/

@@ -1,0 +1,88 @@
+# Overlay for the modular_house preview bench — the LOCAL smoke test, not a
+# mission. Loaded on top of conavgpt2.yaml, so only what differs is here.
+#
+# The scene: `modular_house_preview_launch_script.py` with SPAWN_DRONE=1 — the
+# 8-style house catalogue on a 4-wide grid (pitch 52 x 58 m), its plot dressing
+# and the loose-prop strip, on flat ground, one drone at (0, -45). Extent is
+# roughly x[-105, 105] y[-130, 30], so a 300 m grid holds all of it with margin
+# and lands on 62.5 cm cells — fine enough that a house is ~20 cells across.
+search_planner:
+  ros__parameters:
+    num_robots: 1
+
+    # SIZED TO THE SCENE, measured rather than guessed. The generated ground
+    # truth (annotations/ModularHousePreview.json, 56 boxes) puts the catalogue
+    # at x[-93.1, 93.7] y[-130.0, 17.0] — 186.8 x 147.0 m. The grid is centred
+    # on the SPAWN (map origin), which .env puts at (0, -20), and the furthest
+    # scene corner from there is 110 m. 240 m of extent covers all of it with
+    # 10 m to spare.
+    #
+    # `map_cells` is FIXED at 480 (the VLM overlay stamps robot markers in
+    # 480-pixel coordinates), so extent sets CELL SIZE, not cell count: 240 m
+    # gives 0.50 m per cell, where the previous 300 m gave 0.62 m. Matching the
+    # scene therefore buys resolution AND stops the drone drifting into empty
+    # grid — at 300 m a third of the cells were ground that does not exist.
+    map_extent_m: 240.0
+
+    # Houses in this kit top out near 10 m. The band has to EXCLUDE the ground
+    # (free space is what frontiers grow from) and INCLUDE the shells.
+    obstacle_min_z_m: 1.5
+    obstacle_max_z_m: 12.0
+
+    # The ZED is mounted level, so at 15 m AGL the ground first appears ~28 m
+    # ahead and the near field is empty sky. 12 m puts more ground in frame
+    # while still clearing every roof.
+    # ── search area + altitude band ────────────────────────────────────────
+    # A property of the BENCH, not of any one method, so CoNavGPT and VLFM are
+    # held to the same bounds and their results stay comparable.
+    #
+    # The catalogue, from the generated ground truth
+    # (annotations/ModularHousePreview.json): world x[-93.1, 93.7]
+    # y[-130.0, 17.0]. .env anchors the map at the spawn (0, -20), so in MAP
+    # coordinates that is x[-100, 100] y[-115, 42] with ~5 m of pad. A frontier
+    # outside it is not a candidate — which is what stops the drift into the
+    # empty ground north of the catalogue seen on the early CoNavGPT runs.
+    search_area_xy: [-100.0, -115.0,
+                      100.0, -115.0,
+                      100.0,   42.0,
+                     -100.0,   42.0]
+    # Houses top out near 10 m: stay above them, and below the height where the
+    # ground leaves the depth clip.
+    min_altitude_agl_m: 8.0
+    max_altitude_agl_m: 25.0
+    # Frontiers may sit anywhere from just above head height to well
+    # above the rooflines; the drone still flies the band above.
+    frontier_z_min_m: 3.0
+    frontier_z_max_m: 20.0
+
+    flight_altitude_m: 12.0
+    goal_tolerance_m: 5.0
+    # Drop to 8 m AGL once the target is seen, so the confirmation
+    # pass is an actual look rather than a cruise-altitude flyover.
+    inspect_altitude_m: 8.0
+
+    # A 300 m map fills in far faster than a 1600 m plat, so a 30 s round spends
+    # most of its time flying to a stale assignment.
+    round_period_s: 20.0
+    # Same 600 sim s every arm gets on the plat, so a bench run terminates
+    # the same way and the two are read the same way.
+    max_sim_seconds: 600.0
+
+    # Cars come with the plot dressing (`plot_car`), so this is a target that is
+    # actually IN the scene. There are no people in the catalogue.
+    # 'house' rather than 'car': the catalogue has 8 houses and only 4 cars, and
+    # houses are large enough to clear sem_threshold from cruise altitude — so
+    # this is the target that actually exercises the DETECTION path (found_goal
+    # -> nearest_point -> descend to inspect_altitude_m), which 'car' never did.
+    goal_name: 'house'
+    detection_classes: ['house', 'building', 'car', 'tree', 'fence', 'person']
+
+    # Pinned, not left to ultralytics' bare-filename resolution: unset, it
+    # resolves them relative to the CWD and otherwise re-downloads from GitHub
+    # on every fresh container. /root/.cache is a host mount.
+    yolo_world_weights: '/root/.cache/conavgpt2_weights/yolov8l-world.pt'
+    mobile_sam_weights: '/root/.cache/conavgpt2_weights/mobile_sam.pt'
+    ultralytics_weights_dir: '/root/.cache/conavgpt2_weights'
+
+    # First run: keep the PNGs so a bad round can be looked at, not guessed at.
+    save_debug_images: true

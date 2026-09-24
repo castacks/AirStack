@@ -1,0 +1,78 @@
+# Co-NavGPT2 TEAM overlay — the COOPERATIVE multi-robot deployment (arXiv
+# 2310.07937). ONE team_mode planner sees every robot, merges their local maps
+# into ONE global grid, detects frontiers on it, and makes a SINGLE VLM call per
+# round that assigns a distinct frontier to EACH robot. This is NOT sectoring
+# (that is the vlfm/frontier per-robot fleet, sector_partition: strips) and NOT
+# one-planner-per-robot.
+#
+# HOW IT IS LAYERED — and why the LOAD ORDER matters. conavgpt2_team.launch.xml
+# loads four param files, in this order, so the last has the final word:
+#     planner.yaml            (base defaults)
+#     conavgpt2.yaml          (method: nav_mode gpt, voxel3d, the paper cadence)
+#     <scene>.yaml            (geometry, run budget, detector gate, altitudes)
+#     conavgpt2_team.yaml     (THIS FILE — the frame/merge overrides)
+# It must load LAST because the scene overlay (suburb_wildfire_1km.yaml) sets
+# `frame_mode: 'local'` for the per-robot benches, and the team run needs
+# `global_enu`. A team file loaded BEFORE the scene would be silently reverted.
+#
+# Everything the method needs — nav_mode: gpt, frontier_source: voxel3d,
+# max_frontiers, sem_threshold, round cadence — is INHERITED from conavgpt2.yaml
+# and the scene overlay and deliberately NOT repeated here; this file changes
+# ONLY the five keys that turn a single-robot local-frame planner into a
+# team-merged global-frame one.
+search_planner:
+  ros__parameters:
+
+    # ── the merge frame ──────────────────────────────────────────────────────
+    # Robots do NOT share a map origin: each robot's `map` is anchored on its
+    # OWN boot GPS (its takeoff point). Merging several robots into one grid
+    # therefore CANNOT happen in any robot's local frame — it has to happen in
+    # global ENU, where each robot's cloud is placed by adding its own
+    # boot_enu offset (planner_node._offset: grid = local + boot_enu[i] -
+    # map_origin). In 'local' mode _offset returns the SAME -map_origin for
+    # every robot, so two drones that spawned 20 m apart would be merged as if
+    # they took off from the same point — the map would be nonsense.
+    frame_mode: 'global_enu'
+
+    # Centre of the merged grid, in the merge frame (global ENU / sim world).
+    # The 1 km block is world-centred at the origin (REGION_M 1000x1000 -> the
+    # block spans world x,y in [-500, 500]), so 0,0 is the middle of the search
+    # area. In global_enu 0,0 is the GPS origin (NOT a takeoff point), so this
+    # MUST be set or the whole cloud is cropped away (planner.yaml's note on the
+    # key). The scene's map_extent_m (1080 m -> 540 m half at 480 cells) reaches
+    # the polygon edge at |480| from world-centre with 60 m to spare, so the
+    # inherited extent already fits this origin — do NOT shrink it.
+    map_origin_xy: [0.0, 0.0]
+
+    # ── pose from odometry, not TF ───────────────────────────────────────────
+    # TF is exact but its frames are BARE (unprefixed `map`, `camera_left`), so
+    # they only resolve for a robot on THIS ROS domain. The team planner runs on
+    # the shared GCS domain and drives robots that each live on their own
+    # domain; TF is deliberately NOT bridged (dds_router.yaml's own note), so a
+    # tf lookup for a peer robot would always fail and fall back anyway. Use the
+    # odometry path directly: it works for every robot whose odom is visible,
+    # which — via the DDS router — is all of them. Camera mount pitch still
+    # comes from ZED_PITCH_DEG (camera_pitch_rad default), the same value the
+    # Isaac launch script tilts the physical camera by, so it must be exported
+    # into the planner's process (the mission's central-planner step does).
+    pose_source: 'odom'
+
+    # ── navsat: point at the BRIDGED topic ───────────────────────────────────
+    # global_enu needs each robot's boot GPS to anchor its map origin
+    # (_navsat_callback: boot_enu = enu(fix) - odom). The planner's default
+    # navsat topic is `.../global_position/raw/fix`, which the DDS router does
+    # NOT bridge — only `.../global_position/global` is on the allowlist. Both
+    # are sensor_msgs/NavSatFix, so pointing the template at the bridged
+    # `global` topic makes every robot's fix visible on the shared domain
+    # WITHOUT adding a router entry (and `global` is the fused solution, which
+    # is at least as good as raw for a boot anchor). This is why dds_router.yaml
+    # needs no navsat change for this mission.
+    navsat_topic_template: '/{robot}/interface/mavros/global_position/global'
+
+    # ── explicitly NOT sectored ──────────────────────────────────────────────
+    # Co-NavGPT is cooperative: the VLM spreads the team across whole-map
+    # frontiers, so there are no per-robot sectors. This is planner.yaml's
+    # default already, but it is stated here so the intent is unmistakable next
+    # to frame_mode — the sectored fleet (vlfm/frontier) sets 'strips'; this
+    # arm must never inherit that by accident.
+    sector_partition: 'none'

@@ -14,6 +14,127 @@ services:
       - RECORD_BAGS=${RECORD_BAGS}
       - LOG_CONFIG=${LOG_CONFIG:-log.yaml}
       # docker compose interpolation to env variables
+      - FRONTIER_ONLY_BASELINE=${FRONTIER_ONLY_BASELINE:-false}
+      - VLFM_BASELINE=${VLFM_BASELINE:-false}
+      - VLFM_USE_VOXEL_TARGETS=${VLFM_USE_VOXEL_TARGETS:-false}
+      - VLFM_VALUE_WEIGHT=${VLFM_VALUE_WEIGHT:-300.0}
+      - VLFM_RAY_BLACKLIST=${VLFM_RAY_BLACKLIST:-false}
+      - CONAVGPT_BASELINE=${CONAVGPT_BASELINE:-false}
+      - CONAVGPT_LEADER_ID=${CONAVGPT_LEADER_ID:-1}
+      - CONAVGPT_ROUND_PERIOD_S=${CONAVGPT_ROUND_PERIOD_S:-30.0}
+      - CONAVGPT_MAX_REGIONS=${CONAVGPT_MAX_REGIONS:-12}
+      - CONAVGPT_ASSIGNMENT_TTL_S=${CONAVGPT_ASSIGNMENT_TTL_S:-90.0}
+      - CONAVGPT_REPLAN_ON_REACH_M=${CONAVGPT_REPLAN_ON_REACH_M:-8.0}
+      # Empty = auto (highest card no rayfronts claims); -1 = don't pin.
+      - CONAVGPT_ASSIGNER_GPU=${CONAVGPT_ASSIGNER_GPU:-}
+      # search_planner talks to an OpenAI-compatible VLM endpoint.
+      # vlm_client.resolve() falls back to these env names when the
+      # vlm_base_url / vlm_model parameters are empty, which is their default in
+      # search_baselines config/planner.yaml —
+      # so the endpoint has to reach the node through the container env, not
+      # through the mission's `env:` alone. Compose forwards nothing it does not
+      # name here.
+      # Empty by default. A hardcoded localhost:8000 default reaches every
+      # robot container in every mission, so any conavgpt2 run WITHOUT a
+      # local server preflight-fails against a dead port instead of
+      # falling through to whatever endpoint the operator configured.
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
+      - CONAVGPT2_VLM_MODEL=${CONAVGPT2_VLM_MODEL:-}
+      # nf4 | int8 | none. Read by the mission's server-start step, not by
+      # the node — the node only ever talks HTTP and does not care how the
+      # thing on the other end was quantised.
+      - CONAVGPT2_VLM_QUANT=${CONAVGPT2_VLM_QUANT:-}
+      # Card search_baselines.vlm_server is pinned to. Empty = don't pin (a one-GPU
+      # box, where there is nothing to choose). NOT 0 on a multi-GPU pod: Isaac
+      # Sim owns GPU 0 and co-tenanting the VLM with it fails the RTX render
+      # graph every frame — see osmo/workflows/airstack-mission-2gpu.yaml.
+      - CONAVGPT2_VLM_GPU=${CONAVGPT2_VLM_GPU:-}
+      # Downward ZED tilt in degrees, THE SAME VARIABLE the Isaac launch
+      # script reads to tilt the mount. search_planner uses it as the default
+      # for camera_pitch_rad because TF walks the URDF, which models no
+      # pitch — so a tilt the sim applied is one TF cannot see, and a
+      # planner that is not told unprojects every point to the wrong
+      # bearing without erroring. One var, both sides, no way to desync.
+      - ZED_PITCH_DEG=${ZED_PITCH_DEG:-}
+      # Publish the MEASURED world->map transform instead of the hardcoded
+      # identity in robot.launch.xml. `map` is anchored at the takeoff
+      # point, so identity is only true when the drone spawns at the world
+      # origin — 45 m out on the house bench, 340 m on suburb_wildfire,
+      # which is what makes the drone and its plan float off the sim
+      # ground in Foxglove. Default false: making it truthful changes the
+      # frame every previously recorded mission replays in.
+      - MAP_ANCHOR_ENU=${MAP_ANCHOR_ENU:-}
+      # Takeoff height above the ground plane; the z half of that offset.
+      - SPAWN_HEIGHT_M=${SPAWN_HEIGHT_M:-}
+      # WHERE THE SHARED MODEL SERVICES ARE. Unset -> the planner configs'
+      # own defaults (the offboard-compute container). Passed by BARE NAME on
+      # purpose: `VAR=${VAR:-}` would define them as EMPTY, and an empty value
+      # BEATS the `$(env VAR default)` default in the params file, which is how
+      # a run ends up posting frames to "". Set them (mission `env:` or the
+      # shell) only to redirect, e.g. DETECTOR_URL=http://localhost:8200 on a
+      # pod that has no offboard-compute container.
+      - DETECTOR_URL
+      - ITM_URL
+      - VLM_URL
+      - RAYFRONTS_COMPUTE_PROB=${RAYFRONTS_COMPUTE_PROB:-True}
+      # per-robot rayfronts.launch.xml reads this for emb.enabled (rules planner)
+      - RAYFRONTS_EMB=${RAYFRONTS_EMB:-false}
+      # comma-separated robots that run a RayFronts mapper (empty = all); see rayfronts_gated.launch.py
+      - RAYFRONTS_ROBOTS=${RAYFRONTS_ROBOTS:-}
+      - RAYFRONTS_PER_ROBOT=${RAYFRONTS_PER_ROBOT:-true}
+      # rules_planner stack (stacks/rules_planner/launch/stack.launch.xml).
+      # Compose forwards nothing it does not name here, so a var missing from
+      # this list reads as the launch file ignoring the mission rather than as
+      # a plumbing gap -- the same trap FROZEN_SCENE fell into.
+      #
+      # RULES_PLANNER is the fleet-wide on/off for the planner. It cannot pick
+      # WHICH robot runs it: the robot containers are REPLICAS of one compose
+      # service and share this environment, so a per-replica false is not a
+      # thing. RULES_PLANNER_ROBOT names the host instead, and
+      # rules_planner.launch.py starts its nodes only where ROBOT_NAME matches.
+      # RULES_EXECUTOR runs the per-robot task executor, which REPLACES
+      # random_walk as this stack's global planner: true everywhere, or false
+      # everywhere.
+      - RULES_PLANNER=${RULES_PLANNER:-true}
+      - RULES_PLANNER_ROBOT=${RULES_PLANNER_ROBOT:-robot_1}
+      - RULES_EXECUTOR=${RULES_EXECUTOR:-true}
+      - RULES_DASHBOARD=${RULES_DASHBOARD:-true}
+      - RULES_DASHBOARD_PORT=${RULES_DASHBOARD_PORT:-8791}
+      - RULES_TRACK_SPACING_M=${RULES_TRACK_SPACING_M:-25.0}
+      - RULES_AUTO_TAKEOFF=${RULES_AUTO_TAKEOFF:-true}
+      - RULES_TAKEOFF_ALTITUDE_M=${RULES_TAKEOFF_ALTITUDE_M:-10.0}
+      # How the executor flies a leg. trajectory_override drives the trajectory
+      # controller directly (no obstacle avoidance, open-air altitudes);
+      # navigate_action sends NavigateTask goals to the local planner, which
+      # needs a LiDAR map this scene does not have.
+      - RULES_NAV_BACKEND=${RULES_NAV_BACKEND:-trajectory_override}
+      # A frozen cell's GT_people.json as the ROBOT container sees it, for the
+      # /dtc/rules_planner/gt_people layer. Empty = no ground-truth layer.
+      - RULES_GT_PEOPLE=${RULES_GT_PEOPLE:-}
+      # BARE NAMES, same reasoning as DETECTOR_URL/ITM_URL/VLM_URL above: the
+      # planner's LLM client falls back to its own defaults when these are
+      # UNSET, and an explicit empty string is not "unset".
+      - RULES_LLM_MODEL
+      - RULES_LLM_BACKEND
+      # per_robot (default, unset) | shared: semantic_search_task spawns
+      # rayfronts.launch.xml itself vs. waiting on a shared off-board
+      # multi_robot_mapping_server's status topic — see
+      # semantic_search_task/node.py's _resolve_rayfronts_mode (that default
+      # is what applies when this is unset, same BARE-NAME reasoning as
+      # DETECTOR_URL/ITM_URL/VLM_URL above: an empty string is not "unset").
+      - RAYFRONTS_MODE
+      - RAYFRONTS_WAIT_TIMEOUT_S
+      - ZED_PIPELINE
+      - SEARCH_DEPTH_TOPIC_TEMPLATE
+      # Sim-time budget for short RTF experiments. Canonical benchmark
+      # missions set 600; tuning missions can lower it without changing the
+      # installed scene overlay. offboard-compute inherits this base service.
+      - SEARCH_MAX_SIM_SECONDS=${SEARCH_MAX_SIM_SECONDS:-600}
+      # raven freezes if the shared mapper status goes stale this long (OOM restart)
+      - RAYFRONTS_HOLD_TIMEOUT_S
+      # min vox_count before raven resumes after a mapper restart (map rebuilt)
+      - RAYFRONTS_RESUME_VOX
+      - LVLM_BASELINE=${LVLM_BASELINE:-false}
       - URDF_FILE=${URDF_FILE}
       # MAVROS
       - OFFBOARD_BASE_PORT=${OFFBOARD_BASE_PORT}
@@ -31,7 +152,41 @@ services:
       # CONTAINER path of the fleet file (/root/AirStack/config/fleets/...).
       # Empty = legacy robot_name_map resolution in .bashrc.
       - FLEET_CONFIG_FILE=${FLEET_CONFIG_FILE:-}
+      # Container-wide so EVERY process (tmux nodes, ddsrouter, docker exec)
+      # uses the same transports; a LARGE_DATA participant and a default
+      # (UDP) participant in different containers share no data channel.
+      - FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATA
+    # HOST SERVICES ON THE DOCKER BRIDGE. airstack_network is a user-defined
+    # bridge (172.31.0.0/24, docker-compose.yaml), so the host is the gateway
+    # 172.31.0.1 -- but `host.docker.internal` does NOT resolve on Linux unless
+    # it is mapped, which is why a robot container could not reach an Ollama
+    # running on the host network. One alias, no other behaviour change: the
+    # rules planner then takes OPENAI_BASE_URL=http://host.docker.internal:11434/v1
+    # unmodified from a laptop, a pod or a CI box.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # FILE DESCRIPTOR LIMIT. The container default SOFT limit is 1024 while the
+    # hard limit is already 524288, so raising it costs nothing. Fast DDS spends
+    # descriptors per SHM port, per segment and per endpoint, and when a
+    # participant runs out, port creation fails with
+    #     [RTPS_TRANSPORT_SHM Error] Failed init_port fastrtps_portNNNN:
+    #     open_and_lock_file failed -> Function open_port_internal
+    # which is what stalled ONE arbitrary robot mid-mavros-init on four
+    # consecutive runs (robot_2, _6, _1, _1): its mavros initialised every
+    # plugin, registered no ROS node, sat at 0.3 % CPU and never saw a
+    # HEARTBEAT, so the readiness gate timed out at 2400 s. Isaac Sim raises its
+    # own limit for the same reason and logs it:
+    #     "The expected number of used file descriptors (2450) exceeds the
+    #      current system limit (1024). Attempting to set the system limit"
+    # Verified 2026-08-31: the signature disappeared entirely after this change.
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 524288
     volumes:
+      # shared /dev/shm: required for Fast DDS shared-memory transport
+      # across containers (see common/fastdds.xml)
+      - /dev/shm:/dev/shm
       # display stuff
       - $HOME/.Xauthority:/root/.Xauthority
       - /tmp/.X11-unix:/tmp/.X11-unix
@@ -41,6 +196,8 @@ services:
       - .bashrc:/root/.bashrc:rw # bash config
       - ../../common/inputrc:/etc/inputrc:rw  
       - ../../common/.tmux.conf:/root/.tmux.conf:rw  
+      # stacks/<name>/launch/*.launch.xml — the stack entry files robot.launch.xml dispatches to
+      - ../../stacks:/root/AirStack/stacks:rw
       - ../../.devcontainer/robot/launch.json:/root/AirStack/.vscode/launch.json:rw
       - ../../.devcontainer/robot/tasks.json:/root/AirStack/.vscode/tasks.json:rw
       - ./robot_name_map:/root/AirStack/robot/docker/robot_name_map:rw
@@ -59,4 +216,11 @@ services:
       - ../../.airstack/generated:/root/AirStack/.airstack/generated:ro
       # bags
       - ../bags:/bags:rw
-
+      # OSMO mission bags: host bind mount (gitignored osmo/bags/) so
+      # `ros2 bag record` writes straight to the pod disk next to the
+      # results tree; the runner MOVES them (same fs) instead of a slow
+      # docker cp of tens of GB. Shared by every recorder (one host dir).
+      - ../../osmo/bags:/osmo_bags:rw
+      # persistent model cache (huggingface / torch / clip / etc.) so rayfronts
+      # doesn't redownload weights on every container start
+      - ./cache:/root/.cache:rw

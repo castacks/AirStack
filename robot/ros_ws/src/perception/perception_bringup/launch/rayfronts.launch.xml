@@ -1,0 +1,88 @@
+<launch>
+  <arg name="config_name" default="low_memory"/>
+  <arg name="dataset"     default="ros2isaacsim"/>
+  <arg name="query_period" default="10"/>
+  <!-- Embedding export for the rules planner: emb/voxels, emb/rays, emb/meta,
+       emb/text/{request,response} under the msg_serv prefix (RAYFRONTS_EMB). -->
+  <arg name="emb_enabled" default="$(env RAYFRONTS_EMB false)"/>
+  <arg name="emb_seed_vocab" default="/opt/rayfronts/rayfronts/configs/emb_seed_vocab.txt"/>
+  <!-- False publishes raw cosine similarities instead of a softmax over the
+       query set. Raw scores are vocabulary-independent: adding or removing a
+       background query leaves the other columns untouched, so a recorded run
+       can be re-scored offline against any SUBSET of the labels it carried.
+       Under softmax every column shifts when the vocabulary changes, which
+       makes that ablation impossible without re-flying. -->
+  <arg name="compute_prob" default="$(env RAYFRONTS_COMPUTE_PROB True)"/>
+  <!-- Which PointCloud2 layers voxel_keepalive holds a silent subscription on,
+       and therefore which ones rayfronts actually serialises and the DDS router
+       can carry (a router reader does not open the gate). Beyond the per-query
+       heatmaps and voxel_rgb the GCS already drew, the rules_planner layout
+       also shows `frontiers` and `semantic_frontiers`. `semantic_ray_frontiers`
+       is a MarkerArray, which this node does not subscribe, so it is not
+       reachable this way. Widen to msg_serv/emb/(voxels|rays) ONLY when the
+       planner has to read another robot's map across the router: those clouds
+       are tens of MB per republish (see autonomy_bringup/config/dds_router.yaml). -->
+  <arg name="voxel_keepalive_pattern"
+       default="^/robot_$(env ROS_DOMAIN_ID)/rayfronts/(msg_serv/voxels_sim/q[0-9]+|voxel_rgb|frontiers|semantic_frontiers)$"/>
+
+  <!--
+    Bridge: republish nav_msgs/Odometry as geometry_msgs/PoseStamped so rayfronts
+    (which only knows PoseStamped on its pose_topic) can consume our odometry
+    stream. Avoids any submodule-level patch to rayfronts/datasets/ros.py.
+  -->
+  <node pkg="perception_bringup" exec="odom_to_pose_stamped.py"
+        name="odom_to_pose_stamped" output="screen">
+    <param name="use_sim_time" value="true"/>
+    <param name="input_topic"
+           value="/robot_$(env ROS_DOMAIN_ID)/odometry_conversion/odometry"/>
+    <param name="output_topic"
+           value="/robot_$(env ROS_DOMAIN_ID)/odometry_conversion/pose_stamped"/>
+  </node>
+
+  <!--
+    Hold a silent subscription on rayfronts' per-query voxel heatmaps
+    (.../voxels_sim/q{q}_{label}) and the rgb voxel map (.../voxel_rgb) so
+    rayfronts actually publishes them: it only streams a voxel topic while it
+    has a subscriber, and the DDS router's reader alone does not count.
+    Discovery-based because the per-query names are dynamic per mission query.
+    This is what makes those clouds reach the GCS
+    (/rayfronts_debug/<robot>/{voxels_sim/q...,voxel_rgb}).
+  -->
+  <node pkg="perception_bringup" exec="voxel_keepalive_node.py"
+        name="voxel_keepalive" output="screen">
+    <param name="topic_pattern" value="$(var voxel_keepalive_pattern)"/>
+  </node>
+
+  <!--
+    Robot-namespace topic prefixes. Upstream rayfronts defaults publish to
+    /rayfronts/... and /rayfronts/msg_serv/... ; we override Hydra config so
+    everything lives under /robot_$(env ROS_DOMAIN_ID)/rayfronts/... to match what
+    raven_nav_node and semantic_search_task subscribe to.
+  -->
+  <executable
+    cmd="python3 -m rayfronts.mapping_server
+         --config-name $(var config_name)
+         dataset=$(var dataset)
+         dataset.rgb_topic=/robot_$(env ROS_DOMAIN_ID)/sensors/front_stereo/left/image_rect
+         dataset.pose_topic=/robot_$(env ROS_DOMAIN_ID)/odometry_conversion/pose_stamped
+         dataset.depth_topic=/robot_$(env ROS_DOMAIN_ID)/sensors/front_stereo/left/depth_ground_truth
+         dataset.intrinsics_topic=/robot_$(env ROS_DOMAIN_ID)/sensors/front_stereo/left/camera_info
+         messaging_service=ros
+         messaging_service.topic_prefix=/robot_$(env ROS_DOMAIN_ID)/rayfronts/msg_serv
+         messaging_service.text_query_topic=/robot_$(env ROS_DOMAIN_ID)/rayfronts/msg_serv/new_text_query
+         vis.topic_prefix=/robot_$(env ROS_DOMAIN_ID)/rayfronts
+         querying.text_query_mode=prompts
+         querying.query_file=null
+         querying.compute_prob=$(var compute_prob)
+         querying.period=$(var query_period)
+         emb.enabled=$(var emb_enabled)
+         emb.seed_vocab=$(var emb_seed_vocab)"
+    cwd="/opt/rayfronts"
+    output="screen">
+    <env name="HYDRA_FULL_ERROR" value="1"/>
+    <!-- Long mapping runs fragment the CUDA allocator (OOM with tens of GiB
+         "reserved but unallocated"); expandable segments avoids that. -->
+    <env name="PYTORCH_CUDA_ALLOC_CONF" value="expandable_segments:True"/>
+    <env name="PYTORCH_ALLOC_CONF" value="expandable_segments:True"/>
+  </executable>
+</launch>

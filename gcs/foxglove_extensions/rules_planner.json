@@ -1,0 +1,266 @@
+{
+  "configById": {
+    "3D!rpmain": {
+      "cameraState": {
+        "perspective": true,
+        "distance": 260.0,
+        "phi": 58.0,
+        "thetaOffset": 180.0,
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.5,
+        "far": 6000
+      },
+      "followMode": "follow-none",
+      "followTf": "map",
+      "scene": {
+        "transforms": {
+          "visible": true,
+          "editable": false,
+          "showLabel": true,
+          "enablePreloading": true,
+          "offsetReferenceFrame": "fixed-frame"
+        }
+      },
+      "transforms": {
+        "frame:map": {
+          "visible": true
+        },
+        "frame:world": {
+          "visible": false
+        },
+        "frame:robot_1/base_link": {
+          "visible": true
+        }
+      },
+      "topics": {
+        "/dtc/rules_planner/markers": {
+          "visible": true,
+          "showOutlines": true
+        },
+        "/dtc/rules_planner/survivors": {
+          "visible": true,
+          "showOutlines": false
+        },
+        "/dtc/rules_planner/gt_people": {
+          "visible": true,
+          "showOutlines": false
+        },
+        "/robot_1/rayfronts/voxel_rgb": {
+          "visible": true,
+          "colorField": "rgb",
+          "colorMode": "rgb",
+          "colorMap": "turbo",
+          "pointSize": 4,
+          "pointShape": "cube"
+        },
+        "/robot_1/rayfronts/semantic_frontiers": {
+          "visible": true,
+          "colorField": "rgb",
+          "colorMode": "rgb",
+          "colorMap": "turbo",
+          "pointSize": 6,
+          "pointShape": "circle"
+        },
+        "/robot_1/rayfronts/frontiers": {
+          "visible": true,
+          "colorField": "z",
+          "colorMode": "flat",
+          "colorMap": "turbo",
+          "pointSize": 5,
+          "pointShape": "circle",
+          "flatColor": "#ffd24dff"
+        },
+        "/robot_1/global_plan": {
+          "visible": true,
+          "type": "line",
+          "lineWidth": 0.8,
+          "gradient": [
+            "#4dd2ffff",
+            "#4dd2ff80"
+          ]
+        },
+        "/robot_1/trajectory_controller/trajectory_vis": {
+          "visible": true
+        },
+        "/robot_1/odometry_conversion/odometry": {
+          "visible": true,
+          "type": "axis",
+          "axisScale": 2.0,
+          "historySize": 600
+        },
+        "/robot_1/vdb_mapping/vdb_map_visualization": {
+          "visible": false
+        },
+        "/robot_1/sensors/ouster/point_cloud": {
+          "visible": false
+        }
+      },
+      "layers": {
+        "grid": {
+          "visible": true,
+          "drawBehind": true,
+          "label": "Grid",
+          "instanceId": "rules-planner-grid",
+          "layerId": "foxglove.Grid",
+          "size": 500,
+          "divisions": 20,
+          "lineWidth": 1,
+          "color": "#2a3340",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "synchronize": false
+    },
+    "Tab!rptabs": {
+      "activeTabIdx": 0,
+      "tabs": [
+        {
+          "title": "robot 1",
+          "layout": {
+            "first": "robot-commands.Robot Tasks!rpcmd_r1",
+            "second": "Image!rpcam_r1",
+            "direction": "row",
+            "splitPercentage": 46.0
+          }
+        }
+      ]
+    },
+    "robot-commands.Robot Tasks!rpcmd_r1": {
+      "robot": "robot_1",
+      "activeTab": "takeoff",
+      "takeoff": {
+        "target_altitude_m": 10,
+        "velocity_m_s": 1
+      },
+      "land": {
+        "velocity_m_s": 0.3
+      },
+      "navigate": {
+        "frame_id": "map",
+        "waypoints": "[]",
+        "goal_tolerance_m": 4.0,
+        "use_editor": true
+      }
+    },
+    "Image!rpcam_r1": {
+      "cameraState": {
+        "perspective": true,
+        "distance": 20.0,
+        "phi": 60.0,
+        "thetaOffset": 60.0,
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.5,
+        "far": 6000
+      },
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {
+        "imageTopic": "/robot_1/sensors/front_stereo/left/image_rect",
+        "calibrationTopic": "/robot_1/sensors/front_stereo/left/camera_info",
+        "rectifyImage": true,
+        "flipHorizontal": false,
+        "rotation": 0
+      },
+      "synchronize": false
+    },
+    "RawMessages!rpstatus": {
+      "topicPath": "/dtc/rules_planner/task_status",
+      "expansion": "all"
+    },
+    "RawMessages!rpsnapshot": {
+      "topicPath": "/dtc/rules_planner/snapshot",
+      "expansion": "none"
+    },
+    "Table!rpqueue": {
+      "topicPath": "/dtc/task_queue_updates.task"
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": {
+    "direction": "row",
+    "first": "3D!rpmain",
+    "second": {
+      "direction": "column",
+      "first": "Tab!rptabs",
+      "second": {
+        "direction": "column",
+        "first": "RawMessages!rpstatus",
+        "second": {
+          "direction": "column",
+          "first": "Table!rpqueue",
+          "second": "RawMessages!rpsnapshot",
+          "splitPercentage": 55.0
+        },
+        "splitPercentage": 45.0
+      },
+      "splitPercentage": 40.0
+    },
+    "splitPercentage": 58.0
+  }
+}

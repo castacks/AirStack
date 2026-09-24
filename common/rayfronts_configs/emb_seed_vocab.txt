@@ -1,0 +1,341 @@
+# Seed vocabulary for the RayFronts embedding export (emb.seed_vocab).
+#
+# These phrases are encoded with the mapper's language head and joined to the
+# map's own voxel embeddings when the K-dim projection basis is fitted, so the
+# directions the planner's phrase bank lives in survive the projection. They
+# are NEVER published as queries and never reach the map's query columns.
+#
+# Generic outdoor / urban / disaster scene coverage: ground, roads,
+# vegetation, buildings, vehicles, people (including partial and occluded
+# views), debris, water, fire and sky. One phrase per line, lower case.
+
+# -- ground and terrain -----------------------------------------------------
+ground
+bare ground
+dirt
+soil
+mud
+muddy ground
+sand
+sandy ground
+gravel
+gravel path
+rocks
+rocky ground
+boulder
+stone
+dust
+grass
+dry grass
+patch of grass
+lawn
+field
+open field
+meadow
+hill
+hillside
+slope
+embankment
+ditch
+trench
+hole in the ground
+crater
+snow
+ice
+puddle
+dirt road
+
+# -- roads and transport infrastructure -------------------------------------
+road
+paved road
+asphalt
+asphalt road
+highway
+street
+city street
+intersection
+crosswalk
+lane markings
+sidewalk
+pavement
+curb
+parking lot
+bridge
+overpass
+underpass
+tunnel
+railway
+railway track
+helipad
+guardrail
+road sign
+stop sign
+traffic light
+traffic cone
+road barrier
+concrete barrier
+
+# -- vegetation -------------------------------------------------------------
+tree
+tall tree
+treeline
+forest
+woods
+tree trunk
+branch
+fallen tree
+fallen branch
+tree stump
+bush
+shrub
+hedge
+weeds
+flowers
+garden
+leaves
+log
+
+# -- buildings and structures -----------------------------------------------
+building
+house
+residential house
+apartment building
+office building
+high rise building
+warehouse
+factory
+industrial building
+shed
+barn
+garage
+hangar
+hospital
+tower
+chimney
+roof
+flat roof
+collapsed roof
+wall
+brick wall
+concrete wall
+window
+broken window
+door
+doorway
+staircase
+stairs
+scaffolding
+construction site
+crane
+fence
+chain link fence
+wooden fence
+gate
+shipping container
+tent
+makeshift shelter
+tarp shelter
+
+# -- vehicles ---------------------------------------------------------------
+vehicle
+car
+parked car
+white car
+damaged car
+overturned car
+burned car
+truck
+pickup truck
+van
+bus
+ambulance
+fire truck
+police car
+military vehicle
+tractor
+excavator
+bulldozer
+trailer
+motorcycle
+bicycle
+parked bicycle
+boat
+ship
+helicopter
+drone
+wheel
+tire
+vehicle wreckage
+
+# -- people and partial views -----------------------------------------------
+person
+people
+crowd of people
+person standing
+person walking
+person running
+person sitting
+person lying down
+person lying on the ground
+person face down
+person on a stretcher
+injured person
+unconscious person
+casualty
+human body
+body on the ground
+person under rubble
+person trapped under debris
+person partially buried
+person in a doorway
+person behind a wall
+person behind a car
+person waving
+person on a roof
+person in the water
+child
+elderly person
+worker
+construction worker
+rescue worker
+firefighter
+arm
+leg
+hand
+foot
+bare arm
+bare leg
+head
+face
+torso
+boot
+shoe
+helmet
+backpack
+clothing
+piece of clothing
+jacket on the ground
+high visibility vest
+blanket
+stretcher
+mannequin
+dummy
+statue
+animal
+dog
+
+# -- debris and damage ------------------------------------------------------
+debris
+scattered debris
+rubble
+pile of rubble
+wreckage
+collapsed building
+partially collapsed building
+damaged building
+destroyed house
+demolition site
+broken concrete
+concrete slab
+rebar
+twisted metal
+scrap metal
+sheet metal
+corrugated metal
+broken glass
+shattered glass
+wood debris
+pile of bricks
+broken furniture
+overturned furniture
+mattress
+trash
+dumpster
+trash pile
+pipe
+broken pipe
+cable
+power line
+fallen power line
+utility pole
+fallen pole
+downed tree across the road
+blocked road
+sandbags
+barrel
+pallet
+
+# -- water ------------------------------------------------------------------
+water
+body of water
+river
+riverbank
+stream
+lake
+pond
+sea
+ocean
+shoreline
+beach
+dock
+flooded street
+flood water
+standing water
+muddy water
+waterlogged ground
+wet ground
+mud flow
+landslide
+
+# -- fire, smoke and hazards ------------------------------------------------
+fire
+open flame
+flames
+burning building
+burning vehicle
+burning debris
+wildfire
+smoke
+column of smoke
+smoke plume
+thick smoke
+haze
+ash
+charred ground
+burned area
+scorched vegetation
+gas leak
+spill
+oil spill
+hazard sign
+warning sign
+fire hydrant
+
+# -- sky, weather and lighting ----------------------------------------------
+sky
+blue sky
+overcast sky
+clouds
+sun
+sunlight
+shadow
+dark area
+fog
+rain
+wet pavement
+
+# -- urban objects and furniture --------------------------------------------
+street light
+solar panel
+bench
+billboard
+storefront
+flag
+mailbox
+bin
+umbrella
+generator
+water tank
+propane tank
+empty lot
+open ground

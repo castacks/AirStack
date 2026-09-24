@@ -50,7 +50,12 @@ services:
       # Isaac Sim stuff
       - PLAY_SIM_ON_START=${PLAY_SIM_ON_START}
       - NUM_ROBOTS=${NUM_ROBOTS:-1}
-      - ENABLE_LIDAR=${ENABLE_LIDAR:-false}
+      # EMPTY when unset, not 'false': each launch script has its own
+      # default (off for example_multi_px4 and fleet_spawn, on for the
+      # multi-drone scene import) and a compose default silently overrides
+      # both. Every consumer reads an empty value as off, so this is the same
+      # thing for the scripts that want it off.
+      - ENABLE_LIDAR=${ENABLE_LIDAR:-}
       # Fleet spawner input: fleet_spawn.py maps the robot-container
       # path onto this container's /isaac-sim/AirStack checkout mount.
       - FLEET_CONFIG_FILE=${FLEET_CONFIG_FILE:-}
@@ -79,6 +84,135 @@ services:
       # authored dim); follow-cam headlight intensity for unlit interiors.
       - ISAAC_SIM_LIGHT_BOOST=${ISAAC_SIM_LIGHT_BOOST:-}
       - ISAAC_SIM_FOLLOW_CAM_LIGHT=${ISAAC_SIM_FOLLOW_CAM_LIGHT:-}
+      # ---------------------------------------------------------------
+      # FROZEN DATASET CELL (example_multi_drone_scene_import.py). Compose does
+      # NOT forward the host environment automatically — a var absent here
+      # never reaches the launch script, which looks like the script ignoring
+      # the mission rather than like a plumbing gap.
+      # ---------------------------------------------------------------
+      # A FROZEN DATASET CELL instead of a procedural build. FROZEN_SCENE
+      # WINS over SCENE_CONFIG in the launch script, but only if it gets in
+      # here: without these lines a mission that sets FROZEN_SCENE loses it at
+      # the container boundary and the script sees only SCENE_CONFIG.
+      - FROZEN_SCENE=${FROZEN_SCENE:-}
+      - FROZEN_DATASET_ROOT=${FROZEN_DATASET_ROOT:-}
+      # Extra authored layer referenced on top of a frozen cell at
+      # /World/Overlay (e.g. the standing-person A/B detection rig).
+      - FROZEN_OVERLAY_USD=${FROZEN_OVERLAY_USD:-}
+      # Scene to GENERATE. Inert on this branch: scene_gen/ was not ported, so
+      # a non-empty value exits with a message pointing at FROZEN_SCENE.
+      - SCENE_CONFIG=${SCENE_CONFIG:-}
+      # BARE NAME, like CUDA_VISIBLE_DEVICES below: the script's default is
+      # 'ground' and `${SUBURB_COLLIDERS:-}` would define this EMPTY, which is
+      # neither 'off' nor 'ground' — it falls through to colliding the WHOLE
+      # plat instead of the ground sheet. Unset must mean unset.
+      - SUBURB_COLLIDERS
+      # FROZEN-CELL LIGHTING. A frozen cell ships no sky (measured: every Fire
+      # cell has one 0.25 m SphereLight, every Tornado cell has none), so the
+      # launcher authors a dome + sun for it. Every one of these is OPTIONAL
+      # and safe empty — the launcher reads them as `os.environ.get(X) or
+      # <default>`, so `${X:-}` rendering an empty string still yields the
+      # shipped default. They are listed only so a mission CAN move the sun or
+      # the exposure; without these lines setting them in a mission would be
+      # silently dropped at the container boundary, which is exactly how
+      # FROZEN_SCENE was lost before.
+      - FROZEN_LIGHT=${FROZEN_LIGHT:-}
+      - FROZEN_SKY=${FROZEN_SKY:-}
+      - FROZEN_DOME_INTENSITY=${FROZEN_DOME_INTENSITY:-}
+      - FROZEN_DOME_EXPOSURE=${FROZEN_DOME_EXPOSURE:-}
+      - FROZEN_SUN=${FROZEN_SUN:-}
+      - FROZEN_SUN_INTENSITY=${FROZEN_SUN_INTENSITY:-}
+      - FROZEN_SUN_ELEV_DEG=${FROZEN_SUN_ELEV_DEG:-}
+      - FROZEN_SUN_AZ_DEG=${FROZEN_SUN_AZ_DEG:-}
+      - FROZEN_KILL_STRAY_LIGHTS=${FROZEN_KILL_STRAY_LIGHTS:-}
+      # FROZEN-CELL ASSET REBASE. A cell's textures are baked as absolute
+      # build-container paths under scene_gen/assets, and aec/ objaverse/ and
+      # materials/scorched/ are git-ignored — so a checkout without the build
+      # tree has none of them and the ground renders untextured. The launcher
+      # repoints any ABSENT one at the Nucleus mirror. Safe empty, same as above.
+      - FROZEN_REBASE_ASSETS=${FROZEN_REBASE_ASSETS:-}
+      - FROZEN_ASSET_LOCAL_PREFIX=${FROZEN_ASSET_LOCAL_PREFIX:-}
+      - FROZEN_ASSET_MIRROR=${FROZEN_ASSET_MIRROR:-}
+      - FROZEN_GROUND_ONLY_CONTACTS=${FROZEN_GROUND_ONLY_CONTACTS:-false}
+      # What `airstack://` resolves to for a rebased cell asset.
+      - AIRSTACK_ASSET_ROOT=${AIRSTACK_ASSET_ROOT:-}
+      # Spec overrides: a preset names a KIND of scene, these pick the
+      # instance (size, disaster, severity). REGION_M also sizes the frozen
+      # path's overhead camera and search rect. Unset leaves the preset alone.
+      - REGION_M=${REGION_M:-}
+      - DISASTER_TYPE=${DISASTER_TYPE:-}
+      - SEVERITY=${SEVERITY:-}
+      # Spawn knobs a mission sets in its `env:`. SPAWN_CONFIGS is a JSON list
+      # of {x_m, y_m[, z_m, orient]} dicts; SPAWN_POLY randomises NUM_ROBOTS
+      # spawns inside a rect or convex polygon. GENERATED/FROZEN paths only —
+      # the ENV_URL fleet is the list in the launch script.
+      - SPAWN_CONFIGS=${SPAWN_CONFIGS:-}
+      - SPAWN_POLY=${SPAWN_POLY:-}
+      - SPAWN_SEED=${SPAWN_SEED:-}
+      - SPAWN_HEIGHT_M=${SPAWN_HEIGHT_M:-}
+      - SPAWN_MIN_DIST_M=${SPAWN_MIN_DIST_M:-}
+      - SPAWN_MARGIN_M=${SPAWN_MARGIN_M:-}
+      # Ground truth: RESULTS_SCENE names the annotation files the frozen
+      # loader writes out of the cell's GT_hints.json / GT_people.json.
+      - RESULTS_SCENE=${RESULTS_SCENE:-}
+      - GT_ANNOTATIONS=${GT_ANNOTATIONS:-off}
+      # Overhead "map" camera framing (world metres) and its render budget.
+      - OVERHEAD_CENTER_X_M=${OVERHEAD_CENTER_X_M:-}
+      - OVERHEAD_CENTER_Y_M=${OVERHEAD_CENTER_Y_M:-}
+      - OVERHEAD_COVERAGE_M=${OVERHEAD_COVERAGE_M:-}
+      - OVERHEAD_ALTITUDE_M=${OVERHEAD_ALTITUDE_M:-}
+      - OVERHEAD_PX_PER_METER=${OVERHEAD_PX_PER_METER:-}
+      - OVERHEAD_RENDER_STEP=${OVERHEAD_RENDER_STEP:-1}
+      - OVERHEAD_HYDRA_TIME_SLICE=${OVERHEAD_HYDRA_TIME_SLICE:-false}
+      - OVERHEAD_RENDER_BURST=${OVERHEAD_RENDER_BURST:-8}
+      # Per-drone ZED. ZED_PITCH_DEG is read by BOTH sides (the mount here and
+      # the planner's camera_pitch_rad) so the two cannot disagree; the URDF
+      # models no mount pitch, so TF cannot see a tilt set here.
+      - ZED_PITCH_DEG=${ZED_PITCH_DEG:-}
+      - ZED_WIDTH=${ZED_WIDTH:-}
+      - ZED_HEIGHT=${ZED_HEIGHT:-}
+      - ZED_PIPELINE=${ZED_PIPELINE:-stereo}
+      - ZED_RENDER_STEP=${ZED_RENDER_STEP:-1}
+      - ZED_TIME_SLICE_GROUPS=${ZED_TIME_SLICE_GROUPS:-1}
+      - ZED_TIME_SLICE_BURST=${ZED_TIME_SLICE_BURST:-1}
+      - ZED_HYDRA_TIME_SLICE=${ZED_HYDRA_TIME_SLICE:-false}
+      - LIDAR_RENDER_STEP=${LIDAR_RENDER_STEP:-1}
+      - LIDAR_TIME_SLICE_GROUPS=${LIDAR_TIME_SLICE_GROUPS:-1}
+      # ---------------------------------------------------------------
+      # RENDERER / PHYSICS DEVICE SELECTION.
+      # ---------------------------------------------------------------
+      # DO NOT SET CUDA_VISIBLE_DEVICES FOR KIT. Bare name = passthrough:
+      # compose renders an unset variable as null and does NOT define it in
+      # the container, which is what we want. `${X:-0}` would hardcode a
+      # device and `${X:-}` would define it EMPTY; both are wrong here. Kit
+      # enumerates devices through Omniverse's own path, so pinning CUDA's
+      # view desynchronises the two indices, every CUDA probe fails, and Kit
+      # silently falls back to SOFTWARE rendering.
+      - CUDA_VISIBLE_DEVICES
+      # Same passthrough rule. Which physical card is "device 0" is not the
+      # same on every host; to pin one, export NVIDIA_VISIBLE_DEVICES=<UUID>
+      # (from `nvidia-smi -L`) before `docker compose up -d --force-recreate`
+      # — a running container's device bindings are fixed at creation.
+      - NVIDIA_VISIBLE_DEVICES
+      # RENDERER GPU PIN. NVIDIA_VISIBLE_DEVICES/CUDA_VISIBLE_DEVICES do not
+      # affect Vulkan device selection at all — the renderer defaults to
+      # device 0 regardless, and on a host whose device 0 is someone else's
+      # loaded card that shows up as an unexplained segfault minutes into
+      # scene load. Single-GPU workstation: leave at 0.
+      - ISAAC_SIM_ACTIVE_GPU=${ISAAC_SIM_ACTIVE_GPU:-}
+      # Spreads the drones' ZED render products across the visible cards.
+      # Empty/unset = OFF (the launcher treats "", 0, 1, false, off, no as off).
+      - ISAAC_SIM_MULTIGPU=${ISAAC_SIM_MULTIGPU:-}
+      # Pegasus defaults World to CPU. The launcher primes SimulationManager
+      # before PhysicsContext construction when this is true; setting only
+      # World(device=cuda) happens too late to enable GPU dynamics in 5.1.
+      - ISAAC_SIM_GPU_PHYSICS=${ISAAC_SIM_GPU_PHYSICS:-false}
+      - ISAAC_SIM_LEGACY_COOKING=${ISAAC_SIM_LEGACY_COOKING:-false}
+      - ISAAC_SIM_FABRIC_SCENE_DELEGATE=${ISAAC_SIM_FABRIC_SCENE_DELEGATE:-}
+      - ISAAC_SIM_DLSS_MODE=${ISAAC_SIM_DLSS_MODE:-}
+      - ISAAC_SIM_AA_MODE=${ISAAC_SIM_AA_MODE:-}
+      - ISAAC_SIM_DISABLE_MOTION_BVH=${ISAAC_SIM_DISABLE_MOTION_BVH:-false}
+      - ISAAC_SIM_DISABLE_VIEWPORT_UPDATES=${ISAAC_SIM_DISABLE_VIEWPORT_UPDATES:-false}
       # Pegasus physics tuning — read by pegasus/simulator/params.py
       - PX4_PHYSICS_HZ=${PX4_PHYSICS_HZ:-100}
       - ARDUPILOT_PHYSICS_HZ=${ARDUPILOT_PHYSICS_HZ:-800}
@@ -117,6 +251,17 @@ services:
       - ../../..:/isaac-sim/AirStack:rw
       - ../../../.devcontainer/isaac-sim/launch.json:/isaac-sim/AirStack/.vscode/launch.json:rw
       - ../../../.devcontainer/isaac-sim/tasks.json:/isaac-sim/AirStack/.vscode/tasks.json:rw
+      # THE FROZEN DATASET, OUTSIDE THE REPO ON PURPOSE. `final_disaster_dataset`
+      # is hundreds of MB of binary USD and texture per cell; inside the
+      # AirStack mount it sits in the working tree where a stray `git add -A`
+      # can pick it up and where every `du` on the repo counts it. Its own
+      # mount keeps the artefact and the source apart. Override the host side
+      # with FINAL_DATASET_DIR in .env.
+      - ${FINAL_DATASET_DIR:-$HOME/SEI-COA/final_disaster_dataset}:/isaac-sim/final_disaster_dataset:rw
+      # A frozen cell's materials still reference the build machine's
+      # scene_gen/assets (AEC packs, megascans). This branch carries no scene_gen,
+      # so mount the asset packs from the checkout that built the cell, read-only.
+      - ${SCENE_ASSETS_DIR:-$HOME/SEI-COA/disaster-dataset/scene_gen/assets}:/isaac-sim/AirStack/scene_gen/assets:ro
 
   # ===================================================================================================================
   # Full Isaac Sim GUI editor for USD/scene editing on any asset (runapp.sh,
@@ -194,3 +339,14 @@ services:
       - ../../..:/isaac-sim/AirStack:rw
       - ../../../.devcontainer/isaac-sim/launch.json:/isaac-sim/AirStack/.vscode/launch.json:rw
       - ../../../.devcontainer/isaac-sim/tasks.json:/isaac-sim/AirStack/.vscode/tasks.json:rw
+      # THE FROZEN DATASET, OUTSIDE THE REPO ON PURPOSE. `final_disaster_dataset`
+      # is hundreds of MB of binary USD and texture per cell; inside the
+      # AirStack mount it sits in the working tree where a stray `git add -A`
+      # can pick it up and where every `du` on the repo counts it. Its own
+      # mount keeps the artefact and the source apart. Override the host side
+      # with FINAL_DATASET_DIR in .env.
+      - ${FINAL_DATASET_DIR:-$HOME/SEI-COA/final_disaster_dataset}:/isaac-sim/final_disaster_dataset:rw
+      # A frozen cell's materials still reference the build machine's
+      # scene_gen/assets (AEC packs, megascans). This branch carries no scene_gen,
+      # so mount the asset packs from the checkout that built the cell, read-only.
+      - ${SCENE_ASSETS_DIR:-$HOME/SEI-COA/disaster-dataset/scene_gen/assets}:/isaac-sim/AirStack/scene_gen/assets:ro

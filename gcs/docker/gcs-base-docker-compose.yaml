@@ -46,6 +46,12 @@ services:
       - ROBOT_RELAY_MAP=${ROBOT_RELAY_MAP:-}
       # Record bags
       - RECORD_BAGS=${RECORD_BAGS}
+      # Which layout render_layout.py expands for NUM_ROBOTS and seeds into
+      # Foxglove. Unset = gcs/foxglove_extensions/airstack_default.json. Set it
+      # to .../rules_planner.json for the rules-planner demo. BARE NAME: an
+      # explicit empty string would beat render_layout.py's own default and
+      # leave it with no template at all.
+      - LAYOUT_TEMPLATE
     image: ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_gcs
     # Needed to display graphical applications
     # ipc: host

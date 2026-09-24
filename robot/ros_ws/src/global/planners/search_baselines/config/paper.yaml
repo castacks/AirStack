@@ -1,0 +1,64 @@
+# Upstream/paper settings, for fidelity to Co-NavGPT2 rather than to our scene.
+# Layered on planner.yaml. Every value here is upstream's own default, taken
+# from `vendor/arguments.py`; anything upstream ships that is NOT here is
+# omitted deliberately and the reason is given.
+#
+# NOT the launch default any more. conavgpt2.launch.xml loads conavgpt2.yaml,
+# which carries these same values PLUS `frontier_source: voxel3d` so the arm
+# is offered the same 3D candidate list as vlfm / frontier. This file sets no
+# frontier source on purpose — it inherits planner.yaml's `slab2d`, upstream's
+# own 2D map — and exists for a run that must be the paper's method end to end.
+#
+# Paper: Co-NavGPT: Multi-Robot Cooperative Visual Semantic Navigation Using
+# Vision Language Models — arXiv 2310.07937v3. Upstream commit 891ba099.
+search_planner:
+  ros__parameters:
+
+    # ── ASSIGNMENT CADENCE — the paper's, exactly ───────────────────────────
+    # Upstream re-assigns every `num_local_steps` AGENT STEPS, not on a wall
+    # clock: `step % num_local_steps == num_local_steps - 1` in _assign(). One
+    # agent step is one mapping() call, i.e. one tick of this node's plan loop.
+    # round_period_s: 0 is what selects that branch — any positive value
+    # replaces upstream's cadence with a timer.
+    round_period_s: 0.0
+
+    # The DETECTOR is SHARED — one YOLO + MobileSAM on the offboard-compute
+    # container for the whole fleet, `detector_url` in planner.yaml. Detection
+    # is stateless (one frame in, boxes and masks out, no history), so
+    # interleaving robots is safe; three planner processes each loading their
+    # own copy would be 3x the VRAM for identical answers. Every arm uses the
+    # same one, which is also what keeps the comparison controlled: no arm can
+    # win by having a different detector.
+    # Needs `./airstack.sh up offboard-compute` BEFORE launch — an unreachable
+    # service is fatal, by design (a silent local fallback would turn a missing
+    # service into "found nobody").
+    detector_mode: 'server'
+    num_local_steps: 25            # arguments.py:40
+    plan_period_s: 1.0             # one tick == one agent step
+
+    # ── detector ───────────────────────────────────────────────────────────
+    # arguments.py:51 is 0.85, and this file otherwise exists to reproduce
+    # upstream's numbers — but NOT this one. At 15-40 m AGL a YOLO-World box
+    # rarely clears 0.85, so the paper's value makes `found_goal` essentially
+    # unreachable and the arm would be losing on DETECTION rather than on the
+    # 2D-vs-3D map difference this file is meant to isolate. Pinned to the same
+    # 0.65 every other arm uses (see planner.yaml). The 2D map, the cadence and
+    # num_local_steps are still the paper's; the detector gate is deliberately
+    # not.
+    sem_threshold: 0.65
+
+    # ── NOT replicated, and why ────────────────────────────────────────────
+    # map_size_cm 2400 / map_resolution 5 / map_height_cm 130 (arguments.py:
+    # 47-49) describe a 24 x 24 m grid at 5 cm cells with a 1.3 m obstacle band
+    # — a Habitat apartment seen by a quadruped. On a 1600 x 1200 m plat a 24 m
+    # grid is smaller than one block, every frontier is a map edge, and a 1.3 m
+    # band centred on a drone's camera height contains nothing at all. Map
+    # geometry stays scene-scaled; see the per-scene overlays.
+    #
+    # hfov 79.0 (arguments.py:35) is the RealSense D455's. Ours is read from
+    # camera_info — measured 105.0 deg on the ZED in this stack — and using
+    # upstream's number would unproject every point to the wrong bearing.
+    #
+    # num_agents 2 (arguments.py:51) is the paper's team size and the reason
+    # its system prompt says "two robots". Team size is set by the MISSION
+    # (num_robots), not here; see README section on multi-robot.

@@ -7,7 +7,12 @@
 [submodule "simulation/isaac-sim/extensions/PegasusSimulator"]
 	path = simulation/isaac-sim/extensions/PegasusSimulator
 	url = https://github.com/castacks/PegasusSimulator-AirStack-Integration.git
+	branch = disaster-dataset
 
 [submodule "common/ros_packages/gui/rviz/rviz_polygon_selection_tool"]
 	path = common/ros_packages/gui/rviz/rviz_polygon_selection_tool
 	url = https://github.com/swri-robotics/rviz_polygon_selection_tool.git
+[submodule "common/rayfronts"]
+	path = common/rayfronts
+	url = https://github.com/krrishj18/RayFronts.git
+	branch = rules-planner

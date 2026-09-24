@@ -1,0 +1,60 @@
+<!-- Co-NavGPT2 COOPERATIVE (team_mode) launch — ONE planner for the whole fleet.
+
+     Upstream Co-NavGPT2 (arXiv 2310.07937) is a cooperative method: every
+     robot's local map is merged into ONE global map, frontiers are detected on
+     it, and a SINGLE VLM call per round assigns a distinct frontier to EACH
+     robot. That is one process subscribing to — and commanding — every robot,
+     which AirStack only exposes on a shared/bridged DDS domain. This launch is
+     the team_mode counterpart of conavgpt2.launch.xml (which stays the
+     per-container, per-robot 1-robot path and is UNCHANGED).
+
+     WHY NOT include _planner.launch.xml: that file loads planner -> method ->
+     scene, and the scene overlay (suburb_wildfire_1km.yaml) sets
+     frame_mode: 'local'. team_mode needs 'global_enu' to merge robots, so the
+     team overrides MUST load AFTER the scene. _planner has no fourth param
+     slot, so the node is declared here with the extra `team_params_file`
+     layered LAST. Everything else mirrors _planner exactly (same node name,
+     same allow_substs, use_sim_time).
+
+     NEEDS: the generative vlm_server on :8000 (~5.9 GiB at 7B nf4) and the
+     shared detector on :8200, both on the offboard-compute container; and the
+     robots' sensors/odom/navsat + the tasks/navigate action bridged onto this
+     process's domain by the DDS router. See wildfire1km_5robot_conavgpt2.yaml.
+
+       ros2 launch search_baselines conavgpt2_team.launch.xml \
+         num_robots:=5 scene_params_file:=<scene>.yaml
+-->
+<launch>
+  <arg name="scene_params_file" />
+  <arg name="num_robots" default="$(env NUM_ROBOTS 1)" />
+  <arg name="results_dir" default="" />
+  <!-- The method overlay: nav_mode gpt, the paper cadence/threshold, and the
+       voxel3d frontier source — identical to the 1-robot conavgpt2 path. -->
+  <arg name="method_params_file"
+       default="$(find-pkg-share search_baselines)/config/conavgpt2.yaml" />
+  <!-- The team overlay: frame_mode global_enu, map_origin_xy, pose_source odom,
+       the bridged navsat topic, sector_partition none. Loaded LAST so it wins
+       over the scene's frame_mode: local. -->
+  <arg name="team_params_file"
+       default="$(find-pkg-share search_baselines)/config/conavgpt2_team.yaml" />
+
+  <node pkg="search_baselines" exec="search_planner" name="search_planner"
+        output="screen">
+    <param from="$(find-pkg-share search_baselines)/config/planner.yaml"
+           allow_substs="true" />
+    <param name="use_sim_time" value="true" />
+    <param name="results_dir" value="$(var results_dir)" />
+    <!-- method, then scene, then TEAM — the team overlay has the last word on
+         the merge frame so the scene's frame_mode: local cannot revert it. -->
+    <param from="$(var method_params_file)" allow_substs="true" />
+    <param from="$(var scene_params_file)" allow_substs="true" />
+    <param from="$(var team_params_file)" allow_substs="true" />
+    <!-- team_mode and the team size are set AFTER every param file so nothing
+         can clobber them. team_mode:=true is what makes the one process
+         subscribe to (and drive) all `num_robots` robots and issue one VLM
+         assignment for the team, instead of driving only its own container's
+         robot. -->
+    <param name="num_robots" value="$(var num_robots)" />
+    <param name="team_mode" value="true" />
+  </node>
+</launch>

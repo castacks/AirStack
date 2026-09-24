@@ -1,0 +1,20 @@
+<!-- frontier: see config/frontier.yaml for what it is and why.
+
+     Needs NO GPU service — no VLM, no ITM. YOLO-World runs in-process for
+     target detection, as it does for every arm.
+
+       ros2 launch search_baselines frontier.launch.xml scene_params_file:=<scene>.yaml
+-->
+<launch>
+  <arg name="scene_params_file" />
+  <arg name="num_robots" default="$(env NUM_ROBOTS 1)" />
+  <arg name="results_dir" default="" />
+
+  <include file="$(find-pkg-share search_baselines)/launch/_planner.launch.xml">
+    <arg name="method_params_file"
+         value="$(find-pkg-share search_baselines)/config/frontier.yaml" />
+    <arg name="scene_params_file" value="$(var scene_params_file)" />
+    <arg name="num_robots" value="$(var num_robots)" />
+    <arg name="results_dir" value="$(var results_dir)" />
+  </include>
+</launch>

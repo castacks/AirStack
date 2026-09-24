@@ -1,5 +1,7 @@
 # either ubuntu:24.04 / nvidia CUDA, or Jetson intermediary from Dockerfile.l4t-stack-base (see robot-l4t in compose).
 ARG BASE_IMAGE
+ARG SKIP_RAYFRONTS=true
+ARG FINAL_STAGE=runtime
 # ============================================================
 # Stage 1 — builder: compile/download everything
 # ============================================================
@@ -17,6 +19,7 @@ ARG PYTHON_VERSION=3.12
 
 ARG ROS_DISTRO=jazzy
 ENV ROS_DISTRO=${ROS_DISTRO}
+ARG SKIP_RAYFRONTS
 
 # from https://github.com/athackst/dockerfiles/blob/main/ros2/jazzy.Dockerfile
 ENV DEBIAN_FRONTEND=noninteractive
@@ -106,6 +109,14 @@ RUN apt update -y && apt install -y --no-install-recommends \
   ros-${ROS_DISTRO}-xacro \
   ros-${ROS_DISTRO}-ament-package \
   python3-colcon-common-extensions \
+  # asm_mighty (MIGHTY local planner + acl-mapping world model): PCL for the
+  # voxel map, nlohmann for the solver config loader — module.yaml deps
+  ros-jazzy-pcl-ros \
+  ros-jazzy-pcl-conversions \
+  ros-jazzy-tf2-sensor-msgs \
+  ros-jazzy-tf2-eigen \
+  libpcl-dev \
+  nlohmann-json3-dev \
   && rm -rf /var/lib/apt/lists/*
 
 RUN /opt/ros/${ROS_DISTRO}/lib/mavros/install_geographiclib_datasets.sh
@@ -128,13 +139,21 @@ RUN pip3 install --break-system-packages --ignore-installed \
   # setup tools must be <80 for Jazzy https://github.com/ros2/ros2/issues/1702#issuecomment-3007929996
   setuptools==79.0.1 \
   # scipy stays: position_setpoint_pub
-  scipy
+  scipy \
+  scikit-learn
 
 # Keep pytest < 8.1. ROS Jazzy launch_testing still implements
 # pytest_pycollect_makemodule(path=...), which pluggy rejects after pytest 8.1
 # removed the py.path hook argument (PluginValidationError on colcon test).
 RUN python3 -m pip install --no-cache-dir --break-system-packages \
   "pytest>=7.4,<8.1"
+
+# torch for RayFronts: cu130-pinned wheels match its torch-scatter / OpenVDB ABI
+RUN if [ "${SKIP_RAYFRONTS}" != "true" ]; then \
+    pip3 install --break-system-packages \
+      --index-url https://download.pytorch.org/whl/cu130 \
+      torch==2.9.1 torchvision torchaudio; \
+  fi
 
 # TMux config
 RUN git clone --depth 1 https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm
@@ -152,6 +171,43 @@ RUN mkdir -p /tmp/DDS-Router/src \
   && vcs import src < ddsrouter.repos \
   && colcon build --merge-install --install-base /usr/local \
   && rm -rf /tmp/DDS-Router
+
+# RayFronts deps (builder-stage, gated on SKIP_RAYFRONTS!=true)
+RUN if [ "${SKIP_RAYFRONTS}" != "true" ]; then \
+    pip3 install --break-system-packages \
+      hydra-core open_clip_torch "transformers<5" \
+      git+https://github.com/facebookresearch/segment-anything.git \
+      ftfy regex nanobind pandas protobuf \
+      "scipy==1.15.2" "scikit-image" "numpy<2" && \
+    pip3 install --break-system-packages \
+      torch-scatter==2.1.2 && \
+    pip3 install --break-system-packages --force-reinstall --no-deps \
+      setuptools==79.0.1; \
+  fi
+
+# Patched OpenVDB (OasisArtisan fork) — exposes Int8Grid to Python bindings
+RUN if [ "${SKIP_RAYFRONTS}" != "true" ]; then \
+    apt-get ${UPDATE_FLAGS} update && apt-get ${INSTALL_FLAGS} install -y --no-install-recommends \
+      libboost-iostreams-dev libtbb-dev libblosc-dev python3-dev && \
+    git clone --depth 1 https://github.com/OasisArtisan/openvdb /tmp/openvdb && \
+    cmake -S /tmp/openvdb -B /tmp/openvdb/build \
+      -DCMAKE_INSTALL_PREFIX=/usr/local \
+      -DOPENVDB_BUILD_PYTHON_MODULE=ON \
+      -DOPENVDB_PYTHON_WRAP_ALL_GRID_TYPES=ON \
+      -DUSE_NUMPY=ON \
+      -Dnanobind_DIR=$(python3 -c "import nanobind,os;print(os.path.join(os.path.dirname(nanobind.__file__),'cmake'))") && \
+    cmake --build /tmp/openvdb/build -j4 && \
+    cmake --install /tmp/openvdb/build && \
+    rm -rf /tmp/openvdb && \
+    rm -rf /var/lib/apt/lists/*; \
+  fi
+
+# rayfronts/__init__ imports its rerun visualizer unconditionally and the RADIO
+# encoder imports einops at model load; without them the mapper cannot start. Separate layer so a
+# change here never invalidates the OpenVDB build above.
+RUN if [ "${SKIP_RAYFRONTS}" != "true" ]; then \
+    pip3 install --break-system-packages rerun-sdk==0.22.0 einops; \
+  fi
 
 # Cleanup
 RUN apt autoremove -y \
@@ -270,6 +326,14 @@ RUN apt update -y && apt install -y --no-install-recommends \
   ros-${ROS_DISTRO}-xacro \
   ros-${ROS_DISTRO}-ament-package \
   python3-colcon-common-extensions \
+  # asm_mighty (MIGHTY local planner + acl-mapping world model): PCL for the
+  # voxel map, nlohmann for the solver config loader — module.yaml deps
+  ros-jazzy-pcl-ros \
+  ros-jazzy-pcl-conversions \
+  ros-jazzy-tf2-sensor-msgs \
+  ros-jazzy-tf2-eigen \
+  libpcl-dev \
+  nlohmann-json3-dev \
   && rm -rf /var/lib/apt/lists/*
 
 # Install emoji font support and refresh font cache
@@ -338,4 +402,86 @@ RUN echo 'root:airstack' | chpasswd \
 EXPOSE 22
 
 WORKDIR /root/AirStack/robot/ros_ws
+
+
+# runtime + compiled RayFronts (only reached when FINAL_STAGE=runtime-rayfronts)
+FROM runtime AS runtime-rayfronts
+COPY ./common/rayfronts          /opt/rayfronts
+COPY ./common/rayfronts_configs/ /opt/rayfronts/rayfronts/configs/
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      cmake build-essential python3-dev python3-venv \
+ && cd /opt/rayfronts && CMAKE_INSTALL_PREFIX=/usr/local ./compile.sh \
+ && rm -rf /var/lib/apt/lists/*
+
+# FPV+LVLM baseline runs in an isolated venv. --system-site-packages reuses the
+# system torch / numpy(1.26) / rclpy / cv_bridge, so only the LVLM-specific deps
+# (transformers/bitsandbytes/accelerate) live in the venv and can't perturb
+# rayfronts' system transformers. numpy stays system 1.26 (cv_bridge needs <2);
+# the venv's transformers shadows the system's only for the venv's python.
+# semantic_search_task launches lvlm_baseline_node with /opt/lvlm-venv/bin/python.
+RUN python3 -m venv --system-site-packages /opt/lvlm-venv \
+ && /opt/lvlm-venv/bin/pip install --no-cache-dir \
+      "transformers==4.57.6" bitsandbytes accelerate "numpy<2"
+
+# Co-NavGPT2 baseline. SYSTEM python, not a venv: the node is an ordinary ROS
+# package that must import rclpy and cv_bridge, and every pin below was measured
+# against this image rather than guessed. Three separate installs, because each
+# flag is load-bearing:
+#
+# 1. open3d --no-deps. Its declared deps drag in pandas + scikit-learn, and
+#    modern pandas requires numpy>=2 -- which silently upgraded numpy to 2.5.2
+#    and broke both scipy and cv_bridge when tried. Only core geometry is used
+#    (PointCloud, voxel_down_sample, transform, KDTreeFlann, cluster_dbscan),
+#    so its dep tree is dead weight anyway.
+# 2. The import-time deps open3d actually needs, pinned. `import open3d` reaches
+#    visualization/draw_plotly and dies without `dash`; dash needs no numpy, so
+#    it cannot drag numpy 2 in. --ignore-installed blinker is required because
+#    Debian's python3-blinker ships no RECORD and pip refuses to replace it.
+#    "setuptools<80" is NOT optional: dash's tree pulls setuptools 84, which
+#    violates colcon-core's <80 and breaks `colcon build`.
+# 3. ultralytics/supervision --no-deps: both declare opencv-python, and a pip
+#    cv2 shadows the ROS cv2 at /usr/lib/python3/dist-packages that cv_bridge is
+#    built against. Their other deps are already in system site-packages; the
+#    ones that were not -- py-cpuinfo and defusedxml (supervision imports it for
+#    pascal_voc) -- are installed by name above. ultralytics-thop is in THIS
+#    group rather than that one because it declares an unpinned torch: resolved
+#    normally it upgrades torch 2.9.1 -> 2.13.0 and orphans torchvision
+#    0.24.1+cu130, whose compiled ops then fail to register, so `import
+#    torchvision` dies with "operator torchvision::nms does not exist" and takes
+#    YOLO-World's NMS with it. It needs only the torch already in the image.
+# 4. ultralytics' CLIP fork, --no-deps for the same opencv reason. YOLO-World is
+#    open-vocabulary, so set_classes() encodes the prompt vocabulary with CLIP —
+#    and upstream Co-NavGPT2 calls set_classes in the DETECTOR'S CONSTRUCTOR, so
+#    without this the search_planner node dies at startup with
+#    "ModuleNotFoundError: No module named 'clip'". ultralytics ships a lazy
+#    check_requirements("git+.../CLIP.git") fallback for exactly this case, but
+#    it shells out to pip WITHOUT --break-system-packages, so under PEP 668 it
+#    fails and the retry `import clip` raises anyway.
+#
+# The trailing check fails the BUILD rather than letting a shadowed cv2, an
+# upgraded numpy, or a colcon-breaking setuptools reach a run.
+RUN pip install --no-cache-dir --break-system-packages --no-deps "open3d>=0.19" \
+ && pip install --no-cache-dir --break-system-packages --ignore-installed blinker \
+      "numpy<2" "setuptools<80" dash configargparse addict nbformat pyquaternion \
+      scikit-fmm openai py-cpuinfo defusedxml \
+ && pip install --no-cache-dir --break-system-packages --no-deps \
+      ultralytics ultralytics-thop "supervision==0.19.0" \
+ && pip install --no-cache-dir --break-system-packages --no-deps \
+      "clip @ git+https://github.com/ultralytics/CLIP.git" \
+ && python3 -c "import numpy, cv2, clip, colcon_core, cv_bridge, open3d, skfmm, ultralytics, supervision, openai; \
+assert numpy.__version__.startswith('1.'), numpy.__version__; \
+assert cv2.__file__.startswith('/usr/lib/python3'), cv2.__file__; \
+import torch, torchvision; \
+torchvision.ops.nms(torch.tensor([[0.,0.,1.,1.]]), torch.tensor([0.9]), 0.5); \
+print('conavgpt2 deps ok: numpy', numpy.__version__, 'cv2', cv2.__version__, 'open3d', open3d.__version__, 'torch', torch.__version__, 'tv', torchvision.__version__, 'clip models', len(clip.available_models()))"
+
+# The VLM Co-NavGPT2 queries is served over an OpenAI-compatible endpoint. The
+# server reuses lvlm-venv (transformers/bitsandbytes/accelerate already there);
+# these are only the HTTP layer. NOT qwen-vl-utils: nothing imports it — the
+# server does its own PIL decode and hands min_pixels/max_pixels straight to
+# AutoProcessor.
+RUN /opt/lvlm-venv/bin/pip install --no-cache-dir \
+      fastapi uvicorn
+
+FROM ${FINAL_STAGE} AS final
 

@@ -19,7 +19,11 @@
        description="MAVLink protocol version" />
   <arg name="respawn_mavros" default="false"
        description="Respawn the MAVROS node if it dies" />
-  <arg name="namespace" default="mavros"
+  <!-- mavros >= 2.15 prefixes every plugin topic with the mavros node's own name
+       ("mavros"), so a "mavros" namespace here doubled it to interface/mavros/mavros/*
+       and no AirStack subscriber (interface/mavros/state, .../local_position/odom)
+       saw the FCU. Empty namespace: node = <ns>/interface/mavros, topics as before. -->
+  <arg name="namespace" default=""
        description="Namespace for the MAVROS node" />
 
   <include file="$(find-pkg-share mavros)/launch/node.launch">

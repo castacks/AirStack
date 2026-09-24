@@ -64,5 +64,66 @@ allowlist:
   - name: "rt/$(env ROBOT_NAME)/bag_record/bag_recording_status"
   - name: "rt/$(env ROBOT_NAME)/bag_record/set_recording_status"
 
+  # ── rules_planner stack ───────────────────────────────────────────────────
+  #
+  # NOT namespaced, on purpose. The rules planner runs in ONE container
+  # (RULES_PLANNER=true, robot_1 by convention) but its tasks are for the whole
+  # fleet, so /dtc/... is a single fleet-wide name rather than a per-robot one.
+  #
+  # HOW A TASK REACHES ANOTHER ROBOT'S EXECUTOR. Every robot container runs its
+  # own copy of this router, bridging ITS domain (ROS_DOMAIN_ID = N) to the GCS
+  # domain 0. So robot_1 publishes /dtc/task_queue_updates on domain 1, its
+  # router carries it to domain 0, and robot_2's and robot_3's routers carry it
+  # from domain 0 into domains 2 and 3, where their executors are subscribed.
+  # Domain 0 is the hub; the gossip domain (99) is NOT involved — that router
+  # carries coordination_msgs/PeerProfile only, and putting a topic in both
+  # routers amplifies it (see the note at the end of this file).
+  - name: "rt/dtc/task_queue_updates"
+  - name: "rt/dtc/task_queue"
+  - name: "rt/dtc/rules_planner/snapshot"
+  - name: "rt/dtc/rules_planner/semantic_boxes"
+  - name: "rt/dtc/rules_planner/markers"
+  - name: "rt/dtc/rules_planner/survivors"
+  - name: "rt/dtc/rules_planner/gt_people"
+  # Executors -> planner. This is the edge that closes the loop: without it a
+  # drone finishes a sweep, the planner never hears, and that drone is busy for
+  # the rest of the mission.
+  - name: "rt/dtc/rules_planner/task_status"
+
+  # RayFronts visualization, for the GCS layout (gcs/foxglove_extensions/
+  # rules_planner.json). PointCloud2, one per robot, published under the
+  # mapper's vis prefix. They are SUBSCRIBER-GATED: rayfronts only serialises a
+  # layer while it has a subscriber, and a DDS-router reader does not count —
+  # which is what perception_bringup's voxel_keepalive_node is for. A layer
+  # that is not in that node's topic_pattern will never stream no matter what
+  # this allowlist says (rayfronts.launch.xml's voxel_keepalive_pattern arg).
+  - name: "rt/$(env ROBOT_NAME)/rayfronts/voxel_rgb"
+  - name: "rt/$(env ROBOT_NAME)/rayfronts/frontiers"
+  - name: "rt/$(env ROBOT_NAME)/rayfronts/semantic_frontiers"
+
+  # CROSS-ROBOT EMBEDDINGS, and what they cost.
+  #
+  # In per-robot RayFronts mode each robot's mapper publishes emb/* in its OWN
+  # domain, so the planner in robot_1 can only see robot_1's map. The five
+  # entries below are what make robot_2's and robot_3's maps reach it — plus
+  # rayfronts_prefixes on the planner node listing all three, plus a keepalive
+  # subscription in each mapper's own container (see above: the router's reader
+  # does not open the gate).
+  #
+  # THE COST IS REAL. emb/voxels is one point per semantic voxel carrying a
+  # 128-float embedding — ~540 bytes/point, tens of MB per republish on a 500 m
+  # plate, and RayFronts republishes the WHOLE map every cycle, not deltas.
+  # Three robots' worth crossing the router is the same load profile that took
+  # it from 130 MB to 870 MB RSS in the per-query-cloud incident noted in
+  # voxel_keepalive_node.py. RAYFRONTS_MODE=shared (one mapper on
+  # offboard-compute for the whole fleet) avoids the bridge entirely and is the
+  # better answer whenever the pod can host it; comment these five out when the
+  # planner only needs its own robot's map.
+  - name: "rt/$(env ROBOT_NAME)/rayfronts/msg_serv/emb/voxels"
+  - name: "rt/$(env ROBOT_NAME)/rayfronts/msg_serv/emb/rays"
+  - name: "rt/$(env ROBOT_NAME)/rayfronts/msg_serv/emb/meta"
+  - name: "rt/$(env ROBOT_NAME)/rayfronts/msg_serv/emb/text/request"
+  - name: "rt/$(env ROBOT_NAME)/rayfronts/msg_serv/emb/text/response"
+
   # gossip peer profiles are bridged by the dedicated gossip_dds_router (domain 99),
   # NOT here — having it in both routers causes message flooding/amplification.

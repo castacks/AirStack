@@ -34,7 +34,8 @@ sim: isaacsim
 #   asm_optitrack:     {repo: "git@github.com:castacks/asm_optitrack.git", version: v0.1.0}
 # A bare {version: ...} without repo: needs registry resolution — not
 # implemented yet; sync names it as an error.
-modules: {}
+modules:
+  task_assigner: {path: ../task_assigner}
 
 # External STACK repos (RFC #380 §3): fetched by `airstack sync` into
 # gitignored stacks/.external/<alias>/; fleets then reference their stacks as

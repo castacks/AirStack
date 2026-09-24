@@ -193,6 +193,7 @@ nav:
           - full_raven: stacks/full_raven/README.md
           - lite_default: stacks/lite_default/README.md
           - lite_offload_global: stacks/lite_offload_global/README.md
+          - rules_planner: stacks/rules_planner/README.md
       - Modules Catalog:
           - Catalog: docs/modules/index.md
           - module.yaml Schema: common/module_schema/README.md
