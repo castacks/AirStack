@@ -82,6 +82,8 @@ services:
       # comma-separated robots that run a RayFronts mapper (empty = all); see rayfronts_gated.launch.py
       - RAYFRONTS_ROBOTS=${RAYFRONTS_ROBOTS:-}
       - RAYFRONTS_PER_ROBOT=${RAYFRONTS_PER_ROBOT:-true}
+      # extra Hydra overrides for the mapper, e.g. "depth_limit=150 mapping.vox_size=1.0"
+      - RAYFRONTS_OVERRIDES=${RAYFRONTS_OVERRIDES:-}
       # rules_planner stack (stacks/rules_planner/launch/stack.launch.xml).
       # Compose forwards nothing it does not name here, so a var missing from
       # this list reads as the launch file ignoring the mission rather than as
@@ -115,6 +117,8 @@ services:
       # planner's LLM client falls back to its own defaults when these are
       # UNSET, and an explicit empty string is not "unset".
       - RULES_LLM_MODEL
+      # rules.yaml (dense low-altitude map) or rules_sweep_70m.yaml (the 70 m sweep demo)
+      - RULES_CONFIG=${RULES_CONFIG:-rules.yaml}
       - RULES_LLM_BACKEND
       # per_robot (default, unset) | shared: semantic_search_task spawns
       # rayfronts.launch.xml itself vs. waiting on a shared off-board

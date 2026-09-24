@@ -45,6 +45,11 @@
   <arg name="rules_scenario_file"
        default="$(find-pkg-share task_assigner)/config/rules_planner/examples/earthquake_suburban_500m.yaml"
        description="ScenarioInput YAML the AOE prompt is built from." />
+  <!-- Rule tunables: a path, or a bare filename resolved against the
+       installed config/rules_planner (then its examples/). The shipped
+       rules.yaml suits a dense low-altitude map; rules_sweep_70m.yaml is the
+       high-altitude demo's gates. -->
+  <arg name="rules_config" default="$(env RULES_CONFIG rules.yaml)"/>
   <arg name="rules_llm_backend" default="$(env RULES_LLM_BACKEND openai)"
        description="openai = the local OpenAI-compatible server, read from the
                     container environment (OPENAI_BASE_URL, RULES_LLM_MODEL);
@@ -183,6 +188,7 @@
     <arg name="robot_name" value="$(env ROBOT_NAME)" />
     <arg name="planner_robot" value="$(var rules_planner_robot)" />
     <arg name="scenario_file" value="$(var rules_scenario_file)" />
+    <arg name="rules_config" value="$(var rules_config)" />
     <arg name="fleet_file" value="$(var rules_fleet_file)" />
     <arg name="llm_backend" value="$(var rules_llm_backend)" />
     <arg name="gt_people_file" value="$(var rules_gt_people_file)" />

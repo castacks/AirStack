@@ -6,6 +6,10 @@
        emb/text/{request,response} under the msg_serv prefix (RAYFRONTS_EMB). -->
   <arg name="emb_enabled" default="$(env RAYFRONTS_EMB false)"/>
   <arg name="emb_seed_vocab" default="/opt/rayfronts/rayfronts/configs/emb_seed_vocab.txt"/>
+  <!-- Extra Hydra overrides appended verbatim (RAYFRONTS_OVERRIDES), e.g.
+       "depth_limit=150 mapping.vox_size=1.0". low_memory clips depth at 20 m:
+       a mapper flown at 70 m never gets a voxel without a wider limit. -->
+  <arg name="overrides" default=""/>
   <!-- False publishes raw cosine similarities instead of a softmax over the
        query set. Raw scores are vocabulary-independent: adding or removing a
        background query leaves the other columns untouched, so a recorded run
@@ -59,8 +63,13 @@
     everything lives under /robot_$(env ROS_DOMAIN_ID)/rayfronts/... to match what
     raven_nav_node and semantic_search_task subscribe to.
   -->
+  <!-- shell="true": launch tokenises cmd at parse time, so $(var overrides)
+       would reach Hydra as ONE argument; the shell re-splits it. exec keeps
+       the mapper as launch's direct child for signals. -->
   <executable
-    cmd="python3 -m rayfronts.mapping_server
+    name="rayfronts_mapper"
+    shell="true"
+    cmd="exec python3 -m rayfronts.mapping_server
          --config-name $(var config_name)
          dataset=$(var dataset)
          dataset.rgb_topic=/robot_$(env ROS_DOMAIN_ID)/sensors/front_stereo/left/image_rect
@@ -76,7 +85,8 @@
          querying.compute_prob=$(var compute_prob)
          querying.period=$(var query_period)
          emb.enabled=$(var emb_enabled)
-         emb.seed_vocab=$(var emb_seed_vocab)"
+         emb.seed_vocab=$(var emb_seed_vocab)
+         $(var overrides)"
     cwd="/opt/rayfronts"
     output="screen">
     <env name="HYDRA_FULL_ERROR" value="1"/>

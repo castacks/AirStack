@@ -27,6 +27,7 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument("emb_enabled", default_value=os.environ.get("RAYFRONTS_EMB", "false")),
         DeclareLaunchArgument("config_name", default_value="low_memory"),
         DeclareLaunchArgument("query_period", default_value="10"),
+        DeclareLaunchArgument("overrides", default_value=os.environ.get("RAYFRONTS_OVERRIDES", "")),
     ]
     if not _wanted():
         return LaunchDescription(args)
@@ -36,6 +37,7 @@ def generate_launch_description() -> LaunchDescription:
             "emb_enabled": LaunchConfiguration("emb_enabled"),
             "config_name": LaunchConfiguration("config_name"),
             "query_period": LaunchConfiguration("query_period"),
+            "overrides": LaunchConfiguration("overrides"),
         }.items(),
     )
     return LaunchDescription(args + [include])

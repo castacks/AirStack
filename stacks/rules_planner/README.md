@@ -420,7 +420,7 @@ unset `RESULTS_SCENE` costs nothing. Note this branch's `gcs_visualizer` has no
 | tasks, allocations, AOEs, labelled boxes, LLM decisions | robot_1's dashboard, host port from `docker port rules-planner-robot-desktop-1 8791` (usually http://localhost:8795); `/api/state` is the same as JSON |
 | the planner's log line per tick (boxes, new tasks, assignments, decision errors) | `docker exec rules-planner-robot-desktop-1 tmux capture-pane -p -J -t bringup:0.0 -S -300 \| grep rules_planner_node` |
 | the executor (takeoff, waypoints, timeouts) | same pane, `grep task_executor` |
-| RayFronts mapper (frames/s, `[emb]` basis fit, text requests) | same pane, `grep "python3-"` — the mapper runs inside the robot_1 stack launch; `\[emb\]` lines are the embedding export |
+| RayFronts mapper (frames/s, `[emb]` basis fit, text requests) | same pane, `grep rayfronts_mapper` — the mapper runs inside the robot_1 stack launch; `\[emb\]` lines are the embedding export |
 | the LLM's raw answers | `/dtc/rules_planner/llm_trace` (String JSON) and the dashboard's LLM section; the server side: `docker logs -f ollama` |
 | RayFronts clouds in 3D | Foxglove: `/robot_1/rayfronts/voxel_rgb`, `/robot_1/rayfronts/frontiers`, the planner's `/dtc/rules_planner/markers` (labelled boxes), `/dtc/rules_planner/survivors`, `/dtc/rules_planner/gt_people` |
 | quick CLI checks from the GCS (domain 0) | `docker exec rules-planner-gcs-1 bash -lc 'source /opt/ros/jazzy/setup.bash; ros2 topic hz /dtc/rules_planner/markers'` |
@@ -432,6 +432,15 @@ layout ("layout sync invalid"); import the rendered file instead: inside the
 container it is `/root/airstack_layout_num_robots_3.json`, on the host
 `gcs/foxglove_extensions/rendered/rules_planner_3_robots.json` (Layouts →
 Import from file). A host Foxglove connects to `ws://localhost:8766`.
+
+The planner's map stuck at `n_voxels: 0` while the mapper logs frames: the
+mapper's depth clip. `low_memory` sets `depth_limit: 20.0` and everything
+farther is treated as unobserved, so a sweep at 70 m never yields a voxel and
+the embedding export never fits (`fit_min_voxels`). `RAYFRONTS_OVERRIDES`
+appends Hydra overrides to the mapper; the demo uses
+`depth_limit=150 mapping.vox_size=1.0 mapping.max_pts_per_frame=3000
+mapping.sem_pruning_thresh=0` (1 m voxels keep the map small at altitude, the
+pruning threshold stops sparsely seen voxels from being erased).
 
 Nothing shows in Foxglove until the robots' DDS routers bridge into domain 0.
 Leave Fast DDS on its default transports: with `FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATA`
