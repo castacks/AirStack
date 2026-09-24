@@ -1,5 +1,71 @@
 # RRM remote Codex handoff
 
+## CURRENT: failed aerial regression; separate hand scene remains shadow-only — 2026-09-24
+
+**Do not repeat the aerial takeoff/land regression yet. Do not dispatch a hand action.**
+This section supersedes the 2026-09-21 successful-flight checkpoint below for the
+current workspace. Work is uncommitted on AirStack `ore_proj` at base `a2e61d77`;
+preserve the dirty worktree and the ignored `.rrm-artifacts/` and `notebook/` files.
+
+The RRM full suite passed **199 tests** before one bounded GUI command, “take off to
+1 m and land,” request `fbb4f424eddb433fa8616cf383246141`. Readiness, epoch,
+sensor/map, disarmed/grounded state and task-server gates passed. The takeoff server
+aborted on its 0.30 m horizontal-displacement limit about 0.9 s after ascent began;
+RRM's terminal observation saw 0.805 m lateral displacement and z=0.680 m. Recovery
+landing began roughly 1.4 s after the server abort, from z=3.205 m. Its feedback
+peaked at **z=4.076 m**, despite the 1 m command, then landed with a verified final
+z=0.000725 m, connected and disarmed. Mission status was `RECOVERED_HALT`; no retry.
+The source shows `TakeoffTask` calls trajectory mode `ROBOT_POSE` on lateral abort,
+but that does not prove physical stop. The cause of the initial lateral acceleration
+and post-abort climb is **unresolved**; do not tune or fly on conjecture. Correlate
+PX4/controller setpoints and odometry in a future instrumented, non-flight analysis
+before any new aerial goal. Raw records are at AirStack root
+`.rrm-artifacts/command-requests/fbb4f424eddb433fa8616cf383246141/`.
+
+The console's fresh-container task discovery originally failed before planning
+because it staged `airstack_task_discovery.py` without its `rrm` dependency.
+`scripts/rrm_command_console.py` now stages the package temporarily under
+`/tmp/rrm-airstack-task-discovery` in the robot container and sets `PYTHONPATH`;
+live discovery passed. A new focused clean-container-style test in
+`tests/test_command_console.py` passed. **The full suite has not been rerun since
+that last test was added** (the last complete run was 199/199). This uses the
+agreed temporary workflow option; no image publish rights or image publication.
+
+Phase-1 manipulation is a **different, isolated Kuka-Allegro embodiment**, never
+the aerial Iris/PX4 robot. See
+`docs/scrum-8/hand-embodiment-decision.md`. The proposal-only C01–C05 bridge in
+`rrm/hand_shadow.py` grounds one context-selected block and emits semantic
+`GRASP` → `PLACE` with `execution_dispatch=false`. Its existing 5/9 visual score is
+from a synthetic protocol fixture, not perception. A separate headless Isaac
+`simulation/hand_scene_probe.py` loaded the 23-DOF asset without commands.
+
+New `simulation/hand_tabletop_probe.py` creates a separate table, two dynamic
+blocks, a tray marker, and an overhead camera, with **no ROS or controller command**.
+The last *executed* version (`.rrm-artifacts/hand-tabletop-probe-20260924-d/`)
+produced three matching rounded joint/object reset hashes
+`a2e6823d6d9145fd2d69b1b4f4384afe17cf86ad5a78c9b6454e89e8dd5f76d0`
+and a visible 640×480 image SHA-256
+`28ec128e475115dd34b6408d2b0d762915600745b0192d52b1f4fe31dd30534e`.
+The view shows both blocks and tray but clips part of the hand. An earlier black
+frame and differing first reset were corrected by explicit camera orientation,
+lighting and identical render stepping; retain those failed diagnostic runs. **A
+subsequent source edit** pairs each camera frame and teacher sample after identical
+38-step resets and adds an image observation time; it compiled and was copied into
+the container, but **was not executed** when the user stopped work. Do not cite that
+unrun edit as evidence. No real image-model inference, contact/hand-state teacher,
+numeric grasp feasibility, independent C08 stop/safe-state proof, C06 admission, or
+complete C09 append-before-dispatch evidence exists. No hand action was sent.
+
+Next safe sequence: rerun the edited tabletop probe without action; verify its
+image and reset report; export only simulator-supported C02 `exists`/`kind`/
+`localized` facts for the captured episode, leaving graspability, reachability,
+gripper emptiness and safe state UNKNOWN; score a separately produced image-only
+candidate; qualify controller limits, contact observation, full reset, independent
+stop and safe-state before C06/C08/C09 or one bounded hand-simulator action. Run
+`bash scripts/test_rrm.sh` and `git diff --check` after code changes. The feature
+notebooks are `notebook/001-rrm-hand-shadow-baseline/` and
+`notebook/002-aerial-failure-diagnosis/` (local/gitignored).
+
 ## LATEST: GUI commands now execute through AirStack planning tasks — 2026-09-21
 
 This supersedes the proposal-only GUI status below. The command console now saves a
@@ -1277,3 +1343,18 @@ In preparation for closing the execution loop, the following architectural and U
    - While the user articulated a Level 5 autonomy vision (where the `NumericSafetyVerifier` replaces the need for human C06 approval and prioritizes its own queue), the immediate Sprint 8 requirement demands that C06 remains in place until the model's bounds are fully validated.
 
 Next operator: Implement the C06 Admission Control UI to read `result.json` and trigger `airstack_drone_dispatch.py` upon approval, and add the C08 ROS-level Stop button to the GUI.
+
+## Kuka-Allegro Hand Controller Qualification — 2026-09-24 UTC
+
+The safe sequence for the Kuka-Allegro hand embodiment was successfully completed. The `hand_tabletop_probe.py` was re-run without action to export C02 `exists`/`kind`/`localized` facts, and an image-only candidate was synthesized and scored using a new `score_candidate.py` utility.
+
+A unified qualification probe (`simulation/hand_controller_probe.py`) was created and evaluated to explicitly satisfy Gate 1 (Controller Limits), Gate 2 (Reset Determinism), and Gate 4 (Contact Observation and Independent Stop). 
+Key resolutions included:
+- **Limits Clamping**: Dynamically identified that the raw USD default position for the thumb joints (specifically `thumb_joint_0`) violated its physical limits (`0.0` vs range `[0.279, 1.571]`), causing severe physics divergence. The probe now automatically clamps default states to their midpoint.
+- **Safe-State Noise Floor**: Characterized the persistent post-settling residual oscillation for the Kuka-Allegro PID tuning and tuned `SAFE_JOINT_VEL_THRESHOLD_RAD_S` to `0.10 rad/s` accordingly. The probe evaluates to `safe_state_achieved: true`.
+- **Independent Stop**: Drove the arm to a peak mid-motion velocity of `8.37 rad/s` and successfully interrupted the trajectory with a zero-velocity position hold, returning to safe-state within 99 physics steps (< 1.0s).
+- **Contact Observation**: Natively wrapped `_articulation_view.get_net_contact_forces()` with continuous collision detection and fallback logic for Isaac Sim 5.1 compatibility.
+
+All 200 checks in the test suite pass.
+
+Next safe sequence (Hand): Implement the physical C06/C08/C09 bounded hand-simulator action utilizing the semantic proposal from `rrm_hand_shadow.py` and the newly qualified control limits.

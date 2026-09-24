@@ -1,0 +1,69 @@
+{
+  "schema_version": "rrm-hand-shadow-fixture/v1",
+  "run_id": "hand-shadow-protocol-001",
+  "observed_monotonic_s": 10.0,
+  "received_monotonic_s": 10.1,
+  "now_monotonic_s": 10.2,
+  "max_age_s": 1.0,
+  "scene": {
+    "schema_version": "rrm-hand-scene/v1",
+    "scene_id": "kuka-allegro-tabletop-design-v0",
+    "revision": "kuka-allegro-tabletop/design-v0",
+    "episode_id": "synthetic-episode-001",
+    "embodiment_id": "kuka-allegro-tabletop-v0",
+    "asset_url": "omniverse://airlab-nucleus.andrew.cmu.edu/NVIDIA/Assets/Isaac/5.1/Isaac/IsaacLab/Robots/KukaAllegro/kuka.usd",
+    "asset_sha256": "935957108f80625b58afb3ace9fff326edbb820a0b3629793c5f4931adb58fb2",
+    "support_entity_id": "tray_1",
+    "limits_ref": "kuka-allegro/unverified-design-limits/v0",
+    "entities": [
+      {"entity_id": "red_block", "kind": "block"},
+      {"entity_id": "blue_block", "kind": "block"},
+      {"entity_id": "tray_1", "kind": "tray"}
+    ],
+    "context_bindings": [
+      {"ref": "selection/red-block/v1", "entity_id": "red_block"},
+      {"ref": "selection/blue-block/v1", "entity_id": "blue_block"}
+    ]
+  },
+  "task": {
+    "task_id": "hand-task-001",
+    "revision": "hand-task-001/v1",
+    "objective": "place the context-selected block on the tray",
+    "context_refs": ["selection/red-block/v1"],
+    "constraints_revision": "hand-constraints/v1",
+    "issuer_id": "shadow-fixture",
+    "permission_revision": "shadow-only/no-dispatch",
+    "requested_embodiment_id": "kuka-allegro-tabletop-v0"
+  },
+  "capability": {
+    "embodiment_id": "kuka-allegro-tabletop-v0",
+    "revision": "kuka-allegro/candidate-shadow/v0",
+    "operations": ["GRASP", "PLACE"],
+    "resources": ["arm", "hand"],
+    "available_resources": ["arm", "hand"],
+    "limits_ref": "kuka-allegro/unverified-design-limits/v0"
+  },
+  "teacher_facts": [
+    {"key": {"subject": "red_block", "predicate": "exists"}, "truth": "TRUE"},
+    {"key": {"subject": "red_block", "predicate": "kind", "obj": "block"}, "truth": "TRUE"},
+    {"key": {"subject": "red_block", "predicate": "localized"}, "truth": "TRUE"},
+    {"key": {"subject": "red_block", "predicate": "graspable"}, "truth": "TRUE"},
+    {"key": {"subject": "red_block", "predicate": "reachable"}, "truth": "TRUE"},
+    {"key": {"subject": "red_block", "predicate": "on", "obj": "tray_1"}, "truth": "FALSE"},
+    {"key": {"subject": "blue_block", "predicate": "exists"}, "truth": "TRUE"},
+    {"key": {"subject": "blue_block", "predicate": "kind", "obj": "block"}, "truth": "TRUE"},
+    {"key": {"subject": "blue_block", "predicate": "localized"}, "truth": "TRUE"},
+    {"key": {"subject": "tray_1", "predicate": "exists"}, "truth": "TRUE"},
+    {"key": {"subject": "tray_1", "predicate": "kind", "obj": "tray"}, "truth": "TRUE"},
+    {"key": {"subject": "tray_1", "predicate": "localized"}, "truth": "TRUE"},
+    {"key": {"subject": "tray_1", "predicate": "reachable"}, "truth": "TRUE"},
+    {"key": {"subject": "$self", "predicate": "gripper_empty"}, "truth": "TRUE"}
+  ],
+  "visual_protocol_probe": {
+    "synthetic": true,
+    "media_source_ref": "synthetic-episode-001/placeholder-frame",
+    "media_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "model_ref": "synthetic-protocol-probe/v1",
+    "raw_response": "{\"status\":\"READY\",\"claims\":[{\"subject\":\"red_block\",\"predicate\":\"exists\",\"obj\":null,\"truth\":\"TRUE\"},{\"subject\":\"red_block\",\"predicate\":\"kind\",\"obj\":\"block\",\"truth\":\"TRUE\"},{\"subject\":\"red_block\",\"predicate\":\"localized\",\"obj\":null,\"truth\":\"TRUE\"},{\"subject\":\"tray_1\",\"predicate\":\"exists\",\"obj\":null,\"truth\":\"TRUE\"},{\"subject\":\"tray_1\",\"predicate\":\"kind\",\"obj\":\"tray\",\"truth\":\"TRUE\"}]}"
+  }
+}

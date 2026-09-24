@@ -257,12 +257,21 @@ class Console:
     def discover_tasks(self) -> dict:
         """Read actual action servers and flight state from the active stack."""
         source = Path(__file__).with_name("airstack_task_discovery.py")
-        remote = "/tmp/rrm-airstack-task-discovery.py"
+        source_root = Path(__file__).resolve().parents[1]
+        remote_root = "/tmp/rrm-airstack-task-discovery"
+        remote = f"{remote_root}/airstack_task_discovery.py"
+        subprocess.run(["docker", "exec", "airstack-robot-desktop-1",
+                        "mkdir", "-p", remote_root],
+                       check=True, capture_output=True, timeout=10)
         subprocess.run(["docker", "cp", str(source),
                         f"airstack-robot-desktop-1:{remote}"],
                        check=True, capture_output=True, timeout=10)
+        subprocess.run(["docker", "cp", str(source_root / "rrm"),
+                        f"airstack-robot-desktop-1:{remote_root}/"],
+                       check=True, capture_output=True, timeout=10)
         command = (
             "source /root/AirStack/robot/ros_ws/install/local_setup.bash; "
+            f"export PYTHONPATH=/tmp/rrm-canonical-deps:{remote_root}:$PYTHONPATH; "
             f"exec python3 {remote} --robot robot_1 --timeout-s 4"
         )
         completed = subprocess.run(

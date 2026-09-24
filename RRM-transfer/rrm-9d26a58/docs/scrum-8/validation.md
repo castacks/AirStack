@@ -2,6 +2,30 @@
 
 Source baseline: RRM archive `9d26a58eb8516b6754c5d12b041cdc789950e047`, AirStack `ore_proj` at `a6dad8caf54722e5eba3481367e914ce213e6135`. Changes are staged source files, not a new Git revision or published baseline.
 
+## Current checkpoint — 2026-09-24 UTC
+
+The complete RRM unit suite passed **199/199** before one bounded aerial-console
+takeoff/land regression. Readiness, canonical state, sensor/map freshness, and actual
+takeoff/land server checks passed. The console's fresh-container task-discovery
+packaging issue was repaired locally by staging the `rrm` dependency; no image was
+published. The nominal 1 m takeoff **failed** after 0.805 m lateral displacement in
+1.24 s; the recovery-land pre-sample was at 3.205 m. Predeclared contingency landing
+was verified at z=0.000725 m, connected and disarmed. Mission state was
+`RECOVERED_HALT`; there was no retry. This is transport/safety regression evidence,
+not RRM research evidence. Raw records are under
+`.rrm-artifacts/command-requests/fbb4f424eddb433fa8616cf383246141/` at the
+AirStack root.
+
+The [hand embodiment decision](hand-embodiment-decision.md) selects Kuka-Allegro for
+a future controlled tabletop stage. An isolated no-command USD probe found 23 joints
+and three matching bare-articulation reset hashes, but no tabletop reset or controller
+qualification. A proposal-only C01–C05 hand shadow fixture produced nine hash-linked
+records, a context-grounded `GRASP` → `PLACE` plan, and a **synthetic** visual-score
+protocol result of 5/9 recall. It used no hand image/model inference and sent no
+simulator action. C06 admission, independent C08 stop/reset, complete C09 evidence,
+and bounded hand execution remain gated on the qualified stage, observations,
+numeric limits and safe-state proof.
+
 ## Direct GUI command execution — 2026-09-21
 
 The console now performs deterministic command-to-public-task translation and serial

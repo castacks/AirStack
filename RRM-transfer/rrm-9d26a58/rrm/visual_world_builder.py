@@ -249,8 +249,8 @@ def score_visual_snapshot(candidate: StateSnapshot, teacher: StateSnapshot, *,
                           now_monotonic_s: float,
                           entity_catalog: Mapping[str, str]) -> TeacherScore:
     """Compare explicit C02 facts; absence remains a missed/unknown observation, not FALSE."""
-    if candidate.task_id != teacher.task_id:
-        raise ValueError("candidate and teacher task IDs must match")
+    if candidate.task_id != teacher.task_id or candidate.episode_id != teacher.episode_id:
+        raise ValueError("candidate and teacher task/episode IDs must match")
     candidate_facts = _resolved_facts(candidate, now_monotonic_s=now_monotonic_s,
                                       entity_catalog=entity_catalog)
     teacher_facts = _resolved_facts(teacher, now_monotonic_s=now_monotonic_s,

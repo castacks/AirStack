@@ -16,6 +16,7 @@ Read in order:
 8. [Model and artifact persistence](model-and-artifact-persistence.md)
 9. [Cosmos Reason2 model-selection gate](model-selection-gate.md)
 10. [Dynamic embodiment feasibility and admission workflow](feasibility-workflow.md)
+11. [Phase-1 hand embodiment decision and qualification gates](hand-embodiment-decision.md)
 
 ## Source authority
 

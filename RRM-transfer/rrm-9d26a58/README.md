@@ -10,6 +10,15 @@
 
 # RRM-1 — Robotics Reasoning Model
 
+> **Current safety status (2026-09-24):** The latest bounded aerial-console
+> takeoff failed and climbed to 4.076 m during verified recovery landing from a
+> 1 m command. The vehicle ended grounded/disarmed, but the cause is unresolved:
+> **do not repeat aerial flight**. Kuka-Allegro hand work is in a separate
+> no-command Isaac probe and proposal-only shadow pipeline; **no hand execution
+> is enabled**. Read [HANDOFF.md](HANDOFF.md) before continuing. The current
+> worktree is uncommitted; its new focused discovery test passed, while the last
+> complete RRM suite run (before that test) passed 199 tests.
+
 A modular embodied-reasoning architecture. Perception feeds a persistent semantic
 world model, a reasoner plans over symbols, a deterministic verifier gates every
 action, and a VLA policy converts verbs into motion.

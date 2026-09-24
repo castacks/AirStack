@@ -129,6 +129,41 @@ class CommandConsoleUiTests(unittest.TestCase):
             }])
 
 
+class TaskDiscoveryPackagingTests(unittest.TestCase):
+    def test_fresh_robot_container_receives_discovery_dependency_before_read(self):
+        """A fresh container has no local RRM module until the console stages it."""
+        staged = {"script": False, "package": False}
+        calls = []
+        report = {
+            "schema_version": "airstack-task-discovery/v1",
+            "execution_dispatch": False,
+            "task_servers": {},
+        }
+
+        def clean_container(command, **_kwargs):
+            calls.append(command)
+            if command[:2] == ["docker", "cp"]:
+                source = Path(command[2])
+                if source.name == "airstack_task_discovery.py":
+                    staged["script"] = True
+                elif source.name == "rrm":
+                    staged["package"] = True
+            elif command[:3] == ["docker", "exec", "-e"]:
+                self.assertTrue(staged["script"] and staged["package"])
+                self.assertIn("/tmp/rrm-airstack-task-discovery:$PYTHONPATH", command[-1])
+                return type("Completed", (), {"stdout": json.dumps(report) + "\n"})()
+            return type("Completed", (), {"stdout": ""})()
+
+        with patch("rrm_command_console.subprocess.run", side_effect=clean_container), \
+                patch.object(Console, "_clock_epoch_consistent", return_value=True):
+            discovered = Console.__new__(Console).discover_tasks()
+
+        self.assertTrue(discovered["clock_epoch_consistent"])
+        self.assertEqual(discovered["task_servers"], {})
+        self.assertEqual(len(calls), 4)
+        self.assertEqual(calls[0][-3:], ["mkdir", "-p", "/tmp/rrm-airstack-task-discovery"])
+
+
 class IsaacSceneCatalogTests(unittest.TestCase):
     def test_catalog_accepts_leaf_and_scaled_usd_isaac_entries_only(self):
         with tempfile.TemporaryDirectory() as directory:
