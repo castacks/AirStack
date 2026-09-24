@@ -217,6 +217,79 @@ osmo workflow submit osmo/workflows/airstack-live-replan.yaml \
   --set-env "ISAAC_SIM_STAGE_SCALE=1.0"
 ```
 
+#### Temporary OSMO boot checklist (until the version-pinned images land)
+
+The deployed OSMO images are currently mutable. A new workflow can therefore
+boot with two independent regressions even when the source checkout is correct:
+
+- `robot-desktop` can start a few milliseconds before Isaac Sim, leaving stale
+  TF/controller state; and
+- the inner Isaac image can install NumPy 2.x, which causes Isaac's render
+  writers to fail. The visible symptom is an empty Isaac camera feed, zero raw
+  Ouster publishers, and consequently an empty Foxglove VDB map.
+
+Run this **only on a fresh, grounded, disarmed workflow with no active mission**.
+Do not restart Isaac or a robot as a recovery step while the vehicle is airborne
+or a command is executing.
+
+1. First wait for the normal control-plane gates:
+
+   ```bash
+   airstack ready
+   ```
+
+   If this reports that the robot predates Isaac, restart only the robot and
+   rerun the gate:
+
+   ```bash
+   docker restart airstack-robot-desktop-1
+   airstack ready
+   ```
+
+2. Confirm that the simulator image did not install the broken NumPy version:
+
+   ```bash
+   docker exec isaac-sim-livestream \
+     /isaac-sim/python.sh -c 'import numpy; print(numpy.__version__)'
+   ```
+
+   If it prints `2.x`, apply this temporary repair inside the current inner
+   Isaac container. It lasts only for this workflow; every fresh workflow must
+   be checked again until the rebuilt image is deployed.
+
+   ```bash
+   docker exec isaac-sim-livestream bash -lc \
+     '/isaac-sim/python.sh -m pip install --no-cache-dir --force-reinstall numpy==1.26.4'
+   docker restart isaac-sim-livestream
+
+   # Wait until this prints "Ready for takeoff!", then press Ctrl-C.
+   docker logs -f isaac-sim-livestream
+
+   # Start the robot after the newly restarted Isaac instance.
+   docker restart airstack-robot-desktop-1
+   airstack ready
+   ```
+
+3. Verify sensor data before opening the command console. `airstack ready`
+   checks clock/control readiness but does not verify camera, lidar, or map
+   content:
+
+   ```bash
+   docker exec airstack-robot-desktop-1 bash -lc '
+     sws
+     ros2 topic info /robot_1/sensors/ouster/point_cloud_raw
+     ros2 topic info /robot_1/sensors/front_stereo/left/image_rect
+   '
+   ```
+
+   Each topic must report at least one publisher. Within a few seconds, the
+   VDB marker on `/robot_1/vdb_mapping/vdb_map_visualization` should contain
+   points and the Foxglove map should populate. If either sensor has zero
+   publishers, do not start a mission; repeat step 2 for this fresh workflow.
+
+A rebuilt, version-pinned workspace image plus the pinned Isaac image is the
+durable solution; this checklist is intentionally temporary.
+
 `airstack-dev.yaml` remains the one-GPU developer workflow; do not use it for the
 live Cosmos replan path. Do not run `airstack.sh up --sim isaac --scene office` merely
 to change the scene of an already-running workspace: it can recreate simulator

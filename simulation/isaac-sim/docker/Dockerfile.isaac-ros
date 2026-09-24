@@ -103,11 +103,13 @@ RUN mkdir -p /isaac-sim/.local/share/ov/pkg/ && \
     ln -s /isaac-sim /isaac-sim/.local/share/ov/pkg/isaac-sim-${ISAAC_VERSION}
 
 
-# install python packages
+# Install Python packages. Keep NumPy on the ABI used by Isaac Sim 5.1's
+# bundled native extensions; NumPy 2.x lets ROS writer attachment fail with
+# zero-sized dtypes, leaving camera and RTX lidar topics empty.
 RUN /isaac-sim/python.sh -m pip install --no-cache-dir --upgrade pip && \
     /isaac-sim/python.sh -m pip install --no-cache-dir git+https://github.com/dronekit/dronekit-python#egg=dronekit && \
     /isaac-sim/python.sh -m pip install --no-cache-dir PyYAML mavproxy tmuxp scipy \
-    kconfiglib jinja2 empy==3.3.4 jsonschema pyros-genmsg packaging toml numpy future
+    kconfiglib jinja2 empy==3.3.4 jsonschema pyros-genmsg packaging toml numpy==1.26.4 future
 
 ARG isaac_dir_name="IsaacSim-ros_workspaces-IsaacSim-${ISAAC_VERSION}"
 # Install Isaac Sim ROS2 workspace so that we can run the isaacsim ROS package
