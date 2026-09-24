@@ -119,6 +119,8 @@ services:
       - RULES_LLM_MODEL
       # rules.yaml (dense low-altitude map) or rules_sweep_70m.yaml (the 70 m sweep demo)
       - RULES_CONFIG=${RULES_CONFIG:-rules.yaml}
+      # false = no MIGHTY (trajectory_override backend flies without a local planner)
+      - RULES_LOCAL_PLANNER=${RULES_LOCAL_PLANNER:-true}
       - RULES_LLM_BACKEND
       # per_robot (default, unset) | shared: semantic_search_task spawns
       # rayfronts.launch.xml itself vs. waiting on a shared off-board

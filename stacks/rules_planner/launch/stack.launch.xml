@@ -140,7 +140,11 @@
        controller (the bridge sets TRACK mode itself); navigate action at
        tasks/navigate. The DROAN reactive planner is the same seam one
        include away (stacks/full_droan). -->
-  <include file="$(find-pkg-share mighty_bridge)/launch/mighty_module.launch.xml" />
+  <!-- RULES_LOCAL_PLANNER=false drops MIGHTY: the executor's trajectory_override
+       backend never calls tasks/navigate, and MIGHTY's three processes cost
+       ~4 cores per robot on a 12-core host (sim RTF, LLM latency). -->
+  <include if="$(env RULES_LOCAL_PLANNER true)"
+           file="$(find-pkg-share mighty_bridge)/launch/mighty_module.launch.xml" />
 
   <!-- Trajectory controller: odometry in from odometry_conversion; serves the
        trajectory_controller/* topic group (override, segment, mode, tracking
