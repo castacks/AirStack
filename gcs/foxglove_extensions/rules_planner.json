@@ -151,10 +151,15 @@
         {
           "title": "robot 1",
           "layout": {
-            "first": "robot-commands.Robot Tasks!rpcmd_r1",
-            "second": "Image!rpcam_r1",
-            "direction": "row",
-            "splitPercentage": 46.0
+            "first": {
+              "first": "robot-commands.Robot Tasks!rpcmd_r1",
+              "second": "Image!rpcam_r1",
+              "direction": "row",
+              "splitPercentage": 46.0
+            },
+            "second": "RawMessages!rpllm_r1",
+            "direction": "column",
+            "splitPercentage": 62.0
           }
         }
       ]
@@ -224,6 +229,10 @@
         "rotation": 0
       },
       "synchronize": false
+    },
+    "RawMessages!rpllm_r1": {
+      "topicPath": "/dtc/rules_planner/llm_trace",
+      "expansion": "all"
     },
     "RawMessages!rpstatus": {
       "topicPath": "/dtc/rules_planner/task_status",

@@ -413,6 +413,31 @@ unset `RESULTS_SCENE` costs nothing. Note this branch's `gcs_visualizer` has no
   much of which is git-ignored; `FROZEN_REBASE_ASSETS` repoints any path that is
   genuinely absent locally onto the Nucleus mirror.
 
+## Monitoring the demo
+
+| what | where |
+|---|---|
+| tasks, allocations, AOEs, labelled boxes, LLM decisions | robot_1's dashboard, host port from `docker port rules-planner-robot-desktop-1 8791` (usually http://localhost:8795); `/api/state` is the same as JSON |
+| the planner's log line per tick (boxes, new tasks, assignments, decision errors) | `docker exec rules-planner-robot-desktop-1 tmux capture-pane -p -J -t bringup:0.0 -S -300 \| grep rules_planner_node` |
+| the executor (takeoff, waypoints, timeouts) | same pane, `grep task_executor` |
+| RayFronts mapper (frames/s, `[emb]` basis fit, text requests) | same pane, `grep "python3-"` — the mapper runs inside the robot_1 stack launch; `\[emb\]` lines are the embedding export |
+| the LLM's raw answers | `/dtc/rules_planner/llm_trace` (String JSON) and the dashboard's LLM section; the server side: `docker logs -f ollama` |
+| RayFronts clouds in 3D | Foxglove: `/robot_1/rayfronts/voxel_rgb`, `/robot_1/rayfronts/frontiers`, the planner's `/dtc/rules_planner/markers` (labelled boxes), `/dtc/rules_planner/survivors`, `/dtc/rules_planner/gt_people` |
+| quick CLI checks from the GCS (domain 0) | `docker exec rules-planner-gcs-1 bash -lc 'source /opt/ros/jazzy/setup.bash; ros2 topic hz /dtc/rules_planner/markers'` |
+
+Foxglove: the GCS container runs Foxglove Studio on your display with the
+rendered rules-planner layout seeded as `airstack_default_<N>_robots`. If you
+are signed in to Foxglove, its cloud layout sync can reject the seeded local
+layout ("layout sync invalid"); import the rendered file instead: inside the
+container it is `/root/airstack_layout_num_robots_3.json`, on the host
+`gcs/foxglove_extensions/rendered/rules_planner_3_robots.json` (Layouts →
+Import from file). A host Foxglove connects to `ws://localhost:8766`.
+
+Nothing shows in Foxglove until the robots' DDS routers bridge into domain 0.
+Leave Fast DDS on its default transports: with `FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATA`
+in the robot containers (the disaster-dataset branch sets it for 8-robot pods)
+the routers forwarded nothing at all here, not even inside their own container.
+
 ## Known limits
 
 - Not yet flown in simulation. The planner and the executor are exercised only

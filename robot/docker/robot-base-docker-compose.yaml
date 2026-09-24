@@ -152,10 +152,6 @@ services:
       # CONTAINER path of the fleet file (/root/AirStack/config/fleets/...).
       # Empty = legacy robot_name_map resolution in .bashrc.
       - FLEET_CONFIG_FILE=${FLEET_CONFIG_FILE:-}
-      # Container-wide so EVERY process (tmux nodes, ddsrouter, docker exec)
-      # uses the same transports; a LARGE_DATA participant and a default
-      # (UDP) participant in different containers share no data channel.
-      - FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATA
     # HOST SERVICES ON THE DOCKER BRIDGE. airstack_network is a user-defined
     # bridge (172.31.0.0/24, docker-compose.yaml), so the host is the gateway
     # 172.31.0.1 -- but `host.docker.internal` does NOT resolve on Linux unless

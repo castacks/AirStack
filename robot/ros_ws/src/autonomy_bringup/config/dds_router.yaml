@@ -85,6 +85,9 @@ allowlist:
   - name: "rt/dtc/rules_planner/markers"
   - name: "rt/dtc/rules_planner/survivors"
   - name: "rt/dtc/rules_planner/gt_people"
+  # The last LLM decision attempt (prompt head, raw response, parse outcome),
+  # one message per attempt, for monitoring the model from the GCS.
+  - name: "rt/dtc/rules_planner/llm_trace"
   # Executors -> planner. This is the edge that closes the loop: without it a
   # drone finishes a sweep, the planner never hears, and that drone is busy for
   # the rest of the mission.

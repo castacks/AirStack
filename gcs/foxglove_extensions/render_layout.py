@@ -26,6 +26,7 @@ import argparse
 import copy
 import hashlib
 import json
+import uuid
 import os
 import re
 
@@ -176,10 +177,16 @@ def expand_layout(template_json: dict, num_robots: int) -> dict:
     return out
 
 
+def layout_name(num_robots: int) -> str:
+    return f'airstack_default_{num_robots}_robots'
+
+
 def layout_id(num_robots: int) -> str:
     """Deterministic local-layout id; must match the layoutId deep link in
-    desktop_bringup gcs.launch.xml."""
-    return f'airstack_default_{num_robots}_robots'
+    gcs.launch.xml. A UUID, because a signed-in Foxglove syncs local layouts
+    to the org and its API rejects any other id format ("Invalid ID format").
+    """
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, 'airstack://layout/' + layout_name(num_robots)))
 
 
 def _hash_layout(data: dict) -> str:
@@ -207,6 +214,9 @@ def seed_layout_store(rendered: dict, num_robots: int, userdata: str) -> None:
     from datetime import datetime, timezone
 
     lid = layout_id(num_robots)
+    os.makedirs(os.path.join(userdata, 'airstack'), exist_ok=True)
+    with open(os.path.join(userdata, 'airstack', 'layout_id'), 'w') as f:
+        f.write(lid)  # gcs.launch.xml reads this for the layoutId deep link
     store_dir = os.path.join(userdata, 'studio-datastores', 'layouts-local')
     record_path = os.path.join(store_dir, lid)
     state_path = os.path.join(userdata, 'airstack', 'seed_state.json')
