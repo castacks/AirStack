@@ -102,3 +102,10 @@ reconciles the stop request, clearing pending work and queuing a position hold.
 Exact-generation deduplication prevents the same stop request from queuing multiple holds.
 Unmatched durable stop requests are reconstructed as inhibited holds upon restart.
 This still does not qualify physical stop under simulator load or live motion.
+
+An independent daemon watchdog thread (`start_watchdog`/`stop_watchdog`) now
+periodically evaluates tick staleness and durably latches faults without acquiring the
+simulator/action lock. A CPU-only blocking-fake test proved independent detection while
+a fake call remained blocked. This closes the independent-deployment gap for Gate 4 but
+remains an in-process thread; live action-applying stop/hold under Isaac scheduler load
+is still the final Gate 4 prerequisite.

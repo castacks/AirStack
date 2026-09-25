@@ -385,6 +385,60 @@ class AdapterTests(unittest.TestCase):
         with self.assertRaises(GatewayError):
             adapter.safe_state(1)
 
+    def test_independent_watchdog_thread_fences_blocked_tick_and_shuts_down(self):
+        clock = FakeClock()
+        adapter = self.adapter(enabled=True, clock=clock, max_tick_gap_s=0.05)
+        command = replace(self.command(), observed_at_monotonic=clock())
+        adapter.submit("dispatch-1", 1, command)
+        entered, release = Event(), Event()
+
+        def block_apply():
+            entered.set()
+            self.assertTrue(release.wait(2.0))
+
+        self.articulation.on_apply = block_apply
+        # Start the watchdog with a short interval.
+        adapter.start_watchdog(interval_s=0.02)
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(adapter.tick)
+            self.assertTrue(entered.wait(1.0))
+            # Advance clock past max_tick_gap_s so the watchdog will trip.
+            clock.advance(0.06)
+            # Wait for the watchdog thread to trip the fence.
+            time.sleep(0.15)
+            self.assertFalse(adapter.motion_enabled)
+            self.assertFalse(future.done())
+            self.assertEqual(len(self.articulation.actions), 1)
+            release.set()
+            with self.assertRaisesRegex(GatewayError, "watchdog_fenced"):
+                future.result(timeout=1.0)
+
+        self.assertEqual(self.ledger_path.read_text().count(
+            "C08_ADAPTER_LIVENESS_FAULT"), 1)
+        adapter.stop_watchdog()
+        self.assertIsNone(adapter._watchdog_thread)
+        self.articulation.on_apply = None
+        self.assertEqual(adapter.tick(), "HOLD_APPLIED")
+        self.assertEqual(len(self.articulation.actions), 2)
+
+    def test_watchdog_thread_stays_healthy_and_shuts_down_cleanly(self):
+        clock = FakeClock()
+        adapter = self.adapter(enabled=False, clock=clock, max_tick_gap_s=1.0)
+        adapter.start_watchdog(interval_s=0.02)
+        # Run some idle ticks — watchdog should remain healthy.
+        for _ in range(5):
+            adapter.tick()
+            clock.advance(0.001)
+        self.assertTrue(adapter.liveness().healthy)
+        self.assertEqual(self.articulation.actions, [])
+        # Double-start should fail.
+        with self.assertRaisesRegex(GatewayError, "watchdog_already_running"):
+            adapter.start_watchdog(interval_s=0.02)
+        adapter.stop_watchdog()
+        self.assertIsNone(adapter._watchdog_thread)
+        # stop_watchdog is idempotent.
+        adapter.stop_watchdog()
+
     def test_boundary_to_gateway_fake_lifecycle(self):
         adapter = self.adapter(enabled=True)
         for _ in range(5):

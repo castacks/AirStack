@@ -10,6 +10,12 @@
 
 # RRM-1 — Robotics Reasoning Model
 
+> **Independent watchdog thread (2026-09-25):** `start_watchdog(interval_s)` launches
+> a daemon thread that periodically evaluates tick staleness and trips the logical
+> motion fence without acquiring the simulator/action lock. The thread shuts down
+> cleanly on fault or `stop_watchdog()`. Focused suite passes 19/19. This is still
+> in-process; live action-applying stop/hold remains unqualified. See [HANDOFF.md](HANDOFF.md).
+
 > **Asynchronous stop fence (2026-09-25):** `request_stop()` now sets a logical motion
 > fence and durably records the request without acquiring the simulator/action lock.
 > The simulator thread clears work, queues a hold, and prevents double-holds via

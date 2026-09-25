@@ -2,6 +2,25 @@
 
 Source baseline: RRM archive `9d26a58eb8516b6754c5d12b041cdc789950e047`, AirStack `ore_proj` at `a6dad8caf54722e5eba3481367e914ce213e6135`. Changes are staged source files, not a new Git revision or published baseline.
 
+## Independent watchdog thread checkpoint — 2026-09-25 UTC
+
+`start_watchdog(interval_s)` launches a daemon thread that periodically calls the
+existing `watchdog_fence()` method. If the fence trips, the thread calls
+`watchdog_check()` to durably latch the fault and then exits. The thread never
+acquires the simulator/action lock, never calls the articulation, and never writes
+the journal directly.
+
+A CPU-only blocking-fake test proved the watchdog thread independently detected
+staleness and tripped the fence while a fake `apply_action` call remained blocked.
+Motion authority was false before release, one durable fault record was written, a
+hold was applied after release, and the thread shut down cleanly via `stop_watchdog()`.
+A separate healthy-path test confirmed the thread stays running when ticks are timely
+and rejects double-start. The focused suite passes 19/19.
+
+This is an in-process daemon thread, not an out-of-process monitor. It delegates all
+fault handling to the existing fence/check code paths. Live action-applying stop/hold
+evidence under Isaac scheduler load remains unqualified.
+
 ## Asynchronous hand stop fence checkpoint — 2026-09-25 UTC
 
 `request_stop()` now sets a logical motion fence and durably logs the stop request

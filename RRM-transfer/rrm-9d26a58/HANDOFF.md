@@ -1,22 +1,22 @@
 # RRM remote Codex handoff
 
-## CURRENT ADDENDUM: asynchronous hand stop fence — 2026-09-25
+## CURRENT ADDENDUM: independent watchdog thread — 2026-09-25
 
-`request_stop()` now durably accepts stops and sets a logical motion fence without
-acquiring the simulator/action lock. It is supported by an independent journal lock
-that safely serializes appends alongside simulator-thread writes. This allows a stop
-to return while a fake `apply_action` call remains blocked. The simulator thread
-reconciles the stop asynchronously—clearing work and queuing a hold—while ensuring
-exact-generation deduplication prevents double-holds. Unmatched durable stop requests
-fail-close as inhibited/hold-required upon restart.
+The hand gateway now has `start_watchdog(interval_s)` and `stop_watchdog()` methods.
+`start_watchdog` launches a daemon thread that periodically calls the existing
+`watchdog_fence()`. If the fence trips (stale tick, clock regression), the thread
+follows up with `watchdog_check()` to durably latch the fault, then exits. The thread
+never acquires the simulator/action lock, never calls the articulation, and never
+writes the journal directly.
 
-A CPU-only blocking-fake test proved the stop request returned in under 50 ms and
-disabled logical motion before the fake native call was released. Then, target
-completion was fenced and a fake hold followed. The focused suite passes 17/17 and
-the full suite passes 238/238.
+A CPU-only blocking-fake test proved the watchdog thread independently tripped the
+fence while a fake `apply_action` call was still blocked. Motion was disabled before
+release, one durable fault record was written, a hold was applied after release, and
+the thread shut down cleanly. The focused suite passes 19/19.
 
-This remains a logical in-process fence. It cannot interrupt a native simulator call,
-and live stop-to-hold latency, safe state, contact, and motion remain unqualified.
+This is still an in-process watchdog, not an out-of-process monitor. It delegates
+all fault handling to the existing fence/check/complete_tick code paths. Live
+action-applying stop/hold evidence under Isaac scheduler load remains unqualified.
 
 ## CURRENT ADDENDUM: asynchronous in-process watchdog fence — 2026-09-25
 

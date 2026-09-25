@@ -11,7 +11,7 @@ import hashlib
 import json
 import math
 from pathlib import Path
-from threading import Event, Lock, RLock
+from threading import Event, Lock, RLock, Thread
 import time
 from typing import Callable
 
@@ -117,6 +117,8 @@ class IsaacHandAdapter:
         self._journal_lock = Lock()
         self._watchdog_fence = Event()
         self._watchdog_reason: str | None = None
+        self._watchdog_thread: Thread | None = None
+        self._watchdog_stop = Event()
         self._stop_fence = Event()
         self._async_stop_generation: int | None = None
         self._reconciled_stop_generation: int | None = None
@@ -526,6 +528,42 @@ class IsaacHandAdapter:
             self._latch_liveness_fault_locked(evidence.reason, float(now),
                                                heartbeat_age_s=evidence.heartbeat_age_s)
             return self._liveness_locked(float(now))
+
+    def start_watchdog(self, interval_s: float = 0.05) -> None:
+        """Launch a daemon thread that periodically evaluates gateway liveness.
+
+        The thread calls ``watchdog_fence()`` every *interval_s* seconds. If the
+        fence trips, it follows up with ``watchdog_check()`` to durably latch the
+        fault. It never acquires the simulator/action lock directly, never calls
+        the articulation, and never writes the journal itself — those concerns are
+        handled by the existing fence/check code paths.
+        """
+        if not isinstance(interval_s, (int, float)) or isinstance(interval_s, bool) or \
+                not math.isfinite(interval_s) or interval_s <= 0:
+            raise GatewayError("invalid_watchdog_interval")
+        if self._watchdog_thread is not None:
+            raise GatewayError("watchdog_already_running")
+        self._watchdog_stop.clear()
+
+        def _run() -> None:
+            while not self._watchdog_stop.wait(interval_s):
+                reason = self.watchdog_fence()
+                if reason != "HEALTHY":
+                    self.watchdog_check()
+                    return  # Fault latched; thread exits.
+
+        thread = Thread(target=_run, daemon=True, name="rrm-hand-watchdog")
+        thread.start()
+        self._watchdog_thread = thread
+
+    def stop_watchdog(self, timeout: float = 2.0) -> None:
+        """Signal the watchdog thread to stop and join it."""
+        thread = self._watchdog_thread
+        if thread is None:
+            return
+        self._watchdog_stop.set()
+        thread.join(timeout)
+        self._watchdog_thread = None
 
     def sample(self, generation: int, *, now: float | None = None) -> SafeStateEvidence | None:
         """Sample measured safe state after a physics step; no stepping occurs here."""
