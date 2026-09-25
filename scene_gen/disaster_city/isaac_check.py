@@ -12,7 +12,9 @@ from pathlib import Path
 from isaacsim import SimulationApp
 
 usd, out = Path(sys.argv[1]).resolve(), Path(sys.argv[2]).resolve(); out.mkdir(parents=True, exist_ok=True)
-app = SimulationApp({"headless": True, "width": 1600, "height": 900, "renderer": "RaytracedLighting"})
+# RENDERER=PathTracing for reference shots; INDIRECT=1 turns on RTX real-time indirect diffuse (bounce light
+# into interiors); ONLY=a,b limits the renders to those shot names (the checks still run)
+app = SimulationApp({"headless": True, "width": 1600, "height": 900, "renderer": os.environ.get("RENDERER", "RaytracedLighting")})
 
 import numpy as np, yaml
 import carb, omni.usd, omni.replicator.core as rep
@@ -22,6 +24,11 @@ ctx = omni.usd.get_context(); ctx.open_stage(str(usd))
 for _ in range(20): app.update()
 stage = ctx.get_stage()
 carb.settings.get_settings().set("/rtx/post/aa/autoExposureMode", 0)
+if os.environ.get("INDIRECT") == "1":
+    for k, v in (("/rtx/indirectDiffuse/enabled", True), ("/rtx/indirectDiffuse/maxBounces", 2),
+                 ("/rtx/ambientOcclusion/enabled", True)):
+        carb.settings.get_settings().set(k, v)
+ONLY = set(filter(None, os.environ.get("ONLY", "").split(",")))
 carb.settings.get_settings().set("/rtx/post/backgroundZeroAlpha/enabled", False)   # else the sky comes back black
 
 # light: sun + sky dome (the scene carries none)
@@ -104,6 +111,7 @@ def grab(n):
     raise RuntimeError("annotator returned no image")
 first = True
 for name, (tgt, az, el, dist) in shots.items():
+    if ONLY and name not in ONLY: continue
     t = np.array(tgt, float); d = np.array([math.cos(math.radians(az)) * math.cos(math.radians(el)),
                                             math.sin(math.radians(az)) * math.cos(math.radians(el)), math.sin(math.radians(el))])
     eye = t + d * dist
@@ -115,7 +123,11 @@ for name, (tgt, az, el, dist) in shots.items():
 b6 = yaml.safe_load(open(usd.parent / "b06/B06_spec.yaml")); o6, th6 = np.array(b6["origin"]), math.radians(b6["yaw_deg"])
 L6 = lambda x, y, z: Gf.Vec3d(*(o6 + [x * math.cos(th6) - y * math.sin(th6), x * math.sin(th6) + y * math.cos(th6), z]))
 extra = {"b06_bay_door_in": (L6(14.0, 36.0, 2.5), L6(14.0, 10.0, 2.0))}
+s1 = yaml.safe_load(open(usd.parent / "s01/S01_spec.yaml")); o1, t1 = np.array(s1["origin"]), math.radians(s1["yaw_deg"])
+L1 = lambda x, y, z: Gf.Vec3d(*(o1 + [x * math.cos(t1) - y * math.sin(t1), x * math.sin(t1) + y * math.cos(t1), z]))
+extra["s01_third_floor_inside"] = (L1(5.8, 7.2, 8.4), L1(0.5, 0.8, 7.8))
 for name, (e, t) in list(inside.items()) + list(extra.items()):
+    if ONLY and name not in ONLY: continue
     if name in inside: e, t = L(*e), L(*t)
     op.Set(Gf.Matrix4d().SetLookAt(e, t, Gf.Vec3d(0, 0, 1)).GetInverse())
     Image.fromarray(grab(60)).save(out / f"{name}.png"); print("saved", name)

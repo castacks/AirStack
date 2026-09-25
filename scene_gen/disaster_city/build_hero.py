@@ -18,11 +18,17 @@ drone. Spec parts:
   beam:   {name, from: [x,y,z], to: [x,y,z], t: 0.2, mat}   oriented square bar (bracing, booms, tilted slabs with t2)
   cyl:    {name, c: [x,y,z] (centre), r, h, axis: X|Y|Z, mat}
   sphere: {name, c: [x,y,z], r, mat}
+
+Optional top-level `lights: [{rect: [x0,y0,x1,y1], ceiling: z, spacing: 5}]`
+fills each rect with SphereLights 0.4 m under its ceiling. They go under
+/<ID>/lights, a scope with no collider or label; deactivate it for a dark building.
+The interior fill is there because the headless sky contributes no skylight, and
+real-time RTX has no bounce light into rooms.
 """
 import sys
 from pathlib import Path
 import numpy as np, yaml
-from pxr import Usd, UsdGeom, UsdPhysics, Sdf, Gf, Tf
+from pxr import Usd, UsdGeom, UsdLux, UsdShade, UsdPhysics, Sdf, Gf, Tf
 from _paths import R
 
 MATS = {"concrete": (0.62, 0.60, 0.56), "steel": (0.30, 0.31, 0.33), "grating": (0.22, 0.22, 0.24),
@@ -77,8 +83,22 @@ root.AddTranslateOp().Set(Gf.Vec3d(*spec["origin"])); root.AddRotateZOp().Set(sp
 p = root.GetPrim(); p.AddAppliedSchema("SemanticsLabelsAPI:class")
 p.CreateAttribute("semantics:labels:class", Sdf.ValueTypeNames.TokenArray).Set([spec.get("semantic", "building")])
 
+_mats = {}
+def material(mat):
+    """One rough UsdPreviewSurface per colour: Isaac's default material is glossy, and
+    interior lights showed as floating glints on every wall."""
+    if mat not in _mats:
+        m = UsdShade.Material.Define(stage, root.GetPath().AppendChild("materials").AppendChild(mat))
+        sh = UsdShade.Shader.Define(stage, m.GetPath().AppendChild("pbr")); sh.CreateIdAttr("UsdPreviewSurface")
+        sh.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*MATS[mat]))
+        sh.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.9 if mat not in ("steel", "grating") else 0.6)
+        sh.CreateInput("metallic", Sdf.ValueTypeNames.Float).Set(0.0)
+        m.CreateSurfaceOutput().ConnectToSource(sh.ConnectableAPI(), "surface"); _mats[mat] = m
+    return _mats[mat]
+
 def solid(grp, name, gprim, mat):
     gprim.CreateDisplayColorAttr([MATS[mat]]); UsdPhysics.CollisionAPI.Apply(gprim.GetPrim())
+    UsdShade.MaterialBindingAPI.Apply(gprim.GetPrim()).Bind(material(mat))
 
 n = 0
 for part in spec["parts"]:
@@ -109,7 +129,22 @@ for part in spec["parts"]:
         x.AddTranslateOp().Set(Gf.Vec3d(*((lo + hi) / 2))); x.AddScaleOp().Set(Gf.Vec3f(*((hi - lo) / 2)))
         c = UsdGeom.Cube.Define(stage, x.GetPath().AppendChild("c"))
         c.CreateDisplayColorAttr([MATS[d.get("mat", "concrete")]])
+        UsdShade.MaterialBindingAPI.Apply(c.GetPrim()).Bind(material(d.get("mat", "concrete")))
         UsdPhysics.CollisionAPI.Apply(c.GetPrim())
         n += 1
+LIGHT_INTENSITY = 15000.0     # nits-ish; tuned so a lit room reads like an overcast-day interior
+if spec.get("lights"):
+    UsdGeom.Scope.Define(stage, root.GetPath().AppendChild("lights"))
+    k = 0
+    for L in spec["lights"]:
+        x0, y0, x1, y1 = L["rect"]; sp = L.get("spacing", 5.0)
+        nx, ny = max(1, round((x1 - x0) / sp)), max(1, round((y1 - y0) / sp))
+        for i in range(nx):
+            for j in range(ny):
+                lt = UsdLux.SphereLight.Define(stage, root.GetPath().AppendChild("lights").AppendChild(f"l{k:03d}")); k += 1
+                lt.CreateRadiusAttr(0.15); lt.CreateIntensityAttr(L.get("intensity", LIGHT_INTENSITY))
+                lt.CreateColorAttr(Gf.Vec3f(1.0, 0.95, 0.88)); lt.CreateTreatAsPointAttr(False)
+                UsdGeom.Xformable(lt).AddTranslateOp().Set(Gf.Vec3d(x0 + (i + 0.5) * (x1 - x0) / nx, y0 + (j + 0.5) * (y1 - y0) / ny, L["ceiling"] - 0.4))
+    print(f"  {k} interior lights")
 stage.Save()
 print(f"{spec['id']}: {len(spec['parts'])} parts, {n} boxes -> {out}")

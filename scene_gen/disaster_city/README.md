@@ -108,7 +108,8 @@ from `scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/` (4 trees and
 their `materials/`) and `scene_gen/assets/standalone/{cars,debris/pieces}/`.
 
 To add an enterable building, write a spec in `specs/` (walls with `openings`,
-boxes, `stair`, `rail`, `beam`, `cyl`, `sphere`; see `build_hero.py`), or a
+boxes, `stair`, `rail`, `beam`, `cyl`, `sphere`, and optional `lights`; see
+`build_hero.py`), or a
 generator like `gen_strip_mall.py`. Then add the building to `PIECES` in
 `assemble_scene.py`. Its LOD1 box is switched off, and `ground.py` masks the
 tile surface under it.
@@ -137,7 +138,13 @@ tile surface under it.
 - **The LABELS points for the pad objects were up to 9 m off** (for example,
   the lattice tower). `gen_industrial_pad.py` places everything from the tile
   blobs instead.
-- **Interiors are dark.** The scene carries no interior lights, which matters
-  for RGB-only search inside B01, S01, B03 and B06.
+- **Interiors were black.** The headless sky gives no skylight, and real-time
+  RTX has no bounce light into rooms; turning on `/rtx/indirectDiffuse` did
+  nothing, and path tracing barely helped. The enterable heroes now carry
+  interior fill lights: a `lights:` grid per storey in the spec, emitted under
+  `/<ID>/lights` (45 SphereLights in total). Deactivate that scope for a dark
+  building. B03's roofless and pancaked units have none. Hero geometry also
+  binds rough UsdPreviewSurface materials, because Isaac's default material
+  showed every light as a glint on the walls.
 - **The sky renders black in the headless check**, with both the Nucleus HDR
   and a local one. The lighting still works, so this is cosmetic.

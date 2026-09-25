@@ -8,6 +8,10 @@ id: B01
 name: roof_crane_building
 origin: [47.816, -421.655, 57.24]
 yaw_deg: 64.25
+lights:          # block ground + first floor; the frame's first-floor deck (roofed)
+  - {rect: [0.3, 14.8, 10.2, 19.7], ceiling: 3.15, spacing: 5}
+  - {rect: [0.3, 14.8, 10.2, 19.7], ceiling: 6.2, spacing: 5}
+  - {rect: [10.8, 14.8, 18.3, 19.7], ceiling: 6.0, spacing: 5}
 parts:
   # ---- concrete block ----
   - box: {name: slab_ground, min: [0, 14.5, 0], max: [10.5, 20, 0.15]}
