@@ -241,11 +241,36 @@ flip = cr(RF) < 0                                            # face up
 RF[flip] = RF[flip][:, ::-1]
 emit("road_osm", RV, RF, "road", textured=True)
 
+# CLEAN-UP of what is left: the tile mesh duplicates vertices along texture seams, so pieces are
+# found on a WELDED copy (5 cm). Dropped: pieces hanging in the air (lowest point > 0.5 m above
+# bare earth) with < 50 triangles -- the shards left where a model replaced a blob, or where a
+# wall's lower triangles fell under the RAISED cut -- and tree-like pieces (mostly over canopy
+# cells, > 5 m tall) that the class rules put in another class: the instanced trees stand there.
+from scipy.sparse import coo_matrix
+from scipy.sparse.csgraph import connected_components
+vegc = cv2.dilate(vr, np.ones((3, 3), np.uint8)).astype(bool)
+def clean_pieces(F, name):
+    _, weld = np.unique(np.round(TV / 0.05).astype(np.int64), axis=0, return_inverse=True); weld = weld.ravel()
+    Fw = weld[F]; nv = int(Fw.max()) + 1; e = np.r_[Fw[:, [0, 1]], Fw[:, [1, 2]], Fw[:, [2, 0]]]
+    _n, lab = connected_components(coo_matrix((np.ones(len(e)), (e[:, 0], e[:, 1])), shape=(nv, nv)), directed=False)
+    flab = lab[Fw[:, 0]]; keep_f = np.ones(len(F), bool); shards = trees = 0
+    for k in np.unique(flab):
+        idx = flab == k; P = TV[np.unique(F[idx])]
+        ii = np.clip(((Y1 - P[:, 1]) / RES).astype(int), 0, N - 1); jj = np.clip(((P[:, 0] - X0) / RES).astype(int), 0, N - 1)
+        gap = (P[:, 2] - DTM[ii, jj]).min(); tall = np.ptp(P[:, 2])
+        if gap > 0.5 and idx.sum() < 50: keep_f[idx] = False; shards += 1
+        elif vegc[ii, jj].mean() > 0.45 and tall > 5: keep_f[idx] = False; trees += 1
+    return F[keep_f], (shards, trees, int((~keep_f).sum()))
+n_drop = {}
+
 for name in ("vegetation", "rubble", "vehicle", "building", "clutter"):
     sel = keep & (tri_cls == name) & ~replaced[cj, ci]
     if not sel.any(): continue
-    F = TF[sel]; used = np.unique(F); rm = -np.ones(len(TV), int); rm[used] = np.arange(len(used))
+    F = TF[sel]
+    if name != "vegetation": F, dropped = clean_pieces(F, name); n_drop[name] = dropped
+    used = np.unique(F); rm = -np.ones(len(TV), int); rm[used] = np.arange(len(used))
     V = TV[used]
     emit(f"tiles_{name}", V, rm[F], name if name != "clutter" else "other", textured=True)   # tops read right; walls smear
+print("  removed:", ", ".join(f"{k} {v[0]} shards + {v[1]} tree pieces ({v[2]} tris)" for k, v in n_drop.items()))
 stage.Save()
 print(f"wrote {R / 'site_ground.usd'}")

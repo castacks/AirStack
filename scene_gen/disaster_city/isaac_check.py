@@ -12,7 +12,7 @@ from pathlib import Path
 from isaacsim import SimulationApp
 
 usd, out = Path(sys.argv[1]).resolve(), Path(sys.argv[2]).resolve(); out.mkdir(parents=True, exist_ok=True)
-# RENDERER=PathTracing for reference shots; INDIRECT=1 turns on RTX real-time indirect diffuse (bounce light
+# SHOTS=file.json replaces the named views; RENDERER=PathTracing for reference shots; INDIRECT=1 turns on RTX real-time indirect diffuse (bounce light
 # into interiors); ONLY=a,b limits the renders to those shot names (the checks still run)
 app = SimulationApp({"headless": True, "width": 1600, "height": 900, "renderer": os.environ.get("RENDERER", "RaytracedLighting")})
 
@@ -36,6 +36,16 @@ if not stage.GetPrimAtPath("/World/Environment"):
     sun = UsdLux.DistantLight.Define(stage, "/World/check_sun"); sun.CreateIntensityAttr(3000); sun.CreateAngleAttr(0.5)
     UsdGeom.Xformable(sun).AddRotateXYZOp().Set(Gf.Vec3f(35, 0, 150))
     UsdLux.DomeLight.Define(stage, "/World/check_sky").CreateIntensityAttr(1000)
+if os.environ.get("HIGHLIGHT") == "1":                     # paint the leftover raw tile meshes magenta (review of defects)
+    from pxr import UsdShade
+    hm = UsdShade.Material.Define(stage, "/World/check_highlight")
+    hs = UsdShade.Shader.Define(stage, "/World/check_highlight/pbr"); hs.CreateIdAttr("UsdPreviewSurface")
+    hs.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(1, 0, 1))
+    hs.CreateInput("emissiveColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.6, 0, 0.6))
+    hm.CreateSurfaceOutput().ConnectToSource(hs.ConnectableAPI(), "surface")
+    for n_ in ("tiles_building", "tiles_clutter", "tiles_vehicle", "tiles_rubble"):
+        q = stage.GetPrimAtPath(f"/World/site/{n_}")
+        if q: UsdShade.MaterialBindingAPI.Apply(q).Bind(hm, UsdShade.Tokens.strongerThanDescendants)
 domes = [p for p in stage.Traverse() if p.IsA(UsdLux.DomeLight)]
 if len(domes) != 1: print(f"WARNING: {len(domes)} DomeLights {[str(p.GetPath()) for p in domes]} -- RTX uses one; a stray one blacks out the sky")
 UsdPhysics.Scene.Define(stage, "/World/physics")
@@ -102,6 +112,8 @@ shots = {
     "lattice_tower_close": ((80.3, -523.4, 70), 230, 12, 22),
     "b06_warehouse_canopy": ((160, -499, 64), 140, 20, 55),
 }
+if os.environ.get("SHOTS"):                               # SHOTS=file.json: {name: [[x,y,z], az, el, dist]} replaces the list
+    shots = {k: (tuple(v[0]), *v[1:]) for k, v in json.load(open(os.environ["SHOTS"])).items()}
 # eye/target pairs in B01's local frame: inside the first floor, and on the deck looking in through the doorway
 inside = {"b01_inside_first_floor": ((1.5, 8.5, 5.4), (12.7, 6.6, 5.0)),
           "b01_deck_to_doorway": ((17.5, 6.6, 5.6), (12.7, 6.6, 5.0))}
