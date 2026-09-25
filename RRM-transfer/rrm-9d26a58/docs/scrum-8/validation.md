@@ -2,6 +2,61 @@
 
 Source baseline: RRM archive `9d26a58eb8516b6754c5d12b041cdc789950e047`, AirStack `ore_proj` at `a6dad8caf54722e5eba3481367e914ce213e6135`. Changes are staged source files, not a new Git revision or published baseline.
 
+## Asynchronous hand stop fence checkpoint — 2026-09-25 UTC
+
+`request_stop()` now sets a logical motion fence and durably logs the stop request
+without acquiring the simulator/action lock. This allows stop requests to return quickly
+even if a native `apply_action` call is blocked. The simulator thread asynchronously
+reconciles the stop request, clearing pending work and queuing a position hold.
+Exact-generation deduplication prevents the same stop request from queuing multiple holds.
+Unmatched durable stop requests are reconstructed as inhibited holds upon restart.
+
+A CPU-only blocking-fake test demonstrated the stop returned in under 50 ms while
+the fake tick remained blocked, the logical motion fence was set, and the completion
+subsequently applied a fake hold. The full dependency-light suite passes 238/238.
+This remains an in-process logical fence and does not qualify physical stop under
+simulator load, stop-to-hold latency, or live motion.
+
+## Asynchronous watchdog-fence checkpoint — 2026-09-25 UTC
+
+Tick timing is now published behind a heartbeat lock independent of the lock held
+across simulator actions. `watchdog_fence()` evaluates clock/tick staleness, sets an
+atomic logical fence, and returns without acquiring the simulator/action lock, calling
+the articulation, or touching the journal. Motion-enabled reporting and subsequent
+admission/apply decisions honor the fence. When the simulator thread returns, normal
+completion persists the first liveness fault, clears work, and queues a hold when work
+may have been active.
+
+A CPU-only blocking-fake test held `apply_action` open while the watchdog returned in
+under 50 ms. The fake tick was still blocked, logical motion authority was already
+false, and the action count had not increased beyond the in-progress fake call. After
+release, completion wrote exactly one fault and the next fake tick applied the required
+hold. Focused gateway tests pass 15/15 and the complete dependency-light suite passes
+238/238; changed Python compiles and `git diff --check` pass. No simulator or robot
+runtime was touched.
+
+This is not a physical stop or separately deployed watchdog. It cannot interrupt an
+already-executing native simulator call, and the fault becomes durable only after that
+call returns. Live stop-to-hold, active-articulation timing, safe state, controller,
+contact, and motion remain unqualified.
+
+## Completed-tick deadline checkpoint — 2026-09-25 UTC
+
+The isolated gateway now fails closed when a completed simulator-thread tick took
+longer than `max_tick_gap_s`. `TICK_DEADLINE_EXCEEDED` is durably recorded, motion is
+disabled, queued work and safe-state evidence are cleared, and a hold is queued only
+when gateway work may have been active. A tick-completion clock regression uses the
+same durable latch. This prevents a long tick from appearing healthy merely because
+its completion timestamp is fresh.
+
+CPU-only fake-clock tests cover an overlong disabled idle tick with zero articulation
+calls, an overlong action-applying fake tick followed by a required fake hold, restart
+inhibition, single fault persistence, and tick-completion clock regression. The full
+dependency-light suite passes 237/237; changed Python compiles and `git diff --check`
+pass. No simulator, ROS graph, hand, or aircraft was touched. Detection occurs after
+the simulator call returns; an independent watchdog capable of acting while a call is
+blocked, live stop/hold, and active-articulation timing remain unqualified.
+
 ## Inactive-asset Isaac physics-callback checkpoint — 2026-09-25 UTC
 
 The isolated live probe verified the 23-joint Kuka-Allegro profile and zero initial

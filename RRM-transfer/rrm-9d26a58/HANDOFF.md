@@ -1,5 +1,71 @@
 # RRM remote Codex handoff
 
+## CURRENT ADDENDUM: asynchronous hand stop fence — 2026-09-25
+
+`request_stop()` now durably accepts stops and sets a logical motion fence without
+acquiring the simulator/action lock. It is supported by an independent journal lock
+that safely serializes appends alongside simulator-thread writes. This allows a stop
+to return while a fake `apply_action` call remains blocked. The simulator thread
+reconciles the stop asynchronously—clearing work and queuing a hold—while ensuring
+exact-generation deduplication prevents double-holds. Unmatched durable stop requests
+fail-close as inhibited/hold-required upon restart.
+
+A CPU-only blocking-fake test proved the stop request returned in under 50 ms and
+disabled logical motion before the fake native call was released. Then, target
+completion was fenced and a fake hold followed. The focused suite passes 17/17 and
+the full suite passes 238/238.
+
+This remains a logical in-process fence. It cannot interrupt a native simulator call,
+and live stop-to-hold latency, safe state, contact, and motion remain unqualified.
+
+## CURRENT ADDENDUM: asynchronous in-process watchdog fence — 2026-09-25
+
+The hand gateway now publishes tick heartbeat state behind a lock that is independent
+of the simulator/action lock. `watchdog_fence()` can detect clock regression or a stale
+tick, set an atomic logical-motion fence, and return while a fake `apply_action` call
+is still blocked. `motion_enabled` and subsequent admission/apply checks honor that
+fence immediately. The watchdog path does not call the articulation or write the
+journal. When the simulator thread returns, tick completion converts the fence into
+the existing durable first-fault record, clears work, queues a hold when work may have
+been active, and raises to the integration.
+
+A CPU-only blocking-articulation test proved the fence returned in under 50 ms while
+the fake tick remained blocked, made no additional articulation call, exposed motion
+as disabled before release, then wrote exactly one liveness-fault record and required
+a fake hold after release. The focused gateway suite passes 15/15 and the complete
+dependency-light suite passes 238/238; changed Python compiles and `git diff --check`
+pass. No Isaac process, ROS graph, hand, or aircraft was touched.
+
+This is a logical in-process fence, not a physical stop or an independently deployed
+watchdog. It cannot interrupt an `apply_action` call already executing in native
+simulator code, and durability occurs only after that call returns. It does not
+qualify live stop-to-hold latency, safe state, active-articulation scheduling,
+controller behavior, contact, or motion. Hand command/contact and aerial flight
+remain prohibited.
+
+## CURRENT ADDENDUM: durable completed-tick deadline latch — 2026-09-25
+
+The hand gateway now treats a completed simulator-thread tick whose measured duration
+exceeds `max_tick_gap_s` as a durable `TICK_DEADLINE_EXCEEDED` fault. It disables
+motion, clears queued work, invalidates safe-state evidence, queues a hold only when
+gateway work may have been active, raises to the simulator integration, and remains
+inhibited after restart. Clock regression discovered during tick completion now uses
+the same durable fault path. The existing external watchdog and the completion path
+share one first-fault latch, so repeated checks do not create duplicate fault records.
+
+CPU-only fake-clock tests cover an overlong disabled idle tick with zero articulation
+calls, an overlong action-applying fake tick followed by a required fake hold, and
+durable clock-regression recovery. The complete dependency-light suite passes 237/237;
+changed Python compiles and `git diff --check` pass. No Isaac process, ROS graph, hand,
+or aircraft was touched.
+
+This closes the prior post-completion accounting hole: a long tick can no longer look
+healthy merely because its completion timestamp is fresh. It does **not** provide an
+independently scheduled watchdog capable of interrupting a simulator call while that
+call remains blocked, and it does not qualify live stop/hold, safe state, controller
+behavior, active-articulation timing, contact, or motion. Hand command/contact and
+aerial flight remain prohibited.
+
 ## CURRENT ADDENDUM: inactive-asset Isaac physics-callback heartbeat — 2026-09-25
 
 The disabled hand gateway now has a bounded Isaac physics-callback smoke. A separate

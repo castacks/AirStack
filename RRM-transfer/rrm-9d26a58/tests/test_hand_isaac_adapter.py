@@ -6,6 +6,7 @@ import hashlib
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from threading import Event
 import time
 import unittest
 
@@ -160,6 +161,140 @@ class AdapterTests(unittest.TestCase):
         adapter.watchdog_check()
         ledger = self.ledger_path.read_text()
         self.assertEqual(ledger.count("C08_ADAPTER_LIVENESS_FAULT"), 1)
+
+    def test_completed_idle_tick_overrun_latches_durably_without_action(self):
+        clock = FakeClock()
+        adapter = self.adapter(enabled=False, clock=clock, max_tick_gap_s=0.05)
+        clock.advance(0.051)
+        with self.assertRaisesRegex(GatewayError, "tick_deadline_exceeded"):
+            adapter.tick(now=100.0)
+        evidence = adapter.liveness()
+        self.assertFalse(evidence.healthy)
+        self.assertEqual(evidence.reason, "TICK_DEADLINE_EXCEEDED")
+        self.assertAlmostEqual(evidence.last_tick_duration_s, 0.051)
+        self.assertEqual(self.articulation.actions, [])
+        self.assertEqual(self.ledger_path.read_text().count(
+            "C08_ADAPTER_LIVENESS_FAULT"), 1)
+
+        restarted = self.adapter(enabled=True, clock=clock)
+        self.assertFalse(restarted.motion_enabled)
+        self.assertEqual(restarted.liveness().reason, "TICK_DEADLINE_EXCEEDED")
+        self.assertEqual(self.articulation.actions, [])
+
+    def test_completed_active_tick_overrun_fences_and_requires_hold(self):
+        clock = FakeClock()
+        adapter = self.adapter(enabled=True, clock=clock, max_tick_gap_s=0.05)
+        command = replace(self.command(), observed_at_monotonic=clock())
+        adapter.submit("dispatch-1", 1, command)
+        self.articulation.on_apply = lambda: clock.advance(0.051)
+        with self.assertRaisesRegex(GatewayError, "tick_deadline_exceeded"):
+            adapter.tick()
+        self.assertFalse(adapter.motion_enabled)
+        self.assertEqual(adapter.liveness().reason, "TICK_DEADLINE_EXCEEDED")
+        self.assertEqual(len(self.articulation.actions), 1)
+
+        self.articulation.on_apply = None
+        self.assertEqual(adapter.tick(), "HOLD_APPLIED")
+        self.assertEqual(len(self.articulation.actions), 2)
+        self.assertEqual(self.articulation.actions[-1]["joint_positions"], (0.0,) * 7)
+        with self.assertRaises(GatewayError):
+            adapter.submit("dispatch-2", 1, command)
+
+    def test_watchdog_fences_while_fake_simulator_call_is_blocked(self):
+        clock = FakeClock()
+        adapter = self.adapter(enabled=True, clock=clock, max_tick_gap_s=0.05)
+        command = replace(self.command(), observed_at_monotonic=clock())
+        adapter.submit("dispatch-1", 1, command)
+        entered, release = Event(), Event()
+
+        def block_apply():
+            entered.set()
+            self.assertTrue(release.wait(1.0))
+
+        self.articulation.on_apply = block_apply
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(adapter.tick)
+            self.assertTrue(entered.wait(1.0))
+            self.assertEqual(adapter.watchdog_fence(now=clock()), "HEALTHY")
+            self.assertTrue(adapter.motion_enabled)
+            clock.advance(0.051)
+            started = time.monotonic()
+            self.assertEqual(adapter.watchdog_fence(now=clock()), "TICK_STALE")
+            self.assertLess(time.monotonic() - started, 0.05)
+            self.assertFalse(future.done())
+            self.assertFalse(adapter.motion_enabled)
+            self.assertEqual(len(self.articulation.actions), 1)
+            release.set()
+            with self.assertRaisesRegex(GatewayError, "watchdog_fenced"):
+                future.result(timeout=1.0)
+
+        self.assertEqual(self.ledger_path.read_text().count(
+            "C08_ADAPTER_LIVENESS_FAULT"), 1)
+        self.articulation.on_apply = None
+        self.assertEqual(adapter.tick(), "HOLD_APPLIED")
+        self.assertEqual(len(self.articulation.actions), 2)
+
+    def test_stop_returns_and_is_durable_while_fake_simulator_call_is_blocked(self):
+        clock = FakeClock()
+        adapter = self.adapter(enabled=True, clock=clock, max_tick_gap_s=1.0,
+            max_stop_to_hold_s=0.05)
+        command = replace(self.command(), observed_at_monotonic=clock())
+        adapter.submit("dispatch-1", 1, command)
+        entered, release = Event(), Event()
+
+        def block_apply():
+            entered.set()
+            self.assertTrue(release.wait(1.0))
+
+        self.articulation.on_apply = block_apply
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(adapter.tick)
+            self.assertTrue(entered.wait(1.0))
+            clock.advance(0.01)
+            started = time.monotonic()
+            self.assertTrue(adapter.request_stop(2, now=clock()))
+            self.assertLess(time.monotonic() - started, 0.05)
+            self.assertFalse(future.done())
+            self.assertFalse(adapter.motion_enabled)
+            self.assertIn("C08_ADAPTER_STOP_REQUEST", self.ledger_path.read_text())
+            self.assertEqual(len(self.articulation.actions), 1)
+            release.set()
+            with self.assertRaisesRegex(GatewayError, "stop_fenced"):
+                future.result(timeout=1.0)
+
+        self.articulation.on_apply = None
+        clock.advance(0.01)
+        self.assertEqual(adapter.tick(), "HOLD_APPLIED")
+        evidence = adapter.liveness()
+        self.assertFalse(evidence.stop_pending)
+        self.assertAlmostEqual(evidence.stop_to_hold_s, 0.01)
+        self.assertEqual(len(self.articulation.actions), 2)
+
+    def test_restart_reconstructs_unfulfilled_stop_before_enabling_motion(self):
+        clock = FakeClock()
+        adapter = self.adapter(enabled=True, clock=clock)
+        self.assertTrue(adapter.request_stop(3, now=clock()))
+        self.assertEqual(self.articulation.actions, [])
+
+        restarted = self.adapter(enabled=True, clock=clock)
+        self.assertFalse(restarted.motion_enabled)
+        self.assertTrue(restarted.liveness().stop_pending)
+        self.assertEqual(restarted.tick(), "HOLD_APPLIED")
+        self.assertEqual(len(self.articulation.actions), 1)
+
+        clean_restart = self.adapter(enabled=True, clock=clock)
+        self.assertTrue(clean_restart.motion_enabled)
+        self.assertFalse(clean_restart.liveness().stop_pending)
+
+    def test_tick_completion_clock_regression_is_durable(self):
+        clock = FakeClock()
+        adapter = self.adapter(enabled=True, clock=clock)
+        with self.assertRaisesRegex(GatewayError, "invalid_gateway_clock"):
+            adapter.tick(now=101.0)
+        self.assertEqual(adapter.liveness(now=101.0).reason, "CLOCK_REGRESSION")
+        self.assertEqual(self.articulation.actions, [])
+        restarted = self.adapter(enabled=True, clock=clock)
+        self.assertFalse(restarted.motion_enabled)
 
     def test_timely_stop_records_exact_hold_latency(self):
         clock = FakeClock()

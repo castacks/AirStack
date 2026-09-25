@@ -79,3 +79,26 @@ zero-gravity-only diagnostic had changed joint state by 0.279244 rad, proving th
 gravity removal alone is not a no-motion fixture. The accepted inactive-asset result
 validates callback wiring only; it still does not close Gate 4 or establish timing with
 a dynamic articulation, independent watchdog behavior, or an applied hold.
+
+The CPU gateway now also durably latches any completed tick whose own measured
+duration exceeds the heartbeat bound. Negative tests prove that an overlong disabled
+idle tick makes zero articulation calls and remains inhibited after restart, while an
+overlong fake action tick is fenced and requires a subsequent hold. This repairs
+post-completion accounting but does not interrupt a simulator call while it is blocked;
+independent watchdog deployment and live action-applying stop/hold evidence remain
+Gate 4 prerequisites.
+
+The gateway now additionally exposes a lock-independent in-process watchdog fence.
+A blocking fake-articulation test shows it can close logical motion authority while a
+simulator call is still outstanding, then durably reconcile the fault and require a
+hold once that call returns. This narrows the lock-coupling gap but still does not
+interrupt native simulator code, deploy an independent watchdog process, or establish
+physical stop/safe-state behavior. Those remain Gate 4 prerequisites.
+
+`request_stop()` now sets a logical motion fence and durably logs the stop request
+without acquiring the simulator/action lock. This allows stop requests to return quickly
+even if a native `apply_action` call is blocked. The simulator thread asynchronously
+reconciles the stop request, clearing pending work and queuing a position hold.
+Exact-generation deduplication prevents the same stop request from queuing multiple holds.
+Unmatched durable stop requests are reconstructed as inhibited holds upon restart.
+This still does not qualify physical stop under simulator load or live motion.

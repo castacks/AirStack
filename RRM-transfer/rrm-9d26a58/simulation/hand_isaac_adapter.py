@@ -11,7 +11,7 @@ import hashlib
 import json
 import math
 from pathlib import Path
-from threading import RLock
+from threading import Event, Lock, RLock
 import time
 from typing import Callable
 
@@ -112,6 +112,14 @@ class IsaacHandAdapter:
         if not math.isfinite(self._created_at):
             raise GatewayError("invalid_gateway_clock")
         self._lock = RLock()
+        self._heartbeat_lock = Lock()
+        self._stop_lock = Lock()
+        self._journal_lock = Lock()
+        self._watchdog_fence = Event()
+        self._watchdog_reason: str | None = None
+        self._stop_fence = Event()
+        self._async_stop_generation: int | None = None
+        self._reconciled_stop_generation: int | None = None
         self._ledger = DurableJournal(ledger_path)
         self._enabled = bool(motion_enabled)
         self._generation = self._ledger.latest_generation
@@ -132,6 +140,7 @@ class IsaacHandAdapter:
         self._liveness_fault: str | None = None
         self._seen: dict[str, str] = {}
         self._restart_dispatch_ids = set(self._ledger.outstanding_dispatch_ids)
+        recovered_stop: dict | None = None
         if Path(ledger_path).exists():
             for line in Path(ledger_path).read_text().splitlines():
                 record = json.loads(line)
@@ -140,15 +149,48 @@ class IsaacHandAdapter:
                     self._seen[payload["dispatch_id"]] = payload["command_digest"]
                 elif record["event"] == "C08_ADAPTER_LIVENESS_FAULT":
                     self._liveness_fault = record["payload"].get("reason", "LIVENESS_FAULT")
-                elif record["event"] == "C08_ADAPTER_HOLD_APPLIED" and \
-                        record["payload"].get("deadline_met") is False:
-                    self._liveness_fault = "STOP_DEADLINE_EXCEEDED"
-        if self._restart_dispatch_ids or self._liveness_fault is not None:
+                elif record["event"] == "C08_ADAPTER_STOP_REQUEST":
+                    recovered_stop = record["payload"]
+                elif record["event"] == "C08_ADAPTER_HOLD_APPLIED":
+                    payload = record["payload"]
+                    if recovered_stop is not None and payload.get("generation") == \
+                            recovered_stop.get("generation"):
+                        recovered_stop = None
+                    if payload.get("deadline_met") is False:
+                        self._liveness_fault = "STOP_DEADLINE_EXCEEDED"
+        if recovered_stop is not None:
+            self._async_stop_generation = int(recovered_stop["generation"])
+            self._stop_requested_at = float(recovered_stop["requested_at_monotonic"])
+            self._stop_pending = True
+            self._stop_fence.set()
+            self._hold_pending = True
+        if self._restart_dispatch_ids or recovered_stop is not None or \
+                self._liveness_fault is not None:
             self._enabled = False  # Recovered dispatches or liveness faults keep motion closed.
+        if self._liveness_fault is not None:
+            self._set_watchdog_fence(self._liveness_fault)
 
     @property
     def motion_enabled(self) -> bool:
-        return self._enabled
+        return self._enabled and not self._watchdog_fence.is_set() and \
+            not self._stop_fence.is_set()
+
+    def _append_ledger(self, event: str, payload: dict) -> str:
+        with self._journal_lock:
+            return self._ledger.append(event, payload)
+
+    def _append_motion_if_unfenced(self, event: str, payload: dict) -> bool:
+        with self._journal_lock:
+            if self._watchdog_fence.is_set() or self._stop_fence.is_set():
+                return False
+            self._ledger.append(event, payload)
+            return True
+
+    def _set_watchdog_fence(self, reason: str) -> None:
+        with self._heartbeat_lock:
+            if self._watchdog_reason is None:
+                self._watchdog_reason = reason
+            self._watchdog_fence.set()
 
     def _positions_velocities(self) -> tuple[tuple[float, ...], tuple[float, ...]]:
         positions = tuple(float(v) for v in self.articulation.get_joint_positions())
@@ -182,7 +224,7 @@ class IsaacHandAdapter:
     def submit(self, dispatch_id: str, generation: int, command: HandCommand) -> None:
         """Durably reserve one dispatch; does not apply the action on this thread."""
         with self._lock:
-            if not self._enabled or self._pending is not None or self._active or \
+            if not self.motion_enabled or self._pending is not None or self._active or \
                     self._hold_pending or generation < self._generation:
                 raise GatewayError("gateway_inhibited_or_busy")
             if generation > self._generation:
@@ -191,12 +233,15 @@ class IsaacHandAdapter:
                 raise GatewayError("duplicate_dispatch_id")
             self._validate(command, now=self._clock())
             try:
-                self._ledger.append("C09_ADAPTER_ENQUEUE", {"dispatch_id": dispatch_id,
+                appended = self._append_motion_if_unfenced("C09_ADAPTER_ENQUEUE", {
+                    "dispatch_id": dispatch_id,
                     "generation": generation, "episode_id": self.episode_id,
                     "command_digest": command.digest})
             except OSError as exc:
                 self._enabled = False
                 raise GatewayError("adapter_ledger_unavailable") from exc
+            if not appended:
+                raise GatewayError("gateway_inhibited_or_busy")
             self._seen[dispatch_id] = command.digest
             self._pending = _Pending(dispatch_id, generation, command)
             self._safe_count = 0
@@ -209,23 +254,25 @@ class IsaacHandAdapter:
                 not isinstance(now, (int, float)) or isinstance(now, bool) or \
                 not math.isfinite(now):
             return False
-        with self._lock:
-            self._generation = max(self._generation + 1, generation)
-            self._pending = None
-            self._hold_pending = True
-            self._safe_count = 0
-            self._last_safe = None
+        with self._stop_lock:
+            base_generation = self._generation if self._async_stop_generation is None else \
+                max(self._generation, self._async_stop_generation)
+            accepted_generation = max(base_generation + 1, generation)
+            self._async_stop_generation = accepted_generation
             self._stop_requested_at = float(now)
             self._stop_pending = True
             self._hold_applied_at = None
             self._last_stop_to_hold_s = None
+            self._stop_fence.set()
             try:
-                self._ledger.append("C08_ADAPTER_STOP_REQUEST", {"generation": self._generation,
+                self._append_ledger("C08_ADAPTER_STOP_REQUEST", {
+                    "generation": accepted_generation,
                     "episode_id": self.episode_id, "requested_at_monotonic": now,
                     "max_stop_to_hold_s": self.max_stop_to_hold_s})
             except OSError:
                 self._enabled = False
-            return True
+                return False
+        return True
 
     def tick(self, *, now: float | None = None) -> str:
         """Call once on the physics thread before stepping the next frame."""
@@ -235,7 +282,8 @@ class IsaacHandAdapter:
             raise GatewayError("invalid_gateway_clock")
         with self._lock:
             try:
-                self._last_tick_started_at = float(started_at)
+                with self._heartbeat_lock:
+                    self._last_tick_started_at = float(started_at)
                 result = self._tick_locked(now=float(started_at))
             except Exception:
                 self._complete_tick(float(started_at), "ERROR")
@@ -243,6 +291,7 @@ class IsaacHandAdapter:
             return self._complete_tick(float(started_at), result)
 
     def _tick_locked(self, *, now: float) -> str:
+        self._reconcile_stop_locked()
         if self._hold_pending:
             positions, _ = self._positions_velocities()
             action = self.action_factory(joint_positions=positions[:7],
@@ -251,6 +300,9 @@ class IsaacHandAdapter:
             self._hold_pending = False
             self._active = False
             return "HOLD_APPLIED"
+        if self._watchdog_fence.is_set() or self._stop_fence.is_set():
+            self._pending = None
+            return "INHIBITED"
         pending = self._pending
         if pending is None:
             return "IDLE"
@@ -265,13 +317,17 @@ class IsaacHandAdapter:
             self._hold_pending = True
             raise
         try:
-            self._ledger.append("C09_ADAPTER_APPLY_INTENT", {"dispatch_id": pending.dispatch_id,
+            appended = self._append_motion_if_unfenced("C09_ADAPTER_APPLY_INTENT", {
+                "dispatch_id": pending.dispatch_id,
                 "generation": pending.generation, "episode_id": self.episode_id})
         except OSError as exc:
             self._enabled = False
             self._pending = None
             raise GatewayError("adapter_ledger_unavailable") from exc
         self._pending = None
+        if not appended or self._watchdog_fence.is_set() or self._stop_fence.is_set():
+            self._hold_pending = True
+            return "INHIBITED"
         self._active = True
         action = self.action_factory(joint_positions=(pending.command.target_position_rad,),
                                      joint_indices=(index,))
@@ -284,60 +340,172 @@ class IsaacHandAdapter:
         return "TARGET_APPLIED"
 
     def _complete_tick(self, started_at: float, result: str) -> str:
-        completed_at = float(self._clock())
+        try:
+            completed_at = float(self._clock())
+        except (TypeError, ValueError) as exc:
+            self._latch_liveness_fault_locked("CLOCK_REGRESSION", started_at)
+            raise GatewayError("invalid_gateway_clock") from exc
         if not math.isfinite(completed_at) or completed_at < started_at:
-            self._enabled = False
-            self._liveness_fault = "CLOCK_REGRESSION"
+            self._latch_liveness_fault_locked("CLOCK_REGRESSION", started_at)
             raise GatewayError("invalid_gateway_clock")
         duration = completed_at - started_at
-        self._tick_count += 1
-        self._last_tick_completed_at = completed_at
-        self._last_tick_duration_s = duration
-        self._max_tick_duration_s = max(self._max_tick_duration_s, duration)
-        if result == "HOLD_APPLIED" and self._stop_requested_at is not None:
-            self._hold_applied_at = completed_at
-            self._last_stop_to_hold_s = completed_at - self._stop_requested_at
-            deadline_met = self._last_stop_to_hold_s <= self.max_stop_to_hold_s
+        with self._heartbeat_lock:
+            self._tick_count += 1
+            self._last_tick_completed_at = completed_at
+            self._last_tick_duration_s = duration
+            self._max_tick_duration_s = max(self._max_tick_duration_s, duration)
+        stop_reconciled = self._reconcile_stop_locked()
+        with self._stop_lock:
+            stop_requested_at = self._stop_requested_at
+        if result == "HOLD_APPLIED" and stop_requested_at is not None:
+            stop_to_hold_s = completed_at - stop_requested_at
+            deadline_met = stop_to_hold_s <= self.max_stop_to_hold_s
             try:
-                self._ledger.append("C08_ADAPTER_HOLD_APPLIED", {
+                self._append_ledger("C08_ADAPTER_HOLD_APPLIED", {
                     "generation": self._generation, "episode_id": self.episode_id,
-                    "stop_requested_at_monotonic": self._stop_requested_at,
+                    "stop_requested_at_monotonic": stop_requested_at,
                     "hold_applied_at_monotonic": completed_at,
-                    "stop_to_hold_s": self._last_stop_to_hold_s,
+                    "stop_to_hold_s": stop_to_hold_s,
                     "max_stop_to_hold_s": self.max_stop_to_hold_s,
                     "deadline_met": deadline_met})
             except OSError as exc:
                 self._enabled = False
                 raise GatewayError("adapter_ledger_unavailable") from exc
-            self._stop_pending = False
+            with self._stop_lock:
+                self._hold_applied_at = completed_at
+                self._last_stop_to_hold_s = stop_to_hold_s
+                self._stop_pending = False
+                self._async_stop_generation = None
+                self._reconciled_stop_generation = None
+                self._stop_fence.clear()
             if not deadline_met:
                 self._enabled = False
                 self._liveness_fault = "STOP_DEADLINE_EXCEEDED"
+                self._set_watchdog_fence(self._liveness_fault)
+        with self._heartbeat_lock:
+            asynchronous_reason = self._watchdog_reason
+        if asynchronous_reason is not None and self._liveness_fault is None:
+            self._latch_liveness_fault_locked(asynchronous_reason, completed_at,
+                                              heartbeat_age_s=duration)
+            raise GatewayError("watchdog_fenced")
+        if duration > self.max_tick_gap_s and self._liveness_fault is None:
+            self._latch_liveness_fault_locked("TICK_DEADLINE_EXCEEDED", completed_at,
+                                              heartbeat_age_s=0.0)
+            raise GatewayError("tick_deadline_exceeded")
+        if stop_reconciled and result != "HOLD_APPLIED":
+            raise GatewayError("stop_fenced")
         return result
 
+    def _reconcile_stop_locked(self) -> bool:
+        """Consume async stop state while holding the simulator/action lock."""
+        if not self._stop_fence.is_set():
+            return False
+        with self._stop_lock:
+            stop_generation = self._async_stop_generation
+            if stop_generation is None or stop_generation == self._reconciled_stop_generation:
+                return False
+            self._generation = max(self._generation, stop_generation)
+            self._reconciled_stop_generation = stop_generation
+        self._pending = None
+        self._hold_pending = True
+        self._safe_count = 0
+        self._last_safe = None
+        return True
+
+    def _latch_liveness_fault_locked(self, reason: str, observed_at: float, *,
+                                     heartbeat_age_s: float | None = None) -> None:
+        """Fence and persist the first liveness fault; never touches the articulation."""
+        first_fault = self._liveness_fault is None
+        if first_fault:
+            self._liveness_fault = reason
+        self._set_watchdog_fence(reason)
+        self._enabled = False
+        possible_motion = self._pending is not None or self._active or self._stop_pending
+        self._pending = None
+        if possible_motion:
+            self._hold_pending = True
+        self._safe_count = 0
+        self._last_safe = None
+        if not first_fault:
+            return
+        try:
+            self._append_ledger("C08_ADAPTER_LIVENESS_FAULT", {
+                "generation": self._generation, "episode_id": self.episode_id,
+                "reason": reason, "observed_at_monotonic": observed_at,
+                "heartbeat_age_s": heartbeat_age_s,
+                "last_tick_duration_s": self._last_tick_duration_s,
+                "max_tick_gap_s": self.max_tick_gap_s,
+                "stop_requested_at_monotonic": self._stop_requested_at,
+                "max_stop_to_hold_s": self.max_stop_to_hold_s})
+        except OSError:
+            pass
+
     def _liveness_locked(self, now: float) -> GatewayLivenessEvidence:
-        heartbeat_origin = self._last_tick_completed_at
+        with self._heartbeat_lock:
+            tick_count = self._tick_count
+            last_tick_started_at = self._last_tick_started_at
+            last_tick_completed_at = self._last_tick_completed_at
+            last_tick_duration_s = self._last_tick_duration_s
+            max_tick_duration_s = self._max_tick_duration_s
+            asynchronous_reason = self._watchdog_reason
+        with self._stop_lock:
+            stop_generation = self._async_stop_generation
+            stop_pending = self._stop_pending
+            stop_requested_at = self._stop_requested_at
+            hold_applied_at = self._hold_applied_at
+            last_stop_to_hold_s = self._last_stop_to_hold_s
+        generation = self._generation if stop_generation is None else \
+            max(self._generation, stop_generation)
+        heartbeat_origin = last_tick_completed_at
         heartbeat_age = now - (self._created_at if heartbeat_origin is None else heartbeat_origin)
-        reason = self._liveness_fault
+        reason = self._liveness_fault or asynchronous_reason
         recorded_times = [self._created_at]
         recorded_times.extend(value for value in
-            (self._last_tick_started_at, self._last_tick_completed_at, self._stop_requested_at)
+            (last_tick_started_at, last_tick_completed_at, stop_requested_at)
             if value is not None)
         if reason is None and any(now < value for value in recorded_times):
             reason = "CLOCK_REGRESSION"
-        if reason is None and self._stop_pending and self._stop_requested_at is not None and \
-                now - self._stop_requested_at > self.max_stop_to_hold_s:
+        if reason is None and stop_pending and stop_requested_at is not None and \
+                now - stop_requested_at > self.max_stop_to_hold_s:
             reason = "STOP_DEADLINE_EXCEEDED"
         if reason is None and heartbeat_age > self.max_tick_gap_s:
             reason = "TICK_STALE"
         if reason is None:
             reason = "HEALTHY"
-        return GatewayLivenessEvidence(self.episode_id, self._generation, now,
-            self._tick_count, self._last_tick_started_at, self._last_tick_completed_at,
-            self._last_tick_duration_s, self._max_tick_duration_s, heartbeat_age,
-            self.max_tick_gap_s, self._stop_pending,
-            self._stop_requested_at, self._hold_applied_at, self._last_stop_to_hold_s,
-            self.max_stop_to_hold_s, self._enabled, reason == "HEALTHY", reason)
+        return GatewayLivenessEvidence(self.episode_id, generation, now,
+            tick_count, last_tick_started_at, last_tick_completed_at,
+            last_tick_duration_s, max_tick_duration_s, heartbeat_age,
+            self.max_tick_gap_s, stop_pending,
+            stop_requested_at, hold_applied_at, last_stop_to_hold_s,
+            self.max_stop_to_hold_s, self.motion_enabled, reason == "HEALTHY", reason)
+
+    def watchdog_fence(self, *, now: float | None = None) -> str:
+        """Trip a logical fence without waiting for the simulator/action lock.
+
+        This path never calls the articulation or journal. The simulator thread
+        durably reconciles the fence when its current tick returns.
+        """
+        now = self._clock() if now is None else now
+        if not isinstance(now, (int, float)) or isinstance(now, bool) or not math.isfinite(now):
+            raise GatewayError("invalid_gateway_clock")
+        with self._heartbeat_lock:
+            if self._watchdog_reason is not None:
+                return self._watchdog_reason
+            heartbeat_origin = self._last_tick_completed_at
+            origin = self._created_at if heartbeat_origin is None else heartbeat_origin
+            recorded_times = [self._created_at]
+            recorded_times.extend(value for value in
+                (self._last_tick_started_at, self._last_tick_completed_at)
+                if value is not None)
+            if any(now < value for value in recorded_times):
+                reason = "CLOCK_REGRESSION"
+            elif now - origin > self.max_tick_gap_s:
+                reason = "TICK_STALE"
+            else:
+                return "HEALTHY"
+            self._watchdog_reason = reason
+            self._watchdog_fence.set()
+            return reason
 
     def liveness(self, *, now: float | None = None) -> GatewayLivenessEvidence:
         now = self._clock() if now is None else now
@@ -355,27 +523,8 @@ class IsaacHandAdapter:
             evidence = self._liveness_locked(float(now))
             if evidence.healthy:
                 return evidence
-            first_fault = self._liveness_fault is None
-            self._liveness_fault = evidence.reason
-            self._enabled = False
-            possible_motion = self._pending is not None or self._active or \
-                self._stop_pending
-            self._pending = None
-            if possible_motion:
-                self._hold_pending = True
-            self._safe_count = 0
-            self._last_safe = None
-            if first_fault:
-                try:
-                    self._ledger.append("C08_ADAPTER_LIVENESS_FAULT", {
-                        "generation": self._generation, "episode_id": self.episode_id,
-                        "reason": evidence.reason, "observed_at_monotonic": now,
-                        "heartbeat_age_s": evidence.heartbeat_age_s,
-                        "stop_requested_at_monotonic": evidence.stop_requested_at,
-                        "max_tick_gap_s": self.max_tick_gap_s,
-                        "max_stop_to_hold_s": self.max_stop_to_hold_s})
-                except OSError:
-                    pass
+            self._latch_liveness_fault_locked(evidence.reason, float(now),
+                                               heartbeat_age_s=evidence.heartbeat_age_s)
             return self._liveness_locked(float(now))
 
     def sample(self, generation: int, *, now: float | None = None) -> SafeStateEvidence | None:
@@ -420,7 +569,7 @@ class IsaacHandAdapter:
             if self._restart_dispatch_ids:
                 dispatch_ids = sorted(self._restart_dispatch_ids)
                 try:
-                    self._ledger.append("C08_ADAPTER_SAFE_RECONCILED", {
+                    self._append_ledger("C08_ADAPTER_SAFE_RECONCILED", {
                         "generation": generation, "episode_id": self.episode_id,
                         "dispatch_ids": dispatch_ids, "evidence_ref": evidence.evidence_ref})
                 except OSError:

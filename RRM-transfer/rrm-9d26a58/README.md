@@ -10,6 +10,26 @@
 
 # RRM-1 — Robotics Reasoning Model
 
+> **Asynchronous stop fence (2026-09-25):** `request_stop()` now sets a logical motion
+> fence and durably records the request without acquiring the simulator/action lock.
+> The simulator thread clears work, queues a hold, and prevents double-holds via
+> exact-generation deduplication. A blocking fake-articulation test passes. This is
+> not a physical stop and does not interrupt native simulator calls. See [HANDOFF.md](HANDOFF.md).
+
+> **Asynchronous watchdog update (2026-09-25):** A lock-independent heartbeat fence
+> now closes logical motion authority while a fake simulator action call is still
+> blocked, without calling the articulation. Completion then persists the fault and
+> requires a fake hold. The focused suite passes 15/15 and the full suite 238/238.
+> This cannot interrupt blocked native simulator code and is not physical-stop or
+> live-motion qualification. See [HANDOFF.md](HANDOFF.md).
+
+> **Tick-deadline update (2026-09-25):** Completed gateway ticks that exceed the
+> heartbeat bound now latch a durable fault, inhibit restart, and require a hold when
+> fake gateway work may have been active. CPU-only negative tests cover idle/action
+> overruns and clock regression; the suite passes 237/237. This detects an overrun
+> after the call returns, not during a blocked simulator call, and authorizes no live
+> action or motion. See [HANDOFF.md](HANDOFF.md).
+
 > **Isaac callback update (2026-09-25):** After verifying the live 23-joint profile,
 > an isolated probe deactivated the hand asset and delivered 240/240 physics callbacks
 > to the disabled gateway. All returned `IDLE`, liveness stayed healthy, the asset was
