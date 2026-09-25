@@ -13,10 +13,10 @@ scaled to the peak height, random species/yaw. Written as instanceable reference
 (`vegetation`, labelled per instance -- Isaac's semantic segmentation leaves
 PointInstancer instances unlabelled) plus invisible colliders (trunk cylinder + crown sphere) so a
 drone can fly under the canopy but not through it.
-Vehicles: blobs of the `vehicle` class, re-measured on a 0.25 m heightmap and
-fitted with a rectangle; car / van / bus sized ones get an asset, long rectangular
-ones (rail cars, trailers, containers) and compact rectangular trucks / dumpsters a box proxy coloured from the ortho, and
-anything else keeps its tile mesh. Cars within 15 m of a
+Vehicles: every vehicle-sized blob on roads, lots, pads and near vehicle labels
+(see the vehicles section): car / van / bus sized ones get an asset, touching rows
+are split into cars, and the rest (rail cars, trailers, containers) a box fitted
+to the blob -- none keeps its tile mesh. Cars within 15 m of a
 wreck label get a burned car. Replaced footprints -> data/recon/replaced.npz, which
 ground.py cuts out of the tile surface.
 Debris: pieces scattered over the rubble fields with no drone footage (R02, R03).
@@ -96,78 +96,108 @@ st.Save()
 print(f"  wrote {len(ii)} trees, heights {np.percentile(h, [10, 50, 90]).round(1)} m")
 
 # ------------------------------------------------------------------ vehicles
+# Detection: every blob on the fine (0.25 m) tile height map that stands 0.6-4.5 m on a road,
+# a parking lot, a pad or within 12 m of a labelled vehicle, and is not a building, a hero or
+# canopy. Each is fitted in the WORLD frame (principal axes) and becomes
+#   car / van / bus          a library asset of that class, scaled to the fitted length
+#   a touching row of cars   split into car-sized slots, one asset each
+#   rail car / trailer / container / anything else vehicle-sized   a box of the fitted size
+#                            (no library asset exists), coloured from the ortho
+# Nothing vehicle-sized keeps its tile mesh. Cars within 15 m of a wreck label are burned cars.
 CARS = {"car": ["lowpoly_sedan", "lowpoly_wagon", "lowpoly_coupe", "red_car", "lowpoly_pickup"],
         "wreck": ["burned_car_01", "burned_car_02"], "van": ["delivery_van"], "bus": ["citybus"]}
 def car_usd(name): return next((A / "cars" / name).glob("*.usd*"))
 csize = {n: size_of(car_usd(n))[0] for v in CARS.values() for n in v}
 labels = yaml.safe_load(open(LABELS))["labels"]
 wrecks = np.array([l["at"] for l in labels if any(w in l["name"] for w in ("wreck", "collapsed", "rubble", "derail"))])
+vlabels = np.array([l["at"] for l in labels if l["kind"] == "vehicle"])
+geo = json.load(open(R / "ortho_site.json")); ortho = cv2.imread(str(R / "ortho_site.png"))
 
 t = np.load(R / "tiles_site.npz"); scene = o3d.t.geometry.RaycastingScene()
 scene.add_triangles(o3d.core.Tensor(t["verts"].astype(np.float32)), o3d.core.Tensor(t["faces"].astype(np.uint32)))
-n, cc, stats, _ = cv2.connectedComponentsWithStats(cv2.dilate((CLS == 3).astype(np.uint8), np.ones((3, 3), np.uint8)))
+F = 0.25; NF = int(N * RES / F)
+gx = X0 + (np.arange(NF) + 0.5) * F; gy = Y1 - (np.arange(NF) + 0.5) * F
+GX, GY = np.meshgrid(gx, gy)
+Z = 500 - scene.cast_rays(o3d.core.Tensor(np.stack([GX, GY, np.full_like(GX, 500), 0 * GX, 0 * GX, -np.ones_like(GX)], -1).astype(np.float32)))["t_hit"].numpy()
+up_ = lambda a: cv2.resize(a.astype(np.uint8), (NF, NF), interpolation=cv2.INTER_NEAREST).astype(bool)
+Hf = np.nan_to_num(Z - cv2.resize(DTM, (NF, NF), interpolation=cv2.INTER_LINEAR))
+where = up_(r["osm_road"] | r["road"] | (CLS == 3))
+for vx, vy in vlabels: where |= np.hypot(GX - vx, GY - vy) < 12
+free = ~up_(r["occupied"]) & ~up_(r["veg"]) & ~up_(r["water"])
+where &= free
+# rail cars are accepted anywhere free by shape (they stand on grass and track); cars, vans,
+# buses and generic boxes only on roads / lots / near vehicle labels (car-sized props and junk
+# on the training yards' grass read as cars otherwise)
+# bridges: the deck stands above the smoothed bare earth along a road -- a big raised patch of
+# road is a bridge, not a car (the NW entrance bridge was read as a row of cars)
+nb, cb, sb, _ = cv2.connectedComponentsWithStats(((Hf > 0.6) & up_(r["osm_road"])).astype(np.uint8))
+bridge = cv2.dilate(np.isin(cb, np.flatnonzero(sb[:, cv2.CC_STAT_AREA] * F * F > 60)[1:]).astype(np.uint8), np.ones((9, 9), np.uint8)).astype(bool)
+cand = cv2.morphologyEx(((Hf > 0.6) & (Hf < 5.0) & free & ~bridge).astype(np.uint8), cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+
+def world_fit(m):
+    ys, xs = np.nonzero(m); P = np.c_[gx[xs], gy[ys]]; c = P.mean(0)
+    w, v = np.linalg.eigh(np.cov((P - c).T) + 1e-9 * np.eye(2)); ax = v[:, 1]
+    u = (P - c) @ ax; q = (P - c) @ np.array([-ax[1], ax[0]])
+    c = c + ax * (np.percentile(u, 97) + np.percentile(u, 3)) / 2 + np.array([-ax[1], ax[0]]) * (np.percentile(q, 97) + np.percentile(q, 3)) / 2
+    L, W = np.percentile(u, 97) - np.percentile(u, 3) + F, np.percentile(q, 97) - np.percentile(q, 3) + F
+    return c, float(np.degrees(np.arctan2(ax[1], ax[0]))), float(L), float(W), float(np.percentile(Hf[m], 90)), len(xs) * F * F / max(L * W, 1e-6)
+
 st, root = new_stage(R / "vehicles.usd", "/vehicles"); label(root.GetPrim(), "vehicle")
-placed, kept, polys, proxies = 0, 0, [], 0
-geo = json.load(open(R / "ortho_site.json")); ortho = cv2.imread(str(R / "ortho_site.png"))
-F = 0.25
-for c in range(1, n):
-    x, y, w, hgt = stats[c, :4]
-    cx0, cy1 = X0 + (x - 1) * RES, Y1 - (y - 1) * RES
-    W_, H_ = int((w + 2) * RES / F), int((hgt + 2) * RES / F)
-    g = np.meshgrid(cx0 + (np.arange(W_) + 0.5) * F, cy1 - (np.arange(H_) + 0.5) * F)
-    ray = np.stack([g[0], g[1], np.full_like(g[0], 500), 0 * g[0], 0 * g[0], -np.ones_like(g[0])], -1).astype(np.float32)
-    z = 500 - scene.cast_rays(o3d.core.Tensor(ray))["t_hit"].numpy()
-    ground = DTM[np.clip(((Y1 - g[1]) / RES).astype(int), 0, N - 1), np.clip(((g[0] - X0) / RES).astype(int), 0, N - 1)]
-    # a touching row (RVs, buses) reads as one blob at a low cut; cutting higher splits it --
-    # try 0.6 m first, and re-cut any blob that fits no vehicle at 1.6 m
-    cuts = [((z - ground) > 0.6, True)]
-    for cut, first in cuts:
-      recut = np.zeros_like(cut)
-      m = cv2.morphologyEx(cut.astype(np.uint8), cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
-      k2, cc2, st2, _ = cv2.connectedComponentsWithStats(m)
-      for b in range(1, k2):
-          if st2[b, cv2.CC_STAT_AREA] * F * F < 3: continue
-          (u, v), (a, bb), ang = cv2.minAreaRect(cv2.findNonZero((cc2 == b).astype(np.uint8)))
-          L, Wd = max(a, bb) * F, min(a, bb) * F
-          yaw = ang if a >= bb else ang + 90
-          top = np.percentile((z - ground)[cc2 == b], 90)
-          kind = ("car" if 3.4 <= L <= 5.8 and 1.4 <= Wd <= 2.5 else "van" if 5.8 < L <= 7.8 and Wd <= 2.8
-                  else "bus" if 9 <= L <= 13.5 and 2.2 <= Wd <= 3.3 and top > 2.3 else None)
-          if kind is None:
-              if first and L > 6: recut |= ((z - ground) > 1.6) & (cc2 == b)   # re-cut this blob higher
-              elif (3.0 <= L <= 20 and 2.0 <= Wd <= 4.0 and top < 5 and st2[b, cv2.CC_STAT_AREA] / max(a * bb, 1) > 0.8
-                    or L >= 6 and 2.0 <= Wd <= 4.0 and st2[b, cv2.CC_STAT_AREA] / max(a * bb, 1) > 0.65):
-                  # rail car / trailer / container: a fitted box, coloured from the ortho, beats melted tile mesh
-                  wx, wy = cx0 + (u + 0.5) * F, cy1 - (v + 0.5) * F
-                  gz = float(np.median(ground[cc2 == b]))
-                  oc = ortho[int((geo["y1"] - wy) / geo["m_per_px"]), int((wx - geo["x0"]) / geo["m_per_px"])][::-1] / 255.0
-                  xb = UsdGeom.Xform.Define(st, f"/vehicles/proxy_{placed:03d}")
-                  xb.AddTranslateOp().Set(Gf.Vec3d(float(wx), float(wy), float(gz + top / 2))); xb.AddRotateZOp().Set(float(-yaw))
-                  xb.AddScaleOp().Set(Gf.Vec3f(float(L / 2), float(Wd / 2), float(top) / 2))
-                  cube = UsdGeom.Cube.Define(st, xb.GetPath().AppendChild("box"))
-                  cube.CreateDisplayColorAttr([tuple(float(c_) ** 2.2 for c_ in oc)]); UsdPhysics.CollisionAPI.Apply(cube.GetPrim())
-                  xb.GetPrim().SetCustomDataByKey("fit", {"L": round(L, 2), "W": round(Wd, 2), "top": round(float(top), 2), "proxy": True})
-                  polys.append(cv2.boxPoints(((wx, wy), (L + 0.6, Wd + 0.6), -yaw))); placed += 1; proxies += 1
-              else:
-                  kept += 1
-                  if DEBUG: print(f"    kept L {L:.1f} W {Wd:.1f} fill {st2[b, cv2.CC_STAT_AREA] / max(a * bb, 1):.2f} top {top:.1f} at {cx0 + (u + 0.5) * F:.0f},{cy1 - (v + 0.5) * F:.0f}")
-              continue
-          wx, wy = cx0 + (u + 0.5) * F, cy1 - (v + 0.5) * F
-          if kind == "car" and len(wrecks) and np.hypot(*(wrecks - [wx, wy]).T).min() < 15: kind = "wreck"
-          name = CARS[kind][rng.integers(len(CARS[kind]))]
-          sc = float(np.clip(L / csize[name][0], 0.85, 1.15))
-          gz = float(np.median(ground[cc2 == b]))
-          p = st.DefinePrim(f"/vehicles/{kind}_{placed:03d}", "Xform"); p.GetReferences().AddReference(f"./assets/cars/{name}/{car_usd(name).name}")
-          xf = UsdGeom.Xformable(p); xf.AddTranslateOp().Set(Gf.Vec3d(wx, wy, gz))
-          xf.AddRotateZOp().Set(float(-yaw + rng.choice([0, 180]))); xf.AddScaleOp().Set(Gf.Vec3f(sc))
-          UsdPhysics.CollisionAPI.Apply(p)
-          p.SetCustomDataByKey("fit", {"L": round(L, 2), "W": round(Wd, 2), "top": round(float(top), 2)})
-          c_ = cv2.boxPoints(((wx, wy), (L + 0.6, Wd + 0.6), -yaw))
-          polys.append(c_); placed += 1
-      if recut.any(): cuts.append((recut, False))
+counts = {"asset": 0, "row": 0, "rail": 0, "proxy": 0, "skip": 0}; polys = []; serial = iter(range(10 ** 6))
+def put_asset(kind, c, yaw, L, gz):
+    if kind == "car" and len(wrecks) and np.hypot(*(wrecks - c).T).min() < 15: kind = "wreck"
+    name = CARS[kind][rng.integers(len(CARS[kind]))]
+    sc = float(np.clip(L / csize[name][0], 0.85, 1.15)); i = next(serial)
+    p = st.DefinePrim(f"/vehicles/{kind}_{i:03d}", "Xform"); p.GetReferences().AddReference(f"./assets/cars/{name}/{car_usd(name).name}")
+    xf = UsdGeom.Xformable(p); xf.AddTranslateOp().Set(Gf.Vec3d(float(c[0]), float(c[1]), float(gz)))
+    xf.AddRotateZOp().Set(float(yaw + rng.choice([0, 180]))); xf.AddScaleOp().Set(Gf.Vec3f(sc))   # assets face +X
+    UsdPhysics.CollisionAPI.Apply(p)
+def put_proxy(c, yaw, L, W, top, gz):
+    oc = ortho[int((geo["y1"] - c[1]) / geo["m_per_px"]), int((c[0] - geo["x0"]) / geo["m_per_px"])][::-1] / 255.0
+    i = next(serial); xb = UsdGeom.Xform.Define(st, f"/vehicles/proxy_{i:03d}")
+    xb.AddTranslateOp().Set(Gf.Vec3d(float(c[0]), float(c[1]), float(gz + top / 2))); xb.AddRotateZOp().Set(float(yaw))
+    xb.AddScaleOp().Set(Gf.Vec3f(float(L / 2), float(W / 2), float(top / 2)))
+    cube = UsdGeom.Cube.Define(st, xb.GetPath().AppendChild("box"))
+    cube.CreateDisplayColorAttr([tuple(float(v) ** 2.2 for v in oc)]); UsdPhysics.CollisionAPI.Apply(cube.GetPrim())
+
+og = ortho[np.clip(((geo["y1"] - GY) / geo["m_per_px"]).astype(int), 0, ortho.shape[0] - 1),
+           np.clip(((GX - geo["x0"]) / geo["m_per_px"]).astype(int), 0, ortho.shape[1] - 1)].astype(int)
+EXG = 2 * og[..., 1] - og[..., 0] - og[..., 2]                      # a shrub on a lot is vehicle-sized too
+n_, cc_ = cv2.connectedComponents(cand)
+for k in range(1, n_):
+    m = cc_ == k
+    if m.sum() * F * F < 2.5: counts["skip"] += 1; continue           # a bollard, a sign, a bush stump
+    c, yaw, L, W, top, fill = world_fit(m)
+    gz = float(DTM[int((Y1 - c[1]) / RES), int((c[0] - X0) / RES)])
+    if L > 60 or W > 12 or top < 0.9: counts["skip"] += 1; continue  # a wall, a slab, kerb clutter -- not a vehicle
+    if np.median(EXG[m]) > 12: counts["skip"] += 1; continue          # green: vegetation
+    ax = np.array([np.cos(np.radians(yaw)), np.sin(np.radians(yaw))])
+    on_way = where[m].mean() > 0.5
+    # tile blobs come out ~1 m wider than the vehicle (blurred mesh + shadow skirt): widths are generous
+    if on_way and 3.4 <= L <= 5.9 and 1.4 <= W <= 3.2 and top < 2.4 and fill > 0.55: put_asset("car", c, yaw, L, gz); counts["asset"] += 1
+    elif on_way and 5.3 < L <= 8.2 and 1.6 <= W <= 4.0 and top < 3.3 and fill > 0.55: put_asset("van", c, yaw, L, gz); counts["asset"] += 1
+    elif on_way and 9.0 <= L <= 13.5 and 2.2 <= W <= 4.2 and 2.3 <= top < 4.5 and fill > 0.55: put_asset("bus", c, yaw, L, gz); counts["asset"] += 1
+    elif L >= 12 and 2.2 <= W <= 4.5 and 2.0 <= top < 5.0 and fill > 0.5:  # rail car(s): one box per ~16 m
+        nseg = max(1, round(L / 16.0))
+        for j in range(nseg): put_proxy(c + ax * (j - (nseg - 1) / 2) * L / nseg, yaw, L / nseg - 0.5, min(W, 3.2), top, gz)
+        counts["rail"] += nseg
+    elif on_way and top < 2.4 and 1.4 <= W <= 3.2 and L > 5.9:          # cars end to end
+        nslot = max(2, round(L / 4.8))
+        for j in range(nslot): put_asset("car", c + ax * (j - (nslot - 1) / 2) * L / nslot, yaw, L / nslot - 0.3, gz)
+        counts["row"] += 1
+    elif on_way and top < 2.4 and 3.6 <= W <= 6.0 and L >= 3.6:         # cars side by side
+        nslot = max(2, round(L / 2.7))
+        for j in range(nslot): put_asset("car", c + ax * (j - (nslot - 1) / 2) * L / nslot, yaw + 90, min(W, 5.0), gz)
+        counts["row"] += 1
+    elif on_way and top >= 1.4 and L * W >= 8:                           # trailer, container, truck body: fitted box
+        put_proxy(c, yaw, L, W, top, gz); counts["proxy"] += 1
+    else:
+        counts["skip"] += 1; continue                                     # clutter, crates, dumpsters, not a vehicle
+    polys.append(cv2.boxPoints(((float(c[0]), float(c[1])), (L + 0.6, W + 0.6), float(yaw))))   # world coords; box orientation only matters loosely
 st.Save()
 np.savez(R / "replaced.npz", polys=np.array(polys, np.float32) if polys else np.zeros((0, 4, 2), np.float32))
-print(f"vehicles: {placed - proxies} assets + {proxies} box proxies (rail cars, trailers), {kept} blobs kept as tile mesh")
+print(f"vehicles: {counts['asset']} single assets, {counts['row']} rows split into cars, {counts['rail']} rail-car boxes, "
+      f"{counts['proxy']} trailer/container boxes; {counts['skip']} small / non-vehicle blobs skipped")
 
 # ------------------------------------------------------------------ debris
 # visual detail on the rubble fields the drones never filmed (R02, R03): pieces

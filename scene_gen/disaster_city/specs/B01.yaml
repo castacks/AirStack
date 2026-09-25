@@ -1,72 +1,78 @@
-# B01 "133" building -- measured off recon/b01/sheets/ (aligned dense cloud, +-0.2 m).
-# Local frame = sheets/frame.json: x along the long side, y across, z up from ground.
-# Concrete block x 0..10.5, y 14.5..20; steel frame continues it to x 21 with a
-# deck at the block's first-floor level and one roof deck over both.
-# Openings: only what the sheets show -- the far (y=20) face and interior walls
-# are not in the cloud, so they are plain; see the note at the end.
+# B01 "133" building -- measured off data/recon/b01/sheets/ (render-and-compare georeferenced
+# dense cloud, recon_georef.py; +-0.2 m). Frame: measure_sheets.py B01 --yaw 47.35 (the yaw of the
+# fitted front wall line), origin at the tile footprint's corner, z = 0 at the cloud's ground (0.5 m
+# above the LOD1 box's ground_z). Concrete block x 0.4..12.7, y 3.4..9.8; steel frame continues it
+# to x 24.8 with a deck at the block's first floor and a roof deck over x 12.7..18.8.
+# The blue-roofed wing in the Google tiles (y 10..15) has since collapsed into the slab leaning on
+# the yhi side (elev_xlo), so the tile footprint is larger than this building.
+# Openings: what the sheets show. The yhi face and the interior were not filmed -- see the end.
 id: B01
 name: roof_crane_building
-origin: [47.816, -421.655, 57.24]
-yaw_deg: 64.25
-lights:          # block ground + first floor; the frame's first-floor deck (roofed)
-  - {rect: [0.3, 14.8, 10.2, 19.7], ceiling: 3.15, spacing: 5}
-  - {rect: [0.3, 14.8, 10.2, 19.7], ceiling: 6.2, spacing: 5}
-  - {rect: [10.8, 14.8, 18.3, 19.7], ceiling: 6.0, spacing: 5}
+origin: [43.38, -425.35, 57.74]
+yaw_deg: 47.35
+lights:          # block ground + first floor; the frame's first-floor deck (under the roof deck)
+  - {rect: [0.7, 3.7, 12.4, 9.5], ceiling: 3.4, spacing: 5}
+  - {rect: [0.7, 3.7, 12.4, 9.5], ceiling: 7.4, spacing: 5}
+  - {rect: [13.0, 3.7, 18.5, 9.7], ceiling: 7.4, spacing: 5}
 parts:
   # ---- concrete block ----
-  - box: {name: slab_ground, min: [0, 14.5, 0], max: [10.5, 20, 0.15]}
-  - box: {name: slab_first, min: [0, 14.5, 3.15], max: [10.5, 20, 3.35]}
-  - box: {name: slab_roof, min: [0, 14.5, 6.2], max: [10.5, 20, 6.4]}
+  - box: {name: slab_ground, min: [0.4, 3.4, 0], max: [12.7, 9.8, 0.15]}
+  - box: {name: slab_first, min: [0.4, 3.4, 3.4], max: [12.7, 9.8, 3.6]}
+  - box: {name: slab_roof, min: [0.4, 3.4, 7.4], max: [12.7, 9.8, 7.6]}
+  - box: {name: column_mid, min: [6.55, 3.25, 0.15], max: [6.85, 3.55, 7.4]}
   - wall:
       name: wall_ylo_ground
-      from: [0, 14.5]
-      to: [10.5, 14.5]
-      z: [0.15, 3.15]
-      openings: [{at: 1.2, w: 1.0, sill: 0.1, h: 1.1}, {at: 3.2, w: 1.0, sill: 0.1, h: 1.1}, {at: 7.3, w: 1.1, sill: 0.1, h: 1.1}]
+      from: [0.4, 3.4]
+      to: [12.7, 3.4]
+      z: [0.15, 3.4]
+      openings: [{at: 1.3, w: 1.3, sill: 0.3, h: 1.5}, {at: 3.7, w: 1.3, sill: 0.3, h: 1.5}, {at: 8.7, w: 1.3, sill: 0.3, h: 1.7}]
   - wall:
       name: wall_ylo_first
-      from: [0, 14.5]
-      to: [10.5, 14.5]
-      z: [3.35, 6.2]
-      openings: [{at: 1.2, w: 1.0, sill: 0.8, h: 1.0}, {at: 3.2, w: 1.0, sill: 0.8, h: 1.0}, {at: 7.3, w: 1.1, sill: 0.8, h: 1.0}]
+      from: [0.4, 3.4]
+      to: [12.7, 3.4]
+      z: [3.6, 7.4]
+      openings: [{at: 1.2, w: 1.4, sill: 0.9, h: 1.4}, {at: 3.6, w: 1.4, sill: 0.9, h: 1.4}, {at: 8.6, w: 1.4, sill: 0.9, h: 1.4}]
   - wall:
       name: wall_xlo_ground
-      from: [0, 14.5]
-      to: [0, 20]
-      z: [0.15, 3.15]
-      openings: [{at: 2.4, w: 1.2, h: 1.3}]
+      from: [0.4, 3.4]
+      to: [0.4, 9.8]
+      z: [0.15, 3.4]
+      openings: [{at: 2.9, w: 1.6, h: 2.1}]
   - wall:
       name: wall_xlo_first
-      from: [0, 14.5]
-      to: [0, 20]
-      z: [3.35, 6.2]
-      openings: [{at: 2.3, w: 1.4, sill: 0.3, h: 1.8}]
-  - wall: {name: wall_yhi_ground, from: [0, 20], to: [10.5, 20], z: [0.15, 3.15], openings: [{at: 4.5, w: 1.0, sill: 0.1, h: 1.1}]}
-  - wall: {name: wall_yhi_first, from: [0, 20], to: [10.5, 20], z: [3.35, 6.2], openings: [{at: 4.5, w: 1.0, sill: 0.8, h: 1.0}]}
-  # end wall onto the steel frame: doorways on both floors -- the way in from the deck (clip B08)
-  - wall: {name: wall_xhi_ground, from: [10.5, 14.5], to: [10.5, 20], z: [0.15, 3.15], openings: [{at: 3.0, w: 1.2, h: 2.1}]}
-  - wall: {name: wall_xhi_first, from: [10.5, 14.5], to: [10.5, 20], z: [3.35, 6.2], openings: [{at: 3.0, w: 1.2, h: 2.1}]}
-  # ---- steel frame (x 10.5..21) ----
-  - box: {name: col_a1, min: [15.4, 14.4, 0], max: [15.7, 14.7, 6.4], mat: steel}
-  - box: {name: col_a2, min: [15.4, 19.8, 0], max: [15.7, 20.1, 6.4], mat: steel}
-  - box: {name: col_b1, min: [20.7, 14.4, 0], max: [21.0, 14.7, 6.4], mat: steel}
-  - box: {name: col_b2, min: [20.7, 19.8, 0], max: [21.0, 20.1, 6.4], mat: steel}
-  - box: {name: deck_first, min: [10.5, 14.5, 3.2], max: [21, 20, 3.35], mat: grating}
-  - box: {name: deck_roof_frame, min: [10.5, 14.5, 6.25], max: [18.5, 20, 6.4], mat: grating}
-  - box: {name: beam_roof_ylo, min: [10.5, 14.4, 6.0], max: [21, 14.7, 6.25], mat: steel}
-  - box: {name: beam_roof_yhi, min: [10.5, 19.8, 6.0], max: [21, 20.1, 6.25], mat: steel}
-  # ---- roof railings (both roofs, long sides + x=0 end) ----
-  - rail: {name: rail_ylo, from: [0, 14.5], to: [18.5, 14.5], z: 6.4, mat: steel}
-  - rail: {name: rail_yhi, from: [0, 20], to: [18.5, 20], z: 6.4, mat: steel}
-  - rail: {name: rail_xlo, from: [0, 14.5], to: [0, 20], z: 6.4, mat: steel}
-  - rail: {name: rail_deck_ylo, from: [10.5, 14.5], to: [18.8, 14.5], z: 3.35, mat: steel}
-  # ---- stairs on the ylo side (outside the frame) and the "133" landing ----
-  - box: {name: landing_133, min: [18.8, 12.4, 3.15], max: [21, 14.5, 3.35], mat: grating}
-  - stair: {name: stair_ground_to_133, from: [15.0, 13.45, 0.15], to: [18.8, 13.45, 3.25], width: 1.1, mat: grating}
-  - stair: {name: stair_deck_to_roof, from: [20.5, 17.25, 3.35], to: [18.5, 17.25, 6.4], width: 1.0, mat: grating}
+      from: [0.4, 3.4]
+      to: [0.4, 9.8]
+      z: [3.6, 7.4]
+      openings: [{at: 2.6, w: 1.25, sill: 0.9, h: 1.4}]
+  - wall: {name: wall_yhi_ground, from: [0.4, 9.8], to: [12.7, 9.8], z: [0.15, 3.4], openings: [{at: 5.5, w: 1.3, sill: 0.3, h: 1.5}]}
+  - wall: {name: wall_yhi_first, from: [0.4, 9.8], to: [12.7, 9.8], z: [3.6, 7.4], openings: [{at: 5.5, w: 1.4, sill: 0.9, h: 1.4}]}
+  # end wall onto the steel frame: a doorway on each floor -- the way in from the deck (clip B08)
+  - wall: {name: wall_xhi_ground, from: [12.7, 3.4], to: [12.7, 9.8], z: [0.15, 3.4], openings: [{at: 2.6, w: 1.2, h: 2.1}]}
+  - wall: {name: wall_xhi_first, from: [12.7, 3.4], to: [12.7, 9.8], z: [3.6, 7.4], openings: [{at: 2.6, w: 1.2, h: 2.1}]}
+  # ---- steel frame (x 12.7..24.8, y 3.4..10.0) ----
+  - box: {name: col_a1, min: [18.65, 3.25, 0], max: [18.95, 3.55, 7.6], mat: steel}
+  - box: {name: col_a2, min: [18.65, 9.85, 0], max: [18.95, 10.15, 7.6], mat: steel}
+  - box: {name: col_b1, min: [24.45, 3.25, 0], max: [24.75, 3.55, 4.4], mat: steel}
+  - box: {name: col_b2, min: [24.45, 9.85, 0], max: [24.75, 10.15, 4.4], mat: steel}
+  - box: {name: deck_first, min: [12.7, 3.4, 4.2], max: [24.8, 10.0, 4.35], mat: grating}
+  - box: {name: deck_roof_frame, min: [12.7, 3.4, 7.45], max: [18.8, 10.0, 7.6], mat: grating}
+  - box: {name: beam_deck_ylo, min: [12.7, 3.25, 3.95], max: [24.8, 3.55, 4.2], mat: steel}
+  - box: {name: beam_deck_yhi, min: [12.7, 9.85, 3.95], max: [24.8, 10.15, 4.2], mat: steel}
+  - box: {name: beam_roof_ylo, min: [12.7, 3.25, 7.2], max: [18.8, 3.55, 7.45], mat: steel}
+  - box: {name: beam_roof_yhi, min: [12.7, 9.85, 7.2], max: [18.8, 10.15, 7.45], mat: steel}
+  # ---- railings: both roofs (1.5 m, as the cloud shows) and the deck's open edges ----
+  - rail: {name: rail_roof_ylo, from: [0.4, 3.4], to: [18.8, 3.4], z: 7.6, h: 1.5, mat: steel}
+  - rail: {name: rail_roof_yhi, from: [0.4, 9.8], to: [18.8, 9.8], z: 7.6, h: 1.5, mat: steel}
+  - rail: {name: rail_roof_xlo, from: [0.4, 3.4], to: [0.4, 9.8], z: 7.6, h: 1.5, mat: steel}
+  - rail: {name: rail_deck_xhi, from: [24.8, 3.4], to: [24.8, 10.0], z: 4.35, mat: steel}
+  - rail: {name: rail_deck_yhi, from: [18.8, 10.0], to: [24.8, 10.0], z: 4.35, mat: steel}
+  # ---- stairs on the ylo side, outside the frame, and the "133" landing ----
+  - box: {name: landing_133, min: [22.4, 0.7, 4.2], max: [24.8, 3.4, 4.35], mat: grating}
+  - stair: {name: stair_ground_to_133, from: [15.5, 1.9, 0.15], to: [22.4, 1.9, 4.28], width: 1.1, mat: grating}
+  - stair: {name: stair_deck_to_roof, from: [24.2, 6.7, 4.35], to: [19.0, 6.7, 7.6], width: 1.0, mat: grating}
   # ---- crane on the roof ----
-  - box: {name: crane_post, min: [9.6, 18.3, 6.4], max: [9.9, 18.6, 9.3], mat: steel}
-  - box: {name: crane_boom, min: [9.6, 18.35, 9.0], max: [13.4, 18.55, 9.3], mat: steel}
-# NOT MODELLED (no data in the cloud): interior partitions, the far (y=20) face's
-# exact openings (one per floor assumed), the X-bracing on the frame's ylo face,
-# the tilted slabs leaning on the ground floor. Add from clip frames if needed.
+  - box: {name: crane_post, min: [11.4, 9.0, 7.6], max: [11.7, 9.3, 10.4], mat: steel}
+  - box: {name: crane_boom, min: [11.4, 9.05, 10.1], max: [15.4, 9.25, 10.4], mat: steel}
+# NOT MODELLED (no data in the cloud): interior partitions, the yhi face's openings (one per floor
+# assumed), the X-bracing on the frame, and the collapsed wing's slab leaning on the yhi side
+# (it is in the tile surface; ground.py keeps tile geometry outside this model's footprint).

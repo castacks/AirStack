@@ -2,9 +2,10 @@
 
     ~/.venvs/recon/bin/python measure_sheets.py data/recon/b01 B01 [--pad 4]
 
-Local frame: origin at the footprint's min corner, x along the long side, y
-across, z up from ground (the LOD1 box in data/recon/buildings_lod1.yaml gives
-centre/yaw/ground; the cloud refines the yaw). Writes to <dir>/sheets/:
+Local frame: the building's tile footprint (its LOD1 box in
+data/recon/buildings_lod1.yaml): origin at the box's min corner, x along the
+long side, y across, z up from the box's ground; the cloud may refine the yaw
+by up to 5 deg. So a spec measured on these sheets lands on the tile footprint. Writes to <dir>/sheets/:
   plan_z<h>.png   points in a 0.6 m slab at height h (walls + openings in plan)
   elev_{xlo,xhi,ylo,yhi}.png  each half of the building seen side-on
 all with a 1 m grid (bold every 5 m) and axis labels in metres, plus frame.json.
@@ -14,6 +15,7 @@ from pathlib import Path
 import cv2, numpy as np, open3d as o3d, yaml
 
 ap = argparse.ArgumentParser(); ap.add_argument("dir"); ap.add_argument("id"); ap.add_argument("--pad", type=float, default=4)
+ap.add_argument("--yaw", type=float, help="force the frame yaw (deg), e.g. fitted to a wall line")
 a = ap.parse_args(); d = Path(a.dir); out = d / "sheets"; out.mkdir(exist_ok=True)
 from _paths import R as RECON, LABELS   # R is taken (grid res / rotation)
 b = next(x for x in yaml.safe_load(open(RECON / "buildings_lod1.yaml"))["buildings"] if x["id"] == a.id)
@@ -24,20 +26,25 @@ P, C = np.asarray(pcd.points), (np.asarray(pcd.colors) * 255).astype(np.uint8)[:
 c = np.array(b["at"]); L = max(b["size_m"]) / 2 + a.pad
 P0 = P[np.hypot(*(P[:, :2] - c).T) < L + 5]; C = C[np.hypot(*(P[:, :2] - c).T) < L + 5]
 
-# yaw: the rotation that stacks wall/frame points 1-8 m up into the sharpest
-# axis-aligned histogram peaks (a rectangle fit is thrown by the stairs and props)
-g = b["ground_z"]; band = (P0[:, 2] > g + 1) & (P0[:, 2] < g + 8) & (np.hypot(*(P0[:, :2] - c).T) < max(b["size_m"]) / 2 + 1)
+# Frame = the building's footprint in the 3D tiles (its LOD1 box): origin at the box corner,
+# x along the long side, y across. Anchoring here -- not on the cloud -- is what makes a spec
+# measured on these sheets land on the tile footprint. (The cloud used to set the frame, and
+# while the cloud was misaligned that frame, and B01, sat 13 m off.) The yaw is refined by
+# the wall-histogram peak only if it stays within 5 deg of the tile box.
+g = b["ground_z"]; th0 = np.radians(b["yaw_deg"])
+band = (P0[:, 2] > g + 1) & (P0[:, 2] < g + 8) & (np.hypot(*(P0[:, :2] - c).T) < max(b["size_m"]) / 2 + 1)
 B = P0[band, :2] - c
 def peakiness(t):
     r = B @ np.array([[np.cos(t), -np.sin(t)], [np.sin(t), np.cos(t)]])
     return sum((np.histogram(r[:, i], bins=np.arange(-30, 30, 0.2))[0].astype(float) ** 2).sum() for i in (0, 1))
-ts = np.radians(np.arange(0, 90, 0.25)); yaw = ts[np.argmax([peakiness(t) for t in ts])]
-r = B @ np.array([[np.cos(yaw), -np.sin(yaw)], [np.sin(yaw), np.cos(yaw)]])
-if np.ptp(np.percentile(r[:, 1], [2, 98])) > np.ptp(np.percentile(r[:, 0], [2, 98])): yaw += np.pi / 2   # x = long side
+ts = th0 + np.radians(np.arange(-5, 5.01, 0.25)); yaw = ts[np.argmax([peakiness(t) for t in ts])]
+if b["size_m"][1] > b["size_m"][0]: yaw += np.pi / 2                              # x = long side
+if a.yaw is not None: yaw = np.radians(a.yaw)
+sx, sy = max(b["size_m"]), min(b["size_m"])
 R = np.array([[np.cos(yaw), np.sin(yaw)], [-np.sin(yaw), np.cos(yaw)]])
-Q = np.c_[(P0[:, :2] - c) @ R.T, P0[:, 2] - g]
-lo, hi = np.percentile(Q[band, :2], 1, 0), np.percentile(Q[band, :2], 99, 0)
-Q[:, :2] -= lo; size = hi - lo
+lo = np.array([-sx / 2, -sy / 2])
+Q = np.c_[(P0[:, :2] - c) @ R.T - lo, P0[:, 2] - g]
+size = np.array([sx, sy])
 frame = {"origin_world": (c + np.linalg.inv(R) @ lo).tolist() + [g], "yaw_deg": float(np.degrees(yaw)),
          "size_m": size.tolist(), "note": "local x along long side, y across, z up from ground_z"}
 json.dump(frame, open(out / "frame.json", "w"), indent=1)
@@ -58,12 +65,7 @@ def sheet(uv, col, x0, x1, y0, y1, name, xl, yl):
     cv2.putText(img, f"{name}   x: {xl}   y: {yl}   (m)", (70, 22), 0, 0.7, (255, 255, 255), 2)
     cv2.imwrite(str(out / f"{name}.png"), img)
 
-# sheet windows: where the wall points actually are (the percentile box above is
-# only the frame's origin -- nearby rubble pulls it)
-occ = band.copy(); qx, qy = Q[occ, 0], Q[occ, 1]
-H2 = np.histogram2d(qx, qy, bins=[np.arange(-5, 40, 0.5)] * 2)[0]
-ix, iy = np.nonzero(H2 > np.percentile(H2[H2 > 0], 90))
-x0, x1, y0, y1 = -5 + ix.min() * 0.5 - 2, -5 + ix.max() * 0.5 + 3, -5 + iy.min() * 0.5 - 2, -5 + iy.max() * 0.5 + 3
+x0, x1, y0, y1 = -3.0, size[0] + 3.0, -3.0, size[1] + 3.0      # the tile footprint + 3 m
 for zc in (1.2, 3.0, 5.5, 7.5):
     k = abs(Q[:, 2] - zc) < 0.3
     sheet(Q[k, :2], C[k], x0, x1, y0, y1, f"plan_z{zc}", "local x", "local y")

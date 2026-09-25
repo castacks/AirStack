@@ -67,9 +67,10 @@ def ray(a, b):
     return {"hit": bool(h["hit"]), "dist": round(h.get("distance", -1), 2), "prim": h.get("collision", "")}
 tests = {
     # first-floor window of the ylo face: local x 1.2..2.2, z 4.15..5.15 (sill 0.8 over the 3.35 slab)
-    "window_B01_first_floor (expect pass)": ray(L(1.7, 12.0, 4.6), L(1.7, 17.0, 4.6)),
-    "wall_B01_first_floor (expect hit)": ray(L(5.5, 12.0, 4.6), L(5.5, 17.0, 4.6)),
-    "doorway_B01_frame_side (expect pass)": ray(L(13.0, 17.6, 4.4), L(8.0, 17.6, 4.4)),
+    # B01 local frame: specs/B01.yaml (block x 0.4..12.7, y 3.4..9.8; first floor 3.6..7.4)
+    "window_B01_first_floor (expect pass)": ray(L(2.3, 0.5, 5.2), L(2.3, 6.5, 5.2)),
+    "wall_B01_first_floor (expect hit)": ray(L(7.5, 0.5, 5.2), L(7.5, 6.5, 5.2)),
+    "doorway_B01_frame_side (expect pass)": ray(L(15.0, 6.6, 4.6), L(10.0, 6.6, 4.6)),
     "pile_R01_down (expect hit)": ray((39.0, -388.0, 120.0), (39.0, -388.0, 0.0)),
 }
 # a tree trunk and a placed vehicle, looked up from the stage
@@ -96,12 +97,14 @@ shots = {
     "r02_debris_field": ((188, -390, 60), 230, 25, 35),
     "r03_collapsed_houses": ((72, -440, 60), 30, 30, 40),
     "industrial_pad": ((55, -525, 64), 200, 22, 55),
+    "industrial_pad_top": ((55, -522, 60), 225, 70, 75),
+    "b01_top": ((40, -405, 60), 225, 72, 55),
     "lattice_tower_close": ((80.3, -523.4, 70), 230, 12, 22),
     "b06_warehouse_canopy": ((160, -499, 64), 140, 20, 55),
 }
 # eye/target pairs in B01's local frame: inside the first floor, and on the deck looking in through the doorway
-inside = {"b01_inside_first_floor": ((2.0, 17.0, 4.9), (10.5, 18.1, 4.6)),
-          "b01_deck_to_doorway": ((16.0, 17.5, 4.8), (10.5, 18.1, 4.5))}
+inside = {"b01_inside_first_floor": ((1.5, 8.5, 5.4), (12.7, 6.6, 5.0)),
+          "b01_deck_to_doorway": ((17.5, 6.6, 5.6), (12.7, 6.6, 5.0))}
 cam = UsdGeom.Camera.Define(stage, "/World/check_cam"); cam.CreateFocalLengthAttr(18); cam.CreateClippingRangeAttr(Gf.Vec2f(0.1, 1.0e6))   # a 5 km far plane clipped the dome: black sky
 xf = UsdGeom.Xformable(cam); op = xf.AddTransformOp()
 rp = rep.create.render_product(str(cam.GetPath()), (1600, 900))

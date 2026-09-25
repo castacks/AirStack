@@ -83,15 +83,21 @@ Z = G + (Z - G) * wt
 
 # which cells become faces: inside the disc, outside other buildings' footprints
 inside = np.hypot(X - cx, Y - cy) < r
-# hero buildings: their CURRENT footprint (sheets/frame.json window) replaces the
-# tile-derived LOD1 box, which can be stale (B01 lost a wing after Google's capture)
+# hero models: cut exactly their built footprint (every gprim, + margin) -- not a frame window,
+# which would also cut the rubble and the leaning slab around B01 where its wing collapsed
+from pxr import Usd as _Usd, UsdGeom as _UG
 heroes = {}
-for fj in RECON.glob("*/sheets/frame.json"):
-    f = json.load(open(fj)); hid = fj.parent.parent.name.upper(); heroes[hid] = f
-    th = np.radians(f["yaw_deg"]); dx, dy = X - f["origin_world"][0], Y - f["origin_world"][1]
-    lu, lv = dx * np.cos(th) + dy * np.sin(th), -dx * np.sin(th) + dy * np.cos(th)
-    x0_, x1_, y0_, y1_ = f["window"]
-    inside &= ~((lu > x0_ + 1.5 - a.margin) & (lu < x1_ - 2.5 + a.margin) & (lv > y0_ + 1.5 - a.margin) & (lv < y1_ - 2.5 + a.margin))
+for usd in RECON.glob("*/[A-Z]*[0-9].usd"):
+    hs = _Usd.Stage.Open(str(usd)); hid = hs.GetDefaultPrim().GetName().split("_")[0]; heroes[hid] = True
+    xc = _UG.XformCache()
+    for q in _Usd.PrimRange(hs.GetDefaultPrim()):
+        if not q.IsA(_UG.Cube): continue
+        M = xc.GetLocalToWorldTransform(q)
+        c = np.array([M.Transform((x, y, z)) for x in (-1, 1) for y in (-1, 1) for z in (-1, 1)])
+        if c[:, 2].max() < np.nanmin(Z) - 1: continue
+        hull = cv2.convexHull(np.round(np.c_[(c[:, 0] - (cx - r)) / R, ((cy + r) - c[:, 1]) / R] * 4).astype(np.int32))
+        mk = np.zeros((n, n), np.uint8); cv2.fillConvexPoly(mk, hull, 1, shift=2)
+        inside &= ~cv2.dilate(mk, np.ones((2 * int(a.margin / R) + 1,) * 2, np.uint8)).astype(bool)
 for b in yaml.safe_load(open(RECON / "buildings_lod1.yaml"))["buildings"]:
     if b["id"] in heroes: continue
     th = np.radians(b["yaw_deg"]); dx, dy = X - b["at"][0], Y - b["at"][1]

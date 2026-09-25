@@ -90,13 +90,31 @@ for pid in PIECES:
     if pid not in lab_at: continue
     l = lab_at[pid]; r = l.get("size_m", 20) / 2 + (2 if l["kind"] == "rubble" else 0)
     if pid.startswith("R"): hero_mask |= np.hypot(X - l["at"][0], Y - l["at"][1]) < r - 0.5   # pile discs carry their own ground
+# SWALLOW, don't clip: a model replaces the whole raised tile blob it stands on, not just the
+# tile triangles inside its own box -- the leftovers from box-only masking were the "floating
+# mesh pieces" around the pad objects and vehicles. The blob is clipped to `reach` m around
+# the model, because tile blobs run on into the trees and piles a building touches.
+raised_cells = cv2.morphologyEx(((DSM - DTM) > 0.6).astype(np.uint8), cv2.MORPH_OPEN, np.ones((2, 2), np.uint8))
+_ncc, raised_cc = cv2.connectedComponents(raised_cells)
+def swallow(m, reach):
+    m = m.astype(bool)
+    touch = np.unique(raised_cc[cv2.dilate(m.astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool)])
+    near = cv2.dilate(m.astype(np.uint8), cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * int(reach / RES) + 1,) * 2)).astype(bool)
+    return cv2.dilate((m | (np.isin(raised_cc, touch[touch > 0]) & near)).astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool)
+
 box_mask = np.zeros((N, N), bool)
 boxes = yaml.safe_load(open(R / "buildings_lod1.yaml"))["buildings"]
 def in_box(px, py, b, pad):
     th = np.radians(b["yaw_deg"]); dx, dy = px - b["at"][0], py - b["at"][1]
     lu, lv = dx * np.cos(th) + dy * np.sin(th), -dx * np.sin(th) + dy * np.cos(th)
     return (abs(lu) < b["size_m"][0] / 2 + pad) & (abs(lv) < b["size_m"][1] / 2 + pad)
-for b in boxes: box_mask |= in_box(X, Y, b, 0.5)
+for b in boxes:                                              # the extruded tile outline (lod1_buildings.py levels)
+    if b["id"] in PIECES: continue                           # its hero model masks below
+    m = np.zeros((N, N), np.uint8)
+    for lv in b.get("levels", []):
+        for ring in lv["rings"]:
+            ring = np.array(ring); cv2.fillPoly(m, [np.round(np.c_[(ring[:, 0] - X0) / RES, (Y1 - ring[:, 1]) / RES]).astype(np.int32)], 1)
+    box_mask |= swallow(m if m.any() else in_box(X, Y, b, 0.5), 2.0)
 # hand-built models: mask their world bound (oriented box from the built USD) so the
 # tile mesh of the same thing is not kept alongside it
 for pid, rel in PIECES.items():
@@ -110,15 +128,15 @@ for pid, rel in PIECES.items():
         rng, M = bb.GetRange(), bb.GetMatrix(); lo_, hi_ = rng.GetMin(), rng.GetMax()
         poly = np.array([[*M.Transform(Gf.Vec3d(x, y, lo_[2]))][:2] for x, y in ((lo_[0], lo_[1]), (hi_[0], lo_[1]), (hi_[0], hi_[1]), (lo_[0], hi_[1]))])
         cv2.fillConvexPoly(m, np.round(np.c_[(poly[:, 0] - X0) / RES, (Y1 - poly[:, 1]) / RES]).astype(np.int32), 1)
-    box_mask |= cv2.dilate(m, np.ones((3, 3), np.uint8)).astype(bool)
-    print(f"  {pid}: masked {m.sum() * RES * RES:.0f} m2 of tile surface")
+    sw = swallow(m, 4.0); box_mask |= sw
+    print(f"  {pid}: masked {sw.sum() * RES * RES:.0f} m2 of tile surface ({m.sum() * RES * RES:.0f} m2 model footprint)")
 
 replaced = np.zeros((N, N), bool)                          # vehicle blobs place_assets.py swapped for assets --
 if (R / "replaced.npz").exists():                           # cut from the USD only, NOT from the rasters it reads back
     for poly in np.load(R / "replaced.npz")["polys"]:
         m = np.zeros((N, N), np.uint8)
         cv2.fillConvexPoly(m, np.round(np.c_[(poly[:, 0] - X0) / RES, (Y1 - poly[:, 1]) / RES]).astype(np.int32), 1)
-        replaced |= m.astype(bool)
+        replaced |= swallow(m, 1.5)
 
 cls = np.full((N, N), "ground", object); cls[road] = "road"; cls[water] = "water"
 print(f"terrain: road {road.mean():.1%}, water {water.mean():.1%}")
@@ -153,6 +171,7 @@ cls_r = np.zeros((N, N), np.uint8)
 for code, name in enumerate(("vegetation", "rubble", "vehicle", "building", "clutter"), 1):
     sel = keep & (tri_cls == name); cls_r[cj[sel], ci[sel]] = code
 np.savez(R / "site_rasters.npz", dsm=DSM.astype(np.float32), dtm=DTM.astype(np.float32), cls=cls_r, road=road, water=water,
+         osm_road=osm_road, occupied=box_mask | hero_mask, veg=cv2.dilate(vr, np.ones((3, 3), np.uint8)).astype(bool),
          x0=X0, y1=Y1, res=RES, cls_names=np.array(["none", "vegetation", "rubble", "vehicle", "building", "clutter"]))
 
 # ---------------- USD ----------------

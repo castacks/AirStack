@@ -7,13 +7,15 @@ data/recon/tiles_site.npz, take the blob of cells >= MIN_H above local ground th
 contains the label point, fit a minimum-area rectangle -> footprint, height =
 90th percentile of the blob. Writes
   data/recon/buildings_lod1.yaml   id, centre, size, yaw, ground z, height
-  data/recon/buildings_lod1.usd    per building: ortho-textured roof + wall mesh, colliders, `building` label
+  data/recon/buildings_lod1.usd    per building: the tile outline extruded -- main roof level plus
+                                   any attached lower annex -- ortho-textured roofs, walls, colliders
   data/recon/buildings_lod1.jpg    footprints drawn on the ortho, for checking
 Trees touching a building get merged into its blob -- check the jpg.
 """
 import json
 from pathlib import Path
-import cv2, numpy as np, open3d as o3d, yaml
+import cv2, numpy as np, open3d as o3d, yaml, mapbox_earcut
+from shapely.geometry import Polygon
 from pxr import Usd, UsdGeom, UsdShade, UsdPhysics, Sdf, Gf
 
 from _paths import R, LABELS
@@ -54,7 +56,8 @@ for l in labels:
     roof = H[c0 - 6:c0 + 7, c0 - 6:c0 + 7]; roof = roof[roof - ground >= MIN_H]
     if not len(roof): print(f"{l['id']}: nothing >= {MIN_H} m at the label"); continue
     level = np.abs(H - np.median(roof)) < 2.5                 # roof band: drops canopy above and yard below
-    blob = (((H - ground) >= MIN_H) & level & (exg[v, u] < 12) & mine).astype(np.uint8)
+    notgreen = exg[v, u] < 12
+    blob = (((H - ground) >= MIN_H) & level & notgreen & mine).astype(np.uint8)
     blob = cv2.morphologyEx(blob, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))   # cut thin tree/wire links
     n, cc = cv2.connectedComponents(blob)
     c0 = int(WIN / RES)
@@ -66,6 +69,27 @@ for l in labels:
     rec = {"id": l["id"], "name": l["name"], "at": [round(x, 2), round(y, 2)],
            "size_m": [round(w * RES, 2), round(h * RES, 2)], "yaw_deg": round(-ang, 1),
            "ground_z": round(float(ground), 2), "height_m": round(float(np.percentile(H[m > 0], 90) - ground), 2)}
+    # the building's real outline, as extrudable polygons: the main roof level, plus any lower
+    # annex (porch, lean-to, wing) that is attached to it. The rectangle above stays for the tools
+    # that want a frame (measure_sheets, recon_mesh); the USD is built from these.
+    to_w = lambda cnt: [[round(float(cx - WIN + (px + 0.5) * RES), 2), round(float(cy + WIN - (py + 0.5) * RES), 2)] for px, py in cnt]
+    def outline(mask):
+        cs, _ = cv2.findContours(mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        polys_ = []
+        for cn in cs:
+            if cv2.contourArea(cn) * RES * RES < 3: continue
+            pg = Polygon(to_w(cn[:, 0])).buffer(RES / 2).simplify(0.35)   # +half a cell: contours run on cell centres
+            if pg.is_valid and pg.area > 3: polys_.append(pg)
+        return polys_
+    levels = [(outline(m), rec["height_m"])]
+    annex = (((H - ground) >= MIN_H) & ~level & (H < np.median(roof)) & notgreen & mine).astype(np.uint8)
+    annex = cv2.morphologyEx(annex, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))
+    na, ca = cv2.connectedComponents(annex)
+    touching = [k for k in range(1, na) if (cv2.dilate(m, np.ones((5, 5), np.uint8)).astype(bool) & (ca == k)).any()]
+    if touching:
+        am = np.isin(ca, touching)
+        levels.append((outline(am), round(float(np.percentile(H[am], 80) - ground), 2)))
+    rec["levels"] = [{"height_m": hgt, "rings": [[list(pt) for pt in pg.exterior.coords[:-1]] for pg in pgs]} for pgs, hgt in levels if pgs]
     out.append(rec)
     print(rec)
 
@@ -98,17 +122,21 @@ def mesh(path, V, faces):
 
 for b in out:
     x = UsdGeom.Xform.Define(stage, f"/buildings_lod1/{b['id']}_{b['name']}")
-    th = np.radians(b["yaw_deg"]); u = np.array([np.cos(th), np.sin(th)]); v = np.array([-np.sin(th), np.cos(th)])
-    c = np.array(b["at"]); hx, hy = b["size_m"][0] / 2, b["size_m"][1] / 2
-    xy = [c - u * hx - v * hy, c + u * hx - v * hy, c + u * hx + v * hy, c - u * hx + v * hy]      # CCW from above
-    z0, z1 = b["ground_z"] - 0.5, b["ground_z"] + b["height_m"]
-    top = [(*p, z1) for p in xy]; bot = [(*p, z0) for p in xy]
-    roof = mesh(x.GetPath().AppendChild("roof"), top, [[0, 1, 2, 3]])
-    st = [((p[0] - geo["x0"]) / OW, 1 - (geo["y1"] - p[1]) / OH) for p in xy]
-    UsdGeom.PrimvarsAPI(roof).CreatePrimvar("st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.vertex).Set(st)
-    UsdShade.MaterialBindingAPI.Apply(roof.GetPrim()).Bind(mat)
-    walls = mesh(x.GetPath().AppendChild("walls"), bot + top, [[i, (i + 1) % 4, 4 + (i + 1) % 4, 4 + i] for i in range(4)])
-    walls.CreateDisplayColorAttr([(0.72, 0.70, 0.66)])
+    k = 0
+    for lv in b["levels"]:
+        z0, z1 = b["ground_z"] - 0.5, b["ground_z"] + lv["height_m"]
+        for ring in lv["rings"]:
+            xy = np.array(ring, float)
+            if not Polygon(xy).exterior.is_ccw: xy = xy[::-1]                 # CCW from above: outward walls, upward roof
+            n_ = len(xy)
+            tri = mapbox_earcut.triangulate_float64(xy, np.array([n_], np.uint32)).reshape(-1, 3)
+            roof = mesh(x.GetPath().AppendChild(f"roof{k}"), [(*p, z1) for p in xy], tri.tolist())
+            st = [((p[0] - geo["x0"]) / OW, 1 - (geo["y1"] - p[1]) / OH) for p in xy]
+            UsdGeom.PrimvarsAPI(roof).CreatePrimvar("st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.vertex).Set(st)
+            UsdShade.MaterialBindingAPI.Apply(roof.GetPrim()).Bind(mat)
+            walls = mesh(x.GetPath().AppendChild(f"walls{k}"), [(*p, z0) for p in xy] + [(*p, z1) for p in xy],
+                         [[i, (i + 1) % n_, n_ + (i + 1) % n_, n_ + i] for i in range(n_)])
+            walls.CreateDisplayColorAttr([(0.72, 0.70, 0.66)]); k += 1
     p = x.GetPrim(); p.AddAppliedSchema("SemanticsLabelsAPI:class")
     p.CreateAttribute("semantics:labels:class", Sdf.ValueTypeNames.TokenArray).Set(["building"])
     p.SetCustomDataByKey("label:id", b["id"])

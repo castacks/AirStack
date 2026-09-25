@@ -54,9 +54,9 @@ PATH, and `~/isaacsim/python.sh` (Isaac Sim 6.0.1) for the check.
 | Industrial pad (`PAD`: S02–S06, mast, 3 cabins) | Tile blobs (position, footprint, height); identities from the Google obliques | Primitives: rail tank car, sphere vessel, pipe rack, tank on legs, X-braced lattice tower, cabins with doors |
 | **R01** west rubble pile | Dense drone reconstruction, 2.5D heightfield at 0.2 m | About 34% from drone footage, the rest from the tiles; colour matched to the tiles |
 | R02 east pile, R03 collapsed houses | Tile mound plus 537 debris pieces | The mound is the collider; the pieces are visual only |
-| Other buildings (`lod1/`) | Footprint, yaw and height from the tiles | Closed boxes with the real roof texture. Not enterable. |
+| Other buildings (`lod1/`) | The tile outline, extruded: main roof level plus any attached lower annex | Closed, with the real roof texture. Not enterable. |
 | Trees (`trees/`) | Canopy peaks in the tile heights; 4 NVIDIA tree species as instanceable references | Position and height from the tiles; invisible trunk and crown colliders |
-| Vehicles (`vehicles/`) | Tile blobs fitted with car, van or bus assets, or a box proxy | 13 assets and 12 box proxies (rail cars, trailers, dumpsters); 18 irregular blobs keep their tile mesh |
+| Vehicles (`vehicles/`) | Every vehicle-sized blob on roads, lots and near vehicle labels, plus rail cars anywhere, fitted in the world frame | Car, van and bus assets (touching rows split into cars); rail cars, trailers and containers as fitted boxes (no library asset) |
 | Everything else raised (`site/tiles_*`) | Raw tile triangles, classified | Crude: kept so the silhouette is complete |
 
 Measured with `isaac_check.py` in host Isaac Sim 6.0.1 on an RTX 5090: about
@@ -80,18 +80,17 @@ blender -b data/blender_data/disaster_city.blend --python osm_export.py -- data/
 blender -b data/blender_data/disaster_city.blend --python tiles_extract.py -- 188 -390 26 data/recon/rubble_east/R02_tiles.usd
 # 1. drone reconstructions: hours on the GPU; the dense step needs ~15 MB of disk per image while it runs
 $PY frames.py rubble_west && $PY recon_sfm.py data/recon/rubble_west && $PY recon_dense.py data/recon/rubble_west
-$PY recon_align.py data/recon/rubble_west data/recon/tiles_R01.npz                 # writes orthos: pick 2 corners on them
-$PY recon_align.py data/recon/rubble_west data/recon/tiles_R01.npz --pairs 861.7,316.7:48.5,-396.5 716.7,560:32.2,-414
+$PY recon_align.py data/recon/rubble_west data/recon/tiles_R01.npz --pairs ...   # rough start: 2 picked corners
+$PY recon_georef.py data/recon/rubble_west --views 24 --iters 4                  # render-and-compare vs the tiles
 $PY frames.py b01 && $PY recon_sfm.py data/recon/b01
 $PY recon_extend.py data/recon/b01 Bh B07,B08,B09,B10,B02,B03,A02,A03,A06        # the 4 fps interior frames
 #    densify a subset: every Bh frame + every other outside frame, as a model with the rest deregistered
 #    (sparse_sub; see recon_dense.py), then:
 $PY recon_dense.py data/recon/b01 1200 data/recon/b01/sparse_sub
-$PY recon_align.py data/recon/b01 data/recon/tiles_B01.npz --pairs 670,627.5:32.2,-414 560,1030:48.5,-396.5
-$PY recon_icp.py data/recon/b01 data/recon/rubble_west --at 45.6,-409.8           # ICP onto the R01 cloud
+$PY recon_georef.py data/recon/b01 --model sparse_ext --views 40 --iters 5       # start: rubble_west's transform carried over
 # 2. models
 $PY lod1_buildings.py
-$PY measure_sheets.py data/recon/b01 B01                                          # the sheets specs/B01.yaml was measured on
+$PY measure_sheets.py data/recon/b01 B01 --yaw 47.35                              # the sheets specs/B01.yaml was measured on
 $PY recon_mesh.py data/recon/rubble_west R01 data/recon/tiles_R01.npz --radius 24 --margin 0.5
 $PY build_hero.py specs/B01.yaml
 for g in drill_tower:s01/S01 strip_mall:b03/B03 warehouse:b06/B06 industrial_pad:pad/PAD; do
@@ -100,6 +99,7 @@ for g in drill_tower:s01/S01 strip_mall:b03/B03 warehouse:b06/B06 industrial_pad
 $PY ground.py && $PY place_assets.py && $PY ground.py && $PY assemble_scene.py
 # 4. check and ship
 OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh isaac_check.py data/recon/disaster_city.usda data/recon/shots/<name>
+$PY footprint_check.py                        # every model vs its tile footprint -> data/recon/footprints.tsv + overlays
 $PY package.py                                                                     # data/dist/disaster_city/
 ```
 
@@ -116,12 +116,24 @@ tile surface under it.
 
 ## Things that bit, so they don't bite again
 
-- **Automatic alignment of a drone reconstruction to the tiles failed three
-  ways.** SIFT on the top-down images failed because the captures are from
-  different dates. Height-map correlation latched onto the wrong place.
-  FPFH+RANSAC was ambiguous at every scale. What works is 2 hand-picked
-  building corners (`recon_align.py --pairs`), then ICP against an
-  already-aligned cloud from the same flights (`recon_icp.py`).
+- **Aligning a drone reconstruction to the tiles.** SIFT on the orthos (different capture dates),
+  height-map correlation and FPFH+RANSAC all failed. The 2-corner picks + ICP route that
+  replaced them "worked" but left R01 5 m and B01 ~13 m off with the scale 12% wrong -- ICP on
+  flat ground cannot fix a horizontal shift -- and B01 was modelled on that. What works is
+  `recon_georef.py`: render the tile mesh from the reconstruction's own cameras, LoFTR-match
+  each photo to its render (SIFT finds nothing across the photo / tile-texture gap), ray-cast
+  the matches into the mesh, PnP each camera, and fit a similarity to the camera centres.
+  It converges in 3 iterations to 0.1-0.2 m camera residuals.
+- **Every model is checked against the tiles.** `footprint_check.py` compares each model's plan
+  footprint with the tile blob under it (IoU, offset, long-axis direction). It found the tank
+  car 90 deg off (typed-in yaws; the pad is now fitted blob by blob in the world frame), the
+  box buildings' missing annexes (LOD1 is now the extruded tile outline, two levels), and
+  wrecked cars invisible at a building-sized height cut. Flags that remain are explained:
+  S02 (a lattice the tiles smear into a lump), B01 (the tiles still show its collapsed wing),
+  cars in dense rows (neighbours).
+- **Replacing means replacing the whole blob.** Masking only the tile triangles inside a model's
+  box left melted fragments around it; `ground.py` now swallows every raised tile blob a model
+  touches, clipped to 4 m (2 m for LOD1, 1.5 m for vehicles).
 - **The tiles are older than the drone footage.** B01's blue-roofed wing has
   since collapsed; its slab is now the tilted "arch" beside B01. Trust the drone
   data where the two disagree.
