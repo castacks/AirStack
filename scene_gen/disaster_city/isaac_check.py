@@ -48,8 +48,13 @@ for p in stage.Traverse():
 print("semantic classes:", classes)
 
 # ---- physics: raycasts against B01 ----
-frame = json.load(open(usd.parent / "b01/sheets/frame.json")); o = np.array(frame["origin_world"]); th = math.radians(frame["yaw_deg"])
-L = lambda x, y, z: Gf.Vec3d(*(o + [x * math.cos(th) - y * math.sin(th), x * math.sin(th) + y * math.cos(th), z]))
+def local_frame(pid):
+    """A hero's spec frame, read off its own root prim (translate + rotateZ, as build_hero.py writes it),
+    so the check runs on a packaged copy too -- no spec or sheet files needed."""
+    p = stage.GetPrimAtPath(f"/World/{pid}")
+    o_ = np.array(p.GetAttribute("xformOp:translate").Get()); t_ = math.radians(p.GetAttribute("xformOp:rotateZ").Get())
+    return lambda x, y, z: Gf.Vec3d(*(o_ + [x * math.cos(t_) - y * math.sin(t_), x * math.sin(t_) + y * math.cos(t_), z]))
+L = local_frame("B01")
 import omni.timeline
 tl = omni.timeline.get_timeline_interface(); tl.play()          # PhysX builds its scene on play
 for _ in range(10): app.update()
@@ -121,11 +126,9 @@ for name, (tgt, az, el, dist) in shots.items():
     Image.fromarray(grab(600 if first else 60)).save(out / f"{name}.png"); print("saved", name); first = False
 
 # B06: from outside the +v bay door, looking in (local frame of its spec)
-b6 = yaml.safe_load(open(usd.parent / "b06/B06_spec.yaml")); o6, th6 = np.array(b6["origin"]), math.radians(b6["yaw_deg"])
-L6 = lambda x, y, z: Gf.Vec3d(*(o6 + [x * math.cos(th6) - y * math.sin(th6), x * math.sin(th6) + y * math.cos(th6), z]))
+L6 = local_frame("B06")
 extra = {"b06_bay_door_in": (L6(14.0, 36.0, 2.5), L6(14.0, 10.0, 2.0))}
-s1 = yaml.safe_load(open(usd.parent / "s01/S01_spec.yaml")); o1, t1 = np.array(s1["origin"]), math.radians(s1["yaw_deg"])
-L1 = lambda x, y, z: Gf.Vec3d(*(o1 + [x * math.cos(t1) - y * math.sin(t1), x * math.sin(t1) + y * math.cos(t1), z]))
+L1 = local_frame("S01")
 extra["s01_third_floor_inside"] = (L1(5.8, 7.2, 8.4), L1(0.5, 0.8, 7.8))
 for name, (e, t) in list(inside.items()) + list(extra.items()):
     if ONLY and name not in ONLY: continue

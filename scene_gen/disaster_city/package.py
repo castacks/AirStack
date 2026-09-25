@@ -22,7 +22,7 @@ for m in [f for f in files if f.suffix == ".mdl"]:
 if out.exists(): shutil.rmtree(out)
 total = 0
 for f in sorted(files):
-    try: rel = f.resolve().relative_to(R)
+    try: rel = f.resolve().relative_to(R.resolve())   # data/ is usually a symlink
     except ValueError: print(f"  outside data/recon/, skipped: {f}"); continue
     dst = out / rel; dst.parent.mkdir(parents=True, exist_ok=True); shutil.copy2(f, dst); total += f.stat().st_size
 print(f"{len(files)} files, {total / 1e6:.0f} MB -> {out}")
