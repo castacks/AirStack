@@ -1,0 +1,8 @@
+# Host-side dependencies of scripts/mtl_foxglove.py (the team Foxglove export).
+#   pip install -r scripts/requirements-mtl-viz.txt
+# The robot containers need none of these (they record with `ros2 bag record -s mcap`).
+foxglove-sdk==0.27.0      # writes the team MCAP with native Foxglove schemas
+mcap>=1.2,<2              # reads the per-robot rosbag2 MCAPs
+mcap-ros2-support>=0.5,<1 # decodes their ROS 2 (CDR) messages without a ROS install
+numpy>=1.22
+pillow>=9                 # camera frames -> JPEG

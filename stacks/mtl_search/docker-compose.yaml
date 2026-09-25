@@ -1,0 +1,5 @@
+# mtl_search pins no modules (see modules.repos), so there is no per-stack
+# image layer to compose: the trunk compose profiles provide every service.
+# The empty services map keeps this file valid YAML for the stack-anatomy
+# contract (tests/meta/test_stack_layout_contract.py).
+services: {}

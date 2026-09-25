@@ -1,0 +1,64 @@
+<!--
+  mtl_metrics_logger : canonical module launch file (RFC #379 §2/§4).
+
+  Starts node `mtl_metrics_logger` at the robot root namespace. Every endpoint
+  is a declared <arg> with its canonical default, applied locally with
+  <set_remap>; cross-module rewiring lives only in stack entry files.
+-->
+<launch>
+  <arg name="mtl_metrics_logger_config"
+       default="$(find-pkg-share mtl_metrics_logger)/config/mtl_metrics_logger.yaml"
+       description="Node parameter YAML (loaded with allow_substs)" />
+  <arg name="mtl_metrics_logger_scenario_file"
+       default="/root/AirStack/stacks/mtl_search/config/scenario.json"
+       description="Scenario JSON; ground_truth.json and belief.png are read from the same folder" />
+  <arg name="mtl_metrics_logger_runs_root"
+       default="$(env MTL_RUNS_ROOT /root/AirStack/runs)"
+       description="Root of the run output folders (runs/RUN_ID/AGENT/)" />
+  <arg name="mtl_metrics_logger_agent_name"
+       default="$(env ROBOT_NAME)"
+       description="Agent name written into the telemetry and used for the output folder" />
+
+  <arg name="mtl_metrics_logger_odometry_topic"
+       default="/$(env ROBOT_NAME)/odometry_conversion/odometry"
+       description="Input robot odometry in the map frame (nav_msgs/Odometry)" />
+  <arg name="mtl_metrics_logger_gimbal_state_topic"
+       default="/$(env ROBOT_NAME)/gimbal/state"
+       description="Input MEASURED gimbal angles, earth frame (geometry_msgs/Vector3)" />
+  <arg name="mtl_metrics_logger_gimbal_cmd_topic"
+       default="/$(env ROBOT_NAME)/gimbal/cmd_pitch_yaw"
+       description="Input commanded gimbal angles (geometry_msgs/Vector3)" />
+  <arg name="mtl_metrics_logger_plan_topic"
+       default="/$(env ROBOT_NAME)/search/plan"
+       description="Input sortie (mtl_msgs/SearchPlan, transient local)" />
+  <arg name="mtl_metrics_logger_follower_status_topic"
+       default="/$(env ROBOT_NAME)/search/follower_status"
+       description="Input follower progress; drives start/stop of recording (mtl_msgs/FollowerStatus)" />
+  <arg name="mtl_metrics_logger_markers_topic"
+       default="/$(env ROBOT_NAME)/search/detection_markers"
+       description="Output ground-truth targets coloured by detection state (visualization_msgs/MarkerArray)" />
+  <arg name="mtl_metrics_logger_footprint_topic"
+       default="/$(env ROBOT_NAME)/search/footprint"
+       description="Output camera ground footprint (geometry_msgs/PolygonStamped)" />
+  <arg name="mtl_metrics_logger_metrics_topic"
+       default="/$(env ROBOT_NAME)/search/metrics"
+       description="Output 1 Hz JSON progress summary (std_msgs/String)" />
+
+  <group>
+    <set_remap from="odometry" to="$(var mtl_metrics_logger_odometry_topic)" />
+    <set_remap from="gimbal/state" to="$(var mtl_metrics_logger_gimbal_state_topic)" />
+    <set_remap from="gimbal/cmd_pitch_yaw" to="$(var mtl_metrics_logger_gimbal_cmd_topic)" />
+    <set_remap from="search/plan" to="$(var mtl_metrics_logger_plan_topic)" />
+    <set_remap from="search/follower_status" to="$(var mtl_metrics_logger_follower_status_topic)" />
+    <set_remap from="search/detection_markers" to="$(var mtl_metrics_logger_markers_topic)" />
+    <set_remap from="search/footprint" to="$(var mtl_metrics_logger_footprint_topic)" />
+    <set_remap from="search/metrics" to="$(var mtl_metrics_logger_metrics_topic)" />
+
+    <node pkg="mtl_metrics_logger" exec="mtl_metrics_logger" name="mtl_metrics_logger" output="screen">
+      <param from="$(var mtl_metrics_logger_config)" allow_substs="true" />
+      <param name="scenario_file" value="$(var mtl_metrics_logger_scenario_file)" />
+      <param name="runs_root" value="$(var mtl_metrics_logger_runs_root)" />
+      <param name="agent_name" value="$(var mtl_metrics_logger_agent_name)" />
+    </node>
+  </group>
+</launch>

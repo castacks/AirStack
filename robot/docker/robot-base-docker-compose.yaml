@@ -57,6 +57,10 @@ services:
       # Generated artifacts split-stack entries read at launch (bridge-derived
       # DDS-router configs from tools/gen_dds_router.py).
       - ../../.airstack/generated:/root/AirStack/.airstack/generated:ro
+      # MTL search run outputs (stacks/mtl_search): planner + metrics logger
+      # write runs/<run_id>/<robot>/... here; read on the host by
+      # scripts/analyze_mtl_run.py
+      - ../../runs:/root/AirStack/runs:rw
       # bags
       - ../bags:/bags:rw
 

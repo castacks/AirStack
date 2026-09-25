@@ -10,6 +10,12 @@
 robot:
   packages:
     - lidar_point_cloud_filter
+    # MTL search stack (stacks/mtl_search): gtests + vendored mtl::planner
+    # self-tests (colcon) and the stdlib scenario tests; the two ament_python
+    # packages' tests stub rclpy (test/_ros_stubs.py) so they also run on the host.
+    - mtl_search_planner
+    - mtl_trajectory_follower
+    - mtl_metrics_logger
   # Linter skip lives in lidar_point_cloud_filter setup.cfg + test/conftest.py.
   # ament pytest does not honor PYTEST_ADDOPTS -m.
   # launch_testing is skipped via PYTEST_DISABLE_PLUGIN_AUTOLOAD in the test.
@@ -17,7 +23,10 @@ robot:
 
 # Simulation-side extensions (globbed under simulation/**/<pkg>/test). Collected by
 # `pytest tests/` on the host runner; not part of the robot colcon workspace.
-# Currently empty: optitrack.natnet.emulator moved to the asm_optitrack module
-# (its tests run in the module repo's CI).
+# optitrack.natnet.emulator moved to the asm_optitrack module (its tests run in
+# the module repo's CI).
 sim:
-  packages: []
+  packages:
+    # search_mission_scene.py helpers (gimbal kinematics, spawn/config
+    # resolution) + a pxr smoke run of the scene (skipped without pxr).
+    - mtl_scene

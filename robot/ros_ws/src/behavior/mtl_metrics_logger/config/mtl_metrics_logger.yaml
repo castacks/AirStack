@@ -1,0 +1,9 @@
+# mtl_metrics_logger parameters (loaded with allow_substs).
+# scenario_file / runs_root / agent_name come from the launch file args.
+/**:
+  ros__parameters:
+    rate_hz: 20.0            # recording + scoring rate (scoring is rate-normalised to dt_ref)
+    ground_z_world: 0.0      # height of the ground plane in world ENU
+    frame_id: map            # frame of the published markers / footprint
+    ground_truth_file: ""    # "" = ground_truth.json next to the scenario file
+    belief_png_file: ""      # "" = belief.png next to the scenario file (report background)

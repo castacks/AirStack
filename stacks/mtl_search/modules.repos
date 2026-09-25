@@ -1,0 +1,12 @@
+# modules.repos : module pins for the mtl_search stack.
+#
+# vcstool format, PINNED to tags/commits (never branches); see
+# stacks/full_default/modules.repos for the conventions.
+#
+# No external modules: the MTL packages are trunk-resident
+# (robot/ros_ws/src/{global/planners/mtl_search_planner,
+# local/controls/mtl_trajectory_follower, behavior/mtl_metrics_logger},
+# common/ros_packages/msgs/mtl_msgs) and mtl::planner is vendored inside
+# mtl_search_planner/third_party/.
+airstack_compat: ">=0.19.0-alpha.18 <0.21.0"
+repositories: {}

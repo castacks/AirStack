@@ -1,0 +1,50 @@
+# Fleet: mtl_search_fleet (RFC #380 §2) — Multi-Agent Target Localization team.
+#
+# Three gimballed quads flying the mtl_search stack over the 400 m search area
+# defined by stacks/mtl_search/config/mission.yaml. Homogeneous (same vehicle,
+# same stack), so `deploy.replicas` stamps it — no generated compose needed.
+#
+#     ISAAC_SIM_SCRIPT_NAME=search_mission_scene.py \
+#       airstack up --sim isaac --fleet mtl_search_fleet --stack mtl_search --play --wait
+#
+# The scene script must be named explicitly: `--fleet` alone would select the
+# generic fleet_spawn.py (explicit ISAAC_SIM_SCRIPT_NAME wins over it).
+#
+# Launch field: the south-west corner of the search area, 12 m apart along +x
+# (East) so the SITL instances never spawn inside one another. spawn = world
+# ENU [x East, y North, z Up]; the matching mission-NED homes are baked into
+# stacks/mtl_search/config/scenario.json by scripts/mtl_generate_scenario.py —
+# regenerate it after moving a robot (the scene and planner both warn loudly on
+# a mismatch).
+#
+# Derived per-robot identity (the fleet schema forbids declaring these; they
+# follow from file order with `domain_policy: auto`):
+#
+#   robot     ROS_DOMAIN_ID  PX4 instance  MAVLink offboard (14540+N)  onboard (14580+N)  sysid (1+N)
+#   robot_1   1              1             udp :14541                   :14581             2
+#   robot_2   2              2             udp :14542                   :14582             3
+#   robot_3   3              3             udp :14543                   :14583             4
+#
+# (interface.launch.py computes FCU_URL = udp://:<14540+N>@<SIM_IP>:<14580+N>;
+# Pegasus binds PX4 vehicle_id = domain_id.) The GCS sees every robot through
+# the DDS router on domain 0; the gossip layer uses domain 99.
+
+defaults:
+  vehicle: quad_gimbal
+  stack: stacks/mtl_search
+
+robots:
+  robot_1:
+    spawn: [-170.0, -170.0, 0.07]   # mission NED home [-170, -170]
+  robot_2:
+    spawn: [-158.0, -170.0, 0.07]   # mission NED home [-170, -158]
+  robot_3:
+    spawn: [-146.0, -170.0, 0.07]   # mission NED home [-170, -146]
+
+sim:
+  scene: default                     # Pegasus "Default Environment" + the MTL search plane
+
+network:
+  domain_policy: auto                # robot N -> domain N
+  gossip_domain: 99
+  gcs_domain: 0

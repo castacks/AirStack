@@ -1,0 +1,66 @@
+# pid_controller parameters for the mtl_search stack.
+#
+# Identical to pid_controller/config/pid_controller.yaml EXCEPT the horizontal
+# position-loop saturation (x/y_min/max): the MTL follower's carrot runs
+# L = 1.2 * R_min (~14 m) ahead of the aircraft, so with x_p = y_p = 1.0 the
+# stock +-3 m/s clamp would cap the search at 3 m/s, half the planned 6 m/s
+# (the plan's time budget and the detection rate assume the planned speed).
+# +-6.5 m/s lets the loop reach the plan speed with a small margin; the
+# attitude clamps (vx/vy_max) are unchanged.
+/**:
+  ros__parameters:
+    target_frame: base_link_stabilized
+
+    x_p: 1.0
+    x_i: 0.0
+    x_d: 0.0
+    x_ff: 0.0
+    x_d_alpha: 0.0
+    x_min: -6.5
+    x_max: 6.5
+    x_constant: 0.0
+
+    y_p: 1.0
+    y_i: 0.0
+    y_d: 0.0
+    y_ff: 0.0
+    y_d_alpha: 0.0
+    y_min: -6.5
+    y_max: 6.5
+    y_constant: 0.0
+
+    z_p: 1.0
+    z_i: 0.0
+    z_d: 0.0
+    z_ff: 0.0
+    z_d_alpha: 0.0
+    z_min: -1.0
+    z_max: 1.0
+    z_constant: 0.0
+
+    vx_p: 0.2
+    vx_i: 0.025
+    vx_d: 0.0
+    vx_ff: 0.0
+    vx_d_alpha: 0.9
+    vx_min: -0.34
+    vx_max: 0.34
+    vx_constant: 0.0
+
+    vy_p: 0.2
+    vy_i: 0.025
+    vy_d: 0.0
+    vy_ff: 0.0
+    vy_d_alpha: 0.9
+    vy_min: -0.34
+    vy_max: 0.34
+    vy_constant: 0.0
+
+    vz_p: 0.2
+    vz_i: 0.1
+    vz_d: 0.0
+    vz_ff: 0.0
+    vz_d_alpha: 0.0
+    vz_min: -0.5
+    vz_max: 1.0
+    vz_constant: 0.5

@@ -1,0 +1,119 @@
+# =============================================================================
+#  MTL SEARCH MISSION  (stacks/mtl_search)
+#
+#  The ONE human-edited definition of the search problem. Everything else in
+#  this folder is GENERATED from it + the fleet file by
+#
+#      python3 scripts/mtl_generate_scenario.py            # (repo root)
+#
+#  which writes scenario.json (planner-facing), ground_truth.json (targets, never
+#  read by a planner) and belief.png (ground texture). The Isaac scene, every
+#  robot's mtl_search_planner and mtl_metrics_logger read those files, so the
+#  belief the world is painted with and the belief the planner optimises are the
+#  same array (the reason mtl_plan_json.cpp takes host-extracted cells).
+#
+#  FRAMES: mission NED metres  (n +North, e +East, d +Down), origin = Isaac world
+#  origin. Isaac/AirStack world is ENU: x = e, y = n, z = -d.
+#
+#  SCALE: the testbed's `search_small` preset (1/12.5 of the 5 km / 300 m / 20 m/s
+#  fixed-wing reference) so a PX4 Iris flies a sortie in ~2 minutes. Lengths are
+#  scaled; speed is 6 m/s; the Dubins radius stays a planning constraint; the
+#  detection sigmoid is rescaled with the altitude (c, beta x0.1, b x10).
+# =============================================================================
+
+mission:
+  name: mtl_search_small
+  seed: 21                       # drives the belief bumps AND target sampling
+
+  area:
+    size_m: 400.0                # square, centred on center_ned
+    center_ned: [0.0, 0.0]
+    belief_res_m: 2.0            # -> 201 x 201 prior raster
+
+  belief:                        # sum of Gaussian bumps, capped then floored
+    num_centroids: 6
+    max_prior_peak: 0.4
+    sigma_min_m: 20.0
+    sigma_max_m: 45.0
+    belief_cap: 0.85
+    base_uncertainty: 0.0
+    edge_margin_frac: 0.12       # keep bump centres off the boundary
+
+  targets:                       # GROUND TRUTH ONLY
+    count: 15
+    min_separation_m: 10.0
+    render:
+      model: beacon              # pad + post + emissive top
+      size_m: 1.6
+      rgba: [0.95, 0.12, 0.10, 1.0]
+
+  team:
+    max_flight_time_s: 90.0      # per agent -> 540 m of track at 6 m/s: binds (~97% of the mass)
+    max_flight_distance_m: .inf  # the tighter of the two binds
+    altitude_separation_m: 1.0   # vertical deconfliction: robot_N cruises (and takes off) at
+                                 # altitude_m + (N-1) * this -> 30 / 31 / 32 m. The team is
+                                 # planned at altitude_m; the planner is deconfliction-unaware
+                                 # (robot_2/robot_3 were planned 0.8 m apart at t = 2 s).
+
+  aircraft:
+    altitude_m: 30.0
+    speed_mps: 6.0
+    min_turn_radius_m: 12.0      # V/R = 0.5 rad/s of turn; carrot L = 1.2 R = 14.4 m
+    dt: 0.1                      # planner trajectory step (NOT the control period)
+    dubins_step_m: 0.5
+
+  mapping:
+    target_cell_size_m: 20.0
+    mean_information_thresh: 0.08
+    max_cluster_radius_m: 45.0
+    kmeans_replicates: 3
+    kmeans_max_iter: 200
+
+  sensor:
+    fov_deg: 60.0                # full cone; ground radius = slant * tan(FOV/2)
+    single_axis_gimbal: true     # 1-DOF cross-track (false = 2-DOF hierarchical TSP)
+    tilt_deg: 30.0               # forward mount tilt -> h tan(tau) = 17.3 m stand-off
+    max_slant_range_m: 90.0
+    detection:                   # Moon et al. (2022), rescaled with the altitude
+      a: 1.10
+      b: 0.10
+      c: 61.0
+      beta: 61.0
+      p_out_of_range: 1.0e-6
+      threshold: 0.90            # cumulative P_det at which a target is "found"
+      dt_ref_s: 0.1              # the per-look calibration period (= aircraft.dt)
+
+  gimbal:                        # planner-side scheduler knobs (mtl GimbalSchedulerParams)
+    enable_repair_loop: false
+
+  solver:                        # optional mtl solver overrides (n_starts, max_outer_iter,
+                                 # reserve_frac0, cell_refine, reallocate, max_cell_candidates,
+                                 # extend_dist_m, max_extra_dist_m)
+    extend_dist_m: 24.0          # single-axis "lateral coverage" run-out flown straight past the
+                                 # end of a route whose tail cells never come abeam. The planner
+                                 # default (300 m) is sized for the 5 km reference; unscaled it sent
+                                 # robot_3 110 m past the north boundary and, via the budget
+                                 # reserve, shrank its route to 195 m (run 20260923-155234).
+                                 # 300 / 12.5 = 24 m -> team info 96.9 % -> 100 %, nobody leaves
+                                 # the area, and the "agent 3 could not be planned" warning is gone.
+
+  flight:                        # how scripts/mtl_start_mission.sh flies it
+    takeoff_altitude_m: 30.0
+    takeoff_velocity_m_s: 2.0
+
+  sim_gimbal:                    # the native Isaac gimbal (search_mission_scene.py)
+    width: 640
+    height: 480
+    publish_hz: 15.0
+    mount_offset_m: [0.10, 0.0, -0.08]   # FLU from the body frame origin
+    slew_rate_deg_s: 120.0
+    roll_limit_deg: [-80.0, 80.0]
+    pitch_limit_deg: [-20.0, 110.0]
+    initial_pitch_deg: 60.0      # boresight at rest before any command
+
+  render:                        # cosmetic; no planner reads this
+    texture_px: 512
+    show_valid_cells: true
+    ground_rgba: [0.30, 0.38, 0.23, 1.0]
+    surround_m: 150.0            # plain collider ground beyond the area
+    boundary_rgba: [1.0, 0.85, 0.1, 1.0]

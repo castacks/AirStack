@@ -1,0 +1,71 @@
+<!--
+  mtl_trajectory_follower : canonical module launch file (RFC #379 §2/§4).
+
+  Starts node `mtl_trajectory_follower` at the robot root namespace. It is the
+  single publisher of trajectory_controller/tracking_point: idle it forwards the
+  controller's nominal point (the STACK remaps trajectory_controller's output to
+  ..._nominal); during a sortie it publishes the arc-length carrot. Every
+  endpoint is a declared <arg> with its canonical default, applied locally with
+  <set_remap>; cross-module rewiring lives only in stack entry files.
+-->
+<launch>
+  <arg name="mtl_trajectory_follower_config"
+       default="$(find-pkg-share mtl_trajectory_follower)/config/mtl_trajectory_follower.yaml"
+       description="Node parameter YAML (loaded with allow_substs)" />
+
+  <arg name="mtl_trajectory_follower_odometry_topic"
+       default="/$(env ROBOT_NAME)/odometry_conversion/odometry"
+       description="Input robot odometry in the map frame (nav_msgs/Odometry)" />
+  <arg name="mtl_trajectory_follower_plan_topic"
+       default="/$(env ROBOT_NAME)/search/plan"
+       description="Input sortie from mtl_search_planner (mtl_msgs/SearchPlan, transient local)" />
+  <arg name="mtl_trajectory_follower_nominal_tracking_point_topic"
+       default="/$(env ROBOT_NAME)/trajectory_controller/tracking_point_nominal"
+       description="Input trajectory_controller setpoint forwarded while idle (airstack_msgs/Odometry)" />
+  <arg name="mtl_trajectory_follower_tracking_point_topic"
+       default="/$(env ROBOT_NAME)/trajectory_controller/tracking_point"
+       description="Output setpoint consumed by pid_controller (airstack_msgs/Odometry)" />
+  <arg name="mtl_trajectory_follower_set_trajectory_mode_service"
+       default="/$(env ROBOT_NAME)/trajectory_controller/set_trajectory_mode"
+       description="trajectory_controller mode service used to hold on hand-back (airstack_msgs/srv/TrajectoryMode)" />
+  <arg name="mtl_trajectory_follower_gimbal_cmd_topic"
+       default="/$(env ROBOT_NAME)/gimbal/cmd_pitch_yaw"
+       description="Output gimbal command, earth-frame (roll, pitch, yaw) rad (geometry_msgs/Vector3)" />
+  <arg name="mtl_trajectory_follower_gimbal_state_topic"
+       default="/$(env ROBOT_NAME)/gimbal/state"
+       description="Input measured gimbal angles, same convention (geometry_msgs/Vector3)" />
+  <arg name="mtl_trajectory_follower_status_topic"
+       default="/$(env ROBOT_NAME)/search/follower_status"
+       description="Output progress for the planner action and the logger (mtl_msgs/FollowerStatus)" />
+  <arg name="mtl_trajectory_follower_abort_topic"
+       default="/$(env ROBOT_NAME)/search/abort"
+       description="Input abort request (std_msgs/Empty)" />
+  <arg name="mtl_trajectory_follower_state_estimate_timeout_topic"
+       default="/$(env ROBOT_NAME)/behavior/drone_safety_monitor/state_estimate_timed_out"
+       description="Input safety-monitor state-estimate watchdog; true aborts the sortie (std_msgs/Bool)" />
+  <arg name="mtl_trajectory_follower_carrot_topic"
+       default="/$(env ROBOT_NAME)/search/carrot"
+       description="Output carrot point for visualisation (geometry_msgs/PointStamped)" />
+  <arg name="mtl_trajectory_follower_aim_topic"
+       default="/$(env ROBOT_NAME)/search/aim_point"
+       description="Output commanded boresight target for visualisation (geometry_msgs/PointStamped)" />
+
+  <group>
+    <set_remap from="odometry" to="$(var mtl_trajectory_follower_odometry_topic)" />
+    <set_remap from="search/plan" to="$(var mtl_trajectory_follower_plan_topic)" />
+    <set_remap from="trajectory_controller/tracking_point_nominal" to="$(var mtl_trajectory_follower_nominal_tracking_point_topic)" />
+    <set_remap from="trajectory_controller/tracking_point" to="$(var mtl_trajectory_follower_tracking_point_topic)" />
+    <set_remap from="trajectory_controller/set_trajectory_mode" to="$(var mtl_trajectory_follower_set_trajectory_mode_service)" />
+    <set_remap from="gimbal/cmd_pitch_yaw" to="$(var mtl_trajectory_follower_gimbal_cmd_topic)" />
+    <set_remap from="gimbal/state" to="$(var mtl_trajectory_follower_gimbal_state_topic)" />
+    <set_remap from="search/follower_status" to="$(var mtl_trajectory_follower_status_topic)" />
+    <set_remap from="search/abort" to="$(var mtl_trajectory_follower_abort_topic)" />
+    <set_remap from="state_estimate_timed_out" to="$(var mtl_trajectory_follower_state_estimate_timeout_topic)" />
+    <set_remap from="search/carrot" to="$(var mtl_trajectory_follower_carrot_topic)" />
+    <set_remap from="search/aim_point" to="$(var mtl_trajectory_follower_aim_topic)" />
+
+    <node pkg="mtl_trajectory_follower" exec="mtl_trajectory_follower" name="mtl_trajectory_follower" output="screen">
+      <param from="$(var mtl_trajectory_follower_config)" allow_substs="true" />
+    </node>
+  </group>
+</launch>

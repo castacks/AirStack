@@ -135,6 +135,7 @@ nav:
           - Create a Coordination Algorithm: docs/robot/autonomy/coordination/creating_coordination_algorithms.md
           - Coordination Payloads: docs/robot/autonomy/coordination/payloads.md
           - Integration Checklist: docs/robot/autonomy/integration_checklist.md
+          - MTL Target Localization Search: docs/tutorials/mtl_target_localization.md
       - GCS Operation:
           - Waypoints & Geofences: docs/gcs/waypoints_and_geofences.md
           - Foxglove Visualization: docs/gcs/foxglove.md
@@ -176,6 +177,7 @@ nav:
           - Tasks and Task Executors: docs/robot/autonomy/tasks.md
           - DDS Router: docs/robot/autonomy/dds_router.md
           - airstack_msgs: common/ros_packages/msgs/airstack_msgs/README.md
+          - mtl_msgs: common/ros_packages/msgs/mtl_msgs/README.md
       - Containers:
           - Robot: docs/robot/docker/index.md
           - Isaac Sim: docs/simulation/isaac_sim/docker.md
@@ -191,6 +193,7 @@ nav:
           - full_mighty: stacks/full_mighty/README.md
           - lite_default: stacks/lite_default/README.md
           - lite_offload_global: stacks/lite_offload_global/README.md
+          - mtl_search: stacks/mtl_search/README.md
       - Modules Catalog:
           - Catalog: docs/modules/index.md
           - module.yaml Schema: common/module_schema/README.md
@@ -222,6 +225,7 @@ nav:
               - DROAN GL: robot/ros_ws/src/local/planners/droan_gl/README.md
               - Controls: docs/robot/autonomy/local/controls/index.md
               - Trajectory Controller: robot/ros_ws/src/local/controls/trajectory_controller/README.md
+              - MTL Trajectory Follower: robot/ros_ws/src/local/controls/mtl_trajectory_follower/README.md
           - Global:
               - Overview: docs/robot/autonomy/global/index.md
               - World Model: docs/robot/autonomy/global/world_model/index.md
@@ -229,7 +233,10 @@ nav:
               - Planning: docs/robot/autonomy/global/planning/index.md
               - Random Walk: robot/ros_ws/src/global/planners/random_walk/README.md
               - Exploration: robot/ros_ws/src/global/planners/exploration/README.md
-          - Behavior: docs/robot/autonomy/behavior/index.md
+              - MTL Search Planner: robot/ros_ws/src/global/planners/mtl_search_planner/README.md
+          - Behavior:
+              - Overview: docs/robot/autonomy/behavior/index.md
+              - MTL Metrics Logger: robot/ros_ws/src/behavior/mtl_metrics_logger/README.md
           - Coordination: docs/robot/autonomy/coordination/index.md
           - RViz Tasks Panel: common/ros_packages/gui/rviz/rviz_tasks_panel/README.md
           - RViz 3D Waypoint Plugin: common/ros_packages/gui/rviz/3d_waypoint_rviz2_plugin/README.md

@@ -1,0 +1,12 @@
+# mtl_search_planner node parameters (loaded with allow_substs).
+# scenario_file / agent_name / runs_root are passed by the launch file args.
+/**:
+  ros__parameters:
+    frame_id: map                    # robot odometry frame (origin = its spawn)
+    home_up_m: 0.0                   # height of the map origin above the ground plane
+    plan_on_startup: true            # publish a preview plan (start_mission=false) at boot
+    follower_status_timeout_s: 10.0  # abort if the follower never acknowledges / goes silent
+    mission_timeout_pad_s: 240.0     # timeout = pad + factor * planned flight time
+    mission_timeout_factor: 3.0
+    viz_path_step_m: 2.0             # decimation of the nav_msgs/Path visualisations
+    viz_show_teammates: true         # draw the other agents' planned tracks in search/markers

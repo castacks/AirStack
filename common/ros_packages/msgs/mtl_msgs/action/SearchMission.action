@@ -1,0 +1,31 @@
+# SearchMission — plan and fly one Multi-Agent Target Localization sortie.
+#
+# Served by mtl_search_planner at /{robot_name}/search_mission. Every robot of
+# the team solves the same (deterministic) team problem from the same scenario
+# file and flies its own agent row; send the goal to each robot, ideally with a
+# shared run_id so their outputs land in one runs/<run_id>/ folder
+# (scripts/mtl_start_mission.sh does exactly that).
+
+# ---- Goal -------------------------------------------------------------------
+bool start_mission          # true: plan AND fly; false: plan + publish only (dry run)
+string run_id               # runs/<run_id>/ folder shared by the team; "" = UTC timestamp
+string scenario_file        # optional override of the node's scenario_file parameter
+---
+# ---- Result -----------------------------------------------------------------
+bool success
+string message
+string run_id
+string run_dir              # where plan.json / telemetry / reports are written
+string plan_id
+float64 planned_length_m    # arc length of this agent's track
+float64 flown_length_m      # progress the follower reported at completion
+float64 duration_s          # sim time from start_mission to completion
+int32 cells_planned         # cells the gimbal is scheduled to observe
+---
+# ---- Feedback (~2 Hz) -------------------------------------------------------
+string phase                # PLANNING | INGRESS | SEARCH | COMPLETE | ABORTED
+float32 progress            # 0..1 of the track arc length
+float64 progress_m
+float64 remaining_m
+float64 cross_track_error_m
+geometry_msgs/Point current_position   # map frame

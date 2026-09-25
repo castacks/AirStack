@@ -1,0 +1,32 @@
+# Vehicle TYPE: quad_gimbal (RFC #380 §1)
+#
+# The Pegasus Iris airframe with a natively simulated camera GIMBAL instead of
+# the rigid ZED stereo pair: the payload used by the Multi-Agent Target
+# Localization search (stacks/mtl_search). Data, not code — see
+# config/vehicles/README.md.
+#
+# Consumed by:
+#   - tools/fleet/resolve_fleet.py  -> URDF_FILE / VEHICLE exports per robot
+#   - simulation/isaac-sim/launch_scripts/search_mission_scene.py -> which
+#     sensor subgraphs each robot gets (gimbal_cam -> native gimbal mount;
+#     stereo_cam -> ZED subgraph; lidar* -> RTX lidar). fleet_spawn.py would
+#     read the "cam" substring as "ZED on"; this vehicle is meant for the MTL
+#     scene, which reads the types exactly.
+
+name: quad_gimbal
+platform: px4_multirotor
+
+airframe:
+  # Pass-through URDF (same body as quad_default). The gimbal links
+  # (camera_gimbal_link, camera_optical_frame) are NOT in the URDF: they move,
+  # so mtl_trajectory_follower broadcasts them from the measured gimbal state.
+  base_urdf: robot_descriptions/iris/urdf/iris_with_sensors.pegasus.robot.urdf
+
+sensors:
+  - type: gimbal_cam
+    id: gimbal                          # topics: gimbal/{rgb,camera_info,state}, cmd: gimbal/cmd_pitch_yaw
+    frame: camera_optical_frame         # broadcast by mtl_trajectory_follower
+    driver: {module: none}              # hardware driver: TBD (MAVLink gimbal v2 manager)
+    sim: {pegasus: mtl_native_gimbal}   # search_mission_scene.py (camera_gimbal prim + OmniGraph ROS 2 I/O)
+
+sim_asset: iris.usd

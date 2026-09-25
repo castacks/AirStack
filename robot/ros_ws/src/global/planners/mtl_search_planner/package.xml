@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>mtl_search_planner</name>
+  <version>0.1.0</version>
+  <description>Multi-Agent Target Localization search planner: the vendored C++17 mtl::planner (budgeted orienteering, Dubins calibration, cell anchors, lateral coverage, 1-DOF/2-DOF gimbal scheduling) behind a SearchMission action server that publishes each robot's map-frame track and boresight schedule.</description>
+  <maintainer email="bshirose@andrew.cmu.edu">Burhan</maintainer>
+  <license>BSD-3-Clause-Clear</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_python</buildtool_depend>
+
+  <build_depend>eigen</build_depend>
+
+  <depend>rclcpp</depend>
+  <depend>rclcpp_action</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>visualization_msgs</depend>
+  <depend>airstack_msgs</depend>
+  <depend>mtl_msgs</depend>
+
+  <test_depend>ament_cmake_gtest</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
