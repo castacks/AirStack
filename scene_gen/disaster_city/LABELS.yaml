@@ -1,0 +1,133 @@
+# LABELS.yaml — names for everything in the Disaster City map, for talking about it.
+#
+# Coordinates are WORLD X/Y in metres in blender_data/disaster_city.blend
+# (Blosm origin lat 30.57891, lon -96.35235; +X east, +Y north). They were read
+# off a top-down ortho render of "Google 3D Tiles.001" and are good to ~2 m.
+# `height_m` is measured off the tile mesh (top minus surrounding ground) by
+# tools/label_map.py -- photogrammetry, so +/- ~1 m and thin things read low.
+#
+# ID prefixes:  B building   V vehicle(s)   R rubble   S structure / prop
+#               Z zone / block   RD road   W water   X off-site (not TEEX)
+# `side: left` only moves the text on LABELS_map.png.
+#
+# The grid of 45-degree blocks in the south is "the grid". The loop road runs
+# round the pond; "the street" is the east-west cul-de-sac road with houses.
+# `seen_in` names clips in mocaps/clips/ where the thing is clearly identified.
+
+labels:
+# ---------------- water / roads ----------------
+- {id: W01, name: pond, kind: water, at: [-5, -160]}
+- {id: RD01, name: loop_road, kind: road, at: [-58, -250], note: "runs round the pond, west side here"}
+- {id: RD02, name: the_street, kind: road, at: [140, -258], note: "east-west road with the houses; turnaround loop at its west end"}
+- {id: RD03, name: east_road, kind: road, at: [240, -230], note: "north-south road on the east side"}
+- {id: RD04, name: grid_diagonal, kind: road, at: [-35, -370], note: "loop road entering the grid from the NW"}
+- {id: RD05, name: entrance_bridge, kind: road, at: [-70, -95], note: "bridges over the creek at the NW entrance"}
+
+# ---------------- zones / blocks ----------------
+- {id: Z01, name: grid_woods_n, kind: zone, at: [-22, -406], note: "diamond block at the grid's north tip, sparse bare trees"}
+- {id: Z02, name: grid_woods_w, kind: zone, at: [-56, -450], note: "grass under trees, stack of crates at SW corner"}
+- {id: Z03, name: grid_woods_sw, kind: zone, at: [-26, -478], note: "dense woods"}
+- {id: Z04, name: grid_woods_c, kind: zone, at: [8, -445], note: "dense woods"}
+- {id: Z05, name: grid_woods_e, kind: zone, at: [35, -472], note: "dense woods"}
+- {id: Z06, name: pad_drill_tower, kind: zone, at: [4, -508], note: "concrete pad with the drill tower"}
+- {id: Z07, name: pad_industrial_rig, kind: zone, at: [40, -543], note: "concrete pad with the tanker / vessel / manifold rig"}
+- {id: Z08, name: pad_lattice_tower, kind: zone, at: [80, -506], note: "concrete pad with the lattice tower"}
+- {id: Z09, name: sand_pit_block, kind: zone, at: [105, -482], note: "grass block with a sand square and a wrecked frame in it"}
+- {id: Z10, name: parking_south, kind: zone, at: [100, -550]}
+- {id: Z11, name: north_field, kind: zone, at: [7, -335], note: "open grass between the pond and the grid"}
+- {id: Z12, name: north_woods, kind: zone, at: [143, -210], note: "wooded lot between the pond and the street; clearing with equipment at its NW"}
+- {id: Z13, name: block_field, kind: zone, at: [75, -270], note: "sand lot inside the street's turnaround, grid of concrete blocks"}
+- {id: Z14, name: street_houses, kind: zone, at: [150, -283], note: "the house lots along the south side of the street"}
+- {id: Z15, name: rail_yard, kind: zone, at: [288, -255], note: "tank cars on track plus the derailment"}
+- {id: Z16, name: staging_yard, kind: zone, at: [272, -215], note: "gravel yard with trailers and a pickup"}
+- {id: Z17, name: dirt_pad_east, kind: zone, at: [303, -392], note: "bare dirt rectangle beside the path"}
+- {id: Z18, name: parking_east, kind: zone, at: [262, -393]}
+- {id: Z19, name: parking_ne, kind: zone, at: [268, -95]}
+- {id: Z20, name: fuel_rig_pad, kind: zone, at: [217, -190], note: "pad with tanks and pipework"}
+- {id: Z21, name: west_equipment_yard, kind: zone, at: [-88, -222], note: "west of the loop road, old machinery"}
+- {id: Z22, name: ne_meadow, kind: zone, at: [150, -110], note: "grass with scattered trees and two small bunkers"}
+
+# ---------------- rubble ----------------
+- {id: R01, name: rubble_pile_west, kind: rubble, at: [39, -388], height_m: 4.2, size_m: 45, note: "the big round pile of slabs and beams, NW corner of the grid", seen_in: [A01, B01, A05]}
+- {id: R02, name: rubble_pile_east, kind: rubble, at: [188, -390], height_m: 3.9, size_m: 40, note: "squarer pile of broken concrete east of the street. NOT in any clip up close -- tiles only"}
+- {id: R03, name: collapsed_houses, kind: rubble, at: [72, -440], height_m: 2.6, size_m: 40, note: "block of collapsed houses, red roofs in the debris"}
+- {id: R04, name: lumber_pile, kind: rubble, at: [81, -315], height_m: 2.3, size_m: 12, note: "timber heap south of the street"}
+- {id: R05, name: train_derailment, kind: rubble, at: [312, -270], height_m: 6.3, size_m: 40, note: "derailed rail cars in a jumble"}
+
+# ---------------- buildings ----------------
+- {id: B01, name: roof_crane_building, kind: building, at: [47, -410], height_m: 9.2, note: "the \"133\" building: next to R01; steel stair frame with a 133 sign, two-storey concrete block, roof deck with a crane boom. Best-covered structure in the footage; B08 goes inside", seen_in: [A01, A02, A03, A06, B02, B03, B04, B07, B08, B09, B10]}
+- {id: B02, name: collapsed_concrete, kind: building, at: [131, -376], height_m: 4.0, note: "square concrete building, brown roof, partly collapsed"}
+- {id: B03, name: twin_roof_building, kind: building, at: [95, -412], height_m: 5.2, note: "flat roof with rooftop units, two halves"}
+- {id: B04, name: street_corner_building, kind: building, at: [154, -406], height_m: 3.5}
+- {id: B05, name: grey_roof_building, kind: building, at: [132, -440], height_m: 7.6, note: "courtyard on its west side"}
+- {id: B06, name: warehouse_south, kind: building, at: [160, -500], height_m: 7.4, note: "biggest building in the grid, white roof"}
+- {id: B07, name: warehouse_east, kind: building, at: [218, -318], height_m: 5.8, note: "white roof, beside the rail cars"}
+- {id: B08, name: parking_east_building, kind: building, at: [237, -450], height_m: 4.1}
+- {id: B09, name: house_1, kind: building, at: [112, -265], height_m: 3.9}
+- {id: B10, name: house_2, kind: building, at: [127, -276], height_m: 5.1, note: "two-part house"}
+- {id: B11, name: house_3, kind: building, at: [150, -269], height_m: 3.8}
+- {id: B12, name: house_4, kind: building, at: [149, -278], height_m: 4.3}
+- {id: B13, name: house_5_dark_roof, kind: building, at: [170, -276], height_m: 6.5}
+- {id: B14, name: house_6, kind: building, at: [192, -274], height_m: 3.8}
+- {id: B15, name: house_7, kind: building, at: [100, -291], height_m: 4.0}
+- {id: B16, name: house_8, kind: building, at: [145, -304], height_m: 3.9}
+- {id: B17, name: fuel_rig_shed, kind: building, at: [222, -215], height_m: 3.6}
+- {id: B18, name: yard_building_w, kind: building, at: [257, -196], height_m: 4.6}
+- {id: B19, name: yard_building_e, kind: building, at: [283, -194], height_m: 4.6}
+- {id: B20, name: yard_building_n, kind: building, at: [295, -163], height_m: 5.6}
+- {id: B21, name: yard_shed, kind: building, at: [307, -198], height_m: 4.3}
+- {id: B22, name: rail_warehouse, kind: building, at: [278, -274], height_m: 7.4, note: "white roof, south of the rail yard"}
+- {id: B23, name: barracks_1, kind: building, at: [250, -50], height_m: 4.4, note: "B23-B27 are the row of five long buildings NE"}
+- {id: B24, name: barracks_2, kind: building, at: [272, -59], height_m: 4.0}
+- {id: B25, name: barracks_3, kind: building, at: [294, -69], height_m: 4.0}
+- {id: B26, name: barracks_4, kind: building, at: [316, -79], height_m: 3.9}
+- {id: B27, name: barracks_5, kind: building, at: [337, -90], height_m: 4.0}
+- {id: B28, name: barracks_6, kind: building, at: [315, -130], height_m: 4.4}
+- {id: B29, name: barracks_7, kind: building, at: [338, -120], height_m: 4.7}
+- {id: B30, name: ne_small_building, kind: building, at: [225, -84], height_m: 4.5}
+- {id: B31, name: office_building, kind: building, at: [254, -148], height_m: 6.4, note: "largest building in the NE"}
+- {id: B32, name: red_annex_building, kind: building, at: [294, -143], height_m: 4.7}
+- {id: B33, name: pond_shed, kind: building, at: [91, -90], height_m: 4.7}
+- {id: B34, name: north_utility, kind: building, at: [176, -31], height_m: 3.7, note: "TEEX campus edge, outside the tile crop -- no LOD1 box"}
+
+# ---------------- structures / props ----------------
+- {id: S01, name: drill_tower, kind: structure, at: [2, -510], height_m: 20.4, note: "5-storey training tower", seen_in: [A04, B05]}
+- {id: S02, name: lattice_tower, kind: structure, at: [84, -515], height_m: 1.1, note: "tall, but too thin for the tile mesh -- height reads ~1 m"}
+- {id: S03, name: tanker, kind: structure, at: [41, -525], height_m: 5.5, note: "horizontal tank, part of the industrial rig"}
+- {id: S04, name: spherical_vessel, kind: structure, at: [32, -532], height_m: 6.3}
+- {id: S05, name: pipe_manifold, kind: structure, at: [45, -550], height_m: 3.5}
+- {id: S06, name: water_tank_stand, kind: structure, at: [65, -497], height_m: 10.5, note: "cylindrical tank on legs, lattice pad"}
+- {id: S07, name: white_capsules, kind: structure, side: left, at: [97, -361], height_m: 0.8, note: "two white pods on the grass"}
+- {id: S08, name: canopy_shed, kind: structure, at: [120, -362], height_m: 5.6, note: "open-sided white roof beside B02"}
+- {id: S09, name: pavilion, kind: structure, at: [185, -484], height_m: 6.0, note: "square tent roof NE of B06"}
+- {id: S10, name: water_tower, kind: structure, at: [336, -276], height_m: 5.7}
+- {id: S11, name: block_field_frame, kind: structure, side: left, at: [86, -276], height_m: 5.3, note: "collapsed timber/steel structure in Z13"}
+- {id: S12, name: wooden_frame, kind: structure, at: [131, -300], height_m: 2.9, note: "timber structure behind the houses"}
+- {id: S13, name: grid_fence, kind: structure, at: [-32, -510], height_m: 6.8, note: "fence/barrier line along the grid's SW edge road"}
+- {id: S14, name: rail_cars_ns, kind: structure, at: [246, -327], height_m: 5.1, note: "two rail cars on the N-S track west of RD03"}
+- {id: S15, name: rail_tank_cars, kind: structure, at: [288, -240], height_m: 5.2, note: "tank cars on track, north edge of Z15"}
+- {id: S16, name: tank_car_on_stand, kind: structure, at: [222, -240], height_m: 3.2}
+- {id: S17, name: tank_cars_ne, kind: structure, at: [325, -180], height_m: 3.8}
+- {id: S18, name: bunker_1, kind: structure, at: [127, -84], height_m: 2.9}
+- {id: S19, name: bunker_2, kind: structure, at: [194, -101], height_m: 1.2}
+
+# ---------------- vehicles ----------------
+- {id: V01, name: wrecked_car_row, kind: vehicle, at: [182, -360], height_m: 1.4, note: "row of ~6 wrecked cars NW of R02"}
+- {id: V02, name: street_cars, kind: vehicle, at: [146, -385], height_m: 0.9, note: "4 cars parked along the road between B02 and R02"}
+- {id: V03, name: grid_bus, kind: vehicle, at: [93, -431], height_m: 3.8, note: "white bus on the road by R03"}
+- {id: V04, name: white_truck, kind: vehicle, at: [76, -390], height_m: 2.5}
+- {id: V05, name: dumpster_truck, kind: vehicle, at: [35, -427], height_m: 2.5, note: "rusty truck/dumpster south of B01"}
+- {id: V06, name: bus_row, kind: vehicle, at: [254, -410], height_m: 3.7, note: "~5 white buses/RVs in Z18"}
+- {id: V07, name: box_truck, kind: vehicle, at: [101, -562], height_m: 3.8, note: "in Z10"}
+- {id: V08, name: red_vehicle_row, kind: vehicle, at: [311, -211], height_m: 3.7, note: "4 red vehicles by the rail yard"}
+- {id: V09, name: tanker_truck, kind: vehicle, at: [342, -290], height_m: 3.9}
+- {id: V10, name: yard_trailers, kind: vehicle, at: [270, -215], height_m: 1.6, note: "semi trailers and a pickup in Z16"}
+- {id: V11, name: derailed_cars_west, kind: vehicle, at: [232, -375], height_m: 5.3, note: "crossed rail cars west of RD03"}
+- {id: V12, name: grid_rail_cars, kind: vehicle, at: [203, -415], height_m: 5.8, note: "rail cars running diagonally SE of R02"}
+- {id: V13, name: locomotive, kind: vehicle, at: [329, -300], height_m: 5.3}
+- {id: V14, name: sand_pit_car, kind: vehicle, at: [133, -489], height_m: 2.8}
+
+# ---------------- off-site ----------------
+- {id: X01, name: house_offsite_1, kind: offsite, at: [282, -505], note: "private residence, not TEEX"}
+- {id: X02, name: house_offsite_2, kind: offsite, at: [322, -551]}
+- {id: X03, name: house_offsite_3, kind: offsite, at: [230, -565]}

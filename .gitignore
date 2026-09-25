@@ -112,6 +112,10 @@ scene_gen/assets/objaverse/*
 scene_gen/assets/aec/*
 !scene_gen/assets/aec/README.md
 
+# Disaster City reconstruction: code is tracked, data (blend, videos, COLMAP
+# work dirs, built USDs; tens of GB) lives outside git behind this link.
+scene_gen/disaster_city/data
+
 # Layout plan PNGs and the asset manifest — generated, not source.
 scene_gen/_plans/
 scene_gen/_scene_assets.tsv

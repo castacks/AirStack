@@ -1,0 +1,179 @@
+# INVENTORY.yaml — every image we hold of the Disaster City region.
+# `file:` paths are relative to the data folder (`data/`, see _paths.py).
+#
+# All of these are GOOGLE EARTH SCREENSHOTS, and that governs how far any of
+# them can be trusted. The 3D obliques are photogrammetry: geometry is a mesh
+# reconstructed from aerial passes, so thin structures (masts, wires, railings,
+# fence posts) are smeared or missing entirely, small props melt into the
+# ground plane, and every surface carries baked-in lighting. They are reliable
+# for WHAT a thing is and roughly HOW TALL; they are not reliable for edges.
+#
+# THE DIVISION OF LABOUR, and the reason this file exists:
+#
+#   `disaster-city.png`   the only NADIR view. It is the sole source of
+#                         POSITION and FOOTPRINT — everything in
+#                         `scene_gen/config/site_plans/disaster_city.yaml` is
+#                         measured off it, because it is the only image where
+#                         a pixel offset means a fixed ground distance.
+#   the obliques          the source of IDENTITY and HEIGHT. They answer "is
+#                         that a shipping container or a pressure vessel" and
+#                         "how many storeys", which a nadir cannot.
+#
+# `bearing` is where the CAMERA stands relative to the site, in compass terms,
+# and `looking` is the direction it faces. They are read off the landmarks in
+# `shows`, whose true positions are known from the nadir, so each is checkable
+# rather than asserted — but they are eyeball estimates, +/- ~30 deg.
+#
+# `coverage` is how much of the site is in frame: `site` (all of it or nearly),
+# `half`, `block` (a few blocks), `close` (one feature).
+
+site: Disaster City, TEEX, College Station TX
+source: Google Earth screenshots (3D photogrammetry mesh, not orthophoto)
+scale_reference: >
+  Only disaster-city.png is calibrated — 0.1534 m/px, from the parking-lot
+  module. The obliques have no single scale; perspective changes it across the
+  frame.
+
+images:
+
+  - file: ../photos/disaster-city.png
+    view: nadir
+    bearing: overhead
+    looking: down
+    coverage: site
+    size_px: [1903, 1396]
+    trusted_for: [position, footprint, road_centrelines, block_boundaries]
+    note: >
+      THE GEOMETRIC AUTHORITY. 0.1534 m/px, 291.9 x 214.1 m. Everything in the
+      site plan is measured here; the obliques only ever say what a thing is.
+
+  - file: ../photos/disaster-city-side-view-right.png
+    view: oblique
+    bearing: E
+    looking: W
+    elevation: medium
+    coverage: site
+    size_px: [1813, 995]
+    shows: [warehouse, parking_lot, drill_tower, lattice_towers, rubble_pile]
+    trusted_for: [identity, storey_count]
+    note: North is to the RIGHT of frame, east toward the camera.
+
+  - file: Screenshot from 2026-09-07 16-43-55.png
+    view: oblique
+    bearing: S
+    looking: N
+    elevation: high
+    coverage: site
+    size_px: [3182, 1599]
+    shows: [wooded_lots, rubble_pile, collapsed_block, drill_tower,
+            lattice_towers, warehouse, parking_lot]
+    trusted_for: [identity, overall_layout]
+    note: >
+      Widest of the set — the whole site plus the tree line beyond it. Best
+      single frame for checking that the traced road grid is complete.
+
+  - file: image (1).png
+    view: oblique
+    bearing: SSW
+    looking: NNE
+    elevation: low
+    coverage: block
+    size_px: [3358, 1896]
+    shows: [drill_tower, lattice_towers, staging_pads, tanker]
+    trusted_for: [identity, storey_count]
+    note: Closest view of the drill tower — the balcony openings are countable.
+
+  - file: image (2).png
+    view: oblique
+    bearing: E
+    looking: W
+    elevation: medium
+    coverage: block
+    size_px: [3358, 1896]
+    shows: [drill_tower, lattice_tower, tanker, spherical_vessel,
+            pipe_manifolds, cabins, parking_lot]
+    trusted_for: [identity, prop_inventory]
+    note: >
+      THE MOST INFORMATIVE FRAME IN THE SET. It is what showed that the three
+      objects the nadir trace called "container row" are nothing of the kind —
+      they are a horizontal tanker, a spherical pressure vessel on legs, and
+      pipe/valve manifolds, i.e. an industrial fire-training rig.
+
+  - file: image (3).png
+    view: oblique
+    bearing: SE
+    looking: NW
+    elevation: medium
+    coverage: half
+    size_px: [3358, 1896]
+    shows: [warehouse, parking_lot, drill_tower, lattice_towers,
+            collapsed_block, sand_pit]
+    trusted_for: [identity, storey_count]
+
+  - file: image (4).png
+    view: duplicate
+    duplicate_of: image (3).png
+    note: Byte-identical to image (3).png (md5 matches). Kept, not used.
+
+  - file: image (5).png
+    view: oblique
+    bearing: S
+    looking: N
+    elevation: medium
+    coverage: half
+    size_px: [3719, 1603]
+    shows: [warehouse, dark_roof_building, collapsed_block, parking_lot]
+    trusted_for: [identity, roof_form]
+    note: Best view of the east half's building roofs.
+
+  - file: image (6).png
+    view: oblique
+    bearing: N
+    looking: S
+    elevation: medium
+    coverage: half
+    size_px: [3719, 1603]
+    shows: [rubble_pile, collapsed_hall, drill_tower, lattice_tower,
+            warehouse, damaged_houses, buses]
+    trusted_for: [identity, rubble_extent]
+    note: >
+      The only frame from the north. Rubble pile at frame right, warehouse at
+      frame left — which is how the bearing is fixed: the pile is west of the
+      warehouse on the nadir, so west appearing right means facing south.
+
+  - file: image.png
+    view: oblique
+    bearing: SW
+    looking: NE
+    elevation: low
+    coverage: close
+    size_px: [3182, 1599]
+    shows: [rubble_pile, collapsed_hall, damaged_houses, bus]
+    trusted_for: [rubble_texture, debris_scale]
+    note: >
+      Closest frame on the rubble field. The only one where individual slabs
+      and beams are separable, so the only one that could support a debris
+      pass that places pieces rather than a heap.
+
+not_images:
+  - file: mocaps/raw/A.mp4
+    kind: video
+    size_px: [4056, 3040]
+    length: "20:36"
+    note: >
+      UAV RGB, 12 MP wide-angle (was the 11 GB Y3_workshop capture, then
+      long.mp4). Only ~6 min is flight: 5:00-16:30 the drone sits crashed
+      against a slab, and after 17:30 it is being carried to the tents.
+  - file: mocaps/raw/B.mp4
+    kind: video
+    size_px: [1024, 768]
+    length: "15:00"
+    note: >
+      UAV RGB, low-res wide-angle (was short.mp4). About 8 min of flight in
+      two sorties; the only footage from INSIDE a building (9:45-10:30).
+  - file: mocaps/clips/
+    kind: video
+    note: >
+      The usable flight of A and B, cut losslessly (stream copy) and named by
+      content. Source times are in mocaps/clips/clips.tsv; A's cuts snap to
+      its 8.3 s keyframe interval.

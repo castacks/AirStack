@@ -1,0 +1,68 @@
+# B01 "133" building -- measured off recon/b01/sheets/ (aligned dense cloud, +-0.2 m).
+# Local frame = sheets/frame.json: x along the long side, y across, z up from ground.
+# Concrete block x 0..10.5, y 14.5..20; steel frame continues it to x 21 with a
+# deck at the block's first-floor level and one roof deck over both.
+# Openings: only what the sheets show -- the far (y=20) face and interior walls
+# are not in the cloud, so they are plain; see the note at the end.
+id: B01
+name: roof_crane_building
+origin: [47.816, -421.655, 57.24]
+yaw_deg: 64.25
+parts:
+  # ---- concrete block ----
+  - box: {name: slab_ground, min: [0, 14.5, 0], max: [10.5, 20, 0.15]}
+  - box: {name: slab_first, min: [0, 14.5, 3.15], max: [10.5, 20, 3.35]}
+  - box: {name: slab_roof, min: [0, 14.5, 6.2], max: [10.5, 20, 6.4]}
+  - wall:
+      name: wall_ylo_ground
+      from: [0, 14.5]
+      to: [10.5, 14.5]
+      z: [0.15, 3.15]
+      openings: [{at: 1.2, w: 1.0, sill: 0.1, h: 1.1}, {at: 3.2, w: 1.0, sill: 0.1, h: 1.1}, {at: 7.3, w: 1.1, sill: 0.1, h: 1.1}]
+  - wall:
+      name: wall_ylo_first
+      from: [0, 14.5]
+      to: [10.5, 14.5]
+      z: [3.35, 6.2]
+      openings: [{at: 1.2, w: 1.0, sill: 0.8, h: 1.0}, {at: 3.2, w: 1.0, sill: 0.8, h: 1.0}, {at: 7.3, w: 1.1, sill: 0.8, h: 1.0}]
+  - wall:
+      name: wall_xlo_ground
+      from: [0, 14.5]
+      to: [0, 20]
+      z: [0.15, 3.15]
+      openings: [{at: 2.4, w: 1.2, h: 1.3}]
+  - wall:
+      name: wall_xlo_first
+      from: [0, 14.5]
+      to: [0, 20]
+      z: [3.35, 6.2]
+      openings: [{at: 2.3, w: 1.4, sill: 0.3, h: 1.8}]
+  - wall: {name: wall_yhi_ground, from: [0, 20], to: [10.5, 20], z: [0.15, 3.15], openings: [{at: 4.5, w: 1.0, sill: 0.1, h: 1.1}]}
+  - wall: {name: wall_yhi_first, from: [0, 20], to: [10.5, 20], z: [3.35, 6.2], openings: [{at: 4.5, w: 1.0, sill: 0.8, h: 1.0}]}
+  # end wall onto the steel frame: doorways on both floors -- the way in from the deck (clip B08)
+  - wall: {name: wall_xhi_ground, from: [10.5, 14.5], to: [10.5, 20], z: [0.15, 3.15], openings: [{at: 3.0, w: 1.2, h: 2.1}]}
+  - wall: {name: wall_xhi_first, from: [10.5, 14.5], to: [10.5, 20], z: [3.35, 6.2], openings: [{at: 3.0, w: 1.2, h: 2.1}]}
+  # ---- steel frame (x 10.5..21) ----
+  - box: {name: col_a1, min: [15.4, 14.4, 0], max: [15.7, 14.7, 6.4], mat: steel}
+  - box: {name: col_a2, min: [15.4, 19.8, 0], max: [15.7, 20.1, 6.4], mat: steel}
+  - box: {name: col_b1, min: [20.7, 14.4, 0], max: [21.0, 14.7, 6.4], mat: steel}
+  - box: {name: col_b2, min: [20.7, 19.8, 0], max: [21.0, 20.1, 6.4], mat: steel}
+  - box: {name: deck_first, min: [10.5, 14.5, 3.2], max: [21, 20, 3.35], mat: grating}
+  - box: {name: deck_roof_frame, min: [10.5, 14.5, 6.25], max: [18.5, 20, 6.4], mat: grating}
+  - box: {name: beam_roof_ylo, min: [10.5, 14.4, 6.0], max: [21, 14.7, 6.25], mat: steel}
+  - box: {name: beam_roof_yhi, min: [10.5, 19.8, 6.0], max: [21, 20.1, 6.25], mat: steel}
+  # ---- roof railings (both roofs, long sides + x=0 end) ----
+  - rail: {name: rail_ylo, from: [0, 14.5], to: [18.5, 14.5], z: 6.4, mat: steel}
+  - rail: {name: rail_yhi, from: [0, 20], to: [18.5, 20], z: 6.4, mat: steel}
+  - rail: {name: rail_xlo, from: [0, 14.5], to: [0, 20], z: 6.4, mat: steel}
+  - rail: {name: rail_deck_ylo, from: [10.5, 14.5], to: [18.8, 14.5], z: 3.35, mat: steel}
+  # ---- stairs on the ylo side (outside the frame) and the "133" landing ----
+  - box: {name: landing_133, min: [18.8, 12.4, 3.15], max: [21, 14.5, 3.35], mat: grating}
+  - stair: {name: stair_ground_to_133, from: [15.0, 13.45, 0.15], to: [18.8, 13.45, 3.25], width: 1.1, mat: grating}
+  - stair: {name: stair_deck_to_roof, from: [20.5, 17.25, 3.35], to: [18.5, 17.25, 6.4], width: 1.0, mat: grating}
+  # ---- crane on the roof ----
+  - box: {name: crane_post, min: [9.6, 18.3, 6.4], max: [9.9, 18.6, 9.3], mat: steel}
+  - box: {name: crane_boom, min: [9.6, 18.35, 9.0], max: [13.4, 18.55, 9.3], mat: steel}
+# NOT MODELLED (no data in the cloud): interior partitions, the far (y=20) face's
+# exact openings (one per floor assumed), the X-bracing on the frame's ylo face,
+# the tilted slabs leaning on the ground floor. Add from clip frames if needed.
