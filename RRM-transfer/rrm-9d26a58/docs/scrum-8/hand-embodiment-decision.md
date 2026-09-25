@@ -54,3 +54,28 @@ not force safety, contact stability, grasp, or placement. The evaluator therefor
 `ready_for_single_bounded_contact_trial=true` while retaining
 `contact_stability_qualified=false`, `grasp_execution_qualified=false`,
 `c06_c08_c09_complete=false`, and `execution_dispatch=false`. Gate 5 remains open.
+
+The subsequent CPU-only boundary increment replaces the boolean authorization shortcut
+with signed, purpose-scoped, single-use grants and durable consumption. It also restores
+consumed grants and dispatch IDs across restart. This advances the C06/C09 contract but
+does not close Gate 5: the HMAC verifier is local prototype identity infrastructure,
+the gateway is still motion-disabled, and live liveness/stop plus one supervised
+non-contact calibration acceptance remain outstanding.
+
+The gateway now also has CPU-only heartbeat, stop-deadline, and external-watchdog
+instrumentation with deterministic fake-clock stress coverage. A subsequent live
+no-action smoke bound that disabled gateway to the 23-joint articulation and completed
+1,000 direct `IDLE` ticks with healthy evidence, an 18.12 us maximum externally
+measured tick duration against a 0.1 s limit, and zero action calls. This narrows the
+live binding and idle-overhead gap but does not close Gate 4: the probe did not use a
+physics callback or step physics after reset, and Isaac scheduler behavior under load,
+independent watchdog deployment, and an action-applying stop/hold remain unmeasured.
+
+A follow-up callback smoke verified the live profile, then deliberately removed and
+deactivated the asset before stepping so authored drives could not move it. The
+disabled gateway received 240/240 Isaac physics callbacks, all `IDLE`, with healthy
+liveness, a 3.116 ms maximum callback gap, and zero action calls. A rejected
+zero-gravity-only diagnostic had changed joint state by 0.279244 rad, proving that
+gravity removal alone is not a no-motion fixture. The accepted inactive-asset result
+validates callback wiring only; it still does not close Gate 4 or establish timing with
+a dynamic articulation, independent watchdog behavior, or an applied hold.

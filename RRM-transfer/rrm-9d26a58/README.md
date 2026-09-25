@@ -10,11 +10,49 @@
 
 # RRM-1 — Robotics Reasoning Model
 
+> **Isaac callback update (2026-09-25):** After verifying the live 23-joint profile,
+> an isolated probe deactivated the hand asset and delivered 240/240 physics callbacks
+> to the disabled gateway. All returned `IDLE`, liveness stayed healthy, the asset was
+> inactive on every callback, and zero actions were attempted. Maximum callback gap
+> was 3.116 ms against 100 ms; the suite passes 234/234. This validates callback wiring
+> only—not a dynamic articulation, load, stop/hold, safe state, or motion. See
+> [HANDOFF.md](HANDOFF.md).
+
+> **Live idle-heartbeat update (2026-09-25):** A second headless Isaac process ran
+> 1,000 disabled gateway ticks against the live 23-joint Kuka-Allegro articulation.
+> All returned `IDLE`, liveness remained healthy, motion stayed disabled, and a hard
+> guard observed zero action calls; maximum externally measured tick time was 18.12 us
+> against a 0.1 s limit. The suite passes 232/232. This is direct no-action timing,
+> not physics-callback, scheduler-under-load, stop/hold, safe-state, or motion
+> qualification. See [HANDOFF.md](HANDOFF.md).
+
+> **Gateway liveness update (2026-09-25):** The isolated hand gateway now records
+> simulator-thread heartbeat and stop-to-hold timing and latches stale, late-stop, or
+> clock-regression faults closed across restart. CPU-only stress covered 1000 idle
+> ticks and 100 concurrent reads with zero articulation calls. The RRM suite passes
+> 231/231. This is not live Isaac stop qualification and enables no motion. See
+> [HANDOFF.md](HANDOFF.md).
+
+> **Authority update (2026-09-25):** The hand boundary now requires authenticated,
+> short-lived, purpose/scope/epoch/generation-bound grants instead of a boolean
+> authorization shortcut. Grant consumption is fsynced before reset, reconciliation,
+> or dispatch intent and remains consumed after restart. This is a local HMAC contract,
+> not production identity infrastructure or live execution approval. The RRM suite
+> That checkpoint passed 227/227; no simulator or robot was touched. See
+> [HANDOFF.md](HANDOFF.md).
+
+> **Restart reconciliation update (2026-09-25):** Hash-linked boundary and gateway
+> journals now restore stop generations, consumed IDs, and unresolved dispatches.
+> Recovery requires a gateway hold plus fresh measured safe samples, then a separate
+> boundary reconciliation and reset; it never implicitly enables motion. This is
+> CPU/fake-articulation validation only. That checkpoint passed 226/226; no hand or
+> aerial motion was sent. See [HANDOFF.md](HANDOFF.md).
+
 > **Live profile smoke (2026-09-25):** A separate headless Isaac process found
 > zero mismatches across the Kuka-Allegro 23-joint names and position/velocity
 > limits. The gateway stayed disabled, returned `IDLE`, and made zero action
 > calls. This does not qualify controller gains, safe state, stop, or motion.
-> The RRM suite passes 223/223. See [HANDOFF.md](HANDOFF.md).
+> That checkpoint passed 223/223 tests. See [HANDOFF.md](HANDOFF.md).
 
 > **Gateway update (2026-09-25):** An isolated, disabled-by-default Isaac hand
 > gateway skeleton now exists in `simulation/hand_isaac_adapter.py`. It has

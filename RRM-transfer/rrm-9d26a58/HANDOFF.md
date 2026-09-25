@@ -1,5 +1,133 @@
 # RRM remote Codex handoff
 
+## CURRENT ADDENDUM: inactive-asset Isaac physics-callback heartbeat — 2026-09-25
+
+The disabled hand gateway now has a bounded Isaac physics-callback smoke. A separate
+headless process first verified the live Kuka-Allegro 23-joint profile and zero initial
+joint velocity, then removed the articulation from the temporary World's registry and
+deactivated its asset prim before stepping. Across 240 physics steps at 120 Hz, Isaac
+delivered exactly 240 callbacks; every gateway tick returned `IDLE`, liveness ended
+`HEALTHY`, the asset remained inactive on every callback, motion stayed disabled, and
+the hard wrapper observed **zero `apply_action` calls**. Maximum wall callback gap was
+3.116 ms, callback duration 47.68 us, and physics-step duration 3.169 ms against the
+declared 100 ms callback limit. The accepted report is
+`.rrm-artifacts/hand-live-callback-20260925-d/report.json`.
+
+The deactivation is deliberate and material. An earlier zero-gravity-only diagnostic
+(`-a`) delivered all callbacks without an action but changed joint state by 0.279244
+rad because authored/reset drive behavior still evolved the articulation; it is failed
+evidence. Two subsequent reportless diagnostics exposed and repaired a probe exception
+that Isaac shutdown had masked. The final probe writes failure reports and forces its
+declared exit status. The active Office container retained ID
+`1a6233464491...`, start time `2026-09-25T17:50:09.706472882Z`, and its original process
+remained running. Full suite: 234/234; compilation and `git diff --check` pass.
+
+This validates only Isaac callback registration/accounting and disabled gateway timing
+while the hand asset is inactive. It does **not** show callback behavior with a dynamic
+articulation, scheduler behavior under load, controller behavior, safe state,
+independent watchdog deployment, stop-to-hold latency, or motion. No stop or hold was
+requested. Any active-articulation stop/hold test would call `apply_action` and remains
+separately gated. Hand contact/commanded motion and aerial flight remain prohibited.
+
+## CURRENT ADDENDUM: live no-action idle heartbeat — 2026-09-25
+
+The Kuka-Allegro live-binding probe now exercised 1,000 consecutive disabled gateway
+ticks against the real 23-joint Isaac articulation. Every tick returned `IDLE`;
+`GatewayLivenessEvidence` ended `HEALTHY` with `tick_count=1000`, motion remained
+disabled, and the hard articulation wrapper observed **zero `apply_action` calls**.
+The externally measured tick duration was 2.14 us median, 2.53 us p95, and 18.12 us
+maximum against the declared 0.1 s heartbeat limit. Strict profile comparison again
+found zero mismatches. The report is
+`.rrm-artifacts/hand-live-heartbeat-20260925-a/report.json`.
+
+The accepted run used a second headless Isaac process inside the existing runtime
+container, with its own `SimulationApp` and `World`. The active Office process was not
+restarted or stepped by the probe; the container retained ID
+`1a6233464491...`, start time `2026-09-25T17:50:09.706472882Z`, and remained running.
+An earlier disposable-container attempt could not authenticate the remote asset and
+was removed without producing evidence. The full dependency-light suite passes
+232/232; changed Python compiles and `git diff --check` passes.
+
+This validates live articulation binding plus direct disabled-tick overhead only. The
+probe did not register a physics callback, did not step physics after `World.reset`,
+did not request stop, and did not exercise a hold action. It therefore does not
+qualify Isaac scheduler behavior under load, an independent watchdog deployment,
+stop-to-hold latency, controller gains, safe state, or motion. A live stop/hold test
+would call `apply_action` and remains separately gated. Hand motion/contact and aerial
+flight remain prohibited.
+
+## CURRENT ADDENDUM: CPU-only gateway liveness and stop deadlines — 2026-09-25
+
+`IsaacHandAdapter` now measures every simulator-thread tick, including count, start,
+completion, last/max duration, and heartbeat age. Stop acceptance records its monotonic
+time and configured deadline; the physics-thread hold records exact stop-to-hold latency
+and whether the deadline was met. `GatewayLivenessEvidence` exposes these values without
+touching the articulation. An external `watchdog_check` latches stale-heartbeat,
+late-stop, and clock-regression faults, disables motion, drops queued targets, and
+queues a hold only if work may be active. The watchdog never calls `apply_action`.
+First faults and hold timing are durable, and a prior liveness/deadline fault keeps a
+restarted gateway motion-disabled.
+
+Deterministic fake-clock tests cover a timely 0.020 s hold against a 0.050 s deadline,
+a 0.051 s late-stop fault, clock regression, invalid stop input, restart persistence,
+1000 idle ticks, and 100 concurrent evidence reads. The idle/concurrency stress made
+zero articulation calls and wrote only one fault record. Focused boundary/gateway tests
+pass 21/21; the full dependency-light suite passes 231/231; compilation and
+`git diff --check` pass. No Isaac process, ROS graph, hand, or aircraft was touched.
+
+This validates instrumentation and fail-closed logic only. It does not establish live
+Isaac scheduler behavior, an independent watchdog deployment, or a physical stop
+deadline. The next evidence step is a separate headless live no-action idle-heartbeat
+probe. A live stop/hold measurement would call `apply_action` and remains separately
+gated. Hand motion, contact, `GRASP`, `PLACE`, and aerial flight remain prohibited.
+
+## CURRENT ADDENDUM: signed, scoped hand authority — 2026-09-25
+
+The hand boundary no longer accepts `authorized=True`. `HandAuthorization` grants are
+HMAC-SHA256 authenticated against configured issuers and allowed roles, short-lived,
+and bound to one subject, purpose (`RESET`, `RECONCILE`, or `DISPATCH`), boundary
+epoch, stop generation, and exact operation scope. Reset scope includes fresh safe
+evidence and qualification/probe hashes; reconciliation additionally binds every
+recovered dispatch ID; dispatch binds the exact decision, complete context, command,
+approval/permission revisions, episode/scene/profile hashes, joint, and target. Each
+grant ID is fsynced in `C06_AUTHORIZATION_CONSUMED` before the corresponding reset,
+reconciliation record, or C09 intent, and consumed IDs are reconstructed after restart.
+
+Focused CPU-only boundary/gateway validation passes 17/17, including signature
+tampering, unknown issuer, wrong role/purpose/scope/epoch/generation, expiry, excessive
+lifetime, concurrent reuse, and durable replay. The complete dependency-light suite
+passes 227/227; compilation and `git diff --check` pass. No simulator, ROS graph, hand,
+or aircraft was touched.
+
+This is still a local prototype, not production identity infrastructure. HMAC requires
+the verifier to hold a provisioned shared issuer key; deployment should replace it with
+asymmetric verification or a protected authorization service, secure key loading and
+rotation, and an audited operator identity/role source. Motion remains disabled. The
+next gate at that checkpoint was simulator-thread/stop-liveness measurement; the
+CPU-only instrumentation is described above, while live evidence remains outstanding.
+A live action-applying stop/hold test requires separate explicit approval.
+Aerial flight remains paused.
+
+## CURRENT ADDENDUM: durable no-motion restart reconciliation — 2026-09-25
+
+The hand boundary and isolated Isaac adapter now reconstruct the latest stop
+generation, all previously consumed dispatch/decision IDs, and the exact set of
+unresolved dispatches from their hash-linked journals. After an interrupted adapter
+dispatch, a restarted gateway remains motion-disabled, requires a simulator-thread
+position hold, and requires five fresh measured safe samples before durably recording
+which recovered IDs were reconciled. The boundary separately requires exact-generation
+authorization and that fresh safe-state evidence before closing recovered C09 intents;
+it remains inhibited until a subsequent reset. Historical dispatch IDs remain consumed
+after clean reconciliation and another restart.
+
+This increment is CPU/fake-articulation only. The focused boundary/gateway suite passes
+16/16 and the full dependency-light RRM suite passes 226/226. No Isaac process, ROS
+graph, hand, or aircraft was touched. Reconciliation does not enable motion, qualify
+physical stop, or replace authenticated/scoped operator authority. A real deployment
+still needs live tick/stop liveness and latency under load, remote scene/runtime-gain
+binding, a real authority mechanism, and supervised non-contact acceptance. Aerial
+flight remains paused.
+
 ## CURRENT ADDENDUM: no-motion live Isaac profile binding — 2026-09-25
 
 The isolated `simulation/hand_live_binding_probe.py` ran in a **separate

@@ -29,6 +29,28 @@ class _Pending:
     command: HandCommand
 
 
+@dataclass(frozen=True)
+class GatewayLivenessEvidence:
+    episode_id: str
+    generation: int
+    observed_at_monotonic: float
+    tick_count: int
+    last_tick_started_at: float | None
+    last_tick_completed_at: float | None
+    last_tick_duration_s: float | None
+    max_tick_duration_s: float
+    heartbeat_age_s: float
+    max_tick_gap_s: float
+    stop_pending: bool
+    stop_requested_at: float | None
+    hold_applied_at: float | None
+    stop_to_hold_s: float | None
+    max_stop_to_hold_s: float
+    motion_enabled: bool
+    healthy: bool
+    reason: str
+
+
 class IsaacHandAdapter:
     """One-slot, fail-closed bridge to a passed-in Isaac articulation.
 
@@ -51,7 +73,9 @@ class IsaacHandAdapter:
                  observation_age_s: float = 0.25,
                  joint_safe_threshold_rad_s: float = 0.10,
                  object_safe_threshold_m_s: float = 0.01,
-                 safe_window: int = 5):
+                 safe_window: int = 5, max_tick_gap_s: float = 0.10,
+                 max_stop_to_hold_s: float = 0.10,
+                 clock: Callable[[], float] = time.monotonic):
         if not episode_id or not scene_recipe_sha256 or len(joint_names) != 23 or \
                 len(set(joint_names)) != 23 or tuple(joint_names[:7]) != self.ARM_JOINTS or \
                 len(lower_rad) != 23 or len(upper_rad) != 23 or \
@@ -61,7 +85,13 @@ class IsaacHandAdapter:
                         zip(lower_rad, upper_rad, max_velocity_rad_s)) or \
                 not math.isfinite(max_delta_rad) or not 0 < max_delta_rad <= 0.02 or \
                 not math.isfinite(observation_age_s) or observation_age_s <= 0 or \
-                safe_window < 1:
+                safe_window < 1 or \
+                not isinstance(max_tick_gap_s, (int, float)) or isinstance(max_tick_gap_s, bool) or \
+                not math.isfinite(max_tick_gap_s) or max_tick_gap_s <= 0 or \
+                not isinstance(max_stop_to_hold_s, (int, float)) or \
+                isinstance(max_stop_to_hold_s, bool) or \
+                not math.isfinite(max_stop_to_hold_s) or max_stop_to_hold_s <= 0 or \
+                not callable(clock):
             raise GatewayError("invalid_gateway_profile")
         self.articulation = articulation
         self.action_factory = action_factory
@@ -75,24 +105,46 @@ class IsaacHandAdapter:
         self.max_delta_rad, self.observation_age_s = max_delta_rad, observation_age_s
         self.joint_safe_threshold_rad_s = joint_safe_threshold_rad_s
         self.object_safe_threshold_m_s, self.safe_window = object_safe_threshold_m_s, safe_window
+        self.max_tick_gap_s = float(max_tick_gap_s)
+        self.max_stop_to_hold_s = float(max_stop_to_hold_s)
+        self._clock = clock
+        self._created_at = float(clock())
+        if not math.isfinite(self._created_at):
+            raise GatewayError("invalid_gateway_clock")
         self._lock = RLock()
         self._ledger = DurableJournal(ledger_path)
         self._enabled = bool(motion_enabled)
-        self._generation = 0
+        self._generation = self._ledger.latest_generation
         self._pending: _Pending | None = None
-        self._hold_pending = False
+        self._hold_pending = bool(self._ledger.outstanding_dispatch_ids)
         self._active = False
         self._safe_count = 0
         self._last_safe: SafeStateEvidence | None = None
+        self._tick_count = 0
+        self._last_tick_started_at: float | None = None
+        self._last_tick_completed_at: float | None = None
+        self._last_tick_duration_s: float | None = None
+        self._max_tick_duration_s = 0.0
+        self._stop_requested_at: float | None = None
+        self._stop_pending = False
+        self._hold_applied_at: float | None = None
+        self._last_stop_to_hold_s: float | None = None
+        self._liveness_fault: str | None = None
         self._seen: dict[str, str] = {}
+        self._restart_dispatch_ids = set(self._ledger.outstanding_dispatch_ids)
         if Path(ledger_path).exists():
             for line in Path(ledger_path).read_text().splitlines():
                 record = json.loads(line)
                 if record["event"] == "C09_ADAPTER_ENQUEUE":
                     payload = record["payload"]
                     self._seen[payload["dispatch_id"]] = payload["command_digest"]
-        if self._seen:
-            self._enabled = False  # Reconcile prior IDs before a later instance can move.
+                elif record["event"] == "C08_ADAPTER_LIVENESS_FAULT":
+                    self._liveness_fault = record["payload"].get("reason", "LIVENESS_FAULT")
+                elif record["event"] == "C08_ADAPTER_HOLD_APPLIED" and \
+                        record["payload"].get("deadline_met") is False:
+                    self._liveness_fault = "STOP_DEADLINE_EXCEEDED"
+        if self._restart_dispatch_ids or self._liveness_fault is not None:
+            self._enabled = False  # Recovered dispatches or liveness faults keep motion closed.
 
     @property
     def motion_enabled(self) -> bool:
@@ -137,7 +189,7 @@ class IsaacHandAdapter:
                 self._generation = generation
             if not dispatch_id or dispatch_id in self._seen:
                 raise GatewayError("duplicate_dispatch_id")
-            self._validate(command, now=time.monotonic())
+            self._validate(command, now=self._clock())
             try:
                 self._ledger.append("C09_ADAPTER_ENQUEUE", {"dispatch_id": dispatch_id,
                     "generation": generation, "episode_id": self.episode_id,
@@ -150,68 +202,185 @@ class IsaacHandAdapter:
             self._safe_count = 0
             self._last_safe = None
 
-    def request_stop(self, generation: int) -> bool:
+    def request_stop(self, generation: int, *, now: float | None = None) -> bool:
         """Fence new work immediately; acceptance is not physical stop proof."""
+        now = self._clock() if now is None else now
+        if type(generation) is not int or generation < 0 or \
+                not isinstance(now, (int, float)) or isinstance(now, bool) or \
+                not math.isfinite(now):
+            return False
         with self._lock:
             self._generation = max(self._generation + 1, generation)
             self._pending = None
             self._hold_pending = True
             self._safe_count = 0
             self._last_safe = None
+            self._stop_requested_at = float(now)
+            self._stop_pending = True
+            self._hold_applied_at = None
+            self._last_stop_to_hold_s = None
             try:
                 self._ledger.append("C08_ADAPTER_STOP_REQUEST", {"generation": self._generation,
-                    "episode_id": self.episode_id})
+                    "episode_id": self.episode_id, "requested_at_monotonic": now,
+                    "max_stop_to_hold_s": self.max_stop_to_hold_s})
             except OSError:
                 self._enabled = False
             return True
 
     def tick(self, *, now: float | None = None) -> str:
         """Call once on the physics thread before stepping the next frame."""
-        now = time.monotonic() if now is None else now
+        started_at = self._clock() if now is None else now
+        if not isinstance(started_at, (int, float)) or isinstance(started_at, bool) or \
+                not math.isfinite(started_at):
+            raise GatewayError("invalid_gateway_clock")
         with self._lock:
-            if self._hold_pending:
-                positions, _ = self._positions_velocities()
-                action = self.action_factory(joint_positions=positions[:7],
-                    joint_velocities=(0.0,) * 7, joint_indices=tuple(range(7)))
-                self.articulation.apply_action(action)
-                self._hold_pending = False
-                self._active = False
-                return "HOLD_APPLIED"
-            pending = self._pending
-            if pending is None:
-                return "IDLE"
-            if not self._enabled or pending.generation != self._generation:
-                self._pending = None
-                return "INHIBITED"
             try:
-                index = self._validate(pending.command, now=now)
-            except GatewayError:
-                self._pending = None
-                self._enabled = False
-                self._hold_pending = True
+                self._last_tick_started_at = float(started_at)
+                result = self._tick_locked(now=float(started_at))
+            except Exception:
+                self._complete_tick(float(started_at), "ERROR")
                 raise
+            return self._complete_tick(float(started_at), result)
+
+    def _tick_locked(self, *, now: float) -> str:
+        if self._hold_pending:
+            positions, _ = self._positions_velocities()
+            action = self.action_factory(joint_positions=positions[:7],
+                joint_velocities=(0.0,) * 7, joint_indices=tuple(range(7)))
+            self.articulation.apply_action(action)
+            self._hold_pending = False
+            self._active = False
+            return "HOLD_APPLIED"
+        pending = self._pending
+        if pending is None:
+            return "IDLE"
+        if not self._enabled or pending.generation != self._generation:
+            self._pending = None
+            return "INHIBITED"
+        try:
+            index = self._validate(pending.command, now=now)
+        except GatewayError:
+            self._pending = None
+            self._enabled = False
+            self._hold_pending = True
+            raise
+        try:
+            self._ledger.append("C09_ADAPTER_APPLY_INTENT", {"dispatch_id": pending.dispatch_id,
+                "generation": pending.generation, "episode_id": self.episode_id})
+        except OSError as exc:
+            self._enabled = False
+            self._pending = None
+            raise GatewayError("adapter_ledger_unavailable") from exc
+        self._pending = None
+        self._active = True
+        action = self.action_factory(joint_positions=(pending.command.target_position_rad,),
+                                     joint_indices=(index,))
+        try:
+            self.articulation.apply_action(action)
+        except Exception as exc:
+            self._enabled = False
+            self._hold_pending = True
+            raise GatewayError("apply_uncertain_hold_required") from exc
+        return "TARGET_APPLIED"
+
+    def _complete_tick(self, started_at: float, result: str) -> str:
+        completed_at = float(self._clock())
+        if not math.isfinite(completed_at) or completed_at < started_at:
+            self._enabled = False
+            self._liveness_fault = "CLOCK_REGRESSION"
+            raise GatewayError("invalid_gateway_clock")
+        duration = completed_at - started_at
+        self._tick_count += 1
+        self._last_tick_completed_at = completed_at
+        self._last_tick_duration_s = duration
+        self._max_tick_duration_s = max(self._max_tick_duration_s, duration)
+        if result == "HOLD_APPLIED" and self._stop_requested_at is not None:
+            self._hold_applied_at = completed_at
+            self._last_stop_to_hold_s = completed_at - self._stop_requested_at
+            deadline_met = self._last_stop_to_hold_s <= self.max_stop_to_hold_s
             try:
-                self._ledger.append("C09_ADAPTER_APPLY_INTENT", {"dispatch_id": pending.dispatch_id,
-                    "generation": pending.generation, "episode_id": self.episode_id})
+                self._ledger.append("C08_ADAPTER_HOLD_APPLIED", {
+                    "generation": self._generation, "episode_id": self.episode_id,
+                    "stop_requested_at_monotonic": self._stop_requested_at,
+                    "hold_applied_at_monotonic": completed_at,
+                    "stop_to_hold_s": self._last_stop_to_hold_s,
+                    "max_stop_to_hold_s": self.max_stop_to_hold_s,
+                    "deadline_met": deadline_met})
             except OSError as exc:
                 self._enabled = False
-                self._pending = None
                 raise GatewayError("adapter_ledger_unavailable") from exc
-            self._pending = None
-            self._active = True
-            action = self.action_factory(joint_positions=(pending.command.target_position_rad,),
-                                         joint_indices=(index,))
-            try:
-                self.articulation.apply_action(action)
-            except Exception as exc:
+            self._stop_pending = False
+            if not deadline_met:
                 self._enabled = False
+                self._liveness_fault = "STOP_DEADLINE_EXCEEDED"
+        return result
+
+    def _liveness_locked(self, now: float) -> GatewayLivenessEvidence:
+        heartbeat_origin = self._last_tick_completed_at
+        heartbeat_age = now - (self._created_at if heartbeat_origin is None else heartbeat_origin)
+        reason = self._liveness_fault
+        recorded_times = [self._created_at]
+        recorded_times.extend(value for value in
+            (self._last_tick_started_at, self._last_tick_completed_at, self._stop_requested_at)
+            if value is not None)
+        if reason is None and any(now < value for value in recorded_times):
+            reason = "CLOCK_REGRESSION"
+        if reason is None and self._stop_pending and self._stop_requested_at is not None and \
+                now - self._stop_requested_at > self.max_stop_to_hold_s:
+            reason = "STOP_DEADLINE_EXCEEDED"
+        if reason is None and heartbeat_age > self.max_tick_gap_s:
+            reason = "TICK_STALE"
+        if reason is None:
+            reason = "HEALTHY"
+        return GatewayLivenessEvidence(self.episode_id, self._generation, now,
+            self._tick_count, self._last_tick_started_at, self._last_tick_completed_at,
+            self._last_tick_duration_s, self._max_tick_duration_s, heartbeat_age,
+            self.max_tick_gap_s, self._stop_pending,
+            self._stop_requested_at, self._hold_applied_at, self._last_stop_to_hold_s,
+            self.max_stop_to_hold_s, self._enabled, reason == "HEALTHY", reason)
+
+    def liveness(self, *, now: float | None = None) -> GatewayLivenessEvidence:
+        now = self._clock() if now is None else now
+        if not isinstance(now, (int, float)) or isinstance(now, bool) or not math.isfinite(now):
+            raise GatewayError("invalid_gateway_clock")
+        with self._lock:
+            return self._liveness_locked(float(now))
+
+    def watchdog_check(self, *, now: float | None = None) -> GatewayLivenessEvidence:
+        """Fence on stale tick/stop timing; never calls the articulation."""
+        now = self._clock() if now is None else now
+        if not isinstance(now, (int, float)) or isinstance(now, bool) or not math.isfinite(now):
+            raise GatewayError("invalid_gateway_clock")
+        with self._lock:
+            evidence = self._liveness_locked(float(now))
+            if evidence.healthy:
+                return evidence
+            first_fault = self._liveness_fault is None
+            self._liveness_fault = evidence.reason
+            self._enabled = False
+            possible_motion = self._pending is not None or self._active or \
+                self._stop_pending
+            self._pending = None
+            if possible_motion:
                 self._hold_pending = True
-                raise GatewayError("apply_uncertain_hold_required") from exc
-            return "TARGET_APPLIED"
+            self._safe_count = 0
+            self._last_safe = None
+            if first_fault:
+                try:
+                    self._ledger.append("C08_ADAPTER_LIVENESS_FAULT", {
+                        "generation": self._generation, "episode_id": self.episode_id,
+                        "reason": evidence.reason, "observed_at_monotonic": now,
+                        "heartbeat_age_s": evidence.heartbeat_age_s,
+                        "stop_requested_at_monotonic": evidence.stop_requested_at,
+                        "max_tick_gap_s": self.max_tick_gap_s,
+                        "max_stop_to_hold_s": self.max_stop_to_hold_s})
+                except OSError:
+                    pass
+            return self._liveness_locked(float(now))
 
     def sample(self, generation: int, *, now: float | None = None) -> SafeStateEvidence | None:
         """Sample measured safe state after a physics step; no stepping occurs here."""
-        now = time.monotonic() if now is None else now
+        now = self._clock() if now is None else now
         with self._lock:
             positions, velocities = self._positions_velocities()
             if any(not lo <= pos <= hi for lo, pos, hi in
@@ -248,6 +417,17 @@ class IsaacHandAdapter:
             evidence = SafeStateEvidence(hashlib.sha256(payload.encode()).hexdigest(),
                 self.episode_id, generation, now, True, "POSITION_HOLD", False,
                 joint_speed, object_speed, self._safe_count)
+            if self._restart_dispatch_ids:
+                dispatch_ids = sorted(self._restart_dispatch_ids)
+                try:
+                    self._ledger.append("C08_ADAPTER_SAFE_RECONCILED", {
+                        "generation": generation, "episode_id": self.episode_id,
+                        "dispatch_ids": dispatch_ids, "evidence_ref": evidence.evidence_ref})
+                except OSError:
+                    self._enabled = False
+                    self._last_safe = None
+                    return None
+                self._restart_dispatch_ids.clear()
             self._last_safe = evidence
             return evidence
 

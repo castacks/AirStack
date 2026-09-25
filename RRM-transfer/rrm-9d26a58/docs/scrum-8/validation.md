@@ -2,6 +2,81 @@
 
 Source baseline: RRM archive `9d26a58eb8516b6754c5d12b041cdc789950e047`, AirStack `ore_proj` at `a6dad8caf54722e5eba3481367e914ce213e6135`. Changes are staged source files, not a new Git revision or published baseline.
 
+## Inactive-asset Isaac physics-callback checkpoint — 2026-09-25 UTC
+
+The isolated live probe verified the 23-joint Kuka-Allegro profile and zero initial
+velocity, removed it from the temporary World registry, and deactivated the asset prim
+before physics stepping. Isaac delivered 240/240 callbacks at a declared 120 Hz
+simulation step. Every disabled gateway tick returned `IDLE`; liveness ended healthy,
+the asset was inactive on every callback, motion and execution remained false, and the
+hard wrapper counted zero articulation actions. Wall-clock callback gap was 0.196 ms
+median, 0.329 ms p95, and 3.116 ms maximum; callback duration was 6.66 us median,
+14.71 us p95, and 47.68 us maximum. The accepted report is
+`.rrm-artifacts/hand-live-callback-20260925-d/report.json`.
+
+A zero-gravity-only diagnostic failed the no-state-change gate with 0.279244 rad drift,
+demonstrating that zero gravity does not neutralize the asset's authored/reset drive
+behavior. It is not accepted evidence. The final inactive-asset fixture sent no stop,
+hold, or action and left the active Office process/container identity unchanged. Full
+suite: 234/234; changed Python compiles and `git diff --check` passes. This qualifies
+callback registration/accounting only, not an active articulation, scheduler load,
+watchdog deployment, controller, safe state, stop latency, contact, or motion.
+
+## Live no-action idle-heartbeat checkpoint — 2026-09-25 UTC
+
+A second headless Isaac process, running inside the existing runtime container with its
+own `SimulationApp` and `World`, bound the disabled gateway to the live Kuka-Allegro
+articulation. Strict comparison found zero mismatches across all 23 joint profiles.
+All 1,000 direct ticks returned `IDLE`; final liveness was `HEALTHY`, motion stayed
+disabled, and `_NoActionArticulation` counted zero `apply_action` calls. External tick
+durations were 2.14 us median, 2.53 us p95, and 18.12 us maximum against a 0.1 s
+declared limit. The immutable report is
+`.rrm-artifacts/hand-live-heartbeat-20260925-a/report.json`.
+
+The active Office process was neither restarted nor stepped by the probe, and its
+container identity/start time remained unchanged and running. The full suite passes
+232/232; changed Python compiles and `git diff --check` passes. This probe invoked
+ticks directly and did not register an Isaac physics callback, step physics after
+reset, request stop, or apply a hold. It is therefore not scheduler-under-load,
+independent-watchdog, stop-to-hold, safe-state, controller, or motion qualification.
+
+## Hand gateway liveness checkpoint — 2026-09-25 UTC
+
+The isolated gateway now emits immutable heartbeat and stop-to-hold timing evidence.
+An external watchdog latches stale ticks, missed stop deadlines, and clock regression,
+fences new work, and durably preserves the fault across restart without calling the
+articulation itself. Fake-clock validation measured a 0.020 s timely hold against a
+0.050 s deadline and a 0.051 s deadline breach. A 1000-tick idle stress plus 100
+concurrent reads made zero articulation calls and produced one durable fault record.
+Focused tests pass 21/21 and the complete dependency-light suite passes 231/231;
+changed Python compiles and `git diff --check` passes. No live simulator or robot was
+touched. Live Isaac scheduler and action-applying stop evidence remain unqualified.
+
+## Signed hand-authority checkpoint — 2026-09-25 UTC
+
+The isolated hand boundary now verifies HMAC-SHA256 grants from configured issuers and
+allowed roles. Grants are short-lived and bind subject, purpose, authority epoch, stop
+generation, and an exact scope digest over fresh safe evidence or the complete dispatch
+decision/context/command/profile. Their IDs are durably consumed before reset,
+reconciliation, or dispatch intent and reconstructed after restart. Focused tests cover
+tampering, issuer/role/purpose/scope/epoch/generation mismatches, expiry, maximum
+lifetime, concurrency, and replay; 17/17 pass. The full dependency-light suite passes
+227/227. Changed Python compiles and `git diff --check` passes. No simulator or robot
+was touched. This local shared-key contract still requires production identity, secure
+key provisioning/rotation, and preferably asymmetric or protected-service verification.
+
+## Hand restart reconciliation checkpoint — 2026-09-25 UTC
+
+CPU-only fake-articulation tests now cover durable replay of stop generations,
+consumed IDs, and unresolved dispatches; mandatory post-restart hold; fresh five-sample
+safe-state evidence; append-before-clear reconciliation; stale/unauthorized rejection;
+and retained deduplication after a clean restart. Reconciliation leaves both layers
+motion-inhibited and boundary admission still requires a separate reset. The focused
+suite passes 16/16 and the complete dependency-light RRM suite passes 226/226. Changed
+Python sources compile and `git diff --check` passes. No simulator, ROS graph, hand, or
+aircraft was touched; authenticated authority and live stop-liveness qualification are
+still missing.
+
 ## Current checkpoint — 2026-09-24 UTC
 
 The complete RRM unit suite passed **199/199** before one bounded aerial-console
