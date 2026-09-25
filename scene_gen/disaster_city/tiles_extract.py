@@ -36,5 +36,7 @@ for i, mat in enumerate(me.materials):
 for o in bpy.context.scene.objects: o.select_set(o is ob)
 bpy.context.view_layer.objects.active = ob
 bpy.ops.wm.usd_export(filepath=out, selected_objects_only=True, export_materials=True,
-                      export_textures_mode="NEW", export_animation=False, convert_orientation=False)
+                      export_textures_mode="NEW", export_animation=False, convert_orientation=False,
+                      convert_world_material=False, export_lights=False)   # the world exports as a BLACK DomeLight,
+                                                                           # and RTX's one dome then blacks out the sky
 print(f"tiles_extract: {len(me.polygons)} faces, {len(me.materials)} materials -> {out}")

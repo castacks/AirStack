@@ -138,13 +138,20 @@ tile surface under it.
 - **The LABELS points for the pad objects were up to 9 m off** (for example,
   the lattice tower). `gen_industrial_pad.py` places everything from the tile
   blobs instead.
-- **Interiors were black.** The headless sky gives no skylight, and real-time
-  RTX has no bounce light into rooms; turning on `/rtx/indirectDiffuse` did
-  nothing, and path tracing barely helped. The enterable heroes now carry
+- **Interiors were black.** Real-time RTX has no bounce light into rooms, and
+  the stray dome (next item) took the skylight away too; turning on
+  `/rtx/indirectDiffuse` did nothing. The enterable heroes now carry
   interior fill lights: a `lights:` grid per storey in the spec, emitted under
   `/<ID>/lights` (45 SphereLights in total). Deactivate that scope for a dark
   building. B03's roofless and pancaked units have none. Hero geometry also
   binds rough UsdPreviewSurface materials, because Isaac's default material
   showed every light as a glint on the walls.
-- **The sky renders black in the headless check**, with both the Nucleus HDR
-  and a local one. The lighting still works, so this is cosmetic.
+- **Blender's USD export writes the Blender world as a black DomeLight.** It
+  came in with the R02 tile cut-out, and because RTX uses one dome, it blacked
+  out the sky over the whole site for days; it looked like a headless streaming
+  issue. `tiles_extract.py` now passes `convert_world_material=False,
+  export_lights=False`, and `isaac_check.py` warns if the stage holds anything
+  but exactly one DomeLight.
+- **The scene carries its own sun and sky** (`/World/Environment`, with the HDR
+  under `data/recon/sky/`). A frozen scene with no sky light renders black on
+  another machine (`.agents/skills/freeze-portable-scenes`).

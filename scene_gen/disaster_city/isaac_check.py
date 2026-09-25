@@ -29,14 +29,15 @@ if os.environ.get("INDIRECT") == "1":
                  ("/rtx/ambientOcclusion/enabled", True)):
         carb.settings.get_settings().set(k, v)
 ONLY = set(filter(None, os.environ.get("ONLY", "").split(",")))
-carb.settings.get_settings().set("/rtx/post/backgroundZeroAlpha/enabled", False)   # else the sky comes back black
-
-# light: sun + sky dome (the scene carries none)
-sun = UsdLux.DistantLight.Define(stage, "/World/check_sun"); sun.CreateIntensityAttr(3000); sun.CreateAngleAttr(0.5)
-UsdGeom.Xformable(sun).AddRotateXYZOp().Set(Gf.Vec3f(35, 0, 150))
-SKY = str(usd.parent / "sky/sunflowers.hdr")   # local copy of an Isaac-shipped outdoor HDR; the Nucleus one never streamed in headless
-dome = UsdLux.DomeLight.Define(stage, "/World/check_sky"); dome.CreateIntensityAttr(1000); dome.CreateExposureAttr(0)
-dome.CreateTextureFileAttr(SKY); dome.CreateTextureFormatAttr("latlong")
+# lighting comes from the scene's own /World/Environment (assemble_scene.py); add a stand-in only if it
+# has none, so this also checks that a shipped scene is lit by itself
+if not stage.GetPrimAtPath("/World/Environment"):
+    print("WARNING: scene carries no /World/Environment -- adding a stand-in sun + sky")
+    sun = UsdLux.DistantLight.Define(stage, "/World/check_sun"); sun.CreateIntensityAttr(3000); sun.CreateAngleAttr(0.5)
+    UsdGeom.Xformable(sun).AddRotateXYZOp().Set(Gf.Vec3f(35, 0, 150))
+    UsdLux.DomeLight.Define(stage, "/World/check_sky").CreateIntensityAttr(1000)
+domes = [p for p in stage.Traverse() if p.IsA(UsdLux.DomeLight)]
+if len(domes) != 1: print(f"WARNING: {len(domes)} DomeLights {[str(p.GetPath()) for p in domes]} -- RTX uses one; a stray one blacks out the sky")
 UsdPhysics.Scene.Define(stage, "/World/physics")
 
 # ---- semantics census ----
@@ -96,7 +97,7 @@ shots = {
 # eye/target pairs in B01's local frame: inside the first floor, and on the deck looking in through the doorway
 inside = {"b01_inside_first_floor": ((2.0, 17.0, 4.9), (10.5, 18.1, 4.6)),
           "b01_deck_to_doorway": ((16.0, 17.5, 4.8), (10.5, 18.1, 4.5))}
-cam = UsdGeom.Camera.Define(stage, "/World/check_cam"); cam.CreateFocalLengthAttr(18); cam.CreateClippingRangeAttr(Gf.Vec2f(0.1, 5000))
+cam = UsdGeom.Camera.Define(stage, "/World/check_cam"); cam.CreateFocalLengthAttr(18); cam.CreateClippingRangeAttr(Gf.Vec2f(0.1, 1.0e6))   # a 5 km far plane clipped the dome: black sky
 xf = UsdGeom.Xformable(cam); op = xf.AddTransformOp()
 rp = rep.create.render_product(str(cam.GetPath()), (1600, 900))
 rgb = rep.AnnotatorRegistry.get_annotator("rgb"); rgb.attach([rp])

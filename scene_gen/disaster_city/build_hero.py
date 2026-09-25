@@ -22,8 +22,7 @@ drone. Spec parts:
 Optional top-level `lights: [{rect: [x0,y0,x1,y1], ceiling: z, spacing: 5}]`
 fills each rect with SphereLights 0.4 m under its ceiling. They go under
 /<ID>/lights, a scope with no collider or label; deactivate it for a dark building.
-The interior fill is there because the headless sky contributes no skylight, and
-real-time RTX has no bounce light into rooms.
+The interior fill is there because real-time RTX has no bounce light into rooms.
 """
 import sys
 from pathlib import Path

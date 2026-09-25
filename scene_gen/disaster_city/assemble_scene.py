@@ -11,7 +11,7 @@ References (world coordinates throughout, Z-up, metres):
 Add new pieces to PIECES; a hero's ID deactivates its LOD1 box.
 """
 from pathlib import Path
-from pxr import Usd, UsdGeom, Sdf
+from pxr import Usd, UsdGeom, UsdLux, Sdf, Gf
 from _paths import R
 
 PIECES = {"R01": "rubble_west/R01.usd", "B01": "b01/B01.usd", "R02": "rubble_east/R02_tiles.usd", "S01": "s01/S01.usd", "B03": "b03/B03.usd", "PAD": "pad/PAD.usd", "B06": "b06/B06.usd"}
@@ -24,6 +24,14 @@ for name in ("trees", "vehicles", "debris"):                          # place_as
     if (R / f"{name}.usd").exists(): stage.DefinePrim(f"/World/{name}").GetReferences().AddReference(f"./{name}.usd")
 if (R / "trees.usd").exists():                              # the placed trees replace the tile canopy
     stage.OverridePrim("/World/site/tiles_vegetation").SetActive(False)
+# the scene carries its own sun + sky: a frozen scene with no sky light renders black on another
+# machine (see .agents/skills/freeze-portable-scenes). The HDR is an Isaac-shipped outdoor probe,
+# copied into data/recon/sky/ so the relative path travels with package.py.
+env = UsdGeom.Xform.Define(stage, "/World/Environment")
+sun = UsdLux.DistantLight.Define(stage, "/World/Environment/sun"); sun.CreateIntensityAttr(3000.0); sun.CreateAngleAttr(0.5)
+UsdGeom.Xformable(sun).AddRotateXYZOp().Set(Gf.Vec3f(35, 0, 150))            # ~55 deg sun elevation from the SSE
+sky = UsdLux.DomeLight.Define(stage, "/World/Environment/sky"); sky.CreateIntensityAttr(1000.0)
+sky.CreateTextureFileAttr(Sdf.AssetPath("./sky/sunflowers.hdr")); sky.CreateTextureFormatAttr(UsdLux.Tokens.latlong)
 lod1 = stage.DefinePrim("/World/lod1"); lod1.GetReferences().AddReference("./buildings_lod1.usd")
 for p in lod1.GetChildren():
     if p.GetName().split("_")[0] in PIECES: p.SetActive(False)
