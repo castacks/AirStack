@@ -82,6 +82,7 @@ tests = {
     "wall_B01_first_floor (expect hit)": ray(L(7.5, 0.5, 5.2), L(7.5, 6.5, 5.2)),
     "doorway_B01_frame_side (expect pass)": ray(L(15.0, 6.6, 4.6), L(10.0, 6.6, 4.6)),
     "pile_R01_down (expect hit)": ray((39.0, -388.0, 120.0), (39.0, -388.0, 0.0)),
+    "pile_R01_skim_1m_above_mound (expect hit)": ray((22.0, -388.0, 59.2), (56.0, -388.0, 59.2)),
 }
 # a tree trunk and a placed vehicle, looked up from the stage
 tpos = stage.GetPrimAtPath("/World/trees/colliders/t0").GetAttribute("xformOp:translate").Get()

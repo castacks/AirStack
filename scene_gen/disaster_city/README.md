@@ -52,8 +52,8 @@ PATH, and `~/isaacsim/python.sh` (Isaac Sim 6.0.1) for the check.
 | **B03** strip mall | Roof-height grid from the tiles; storefronts from a Google oblique | **Enterable.** Five units, each with its own roof state (intact, gone, or pancaked). |
 | **B06** south warehouse | Ortho (canopy, walkways, ridge) and tile height | **Enterable.** Gabled hall: 2 bay doors and a personnel door under the canopy, main entrance opposite. The door sizes are guessed. |
 | Industrial pad (`PAD`: S02–S06, mast, 3 cabins) | Tile blobs (position, footprint, height); identities from the Google obliques | Primitives: rail tank car, sphere vessel, pipe rack, tank on legs, X-braced lattice tower, cabins with doors |
-| **R01** west rubble pile | Dense drone reconstruction, 2.5D heightfield at 0.2 m | About 34% from drone footage, the rest from the tiles; colour matched to the tiles |
-| R02 east pile, R03 collapsed houses | Tile mound plus 537 debris pieces | The mound is the collider; the pieces are visual only |
+| **R01** west rubble pile, **R02** east pile | `rubble_pile.py`: the pile's measured shape (drone reconstruction for R01, tiles for R02) as a smoothed mound 1.6 m under the top, with library rubble stacked on it to the measured height (Nucleus DebrisConcrete fragments, standalone slabs) | Instanced pieces (R01 274, R02 185; about 5M unique triangles), each with an invisible box collider; the photogrammetry surface is no longer used |
+| R03 collapsed houses | Tile mound plus scattered debris pieces | The mound is the collider; the pieces are visual only |
 | Other buildings (`lod1/`) | The tile outline, extruded: main roof level plus any attached lower annex | Closed, with the real roof texture. Not enterable. |
 | Trees (`trees/`) | Canopy peaks in the tile heights; 4 NVIDIA tree species as instanceable references | Position and height from the tiles; invisible trunk and crown colliders |
 | Vehicles (`vehicles/`) | Road vehicles: vehicle-sized blobs on roads, parking lots and near vehicle labels, fitted in the world frame. Rail cars: hand-surveyed car by car (`specs/rail_cars.yaml`), because the tiles merge coupled and derailed cars | Cars, vans and buses from the standalone pack; box truck, dump truck and container from `assets/lib`; tank cars, box cars, coaches and a locomotive from Nucleus + Objaverse. Nothing vehicle-sized is left as raw tile mesh or a box |
@@ -92,7 +92,8 @@ $PY recon_georef.py data/recon/b01 --model sparse_ext --views 40 --iters 5      
 # 2. models
 $PY lod1_buildings.py
 $PY measure_sheets.py data/recon/b01 B01 --yaw 47.35                              # the sheets specs/B01.yaml was measured on
-$PY recon_mesh.py data/recon/rubble_west R01 data/recon/tiles_R01.npz --radius 24 --margin 0.5
+$PY recon_mesh.py data/recon/rubble_west R01 data/recon/tiles_R01.npz --radius 24 --margin 0.5   # the pile's shape
+$PY rubble_pile.py R01 && $PY rubble_pile.py R02 --radius 20                     # rubble assets stacked on it
 $PY build_hero.py specs/B01.yaml
 for g in drill_tower:s01/S01 strip_mall:b03/B03 warehouse:b06/B06 industrial_pad:pad/PAD; do
   $PY gen_${g%%:*}.py && $PY build_hero.py data/recon/${g#*:}_spec.yaml; done

@@ -257,7 +257,7 @@ print(f"vehicles: {counts['asset']} cars/vans/buses, {counts['lib']} trucks/RVs/
 # from the standalone pack, resting on the tile mound (which stays the collider),
 # random yaw and up to 25 deg tilt. Instanceable references, class `rubble`.
 PIECES = sorted(p.name for p in (A / "debris").iterdir() if p.is_dir() and not p.name.startswith("lump"))
-FIELDS = {"R02": 19.0, "R03": 18.0}                              # label -> disc radius, m
+FIELDS = {"R03": 18.0}                                          # label -> disc radius, m (R02 is rubble_pile.py's)
 lab = {l["id"]: l for l in labels}
 pts = []
 for fid, rad in FIELDS.items():

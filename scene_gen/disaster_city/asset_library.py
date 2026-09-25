@@ -44,6 +44,14 @@ SOURCES = {
     # rejected on the gallery: 656908d5 'Japanese Box Truck' (converted standing on end), 42e23433 'Camper Van' (a cartoon cart)
 }
 
+# rubble: the Nucleus DebrisConcrete set (catalogued in scene_gen/assets/debris_concrete) and the
+# standalone pack's slabs / chunks / rebar / sheets (already local under assets/debris)
+for pc in json.load(open(CODE.parent / "assets/debris_concrete/catalogue.json"))["pieces"]:
+    SOURCES[f"rubble_{pc['name'].replace('SM_con_debris_', '')}"] = (NUC + pc["url"], "rubble", "Nucleus DebrisConcrete")
+for d in sorted((A / "debris").iterdir()):
+    if d.is_dir() and d.name.startswith(("slab", "chunk", "rebar", "sheet")):
+        SOURCES[f"rubble_sa_{d.name}"] = (f"debris/{d.name}/{d.name}.usdc", "rubble", "standalone debris pack")
+
 lib = {}
 for name, (rel, cls, prov) in SOURCES.items():
     src = A / rel

@@ -3,8 +3,8 @@
 # fitted front wall line), origin at the tile footprint's corner, z = 0 at the cloud's ground (0.5 m
 # above the LOD1 box's ground_z). Concrete block x 0.4..12.7, y 3.4..9.8; steel frame continues it
 # to x 24.8 with a deck at the block's first floor and a roof deck over x 12.7..18.8.
-# The blue-roofed wing in the Google tiles (y 10..15) has since collapsed into the slab leaning on
-# the yhi side (elev_xlo), so the tile footprint is larger than this building.
+# The blue-roofed wing in the Google tiles (y 10..15) has since collapsed: its roof slab leans off the
+# block's roof edge down onto the pile (modelled below as wing_*).
 # Openings: what the sheets show. The yhi face and the interior were not filmed -- see the end.
 id: B01
 name: roof_crane_building
@@ -70,9 +70,17 @@ parts:
   - box: {name: landing_133, min: [22.4, 0.7, 4.2], max: [24.8, 3.4, 4.35], mat: grating}
   - stair: {name: stair_ground_to_133, from: [15.5, 1.9, 0.15], to: [22.4, 1.9, 4.28], width: 1.1, mat: grating}
   - stair: {name: stair_deck_to_roof, from: [24.2, 6.7, 4.35], to: [19.0, 6.7, 7.6], width: 1.0, mat: grating}
-  # ---- crane on the roof ----
+  # ---- the collapsed wing on the yhi (pile) side: its roof slab hinged off the block's roof edge and
+# came down onto the pile (A03_046-052; elev_xlo: from (y 9.8, z 7.4) to (y 14.9, z 2.4), x 1.0..10.5),
+# with its railing still on it; the first floor dropped under it. Tilted slabs, solid colliders.
+  - beam: {name: wing_roof_slab, from: [5.75, 9.9, 7.35], to: [5.75, 14.9, 2.4], t: 0.3, t2: 9.6}
+  - beam: {name: wing_first_slab, from: [5.75, 9.9, 3.3], to: [5.75, 12.9, 0.5], t: 0.3, t2: 9.6}
+  - beam: {name: wing_rail_lo, from: [1.0, 9.9, 8.45], to: [1.0, 14.9, 3.5], t: 0.06, mat: steel}
+  - beam: {name: wing_rail_hi, from: [10.5, 9.9, 8.45], to: [10.5, 14.9, 3.5], t: 0.06, mat: steel}
+  - box: {name: wing_column_1, min: [0.6, 9.8, 0.15], max: [0.9, 10.1, 7.4]}
+  - box: {name: wing_column_2, min: [10.3, 9.8, 0.15], max: [10.6, 10.1, 7.4]}
+# ---- crane on the roof ----
   - box: {name: crane_post, min: [11.4, 9.0, 7.6], max: [11.7, 9.3, 10.4], mat: steel}
   - box: {name: crane_boom, min: [11.4, 9.05, 10.1], max: [15.4, 9.25, 10.4], mat: steel}
 # NOT MODELLED (no data in the cloud): interior partitions, the yhi face's openings (one per floor
-# assumed), the X-bracing on the frame, and the collapsed wing's slab leaning on the yhi side
-# (it is in the tile surface; ground.py keeps tile geometry outside this model's footprint).
+# assumed), the X-bracing on the frame.
