@@ -8,10 +8,19 @@
 namespace mtl::mapping {
 
 CellSet extractValidCells(const BeliefField& belief, double targetCellSize,
-                          double meanInfoThresh, bool verbose) {
+                          double minBeliefMass, bool verbose) {
     CellSet out;
-    out.cellSize = targetCellSize;
+    out.cellSize      = targetCellSize;
+    out.minBeliefMass = minBeliefMass;
     if (belief.empty()) return out;
+
+    // The prior as a probability mass function.  A no-op (scale 1) on
+    // mapgen::generateBeliefMap's output, which already sums to 1; a host grid
+    // that does not is normalised here so the masses are still probabilities
+    // and the threshold still means the same thing.
+    const double rawTotal = belief.values.sum();
+    if (!(rawTotal > 0.0)) return out;
+    const double norm = 1.0 / rawTotal;
 
     const Index rows = belief.rows();
     const Index cols = belief.cols();
@@ -29,7 +38,7 @@ CellSet extractValidCells(const BeliefField& belief, double targetCellSize,
     const Index nRows = (rows + pixelsPerCellY - 1) / pixelsPerCellY;
     const Index nCols = (cols + pixelsPerCellX - 1) / pixelsPerCellX;
 
-    const double pixelArea = gridResX * gridResY;
+    const double pixelArea = gridResX * gridResY;  // only for the reported cell area
 
     std::vector<Vec2>   centers;
     std::vector<double> mass, meanB, peakB, nPix, area;
@@ -42,10 +51,10 @@ CellSet extractValidCells(const BeliefField& belief, double targetCellSize,
             const Index c1 = std::min((c + 1) * pixelsPerCellX, cols);  // exclusive
 
             const auto block = belief.values.block(r0, c0, r1 - r0, c1 - c0);
-            const double sum  = block.sum();
-            const double n    = static_cast<double>(block.size());
-            const double mean = sum / n;
-            if (!(mean > meanInfoThresh)) continue;
+            // Probability that the target is in this block.
+            const double cellMass = block.sum() * norm;
+            const double n        = static_cast<double>(block.size());
+            if (!(cellMass > minBeliefMass)) continue;
 
             // Physical centre of the pixels actually evaluated, so the anchor
             // sits in the middle of its block even where the block is cut off.
@@ -53,9 +62,9 @@ CellSet extractValidCells(const BeliefField& belief, double targetCellSize,
             const double cx = 0.5 * static_cast<double>(c0 + c1 - 1) * gridResX;
 
             centers.emplace_back(cx, cy);
-            mass.push_back(sum * pixelArea);
-            meanB.push_back(mean);
-            peakB.push_back(block.maxCoeff());
+            mass.push_back(cellMass);
+            meanB.push_back(cellMass / n);
+            peakB.push_back(block.maxCoeff() * norm);
             nPix.push_back(n);
             area.push_back(n * pixelArea);
         }
@@ -77,15 +86,16 @@ CellSet extractValidCells(const BeliefField& belief, double targetCellSize,
         out.area(i)        = area[static_cast<std::size_t>(i)];
     }
 
-    out.totalMapMass = belief.values.sum() * pixelArea;
+    out.totalMapMass = rawTotal * norm;  // 1, up to round-off
     out.retainedMass = out.mass.sum();
     out.massNorm     = (out.retainedMass > 0.0) ? (out.mass / out.retainedMass).eval()
                                                 : VecX::Zero(m);
 
     if (verbose) {
-        std::printf("Extracted %lld valid cells.\n", static_cast<long long>(m));
+        std::printf("Extracted %lld valid cells (belief mass > %.3g per cell).\n",
+                    static_cast<long long>(m), minBeliefMass);
         std::printf(
-            "  belief accounting: retained %.3g of %.3g total prior mass (%.1f%%) over %lld "
+            "  belief accounting: retained %.4f of %.4f total prior mass (%.1f%%) over %lld "
             "cells.\n",
             out.retainedMass, out.totalMapMass,
             100.0 * out.retainedMass / std::max(out.totalMapMass, 1e-300),

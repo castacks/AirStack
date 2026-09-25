@@ -40,7 +40,11 @@ mtl::PlannerParams paramsFromScenario(const J::Value& sc, int numAgents) {
 
     const J::Value& map = sc["mapping"];
     p.targetCellSize           = map["target_cell_size_m"].num(p.targetCellSize);
-    p.meanInformationThresh    = map["mean_information_thresh"].num(p.meanInformationThresh);
+    // Per-cell probability threshold (the prior is a PMF that sums to 1). As in
+    // mtl_plan_json.cpp it is informational here: the host extracted the cells
+    // (scenario.py extract_valid_cells) and planFromCells never re-extracts. It is
+    // still validated to [0, 1). The retired mean_information_thresh is ignored.
+    p.minimumBeliefMass        = map["minimum_belief_mass"].num(p.minimumBeliefMass);
     p.maxClusterRadius         = map["max_cluster_radius_m"].num(p.maxClusterRadius);
     p.cluster.kmeansReplicates = static_cast<int>(map["kmeans_replicates"].num(p.cluster.kmeansReplicates));
     p.cluster.kmeansMaxIter    = static_cast<int>(map["kmeans_max_iter"].num(p.cluster.kmeansMaxIter));
@@ -109,7 +113,14 @@ double agentAltitudeOffset(const J::Value& sc, std::size_t a) {
     return std::isfinite(dz) ? dz : 0.0;
 }
 
-mtl::CellSet cellsFromScenario(const J::Value& sc, const Frame& frame, double cellSize) {
+/// Host-extracted cells. `cells.mass` is each cell's belief mass, i.e. the
+/// probability that the target is in it (the host prior sums to 1), and
+/// `cells.total_map_mass` is 1 for such a prior (default: the sum of the masses).
+/// The route optimiser only compares rewards as ratios, so any positive scale
+/// plans identically; probabilities keep the printed info in the same units as
+/// the residual-belief metric.
+mtl::CellSet cellsFromScenario(const J::Value& sc, const Frame& frame, double cellSize,
+                               double minBeliefMass) {
     const J::Value& cells = sc["cells"];
     if (!cells["centers"].isArray()) {
         throw std::runtime_error(
@@ -141,6 +152,7 @@ mtl::CellSet cellsFromScenario(const J::Value& sc, const Frame& frame, double ce
     out.retainedMass = out.mass.sum();
     out.totalMapMass = cells["total_map_mass"].num(out.retainedMass);
     out.massNorm     = out.retainedMass > 0 ? (out.mass / out.retainedMass).eval() : out.mass;
+    out.minBeliefMass = minBeliefMass;
     const double res = sc["mission"]["area"]["belief_res_m"].num(1.0);
     out.gridRes      = mtl::Vec2(res, res);
     return out;
@@ -216,7 +228,8 @@ SearchProblem parseScenario(const std::string& jsonText) {
         out.agents.push_back(spec);
     }
     out.params = paramsFromScenario(sc, static_cast<int>(out.agents.size()));
-    out.cells  = cellsFromScenario(sc, out.frame, out.params.targetCellSize);
+    out.cells  = cellsFromScenario(sc, out.frame, out.params.targetCellSize,
+                                   out.params.minimumBeliefMass);
     if (out.cells.empty()) throw std::runtime_error("scenario contains no cells to plan over");
     return out;
 }

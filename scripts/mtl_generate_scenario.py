@@ -88,10 +88,11 @@ def main(argv=None) -> int:
 
     out = generate(args.mission, args.fleet, args.out_dir)
     sc, gt = out["scenario"], out["ground_truth"]
-    mass = sum(sc["cells"]["mass"])
+    mass = sum(sc["cells"]["mass"])  # P(target in a valid cell); the prior sums to 1
     print(f"[mtl_generate_scenario] {sc['mission']['name']}: "
-          f"{len(sc['cells']['centers'])} valid cells ({mass:.0f} of "
-          f"{sc['cells']['total_map_mass']:.0f} belief mass), "
+          f"{len(sc['cells']['centers'])} valid cells (belief mass > "
+          f"{sc['mapping']['minimum_belief_mass']:g} each; they hold {100 * mass:.1f} % of the "
+          f"prior, total {sc['cells']['total_map_mass']:.4f}), "
           f"{len(gt['targets'])} targets, {len(sc['team']['agents'])} agents "
           f"({', '.join(a['name'] for a in sc['team']['agents'])})")
     for key, path in out["paths"].items():

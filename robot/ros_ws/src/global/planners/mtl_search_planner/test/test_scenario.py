@@ -26,7 +26,7 @@ MISSION = {
     "targets": {"count": 6, "min_separation_m": 8.0},
     "team": {"max_flight_time_s": 60.0, "max_flight_distance_m": float("inf")},
     "aircraft": {"altitude_m": 30.0, "speed_mps": 6.0, "min_turn_radius_m": 12.0, "dt": 0.1},
-    "mapping": {"target_cell_size_m": 20.0, "mean_information_thresh": 0.05, "max_cluster_radius_m": 45.0},
+    "mapping": {"target_cell_size_m": 20.0, "minimum_belief_mass": 2.0e-3, "max_cluster_radius_m": 45.0},
     "sensor": {"fov_deg": 60.0, "single_axis_gimbal": True, "tilt_deg": 30.0, "max_slant_range_m": 90.0,
                "detection": {"a": 1.1, "b": 0.1, "c": 61.0, "beta": 61.0, "threshold": 0.9}},
     "render": {"texture_px": 64, "show_valid_cells": True},
@@ -59,7 +59,11 @@ def test_build_is_deterministic_and_well_formed():
     assert sc1["cells"]["centers"], "expected valid cells"
     for n, e in sc1["cells"]["centers"]:
         assert n_min <= n <= n_max and e_min <= e <= e_max
-    assert all(m > 0 for m in sc1["cells"]["mass"])
+    assert all(m > 2.0e-3 for m in sc1["cells"]["mass"])  # kept by per-cell belief mass
+    assert sc1["cells"]["total_map_mass"] == pytest.approx(1.0, abs=1e-9)
+    assert 0.0 < sum(sc1["cells"]["mass"]) <= 1.0
+    assert sc1["mapping"]["minimum_belief_mass"] == 2.0e-3
+    assert "mean_information_thresh" not in sc1["mapping"]
     assert "targets" not in json.dumps(sc1)  # ground truth never reaches the planner file
     tg = gt1["targets"]
     assert len(tg) == 6
@@ -96,12 +100,39 @@ def test_belief_mass_is_consistent():
     grid, bumps = S.generate_belief(MISSION["area"], MISSION["belief"], 3)
     assert len(bumps) == 3
     assert grid.shape == (101, 101)
-    assert 0.0 < grid.peak <= 0.85
+    # the prior is a probability mass function over the raster
+    assert grid.total_mass == pytest.approx(1.0, abs=1e-12)
+    assert 0.0 < grid.peak < 1.0
+    assert min(min(r) for r in grid.values) >= 0.0
     centers, masses, cell = S.extract_valid_cells(grid, 20.0, 0.0)
     assert cell == 20.0
     # thresh 0 keeps every block: the blocks tile all but the last raster row/col
-    assert sum(masses) <= grid.total_mass + 1e-6
-    assert sum(masses) >= 0.9 * grid.total_mass
+    assert sum(masses) <= 1.0 + 1e-9
+    assert sum(masses) >= 0.9
+
+
+def test_cells_are_kept_by_mass_and_scale_free():
+    grid, _ = S.generate_belief(MISSION["area"], MISSION["belief"], 3)
+    thr = 2.0e-3
+    centers, masses, _ = S.extract_valid_cells(grid, 20.0, thr)
+    assert centers and all(m > thr for m in masses)
+    # a host grid in any units gives the same cells and masses (normalised inside)
+    scaled = S.BeliefGrid([[7.5 * v for v in row] for row in grid.values], grid.n_axis, grid.e_axis, grid.res_m)
+    c2, m2, _ = S.extract_valid_cells(scaled, 20.0, thr)
+    assert c2 == centers and m2 == pytest.approx(masses, rel=1e-9)
+    # a stricter threshold keeps a strict subset
+    c3, _, _ = S.extract_valid_cells(grid, 20.0, 20 * thr)
+    assert 0 < len(c3) < len(centers) and all(c in centers for c in c3)
+    with pytest.raises(ValueError):
+        S.extract_valid_cells(grid, 20.0, 1.0)  # a probability must be < 1
+    with pytest.raises(ValueError, match="minimum_belief_mass"):
+        S.extract_valid_cells(grid, 20.0, 0.999)  # no block holds that much
+
+
+def test_retired_mean_threshold_is_refused():
+    old = dict(MISSION, mapping={"target_cell_size_m": 20.0, "mean_information_thresh": 0.05})
+    with pytest.raises(ValueError, match="minimum_belief_mass"):
+        S.build_scenario(old, AGENTS)
 
 
 def test_agent_lookup_and_fleet_consistency():

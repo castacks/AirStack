@@ -10,9 +10,18 @@
 //  the two libraries a host simulation would replace with its own.
 //
 //    ./mtl_demo [--agents N] [--budget-seconds S] [--multi-axis] [--tilt DEG]
-//               [--extend-dist M]
+//               [--extend-dist M] [--min-belief-mass P]
 //               [--cell-size M] [--seed N] [--quiet] [--csv DIR]
+//               [--no-residual] [--residual-block N]
+//
+//  After scoring the targets it runs the post-search Bayes update over every
+//  belief pixel (eval::computeResidualBelief) and prints the residual belief
+//  mass - P(the search missed the target), LOWER IS BETTER - the number to
+//  compare planners on.  With --csv the residual map is also written, summed
+//  into N-by-N pixel blocks (--residual-block, default 10) so it stays a
+//  probability mass and a manageable file.
 // =============================================================================
+#include <algorithm>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -26,6 +35,30 @@
 #include "mtl/planner.hpp"
 
 namespace {
+
+/// The prior and the residual, each summed over `block` x `block` pixel blocks
+/// (the ragged last block sums what it has), one row per block centre.
+void writeResidualCsv(const std::string& dir, const mtl::BeliefField& belief,
+                      const mtl::eval::ResidualBelief& rb, int block) {
+    const mtl::Index b  = std::max(1, block);
+    const mtl::Index ny = belief.rows();
+    const mtl::Index nx = belief.cols();
+    const double     total = belief.values.sum();
+
+    std::ofstream f(dir + "/residual_belief.csv");
+    f << "x,y,prior,residual\n";
+    for (mtl::Index c0 = 0; c0 < nx; c0 += b) {
+        const mtl::Index nc = std::min(b, nx - c0);
+        for (mtl::Index r0 = 0; r0 < ny; r0 += b) {
+            const mtl::Index nr = std::min(b, ny - r0);
+            const double prior = belief.values.block(r0, c0, nr, nc).sum() / total;
+            const double resid = rb.residual.block(r0, c0, nr, nc).sum();
+            const double x = 0.5 * (belief.x(c0) + belief.x(c0 + nc - 1));
+            const double y = 0.5 * (belief.y(r0) + belief.y(r0 + nr - 1));
+            f << x << ',' << y << ',' << prior << ',' << resid << '\n';
+        }
+    }
+}
 
 void writeCsv(const std::string& dir, const mtl::PlanningResult& result,
               const std::vector<mtl::Target>& targets) {
@@ -74,6 +107,8 @@ int main(int argc, char** argv) {
     mtl::PlannerParams params;
     int         numTargets = 50;
     std::string csvDir;
+    bool        residual      = true;
+    int         residualBlock = 10;
 
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
@@ -86,6 +121,12 @@ int main(int argc, char** argv) {
             params.maxFlightTime = mtl::kInf;
         } else if (arg == "--extend-dist") {
             params.extension.extendDist = next(300.0);
+        } else if (arg == "--min-belief-mass") {
+            params.minimumBeliefMass = next(5e-5);
+        } else if (arg == "--no-residual") {
+            residual = false;
+        } else if (arg == "--residual-block") {
+            residualBlock = static_cast<int>(next(10));
         } else if (arg == "--multi-axis") {
             params.singleAxisGimbal = false;
         } else if (arg == "--tilt") {
@@ -103,7 +144,9 @@ int main(int argc, char** argv) {
         } else if (arg == "--help" || arg == "-h") {
             std::cout << "usage: mtl_demo [--agents N] [--budget-seconds S] [--unlimited]\n"
                          "                [--multi-axis] [--tilt DEG] [--cell-size M]\n"
-                         "                [--targets N] [--seed N] [--quiet] [--csv DIR]\n";
+                         "                [--extend-dist M] [--min-belief-mass P]\n"
+                         "                [--targets N] [--seed N] [--quiet] [--csv DIR]\n"
+                         "                [--no-residual] [--residual-block N]\n";
             return 0;
         } else {
             std::cerr << "unknown argument: " << arg << "\n";
@@ -152,7 +195,20 @@ int main(int argc, char** argv) {
         std::cout << "\nSimulation horizon: " << result.timeVec(result.numSteps() - 1) << " s over "
                   << result.numSteps() << " steps.\n";
 
-        if (!csvDir.empty()) writeCsv(csvDir, result, targets);
+        // ---- 4. once the search is over: the belief it leaves behind -------
+        // Bayes-update every belief pixel against the looks the team took; the
+        // residual mass is P(target missed) and is the planner metric.
+        mtl::eval::ResidualBelief rb;
+        if (residual) {
+            rb = mtl::eval::computeResidualBelief(belief, result.trajectories, params.fov,
+                                                  params.sensor);
+            mtl::eval::reportResidualBelief(std::cout, rb);
+        }
+
+        if (!csvDir.empty()) {
+            writeCsv(csvDir, result, targets);
+            if (residual) writeResidualCsv(csvDir, belief, rb, residualBlock);
+        }
     } catch (const std::exception& e) {
         std::cerr << "error: " << e.what() << "\n";
         return 1;

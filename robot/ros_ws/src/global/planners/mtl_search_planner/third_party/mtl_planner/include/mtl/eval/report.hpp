@@ -33,6 +33,12 @@ void reportDetectionSummary(std::ostream& os, const std::vector<Target>& targets
 /// Print the per-agent gimbal-coverage summary (single-axis mode only).
 void reportGimbalCoverage(std::ostream& os, const PlanningResult& result);
 
+struct ResidualBelief;  // mtl/eval/detection.hpp
+
+/// Print the post-search residual belief - the planner-comparison metric,
+/// lower is better (see computeResidualBelief).
+void reportResidualBelief(std::ostream& os, const ResidualBelief& residual);
+
 }  // namespace mtl::eval
 
 #endif  // MTL_EVAL_REPORT_HPP

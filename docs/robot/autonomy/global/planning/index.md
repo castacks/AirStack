@@ -104,7 +104,8 @@ launch file for `exploration_launch.xml`, as described in its README.
 [`mtl_search_planner`](../../../../../robot/ros_ws/src/global/planners/mtl_search_planner/README.md)
 is the global layer of the [`mtl_search`](../../../../../stacks/mtl_search/README.md) stack.
 It plans an endurance-budgeted **team** coverage search over a prior belief map with the
-vendored `mtl::planner`. It serves its own `mtl_msgs/SearchMission` action at
+vendored `mtl::planner`. The prior is a probability mass function (it sums to 1). The valid
+cells it plans over are the blocks whose belief mass exceeds `mapping.minimum_belief_mass`. It serves its own `mtl_msgs/SearchMission` action at
 `/{robot_name}/search_mission` and publishes `search/plan` plus a
 `search/planned_trajectory` (`airstack_msgs/TrajectoryXYZVYaw`).
 

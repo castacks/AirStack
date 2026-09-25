@@ -37,6 +37,31 @@ Also built:
 - `mtl_search_planner.scenario`: stdlib Python that generates scenarios from
   `stacks/mtl_search/config/mission.yaml`. It is used by `scripts/mtl_generate_scenario.py`.
 
+## Prior and cells
+
+The prior is a **probability mass function** over the scenario raster: it sums to 1, and
+each pixel holds the probability that the target is there. This matches the vendored
+planner from upstream commit `e186a1b`; see `third_party/mtl_planner/CHANGES_belief_mass_and_residual.md`.
+
+- `mtl_search_planner.scenario` makes the raster, normalises it, and cuts it into
+  `target_cell_size_m` blocks.
+- It keeps a block when the block's **belief mass** (the probability that the target is in
+  it) is greater than `mapping.minimum_belief_mass`. That value is a per-cell probability in
+  `[0, 1)`. It replaces the old `mean_information_thresh`, which was a mean-belief test; a
+  `mission.yaml` that still sets only the old key is rejected.
+- `cells.mass` in `scenario.json` is therefore a probability, and `cells.total_map_mass = 1`.
+- The planner's team info (`info_mass`, `info_total`) is in the same units.
+- The route optimiser compares rewards as ratios, so the scale of the masses does not change
+  a plan. The set of kept cells does.
+- The threshold depends on how finely the map is cut: it scales with `cell² / area²`. Work it
+  out again for each mission. `mission.yaml` explains the current value: `2e-3` keeps the same
+  144 cells as the old `0.08`.
+
+Planners are compared on the **residual belief mass**, `P(target missed)`, where lower is
+better. `mtl_metrics_logger` scores it from the flown looks and from the planned track and
+boresight schedule. The C++ reference, `mtl::eval::computeResidualBelief`, is built only
+into `mtl_eval_vendored`, which the self-tests use.
+
 ## Frames
 
 - `mtl::planner` works internally in `x = East, y = North` over `[0, size]`, with the origin
@@ -53,7 +78,11 @@ See `config/mtl_search_planner.yaml`. The launch args set `scenario_file`, `agen
 ## Tests
 
 - `test/test_search_problem.cpp` (gtest): scenario parsing, frames, the team solve, track
-  export.
+  export. It also checks that cell masses are probabilities, that
+  `minimum_belief_mass` is read and validated (the old key is ignored), and that scaling
+  every cell mass leaves the plan unchanged.
 - The five upstream `mtl_planner` self-tests.
 - `test/test_scenario.py`: the scenario generator, including a byte-for-byte `--check` of the
-  committed bundle.
+  committed bundle. It checks that the prior sums to 1, that cells are kept by mass, that the
+  result does not depend on the grid's units, that a stricter threshold keeps a subset of the
+  cells, and that a mission using the old key is rejected.

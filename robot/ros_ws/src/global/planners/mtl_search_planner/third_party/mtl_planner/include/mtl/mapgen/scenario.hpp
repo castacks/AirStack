@@ -9,7 +9,9 @@
 //  if you want the reference scenario.
 //
 //  The prior is a sum of Gaussian bumps at uniformly random positions, capped
-//  from above and floored from below.  The targets are sampled FROM that prior
+//  from above and floored from below, then NORMALISED so the whole grid sums to
+//  1 - each pixel is the probability that the target is in it, and the bump
+//  heights, cap and floor only shape the prior.  The targets are sampled FROM that prior
 //  by inverse-CDF, so they concentrate where the belief does - and the planner
 //  never sees them, only the belief.
 // =============================================================================
@@ -24,7 +26,7 @@
 
 namespace mtl::mapgen {
 
-/// Spatial grid and the Gaussian prior belief map.
+/// Spatial grid and the Gaussian prior belief map, normalised to sum to 1.
 ///
 /// @param mapSize  [m] side of the square search area
 /// @param cellSize [m] grid resolution; the grid is (mapSize/cellSize + 1)^2

@@ -31,7 +31,9 @@ namespace mtl {
 //  1. PRIOR BELIEF MAP        -> mapgen::generateBeliefMap
 // =============================================================================
 /// The prior is a sum of numCentroids axis-aligned Gaussian bumps, capped,
-/// then floored.  Scenario generation only - the planner never needs this.
+/// then floored, then NORMALISED so the whole grid sums to 1.  The fields
+/// below therefore only shape the prior; none of them sets its scale.
+/// Scenario generation only - the planner never needs this.
 struct BeliefMapParams {
     /// Number of Gaussian belief bumps scattered over the map.
     int    numCentroids = 10;
@@ -41,12 +43,12 @@ struct BeliefMapParams {
     /// and y, so bumps are elliptical and axis-aligned.
     double sigmaMin = 200.0;
     double sigmaMax = 500.0;
-    /// Hard ceiling applied after summing, so overlapping bumps cannot add up
-    /// past a probability.
+    /// Hard ceiling applied after summing (before normalising), which flattens
+    /// the tops where bumps overlap.
     double beliefCap = 0.85;
-    /// Floor applied after the cap.  A non-zero floor spreads belief mass over
-    /// the WHOLE map, which raises the cell count sharply - if you raise this,
-    /// raise PlannerParams::meanInformationThresh with it.
+    /// Floor applied after the cap (before normalising).  A non-zero floor
+    /// spreads belief mass over the WHOLE map, which raises the cell count
+    /// sharply - if you raise this, raise PlannerParams::minimumBeliefMass with it.
     double baseUncertainty = 0.0;
 };
 
@@ -386,9 +388,14 @@ struct PlannerParams {
 
     // --- cell extraction and macro-clustering ------------------------------
     /// [m] Side of the blocks the map is diced into.  A block is kept as a
-    /// valid cell when its MEAN belief beats meanInformationThresh.
-    double targetCellSize        = 200.0;
-    double meanInformationThresh = 0.005;
+    /// valid cell when its BELIEF MASS (the probability the target is in it,
+    /// on the prior normalised to sum to 1) beats minimumBeliefMass.
+    double targetCellSize    = 200.0;
+    /// Per-cell probability threshold.  5e-5 keeps every 200 m cell holding more
+    /// than 0.005% of the map's belief - ~400-490 cells retaining ~99.8% of the
+    /// reference prior, about what the retired mean-belief threshold of 0.005
+    /// kept.  Scales with targetCellSize^2.
+    double minimumBeliefMass = 5e-5;
     /// [m] Valid cells are clustered with K raised until every cell is within
     /// this radius of its centroid.  This sets the coarseness of the whole
     /// abstraction: bigger means fewer, fatter clusters and a blunter route.

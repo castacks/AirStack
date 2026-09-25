@@ -18,7 +18,7 @@ The chain, and the one idea behind each link:
 
 | Stage | What it does | Why |
 |---|---|---|
-| `extractValidCells` | dice the belief into blocks, keep the ones worth looking at | reduces a grid to a few hundred points to aim at, each carrying its belief **mass** (aggregate, not mean — expected targets is additive) |
+| `extractValidCells` | dice the belief into blocks, keep those whose belief **mass** exceeds `minimumBeliefMass` | reduces a grid to a few hundred points to aim at, each carrying its mass — the probability the target is in it (the prior sums to 1), which is additive over cells |
 | `clusterCells` | raise K until every cell is within `maxClusterRadius` of its centroid | that radius is the guarantee the gimbal sweep of a cluster covers the cells the cluster owns |
 | `computeClusterRewards` | lift per-cell mass onto the centroids | the route problem goes from hundreds of nodes to tens; **exact in reward**, approximate in cost |
 | `solveBudgetedOrienteering` | choose which clusters to visit and in what order, together | truncating a TSP tour fixes the order first and then cuts — the order that is optimal for visiting everything is a poor prefix |
@@ -32,6 +32,16 @@ The chain, and the one idea behind each link:
 
 The budget is a **hard guarantee**, not an estimate: it is enforced on the trajectory that
 comes out, not the plan that went in (see *The budget is measured, not estimated* below).
+
+### The prior is a probability mass function
+
+`mapgen::generateBeliefMap` normalises the prior so it **sums to 1 over the whole grid**:
+`values(r, c)` is the probability that the target is in that pixel, and the bump heights,
+cap and floor in `BeliefMapParams` only shape it. Every mass downstream — a cell's, a
+cluster's reward, a route's information, the residual after the search — is therefore a
+probability. `extractValidCells` and `eval::computeResidualBelief` normalise a host grid that
+does not sum to 1 themselves, so a host may pass any non-negative field and
+`minimumBeliefMass` still means the same thing.
 
 ---
 
@@ -61,8 +71,8 @@ tests/        five suites, run by ctest, no external framework
 | Target | Contents | Depends on |
 |---|---|---|
 | **`mtl::planner`** | the whole planning chain | Eigen only |
-| `mtl::mapgen` | Gaussian prior + ground-truth targets | `mtl::planner` |
-| `mtl::eval` | detection physics, geometry audit, reports | `mtl::planner` |
+| `mtl::mapgen` | Gaussian prior (normalised) + ground-truth targets | `mtl::planner` |
+| `mtl::eval` | detection physics, residual belief, geometry audit, reports | `mtl::planner` |
 
 A host simulation normally has its own prior and its own sensor model. Link `mtl::planner`
 alone and neither of the other two is compiled into your binary. The planner's own objective
@@ -182,8 +192,49 @@ The knobs worth knowing first:
 | `singleAxisGimbal` | `true` runs the whole abeam/scheduling machinery; `false` flies the nominal trajectory and reads attitude off it. |
 | `sensorTiltAngle` | stands the swept line off `h·tan(tilt)` **ahead**, for free — a bracket is a mount, not a manoeuvre. Costs slant range as `1/cos` and cross-track reach as `cos`. |
 | `maxClusterRadius` | the coarseness of the whole abstraction: bigger means fewer, fatter clusters and a cheaper but blunter route problem. |
-| `meanInformationThresh` | how much of the map is worth visiting at all. Lower keeps many more cells and a much longer sortie. |
+| `minimumBeliefMass` | how much of the map is worth visiting at all: a 200 m cell is kept when the probability of the target being in it exceeds this (default `5e-5`, ~400–490 cells holding ~99.8% of the reference prior). Lower keeps many more cells and a much longer sortie; it scales with `targetCellSize²`. Replaces the old `meanInformationThresh` (a mean-belief-per-cell test); the JSON key is `mapping.minimum_belief_mass`. |
 | `budget.orienteering.nPerturb` | left unset keeps the solver's adaptive thinning above 60 candidate clusters; setting it explicitly **disables** that thinning, because an explicit value is treated as a deliberate choice. |
+
+---
+
+## Scoring a plan: residual belief
+
+`mtl::eval::computeResidualBelief` is the metric to compare planners on. Once the search is
+flown it Bayes-updates **every pixel** of the prior (1 m on the reference map) against every
+look every agent took, using exactly the detection model `updateTargetDetectionProbs` applies
+to the targets (the sigmoid in slant range inside the footprint, `pOutOfRangeMulti` past
+`beta`, nothing outside the footprint):
+
+```
+residual(x)  = prior(x) · Π_looks (1 − P(Z|x))   = P(target at x AND every look missed it)
+residualMass = Σ_x residual(x)                    = P(the search missed the target)
+```
+
+**Lower is better** — 1 for a search that looked at nothing, falling toward 0 as more of the
+belief is seen, and seen well. Unlike the planner's own information score (was the boresight
+aimed at a cell centre), it credits everything the footprint actually swept, discounted by
+how well it was seen, so it can compare planners that do not share the cell abstraction.
+
+```cpp
+#include "mtl/eval/detection.hpp"
+#include "mtl/eval/report.hpp"
+
+const mtl::eval::ResidualBelief rb =
+    mtl::eval::computeResidualBelief(belief, result.trajectories, params.fov, params.sensor);
+mtl::eval::reportResidualBelief(std::cout, rb);   // prints rb.residualMass
+const mtl::MatX post = rb.posterior();            // Bayes posterior given no detection
+```
+
+`mtl_demo` prints it after the detection summary, and with `--csv DIR` also writes
+`residual_belief.csv` (prior and residual summed into 10×10-pixel blocks, `--residual-block N`;
+`--no-residual` skips the pass). At a target's pixel `residual/prior` equals that target's
+`pMissTotal` — asserted by `test_pipeline` — and the MATLAB `computeResidualBelief.m` agrees
+with this port to 1e-12 on identical inputs.
+
+Cost: each look only touches its footprint, identical consecutive states (hover padding, a
+grounded agent) are integrated once, and `log(1 − P)` is tabulated in the squared slant range.
+On the reference scenario (5001×5001 grid, ~7400 looks) that is ~12 s on one core; configure
+with `-DMTL_ENABLE_OPENMP=ON` to split each footprint across threads.
 
 ---
 
@@ -245,7 +296,7 @@ ctest --test-dir build --output-on-failure
 | `test_kmeans` | blob recovery, k clamping, and the radius guarantee `clusterCells` must uphold for the gimbal argument to hold |
 | `test_orienteering` | budget never exceeded, reward monotone in the budget, unreachable nodes pruned, the Dubins re-costing loop, free-harvest anchoring |
 | `test_geometry` | the abeam gate (including the tilt shifting it), level cruise being exactly level, banking into a turn, the full audit passing at three mount tilts, and the reach repair loop recovering out-of-reach centres without breaking the geometry or the timeline |
-| `test_pipeline` | end to end in every mode; the budget invariant measured on the flown arc, exact cell/cluster bookkeeping, determinism, and construction-time rejection of bad parameters |
+| `test_pipeline` | end to end in every mode; the prior summing to 1, mass-threshold cell extraction (and its invariance to an un-normalised host grid), the budget invariant measured on the flown arc, exact cell/cluster bookkeeping, the residual belief (whole prior with no search, never above the prior, and equal to each target's miss probability at its pixel), determinism, and construction-time rejection of bad parameters |
 
 All five pass clean under `-fsanitize=address,undefined`, as do the single-axis, multi-axis,
 grounded-agent and empty-cell-set paths.
@@ -265,7 +316,8 @@ grounded-agent and empty-cell-set paths.
   not bit-identical. Runs *are* reproducible within this package: same parameters, same
   result (asserted by `test_pipeline`).
 * **Visualization is not ported.** The demo can write CSV (`--csv DIR`) for plotting
-  elsewhere; the planner has no rendering dependency.
+  elsewhere — including `residual_belief.csv`, the data behind MATLAB's
+  `plotResidualBelief` figure; the planner has no rendering dependency.
 * **Diagnostics are padded with the trajectory.** Padding an agent's track to the team
   timeline pads its per-step gimbal signals too, so the audit always compares the schedule
   against the track that was actually delivered.
@@ -282,7 +334,8 @@ grounded-agent and empty-cell-set paths.
 
 ## Performance
 
-The reference scenario — 5 km map, 1 m belief grid (5001×5001), 404 valid cells, 35 clusters,
+The reference scenario — 5 km map, 1 m belief grid (5001×5001), 412 valid cells, 45 clusters,
 3 agents, ~2400 trajectory steps each — plans end to end in **under one second** on a single
 core, including the geometry audit. The belief map is built as separable outer products
-rather than an `n²` exponential evaluation, which is most of that.
+rather than an `n²` exponential evaluation, which is most of that. Scoring it with the
+residual belief adds ~12 s (see *Scoring a plan* above).

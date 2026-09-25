@@ -132,6 +132,10 @@ add_library(mtl_eval
   src/eval/report.cpp)
 add_library(mtl::eval ALIAS mtl_eval)
 target_link_libraries(mtl_eval PUBLIC mtl_planner PRIVATE mtl_warnings)
+if(MTL_ENABLE_OPENMP AND OpenMP_CXX_FOUND)
+  # computeResidualBelief splits each look's footprint across threads.
+  target_compile_definitions(mtl_eval PRIVATE MTL_HAVE_OPENMP=1)
+endif()
 set_target_properties(mtl_eval PROPERTIES
   VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR} EXPORT_NAME eval)
 

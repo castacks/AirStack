@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <random>
+#include <stdexcept>
 
 namespace mtl::mapgen {
 
@@ -45,6 +46,14 @@ BeliefField generateBeliefMap(double mapSize, double cellSize, const BeliefMapPa
     }
 
     field.values = field.values.cwiseMin(o.beliefCap).cwiseMax(o.baseUncertainty);
+
+    // Normalise to a probability mass function over the grid: the whole map sums
+    // to 1, so every downstream mass (a cell's, a cluster's, a route's, the
+    // residual after the search) is directly a probability.
+    const double total = field.values.sum();
+    if (!(total > 0.0))
+        throw std::invalid_argument("mtl::mapgen::generateBeliefMap: the prior has no mass");
+    field.values /= total;
     return field;
 }
 

@@ -40,7 +40,7 @@ for sub in ("robot/ros_ws/src/local/controls/mtl_trajectory_follower",
             "robot/ros_ws/src/behavior/mtl_metrics_logger"):
     sys.path.insert(0, str(REPO / sub))
 
-from mtl_metrics_logger.analysis import write_run_outputs  # noqa: E402
+from mtl_metrics_logger.analysis import planned_looks_from_track, write_run_outputs  # noqa: E402
 from mtl_metrics_logger.detection import boresight_ground_point, footprint_radius  # noqa: E402
 from mtl_trajectory_follower import follower_core as fc  # noqa: E402
 from mtl_trajectory_follower.gimbal_math import slew_limit, wrap_pi  # noqa: E402
@@ -126,7 +126,8 @@ def fly_agent(name, track_json, scenario, rate_hz=20.0, max_s=900.0):
         veh.step(out.carrot, out.carrot_yaw, dt)
         t += dt
     planned = {"planned": [[x + hx, y + hy] for x, y in zip(s["x_map"], s["y_map"])], "home": [hx, hy],
-               "serviced_cells": tr["serviced_cells"], "planned_length_m": track.total}
+               "serviced_cells": tr["serviced_cells"], "planned_length_m": track.total,
+               "looks": planned_looks_from_track(tr)}
     return rows, planned, track.total
 
 
@@ -175,8 +176,8 @@ def main(argv=None) -> int:
             rms = math.sqrt(sum(v * v for v in xte) / len(xte)) if xte else float("nan")
             s = r["summary"]
             print(f"  {name}: track {total:.0f} m flown in {rows[-1]['t']:.0f} s, cross-track RMS {rms:.2f} m, "
-                  f"{s['targets_detected']} targets, covered {s['belief_mass_covered']:.0f} "
-                  f"(planned {s['planned_belief_mass']:.0f})")
+                  f"{s['targets_detected']} targets, residual belief {_fmt(s['residual_belief_mass'])} "
+                  f"(planned {_fmt(s['planned_residual_belief_mass'])})")
         shutil.copyfile(gt_path, run_dir / "ground_truth.json")
         if png:
             (run_dir / "belief.png").write_bytes(png)
@@ -186,11 +187,16 @@ def main(argv=None) -> int:
                                       "vehicle + slew-limited gimbal -> Moon et al. scoring",
                              belief_png=png)
     s = team["summary"]
-    print(f"TEAM: {s['targets_detected']}/{s['targets_total']} targets, mean time to discovery "
-          f"{s['mean_time_to_discovery_s'] or float('nan'):.1f} s, covered {s['belief_mass_covered']:.0f} of "
-          f"planned {s['planned_belief_mass']:.0f} ({100 * s.get('realized_over_planned_mass', 0):.1f} %), "
-          f"{s['belief_mass_per_km']:.0f} mass/km -> {run_dir / 'report.html'}")
+    print(f"TEAM: residual belief {_fmt(s['residual_belief_mass'])} = P(target missed), lower is better "
+          f"(planned {_fmt(s['planned_residual_belief_mass'])}); {s['targets_detected']}/{s['targets_total']} "
+          f"targets, mean time to discovery {s['mean_time_to_discovery_s'] or float('nan'):.1f} s; valid-cell "
+          f"mass reached {s['belief_mass_covered']:.4f} of planned {s['planned_belief_mass'] or 0.0:.4f} "
+          f"({100 * s.get('realized_over_planned_mass', 0):.1f} %) -> {run_dir / 'report.html'}")
     return 0
+
+
+def _fmt(v, digits: int = 4) -> str:
+    return "n/a" if v is None else f"{v:.{digits}f}"
 
 
 if __name__ == "__main__":

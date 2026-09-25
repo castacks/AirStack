@@ -53,6 +53,8 @@ void PlannerParams::validate() const {
     if (!(dt > 0.0)) fail("dt must be positive");
     if (!(minTurnRadius > 0.0)) fail("minTurnRadius must be positive");
     if (!(targetCellSize > 0.0)) fail("targetCellSize must be positive");
+    if (!(minimumBeliefMass >= 0.0) || minimumBeliefMass >= 1.0)
+        fail("minimumBeliefMass is a per-cell probability and must be in [0, 1)");
     if (!(maxClusterRadius > 0.0)) fail("maxClusterRadius must be positive");
     if (!(dubins.stepSize > 0.0)) fail("dubins.stepSize must be positive");
     if (!(fov > 0.0) || fov >= kPi) fail("fov must be in (0, pi)");

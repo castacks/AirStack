@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <numeric>
 
+#include "mtl/eval/detection.hpp"
 #include "mtl/planning/info_score.hpp"
 
 namespace mtl::eval {
@@ -120,6 +121,16 @@ void reportDetectionSummary(std::ostream& os, const std::vector<Target>& targets
     os << "Targets Detected: " << detected << "\n";
     os << "Targets Missed:   " << (static_cast<Index>(targets.size()) - detected) << "\n";
     os << "--------------------------------\n";
+}
+
+void reportResidualBelief(std::ostream& os, const ResidualBelief& rb) {
+    os << "\n--- Residual Belief (lower is better) ---\n" << std::fixed << std::setprecision(6);
+    os << "Prior belief mass:      " << rb.priorMass << "\n";
+    os << "Residual belief mass:   " << rb.residualMass
+       << "   <- sum over the map of P(target here & missed)\n";
+    os << "Belief mass searched:   " << rb.detectedMass << "   (" << std::setprecision(1)
+       << (100.0 * rb.detectedMass / std::max(rb.priorMass, 1e-300)) << "% of the prior)\n";
+    os << "-----------------------------------------\n";
 }
 
 void reportGimbalCoverage(std::ostream& os, const PlanningResult& r) {

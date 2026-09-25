@@ -5,7 +5,9 @@ robot flies its own row of a team search plan from `mtl::planner`, which is vend
 unchanged inside `mtl_search_planner`. A native earth-stabilised gimbal camera
 points along the planned boresight. A metrics logger scores detections online
 against the scenario's ground truth, using the Moon et al. sigmoid and a
-miss-product accumulation.
+miss-product accumulation. The headline score of a run is the **residual belief mass**:
+the probability that the target is still somewhere the team looked and missed, or never
+looked. Lower is better.
 
 Full walkthrough: [MTL target localization tutorial](../../docs/tutorials/mtl_target_localization.md).
 
@@ -21,7 +23,7 @@ Full walkthrough: [MTL target localization tutorial](../../docs/tutorials/mtl_ta
 | Global | `mtl_search_planner` | `/<robot>/search_mission` action, `search/plan`, `search/planned_trajectory`, `search/planned_boresight` |
 | Local | `mtl_trajectory_follower` | carrot pursuit (L = 1.2·R_min) + gimbal law, 20 Hz, owns `trajectory_controller/tracking_point` |
 | Local | `trajectory_controller`, `pid_controller` | tracking point moved to `tracking_point_nominal`; stack-local PID clamp |
-| Logging | `mtl_metrics_logger` | `runs/<run_id>/<robot>/{telemetry.csv,detection.json,report.html}` |
+| Logging | `mtl_metrics_logger` | `runs/<run_id>/<robot>/{telemetry.csv,detection.json,residual_belief.csv,report.html}` |
 | Extras | DDS router (stack-local allowlist), gossip | |
 
 **The one wiring deviation.** The trajectory controller's tracking point is
@@ -41,7 +43,7 @@ can reach the planned 6 m/s.
 
 | File | What |
 |---|---|
-| `config/mission.yaml` | **Source of truth**: search area, prior bumps, targets, aircraft, sensor/detection model, sim gimbal, render |
+| `config/mission.yaml` | **Source of truth**: search area, prior bumps (the prior is normalised to sum to 1), targets, aircraft, sensor/detection model, cell threshold `mapping.minimum_belief_mass` (a per-cell probability), sim gimbal, render |
 | `config/scenario.json`, `ground_truth.json`, `belief.png` | Generated bundle, read by the planner, the logger, the Isaac scene and the analysis script |
 | `config/pid_controller_mtl.yaml` | PID gains (speed clamp) |
 | `config/dds_router_mtl_search.yaml` | Robot↔GCS allowlist: the shared list plus the search and gimbal topics and actions |

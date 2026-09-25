@@ -24,7 +24,10 @@ SCEN = {
     "sensor": {"fov_deg": 60.0, "detection": {"a": 1.1, "b": 0.1, "c": 61.0, "beta": 61.0,
                                               "p_out_of_range": 1e-6, "threshold": 0.9, "dt_ref_s": 0.1}},
     "team": {"agents": [{"name": "robot_1", "start_ned": [-50.0, -60.0], "home_ned": [-50.0, -60.0]}]},
-    "cells": {"centers": [[-50.0, -30.0]], "mass": [4.0]},
+    "cells": {"centers": [[-50.0, -30.0]], "mass": [0.4]},
+    # one prior bump centred on the flown line -> a normalised 101 x 101 raster
+    "airstack": {"belief": {"bumps": [{"n": -50.0, "e": -30.0, "sigma_n": 20.0, "sigma_e": 20.0,
+                                       "amplitude": 0.4}], "belief_cap": 0.85, "base_uncertainty": 0.0}},
 }
 # target at world (e=-30, n=-50): 30 m east of the robot's home
 GT = {"schema": "mtl.ground_truth/1", "targets": [{"index": 0, "n": -50.0, "e": -30.0},
@@ -60,6 +63,8 @@ def test_records_scores_and_writes_outputs(node):
     plan = S.Msg(plan_id="t/robot_1/run42", run_id="run42", start_mission=True, planned_length_m=60.0)
     plan.map_origin_in_world = S.Vector3(x=-60.0, y=-50.0, z=0.0)   # home ENU
     plan.trajectory.waypoints = [S.Msg(position=S.Vector3(x=float(k), y=0.0, z=30.0)) for k in range(61)]
+    plan.boresight = [S.Vector3(x=float(k), y=0.0, z=0.0) for k in range(61)]   # nadir, map frame
+    plan.time_s = [0.1 * k for k in range(61)]
     plan.serviced_cells = [0]
     n.subs["search/plan"](plan)
     tick = n.timers[0][1]
@@ -79,7 +84,14 @@ def test_records_scores_and_writes_outputs(node):
     assert det["summary"]["targets_detected"] == 1       # the one it flew over (map x=30)
     assert det["targets"][0]["responsible_agent"] == "robot_1"
     assert det["summary"]["gimbal_measured_fraction"]["robot_1"] == 1.0
-    assert det["summary"]["belief_mass_covered"] == 4.0
+    assert det["summary"]["belief_mass_covered"] == 0.4
+    # residual belief: the prior sums to 1 and the sortie swept most of the bump
+    s = det["summary"]
+    assert s["prior_belief_mass"] == pytest.approx(1.0, abs=1e-9)
+    assert 0.0 < s["residual_belief_mass"] < 0.9
+    assert 0.0 < s["planned_residual_belief_mass"] < 1.0
+    assert det["curves"]["residual_mass"][0] == pytest.approx(1.0, abs=1e-3)
+    assert (out / "residual_belief.csv").is_file()
     assert (out / "report.html").stat().st_size > 5000
     csv = (out / "telemetry.csv").read_text().splitlines()
     assert csv[0].startswith("t,agent,state") and len(csv) == 1 + 122

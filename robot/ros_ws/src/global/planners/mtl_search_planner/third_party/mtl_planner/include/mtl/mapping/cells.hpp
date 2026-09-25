@@ -27,21 +27,26 @@ namespace mtl::mapping {
 
 // -----------------------------------------------------------------------------
 /// Dice the belief field into targetCellSize blocks and keep the centre of every
-/// block whose MEAN belief beats the threshold.  Those centres are the points
-/// the sensor must be aimed at.
+/// block whose BELIEF MASS - the probability that the target is in the block -
+/// beats the threshold.  Those centres are the points the sensor must be aimed
+/// at.
 ///
-/// The mass carried back is the AGGREGATE belief in the cell
-/// (sum(belief) * pixelArea), not the mean, because the quantity that matters
-/// operationally is expected targets looked at, and that is additive over
-/// disjoint cells.  A big weakly-believed cell and a small strongly-believed one
-/// then trade off correctly.
+/// The field is treated as a probability mass function over the grid (it is
+/// normalised here if it does not already sum to 1), so a cell's mass is the sum
+/// of its pixels.  Mass rather than mean is both the filter and the currency,
+/// because the quantity that matters operationally is the probability of the
+/// target being looked at, and that is additive over disjoint cells.  A big
+/// weakly-believed cell and a small strongly-believed one then trade off
+/// correctly, and the few-pixel partial blocks along the far map edge are no
+/// longer kept on the strength of a high mean over a sliver of area.
 ///
 /// @param belief          the prior grid
 /// @param targetCellSize  [m] side of the blocks the map is diced into
-/// @param meanInfoThresh  a block is kept when its mean belief exceeds this
+/// @param minBeliefMass   a block is kept when its belief mass (a probability)
+///                        exceeds this
 // -----------------------------------------------------------------------------
 CellSet extractValidCells(const BeliefField& belief, double targetCellSize,
-                          double meanInfoThresh, bool verbose = false);
+                          double minBeliefMass, bool verbose = false);
 
 // -----------------------------------------------------------------------------
 /// Macro-cluster the valid cells so every cell is within reach of its centroid.

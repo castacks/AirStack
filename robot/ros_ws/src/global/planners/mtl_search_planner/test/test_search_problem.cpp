@@ -18,7 +18,7 @@ std::string tinyScenario(double budgetS = 120.0, bool singleAxis = true) {
   "schema": "mtl.scenario/1",
   "mission": {"name": "tiny", "seed": 7, "area": {"size_m": 200.0, "center_ned": [50.0, -20.0], "belief_res_m": 2.0}},
   "aircraft": {"altitude_m": 30.0, "speed_mps": 6.0, "min_turn_radius_m": 12.0, "dt": 0.1, "dubins_step_m": 0.5},
-  "mapping": {"target_cell_size_m": 20.0, "mean_information_thresh": 0.05, "max_cluster_radius_m": 45.0,
+  "mapping": {"target_cell_size_m": 20.0, "minimum_belief_mass": 0.002, "max_cluster_radius_m": 45.0,
               "kmeans_replicates": 3, "kmeans_max_iter": 100},
   "sensor": {"fov_deg": 60.0, "single_axis_gimbal": SINGLE, "tilt_deg": 30.0, "max_slant_range_m": 90.0,
              "detection": {"a": 1.1, "b": 0.1, "c": 61.0, "beta": 61.0, "p_out_of_range": 1e-6, "threshold": 0.9}},
@@ -27,7 +27,7 @@ std::string tinyScenario(double budgetS = 120.0, bool singleAxis = true) {
            "agents": [{"name": "robot_1", "start_ned": [-40.0, -100.0], "home_ned": [-40.0, -100.0]},
                       {"name": "robot_2", "start_ned": [-40.0, -88.0],  "home_ned": [-40.0, -88.0]}]},
   "cells": {"centers": [[60, -30], [60, -10], [80, -30], [80, -10], [120, 40], [120, 60], [0, 50], [20, 50]],
-            "mass": [120, 100, 90, 80, 150, 140, 60, 70], "total_map_mass": 900},
+            "mass": [0.12, 0.10, 0.09, 0.08, 0.15, 0.14, 0.06, 0.07], "total_map_mass": 1.0},
   "solver": {}, "verbose": false, "verify_geometry": false, "verify_geometry_verbose": false
 })";
     auto rep = [&s](const std::string& from, const std::string& to) {
@@ -72,6 +72,48 @@ TEST(Scenario, ParsesTeamCellsAndParams) {
     const mtl::Vec3 home = p.agents[1].homeEnu();
     EXPECT_DOUBLE_EQ(home.x(), -88.0);  // east
     EXPECT_DOUBLE_EQ(home.y(), -40.0);  // north
+}
+
+TEST(Scenario, CellMassesAreProbabilities) {
+    // The host prior is a PMF: cell masses are P(target in cell), the map sums to 1.
+    const auto p = mtl_search::parseScenario(tinyScenario());
+    EXPECT_NEAR(p.cells.totalMapMass, 1.0, 1e-12);
+    EXPECT_NEAR(p.cells.retainedMass, 0.81, 1e-12);
+    EXPECT_NEAR(p.cells.massNorm.sum(), 1.0, 1e-12);
+    EXPECT_DOUBLE_EQ(p.params.minimumBeliefMass, 0.002);
+    EXPECT_DOUBLE_EQ(p.cells.minBeliefMass, 0.002);
+    // The retired key is ignored: an old scenario falls back to the planner default.
+    std::string s = tinyScenario();
+    s.replace(s.find("\"minimum_belief_mass\": 0.002"), 28, "\"mean_information_thresh\": 0.05");
+    EXPECT_DOUBLE_EQ(mtl_search::parseScenario(s).params.minimumBeliefMass,
+                     mtl::PlannerParams{}.minimumBeliefMass);
+}
+
+TEST(Scenario, RejectsOutOfRangeMinimumBeliefMass) {
+    std::string s = tinyScenario();
+    s.replace(s.find("\"minimum_belief_mass\": 0.002"), 28, "\"minimum_belief_mass\": 1.5");
+    const auto p = mtl_search::parseScenario(s);
+    EXPECT_THROW(p.params.validate(), std::invalid_argument);
+}
+
+TEST(Plan, MassScaleDoesNotChangeThePlan) {
+    // The optimiser compares rewards as ratios: probabilities and the old raw
+    // (x pixel-area) masses must plan identically.
+    std::string raw = tinyScenario(120.0);
+    raw.replace(raw.find("[0.12, 0.10, 0.09, 0.08, 0.15, 0.14, 0.06, 0.07]"), 48,
+                "[120, 100, 90, 80, 150, 140, 60, 70]");
+    raw.replace(raw.find("\"total_map_mass\": 1.0"), 21, "\"total_map_mass\": 1000");
+    const auto pp = mtl_search::parseScenario(tinyScenario(120.0));
+    const auto pr = mtl_search::parseScenario(raw);
+    const auto rp = mtl_search::solve(pp);
+    const auto rr = mtl_search::solve(pr);
+    ASSERT_EQ(rp.trajectories.size(), rr.trajectories.size());
+    for (std::size_t a = 0; a < rp.trajectories.size(); ++a) {
+        EXPECT_EQ(rp.plans[a].servicedCellIdx, rr.plans[a].servicedCellIdx);
+        ASSERT_EQ(rp.trajectories[a].drone.rows(), rr.trajectories[a].drone.rows());
+        EXPECT_LT((rp.trajectories[a].drone - rr.trajectories[a].drone).cwiseAbs().maxCoeff(), 1e-9);
+    }
+    EXPECT_NEAR(rp.team.infoFraction, rr.team.infoFraction, 1e-12);
 }
 
 TEST(Scenario, RejectsBadSchemaAndMissingCells) {

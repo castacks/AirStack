@@ -9,6 +9,7 @@
 #include "mtl/eval/geometry_audit.hpp"
 #include "mtl/eval/report.hpp"
 #include "mtl/mapgen/scenario.hpp"
+#include "mtl/mapping/cells.hpp"
 #include "mtl/planner.hpp"
 #include "test_util.hpp"
 
@@ -89,8 +90,45 @@ int main() {
     const BeliefField belief =
         mapgen::generateBeliefMap(p.mapSize, p.cellSize, BeliefMapParams{}, p.rngSeed);
     CHECK(belief.rows() == 501 && belief.cols() == 501);
-    CHECK(belief.values.maxCoeff() <= BeliefMapParams{}.beliefCap + 1e-12);
+    // The prior is a probability mass function over the grid.
+    CHECK_NEAR(belief.values.sum(), 1.0, 1e-9);
     CHECK(belief.values.minCoeff() >= 0.0);
+
+    // --- cell extraction filters on per-cell belief MASS -------------------
+    {
+        const CellSet cells =
+            mapping::extractValidCells(belief, p.targetCellSize, p.minimumBeliefMass);
+        CHECK(cells.size() > 0);
+        CHECK_NEAR(cells.totalMapMass, 1.0, 1e-9);
+        CHECK(cells.retainedMass <= 1.0 + 1e-9);
+        CHECK(cells.mass.minCoeff() > p.minimumBeliefMass);
+        CHECK_NEAR(cells.mass.sum(), cells.retainedMass, 1e-12);
+
+        // A host grid that is NOT normalised gives exactly the same cells: the
+        // threshold is a probability, not a unit of whatever the host stored.
+        BeliefField scaled = belief;
+        scaled.values *= 7.5;
+        const CellSet cs =
+            mapping::extractValidCells(scaled, p.targetCellSize, p.minimumBeliefMass);
+        CHECK(cs.size() == cells.size());
+        if (cs.size() == cells.size()) CHECK((cs.mass - cells.mass).cwiseAbs().maxCoeff() < 1e-12);
+
+        // A higher threshold keeps a subset.
+        const CellSet fewer =
+            mapping::extractValidCells(belief, p.targetCellSize, 20.0 * p.minimumBeliefMass);
+        CHECK(fewer.size() < cells.size());
+        std::printf("  [cells] %lld cells > %.1e retain %.4f of the prior; %lld cells > %.1e\n",
+                    static_cast<long long>(cells.size()), p.minimumBeliefMass, cells.retainedMass,
+                    static_cast<long long>(fewer.size()), 20.0 * p.minimumBeliefMass);
+    }
+
+    // --- residual belief with no search at all is the whole prior ----------
+    {
+        const eval::ResidualBelief none =
+            eval::computeResidualBelief(belief, std::vector<AgentTrajectory>{}, p.fov, p.sensor);
+        CHECK_NEAR(none.residualMass, 1.0, 1e-9);
+        CHECK(none.nLooks == 0);
+    }
 
     std::vector<Target> targets = mapgen::generateTargetPoses(belief, 50, p.rngSeed + 1);
     CHECK(targets.size() == 50);
@@ -122,11 +160,37 @@ int main() {
         std::printf("  [single-axis, tilted] detected %lld/%lld targets\n",
                     static_cast<long long>(ds.nDetected), static_cast<long long>(tg.size()));
 
+        // --- post-search residual belief ------------------------------------
+        const eval::ResidualBelief rb =
+            eval::computeResidualBelief(belief, r.trajectories, p.fov, p.sensor);
+        CHECK(rb.residual.rows() == belief.rows() && rb.residual.cols() == belief.cols());
+        CHECK(rb.residual.allFinite());
+        CHECK(rb.residual.minCoeff() >= 0.0);
+        CHECK(rb.residualMass > 0.0 && rb.residualMass < 1.0);
+        CHECK_NEAR(rb.residualMass + rb.detectedMass, 1.0, 1e-12);
+        CHECK_NEAR(rb.posterior().sum(), 1.0, 1e-9);
+        // Nowhere does the search ADD belief.
+        CHECK(((belief.values - rb.residual).array() >= -1e-15).all());
+        std::printf("  [single-axis, tilted] residual belief mass %.6f (%lld looks)\n",
+                    rb.residualMass, static_cast<long long>(rb.nLooks));
+
+        // It is the per-target miss probability, map-wide: the targets sit on
+        // grid pixels, and at each of them residual/prior must equal the joint
+        // miss probability the target accumulator computed from the same looks.
+        for (const Target& t : tg) {
+            const auto c = static_cast<Index>(std::lround(t.pose.x() / belief.gridResX()));
+            const auto q = static_cast<Index>(std::lround(t.pose.y() / belief.gridResY()));
+            const double pr = belief.values(q, c);
+            if (pr <= 0.0) continue;
+            CHECK_NEAR(rb.residual(q, c) / pr, t.pMissTotal, 1e-9);
+        }
+
         // The reports must not throw or produce nothing.
         std::ostringstream oss;
         eval::reportBudgetSummary(oss, r, p);
         eval::reportDetectionSummary(oss, tg, p);
         eval::reportGimbalCoverage(oss, r);
+        eval::reportResidualBelief(oss, rb);
         CHECK(oss.str().size() > 200);
     }
 

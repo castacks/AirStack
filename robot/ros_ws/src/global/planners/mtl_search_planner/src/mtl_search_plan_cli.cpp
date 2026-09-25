@@ -48,7 +48,9 @@ int main(int argc, char** argv) {
         std::cout << std::fixed << std::setprecision(1)
                   << "mtl_search_plan: " << problem.name << ", " << problem.agents.size()
                   << " agents, " << problem.cells.size() << " cells, planned in " << ms
-                  << " ms; team info " << 100.0 * r.team.infoFraction << " %\n";
+                  << " ms; team info " << 100.0 * r.team.infoFraction << " % ("
+                  << std::setprecision(4) << r.team.info << " of " << r.team.infoTotal
+                  << " belief mass)\n" << std::setprecision(1);
         for (std::size_t i = 0; i < problem.agents.size(); ++i) {
             if (!agent.empty() && problem.agents[i].name != agent) continue;
             const mtl_search::AgentTrack tr = mtl_search::buildAgentTrack(r, problem, static_cast<int>(i));

@@ -23,7 +23,8 @@ an event log, GPS for the Map panel — and a copy of every recorded raw ROS top
 Topics written (see also mtl_layout.json):
   /tf                          foxglove.FrameTransforms (team TF tree)
   /world/area                  SceneUpdate: boundary, valid cells, homes
-  /world/belief                Grid (prior belief; colour-mapped on field "belief" by the layout)
+  /world/belief                Grid (prior belief, normalised so the densest block = 1; field "belief")
+  /world/residual              Grid (residual belief left by the search so far, same scale; 1 Hz)
   /world/targets               SceneUpdate: ground truth, colour = P_det, label = time/finder
   /robot_N/model, /frustum     SceneUpdate (frame-locked drone + camera frustum)
   /robot_N/plan                SceneUpdate: planned track + planned boresight ground track
@@ -32,7 +33,8 @@ Topics written (see also mtl_layout.json):
   /robot_N/camera/image        CompressedImage (JPEG)      /robot_N/camera/calibration
   /robot_N/gps                 LocationFix (Map panel)
   /robot_N/telemetry           JSON: state, speed, altitude, XTE, progress, gimbal cmd/meas, ...
-  /team/metrics                JSON: targets found, belief mass covered, distance, P_det per target
+  /team/metrics                JSON: residual belief (P(target missed), lower is better), targets
+                               found, valid-cell mass covered, distance, P_det per target
   /events                      foxglove.Log: phase changes, takeoff, discoveries
   /raw/robot_N/...             every recorded ROS topic, untouched (CDR)
 """
@@ -54,7 +56,8 @@ from typing import Any, Iterator
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "robot/ros_ws/src/behavior/mtl_metrics_logger"))
 from mtl_metrics_logger.analysis import cells_world, score_agents, targets_world  # noqa: E402
-from mtl_metrics_logger.detection import boresight_ground_point, footprint_radius  # noqa: E402
+from mtl_metrics_logger.detection import (DetectionModel, ResidualBelief, boresight_ground_point,  # noqa: E402
+                                          footprint_radius, prior_from_scenario)
 from mtl_metrics_logger.report import read_telemetry_csv  # noqa: E402
 
 try:
@@ -73,6 +76,8 @@ NS = 1_000_000_000
 ROBOT_RGB = [(0.165, 0.471, 0.839), (0.922, 0.408, 0.204), (0.106, 0.686, 0.478),
              (0.62, 0.35, 0.85), (0.85, 0.25, 0.55), (0.35, 0.75, 0.85)]
 ACTIVE = ("INGRESS", "SEARCH")
+RESIDUAL_PERIOD_S = 1.0   # /world/residual snapshot period [s]
+RESIDUAL_BLOCK_PX = 2     # prior/residual grids: block means of 2 x 2 raster pixels (4 m at 2 m)
 OPTICAL_FROM_GIMBAL = (-0.5, 0.5, -0.5, 0.5)   # (x, y, z, w) == mtl_trajectory_follower
 
 
@@ -333,6 +338,7 @@ class Out:
     JSON_TEAM = {"type": "object", "properties": {
         "t_s": {"type": "number"}, "targets_found": {"type": "integer"}, "targets_total": {"type": "integer"},
         "belief_mass_covered": {"type": "number"}, "belief_mass_fraction": {"type": "number"},
+        "residual_mass": {"type": "number"},
         "distance_m": {"type": "number"}, "p_det": {"type": "array", "items": {"type": "number"}}}}
 
     def __init__(self, ctx):
@@ -441,8 +447,10 @@ def build(run_dir: Path, out_path: Path, *, images: bool, jpeg_quality: int, ima
             rows_by_agent[r.name] = rows
     scorer = None
     t_score0 = 0
+    prior = prior_from_scenario(scenario)  # normalised prior raster (sums to 1), world ENU
     if rows_by_agent:
-        scorer, _per, _meas = score_agents(rows_by_agent, scenario, ground_truth)
+        scorer, _per, _meas = score_agents(rows_by_agent, scenario, ground_truth, prior=prior,
+                                           residual_snapshot_s=RESIDUAL_PERIOD_S)
         t_score0 = int(min(rows[0]["t"] for rows in rows_by_agent.values()) * NS)
     tgt_xy = targets_world(ground_truth)
 
@@ -456,27 +464,28 @@ def build(run_dir: Path, out_path: Path, *, images: bool, jpeg_quality: int, ima
     mmax = max(masses) if masses else 1.0
 
     grid_msg = None
-    bumps = scenario.get("airstack", {}).get("belief", {}).get("bumps", [])
-    if bumps:
-        res = 4.0
-        xs = np.arange(x0 + res / 2, x1, res)
-        ys = np.arange(y0 + res / 2, y1, res)
-        X, Y = np.meshgrid(xs, ys)
-        B = np.zeros_like(X)
-        for b in bumps:
-            B += float(b["amplitude"]) * np.exp(-0.5 * ((Y - b["n"]) / b["sigma_n"]) ** 2
-                                                - 0.5 * ((X - b["e"]) / b["sigma_e"]) ** 2)
-        bel = scenario["airstack"]["belief"]
-        B = np.minimum(B, float(bel.get("belief_cap", 0.85)))
-        if float(bel.get("base_uncertainty", 0.0)) > 0:
-            B = np.maximum(B, float(bel["base_uncertainty"]))
-        grid_bytes = B.astype("<f4").tobytes()
-        grid_args = dict(frame_id="world", pose=pose(x0, y0, 0.02), column_count=len(xs),
-                         cell_size=fm.Vector2(x=res, y=res), row_stride=4 * len(xs), cell_stride=4,
-                         fields=[fm.PackedElementField(name="belief", offset=0,
-                                                       type=fm.PackedElementFieldNumericType.Float32)],
-                         data=grid_bytes)
-        grid_msg = grid_args
+    residual_grid = None
+    if prior is not None:
+        # The prior is a PMF over the 2 m raster; show 2 x 2-pixel block means scaled so the
+        # densest prior block is 1, and the residual on the SAME scale (swept belief goes dark).
+        blk = RESIDUAL_BLOCK_PX
+        pmeans = ResidualBelief(prior, DetectionModel()).block_means(blk, prior=True)
+        peak = max(pmeans) or 1.0
+        nbx = -(-prior.nx // blk)
+        cell_m = blk * prior.res
+
+        def grid_args(vals, z):
+            return dict(frame_id="world", pose=pose(prior.xs[0] - prior.res / 2, prior.ys[0] - prior.res / 2, z),
+                        column_count=nbx, cell_size=fm.Vector2(x=cell_m, y=cell_m), row_stride=4 * nbx,
+                        cell_stride=4,
+                        fields=[fm.PackedElementField(name="belief", offset=0,
+                                                      type=fm.PackedElementFieldNumericType.Float32)],
+                        data=np.asarray(vals, dtype="<f4").tobytes())
+
+        grid_msg = grid_args([v / peak for v in pmeans], 0.02)
+        if scorer and scorer.residual_snapshots:
+            residual_grid = [(t_rel, grid_args([v / peak for v in snap], 0.03))
+                             for t_rel, snap in scorer.residual_snapshots]
 
     def static_frame(t):
         tfs = []
@@ -659,9 +668,14 @@ def build(run_dir: Path, out_path: Path, *, images: bool, jpeg_quality: int, ima
                                                             latitude=lat, longitude=lon, altitude=alt,
                                                             color=col(r.rgb)))
 
+    # ---------------------------------------------------------------- residual belief map over time
+    for t_rel, args in residual_grid or []:
+        t_abs = t_score0 + int(t_rel * NS)
+        out.add(t_abs, "/world/residual", fm.Grid(timestamp=ts(t_abs), **args))
+
     # ---------------------------------------------------------------- targets + team metrics
     steps = list(zip(scorer.t, scorer.p_det_curve, scorer.detected_count, scorer.mass_curve,
-                     scorer.distance_curve)) if scorer else []
+                     scorer.distance_curve, scorer.residual_curve)) if scorer else []
     det_time = {tg.index: tg.detection_time_s for tg in scorer.targets} if scorer else {}
     finder = {tg.index: tg.detected_by for tg in scorer.targets} if scorer else {}
     total_mass = scorer.total_mass if scorer else 1.0
@@ -688,7 +702,7 @@ def build(run_dir: Path, out_path: Path, *, images: bool, jpeg_quality: int, ima
         out.add(t_abs, "/world/targets", fm.SceneUpdate(entities=ents))
 
     target_update(T0, [0.0] * len(tgt_xy), None)
-    for t_rel, pdets, found_n, mass, dist in steps:
+    for t_rel, pdets, found_n, mass, dist, resid in steps:
         t_abs = t_score0 + int(t_rel * NS)
         if found_n > prev_detected:
             for tg in scorer.targets:
@@ -702,6 +716,7 @@ def build(run_dir: Path, out_path: Path, *, images: bool, jpeg_quality: int, ima
             out.add(t_abs, "/team/metrics", {"t_s": t_rel, "targets_found": found_n, "targets_total": len(tgt_xy),
                                              "belief_mass_covered": mass,
                                              "belief_mass_fraction": mass / total_mass if total_mass else 0.0,
+                                             **({} if resid is None else {"residual_mass": resid}),
                                              "distance_m": dist, "p_det": list(pdets)})
         prev_detected = found_n
     if steps:
@@ -760,7 +775,11 @@ def write_layout(path: Path, robots: list[str]) -> None:
     """A Foxglove layout (Layouts -> Import from file) wired to the topics above."""
     topics3d = {"/world/area": {"visible": True},
                 "/world/belief": {"visible": True, "colorField": "belief", "colorMode": "colormap",
-                                  "colorMap": "turbo", "minValue": 0, "maxValue": 0.85},
+                                  "colorMap": "turbo", "minValue": 0, "maxValue": 1},
+                # the residual belief on the prior's scale: toggle it on (and the prior off)
+                # to watch the search sweep the belief away
+                "/world/residual": {"visible": False, "colorField": "belief", "colorMode": "colormap",
+                                    "colorMap": "turbo", "minValue": 0, "maxValue": 1},
                 "/world/targets": {"visible": True}}
     for r in robots:
         for s in ("model", "frustum", "plan", "trail", "sensor"):
@@ -772,9 +791,13 @@ def write_layout(path: Path, robots: list[str]) -> None:
                     "cameraState": {"distance": 420, "perspective": True, "phi": 45, "thetaOffset": 0,
                                     "targetOffset": [0, 0, 0], "target": [0, 0, 0], "targetOrientation": [0, 0, 0, 1],
                                     "fovy": 45, "near": 0.5, "far": 5000}},
-        "Plot!targets": {"title": "Team: targets found / belief mass covered", "paths": [
-            {"value": "/team/metrics.targets_found", "enabled": True, "timestampMethod": "receiveTime"},
-            {"value": "/team/metrics.belief_mass_fraction", "enabled": True, "timestampMethod": "receiveTime"}],
+        "Plot!targets": {"title": "Team: targets found", "paths": [
+            {"value": "/team/metrics.targets_found", "enabled": True, "timestampMethod": "receiveTime"}],
+            "showLegend": True},
+        "Plot!residual": {"title": "Team: residual belief = P(target missed), lower is better", "paths": [
+            {"value": "/team/metrics.residual_mass", "enabled": True, "timestampMethod": "receiveTime"},
+            {"value": "/team/metrics.belief_mass_fraction", "enabled": True, "timestampMethod": "receiveTime",
+             "label": "valid-cell mass reached (fraction)"}],
             "showLegend": True},
         "Plot!speed": {"title": "Speed [m/s]", "paths": [
             {"value": f"/{r}/telemetry.speed_mps", "enabled": True, "timestampMethod": "receiveTime", "label": r}
@@ -812,7 +835,7 @@ def write_layout(path: Path, robots: list[str]) -> None:
 
     layout = col_(
         {"first": "3D!team", "second": col_(row(img_ids), "map!gps", 60), "direction": "row", "splitPercentage": 62},
-        row(["Plot!targets", "Plot!speed", "Plot!xte", "Plot!gimbal", "RosOut!events"]), 66)
+        row(["Plot!residual", "Plot!targets", "Plot!speed", "Plot!xte", "Plot!gimbal", "RosOut!events"]), 66)
     path.write_text(json.dumps({"configById": config, "globalVariables": {}, "userNodes": {},
                                 "playbackConfig": {"speed": 1}, "layout": layout}, indent=1) + "\n")
 
@@ -842,8 +865,10 @@ def main() -> int:
     print(f"[mtl_foxglove] wrote {out} ({out.stat().st_size / 1e6:.1f} MB, {res['messages']} messages, "
           f"{(res['t1'] - res['t0']) / NS:.0f} s; camera frames {res['images']})")
     if s:
-        print(f"[mtl_foxglove] team: {s['targets_detected']}/{s['targets_total']} targets, "
-              f"{100 * s['belief_mass_fraction']:.1f} % belief mass covered, {s['total_path_length_m']:.0f} m flown")
+        resid = s.get("residual_belief_mass")
+        print(f"[mtl_foxglove] team: residual belief {'n/a' if resid is None else f'{resid:.4f}'} "
+              f"(P(target missed)), {s['targets_detected']}/{s['targets_total']} targets, "
+              f"{100 * s['belief_mass_fraction']:.1f} % valid-cell mass reached, {s['total_path_length_m']:.0f} m flown")
     print(f"[mtl_foxglove] open the .mcap in Foxglove and import the layout {layout}")
     return 0
 

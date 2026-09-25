@@ -19,7 +19,8 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 __all__ = ["TELEMETRY_COLUMNS", "write_telemetry_csv", "read_telemetry_csv", "write_json",
-           "build_report_data", "render_report_html", "write_report"]
+           "write_residual_csv", "residual_map_payload", "build_report_data", "render_report_html",
+           "write_report"]
 
 TELEMETRY_COLUMNS = [
     "t", "agent", "state",
@@ -88,6 +89,42 @@ def _json_default(o: Any) -> Any:
     raise TypeError(f"not JSON serialisable: {type(o).__name__}")
 
 
+def write_residual_csv(path: str | Path, blocks: Iterable[Mapping[str, float]]) -> int:
+    """``residual_belief.csv``: one row per pixel block, ``x,y,prior,residual``.
+
+    Same layout as ``mtl_demo --csv``'s ``residual_belief.csv``: x/y = block centre
+    [m, world ENU: x = East, y = North]; prior/residual = block SUMS (probabilities),
+    so the columns sum to 1 and to the residual belief mass.
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    n = 0
+    with path.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["x", "y", "prior", "residual"])
+        for b in blocks:
+            w.writerow([f"{b['x']:.3f}", f"{b['y']:.3f}", f"{b['prior']:.9g}", f"{b['residual']:.9g}"])
+            n += 1
+    return n
+
+
+def residual_map_payload(residual: Any, max_side: int = 100) -> dict[str, Any]:
+    """Prior and residual, block-averaged to at most ``max_side`` blocks a side, on ONE
+    shared scale (1 = the densest prior block), for the report's before/after panels."""
+    pr = residual.prior
+    block = max(1, int(math.ceil(max(pr.nx, pr.ny) / float(max_side))))
+    blocks = residual.blocks(block)
+    half = pr.res / 2.0
+    bx = [pr.xs[j] - half for j in range(0, pr.nx, block)] + [pr.xs[-1] + half]
+    by = [pr.ys[i] - half for i in range(0, pr.ny, block)] + [pr.ys[-1] + half]
+    dens_p = [b["prior"] / b["n"] for b in blocks]
+    dens_r = [b["residual"] / b["n"] for b in blocks]
+    peak = max(dens_p) if dens_p and max(dens_p) > 0 else 1.0
+    return {"nx": len(bx) - 1, "ny": len(by) - 1, "bx": [round(v, 3) for v in bx], "by": [round(v, 3) for v in by],
+            "prior": [round(v / peak, 4) for v in dens_p], "residual": [round(v / peak, 4) for v in dens_r],
+            "prior_mass": round(residual.prior_mass, 6), "residual_mass": round(residual.exact_mass(), 6)}
+
+
 def _thin(points: Sequence[Sequence[float]], step_m: float = 1.5) -> list[list[float]]:
     out: list[list[float]] = []
     for p in points:
@@ -116,16 +153,20 @@ def build_report_data(*, title: str, subtitle: str, summary: Mapping[str, Any],
                       cells: Sequence[Mapping[str, Any]], agents: Sequence[Mapping[str, Any]],
                       curves: Mapping[str, Sequence[float]], planned_mass: float | None,
                       per_agent: Mapping[str, Mapping[str, Sequence[Any]]],
-                      belief_png: bytes | None = None, notes: Sequence[str] = ()) -> dict[str, Any]:
+                      belief_png: bytes | None = None, notes: Sequence[str] = (),
+                      residual_map: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """Assemble the report payload (world ENU coordinates throughout).
 
     ``agents``: ``[{"name", "home": [x, y], "planned": [[x, y]...], "flown": [[x, y]...],
-    "bore": [[x, y]...]}]``. ``curves``: team ``t``, ``detected``, ``distance``, ``mass``.
+    "bore": [[x, y]...]}]``. ``curves``: team ``t``, ``detected``, ``distance``, ``mass``,
+    ``residual`` (residual belief mass per step). ``residual_map``: :func:`residual_map_payload`.
     ``per_agent[name]``: ``t``, ``xte``, ``pointing_error``, ``cmd_pitch``, ``meas_pitch``.
     """
-    t, (det, dist, mass) = _thin_series(curves.get("t", []),
-                                        [curves.get("detected", []), curves.get("distance", []),
-                                         curves.get("mass", [])])
+    n_t = len(curves.get("t", []))
+    resid = curves.get("residual") or [None] * n_t
+    t, (det, dist, mass, res) = _thin_series(curves.get("t", []),
+                                             [curves.get("detected", []), curves.get("distance", []),
+                                              curves.get("mass", []), resid])
     pa = {}
     for name, s in per_agent.items():
         tt, (xte, perr, cp, mp) = _thin_series(s.get("t", []), [s.get("xte", []), s.get("pointing_error", []),
@@ -140,7 +181,8 @@ def build_report_data(*, title: str, subtitle: str, summary: Mapping[str, Any],
         "agents": [{"name": a["name"], "home": a.get("home"),
                     "planned": _thin(a.get("planned", []), 3.0), "flown": _thin(a.get("flown", []), 1.5),
                     "bore": _thin(a.get("bore", []), 4.0)} for a in agents],
-        "curves": {"t": t, "detected": det, "distance": dist, "mass": mass},
+        "curves": {"t": t, "detected": det, "distance": dist, "mass": mass, "residual": res},
+        "residual_map": dict(residual_map) if residual_map else None,
         "per_agent": pa,
         "belief_png": ("data:image/png;base64," + base64.b64encode(belief_png).decode()) if belief_png else None,
         "notes": list(notes),
@@ -179,6 +221,9 @@ h1{font-size:22px;margin:0 0 2px}h2{font-size:15px;margin:0 0 10px}.sub{color:va
 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}
 .tile,.card{background:var(--surface);border:1px solid var(--ring);border-radius:10px;padding:14px}
 .tile .v{font-size:26px;font-weight:600}.tile .l{color:var(--ink2);font-size:12px}
+.tile.head{border-color:var(--s1)}.tile.head .v{color:var(--s1)}
+canvas.heat{display:block;width:100%;height:auto;border-radius:6px;image-rendering:pixelated}
+.ramp{height:10px;border-radius:5px;margin:8px 0 2px}.rampl{display:flex;justify-content:space-between;color:var(--muted);font-size:11px}
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:12px;margin-bottom:12px}
 .card{min-width:0}svg{display:block;width:100%;height:auto;overflow:visible}
 .legend{display:flex;flex-wrap:wrap;gap:12px;color:var(--ink2);font-size:12px;margin:6px 0 0}
@@ -217,13 +262,18 @@ const agents=D.agents.map(a=>a.name);const colorOf=n=>SER[Math.max(0,agents.inde
 // ---------------- header + KPI tiles ----------------
 el("h1",{text:D.title},app);el("p",{class:"sub",text:D.subtitle},app);
 const S=D.summary,tiles=el("div",{class:"tiles"},app);
-function tile(v,l){const t=el("div",{class:"tile"},tiles);el("div",{class:"v",text:v},t);el("div",{class:"l",text:l},t);}
+function tile(v,l,cls){const t=el("div",{class:"tile"+(cls?" "+cls:"")},tiles);el("div",{class:"v",text:v},t);el("div",{class:"l",text:l},t);}
+// Headline: residual belief mass = P(target missed by the search). Lower is better.
+tile(S.residual_belief_mass==null?"—":fmt(S.residual_belief_mass,3),
+     "residual belief = P(target missed) · lower is better"+
+     (S.planned_residual_belief_mass==null?"":" · planned "+fmt(S.planned_residual_belief_mass,3)),"head");
 tile(S.targets_detected+" / "+S.targets_total,"targets found (P_det ≥ "+S.detection_threshold+")");
 tile(S.mean_time_to_discovery_s==null?"—":fmt(S.mean_time_to_discovery_s,0)+" s","mean time to discovery");
-tile(fmt(S.belief_mass_per_km,0),"belief mass per km flown");
+tile(S.searched_belief_fraction==null?"—":fmt(100*S.searched_belief_fraction,1)+" %",
+     "of the prior searched (1 − residual)"+(S.searched_belief_per_km==null?"":" · "+fmt(100*S.searched_belief_per_km,1)+" % per km"));
 const realized=S.belief_mass_covered, planned=D.planned_mass;
 tile(planned?fmt(100*realized/planned,0)+" %":fmt(100*S.belief_mass_fraction,0)+" %",
-     planned?"realized / planned coverage (mass)":"belief mass covered");
+     planned?"valid cells reached, realized / planned (mass)":"valid-cell mass reached");
 tile(fmt(S.total_path_length_m/1000,2)+" km","team track flown");
 
 // ---------------- map ----------------
@@ -271,6 +321,29 @@ el("h2",{text:"Search area — planned vs flown, targets"},mapCard);
  const m=el("span",{},lg);el("span",{class:"dot",style:"border:2px solid var(--critical)"},m);el("span",{text:"✕ missed"},m);
 })();
 
+// ---------------- residual belief: prior vs what the search left behind ----------------
+const RAMP=[[0,1,0,4],[.15,27,12,66],[.3,86,16,110],[.45,147,38,103],[.6,201,66,71],[.75,240,118,36],[.9,250,187,48],[1,252,254,164]];
+function ramp(t){t=Math.min(Math.max(t,0),1);for(let k=1;k<RAMP.length;k++){const a=RAMP[k-1],b=RAMP[k];if(t<=b[0]){const w=(t-a[0])/(b[0]-a[0]||1);
+ return [0,1,2].map(i=>Math.round(a[i+1]+w*(b[i+1]-a[i+1])));}}return RAMP[RAMP.length-1].slice(1);}
+if(D.residual_map){const R=D.residual_map,g=el("div",{class:"grid2"},app);
+ const X0=R.bx[0],X1=R.bx[R.nx],Y0=R.by[0],Y1=R.by[R.ny],W=480,H=Math.round(W*(Y1-Y0)/(X1-X0));
+ function panel(title,vals,overlay){const card=el("div",{class:"card"},g);el("h2",{text:title},card);
+  const cv=el("canvas",{class:"heat",width:W,height:H,role:"img","aria-label":title},card),cx=cv.getContext("2d");
+  const px=x=>(x-X0)/(X1-X0)*W,py=y=>H-(y-Y0)/(Y1-Y0)*H;
+  for(let i=0;i<R.ny;i++)for(let j=0;j<R.nx;j++){const c=ramp(vals[i*R.nx+j]);cx.fillStyle="rgb("+c.join(",")+")";
+   const x=px(R.bx[j]),y=py(R.by[i+1]);cx.fillRect(Math.floor(x),Math.floor(y),Math.ceil(px(R.bx[j+1])-x)+1,Math.ceil(py(R.by[i])-y)+1);}
+  if(overlay){const css=getComputedStyle(document.documentElement);
+   D.agents.forEach((a,k)=>{const pts=a.flown||[];if(pts.length<2)return;cx.strokeStyle=css.getPropertyValue(["--s1","--s2","--s3"][k%3]).trim()||"#fff";
+    cx.lineWidth=1.5;cx.globalAlpha=.9;cx.beginPath();pts.forEach((p,n)=>{n?cx.lineTo(px(p[0]),py(p[1])):cx.moveTo(px(p[0]),py(p[1]));});cx.stroke();});
+   cx.globalAlpha=1;D.targets.forEach(t=>{cx.beginPath();cx.arc(px(t.x),py(t.y),4,0,2*Math.PI);cx.fillStyle=t.detected?"#0ca30c":"#ffffff";
+    cx.fill();cx.lineWidth=1.5;cx.strokeStyle=t.detected?"#ffffff":"#d03b3b";cx.stroke();});}
+  const r=el("div",{class:"ramp",style:"background:linear-gradient(90deg,"+RAMP.map(s=>"rgb("+s.slice(1).join(",")+") "+(100*s[0])+"%").join(",")+")"},card);
+  const l=el("div",{class:"rampl"},card);el("span",{text:"0"},l);el("span",{text:"belief density, 1 = densest prior block (same scale on both panels)"},l);el("span",{text:"1"},l);
+  return card;}
+ panel("Prior belief (sums to "+fmt(R.prior_mass,3)+")",R.prior,false);
+ const c2=panel("Residual belief after the search — "+fmt(R.residual_mass,3)+" = P(target missed)",R.residual,true);
+ el("p",{class:"notes",text:"Swept belief goes dark; unsearched belief stays as bright as in the prior. Tracks: flown; dots: targets (green = found, white = missed)."},c2);}
+
 // ---------------- line charts ----------------
 function lineChart(parent,title,t,series,opts){opts=opts||{};const card=el("div",{class:"card"},parent);el("h2",{text:title},card);
  const W=520,H=230,L=46,R=12,T=10,B=30;const svg=s("svg",{viewBox:"0 0 "+W+" "+H,role:"img","aria-label":title},card);
@@ -278,7 +351,7 @@ function lineChart(parent,title,t,series,opts){opts=opts||{};const card=el("div"
  let ymax=opts.ymax;if(ymax===undefined){ymax=0;series.forEach(se=>se.y.forEach(v=>{if(v!=null&&v>ymax)ymax=v;}));if(opts.ref)ymax=Math.max(ymax,opts.ref.value);ymax=ymax>0?ymax*1.08:1;}
  const ymin=opts.ymin||0;const X=x=>L+(x-xmin)/(xmax-xmin)*(W-L-R),Y=y=>H-B-(y-ymin)/(ymax-ymin)*(H-T-B);
  for(let k=0;k<=4;k++){const v=ymin+(ymax-ymin)*k/4,y=Y(v);s("line",{x1:L,x2:W-R,y1:y,y2:y,stroke:k?"var(--grid)":"var(--axis)","stroke-width":1},svg);
-  s("text",{x:L-6,y:y+4,"text-anchor":"end","font-size":11,fill:"var(--muted)",text:fmt(v,ymax<10?1:0)},svg);}
+  s("text",{x:L-6,y:y+4,"text-anchor":"end","font-size":11,fill:"var(--muted)",text:fmt(v,ymax<=1?2:(ymax<10?1:0))},svg);}
  for(let k=0;k<=4;k++){const v=xmin+(xmax-xmin)*k/4;s("text",{x:X(v),y:H-B+16,"text-anchor":"middle","font-size":11,fill:"var(--muted)",text:fmt(v,0)},svg);}
  s("text",{x:W-R,y:H-2,"text-anchor":"end","font-size":11,fill:"var(--muted)",text:opts.xlabel||"time [s]"},svg);
  if(opts.ref){const y=Y(opts.ref.value);s("line",{x1:L,x2:W-R,y1:y,y2:y,stroke:"var(--ref)","stroke-dasharray":"4 4","stroke-width":1.2},svg);
@@ -299,8 +372,11 @@ function lineChart(parent,title,t,series,opts){opts=opts||{};const card=el("div"
  return card;}
 const C=D.curves,g1=el("div",{class:"grid2"},app);
 lineChart(g1,"Targets found over time (team)",C.t,[{name:"targets found",y:C.detected,color:"var(--s1)"}],{step:true,digits:0,ymax:Math.max(1,S.targets_total)});
-lineChart(g1,"Belief mass swept vs distance flown",C.t,[{name:"covered mass",y:C.mass,color:"var(--s1)"}],
- {x:C.distance,xlabel:"team distance [m]",ref:D.planned_mass?{value:D.planned_mass,label:"planned "+fmt(D.planned_mass,0)}:null,digits:0});
+if(C.residual&&C.residual.some(v=>v!=null)){
+ lineChart(g1,"Residual belief = P(target missed), lower is better",C.t,[{name:"residual belief",y:C.residual,color:"var(--s1)"}],
+  {ymax:1,digits:3,ref:S.planned_residual_belief_mass!=null?{value:S.planned_residual_belief_mass,label:"planned "+fmt(S.planned_residual_belief_mass,3)}:null});}
+lineChart(g1,"Valid-cell belief mass reached vs distance flown",C.t,[{name:"covered mass",y:C.mass,color:"var(--s1)"}],
+ {x:C.distance,xlabel:"team distance [m]",ref:D.planned_mass?{value:D.planned_mass,label:"planned "+fmt(D.planned_mass,3)}:null,digits:3});
 const PA=D.per_agent,names=Object.keys(PA),g2=el("div",{class:"grid2"},app);
 if(names.length){
  // one shared x (the first agent's t) keeps the crosshair honest; agents are sampled on the team timeline upstream

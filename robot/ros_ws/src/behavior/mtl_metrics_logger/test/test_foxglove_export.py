@@ -199,7 +199,8 @@ def test_team_export_from_synthetic_bags(tmp_path):
             assert m.log_time >= last, "team file must be time-ordered"
             last = m.log_time
     for need, schema in {"/tf": "foxglove.FrameTransforms", "/world/area": "foxglove.SceneUpdate",
-                         "/world/belief": "foxglove.Grid", "/world/targets": "foxglove.SceneUpdate",
+                         "/world/belief": "foxglove.Grid", "/world/residual": "foxglove.Grid",
+                         "/world/targets": "foxglove.SceneUpdate",
                          "/robot_2/camera/image": "foxglove.CompressedImage",
                          "/robot_2/camera/calibration": "foxglove.CameraCalibration",
                          "/robot_2/trail": "foxglove.SceneUpdate", "/robot_2/sensor": "foxglove.SceneUpdate",
@@ -213,3 +214,6 @@ def test_team_export_from_synthetic_bags(tmp_path):
     assert counts["/robot_1/telemetry"] >= 100
     layout = json.loads((out.parent / "mtl_layout.json").read_text())
     assert "3D!team" in layout["configById"] and "Image!robot_3" in layout["configById"]
+    assert "Plot!residual" in layout["configById"]
+    s = res["summary"]  # residual belief of the synthetic sorties, P(target missed)
+    assert 0.0 < s["residual_belief_mass"] < 1.0 and s["prior_belief_mass"] == pytest.approx(1.0, abs=1e-9)

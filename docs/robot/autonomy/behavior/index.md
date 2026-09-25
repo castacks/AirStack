@@ -18,8 +18,10 @@ the selected stack's entry launch file, e.g.
   [README](../../../../robot/ros_ws/src/behavior/mtl_metrics_logger/README.md)): used by the
   [`mtl_search`](../../../../stacks/mtl_search/README.md) stack. It is a mission recorder,
   not a safety executive. It scores target detections online from the flown pose and the
-  measured gimbal (Moon et al. sigmoid, miss-product accumulation) and writes
-  `runs/<run_id>/<robot>/{telemetry.csv,detection.json,report.html}`.
+  measured gimbal (Moon et al. sigmoid, miss-product accumulation). It also scores the
+  **residual belief mass**: `P(target missed)` over the whole normalised prior, where lower is
+  better, used to compare planners. It writes
+  `runs/<run_id>/<robot>/{telemetry.csv,detection.json,residual_belief.csv,report.html}`.
 
 ## Key Interchanges
 

@@ -4,11 +4,14 @@
 Runs at ``rate_hz`` (20 Hz). While this robot's follower is INGRESS/SEARCH on a
 started plan it records pose, commanded AND measured gimbal angles, the
 boresight ground point, footprint, tracking and pointing error, and
-accumulates per-target detection probability from the MEASURED gimbal state.
+accumulates per-target detection probability from the MEASURED gimbal state,
+and the residual belief over the whole (normalised) prior: the probability the
+target is still where this robot looked and missed it, lower is better.
 When the follower reports COMPLETE or ABORTED it writes
 
     runs/<run_id>/<robot>/telemetry.csv
     runs/<run_id>/<robot>/detection.json
+    runs/<run_id>/<robot>/residual_belief.csv
     runs/<run_id>/<robot>/report.html
     runs/<run_id>/ground_truth.json          (copy, for the team analysis)
 
@@ -40,10 +43,19 @@ from std_msgs.msg import String
 from visualization_msgs.msg import Marker, MarkerArray
 
 from mtl_metrics_logger.analysis import cells_world, targets_world, write_run_outputs
-from mtl_metrics_logger.detection import DetectionModel, TeamScorer, boresight_ground_point, footprint_radius
+from mtl_metrics_logger.detection import (DetectionModel, TeamScorer, boresight_ground_point, footprint_radius,
+                                          prior_from_scenario)
 
 RECORDING = (FollowerStatus.INGRESS, FollowerStatus.SEARCH)
 FINAL = (FollowerStatus.COMPLETE, FollowerStatus.ABORTED)
+
+
+def _as_list(v) -> list:
+    """A message array field as a list ([] when absent or not a sequence)."""
+    try:
+        return list(v)
+    except TypeError:
+        return []
 
 
 def _load_json(path: str) -> dict:
@@ -73,6 +85,7 @@ class MtlMetricsLogger(Node):
         self.fov = math.radians(float(self.scenario["sensor"]["fov_deg"]))
         self.targets_w = targets_world(self.ground_truth)
         self.cells_w, self.cell_mass = cells_world(self.scenario)
+        self.prior = prior_from_scenario(self.scenario)  # normalised prior raster (residual belief)
 
         latched = QoSProfile(depth=1, reliability=ReliabilityPolicy.RELIABLE,
                              durability=DurabilityPolicy.TRANSIENT_LOCAL)
@@ -102,7 +115,9 @@ class MtlMetricsLogger(Node):
         self.create_timer(1.0 / self.rate_hz, self._tick)
         self.get_logger().info(
             f"mtl_metrics_logger: agent {self.agent_name}, {len(self.targets_w)} ground-truth targets, "
-            f"{len(self.cells_w)} cells, runs -> {self.runs_root}")
+            f"{len(self.cells_w)} cells, "
+            f"{'prior ' + str(self.prior.nx) + 'x' + str(self.prior.ny) if self.prior else 'NO prior raster'}"
+            f" for the residual belief, runs -> {self.runs_root}")
 
     # ------------------------------------------------------------ callbacks
     def _on_odom(self, msg: Odometry) -> None:
@@ -153,6 +168,8 @@ class MtlMetricsLogger(Node):
             self.metrics_pub.publish(String(data=json.dumps({
                 "plan_id": st.plan_id, "t": round(t, 1), "found": s["targets_detected"],
                 "total": s["targets_total"], "mass_covered": s["belief_mass_covered"],
+                "residual_mass": None if self.scorer.residual is None
+                else round(self.scorer.residual.residual_mass, 6),
                 "distance_m": s["total_path_length_m"]})))
         if st.state in FINAL:
             self._finish(st)
@@ -160,7 +177,8 @@ class MtlMetricsLogger(Node):
     def _begin(self, plan_id: str, now) -> None:
         self.recording_plan = plan_id
         self.rows = []
-        self.scorer = TeamScorer(self.targets_w, self.cells_w, self.cell_mass, self.model, self.fov)
+        self.scorer = TeamScorer(self.targets_w, self.cells_w, self.cell_mass, self.model, self.fov,
+                                 prior=self.prior)
         self.t0, self.last_t = now, None
         self.get_logger().info(f"recording sortie {plan_id}")
 
@@ -205,6 +223,14 @@ class MtlMetricsLogger(Node):
         out = run_root / self.agent_name
         ox, oy, _ = self.origin
         planned = [(w.position.x + ox, w.position.y + oy) for w in plan.trajectory.waypoints]
+        # the planned looks (track + scheduled boresight, world ENU) -> planned residual belief
+        oz = self.origin[2]
+        wps, bores, times = (_as_list(plan.trajectory.waypoints), _as_list(plan.boresight),
+                             _as_list(plan.time_s))
+        n_look = min(len(wps), len(bores), len(times))
+        looks = {"t": [float(v) for v in times[:n_look]],
+                 "pos": [(w.position.x + ox, w.position.y + oy, w.position.z + oz) for w in wps[:n_look]],
+                 "bore": [(b.x + ox, b.y + oy, b.z + oz) for b in bores[:n_look]]} if n_look else None
         try:
             belief = Path(self.belief_png_file).read_bytes() if Path(self.belief_png_file).is_file() else None
             res = write_run_outputs(
@@ -212,7 +238,8 @@ class MtlMetricsLogger(Node):
                 rows_by_agent={self.agent_name: self.rows},
                 planned_by_agent={self.agent_name: {"planned": planned, "home": [ox, oy],
                                                     "serviced_cells": list(plan.serviced_cells),
-                                                    "planned_length_m": plan.planned_length_m}},
+                                                    "planned_length_m": plan.planned_length_m,
+                                                    "looks": looks}},
                 title=f"MTL sortie — {self.agent_name}",
                 subtitle=f"run {run_id} · plan {st.plan_id} · outcome {st.state_name} · "
                          f"{len(self.rows)} samples at {self.rate_hz:g} Hz",
@@ -223,9 +250,15 @@ class MtlMetricsLogger(Node):
             if Path(self.belief_png_file).is_file():
                 shutil.copyfile(self.belief_png_file, run_root / "belief.png")
             s = res["summary"]
+            resid = s.get("residual_belief_mass")
+            planned_resid = s.get("planned_residual_belief_mass")
             self.get_logger().info(
-                f"sortie {st.plan_id} {st.state_name}: {s['targets_detected']}/{s['targets_total']} targets, "
-                f"{s['belief_mass_covered']:.0f} mass covered, report -> {out / 'report.html'}")
+                f"sortie {st.plan_id} {st.state_name}: residual belief "
+                f"{'n/a' if resid is None else f'{resid:.4f}'}"
+                f"{'' if planned_resid is None else f' (planned {planned_resid:.4f})'} = P(target missed by "
+                f"this robot), {s['targets_detected']}/{s['targets_total']} targets, "
+                f"{100 * s['belief_mass_fraction']:.1f} % of the valid-cell mass reached, "
+                f"report -> {out / 'report.html'}")
         except OSError as exc:
             self.get_logger().error(f"could not write run outputs to {out}: {exc} (is runs/ mounted?)")
 

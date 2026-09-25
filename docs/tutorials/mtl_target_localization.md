@@ -7,7 +7,9 @@ weighted by a prior belief map. Each robot:
 - points a **native, ROS 2-driven gimbal camera** along the planned boresight.
 
 A logger scores every target's detection probability online. After the flight,
-one script fuses the three robots into a team report.
+one script fuses the three robots into a team report. The prior is a probability mass
+function: it sums to 1 over the area. The number to compare planners on is the **residual
+belief mass**, the probability that the search missed the target. Lower is better.
 
 | Piece | Where |
 |---|---|
@@ -32,7 +34,11 @@ down.
 
 `stacks/mtl_search/config/mission.yaml` is the single source of truth. It defines:
 
-- the area, prior bumps and targets;
+- the area, prior bumps and targets (the prior is normalised to sum to 1 after the bumps
+  are summed, capped and floored);
+- the valid-cell threshold `mapping.minimum_belief_mass`: a 20 m cell is kept when the
+  probability that the target is in it is greater than this. It is a per-cell probability,
+  so work it out again if you change the area, the cell size or the bumps;
 - the aircraft;
 - the sensor and detection model;
 - the budget.
@@ -157,9 +163,30 @@ python3 scripts/analyze_mtl_run.py --run-dir runs/latest
 
 The script writes these into the run folder:
 
-- the **team** `telemetry.csv`, `detection.json` and `report.html`;
-- a printed summary: targets found, mean time to detect, the information the team gathered
-  versus the plan, and path efficiency.
+- the **team** `telemetry.csv`, `detection.json`, `residual_belief.csv` and `report.html`;
+- a printed summary. It starts with the **residual belief mass**, flown and planned, then
+  lists targets found, mean time to detect, the valid cells the team reached versus the plan,
+  and the distance flown.
+
+**Residual belief.** Every pixel `x` of the prior gets the same Bayes update as a target
+standing there. That is the same footprint gate and Moon et al. sigmoid, with the
+`dt / dt_ref` exponent:
+
+```
+residual(x)  = prior(x) · Π_looks (1 − P(z|x))^(dt/dt_ref)
+residualMass = Σ_x residual(x) = P(the search missed the target)      # lower is better
+```
+
+`1 − residualMass` is how much of the prior the team actually searched. The report shows the
+prior and the residual side by side on one colour scale: swept belief goes dark, and
+unsearched belief stays bright. It also plots the residual over time against the planned
+value. `residual_belief.csv` holds both maps per 10 m block (`x, y, prior, residual`, world
+ENU, block sums). Compare two planners only on the same prior, the same sensor parameters
+(`fov`, `a`, `b`, `c`, `beta`, `p_out_of_range`) and the same `dt_ref`.
+
+Runs recorded before this change can still be scored again. Their `scenario.json` has the
+prior bumps, and the analysis normalises the prior itself. Their cell masses stay in the old
+raw units.
 
 Each robot also has its own report, which the logger writes at the end of its search:
 `runs/<run_id>/robot_N/report.html`. See [`runs/README.md`](../../runs/README.md) for the layout.
@@ -181,14 +208,15 @@ origin. The export puts the whole team in one `world` frame:
 
 | Topic | Shows |
 |---|---|
-| `/world/area`, `/world/belief` | search boundary, valid cells (shade = prior mass), homes; the prior as a colour-mapped grid |
+| `/world/area`, `/world/belief` | search boundary, valid cells (shade = prior mass), homes; the prior as a colour-mapped grid (densest block = 1) |
+| `/world/residual` | the residual belief left so far, at 1 Hz, on the prior's colour scale. It is hidden in the layout: show it and hide `/world/belief` to watch the search sweep the belief away |
 | `/world/targets` | ground-truth targets, coloured by their **live** P_det (red → green), labelled with discovery time and finder |
 | `/robot_N/model`, `/robot_N/frustum` | the drone and its camera frustum, following the recorded pose and gimbal |
 | `/robot_N/plan`, `/robot_N/trail` | planned track and planned boresight ground track; flown trail |
 | `/robot_N/sensor` | camera footprint circle, boresight ray, aim point, carrot, status label (phase, progress, speed, altitude) |
 | `/robot_N/camera/image` + `/calibration` | the gimbal camera (JPEG), in the Image panels and projectable in 3D |
 | `/robot_N/gps` | Map panel track |
-| `/robot_N/telemetry`, `/team/metrics` | plottable speed, altitude, XTE, progress, gimbal cmd vs measured, slant, footprint, pointing error; targets found, belief mass covered, distance, per-target P_det |
+| `/robot_N/telemetry`, `/team/metrics` | plottable speed, altitude, XTE, progress, gimbal cmd vs measured, slant, footprint, pointing error; residual belief (`residual_mass`), targets found, valid-cell mass covered, distance, per-target P_det |
 | `/events` | phase changes and target discoveries (Log panel) |
 | `/raw/robot_N/...` | every recorded ROS topic, unchanged, for Raw Messages and Plot |
 

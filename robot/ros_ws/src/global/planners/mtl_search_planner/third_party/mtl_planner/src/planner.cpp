@@ -228,7 +228,7 @@ std::vector<double> Planner::agentBudgets() const { return impl_->budgets(); }
 PlanningResult Planner::plan(const BeliefField& belief, const std::vector<Vec2>& agentStarts) {
     const PlannerParams& P = impl_->params;
     const CellSet cells = mapping::extractValidCells(belief, P.targetCellSize,
-                                                     P.meanInformationThresh, P.verbose);
+                                                     P.minimumBeliefMass, P.verbose);
     return planFromCells(cells, agentStarts);
 }
 

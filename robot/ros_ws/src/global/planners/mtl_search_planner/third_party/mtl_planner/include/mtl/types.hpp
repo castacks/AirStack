@@ -47,9 +47,16 @@ inline constexpr double rad2deg(double r) { return r * 180.0 / kPi; }
 ///
 /// `values(r, c)` is the prior probability at (x = c * cellSize, y = r * cellSize),
 /// i.e. rows index y and columns index x, exactly as MATLAB's meshgrid layout.
+///
+/// The reference prior (mapgen::generateBeliefMap) is a probability MASS
+/// function over the grid: values.sum() == 1, so values(r, c) is the probability
+/// that the target is in that pixel.  Consumers that need probabilities
+/// (mapping::extractValidCells, eval::computeResidualBelief) normalise a host
+/// grid that does not sum to 1 themselves, so a host may pass any non-negative
+/// field.
 // -----------------------------------------------------------------------------
 struct BeliefField {
-    MatX   values;            ///< (mapSize/cellSize + 1)^2 grid of prior belief
+    MatX   values;            ///< (mapSize/cellSize + 1)^2 grid of prior belief (sums to 1)
     double mapSize  = 0.0;    ///< [m] side of the square search area
     double cellSize = 1.0;    ///< [m] grid resolution
 
@@ -71,14 +78,15 @@ struct BeliefField {
 // -----------------------------------------------------------------------------
 struct CellSet {
     Path2 centers;                 ///< M-by-2 cell centres [m]
-    VecX  mass;                    ///< aggregate belief, sum(belief)*pixelArea [prob*m^2]
+    VecX  mass;                    ///< belief mass: P(target in cell), sum of normalised pixels (the threshold test)
     VecX  massNorm;                ///< mass / sum(mass)
-    VecX  meanBelief;              ///< mean belief in the cell (the threshold test)
-    VecX  peakBelief;              ///< max belief in the cell
+    VecX  meanBelief;              ///< mean normalised belief per pixel in the cell
+    VecX  peakBelief;              ///< max normalised belief in the cell
     VecX  nPix;                    ///< grid pixels the cell block covered
     VecX  area;                    ///< [m^2] physical area of the cell block
-    double totalMapMass  = 0.0;    ///< aggregate belief over the WHOLE map
-    double retainedMass  = 0.0;    ///< aggregate belief over the kept cells
+    double totalMapMass  = 0.0;    ///< belief mass over the WHOLE map (1 for a normalised prior)
+    double retainedMass  = 0.0;    ///< belief mass over the kept cells
+    double minBeliefMass = 0.0;    ///< the threshold the cells were filtered with
     double cellSize      = 0.0;    ///< [m] side of the block the map was diced into
     Vec2   gridRes       = Vec2::Zero();
 

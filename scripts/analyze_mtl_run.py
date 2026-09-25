@@ -12,8 +12,14 @@ the per-robot folders:
 
     <run-dir>/telemetry.csv     all agents, one table (agent column)
     <run-dir>/detection.json    per-target discovery time, responsible agent,
-                                cumulative covered-mass curve, summary
+                                residual-belief and covered-mass curves, summary
+    <run-dir>/residual_belief.csv   prior vs residual belief per 10 m block
     <run-dir>/report.html       self-contained interactive report
+
+The headline number is the RESIDUAL BELIEF MASS = P(target missed by the
+search): every pixel of the prior (normalised to sum to 1) gets the same miss
+update as a target standing there. Lower is better; it is the number to compare
+planners (and plan vs flight: the planned value scores each robot's track.json).
 
 Inputs are resolved inside the run dir first (``<robot>/scenario.json`` and
 ``<robot>/track.json`` from mtl_search_planner, ``ground_truth.json`` and
@@ -31,7 +37,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "robot/ros_ws/src/behavior/mtl_metrics_logger"))
 
-from mtl_metrics_logger.analysis import write_run_outputs  # noqa: E402
+from mtl_metrics_logger.analysis import planned_looks_from_track, write_run_outputs  # noqa: E402
 from mtl_metrics_logger.report import read_telemetry_csv  # noqa: E402
 
 DEFAULT_CONFIG = REPO / "stacks/mtl_search/config"
@@ -64,7 +70,8 @@ def load_run(run_dir: Path, scenario: Path | None, ground_truth: Path | None):
             s = tr["samples"]
             planned[name] = {"planned": [[x + hx, y + hy] for x, y in zip(s["x_map"], s["y_map"])],
                              "home": [hx, hy], "serviced_cells": tr.get("serviced_cells", []),
-                             "planned_length_m": tr.get("flown_length_m")}
+                             "planned_length_m": tr.get("flown_length_m"),
+                             "looks": planned_looks_from_track(tr)}
     png = _first(run_dir / "belief.png", sc_path.with_name("belief.png"), DEFAULT_CONFIG / "belief.png")
     return sc, gt, rows, planned, (png.read_bytes() if png else None), sc_path, gt_path
 
@@ -91,15 +98,22 @@ def main(argv=None) -> int:
         extra={"run_id": run_dir.name, "inputs": {"scenario": str(sc_path), "ground_truth": str(gt_path)}})
     s = res["summary"]
     mttd = s["mean_time_to_discovery_s"]
-    print(f"[analyze_mtl_run] {run_dir.name}: {s['targets_detected']}/{s['targets_total']} targets found"
+    resid, planned_resid = s.get("residual_belief_mass"), s.get("planned_residual_belief_mass")
+    if resid is None:
+        print(f"[analyze_mtl_run] {run_dir.name}: residual belief n/a (the scenario carries no prior bumps)")
+    else:
+        print(f"[analyze_mtl_run] {run_dir.name}: residual belief {resid:.4f} = P(target missed), lower is better"
+              f"{'' if planned_resid is None else f' (planned {planned_resid:.4f})'}; "
+              f"{100 * s['searched_belief_fraction']:.1f} % of the prior searched")
+    print(f"  {s['targets_detected']}/{s['targets_total']} targets found"
           f"{'' if mttd is None else f', mean time to discovery {mttd:.1f} s'}; "
-          f"{s['belief_mass_covered']:.0f} of {s['belief_mass_total']:.0f} belief mass swept "
-          f"({100 * s['belief_mass_fraction']:.1f} %), {s['belief_mass_per_km']:.0f} mass/km over "
-          f"{s['total_path_length_m'] / 1000:.2f} km")
+          f"valid cells reached {s['cells_covered']}/{s['cells_total']} "
+          f"({100 * s['belief_mass_fraction']:.1f} % of their mass) over {s['total_path_length_m'] / 1000:.2f} km")
     if s.get("realized_over_planned_mass") is not None:
         print(f"  realized / planned coverage: {100 * s['realized_over_planned_mass']:.1f} %")
-    for name in ("telemetry.csv", "detection.json", "report.html"):
-        print(f"  wrote {out / name}")
+    for name in ("telemetry.csv", "detection.json", "residual_belief.csv", "report.html"):
+        if (out / name).is_file():
+            print(f"  wrote {out / name}")
     return 0
 
 

@@ -30,7 +30,7 @@ mission:
     center_ned: [0.0, 0.0]
     belief_res_m: 2.0            # -> 201 x 201 prior raster
 
-  belief:                        # sum of Gaussian bumps, capped then floored
+  belief:                        # sum of Gaussian bumps, capped, floored, then normalised to sum to 1
     num_centroids: 6
     max_prior_peak: 0.4
     sigma_min_m: 20.0
@@ -64,7 +64,14 @@ mission:
 
   mapping:
     target_cell_size_m: 20.0
-    mean_information_thresh: 0.08
+    minimum_belief_mass: 2.0e-3  # keep a 20 m cell when P(target in cell) > 0.2 %. The prior is
+                                 # normalised to sum to 1, so this is a per-cell PROBABILITY (it
+                                 # replaced the retired mean_information_thresh: 0.08, a mean-belief
+                                 # test). 400 blocks here (uniform share 1/400 = 2.5e-3); 2e-3 keeps
+                                 # exactly the same 144 cells the old threshold kept (89.5 % of the
+                                 # prior; the next block down holds 1.94e-3), so the plans are
+                                 # unchanged. Scales with target_cell_size_m^2 / size_m^2: recompute
+                                 # it if you change the area, the cell size or the belief bumps.
     max_cluster_radius_m: 45.0
     kmeans_replicates: 3
     kmeans_max_iter: 200

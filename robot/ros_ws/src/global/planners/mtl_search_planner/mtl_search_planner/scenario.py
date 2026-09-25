@@ -21,6 +21,13 @@ The files it produces (next to each other, e.g. ``stacks/mtl_search/config/``):
 ``ground_truth.json``  the hidden targets. Read by the scene and the scorer only.
 ``belief.png``         the prior rendered as a heat map, draped on the ground.
 
+The prior is a probability mass function over the raster: it sums to 1, so
+``values[i][j]`` is the probability that the target is in that pixel, a cell's
+mass is the probability that the target is in the cell, and every mass
+downstream (cells, planner info, the residual belief left after the search)
+is a probability. This mirrors ``cpp_planner`` from commit e186a1b
+(``third_party/mtl_planner/CHANGES_belief_mass_and_residual.md``).
+
 Frames
 ------
 ``mission NED``  n North, e East, d Down [m], origin = Isaac world origin. The
@@ -54,6 +61,7 @@ __all__ = [
     "generate_belief",
     "sample_targets",
     "extract_valid_cells",
+    "minimum_belief_mass_of",
     "build_scenario",
     "write_scenario_bundle",
     "load_json",
@@ -97,7 +105,10 @@ def map_to_world(p_map: Sequence[float], home_world: Sequence[float]) -> tuple[f
 # belief grid
 # --------------------------------------------------------------------------- #
 class BeliefGrid:
-    """Prior belief raster over the square search area, indexed ``values[i_n][j_e]``."""
+    """Prior belief raster over the square search area, indexed ``values[i_n][j_e]``.
+
+    :func:`generate_belief` returns it normalised (``total_mass == 1``).
+    """
 
     def __init__(self, values: list[list[float]], n_axis: list[float], e_axis: list[float],
                  res_m: float) -> None:
@@ -116,7 +127,8 @@ class BeliefGrid:
 
     @property
     def total_mass(self) -> float:
-        return sum(sum(row) for row in self.values) * self.pixel_area_m2
+        """Sum of the raster: 1 for a normalised prior (a probability, no pixel-area factor)."""
+        return sum(sum(row) for row in self.values)
 
     @property
     def peak(self) -> float:
@@ -135,6 +147,11 @@ def _axis(lo: float, hi: float, step: float) -> list[float]:
     return [lo + k * step for k in range(count)]
 
 
+def _sig(v: float, digits: int = 6) -> float:
+    """Round to ``digits`` significant figures (per-pixel probabilities are ~1e-5)."""
+    return float(f"{float(v):.{digits}g}")
+
+
 def area_bounds(area: Mapping[str, Any]) -> tuple[float, float, float, float]:
     """(n_min, n_max, e_min, e_max) of the square search area."""
     half = float(area["size_m"]) / 2.0
@@ -144,11 +161,14 @@ def area_bounds(area: Mapping[str, Any]) -> tuple[float, float, float, float]:
 
 def generate_belief(area: Mapping[str, Any], spec: Mapping[str, Any], seed: int
                     ) -> tuple[BeliefGrid, list[dict[str, float]]]:
-    """Sum of axis-aligned Gaussian bumps, capped then floored. Deterministic in ``seed``.
+    """Sum of axis-aligned Gaussian bumps, capped, floored, then NORMALISED to sum to 1.
 
     Port of ``testbed.mission.generate_belief`` (and of the MATLAB
-    ``generateBeliefMap``), with ``random.Random`` instead of numpy so the
-    result is reproducible on any Python without third-party packages.
+    ``generateBeliefMap`` / C++ ``mtl::mapgen::generateBeliefMap``), with
+    ``random.Random`` instead of numpy so the result is reproducible on any
+    Python without third-party packages. ``max_prior_peak``, ``belief_cap`` and
+    ``base_uncertainty`` only SHAPE the prior (they act before the
+    normalisation); none of them sets its scale.
     Returns the grid and the bump list (so the scene could rebuild it).
     """
     n_min, n_max, e_min, e_max = area_bounds(area)
@@ -189,6 +209,15 @@ def generate_belief(area: Mapping[str, Any], spec: Mapping[str, Any], seed: int
             if floor > 0.0:
                 v = max(v, floor)
             row[j] = v
+
+    # Probability mass function over the raster: sum == 1.
+    total = sum(sum(row) for row in values)
+    if not total > 0.0:
+        raise ValueError("the prior has no mass to normalise (every pixel is zero)")
+    inv = 1.0 / total
+    for row in values:
+        for j, v in enumerate(row):
+            row[j] = v * inv
     return BeliefGrid(values, n_axis, e_axis, res), bumps
 
 
@@ -229,7 +258,7 @@ def sample_targets(grid: BeliefGrid, spec: Mapping[str, Any], seed: int) -> list
         if any(math.hypot(n - t["n"], e - t["e"]) < min_sep for t in picked):
             continue
         picked.append({"index": len(picked), "n": round(n, 3), "e": round(e, 3),
-                       "belief": round(grid.values[i][j], 6)})
+                       "belief": _sig(grid.values[i][j])})
     if len(picked) < count:
         raise ValueError(
             f"could only place {len(picked)} of {count} targets at min_separation_m={min_sep}; "
@@ -237,14 +266,31 @@ def sample_targets(grid: BeliefGrid, spec: Mapping[str, Any], seed: int) -> list
     return picked
 
 
-def extract_valid_cells(grid: BeliefGrid, cell_size_m: float, mean_thresh: float
+def extract_valid_cells(grid: BeliefGrid, cell_size_m: float, min_belief_mass: float
                         ) -> tuple[list[list[float]], list[float], float]:
-    """Dice the prior into blocks; keep those whose MEAN beats the threshold.
+    """Dice the prior into blocks; keep those whose BELIEF MASS beats the threshold.
 
-    Kept blocks carry their AGGREGATE mass ``sum(pixels) * pixel_area`` (mean
-    decides whether to go, mass decides what it is worth). Returns
-    ``(centers_ned, masses, effective_cell_size_m)``.
+    A block's mass is the probability that the target is inside it: the sum of
+    its pixels on the prior normalised to 1 (normalised again here, defensively,
+    so an un-normalised grid gives the same cells and masses - as
+    ``mtl::mapping::extractValidCells`` does). A block is kept iff
+    ``mass > min_belief_mass`` (``mapping.minimum_belief_mass``, a per-cell
+    probability in [0, 1)); the kept blocks carry that mass as their reward.
+
+    Tiling: whole blocks only (``floor``), so the last raster row/column is left
+    out when the raster is not a multiple of the block (201 px / 10 px blocks
+    here). The planner's own extraction uses ``ceil`` and keeps partial edge
+    blocks when they hold enough mass; the host's cells are what the planner
+    plans over, so the host convention is the one that counts.
+
+    Returns ``(centers_ned, masses, effective_cell_size_m)``.
     """
+    if not 0.0 <= float(min_belief_mass) < 1.0:
+        raise ValueError(f"minimum_belief_mass is a per-cell probability in [0, 1), got {min_belief_mass}")
+    total = grid.total_mass
+    if not total > 0.0:
+        raise ValueError("the prior has no mass")
+    norm = 1.0 / total
     block = max(int(round(cell_size_m / grid.res_m)), 1)
     n_blocks = len(grid.n_axis) // block
     e_blocks = len(grid.e_axis) // block
@@ -259,15 +305,30 @@ def extract_valid_cells(grid: BeliefGrid, cell_size_m: float, mean_thresh: float
             s = 0.0
             for row in rows:
                 s += sum(row[bj * block:(bj + 1) * block])
-            mean = s / (block * block)
-            if mean <= mean_thresh:
+            mass = s * norm
+            if mass <= min_belief_mass:
                 continue
             e_mean = sum(grid.e_axis[bj * block:(bj + 1) * block]) / block
             centers.append([round(n_mean, 4), round(e_mean, 4)])
-            masses.append(round(s * grid.pixel_area_m2, 6))
+            masses.append(round(mass, 12))
     if not centers:
-        raise ValueError("no valid cells: mean_information_thresh is above every block's mean")
+        raise ValueError(f"no valid cells: mapping.minimum_belief_mass ({min_belief_mass:g}) is above "
+                         "every block's belief mass")
     return centers, masses, block * grid.res_m
+
+
+def minimum_belief_mass_of(mapping: Mapping[str, Any]) -> float:
+    """``mapping.minimum_belief_mass``; refuses a mission that still sets only the retired key.
+
+    ``mean_information_thresh`` (a mean-belief test on an un-normalised prior) has no
+    exact conversion to a per-cell probability, so it is not carried over silently.
+    """
+    if "minimum_belief_mass" not in mapping and "mean_information_thresh" in mapping:
+        raise ValueError(
+            "mapping.mean_information_thresh was retired: set mapping.minimum_belief_mass "
+            "(the probability that the target is in one cell, on the prior normalised to 1) "
+            "- see third_party/mtl_planner/CHANGES_belief_mass_and_residual.md section 2.3")
+    return float(mapping.get("minimum_belief_mass", 5.0e-5))
 
 
 # --------------------------------------------------------------------------- #
@@ -295,9 +356,9 @@ def build_scenario(mission: Mapping[str, Any], agents: Sequence[Mapping[str, Any
     grid, bumps = generate_belief(area, m.get("belief", {}), seed)
     targets = sample_targets(grid, m.get("targets", {}), seed + 1)
     mp = m.get("mapping", {})
+    min_mass = minimum_belief_mass_of(mp)
     centers, masses, cell_size = extract_valid_cells(
-        grid, float(mp.get("target_cell_size_m", 20.0)),
-        float(mp.get("mean_information_thresh", 0.08)))
+        grid, float(mp.get("target_cell_size_m", 20.0)), min_mass)
 
     air = m.get("aircraft", {})
     sensor = m.get("sensor", {})
@@ -341,7 +402,7 @@ def build_scenario(mission: Mapping[str, Any], agents: Sequence[Mapping[str, Any
         },
         "mapping": {
             "target_cell_size_m": float(cell_size),
-            "mean_information_thresh": float(mp.get("mean_information_thresh", 0.08)),
+            "minimum_belief_mass": min_mass,
             "max_cluster_radius_m": float(mp.get("max_cluster_radius_m", 45.0)),
             "kmeans_replicates": int(mp.get("kmeans_replicates", 3)),
             "kmeans_max_iter": int(mp.get("kmeans_max_iter", 200)),
@@ -371,7 +432,7 @@ def build_scenario(mission: Mapping[str, Any], agents: Sequence[Mapping[str, Any
         "cells": {
             "centers": centers,
             "mass": masses,
-            "total_map_mass": round(grid.total_mass, 6),
+            "total_map_mass": round(grid.total_mass, 12),  # 1: the prior is a PMF
         },
         "solver": dict(m.get("solver", {})),
         "verbose": False,
@@ -388,7 +449,8 @@ def build_scenario(mission: Mapping[str, Any], agents: Sequence[Mapping[str, Any
                 "bumps": [{k: round(v, 6) for k, v in b.items()} for b in bumps],
                 "belief_cap": float(m.get("belief", {}).get("belief_cap", 0.85)),
                 "base_uncertainty": float(m.get("belief", {}).get("base_uncertainty", 0.0)),
-                "peak": round(grid.peak, 6),
+                "normalised": True,       # the raster rebuilt from the bumps sums to 1
+                "peak": _sig(grid.peak),  # max pixel probability (after normalising)
                 "texture": "belief.png",
             },
             "flight": dict(m.get("flight", {})),

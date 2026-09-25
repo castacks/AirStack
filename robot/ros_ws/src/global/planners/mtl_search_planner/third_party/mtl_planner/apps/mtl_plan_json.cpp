@@ -125,7 +125,10 @@ mtl::PlannerParams paramsFromScenario(const J::Value& sc, const Frame& frame, in
 
     const J::Value& map = sc["mapping"];
     p.targetCellSize        = map["target_cell_size_m"].num(p.targetCellSize);
-    p.meanInformationThresh = map["mean_information_thresh"].num(p.meanInformationThresh);
+    // Informational here - the host passes the cells it already extracted.  The
+    // retired mean_information_thresh key, if an older host still sends it, is
+    // ignored.
+    p.minimumBeliefMass     = map["minimum_belief_mass"].num(p.minimumBeliefMass);
     p.maxClusterRadius      = map["max_cluster_radius_m"].num(p.maxClusterRadius);
     p.cluster.kmeansReplicates = static_cast<int>(map["kmeans_replicates"].num(p.cluster.kmeansReplicates));
     p.cluster.kmeansMaxIter    = static_cast<int>(map["kmeans_max_iter"].num(p.cluster.kmeansMaxIter));
