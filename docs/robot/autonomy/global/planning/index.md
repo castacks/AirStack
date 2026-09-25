@@ -99,6 +99,21 @@ geometric exploration planner — an alternative to `random_walk`. To use it,
 swap the `random_walk_planner.launch.xml` include in your stack's entry
 launch file for `exploration_launch.xml`, as described in its README.
 
+### MTL search planner
+
+[`mtl_search_planner`](../../../../../robot/ros_ws/src/global/planners/mtl_search_planner/README.md)
+is the global layer of the [`mtl_search`](../../../../../stacks/mtl_search/README.md) stack.
+It plans an endurance-budgeted **team** coverage search over a prior belief map with the
+vendored `mtl::planner`. It serves its own `mtl_msgs/SearchMission` action at
+`/{robot_name}/search_mission` and publishes `search/plan` plus a
+`search/planned_trajectory` (`airstack_msgs/TrajectoryXYZVYaw`).
+
+The planner does not delegate to `tasks/navigate` and a local planner. A search track is
+flown open-field by
+[`mtl_trajectory_follower`](../../../../../robot/ros_ws/src/local/controls/mtl_trajectory_follower/README.md),
+which also points the gimbal. See the
+[MTL tutorial](../../../../tutorials/mtl_target_localization.md).
+
 ## Writing Your Own Global Planner
 
 1. Follow the [Module Integration Checklist](../../integration_checklist.md)

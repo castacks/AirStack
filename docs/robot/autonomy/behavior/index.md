@@ -14,6 +14,12 @@ the selected stack's entry launch file, e.g.
 - **`drone_safety_monitor`** (`robot/ros_ws/src/behavior/drone_safety_monitor`) — the safety executive: watches the state
   estimate for timeouts and issues safety commands. It runs onboard so the
   robot can failsafe even if every ground link is lost.
+- **`mtl_metrics_logger`** (`robot/ros_ws/src/behavior/mtl_metrics_logger`,
+  [README](../../../../robot/ros_ws/src/behavior/mtl_metrics_logger/README.md)): used by the
+  [`mtl_search`](../../../../stacks/mtl_search/README.md) stack. It is a mission recorder,
+  not a safety executive. It scores target detections online from the flown pose and the
+  measured gimbal (Moon et al. sigmoid, miss-product accumulation) and writes
+  `runs/<run_id>/<robot>/{telemetry.csv,detection.json,report.html}`.
 
 ## Key Interchanges
 
