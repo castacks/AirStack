@@ -10,14 +10,38 @@
 
 # RRM-1 — Robotics Reasoning Model
 
+> **Live profile smoke (2026-09-25):** A separate headless Isaac process found
+> zero mismatches across the Kuka-Allegro 23-joint names and position/velocity
+> limits. The gateway stayed disabled, returned `IDLE`, and made zero action
+> calls. This does not qualify controller gains, safe state, stop, or motion.
+> The RRM suite passes 223/223. See [HANDOFF.md](HANDOFF.md).
+
+> **Gateway update (2026-09-25):** An isolated, disabled-by-default Isaac hand
+> gateway skeleton now exists in `simulation/hand_isaac_adapter.py`. It has
+> fake-articulation tests only. It has not been bound to a live Isaac scene,
+> qualified for physical stop, or used to send motion. See [HANDOFF.md](HANDOFF.md).
+
+> **Hand boundary update (2026-09-25):** An injected-adapter, transport-free
+> C06/C08/C09 prototype and negative tests are present in
+> `rrm/hand_execution_boundary.py`. It has no Isaac/ROS implementation and grants
+> no live execution authority. See [HANDOFF.md](HANDOFF.md) for the remaining
+> gateway, reconciliation, stop, and supervised-test gates.
+> That increment passed 213/213 tests; the current gateway increment passes
+> 219/219. No hand or aerial motion was sent.
+
 > **Current safety status (2026-09-24):** The latest bounded aerial-console
 > takeoff failed and climbed to 4.076 m during verified recovery landing from a
 > 1 m command. The vehicle ended grounded/disarmed, but the cause is unresolved:
-> **do not repeat aerial flight**. Kuka-Allegro hand work is in a separate
-> no-command Isaac probe and proposal-only shadow pipeline; **no hand execution
-> is enabled**. Read [HANDOFF.md](HANDOFF.md) before continuing. The current
-> worktree is uncommitted; its new focused discovery test passed, while the last
-> complete RRM suite run (before that test) passed 199 tests.
+> **do not repeat aerial flight**. Kuka-Allegro hand work is isolated from that
+> stack; its controller prerequisite gate now permits preparation of one bounded
+> contact trial, but **no hand execution is enabled**. Read [HANDOFF.md](HANDOFF.md)
+> before continuing. The current
+> worktree is uncommitted. The separate Kuka-Allegro tabletop probe now has a fresh,
+> image/state-paired no-action run and a 12-fact simulator C02 teacher export; its
+> manual image-only review scored 9/12 recall. The separate strict controller probe
+> qualifies limits, reset, contact observation, safe-state, and independent stop, but
+> not contact stability, grasp, C06/C08/C09 completion, or dispatch. The
+> dependency-light RRM suite passes 206/206 tests.
 
 A modular embodied-reasoning architecture. Perception feeds a persistent semantic
 world model, a reasoner plans over symbols, a deterministic verifier gates every
@@ -590,6 +614,16 @@ Navigation verifies fresh causal endpoint odometry against its proposal toleranc
 If an action server is unavailable, the runner records `goal_sent=false` and
 `physical_outcome=NOT_DISPATCHED`. These are observation checks, not C06/C08 safety
 authority.
+
+## Kuka-Allegro isolated prerequisite gate
+
+`simulation/hand_controller_probe.py` and `scripts/evaluate_hand_qualification.py`
+form a simulator-only, fail-closed prerequisite check. The accepted probe S keeps all
+23 joint peaks inside unchanged USD limits, converges a bounded arm target, confirms
+repeatable resets and safe-state/stop windows, and proves a named fingertip contact can
+be observed. Its calibration overlap is intentionally not treated as stable contact or
+a grasp. The qualification result authorizes only preparation of one bounded contact
+trial; it provides no C06/C08/C09 completion or execution dispatch.
 
 ## Layout
 

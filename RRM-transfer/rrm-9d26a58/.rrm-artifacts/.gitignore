@@ -1,0 +1,11 @@
+# Preserve only the accepted, small hand-gate evidence in git. Other probe runs
+# remain local diagnostics and must be explicitly reviewed before publication.
+*
+!.gitignore
+!hand-controller-probe-20260924-s/
+hand-controller-probe-20260924-s/*
+!hand-controller-probe-20260924-s/probe.json
+!hand-controller-probe-20260924-s/qualification-strict.json
+!hand-live-binding-20260925-b/
+hand-live-binding-20260925-b/*
+!hand-live-binding-20260925-b/report.json

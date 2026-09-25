@@ -18,13 +18,26 @@ AirStack root.
 
 The [hand embodiment decision](hand-embodiment-decision.md) selects Kuka-Allegro for
 a future controlled tabletop stage. An isolated no-command USD probe found 23 joints
-and three matching bare-articulation reset hashes, but no tabletop reset or controller
-qualification. A proposal-only C01–C05 hand shadow fixture produced nine hash-linked
-records, a context-grounded `GRASP` → `PLACE` plan, and a **synthetic** visual-score
-protocol result of 5/9 recall. It used no hand image/model inference and sent no
-simulator action. C06 admission, independent C08 stop/reset, complete C09 evidence,
-and bounded hand execution remain gated on the qualified stage, observations,
-numeric limits and safe-state proof.
+and three matching bare-articulation reset hashes. The separate tabletop no-action
+probe now adds a table, two dynamic blocks, tray, and overhead RGB camera. Its latest
+run (`hand-tabletop-probe-20260924-f`) produced three matching rounded joint/object
+state hashes, frame/state/episode-paired captures, and explicit false controller,
+ROS, and dispatch flags. The simulator teacher export contains only 12 `exists`,
+`kind`, and `localized` facts. A manually reviewed, image-only candidate for the same
+hash-bound frame scored 9 exact facts of 12 (precision 9/9, recall 9/12); it is not
+model inference and establishes no grasp/contact/safe-state fact. A proposal-only
+C01–C05 hand shadow fixture separately produced nine hash-linked records, a
+context-grounded `GRASP` → `PLACE` plan, and a **synthetic** visual-score protocol
+result of 5/9 recall. C06 admission, complete C09 evidence, and bounded hand execution
+remain disconnected. The isolated controller prerequisite now passes a strict
+five-gate evaluator: bounded arm error 0.00330 rad, all 23 velocity peaks inside
+unchanged limits, three matching post-command reset hashes, a named calibration
+contact after a zero baseline, a safe window, and a 0.917 s independent stop. The
+injected contact peaked at 489 N and is observation-channel evidence only—not
+stable-contact or grasp evidence. The evaluator allows preparation of one bounded
+contact trial while explicitly keeping execution, contact stability, grasp
+qualification, and C06/C08/C09 completion false. The complete dependency-light RRM
+suite now passes **206/206** tests.
 
 ## Direct GUI command execution — 2026-09-21
 

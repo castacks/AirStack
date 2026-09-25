@@ -1,6 +1,6 @@
 # Phase-1 manipulation embodiment decision — 2026-09-24
 
-Status: **Kuka arm + Allegro hand selected for the shadow profile; simulator execution remains unqualified.** This record follows the user's 2026-09-24 direction to resume the hand-workspace track. It supersedes the aerial-first ordering in [architecture.md](architecture.md) for this increment. The AirStack Iris/Office setup remains a separate transport regression fixture.
+Status: **Kuka arm + Allegro hand selected; isolated prerequisites permit preparation of one bounded contact trial, but execution remains disconnected.** This record follows the user's 2026-09-24 direction to resume the hand-workspace track. It supersedes the aerial-first ordering in [architecture.md](architecture.md) for this increment. The AirStack Iris/Office setup remains a separate transport regression fixture.
 
 ## Available assets and choice
 
@@ -38,3 +38,19 @@ Create a separate tabletop Isaac stage with one fixed-base Kuka-Allegro articula
 5. Complete C06 single-use admission and C09 append-before-dispatch evidence at the final adapter boundary, then test exactly one bounded simulator action before composing the two-step task.
 
 The isolated probe launched a bare hand asset and issued no joint command. The profile in the shadow fixture is a declared candidate, not an executable capability certificate.
+
+## Measured prerequisite result
+
+The accepted isolated run is
+`.rrm-artifacts/hand-controller-probe-20260924-s/probe.json`, evaluated by the
+fail-closed `rrm/hand_qualification.py`. Its controller target converged to 0.00330 rad
+maximum error; all 23 observed joint peaks stayed within unchanged USD limits; three
+post-command reset hashes matched; the independent arm interruption reached the
+whole-hand safe window in 0.917 s; and raw contact data named the deliberately injected
+`red_block` pair after a zero-force baseline. ROS was disconnected and dispatch false.
+
+The injected overlap produced a 489 N transient. It qualifies contact observation only,
+not force safety, contact stability, grasp, or placement. The evaluator therefore sets
+`ready_for_single_bounded_contact_trial=true` while retaining
+`contact_stability_qualified=false`, `grasp_execution_qualified=false`,
+`c06_c08_c09_complete=false`, and `execution_dispatch=false`. Gate 5 remains open.

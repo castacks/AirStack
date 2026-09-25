@@ -1,0 +1,949 @@
+{
+  "articulation_root": "/World/KukaAllegro/root_joint",
+  "asset_sha256": "935957108f80625b58afb3ace9fff326edbb820a0b3629793c5f4931adb58fb2",
+  "asset_url": "omniverse://airlab-nucleus.andrew.cmu.edu/NVIDIA/Assets/Isaac/5.1/Isaac/IsaacLab/Robots/KukaAllegro/kuka.usd",
+  "contact_observation": {
+    "baseline_peak_force_n": 0.0,
+    "baseline_samples": 10,
+    "calibration_injection_only": true,
+    "challenge_contact_pairs": [
+      {
+        "body0": "/World/KukaAllegro/ee_link/index_link_3",
+        "body1": "/World/red_block"
+      },
+      {
+        "body0": "/World/KukaAllegro/ee_link/index_link_3",
+        "body1": "/World/red_block"
+      }
+    ],
+    "challenge_peak_body_path": "/World/KukaAllegro/ee_link/index_link_3",
+    "challenge_peak_force_n": 489.0719909667969,
+    "challenge_peak_step": 0,
+    "challenge_position_m": [
+      -0.05029747635126114,
+      -0.07132488489151001,
+      1.5047153234481812
+    ],
+    "challenge_steps": 60,
+    "contact_stability_qualified": false,
+    "detection_threshold_n": 0.1,
+    "filter_entity_id": "red_block",
+    "filter_prim_path": "/World/red_block",
+    "fingertip_body_paths": [
+      "/World/KukaAllegro/ee_link/index_link_3",
+      "/World/KukaAllegro/ee_link/middle_link_3",
+      "/World/KukaAllegro/ee_link/ring_link_3",
+      "/World/KukaAllegro/ee_link/thumb_link_3"
+    ],
+    "fingertip_contact_sensor_active": true,
+    "grasp_claimed": false,
+    "known_contact_detected": true,
+    "red_block_named_in_peak_contacts": true,
+    "sensor_type": "Isaac Sim ContactSensor with raw contact pairs",
+    "terminal_tip_paths": [
+      "/World/KukaAllegro/ee_link/index_biotac_tip",
+      "/World/KukaAllegro/ee_link/middle_biotac_tip",
+      "/World/KukaAllegro/ee_link/ring_biotac_tip",
+      "/World/KukaAllegro/ee_link/thumb_biotac_tip"
+    ]
+  },
+  "controller": {
+    "arm_converged": true,
+    "arm_offsets_applied_rad": [
+      0.0,
+      -0.05,
+      0.0,
+      0.1,
+      0.0,
+      -0.05,
+      0.0
+    ],
+    "arm_targets_clipped_to_limits": true,
+    "command_type": "position",
+    "declared_hold_mode": "POSITION_HOLD",
+    "duration_s": 2.0,
+    "final_arm_position_error_rad": 0.003299803286790845,
+    "final_max_joint_velocity_rad_s": 0.0,
+    "finger_targets_unchanged": true,
+    "max_observed_joint_velocities_rad_s": [
+      0.06271875649690628,
+      0.6697502732276917,
+      0.047942452132701874,
+      1.2689560651779175,
+      0.010023219510912895,
+      1.193981647491455,
+      0.08559603989124298,
+      4.351739406585693,
+      5.467687606811523,
+      5.445446014404297,
+      2.5502758026123047,
+      3.427037477493286,
+      4.162111759185791,
+      4.309119701385498,
+      0.09371961653232574,
+      0.23827184736728668,
+      0.6041454076766968,
+      0.5931001305580139,
+      2.0639808177948,
+      0.034101467579603195,
+      0.20461028814315796,
+      0.20332883298397064,
+      0.20203430950641632
+    ],
+    "runtime_gain_override": {
+      "applied_as_configured": true,
+      "arm_gain_factor": 20.0,
+      "arm_stiffness_reference": 200.0,
+      "configured_damping": [
+        188.72413730098228,
+        243.28419595197713,
+        203.92939954798084,
+        169.0467390989841,
+        113.14503966148936,
+        114.03946685248928,
+        105.09519494249012,
+        2.0,
+        2.0,
+        2.0,
+        2.0,
+        2.0,
+        2.0,
+        2.0,
+        2.0,
+        2.0,
+        2.0,
+        2.0,
+        2.0,
+        2.0,
+        2.0,
+        2.0,
+        2.0
+      ],
+      "configured_stiffness": [
+        4000.0,
+        4000.0,
+        4000.0,
+        4000.0,
+        4000.0,
+        4000.0,
+        4000.0,
+        30.0,
+        30.0,
+        30.0,
+        30.0,
+        30.0,
+        30.0,
+        30.0,
+        30.0,
+        30.0,
+        30.0,
+        30.0,
+        30.0,
+        30.0,
+        30.0,
+        30.0,
+        30.0
+      ],
+      "finger_damping_reference": 0.1,
+      "finger_damping_safety_factor": 20.0,
+      "finger_stiffness_reference": 3.0,
+      "finger_stiffness_safety_factor": 10.0,
+      "limits_changed": false,
+      "reference": {
+        "commit": "481a676a993b4054f46556ebd2c14a155b87602f",
+        "file": "source/isaaclab_assets/isaaclab_assets/robots/kuka_allegro.py",
+        "source": "isaac-sim/IsaacLab"
+      },
+      "source_damping": [
+        0.0,
+        0.0,
+        28.647890090942383,
+        28.647890090942383,
+        28.647890090942383,
+        28.647890090942383,
+        28.647890090942383,
+        1.4323945045471191,
+        0.0,
+        0.0,
+        0.0,
+        1.4323945045471191,
+        0.0,
+        0.0,
+        0.0,
+        1.4323945045471191,
+        0.0,
+        0.0,
+        0.0,
+        1.4323945045471191,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "source_stiffness": [
+        572957824.0,
+        572957824.0,
+        572957824.0,
+        572957824.0,
+        572957824.0,
+        572957824.0,
+        572957824.0,
+        572957824.0,
+        572957824.0,
+        572957824.0,
+        572957824.0,
+        572957824.0,
+        572957824.0,
+        572957824.0,
+        572957824.0,
+        572957824.0,
+        572957824.0,
+        572957824.0,
+        572957824.0,
+        572957824.0,
+        572957824.0,
+        572957824.0,
+        572957824.0
+      ]
+    },
+    "steps_simulated": 240,
+    "target_joint_count": 23,
+    "trajectory_samples": [
+      {
+        "arm_position_error_rad": 0.09140312988311053,
+        "max_arm_velocity_rad_s": 1.2689560651779175,
+        "max_finger_velocity_rad_s": 5.414261341094971,
+        "max_joint_velocity_rad_s": 5.414261341094971,
+        "object_speeds_m_s": {
+          "blue_block": 6.595924874178465e-05,
+          "red_block": 6.78509788123226e-05
+        },
+        "step": 0,
+        "time_s": 0.0083
+      },
+      {
+        "arm_position_error_rad": 0.016028632223606107,
+        "max_arm_velocity_rad_s": 0.06216631084680557,
+        "max_finger_velocity_rad_s": 2.6793558597564697,
+        "max_joint_velocity_rad_s": 2.6793558597564697,
+        "object_speeds_m_s": {
+          "blue_block": 6.592191003105672e-05,
+          "red_block": 6.784966419735405e-05
+        },
+        "step": 24,
+        "time_s": 0.2083
+      },
+      {
+        "arm_position_error_rad": 0.001728986203670499,
+        "max_arm_velocity_rad_s": 0.016625817865133286,
+        "max_finger_velocity_rad_s": 0.5728359222412109,
+        "max_joint_velocity_rad_s": 0.5728359222412109,
+        "object_speeds_m_s": {
+          "blue_block": 6.598078535117716e-05,
+          "red_block": 6.789821413631436e-05
+        },
+        "step": 48,
+        "time_s": 0.4083
+      },
+      {
+        "arm_position_error_rad": 0.0035364374518394442,
+        "max_arm_velocity_rad_s": 0.015239609405398369,
+        "max_finger_velocity_rad_s": 0.5313699245452881,
+        "max_joint_velocity_rad_s": 0.5313699245452881,
+        "object_speeds_m_s": {
+          "blue_block": 6.579625448031573e-05,
+          "red_block": 6.788571986005456e-05
+        },
+        "step": 72,
+        "time_s": 0.6083
+      },
+      {
+        "arm_position_error_rad": 0.0032544329762458774,
+        "max_arm_velocity_rad_s": 0.011116075329482555,
+        "max_finger_velocity_rad_s": 0.5359853506088257,
+        "max_joint_velocity_rad_s": 0.5359853506088257,
+        "object_speeds_m_s": {
+          "blue_block": 6.594762857030781e-05,
+          "red_block": 6.789983596521182e-05
+        },
+        "step": 96,
+        "time_s": 0.8083
+      },
+      {
+        "arm_position_error_rad": 0.003292699158191678,
+        "max_arm_velocity_rad_s": 0.009311073459684849,
+        "max_finger_velocity_rad_s": 0.2044365406036377,
+        "max_joint_velocity_rad_s": 0.2044365406036377,
+        "object_speeds_m_s": {
+          "blue_block": 6.596311884427492e-05,
+          "red_block": 6.785089098405926e-05
+        },
+        "step": 120,
+        "time_s": 1.0083
+      },
+      {
+        "arm_position_error_rad": 0.0032967597246170016,
+        "max_arm_velocity_rad_s": 0.009225099347531796,
+        "max_finger_velocity_rad_s": 0.1701308786869049,
+        "max_joint_velocity_rad_s": 0.1701308786869049,
+        "object_speeds_m_s": {
+          "blue_block": 6.590814009532664e-05,
+          "red_block": 6.789694113577092e-05
+        },
+        "step": 144,
+        "time_s": 1.2083
+      },
+      {
+        "arm_position_error_rad": 0.003299803286790845,
+        "max_arm_velocity_rad_s": 0.0,
+        "max_finger_velocity_rad_s": 0.0,
+        "max_joint_velocity_rad_s": 0.0,
+        "object_speeds_m_s": {
+          "blue_block": 0.0003761485294217036,
+          "red_block": 0.0003727174996415066
+        },
+        "step": 168,
+        "time_s": 1.4083
+      },
+      {
+        "arm_position_error_rad": 0.003299803286790845,
+        "max_arm_velocity_rad_s": 0.0,
+        "max_finger_velocity_rad_s": 0.0,
+        "max_joint_velocity_rad_s": 0.0,
+        "object_speeds_m_s": {
+          "blue_block": 0.00037579847248489214,
+          "red_block": 0.0003731572102883967
+        },
+        "step": 192,
+        "time_s": 1.6083
+      },
+      {
+        "arm_position_error_rad": 0.003299803286790845,
+        "max_arm_velocity_rad_s": 0.0,
+        "max_finger_velocity_rad_s": 0.0,
+        "max_joint_velocity_rad_s": 0.0,
+        "object_speeds_m_s": {
+          "blue_block": 0.00037595070512267645,
+          "red_block": 0.0003718405917029194
+        },
+        "step": 216,
+        "time_s": 1.8083
+      },
+      {
+        "arm_position_error_rad": 0.003299803286790845,
+        "max_arm_velocity_rad_s": 0.0,
+        "max_finger_velocity_rad_s": 0.0,
+        "max_joint_velocity_rad_s": 0.0,
+        "object_speeds_m_s": {
+          "blue_block": 0.0003757959367929406,
+          "red_block": 0.00036986178791398127
+        },
+        "step": 239,
+        "time_s": 2.0
+      }
+    ],
+    "velocity_limits_respected": true
+  },
+  "controller_command_sent": true,
+  "controller_default_overrides": [
+    {
+      "controller_default_position_rad": 0.0,
+      "joint": "index_joint_0",
+      "usd_or_clamped_position_rad": 0.0
+    },
+    {
+      "controller_default_position_rad": 0.3,
+      "joint": "index_joint_1",
+      "usd_or_clamped_position_rad": 0.0
+    },
+    {
+      "controller_default_position_rad": 0.3,
+      "joint": "index_joint_2",
+      "usd_or_clamped_position_rad": 0.0
+    },
+    {
+      "controller_default_position_rad": 0.3,
+      "joint": "index_joint_3",
+      "usd_or_clamped_position_rad": 0.0
+    },
+    {
+      "controller_default_position_rad": 0.0,
+      "joint": "middle_joint_0",
+      "usd_or_clamped_position_rad": 0.0
+    },
+    {
+      "controller_default_position_rad": 0.3,
+      "joint": "middle_joint_1",
+      "usd_or_clamped_position_rad": 0.0
+    },
+    {
+      "controller_default_position_rad": 0.3,
+      "joint": "middle_joint_2",
+      "usd_or_clamped_position_rad": 0.0
+    },
+    {
+      "controller_default_position_rad": 0.3,
+      "joint": "middle_joint_3",
+      "usd_or_clamped_position_rad": 0.0
+    },
+    {
+      "controller_default_position_rad": 0.0,
+      "joint": "ring_joint_0",
+      "usd_or_clamped_position_rad": 0.0
+    },
+    {
+      "controller_default_position_rad": 0.3,
+      "joint": "ring_joint_1",
+      "usd_or_clamped_position_rad": 0.0
+    },
+    {
+      "controller_default_position_rad": 0.3,
+      "joint": "ring_joint_2",
+      "usd_or_clamped_position_rad": 0.0
+    },
+    {
+      "controller_default_position_rad": 0.3,
+      "joint": "ring_joint_3",
+      "usd_or_clamped_position_rad": 0.0
+    },
+    {
+      "controller_default_position_rad": 1.5,
+      "joint": "thumb_joint_0",
+      "usd_or_clamped_position_rad": 0.9249971657991409
+    },
+    {
+      "controller_default_position_rad": 0.60147215,
+      "joint": "thumb_joint_1",
+      "usd_or_clamped_position_rad": 0.0
+    },
+    {
+      "controller_default_position_rad": 0.33795027,
+      "joint": "thumb_joint_2",
+      "usd_or_clamped_position_rad": 0.0
+    },
+    {
+      "controller_default_position_rad": 0.60845138,
+      "joint": "thumb_joint_3",
+      "usd_or_clamped_position_rad": 0.0
+    }
+  ],
+  "controller_default_reference": {
+    "commit": "481a676a993b4054f46556ebd2c14a155b87602f",
+    "file": "source/isaaclab_assets/isaaclab_assets/robots/kuka_allegro.py",
+    "source": "isaac-sim/IsaacLab"
+  },
+  "execution_dispatch": false,
+  "independent_stop": {
+    "active_motion_command": false,
+    "commanded_joint_names": [
+      "iiwa7_joint_1",
+      "iiwa7_joint_2",
+      "iiwa7_joint_3",
+      "iiwa7_joint_4",
+      "iiwa7_joint_5",
+      "iiwa7_joint_6",
+      "iiwa7_joint_7"
+    ],
+    "controller_mode": "POSITION_HOLD",
+    "mid_motion_velocity_rad_s": 3.819258451461792,
+    "motion_started": true,
+    "safe_state_achieved": true,
+    "samples": [
+      {
+        "max_joint": "middle_joint_1",
+        "max_joint_velocity_rad_s": 2.4045610427856445,
+        "step": 0
+      },
+      {
+        "max_joint": "ring_joint_1",
+        "max_joint_velocity_rad_s": 1.5031217336654663,
+        "step": 24
+      },
+      {
+        "max_joint": "middle_joint_2",
+        "max_joint_velocity_rad_s": 0.16583013534545898,
+        "step": 48
+      },
+      {
+        "max_joint": "middle_joint_2",
+        "max_joint_velocity_rad_s": 0.17077498137950897,
+        "step": 72
+      },
+      {
+        "max_joint": "middle_joint_2",
+        "max_joint_velocity_rad_s": 0.16008006036281586,
+        "step": 96
+      }
+    ],
+    "steps_to_safe": 109,
+    "stop_command_sent": true,
+    "stop_latency_s": 0.9166666666666666
+  },
+  "joint_count": 23,
+  "joint_limits": [
+    {
+      "clamped_default_position_rad": 0.0,
+      "damping": 0.0,
+      "drive_mode": 1,
+      "index": 0,
+      "lower_rad": -2.967059373855591,
+      "max_effort": 300.0,
+      "max_velocity_rad_s": 10.0,
+      "name": "iiwa7_joint_1",
+      "range_rad": 5.934118747711182,
+      "stiffness": 572957824.0,
+      "upper_rad": 2.967059373855591,
+      "usd_default_position_rad": 0.0,
+      "usd_default_within_limits": true
+    },
+    {
+      "clamped_default_position_rad": 0.0,
+      "damping": 0.0,
+      "drive_mode": 1,
+      "index": 1,
+      "lower_rad": -2.094395160675049,
+      "max_effort": 300.0,
+      "max_velocity_rad_s": 10.0,
+      "name": "iiwa7_joint_2",
+      "range_rad": 4.188790321350098,
+      "stiffness": 572957824.0,
+      "upper_rad": 2.094395160675049,
+      "usd_default_position_rad": 0.0,
+      "usd_default_within_limits": true
+    },
+    {
+      "clamped_default_position_rad": 0.0,
+      "damping": 28.647890090942383,
+      "drive_mode": 1,
+      "index": 2,
+      "lower_rad": -2.967059373855591,
+      "max_effort": 300.0,
+      "max_velocity_rad_s": 10.0,
+      "name": "iiwa7_joint_3",
+      "range_rad": 5.934118747711182,
+      "stiffness": 572957824.0,
+      "upper_rad": 2.967059373855591,
+      "usd_default_position_rad": 0.0,
+      "usd_default_within_limits": true
+    },
+    {
+      "clamped_default_position_rad": 0.0,
+      "damping": 28.647890090942383,
+      "drive_mode": 1,
+      "index": 3,
+      "lower_rad": -2.094395160675049,
+      "max_effort": 300.0,
+      "max_velocity_rad_s": 10.0,
+      "name": "iiwa7_joint_4",
+      "range_rad": 4.188790321350098,
+      "stiffness": 572957824.0,
+      "upper_rad": 2.094395160675049,
+      "usd_default_position_rad": 0.0,
+      "usd_default_within_limits": true
+    },
+    {
+      "clamped_default_position_rad": 0.0,
+      "damping": 28.647890090942383,
+      "drive_mode": 1,
+      "index": 4,
+      "lower_rad": -2.967059373855591,
+      "max_effort": 300.0,
+      "max_velocity_rad_s": 10.0,
+      "name": "iiwa7_joint_5",
+      "range_rad": 5.934118747711182,
+      "stiffness": 572957824.0,
+      "upper_rad": 2.967059373855591,
+      "usd_default_position_rad": 0.0,
+      "usd_default_within_limits": true
+    },
+    {
+      "clamped_default_position_rad": 0.0,
+      "damping": 28.647890090942383,
+      "drive_mode": 1,
+      "index": 5,
+      "lower_rad": -2.094395160675049,
+      "max_effort": 300.0,
+      "max_velocity_rad_s": 10.0,
+      "name": "iiwa7_joint_6",
+      "range_rad": 4.188790321350098,
+      "stiffness": 572957824.0,
+      "upper_rad": 2.094395160675049,
+      "usd_default_position_rad": 0.0,
+      "usd_default_within_limits": true
+    },
+    {
+      "clamped_default_position_rad": 0.0,
+      "damping": 28.647890090942383,
+      "drive_mode": 1,
+      "index": 6,
+      "lower_rad": -3.054326057434082,
+      "max_effort": 300.0,
+      "max_velocity_rad_s": 10.0,
+      "name": "iiwa7_joint_7",
+      "range_rad": 6.108652114868164,
+      "stiffness": 572957824.0,
+      "upper_rad": 3.054326057434082,
+      "usd_default_position_rad": 0.0,
+      "usd_default_within_limits": true
+    },
+    {
+      "clamped_default_position_rad": 0.0,
+      "damping": 1.4323945045471191,
+      "drive_mode": 1,
+      "index": 7,
+      "lower_rad": -0.5584889054298401,
+      "max_effort": 0.3499999940395355,
+      "max_velocity_rad_s": 6.2829999923706055,
+      "name": "index_joint_0",
+      "range_rad": 1.1169778108596802,
+      "stiffness": 572957824.0,
+      "upper_rad": 0.5584889054298401,
+      "usd_default_position_rad": 0.0,
+      "usd_default_within_limits": true
+    },
+    {
+      "clamped_default_position_rad": 0.0,
+      "damping": 0.0,
+      "drive_mode": 1,
+      "index": 8,
+      "lower_rad": -0.5584889054298401,
+      "max_effort": 0.3499999940395355,
+      "max_velocity_rad_s": 6.2829999923706055,
+      "name": "middle_joint_0",
+      "range_rad": 1.1169778108596802,
+      "stiffness": 572957824.0,
+      "upper_rad": 0.5584889054298401,
+      "usd_default_position_rad": 0.0,
+      "usd_default_within_limits": true
+    },
+    {
+      "clamped_default_position_rad": 0.0,
+      "damping": 0.0,
+      "drive_mode": 1,
+      "index": 9,
+      "lower_rad": -0.5584889054298401,
+      "max_effort": 0.3499999940395355,
+      "max_velocity_rad_s": 6.2829999923706055,
+      "name": "ring_joint_0",
+      "range_rad": 1.1169778108596802,
+      "stiffness": 572957824.0,
+      "upper_rad": 0.5584889054298401,
+      "usd_default_position_rad": 0.0,
+      "usd_default_within_limits": true
+    },
+    {
+      "clamped_default_position_rad": 1.5,
+      "damping": 0.0,
+      "drive_mode": 1,
+      "index": 10,
+      "lower_rad": 0.27924445271492004,
+      "max_effort": 0.3499999940395355,
+      "max_velocity_rad_s": 6.2829999923706055,
+      "name": "thumb_joint_0",
+      "range_rad": 1.2915054261684418,
+      "stiffness": 572957824.0,
+      "upper_rad": 1.5707498788833618,
+      "usd_default_position_rad": 0.0,
+      "usd_default_within_limits": false
+    },
+    {
+      "clamped_default_position_rad": 0.3,
+      "damping": 1.4323945045471191,
+      "drive_mode": 1,
+      "index": 11,
+      "lower_rad": -0.27924445271492004,
+      "max_effort": 0.3499999940395355,
+      "max_velocity_rad_s": 6.2829999923706055,
+      "name": "index_joint_1",
+      "range_rad": 2.007069379091263,
+      "stiffness": 572957824.0,
+      "upper_rad": 1.7278249263763428,
+      "usd_default_position_rad": 0.0,
+      "usd_default_within_limits": true
+    },
+    {
+      "clamped_default_position_rad": 0.3,
+      "damping": 0.0,
+      "drive_mode": 1,
+      "index": 12,
+      "lower_rad": -0.27924445271492004,
+      "max_effort": 0.3499999940395355,
+      "max_velocity_rad_s": 6.2829999923706055,
+      "name": "middle_joint_1",
+      "range_rad": 2.007069379091263,
+      "stiffness": 572957824.0,
+      "upper_rad": 1.7278249263763428,
+      "usd_default_position_rad": 0.0,
+      "usd_default_within_limits": true
+    },
+    {
+      "clamped_default_position_rad": 0.3,
+      "damping": 0.0,
+      "drive_mode": 1,
+      "index": 13,
+      "lower_rad": -0.27924445271492004,
+      "max_effort": 0.3499999940395355,
+      "max_velocity_rad_s": 6.2829999923706055,
+      "name": "ring_joint_1",
+      "range_rad": 2.007069379091263,
+      "stiffness": 572957824.0,
+      "upper_rad": 1.7278249263763428,
+      "usd_default_position_rad": 0.0,
+      "usd_default_within_limits": true
+    },
+    {
+      "clamped_default_position_rad": 0.60147215,
+      "damping": 0.0,
+      "drive_mode": 1,
+      "index": 14,
+      "lower_rad": -0.3316027820110321,
+      "max_effort": 0.3499999940395355,
+      "max_velocity_rad_s": 6.2829999923706055,
+      "name": "thumb_joint_1",
+      "range_rad": 1.483486145734787,
+      "stiffness": 572957824.0,
+      "upper_rad": 1.1518833637237549,
+      "usd_default_position_rad": 0.0,
+      "usd_default_within_limits": true
+    },
+    {
+      "clamped_default_position_rad": 0.3,
+      "damping": 1.4323945045471191,
+      "drive_mode": 1,
+      "index": 15,
+      "lower_rad": -0.27924445271492004,
+      "max_effort": 0.3499999940395355,
+      "max_velocity_rad_s": 6.2829999923706055,
+      "name": "index_joint_2",
+      "range_rad": 2.007069379091263,
+      "stiffness": 572957824.0,
+      "upper_rad": 1.7278249263763428,
+      "usd_default_position_rad": 0.0,
+      "usd_default_within_limits": true
+    },
+    {
+      "clamped_default_position_rad": 0.3,
+      "damping": 0.0,
+      "drive_mode": 1,
+      "index": 16,
+      "lower_rad": -0.27924445271492004,
+      "max_effort": 0.3499999940395355,
+      "max_velocity_rad_s": 6.2829999923706055,
+      "name": "middle_joint_2",
+      "range_rad": 2.007069379091263,
+      "stiffness": 572957824.0,
+      "upper_rad": 1.7278249263763428,
+      "usd_default_position_rad": 0.0,
+      "usd_default_within_limits": true
+    },
+    {
+      "clamped_default_position_rad": 0.3,
+      "damping": 0.0,
+      "drive_mode": 1,
+      "index": 17,
+      "lower_rad": -0.27924445271492004,
+      "max_effort": 0.3499999940395355,
+      "max_velocity_rad_s": 6.2829999923706055,
+      "name": "ring_joint_2",
+      "range_rad": 2.007069379091263,
+      "stiffness": 572957824.0,
+      "upper_rad": 1.7278249263763428,
+      "usd_default_position_rad": 0.0,
+      "usd_default_within_limits": true
+    },
+    {
+      "clamped_default_position_rad": 0.33795027,
+      "damping": 0.0,
+      "drive_mode": 1,
+      "index": 18,
+      "lower_rad": -0.27924445271492004,
+      "max_effort": 0.3499999940395355,
+      "max_velocity_rad_s": 6.2829999923706055,
+      "name": "thumb_joint_2",
+      "range_rad": 2.007069379091263,
+      "stiffness": 572957824.0,
+      "upper_rad": 1.7278249263763428,
+      "usd_default_position_rad": 0.0,
+      "usd_default_within_limits": true
+    },
+    {
+      "clamped_default_position_rad": 0.3,
+      "damping": 1.4323945045471191,
+      "drive_mode": 1,
+      "index": 19,
+      "lower_rad": -0.27924445271492004,
+      "max_effort": 0.3499999940395355,
+      "max_velocity_rad_s": 6.2829999923706055,
+      "name": "index_joint_3",
+      "range_rad": 2.007069379091263,
+      "stiffness": 572957824.0,
+      "upper_rad": 1.7278249263763428,
+      "usd_default_position_rad": 0.0,
+      "usd_default_within_limits": true
+    },
+    {
+      "clamped_default_position_rad": 0.3,
+      "damping": 0.0,
+      "drive_mode": 1,
+      "index": 20,
+      "lower_rad": -0.27924445271492004,
+      "max_effort": 0.3499999940395355,
+      "max_velocity_rad_s": 6.2829999923706055,
+      "name": "middle_joint_3",
+      "range_rad": 2.007069379091263,
+      "stiffness": 572957824.0,
+      "upper_rad": 1.7278249263763428,
+      "usd_default_position_rad": 0.0,
+      "usd_default_within_limits": true
+    },
+    {
+      "clamped_default_position_rad": 0.3,
+      "damping": 0.0,
+      "drive_mode": 1,
+      "index": 21,
+      "lower_rad": -0.27924445271492004,
+      "max_effort": 0.3499999940395355,
+      "max_velocity_rad_s": 6.2829999923706055,
+      "name": "ring_joint_3",
+      "range_rad": 2.007069379091263,
+      "stiffness": 572957824.0,
+      "upper_rad": 1.7278249263763428,
+      "usd_default_position_rad": 0.0,
+      "usd_default_within_limits": true
+    },
+    {
+      "clamped_default_position_rad": 0.60845138,
+      "damping": 0.0,
+      "drive_mode": 1,
+      "index": 22,
+      "lower_rad": -0.27924445271492004,
+      "max_effort": 0.3499999940395355,
+      "max_velocity_rad_s": 6.2829999923706055,
+      "name": "thumb_joint_3",
+      "range_rad": 2.0419749319553375,
+      "stiffness": 572957824.0,
+      "upper_rad": 1.7627304792404175,
+      "usd_default_position_rad": 0.0,
+      "usd_default_within_limits": true
+    }
+  ],
+  "joint_names": [
+    "iiwa7_joint_1",
+    "iiwa7_joint_2",
+    "iiwa7_joint_3",
+    "iiwa7_joint_4",
+    "iiwa7_joint_5",
+    "iiwa7_joint_6",
+    "iiwa7_joint_7",
+    "index_joint_0",
+    "middle_joint_0",
+    "ring_joint_0",
+    "thumb_joint_0",
+    "index_joint_1",
+    "middle_joint_1",
+    "ring_joint_1",
+    "thumb_joint_1",
+    "index_joint_2",
+    "middle_joint_2",
+    "ring_joint_2",
+    "thumb_joint_2",
+    "index_joint_3",
+    "middle_joint_3",
+    "ring_joint_3",
+    "thumb_joint_3"
+  ],
+  "out_of_range_fixes": [
+    {
+      "clamped_to_rad": 0.9249971657991409,
+      "index": 10,
+      "joint": "thumb_joint_0",
+      "lower_rad": 0.27924445271492004,
+      "original_rad": 0.0,
+      "upper_rad": 1.5707498788833618
+    }
+  ],
+  "physics_dt_s": 0.008333333333333333,
+  "post_command_reset_hashes_match": true,
+  "post_command_reset_samples": [
+    {
+      "episode_id": "controller-probe-20260924/post-command-reset-0",
+      "max_joint_velocity_rad_s": 0.1441740095615387,
+      "observed_monotonic_s": 1016236.054438752,
+      "reset_index": 0,
+      "state_sha256_rounded_1e-4": "ce07cbf152dc7c031c04beb8aa6068f60a23c081485436d337ff19f62d433429"
+    },
+    {
+      "episode_id": "controller-probe-20260924/post-command-reset-1",
+      "max_joint_velocity_rad_s": 0.1441740095615387,
+      "observed_monotonic_s": 1016236.737468489,
+      "reset_index": 1,
+      "state_sha256_rounded_1e-4": "ce07cbf152dc7c031c04beb8aa6068f60a23c081485436d337ff19f62d433429"
+    },
+    {
+      "episode_id": "controller-probe-20260924/post-command-reset-2",
+      "max_joint_velocity_rad_s": 0.1441740095615387,
+      "observed_monotonic_s": 1016237.417808302,
+      "reset_index": 2,
+      "state_sha256_rounded_1e-4": "ce07cbf152dc7c031c04beb8aa6068f60a23c081485436d337ff19f62d433429"
+    }
+  ],
+  "rigid_body_paths": [
+    "/World/KukaAllegro/ee_link/allegro_mount",
+    "/World/KukaAllegro/ee_link/index_biotac_tip",
+    "/World/KukaAllegro/ee_link/index_link_0",
+    "/World/KukaAllegro/ee_link/index_link_1",
+    "/World/KukaAllegro/ee_link/index_link_2",
+    "/World/KukaAllegro/ee_link/index_link_3",
+    "/World/KukaAllegro/ee_link/middle_biotac_tip",
+    "/World/KukaAllegro/ee_link/middle_link_0",
+    "/World/KukaAllegro/ee_link/middle_link_1",
+    "/World/KukaAllegro/ee_link/middle_link_2",
+    "/World/KukaAllegro/ee_link/middle_link_3",
+    "/World/KukaAllegro/ee_link/palm_link",
+    "/World/KukaAllegro/ee_link/ring_biotac_tip",
+    "/World/KukaAllegro/ee_link/ring_link_0",
+    "/World/KukaAllegro/ee_link/ring_link_1",
+    "/World/KukaAllegro/ee_link/ring_link_2",
+    "/World/KukaAllegro/ee_link/ring_link_3",
+    "/World/KukaAllegro/ee_link/thumb_biotac_tip",
+    "/World/KukaAllegro/ee_link/thumb_link_0",
+    "/World/KukaAllegro/ee_link/thumb_link_1",
+    "/World/KukaAllegro/ee_link/thumb_link_2",
+    "/World/KukaAllegro/ee_link/thumb_link_3",
+    "/World/KukaAllegro/iiwa7_link_0",
+    "/World/KukaAllegro/iiwa7_link_1",
+    "/World/KukaAllegro/iiwa7_link_2",
+    "/World/KukaAllegro/iiwa7_link_3",
+    "/World/KukaAllegro/iiwa7_link_4",
+    "/World/KukaAllegro/iiwa7_link_5",
+    "/World/KukaAllegro/iiwa7_link_6",
+    "/World/KukaAllegro/iiwa7_link_7"
+  ],
+  "ros_connected": false,
+  "safe_state": {
+    "active_motion_command": false,
+    "consecutive_window_required": 5,
+    "controller_mode": "POSITION_HOLD",
+    "joint_velocity_threshold_rad_s": 0.1,
+    "object_velocity_threshold_m_s": 0.01,
+    "safe_state_achieved": true,
+    "samples": [
+      {
+        "consecutive_safe_count": 5,
+        "max_joint_velocity_rad_s": 0.0,
+        "max_object_velocity_m_s": 0.00037608039671318015,
+        "step": 4,
+        "time_s": 2.0417,
+        "verdict": "SAFE_CONFIRMED"
+      }
+    ]
+  },
+  "scene_entities": {
+    "blue_block": "/World/blue_block",
+    "red_block": "/World/red_block",
+    "table": "/World/Table",
+    "tray_1": "/World/Tray"
+  },
+  "scene_recipe_sha256": "3216c84c958e898e6df93cce9d939cecde0ac3b98880766c87796a1e6adaeca7",
+  "scene_seed": 0,
+  "schema_version": "rrm-hand-controller-probe/v1"
+}

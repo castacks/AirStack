@@ -1,0 +1,19 @@
+{
+  "adapter_motion_enabled": false,
+  "apply_action_calls": 0,
+  "articulation_root": "/World/KukaAllegro/root_joint",
+  "asset_content_hash_verified": false,
+  "asset_url": "omniverse://airlab-nucleus.andrew.cmu.edu/NVIDIA/Assets/Isaac/5.1/Isaac/IsaacLab/Robots/KukaAllegro/kuka.usd",
+  "controller_gains_verified": false,
+  "execution_dispatch": false,
+  "idle_tick": "IDLE",
+  "joint_count": 23,
+  "probe_sha256": "4fb574cccff4e32194784d008fd65e4c054cea52b117f98bd942ce89f809cd0b",
+  "profile_mismatches": [],
+  "qualification_sha256": "25f263ba9754b8cd42a7e83fe138578c8ae271a25b6b286d98a1da4c1d6928a8",
+  "safe_state_qualified": false,
+  "scene_equivalent_to_qualification": false,
+  "schema_version": "rrm-hand-live-binding-smoke/v1",
+  "stop_qualified": false,
+  "strict_gates_recomputed_pass": true
+}

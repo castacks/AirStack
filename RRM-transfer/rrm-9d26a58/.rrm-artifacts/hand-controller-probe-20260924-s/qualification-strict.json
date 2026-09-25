@@ -1,0 +1,32 @@
+{
+  "c06_c08_c09_complete": false,
+  "contact_stability_qualified": false,
+  "execution_dispatch": false,
+  "gates": {
+    "contact_observer": {
+      "reasons": [],
+      "status": "PASS"
+    },
+    "controller_limits": {
+      "reasons": [],
+      "status": "PASS"
+    },
+    "independent_stop": {
+      "reasons": [],
+      "status": "PASS"
+    },
+    "post_command_reset": {
+      "reasons": [],
+      "status": "PASS"
+    },
+    "safe_state": {
+      "reasons": [],
+      "status": "PASS"
+    }
+  },
+  "grasp_execution_qualified": false,
+  "probe_sha256": "4fb574cccff4e32194784d008fd65e4c054cea52b117f98bd942ce89f809cd0b",
+  "ready_for_single_bounded_contact_trial": true,
+  "scene_recipe_sha256": "3216c84c958e898e6df93cce9d939cecde0ac3b98880766c87796a1e6adaeca7",
+  "schema_version": "rrm-hand-qualification/v1"
+}
