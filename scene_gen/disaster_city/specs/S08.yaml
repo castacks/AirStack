@@ -1,0 +1,18 @@
+# S08 open-sided canopy beside B02 -- corners read off a 6 cm/px gridded crop of the tile ortho:
+# a gabled roof 12.6 x 7.5 m, long axis at 48 deg, centre (119.3, -361.7). Eaves 3.6 m / ridge 4.4 m
+# are a guess for an equipment shelter (the tile blob merges it with the trees behind it).
+# Local frame: x along the long side, y across, origin at a ground corner.
+id: S08
+name: canopy_shed
+semantic: building
+origin: [117.87, -368.89, 58.3]
+yaw_deg: 48.0
+parts:
+  - box: {name: post_00, min: [0.3, 0.3, 0], max: [0.55, 0.55, 3.6], mat: steel}
+  - box: {name: post_01, min: [6.2, 0.3, 0], max: [6.45, 0.55, 3.6], mat: steel}
+  - box: {name: post_02, min: [12.05, 0.3, 0], max: [12.3, 0.55, 3.6], mat: steel}
+  - box: {name: post_10, min: [0.3, 6.95, 0], max: [0.55, 7.2, 3.6], mat: steel}
+  - box: {name: post_11, min: [6.2, 6.95, 0], max: [6.45, 7.2, 3.6], mat: steel}
+  - box: {name: post_12, min: [12.05, 6.95, 0], max: [12.3, 7.2, 3.6], mat: steel}
+  - beam: {name: roof_lo, from: [6.3, 0.0, 3.6], to: [6.3, 3.75, 4.4], t: 0.12, t2: 12.8, mat: steel}
+  - beam: {name: roof_hi, from: [6.3, 7.5, 3.6], to: [6.3, 3.75, 4.4], t: 0.12, t2: 12.8, mat: steel}

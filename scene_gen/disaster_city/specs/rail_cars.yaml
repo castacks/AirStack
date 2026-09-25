@@ -1,0 +1,43 @@
+# Every rail car on the site, surveyed by hand: world XY of each car's two ENDS, read off 10 cm/px
+# gridded crops of the tile ortho (data/recon/ortho_site.png), +-0.5 m. The tile mesh merges coupled
+# and derailed cars into single blobs, so automatic fitting cannot separate them; this list is what
+# place_assets.py places instead (asset scaled to the surveyed length). `tilt` rolls a car about its
+# own long axis (a derailed car on its side); `asset` picks from data/recon/assets/lib/library.json.
+#
+# Z15 rail yard, top two tracks (y ~ -233 / -242), and the separate row south of the yard road:
+- {id: yard_n1, ends: [[276.0, -232.0], [288.0, -230.5]], asset: tankcar}          # white tank at the west end of the north track
+- {id: yard_n2, ends: [[293.5, -236.0], [308.0, -233.5]], asset: tankcar_cyl}      # red tank
+- {id: yard_n3, ends: [[259.0, -240.5], [269.5, -239.0]], asset: tankcar_graffiti} # white tank, west end
+- {id: yard_n4a, ends: [[270.5, -238.5], [281.0, -237.0]], asset: tankcar_cyl}     # the long dark car is two coupled tanks
+- {id: yard_n4b, ends: [[281.5, -237.0], [291.5, -235.0]], asset: tankcar_cyl}
+- {id: yard_n5, ends: [[300.0, -241.5], [311.5, -240.0]], asset: tankcar}          # white tank
+- {id: yard_s1a, ends: [[265.0, -245.5], [279.0, -243.8]], asset: tankcar_cyl}     # dark tanks on the second track (2 cars)
+- {id: yard_s1b, ends: [[279.5, -243.7], [293.0, -242.0]], asset: tankcar_cyl}
+- {id: yard_s2, ends: [[269.5, -262.5], [280.0, -261.5]], asset: tankcar_cyl}      # dark tank south of the yard road
+# R05 derailment: cars thrown about, some on their sides
+- {id: der_1, ends: [[282.0, -257.0], [292.5, -254.5]], asset: tankcar_cyl, tilt: 8}
+- {id: der_2, ends: [[288.5, -260.0], [302.5, -253.5]], asset: tankcar, tilt: 12}
+- {id: der_3, ends: [[301.0, -258.5], [320.5, -267.5]], asset: tankcar_cyl, tilt: 20}
+- {id: der_4, ends: [[312.5, -277.0], [319.5, -264.0]], asset: tankcar_cyl, tilt: 55}
+- {id: der_5, ends: [[323.0, -268.5], [327.5, -283.5]], asset: boxcar}              # white box car
+# east line, running N-S from the derailment to the locomotive
+- {id: east_1, ends: [[318.5, -281.0], [325.0, -294.5]], asset: boxcar}             # red box car
+- {id: east_2, ends: [[325.5, -296.0], [328.5, -312.0]], asset: locomotive}
+- {id: east_3, ends: [[341.0, -286.5], [345.5, -296.5]], asset: tankcar_graffiti}   # the tanker east of the water tower (V09)
+# S14: two coaches on the N-S track west of RD03
+- {id: s14_1, ends: [[245.5, -300.5], [245.5, -325.0]], asset: passenger_car}
+- {id: s14_2, ends: [[246.0, -326.5], [247.0, -350.0]], asset: passenger_car}
+# V11: crossed passenger cars by R02 (a T, and one lying alongside)
+- {id: v11_1, ends: [[220.0, -367.0], [245.0, -360.0]], asset: passenger_car}
+- {id: v11_2, ends: [[232.5, -360.5], [232.5, -383.5]], asset: passenger_car}
+- {id: v11_3, ends: [[222.0, -373.5], [221.0, -393.5]], asset: passenger_car}
+# V12: the diagonal line SE of R02 -- two coaches and a locomotive at the south end
+- {id: v12_1, ends: [[214.5, -397.5], [205.0, -416.0]], asset: passenger_car}
+- {id: v12_2, ends: [[204.5, -417.0], [197.5, -429.5]], asset: passenger_car}
+- {id: v12_3, ends: [[197.0, -430.0], [191.0, -436.5]], asset: locomotive}
+# S16: tank car on its stand; S17: two tank cars NE
+- {id: s16, ends: [[225.0, -235.5], [219.5, -247.0]], asset: tankcar}
+- {id: s17_1, ends: [[322.0, -168.5], [326.0, -181.5]], asset: tankcar}
+- {id: s17_2, ends: [[327.5, -173.0], [332.0, -186.0]], asset: tankcar_graffiti}
+# S03 on the industrial pad (fitted by gen_industrial_pad.py's blob fit: centre (42.7,-528.6), yaw 135.7, 17.9 m)
+- {id: pad_s03, ends: [[49.1, -534.9], [36.3, -522.3]], asset: tankcar_cyl}

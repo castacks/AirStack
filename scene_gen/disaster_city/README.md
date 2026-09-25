@@ -56,7 +56,8 @@ PATH, and `~/isaacsim/python.sh` (Isaac Sim 6.0.1) for the check.
 | R02 east pile, R03 collapsed houses | Tile mound plus 537 debris pieces | The mound is the collider; the pieces are visual only |
 | Other buildings (`lod1/`) | The tile outline, extruded: main roof level plus any attached lower annex | Closed, with the real roof texture. Not enterable. |
 | Trees (`trees/`) | Canopy peaks in the tile heights; 4 NVIDIA tree species as instanceable references | Position and height from the tiles; invisible trunk and crown colliders |
-| Vehicles (`vehicles/`) | Every vehicle-sized blob on roads, lots and near vehicle labels, plus rail cars anywhere, fitted in the world frame | Car, van and bus assets (touching rows split into cars); rail cars, trailers and containers as fitted boxes (no library asset) |
+| Vehicles (`vehicles/`) | Road vehicles: vehicle-sized blobs on roads, parking lots and near vehicle labels, fitted in the world frame. Rail cars: hand-surveyed car by car (`specs/rail_cars.yaml`), because the tiles merge coupled and derailed cars | Cars, vans and buses from the standalone pack; box truck, dump truck and container from `assets/lib`; tank cars, box cars, coaches and a locomotive from Nucleus + Objaverse. Nothing vehicle-sized is left as raw tile mesh or a box |
+| Props (`specs/props.yaml`, S08) | S10 water tower (library asset), S08 canopy (spec) | Measured off the tiles / ortho |
 | Everything else raised (`site/tiles_*`) | Raw tile triangles, classified | Crude: kept so the silhouette is complete |
 
 Measured with `isaac_check.py` in host Isaac Sim 6.0.1 on an RTX 5090: about
@@ -99,8 +100,16 @@ for g in drill_tower:s01/S01 strip_mall:b03/B03 warehouse:b06/B06 industrial_pad
 $PY ground.py && $PY place_assets.py && $PY ground.py && $PY assemble_scene.py
 # 4. check and ship
 OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh isaac_check.py data/recon/disaster_city.usda data/recon/shots/<name>
+# third-party assets: mirror from Nucleus (Kit) / fetch from Objaverse, then normalise + look at them
+OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh nucleus_mirror.py FactoryDistrict/Meshes/CargoCar_mdl.usd ...
+../../.venv/bin/python ../objaverse_assets.py ensure <uid> --target-size 17 --fit max
+OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh asset_library.py                    # -> data/recon/assets/lib/*.usda
+OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh asset_gallery.py <out_dir>          # one render per library asset
+# before/after: raw tiles vs grafted scene from the same cameras
+blender -b data/blender_data/disaster_city.blend --python tiles_extract.py -- 75 -300 400 data/recon/raw_tiles/tiles_site.usd
+OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh before_after.py shots.json <out_dir>
 $PY footprint_check.py                        # every model vs its tile footprint -> data/recon/footprints.tsv + overlays
-$PY package.py                                                                     # data/dist/disaster_city/
+OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh package.py                          # data/dist/disaster_city/ (Kit USD)
 ```
 
 `place_assets.py` reads local copies of assets under `data/recon/assets/`, taken
@@ -115,6 +124,16 @@ generator like `gen_strip_mall.py`. Then add the building to `PIECES` in
 tile surface under it.
 
 ## Things that bit, so they don't bite again
+
+- **Nucleus assets are kit-written USD crates.** The pip `usd-core` cannot open them, and
+  `UsdUtils.ComputeAllDependencies` aborts on them even under Kit. Mirror, normalise and package
+  under `~/isaacsim/python.sh` (Kit's USD), and walk dependencies with a tolerant walker. Their
+  `/Game/...` material paths are Unreal leftovers that resolve nowhere; the MDLs carry the look.
+- **Look at every third-party asset before placing it** (`asset_gallery.py`). Two Objaverse
+  picks were rejected on sight: one converted standing on its end, one a cartoon cart. The
+  cylindrical tank car's bounding box is 7.7 m tall (it includes a stand), so rail cars are capped
+  at 4.6 m. The heavy ones (45k-99k triangles) took the scene from 0.8M to 2.7M triangles
+  (12.5 ms per frame); decimate them if frame time matters.
 
 - **Aligning a drone reconstruction to the tiles.** SIFT on the orthos (different capture dates),
   height-map correlation and FPFH+RANSAC all failed. The 2-corner picks + ICP route that

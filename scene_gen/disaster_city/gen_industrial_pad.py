@@ -10,7 +10,7 @@ set the tank car 90 deg off), length/width (2-98 percentile extents along the
 axes) and top height (98th percentile) drive the primitives below. The seeds
 only say which blob is which; identities come from image (1)/(2).png:
 
-  S03 rail tank car      barrel + bogies + rails along the blob axis
+  S03 rail tank car      short track along the blob axis; the car is a library asset (specs/rail_cars.yaml)
   S04 spherical vessel   sphere on 4 legs, radius from the blob
   S05 pipe manifold      pipe segments along the skeleton of its (Y-shaped) blobs
   S06 tank on legs       horizontal tank on a 4-leg frame
@@ -62,10 +62,7 @@ def note(name, f): log.append(f"{name:8s} centre ({f[0][0]:6.1f},{f[0][1]:7.1f})
 
 # S03 rail tank car: barrel the blob's length, on two bogies and a short track
 f = fit((40.0, -527.0)); note("S03", f[0]); (cx, cy), yaw, L, W, top, g0 = f[0]; c = [cx, cy, g0]
-D = min(max(W, 2.6), 3.2)                                          # barrel diameter
-beam("S03_barrel", c, yaw, [-L / 2, 0, top - D / 2], [L / 2, 0, top - D / 2], t=D, mat="tank_black")
-for s_ in (-1, 1):
-    beam(f"S03_bogie_{s_}", c, yaw, [s_ * L * 0.35 - 1.3, 0, 0.6], [s_ * L * 0.35 + 1.3, 0, 0.6], t=1.0, t2=2.5, mat="rust")
+# (the car itself is a library tank car, placed from specs/rail_cars.yaml `pad_s03`; the pad keeps its track)
 beam("S03_rail_a", c, yaw, [-L / 2 - 2, -0.72, 0.08], [L / 2 + 2, -0.72, 0.08], t=0.15)
 beam("S03_rail_b", c, yaw, [-L / 2 - 2, 0.72, 0.08], [L / 2 + 2, 0.72, 0.08], t=0.15)
 # S04 spherical vessel on legs

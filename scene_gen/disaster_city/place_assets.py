@@ -143,7 +143,7 @@ def world_fit(m):
     return c, float(np.degrees(np.arctan2(ax[1], ax[0]))), float(L), float(W), float(np.percentile(Hf[m], 90)), len(xs) * F * F / max(L * W, 1e-6)
 
 st, root = new_stage(R / "vehicles.usd", "/vehicles"); label(root.GetPrim(), "vehicle")
-counts = {"asset": 0, "row": 0, "rail": 0, "proxy": 0, "skip": 0}; polys = []; serial = iter(range(10 ** 6))
+counts = {"asset": 0, "lib": 0, "row": 0, "rail": 0, "proxy": 0, "skip": 0}; polys = []; serial = iter(range(10 ** 6))
 def put_asset(kind, c, yaw, L, gz):
     if kind == "car" and len(wrecks) and np.hypot(*(wrecks - c).T).min() < 15: kind = "wreck"
     name = CARS[kind][rng.integers(len(CARS[kind]))]
@@ -160,9 +160,46 @@ def put_proxy(c, yaw, L, W, top, gz):
     cube = UsdGeom.Cube.Define(st, xb.GetPath().AppendChild("box"))
     cube.CreateDisplayColorAttr([tuple(float(v) ** 2.2 for v in oc)]); UsdPhysics.CollisionAPI.Apply(cube.GetPrim())
 
+# third-party library (asset_library.py): normalised -- long side +X, base at z = 0, metres
+LIB = json.load(open(A / "lib/library.json"))
+RAILCARS = ["tankcar", "tankcar_graffiti", "tankcar_cyl", "boxcar", "coalcar"]
+locos = np.array([l["at"] for l in labels if "locomotive" in l["name"]])
+derail = np.array([l["at"] for l in labels if "derail" in l["name"]])
+# rail cars only where the site has rails: near a rail-related label (a big blob off the roads is
+# otherwise just as likely a canopy, a house roof or a campus building)
+railish = np.array([l["at"] for l in labels if any(w in l["name"] for w in ("rail", "tank_car", "derail", "locomotive", "tanker"))])
+near_rail = lambda c: len(railish) and np.hypot(*(railish - c).T).min() < 30
+def put_lib(name, c, yaw, L, W, top, gz, tilt=0.0):
+    """A library asset fitted to the blob's box: x by L, y by W, z by top, each within 25% of
+    the uniform scale (so a blurred blob cannot squash the model)."""
+    aL, aW, aH = LIB[name]["size_m"]; u = L / aL
+    sx, sy, sz = u, float(np.clip(W / aW, 0.8 * u, 1.25 * u)), float(np.clip(top / aH, 0.75 * u, 1.25 * u))
+    i = next(serial); p = st.DefinePrim(f"/vehicles/{name}_{i:03d}", "Xform"); p.GetReferences().AddReference(LIB[name]["usd"])
+    xf = UsdGeom.Xformable(p); xf.AddTranslateOp().Set(Gf.Vec3d(float(c[0]), float(c[1]), float(gz)))
+    xf.AddRotateZOp().Set(float(yaw + rng.choice([0, 180]))); xf.AddRotateXOp().Set(float(tilt))
+    xf.AddScaleOp().Set(Gf.Vec3f(float(sx), float(sy), float(sz))); UsdPhysics.CollisionAPI.Apply(p)
+    p.SetCustomDataByKey("fit", {"L": round(L, 2), "W": round(W, 2), "top": round(top, 2)})
+def emit_rail():
+    """Rail cars come from the hand survey (specs/rail_cars.yaml): the tile mesh merges coupled and
+    derailed cars, so blob fitting cannot separate them. Detected rail blobs only mark their tile
+    geometry for removal (polys); each surveyed car becomes its asset scaled to the surveyed length."""
+    for car in SURVEY:
+        a, b = np.array(car["ends"], float); c = (a + b) / 2; L = float(np.linalg.norm(b - a))
+        yaw = float(np.degrees(np.arctan2(b[1] - a[1], b[0] - a[0]))); gz = float(DTM[int((Y1 - c[1]) / RES), int((c[0] - X0) / RES)])
+        aL, aW, aH = LIB[car["asset"]]["size_m"]; u = L / aL
+        put_lib(car["asset"], c, yaw, L, min(aW * u, 3.2), min(aH * u, 4.6 if car["asset"] != "locomotive" else 4.8), gz, tilt=float(car.get("tilt", 0.0)))
+        polys.append(cv2.boxPoints(((float(c[0]), float(c[1])), (L + 1.0, 4.4), yaw)))
+    counts["rail"] = len(SURVEY)
 og = ortho[np.clip(((geo["y1"] - GY) / geo["m_per_px"]).astype(int), 0, ortho.shape[0] - 1),
            np.clip(((GX - geo["x0"]) / geo["m_per_px"]).astype(int), 0, ortho.shape[1] - 1)].astype(int)
 EXG = 2 * og[..., 1] - og[..., 0] - og[..., 2]                      # a shrub on a lot is vehicle-sized too
+SURVEY = yaml.safe_load(open(Path(__file__).resolve().parent / "specs/rail_cars.yaml"))
+surveyed = np.zeros_like(cand)
+for car in SURVEY:
+    a_, b_ = np.array(car["ends"], float); c_ = (a_ + b_) / 2; L_ = float(np.linalg.norm(b_ - a_))
+    box = cv2.boxPoints(((float(c_[0]), float(c_[1])), (L_ + 2.0, 5.0), float(np.degrees(np.arctan2(b_[1] - a_[1], b_[0] - a_[0])))))
+    cv2.fillConvexPoly(surveyed, np.round(np.c_[(box[:, 0] - X0) / F, (Y1 - box[:, 1]) / F]).astype(np.int32), 1)
+cand &= 1 - surveyed                                                    # rail cars are the survey's (emit_rail)
 n_, cc_ = cv2.connectedComponents(cand)
 for k in range(1, n_):
     m = cc_ == k
@@ -175,12 +212,22 @@ for k in range(1, n_):
     on_way = where[m].mean() > 0.5
     # tile blobs come out ~1 m wider than the vehicle (blurred mesh + shadow skirt): widths are generous
     if on_way and 3.4 <= L <= 5.9 and 1.4 <= W <= 3.2 and top < 2.4 and fill > 0.55: put_asset("car", c, yaw, L, gz); counts["asset"] += 1
-    elif on_way and 5.3 < L <= 8.2 and 1.6 <= W <= 4.0 and top < 3.3 and fill > 0.55: put_asset("van", c, yaw, L, gz); counts["asset"] += 1
-    elif on_way and 9.0 <= L <= 13.5 and 2.2 <= W <= 4.2 and 2.3 <= top < 4.5 and fill > 0.55: put_asset("bus", c, yaw, L, gz); counts["asset"] += 1
-    elif L >= 12 and 2.2 <= W <= 4.5 and 2.0 <= top < 5.0 and fill > 0.5:  # rail car(s): one box per ~16 m
-        nseg = max(1, round(L / 16.0))
-        for j in range(nseg): put_proxy(c + ax * (j - (nseg - 1) / 2) * L / nseg, yaw, L / nseg - 0.5, min(W, 3.2), top, gz)
-        counts["rail"] += nseg
+    elif on_way and 5.3 < L <= 8.2 and 1.6 <= W <= 4.0 and top < 2.6 and fill > 0.55: put_asset("van", c, yaw, L, gz); counts["asset"] += 1
+    elif on_way and 5.3 < L <= 8.2 and 1.6 <= W <= 4.0 and top < 3.5 and fill > 0.55:              # box truck / RV
+        put_lib("motorhome" if L > 7.3 else "box_truck", c, yaw, L, W, top, gz); counts["lib"] += 1
+    elif on_way and 9.0 <= L <= 13.5 and 2.2 <= W <= 4.2 and 2.5 <= top < 4.5 and fill > 0.55: put_asset("bus", c, yaw, L, gz); counts["asset"] += 1
+    elif on_way and 9.0 <= L <= 13.5 and 4.2 < W <= 9.0 and 2.3 <= top < 4.5:                      # buses parked side by side
+        perp = np.array([-ax[1], ax[0]]); nb = max(2, round(W / 3.0))
+        for j in range(nb): put_asset("bus", c + perp * (j - (nb - 1) / 2) * W / nb, yaw, L, gz)
+        counts["row"] += 1
+    elif on_way and 6.0 <= L <= 9.5 and 2.0 <= W <= 4.0 and 3.3 <= top < 4.3 and fill > 0.5:      # dump / construction truck
+        put_lib("construction_truck", c, yaw, L, W, top, gz); counts["lib"] += 1
+    elif on_way and 5.0 <= L <= 16.5 and 2.0 <= W <= 4.0 and 1.8 <= top < 3.3 and fill > 0.55:     # container (a bus-sized one reads as a bus)
+        put_lib("container_6" if L < 9 else "container_12" if L < 13.5 else "container_15", c, yaw, L, W, top, gz); counts["lib"] += 1
+    elif on_way and 13.0 <= L <= 17.5 and 2.0 <= W <= 4.0 and 3.3 <= top < 4.8 and fill > 0.55:    # semi trailer
+        put_lib("semi_trailer", c, yaw, L, W, top, gz); counts["lib"] += 1
+    elif near_rail(c) and top >= 2.5 and (L >= 10 or m.sum() * F * F >= 40):
+        counts["skip"] += 1; continue                                     # an unsurveyed rail blob: add it to specs/rail_cars.yaml
     elif on_way and top < 2.4 and 1.4 <= W <= 3.2 and L > 5.9:          # cars end to end
         nslot = max(2, round(L / 4.8))
         for j in range(nslot): put_asset("car", c + ax * (j - (nslot - 1) / 2) * L / nslot, yaw, L / nslot - 0.3, gz)
@@ -189,15 +236,21 @@ for k in range(1, n_):
         nslot = max(2, round(L / 2.7))
         for j in range(nslot): put_asset("car", c + ax * (j - (nslot - 1) / 2) * L / nslot, yaw + 90, min(W, 5.0), gz)
         counts["row"] += 1
-    elif on_way and top >= 1.4 and L * W >= 8:                           # trailer, container, truck body: fitted box
+    elif on_way and top >= 1.4 and L >= 4.5 and W <= 4.5 and top <= 4.0:  # anything else vehicle-shaped: fitted box
         put_proxy(c, yaw, L, W, top, gz); counts["proxy"] += 1
     else:
         counts["skip"] += 1; continue                                     # clutter, crates, dumpsters, not a vehicle
     polys.append(cv2.boxPoints(((float(c[0]), float(c[1])), (L + 0.6, W + 0.6), float(yaw))))   # world coords; box orientation only matters loosely
+emit_rail()
+for pr in yaml.safe_load(open(Path(__file__).resolve().parent / "specs/props.yaml")):   # library props (water tower, ...)
+    aL, aW, aH = LIB[pr["asset"]]["size_m"]; u = pr["height"] / aH; c = np.array(pr["at"], float)
+    gz = float(DTM[int((Y1 - c[1]) / RES), int((c[0] - X0) / RES)])
+    put_lib(pr["asset"], c, pr["yaw"], aL * u, aW * u, pr["height"], gz)
+    polys.append(cv2.boxPoints(((float(c[0]), float(c[1])), (aL * u + 1.5, aW * u + 1.5), float(pr["yaw"]))))
 st.Save()
 np.savez(R / "replaced.npz", polys=np.array(polys, np.float32) if polys else np.zeros((0, 4, 2), np.float32))
-print(f"vehicles: {counts['asset']} single assets, {counts['row']} rows split into cars, {counts['rail']} rail-car boxes, "
-      f"{counts['proxy']} trailer/container boxes; {counts['skip']} small / non-vehicle blobs skipped")
+print(f"vehicles: {counts['asset']} cars/vans/buses, {counts['lib']} trucks/RVs/trailers/containers, {counts['row']} rows split into cars, "
+      f"{counts['rail']} rail cars, {counts['proxy']} fitted boxes left; {counts['skip']} small / non-vehicle blobs skipped")
 
 # ------------------------------------------------------------------ debris
 # visual detail on the rubble fields the drones never filmed (R02, R03): pieces

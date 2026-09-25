@@ -14,7 +14,7 @@ from pathlib import Path
 from pxr import Usd, UsdGeom, UsdLux, Sdf, Gf
 from _paths import R
 
-PIECES = {"R01": "rubble_west/R01.usd", "B01": "b01/B01.usd", "R02": "rubble_east/R02_tiles.usd", "S01": "s01/S01.usd", "B03": "b03/B03.usd", "PAD": "pad/PAD.usd", "B06": "b06/B06.usd"}
+PIECES = {"R01": "rubble_west/R01.usd", "B01": "b01/B01.usd", "R02": "rubble_east/R02_tiles.usd", "S01": "s01/S01.usd", "B03": "b03/B03.usd", "PAD": "pad/PAD.usd", "B06": "b06/B06.usd", "S08": "s08/S08.usd"}
 
 stage = Usd.Stage.CreateNew(str(R / "disaster_city.usda"))
 UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z); UsdGeom.SetStageMetersPerUnit(stage, 1.0)
@@ -39,4 +39,16 @@ for pid, rel in PIECES.items():
     if not (R / rel).exists(): print(f"missing {rel}"); continue
     stage.DefinePrim(f"/World/{pid}").GetReferences().AddReference(f"./{rel}")
 stage.Save()
+
+# the BEFORE scene for comparisons: the raw Google tiles (tiles_extract.py disc, r 400 m round the
+# site), no grafts, same sun + sky -- so a render of each from the same camera shows what the
+# pipeline changed. Built only if the raw export exists.
+if (R / "raw_tiles/tiles_site.usd").exists():
+    raw = Usd.Stage.CreateNew(str(R / "disaster_city_raw_tiles.usda"))
+    UsdGeom.SetStageUpAxis(raw, UsdGeom.Tokens.z); UsdGeom.SetStageMetersPerUnit(raw, 1.0)
+    w = UsdGeom.Xform.Define(raw, "/World"); raw.SetDefaultPrim(w.GetPrim())
+    raw.DefinePrim("/World/tiles").GetReferences().AddReference("./raw_tiles/tiles_site.usd")
+    raw.DefinePrim("/World/Environment").GetReferences().AddReference("./disaster_city.usda", "/World/Environment")
+    raw.Save()
+    print(f"wrote {R / 'disaster_city_raw_tiles.usda'} (before scene)")
 print(f"wrote {R / 'disaster_city.usda'}: {len(PIECES)} pieces + {sum(p.IsActive() for p in lod1.GetChildren())} LOD1 boxes")

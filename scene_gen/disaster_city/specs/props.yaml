@@ -1,0 +1,4 @@
+# Site props replaced by library assets (data/recon/assets/lib/library.json), placed by place_assets.py.
+# `at` / `yaw` / `height` are measured off the tile mesh blob (ray-cast 0.2 m) and the ortho; the
+# asset is scaled uniformly to `height`. Its tile blob is swallowed by ground.py (replaced.npz).
+- {id: S10, asset: water_tank, at: [334.6, -278.2], yaw: -39, height: 4.7}   # blue water tower by the rail yard
