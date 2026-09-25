@@ -27,6 +27,7 @@
 
   <exec_depend>robot_interface</exec_depend>
   <exec_depend>interface_bringup</exec_depend>
+  <exec_depend>foxglove_bridge</exec_depend>
 
   <export>
     <build_type>ament_python</build_type>

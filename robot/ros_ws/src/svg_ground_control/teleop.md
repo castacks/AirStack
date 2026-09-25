@@ -24,7 +24,7 @@ device is one new entry there.
 |---------|--------|
 | right stick | horizontal velocity. Release and the drone stops **and holds that spot**. |
 | left stick up/down | vertical velocity. Release and the drone holds that height. |
-| left stick left/right | yaw rate — turns the drone in place. Release and it stops turning. |
+| left stick left/right | yaw rate — turns the drone in place. Release and it stops turning **and holds that heading** (the commander adopts the measured yaw and sends it as an absolute setpoint). |
 | left bumper | locks the left stick, so neither height nor yaw can move |
 
 This is **position mode**, the way PX4's own Position mode behaves. The
@@ -39,7 +39,20 @@ axes. The reference is seeded from the drone's *measured* position the
 moment the sticks get control (`/start`, and again after any `hold`/`land`),
 so nothing is ever chased from before takeoff — that was the altitude drop.
 A leash (`teleop_lead_m`, 0.5 m) stops it running ahead of a drone that the
-CBF or the fence is holding back.
+CBF or the fence is holding back; the horizontal and vertical lead are
+leashed separately, so lagging the reference by 0.5 m in x can never drag
+the altitude reference toward a momentary sag (bag `run_060352`: 1.1 m of
+altitude lost on pure x-y stick before that split). The stick velocity itself is ramped at
+`teleop_accel_mps2` (5 m/s² in the configs, like PX4's `MPC_ACC_HOR_MAX`)
+with the acceleration fed forward, so the drone banks with the command
+instead of waiting for its velocity loop — a bare step is followed at only
+~4 m/s². 0 turns the ramp off; it is live via `ros2 param set`. The same
+ramp applies on release: from 4 m/s the command needs 0.8 s and 1.6 m to
+reach zero at 5 m/s², plus the 0.5 m lead, so the drone coasts about 2 m
+before it holds — raise `teleop_accel_mps2` for a sharper stop. The ramp
+restarts from what was last *published*, never from the drone's measured
+velocity (that was the "keeps going after I let go": a leash pull handed the
+measured overrun to the ramp as its starting point).
 
 Yaw bypasses the CBF: the filter constrains drone-to-drone distance, which
 turning in place cannot change.
@@ -262,13 +275,17 @@ config's own header before running.
 |--------|-------|
 | `teleop_real.yaml` | ONE real drone, teleop — what `./svg_teleop.sh real` uses |
 | `hybrid_squeeze.yaml` | real holders + sim intruder |
-| `squeeze_rc_intruder.yaml` | all real, intruder on RC — `external_drones`, not teleop |
+| `squeeze_rc_intruder.yaml` | all real, **you fly the intruder** (drone_3 teleop, CBF-exempt, own teleop fence); holders yield |
 | `swarm_real.yaml` | three real drones, hover |
 | `goal_single.yaml` / `goal_tracking.yaml` | real, goal-tracking |
 
-`squeeze_rc_intruder.yaml` cannot be used with teleop — its intruder is
-`external_drones`, flown on its own RC link and merely tracked. A drone cannot
-be both external and teleop; the commander rejects that.
+`squeeze_rc_intruder.yaml` is the hardware squeeze with a hand-flown
+intruder: start the pad with `teleop.launch.py config:=<it> drone:=drone_3`,
+then the commander; `takeoff` lifts all three (drone_3 to intruder waypoint
+A), `start` hands drone_3 to the sticks, `land` lands all three. Its header
+lists the two-line switch back to an RC-link intruder (`external_drones`,
+merely tracked — a drone cannot be both external and teleop; the commander
+rejects that).
 
 Any config can take a hand-flown drone by adding `teleop_drones:=<name>` to
 the launch line, whatever the YAML says.
@@ -408,10 +425,17 @@ constrains drone-to-drone separation only; it has no model of the floor,
 ceiling, walls, or people. The geofence (`fence_min` / `fence_max`) is the
 boundary, and `fence_behavior` decides how it acts: `hold_all` freezes every
 drone after a breach (the autonomous-run default), `keep_in` — set in the
-teleop configs — brakes *before* one: outward speed is clipped to
-`fence_keep_in_gain` × distance-to-wall, the target position is clamped into
-the box, and a drone that is somehow outside is pushed back in. Fly at a wall
-in keep_in and you simply slow to a stop on it.
+teleop configs — brakes *before* one: outward speed is clipped to a braking
+envelope (cruise until the braking distance for `fence_brake_accel_mps2`,
+then a firm brake fed forward to PX4; `fence_keep_in_gain` × distance in the
+last stretch), the target position is clamped into the box, and a drone that
+is somehow outside is pushed back in. Fly at a wall in keep_in and you simply
+slow to a stop on it. The **teleop fence** (`teleop_fence_enabled`,
+`teleop_fence_min`/`max`, the teleop configs) is a smaller box inside the
+geofence that only hand-flown drones see, as the same soft wall, whatever
+`fence_behavior` is — so the sticks stop you well before the geofence, which
+stays the outer safety net. Amber box in the 3D view; see experiment.md
+[Geofence](experiment.md#geofence) for the bag behind the envelope.
 
 ## Safety
 

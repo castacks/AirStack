@@ -31,6 +31,8 @@ services:
     command: >
       bash -c "
       service ssh restart;
+      python3 /root/AirStack/gcs/foxglove_extensions/install.py || echo 'Foxglove extension install failed (non-fatal)';
+      python3 /root/AirStack/robot/ros_ws/src/svg_ground_control/foxglove/install.py || echo 'SVG Foxglove panel install failed (non-fatal)';
       tmux new -d -s bringup;
       if [ $$AUTOLAUNCH == 'true' ]; then
         tmux send-keys -t bringup:0.0 'bws && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml role:=$$AUTONOMY_ROLE' ENTER;

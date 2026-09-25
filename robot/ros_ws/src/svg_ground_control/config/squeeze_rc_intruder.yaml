@@ -1,51 +1,65 @@
-# SVG ground control — SQUEEZE with an RC-FLOWN intruder (all-real hardware).
+# SVG ground control — SQUEEZE with a HAND-FLOWN intruder (all-real hardware).
 #
 # drone_1, drone_2 : REAL holders — commander flies them to the two posts and
 #                    the CBF makes them yield.
-# drone_3          : REAL, EXTERNAL — a human pilot flies it through the gap
-#                    with the RC controller. The commander NEVER arms or
-#                    commands it; it is tracked (via mocap→EKF→odometry) so
-#                    the CBF sees it and the holders dodge it.
+# drone_3          : REAL, TELEOP — a human pilot flies it through the gap
+#                    with the GAMEPAD (safe_teleop -> /svg/drone_3/teleop_command).
+#                    The commander arms it, lifts it to intruder waypoint A at
+#                    takeoff, hands it to the sticks at start (position mode:
+#                    released sticks hold), and lands it with the holders. It
+#                    is CBF-EXEMPT (cbf_exempt_drones): the holders alone yield.
 #
+#   # terminal 1 — the pad (check it before anything is armed):
+#   ros2 launch svg_ground_control teleop.launch.py \
+#       config:=<share>/config/squeeze_rc_intruder.yaml drone:=drone_3
+#   # terminal 2 — the commander:
 #   ros2 launch svg_ground_control ground_control.launch.py \
 #       config:=<share>/config/squeeze_rc_intruder.yaml use_mocap:=true
 #
-# Mocap goes to ALL THREE drones (mocap_bridge block below): the holders need
-# it to arm/fly offboard, and drone_3's PX4 needs it too so its ONBOARD
-# controller can fuse a position for RC Position mode indoors (B4b params on
-# all three drones!).
+# (The older variant — drone_3 on its own RC link, merely tracked — is
+# external_drones: "drone_3", teleop_drones: "", cbf_exempt_drones: "" and no
+# teleop fence; the CBF then sees its MEASURED velocity, scaled by
+# cbf_external_velocity_gain.)
+#
+# Mocap goes to ALL THREE drones (mocap_bridge block below): every drone flies
+# offboard on the commander's setpoints and needs external vision to arm (B4b
+# params on all three drones!).
 #
 # ALL-REAL prerequisites, PER DRONE (Part B): own uXRCE agent port -> own
 # MicroXRCEAgent; EKF2/mag params (B4b.1) set+saved+rebooted; interfaces up:
 #   ros2 launch svg_ground_control real_interfaces.launch.py drones:=drone_1,drone_2,drone_3
-# (drone_3 needs its px4_interface ONLY for state — the commander must see
-# /drone_3/odometry_conversion/odometry or the scenario pauses.)
+# (drone_3's px4_interface now CARRIES COMMANDS, like the holders'.)
 #
-# ⚠ SAFETY: fence_behavior is keep_in below — the holders are held inside
-# the box, the EXTERNAL drone_3 cannot be steered and is only reported when
-# outside. The RC pilot is drone_3's only safety. (With hold_all instead, an
-# airborne drone_3 leaving the box would freeze the holders.)
+# ⚠ SAFETY: fence_behavior is keep_in below — every drone, drone_3 included,
+# is held inside the box by the braking envelope, and drone_3 additionally by
+# the smaller teleop fence. Neither is a motor cutoff: the RC kill switch
+# remains the true cutoff for all three. (With hold_all instead, a breach by
+# anyone would freeze all three.)
 
 swarm_commander:
   ros__parameters:
     # squeeze requires exactly this ordering: [holder, holder, intruder]
     drone_names: ["drone_1", "drone_2", "drone_3"]
     # ---- Per-drone axes ------------------------------------------------
-    # mode   : all REAL (drone_3 is a physical drone too — RC-flown)
-    # role   : drone_3 EXTERNAL — tracked for the CBF, never commanded.
-    #          (external may NOT also be in cbf_exempt_drones — the commander
-    #          rejects that; an uncommanded drone has no command to exempt.)
+    # mode   : all REAL
+    # role   : drone_3 TELEOP — operator-driven from the pad; its scenario
+    #          row (the intruder shuttle) is ignored once the sticks are live.
+    # safety : drone_3 CBF-EXEMPT — its stick goes out uncorrected and the
+    #          holders absorb the whole evasion (a filtered intruder is pushed
+    #          backwards at the gap and never gets through). NOTE for a
+    #          hand-flown intruder this list is what counts;
+    #          squeeze_intruder_cbf_exempt only covers a scenario-driven one.
     drone_modes: "real,real,real"
-    teleop_drones: ""
-    external_drones: "drone_3"
-    cbf_exempt_drones: ""
+    teleop_drones: "drone_3"
+    external_drones: ""
+    cbf_exempt_drones: "drone_3"
 
     scenario: "squeeze"
-    scenario_speed_mps: 4.0     # nominal speed. Live: ros2 param set /swarm_commander scenario_speed_mps X
+    scenario_speed_mps: 10.0    # nominal speed. Live: ros2 param set /swarm_commander scenario_speed_mps X
     # (also capped by cbf_max_speed_mps below; it is a cruise cap — the drone
     # brakes at goal_accel_mps2, so a goal closer than v^2/(2a) + v*settle
     # never sees the full speed). Here it only bounds the HOLDERS' return to
-    # their posts (drone_3 is RC-flown): a 1.5 m return peaks near 2.9 m/s
+    # their posts (drone_3 is stick-flown): a 1.5 m return peaks near 2.9 m/s
     # with the goal law below.
     # Go-to-goal law (trajectory.py; all live via ros2 param set):
     #   goal_accel_mps2  acceleration/braking of the reference profile
@@ -57,9 +71,9 @@ swarm_commander:
     #                    restarts from the drone's speed (PX4 MPC_XY_ERR_MAX)
     #   goal_velocity_only_settle_s  same law for velocity-only (sim/MAVROS)
     #                    drones, longer to absorb PX4's ~0.7 s velocity lag
-    goal_accel_mps2: 8.0
-    goal_settle_s: 0.3
-    goal_lead_m: 2.5
+    goal_accel_mps2: 10.0
+    goal_settle_s: 0.2
+    goal_lead_m: 2.0
     goal_velocity_only_settle_s: 1.0
     arena_low: [-2.0, -2.0, 0.8]
     arena_high: [2.0, 2.0, 2.0]
@@ -72,56 +86,77 @@ swarm_commander:
 
     # The two holders' posts: flat [x1,y1,z1,  x2,y2,z2] (ENU, m). Must be
     # > 2*cbf_safety_radius_m apart; fit to your capture volume.
-    squeeze_holder_positions: [ 0.5, 1.0, 1.4,
-                                 0.5, -1.0, 1.4]
-    # Required by the squeeze scenario but IGNORED here: drone_3 is external,
-    # so its scenario policy is never commanded — the RC pilot is the policy.
-    squeeze_intruder_waypoints: [ 0.5, -0.5, 1.4,
-                                 2.5, -0.5, 1.4]
-    # Irrelevant for an external intruder (nothing to exempt); keep false.
-    squeeze_intruder_cbf_exempt: false
+    squeeze_holder_positions: [ 0.5, 1.1, 1.4,
+                                 0.5, -1.1, 1.4]
+    # Intruder waypoints [ax,ay,az, bx,by,bz]. With a hand-flown intruder only
+    # A matters: it is drone_3's TAKEOFF / hold point (the scenario's initial
+    # position for index 2), so put it where the pilot wants to start —
+    # inside the teleop fence, clear of both posts. B is never flown to.
+    squeeze_intruder_waypoints: [ -1.5, 0.0, 1.4,
+                                  2.5, 0.0, 1.4]
+    # Scenario-driven intruder only (not this config): keep the default.
+    squeeze_intruder_cbf_exempt: true
 
     hover_positions: [0.0, 0.0, 1.2, 0.0, 0.0, 1.2, 0.0, 0.0, 1.2]  # unused by squeeze
 
     # Routing is per-drone via drone_modes (real -> /{name}/fmu/*). State
-    # topic is the same for every drone; drone_3 contributes state only.
+    # topic is the same for every drone.
     state_topic_template: "/{name}/odometry_conversion/odometry"
+    teleop_topic_template: "/svg/{name}/teleop_command"
 
     control_rate_hz: 20.0
     state_timeout_s: 0.5
+    teleop_timeout_s: 0.5     # stale pad -> zero stick (position hold keeps it put)
 
     hover_kp: 1.0
     arrival_threshold_m: 0.15
-    land_speed_mps: 0.7
+    land_speed_mps: 1.0
     takeoff_speed_mps: 0.5    # climb profile speed (braking law to the target)
     hold_lead_m: 0.2          # reference leash while taking off/landing/holding:
                               # PX4's z loop is stiff, keep it close (C1_0920_203148)
     land_complete_altitude_m: 0.15
 
     # ---- CBF reactivity ("aggressiveness") knobs -----------------------
-    # The filter sees the RC intruder's MEASURED velocity (EKF2 estimate,
-    # fed as a fixed row), so the holders yield BEFORE it reaches the
-    # barrier. With the intruder approaching at s m/s, yielding starts
-    # where  alpha*(d^2 - (2r)^2) = 2*d*s*gain  (d = center distance).
-    cbf_safety_radius_m: 0.7    # bubble size. CAREFUL: posts are 2.0 m
+    # The filter sees the intruder's COMMANDED velocity (its ramped, capped
+    # stick, pinned as a fixed row because it is exempt), so the holders
+    # yield BEFORE it reaches the barrier. With the intruder approaching at
+    # s m/s, yielding starts where alpha*(d^2 - (2r)^2) = 2*d*s (d = center
+    # distance); s is at most teleop_max_speed_mps below.
+    cbf_safety_radius_m: 0.85    # bubble size. CAREFUL: posts are 2.0 m
                                  # apart -> r > 1.0 makes the two holders'
                                  # own posts mutually infeasible.
-    cbf_max_speed_mps: 6.0       # how FAST holders may dodge. 6.0 is a hard
+    cbf_max_speed_mps: 10.0      # how FAST holders may dodge. 6.0 is a hard
                                  # shove indoors (a dodge is a bare velocity
                                  # command: no feedforward, PX4 lag ~0.5 s) —
                                  # the keep_in fence below is the backstop.
-    teleop_max_speed_mps: 2.0    # ceiling on a teleop stick (no teleop drone here)
-    cbf_alpha: 2.5               # earliness: LOWER = yield earlier and
+    cbf_alpha: 3.0               # earliness: LOWER = yield earlier and
                                  # gentler (alpha 1.0 & s=1 m/s -> starts
                                  # ~3.2 m out; 2.5 -> ~2.4 m out). Higher =
                                  # later but harder.
-    # Gain on the intruder's measured velocity as seen by the CBF. > 1.0
-    # pretends it flies faster than it does -> holders react earlier and
-    # dodge harder. The single easiest "more reactive" knob (try 1.5-2.0).
+    # Only for external (RC-link) drones — none here; kept for the variant
+    # in the header.
     cbf_external_velocity_gain: 1.0
 
-    # Geofence (keep_in): holds the HOLDERS inside the box; drone_3 is only
-    # reported (see safety note above). Fit to your volume.
+    # ---- Teleop (drone_3) -----------------------------------------------
+    # Ceiling on the stick velocity (must be >= safe_teleop max_speed_mps
+    # below). This is the intruder's approach speed the holders must absorb:
+    # 3 m/s is a firm press through the gap indoors; raise both together.
+    teleop_max_speed_mps: 3.0
+    # Position-mode teleop: the sticks move a reference the drone tracks
+    # (PX4 holds it onboard on the trajectory output), seeded from the
+    # drone's position at /start, so released sticks hold position.
+    # teleop_lead_m leashes the reference to the drone (horizontal and
+    # vertical separately) so a drone held back by the fence does not bank
+    # up error; teleop_kp is the velocity-output (sim) P gain only.
+    teleop_kp: 1.0
+    teleop_lead_m: 0.5
+    # Stick acceleration ramp (m/s2) with feedforward, like PX4's Position
+    # mode (MPC_ACC_HOR_MAX 5): a stick step is otherwise followed at only
+    # ~4 m/s2 by the velocity loop. 0 = no ramp. Live via ros2 param set.
+    teleop_accel_mps2: 5.0
+
+    # Geofence (keep_in): holds EVERY drone inside the box — holders and the
+    # hand-flown intruder alike. Fit to your volume.
     fence_enabled: true
     # fence_behavior: what a breach of [fence_min, fence_max] does.
     #   "hold_all" - any ACTIVE drone (auto, teleop OR external) outside the
@@ -132,14 +167,27 @@ swarm_commander:
     #                distance to the wall, pushed back if outside); external
     #                drones cannot be steered and are only reported.
     fence_behavior: "keep_in"
-    fence_keep_in_gain: 1.0   # keep_in: 1/s
-    fence_margin_m: 0.0       # keep_in: meet the wall this early (m)
+    # keep_in wall dynamics (also the teleop fence below): a braking envelope
+    # — the drone keeps its speed until the true braking distance for
+    # fence_brake_accel_mps2, then brakes, with the deceleration fed forward
+    # to PX4 (trajectory output). See goal_single.yaml for the bag behind it.
+    fence_brake_accel_mps2: 4.0   # keep_in: braking deceleration of the wall envelope (m/s2); 0 = plain gain*distance barrier
+    fence_keep_in_gain: 2.0       # keep_in: near the wall speed <= gain*distance (1/s); 1/gain = lag margin of the envelope
+    fence_margin_m: 0.0           # keep_in: meet the wall this early (m)
     fence_min: [-4.5, -5.2, 0.0]
     fence_max: [5.5, 5.5, 3.0]
+    # Teleop fence: a smaller box for the hand-flown intruder only, INSIDE
+    # the geofence (the commander refuses to start otherwise). The sticks
+    # meet this soft wall whatever fence_behavior is; the geofence stays the
+    # outer safety net. Amber in the 3D view. Both posts and waypoint A must
+    # be inside it. Take-off and landing pass through the floor on purpose.
+    teleop_fence_enabled: true
+    teleop_fence_min: [-3.3, -4.0, 1.0]
+    teleop_fence_max: [4.3, 4.2, 2.8]
 
 # Mocap -> PX4 external vision for ALL THREE drones (direct mode, mirrors the
-# proven model_ai_tfpub.cpp). Holders need it to fly offboard; drone_3 needs
-# it so its PX4 can hold RC Position mode indoors.
+# proven model_ai_tfpub.cpp). Every drone flies offboard on the commander's
+# setpoints and needs it to arm and hold position indoors.
 mocap_bridge:
   ros__parameters:
     drone_names: ["drone_1", "drone_2", "drone_3"]
@@ -157,8 +205,8 @@ mocap_bridge:
 
 # Onboard LED strips, all three drones (svg-led on each VOXL, B1(d)):
 # everyone GREEN by default; a HOLDER turns RED while the CBF is pushing it
-# away from the RC-flown intruder, then back to green. drone_3 is external
-# (never commanded, so never "corrected") and stays green — recolor it by hand:
+# away from the intruder, then back to green. drone_3 is CBF-exempt (its
+# stick is never "corrected") and stays green — recolor it by hand:
 #   ros2 topic pub --once /svg/led_command std_msgs/msg/String "{data: 'drone_3 blue'}"   # any time
 led_controller:
   ros__parameters:
@@ -168,3 +216,19 @@ led_controller:
     cbf_hold_s: 0.5           # minimum red time per correction (visibility)
     brightness: 80
     heartbeat_port: 47901
+
+# Gamepad for drone_3 (teleop.launch.py reads this block; run it in its own
+# terminal BEFORE the commander so the pad is checked before anything is
+# armed). The input device is teleop_controller — an entry of
+# svg_ground_control/safe_teleop/controllers.py (driver node + axis map).
+# Supported today: "dragonrise_usb", "xbox_usb". Add new devices there.
+safe_teleop:
+  ros__parameters:
+    # The pad on the bench is a SHANWAN/DragonRise "Android gamepad", whose
+    # DirectInput layout is NOT the Xbox one (right stick on axes 2/3, left
+    # bumper button 6, and axes 4/5 are triggers that rest at FULL SCALE).
+    # Set this to "xbox_usb" if you swap in a real Xbox pad. Check an unknown
+    # pad with `ros2 run svg_ground_control joy_map` before flying it.
+    teleop_controller: "dragonrise_usb"
+    max_speed_mps: 3.0        # full right stick (= teleop_max_speed_mps above)
+    max_climb_speed_mps: 0.5  # full left stick (vertical). Position hold is the commander's.

@@ -77,8 +77,9 @@ swarm_commander:
     #                distance to the wall, pushed back if outside); external
     #                drones cannot be steered and are only reported.
     fence_behavior: "hold_all"
-    fence_keep_in_gain: 1.0   # keep_in: 1/s
-    fence_margin_m: 0.0       # keep_in: meet the wall this early (m)
+    fence_brake_accel_mps2: 4.0   # keep_in: braking deceleration of the wall envelope (m/s2); 0 = plain gain*distance barrier
+    fence_keep_in_gain: 1.0       # keep_in: near the wall speed <= gain*distance (1/s); 1/gain = lag margin of the envelope
+    fence_margin_m: 0.0           # keep_in: meet the wall this early (m)
     fence_min: [-4.0, -2.0, 0.0]
     fence_max: [4.0, 2.0, 3.0]
 

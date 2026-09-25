@@ -26,7 +26,7 @@
 
 swarm_commander:
   ros__parameters:
-    drone_names: ["drone_1"]
+    drone_names: ["drone_2"]
     # ---- Per-drone axes (any drone, any combination) -------------------
     # mode   : drone_modes       "sim"  -> /{name}/interface/* (MAVROS/SITL)
     #                            "real" -> /{name}/fmu/*        (px4_interface/HW)
@@ -36,12 +36,12 @@ swarm_commander:
     # All comma-separated name STRINGS ("" = none). To fly this drone for REAL
     # set drone_modes: "real" — routing switches to /fmu/, nothing else changes.
     drone_modes: "real"
-    teleop_drones: ""
+    teleop_drones: "drone_2"
     external_drones: ""
-    cbf_exempt_drones: "drone_1"
+    cbf_exempt_drones: "drone_2"
 
     scenario: "goal"
-    scenario_speed_mps: 0.6     # nominal speed. Live: ros2 param set /swarm_commander scenario_speed_mps X
+    scenario_speed_mps: 10.0    # nominal speed. Live: ros2 param set /swarm_commander scenario_speed_mps X
     # (also capped by cbf_max_speed_mps below; it is a cruise cap — the drone
     # brakes at goal_accel_mps2, so a goal closer than v^2/(2a) + v*settle
     # never sees the full speed)
@@ -55,9 +55,9 @@ swarm_commander:
     #                    restarts from the drone's speed (PX4 MPC_XY_ERR_MAX)
     #   goal_velocity_only_settle_s  same law for velocity-only (sim/MAVROS)
     #                    drones, longer to absorb PX4's ~0.7 s velocity lag
-    goal_accel_mps2: 3.0
-    goal_settle_s: 0.3
-    goal_lead_m: 2.0
+    goal_accel_mps2: 15.0
+    goal_settle_s: 0.1
+    goal_lead_m: 1.5
     goal_velocity_only_settle_s: 1.0
     arena_low: [-3.0, -3.0, 0.5]
     arena_high: [3.0, 3.0, 2.5]
@@ -82,8 +82,20 @@ swarm_commander:
     land_complete_altitude_m: 0.1
 
     cbf_safety_radius_m: 0.55
-    cbf_max_speed_mps: 1.2
-    teleop_max_speed_mps: 1.2   # ceiling on the stick velocity (must be >= safe_teleop max_speed_mps)
+    cbf_max_speed_mps: 10.0
+    teleop_max_speed_mps: 8.0   # ceiling on the stick velocity (must be >= safe_teleop max_speed_mps)
+    # Stick acceleration ramp with feedforward (position_hold.ramp_velocity).
+    # A bare stick step is followed at only ~4 m/s2 by PX4's velocity loop
+    # (bag run_053740: 3.9 m/s peak in the 7.7 m teleop box), so the drone
+    # never reached the fence's cap. Ramping the stick at this rate and
+    # feeding the acceleration forward is what PX4's own Position mode does
+    # (MPC_ACC_HOR_MAX = 5). Plant model, 7.7 m box, 8 m/s stick, brake 4:
+    #   0 (step) 4.3 m/s peak | 5 -> 5.2 m/s | 8 -> 5.4 m/s (~40 deg bank)
+    #   (9.7 m geofence span, teleop fence off: 5.0 | 5.8 | 6.1 m/s)
+    # 8 m/s itself is NOT reachable in this box with a stop at the wall
+    # (accelerate half the box, brake the other half: 6.2 m/s at 5 m/s2 with
+    # no lag at all). Live: ros2 param set /swarm_commander teleop_accel_mps2 8.0
+    teleop_accel_mps2: 5.0
     cbf_alpha: 2.5
 
     # Geofence: a generous box around the arena; breach -> all hold.
@@ -96,13 +108,42 @@ swarm_commander:
     #                a per-axis velocity barrier (outward speed <= gain *
     #                distance to the wall, pushed back if outside); external
     #                drones cannot be steered and are only reported.
-    fence_behavior: "hold_all"
-    fence_keep_in_gain: 1.0   # keep_in: 1/s
-    fence_margin_m: 0.0       # keep_in: meet the wall this early (m)
+    fence_behavior: "keep_in"
+    # keep_in wall dynamics (also the teleop fence below). The wall is a
+    # braking envelope: outward speed <= the speed from which a stop AT the
+    # wall is reachable at fence_brake_accel_mps2 (sqrt(2 a d) far out), so
+    # cruise speed is kept until the true braking distance and the brake is
+    # then firm, with the deceleration sent to PX4 as feedforward. Near the
+    # wall the speed is <= gain * distance, and 1/gain is the response lag
+    # the envelope allows for (0.5 s at 2; keep 2 on the trajectory output —
+    # 3 rings at the wall through the 0.3 s loop delay; sim: 0.7, brake 2).
+    # Bag run_045417 with the plain barrier (brake 0, gain 1): 0.5 m past
+    # the wall at every 6 m/s approach.
+    #   brake later/harder: raise fence_brake_accel_mps2. 4 is the robust
+    #   choice: with the stick ramp the drone arrives at the braking zone
+    #   still accelerating, and in the plant model 5-6 buy only +0.2-0.4 m/s
+    #   of peak while a slow-responding vehicle then overshoots 0.2-0.7 m.
+    #   All three are live: ros2 param set /swarm_commander fence_brake_accel_mps2 5.0
+    fence_brake_accel_mps2: 4.0   # keep_in: braking deceleration of the wall envelope (m/s2); 0 = plain gain*distance barrier
+    fence_keep_in_gain: 2.0       # keep_in: near the wall speed <= gain*distance (1/s); 1/gain = lag margin of the envelope
+    fence_margin_m: 0.0           # keep_in: meet the wall this early (m)
     # fence_min: [-0.6, -0.5, 0.0]
     # fence_max: [1.3, 1.8, 1.9]
     fence_min: [-4.5, -5.2, 0.0]
-    fence_max: [5.5, 5.5, 3.0]
+    fence_max: [5.5, 4.5, 3.0]
+    # Teleop fence: a smaller box for the hand-flown drone only, INSIDE the
+    # geofence (the commander refuses to start otherwise). The sticks meet
+    # this soft wall (same keep_in envelope as above) whatever fence_behavior
+    # is, so the pilot never reaches the geofence, which stays the outer
+    # safety net. Drawn amber in the 3D view. Set it to your comfort zone —
+    # here 1 m inside the geofence, floor 0.3 m, ceiling 2.5 m. Take-off and
+    # landing pass through the floor on purpose (only an ACTIVE drone is held
+    # inside), so a floor above the ground is fine. NOTE the box size bounds
+    # the top speed: from wall to wall the drone can only accelerate for half
+    # the span and brake for the other half (see teleop_accel_mps2 above).
+    teleop_fence_enabled: true
+    teleop_fence_min: [-3.5, -4.2, 0.5]
+    teleop_fence_max: [4.5, 3.5, 2.5]
 
 # Mocap -> PX4 external-vision bridge (used when launched with use_mocap:=true).
 # REAL: feeds /drone_1/fmu/in/vehicle_visual_odometry so EKF2 fuses a position
@@ -110,7 +151,7 @@ swarm_commander:
 # /drone_1/pose publisher exists, so this node idles (harmless).
 mocap_bridge:
   ros__parameters:
-    drone_names: ["drone_1"]
+    drone_names: ["drone_2"]
     # Mocap pose topic per drone (natnet_ros2 / Motive body named drone_3).
     # Check the exact prefix with `ros2 topic list | grep pose`.
     mocap_topic_template: "/{name}/pose"
@@ -135,8 +176,18 @@ mocap_bridge:
 #   ros2 topic pub --once /svg/led_command std_msgs/msg/String "{data: 'drone_1 blue'}"   # any time
 led_controller:
   ros__parameters:
-    drone_names: ["drone_1"]
+    drone_names: ["drone_2"]
     default_color: "green"
     cbf_color: "red"
     brightness: 80            # 0-255 scale on every color; keep low near the mocap cameras
     heartbeat_port: 47901     # daemons send heartbeats here (open it in ufw)
+safe_teleop:
+  ros__parameters:
+    # The pad on the bench is a SHANWAN/DragonRise "Android gamepad", whose
+    # DirectInput layout is NOT the Xbox one (right stick on axes 2/3, left
+    # bumper button 6, and axes 4/5 are triggers that rest at FULL SCALE).
+    # Set this to "xbox_usb" if you swap in a real Xbox pad. Check an unknown
+    # pad with `ros2 run svg_ground_control joy_map` before flying it.
+    teleop_controller: "dragonrise_usb"
+    max_speed_mps: 8.0       # full right stick, first hardware flights: slow (= caps above)
+    max_climb_speed_mps: 0.5  # full left stick (vertical). Position hold is the commander's.

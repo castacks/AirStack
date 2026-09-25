@@ -58,6 +58,10 @@ swarm_commander:
     # drone (a drone held back by the CBF/fence does not bank up error).
     teleop_kp: 1.0
     teleop_lead_m: 0.5
+    # Stick acceleration ramp (m/s2) with feedforward, like PX4's Position
+    # mode (MPC_ACC_HOR_MAX 5): a stick step is otherwise followed at only
+    # ~4 m/s2 by the velocity loop. 0 = no ramp. Live via ros2 param set.
+    teleop_accel_mps2: 5.0
 
     # Breach -> all drones hold until /swarm_commander/reset_fence.
     fence_enabled: true
@@ -70,10 +74,24 @@ swarm_commander:
     #                distance to the wall, pushed back if outside); external
     #                drones cannot be steered and are only reported.
     fence_behavior: "keep_in"
-    fence_keep_in_gain: 1.0   # keep_in: 1/s
-    fence_margin_m: 0.0       # keep_in: meet the wall this early (m)
+    # keep_in wall dynamics (also the teleop fence below): a braking envelope
+    # — cruise until the true braking distance for fence_brake_accel_mps2,
+    # then brake. SIM drones fly a bare velocity setpoint (no feedforward,
+    # no onboard position loop) and lag ~0.7 s, so the envelope is softer
+    # here: gain 0.7 (= 1.4 s lag margin) and brake 2; the real configs use
+    # gain 2, brake 4-5.
+    fence_brake_accel_mps2: 2.0   # keep_in: braking deceleration of the wall envelope (m/s2); 0 = plain gain*distance barrier
+    fence_keep_in_gain: 0.7       # keep_in: near the wall speed <= gain*distance (1/s); 1/gain = lag margin of the envelope
+    fence_margin_m: 0.0           # keep_in: meet the wall this early (m)
     fence_min: [-4.0, -2.0, 0.0]
     fence_max: [4.0, 2.0, 3.0]
+    # Teleop fence: a smaller box for the hand-flown drone only, INSIDE the
+    # geofence (refused otherwise). The sticks meet this soft wall whatever
+    # fence_behavior is; the geofence stays the outer safety net. Amber in
+    # the 3D view.
+    teleop_fence_enabled: true
+    teleop_fence_min: [-3.0, -1.5, 0.3]
+    teleop_fence_max: [3.0, 1.5, 2.5]
 
 # Gamepad teleop (teleop.launch.py, run in its own terminal before the
 # commander; needs teleop_drones non-empty here or via teleop_drones:= on the
