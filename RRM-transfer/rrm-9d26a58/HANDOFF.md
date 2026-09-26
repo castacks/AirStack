@@ -1,15 +1,62 @@
 # RRM remote Codex handoff
 
-## LATEST: aerial drift root-cause fixed and UNPAUSED — 2026-09-26
+## Current handoff — 2026-09-26
 
-The 2026-09-26 verification flight (`949b6027`) successfully completed a 1.0 m takeoff
-and landing with both actions `VERIFIED`. The tracking-lead fix (reducing `sphere_radius`
-to 0.3 and `velocity_sphere_radius_multiplier` to 0.5) successfully eliminated the
-0.65 m takeoff lateral drift, reducing the measured displacement to **0.005 m**. The
-landing trajectory now properly targets `-(altitude + 1.0)`.
+The current source checkpoint is AirStack `ore_proj` commit `2af4fafa` (`Harden RRM
+aerial recovery and embodiment workflow`). The dependency-light RRM suite passes
+**271/271**, the controller safety contract passes **3/3**, and the two changed ROS
+packages build successfully. The untracked `robot/ros_ws/core` file is a crash dump;
+it is not source and was deliberately excluded from the commit.
 
-**Aerial is UNPAUSED**. The system is fully ready for the supervised `goal->gui->isaac`
-demo.
+The 2026-09-26 Office verification flight (`949b6027`) completed a 1.0 m takeoff and
+landing with both actions `VERIFIED`. Reducing `sphere_radius` to 0.3 and
+`velocity_sphere_radius_multiplier` to 0.5 reduced takeoff lateral displacement from
+0.65 m to **0.005 m**. Landing now uses a bounded target instead of the historical
+negative-infinity sentinel. This qualifies the **Office baseline only**.
+
+The later `warehouse-shelves` run (`a0ae6283`) failed its takeoff bound with 1.226 m
+horizontal displacement and then became airborne after the mission process had
+exited. The supervisor now persists observation of uncertain failed takeoffs and sends
+the already-declared recovery landing only after two consecutive fresh observations
+prove connected, armed flight above 0.3 m. The exact sequence has deterministic test
+coverage, but no new authorized live regression has qualified it. Therefore:
+
+- Office baseline aerial demo: **qualified for supervised use**.
+- `warehouse-shelves` aerial flight: **paused pending a qualified regression**.
+- Other Isaac catalog scenes: **available for scene/vision evaluation, not implicitly
+  flight-qualified**.
+- Kuka-Allegro semantic `GRASP`/`PLACE`: **not authorized or qualified**.
+- RRM-EM: **a proposed research layer, not implemented functionality**.
+
+The last confirmed vehicle state after the warehouse incident was grounded and
+disarmed. Revalidate live state before any command; this sentence is handoff evidence,
+not a permanent safety guarantee.
+
+## Authoritative document map
+
+Use the current-status documents below before relying on the dated chronology later in
+this file.
+
+| Question | RRM source of truth | Relevant AirStack source |
+| --- | --- | --- |
+| What works now, what failed, and what remains paused? | [Goal-to-finish status](docs/scrum-8/end-to-end-status.md) and [validation record](docs/scrum-8/validation.md) | [Integration checklist](../../docs/robot/autonomy/integration_checklist.md) |
+| What is the intended RRM lifecycle and component allocation? | [SCRUM-8 architecture](docs/scrum-8/architecture.md), [interfaces](docs/scrum-8/interfaces.md), and [integration plan](docs/scrum-8/integration-plan.md) | [AirStack autonomy architecture](../../docs/robot/autonomy/system_architecture.md) and [interface conventions](../../docs/robot/autonomy/interface_conventions.md) |
+| How do I run the local GUI and recover its task-service binding? | [RRM README](README.md) and [command-console runbook](docs/scrum-8/command-console.md) | [AirStack CLI](../../docs/development/beginner/airstack-cli/index.md) and [modular stacks](../../docs/getting_started/modular_airstack.md) |
+| How do scenes differ from flight qualification? | [Scene-selection ladder](docs/scrum-8/scene-selection.md) and [Office live-demo evidence](docs/scrum-8/office-live-demo.md) | [Simulation overview](../../docs/simulation/index.md), [scene catalog](../../docs/simulation/scenes.md), and [Isaac Sim workflows](../../docs/simulation/isaac_sim/container_workflows.md) |
+| Where are semantic routing, embodiment feasibility, and the proposed self-model described? | [Semantic goal routing](docs/scrum-8/semantic-goal-routing.md), [feasibility workflow](docs/scrum-8/feasibility-workflow.md), and [RRM-EM proposal](docs/embodiment-learning-architecture.md) | [Autonomy architecture](../../docs/robot/autonomy/system_architecture.md) |
+| Which documents are current versus legacy? | [SCRUM-8 index and lifecycle](docs/scrum-8/README.md) | [Isaac Sim documentation index](../../docs/simulation/isaac_sim/index.md) |
+
+For a new session, read the [SCRUM-8 index](docs/scrum-8/README.md), then the
+[current goal-to-finish status](docs/scrum-8/end-to-end-status.md), and only then use
+the [RRM README](README.md) as the operating runbook. The original
+[`docs/architecture.md`](docs/architecture.md) is retained as RRM-1 provenance; it
+does not override the SCRUM-8 architecture or current status.
+
+## Historical chronology
+
+The remaining dated entries preserve the implementation and safety-evidence trail.
+Their test counts and global pause/unpause statements describe their own checkpoint;
+the current handoff and linked current-status documents above supersede them.
 
 
 ## CURRENT ADDENDUM: asynchronous in-process watchdog fence — 2026-09-25

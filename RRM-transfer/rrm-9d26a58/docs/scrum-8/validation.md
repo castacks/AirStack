@@ -4,7 +4,7 @@ Source baseline: RRM archive `9d26a58eb8516b6754c5d12b041cdc789950e047`, AirStac
 
 ## Current cross-embodiment and end-to-end checkpoint — 2026-09-26 UTC
 
-The dependency-light suite passes **264/264**. Eight tests validate an
+The dependency-light suite passes **271/271**. Eight tests validate an
 embodiment-neutral qualitative `GoalRequest`, capability routing across aerial, ground,
 and manipulation profiles, the distinction between unsupported and unavailable
 resources, and provenance-bound adapter parameters. Three subsequent tests validate
@@ -23,11 +23,18 @@ This test count is a software-contract result, not a live task-success measureme
 The direct GUI execution path still uses its deterministic aerial command grammar and
 bounded inter-action reconciliation; only the separate non-executing hand preview
 consumes the neutral goal contract. Neither path performs general semantic replanning.
-Historical live evidence includes one verified
-GUI takeoff/land mission, one learned navigation timeout followed by verified landing,
-and a later takeoff regression that ended `RECOVERED_HALT` after a 4.076 m recovery
-altitude excursion. Aerial execution remains paused. The Kuka-Allegro Gate 4/5 probes
-remain bounded calibration infrastructure and have not completed a semantic hand task.
+Historical live evidence includes verified GUI takeoff/land missions, one learned
+navigation timeout followed by verified landing, and a takeoff regression that ended
+`RECOVERED_HALT` after a 4.076 m recovery altitude excursion. The tracking-lead and
+landing-boundary fixes were subsequently verified in Office with 0.005 m takeoff
+horizontal displacement. A later `warehouse-shelves` regression failed its takeoff
+bound and exposed delayed airborne state after the mission process exited. The mission
+supervisor now monitors that uncertain terminal state and admits the predeclared
+recovery landing only after repeated fresh evidence proves meaningful flight. That
+sequence has deterministic coverage but not a new authorized live regression:
+**Office baseline flight is qualified; Warehouse aerial execution remains paused.**
+The Kuka-Allegro Gate 4/5 probes remain bounded calibration infrastructure and have
+not completed a semantic hand task.
 
 See [goal-to-finish performance status](end-to-end-status.md). No aggregate live rate
 can be recomputed because the referenced gitignored runtime artifacts are absent in the
