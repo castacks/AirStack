@@ -34,8 +34,31 @@ on:
         description: "Run ID to use as baseline for metric comparison (blank = latest successful run on main)"
         default: ""
         required: false
+      ws2_smoke:
+        description: "Run only the pinned WS2 Office/Kim smoke workflow"
+        type: boolean
+        default: false
+        required: false
+      ws2_office_usd:
+        description: "Container-visible Office 4.5 USD path or Nucleus URL"
+        default: "omniverse://airlab-nucleus.andrew.cmu.edu/NVIDIA/Assets/Isaac/4.5/Isaac/Environments/Office/office.usd"
+        required: false
+      ws2_rebuild_airstack_images:
+        description: "Build AirStack images when registry pulls are incomplete"
+        type: boolean
+        default: false
+        required: false
 
 jobs:
+  ws2-smoke:
+    name: WS2 Office smoke
+    if: github.event_name == 'workflow_dispatch' && inputs.ws2_smoke == true
+    uses: ./.github/workflows/ws2-smoke.yml
+    with:
+      office_usd: ${{ inputs.ws2_office_usd }}
+      rebuild_airstack_images: ${{ inputs.ws2_rebuild_airstack_images }}
+    secrets: inherit
+
   run-tests:
     name: Run Tests
     runs-on: [self-hosted, airstack-ephemeral]
@@ -50,7 +73,7 @@ jobs:
     #     gate is what keeps random commenters from running code on the
     #     self-hosted runner.
     if: |
-      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_dispatch' && inputs.ws2_smoke != true) ||
       (github.event_name == 'pull_request' &&
        github.event.pull_request.head.repo.full_name == github.repository) ||
       (github.event_name == 'issue_comment' &&

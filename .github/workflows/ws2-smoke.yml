@@ -1,0 +1,284 @@
+name: WS2 Office Smoke
+
+on:
+  workflow_call:
+    inputs:
+      office_usd:
+        description: Container-visible Office 4.5 USD path or Nucleus URL
+        type: string
+        default: omniverse://airlab-nucleus.andrew.cmu.edu/NVIDIA/Assets/Isaac/4.5/Isaac/Environments/Office/office.usd
+        required: false
+      rebuild_airstack_images:
+        description: Build AirStack images when registry pulls are incomplete
+        type: boolean
+        default: false
+        required: false
+  workflow_dispatch:
+    inputs:
+      office_usd:
+        description: Container-visible Office 4.5 USD path or Nucleus URL
+        type: string
+        default: omniverse://airlab-nucleus.andrew.cmu.edu/NVIDIA/Assets/Isaac/4.5/Isaac/Environments/Office/office.usd
+        required: true
+      rebuild_airstack_images:
+        description: Build AirStack images when registry pulls are incomplete
+        type: boolean
+        default: false
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: Validate bench source
+    runs-on: ubuntu-latest
+    outputs:
+      tested_sha: ${{ steps.identity.outputs.tested_sha }}
+    steps:
+      - name: Checkout requested revision
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Record immutable revision
+        id: identity
+        run: echo "tested_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install CPU test dependencies
+        run: pip install pytest pyyaml
+
+      - name: Resolve the smoke scenario
+        run: |
+          python3 tools/ws2_bench/episode.py \
+            tools/ws2_bench/scenarios/validate_timeout.yaml \
+            --resolve-only
+
+      - name: Run WS2 CPU contracts
+        run: >-
+          python3 -m pytest -q
+          tools/ws2_bench/test_conditions.py
+          tools/ws2_bench/test_ci_workflow.py
+
+  smoke:
+    name: Kim timeout smoke on OSMO GPU
+    needs: preflight
+    runs-on: [self-hosted, airstack-ephemeral]
+    timeout-minutes: 180
+    concurrency:
+      group: ws2-office-smoke-${{ github.ref }}
+      cancel-in-progress: false
+    env:
+      WS2_OFFICE_USD: ${{ inputs.office_usd }}
+      WS2_OUTPUT: robot/ros_ws/ws2_runtime/ci-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+      DOCKER_REGISTRY_PASSWORD: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
+    steps:
+      - name: Checkout immutable AirStack revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.tested_sha }}
+          submodules: recursive
+
+      - name: Clone pinned planner companions as siblings
+        run: |
+          workspace_root="$(dirname "$GITHUB_WORKSPACE")"
+          git clone --recursive https://github.com/engcang/MonoNav.git "$workspace_root/MonoNav"
+          git -C "$workspace_root/MonoNav" checkout cc5ec88
+          git clone --recursive https://github.com/engcang/Collision-avoidance.git "$workspace_root/Collision-avoidance"
+          git -C "$workspace_root/Collision-avoidance" checkout 395485b
+
+      - name: Install host dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-venv unzip
+          python3 -m venv .venv
+          echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install pytest pyyaml
+
+      - name: Create Isaac Sim credential file
+        env:
+          CI_OMNI_USER: ${{ secrets.WS2_OMNI_USER }}
+          CI_OMNI_PASS: ${{ secrets.WS2_OMNI_PASS }}
+        run: |
+          mkdir -p simulation/isaac-sim/docker
+          printf 'OMNI_USER=%s\n' "${CI_OMNI_USER:-guest}" > simulation/isaac-sim/docker/omni_pass.env
+          printf 'OMNI_PASS=%s\n' "${CI_OMNI_PASS:-guest}" >> simulation/isaac-sim/docker/omni_pass.env
+          printf 'OMNI_SERVER=%s\n' 'omniverse://airlab-nucleus.andrew.cmu.edu/NVIDIA/Assets/Isaac/5.1' >> simulation/isaac-sim/docker/omni_pass.env
+          printf 'ACCEPT_EULA=Y\nOMNI_ENV_PRIVACY_CONSENT=Y\n' >> simulation/isaac-sim/docker/omni_pass.env
+
+      - name: Log in to internal Docker registry
+        id: docker_login
+        if: ${{ vars.DOCKER_REGISTRY_URL != '' && env.DOCKER_REGISTRY_PASSWORD != '' }}
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.DOCKER_REGISTRY_URL }}
+          username: ${{ vars.DOCKER_REGISTRY_USERNAME }}
+          password: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
+
+      - name: Pull or build AirStack images
+        env:
+          AIRSTACK_ROOT: ${{ github.workspace }}
+          REBUILD: ${{ inputs.rebuild_airstack_images }}
+        run: |
+          chmod +x airstack.sh
+          export COMPOSE_PROFILES=desktop,isaac-sim
+          ./airstack.sh --progress=quiet image-pull --ignore-pull-failures || true
+          missing=()
+          while IFS= read -r image; do
+            [[ -z "$image" ]] && continue
+            docker image inspect "$image" >/dev/null 2>&1 || missing+=("$image")
+          done < <(docker compose -f docker-compose.yaml config --images)
+          if (( ${#missing[@]} > 0 )); then
+            printf 'Missing AirStack image: %s\n' "${missing[@]}"
+            if [[ "$REBUILD" != "true" ]]; then
+              echo "::error::Images are missing. Re-dispatch with rebuild_airstack_images=true."
+              exit 2
+            fi
+            ./airstack.sh --progress=quiet image-build
+          fi
+
+      - name: Build pinned Kim planner image and install weights
+        run: |
+          workspace_root="$(dirname "$GITHUB_WORKSPACE")"
+          cd "$workspace_root/Collision-avoidance"
+          bash docker/build_image.sh
+          bash docker/download_models.sh
+
+      - name: Create and prepare stopped AirStack containers
+        env:
+          AIRSTACK_ROOT: ${{ github.workspace }}
+          COMPOSE_PROFILES: desktop,isaac-sim
+          AUTOLAUNCH: "false"
+          DISPLAY: ""
+        run: |
+          ./airstack.sh up isaac-sim robot-desktop
+          docker exec airstack-robot-desktop-1 bash -lc \
+            'bws --packages-select mononav_bridge'
+          docker stop --timeout 3 isaac-sim airstack-robot-desktop-1
+
+      - name: Record smoke provenance
+        env:
+          TESTED_SHA: ${{ needs.preflight.outputs.tested_sha }}
+        run: |
+          python3 - <<'PYEOF'
+          import json, os, subprocess
+          from pathlib import Path
+          payload = {
+              "schema_version": 1,
+              "tested_sha": os.environ["TESTED_SHA"],
+              "github_run_id": os.environ["GITHUB_RUN_ID"],
+              "github_run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+              "office_usd": os.environ["WS2_OFFICE_USD"],
+              "mononav_commit": "cc5ec88",
+              "collision_avoidance_commit": "395485b",
+              "gpu": subprocess.run(
+                  ["nvidia-smi", "--query-gpu=name,uuid", "--format=csv,noheader"],
+                  check=False, capture_output=True, text=True,
+              ).stdout.splitlines(),
+          }
+          Path(os.environ["WS2_OUTPUT"] + "-provenance.json").write_text(
+              json.dumps(payload, indent=2) + "\n", encoding="utf-8"
+          )
+          PYEOF
+
+      - name: Run short simulated-time episode
+        id: episode
+        env:
+          WS2_HEADLESS: "1"
+        run: |
+          set +e
+          python3 tools/ws2_bench/episode.py \
+            tools/ws2_bench/scenarios/validate_timeout.yaml \
+            --output "$WS2_OUTPUT" > "$WS2_OUTPUT-stdout.json"
+          status=$?
+          set -e
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Stop smoke-owned containers
+        if: always()
+        run: |
+          docker stop --timeout 3 \
+            ws2-episode-worker collision-avoidance-airstack mononav-airstack \
+            isaac-sim airstack-robot-desktop-1 2>/dev/null || true
+
+      - name: Verify expected smoke result
+        if: always()
+        id: verify
+        run: |
+          set +e
+          python3 - <<'PYEOF'
+          import json, os, shutil
+          from pathlib import Path
+          output = Path(os.environ["WS2_OUTPUT"])
+          output.mkdir(parents=True, exist_ok=True)
+          for source, target in (
+              (Path(str(output) + "-provenance.json"), output / "ci-provenance.json"),
+              (Path(str(output) + "-stdout.json"), output / "episode-stdout.json"),
+          ):
+              if source.is_file():
+                  shutil.copy2(source, target)
+          path = output / "result.json"
+          errors = []
+          if not path.is_file():
+              errors.append("result.json is missing")
+              result = {}
+          else:
+              result = json.loads(path.read_text(encoding="utf-8"))
+          if result.get("outcome") == "infrastructure_error":
+              errors.append("episode reported infrastructure_error")
+          if result.get("termination", {}).get("reason") != "simulation_time_budget":
+              errors.append("episode did not reach the deliberate simulation-time budget")
+          if result.get("planner_command_count", 0) < 1:
+              errors.append("planner published no commands")
+          if result.get("cleanup_errors"):
+              errors.append("episode cleanup reported errors")
+          summary = [
+              "# WS2 Office smoke",
+              "",
+              f"- Outcome: `{result.get('outcome', 'missing')}`",
+              f"- Termination: `{result.get('termination', {}).get('reason', 'missing')}`",
+              f"- Planner commands: `{result.get('planner_command_count', 0)}`",
+              f"- Cleanup errors: `{len(result.get('cleanup_errors', []))}`",
+          ]
+          if errors:
+              summary += ["", "## Errors", *[f"- {error}" for error in errors]]
+          (output / "ci-summary.md").write_text("\n".join(summary) + "\n", encoding="utf-8")
+          raise SystemExit(1 if errors else 0)
+          PYEOF
+          status=$?
+          set -e
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          cat "$WS2_OUTPUT/ci-summary.md" >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+
+      - name: Upload smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ws2-office-smoke-${{ needs.preflight.outputs.tested_sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.WS2_OUTPUT }}/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+      - name: Enforce smoke conclusion
+        if: always()
+        env:
+          EPISODE_STATUS: ${{ steps.episode.outputs.status }}
+          VERIFY_STATUS: ${{ steps.verify.outputs.status }}
+        run: |
+          if [[ -z "$EPISODE_STATUS" || "$EPISODE_STATUS" != "0" ]]; then
+            echo "::error::Episode process failed with status ${EPISODE_STATUS:-missing}."
+            exit "${EPISODE_STATUS:-4}"
+          fi
+          if [[ -z "$VERIFY_STATUS" || "$VERIFY_STATUS" != "0" ]]; then
+            echo "::error::Smoke verification failed with status ${VERIFY_STATUS:-missing}."
+            exit "${VERIFY_STATUS:-4}"
+          fi
