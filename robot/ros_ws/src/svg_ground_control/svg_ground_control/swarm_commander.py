@@ -1741,14 +1741,20 @@ class SwarmCommander(Node):
             accel = accel_ff[row]
             if np.linalg.norm(velocity - nominal[row]) > 1e-6:
                 accel = fence_accel
-                # The filter overrode the profile, so the reference may be
-                # ahead of the drone along a path the CBF no longer endorses.
-                # PX4's onboard pull toward the reference is not filtered;
-                # keep it on the short hold leash until the drone is free.
-                if d.ref is not None:
-                    lead, pulled = leash(d.ref - d.position, self.hold_lead)
-                    if pulled:
-                        d.ref = d.position + lead
+            # The CBF overrode the profile, so the reference may be ahead of
+            # the drone along a path the filter no longer endorses. PX4's
+            # onboard pull toward the reference is not filtered; keep it on
+            # the short hold leash until the drone is free. Only the CBF: a
+            # fence clip is a per-axis speed cap that the reference already
+            # integrates consistently, and leashing on it turned every
+            # fence-limited cruise into a bare velocity setpoint (bag
+            # run_035852: 2.5-3.3 m/s actual for 4.7-5.9 commanded).
+            cbf_touched = (result.used_emergency_stop
+                           or (row not in exempt_rows and bool(result.corrected[row])))
+            if cbf_touched and d.ref is not None:
+                lead, pulled = leash(d.ref - d.position, self.hold_lead)
+                if pulled:
+                    d.ref = d.position + lead
             self.publish_command(d, velocity, accel, now)
 
         self.publish_markers(now)
