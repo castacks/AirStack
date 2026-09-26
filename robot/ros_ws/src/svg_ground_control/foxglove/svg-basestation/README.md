@@ -3,8 +3,8 @@
 Ground-station panel for the SVG counter-UAS demonstration — the SVG analogue of
 the DTC *Robot Control Panel* that anchors the `foxglove_ws` basestation layout.
 One panel owns agent selection, the swarm-wide safety command, mission
-confirmation, the CBF gains, per-drone state and position, and the operator's
-health picture.
+confirmation, the runtime gains (CBF, teleop speed cap, go-to-goal law),
+per-drone state and position, and the operator's health picture.
 
 Three ideas drive the whole panel:
 
@@ -91,9 +91,9 @@ velocity commands arriving on its command topic (`Cmd stream`, ~20 Hz while the
 commander drives it, `silent` in red if the commander thinks it is airborne but
 nothing is being published to it).
 
-## CBF gains (alpha, safety radius, max speed)
+## Runtime gains (CBF alpha, safety radius, max speed · teleop max speed · goal accel, settle)
 
-One slider row edits `swarm_commander`'s runtime CBF parameters. The **dropdown**
+One slider row edits `swarm_commander`'s runtime parameters. The **dropdown**
 on the left picks which gain the row is editing; slider and number box are one
 draft value (kept per gain, so switching does not lose a half-typed number);
 **Apply** sends that gain; the fixed-width **live** readout shows what the
@@ -106,16 +106,31 @@ reason for a rejection goes to the status line under the row.
 | `CBF α` | `cbf_alpha` | Class-K gain in the barrier constraint `ḣ + α h ≥ 0`. **Lower is gentler**: the filter starts yielding early and corrects softly. **Higher is more aggressive**: drones approach closer before a harder correction |
 | `CBF r` | `cbf_safety_radius_m` | Each drone's safety bubble; every pair of centres is kept more than `2r` apart. Larger = wider berth. Goals or squeeze posts closer than `2r` become infeasible and trigger the emergency push-apart |
 | `CBF vmax` | `cbf_max_speed_mps` | Cap on every velocity command the filter emits, exempt drones included. Higher lets drones dodge (and fly) faster |
+| `Teleop vmax` | `teleop_max_speed_mps` **and** `safe_teleop`'s `max_speed_mps` | The hand-flown drone's speed at full stick. The commander caps the stick velocity at `teleop_max_speed_mps`; `safe_teleop` scales the stick to `max_speed_mps`. The lower of the two silently wins, so **Apply sets both** — the commander first, then `safe_teleop` — and the readout shows both: `live 3.00 m/s ✓ · pad 3.00 ✓`. Still capped by `cbf_max_speed_mps` unless the drone is `cbf_exempt` |
+| `Goal accel` | `goal_accel_mps2` | Acceleration and braking of the go-to-goal reference profile. Braking distance is `v²/(2a) + v·settle`: higher brakes later and harder (PX4 auto uses 3, the airframe managed 5.5); too high for the airframe overshoots |
+| `Goal settle` | `goal_settle_s` | Exponential tail into the goal (time constant). 0.3 is PX4-like; larger = softer stop, slower arrival; smaller = sharper arrival. `0` is allowed and removes the tail |
 
 - **live** is what the commander is running with right now — from the status
-  snapshot when it is fresh, else from a `get_parameters` read (↻ re-reads all
-  three). Next to the α value: which drones the CBF is correcting this tick,
-  and a red `EMERGENCY push-apart` if the QP went infeasible.
+  snapshot when it is fresh (`cbf` for the filter gains, `tuning` for the
+  rest), else from a `get_parameters` read (↻ re-reads all six, and
+  `safe_teleop`'s `max_speed_mps`). Under the row: which drones the CBF is
+  correcting this tick, and a red `EMERGENCY push-apart` if the QP went
+  infeasible.
+- **pad** (Teleop vmax only) is `safe_teleop`'s `max_speed_mps`, read from
+  `<teleop ns>/get_parameters` (the `Teleop node namespace` setting,
+  `/safe_teleop`). `✓` when it equals the commander's `teleop_max_speed_mps`,
+  `✗` in amber with a note when it does not (press Apply to set both), `--`
+  when `safe_teleop` is not running, which is normal without a hand-flown
+  drone. `safe_teleop` also follows the commander's value on its own from the
+  status snapshot, and pushes a `ros2 param set /safe_teleop max_speed_mps`
+  back to the commander, so the two agree whichever side was changed.
 - Move a slider or type a value, then that row's **Apply**. The panel calls
   `<commander ns>/set_parameters` (`rcl_interfaces/srv/SetParameters`,
-  double) for that one parameter. The commander validates (finite, `> 0`) and
-  applies it on its next control tick; a rejection reason is shown in the
-  status line. Until the snapshot reports the new value the readout shows
+  double) for that one parameter. The commander validates (finite, `> 0`;
+  `goal_settle_s` may be `0`) and applies it on its next control tick; a
+  rejection reason is shown in the status line. For Teleop vmax the same
+  number then goes to `<teleop ns>/set_parameters` as `max_speed_mps` — only
+  after the commander accepted it, so a rejection never leaves the two apart. Until the snapshot reports the new value the readout shows
   `(asked 0.80…)`; if the commander keeps reporting the old value after the
   set, it turns amber.
 - The same parameters can be set from a shell and the panel follows:
@@ -125,8 +140,10 @@ reason for a rejection goes to the status line under the row.
   keep-out spheres in `/svg/viz/markers` follow a runtime change.
 
 The sliders' upper ends are the `CBF alpha slider max` (10), `CBF radius
-slider max` (2 m) and `CBF max-speed slider max` (3 m/s) settings; the number
-boxes accept any positive value.
+slider max` (2 m), `CBF max-speed slider max` (3 m/s), `Teleop max-speed
+slider max` (5 m/s), `Goal accel slider max` (15 m/s²) and `Goal settle
+slider max` (2 s) settings; the number boxes accept any positive value (any
+value `>= 0` for the settle time).
 
 ## Formation
 
@@ -267,7 +284,7 @@ why a section is or is not there:
 | mocap/hardware | `/{name}/pose`, `/{name}/fmu/out/estimator_status_flags` |
 | cellular | `/{name}/comms/cellular`, `/{name}/cellular/odometry` |
 
-The Swarm Command, CBF gains and Agent State sections are controls and always
+The Swarm Command, runtime gains and Agent State sections are controls and always
 shown; their contents say `NO COMMANDER` / `--` until the commander is up.
 
 ## Development
@@ -275,7 +292,8 @@ shown; their contents say `NO COMMANDER` / `--` until the commander is up.
 The panel is plain JavaScript in `dist/extension.js` (no build step). A smoke
 test drives it under a minimal DOM stub and a fake Foxglove panel context —
 feeding a commander snapshot, odometry and velocity commands, clicking Start,
-Hold and Apply — and checks the rendered text:
+Hold and Apply (including the two-node teleop cap) — and checks the rendered
+text:
 
 ```
 docker run --rm -v "$PWD/robot/ros_ws/src/svg_ground_control/foxglove/svg-basestation:/p" -w /p node:20-alpine \

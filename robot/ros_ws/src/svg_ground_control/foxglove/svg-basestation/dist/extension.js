@@ -45,10 +45,15 @@
 //   formation /svg/formation_command                     std_msgs/String
 //   status    /svg/commander_status                      std_msgs/String, JSON
 //             (swarm_commander.build_status: mission state, last command
-//             outcome, live CBF gains, per-drone flight state + position)
-//   cbf gains /swarm_commander/{get,set}_parameters      rcl_interfaces
-//             (cbf_alpha, cbf_safety_radius_m, cbf_max_speed_mps — one slider
-//             row, the gain is picked from a dropdown)
+//             outcome, live CBF gains + speed/tracking gains ("tuning"),
+//             per-drone flight state + position)
+//   gains     /swarm_commander/{get,set}_parameters      rcl_interfaces
+//             (cbf_alpha, cbf_safety_radius_m, cbf_max_speed_mps,
+//             teleop_max_speed_mps, goal_accel_mps2, goal_settle_s — one
+//             slider row, the gain is picked from a dropdown)
+//             /safe_teleop/{get,set}_parameters          rcl_interfaces
+//             (max_speed_mps — set together with teleop_max_speed_mps so the
+//             pad's stick scaling and the commander's cap never differ)
 //   velocity  /{name}/interface/velocity_command | /{name}/fmu/velocity_command
 //             (rate only — proves the commander is driving that drone)
 
@@ -180,29 +185,58 @@ const MAX_CMD_LOG = 4;
 // Velocity commands stream at control_rate_hz (20 Hz) while a drone is
 // commanded; silence past this means the commander is not driving it.
 const CMD_STREAM_TIMEOUT_S = 0.5;
-// Runtime-tunable CBF gains, one slider row each. `param` is the commander's
-// parameter name (rcl_interfaces get/set_parameters), `statusKey` where the
-// live value sits under "cbf" in its status snapshot, `maxCfg` the panel
-// setting holding the slider's upper end. The number box accepts any value
-// above `min`. Order matters: the first row is the one the smoke test drives.
-const CBF_PARAMS = [
-  { id: "alpha", param: "cbf_alpha", statusKey: "alpha", label: "CBF α", unit: "",
+// Runtime-tunable gains, one dropdown entry each. `param` is the commander's
+// parameter name (rcl_interfaces get/set_parameters), `statusPath` where the
+// live value sits in its status snapshot ("cbf" for the filter gains,
+// "tuning" for the speed / tracking gains), `maxCfg` the panel setting
+// holding the slider's upper end. The number box accepts any value above
+// `min` (`zeroOk`: `min` itself, i.e. 0, is allowed). A `mirror` names a
+// second node whose parameter must always equal this one: Apply sets the
+// commander first and, once it accepts, the mirror; the readout shows both.
+// Order matters: the first row is the one the smoke test drives.
+const TUNING_PARAMS = [
+  { id: "alpha", param: "cbf_alpha", statusPath: ["cbf", "alpha"], label: "CBF α", unit: "",
     min: 0.1, step: 0.1, maxCfg: "cbfAlphaMax", placeholder: "alpha",
     hint: "cbf_alpha — gain in the barrier constraint h_dot + alpha*h >= 0. " +
       "Lower = gentler (yields earlier, softer corrections); higher = more aggressive " +
       "(lets drones approach closer, then corrects harder).",
     scale: ["← gentle: yields early, soft corrections", "aggressive: yields late, hard corrections →"] },
-  { id: "radius", param: "cbf_safety_radius_m", statusKey: "safety_radius_m", label: "CBF r", unit: " m",
+  { id: "radius", param: "cbf_safety_radius_m", statusPath: ["cbf", "safety_radius_m"], label: "CBF r", unit: " m",
     min: 0.05, step: 0.05, maxCfg: "cbfRadiusMax", placeholder: "radius",
     hint: "cbf_safety_radius_m — each drone's safety bubble. The filter keeps every pair of " +
       "centres more than 2r apart. Larger = wider berth; goals or posts closer than 2r " +
       "become infeasible (emergency push-apart).",
     scale: ["← tight: drones may pass close", "wide: big keep-out spheres →"] },
-  { id: "speed", param: "cbf_max_speed_mps", statusKey: "max_speed_mps", label: "CBF vmax", unit: " m/s",
+  { id: "speed", param: "cbf_max_speed_mps", statusPath: ["cbf", "max_speed_mps"], label: "CBF vmax", unit: " m/s",
     min: 0.1, step: 0.1, maxCfg: "cbfSpeedMax", placeholder: "vmax",
     hint: "cbf_max_speed_mps — cap on every velocity command the filter emits (exempt drones " +
       "are capped too). Higher lets drones dodge, and fly, faster.",
     scale: ["← slow: gentle dodges", "fast: quick dodges →"] },
+  { id: "teleop", param: "teleop_max_speed_mps", statusPath: ["tuning", "teleop_max_speed_mps"],
+    label: "Teleop vmax", unit: " m/s",
+    min: 0.1, step: 0.1, maxCfg: "teleopSpeedMax", placeholder: "teleop",
+    // The pad's stick scaling and the commander's ceiling on it are one
+    // number: the lower of the two silently wins, so they are always set
+    // together (safe_teleop also follows the commander's status snapshot).
+    mirror: { nsCfg: "teleopNs", param: "max_speed_mps", label: "pad" },
+    hint: "teleop_max_speed_mps — the commander's ceiling on the hand-flown drone's stick " +
+      "velocity. Applied together with safe_teleop's max_speed_mps (full right stick) so " +
+      "the two never differ. Still capped by cbf_max_speed_mps unless the drone is cbf_exempt.",
+    scale: ["← slow sticks", "fast sticks: full deflection flies faster →"] },
+  { id: "accel", param: "goal_accel_mps2", statusPath: ["tuning", "goal_accel_mps2"],
+    label: "Goal accel", unit: " m/s²",
+    min: 0.1, step: 0.1, maxCfg: "goalAccelMax", placeholder: "accel",
+    hint: "goal_accel_mps2 — acceleration and braking of the go-to-goal reference profile. " +
+      "Braking distance is v²/(2a) + v·settle: higher brakes later and harder (PX4 auto " +
+      "uses 3, the airframe managed 5.5 in the logs); too high for the airframe overshoots.",
+    scale: ["← soft: early, gentle braking", "hard: late, sharp braking →"] },
+  { id: "settle", param: "goal_settle_s", statusPath: ["tuning", "goal_settle_s"],
+    label: "Goal settle", unit: " s",
+    min: 0, step: 0.05, maxCfg: "goalSettleMax", placeholder: "settle", zeroOk: true,
+    hint: "goal_settle_s — exponential tail into the goal (time constant). 0.3 is PX4-like; " +
+      "larger = softer stop, slower arrival; smaller = sharper arrival, more overshoot risk. 0 " +
+      "removes the tail.",
+    scale: ["← sharp arrival", "soft, slow arrival →"] },
 ];
 
 // ─────────────────────────── defaults ─────────────────────────────────────────
@@ -222,12 +256,20 @@ const DEFAULTS = {
   // state, last command outcome, live CBF gains and per-drone positions all
   // come from here.
   statusTopic: "/svg/commander_status",
-  // Upper ends of the CBF sliders (see CBF_PARAMS). Alpha has no natural
+  // Upper ends of the CBF sliders (see TUNING_PARAMS). Alpha has no natural
   // ceiling; 10 is already far past "aggressive" for the 0.55 m / 1.2 m/s
   // defaults. 2 m radius and 3 m/s comfortably cover an indoor arena.
   cbfAlphaMax: 10,
   cbfRadiusMax: 2,
   cbfSpeedMax: 3,
+  // Upper ends of the speed / tracking sliders: 5 m/s on the sticks and
+  // 15 m/s² are the fastest the configs go; a 2 s settle is already sluggish.
+  teleopSpeedMax: 5,
+  goalAccelMax: 15,
+  goalSettleMax: 2,
+  // safe_teleop's node namespace: its max_speed_mps is set together with the
+  // commander's teleop_max_speed_mps (see TUNING_PARAMS "teleop").
+  teleopNs: "/safe_teleop",
 
   // shared
   stateTopicTemplate: "/{name}/odometry_conversion/odometry",
@@ -1171,18 +1213,22 @@ function activate(extensionContext) {
       // {t, name, phase: "sent"|"ok"|"rejected"|"failed"|"timeout",
       //  message, verified: null|true|false, verifyBy}
       let cmdLog = [];
-      // CBF gains, per CBF_PARAMS row: what get_parameters last returned
+      // Gains, per TUNING_PARAMS row: what get_parameters last returned
       // ({v, t}), what the operator last asked for ({v, t} — to confirm the
       // commander really took it), whether the draft in the slider/box has
-      // been touched, and whether a set_parameters call is in flight.
+      // been touched, whether a set_parameters call is in flight, and for a
+      // mirrored gain what the mirror node last reported ({v, t}) or why it
+      // could not be read / set (mirrorErr). The cbf* names date from when
+      // the row only edited the CBF gains.
       const cbfState = {};
-      for (const p of CBF_PARAMS) {
-        cbfState[p.id] = { param: null, requested: null, rejected: null, draft: "", draftTouched: false, setting: false };
+      for (const p of TUNING_PARAMS) {
+        cbfState[p.id] = { param: null, requested: null, rejected: null, draft: "", draftTouched: false,
+          setting: false, mirror: null, mirrorErr: null };
       }
       let lastCbfRefresh = 0;
       // Which CBF gain the single slider row is editing (dropdown), persisted.
-      let cbfSel = CBF_PARAMS.some((p) => p.id === persisted.cbfSel) ? persisted.cbfSel : CBF_PARAMS[0].id;
-      const cbfSelected = () => CBF_PARAMS.find((p) => p.id === cbfSel);
+      let cbfSel = TUNING_PARAMS.some((p) => p.id === persisted.cbfSel) ? persisted.cbfSel : TUNING_PARAMS[0].id;
+      const cbfSelected = () => TUNING_PARAMS.find((p) => p.id === cbfSel);
 
       // Commander timestamps are ROS time — wall clock normally, sim time
       // under use_sim_time — so they are never compared with panel time.
@@ -1566,15 +1612,17 @@ function activate(extensionContext) {
       missionRow.append(missionChip, missionNote, lastCmdChip);
       cmdCard.appendChild(missionRow);
 
-      // CBF gains — ONE slider row; the dropdown picks which gain it edits
-      // (alpha, safety radius, max speed). Slider and box are one draft value
-      // per gain; Apply sends the selected gain to the commander's
-      // set_parameters service. The readout is fixed-width and only says what
-      // the commander runs with plus ✓ / … / ✗ — the reason for a rejection
-      // goes to the status line below, so the slider never changes length.
+      // Runtime gains — ONE slider row; the dropdown picks which gain it
+      // edits (CBF alpha / radius / max speed, teleop max speed, goal accel
+      // / settle). Slider and box are one draft value per gain; Apply sends
+      // the selected gain to the commander's set_parameters service (and,
+      // for the teleop cap, to safe_teleop's too). The readout is fixed-width
+      // and only says what the commander runs with plus ✓ / … / ✗ (and "pad
+      // <value>" for the mirrored gain) — the reason for a rejection goes to
+      // the status line below, so the slider never changes length.
       const cbfRow = el("div", "sb-cbf");
       const cbfSelect = el("select", "sb-input sb-cbf-sel");
-      for (const p of CBF_PARAMS) {
+      for (const p of TUNING_PARAMS) {
         const opt = el("option", null, p.label);
         opt.value = p.id;
         opt.title = p.hint;
@@ -1582,7 +1630,7 @@ function activate(extensionContext) {
       }
       cbfSelect.value = cbfSel;
       cbfSelect.addEventListener("change", () => {
-        if (!CBF_PARAMS.some((p) => p.id === cbfSelect.value)) return;
+        if (!TUNING_PARAMS.some((p) => p.id === cbfSelect.value)) return;
         cbfSel = cbfSelect.value;
         persist();
         render();
@@ -1607,7 +1655,7 @@ function activate(extensionContext) {
       const cbfLive = el("span", "sb-cbf-live", "live --");
       const cbfRefresh = el("button", "sb-btn", "↻");
       cbfRefresh.style.cssText = "background:#4b5563;padding:5px 8px;";
-      cbfRefresh.title = "Re-read the CBF gains from the commander (get_parameters)";
+      cbfRefresh.title = "Re-read the gains from the commander (and safe_teleop) via get_parameters";
       cbfRefresh.addEventListener("click", () => refreshCbfParams(true));
       cbfRow.append(cbfSelect, cbfRange, cbfInput, cbfApply, cbfLive, cbfRefresh);
       cmdCard.appendChild(cbfRow);
@@ -2008,7 +2056,7 @@ function activate(extensionContext) {
         }
       }
 
-      // ── CBF gains (rcl_interfaces parameter services) ─────────────────────
+      // ── runtime gains (rcl_interfaces parameter services) ─────────────────
       const PARAM_DOUBLE = 3, PARAM_INTEGER = 2;
 
       function paramNumber(pv) {
@@ -2026,10 +2074,10 @@ function activate(extensionContext) {
         lastCbfRefresh = t;
         const service = commanderService("get_parameters");
         // One call for all gains; values come back in the order of `names`.
-        callWithTimeout(service, { names: CBF_PARAMS.map((p) => p.param) })
+        callWithTimeout(service, { names: TUNING_PARAMS.map((p) => p.param) })
           .then((res) => {
             const got = [];
-            CBF_PARAMS.forEach((p, i) => {
+            TUNING_PARAMS.forEach((p, i) => {
               const v = paramNumber(res?.values?.[i]);
               if (v == null) return;
               cbfState[p.id].param = { v, t: nowSec() };
@@ -2047,6 +2095,35 @@ function activate(extensionContext) {
             // up yet. The status snapshot supersedes this once it arrives.
             if (force) setStatus(`${service} failed: ${err?.message ?? err}`);
           });
+        for (const p of TUNING_PARAMS) if (p.mirror) refreshMirror(p);
+      }
+
+      // The mirrored node has no status topic: its value only comes from
+      // get_parameters. Unreachable (teleop not running) is normal and is
+      // shown as "pad --", never as an error.
+      function mirrorService(p, suffix) {
+        return `${String(cfg[p.mirror.nsCfg] || "").replace(/\/+$/, "")}/${suffix}`;
+      }
+
+      function refreshMirror(p) {
+        const st = cbfState[p.id];
+        callWithTimeout(mirrorService(p, "get_parameters"), { names: [p.mirror.param] })
+          .then((res) => {
+            const v = paramNumber(res?.values?.[0]);
+            if (v == null) {
+              st.mirror = null;
+              st.mirrorErr = `${p.mirror.param} not set on ${cfg[p.mirror.nsCfg]}`;
+            } else {
+              st.mirror = { v, t: nowSec() };
+              st.mirrorErr = null;
+            }
+            render();
+          })
+          .catch((err) => {
+            st.mirror = null;
+            st.mirrorErr = `${mirrorService(p, "get_parameters")}: ${err?.message ?? err}`;
+            render();
+          });
       }
 
       // What the commander is running with right now for one CBF gain, and
@@ -2054,7 +2131,7 @@ function activate(extensionContext) {
       // parameter read.
       function liveCbf(p, now) {
         const s = commanderFresh(now) ? commander : null;
-        const fromStatus = num(s?.cbf?.[p.statusKey]);
+        const fromStatus = num(p.statusPath.reduce((o, k) => o?.[k], s));
         if (fromStatus != null) return { v: fromStatus, source: "commander", t: commanderAt };
         const st = cbfState[p.id];
         if (st.param) return { v: st.param.v, source: "param read", t: st.param.t };
@@ -2063,7 +2140,10 @@ function activate(extensionContext) {
 
       function setCbfParam(p, raw) {
         const v = num(String(raw).trim());
-        if (v == null || !(v > 0)) { setStatus(`${p.label} must be a positive number`); return; }
+        if (v == null || !(p.zeroOk ? v >= 0 : v > 0)) {
+          setStatus(`${p.label} must be a ${p.zeroOk ? "number >= 0" : "positive number"}`);
+          return;
+        }
         const service = commanderService("set_parameters");
         if (!servicesAvailable()) {
           setStatus(`Service calls unavailable in this data source (wanted ${service})`);
@@ -2086,12 +2166,43 @@ function activate(extensionContext) {
             st.requested = { v, t: nowSec() };
             setStatus(`${p.param} = ${v.toFixed(2)} accepted · waiting for the commander to report it`);
             refreshCbfParams(true);
+            if (p.mirror) return setMirror(p, v);
           })
           .catch((err) => {
             st.rejected = { v, t: nowSec(), reason: `${service} failed: ${err?.message ?? err}` };
             setStatus(st.rejected.reason);
           })
           .finally(() => { st.setting = false; render(); });
+      }
+
+      // Second half of a mirrored Apply: the commander took the value, now
+      // the mirror node gets the same number. Only after the commander, so a
+      // rejection there leaves the two still equal. safe_teleop also adopts
+      // the commander's value from the status snapshot on its own, so a
+      // failure here is reported but is not fatal.
+      function setMirror(p, v) {
+        const st = cbfState[p.id];
+        const service = mirrorService(p, "set_parameters");
+        return callWithTimeout(service, {
+          parameters: [{ name: p.mirror.param, value: { type: PARAM_DOUBLE, double_value: v } }],
+        })
+          .then((res) => {
+            const r = res?.results?.[0];
+            if (r && r.successful === false) {
+              st.mirrorErr = `${p.mirror.param} = ${v.toFixed(2)} REJECTED by ${cfg[p.mirror.nsCfg]}: ${r.reason || "no reason given"}`;
+              setStatus(`${p.param} = ${v.toFixed(2)} set on the commander, but ${st.mirrorErr}`);
+              return;
+            }
+            st.mirror = { v, t: nowSec() };
+            st.mirrorErr = null;
+            setStatus(`${p.param} = ${v.toFixed(2)} set on the commander and ${p.mirror.param} on ${cfg[p.mirror.nsCfg]}`);
+          })
+          .catch((err) => {
+            st.mirrorErr = `${service} failed: ${err?.message ?? err}`;
+            setStatus(`${p.param} = ${v.toFixed(2)} set on the commander; ${st.mirrorErr} — ` +
+              "safe_teleop adopts the commander's value itself if it is running with sync_max_speed on");
+          })
+          .finally(() => render());
       }
 
       function onSafetyClick() {
@@ -2421,7 +2532,14 @@ function activate(extensionContext) {
               detail = `asked ${st.requested.v.toFixed(2)} — waiting for the commander to report it`;
             }
           }
-          cbfLive.textContent = `live ${live.v.toFixed(2)}${p.unit} ${mark}`.trimEnd();
+          let text = `live ${live.v.toFixed(2)}${p.unit} ${mark}`.trimEnd();
+          if (p.mirror) {
+            const m = mirrorReadout(p, live.v, now);
+            text += ` · ${m.text}`;
+            if (m.cls === "sb-warn" && cls === "sb-ok") cls = "sb-warn";
+            detail += `\n${m.detail}`;
+          }
+          cbfLive.textContent = text;
           cbfLive.className = `sb-cbf-live ${cls}`;
           cbfLive.title = detail;
           // Seed the draft from the live value until the operator touches it;
@@ -2437,7 +2555,8 @@ function activate(extensionContext) {
             if (st.draft !== "") cbfRange.value = st.draft;
           }
         } else {
-          cbfLive.textContent = ready ? "live --" : "live -- (no services)";
+          cbfLive.textContent = (ready ? "live --" : "live -- (no services)")
+            + (p.mirror ? ` · ${mirrorReadout(p, null, now).text}` : "");
           cbfLive.className = "sb-cbf-live sb-muted";
           cbfLive.title = ready
             ? `No value yet: nothing on ${cfg.statusTopic} and ${commanderService("get_parameters")} has not answered. Click ↻ to retry.`
@@ -2445,10 +2564,16 @@ function activate(extensionContext) {
           if (st.draftTouched && !editing && cbfInput.value !== st.draft) cbfInput.value = st.draft;
         }
 
-        // Activity note, off the slider row.
+        // Activity note, off the slider row. A mirrored gain whose two copies
+        // disagree is the one thing worth displacing the CBF activity for:
+        // the lower value silently wins on the sticks.
+        const mismatch = p.mirror && live ? mirrorReadout(p, live.v, now) : null;
         if (s?.emergency) {
           cbfNote.textContent = "CBF EMERGENCY push-apart engaged — drones inside each other's safety spheres";
           cbfNote.className = "sb-cbf-note sb-bad";
+        } else if (mismatch && mismatch.cls === "sb-warn") {
+          cbfNote.textContent = mismatch.detail;
+          cbfNote.className = "sb-cbf-note sb-warn";
         } else if (s?.active?.length) {
           cbfNote.textContent = `CBF correcting ${s.active.join(", ")}`;
           cbfNote.className = "sb-cbf-note sb-warn";
@@ -2459,6 +2584,33 @@ function activate(extensionContext) {
           cbfNote.textContent = "";
           cbfNote.className = "sb-cbf-note";
         }
+      }
+
+      // Fixed vocabulary for the mirrored copy of a gain: "pad <value> <mark>".
+      // ✓ equal to the commander's value, ✗ (amber) different — the smaller
+      // one wins on the sticks, so press Apply to set both — and "--" when
+      // the mirror node has not answered (teleop not running is normal).
+      function mirrorReadout(p, liveV, now) {
+        const st = cbfState[p.id];
+        const ns = cfg[p.mirror.nsCfg];
+        const name = `${ns} ${p.mirror.param}`;
+        if (!st.mirror) {
+          return { text: `${p.mirror.label} --`, cls: "sb-muted",
+            detail: st.mirrorErr ? `${name}: ${st.mirrorErr}` : `${name} not read yet (↻)` };
+        }
+        const v = st.mirror.v;
+        if (liveV == null) {
+          return { text: `${p.mirror.label} ${v.toFixed(2)}`, cls: "sb-muted",
+            detail: `${name} = ${v.toFixed(2)} (commander value unknown)` };
+        }
+        if (Math.abs(v - liveV) < 1e-6) {
+          return { text: `${p.mirror.label} ${v.toFixed(2)} ✓`, cls: "sb-ok",
+            detail: `${name} = ${v.toFixed(2)} matches ${p.param}` };
+        }
+        const asked = st.requested && now - st.requested.t < 10;
+        return { text: `${p.mirror.label} ${v.toFixed(2)} ✗`, cls: "sb-warn",
+          detail: `${name} = ${v.toFixed(2)} but the commander's ${p.param} = ${liveV.toFixed(2)}` +
+            ` — the lower one wins on the sticks; ${asked ? "waiting for safe_teleop to follow" : "press Apply to set both"}` };
       }
 
       function renderAgentTable(now) {
@@ -3033,6 +3185,7 @@ function activate(extensionContext) {
         "cruiseSpeedMps", "landSpeedMps", "reservePct", "rtbNominalPct",
         "rtbGatedPct", "dropTargetPct", "pingTargetMs", "vpnPingTargetMs",
         "mocapAgeTargetMs", "mocapTimeoutS", "cbfAlphaMax", "cbfRadiusMax", "cbfSpeedMax",
+        "teleopSpeedMax", "goalAccelMax", "goalSettleMax",
       ]);
       const ROSTER_KEYS = new Set([
         "drones", "modes", "stateTopicTemplate", "lanTopicTemplate",
@@ -3088,7 +3241,12 @@ function activate(extensionContext) {
                   help: "Auto hides any section whose topics are not being published" },
                 commanderNs: { label: "Commander namespace", input: "string", value: cfg.commanderNs,
                   help: "std_srvs/Trigger lifecycle services and the get/set_parameters services " +
-                        "(CBF alpha, safety radius, max speed) live under this namespace" },
+                        "(CBF alpha, safety radius, max speed; teleop max speed; goal accel, settle) " +
+                        "live under this namespace" },
+                teleopNs: { label: "Teleop node namespace", input: "string", value: cfg.teleopNs,
+                  help: "safe_teleop's get/set_parameters live here. Its max_speed_mps (full right " +
+                        "stick) is set together with the commander's teleop_max_speed_mps so the two " +
+                        "never differ; the readout shows both." },
                 statusTopic: { label: "Commander status topic", input: "string", value: cfg.statusTopic,
                   help: "std_msgs/String JSON from swarm_commander (status_topic parameter): mission " +
                         "state, last command outcome, live CBF gains, per-drone state and position" },
@@ -3098,6 +3256,12 @@ function activate(extensionContext) {
                   help: "Upper end of the CBF safety radius slider; the number box accepts any positive value" },
                 cbfSpeedMax: { label: "CBF max-speed slider max (m/s)", input: "number", value: cfg.cbfSpeedMax, step: 0.5,
                   help: "Upper end of the CBF max speed slider; the number box accepts any positive value" },
+                teleopSpeedMax: { label: "Teleop max-speed slider max (m/s)", input: "number", value: cfg.teleopSpeedMax, step: 0.5,
+                  help: "Upper end of the teleop max speed slider; the number box accepts any positive value" },
+                goalAccelMax: { label: "Goal accel slider max (m/s²)", input: "number", value: cfg.goalAccelMax, step: 1,
+                  help: "Upper end of the goal acceleration slider; the number box accepts any positive value" },
+                goalSettleMax: { label: "Goal settle slider max (s)", input: "number", value: cfg.goalSettleMax, step: 0.5,
+                  help: "Upper end of the goal settle-time slider; the number box accepts any value >= 0" },
                 formationTopic: { label: "Formation topic", input: "string", value: cfg.formationTopic },
                 formationProfiles: { label: "Formation profiles", input: "string", value: cfg.formationProfiles,
                   help: "Comma-separated profile names filling the formation dropdown (pick one, Send) — " +

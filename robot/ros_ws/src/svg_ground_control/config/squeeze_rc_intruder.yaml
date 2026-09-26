@@ -230,5 +230,5 @@ safe_teleop:
     # Set this to "xbox_usb" if you swap in a real Xbox pad. Check an unknown
     # pad with `ros2 run svg_ground_control joy_map` before flying it.
     teleop_controller: "dragonrise_usb"
-    max_speed_mps: 3.0        # full right stick (= teleop_max_speed_mps above)
+    max_speed_mps: 3.0        # full right stick (= teleop_max_speed_mps above; kept equal at runtime)
     max_climb_speed_mps: 0.5  # full left stick (vertical). Position hold is the commander's.

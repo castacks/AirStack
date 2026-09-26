@@ -374,13 +374,21 @@ The node's own defaults are conservative. `svg_teleop.sh` passes
 `max_speed_mps:=2.0` for the sim experiments (with matching 2.0
 `teleop_max_speed_mps` / `cbf_max_speed_mps` in the sim configs — the
 commander clamps to the smallest of the three, so all must agree). The real
-mode stays at `teleop_real.yaml`'s slower caps.
+mode stays at `teleop_real.yaml`'s slower caps. At runtime `max_speed_mps`
+and the commander's `teleop_max_speed_mps` are kept equal automatically
+(`sync_max_speed`): the pad follows the commander's status snapshot, a
+`ros2 param set /safe_teleop max_speed_mps 3.0` is pushed to the commander,
+and the basestation panel's **Teleop vmax** row sets both at once. Only
+`cbf_max_speed_mps` is still a separate cap.
 
 | param | default | meaning |
 |-------|---------|---------|
 | `drone` | `drone_1` | which drone this instance drives |
 | `teleop_controller` | `xbox_usb` | input device; supplies the defaults for the axis / sign / button rows below |
-| `max_speed_mps` | `1.0` | horizontal speed at full right stick |
+| `max_speed_mps` | `1.0` | horizontal speed at full right stick. Live (`ros2 param set`), and kept equal to the commander's `teleop_max_speed_mps` in both directions |
+| `sync_max_speed` | `true` | keep `max_speed_mps` = commander `teleop_max_speed_mps` (follow its snapshot on `commander_status_topic`, push local sets to `commander_ns`) |
+| `commander_status_topic` | `/svg/commander_status` | the commander's `status_topic` |
+| `commander_ns` | `/swarm_commander` | where the commander's `set_parameters` lives |
 | `max_climb_speed_mps` | `0.8` | vertical speed at full left stick |
 | `deadzone` | `0.15` | stick slop ignored around center, rescaled so full deflection still reaches 1.0 |
 | `joy_timeout_s` | `0.5` | zero the command if `/joy` goes quiet |

@@ -128,8 +128,15 @@ velocity, no altitude hold) remains as an ad-hoc utility.
   values are rejected. The speed and tracking gains (`scenario_speed_mps`,
   `teleop_max_speed_mps`, `goal_accel_mps2`, `goal_settle_s`, `goal_lead_m`,
   `goal_velocity_only_settle_s`, `teleop_kp`, `teleop_lead_m`, `hover_kp`,
-  `hold_lead_m`, `takeoff_speed_mps`) are live too. Everything else is read
-  once at startup; a `ros2 param set` on it is refused with a reason.
+  `hold_lead_m`, `takeoff_speed_mps`) are live too, and the snapshot's
+  `tuning` block reports `teleop_max_speed_mps`, `goal_accel_mps2`,
+  `goal_settle_s` and `scenario_speed_mps` so the panel's gain dropdown can
+  edit the first three next to the CBF gains. `teleop_max_speed_mps` and
+  `safe_teleop`'s `max_speed_mps` are one number kept equal at runtime:
+  the pad follows the commander's snapshot, a `ros2 param set
+  /safe_teleop max_speed_mps` is pushed to the commander, and the panel's
+  Teleop vmax row sets both. Everything else is read once at startup; a
+  `ros2 param set` on it is refused with a reason.
 
 Full how-to for all of the above: **[experiment.md](experiment.md)**.
 

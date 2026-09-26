@@ -18,6 +18,7 @@
   <depend>nav_msgs</depend>
   <depend>std_msgs</depend>
   <depend>std_srvs</depend>
+  <depend>rcl_interfaces</depend>
   <depend>visualization_msgs</depend>
   <depend>airstack_msgs</depend>
   <depend>px4_msgs</depend>

@@ -68,8 +68,12 @@ let saved = null;
 let subscribed = [];
 let onRender = null;
 let settingsNodes = null;
-// The commander's runtime CBF parameters, as get/set_parameters see them.
-const params = { cbf_alpha: 2.5, cbf_safety_radius_m: 0.55, cbf_max_speed_mps: 1.2 };
+// The commander's runtime parameters, as get/set_parameters see them.
+const params = { cbf_alpha: 2.5, cbf_safety_radius_m: 0.55, cbf_max_speed_mps: 1.2,
+  teleop_max_speed_mps: 2.0, goal_accel_mps2: 3.0, goal_settle_s: 0.3 };
+// safe_teleop's parameters — max_speed_mps must always equal the commander's
+// teleop_max_speed_mps, so the panel sets both.
+const padParams = { max_speed_mps: 2.0 };
 const published = [];
 const missionState = { active: false, seq: 0, last: null };
 
@@ -96,16 +100,17 @@ const panelContext = {
       missionState.last = { seq: missionState.seq, name: "hold", success: true, message: "holding: drone_1", stamp: 1.7e9 + 9 };
       return { success: true, message: "holding: drone_1" };
     }
+    const store = service.startsWith("/safe_teleop/") ? padParams : params;
     if (service.endsWith("/get_parameters")) {
-      return { values: req.names.map((n) => (n in params ? { type: 3, double_value: params[n] } : { type: 0 })) };
+      return { values: req.names.map((n) => (n in store ? { type: 3, double_value: store[n] } : { type: 0 })) };
     }
     if (service.endsWith("/set_parameters")) {
       const { name, value } = req.parameters[0];
       const v = value.double_value;
-      if (!(name in params)) return { results: [{ successful: false, reason: `unknown parameter ${name}` }] };
-      if (!(v > 0)) return { results: [{ successful: false, reason: `${name} must be > 0` }] };
+      if (!(name in store)) return { results: [{ successful: false, reason: `unknown parameter ${name}` }] };
+      if (name === "goal_settle_s" ? !(v >= 0) : !(v > 0)) return { results: [{ successful: false, reason: `${name} must be > 0` }] };
       if (name === "cbf_max_speed_mps" && v > 5) return { results: [{ successful: false, reason: "too fast for indoors" }] };
-      params[name] = v;
+      store[name] = v;
       return { results: [{ successful: true, reason: "" }] };
     }
     throw new Error("unknown service " + service);
@@ -128,6 +133,8 @@ function statusMsg(overrides = {}) {
     fence_enabled: true, fence_breached: false,
     cbf: { alpha: params.cbf_alpha, safety_radius_m: params.cbf_safety_radius_m, max_speed_mps: params.cbf_max_speed_mps,
       external_velocity_gain: 1.0, active: ["drone_2"], emergency: false },
+    tuning: { teleop_max_speed_mps: params.teleop_max_speed_mps, goal_accel_mps2: params.goal_accel_mps2,
+      goal_settle_s: params.goal_settle_s, scenario_speed_mps: 1.2 },
     command_seq: missionState.seq, last_command: missionState.last,
     drones: [
       { name: "drone_1", role: "auto", mode: "sim", commanded: true, cbf_exempt: false, state: "ACTIVE",
@@ -169,6 +176,10 @@ const text = () => root.textContent;
   assert(subscribed.includes("/drone_1/fmu/velocity_command"), "subscribes to real velocity commands");
   assert(settingsNodes.swarm.fields.statusTopic && settingsNodes.swarm.fields.cbfAlphaMax, "settings editor exposes statusTopic + cbfAlphaMax");
   assert(settingsNodes.swarm.fields.cbfRadiusMax && settingsNodes.swarm.fields.cbfSpeedMax, "settings editor exposes the radius + max-speed slider maxima");
+  assert(settingsNodes.swarm.fields.teleopSpeedMax && settingsNodes.swarm.fields.goalAccelMax
+    && settingsNodes.swarm.fields.goalSettleMax, "settings editor exposes the teleop / goal slider maxima");
+  assert(settingsNodes.swarm.fields.teleopNs && settingsNodes.swarm.fields.teleopNs.value === "/safe_teleop",
+    "settings editor exposes the safe_teleop namespace");
 
   // Before any data.
   render();
@@ -223,6 +234,9 @@ const text = () => root.textContent;
   // One slider row; the dropdown picks the gain.
   const cbfSel = findAll(root, (n) => n.tagName === "select" && n.children.some((o) => o.value === "radius"))[0];
   assert(cbfSel, "CBF gain dropdown lists alpha / radius / speed");
+  for (const id of ["teleop", "accel", "settle"]) {
+    assert(cbfSel.children.some((o) => o.value === id), `gain dropdown lists ${id}`);
+  }
   assert(findAll(root, (n) => n.tagName === "button" && n.textContent.trim() === "Apply").length === 1, "a single Apply button for the CBF row");
   const pickCbf = (id) => { cbfSel.value = id; cbfSel.fire("change"); render(); };
   pickCbf("radius");
@@ -297,6 +311,64 @@ const text = () => root.textContent;
   assert(text().includes("live 1.20 m/s ✗"), "rejected set marks the readout with ✗ but keeps the live value");
   assert(text().includes("REJECTED") && text().includes("too fast for indoors"), "rejection reason shown in the status line");
   assert(params.cbf_max_speed_mps === 1.2, "rejected value not applied");
+
+  // Teleop max speed: one Apply sets the commander AND safe_teleop.
+  pickCbf("teleop");
+  const teleopBox = numBox("teleop");
+  assert(teleopBox && teleopBox.value === "2.00", "teleop cap draft seeded from the snapshot's tuning block");
+  assert(text().includes("live 2.00 m/s"), "teleop cap live readout carries its unit");
+  assert(text().includes("pad 2.00 ✓"), "safe_teleop's max_speed_mps read back and ticked as equal");
+  teleopBox.value = "3"; teleopBox.fire("input");
+  findButton(root, "Apply").click();
+  await new Promise((r) => setTimeout(r, 20));
+  const teleopCalls = calls.filter((c) => c.service.endsWith("/set_parameters")).slice(-2);
+  assert(teleopCalls[0].service === "/swarm_commander/set_parameters"
+    && teleopCalls[0].req.parameters[0].name === "teleop_max_speed_mps"
+    && teleopCalls[0].req.parameters[0].value.double_value === 3, "teleop Apply sets the commander's teleop_max_speed_mps first");
+  assert(teleopCalls[1].service === "/safe_teleop/set_parameters"
+    && teleopCalls[1].req.parameters[0].name === "max_speed_mps"
+    && teleopCalls[1].req.parameters[0].value.double_value === 3, "then safe_teleop's max_speed_mps with the same number");
+  assert(params.teleop_max_speed_mps === 3 && padParams.max_speed_mps === 3, "both nodes now hold 3.0");
+  t += 0.3; feedStatus();
+  render();
+  assert(text().includes("live 3.00 m/s ✓") && text().includes("pad 3.00 ✓"), "both copies confirmed at 3.00");
+  // Someone changes the pad behind the panel's back: the readout flags it.
+  padParams.max_speed_mps = 1.0;
+  findButton(root, "↻").click();
+  await new Promise((r) => setTimeout(r, 20));
+  t += 11; feedStatus();      // past the 10 s "asked" window
+  render();
+  assert(text().includes("pad 1.00 ✗"), "a pad value that differs from the commander's is crossed");
+  assert(text().includes("lower one wins on the sticks"), "the mismatch note says why it matters");
+  padParams.max_speed_mps = 3.0;
+  findButton(root, "↻").click();
+  await new Promise((r) => setTimeout(r, 20));
+  render();
+  assert(text().includes("pad 3.00 ✓"), "back in agreement after a refresh");
+  // A rejection by the commander never touches the pad.
+  teleopBox.value = "-2"; teleopBox.fire("input");
+  findButton(root, "Apply").click();
+  await new Promise((r) => setTimeout(r, 20));
+  assert(padParams.max_speed_mps === 3 && params.teleop_max_speed_mps === 3, "client-side rejection leaves both untouched");
+
+  // Goal accel / settle live in the snapshot's tuning block; settle may be 0.
+  pickCbf("accel");
+  assert(numBox("accel") && numBox("accel").value === "3.00" && text().includes("live 3.00 m/s²"), "goal accel seeded and shown with its unit");
+  numBox("accel").value = "6"; numBox("accel").fire("input");
+  findButton(root, "Apply").click();
+  await new Promise((r) => setTimeout(r, 20));
+  assert(params.goal_accel_mps2 === 6, "goal accel Apply sets goal_accel_mps2");
+  pickCbf("settle");
+  assert(numBox("settle") && numBox("settle").value === "0.30" && text().includes("live 0.30 s"), "goal settle seeded and shown with its unit");
+  numBox("settle").value = "0"; numBox("settle").fire("input");
+  findButton(root, "Apply").click();
+  await new Promise((r) => setTimeout(r, 20));
+  assert(params.goal_settle_s === 0, "a zero settle time is allowed and applied");
+  t += 0.3; feedStatus();
+  render();
+  assert(text().includes("live 0.00 s ✓"), "zero settle confirmed by the snapshot");
+  assert(!calls.some((c) => c.service === "/safe_teleop/set_parameters" && c.req.parameters[0].name !== "max_speed_mps"),
+    "only the teleop cap is mirrored to safe_teleop");
   pickCbf("alpha");
 
   // Formation: dropdown + Send only — no free-text box, no Next.

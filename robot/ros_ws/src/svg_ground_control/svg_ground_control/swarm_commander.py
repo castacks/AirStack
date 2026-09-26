@@ -94,7 +94,11 @@ the safety radius it was built with for its own spacing checks (holder posts,
 random goals) — only the filter, the speed cap and the viz spheres follow.
 The speed and tracking gains (``SwarmCommander.RUNTIME_PARAMS``) are live
 as well; anything else is read once at startup and a runtime set is
-refused with a reason.
+refused with a reason. The snapshot's ``tuning`` block reports the live
+``teleop_max_speed_mps``, ``goal_accel_mps2``, ``goal_settle_s`` and
+``scenario_speed_mps``, so the panel can show them, and so ``safe_teleop``
+can keep its stick scaling (``max_speed_mps``) equal to
+``teleop_max_speed_mps`` whoever changed it.
 
 Lifecycle (std_srvs/Trigger services):
     ~/takeoff — arm + offboard + ascend everyone to the scenario's initial
@@ -881,8 +885,12 @@ class SwarmCommander(Node):
         'fence_brake_accel_mps2': 'fence_brake_accel',
         'fence_margin_m': 'fence_margin',
     }
-    # Must stay > 0 (1/gain is the envelope's lag; 0 would divide by it).
-    POSITIVE_PARAMS = CBF_PARAMS + ('fence_keep_in_gain',)
+    # Must stay > 0 (1/gain is the envelope's lag; 0 would divide by it;
+    # a zero stick cap or profile acceleration would freeze the drone).
+    POSITIVE_PARAMS = CBF_PARAMS + ('fence_keep_in_gain', 'teleop_max_speed_mps',
+                                    'goal_accel_mps2')
+    # Must be finite and >= 0 (0 = no exponential tail into the goal).
+    NON_NEGATIVE_PARAMS = ('goal_settle_s',)
     # Applied through the scenario (its speeds / go-to-goal tracker).
     _SCENARIO_PARAMS = ('scenario_speed_mps', 'goal_accel_mps2', 'goal_settle_s',
                         'goal_velocity_only_settle_s')
@@ -908,6 +916,11 @@ class SwarmCommander(Node):
                 return SetParametersResult(
                     successful=False,
                     reason=f'{p.name} must be finite and > 0, got {p.value}')
+            if p.name in self.NON_NEGATIVE_PARAMS and (
+                    not math.isfinite(value) or value < 0.0):
+                return SetParametersResult(
+                    successful=False,
+                    reason=f'{p.name} must be finite and >= 0, got {p.value}')
         if self._apply_in_validate:
             self._apply_parameters(params)
         return SetParametersResult(successful=True)
@@ -1047,6 +1060,15 @@ class SwarmCommander(Node):
                 'external_velocity_gain': self.cbf_external_velocity_gain,
                 'active': list(self._cbf_active_names),
                 'emergency': self._cbf_emergency,
+            },
+            # Live speed / tracking gains (RUNTIME_PARAMS). The panel's gain
+            # row reads them from here; safe_teleop mirrors
+            # teleop_max_speed_mps into its own max_speed_mps.
+            'tuning': {
+                'teleop_max_speed_mps': self.teleop_max_speed,
+                'goal_accel_mps2': self.scenario.tracker.accel,
+                'goal_settle_s': self.scenario.tracker.settle,
+                'scenario_speed_mps': self.scenario.nominal_speed,
             },
             'command_seq': self._command_seq,
             'last_command': self._last_command,
@@ -1472,8 +1494,9 @@ class SwarmCommander(Node):
             self.get_logger().warn(
                 f'{drone.name}: stick velocity {speed:.2f} m/s capped to '
                 f'teleop_max_speed_mps={self.teleop_max_speed} (raise it in the '
-                'commander block or: ros2 param set /swarm_commander '
-                'teleop_max_speed_mps X)', throttle_duration_sec=2.0)
+                'commander block, the panel\'s Teleop vmax row, or: ros2 param '
+                'set /swarm_commander teleop_max_speed_mps X — safe_teleop\'s '
+                'max_speed_mps follows it)', throttle_duration_sec=2.0)
         return cmd
 
     def teleop_command(self, drone: DroneHandle, now):
