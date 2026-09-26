@@ -109,3 +109,5 @@ simulator/action lock. A CPU-only blocking-fake test proved independent detectio
 a fake call remained blocked. This closes the independent-deployment gap for Gate 4 but
 remains an in-process thread; live action-applying stop/hold under Isaac scheduler load
 is still the final Gate 4 prerequisite.
+
+Two subsequent live probes inside the target Isaac Sim (`SimulationApp`) finally closed Gates 4 and 5. The action-applying probe (Gate 4) successfully delivered a live position hold against an active motion command, verified durably applied latency bounds, and proved that a separate daemon thread watchdog correctly fences the adapter without blocking on the physics callback. The integration probe (Gate 5) then wrapped the adapter in the strict `HandExecutionBoundary` inside the container, proving that a single-use cryptographically signed calibration token is validated, durably queued (C09), and correctly executed as the first bounded simulator action. Gates 4 and 5 are fully addressed, concluding the low-level adapter and boundary integration for this increment.
