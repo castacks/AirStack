@@ -10,8 +10,8 @@ on:
       marks:
         description: "pytest marks expression (e.g. 'build_docker', 'liveliness', 'takeoff_hover_land'). \
           Use 'or' to combine marks: 'liveliness or takeoff_hover_land'. Leave blank to run all marks. \
-          Note: 'build_packages' is automatically prepended whenever any marks are specified, \
-          to ensure code is built before launch tests run."
+          Note: 'build_packages' is automatically prepended for launch tests. \
+          The self-contained 'ws2_smoke' mark is the exception."
         default: "liveliness or takeoff_hover_land"
         required: false
       sim:
@@ -34,31 +34,8 @@ on:
         description: "Run ID to use as baseline for metric comparison (blank = latest successful run on main)"
         default: ""
         required: false
-      ws2_smoke:
-        description: "Run only the pinned WS2 Office/Kim smoke workflow"
-        type: boolean
-        default: false
-        required: false
-      ws2_office_usd:
-        description: "Container-visible Office 4.5 USD path or Nucleus URL"
-        default: "omniverse://airlab-nucleus.andrew.cmu.edu/NVIDIA/Assets/Isaac/4.5/Isaac/Environments/Office/office.usd"
-        required: false
-      ws2_rebuild_airstack_images:
-        description: "Build AirStack images when registry pulls are incomplete"
-        type: boolean
-        default: false
-        required: false
 
 jobs:
-  ws2-smoke:
-    name: WS2 Office smoke
-    if: github.event_name == 'workflow_dispatch' && inputs.ws2_smoke == true
-    uses: ./.github/workflows/ws2-smoke.yml
-    with:
-      office_usd: ${{ inputs.ws2_office_usd }}
-      rebuild_airstack_images: ${{ inputs.ws2_rebuild_airstack_images }}
-    secrets: inherit
-
   run-tests:
     name: Run Tests
     runs-on: [self-hosted, airstack-ephemeral]
@@ -73,7 +50,7 @@ jobs:
     #     gate is what keeps random commenters from running code on the
     #     self-hosted runner.
     if: |
-      (github.event_name == 'workflow_dispatch' && inputs.ws2_smoke != true) ||
+      github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' &&
        github.event.pull_request.head.repo.full_name == github.repository) ||
       (github.event_name == 'issue_comment' &&
@@ -189,11 +166,17 @@ jobs:
                   marks = args[i + 1]
                   marks_idx = i + 1
 
+          # WS2 owns its Isaac launch and is not parametrized over simulators.
+          if 'ws2_smoke' in marks:
+              sim = 'isaacsim'
+
           # When the user specified any marks, prepend build_packages so code
           # is built before launch tests try to use it. Skipped when no marks
           # are given (pytest runs everything including build_packages) and
-          # when build_packages is already in the expression.
-          if marks and 'build_packages' not in marks:
+          # when build_packages is already in the expression. WS2 prepares the
+          # one package it needs below and must leave its stopped containers in
+          # place for episode.py.
+          if marks and 'build_packages' not in marks and 'ws2_smoke' not in marks:
               marks = f'build_packages or {marks}'
               args[marks_idx] = marks
 
@@ -202,6 +185,7 @@ jobs:
 
           with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
               f.write(f'pytest_args={quoted}\n')
+              f.write(f'marks={marks}\n')
               f.write(f'sim={sim}\n')
               f.write(f'skip_image_prep={"true" if skip_prep else "false"}\n')
 
@@ -223,7 +207,7 @@ jobs:
             const args = ${{ toJSON(steps.parse.outputs.pytest_args) }};
             const cmd = `pytest tests/ ${args}`.trim();
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const note = `Note: \`build_packages\` is automatically prepended whenever any marks are specified, to ensure code is built before launch tests run.`;
+            const note = `Note: \`build_packages\` is automatically prepended for launch tests; the self-contained \`ws2_smoke\` mark is the exception.`;
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -350,10 +334,34 @@ jobs:
             echo "All required images present after pull — skipping build."
           fi
 
+      - name: Prepare WS2 Kim smoke
+        if: contains(steps.parse.outputs.marks, 'ws2_smoke')
+        env:
+          AIRSTACK_ROOT: ${{ github.workspace }}
+          AUTOLAUNCH: "false"
+          COMPOSE_PROFILES: desktop,isaac-sim
+          DISPLAY: ""
+        run: |
+          workspace_root="$(dirname "$GITHUB_WORKSPACE")"
+          git clone --recursive https://github.com/engcang/Collision-avoidance.git "$workspace_root/Collision-avoidance"
+          git -C "$workspace_root/Collision-avoidance" checkout 395485b
+          git -C "$workspace_root/Collision-avoidance" submodule update --init --recursive
+          (
+            cd "$workspace_root/Collision-avoidance"
+            bash docker/build_image.sh
+            bash docker/download_models.sh
+          )
+          ./airstack.sh up isaac-sim robot-desktop
+          docker exec airstack-robot-desktop-1 bash -ic 'bws --packages-select mononav_bridge'
+          docker stop --timeout 3 isaac-sim airstack-robot-desktop-1
+          echo "WS2_SMOKE_READY=1" >> "$GITHUB_ENV"
+
       - name: Run tests
         env:
           AIRSTACK_ROOT: ${{ github.workspace }}
           DISPLAY: ""
+          WS2_HEADLESS: "1"
+          WS2_OFFICE_USD: ${{ vars.WS2_OFFICE_USD || 'omniverse://airlab-nucleus.andrew.cmu.edu/NVIDIA/Assets/Isaac/4.5/Isaac/Environments/Office/office.usd' }}
           PYTEST_ARGS: ${{ steps.parse.outputs.pytest_args }}
         run: |
           # Re-split the shell-quoted args from the parse step so we forward
