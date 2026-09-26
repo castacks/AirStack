@@ -11,7 +11,7 @@
 
     # graph / expansion (see gl_interface.cpp)
     graph_nodes: 10
-    expansion_radius: 2.0
+    expansion_radius: 0.3
     seen_radius: 1.0
     dt: 0.2
     ht: 7.0

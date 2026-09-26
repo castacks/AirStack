@@ -55,6 +55,37 @@ def state(*, airborne: bool, armed: bool, position=None) -> dict:
 
 
 class CommandMissionRecoveryTests(unittest.TestCase):
+    def test_exploration_without_progress_lands_from_fresh_airborne_state(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan_path = root / "plan.json"
+            evidence = root / "evidence"
+            write_plan(plan_path)
+            calls = []
+
+            def execute(item, _timeout, **kwargs):
+                calls.append(item.kind)
+                mismatch = item.kind is DroneTaskKind.EXPLORE
+                kwargs["outcome_json"].write_text(json.dumps({
+                    "action_success": True,
+                    "verdict": "MISMATCH" if mismatch else "VERIFIED",
+                    "reasons": ["exploration_progress_mismatch"] if mismatch else [],
+                }), encoding="utf-8")
+                return 4 if mismatch else 0
+
+            argv = ["airstack_command_mission.py", "--plan-json", str(plan_path),
+                    "--evidence-dir", str(evidence), "--execute"]
+            with patch.object(sys, "argv", argv), patch.object(
+                    mission.dispatcher, "_execute", side_effect=execute), patch.object(
+                    mission, "_observe_state", return_value=state(airborne=True, armed=True)):
+                self.assertEqual(mission.main(), 4)
+
+            self.assertEqual(calls, [DroneTaskKind.TAKEOFF, DroneTaskKind.EXPLORE,
+                                     DroneTaskKind.LAND])
+            outcome = json.loads((evidence / "mission-outcome.json").read_text())
+            self.assertEqual(outcome["status"], "RECOVERED_HALT")
+            self.assertEqual(outcome["replans"][-1]["reason"], "action_effect_not_verified")
+
     def test_delayed_airborne_evidence_after_failed_takeoff_triggers_recovery_land(self):
         """Regression: low terminal Z can precede delayed uncontrolled ascent."""
         with tempfile.TemporaryDirectory() as directory:

@@ -379,6 +379,34 @@ def main() -> int:
                         },
                         "execution_dispatch": False,
                     }
+            elif (recovery_action is not None and code == 4
+                  and proposal.kind in {DroneTaskKind.NAVIGATE, DroneTaskKind.EXPLORE}
+                  and isinstance(record.get("action_success"), bool)):
+                # The action has ended, but independent motion verification failed.
+                # Use a fresh flight-state observation before the predeclared land;
+                # never let an exploration mismatch skip the landing action blindly.
+                try:
+                    observation = _observe_state(proposal.robot_name)
+                    decision = {"schema_version": "rrm-command-replan/v1",
+                                "action_id": proposal.action_id, "kind": proposal.kind.value,
+                                "decision": "HALT", "reason": "action_effect_not_verified",
+                                "observation": observation, "execution_dispatch": False}
+                except Exception as error:
+                    decision = {"schema_version": "rrm-command-replan/v1",
+                                "action_id": proposal.action_id, "kind": proposal.kind.value,
+                                "decision": "HALT", "reason": "post_failure_observation_failed",
+                                "error_type": type(error).__name__,
+                                "execution_dispatch": False}
+                decision["observed_at"] = datetime.now(timezone.utc).isoformat()
+                replans.append(decision)
+                (args.evidence_dir / f"replan-failed-{index:04d}-{proposal.action_id}.json").write_text(
+                    json.dumps(decision, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+                print(json.dumps({"event": "replan_decision", **decision}, sort_keys=True),
+                      flush=True)
+                if _needs_replan_recovery(decision):
+                    recovery_result = _run_recovery(
+                        recovery_action, args.evidence_dir, proposal.action_id
+                    )
             break
     complete = len(results) == len(proposals) and all(item["return_code"] == 0 for item in results)
     recovered = bool(

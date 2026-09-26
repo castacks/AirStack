@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import shutil
 import secrets
+import subprocess
 import sys
 import threading
 import tempfile
@@ -273,6 +274,39 @@ class IsaacSceneSwitchTests(unittest.TestCase):
             self.assertEqual(json.loads((output / "active_isaac_scene.json").read_text())["scene"], "custom")
             with self.assertRaisesRegex(RuntimeError, "matching RRM manifest"):
                 app._require_scene_context()
+
+    def test_switch_repairs_only_the_isaac_robot_clock_startup_race(self):
+        with tempfile.TemporaryDirectory() as directory:
+            app = object.__new__(Console)
+            app.output = Path(directory)
+            app.isaac_scenes = {"warehouse-shelves": {"ref": "Warehouse with Shelves",
+                                                     "stage_scale": "1.0"}}
+            app.manifest_scene_shortname = "office"
+            app.scene_switch_lock = threading.Lock()
+            app.mission_lock = threading.Lock()
+            app.mission_runtime = None
+            app.latest_camera = object()
+            app.latest_camera_metadata = object()
+            responses = [
+                subprocess.CompletedProcess([], 0),
+                subprocess.CalledProcessError(1, ["./airstack.sh", "up"]),
+                subprocess.CompletedProcess([], 1, stdout='{"ready": false, "gates": '
+                    '{"clock_epoch": "failed", "containers": "ok", "sim_clock": "ok"}}\n'),
+                subprocess.CompletedProcess([], 0),
+                subprocess.CompletedProcess([], 0),
+            ]
+            with patch("rrm_command_console.subprocess.run", side_effect=responses) as run:
+                result = app.switch_scene("warehouse-shelves")
+
+            self.assertEqual(run.call_count, 5)
+            self.assertEqual(run.call_args_list[2].args[0],
+                             ["./airstack.sh", "ready", "--json"])
+            self.assertEqual(run.call_args_list[3].args[0],
+                             ["docker", "restart", "airstack-robot-desktop-1"])
+            self.assertEqual(run.call_args_list[4].args[0], ["./airstack.sh", "ready"])
+            self.assertEqual(result["scene"], "warehouse-shelves")
+            self.assertEqual(json.loads((app.output / "active_isaac_scene.json").read_text()),
+                             {"scene": "warehouse-shelves"})
 
 
 class FakeProcess:

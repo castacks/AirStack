@@ -1095,36 +1095,39 @@ airstack_msgs::msg::TrajectoryXYZVYaw TakeoffTrajectory::get_trajectory(
     traj.header.frame_id = odom.header.frame_id;
     traj.header.stamp = odom.header.stamp;
 
-    airstack_msgs::msg::WaypointXYZVYaw wp1, wp2, wp3;
-
-    wp1.position.x = odom.pose.position.x;
-    wp1.position.y = odom.pose.position.y;
-    wp1.position.z = odom.pose.position.z;
-
     tf2::Quaternion q(odom.pose.orientation.x, odom.pose.orientation.y, odom.pose.orientation.z,
                       odom.pose.orientation.w);
     double roll, pitch, yaw;
     tf2::Matrix3x3(q).getRPY(roll, pitch, yaw);
-    wp1.yaw = yaw;  // tf2::getYaw(q);
-    wp1.velocity = velocity;
 
-    wp2.position.x =
-        odom.pose.position.x + height * sin(path_pitch + (relative_to_orientation ? pitch : 0));
-    wp2.position.y =
-        odom.pose.position.y + height * sin(path_roll - (relative_to_orientation ? roll : 0));
-    wp2.position.z = odom.pose.position.z + height - 0.01;
-    wp2.yaw = wp1.yaw;
-    wp2.velocity = velocity;
+    // Compute the horizontal offset per unit height from path_roll/path_pitch.
+    double dx_per_h = sin(path_pitch + (relative_to_orientation ? pitch : 0));
+    double dy_per_h = sin(path_roll - (relative_to_orientation ? roll : 0));
 
-    wp3.position.x = wp2.position.x;
-    wp3.position.y = wp2.position.y;
-    wp3.position.z = wp2.position.z + 0.01;
-    wp3.yaw = wp2.yaw;
-    wp3.velocity = 0.01;
+    // Discretize the ascent into waypoints at most 0.1 m apart, with a minimum
+    // of 10 waypoints.  The old 3-waypoint trajectory triggered a bug in
+    // trajectory_controller where trajectories with <= 3 waypoints have their
+    // velocity zeroed, completely disabling sphere-intersection tracking.  With
+    // enough waypoints the controller properly paces the tracking point to the
+    // drone's actual climb rate.
+    double abs_height = std::abs(height);
+    int num_segments = std::max(10, static_cast<int>(std::ceil(abs_height / 0.1)));
 
-    traj.waypoints.push_back(wp1);
-    traj.waypoints.push_back(wp2);
-    traj.waypoints.push_back(wp3);
+    for (int i = 0; i <= num_segments; ++i) {
+        double frac = static_cast<double>(i) / num_segments;
+        double h = height * frac;  // signed height along the path
+
+        airstack_msgs::msg::WaypointXYZVYaw wp;
+        wp.position.x = odom.pose.position.x + h * dx_per_h;
+        wp.position.y = odom.pose.position.y + h * dy_per_h;
+        wp.position.z = odom.pose.position.z + h;
+        wp.yaw = yaw;
+        // Ramp velocity to near-zero at the final waypoint so the drone
+        // decelerates smoothly instead of overshooting.
+        wp.velocity = (i < num_segments) ? velocity : 0.01;
+
+        traj.waypoints.push_back(wp);
+    }
 
     return traj;
 }

@@ -32,7 +32,7 @@ reasoning, adaptation, control and hardware execution.
 
 ## Responsibilities
 
-### RRM: embodiment-neutral task reasoning
+### RRM: embodiment-neutral task reasoning (brain)
 
 RRM interprets goals, maintains task/world belief, selects semantic operations and
 compares expected effects with observations. It may request capabilities such as
@@ -41,8 +41,10 @@ joint targets or controller gains.
 
 Embodiment-neutral does not mean embodiment-ignorant. Planning queries RRM-EM for the
 current body's feasibility, uncertainty, cost and expected outcomes.
+It keeps the goal in view and chooses which skill to call without prescribing every
+movement.
 
-### RRM-EM: learned embodiment model
+### RRM-EM: learned embodiment model (capabilities)
 
 RRM-EM represents what this particular body can do under current conditions. A
 capability record should include:
@@ -62,9 +64,10 @@ remain unknown rather than being converted into negative training labels.
 
 Online learning may update calibrated predictions and task-level beliefs. It may not
 silently rewrite hard safety limits, permissions, action semantics or qualified
-controller bindings.
+controller bindings. Capability estimates improve through practice and verified
+feedback, but what works for one body or setting may not transfer unchanged to another.
 
-### RRM-Adapt: morphology and platform adapter
+### RRM-Adapt: morphology and platform adapter (coordination)
 
 RRM-Adapt compiles semantic operations into typed actions for a concrete embodiment.
 A library can supply templates such as aerial multirotor, wheeled base, quadruped,
@@ -74,8 +77,10 @@ to the actual ROS actions, frames, sensors, limits and controllers.
 URDF/SRDF, the ROS graph and controller metadata can assist discovery, but discovery
 does not grant execution authority. Imported or generated adapters require bounded
 qualification evidence before safety may admit their actions.
+The same intended skill must be expressed through the joints, sensors and action
+interfaces of the body available now.
 
-### Control backend
+### Control backend (motor control)
 
 The control backend owns real-time motion. It may be PX4/AirStack, Nav2, MoveIt, a
 model-predictive controller, an RL policy, or a qualified hybrid. Isaac Sim supplies a
@@ -86,8 +91,9 @@ Classical controller structures can transfer within a robot family, but dynamics
 gains, geometry and limits remain platform-specific. A practical hybrid keeps a
 qualified classical inner loop while using learning for system identification,
 residual correction, skill selection or bounded policies.
+This layer makes timely movement corrections while the task-level goal stays stable.
 
-### Safety and authorization
+### Safety and authorization (protective limits)
 
 Safety is cross-cutting and must not depend solely on the model proposing an action:
 
@@ -98,7 +104,8 @@ Safety is cross-cutting and must not depend solely on the model proposing an act
    reasoning or communication fails.
 
 Learned risk estimates may make admission more conservative. They are not the only
-barrier protecting motion.
+barrier protecting motion. Wanting to perform a skill and being permitted to attempt
+it safely remain separate decisions.
 
 ## Evidence loop
 

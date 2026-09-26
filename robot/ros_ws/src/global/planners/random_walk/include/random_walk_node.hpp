@@ -123,7 +123,7 @@ class RandomWalkNode : public rclcpp::Node {
 
     // Planning helpers
     void generate_plan();
-    void send_navigate_goal();
+    bool send_navigate_goal();
 
     std::optional<init_params> readParameters();
 };

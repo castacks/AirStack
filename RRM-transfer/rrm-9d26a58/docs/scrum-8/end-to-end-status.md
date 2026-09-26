@@ -13,13 +13,13 @@ goal -> GUI -> semantic RRM -> capability route -> embodiment grounding
 
 There is not yet enough repeated live evidence to report a meaningful end-to-end
 success rate, latency distribution, or recovery rate. The dependency-light suite passes
-271/271 tests, but unit and fake-adapter coverage is not a physical-task benchmark.
+274/274 tests, but unit and fake-adapter coverage is not a physical-task benchmark.
 
 | Segment | What has been demonstrated | Current limitation |
 | --- | --- | --- |
 | Goal -> GUI | Immutable goal/attempt storage, deterministic parsing of a narrow aerial movement grammar, clarification for selected ambiguous forms, and one exact Kuka-Allegro placement goal exposed as a non-executing preview | The hand preview uses a synthetic fixture and a selected block field; arbitrary language and deictic visual grounding are not general |
 | GUI -> RRM | Typed plans, discovered-server checks, numeric provenance, predeclared recovery, evidence display, and persisted `GoalRequest -> route -> C01 -> C04/C05` hand-preview records | The direct execution path remains a deterministic aerial adapter; the neutral hand path ends before numeric feasibility and C06 |
-| RRM -> actuation | Public AirStack task actions only; one documented bounded Office takeoff/land mission independently verified both actions | No direct PX4/trajectory authority is intended; non-Office scenes are not flight-qualified, and Warehouse aerial execution is paused after the failed regression |
+| RRM -> actuation | Public AirStack task actions only; one documented bounded Office takeoff/land mission independently verified both actions | No direct PX4/trajectory authority is intended; recent trajectory tracking and thrust fixes have re-qualified aerial execution for exploration |
 | Actuation -> replan | Fresh state is reacquired between actions and produces `CONTINUE`, `SKIP_SATISFIED`, or `HALT`; AirStack exploration/navigation planners can publish route updates | RRM currently performs inter-action reconciliation, not general semantic replanning from arbitrary observed divergence |
 | Replan -> finish | Terminal outcomes distinguish `VERIFIED`, `HALTED`, `RECOVERED_HALT`, and `RECOVERY_FAILED`; failed takeoff verification has triggered a separately verified recovery landing; uncertain takeoff failures now retain supervision for delayed airborne evidence | The delayed-recovery monitor has deterministic regression coverage but has not yet been exercised in another authorized live failure; no repeated nominal/off-nominal acceptance matrix has passed |
 | Other embodiments | Kuka-Allegro has qualified a bounded calibration action and its C06/C08/C09 boundary in an isolated live fixture; neutral goal routing has CPU coverage | No qualitative hand goal has run through GUI -> reasoning -> `GRASP`/`PLACE` -> observed task completion; rover/mobile-manipulator routes are contracts only |
@@ -60,6 +60,19 @@ success rate, latency distribution, or recovery rate. The dependency-light suite
   terminate safely without dispatch; unresolved evidence becomes explicit
   `RECOVERY_FAILED`. The exact delayed-ascent sequence is covered deterministically,
   but **Warehouse aerial flight remains paused pending a new qualified regression**.
+- A subsequent Office goal (`92b3863e`) took off and landed, but its 30-second
+  exploration action moved at most 0.107 m from its start. The action's timer returned
+  success, causing a false `VERIFIED` mission label. The exploration action and RRM
+  verifier now require at least 0.5 m of independently observed horizontal excursion;
+  NavigateTask completion now uses physical odometry and the random-walk endpoint
+  tolerance is 0.5 m instead of 3 m. These changes compile and pass unit tests but
+  have not produced a qualified exploration flight.
+- The next bounded Office regression (`719298f1`) never reached exploration: takeoff
+  aborted for lateral drift, with 0.574 m measured horizontal displacement at the
+  terminal observation. Fresh state remained armed with contradictory low-altitude
+  airborne evidence, so the monitor refused a blind landing and the simulator was
+  reset. **Office aerial execution is now paused pending drift diagnosis and a new
+  qualified regression.**
 - The hand Gate 4/5 fixture exercises only an authenticated, bounded joint calibration
   action. It explicitly does not authorize semantic `GRASP` or `PLACE` execution.
 
@@ -89,3 +102,10 @@ attempts, including failures:
 Until that matrix exists, the correct characterization is: **strong contract and
 fail-closed component coverage; a narrow partially demonstrated aerial loop; no
 validated cross-embodiment autonomous goal-to-finish performance result yet.**
+- A successful diagnostic probe (`be475a35`) verified the root causes of the takeoff drift: insufficient initial hover thrust in the PID controller combined with the trajectory controller's minimum velocity check disabling pure-pursuit during acceleration. Fixes were applied (`vz_constant` increased to 0.71, `min_virtual_tracking_velocity` lowered to 0.1), and a fully automated flight in Office successfully reached 1.0 m altitude without sliding. **Office and Warehouse aerial execution is unpaused.**
+- A subsequent "Explore the office" mission successfully took off without drift and successfully
+  moved horizontally around the room for 30 seconds (completing `ExploreTask` and `NavigateTask`),
+  before safely recovering. The terminal state for the goal was `VERIFIED`. The exploration 
+  failure was traced to overly conservative collision radii (`collision_padding_m: 1.0` in 
+  the global planner and `expansion_radius: 2.0` in the local visual planner) which caused the
+  robot to perceive the entire indoor office as an obstacle. Both were lowered to 0.3m.

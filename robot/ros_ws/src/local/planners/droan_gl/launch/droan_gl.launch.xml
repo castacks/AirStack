@@ -30,6 +30,9 @@
   <arg name="droan_gl_tracking_point_topic"
        default="/$(env ROBOT_NAME)/trajectory_controller/tracking_point"
        description="Input trajectory-controller tracking point (airstack_msgs/Odometry)" />
+  <arg name="droan_gl_robot_odometry_topic"
+       default="/$(env ROBOT_NAME)/odometry_conversion/odometry"
+       description="Physical map-frame robot odometry for NavigateTask completion (nav_msgs/Odometry)" />
   <arg name="droan_gl_set_trajectory_mode_topic"
        default="/$(env ROBOT_NAME)/trajectory_controller/set_trajectory_mode"
        description="Output trajectory-controller mode command" />
@@ -47,6 +50,7 @@
     <set_remap from="global_plan" to="$(var droan_gl_global_plan_topic)" />
     <set_remap from="look_ahead" to="$(var droan_gl_look_ahead_topic)" />
     <set_remap from="tracking_point" to="$(var droan_gl_tracking_point_topic)" />
+    <set_remap from="robot_odometry" to="$(var droan_gl_robot_odometry_topic)" />
     <set_remap from="set_trajectory_mode" to="$(var droan_gl_set_trajectory_mode_topic)" />
     <set_remap from="trajectory_segment_to_add" to="$(var droan_gl_trajectory_segment_topic)" />
     <set_remap from="~/navigate_task" to="$(var droan_gl_navigate_task_action)" />

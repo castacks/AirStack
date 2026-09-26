@@ -58,4 +58,4 @@
     vz_d_alpha: 0.0
     vz_min: -0.5
     vz_max: 1.0
-    vz_constant: 0.5
+    vz_constant: 0.71

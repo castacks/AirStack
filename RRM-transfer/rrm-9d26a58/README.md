@@ -12,7 +12,9 @@
 > explicitly non-executing Kuka-Allegro GUI preview. It is not wired to live hand
 > feasibility, C06 admission, or simulator actuation. A subsequent bounded aerial
 > regression (`949b6027`) verified the 1 m takeoff and landing and reduced takeoff
-> horizontal displacement to 0.005 m, so supervised aerial demo execution is unpaused. See
+> horizontal displacement to 0.005 m. A later 1.5 m Office regression
+> (`719298f1`) aborted takeoff with lateral drift, so further aerial demo
+> execution is paused pending a new qualified regression. See
 > the [current performance assessment](docs/scrum-8/end-to-end-status.md).
 
 # RRM-1 — Robotics Reasoning Model
@@ -254,6 +256,28 @@ Do **not** submit another OSMO workflow. In the forwarded command console at
    proposals are enabled only when the selected catalog scene is `office`; direct
    scene-independent movement commands still depend on live task/state discovery.
 
+If **Launch selected scene** reports `Simulator task service failed; no mission was
+dispatched` (or `Scene launch failed; no mission was dispatched`), check readiness
+from the Remote-SSH terminal before retrying. The robot can start just before the
+new Isaac instance, leaving the clock-epoch gate failed even though the scene
+loaded:
+
+```bash
+cd /root/AirStack
+./airstack.sh ready --json
+# Only if the clock_epoch gate is "failed" and the vehicle is grounded/disarmed:
+docker restart airstack-robot-desktop-1
+./airstack.sh ready --json
+```
+
+Reload the console, then select and launch the scene again so the GUI records it
+as active; a terminal restart alone leaves **Scene unknown** in the console. The
+current console repairs this particular clock-startup race during scene launch,
+but other failed readiness gates still need investigation. A successful
+`warehouse-shelves` selection shows `COMMAND_ONLY`: the checked-in semantic
+manifest describes Office, so warehouse-specific RRM proposals remain disabled.
+No mission is dispatched by scene selection.
+
 The selector uses catalog shortnames. Its backend resolves `office` to the Pegasus
 scene reference `Office` and stage scale `1.0`. On a newly submitted workspace the GUI
 may initially show no active scene because it deliberately does not infer a manual or
@@ -342,13 +366,28 @@ or a command is executing.
      sws
      ros2 topic info /robot_1/sensors/ouster/point_cloud_raw
      ros2 topic info /robot_1/sensors/front_stereo/left/image_rect
+     timeout 8 ros2 topic hz /robot_1/sensors/front_stereo/left/image_rect
    '
    ```
 
-   Each topic must report at least one publisher. Within a few seconds, the
-   VDB marker on `/robot_1/vdb_mapping/vdb_map_visualization` should contain
-   points and the Foxglove map should populate. If either sensor has zero
-   publishers, do not start a mission; repeat step 2 for this fresh workflow.
+   Each topic must report at least one publisher, and `topic hz` must print
+   camera frame rates; a publisher alone does not prove that Isaac's render
+   writer attached. Within a few seconds, the VDB marker on
+   `/robot_1/vdb_mapping/vdb_map_visualization` should contain points. If
+   frames are absent and NumPy is `2.x`, repeat step 2 before starting a
+   mission. Reload the command GUI and click **Refresh camera** after repair.
+
+4. If Foxglove does not connect, keep the Foxglove tunnel running on your
+   **local computer** for this workflow:
+
+   ```bash
+   AIRSTACK_OSMO_WF=<workflow-id> ./airstack.sh osmo foxglove
+   ```
+
+   In Foxglove, choose **Open connection** and enter
+   `ws://127.0.0.1:8766`. The command GUI's **Open Foxglove** link opens the
+   viewer but does not establish this separate WebSocket connection. The
+   Isaac camera panel is a one-shot image capture, not the WebRTC livestream.
 
 A rebuilt, version-pinned workspace image plus the pinned Isaac image is the
 durable solution; this checklist is intentionally temporary.

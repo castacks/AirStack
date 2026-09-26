@@ -179,6 +179,11 @@ RUN cd PX4-Autopilot && \
 
 RUN /isaac-sim/python.sh -m pip install --no-cache-dir lark-parser
 
+# Catch later dependency installs that silently replace the camera writer's
+# NumPy 1.x ABI with NumPy 2.x. A graph can still advertise image topics while
+# Replicator fails to attach its writers and publishes no frames.
+RUN /isaac-sim/python.sh -c 'import numpy; assert numpy.__version__ == "1.26.4", numpy.__version__'
+
 # TMux config
 RUN git clone --depth 1 https://github.com/tmux-plugins/tpm /isaac-sim/.tmux/plugins/tpm 
 

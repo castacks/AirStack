@@ -264,6 +264,7 @@ def verify_drone_outcome(
     takeoff_acceptance_distance_m: float = 0.3,
     takeoff_max_horizontal_displacement_m: float = 0.3,
     landing_max_altitude_m: float = 0.3,
+    exploration_max_radius_m: float | None = None,
 ) -> DroneOutcomeVerification:
     """Evaluate a task outcome without granting or changing execution authority.
 
@@ -282,6 +283,9 @@ def verify_drone_outcome(
             or takeoff_max_horizontal_displacement_m <= 0
             or landing_max_altitude_m < 0):
         raise ValueError("outcome verification distance bounds are invalid")
+    if exploration_max_radius_m is not None and (not math.isfinite(exploration_max_radius_m)
+                                                  or exploration_max_radius_m < 0):
+        raise ValueError("exploration radius must be finite and nonnegative")
 
     reasons: list[str] = []
     metrics: dict[str, float] = {
@@ -318,6 +322,16 @@ def verify_drone_outcome(
             metrics["navigation_endpoint_error_m"] = distance
             if distance > proposal.goal_tolerance_m:
                 reasons.append("navigation_endpoint_mismatch")
+    elif proposal.kind is DroneTaskKind.EXPLORE:
+        # A timed action may report success while the vehicle only hovers. Use
+        # independent odometry sampled throughout the action so a valid loop
+        # back to its start can still count as movement.
+        if exploration_max_radius_m is None:
+            reasons.append("exploration_motion_evidence_missing")
+        else:
+            metrics["exploration_max_radius_m"] = exploration_max_radius_m
+            if exploration_max_radius_m < 0.5:
+                reasons.append("exploration_progress_mismatch")
     elif proposal.kind is DroneTaskKind.TAKEOFF and post_odometry is not None:
         if post_vehicle_state is None:
             reasons.append("post_vehicle_state_missing")
@@ -372,6 +386,8 @@ def verify_drone_outcome(
         diagnostics.append("ALTITUDE_TARGET_MISMATCH")
     if "navigation_endpoint_mismatch" in reasons:
         diagnostics.append("NAVIGATION_ENDPOINT_NOT_REACHED")
+    if "exploration_progress_mismatch" in reasons:
+        diagnostics.append("EXPLORATION_PROGRESS_NOT_OBSERVED")
     if "landing_altitude_mismatch" in reasons or "post_vehicle_still_armed" in reasons:
         diagnostics.append("LANDING_NOT_CONFIRMED")
     return DroneOutcomeVerification(

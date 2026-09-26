@@ -10,6 +10,7 @@
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <nav_msgs/msg/path.hpp>
+#include <nav_msgs/msg/odometry.hpp>
 #include <std_msgs/msg/bool.hpp>
 #include <std_msgs/msg/empty.hpp>
 #include <airstack_common/vislib.hpp>
@@ -83,6 +84,10 @@ private:
   std::atomic<bool> cancel_requested_{false};
   airstack_msgs::msg::Odometry tracking_point_odom_;
   bool tracking_point_valid_ = false;
+  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr robot_odometry_sub_;
+  std::mutex robot_odometry_mutex_;
+  nav_msgs::msg::Odometry robot_odometry_;
+  bool robot_odometry_valid_ = false;
 
   std::string target_frame, look_ahead_frame, rewind_info_frame;
   bool look_ahead_valid;
@@ -111,6 +116,12 @@ public:
     tracking_point_sub = create_subscription<airstack_msgs::msg::Odometry>("tracking_point", 10,
                                                                            std::bind(&DisparityExpanderNode::tracking_point_callback,
                                                                                      this, std::placeholders::_1));
+    robot_odometry_sub_ = create_subscription<nav_msgs::msg::Odometry>(
+        "robot_odometry", 10, [this](const nav_msgs::msg::Odometry::SharedPtr msg) {
+          std::lock_guard<std::mutex> lock(robot_odometry_mutex_);
+          robot_odometry_ = *msg;
+          robot_odometry_valid_ = true;
+        });
     global_plan_sub = create_subscription<nav_msgs::msg::Path>("global_plan", 1,
                                                                std::bind(&DisparityExpanderNode::global_plan_callback,
                                                                          this, std::placeholders::_1));
@@ -484,18 +495,27 @@ private:
         return;
       }
 
-      if (tracking_point_valid_) {
-        double dx = tracking_point_odom_.pose.position.x - goal_pos.x;
-        double dy = tracking_point_odom_.pose.position.y - goal_pos.y;
-        double dz = tracking_point_odom_.pose.position.z - goal_pos.z;
+      // The trajectory-controller tracking point can advance ahead of the
+      // vehicle. Only physical map-frame odometry may complete NavigateTask.
+      nav_msgs::msg::Odometry physical_odometry;
+      bool physical_odometry_valid;
+      {
+        std::lock_guard<std::mutex> lock(robot_odometry_mutex_);
+        physical_odometry = robot_odometry_;
+        physical_odometry_valid = robot_odometry_valid_;
+      }
+      if (physical_odometry_valid && physical_odometry.header.frame_id == goal->global_plan.header.frame_id) {
+        double dx = physical_odometry.pose.pose.position.x - goal_pos.x;
+        double dy = physical_odometry.pose.pose.position.y - goal_pos.y;
+        double dz = physical_odometry.pose.pose.position.z - goal_pos.z;
         float dist = static_cast<float>(std::sqrt(dx*dx + dy*dy + dz*dz));
 
         auto feedback = std::make_shared<NavigateTask::Feedback>();
         feedback->status = "navigating";
         feedback->distance_to_goal = dist;
-        feedback->current_position.x = tracking_point_odom_.pose.position.x;
-        feedback->current_position.y = tracking_point_odom_.pose.position.y;
-        feedback->current_position.z = tracking_point_odom_.pose.position.z;
+        feedback->current_position.x = physical_odometry.pose.pose.position.x;
+        feedback->current_position.y = physical_odometry.pose.pose.position.y;
+        feedback->current_position.z = physical_odometry.pose.pose.position.z;
         goal_handle->publish_feedback(feedback);
 
         if (dist < goal->goal_tolerance_m) {

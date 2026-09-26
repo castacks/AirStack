@@ -11,7 +11,7 @@
     # look ahead time controls the speed, greater is faster
     look_ahead_time: 1.0
     virtual_tracking_ahead_time: 0.5
-    min_virtual_tracking_velocity: 0.5
+    min_virtual_tracking_velocity: 0.1
     # sphere_radius controls how far ahead the tracking point can jump on the
     # trajectory in a single step.  1.0 allowed the tracking point to race the
     # entire 1 m takeoff trajectory in one tick, causing large Z-error and XY drift.

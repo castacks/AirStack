@@ -330,8 +330,30 @@ class Console:
                                 "ISAAC_SIM_STAGE_SCALE": selected["stage_scale"]})
             subprocess.run(["./airstack.sh", "down", "isaac-sim-livestream", "robot-desktop"],
                            cwd=AIRSTACK_ROOT, env=environment, check=True, timeout=180)
-            subprocess.run(["./airstack.sh", "up", "--sim", "isaac", "--wait"],
-                           cwd=AIRSTACK_ROOT, env=environment, check=True, timeout=900)
+            try:
+                subprocess.run(["./airstack.sh", "up", "--sim", "isaac", "--wait"],
+                               cwd=AIRSTACK_ROOT, env=environment, check=True, timeout=900)
+            except subprocess.CalledProcessError:
+                # Compose may start the robot milliseconds before Isaac. In that
+                # case `up --wait` fails its clock-epoch gate even though the new
+                # scene is running. Repair only this identified startup race.
+                readiness = subprocess.run(
+                    ["./airstack.sh", "ready", "--json"], cwd=AIRSTACK_ROOT,
+                    env=environment, capture_output=True, text=True, timeout=120,
+                )
+                try:
+                    report = json.loads(readiness.stdout.splitlines()[-1])
+                except (IndexError, json.JSONDecodeError):
+                    raise RuntimeError("Scene launch failed; AirStack readiness is unknown.") from None
+                gates = report.get("gates", {})
+                if (gates.get("clock_epoch") != "failed"
+                        or gates.get("containers") != "ok"
+                        or gates.get("sim_clock") != "ok"):
+                    raise RuntimeError("Scene launch failed; inspect AirStack readiness gates.") from None
+                subprocess.run(["docker", "restart", "airstack-robot-desktop-1"],
+                               check=True, capture_output=True, timeout=60)
+                subprocess.run(["./airstack.sh", "ready"], cwd=AIRSTACK_ROOT,
+                               env=environment, check=True, timeout=120)
             self.latest_camera = self.latest_camera_metadata = None
             self._save_active_scene(scene_shortname)
             self.active_scene_shortname = scene_shortname
@@ -1370,7 +1392,10 @@ def make_handler(app: Console):
                 self.respond({"error": "Task database unavailable. Saved artifacts are retained; restart to reindex."}, status=503)
             except subprocess.SubprocessError as error:
                 self.log_error("POST %s simulator task service failure: %r", path, error)
-                self.respond({"error": "Simulator task service failed; no mission was dispatched."}, status=503)
+                message = ("Scene launch failed; no mission was dispatched."
+                           if path == "/api/scene" else
+                           "Simulator task service failed; no mission was dispatched.")
+                self.respond({"error": message}, status=503)
             except OSError as error:
                 self.log_error("POST %s local staging/storage failure: %r", path, error)
                 self.respond({"error": "Local mission staging or storage failed; no mission was dispatched."}, status=503)

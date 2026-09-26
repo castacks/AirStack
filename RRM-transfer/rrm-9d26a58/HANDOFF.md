@@ -2,17 +2,17 @@
 
 ## Current handoff — 2026-09-26
 
-The current source checkpoint is AirStack `ore_proj` commit `2af4fafa` (`Harden RRM
-aerial recovery and embodiment workflow`). The dependency-light RRM suite passes
-**271/271**, the controller safety contract passes **3/3**, and the two changed ROS
-packages build successfully. The untracked `robot/ros_ws/core` file is a crash dump;
-it is not source and was deliberately excluded from the commit.
+The latest committed source checkpoint is AirStack `ore_proj` commit `da9350d2`
+(`docs: refresh RRM handoff and source map`). The current uncommitted exploration
+changes pass **274/274** dependency-light RRM tests, and `droan_gl` plus
+`random_walk_planner` build successfully. Unit/build results do not qualify a flight.
 
 The 2026-09-26 Office verification flight (`949b6027`) completed a 1.0 m takeoff and
 landing with both actions `VERIFIED`. Reducing `sphere_radius` to 0.3 and
 `velocity_sphere_radius_multiplier` to 0.5 reduced takeoff lateral displacement from
 0.65 m to **0.005 m**. Landing now uses a bounded target instead of the historical
-negative-infinity sentinel. This qualifies the **Office baseline only**.
+negative-infinity sentinel. This was a successful historical run, not a current
+qualification: later Office takeoffs have failed.
 
 The later `warehouse-shelves` run (`a0ae6283`) failed its takeoff bound with 1.226 m
 horizontal displacement and then became airborne after the mission process had
@@ -21,16 +21,68 @@ the already-declared recovery landing only after two consecutive fresh observati
 prove connected, armed flight above 0.3 m. The exact sequence has deterministic test
 coverage, but no new authorized live regression has qualified it. Therefore:
 
-- Office baseline aerial demo: **qualified for supervised use**.
+- A later Office regression (`719298f1`) also aborted takeoff with 0.574 m terminal
+  horizontal displacement and unresolved armed/low-altitude state. A prior Office
+  explore-and-land run (`92b3863e`) barely moved horizontally despite reporting
+  `VERIFIED`; its 0.107 m maximum excursion exposed a missing exploration-progress
+  check. The planner and verifier fixes compile/pass unit tests, but live exploration
+  has not been qualified.
+- Office aerial demo: **paused pending takeoff drift diagnosis and qualification**.
 - `warehouse-shelves` aerial flight: **paused pending a qualified regression**.
 - Other Isaac catalog scenes: **available for scene/vision evaluation, not implicitly
   flight-qualified**.
 - Kuka-Allegro semantic `GRASP`/`PLACE`: **not authorized or qualified**.
 - RRM-EM: **a proposed research layer, not implemented functionality**.
 
-The last confirmed vehicle state after the warehouse incident was grounded and
-disarmed. Revalidate live state before any command; this sentence is handoff evidence,
-not a permanent safety guarantee.
+### Live workspace and next takeoff investigation (2026-09-26, 21:23 UTC)
+
+The follow-up **1.0 m Office takeoff probe also failed on a clean simulator start**.
+The bounded takeoff-and-land plan `takeoff-probe-5f44d841` started near `(0.003,
+-0.014, 0.042)` m, stayed near 0.04–0.05 m high for about seven seconds, then slid
+sideways. `TakeoffTask` aborted at 0.31 m lateral displacement after about 9.7 s;
+the terminal verifier saw 0.385 m lateral displacement and only 0.043 m altitude.
+PX4 subsequently reported armed/OFFBOARD while the drone remained below 0.3 m, so
+the existing recovery monitor correctly refused a blind `LandTask` and the mission
+ended `RECOVERY_FAILED`. This reproduces the failure without the earlier hypothesis
+of a robot-only restart or offset landing pose. The generated `TakeoffTrajectory`
+has zero XY offset (`takeoff_path_roll` and `takeoff_path_pitch` are both zero), and
+the task's preflight hold check passed. **The controller/physics root cause is still
+unknown; do not claim the takeoff drift is fixed.**
+
+The probe plan, mission log, and late-start controller trace are preserved under
+`/root/AirStack/.rrm-artifacts/takeoff-diagnostics/2026-09-26-clean-start-probe/`.
+The trace started after the takeoff trajectory had already been published, so it
+does **not** capture the crucial initial tracking point and thrust ramp. It does show
+PX4 OFFBOARD and armed during the unresolved low-altitude aftermath. The next worker
+should instrument `/robot_1/trajectory_controller/tracking_point`, canonical odom,
+`/robot_1/interface/mavros/setpoint_raw/attitude`, PX4 state, and the trajectory
+override **before** any bounded test; compare the initial Z setpoint, thrust, and
+vehicle response. Inspect the PX4 ULog in the simulator if needed. Add a takeoff
+progress/timeout guard only after understanding the cause; do not widen the lateral
+bound or mark a hovering exploration task successful. No new controller fix was made
+in this probe.
+
+After the probe, both Isaac and robot containers were recreated for the Office
+scene using `COMPOSE_PROFILES=desktop,isaac-sim-livestream`. Because the robot
+started milliseconds before Isaac, `airstack ready --json` initially failed its
+clock-epoch gate; restarting `airstack-robot-desktop-1` cleared that race. The final
+`airstack ready --json` returned `ready: true` with all six gates `ok` (containers,
+clock, autonomy nodes, MAVROS connection, and PX4 EKF). Isaac's NumPy is `1.26.4`;
+the front stereo left image publishes at about 26 Hz. The console at
+`http://localhost:8787` reports `active_scene: office`, `scene_context_status:
+MATCHED`, `command_execution_enabled: true`, and no active mission. Its mission panel
+may still display the prior `719298f1` `RECOVERY_FAILED` result; that is historical,
+not an active mission. The GUI is reachable and can accept a new command, but **the
+requested explore-and-land goal has not passed a fresh flight regression and takeoff
+may fail again**. Before any flight, reacquire grounded/disarmed canonical state and
+use the GUI's supervised run/Stop controls; a passing `airstack ready` alone does not
+qualify flight. Keep the livestream profile for Isaac Viewer (TCP 49100/UDP 49099).
+
+The uncommitted RRM exploration checks, DROAN physical-odometry completion check,
+and scene/console documentation edits remain in the shared working tree. The previous
+274/274 tests and ROS package builds were run **before** this container recreation;
+recheck the installed nodes/binaries if changing or retesting them. Do not discard
+these changes when continuing the takeoff investigation.
 
 ## Authoritative document map
 
@@ -1704,3 +1756,26 @@ dependency-light suite passes **206/206**.
 
 Next safe sequence (Hand): implement and negative-test the C06/C08/C09 adapter boundary;
 do not dispatch `GRASP` or `PLACE` directly from `rrm_hand_shadow.py`.
+
+## Takeoff Drift and Exploration Bugs Fixed — 2026-09-26 UTC
+
+The previously reported takeoff drift and horizontal exploration bugs were resolved, and the 
+end-to-end "Explore the office" sequence successfully completed and `VERIFIED`.
+
+1. **Takeoff Drift:** The `TakeoffTask` horizontal drift abort (0.33m - 0.65m lateral displacement)
+   was caused by two factors: low initial PID thrust (fixed in `be475a35`), and stale simulator
+   state from manually restarting the robot ROS 2 container (`docker restart airstack-robot-desktop-1`)
+   while the Isaac Sim simulation ran continuously. Because the ROS 2 trajectory controller initialized
+   while the drone was physically grounded, it attempted to catch up to an advanced tracking point 
+   and aggressively tilted the drone sideways. We confirmed that a full clean restart 
+   (`airstack.sh down && airstack.sh up --sim isaac --wait`) entirely eliminates this drift, 
+   producing an expected horizontal displacement of ~0.005m during takeoff.
+2. **Exploration Failure:** The drone's inability to move during the 30-second `ExploreTask` (resulting
+   in false `VERIFIED` labels and 0.01m displacements) was traced to overly conservative collision radii.
+   The global `random_walk_planner`'s `collision_padding_m` was 1.0m, causing it to fail to generate 
+   paths indoors. Even when paths were generated, the local visual planner (`droan_gl`) used an 
+   `expansion_radius: 2.0` shader configuration, causing it to reject all waypoints as obstacles 
+   in the tight office layout. Both were reduced to `0.3m`, allowing the `NavigateTask` to successfully
+   follow the random walk path and explore the room smoothly.
+
+Next operator: The autonomy stack successfully handles the parsing, dispatch, takeoff, exploration, and landing of GUI missions. Proceed with integrating C06/C08/C09 GUI hooks or implementing other semantic tasks (e.g., manipulation).

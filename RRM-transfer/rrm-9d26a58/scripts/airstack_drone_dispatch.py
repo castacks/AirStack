@@ -93,6 +93,8 @@ def _execute(proposal: DroneTaskProposal, timeout_s: float, *, verify_observatio
     latest_linear_speed_m_s: float | None = None
     latest_global_plan_sha256: str | None = None
     dispatch_monotonic_s: float | None = None
+    pre_odometry: OdometryEvidence | None = None
+    exploration_max_radius_m: float | None = None
 
     if verify_observation:
         from mavros_msgs.msg import State
@@ -100,7 +102,7 @@ def _execute(proposal: DroneTaskProposal, timeout_s: float, *, verify_observatio
         from rclpy.qos import QoSProfile, ReliabilityPolicy
 
         def on_odometry(message: Odometry) -> None:
-            nonlocal latest_odometry, latest_linear_speed_m_s
+            nonlocal latest_odometry, latest_linear_speed_m_s, exploration_max_radius_m
             stamp = message.header.stamp
             try:
                 latest_odometry = OdometryEvidence(
@@ -112,6 +114,12 @@ def _execute(proposal: DroneTaskProposal, timeout_s: float, *, verify_observatio
                     y=message.pose.pose.position.y,
                     z=message.pose.pose.position.z,
                 )
+                if (proposal.kind is DroneTaskKind.EXPLORE
+                        and dispatch_monotonic_s is not None
+                        and pre_odometry is not None):
+                    radius = math.hypot(latest_odometry.x - pre_odometry.x,
+                                        latest_odometry.y - pre_odometry.y)
+                    exploration_max_radius_m = max(exploration_max_radius_m or 0.0, radius)
                 velocity = message.twist.twist.linear
                 latest_linear_speed_m_s = math.sqrt(
                     velocity.x ** 2 + velocity.y ** 2 + velocity.z ** 2
@@ -414,6 +422,7 @@ def _execute(proposal: DroneTaskProposal, timeout_s: float, *, verify_observatio
             takeoff_acceptance_distance_m=takeoff_acceptance_distance_m,
             takeoff_max_horizontal_displacement_m=takeoff_max_horizontal_displacement_m,
             landing_max_altitude_m=landing_max_altitude_m,
+            exploration_max_radius_m=exploration_max_radius_m,
         )
         record = verification.model_dump(mode="json")
         print(json.dumps({"event": "outcome_verification", **record}, sort_keys=True))

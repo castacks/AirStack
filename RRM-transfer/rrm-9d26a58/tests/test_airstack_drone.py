@@ -200,6 +200,29 @@ class DroneProposalTests(unittest.TestCase):
             )
             self.assertEqual(result.verdict, expected)
 
+    def test_exploration_requires_independently_observed_motion(self):
+        explore = proposal(
+            DroneTaskKind.EXPLORE, min_altitude_agl_m=1.0, max_altitude_agl_m=3.0,
+            min_flight_speed_m_s=0.5, max_flight_speed_m_s=2.0, time_limit_s=30.0,
+        )
+        pre = OdometryEvidence(received_monotonic_s=10, source_stamp_ns=100,
+                               frame_id="map", child_frame_id="base_link",
+                               x=0, y=0, z=1.5)
+        post = pre.model_copy(update={"received_monotonic_s": 40,
+                                      "source_stamp_ns": 400, "x": 0.01})
+        for radius, expected in ((None, DroneOutcomeVerdict.UNCONFIRMED),
+                                 (0.11, DroneOutcomeVerdict.MISMATCH),
+                                 (0.8, DroneOutcomeVerdict.VERIFIED)):
+            result = verify_drone_outcome(
+                explore, action_success=True, action_message="Time limit reached",
+                pre_odometry=pre, post_odometry=post, post_vehicle_state=None,
+                dispatch_monotonic_s=10.1, now_monotonic_s=40.1,
+                exploration_max_radius_m=radius,
+            )
+            self.assertEqual(result.verdict, expected)
+            if radius == 0.11:
+                self.assertIn("EXPLORATION_PROGRESS_NOT_OBSERVED", result.diagnostics)
+
 
 if __name__ == "__main__":
     unittest.main()

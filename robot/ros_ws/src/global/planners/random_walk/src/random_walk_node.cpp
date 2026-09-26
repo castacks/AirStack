@@ -315,9 +315,16 @@ void RandomWalkNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
         }
     }
 
+    const double exploration_start_x = current_location.position.x;
+    const double exploration_start_y = current_location.position.y;
+    double max_horizontal_radius_m = 0.0;
     rclcpp::Rate rate(1.0);  // 1 Hz planning loop
 
     while (rclcpp::ok()) {
+        max_horizontal_radius_m = std::max(
+            max_horizontal_radius_m,
+            std::hypot(current_location.position.x - exploration_start_x,
+                       current_location.position.y - exploration_start_y));
         // --- Check for cancellation ---
         if (cancel_requested_) {
             // Cancel any active NavigateTask goal
@@ -339,11 +346,21 @@ void RandomWalkNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
                 if (navigate_goal_handle_ && !navigate_goal_done_)
                     navigate_client_->async_cancel_goal(navigate_goal_handle_);
                 auto result = std::make_shared<ExplorationTask::Result>();
-                result->success = true;
-                result->message = "Time limit reached";
+                result->success = max_horizontal_radius_m >= 0.5;
+                result->message = result->success ? "Time limit reached after exploration"
+                                                  : "Time limit reached without exploration progress";
                 task_active_ = false;
-                goal_handle->succeed(result);
-                RCLCPP_INFO(this->get_logger(), "ExplorationTask succeeded (time limit reached)");
+                if (result->success) {
+                    goal_handle->succeed(result);
+                    RCLCPP_INFO(this->get_logger(),
+                                "ExplorationTask succeeded (maximum radius %.2f m)",
+                                max_horizontal_radius_m);
+                } else {
+                    goal_handle->abort(result);
+                    RCLCPP_WARN(this->get_logger(),
+                                "ExplorationTask made no progress (maximum radius %.2f m)",
+                                max_horizontal_radius_m);
+                }
                 return;
             }
         }
@@ -369,8 +386,7 @@ void RandomWalkNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
                 for (int i = 0; i < num_paths_to_generate_; i++) {
                     generate_plan();
                 }
-                send_navigate_goal();
-                is_path_executing = true;
+                is_path_executing = send_navigate_goal();
             } else {
                 RCLCPP_INFO_ONCE(this->get_logger(),
                                  "Waiting for map and odometry before planning...");
@@ -461,11 +477,11 @@ void RandomWalkNode::generate_plan() {
     }
 }
 
-void RandomWalkNode::send_navigate_goal() {
+bool RandomWalkNode::send_navigate_goal() {
     if (!navigate_client_->wait_for_action_server(std::chrono::seconds(2))) {
         RCLCPP_WARN(this->get_logger(), "NavigateTask action server not available");
         is_path_executing = false;
-        return;
+        return false;
     }
 
     // Concatenate generated path segments
@@ -477,6 +493,13 @@ void RandomWalkNode::send_navigate_goal() {
             full_path.poses.push_back(pose);
         }
     }
+    if (full_path.poses.empty()) {
+        RCLCPP_WARN(this->get_logger(), "No valid exploration path; not sending NavigateTask");
+        return false;
+    }
+    // Publish the same path sent to NavigateTask so observers can verify that
+    // exploration produced a route and record replans independently.
+    pub_global_plan->publish(full_path);
 
     auto nav_goal = NavigateTask::Goal();
     nav_goal.global_plan = full_path;
@@ -505,6 +528,7 @@ void RandomWalkNode::send_navigate_goal() {
 
     RCLCPP_INFO(this->get_logger(), "Sent NavigateTask goal (%zu waypoints)",
                 full_path.poses.size());
+    return true;
 }
 
 int main(int argc, char* argv[]) {
