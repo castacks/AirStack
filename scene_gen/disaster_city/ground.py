@@ -128,7 +128,9 @@ for pid, rel in PIECES.items():
         rng, M = bb.GetRange(), bb.GetMatrix(); lo_, hi_ = rng.GetMin(), rng.GetMax()
         poly = np.array([[*M.Transform(Gf.Vec3d(x, y, lo_[2]))][:2] for x, y in ((lo_[0], lo_[1]), (hi_[0], lo_[1]), (hi_[0], hi_[1]), (lo_[0], hi_[1]))])
         cv2.fillConvexPoly(m, np.round(np.c_[(poly[:, 0] - X0) / RES, (Y1 - poly[:, 1]) / RES]).astype(np.int32), 1)
-    sw = swallow(m, 4.0); box_mask |= sw
+    sw = swallow(m, 4.0)                                    # + raised shards near it that touch no blob it swallowed
+    sw |= cv2.dilate(m, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * int(3.0 / RES) + 1,) * 2)).astype(bool)
+    box_mask |= sw
     print(f"  {pid}: masked {sw.sum() * RES * RES:.0f} m2 of tile surface ({m.sum() * RES * RES:.0f} m2 model footprint)")
 
 replaced = np.zeros((N, N), bool)                          # vehicle blobs place_assets.py swapped for assets --

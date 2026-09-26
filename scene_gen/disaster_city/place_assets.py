@@ -25,7 +25,7 @@ Writes data/recon/trees.usd, data/recon/vehicles.usd, data/recon/debris.usd.
 import json
 from pathlib import Path
 import cv2, numpy as np, open3d as o3d, yaml
-from pxr import Usd, UsdGeom, UsdPhysics, Sdf, Gf, Vt
+from pxr import Usd, UsdGeom, UsdPhysics, UsdShade, Sdf, Gf, Vt
 
 from _paths import R, LABELS
 A = R / "assets"
@@ -169,16 +169,18 @@ derail = np.array([l["at"] for l in labels if "derail" in l["name"]])
 # otherwise just as likely a canopy, a house roof or a campus building)
 railish = np.array([l["at"] for l in labels if any(w in l["name"] for w in ("rail", "tank_car", "derail", "locomotive", "tanker"))])
 near_rail = lambda c: len(railish) and np.hypot(*(railish - c).T).min() < 30
-def put_lib(name, c, yaw, L, W, top, gz, tilt=0.0):
+def put_lib(name, c, yaw, L, W, top, gz, tilt=0.0, pitch=0.0, exact=False):
     """A library asset fitted to the blob's box: x by L, y by W, z by top, each within 25% of
-    the uniform scale (so a blurred blob cannot squash the model)."""
+    the uniform scale (so a blurred blob cannot squash the model); `exact` scales to L x W x top as given."""
     aL, aW, aH = LIB[name]["size_m"]; u = L / aL
-    sx, sy, sz = u, float(np.clip(W / aW, 0.8 * u, 1.25 * u)), float(np.clip(top / aH, 0.75 * u, 1.25 * u))
+    sx, sy, sz = (u, W / aW, top / aH) if exact else (u, float(np.clip(W / aW, 0.8 * u, 1.25 * u)), float(np.clip(top / aH, 0.75 * u, 1.25 * u)))
     i = next(serial); p = st.DefinePrim(f"/vehicles/{name}_{i:03d}", "Xform"); p.GetReferences().AddReference(LIB[name]["usd"])
     xf = UsdGeom.Xformable(p); xf.AddTranslateOp().Set(Gf.Vec3d(float(c[0]), float(c[1]), float(gz)))
-    xf.AddRotateZOp().Set(float(yaw + rng.choice([0, 180]))); xf.AddRotateXOp().Set(float(tilt))
+    flip = rng.choice([0, 180]); xf.AddRotateZOp().Set(float(yaw + flip)); xf.AddRotateXOp().Set(float(tilt))
+    if pitch: xf.AddRotateYOp().Set(float(-pitch if flip == 0 else pitch))     # pitch > 0: the car rises along yaw
     xf.AddScaleOp().Set(Gf.Vec3f(float(sx), float(sy), float(sz))); UsdPhysics.CollisionAPI.Apply(p)
     p.SetCustomDataByKey("fit", {"L": round(L, 2), "W": round(W, 2), "top": round(top, 2)})
+RAIL_H = {"passenger_car": 4.2, "tankcar": 4.3, "tankcar_cyl": 4.3, "tankcar_graffiti": 4.3, "boxcar": 4.6, "locomotive": 4.6}   # real car heights, m
 def emit_rail():
     """Rail cars come from the hand survey (specs/rail_cars.yaml): the tile mesh merges coupled and
     derailed cars, so blob fitting cannot separate them. Detected rail blobs only mark their tile
@@ -186,8 +188,9 @@ def emit_rail():
     for car in SURVEY:
         a, b = np.array(car["ends"], float); c = (a + b) / 2; L = float(np.linalg.norm(b - a))
         yaw = float(np.degrees(np.arctan2(b[1] - a[1], b[0] - a[0]))); gz = float(DTM[int((Y1 - c[1]) / RES), int((c[0] - X0) / RES)])
-        aL, aW, aH = LIB[car["asset"]]["size_m"]; u = L / aL
-        put_lib(car["asset"], c, yaw, L, min(aW * u, 3.2), min(aH * u, 4.6 if car["asset"] != "locomotive" else 4.8), gz, tilt=float(car.get("tilt", 0.0)))
+        za, zb = car.get("lift", [0.0, 0.0])                           # base raised at each end (a car resting on another)
+        put_lib(car["asset"], c, yaw, L, 3.1, RAIL_H.get(car["asset"], 4.3), gz + (za + zb) / 2,
+                tilt=float(car.get("tilt", 0.0)), pitch=float(np.degrees(np.arctan2(zb - za, L))), exact=True)
         polys.append(cv2.boxPoints(((float(c[0]), float(c[1])), (L + 1.0, 4.4), yaw)))
     counts["rail"] = len(SURVEY)
 og = ortho[np.clip(((geo["y1"] - GY) / geo["m_per_px"]).astype(int), 0, ortho.shape[0] - 1),
@@ -249,6 +252,22 @@ for k in range(1, n_):
         counts["skip"] += 1; continue                                     # clutter, crates, dumpsters, not a vehicle
     polys.append(cv2.boxPoints(((float(c[0]), float(c[1])), (L + 0.6, W + 0.6), float(yaw))))   # world coords; box orientation only matters loosely
 emit_rail()
+for car in yaml.safe_load(open(Path(__file__).resolve().parent / "specs/cars.yaml")):   # hand-surveyed road vehicles
+    c = np.array(car["at"], float); gz = float(DTM[int((Y1 - c[1]) / RES), int((c[0] - X0) / RES)])
+    if "lib" in car:
+        put_lib(car["lib"], c, float(car["yaw"]), *car["size"], gz, exact=True); counts["lib"] += 1
+        polys.append(cv2.boxPoints(((float(c[0]), float(c[1])), (car["size"][0] + 1.0, car["size"][1] + 1.0), float(car["yaw"])))); continue
+    name = car["asset"]
+    p = st.DefinePrim(f"/vehicles/survey_{car['id']}", "Xform"); p.GetReferences().AddReference(f"./assets/cars/{name}/{car_usd(name).name}")
+    xf = UsdGeom.Xformable(p); xf.AddTranslateOp().Set(Gf.Vec3d(float(c[0]), float(c[1]), gz)); xf.AddRotateZOp().Set(float(car["yaw"]))
+    UsdPhysics.CollisionAPI.Apply(p); counts["asset"] += 1
+    polys.append(cv2.boxPoints(((float(c[0]), float(c[1])), (csize[name][0] + 1.0, 3.0), float(car["yaw"]))))
+    if "tint" in car:
+        cs = Usd.Stage.Open(str(car_usd(name)))                        # (kept open: its prims die with the stage)
+        texs = [q.GetPath() for q in cs.Traverse() if q.IsA(UsdShade.Shader) and UsdShade.Shader(q).GetIdAttr().Get() == "UsdUVTexture"]
+        for tp in texs:
+            t = UsdShade.Shader(st.OverridePrim(p.GetPath().AppendPath(tp.MakeRelativePath(cs.GetDefaultPrim().GetPath()))))
+            t.CreateInput("scale", Sdf.ValueTypeNames.Float4).Set(Gf.Vec4f(car["tint"], car["tint"], car["tint"], 1))
 for pr in yaml.safe_load(open(Path(__file__).resolve().parent / "specs/props.yaml")):   # library props (water tower, ...)
     aL, aW, aH = LIB[pr["asset"]]["size_m"]; u = pr["height"] / aH; c = np.array(pr["at"], float)
     gz = float(DTM[int((Y1 - c[1]) / RES), int((c[0] - X0) / RES)])

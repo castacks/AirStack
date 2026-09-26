@@ -12,7 +12,7 @@ drone. Spec parts:
   wall:   {name, from: [x,y], to: [x,y], z: [z0,z1], t: thickness, mat,
            openings: [{at: dist along wall to opening's left edge, w, sill, h}]}
           (walls must run along x or y)
-  stair:  {name, from: [x,y,z], to: [x,y,z], width, mat}   straight run, one box per step
+  stair:  {name, from: [x,y,z], to: [x,y,z], width, mat}   straight run, one tread per step on two side stringers
   rail:   {name, from: [x,y], to: [x,y], z, h: 1.1, mat}   posts every 1.5 m + top and mid rails
           (a solid box would read as a wall to a drone's depth sensor and collider)
   beam:   {name, from: [x,y,z], to: [x,y,z], t: 0.2, mat}   oriented square bar (bracing, booms, tilted slabs with t2)
@@ -35,7 +35,7 @@ from _paths import R
 MATS = {"concrete": (0.62, 0.60, 0.56), "steel": (0.30, 0.31, 0.33), "grating": (0.22, 0.22, 0.24),
         "wood": (0.55, 0.42, 0.28), "rust": (0.45, 0.25, 0.15), "tank_black": (0.08, 0.08, 0.09), "tank_white": (0.85, 0.85, 0.83),
         "steel_dark": (0.20, 0.17, 0.15), "stucco": (0.72, 0.62, 0.48), "roof_brown": (0.40, 0.28, 0.20), "metal_white": (0.80, 0.80, 0.78),
-        "metal_ribbed": (0.48, 0.48, 0.47), "metal_grey": (0.42, 0.42, 0.43), "panel_dark": (0.28, 0.29, 0.29), "yellow": (0.84, 0.77, 0.56), "sign": (0.92, 0.92, 0.90)}
+        "metal_ribbed": (0.48, 0.48, 0.47), "metal_grey": (0.42, 0.42, 0.43), "panel_dark": (0.28, 0.29, 0.29), "yellow": (0.84, 0.77, 0.56), "sign": (0.92, 0.92, 0.90), "canvas": (0.80, 0.72, 0.58)}
 
 def wall_boxes(w):
     (x0, y0), (x1, y1), (z0, z1), t = w["from"], w["to"], w["z"], w.get("t", 0.25)
@@ -191,6 +191,13 @@ for part in spec["parts"]:
     else:
         boxes = {"box": lambda d: [(d["min"], d["max"])], "wall": wall_boxes, "stair": stair_boxes, "rail": rail_boxes}[kind](d)
         corners = [box_corners(np.array(lo, float), np.array(hi, float)) for lo, hi in boxes]
+        if kind == "stair":                                          # the treads hang between two stringers, not in the air
+            p0, p1 = np.array(d["from"], float), np.array(d["to"], float); u = p1 - p0; L = np.linalg.norm(u); ax = u / L
+            side = np.cross([0, 0, 1], ax); side /= np.linalg.norm(side); up = np.cross(ax, side)
+            for sgn in (-1, 1):
+                M = np.eye(4); M[:3, :3] = np.c_[ax, side, up]
+                M[:3, 3] = (p0 + p1) / 2 + side * sgn * (d["width"] / 2 + 0.03) - up * 0.12
+                corners.append(box_corners([-L / 2 - 0.15, -0.03, -0.15], [L / 2 + 0.15, 0.03, 0.15], M))
     emit(path, corners, mat); n += len(corners)
 
 # pack the photo faces into one atlas (shelf packing, texel size grown until it fits) and write the UVs

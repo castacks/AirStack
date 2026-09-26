@@ -42,6 +42,7 @@ SOURCES = {
     "delivery_truck":   ("objaverse/1d53f7fa474849db812102dfa5d070d0/1d53f7fa474849db812102dfa5d070d0.usdc", "vehicle", "Objaverse 'DELIVERY TRUCK'"),
     "passenger_car":    ("objaverse/1ec9ef29c1604487a2f498df7e744c88/1ec9ef29c1604487a2f498df7e744c88.usdc", "vehicle", "Objaverse 'Passenger Car(Rail)'"),
     "tankcar_cyl":      ("objaverse/c1f38cc43c694137b711c260445137de/c1f38cc43c694137b711c260445137de.usdc", "vehicle", "Objaverse 'Tank car'"),
+    "tanker_truck":     ("objaverse/0bfeafdb2eb94612ad89ea2e794cf249/0bfeafdb2eb94612ad89ea2e794cf249.usdc", "vehicle", "Objaverse 'Tanker Truck'"),
     # rejected on the gallery: 656908d5 'Japanese Box Truck' (converted standing on end), 42e23433 'Camper Van' (a cartoon cart)
 }
 
@@ -120,6 +121,9 @@ def rubble_material(w, root, name):
 for tex in ("BaseColor", "ORM_rough", "Normal_norm"):
     shutil.copy(CONCRETE_TEX / f"Concrete030_4K_{tex}.jpg", LIB / "textures")
 
+# parts of a source that are not the thing itself: deactivated before measuring, and in the wrapper
+HIDE = {"passenger_car": ["PassengerCar_Stairs"]}                 # a loose staircase prop beside the coach
+
 lib = {}
 for name, (rel, cls, prov) in SOURCES.items():
     src = A / rel
@@ -128,6 +132,10 @@ for name, (rel, cls, prov) in SOURCES.items():
     if rel.startswith("fab/") and not src.exists():
         shutil.copytree(FAB_SRC / Path(rel).parts[1], src.parent, dirs_exist_ok=True)
     s = Usd.Stage.Open(str(src))
+    s.SetEditTarget(s.GetSessionLayer()); dp = s.GetDefaultPrim().GetPath()
+    hidden = [p.GetPath() for p in s.Traverse() if any(h in p.GetName() for h in HIDE.get(name, []))]
+    hidden = [h for h in hidden if not any(h != g and h.HasPrefix(g) for g in hidden)]           # outermost only
+    for hp in hidden: s.GetPrimAtPath(hp).SetActive(False)
     mpu, up = UsdGeom.GetStageMetersPerUnit(s), UsdGeom.GetStageUpAxis(s)
     # bound in source units, then the normalising transform: units -> m, Y-up -> Z-up, long axis -> +X
     b = UsdGeom.BBoxCache(Usd.TimeCode.Default(), ["default", "render"]).ComputeWorldBound(s.GetPseudoRoot()).ComputeAlignedRange()
@@ -146,6 +154,7 @@ for name, (rel, cls, prov) in SOURCES.items():
     root = UsdGeom.Xform.Define(w, f"/{name}"); w.SetDefaultPrim(root.GetPrim())
     inner = w.DefinePrim(f"/{name}/asset"); inner.GetReferences().AddReference(str(Path("..") / rel))
     UsdGeom.Xformable(inner).AddTransformOp().Set(M)
+    for hp in hidden: w.OverridePrim(inner.GetPath().AppendPath(hp.MakeRelativePath(dp))).SetActive(False)
     root.GetPrim().SetCustomDataByKey("provenance", prov)
     if RETEXTURE(name): rubble_material(w, f"/{name}", name)
     w.Save()

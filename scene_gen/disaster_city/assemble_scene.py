@@ -15,7 +15,7 @@ from pathlib import Path
 from pxr import Usd, UsdGeom, UsdLux, Sdf, Gf
 from _paths import R
 
-PIECES = {"R01": "rubble_west/R01_assets.usd", "B01": "b01/B01.usd", "R02": "rubble_east/R02_assets.usd", "S01": "s01/S01.usd", "B03": "b03/B03.usd", "PAD": "pad/PAD.usd", "B06": "b06/B06.usd", "S08": "s08/S08.usd", "B35": "b35/B35.usd", "D01": "d01/D01.usd"}
+PIECES = {"R01": "rubble_west/R01_assets.usd", "B01": "b01/B01.usd", "R02": "rubble_east/R02_assets.usd", "S01": "s01/S01.usd", "B03": "b03/B03.usd", "PAD": "pad/PAD.usd", "B06": "b06/B06.usd", "S08": "s08/S08.usd", "B35": "b35/B35.usd", "D01": "d01/D01.usd", "S09": "s09/S09.usd"}
 
 stage = Usd.Stage.CreateNew(str(R / "disaster_city.usda"))
 UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z); UsdGeom.SetStageMetersPerUnit(stage, 1.0)

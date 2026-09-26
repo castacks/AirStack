@@ -29,7 +29,7 @@
 - {id: s14_2, ends: [[246.0, -326.5], [247.0, -350.0]], asset: passenger_car}
 # V11: crossed passenger cars by R02 (a T, and one lying alongside)
 - {id: v11_1, ends: [[220.0, -367.0], [245.0, -360.0]], asset: passenger_car}
-- {id: v11_2, ends: [[232.5, -360.5], [232.5, -383.5]], asset: passenger_car}
+- {id: v11_2, ends: [[232.5, -361.5], [232.5, -383.5]], asset: passenger_car, lift: [4.6, 0.0]}   # north end up on v11_1's roof (tiles: highest there, 2.3 m at the south end)
 - {id: v11_3, ends: [[222.0, -373.5], [221.0, -393.5]], asset: passenger_car}
 # V12: the diagonal line SE of R02 -- two coaches and a locomotive at the south end
 - {id: v12_1, ends: [[214.5, -397.5], [205.0, -416.0]], asset: passenger_car}

@@ -1,0 +1,58 @@
+# S09: the square tent-roofed pavilion NE of B06 (ortho: ~7.6 m square roof at 45 deg; tile top 4.8 m). A tan pyramid roof
+# on four posts over a slab -- the drone video (B05) and the obliques show a tan tent roof, sides open.
+id: S09
+name: pavilion
+semantic: building
+origin: [192.868, -482.937, 63.94]
+yaw_deg: 137.8
+parts:
+- box:
+    name: slab
+    min: [0.3, 0.3, 0]
+    max: [7.3, 7.3, 0.12]
+    mat: concrete
+- box:
+    name: post0
+    min: [0.4, 0.4, 0]
+    max: [0.6, 0.6, 2.9]
+    mat: steel
+- box:
+    name: post1
+    min: [7.0, 0.4, 0]
+    max: [7.199999999999999, 0.6, 2.9]
+    mat: steel
+- box:
+    name: post2
+    min: [7.0, 7.0, 0]
+    max: [7.199999999999999, 7.199999999999999, 2.9]
+    mat: steel
+- box:
+    name: post3
+    min: [0.4, 7.0, 0]
+    max: [0.6, 7.199999999999999, 2.9]
+    mat: steel
+- box:
+    name: eave_beam0
+    min: [0.42, 0.42, 2.6999999999999997]
+    max: [7.18, 0.58, 2.9]
+    mat: steel
+- box:
+    name: eave_beam1
+    min: [7.02, 0.42, 2.6999999999999997]
+    max: [7.18, 7.18, 2.9]
+    mat: steel
+- box:
+    name: eave_beam2
+    min: [0.42, 7.02, 2.6999999999999997]
+    max: [7.18, 7.18, 2.9]
+    mat: steel
+- box:
+    name: eave_beam3
+    min: [0.42, 0.42, 2.6999999999999997]
+    max: [0.58, 7.18, 2.9]
+    mat: steel
+- hip:
+    name: roof
+    min: [0, 0, 2.9]
+    max: [7.6, 7.6, 4.8]
+    mat: canvas

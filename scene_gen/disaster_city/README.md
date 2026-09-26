@@ -51,7 +51,7 @@ PATH, and `~/isaacsim/python.sh` (Isaac Sim 6.0.1) for the check.
 | **S01** drill tower | Tile footprint and height; look from the drone video (A04, B05) | Metal-clad (ribbed and flat grey), closed dark window panels, a wide open top floor on two faces, a slim steel ladder frame. Only the top floor and the door are open. Panel positions follow the video, not a survey. |
 | **B03** strip mall | Roof-height grid from the tiles; storefronts from a Google oblique | **Enterable.** Five units, each with its own roof state (intact, gone, or pancaked). |
 | **B06** south warehouse | Ortho (canopy, walkways, ridge) and tile height | **Enterable.** Gabled hall: 2 bay doors and a personnel door under the canopy, main entrance opposite. The door sizes are guessed. |
-| Industrial pad (`PAD`: S02–S06, mast, 3 cabins) | Tile blobs (position, footprint, height); identities from the Google obliques | Primitives: rail tank car, sphere vessel, pipe rack, tank on legs, X-braced lattice tower, cabins with doors |
+| Industrial pad (`PAD`: S02–S07, mast, 3 sheds) | Tile blobs (position, footprint, height); shapes from the Google oblique image (2) and the drone video (A04) | Steel frame tower with railed platforms and an open top cage, a process column with ring platforms, vertical vessels, a silo with tank and skid, a raised heater box, gable-roofed sheds, the rail tank car |
 | **R01** west rubble pile, **R02** east pile | `rubble_pile.py`: the pile's measured shape (drone reconstruction for R01, tiles for R02) as a smoothed mound 1.6 m under the top, with library rubble stacked on it to the measured height (Nucleus DebrisConcrete fragments, standalone slabs) | Instanced pieces (R01 274, R02 185; about 5M unique triangles), each with an invisible box collider; the photogrammetry surface is no longer used |
 | **B35** tan house (in R03) | LOD1 fit of the tiles; look from the video (B04, B07) | **Enterable.** Two storeys of stucco under a brown hip roof (`gen_house.py`). |
 | R03 collapsed houses | Tile mound plus scattered debris pieces (kept off B35) | The mound is the collider; the pieces are visual only |
@@ -59,7 +59,7 @@ PATH, and `~/isaacsim/python.sh` (Isaac Sim 6.0.1) for the check.
 | Trees (`trees/`) | Canopy peaks in the tile heights; 4 NVIDIA tree species as instanceable references | Position and height from the tiles; invisible trunk and crown colliders |
 | Vehicles (`vehicles/`) | Road vehicles: vehicle-sized blobs on roads, parking lots and near vehicle labels, fitted in the world frame. Rail cars: hand-surveyed car by car (`specs/rail_cars.yaml`), because the tiles merge coupled and derailed cars | Cars, vans and buses from the standalone pack; box truck, dump truck and container from `assets/lib`; tank cars, box cars, coaches and a locomotive from Nucleus + Objaverse. Nothing vehicle-sized is left as raw tile mesh or a box |
 | Survivors (`people/`, `specs/survivors.yaml`) | 11 casualty actors found in the drone video: `find_people.py` (keypoint R-CNN on the georeferenced frames, rays onto the model, clustered), then picked by eye | Posed RenderPeople rigs (`place_people.py`, scene_gen's pose and ground-contact code) where the video shows them: on B01's decks, its roof, inside its first floor, on the road and the kerbs. Class `person` |
-| Props (`specs/props.yaml`, S08) | S10 water tower (library asset), S08 canopy (spec) | Measured off the tiles / ortho |
+| Props (`specs/props.yaml`, S08, S09, D01) | S10 water tower (library asset); S08 canopy, S09 tent pavilion, D01 roll-off dumpster (specs) | Measured off the tiles / ortho; D01 and S09 as the video shows them |
 | Everything else raised (`site/tiles_*`) | Raw tile triangles, classified | Crude: kept so the silhouette is complete |
 
 Measured with `isaac_check.py` in host Isaac Sim 6.0.1 on an RTX 5090: about
@@ -119,6 +119,7 @@ OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh before_after.py shots.json <out_di
 $PY video_compare.py b01 <out_dir> --n 10 --near 47,-410 --r 35   # the scene from the drone's own cameras, beside the frames
 # drone trajectories over both whole videos -> data/recon/tracks/track_{A,B}.jpg (segments = the named clips)
 $PY track_drone.py frames && $PY track_drone.py sfm && $PY track_drone.py georef && $PY track_drone.py plot
+$PY leftovers.py                               # raw tile pieces no model has replaced yet -> data/recon/leftovers.jpg
 $PY footprint_check.py                        # every model vs its tile footprint -> data/recon/footprints.tsv + overlays
 OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh gallery.py <out_dir>        # specs/gallery.yaml: outside, inside, survivors -> jpgs + index.html
 OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh package.py                          # data/dist/disaster_city/ (Kit USD)
@@ -136,6 +137,17 @@ generator like `gen_strip_mall.py`. Then add the building to `PIECES` in
 tile surface under it.
 
 ## Things that bit, so they don't bite again
+
+- **Stairs built from tread boxes float.** Every `stair` now hangs its treads between two stringers
+  (build_hero.py), and a landing gets legs in its spec.
+- **A library asset's box is not the thing's box.** The Objaverse coach carried a loose staircase prop
+  (6 m "wide") and is stubbier than a real one; asset_library.py's `HIDE` drops such parts, and surveyed
+  rail cars are scaled to real dimensions (`RAIL_H`, 3.1 m wide), not within 25% of uniform.
+- **Missed vehicles are surveyed, not re-tuned.** Lowering the building-annex threshold to catch a low
+  wing swallowed parked cars into buildings; `specs/cars.yaml` lists what the detector misses instead,
+  found with leftovers.py.
+- **A tile house can have walls and no roof** (B13): the ray falls to the floor. lod1_buildings.py then
+  takes the convex hull of its walls.
 
 - **Projecting frames onto a model: the OPENCV lens folds back outside the field of view.** Points well
   outside a frame map, through the k1/k2 polynomial, onto pixels inside it -- the first B01 atlas was

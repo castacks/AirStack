@@ -1,0 +1,12 @@
+# Road vehicles the blob detector misses (a car tight against a building or in its shadow merges with
+# it), surveyed by hand off 10 cm gridded crops of the ortho, +-0.5 m. Placed by place_assets.py after
+# the detected ones; `asset` is a standalone-pack car, `tint` darkens its texture (a black car).
+- {id: b06_garage, at: [141.3, -490.3], yaw: 40, asset: lowpoly_sedan, tint: 0.12}   # black car outside B06's canopy (bay doors)
+- {id: b06_curb, at: [133.4, -489.2], yaw: 55, asset: red_car}                         # red car at the kerb by B06's drive
+# the rest: blobs the detector skipped (too small a fill, or merged with a neighbour), found by the leftover-tile sweep.
+# `at` / `yaw` / `size` [L, W, H] from the blob fit (gen_industrial_pad.fit); `lib` = a data/recon/assets/lib asset scaled to `size`
+- {id: z18_lot_car, at: [233.12, -413.7], yaw: 140.8, asset: lowpoly_sedan}       # white car in the Z18 lot
+- {id: b03_street_car, at: [80.38, -419.11], yaw: 129.3, asset: lowpoly_wagon}    # white car on the street west of B03
+- {id: v02_car, at: [151.12, -368.1], yaw: 88.9, asset: lowpoly_sedan}            # white car on the road by V02
+- {id: v09_tanker, at: [349.75, -303.16], yaw: 130.7, lib: tanker_truck, size: [8.9, 2.6, 3.2]}   # V09, the white tanker truck
+- {id: z18_trailer, at: [267.0, -401.96], yaw: 149.7, lib: semi_trailer, size: [11.5, 2.6, 4.0]}   # white semi trailer beside the Z18 rack

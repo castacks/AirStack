@@ -20,6 +20,7 @@ from pxr import Usd, UsdGeom, UsdShade, UsdPhysics, Sdf, Gf
 
 from _paths import CODE, DATA, R, LABELS
 RES, WIN, MIN_H = 0.25, 30.0, 2.0          # m/cell, half window around a label, blob threshold
+ANNEX_H, ANNEX_A = 2.0, 0.0                # an attached lower wing / lean-to (a lower threshold swallows parked cars and bus rows)
 
 t = np.load(R / "tiles_site.npz")
 scene = o3d.t.geometry.RaycastingScene()
@@ -62,8 +63,17 @@ for l in labels:
     n, cc = cv2.connectedComponents(blob)
     c0 = int(WIN / RES)
     ids = cc[c0 - 8:c0 + 8, c0 - 8:c0 + 8]; ids = ids[ids > 0]                 # blob under the label (+-2 m)
-    if not len(ids): print(f"{l['id']}: nothing >= {MIN_H} m at the label"); continue
-    m = (cc == np.bincount(ids).argmax()).astype(np.uint8)
+    if len(ids):
+        m = (cc == np.bincount(ids).argmax()).astype(np.uint8)
+    else:                       # a tile house with its walls but no roof (the ray falls to the floor): its walls' convex hull
+        walls = (((H - ground) >= MIN_H) & notgreen & mine).astype(np.uint8)
+        nw, cw = cv2.connectedComponents(cv2.dilate(walls, np.ones((9, 9), np.uint8)))
+        d = np.where(cw > 0, np.hypot(X - cx, Y - cy), np.inf)
+        if not np.isfinite(d.min()) or d.min() > 4: print(f"{l['id']}: nothing >= {MIN_H} m at the label"); continue
+        k = (cw == cw.flat[d.argmin()]) & (walls > 0)
+        m = cv2.fillConvexPoly(np.zeros_like(walls), cv2.convexHull(cv2.findNonZero(k.astype(np.uint8))), 1)
+        print(f"{l['id']}: roofless in the tiles -- its walls' hull ({m.sum() * RES * RES:.0f} m2)")
+        H = np.where(m > 0, np.percentile(H[k], 80), H)
     (u, v), (w, h), ang = cv2.minAreaRect(cv2.findNonZero(m))
     x, y = cx - WIN + (u + 0.5) * RES, cy + WIN - (v + 0.5) * RES
     rec = {"id": l["id"], "name": l["name"], "at": [round(x, 2), round(y, 2)],
@@ -82,10 +92,10 @@ for l in labels:
             if pg.is_valid and pg.area > 3: polys_.append(pg)
         return polys_
     levels = [(outline(m), rec["height_m"])]
-    annex = (((H - ground) >= MIN_H) & ~level & (H < np.median(roof)) & notgreen & mine).astype(np.uint8)
-    annex = cv2.morphologyEx(annex, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))
+    annex = (((H - ground) >= l.get("annex_h", ANNEX_H)) & ~level & (H < np.median(roof)) & notgreen & mine).astype(np.uint8)
+    annex = cv2.morphologyEx(annex, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))           # lighter: keeps low wings and thick walls
     na, ca = cv2.connectedComponents(annex)
-    touching = [k for k in range(1, na) if (cv2.dilate(m, np.ones((5, 5), np.uint8)).astype(bool) & (ca == k)).any()]
+    touching = [k for k in range(1, na) if (cv2.dilate(m, np.ones((5, 5), np.uint8)).astype(bool) & (ca == k)).any() and (ca == k).sum() * RES * RES >= ANNEX_A]
     if touching:
         am = np.isin(ca, touching)
         levels.append((outline(am), round(float(np.percentile(H[am], 80) - ground), 2)))

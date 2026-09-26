@@ -1,53 +1,53 @@
 # The rusty roll-off dumpster south of B01 (label V05; the video's A03, B03_040, A03_056 show it -- survivor V01 sits against
-# its end). Placed on its tile blob (the fit place_assets.py had given a car: centre 35.05, -427.56, yaw 137); 6.0 x 2.4 x 1.7 m
-# open-top box with ribbed sides and a sloped end, from the frames. `mask_vehicles` keeps place_assets.py from putting a car on it.
+# its end). On its tile blob (centre 35.45, -427.19, yaw 137; the leftover-tile sweep showed the first 6.0 m fit short at the NW end);
+# 6.8 x 2.4 x 1.7 m open-top box with ribbed sides and a sloped end. `mask_vehicles` keeps place_assets.py from putting a car on it.
 id: D01
 name: rolloff_dumpster
 semantic: other
 default_mat: rust
 mask_vehicles: true
-size_m: [6.0, 2.4]
+size_m: [6.8, 2.4]
 origin: [38.062, -428.728, 57.91]
 yaw_deg: 137.0
 parts:
 - box:
     name: floor
     min: [0, 0, 0.1]
-    max: [6.0, 2.4, 0.25]
+    max: [6.8, 2.4, 0.25]
 - box:
     name: side_lo
     min: [0, 0, 0.1]
-    max: [6.0, 0.08, 1.7]
+    max: [6.8, 0.08, 1.7]
 - box:
     name: side_hi
     min: [0, 2.32, 0.1]
-    max: [6.0, 2.4, 1.7]
+    max: [6.8, 2.4, 1.7]
 - box:
     name: end_lo
     min: [0, 0, 0.1]
     max: [0.08, 2.4, 1.7]
 - beam:
     name: end_hi_sloped
-    from: [5.95, 1.2, 0.1]
-    to: [5.4, 1.2, 1.7]
+    from: [6.75, 1.2, 0.1]
+    to: [6.2, 1.2, 1.7]
     t: 0.08
     t2: 2.4
 - box:
     name: rail_lo
     min: [0, -0.06, 1.58]
-    max: [6.0, 0.08, 1.7]
+    max: [6.8, 0.08, 1.7]
 - box:
     name: rail_hi
     min: [0, 2.32, 1.58]
-    max: [6.0, 2.46, 1.7]
+    max: [6.8, 2.46, 1.7]
 - box:
     name: skid_a
     min: [0.2, 0.3, 0]
-    max: [5.8, 0.45, 0.1]
+    max: [6.6, 0.45, 0.1]
 - box:
     name: skid_b
     min: [0.2, 1.95, 0]
-    max: [5.8, 2.1, 0.1]
+    max: [6.6, 2.1, 0.1]
 - box:
     name: rib_lo_0
     min: [0.5, -0.06, 0.1]
@@ -112,3 +112,11 @@ parts:
     name: rib_hi_7
     min: [5.4, 2.4, 0.1]
     max: [5.5, 2.46, 1.58]
+- box:
+    name: rib_lo_8
+    min: [6.1, -0.06, 0.1]
+    max: [6.199999999999999, 0.0, 1.58]
+- box:
+    name: rib_hi_8
+    min: [6.1, 2.4, 0.1]
+    max: [6.199999999999999, 2.46, 1.58]

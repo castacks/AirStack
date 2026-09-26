@@ -67,7 +67,7 @@ labels:
 - {id: B10, name: house_2, kind: building, at: [127, -276], height_m: 5.1, note: "two-part house"}
 - {id: B11, name: house_3, kind: building, at: [150, -269], height_m: 3.8}
 - {id: B12, name: house_4, kind: building, at: [149, -278], height_m: 4.3}
-- {id: B13, name: house_5_dark_roof, kind: building, at: [170, -276], height_m: 6.5}
+- {id: B13, name: house_5_dark_roof, kind: building, at: [170.6, -279.0], height_m: 6.5}
 - {id: B14, name: house_6, kind: building, at: [192, -274], height_m: 3.8}
 - {id: B15, name: house_7, kind: building, at: [100, -291], height_m: 4.0}
 - {id: B16, name: house_8, kind: building, at: [145, -304], height_m: 3.9}

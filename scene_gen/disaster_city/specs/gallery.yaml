@@ -71,12 +71,30 @@ sections:
     az: 200
     el: 25
     dist: 70
+  - name: pad_north
+    caption: 'North pad: the steel frame tower, the process column, the vessel on its skid, the raised heater box'
+    target: [75, -508, 66]
+    az: 225
+    el: 18
+    dist: 42
+  - name: pad_south
+    caption: 'South pad: tank car, the vertical vessel, silo with tank and skid, shed'
+    target: [40, -540, 61]
+    az: 250
+    el: 25
+    dist: 34
   - name: rail_derailment
     caption: Rail yard and the R05 derailment
     target: [295, -255, 62]
     az: 200
     el: 30
     dist: 65
+  - name: rail_cars_stacked
+    caption: 'V11: one coach lying with its end up on the roof of the other'
+    target: [232.5, -365.0, 61.0]
+    az: 200
+    el: 15
+    dist: 24
   - name: rail_cars_r02
     caption: Crossed passenger cars by R02
     target: [220, -385, 61]

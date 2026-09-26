@@ -109,11 +109,15 @@ parts:
   - beam: {name: pancake_3, from: [13.0, 12.9, 1.0], to: [24.4, 12.9, 1.6], t: 0.3, t2: 5.4}
   - box: {name: pancake_props, min: [15.0, 11.0, 0.15], max: [15.4, 11.4, 1.0]}
 # ---- crane on the roof ----
-  # a yellow jib crane (B09): thick post on a base plate, boom out over the frame, a diagonal brace under it
-  - box: {name: crane_base, min: [11.15, 8.75, 7.6], max: [11.95, 9.55, 7.75], mat: yellow}
-  - box: {name: crane_post, min: [11.35, 8.95, 7.75], max: [11.75, 9.35, 11.3], mat: yellow}
-  - beam: {name: crane_boom, from: [11.55, 9.15, 11.0], to: [16.2, 9.15, 11.0], t: 0.35, t2: 0.25, mat: yellow}
-  - beam: {name: crane_brace, from: [11.55, 9.15, 9.3], to: [14.0, 9.15, 10.85], t: 0.14, mat: yellow}
-  - box: {name: crane_hoist, min: [15.2, 9.0, 10.5], max: [15.6, 9.3, 10.83], mat: steel_dark}
+  # the cream jib crane (B09), measured off the dense cloud above the roof (points z > 9.3): post at (6.3, 6.7) mid-roof,
+  # up to 11.8; the boom runs from its top toward (11.0, 4.2) -- over the ylo parapet -- with a brace under it
+  - box: {name: crane_base, min: [5.9, 6.3, 7.6], max: [6.7, 7.1, 7.75], mat: yellow}
+  - cyl: {name: crane_post, c: [6.3, 6.7, 9.75], r: 0.2, h: 4.1, mat: yellow}
+  - beam: {name: crane_boom, from: [6.3, 6.7, 11.55], to: [11.1, 4.15, 11.55], t: 0.35, t2: 0.25, mat: yellow}
+  - beam: {name: crane_brace, from: [6.3, 6.7, 9.6], to: [8.4, 5.6, 11.4], t: 0.14, mat: yellow}
+  - box: {name: crane_hoist, min: [10.0, 4.5, 11.05], max: [10.4, 4.9, 11.38], mat: steel_dark}
+  # legs under the 133 landing (it would otherwise hang off the frame by one edge)
+  - box: {name: landing_133_leg_a, min: [22.4, 0.7, 0], max: [22.55, 0.85, 4.2], mat: steel}
+  - box: {name: landing_133_leg_b, min: [24.65, 0.7, 0], max: [24.8, 0.85, 4.2], mat: steel}
 # NOT MODELLED (no data in the cloud): interior partitions, the yhi face's openings (one per floor
 # assumed), the X-bracing on the frame.
