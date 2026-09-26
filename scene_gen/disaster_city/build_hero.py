@@ -13,7 +13,7 @@ drone. Spec parts:
            openings: [{at: dist along wall to opening's left edge, w, sill, h}]}
           (walls must run along x or y)
   stair:  {name, from: [x,y,z], to: [x,y,z], width, mat, handrails}   straight run, treads on two stringers; banisters optional
-  rail:   {name, from: [x,y], to: [x,y], z, h: 1.1, mat}   posts every 1.5 m + top and mid rails
+  rail:   {name, from: [x,y], to: [x,y], z, h: 1.1, mat}   posts every 1.5 m + top and mid rails + an edge rim they bolt onto
           (a solid box would read as a wall to a drone's depth sensor and collider)
   beam:   {name, from: [x,y,z], to: [x,y,z], t: 0.2, mat}   oriented square bar (bracing, booms, tilted slabs with t2)
   cyl:    {name, c: [x,y,z] (centre), r, h, axis: X|Y|Z, mat}
@@ -67,11 +67,14 @@ def stair_boxes(s):
     return out
 
 def rail_boxes(r):
+    """posts every 1.5 m, top + mid rail, and a rim (edge channel) along the floor edge that the posts come down
+    and bolt onto -- so the railing is attached to something, not standing on the edge"""
     p0, p1 = np.array(r["from"], float), np.array(r["to"], float); z, h, t = r["z"], r.get("h", 1.1), 0.05
     L = np.linalg.norm(p1 - p0); u = (p1 - p0) / L
-    out = []
+    lo, hi = np.minimum(p0, p1) - 0.04, np.maximum(p0, p1) + 0.04
+    out = [([lo[0], lo[1], z - 0.22], [hi[0], hi[1], z + 0.06])]                     # the rim
     for i in range(int(np.ceil(L / 1.5)) + 1):
-        c = p0 + u * min(i * 1.5, L); out.append(([c[0] - t, c[1] - t, z], [c[0] + t, c[1] + t, z + h]))
+        c = p0 + u * min(i * 1.5, L); out.append(([c[0] - t, c[1] - t, z - 0.2], [c[0] + t, c[1] + t, z + h]))
     lo, hi = np.minimum(p0, p1) - t / 2, np.maximum(p0, p1) + t / 2
     for zz in (z + h - t, z + h / 2 - t / 2):
         out.append(([lo[0], lo[1], zz], [hi[0], hi[1], zz + t]))
