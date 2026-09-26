@@ -70,7 +70,8 @@ parts:
   - box: {name: beam_roof_yhi, min: [12.7, 9.85, 7.2], max: [24.8, 10.15, 7.45], mat: steel}
   - box: {name: beam_roof_xhi, min: [24.45, 3.4, 7.2], max: [24.75, 10.0, 7.45], mat: steel}
   # ---- railings: both roofs (1.5 m, as the cloud shows) and the deck's open edges ----
-  - rail: {name: rail_roof_ylo, from: [0.4, 3.4], to: [24.8, 3.4], z: 7.8, h: 1.1, mat: steel}
+  - rail: {name: rail_roof_ylo, from: [0.4, 3.4], to: [17.4, 3.4], z: 7.8, h: 1.1, mat: steel}
+  - rail: {name: rail_roof_ylo_b, from: [18.8, 3.4], to: [24.8, 3.4], z: 7.6, h: 1.1, mat: steel}     # gap: the top landing
   - rail: {name: rail_roof_yhi, from: [0.4, 9.8], to: [24.8, 9.8], z: 7.8, h: 1.1, mat: steel}
   - rail: {name: rail_roof_xlo, from: [0.4, 3.4], to: [0.4, 9.8], z: 7.8, h: 1.1, mat: steel}
   - rail: {name: rail_roof_xhi, from: [24.8, 3.4], to: [24.8, 10.0], z: 7.6, h: 1.1, mat: steel}
@@ -78,9 +79,18 @@ parts:
   - rail: {name: rail_deck_yhi, from: [18.8, 10.0], to: [24.8, 10.0], z: 4.35, mat: steel}
   # ---- stairs on the ylo side, outside the frame, and the "133" landing ----
   - box: {name: landing_133, min: [22.4, 0.7, 4.2], max: [24.8, 3.4, 4.35], mat: grating}
-  - box: {name: sign_133, min: [22.6, 0.6, 4.95], max: [23.6, 0.65, 5.75], mat: sign}          # the "133" plate on the landing rail, baked from the video
-  - stair: {name: stair_ground_to_133, from: [15.5, 1.9, 0.15], to: [22.4, 1.9, 4.28], width: 1.1, mat: grating}
-  - stair: {name: stair_deck_to_roof, from: [24.2, 6.7, 4.35], to: [19.0, 6.7, 7.6], width: 1.0, mat: grating}
+  - box: {name: sign_133, min: [23.4, 0.6, 4.4], max: [24.3, 0.66, 5.3], mat: sign}              # the "133" plate on the landing rail at its outer corner (B03_010/013)
+  # the stair is a switchback OUTSIDE the frame on the ylo side (cloud section y < 3.4; video B03_04/05): the lower flight
+  # (outer) rises +x to the 133 landing, the upper flight (inner) turns back -x to a top landing beside the roof deck.
+  # There is no stair inside the frame and no hole in either deck.
+  - stair: {name: stair_ground_to_133, from: [18.0, 1.2, 0.15], to: [22.4, 1.2, 4.28], width: 1.0, mat: grating}
+  - stair: {name: stair_133_to_roof, from: [22.4, 2.75, 4.35], to: [18.8, 2.75, 7.55], width: 1.0, mat: grating}
+  - box: {name: landing_top, min: [17.4, 2.2, 7.45], max: [18.8, 3.4, 7.6], mat: grating}
+  - box: {name: landing_top_leg, min: [17.4, 2.2, 0], max: [17.55, 2.35, 7.45], mat: steel}
+  - rail: {name: rail_stair_lo, from: [18.0, 0.7], to: [22.4, 0.7], z: 4.35, mat: steel}
+  - rail: {name: rail_landing_133_ylo, from: [22.4, 0.7], to: [24.8, 0.7], z: 4.35, mat: steel}
+  - rail: {name: rail_landing_133_xhi, from: [24.8, 0.7], to: [24.8, 3.4], z: 4.35, mat: steel}
+  - rail: {name: rail_landing_top, from: [17.4, 2.2], to: [18.8, 2.2], z: 7.6, mat: steel}
   # ---- the collapsed wing on the yhi (pile) side: its roof slab hinged off the block's roof edge and
 # came down onto the pile (A03_046-052; elev_xlo: from (y 9.8, z 7.4) to (y 14.9, z 2.4), x 1.0..10.5),
 # with its railing still on it; the first floor dropped under it. Tilted slabs, solid colliders.

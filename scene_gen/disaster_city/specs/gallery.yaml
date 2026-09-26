@@ -159,10 +159,10 @@ sections:
     look: [18.0, 11.5, 1.8]
     focal: 12
   - name: b01_stair_133
-    caption: The stair up to the 133 landing
+    caption: 'The switchback stair outside the frame: up to the 133 landing, then back up to the roof deck'
     in: B01
-    eye: [13.0, -1.5, 1.8]
-    look: [22.4, 2.0, 4.5]
+    eye: [12.5, -6.0, 2.0]
+    look: [21.0, 1.5, 4.2]
     focal: 14
   - name: s01_top_floor
     caption: S01 drill tower, the open top floor

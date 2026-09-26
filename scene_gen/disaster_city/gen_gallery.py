@@ -41,7 +41,7 @@ inside = [
     I("b01_frame_deck", "B01 frame deck: survivors V02, V03, V10 on the plywood (B08, A02)", "B01", [13.4, 3.9, 6.1], [21.5, 8.5, 4.4], 14),
     I("b01_roof", "B01 roof: the cream jib crane and survivor V04 (B09)", "B01", [1.6, 4.0, 9.6], [10.5, 8.5, 7.8], 14),
     I("b01_wing_under", "Under B01's collapsed wing: the tilted roof slab and the pancaked floors", "B01", [2.0, 15.4, 1.5], [18.0, 11.5, 1.8]),
-    I("b01_stair_133", "The stair up to the 133 landing", "B01", [13.0, -1.5, 1.8], [22.4, 2.0, 4.5], 14),
+    I("b01_stair_133", "The switchback stair outside the frame: up to the 133 landing, then back up to the roof deck", "B01", [12.5, -6.0, 2.0], [21.0, 1.5, 4.2], 14),
     I("s01_top_floor", "S01 drill tower, the open top floor", "S01", [1.0, 1.0, 18.3], [5.7, 7.2, 17.3]),
     I("b35_ground_floor", "B35 tan house, ground floor", "B35", [1.0, 1.0, 1.6], [11.0, 5.8, 1.0]),
     I("b35_first_floor", "B35 tan house, first floor", "B35", [11.0, 1.0, 4.4], [1.0, 5.8, 3.4]),
