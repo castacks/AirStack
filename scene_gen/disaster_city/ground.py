@@ -21,7 +21,7 @@ LABELS.yaml, and the hero list in assemble_scene.py.
    grey) with no label within 15 m -- and no labelled vehicle/structure/rubble is within 8 m, otherwise the kind of the nearest LABELS feature within 15 m (rubble,
    vehicle, structure->building), else `clutter`.
 Writes data/recon/site_ground.usd -- one Mesh per class under /site, each with a class
-label and a static collider. Everything is textured by top-down projection of the ortho.
+label and a static collider. Everything is textured by top-down projection of the ortho (ground_texture.py's super-resolved UDIM tiles when present).
 """
 import json
 from pathlib import Path
@@ -184,7 +184,10 @@ mat = UsdShade.Material.Define(stage, "/site/ortho_mat")
 sh = UsdShade.Shader.Define(stage, "/site/ortho_mat/pbr"); sh.CreateIdAttr("UsdPreviewSurface")
 sh.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(1.0)
 tex = UsdShade.Shader.Define(stage, "/site/ortho_mat/tex"); tex.CreateIdAttr("UsdUVTexture")
-tex.CreateInput("file", Sdf.ValueTypeNames.Asset).Set("./ortho_site.png")
+# ground_texture.py's super-resolved UDIM tiles (3.1 cm) when present, else the 12.5 cm ortho
+TEXG = json.load(open(R / "ground_tex/ground_tex.json"))["grid"] if (R / "ground_tex/ground_tex.json").exists() else 1
+tex.CreateInput("file", Sdf.ValueTypeNames.Asset).Set("./ground_tex/ortho.<UDIM>.jpg" if TEXG > 1 else "./ortho_site.png")
+tex.CreateInput("sourceColorSpace", Sdf.ValueTypeNames.Token).Set("sRGB")
 rd = UsdShade.Shader.Define(stage, "/site/ortho_mat/st"); rd.CreateIdAttr("UsdPrimvarReader_float2")
 rd.CreateInput("varname", Sdf.ValueTypeNames.Token).Set("st")
 tex.CreateInput("st", Sdf.ValueTypeNames.Float2).ConnectToSource(rd.ConnectableAPI(), "result")
@@ -199,7 +202,7 @@ def emit(name, V, F, label, colors=None, textured=False):
     m.CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)
     m.CreateExtentAttr(Vt.Vec3fArray.FromNumpy(np.stack([V.min(0), V.max(0)]).astype(np.float32)))
     if textured:
-        st = np.c_[(V[:, 0] - OX0) / (ortho.shape[1] * OM), 1 - (OY1 - V[:, 1]) / (ortho.shape[0] * OM)]
+        st = TEXG * np.c_[(V[:, 0] - OX0) / (ortho.shape[1] * OM), 1 - (OY1 - V[:, 1]) / (ortho.shape[0] * OM)]   # UDIM: u, v in [0, grid)
         UsdGeom.PrimvarsAPI(m).CreatePrimvar("st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.vertex).Set(Vt.Vec2fArray.FromNumpy(st.astype(np.float32)))
         UsdShade.MaterialBindingAPI.Apply(m.GetPrim()).Bind(mat)
     if colors is not None:

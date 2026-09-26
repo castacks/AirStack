@@ -23,6 +23,9 @@ PHOTO = {
     "concrete":   ("A03", 5, [(25, 135), (200, 135), (200, 345), (25, 345)], 3.5, 0.9, 0.0, "B01's cracked block wall, first floor, xlo half of the ylo face", 0.72),
     "steel_dark": ("A02", 8, [(60, 210), (560, 210), (560, 590), (60, 590)], 1.2, 0.7, 0.3, "the rusted I-beam web under B01's wing frame", 0.25),
     "stucco":     ("B04", 2, [(690, 352), (810, 352), (810, 398), (690, 398)], 3.0, 0.9, 0.0, "tan stucco of the hip-roofed building across the street (in shade: skylight turns it pink, so its colour is set)", (0.74, 0.66, 0.53)),
+    # ground detail (ground_texture.py bakes their fine structure into the super-resolved ortho; colour stays the ortho's)
+    "ground_concrete": ("B10", 5, [(40, 520), (900, 520), (900, 700), (40, 700)], 3.0, 0.9, 0.0, "the concrete apron beside B01", 0.60),
+    "ground_dirt":     ("B07", 3, [(330, 345), (720, 345), (720, 450), (330, 450)], 2.0, 0.95, 0.0, "the sand round the dumpster", 0.62),
     "roof_brown": ("B04", 2, [(660, 310), (900, 310), (900, 327), (660, 327)], 3.0, 0.85, 0.0, "the same building's brown roof", 0.40),
 }
 # name: (base RGB sampled off the frames, noise amplitude, pattern, tile_m, roughness, metallic)
@@ -32,6 +35,8 @@ PROC = {
     "wood":      ((0.55, 0.42, 0.28), 0.08, "streak", 1.0, 0.9, 0.0),
     "rust":      ((0.45, 0.26, 0.16), 0.08, "blotch", 1.5, 0.8, 0.2),
     "tank_white": ((0.85, 0.85, 0.83), 0.03, "blotch", 3.0, 0.5, 0.1),
+    "ground_asphalt": ((0.24, 0.24, 0.25), 0.12, "speckle", 1.0, 0.9, 0.0),  # aggregate speckle (the video's road is too oblique: it streaks)
+    "ground_grass": ((0.36, 0.42, 0.22), 0.10, "blades", 1.0, 0.95, 0.0),  # no close lawn in the footage: blades in its colour
     "tank_black": ((0.10, 0.10, 0.11), 0.03, "blotch", 3.0, 0.5, 0.2),
     "metal_ribbed": ((0.48, 0.48, 0.47), 0.03, "ribs", 2.0, 0.6, 0.4),   # drill tower cladding, A04 frame 5
     "metal_grey":   ((0.42, 0.42, 0.43), 0.03, "blotch", 3.0, 0.6, 0.4),  # its flat faces
@@ -78,6 +83,16 @@ for name, (rgb, amp, pat, tile, rough, metal) in PROC.items():
         g = np.zeros(N, np.float32)
         for x in np.cumsum(rng.uniform(40, 80, 12)).astype(int) % N: g[x:x + int(rng.uniform(6, 12))] = 3
         n = n + g[None, :]
+    if pat == "speckle":                                                       # 1-3 px light and dark stones
+        g = np.zeros((N, N), np.float32); k = 9000
+        g[rng.integers(0, N, k), rng.integers(0, N, k)] = rng.choice([-2.5, 2.5], k)
+        n = n * 0.3 + cv2.GaussianBlur(g, (3, 3), 0.8) * 1.5
+    if pat == "blades":                                                        # short dark/light strokes, random tilt
+        g = np.zeros((N, N), np.float32)
+        for _ in range(6000):
+            x, y, l, t = rng.integers(0, N), rng.integers(0, N), rng.integers(4, 14), rng.uniform(-0.5, 0.5)
+            cv2.line(g, (int(x), int(y)), (int(x + l * np.sin(t)), int(y - l * np.cos(t))), float(rng.choice([-1.5, 1.5])), 1)
+        n = n * 0.4 + seamless(cv2.GaussianBlur(g, (3, 3), 0)[..., None])[..., 0]
     if pat == "grid":
         g = np.zeros((N, N), np.float32); g[:, ::N // 16] = -3; g[::N // 16, :] = -3; n = n + cv2.blur(g, (5, 5))
     tex = np.array(rgb[::-1], np.float32)[None, None] * (1 + amp * n[..., None] * 3)

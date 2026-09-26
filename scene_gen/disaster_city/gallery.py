@@ -101,6 +101,12 @@ for sec in G["sections"]:
         extra = "".join(f'<br><a href="{v}">video frame: {Path(v).name}</a>' for v in s.get("video", []))
         if (out / "pairs" / f"{s['name']}.jpg").exists(): extra += f'<br><a href="pairs/{s["name"]}.jpg">before / after</a>'
         html.append(f'<figure><a href="{s["name"]}.jpg"><img src="{s["name"]}.jpg"></a><figcaption><b>{s["name"]}</b> {s["caption"]}{extra}</figcaption></figure>')
+for d in sorted(out.glob("video_triptych_*")):             # video_compare.py --tiles output: raw tiles | drone video | ours
+    imgs = sorted(f for f in d.glob("*.jpg") if not f.name.startswith("00_"))
+    if not imgs: continue
+    html.append(f"<h2>Against the drone video: {d.name[15:]}</h2><p>Each row: the raw Google tiles, the video frame, and this scene, all from that frame's "
+                f"georeferenced camera. <a href='{d.name}/00_sheet.jpg'>all on one sheet</a></p>")
+    html += [f'<figure style="width:95%"><a href="{d.name}/{f.name}"><img src="{d.name}/{f.name}"></a><figcaption>{f.stem}</figcaption></figure>' for f in imgs]
 (out / "index.html").write_text("\n".join(html))
 def sheet(files, name, w):
     th = [Image.open(f).resize((w, round(w * Image.open(f).height / Image.open(f).width))) for f in files]
