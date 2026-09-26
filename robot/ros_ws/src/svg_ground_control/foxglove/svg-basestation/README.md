@@ -34,22 +34,25 @@ python3 robot/ros_ws/src/svg_ground_control/foxglove/install.py   # installs air
 (The general AirStack panels — Robot Tasks, Waypoint / Polygon editors — stay
 in `gcs/foxglove_extensions/` with their own `install.py`.)
 
-`svg_basestation.json` (one directory up) is a ready-made layout with **two
+`svg_basestation.json` (one directory up) is a ready-made layout with **three
 instances** of this panel plus a 3D view of `/svg/viz/markers`:
 
 ```
 ┌──────────────────────────┬──────────────────────────┐
 │ SVG Basestation          │ 3D  (/svg/viz/markers)    │
 │  View = main             │                          │
-│  safety · command · CBF  ├──────────────────────────┤
-│  goal · agents · state   │ SVG Battery & Power      │
-│  link safety · cellular  │  View = power            │
-└──────────────────────────┴──────────────────────────┘
+│  safety · command · CBF  ├─────────────┬────────────┤
+│  goal · agents · state   │ SVG Battery │ SVG Teleop │
+│  link safety · cellular  │  & Power    │  (sticks)  │
+│                          │ View = power│View = teleop│
+└──────────────────────────┴─────────────┴────────────┘
 ```
 
 The **View** setting (gear icon → Swarm) picks what an instance shows: `main`
-(everything except Battery & Power), `power` (Battery & Power only, with the
-power chip and clock in its banner), or `full` (the old single-panel form).
+(everything except Battery & Power and Teleop), `power` (Battery & Power only,
+with the power chip and clock in its banner), `teleop` (the Teleop · Sticks
+card only — it reads "Teleop off" while `safe_teleop` is not publishing), or
+`full` (the old single-panel form).
 The 3D view's built-in grid layer is off: it is a fixed 8 m square on the
 origin and never matches the fence. The commander draws a grid on the fence
 floor instead (`fence_grid_cell_m`), clipped to the fence and aligned to world
@@ -169,6 +172,34 @@ One row per agent, positions in **world ENU metres** to 2 decimals:
 | **Interface** | Result of the last `robot_command` the commander sent this drone's interface (`request offboard`, `arm`, `disarm`): ✓ accepted, … pending, ✗ rejected / errored / skipped because the service was not ready |
 | **Odom** | Whether the commander is receiving fresh odometry for this drone (stale → it commands zero velocity) |
 
+## Teleop · Sticks
+
+The pad as `safe_teleop` sees it, the Foxglove form of `ros2 run
+svg_ground_control teleop_monitor`. It lives in the `teleop` instance (right of
+Battery & Power in the shipped layout; also in a `full` instance, never in
+`main`) and exists **only while `safe_teleop` is publishing** on
+`/svg/{name}/teleop_command` (it publishes at 20 Hz whenever it runs, zeros
+included; 2 s of silence hides it again and the instance reads "Teleop off"),
+so a run with no hand-flown drone never shows it. `Sections = Show all` forces
+it on.
+
+| Element | What it shows |
+| --- | --- |
+| **Joy chip** | `/joy 20 Hz` when `sensor_msgs/Joy` is arriving, red `NO /joy` / `STALE` otherwise (joy_node down or pad unplugged — `safe_teleop` publishes zero meanwhile) |
+| **safe_teleop chip** | Which drone(s) the stick velocity is streaming for, and at what rate |
+| **Sticks chip** | Whether the sticks reach the drone: `STICKS LIVE → drone_3` (green) when the commander lists it in `teleop_drones`, it is `ACTIVE` and Start has been called; amber `STICKS PARKED` with the reason (`press Start`, `not in teleop_drones`, `is ASCEND`); grey `NO COMMANDER` |
+| **Sticks table** | Four fixed-width rows — `fwd / back`, `left / right` (right stick), `up / down`, `yaw` (left stick): **Raw** is the `/joy` axis value as the driver reports it (−1 … +1); **Mapped** is what `safe_teleop` makes of it — after its deadzone (a raw value inside `deadzone` reads 0, and the rest is rescaled so full deflection is still 1.0) and its sign flip — i.e. the fraction of full stick the drone will fly, times `max_speed_mps`; then a centred bar. Nothing that changes length is in the row: hover it for the `/joy` axis index and why it reads 0 (`inside the deadzone`, `LOCKED`, `axis missing` — the pad has fewer axes than the map, wrong `teleop_controller`); the Mapped cell is greyed inside the deadzone, amber when locked, red when the axis is missing |
+| **Lock line** | The lock button's state and whether the left stick is locked (mirrors `safe_teleop`'s edge-triggered latch from the presses seen since the panel opened) and which controller profile the map came from |
+| **Published** | `vx vy vz yaw` from the last `teleop_command`, each as a bar against `max_speed_mps` / `max_climb_speed_mps` / `yaw_rate_rad_s` (hover the title for the topic and the scales) |
+
+The axis map, deadzone and speed scaling are read from `safe_teleop`'s own
+parameters (`<teleop ns>/get_parameters`: `forward_axis`, `left_axis`,
+`climb_axis`, `yaw_axis`, `lock_button`, the four signs, `deadzone`,
+`max_speed_mps`, `max_climb_speed_mps`, `yaw_rate_rad_s`, `teleop_controller`),
+so a DragonRise pad is shown on its own layout. Until that read answers the
+`xbox_usb` defaults are assumed and the lock line says so. The raw joy topic is
+the `Joystick (raw)` setting (`/joy`).
+
 ## Mode and wiring
 
 `Modes` in the settings takes a comma-separated `sim|real` list in `drone_names`
@@ -280,7 +311,7 @@ why a section is or is not there:
 | --- | --- |
 | goal-tracking | `/svg/{name}/goal_command` |
 | formation | `/svg/formation_command` |
-| teleop | `/svg/{name}/teleop_command` |
+| teleop | `/svg/{name}/teleop_command` (the Teleop · Sticks card additionally needs it to be *streaming*) |
 | mocap/hardware | `/{name}/pose`, `/{name}/fmu/out/estimator_status_flags` |
 | cellular | `/{name}/comms/cellular`, `/{name}/cellular/odometry` |
 

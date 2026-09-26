@@ -101,8 +101,12 @@
         }
       },
       "transforms": {
-        "frame:base_link_stabilized": { "visible": false },
-        "frame:map_ned": { "visible": false }
+        "frame:base_link_stabilized": {
+          "visible": false
+        },
+        "frame:map_ned": {
+          "visible": false
+        }
       },
       "topics": {
         "/svg/viz/markers": {
@@ -116,7 +120,7 @@
         "grid": {
           "visible": false,
           "drawBehind": false,
-          "label": "Grid (built-in, fixed 8 m square — off: the commander draws a fence-aligned grid in /svg/viz/markers)",
+          "label": "Grid (built-in, fixed 8 m square \u2014 off: the commander draws a fence-aligned grid in /svg/viz/markers)",
           "instanceId": "svg-grid",
           "layerId": "foxglove.Grid",
           "size": 8,
@@ -146,6 +150,18 @@
       },
       "imageMode": {},
       "synchronize": false
+    },
+    "svg-basestation.SVG Basestation!sbteleop": {
+      "view": "teleop",
+      "drones": "drone_1,drone_2,drone_3",
+      "modes": "",
+      "sections": "auto",
+      "statusTopic": "/svg/commander_status",
+      "commanderNs": "/swarm_commander",
+      "teleopNs": "/safe_teleop",
+      "teleopTopicTemplate": "/svg/{name}/teleop_command",
+      "joyTopic": "/joy",
+      "selected": "drone_1"
     }
   },
   "globalVariables": {},
@@ -159,7 +175,12 @@
     "second": {
       "direction": "column",
       "first": "3D!sbview",
-      "second": "svg-basestation.SVG Basestation!sbpower",
+      "second": {
+        "direction": "row",
+        "first": "svg-basestation.SVG Basestation!sbpower",
+        "second": "svg-basestation.SVG Basestation!sbteleop",
+        "splitPercentage": 50
+      },
       "splitPercentage": 60
     },
     "splitPercentage": 50

@@ -73,7 +73,12 @@ const params = { cbf_alpha: 2.5, cbf_safety_radius_m: 0.55, cbf_max_speed_mps: 1
   teleop_max_speed_mps: 2.0, goal_accel_mps2: 3.0, goal_settle_s: 0.3 };
 // safe_teleop's parameters — max_speed_mps must always equal the commander's
 // teleop_max_speed_mps, so the panel sets both.
-const padParams = { max_speed_mps: 2.0 };
+const padParams = { max_speed_mps: 2.0, max_climb_speed_mps: 0.8, yaw_rate_rad_s: 1.0, deadzone: 0.15,
+  // dragonrise layout: right stick on 3/2, lock on button 6 — so the card
+  // must show the map it READ, not the xbox default.
+  forward_axis: 3, left_axis: 2, climb_axis: 1, yaw_axis: 0, lock_button: 6,
+  forward_sign: 1.0, left_sign: 1.0, climb_sign: 1.0, yaw_sign: 1.0,
+  drone: "drone_3", joy_topic: "/joy", teleop_controller: "dragonrise_usb" };
 const published = [];
 const missionState = { active: false, seq: 0, last: null };
 
@@ -102,7 +107,10 @@ const panelContext = {
     }
     const store = service.startsWith("/safe_teleop/") ? padParams : params;
     if (service.endsWith("/get_parameters")) {
-      return { values: req.names.map((n) => (n in store ? { type: 3, double_value: store[n] } : { type: 0 })) };
+      return { values: req.names.map((n) => (n in store
+        ? (typeof store[n] === "string" ? { type: 4, string_value: store[n] }
+          : /_axis$|_button$/.test(n) ? { type: 2, integer_value: store[n] } : { type: 3, double_value: store[n] })
+        : { type: 0 })) };
     }
     if (service.endsWith("/set_parameters")) {
       const { name, value } = req.parameters[0];
@@ -161,6 +169,13 @@ function feedStatus(overrides) {
 function feedOdom(name, x, y, z) {
   frame([{ topic: `/${name}/odometry_conversion/odometry`, receiveTime: rxTime(t),
     message: { header: { stamp: rxTime(t - 0.01) }, pose: { pose: { position: { x, y, z } } }, twist: { twist: { linear: { x: 0.1, y: 0, z: 0 } } } } }]);
+}
+function feedJoy(axes, buttons) {
+  frame([{ topic: "/joy", receiveTime: rxTime(t), message: { header: { stamp: rxTime(t) }, axes, buttons } }]);
+}
+function feedTeleop(name, vx, vy, vz, yaw) {
+  frame([{ topic: `/svg/${name}/teleop_command`, receiveTime: rxTime(t),
+    message: { header: { stamp: rxTime(t) }, twist: { linear: { x: vx, y: vy, z: vz }, angular: { x: 0, y: 0, z: yaw } } } }]);
 }
 function feedCmd(name) {
   frame([{ topic: `/${name}/interface/velocity_command`, receiveTime: rxTime(t),
@@ -414,6 +429,97 @@ const text = () => root.textContent;
   render();
   assert(text().includes("HOLDING"), "mission chip HOLDING after hold");
   assert(/hold\s+sent, awaiting reply\s+✓ confirmed by commander/.test(text()), "hold confirmed from the snapshot even without a service reply");
+
+  // Teleop · Sticks: hidden until safe_teleop publishes, then the raw pad,
+  // the mapped sticks (on the map read from safe_teleop) and the published
+  // velocity; hidden again once the stream stops.
+  const teleopCard = findAll(root, (n) => n.className === "sb-card" && n.textContent.includes("Teleop · Sticks"))[0];
+  assert(teleopCard && teleopCard.hidden, "Teleop card exists but is hidden while safe_teleop is not publishing");
+  assert(subscribed.includes("/joy") && subscribed.includes("/svg/drone_3/teleop_command"), "subscribes to /joy and the teleop command topics");
+  for (let i = 0; i < 4; i++) {
+    t += 0.05;
+    feedJoy([0.02, -0.5, 0.0, 0.8, 0.0, 0.0], [0, 0, 0, 0, 0, 0, 0]);
+    feedTeleop("drone_3", 1.53, 0.0, -0.4, 0.0);
+  }
+  render();
+  await new Promise((r) => setTimeout(r, 20));   // safe_teleop get_parameters answers
+  render();
+  assert(!teleopCard.hidden, "Teleop card shown once teleop_command is streaming");
+  {
+    const txt = teleopCard.textContent;
+    const stickRows = findAll(teleopCard, (n) => n.tagName === "tr" && n.title.includes("/joy axis"));
+    assert(stickRows.length === 4 && stickRows[0].children.length === 4, "four stick rows with fixed columns: label, raw, mapped, bar");
+    assert(stickRows[0].children[0].textContent === "fwd / back" && stickRows[0].title.includes("right stick, /joy axis 3"),
+      "row label is the direction only; the stick and axis index live in the tooltip, from safe_teleop's map");
+    assert(stickRows[0].children[1].textContent === "+0.800" && stickRows[1].children[1].textContent === "+0.000",
+      "Raw column shows the /joy axis value");
+    assert(txt.includes("dragonrise_usb"), "axis map read from safe_teleop, not the xbox default");
+    assert(stickRows[0].children[2].textContent === "+0.765", "forward stick mapped through the 0.15 deadzone (0.8 -> 0.765)");
+    assert(!txt.includes("axes    ") && !txt.includes("buttons "), "no raw axes/buttons dump above the table");
+    assert(txt.includes("+1.530 m/s") && txt.includes("-0.400 m/s"), "published vx / vz shown");
+    assert(txt.includes("/joy 20 Hz") || txt.includes("/joy OK"), "joy chip reports the stream");
+    assert(txt.includes("safe_teleop → drone_3"), "safe_teleop chip names the drone");
+    assert(txt.includes("STICKS PARKED") && txt.includes("not in teleop_drones"), "sticks parked while the commander runs drone_3 as auto");
+    assert(stickRows[1].title.includes("inside the 0.15 deadzone") && stickRows[1].children[2].className.includes("sb-muted"),
+      "a centred axis says so in its tooltip and greys the Mapped cell — no note column");
+  }
+  {
+    // Commander flies drone_3 by hand and the mission is running: live.
+    const live = statusMsg({ mission_active: true, mission_ever_started: true });
+    live.drones[2].role = "teleop"; live.drones[2].state = "ACTIVE";
+    t += 0.1;
+    frame([{ topic: "/svg/commander_status", receiveTime: rxTime(t), message: { data: JSON.stringify(live) } }]);
+    feedTeleop("drone_3", 1.53, 0.0, -0.4, 0.0);
+    render();
+    assert(teleopCard.textContent.includes("STICKS LIVE → drone_3"), "sticks live once drone_3 is a teleop drone, ACTIVE and started");
+  }
+  {
+    // Lock button 6 pressed: latch engages, vertical + yaw read LOCKED.
+    t += 0.05; feedJoy([0.02, -0.5, 0.0, 0.8, 0.0, 0.0], [0, 0, 0, 0, 0, 0, 1]); feedTeleop("drone_3", 1.53, 0.0, 0.0, 0.0);
+    render();
+    assert(teleopCard.textContent.includes("lock button 6: DOWN") && teleopCard.textContent.includes("left stick LOCKED"), "lock press latches: left stick shown LOCKED");
+    const upDown = findAll(teleopCard, (n) => n.tagName === "tr" && n.title.includes("/joy axis"))[2];
+    assert(upDown.children[2].textContent === "0.000" && upDown.children[2].className.includes("sb-warn"), "locked axis reads 0 in amber");
+    t += 0.05; feedJoy([0.02, -0.5, 0.0, 0.8, 0.0, 0.0], [0, 0, 0, 0, 0, 0, 0]); feedTeleop("drone_3", 1.53, 0.0, 0.0, 0.0);
+    render();
+    assert(teleopCard.textContent.includes("left stick LOCKED"), "lock stays engaged after release (edge-triggered)");
+  }
+  // Stream stops: card hides again.
+  t += 3; feedStatus();
+  render();
+  assert(teleopCard.hidden, "Teleop card hidden again 2 s after safe_teleop stops publishing");
+
+  // Teleop-only instance (right of Battery & Power in the shipped layout):
+  // the card alone, "Teleop off" while nothing streams; a main instance never
+  // shows the card.
+  for (const [view, expectCard] of [["teleop", true], ["main", false]]) {
+    const ctx = { ...panelContext, initialState: { view }, panelElement: makeNode("div"), callService: realCall };
+    let fn = null;
+    Object.defineProperty(ctx, "onRender", { set(f) { fn = f; }, get() { return fn; } });
+    const disp = initPanel(ctx);
+    const r = ctx.panelElement;
+    const tick = timers[timers.length - 1];
+    // A topic list first: before one arrives every section is shown.
+    fn({ topics: subscribed.map((name) => ({ name })), currentFrame: [] }, () => {});
+    tick();
+    const card = findAll(r, (n) => n.className === "sb-card" && n.textContent.includes("Teleop · Sticks"))[0];
+    const off = findAll(r, (n) => n.textContent.startsWith("Teleop off"))[0];
+    if (view === "teleop") {
+      assert(card.hidden && off && off.parentNode === r && !off.hidden, "teleop view reads 'Teleop off' before safe_teleop publishes");
+      assert(findAll(r, (n) => n.className.includes("sb-banner"))[0].hidden, "teleop view has no banner");
+    }
+    for (let i = 0; i < 3; i++) {
+      t += 0.05;
+      fn({ topics: subscribed.map((name) => ({ name })), currentFrame: [
+        { topic: "/joy", receiveTime: rxTime(t), message: { axes: [0, 0, 0, 0.5, 0, 0], buttons: [0, 0, 0, 0, 0, 0, 0] } },
+        { topic: "/svg/drone_3/teleop_command", receiveTime: rxTime(t), message: { twist: { linear: { x: 0.2, y: 0, z: 0 }, angular: { z: 0 } } } },
+      ] }, () => {});
+    }
+    tick();
+    assert(card.hidden === !expectCard, `${view} view ${expectCard ? "shows" : "never shows"} the Teleop card while safe_teleop streams`);
+    if (expectCard) assert(card.parentNode === r && off.hidden, "teleop view shows the card directly under the root and drops the 'off' note");
+    disp();
+  }
 
   // Power-only instance (the panel under the 3D view in the shipped layout).
   const powerCtx = { ...panelContext, initialState: { view: "power" }, panelElement: makeNode("div"), callService: realCall };
