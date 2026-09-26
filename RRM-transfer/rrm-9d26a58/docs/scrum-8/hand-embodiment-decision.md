@@ -110,4 +110,21 @@ a fake call remained blocked. This closes the independent-deployment gap for Gat
 remains an in-process thread; live action-applying stop/hold under Isaac scheduler load
 is still the final Gate 4 prerequisite.
 
-Two subsequent live probes inside the target Isaac Sim (`SimulationApp`) finally closed Gates 4 and 5. The action-applying probe (Gate 4) successfully delivered a live position hold against an active motion command, verified durably applied latency bounds, and proved that a separate daemon thread watchdog correctly fences the adapter without blocking on the physics callback. The integration probe (Gate 5) then wrapped the adapter in the strict `HandExecutionBoundary` inside the container, proving that a single-use cryptographically signed calibration token is validated, durably queued (C09), and correctly executed as the first bounded simulator action. Gates 4 and 5 are fully addressed, concluding the low-level adapter and boundary integration for this increment.
+Action-applying integration probes for Gates 4 and 5 are implemented but have not yet
+produced retained live evidence. The Gate 4 probe checks exact live-profile parity, applies one
+bounded arm-joint calibration target, measures the asynchronous stop-to-hold deadline,
+confirms a measured safe-state window, and separately checks watchdog fencing and hold
+application. The Gate 5 probe exercises authenticated reset and dispatch through the
+strict `HandExecutionBoundary`, then stops, confirms measured safe state, and verifies
+the ordered boundary and adapter journal events. CPU-only tests cover their fail-closed
+evidence validators. A shared fixture now reconstructs the qualified tabletop entities,
+physics step, seed, joint defaults, and controller gains. It reads both dynamic-block
+velocities, verifies the top-level USD bytes against the recorded digest, and requires
+live joint-profile, entity-path, and gain readback parity before setting
+`qualified_scene_equivalent: true`. Both probes refuse to dispatch if that attestation
+fails and use bounded settling windows before and after motion. The fixture and probes
+have only CPU/static validation so far; their Isaac APIs and runtime readbacks remain
+unverified. Neither probe was executed as part of this code repair because
+both apply simulator actions and require separate explicit hand-command approval.
+Gates 4 and 5 therefore remain open pending passing, retained reports from the target
+Isaac Sim environment.

@@ -79,6 +79,12 @@ IDs in the first column have prefix `RRM-SYS-REQ-`; stakeholder parents have pre
 
 The adapter owns physical protective behavior when upstream communication fails. A software timeout or ABORT event is not proof that a moving robot has stopped. The initial prototype remains simulation-only.
 
+Qualitative intake may precede C01's embodiment-bound task record. The proposal-only
+`GoalRequest` contract described in [semantic goal routing](semantic-goal-routing.md)
+keeps the objective independent of a robot choice, exposes all matching capability
+profiles, and records adapter-resolved numeric values with provenance. It does not move
+feasibility, permission, safety, or admission authority into the reasoner.
+
 ## Embodiment portability and staged realization
 
 Use resource IDs and supported operation semantics: a hand can expose one or more grasp resources, an arm may additionally reposition them, a bimanual system can expose concurrent resources, and a mobile manipulator can add navigation. A humanoid adds validated mobility/balance contracts behind E. No core `one gripper` or `radial reach` assumption is allowed in the new contracts. Support for a verb alone is insufficient: resource availability, target grounding, numeric limits and task constraints must also pass.

@@ -1,4 +1,4 @@
-> **Current continuation (2026-09-21):** Read [HANDOFF.md](HANDOFF.md) first. The
+> **Current continuation (2026-09-26):** Read [HANDOFF.md](HANDOFF.md) first. The
 > [localhost command console](docs/scrum-8/command-console.md) now has a real,
 > explicitly confirmed simulator execution path. It translates scene-independent
 > movement text into typed goals only for task action servers discovered in the active
@@ -7,105 +7,13 @@
 > The older Cosmos/PSC proposal flows remain available as research/evidence paths; they
 > are not required for direct takeoff, land, exploration, waypoint, or relative-motion
 > commands.
+> This is not yet a validated cross-embodiment goal-to-finish result. The newer
+> [qualitative goal contract](docs/scrum-8/semantic-goal-routing.md) is proposal-only
+> and not wired into the GUI. The latest aerial regression ended in a verified recovery
+> landing after an unsafe altitude excursion, so aerial execution remains paused. See
+> the [current performance assessment](docs/scrum-8/end-to-end-status.md).
 
 # RRM-1 — Robotics Reasoning Model
-
-> **Independent watchdog thread (2026-09-25):** `start_watchdog(interval_s)` launches
-> a daemon thread that periodically evaluates tick staleness and trips the logical
-> motion fence without acquiring the simulator/action lock. The thread shuts down
-> cleanly on fault or `stop_watchdog()`. Focused suite passes 19/19. This is still
-> in-process; live action-applying stop/hold remains unqualified. See [HANDOFF.md](HANDOFF.md).
-
-> **Asynchronous stop fence (2026-09-25):** `request_stop()` now sets a logical motion
-> fence and durably records the request without acquiring the simulator/action lock.
-> The simulator thread clears work, queues a hold, and prevents double-holds via
-> exact-generation deduplication. A blocking fake-articulation test passes. This is
-> not a physical stop and does not interrupt native simulator calls. See [HANDOFF.md](HANDOFF.md).
-
-> **Asynchronous watchdog update (2026-09-25):** A lock-independent heartbeat fence
-> now closes logical motion authority while a fake simulator action call is still
-> blocked, without calling the articulation. Completion then persists the fault and
-> requires a fake hold. The focused suite passes 15/15 and the full suite 238/238.
-> This cannot interrupt blocked native simulator code and is not physical-stop or
-> live-motion qualification. See [HANDOFF.md](HANDOFF.md).
-
-> **Tick-deadline update (2026-09-25):** Completed gateway ticks that exceed the
-> heartbeat bound now latch a durable fault, inhibit restart, and require a hold when
-> fake gateway work may have been active. CPU-only negative tests cover idle/action
-> overruns and clock regression; the suite passes 237/237. This detects an overrun
-> after the call returns, not during a blocked simulator call, and authorizes no live
-> action or motion. See [HANDOFF.md](HANDOFF.md).
-
-> **Isaac callback update (2026-09-25):** After verifying the live 23-joint profile,
-> an isolated probe deactivated the hand asset and delivered 240/240 physics callbacks
-> to the disabled gateway. All returned `IDLE`, liveness stayed healthy, the asset was
-> inactive on every callback, and zero actions were attempted. Maximum callback gap
-> was 3.116 ms against 100 ms; the suite passes 234/234. This validates callback wiring
-> only—not a dynamic articulation, load, stop/hold, safe state, or motion. See
-> [HANDOFF.md](HANDOFF.md).
-
-> **Live idle-heartbeat update (2026-09-25):** A second headless Isaac process ran
-> 1,000 disabled gateway ticks against the live 23-joint Kuka-Allegro articulation.
-> All returned `IDLE`, liveness remained healthy, motion stayed disabled, and a hard
-> guard observed zero action calls; maximum externally measured tick time was 18.12 us
-> against a 0.1 s limit. The suite passes 232/232. This is direct no-action timing,
-> not physics-callback, scheduler-under-load, stop/hold, safe-state, or motion
-> qualification. See [HANDOFF.md](HANDOFF.md).
-
-> **Gateway liveness update (2026-09-25):** The isolated hand gateway now records
-> simulator-thread heartbeat and stop-to-hold timing and latches stale, late-stop, or
-> clock-regression faults closed across restart. CPU-only stress covered 1000 idle
-> ticks and 100 concurrent reads with zero articulation calls. The RRM suite passes
-> 231/231. This is not live Isaac stop qualification and enables no motion. See
-> [HANDOFF.md](HANDOFF.md).
-
-> **Authority update (2026-09-25):** The hand boundary now requires authenticated,
-> short-lived, purpose/scope/epoch/generation-bound grants instead of a boolean
-> authorization shortcut. Grant consumption is fsynced before reset, reconciliation,
-> or dispatch intent and remains consumed after restart. This is a local HMAC contract,
-> not production identity infrastructure or live execution approval. The RRM suite
-> That checkpoint passed 227/227; no simulator or robot was touched. See
-> [HANDOFF.md](HANDOFF.md).
-
-> **Restart reconciliation update (2026-09-25):** Hash-linked boundary and gateway
-> journals now restore stop generations, consumed IDs, and unresolved dispatches.
-> Recovery requires a gateway hold plus fresh measured safe samples, then a separate
-> boundary reconciliation and reset; it never implicitly enables motion. This is
-> CPU/fake-articulation validation only. That checkpoint passed 226/226; no hand or
-> aerial motion was sent. See [HANDOFF.md](HANDOFF.md).
-
-> **Live profile smoke (2026-09-25):** A separate headless Isaac process found
-> zero mismatches across the Kuka-Allegro 23-joint names and position/velocity
-> limits. The gateway stayed disabled, returned `IDLE`, and made zero action
-> calls. This does not qualify controller gains, safe state, stop, or motion.
-> That checkpoint passed 223/223 tests. See [HANDOFF.md](HANDOFF.md).
-
-> **Gateway update (2026-09-25):** An isolated, disabled-by-default Isaac hand
-> gateway skeleton now exists in `simulation/hand_isaac_adapter.py`. It has
-> fake-articulation tests only. It has not been bound to a live Isaac scene,
-> qualified for physical stop, or used to send motion. See [HANDOFF.md](HANDOFF.md).
-
-> **Hand boundary update (2026-09-25):** An injected-adapter, transport-free
-> C06/C08/C09 prototype and negative tests are present in
-> `rrm/hand_execution_boundary.py`. It has no Isaac/ROS implementation and grants
-> no live execution authority. See [HANDOFF.md](HANDOFF.md) for the remaining
-> gateway, reconciliation, stop, and supervised-test gates.
-> That increment passed 213/213 tests; the current gateway increment passes
-> 219/219. No hand or aerial motion was sent.
-
-> **Current safety status (2026-09-24):** The latest bounded aerial-console
-> takeoff failed and climbed to 4.076 m during verified recovery landing from a
-> 1 m command. The vehicle ended grounded/disarmed, but the cause is unresolved:
-> **do not repeat aerial flight**. Kuka-Allegro hand work is isolated from that
-> stack; its controller prerequisite gate now permits preparation of one bounded
-> contact trial, but **no hand execution is enabled**. Read [HANDOFF.md](HANDOFF.md)
-> before continuing. The current
-> worktree is uncommitted. The separate Kuka-Allegro tabletop probe now has a fresh,
-> image/state-paired no-action run and a 12-fact simulator C02 teacher export; its
-> manual image-only review scored 9/12 recall. The separate strict controller probe
-> qualifies limits, reset, contact observation, safe-state, and independent stop, but
-> not contact stability, grasp, C06/C08/C09 completion, or dispatch. The
-> dependency-light RRM suite passes 206/206 tests.
 
 A modular embodied-reasoning architecture. Perception feeds a persistent semantic
 world model, a reasoner plans over symbols, a deterministic verifier gates every
@@ -116,15 +24,18 @@ demo.** The research question is whether an explicit world model, predictive pla
 and independent safety verifier measurably improve task success, recovery and safety
 over end-to-end VLA control.
 
+```text
+qualitative goal -> GUI -> semantic RRM -> capability/embodiment route
+                                      -> embodiment adapter and numeric grounding
+                                      -> independent safety/admission -> actuation
+                                      -> observation/effect check -> replan or finish
 ```
-Isaac Sim ──► Perception ──► WORLD MODEL ──► Reasoner ──► Safety #1
-                              (semantic          │
-                               belief)     verb table
-                                                 ▼
-                              Safety #2 ◄──── GR00T ◄── embodiment adapter
-                                  │
-                                ROS 2 ──► robot ──► back to perception
-```
+
+Safety is not a drone-specific layer and the manipulation fixture is not part of the
+Iris/PX4 robot. Each aerial, ground, or manipulation adapter owns its geometry,
+controller limits, and safe-state evidence behind the same independent admission
+contract. Current measured scope and gaps are summarized in
+[goal-to-finish performance status](docs/scrum-8/end-to-end-status.md).
 
 ## Run it now — no GPU, no models, no Isaac Sim
 

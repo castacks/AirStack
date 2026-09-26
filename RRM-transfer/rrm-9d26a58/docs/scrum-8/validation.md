@@ -2,6 +2,26 @@
 
 Source baseline: RRM archive `9d26a58eb8516b6754c5d12b041cdc789950e047`, AirStack `ore_proj` at `a6dad8caf54722e5eba3481367e914ce213e6135`. Changes are staged source files, not a new Git revision or published baseline.
 
+## Current cross-embodiment and end-to-end checkpoint — 2026-09-26 UTC
+
+The dependency-light suite passes **258/258**. The newest eight tests validate an
+embodiment-neutral qualitative `GoalRequest`, capability routing across aerial, ground,
+and manipulation profiles, the distinction between unsupported and unavailable
+resources, and provenance-bound adapter parameters. They do not dispatch an action.
+
+This test count is a software-contract result, not a live task-success measurement.
+The direct GUI path still uses its deterministic aerial command grammar and bounded
+inter-action reconciliation; it does not yet consume the neutral goal contract or
+perform general semantic replanning. Historical live evidence includes one verified
+GUI takeoff/land mission, one learned navigation timeout followed by verified landing,
+and a later takeoff regression that ended `RECOVERED_HALT` after a 4.076 m recovery
+altitude excursion. Aerial execution remains paused. The Kuka-Allegro Gate 4/5 probes
+remain bounded calibration infrastructure and have not completed a semantic hand task.
+
+See [goal-to-finish performance status](end-to-end-status.md). No aggregate live rate
+can be recomputed because the referenced gitignored runtime artifacts are absent in the
+current workspace.
+
 ## Independent watchdog thread checkpoint — 2026-09-25 UTC
 
 `start_watchdog(interval_s)` launches a daemon thread that periodically calls the

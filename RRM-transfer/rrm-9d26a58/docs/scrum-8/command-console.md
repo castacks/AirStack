@@ -1,5 +1,11 @@
 # RRM command console
 
+> Scope note (2026-09-26): this console is the deterministic aerial command adapter,
+> not the universal RRM language layer. Its direct execution path does not yet consume
+> the embodiment-neutral `GoalRequest`, and its inter-action decisions are bounded
+> reconciliation rather than general semantic replanning. See
+> [goal-to-finish performance status](end-to-end-status.md).
+
 The localhost console is the simulator command surface. It can switch to any Isaac
 entry in AirStack's checked-in scene catalog, optionally capture the front camera,
 save immutable movement commands, translate them to public AirStack task actions, run
