@@ -259,7 +259,8 @@ for car in yaml.safe_load(open(Path(__file__).resolve().parent / "specs/cars.yam
         polys.append(cv2.boxPoints(((float(c[0]), float(c[1])), (car["size"][0] + 1.0, car["size"][1] + 1.0), float(car["yaw"])))); continue
     name = car["asset"]
     p = st.DefinePrim(f"/vehicles/survey_{car['id']}", "Xform"); p.GetReferences().AddReference(f"./assets/cars/{name}/{car_usd(name).name}")
-    xf = UsdGeom.Xformable(p); xf.AddTranslateOp().Set(Gf.Vec3d(float(c[0]), float(c[1]), gz)); xf.AddRotateZOp().Set(float(car["yaw"]))
+    xf = UsdGeom.Xformable(p); xf.AddTranslateOp().Set(Gf.Vec3d(float(c[0]), float(c[1]), gz + car.get("lift", 0.0))); xf.AddRotateZOp().Set(float(car["yaw"]))
+    if car.get("pitch"): xf.AddRotateYOp().Set(-float(car["pitch"]))                  # nose (+X) up
     UsdPhysics.CollisionAPI.Apply(p); counts["asset"] += 1
     polys.append(cv2.boxPoints(((float(c[0]), float(c[1])), (csize[name][0] + 1.0, 3.0), float(car["yaw"]))))
     if "tint" in car:

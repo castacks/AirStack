@@ -10,3 +10,6 @@
 - {id: v02_car, at: [151.12, -368.1], yaw: 88.9, asset: lowpoly_sedan}            # white car on the road by V02
 - {id: v09_tanker, at: [349.75, -303.16], yaw: 130.7, lib: tanker_truck, size: [8.9, 2.6, 3.2]}   # V09, the white tanker truck
 - {id: z18_trailer, at: [267.0, -401.96], yaw: 149.7, lib: semi_trailer, size: [11.5, 2.6, 4.0]}   # white semi trailer beside the Z18 rack
+# B07_018 (video and tiles both show them; the R03 debris field had them): rays from that frame's camera onto the tiles
+- {id: r03_grey_car, at: [53.2, -433.6], yaw: 227, asset: lowpoly_sedan, tint: 0.55}               # grey sedan by B35's NW corner
+- {id: r03_red_car, at: [57.7, -427.2], yaw: 227, asset: red_car, lift: 0.9, pitch: 18}           # red car propped nose-up on the heap

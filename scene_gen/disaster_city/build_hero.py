@@ -12,7 +12,7 @@ drone. Spec parts:
   wall:   {name, from: [x,y], to: [x,y], z: [z0,z1], t: thickness, mat,
            openings: [{at: dist along wall to opening's left edge, w, sill, h}]}
           (walls must run along x or y)
-  stair:  {name, from: [x,y,z], to: [x,y,z], width, mat}   straight run, one tread per step on two side stringers
+  stair:  {name, from: [x,y,z], to: [x,y,z], width, mat, handrails}   straight run, treads on two stringers; banisters optional
   rail:   {name, from: [x,y], to: [x,y], z, h: 1.1, mat}   posts every 1.5 m + top and mid rails
           (a solid box would read as a wall to a drone's depth sensor and collider)
   beam:   {name, from: [x,y,z], to: [x,y,z], t: 0.2, mat}   oriented square bar (bracing, booms, tilted slabs with t2)
@@ -35,7 +35,7 @@ from _paths import R
 MATS = {"concrete": (0.62, 0.60, 0.56), "steel": (0.30, 0.31, 0.33), "grating": (0.22, 0.22, 0.24),
         "wood": (0.55, 0.42, 0.28), "rust": (0.45, 0.25, 0.15), "tank_black": (0.08, 0.08, 0.09), "tank_white": (0.85, 0.85, 0.83),
         "steel_dark": (0.20, 0.17, 0.15), "stucco": (0.72, 0.62, 0.48), "roof_brown": (0.40, 0.28, 0.20), "metal_white": (0.80, 0.80, 0.78),
-        "metal_ribbed": (0.48, 0.48, 0.47), "metal_grey": (0.42, 0.42, 0.43), "panel_dark": (0.28, 0.29, 0.29), "yellow": (0.84, 0.77, 0.56), "sign": (0.92, 0.92, 0.90), "canvas": (0.80, 0.72, 0.58)}
+        "metal_ribbed": (0.48, 0.48, 0.47), "metal_grey": (0.42, 0.42, 0.43), "panel_dark": (0.28, 0.29, 0.29), "yellow": (0.84, 0.77, 0.56), "sign": (0.92, 0.92, 0.90), "canvas": (0.80, 0.72, 0.58), "grating_open": (0.22, 0.22, 0.24)}
 
 def wall_boxes(w):
     (x0, y0), (x1, y1), (z0, z1), t = w["from"], w["to"], w["z"], w.get("t", 0.25)
@@ -115,6 +115,9 @@ def material(mat):
             for w in ("wrapS", "wrapT"): tx.CreateInput(w, Sdf.ValueTypeNames.Token).Set("clamp" if mat == "photo" else "repeat")
             tx.CreateInput("sourceColorSpace", Sdf.ValueTypeNames.Token).Set("sRGB")
             sh.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(tx.ConnectableAPI(), "rgb")
+            if lib.get("cutout"):                                      # alpha 0 in the holes: see-through grating
+                sh.CreateInput("opacity", Sdf.ValueTypeNames.Float).ConnectToSource(tx.ConnectableAPI(), "a")
+                sh.CreateInput("opacityThreshold", Sdf.ValueTypeNames.Float).Set(0.5)
         else:
             sh.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*MATS.get(mat, MATS["concrete"])))
         m.CreateSurfaceOutput().ConnectToSource(sh.ConnectableAPI(), "surface"); _mats[mat] = m
@@ -198,6 +201,16 @@ for part in spec["parts"]:
                 M = np.eye(4); M[:3, :3] = np.c_[ax, side, up]
                 M[:3, 3] = (p0 + p1) / 2 + side * sgn * (d["width"] / 2 + 0.03) - up * 0.12
                 corners.append(box_corners([-L / 2 - 0.15, -0.03, -0.15], [L / 2 + 0.15, 0.03, 0.15], M))
+            if d.get("handrails"):                                     # banisters both sides: posts every ~1.2 m, sloped top + mid rail
+                hz = np.cross(side, [0, 0, 1.0]); hz = np.array([ax[0], ax[1], 0]); hz /= np.linalg.norm(hz)
+                for sgn in (-1, 1):
+                    off = side * sgn * (d["width"] / 2 + 0.06)
+                    for k in range(int(np.ceil(L / 1.2)) + 1):
+                        c0 = p0 + (p1 - p0) * min(k * 1.2 / L, 1.0) + off
+                        corners.append(box_corners([c0[0] - 0.025, c0[1] - 0.025, c0[2]], [c0[0] + 0.025, c0[1] + 0.025, c0[2] + 0.95]))
+                    for hgt in (0.95, 0.5):
+                        M = np.eye(4); M[:3, :3] = np.c_[ax, side, up]; M[:3, 3] = (p0 + p1) / 2 + off + np.array([0, 0, hgt])
+                        corners.append(box_corners([-L / 2, -0.025, -0.025], [L / 2, 0.025, 0.025], M))
     emit(path, corners, mat); n += len(corners)
 
 # pack the photo faces into one atlas (shelf packing, texel size grown until it fits) and write the UVs
