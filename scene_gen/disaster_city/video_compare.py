@@ -8,7 +8,7 @@ optionally only cameras within `r` m of `near`), then runs itself under Kit
 (~/isaacsim/python.sh) to render data/recon/disaster_city.usda from each camera (world pose from
 to_world.json, pinhole at the frame's focal length) and writes OUT_DIR/<frame>.jpg = the
 undistorted frame | the render, plus 00_sheet.jpg. --tiles adds the raw Google tiles from the same camera
-(tiles | video | ours); --res sets the render size.
+(tiles | video | ours); --tiles --autumn makes 2 x 2 grids (tiles | summer over video | autumn); --res sets the render size.
 """
 import argparse, json, os, subprocess, sys
 from pathlib import Path
@@ -22,6 +22,7 @@ if "--cams" not in sys.argv:                                   # recon venv: cho
     ap = argparse.ArgumentParser(); ap.add_argument("recon"); ap.add_argument("out"); ap.add_argument("--n", type=int, default=8)
     ap.add_argument("--near"); ap.add_argument("--r", type=float, default=40); ap.add_argument("--names")
     ap.add_argument("--tiles", action="store_true", help="also render the raw Google tiles: tiles | video | ours"); ap.add_argument("--res", default="1024x768")
+    ap.add_argument("--autumn", action="store_true", help="also render disaster_city_autumn.usda; with --tiles: 2x2 tiles|summer / video|autumn")
     a = ap.parse_args(); d = R / a.recon; out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
     Tw = np.array(json.load(open(d / "to_world.json"))["recon_to_world"]); s = np.cbrt(np.linalg.det(Tw[:3, :3])); Rs = Tw[:3, :3] / s
     mdl = d / "sparse_ext" if (d / "sparse_ext").exists() else max((d / "sparse").iterdir(), key=lambda p: pycolmap.Reconstruction(p).num_reg_images())
@@ -41,12 +42,12 @@ if "--cams" not in sys.argv:                                   # recon venv: cho
         cams.append({"img": str(d / "images" / im.name), "name": im.name.replace("/", "_")[:-4], "C": C[i].tolist(),
                      "R_wc": (Rs @ im.cam_from_world().rotation.matrix().T).tolist(), "params": list(c.params), "wh": [c.width, c.height]})
     json.dump(cams, open(out / "cams.json", "w"))
-    subprocess.run([os.path.expanduser("~/isaacsim/python.sh"), __file__, "--cams", str(out / "cams.json"), str(out), *(["--tiles"] if a.tiles else []), "--res", a.res],
+    subprocess.run([os.path.expanduser("~/isaacsim/python.sh"), __file__, "--cams", str(out / "cams.json"), str(out), *(["--tiles"] if a.tiles else []), *(["--autumn"] if a.autumn else []), "--res", a.res],
                    env={**os.environ, "OMNI_KIT_ACCEPT_EULA": "YES"}, check=True)
     sys.exit()
 
 cams, out = json.load(open(sys.argv[2])), Path(sys.argv[3])       # Kit: render them
-TILES = "--tiles" in sys.argv
+TILES = "--tiles" in sys.argv; AUTUMN = "--autumn" in sys.argv
 from isaacsim import SimulationApp
 app = SimulationApp({"headless": True, "width": W, "height": H, "renderer": "RaytracedLighting"})
 import cv2, carb, omni.usd, omni.replicator.core as rep
@@ -76,17 +77,23 @@ def render(usd):
     rgb.detach([rp]); rp.destroy(); return outs
 ours = render(R / "disaster_city.usda")
 raw = render(R / "disaster_city_raw_tiles.usda") if TILES else None
+aut = render(R / "disaster_city_autumn.usda") if AUTUMN else None
 label = lambda im, t, c: (cv2.rectangle(im, (0, 0), (im.shape[1], 50), (0, 0, 0), -1), cv2.putText(im, t, (14, 36), 0, 1.1, c, 2, cv2.LINE_AA), im)[-1]
 sheet = []
 for k, cm in enumerate(cams):
     fx, fy, cx, cy = cm["params"][:4]
     img = cv2.undistort(cv2.imread(cm["img"]), np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]]), np.array(cm["params"][4:8]))
     img = cv2.resize(img, (ours[k].shape[1], ours[k].shape[0]))
-    panels = ([label(raw[k], "Google 3D tiles (raw)", (80, 210, 255))] if TILES else []) + \
-             [label(img, f"drone video  {cm['name']}", (255, 255, 255)), label(ours[k], "our scene, same camera", (120, 255, 120))]
     gap = np.full((img.shape[0], 10, 3), 20, np.uint8)
-    row = np.concatenate(sum([[p, gap] for p in panels], [])[:-1], 1)
+    if TILES and AUTUMN:                                               # 2 x 2: tiles | summer over video | autumn
+        top = np.concatenate([label(raw[k], "Google 3D tiles (raw)", (80, 210, 255)), gap, label(ours[k], "ours: summer (the tiles' look)", (120, 255, 120))], 1)
+        bot = np.concatenate([label(img, f"drone video  {cm['name']}", (255, 255, 255)), gap, label(aut[k], "ours: autumn (the video's look)", (120, 200, 255))], 1)
+        row = np.concatenate([top, np.full((10, top.shape[1], 3), 20, np.uint8), bot], 0)
+    else:
+        panels = ([label(raw[k], "Google 3D tiles (raw)", (80, 210, 255))] if TILES else []) + \
+                 [label(img, f"drone video  {cm['name']}", (255, 255, 255)), label(ours[k], "our scene, same camera", (120, 255, 120))]
+        row = np.concatenate(sum([[p, gap] for p in panels], [])[:-1], 1)
     cv2.imwrite(str(out / f"{cm['name']}.jpg"), row, [cv2.IMWRITE_JPEG_QUALITY, 90])
-    sheet.append(cv2.resize(row, (row.shape[1] // 2, row.shape[0] // 2)))
+    sheet.append(cv2.resize(row, (1600, round(1600 * row.shape[0] / row.shape[1]))))
 cv2.imwrite(str(out / "00_sheet.jpg"), np.concatenate(sheet, 0), [cv2.IMWRITE_JPEG_QUALITY, 85])
 app.close()

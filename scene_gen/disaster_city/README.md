@@ -106,6 +106,7 @@ $PY find_people.py b01 rubble_west                  # people in the video -> dat
 OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh nucleus_mirror.py /Library/Stages/Muyang/People/Assets/rp_carla_rigged_001_ue4.usd ...   # the 6 rigs
 OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh place_people.py             # -> data/recon/people.usd
 $PY assemble_scene.py
+$PY ground_texture.py && $PY ground_texture.py --season autumn && $PY autumn.py     # the video-look variant: disaster_city_autumn.usda
 # 4. check and ship
 OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh isaac_check.py data/recon/disaster_city.usda data/recon/shots/<name>
 # third-party assets: mirror from Nucleus (Kit) / fetch from Objaverse, then normalise + look at them
@@ -116,7 +117,7 @@ OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh asset_gallery.py <out_dir>        
 # before/after: raw tiles vs grafted scene from the same cameras
 blender -b data/blender_data/disaster_city.blend --python tiles_extract.py -- 75 -300 400 data/recon/raw_tiles/tiles_site.usd
 OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh before_after.py shots.json <out_dir>
-$PY video_compare.py b01 <out_dir> --n 10 --near 47,-410 --r 35   # the scene from the drone's own cameras, beside the frames
+$PY video_compare.py b01 <out_dir> --n 10 --near 47,-410 --r 35 --tiles --autumn   # 2x2 from the drone's cameras: tiles | summer / video | autumn
 # drone trajectories over both whole videos -> data/recon/tracks/track_{A,B}.jpg (segments = the named clips)
 $PY track_drone.py frames && $PY track_drone.py sfm && $PY track_drone.py georef && $PY track_drone.py plot
 $PY leftovers.py                               # raw tile pieces no model has replaced yet -> data/recon/leftovers.jpg
@@ -137,6 +138,13 @@ generator like `gen_strip_mall.py`. Then add the building to `PIECES` in
 tile surface under it.
 
 ## Things that bit, so they don't bite again
+
+- **Two looks, one layout.** `disaster_city.usda` is "summer" (the Google tiles' colours); `disaster_city_autumn.usda`
+  references it and overrides only light, the ground texture set and which tree asset each instance points at
+  (a thinned fall oak scaled to the summer tree's height) -- no placement differs, so a sim result in one holds in the other.
+- **Stock clear-sky HDRs have ground baked in.** The NVIDIA "Clear" skies put a cornfield on the horizon; both looks use the same sky.
+- **Settling a stacked pile blows it apart unless depenetration is slow.** The pieces start interpenetrating;
+  `settle_pile.py` caps depenetration at 0.15 m/s (median move 0.5 m instead of 3 m).
 
 - **Stairs built from tread boxes float.** Every `stair` now hangs its treads between two stringers
   (build_hero.py), and a landing gets legs in its spec.

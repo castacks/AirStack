@@ -13,13 +13,16 @@ nothing. Instead:
     masks): grass = excess green, asphalt = dark and grey, concrete = bright and grey, dirt = warm rest, asphalt = cool rest;
  3. cut into GRID x GRID UDIM tiles (1001 + col + 10 * row, row 0 = south) that ground.py maps with
     st = 8 x the old whole-ortho UVs. 17920 px on a side does not fit one texture.
+ --season autumn grades them to the drone video (dry grass, tan concrete, darker) -> ground_tex_autumn/.
 """
 import argparse, json, os
 import cv2, numpy as np, spandrel, torch
 from _paths import R
 
-ap = argparse.ArgumentParser(); ap.add_argument("--grid", type=int, default=8); a = ap.parse_args()
-OUT = R / "ground_tex"; OUT.mkdir(exist_ok=True)
+ap = argparse.ArgumentParser(); ap.add_argument("--grid", type=int, default=8)
+ap.add_argument("--season", default="summer", choices=["summer", "autumn"], help="autumn: the video's grade (see grade())")
+a = ap.parse_args()
+OUT = R / ("ground_tex" if a.season == "summer" else f"ground_tex_{a.season}"); OUT.mkdir(exist_ok=True)
 geo = json.load(open(R / "ortho_site.json")); ortho = cv2.imread(str(R / "ortho_site.png"))
 S, T, PAD = 4, 256, 16; H0, W0 = ortho.shape[:2]; m_px = geo["m_per_px"] / S
 net = spandrel.ModelLoader().load_from_file(os.path.expanduser("~/.cache/sr/RealESRGAN_x4plus.pth")).model.eval().cuda().half()
@@ -68,6 +71,15 @@ for row in range(G):                           # row 0 = the south (bottom) stri
             mk = cv2.resize(M[k][y0:y0 + th, x0:x0 + tw], (ww, hh), interpolation=cv2.INTER_LINEAR)
             mod += mk * GAIN[k] * d[gy % d.shape[0], gx % d.shape[1]]
         out = np.clip(out * (1 + mod[..., None]), 0, 1)
+        if a.season == "autumn":                                          # the drone video's look (B07, B10, A04 frames):
+            gm = cv2.resize(M["grass"][y0:y0 + th, x0:x0 + tw], (ww, hh))[..., None]
+            lum = out.mean(-1, keepdims=True)
+            dry = lum * np.array([0.62, 0.88, 0.92])                        # dormant grass: dull olive-brown, not green (BGR order)
+            out = out * (1 - 0.75 * gm) + dry * 0.75 * gm
+            am = cv2.resize(M["asphalt"][y0:y0 + th, x0:x0 + tw], (ww, hh))[..., None]
+            out = out * (1 - 0.45 * am)                                     # the video's asphalt is near black
+            out = out * np.array([0.90, 0.95, 1.0])                          # slightly warm: concrete and sand tan-grey, not white
+            out = np.clip((out - 0.5) * 1.12 + 0.5, 0, 1) * 0.78            # a little more contrast, darker overall
         cv2.imwrite(str(OUT / f"ortho.{1001 + col + 10 * row}.jpg"), (out * 255).astype(np.uint8), [cv2.IMWRITE_JPEG_QUALITY, 92])
     print(f"row {row + 1}/{G}", flush=True)
 json.dump({"grid": G, "m_per_px": m_px, "tile_px": [tw * S, th * S], "x0": geo["x0"], "y1": geo["y1"],

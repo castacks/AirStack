@@ -42,6 +42,9 @@ SOURCES = {
     "delivery_truck":   ("objaverse/1d53f7fa474849db812102dfa5d070d0/1d53f7fa474849db812102dfa5d070d0.usdc", "vehicle", "Objaverse 'DELIVERY TRUCK'"),
     "passenger_car":    ("objaverse/1ec9ef29c1604487a2f498df7e744c88/1ec9ef29c1604487a2f498df7e744c88.usdc", "vehicle", "Objaverse 'Passenger Car(Rail)'"),
     "tankcar_cyl":      ("objaverse/c1f38cc43c694137b711c260445137de/c1f38cc43c694137b711c260445137de.usdc", "vehicle", "Objaverse 'Tank car'"),
+    "tree_winter_scan": ("objaverse/c06525b7181e483bad48986addf2a124/c06525b7181e483bad48986addf2a124.usdc", "vegetation", "Objaverse 'Free 3D winter tree scan'"),
+    "tree_old_dead":    ("objaverse/8c680561463a4e909fd24b4cc8bc7e48/8c680561463a4e909fd24b4cc8bc7e48.usdc", "vegetation", "Objaverse 'Old Dead Tree'"),
+    "tree_dead_327":    ("objaverse/00a33b0d18804851838fd4bf28613465/00a33b0d18804851838fd4bf28613465.usdc", "vegetation", "Objaverse 'Day 327: dead tree'"),
     "tanker_truck":     ("objaverse/0bfeafdb2eb94612ad89ea2e794cf249/0bfeafdb2eb94612ad89ea2e794cf249.usdc", "vehicle", "Objaverse 'Tanker Truck'"),
     # rejected on the gallery: 656908d5 'Japanese Box Truck' (converted standing on end), 42e23433 'Camper Van' (a cartoon cart)
 }
