@@ -179,7 +179,7 @@ def put_lib(name, c, yaw, L, W, top, gz, tilt=0.0, pitch=0.0, exact=False):
     flip = rng.choice([0, 180]); xf.AddRotateZOp().Set(float(yaw + flip)); xf.AddRotateXOp().Set(float(tilt))
     if pitch: xf.AddRotateYOp().Set(float(-pitch if flip == 0 else pitch))     # pitch > 0: the car rises along yaw
     xf.AddScaleOp().Set(Gf.Vec3f(float(sx), float(sy), float(sz))); UsdPhysics.CollisionAPI.Apply(p)
-    p.SetCustomDataByKey("fit", {"L": round(L, 2), "W": round(W, 2), "top": round(top, 2)})
+    p.SetCustomDataByKey("fit", {"L": round(L, 2), "W": round(W, 2), "top": round(top, 2)}); return p
 RAIL_H = {"passenger_car": 4.2, "tankcar": 4.3, "tankcar_cyl": 4.3, "tankcar_graffiti": 4.3, "boxcar": 4.6, "locomotive": 4.6}   # real car heights, m
 def emit_rail():
     """Rail cars come from the hand survey (specs/rail_cars.yaml): the tile mesh merges coupled and
@@ -272,7 +272,8 @@ for car in yaml.safe_load(open(Path(__file__).resolve().parent / "specs/cars.yam
 for pr in yaml.safe_load(open(Path(__file__).resolve().parent / "specs/props.yaml")):   # library props (water tower, ...)
     aL, aW, aH = LIB[pr["asset"]]["size_m"]; u = pr["height"] / aH; c = np.array(pr["at"], float)
     gz = float(DTM[int((Y1 - c[1]) / RES), int((c[0] - X0) / RES)])
-    put_lib(pr["asset"], c, pr["yaw"], aL * u, aW * u, pr["height"], gz)
+    pp = put_lib(pr["asset"], c, pr["yaw"], aL * u, aW * u, pr["height"], gz)
+    if pr.get("class"): label(pp, pr["class"])                           # a prop that is not a vehicle (the pipe under the red car)
     polys.append(cv2.boxPoints(((float(c[0]), float(c[1])), (aL * u + 1.5, aW * u + 1.5), float(pr["yaw"]))))
 st.Save()
 np.savez(R / "replaced.npz", polys=np.array(polys, np.float32) if polys else np.zeros((0, 4, 2), np.float32))

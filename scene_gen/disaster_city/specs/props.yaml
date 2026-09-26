@@ -2,3 +2,4 @@
 # `at` / `yaw` / `height` are measured off the tile mesh blob (ray-cast 0.2 m) and the ortho; the
 # asset is scaled uniformly to `height`. Its tile blob is swallowed by ground.py (replaced.npz).
 - {id: S10, asset: water_tank, at: [334.6, -278.2], yaw: -39, height: 4.7}   # blue water tower by the rail yard
+- {id: r03_pipe, asset: rubble_pipe, class: rubble, at: [56.8, -428.15], yaw: 317, height: 1.15}   # the concrete pipe the red car's nose rests on (B07_018)
