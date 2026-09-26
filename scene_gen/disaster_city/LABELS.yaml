@@ -117,7 +117,7 @@ labels:
 - {id: V02, name: street_cars, kind: vehicle, at: [146, -385], height_m: 0.9, note: "4 cars parked along the road between B02 and R02"}
 - {id: V03, name: grid_bus, kind: vehicle, at: [93, -431], height_m: 3.8, note: "white bus on the road by R03"}
 - {id: V04, name: white_truck, kind: vehicle, at: [76, -390], height_m: 2.5}
-- {id: V05, name: dumpster_truck, kind: vehicle, at: [35, -427], height_m: 2.5, note: "rusty truck/dumpster south of B01"}
+- {id: V05, name: dumpster, kind: structure, at: [35, -427], height_m: 2.5, note: "rusty roll-off dumpster south of B01 (the video shows it: hero D01)"}
 - {id: V06, name: bus_row, kind: vehicle, at: [254, -410], height_m: 3.7, note: "~5 white buses/RVs in Z18"}
 - {id: V07, name: box_truck, kind: vehicle, at: [101, -562], height_m: 3.8, note: "in Z10"}
 - {id: V08, name: red_vehicle_row, kind: vehicle, at: [311, -211], height_m: 3.7, note: "4 red vehicles by the rail yard"}

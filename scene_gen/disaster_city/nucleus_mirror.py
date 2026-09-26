@@ -2,7 +2,8 @@
 
     OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh nucleus_mirror.py FactoryDistrict/Meshes/SemiTrailer_mdl.usd ...
 
-Paths are relative to Projects/SEI-COA/ on the lab Nucleus. Runs on the HOST: the
+Paths are relative to Projects/SEI-COA/ on the lab Nucleus, or to the server root with a leading /
+(e.g. /Library/Stages/Muyang/People/Assets/rp_carla_rigged_001_ue4.usd). Runs on the HOST: the
 host Isaac Sim (~/isaacsim) has omni.client once
 SimulationApp boots, using the cached login (leave OMNI_USER / OMNI_PASS unset).
 For each asset, a tolerant walker collects layers, textures and MDLs;
@@ -69,7 +70,7 @@ def walk(url, seen, assets):
 
 total = 0
 for rel in sys.argv[1:]:
-    url = ROOT + rel
+    url = SERVER + rel[1:] if rel.startswith("/") else ROOT + rel      # a leading / = from the server root
     seen, assets = set(), set(); walk(url, seen, assets); unresolved = []
     deps = sorted(seen) + sorted(a for a in assets if "://" in a or os.path.isabs(a))
     st = {}

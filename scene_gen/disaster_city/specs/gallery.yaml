@@ -1,0 +1,274 @@
+title: Disaster City (TEEX) in Isaac Sim
+intro: 'Rebuilt from Google 3D tiles + two drone videos: hero buildings measured off drone reconstructions and textured from the video, rubble piles from rubble assets, vehicles and props from Nucleus/Objaverse,
+  survivors where the video shows them.'
+sections:
+- title: Outside
+  text: Orbit views of the assembled scene (host Isaac Sim 6.0.1, RTX real-time).
+  shots:
+  - name: site_overview
+    caption: 'The whole site: grafted heroes, rubble piles, LOD1 buildings, trees, vehicles'
+    target: [95, -330, 58]
+    az: 230
+    el: 42
+    dist: 260
+  - name: b01_and_pile
+    caption: B01 (the 133 building) and the R01 rubble pile
+    target: [42, -405, 60]
+    az: 215
+    el: 28
+    dist: 75
+  - name: b01_close
+    caption: 'B01: the collapsed wing''s slab in its steel frame, video-projected walls'
+    target: [46, -410, 61]
+    az: 200
+    el: 18
+    dist: 35
+  - name: b01_ylo_face
+    caption: B01's street face, textured from the drone frames
+    target: [49.0, -418.0, 62.0]
+    az: 250
+    el: 12
+    dist: 22
+  - name: b01_wing_side
+    caption: 'The wing side: pancaked floors under the frame, rubble up against it'
+    target: [42, -402, 61]
+    az: 150
+    el: 15
+    dist: 25
+  - name: pile_top
+    caption: R01 from above
+    target: [38, -392, 59]
+    az: 200
+    el: 65
+    dist: 45
+  - name: b35_house
+    caption: B35, the tan house inside R03's collapsed block
+    target: [63.0, -434.5, 61.0]
+    az: 250
+    el: 20
+    dist: 26
+  - name: strip_mall
+    caption: 'B03 strip mall: each unit''s roof state (intact / gone / pancaked)'
+    target: [96, -416, 60]
+    az: 300
+    el: 32
+    dist: 45
+  - name: drill_tower
+    caption: S01 drill tower, metal-clad as in the video
+    target: [3, -514, 66]
+    az: 210
+    el: 18
+    dist: 45
+  - name: warehouse
+    caption: B06 south warehouse
+    target: [160, -499, 64]
+    az: 140
+    el: 22
+    dist: 60
+  - name: industrial_pad
+    caption: 'The industrial pad: tank car, vessel, pipe rack, lattice tower'
+    target: [55, -525, 62]
+    az: 200
+    el: 25
+    dist: 70
+  - name: rail_derailment
+    caption: Rail yard and the R05 derailment
+    target: [295, -255, 62]
+    az: 200
+    el: 30
+    dist: 65
+  - name: rail_cars_r02
+    caption: Crossed passenger cars by R02
+    target: [220, -385, 61]
+    az: 250
+    el: 30
+    dist: 55
+  - name: r02_pile
+    caption: R02 east rubble pile
+    target: [188, -390, 61]
+    az: 230
+    el: 28
+    dist: 45
+  - name: houses
+    caption: The street of houses (LOD1, tinted walls)
+    target: [150, -280, 58]
+    az: 200
+    el: 30
+    dist: 60
+  - name: grid_street
+    caption: Street level in the grid
+    target: [70, -445, 59]
+    az: 30
+    el: 8
+    dist: 40
+  - name: water_tower
+    caption: Water tower and the east rail line
+    target: [330, -290, 63]
+    az: 250
+    el: 25
+    dist: 40
+- title: Inside the buildings
+  text: 'The hero buildings are enterable: real openings, floors, stairs and interior lights.'
+  shots:
+  - name: b01_ground_floor
+    caption: B01 ground floor, through to the doorway onto the frame
+    in: B01
+    eye: [1.3, 4.2, 1.7]
+    look: [12.2, 9.2, 1.0]
+    focal: 12
+  - name: b01_first_floor
+    caption: 'B01 first floor: survivor V07 sitting under the west window (A03)'
+    in: B01
+    eye: [11.8, 4.1, 5.4]
+    look: [1.2, 7.0, 4.0]
+    focal: 12
+  - name: b01_frame_deck
+    caption: 'B01 frame deck: survivors V02, V03, V10 on the plywood (B08, A02)'
+    in: B01
+    eye: [13.4, 3.9, 6.1]
+    look: [21.5, 8.5, 4.4]
+    focal: 14
+  - name: b01_roof
+    caption: 'B01 roof: the cream jib crane and survivor V04 (B09)'
+    in: B01
+    eye: [1.6, 4.0, 9.6]
+    look: [10.5, 8.5, 7.8]
+    focal: 14
+  - name: b01_wing_under
+    caption: 'Under B01''s collapsed wing: the tilted roof slab and the pancaked floors'
+    in: B01
+    eye: [2.0, 15.4, 1.5]
+    look: [18.0, 11.5, 1.8]
+    focal: 12
+  - name: b01_stair_133
+    caption: The stair up to the 133 landing
+    in: B01
+    eye: [13.0, -1.5, 1.8]
+    look: [22.4, 2.0, 4.5]
+    focal: 14
+  - name: s01_top_floor
+    caption: S01 drill tower, the open top floor
+    in: S01
+    eye: [1.0, 1.0, 18.3]
+    look: [5.7, 7.2, 17.3]
+    focal: 12
+  - name: b35_ground_floor
+    caption: B35 tan house, ground floor
+    in: B35
+    eye: [1.0, 1.0, 1.6]
+    look: [11.0, 5.8, 1.0]
+    focal: 12
+  - name: b35_first_floor
+    caption: B35 tan house, first floor
+    in: B35
+    eye: [11.0, 1.0, 4.4]
+    look: [1.0, 5.8, 3.4]
+    focal: 12
+  - name: b03_unit3
+    caption: B03 strip mall, the intact unit U3
+    in: B03
+    eye: [1.0, 9.2, 1.7]
+    look: [14.0, 14.2, 1.2]
+    focal: 12
+  - name: b06_hall
+    caption: B06 warehouse hall
+    in: B06
+    eye: [2.0, 2.0, 2.5]
+    look: [38.0, 28.0, 3.0]
+    focal: 12
+- title: Survivors
+  text: Casualty actors found in the drone video (keypoint R-CNN on the georeferenced frames, rays cast onto the model, clustered, checked by eye) and placed as posed RenderPeople rigs. Each links the scene
+    rendered from the drone's own camera beside that frame.
+  shots:
+  - name: survivor_V01
+    caption: 'V01 sit_ground: woman in red sitting against the dumpster'
+    video: [video/B_B03_040.jpg]
+    target: [37.31, -430.22, 58.41]
+    az: 320
+    el: 28
+    dist: 4.5
+    focal: 20
+  - name: survivor_V02
+    caption: 'V02 lying_supine: on plywood on the frame''s first-floor deck'
+    video: [video/B_B08_012.jpg]
+    in: B01
+    eye: [23.65, 6.06, 6.05]
+    look: [20.45, 6.06, 4.55]
+    focal: 14
+  - name: survivor_V03
+    caption: 'V03 lying_supine: pink top, on plywood on the same deck, nearer the block'
+    video: [video/B_B08_040.jpg]
+    in: B01
+    eye: [19.53, 5.14, 6.05]
+    look: [16.33, 5.14, 4.55]
+    focal: 14
+  - name: survivor_V04
+    caption: 'V04 lying_prone: camouflage, on the block roof by the crane'
+    video: [video/B_B09_035.jpg]
+    in: B01
+    eye: [10.86, 6.62, 9.3]
+    look: [7.66, 6.62, 7.8]
+    focal: 14
+  - name: survivor_V05
+    caption: 'V05 sit_ground: woman sitting in the orange lift basket (basket not modelled)'
+    video: [video/B_B10_039.jpg]
+    target: [30.72, -418.34, 58.36]
+    az: 180
+    el: 28
+    dist: 4.5
+    focal: 20
+  - name: survivor_V06
+    caption: 'V06 lying_prone_reach: face down on the road west of B01'
+    video: [video/A_A03_056.jpg]
+    target: [25.66, -426.89, 58.03]
+    az: 58.7
+    el: 28
+    dist: 4.5
+    focal: 20
+  - name: survivor_V07
+    caption: 'V07 sit_ground: inside B01''s first floor, sitting on the floor under the xlo window'
+    video: [video/A_A03_044.jpg]
+    in: B01
+    eye: [4.5, 6.6, 5.3]
+    look: [1.3, 6.6, 3.8]
+    focal: 14
+  - name: survivor_V08
+    caption: 'V08 sit_ground: sitting on the dirt at the kerb'
+    video: [video/B_B10_037.jpg]
+    target: [30.8, -414.6, 58.339999999999996]
+    az: 240
+    el: 28
+    dist: 4.5
+    focal: 20
+  - name: survivor_V09
+    caption: 'V09 sit_ground: sitting in the dust by the block''s west corner'
+    video: [video/B_B10_037.jpg]
+    target: [32.39, -423.76, 58.199999999999996]
+    az: 160
+    el: 28
+    dist: 4.5
+    focal: 20
+  - name: survivor_V10
+    caption: 'V10 sit_ground: sitting on the frame''s first-floor deck'
+    video: [video/A_A02_018.jpg]
+    in: B01
+    eye: [20.1, 8.81, 6.05]
+    look: [16.9, 8.81, 4.55]
+    focal: 14
+  - name: survivor_V11
+    caption: 'V11 lying_side_l: orange clothes, on the grass by the west kerb'
+    video: [video/B_B01_0045.jpg]
+    target: [1.59, -414.79, 56.75]
+    az: 17.599999999999994
+    el: 28
+    dist: 4.5
+    focal: 20
+- title: Survivors from above
+  text: ''
+  shots:
+  - name: survivors_overview
+    caption: 'All 11 survivors round B01: on the decks, the roof, the road and the kerbs'
+    target: [38, -418, 58]
+    az: 225
+    el: 55
+    dist: 60

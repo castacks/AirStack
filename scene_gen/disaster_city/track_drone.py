@@ -53,20 +53,24 @@ def clip_table():
     return {r[0]: (r[1].split("/")[-1][0], sec(r[2]), sec(r[3])) for r in rows}
 
 
+def frame_time(name):
+    """a recon frame (frames.py naming, e.g. A01_0079 / B08h_0012) -> (video, seconds into it)"""
+    start = {k[:3]: v[1] for k, v in clip_table().items()}
+    pre, idx = name.split("/")[-1].rsplit(".", 1)[0].split("_")
+    fps, off = (4, {"B08h": 12, "B10h": 2, "B10k": 41}[pre]) if pre[3:] else ((2, 0) if len(idx) == 4 else (1, 0))
+    return pre[0], start[pre[:3]] + off + (int(idx) - 1) / fps
+
+
 def known_centres():
     """(video, second) -> world camera centre, from the georeferenced recons (frames at integer seconds only)."""
     import pycolmap
-    start = {k[:3]: v[1] for k, v in clip_table().items()}
-    window = {"B08h": 12, "B10h": 2, "B10k": 41}                      # frames.py's 4 fps windows
     out = {}
     for sub, model in (("rubble_west", None), ("b01", "sparse_ext")):
         d = R / sub; T = np.array(json.load(open(d / "to_world.json"))["recon_to_world"])
         m = d / model if model else max((d / "sparse").iterdir(), key=lambda p: pycolmap.Reconstruction(p).num_reg_images())
         for im in pycolmap.Reconstruction(str(m)).images.values():
-            stem = im.name.split("/")[-1][:-4]; pre, idx = stem.split("_")
-            fps, off = (4, window[pre]) if pre in window else ((2, 0) if len(idx) == 4 else (1, 0))
-            t = start[pre[:3]] + off + (int(idx) - 1) / fps
-            if abs(t - round(t)) < 0.01: out[(pre[0], round(t))] = T[:3, :3] @ im.projection_center() + T[:3, 3]
+            v, t = frame_time(im.name)
+            if abs(t - round(t)) < 0.01: out[(v, round(t))] = T[:3, :3] @ im.projection_center() + T[:3, 3]
     return out
 
 

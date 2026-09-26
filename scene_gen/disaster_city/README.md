@@ -58,6 +58,7 @@ PATH, and `~/isaacsim/python.sh` (Isaac Sim 6.0.1) for the check.
 | Other buildings (`lod1/`) | The tile outline, extruded: main roof level plus any attached lower annex | Closed, with the real roof texture; walls in the video's stucco or concrete, tinted to the building's wall colour in the tiles. Not enterable. |
 | Trees (`trees/`) | Canopy peaks in the tile heights; 4 NVIDIA tree species as instanceable references | Position and height from the tiles; invisible trunk and crown colliders |
 | Vehicles (`vehicles/`) | Road vehicles: vehicle-sized blobs on roads, parking lots and near vehicle labels, fitted in the world frame. Rail cars: hand-surveyed car by car (`specs/rail_cars.yaml`), because the tiles merge coupled and derailed cars | Cars, vans and buses from the standalone pack; box truck, dump truck and container from `assets/lib`; tank cars, box cars, coaches and a locomotive from Nucleus + Objaverse. Nothing vehicle-sized is left as raw tile mesh or a box |
+| Survivors (`people/`, `specs/survivors.yaml`) | 11 casualty actors found in the drone video: `find_people.py` (keypoint R-CNN on the georeferenced frames, rays onto the model, clustered), then picked by eye | Posed RenderPeople rigs (`place_people.py`, scene_gen's pose and ground-contact code) where the video shows them: on B01's decks, its roof, inside its first floor, on the road and the kerbs. Class `person` |
 | Props (`specs/props.yaml`, S08) | S10 water tower (library asset), S08 canopy (spec) | Measured off the tiles / ortho |
 | Everything else raised (`site/tiles_*`) | Raw tile triangles, classified | Crude: kept so the silhouette is complete |
 
@@ -100,7 +101,11 @@ $PY build_hero.py specs/B01.yaml && $PY photo_bake.py B01 b01 rubble_west       
 for g in drill_tower:s01/S01 strip_mall:b03/B03 warehouse:b06/B06 industrial_pad:pad/PAD house:b35/B35; do
   $PY gen_${g%%:*}.py && $PY build_hero.py data/recon/${g#*:}_spec.yaml; done
 # 3. site layer, assets, scene. ground.py runs twice: place_assets.py reads its rasters, then ground.py cuts out the replaced vehicles
-$PY ground.py && $PY place_assets.py && $PY ground.py && $PY assemble_scene.py
+$PY ground.py && $PY place_assets.py && $PY ground.py
+$PY find_people.py b01 rubble_west                  # people in the video -> data/recon/people/ (review.jpg); pick into specs/survivors.yaml
+OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh nucleus_mirror.py /Library/Stages/Muyang/People/Assets/rp_carla_rigged_001_ue4.usd ...   # the 6 rigs
+OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh place_people.py             # -> data/recon/people.usd
+$PY assemble_scene.py
 # 4. check and ship
 OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh isaac_check.py data/recon/disaster_city.usda data/recon/shots/<name>
 # third-party assets: mirror from Nucleus (Kit) / fetch from Objaverse, then normalise + look at them
@@ -115,6 +120,7 @@ $PY video_compare.py b01 <out_dir> --n 10 --near 47,-410 --r 35   # the scene fr
 # drone trajectories over both whole videos -> data/recon/tracks/track_{A,B}.jpg (segments = the named clips)
 $PY track_drone.py frames && $PY track_drone.py sfm && $PY track_drone.py georef && $PY track_drone.py plot
 $PY footprint_check.py                        # every model vs its tile footprint -> data/recon/footprints.tsv + overlays
+OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh gallery.py <out_dir>        # specs/gallery.yaml: outside, inside, survivors -> jpgs + index.html
 OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh package.py                          # data/dist/disaster_city/ (Kit USD)
 ```
 

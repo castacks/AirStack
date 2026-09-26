@@ -199,6 +199,13 @@ for car in SURVEY:
     a_, b_ = np.array(car["ends"], float); c_ = (a_ + b_) / 2; L_ = float(np.linalg.norm(b_ - a_))
     box = cv2.boxPoints(((float(c_[0]), float(c_[1])), (L_ + 2.0, 5.0), float(np.degrees(np.arctan2(b_[1] - a_[1], b_[0] - a_[0])))))
     cv2.fillConvexPoly(surveyed, np.round(np.c_[(box[:, 0] - X0) / F, (Y1 - box[:, 1]) / F]).astype(np.int32), 1)
+for f in (Path(__file__).resolve().parent / "specs").glob("*.yaml"):   # hero props standing where a blob would read as a vehicle
+    sp = yaml.safe_load(open(f))
+    if isinstance(sp, dict) and sp.get("mask_vehicles"):
+        L_, W_ = sp["size_m"]; t_ = np.radians(sp["yaw_deg"]); o_ = np.array(sp["origin"][:2])
+        c_ = o_ + np.array([[np.cos(t_), -np.sin(t_)], [np.sin(t_), np.cos(t_)]]) @ [L_ / 2, W_ / 2]
+        box = cv2.boxPoints(((float(c_[0]), float(c_[1])), (L_ + 2.0, W_ + 2.0), float(sp["yaw_deg"])))
+        cv2.fillConvexPoly(surveyed, np.round(np.c_[(box[:, 0] - X0) / F, (Y1 - box[:, 1]) / F]).astype(np.int32), 1)
 cand &= 1 - surveyed                                                    # rail cars are the survey's (emit_rail)
 n_, cc_ = cv2.connectedComponents(cand)
 for k in range(1, n_):

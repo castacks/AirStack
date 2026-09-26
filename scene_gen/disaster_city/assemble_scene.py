@@ -8,19 +8,20 @@ References (world coordinates throughout, Z-up, metres):
   /World/tiles_R02   data/recon/rubble_east/R02_tiles.usd (tile cut-out, no drone footage)
   /World/site        data/recon/site_ground.usd (ground.py: terrain + classified tile surface)
   /World/trees, /World/vehicles  place_assets.py (tile canopy switched off when trees exist)
+  /World/people      place_people.py: the survivors seen in the video (specs/survivors.yaml)
 Add new pieces to PIECES; a hero's ID deactivates its LOD1 box.
 """
 from pathlib import Path
 from pxr import Usd, UsdGeom, UsdLux, Sdf, Gf
 from _paths import R
 
-PIECES = {"R01": "rubble_west/R01_assets.usd", "B01": "b01/B01.usd", "R02": "rubble_east/R02_assets.usd", "S01": "s01/S01.usd", "B03": "b03/B03.usd", "PAD": "pad/PAD.usd", "B06": "b06/B06.usd", "S08": "s08/S08.usd", "B35": "b35/B35.usd"}
+PIECES = {"R01": "rubble_west/R01_assets.usd", "B01": "b01/B01.usd", "R02": "rubble_east/R02_assets.usd", "S01": "s01/S01.usd", "B03": "b03/B03.usd", "PAD": "pad/PAD.usd", "B06": "b06/B06.usd", "S08": "s08/S08.usd", "B35": "b35/B35.usd", "D01": "d01/D01.usd"}
 
 stage = Usd.Stage.CreateNew(str(R / "disaster_city.usda"))
 UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z); UsdGeom.SetStageMetersPerUnit(stage, 1.0)
 world = UsdGeom.Xform.Define(stage, "/World"); stage.SetDefaultPrim(world.GetPrim())
 if (R / "site_ground.usd").exists(): stage.DefinePrim("/World/site").GetReferences().AddReference("./site_ground.usd")
-for name in ("trees", "vehicles", "debris"):                          # place_assets.py
+for name in ("trees", "vehicles", "debris", "people"):                # place_assets.py; place_people.py
     if (R / f"{name}.usd").exists(): stage.DefinePrim(f"/World/{name}").GetReferences().AddReference(f"./{name}.usd")
 if (R / "trees.usd").exists():                              # the placed trees replace the tile canopy
     stage.OverridePrim("/World/site/tiles_vegetation").SetActive(False)
