@@ -3,43 +3,51 @@
     ~/.venvs/recon/bin/python gen_drill_tower.py && ~/.venvs/recon/bin/python build_hero.py data/recon/s01/S01_spec.yaml
 
 Footprint/height off the tile mesh (body 6.7 x 8.2 m at 45 deg, top 20.3 m ->
-6 floors x 3.3 m + parapet); opening pattern off image (1).png: two windows per
-floor per face, a big top-floor opening on the yhi face, and an external
-switchback stair (local x -2.8..0) with a door onto every landing. Window
+6 floors x 3.3 m). Look off the drone video (A04 frame 5, B05): metal-clad, ribbed on two faces
+and flat grey on the other two, closed dark window panels (two per floor per face), a wide
+top-floor opening on two faces, a slim steel ladder frame with two landings on one side. Panel
 positions follow the pattern -- they are not surveyed.
 """
 from pathlib import Path
-import yaml
+import numpy as np, yaml
 from _paths import R
 
 FH, NF, X, Y = 3.3, 6, 6.7, 8.2
-win = lambda L: [{"at": L * 0.2, "w": 1.2, "sill": 0.9, "h": 1.2}, {"at": L * 0.8 - 1.2, "w": 1.2, "sill": 0.9, "h": 1.2}]
+# faces as filmed (A04 frame 5, B05): ylo/yhi clad in ribbed metal, xlo/xhi flat grey; the "windows" are closed dark
+# panels, two per floor per face, 3 cm proud; the only openings are a wide top-floor one on yhi and xhi and a door
+FACE = {"ylo": ([0, 0], [X, 0], "metal_ribbed"), "yhi": ([0, Y], [X, Y], "metal_ribbed"),
+        "xlo": ([0, 0], [0, Y], "metal_grey"), "xhi": ([X, 0], [X, Y], "metal_grey")}
 parts = [{"box": {"name": "slab_0", "min": [0, 0, 0], "max": [X, Y, 0.2]}}]
 for f in range(NF):
     z0, z1 = f * FH + 0.2, (f + 1) * FH
     top = f == NF - 1
-    parts += [
-        {"wall": {"name": f"wall_ylo_{f}", "from": [0, 0], "to": [X, 0], "z": [z0, z1], "openings": win(X)}},
-        {"wall": {"name": f"wall_yhi_{f}", "from": [0, Y], "to": [X, Y], "z": [z0, z1],
-                  "openings": [{"at": 1.0, "w": X - 2.0, "sill": 0.5, "h": 2.2}] if top else win(X)}},
-        {"wall": {"name": f"wall_xhi_{f}", "from": [X, 0], "to": [X, Y], "z": [z0, z1], "openings": win(Y)}},
-        {"wall": {"name": f"wall_xlo_{f}", "from": [0, 0], "to": [0, Y], "z": [z0, z1],
-                  "openings": [{"at": 0.6 if f % 2 == 0 else Y - 1.6, "w": 1.0, "h": 2.1}]}},   # door onto the landing
-        {"box": {"name": f"slab_{f + 1}", "min": [0, 0, z1], "max": [X, Y, z1 + 0.2]}},
-    ]
-    ly = (0, 2.0) if f % 2 == 0 else (Y - 2.0, Y)
-    parts += [{"box": {"name": f"landing_{f}", "min": [-2.8, ly[0], z0 - 0.2], "max": [0, ly[1], z0], "mat": "grating"}},
-              {"rail": {"name": f"rail_landing_{f}", "from": [-2.8, ly[0]], "to": [-2.8, ly[1]], "z": z0, "mat": "steel"}}]
-    if f < NF - 1:
-        a, b = (2.0, Y - 2.0) if f % 2 == 0 else (Y - 2.0, 2.0)
-        parts.append({"stair": {"name": f"flight_{f}", "from": [-1.4, a, z0 - 0.1], "to": [-1.4, b, z1 + 0.1], "width": 1.2, "mat": "grating"}})
-for n, (fa, ta) in {"par_ylo": ([0, 0], [X, 0]), "par_yhi": ([0, Y], [X, Y]), "par_xlo": ([0, 0], [0, Y]), "par_xhi": ([X, 0], [X, Y])}.items():
-    parts.append({"wall": {"name": n, "from": fa, "to": ta, "z": [NF * FH + 0.2, NF * FH + 1.0], "t": 0.2}})
-for i, x in enumerate((-2.8, -0.05)):
-    for j, y in enumerate((0, Y)):
-        parts.append({"box": {"name": f"post_{i}{j}", "min": [x - 0.1, y - 0.1, 0], "max": [x + 0.1, y + 0.1, NF * FH], "mat": "steel"}})
+    for k, (a, b, mat) in FACE.items():
+        L = abs(b[0] - a[0]) + abs(b[1] - a[1])
+        ops = [{"at": 0.8, "w": L - 1.6, "sill": 0.6, "h": 2.0}] if top and k in ("yhi", "xhi") else \
+              [{"at": 0.8, "w": 1.0, "h": 2.1}] if f == 0 and k == "xlo" else []
+        parts.append({"wall": {"name": f"wall_{k}_{f}", "from": a, "to": b, "z": [z0, z1], "mat": mat, "openings": ops}})
+        if top and k in ("yhi", "xhi"): continue
+        out = {"ylo": (0, -1), "yhi": (0, 1), "xlo": (1, -1), "xhi": (1, 1)}[k]                   # (axis along, outward sign)
+        for c in (0.2 * L, 0.8 * L - 1.2):
+            if f == 0 and k == "xlo" and c < 2: continue                                          # the door
+            lo, hi = [0.0, 0.0, z0 + 0.9], [0.0, 0.0, z0 + 2.1]
+            al, ac = (0, 1) if k[0] == "y" else (1, 0)
+            lo[al], hi[al] = c, c + 1.2
+            wall = a[ac]; lo[ac], hi[ac] = sorted((wall + out[1] * 0.125, wall + out[1] * 0.155))
+            parts.append({"box": {"name": f"panel_{k}_{f}_{int(c)}", "min": lo, "max": hi, "mat": "panel_dark"}})
+    parts.append({"box": {"name": f"slab_{f + 1}", "min": [0, 0, z1], "max": [X, Y, z1 + 0.2]}})
+# the slim steel frame on the xlo face (A04 frame 5): four posts, a landing at the first floor and one at the roof, a ladder
+for i, x in enumerate((-1.4, -0.15)):
+    for j, y in enumerate((Y / 2 - 1.0, Y / 2 + 1.0)):
+        parts.append({"box": {"name": f"post_{i}{j}", "min": [x - 0.08, y - 0.08, 0], "max": [x + 0.08, y + 0.08, NF * FH + 1.2], "mat": "steel"}})
+for n, z in (("landing_1", FH + 0.2), ("landing_roof", NF * FH + 0.2)):
+    parts.append({"box": {"name": n, "min": [-1.5, Y / 2 - 1.1, z - 0.1], "max": [0, Y / 2 + 1.1, z], "mat": "grating"}})
+    parts.append({"rail": {"name": f"rail_{n}", "from": [-1.5, Y / 2 - 1.1], "to": [-1.5, Y / 2 + 1.1], "z": z, "mat": "steel"}})
+parts += [{"box": {"name": f"ladder_side_{j}", "min": [-0.9, y, 0], "max": [-0.85, y + 0.05, NF * FH + 0.2], "mat": "steel"}} for j, y in enumerate((Y / 2 - 0.25, Y / 2 + 0.2))]
+parts += [{"box": {"name": f"rung_{r}", "min": [-0.9, Y / 2 - 0.25, z], "max": [-0.85, Y / 2 + 0.25, z + 0.03], "mat": "steel"}}
+          for r, z in enumerate(np.arange(0.3, NF * FH, 0.35).round(2).tolist())]
 spec = {"id": "S01", "name": "drill_tower", "semantic": "building", "origin": [3.556, -515.233, 57.14], "yaw_deg": 45.0, "parts": parts,
-        "lights": [{"rect": [0.3, 0.3, X - 0.3, Y - 0.3], "ceiling": (f + 1) * FH, "spacing": 4.5} for f in range(NF)]}
+        "lights": [{"rect": [0.3, 0.3, X - 0.3, Y - 0.3], "ceiling": NF * FH, "spacing": 4.5}]}          # only the top floor is open
 out = R / "s01/S01_spec.yaml"; out.parent.mkdir(parents=True, exist_ok=True)
 out.write_text("# generated by gen_drill_tower.py -- edit that, not this\n" + yaml.safe_dump(spec, sort_keys=False, default_flow_style=None, width=200))
 print(f"{len(parts)} parts -> {out}")

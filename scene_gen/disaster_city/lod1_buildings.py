@@ -18,7 +18,7 @@ import cv2, numpy as np, open3d as o3d, yaml, mapbox_earcut
 from shapely.geometry import Polygon
 from pxr import Usd, UsdGeom, UsdShade, UsdPhysics, Sdf, Gf
 
-from _paths import R, LABELS
+from _paths import CODE, DATA, R, LABELS
 RES, WIN, MIN_H = 0.25, 30.0, 2.0          # m/cell, half window around a label, blob threshold
 
 t = np.load(R / "tiles_site.npz")
@@ -112,6 +112,59 @@ tex.CreateInput("st", Sdf.ValueTypeNames.Float2).ConnectToSource(rd.ConnectableA
 sh.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(tex.ConnectableAPI(), "rgb")
 mat.CreateSurfaceOutput().ConnectToSource(sh.ConnectableAPI(), "surface")
 
+# walls: a tileable texture off the drone video (materials/, video_materials.py) tinted to each building's
+# wall colour in the tiles -- its two longest walls rendered head-on from 12 m (render_views.py), median
+# of the middle; grey walls take the concrete texture, coloured ones the stucco
+def wall_tints():
+    import subprocess, tempfile
+    views = []
+    for b in out:
+        xy = np.array(max(b["levels"][0]["rings"], key=len), float)
+        if not Polygon(xy).exterior.is_ccw: xy = xy[::-1]
+        e = np.roll(xy, -1, 0) - xy; L = np.linalg.norm(e, axis=1)
+        for j in np.argsort(-L)[:2]:
+            t = e[j] / L[j]; n = np.array([t[1], -t[0], 0.0]); fwd = -n
+            right = np.cross(fwd, [0, 0, 1]); down = np.cross(fwd, right)
+            C = np.r_[(xy[j] + xy[(j + 1) % len(xy)]) / 2, b["ground_z"] + b["levels"][0]["height_m"] / 2] + 12 * n
+            views.append({"name": f"{b['id']}_{j}", "R_wc": np.c_[right, down, fwd].tolist(), "C": C.tolist(),
+                          "fx": 300, "fy": 300, "cx": 160, "cy": 120, "w": 320, "h": 240})
+    with tempfile.TemporaryDirectory() as d:
+        json.dump(views, open(f"{d}/views.json", "w"))
+        subprocess.run(["blender", "-b", str(DATA / "blender_data/disaster_city.blend"), "--python", str(CODE / "render_views.py"), "--",
+                        f"{d}/views.json", d], check=True, capture_output=True)
+        tint = {}
+        for v in views:
+            im = cv2.imread(f"{d}/{v['name']}.png")[80:200, 100:220].reshape(-1, 3)[:, ::-1] / 255
+            tint.setdefault(v["name"].split("_")[0], []).append(np.median(im, axis=0))
+    return {k: np.median(v, axis=0).round(3).tolist() for k, v in tint.items()}
+def lift(c):                        # the tiles bake shade into walls: brighten to a plausible albedo, keep the hue
+    c = np.array(c); lum = c.mean(); return (c * np.clip(lum * 1.5, 0.45, 0.78) / max(lum, 1e-3)).round(3).tolist()
+TINT = {k: lift(v) for k, v in wall_tints().items()}; LIB = json.load(open(R / "materials/materials.json"))
+_wm = {}
+def wall_mat(rgb):
+    """stucco or concrete (by saturation), its texture scaled to the building's tint; one material per tint"""
+    rgb = np.array(rgb); name = "stucco" if rgb.max() - rgb.min() > 0.06 else "concrete"
+    key = f"wall_{name}_{'_'.join(str(int(c * 255)) for c in rgb)}"
+    if key not in _wm:
+        texmean = cv2.imread(str(R / "materials" / f"{name}.png")).reshape(-1, 3).mean(0)[::-1] / 255
+        m = UsdShade.Material.Define(stage, f"/buildings_lod1/{key}")
+        pbr = UsdShade.Shader.Define(stage, m.GetPath().AppendChild("pbr")); pbr.CreateIdAttr("UsdPreviewSurface")
+        pbr.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.9)
+        r = UsdShade.Shader.Define(stage, m.GetPath().AppendChild("uv")); r.CreateIdAttr("UsdPrimvarReader_float2")
+        r.CreateInput("varname", Sdf.ValueTypeNames.Token).Set("st")
+        xf = UsdShade.Shader.Define(stage, m.GetPath().AppendChild("tile")); xf.CreateIdAttr("UsdTransform2d")
+        xf.CreateInput("in", Sdf.ValueTypeNames.Float2).ConnectToSource(r.ConnectableAPI(), "result")
+        xf.CreateInput("scale", Sdf.ValueTypeNames.Float2).Set(Gf.Vec2f(*[1 / LIB[name]["tile_m"]] * 2))
+        t = UsdShade.Shader.Define(stage, m.GetPath().AppendChild("tex")); t.CreateIdAttr("UsdUVTexture")
+        t.CreateInput("file", Sdf.ValueTypeNames.Asset).Set(f"./materials/{name}.png")
+        t.CreateInput("st", Sdf.ValueTypeNames.Float2).ConnectToSource(xf.ConnectableAPI(), "result")
+        for w in ("wrapS", "wrapT"): t.CreateInput(w, Sdf.ValueTypeNames.Token).Set("repeat")
+        t.CreateInput("sourceColorSpace", Sdf.ValueTypeNames.Token).Set("sRGB")
+        t.CreateInput("scale", Sdf.ValueTypeNames.Float4).Set(Gf.Vec4f(*(np.clip(rgb / texmean, 0, 2)), 1))
+        pbr.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(t.ConnectableAPI(), "rgb")
+        m.CreateSurfaceOutput().ConnectToSource(pbr.ConnectableAPI(), "surface"); _wm[key] = m
+    return _wm[key]
+
 def mesh(path, V, faces):
     m = UsdGeom.Mesh.Define(stage, path)
     m.CreatePointsAttr([Gf.Vec3f(*map(float, v)) for v in V])
@@ -136,7 +189,11 @@ for b in out:
             UsdShade.MaterialBindingAPI.Apply(roof.GetPrim()).Bind(mat)
             walls = mesh(x.GetPath().AppendChild(f"walls{k}"), [(*p, z0) for p in xy] + [(*p, z1) for p in xy],
                          [[i, (i + 1) % n_, n_ + (i + 1) % n_, n_ + i] for i in range(n_)])
-            walls.CreateDisplayColorAttr([(0.72, 0.70, 0.66)]); k += 1
+            per = np.r_[0, np.cumsum(np.linalg.norm(np.roll(xy, -1, 0) - xy, axis=1))]           # metres along the outline
+            UsdGeom.PrimvarsAPI(walls).CreatePrimvar("st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.faceVarying).Set(
+                [c for i in range(n_) for c in ((per[i], z0), (per[i + 1], z0), (per[i + 1], z1), (per[i], z1))])
+            tint = TINT.get(b["id"], [0.72, 0.70, 0.66])
+            walls.CreateDisplayColorAttr([tuple(tint)]); UsdShade.MaterialBindingAPI.Apply(walls.GetPrim()).Bind(wall_mat(tint)); k += 1
     p = x.GetPrim(); p.AddAppliedSchema("SemanticsLabelsAPI:class")
     p.CreateAttribute("semantics:labels:class", Sdf.ValueTypeNames.TokenArray).Set(["building"])
     p.SetCustomDataByKey("label:id", b["id"])

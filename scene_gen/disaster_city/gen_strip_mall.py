@@ -28,7 +28,7 @@ for i, (y0, y1) in enumerate(zip(walls_y, walls_y[1:])):
 for j, y in enumerate(walls_y):                                   # end walls + party walls (x runs 0..X)
     ops = [{"at": 4.0, "w": 1.0, "sill": 1.0, "h": 1.0}, {"at": 10.0, "w": 1.0, "sill": 1.0, "h": 1.0}] if y in (0, 24.0) else []
     parts.append({"wall": {"name": f"cross_{j}", "from": [0, y], "to": [X, y], "z": [0.15, H], "openings": ops}})
-roof = lambda n, x0, x1, y0, y1, z: {"box": {"name": n, "min": [x0, y0, z - 0.2], "max": [x1, y1, z]}}
+roof = lambda n, x0, x1, y0, y1, z: {"box": {"name": n, "min": [x0, y0, z - 0.2], "max": [x1, y1, z], "mat": "concrete"}}
 parts += [
     roof("roof_u1_sagged", 0, X, 0, 4.2, 4.0),
     {"box": {"name": "u2_stub_a", "min": [4.9, 4.2, 0.15], "max": [5.1, 8.7, H]}},
@@ -40,7 +40,7 @@ parts += [
     roof("u5_collapse_a", 1.0, 4.5, 19.5, 23.5, 3.0), roof("u5_collapse_b", 4.5, 10.4, 19.5, 23.5, 2.0),
     {"box": {"name": "fascia", "min": [X, 0, 3.6], "max": [X + 0.8, 24.0, 4.4]}},   # the sign band over the storefronts
 ]
-spec = {"id": "B03", "name": "strip_mall", "semantic": "building", "origin": [100.0, -426.05, 57.84], "yaw_deg": 47.6, "parts": parts,
+spec = {"id": "B03", "name": "strip_mall", "semantic": "building", "default_mat": "stucco", "origin": [100.0, -426.05, 57.84], "yaw_deg": 47.6, "parts": parts,
         "lights": [{"rect": [0.3, 0.3, X - 0.3, 3.9], "ceiling": 3.8, "spacing": 5},        # U1, sagged roof
                    {"rect": [0.3, 9.0, X - 0.3, 14.4], "ceiling": 4.8, "spacing": 5},      # U3, intact
                    {"rect": [10.7, 19.5, X - 0.3, 23.7], "ceiling": 4.8, "spacing": 5}]}   # U5, the part still roofed

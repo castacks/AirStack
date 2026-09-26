@@ -18,20 +18,24 @@ drone. Spec parts:
   beam:   {name, from: [x,y,z], to: [x,y,z], t: 0.2, mat}   oriented square bar (bracing, booms, tilted slabs with t2)
   cyl:    {name, c: [x,y,z] (centre), r, h, axis: X|Y|Z, mat}
   sphere: {name, c: [x,y,z], r, mat}
+  hip:    {name, min: [x,y,z], max: [x,y,z], mat}   hip roof over the box's footprint, ridge along its long side
 
+Optional top-level `default_mat` (else concrete) for parts without a `mat`.
 Optional top-level `lights: [{rect: [x0,y0,x1,y1], ceiling: z, spacing: 5}]`
 fills each rect with SphereLights 0.4 m under its ceiling. They go under
 /<ID>/lights, a scope with no collider or label; deactivate it for a dark building.
 The interior fill is there because real-time RTX has no bounce light into rooms.
 """
-import sys
+import json, sys
 from pathlib import Path
 import numpy as np, yaml
 from pxr import Usd, UsdGeom, UsdLux, UsdShade, UsdPhysics, Sdf, Gf, Tf
 from _paths import R
 
 MATS = {"concrete": (0.62, 0.60, 0.56), "steel": (0.30, 0.31, 0.33), "grating": (0.22, 0.22, 0.24),
-        "wood": (0.55, 0.42, 0.28), "rust": (0.45, 0.25, 0.15), "tank_black": (0.08, 0.08, 0.09), "tank_white": (0.85, 0.85, 0.83)}
+        "wood": (0.55, 0.42, 0.28), "rust": (0.45, 0.25, 0.15), "tank_black": (0.08, 0.08, 0.09), "tank_white": (0.85, 0.85, 0.83),
+        "steel_dark": (0.20, 0.17, 0.15), "stucco": (0.72, 0.62, 0.48), "roof_brown": (0.40, 0.28, 0.20), "metal_white": (0.80, 0.80, 0.78),
+        "metal_ribbed": (0.48, 0.48, 0.47), "metal_grey": (0.42, 0.42, 0.43), "panel_dark": (0.28, 0.29, 0.29), "yellow": (0.84, 0.77, 0.56), "sign": (0.92, 0.92, 0.90)}
 
 def wall_boxes(w):
     (x0, y0), (x1, y1), (z0, z1), t = w["from"], w["to"], w["z"], w.get("t", 0.25)
@@ -82,16 +86,37 @@ root.AddTranslateOp().Set(Gf.Vec3d(*spec["origin"])); root.AddRotateZOp().Set(sp
 p = root.GetPrim(); p.AddAppliedSchema("SemanticsLabelsAPI:class")
 p.CreateAttribute("semantics:labels:class", Sdf.ValueTypeNames.TokenArray).Set([spec.get("semantic", "building")])
 
+# Textures: data/recon/materials/<mat>.png, tileable, cut from the drone video by video_materials.py
+# (materials.json: tile size in m, roughness, metallic). A mat without one stays a flat colour.
+LIB = json.load(open(R / "materials/materials.json")) if (R / "materials/materials.json").exists() else {}
+PHOTO = spec.get("photo")                 # {mats: [...]}: those parts also get an atlas baked from the video (photo_bake.py)
 _mats = {}
 def material(mat):
-    """One rough UsdPreviewSurface per colour: Isaac's default material is glossy, and
-    interior lights showed as floating glints on every wall."""
+    """UsdPreviewSurface, rough (Isaac's default is glossy and interior lights glinted off every wall);
+    textured through primvar `st` (metres) when the library has the mat, or the photo atlas (`st_photo`)."""
     if mat not in _mats:
         m = UsdShade.Material.Define(stage, root.GetPath().AppendChild("materials").AppendChild(mat))
         sh = UsdShade.Shader.Define(stage, m.GetPath().AppendChild("pbr")); sh.CreateIdAttr("UsdPreviewSurface")
-        sh.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*MATS[mat]))
-        sh.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.9 if mat not in ("steel", "grating") else 0.6)
-        sh.CreateInput("metallic", Sdf.ValueTypeNames.Float).Set(0.0)
+        lib = LIB.get(mat, {})
+        sh.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(lib.get("rough", 0.6 if mat in ("steel", "grating") else 0.9))
+        sh.CreateInput("metallic", Sdf.ValueTypeNames.Float).Set(lib.get("metal", 0.0))
+        png = f"./{spec['id']}_photo.png" if mat == "photo" else (f"../materials/{mat}.png" if lib else None)
+        if png:
+            rd = UsdShade.Shader.Define(stage, m.GetPath().AppendChild("uv")); rd.CreateIdAttr("UsdPrimvarReader_float2")
+            rd.CreateInput("varname", Sdf.ValueTypeNames.Token).Set("st_photo" if mat == "photo" else "st")
+            src = rd.ConnectableAPI()
+            if mat != "photo":                                       # metres -> texture repeats
+                xf = UsdShade.Shader.Define(stage, m.GetPath().AppendChild("tile")); xf.CreateIdAttr("UsdTransform2d")
+                xf.CreateInput("in", Sdf.ValueTypeNames.Float2).ConnectToSource(src, "result")
+                xf.CreateInput("scale", Sdf.ValueTypeNames.Float2).Set(Gf.Vec2f(1 / lib["tile_m"], 1 / lib["tile_m"])); src = xf.ConnectableAPI()
+            tx = UsdShade.Shader.Define(stage, m.GetPath().AppendChild("tex")); tx.CreateIdAttr("UsdUVTexture")
+            tx.CreateInput("file", Sdf.ValueTypeNames.Asset).Set(png)
+            tx.CreateInput("st", Sdf.ValueTypeNames.Float2).ConnectToSource(src, "result")
+            for w in ("wrapS", "wrapT"): tx.CreateInput(w, Sdf.ValueTypeNames.Token).Set("clamp" if mat == "photo" else "repeat")
+            tx.CreateInput("sourceColorSpace", Sdf.ValueTypeNames.Token).Set("sRGB")
+            sh.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(tx.ConnectableAPI(), "rgb")
+        else:
+            sh.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*MATS.get(mat, MATS["concrete"])))
         m.CreateSurfaceOutput().ConnectToSource(sh.ConnectableAPI(), "surface"); _mats[mat] = m
     return _mats[mat]
 
@@ -99,38 +124,96 @@ def solid(grp, name, gprim, mat):
     gprim.CreateDisplayColorAttr([MATS[mat]]); UsdPhysics.CollisionAPI.Apply(gprim.GetPrim())
     UsdShade.MaterialBindingAPI.Apply(gprim.GetPrim()).Bind(material(mat))
 
+# a box = 8 corners (local frame) -> 6 quads; st = the face's two in-plane axes in metres, taken
+# in the building frame so the texture runs on across the boxes of one wall
+FACES = [((0, 2, 6, 4), 0), ((1, 5, 7, 3), 0), ((0, 4, 5, 1), 1), ((2, 3, 7, 6), 1), ((0, 1, 3, 2), 2), ((4, 6, 7, 5), 2)]
+def box_corners(lo, hi, M=None):
+    c = np.array([[(lo, hi)[i >> 0 & 1][0], (lo, hi)[i >> 1 & 1][1], (lo, hi)[i >> 2 & 1][2]] for i in range(8)], float)
+    return c if M is None else c @ M[:3, :3].T + M[:3, 3]
+
+atlas, slots = [], {}                       # photo faces: world rectangles for photo_bake.py; per mesh, their atlas slots
+def emit(path, corners_list, mat):
+    """One Mesh (and collider) for all boxes of a part."""
+    P, counts, idx, st, stp, photo = [], [], [], [], [], PHOTO and mat in PHOTO.get("mats", ["concrete"])
+    for C in corners_list:
+        for q, _ in FACES:
+            Q = C[list(q)]; n = np.cross(Q[2] - Q[0], Q[3] - Q[1])                  # diagonals: also right for a triangle
+            if np.linalg.norm(n) < 1e-9: continue                                  # collapsed face (a hip's ridge)
+            n /= np.linalg.norm(n)
+            if n @ (Q.mean(0) - C.mean(0)) < 0: Q, n = Q[::-1], -n          # outward, counter-clockwise
+            # in-plane axes: vertical face -> (horizontal, z); flat face -> (x, y)
+            ua = np.array([-n[1], n[0], 0.0]) if abs(n[2]) < 0.9 else np.array([1.0, 0, 0])
+            ua /= np.linalg.norm(ua); va = np.cross(n, ua)
+            base = len(P); P += Q.tolist(); counts.append(4); idx += [base, base + 1, base + 2, base + 3]
+            st += [(float(p @ ua), float(p @ va)) for p in Q]
+            if photo:
+                uv = np.array([(p @ ua, p @ va) for p in Q]); lo_ = uv.min(0); size = uv.max(0) - lo_
+                atlas.append({"o": (ua * lo_[0] + va * lo_[1] + n * (Q[0] @ n)).tolist(), "u": ua.tolist(), "v": va.tolist(),
+                              "n": n.tolist(), "size": size.tolist(), "path": str(path), "mat": mat, "st0": lo_.tolist()})
+                stp += [(len(atlas) - 1, *((uv_ - lo_) / np.maximum(size, 1e-6))) for uv_ in uv]
+    g = UsdGeom.Mesh.Define(stage, path)
+    g.CreatePointsAttr(P); g.CreateFaceVertexCountsAttr(counts); g.CreateFaceVertexIndicesAttr(idx)
+    g.CreateSubdivisionSchemeAttr("none")
+    pv = UsdGeom.PrimvarsAPI(g)
+    pv.CreatePrimvar("st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.faceVarying).Set(st)
+    if photo: slots[path] = stp                                          # atlas slots, resolved after packing
+    g.CreateDisplayColorAttr([MATS.get(mat, MATS["concrete"])])
+    UsdShade.MaterialBindingAPI.Apply(g.GetPrim()).Bind(material("photo" if photo else mat))
+    UsdPhysics.CollisionAPI.Apply(g.GetPrim()); UsdPhysics.MeshCollisionAPI.Apply(g.GetPrim()).CreateApproximationAttr("none")
+    return g
+
 n = 0
 for part in spec["parts"]:
     (kind, d), = part.items()
     d = {**d, "name": Tf.MakeValidIdentifier(d["name"])}          # prim names: no '-' or '.'
-    mat = d.get("mat", "concrete")
-    if kind in ("beam", "cyl", "sphere"):
-        x = UsdGeom.Xform.Define(stage, root.GetPath().AppendChild(d["name"]))
-        if kind == "beam":
-            a, b = np.array(d["from"], float), np.array(d["to"], float); L = np.linalg.norm(b - a)
-            rot = Gf.Rotation(Gf.Vec3d(1, 0, 0), Gf.Vec3d(*((b - a) / L)))
-            x.AddTranslateOp().Set(Gf.Vec3d(*((a + b) / 2))); x.AddOrientOp().Set(Gf.Quatf(rot.GetQuat()))
-            x.AddScaleOp().Set(Gf.Vec3f(L / 2, d.get("t2", d.get("t", 0.2)) / 2, d.get("t", 0.2) / 2))
-            g = UsdGeom.Cube.Define(stage, x.GetPath().AppendChild("c"))
-        elif kind == "cyl":
-            x.AddTranslateOp().Set(Gf.Vec3d(*d["c"]))
+    mat = d.get("mat", spec.get("default_mat", "concrete")); path = root.GetPath().AppendChild(d["name"])
+    if kind in ("cyl", "sphere"):
+        x = UsdGeom.Xform.Define(stage, path); x.AddTranslateOp().Set(Gf.Vec3d(*d["c"]))
+        if kind == "cyl":
             g = UsdGeom.Cylinder.Define(stage, x.GetPath().AppendChild("c")); g.CreateRadiusAttr(d["r"]); g.CreateHeightAttr(d["h"]); g.CreateAxisAttr(d.get("axis", "Z"))
         else:
-            x.AddTranslateOp().Set(Gf.Vec3d(*d["c"]))
             g = UsdGeom.Sphere.Define(stage, x.GetPath().AppendChild("c")); g.CreateRadiusAttr(d["r"])
         solid(x, d["name"], g, mat); n += 1
         continue
-    boxes = {"box": lambda d: [(d["min"], d["max"])], "wall": wall_boxes, "stair": stair_boxes, "rail": rail_boxes}[kind](d)
-    grp = UsdGeom.Xform.Define(stage, root.GetPath().AppendChild(d["name"]))
-    for i, (lo, hi) in enumerate(boxes):
-        lo, hi = np.array(lo, float), np.array(hi, float)
-        x = UsdGeom.Xform.Define(stage, grp.GetPath().AppendChild(f"b{i}"))
-        x.AddTranslateOp().Set(Gf.Vec3d(*((lo + hi) / 2))); x.AddScaleOp().Set(Gf.Vec3f(*((hi - lo) / 2)))
-        c = UsdGeom.Cube.Define(stage, x.GetPath().AppendChild("c"))
-        c.CreateDisplayColorAttr([MATS[d.get("mat", "concrete")]])
-        UsdShade.MaterialBindingAPI.Apply(c.GetPrim()).Bind(material(d.get("mat", "concrete")))
-        UsdPhysics.CollisionAPI.Apply(c.GetPrim())
-        n += 1
+    if kind == "beam":                                               # oriented box: x along from->to, t2 across, t through
+        a, b = np.array(d["from"], float), np.array(d["to"], float); L = np.linalg.norm(b - a); ax = (b - a) / L
+        side = np.cross([0, 0, 1], ax); side = side / np.linalg.norm(side) if np.linalg.norm(side) > 1e-6 else np.array([0, 1.0, 0])
+        M = np.eye(4); M[:3, :3] = np.c_[ax, side, np.cross(ax, side)]; M[:3, 3] = (a + b) / 2
+        t, t2 = d.get("t", 0.2), d.get("t2", d.get("t", 0.2))
+        corners = [box_corners([-L / 2, -t2 / 2, -t / 2], [L / 2, t2 / 2, t / 2], M)]
+    elif kind == "hip":                                              # a box whose top face is pulled in to a ridge
+        lo, hi = np.array(d["min"], float), np.array(d["max"], float); c = box_corners(lo, hi)
+        ax = 0 if hi[0] - lo[0] >= hi[1] - lo[1] else 1; inset = (hi[1 - ax] - lo[1 - ax]) / 2
+        for i in range(4, 8):
+            c[i, 1 - ax] = (lo[1 - ax] + hi[1 - ax]) / 2
+            c[i, ax] = lo[ax] + inset if c[i, ax] == lo[ax] else hi[ax] - inset
+        corners = [c]
+    else:
+        boxes = {"box": lambda d: [(d["min"], d["max"])], "wall": wall_boxes, "stair": stair_boxes, "rail": rail_boxes}[kind](d)
+        corners = [box_corners(np.array(lo, float), np.array(hi, float)) for lo, hi in boxes]
+    emit(path, corners, mat); n += len(corners)
+
+# pack the photo faces into one atlas (shelf packing, texel size grown until it fits) and write the UVs
+if atlas:
+    SIDE, PAD = PHOTO.get("atlas_px", 4096), 3
+    area = sum(a["size"][0] * a["size"][1] for a in atlas); ts = np.sqrt(area) / SIDE
+    while True:
+        x = y = row = 0; ok = True
+        for a in sorted(range(len(atlas)), key=lambda i: -atlas[i]["size"][1]):
+            w, h = (int(np.ceil(s / ts)) + 2 * PAD for s in atlas[a]["size"])
+            if x + w > SIDE: x, y, row = 0, y + row, 0
+            if y + h > SIDE or w > SIDE: ok = False; break
+            atlas[a]["px"] = [x + PAD, y + PAD, w - 2 * PAD, h - 2 * PAD]; x += w; row = max(row, h)
+        if ok: break
+        ts *= 1.05
+    for path, sl in slots.items():
+        uvs = [((atlas[i]["px"][0] + u * atlas[i]["px"][2]) / SIDE, 1 - (atlas[i]["px"][1] + (1 - v) * atlas[i]["px"][3]) / SIDE)
+               for i, u, v in sl]
+        UsdGeom.PrimvarsAPI(stage.GetPrimAtPath(path)).CreatePrimvar("st_photo", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.faceVarying).Set(uvs)
+    M = np.array(UsdGeom.Xformable(root).ComputeLocalToWorldTransform(Usd.TimeCode.Default())).T      # local -> world
+    json.dump({"side": SIDE, "texel_m": ts, "local_to_world": M.tolist(), "faces": atlas},
+              open(out.parent / f"{spec['id']}_atlas.json", "w"))
+    print(f"  photo atlas: {len(atlas)} faces, {area:.0f} m2, {ts * 100:.1f} cm/texel")
 LIGHT_INTENSITY = 15000.0     # nits-ish; tuned so a lit room reads like an overcast-day interior
 if spec.get("lights"):
     UsdGeom.Scope.Define(stage, root.GetPath().AppendChild("lights"))

@@ -265,6 +265,9 @@ for fid, rad in FIELDS.items():
     a_, r_ = rng.uniform(0, 2 * np.pi, n_), rad * np.sqrt(rng.uniform(0, 1, n_))
     pts.append(np.c_[cx + r_ * np.cos(a_), cy + r_ * np.sin(a_)])
 pts = np.concatenate(pts)
+from shapely.geometry import Point, Polygon as _Poly                      # not on a building standing in the field (B35 in R03)
+_bld = [_Poly(r).buffer(1.0) for b in yaml.safe_load(open(R / "buildings_lod1.yaml"))["buildings"] for lv in b["levels"] for r in lv["rings"]]
+pts = pts[[not any(g.contains(Point(p)) for g in _bld) for p in pts]]
 ray = np.c_[pts, np.full(len(pts), 500), np.zeros((len(pts), 2)), -np.ones(len(pts))].astype(np.float32)
 hz = 500 - scene.cast_rays(o3d.core.Tensor(ray))["t_hit"].numpy()
 ok = np.isfinite(hz); pts, hz = pts[ok], hz[ok]

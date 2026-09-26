@@ -47,14 +47,15 @@ PATH, and `~/isaacsim/python.sh` (Isaac Sim 6.0.1) for the check.
 |---|---|---|
 | Terrain, water, parking (`site/ground,water,road`) | Tile mesh reduced to bare earth, with OSM water and parking lots detected in the imagery | 1 m grid, texture from a 12.5 cm top-down render of the tiles |
 | Roads (`site/road_osm`) | OSM road and path polygons, subdivided to 2 m, draped 5 cm over the terrain | Smooth kerb lines in the segmentation |
-| **B01** "133" building | Dense drone reconstruction; box model measured off it (`measure_sheets.py`, `specs/B01.yaml`) | **Enterable.** Windows, doorways, stairs, decks within about 0.2 m. The back face and interior were not filmed. |
-| **S01** drill tower | Tile footprint and height; opening pattern from a Google oblique | **Enterable.** 6 floors, external stair, a door on every landing. The opening positions follow the pattern and are not surveyed. |
+| **B01** "133" building | Dense drone reconstruction; box model measured off it (`measure_sheets.py`, `specs/B01.yaml`): concrete block with its banding, steel frame and roof deck over x 12.7–24.8, the collapsed wing (tilted roof slab, pancaked floors) inside its still-standing steel frame, the cream jib crane | **Enterable.** Windows, doorways, stairs, decks within about 0.2 m. Its concrete faces carry a texture projected from the georeferenced frames (`photo_bake.py`) where the video sees them square-on, the video's concrete elsewhere. The back face and interior were not filmed. |
+| **S01** drill tower | Tile footprint and height; look from the drone video (A04, B05) | Metal-clad (ribbed and flat grey), closed dark window panels, a wide open top floor on two faces, a slim steel ladder frame. Only the top floor and the door are open. Panel positions follow the video, not a survey. |
 | **B03** strip mall | Roof-height grid from the tiles; storefronts from a Google oblique | **Enterable.** Five units, each with its own roof state (intact, gone, or pancaked). |
 | **B06** south warehouse | Ortho (canopy, walkways, ridge) and tile height | **Enterable.** Gabled hall: 2 bay doors and a personnel door under the canopy, main entrance opposite. The door sizes are guessed. |
 | Industrial pad (`PAD`: S02–S06, mast, 3 cabins) | Tile blobs (position, footprint, height); identities from the Google obliques | Primitives: rail tank car, sphere vessel, pipe rack, tank on legs, X-braced lattice tower, cabins with doors |
 | **R01** west rubble pile, **R02** east pile | `rubble_pile.py`: the pile's measured shape (drone reconstruction for R01, tiles for R02) as a smoothed mound 1.6 m under the top, with library rubble stacked on it to the measured height (Nucleus DebrisConcrete fragments, standalone slabs) | Instanced pieces (R01 274, R02 185; about 5M unique triangles), each with an invisible box collider; the photogrammetry surface is no longer used |
-| R03 collapsed houses | Tile mound plus scattered debris pieces | The mound is the collider; the pieces are visual only |
-| Other buildings (`lod1/`) | The tile outline, extruded: main roof level plus any attached lower annex | Closed, with the real roof texture. Not enterable. |
+| **B35** tan house (in R03) | LOD1 fit of the tiles; look from the video (B04, B07) | **Enterable.** Two storeys of stucco under a brown hip roof (`gen_house.py`). |
+| R03 collapsed houses | Tile mound plus scattered debris pieces (kept off B35) | The mound is the collider; the pieces are visual only |
+| Other buildings (`lod1/`) | The tile outline, extruded: main roof level plus any attached lower annex | Closed, with the real roof texture; walls in the video's stucco or concrete, tinted to the building's wall colour in the tiles. Not enterable. |
 | Trees (`trees/`) | Canopy peaks in the tile heights; 4 NVIDIA tree species as instanceable references | Position and height from the tiles; invisible trunk and crown colliders |
 | Vehicles (`vehicles/`) | Road vehicles: vehicle-sized blobs on roads, parking lots and near vehicle labels, fitted in the world frame. Rail cars: hand-surveyed car by car (`specs/rail_cars.yaml`), because the tiles merge coupled and derailed cars | Cars, vans and buses from the standalone pack; box truck, dump truck and container from `assets/lib`; tank cars, box cars, coaches and a locomotive from Nucleus + Objaverse. Nothing vehicle-sized is left as raw tile mesh or a box |
 | Props (`specs/props.yaml`, S08) | S10 water tower (library asset), S08 canopy (spec) | Measured off the tiles / ortho |
@@ -89,13 +90,14 @@ $PY recon_extend.py data/recon/b01 Bh B07,B08,B09,B10,B02,B03,A02,A03,A06       
 #    (sparse_sub; see recon_dense.py), then:
 $PY recon_dense.py data/recon/b01 1200 data/recon/b01/sparse_sub
 $PY recon_georef.py data/recon/b01 --model sparse_ext --views 40 --iters 5       # start: rubble_west's transform carried over
-# 2. models
+# 2. models. Materials first: tileable textures cut from the video (+ procedural ones in its colours)
+$PY video_materials.py                                                             # -> data/recon/materials/
 $PY lod1_buildings.py
 $PY measure_sheets.py data/recon/b01 B01 --yaw 47.35                              # the sheets specs/B01.yaml was measured on
 $PY recon_mesh.py data/recon/rubble_west R01 data/recon/tiles_R01.npz --radius 24 --margin 0.5   # the pile's shape
 $PY rubble_pile.py R01 && $PY rubble_pile.py R02 --radius 20                     # rubble assets stacked on it
-$PY build_hero.py specs/B01.yaml
-for g in drill_tower:s01/S01 strip_mall:b03/B03 warehouse:b06/B06 industrial_pad:pad/PAD; do
+$PY build_hero.py specs/B01.yaml && $PY photo_bake.py B01 b01 rubble_west          # the video projected onto B01
+for g in drill_tower:s01/S01 strip_mall:b03/B03 warehouse:b06/B06 industrial_pad:pad/PAD house:b35/B35; do
   $PY gen_${g%%:*}.py && $PY build_hero.py data/recon/${g#*:}_spec.yaml; done
 # 3. site layer, assets, scene. ground.py runs twice: place_assets.py reads its rasters, then ground.py cuts out the replaced vehicles
 $PY ground.py && $PY place_assets.py && $PY ground.py && $PY assemble_scene.py
@@ -109,6 +111,9 @@ OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh asset_gallery.py <out_dir>        
 # before/after: raw tiles vs grafted scene from the same cameras
 blender -b data/blender_data/disaster_city.blend --python tiles_extract.py -- 75 -300 400 data/recon/raw_tiles/tiles_site.usd
 OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh before_after.py shots.json <out_dir>
+$PY video_compare.py b01 <out_dir> --n 10 --near 47,-410 --r 35   # the scene from the drone's own cameras, beside the frames
+# drone trajectories over both whole videos -> data/recon/tracks/track_{A,B}.jpg (segments = the named clips)
+$PY track_drone.py frames && $PY track_drone.py sfm && $PY track_drone.py georef && $PY track_drone.py plot
 $PY footprint_check.py                        # every model vs its tile footprint -> data/recon/footprints.tsv + overlays
 OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh package.py                          # data/dist/disaster_city/ (Kit USD)
 ```
@@ -118,13 +123,23 @@ from `scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/` (4 trees and
 their `materials/`) and `scene_gen/assets/standalone/{cars,debris/pieces}/`.
 
 To add an enterable building, write a spec in `specs/` (walls with `openings`,
-boxes, `stair`, `rail`, `beam`, `cyl`, `sphere`, and optional `lights`; see
+boxes, `stair`, `rail`, `beam`, `hip`, `cyl`, `sphere`, `default_mat`, `photo`, and optional `lights`; see
 `build_hero.py`), or a
 generator like `gen_strip_mall.py`. Then add the building to `PIECES` in
 `assemble_scene.py`. Its LOD1 box is switched off, and `ground.py` masks the
 tile surface under it.
 
 ## Things that bit, so they don't bite again
+
+- **Projecting frames onto a model: the OPENCV lens folds back outside the field of view.** Points well
+  outside a frame map, through the k1/k2 polynomial, onto pixels inside it -- the first B01 atlas was
+  covered in swirls. `photo_bake.py` rejects anything past the frame corners' undistorted radius.
+- **Cross-view colour agreement does not tell a real surface from a wrong one here.** Camera A and camera B
+  expose differently, so the well-seen exterior walls disagreed most and were rejected. What works: only
+  faces that open onto the outside (rays along the normal escape the building) and do not face down, with
+  the dense cloud as occluder, weighted by the best view's angle and distance.
+- **A wall filmed in shade bakes the shade into its albedo.** The tan stucco came out pink-brown;
+  `video_materials.py` sets each photo material's mean brightness (or colour) explicitly.
 
 - **Nucleus assets are kit-written USD crates.** The pip `usd-core` cannot open them, and
   `UsdUtils.ComputeAllDependencies` aborts on them even under Kit. Mirror, normalise and package

@@ -89,6 +89,7 @@ labels:
 - {id: B32, name: red_annex_building, kind: building, at: [294, -143], height_m: 4.7}
 - {id: B33, name: pond_shed, kind: building, at: [91, -90], height_m: 4.7}
 - {id: B34, name: north_utility, kind: building, at: [176, -31], height_m: 3.7, note: "TEEX campus edge, outside the tile crop -- no LOD1 box"}
+- {id: B35, name: tan_house, kind: building, at: [63.0, -434.5], note: "two-storey tan stucco house with a brown hip roof, inside R03; intact in the video (B04, B07)", seen_in: [A03, B04, B07]}
 
 # ---------------- structures / props ----------------
 - {id: S01, name: drill_tower, kind: structure, at: [2, -510], height_m: 20.4, note: "5-storey training tower", seen_in: [A04, B05]}

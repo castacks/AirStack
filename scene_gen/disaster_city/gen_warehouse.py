@@ -37,7 +37,7 @@ for face, y in (("vlo", 0.0), ("vhi", Y)):
 # roof: two sloped slabs meeting at the ridge (u = 0 -> x = -U0)
 xr = -U0
 for side, (xa, xb) in (("lo", (0, xr)), ("hi", (X, xr))):
-    parts.append({"beam": {"name": f"roof_{side}", "from": [xa, Y / 2, EAVE], "to": [xb, Y / 2, RIDGE], "t": 0.2, "t2": Y + 0.6, "mat": "steel"}})
+    parts.append({"beam": {"name": f"roof_{side}", "from": [xa, Y / 2, EAVE], "to": [xb, Y / 2, RIDGE], "t": 0.2, "t2": Y + 0.6, "mat": "metal_ribbed"}})
 # canopy over the +v face
 parts.append({"box": {"name": "canopy", "min": [ux(-12.6), Y, 4.9], "max": [ux(12.4), Y + 1.6, 5.1], "mat": "steel"}})
 for u in (-12.3, 0.0, 12.1):
@@ -50,7 +50,7 @@ for k in range(3):                                               # three walls; 
                            "openings": [{"at": 2.0, "w": 1.2, "h": 1.8}] if k == 0 else []}})
 c = np.array([159.94, -499.27]); th = np.radians(47.7)
 o = c + np.array([U0 * np.cos(th) - V0 * np.sin(th), U0 * np.sin(th) + V0 * np.cos(th)])
-spec = {"id": "B06", "name": "warehouse_south", "semantic": "building", "origin": [round(float(o[0]), 3), round(float(o[1]), 3), 62.77],
+spec = {"id": "B06", "name": "warehouse_south", "semantic": "building", "default_mat": "stucco", "origin": [round(float(o[0]), 3), round(float(o[1]), 3), 62.77],
         "yaw_deg": 47.7, "parts": parts,
         "lights": [{"rect": [1, 1, X - 1, Y - 1], "ceiling": EAVE, "spacing": 8, "intensity": 45000.0}]}   # tall, open hall
 out = R / "b06/B06_spec.yaml"
