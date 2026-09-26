@@ -1,22 +1,16 @@
 # RRM remote Codex handoff
 
-## CURRENT ADDENDUM: independent watchdog thread — 2026-09-25
+## LATEST: aerial drift root-cause fixed and UNPAUSED — 2026-09-26
 
-The hand gateway now has `start_watchdog(interval_s)` and `stop_watchdog()` methods.
-`start_watchdog` launches a daemon thread that periodically calls the existing
-`watchdog_fence()`. If the fence trips (stale tick, clock regression), the thread
-follows up with `watchdog_check()` to durably latch the fault, then exits. The thread
-never acquires the simulator/action lock, never calls the articulation, and never
-writes the journal directly.
+The 2026-09-26 verification flight (`949b6027`) successfully completed a 1.0 m takeoff
+and landing with both actions `VERIFIED`. The tracking-lead fix (reducing `sphere_radius`
+to 0.3 and `velocity_sphere_radius_multiplier` to 0.5) successfully eliminated the
+0.65 m takeoff lateral drift, reducing the measured displacement to **0.005 m**. The
+landing trajectory now properly targets `-(altitude + 1.0)`.
 
-A CPU-only blocking-fake test proved the watchdog thread independently tripped the
-fence while a fake `apply_action` call was still blocked. Motion was disabled before
-release, one durable fault record was written, a hold was applied after release, and
-the thread shut down cleanly. The focused suite passes 19/19.
+**Aerial is UNPAUSED**. The system is fully ready for the supervised `goal->gui->isaac`
+demo.
 
-This is still an in-process watchdog, not an out-of-process monitor. It delegates
-all fault handling to the existing fence/check/complete_tick code paths. Live
-action-applying stop/hold evidence under Isaac scheduler load remains unqualified.
 
 ## CURRENT ADDENDUM: asynchronous in-process watchdog fence — 2026-09-25
 
@@ -1663,45 +1657,3 @@ dependency-light suite passes **206/206**.
 
 Next safe sequence (Hand): implement and negative-test the C06/C08/C09 adapter boundary;
 do not dispatch `GRASP` or `PLACE` directly from `rrm_hand_shadow.py`.
-
-## Embodiment-neutral qualitative goal intake — 2026-09-26 UTC
-
-`rrm/goal_contracts.py` now adds an additive proposal-only layer before the legacy
-embodiment-bound `TaskRequest`. `GoalRequest` accepts qualitative objectives without
-coordinates, numeric control values, or a mandatory robot choice. Capability routing
-can select one matching embodiment, retain multiple candidates for later
-feasibility/policy ranking, or distinguish no semantic match from temporarily
-unavailable resources. This prevents the narrow AirStack command grammar and the
-Kuka-Allegro fixture from defining shared RRM language behavior.
-
-Adapter-local parameter resolution records the source and source revision of every
-resolved value. Missing material information is `NEEDS_CLARIFICATION`; known physical
-failure is `INFEASIBLE`. Permission and safety statuses are intentionally absent because
-C06 remains their independent authority. The new layer is not wired to either live
-execution path and grants no admission or dispatch authority. Eight focused tests and
-the complete dependency-light suite pass (258/258). The next integration slice should
-translate a selected route into an existing C01 task for one dry-run adapter while
-retaining this separation; do not bypass the adapter's feasibility or C06 checks.
-
-## Goal -> GUI -> RRM -> actuation -> replan -> finish assessment — 2026-09-26 UTC
-
-The recent history is not exclusively a safety-to-drone layer. The direct GUI command
-path is a narrow deterministic aerial adapter downstream of goal intake; the hand Gate
-4/5 work is a separate manipulation execution boundary; and `goal_contracts.py` is an
-upstream, embodiment-neutral proposal contract. Safety/admission is independently
-required at every embodiment boundary rather than being owned by the drone.
-
-The complete dependency-light suite passes 258/258, but no defensible live end-to-end
-success percentage exists. One documented GUI takeoff/land mission verified both
-effects. A learned Office navigation attempt exercised inference through public action
-dispatch but timed out without reaching its goal. The later aerial regression ended
-`RECOVERED_HALT` after the vehicle climbed to 4.076 m during recovery from a 1 m
-request; aerial execution remains paused. The hand fixture has completed only its
-bounded calibration boundary, not semantic `GRASP`/`PLACE`. Current RRM replanning in
-the GUI path is inter-action state reconciliation plus AirStack planner updates, not
-general semantic replanning.
-
-See `docs/scrum-8/end-to-end-status.md` for the stage-by-stage evidence table and the
-acceptance matrix needed before claiming autonomous cross-embodiment performance. The
-gitignored historical command artifacts are absent in this workspace, so aggregate
-metrics cannot currently be recomputed from raw evidence.

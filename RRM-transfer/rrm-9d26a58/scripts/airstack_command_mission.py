@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+import time
 
 SOURCE_ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(SOURCE_ROOT))
@@ -152,6 +153,89 @@ def _needs_replan_recovery(decision: dict) -> bool:
     )
 
 
+def _takeoff_monitor_state(observation: dict) -> str:
+    """Classify only fresh canonical evidence used by delayed recovery."""
+    unavailable = set(observation.get("missing_state") or ()) | set(
+        observation.get("stale_state") or ()
+    )
+    position = observation.get("position")
+    if (unavailable.intersection({"airborne", "vehicle", "odometry"})
+            or observation.get("connected") is not True
+            or observation.get("flight_state_consistent") is False
+            or not isinstance(position, dict)
+            or not isinstance(position.get("z"), (int, float))):
+        return "UNKNOWN"
+    if (observation.get("armed") is True
+            and observation.get("airborne") is True
+            and position["z"] > 0.3):
+        return "RECOVERABLE_AIRBORNE"
+    if (observation.get("armed") is False
+            and observation.get("airborne") is False
+            and position["z"] <= 0.3):
+        return "SAFE_GROUNDED"
+    return "UNKNOWN"
+
+
+def _monitor_failed_takeoff(robot_name: str, evidence_dir: Path, *, timeout_s: float = 20.0,
+                            poll_interval_s: float = 0.25,
+                            required_consecutive_samples: int = 2) -> dict:
+    """Supervise an uncertain takeoff until stable recovery or ground evidence exists."""
+    if timeout_s <= 0 or poll_interval_s < 0 or required_consecutive_samples < 2:
+        raise ValueError("invalid delayed takeoff recovery monitor configuration")
+    started = time.monotonic()
+    samples = []
+    last_state = None
+    consecutive = 0
+    decision = "TIMEOUT"
+    while time.monotonic() - started < timeout_s:
+        try:
+            observation = _observe_state(robot_name)
+            state = _takeoff_monitor_state(observation)
+            sample = {
+                "observed_at": datetime.now(timezone.utc).isoformat(),
+                "state": state,
+                "observation": observation,
+                "execution_dispatch": False,
+            }
+        except Exception as error:
+            state = "UNKNOWN"
+            sample = {
+                "observed_at": datetime.now(timezone.utc).isoformat(),
+                "state": state,
+                "error_type": type(error).__name__,
+                "execution_dispatch": False,
+            }
+        samples.append(sample)
+        print(json.dumps({"event": "takeoff_recovery_monitor", **sample}, sort_keys=True),
+              flush=True)
+        if state == last_state and state != "UNKNOWN":
+            consecutive += 1
+        elif state != "UNKNOWN":
+            last_state, consecutive = state, 1
+        else:
+            last_state, consecutive = None, 0
+        if consecutive >= required_consecutive_samples:
+            decision = ("RECOVER" if state == "RECOVERABLE_AIRBORNE"
+                        else "SAFE_GROUNDED")
+            break
+        remaining = timeout_s - (time.monotonic() - started)
+        if remaining > 0:
+            time.sleep(min(poll_interval_s, remaining))
+    record = {
+        "schema_version": "rrm-delayed-takeoff-recovery-monitor/v1",
+        "decision": decision,
+        "required_consecutive_samples": required_consecutive_samples,
+        "sample_count": len(samples),
+        "samples": samples,
+        "execution_dispatch": False,
+    }
+    path = evidence_dir / "takeoff-recovery-monitor.json"
+    path.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    print(json.dumps({"event": "takeoff_recovery_monitor_finished", **record},
+                     sort_keys=True), flush=True)
+    return record
+
+
 def _recovery_action(value: dict, proposals: tuple[DroneTaskProposal, ...]) -> DroneTaskProposal | None:
     specification = value.get("recovery")
     has_takeoff = any(item.kind is DroneTaskKind.TAKEOFF for item in proposals)
@@ -221,6 +305,7 @@ def main() -> int:
     results = []
     replans = []
     recovery_result = None
+    recovery_monitor = None
     replan_policy = value.get("replan_policy") or {}
     for index, proposal in enumerate(proposals):
         if index and replan_policy.get("mode") == "observe_between_actions":
@@ -275,6 +360,25 @@ def main() -> int:
                 recovery_result = _run_recovery(
                     recovery_action, args.evidence_dir, proposal.action_id
                 )
+            elif recovery_action is not None and proposal.kind is DroneTaskKind.TAKEOFF:
+                recovery_monitor = _monitor_failed_takeoff(
+                    proposal.robot_name, args.evidence_dir
+                )
+                if recovery_monitor["decision"] == "RECOVER":
+                    recovery_result = _run_recovery(
+                        recovery_action, args.evidence_dir, proposal.action_id
+                    )
+                elif recovery_monitor["decision"] == "TIMEOUT":
+                    recovery_result = {
+                        "trigger_action_id": proposal.action_id,
+                        "action_id": recovery_action.action_id,
+                        "return_code": 4,
+                        "outcome": {
+                            "verdict": "UNCONFIRMED",
+                            "reason": "delayed_takeoff_state_unresolved",
+                        },
+                        "execution_dispatch": False,
+                    }
             break
     complete = len(results) == len(proposals) and all(item["return_code"] == 0 for item in results)
     recovered = bool(
@@ -291,6 +395,7 @@ def main() -> int:
         "status": status,
         "results": results,
         "replans": replans,
+        "recovery_monitor": recovery_monitor,
         "recovery": recovery_result,
         "execution_dispatch": True,
     }

@@ -6,8 +6,9 @@ from pydantic import ValidationError
 
 from rrm.contracts import CapabilityDeclaration
 from rrm.goal_contracts import (
-    EmbodimentRoute, GoalRequest, GroundingStatus, ParameterBinding,
-    ParameterResolution, ParameterSource, RouteStatus, route_goal,
+    C01TaskBinding, EmbodimentRoute, GoalRequest, GroundingStatus, ParameterBinding,
+    ParameterResolution, ParameterSource, RouteStatus, bind_selected_route_to_c01,
+    route_goal,
 )
 
 
@@ -133,6 +134,67 @@ class GoalContractTests(unittest.TestCase):
                 goal_id="g", goal_revision="v1", status=RouteStatus.SELECTED,
                 candidate_embodiment_ids=("drone-1",),
                 selected_embodiment_id="rover-1",
+            )
+
+    def test_selected_route_binds_to_c01_without_inventing_authority(self):
+        goal = GoalRequest(
+            goal_id="pick-1", revision="goal/v1",
+            objective="place the context-selected block on the tray",
+            context_refs=("selection/red-block/v1",),
+            required_operations=frozenset({"GRASP", "PLACE"}),
+            required_resources=frozenset({"arm", "hand"}),
+            qualitative_constraints=("keep the other block undisturbed",),
+        )
+        profile = capability(
+            "hand-1", {"GRASP", "PLACE"}, {"arm", "hand"},
+        )
+        route = route_goal(goal, (profile,))
+        binding = bind_selected_route_to_c01(
+            goal, route, profile,
+            constraints_revision="hand-constraints/v3",
+            issuer_id="operator-1",
+            permission_revision="shadow-only/no-dispatch",
+        )
+        self.assertIsInstance(binding, C01TaskBinding)
+        self.assertEqual(binding.goal, goal)
+        self.assertEqual(binding.goal.qualitative_constraints,
+                         ("keep the other block undisturbed",))
+        self.assertEqual(binding.task.task_id, goal.goal_id)
+        self.assertEqual(binding.task.revision, goal.revision)
+        self.assertEqual(binding.task.context_refs, goal.context_refs)
+        self.assertEqual(binding.task.requested_embodiment_id, "hand-1")
+        self.assertEqual(binding.task.permission_revision, "shadow-only/no-dispatch")
+        self.assertNotIn("dispatch", C01TaskBinding.model_fields)
+        self.assertNotIn("authorized", C01TaskBinding.model_fields)
+
+    def test_c01_binding_rechecks_route_and_rejects_unselected_or_stale_capability(self):
+        goal = GoalRequest(
+            goal_id="inspect-1", revision="goal/v1", objective="inspect shelf-2",
+            required_operations=frozenset({"INSPECT"}),
+            required_resources=frozenset({"camera"}),
+        )
+        drone = capability("drone-1", {"INSPECT"}, {"camera"})
+        rover = capability("rover-1", {"INSPECT"}, {"camera"})
+        with self.assertRaisesRegex(ValueError, "exactly one"):
+            bind_selected_route_to_c01(
+                goal, route_goal(goal, (drone, rover)), drone,
+                constraints_revision="constraints/v1", issuer_id="operator-1",
+                permission_revision="shadow-only/no-dispatch",
+            )
+
+        selected = route_goal(goal, (drone,))
+        unavailable = capability("drone-1", {"INSPECT"}, {"camera"}, available=set())
+        with self.assertRaisesRegex(ValueError, "no longer routable"):
+            bind_selected_route_to_c01(
+                goal, selected, unavailable,
+                constraints_revision="constraints/v1", issuer_id="operator-1",
+                permission_revision="shadow-only/no-dispatch",
+            )
+        with self.assertRaises(ValidationError):
+            bind_selected_route_to_c01(
+                goal, selected, drone,
+                constraints_revision="constraints/v1", issuer_id="operator-1",
+                permission_revision="",
             )
 
 

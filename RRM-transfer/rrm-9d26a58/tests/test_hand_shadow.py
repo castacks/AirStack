@@ -12,6 +12,7 @@ import unittest
 sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
 
 from rrm.contracts import CapabilityDeclaration, Truth
+from rrm.goal_contracts import GoalRequest, bind_selected_route_to_c01, route_goal
 from rrm.hand_shadow import HandSceneManifest, HandShadowBridge, HandShadowStatus
 from rrm.state_contracts import FactEvidence, FactKey, FactProvenance, StateSnapshot
 from rrm.task_contracts import TaskRequest
@@ -27,6 +28,39 @@ def fixture() -> dict:
 
 
 class HandShadowTests(unittest.TestCase):
+    def test_neutral_goal_routes_into_existing_dry_run_c01_adapter(self):
+        value = fixture()
+        scene = HandSceneManifest.model_validate(value["scene"])
+        capability = CapabilityDeclaration(**value["capability"])
+        goal = GoalRequest(
+            goal_id=value["task"]["task_id"],
+            revision=value["task"]["revision"],
+            objective=value["task"]["objective"],
+            context_refs=tuple(value["task"]["context_refs"]),
+            required_operations=frozenset({"GRASP", "PLACE"}),
+            required_resources=frozenset({"arm", "hand"}),
+            qualitative_constraints=("use the context-selected block",),
+        )
+        route = route_goal(goal, (capability,))
+        binding = bind_selected_route_to_c01(
+            goal, route, capability,
+            constraints_revision=value["task"]["constraints_revision"],
+            issuer_id=value["task"]["issuer_id"],
+            permission_revision=value["task"]["permission_revision"],
+        )
+        records = build_records(value)
+        snapshot = StateSnapshot.model_validate(records["c02-teacher"])
+        decision = HandShadowBridge(scene).decide(
+            binding.task, snapshot, capability,
+            now_monotonic_s=value["now_monotonic_s"],
+        )
+        self.assertIs(decision.status, HandShadowStatus.PROPOSED)
+        self.assertFalse(decision.execution_dispatch)
+        self.assertTrue(all(
+            "shadow-semantic-only" in node.feasibility_ref
+            for node in decision.plan.actions
+        ))
+
     def test_context_binding_builds_two_action_proposal_and_synthetic_score(self):
         records = build_records(fixture())
         decision = records["shadow-decision"]

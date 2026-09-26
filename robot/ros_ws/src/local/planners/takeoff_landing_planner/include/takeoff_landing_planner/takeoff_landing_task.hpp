@@ -57,6 +57,11 @@ private:
   double takeoff_acceptance_distance_;
   double takeoff_acceptance_time_;
   double takeoff_max_horizontal_displacement_;
+  double takeoff_max_altitude_overshoot_;
+  double takeoff_max_vertical_speed_;
+  double preflight_hold_max_position_error_;
+  int preflight_hold_confirmation_samples_;
+  double preflight_hold_timeout_;
   double landing_stationary_distance_;
   double landing_acceptance_time_;
   double landing_tracking_point_ahead_time_;
@@ -72,6 +77,7 @@ private:
   std::mutex tracking_point_mutex_;
   airstack_msgs::msg::Odometry tracking_point_odom_;
   bool got_tracking_point_{false};
+  uint64_t tracking_point_sequence_{0};
 
   std::mutex completion_mutex_;
   float completion_percentage_{0.0f};
@@ -123,6 +129,7 @@ private:
   // helpers
   bool set_trajectory_mode(int32_t mode);
   bool send_robot_command(uint8_t command);
+  bool confirm_tracking_point_hold();
 
   // TakeoffTask action server callbacks
   rclcpp_action::GoalResponse takeoff_handle_goal(

@@ -105,8 +105,6 @@ TakeoffLandingPlanner::TakeoffLandingPlanner()
     new TakeoffTrajectory(
     high_takeoff_height, takeoff_velocity, takeoff_path_roll,
     takeoff_path_pitch, takeoff_path_relative_to_orientation);
-  // TODO: this landing point is hardcoded. it should be parameterized
-  landing_traj_gen = new TakeoffTrajectory(-10000., landing_velocity);
   current_command = airstack_msgs::srv::TakeoffLandingCommand::Request::NONE;
 
   completion_percentage = 0.f;
@@ -313,10 +311,26 @@ void TakeoffLandingPlanner::set_takeoff_landing_command(
     }
   } else if (current_command == airstack_msgs::srv::TakeoffLandingCommand::Request::LAND) {
     robot_odoms.clear();
+    if (!got_robot_odom) {
+      RCLCPP_ERROR(get_logger(), "landing rejected: current odometry is unavailable");
+      current_command = airstack_msgs::srv::TakeoffLandingCommand::Request::NONE;
+      response->accepted = false;
+      return;
+    }
     // put the trajectory controller into track mode
     // traj_mode_client.call(track_mode_srv);
-    // publish a landing trajectory
-    traj_override_pub->publish(landing_traj_gen->get_trajectory(tracking_point_odom));
+    // Anchor the landing trajectory at measured vehicle state and bound it to one
+    // metre below ground level. This legacy service path must not reuse an ascent
+    // tracking point or the former -10000 m sentinel.
+    airstack_msgs::msg::Odometry landing_start;
+    landing_start.header = robot_odom.header;
+    landing_start.pose.position.x = robot_odom.pose.pose.position.x;
+    landing_start.pose.position.y = robot_odom.pose.pose.position.y;
+    landing_start.pose.position.z = robot_odom.pose.pose.position.z;
+    landing_start.pose.orientation = robot_odom.pose.pose.orientation;
+    const double landing_descent = -(landing_start.pose.position.z + 1.0);
+    TakeoffTrajectory landing_trajectory(landing_descent, landing_velocity);
+    traj_override_pub->publish(landing_trajectory.get_trajectory(landing_start));
   }
   RCLCPP_INFO_STREAM(get_logger(), "takeofflanding end");
 

@@ -7,6 +7,11 @@
     takeoff_acceptance_distance: 0.3
     takeoff_acceptance_time: 1.0
     takeoff_max_horizontal_displacement: 0.3
+    takeoff_max_altitude_overshoot: 0.3
+    takeoff_max_vertical_speed: 1.5
+    preflight_hold_max_position_error: 0.1
+    preflight_hold_confirmation_samples: 3
+    preflight_hold_timeout: 2.0
     landing_stationary_distance: 0.02
     landing_acceptance_time: 5.0
     landing_tracking_point_ahead_time: 5.0

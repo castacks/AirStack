@@ -19,6 +19,18 @@ Read in order:
 11. [Embodiment-neutral goal intake and routing](semantic-goal-routing.md)
 12. [Current goal-to-finish performance status](end-to-end-status.md)
 13. [Phase-1 hand embodiment decision and qualification gates](hand-embodiment-decision.md)
+14. [Proposed learned embodiment model (RRM-EM)](../embodiment-learning-architecture.md)
+
+## Document lifecycle
+
+- Items in this index are the current SCRUM-8 specification, runbooks and measured
+  status unless their own header says otherwise.
+- [The RRM-EM architecture](../embodiment-learning-architecture.md) is a proposed
+  research extension, not current verified functionality.
+- [The original RRM-1 architecture](../architecture.md) and evidence/run-history
+  documents retain earlier designs and observations for provenance. They are not
+  silently rewritten into current claims; their status banners and the current
+  [end-to-end status](end-to-end-status.md) determine how they may be used.
 
 ## Source authority
 

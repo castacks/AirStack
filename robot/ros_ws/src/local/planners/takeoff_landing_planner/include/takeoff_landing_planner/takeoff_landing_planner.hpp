@@ -64,7 +64,6 @@ private:
   // land variables
   bool land_is_newly_active;
   std::list<nav_msgs::msg::Odometry> robot_odoms;
-  TakeoffTrajectory * landing_traj_gen;
 
   // subscribers
   rclcpp::Subscription<std_msgs::msg::Float32>::SharedPtr completion_percentage_sub;

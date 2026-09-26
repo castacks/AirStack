@@ -79,6 +79,15 @@ class CommandConsoleUiTests(unittest.TestCase):
         self.assertIn("grounding:result.plan.grounding", ui)
         self.assertIn("replan_policy:result.plan.replan_policy", ui)
 
+    def test_cross_embodiment_preview_is_visibly_non_executing(self):
+        ui = (Path(__file__).parents[1] / "scripts" / "ui" / "command_console.html").read_text()
+        self.assertIn("Cross-embodiment goal preview", ui)
+        self.assertIn('id="preview-hand"', ui)
+        self.assertIn("/api/goal-previews/hand", ui)
+        self.assertIn("cannot send a simulator action", ui)
+        self.assertIn("numeric_feasibility_verified:result.numeric_feasibility_verified", ui)
+        self.assertIn("simulator_action_sent:result.simulator_action_sent", ui)
+
     def test_mission_console_removes_manual_shadow_workflow_controls(self):
         ui = (Path(__file__).parents[1] / "scripts" / "ui" / "command_console.html").read_text()
         self.assertIn("RRM mission", ui)
@@ -103,6 +112,15 @@ class CommandConsoleUiTests(unittest.TestCase):
         self.assertIn('id="mission-events"', ui)
         self.assertIn("max-height:240px;overflow:auto", ui)
         self.assertNotIn("confirm('Run this command", ui)
+
+    def test_goal_save_retries_are_idempotent_and_scene_status_is_explicit(self):
+        ui = (Path(__file__).parents[1] / "scripts" / "ui" / "command_console.html").read_text()
+        self.assertIn("request_key:pendingSaveKey", ui)
+        self.assertIn("run.run_id===pendingSaveKey", ui)
+        self.assertIn("Use saved attempt", ui)
+        self.assertIn("same request key will be reused", ui)
+        self.assertIn("entity-grounded RRM is inhibited", ui)
+        self.assertIn("Flight commands use live AirStack discovery", ui)
 
     def test_mission_log_exposes_only_recent_structured_evidence(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -142,6 +160,8 @@ class TaskDiscoveryPackagingTests(unittest.TestCase):
 
         def clean_container(command, **_kwargs):
             calls.append(command)
+            if command[:4] == ["docker", "exec", "airstack-robot-desktop-1", "env"]:
+                return type("Completed", (), {"returncode": 0, "stdout": ""})()
             if command[:2] == ["docker", "cp"]:
                 source = Path(command[2])
                 if source.name == "airstack_task_discovery.py":
@@ -160,8 +180,29 @@ class TaskDiscoveryPackagingTests(unittest.TestCase):
 
         self.assertTrue(discovered["clock_epoch_consistent"])
         self.assertEqual(discovered["task_servers"], {})
+        self.assertEqual(len(calls), 5)
+        self.assertEqual(calls[1][-3:], ["mkdir", "-p", "/tmp/rrm-airstack-task-discovery"])
+
+    def test_robot_restart_restores_ephemeral_dependency_cache_before_discovery(self):
+        calls = []
+
+        def missing_then_restored(command, **_kwargs):
+            calls.append(command)
+            is_probe = command[:4] == [
+                "docker", "exec", "airstack-robot-desktop-1", "env",
+            ]
+            if is_probe and len([item for item in calls if item[:4] == command[:4]]) == 1:
+                return type("Completed", (), {"returncode": 1})()
+            return type("Completed", (), {"returncode": 0})()
+
+        with patch("rrm_command_console.subprocess.run", side_effect=missing_then_restored):
+            Console._ensure_robot_rrm_dependencies()
+
         self.assertEqual(len(calls), 4)
-        self.assertEqual(calls[0][-3:], ["mkdir", "-p", "/tmp/rrm-airstack-task-discovery"])
+        self.assertEqual(calls[1][-3:], ["mkdir", "-p", "/tmp/rrm-canonical-deps"])
+        self.assertEqual(calls[2][:2], ["docker", "cp"])
+        self.assertTrue(calls[2][3].endswith(":/tmp/rrm-canonical-deps/"))
+        self.assertIn("import pydantic", calls[3][-1])
 
 
 class IsaacSceneCatalogTests(unittest.TestCase):
@@ -227,6 +268,8 @@ class IsaacSceneSwitchTests(unittest.TestCase):
             self.assertEqual(second_environment["COMPOSE_PROFILES"], "desktop,isaac-sim-livestream")
             self.assertEqual(result["scene"], "custom")
             self.assertFalse(result["rrm_live_enabled"])
+            self.assertTrue(result["command_execution_enabled"])
+            self.assertEqual(result["scene_context_status"], "COMMAND_ONLY")
             self.assertEqual(json.loads((output / "active_isaac_scene.json").read_text())["scene"], "custom")
             with self.assertRaisesRegex(RuntimeError, "matching RRM manifest"):
                 app._require_scene_context()
@@ -591,6 +634,77 @@ class CommandConsoleTests(unittest.TestCase):
         saved = app.save("Take off and explore for 30 seconds, then land.")
         self.assertEqual(saved["context_mode"], "command-only")
         self.assertFalse((self.output / saved["request_id"] / "observation.json").exists())
+        payload = json.loads((self.output / saved["request_id"] / "input.json").read_text())
+        self.assertEqual(payload["task"]["constraints_revision"], "airstack-live-command-v1")
+        self.assertEqual(payload["snapshot"]["evidence"], [])
+        self.assertNotIn("office", payload["task"]["task_id"])
+
+    def test_request_key_retry_returns_one_durable_run_after_restart(self):
+        app = Console(self.bundle, self.output, "/unused-capture.py")
+        seed_live_capture(app)
+        request_key = secrets.token_hex(16)
+        first = app.save("Take off to one meter and land.", request_key=request_key)
+        retry = app.save("Take off to one meter and land.", request_key=request_key)
+        self.assertEqual(first["request_id"], request_key)
+        self.assertEqual(retry["request_id"], request_key)
+        self.assertTrue(retry["idempotent_replay"])
+        restarted = Console(self.bundle, self.output, "/unused-capture.py")
+        after_restart = restarted.save(
+            "Take off to one meter and land.", request_key=request_key,
+        )
+        self.assertTrue(after_restart["idempotent_replay"])
+        runs = [run for goal in restarted.store.history() for run in goal["runs"]
+                if run["run_id"] == request_key]
+        self.assertEqual(len(runs), 1)
+        with self.assertRaisesRegex(ValueError, "different goal evidence"):
+            restarted.save("A different command.", request_key=request_key)
+
+    def test_response_disconnect_is_not_reclassified_as_storage_failure(self):
+        app = Console(self.bundle, self.output, "/unused-capture.py")
+        handler = object.__new__(make_handler(app))
+        messages = []
+        handler.send_response = lambda _status: (_ for _ in ()).throw(BrokenPipeError("closed"))
+        handler.log_error = lambda message, *args: messages.append(message % args)
+        handler.respond({"status": "durable"}, status=201)
+        self.assertEqual(messages, ["response transport closed: closed"])
+
+    def test_hand_goal_preview_persists_neutral_route_and_shadow_plan_without_motion(self):
+        app = Console(self.bundle, self.output, "/unused-capture.py")
+        result = app.preview_hand_goal(
+            "place the context-selected block on the tray", "red_block",
+        )
+        self.assertEqual(result["route"]["status"], "SELECTED")
+        self.assertEqual(result["decision"]["status"], "PROPOSED")
+        self.assertEqual(
+            [node["action"]["verb"] for node in result["plan"]["actions"]],
+            ["GRASP", "PLACE"],
+        )
+        self.assertFalse(result["numeric_feasibility_verified"])
+        self.assertFalse(result["execution_dispatch"])
+        self.assertFalse(result["simulator_action_sent"])
+        artifact_dir = Path(result["artifact_dir"])
+        manifest = json.loads((artifact_dir / "manifest.json").read_text())
+        self.assertEqual(manifest["status"], "PROPOSED")
+        for name, digest in manifest["records_sha256"].items():
+            self.assertEqual(
+                hashlib.sha256((artifact_dir / f"{name}.json").read_bytes()).hexdigest(),
+                digest,
+            )
+
+    def test_hand_goal_preview_fails_closed_on_unknown_goal_target_or_evidence(self):
+        app = Console(self.bundle, self.output, "/unused-capture.py")
+        with self.assertRaisesRegex(ValueError, "supports exactly"):
+            app.preview_hand_goal("grasp anything", "red_block")
+        with self.assertRaisesRegex(ValueError, "declared"):
+            app.preview_hand_goal(
+                "place the context-selected block on the tray", "unknown_block",
+            )
+        held = app.preview_hand_goal(
+            "place the context-selected block on the tray", "blue_block",
+        )
+        self.assertEqual(held["decision"]["status"], "HOLD")
+        self.assertIsNone(held["plan"])
+        self.assertFalse(held["execution_dispatch"])
 
     def test_command_mission_compiles_against_discovered_public_tasks(self):
         office = Path(__file__).parents[1] / "examples" / "office_visual_eval"
@@ -1071,6 +1185,18 @@ class CommandConsoleTests(unittest.TestCase):
                             headers={"X-RRM-Token": state["token"]})) as response:
             self.assertEqual(response.status, 201)
             saved = json.load(response)
+        preview_data = json.dumps({
+            "objective": "place the context-selected block on the tray",
+            "selected_entity_id": "red_block",
+        }).encode()
+        with urlopen(Request(
+            base + "/api/goal-previews/hand", data=preview_data,
+            headers={"X-RRM-Token": state["token"]},
+        )) as response:
+            preview = json.load(response)
+        self.assertEqual(preview["decision"]["status"], "PROPOSED")
+        self.assertFalse(preview["execution_dispatch"])
+        self.assertFalse(preview["simulator_action_sent"])
         with urlopen(base + f"/requests/{saved['request_id']}/input.json") as response:
             self.assertEqual(json.load(response)["task"]["objective"], "Approach the blue marker.")
         with urlopen(base + "/api/goals") as response:

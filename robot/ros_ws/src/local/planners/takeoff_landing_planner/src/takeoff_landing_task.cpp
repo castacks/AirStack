@@ -35,6 +35,15 @@ TakeoffLandingTaskNode::TakeoffLandingTaskNode()
   takeoff_acceptance_time_ = airstack::get_param(this, "takeoff_acceptance_time", 1.0);
   takeoff_max_horizontal_displacement_ =
     airstack::get_param(this, "takeoff_max_horizontal_displacement", 0.0);
+  takeoff_max_altitude_overshoot_ =
+    airstack::get_param(this, "takeoff_max_altitude_overshoot", 0.0);
+  takeoff_max_vertical_speed_ =
+    airstack::get_param(this, "takeoff_max_vertical_speed", 0.0);
+  preflight_hold_max_position_error_ =
+    airstack::get_param(this, "preflight_hold_max_position_error", 0.1);
+  preflight_hold_confirmation_samples_ =
+    airstack::get_param(this, "preflight_hold_confirmation_samples", 3);
+  preflight_hold_timeout_ = airstack::get_param(this, "preflight_hold_timeout", 2.0);
   landing_stationary_distance_ = airstack::get_param(this, "landing_stationary_distance", 0.02);
   landing_acceptance_time_ = airstack::get_param(this, "landing_acceptance_time", 5.0);
   landing_tracking_point_ahead_time_ =
@@ -137,6 +146,7 @@ void TakeoffLandingTaskNode::tracking_point_callback(
   std::lock_guard<std::mutex> lock(tracking_point_mutex_);
   tracking_point_odom_ = *msg;
   got_tracking_point_ = true;
+  ++tracking_point_sequence_;
 }
 
 void TakeoffLandingTaskNode::completion_percentage_callback(
@@ -173,6 +183,58 @@ bool TakeoffLandingTaskNode::send_robot_command(uint8_t command)
   auto future = robot_command_client_->async_send_request(request);
   future.wait();
   return future.get()->success;
+}
+
+bool TakeoffLandingTaskNode::confirm_tracking_point_hold()
+{
+  if (preflight_hold_max_position_error_ <= 0.0 ||
+    preflight_hold_confirmation_samples_ <= 0 || preflight_hold_timeout_ <= 0.0)
+  {
+    RCLCPP_ERROR(this->get_logger(), "Invalid preflight hold configuration");
+    return false;
+  }
+
+  uint64_t last_sequence = 0;
+  {
+    std::lock_guard<std::mutex> lock(tracking_point_mutex_);
+    last_sequence = tracking_point_sequence_;
+  }
+  int matching_samples = 0;
+  const auto deadline = std::chrono::steady_clock::now() +
+    std::chrono::duration<double>(preflight_hold_timeout_);
+  while (rclcpp::ok() && std::chrono::steady_clock::now() < deadline) {
+    nav_msgs::msg::Odometry odom;
+    airstack_msgs::msg::Odometry tracking;
+    uint64_t sequence;
+    bool have_tracking;
+    {
+      std::lock_guard<std::mutex> lock(odom_mutex_);
+      odom = robot_odom_;
+    }
+    {
+      std::lock_guard<std::mutex> lock(tracking_point_mutex_);
+      tracking = tracking_point_odom_;
+      sequence = tracking_point_sequence_;
+      have_tracking = got_tracking_point_;
+    }
+    if (have_tracking && sequence != last_sequence) {
+      last_sequence = sequence;
+      const double position_error = std::sqrt(
+        std::pow(tracking.pose.position.x - odom.pose.pose.position.x, 2) +
+        std::pow(tracking.pose.position.y - odom.pose.pose.position.y, 2) +
+        std::pow(tracking.pose.position.z - odom.pose.pose.position.z, 2));
+      const bool frame_matches = tracking.header.frame_id == odom.header.frame_id;
+      matching_samples = frame_matches && position_error <= preflight_hold_max_position_error_ ?
+        matching_samples + 1 : 0;
+      if (matching_samples >= preflight_hold_confirmation_samples_) {
+        return true;
+      }
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  }
+  RCLCPP_ERROR(this->get_logger(),
+    "Preflight hold not confirmed: tracking point did not match current odometry");
+  return false;
 }
 
 // ─────────────────────────── TakeoffTask ──────────────────────────────────────
@@ -237,6 +299,19 @@ void TakeoffLandingTaskNode::takeoff_execute(std::shared_ptr<TakeoffGoalHandle> 
       return;
     }
     wait_rate.sleep();
+  }
+
+  // Neutralize any setpoint retained across a simulator reset before arming or
+  // requesting offboard control. Do not proceed until fresh controller output tracks
+  // the current physical pose for several consecutive samples.
+  if (!set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE) ||
+    !confirm_tracking_point_hold())
+  {
+    result->success = false;
+    result->message = "preflight hold not confirmed";
+    goal_handle->abort(result);
+    task_active_ = false;
+    return;
   }
 
   // arm the robot
@@ -334,11 +409,13 @@ void TakeoffLandingTaskNode::takeoff_execute(std::shared_ptr<TakeoffGoalHandle> 
     float current_x;
     float current_y;
     float current_z;
+    float current_vertical_speed;
     {
       std::lock_guard<std::mutex> lock(odom_mutex_);
       current_x = robot_odom_.pose.pose.position.x;
       current_y = robot_odom_.pose.pose.position.y;
       current_z = robot_odom_.pose.pose.position.z;
+      current_vertical_speed = robot_odom_.twist.twist.linear.z;
     }
 
     const float dist = std::abs(current_z - target_altitude);
@@ -358,6 +435,34 @@ void TakeoffLandingTaskNode::takeoff_execute(std::shared_ptr<TakeoffGoalHandle> 
       set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE);
       result->success = false;
       result->message = "horizontal displacement limit exceeded";
+      goal_handle->abort(result);
+      task_active_ = false;
+      return;
+    }
+
+    if (takeoff_max_altitude_overshoot_ > 0.0 &&
+      current_z > target_altitude + takeoff_max_altitude_overshoot_)
+    {
+      RCLCPP_ERROR(this->get_logger(),
+        "TakeoffTask aborted: altitude %.2fm exceeds target %.2fm plus %.2fm overshoot limit",
+        current_z, target_altitude, takeoff_max_altitude_overshoot_);
+      set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE);
+      result->success = false;
+      result->message = "altitude overshoot limit exceeded";
+      goal_handle->abort(result);
+      task_active_ = false;
+      return;
+    }
+
+    if (takeoff_max_vertical_speed_ > 0.0 &&
+      current_vertical_speed > takeoff_max_vertical_speed_)
+    {
+      RCLCPP_ERROR(this->get_logger(),
+        "TakeoffTask aborted: vertical speed %.2fm/s exceeds %.2fm/s",
+        current_vertical_speed, takeoff_max_vertical_speed_);
+      set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE);
+      result->success = false;
+      result->message = "vertical speed limit exceeded";
       goal_handle->abort(result);
       task_active_ = false;
       return;
@@ -444,6 +549,16 @@ void TakeoffLandingTaskNode::land_execute(std::shared_ptr<LandGoalHandle> goal_h
     wait_rate.sleep();
   }
 
+  // Stop following any prior trajectory before constructing the landing path. Recovery
+  // must never inherit the takeoff tracking point that preceded an abort.
+  if (!set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE)) {
+    result->success = false;
+    result->message = "failed to set landing hold mode";
+    goal_handle->abort(result);
+    task_active_ = false;
+    return;
+  }
+
   // set trajectory mode to TRACK
   if (!set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::TRACK)) {
     result->success = false;
@@ -455,19 +570,21 @@ void TakeoffLandingTaskNode::land_execute(std::shared_ptr<LandGoalHandle> goal_h
 
   // generate and publish landing trajectory
   {
-    std::lock_guard<std::mutex> tp_lock(tracking_point_mutex_);
+    // A recovery landing starts at measured vehicle state, not a controller tracking
+    // point that may still represent the aborted ascent.
+    std::lock_guard<std::mutex> odom_lock(odom_mutex_);
     airstack_msgs::msg::Odometry start_point;
-    if (got_tracking_point_) {
-      start_point = tracking_point_odom_;
-    } else {
-      std::lock_guard<std::mutex> odom_lock(odom_mutex_);
-      start_point.header = robot_odom_.header;
-      start_point.pose.position.x = robot_odom_.pose.pose.position.x;
-      start_point.pose.position.y = robot_odom_.pose.pose.position.y;
-      start_point.pose.position.z = robot_odom_.pose.pose.position.z;
-      start_point.pose.orientation = robot_odom_.pose.pose.orientation;
-    }
-    TakeoffTrajectory land_traj(-10000.0, velocity);
+    start_point.header = robot_odom_.header;
+    start_point.pose.position.x = robot_odom_.pose.pose.position.x;
+    start_point.pose.position.y = robot_odom_.pose.pose.position.y;
+    start_point.pose.position.z = robot_odom_.pose.pose.position.z;
+    start_point.pose.orientation = robot_odom_.pose.pose.orientation;
+    // Descend to just below the current altitude plus a small margin. The prior
+    // value of -10000.0 sent the tracking point to z=-9999, which only worked
+    // because PX4 auto-disarms on ground contact.  A bounded value keeps the
+    // trajectory controller from commanding an unbounded descent.
+    const double landing_descent = -(start_point.pose.position.z + 1.0);
+    TakeoffTrajectory land_traj(landing_descent, velocity);
     traj_override_pub_->publish(land_traj.get_trajectory(start_point));
   }
 

@@ -34,6 +34,18 @@ qualitative goal
   -> single-use admission and closed-loop execution
 ```
 
-This increment does not wire the new intake contract into the live drone console or the
-hand boundary. Existing execution paths remain unchanged until an adapter explicitly
-accepts a selected route and preserves all current C06/C08/C09 checks.
+`bind_selected_route_to_c01` now provides the first explicit downstream bridge. It
+accepts only a route with exactly one selected embodiment, rechecks the referenced C03
+capability and current resource availability, requires externally supplied constraint,
+issuer, and permission revisions, and produces the existing proposal-only C01
+`TaskRequest`. The binding retains the complete immutable qualitative goal so its
+constraints are not lost during translation.
+
+The Kuka-Allegro shadow fixture exercises this path through C01–C05 and still returns
+`execution_dispatch=false` with semantic-only feasibility references. This is a dry-run
+contract result, not physical feasibility, C06 authorization, or hand task completion.
+The command GUI now exposes that exact fixture-backed placement goal as a visibly
+non-executing preview and persists hash-addressed goal, route, C01, C04, and C05 records.
+It is not connected to live hand observations, numeric feasibility, the hand execution
+boundary, or simulator actions, and it does not translate arbitrary objectives into
+adapter-specific semantics. Existing live execution paths remain unchanged.

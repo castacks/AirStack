@@ -8,9 +8,11 @@
 > are not required for direct takeoff, land, exploration, waypoint, or relative-motion
 > commands.
 > This is not yet a validated cross-embodiment goal-to-finish result. The newer
-> [qualitative goal contract](docs/scrum-8/semantic-goal-routing.md) is proposal-only
-> and not wired into the GUI. The latest aerial regression ended in a verified recovery
-> landing after an unsafe altitude excursion, so aerial execution remains paused. See
+> [qualitative goal contract](docs/scrum-8/semantic-goal-routing.md) now has a narrow,
+> explicitly non-executing Kuka-Allegro GUI preview. It is not wired to live hand
+> feasibility, C06 admission, or simulator actuation. A subsequent bounded aerial
+> regression (`949b6027`) verified the 1 m takeoff and landing and reduced takeoff
+> horizontal displacement to 0.005 m, so supervised aerial demo execution is unpaused. See
 > the [current performance assessment](docs/scrum-8/end-to-end-status.md).
 
 # RRM-1 — Robotics Reasoning Model
@@ -36,6 +38,9 @@ Iris/PX4 robot. Each aerial, ground, or manipulation adapter owns its geometry,
 controller limits, and safe-state evidence behind the same independent admission
 contract. Current measured scope and gaps are summarized in
 [goal-to-finish performance status](docs/scrum-8/end-to-end-status.md).
+The proposed continuously learned body/capability model is specified separately in
+[Learned embodiment architecture: RRM-EM](docs/embodiment-learning-architecture.md).
+It is a research direction, not a claim about the current implementation.
 
 ## Run it now — no GPU, no models, no Isaac Sim
 
@@ -224,6 +229,56 @@ osmo workflow submit osmo/workflows/airstack-live-replan.yaml \
   --set-env "ISAAC_SIM_SCENE=Office" \
   --set-env "ISAAC_SIM_STAGE_SCALE=1.0"
 ```
+
+#### Change the scene in an already-running two-GPU workspace
+
+Do **not** submit another OSMO workflow. In the forwarded command console at
+`http://localhost:8787`, use **Isaac scene launcher (optional)**:
+
+1. Confirm that no command mission is active and that the vehicle is grounded and
+   disarmed.
+2. Select the catalog shortname—for example, `office`—and click **Launch selected
+   scene**.
+3. Confirm the restart. The GUI restarts only `isaac-sim-livestream` and
+   `robot-desktop`; the OSMO workflow and warm Cosmos worker remain running. WebRTC
+   disconnects temporarily.
+4. Wait for the GUI to report the scene ready, reconnect WebRTC, then verify from the
+   Remote-SSH terminal:
+
+   ```bash
+   cd /root/AirStack
+   ./airstack.sh ready --json
+   ```
+
+5. Refresh the GUI camera/observation before planning. Office-specific learned
+   proposals are enabled only when the selected catalog scene is `office`; direct
+   scene-independent movement commands still depend on live task/state discovery.
+
+The selector uses catalog shortnames. Its backend resolves `office` to the Pegasus
+scene reference `Office` and stage scale `1.0`. On a newly submitted workspace the GUI
+may initially show no active scene because it deliberately does not infer a manual or
+environment-selected stage. Selecting a scene through the launcher establishes that
+binding and performs the required coordinated restart.
+
+Terminal equivalent, from the Remote-SSH shell inside the already-running workspace:
+
+```bash
+cd /root/AirStack
+export COMPOSE_PROFILES=desktop,isaac-sim-livestream
+export ISAAC_SIM_LIVESTREAM=true
+export AUTOLAUNCH=true
+export ISAAC_SIM_SCENE=Office
+export ISAAC_SIM_STAGE_SCALE=1.0
+./airstack.sh down isaac-sim-livestream robot-desktop
+./airstack.sh up --sim isaac --wait
+./airstack.sh ready --json
+```
+
+Use the GUI when possible because it validates the catalog choice, blocks switching
+during a mission, prevents concurrent switches, clears stale camera state and records
+the selected scene for RRM's manifest gate. The terminal sequence does not update the
+GUI's active-scene record; use the selector before relying on Office-specific
+proposals.
 
 #### Temporary OSMO boot checklist (until the version-pinned images land)
 

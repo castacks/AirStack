@@ -5,6 +5,9 @@
 > the embodiment-neutral `GoalRequest`, and its inter-action decisions are bounded
 > reconciliation rather than general semantic replanning. See
 > [goal-to-finish performance status](end-to-end-status.md).
+> A separate Kuka-Allegro preview now accepts the one documented contextual placement
+> goal and records `GoalRequest -> route -> C01 -> C04/C05`. It is synthetic,
+> proposal-only, and has no numeric-feasibility, C06, gateway, or simulator-action path.
 
 The localhost console is the simulator command surface. It can switch to any Isaac
 entry in AirStack's checked-in scene catalog, optionally capture the front camera,

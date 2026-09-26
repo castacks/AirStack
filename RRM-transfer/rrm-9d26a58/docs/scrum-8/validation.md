@@ -4,15 +4,26 @@ Source baseline: RRM archive `9d26a58eb8516b6754c5d12b041cdc789950e047`, AirStac
 
 ## Current cross-embodiment and end-to-end checkpoint — 2026-09-26 UTC
 
-The dependency-light suite passes **258/258**. The newest eight tests validate an
+The dependency-light suite passes **264/264**. Eight tests validate an
 embodiment-neutral qualitative `GoalRequest`, capability routing across aerial, ground,
 and manipulation profiles, the distinction between unsupported and unavailable
-resources, and provenance-bound adapter parameters. They do not dispatch an action.
+resources, and provenance-bound adapter parameters. Three subsequent tests validate
+fail-closed translation of one selected route into the existing C01 `TaskRequest` and
+composition through the Kuka-Allegro C01–C05 shadow adapter. They do not dispatch an
+action; the resulting plan retains semantic-only feasibility references.
+
+Three GUI/HTTP tests cover the separate Kuka-Allegro goal-preview panel: a supported
+red-block request persists hash-addressed goal, route, C01, C04, and C05 evidence; an
+under-evidenced blue-block request holds without a plan; and unsupported text or an
+unknown target fails before preview artifacts are created. The response and GUI expose
+`numeric_feasibility_verified=false`, `execution_dispatch=false`, and
+`simulator_action_sent=false`.
 
 This test count is a software-contract result, not a live task-success measurement.
-The direct GUI path still uses its deterministic aerial command grammar and bounded
-inter-action reconciliation; it does not yet consume the neutral goal contract or
-perform general semantic replanning. Historical live evidence includes one verified
+The direct GUI execution path still uses its deterministic aerial command grammar and
+bounded inter-action reconciliation; only the separate non-executing hand preview
+consumes the neutral goal contract. Neither path performs general semantic replanning.
+Historical live evidence includes one verified
 GUI takeoff/land mission, one learned navigation timeout followed by verified landing,
 and a later takeoff regression that ended `RECOVERED_HALT` after a 4.076 m recovery
 altitude excursion. Aerial execution remains paused. The Kuka-Allegro Gate 4/5 probes

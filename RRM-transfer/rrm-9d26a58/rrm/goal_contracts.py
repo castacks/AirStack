@@ -14,6 +14,7 @@ import math
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from .contracts import CapabilityDeclaration
+from .task_contracts import TaskRequest
 
 
 class _ImmutableRecord(BaseModel):
@@ -154,6 +155,80 @@ def route_goal(goal: GoalRequest,
         goal_id=goal.goal_id, goal_revision=goal.revision,
         status=RouteStatus.CANDIDATES,
         candidate_embodiment_ids=candidate_ids,
+    )
+
+
+class C01TaskBinding(_ImmutableRecord):
+    """Auditable proposal-only binding from one selected route to C01.
+
+    The binding intentionally carries no feasibility, safety, approval, admission, or
+    dispatch result.  The selected embodiment adapter must still perform its normal
+    state, capability, and feasibility checks after receiving ``task``.
+    """
+
+    goal: GoalRequest
+    capability_revision: str
+    route: EmbodimentRoute
+    task: TaskRequest
+
+    @model_validator(mode="after")
+    def validate_binding(self) -> "C01TaskBinding":
+        self._require(self.capability_revision, "capability_revision")
+        if self.route.status is not RouteStatus.SELECTED:
+            raise ValueError("C01 binding requires one selected embodiment route")
+        if (self.route.goal_id != self.goal.goal_id
+                or self.route.goal_revision != self.goal.revision
+                or self.task.task_id != self.goal.goal_id
+                or self.task.revision != self.goal.revision
+                or self.task.objective != self.goal.objective
+                or self.task.context_refs != self.goal.context_refs
+                or self.task.requested_embodiment_id != self.route.selected_embodiment_id):
+            raise ValueError("C01 binding references do not match")
+        return self
+
+
+def bind_selected_route_to_c01(
+    goal: GoalRequest,
+    route: EmbodimentRoute,
+    capability: CapabilityDeclaration,
+    *,
+    constraints_revision: str,
+    issuer_id: str,
+    permission_revision: str,
+) -> C01TaskBinding:
+    """Translate one selected semantic route into the existing C01 task shape.
+
+    The capability is rechecked instead of trusting a detached route record.  Required
+    C01 authority references have no defaults so qualitative intake cannot invent
+    permission.  Successful translation remains proposal-only.
+    """
+    if route.goal_id != goal.goal_id or route.goal_revision != goal.revision:
+        raise ValueError("route does not reference this goal revision")
+    if route.status is not RouteStatus.SELECTED or route.selected_embodiment_id is None:
+        raise ValueError("route must select exactly one embodiment")
+    if capability.embodiment_id != route.selected_embodiment_id:
+        raise ValueError("selected route and capability embodiment do not match")
+
+    rechecked = route_goal(goal, (capability,))
+    if (rechecked.status is not RouteStatus.SELECTED
+            or rechecked.selected_embodiment_id != route.selected_embodiment_id):
+        raise ValueError(f"selected capability is no longer routable: {rechecked.status.value}")
+
+    task = TaskRequest(
+        task_id=goal.goal_id,
+        revision=goal.revision,
+        objective=goal.objective,
+        context_refs=goal.context_refs,
+        constraints_revision=constraints_revision,
+        issuer_id=issuer_id,
+        permission_revision=permission_revision,
+        requested_embodiment_id=route.selected_embodiment_id,
+    )
+    return C01TaskBinding(
+        goal=goal,
+        capability_revision=capability.revision,
+        route=route,
+        task=task,
     )
 
 

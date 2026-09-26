@@ -7,6 +7,7 @@ import base64
 from datetime import datetime, timezone
 import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -21,8 +22,11 @@ import uuid
 
 from rrm_cosmos_reason2 import load_context
 from rrm_import_office import import_bundle
+from rrm_hand_shadow import build_records as build_hand_shadow_records
 from rrm.airstack_command import CommandEnvironment, ground_command, takeoff_recovery_action
+from rrm.contracts import CapabilityDeclaration
 from rrm.execution_supervisor import ExecutionSupervisor, RunningDispatch
+from rrm.goal_contracts import GoalRequest, bind_selected_route_to_c01, route_goal
 from rrm.cosmos_entity_verifier_client import CosmosEntityVerifierClient
 from rrm.cosmos_worker_client import CosmosWorkerClient
 from rrm.live_replan import LiveReplanCycle
@@ -38,6 +42,8 @@ COMMAND_ONLY_PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42Y"
     "AAAAASUVORK5CYII="
 )
+HAND_SHADOW_FIXTURE = Path(__file__).parents[1] / "examples/hand_shadow/fixture.json"
+HAND_SHADOW_OBJECTIVE = "place the context-selected block on the tray"
 
 
 def isaac_scene_catalog(path: Path = ISAAC_SCENE_CATALOG) -> dict[str, dict[str, str]]:
@@ -99,15 +105,19 @@ def private_cosmos_worker_url(*, environment: dict[str, str] | None = None,
 
 def save_request(bundle: Path, output: Path, objective: str, goal_id: str | None = None,
                  *, image: bytes | None = None, observation: dict | None = None,
-                 context_mode: str | None = None) -> dict:
+                 context_mode: str | None = None, request_id: str | None = None,
+                 active_scene: str | None = None, scene_context_matches: bool = True) -> dict:
     if not isinstance(objective, str) or not objective.strip() or len(objective) > 5000:
         raise ValueError("Enter a task between 1 and 5000 characters.")
     if goal_id is not None and (not isinstance(goal_id, str) or not re.fullmatch(r"[0-9a-f]{32}", goal_id)):
         raise ValueError("Invalid goal ID.")
+    if request_id is not None and (not isinstance(request_id, str)
+                                   or not re.fullmatch(r"[0-9a-f]{32}", request_id)):
+        raise ValueError("Invalid request key.")
     context_path = bundle if bundle.is_file() else bundle / "input.json"
     payload = json.loads(context_path.read_text())
-    request_id = uuid.uuid4().hex
-    task_id = f"office-command-{request_id}"
+    request_id = request_id or uuid.uuid4().hex
+    task_id = f"airstack-command-{request_id}"
     payload["task"].update(task_id=task_id, revision=f"{task_id}/v1",
                            objective=objective.strip(), issuer_id="command-console",
                            permission_revision="inference-only")
@@ -116,6 +126,21 @@ def save_request(bundle: Path, output: Path, objective: str, goal_id: str | None
     payload["snapshot"].update(task_id=task_id,
         snapshot_id=f"{payload['snapshot']['snapshot_id']}/{request_id}",
         revision=f"{payload['snapshot']['revision']}/{request_id}")
+    if not scene_context_matches:
+        scene_ref = active_scene or "unknown"
+        payload["task"].update(
+            context_refs=[f"scene:isaac-catalog:{scene_ref}",
+                          "capability-source:live-airstack-task-discovery"],
+            constraints_revision="airstack-live-command-v1",
+        )
+        payload["snapshot"].update(
+            episode_id=f"isaac-catalog-{scene_ref}", evidence=[], complete_domains=[]
+        )
+        payload["capabilities"].update(
+            revision="airstack-live-discovery-pending/v1", operations=[],
+            limits_ref="resolved-at-execution-from-live-airstack",
+        )
+        payload["now_monotonic_s"] = 0
     destination = output / request_id
     destination.mkdir(parents=True, exist_ok=False)
     if observation is not None:
@@ -143,6 +168,9 @@ def save_request(bundle: Path, output: Path, objective: str, goal_id: str | None
         "goal_id": goal_id or uuid.uuid4().hex,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "status": "SAVED_NOT_SUBMITTED", "execution_dispatch": False,
+        "idempotency_key": request_id,
+        "active_scene": active_scene,
+        "semantic_scene_context": "MATCHED" if scene_context_matches else "UNAVAILABLE",
         "context_mode": (context_mode or
                          ("live-isaac-observation" if observation is not None
                           else "frozen-office-replay")),
@@ -156,6 +184,66 @@ def save_request(bundle: Path, output: Path, objective: str, goal_id: str | None
         ).hexdigest()
     (destination / "request.json").write_text(json.dumps(manifest, indent=2) + "\n")
     return manifest
+
+
+def build_hand_goal_preview(objective: str, selected_entity_id: str,
+                            *, preview_id: str) -> dict:
+    """Build a fail-closed neutral-goal hand preview with no execution surface."""
+    if not isinstance(objective, str) or not objective.strip():
+        raise ValueError("Enter the supported hand preview goal.")
+    if " ".join(objective.lower().split()) != HAND_SHADOW_OBJECTIVE:
+        raise ValueError(
+            f'Hand preview currently supports exactly: "{HAND_SHADOW_OBJECTIVE}".'
+        )
+    if not isinstance(preview_id, str) or not re.fullmatch(r"[0-9a-f]{32}", preview_id):
+        raise ValueError("Invalid preview ID.")
+
+    fixture = json.loads(HAND_SHADOW_FIXTURE.read_text(encoding="utf-8"))
+    bindings = {
+        item["entity_id"]: item["ref"]
+        for item in fixture["scene"]["context_bindings"]
+    }
+    context_ref = bindings.get(selected_entity_id)
+    if context_ref is None:
+        raise ValueError("Choose a block declared by the hand preview fixture.")
+
+    capability = CapabilityDeclaration(**fixture["capability"])
+    goal = GoalRequest(
+        goal_id=f"hand-preview-{preview_id}",
+        revision=f"hand-preview-{preview_id}/v1",
+        objective=objective.strip(),
+        context_refs=(context_ref,),
+        required_operations=frozenset({"GRASP", "PLACE"}),
+        required_resources=frozenset({"arm", "hand"}),
+        qualitative_constraints=("use only the context-selected block",),
+        preferred_embodiment_id=capability.embodiment_id,
+    )
+    route = route_goal(goal, (capability,))
+    binding = bind_selected_route_to_c01(
+        goal, route, capability,
+        constraints_revision=fixture["task"]["constraints_revision"],
+        issuer_id="command-console-hand-preview",
+        permission_revision="preview-only/no-dispatch",
+    )
+    fixture["run_id"] = preview_id
+    fixture["task"] = binding.task.model_dump(mode="json")
+    records = build_hand_shadow_records(fixture)
+    return {
+        "schema_version": "rrm-hand-goal-preview/v1",
+        "preview_id": preview_id,
+        "goal": goal.model_dump(mode="json"),
+        "route": route.model_dump(mode="json"),
+        "c01_binding": binding.model_dump(mode="json"),
+        "decision": records["shadow-decision"],
+        "intent": records.get("c04-intent"),
+        "plan": records.get("c05-plan"),
+        "selected_entity_id": selected_entity_id,
+        "numeric_feasibility_verified": False,
+        "execution_dispatch": False,
+        "simulator_action_sent": False,
+        "evidence_scope": "synthetic_contract_preview",
+        "_shadow_records": records,
+    }
 
 
 class Console:
@@ -250,12 +338,16 @@ class Console:
             self.scene_context_matches = scene_shortname == self.manifest_scene_shortname
             return {"status": "scene switch complete", "scene": scene_shortname,
                     "rrm_live_enabled": self.scene_context_matches,
+                    "command_execution_enabled": True,
+                    "scene_context_status": ("MATCHED" if self.scene_context_matches
+                                             else "COMMAND_ONLY"),
                     "execution_dispatch": False}
         finally:
             self.scene_switch_lock.release()
 
     def discover_tasks(self) -> dict:
         """Read actual action servers and flight state from the active stack."""
+        self._ensure_robot_rrm_dependencies()
         source = Path(__file__).with_name("airstack_task_discovery.py")
         source_root = Path(__file__).resolve().parents[1]
         remote_root = "/tmp/rrm-airstack-task-discovery"
@@ -288,6 +380,36 @@ class Console:
             raise RuntimeError("AirStack task discovery returned an invalid report.")
         report["clock_epoch_consistent"] = self._clock_epoch_consistent()
         return report
+
+    @staticmethod
+    def _ensure_robot_rrm_dependencies() -> None:
+        """Restore ephemeral Python dependencies after a robot-container restart."""
+        container = "airstack-robot-desktop-1"
+        remote = "/tmp/rrm-canonical-deps"
+        probe = subprocess.run(
+            ["docker", "exec", container, "env", f"PYTHONPATH={remote}",
+             "python3", "-c",
+             'import pydantic; assert int(pydantic.__version__.split(".")[0]) == 2'],
+            capture_output=True, timeout=10,
+        )
+        if probe.returncode == 0:
+            return
+        spec = importlib.util.find_spec("pydantic")
+        if spec is None or spec.origin is None:
+            raise RuntimeError("Local RRM dependency cache is unavailable.")
+        local_root = Path(spec.origin).resolve().parents[1]
+        required = (local_root / "pydantic", local_root / "pydantic_core")
+        if not all(path.exists() for path in required):
+            raise RuntimeError("Local RRM dependency cache is incomplete.")
+        subprocess.run(["docker", "exec", container, "mkdir", "-p", remote],
+                       check=True, capture_output=True, timeout=10)
+        subprocess.run(["docker", "cp", str(local_root) + "/.", f"{container}:{remote}/"],
+                       check=True, capture_output=True, timeout=60)
+        subprocess.run(
+            ["docker", "exec", container, "env", f"PYTHONPATH={remote}",
+             "python3", "-c", "import pydantic; assert pydantic.VERSION.startswith('2.')"],
+            check=True, capture_output=True, timeout=10,
+        )
 
     @staticmethod
     def _clock_epoch_consistent() -> bool | None:
@@ -422,6 +544,7 @@ class Console:
                 summary={"actions": len(proposals), "plan_sha256": plan_sha256},
             )
             mission_id = uuid.uuid4().hex
+            self._ensure_robot_rrm_dependencies()
             remote_root = f"/tmp/rrm-command-mission-{mission_id}"
             remote_source = remote_root + "/source"
             remote_plan = remote_root + "/plan.json"
@@ -625,6 +748,7 @@ class Console:
     def _launch_dispatch(self, dispatch_id: str, run_dir: Path,
                          proposal_path: Path) -> RunningDispatch:
         """Stage and launch the existing ActionClient-only adapter in the robot container."""
+        self._ensure_robot_rrm_dependencies()
         container = "airstack-robot-desktop-1"
         remote_root = f"/tmp/rrm-console-dispatch-{dispatch_id}"
         remote_source = remote_root + "/source"
@@ -692,33 +816,65 @@ class Console:
 
         return RunningDispatch(process=process, request_stop=request_stop, finalize=finalize)
 
+    def _index_request_directory(self, directory: Path) -> tuple[dict, dict]:
+        """Validate and idempotently index one immutable request directory."""
+        path = directory / "request.json"
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+        if manifest["request_id"] != directory.name:
+            raise ValueError("Request folder/manifest mismatch.")
+        payload = json.loads((directory / "input.json").read_text(encoding="utf-8"))
+        load_context(directory / "input.json")
+        for key, filename in (("input_sha256", "input.json"), ("media_sha256", "input.png")):
+            if hashlib.sha256((directory / filename).read_bytes()).hexdigest() != manifest[key]:
+                raise ValueError(f"Request checksum mismatch: {directory.name}/{filename}")
+        observation = None
+        if manifest.get("context_mode") == "live-isaac-observation":
+            observation_path = directory / "observation.json"
+            if (not observation_path.is_file()
+                    or hashlib.sha256(observation_path.read_bytes()).hexdigest()
+                    != manifest.get("observation_sha256")):
+                raise ValueError(f"Request checksum mismatch: {directory.name}/observation.json")
+            observation = json.loads(observation_path.read_text(encoding="utf-8"))
+        self.store.record_request(manifest, payload, directory)
+        if observation is not None:
+            self.store.record_event(manifest["request_id"], kind="live_observation",
+                                    artifact_path=directory / "observation.json",
+                                    summary={
+                                        "frame_id": observation["frame_id"],
+                                        "source_stamp_ns": observation["source_stamp_ns"],
+                                        "connected": observation["vehicle"]["connected"],
+                                    })
+        return manifest, payload
+
     def recover_requests(self):
         """Idempotently index older folders or requests saved before an interrupted DB write."""
         for path in sorted(self.output.glob("*/request.json")):
-            if not re.fullmatch(r"[0-9a-f]{32}", path.parent.name):
-                continue
-            manifest = json.loads(path.read_text())
-            if manifest["request_id"] != path.parent.name:
-                raise ValueError("Request folder/manifest mismatch.")
-            load_context(path.parent / "input.json")
-            for key, filename in (("input_sha256", "input.json"), ("media_sha256", "input.png")):
-                if hashlib.sha256((path.parent / filename).read_bytes()).hexdigest() != manifest[key]:
-                    raise ValueError(f"Request checksum mismatch: {path.parent.name}/{filename}")
-            if manifest.get("context_mode") == "live-isaac-observation":
-                observation = path.parent / "observation.json"
-                if not observation.is_file() or hashlib.sha256(observation.read_bytes()).hexdigest() != manifest.get("observation_sha256"):
-                    raise ValueError(f"Request checksum mismatch: {path.parent.name}/observation.json")
-            self.store.record_request(manifest, json.loads((path.parent / "input.json").read_text()), path.parent)
+            if re.fullmatch(r"[0-9a-f]{32}", path.parent.name):
+                self._index_request_directory(path.parent)
 
-    def save(self, objective, goal_id=None):
+    def save(self, objective, goal_id=None, request_key=None):
         with self.storage_lock:
+            if request_key is not None and (not isinstance(request_key, str)
+                                            or not re.fullmatch(r"[0-9a-f]{32}", request_key)):
+                raise ValueError("Invalid request key.")
+            if request_key is not None and (self.output / request_key / "request.json").is_file():
+                manifest, payload = self._index_request_directory(self.output / request_key)
+                if (manifest.get("idempotency_key") != request_key
+                        or not isinstance(objective, str)
+                        or payload["task"]["objective"] != objective.strip()
+                        or (goal_id is not None and manifest["goal_id"] != goal_id)):
+                    raise ValueError("Request key is already bound to different goal evidence.")
+                return {**manifest, "idempotent_replay": True}
             if goal_id is not None:
                 goal = self.store.get_goal(goal_id)
                 if not isinstance(objective, str) or objective.strip() != goal["objective"]:
                     raise ValueError("Edited instructions must be saved as a new goal.")
-                task = self.context["task"]
-                if (goal["constraints_revision"] != task["constraints_revision"] or
-                        goal["embodiment_id"] != task["requested_embodiment_id"]):
+                expected_constraints = (self.context["task"]["constraints_revision"]
+                                        if self.scene_context_matches or self.bundle is not None
+                                        else "airstack-live-command-v1")
+                if (goal["constraints_revision"] != expected_constraints or
+                        goal["embodiment_id"]
+                        != self.context["task"]["requested_embodiment_id"]):
                     raise ValueError("Saved goal context differs; save a new goal for this context.")
             observation = None
             if self.latest_camera is not None or self.latest_camera_metadata is not None:
@@ -733,18 +889,54 @@ class Console:
                 self.context_template, self.output, objective, goal_id,
                 image=self.latest_camera if observation is not None else None,
                 observation=observation, context_mode=(None if observation is not None else "command-only"),
+                request_id=request_key, active_scene=self.active_scene_shortname,
+                # Imported reference bundles remain immutable replay contexts even
+                # when no live Isaac scene has been selected. Only live-only console
+                # requests need scene-generic evidence on a manifest mismatch.
+                scene_context_matches=(self.scene_context_matches or self.bundle is not None),
             )
             directory = self.output / manifest["request_id"]
-            self.store.record_request(manifest, json.loads((directory / "input.json").read_text()), directory)
-            if observation is not None:
-                self.store.record_event(manifest["request_id"], kind="live_observation",
-                                        artifact_path=directory / "observation.json",
-                                        summary={
-                                            "frame_id": observation["frame_id"],
-                                            "source_stamp_ns": observation["source_stamp_ns"],
-                                            "connected": observation["vehicle"]["connected"],
-                                        })
+            self._index_request_directory(directory)
             return manifest
+
+    def preview_hand_goal(self, objective, selected_entity_id) -> dict:
+        """Persist one GUI-originated hand routing/plan preview without dispatch."""
+        with self.storage_lock:
+            preview_id = uuid.uuid4().hex
+            result = build_hand_goal_preview(
+                objective, selected_entity_id, preview_id=preview_id,
+            )
+            shadow_records = result.pop("_shadow_records")
+            directory = self.output / "goal-previews" / preview_id
+            directory.mkdir(parents=True, exist_ok=False)
+            evidence_records = {
+                "goal": result["goal"],
+                "route": result["route"],
+                "c01-binding": result["c01_binding"],
+                **{f"shadow-{name}": record for name, record in shadow_records.items()},
+            }
+            digests = {}
+            for name, record in evidence_records.items():
+                encoded = (json.dumps(
+                    record, indent=2, sort_keys=True, allow_nan=False,
+                ) + "\n").encode()
+                (directory / f"{name}.json").write_bytes(encoded)
+                digests[name] = hashlib.sha256(encoded).hexdigest()
+            manifest = {
+                "schema_version": result["schema_version"],
+                "preview_id": preview_id,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "records_sha256": digests,
+                "status": result["decision"]["status"],
+                "numeric_feasibility_verified": False,
+                "execution_dispatch": False,
+                "simulator_action_sent": False,
+                "evidence_scope": result["evidence_scope"],
+            }
+            (directory / "manifest.json").write_text(
+                json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8",
+            )
+            return {**result, "artifact_dir": str(directory), "manifest": manifest}
 
     def submit_to_psc(self, run_id: str) -> dict:
         if self.queue is None:
@@ -964,13 +1156,19 @@ def make_handler(app: Console):
         def respond(self, data, mime="application/json", status=200):
             if not isinstance(data, bytes):
                 data = json.dumps(data).encode()
-            self.send_response(status)
-            self.send_header("Content-Type", mime)
-            self.send_header("Content-Length", str(len(data)))
-            self.send_header("Cache-Control", "no-store")
-            self.send_header("X-Content-Type-Options", "nosniff")
-            self.end_headers()
-            self.wfile.write(data)
+            try:
+                self.send_response(status)
+                self.send_header("Content-Type", mime)
+                self.send_header("Content-Length", str(len(data)))
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("X-Content-Type-Options", "nosniff")
+                self.end_headers()
+                self.wfile.write(data)
+            except OSError as error:
+                # A browser tab can disconnect after the durable operation completed.
+                # This is a transport failure, not a simulator/database failure, and a
+                # retry of goal intake is safe because /api/requests is idempotent.
+                self.log_error("response transport closed: %s", error)
 
         def do_GET(self):
             path = urlsplit(self.path).path
@@ -978,14 +1176,21 @@ def make_handler(app: Console):
                 return self.respond((Path(__file__).parent / "ui/command_console.html").read_bytes(),
                                     "text/html; charset=utf-8")
             if path == "/api/state":
-                return self.respond({"token": app.token, "context": app.context,
+                return self.respond({"token": app.token,
+                                     "context": (app.context if app.scene_context_matches else None),
                                      "decision": (app.decision.model_dump(mode="json")
                                                   if app.decision is not None else None),
                                      "mode": "REFERENCE" if app.decision is not None else "LIVE_ONLY",
                                      "isaac_scenes": sorted(app.isaac_scenes),
                                      "manifest_scene": app.manifest_scene_shortname,
                                      "active_scene": app.active_scene_shortname,
-                                     "rrm_live_enabled": app.scene_context_matches})
+                                     "rrm_live_enabled": app.scene_context_matches,
+                                     "command_execution_enabled": app.active_scene_shortname is not None,
+                                     "scene_context_status": (
+                                         "MATCHED" if app.scene_context_matches
+                                         else ("COMMAND_ONLY" if app.active_scene_shortname
+                                               else "UNKNOWN")
+                                     )})
             if path == "/api/goals":
                 app.index_execution_evidence()
                 return self.respond({"goals": app.store.history()})
@@ -1096,7 +1301,13 @@ def make_handler(app: Console):
                 if not isinstance(value, dict):
                     raise ValueError("Request must be an object.")
                 if self.path == "/api/requests":
-                    return self.respond(app.save(value.get("objective"), value.get("goal_id")), status=201)
+                    return self.respond(app.save(
+                        value.get("objective"), value.get("goal_id"), value.get("request_key")
+                    ), status=201)
+                if self.path == "/api/goal-previews/hand":
+                    return self.respond(app.preview_hand_goal(
+                        value.get("objective"), value.get("selected_entity_id")
+                    ), status=201)
                 propose_match = re.fullmatch(r"/api/runs/([0-9a-f]{32})/propose", self.path)
                 if propose_match:
                     return self.respond(app.propose_live_goal(propose_match[1]))
@@ -1154,10 +1365,15 @@ def make_handler(app: Console):
                 self.respond({"error": str(error)}, status=400)
             except RuntimeError as error:
                 self.respond({"error": str(error)}, status=409)
-            except sqlite3.Error:
+            except sqlite3.Error as error:
+                self.log_error("POST %s database failure: %r", path, error)
                 self.respond({"error": "Task database unavailable. Saved artifacts are retained; restart to reindex."}, status=503)
-            except (subprocess.SubprocessError, OSError):
-                self.respond({"error": "Simulator task service or storage is unavailable."}, status=503)
+            except subprocess.SubprocessError as error:
+                self.log_error("POST %s simulator task service failure: %r", path, error)
+                self.respond({"error": "Simulator task service failed; no mission was dispatched."}, status=503)
+            except OSError as error:
+                self.log_error("POST %s local staging/storage failure: %r", path, error)
+                self.respond({"error": "Local mission staging or storage failed; no mission was dispatched."}, status=503)
     return Handler
 
 
