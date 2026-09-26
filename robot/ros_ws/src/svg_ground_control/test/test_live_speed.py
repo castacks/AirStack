@@ -191,3 +191,23 @@ def test_takeoff_resets_stored_goals_and_goals_accepted_before_start():
         assert not res.success and "another swarm_commander" in res.message
     finally:
         node.destroy_node()
+
+
+def test_twin_pid_scan_matches_only_node_processes(tmp_path, monkeypatch):
+    import os
+    from svg_ground_control.swarm_commander import SwarmCommander
+    fake = tmp_path / "proc"
+    for pid, argv in {
+        "100": ["/usr/bin/python3", "/x/install/svg_ground_control/lib/svg_ground_control/swarm_commander", "--ros-args"],
+        "101": ["/usr/bin/python3", "/opt/ros/jazzy/bin/ros2", "run", "svg_ground_control", "swarm_commander"],
+        "102": ["/usr/bin/python3", "/opt/ros/jazzy/bin/ros2", "launch", "svg_ground_control", "ground_control.launch.py"],
+        "103": ["/usr/bin/python3", "/x/lib/svg_ground_control/mocap_bridge"],
+    }.items():
+        (fake / pid).mkdir(parents=True)
+        (fake / pid / "cmdline").write_bytes("\0".join(argv).encode() + b"\0")
+    real_listdir, real_open = os.listdir, open
+    monkeypatch.setattr(os, "listdir", lambda d: real_listdir(fake) if d == "/proc" else real_listdir(d))
+    import builtins
+    monkeypatch.setattr(builtins, "open", lambda f, *a, **k: real_open(
+        str(fake) + f[len("/proc"):] if str(f).startswith("/proc/") else f, *a, **k))
+    assert SwarmCommander.twin_pids() == [100]

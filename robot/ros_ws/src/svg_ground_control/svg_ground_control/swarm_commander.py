@@ -107,7 +107,10 @@ Lifecycle (std_srvs/Trigger services):
 
 import json
 import math
+import os
 import re
+import signal
+import time
 from enum import Enum
 
 import numpy as np
@@ -447,6 +450,11 @@ class SwarmCommander(Node):
         # ---- Status snapshot (std_msgs/String, JSON) ----------------------
         # Read by the SVG Basestation panel. 0 disables it.
         self.declare_parameter('status_topic', '/svg/commander_status')
+        # On start-up, kill any other swarm_commander process in this
+        # container (a forgotten launch in another terminal) — unless its
+        # status says it has a drone in the air, in which case that one keeps
+        # flying and THIS one refuses takeoff/start until it is landed.
+        self.declare_parameter('takeover_twins', True)
         self.declare_parameter('status_rate_hz', 5.0)
 
         self.declare_parameter('control_rate_hz', 20.0)
@@ -821,6 +829,13 @@ class SwarmCommander(Node):
         # sphere flipping between two points. Watch the graph for a twin.
         self.duplicate_commander = False
         self.create_timer(1.0, self.check_duplicate_commander)
+        # Take over from twin processes once their status has had time to
+        # arrive (status_rate_hz is a few Hz): see takeover_twins().
+        self._twin_snapshots = {}
+        self.create_subscription(String, str(self.get_parameter('status_topic').value),
+                                 self._on_twin_status, 10)
+        if bool(self.get_parameter('takeover_twins').value):
+            self._takeover_timer = self.create_timer(2.0, self.takeover_twins)
         if hasattr(self, 'add_post_set_parameters_callback'):   # rclpy >= Iron
             self.add_post_set_parameters_callback(self._apply_parameters)
         else:
@@ -1028,6 +1043,7 @@ class SwarmCommander(Node):
         return {
             'stamp': round(now.nanoseconds * 1e-9, 3),
             'node': self.get_fully_qualified_name(),
+            'pid': os.getpid(),
             'scenario': self.scenario_name,
             'mission_active': self.mission_active,
             'mission_ever_started': self.mission_ever_started,
@@ -1101,6 +1117,78 @@ class SwarmCommander(Node):
             f'{drone.name}: odometry samples lost: +{int(info.total_count_change)} '
             f'(total {drone.odom_lost_total})',
             throttle_duration_sec=2.0)
+
+    def _on_twin_status(self, msg: String):
+        """Snapshots on the status topic that are NOT ours (a twin's)."""
+        try:
+            snap = json.loads(msg.data)
+        except ValueError:
+            return
+        if snap.get('pid') == os.getpid():
+            return
+        self._twin_snapshots[snap.get('pid', 'unknown')] = (time.monotonic(), snap)
+
+    @staticmethod
+    def twin_pids():
+        """PIDs of other swarm_commander node processes in this container.
+
+        The node executable is the last token of a python cmdline ending in
+        ``/swarm_commander``; ``ros2 run …`` / ``ros2 launch …`` wrappers carry
+        the name only as a bare argument and are left alone (they exit on
+        their own once their child is gone).
+        """
+        pids = []
+        me = os.getpid()
+        for entry in os.listdir('/proc'):
+            if not entry.isdigit() or int(entry) == me:
+                continue
+            try:
+                with open(f'/proc/{entry}/cmdline', 'rb') as f:
+                    argv = f.read().split(b'\0')
+            except OSError:
+                continue
+            if any(tok.endswith(b'/swarm_commander') for tok in argv[:3]):
+                pids.append(int(entry))
+        return pids
+
+    def takeover_twins(self):
+        """One shot, 2 s after start-up: kill twin commanders that are idle."""
+        self._takeover_timer.cancel()
+        twins = self.twin_pids()
+        if not twins:
+            return
+        airborne = []
+        for pid, (_, snap) in self._twin_snapshots.items():
+            for d in snap.get('drones', []):
+                if d.get('state') not in (None, 'IDLE'):
+                    airborne.append(f"{d.get('name')} {d.get('state')} (pid {pid})")
+        if airborne:
+            self.get_logger().error(
+                f'another swarm_commander (pids {twins}) has drones in the air: '
+                + ', '.join(airborne) + ' — NOT killing it. Land with THAT one '
+                '(or pkill -f swarm_commander), then relaunch; takeoff/start '
+                'are refused here meanwhile.')
+            return
+        for pid in twins:
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except ProcessLookupError:
+                continue
+        deadline = time.monotonic() + 3.0
+        while time.monotonic() < deadline and any(
+                os.path.exists(f'/proc/{pid}') for pid in twins):
+            time.sleep(0.1)
+        for pid in twins:
+            if os.path.exists(f'/proc/{pid}'):
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+        self.get_logger().warn(
+            f'took over: killed idle swarm_commander process(es) {twins} '
+            '(left behind by an earlier launch). Set takeover_twins:=false '
+            'to disable this.')
+        self.duplicate_commander = False
 
     def check_duplicate_commander(self):
         twins = sum(1 for name, ns in self.get_node_names_and_namespaces()

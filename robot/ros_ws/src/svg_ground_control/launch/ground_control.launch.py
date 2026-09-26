@@ -64,6 +64,9 @@ def launch_setup(context, *args, **kwargs):
     foxglove_port = int(LaunchConfiguration('foxglove_port').perform(context))
 
     commander_params = [config]
+    commander_params.append({'takeover_twins':
+                             LaunchConfiguration('takeover').perform(context).lower()
+                             in ('true', '1', 'yes')})
     if scenario:
         commander_params.append({'scenario': scenario})
     if teleop_drones:
@@ -160,6 +163,11 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'use_mocap', default_value='true',
             description='Start the mocap bridge (hardware only)'),
+        DeclareLaunchArgument(
+            'takeover', default_value='true',
+            description='Kill any other swarm_commander process left in this '
+                        'container by an earlier launch, unless it has a drone '
+                        'in the air (then this one refuses takeoff/start)'),
         DeclareLaunchArgument(
             'use_teleop', default_value='false',
             description='Also start the input-device driver + safe_teleop for '
