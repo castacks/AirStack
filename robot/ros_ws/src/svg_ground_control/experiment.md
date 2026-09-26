@@ -880,6 +880,14 @@ plant model (`test/test_trajectory.py`). Knobs, all live with
 | `takeoff_speed_mps` | 0.5 | climb speed of the takeoff profile (braking law into the takeoff target, no P-law step) |
 | `hold_lead_m` | 0.2 | reference leash while taking off / landing / holding outside a mission — keep small, PX4's altitude loop is stiff |
 
+**Top speed the room allows.** A leg of length S needs `v²/a` to accelerate
+and brake plus `v·settle` to ease in: `v² / goal_accel + v·goal_settle = S`.
+Fence box 10 × 9.7 m, goals 0.5 m inside the walls: along y (8 m) 5.9 m/s at
+6 m/s², 6.9 at 8; on the diagonal (−4,−4.7) → (5,4) = 12.5 m: **7.8 m/s at
+6 m/s², 8.9 at 8**. 10 m/s needs ~15.5 m even at 8 m/s² — not in this room.
+Keep `fence_brake_accel_mps2 >= goal_accel_mps2`, or the wall envelope caps
+the cruise first (it did in run_035852: 4.7 m/s with brake 4).
+
 Braking distance is `v²/(2·goal_accel_mps2) + v·goal_settle_s`: to brake later,
 raise `goal_accel_mps2` (the airframe did 5.5 m/s² in the logs; PX4's own
 manual braking asks up to 8) and/or lower `goal_settle_s` (0.2 is still a
@@ -1574,6 +1582,9 @@ come up before starting a test.
 | teleop: sticks move the wrong drone axis (but nothing is refused) | a rearranged stick layout is not detectable automatically — only a resting trigger is. Verify each direction on the ground against the printed `cmd vx/vy/vz`, then fix the profile's axis numbers in `safe_teleop/controllers.py` (or override `forward_axis` etc. in the config's `safe_teleop` block). |
 | **speed does not change** (`scenario_speed_mps`, `speed_command`, `ros2 param set`) | Three separate things. (1) `ros2 param set /swarm_commander scenario_speed_mps X` used to answer *successful* and do nothing (read once at startup) — it is now applied live, and other params answer with a reason. (2) The speed is a cruise cap: the drone brakes at `goal_accel_mps2` and eases in over `goal_settle_s`, so it reaches the setting only if the goal is farther than `v²/(2a) + v·settle` (0.6 m at 1.2 m/s, 5.7 m at 5 m/s with the defaults) — the commander prints that distance with every speed it receives. (3) `cbf_max_speed_mps` caps everything (1.2 in the goal configs). The bags show the drone tracks the commanded speed within 0.05 m/s, so if the log says 1.0 the drone flies 1.0. |
 | **teleop speed does not change** (raised `max_speed_mps`) | Three caps, lowest wins: `safe_teleop.max_speed_mps` (stick scaling, read at launch — relaunch `teleop.launch.py`), the commander's `teleop_max_speed_mps` (default **1.2**, live via `ros2 param set`; the commander now warns `stick velocity … capped`), and `cbf_max_speed_mps` unless the drone is `cbf_exempt`. |
+| **`~/hold` makes a fast drone fly back ("bounce")** | Fixed: hold now brakes on the goal law to a predicted stop point `v²/(2·goal_accel_mps2) + v/hover_kp` ahead (clamped into the fence) and holds there, instead of chasing the position at the instant of the call (bag run_041842: 1.5 m bounce from 6 m/s). The service reply says `braking, stops X m ahead`. |
+| **drone oscillates / "outside the fence, pushing it back" at a goal** | The goal is on or beyond a fence wall (e.g. y = 4.5 with `fence_max` y = 4.5): the keep_in envelope goes to zero speed at the wall, so the drone can never quite arrive and the profile keeps pushing. Put goals ≥ 0.5 m inside the box. |
+| **every commander log line appears twice, jerky flight** | Two `swarm_commander` instances are running (a second `ground_control.launch.py` in another terminal), both publishing setpoints to the same drone. `ros2 node list` must show one `/swarm_commander`; kill the extra. |
 | **takeoff shoots up past the hover height, then drops** | The reference point ran ahead of a drone that could not follow yet (PX4's takeoff thrust ramp, ~1.5 s of no lift) and PX4's stiff altitude loop (`MPC_Z_P` 5) then chased it: bag `C1_0920_203148` reached 1.94 m for a 1 m target. Fixed by `hold_lead_m` (0.2 m leash while ascending/landing/holding — do not raise it) and the `takeoff_speed_mps` climb profile; check the commander is the rebuilt one (`bws`). |
 | **overshoots the goal / stops sluggishly / oscillates around it** | Make sure the drone is on the trajectory output: the startup log says `real output: trajectory` and `ros2 topic hz /drone_N/fmu/trajectory_command` shows 20 Hz (it needs the rebuilt px4_interface; with `velocity` output PX4 has no position loop and no feedforward, and the ground loop cannot beat its ~0.7 s velocity lag). Then `goal_accel_mps2` too high for the airframe (drop to 2), or `goal_settle_s` too small (raise to 0.5). A sim/MAVROS drone always flies the softer velocity-only law (`goal_velocity_only_settle_s`). |
 | RViz empty | Fixed Frame must be `map`; check `ros2 topic hz /svg/viz/markers`; needs an X display (`echo $DISPLAY`) |

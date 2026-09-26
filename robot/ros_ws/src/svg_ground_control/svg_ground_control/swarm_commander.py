@@ -1251,12 +1251,16 @@ class SwarmCommander(Node):
         for d in self.drones:
             if d.commanded and d.position is not None \
                     and d.state in (FlightState.ASCEND, FlightState.ACTIVE):
-                d.hold_target = d.position.copy()
+                d.hold_target = self.stop_point(d)
                 d.ref = None
                 d.state = FlightState.ACTIVE
-                held.append(d.name)
+                ahead = float(np.linalg.norm(d.hold_target - d.position))
+                held.append(d.name + (f' (braking, stops {ahead:.1f} m ahead)'
+                                      if ahead > 0.1 else ''))
         response.success = bool(held)
         response.message = 'holding: ' + ', '.join(held) if held else 'nothing to hold'
+        if held:
+            self.get_logger().info(response.message)
         return self._record_command('hold', response)
 
     def handle_land(self, request, response):
@@ -1316,7 +1320,7 @@ class SwarmCommander(Node):
             viol = violation_text(d.position, self.fence_min, self.fence_max)
             for o in self.drones:
                 if o.commanded and o.position is not None and o.state in airborne:
-                    o.hold_target = o.position.copy()
+                    o.hold_target = self.stop_point(o)
                     o.ref = None
                     o.state = FlightState.ACTIVE
             self.get_logger().error(
@@ -1505,6 +1509,28 @@ class SwarmCommander(Node):
         return tracking_velocity(drone.ref, drone.position, stick,
                                  self.teleop_kp, self.teleop_max_speed), accel
 
+    def stop_point(self, drone: DroneHandle) -> np.ndarray:
+        """Where a moving drone can come to rest with the hold law.
+
+        The hold target after ``~/hold`` or a fence latch. A drone at speed
+        cannot stop on the spot: pinning the target to the position at the
+        instant of the call made it overshoot and then fly back (bag
+        run_041842, ~1.5 m from 6 m/s). Braking at goal_accel_mps2 with the
+        hold law's tail, it stops ``v^2/(2a) + v/hover_kp`` ahead; that is
+        where it is held, clamped into the fence box when there is one.
+        """
+        v = np.asarray(drone.velocity, dtype=float)
+        speed = float(np.linalg.norm(v))
+        if speed < 0.2:
+            return drone.position.copy()
+        dist = stopping_distance(speed, self.scenario.tracker.accel,
+                                 1.0 / max(self.hover_kp, 1e-3))
+        point = drone.position + v / speed * dist
+        if self.fence_enabled:
+            point = clamp_to_box(point, self.fence_min, self.fence_max,
+                                 self.fence_margin)
+        return point
+
     def advance_reference(self, drone: DroneHandle):
         """Step a commanded drone's reference point by what it was told to fly."""
         seeded = drone.ref is None
@@ -1638,7 +1664,15 @@ class SwarmCommander(Node):
                     if drone_index in scenario_exempt:
                         exempt_rows.add(i)
                 else:
-                    nominal[i] = self.hover_kp * (d.hold_target - d.position)
+                    # Braking law toward the hold target (stop_point): from
+                    # speed it decelerates at goal_accel_mps2 and eases in
+                    # with gain hover_kp, instead of the old P-law that
+                    # pulled a fast drone back to where it was when hold
+                    # was called (bag run_041842: a 1.5 m bounce).
+                    nominal[i] = seek_velocity(
+                        d.position[None], d.hold_target[None],
+                        self.cbf_max_speed, self.scenario.tracker.accel,
+                        1.0 / max(self.hover_kp, 1e-3))[0]
                 # CBF-exempt list (config): leave this drone's command
                 # uncorrected while it flies. Union with the scenario's own
                 # exempt indices. Climb-out / landing stay collision-protected

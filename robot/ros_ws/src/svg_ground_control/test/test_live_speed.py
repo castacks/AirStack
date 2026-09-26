@@ -137,3 +137,31 @@ def test_goal_heading_from_xyzt_and_quaternion():
         assert node.desired_heading(node.drones[0]) == 0.0
     finally:
         node.destroy_node()
+
+
+def test_hold_brakes_to_a_stop_point_instead_of_the_call_position():
+    from std_srvs.srv import Trigger
+    from svg_ground_control.swarm_commander import FlightState
+    node = make(drone_names=["drone_1"], drone_modes="real", scenario="goal",
+                hover_positions=[0.0, 0.0, 1.0], goal_accel_mps2=6.0, hover_kp=1.0,
+                fence_enabled=False)
+    try:
+        d = node.drones[0]
+        d.position = np.array([0.0, 0.0, 1.5]); d.velocity = np.array([0.0, 6.0, 0.0])
+        d.state = FlightState.ACTIVE
+        res = node.handle_hold(Trigger.Request(), Trigger.Response())
+        assert res.success and "braking" in res.message
+        # v^2/(2a) + v/kp = 36/12 + 6 = 9 m ahead along +y
+        np.testing.assert_allclose(d.hold_target, [0.0, 9.0, 1.5], atol=1e-6)
+        # at rest: hold where it is
+        d.velocity = np.zeros(3)
+        node.handle_hold(Trigger.Request(), Trigger.Response())
+        np.testing.assert_allclose(d.hold_target, d.position)
+        # the hold law continues at the current speed right after the call
+        d.velocity = np.array([0.0, 6.0, 0.0])
+        node.handle_hold(Trigger.Request(), Trigger.Response())
+        from svg_ground_control.trajectory import seek_velocity
+        v = seek_velocity(d.position[None], d.hold_target[None], 10.0, 6.0, 1.0)[0]
+        assert v[1] == pytest.approx(6.0, abs=0.05)
+    finally:
+        node.destroy_node()
