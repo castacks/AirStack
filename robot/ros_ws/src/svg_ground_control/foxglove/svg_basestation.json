@@ -61,7 +61,10 @@
       "reservePct": 8,
       "rtbNominalPct": 30,
       "rtbGatedPct": 20,
-      "selected": "drone_1"
+      "selected": "drone_1",
+      "teleopNs": "/safe_teleop",
+      "teleopTopicTemplate": "/svg/{name}/teleop_command",
+      "joyTopic": "/joy"
     },
     "3D!sbview": {
       "cameraState": {
@@ -150,18 +153,6 @@
       },
       "imageMode": {},
       "synchronize": false
-    },
-    "svg-basestation.SVG Basestation!sbteleop": {
-      "view": "teleop",
-      "drones": "drone_1,drone_2,drone_3",
-      "modes": "",
-      "sections": "auto",
-      "statusTopic": "/svg/commander_status",
-      "commanderNs": "/swarm_commander",
-      "teleopNs": "/safe_teleop",
-      "teleopTopicTemplate": "/svg/{name}/teleop_command",
-      "joyTopic": "/joy",
-      "selected": "drone_1"
     }
   },
   "globalVariables": {},
@@ -175,12 +166,7 @@
     "second": {
       "direction": "column",
       "first": "3D!sbview",
-      "second": {
-        "direction": "row",
-        "first": "svg-basestation.SVG Basestation!sbpower",
-        "second": "svg-basestation.SVG Basestation!sbteleop",
-        "splitPercentage": 50
-      },
+      "second": "svg-basestation.SVG Basestation!sbpower",
       "splitPercentage": 60
     },
     "splitPercentage": 50

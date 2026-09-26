@@ -1110,6 +1110,8 @@ const STYLES = `
 .sb-src { font-size: 9px; opacity: 0.5; margin-left: 3px; }
 
 /* teleop sticks */
+.sb-side { display: flex; gap: 8px; align-items: flex-start; }
+.sb-side > .sb-card { flex: 1 1 0; min-width: 0; }
 .sb-sticks { table-layout: fixed; }
 .sb-sticks td:first-child { width: 80px; }
 .sb-sticks td:nth-child(2), .sb-sticks td:nth-child(3) { width: 76px; text-align: right; }
@@ -1986,6 +1988,10 @@ function activate(extensionContext) {
       const teleopOff = el("div", "sb-note", "Teleop off — safe_teleop is not publishing.");
       teleopOff.style.cssText = "padding:10px 4px;";
       teleopOff.hidden = true;
+      // In the 'power' instance the battery card and the sticks card sit
+      // side by side; with the sticks hidden the battery card takes the
+      // whole width, so a run without teleop never shows an empty half.
+      const sideRow = el("div", "sb-side");
 
       // Link safety section
       const commCard = el("div", "sb-card");
@@ -2068,15 +2074,18 @@ function activate(extensionContext) {
         show(columns, !single);
         show(banner, view !== "teleop");
         if (view === "power") {
-          if (powerCard.parentNode !== root) root.appendChild(powerCard);
-        } else if (powerCard.parentNode !== rightCol) {
-          rightCol.appendChild(powerCard);
+          if (sideRow.parentNode !== root) root.appendChild(sideRow);
+          if (powerCard.parentNode !== sideRow) sideRow.appendChild(powerCard);
+          if (teleopCard.parentNode !== sideRow) sideRow.appendChild(teleopCard);
+        } else {
+          if (sideRow.parentNode) sideRow.parentNode.removeChild(sideRow);
+          if (powerCard.parentNode !== rightCol) rightCol.appendChild(powerCard);
         }
         if (view === "teleop") {
           if (teleopCard.parentNode !== root) root.appendChild(teleopCard);
           if (teleopOff.parentNode !== root) root.appendChild(teleopOff);
         } else {
-          if (teleopCard.parentNode !== rightCol) rightCol.appendChild(teleopCard);
+          if (view !== "power" && teleopCard.parentNode !== rightCol) rightCol.appendChild(teleopCard);
           if (teleopOff.parentNode) teleopOff.parentNode.removeChild(teleopOff);
         }
         panelContext.setDefaultPanelTitle(
@@ -3097,10 +3106,11 @@ function activate(extensionContext) {
         // safe_teleop publishes at 20 Hz whenever it runs; the card exists
         // only while that stream is fresh (or Sections = Show all).
         const padAgents = agents.filter((a) => a.teleopCmd.lastRx != null && now - a.teleopCmd.lastRx <= TELEOP_TIMEOUT_S);
-        // The card belongs to the 'teleop' instance (or the single-panel
-        // 'full' form); a 'main' instance never shows it.
+        // The card sits beside Battery & Power in the 'power' instance, alone
+        // in a 'teleop' instance, in the right column of a 'full' one; a
+        // 'main' instance never shows it.
         const view = currentView();
-        const visible = view !== "main" && view !== "power" && (caps.forced || padAgents.length > 0);
+        const visible = view !== "main" && (caps.forced || padAgents.length > 0);
         show(teleopCard, visible);
         show(teleopOff, view === "teleop" && !visible);
         if (!visible) return;
@@ -3179,7 +3189,7 @@ function activate(extensionContext) {
           tr.title = why;
           tr.appendChild(el("td", null, label));
           tr.appendChild(el("td", raw == null ? "sb-pos sb-muted" : "sb-pos", raw == null ? "--" : fmtSigned(raw)));
-          tr.appendChild(el("td", cls, locked ? "0.000" : fmtSigned(mapped)));
+          tr.appendChild(el("td", cls, locked ? "locked" : fmtSigned(mapped)));
           const tdBar = el("td");
           tdBar.appendChild(stickBar(locked ? 0 : mapped));
           tr.appendChild(tdBar);
@@ -3552,11 +3562,12 @@ function activate(extensionContext) {
                   options: [
                     { label: "Everything (one panel)", value: "full" },
                     { label: "Main — without Battery & Power / Teleop", value: "main" },
-                    { label: "Battery & Power only", value: "power" },
+                    { label: "Battery & Power (+ Teleop sticks beside it while teleop runs)", value: "power" },
                     { label: "Teleop · Sticks only", value: "teleop" },
                   ],
-                  help: "Split the panel across instances: 'main' on the left, 'power' and 'teleop' side by " +
-                        "side under the 3D view, as in svg_basestation.json" },
+                  help: "Split the panel across two instances: 'main' on the left and 'power' under the 3D " +
+                        "view, as in svg_basestation.json. The sticks card appears beside the battery card " +
+                        "only while safe_teleop publishes; 'teleop' gives it a slot of its own instead." },
                 drones: { label: "Agents", input: "string", value: cfg.drones,
                   help: "Comma-separated agent names, in drone_names order" },
                 modes: { label: "Modes (wiring)", input: "string", value: cfg.modes,

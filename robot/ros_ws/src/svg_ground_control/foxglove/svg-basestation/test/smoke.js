@@ -479,7 +479,7 @@ const text = () => root.textContent;
     render();
     assert(teleopCard.textContent.includes("lock button 6: DOWN") && teleopCard.textContent.includes("left stick LOCKED"), "lock press latches: left stick shown LOCKED");
     const upDown = findAll(teleopCard, (n) => n.tagName === "tr" && n.title.includes("/joy axis"))[2];
-    assert(upDown.children[2].textContent === "0.000" && upDown.children[2].className.includes("sb-warn"), "locked axis reads 0 in amber");
+    assert(upDown.children[2].textContent === "locked" && upDown.children[2].className.includes("sb-warn"), "locked axis reads 'locked' in amber");
     t += 0.05; feedJoy([0.02, -0.5, 0.0, 0.8, 0.0, 0.0], [0, 0, 0, 0, 0, 0, 0]); feedTeleop("drone_3", 1.53, 0.0, 0.0, 0.0);
     render();
     assert(teleopCard.textContent.includes("left stick LOCKED"), "lock stays engaged after release (edge-triggered)");
@@ -489,10 +489,10 @@ const text = () => root.textContent;
   render();
   assert(teleopCard.hidden, "Teleop card hidden again 2 s after safe_teleop stops publishing");
 
-  // Teleop-only instance (right of Battery & Power in the shipped layout):
-  // the card alone, "Teleop off" while nothing streams; a main instance never
-  // shows the card.
-  for (const [view, expectCard] of [["teleop", true], ["main", false]]) {
+  // The sticks card per instance: beside the battery card in 'power' (the
+  // shipped layout), alone in 'teleop' ("Teleop off" while nothing streams),
+  // never in 'main'.
+  for (const [view, expectCard] of [["power", true], ["teleop", true], ["main", false]]) {
     const ctx = { ...panelContext, initialState: { view }, panelElement: makeNode("div"), callService: realCall };
     let fn = null;
     Object.defineProperty(ctx, "onRender", { set(f) { fn = f; }, get() { return fn; } });
@@ -508,6 +508,12 @@ const text = () => root.textContent;
       assert(card.hidden && off && off.parentNode === r && !off.hidden, "teleop view reads 'Teleop off' before safe_teleop publishes");
       assert(findAll(r, (n) => n.className.includes("sb-banner"))[0].hidden, "teleop view has no banner");
     }
+    if (view === "power") {
+      const pcard = findAll(r, (n) => n.className === "sb-card" && n.textContent.startsWith("Battery & Power Management"))[0];
+      assert(card.hidden && !pcard.hidden && pcard.parentNode === card.parentNode && card.parentNode.className === "sb-side",
+        "power view: battery and sticks share a side-by-side row, sticks hidden (battery full width) before teleop runs");
+      assert(!off, "power view has no 'Teleop off' note — the battery card just takes the width");
+    }
     for (let i = 0; i < 3; i++) {
       t += 0.05;
       fn({ topics: subscribed.map((name) => ({ name })), currentFrame: [
@@ -517,7 +523,8 @@ const text = () => root.textContent;
     }
     tick();
     assert(card.hidden === !expectCard, `${view} view ${expectCard ? "shows" : "never shows"} the Teleop card while safe_teleop streams`);
-    if (expectCard) assert(card.parentNode === r && off.hidden, "teleop view shows the card directly under the root and drops the 'off' note");
+    if (view === "teleop") assert(card.parentNode === r && off.hidden, "teleop view shows the card directly under the root and drops the 'off' note");
+    if (view === "power") assert(card.parentNode.className === "sb-side" && !card.hidden, "power view shows the sticks beside the battery card while teleop runs");
     disp();
   }
 
@@ -532,7 +539,8 @@ const text = () => root.textContent;
   assert(hiddenClasses.some((c) => c.includes("sb-safety")) && hiddenClasses.some((c) => c.includes("sb-columns")),
     "power view hides the safety bar and the main columns");
   const pcard = findAll(proot, (n) => n.className === "sb-card" && n.textContent.startsWith("Battery & Power Management"))[0];
-  assert(pcard && pcard.parentNode === proot && !pcard.hidden, "power view shows Battery & Power directly under the banner");
+  assert(pcard && pcard.parentNode.className === "sb-side" && pcard.parentNode.parentNode === proot && !pcard.hidden,
+    "power view shows Battery & Power directly under the banner (in the side-by-side row)");
   assert(!findAll(proot, (n) => n.className.includes("sb-mission") && !n.hidden).length || findAll(proot, (n) => n.className === "sb-card" && !n.hidden && n.textContent.includes("Swarm Command")).length === 0,
     "power view has no Swarm Command card visible");
   disposePower();
