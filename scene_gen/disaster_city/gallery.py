@@ -1,6 +1,6 @@
 """Render the scene gallery: specs/gallery.yaml -> OUT_DIR/*.jpg + index.html + 00_contact_sheet.jpg.
 
-    OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh gallery.py OUT_DIR [--only name,name] [--res 2560x1440] [--pairs]
+    OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh gallery.py OUT_DIR [--only name,name] [--res 2560x1440] [--pairs] [--scene autumn]
 
 Each shot is either an orbit ({target, az, el, dist} in world coordinates, as before_after.py)
 or a camera ({eye, look}) -- in world coordinates, or in a hero's own frame when the shot names
@@ -8,6 +8,7 @@ it (`in: B01`: the spec's origin + yaw, the frame its parts are written in, so a
 stays inside the building when the building moves). `focal` (mm on a 36 mm sensor) defaults to
 18; interiors use ~12. Sections and captions go into index.html.
 
+--scene autumn renders disaster_city_autumn.usda (the video's look; same placements) instead of summer.
 --pairs also renders every shot in the raw-tiles scene (disaster_city_raw_tiles.usda, same sun and
 sky) and writes OUT_DIR/pairs/<name>.jpg: BEFORE (raw Google tiles) | AFTER, linked from the index.
 An interior's BEFORE shows what the tiles have there: the inside of a closed blob, or nothing.
@@ -77,7 +78,7 @@ def caption(im, text, colour=(255, 255, 255)):
 def standalone(s, im):
     if pairs: im.save(out / "raw" / f"{s['name']}.png")                  # uncaptioned, for the pair
     caption(im.copy(), f"{s['name']}   {s['caption']}").save(out / f"{s['name']}.jpg", quality=92)
-render(R / "disaster_city.usda", standalone)
+render(R / ("disaster_city_autumn.usda" if arg("--scene") == "autumn" else "disaster_city.usda"), standalone)
 if pairs:
     (out / "before").mkdir(exist_ok=True); (out / "pairs").mkdir(exist_ok=True)
     def pair(s, before):
