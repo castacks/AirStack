@@ -165,3 +165,29 @@ def test_hold_brakes_to_a_stop_point_instead_of_the_call_position():
         assert v[1] == pytest.approx(6.0, abs=0.05)
     finally:
         node.destroy_node()
+
+
+def test_takeoff_resets_stored_goals_and_goals_accepted_before_start():
+    from std_srvs.srv import Trigger
+    from std_msgs.msg import Float64MultiArray
+    node = make(drone_names=["drone_1"], drone_modes="real", scenario="goal",
+                hover_positions=[0.0, 0.0, 1.0])
+    try:
+        d = node.drones[0]
+        d.position = np.array([0.0, 0.0, 0.05])
+        node.goal_xyzt_callback(0, Float64MultiArray(data=[0.0, 5.0, 1.5, 90.0]))   # stale
+        np.testing.assert_allclose(node.scenario.goals[0], [0.0, 5.0, 1.5])
+        res = node.handle_takeoff(Trigger.Request(), Trigger.Response())
+        assert res.success
+        np.testing.assert_allclose(node.scenario.goals[0], [0.0, 0.0, 1.0])         # reset
+        assert node.scenario.headings[0] == 0.0
+        # retarget before start: accepted (no gating on mission_active)
+        assert not node.mission_active
+        node.goal_xyzt_callback(0, Float64MultiArray(data=[1.0, 2.0, 1.5]))
+        np.testing.assert_allclose(node.scenario.goals[0], [1.0, 2.0, 1.5])
+        # a twin commander blocks takeoff/start
+        node.duplicate_commander = True
+        res = node.handle_start(Trigger.Request(), Trigger.Response())
+        assert not res.success and "another swarm_commander" in res.message
+    finally:
+        node.destroy_node()

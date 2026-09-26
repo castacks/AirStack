@@ -814,6 +814,13 @@ class SwarmCommander(Node):
         # Registered LAST: rclpy also runs these callbacks for every
         # declare_parameter above.
         self.add_on_set_parameters_callback(self.on_parameter_change)
+
+        # Two commanders on one drone (a second ground_control.launch.py in
+        # another terminal) both publish setpoints and goal markers; bags
+        # run_041842 / run_044243 show every log line twice and the goal
+        # sphere flipping between two points. Watch the graph for a twin.
+        self.duplicate_commander = False
+        self.create_timer(1.0, self.check_duplicate_commander)
         if hasattr(self, 'add_post_set_parameters_callback'):   # rclpy >= Iron
             self.add_post_set_parameters_callback(self._apply_parameters)
         else:
@@ -1095,6 +1102,17 @@ class SwarmCommander(Node):
             f'(total {drone.odom_lost_total})',
             throttle_duration_sec=2.0)
 
+    def check_duplicate_commander(self):
+        twins = sum(1 for name, ns in self.get_node_names_and_namespaces()
+                    if name == self.get_name() and ns == self.get_namespace())
+        self.duplicate_commander = twins > 1
+        if self.duplicate_commander:
+            self.get_logger().error(
+                f'{twins} swarm_commander nodes are running — a second '
+                'ground_control launch is commanding the same drones. '
+                'Kill the extra one (takeoff/start are refused meanwhile).',
+                throttle_duration_sec=2.0)
+
     def odometry_callback(self, drone: DroneHandle, msg: Odometry):
         drone.odom_rx_total += 1
         p = msg.pose.pose.position
@@ -1217,13 +1235,34 @@ class SwarmCommander(Node):
             d.arming_start = now
             d.arming_steps_done = set()
             d.hold_target = d.takeoff_target.copy()
+            # A stored goal from the previous sortie must not be what ~/start
+            # flies to: every takeoff resets this drone's goal (and heading)
+            # to its takeoff point. Retarget after takeoff, before or after
+            # start — goal commands are accepted at any time.
+            if hasattr(self.scenario, 'set_goal'):
+                self.scenario.set_goal(self.drones.index(d), d.takeoff_target, 0.0)
             started.append(d.name)
+        if started and hasattr(self.scenario, 'set_goal'):
+            self.get_logger().info(
+                'takeoff: goals reset to the takeoff points ('
+                + ', '.join(f'{d.name} {d.takeoff_target.round(2).tolist()}'
+                            for d in self.drones if d.name in started) + ')')
+        if self.duplicate_commander:
+            response.success = False
+            response.message = ('REFUSED: another swarm_commander is running '
+                                '(ros2 node list) — kill it first')
+            return self._record_command('takeoff', response)
         response.success = bool(started)
         response.message = ('takeoff: ' + ', '.join(started)) if started \
             else 'no drone eligible for takeoff (missing odometry or not IDLE)'
         return self._record_command('takeoff', response)
 
     def handle_start(self, request, response):
+        if self.duplicate_commander:
+            response.success = False
+            response.message = ('REFUSED: another swarm_commander is running '
+                                '(ros2 node list) — kill it first')
+            return self._record_command('start', response)
         if self.fence_breached:
             response.success = False
             response.message = 'geofence breached — call ~/reset_fence first'
@@ -1900,7 +1939,9 @@ class SwarmCommander(Node):
             return
         arr = MarkerArray()
         stamp = now.to_msg()
-        goals = getattr(self.scenario, 'goals', None) if self.mission_active else None
+        # Stored goals are drawn always (dim before start), so a stale or
+        # freshly sent goal can be checked before the drone is released.
+        goals = getattr(self.scenario, 'goals', None)
 
         for di, d in enumerate(self.drones):
             if d.position is None:
@@ -1993,7 +2034,8 @@ class SwarmCommander(Node):
                 goal.pose.position.z = float(goals[di][2])
                 goal.pose.orientation.w = 1.0
                 goal.scale.x = goal.scale.y = goal.scale.z = 0.15
-                goal.color = ColorRGBA(r=r, g=g, b=b, a=0.6)
+                goal.color = ColorRGBA(r=r, g=g, b=b,
+                                       a=0.6 if self.mission_active else 0.25)
                 arr.markers.append(goal)
 
         if self.fence_enabled:
