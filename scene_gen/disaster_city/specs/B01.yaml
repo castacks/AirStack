@@ -79,10 +79,15 @@ parts:
   - box: {name: beam_roof_yhi, min: [12.7, 9.85, 7.2], max: [24.8, 10.15, 7.45], mat: steel}
   - box: {name: beam_roof_xhi, min: [24.45, 3.4, 7.2], max: [24.75, 10.0, 7.45], mat: steel}
   # ---- railings: both roofs (1.5 m, as the cloud shows) and the deck's open edges ----
-  - rail: {name: rail_roof_ylo, from: [0.4, 3.4], to: [18.7, 3.4], z: 7.8, h: 1.1, mat: steel}
-  - rail: {name: rail_roof_ylo_b, from: [20.0, 3.4], to: [24.8, 3.4], z: 7.6, h: 1.1, mat: steel}     # gap: the top landing
+  - rail: {name: rail_roof_ylo, from: [0.4, 3.4], to: [17.0, 3.4], z: 7.8, h: 1.1, mat: steel}
+  - rail: {name: rail_roof_ylo_b, from: [18.2, 3.4], to: [24.8, 3.4], z: 7.6, h: 1.1, mat: steel}     # gap: the top landing
   - rail: {name: rail_roof_yhi, from: [2.0, 9.8], to: [23.4, 9.8], z: 7.8, h: 1.1, mat: steel}   # from x 2.0: the outcrop walkway starts at the corner
-  # the outcrop (B09_045/046; fitted by projecting into those frames, and the cloud's rail points at x 0.5 / 1.6-2.0): a railed
+  # outcrop 1: a railed catwalk out from the roof deck along the wing frame's xhi side (B09_042-049; cloud z 7.3-8.9: x 23.3-25, y 10-16)
+  - box: {name: catwalk, min: [23.4, 10.0, 7.6], max: [24.8, 16.0, 7.68], mat: grating}
+  - rail: {name: rail_catwalk_xlo, from: [23.4, 10.0], to: [23.4, 16.0], z: 7.68, mat: steel}
+  - rail: {name: rail_catwalk_xhi, from: [24.8, 10.0], to: [24.8, 16.0], z: 7.68, mat: steel}
+  - rail: {name: rail_catwalk_end, from: [23.4, 16.0], to: [24.8, 16.0], z: 7.68, mat: steel}
+  # outcrop 2 (B09_045/046; fitted by projecting into those frames, and the cloud's rail points at x 0.5 / 1.6-2.0): a railed
   # grating walkway at roof level along the slab's far side, from the roof's xlo corner out to the wing frame's end beam
   - box: {name: outcrop, min: [0.4, 9.8, 7.52], max: [2.0, 16.0, 7.6], mat: grating}
   - box: {name: outcrop_beam, min: [1.85, 9.8, 7.25], max: [2.0, 16.0, 7.52], mat: steel}
@@ -99,18 +104,18 @@ parts:
   # (the top landing's outer post runs the full height) with an X brace under the 133 landing's outer edge.
   - stair: {name: stair_ground_to_133, from: [19.3, 2.75, 0.15], to: [22.4, 2.75, 3.28], width: 1.0, mat: grating, handrails: true}
   - box: {name: landing_133, min: [22.4, 0.7, 3.2], max: [24.8, 3.4, 3.35], mat: grating}              # 1 m under the frame deck (A03_005)
-  - stair: {name: stair_133_to_roof, from: [24.0, 1.2, 3.35], to: [20.0, 1.2, 7.55], width: 1.0, mat: grating, handrails: true}
-  - box: {name: landing_top, min: [18.7, 0.7, 7.45], max: [20.0, 3.4, 7.6], mat: grating}
+  - stair: {name: stair_133_to_roof, from: [22.4, 1.2, 3.35], to: [18.2, 1.2, 7.55], width: 1.0, mat: grating, handrails: true}   # leaves the landing at the edge flight 1 arrives on
+  - box: {name: landing_top, min: [17.0, 0.7, 7.45], max: [18.2, 3.4, 7.6], mat: grating}
   - box: {name: sign_133, min: [23.4, 0.6, 3.5], max: [24.3, 0.66, 4.35], mat: sign}              # the "133" plate on the landing rail at its outer corner (B03_010/013)
   - rail: {name: rail_landing_133_ylo, from: [22.4, 0.7], to: [24.8, 0.7], z: 3.35, mat: steel}
   - rail: {name: rail_landing_133_xhi, from: [24.8, 0.7], to: [24.8, 3.4], z: 3.35, mat: steel}
-  - rail: {name: rail_landing_top_ylo, from: [18.7, 0.7], to: [20.0, 0.7], z: 7.6, mat: steel}
-  - rail: {name: rail_landing_top_xlo, from: [18.7, 0.7], to: [18.7, 3.4], z: 7.6, mat: steel}
+  - rail: {name: rail_landing_top_ylo, from: [17.0, 0.7], to: [18.2, 0.7], z: 7.6, mat: steel}
+  - rail: {name: rail_landing_top_xlo, from: [17.0, 0.7], to: [17.0, 3.4], z: 7.6, mat: steel}
   - box: {name: landing_133_leg, min: [22.4, 0.7, 0], max: [22.55, 0.85, 3.2], mat: steel}
   - box: {name: sign_pole, min: [23.8, 0.62, 0], max: [23.92, 0.74, 3.5], mat: steel}              # the pole under the sign (A03_005)
-  - box: {name: landing_top_post_a, min: [18.7, 0.7, 0], max: [18.88, 0.88, 7.45], mat: steel}
-  - box: {name: landing_top_post_b, min: [19.82, 0.7, 0], max: [20.0, 0.88, 7.45], mat: steel}
-  - box: {name: landing_top_beam, min: [18.7, 0.7, 4.1], max: [20.0, 0.88, 4.3], mat: steel}
+  - box: {name: landing_top_post_a, min: [17.0, 0.7, 0], max: [17.18, 0.88, 7.45], mat: steel}
+  - box: {name: landing_top_post_b, min: [18.02, 0.7, 0], max: [18.2, 0.88, 7.45], mat: steel}
+  - box: {name: landing_top_beam, min: [17.0, 0.7, 4.1], max: [18.2, 0.88, 4.3], mat: steel}
   # ---- the collapsed wing on the yhi (pile) side: its roof slab hinged off the block's roof edge and
 # came down onto the pile (A03_046-052; elev_xlo: from (y 9.8, z 7.4) to (y 14.9, z 2.4), x 1.0..10.5),
 # with its railing still on it; the first floor dropped under it. Tilted slabs, solid colliders.
