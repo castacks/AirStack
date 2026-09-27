@@ -32,7 +32,7 @@ PHOTO = {
 PROC = {
     "steel":     ((0.55, 0.57, 0.58), 0.05, "streak", 1.0, 0.5, 0.6),     # galvanised columns / rails, A03_05
     "grating":   ((0.45, 0.46, 0.47), 0.04, "grid", 0.5, 0.6, 0.5),       # stair treads and decks (A03): read solid at any distance
-    "grating_open": ((0.45, 0.46, 0.47), 0.04, "bars", 0.5, 0.6, 0.5),    # the block's floor and roof, seen from inside (B08h): see-through
+    "grating_open": ((0.36, 0.37, 0.38), 0.04, "bars", 0.5, 0.6, 0.5),    # the block's floor and roof, seen from inside (B08h): see-through
     "wood":      ((0.55, 0.42, 0.28), 0.08, "streak", 1.0, 0.9, 0.0),
     "rust":      ((0.45, 0.26, 0.16), 0.08, "blotch", 1.5, 0.8, 0.2),
     "tank_white": ((0.85, 0.85, 0.83), 0.03, "blotch", 3.0, 0.5, 0.1),
@@ -98,10 +98,11 @@ for name, (rgb, amp, pat, tile, rough, metal) in PROC.items():
         g = np.zeros((N, N), np.float32); g[:, ::N // 16] = -3; g[::N // 16, :] = -3; n = n + cv2.blur(g, (5, 5))
     tex = np.array(rgb[::-1], np.float32)[None, None] * (1 + amp * n[..., None] * 3)
     tex = (np.clip(tex, 0, 1) * 255).astype(np.uint8)
-    if pat == "bars":                                                         # press-locked grating: bearing bars every 3 cm,
-        a_ = np.zeros((N, N), np.uint8); p1, p2 = N * 0.03 / tile, N * 0.10 / tile   # cross bars every 10 cm; alpha 0 between
-        for x in np.arange(0, N, p1): a_[:, int(x):int(x) + max(2, int(p1 * 0.2))] = 255
-        for y in np.arange(0, N, p2): a_[int(y):int(y) + max(2, int(p1 * 0.2)), :] = 255
+    if pat == "bars":                                                         # press-locked grating: 2.4 x 9.4 cm openings (alpha 0)
+        a_ = np.zeros((N, N), np.uint8); px_ = N / tile                           # between 1.2 cm bearing bars and 1.0 cm cross bars --
+        HOLE_X, BAR_X, HOLE_Y, BAR_Y = 0.024, 0.012, 0.094, 0.010                 # heavy enough to read as solid steel from above
+        for x in np.arange(0, tile, HOLE_X + BAR_X): a_[:, int(x * px_):int((x + BAR_X) * px_)] = 255
+        for y in np.arange(0, tile, HOLE_Y + BAR_Y): a_[int(y * px_):int((y + BAR_Y) * px_), :] = 255
         tex = np.dstack([tex, a_])
     cv2.imwrite(str(OUT / f"{name}.png"), tex)
     lib[name] = {"tile_m": tile, "rough": rough, "metal": metal, "source": f"procedural, colour off the video ({pat})", **({"cutout": True} if pat == "bars" else {})}
