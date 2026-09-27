@@ -13,3 +13,4 @@
 # B07_018 (video and tiles both show them; the R03 debris field had them): rays from that frame's camera onto the tiles
 - {id: r03_grey_car, at: [53.2, -433.6], yaw: 227, asset: lowpoly_sedan, tint: 0.55}               # grey sedan by B35's NW corner
 - {id: r03_red_car, at: [57.7, -427.2], yaw: 227, asset: red_car, lift: 0.7, pitch: 18}           # red car propped nose-up on a pipe (specs/props.yaml r03_pipe)
+- {id: v14_ladder_truck, at: [134.2, -299.5], yaw: 90, lib: box_truck, size: [12.5, 2.8, 3.2]}   # V14: the tan ladder truck behind the houses (its ladder is specs/D02.yaml)

@@ -32,7 +32,7 @@ outside = [
     O("rail_cars_stacked", "V11: one coach lying with its end up on the roof of the other", [232.5, -365.0, 61.0], 200, 15, 24),
     O("rail_cars_r02", "Crossed passenger cars by R02", [220, -385, 61], 250, 30, 55),
     O("r02_pile", "R02 east rubble pile", [188, -390, 61], 230, 28, 45),
-    O("houses", "The street of houses (LOD1, tinted walls)", [150, -280, 58], 200, 30, 60),
+    O("houses", "The street of houses (LOD2: roofs, eaves, doors, windows) and the ladder truck", [150, -280, 58], 200, 30, 60),
     O("grid_street", "Street level in the grid", [70, -445, 59], 30, 8, 40),
     O("water_tower", "Water tower and the east rail line", [330, -290, 63], 250, 25, 40)]
 I = lambda n, c, b, e, l, f=12: {"name": n, "caption": c, "in": b, "eye": e, "look": l, "focal": f}

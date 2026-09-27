@@ -90,6 +90,8 @@ labels:
 - {id: B33, name: pond_shed, kind: building, at: [91, -90], height_m: 4.7}
 - {id: B34, name: north_utility, kind: building, at: [176, -31], height_m: 3.7, note: "TEEX campus edge, outside the tile crop -- no LOD1 box"}
 - {id: B35, name: tan_house, kind: building, at: [63.0, -434.5], note: "two-storey tan stucco house with a brown hip roof, inside R03; intact in the video (B04, B07)", seen_in: [A03, B04, B07]}
+- {id: B36, name: yard_portable_w, kind: building, at: [262.0, -227.5], note: "long white portable building at the rail yard's north (was mistaken for buses)"}
+- {id: B37, name: yard_portable_e, kind: building, at: [267.2, -226.6], note: "its twin, just east"}
 
 # ---------------- structures / props ----------------
 - {id: S01, name: drill_tower, kind: structure, at: [2, -510], height_m: 20.4, note: "5-storey training tower", seen_in: [A04, B05]}
@@ -103,7 +105,7 @@ labels:
 - {id: S09, name: pavilion, kind: structure, at: [185, -484], height_m: 6.0, note: "square tent roof NE of B06"}
 - {id: S10, name: water_tower, kind: structure, at: [336, -276], height_m: 5.7}
 - {id: S11, name: block_field_frame, kind: structure, side: left, at: [86, -276], height_m: 5.3, note: "collapsed timber/steel structure in Z13"}
-- {id: S12, name: wooden_frame, kind: structure, at: [131, -300], height_m: 2.9, note: "timber structure behind the houses"}
+- {id: V14, name: ladder_truck, kind: vehicle, at: [134.2, -299.5], height_m: 2.9, note: "tan truck with its aerial ladder down to the west, behind the houses (was S12, read as a timber frame)"}
 - {id: S13, name: grid_fence, kind: structure, at: [-32, -510], height_m: 6.8, note: "fence/barrier line along the grid's SW edge road"}
 - {id: S14, name: rail_cars_ns, kind: structure, at: [246, -327], height_m: 5.1, note: "two rail cars on the N-S track west of RD03"}
 - {id: S15, name: rail_tank_cars, kind: structure, at: [288, -240], height_m: 5.2, note: "tank cars on track, north edge of Z15"}

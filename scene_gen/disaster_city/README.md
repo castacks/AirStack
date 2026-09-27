@@ -55,6 +55,7 @@ PATH, and `~/isaacsim/python.sh` (Isaac Sim 6.0.1) for the check.
 | **R01** west rubble pile, **R02** east pile | `rubble_pile.py`: the pile's measured shape (drone reconstruction for R01, tiles for R02) as a smoothed mound 1.6 m under the top, with library rubble stacked on it to the measured height (Nucleus DebrisConcrete fragments, standalone slabs) | Instanced pieces (R01 274, R02 185; about 5M unique triangles), each with an invisible box collider; the photogrammetry surface is no longer used |
 | **B35** tan house (in R03) | LOD1 fit of the tiles; look from the video (B04, B07) | **Enterable.** Two storeys of stucco under a brown hip roof (`gen_house.py`). |
 | R03 collapsed houses | Tile mound plus scattered debris pieces (kept off B35) | The mound is the collider; the pieces are visual only |
+| Plain one-storey buildings (`lod2/`) | `gen_lod2.py`: every rectangular (≥ 0.7) single-level LOD1 building with no hand model | Houses under a brown hip roof; sheds and warehouses under a shallow gable with 0.5 m eaves; windows every ~3 m, a door (or a garage on a shed) on the face nearest a road. Not enterable. |
 | Other buildings (`lod1/`) | The tile outline, extruded: main roof level plus any attached lower annex | Closed, with the real roof texture; walls in the video's stucco or concrete, tinted to the building's wall colour in the tiles. Not enterable. |
 | Trees (`trees/`) | Canopy peaks in the tile heights; 4 NVIDIA tree species as instanceable references | Position and height from the tiles; invisible trunk and crown colliders |
 | Vehicles (`vehicles/`) | Road vehicles: vehicle-sized blobs on roads, parking lots and near vehicle labels, fitted in the world frame. Rail cars: hand-surveyed car by car (`specs/rail_cars.yaml`), because the tiles merge coupled and derailed cars | Cars, vans and buses from the standalone pack; box truck, dump truck and container from `assets/lib`; tank cars, box cars, coaches and a locomotive from Nucleus + Objaverse. Nothing vehicle-sized is left as raw tile mesh or a box |
@@ -105,6 +106,7 @@ $PY ground.py && $PY place_assets.py && $PY ground.py
 $PY find_people.py b01 rubble_west                  # people in the video -> data/recon/people/ (review.jpg); pick into specs/survivors.yaml
 OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh nucleus_mirror.py /Library/Stages/Muyang/People/Assets/rp_carla_rigged_001_ue4.usd ...   # the 6 rigs
 OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh place_people.py             # -> data/recon/people.usd
+$PY gen_lod2.py && for f in data/recon/lod2/*_spec.yaml; do $PY build_hero.py $f; done   # roofed plain buildings; replace their LOD1 boxes
 $PY assemble_scene.py
 $PY ground_texture.py && $PY ground_texture.py --season autumn && $PY autumn.py     # the video-look variant: disaster_city_autumn.usda
 # 4. check and ship
@@ -123,6 +125,7 @@ $PY track_drone.py frames && $PY track_drone.py sfm && $PY track_drone.py georef
 $PY leftovers.py                               # raw tile pieces no model has replaced yet -> data/recon/leftovers.jpg
 $PY footprint_check.py                        # every model vs its tile footprint -> data/recon/footprints.tsv + overlays
 OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh gallery.py <out_dir>        # specs/gallery.yaml: outside, inside, survivors -> jpgs + index.html
+OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh overview.py <out_dir>       # top-down site: render, geofence, semantic segmentation
 OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh package.py                          # data/dist/disaster_city/ (Kit USD)
 ```
 
@@ -145,6 +148,11 @@ tile surface under it.
 - **Stock clear-sky HDRs have ground baked in.** The NVIDIA "Clear" skies put a cornfield on the horizon; both looks use the same sky.
 - **Settling a stacked pile blows it apart unless depenetration is slow.** The pieces start interpenetrating;
   `settle_pile.py` caps depenetration at 0.15 m/s (median move 0.5 m instead of 3 m).
+
+- **Segmentation misses point-instanced geometry and labels on instanceable prims.** A label on an instanceable
+  prim is not seen inside its prototype, so labels go on the asset root's children; PointInstancer meshes come back
+  UNLABELLED whatever their labels, so tree PIs are baked to plain meshes (`usd_bake.py`). On the full scene Isaac
+  also runs out of semantic uids and the overflow is UNLABELLED; `overview.py` recovers the trees with a trees-only pass.
 
 - **Stairs built from tread boxes float.** Every `stair` now hangs its treads between two stringers
   (build_hero.py), and a landing gets legs in its spec.

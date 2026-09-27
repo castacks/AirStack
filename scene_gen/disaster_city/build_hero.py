@@ -18,7 +18,8 @@ drone. Spec parts:
   beam:   {name, from: [x,y,z], to: [x,y,z], t: 0.2, mat}   oriented square bar (bracing, booms, tilted slabs with t2)
   cyl:    {name, c: [x,y,z] (centre), r, h, axis: X|Y|Z, mat}
   sphere: {name, c: [x,y,z], r, mat}
-  prism:  {name, poly: [[x,z], ...], y: [y0, y1], mat}   an outline in the x-z plane, extruded over y
+  prism:  {name, poly: [[x,z], ...], y: [y0, y1], mat, plane}   an outline in the x-z plane extruded over y
+          (plane: yz -- the outline is in (y, z), extruded over x; `y` is then the x range)
   hip:    {name, min: [x,y,z], max: [x,y,z], mat}   hip roof over the box's footprint, ridge along its long side
 
 Optional top-level `default_mat` (else concrete) for parts without a `mat`.
@@ -81,8 +82,8 @@ def rail_boxes(r):
         out.append(([lo[0], lo[1], zz], [hi[0], hi[1], zz + t]))
     return out
 
-spec_path = Path(sys.argv[1]); spec = yaml.safe_load(open(spec_path))
-out = R / spec["id"].lower() / f"{spec['id']}.usd"; out.parent.mkdir(parents=True, exist_ok=True)
+spec_path = Path(sys.argv[1]); spec = yaml.safe_load(open(spec_path))   # `out_dir` (optional): data/recon/<out_dir>/<ID>.usd
+out = R / spec.get("out_dir", spec["id"].lower()) / f"{spec['id']}.usd"; out.parent.mkdir(parents=True, exist_ok=True)
 stage = Usd.Stage.CreateNew(str(out))
 UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z); UsdGeom.SetStageMetersPerUnit(stage, 1.0)
 root = UsdGeom.Xform.Define(stage, f"/{spec['id']}_{spec['name']}"); stage.SetDefaultPrim(root.GetPrim())
@@ -195,8 +196,10 @@ for part in spec["parts"]:
         if np.sum(P2[:, 0] * np.roll(P2[:, 1], -1) - np.roll(P2[:, 0], -1) * P2[:, 1]) < 0: P2 = P2[::-1]   # counter-clockwise in x-z
         tri = mapbox_earcut.triangulate_float64(P2, np.array([n2], np.uint32)).reshape(-1, 3)
         V = [(x, y0, z) for x, z in P2] + [(x, y1, z) for x, z in P2]
+        if d.get("plane") == "yz": V = [(y, x, z) for x, y, z in V]           # outline in (y, z), extruded over x
         F = [[int(t[0]), int(t[2]), int(t[1])] for t in tri] + [[int(t[0]) + n2, int(t[1]) + n2, int(t[2]) + n2] for t in tri]
         F += [[i, (i + 1) % n2, (i + 1) % n2 + n2, i + n2] for i in range(n2)]
+        if d.get("plane") == "yz": F = [f[::-1] for f in F]                   # the x<->y swap mirrors: keep faces outward
         g = UsdGeom.Mesh.Define(stage, path); g.CreatePointsAttr(V); g.CreateFaceVertexCountsAttr([len(f) for f in F])
         g.CreateFaceVertexIndicesAttr([i for f in F for i in f]); g.CreateSubdivisionSchemeAttr("none")
         per = np.r_[0, np.cumsum(np.linalg.norm(np.roll(P2, -1, 0) - P2, axis=1))]

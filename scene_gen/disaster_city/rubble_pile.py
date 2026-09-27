@@ -162,7 +162,7 @@ def put(name, i_, j_, sink, heap):
     cb = UsdGeom.Xform.Define(st, root.GetPath().AppendChild("colliders").AppendChild(f"c{placed:04d}")); pose(cb)
     cube = UsdGeom.Cube.Define(st, cb.GetPath().AppendChild("box")); cube.CreatePurposeAttr("guide")
     UsdGeom.Xformable(cube).AddTranslateOp().Set(Gf.Vec3d(0, 0, Hh / 2)); UsdGeom.Xformable(cube).AddScaleOp().Set(Gf.Vec3f(0.4 * L, 0.4 * W, 0.4 * Hh))
-    UsdPhysics.CollisionAPI.Apply(cube.GetPrim()); label(cube.GetPrim(), "rubble")
+    UsdPhysics.CollisionAPI.Apply(cube.GetPrim())                      # invisible guide: no label (segmentation uid budget)
     S[m] = np.maximum(S[m], base + 0.8 * th); cov[m] = True; tri_sum += PIECES[name]["tris"]; placed += 1; used_names.add(name)
     return True
 

@@ -50,6 +50,16 @@ def size_of(path):
 
 # ------------------------------------------------------------------ trees
 TREES = ["White_Ash", "American_Beech", "Honey_Locust", "Largetooth_Aspen"]
+from usd_bake import bake_instancers
+for t_ in TREES:                                   # label the tree assets themselves: instanced trees get their semantics
+    ts = Usd.Stage.Open(str(A / f"trees/{t_}.usd")); rp_ = ts.GetDefaultPrim()   # from the prototype (the instance's label is ignored)
+    if bake_instancers(ts): ts.Save(); print(f"  {t_}: point-instanced branches baked into meshes")
+    todo = [rp_] + list(rp_.GetChildren()) + [ts.GetPrimAtPath(t) for q in ts.Traverse() if q.IsA(UsdGeom.PointInstancer)
+                    for t in UsdGeom.PointInstancer(q).GetPrototypesRel().GetTargets()]          # its children (an instance's prototype
+                                                                                                 # starts BELOW the asset root) + point-instanced protos
+    new = [q for q in todo if q and not q.HasAttribute("semantics:labels:class")]
+    for q in new: q.AddAppliedSchema("SemanticsLabelsAPI:class"); q.CreateAttribute("semantics:labels:class", Sdf.ValueTypeNames.TokenArray).Set(["vegetation"])
+    if new: ts.Save()
 proto = {t: size_of(A / f"trees/{t}.usd") for t in TREES}
 chm = cv2.GaussianBlur((DSM - DTM).astype(np.float32), (0, 0), 1.0)
 veg = cv2.dilate((CLS == 1).astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool)
@@ -91,7 +101,7 @@ for n, ((x, y, z), hh, q, sc) in enumerate(zip(pos, h, k, s)):
     trunk.AddTranslateOp().Set(Gf.Vec3d(x, y, z + hh * 0.225)); trunk.CreatePurposeAttr("guide")
     ball = UsdGeom.Sphere.Define(st, f"/trees/colliders/c{n}")
     ball.CreateRadiusAttr(float(min(crown, hh * 0.3))); ball.AddTranslateOp().Set(Gf.Vec3d(x, y, z + hh * 0.68)); ball.CreatePurposeAttr("guide")
-    for g in (trunk, ball): UsdPhysics.CollisionAPI.Apply(g.GetPrim()); label(g.GetPrim(), "vegetation")
+    for g in (trunk, ball): UsdPhysics.CollisionAPI.Apply(g.GetPrim())      # invisible: no label (the segmentation has a uid budget)
 st.Save()
 print(f"  wrote {len(ii)} trees, heights {np.percentile(h, [10, 50, 90]).round(1)} m")
 
@@ -285,6 +295,11 @@ print(f"vehicles: {counts['asset']} cars/vans/buses, {counts['lib']} trucks/RVs/
 # from the standalone pack, resting on the tile mound (which stays the collider),
 # random yaw and up to 25 deg tilt. Instanceable references, class `rubble`.
 PIECES = sorted(p.name for p in (A / "debris").iterdir() if p.is_dir() and not p.name.startswith("lump"))
+for q_ in PIECES:                                  # label the debris assets themselves (instanced: see the trees above)
+    ds = Usd.Stage.Open(str(A / f"debris/{q_}/{q_}.usdc")); rp_ = ds.GetDefaultPrim()
+    new = [q for q in ([rp_] + list(rp_.GetChildren()) if rp_ else []) if not q.HasAttribute("semantics:labels:class")]
+    for q in new: q.AddAppliedSchema("SemanticsLabelsAPI:class"); q.CreateAttribute("semantics:labels:class", Sdf.ValueTypeNames.TokenArray).Set(["rubble"])
+    if new: ds.Save()
 FIELDS = {"R03": 18.0}                                          # label -> disc radius, m (R02 is rubble_pile.py's)
 lab = {l["id"]: l for l in labels}
 pts = []

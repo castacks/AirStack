@@ -159,6 +159,13 @@ for name, (rel, cls, prov) in SOURCES.items():
     UsdGeom.Xformable(inner).AddTransformOp().Set(M)
     for hp in hidden: w.OverridePrim(inner.GetPath().AppendPath(hp.MakeRelativePath(dp))).SetActive(False)
     root.GetPrim().SetCustomDataByKey("provenance", prov)
+    # the class on the asset's own root: instanceable references to it take their semantics from the
+    # prototype -- which starts BELOW the root, so the child carries it too; a label on the referencing prim alone left
+    # instanced pieces UNLABELLED in segmentation
+    root.GetPrim().AddAppliedSchema("SemanticsLabelsAPI:class")
+    root.GetPrim().CreateAttribute("semantics:labels:class", Sdf.ValueTypeNames.TokenArray).Set([cls])
+    inner.AddAppliedSchema("SemanticsLabelsAPI:class")                  # an instance's prototype starts below the root: label the child too
+    inner.CreateAttribute("semantics:labels:class", Sdf.ValueTypeNames.TokenArray).Set([cls])
     if RETEXTURE(name): rubble_material(w, f"/{name}", name)
     w.Save()
     tris = sum(sum(n - 2 for n in (UsdGeom.Mesh(p).GetFaceVertexCountsAttr().Get() or [])) for p in Usd.PrimRange(s.GetPseudoRoot(), Usd.TraverseInstanceProxies()) if p.IsA(UsdGeom.Mesh))

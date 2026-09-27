@@ -17,6 +17,7 @@ import os
 import numpy as np
 from pxr import Usd, UsdGeom, UsdShade, UsdLux, Sdf, Gf, Vt
 from _paths import R
+from usd_bake import bake_instancers
 
 KEEP, TINT = 0.05, (0.45, 0.40, 0.33)                                   # the video's oaks are near bare
 T = R / "assets/trees"
@@ -70,6 +71,11 @@ def thin(src, dst, seed):
                 if q.IsA(UsdGeom.Mesh) and leafy(q):
                     for sh in Usd.PrimRange(UsdShade.MaterialBindingAPI(q).ComputeBoundMaterial()[0].GetPrim()):
                         if sh.IsA(UsdShade.Shader): UsdShade.Shader(sh).CreateInput("diffuse_tint", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*TINT))
+    for q in list(st.Traverse()):                                     # label everything, point-instanced prototypes included
+        for t_ in ([q] if q == st.GetDefaultPrim() or q.GetParent() == st.GetDefaultPrim() else []) + ([st.GetPrimAtPath(x) for x in UsdGeom.PointInstancer(q).GetPrototypesRel().GetTargets()] if q.IsA(UsdGeom.PointInstancer) else []):
+            if t_ and not t_.HasAttribute("semantics:labels:class"):
+                t_.AddAppliedSchema("SemanticsLabelsAPI:class"); t_.CreateAttribute("semantics:labels:class", Sdf.ValueTypeNames.TokenArray).Set(["vegetation"])
+    bake_instancers(st)                                               # point-instanced twigs: unlabelled in segmentation otherwise
     st.Save(); return kept, total
 
 def bound(f):
@@ -81,7 +87,9 @@ for sp, oak in SWAP.items():                     # a wrapper in the summer speci
     k = bs.GetSize()[2] / bo.GetSize()[2]; co = bo.GetMidpoint(); cs = bs.GetMidpoint()
     w = Usd.Stage.CreateNew(str(T / f"{sp}_autumn.usda")); UsdGeom.SetStageUpAxis(w, "Z"); UsdGeom.SetStageMetersPerUnit(w, 0.01)
     r = UsdGeom.Xform.Define(w, "/Root"); w.SetDefaultPrim(r.GetPrim())
+    r.GetPrim().AddAppliedSchema("SemanticsLabelsAPI:class"); r.GetPrim().CreateAttribute("semantics:labels:class", Sdf.ValueTypeNames.TokenArray).Set(["vegetation"])
     a_ = w.DefinePrim("/Root/tree"); a_.GetReferences().AddReference(os.path.relpath(OAKS / f"{oak}_thin.usd", T))
+    a_.AddAppliedSchema("SemanticsLabelsAPI:class"); a_.CreateAttribute("semantics:labels:class", Sdf.ValueTypeNames.TokenArray).Set(["vegetation"])
     x = UsdGeom.Xformable(a_)                                            # base on the summer tree's base, centred on its trunk
     x.AddTranslateOp().Set(Gf.Vec3d(cs[0] - k * co[0], cs[1] - k * co[1], bs.GetMin()[2] - k * bo.GetMin()[2])); x.AddScaleOp().Set(Gf.Vec3f(k))
     w.Save(); print(f"{sp}_autumn.usda: {oak} x {k:.2f} (height {bs.GetSize()[2]:.0f} units, as the summer tree)")

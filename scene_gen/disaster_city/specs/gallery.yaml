@@ -114,7 +114,7 @@ sections:
     el: 28
     dist: 45
   - name: houses
-    caption: The street of houses (LOD1, tinted walls)
+    caption: 'The street of houses (LOD2: roofs, eaves, doors, windows) and the ladder truck'
     target: [150, -280, 58]
     az: 200
     el: 30

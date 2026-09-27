@@ -1,0 +1,145 @@
+# V14: the aerial ladder of the tan ladder truck behind the houses, lowered to the west (ortho + tiles:
+# a pair of members from the truck's middle out to x 123); the truck itself is specs/cars.yaml v14_ladder_truck.
+id: D02
+name: ladder_truck_ladder
+semantic: vehicle
+origin: [133.3, -298.9, 58.03]
+yaw_deg: 0.0
+parts:
+- beam:
+    name: rail_l
+    from: [0.0, -0.45, 3.3]
+    to: [-10.5, -0.45, 1.4]
+    t: 0.14
+    mat: steel
+- beam:
+    name: rail_r
+    from: [0.0, 0.45, 3.3]
+    to: [-10.5, 0.45, 1.4]
+    t: 0.14
+    mat: steel
+- beam:
+    name: rung_1
+    from: [-0.5, -0.45, 3.26]
+    to: [-0.5, 0.45, 3.26]
+    t: 0.04
+    mat: steel
+- beam:
+    name: rung_2
+    from: [-1.0, -0.45, 3.169]
+    to: [-1.0, 0.45, 3.169]
+    t: 0.04
+    mat: steel
+- beam:
+    name: rung_3
+    from: [-1.5, -0.45, 3.079]
+    to: [-1.5, 0.45, 3.079]
+    t: 0.04
+    mat: steel
+- beam:
+    name: rung_4
+    from: [-2.0, -0.45, 2.988]
+    to: [-2.0, 0.45, 2.988]
+    t: 0.04
+    mat: steel
+- beam:
+    name: rung_5
+    from: [-2.5, -0.45, 2.898]
+    to: [-2.5, 0.45, 2.898]
+    t: 0.04
+    mat: steel
+- beam:
+    name: rung_6
+    from: [-3.0, -0.45, 2.807]
+    to: [-3.0, 0.45, 2.807]
+    t: 0.04
+    mat: steel
+- beam:
+    name: rung_7
+    from: [-3.5, -0.45, 2.717]
+    to: [-3.5, 0.45, 2.717]
+    t: 0.04
+    mat: steel
+- beam:
+    name: rung_8
+    from: [-4.0, -0.45, 2.626]
+    to: [-4.0, 0.45, 2.626]
+    t: 0.04
+    mat: steel
+- beam:
+    name: rung_9
+    from: [-4.5, -0.45, 2.536]
+    to: [-4.5, 0.45, 2.536]
+    t: 0.04
+    mat: steel
+- beam:
+    name: rung_10
+    from: [-5.0, -0.45, 2.445]
+    to: [-5.0, 0.45, 2.445]
+    t: 0.04
+    mat: steel
+- beam:
+    name: rung_11
+    from: [-5.5, -0.45, 2.355]
+    to: [-5.5, 0.45, 2.355]
+    t: 0.04
+    mat: steel
+- beam:
+    name: rung_12
+    from: [-6.0, -0.45, 2.264]
+    to: [-6.0, 0.45, 2.264]
+    t: 0.04
+    mat: steel
+- beam:
+    name: rung_13
+    from: [-6.5, -0.45, 2.174]
+    to: [-6.5, 0.45, 2.174]
+    t: 0.04
+    mat: steel
+- beam:
+    name: rung_14
+    from: [-7.0, -0.45, 2.083]
+    to: [-7.0, 0.45, 2.083]
+    t: 0.04
+    mat: steel
+- beam:
+    name: rung_15
+    from: [-7.5, -0.45, 1.993]
+    to: [-7.5, 0.45, 1.993]
+    t: 0.04
+    mat: steel
+- beam:
+    name: rung_16
+    from: [-8.0, -0.45, 1.902]
+    to: [-8.0, 0.45, 1.902]
+    t: 0.04
+    mat: steel
+- beam:
+    name: rung_17
+    from: [-8.5, -0.45, 1.812]
+    to: [-8.5, 0.45, 1.812]
+    t: 0.04
+    mat: steel
+- beam:
+    name: rung_18
+    from: [-9.0, -0.45, 1.721]
+    to: [-9.0, 0.45, 1.721]
+    t: 0.04
+    mat: steel
+- beam:
+    name: rung_19
+    from: [-9.5, -0.45, 1.631]
+    to: [-9.5, 0.45, 1.631]
+    t: 0.04
+    mat: steel
+- beam:
+    name: rung_20
+    from: [-10.0, -0.45, 1.54]
+    to: [-10.0, 0.45, 1.54]
+    t: 0.04
+    mat: steel
+- box:
+    name: turntable
+    min: [-0.6, -0.8, 3.1]
+    max: [0.6, 0.8, 3.4]
+    mat: steel
