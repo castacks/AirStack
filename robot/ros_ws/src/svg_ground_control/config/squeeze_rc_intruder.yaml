@@ -111,7 +111,7 @@ swarm_commander:
     hover_kp: 1.0
     arrival_threshold_m: 0.15
     land_speed_mps: 1.0
-    takeoff_speed_mps: 0.5    # climb profile speed (braking law to the target)
+    takeoff_speed_mps: 1.0    # climb profile speed (braking law to the target)
     hold_lead_m: 0.2          # reference leash while taking off/landing/holding:
                               # PX4's z loop is stiff, keep it close (C1_0920_203148)
     land_complete_altitude_m: 0.15
@@ -122,14 +122,16 @@ swarm_commander:
     # yield BEFORE it reaches the barrier. With the intruder approaching at
     # s m/s, yielding starts where alpha*(d^2 - (2r)^2) = 2*d*s (d = center
     # distance); s is at most teleop_max_speed_mps below.
-    cbf_safety_radius_m: 0.85    # bubble size. CAREFUL: posts are 2.0 m
+    cbf_safety_radius_m: 0.55    # bubble size. CAREFUL: posts are 2.0 m
                                  # apart -> r > 1.0 makes the two holders'
                                  # own posts mutually infeasible.
     cbf_max_speed_mps: 10.0      # how FAST holders may dodge. 6.0 is a hard
-                                 # shove indoors (a dodge is a bare velocity
-                                 # command: no feedforward, PX4 lag ~0.5 s) —
-                                 # the keep_in fence below is the backstop.
-    cbf_alpha: 3.0               # earliness: LOWER = yield earlier and
+                                 # shove indoors (a dodge is flown with the
+                                 # feedforward of the corrected command, capped
+                                 # at goal_accel_mps2; bag run_020444 without
+                                 # it: passes at 0.5-0.8 m) — the keep_in
+                                 # fence below is the backstop.
+    cbf_alpha: 2.5              # earliness: LOWER = yield earlier and
                                  # gentler (alpha 1.0 & s=1 m/s -> starts
                                  # ~3.2 m out; 2.5 -> ~2.4 m out). Higher =
                                  # later but harder.
@@ -170,12 +172,15 @@ swarm_commander:
     # keep_in wall dynamics (also the teleop fence below): a braking envelope
     # — the drone keeps its speed until the true braking distance for
     # fence_brake_accel_mps2, then brakes, with the deceleration fed forward
-    # to PX4 (trajectory output). See goal_single.yaml for the bag behind it.
-    fence_brake_accel_mps2: 4.0   # keep_in: braking deceleration of the wall envelope (m/s2); 0 = plain gain*distance barrier
+    # to PX4 (trajectory output). 8 = what the airframe brakes with at 45 deg
+    # (run_063720: 12-15 m/s2 measured); goal_tracking.yaml uses the same.
+    fence_brake_accel_mps2: 8.0   # keep_in: braking deceleration of the wall envelope (m/s2); 0 = plain gain*distance barrier
     fence_keep_in_gain: 2.0       # keep_in: near the wall speed <= gain*distance (1/s); 1/gain = lag margin of the envelope
     fence_margin_m: 0.0           # keep_in: meet the wall this early (m)
     fence_min: [-4.5, -5.2, 0.0]
-    fence_max: [5.5, 5.5, 3.0]
+    # +y wall 5.0: the mocap volume ends at y ~5.5 (log_141 lost the body
+    # three times there); an overrun past 5.0 is still tracked.
+    fence_max: [5.5, 5.0, 3.0]
     # Teleop fence: a smaller box for the hand-flown intruder only, INSIDE
     # the geofence (the commander refuses to start otherwise). The sticks
     # meet this soft wall whatever fence_behavior is; the geofence stays the
