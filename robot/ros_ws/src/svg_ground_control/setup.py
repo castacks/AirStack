@@ -30,8 +30,14 @@ setup(
         'console_scripts': [
             'swarm_commander = svg_ground_control.swarm_commander:main',
             'mocap_bridge = svg_ground_control.mocap_bridge:main',
-            'keyboard_teleop = svg_ground_control.keyboard_teleop:main',
             'led_controller = svg_ground_control.led_controller:main',
+            'xbox_teleop = svg_ground_control.xbox_teleop:main',
+            'joy_map = svg_ground_control.joy_map:main',
+            'safe_teleop = svg_ground_control.safe_teleop.teleop_node:main',
+            'pad_view = svg_ground_control.safe_teleop.view:main',
+            'velocity_preview = svg_ground_control.safe_teleop.velocity:main',
+            'joy_topic_view = svg_ground_control.safe_teleop.joy_view:main',
+            'teleop_monitor = svg_ground_control.safe_teleop.monitor:main',
         ],
     },
 )

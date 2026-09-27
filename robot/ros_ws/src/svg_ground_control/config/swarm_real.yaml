@@ -26,7 +26,10 @@ swarm_commander:
     cbf_exempt_drones: ""
 
     scenario: "hover"
-    scenario_speed_mps: 0.5
+    scenario_speed_mps: 0.5     # nominal speed. Live: ros2 param set /swarm_commander scenario_speed_mps X
+    # (also capped by cbf_max_speed_mps below; it is a cruise cap — the drone
+    # brakes at goal_accel_mps2, so a goal closer than v^2/(2a) + v*settle
+    # never sees the full speed)
     scenario_seed: 7
     # Fit to the mocap capture volume!
     arena_low: [-1.5, -1.5, 0.8]
@@ -53,6 +56,9 @@ swarm_commander:
     hover_kp: 1.0
     arrival_threshold_m: 0.15
     land_speed_mps: 0.3
+    takeoff_speed_mps: 0.5    # climb profile speed (braking law to the target)
+    hold_lead_m: 0.2          # reference leash while taking off/landing/holding:
+                              # PX4's z loop is stiff, keep it close (C1_0920_203148)
     land_complete_altitude_m: 0.15
 
     cbf_safety_radius_m: 0.55
@@ -62,6 +68,18 @@ swarm_commander:
 
     # Geofence: SET TO YOUR CAPTURE VOLUME. breach -> all hold, ~/reset_fence to clear
     fence_enabled: true
+    # fence_behavior: what a breach of [fence_min, fence_max] does.
+    #   "hold_all" - any ACTIVE drone (auto, teleop OR external) outside the
+    #                box latches: everyone freezes, scenario stops, until
+    #                ~/reset_fence. Safe default for autonomous runs.
+    #   "keep_in"  - nobody stops. Commanded drones are held inside the box by
+    #                a per-axis velocity barrier (outward speed <= gain *
+    #                distance to the wall, pushed back if outside); external
+    #                drones cannot be steered and are only reported.
+    fence_behavior: "hold_all"
+    fence_brake_accel_mps2: 4.0   # keep_in: braking deceleration of the wall envelope (m/s2); 0 = plain gain*distance barrier
+    fence_keep_in_gain: 1.0       # keep_in: near the wall speed <= gain*distance (1/s); 1/gain = lag margin of the envelope
+    fence_margin_m: 0.0           # keep_in: meet the wall this early (m)
     fence_min: [-4.0, -2.0, 0.0]
     fence_max: [4.0, 2.0, 3.0]
 

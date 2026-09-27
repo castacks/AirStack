@@ -44,6 +44,13 @@ def launch_setup(context, *args, **kwargs):
         'interface_odometry_in_topic',
         f'/{robot_name}/interface/mavros/local_position/odom',
     )
+    # Per-robot TF frame names. Defaults match legacy single-robot behavior
+    # (bare "map"/"base_link"); callers running several robots on one ROS
+    # domain (no per-robot domain isolation) must override these to avoid
+    # every robot publishing the same map->base_link transform.
+    new_frame_id = context.launch_configurations.get('new_frame_id', 'map')
+    new_child_frame_id = context.launch_configurations.get('new_child_frame_id', 'base_link')
+    target_frame = context.launch_configurations.get('target_frame', 'base_link')
 
     actions = []
 
@@ -94,7 +101,7 @@ def launch_setup(context, *args, **kwargs):
         parameters=[{
             'command_type': 0,
             'max_velocity': 3.0,
-            'target_frame': 'base_link',
+            'target_frame': target_frame,
             'publish_goal': False,
         }],
     )
@@ -108,8 +115,8 @@ def launch_setup(context, *args, **kwargs):
         output='screen',
         parameters=[{
             'odom_input_qos_is_best_effort': True,
-            'new_frame_id': 'map',
-            'new_child_frame_id': 'base_link',
+            'new_frame_id': new_frame_id,
+            'new_child_frame_id': new_child_frame_id,
             'odometry_output_type': 2,
             'convert_odometry_to_transform': True,
             'convert_odometry_to_stabilized_transform': True,

@@ -14,7 +14,10 @@
        so PX4 topics appear as /<drone_name>/fmu/in|out/...
 
        Resulting interface (consumed by swarm_commander / mocap_bridge):
-         /<drone_name>/fmu/velocity_command        TwistStamped in
+         /<drone_name>/fmu/trajectory_command      MultiDOFJointTrajectory in
+                                                   (position+velocity+accel, the
+                                                   commander's default for real drones)
+         /<drone_name>/fmu/velocity_command        TwistStamped in (real_command_mode: velocity)
          /<drone_name>/fmu/robot_command           RobotCommand srv
          /<drone_name>/fmu/visual_odometry_in      Odometry in (mocap)
          /<drone_name>/odometry_conversion/odometry  Odometry out (ENU)

@@ -1,0 +1,9 @@
+{
+  "name": "svg-basestation",
+  "displayName": "SVG Basestation",
+  "description": "Basestation panel for the SVG counter-UAS swarm: sim/real agent wiring, a two-click land-all safety stop, link safety (ping, mocap state-estimate delay, EKF status, packet drop), 4G/5G Tailscale VPN latency, and per-agent battery & RTB power management. Sections appear only when their topics are being published.",
+  "publisher": "AirLab CMU",
+  "version": "1.0.0",
+  "license": "Apache-2.0",
+  "main": "./dist/extension.js"
+}

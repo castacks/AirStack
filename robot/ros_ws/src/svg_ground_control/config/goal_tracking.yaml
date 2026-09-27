@@ -47,8 +47,25 @@ swarm_commander:
     external_drones: ""
     cbf_exempt_drones: ""
 
-    scenario: "goal"
-    scenario_speed_mps: 0.6
+    scenario: "random_goals"
+    scenario_speed_mps: 10.0    # nominal speed. Live: ros2 param set /swarm_commander scenario_speed_mps X
+    # (also capped by cbf_max_speed_mps below; it is a cruise cap — the drone
+    # brakes at goal_accel_mps2, so a goal closer than v^2/(2a) + v*settle
+    # never sees the full speed)
+    # Go-to-goal law (trajectory.py; all live via ros2 param set):
+    #   goal_accel_mps2  acceleration/braking of the reference profile
+    #                    (PX4 auto default 3; drone_2 flew 5.5 in the logs)
+    #   goal_settle_s    exponential tail into the goal (0.3 = PX4-like)
+    #   goal_lead_m      leash: max distance the reference may get AHEAD of
+    #                    the drone (tracking lag at speed, wall, gust) before
+    #                    it is pulled back to the drone and the profile
+    #                    restarts from the drone's speed (PX4 MPC_XY_ERR_MAX)
+    #   goal_velocity_only_settle_s  same law for velocity-only (sim/MAVROS)
+    #                    drones, longer to absorb PX4's ~0.7 s velocity lag
+    goal_accel_mps2: 10.0
+    goal_settle_s: 0.2
+    goal_lead_m: 2.0
+    goal_velocity_only_settle_s: 1.0
     arena_low: [-3.0, -3.0, 0.5]
     arena_high: [3.0, 3.0, 2.5]
     # PER-DRONE offset added to that drone's local odometry -> shared world:
@@ -100,16 +117,33 @@ swarm_commander:
     control_rate_hz: 20.0
     hover_kp: 1.0
     arrival_threshold_m: 0.15
-    land_speed_mps: 0.5
+    land_speed_mps: 1.0
+    takeoff_speed_mps: 1.0   # climb profile speed (braking law to the target)
+    hold_lead_m: 0.2          # reference leash while taking off/landing/holding:
+                              # PX4's z loop is stiff, keep it close (C1_0920_203148)
     land_complete_altitude_m: 0.15
 
     cbf_safety_radius_m: 0.55
-    cbf_max_speed_mps: 1.2
+    cbf_max_speed_mps: 10.0
     cbf_alpha: 2.5
+    teleop_max_speed_mps: 8.0 
+    teleop_accel_mps2: 5.0
 
     fence_enabled: true
+    # fence_behavior: what a breach of [fence_min, fence_max] does.
+    #   "hold_all" - any ACTIVE drone (auto, teleop OR external) outside the
+    #                box latches: everyone freezes, scenario stops, until
+    #                ~/reset_fence. Safe default for autonomous runs.
+    #   "keep_in"  - nobody stops. Commanded drones are held inside the box by
+    #                a per-axis velocity barrier (outward speed <= gain *
+    #                distance to the wall, pushed back if outside); external
+    #                drones cannot be steered and are only reported.
+    fence_behavior: "keep_in"
+    fence_brake_accel_mps2: 8.0   # keep_in: braking deceleration of the wall envelope (m/s2); 0 = plain gain*distance barrier
+    fence_keep_in_gain: 2.0       # keep_in: near the wall speed <= gain*distance (1/s); 1/gain = lag margin of the envelope
+    fence_margin_m: 0.0           # keep_in: meet the wall this early (m)
     fence_min: [-4.5, -5.2, 0.0]
-    fence_max: [5.5, 5.5, 3.0]
+    fence_max: [5.5, 5.0, 3.0]
 
 # Mocap -> PX4 external-vision bridge (used when launched with use_mocap:=true).
 # REAL: feeds each /{name}/fmu/in/vehicle_visual_odometry so EKF2 fuses a
@@ -149,3 +183,13 @@ led_controller:
     cbf_hold_s: 0.5           # minimum red time per correction (visibility)
     brightness: 80
     heartbeat_port: 47901
+safe_teleop:
+  ros__parameters:
+    # The pad on the bench is a SHANWAN/DragonRise "Android gamepad", whose
+    # DirectInput layout is NOT the Xbox one (right stick on axes 2/3, left
+    # bumper button 6, and axes 4/5 are triggers that rest at FULL SCALE).
+    # Set this to "xbox_usb" if you swap in a real Xbox pad. Check an unknown
+    # pad with `ros2 run svg_ground_control joy_map` before flying it.
+    teleop_controller: "dragonrise_usb"
+    max_speed_mps: 8.0       # full right stick, first hardware flights: slow (= caps above)
+    max_climb_speed_mps: 0.5

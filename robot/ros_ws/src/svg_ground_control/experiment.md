@@ -14,10 +14,11 @@
 7. [Part C — Tasks: any drone in any mode](#part-c--tasks-any-drone-in-any-mode)
 8. [Part D — Real hardware: first flight & reference](#part-d--real-hardware-first-flight--reference)
 9. [RViz visualization](#rviz-visualization)
-10. [Geofence](#geofence)
-11. [Recording rosbags / monitoring](#recording-rosbags)
-12. [Automated tests](#automated-tests)
-13. [Troubleshooting](#troubleshooting)
+10. [Foxglove visualization (SVG Basestation panel)](#foxglove-visualization)
+11. [Geofence](#geofence)
+12. [Recording rosbags / monitoring](#recording-rosbags)
+13. [Automated tests](#automated-tests)
+14. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -67,11 +68,12 @@ Five executables (`robot/ros_ws/src/svg_ground_control/svg_ground_control/`):
 
 | Script | Node | What it does |
 |---|---|---|
-| `swarm_commander.py` | `swarm_commander` | **The brain.** 20 Hz loop: build each drone's *nominal* velocity (from the scenario or teleop) → run the **CBF safety filter** → publish a per-drone velocity command. Owns takeoff/start/hold/land/reset_fence services, the geofence, and the RViz markers. |
+| `swarm_commander.py` | `swarm_commander` | **The brain.** 20 Hz loop: build each drone's *nominal* velocity (from the scenario or teleop) → run the **CBF safety filter** → publish a per-drone command (real: reference position + velocity + acceleration; sim: velocity). Owns each drone's reference point, takeoff/start/hold/land/reset_fence services, the geofence, and the RViz markers. |
 | `scenarios.py` | (library) | Nominal-velocity policies: `hover`, `goal`, `random_walk`, `random_goals`, `head_on`, `antipodal`, `squeeze`. Pure NumPy, ported from `~/drone_soccer`. |
+| `trajectory.py` | (library) | The go-to-goal law: PX4-style braking law + acceleration-limited reference profile (`goal_accel_mps2`, `goal_settle_s`). See [C1](#c1-single-drone-goal-goal_singleyaml). |
 | `cbf_filter.py` | (library) | The velocity-CBF collision filter (`filter_velocities`), a verbatim port of `drone_soccer/cbf.py`. |
 | `mocap_bridge.py` | `mocap_bridge` | Hardware only: `/{name}/pose` (mocap) → `/{name}/fmu/visual_odometry_in` for the PX4 EKF. |
-| `keyboard_teleop.py` | `keyboard_teleop` | Drives one teleop drone (`-p drone:=drone_3`) with the keyboard. |
+| `safe_teleop/` | `safe_teleop` | Gamepad teleop for one `teleop_drones` drone: `/joy` → altitude-held ENU velocity on the teleop topic. Device = `teleop_controller` (`xbox_usb`; registry `safe_teleop/controllers.py`). See [teleop.md](teleop.md). |
 
 **Data flow inside `swarm_commander` each tick:**
 
@@ -79,16 +81,23 @@ Five executables (`robot/ros_ws/src/svg_ground_control/svg_ground_control/`):
  per-drone odometry  ──► (add drone_position_offsets → shared world frame)
         │
         ▼
+   reference point per drone (where it was told to be; PX4 holds it)
+        │
+        ▼
    scenario.nominal_velocity()   ── OR ──  teleop / goal-command input
-        │  (per-drone desired velocity, ENU)
+        │  (per-drone desired velocity + acceleration feedforward, ENU;
+        │   accel-limited profile evaluated at the reference, trajectory.py)
         ▼
    cbf_filter.filter_velocities()   ◄── sees ALL drones' world positions
         │  (collision-safe velocities; cbf_exempt rows restored after)
         ▼
-   geofence check (latch + freeze all if any drone outside the box)
+   geofence check (hold_all: latch + freeze all if any drone outside the box;
+                   keep_in: clip each command at the walls instead)
         │
         ▼
-   publish /{name}/<iface>/velocity_command   +   /svg/viz/markers (RViz)
+   publish  real: /{name}/fmu/trajectory_command (reference + velocity + accel)
+            sim:  /{name}/interface/velocity_command
+         +  /svg/viz/markers (RViz)
 ```
 
 **Three independent per-drone axes** — set any combination in *any* task
@@ -128,7 +137,7 @@ For each drone `{name}` (e.g. `drone_1`):
 | `/{name}/interface/velocity_command` (sim) | out | `geometry_msgs/TwistStamped` | commander → MAVROS interface |
 | `/{name}/fmu/velocity_command` (real) | out | `geometry_msgs/TwistStamped` | commander → px4_interface |
 | `/{name}/interface/robot_command` or `/{name}/fmu/robot_command` | call | `airstack_msgs/srv/RobotCommand` | commander → arm/offboard/disarm |
-| `/svg/{name}/teleop_command` | in | `geometry_msgs/TwistStamped` | keyboard_teleop → commander (teleop drones) |
+| `/svg/{name}/teleop_command` | in | `geometry_msgs/TwistStamped` | safe_teleop → commander (teleop drones) |
 | `/svg/{name}/goal_command` | in | `geometry_msgs/PoseStamped` | you → commander (`goal` scenario) |
 | `/svg/{name}/speed_command` | in | `std_msgs/Float32` | you → commander (`goal` scenario) |
 | `/{name}/pose` | in | `geometry_msgs/PoseStamped` | mocap → mocap_bridge (hardware) |
@@ -182,6 +191,7 @@ The standard demo: 3 SITL drones, scenario from the config.
 ```bash
 cd ~/AirStack
 git checkout yikuan/SVG_ground_control
+./airstack.sh setup                         # FIRST TIME on a machine only — see note
 ./airstack.sh image-build robot-desktop     # REQUIRED after pulling this branch — see note
 # .env: COMPOSE_PROFILES="desktop,isaac-sim", AUTOLAUNCH="false", NUM_ROBOTS="1"
 grep -E '^(COMPOSE_PROFILES|AUTOLAUNCH|NUM_ROBOTS)' .env
@@ -189,6 +199,18 @@ grep -E '^(COMPOSE_PROFILES|AUTOLAUNCH|NUM_ROBOTS)' .env
 ./airstack.sh status        # robot-desktop-1 and isaac-sim Up
 ```
 
+> **First time on a machine: `./airstack.sh setup`.** It adds the `airstack`
+> command to your shell profile (open a new terminal afterwards) and runs
+> `config`, which creates two git-ignored files the Isaac Sim compose mounts:
+> `simulation/isaac-sim/docker/omni_pass.env` and `user.config.json`. Without
+> them `./airstack.sh up` fails with `env file ... omni_pass.env not found`.
+> Press Enter at the Nucleus API-token prompt to keep the `guest` defaults, or
+> copy the two `*_TEMPLATE*` files yourself (`omni_pass_TEMPLATE.env →
+> omni_pass.env`, `user_TEMPLATE.config.json → user.config.json`). Also make
+> sure your user is in the `docker` group (`sudo usermod -aG docker $USER`,
+> then log out/in) — otherwise every command reports
+> `Docker daemon is not running` even though it is.
+>
 > **⚠️ Always rebuild the robot image after pulling this branch.** This branch
 > changes the robot **Docker image** itself (not just the bind-mounted workspace) —
 > e.g. `MicroXRCEAgent` is now baked into the image
@@ -285,17 +307,42 @@ ros2 launch svg_ground_control ground_control.launch.py \
   config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/squeeze_3drone.yaml
 ```
 
-### A5. Keyboard teleop (optional utility — NOT used by any standard experiment)
+### A5. Gamepad teleop (optional — NOT used by any standard experiment)
 
 > In the standard experiments a drone is **sim**, **real**, or **external**
-> (RC-flown, tracked-only) — none of the Part C tasks use teleop. This tool
-> remains available for ad-hoc debugging only (requires putting a drone in
-> `teleop_drones`, which no shipped config does).
+> (RC-flown, tracked-only); the one Part C task that uses teleop is
+> [C5](#c5-squeeze-with-a-hand-flown-intruder-squeeze_rc_intruderyaml), the
+> hardware squeeze with a gamepad-flown intruder. Hand-flying otherwise has
+> its own configs (`teleop_single.yaml` sim, `teleop_real.yaml` one real
+> drone via `./svg_teleop.sh real`) — see [teleop.md](teleop.md). The
+> keyboard teleop has been removed.
+
+Any config takes a hand-flown drone by listing it in `teleop_drones` (or
+`teleop_drones:=` on the commander launch). Teleop has its own launch: start
+it FIRST, check the pad line it prints once a second, then start the
+commander in a second terminal. Which device is the **`teleop_controller`**
+parameter (config `safe_teleop` block or `teleop_controller:=`), an entry of
+`svg_ground_control/safe_teleop/controllers.py`: `dragonrise_usb` (the generic
+SHANWAN/DragonRise "Android gamepad" on the bench — the configs' default) or
+`xbox_usb` (a real Xbox 360 pad); new devices are added there. The two differ
+in axis numbers, not in how they fly. Identify an unknown pad with
+`ros2 run svg_ground_control joy_map` before flying it — see
+[teleop.md](teleop.md).
+
+The pad must be visible **inside the container**: `docker exec
+airstack-robot-desktop-1 ls /dev/input/js0`. If it is missing, recreate the
+container (`AUTOLAUNCH=false airstack up robot-desktop`); `/dev` is populated
+once at container start, so a pad plugged in later needs the `/dev/input`
+bind mount that `robot-base-docker-compose.yaml` now sets.
 
 ```bash
+# terminal 1: the pad (prints "pad: fwd .. left .. climb .. yaw .. | cmd vx .." — move the sticks)
 cd ~/AirStack/robot/ros_ws && sws
-ros2 run svg_ground_control keyboard_teleop --ros-args -p drone:=drone_3
-# w/s=±x  a/d=±y  r/f=up/down  space=stop  +/-=speed  q=quit
+ros2 launch svg_ground_control teleop.launch.py drone:=drone_3
+# terminal 2: the commander, same config
+ros2 launch svg_ground_control ground_control.launch.py scenario:=squeeze teleop_drones:=drone_3
+# right stick = move, left stick = up/down + yaw, LB = lock. Position mode: release
+# the sticks and the commander holds the drone where it is (teleop_kp / teleop_lead_m).
 ```
 
 ### A6. Fly (fresh terminal)
@@ -809,15 +856,98 @@ ros2 launch svg_ground_control ground_control.launch.py \
   config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/goal_single.yaml \
   use_mocap:=true
 ```
+**How it flies (since 2026-09-20).** Real drones no longer get a bare
+velocity setpoint. The commander keeps a *reference point* per drone (where
+it was told to be, integrated from the published velocity) and flies an
+acceleration-limited profile toward the goal from it, using PX4's own
+braking law `v = -aL + sqrt((aL)² + 2ad)`; the reference, the velocity and
+the acceleration go to PX4 in one `trajectory_command`, so PX4 closes the
+position loop onboard with feedforward — the same structure as its Position
+mode. Measured on drone_2 (px4_logs/, bag `drone_2_auto_goal_0920_192853`):
+the old `1.5 × distance` P-law overshot a 7 m / 5 m/s leg by **1.0 m** and
+needed 4.7 s to settle; PX4 Position mode stops from 5.8 m/s in 4.2 m with
+0.35 m overshoot; the new law stops on the goal within ~0.05 m in the same
+plant model (`test/test_trajectory.py`). Knobs, all live with
+`ros2 param set /swarm_commander …`:
+
+| param | default | meaning |
+|---|---|---|
+| `scenario_speed_mps` / `speed_command` | config | cruise cap; reached only if the goal is farther than `v²/(2a) + v·settle` (the commander logs this distance for every speed it receives) |
+| `goal_accel_mps2` | 3.0 | acceleration and braking of the profile (drone_2 managed 5.5 in the logs; PX4 auto uses 3) |
+| `goal_settle_s` | 0.3 | exponential tail into the goal; larger = softer stop, slower arrival |
+| `goal_lead_m` | 2.0 | leash: how far the reference may get ahead of the drone (tracking lag at speed, a wall, a gust) before it is pulled back and the profile restarts from the drone's speed; the CBF does not need it (the reference only moves by the *published* velocity). PX4's `MPC_XY_ERR_MAX` |
+| `real_command_mode` | `trajectory` | `velocity` sends the old TwistStamped instead (the px4_interface must be rebuilt for `trajectory`: `bws --packages-select px4_interface`) |
+| `takeoff_speed_mps` | 0.5 | climb speed of the takeoff profile (braking law into the takeoff target, no P-law step) |
+| `hold_lead_m` | 0.2 | reference leash while taking off / landing / holding outside a mission — keep small, PX4's altitude loop is stiff |
+
+**Top speed the room allows.** A leg of length S needs `v²/a` to accelerate
+and brake plus `v·settle` to ease in: `v² / goal_accel + v·goal_settle = S`.
+Fence box 10 × 9.7 m, goals 0.5 m inside the walls: along y (8 m) 5.9 m/s at
+6 m/s², 6.9 at 8; on the diagonal (−4,−4.7) → (5,4) = 12.5 m: **7.8 m/s at
+6 m/s², 8.9 at 8**. 10 m/s needs ~15.5 m even at 8 m/s² — not in this room.
+Keep `fence_brake_accel_mps2 >= goal_accel_mps2`, or the wall envelope caps
+the cruise first (it did in run_035852: 4.7 m/s with brake 4).
+
+Braking distance is `v²/(2·goal_accel_mps2) + v·goal_settle_s`: to brake later,
+raise `goal_accel_mps2` (the airframe did 5.5 m/s² in the logs; PX4's own
+manual braking asks up to 8) and/or lower `goal_settle_s` (0.2 is still a
+clean stop in the plant model; below that the tail gets sharp). At 5 m/s:
+3.0/0.3 → 5.7 m, 4.0/0.2 → 4.1 m, 5.5/0.2 → 3.3 m.
+
 ```bash
 # control terminal:
 ros2 service call /swarm_commander/takeoff std_srvs/srv/Trigger
 ros2 service call /swarm_commander/start   std_srvs/srv/Trigger
+# goal with heading: [x, y, z, theta]; theta in DEGREES, 0 = +X, CLOCKWISE
+ros2 topic pub --once /svg/drone_1/goal_xyzt std_msgs/msg/Float64MultiArray "{data: [1.0, 0.5, 1.4, 90.0]}"
+# (position-only form still works; its heading is +X = 0 deg)
 ros2 topic pub --once /svg/drone_1/goal_command geometry_msgs/msg/PoseStamped \
   "{header: {frame_id: map}, pose: {position: {x: 1.0, y: 0.5, z: 1.4}}}"
 ros2 topic pub --once /svg/drone_1/speed_command std_msgs/msg/Float32 "{data: 0.8}"
 ros2 service call /swarm_commander/land std_srvs/srv/Trigger
 ```
+**Safety with the CBF.** The CBF still filters velocities, and that is
+still everything that moves a drone: the reference point (PX4's position
+setpoint) is integrated from the *published*, filtered velocity, so it stops
+when the CBF says stop; a CBF-corrected command carries as acceleration
+feedforward the rate of change of the published command (capped at
+`goal_accel_mps2`), so the evasion is flown with feedforward instead of
+~0.5 s behind it (bag `run_020444`: every close pass — 0.52, 0.65, 0.79 m
+against 1.1-1.3 m required — was that lag, the commanded closing speed was
+already zero where the barrier says); the fence's braking feedforward owns
+the axes a wall limited; and while the CBF corrects, the reference is held
+on the short `hold_lead_m` leash so PX4's own, unfiltered pull toward the
+reference stays below ~0.2 m/s.
+
+**Heading.** Real drones on the trajectory output get an absolute yaw with
+every setpoint: the goal's `theta` in the goal scenario, and **nose on +X
+(0°) in every other scenario** (hover, squeeze, random goals, …) and while
+taking off / holding. `theta` is degrees, 0 = +X of the mocap frame,
+clockwise positive seen from above (90 = nose on −Y). A `goal_command`
+PoseStamped may carry the heading as its quaternion (ENU yaw, the usual ROS
+sense); an all-zero quaternion means 0°. Teleop drones yaw with the stick:
+while it is deflected the setpoint carries the yaw *rate* and an all-zero
+rotation (x, y, z **and** w — a `Quaternion` message defaults to w = 1,
+which px4_interface read as "hold ENU yaw 0" and dropped the rate, so the
+yaw stick did nothing in bag `run_053740`); the moment it is centred the
+measured heading is adopted and held as an absolute yaw, as PX4's own
+Position mode does. RViz shows the commanded heading as a white arrow. Sim /
+velocity-only drones are not heading-controlled.
+
+**Stick acceleration.** `teleop_accel_mps2` (live) ramps the stick velocity
+at that rate and feeds the ramp's acceleration forward with the setpoint —
+PX4's own Position mode (`MPC_ACC_HOR_MAX`, default 5). Without it a stick
+step is followed at only ~4 m/s² by the velocity loop, which is why drone_2
+peaked at 3.9 m/s with an 8 m/s stick in the 7.7 m teleop box (bag
+`run_053740`): it never reached the wall's cap. Plant model, that box, brake
+4: step 4.3 m/s, ramp 5 → 5.2 m/s, ramp 8 → 5.4 m/s (~40° bank); in the
+9.7 m geofence span 5.0 / 5.8 / 6.1 m/s. Note that
+8 m/s is not reachable there with a stop at the wall — from wall to wall the
+drone accelerates for half the span and brakes for the other half, 6.2 m/s
+at 5 m/s² with no lag at all — so a faster run needs a bigger box. Keep the
+wall's `fence_brake_accel_mps2` at 4 with the ramp: 5-6 buy only
++0.2-0.4 m/s of peak in the model, and a slow-responding vehicle (0.2 s
+attitude lag) then overshoots 0.2-0.7 m where 4 stays within 0.05 m.
 **LEDs:** the strip is **green** throughout (daemon default + `led_controller`
 block in `goal_single.yaml`; a single drone is never CBF-corrected). Recolor at
 **any** time — armed or not, before takeoff, on the bench — the same way you
@@ -828,7 +958,18 @@ ros2 topic pub --once /svg/led_command std_msgs/msg/String "{data: 'drone_1 255,
 ros2 topic pub --once /svg/led_command std_msgs/msg/String "{data: 'drone_1 red blink'}"   # blink
 ros2 topic pub --once /svg/led_command std_msgs/msg/String "{data: 'all green'}"           # every drone
 ```
-(or the service `/svg/drone_1/set_led_color`, `airstack_msgs/srv/SetLedColor`).
+Or as a **service call** (`airstack_msgs/srv/SetLedColor`: `color` = a name or
+`"r,g,b[,w]"`, `mode` 0 = solid / 1 = blink; the reply says whether the strip
+took it):
+```bash
+ros2 service call /svg/drone_1/set_led_color airstack_msgs/srv/SetLedColor "{color: blue}"
+ros2 service call /svg/drone_1/set_led_color airstack_msgs/srv/SetLedColor "{color: '255,60,0', mode: 0}"
+ros2 service call /svg/drone_1/set_led_color airstack_msgs/srv/SetLedColor "{color: red, mode: 1}"   # blink
+ros2 service call /svg/set_led_color         airstack_msgs/srv/SetLedColor "{color: green}"          # every drone
+```
+(`ros2 service list | grep led` shows one `/svg/<drone>/set_led_color` per
+drone in the `led_controller` block; quote the `r,g,b` form so YAML does not
+read it as a list.)
 Colors: off red green blue white yellow cyan magenta orange purple. Setup per
 drone: [B1(d)](#b1-per-drone-one-time-setup); disable with `use_led:=false`.
 
@@ -940,7 +1081,7 @@ so no PX4 EKF needs external vision and `mocap_bridge` would have no
 `/{name}/pose` inputs to forward. `use_mocap` only matters when at least one
 drone is `real`. The two **hardware** squeeze variants are the next sections:
 * real holders + **sim** intruder → [C4](#c4-flagship--hybrid-squeeze-real-holders--sim-intruder-hybrid_squeezeyaml)
-* real holders + **RC-flown external** intruder → [C5](#c5-squeeze-with-an-rc-flown-intruder-squeeze_rc_intruderyaml)
+* real holders + **hand-flown (gamepad) teleop** intruder → [C5](#c5-squeeze-with-a-hand-flown-intruder-squeeze_rc_intruderyaml)
 
 ```bash
 ros2 launch svg_ground_control ground_control.launch.py \
@@ -994,60 +1135,69 @@ intruder **cyan**, all in one `map` frame.
 > commands land on the correct namespace and the squeeze still works — run it
 > before trusting a real flight (see [Automated tests](#automated-tests)).
 
-### C5. Squeeze with an RC-FLOWN intruder (`squeeze_rc_intruder.yaml`)
+### C5. Squeeze with a HAND-FLOWN intruder (`squeeze_rc_intruder.yaml`)
 
 Your experiment plan #2: **drone_1,2 real holders** (commander-flown, hold the
-posts and yield via the CBF) + **drone_3 real, RC-flown by a human pilot** as
-the intruder. drone_3 is **`external_drones`**: the commander never arms or
-commands it, but it IS tracked — its mocap-fed odometry enters the CBF, so the
-holders dodge the pilot's drone. (An external drone may NOT also be in
-`cbf_exempt_drones`; there is no command to exempt — the commander rejects
-that config.)
+posts and yield via the CBF) + **drone_3 real, flown by a human pilot on the
+gamepad** as the intruder. drone_3 is a **`teleop_drones`** entry: the
+commander arms it, lifts it to intruder waypoint A at `takeoff`, hands it to
+the sticks at `start` (position mode — released sticks hold), and lands it
+with the holders. It is listed in **`cbf_exempt_drones`**, so its stick goes
+out uncorrected and the holders alone yield; the CBF sees its *commanded*
+(ramped, capped) velocity as a fixed row, so the holders start moving before
+it arrives. A **teleop fence** (amber box inside the geofence) is the soft
+wall the pilot meets; the keep_in geofence bounds all three.
+
+(The earlier setup — drone_3 on its own RC link, `external_drones`, merely
+tracked with its *measured* velocity in the filter — is a two-line switch
+listed in the config's header. An external drone may NOT also be in
+`cbf_exempt_drones`; the commander rejects that config.)
 
 **Mocap goes to ALL THREE drones** (the config's `mocap_bridge` lists
-drone_1,2,3): the holders need external vision to arm and fly offboard, and
-**drone_3's PX4 needs it too** so its onboard controller can fuse a position
-for indoor RC **Position mode** — set the B4b.1 EKF2/mag params on all three
-drones, not just the holders.
+drone_1,2,3): every drone flies offboard on the commander's setpoints and
+needs external vision to arm — set the B4b.1 EKF2/mag params on all three.
 
 Prerequisites (all three drones per [Part B](#part-b--bring-in-a-real-drone-connect--verify)):
 * own agent port per drone (8888/8889/8892) → **three** `MicroXRCEAgent`s;
 * B4b.1 params set + saved + rebooted on **each** drone;
-* Motive bodies `drone_1..3` streaming; interfaces for **all three** (drone_3's
-  px4_interface is state-only, but without it the commander can't see drone_3
-  and the scenario pauses):
+* Motive bodies `drone_1..3` streaming; interfaces for **all three**:
   `ros2 launch svg_ground_control real_interfaces.launch.py drones:=drone_1,drone_2,drone_3`
+* the gamepad, checked before anything is armed ([teleop.md](teleop.md)).
 
 ```bash
-# commander (mocap always on):
+# terminal 1 — the pad (prints what it reads; move the sticks, nothing flies yet):
+ros2 launch svg_ground_control teleop.launch.py \
+  config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/squeeze_rc_intruder.yaml \
+  drone:=drone_3
+
+# terminal 2 — commander (mocap always on):
 ros2 launch svg_ground_control ground_control.launch.py \
   config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/squeeze_rc_intruder.yaml \
   use_mocap:=true
 
-# fly:
-ros2 service call /swarm_commander/takeoff std_srvs/srv/Trigger   # arms/lifts ONLY the holders
-ros2 service call /swarm_commander/start   std_srvs/srv/Trigger   # holders on posts (requires only
-                                                                  # commanded drones holding)
-# now the RC pilot takes off drone_3 (Position mode) and flies it through the
-# gap — watch the gray (external) marker + red holders yield in RViz.
-ros2 service call /swarm_commander/land    std_srvs/srv/Trigger   # lands ONLY the holders;
-                                                                  # the RC pilot lands drone_3
+# fly (terminal 3):
+ros2 service call /swarm_commander/takeoff std_srvs/srv/Trigger   # arms/lifts ALL THREE:
+                                                                  # holders to their posts, drone_3 to waypoint A
+ros2 service call /swarm_commander/start   std_srvs/srv/Trigger   # holders on posts; drone_3 on the sticks
+# fly drone_3 through the gap — watch the yellow (teleop) marker + red holders yield in RViz.
+ros2 service call /swarm_commander/land    std_srvs/srv/Trigger   # lands ALL THREE
 ```
 
-> ⚠️ **Safety — the geofence does NOT police drone_3.** The fence only watches
-> commander-flown (ACTIVE) drones; an external drone never trips it. The RC
-> pilot (and their kill switch) is drone_3's only safety layer. A breach by a
-> *holder* still freezes the holders as usual. Also: if drone_3's odometry goes
-> stale (mocap dropout), the commander pauses the scenario and the holders fall
-> back to holding position — by design.
+> ⚠️ **Safety — the fences are velocity clips, not a motor cutoff.** In
+> `keep_in` (this config) drone_3 is braked at the teleop fence and the
+> holders at the geofence; in `hold_all` a breach by anyone freezes all three.
+> The RC kill switch remains the true cutoff for every drone. If drone_3's
+> odometry goes stale (mocap dropout) the commander sends it zero velocity
+> and the scenario pauses; if the pad goes stale (`teleop_timeout_s`) the
+> stick reads zero and position hold keeps drone_3 where it is.
 
 **LEDs (`led_controller` block in `squeeze_rc_intruder.yaml`, all three drones
 set up per [B1(d)](#b1-per-drone-one-time-setup)):** everyone is **green**. A
 **holder turns red while the CBF is pushing it out of the intruder's way** (the
 commander publishes the corrected names on `/svg/cbf_active` every tick; the LED
 node holds red ≥ 0.5 s so short corrections are visible) and returns to green
-when its command is no longer altered. drone_3 is external — never commanded,
-so never "corrected" — and stays green; give the pilot's drone its own color if
+when its command is no longer altered. drone_3 is CBF-exempt — its stick is
+never "corrected" — and stays green; give the pilot's drone its own color if
 useful: `ros2 topic pub --once /svg/led_command std_msgs/msg/String "{data: 'drone_3 blue'}"`.
 A CBF **emergency push-apart** turns every holder red. Watch the signal itself
 with `ros2 topic echo /svg/cbf_active`.
@@ -1087,9 +1237,13 @@ ros2 service call /swarm_commander/land    std_srvs/srv/Trigger
 
 The commander publishes all drones' **world** positions (offset-corrected, so
 real + simulated share one frame) as a `MarkerArray` on `/svg/viz/markers`:
-solid sphere per drone (red=real, cyan=sim, yellow=teleop, gray=external,
-orange=frozen-on-breach), translucent safety sphere (2r), name/mode/role
-label, goal points, and the geofence box.
+an Iris body mesh per drone coloured by planner status — green = planner not
+launched, blue = running, red = stopped after running, dim gray = landing; with
+overrides orange = frozen-on-breach, yellow = teleop, gray = external —
+translucent safety sphere (2r), name/mode/role label, goal points, and the
+geofence box. The mesh is
+`package://robot_descriptions/iris/meshes/base_link_body_body.stl`, so
+`robot_descriptions` must be built in this workspace (`bws` does it).
 
 ```bash
 # from a robot-container shell (./airstack.sh connect robot --command=bash):
@@ -1099,6 +1253,10 @@ rviz2 -d $(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/s
 The config sets fixed frame `map` and adds the MarkerArray display. If you
 open a bare `rviz2`: set Fixed Frame = `map`, Add → By topic →
 `/svg/viz/markers`. This is the unified "see all drones" view for hybrid runs.
+
+For the operator view with the safety stop and telemetry, see
+[Foxglove visualization](#foxglove-visualization) — same markers, plus the
+SVG Basestation panel.
 
 **Hand-carry / preflight (no flight needed).** The markers come from
 `swarm_commander`, not the drones directly, so the chain is: interface layer
@@ -1119,26 +1277,224 @@ skipped in the markers).
 
 ---
 
+## Foxglove visualization
+
+Foxglove is the operator-facing alternative to RViz: the same `/svg/viz/markers`
+3D view (Iris body mesh per drone, coloured by planner status — see the RViz
+section for the legend) plus the **SVG Basestation** panel (agent wiring,
+two-click land-all safety stop, Hold All, link safety, battery / RTB, formation
+dropdown). The panel, a ready-made layout and its installer live in this
+package's [`foxglove/`](foxglove/) directory — see the panel's
+[README](foxglove/svg-basestation/README.md) for what every column means. (The
+general AirStack panels — Robot Tasks, Waypoint / Polygon editors — stay in
+`gcs/foxglove_extensions/`.)
+
+**Everything runs from the robot container — nothing to start by hand.**
+
+* [`ground_control.launch.py`](launch/ground_control.launch.py) starts
+  `foxglove_bridge` next to the commander (`use_foxglove_bridge:=false` to opt
+  out, `foxglove_port:=` to move it off 8765). Expect
+  `[foxglove_bridge]: Server listening on 0.0.0.0:8765` in the A4 terminal.
+* The robot container runs `svg_ground_control/foxglove/install.py` (SVG
+  Basestation, from the mounted `ros_ws`) and `gcs/foxglove_extensions/install.py`
+  (Robot Tasks, Waypoint / Polygon editors) at start-up, so all four panels are
+  installed in the container's own Foxglove Studio. Studio's config/layouts persist in `robot/docker/Foxglove/`
+  (git-ignored, mounted at `/root/.config/Foxglove`).
+* `robot-desktop` is on `network_mode: host` and pins `ROS_DOMAIN_ID=1`, so a
+  Studio on the **host** reaches the bridge at `ws://localhost:8765` too. The
+  `gcs` container is deliberately not used: it sits on the Docker bridge network
+  at domain 0 and never sees the drone topics.
+
+> **After pulling this change** (once): recreate the robot container so the new
+> mounts appear — `./airstack.sh up` recreates on compose changes, which kills
+> anything running inside — then rebuild the packages it touches:
+> `bws --packages-select robot_descriptions interface_bringup svg_ground_control`
+> (drone mesh, per-drone TF frames, launch file). If you were running a
+> hand-started `foxglove_bridge`, stop it first: two bridges on one port is a
+> bind error and a respawn loop.
+
+### F1. Studio on the host (default)
+
+```bash
+cd ~/AirStack
+python3 robot/ros_ws/src/svg_ground_control/foxglove/install.py   # once per pull: installs the
+                                                                  # panel into ~/.foxglove-studio/extensions
+foxglove-studio                                                   # (re)start Studio AFTER installing
+```
+Then **Open connection** → Foxglove WebSocket → `ws://localhost:8765`, and
+**Layouts → Import from file…** →
+`~/AirStack/robot/ros_ws/src/svg_ground_control/foxglove/svg_basestation.json`. Pick the imported
+layout from the layout dropdown (top-right).
+
+### F2. Studio inside the container (alternative)
+
+```bash
+# with the rest of ground control (pre-connected to the bridge):
+ros2 launch svg_ground_control ground_control.launch.py use_foxglove_studio:=true
+# or on its own, from any robot-container shell:
+foxglove-studio --no-sandbox
+```
+Import the layout once from
+`/root/AirStack/robot/ros_ws/src/svg_ground_control/foxglove/svg_basestation.json`; it is kept in the
+mounted config dir, so it is still there after the container is recreated.
+`install.py` prints one `Installed Foxglove extension: airlab-cmu.<name>-<ver>`
+line per panel in `docker logs airstack-robot-desktop-1`; **Extensions** in
+Studio's left sidebar lists what is loaded.
+
+The layout is preset for `drone_1,drone_2,drone_3` with **Modes** blank, so each
+agent is detected from the wire (`/{name}/interface/…` ⇒ sim,
+`/{name}/fmu/…` ⇒ real) — the panel's **Wiring** card says which it decided.
+For a different drone list or explicit modes, edit the panel settings (gear icon)
+and mirror the config's `drone_names` / `drone_modes` / `drone_position_offsets`.
+The 3D panel's display frame is `map`: the markers are published in bare `map`
+while each drone's TF is namespaced (`drone_N/map → drone_N/base_link`, see
+[`sim_drone_interface.launch.xml`](launch/sim_drone_interface.launch.xml)), so
+three drones no longer fight over one `map → base_link` transform.
+
+Each drone carries a name label (`drone_1` …; mode and role are in the panel,
+not the label). Foxglove always draws a text marker on a contrasting box —
+black behind light text, white behind dark — with the box as opaque as the
+text, and uses its own sans-serif font; neither can be turned off from the
+marker. The label is therefore the panel's dark slate on a white chip
+(`LABEL_COLOR` in `swarm_commander.py`), slightly translucent.
+
+### F3. What you should see
+
+| Stage | Panel |
+| --- | --- |
+| Only the bridge up | Everything rendered but reading `--` (no topic list yet) |
+| A3 interfaces up | Agents listed, Battery & Power live from `/{name}/interface/mavros/battery`, Link Safety Rate/Drop from odometry |
+| A4 commander up | 3D view shows the drone meshes (green until `start`) + geofence; Tasks chip names the scenario topics it found |
+| Config with `formation_profiles` (e.g. `cbf_sim.yaml scenario:=goal`) | Formation dropdown lists the profiles; Tasks chip shows `formation` |
+| Real drone (Part B) | Mocap age, EKF, Ping (uXRCE-DDS `timesync_status`) columns appear for that agent |
+
+Sections hide themselves when nothing publishes what they need (**Sections:
+Auto**); set **Show all** in the settings to force every card on.
+
+**Safety controls.** The red **LAND ALL** bar is two-click (arm → fire within
+4 s) and calls `/swarm_commander/land`; **Hold All** calls `/swarm_commander/hold`.
+Takeoff / Start / Reset Fence are in the command strip below. These are the same
+services as A6, so the CLI and the panel can be mixed freely.
+
+**If the panel is empty:** in a robot shell `ros2 topic list | grep drone_1`
+must show the interface topics and `ros2 topic hz /svg/viz/markers` must tick
+(~20 Hz). If the topics exist but Foxglove sees none, the bridge is on the wrong
+domain — `echo $ROS_DOMAIN_ID` in the A4 shell must print `1`. If the panel's
+services all fail, check the A4 terminal: a dead `swarm_commander` leaves stale
+service names in `ros2 service list`. If the **SVG Basestation** panel type is
+missing from *Add panel*, `install.py` ran for a different user / `HOME` than the
+one running `foxglove-studio`. If the drones render as nothing / a warning about
+`package://robot_descriptions/...`, `robot_descriptions` is not built in this
+workspace (`bws`).
+
+---
+
 ## Geofence
 
-A safety latch in `swarm_commander`. If any **airborne, holding/active** drone
-leaves the box `[fence_min, fence_max]` (world ENU), the commander latches a
-breach: every drone freezes at its current position, the scenario stops, and
-`start` is refused until you call `~/reset_fence`. Climb-out and landing pass
-through the floor on purpose and are exempt from detection.
+The box `[fence_min, fence_max]` (world ENU) in `swarm_commander`, watched
+for every role — commanded drones once they are ACTIVE (climb-out and landing
+pass through the floor on purpose), external RC-flown drones whenever they
+are airborne (above `land_complete_altitude_m`, fresh odometry). What a
+breach does is `fence_behavior`:
+
+- **`hold_all`** (default, every autonomous config): a safety latch. Any
+  watched drone outside the box freezes *every* drone at its current
+  position, stops the scenario, and refuses `start` until `~/reset_fence`.
+  An external drone trips it too — the holders stop; the RC pilot must bring
+  their own drone back.
+- **`keep_in`** (the teleop configs): nobody stops. Each commanded drone's
+  velocity is clipped per axis so it cannot cross a wall, and a drone found
+  outside is pushed back in. The wall is a **braking envelope**
+  (`fence.wall_speed`, PX4's own braking law): the outward speed may not
+  exceed the speed from which a stop *at* the wall is still reachable
+  decelerating at `fence_brake_accel_mps2` — `sqrt(2·a·d)` far out, so the
+  cruise speed is kept until the true braking distance
+  `v²/(2a) + v/gain` and the brake is then firm — and, in the last stretch,
+  `fence_keep_in_gain` × the distance left (the tail into the wall and the
+  push-back rate from outside). `1/gain` is the response lag the envelope
+  allows for. On the trajectory output the envelope's deceleration goes to
+  PX4 as the acceleration feedforward on the limited axes
+  (`fence.keep_in_acceleration`), so the vehicle brakes with the command
+  instead of a velocity-loop lag later. A hand-flown drone's position target
+  is clamped into the box as well. External drones cannot be steered; keep_in
+  only logs them. `fence_margin_m` shrinks the box so the wall is met that
+  early. All three dynamics are live (`ros2 param set`).
+
+  *Why the envelope:* bag `run_045417` (drone_2, 8 m/s stick, keep_in, gain
+  1, brake 0) went **0.35-0.68 m past the wall on every one of eleven
+  approaches at ~6 m/s**. The old `gain × distance` cap starts falling 6 m
+  out and is zero *at* the wall, but PX4 follows a bare velocity setpoint
+  with ~0.1 s of delay and a ~0.55 s velocity-loop time constant (no
+  feedforward was sent while the fence was active), so the drone was still
+  doing 1.5 m/s when it crossed. Raising that gain makes it worse — the
+  command drops faster than the vehicle can follow. In the plant model of
+  `test_trajectory.py` (which overshoots 0.4 m at 6 m/s and 2.3 m at 8 m/s
+  with the old cap), brake 4 m/s² + gain 2 + feedforward stops within
+  0.02 m from 0.5-8 m/s and is at rest on the wall in 2.4-4.3 s, sooner
+  than the old cap needs to overshoot and come back
+  (`test_fence_and_position_hold.py`). The gain is also the stiffness of
+  the last stretch: 3 rings at the wall through the 0.3 s loop delay, so
+  use 2 on the trajectory output. Sim (velocity-only) drones get no
+  feedforward and lag ~0.7 s: gain 0.7 (a 1.4 s margin) and brake 2.
+
+- **Teleop fence** (`teleop_fence_enabled`, `teleop_fence_min` /
+  `teleop_fence_max`): a second, smaller box for **hand-flown drones only**,
+  which must lie inside the geofence (the commander refuses to start
+  otherwise). The sticks meet it as a keep_in wall — same envelope, gain and
+  margin as above — *whatever* `fence_behavior` is, so a pilot never reaches
+  the geofence and the geofence stays the outer safety net (a `hold_all`
+  geofence still latches if something else goes wrong). Scenario-driven and
+  external drones ignore it. Drawn amber in the 3D view; the status snapshot
+  carries both boxes (`fence`, `teleop_fence`). A floor above the ground is
+  fine: only an ACTIVE drone is held inside a keep_in box — velocity clip
+  *and* reference clamp — so take-off and landing pass through it. (The
+  reference used to be clamped in every state, and a landing drone with
+  `teleop_fence_min` z = 0.3 hovered at 0.3 m: PX4's stiff altitude loop
+  held the clamped position setpoint against the descent command.)
 
 Config (per profile):
 ```yaml
 fence_enabled: true
+fence_behavior: "hold_all"      # or "keep_in"
+fence_brake_accel_mps2: 4.0     # keep_in: braking deceleration of the envelope (m/s2); 0 = plain gain*d
+fence_keep_in_gain: 2.0         # keep_in: near-wall speed <= gain*distance (1/s); 1/gain = lag margin (sim: 0.7, brake 2)
+fence_margin_m: 0.0             # keep_in: m
 fence_min: [-2.5, -2.5, 0.3]    # x,y,z lower limits (world ENU, m)
 fence_max: [ 2.5,  2.5, 2.5]    # x,y,z upper limits
+teleop_fence_enabled: true      # hand-flown drones: a smaller keep_in box inside the geofence
+teleop_fence_min: [-1.5, -1.5, 0.5]
+teleop_fence_max: [ 1.5,  1.5, 2.0]
 ```
-Recover:
+Recover — **no relaunch needed**:
 ```bash
 ros2 service call /swarm_commander/reset_fence std_srvs/srv/Trigger
+# or the "Reset Fence" button in the SVG Basestation panel
 ```
-This is a freeze-in-place, not a motor cutoff — the RC kill switch remains the
-true cutoff. The fence box is drawn in RViz (green normally, red when latched).
+`reset_fence` only clears the `hold_all` latch — it does not move anything. If
+a drone is **still hovering outside** the box, clearing is not enough: the
+check runs every control tick and re-latches immediately (the reply warns
+`still outside: drone_1`). The recovery is:
+
+1. `land` — descent is fence-exempt; the drone touches down where it is and
+   disarms.
+2. `takeoff` — the climb-out is fence-exempt too and flies to the drone's
+   takeoff target (`hover_positions` / the initial goal), which is inside the
+   box, so it arrives holding inside and `start` is accepted again.
+
+(`land` / `takeoff` act on every commanded drone, so the others cycle with it.)
+A drone that **landed** outside needs only step 2. Also fix what sent it out —
+a `goal_command` or formation profile beyond the wall will do it again on the
+next `start`; under `hold_all` the commander does not clamp goals to the fence.
+
+`hold_all` is a freeze-in-place, not a motor cutoff, and `keep_in` is a
+velocity clip, not a wall — the RC kill switch remains the true cutoff. The
+fence box is drawn in RViz / Foxglove (green normally, red when latched),
+together with a **ground grid on the fence floor** clipped to the fence
+footprint: lines on world multiples of `fence_grid_cell_m` (default 0.5 m; `0`
+disables), whole metres brighter, so x=0 / y=0 are on the grid and a drone's
+position reads straight off it. It follows whatever fence the loaded config
+has — the 3D panel's own grid is a fixed 8 m square on the origin and is
+turned off in `svg_basestation.json` for that reason.
 
 ---
 
@@ -1226,4 +1582,16 @@ come up before starting a test.
 | `start` says "geofence breached" | a drone left the box; `ros2 service call /swarm_commander/reset_fence std_srvs/srv/Trigger` after recovering |
 | drones fly right *shapes* in wrong *places*; intruder misses the gap | per-drone PX4 local origins: `drone_position_offsets` must equal the sim spawn positions (`x = 2*(i-1) - (N-1)` → `[-2,0,0, 0,0,0, 2,0,0]` for 3). Zeros only for mocap-anchored hardware |
 | hybrid: a "real" drone never moves | nothing is consuming `/{name}/fmu/velocity_command` — real-mode drones need px4_interface up (Part B); validate the routing first with `functional_hybrid_test.py` |
+| teleop: `pad: NO /joy` although the pad **is** plugged in | the container cannot see the device. `ls /dev/input/js0` on the host, then `docker exec airstack-robot-desktop-1 ls /dev/input/js0` — `privileged` populates `/dev` only at container start, so a pad plugged in afterwards is invisible. `robot-base-docker-compose.yaml` bind-mounts `/dev/input`; a container created before that needs **recreating** (`AUTOLAUNCH=false airstack up robot-desktop`), not restarting. Confirm with `ros2 run joy joy_enumerate_devices` (SDL's `Failed loading udev_device_get_action` line is harmless). |
+| teleop: `REFUSING TO COMMAND: forward (axis 4) rests at +1.00` | wrong `teleop_controller` for this pad: that axis is an analog trigger, which rests at full scale and would command full speed untouched. The bench pad is `dragonrise_usb` (right stick on axes 2/3), an Xbox pad is `xbox_usb` (3/4). Check with `ros2 run svg_ground_control joy_map`. |
+| teleop: sticks move the wrong drone axis (but nothing is refused) | a rearranged stick layout is not detectable automatically — only a resting trigger is. Verify each direction on the ground against the printed `cmd vx/vy/vz`, then fix the profile's axis numbers in `safe_teleop/controllers.py` (or override `forward_axis` etc. in the config's `safe_teleop` block). |
+| **speed does not change** (`scenario_speed_mps`, `speed_command`, `ros2 param set`) | Three separate things. (1) `ros2 param set /swarm_commander scenario_speed_mps X` used to answer *successful* and do nothing (read once at startup) — it is now applied live, and other params answer with a reason. (2) The speed is a cruise cap: the drone brakes at `goal_accel_mps2` and eases in over `goal_settle_s`, so it reaches the setting only if the goal is farther than `v²/(2a) + v·settle` (0.6 m at 1.2 m/s, 5.7 m at 5 m/s with the defaults) — the commander prints that distance with every speed it receives. (3) `cbf_max_speed_mps` caps everything (1.2 in the goal configs). The bags show the drone tracks the commanded speed within 0.05 m/s, so if the log says 1.0 the drone flies 1.0. |
+| **teleop speed does not change** (raised `max_speed_mps`) | Three caps, lowest wins: `safe_teleop.max_speed_mps` (stick scaling, read at launch — relaunch `teleop.launch.py`), the commander's `teleop_max_speed_mps` (default **1.2**, live via `ros2 param set`; the commander now warns `stick velocity … capped`), and `cbf_max_speed_mps` unless the drone is `cbf_exempt`. |
+| **`~/hold` makes a fast drone fly back ("bounce")** | Fixed: hold now brakes on the goal law to a predicted stop point `v²/(2·goal_accel_mps2) + v/hover_kp` ahead (clamped into the fence) and holds there, instead of chasing the position at the instant of the call (bag run_041842: 1.5 m bounce from 6 m/s). The service reply says `braking, stops X m ahead`. |
+| **drone oscillates / "outside the fence, pushing it back" at a goal** | The goal is on or beyond a fence wall (e.g. y = 4.5 with `fence_max` y = 4.5): the keep_in envelope goes to zero speed at the wall, so the drone can never quite arrive and the profile keeps pushing. Put goals ≥ 0.5 m inside the box. |
+| **drone flies to an old goal right after `start`** | Fixed: every `~/takeoff` resets each drone's stored goal (and heading) to its takeoff point and logs `takeoff: goals reset to …`. Goals sent *before* `start` are accepted (they always were — the marker just wasn't drawn until the mission ran; the stored goal is now drawn dim before start, bright once running), so check and correct the goal sphere before releasing the drone. |
+| **every commander log line appears twice, goal sphere flickers between two points, jerky flight** | Two `swarm_commander` instances are running (a second `ground_control.launch.py` in another terminal), both publishing setpoints and markers for the same drone (bags run_041842, run_044243). A new launch now **takes over**: 2 s after start it kills any other commander process in the container that has no drone in the air (`took over: killed idle swarm_commander …`), and refuses to kill one that reports a drone airborne — that one keeps flying, this one refuses `takeoff`/`start` (`N swarm_commander nodes are running` every 2 s) until you land with the old one or kill it yourself: Ctrl-C in its terminal, or `pkill -f swarm_commander` inside the container. `takeover:=false` on the launch disables the automatic kill. "process has finished cleanly" from `ros2 launch` after Ctrl-C is normal: the node exits with status 0. |
+| **drone swings around its hover point after take-off / before `/start` / in `/hold`** (±0.1–0.16 m, ~4 s period, the position setpoint on the far side of the spot from the drone) | Fixed 2026-09-27: the climb and hold profiles are evaluated at the **reference point** (PX4's position setpoint), as the mission profile always was, so the setpoint converges onto the spot. Before, the braking law was evaluated at the drone and its velocity integrated into the reference, which then stopped up to `hold_lead_m` off the spot; PX4's pull toward it re-opened the error — a lightly damped limit cycle that room disturbances kept alive (bags run_042957, run_042433, run_041532). The plant model rings at 3.8 s with the old law and settles to 1 mm with the new one. Rebuild (`bws`) if you still see it. |
+| **takeoff shoots up past the hover height, then drops** | The reference point ran ahead of a drone that could not follow yet (PX4's takeoff thrust ramp, ~1.5 s of no lift) and PX4's stiff altitude loop (`MPC_Z_P` 5) then chased it: bag `C1_0920_203148` reached 1.94 m for a 1 m target. Fixed by `hold_lead_m` (0.2 m leash while ascending/landing/holding — do not raise it) and the `takeoff_speed_mps` climb profile; check the commander is the rebuilt one (`bws`). |
+| **overshoots the goal / stops sluggishly / oscillates around it** | Make sure the drone is on the trajectory output: the startup log says `real output: trajectory` and `ros2 topic hz /drone_N/fmu/trajectory_command` shows 20 Hz (it needs the rebuilt px4_interface; with `velocity` output PX4 has no position loop and no feedforward, and the ground loop cannot beat its ~0.7 s velocity lag). Then `goal_accel_mps2` too high for the airframe (drop to 2), or `goal_settle_s` too small (raise to 0.5). A sim/MAVROS drone always flies the softer velocity-only law (`goal_velocity_only_settle_s`). |
 | RViz empty | Fixed Frame must be `map`; check `ros2 topic hz /svg/viz/markers`; needs an X display (`echo $DISPLAY`) |

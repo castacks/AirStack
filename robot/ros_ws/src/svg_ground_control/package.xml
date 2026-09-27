@@ -14,16 +14,20 @@
 
   <depend>rclpy</depend>
   <depend>geometry_msgs</depend>
+  <depend>trajectory_msgs</depend>
   <depend>nav_msgs</depend>
   <depend>std_msgs</depend>
   <depend>std_srvs</depend>
   <depend>visualization_msgs</depend>
   <depend>airstack_msgs</depend>
   <depend>px4_msgs</depend>
+  <depend>sensor_msgs</depend>
   <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>joy</exec_depend>
 
   <exec_depend>robot_interface</exec_depend>
   <exec_depend>interface_bringup</exec_depend>
+  <exec_depend>foxglove_bridge</exec_depend>
 
   <export>
     <build_type>ament_python</build_type>
