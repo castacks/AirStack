@@ -6,7 +6,8 @@ build_hero.py (spec `photo: {mats: [...]}`) packs every face of those parts into
 writes <ID>_atlas.json (face rectangles, building frame -> world). Here every texel is put in
 the world and coloured from the frames of the named recons (each with its to_world.json):
 projected through the camera's OPENCV lens, kept where the texel faces the camera and the
-building itself does not hide it (depth map ray-cast from the hero mesh), and blended with
+building itself does not hide it (depth map ray-cast from the hero mesh), and no person covers it
+(keypoint R-CNN boxes, padded -- people filmed in front of a wall must not be baked into it), and blended with
 weight (cos(incidence) / distance)^2, sharpened (^P) so the best view wins without a hard seam.
 Texels no frame sees get the part's tileable library texture (materials/<mat>.png) or,
 without one, the building's median colour. Writes <ID>_photo.png and <ID>_photo_seen.png (coverage).
@@ -14,6 +15,7 @@ without one, the building's median colour. Writes <ID>_photo.png and <ID>_photo_
 import json, sys
 import cv2, numpy as np, open3d as o3d, pycolmap, torch
 import torch.nn.functional as F
+import torchvision
 from pxr import Usd, UsdGeom
 from _paths import R
 
@@ -116,12 +118,21 @@ for c in cams:
     dc = -F.max_pool2d(-dc.view(1, 1, H // DS, W // DS), 3, 1, 1)
     c["depth"] = torch.minimum(torch.tensor(np.minimum(hit, 1e4).reshape(H // DS, W // DS), device=dev, dtype=torch.float32)[None, None], dc)
 
+PERSON = torchvision.models.detection.keypointrcnn_resnet50_fpn(weights="DEFAULT").eval().to(dev); n_people = 0
 out = torch.zeros(len(pts), 3, device=dev); wsum = torch.zeros(len(pts), device=dev); qbest = torch.zeros(len(pts), device=dev)
 Xt = torch.tensor(pts, device=dev, dtype=torch.float32); Nt = torch.tensor(nrm, device=dev, dtype=torch.float32)
 for i, c in enumerate(cams):
     img = cv2.imread(str(c["img"]))
     img = cv2.resize(img, c["wh"], interpolation=cv2.INTER_AREA) if img.shape[1] != c["wh"][0] else img
     It = torch.tensor(img[..., ::-1].copy(), device=dev, dtype=torch.float32).permute(2, 0, 1)[None] / 255
+    with torch.inference_mode():                                        # people in the frame (responders, survivors, pilots)
+        det = PERSON([It[0]])[0]                                        # must not be baked into the walls
+    pm = torch.zeros((1, 1) + It.shape[2:], device=dev)
+    for bb, sc in zip(det["boxes"], det["scores"]):
+        if sc < 0.4: continue
+        x0, y0, x1, y1 = bb.tolist(); mx, my = 0.25 * (x1 - x0), 0.15 * (y1 - y0)       # padded: shadows, loose clothing
+        pm[..., max(0, int(y0 - my)):int(y1 + my), max(0, int(x0 - mx)):int(x1 + mx)] = 1
+    n_people += int((det["scores"] >= 0.4).sum())
     W, H = c["wh"]
     for s0 in range(0, len(pts), 4_000_000):
         X, N = Xt[s0:s0 + 4_000_000], Nt[s0:s0 + 4_000_000]
@@ -134,6 +145,7 @@ for i, c in enumerate(cams):
         g = torch.stack([uv[:, 0] / W * 2 - 1, uv[:, 1] / H * 2 - 1], 1)[None, :, None]
         dz = F.grid_sample(c["depth"], g, mode="nearest", align_corners=False)[0, 0, :, 0]
         ok &= z < dz + 0.25 + 0.03 * z                                # not hidden (the building, or anything in the cloud)
+        ok &= F.grid_sample(pm, g, mode="nearest", align_corners=False)[0, 0, :, 0] < 0.5   # not a person
         q = torch.where(ok, (3 * cos / torch.clamp(dist, min=3.0)) ** 2 * edge, torch.zeros_like(dist))
         w = q ** P_SHARP; qbest[s0:s0 + 4_000_000] = torch.maximum(qbest[s0:s0 + 4_000_000], q)
         col = F.grid_sample(It, g, mode="bilinear", align_corners=False)[0, :, :, 0].T
@@ -158,6 +170,7 @@ img = np.zeros((SIDE, SIDE, 3), np.float32); A_ = np.zeros((SIDE, SIDE), np.floa
 img[pix[:, 0], pix[:, 1]] = fill; A_[pix[:, 0], pix[:, 1]] = alpha
 A_ = cv2.GaussianBlur(A_, (0, 0), 3); ph = np.zeros_like(img); ph[pix[:, 0], pix[:, 1]] = rgb
 img = img * (1 - A_[..., None]) + ph * A_[..., None]
+print(f"masked {n_people} people out of the frames")
 print(f"photo on {(alpha > 0.5).mean() * 100:.0f}% of texels ({(cover > 0.35).sum()}/{len(cover)} faces)")
 cv2.imwrite(str(d / f"{bid}_photo.png"), (np.clip(img, 0, 1) * 255).astype(np.uint8)[..., ::-1])
 cv2.imwrite(str(d / f"{bid}_photo_seen.png"), (A_ * 255).astype(np.uint8))
