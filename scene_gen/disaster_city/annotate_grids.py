@@ -7,6 +7,8 @@ GRID_DIR/cams.json, writes GRID_DIR/annotated/<name>.jpg:
   * a grid on each pane, columns A.. left to right, rows 1.. top to bottom, each cell labelled in its
     corner ("C4"), so a spot can be named as e.g. "top-right C4" -- the same cell is the same pixel
     region in all four panes (they share one camera);
+  With --gallery FILE..., gallery.py images (before/after pairs or single shots) get the same grid and compass per pane,
+  their headings taken from specs/gallery.yaml.
   * a compass gizmo per pane: N / E / S / W as seen from that camera (the heading of its forward
     axis on the ground, world x = east, y = north), drawn as a top-down rose rotated so "up" in the
     rose is the direction the camera faces; its compass bearing (clockwise from north) and downward tilt are printed under it.
@@ -16,8 +18,10 @@ from pathlib import Path
 import cv2, numpy as np
 
 ap = argparse.ArgumentParser(); ap.add_argument("dir"); ap.add_argument("--cols", type=int, default=8); ap.add_argument("--rows", type=int, default=6)
+ap.add_argument("--gallery", nargs="*", help="gallery.py images instead (pairs <W>+12+<W> or single panes, caption bar at the bottom): "
+                "headings from specs/gallery.yaml; written to DIR/annotated/")
 a = ap.parse_args(); d = Path(a.dir); out = d / "annotated"; out.mkdir(exist_ok=True)
-cams = {c["name"]: c for c in json.load(open(d / "cams.json"))}
+cams = {c["name"]: c for c in json.load(open(d / "cams.json"))} if (d / "cams.json").exists() else {}
 BAR, GAP = 50, 10
 
 def compass(img, cx, cy, r, heading_deg, tilt_deg):
@@ -45,6 +49,30 @@ def grid(img, x0, y0, w, h):
         for j in range(a.rows):
             lab = f"{chr(65 + i)}{j + 1}"; p = (int(x0 + i * cw) + 6, int(y0 + j * ch) + 26)
             cv2.putText(img, lab, p, 0, 0.75, (0, 0, 0), 4, cv2.LINE_AA); cv2.putText(img, lab, p, 0, 0.75, (0, 255, 255), 2, cv2.LINE_AA)
+
+def gallery_heading(name):
+    """a gallery.py shot's camera heading (deg CCW from east) and downward tilt, from specs/gallery.yaml"""
+    import yaml
+    from _paths import SPECS, R
+    G = yaml.safe_load(open(SPECS / "gallery.yaml")); s_ = next(s for sec in G["sections"] for s in sec["shots"] if s["name"] == name)
+    if "eye" in s_:
+        e, l = np.array(s_["eye"], float), np.array(s_["look"], float); v = l - e
+        if "in" in s_:
+            f = SPECS / f"{s_['in']}.yaml"; sp = yaml.safe_load(open(f if f.exists() else R / s_["in"].lower() / f"{s_['in']}_spec.yaml"))
+            t = math.radians(sp.get("yaw_deg", 0)); v = np.array([[math.cos(t), -math.sin(t), 0], [math.sin(t), math.cos(t), 0], [0, 0, 1]]) @ v
+        return math.degrees(math.atan2(v[1], v[0])), math.degrees(math.atan2(-v[2], math.hypot(v[0], v[1])))
+    return (s_["az"] + 180) % 360, s_["el"]                               # an orbit looks back at its target
+
+if a.gallery:
+    for f in map(Path, a.gallery):
+        img = cv2.imread(str(f)); H, W = img.shape[:2]; bar = max(40, H // 18)
+        name = f.stem.split("_", 2)[-1] if f.stem[:2].isdigit() else f.stem
+        heading, tilt = gallery_heading(name)
+        panes = [(0, (W - 12) // 2), ((W - 12) // 2 + 12, (W - 12) // 2)] if W > 1.9 * H else [(0, W)]
+        for px, pw in panes:
+            grid(img, px, 0, pw, H - bar); compass(img, px + pw - 95, 95, 60, heading, tilt)
+        cv2.imwrite(str(out / f.name), img, [cv2.IMWRITE_JPEG_QUALITY, 90])
+    print(f"{len(a.gallery)} gallery images annotated -> {out}"); raise SystemExit
 
 n = 0
 for f in sorted(d.glob("*.jpg")):

@@ -5,7 +5,7 @@
 Footprint/height off the tile mesh (body 6.7 x 8.2 m at 45 deg, top 20.3 m ->
 6 floors x 3.3 m). Look off the drone video (A04 frame 5, B05): metal-clad, ribbed on two faces
 and flat grey on the other two, closed dark window panels (two per floor per face), a wide
-top-floor opening on two faces, a slim steel ladder frame with two landings on one side. Panel
+top-floor opening on two faces, an external switchback stair in a narrow steel frame on one side (landings every floor). Panel
 positions follow the pattern -- they are not surveyed.
 """
 from pathlib import Path
@@ -37,15 +37,25 @@ for f in range(NF):
             parts.append({"box": {"name": f"panel_{k}_{f}_{int(c)}", "min": lo, "max": hi, "mat": "panel_dark"}})
     parts.append({"box": {"name": f"slab_{f + 1}", "min": [0, 0, z1], "max": [X, Y, z1 + 0.2]}})
 # the slim steel frame on the xlo face (A04 frame 5): four posts, a landing at the first floor and one at the roof, a ladder
-for i, x in enumerate((-1.4, -0.15)):
-    for j, y in enumerate((Y / 2 - 1.0, Y / 2 + 1.0)):
-        parts.append({"box": {"name": f"post_{i}{j}", "min": [x - 0.08, y - 0.08, 0], "max": [x + 0.08, y + 0.08, NF * FH + 1.2], "mat": "steel"}})
-for n, z in (("landing_1", FH + 0.2), ("landing_roof", NF * FH + 0.2)):
-    parts.append({"box": {"name": n, "min": [-1.5, Y / 2 - 1.1, z - 0.1], "max": [0, Y / 2 + 1.1, z], "mat": "grating"}})
-    parts.append({"rail": {"name": f"rail_{n}", "from": [-1.5, Y / 2 - 1.1], "to": [-1.5, Y / 2 + 1.1], "z": z, "mat": "steel"}})
-parts += [{"box": {"name": f"ladder_side_{j}", "min": [-0.9, y, 0], "max": [-0.85, y + 0.05, NF * FH + 0.2], "mat": "steel"}} for j, y in enumerate((Y / 2 - 0.25, Y / 2 + 0.2))]
-parts += [{"box": {"name": f"rung_{r}", "min": [-0.9, Y / 2 - 0.25, z], "max": [-0.85, Y / 2 + 0.25, z + 0.03], "mat": "steel"}}
-          for r, z in enumerate(np.arange(0.3, NF * FH, 0.35).round(2).tolist())]
+# the external switchback stair on the xlo face (the tiles' zigzag; A04 frames 16-18: a narrow steel frame with a railed
+# landing at every floor and a top landing): a frame 1.5 m deep along the face's whole width, landings alternating
+# ends, one flight per storey between them, banisters, and an outer rail up the open side
+D, L0, L1 = 1.5, 0.15, Y - 0.15                                          # frame depth, the face's ends
+for i, x in enumerate((-D, -0.1)):
+    for j, y in enumerate((L0, L1)):
+        parts.append({"box": {"name": f"post_{i}{j}", "min": [x - 0.08, y - 0.08, 0], "max": [x + 0.08, y + 0.08, NF * FH + 1.3], "mat": "steel"}})
+LD = 1.5                                                                 # landing length along the face
+for f in range(NF + 1):
+    z = f * FH + 0.2; at_lo = f % 2 == 0
+    ya, yb = (L0, L0 + LD) if at_lo else (L1 - LD, L1)
+    parts.append({"box": {"name": f"landing_{f}", "min": [-D, ya, z - 0.1], "max": [0, yb, z], "mat": "grating"}})
+    parts.append({"rail": {"name": f"rail_landing_{f}_out", "from": [-D, ya], "to": [-D, yb], "z": z, "mat": "steel"}})
+    parts.append({"rail": {"name": f"rail_landing_{f}_end", "from": [-D, L0 if at_lo else L1], "to": [0, L0 if at_lo else L1], "z": z, "mat": "steel"}})
+    parts.append({"box": {"name": f"landing_beam_{f}", "min": [-D, ya, z - 0.3], "max": [0, ya + 0.12, z - 0.1], "mat": "steel"}})
+    parts.append({"box": {"name": f"landing_beam2_{f}", "min": [-D, yb - 0.12, z - 0.3], "max": [0, yb, z - 0.1], "mat": "steel"}})
+    if f < NF:                                                           # the flight up to the next landing, at the other end
+        y0, y1 = (L0 + LD, L1 - LD) if at_lo else (L1 - LD, L0 + LD)
+        parts.append({"stair": {"name": f"flight_{f}", "from": [-D / 2, y0, z], "to": [-D / 2, y1, z + FH], "width": 1.1, "mat": "grating", "handrails": True}})
 spec = {"id": "S01", "name": "drill_tower", "semantic": "building", "origin": [3.556, -515.233, 57.14], "yaw_deg": 45.0, "parts": parts,
         "lights": [{"rect": [0.3, 0.3, X - 0.3, Y - 0.3], "ceiling": NF * FH, "spacing": 4.5}]}          # only the top floor is open
 out = R / "s01/S01_spec.yaml"; out.parent.mkdir(parents=True, exist_ok=True)
