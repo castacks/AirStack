@@ -15,6 +15,7 @@ from _paths import SPECS
 O = lambda n, c, t, az, el, d: {"name": n, "caption": c, "target": t, "az": az, "el": el, "dist": d}
 outside = [
     O("site_overview", "The whole site: grafted heroes, rubble piles, LOD1 buildings, trees, vehicles", [95, -330, 58], 230, 42, 260),
+    O("site_topdown", "The whole site from straight above", [95, -300, 58], 270, 89, 340),
     O("b01_and_pile", "B01 (the 133 building) and the R01 rubble pile", [42, -405, 60], 215, 28, 75),
     O("b01_close", "B01: the collapsed wing's slab in its steel frame, video-projected walls", [46, -410, 61], 200, 18, 35),
     O("b01_ylo_face", "B01's street face, textured from the drone frames", [49.0, -418.0, 62.0], 250, 12, 22),

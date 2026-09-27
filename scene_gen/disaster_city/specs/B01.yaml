@@ -19,38 +19,61 @@ parts:
   # ---- concrete block ----
   - box: {name: slab_ground, min: [0.4, 3.4, 0], max: [12.7, 9.8, 0.15]}
   # floors and roof of the block are steel grating on I-beams, not concrete (B08h interior: sky through the ceiling; B09 roof)
-  - box: {name: slab_first, min: [0.4, 3.4, 3.52], max: [12.7, 9.8, 3.6], mat: grating_open}
-  - box: {name: slab_roof, min: [0.4, 3.4, 7.52], max: [12.7, 9.8, 7.6], mat: grating_open}
+  # set inside the walls (inner faces x 0.525-12.575, y 3.525-9.675), on ledge angles along the walls and joists between them
+  - box: {name: slab_first, min: [0.525, 3.525, 3.52], max: [12.575, 9.675, 3.6], mat: grating_open}
+  - box: {name: slab_roof, min: [0.525, 3.525, 7.52], max: [12.575, 9.675, 7.6], mat: grating_open}
+  - box: {name: ledge_first_ylo, min: [0.525, 3.525, 3.42], max: [12.575, 3.605, 3.52], mat: steel}
+  - box: {name: ledge_first_yhi, min: [0.525, 9.595, 3.42], max: [12.575, 9.675, 3.52], mat: steel}
+  - box: {name: ledge_first_xlo, min: [0.525, 3.525, 3.42], max: [0.605, 9.675, 3.52], mat: steel}
+  - box: {name: ledge_first_xhi, min: [12.495, 3.525, 3.42], max: [12.575, 9.675, 3.52], mat: steel}
+  - box: {name: ledge_roof_ylo, min: [0.525, 3.525, 7.42], max: [12.575, 3.605, 7.52], mat: steel}
+  - box: {name: ledge_roof_yhi, min: [0.525, 9.595, 7.42], max: [12.575, 9.675, 7.52], mat: steel}
+  - box: {name: ledge_roof_xlo, min: [0.525, 3.525, 7.42], max: [0.605, 9.675, 7.52], mat: steel}
+  - box: {name: ledge_roof_xhi, min: [12.495, 3.525, 7.42], max: [12.575, 9.675, 7.52], mat: steel}
+  - box: {name: block_joist_first_0, min: [1.82, 3.525, 3.27], max: [1.98, 9.675, 3.52], mat: steel}
+  - box: {name: block_joist_first_1, min: [3.32, 3.525, 3.27], max: [3.48, 9.675, 3.52], mat: steel}
+  - box: {name: block_joist_first_2, min: [4.92, 3.525, 3.27], max: [5.08, 9.675, 3.52], mat: steel}
+  - box: {name: block_joist_first_3, min: [6.22, 3.525, 3.27], max: [6.38, 9.675, 3.52], mat: steel}
+  - box: {name: block_joist_first_4, min: [7.72, 3.525, 3.27], max: [7.88, 9.675, 3.52], mat: steel}
+  - box: {name: block_joist_first_5, min: [9.22, 3.525, 3.27], max: [9.38, 9.675, 3.52], mat: steel}
+  - box: {name: block_joist_first_6, min: [10.72, 3.525, 3.27], max: [10.88, 9.675, 3.52], mat: steel}
+  - box: {name: block_joist_roof_0, min: [1.82, 3.525, 7.27], max: [1.98, 9.675, 7.52], mat: steel}
+  - box: {name: block_joist_roof_1, min: [3.32, 3.525, 7.27], max: [3.48, 9.675, 7.52], mat: steel}
+  - box: {name: block_joist_roof_2, min: [4.92, 3.525, 7.27], max: [5.08, 9.675, 7.52], mat: steel}
+  - box: {name: block_joist_roof_3, min: [6.22, 3.525, 7.27], max: [6.38, 9.675, 7.52], mat: steel}
+  - box: {name: block_joist_roof_4, min: [7.72, 3.525, 7.27], max: [7.88, 9.675, 7.52], mat: steel}
+  - box: {name: block_joist_roof_5, min: [9.22, 3.525, 7.27], max: [9.38, 9.675, 7.52], mat: steel}
+  - box: {name: block_joist_roof_6, min: [10.72, 3.525, 7.27], max: [10.88, 9.675, 7.52], mat: steel}
   - box: {name: column_mid, min: [6.55, 3.25, 0.15], max: [6.85, 3.55, 7.4]}
   - wall:
       name: wall_ylo_ground
       from: [0.4, 3.4]
       to: [12.7, 3.4]
-      z: [0.15, 3.4]
+      z: [0.15, 3.6]
       openings: [{at: 1.3, w: 1.3, sill: 0.3, h: 1.5}, {at: 3.7, w: 1.3, sill: 0.3, h: 1.5}, {at: 8.7, w: 1.3, sill: 0.3, h: 1.7}]
   - wall:
       name: wall_ylo_first
       from: [0.4, 3.4]
       to: [12.7, 3.4]
-      z: [3.6, 7.4]
+      z: [3.6, 7.6]
       openings: [{at: 1.2, w: 1.4, sill: 0.9, h: 1.4}, {at: 3.6, w: 1.4, sill: 0.9, h: 1.4}, {at: 8.6, w: 1.4, sill: 0.9, h: 1.4}]
   - wall:
       name: wall_xlo_ground
       from: [0.4, 3.4]
       to: [0.4, 9.8]
-      z: [0.15, 3.4]
+      z: [0.15, 3.6]
       openings: [{at: 2.9, w: 1.6, h: 2.1}]
   - wall:
       name: wall_xlo_first
       from: [0.4, 3.4]
       to: [0.4, 9.8]
-      z: [3.6, 7.4]
+      z: [3.6, 7.6]
       openings: [{at: 2.6, w: 1.25, sill: 0.9, h: 1.4}]
-  - wall: {name: wall_yhi_ground, from: [0.4, 9.8], to: [12.7, 9.8], z: [0.15, 3.4], openings: [{at: 5.5, w: 1.3, sill: 0.3, h: 1.5}]}
-  - wall: {name: wall_yhi_first, from: [0.4, 9.8], to: [12.7, 9.8], z: [3.6, 7.4], openings: [{at: 5.5, w: 1.4, sill: 0.9, h: 1.4}]}
+  - wall: {name: wall_yhi_ground, from: [0.4, 9.8], to: [12.7, 9.8], z: [0.15, 3.6], openings: [{at: 5.5, w: 1.3, sill: 0.3, h: 1.5}]}
+  - wall: {name: wall_yhi_first, from: [0.4, 9.8], to: [12.7, 9.8], z: [3.6, 7.6], openings: [{at: 5.5, w: 1.4, sill: 0.9, h: 1.4}]}
   # end wall onto the steel frame: a doorway on each floor -- the way in from the deck (clip B08)
-  - wall: {name: wall_xhi_ground, from: [12.7, 3.4], to: [12.7, 9.8], z: [0.15, 3.4], openings: [{at: 2.6, w: 1.2, h: 2.1}]}
-  - wall: {name: wall_xhi_first, from: [12.7, 3.4], to: [12.7, 9.8], z: [3.6, 7.4], openings: [{at: 2.6, w: 1.2, h: 2.1}]}
+  - wall: {name: wall_xhi_ground, from: [12.7, 3.4], to: [12.7, 9.8], z: [0.15, 3.6], openings: [{at: 2.6, w: 1.2, h: 2.1}]}
+  - wall: {name: wall_xhi_first, from: [12.7, 3.4], to: [12.7, 9.8], z: [3.6, 7.6], openings: [{at: 2.6, w: 1.2, h: 2.1}]}
   # the block's banding (sec_y3.4-9.8): a slab-edge band at the first floor and a parapet cap, both 6 cm proud
   - box: {name: band_first_ylo, min: [0.34, 3.34, 3.55], max: [12.76, 3.46, 4.05]}
   - box: {name: band_first_xlo, min: [0.34, 3.34, 3.55], max: [0.46, 9.86, 4.05]}
@@ -163,7 +186,7 @@ parts:
   - box: {name: pancake_props, min: [15.0, 11.0, 0.15], max: [15.4, 11.4, 1.0]}
   # ---- first-floor interior (B08h_020-031): a cross wall with a doorway, silver ducts under the grating ceiling,
   # a desk, crates, planks and a fallen ceiling panel on the floor
-  - wall: {name: wall_cross_first, from: [5.0, 3.4], to: [5.0, 9.8], z: [3.6, 7.22], t: 0.15, openings: [{at: 2.2, w: 1.0, h: 2.1}]}
+  - wall: {name: wall_cross_first, from: [5.0, 3.4], to: [5.0, 9.8], z: [3.52, 7.27], t: 0.15, openings: [{at: 2.2, w: 1.0, h: 2.1}]}
   - cyl: {name: duct_a, c: [6.6, 8.6, 6.8], r: 0.3, h: 12.0, axis: X, mat: steel}
   - cyl: {name: duct_b, c: [8.5, 5.2, 6.9], r: 0.2, h: 8.0, axis: X, mat: steel}
   - beam: {name: pipe_rust, from: [7.0, 4.2, 6.6], to: [11.5, 7.0, 6.2], t: 0.12, mat: rust}
@@ -179,8 +202,10 @@ parts:
 # ---- crane on the roof ----
   # the cream jib crane (B09), measured off the dense cloud above the roof (points z > 9.3): post at (6.3, 6.7) mid-roof,
   # up to 11.8; the boom runs from its top toward (11.0, 4.2) -- over the ylo parapet -- with a brace under it
-  - box: {name: crane_base, min: [5.9, 6.3, 7.6], max: [6.7, 7.1, 7.75], mat: yellow}
-  - cyl: {name: crane_post, c: [6.3, 6.7, 9.75], r: 0.2, h: 4.1, mat: yellow}
+  - box: {name: crane_bearer, min: [5.0, 6.55, 7.27], max: [7.8, 6.85, 7.52], mat: steel}                # between the x 5.0 and 7.8 roof joists
+  - box: {name: crane_plinth, min: [5.85, 6.25, 7.52], max: [6.75, 7.15, 7.9]}                          # concrete, through the grating onto the joist + bearer
+  - box: {name: crane_base, min: [5.9, 6.3, 7.9], max: [6.7, 7.1, 8.0], mat: yellow}
+  - cyl: {name: crane_post, c: [6.3, 6.7, 9.9], r: 0.2, h: 3.8, mat: yellow}
   - beam: {name: crane_boom, from: [6.3, 6.7, 11.55], to: [11.1, 4.15, 11.55], t: 0.35, t2: 0.25, mat: yellow}
   - beam: {name: crane_brace, from: [6.3, 6.7, 9.6], to: [8.4, 5.6, 11.4], t: 0.14, mat: yellow}
   - box: {name: crane_hoist, min: [10.0, 4.5, 11.05], max: [10.4, 4.9, 11.38], mat: steel_dark}

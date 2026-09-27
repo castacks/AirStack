@@ -11,6 +11,12 @@ sections:
     az: 230
     el: 42
     dist: 260
+  - name: site_topdown
+    caption: The whole site from straight above
+    target: [95, -300, 58]
+    az: 270
+    el: 89
+    dist: 340
   - name: b01_and_pile
     caption: B01 (the 133 building) and the R01 rubble pile
     target: [42, -405, 60]
@@ -210,15 +216,15 @@ sections:
     caption: 'V02 lying_supine: on plywood on the frame''s first-floor deck'
     video: [video/B_B08_012.jpg]
     in: B01
-    eye: [23.65, 6.06, 6.05]
-    look: [20.45, 6.06, 4.55]
+    eye: [23.65, 6.06, 5.55]
+    look: [20.45, 6.06, 4.05]
     focal: 14
   - name: survivor_V03
     caption: 'V03 lying_supine: pink top, on plywood on the same deck, nearer the block'
     video: [video/B_B08_040.jpg]
     in: B01
-    eye: [19.53, 5.14, 6.05]
-    look: [16.33, 5.14, 4.55]
+    eye: [19.53, 5.14, 5.55]
+    look: [16.33, 5.14, 4.05]
     focal: 14
   - name: survivor_V04
     caption: 'V04 lying_prone: camouflage, on the block roof by the crane'
@@ -244,7 +250,7 @@ sections:
     dist: 4.5
     focal: 20
   - name: survivor_V07
-    caption: 'V07 sit_ground: inside B01''s first floor, sitting on the floor under the xlo window'
+    caption: 'V07 lying_supine: inside B01''s first floor, lying on the grating by the xlo window (B08h)'
     video: [video/A_A03_044.jpg]
     in: B01
     eye: [4.5, 6.6, 5.3]
@@ -270,8 +276,8 @@ sections:
     caption: 'V10 sit_ground: sitting on the frame''s first-floor deck'
     video: [video/A_A02_018.jpg]
     in: B01
-    eye: [20.1, 8.81, 6.05]
-    look: [16.9, 8.81, 4.55]
+    eye: [20.1, 8.81, 5.55]
+    look: [16.9, 8.81, 4.05]
     focal: 14
   - name: survivor_V11
     caption: 'V11 lying_side_l: orange clothes, on the grass by the west kerb'
