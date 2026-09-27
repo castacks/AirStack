@@ -1721,6 +1721,27 @@ class SwarmCommander(Node):
                 f'[{drone.position[0]:.2f}, {drone.position[1]:.2f}, '
                 f'{drone.position[2]:.2f}] until moved')
 
+    def profile_point(self, drone: DroneHandle) -> np.ndarray:
+        """Where a drone's climb / hold profile is evaluated.
+
+        On the trajectory output it is the reference point — PX4's position
+        setpoint — exactly as the mission profile (trajectory.ReferenceTracker)
+        does, so the reference converges onto the hold target and the
+        setpoint PX4 holds ends ON the spot. Evaluating the braking law at
+        the drone's own position and integrating that velocity into the
+        reference left the setpoint wherever the integration stopped, up to
+        hold_lead_m off the spot, and PX4's pull toward it re-opened the
+        error: a lightly damped ~4 s limit cycle of +/-0.1-0.16 m around
+        every hover point after take-off, before /start and in /hold (bags
+        run_042957, run_042433, run_041532; the plant model rings at 3.8 s
+        with the law at the drone and settles to 1 mm with it at the
+        reference). Velocity-only (sim) drones have no position setpoint
+        and keep the law at the drone.
+        """
+        if drone.output == 'trajectory' and drone.ref is not None:
+            return drone.ref
+        return drone.position
+
     def control_loop(self):
         now = self.get_clock().now()
 
@@ -1809,8 +1830,8 @@ class SwarmCommander(Node):
             elif d.state == FlightState.ASCEND:
                 error = d.hold_target - d.position
                 nominal[i] = seek_velocity(
-                    d.position[None], d.hold_target[None], self.takeoff_speed,
-                    self.scenario.tracker.accel,
+                    self.profile_point(d)[None], d.hold_target[None],
+                    self.takeoff_speed, self.scenario.tracker.accel,
                     self.scenario.velocity_only_settle)[0]
                 if np.linalg.norm(error) < self.arrival_threshold:
                     d.state = FlightState.ACTIVE
@@ -1829,9 +1850,10 @@ class SwarmCommander(Node):
                     # speed it decelerates at goal_accel_mps2 and eases in
                     # with gain hover_kp, instead of the old P-law that
                     # pulled a fast drone back to where it was when hold
-                    # was called (bag run_041842: a 1.5 m bounce).
+                    # was called (bag run_041842: a 1.5 m bounce). Evaluated
+                    # at the reference point, not the drone: see profile_point.
                     nominal[i] = seek_velocity(
-                        d.position[None], d.hold_target[None],
+                        self.profile_point(d)[None], d.hold_target[None],
                         self.cbf_max_speed, self.scenario.tracker.accel,
                         1.0 / max(self.hover_kp, 1e-3))[0]
                 # CBF-exempt list (config): leave this drone's command

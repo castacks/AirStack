@@ -215,7 +215,7 @@ def test_reference_is_leashed_and_reattaches():
 
 # ------------------------------------------------------------- takeoff
 
-def fly_takeoff(lead, speed=0.5, target=1.0, ramp=1.5, seconds=8.0):
+def fly_takeoff(lead, speed=0.5, target=1.0, ramp=1.5, seconds=8.0, at='ref'):
     """Climb to ``target`` with PX4's altitude loop (MPC_Z_P = 5) while the
     motors produce no lift for the first ``ramp`` seconds (takeoff thrust
     ramp). Bag C1_0920_203148: with a 2 m leash the drone reached 1.94 m."""
@@ -227,7 +227,8 @@ def fly_takeoff(lead, speed=0.5, target=1.0, ramp=1.5, seconds=8.0):
         t = k * DT
         pm, vm = plant.measure()
         ref, applied = advance_reference(ref, [0, 0, pm], applied, [0, 0, vm], DT, lead)
-        v = seek_velocity([[0, 0, pm]], [[0, 0, target]], speed, 3.0, 1.0)[0]
+        point = ref[2] if at == 'ref' else pm       # SwarmCommander.profile_point
+        v = seek_velocity([[0, 0, point]], [[0, 0, target]], speed, 3.0, 1.0)[0]
         # stiff z loop: P = 5 instead of 0.95
         plant.link.append((ref[2], v[2], 0.0))
         pos_sp, vel_sp, _ = plant.link.pop(0)
@@ -245,10 +246,51 @@ def fly_takeoff(lead, speed=0.5, target=1.0, ramp=1.5, seconds=8.0):
     return np.array(log)
 
 
+def fly_hold(at, kick=0.15, lead=0.2, seconds=30.0):
+    """Hold at 0 on the plant after a ``kick`` m offset (what a gust or the
+    end of the climb leaves): the commander's non-mission hold law, evaluated
+    at the reference (``at='ref'``, SwarmCommander.profile_point) or at the
+    drone (``'drone'``, the law until 2026-09-27). cbf_max 10, accel 10,
+    settle 1/hover_kp = 1 s, hold_lead_m 0.2."""
+    plant = Px4OffboardPlant()
+    plant.p = kick
+    ref = None
+    applied = np.zeros(3)
+    log = []
+    for k in range(int(seconds / DT)):
+        pm, vm = plant.measure()
+        ref, applied = advance_reference(ref, [pm, 0, 0], applied, [vm, 0, 0], DT, lead)
+        point = ref[0] if at == 'ref' else pm
+        v = seek_velocity([[point, 0, 0]], [[0, 0, 0]], 10.0, 10.0, 1.0)[0]
+        plant.command(ref[0], v[0], 0.0)
+        applied = v.copy()
+        log.append((k * DT, plant.p, ref[0]))
+    return np.array(log)
+
+
+def test_hold_law_at_the_reference_settles_without_the_swing():
+    # Bags run_042957 / run_042433 / run_041532: every hover before /start
+    # swung +/-0.1-0.16 m with a ~4 s period. The law at the drone integrates
+    # a drone-position velocity into the position setpoint (two integrations
+    # in the loop) and rings; at the reference it is a first-order approach.
+    ringing = fly_hold('drone')
+    t, p = ringing[:, 0], ringing[:, 1]
+    assert p.min() < -0.08                          # overshoots through the spot
+    assert np.sum(np.diff(np.sign(p[t > 1.0])) != 0) >= 3   # and keeps crossing it
+    fixed = fly_hold('ref')
+    t, p, ref = fixed.T
+    assert p.min() > -0.02                          # no overshoot
+    assert np.all(np.abs(p[t > 5.0]) < 0.01)        # on the spot and quiet
+    assert np.all(np.abs(ref[t > 5.0]) < 0.01)      # the setpoint ends ON the spot
+
+
 def test_takeoff_reference_stays_with_the_drone_during_the_thrust_ramp():
     log = fly_takeoff(lead=0.2)
     assert log[:, 1].max() < 1.05            # 1 m target, no dash to the sky
     assert log[:, 2].max() < 1.1             # ~2x the climb speed at most
     assert abs(log[-1, 1] - 1.0) < 0.05
-    # what the bag showed: a loose leash lets the reference run 1+ m ahead
-    assert fly_takeoff(lead=2.0)[:, 1].max() > 1.3
+    # what the bag showed with the climb law at the drone: a loose leash let
+    # the reference run 1+ m ahead. At the reference the profile stops AT the
+    # target, so even a loose leash cannot overshoot it much.
+    assert fly_takeoff(lead=2.0, at='drone')[:, 1].max() > 1.3
+    assert fly_takeoff(lead=2.0)[:, 1].max() < 1.1

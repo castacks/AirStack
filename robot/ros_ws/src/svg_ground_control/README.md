@@ -100,7 +100,10 @@ velocity, no altitude hold) remains as an ad-hoc utility.
   x-y lag never moves the altitude reference). A CBF-corrected command keeps
   a feedforward — the rate of change of the published command, capped at
   `goal_accel_mps2` — so an evasion is flown with it rather than ~0.5 s
-  behind it (`command_feedforward`; bag `run_020444`). Measured on drone_2: the old `1.5 × distance`
+  behind it (`command_feedforward`; bag `run_020444`). The climb and the
+  non-mission hold evaluate their braking law at the reference point too
+  (`profile_point`), so the setpoint settles on the spot instead of
+  swinging ±0.15 m around it at ~4 s (bags `run_042957`, `run_042433`). Measured on drone_2: the old `1.5 × distance`
   velocity P-law overshot a 5 m/s leg by 1 m; see experiment.md C1.
 - **Heading**: real drones are told an absolute yaw with every setpoint —
   the goal's `theta` in the goal scenario, nose on +X everywhere else
