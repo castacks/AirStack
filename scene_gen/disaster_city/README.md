@@ -126,7 +126,7 @@ $PY leftovers.py                               # raw tile pieces no model has re
 $PY footprint_check.py                        # every model vs its tile footprint -> data/recon/footprints.tsv + overlays
 OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh gallery.py <out_dir>        # specs/gallery.yaml: outside, inside, survivors -> jpgs + index.html
 OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh overview.py <out_dir>       # top-down site: render, geofence, semantic segmentation
-OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh package.py                          # data/dist/disaster_city/ (Kit USD)
+OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh package.py --scene summer --zip        # data/dist/disaster_city_summer{/,.zip} (Kit USD); --scene autumn likewise
 ```
 
 `place_assets.py` reads local copies of assets under `data/recon/assets/`, taken
