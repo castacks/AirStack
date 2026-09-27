@@ -97,7 +97,10 @@ velocity, no altitude hold) remains as an ad-hoc utility.
   (`goal_accel_mps2`, `goal_settle_s`, `goal_lead_m`); hand-flown drones move
   the reference with the sticks, so released sticks hold position on all
   axes (`teleop_lead_m`; horizontal and vertical lead leashed separately, so
-  x-y lag never moves the altitude reference). Measured on drone_2: the old `1.5 × distance`
+  x-y lag never moves the altitude reference). A CBF-corrected command keeps
+  a feedforward — the rate of change of the published command, capped at
+  `goal_accel_mps2` — so an evasion is flown with it rather than ~0.5 s
+  behind it (`command_feedforward`; bag `run_020444`). Measured on drone_2: the old `1.5 × distance`
   velocity P-law overshot a 5 m/s leg by 1 m; see experiment.md C1.
 - **Heading**: real drones are told an absolute yaw with every setpoint —
   the goal's `theta` in the goal scenario, nose on +X everywhere else

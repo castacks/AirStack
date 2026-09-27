@@ -909,8 +909,13 @@ ros2 service call /swarm_commander/land std_srvs/srv/Trigger
 **Safety with the CBF.** The CBF still filters velocities, and that is
 still everything that moves a drone: the reference point (PX4's position
 setpoint) is integrated from the *published*, filtered velocity, so it stops
-when the CBF says stop; the acceleration feedforward is dropped whenever the
-CBF or the fence alters a velocity; and while they do, the reference is held
+when the CBF says stop; a CBF-corrected command carries as acceleration
+feedforward the rate of change of the published command (capped at
+`goal_accel_mps2`), so the evasion is flown with feedforward instead of
+~0.5 s behind it (bag `run_020444`: every close pass — 0.52, 0.65, 0.79 m
+against 1.1-1.3 m required — was that lag, the commanded closing speed was
+already zero where the barrier says); the fence's braking feedforward owns
+the axes a wall limited; and while the CBF corrects, the reference is held
 on the short `hold_lead_m` leash so PX4's own, unfiltered pull toward the
 reference stays below ~0.2 m/s.
 

@@ -186,6 +186,40 @@ AXIS_CORRECTION = (-0.5, -0.5, 0.5, 0.5)
 LABEL_COLOR = ColorRGBA(r=0.122, g=0.161, b=0.216, a=0.9)
 
 
+def command_feedforward(profile_accel, nominal, velocity, published, clipped,
+                        fence_accel, dt: float, limit: float) -> np.ndarray:
+    """Acceleration feedforward (3,) for the command about to be published.
+
+    ``profile_accel`` is the scenario/teleop profile's own acceleration, valid
+    while ``velocity`` (the CBF's output) still equals ``nominal`` (its
+    input). Once the CBF has changed the command, that feedforward would
+    push toward what the filter steered away from, but sending *none* is
+    worse: the corrected velocity is then flown by PX4's velocity loop
+    alone, ~0.5 s behind the command, and in bag run_020444 every close
+    pass (0.52, 0.65, 0.79 m against 1.1-1.3 m required) was exactly that
+    lag — the commanded closing speed was already zero where the barrier
+    says, the drones were not flying the command. So a corrected command
+    carries the rate of change of the *published* command, capped at
+    ``limit`` (the profile's acceleration): the feedforward that tracks the
+    trajectory the filter actually issues — the evasion ramp, a stop, or 0
+    when the filter holds the velocity — consistent with it by construction.
+
+    ``clipped`` is the velocity after the keep_in fence; on the axes the
+    wall limited (``clipped`` != ``velocity``) the fence's own braking
+    feedforward ``fence_accel`` replaces the profile's, the other axes keep
+    theirs.
+    """
+    accel = np.array(profile_accel, dtype=float)
+    velocity = np.asarray(velocity, dtype=float)
+    if np.linalg.norm(velocity - np.asarray(nominal, dtype=float)) > 1e-6:
+        accel = (velocity - np.asarray(published, dtype=float)) / max(dt, 1e-3)
+        norm = float(np.linalg.norm(accel))
+        if limit > 0.0 and norm > limit:
+            accel *= limit / norm
+    limited = np.abs(np.asarray(clipped, dtype=float) - velocity) > 1e-9
+    return np.where(limited, np.asarray(fence_accel, dtype=float), accel)
+
+
 def _quat_mul(a, b):
     """Hamilton product of two (x, y, z, w) quaternions."""
     ax, ay, az, aw = a
@@ -1892,16 +1926,19 @@ class SwarmCommander(Node):
             # turns a stop into motion). Only ACTIVE drones: ASCEND/LANDING
             # legitimately cross the floor.
             fence_accel = np.zeros(3)
+            clipped = velocity
             if d.state == FlightState.ACTIVE:
-                velocity, fence_accel = self.keep_in(d, velocity)
-            # The acceleration feedforward belongs to the profile; once the
-            # CBF or the fence has altered the velocity it would push toward
-            # the very thing they steered away from, so it is dropped — and
-            # replaced by the fence's own braking feedforward on the axes the
-            # wall limited, so PX4 brakes with the command, not a lag later.
-            accel = accel_ff[row]
-            if np.linalg.norm(velocity - nominal[row]) > 1e-6:
-                accel = fence_accel
+                clipped, fence_accel = self.keep_in(d, velocity)
+            # Feedforward: the profile's while the CBF left the command
+            # alone; the rate of change of the published command (capped at
+            # the profile's acceleration) once the CBF changed it, so an
+            # evasion is flown with feedforward instead of ~0.5 s behind
+            # (bag run_020444); the fence's braking feedforward on the axes
+            # the wall limited — see command_feedforward.
+            accel = command_feedforward(
+                accel_ff[row], nominal[row], velocity, d.published, clipped,
+                fence_accel, self.control_dt, self.scenario.tracker.accel)
+            velocity = clipped
             # The CBF overrode the profile, so the reference may be ahead of
             # the drone along a path the filter no longer endorses. PX4's
             # onboard pull toward the reference is not filtered; keep it on
