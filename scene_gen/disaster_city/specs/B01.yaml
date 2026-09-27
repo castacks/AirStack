@@ -175,7 +175,7 @@ parts:
   - beam: {name: plank_c, from: [7.2, 5.9, 3.66], to: [7.4, 6.9, 3.66], t: 0.1, t2: 0.1, mat: wood}
   - beam: {name: fallen_panel, from: [11.2, 9.4, 3.62], to: [11.2, 8.0, 5.6], t: 0.08, t2: 1.8, mat: wood}
   # a jagged piece of the wing's wall still hanging from the roof deck's far edge (A03_016 F3-G3): one broken slab, torn bottom and sides
-  - prism: {name: hanging_wall, y: [10.15, 10.35], mat: wall_dark, poly: [[20.0, 8.2], [22.8, 8.1], [22.75, 7.4], [22.55, 6.9], [22.7, 6.5], [22.3, 6.2], [22.15, 5.6], [21.8, 5.75], [21.55, 5.0], [21.2, 4.5], [20.95, 4.9], [20.7, 4.6], [20.5, 5.3], [20.25, 5.1], [20.1, 5.9], [19.9, 6.4], [20.05, 7.1], [19.9, 7.6]]}
+  - prism: {name: hanging_wall, y: [10.15, 10.35], mat: wall_dark, poly: [[19.6, 8.2], [23.2, 8.15], [23.25, 7.6], [23.1, 7.2], [23.3, 6.7], [23.05, 6.1], [23.2, 5.5], [22.95, 5.0], [23.0, 4.65], [22.6, 4.75], [22.3, 4.5], [21.9, 4.8], [21.55, 4.5], [21.2, 4.6], [20.85, 4.45], [20.5, 4.8], [20.15, 4.55], [19.75, 4.85], [19.65, 5.3], [19.45, 5.8], [19.7, 6.3], [19.5, 6.9], [19.7, 7.4], [19.5, 7.8]]}
 # ---- crane on the roof ----
   # the cream jib crane (B09), measured off the dense cloud above the roof (points z > 9.3): post at (6.3, 6.7) mid-roof,
   # up to 11.8; the boom runs from its top toward (11.0, 4.2) -- over the ylo parapet -- with a brace under it
