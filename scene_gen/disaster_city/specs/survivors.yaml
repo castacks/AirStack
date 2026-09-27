@@ -5,13 +5,13 @@
 # (z snapped to the modelled floor where they are on B01); `frame` is one frame that shows them.
 # place_people.py poses the RenderPeople rigs (scene_gen's own pose + ground-contact machinery).
 - {id: V01, at: [37.31, -430.22, 58.01], pose: sit_ground, yaw: 200, rig: carla, frame: b01/B/B03_040.jpg, note: "woman in red sitting against the dumpster"}
-- {id: V02, at: [52.78, -406.20, 62.09], pose: lying_supine, yaw: -155.6, rig: eric, frame: b01/B/B08_012.jpg, note: "on plywood on the frame's first-floor deck"}
-- {id: V03, at: [50.66, -409.86, 62.09], pose: lying_supine, yaw: 30, rig: claudia, frame: b01/B/B08_040.jpg, note: "pink top, on plywood on the same deck, nearer the block"}
+- {id: V02, at: [52.78, -406.20, 61.84], pose: lying_supine, yaw: -155.6, rig: eric, frame: b01/B/B08_012.jpg, note: "on plywood on the frame's first-floor deck"}
+- {id: V03, at: [50.66, -409.86, 61.84], pose: lying_supine, yaw: 30, rig: claudia, frame: b01/B/B08_040.jpg, note: "pink top, on plywood on the same deck, nearer the block"}
 - {id: V04, at: [43.70, -415.23, 65.34], pose: lying_prone, yaw: -61.2, rig: manuel, frame: b01/B/B09_035.jpg, note: "camouflage, on the block roof by the crane"}
 - {id: V05, at: [30.72, -418.34, 57.96], pose: sit_ground, yaw: 60, rig: sophia, frame: b01/B/B10_039.jpg, note: "woman sitting in the orange lift basket (basket not modelled)"}
 - {id: V06, at: [25.66, -426.89, 57.63], pose: lying_prone_reach, yaw: -61.3, rig: nathan, frame: b01/A/A03_056.jpg, note: "face down on the road west of B01"}
 - {id: V07, at: [39.41, -419.92, 61.34], pose: lying_supine, yaw: 137.35, rig: eric, frame: b01/A/A03_044.jpg, note: "inside B01's first floor, lying on the grating by the xlo window (B08h)"}
 - {id: V08, at: [30.80, -414.60, 57.94], pose: sit_ground, yaw: 120, rig: manuel, frame: b01/B/B10_037.jpg, note: "sitting on the dirt at the kerb"}
 - {id: V09, at: [32.39, -423.76, 57.80], pose: sit_ground, yaw: 40, rig: claudia, frame: b01/B/B10_037.jpg, note: "sitting in the dust by the block's west corner"}
-- {id: V10, at: [48.35, -406.95, 62.09], pose: sit_ground, yaw: 170, rig: nathan, frame: b01/A/A02_018.jpg, note: "sitting on the frame's first-floor deck"}
+- {id: V10, at: [48.35, -406.95, 61.84], pose: sit_ground, yaw: 170, rig: nathan, frame: b01/A/A02_018.jpg, note: "sitting on the frame's first-floor deck"}
 - {id: V11, at: [1.59, -414.79, 56.35], pose: lying_side_l, yaw: -102.4, rig: carla, frame: rubble_west/B/B01_0045.jpg, note: "orange clothes, on the grass by the west kerb"}

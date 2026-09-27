@@ -71,22 +71,28 @@ parts:
   - box: {name: col_a2, min: [18.65, 9.85, 0], max: [18.95, 10.15, 7.6], mat: steel}
   - box: {name: col_b1, min: [24.45, 3.25, 0], max: [24.75, 3.55, 7.6], mat: steel}
   - box: {name: col_b2, min: [24.45, 9.85, 0], max: [24.75, 10.15, 7.6], mat: steel}
-  - box: {name: deck_first, min: [12.7, 3.4, 4.2], max: [24.8, 10.0, 4.35], mat: grating}
-  - box: {name: joist_deck_first_0, min: [12.7, 4.97, 3.95], max: [24.8, 5.13, 4.20], mat: steel}
-  - box: {name: joist_deck_first_1, min: [12.7, 6.62, 3.95], max: [24.8, 6.78, 4.20], mat: steel}
-  - box: {name: joist_deck_first_2, min: [12.7, 8.27, 3.95], max: [24.8, 8.43, 4.20], mat: steel}
-  - box: {name: joist_deck_roof_0, min: [12.7, 4.97, 7.20], max: [24.8, 5.13, 7.45], mat: steel}
-  - box: {name: joist_deck_roof_1, min: [12.7, 6.62, 7.20], max: [24.8, 6.78, 7.45], mat: steel}
-  - box: {name: joist_deck_roof_2, min: [12.7, 8.27, 7.20], max: [24.8, 8.43, 7.45], mat: steel}
+  - box: {name: deck_first, min: [12.7, 3.4, 3.95], max: [24.8, 10.0, 4.1], mat: grating}
+  - box: {name: joist_first_0, min: [14.12, 3.4, 3.70], max: [14.28, 10.0, 3.95], mat: steel}
+  - box: {name: joist_first_1, min: [15.62, 3.4, 3.70], max: [15.78, 10.0, 3.95], mat: steel}
+  - box: {name: joist_first_2, min: [17.12, 3.4, 3.70], max: [17.28, 10.0, 3.95], mat: steel}
+  - box: {name: joist_first_3, min: [20.22, 3.4, 3.70], max: [20.38, 10.0, 3.95], mat: steel}
+  - box: {name: joist_first_4, min: [21.72, 3.4, 3.70], max: [21.88, 10.0, 3.95], mat: steel}
+  - box: {name: joist_first_5, min: [23.22, 3.4, 3.70], max: [23.38, 10.0, 3.95], mat: steel}
+  - box: {name: joist_roof_0, min: [14.12, 3.4, 7.20], max: [14.28, 10.0, 7.45], mat: steel}
+  - box: {name: joist_roof_1, min: [15.62, 3.4, 7.20], max: [15.78, 10.0, 7.45], mat: steel}
+  - box: {name: joist_roof_2, min: [17.12, 3.4, 7.20], max: [17.28, 10.0, 7.45], mat: steel}
+  - box: {name: joist_roof_3, min: [20.22, 3.4, 7.20], max: [20.38, 10.0, 7.45], mat: steel}
+  - box: {name: joist_roof_4, min: [21.72, 3.4, 7.20], max: [21.88, 10.0, 7.45], mat: steel}
+  - box: {name: joist_roof_5, min: [23.22, 3.4, 7.20], max: [23.38, 10.0, 7.45], mat: steel}
   - box: {name: deck_roof_frame, min: [12.7, 3.4, 7.45], max: [24.8, 10.0, 7.6], mat: grating}
-  - box: {name: beam_deck_ylo, min: [12.7, 3.25, 3.95], max: [24.8, 3.55, 4.2], mat: steel}
-  - box: {name: beam_deck_yhi, min: [12.7, 9.85, 3.95], max: [24.8, 10.15, 4.2], mat: steel}
+  - box: {name: beam_deck_ylo, min: [12.7, 3.25, 3.7], max: [24.8, 3.55, 3.95], mat: steel}
+  - box: {name: beam_deck_yhi, min: [12.7, 9.85, 3.7], max: [24.8, 10.15, 3.95], mat: steel}
   - box: {name: beam_roof_ylo, min: [12.7, 3.25, 7.2], max: [24.8, 3.55, 7.45], mat: steel}
   - box: {name: beam_roof_yhi, min: [12.7, 9.85, 7.2], max: [24.8, 10.15, 7.45], mat: steel}
   - box: {name: beam_roof_xhi, min: [24.45, 3.4, 7.2], max: [24.75, 10.0, 7.45], mat: steel}
   # ---- railings: both roofs (1.5 m, as the cloud shows) and the deck's open edges ----
-  - rail: {name: rail_roof_ylo, from: [0.4, 3.4], to: [17.0, 3.4], z: 7.8, h: 1.1, mat: steel}
-  - rail: {name: rail_roof_ylo_b, from: [18.2, 3.4], to: [24.8, 3.4], z: 7.6, h: 1.1, mat: steel}     # gap: the top landing
+  - rail: {name: rail_roof_ylo, from: [0.4, 3.4], to: [18.8, 3.4], z: 7.8, h: 1.1, mat: steel}
+  - rail: {name: rail_roof_ylo_b, from: [20.0, 3.4], to: [24.8, 3.4], z: 7.6, h: 1.1, mat: steel}     # gap: the top landing
   - rail: {name: rail_roof_yhi, from: [2.0, 9.8], to: [23.4, 9.8], z: 7.8, h: 1.1, mat: steel}   # from x 2.0: the outcrop walkway starts at the corner
   # outcrop 1: a railed catwalk out from the roof deck along the wing frame's xhi side (B09_042-049; cloud z 7.3-8.9: x 23.3-25, y 10-16)
   - box: {name: catwalk, min: [23.4, 10.0, 7.6], max: [24.8, 16.0, 7.68], mat: grating}
@@ -101,35 +107,30 @@ parts:
   - rail: {name: rail_outcrop_xlo, from: [0.4, 9.8], to: [0.4, 16.0], z: 7.6, mat: steel}
   - rail: {name: rail_roof_xlo, from: [0.4, 3.4], to: [0.4, 9.8], z: 7.8, h: 1.1, mat: steel}
   - rail: {name: rail_roof_xhi, from: [24.8, 3.4], to: [24.8, 10.0], z: 7.6, h: 1.1, mat: steel}
-  - rail: {name: rail_deck_xhi, from: [24.8, 3.4], to: [24.8, 10.0], z: 4.35, mat: steel}
-  - rail: {name: rail_deck_yhi, from: [12.7, 10.0], to: [24.8, 10.0], z: 4.35, mat: steel}
-  - rail: {name: rail_deck_ylo, from: [12.7, 3.4], to: [22.4, 3.4], z: 4.35, mat: steel}                # the deck's front edge (A03_016)
+  - rail: {name: rail_deck_xhi, from: [24.8, 3.4], to: [24.8, 10.0], z: 4.1, mat: steel}
+  - rail: {name: rail_deck_yhi, from: [12.7, 10.0], to: [24.8, 10.0], z: 4.1, mat: steel}
+  - rail: {name: rail_deck_ylo, from: [12.7, 3.4], to: [22.4, 3.4], z: 4.1, mat: steel}                # the deck's front edge (A03_016)
   # ---- stairs on the ylo side, outside the frame (cloud section y < 3.4; video B07_028-032, B03_010-015): a switchback.
   # The FIRST flight runs on the inside (against the frame) up to the "133" landing; the second turns back on the
   # outside up to a top landing at roof-deck level. Both have banisters on both sides; the landings stand on posts
   # (the top landing's outer post runs the full height) with an X brace under the 133 landing's outer edge.
-  - stair: {name: stair_ground_to_133, from: [19.3, 2.75, 0.15], to: [22.4, 2.75, 3.28], width: 1.0, mat: grating, handrails: true}
-  - box: {name: landing_133, min: [22.4, 0.7, 3.2], max: [24.8, 3.4, 3.35], mat: grating}              # 1 m under the frame deck (A03_005)
-  - stair: {name: stair_133_to_roof, from: [22.4, 1.2, 3.35], to: [18.2, 1.2, 7.55], width: 1.0, mat: grating, handrails: true}   # leaves the landing at the edge flight 1 arrives on
-  - box: {name: landing_top, min: [17.0, 0.7, 7.45], max: [18.2, 3.4, 7.6], mat: grating}
-  - box: {name: sign_133, min: [23.4, 0.6, 3.5], max: [24.3, 0.66, 4.35], mat: sign}              # the "133" plate on the landing rail at its outer corner (B03_010/013)
-  - rail: {name: rail_landing_133_ylo, from: [22.4, 0.7], to: [24.8, 0.7], z: 3.35, mat: steel}
-  - rail: {name: rail_landing_133_xhi, from: [24.8, 0.7], to: [24.8, 3.4], z: 3.35, mat: steel}
-  - rail: {name: rail_landing_top_ylo, from: [17.0, 0.7], to: [18.2, 0.7], z: 7.6, mat: steel}
-  - rail: {name: rail_landing_top_xlo, from: [17.0, 0.7], to: [17.0, 3.4], z: 7.6, mat: steel}
-  - box: {name: sign_pole, min: [23.8, 0.62, 0], max: [23.95, 0.77, 3.5], mat: steel}              # post 1: under the sign (A03_005)
-  # post 2 is landing_top_post_a (full height at the top landing); between them, under the stair (A03_005, B03_013):
-  - box: {name: stair_beam_lo, min: [17.0, 0.62, 3.0], max: [24.8, 0.8, 3.2], mat: steel}            # the landing's outer edge beam, run on to post 2
-  - box: {name: stair_beam_hi, min: [17.0, 0.62, 7.25], max: [18.2, 0.8, 7.45], mat: steel}
-  - box: {name: landing_133_beam_xhi, min: [24.62, 0.7, 3.0], max: [24.8, 3.4, 3.2], mat: steel}
-  - box: {name: landing_133_beam_xlo, min: [22.4, 0.7, 3.0], max: [22.58, 3.4, 3.2], mat: steel}
-  - box: {name: landing_133_joist, min: [22.4, 1.95, 3.05], max: [24.8, 2.1, 3.2], mat: steel}
-  - beam: {name: knee_sign_a, from: [23.87, 0.7, 2.2], to: [23.0, 0.7, 3.0], t: 0.1, mat: steel}
-  - beam: {name: knee_sign_b, from: [23.87, 0.7, 2.2], to: [24.7, 0.7, 3.0], t: 0.1, mat: steel}
-  - beam: {name: knee_post2_lo, from: [17.09, 0.7, 2.2], to: [18.0, 0.7, 3.0], t: 0.1, mat: steel}
-  - beam: {name: knee_post2_hi, from: [17.09, 0.7, 6.4], to: [18.0, 0.7, 7.25], t: 0.1, mat: steel}
-  - beam: {name: brace_under_flight, from: [17.09, 0.7, 3.2], to: [21.0, 0.7, 5.4], t: 0.1, mat: steel}      # post 2 up to the upper flight's stringer
-  - box: {name: landing_top_post_a, min: [17.0, 0.7, 0], max: [17.18, 0.88, 7.45], mat: steel}
+  - stair: {name: stair_ground_to_133, from: [19.3, 2.75, 0.15], to: [23.2, 2.75, 3.53], width: 1.0, mat: grating, handrails: true}
+  - box: {name: landing_133, min: [23.2, 0.7, 3.45], max: [24.8, 3.4, 3.6], mat: grating}               # short, just under the frame deck (A03_005, A03_016)
+  - stair: {name: stair_133_to_roof, from: [23.2, 1.2, 3.6], to: [20.0, 1.2, 7.55], width: 1.0, mat: grating, handrails: true}   # leaves the landing at the edge flight 1 arrives on
+  - box: {name: landing_top, min: [18.8, 0.7, 7.45], max: [20.0, 3.4, 7.6], mat: grating}
+  - box: {name: sign_133, min: [23.4, 0.6, 3.75], max: [24.3, 0.66, 4.6], mat: sign}              # the "133" plate on the landing rail at its outer corner (B03_010/013)
+  - rail: {name: rail_landing_133_ylo, from: [23.2, 0.7], to: [24.8, 0.7], z: 3.6, mat: steel}
+  - rail: {name: rail_landing_133_xhi, from: [24.8, 0.7], to: [24.8, 3.4], z: 3.6, mat: steel}
+  - rail: {name: rail_landing_top_ylo, from: [18.8, 0.7], to: [20.0, 0.7], z: 7.6, mat: steel}
+  - rail: {name: rail_landing_top_xlo, from: [18.8, 0.7], to: [18.8, 3.4], z: 7.6, mat: steel}
+  - box: {name: sign_pole, min: [23.8, 0.62, 0], max: [23.95, 0.77, 3.75], mat: steel}             # post 1: under the sign, one knee brace to the right (A03_005)
+  - box: {name: landing_133_beam_ylo, min: [23.2, 0.62, 3.25], max: [24.8, 0.8, 3.45], mat: steel}
+  - box: {name: landing_133_beam_xhi, min: [24.62, 0.7, 3.25], max: [24.8, 3.4, 3.45], mat: steel}
+  - box: {name: landing_133_beam_xlo, min: [23.2, 0.7, 3.25], max: [23.38, 3.4, 3.45], mat: steel}
+  - box: {name: landing_133_joist, min: [23.2, 1.95, 3.3], max: [24.8, 2.1, 3.45], mat: steel}
+  - beam: {name: knee_sign_b, from: [23.87, 0.7, 2.45], to: [24.7, 0.7, 3.25], t: 0.1, mat: steel}
+  - box: {name: landing_top_post, min: [19.82, 0.7, 0], max: [20.0, 0.88, 7.45], mat: steel}         # post 2: the top landing's right corner (A03_016)
+  - beam: {name: landing_top_brace, from: [19.91, 0.79, 6.5], to: [19.0, 0.79, 7.45], t: 0.1, mat: steel}   # its only brace, going left
   # ---- the collapsed wing on the yhi (pile) side: its roof slab hinged off the block's roof edge and
 # came down onto the pile (A03_046-052; elev_xlo: from (y 9.8, z 7.4) to (y 14.9, z 2.4), x 1.0..10.5),
 # with its railing still on it; the first floor dropped under it. Tilted slabs, solid colliders.
