@@ -35,7 +35,7 @@ from _paths import R
 MATS = {"concrete": (0.62, 0.60, 0.56), "steel": (0.30, 0.31, 0.33), "grating": (0.22, 0.22, 0.24),
         "wood": (0.55, 0.42, 0.28), "rust": (0.45, 0.25, 0.15), "tank_black": (0.08, 0.08, 0.09), "tank_white": (0.85, 0.85, 0.83),
         "steel_dark": (0.20, 0.17, 0.15), "stucco": (0.72, 0.62, 0.48), "roof_brown": (0.40, 0.28, 0.20), "metal_white": (0.80, 0.80, 0.78),
-        "metal_ribbed": (0.48, 0.48, 0.47), "metal_grey": (0.42, 0.42, 0.43), "panel_dark": (0.28, 0.29, 0.29), "yellow": (0.84, 0.77, 0.56), "sign": (0.92, 0.92, 0.90), "canvas": (0.80, 0.72, 0.58), "grating_open": (0.22, 0.22, 0.24)}
+        "metal_ribbed": (0.48, 0.48, 0.47), "metal_grey": (0.42, 0.42, 0.43), "panel_dark": (0.28, 0.29, 0.29), "yellow": (0.84, 0.77, 0.56), "sign": (0.92, 0.92, 0.90), "canvas": (0.80, 0.72, 0.58), "grating_open": (0.22, 0.22, 0.24), "sign_133": (0.92, 0.92, 0.90)}
 
 def wall_boxes(w):
     (x0, y0), (x1, y1), (z0, z1), t = w["from"], w["to"], w["z"], w.get("t", 0.25)
@@ -108,14 +108,14 @@ def material(mat):
             rd = UsdShade.Shader.Define(stage, m.GetPath().AppendChild("uv")); rd.CreateIdAttr("UsdPrimvarReader_float2")
             rd.CreateInput("varname", Sdf.ValueTypeNames.Token).Set("st_photo" if mat == "photo" else "st")
             src = rd.ConnectableAPI()
-            if mat != "photo":                                       # metres -> texture repeats
+            if mat != "photo" and not lib.get("decal"):              # metres -> texture repeats (a decal spans each face once)
                 xf = UsdShade.Shader.Define(stage, m.GetPath().AppendChild("tile")); xf.CreateIdAttr("UsdTransform2d")
                 xf.CreateInput("in", Sdf.ValueTypeNames.Float2).ConnectToSource(src, "result")
                 xf.CreateInput("scale", Sdf.ValueTypeNames.Float2).Set(Gf.Vec2f(1 / lib["tile_m"], 1 / lib["tile_m"])); src = xf.ConnectableAPI()
             tx = UsdShade.Shader.Define(stage, m.GetPath().AppendChild("tex")); tx.CreateIdAttr("UsdUVTexture")
             tx.CreateInput("file", Sdf.ValueTypeNames.Asset).Set(png)
             tx.CreateInput("st", Sdf.ValueTypeNames.Float2).ConnectToSource(src, "result")
-            for w in ("wrapS", "wrapT"): tx.CreateInput(w, Sdf.ValueTypeNames.Token).Set("clamp" if mat == "photo" else "repeat")
+            for w in ("wrapS", "wrapT"): tx.CreateInput(w, Sdf.ValueTypeNames.Token).Set("clamp" if mat == "photo" or lib.get("decal") else "repeat")
             tx.CreateInput("sourceColorSpace", Sdf.ValueTypeNames.Token).Set("sRGB")
             sh.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(tx.ConnectableAPI(), "rgb")
             if lib.get("cutout"):                                      # alpha 0 in the holes: see-through grating
@@ -151,7 +151,8 @@ def emit(path, corners_list, mat):
             ua = np.array([-n[1], n[0], 0.0]) if abs(n[2]) < 0.9 else np.array([1.0, 0, 0])
             ua /= np.linalg.norm(ua); va = np.cross(n, ua)
             base = len(P); P += Q.tolist(); counts.append(4); idx += [base, base + 1, base + 2, base + 3]
-            st += [(float(p @ ua), float(p @ va)) for p in Q]
+            uvq = np.array([(p @ ua, p @ va) for p in Q])
+            st += (((uvq - uvq.min(0)) / np.maximum(np.ptp(uvq, 0), 1e-6)) if LIB.get(mat, {}).get("decal") else uvq).tolist()   # decal: 0..1 per face
             if photo:
                 uv = np.array([(p @ ua, p @ va) for p in Q]); lo_ = uv.min(0); size = uv.max(0) - lo_
                 atlas.append({"o": (ua * lo_[0] + va * lo_[1] + n * (Q[0] @ n)).tolist(), "u": ua.tolist(), "v": va.tolist(),

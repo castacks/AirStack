@@ -105,6 +105,13 @@ for name, (rgb, amp, pat, tile, rough, metal) in PROC.items():
         tex = np.dstack([tex, a_])
     cv2.imwrite(str(OUT / f"{name}.png"), tex)
     lib[name] = {"tile_m": tile, "rough": rough, "metal": metal, "source": f"procedural, colour off the video ({pat})", **({"cutout": True} if pat == "bars" else {})}
+# decals: one image spanning each face of the part once (build_hero.py), cut straight from a frame -- the "133" sign
+DECALS = {"sign_133": ("b01/images/A/A03_005.jpg", [(752, 608), (978, 610), (978, 750), (752, 750)], "B01's 133 sign, the white plate only")}
+for name, (img_rel, quad, note) in DECALS.items():
+    im = cv2.imread(str(R / img_rel)); w_, h_ = 512, round(512 * (quad[2][1] - quad[1][1]) / (quad[1][0] - quad[0][0]))
+    Hm = cv2.getPerspectiveTransform(np.float32(quad), np.float32([(0, 0), (w_, 0), (w_, h_), (0, h_)]))
+    cv2.imwrite(str(OUT / f"{name}.png"), cv2.warpPerspective(im, Hm, (w_, h_), flags=cv2.INTER_CUBIC))
+    lib[name] = {"tile_m": 1.0, "rough": 0.5, "metal": 0.0, "decal": True, "aspect": round(w_ / h_, 3), "source": f"{img_rel}: {note}"}
 json.dump(lib, open(OUT / "materials.json", "w"), indent=1)
 sheet = np.concatenate([cv2.resize(cv2.imread(str(OUT / f"{k}.png")), (256, 256)) for k in lib], 1)
 for i, k in enumerate(lib): cv2.putText(sheet, k, (i * 256 + 6, 20), 0, 0.6, (0, 255, 255), 2)
