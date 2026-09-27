@@ -96,7 +96,7 @@ $PY video_materials.py                                                          
 $PY lod1_buildings.py
 $PY measure_sheets.py data/recon/b01 B01 --yaw 47.35                              # the sheets specs/B01.yaml was measured on
 $PY recon_mesh.py data/recon/rubble_west R01 data/recon/tiles_R01.npz --radius 24 --margin 0.5   # the pile's shape
-$PY rubble_pile.py R01 && $PY rubble_pile.py R02 --radius 20                     # rubble assets stacked on it
+$PY rubble_pile.py R01 --keep-out 48.5,-401.1,61.5,-379.9,82.8,-393.0,69.8,-414.2 && $PY rubble_pile.py R02 --radius 20                     # rubble assets stacked on it
 $PY build_hero.py specs/B01.yaml && $PY photo_bake.py B01 b01 rubble_west          # the video projected onto B01
 for g in drill_tower:s01/S01 strip_mall:b03/B03 warehouse:b06/B06 industrial_pad:pad/PAD house:b35/B35; do
   $PY gen_${g%%:*}.py && $PY build_hero.py data/recon/${g#*:}_spec.yaml; done

@@ -6,7 +6,7 @@ The pile's heightfield -- the drone reconstruction (data/recon/rubble_west/<ID>.
 there is one, else the tile surface -- is right about its SHAPE and wrong about its SURFACE. What goes on
 it follows the drone footage (clips A01/B01): a dense jumble of light concrete -- precast beams and
 planks, slabs, broken columns -- with wooden pallets through it, a few pipes, a little rebar, a rusty tank.
-  1. footprint: where the surface stands > 0.6 m proud, inside --radius (R02 comes out square), pulled in by --shrink;
+  1. footprint: where the surface stands > 0.6 m proud, inside --radius (R02 comes out square), pulled in by --shrink, minus any --keep-out polygon;
   2. base mound: the heightfield smoothed (sigma 1.5 m) on a 0.5 m grid, 1.6 m under it, faded over
      4 m at the rim -- the pile's collider, labelled rubble, concrete-dust coloured;
   3. heaps: DebrisConcrete heaps and photoscan patches (assets/lib, `class: rubble`), stacked where the
@@ -26,6 +26,7 @@ ap = argparse.ArgumentParser(); ap.add_argument("id"); ap.add_argument("--radius
 ap.add_argument("--seed", type=int, default=3); ap.add_argument("--cover", type=float, default=1.4)
 ap.add_argument("--density", type=float, default=0.3, help="surface pieces per m2 of pile")
 ap.add_argument("--max-pieces", type=int, default=2500)
+ap.add_argument("--keep-out", help="x1,y1,x2,y2,... world polygon the pile may not cover (the video shows open ground there)")
 ap.add_argument("--shrink", type=float, default=1.5, help="m to pull the footprint in from the measured edge (the videos show a tighter pile)")
 a = ap.parse_args(); rng = np.random.default_rng(a.seed)
 lab = next(l for l in yaml.safe_load(open(LABELS))["labels"] if l["id"] == a.id); cx, cy = lab["at"]; rad = a.radius
@@ -66,6 +67,10 @@ ff = np.pad(~blob, 1, constant_values=True).astype(np.uint8); cv2.floodFill(ff, 
 if a.shrink > 0:                                                        # the measured edge runs onto the sand apron: pull it in
     k_ = 2 * int(round(a.shrink / RES)) + 1
     blob = cv2.erode(blob.astype(np.uint8), cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k_, k_))).astype(bool)
+if a.keep_out:
+    ko = np.array([float(v) for v in a.keep_out.split(",")]).reshape(-1, 2); m_ = np.zeros((n, n), np.uint8)
+    cv2.fillPoly(m_, [np.round(np.c_[(ko[:, 0] - (cx - rad)) / RES, ((cy + rad) - ko[:, 1]) / RES]).astype(np.int32)], 1)
+    blob &= ~m_.astype(bool)
 rim = np.clip(cv2.distanceTransform(blob.astype(np.uint8), cv2.DIST_L2, 5) * RES / 4.0, 0, 1)
 # hero footprints stay clear (B01 and its collapsed wing)
 clear = np.zeros((n, n), bool); hero_polys = []
