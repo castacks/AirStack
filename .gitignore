@@ -191,3 +191,11 @@ scene_gen/assets/concrete_rubble_debris/*
 # the catalogue is tracked
 scene_gen/assets/rubble_hd/*/
 scene_gen/assets/people/
+
+# machine-local env and scratch / generated output (2026-09-27)
+.env.host
+scene_gen/_*/
+scene_gen/galleries/
+scene_gen/assets/omniclient/
+scene_gen/assets/.measurements.json
+scene_gen/assets/nucleus_material_index.json
