@@ -278,6 +278,21 @@ but other failed readiness gates still need investigation. A successful
 manifest describes Office, so warehouse-specific RRM proposals remain disabled.
 No mission is dispatched by scene selection.
 
+As of the 2026-09-27 regression, `warehouse-shelves` scene selection, camera,
+map, and all six readiness gates work, but five fresh takeoff attempts failed
+before exploration, including a drop below the visual floor. **Do not send a
+flight goal in that scene yet.** A green `airstack ready` report checks software
+services and PX4 EKF; it does not qualify scene contact physics. A further
+diagnostic tried a spawn inside one floor tile; the drone remained at floor
+height under rising thrust, then slid sideways and failed the takeoff bound. This
+ruled out the tile seam alone as a fix; the trial spawn override was reverted.
+The current
+Office candidate passed two consecutive independently verified 1 m takeoff/land
+runs without a restart. Two later GUI takeoff/explore/land goals in Office also
+passed independent verification without a restart, each moving more than 2.9 m
+horizontally during exploration; see
+[goal-to-finish status](docs/scrum-8/end-to-end-status.md).
+
 The selector uses catalog shortnames. Its backend resolves `office` to the Pegasus
 scene reference `Office` and stage scale `1.0`. On a newly submitted workspace the GUI
 may initially show no active scene because it deliberately does not infer a manual or

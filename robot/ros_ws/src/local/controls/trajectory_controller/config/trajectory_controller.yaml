@@ -6,7 +6,9 @@
   ros__parameters:
     tf_prefix: ""
     target_frame: map
-    tracking_point_distance_limit: 1000.5
+    # Maximum commanded tracking-point distance from physical odometry. Prevents
+    # a stalled takeoff or blocked route from chasing a far-ahead virtual point.
+    tracking_point_distance_limit: 0.5
     velocity_look_ahead_time: 0.9
     # look ahead time controls the speed, greater is faster
     look_ahead_time: 1.0

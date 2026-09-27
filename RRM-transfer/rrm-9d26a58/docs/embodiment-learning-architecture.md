@@ -1,8 +1,9 @@
 # Learned embodiment architecture: RRM-EM
 
-Status: **proposed research architecture**. This document describes the intended
-evolution of RRM; it does not claim that online embodiment learning or cross-robot
-transfer is implemented today. The current verified implementation scope remains in
+Status: **proposed research architecture with an advisory evidence-contract prototype**.
+This document describes the intended evolution of RRM; it does not claim that online
+embodiment learning or cross-robot transfer is implemented today. The current verified
+implementation scope remains in
 [goal-to-finish status](scrum-8/end-to-end-status.md).
 
 ## Purpose
@@ -122,12 +123,39 @@ understand goal -> observe world/body -> query capability model -> plan
 -> update embodiment evidence -> continue, replan, recover or halt
 ```
 
+The first integration seam is
+[`rrm/embodiment_learning.py`](../rrm/embodiment_learning.py). It normalizes an
+independent AirStack outcome into `VERIFIED`, `UNMET`, or `UNKNOWN` effect evidence;
+task-server success alone cannot create a verified effect. An append-only ledger
+deduplicates attempts and produces a revision hash plus an advisory success estimate
+for an **exact** embodiment, operation, scene, capability, adapter, and controller
+revision. Unknown effects are counted but excluded from success/failure estimates.
+`assess_route` attaches these estimates to existing C03 route candidates without
+selecting a body, changing a capability declaration, or authorizing dispatch. This
+is a pure contract prototype. The read-only
+[`rrm_em_import_mission.py`](../scripts/rrm_em_import_mission.py) importer can turn
+one checksum-bound command plan and its independent mission outcome into a versioned
+evidence export when the operator supplies exact installed scene, adapter and
+controller revisions. The operator also supplies the catalog scene name, which must
+match the checksum-bound plan. It omits skipped actions because no physical attempt occurred.
+Mission artifacts are not yet automatically ingested into a durable model, and no GUI
+or controller consumes its estimates.
+
+The next integration step is a durable append-only store fed by independently
+verified mission outcomes with recorded scene and installed controller hashes,
+followed by a shadow comparison of RRM-EM estimates against observed success.
+Only after those
+measurements should a separately reviewed policy use estimates to choose among
+already feasible and authorized candidates. A scene switch or controller change
+starts a distinct evidence scope; it does not inherit a confidence claim from the
+previous scene or binary.
+
 ## Current realization and missing work
 
 | Concern | Current repository state | Needed for the proposed architecture |
 | --- | --- | --- |
 | Semantic goals | Narrow goal contracts and deterministic aerial command compiler | General learned reasoning over the same contracts |
-| Capability declaration | Static profiles plus live ROS action discovery | Calibrated, context-dependent learned capability model |
+| Capability declaration | Static profiles plus live ROS action discovery; advisory exact-scope evidence-contract prototype | Durable, calibrated, context-dependent learned capability model |
 | Adapter | AirStack task actions and bounded hand prototypes | Qualified morphology library and additional robot plugins |
 | Outcome evidence | Fresh action/odometry/state verification and immutable artifacts | Training-ready normalized cross-embodiment evidence |
 | Control | Existing AirStack/PX4 classical stack; isolated hand gateway work | Evaluated classical, adaptive and learned backend choices |

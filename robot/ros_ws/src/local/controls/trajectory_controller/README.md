@@ -151,7 +151,7 @@ flowchart LR
 | `sphere_radius` | `1.0` | Radius (m) of the sphere used to advance the tracking point in sphere-intersection mode. Larger values push the tracking point further ahead, increasing effective look-ahead distance. |
 | `velocity_sphere_radius_multiplier` | `-1.0` | If positive, overrides `sphere_radius` with `velocity × this_value`, giving a velocity-proportional look-ahead. Set ≤ 0 to use fixed `sphere_radius`. |
 | `search_ahead_factor` | `1.5` | The algorithm searches `sphere_radius × search_ahead_factor` meters ahead from the projected point to find the sphere intersection. Increase only if the trajectory zigzags sharply relative to `sphere_radius`. |
-| `tracking_point_distance_limit` | `10.5` | (Declared but not currently used in main logic; reserved for future clamping.) |
+| `tracking_point_distance_limit` | `0.5` | Maximum distance (m) between the published tracking point and physical odometry; nonpositive values disable the limit. The full-stack configuration sets 0.5 m. |
 | `velocity_look_ahead_time` | `0.9` | Time offset used when computing the velocity look-ahead. |
 | `ff_min_velocity` | `0.0` | Feed-forward minimum velocity threshold. |
 | `transition_velocity_scale` | `1.0` | Scales how quickly `time_multiplier` ramps from −1 → +1 during REWIND ↔ ADD_SEGMENT transitions. Higher values give faster transitions. |

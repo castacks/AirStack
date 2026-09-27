@@ -36,7 +36,9 @@
 #include <tf2/LinearMath/Quaternion.h>
 
 #include <airstack_common/ros2_helper.hpp>
+#include <chrono>
 #include <filesystem>
+#include <future>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <mavros_msgs/msg/attitude_target.hpp>
 #include <mavros_msgs/msg/position_target.hpp>
@@ -628,6 +630,23 @@ namespace mavros_interface
 
         bool arm() override
         {
+            // A previous landing can leave PX4 disarmed but still in OFFBOARD.
+            // Arming in that mode applies the retained attitude/thrust stream
+            // immediately, before the next takeoff has established its hold.
+            if (!is_ardupilot && is_state_received_ && !current_state_.armed &&
+                current_state_.mode == "OFFBOARD")
+            {
+                auto mode_request = std::make_shared<mavros_msgs::srv::SetMode::Request>();
+                mode_request->custom_mode = "AUTO.LOITER";
+                auto mode_result = set_mode_client_->async_send_request(mode_request);
+                if (mode_result.wait_for(std::chrono::seconds(2)) != std::future_status::ready ||
+                    !mode_result.get()->mode_sent)
+                {
+                    RCLCPP_ERROR(this->get_logger(),
+                                 "Cannot arm from retained OFFBOARD mode: LOITER request failed");
+                    return false;
+                }
+            }
             auto request = std::make_shared<mavros_msgs::srv::CommandBool::Request>();
             request->value = true;
 
@@ -649,7 +668,25 @@ namespace mavros_interface
             result.wait();
             std::cout << "done disarm" << std::endl;
 
-            return result.get()->success;
+            if (!result.get()->success)
+                return false;
+
+            // Leave the FCU in a non-OFFBOARD mode for the next takeoff. A
+            // disarmed OFFBOARD vehicle can still retain setpoints and apply
+            // them abruptly on re-arm.
+            if (!is_ardupilot)
+            {
+                auto mode_request = std::make_shared<mavros_msgs::srv::SetMode::Request>();
+                mode_request->custom_mode = "AUTO.LOITER";
+                auto mode_result = set_mode_client_->async_send_request(mode_request);
+                if (mode_result.wait_for(std::chrono::seconds(2)) != std::future_status::ready ||
+                    !mode_result.get()->mode_sent)
+                {
+                    RCLCPP_WARN(this->get_logger(),
+                                "Disarmed, but AUTO.LOITER mode could not be confirmed");
+                }
+            }
+            return true;
         }
 
         bool is_armed() override { return is_state_received_ && current_state_.armed; }
@@ -684,7 +721,18 @@ namespace mavros_interface
             return true;
         }
 
-        bool land() override {}
+        bool land() override
+        {
+            auto request = std::make_shared<mavros_msgs::srv::SetMode::Request>();
+            request->custom_mode = is_ardupilot ? "LAND" : "AUTO.LAND";
+            auto result = set_mode_client_->async_send_request(request);
+            if (result.wait_for(std::chrono::seconds(2)) != std::future_status::ready)
+            {
+                RCLCPP_ERROR(this->get_logger(), "LAND mode request timed out");
+                return false;
+            }
+            return result.get()->mode_sent;
+        }
 
         void state_callback(const mavros_msgs::msg::State::SharedPtr msg)
         {

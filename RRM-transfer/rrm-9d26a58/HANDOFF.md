@@ -1,11 +1,142 @@
 # RRM remote Codex handoff
 
-## Current handoff — 2026-09-26
+## Latest working state — 2026-09-27 UTC (uncommitted changes)
 
-The latest committed source checkpoint is AirStack `ore_proj` commit `da9350d2`
-(`docs: refresh RRM handoff and source map`). The current uncommitted exploration
-changes pass **274/274** dependency-light RRM tests, and `droan_gl` plus
-`random_walk_planner` build successfully. Unit/build results do not qualify a flight.
+The current `ore_proj` checkout is still based on commit `9a2e1580`; the changes
+below are **uncommitted**. Read this section before the dated 2026-09-26 account
+below, which records an earlier checkpoint and contains superseded pause statements.
+Do not reset the worktree or treat the old `Office and Warehouse unpaused` prose as
+current. `git diff --check` passes. The modified `trajectory_controller`,
+`mavros_interface`, and `takeoff_landing_planner` packages built successfully;
+`./scripts/test_rrm.sh` from the RRM directory passed **279/279** tests.
+
+**Office:** the trajectory controller now caps its virtual tracking point at 0.5 m
+from physical odometry (previous config: 1000.5 m). `LandTask` requests PX4
+`AUTO.LAND` after 5 s without descent progress and has a 60 s total timeout.
+MAVROS arming/disarming handles retained `OFFBOARD` mode, and takeoff explicitly
+requests `OFFBOARD` after arming. Two consecutive 1 m Office takeoff/land missions,
+`office-repeat-b713f6cb` and `office-second-c59d7189`, independently verified both
+actions **without a restart**. Takeoff lateral displacement was 0.170 m and 0.028 m;
+the land actions completed in 15.35 s and 11.83 s. Both ended connected, disarmed,
+`AUTO.LOITER`, airborne=false. This qualifies only the narrow Office takeoff/land
+sequence at that checkpoint. **A newer Office exploration regression has now passed:**
+two consecutive GUI goals, `3c14d513d5b544ec9a2a69a2b92212da` and
+`202ab81507594478af2af25f8b753806`, each requested takeoff, 15 s of Office
+exploration, then landing. Both ended mission `VERIFIED` with independently
+`VERIFIED` takeoff, explore, and land actions. Measured maximum horizontal
+exploration radius was **2.981 m** and **2.915 m**, above the 0.5 m progress
+threshold. The second ran immediately after the first without restarting Isaac,
+the robot, or the GUI. Terminal MAVROS state after the second was connected=true,
+armed=false, mode=`AUTO.LOITER`; the GUI mission is inactive. Their immutable
+plans and outcomes are under `.rrm-artifacts/command-requests/<run-id>/`.
+These results qualify the bounded Office deterministic GUI command path for this
+15 s goal; they do not demonstrate semantic learned replanning or warehouse flight.
+
+**Warehouse-shelves:** GUI scene switching completed and all six AirStack readiness
+gates passed, with a fresh camera and map. A GUI takeoff/explore/land attempt
+`2bb8476f0ba24d0c82fe9fb4a1bea2c4` failed takeoff after 1.7 s: odometry
+reached z=-4.65 m and horizontal displacement 1.35 m; exploration did not run.
+The warehouse USD has an imported `/PhysicsScene`, unlike Office. The launcher now
+calls `dedupe_physics_scenes` and preserves `/World/PhysicsScene`; logs confirmed
+this, but a second attempt `f63e0584ee174f67bb766f2c44dca30b` still reached
+z=-4.86 m. A temporary origin collision slab changed the failure but did not
+qualify it: `eec771baa289455880d08b6a1dc91078` failed takeoff at z=-1.10 m,
+then the declared recovery landed with an independently `VERIFIED` outcome. The
+slab was removed from source. **Warehouse-shelves aerial flight remains paused;
+do not infer that a green `airstack ready` gate proves physical floor support.**
+The GUI currently has no scene-specific flight-qualification gate, so a user can
+still submit a warehouse flight despite this finding. Do not use GUI availability
+as flight admission evidence.
+Investigate warehouse stage collision/rigid-body contact and the PX4 thrust/odometry
+trace before another exploratory run. In particular, capture contact state,
+physical z, thrust setpoint and PX4 mode from *before* arm; compare Office and
+warehouse. The duplicate PhysicsScene cleanup is retained as a correctness fix,
+not claimed as a flight fix.
+
+Two further guarded GUI takeoff/land probes on 2026-09-27 sharpened this result.
+At the default origin, run `92c31fd359b84dada642a4ab77a81b0d` failed takeoff
+and ended `RECOVERY_FAILED` with the vehicle armed near the floor. Its synchronized
+pre-arm trace is `.rrm-artifacts/takeoff-diagnostics/warehouse-prearm-20260927/trace.jsonl`.
+The first armed sample was already moving laterally at about 0.43 m/s, with
+pitch setpoint about -0.083 quaternion-y and thrust 0.746. The Office repeat trace
+at first arm had near-zero lateral speed, nearly level attitude, and thrust 0.783.
+The warehouse floor tiles meet near `(0,0)`, so an interior spawn at `(2,-2)` was
+tested. Run `0a110cb47f924492929df2e6a73b6286` still failed: after arm it
+remained near z=0.02 m for three seconds while thrust rose from 0.604 to 0.782,
+then slid 0.486 m sideways and tripped the displacement limit. Its trace is
+`.rrm-artifacts/takeoff-diagnostics/warehouse-interior-20260927/trace.jsonl`.
+The scene-specific spawn change was reverted because it did not qualify flight.
+The USD floor tile `SM_floor02` has `physics:collisionEnabled=false`; the authored
+GroundPlane collision plane is enabled in both Office and Warehouse. This is a
+contact-geometry lead, not proof of the cause. Inspect *live* PhysX contacts and
+the spawned body's pose/clearance before changing collision or controller gains.
+The vehicle was disarmed after the interior probe. No warehouse exploration ran.
+
+For the next diagnostic, start the trace **before** dispatch using
+[`scripts/takeoff_diagnostic.py`](scripts/takeoff_diagnostic.py), capturing physical
+odometry, the virtual tracking point, raw attitude/thrust setpoint, PX4 state, and
+the takeoff trajectory. Also inspect PhysX contact for the spawned body and the
+warehouse floor prim `/World/stage/GroundPlane/CollisionMesh`; the imported
+`/PhysicsScene` is now deactivated. Keep the mission's predeclared recovery and
+independent outcome verifier. Do not widen takeoff bounds or label a timed
+exploration action successful without measured horizontal progress.
+
+**RRM-EM:** `rrm/embodiment_learning.py` now supplies a pure advisory evidence
+contract: exact embodiment/operation/scene/capability/adapter/controller scope,
+independent `VERIFIED`/`UNMET`/`UNKNOWN` effect labels, idempotent append-only
+ledger, scoped Beta(1,1) estimate, and route-candidate annotation without dispatch
+authority. `scripts/rrm_em_import_mission.py` exports checksum-bound command
+mission outcomes for offline analysis; it skips undispatched actions. The
+[architecture](docs/embodiment-learning-architecture.md) describes this seam.
+There is no online training, durable store, GUI consumption, cross-scene transfer,
+or automatic selection from these estimates. The dependency-light suite passed
+279/279 after this change, and the modified ROS packages built with colcon.
+The read-only importer was also run against `office-second` with the plan's
+`active_scene=office`, the Office USD SHA-256, and a digest of the installed
+controller binaries/configs; it exported two `VERIFIED` effect records at
+`.rrm-artifacts/takeoff-diagnostics/office-second/rrm-em-evidence.json`.
+The same importer exported the final warehouse attempt with `TAKEOFF=UNKNOWN`
+and recovery `LAND=VERIFIED`, preserving the distinction between failed task
+completion and a separately verified safe landing.
+It also exported all three `VERIFIED` effects from each new Office exploration
+mission into that run's `rrm-em-evidence.json`. These are offline evidence exports;
+the GUI and route selector still do not consume them.
+
+Evidence is under `/root/AirStack/.rrm-artifacts/takeoff-diagnostics/office-repeat/`
+and `office-second/` for the earlier Office takeoff/land runs, and
+`/root/AirStack/.rrm-artifacts/command-requests/<run-id>/` for the two newer
+Office exploration runs and three warehouse run IDs above. Keep failed attempts
+in any acceptance count. The next work is (1) diagnose the warehouse physical
+fall with synchronized telemetry and a scene-support admission check, then
+(2) expand the acceptance matrix to other scenes. Keep RRM-EM
+advisory until its estimates are calibrated against these immutable outcomes.
+
+After the warehouse tests, the GUI switched back to `office` using `/api/scene`.
+After the two additional 2026-09-27 probes, it was switched back again. At
+06:39 UTC `./airstack.sh ready --json` passed all six gates; `/api/state` reported
+`active_scene=office`, `scene_context_status=MATCHED`, and
+`command_execution_enabled=true`. `/api/mission` retained the interior warehouse
+`RECOVERY_FAILED` result as history but reported `active=false`. The GUI process
+was reachable on localhost:8787. No fresh Office flight was dispatched after this
+final scene reload, so distinguish service readiness from the earlier qualified
+Office flight results.
+`./airstack.sh ready --json` then returned all six gates `ok`; the console reports
+`active_scene=office`, `scene_context_status=MATCHED`, and a fresh camera frame
+was captured. The two subsequent Office exploration goals above were executed
+through this same GUI. It now reports the second mission `VERIFIED` and inactive;
+a direct MAVROS sample after landing was connected=true, armed=false,
+mode=`AUTO.LOITER`. The viewer and GUI can be used now. Recheck readiness and
+grounded state before another goal because the simulator continues running.
+
+## Prior handoff — 2026-09-26 (historical; superseded above)
+
+The latest committed source checkpoint is AirStack `ore_proj` commit `9a2e1580`
+(`Fix exploration bugs: reduce collision padding in random_walk and droan_gl, and
+document clean restart requirements`). The previous RRM exploration changes passed
+**274/274** dependency-light tests, and `droan_gl` plus `random_walk_planner` built
+successfully; those checks
+predate some controller/config changes in `9a2e1580`. Unit/build results do not
+qualify a flight.
 
 The 2026-09-26 Office verification flight (`949b6027`) completed a 1.0 m takeoff and
 landing with both actions `VERIFIED`. Reducing `sphere_radius` to 0.3 and
@@ -78,11 +209,37 @@ may fail again**. Before any flight, reacquire grounded/disarmed canonical state
 use the GUI's supervised run/Stop controls; a passing `airstack ready` alone does not
 qualify flight. Keep the livestream profile for Isaac Viewer (TCP 49100/UDP 49099).
 
-The uncommitted RRM exploration checks, DROAN physical-odometry completion check,
-and scene/console documentation edits remain in the shared working tree. The previous
-274/274 tests and ROS package builds were run **before** this container recreation;
-recheck the installed nodes/binaries if changing or retesting them. Do not discard
-these changes when continuing the takeoff investigation.
+The RRM exploration checks, DROAN physical-odometry completion check, and scene/console
+documentation edits are now included in `9a2e1580`. That commit also replaces the
+old three-point takeoff path with a discretized ascent, changes the PID vertical
+thrust constant from 0.5 to 0.71, reduces the trajectory controller's minimum
+tracking velocity to 0.1, and reduces random-walk collision padding and DROAN
+expansion radius to 0.3 m. It adds `scripts/takeoff_diagnostic.py` and
+`scripts/run_takeoff_test.sh`. Treat these as candidate fixes, not a qualified
+end-to-end flight. A direct 1 m `TakeoffTask` test at 21:40 aborted for horizontal
+drift; another at 21:48 returned success. Their logs and a trace are in
+`/root/AirStack/.rrm-artifacts/takeoff-diagnostics/`. Neither is an independently
+verified explore-and-land mission, and the direct action test has no automatic land.
+
+At 23:21 UTC, fresh state was **armed=true, airborne=true, OFFBOARD**, with odometry
+near `(8.92, -5.29, 0.004)` m, while the console showed no active mission. This was
+contradictory grounded-height state. Isaac and robot were therefore stopped and a
+fresh Office livestream stack was launched at 23:22 UTC. The robot initially
+predated Isaac, so it was restarted after Office/PX4 came up. The subsequent
+`airstack ready --json` returned `ready: true` with all six gates `ok`.
+
+Fresh MAVROS state after the reset was **connected=true, armed=false,
+mode=AUTO.LOITER**; AirStack reported **airborne=false**; odometry was near
+`(0.006, -0.008, -0.005)` m, at the Office spawn. The front stereo left image
+published at about 28 Hz. A POST to the console's `/api/camera` succeeded and
+returned a captured frame hash. The console at `http://localhost:8787` reported
+`active_scene=office`, `scene_context_status=MATCHED`,
+`command_execution_enabled=true`, and `mission.state=IDLE`. This is a verified
+**operational starting state for the GUI**, not proof that the requested
+explore-and-land flight will succeed: takeoff remains intermittent and no complete
+GUI goal has qualified the latest controller changes. Recheck current state if the
+simulator has run or been touched since this handoff, and keep the GUI Stop control
+available during any supervised attempt.
 
 ## Authoritative document map
 

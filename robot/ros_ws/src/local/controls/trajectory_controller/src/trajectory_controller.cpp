@@ -32,6 +32,7 @@
 #include <trajectory_library/trajectory_library.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
+#include <cmath>
 
 //===================================================================================
 //----------------------------- Trajectory Control Node -----------------------------
@@ -425,6 +426,35 @@ void TrajectoryControlNode::timer_callback() {
         virtual_tracking_point_odom.jerk.z = 0;
         look_ahead_point = virtual_tracking_point_odom;
         drone_point = look_ahead_point;
+    }
+
+    // A time-based trajectory can run to its endpoint while the vehicle is still
+    // on the ground or blocked by a scene obstacle. Bound the command sent to the
+    // position controller by current physical odometry, irrespective of how far
+    // virtual_time has advanced. This also applies to landing and navigation.
+    if (trajectory_mode != airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE &&
+        std::isfinite(tracking_point_distance_limit) && tracking_point_distance_limit > 0.0) {
+        auto & target = virtual_tracking_point_odom.pose.position;
+        const auto & actual = odom.pose.pose.position;
+        const double dx = target.x - actual.x;
+        const double dy = target.y - actual.y;
+        const double dz = target.z - actual.z;
+        const double distance = std::sqrt(dx * dx + dy * dy + dz * dz);
+        if (std::isfinite(distance) && distance > tracking_point_distance_limit) {
+            const double scale = tracking_point_distance_limit / distance;
+            target.x = actual.x + dx * scale;
+            target.y = actual.y + dy * scale;
+            target.z = actual.z + dz * scale;
+            virtual_tracking_point_odom.twist.linear.x = 0.0;
+            virtual_tracking_point_odom.twist.linear.y = 0.0;
+            virtual_tracking_point_odom.twist.linear.z = 0.0;
+            virtual_tracking_point_odom.acceleration.x = 0.0;
+            virtual_tracking_point_odom.acceleration.y = 0.0;
+            virtual_tracking_point_odom.acceleration.z = 0.0;
+            virtual_tracking_point_odom.jerk.x = 0.0;
+            virtual_tracking_point_odom.jerk.y = 0.0;
+            virtual_tracking_point_odom.jerk.z = 0.0;
+        }
     }
 
     virtual_tracking_point_odom.header.stamp = now;

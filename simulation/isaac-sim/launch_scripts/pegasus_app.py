@@ -381,7 +381,13 @@ class PegasusApp:
         self.pre_scene_prep(stage)
 
         # ----- Scene preparation -----
-        from scene_prep import scale_stage_prim, add_colliders, add_dome_light
+        from scene_prep import (scale_stage_prim, add_colliders, add_dome_light,
+                                dedupe_physics_scenes)
+
+        # Catalog stages can carry a second PhysicsScene (warehouse-shelves
+        # does). Keep the World scene used by the vehicle before binding
+        # imported floor/obstacle colliders to physics.
+        dedupe_physics_scenes(stage)
 
         stage_prim = stage.GetPrimAtPath("/World/stage")
         if stage_prim.IsValid():

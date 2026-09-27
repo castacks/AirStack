@@ -65,6 +65,8 @@ private:
   double landing_stationary_distance_;
   double landing_acceptance_time_;
   double landing_tracking_point_ahead_time_;
+  double landing_stall_timeout_s_;
+  double landing_max_duration_s_;
   double takeoff_path_roll_;
   double takeoff_path_pitch_;
   bool takeoff_path_relative_to_orientation_;

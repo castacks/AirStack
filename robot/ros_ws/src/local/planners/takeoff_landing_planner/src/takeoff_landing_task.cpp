@@ -22,6 +22,7 @@
 
 #include <airstack_common/ros2_helper.hpp>
 #include <std_msgs/msg/float32.hpp>
+#include <chrono>
 #include <cmath>
 #include <thread>
 
@@ -48,6 +49,8 @@ TakeoffLandingTaskNode::TakeoffLandingTaskNode()
   landing_acceptance_time_ = airstack::get_param(this, "landing_acceptance_time", 5.0);
   landing_tracking_point_ahead_time_ =
     airstack::get_param(this, "landing_tracking_point_ahead_time", 5.0);
+  landing_stall_timeout_s_ = airstack::get_param(this, "landing_stall_timeout_s", 5.0);
+  landing_max_duration_s_ = airstack::get_param(this, "landing_max_duration_s", 60.0);
   takeoff_path_roll_ = airstack::get_param(this, "takeoff_path_roll", 0.0) * M_PI / 180.0;
   takeoff_path_pitch_ = airstack::get_param(this, "takeoff_path_pitch", 0.0) * M_PI / 180.0;
   takeoff_path_relative_to_orientation_ =
@@ -328,16 +331,16 @@ void TakeoffLandingTaskNode::takeoff_execute(std::shared_ptr<TakeoffGoalHandle> 
   }
 
   // request offboard control
-  if (!has_control_) {
-    RCLCPP_INFO(this->get_logger(), "TakeoffTask: requesting offboard control");
-    if (!send_robot_command(airstack_msgs::srv::RobotCommand::Request::REQUEST_CONTROL)) {
-      RCLCPP_ERROR(this->get_logger(), "TakeoffTask aborted: failed to request offboard control");
-      result->success = false;
-      result->message = "failed to request offboard control";
-      goal_handle->abort(result);
-      task_active_ = false;
-      return;
-    }
+  // Always make a fresh control request after arming. The cached has_control
+  // flag can describe a previous disarmed OFFBOARD session.
+  RCLCPP_INFO(this->get_logger(), "TakeoffTask: requesting offboard control");
+  if (!send_robot_command(airstack_msgs::srv::RobotCommand::Request::REQUEST_CONTROL)) {
+    RCLCPP_ERROR(this->get_logger(), "TakeoffTask aborted: failed to request offboard control");
+    result->success = false;
+    result->message = "failed to request offboard control";
+    goal_handle->abort(result);
+    task_active_ = false;
+    return;
   }
 
   // set trajectory mode to TRACK
@@ -591,6 +594,14 @@ void TakeoffLandingTaskNode::land_execute(std::shared_ptr<LandGoalHandle> goal_h
   RCLCPP_INFO(this->get_logger(), "LandTask: descending at %.2f m/s", velocity);
 
   rclcpp::Rate rate(10);
+  const auto landing_started = std::chrono::steady_clock::now();
+  auto last_descent_progress = landing_started;
+  float progress_altitude;
+  {
+    std::lock_guard<std::mutex> lock(odom_mutex_);
+    progress_altitude = robot_odom_.pose.pose.position.z;
+  }
+  bool px4_land_requested = false;
   while (rclcpp::ok()) {
     if (cancel_requested_) {
       set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE);
@@ -624,6 +635,40 @@ void TakeoffLandingTaskNode::land_execute(std::shared_ptr<LandGoalHandle> goal_h
       result->success = true;
       result->message = "landing complete";
       goal_handle->succeed(result);
+      task_active_ = false;
+      return;
+    }
+
+    const auto now = std::chrono::steady_clock::now();
+    if (current_z <= progress_altitude - 0.05f) {
+      progress_altitude = current_z;
+      last_descent_progress = now;
+    }
+    // A controller can reach the floor while PX4's landed flag stays IN_AIR.
+    // A sustained lack of descent is a better trigger than a map-Z threshold:
+    // it also works when another scene's floor is not at z=0.
+    if (!px4_land_requested && landing_stall_timeout_s_ > 0.0 &&
+      std::chrono::duration<double>(now - last_descent_progress).count() >=
+      landing_stall_timeout_s_)
+    {
+      px4_land_requested = true;
+      RCLCPP_WARN(this->get_logger(),
+        "LandTask descent stalled at %.2fm; requesting autopilot LAND mode", current_z);
+      if (send_robot_command(airstack_msgs::srv::RobotCommand::Request::LAND)) {
+        set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE);
+      } else {
+        RCLCPP_ERROR(this->get_logger(),
+          "LandTask autopilot LAND mode request failed; retaining descent trajectory");
+      }
+    }
+    if (landing_max_duration_s_ > 0.0 &&
+      std::chrono::duration<double>(now - landing_started).count() >= landing_max_duration_s_)
+    {
+      RCLCPP_ERROR(this->get_logger(), "LandTask timed out without confirmed ground state");
+      set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE);
+      result->success = false;
+      result->message = "landing confirmation timed out";
+      goal_handle->abort(result);
       task_active_ = false;
       return;
     }

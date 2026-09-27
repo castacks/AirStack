@@ -105,7 +105,13 @@ def dedupe_physics_scenes(stage) -> str | None:
     if not scenes:
         print("[scene_prep] No PhysicsScene found in stage")
         return None
-    keep, *extras = scenes
+    # Preserve the scene created by Isaac's World/PhysicsContext when present.
+    # Imported environments may also carry a root-level PhysicsScene; keeping
+    # that one instead can leave the World-bound rigid bodies and stage
+    # colliders in different simulation scenes.
+    keep = next((p for p in scenes if str(p.GetPath()) == "/World/PhysicsScene"),
+                scenes[0])
+    extras = [p for p in scenes if p != keep]
     for extra in extras:
         path = extra.GetPath()
         # Prims that come from a referenced sublayer (e.g. PhysicsScene baked
