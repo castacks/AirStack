@@ -105,6 +105,18 @@ for name, (rgb, amp, pat, tile, rough, metal) in PROC.items():
         tex = np.dstack([tex, a_])
     cv2.imwrite(str(OUT / f"{name}.png"), tex)
     lib[name] = {"tile_m": tile, "rough": rough, "metal": metal, "source": f"procedural, colour off the video ({pat})", **({"cutout": True} if pat == "bars" else {})}
+# from an already-baked image: the dark, banded look B01's photo atlas gave its hanging wall's 2nd strip (the user's pick)
+FROM_IMG = {"wall_dark": ("b01/B01_photo.png", "hanging_wall_1", 1.0, 0.9, "B01's hanging wall piece, the video's dark concrete")}
+for name, (img_rel, part, tile, rough, note) in FROM_IMG.items():
+    A_ = json.load(open(R / img_rel.replace("_photo.png", "_atlas.json")))
+    f_ = next((f for f in A_["faces"] if part in f["path"] and f["n"][1] < -0.9), None)
+    if f_ is None:                                                             # the part no longer has an atlas face: keep the last cut
+        if (OUT / f"{name}.png").exists(): lib[name] = json.load(open(OUT / "materials.json")).get(name, {"tile_m": tile, "rough": rough, "metal": 0.0})
+        continue
+    x, y, w, h = f_["px"]; src = cv2.imread(str(R / img_rel))[y + h // 3:y + h, x:x + w].astype(np.float32) / 255
+    tex = seamless(cv2.resize(src, (N, N), interpolation=cv2.INTER_CUBIC))
+    cv2.imwrite(str(OUT / f"{name}.png"), (np.clip(tex, 0, 1) * 255).astype(np.uint8))
+    lib[name] = {"tile_m": tile, "rough": rough, "metal": 0.0, "source": f"{img_rel} ({part}): {note}"}
 # decals: one image spanning each face of the part once (build_hero.py), cut straight from a frame -- the "133" sign
 DECALS = {"sign_133": ("b01/images/A/A03_005.jpg", [(752, 608), (978, 610), (978, 750), (752, 750)], "B01's 133 sign, the white plate only")}
 for name, (img_rel, quad, note) in DECALS.items():

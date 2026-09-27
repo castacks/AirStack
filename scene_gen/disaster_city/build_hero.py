@@ -18,6 +18,7 @@ drone. Spec parts:
   beam:   {name, from: [x,y,z], to: [x,y,z], t: 0.2, mat}   oriented square bar (bracing, booms, tilted slabs with t2)
   cyl:    {name, c: [x,y,z] (centre), r, h, axis: X|Y|Z, mat}
   sphere: {name, c: [x,y,z], r, mat}
+  prism:  {name, poly: [[x,z], ...], y: [y0, y1], mat}   an outline in the x-z plane, extruded over y
   hip:    {name, min: [x,y,z], max: [x,y,z], mat}   hip roof over the box's footprint, ridge along its long side
 
 Optional top-level `default_mat` (else concrete) for parts without a `mat`.
@@ -35,7 +36,7 @@ from _paths import R
 MATS = {"concrete": (0.62, 0.60, 0.56), "steel": (0.30, 0.31, 0.33), "grating": (0.22, 0.22, 0.24),
         "wood": (0.55, 0.42, 0.28), "rust": (0.45, 0.25, 0.15), "tank_black": (0.08, 0.08, 0.09), "tank_white": (0.85, 0.85, 0.83),
         "steel_dark": (0.20, 0.17, 0.15), "stucco": (0.72, 0.62, 0.48), "roof_brown": (0.40, 0.28, 0.20), "metal_white": (0.80, 0.80, 0.78),
-        "metal_ribbed": (0.48, 0.48, 0.47), "metal_grey": (0.42, 0.42, 0.43), "panel_dark": (0.28, 0.29, 0.29), "yellow": (0.84, 0.77, 0.56), "sign": (0.92, 0.92, 0.90), "canvas": (0.80, 0.72, 0.58), "grating_open": (0.22, 0.22, 0.24), "sign_133": (0.92, 0.92, 0.90)}
+        "metal_ribbed": (0.48, 0.48, 0.47), "metal_grey": (0.42, 0.42, 0.43), "panel_dark": (0.28, 0.29, 0.29), "yellow": (0.84, 0.77, 0.56), "sign": (0.92, 0.92, 0.90), "canvas": (0.80, 0.72, 0.58), "grating_open": (0.22, 0.22, 0.24), "sign_133": (0.92, 0.92, 0.90), "wall_dark": (0.33, 0.33, 0.35)}
 
 def wall_boxes(w):
     (x0, y0), (x1, y1), (z0, z1), t = w["from"], w["to"], w["z"], w.get("t", 0.25)
@@ -188,6 +189,23 @@ for part in spec["parts"]:
         M = np.eye(4); M[:3, :3] = np.c_[ax, side, np.cross(ax, side)]; M[:3, 3] = (a + b) / 2
         t, t2 = d.get("t", 0.2), d.get("t2", d.get("t", 0.2))
         corners = [box_corners([-L / 2, -t2 / 2, -t / 2], [L / 2, t2 / 2, t / 2], M)]
+    elif kind == "prism":                                           # an outline in the local x-z plane, extruded over y (a jagged wall piece)
+        import mapbox_earcut
+        P2 = np.array(d["poly"], float); y0, y1 = d["y"]; n2 = len(P2)
+        if np.sum(P2[:, 0] * np.roll(P2[:, 1], -1) - np.roll(P2[:, 0], -1) * P2[:, 1]) < 0: P2 = P2[::-1]   # counter-clockwise in x-z
+        tri = mapbox_earcut.triangulate_float64(P2, np.array([n2], np.uint32)).reshape(-1, 3)
+        V = [(x, y0, z) for x, z in P2] + [(x, y1, z) for x, z in P2]
+        F = [[int(t[0]), int(t[2]), int(t[1])] for t in tri] + [[int(t[0]) + n2, int(t[1]) + n2, int(t[2]) + n2] for t in tri]
+        F += [[i, (i + 1) % n2, (i + 1) % n2 + n2, i + n2] for i in range(n2)]
+        g = UsdGeom.Mesh.Define(stage, path); g.CreatePointsAttr(V); g.CreateFaceVertexCountsAttr([len(f) for f in F])
+        g.CreateFaceVertexIndicesAttr([i for f in F for i in f]); g.CreateSubdivisionSchemeAttr("none")
+        per = np.r_[0, np.cumsum(np.linalg.norm(np.roll(P2, -1, 0) - P2, axis=1))]
+        st_ = [(V[i][0], V[i][2]) for f in F[:2 * len(tri)] for i in f]      # caps: planar metres
+        st_ += [c for i in range(n2) for c in ((per[i], y0), (per[i + 1], y0), (per[i + 1], y1), (per[i], y1))]
+        UsdGeom.PrimvarsAPI(g).CreatePrimvar("st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.faceVarying).Set(st_)
+        g.CreateDisplayColorAttr([MATS.get(mat, MATS["concrete"])]); UsdShade.MaterialBindingAPI.Apply(g.GetPrim()).Bind(material(mat))
+        UsdPhysics.CollisionAPI.Apply(g.GetPrim()); UsdPhysics.MeshCollisionAPI.Apply(g.GetPrim()).CreateApproximationAttr("none")
+        n += 1; continue
     elif kind == "hip":                                              # a box whose top face is pulled in to a ridge
         lo, hi = np.array(d["min"], float), np.array(d["max"], float); c = box_corners(lo, hi)
         ax = 0 if hi[0] - lo[0] >= hi[1] - lo[1] else 1; inset = (hi[1 - ax] - lo[1 - ax]) / 2
