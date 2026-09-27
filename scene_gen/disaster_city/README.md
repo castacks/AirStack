@@ -76,8 +76,8 @@ Run from this directory. Each script's docstring has the details.
 ```bash
 PY=~/.venvs/recon/bin/python
 # 0. inputs cut from the blend
-blender -b data/blender_data/disaster_city.blend --python ortho.py -- 75 -300 560 4480 data/recon/ortho_site.png
-blender -b data/blender_data/disaster_city.blend --python tiles_crop.py -- 75 -300 290 data/recon/tiles_site.npz
+blender -b data/blender_data/disaster_city.blend --python ortho.py -- 75 -317.5 560x595 4480 data/recon/ortho_site.png
+blender -b data/blender_data/disaster_city.blend --python tiles_crop.py -- 75 -317.5 305 data/recon/tiles_site.npz
 blender -b data/blender_data/disaster_city.blend --python tiles_crop.py -- 39 -388 150 data/recon/tiles_R01.npz
 blender -b data/blender_data/disaster_city.blend --python tiles_crop.py -- 47 -410 150 data/recon/tiles_B01.npz
 blender -b data/blender_data/disaster_city.blend --python osm_export.py -- data/recon/osm.npz

@@ -2,8 +2,8 @@
 
     OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh overview.py OUT_DIR [--scene autumn] [--px 3000]
 
-A camera straight down, north up, framing the geofence (the 560 x 560 m window the scene is built in: the
-ortho / ground / LOD1 window, x -205..355, y -580..-20) with a margin and --south m more to the south, where the
+A camera straight down, north up, framing the geofence (the window the scene is built in: the
+ortho / ground / LOD1 window, x -205..355, y -615..-20) with a margin and --south m more to the south, where the
 site goes on. Inside the fence it is our scene; outside, the raw Google tiles (washed out) from the same camera,
 for context. Writes
   OUT_DIR/overview_<scene>.jpg            the render
@@ -14,11 +14,11 @@ The world -> pixel map is exact (a pinhole looking straight down), so the rectan
 import json, math, sys
 from pathlib import Path
 arg = lambda k, d=None: sys.argv[sys.argv.index(k) + 1] if k in sys.argv else d
-PX = int(arg("--px", "3000")); SOUTH = float(arg("--south", "120"))          # frame this far past the fence's south edge
-import json as _j
-from pathlib import Path as _P
-_g = _j.load(open(_P(__file__).resolve().parent / "data/recon/ortho_site.json"))
-SPANX, SPANY = 560.0 * 1.12, (560.0 + SOUTH) * 1.06 + 560.0 * 0.06
+PX = int(arg("--px", "3000")); SOUTH = float(arg("--south", "90"))          # frame this far past the fence's south edge
+from PIL import Image
+_d = Path(__file__).resolve().parent / "data/recon"; _g = json.load(open(_d / "ortho_site.json"))
+FW, FH = (n * _g["m_per_px"] for n in Image.open(_d / "ortho_site.png").size)   # the geofence, m
+SPANX, SPANY = FW * 1.12, (FH + SOUTH) * 1.06 + FW * 0.06
 PXH = int(round(PX * SPANY / SPANX))
 from isaacsim import SimulationApp
 app = SimulationApp({"headless": True, "width": PX, "height": PXH, "renderer": "RaytracedLighting"})
@@ -30,8 +30,8 @@ from _paths import R
 
 out = Path(sys.argv[1]); out.mkdir(parents=True, exist_ok=True); scene = arg("--scene", "summer")
 geo = json.load(open(R / "ortho_site.json"))
-FX0, FY1 = geo["x0"], geo["y1"]; FX1, FY0 = FX0 + 560.0, FY1 - 560.0            # the geofence
-cx = (FX0 + FX1) / 2; cy = FY1 + 560.0 * 0.06 - SPANY / 2                      # the fence + 6% margins, and SOUTH m more south
+FX0, FY1 = geo["x0"], geo["y1"]; FX1, FY0 = FX0 + FW, FY1 - FH            # the geofence
+cx = (FX0 + FX1) / 2; cy = FY1 + FW * 0.06 - SPANY / 2                      # the fence + 6% margins, and SOUTH m more south
 FOCAL, AP = 30.0, 36.0; H = SPANX / 2 / (AP / 2 / FOCAL)                          # height that frames SPANX
 Z = 60.0 + H
 
@@ -89,7 +89,7 @@ except OSError: font = small = ImageFont.load_default()
 def fence(im, colour):
     dr = ImageDraw.Draw(im); a, b = pix(FX0, FY1), pix(FX1, FY0)
     dr.rectangle([a, b], outline=colour, width=max(4, PX // 400))
-    dr.text((a[0] + 10, a[1] + 10), "geofence  560 x 560 m", fill=colour, font=font)
+    dr.text((a[0] + 10, a[1] + 10), f"geofence  {FW:.0f} x {FH:.0f} m", fill=colour, font=font)
     dr.text((a[0] + 10, b[1] - PX // 40), f"x {FX0:.0f}..{FX1:.0f}, y {FY0:.0f}..{FY1:.0f} (scene metres)   N up", fill=colour, font=small)
     return im
 img.save(out / f"overview_{scene}.jpg", quality=92)

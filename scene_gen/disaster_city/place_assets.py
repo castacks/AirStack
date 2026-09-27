@@ -32,7 +32,7 @@ A = R / "assets"
 rng = np.random.default_rng(7)
 import os; DEBUG = bool(os.environ.get("DEBUG"))
 r = np.load(R / "site_rasters.npz"); X0, Y1, RES = float(r["x0"]), float(r["y1"]), float(r["res"])
-DSM, DTM, CLS = r["dsm"], r["dtm"], r["cls"]; N = DSM.shape[0]
+DSM, DTM, CLS = r["dsm"], r["dtm"], r["cls"]; NY, NX = DSM.shape
 cell_xy = lambda i, j: (X0 + (j + 0.5) * RES, Y1 - (i + 0.5) * RES)
 
 def label(prim, cls):
@@ -69,7 +69,7 @@ print(f"trees: {len(ii)} canopy peaks", end="")
 # the tile canopy is blobby, so peaks alone leave gaps: greedy fill of any tall-enough
 # vegetation cell with no tree within GAP m, in random order (a Poisson-disk-ish cover)
 GAP = 4.5
-occ = np.zeros((N, N), np.uint8)
+occ = np.zeros((NY, NX), np.uint8)
 for i, j in zip(ii, jj): cv2.circle(occ, (int(j), int(i)), int(GAP / RES), 1, -1)
 ci, cj = np.nonzero(veg & (chm >= 3.0)); o = rng.permutation(len(ci)); add = []
 for i, j in zip(ci[o], cj[o]):
@@ -125,12 +125,12 @@ geo = json.load(open(R / "ortho_site.json")); ortho = cv2.imread(str(R / "ortho_
 
 t = np.load(R / "tiles_site.npz"); scene = o3d.t.geometry.RaycastingScene()
 scene.add_triangles(o3d.core.Tensor(t["verts"].astype(np.float32)), o3d.core.Tensor(t["faces"].astype(np.uint32)))
-F = 0.25; NF = int(N * RES / F)
-gx = X0 + (np.arange(NF) + 0.5) * F; gy = Y1 - (np.arange(NF) + 0.5) * F
+F = 0.25; NFX, NFY = int(NX * RES / F), int(NY * RES / F)
+gx = X0 + (np.arange(NFX) + 0.5) * F; gy = Y1 - (np.arange(NFY) + 0.5) * F
 GX, GY = np.meshgrid(gx, gy)
 Z = 500 - scene.cast_rays(o3d.core.Tensor(np.stack([GX, GY, np.full_like(GX, 500), 0 * GX, 0 * GX, -np.ones_like(GX)], -1).astype(np.float32)))["t_hit"].numpy()
-up_ = lambda a: cv2.resize(a.astype(np.uint8), (NF, NF), interpolation=cv2.INTER_NEAREST).astype(bool)
-Hf = np.nan_to_num(Z - cv2.resize(DTM, (NF, NF), interpolation=cv2.INTER_LINEAR))
+up_ = lambda a: cv2.resize(a.astype(np.uint8), (NFX, NFY), interpolation=cv2.INTER_NEAREST).astype(bool)
+Hf = np.nan_to_num(Z - cv2.resize(DTM, (NFX, NFY), interpolation=cv2.INTER_LINEAR))
 where = up_(r["osm_road"] | r["road"] | (CLS == 3))
 for vx, vy in vlabels: where |= np.hypot(GX - vx, GY - vy) < 12
 free = ~up_(r["occupied"]) & ~up_(r["veg"]) & ~up_(r["water"])

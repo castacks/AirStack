@@ -32,8 +32,8 @@ from _paths import CODE, R, LABELS
 RES, RAISED = 1.0, 0.8
 geo = json.load(open(R / "ortho_site.json")); ortho = cv2.imread(str(R / "ortho_site.png"))
 OX0, OY1, OM = geo["x0"], geo["y1"], geo["m_per_px"]
-X0, Y1 = OX0, OY1; N = int(ortho.shape[1] * OM / RES)                    # grid = the ortho window
-xs = X0 + (np.arange(N) + 0.5) * RES; ys = Y1 - (np.arange(N) + 0.5) * RES
+X0, Y1 = OX0, OY1; NX, NY = (int(n * OM / RES) for n in ortho.shape[1::-1])     # grid = the ortho window
+xs = X0 + (np.arange(NX) + 0.5) * RES; ys = Y1 - (np.arange(NY) + 0.5) * RES
 X, Y = np.meshgrid(xs, ys)
 
 t = np.load(R / "tiles_site.npz"); TV, TF = t["verts"].astype(np.float32), t["faces"].astype(np.int64)
@@ -53,12 +53,12 @@ np.savez(R / "dtm.npz", dtm=DTM.astype(np.float32), x0=X0, y1=Y1, res=RES)   # r
 
 # ortho colour per cell (for classification)
 ou = np.clip(((X - OX0) / OM).astype(int), 0, ortho.shape[1] - 1); ov = np.clip(((OY1 - Y) / OM).astype(int), 0, ortho.shape[0] - 1)
-small = cv2.resize(ortho, (N, N), interpolation=cv2.INTER_AREA)
+small = cv2.resize(ortho, (NX, NY), interpolation=cv2.INTER_AREA)
 hsv = cv2.cvtColor(small, cv2.COLOR_BGR2HSV).astype(int); b_, g_, r_ = [small[..., i].astype(int) for i in range(3)]
 exg = 2 * g_ - r_ - b_
 
 def raster(tris):
-    m = np.zeros((N, N), np.uint8)
+    m = np.zeros((NY, NX), np.uint8)
     for tri in tris:
         p = np.stack([(tri[:, 0] - X0) / RES, (Y1 - tri[:, 1]) / RES], -1)
         cv2.fillConvexPoly(m, np.round(p * 8).astype(np.int32), 1, shift=3)
@@ -85,7 +85,7 @@ heroes = {}                                               # id -> footprint mask
 import importlib.util
 spec = importlib.util.spec_from_file_location("a", CODE / "assemble_scene.py"); src = open(spec.origin).read()
 PIECES = eval(src.split("PIECES = ")[1].split("\n")[0])
-hero_mask = np.zeros((N, N), bool)
+hero_mask = np.zeros((NY, NX), bool)
 for pid in PIECES:
     if pid not in lab_at: continue
     l = lab_at[pid]; r = l.get("size_m", 20) / 2 + (2 if l["kind"] == "rubble" else 0)
@@ -102,7 +102,7 @@ def swallow(m, reach):
     near = cv2.dilate(m.astype(np.uint8), cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * int(reach / RES) + 1,) * 2)).astype(bool)
     return cv2.dilate((m | (np.isin(raised_cc, touch[touch > 0]) & near)).astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool)
 
-box_mask = np.zeros((N, N), bool)
+box_mask = np.zeros((NY, NX), bool)
 boxes = yaml.safe_load(open(R / "buildings_lod1.yaml"))["buildings"]
 def in_box(px, py, b, pad):
     th = np.radians(b["yaw_deg"]); dx, dy = px - b["at"][0], py - b["at"][1]
@@ -110,7 +110,7 @@ def in_box(px, py, b, pad):
     return (abs(lu) < b["size_m"][0] / 2 + pad) & (abs(lv) < b["size_m"][1] / 2 + pad)
 for b in boxes:                                              # the extruded tile outline (lod1_buildings.py levels)
     if b["id"] in PIECES: continue                           # its hero model masks below
-    m = np.zeros((N, N), np.uint8)
+    m = np.zeros((NY, NX), np.uint8)
     for lv in b.get("levels", []):
         for ring in lv["rings"]:
             ring = np.array(ring); cv2.fillPoly(m, [np.round(np.c_[(ring[:, 0] - X0) / RES, (Y1 - ring[:, 1]) / RES]).astype(np.int32)], 1)
@@ -121,7 +121,7 @@ for pid, rel in PIECES.items():
     if pid.startswith("R") or not (R / rel).exists(): continue
     hs = Usd.Stage.Open(str(R / rel))                      # keep a reference: the prim dies with its stage
     cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), ["default"])
-    m = np.zeros((N, N), np.uint8)
+    m = np.zeros((NY, NX), np.uint8)
     for part in hs.GetDefaultPrim().GetChildren():         # per part, so a spread-out rig masks only its members
         bb = cache.ComputeWorldBound(part)
         if bb.GetRange().IsEmpty(): continue
@@ -133,21 +133,21 @@ for pid, rel in PIECES.items():
     box_mask |= sw
     print(f"  {pid}: masked {sw.sum() * RES * RES:.0f} m2 of tile surface ({m.sum() * RES * RES:.0f} m2 model footprint)")
 
-replaced = np.zeros((N, N), bool)                          # vehicle blobs place_assets.py swapped for assets --
+replaced = np.zeros((NY, NX), bool)                          # vehicle blobs place_assets.py swapped for assets --
 if (R / "replaced.npz").exists():                           # cut from the USD only, NOT from the rasters it reads back
     for poly in np.load(R / "replaced.npz")["polys"]:
-        m = np.zeros((N, N), np.uint8)
+        m = np.zeros((NY, NX), np.uint8)
         cv2.fillConvexPoly(m, np.round(np.c_[(poly[:, 0] - X0) / RES, (Y1 - poly[:, 1]) / RES]).astype(np.int32), 1)
         replaced |= swallow(m, 1.5)
 
-cls = np.full((N, N), "ground", object); cls[road] = "road"; cls[water] = "water"
+cls = np.full((NY, NX), "ground", object); cls[road] = "road"; cls[water] = "water"
 print(f"terrain: road {road.mean():.1%}, water {water.mean():.1%}")
 
 # 3. raised tile triangles
 cen = TV[TF].mean(1)
-ci = np.clip(((cen[:, 0] - X0) / RES).astype(int), 0, N - 1); cj = np.clip(((Y1 - cen[:, 1]) / RES).astype(int), 0, N - 1)
+ci = np.clip(((cen[:, 0] - X0) / RES).astype(int), 0, NX - 1); cj = np.clip(((Y1 - cen[:, 1]) / RES).astype(int), 0, NY - 1)
 up = cen[:, 2] - DTM[cj, ci] > RAISED
-inside = (cen[:, 0] > X0) & (cen[:, 0] < X0 + N * RES) & (cen[:, 1] < Y1) & (cen[:, 1] > Y1 - N * RES)
+inside = (cen[:, 0] > X0) & (cen[:, 0] < X0 + NX * RES) & (cen[:, 1] < Y1) & (cen[:, 1] > Y1 - NY * RES)
 keep = up & inside & ~hero_mask[cj, ci] & ~box_mask[cj, ci]
 # also drop tile triangles in hero ground discs even if low -- the hero covers them
 # vegetation by neighbourhood: shadowed canopy is not green itself, but sits among green
@@ -164,12 +164,12 @@ rough = np.sqrt(np.maximum(cv2.blur(DSM.astype(np.float32) ** 2, (3, 3)) - cv2.b
 veg = ((gf[cj, ci] > 0.2) | ((rough[cj, ci] > 0.8) & (dmin > 15))) & ~((dmin < 8) & (labelled != "building"))
 tri_cls = np.where(veg, "vegetation", np.where(dmin < 15, labelled, "clutter"))
 # unlabelled shards within 3 m of canopy are canopy fragments (dark trunks, shadowed undersides)
-vr = np.zeros((N, N), np.uint8); vr[cj[keep & veg], ci[keep & veg]] = 1
+vr = np.zeros((NY, NX), np.uint8); vr[cj[keep & veg], ci[keep & veg]] = 1
 near_veg = cv2.dilate(vr, np.ones((7, 7), np.uint8)).astype(bool)
 tri_cls = np.where((tri_cls == "clutter") & near_veg[cj, ci], "vegetation", tri_cls)
 
 # rasters for place_assets.py: surface, bare earth, and which cells carry each raised class
-cls_r = np.zeros((N, N), np.uint8)
+cls_r = np.zeros((NY, NX), np.uint8)
 for code, name in enumerate(("vegetation", "rubble", "vehicle", "building", "clutter"), 1):
     sel = keep & (tri_cls == name); cls_r[cj[sel], ci[sel]] = code
 np.savez(R / "site_rasters.npz", dsm=DSM.astype(np.float32), dtm=DTM.astype(np.float32), cls=cls_r, road=road, water=water,
@@ -212,13 +212,13 @@ def emit(name, V, F, label, colors=None, textured=False):
     p.CreateAttribute("semantics:labels:class", Sdf.ValueTypeNames.TokenArray).Set([label])
     print(f"  {name}: {len(F)} tris ({label})")
 
-GV = np.stack([X, Y, DTM], -1).reshape(-1, 3); idx = np.arange(N * N).reshape(N, N)
+GV = np.stack([X, Y, DTM], -1).reshape(-1, 3); idx = np.arange(NY * NX).reshape(NY, NX)
 for name in ("ground", "road", "water"):
     c = cls == name                                       # piles sit on top of the ground
     q = c[:-1, :-1]                                        # quad owned by its top-left cell
     a0, a1, a2, a3 = idx[:-1, :-1][q], idx[:-1, 1:][q], idx[1:, :-1][q], idx[1:, 1:][q]
     F = np.concatenate([np.stack([a0, a2, a1], 1), np.stack([a1, a2, a3], 1)])
-    used = np.unique(F); rm = -np.ones(N * N, int); rm[used] = np.arange(len(used))
+    used = np.unique(F); rm = -np.ones(NY * NX, int); rm[used] = np.arange(len(used))
     emit(name, GV[used], rm[F], name, textured=True)
 
 # OSM roads as their real polygons (smooth kerbs), subdivided to <= 2 m and draped 5 cm over the terrain
@@ -237,8 +237,8 @@ while True:
 rm_ = o3d.geometry.TriangleMesh(o3d.utility.Vector3dVector(np.c_[V2, np.zeros(len(V2))]), o3d.utility.Vector3iVector(T2))
 rm_.merge_close_vertices(0.01)
 RV = np.asarray(rm_.vertices).copy()
-inside_ = (RV[:, 0] > X0) & (RV[:, 0] < X0 + N * RES) & (RV[:, 1] < Y1) & (RV[:, 1] > Y1 - N * RES)
-RV[:, 2] = DTM[np.clip(((Y1 - RV[:, 1]) / RES).astype(int), 0, N - 1), np.clip(((RV[:, 0] - X0) / RES).astype(int), 0, N - 1)] + 0.05
+inside_ = (RV[:, 0] > X0) & (RV[:, 0] < X0 + NX * RES) & (RV[:, 1] < Y1) & (RV[:, 1] > Y1 - NY * RES)
+RV[:, 2] = DTM[np.clip(((Y1 - RV[:, 1]) / RES).astype(int), 0, NY - 1), np.clip(((RV[:, 0] - X0) / RES).astype(int), 0, NX - 1)] + 0.05
 RF = np.asarray(rm_.triangles); RF = RF[inside_[RF].all(1)]
 cr = lambda F_: (RV[F_[:, 1], 0] - RV[F_[:, 0], 0]) * (RV[F_[:, 2], 1] - RV[F_[:, 0], 1]) - (RV[F_[:, 1], 1] - RV[F_[:, 0], 1]) * (RV[F_[:, 2], 0] - RV[F_[:, 0], 0])
 RF = RF[cr(RF) != 0]
@@ -261,7 +261,7 @@ def clean_pieces(F, name):
     flab = lab[Fw[:, 0]]; keep_f = np.ones(len(F), bool); shards = trees = 0
     for k in np.unique(flab):
         idx = flab == k; P = TV[np.unique(F[idx])]
-        ii = np.clip(((Y1 - P[:, 1]) / RES).astype(int), 0, N - 1); jj = np.clip(((P[:, 0] - X0) / RES).astype(int), 0, N - 1)
+        ii = np.clip(((Y1 - P[:, 1]) / RES).astype(int), 0, NY - 1); jj = np.clip(((P[:, 0] - X0) / RES).astype(int), 0, NX - 1)
         gap = (P[:, 2] - DTM[ii, jj]).min(); tall = np.ptp(P[:, 2])
         if gap > 0.5 and idx.sum() < 50: keep_f[idx] = False; shards += 1
         elif vegc[ii, jj].mean() > 0.45 and tall > 5: keep_f[idx] = False; trees += 1

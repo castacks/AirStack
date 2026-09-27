@@ -29,16 +29,16 @@ ap = argparse.ArgumentParser(); ap.add_argument("--only", default="")
 a = ap.parse_args(); only = set(filter(None, a.only.split(",")))
 RES = 0.25
 geo = json.load(open(R / "ortho_site.json")); ortho = cv2.imread(str(R / "ortho_site.png"))
-X0, Y1 = geo["x0"], geo["y1"]; N = int(ortho.shape[1] * geo["m_per_px"] / RES)
+X0, Y1 = geo["x0"], geo["y1"]; NX, NY = (int(n * geo["m_per_px"] / RES) for n in ortho.shape[1::-1])
 to_px = lambda xy: np.c_[(xy[:, 0] - X0) / RES, (Y1 - xy[:, 1]) / RES]
 
 # tile raised mask at RES
 t = np.load(R / "tiles_site.npz"); sc = o3d.t.geometry.RaycastingScene()
 sc.add_triangles(o3d.core.Tensor(t["verts"].astype(np.float32)), o3d.core.Tensor(t["faces"].astype(np.uint32)))
-g = X0 + (np.arange(N) + .5) * RES; X, Y = np.meshgrid(g, Y1 - (np.arange(N) + .5) * RES)
+X, Y = np.meshgrid(X0 + (np.arange(NX) + .5) * RES, Y1 - (np.arange(NY) + .5) * RES)
 DSM = 500 - sc.cast_rays(o3d.core.Tensor(np.stack([X, Y, np.full_like(X, 500), 0 * X, 0 * X, -np.ones_like(X)], -1).astype(np.float32)))["t_hit"].numpy()
 rs = np.load(R / "site_rasters.npz")
-DTM = cv2.resize(rs["dtm"], (N, N), interpolation=cv2.INTER_LINEAR)
+DTM = cv2.resize(rs["dtm"], (NX, NY), interpolation=cv2.INTER_LINEAR)
 HGT = np.nan_to_num(DSM - DTM)
 def raised_at(cut):
     r_ = HGT > cut; return r_, cv2.connectedComponents(r_.astype(np.uint8))[1]
@@ -94,10 +94,10 @@ og = ortho[np.clip(((Y1 - Y) / geo["m_per_px"]).astype(int), 0, ortho.shape[0] -
 green = cv2.dilate(((2 * og[..., 1] - og[..., 0] - og[..., 2]) > 12).astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool)
 foot = {}
 for name, prims in objects():
-    F = np.zeros((N, N), np.uint8)
+    F = np.zeros((NY, NX), np.uint8)
     for q in prims: fill_prim(F, q)
     if F.any(): foot[name] = F.astype(bool)
-occupied = np.zeros((N, N), np.uint16)
+occupied = np.zeros((NY, NX), np.uint16)
 for F in foot.values(): occupied += F
 rows = []; outdir = R / "footprints"; outdir.mkdir(exist_ok=True)
 for name, F in foot.items():
@@ -116,7 +116,7 @@ for name, F in foot.items():
     rows.append((name, iou, off, dyaw, F.sum() / max(T.sum(), 1), flag))
     if flag:
         ys, xs = np.nonzero(F | T); pad = 40
-        y0, y1, x0, x1 = max(ys.min() - pad, 0), min(ys.max() + pad, N), max(xs.min() - pad, 0), min(xs.max() + pad, N)
+        y0, y1, x0, x1 = max(ys.min() - pad, 0), min(ys.max() + pad, NY), max(xs.min() - pad, 0), min(xs.max() + pad, NX)
         s = geo["m_per_px"] / RES                           # ortho px per mask px
         img = cv2.resize(ortho[int(y0 / s):int(y1 / s), int(x0 / s):int(x1 / s)], (x1 - x0, y1 - y0)) // 2
         ov = img.copy(); ov[T[y0:y1, x0:x1]] = (0, 220, 255); ov[F[y0:y1, x0:x1]] = (0, 0, 255)
