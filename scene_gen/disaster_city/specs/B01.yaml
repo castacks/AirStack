@@ -64,9 +64,9 @@ parts:
   - box: {name: col_b1, min: [24.45, 3.25, 0], max: [24.75, 3.55, 7.6], mat: steel}
   - box: {name: col_b2, min: [24.45, 9.85, 0], max: [24.75, 10.15, 7.6], mat: steel}
   - box: {name: beam_front_low, min: [18.8, 3.3, 1.95], max: [24.6, 3.5, 2.15], mat: steel}            # A03_016: col_a1 -> col_b1, row 5
-  - beam: {name: brace_front_b1, from: [24.5, 3.4, 2.2], to: [23.2, 3.4, 3.45], t: 0.12, mat: steel}    # B03_010: cells E3-E4
-  - beam: {name: xbrace_east_a, from: [24.6, 3.5, 0.3], to: [24.6, 9.9, 3.45], t: 0.14, mat: steel}    # the east face's X
-  - beam: {name: xbrace_east_b, from: [24.6, 9.9, 0.3], to: [24.6, 3.5, 3.45], t: 0.14, mat: steel}
+  - beam: {name: brace_front_b1, from: [24.6, 3.3, 2.3], to: [24.7, 1.6, 3.55], t: 0.12, mat: steel}    # B03_010 E3-E4: out of the front face, up under the landing
+  - beam: {name: xbrace_east_a, from: [24.6, 3.5, 0.3], to: [24.6, 9.9, 7.2], t: 0.14, mat: steel}    # the east face's X, base to the 2nd story
+  - beam: {name: xbrace_east_b, from: [24.6, 9.9, 0.3], to: [24.6, 3.5, 7.2], t: 0.14, mat: steel}
   - box: {name: deck_first, min: [12.7, 3.4, 3.7], max: [24.8, 10.0, 3.85], mat: grating}
   - box: {name: joist_first_0, min: [14.64, 3.4, 3.45], max: [14.80, 10.0, 3.70], mat: steel}
   - box: {name: joist_first_1, min: [16.65, 3.4, 3.45], max: [16.81, 10.0, 3.70], mat: steel}
@@ -112,18 +112,20 @@ parts:
   - box: {name: landing_133, min: [23.6, 0.7, 3.75], max: [24.8, 3.4, 3.9], mat: grating}               # short, just above the frame deck (A03_005, A03_016)
   - stair: {name: stair_133_to_roof, from: [23.6, 1.2, 3.9], to: [20.0, 1.2, 7.55], width: 1.0, mat: grating, handrails: true}   # leaves the landing at the edge flight 1 arrives on
   - box: {name: landing_top, min: [18.8, 0.7, 7.45], max: [20.0, 3.4, 7.6], mat: grating}
-  - box: {name: sign_133, min: [23.75, 0.58, 4.25], max: [24.65, 0.63, 4.807], mat: sign_133}          # the white plate only (0.9 x 0.557, the video's aspect), video decal
+  - box: {name: sign_133, min: [23.75, 0.58, 3.9], max: [24.65, 0.63, 4.457], mat: sign_133}          # the white plate only (0.9 x 0.557, the video's aspect), video decal
   - rail: {name: rail_landing_133_ylo, from: [23.6, 0.7], to: [24.8, 0.7], z: 3.9, mat: steel}
   - rail: {name: rail_landing_133_xhi, from: [24.8, 0.7], to: [24.8, 3.4], z: 3.9, mat: steel}
   - rail: {name: rail_landing_top_ylo, from: [18.8, 0.7], to: [20.0, 0.7], z: 7.6, mat: steel}
   - rail: {name: rail_landing_top_xlo, from: [18.8, 0.7], to: [18.8, 3.4], z: 7.6, mat: steel}
-  - box: {name: sign_pole, min: [24.12, 1.97, 0], max: [24.28, 2.13, 3.55], mat: steel}              # post 1: centred under the landing (A03_005)
+  - box: {name: sign_pole, min: [23.62, 1.97, 0], max: [23.78, 2.13, 3.55], mat: steel}              # post 1: under the landing's left edge (A03_005)
   - box: {name: landing_133_beam_ylo, min: [23.6, 0.62, 3.55], max: [24.8, 0.8, 3.75], mat: steel}
   - box: {name: landing_133_beam_xhi, min: [24.62, 0.7, 3.55], max: [24.8, 3.4, 3.75], mat: steel}
   - box: {name: landing_133_beam_xlo, min: [23.6, 0.7, 3.55], max: [23.78, 3.4, 3.75], mat: steel}
   - box: {name: landing_133_joist, min: [23.6, 1.95, 3.6], max: [24.8, 2.1, 3.75], mat: steel}
-  - beam: {name: knee_sign_b, from: [24.2, 2.05, 2.8], to: [24.71, 2.05, 3.55], t: 0.1, mat: steel}          # its one brace: to the middle of the right edge
-  - box: {name: landing_top_post, min: [19.82, 0.7, 0], max: [20.0, 0.88, 7.45], mat: steel}         # post 2: the top landing's right corner (A03_016)
+  - beam: {name: knee_sign_b, from: [23.7, 2.05, 2.6], to: [24.71, 2.05, 3.55], t: 0.1, mat: steel}          # its one brace: across to the middle of the right edge
+  - box: {name: landing_top_post, min: [19.82, 0.7, 3.45], max: [20.0, 0.88, 7.45], mat: steel}      # post 2: the top landing's right corner, from the first story up (A03_016)
+  - box: {name: landing_top_post_base, min: [19.82, 0.7, 3.25], max: [20.0, 3.4, 3.45], mat: steel}   # carries it back to the deck's front beam
+  - beam: {name: col_a1_brace, from: [18.8, 3.35, 6.3], to: [18.8, 1.2, 7.45], t: 0.1, mat: steel}       # col_a1's brace to the landing's left side
   - beam: {name: landing_top_brace, from: [19.91, 0.79, 6.5], to: [19.0, 0.79, 7.45], t: 0.1, mat: steel}   # its only brace, going left
   # ---- the collapsed wing on the yhi (pile) side: its roof slab hinged off the block's roof edge and
 # came down onto the pile (A03_046-052; elev_xlo: from (y 9.8, z 7.4) to (y 14.9, z 2.4), x 1.0..10.5),
@@ -150,7 +152,6 @@ parts:
   - box: {name: wbeam_first_xhi, min: [24.45, 10.0, 4.0], max: [24.75, 16.05, 4.3], mat: steel_dark}
   - box: {name: wbeam_first_xlo, min: [0.4, 9.8, 4.0], max: [0.7, 16.05, 4.3], mat: steel_dark}
   - box: {name: wbeam_first_x18, min: [18.65, 10.0, 4.0], max: [18.95, 16.05, 4.3], mat: steel_dark}
-  - box: {name: wbeam_roof_x18, min: [18.65, 10.0, 7.55], max: [18.95, 16.05, 7.8], mat: steel_dark}
   - beam: {name: wbrace, from: [9.8, 15.9, 4.3], to: [12.5, 15.9, 7.55], t: 0.2, mat: steel}
   - beam: {name: wbrace_b, from: [6.65, 15.9, 7.55], to: [12.5, 15.9, 0.3], t: 0.14, mat: steel}          # the second diagonal of the X (B09_045)
   # the wing's floors pancaked onto the ground under the frame (sec_y13-20; the car under them in A02)
@@ -171,6 +172,12 @@ parts:
   - beam: {name: plank_b, from: [6.4, 7.9, 3.7], to: [9.2, 8.2, 3.9], t: 0.06, t2: 0.25, mat: wood}
   - beam: {name: plank_c, from: [7.2, 5.9, 3.66], to: [7.4, 6.9, 3.66], t: 0.1, t2: 0.1, mat: wood}
   - beam: {name: fallen_panel, from: [11.2, 9.4, 3.62], to: [11.2, 8.0, 5.6], t: 0.08, t2: 1.8, mat: wood}
+  # a jagged piece of the wing's wall still hanging from the roof deck's far edge (A03_016 F3-G3)
+  - box: {name: hanging_wall_0, min: [20.0, 10.15, 5.3], max: [20.56, 10.35, 8.2]}
+  - box: {name: hanging_wall_1, min: [20.56, 10.15, 5.9], max: [21.12, 10.35, 8.35]}
+  - box: {name: hanging_wall_2, min: [21.12, 10.15, 5.1], max: [21.68, 10.35, 8.1]}
+  - box: {name: hanging_wall_3, min: [21.68, 10.15, 6.2], max: [22.24, 10.35, 8.3]}
+  - box: {name: hanging_wall_4, min: [22.24, 10.15, 6.9], max: [22.8, 10.35, 8.05]}
 # ---- crane on the roof ----
   # the cream jib crane (B09), measured off the dense cloud above the roof (points z > 9.3): post at (6.3, 6.7) mid-roof,
   # up to 11.8; the boom runs from its top toward (11.0, 4.2) -- over the ylo parapet -- with a brace under it
