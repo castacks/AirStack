@@ -99,6 +99,7 @@ For detailed step-by-step instructions, refer to the **`.agents/skills/`** direc
 | [configure-multi-robot](.agents/skills/configure-multi-robot) | Setting up multiple robots, ROBOT_NAME namespacing, and ROS_DOMAIN_ID isolation |
 | [bump-version-and-release](.agents/skills/bump-version-and-release) | Bumping `.env` VERSION and CHANGELOG before merge to clear the version-check gate |
 | [capture-discovered-knowledge](.agents/skills/capture-discovered-knowledge) | After long context-discovery / surprising findings, persist to AGENTS.md or a new skill so the next agent doesn't redo the work |
+| [svg-release-branches](.agents/skills/svg-release-branches) | SVG ground control branch workflow: develop on `yikuan/SVG_ground_control_dev`, release to `yikuan/SVG_ground_control` as one squash commit naming the dev hash; never merge between them |
 
 **Agent Workflow Example:**
 1. Study reference implementation for module type
