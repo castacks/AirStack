@@ -139,6 +139,162 @@ velocity, no altitude hold) remains as an ad-hoc utility.
 
 Full how-to for all of the above: **[experiment.md](experiment.md)**.
 
+## Update 2026-09-27 — what the squash onto `yikuan/SVG_ground_control` contains
+
+One commit carrying 40 commits of `yikuan/SVG_ground_control_dev`
+(2026-08-24 … 2026-09-27; 68 files, +15057 / −404). Everything below was
+flown on the three Starlings in the mocap room; the bag names are the
+evidence and live in `experiment.md`'s troubleshooting table.
+
+### 1. Real drones fly a PX4-style trajectory
+
+- **Output changed.** A real drone (`drone_modes: real`) now receives one
+  `trajectory_msgs/MultiDOFJointTrajectory` point at 20 Hz on
+  `/{name}/fmu/trajectory_command`: the **reference point** (PX4 position
+  setpoint), the **velocity**, the **acceleration feedforward** and an
+  absolute **yaw**. `px4_interface` gained that subscription, an ENU→NED
+  conversion for all three vectors and the `TRAJECTORY` control mode
+  (`offboard_control_mode` position + velocity + acceleration). Sim / MAVROS
+  drones still get a bare `TwistStamped`. Parameters: `real_command_mode`
+  (`trajectory` | `velocity`), `real_trajectory_command_topic_template`.
+  **Rebuild `px4_interface` and `svg_ground_control` and relaunch the
+  interfaces** — an old interface ignores the new topic and the drone hovers.
+- **Go-to-goal law** (`trajectory.py`): an acceleration-limited profile with
+  PX4's own braking law `v = −aL + sqrt((aL)² + 2ad)` evaluated at the
+  reference point and re-attached to the velocity actually published
+  (`ReferenceTracker`). Parameters, all live: `goal_accel_mps2`,
+  `goal_settle_s`, `goal_lead_m` (leash: how far the reference may run ahead
+  of the drone), `goal_velocity_only_settle_s` (the stateless law sim
+  drones fly). The plant identified from drone_2's ULogs (link delay 0.15 s,
+  velocity loop P 1.8 / I 0.4, attitude lag 0.1 s, |a| ≤ 8 m/s², position
+  P 0.95) is in `test/test_trajectory.py`; the old `1.5 × distance` P-law
+  overshot a 5 m/s leg by 1 m, the profile does not.
+- **Takeoff**: a climb profile at `takeoff_speed_mps` with the reference on
+  the short `hold_lead_m` leash (0.2 m) while ascending / landing / holding
+  (bag `C1_0920_203148`: the old 2 m leash let PX4's stiff altitude loop
+  dash to 1.94 m for a 1 m target).
+- **Climb and hold evaluated at the reference** (`profile_point`): the
+  setpoint converges onto the spot. Evaluated at the drone and integrated
+  into the reference it stopped up to 0.2 m off the spot and PX4's pull
+  toward it re-opened the error — a ~4 s ±0.15 m limit cycle around every
+  hover before `/start` (bags `run_042957`, `run_042433`, `run_041532`).
+- **`/hold` brakes to a predicted stop point** `v²/(2a) + v/hover_kp` ahead
+  (clamped into the fence) instead of flying back to the call position
+  (bag `run_041842`: a 1.5 m bounce from 6 m/s). The reply says
+  `braking, stops X m ahead`.
+- **Heading**: goals are `[x, y, z, theta]` on `/svg/{name}/goal_xyzt`
+  (`Float64MultiArray`, theta in degrees, 0 = +X, clockwise positive);
+  `/svg/{name}/goal_command` (PoseStamped) still works and takes the yaw
+  from its quaternion. Every other scenario keeps the nose on +X. Teleop
+  yaws at the stick's rate (all-zero rotation = yaw-rate mode in
+  `px4_interface`) and holds the measured heading when centred.
+
+### 2. CBF changes
+
+- **Feedforward kept through corrections** (`command_feedforward`): a
+  CBF-corrected command carries the rate of change of the published
+  command, capped at `goal_accel_mps2`, so an evasion is flown with
+  feedforward instead of by PX4's velocity loop alone, ~0.5 s behind. Bag
+  `run_020444`: every close pass (0.52, 0.65, 0.79 m against 1.1–1.3 m
+  required) had the commanded closing speed already at zero where the
+  barrier says; the drones were not flying the command. The fence's braking
+  feedforward now replaces only the axes the wall limited.
+- **Short leash only on CBF corrections**, not on fence speed clips (bag
+  `run_035852`: leashing on a clip turned every fence-limited cruise into a
+  bare velocity setpoint, 2.5–3.3 m/s actual for 4.7–5.9 commanded).
+- `/svg/cbf_active` (`String`, comma-separated names every tick) for the
+  LEDs and the panel; `cbf_alpha`, `cbf_safety_radius_m`, `cbf_max_speed_mps`
+  settable in flight.
+- Known, not yet changed: `cbf_alpha` 2.5 assumes no tracking lag, and
+  `random_goals` samples goals with no separation from other drones or their
+  goals (100 of 221 legs in `run_020444` had another drone within 1.5 m of
+  the goal, one arrival took 68 s). See experiment.md.
+
+### 3. Geofence
+
+- `fence_behavior`: `hold_all` (any airborne drone outside the box latches a
+  swarm-wide freeze until `~/reset_fence`) or `keep_in` (commanded drones are
+  braked at the walls and pushed back in, nobody stops).
+- `keep_in` is a **braking envelope** (`fence_brake_accel_mps2`,
+  `fence_keep_in_gain`, `fence_margin_m`): cruise until the true braking
+  distance, then a firm brake whose deceleration goes to PX4 as feedforward
+  on that axis (`fence.py`: `wall_speed`, `keep_in_velocity`,
+  `keep_in_acceleration`). The old `gain × distance` cap overshot 0.5 m at
+  6 m/s (bag `run_045417`). Set the brake to what the airframe delivers at
+  its tilt limit (8 m/s² at 45°); 8 with a 1 m-past-the-wall goal at 9 m/s
+  still overran 1.9 m in `log_141` because the goal sat on the wall.
+- **Teleop fence** (`teleop_fence_enabled`, `teleop_fence_min` / `max`)
+  inside the geofence for hand-flown drones, whatever `fence_behavior` is.
+  Fence boxes and a ground grid (`fence_grid_cell_m`) are published as
+  markers.
+
+### 4. Commander hygiene
+
+- **Takeoff resets stored goals** to the takeoff points and goals are
+  accepted before `/start` (the stored goal is drawn, dimmer, while idle).
+- **Twin commanders**: a second `swarm_commander` on the same domain is
+  detected (`get_node_names_and_namespaces` + `/proc` scan); takeoff / start
+  are refused while a twin exists; at start-up idle twins are killed
+  (SIGTERM, then SIGKILL) — `takeover:=false` / `takeover_twins` to disable.
+  A twin with a drone in the air is never killed.
+- **Status snapshot** on `/svg/commander_status` (`status_topic`,
+  `status_rate_hz`): mission state, last service outcome, fences, CBF
+  gains and active set, per-drone state / position / speed / odometry
+  freshness and loss counters, `pid`.
+- **Live parameters**: `scenario_speed_mps`, the goal law, `teleop_*`,
+  `hover_kp`, `hold_lead_m`, `takeoff_speed_mps`, the fence dynamics and
+  the CBF gains; everything else is refused with a reason.
+- `stop_point`, `advance_reference`, `leash`, `ramp_velocity`,
+  `command_feedforward`, `profile_point` are small pure functions with
+  their own tests.
+
+### 5. Teleop (`safe_teleop/`, `teleop.launch.py`, `teleop.md`)
+
+- Gamepad teleop for `teleop_drones`: `teleop_controller` selects a device
+  profile from `safe_teleop/controllers.py` (`xbox_usb`, `dragonrise_usb`),
+  rate-controlled altitude with lock, `joy_map` / `joy_view` / `monitor`
+  diagnostics, the pad started and checked in its own terminal first.
+- **Position-mode sticks**: the sticks move a leashed reference
+  (`teleop_lead_m`, horizontal and vertical leashed separately), released
+  sticks hold position; the stick velocity is ramped at `teleop_accel_mps2`
+  with the ramp's acceleration fed forward (PX4 `MPC_ACC_HOR_MAX` style);
+  `teleop_max_speed_mps` caps the stick and warns when it does;
+  `teleop_kp` is the velocity-output (sim) gain only.
+
+### 6. Foxglove basestation
+
+- `foxglove/svg-basestation`: CBF alpha / gamma / vmax and a parameter
+  drop-down, numeric drone positions, Start-status check from the snapshot,
+  a 3D grid matched to the launched geofence; `foxglove_bridge` starts with
+  the commander (`use_foxglove_bridge`, `foxglove_port`,
+  `use_foxglove_studio`).
+
+### 7. Configs and docs
+
+- `goal_single.yaml`, `goal_tracking.yaml`, `squeeze_rc_intruder.yaml`,
+  `swarm_real.yaml`, `hybrid_squeeze.yaml`: goal law 10 / 0.2 / 2.0,
+  `keep_in` fence with brake 8 and gain 2, +y wall at 5.0 (the mocap volume
+  ends at y ≈ 5.5 — `log_141` lost the body there three times), takeoff and
+  land 1.0 m/s, CBF radius 0.55 / alpha 2.5 / cap 10, `teleop_*` and
+  `safe_teleop` blocks. New: `cbf_sim.yaml`, `teleop_real.yaml`,
+  `teleop_single.yaml`.
+- `experiment.md`: C1 "how it flies", top speed in the room (8 m/s on a
+  10 m runway at 45° tilt; 10 m/s needs 11 m or 60°), heading, LED service,
+  CBF safety, and troubleshooting rows for the hold bounce, wall goals, twin
+  commanders, takeoff reset, hover swing, the failure detector vs
+  `MPC_TILTMAX_AIR` (the `log_141` termination) and the mocap volume edge.
+- PX4 params that go with this: `MPC_TILTMAX_AIR` 45 (60 tripped the
+  failure detector at `FD_FAIL_R` 60), `EKF2_EV_DELAY` 50 ms on every drone.
+
+### 8. Tests
+
+140 tests: `test_trajectory.py` (plant model: goal legs, takeoff, hold
+swing), `test_fence_and_position_hold.py`, `test_feedforward.py`,
+`test_live_speed.py`, `test_runtime_params.py`, `test_teleop_controllers.py`,
+`test_scenarios.py`, plus the unchanged CBF suite. Run inside the robot
+container:
+`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -q -p no:cacheprovider test/`.
+
 ## CBF filter
 
 `svg_ground_control/cbf_filter.py` is a verbatim port of
