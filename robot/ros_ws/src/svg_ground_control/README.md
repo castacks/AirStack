@@ -48,6 +48,15 @@ Ported from drone_soccer plus goal-tracking and a squeeze profile:
 - `squeeze` — **3-drone CBF showcase** ([config/squeeze_3drone.yaml](config/squeeze_3drone.yaml)):
   two holders goal-track explicit posts; the intruder shuttles through the
   gap; the holders must yield and return. Order: `[holder, holder, intruder]`.
+- `figure_eight` — **collision-negligent pair + intruder**
+  ([config/figure_eight_rc_intruder.yaml](config/figure_eight_rc_intruder.yaml)):
+  drones 0 and 1 fly one lobe each of a figure-eight (two touching circles,
+  radius / center distance / heading / plane tilt / sense per lobe all
+  parameters), starting at the far ends and meeting at the crossing every lap
+  with nothing but the CBF between them; drone 2 hovers at its start or is
+  hand-flown into them. The carrots are time-parametrized, so a pushed drone
+  is pulled back into the next meeting. Lobes are drawn as `path` markers.
+  Order: `[lobe A, lobe B, intruder]`; experiment.md C6.
 
 `teleop_drones` (comma-separated string) lists operator-driven drones — empty
 = fully autonomous. Teleop is a control-source role, not a safety exemption:
@@ -138,6 +147,14 @@ velocity, no altitude hold) remains as an ad-hoc utility.
   once at startup; a `ros2 param set` on it is refused with a reason.
 
 Full how-to for all of the above: **[experiment.md](experiment.md)**.
+
+## Since the 2026-09-27 release
+
+- **`figure_eight` scenario** (2026-09-28): collision-negligent pair on two
+  touching circles with a hand-flown intruder — `FigureEightScenario`,
+  `figure_eight_*` parameters, lobe `path` markers, config
+  `figure_eight_rc_intruder.yaml`, experiment.md C6, five tests including a
+  kinematic rollout where the nominal carrots coincide and the CBF holds 2r.
 
 ## Update 2026-09-27 — what the squash onto `yikuan/SVG_ground_control` contains
 

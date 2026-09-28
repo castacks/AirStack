@@ -173,3 +173,120 @@ def test_squeeze_kinematic_rollout_holders_yield_and_return() -> None:
         positions = positions + safe * dt
     settle_error = np.linalg.norm(positions[:2] - posts, axis=-1).max()
     assert settle_error < 0.6  # back near the posts (intruder keeps shuttling)
+
+
+# ------------------------------------------------------------ figure_eight
+
+def make_eight(**overrides):
+    kwargs = dict(center=[0.5, 0.0, 1.5], radius=1.0, center_distance=2.0,
+                  axis_deg=0.0, tilt_deg=30.0, directions=[1.0, -1.0],
+                  track_gain=1.0, intruder_start=[0.5, -2.5, 1.5])
+    kwargs.update(overrides)
+    return make_scenario('figure_eight', num_drones=3, nominal_speed=1.5,
+                         bounds=ARENA, safety_radius=0.55, seed=7, **kwargs)
+
+
+def test_figure_eight_geometry_and_takeoff_layout() -> None:
+    sc = make_eight()
+    np.testing.assert_allclose(sc.centers, [[-0.5, 0.0, 1.5], [1.5, 0.0, 1.5]])
+    np.testing.assert_allclose(sc.touching_point, [0.5, 0.0, 1.5])
+    initial = sc.initial_positions()
+    # Far ends of the two lobes, a half lap from the crossing, intruder at its start.
+    np.testing.assert_allclose(initial[0], [-1.5, 0.0, 1.5], atol=1e-9)
+    np.testing.assert_allclose(initial[1], [2.5, 0.0, 1.5], atol=1e-9)
+    np.testing.assert_allclose(initial[2], [0.5, -2.5, 1.5])
+    assert sc.cbf_exempt_indices == [2]
+    assert make_eight(intruder_cbf_exempt=False).cbf_exempt_indices == []
+    # The lobes are drawn: two closed polylines of radius 1 about their centers.
+    paths = sc.paths
+    assert len(paths) == 2
+    for lobe, path in enumerate(paths):
+        r = np.linalg.norm(path - sc.centers[lobe], axis=1)
+        np.testing.assert_allclose(r, 1.0, atol=1e-9)
+        np.testing.assert_allclose(path[0], path[-1], atol=1e-9)
+
+
+def test_figure_eight_tilt_rolls_the_plane_about_the_center_line() -> None:
+    for tilt in (0.0, 30.0, 60.0):
+        sc = make_eight(tilt_deg=tilt)
+        z = np.concatenate([p[:, 2] for p in sc.paths])
+        y = np.concatenate([p[:, 1] for p in sc.paths])
+        assert np.ptp(z) == pytest.approx(2.0 * np.sin(np.radians(tilt)), abs=1e-6)
+        assert np.ptp(y) == pytest.approx(2.0 * np.cos(np.radians(tilt)), abs=1e-6)
+    # axis_deg turns the whole eight in the horizontal plane
+    sc = make_eight(axis_deg=90.0)
+    np.testing.assert_allclose(sc.centers[:, :2], [[0.5, -1.0], [0.5, 1.0]], atol=1e-9)
+
+
+def test_figure_eight_carrots_meet_at_the_crossing_together() -> None:
+    dt = 0.05
+    sc = make_eight()
+    sc.reset_tracking()
+    p = sc.initial_positions().copy()
+    closest = np.inf
+    vel_at_meet = None
+    for _ in range(int(2.5 * 2 * np.pi / 1.5 / dt)):     # 2.5 laps
+        v = sc.nominal_velocity(p, dt=dt)
+        g = sc.goals
+        d = np.linalg.norm(g[0] - g[1])
+        if d < closest:
+            closest, vel_at_meet = d, (v[0].copy(), v[1].copy())
+        p[:2] = g[:2]                                       # perfect tracking
+    # collision-negligent: the two carrots coincide at the crossing ...
+    assert closest < 0.05
+    # ... with parallel velocities for [+1, -1] (a merge), speed = nominal
+    v0, v1 = vel_at_meet
+    assert np.dot(v0, v1) / (np.linalg.norm(v0) * np.linalg.norm(v1)) > 0.99
+    assert np.linalg.norm(v0) == pytest.approx(1.5, rel=0.05)
+    # same sense: head-on at the crossing
+    sc = make_eight(directions=[1.0, 1.0]); sc.reset_tracking()
+    p = sc.initial_positions().copy(); best = (np.inf, None)
+    for _ in range(int(1.2 * 2 * np.pi / 1.5 / dt)):
+        v = sc.nominal_velocity(p, dt=dt); g = sc.goals
+        d = np.linalg.norm(g[0] - g[1])
+        if d < best[0]:
+            best = (d, np.dot(v[0], v[1]) / (np.linalg.norm(v[0]) * np.linalg.norm(v[1])))
+        p[:2] = g[:2]
+    assert best[0] < 0.05 and best[1] < -0.99
+
+
+def test_figure_eight_tracked_rows_get_the_centripetal_feedforward() -> None:
+    sc = make_eight()
+    p = sc.initial_positions().copy()
+    refs = np.array([p[0], p[1], [np.nan, np.nan, np.nan]])
+    v = sc.nominal_velocity(p, references=refs, applied=np.zeros((3, 3)), dt=0.05)
+    a = sc.nominal_acceleration
+    # v^2 / R = 2.25 m/s^2 toward the lobe center, on the tracked rows only
+    for lobe in (0, 1):
+        assert np.linalg.norm(a[lobe]) == pytest.approx(2.25, rel=0.02)
+        inward = sc.centers[lobe] - p[lobe]
+        assert np.dot(a[lobe], inward) > 0.0
+        assert np.linalg.norm(v[lobe]) == pytest.approx(1.5, rel=0.1)
+    np.testing.assert_allclose(a[2], 0.0)
+    # a drone pushed off its lobe is pulled back at track_gain, capped at the speed
+    off = p.copy(); off[0] += [0.0, 3.0, 0.0]
+    v = sc.nominal_velocity(off, dt=0.05)
+    assert np.linalg.norm(v[0]) <= 1.5 + 1.5 + 1e-6 and v[0][1] < -1.0
+
+
+def test_figure_eight_kinematic_rollout_cbf_keeps_the_pair_apart() -> None:
+    """Single-integrator rollout: the nominal would collide, the filter does not."""
+    safety_radius = 0.55
+    dt = 0.05
+    sc = make_eight()
+    sc.reset_tracking()
+    positions = sc.initial_positions().copy()
+    min_pair = np.inf
+    min_nominal_gap = np.inf
+    for _ in range(int(3 * 2 * np.pi / 1.5 / dt)):       # 3 laps
+        nominal = sc.nominal_velocity(positions, dt=dt)
+        g = sc.goals
+        min_nominal_gap = min(min_nominal_gap, np.linalg.norm(g[0] - g[1]))
+        result = filter_velocities(nominal, positions, safety_radius, 6.0, alpha=2.5)
+        positions = positions + result.velocities * dt
+        min_pair = min(min_pair, np.linalg.norm(positions[0] - positions[1]))
+    assert min_nominal_gap < 0.05                          # the conflict is real
+    assert min_pair >= 2.0 * safety_radius - 0.05          # and the barrier holds
+    # both lobe drones are still on (or near) their carrots after the laps
+    assert np.linalg.norm(positions[0] - sc.goals[0]) < 0.6
+    assert np.linalg.norm(positions[1] - sc.goals[1]) < 0.6

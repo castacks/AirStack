@@ -1237,6 +1237,102 @@ useful: `ros2 topic pub --once /svg/led_command std_msgs/msg/String "{data: 'dro
 A CBF **emergency push-apart** turns every holder red. Watch the signal itself
 with `ros2 topic echo /svg/cbf_active`.
 
+### C6. Figure-eight — collision-negligent pair + HAND-FLOWN intruder (`figure_eight_rc_intruder.yaml`)
+
+The CBF's clearest showcase on real hardware: drone_1 and drone_2 fly a
+**figure-eight that ignores each other** — two touching circles, one lobe
+each, both reaching the touching point **at the same instant every lap** —
+and drone_3 is hand-flown into them. Nothing in the nominal keeps the pair
+apart; only the filter does. Same all-real setup as [C5](#c5-squeeze-with-a-hand-flown-intruder-squeeze_rc_intruderyaml)
+(three drones per Part B, three agents, one `natnet_ros2`, mocap to all three,
+pad in its own terminal first).
+
+```
+   lobe A (drone_1, CCW)        lobe B (drone_2, CW)
+        ┌───────┐   crossing    ┌───────┐
+   start│   +   │──── X ────────│   +   │start        top view, axis_deg = 0
+   (-1.5,0)     (0.5,0,1.5)          (2.5,0)          R = 1 m, centers 2 m apart
+                    ↑ drone_3 comes in from (0.5,-2.5) on the sticks
+```
+
+**Geometry (`figure_eight_*` in the config, ENU):**
+
+| parameter | default | meaning |
+|---|---|---|
+| `figure_eight_center` | `[0.5, 0.0, 1.5]` | the touching point (midpoint of the center line) |
+| `figure_eight_radius_m` | 1.0 | lobe radius |
+| `figure_eight_center_distance_m` | 2.0 | center-to-center; `= 2R` touch, `< 2R` overlap (two crossings), `> 2R` gap |
+| `figure_eight_axis_deg` | 0 | heading of the center line in the room (0 = +X, CCW positive) |
+| `figure_eight_tilt_deg` | **30** | roll of the eight's plane about the center line: 0 = flat; 30 keeps a 1 m eight in z 1.0–2.0 and gives the CBF a vertical way out |
+| `figure_eight_directions` | `[1, -1]` | in-plane sense per lobe: `[+1,-1]` = one continuous eight, the pair **merges** side by side at the crossing; `[+1,+1]` = **head-on** at the crossing |
+| `figure_eight_track_gain` | 1.0 | 1/s pull back onto the moving carrot after a CBF push (capped at `scenario_speed_mps`) |
+| `figure_eight_intruder_start` | `[0.5, -2.5, 1.5]` | drone_3's takeoff / hold point (inside the teleop fence, clear of the lobes) |
+| `scenario_speed_mps` | 1.5 | speed along the eight: lap `2πR/v` (4.2 s), centripetal `v²/R` (2.3 m/s²) |
+
+The path is **time-parametrized**: the carrots advance at `v/R` rad/s no
+matter what the drones do, so a drone the CBF shoved off its lobe is pulled
+straight back into the next meeting — collision-negligent by construction.
+Each drone starts at the **far end** of its lobe (that is its takeoff point,
+so place them there on the floor), a half lap from the crossing, and the two
+carrots coincide at the crossing once per lap with the same speed. With the
+default directions they arrive with **parallel velocities** (a merge the
+filter resolves by opening 2r = 1.1 m between them, mostly sideways and up
+the tilt); with `[1, 1]` they meet head-on. **Keep `scenario_speed_mps` ≤
+2 m/s**: the airframe holds at most `sqrt(a·R)` ≈ 2.8 m/s on a 1 m circle at
+45° tilt, and the dodge acceleration comes on top of the centripetal one.
+
+```bash
+# terminal 1 — the pad (prints what it reads; move the sticks, nothing flies yet).
+# Bench pad = dragonrise_usb (the config); Xbox pad: add teleop_controller:=xbox_usb
+ros2 launch svg_ground_control teleop.launch.py \
+  config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/figure_eight_rc_intruder.yaml \
+  drone:=drone_3
+
+# terminal 2 — commander (mocap always on). Startup log prints
+#   figure_eight geometry: centers … radius … crossing at … lap 4.2 s, centripetal 2.3 m/s2
+ros2 launch svg_ground_control ground_control.launch.py \
+  config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/figure_eight_rc_intruder.yaml \
+  use_mocap:=true
+
+# fly (terminal 3):
+ros2 service call /swarm_commander/takeoff std_srvs/srv/Trigger   # arms/lifts ALL THREE:
+                                                                  # drone_1/2 to the far ends, drone_3 to intruder_start
+ros2 service call /swarm_commander/start   std_srvs/srv/Trigger   # the eight starts (carrots from the far ends);
+                                                                  # drone_3 on the sticks
+# watch a few laps first: the pair meets at the crossing every 4 s and the CBF
+# opens them (both go red for the moment). Then fly drone_3 into the crossing,
+# hover it ON a lobe, or chase one drone — the pair yields, drone_3 never does.
+ros2 param set /swarm_commander scenario_speed_mps 2.0               # harder meeting (live)
+ros2 param set /swarm_commander cbf_alpha 1.5                        # earlier, gentler dodge (live)
+ros2 service call /swarm_commander/hold    std_srvs/srv/Trigger   # freeze all three (brakes to a stop point)
+ros2 service call /swarm_commander/start   std_srvs/srv/Trigger   # resume: carrots restart at the far ends
+ros2 service call /swarm_commander/land    std_srvs/srv/Trigger   # lands ALL THREE
+```
+
+**In Foxglove / RViz** the two lobes are drawn as line strips (`/svg/viz/markers`,
+ns `path`), the moving carrots as each drone's goal sphere, the teleop drone
+yellow. **LEDs**: everyone green; drone_1/drone_2 turn **red while the CBF
+alters their command** (every crossing, and whenever drone_3 presses them);
+drone_3 stays green (exempt) — recolor it with
+`ros2 topic pub --once /svg/led_command std_msgs/msg/String "{data: 'drone_3 blue'}"`.
+
+> ⚠️ **Safety.** Same as C5: the fences are velocity clips, not a motor
+> cutoff; the RC kill switch is the true cutoff for all three. The whole
+> eight (x −1.5…2.5, y ±0.87, z 1.0…2.0 with the defaults) and
+> `intruder_start` must lie inside the teleop fence, which must lie inside
+> the geofence. Do not raise `scenario_speed_mps` above 2 on a 1 m lobe.
+> After `/hold`, `/start` restarts the carrots at the far ends, so the pair
+> first flies back there (pull capped at the scenario speed) — give them room.
+
+**Variants:** `figure_eight_directions: [1.0, 1.0]` for a head-on meeting;
+`figure_eight_center_distance_m: 1.6` overlaps the lobes for two crossings per
+lap; `figure_eight_tilt_deg: 0` for a flat eight (the CBF then dodges purely
+sideways); `teleop_drones: ""` with `cbf_exempt_drones: ""` makes drone_3 a
+plain hovering obstacle at `intruder_start` (put it on a lobe to make the
+pair go around it). All-sim rehearsal: copy the block into `swarm_sim.yaml`
+with `drone_modes: "sim,sim,sim"` (sim drones fly the velocity-only law; no
+feedforward, so expect a looser eight).
+
 ---
 
 # Part D — Real hardware: first flight & reference

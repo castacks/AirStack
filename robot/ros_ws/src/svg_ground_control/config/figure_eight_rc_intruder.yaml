@@ -1,0 +1,242 @@
+# SVG ground control — FIGURE-EIGHT with a HAND-FLOWN intruder (all-real hardware).
+#
+# drone_1, drone_2 : REAL — fly a collision-NEGLIGENT figure-eight: two touching
+#                    circles (radius 1 m, centers 2 m apart), one lobe each,
+#                    starting at the far ends and reaching the touching point
+#                    TOGETHER every lap. Nothing in the path avoids the other
+#                    drone; the CBF alone keeps them 2r apart.
+# drone_3          : REAL, TELEOP — a human pilot flies it into the eight with
+#                    the GAMEPAD (safe_teleop -> /svg/drone_3/teleop_command) to
+#                    perturb the pair. The commander arms it, lifts it to
+#                    figure_eight_intruder_start at takeoff, hands it to the
+#                    sticks at start, lands it with the others. It is
+#                    CBF-EXEMPT (cbf_exempt_drones): drone_1/drone_2 alone yield.
+#
+#   # terminal 1 — the pad (check it before anything is armed):
+#   ros2 launch svg_ground_control teleop.launch.py \
+#       config:=<share>/config/figure_eight_rc_intruder.yaml drone:=drone_3
+#   # terminal 2 — the commander:
+#   ros2 launch svg_ground_control ground_control.launch.py \
+#       config:=<share>/config/figure_eight_rc_intruder.yaml use_mocap:=true
+#
+# Mocap goes to ALL THREE drones (mocap_bridge block below): every drone flies
+# offboard on the commander's setpoints and needs external vision to arm (B4b
+# params on all three drones!). Per-drone prerequisites as in Part B: own
+# uXRCE agent port -> own MicroXRCEAgent; EKF2/mag params; interfaces up:
+#   ros2 launch svg_ground_control real_interfaces.launch.py drones:=drone_1,drone_2,drone_3
+#
+# ⚠ SAFETY: fence_behavior is keep_in — every drone is held inside the box by
+# the braking envelope, drone_3 additionally by the smaller teleop fence.
+# Neither is a motor cutoff: the RC kill switch remains the true cutoff.
+# The eight's centripetal acceleration is v^2/R: at the default 1.5 m/s and
+# R = 1 m that is 2.3 m/s2 (13 deg of bank); 2.8 m/s is the most this
+# airframe can hold on a 1 m circle at MPC_TILTMAX_AIR 45, and the CBF dodge
+# comes ON TOP of it — stay at or below 2 m/s.
+
+swarm_commander:
+  ros__parameters:
+    # figure_eight requires exactly this ordering: [lobe A, lobe B, intruder]
+    drone_names: ["drone_1", "drone_2", "drone_3"]
+    # ---- Per-drone axes ------------------------------------------------
+    # mode   : all REAL
+    # role   : drone_3 TELEOP — operator-driven from the pad; its scenario
+    #          row (hold at intruder_start) is ignored once the sticks are live.
+    # safety : drone_3 CBF-EXEMPT — its stick goes out uncorrected and the
+    #          pair absorbs the whole evasion. For a hand-flown intruder this
+    #          list is what counts; figure_eight_intruder_cbf_exempt only
+    #          covers a scenario-driven (hovering) one.
+    drone_modes: "real,real,real"
+    teleop_drones: "drone_3"
+    external_drones: ""
+    cbf_exempt_drones: "drone_3"
+
+    scenario: "figure_eight"
+    # Speed ALONG the eight (m/s). Live: ros2 param set /swarm_commander scenario_speed_mps X
+    #   lap time   = 2*pi*R / v      (4.2 s at 1.5 m/s, R = 1)
+    #   centripetal = v^2 / R        (2.3 m/s2 at 1.5; 4.0 at 2.0; 7.8 at 2.8 = the 45-deg limit)
+    # The two drones meet at the crossing once per lap, so a lower speed means
+    # a gentler, more legible dodge; a higher one a harder shove.
+    scenario_speed_mps: 1.5
+    # Go-to-goal law (trajectory.py; all live via ros2 param set). The eight
+    # itself is a time-parametrized carrot (see figure_eight_* below); these
+    # govern the intruder's hold, the climb, /hold and the lobe drones' ramp
+    # back onto their carrots after a CBF push.
+    #   goal_accel_mps2  acceleration/braking of the reference profile
+    #   goal_settle_s    exponential tail into the goal (0.3 = PX4-like)
+    #   goal_lead_m      leash: max distance the reference may get AHEAD of
+    #                    the drone before it is pulled back (PX4 MPC_XY_ERR_MAX)
+    #   goal_velocity_only_settle_s  same law for velocity-only (sim) drones
+    goal_accel_mps2: 10.0
+    goal_settle_s: 0.2
+    goal_lead_m: 2.0
+    goal_velocity_only_settle_s: 1.0
+    arena_low: [-2.0, -2.0, 0.8]
+    arena_high: [3.0, 2.0, 2.5]
+
+    # All-real, mocap-anchored: every drone reports in the shared mocap
+    # frame -> all offsets ZERO.
+    drone_position_offsets: [0.0, 0.0, 0.0,
+                             0.0, 0.0, 0.0,
+                             0.0, 0.0, 0.0]
+
+    # ---- The eight (ENU, m / deg) ------------------------------------------
+    # Two circles of radius figure_eight_radius_m whose centers lie
+    # figure_eight_center_distance_m apart along the horizontal heading
+    # figure_eight_axis_deg (0 = +X, CCW positive), centered on
+    # figure_eight_center (= the touching point when the distance is 2R).
+    # The plane is rolled about the center line by figure_eight_tilt_deg:
+    # 0 = flat; 30 (default) keeps a 1 m eight within z 1.0..2.0 for this
+    # room (fence ceiling 3.0) and gives the CBF a vertical direction to dodge
+    # into. drone_1 flies lobe A (toward -axis), drone_2 lobe B; each starts
+    # at the FAR end of its lobe, a half lap from the crossing.
+    #   directions [+1, -1] (CCW, CW): one continuous figure-eight, the drones
+    #                                 arrive at the crossing side by side with
+    #                                 PARALLEL velocities — a merge.
+    #   directions [+1, +1] (both CCW): HEAD-ON at the crossing.
+    #   center_distance < 2R overlaps the lobes (two crossings), > 2R leaves a
+    #                                 gap (the carrots pass 2R-distance apart).
+    # track_gain (1/s): pull back onto the carrot after a CBF push (the pull
+    # is capped at scenario_speed_mps, so a displaced drone catches up at
+    # most at double speed).
+    # With R = 1 at (0.5, 0, 1.5): x spans -1.5..2.5, y +/-0.87, z 1.0..2.0.
+    figure_eight_center: [0.5, 0.0, 1.5]
+    figure_eight_radius_m: 1.0
+    figure_eight_center_distance_m: 2.0
+    figure_eight_axis_deg: 0.0
+    figure_eight_tilt_deg: 30.0
+    figure_eight_directions: [1.0, -1.0]
+    figure_eight_track_gain: 1.0
+    # drone_3's TAKEOFF / hold point (the scenario's initial position for
+    # index 2): where the pilot wants to start — inside the teleop fence,
+    # clear of both lobes (the lobes' y extent is +/-0.87 m).
+    figure_eight_intruder_start: [0.5, -2.5, 1.5]
+    # Scenario-driven (hovering) intruder only — not this config; keep the default.
+    figure_eight_intruder_cbf_exempt: true
+
+    hover_positions: [0.0, 0.0, 1.2, 0.0, 0.0, 1.2, 0.0, 0.0, 1.2]  # unused by figure_eight
+
+    # Routing is per-drone via drone_modes (real -> /{name}/fmu/*). State
+    # topic is the same for every drone.
+    state_topic_template: "/{name}/odometry_conversion/odometry"
+    teleop_topic_template: "/svg/{name}/teleop_command"
+
+    control_rate_hz: 20.0
+    state_timeout_s: 0.5
+    teleop_timeout_s: 0.5     # stale pad -> zero stick (position hold keeps it put)
+
+    hover_kp: 1.0
+    arrival_threshold_m: 0.15
+    land_speed_mps: 1.0
+    takeoff_speed_mps: 1.0    # climb profile speed (braking law to the target)
+    hold_lead_m: 0.2          # reference leash while taking off/landing/holding:
+                              # PX4's z loop is stiff, keep it close (C1_0920_203148)
+    land_complete_altitude_m: 0.15
+
+    # ---- CBF reactivity ("aggressiveness") knobs -----------------------
+    # The pair meets at the crossing with the carrots coinciding, so the
+    # filter must open 2r = 1.1 m between them once per lap: with alpha 2.5
+    # the yielding starts ~2.4 m out at 1.5 m/s closing. The intruder's
+    # COMMANDED velocity (its ramped, capped stick, pinned as a fixed row)
+    # is what the filter sees, so the pair yields BEFORE it reaches the
+    # barrier.
+    cbf_safety_radius_m: 0.55    # bubble size. Keep 2r < center_distance so
+                                 # the two far ends are mutually feasible.
+    cbf_max_speed_mps: 10.0      # how FAST the pair may dodge. A dodge is flown
+                                 # with the feedforward of the corrected
+                                 # command, capped at goal_accel_mps2 — the
+                                 # keep_in fence below is the backstop.
+    cbf_alpha: 2.5               # earliness: LOWER = yield earlier and gentler
+                                 # (alpha 1.0 & 1 m/s closing -> starts ~3.2 m
+                                 # out; 2.5 -> ~2.4 m out). Higher = later, harder.
+    cbf_external_velocity_gain: 1.0   # external (RC-link) drones only — none here
+
+    # ---- Teleop (drone_3) -----------------------------------------------
+    # Ceiling on the stick velocity (must be >= safe_teleop max_speed_mps
+    # below). This is the intruder's approach speed the pair must absorb:
+    # 3 m/s is a firm press indoors; raise both together.
+    teleop_max_speed_mps: 3.0
+    # Position-mode teleop: the sticks move a reference the drone tracks
+    # (PX4 holds it onboard on the trajectory output), seeded from the
+    # drone's position at /start, so released sticks hold position.
+    teleop_kp: 1.0
+    teleop_lead_m: 0.5
+    # Stick acceleration ramp (m/s2) with feedforward, like PX4's Position
+    # mode (MPC_ACC_HOR_MAX 5). 0 = no ramp. Live via ros2 param set.
+    teleop_accel_mps2: 5.0
+
+    # Geofence (keep_in): holds EVERY drone inside the box. Fit to your volume.
+    fence_enabled: true
+    #   "hold_all" - any ACTIVE drone outside the box latches: everyone
+    #                freezes, scenario stops, until ~/reset_fence.
+    #   "keep_in"  - nobody stops. Commanded drones are held inside the box by
+    #                the braking envelope, pushed back if outside.
+    fence_behavior: "keep_in"
+    # keep_in wall dynamics (also the teleop fence below): cruise until the
+    # true braking distance for fence_brake_accel_mps2, then brake with the
+    # deceleration fed forward to PX4. 8 = what the airframe brakes with at
+    # 45 deg (run_063720: 12-15 m/s2 measured); goal_tracking.yaml uses the same.
+    fence_brake_accel_mps2: 8.0   # keep_in: braking deceleration of the wall envelope (m/s2); 0 = plain gain*distance barrier
+    fence_keep_in_gain: 2.0       # keep_in: near the wall speed <= gain*distance (1/s); 1/gain = lag margin of the envelope
+    fence_margin_m: 0.0           # keep_in: meet the wall this early (m)
+    fence_min: [-4.5, -5.2, 0.0]
+    # +y wall 5.0: the mocap volume ends at y ~5.5 (log_141 lost the body
+    # three times there); an overrun past 5.0 is still tracked.
+    fence_max: [5.5, 5.0, 3.0]
+    # Teleop fence: a smaller box for the hand-flown intruder only, INSIDE
+    # the geofence (the commander refuses to start otherwise). The sticks
+    # meet this soft wall whatever fence_behavior is. Amber in the 3D view.
+    # The whole eight and intruder_start must be inside it. Take-off and
+    # landing pass through the floor on purpose.
+    teleop_fence_enabled: true
+    teleop_fence_min: [-3.3, -4.0, 0.7]
+    teleop_fence_max: [4.3, 4.2, 2.8]
+
+# Mocap -> PX4 external vision for ALL THREE drones (direct mode, mirrors the
+# proven model_ai_tfpub.cpp). Every drone flies offboard on the commander's
+# setpoints and needs it to arm and hold position indoors.
+mocap_bridge:
+  ros__parameters:
+    drone_names: ["drone_1", "drone_2", "drone_3"]
+    mocap_topic_template: "/{name}/pose"
+    px4_vio_mode: "direct"
+    # 'enu_to_ned' if mocap is ROS-standard ENU; 'modalai_flip' if Motive raw.
+    # VERIFY with the B4b hand-check on EACH drone before flying.
+    px4_vio_frame: "enu_to_ned"
+    vio_quality: 100
+    px4_vio_topic_template: "/{name}/fmu/in/vehicle_visual_odometry"
+    visual_odometry_topic_template: "/{name}/fmu/visual_odometry_in"  # via_interface only
+    mocap_frame: "map"
+    velocity_filter_alpha: 0.4
+    mocap_qos_best_effort: false
+
+# Onboard LED strips, all three drones (svg-led on each VOXL, B1(d)):
+# everyone GREEN by default; a lobe drone turns RED while the CBF is pushing
+# it (at the crossing every lap, and away from the intruder), then back to
+# green. drone_3 is CBF-exempt (its stick is never "corrected") and stays
+# green — recolor it by hand:
+#   ros2 topic pub --once /svg/led_command std_msgs/msg/String "{data: 'drone_3 blue'}"   # any time
+led_controller:
+  ros__parameters:
+    drone_names: ["drone_1", "drone_2", "drone_3"]
+    default_color: "green"
+    cbf_color: "red"
+    cbf_hold_s: 0.5           # minimum red time per correction (visibility)
+    brightness: 80
+    heartbeat_port: 47901
+
+# Gamepad for drone_3 (teleop.launch.py reads this block; run it in its own
+# terminal BEFORE the commander so the pad is checked before anything is
+# armed). The input device is teleop_controller — an entry of
+# svg_ground_control/safe_teleop/controllers.py (driver node + axis map).
+# Supported today: "dragonrise_usb", "xbox_usb". Add new devices there, or
+# pass teleop_controller:=xbox_usb on the teleop launch for the Xbox pad.
+safe_teleop:
+  ros__parameters:
+    # The pad on the bench is a SHANWAN/DragonRise "Android gamepad", whose
+    # DirectInput layout is NOT the Xbox one (right stick on axes 2/3, left
+    # bumper button 6, and axes 4/5 are triggers that rest at FULL SCALE).
+    # Set this to "xbox_usb" if you swap in a real Xbox pad. Check an unknown
+    # pad with `ros2 run svg_ground_control joy_map` before flying it.
+    teleop_controller: "dragonrise_usb"
+    max_speed_mps: 3.0        # full right stick (= teleop_max_speed_mps above)
+    max_climb_speed_mps: 0.5  # full left stick (vertical). Position hold is the commander's.

@@ -17,7 +17,7 @@ on hardware — only the topic templates in the config YAML differ):
     services:    {robot_command_service_template}  airstack_msgs/srv/RobotCommand
 
 Nominal commands come from a *scenario* (hover, random_walk, random_goals,
-head_on, antipodal, squeeze — see scenarios.py, ported from ~/drone_soccer).
+head_on, antipodal, squeeze, figure_eight — see scenarios.py, ported from ~/drone_soccer).
 Drones listed in ``teleop_drones`` are operator-driven instead (one teleop
 topic per drone); an empty list means every drone follows the scenario.
 Drones in ``external_drones`` are tracked for the safety filter but never
@@ -371,6 +371,20 @@ class SwarmCommander(Node):
         # presses through and the holders alone yield (filtering it makes
         # the filter push it backwards as it approaches the gap).
         self.declare_parameter('squeeze_intruder_cbf_exempt', True)
+        # figure_eight scenario geometry (ENU, meters / degrees): two circles
+        # of radius r whose centers are center_distance apart along the
+        # horizontal heading axis_deg, the plane rolled about that line by
+        # tilt_deg; drone_1 flies lobe A, drone_2 lobe B (directions: +1 CCW,
+        # -1 CW in-plane), drone_3 holds intruder_start unless hand-flown.
+        self.declare_parameter('figure_eight_center', [0.0, 0.0, 1.5])
+        self.declare_parameter('figure_eight_radius_m', 1.0)
+        self.declare_parameter('figure_eight_center_distance_m', 2.0)
+        self.declare_parameter('figure_eight_axis_deg', 0.0)
+        self.declare_parameter('figure_eight_tilt_deg', 30.0)
+        self.declare_parameter('figure_eight_directions', [1.0, -1.0])
+        self.declare_parameter('figure_eight_track_gain', 1.0)
+        self.declare_parameter('figure_eight_intruder_start', [0.0, -2.5, 1.5])
+        self.declare_parameter('figure_eight_intruder_cbf_exempt', True)
         # Used by the 'hover' scenario only: flat [x1,y1,z1, ...] per drone.
         self.declare_parameter('hover_positions',
                                [-1.5, 0.0, 1.2, 1.5, 0.0, 1.2, 0.0, -1.5, 1.2])
@@ -663,6 +677,21 @@ class SwarmCommander(Node):
                 self.get_parameter('squeeze_intruder_waypoints').value)
             scenario_kwargs['intruder_cbf_exempt'] = bool(
                 self.get_parameter('squeeze_intruder_cbf_exempt').value)
+        elif scenario_name == 'figure_eight':
+            scenario_kwargs.update(
+                center=np.array(self.get_parameter('figure_eight_center').value),
+                radius=float(self.get_parameter('figure_eight_radius_m').value),
+                center_distance=float(
+                    self.get_parameter('figure_eight_center_distance_m').value),
+                axis_deg=float(self.get_parameter('figure_eight_axis_deg').value),
+                tilt_deg=float(self.get_parameter('figure_eight_tilt_deg').value),
+                directions=np.array(
+                    self.get_parameter('figure_eight_directions').value),
+                track_gain=float(self.get_parameter('figure_eight_track_gain').value),
+                intruder_start=np.array(
+                    self.get_parameter('figure_eight_intruder_start').value),
+                intruder_cbf_exempt=bool(
+                    self.get_parameter('figure_eight_intruder_cbf_exempt').value))
         self.scenario = make_scenario(
             scenario_name,
             num_drones=len(names),
@@ -697,6 +726,16 @@ class SwarmCommander(Node):
                 f'(2r keep-out = {2 * self.cbf_safety_radius:.2f} m), '
                 f'intruder A={self.scenario.intruder_waypoints[0]} '
                 f'B={self.scenario.intruder_waypoints[1]}')
+        if scenario_name == 'figure_eight':
+            sc = self.scenario
+            speed = float(self.get_parameter('scenario_speed_mps').value)
+            self.get_logger().info(
+                f'figure_eight geometry: centers {sc.centers[0].round(2).tolist()} / '
+                f'{sc.centers[1].round(2).tolist()}, radius {sc.radius:.2f} m, '
+                f'crossing at {sc.touching_point.round(2).tolist()}; '
+                f'{speed:.2f} m/s -> lap {2 * np.pi * sc.radius / max(speed, 1e-6):.1f} s, '
+                f'centripetal {speed * speed / sc.radius:.1f} m/s2 '
+                f'(2r keep-out = {2 * self.cbf_safety_radius:.2f} m)')
 
         state_tmpl = str(self.get_parameter('state_topic_template').value)
         default_cmd_tmpl = str(
@@ -2184,6 +2223,23 @@ class SwarmCommander(Node):
                 goal.color = ColorRGBA(r=r, g=g, b=b,
                                        a=0.6 if self.mission_active else 0.25)
                 arr.markers.append(goal)
+
+        # Scenario reference paths (figure_eight lobes), one line strip each.
+        for pi, path in enumerate(getattr(self.scenario, 'paths', [])):
+            m = Marker()
+            m.header.frame_id = self.viz_frame
+            m.header.stamp = stamp
+            m.ns = 'path'
+            m.id = pi
+            m.type = Marker.LINE_STRIP
+            m.action = Marker.ADD
+            m.pose.orientation.w = 1.0
+            m.scale.x = 0.02
+            m.color = ColorRGBA(r=0.9, g=0.9, b=0.9,
+                                a=0.7 if self.mission_active else 0.35)
+            for pt in np.asarray(path, dtype=float):
+                m.points.append(Point(x=float(pt[0]), y=float(pt[1]), z=float(pt[2])))
+            arr.markers.append(m)
 
         if self.fence_enabled:
             arr.markers.append(self._fence_marker(stamp))
