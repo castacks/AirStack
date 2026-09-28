@@ -46,9 +46,10 @@ can reach the planned 6 m/s.
 | `config/mission.yaml` | **Source of truth**: search area, prior bumps (the prior is normalised to sum to 1), targets, aircraft, sensor/detection model, cell threshold `mapping.minimum_belief_mass` (a per-cell probability), sim gimbal, render |
 | `config/scenario.json`, `ground_truth.json`, `belief.png` | Generated bundle, read by the planner, the logger, the Isaac scene and the analysis script |
 | `config/pid_controller_mtl.yaml` | PID gains (speed clamp) |
-| `config/dds_router_mtl_search.yaml` | Robot↔GCS allowlist: the shared list plus the search and gimbal topics and actions |
+| `config/dds_router_mtl_search.yaml` | Robot↔GCS allowlist: the shared list plus the search and gimbal topics and actions (not the raw `gimbal/rgb`, to keep DDS load down) |
 | `config/rosbag_mcap_storage.yaml` | MCAP writer options (zstd) for the sortie rosbag |
-| `scripts/mtl_sortie.sh` | Per-robot sortie: preflight, rosbag, takeoff, goal watchdog. Runs inside the robot container |
+| `scripts/mtl_sortie.sh` | Per-robot sortie: preflight, rosbag, then `mtl_sortie_client.py`. Runs inside the robot container |
+| `scripts/mtl_sortie_client.py` | One ROS node for takeoff + `search_mission`: acceptance confirmed from the status topic, lost goal requests re-sent, Ctrl-C cancels. Tests: `python3 -m pytest scripts/tests -q` (no ROS needed) |
 | `../../config/fleets/mtl_search_fleet.yaml` | `robot_1..3` spawns (= scenario agent homes), vehicle `quad_gimbal` |
 
 After editing `mission.yaml` or the fleet spawns, regenerate the bundle. CI
@@ -76,10 +77,11 @@ camera instead of the gimbal, with no search area and no targets.
 `mtl_start_mission.sh` runs `scripts/mtl_sortie.sh` from this folder inside every
 robot container. That script:
 
-- checks that the robot's planner is up (the robot does not take off otherwise);
+- checks that the robot's planner and takeoff server are up (the robot does not take off otherwise);
 - records a rosbag (MCAP) of the sortie into `runs/<run_id>/<robot>/bag/`;
-- takes off;
-- sends the goal, with an acceptance watchdog and retries.
+- runs `mtl_sortie_client.py`: takeoff, then the goal, each re-sent if its request is lost.
+
+Robots start 2 s apart, and Ctrl-C on the host cancels the active goals inside the containers.
 
 When all robots are done, the launcher writes the team `report.html` and a team Foxglove file,
 `runs/<run_id>/foxglove/<run_id>.mcap`, with an importable `mtl_layout.json`. The Foxglove file

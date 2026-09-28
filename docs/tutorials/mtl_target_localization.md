@@ -116,21 +116,36 @@ This one command does everything for all robots:
 bash scripts/mtl_start_mission.sh            # -n 3 -a 30 by default; --dry-run plans without flying
 ```
 
-For each robot, in parallel, the script runs `stacks/mtl_search/scripts/mtl_sortie.sh`
-inside that robot's container. The in-container script does this:
+For each robot, the script runs `stacks/mtl_search/scripts/mtl_sortie.sh` inside that
+robot's container. Robots start 2 s apart (`--stagger S`) so their DDS discovery bursts don't
+coincide. The in-container script does this:
 
-1. **Preflight.** The robot's `mtl_search_planner` node and its `/robot_N/search_mission`
-   action must be up. Otherwise the robot **stays on the ground** and the log shows why.
+1. **Preflight.** The robot's `mtl_search_planner` node, its `/robot_N/search_mission`
+   action and its `/robot_N/tasks/takeoff` action must be up. Otherwise the robot
+   **stays on the ground** and the log shows why.
 2. **Record.** It starts a rosbag (MCAP, zstd) of everything worth replaying into
    `runs/<run_id>/robot_N/bag/`: TF, odometry, MAVROS pose/GPS/state, gimbal camera + info +
    state + command, plan, follower status, carrot/aim, footprint, detection markers,
-   metrics, tracking points, action feedback.
-3. **Take off.** It waits for a healthy state estimate, then takes off to 30 m. The
-   takeoff must report `success: true`.
-4. **Start the search.** It sends `/robot_N/search_mission` with the shared `run_id`. If
-   the planner doesn't accept the goal within 20 s, the script prints diagnostics (nodes,
-   action servers, last plan, follower state) and retries, up to 3 attempts.
-5. **Finish.** It streams feedback until the result, then closes the bag.
+   metrics, tracking points, action feedback. It waits until the recorder has finished
+   subscribing before going on.
+3. **Take off, then search** — both from one ROS node, `mtl_sortie_client.py`. It waits for
+   a healthy state estimate, takes off to 30 m (plus the robot's altitude layer), then
+   sends `/robot_N/search_mission` with the shared `run_id`. Each goal counts as accepted
+   when either the goal response arrives **or** the server's `_action/status` topic lists
+   it. If neither happens within 10 s, the goal request was lost and it is re-sent with a
+   new id, up to 4 attempts (`--accept-timeout`, `--retries`). A retry that is rejected
+   because an earlier attempt is already running adopts that attempt. After a final
+   failure the script prints diagnostics (nodes, action servers, last plan, follower state).
+4. **Finish.** It prints feedback every few seconds until the result, then closes the bag.
+
+**Ctrl-C** on the host stops the sorties inside the containers too: each robot's active
+goal is cancelled (the drone holds its position) and its bag is closed cleanly.
+
+!!! note "Why not `ros2 action send_goal`?"
+    Each CLI call is a brand-new DDS participant. On the loaded sim graph its first goal
+    request is sometimes sent before the server has matched it, and is silently dropped;
+    the CLI then waits forever. That was the intermittent "a drone never takes off / never
+    starts searching" failure. Use the hand commands below only for one-off debugging.
 
 When all robots are done, the launcher writes the team report (`analyze_mtl_run.py`) and the
 team Foxglove file (`mtl_foxglove.py`, see step 5), and points `runs/latest` at the run.
@@ -239,5 +254,6 @@ airstack doctor --snapshot --stack mtl_search    # with the stack running (step 
 | No `/robot_N/gimbal/*` topics | the scene wasn't `search_mission_scene.py` (see the note in step 1), or the timeline isn't playing |
 | Drone flies the track at ~3 m/s | the stack-local `pid_controller_mtl.yaml` isn't loaded (±3 m/s stock clamp) |
 | Search aborts at start | stale odometry or a safety-monitor timeout; check `search/follower_status.state_name` and the follower log |
-| A robot takes off and then hovers, never searching | its planner never accepted the goal. The sortie log (`runs/<run_id>/_launcher_logs/robot_N.log`) now shows the preflight / watchdog diagnostics. If the planner node is missing, look at its output in that robot's launch tmux (`airstack connect`) |
+| A robot stays on the ground, or takes off and hovers without searching | a goal request was lost. The sortie client re-sends it automatically; its log (`runs/<run_id>/_launcher_logs/robot_N.log`) shows each attempt ("not accepted within 10 s … resending") and how acceptance was confirmed. If all attempts fail it prints diagnostics; then check the takeoff / planner node in that robot's launch tmux (`airstack connect`) — no "TakeoffTask: arming robot" / "search_mission goal received" line means the request never arrived |
+| Live `gimbal/rgb` missing in the GCS domain | not bridged on purpose (DDS load); re-add it to `config/dds_router_mtl_search.yaml` if you need it |
 | `mtl_foxglove: missing dependency` | `pip install -r scripts/requirements-mtl-viz.txt` on the host |

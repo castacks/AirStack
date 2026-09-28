@@ -36,10 +36,10 @@ defaults:
 robots:
   robot_1:
     spawn: [-170.0, -170.0, 0.07]   # mission NED home [-170, -170]
-  robot_2:
-    spawn: [-158.0, -170.0, 0.07]   # mission NED home [-170, -158]
-  robot_3:
-    spawn: [-146.0, -170.0, 0.07]   # mission NED home [-170, -146]
+  # robot_2:
+  #   spawn: [-158.0, -170.0, 0.07]   # mission NED home [-170, -158]
+  # robot_3:
+  #   spawn: [-146.0, -170.0, 0.07]   # mission NED home [-170, -146]
 
 sim:
   scene: default                     # Pegasus "Default Environment" + the MTL search plane

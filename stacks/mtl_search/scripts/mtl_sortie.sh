@@ -8,14 +8,20 @@
 #      "bash /root/AirStack/stacks/mtl_search/scripts/mtl_sortie.sh --robot robot_N --run-id RUN"
 #
 #  Sequence (each step fails loudly instead of hanging):
-#    1. preflight: this robot's mtl_search_planner node and /<robot>/search_mission
-#       action must exist - otherwise it does NOT take off;
+#    1. preflight: this robot's mtl_search_planner node, its /<robot>/search_mission
+#       action and the /<robot>/tasks/takeoff action must exist - otherwise it
+#       does NOT take off;
 #    2. start the rosbag (MCAP) of everything worth replaying in Foxglove:
-#       runs/<run_id>/<robot>/bag/  (see TOPICS below);
-#    3. wait for a healthy state estimate, take off (requires success: true);
-#    4. send the SearchMission goal with an ACCEPTANCE WATCHDOG: if the goal is
-#       not accepted within --accept-timeout s, dump diagnostics and retry;
-#    5. stream feedback until the result, stop the bag, exit 0 on success.
+#       runs/<run_id>/<robot>/bag/  (see TOPICS below), and wait until the
+#       recorder has finished subscribing (its discovery burst is over);
+#    3+4. mtl_sortie_client.py - ONE ROS node does takeoff and the SearchMission
+#       goal: waits for a healthy state estimate, confirms each goal's acceptance
+#       from the goal response OR the server's status topic, and resends when a
+#       goal request is lost (the old `ros2 action send_goal` CLI calls hung
+#       forever when that happened: "drone never takes off / never searches");
+#    5. stop the bag; exit with the client's code.
+#  SIGINT/SIGTERM: the active goal is cancelled (drone holds position), the bag
+#  is closed cleanly.
 # =============================================================================
 set -uo pipefail
 
@@ -24,21 +30,23 @@ RUN_ID="$(date -u +%Y%m%d-%H%M%S)"
 ALT=30
 VEL=2
 TAKEOFF=1
-START=true
+DRY_RUN=0
 RECORD=1
 IMAGES=1
 RUNS_ROOT="${MTL_RUNS_ROOT:-/root/AirStack/runs}"
-ACCEPT_TIMEOUT=20
-RETRIES=3
+ACCEPT_TIMEOUT=10
+RETRIES=4
 SCENARIO="${MTL_SCENARIO:-/root/AirStack/stacks/mtl_search/config/scenario.json}"
 ALT_OFFSET=1
+HERE="$(cd "$(dirname "$0")" && pwd)"
 
-usage() { sed -n '2,22p' "$0"; cat <<'EOF'
+usage() { sed -n '2,25p' "$0"; cat <<'EOF'
 options: --robot NAME --run-id ID --alt M --vel M/S --no-takeoff --dry-run
          --no-record --no-images --runs-root DIR --accept-timeout S --retries N
          --scenario FILE --no-alt-offset
   --alt is the team cruise altitude; this robot's altitude_offset_m from the
   scenario (mission.yaml team.altitude_separation_m) is added unless --no-alt-offset.
+  --accept-timeout / --retries: per goal attempt, passed to mtl_sortie_client.py.
 EOF
 }
 while [[ $# -gt 0 ]]; do
@@ -48,7 +56,7 @@ while [[ $# -gt 0 ]]; do
     --alt) ALT="$2"; shift 2 ;;
     --vel) VEL="$2"; shift 2 ;;
     --no-takeoff) TAKEOFF=0; shift ;;
-    --dry-run) START=false; TAKEOFF=0; shift ;;
+    --dry-run) DRY_RUN=1; TAKEOFF=0; shift ;;
     --no-record) RECORD=0; shift ;;
     --no-images) IMAGES=0; shift ;;
     --runs-root) RUNS_ROOT="$2"; shift 2 ;;
@@ -81,7 +89,6 @@ fi
 
 R="/${ROBOT}"
 OUT="${RUNS_ROOT}/${RUN_ID}/${ROBOT}"
-TMP="$(mktemp -d)"
 mkdir -p "${OUT}"
 log() { echo "[mtl_sortie ${ROBOT} $(date +%H:%M:%S)] $*"; }
 
@@ -96,6 +103,7 @@ diagnostics() {
   log "---- diagnostics (${ROBOT}, ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-unset}) ----"
   timeout 10 ros2 node list 2>/dev/null | grep -E "${R}/(mtl_|trajectory_control|control/pid|takeoff)" || log "  (no MTL / control nodes visible!)"
   timeout 10 ros2 action info "${R}/search_mission" 2>&1 | sed 's/^/  /'
+  timeout 10 ros2 action info "${R}/tasks/takeoff" 2>&1 | sed 's/^/  /'
   timeout 8 ros2 topic echo --once "${R}/search/plan" --field plan_id 2>/dev/null | sed 's/^/  last plan_id: /' \
     || log "  no search/plan latched (planner never planned)"
   timeout 8 ros2 topic echo --once "${R}/search/follower_status" --field state_name 2>/dev/null | sed 's/^/  follower: /' \
@@ -104,24 +112,32 @@ diagnostics() {
 }
 
 # ---------------------------------------------------------------- 1. preflight
+need_actions=("${R}/search_mission")
+[[ "${TAKEOFF}" == 1 ]] && need_actions+=("${R}/tasks/takeoff")
 preflight_ok=0
+missing=""
 for _ in $(seq 1 15); do
-  if timeout 10 ros2 action list 2>/dev/null | grep -qx "${R}/search_mission" \
-     && timeout 10 ros2 node list 2>/dev/null | grep -qx "${R}/mtl_search_planner"; then
+  actions="$(timeout 10 ros2 action list 2>/dev/null)"
+  missing=""
+  for a in "${need_actions[@]}"; do
+    grep -qx -- "${a}" <<<"${actions}" || missing+=" ${a}"
+  done
+  if [[ -z "${missing}" ]] && timeout 10 ros2 node list 2>/dev/null | grep -qx "${R}/mtl_search_planner"; then
     preflight_ok=1; break
   fi
   sleep 2
 done
 if [[ "${preflight_ok}" != 1 ]]; then
-  log "ERROR: ${R}/mtl_search_planner or its ${R}/search_mission action is not running - NOT taking off."
-  log "       Check the planner's output in this container's launch tmux (airstack connect robot-desktop-${ROBOT##*_})."
+  log "ERROR: preflight failed (missing:${missing:- ${R}/mtl_search_planner node}) - NOT taking off."
+  log "       Check that node's output in this container's launch tmux (airstack connect robot-desktop-${ROBOT##*_})."
   diagnostics
   exit 3
 fi
-log "preflight ok: ${R}/mtl_search_planner serves ${R}/search_mission"
+log "preflight ok: ${R}/mtl_search_planner serves ${R}/search_mission$([[ "${TAKEOFF}" == 1 ]] && echo ", ${R}/tasks/takeoff is up")"
 
 # ---------------------------------------------------------------- 2. rosbag
 BAG_PID=""
+CLIENT_PID=""
 start_bag() {
   [[ "${RECORD}" == 1 ]] || return 0
   local topics=(
@@ -147,7 +163,7 @@ start_bag() {
   )
   [[ "${IMAGES}" == 1 ]] && topics+=("${R}/gimbal/rgb")
   local cfg
-  cfg="$(cd "$(dirname "$0")/.." && pwd)/config/rosbag_mcap_storage.yaml"
+  cfg="$(cd "${HERE}/.." && pwd)/config/rosbag_mcap_storage.yaml"
   rm -rf "${OUT}/bag"
   # set -m: without job control bash starts background jobs with SIGINT ignored,
   # and the recorder must get SIGINT to close the MCAP cleanly.
@@ -157,12 +173,25 @@ start_bag() {
       >"${OUT}/bag_record.log" 2>&1 &
   BAG_PID=$!
   set +m
-  sleep 3
-  if kill -0 "${BAG_PID}" 2>/dev/null; then
-    log "recording ${#topics[@]} topics -> ${OUT}/bag (log: bag_record.log)"
-  else
-    log "WARNING: ros2 bag record exited early - see ${OUT}/bag_record.log"; BAG_PID=""
+  sleep 1
+  if ! kill -0 "${BAG_PID}" 2>/dev/null; then
+    log "WARNING: ros2 bag record exited early - see ${OUT}/bag_record.log"; BAG_PID=""; return 0
   fi
+  # Wait until the recorder stops adding subscriptions (count stable for 2 s,
+  # at most 15 s): its discovery burst should not overlap the goal requests.
+  local n=0 prev=-1 stable=0
+  for _ in $(seq 1 30); do
+    n="$(grep -c "Subscribed to topic" "${OUT}/bag_record.log" 2>/dev/null || true)"
+    n="${n:-0}"
+    if [[ "${n}" == "${prev}" && "${n}" -gt 0 ]]; then
+      stable=$((stable + 1)); (( stable >= 4 )) && break
+    else
+      stable=0
+    fi
+    prev="${n}"
+    sleep 0.5
+  done
+  log "recording ${#topics[@]} topics (${n} subscribed) -> ${OUT}/bag (log: bag_record.log)"
 }
 stop_bag() {
   [[ -n "${BAG_PID}" ]] || return 0
@@ -173,81 +202,40 @@ stop_bag() {
   log "bag closed: $(du -sh "${OUT}/bag" 2>/dev/null | cut -f1)"
   BAG_PID=""
 }
-cleanup() { stop_bag; rm -rf "${TMP}"; }
-trap cleanup EXIT
-trap 'log "interrupted"; exit 130' INT TERM
+on_signal() {
+  log "interrupted"
+  if [[ -n "${CLIENT_PID}" ]] && kill -0 "${CLIENT_PID}" 2>/dev/null; then
+    kill -INT "${CLIENT_PID}" 2>/dev/null        # cancels the active goal
+    for _ in $(seq 1 10); do kill -0 "${CLIENT_PID}" 2>/dev/null || break; sleep 0.5; done
+    kill -KILL "${CLIENT_PID}" 2>/dev/null
+  fi
+  exit 130
+}
+trap stop_bag EXIT
+trap on_signal INT TERM
 
 start_bag
 
-# ---------------------------------------------------------------- 3. takeoff
-if [[ "${TAKEOFF}" == 1 ]]; then
-  for _ in $(seq 1 9); do
-    timeout 8 ros2 topic echo --once "${R}/behavior/drone_safety_monitor/state_estimate_timed_out" 2>/dev/null \
-      | grep -q 'data: false' && break
-    sleep 2
-  done
-  log "takeoff to ${ALT} m at ${VEL} m/s"
-  tk="$(PYTHONUNBUFFERED=1 ros2 action send_goal "${R}/tasks/takeoff" task_msgs/action/TakeoffTask \
-        "{target_altitude_m: ${ALT}, velocity_m_s: ${VEL}}" 2>&1)"
-  echo "${tk}"
-  if ! echo "${tk}" | grep -qi 'success: true'; then
-    log "ERROR: takeoff failed"; exit 4
-  fi
-fi
-
-# ---------------------------------------------------------------- 4. mission goal
-GOAL="{start_mission: ${START}, run_id: \"${RUN_ID}\"}"
-attempt=1
-while :; do
-  log "sending ${R}/search_mission goal (attempt ${attempt}/${RETRIES}): ${GOAL}"
-  out="${TMP}/goal_${attempt}.log"
-  # PYTHONUNBUFFERED: the CLI's "Goal accepted" must reach the file immediately,
-  # or the watchdog below would mistake stdio buffering for a lost goal.
-  PYTHONUNBUFFERED=1 ros2 action send_goal --feedback "${R}/search_mission" mtl_msgs/action/SearchMission \
-      "${GOAL}" >"${out}" 2>&1 &
-  gpid=$!
-  accepted=0
-  for _ in $(seq 1 $((ACCEPT_TIMEOUT * 2))); do
-    if grep -q "Goal accepted" "${out}"; then accepted=1; break; fi
-    if grep -q "Goal was rejected" "${out}" || ! kill -0 "${gpid}" 2>/dev/null; then break; fi
-    sleep 0.5
-  done
-  if [[ "${accepted}" == 1 ]]; then
-    log "goal accepted"
-    tail -n +1 --pid="${gpid}" -f "${out}"
-    wait "${gpid}"
-    break
-  fi
-  kill -INT "${gpid}" 2>/dev/null; sleep 1; kill -KILL "${gpid}" 2>/dev/null
-  cat "${out}"
-  if (( attempt > 1 )) && grep -q "Goal was rejected" "${out}"; then
-    # The planner rejects only while a sortie is active: an earlier attempt WAS
-    # accepted (its response got lost). Follow that sortie instead of re-sending.
-    log "planner reports a sortie already active - following it via search/follower_status"
-    state=""
-    for _ in $(seq 1 600); do
-      state="$(timeout 8 ros2 topic echo --once "${R}/search/follower_status" --field state_name 2>/dev/null | head -n1)"
-      [[ "${state}" == COMPLETE || "${state}" == ABORTED ]] && break
-      sleep 2
-    done
-    log "sortie ended: ${state:-unknown}"
-    [[ "${state}" == COMPLETE ]] && exit 0
-    exit 6
-  fi
-  log "goal NOT accepted within ${ACCEPT_TIMEOUT} s"
-  diagnostics
-  if (( attempt >= RETRIES )); then
-    log "ERROR: giving up after ${RETRIES} attempts; the drone is left hovering at the takeoff point."
-    exit 5
-  fi
-  attempt=$((attempt + 1))
-  sleep 3
-done
+# ---------------------------------------------------------------- 3+4. takeoff + mission
+client_args=(--robot "${ROBOT}" --run-id "${RUN_ID}" --alt "${ALT}" --vel "${VEL}"
+             --accept-timeout "${ACCEPT_TIMEOUT}" --retries "${RETRIES}")
+[[ "${TAKEOFF}" == 1 ]] || client_args+=(--no-takeoff)
+[[ "${DRY_RUN}" == 1 ]] && client_args+=(--dry-run)
+# Background + wait (not foreground) so the INT/TERM trap runs immediately and
+# can forward the signal; the client installs its own SIGINT/SIGTERM handlers.
+python3 -u "${HERE}/mtl_sortie_client.py" "${client_args[@]}" &
+CLIENT_PID=$!
+wait "${CLIENT_PID}"
+rc=$?
+CLIENT_PID=""
 
 # ---------------------------------------------------------------- 5. result
-if grep -qi 'success: true' "${out}"; then
-  log "sortie succeeded"
-  exit 0
-fi
-log "sortie did not succeed (see the result above)"
-exit 6
+case "${rc}" in
+  0) log "sortie succeeded" ;;
+  3) log "ERROR: an action server vanished before the goal could be sent"; diagnostics ;;
+  4) log "ERROR: takeoff failed" ;;
+  5) log "ERROR: a goal was never accepted; the drone is left where it is (on the ground or hovering)"; diagnostics ;;
+  130) log "interrupted" ;;
+  *) log "sortie did not succeed (exit ${rc}; see the result above)" ;;
+esac
+exit "${rc}"

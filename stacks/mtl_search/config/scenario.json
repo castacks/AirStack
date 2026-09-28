@@ -45,7 +45,7 @@
   "enable_repair_loop": false
  },
  "team": {
-  "max_flight_time_s": 90.0,
+  "max_flight_time_s": 200.0,
   "max_flight_distance_m": null,
   "altitude_separation_m": 1.0,
   "agents": [
@@ -60,30 +60,6 @@
      -170.0
     ],
     "altitude_offset_m": 0.0
-   },
-   {
-    "name": "robot_2",
-    "start_ned": [
-     -170.0,
-     -158.0
-    ],
-    "home_ned": [
-     -170.0,
-     -158.0
-    ],
-    "altitude_offset_m": 1.0
-   },
-   {
-    "name": "robot_3",
-    "start_ned": [
-     -170.0,
-     -146.0
-    ],
-    "home_ned": [
-     -170.0,
-     -146.0
-    ],
-    "altitude_offset_m": 2.0
    }
   ]
  },
