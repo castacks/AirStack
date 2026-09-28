@@ -1094,9 +1094,8 @@ const STYLES = `
 .sb-cmdlog { max-height: 74px; margin-top: 5px; }   /* ~4 lines */
 .sb-pos { font-family: ui-monospace, monospace; }
 
-/* layout */
-.sb-columns { display: grid; grid-template-columns: minmax(190px, 240px) minmax(0, 1fr); gap: 8px; align-items: start; }
-@media (max-width: 680px) { .sb-columns { grid-template-columns: 1fr; } }
+/* layout: one full-width column of cards */
+.sb-columns { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .sb-col { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
 
 /* agent picker (Goal card) + the agent-name header the power cards share */
@@ -1126,7 +1125,8 @@ const STYLES = `
   text-align: right; font-weight: 600; opacity: 0.6; padding: 3px 6px; white-space: nowrap;
   border-bottom: 1px solid rgba(127,127,127,0.3); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em;
 }
-.sb-table th:first-child, .sb-table td:first-child { text-align: left; }
+.sb-table th:first-child, .sb-table td:first-child { text-align: left; width: 1%; }
+.sb-table th:nth-child(2), .sb-table td:nth-child(2) { text-align: left; }
 .sb-table td { text-align: right; padding: 3px 6px; white-space: nowrap; border-bottom: 1px solid rgba(127,127,127,0.14); }
 .sb-table tr.sb-selected td { background: rgba(16,185,129,0.12); }
 .sb-ok { color: #10b981; }
@@ -1913,10 +1913,11 @@ function activate(extensionContext) {
       root.appendChild(goalCard);
 
       // Columns
+      // One full-width stack of cards (Agent State, Link Safety, Cellular,
+      // Battery & Power in the 'full' view): the tables need the width.
       const columns = el("div", "sb-columns");
-      const leftCol = el("div", "sb-col");
       const rightCol = el("div", "sb-col");
-      columns.append(leftCol, rightCol);
+      columns.append(rightCol);
       root.appendChild(columns);
 
       // Agent state section — flight state and numeric position per drone.

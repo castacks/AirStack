@@ -35,17 +35,16 @@ python3 robot/ros_ws/src/svg_ground_control/foxglove/install.py   # installs air
 in `gcs/foxglove_extensions/` with their own `install.py`.)
 
 `svg_basestation.json` (one directory up) is a ready-made layout with **two
-instances** of this panel, a 3D view of `/svg/viz/markers` and an Image panel
-on drone_1's RGB camera:
+instances** of this panel and a 3D view of `/svg/viz/markers`:
 
 ```
-┌──────────────────────────┬───────────────┬──────────┐
-│ SVG Basestation          │ 3D            │ Image    │
-│  View = main             │ (/svg/viz/    │ drone_1  │
-│  safety · command · CBF  │  markers)     │ camera   │
-│  goal · agents · state   ├───────────────┴──────────┤
-│  link safety · cellular  │ SVG Battery & Power      │
-│                          │  View = power            │
+┌──────────────────────────┬──────────────────────────┐
+│ SVG Basestation          │ 3D  (/svg/viz/markers)    │
+│  View = main             │                          │
+│  safety · command · CBF  │                          │
+│  goal (agent picker)     ├──────────────────────────┤
+│  agent state             │ SVG Battery & Power      │
+│  link safety · cellular  │  View = power            │
 │                          │  [battery | sticks*]     │
 └──────────────────────────┴──────────────────────────┘
    * the Teleop · Sticks card appears beside the battery card only while
@@ -59,16 +58,13 @@ clock in its banner), `teleop` (the Teleop · Sticks card alone in a slot of
 its own — it reads "Teleop off" while `safe_teleop` is not publishing; a
 Foxglove panel slot cannot remove itself, which is why the shipped layout
 uses `power` instead), or `full` (the old single-panel form).
-The **Image** panel is Foxglove's own, on
-`/drone_1/sensors/front_stereo/left/image_rect` (`sensor_msgs/Image`, with
-`…/left/camera_info` as its calibration): the left eye of the ZED stereo
-camera the Pegasus simulator attaches to the drone. Isaac Sim only spawns
-that camera when `svg_multi_drone_single_domain.py` is started with
-`ENABLE_CAMERA=true CAMERA_DRONES=drone_1` (the default camera drone is the
-*last* one, the intruder, and the camera is off entirely without
-`ENABLE_CAMERA`); otherwise the panel reads "Waiting for images". On hardware
-retarget it from the panel's settings (gear → Image topic) to whatever the
-drone publishes. The 3D view's built-in grid layer is off: it is a fixed 8 m square on the
+Inside the `main` instance the cards stack in one full-width column, so the
+Agent State and Link Safety tables get the whole panel width. (To watch a
+camera, add Foxglove's own Image panel to the layout on the drone's image
+topic — in Isaac Sim `/drone_1/sensors/front_stereo/left/image_rect`, only
+published when `svg_multi_drone_single_domain.py` runs with
+`ENABLE_CAMERA=true CAMERA_DRONES=drone_1`.)
+The 3D view's built-in grid layer is off: it is a fixed 8 m square on the
 origin and never matches the fence. The commander draws a grid on the fence
 floor instead (`fence_grid_cell_m`), clipped to the fence and aligned to world
 metres, inside `/svg/viz/markers`.

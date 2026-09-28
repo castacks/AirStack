@@ -155,52 +155,6 @@
       },
       "imageMode": {},
       "synchronize": false
-    },
-    "Image!sbcam1": {
-      "cameraState": {
-        "distance": 20,
-        "perspective": true,
-        "phi": 60,
-        "target": [
-          0,
-          0,
-          0
-        ],
-        "targetOffset": [
-          0,
-          0,
-          0
-        ],
-        "targetOrientation": [
-          0,
-          0,
-          0,
-          1
-        ],
-        "thetaOffset": 60,
-        "fovy": 45,
-        "near": 0.5,
-        "far": 5000
-      },
-      "followMode": "follow-pose",
-      "scene": {},
-      "transforms": {},
-      "topics": {},
-      "layers": {},
-      "publish": {
-        "type": "point",
-        "poseTopic": "/move_base_simple/goal",
-        "pointTopic": "/clicked_point",
-        "poseEstimateTopic": "/initialpose",
-        "poseEstimateXDeviation": 0.5,
-        "poseEstimateYDeviation": 0.5,
-        "poseEstimateThetaDeviation": 0.26179939
-      },
-      "synchronize": false,
-      "imageMode": {
-        "imageTopic": "/drone_1/sensors/front_stereo/left/image_rect",
-        "calibrationTopic": "/drone_1/sensors/front_stereo/left/camera_info"
-      }
     }
   },
   "globalVariables": {},
@@ -213,14 +167,9 @@
     "first": "svg-basestation.SVG Basestation!sbmain",
     "second": {
       "direction": "column",
-      "first": {
-        "direction": "row",
-        "first": "3D!sbview",
-        "second": "Image!sbcam1",
-        "splitPercentage": 55
-      },
+      "first": "3D!sbview",
       "second": "svg-basestation.SVG Basestation!sbpower",
-      "splitPercentage": 60
+      "splitPercentage": 55
     },
     "splitPercentage": 50
   }
