@@ -50,13 +50,15 @@ Ported from drone_soccer plus goal-tracking and a squeeze profile:
   gap; the holders must yield and return. Order: `[holder, holder, intruder]`.
 - `figure_eight` — **collision-negligent pair + intruder**
   ([config/figure_eight_rc_intruder.yaml](config/figure_eight_rc_intruder.yaml)):
-  drones 0 and 1 fly one lobe each of a figure-eight (two touching circles,
-  radius / center distance / heading / plane tilt / sense per lobe all
-  parameters), starting at the far ends and meeting at the crossing every lap
-  with nothing but the CBF between them; drone 2 hovers at its start or is
-  hand-flown into them. The carrots are time-parametrized, so a pushed drone
-  is pulled back into the next meeting. Lobes are drawn as `path` markers.
-  Order: `[lobe A, lobe B, intruder]`; experiment.md C6.
+  drones 0 and 1 both fly the same figure-eight (two touching circles along
+  Y by default; radius / center distance / heading / plane tilt / sense per
+  drone all parameters), starting at the two far ends half the eight apart,
+  meeting at the crossing every half period (head-on by default) and
+  swapping lobes there, with nothing but the CBF between them; drone 2
+  hovers at its start or is hand-flown into them. The carrots are
+  time-parametrized, so a pushed drone is pulled back into the next meeting.
+  The eight is drawn as a `path` marker. Order: `[starts on lobe A, starts
+  on lobe B, intruder]`; experiment.md C6.
 
 `teleop_drones` (comma-separated string) lists operator-driven drones — empty
 = fully autonomous. Teleop is a control-source role, not a safety exemption:

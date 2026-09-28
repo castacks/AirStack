@@ -373,17 +373,20 @@ class SwarmCommander(Node):
         self.declare_parameter('squeeze_intruder_cbf_exempt', True)
         # figure_eight scenario geometry (ENU, meters / degrees): two circles
         # of radius r whose centers are center_distance apart along the
-        # horizontal heading axis_deg, the plane rolled about that line by
-        # tilt_deg; drone_1 flies lobe A, drone_2 lobe B (directions: +1 CCW,
-        # -1 CW in-plane), drone_3 holds intruder_start unless hand-flown.
+        # horizontal heading axis_deg (90 = along +Y), the plane rolled about
+        # that line by tilt_deg. drone_1 and drone_2 both fly the whole eight
+        # (lobe A CCW, through the crossing, lobe B CW, back), starting at the
+        # two far ends; senses: +1 / -1 = each drone's direction along the
+        # eight ([1,-1] head-on at the crossing, [1,1] a side-by-side merge).
+        # drone_3 holds intruder_start unless hand-flown.
         self.declare_parameter('figure_eight_center', [0.0, 0.0, 1.5])
         self.declare_parameter('figure_eight_radius_m', 1.0)
         self.declare_parameter('figure_eight_center_distance_m', 2.0)
-        self.declare_parameter('figure_eight_axis_deg', 0.0)
+        self.declare_parameter('figure_eight_axis_deg', 90.0)
         self.declare_parameter('figure_eight_tilt_deg', 30.0)
-        self.declare_parameter('figure_eight_directions', [1.0, -1.0])
+        self.declare_parameter('figure_eight_senses', [1.0, -1.0])
         self.declare_parameter('figure_eight_track_gain', 1.0)
-        self.declare_parameter('figure_eight_intruder_start', [0.0, -2.5, 1.5])
+        self.declare_parameter('figure_eight_intruder_start', [-2.0, 0.0, 1.5])
         self.declare_parameter('figure_eight_intruder_cbf_exempt', True)
         # Used by the 'hover' scenario only: flat [x1,y1,z1, ...] per drone.
         self.declare_parameter('hover_positions',
@@ -685,8 +688,8 @@ class SwarmCommander(Node):
                     self.get_parameter('figure_eight_center_distance_m').value),
                 axis_deg=float(self.get_parameter('figure_eight_axis_deg').value),
                 tilt_deg=float(self.get_parameter('figure_eight_tilt_deg').value),
-                directions=np.array(
-                    self.get_parameter('figure_eight_directions').value),
+                senses=np.array(
+                    self.get_parameter('figure_eight_senses').value),
                 track_gain=float(self.get_parameter('figure_eight_track_gain').value),
                 intruder_start=np.array(
                     self.get_parameter('figure_eight_intruder_start').value),
@@ -733,7 +736,8 @@ class SwarmCommander(Node):
                 f'figure_eight geometry: centers {sc.centers[0].round(2).tolist()} / '
                 f'{sc.centers[1].round(2).tolist()}, radius {sc.radius:.2f} m, '
                 f'crossing at {sc.touching_point.round(2).tolist()}; '
-                f'{speed:.2f} m/s -> lap {2 * np.pi * sc.radius / max(speed, 1e-6):.1f} s, '
+                f'{speed:.2f} m/s -> eight {4 * np.pi * sc.radius / max(speed, 1e-6):.1f} s, '
+                f'meeting every {2 * np.pi * sc.radius / max(speed, 1e-6):.1f} s, '
                 f'centripetal {speed * speed / sc.radius:.1f} m/s2 '
                 f'(2r keep-out = {2 * self.cbf_safety_radius:.2f} m)')
 

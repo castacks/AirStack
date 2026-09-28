@@ -20,10 +20,10 @@ Scenarios:
 - ``squeeze``: 3-drone CBF demo -- two "holder" drones goal-track posts
   separated by ``gap_factor * safety_radius`` while the third drone flies
   straight through the gap between them; the holders must yield and return.
-- ``figure_eight``: 3-drone CBF demo -- drones 0 and 1 fly a collision-
-  negligent figure-eight (two touching circles, one lobe each, arriving at
-  the touching point together every lap) while the third drone hovers or is
-  hand-flown into them; the CBF alone keeps everyone apart.
+- ``figure_eight``: 3-drone CBF demo -- drones 0 and 1 fly the same
+  collision-negligent figure-eight (two touching circles) half a lap apart,
+  meeting at the crossing every half period, while the third drone hovers
+  or is hand-flown into them; the CBF alone keeps everyone apart.
 
 Any drone listed in the commander's ``teleop_drones`` has its scenario row
 replaced by operator input, so e.g. the squeeze intruder can be hand-flown.
@@ -471,35 +471,43 @@ class SqueezeScenario(Scenario):
 
 
 class FigureEightScenario(Scenario):
-    """3-drone CBF showcase: two drones fly a collision-negligent figure-eight.
+    """3-drone CBF showcase: two drones fly the SAME figure-eight, half a lap apart.
 
-    Two circles of radius ``radius`` whose centers lie ``center_distance``
-    apart along the horizontal heading ``axis_deg`` (0 = +X, CCW positive),
-    touching when ``center_distance == 2 * radius``. The plane of the eight
-    is rolled about the center line by ``tilt_deg``: 0 is horizontal, 30 lets
-    a 1 m eight fit a low room while still giving the CBF room to dodge
-    vertically. Drone 0 flies lobe A, drone 1 lobe B; each starts at the far
-    end of its lobe and, with ``directions`` ``[+1, -1]`` (CCW, CW), the two
-    trace one continuous figure-eight and reach the touching point at the
-    same instant every lap with parallel velocities -- a merge the CBF must
-    resolve. ``[+1, +1]`` makes it a head-on meeting instead.
+    The eight is two circles of radius ``radius`` whose centers lie
+    ``center_distance`` apart along the horizontal heading ``axis_deg``
+    (0 = +X, 90 = +Y, CCW positive), touching when ``center_distance ==
+    2 * radius``, and its plane is rolled about the center line by
+    ``tilt_deg`` (0 flat; 30 keeps a 1 m eight in a low room and gives the
+    CBF a vertical way out). Path phase ``s`` runs 0..4*pi: lobe A (toward
+    -axis) is traversed CCW in-plane for s in [0, 2*pi), then the drone passes
+    through the crossing onto lobe B, traversed CW for s in [2*pi, 4*pi), and
+    comes back through the crossing -- one smooth figure-eight, both passes
+    through the crossing along the lobes' common tangent.
 
-    The path is TIME-parametrized, ``phase = omega * t`` with ``omega =
-    nominal_speed / radius`` and nothing else: the carrot keeps moving while
-    the CBF pushes a drone off the circle, so the drone is pulled back into
-    the same conflict on the next lap (collision-negligent by design). The
-    nominal for lobe drones is the carrot's velocity plus a pull toward it
-    (``track_gain`` per second, that pull capped at ``nominal_speed``), and
-    the feedforward is the carrot's own acceleration (centripetal ``v^2/R``,
-    so keep ``nominal_speed`` <= sqrt(a_max * R): 2.8 m/s at R = 1 m for an
-    airframe that tilts to 45 deg). Drone 2 (the intruder) hovers at
-    ``intruder_start`` unless it is in ``teleop_drones``; it is CBF-EXEMPT by
-    default (the holders alone dodge it), like the squeeze intruder.
+    Drone 0 starts at the far end of lobe A (s = pi), drone 1 at the far end
+    of lobe B (s = 3*pi): half the eight apart, so they reach the crossing at
+    the same instant every half period and swap lobes there. ``senses``
+    gives each drone's direction along the eight: ``[+1, -1]`` (default) has
+    the two run the eight in opposite senses -- they leave their far ends
+    heading opposite ways and meet HEAD-ON at the crossing; ``[+1, +1]`` has
+    them arrive side by side with parallel velocities (a merge).
+
+    The path is TIME-parametrized (``s = s0 +/- omega * t``, ``omega =
+    nominal_speed / radius``): the carrot keeps moving while the CBF pushes a
+    drone off the eight, so it is pulled back into the same conflict at the
+    next crossing (collision-negligent by design). A lobe drone's nominal is
+    the carrot's velocity plus a pull toward it (``track_gain`` per second,
+    capped at ``nominal_speed``); the feedforward is the carrot's own
+    centripetal acceleration ``v^2/R`` (keep ``nominal_speed`` <=
+    sqrt(a_max * R): 2.8 m/s at R = 1 m for a 45-deg airframe). Drone 2 (the
+    intruder) hovers at ``intruder_start`` unless it is in ``teleop_drones``;
+    it is CBF-EXEMPT by default (the pair alone dodges it), like the squeeze
+    intruder.
     """
 
     def __init__(self, *args, center: np.ndarray, radius: float = 1.0,
-                 center_distance: float = 2.0, axis_deg: float = 0.0,
-                 tilt_deg: float = 30.0, directions=(1.0, -1.0),
+                 center_distance: float = 2.0, axis_deg: float = 90.0,
+                 tilt_deg: float = 30.0, senses=(1.0, -1.0),
                  track_gain: float = 1.0, intruder_start: np.ndarray,
                  intruder_cbf_exempt: bool = True, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -511,8 +519,8 @@ class FigureEightScenario(Scenario):
         self._gap = float(center_distance)
         if self._radius <= 0.0 or self._gap <= 0.0:
             raise ValueError('figure_eight radius and center_distance must be > 0')
-        self._directions = np.sign(np.asarray(directions, dtype=float).reshape(2))
-        self._directions[self._directions == 0.0] = 1.0
+        self._senses = np.sign(np.asarray(senses, dtype=float).reshape(2))
+        self._senses[self._senses == 0.0] = 1.0
         self._track_gain = max(0.0, float(track_gain))
         self._intruder_start = np.asarray(intruder_start, dtype=float).reshape(3)
         self._intruder_cbf_exempt = bool(intruder_cbf_exempt)
@@ -525,10 +533,9 @@ class FigureEightScenario(Scenario):
                             np.cos(axis) * np.cos(tilt), np.sin(tilt)])
         self._centers = np.vstack([self._center - 0.5 * self._gap * self._d,
                                    self._center + 0.5 * self._gap * self._d])
-        # Lobe A's far end is at phase pi (toward -d), lobe B's at phase 0
-        # (toward +d): both a half lap from the touching point.
-        self._phase0 = np.array([np.pi, 0.0])
-        self._phase = 0.0
+        # Start phases: far end of lobe A (s = pi) and of lobe B (s = 3 pi).
+        self._phase0 = np.array([np.pi, 3.0 * np.pi])
+        self._t = 0.0
         self._omega = self.nominal_speed / self._radius
 
     # ---- geometry
@@ -545,21 +552,33 @@ class FigureEightScenario(Scenario):
         """Midpoint of the center line (the crossing when the circles touch)."""
         return self._center.copy()
 
-    def lobe_point(self, lobe: int, phase: float) -> np.ndarray:
-        """Point on lobe 0/1 at ``phase`` (rad, measured from +d, CCW in-plane)."""
-        return (self._centers[lobe]
-                + self._radius * (np.cos(phase) * self._d + np.sin(phase) * self._n))
+    def eight_point(self, s: float) -> np.ndarray:
+        """Point of the eight at path phase ``s`` (rad, 0..4 pi, 0 = crossing)."""
+        return self._carrot(s, 1.0)[0]
 
-    def _carrot(self, lobe: int, phase_time: float):
-        """Position, velocity, acceleration of the carrot on ``lobe``."""
-        sense = self._directions[lobe]
-        phi = self._phase0[lobe] + sense * phase_time
+    def _carrot(self, s: float, sense: float):
+        """Position, velocity, acceleration at path phase ``s`` for a drone
+        moving along the eight in ``sense`` (+1: increasing s)."""
+        s = float(s) % (4.0 * np.pi)
+        if s < 2.0 * np.pi:            # lobe A, CCW in-plane: angle from +d
+            lobe, phi, dphi = 0, s, 1.0
+        else:                          # lobe B, CW in-plane: angle from +d
+            lobe, phi, dphi = 1, 3.0 * np.pi - s, -1.0
         radial = np.cos(phi) * self._d + np.sin(phi) * self._n
         tangent = -np.sin(phi) * self._d + np.cos(phi) * self._n
         pos = self._centers[lobe] + self._radius * radial
-        vel = sense * self._omega * self._radius * tangent
+        vel = sense * dphi * self._omega * self._radius * tangent
         acc = -self._omega * self._omega * self._radius * radial
         return pos, vel, acc
+
+    def lobe_of(self, s: float) -> int:
+        """0 while on lobe A, 1 on lobe B."""
+        return 0 if (float(s) % (4.0 * np.pi)) < 2.0 * np.pi else 1
+
+    @property
+    def phases(self) -> np.ndarray:
+        """Current path phase of the two lobe drones' carrots (rad, 0..4 pi)."""
+        return (self._phase0 + self._senses * self._omega * self._t) % (4.0 * np.pi)
 
     @property
     def cbf_exempt_indices(self) -> list:
@@ -567,44 +586,44 @@ class FigureEightScenario(Scenario):
 
     @property
     def paths(self) -> list:
-        phases = np.linspace(0.0, 2.0 * np.pi, 73)
-        return [np.array([self.lobe_point(lobe, p) for p in phases])
-                for lobe in (0, 1)]
+        s = np.linspace(0.0, 4.0 * np.pi, 145)
+        return [np.array([self.eight_point(v) for v in s])]
 
     def initial_positions(self) -> np.ndarray:
-        return np.vstack([self.lobe_point(0, self._phase0[0]),
-                          self.lobe_point(1, self._phase0[1]),
+        return np.vstack([self.eight_point(self._phase0[0]),
+                          self.eight_point(self._phase0[1]),
                           self._intruder_start])
 
     def reset_tracking(self) -> None:
         """Mission start: the carrots restart at the far ends (= the takeoff
-        points), so the first meeting is half a lap in."""
+        points), so the first meeting is half a lobe in."""
         super().reset_tracking()
-        self._phase = 0.0
+        self._t = 0.0
 
     def nominal_velocity(self, positions, references=None, applied=None,
                          dt: float = DEFAULT_DT) -> np.ndarray:
         positions = np.asarray(positions, dtype=float).reshape(self.num_drones, 3)
         self._omega = self.nominal_speed / self._radius   # live speed changes
-        self._phase += self._omega * float(dt)
+        self._t += float(dt)
         refs = None
         if references is not None:
             refs = np.asarray(references, dtype=float).reshape(self.num_drones, 3)
         v = np.zeros((self.num_drones, 3))
         self._acceleration[:] = 0.0
         goals = np.zeros((self.num_drones, 3))
-        for lobe in (0, 1):
-            pos, vel, acc = self._carrot(lobe, self._phase)
-            goals[lobe] = pos
-            tracked = refs is not None and bool(np.isfinite(refs[lobe]).all())
-            at = refs[lobe] if tracked else positions[lobe]
+        phases = self.phases
+        for i in (0, 1):
+            pos, vel, acc = self._carrot(phases[i], self._senses[i])
+            goals[i] = pos
+            tracked = refs is not None and bool(np.isfinite(refs[i]).all())
+            at = refs[i] if tracked else positions[i]
             pull = self._track_gain * (pos - at)
             pull_norm = float(np.linalg.norm(pull))
             if pull_norm > self.nominal_speed > 0.0:
                 pull *= self.nominal_speed / pull_norm
-            v[lobe] = vel + pull
+            v[i] = vel + pull
             if tracked:
-                self._acceleration[lobe] = acc
+                self._acceleration[i] = acc
         # The intruder holds its start (a teleop intruder's row is ignored).
         goals[2] = self._intruder_start
         v[2] = seek_velocity(positions[2][None], self._intruder_start[None],
@@ -617,9 +636,7 @@ class FigureEightScenario(Scenario):
     def goals(self) -> Optional[np.ndarray]:
         goals = getattr(self, '_goals', None)
         if goals is None:
-            return np.vstack([self.lobe_point(0, self._phase0[0]),
-                              self.lobe_point(1, self._phase0[1]),
-                              self._intruder_start])
+            return self.initial_positions()
         return goals
 
 
@@ -712,7 +729,7 @@ def make_scenario(
             ``initial_goals`` for goal, ``holder_positions`` /
             ``intruder_waypoints`` for squeeze, ``center`` / ``radius`` /
             ``center_distance`` / ``axis_deg`` / ``tilt_deg`` /
-            ``directions`` / ``track_gain`` / ``intruder_start`` for
+            ``senses`` / ``track_gain`` / ``intruder_start`` for
             figure_eight) and the go-to-goal law's
             ``accel`` (m/s^2), ``settle_s`` and ``velocity_only_settle_s``
             (s) — see trajectory.py.

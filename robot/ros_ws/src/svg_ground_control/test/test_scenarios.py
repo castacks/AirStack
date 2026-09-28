@@ -179,8 +179,8 @@ def test_squeeze_kinematic_rollout_holders_yield_and_return() -> None:
 
 def make_eight(**overrides):
     kwargs = dict(center=[0.5, 0.0, 1.5], radius=1.0, center_distance=2.0,
-                  axis_deg=0.0, tilt_deg=30.0, directions=[1.0, -1.0],
-                  track_gain=1.0, intruder_start=[0.5, -2.5, 1.5])
+                  axis_deg=90.0, tilt_deg=30.0, senses=[1.0, -1.0],
+                  track_gain=1.0, intruder_start=[-2.0, 0.0, 1.5])
     kwargs.update(overrides)
     return make_scenario('figure_eight', num_drones=3, nominal_speed=1.5,
                          bounds=ARENA, safety_radius=0.55, seed=7, **kwargs)
@@ -188,66 +188,73 @@ def make_eight(**overrides):
 
 def test_figure_eight_geometry_and_takeoff_layout() -> None:
     sc = make_eight()
-    np.testing.assert_allclose(sc.centers, [[-0.5, 0.0, 1.5], [1.5, 0.0, 1.5]])
+    # center line along +Y: lobe A below, lobe B above the crossing
+    np.testing.assert_allclose(sc.centers, [[0.5, -1.0, 1.5], [0.5, 1.0, 1.5]], atol=1e-9)
     np.testing.assert_allclose(sc.touching_point, [0.5, 0.0, 1.5])
     initial = sc.initial_positions()
-    # Far ends of the two lobes, a half lap from the crossing, intruder at its start.
-    np.testing.assert_allclose(initial[0], [-1.5, 0.0, 1.5], atol=1e-9)
-    np.testing.assert_allclose(initial[1], [2.5, 0.0, 1.5], atol=1e-9)
-    np.testing.assert_allclose(initial[2], [0.5, -2.5, 1.5])
+    # Far ends of the two lobes, half the eight apart; intruder at its start.
+    np.testing.assert_allclose(initial[0], [0.5, -2.0, 1.5], atol=1e-9)
+    np.testing.assert_allclose(initial[1], [0.5, 2.0, 1.5], atol=1e-9)
+    np.testing.assert_allclose(initial[2], [-2.0, 0.0, 1.5])
     assert sc.cbf_exempt_indices == [2]
     assert make_eight(intruder_cbf_exempt=False).cbf_exempt_indices == []
-    # The lobes are drawn: two closed polylines of radius 1 about their centers.
-    paths = sc.paths
-    assert len(paths) == 2
-    for lobe, path in enumerate(paths):
-        r = np.linalg.norm(path - sc.centers[lobe], axis=1)
-        np.testing.assert_allclose(r, 1.0, atol=1e-9)
-        np.testing.assert_allclose(path[0], path[-1], atol=1e-9)
+    # One closed polyline: every point at radius 1 from one of the two centers,
+    # both lobes covered, and it passes through the crossing.
+    (path,) = sc.paths
+    r = np.min(np.linalg.norm(path[:, None, :] - sc.centers[None], axis=2), axis=1)
+    np.testing.assert_allclose(r, 1.0, atol=1e-9)
+    np.testing.assert_allclose(path[0], path[-1], atol=1e-9)
+    assert path[:, 1].min() < -1.9 and path[:, 1].max() > 1.9
+    assert np.linalg.norm(path - sc.touching_point, axis=1).min() < 1e-6
 
 
 def test_figure_eight_tilt_rolls_the_plane_about_the_center_line() -> None:
     for tilt in (0.0, 30.0, 60.0):
-        sc = make_eight(tilt_deg=tilt)
-        z = np.concatenate([p[:, 2] for p in sc.paths])
-        y = np.concatenate([p[:, 1] for p in sc.paths])
-        assert np.ptp(z) == pytest.approx(2.0 * np.sin(np.radians(tilt)), abs=1e-6)
-        assert np.ptp(y) == pytest.approx(2.0 * np.cos(np.radians(tilt)), abs=1e-6)
+        (path,) = make_eight(tilt_deg=tilt).paths
+        # y is the center line (untouched), the lobes' other extent splits
+        # between x (cos) and z (sin) with the tilt
+        assert np.ptp(path[:, 1]) == pytest.approx(4.0, abs=1e-6)
+        assert np.ptp(path[:, 2]) == pytest.approx(2.0 * np.sin(np.radians(tilt)), abs=1e-6)
+        assert np.ptp(path[:, 0]) == pytest.approx(2.0 * np.cos(np.radians(tilt)), abs=1e-6)
     # axis_deg turns the whole eight in the horizontal plane
-    sc = make_eight(axis_deg=90.0)
-    np.testing.assert_allclose(sc.centers[:, :2], [[0.5, -1.0], [0.5, 1.0]], atol=1e-9)
+    sc = make_eight(axis_deg=0.0)
+    np.testing.assert_allclose(sc.centers[:, :2], [[-0.5, 0.0], [1.5, 0.0]], atol=1e-9)
 
 
-def test_figure_eight_carrots_meet_at_the_crossing_together() -> None:
-    dt = 0.05
-    sc = make_eight()
+def _run_carrots(sc, laps, dt=0.05):
+    """Drive the carrots (perfect tracking); return (min gap, cos of the
+    velocity angle at the closest pass, lobe history of drone 0)."""
     sc.reset_tracking()
     p = sc.initial_positions().copy()
-    closest = np.inf
-    vel_at_meet = None
-    for _ in range(int(2.5 * 2 * np.pi / 1.5 / dt)):     # 2.5 laps
+    best = (np.inf, None)
+    lobes = []
+    for _ in range(int(laps * 4 * np.pi / 1.5 / dt)):
         v = sc.nominal_velocity(p, dt=dt)
         g = sc.goals
         d = np.linalg.norm(g[0] - g[1])
-        if d < closest:
-            closest, vel_at_meet = d, (v[0].copy(), v[1].copy())
-        p[:2] = g[:2]                                       # perfect tracking
-    # collision-negligent: the two carrots coincide at the crossing ...
-    assert closest < 0.05
-    # ... with parallel velocities for [+1, -1] (a merge), speed = nominal
-    v0, v1 = vel_at_meet
-    assert np.dot(v0, v1) / (np.linalg.norm(v0) * np.linalg.norm(v1)) > 0.99
-    assert np.linalg.norm(v0) == pytest.approx(1.5, rel=0.05)
-    # same sense: head-on at the crossing
-    sc = make_eight(directions=[1.0, 1.0]); sc.reset_tracking()
-    p = sc.initial_positions().copy(); best = (np.inf, None)
-    for _ in range(int(1.2 * 2 * np.pi / 1.5 / dt)):
-        v = sc.nominal_velocity(p, dt=dt); g = sc.goals
-        d = np.linalg.norm(g[0] - g[1])
         if d < best[0]:
-            best = (d, np.dot(v[0], v[1]) / (np.linalg.norm(v[0]) * np.linalg.norm(v[1])))
+            best = (d, float(np.dot(v[0], v[1]) / (np.linalg.norm(v[0]) * np.linalg.norm(v[1]))))
+        lobes.append(sc.lobe_of(sc.phases[0]))
         p[:2] = g[:2]
-    assert best[0] < 0.05 and best[1] < -0.99
+    return best[0], best[1], np.array(lobes)
+
+
+def test_figure_eight_carrots_meet_at_the_crossing_and_swap_lobes() -> None:
+    gap, cos_angle, lobes = _run_carrots(make_eight(), laps=1.0)
+    # collision-negligent: the two carrots coincide at the crossing ...
+    assert gap < 0.05
+    # ... head-on with the default opposite senses ...
+    assert cos_angle < -0.99
+    # ... and each drone passes onto the other circle: lobe A, then B, then A
+    changes = np.flatnonzero(np.diff(lobes) != 0)
+    assert lobes[0] == 0 and len(changes) == 2 and lobes[changes[0] + 1] == 1
+    # same sense: a side-by-side merge at the crossing
+    gap, cos_angle, _ = _run_carrots(make_eight(senses=[1.0, 1.0]), laps=0.6)
+    assert gap < 0.05 and cos_angle > 0.99
+    # the two start heading opposite ways (default senses)
+    sc = make_eight(); sc.reset_tracking()
+    v = sc.nominal_velocity(sc.initial_positions(), dt=0.01)
+    assert np.dot(v[0], v[1]) < 0.0
 
 
 def test_figure_eight_tracked_rows_get_the_centripetal_feedforward() -> None:
@@ -256,14 +263,14 @@ def test_figure_eight_tracked_rows_get_the_centripetal_feedforward() -> None:
     refs = np.array([p[0], p[1], [np.nan, np.nan, np.nan]])
     v = sc.nominal_velocity(p, references=refs, applied=np.zeros((3, 3)), dt=0.05)
     a = sc.nominal_acceleration
-    # v^2 / R = 2.25 m/s^2 toward the lobe center, on the tracked rows only
-    for lobe in (0, 1):
-        assert np.linalg.norm(a[lobe]) == pytest.approx(2.25, rel=0.02)
-        inward = sc.centers[lobe] - p[lobe]
-        assert np.dot(a[lobe], inward) > 0.0
-        assert np.linalg.norm(v[lobe]) == pytest.approx(1.5, rel=0.1)
+    # v^2 / R = 2.25 m/s^2 toward the current lobe center, tracked rows only
+    for i in (0, 1):
+        assert np.linalg.norm(a[i]) == pytest.approx(2.25, rel=0.02)
+        assert np.dot(a[i], sc.centers[i] - p[i]) > 0.0
+        assert np.linalg.norm(v[i]) == pytest.approx(1.5, rel=0.1)
     np.testing.assert_allclose(a[2], 0.0)
-    # a drone pushed off its lobe is pulled back at track_gain, capped at the speed
+    # a drone pushed off the eight is pulled back at track_gain, capped at the speed
+    # (displaced along the center line, where the far-end carrot has no velocity)
     off = p.copy(); off[0] += [0.0, 3.0, 0.0]
     v = sc.nominal_velocity(off, dt=0.05)
     assert np.linalg.norm(v[0]) <= 1.5 + 1.5 + 1e-6 and v[0][1] < -1.0
@@ -278,7 +285,7 @@ def test_figure_eight_kinematic_rollout_cbf_keeps_the_pair_apart() -> None:
     positions = sc.initial_positions().copy()
     min_pair = np.inf
     min_nominal_gap = np.inf
-    for _ in range(int(3 * 2 * np.pi / 1.5 / dt)):       # 3 laps
+    for _ in range(int(2 * 4 * np.pi / 1.5 / dt)):       # two full eights
         nominal = sc.nominal_velocity(positions, dt=dt)
         g = sc.goals
         min_nominal_gap = min(min_nominal_gap, np.linalg.norm(g[0] - g[1]))
@@ -287,6 +294,6 @@ def test_figure_eight_kinematic_rollout_cbf_keeps_the_pair_apart() -> None:
         min_pair = min(min_pair, np.linalg.norm(positions[0] - positions[1]))
     assert min_nominal_gap < 0.05                          # the conflict is real
     assert min_pair >= 2.0 * safety_radius - 0.05          # and the barrier holds
-    # both lobe drones are still on (or near) their carrots after the laps
+    # both drones are back on (or near) their carrots after the crossings
     assert np.linalg.norm(positions[0] - sc.goals[0]) < 0.6
     assert np.linalg.norm(positions[1] - sc.goals[1]) < 0.6
