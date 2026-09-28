@@ -59,7 +59,7 @@ swarm_commander:
     #   centripetal = v^2 / R        (2.3 m/s2 at 1.5; 4.0 at 2.0; 7.8 at 2.8 = the 45-deg limit)
     # The two drones meet at the crossing every half period, so a lower speed
     # means a gentler, more legible dodge; a higher one a harder shove.
-    scenario_speed_mps: 1.5
+    scenario_speed_mps: 2.0
     # Go-to-goal law (trajectory.py; all live via ros2 param set). The eight
     # itself is a time-parametrized carrot (see figure_eight_* below); these
     # govern the intruder's hold, the climb, /hold and the lobe drones' ramp
@@ -107,17 +107,17 @@ swarm_commander:
     # most at double speed).
     # With R = 1 at (0.5, 0, 1.5), axis 90, tilt 30: y spans -2..2,
     # x 0.5 +/- 0.87 (-0.37..1.37), z 1.0..2.0.
-    figure_eight_center: [0.5, 0.0, 1.5]
-    figure_eight_radius_m: 1.0
-    figure_eight_center_distance_m: 2.0
+    figure_eight_center: [0.5, 0.0, 1.7]
+    figure_eight_radius_m: 1.5
+    figure_eight_center_distance_m: 3.0
     figure_eight_axis_deg: 90.0
-    figure_eight_tilt_deg: 30.0
-    figure_eight_senses: [1.0, -1.0]
+    figure_eight_tilt_deg: -30.0
+    figure_eight_senses: [-1.0, 1.0]
     figure_eight_track_gain: 1.0
     # drone_3's TAKEOFF / hold point (the scenario's initial position for
     # index 2): where the pilot wants to start — inside the teleop fence,
     # clear of the eight (which spans x -0.37..1.37): 2 m to its -x side.
-    figure_eight_intruder_start: [-2.0, 0.0, 1.5]
+    figure_eight_intruder_start: [-2.5, 0.0, 1.5]
     # Scenario-driven (hovering) intruder only — not this config; keep the default.
     figure_eight_intruder_cbf_exempt: true
 

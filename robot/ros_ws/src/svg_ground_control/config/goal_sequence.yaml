@@ -44,7 +44,7 @@ swarm_commander:
     # 3 m/s makes the crossings brisk and the CBF dodges visible; the legs
     # here are 2.8-4.5 m long. 6 m/s was verified on the C2 legs, but the
     # dodge acceleration comes on top — raise in steps.
-    scenario_speed_mps: 3.0
+    scenario_speed_mps: 6.0
     # Go-to-goal law (trajectory.py; all live via ros2 param set):
     #   goal_accel_mps2  acceleration/braking of the reference profile
     #   goal_settle_s    exponential tail into the goal (0.3 = PX4-like)
