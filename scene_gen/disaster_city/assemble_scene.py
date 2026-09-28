@@ -20,6 +20,7 @@ PIECES = {"R01": "rubble_west/R01_assets.usd", "B01": "b01/B01.usd", "R02": "rub
 
 stage = Usd.Stage.CreateNew(str(R / "disaster_city.usda"))
 UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z); UsdGeom.SetStageMetersPerUnit(stage, 1.0)
+from georef import stamp; stamp(stage)                     # WGS84: the scene is an ENU frame (georef.py)
 world = UsdGeom.Xform.Define(stage, "/World"); stage.SetDefaultPrim(world.GetPrim())
 if (R / "site_ground.usd").exists(): stage.DefinePrim("/World/site").GetReferences().AddReference("./site_ground.usd")
 for name in ("trees", "vehicles", "debris", "people"):                # place_assets.py; place_people.py
@@ -52,6 +53,7 @@ stage.Save()
 if (R / "raw_tiles/tiles_site.usd").exists():
     raw = Usd.Stage.CreateNew(str(R / "disaster_city_raw_tiles.usda"))
     UsdGeom.SetStageUpAxis(raw, UsdGeom.Tokens.z); UsdGeom.SetStageMetersPerUnit(raw, 1.0)
+    stamp(raw)
     w = UsdGeom.Xform.Define(raw, "/World"); raw.SetDefaultPrim(w.GetPrim())
     raw.DefinePrim("/World/tiles").GetReferences().AddReference("./raw_tiles/tiles_site.usd")
     raw.DefinePrim("/World/Environment").GetReferences().AddReference("./disaster_city.usda", "/World/Environment")

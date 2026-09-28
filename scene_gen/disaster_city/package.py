@@ -43,6 +43,7 @@ for layer in layers:
                 else: (assets.add(a_) if a_.is_file() else unresolved.append(str(a_)))
     layer.Traverse(Sdf.Path.absoluteRootPath, visit)
 files = {Path(l.realPath) for l in layers} | assets
+files |= {R / f for f in ("georeference.json", "geofence.geojson") if (R / f).exists()}   # georef.py --write
 # MDLs pull their textures by relative path, which the USD dependency walk cannot see
 for m in [f for f in files if f.suffix == ".mdl"]:
     tex = m.parent / "textures"

@@ -69,6 +69,23 @@ Measured with `isaac_check.py` in host Isaac Sim 6.0.1 on an RTX 5090: about
   pile, a tree trunk and a bus all hit.
 - **Semantics:** Isaac's `semantic_segmentation` returns all 8 classes.
 
+## Georeference (WGS84)
+
+The scene is a local **east-north-up frame on the WGS84 ellipsoid**: x = east, y = north, z = up, in metres. The origin is at
+**30.5789108° N, 96.3523521° W, h = 0**, the Blosm import origin stored in the blend. So z is the ellipsoidal height; NAVD88 ≈ z + 26.75 m here.
+`georef.py` converts both ways (`scene_to_wgs84`, `wgs84_to_scene`, or from the CLI). `georef.py --write` does three things:
+- writes `georeference.json`, including the geofence corners in lat/lon;
+- writes `geofence.geojson`;
+- stamps `customLayerData["georeference"]` into the stages. `assemble_scene.py` and `autumn.py` also stamp it on every build.
+`package.py` ships the two sidecar files.
+
+For PX4 under Pegasus, set the global coordinates to (30.5789108, -96.3523521, 26.75 m MSL).
+
+The blend offers a second candidate frame. Blosm's OSM layers use a spherical transverse Mercator at the same origin, which stretches
+north–south by 0.41% (2.3 m at the south fence). The tiles are not in that frame. They were checked against live OSM building
+outlines (ENU fits; the TM y scale is off by −0.48%) and against USGS 3DEP lidar plus GEOID18 (z − h = −0.8 ± 0.6 m).
+Absolute accuracy is about 1 m, which is Google's.
+
 ## Rebuilding
 
 Run from this directory. Each script's docstring has the details.
@@ -125,6 +142,7 @@ $PY track_drone.py frames && $PY track_drone.py sfm && $PY track_drone.py georef
 $PY leftovers.py                               # raw tile pieces no model has replaced yet -> data/recon/leftovers.jpg
 $PY footprint_check.py                        # every model vs its tile footprint -> data/recon/footprints.tsv + overlays
 OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh gallery.py <out_dir>        # specs/gallery.yaml: outside, inside, survivors -> jpgs + index.html
+$PY georef.py --write                                                 # WGS84 sidecars + stage metadata
 OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh overview.py <out_dir>       # top-down site: render, geofence, semantic segmentation
 OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh package.py --scene summer --zip        # data/dist/disaster_city_summer{/,.zip} (Kit USD); --scene autumn likewise
 ```

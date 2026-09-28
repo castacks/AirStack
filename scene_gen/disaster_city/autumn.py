@@ -97,6 +97,7 @@ for sp, oak in SWAP.items():                     # a wrapper in the summer speci
 # the autumn stage: summer's /World by reference, looks overridden
 au = Usd.Stage.CreateNew(str(R / "disaster_city_autumn.usda"))
 UsdGeom.SetStageUpAxis(au, "Z"); UsdGeom.SetStageMetersPerUnit(au, 1.0)
+from georef import stamp; stamp(au)                        # layer metadata does not compose through the reference
 w = au.DefinePrim("/World"); w.GetReferences().AddReference("./disaster_city.usda"); au.SetDefaultPrim(w)
 sun = UsdLux.DistantLight(au.OverridePrim("/World/Environment/sun")); sun.CreateIntensityAttr(2200.0); sun.CreateColorAttr(Gf.Vec3f(1.0, 0.97, 0.93))
 sky = UsdLux.DomeLight(au.OverridePrim("/World/Environment/sky")); sky.CreateIntensityAttr(750.0)
