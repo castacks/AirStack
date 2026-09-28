@@ -1037,6 +1037,41 @@ ros2 topic pub --once /svg/drone_2/goal_command geometry_msgs/msg/PoseStamped \
 ros2 topic pub --once /svg/drone_1/speed_command std_msgs/msg/Float32 "{data: 0.6}"
 ros2 topic pub --once /svg/drone_2/speed_command std_msgs/msg/Float32 "{data: 1.0}"
 ```
+
+**Hand-fly one drone with the Xbox controller** while the others follow their
+goals / formations. The pad goes up first, in its own terminal, so its readings
+are checked before anything is armed; the commander then takes that drone from
+the sticks instead of the scenario (`teleop_drones:=`). The config's
+`safe_teleop` block names the bench DragonRise pad, so pass the Xbox profile
+explicitly. The hand-flown drone stays **CBF-protected** here (it is not in
+`cbf_exempt_drones`) and is held inside the geofence by the `keep_in` envelope
+(`goal_tracking.yaml` has no separate teleop fence).
+
+```bash
+# terminal 1 — the Xbox pad (prints "pad: fwd .. left .. climb .. yaw .. | cmd vx .." — move the sticks, nothing flies yet):
+ros2 launch svg_ground_control teleop.launch.py \
+  config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/goal_tracking.yaml \
+  drone:=drone_3 teleop_controller:=xbox_usb
+
+# terminal 2 — commander, drone_3 on the sticks, drone_1/drone_2 on the scenario:
+ros2 launch svg_ground_control ground_control.launch.py \
+  config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/goal_tracking.yaml \
+  use_mocap:=true teleop_drones:=drone_3
+
+# terminal 3 — fly: takeoff lifts all three; start hands drone_3 to the sticks
+ros2 service call /swarm_commander/takeoff std_srvs/srv/Trigger
+ros2 service call /swarm_commander/start   std_srvs/srv/Trigger
+# right stick = move, left stick = up/down + yaw, LB = stick lock. Release the
+# sticks and the commander holds drone_3 where it is (position mode).
+# First hand flight: cap the stick (config ships 8 m/s in both caps):
+ros2 param set /swarm_commander teleop_max_speed_mps 2.0
+```
+`goal_command` / `formation_command` still steer drone_1 and drone_2; drone_3
+ignores them while it is a teleop drone. Pad diagnostics, axis signs and the
+ground check: [teleop.md](teleop.md); a `REFUSING TO COMMAND … rests at +1.00`
+at launch means the wrong profile for the plugged-in pad (see the
+troubleshooting table).
+
 **LEDs:** all real drones **green**; a drone turns **red for as long as the CBF
 is altering its command** (paths crossing — the same moments the commander logs
 `CBF active on: …`), then back to green. Recolor any time (works disarmed too), formation-style:
