@@ -297,3 +297,120 @@ def test_figure_eight_kinematic_rollout_cbf_keeps_the_pair_apart() -> None:
     # both drones are back on (or near) their carrots after the crossings
     assert np.linalg.norm(positions[0] - sc.goals[0]) < 0.6
     assert np.linalg.norm(positions[1] - sc.goals[1]) < 0.6
+
+
+# ------------------------------------------------------------ goal_sequence
+
+SEQ_ARENA = Bounds(low=np.array([-3.0, -3.0, 0.5]), high=np.array([3.0, 3.0, 2.5]))
+SEQ_STEPS = np.array([
+    [[0.0, -2.0, 1.5], [0.0, 0.0, 1.5], [0.0, 2.0, 1.5]],      # line
+    [[0.0, 2.0, 1.5], [2.0, 0.0, 1.5], [0.0, -2.0, 1.5]],      # ends swap head-on
+    [[-2.0, -2.0, 1.2], [0.0, 0.0, 1.5], [2.0, 2.0, 1.8]],     # three-way crossing
+])
+
+
+def make_sequence(**overrides):
+    kwargs = dict(steps=SEQ_STEPS, step_names=['line', 'swap', 'cross'],
+                  dwell_s=1.0, arrival_m=0.3, loop=True)
+    kwargs.update(overrides)
+    return make_scenario('goal_sequence', num_drones=3, nominal_speed=2.0,
+                         bounds=SEQ_ARENA, safety_radius=0.55, seed=7, **kwargs)
+
+
+def test_goal_sequence_validates_arena_and_spacing() -> None:
+    sc = make_sequence()
+    assert sc.num_steps == 3 and sc.step_names == ['line', 'swap', 'cross']
+    np.testing.assert_allclose(sc.initial_positions(), SEQ_STEPS[0])
+    np.testing.assert_allclose(sc.goals, SEQ_STEPS[0])
+    bad = SEQ_STEPS.copy(); bad[1, 0] = [0.0, 3.5, 1.5]          # outside the arena
+    with pytest.raises(ValueError, match='outside the arena'):
+        make_sequence(steps=bad)
+    bad = SEQ_STEPS.copy(); bad[2, 1] = [-1.5, -1.5, 1.2]        # 0.7 m from drone 0
+    with pytest.raises(ValueError, match='keep-out'):
+        make_sequence(steps=bad)
+    with pytest.raises(ValueError):
+        make_sequence(advance='sometimes')
+
+
+def test_goal_sequence_advances_after_arrival_and_dwell_then_loops() -> None:
+    sc = make_sequence()
+    changes = []
+    sc.on_step = lambda k, name, goals: changes.append((k, name))
+    sc.reset_tracking()
+    p = SEQ_STEPS[0].copy()
+    # sitting on the goals: after dwell_s the next set plays
+    for _ in range(19):
+        sc.nominal_velocity(p, dt=0.05)
+    assert sc.step_index == 0 and changes == []
+    sc.nominal_velocity(p, dt=0.05)
+    assert sc.step_index == 1 and changes == [(1, 'swap')]
+    v = sc.nominal_velocity(p, dt=0.05)
+    assert v[0][1] > 0.0 and v[2][1] < 0.0                       # ends swap: head-on along y
+    # one drone late: the dwell restarts, nothing advances
+    late = SEQ_STEPS[1].copy(); late[1] += [1.0, 0.0, 0.0]
+    for _ in range(60):
+        sc.nominal_velocity(late, dt=0.05)
+    assert sc.step_index == 1
+    # everyone there: cross, then wrap to line
+    for _ in range(21):
+        sc.nominal_velocity(SEQ_STEPS[1], dt=0.05)
+    assert sc.step_index == 2
+    for _ in range(21):
+        sc.nominal_velocity(SEQ_STEPS[2], dt=0.05)
+    assert sc.step_index == 0 and [c[1] for c in changes] == ['swap', 'cross', 'line']
+    # no loop: stays on the last set
+    sc = make_sequence(loop=False); sc.set_step('cross')
+    for _ in range(40):
+        sc.nominal_velocity(SEQ_STEPS[2], dt=0.05)
+    assert sc.step_index == 2 and sc.finished
+
+
+def test_goal_sequence_timer_pause_and_operator_steps() -> None:
+    sc = make_sequence(advance='timer', period_s=1.0)
+    sc.reset_tracking()
+    p = SEQ_STEPS[0] + np.array([5.0, 0.0, 0.0])                # anywhere; timer ignores arrival
+    for _ in range(20):
+        sc.nominal_velocity(p, dt=0.05)
+    assert sc.step_index == 1
+    sc.paused = True
+    for _ in range(40):
+        sc.nominal_velocity(p, dt=0.05)
+    assert sc.step_index == 1
+    sc.paused = False
+    assert sc.next_step() == 'cross' and sc.step_index == 2
+    assert sc.set_step('line') == 'line' and sc.step_index == 0
+    assert sc.set_step(1) == 'swap'
+    with pytest.raises(KeyError):
+        sc.set_step('nope')
+    # reset_tracking (mission start) plays from the first set again
+    sc.reset_tracking()
+    assert sc.step_index == 0 and not sc.paused
+
+
+def test_goal_sequence_kinematic_rollout_cbf_deconflicts_the_crossings() -> None:
+    safety_radius = 0.55
+    dt = 0.05
+    sc = make_sequence(dwell_s=0.5)
+    sc.reset_tracking()
+    positions = sc.initial_positions().copy()
+    min_pair = np.inf
+    steps_seen = {0}
+    unfiltered_min = np.inf
+    for _ in range(int(40 / dt)):
+        nominal = sc.nominal_velocity(positions, dt=dt)
+        steps_seen.add(sc.step_index)
+        result = filter_velocities(nominal, positions, safety_radius, 3.0, alpha=2.5)
+        positions = positions + result.velocities * dt
+        d = [np.linalg.norm(positions[a] - positions[b]) for a, b in ((0, 1), (0, 2), (1, 2))]
+        min_pair = min(min_pair, min(d))
+    assert steps_seen == {0, 1, 2}                              # the whole sequence played
+    assert min_pair >= 2.0 * safety_radius - 0.05               # and the barrier held
+    # the straight lines really do cross: drive the same sets with no filter
+    sc = make_sequence(dwell_s=0.5); sc.reset_tracking()
+    positions = sc.initial_positions().copy()
+    for _ in range(int(40 / dt)):
+        nominal = sc.nominal_velocity(positions, dt=dt)
+        positions = positions + nominal * dt
+        d = [np.linalg.norm(positions[a] - positions[b]) for a, b in ((0, 1), (0, 2), (1, 2))]
+        unfiltered_min = min(unfiltered_min, min(d))
+    assert unfiltered_min < 0.5

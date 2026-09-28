@@ -311,7 +311,7 @@ ros2 launch svg_ground_control ground_control.launch.py \
 
 > In the standard experiments a drone is **sim**, **real**, or **external**
 > (RC-flown, tracked-only); the one Part C task that uses teleop is
-> [C5](#c5-squeeze-with-a-hand-flown-intruder-squeeze_rc_intruderyaml), the
+> [C6](#c6-squeeze-with-a-hand-flown-intruder-squeeze_rc_intruderyaml), the
 > hardware squeeze with a gamepad-flown intruder. Hand-flying otherwise has
 > its own configs (`teleop_single.yaml` sim, `teleop_real.yaml` one real
 > drone via `./svg_teleop.sh real`) — see [teleop.md](teleop.md). The
@@ -718,7 +718,7 @@ ros2 topic echo /drone_1/odometry_conversion/odometry --once
 Open RViz (see [RViz visualization](#rviz-visualization)) and move the drone by
 hand: its **red** sphere should follow on `/svg/viz/markers`. (To also see it in
 the Isaac 3D viewport, launch Isaac with `DRONE_MODES` set — see Part A and the
-flagship in C4.) Do **not** call `takeoff` here — this is preflight only.
+flagship in C5.) Do **not** call `takeoff` here — this is preflight only.
 
 ### B6. VOXL2 diagnostics cheat sheet
 
@@ -1104,19 +1104,100 @@ An unknown name is ignored with a warning listing the available profiles (check
 the commander log). Per-drone `goal_command` / `speed_command` still work and
 can fine-tune individual drones after a formation switch.
 
-### C3. Squeeze — all-sim rehearsal (`squeeze_3drone.yaml`)
+### C3. Scripted goal sequence — automatic crossings (`goal_sequence.yaml`)
+
+The multi-drone goal tracking of C2 played **from a script**: a sequence of
+goal sets (one x,y,z per drone per step, like the formation profiles), every
+drone flying **straight** at its goal, the sets laid out so the straight
+lines cross — ends swapping head-on, a three-way crossing at the centre, a
+rotating triangle — and the CBF deconflicting each crossing. Nobody steers:
+the next set plays by itself once every drone has been on its goal for
+`sequence_dwell_s`, and the sequence wraps. Same all-real setup as C2
+(three drones per Part B, three agents, one `natnet_ros2`, mocap to all
+three). Every goal is checked at startup to be inside `arena_low..arena_high`
+and every pair in a set ≥ 2·`cbf_safety_radius_m` apart, or the commander
+refuses to come up.
+
+**The shipped script** (`sequence_steps: "line,swap,cross,tri,rotate"`,
+arena ±3 m, z 1.2–1.8 m; the first set is also the takeoff layout, so put
+drone_1 at (0,−2), drone_2 at (0,0), drone_3 at (0,2) on the floor):
+
+| step | drone_1 | drone_2 | drone_3 | what crosses |
+|---|---|---|---|---|
+| `line` | (0, −2, 1.5) | (0, 0, 1.5) | (0, 2, 1.5) | takeoff layout |
+| `swap` | (0, 2, 1.5) | (2, 0, 1.5) | (0, −2, 1.5) | drone_1 and drone_3 swap ends **head-on** (4 m each); drone_2 steps aside |
+| `cross` | (−2, −2, 1.2) | (0, 0, 1.5) | (2, 2, 1.8) | all three through the centre at once |
+| `tri` | (2, −1.5, 1.5) | (−2, −1.5, 1.5) | (0, 2, 1.8) | drone_1 and drone_2 cross while spreading into a triangle |
+| `rotate` | (−2, −1.5, 1.5) | (0, 2, 1.8) | (2, −1.5, 1.2) | the triangle rotates one corner: all three legs cross in the middle |
+
+Edit / add steps freely: a step is one `sequence_<name>` array plus its name
+in `sequence_steps` (order = play order). Knobs: `scenario_speed_mps` (3,
+live; 6 was flown on the C2 legs, but the dodge acceleration comes on top —
+raise in steps), `sequence_advance` `arrival` (wait for everyone + dwell; an
+intervention plays out fully before the next set) or `timer`
+(`sequence_period_s`, relentless), `sequence_loop`, `cbf_alpha` (live).
+
+```bash
+# 0. all three drones connected + verified (Part B), interfaces up:
+ros2 launch svg_ground_control real_interfaces.launch.py drones:=drone_1,drone_2,drone_3
+#    one MicroXRCEAgent per drone (8888 / 8889 / 8892) in their own terminals.
+
+# 1. commander (mocap always on). Startup log prints
+#    goal_sequence: 5 steps (line, swap, cross, tri, rotate), advance arrival (dwell 2.0 s …)
+ros2 launch svg_ground_control ground_control.launch.py \
+  config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/goal_sequence.yaml \
+  use_mocap:=true
+
+# 2. fly: takeoff lifts all three to the "line" set; start plays the script.
+ros2 service call /swarm_commander/takeoff std_srvs/srv/Trigger
+ros2 service call /swarm_commander/start   std_srvs/srv/Trigger
+#    the log announces every set:  sequence step 2/5 "swap": drone_1 -> [0.0, 2.0, 1.5]; …
+#    and CBF active on: … at each crossing (the drones involved go red).
+
+# 3. steer the script while it runs (all optional):
+ros2 topic pub --once /svg/sequence_command std_msgs/msg/String "{data: pause}"    # hold the current set
+ros2 topic pub --once /svg/sequence_command std_msgs/msg/String "{data: resume}"
+ros2 topic pub --once /svg/sequence_command std_msgs/msg/String "{data: next}"     # advance now
+ros2 topic pub --once /svg/sequence_command std_msgs/msg/String "{data: cross}"    # jump to a step by name
+ros2 param set /swarm_commander scenario_speed_mps 4.0                             # faster legs (live)
+ros2 param set /swarm_commander cbf_alpha 1.5                                      # earlier, gentler dodges (live)
+
+# 4. stop / land
+ros2 service call /swarm_commander/hold    std_srvs/srv/Trigger   # everyone brakes and holds; start resumes from "line"
+ros2 service call /swarm_commander/land    std_srvs/srv/Trigger
+```
+
+**Hand-flown intruder variant:** `teleop_drones: "drone_3"` (and
+`cbf_exempt_drones: "drone_3"` if it should be the obstacle the other two
+dodge instead of being dodged itself), start `teleop.launch.py` first as in
+C2; drone_3's sequence rows are then ignored and the other two keep playing
+the script around it.
+
+**In Foxglove / RViz** each drone's current leg (previous goal → current
+goal) is drawn as a `path` line, the goals as spheres. `/svg/commander_status`
+carries the CBF's active set; `ros2 topic echo /svg/cbf_active` shows it raw.
+
+> ⚠️ **Safety.** Fences are velocity clips, not a motor cutoff; the RC kill
+> switch is the true cutoff. Keep the arena ≥ 1 m inside the geofence so a
+> dodge has room, and keep set-to-set legs ≤ ~4.5 m at 3 m/s (the braking
+> law needs `v²/(2a) + v·settle` = 1.05 m to stop from 3 m/s). Two drones
+> sent to the same neighbourhood from opposite sides always meet the CBF,
+> never each other; a set the commander refuses at startup is one that could
+> not be reached by everyone at once.
+
+### C4. Squeeze — all-sim rehearsal (`squeeze_3drone.yaml`)
 
 Holders (drone_1,2) hold their posts; the intruder (drone_3) shuttles through
 the gap. drone_3 is **CBF-exempt** (`cbf_exempt_drones: "drone_3"`) so it
 presses through and the holders alone yield.
 
-**Why no `use_mocap` here (unlike C1/C2):** this config is the deliberately
+**Why no `use_mocap` here (unlike C1–C3):** this config is the deliberately
 **all-sim rehearsal** — `drone_modes: "sim,sim,sim"`, no real drone anywhere,
 so no PX4 EKF needs external vision and `mocap_bridge` would have no
 `/{name}/pose` inputs to forward. `use_mocap` only matters when at least one
 drone is `real`. The two **hardware** squeeze variants are the next sections:
-* real holders + **sim** intruder → [C4](#c4-flagship--hybrid-squeeze-real-holders--sim-intruder-hybrid_squeezeyaml)
-* real holders + **hand-flown (gamepad) teleop** intruder → [C5](#c5-squeeze-with-a-hand-flown-intruder-squeeze_rc_intruderyaml)
+* real holders + **sim** intruder → [C5](#c5-flagship--hybrid-squeeze-real-holders--sim-intruder-hybrid_squeezeyaml)
+* real holders + **hand-flown (gamepad) teleop** intruder → [C6](#c6-squeeze-with-a-hand-flown-intruder-squeeze_rc_intruderyaml)
 
 ```bash
 ros2 launch svg_ground_control ground_control.launch.py \
@@ -1128,7 +1209,7 @@ ros2 service call /swarm_commander/start   std_srvs/srv/Trigger
 Run this rehearsal before either hardware variant — same scenario geometry,
 zero risk.
 
-### C4. Flagship — hybrid squeeze: real holders + sim intruder (`hybrid_squeeze.yaml`)
+### C5. Flagship — hybrid squeeze: real holders + sim intruder (`hybrid_squeeze.yaml`)
 
 Your experiment plan #1: **drone_1,2 real holders** (mocap hardware — the
 config's `mocap_bridge` block forwards `/drone_1/pose` and `/drone_2/pose`
@@ -1170,7 +1251,7 @@ intruder **cyan**, all in one `map` frame.
 > commands land on the correct namespace and the squeeze still works — run it
 > before trusting a real flight (see [Automated tests](#automated-tests)).
 
-### C5. Squeeze with a HAND-FLOWN intruder (`squeeze_rc_intruder.yaml`)
+### C6. Squeeze with a HAND-FLOWN intruder (`squeeze_rc_intruder.yaml`)
 
 Your experiment plan #2: **drone_1,2 real holders** (commander-flown, hold the
 posts and yield via the CBF) + **drone_3 real, flown by a human pilot on the
@@ -1237,7 +1318,7 @@ useful: `ros2 topic pub --once /svg/led_command std_msgs/msg/String "{data: 'dro
 A CBF **emergency push-apart** turns every holder red. Watch the signal itself
 with `ros2 topic echo /svg/cbf_active`.
 
-### C6. Figure-eight — collision-negligent pair + HAND-FLOWN intruder (`figure_eight_rc_intruder.yaml`)
+### C7. Figure-eight — collision-negligent pair + HAND-FLOWN intruder (`figure_eight_rc_intruder.yaml`)
 
 The CBF's clearest showcase on real hardware: drone_1 and drone_2 both fly
 the **same figure-eight, ignoring each other** — two touching circles along
@@ -1245,7 +1326,7 @@ the room's Y axis, around lobe A, through the crossing onto lobe B and back
 — starting at the two far ends half the eight apart, so they arrive at the
 crossing **together, head-on, every half period**, and drone_3 is hand-flown
 into them. Nothing in the nominal keeps the pair apart; only the filter does.
-Same all-real setup as [C5](#c5-squeeze-with-a-hand-flown-intruder-squeeze_rc_intruderyaml)
+Same all-real setup as [C6](#c6-squeeze-with-a-hand-flown-intruder-squeeze_rc_intruderyaml)
 (three drones per Part B, three agents, one `natnet_ros2`, mocap to all three,
 pad in its own terminal first).
 
@@ -1324,7 +1405,7 @@ alters their command** (every crossing, and whenever drone_3 presses them);
 drone_3 stays green (exempt) — recolor it with
 `ros2 topic pub --once /svg/led_command std_msgs/msg/String "{data: 'drone_3 blue'}"`.
 
-> ⚠️ **Safety.** Same as C5: the fences are velocity clips, not a motor
+> ⚠️ **Safety.** Same as C6: the fences are velocity clips, not a motor
 > cutoff; the RC kill switch is the true cutoff for all three. The whole
 > eight (y −2…2, x −0.37…1.37, z 1.0…2.0 with the defaults) and
 > `intruder_start` must lie inside the teleop fence, which must lie inside

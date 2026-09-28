@@ -17,7 +17,7 @@ on hardware — only the topic templates in the config YAML differ):
     services:    {robot_command_service_template}  airstack_msgs/srv/RobotCommand
 
 Nominal commands come from a *scenario* (hover, random_walk, random_goals,
-head_on, antipodal, squeeze, figure_eight — see scenarios.py, ported from ~/drone_soccer).
+head_on, antipodal, squeeze, figure_eight, goal_sequence — see scenarios.py, ported from ~/drone_soccer).
 Drones listed in ``teleop_drones`` are operator-driven instead (one teleop
 topic per drone); an empty list means every drone follows the scenario.
 Drones in ``external_drones`` are tracked for the safety filter but never
@@ -388,6 +388,22 @@ class SwarmCommander(Node):
         self.declare_parameter('figure_eight_track_gain', 1.0)
         self.declare_parameter('figure_eight_intruder_start', [-2.0, 0.0, 1.5])
         self.declare_parameter('figure_eight_intruder_cbf_exempt', True)
+        # goal_sequence scenario: 'sequence_steps' lists step names; each name
+        # needs a matching 'sequence_<name>' flat array [x1,y1,z1, x2,y2,z2,
+        # ...] (one goal per drone in drone_names order, INSIDE arena_low..
+        # arena_high, pairs >= 2*cbf_safety_radius_m apart). All drones fly
+        # straight at set k; set k+1 plays once everyone has been within
+        # sequence_arrival_m of its goal for sequence_dwell_s (advance
+        # 'arrival') or every sequence_period_s ('timer'); loop wraps.
+        #   ros2 topic pub --once /svg/sequence_command std_msgs/msg/String "{data: next}"
+        #   (also: a step name, pause, resume)
+        self.declare_parameter('sequence_steps', '')
+        self.declare_parameter('sequence_dwell_s', 2.0)
+        self.declare_parameter('sequence_arrival_m', 0.3)
+        self.declare_parameter('sequence_loop', True)
+        self.declare_parameter('sequence_advance', 'arrival')
+        self.declare_parameter('sequence_period_s', 8.0)
+        self.declare_parameter('sequence_command_topic', '/svg/sequence_command')
         # Used by the 'hover' scenario only: flat [x1,y1,z1, ...] per drone.
         self.declare_parameter('hover_positions',
                                [-1.5, 0.0, 1.2, 1.5, 0.0, 1.2, 0.0, -1.5, 1.2])
@@ -695,6 +711,36 @@ class SwarmCommander(Node):
                     self.get_parameter('figure_eight_intruder_start').value),
                 intruder_cbf_exempt=bool(
                     self.get_parameter('figure_eight_intruder_cbf_exempt').value))
+        elif scenario_name == 'goal_sequence':
+            step_names = [t.strip() for t in
+                          str(self.get_parameter('sequence_steps').value).replace(
+                              ',', ' ').split() if t.strip()]
+            if not step_names:
+                raise ValueError(
+                    'goal_sequence needs sequence_steps (step names) and one '
+                    'sequence_<name> array per step')
+            steps = []
+            for sname in step_names:
+                if not re.fullmatch(r'[a-zA-Z][a-zA-Z0-9_]*', sname) \
+                        or sname in ('next', 'pause', 'resume'):
+                    raise ValueError(
+                        f'sequence step "{sname}" is not a valid name (letters/'
+                        'digits/underscore, starting with a letter; next/pause/'
+                        'resume are reserved)')
+                self.declare_parameter(f'sequence_{sname}', [0.0])
+                flat = list(self.get_parameter(f'sequence_{sname}').value)
+                if len(flat) != 3 * len(names):
+                    raise ValueError(
+                        f'sequence_{sname} needs {3 * len(names)} values '
+                        f'(x,y,z per drone in drone_names order), got {len(flat)}')
+                steps.append(np.array(flat, dtype=float).reshape(-1, 3))
+            scenario_kwargs.update(
+                steps=np.stack(steps), step_names=step_names,
+                dwell_s=float(self.get_parameter('sequence_dwell_s').value),
+                arrival_m=float(self.get_parameter('sequence_arrival_m').value),
+                loop=bool(self.get_parameter('sequence_loop').value),
+                advance=str(self.get_parameter('sequence_advance').value),
+                period_s=float(self.get_parameter('sequence_period_s').value))
         self.scenario = make_scenario(
             scenario_name,
             num_drones=len(names),
@@ -740,6 +786,26 @@ class SwarmCommander(Node):
                 f'meeting every {2 * np.pi * sc.radius / max(speed, 1e-6):.1f} s, '
                 f'centripetal {speed * speed / sc.radius:.1f} m/s2 '
                 f'(2r keep-out = {2 * self.cbf_safety_radius:.2f} m)')
+        if scenario_name == 'goal_sequence':
+            sc = self.scenario
+            self.get_logger().info(
+                f'goal_sequence: {sc.num_steps} steps ({", ".join(sc.step_names)}), '
+                f'advance {self.get_parameter("sequence_advance").value} '
+                f'(dwell {self.get_parameter("sequence_dwell_s").value} s / '
+                f'period {self.get_parameter("sequence_period_s").value} s), '
+                f'loop {bool(self.get_parameter("sequence_loop").value)}; '
+                f'next / <name> / pause / resume on '
+                f'{self.get_parameter("sequence_command_topic").value}')
+
+            def on_step(k, name, goals, _names=names):
+                self.get_logger().info(
+                    f'sequence step {k + 1}/{sc.num_steps} "{name}": '
+                    + '; '.join(f'{n} -> {g.round(2).tolist()}'
+                                for n, g in zip(_names, goals)))
+            sc.on_step = on_step
+            self.create_subscription(
+                String, str(self.get_parameter('sequence_command_topic').value),
+                self.sequence_callback, 10)
 
         state_tmpl = str(self.get_parameter('state_topic_template').value)
         default_cmd_tmpl = str(
@@ -1379,6 +1445,25 @@ class SwarmCommander(Node):
             self.scenario.set_goal(i, profile[i])
             moved.append(f'{d.name} -> {profile[i].tolist()}')
         self.get_logger().info(f'formation "{name}": ' + '; '.join(moved))
+
+    def sequence_callback(self, msg: String):
+        """goal_sequence: "next", a step name, "pause" or "resume"."""
+        cmd = msg.data.strip()
+        sc = self.scenario
+        if cmd == 'pause':
+            sc.paused = True
+            self.get_logger().info(f'sequence paused on step "{sc.step_name}"')
+        elif cmd == 'resume':
+            sc.paused = False
+            self.get_logger().info(f'sequence resumed on step "{sc.step_name}"')
+        elif cmd == 'next':
+            sc.next_step()
+        elif cmd in sc.step_names:
+            sc.set_step(cmd)
+        else:
+            self.get_logger().warn(
+                f'unknown sequence command "{cmd}" (available: next, pause, '
+                'resume, ' + ', '.join(sc.step_names) + ')')
 
     # ------------------------------------------------------------------
     # Operator services

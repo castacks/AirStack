@@ -154,7 +154,7 @@ def generate_launch_description():
             'scenario', default_value='',
             description='Override the scenario from the config: hover, '
                         'random_walk, random_goals, head_on, antipodal, squeeze, '
-                        'figure_eight'),
+                        'figure_eight, goal_sequence'),
         DeclareLaunchArgument(
             'teleop_drones', default_value='',
             description='Override teleop_drones from the config: comma-'

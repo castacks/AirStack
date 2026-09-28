@@ -1,0 +1,181 @@
+# SVG ground control — SCRIPTED GOAL SEQUENCE, three real drones (C3).
+#
+# An automatically played sequence of goal SETS (one x,y,z per drone per step,
+# like the goal scenario's formation profiles). Every drone flies the plain
+# go-to-goal law STRAIGHT at its goal; the sets are laid out so the straight
+# lines cross (ends swap head-on, a three-way crossing at the centre, a
+# rotating triangle), and the CBF alone deconflicts them. Set k+1 plays once
+# every drone has been within sequence_arrival_m of its goal for
+# sequence_dwell_s, then it wraps. No pilot needed; a pad is optional
+# (teleop_drones: "drone_3" hand-flies drone_3 through the traffic instead).
+#
+#   ros2 launch svg_ground_control ground_control.launch.py \
+#       config:=<share>/config/goal_sequence.yaml use_mocap:=true
+#   ros2 topic pub --once /svg/sequence_command std_msgs/msg/String "{data: next}"
+#       (also: a step name, pause, resume)
+#
+# Same all-real prerequisites as C2: every drone per Part B on its own agent
+# port, EKF2/mag params, interfaces up for all three, mocap to all three.
+#
+# ⚠ SAFETY: fence_behavior is keep_in — every drone is held inside the box by
+# the braking envelope. Not a motor cutoff: the RC kill switch is the true
+# cutoff. Every goal below is inside arena_low..arena_high (the commander
+# refuses a set outside it, or with two goals closer than 2 * cbf_safety_radius_m).
+
+swarm_commander:
+  ros__parameters:
+    drone_names: ["drone_1", "drone_2", "drone_3"]
+    # ---- Per-drone axes ------------------------------------------------
+    # mode   : all REAL
+    # role   : none hand-flown by default. To fly drone_3 through the traffic
+    #          on the pad: teleop_drones: "drone_3" (+ cbf_exempt_drones:
+    #          "drone_3" if it should be the obstacle the others dodge) and
+    #          start teleop.launch.py first; its sequence row is then ignored.
+    # safety : nobody exempt — every drone is CBF-filtered.
+    drone_modes: "real,real,real"
+    teleop_drones: ""
+    external_drones: ""
+    cbf_exempt_drones: ""
+
+    scenario: "goal_sequence"
+    # Cruise speed of the straight legs (m/s). Live: ros2 param set /swarm_commander scenario_speed_mps X
+    # (a cruise cap — a drone reaches it only if the goal is farther than
+    # v^2/(2a) + v*settle: 0.6 m at 3 m/s, 2.4 m at 6 m/s with the law below).
+    # 3 m/s makes the crossings brisk and the CBF dodges visible; the legs
+    # here are 2.8-4.5 m long. 6 m/s was verified on the C2 legs, but the
+    # dodge acceleration comes on top — raise in steps.
+    scenario_speed_mps: 3.0
+    # Go-to-goal law (trajectory.py; all live via ros2 param set):
+    #   goal_accel_mps2  acceleration/braking of the reference profile
+    #   goal_settle_s    exponential tail into the goal (0.3 = PX4-like)
+    #   goal_lead_m      leash: max distance the reference may get AHEAD of
+    #                    the drone before it is pulled back (PX4 MPC_XY_ERR_MAX)
+    #   goal_velocity_only_settle_s  same law for velocity-only (sim) drones
+    goal_accel_mps2: 10.0
+    goal_settle_s: 0.2
+    goal_lead_m: 2.0
+    goal_velocity_only_settle_s: 1.0
+    # The arena bounds every goal of every step (checked at startup); keep it
+    # >= 1 m inside the fence so the CBF has room to push a drone sideways.
+    arena_low: [-3.0, -3.0, 0.5]
+    arena_high: [3.0, 3.0, 2.5]
+
+    # All-real, mocap-anchored: every drone reports in the shared mocap
+    # frame -> all offsets ZERO.
+    drone_position_offsets: [0.0, 0.0, 0.0,
+                             0.0, 0.0, 0.0,
+                             0.0, 0.0, 0.0]
+
+    # ---- The script ------------------------------------------------------
+    # sequence_steps: step names, played in this order (then wrapping).
+    # sequence_<name>: flat [x1,y1,z1, x2,y2,z2, x3,y3,z3] in drone_names
+    # order. The first set is also the TAKEOFF layout (drone_1 at (0,-2),
+    # drone_2 at (0,0), drone_3 at (0,2) on the floor). Each set keeps every
+    # pair >= 2.8 m apart (2r = 1.1 m needed) and the transitions cross:
+    #   line   -> swap   : drone_1 and drone_3 swap ends HEAD-ON along y
+    #                      (4 m each) while drone_2 steps aside to (2,0)
+    #   swap   -> cross  : all three pass the centre at once — drone_1
+    #                      (0,2)->(-2,-2) and drone_3 (0,-2)->(2,2) diagonal
+    #                      through it, drone_2 (2,0)->(0,0) into it
+    #   cross  -> tri    : drone_1 and drone_2 cross while spreading into a
+    #                      triangle, drone_3 climbs the far corner
+    #   tri    -> rotate : the triangle rotates one corner — all three legs
+    #                      cross in the middle
+    #   rotate -> line   : back to the line (drone_2 through the centre again)
+    # Altitudes vary 1.2-1.8 m so the dodges have a vertical option too.
+    sequence_steps: "line,swap,cross,tri,rotate"
+    sequence_line:   [ 0.0, -2.0, 1.5,   0.0,  0.0, 1.5,   0.0,  2.0, 1.5]
+    sequence_swap:   [ 0.0,  2.0, 1.5,   2.0,  0.0, 1.5,   0.0, -2.0, 1.5]
+    sequence_cross:  [-2.0, -2.0, 1.2,   0.0,  0.0, 1.5,   2.0,  2.0, 1.8]
+    sequence_tri:    [ 2.0, -1.5, 1.5,  -2.0, -1.5, 1.5,   0.0,  2.0, 1.8]
+    sequence_rotate: [-2.0, -1.5, 1.5,   0.0,  2.0, 1.8,   2.0, -1.5, 1.2]
+    # How the sequence advances:
+    #   arrival : the next set plays when EVERY drone has been within
+    #             sequence_arrival_m of its goal for sequence_dwell_s (a
+    #             drone held off its goal by another one delays the set —
+    #             what you want: the intervention plays out fully)
+    #   timer   : every sequence_period_s regardless (relentless; a drone
+    #             still dodging gets its next goal mid-dodge)
+    sequence_advance: "arrival"
+    sequence_dwell_s: 2.0
+    sequence_arrival_m: 0.3
+    sequence_period_s: 8.0
+    sequence_loop: true
+    sequence_command_topic: "/svg/sequence_command"
+
+    hover_positions: [0.0, 0.0, 1.2, 0.0, 0.0, 1.2, 0.0, 0.0, 1.2]  # unused by goal_sequence
+
+    state_topic_template: "/{name}/odometry_conversion/odometry"
+    teleop_topic_template: "/svg/{name}/teleop_command"
+
+    control_rate_hz: 20.0
+    state_timeout_s: 0.5
+    teleop_timeout_s: 0.5
+
+    hover_kp: 1.0
+    arrival_threshold_m: 0.15
+    land_speed_mps: 1.0
+    takeoff_speed_mps: 1.0    # climb profile speed (braking law to the target)
+    hold_lead_m: 0.2          # reference leash while taking off/landing/holding
+    land_complete_altitude_m: 0.15
+
+    # ---- CBF reactivity ("aggressiveness") knobs -----------------------
+    # Two drones closing head-on at 3 m/s each (the swap step) start yielding
+    # ~4 m out with alpha 2.5; the dodge is flown with the feedforward of the
+    # corrected command (capped at goal_accel_mps2).
+    cbf_safety_radius_m: 0.55    # bubble size (2r = 1.1 m keep-out)
+    cbf_max_speed_mps: 10.0      # how FAST a dodge may be; the fence is the backstop
+    cbf_alpha: 2.5               # earliness: LOWER = yield earlier and gentler
+    cbf_external_velocity_gain: 1.0
+
+    # ---- Teleop (only if teleop_drones is set) -------------------------
+    teleop_max_speed_mps: 3.0
+    teleop_kp: 1.0
+    teleop_lead_m: 0.5
+    teleop_accel_mps2: 5.0
+
+    # Geofence (keep_in): holds EVERY drone inside the box. Fit to your volume.
+    fence_enabled: true
+    fence_behavior: "keep_in"
+    fence_brake_accel_mps2: 8.0   # keep_in: braking deceleration of the wall envelope (m/s2)
+    fence_keep_in_gain: 2.0       # keep_in: near the wall speed <= gain*distance (1/s)
+    fence_margin_m: 0.0
+    fence_min: [-4.5, -5.2, 0.0]
+    # +y wall 5.0: the mocap volume ends at y ~5.5 (log_141 lost the body there).
+    fence_max: [5.5, 5.0, 3.0]
+    # Teleop fence (used only when a drone is hand-flown): inside the geofence.
+    teleop_fence_enabled: true
+    teleop_fence_min: [-3.3, -4.0, 0.7]
+    teleop_fence_max: [4.3, 4.2, 2.8]
+
+# Mocap -> PX4 external vision for ALL THREE drones (direct mode).
+mocap_bridge:
+  ros__parameters:
+    drone_names: ["drone_1", "drone_2", "drone_3"]
+    mocap_topic_template: "/{name}/pose"
+    px4_vio_mode: "direct"
+    px4_vio_frame: "enu_to_ned"
+    vio_quality: 100
+    px4_vio_topic_template: "/{name}/fmu/in/vehicle_visual_odometry"
+    visual_odometry_topic_template: "/{name}/fmu/visual_odometry_in"  # via_interface only
+    mocap_frame: "map"
+    velocity_filter_alpha: 0.4
+    mocap_qos_best_effort: false
+
+# Onboard LED strips: everyone GREEN; a drone turns RED while the CBF is
+# altering its command (every crossing), then back to green.
+led_controller:
+  ros__parameters:
+    drone_names: ["drone_1", "drone_2", "drone_3"]
+    default_color: "green"
+    cbf_color: "red"
+    cbf_hold_s: 0.5
+    brightness: 80
+    heartbeat_port: 47901
+
+# Gamepad (only with teleop_drones set; teleop.launch.py reads this block).
+safe_teleop:
+  ros__parameters:
+    teleop_controller: "dragonrise_usb"   # xbox_usb for an Xbox pad
+    max_speed_mps: 3.0
+    max_climb_speed_mps: 0.5

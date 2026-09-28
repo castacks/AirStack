@@ -20,6 +20,11 @@ Scenarios:
 - ``squeeze``: 3-drone CBF demo -- two "holder" drones goal-track posts
   separated by ``gap_factor * safety_radius`` while the third drone flies
   straight through the gap between them; the holders must yield and return.
+- ``goal_sequence``: a scripted, automatically played sequence of goal
+  sets (one x,y,z per drone per step, like the goal scenario's formation
+  profiles): every drone flies straight at its goal, the sets are laid out
+  so the straight lines cross, and the CBF intervenes; the next set plays
+  when everyone has arrived and dwelt (or on a timer), looping.
 - ``figure_eight``: 3-drone CBF demo -- drones 0 and 1 fly the same
   collision-negligent figure-eight (two touching circles) half a lap apart,
   meeting at the crossing every half period, while the third drone hovers
@@ -470,6 +475,167 @@ class SqueezeScenario(Scenario):
             [self._holder_posts, self._intruder_ends[self._intruder_goal_index]])
 
 
+class GoalSequenceScenario(Scenario):
+    """A scripted sequence of goal sets, played automatically.
+
+    ``steps`` is (K, N, 3): K sets of one goal per drone (drone_names order),
+    ``step_names`` their labels. All drones are sent to set k at once and fly
+    the plain go-to-goal law straight at their goals -- the choreography is
+    in the sets (swap ends, rotate a triangle, cross the centre), and the
+    CBF alone deconflicts the straight lines. Set k+1 plays when every
+    drone has been within ``arrival_m`` of its goal for ``dwell_s`` seconds
+    (``advance='arrival'``), or every ``period_s`` seconds (``'timer'``);
+    after the last set the sequence wraps (``loop``) or stays on it.
+
+    Validation: every goal inside the arena ``bounds`` and every pair in a
+    set at least ``2 * safety_radius`` apart (else the set can never be
+    reached by everyone at once). ``next_step`` / ``set_step`` / ``paused``
+    are the operator hooks (``/svg/sequence_command``); ``on_step`` is
+    called with ``(index, name, goals)`` whenever the set changes. The
+    intruder of the other showcases is absent: any drone may be hand-flown
+    (``teleop_drones``) and its row is then ignored.
+    """
+
+    def __init__(self, *args, steps: np.ndarray, step_names=None,
+                 dwell_s: float = 2.0, arrival_m: float = 0.3,
+                 loop: bool = True, advance: str = 'arrival',
+                 period_s: float = 8.0, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        steps = np.asarray(steps, dtype=float)
+        if steps.ndim != 3 or steps.shape[1:] != (self.num_drones, 3) or steps.shape[0] < 1:
+            raise ValueError(
+                f'goal_sequence steps must be (K, {self.num_drones}, 3) with K >= 1, '
+                f'got {steps.shape}')
+        self._steps = steps.copy()
+        k = steps.shape[0]
+        names = list(step_names) if step_names is not None else [f'step{i}' for i in range(k)]
+        if len(names) != k:
+            raise ValueError(f'{len(names)} step names for {k} steps')
+        self._names = [str(n) for n in names]
+        low, high = self.bounds.low, self.bounds.high
+        for i, g in enumerate(self._steps):
+            outside = np.flatnonzero(np.any((g < low - 1e-9) | (g > high + 1e-9), axis=1))
+            if len(outside):
+                raise ValueError(
+                    f'goal_sequence step "{self._names[i]}": goal of drone index '
+                    f'{outside.tolist()} outside the arena {low.tolist()}..{high.tolist()}')
+            for a in range(self.num_drones):
+                for b in range(a + 1, self.num_drones):
+                    dist = float(np.linalg.norm(g[a] - g[b]))
+                    if dist < 2.0 * self.safety_radius:
+                        raise ValueError(
+                            f'goal_sequence step "{self._names[i]}": goals of drone '
+                            f'indices {a} and {b} are {dist:.2f} m apart, inside the '
+                            f'2r keep-out ({2 * self.safety_radius:.2f} m)')
+        if advance not in ('arrival', 'timer'):
+            raise ValueError("goal_sequence advance must be 'arrival' or 'timer'")
+        self._dwell_s = max(0.0, float(dwell_s))
+        self._arrival_m = max(0.0, float(arrival_m))
+        self._loop = bool(loop)
+        self._advance = advance
+        self._period_s = max(0.1, float(period_s))
+        self.on_step = None
+        self._k = 0
+        self._dwell = 0.0
+        self._elapsed = 0.0
+        self._finished = False
+        self.paused = False
+
+    # ---- introspection / operator hooks
+    @property
+    def num_steps(self) -> int:
+        return self._steps.shape[0]
+
+    @property
+    def step_index(self) -> int:
+        return self._k
+
+    @property
+    def step_name(self) -> str:
+        return self._names[self._k]
+
+    @property
+    def step_names(self) -> list:
+        return list(self._names)
+
+    @property
+    def finished(self) -> bool:
+        return self._finished
+
+    def _enter(self, k: int) -> None:
+        self._k = int(k) % self.num_steps
+        self._dwell = 0.0
+        self._elapsed = 0.0
+        if self.on_step is not None:
+            self.on_step(self._k, self._names[self._k], self._steps[self._k].copy())
+
+    def next_step(self) -> str:
+        """Advance now (wrapping); returns the new step name."""
+        self._finished = False
+        self._enter(self._k + 1)
+        return self.step_name
+
+    def set_step(self, step) -> str:
+        """Jump to a step by name or index; returns its name."""
+        if isinstance(step, str):
+            if step not in self._names:
+                raise KeyError(step)
+            step = self._names.index(step)
+        self._finished = False
+        self._enter(int(step))
+        return self.step_name
+
+    def initial_positions(self) -> np.ndarray:
+        return self._steps[0].copy()
+
+    def reset_tracking(self) -> None:
+        """Mission start: play from the first set (= the takeoff layout)."""
+        super().reset_tracking()
+        self._k = 0
+        self._dwell = 0.0
+        self._elapsed = 0.0
+        self._finished = False
+
+    def _auto_advance(self) -> None:
+        if self._k + 1 >= self.num_steps and not self._loop:
+            self._finished = True
+            return
+        self._enter(self._k + 1)
+
+    def nominal_velocity(self, positions, references=None, applied=None,
+                         dt: float = DEFAULT_DT) -> np.ndarray:
+        positions = np.asarray(positions, dtype=float).reshape(self.num_drones, 3)
+        goals = self._steps[self._k]
+        if not self.paused and not self._finished:
+            if self._advance == 'timer':
+                self._elapsed += float(dt)
+                if self._elapsed >= self._period_s:
+                    self._auto_advance()
+            else:
+                arrived = np.all(
+                    np.linalg.norm(positions - goals, axis=1) < self._arrival_m)
+                if arrived:
+                    self._dwell += float(dt)
+                    if self._dwell >= self._dwell_s:
+                        self._auto_advance()
+                else:
+                    self._dwell = 0.0
+        return self.seek(positions, self._steps[self._k], self.nominal_speed,
+                         references, applied, dt)
+
+    @property
+    def goals(self) -> Optional[np.ndarray]:
+        return self._steps[self._k].copy()
+
+    @property
+    def paths(self) -> list:
+        """The straight lines of the current set, from the previous set's
+        goals (where the drones are coming from) to the current goals."""
+        prev = self._steps[(self._k - 1) % self.num_steps]
+        cur = self._steps[self._k]
+        return [np.vstack([prev[i], cur[i]]) for i in range(self.num_drones)]
+
+
 class FigureEightScenario(Scenario):
     """3-drone CBF showcase: two drones fly the SAME figure-eight, half a lap apart.
 
@@ -703,6 +869,7 @@ _SCENARIOS = {
     'antipodal': AntipodalScenario,
     'squeeze': SqueezeScenario,
     'figure_eight': FigureEightScenario,
+    'goal_sequence': GoalSequenceScenario,
 }
 
 
@@ -719,7 +886,7 @@ def make_scenario(
 
     Args:
         name: one of ``hover``, ``random_walk``, ``random_goals``, ``head_on``,
-            ``antipodal``, ``squeeze``, ``figure_eight``.
+            ``antipodal``, ``squeeze``, ``figure_eight``, ``goal_sequence``.
         num_drones: number of drones (scenario rows match drone_names order).
         nominal_speed: nominal flight speed (m/s).
         bounds: arena box.
@@ -730,7 +897,9 @@ def make_scenario(
             ``intruder_waypoints`` for squeeze, ``center`` / ``radius`` /
             ``center_distance`` / ``axis_deg`` / ``tilt_deg`` /
             ``senses`` / ``track_gain`` / ``intruder_start`` for
-            figure_eight) and the go-to-goal law's
+            figure_eight, ``steps`` / ``step_names`` / ``dwell_s`` /
+            ``arrival_m`` / ``loop`` / ``advance`` / ``period_s`` for
+            goal_sequence) and the go-to-goal law's
             ``accel`` (m/s^2), ``settle_s`` and ``velocity_only_settle_s``
             (s) — see trajectory.py.
 
