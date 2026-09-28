@@ -26,7 +26,7 @@
 
 swarm_commander:
   ros__parameters:
-    drone_names: ["drone_2"]
+    drone_names: ["drone_1"]
     # ---- Per-drone axes (any drone, any combination) -------------------
     # mode   : drone_modes       "sim"  -> /{name}/interface/* (MAVROS/SITL)
     #                            "real" -> /{name}/fmu/*        (px4_interface/HW)
@@ -38,7 +38,7 @@ swarm_commander:
     drone_modes: "real"
     teleop_drones: ""
     external_drones: ""
-    cbf_exempt_drones: "drone_2"
+    cbf_exempt_drones: "drone_1"
 
     scenario: "goal"
     scenario_speed_mps: 10.0    # nominal speed. Live: ros2 param set /swarm_commander scenario_speed_mps X
@@ -151,7 +151,7 @@ swarm_commander:
 # /drone_1/pose publisher exists, so this node idles (harmless).
 mocap_bridge:
   ros__parameters:
-    drone_names: ["drone_2"]
+    drone_names: ["drone_1"]
     # Mocap pose topic per drone (natnet_ros2 / Motive body named drone_3).
     # Check the exact prefix with `ros2 topic list | grep pose`.
     mocap_topic_template: "/{name}/pose"
@@ -176,7 +176,7 @@ mocap_bridge:
 #   ros2 topic pub --once /svg/led_command std_msgs/msg/String "{data: 'drone_1 blue'}"   # any time
 led_controller:
   ros__parameters:
-    drone_names: ["drone_2"]
+    drone_names: ["drone_1"]
     default_color: "green"
     cbf_color: "red"
     brightness: 80            # 0-255 scale on every color; keep low near the mocap cameras
