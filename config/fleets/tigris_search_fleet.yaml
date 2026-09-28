@@ -6,13 +6,15 @@
 # exactly where mtl_search_fleet's robot_1 does, so a 1-robot MTL run and a
 # TIGRIS run start from the same home.
 #
-#     MTL_SCENARIO_DIR=/root/AirStack/stacks/tigris_search/config \
-#     ISAAC_SIM_SCRIPT_NAME=search_mission_scene.py \
-#       airstack up --sim isaac --fleet tigris_search_fleet --stack tigris_search --play --wait
+#     airstack up --sim isaac --fleet tigris_search_fleet --stack tigris_search --play --wait
 #
-# The scene script must be named explicitly (`--fleet` alone selects the generic
-# fleet_spawn.py). MTL_SCENARIO_DIR points the scene at this stack's bundle
-# (targets, belief texture, camera FOV); it defaults to stacks/mtl_search/config.
+# `sim.script` below makes `--fleet` launch search_mission_scene.py (search area,
+# belief texture, targets, native gimbal) instead of the generic fleet_spawn.py,
+# whose bare grey "Default Environment" has none of that. `sim.scenario_dir`
+# points that scene at this stack's bundle (targets, belief texture, camera FOV).
+# The old explicit form still works (explicit env wins):
+#     MTL_SCENARIO_DIR=/root/AirStack/stacks/tigris_search/config \
+#     ISAAC_SIM_SCRIPT_NAME=search_mission_scene.py airstack up ...
 #
 #   robot     ROS_DOMAIN_ID  PX4 instance  MAVLink offboard (14540+N)  onboard (14580+N)  sysid (1+N)
 #   robot_1   1              1             udp :14541                   :14581             2
@@ -27,6 +29,8 @@ robots:
 
 sim:
   scene: default                     # Pegasus "Default Environment" + the search plane
+  script: search_mission_scene.py    # `airstack up --fleet` launches this scene (not fleet_spawn.py)
+  scenario_dir: stacks/tigris_search/config   # the scene's bundle (= MTL_SCENARIO_DIR)
 
 network:
   domain_policy: auto                # robot N -> domain N

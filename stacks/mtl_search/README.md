@@ -70,9 +70,10 @@ bash scripts/mtl_start_mission.sh              # takeoff + /robot_N/search_missi
 python3 scripts/analyze_mtl_run.py --run-dir runs/latest
 ```
 
-`ISAAC_SIM_SCRIPT_NAME` must be set explicitly. Otherwise `--fleet` selects
-the generic `fleet_spawn.py`, and that script gives each drone a rigid ZED
-camera instead of the gimbal, with no search area and no targets.
+`ISAAC_SIM_SCRIPT_NAME` is optional: the fleet file declares
+`sim.script: search_mission_scene.py` (and `sim.scenario_dir`), which `--fleet`
+uses instead of the generic `fleet_spawn.py` (a grey field with a rigid ZED
+camera, no gimbal, no search area and no targets). An explicit value still wins.
 
 `mtl_start_mission.sh` runs `scripts/mtl_sortie.sh` from this folder inside every
 robot container. That script:

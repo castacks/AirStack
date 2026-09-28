@@ -520,3 +520,23 @@ def test_sortie_cancels_duplicate_accepted_goal(world, capsys):
     out = capsys.readouterr().out
     assert rc == 0, out
     assert "duplicate attempt" in out and len(ms.cancelled) == 1
+
+
+def test_tag_sets_log_prefix_for_other_stacks(world, capsys, monkeypatch):
+    """tigris_sortie.sh runs this same client with --tag tigris_sortie."""
+    monkeypatch.setattr(msc, "LOG_TAG", msc.LOG_TAG)   # restored after the test
+    FakeServer(world, TK, TakeoffTask, ["drop", "accept"])
+    FakeServer(world, MS, SearchMission, ["accept"])
+    monkeypatch.setattr(msc.Sortie, "_wait_state_estimate", lambda self, t: None)
+    rc = msc.main(["--robot", "robot_2", "--run-id", "R", "--accept-timeout", "0.4",
+                   "--retries", "3", "--settle", "0", "--tag", "tigris_sortie"])
+    out = capsys.readouterr().out
+    assert rc == 0, out
+    assert "[tigris_sortie robot_2 " in out and "[mtl_sortie " not in out
+    assert "sortie succeeded" in out
+
+
+def test_tag_must_be_a_valid_node_name_stem():
+    with pytest.raises(SystemExit):
+        msc.parse_args(["--robot", "robot_1", "--tag", "bad-tag"])
+    assert msc.parse_args(["--robot", "robot_1"]).tag == "mtl_sortie"

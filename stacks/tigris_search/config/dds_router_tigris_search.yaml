@@ -14,7 +14,7 @@
 # tigris_search robot <-> GCS DDS Router allowlist.
 # A copy of stacks/mtl_search/config/dds_router_mtl_search.yaml (itself the shared
 # autonomy_bringup/config/dds_router.yaml plus the search block) with the TIGRIS
-# status topic added. The search block at the end carries (search products, gimbal, and the
+# status topic added. The search block at the end carries (search products, gimbal state (not the raw image), and the
 # search_mission / takeoff / land actions so a GCS-side operator can start
 # missions). Keep the shared part in sync when that file changes.
 participants:
@@ -84,7 +84,13 @@ allowlist:
   - name: "rt/$(env ROBOT_NAME)/gimbal/state"
   - name: "rt/$(env ROBOT_NAME)/gimbal/cmd_pitch_yaw"
   - name: "rt/$(env ROBOT_NAME)/gimbal/camera_info"
-  - name: "rt/$(env ROBOT_NAME)/gimbal/rgb"
+  # gimbal/rgb is deliberately NOT bridged (as in mtl_search): the router subscribes
+  # to every allowlisted topic that has a writer, whether or not anything in the GCS
+  # domain listens, so it pulled ~5 MB/s of raw images per robot through UDP, load
+  # that competes with DDS discovery (a contributor to the lost takeoff/search_mission
+  # goal requests). The sortie rosbag still records it. To watch the gimbal camera
+  # live from the GCS domain, re-add:
+  #   - name: "rt/$(env ROBOT_NAME)/gimbal/rgb"
   # action search_mission
   - name: "rq/$(env ROBOT_NAME)/search_mission/_action/send_goalRequest"
   - name: "rr/$(env ROBOT_NAME)/search_mission/_action/send_goalReply"

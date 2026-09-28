@@ -4,11 +4,10 @@
 # defined by stacks/mtl_search/config/mission.yaml. Homogeneous (same vehicle,
 # same stack), so `deploy.replicas` stamps it — no generated compose needed.
 #
-#     ISAAC_SIM_SCRIPT_NAME=search_mission_scene.py \
-#       airstack up --sim isaac --fleet mtl_search_fleet --stack mtl_search --play --wait
+#     airstack up --sim isaac --fleet mtl_search_fleet --stack mtl_search --play --wait
 #
-# The scene script must be named explicitly: `--fleet` alone would select the
-# generic fleet_spawn.py (explicit ISAAC_SIM_SCRIPT_NAME wins over it).
+# `sim.script` below makes `--fleet` launch search_mission_scene.py instead of the
+# generic fleet_spawn.py (an explicit ISAAC_SIM_SCRIPT_NAME still wins over it).
 #
 # Launch field: the south-west corner of the search area, 12 m apart along +x
 # (East) so the SITL instances never spawn inside one another. spawn = world
@@ -43,6 +42,8 @@ robots:
 
 sim:
   scene: default                     # Pegasus "Default Environment" + the MTL search plane
+  script: search_mission_scene.py    # `airstack up --fleet` launches this scene (not fleet_spawn.py)
+  scenario_dir: stacks/mtl_search/config      # the scene's bundle (= MTL_SCENARIO_DIR)
 
 network:
   domain_policy: auto                # robot N -> domain N

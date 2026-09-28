@@ -78,9 +78,7 @@ read at launch from the mounted stack folder, so a change needs only a restart, 
 Bring the stack up once so the robot container exists, build inside it, then restart:
 
 ```bash
-MTL_SCENARIO_DIR=/root/AirStack/stacks/tigris_search/config \
-ISAAC_SIM_SCRIPT_NAME=search_mission_scene.py \
-  airstack up --sim isaac --fleet tigris_search_fleet --stack tigris_search --play --wait
+airstack up --sim isaac --fleet tigris_search_fleet --stack tigris_search --play --wait
 
 docker exec airstack-robot-desktop-1 bash -ic \
   "bws --packages-up-to mtl_msgs tigris_search_planner mtl_trajectory_follower mtl_metrics_logger"
@@ -105,19 +103,27 @@ docker exec airstack-robot-desktop-1 bash -ic "cd /root/AirStack/robot/ros_ws &&
 ## 2. Bring up and check
 
 ```bash
-MTL_SCENARIO_DIR=/root/AirStack/stacks/tigris_search/config \
-ISAAC_SIM_SCRIPT_NAME=search_mission_scene.py \
-  airstack up --sim isaac --fleet tigris_search_fleet --stack tigris_search --play --wait
+airstack up --sim isaac --fleet tigris_search_fleet --stack tigris_search --play --wait
 airstack ready
 ```
 
-**Why the two variables:**
+**Scene selection comes from the fleet file.** `tigris_search_fleet.yaml` sets
+`sim.script: search_mission_scene.py` and `sim.scenario_dir: stacks/tigris_search/config`:
 
-- `ISAAC_SIM_SCRIPT_NAME` selects the scene with the gimbal camera, targets and belief
-  texture. Without it, `--fleet` picks the generic spawner.
-- `MTL_SCENARIO_DIR` points that scene at this stack's bundle. The TIGRIS bundle is identical
-  to MTL's today, so leaving it unset still renders the right world. Set it anyway, so a
-  changed `mission.yaml` is rendered too.
+- `--fleet` launches the scene with the search area, the belief texture, the targets and
+  the gimbal camera. The drone spawns at the SW corner of the search area (ENU −170, −170),
+  exactly like `mtl_search_fleet`'s robot_1. The `airstack up` log shows
+  `--fleet tigris_search_fleet → ISAAC_SIM_SCRIPT_NAME=search_mission_scene.py [fleet sim.script]`.
+- The scene reads this stack's bundle, so a changed `mission.yaml` is rendered too.
+- Explicit `ISAAC_SIM_SCRIPT_NAME` / `MTL_SCENARIO_DIR` still override the fleet (the old
+  two-variable command keeps working).
+
+!!! warning "Drone in the middle of a plain grey field?"
+    That is the generic `fleet_spawn.py` scene (no search area, no targets, a rigid ZED
+    camera instead of the gimbal). Check `.airstack/runs/<latest>/effective_config.env`:
+    it must say `ISAAC_SIM_SCRIPT_NAME=search_mission_scene.py`. If it says
+    `fleet_spawn.py`, an older `airstack.sh` or an exported `ISAAC_SIM_SCRIPT_NAME` is in
+    play; run `unset ISAAC_SIM_SCRIPT_NAME`, then `airstack down` and `airstack up` again.
 
 Sanity checks (robot 1, ROS domain 1):
 
@@ -138,18 +144,31 @@ bash scripts/tigris_start_mission.sh            # -n 1 by default; -r RUN_ID, --
 ```
 
 This runs `stacks/tigris_search/scripts/tigris_sortie.sh` inside the robot container. That
-script does the same as the MTL one:
+script does the same as the MTL one, with the same sortie client
+(`stacks/mtl_search/scripts/mtl_sortie_client.py --tag tigris_sortie`):
 
-1. Preflight: `tigris_search_planner` and `/robot_1/search_mission` must be up.
-2. Starts a rosbag (MCAP) that also records `search/tigris_status`.
-3. Takes off to 30 m.
-4. Sends the `SearchMission` goal with the acceptance watchdog.
-5. Streams feedback to the end.
+1. Preflight: `tigris_search_planner`, `/robot_1/search_mission` and `/robot_1/tasks/takeoff`
+   must be up, or the drone stays on the ground (exit 3).
+2. Starts a rosbag (MCAP) that also records `search/tigris_status`, and waits until the
+   recorder has finished subscribing.
+3. One ROS node waits for a healthy state estimate and takes off to 30 m. The takeoff goal is
+   confirmed from the goal response **or** the server's `_action/status` topic, and re-sent
+   (new goal id, 10 s per attempt, 4 attempts) if the request was lost.
+4. The same node sends the `SearchMission` goal with the same confirmation and retries.
+5. Streams feedback to the end. Ctrl-C (here or on the host launcher) cancels the active goal
+   and closes the bag.
+
+!!! note "Why not `ros2 action send_goal`"
+    The first version of this script took off with the `ros2 action send_goal` CLI. Each CLI
+    call is a new DDS participant; on the loaded sim graph its goal request can be dropped
+    before the server has matched it, and the CLI then waits forever. The log stopped at
+    `takeoff to 30.0 m at 2 m/s` and the drone never armed. That is the MTL "drone doesn't
+    take off" bug, fixed the same way here.
 
 When the sortie ends, the script runs `analyze_tigris_run.py` and the Foxglove export, and
 points `runs/latest` at the run.
 
-The same thing by hand:
+The same thing by hand (the plain CLI; it can hang if a goal request is lost, see above):
 
 ```bash
 docker exec -e ROS_DOMAIN_ID=1 airstack-robot-desktop-1 bash -ic "sws; \

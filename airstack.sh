@@ -1270,21 +1270,36 @@ with open(os.environ["FLEET_HOST"], encoding="utf-8") as f:
     fi
 
     # Isaac: the fleet spawner reads spawns/vehicles/scene from the fleet file,
-    # replacing the hardcoded one-/multi-drone example scripts. Explicit OS-env
+    # replacing the hardcoded one-/multi-drone example scripts. A fleet whose
+    # scene needs its own launch script names it as `sim.script` (e.g. the
+    # search fleets: search_mission_scene.py, which reads FLEET_CONFIG_FILE for
+    # the spawns) and that replaces fleet_spawn.py. Explicit OS-env
     # ISAAC_SIM_SCRIPT_NAME still wins; the stock defaults get switched.
-    local profiles script
+    local profiles script fleet_script
+    fleet_script=$(FLEET_HOST="$fleet_host" python3 -c '
+import os, yaml
+with open(os.environ["FLEET_HOST"], encoding="utf-8") as f:
+    sim = (yaml.safe_load(f) or {}).get("sim") or {}
+print(str(sim.get("script") or "").strip() if isinstance(sim, dict) else "")')
+    if [[ -n "$fleet_script" && ! -f "$PROJECT_ROOT/simulation/isaac-sim/launch_scripts/$fleet_script" ]]; then
+        log_error "Fleet '$fleet_name' sets sim.script: $fleet_script, but simulation/isaac-sim/launch_scripts/$fleet_script does not exist."
+        return 1
+    fi
+    local want_script="${fleet_script:-fleet_spawn.py}"
     profiles=$(resolve_launch_var COMPOSE_PROFILES "$@")
     if [[ ",$profiles," == *",isaac-sim,"* ]]; then
         if [[ -n "${ISAAC_SIM_SCRIPT_NAME:-}" ]]; then
-            [[ "$ISAAC_SIM_SCRIPT_NAME" != "fleet_spawn.py" ]] && \
-                log_warn "OVERRIDE: explicit ISAAC_SIM_SCRIPT_NAME='$ISAAC_SIM_SCRIPT_NAME' wins over the fleet spawner — make sure it spawns fleet '$fleet_name' (reads FLEET_CONFIG_FILE)."
+            [[ "$ISAAC_SIM_SCRIPT_NAME" != "$want_script" ]] && \
+                log_warn "OVERRIDE: explicit ISAAC_SIM_SCRIPT_NAME='$ISAAC_SIM_SCRIPT_NAME' wins over the fleet's '$want_script' — make sure it spawns fleet '$fleet_name' (reads FLEET_CONFIG_FILE)."
         else
             script=$(resolve_launch_var ISAAC_SIM_SCRIPT_NAME "$@")
             case "$script" in
-                example_one_px4_pegasus_launch_script.py|example_multi_px4_pegasus_launch_script.py|"")
-                    log_info "--fleet $fleet_name → ISAAC_SIM_SCRIPT_NAME=fleet_spawn.py (was ${script:-<unset>})"
-                    export ISAAC_SIM_SCRIPT_NAME="fleet_spawn.py";;
-                fleet_spawn.py) ;;
+                example_one_px4_pegasus_launch_script.py|example_multi_px4_pegasus_launch_script.py|fleet_spawn.py|"")
+                    if [[ "$script" != "$want_script" ]]; then
+                        log_info "--fleet $fleet_name → ISAAC_SIM_SCRIPT_NAME=$want_script (was ${script:-<unset>})${fleet_script:+ [fleet sim.script]}"
+                        export ISAAC_SIM_SCRIPT_NAME="$want_script"
+                    fi;;
+                "$want_script") ;;
                 *)
                     log_warn "Custom ISAAC_SIM_SCRIPT_NAME='$script' with a fleet: make sure it spawns fleet '$fleet_name' (reads FLEET_CONFIG_FILE).";;
             esac

@@ -36,10 +36,41 @@ def remap_path(path: str, repo: Path) -> str:
     return path
 
 
+def _fleet_scenario_dir(repo: Path, fleet_path: str) -> Path | None:
+    """The scenario bundle a fleet file points at: ``sim.scenario_dir`` if set,
+    else ``<defaults.stack>/config`` when that folder holds a scenario.json."""
+    try:
+        fleet = _load_yaml(Path(remap_path(fleet_path, repo)))
+    except Exception:  # noqa: BLE001 - unreadable fleet: fall back to the default bundle
+        return None
+    sim = fleet.get("sim") if isinstance(fleet.get("sim"), dict) else {}
+    raw = str(sim.get("scenario_dir") or "").strip()
+    if raw:
+        p = Path(remap_path(raw, repo))
+        return p if p.is_absolute() else repo / p
+    stack = str((fleet.get("defaults") or {}).get("stack") or "").strip()
+    if stack:
+        p = Path(remap_path(stack, repo))
+        p = (p if p.is_absolute() else repo / p) / "config"
+        if (p / "scenario.json").is_file():
+            return p
+    return None
+
+
 def scenario_dir(repo: Path, env: dict | None = None) -> Path:
+    """Scenario bundle folder: ``MTL_SCENARIO_DIR`` > the fleet file's bundle
+    (``FLEET_CONFIG_FILE``: ``sim.scenario_dir`` or ``<defaults.stack>/config``)
+    > ``stacks/mtl_search/config``."""
     env = os.environ if env is None else env
     raw = env.get("MTL_SCENARIO_DIR", "").strip()
-    return Path(remap_path(raw, repo)) if raw else repo / "stacks" / "mtl_search" / "config"
+    if raw:
+        return Path(remap_path(raw, repo))
+    fleet = env.get("FLEET_CONFIG_FILE", "").strip()
+    if fleet:
+        found = _fleet_scenario_dir(repo, fleet)
+        if found is not None:
+            return found
+    return repo / "stacks" / "mtl_search" / "config"
 
 
 def load_bundle(directory: Path) -> tuple[dict, dict, Path | None]:

@@ -42,9 +42,7 @@ python3 scripts/tigris_generate_scenario.py --compare-mtl  # confirm it is the s
 ## How to run
 
 ```bash
-MTL_SCENARIO_DIR=/root/AirStack/stacks/tigris_search/config \
-ISAAC_SIM_SCRIPT_NAME=search_mission_scene.py \
-  airstack up --sim isaac --fleet tigris_search_fleet --stack tigris_search --play --wait
+airstack up --sim isaac --fleet tigris_search_fleet --stack tigris_search --play --wait   # the fleet picks search_mission_scene.py + this bundle
 airstack ready
 bash scripts/tigris_start_mission.sh                 # takeoff + search_mission, then analysis
 python3 scripts/analyze_tigris_run.py --run-dir runs/latest

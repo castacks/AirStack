@@ -26,7 +26,11 @@
 #
 #  usage (inside the container, workspace sourced):
 #    python3 mtl_sortie_client.py --robot robot_1 --run-id RUN --alt 30 --vel 2
-#        [--no-takeoff] [--dry-run] [--accept-timeout 10] [--retries 4]
+#        [--no-takeoff] [--dry-run] [--accept-timeout 10] [--retries 4] [--tag mtl_sortie]
+#
+#  Planner-agnostic: it only needs /<robot>/tasks/takeoff (task_msgs/TakeoffTask)
+#  and /<robot>/search_mission (mtl_msgs/SearchMission), so the tigris_search
+#  stack's tigris_sortie.sh runs this same client (--tag tigris_sortie).
 #
 #  exit codes: 0 ok | 2 bad args | 3 action server not available
 #              4 takeoff failed | 5 goal never accepted | 6 sortie failed
@@ -55,8 +59,11 @@ STATUS_NAMES = {0: "UNKNOWN", 1: "ACCEPTED", 2: "EXECUTING", 3: "CANCELING",
                 4: "SUCCEEDED", 5: "CANCELED", 6: "ABORTED"}
 
 
+LOG_TAG = "mtl_sortie"   # log prefix + node-name stem; --tag sets it
+
+
 def log(robot: str, msg: str) -> None:
-    print(f"[mtl_sortie {robot} {time.strftime('%H:%M:%S')}] {msg}", flush=True)
+    print(f"[{LOG_TAG} {robot} {time.strftime('%H:%M:%S')}] {msg}", flush=True)
 
 
 # ------------------------------------------------------------------ ROS-free core
@@ -301,7 +308,7 @@ class Sortie:
         self.args = args
         self.robot = args.robot
         self.R = f"/{args.robot}"
-        self.node = rclpy.create_node(f"mtl_sortie_client_{args.robot}")
+        self.node = rclpy.create_node(f"{LOG_TAG}_client_{args.robot}")
         self.t_created = time.monotonic()
         self.stop = threading.Event()
         self.timed_out_flag: Optional[bool] = None
@@ -484,7 +491,11 @@ def parse_args(argv: Optional[List[str]] = None):
     p.add_argument("--takeoff-timeout", type=float, default=180.0)
     p.add_argument("--mission-timeout", type=float, default=1800.0)
     p.add_argument("--no-cancel-on-interrupt", action="store_true")
+    p.add_argument("--tag", default="mtl_sortie",
+                   help="log prefix and node-name stem (e.g. tigris_sortie)")
     a = p.parse_args(argv)
+    if not a.tag.replace("_", "").isalnum():
+        p.error("--tag must be letters, digits and '_' (it is part of the node name)")
     if a.dry_run:
         a.no_takeoff = True
     if a.retries < 1 or a.accept_timeout <= 0:
@@ -493,7 +504,9 @@ def parse_args(argv: Optional[List[str]] = None):
 
 
 def main(argv: Optional[List[str]] = None) -> int:
+    global LOG_TAG
     args = parse_args(argv)
+    LOG_TAG = args.tag
     sortie = Sortie(args)
 
     def on_signal(signum, _frame):

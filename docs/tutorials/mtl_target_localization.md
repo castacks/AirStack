@@ -76,10 +76,11 @@ airstack down && ISAAC_SIM_SCRIPT_NAME=search_mission_scene.py \
 an interactive shell: use `bash -ic` from the host, or type them directly inside
 `airstack connect`. A plain `bash -c` reports `bws: command not found`.
 
-!!! note "Set `ISAAC_SIM_SCRIPT_NAME` explicitly"
-    With `--fleet`, `airstack up` otherwise picks the generic `fleet_spawn.py`. That script
-    gives each drone a rigid ZED camera instead of the gimbal, with no search area and no
-    targets.
+!!! note "`ISAAC_SIM_SCRIPT_NAME` is now optional"
+    `mtl_search_fleet.yaml` declares `sim.script: search_mission_scene.py`, so `--fleet`
+    alone selects the search scene (the explicit variable is harmless and still wins).
+    Without it an older `airstack.sh` picks the generic `fleet_spawn.py`: a plain grey
+    field, a rigid ZED camera instead of the gimbal, no search area and no targets.
 
 ## 2. Bring up and wait for flight-ready
 

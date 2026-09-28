@@ -2,15 +2,21 @@
 """MTL search mission scene: belief-textured search area, ground-truth targets,
 and a NATIVE camera gimbal on every drone.
 
-    ISAAC_SIM_SCRIPT_NAME=search_mission_scene.py \\
-      airstack up --sim isaac --fleet mtl_search_fleet --stack mtl_search --play --wait
+    airstack up --sim isaac --fleet mtl_search_fleet --stack mtl_search --play --wait
+    airstack up --sim isaac --fleet tigris_search_fleet --stack tigris_search --play --wait
+
+(the search fleets declare ``sim.script: search_mission_scene.py``, so ``--fleet``
+selects this script instead of the generic fleet_spawn.py; an explicit
+``ISAAC_SIM_SCRIPT_NAME`` still wins.)
 
 What it adds on top of ``PegasusApp`` (the stock scene stays untouched):
 
 * ``post_scene_prep``: a collider ground slab, the search plane draped with the
   prior (``belief.png``), boundary bars, and one beacon per ground-truth target
-  (``ground_truth.json``) — all from ``stacks/mtl_search/config`` (override with
-  ``MTL_SCENARIO_DIR``), the same files the robots' planner and scorer read.
+  (``ground_truth.json``) — all from the scenario bundle folder: ``MTL_SCENARIO_DIR``
+  if set, else the fleet's ``sim.scenario_dir`` (or ``<defaults.stack>/config``),
+  else ``stacks/mtl_search/config`` — the same files the robots' planner and
+  scorer read.
 * ``spawn_drone``: after the Pegasus PX4 multirotor (and, only if the vehicle
   manifest lists them, the ZED / lidar subgraphs) it authors
   ``/World/drone{i}/base_link/camera_gimbal`` (Xform) with a ``camera`` prim

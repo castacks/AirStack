@@ -4,23 +4,27 @@
 #  (A copy of scripts/mtl_start_mission.sh for the tigris_search stack.)
 #
 #  Prerequisite (see docs/tutorials/tigris_baseline.md):
-#    MTL_SCENARIO_DIR=/root/AirStack/stacks/tigris_search/config \
-#    ISAAC_SIM_SCRIPT_NAME=search_mission_scene.py \
 #      airstack up --sim isaac --fleet tigris_search_fleet --stack tigris_search --play --wait
+#  (the fleet selects search_mission_scene.py + this stack's scenario bundle itself)
 #
 #  For every robot (in parallel) it runs stacks/tigris_search/scripts/tigris_sortie.sh
 #  inside that robot's container, with ONE shared run_id: preflight (the
 #  robot's planner must be up, or it stays on the ground), rosbag (MCAP) of
 #  odometry / TF / gimbal camera / plan / follower / metrics into
-#  runs/<run_id>/<robot>/bag/, takeoff, the SearchMission goal with an
-#  acceptance watchdog + retries. Afterwards: the team report + both TIGRIS
-#  reward curves (scripts/analyze_tigris_run.py) and the team Foxglove file
+#  runs/<run_id>/<robot>/bag/, then the shared sortie client
+#  (stacks/mtl_search/scripts/mtl_sortie_client.py, one ROS node per robot) for
+#  takeoff + the SearchMission goal, each confirmed from the server's status
+#  topic and re-sent if the request was lost. Robots start --stagger s apart so
+#  their discovery bursts don't coincide. Ctrl-C stops the sorties INSIDE the
+#  containers too (active goals are cancelled, bags closed).
+#  Afterwards: the team report + both TIGRIS reward curves
+#  (scripts/analyze_tigris_run.py) and the team Foxglove file
 #  (scripts/mtl_foxglove.py -> runs/<run_id>/foxglove/).
 #
 #  usage: bash scripts/tigris_start_mission.sh [-n 1] [-r RUN_ID] [-a 30] [-v 2]
 #                                      [--no-takeoff] [--dry-run] [--no-analyze]
 #                                      [--no-record] [--no-images] [--no-foxglove]
-#                                      [--container-prefix airstack-robot-desktop-]
+#                                      [--stagger 2] [--container-prefix airstack-robot-desktop-]
 #   -n N          robots robot_1..robot_N  (default: 1 = tigris_search_fleet)
 #   -r RUN_ID     run folder name          (default: UTC timestamp)
 #   -a ALT        team cruise/takeoff altitude [m] (default: 30 = mission.yaml flight.takeoff_altitude_m);
@@ -29,6 +33,7 @@
 #   --dry-run     plan + publish only (SearchMission start_mission: false), no flight
 #   --no-record   no rosbag;  --no-images: bag without gimbal/rgb (~14 MB/s/robot raw)
 #   --no-foxglove skip the team Foxglove export
+#   --stagger S   seconds between robot starts (default: 2)
 # =============================================================================
 set -euo pipefail
 
@@ -43,6 +48,7 @@ RECORD=1
 IMAGES=1
 FOXGLOVE=1
 PREFIX="airstack-robot-desktop-"
+STAGGER=2
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -57,7 +63,8 @@ while [[ $# -gt 0 ]]; do
     --no-images) IMAGES=0; shift ;;
     --no-foxglove) FOXGLOVE=0; shift ;;
     --container-prefix) PREFIX="$2"; shift 2 ;;
-    -h|--help) sed -n '2,32p' "$0"; exit 0 ;;
+    --stagger) STAGGER="$2"; shift 2 ;;
+    -h|--help) sed -n '2,37p' "$0"; exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -87,13 +94,42 @@ fly_one() {
   return 1
 }
 
+# Ctrl-C: `docker exec` does not forward signals, so without this the sortie
+# scripts (and their goals / rosbags) keep running inside the containers.
+INTERRUPTED=0
+stop_sorties() {
+  trap '' INT TERM
+  INTERRUPTED=1
+  echo "[tigris_start_mission] interrupted - stopping the sorties inside the containers (goals are cancelled, bags closed)" >&2
+  local kpids=()
+  for i in $(seq 1 "${N}"); do
+    docker exec "${PREFIX}${i}" pkill -INT -f "tigris_sortie.sh --robot robot_${i} " >/dev/null 2>&1 &
+    kpids+=("$!")
+  done
+  wait "${kpids[@]}" 2>/dev/null || true   # pkill exits 1 for a sortie that already ended
+}
+trap stop_sorties INT TERM
+
 pids=()
 for i in $(seq 1 "${N}"); do
+  (( i > 1 )) && sleep "${STAGGER}"
+  [[ "${INTERRUPTED}" == 1 ]] && break
   fly_one "${i}" &
   pids+=("$!")
 done
 fail=0
-for p in "${pids[@]}"; do wait "${p}" || fail=1; done
+for p in "${pids[@]}"; do
+  # `wait` returns early when the trap fires; wait again for the real exit.
+  while :; do
+    wait "${p}" && rc=0 || rc=$?
+    kill -0 "${p}" 2>/dev/null || break
+  done
+  (( rc == 0 )) || fail=1
+done
+if [[ "${INTERRUPTED}" == 1 ]]; then
+  echo "[tigris_start_mission] stopped; partial run in ${REPO}/runs/${RUN_ID}" >&2
+  exit 130
+fi
 
 if [[ "${ANALYZE}" == 1 && "${START}" == true ]]; then
   python3 "${REPO}/scripts/analyze_tigris_run.py" --run-dir "${REPO}/runs/${RUN_ID}" || fail=1

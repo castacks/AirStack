@@ -238,6 +238,26 @@ def test_dry_run_fleet_exports():
     assert "robot_1" in out  # the resolved robot table prints
 
 
+@pytest.mark.parametrize("fleet", ["mtl_search_fleet", "tigris_search_fleet"])
+def test_dry_run_fleet_sim_script_replaces_fleet_spawner(fleet):
+    """A fleet that declares `sim.script` gets that Isaac launch script from
+    `--fleet` alone (the search fleets need search_mission_scene.py: search
+    area, targets, gimbal — fleet_spawn.py would give a bare grey field)."""
+    code, out, cfg = run_up_dry("--fleet", fleet, "--sim", "isaac",
+                                env={"ISAAC_SIM_SCRIPT_NAME": ""})
+    assert code == 0, out
+    assert cfg["ISAAC_SIM_SCRIPT_NAME"] == "search_mission_scene.py", out
+    assert cfg["FLEET_CONFIG_FILE"] == f"/root/AirStack/config/fleets/{fleet}.yaml"
+
+
+def test_dry_run_explicit_script_still_wins_over_fleet_sim_script():
+    code, out, cfg = run_up_dry("--fleet", "tigris_search_fleet", "--sim", "isaac",
+                                env={"ISAAC_SIM_SCRIPT_NAME": "fleet_spawn.py"})
+    assert code == 0, out
+    assert cfg["ISAAC_SIM_SCRIPT_NAME"] == "fleet_spawn.py"
+    assert "OVERRIDE" in out
+
+
 def test_dry_run_heterogeneous_fleet_swaps_profile_and_would_generate():
     """--config-only derives the fleet config but WRITES NOTHING: the generator
     prints what it would generate (compose services + split-stack routers)."""

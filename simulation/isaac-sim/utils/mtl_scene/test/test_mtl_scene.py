@@ -95,15 +95,54 @@ def test_config_from_scenario_and_fleet(tmp_path):
         "/isaac-sim/AirStack/config/fleets/f.yaml"
 
 
-def test_repo_fleet_and_bundle_agree():
-    fleet = REPO / "config" / "fleets" / "mtl_search_fleet.yaml"
-    bundle = REPO / "stacks" / "mtl_search" / "config"
+@pytest.mark.parametrize("stack", ["mtl_search", "tigris_search"])
+def test_repo_fleet_and_bundle_agree(stack):
+    fleet = REPO / "config" / "fleets" / f"{stack}_fleet.yaml"
+    bundle = REPO / "stacks" / stack / "config"
     if not fleet.is_file() or not (bundle / "scenario.json").is_file():
         pytest.skip("repo layout not available")
     pytest.importorskip("yaml")
     cfgs = C.drone_configs_from_fleet(fleet, REPO)
     sc, gt, png = C.load_bundle(bundle)
-    assert [c["robot_name"] for c in cfgs] == ["robot_1", "robot_2", "robot_3"]
+    agents = [a["name"] for a in sc["team"]["agents"]]
+    assert [c["robot_name"] for c in cfgs] == agents[:len(cfgs)]
     assert all(c["gimbal"] and not c["camera"] and not c["lidar"] for c in cfgs)
     assert C.spawn_mismatches(cfgs, sc) == []
     assert png is not None and len(gt["targets"]) > 0
+    # `airstack up --fleet <stack>_fleet` alone must give the search scene with
+    # THIS stack's bundle (no MTL_SCENARIO_DIR / ISAAC_SIM_SCRIPT_NAME needed).
+    raw = C._load_yaml(fleet)
+    assert raw["sim"]["script"] == "search_mission_scene.py"
+    assert (REPO / "simulation" / "isaac-sim" / "launch_scripts" / raw["sim"]["script"]).is_file()
+    env = {"FLEET_CONFIG_FILE": f"/root/AirStack/config/fleets/{stack}_fleet.yaml"}
+    assert C.scenario_dir(REPO, env) == bundle
+
+
+def test_scenario_dir_precedence(tmp_path):
+    pytest.importorskip("yaml")
+    repo = tmp_path
+    for s in ("mtl_search", "other_search"):
+        (repo / "stacks" / s / "config").mkdir(parents=True)
+        (repo / "stacks" / s / "config" / "scenario.json").write_text("{}")
+    fleets = repo / "config" / "fleets"
+    fleets.mkdir(parents=True)
+    (fleets / "by_stack.yaml").write_text("defaults: {stack: stacks/other_search}\nrobots: {robot_1: {}}\n")
+    (fleets / "explicit.yaml").write_text(
+        "defaults: {stack: stacks/other_search}\nsim: {scenario_dir: /root/AirStack/elsewhere}\n")
+    (fleets / "no_bundle.yaml").write_text("defaults: {stack: stacks/full_default}\n")
+    default = repo / "stacks" / "mtl_search" / "config"
+    assert C.scenario_dir(repo, {}) == default
+    # MTL_SCENARIO_DIR wins over everything (robot-container path remapped)
+    env = {"MTL_SCENARIO_DIR": "/root/AirStack/stacks/x/config",
+           "FLEET_CONFIG_FILE": "/root/AirStack/config/fleets/by_stack.yaml"}
+    assert C.scenario_dir(repo, env) == repo / "stacks" / "x" / "config"
+    # fleet: defaults.stack/config when it holds a bundle
+    env = {"FLEET_CONFIG_FILE": "/root/AirStack/config/fleets/by_stack.yaml"}
+    assert C.scenario_dir(repo, env) == repo / "stacks" / "other_search" / "config"
+    # fleet: explicit sim.scenario_dir beats the stack
+    env = {"FLEET_CONFIG_FILE": "/root/AirStack/config/fleets/explicit.yaml"}
+    assert C.scenario_dir(repo, env) == repo / "elsewhere"
+    # a stack without a bundle / a missing fleet file -> the MTL default
+    for f in ("no_bundle.yaml", "missing.yaml"):
+        env = {"FLEET_CONFIG_FILE": f"/root/AirStack/config/fleets/{f}"}
+        assert C.scenario_dir(repo, env) == default

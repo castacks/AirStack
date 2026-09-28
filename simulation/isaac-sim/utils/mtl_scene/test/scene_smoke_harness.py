@@ -75,11 +75,25 @@ APP = []
 mod("pegasus_app", create_simulation_app=lambda: None, PegasusApp=PegasusApp)
 sys.modules["isaacsim"] = mod("isaacsim")
 
-os.environ.pop("FLEET_CONFIG_FILE", None)
-os.environ["FLEET_CONFIG_FILE"] = "/root/AirStack/config/fleets/mtl_search_fleet.yaml"
+# A private two-robot fleet (the repo fleets may be trimmed to one robot), whose
+# sim.scenario_dir selects the TIGRIS bundle: the scene must pick it up without
+# MTL_SCENARIO_DIR (that is what `airstack up --fleet tigris_search_fleet` gives).
+import tempfile
+_fleet = Path(tempfile.mkdtemp()) / "smoke_fleet.yaml"
+_fleet.write_text(
+    "defaults: {vehicle: quad_gimbal, stack: stacks/tigris_search}\n"
+    "robots:\n"
+    "  robot_1: {spawn: [-170.0, -170.0, 0.07]}\n"
+    "  robot_2: {spawn: [-158.0, -170.0, 0.07]}\n"
+    "sim: {scene: default, script: search_mission_scene.py, scenario_dir: stacks/tigris_search/config}\n")
+os.environ.pop("MTL_SCENARIO_DIR", None)
+os.environ["FLEET_CONFIG_FILE"] = str(_fleet)
 sys.argv = [LS + "/search_mission_scene.py"]
 runpy.run_path(LS + "/search_mission_scene.py", run_name="__main__")
 app = APP[0]
+assert app.scenario["mission"]["name"].startswith("tigris_search"), app.scenario["mission"]["name"]
+assert [c["robot_name"] for c in app.drone_configs] == ["robot_1", "robot_2"]
+assert (app.drone_configs[0]["x_m"], app.drone_configs[0]["y_m"]) == (-170.0, -170.0)
 print("gimbals", [g["robot"] for g in app.gimbals], "graphs", len(EDITS))
 for prim in ["/World/MTL/Ground", "/World/MTL/SearchArea", "/World/MTL/Targets", "/World/drone1/base_link/camera_gimbal/camera"]:
     assert STAGE.GetPrimAtPath(prim).IsValid(), prim
