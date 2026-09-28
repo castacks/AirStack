@@ -6,6 +6,8 @@
       "modes": "",
       "sections": "auto",
       "commanderNs": "/swarm_commander",
+      "bagRecorderNs": "/bag_recorder",
+      "bagStatusTopic": "/svg/bag_recorder/status",
       "formationTopic": "/svg/formation_command",
       "formationProfiles": "home, line, triangle, diagonal",
       "statusTopic": "/svg/commander_status",
@@ -61,7 +63,10 @@
       "reservePct": 8,
       "rtbNominalPct": 30,
       "rtbGatedPct": 20,
-      "selected": "drone_1"
+      "selected": "drone_1",
+      "teleopNs": "/safe_teleop",
+      "teleopTopicTemplate": "/svg/{name}/teleop_command",
+      "joyTopic": "/joy"
     },
     "3D!sbview": {
       "cameraState": {
@@ -101,8 +106,12 @@
         }
       },
       "transforms": {
-        "frame:base_link_stabilized": { "visible": false },
-        "frame:map_ned": { "visible": false }
+        "frame:base_link_stabilized": {
+          "visible": false
+        },
+        "frame:map_ned": {
+          "visible": false
+        }
       },
       "topics": {
         "/svg/viz/markers": {
@@ -116,7 +125,7 @@
         "grid": {
           "visible": false,
           "drawBehind": false,
-          "label": "Grid (built-in, fixed 8 m square — off: the commander draws a fence-aligned grid in /svg/viz/markers)",
+          "label": "Grid (built-in, fixed 8 m square \u2014 off: the commander draws a fence-aligned grid in /svg/viz/markers)",
           "instanceId": "svg-grid",
           "layerId": "foxglove.Grid",
           "size": 8,
@@ -160,7 +169,7 @@
       "direction": "column",
       "first": "3D!sbview",
       "second": "svg-basestation.SVG Basestation!sbpower",
-      "splitPercentage": 60
+      "splitPercentage": 55
     },
     "splitPercentage": 50
   }

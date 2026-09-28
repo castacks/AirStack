@@ -38,6 +38,7 @@ setup(
             'velocity_preview = svg_ground_control.safe_teleop.velocity:main',
             'joy_topic_view = svg_ground_control.safe_teleop.joy_view:main',
             'teleop_monitor = svg_ground_control.safe_teleop.monitor:main',
+            'bag_recorder = svg_ground_control.bag_recorder:main',
         ],
     },
 )

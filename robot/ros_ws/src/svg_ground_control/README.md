@@ -153,8 +153,28 @@ velocity, no altitude hold) remains as an ad-hoc utility.
   values are rejected. The speed and tracking gains (`scenario_speed_mps`,
   `teleop_max_speed_mps`, `goal_accel_mps2`, `goal_settle_s`, `goal_lead_m`,
   `goal_velocity_only_settle_s`, `teleop_kp`, `teleop_lead_m`, `hover_kp`,
-  `hold_lead_m`, `takeoff_speed_mps`) are live too. Everything else is read
-  once at startup; a `ros2 param set` on it is refused with a reason.
+  `hold_lead_m`, `takeoff_speed_mps`) are live too, and the snapshot's
+  `tuning` block reports `teleop_max_speed_mps`, `goal_accel_mps2`,
+  `goal_settle_s` and `scenario_speed_mps` so the panel's gain dropdown can
+  edit the first three next to the CBF gains. `teleop_max_speed_mps` and
+  `safe_teleop`'s `max_speed_mps` are one number kept equal at runtime:
+  the pad follows the commander's snapshot, a `ros2 param set
+  /safe_teleop max_speed_mps` is pushed to the commander, and the panel's
+  Teleop vmax row sets both. Everything else is read once at startup; a
+  `ros2 param set` on it is refused with a reason.
+
+- **Rosbag switch**: the `bag_recorder` node (started by
+  `ground_control.launch.py`) records every published topic on the domain
+  (mcap, `ros2 bag record --all-topics`) on demand: the **Rosbag** toggle in
+  the Foxglove panel, or `ros2 service call /bag_recorder/record
+  std_srvs/srv/SetBool "{data: true}"`, starts a bag at
+  `<bag_dir>/<bag_prefix>_<YYYYmmdd_HHMMSS>` (`bag_dir` defaults to the
+  bind-mounted `~/AirStack/robot/ros_ws/bags`, so the bag is on the host);
+  `data: false` closes it (SIGINT, so `metadata.yaml` is written). Its
+  status (`/svg/bag_recorder/status`, JSON: recording, path, duration, size)
+  is what the panel's switch shows. `record_bag:=true` records from launch
+  to Ctrl-C as before, still switchable in between. See experiment.md
+  "Recording rosbags".
 
 Full how-to for all of the above: **[experiment.md](experiment.md)**.
 

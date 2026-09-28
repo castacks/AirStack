@@ -237,6 +237,10 @@ PYTHONPATH="$ISAAC_SIM_PYTHONPATH" \
 /isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/svg_multi_drone_single_domain.py \
   --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts
 ```
+Add `ENABLE_CAMERA=true CAMERA_DRONES=drone_1` to that command to give
+drone_1 the ZED stereo camera (`/drone_1/sensors/front_stereo/left/image_rect`,
+what the basestation layout's Image panel shows); without `ENABLE_CAMERA` no
+drone has a camera, and with it alone the camera goes on the last drone.
 Expect `Spawning 3 drone(s) on ROS domain 1` then `PX4 Autolaunch: True` per
 drone. Drones spawn at x = −2, 0, +2 (this is why the sim configs set
 `drone_position_offsets: [-2,0,0, 0,0,0, 2,0,0]`).
@@ -1721,9 +1725,46 @@ turned off in `svg_basestation.json` for that reason.
 
 ## Recording rosbags
 
-Record INTO the mounted workspace (`~/AirStack/robot/ros_ws/...`); paths
-outside the bind mounts stay trapped in the container. Ctrl-C stops AND writes
-`metadata.yaml`.
+**Switch in the Foxglove panel:** `ground_control.launch.py` starts the
+`bag_recorder` node next to the commander. The **Rosbag** toggle in the SVG
+Basestation panel (top right of the banner, beside the clock) starts
+`ros2 bag record --all-topics` (mcap) and stops it again; the same switch from
+a shell is
+
+```bash
+ros2 service call /bag_recorder/record std_srvs/srv/SetBool "{data: true}"    # start
+ros2 service call /bag_recorder/record std_srvs/srv/SetBool "{data: false}"   # stop (writes metadata.yaml)
+ros2 topic echo /svg/bag_recorder/status --once --field data                 # recording, path, duration, size
+```
+
+Everything published on the domain is captured: odometry, commands, mocap
+poses, joystick, CBF debug, `/rosout`; topics that appear after the start are
+picked up too. One bag per start at `<bag_dir>/<bag_prefix>_<YYYYmmdd_HHMMSS>`.
+The panel's switch shows the recorder's own `recording` flag, so a recorder
+that dies (disk full) is visible as the switch dropping back to off with the
+exit code on the row. Stop is a SIGINT, so the bag is closed properly; Ctrl-C
+on the launch does the same.
+
+**Switch on the launch:** `record_bag:=true` records from launch to Ctrl-C
+(the node's `record_on_start`), and the panel can still stop and restart it.
+
+```bash
+ros2 launch svg_ground_control ground_control.launch.py \
+  config:=<path>/swarm_real.yaml use_mocap:=true \
+  record_bag:=true bag_prefix:=c2_squeeze          # -> ~/AirStack/robot/ros_ws/bags/c2_squeeze_<stamp>
+```
+
+| Arg | Default | Meaning |
+|-----|---------|---------|
+| `use_bag_recorder` | `true` | Start the `bag_recorder` node (the panel's Rosbag switch) |
+| `record_bag` | `false` | Start recording at launch (`bag_recorder` `record_on_start`) |
+| `bag_dir` | `~/AirStack/robot/ros_ws/bags` | Bind-mounted workspace, so the bag is on the host (gitignored); `/bags` on the robot-l4t storage mount |
+| `bag_prefix` | `svg` | Folder name prefix |
+| `bag_include_hidden` | `false` | Also record hidden topics |
+
+**Manual, selected topics:** record INTO the mounted workspace
+(`~/AirStack/robot/ros_ws/...`); paths outside the bind mounts stay trapped in
+the container. Ctrl-C stops AND writes `metadata.yaml`.
 
 ```bash
 ros2 bag record -o ~/AirStack/robot/ros_ws/bags/run_$(date +%H%M%S) \

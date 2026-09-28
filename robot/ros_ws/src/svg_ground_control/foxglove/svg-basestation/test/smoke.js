@@ -68,10 +68,21 @@ let saved = null;
 let subscribed = [];
 let onRender = null;
 let settingsNodes = null;
-// The commander's runtime CBF parameters, as get/set_parameters see them.
-const params = { cbf_alpha: 2.5, cbf_safety_radius_m: 0.55, cbf_max_speed_mps: 1.2 };
+// The commander's runtime parameters, as get/set_parameters see them.
+const params = { cbf_alpha: 2.5, cbf_safety_radius_m: 0.55, cbf_max_speed_mps: 1.2,
+  teleop_max_speed_mps: 2.0, goal_accel_mps2: 3.0, goal_settle_s: 0.3 };
+// safe_teleop's parameters — max_speed_mps must always equal the commander's
+// teleop_max_speed_mps, so the panel sets both.
+const padParams = { max_speed_mps: 2.0, max_climb_speed_mps: 0.8, yaw_rate_rad_s: 1.0, deadzone: 0.15,
+  // dragonrise layout: right stick on 3/2, lock on button 6 — so the card
+  // must show the map it READ, not the xbox default.
+  forward_axis: 3, left_axis: 2, climb_axis: 1, yaw_axis: 0, lock_button: 6,
+  forward_sign: 1.0, left_sign: 1.0, climb_sign: 1.0, yaw_sign: 1.0,
+  drone: "drone_3", joy_topic: "/joy", teleop_controller: "dragonrise_usb" };
 const published = [];
 const missionState = { active: false, seq: 0, last: null };
+// bag_recorder: its ~/record switch and what its status topic then reports.
+const bagState = { recording: false, refuse: false, calls: [] };
 
 const panelContext = {
   initialState: {},
@@ -96,17 +107,28 @@ const panelContext = {
       missionState.last = { seq: missionState.seq, name: "hold", success: true, message: "holding: drone_1", stamp: 1.7e9 + 9 };
       return { success: true, message: "holding: drone_1" };
     }
+    const store = service.startsWith("/safe_teleop/") ? padParams : params;
     if (service.endsWith("/get_parameters")) {
-      return { values: req.names.map((n) => (n in params ? { type: 3, double_value: params[n] } : { type: 0 })) };
+      return { values: req.names.map((n) => (n in store
+        ? (typeof store[n] === "string" ? { type: 4, string_value: store[n] }
+          : /_axis$|_button$/.test(n) ? { type: 2, integer_value: store[n] } : { type: 3, double_value: store[n] })
+        : { type: 0 })) };
     }
     if (service.endsWith("/set_parameters")) {
       const { name, value } = req.parameters[0];
       const v = value.double_value;
-      if (!(name in params)) return { results: [{ successful: false, reason: `unknown parameter ${name}` }] };
-      if (!(v > 0)) return { results: [{ successful: false, reason: `${name} must be > 0` }] };
+      if (!(name in store)) return { results: [{ successful: false, reason: `unknown parameter ${name}` }] };
+      if (name === "goal_settle_s" ? !(v >= 0) : !(v > 0)) return { results: [{ successful: false, reason: `${name} must be > 0` }] };
       if (name === "cbf_max_speed_mps" && v > 5) return { results: [{ successful: false, reason: "too fast for indoors" }] };
-      params[name] = v;
+      store[name] = v;
       return { results: [{ successful: true, reason: "" }] };
+    }
+    if (service === "/bag_recorder/record") {
+      bagState.calls.push(req.data);
+      if (bagState.refuse) return { success: false, message: "cannot create bag_dir /nope: Permission denied" };
+      bagState.recording = req.data;
+      return { success: true, message: req.data ? "recording all topics to /bags/svg_20260927_143012"
+        : "stopped: /bags/svg_20260927_143012 (12 s, 12.4 MB)" };
     }
     throw new Error("unknown service " + service);
   },
@@ -128,6 +150,8 @@ function statusMsg(overrides = {}) {
     fence_enabled: true, fence_breached: false,
     cbf: { alpha: params.cbf_alpha, safety_radius_m: params.cbf_safety_radius_m, max_speed_mps: params.cbf_max_speed_mps,
       external_velocity_gain: 1.0, active: ["drone_2"], emergency: false },
+    tuning: { teleop_max_speed_mps: params.teleop_max_speed_mps, goal_accel_mps2: params.goal_accel_mps2,
+      goal_settle_s: params.goal_settle_s, scenario_speed_mps: 1.2 },
     command_seq: missionState.seq, last_command: missionState.last,
     drones: [
       { name: "drone_1", role: "auto", mode: "sim", commanded: true, cbf_exempt: false, state: "ACTIVE",
@@ -155,6 +179,21 @@ function feedOdom(name, x, y, z) {
   frame([{ topic: `/${name}/odometry_conversion/odometry`, receiveTime: rxTime(t),
     message: { header: { stamp: rxTime(t - 0.01) }, pose: { pose: { position: { x, y, z } } }, twist: { twist: { linear: { x: 0.1, y: 0, z: 0 } } } } }]);
 }
+function feedJoy(axes, buttons) {
+  frame([{ topic: "/joy", receiveTime: rxTime(t), message: { header: { stamp: rxTime(t) }, axes, buttons } }]);
+}
+function feedTeleop(name, vx, vy, vz, yaw) {
+  frame([{ topic: `/svg/${name}/teleop_command`, receiveTime: rxTime(t),
+    message: { header: { stamp: rxTime(t) }, twist: { linear: { x: vx, y: vy, z: vz }, angular: { x: 0, y: 0, z: yaw } } } }]);
+}
+function feedBag(overrides = {}) {
+  const snap = { stamp: t, node: "/bag_recorder", recording: bagState.recording,
+    path: bagState.recording ? "/bags/svg_20260927_143012" : null,
+    started_at: bagState.recording ? t - 12.4 : null, duration_s: bagState.recording ? 12.4 : null,
+    size_bytes: bagState.recording ? 12400000 : null, topic_count: 87, bag_dir: "/bags", bag_prefix: "svg",
+    storage: "mcap", include_hidden: false, last_bag: null, last_result: null, error: null, ...overrides };
+  frame([{ topic: "/svg/bag_recorder/status", receiveTime: rxTime(t), message: { data: JSON.stringify(snap) } }]);
+}
 function feedCmd(name) {
   frame([{ topic: `/${name}/interface/velocity_command`, receiveTime: rxTime(t),
     message: { header: { stamp: rxTime(t) }, twist: { linear: { x: 0, y: 0, z: 0 } } } }]);
@@ -169,6 +208,10 @@ const text = () => root.textContent;
   assert(subscribed.includes("/drone_1/fmu/velocity_command"), "subscribes to real velocity commands");
   assert(settingsNodes.swarm.fields.statusTopic && settingsNodes.swarm.fields.cbfAlphaMax, "settings editor exposes statusTopic + cbfAlphaMax");
   assert(settingsNodes.swarm.fields.cbfRadiusMax && settingsNodes.swarm.fields.cbfSpeedMax, "settings editor exposes the radius + max-speed slider maxima");
+  assert(settingsNodes.swarm.fields.teleopSpeedMax && settingsNodes.swarm.fields.goalAccelMax
+    && settingsNodes.swarm.fields.goalSettleMax, "settings editor exposes the teleop / goal slider maxima");
+  assert(settingsNodes.swarm.fields.teleopNs && settingsNodes.swarm.fields.teleopNs.value === "/safe_teleop",
+    "settings editor exposes the safe_teleop namespace");
 
   // Before any data.
   render();
@@ -213,6 +256,18 @@ const text = () => root.textContent;
     assert(estCells.every((n) => n.className.includes("sb-muted")), "estimated drop cells are muted, not graded");
   }
   assert(/\d+ Hz/.test(txt), "velocity command stream rate rendered");
+  // Agent picker in the Goal card: name buttons only; no Agents roster, no Wiring card.
+  assert(!findAll(root, (n) => n.className === "sb-title" && n.textContent === "Agents").length, "no Agents roster card");
+  assert(!findAll(root, (n) => n.className === "sb-title" && n.textContent.startsWith("Wiring")).length, "no Wiring card");
+  const picks = findAll(root, (n) => n.tagName === "button" && n.className.includes("sb-pick"));
+  assert(picks.length === 3 && picks.map((b) => b.textContent).join(",") === "drone_1,drone_2,drone_3", "one picker button per agent, names only");
+  assert(picks[0].parentNode.parentNode.textContent.startsWith("Goal"), "picker lives in the Goal card");
+  assert(picks[0].classList.contains("sb-selected") && !picks[1].classList.contains("sb-selected"), "drone_1 selected by default");
+  picks[1].click();
+  assert(picks[1].classList.contains("sb-selected") && !picks[0].classList.contains("sb-selected"), "clicking drone_2 selects it");
+  assert(text().includes("drone_2: position & speed"), "goal card title follows the picked agent");
+  assert(saved && saved.selected === "drone_2", "selection persisted");
+  picks[0].click();
   findButton(root, "Use Current").click();
   const goalX = findAll(root, (n) => n.tagName === "input" && n.classList.contains("sb-goal-in"))[0];
   assert(goalX && goalX.value === "-1.23", "Use Current copies the commander's own position (goal frame) into x");
@@ -223,6 +278,9 @@ const text = () => root.textContent;
   // One slider row; the dropdown picks the gain.
   const cbfSel = findAll(root, (n) => n.tagName === "select" && n.children.some((o) => o.value === "radius"))[0];
   assert(cbfSel, "CBF gain dropdown lists alpha / radius / speed");
+  for (const id of ["teleop", "accel", "settle"]) {
+    assert(cbfSel.children.some((o) => o.value === id), `gain dropdown lists ${id}`);
+  }
   assert(findAll(root, (n) => n.tagName === "button" && n.textContent.trim() === "Apply").length === 1, "a single Apply button for the CBF row");
   const pickCbf = (id) => { cbfSel.value = id; cbfSel.fire("change"); render(); };
   pickCbf("radius");
@@ -297,6 +355,64 @@ const text = () => root.textContent;
   assert(text().includes("live 1.20 m/s ✗"), "rejected set marks the readout with ✗ but keeps the live value");
   assert(text().includes("REJECTED") && text().includes("too fast for indoors"), "rejection reason shown in the status line");
   assert(params.cbf_max_speed_mps === 1.2, "rejected value not applied");
+
+  // Teleop max speed: one Apply sets the commander AND safe_teleop.
+  pickCbf("teleop");
+  const teleopBox = numBox("teleop");
+  assert(teleopBox && teleopBox.value === "2.00", "teleop cap draft seeded from the snapshot's tuning block");
+  assert(text().includes("live 2.00 m/s"), "teleop cap live readout carries its unit");
+  assert(text().includes("pad 2.00 ✓"), "safe_teleop's max_speed_mps read back and ticked as equal");
+  teleopBox.value = "3"; teleopBox.fire("input");
+  findButton(root, "Apply").click();
+  await new Promise((r) => setTimeout(r, 20));
+  const teleopCalls = calls.filter((c) => c.service.endsWith("/set_parameters")).slice(-2);
+  assert(teleopCalls[0].service === "/swarm_commander/set_parameters"
+    && teleopCalls[0].req.parameters[0].name === "teleop_max_speed_mps"
+    && teleopCalls[0].req.parameters[0].value.double_value === 3, "teleop Apply sets the commander's teleop_max_speed_mps first");
+  assert(teleopCalls[1].service === "/safe_teleop/set_parameters"
+    && teleopCalls[1].req.parameters[0].name === "max_speed_mps"
+    && teleopCalls[1].req.parameters[0].value.double_value === 3, "then safe_teleop's max_speed_mps with the same number");
+  assert(params.teleop_max_speed_mps === 3 && padParams.max_speed_mps === 3, "both nodes now hold 3.0");
+  t += 0.3; feedStatus();
+  render();
+  assert(text().includes("live 3.00 m/s ✓") && text().includes("pad 3.00 ✓"), "both copies confirmed at 3.00");
+  // Someone changes the pad behind the panel's back: the readout flags it.
+  padParams.max_speed_mps = 1.0;
+  findButton(root, "↻").click();
+  await new Promise((r) => setTimeout(r, 20));
+  t += 11; feedStatus();      // past the 10 s "asked" window
+  render();
+  assert(text().includes("pad 1.00 ✗"), "a pad value that differs from the commander's is crossed");
+  assert(text().includes("lower one wins on the sticks"), "the mismatch note says why it matters");
+  padParams.max_speed_mps = 3.0;
+  findButton(root, "↻").click();
+  await new Promise((r) => setTimeout(r, 20));
+  render();
+  assert(text().includes("pad 3.00 ✓"), "back in agreement after a refresh");
+  // A rejection by the commander never touches the pad.
+  teleopBox.value = "-2"; teleopBox.fire("input");
+  findButton(root, "Apply").click();
+  await new Promise((r) => setTimeout(r, 20));
+  assert(padParams.max_speed_mps === 3 && params.teleop_max_speed_mps === 3, "client-side rejection leaves both untouched");
+
+  // Goal accel / settle live in the snapshot's tuning block; settle may be 0.
+  pickCbf("accel");
+  assert(numBox("accel") && numBox("accel").value === "3.00" && text().includes("live 3.00 m/s²"), "goal accel seeded and shown with its unit");
+  numBox("accel").value = "6"; numBox("accel").fire("input");
+  findButton(root, "Apply").click();
+  await new Promise((r) => setTimeout(r, 20));
+  assert(params.goal_accel_mps2 === 6, "goal accel Apply sets goal_accel_mps2");
+  pickCbf("settle");
+  assert(numBox("settle") && numBox("settle").value === "0.30" && text().includes("live 0.30 s"), "goal settle seeded and shown with its unit");
+  numBox("settle").value = "0"; numBox("settle").fire("input");
+  findButton(root, "Apply").click();
+  await new Promise((r) => setTimeout(r, 20));
+  assert(params.goal_settle_s === 0, "a zero settle time is allowed and applied");
+  t += 0.3; feedStatus();
+  render();
+  assert(text().includes("live 0.00 s ✓"), "zero settle confirmed by the snapshot");
+  assert(!calls.some((c) => c.service === "/safe_teleop/set_parameters" && c.req.parameters[0].name !== "max_speed_mps"),
+    "only the teleop cap is mirrored to safe_teleop");
   pickCbf("alpha");
 
   // Formation: dropdown + Send only — no free-text box, no Next.
@@ -315,6 +431,68 @@ const text = () => root.textContent;
   formSel.fire("change");
   findButton(root, "Send").click();
   assert(text().includes("Pick a formation profile first"), "Send with nothing selected is refused");
+
+  // Rosbag switch: disabled + NO RECORDER until bag_recorder's status
+  // arrives; a click calls ~/record (SetBool) and the switch follows the
+  // recorder's own `recording` flag, not the click.
+  assert(subscribed.includes("/svg/bag_recorder/status"), "subscribes to the bag recorder status topic");
+  assert(settingsNodes.swarm.fields.bagRecorderNs && settingsNodes.swarm.fields.bagRecorderNs.value === "/bag_recorder"
+    && settingsNodes.swarm.fields.bagStatusTopic, "settings editor exposes the bag recorder namespace + status topic");
+  const bagRow = findAll(root, (n) => n.className === "sb-bag")[0];
+  const bannerEl = findAll(root, (n) => n.className.includes("sb-banner"))[0];
+  assert(bagRow && bagRow.parentNode === bannerEl, "Rosbag switch lives in the banner");
+  assert(bannerEl.children.indexOf(bagRow) > bannerEl.children.findIndex((n) => n.className === "sb-spacer")
+    && bannerEl.children.indexOf(bagRow) === bannerEl.children.length - 2,
+    "switch sits right of the task chips, just before the clock");
+  assert(bagRow.textContent.startsWith("Rosbag"), "switch is labelled Rosbag");
+  const bagCheck = findAll(bagRow, (n) => n.tagName === "input" && n.type === "checkbox")[0];
+  assert(bagCheck && bagCheck.disabled && !bagCheck.checked && bagRow.textContent.includes("NO RECORDER"),
+    "switch disabled and NO RECORDER before any recorder status");
+  t += 0.1; feedBag();
+  render();
+  const bagChip = findAll(bagRow, (n) => n.className.includes("sb-chip"))[0];
+  assert(!bagCheck.disabled && !bagCheck.checked && bagChip.textContent === "IDLE" && bagChip.title.includes("under /bags"),
+    "recorder status enables the switch: IDLE, bag_dir in the tooltip");
+  bagCheck.checked = true; bagCheck.fire("change");
+  render();
+  assert(bagCheck.disabled && bagCheck.checked && bagRow.textContent.includes("STARTING"), "click: switch held on and disabled while the recorder confirms");
+  await new Promise((r) => setTimeout(r, 10));
+  assert(bagState.calls.length === 1 && bagState.calls[0] === true, "switch on calls /bag_recorder/record with data: true");
+  t += 0.3; feedBag();
+  render();
+  assert(!bagCheck.disabled && bagCheck.checked, "recorder reports recording: switch on, enabled again");
+  assert(bagChip.textContent === "REC 0:12 · 12.4 MB" && bagChip.title.includes("/bags/svg_20260927_143012"),
+    "REC chip shows duration and size; the bag path is in its tooltip");
+  assert(text().includes("recording all topics to /bags/svg_20260927_143012"), "status line carries the recorder's reply");
+  bagCheck.checked = false; bagCheck.fire("change");
+  await new Promise((r) => setTimeout(r, 10));
+  assert(bagState.calls.length === 2 && bagState.calls[1] === false, "switch off calls /bag_recorder/record with data: false");
+  t += 0.3; feedBag({ last_bag: "/bags/svg_20260927_143012", last_result: "stopped: /bags/svg_20260927_143012 (12 s, 12.4 MB)" });
+  render();
+  assert(!bagCheck.checked && !bagCheck.disabled && bagChip.textContent === "IDLE"
+    && bagChip.title.includes("stopped: /bags/svg_20260927_143012 (12 s, 12.4 MB)"), "switch off again; the tooltip reports the closed bag");
+  // Recorder refuses (e.g. unwritable bag_dir): the switch springs back and the reason is shown.
+  bagState.refuse = true;
+  bagCheck.checked = true; bagCheck.fire("change");
+  await new Promise((r) => setTimeout(r, 10));
+  render();
+  assert(!bagCheck.checked && !bagCheck.disabled && bagState.calls.length === 3, "a refused start releases the switch back to off");
+  assert(text().includes("REJECTED") && text().includes("cannot create bag_dir /nope"), "refusal reason shown in the status line");
+  bagState.refuse = false;
+  // Recorder dies mid-run: its status flips recording=false with an error.
+  bagState.recording = true; t += 0.2; feedBag();
+  render();
+  assert(bagCheck.checked, "switch follows a recorder that was started elsewhere (ros2 service call)");
+  bagState.recording = false; t += 0.2;
+  feedBag({ error: "recorder exited on its own with code 1: /bags/svg_20260927_143012 (3 s, 0.4 MB)",
+    last_result: "recorder exited on its own with code 1: /bags/svg_20260927_143012 (3 s, 0.4 MB)" });
+  render();
+  assert(!bagCheck.checked && bagChip.textContent === "IDLE ✗" && bagChip.title.includes("exited on its own with code 1"),
+    "a recorder that died: amber IDLE ✗ with the error in the tooltip, switch off");
+  // Recorder goes silent: switch disabled, NO RECORDER.
+  t += 3; feedStatus();
+  render();
+  assert(bagCheck.disabled && bagRow.textContent.includes("NO RECORDER"), "silent recorder disables the switch again");
 
   // Stale commander -> NO COMMANDER, positions fall back.
   t += 5; feedOdom("drone_1", 9.87, 0, 1);
@@ -343,6 +521,116 @@ const text = () => root.textContent;
   assert(text().includes("HOLDING"), "mission chip HOLDING after hold");
   assert(/hold\s+sent, awaiting reply\s+✓ confirmed by commander/.test(text()), "hold confirmed from the snapshot even without a service reply");
 
+  // Teleop · Sticks: hidden until safe_teleop publishes, then the raw pad,
+  // the mapped sticks (on the map read from safe_teleop) and the published
+  // velocity; hidden again once the stream stops.
+  const teleopCard = findAll(root, (n) => n.className === "sb-card" && n.textContent.includes("Teleop · Sticks"))[0];
+  assert(teleopCard && teleopCard.hidden, "Teleop card exists but is hidden while safe_teleop is not publishing");
+  assert(subscribed.includes("/joy") && subscribed.includes("/svg/drone_3/teleop_command"), "subscribes to /joy and the teleop command topics");
+  for (let i = 0; i < 4; i++) {
+    t += 0.05;
+    feedJoy([0.02, -0.5, 0.0, 0.8, 0.0, 0.0], [0, 0, 0, 0, 0, 0, 0]);
+    feedTeleop("drone_3", 1.53, 0.0, -0.4, 0.0);
+  }
+  render();
+  await new Promise((r) => setTimeout(r, 20));   // safe_teleop get_parameters answers
+  render();
+  assert(!teleopCard.hidden, "Teleop card shown once teleop_command is streaming");
+  {
+    const txt = teleopCard.textContent;
+    const stickRows = findAll(teleopCard, (n) => n.tagName === "tr" && n.title.includes("/joy axis"));
+    assert(stickRows.length === 4 && stickRows[0].children.length === 4, "four stick rows with fixed columns: label, raw, mapped, bar");
+    assert(stickRows[0].children[0].textContent === "fwd / back" && stickRows[0].title.includes("right stick, /joy axis 3"),
+      "row label is the direction only; the stick and axis index live in the tooltip, from safe_teleop's map");
+    assert(stickRows[0].children[1].textContent === "+0.800" && stickRows[1].children[1].textContent === "+0.000",
+      "Raw column shows the /joy axis value");
+    assert(txt.includes("dragonrise_usb"), "axis map read from safe_teleop, not the xbox default");
+    assert(stickRows[0].children[2].textContent === "+0.765", "forward stick mapped through the 0.15 deadzone (0.8 -> 0.765)");
+    assert(!txt.includes("axes    ") && !txt.includes("buttons "), "no raw axes/buttons dump above the table");
+    assert(txt.includes("+1.530 m/s") && txt.includes("-0.400 m/s"), "published vx / vz shown");
+    assert(txt.includes("/joy 20 Hz") || txt.includes("/joy OK"), "joy chip reports the stream");
+    assert(txt.includes("safe_teleop → drone_3"), "safe_teleop chip names the drone");
+    assert(txt.includes("STICKS PARKED") && txt.includes("not in teleop_drones"), "sticks parked while the commander runs drone_3 as auto");
+    assert(stickRows[1].title.includes("inside the 0.15 deadzone") && stickRows[1].children[2].className.includes("sb-muted"),
+      "a centred axis says so in its tooltip and greys the Mapped cell — no note column");
+  }
+  {
+    // Commander flies drone_3 by hand and the mission is running: live.
+    const live = statusMsg({ mission_active: true, mission_ever_started: true });
+    live.drones[2].role = "teleop"; live.drones[2].state = "ACTIVE";
+    t += 0.1;
+    frame([{ topic: "/svg/commander_status", receiveTime: rxTime(t), message: { data: JSON.stringify(live) } }]);
+    feedTeleop("drone_3", 1.53, 0.0, -0.4, 0.0);
+    render();
+    assert(teleopCard.textContent.includes("STICKS LIVE → drone_3"), "sticks live once drone_3 is a teleop drone, ACTIVE and started");
+  }
+  {
+    // Lock button 6 pressed: latch engages, vertical + yaw read LOCKED.
+    t += 0.05; feedJoy([0.02, -0.5, 0.0, 0.8, 0.0, 0.0], [0, 0, 0, 0, 0, 0, 1]); feedTeleop("drone_3", 1.53, 0.0, 0.0, 0.0);
+    render();
+    assert(teleopCard.textContent.includes("lock button 6: DOWN") && teleopCard.textContent.includes("left stick LOCKED"), "lock press latches: left stick shown LOCKED");
+    const upDown = findAll(teleopCard, (n) => n.tagName === "tr" && n.title.includes("/joy axis"))[2];
+    assert(upDown.children[2].textContent === "locked" && upDown.children[2].className.includes("sb-warn"), "locked axis reads 'locked' in amber");
+    t += 0.05; feedJoy([0.02, -0.5, 0.0, 0.8, 0.0, 0.0], [0, 0, 0, 0, 0, 0, 0]); feedTeleop("drone_3", 1.53, 0.0, 0.0, 0.0);
+    render();
+    assert(teleopCard.textContent.includes("left stick LOCKED"), "lock stays engaged after release (edge-triggered)");
+  }
+  // Stream stops: card hides again.
+  t += 3; feedStatus();
+  render();
+  assert(teleopCard.hidden, "Teleop card hidden again 2 s after safe_teleop stops publishing");
+
+  // The sticks card per instance: beside the battery card in 'power' (the
+  // shipped layout), alone in 'teleop' ("Teleop off" while nothing streams),
+  // never in 'main'.
+  for (const [view, expectCard] of [["power", true], ["teleop", true], ["main", false]]) {
+    const ctx = { ...panelContext, initialState: { view }, panelElement: makeNode("div"), callService: realCall };
+    let fn = null;
+    Object.defineProperty(ctx, "onRender", { set(f) { fn = f; }, get() { return fn; } });
+    const disp = initPanel(ctx);
+    const r = ctx.panelElement;
+    const tick = timers[timers.length - 1];
+    // A topic list first: before one arrives every section is shown.
+    fn({ topics: subscribed.map((name) => ({ name })), currentFrame: [] }, () => {});
+    tick();
+    const card = findAll(r, (n) => n.className === "sb-card" && n.textContent.includes("Teleop · Sticks"))[0];
+    const off = findAll(r, (n) => n.textContent.startsWith("Teleop off"))[0];
+    if (view === "teleop") {
+      assert(card.hidden && off && off.parentNode === r && !off.hidden, "teleop view reads 'Teleop off' before safe_teleop publishes");
+      assert(findAll(r, (n) => n.className.includes("sb-banner"))[0].hidden, "teleop view has no banner");
+    }
+    if (view === "power") {
+      const pcard = findAll(r, (n) => n.className === "sb-card" && n.textContent.startsWith("Battery & Power Management"))[0];
+      assert(card.hidden && !pcard.hidden && pcard.parentNode === card.parentNode && card.parentNode.className === "sb-side",
+        "power view: battery and sticks share a side-by-side row, sticks hidden (battery full width) before teleop runs");
+      assert(!off, "power view has no 'Teleop off' note — the battery card just takes the width");
+    }
+    for (let i = 0; i < 3; i++) {
+      t += 0.05;
+      fn({ topics: subscribed.map((name) => ({ name })), currentFrame: [
+        { topic: "/joy", receiveTime: rxTime(t), message: { axes: [0, 0, 0, 0.5, 0, 0], buttons: [0, 0, 0, 0, 0, 0, 0] } },
+        { topic: "/svg/drone_3/teleop_command", receiveTime: rxTime(t), message: { twist: { linear: { x: 0.2, y: 0, z: 0 }, angular: { z: 0 } } } },
+      ] }, () => {});
+    }
+    tick();
+    assert(card.hidden === !expectCard, `${view} view ${expectCard ? "shows" : "never shows"} the Teleop card while safe_teleop streams`);
+    if (view === "teleop") assert(card.parentNode === r && off.hidden, "teleop view shows the card directly under the root and drops the 'off' note");
+    if (view === "power") assert(card.parentNode.className === "sb-side" && !card.hidden, "power view shows the sticks beside the battery card while teleop runs");
+    disp();
+  }
+
+  // The switch is banner chrome of the main instance: not in the power one.
+  {
+    const ctx = { ...panelContext, initialState: { view: "power" }, panelElement: makeNode("div"), callService: realCall };
+    let fn = null;
+    Object.defineProperty(ctx, "onRender", { set(f) { fn = f; }, get() { return fn; } });
+    const disp = initPanel(ctx);
+    timers[timers.length - 1]();
+    const w = findAll(ctx.panelElement, (n) => n.className === "sb-bag")[0];
+    assert(w && w.hidden, "power view hides the Rosbag switch with the other banner chips");
+    disp();
+  }
+
   // Power-only instance (the panel under the 3D view in the shipped layout).
   const powerCtx = { ...panelContext, initialState: { view: "power" }, panelElement: makeNode("div"), callService: realCall };
   let powerOnRender = null;
@@ -354,7 +642,8 @@ const text = () => root.textContent;
   assert(hiddenClasses.some((c) => c.includes("sb-safety")) && hiddenClasses.some((c) => c.includes("sb-columns")),
     "power view hides the safety bar and the main columns");
   const pcard = findAll(proot, (n) => n.className === "sb-card" && n.textContent.startsWith("Battery & Power Management"))[0];
-  assert(pcard && pcard.parentNode === proot && !pcard.hidden, "power view shows Battery & Power directly under the banner");
+  assert(pcard && pcard.parentNode.className === "sb-side" && pcard.parentNode.parentNode === proot && !pcard.hidden,
+    "power view shows Battery & Power directly under the banner (in the side-by-side row)");
   assert(!findAll(proot, (n) => n.className.includes("sb-mission") && !n.hidden).length || findAll(proot, (n) => n.className === "sb-card" && !n.hidden && n.textContent.includes("Swarm Command")).length === 0,
     "power view has no Swarm Command card visible");
   disposePower();

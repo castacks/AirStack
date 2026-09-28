@@ -45,12 +45,27 @@
 //   formation /svg/formation_command                     std_msgs/String
 //   status    /svg/commander_status                      std_msgs/String, JSON
 //             (swarm_commander.build_status: mission state, last command
-//             outcome, live CBF gains, per-drone flight state + position)
-//   cbf gains /swarm_commander/{get,set}_parameters      rcl_interfaces
-//             (cbf_alpha, cbf_safety_radius_m, cbf_max_speed_mps — one slider
-//             row, the gain is picked from a dropdown)
+//             outcome, live CBF gains + speed/tracking gains ("tuning"),
+//             per-drone flight state + position)
+//   gains     /swarm_commander/{get,set}_parameters      rcl_interfaces
+//             (cbf_alpha, cbf_safety_radius_m, cbf_max_speed_mps,
+//             teleop_max_speed_mps, goal_accel_mps2, goal_settle_s — one
+//             slider row, the gain is picked from a dropdown)
+//             /safe_teleop/{get,set}_parameters          rcl_interfaces
+//             (max_speed_mps — set together with teleop_max_speed_mps so the
+//             pad's stick scaling and the commander's cap never differ)
 //   velocity  /{name}/interface/velocity_command | /{name}/fmu/velocity_command
 //             (rate only — proves the commander is driving that drone)
+//   sticks    /joy                                     sensor_msgs/Joy (raw pad)
+//             /svg/{name}/teleop_command              geometry_msgs/TwistStamped
+//             (what safe_teleop publishes; the Teleop card is shown only
+//             while this is streaming, i.e. while safe_teleop is running)
+//             /safe_teleop/get_parameters             axis map, deadzone, caps
+//   rosbag    /bag_recorder/record                    std_srvs/SetBool
+//             (the Rosbag switch: true starts `ros2 bag record --all-topics`,
+//             false stops it — svg_ground_control/bag_recorder.py)
+//             /svg/bag_recorder/status                std_msgs/String, JSON
+//             (recording, path, duration, size — the truth the switch shows)
 
 // ─────────────────────────── constants ────────────────────────────────────────
 
@@ -180,29 +195,85 @@ const MAX_CMD_LOG = 4;
 // Velocity commands stream at control_rate_hz (20 Hz) while a drone is
 // commanded; silence past this means the commander is not driving it.
 const CMD_STREAM_TIMEOUT_S = 0.5;
-// Runtime-tunable CBF gains, one slider row each. `param` is the commander's
-// parameter name (rcl_interfaces get/set_parameters), `statusKey` where the
-// live value sits under "cbf" in its status snapshot, `maxCfg` the panel
-// setting holding the slider's upper end. The number box accepts any value
-// above `min`. Order matters: the first row is the one the smoke test drives.
-const CBF_PARAMS = [
-  { id: "alpha", param: "cbf_alpha", statusKey: "alpha", label: "CBF α", unit: "",
+// The Teleop · Sticks card follows safe_teleop: it publishes on
+// /svg/{name}/teleop_command at 20 Hz whenever it runs (zeros included), so
+// silence this long means teleop is off and the card is hidden.
+const TELEOP_TIMEOUT_S = 2.0;
+// safe_teleop's parameters the card needs: the axis map (which /joy index is
+// which stick), the deadzone it applies and the scaling of the published
+// velocity. Read from <teleop ns>/get_parameters; until that answers the
+// xbox_usb defaults below (safe_teleop/controllers.py) are assumed and the
+// card says so.
+// The bag recorder publishes its status at 2 Hz; silence this long means it
+// is not running and the Rosbag switch is disabled.
+const BAG_TIMEOUT_S = 2.5;
+
+const TELEOP_MAP_DEFAULTS = {
+  forward_axis: 4, left_axis: 3, climb_axis: 1, yaw_axis: 0, lock_button: 4,
+  forward_sign: 1, left_sign: 1, climb_sign: 1, yaw_sign: 1,
+  deadzone: 0.15, max_speed_mps: 1.0, max_climb_speed_mps: 0.8, yaw_rate_rad_s: 1.0,
+};
+const TELEOP_PARAM_NAMES = [...Object.keys(TELEOP_MAP_DEFAULTS), "drone", "joy_topic", "teleop_controller"];
+// safe_teleop.velocity.deadzone: ignore stick slop, rescaled so full
+// deflection still reaches 1.0.
+function stickDeadzone(value, width) {
+  const v = Number(value) || 0;
+  if (Math.abs(v) < width) return 0;
+  return (Math.abs(v) - width) / (1 - width) * (v > 0 ? 1 : -1);
+}
+
+// Runtime-tunable gains, one dropdown entry each. `param` is the commander's
+// parameter name (rcl_interfaces get/set_parameters), `statusPath` where the
+// live value sits in its status snapshot ("cbf" for the filter gains,
+// "tuning" for the speed / tracking gains), `maxCfg` the panel setting
+// holding the slider's upper end. The number box accepts any value above
+// `min` (`zeroOk`: `min` itself, i.e. 0, is allowed). A `mirror` names a
+// second node whose parameter must always equal this one: Apply sets the
+// commander first and, once it accepts, the mirror; the readout shows both.
+// Order matters: the first row is the one the smoke test drives.
+const TUNING_PARAMS = [
+  { id: "alpha", param: "cbf_alpha", statusPath: ["cbf", "alpha"], label: "CBF α", unit: "",
     min: 0.1, step: 0.1, maxCfg: "cbfAlphaMax", placeholder: "alpha",
     hint: "cbf_alpha — gain in the barrier constraint h_dot + alpha*h >= 0. " +
       "Lower = gentler (yields earlier, softer corrections); higher = more aggressive " +
       "(lets drones approach closer, then corrects harder).",
     scale: ["← gentle: yields early, soft corrections", "aggressive: yields late, hard corrections →"] },
-  { id: "radius", param: "cbf_safety_radius_m", statusKey: "safety_radius_m", label: "CBF r", unit: " m",
+  { id: "radius", param: "cbf_safety_radius_m", statusPath: ["cbf", "safety_radius_m"], label: "CBF r", unit: " m",
     min: 0.05, step: 0.05, maxCfg: "cbfRadiusMax", placeholder: "radius",
     hint: "cbf_safety_radius_m — each drone's safety bubble. The filter keeps every pair of " +
       "centres more than 2r apart. Larger = wider berth; goals or posts closer than 2r " +
       "become infeasible (emergency push-apart).",
     scale: ["← tight: drones may pass close", "wide: big keep-out spheres →"] },
-  { id: "speed", param: "cbf_max_speed_mps", statusKey: "max_speed_mps", label: "CBF vmax", unit: " m/s",
+  { id: "speed", param: "cbf_max_speed_mps", statusPath: ["cbf", "max_speed_mps"], label: "CBF vmax", unit: " m/s",
     min: 0.1, step: 0.1, maxCfg: "cbfSpeedMax", placeholder: "vmax",
     hint: "cbf_max_speed_mps — cap on every velocity command the filter emits (exempt drones " +
       "are capped too). Higher lets drones dodge, and fly, faster.",
     scale: ["← slow: gentle dodges", "fast: quick dodges →"] },
+  { id: "teleop", param: "teleop_max_speed_mps", statusPath: ["tuning", "teleop_max_speed_mps"],
+    label: "Teleop vmax", unit: " m/s",
+    min: 0.1, step: 0.1, maxCfg: "teleopSpeedMax", placeholder: "teleop",
+    // The pad's stick scaling and the commander's ceiling on it are one
+    // number: the lower of the two silently wins, so they are always set
+    // together (safe_teleop also follows the commander's status snapshot).
+    mirror: { nsCfg: "teleopNs", param: "max_speed_mps", label: "pad" },
+    hint: "teleop_max_speed_mps — the commander's ceiling on the hand-flown drone's stick " +
+      "velocity. Applied together with safe_teleop's max_speed_mps (full right stick) so " +
+      "the two never differ. Still capped by cbf_max_speed_mps unless the drone is cbf_exempt.",
+    scale: ["← slow sticks", "fast sticks: full deflection flies faster →"] },
+  { id: "accel", param: "goal_accel_mps2", statusPath: ["tuning", "goal_accel_mps2"],
+    label: "Goal accel", unit: " m/s²",
+    min: 0.1, step: 0.1, maxCfg: "goalAccelMax", placeholder: "accel",
+    hint: "goal_accel_mps2 — acceleration and braking of the go-to-goal reference profile. " +
+      "Braking distance is v²/(2a) + v·settle: higher brakes later and harder (PX4 auto " +
+      "uses 3, the airframe managed 5.5 in the logs); too high for the airframe overshoots.",
+    scale: ["← soft: early, gentle braking", "hard: late, sharp braking →"] },
+  { id: "settle", param: "goal_settle_s", statusPath: ["tuning", "goal_settle_s"],
+    label: "Goal settle", unit: " s",
+    min: 0, step: 0.05, maxCfg: "goalSettleMax", placeholder: "settle", zeroOk: true,
+    hint: "goal_settle_s — exponential tail into the goal (time constant). 0.3 is PX4-like; " +
+      "larger = softer stop, slower arrival; smaller = sharper arrival, more overshoot risk. 0 " +
+      "removes the tail.",
+    scale: ["← sharp arrival", "soft, slow arrival →"] },
 ];
 
 // ─────────────────────────── defaults ─────────────────────────────────────────
@@ -222,12 +293,24 @@ const DEFAULTS = {
   // state, last command outcome, live CBF gains and per-drone positions all
   // come from here.
   statusTopic: "/svg/commander_status",
-  // Upper ends of the CBF sliders (see CBF_PARAMS). Alpha has no natural
+  // Upper ends of the CBF sliders (see TUNING_PARAMS). Alpha has no natural
   // ceiling; 10 is already far past "aggressive" for the 0.55 m / 1.2 m/s
   // defaults. 2 m radius and 3 m/s comfortably cover an indoor arena.
   cbfAlphaMax: 10,
   cbfRadiusMax: 2,
   cbfSpeedMax: 3,
+  // Upper ends of the speed / tracking sliders: 5 m/s on the sticks and
+  // 15 m/s² are the fastest the configs go; a 2 s settle is already sluggish.
+  teleopSpeedMax: 5,
+  goalAccelMax: 15,
+  goalSettleMax: 2,
+  // safe_teleop's node namespace: its max_speed_mps is set together with the
+  // commander's teleop_max_speed_mps (see TUNING_PARAMS "teleop").
+  teleopNs: "/safe_teleop",
+  // bag_recorder (svg_ground_control/bag_recorder.py): its ~/record
+  // std_srvs/SetBool switch and the JSON status it publishes.
+  bagRecorderNs: "/bag_recorder",
+  bagStatusTopic: "/svg/bag_recorder/status",
 
   // shared
   stateTopicTemplate: "/{name}/odometry_conversion/odometry",
@@ -260,6 +343,9 @@ const DEFAULTS = {
   // swarm_commander subscribes to both, per drone, in the 'goal' scenario
   // (goal_callback -> GoalScenario.set_goal, speed_callback -> set_speed).
   teleopTopicTemplate: "/svg/{name}/teleop_command",
+  // The pad's raw sensor_msgs/Joy (joy_node). Only read while safe_teleop
+  // is publishing, for the Teleop · Sticks card.
+  joyTopic: "/joy",
   goalTopicTemplate: "/svg/{name}/goal_command",
   speedTopicTemplate: "/svg/{name}/speed_command",
 
@@ -584,6 +670,8 @@ function newAgent(name) {
     mocap: newStream(null),
     fmuOdom: newStream(null),   // raw PX4 odometry — the pre-conversion hop
     cmd: newStream(null),       // velocity commands the commander sends this drone
+    teleopCmd: newStream(null), // stick velocity safe_teleop publishes for this drone
+    teleopTwist: null,          // its last message's twist (vx, vy, vz, yaw rate)
     cmdr: null,                 // this drone's entry in the commander's status snapshot
     ddsHist: [],                // [t, odom_rx_total, odom_lost_total] from snapshots
     ddsCounter: null,           // "dds" | "unsupported" | null (no snapshot yet)
@@ -984,33 +1072,45 @@ const STYLES = `
 .sb-cbf-live { font-family: ui-monospace, monospace; font-size: 11px; white-space: nowrap; width: 104px; flex: 0 0 auto; overflow: hidden; text-overflow: ellipsis; }
 .sb-cbf-scale { display: flex; justify-content: space-between; font-size: 9.5px; opacity: 0.55; margin-top: -2px; }
 .sb-cbf-note { font-size: 11px; opacity: 0.8; min-height: 14px; margin-top: 2px; }
+/* Rosbag switch: a checkbox drawn as a toggle; red knob track while recording. */
+.sb-switch { position: relative; display: inline-block; width: 38px; height: 20px; flex: 0 0 auto; }
+.sb-switch-in { opacity: 0; width: 0; height: 0; margin: 0; position: absolute; }
+.sb-switch-knob {
+  position: absolute; inset: 0; border-radius: 20px; background: rgba(127,127,127,0.45);
+  cursor: pointer; transition: background 0.15s;
+}
+.sb-switch-knob::before {
+  content: ""; position: absolute; width: 14px; height: 14px; left: 3px; top: 3px;
+  border-radius: 50%; background: #fff; transition: transform 0.15s;
+}
+.sb-switch-in:checked + .sb-switch-knob { background: #dc2626; }
+.sb-switch-in:checked + .sb-switch-knob::before { transform: translateX(18px); }
+.sb-switch-in:disabled + .sb-switch-knob { opacity: 0.45; cursor: not-allowed; }
+.sb-switch-in:focus-visible + .sb-switch-knob { outline: 2px solid #4f46e5; outline-offset: 1px; }
+.sb-rec { animation: sb-blink 1.2s ease-in-out infinite; }
+@keyframes sb-blink { 50% { opacity: 0.6; } }
+.sb-bag { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+.sb-bag-label { font-size: 11px; font-weight: 600; opacity: 0.65; }
 .sb-cmdlog { max-height: 74px; margin-top: 5px; }   /* ~4 lines */
 .sb-pos { font-family: ui-monospace, monospace; }
 
-/* layout */
-.sb-columns { display: grid; grid-template-columns: minmax(190px, 240px) minmax(0, 1fr); gap: 8px; align-items: start; }
-@media (max-width: 680px) { .sb-columns { grid-template-columns: 1fr; } }
+/* layout: one full-width column of cards */
+.sb-columns { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .sb-col { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
 
-/* roster */
-.sb-agent {
-  display: flex; flex-direction: column; gap: 4px; padding: 6px; border-radius: 5px;
-  border: 1px solid rgba(127,127,127,0.3); cursor: pointer; background: transparent;
-  color: inherit; text-align: left; width: 100%; box-sizing: border-box;
+/* agent picker (Goal card) + the agent-name header the power cards share */
+.sb-picker { margin-bottom: 6px; }
+.sb-pick {
+  padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(127,127,127,0.45);
+  background: transparent; color: inherit; cursor: pointer; font-size: 11px; font-weight: 700;
 }
-.sb-agent + .sb-agent { margin-top: 5px; }
-.sb-agent.sb-selected { border-color: #10b981; box-shadow: inset 0 0 0 1px #10b981; }
+.sb-pick:hover { border-color: rgba(127,127,127,0.8); }
+.sb-pick.sb-selected { background: #10b981; border-color: #10b981; color: #fff; }
 .sb-agent-top { display: flex; align-items: center; gap: 6px; }
 .sb-agent-name { font-weight: 700; font-size: 12px; flex: 1; }
 .sb-mode { font-size: 9px; font-weight: 800; letter-spacing: 0.06em; padding: 1px 5px; border-radius: 3px; color: #fff; }
 .sb-mode.sim { background: #2563eb; }
 .sb-mode.real { background: #b45309; }
-
-/* wiring */
-.sb-wire { font-family: ui-monospace, monospace; font-size: 10.5px; line-height: 1.6; }
-.sb-wire-row { display: flex; gap: 6px; }
-.sb-wire-key { opacity: 0.55; min-width: 52px; flex-shrink: 0; }
-.sb-wire-val { word-break: break-all; }
 
 /* bars */
 .sb-bar { position: relative; height: 8px; border-radius: 4px; background: rgba(127,127,127,0.25); overflow: hidden; }
@@ -1025,7 +1125,8 @@ const STYLES = `
   text-align: right; font-weight: 600; opacity: 0.6; padding: 3px 6px; white-space: nowrap;
   border-bottom: 1px solid rgba(127,127,127,0.3); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em;
 }
-.sb-table th:first-child, .sb-table td:first-child { text-align: left; }
+.sb-table th:first-child, .sb-table td:first-child { text-align: left; width: 1%; }
+.sb-table th:nth-child(2), .sb-table td:nth-child(2) { text-align: left; }
 .sb-table td { text-align: right; padding: 3px 6px; white-space: nowrap; border-bottom: 1px solid rgba(127,127,127,0.14); }
 .sb-table tr.sb-selected td { background: rgba(16,185,129,0.12); }
 .sb-ok { color: #10b981; }
@@ -1033,6 +1134,17 @@ const STYLES = `
 .sb-bad { color: #dc2626; font-weight: 700; }
 .sb-muted { opacity: 0.45; }
 .sb-src { font-size: 9px; opacity: 0.5; margin-left: 3px; }
+
+/* teleop sticks */
+.sb-side { display: flex; gap: 8px; align-items: flex-start; }
+.sb-side > .sb-card { flex: 1 1 0; min-width: 0; }
+.sb-sticks { table-layout: fixed; }
+.sb-sticks td:first-child { width: 80px; }
+.sb-sticks td:nth-child(2), .sb-sticks td:nth-child(3) { width: 76px; text-align: right; }
+.sb-sticks td:last-child { text-align: left; }
+.sb-stick { position: relative; display: inline-block; vertical-align: middle; width: 110px; height: 8px; border-radius: 4px; background: rgba(127,127,127,0.25); overflow: hidden; }
+.sb-stick::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,0.6); }
+.sb-stick-fill { position: absolute; top: 0; bottom: 0; background: #4f46e5; border-radius: 4px; transition: width 0.1s linear, left 0.1s linear; }
 
 /* transitions log */
 .sb-log {
@@ -1171,18 +1283,36 @@ function activate(extensionContext) {
       // {t, name, phase: "sent"|"ok"|"rejected"|"failed"|"timeout",
       //  message, verified: null|true|false, verifyBy}
       let cmdLog = [];
-      // CBF gains, per CBF_PARAMS row: what get_parameters last returned
+      // Gains, per TUNING_PARAMS row: what get_parameters last returned
       // ({v, t}), what the operator last asked for ({v, t} — to confirm the
       // commander really took it), whether the draft in the slider/box has
-      // been touched, and whether a set_parameters call is in flight.
+      // been touched, whether a set_parameters call is in flight, and for a
+      // mirrored gain what the mirror node last reported ({v, t}) or why it
+      // could not be read / set (mirrorErr). The cbf* names date from when
+      // the row only edited the CBF gains.
       const cbfState = {};
-      for (const p of CBF_PARAMS) {
-        cbfState[p.id] = { param: null, requested: null, rejected: null, draft: "", draftTouched: false, setting: false };
+      for (const p of TUNING_PARAMS) {
+        cbfState[p.id] = { param: null, requested: null, rejected: null, draft: "", draftTouched: false,
+          setting: false, mirror: null, mirrorErr: null };
       }
       let lastCbfRefresh = 0;
+      // Teleop · Sticks: the raw pad and safe_teleop's mapping of it.
+      let joy = null, joyAt = null;                 // {axes, buttons} as last received
+      const joyStream = newStream(null);
+      // Mirror of safe_teleop's lock latch (edge-triggered on the lock
+      // button). Inferred from the presses seen since this panel opened, so
+      // it can be out of phase if the pad was locked before that.
+      const lockLatch = { engaged: false, wasDown: false, seen: false };
+      // safe_teleop's parameters ({values, at, err, pending}); see
+      // refreshTeleopParams.
+      const teleopParams = { values: null, at: null, err: null, pending: false, lastTry: 0 };
+      // bag_recorder's latest status snapshot and when it arrived; the Rosbag
+      // switch shows `bag.recording`, never what was last clicked. `bagPending`
+      // is a click whose effect the status has not confirmed yet ({want, until}).
+      let bag = null, bagAt = null, bagPending = null;
       // Which CBF gain the single slider row is editing (dropdown), persisted.
-      let cbfSel = CBF_PARAMS.some((p) => p.id === persisted.cbfSel) ? persisted.cbfSel : CBF_PARAMS[0].id;
-      const cbfSelected = () => CBF_PARAMS.find((p) => p.id === cbfSel);
+      let cbfSel = TUNING_PARAMS.some((p) => p.id === persisted.cbfSel) ? persisted.cbfSel : TUNING_PARAMS[0].id;
+      const cbfSelected = () => TUNING_PARAMS.find((p) => p.id === cbfSel);
 
       // Commander timestamps are ROS time — wall clock normally, sim time
       // under use_sim_time — so they are never compared with panel time.
@@ -1211,24 +1341,6 @@ function activate(extensionContext) {
       // An agent's mode IS its wiring. "sim" talks to the MAVROS interface,
       // "real" talks to px4_interface over uXRCE-DDS and additionally carries
       // the mocap + EKF + timesync streams that only exist on hardware.
-
-      function wiringFor(agent) {
-        const n = agent.name;
-        const real = agent.mode === "real";
-        return {
-          state: tpl(cfg.stateTopicTemplate, n),
-          battery: tpl(real ? cfg.realBatteryTopicTemplate : cfg.simBatteryTopicTemplate, n),
-          command: tpl(real ? cfg.realCommandTopicTemplate : cfg.simCommandTopicTemplate, n),
-          robotCommand: tpl(real ? cfg.realRobotCommandTemplate : cfg.simRobotCommandTemplate, n),
-          mocap: real ? tpl(cfg.mocapTopicTemplate, n) : null,
-          ekfFlags: real ? tpl(cfg.ekfFlagsTopicTemplate, n) : null,
-          localPosition: real ? tpl(cfg.localPositionTopicTemplate, n) : null,
-          timesync: real ? tpl(cfg.timesyncTopicTemplate, n) : null,
-          lan: tpl(cfg.lanTopicTemplate, n),
-          vpn: tpl(cfg.vpnTopicTemplate, n),
-          cellular: tpl(cfg.cellularTopicTemplate, n),
-        };
-      }
 
       // px4_interface publishes under /{name}/fmu/..., the MAVROS interface
       // under /{name}/interface/... — so the topics on the wire tell us how
@@ -1282,7 +1394,7 @@ function activate(extensionContext) {
         if (!agents.some((a) => a.name === selected)) selected = agents[0]?.name ?? null;
         resolveModes();
         rebuildSubscriptions();
-        buildRoster();
+        buildAgentPicker();
         recomputeCaps();
       }
 
@@ -1317,9 +1429,12 @@ function activate(extensionContext) {
           // publishes on is the one that proves it is driving this drone.
           add(tpl(cfg.simCommandTopicTemplate, n), a, "cmd");
           add(tpl(cfg.realCommandTopicTemplate, n), a, "cmd");
+          add(tpl(cfg.teleopTopicTemplate, n), a, "teleopcmd");
         }
         // Swarm-wide, not per agent.
         add(cfg.statusTopic, null, "status");
+        add(cfg.joyTopic, null, "joy");
+        add(cfg.bagStatusTopic, null, "bag");
         panelContext.subscribe([...byTopic.keys()].map((topic) => ({ topic })));
       }
 
@@ -1417,6 +1532,58 @@ function activate(extensionContext) {
         if (v && num(v.x) != null) a.speed = Math.hypot(Number(v.x), Number(v.y), Number(v.z));
       }
 
+      function handleJoy(msg, rx, stamp) {
+        const axes = Array.from(msg?.axes ?? [], (v) => Number(v) || 0);
+        const buttons = Array.from(msg?.buttons ?? [], (v) => Boolean(Number(v)));
+        joy = { axes, buttons };
+        joyAt = rx;
+        streamOnMessage(joyStream, rx, stamp);
+        // safe_teleop.latch.ButtonToggle: a press (rising edge) flips the lock.
+        const m = teleopMap();
+        const down = Boolean(buttons[m.lock_button]);
+        if (down && !lockLatch.wasDown) { lockLatch.engaged = !lockLatch.engaged; lockLatch.seen = true; }
+        lockLatch.wasDown = down;
+      }
+
+      // safe_teleop's axis map / deadzone / caps, defaults where unread.
+      function teleopMap() {
+        return { ...TELEOP_MAP_DEFAULTS, ...(teleopParams.values ?? {}) };
+      }
+
+      function paramValue(pv) {
+        if (!pv) return null;
+        const t = Number(pv.type);
+        if (t === 4) return String(pv.string_value ?? "");
+        if (t === 1) return Boolean(pv.bool_value);
+        return paramNumber(pv);
+      }
+
+      function refreshTeleopParams(force) {
+        if (!servicesAvailable() || teleopParams.pending) return;
+        const t = Date.now() / 1000;
+        if (!force && t - teleopParams.lastTry < 5) return;
+        teleopParams.lastTry = t;
+        teleopParams.pending = true;
+        const service = mirrorServiceNs("get_parameters");
+        callWithTimeout(service, { names: TELEOP_PARAM_NAMES })
+          .then((res) => {
+            const values = {};
+            TELEOP_PARAM_NAMES.forEach((name, i) => {
+              const v = paramValue(res?.values?.[i]);
+              if (v != null) values[name] = v;
+            });
+            if (!Object.keys(values).length) {
+              teleopParams.err = `${service}: no parameters set`;
+              return;
+            }
+            teleopParams.values = values;
+            teleopParams.at = nowSec();
+            teleopParams.err = null;
+          })
+          .catch((err) => { teleopParams.err = `${service}: ${err?.message ?? err}`; })
+          .finally(() => { teleopParams.pending = false; render(); });
+      }
+
       function handleBattery(a, msg, rx) {
         const b = normaliseBattery(msg);
         if (!b) return;
@@ -1449,7 +1616,6 @@ function activate(extensionContext) {
             available = new Set(renderState.topics.map((t) => t.name));
             resolveModes();
             recomputeCaps();
-            buildRoster();
             // A new topic list usually means the commander (re)started — its
             // parameter services are the only way to read the CBF gains before
             // the first status snapshot arrives.
@@ -1470,6 +1636,15 @@ function activate(extensionContext) {
                   try { handleCommanderStatus(evt.message, rx); } catch { /* malformed snapshot: keep the last one */ }
                   break;
                 case "cmd": agent.cmd.topic = evt.topic; streamOnMessage(agent.cmd, rx, stamp); break;
+                case "teleopcmd":
+                  agent.teleopCmd.topic = evt.topic;
+                  agent.teleopTwist = evt.message?.twist ?? null;
+                  streamOnMessage(agent.teleopCmd, rx, stamp);
+                  break;
+                case "joy": handleJoy(evt.message, rx, stamp); break;
+                case "bag":
+                  try { bag = handleJson(evt.message); bagAt = rx; } catch { /* malformed: keep the last one */ }
+                  break;
                 case "state": handleState(agent, evt.message, rx); break;
                 case "battery": handleBattery(agent, evt.message, rx); break;
                 case "ekfflags": agent.ekfFlags = evt.message; agent.ekfAt = rx; break;
@@ -1520,8 +1695,23 @@ function activate(extensionContext) {
       const modeChip = el("span", "sb-chip sb-quiet");
       const taskChip = el("span", "sb-chip sb-quiet");
       const clockEl = el("span", "sb-status");
+      // Rosbag switch — bag_recorder's ~/record (std_srvs/SetBool), top
+      // right of the banner. The switch position is the recorder's own
+      // `recording` flag from its status topic; a click only asks. Until the
+      // recorder is heard from the switch is disabled and the chip reads
+      // NO RECORDER. The bag path / last result live in the chip's tooltip.
+      const bagWrap = el("span", "sb-bag");
+      const bagLabel = el("span", "sb-bag-label", "Rosbag");
+      const bagToggle = el("label", "sb-switch");
+      const bagCheck = el("input", "sb-switch-in");
+      bagCheck.type = "checkbox";
+      const bagKnob = el("span", "sb-switch-knob");
+      bagToggle.append(bagCheck, bagKnob);
+      bagCheck.addEventListener("change", () => setRecording(Boolean(bagCheck.checked)));
+      const bagChip = el("span", "sb-chip sb-quiet", "NO RECORDER");
+      bagWrap.append(bagLabel, bagToggle, bagChip);
       banner.append(linkChip, estChip, powerChip, modeChip, taskChip,
-        el("div", "sb-spacer"), clockEl);
+        el("div", "sb-spacer"), bagWrap, clockEl);
       root.appendChild(banner);
 
       // Safety bar — the one control an operator must be able to hit without
@@ -1566,15 +1756,17 @@ function activate(extensionContext) {
       missionRow.append(missionChip, missionNote, lastCmdChip);
       cmdCard.appendChild(missionRow);
 
-      // CBF gains — ONE slider row; the dropdown picks which gain it edits
-      // (alpha, safety radius, max speed). Slider and box are one draft value
-      // per gain; Apply sends the selected gain to the commander's
-      // set_parameters service. The readout is fixed-width and only says what
-      // the commander runs with plus ✓ / … / ✗ — the reason for a rejection
-      // goes to the status line below, so the slider never changes length.
+      // Runtime gains — ONE slider row; the dropdown picks which gain it
+      // edits (CBF alpha / radius / max speed, teleop max speed, goal accel
+      // / settle). Slider and box are one draft value per gain; Apply sends
+      // the selected gain to the commander's set_parameters service (and,
+      // for the teleop cap, to safe_teleop's too). The readout is fixed-width
+      // and only says what the commander runs with plus ✓ / … / ✗ (and "pad
+      // <value>" for the mirrored gain) — the reason for a rejection goes to
+      // the status line below, so the slider never changes length.
       const cbfRow = el("div", "sb-cbf");
       const cbfSelect = el("select", "sb-input sb-cbf-sel");
-      for (const p of CBF_PARAMS) {
+      for (const p of TUNING_PARAMS) {
         const opt = el("option", null, p.label);
         opt.value = p.id;
         opt.title = p.hint;
@@ -1582,7 +1774,7 @@ function activate(extensionContext) {
       }
       cbfSelect.value = cbfSel;
       cbfSelect.addEventListener("change", () => {
-        if (!CBF_PARAMS.some((p) => p.id === cbfSelect.value)) return;
+        if (!TUNING_PARAMS.some((p) => p.id === cbfSelect.value)) return;
         cbfSel = cbfSelect.value;
         persist();
         render();
@@ -1607,7 +1799,7 @@ function activate(extensionContext) {
       const cbfLive = el("span", "sb-cbf-live", "live --");
       const cbfRefresh = el("button", "sb-btn", "↻");
       cbfRefresh.style.cssText = "background:#4b5563;padding:5px 8px;";
-      cbfRefresh.title = "Re-read the CBF gains from the commander (get_parameters)";
+      cbfRefresh.title = "Re-read the gains from the commander (and safe_teleop) via get_parameters";
       cbfRefresh.addEventListener("click", () => refreshCbfParams(true));
       cbfRow.append(cbfSelect, cbfRange, cbfInput, cbfApply, cbfLive, cbfRefresh);
       cmdCard.appendChild(cbfRow);
@@ -1661,6 +1853,27 @@ function activate(extensionContext) {
       const goalTitleSub = el("span", "sb-sub");
       goalTitle.appendChild(goalTitleSub);
       goalCard.appendChild(goalTitle);
+      // Agent picker — which drone the goal fields edit. A row of name
+      // buttons only; the selection also highlights that drone's rows in the
+      // Agent State / link tables and its power card. Rebuilt with the roster.
+      const pickerRow = el("div", "sb-cmd-row sb-picker");
+      goalCard.appendChild(pickerRow);
+      const pickerButtons = new Map();
+      function buildAgentPicker() {
+        pickerRow.textContent = "";
+        pickerButtons.clear();
+        if (!agents.length) {
+          pickerRow.appendChild(el("span", "sb-note", "No agents configured — set the agent list in the panel settings."));
+          return;
+        }
+        for (const a of agents) {
+          const b = el("button", "sb-pick", a.name);
+          b.title = `Edit ${a.name}'s goal`;
+          b.addEventListener("click", () => { selected = a.name; persist(); render(); });
+          pickerRow.appendChild(b);
+          pickerButtons.set(a.name, b);
+        }
+      }
       const goalRow = el("div", "sb-cmd-row");
       const goalInputs = {};
       for (const key of ["x", "y", "z", "speed"]) {
@@ -1674,7 +1887,7 @@ function activate(extensionContext) {
           input.min = "0";
           input.title = "Cruise speed for this drone. Blank leaves the commander's current speed.";
         } else {
-          input.title = `Goal ${key} in world ENU metres — the frame the roster positions are in`;
+          input.title = `Goal ${key} in world ENU metres — the frame the Agent State positions are in`;
         }
         input.addEventListener("input", () => {
           if (!selected) return;
@@ -1700,57 +1913,12 @@ function activate(extensionContext) {
       root.appendChild(goalCard);
 
       // Columns
+      // One full-width stack of cards (Agent State, Link Safety, Cellular,
+      // Battery & Power in the 'full' view): the tables need the width.
       const columns = el("div", "sb-columns");
-      const leftCol = el("div", "sb-col");
       const rightCol = el("div", "sb-col");
-      columns.append(leftCol, rightCol);
+      columns.append(rightCol);
       root.appendChild(columns);
-
-      // Roster
-      const rosterCard = el("div", "sb-card");
-      rosterCard.appendChild(el("div", "sb-title", "Agents"));
-      const rosterBody = el("div");
-      rosterCard.appendChild(rosterBody);
-      leftCol.appendChild(rosterCard);
-      const rosterRows = new Map();
-
-      function buildRoster() {
-        rosterBody.textContent = "";
-        rosterRows.clear();
-        if (!agents.length) {
-          rosterBody.appendChild(el("div", "sb-note", "No agents configured — set the agent list in the panel settings."));
-          return;
-        }
-        for (const a of agents) {
-          const row = el("button", "sb-agent");
-          const top = el("div", "sb-agent-top");
-          const dot = el("span", "sb-dot");
-          const name = el("span", "sb-agent-name", a.name);
-          const mode = el("span", `sb-mode ${a.mode}`, MODES[a.mode].label);
-          top.append(dot, name, mode);
-          const bar = el("div", "sb-bar");
-          const fill = el("div", "sb-bar-fill");
-          bar.appendChild(fill);
-          const meta = el("div", "sb-note");
-          row.append(top, bar, meta);
-          row.addEventListener("click", () => { selected = a.name; persist(); render(); });
-          rosterBody.appendChild(row);
-          rosterRows.set(a.name, { row, dot, fill, meta, mode });
-        }
-      }
-
-      // Wiring card — makes "mode = wiring" concrete for the selected agent.
-      const wireCard = el("div", "sb-card");
-      const wireTitle = el("div", "sb-title");
-      wireTitle.append(document.createTextNode("Wiring "));
-      wireTitle.appendChild(el("span", "sb-sub", "— topics this mode uses"));
-      wireCard.appendChild(wireTitle);
-      const wireBody = el("div", "sb-wire");
-      wireCard.appendChild(wireBody);
-      const wireNote = el("div", "sb-note");
-      wireNote.style.marginTop = "6px";
-      wireCard.appendChild(wireNote);
-      leftCol.appendChild(wireCard);
 
       // Agent state section — flight state and numeric position per drone.
       // Positions prefer the commander's own view (the numbers the CBF is
@@ -1776,6 +1944,60 @@ function activate(extensionContext) {
       stateNote.style.marginTop = "5px";
       stateCard.appendChild(stateNote);
       rightCol.appendChild(stateCard);
+
+      // Teleop · Sticks — the pad as safe_teleop sees it (monitor.py's view):
+      // the raw /joy axes and buttons, each mapped stick after the deadzone
+      // and sign, the lock, and the velocity actually published. Shown only
+      // while safe_teleop is publishing (renderTeleop), so a run without a
+      // hand-flown drone never sees it.
+      const teleopCard = el("div", "sb-card");
+      const teleopTitle = el("div", "sb-title");
+      teleopTitle.append(document.createTextNode("Teleop · Sticks "));
+      teleopTitle.appendChild(el("span", "sb-sub", "— raw /joy · after deadzone · published velocity"));
+      teleopCard.appendChild(teleopTitle);
+      const teleopChips = el("div", "sb-cmd-row");
+      const joyChip = el("span", "sb-chip");
+      const padChip = el("span", "sb-chip sb-quiet");
+      const sticksChip = el("span", "sb-chip");
+      teleopChips.append(joyChip, padChip, sticksChip);
+      teleopCard.appendChild(teleopChips);
+      const stickScroll = el("div", "sb-scroll");
+      stickScroll.style.marginTop = "5px";
+      const stickTable = el("table", "sb-table sb-sticks");
+      const stickHead = el("thead");
+      const stickHeadRow = el("tr");
+      for (const c of ["Stick", "Raw", "Mapped", ""]) stickHeadRow.appendChild(el("th", null, c));
+      stickHead.appendChild(stickHeadRow);
+      const stickBody = el("tbody");
+      stickTable.append(stickHead, stickBody);
+      stickScroll.appendChild(stickTable);
+      teleopCard.appendChild(stickScroll);
+      const lockRow = el("div", "sb-note");
+      lockRow.style.marginTop = "4px";
+      teleopCard.appendChild(lockRow);
+      const pubTitle = el("div", "sb-title");
+      pubTitle.style.marginTop = "6px";
+      teleopCard.appendChild(pubTitle);
+      const pubScroll = el("div", "sb-scroll");
+      const pubTable = el("table", "sb-table sb-sticks");
+      const pubBody = el("tbody");
+      pubTable.appendChild(pubBody);
+      pubScroll.appendChild(pubTable);
+      teleopCard.appendChild(pubScroll);
+      const teleopNote = el("div", "sb-note");
+      teleopNote.style.marginTop = "5px";
+      teleopCard.appendChild(teleopNote);
+      teleopCard.hidden = true;
+      rightCol.appendChild(teleopCard);
+      // A teleop-only instance with nothing to show says so instead of
+      // rendering an empty panel.
+      const teleopOff = el("div", "sb-note", "Teleop off — safe_teleop is not publishing.");
+      teleopOff.style.cssText = "padding:10px 4px;";
+      teleopOff.hidden = true;
+      // In the 'power' instance the battery card and the sticks card sit
+      // side by side; with the sticks hidden the battery card takes the
+      // whole width, so a run without teleop never shows an empty half.
+      const sideRow = el("div", "sb-side");
 
       // Link safety section
       const commCard = el("div", "sb-card");
@@ -1847,20 +2069,33 @@ function activate(extensionContext) {
       // the 3D view on the right (Battery & Power only). "full" is the
       // single-panel form.
       function currentView() {
-        return ["full", "main", "power"].includes(cfg.view) ? cfg.view : "full";
+        return ["full", "main", "power", "teleop"].includes(cfg.view) ? cfg.view : "full";
       }
       function applyView() {
-        const powerOnly = currentView() === "power";
-        show(safetyBar, !powerOnly);
-        show(cmdCard, !powerOnly);
-        show(goalCard, !powerOnly);
-        show(columns, !powerOnly);
-        if (powerOnly) {
-          if (powerCard.parentNode !== root) root.appendChild(powerCard);
-        } else if (powerCard.parentNode !== rightCol) {
-          rightCol.appendChild(powerCard);
+        const view = currentView();
+        const single = view === "power" || view === "teleop";   // one card, no banner chrome
+        show(safetyBar, !single);
+        show(cmdCard, !single);
+        show(goalCard, !single);
+        show(columns, !single);
+        show(banner, view !== "teleop");
+        if (view === "power") {
+          if (sideRow.parentNode !== root) root.appendChild(sideRow);
+          if (powerCard.parentNode !== sideRow) sideRow.appendChild(powerCard);
+          if (teleopCard.parentNode !== sideRow) sideRow.appendChild(teleopCard);
+        } else {
+          if (sideRow.parentNode) sideRow.parentNode.removeChild(sideRow);
+          if (powerCard.parentNode !== rightCol) rightCol.appendChild(powerCard);
         }
-        panelContext.setDefaultPanelTitle(powerOnly ? "SVG Battery & Power" : "SVG Basestation");
+        if (view === "teleop") {
+          if (teleopCard.parentNode !== root) root.appendChild(teleopCard);
+          if (teleopOff.parentNode !== root) root.appendChild(teleopOff);
+        } else {
+          if (view !== "power" && teleopCard.parentNode !== rightCol) rightCol.appendChild(teleopCard);
+          if (teleopOff.parentNode) teleopOff.parentNode.removeChild(teleopOff);
+        }
+        panelContext.setDefaultPanelTitle(
+          view === "power" ? "SVG Battery & Power" : view === "teleop" ? "SVG Teleop" : "SVG Basestation");
       }
 
       // Confirmation dialog
@@ -2008,7 +2243,7 @@ function activate(extensionContext) {
         }
       }
 
-      // ── CBF gains (rcl_interfaces parameter services) ─────────────────────
+      // ── runtime gains (rcl_interfaces parameter services) ─────────────────
       const PARAM_DOUBLE = 3, PARAM_INTEGER = 2;
 
       function paramNumber(pv) {
@@ -2026,10 +2261,10 @@ function activate(extensionContext) {
         lastCbfRefresh = t;
         const service = commanderService("get_parameters");
         // One call for all gains; values come back in the order of `names`.
-        callWithTimeout(service, { names: CBF_PARAMS.map((p) => p.param) })
+        callWithTimeout(service, { names: TUNING_PARAMS.map((p) => p.param) })
           .then((res) => {
             const got = [];
-            CBF_PARAMS.forEach((p, i) => {
+            TUNING_PARAMS.forEach((p, i) => {
               const v = paramNumber(res?.values?.[i]);
               if (v == null) return;
               cbfState[p.id].param = { v, t: nowSec() };
@@ -2047,6 +2282,39 @@ function activate(extensionContext) {
             // up yet. The status snapshot supersedes this once it arrives.
             if (force) setStatus(`${service} failed: ${err?.message ?? err}`);
           });
+        for (const p of TUNING_PARAMS) if (p.mirror) refreshMirror(p);
+        refreshTeleopParams(force);
+      }
+
+      // The mirrored node has no status topic: its value only comes from
+      // get_parameters. Unreachable (teleop not running) is normal and is
+      // shown as "pad --", never as an error.
+      function mirrorService(p, suffix) {
+        return `${String(cfg[p.mirror.nsCfg] || "").replace(/\/+$/, "")}/${suffix}`;
+      }
+      function mirrorServiceNs(suffix) {
+        return `${String(cfg.teleopNs || "").replace(/\/+$/, "")}/${suffix}`;
+      }
+
+      function refreshMirror(p) {
+        const st = cbfState[p.id];
+        callWithTimeout(mirrorService(p, "get_parameters"), { names: [p.mirror.param] })
+          .then((res) => {
+            const v = paramNumber(res?.values?.[0]);
+            if (v == null) {
+              st.mirror = null;
+              st.mirrorErr = `${p.mirror.param} not set on ${cfg[p.mirror.nsCfg]}`;
+            } else {
+              st.mirror = { v, t: nowSec() };
+              st.mirrorErr = null;
+            }
+            render();
+          })
+          .catch((err) => {
+            st.mirror = null;
+            st.mirrorErr = `${mirrorService(p, "get_parameters")}: ${err?.message ?? err}`;
+            render();
+          });
       }
 
       // What the commander is running with right now for one CBF gain, and
@@ -2054,7 +2322,7 @@ function activate(extensionContext) {
       // parameter read.
       function liveCbf(p, now) {
         const s = commanderFresh(now) ? commander : null;
-        const fromStatus = num(s?.cbf?.[p.statusKey]);
+        const fromStatus = num(p.statusPath.reduce((o, k) => o?.[k], s));
         if (fromStatus != null) return { v: fromStatus, source: "commander", t: commanderAt };
         const st = cbfState[p.id];
         if (st.param) return { v: st.param.v, source: "param read", t: st.param.t };
@@ -2063,7 +2331,10 @@ function activate(extensionContext) {
 
       function setCbfParam(p, raw) {
         const v = num(String(raw).trim());
-        if (v == null || !(v > 0)) { setStatus(`${p.label} must be a positive number`); return; }
+        if (v == null || !(p.zeroOk ? v >= 0 : v > 0)) {
+          setStatus(`${p.label} must be a ${p.zeroOk ? "number >= 0" : "positive number"}`);
+          return;
+        }
         const service = commanderService("set_parameters");
         if (!servicesAvailable()) {
           setStatus(`Service calls unavailable in this data source (wanted ${service})`);
@@ -2086,12 +2357,43 @@ function activate(extensionContext) {
             st.requested = { v, t: nowSec() };
             setStatus(`${p.param} = ${v.toFixed(2)} accepted · waiting for the commander to report it`);
             refreshCbfParams(true);
+            if (p.mirror) return setMirror(p, v);
           })
           .catch((err) => {
             st.rejected = { v, t: nowSec(), reason: `${service} failed: ${err?.message ?? err}` };
             setStatus(st.rejected.reason);
           })
           .finally(() => { st.setting = false; render(); });
+      }
+
+      // Second half of a mirrored Apply: the commander took the value, now
+      // the mirror node gets the same number. Only after the commander, so a
+      // rejection there leaves the two still equal. safe_teleop also adopts
+      // the commander's value from the status snapshot on its own, so a
+      // failure here is reported but is not fatal.
+      function setMirror(p, v) {
+        const st = cbfState[p.id];
+        const service = mirrorService(p, "set_parameters");
+        return callWithTimeout(service, {
+          parameters: [{ name: p.mirror.param, value: { type: PARAM_DOUBLE, double_value: v } }],
+        })
+          .then((res) => {
+            const r = res?.results?.[0];
+            if (r && r.successful === false) {
+              st.mirrorErr = `${p.mirror.param} = ${v.toFixed(2)} REJECTED by ${cfg[p.mirror.nsCfg]}: ${r.reason || "no reason given"}`;
+              setStatus(`${p.param} = ${v.toFixed(2)} set on the commander, but ${st.mirrorErr}`);
+              return;
+            }
+            st.mirror = { v, t: nowSec() };
+            st.mirrorErr = null;
+            setStatus(`${p.param} = ${v.toFixed(2)} set on the commander and ${p.mirror.param} on ${cfg[p.mirror.nsCfg]}`);
+          })
+          .catch((err) => {
+            st.mirrorErr = `${service} failed: ${err?.message ?? err}`;
+            setStatus(`${p.param} = ${v.toFixed(2)} set on the commander; ${st.mirrorErr} — ` +
+              "safe_teleop adopts the commander's value itself if it is running with sync_max_speed on");
+          })
+          .finally(() => render());
       }
 
       function onSafetyClick() {
@@ -2133,6 +2435,106 @@ function activate(extensionContext) {
           setStatus(`Formation "${value}" → ${cfg.formationTopic}`);
         } catch (err) {
           setStatus(`Formation publish failed: ${err?.message ?? err}`);
+        }
+      }
+
+      function bagService() {
+        return `${String(cfg.bagRecorderNs).replace(/\/$/, "")}/record`;
+      }
+      function bagFresh(now) {
+        return bag != null && bagAt != null && now - bagAt <= BAG_TIMEOUT_S;
+      }
+      function fmtBytes(b) {
+        const v = num(b);
+        if (v == null) return "--";
+        if (v >= 1e9) return `${(v / 1e9).toFixed(2)} GB`;
+        if (v >= 1e6) return `${(v / 1e6).toFixed(1)} MB`;
+        return `${(v / 1e3).toFixed(0)} kB`;
+      }
+
+      // The Rosbag switch: ask bag_recorder to start (true) or stop (false)
+      // `ros2 bag record --all-topics`. The reply says whether it could; the
+      // status topic then says whether it did — the switch follows that.
+      function setRecording(on) {
+        const service = bagService();
+        if (!servicesAvailable()) {
+          setStatus(`Service calls unavailable in this data source (wanted ${service})`);
+          renderBag(nowSec());
+          return;
+        }
+        bagPending = { want: on, until: nowSec() + VERIFY_WINDOW_S };
+        setStatus(`${on ? "Starting" : "Stopping"} rosbag recording via ${service} ...`);
+        renderBag(nowSec());
+        callWithTimeout(service, { data: on })
+          .then((res) => {
+            const msg = res?.message ? String(res.message) : "";
+            if (res?.success === false) {
+              bagPending = null;
+              setStatus(`${service}: REJECTED${msg ? ` — ${msg}` : ""}`);
+              return;
+            }
+            setStatus(`Rosbag ${on ? "recording" : "stopped"}${msg ? ` — ${msg}` : ""}`);
+          })
+          .catch((err) => {
+            const m = String(err?.message ?? err);
+            // A lost reply is not a lost command: keep waiting on the status.
+            setStatus(`${service} ${/no reply within/.test(m) ? "TIMEOUT" : "FAILED"}: ${m} · checking the recorder's status`);
+          })
+          .finally(() => renderBag(nowSec()));
+      }
+
+      function renderBag(now, visible = true) {
+        show(bagWrap, visible);
+        const fresh = bagFresh(now);
+        const recording = fresh && bag.recording === true;
+        if (bagPending) {
+          if (fresh && bag.recording === bagPending.want) bagPending = null;
+          else if (now > bagPending.until) {
+            setStatus(`Rosbag ${bagPending.want ? "start" : "stop"} NOT CONFIRMED by ${cfg.bagStatusTopic}`);
+            bagPending = null;
+          }
+        }
+        bagCheck.checked = bagPending ? bagPending.want : recording;
+        bagCheck.disabled = !fresh || !servicesAvailable() || bagPending != null;
+        if (!fresh) {
+          bagChip.className = "sb-chip sb-quiet";
+          bagChip.textContent = "NO RECORDER";
+          bagChip.style.background = "";
+          bagChip.title = `Nothing on ${cfg.bagStatusTopic} for ${BAG_TIMEOUT_S} s — is bag_recorder running? ` +
+            `(ground_control.launch.py starts it; ros2 run svg_ground_control bag_recorder)`;
+          bagToggle.title = "bag_recorder is not running";
+          return;
+        }
+        bagToggle.title = recording
+          ? "Stop recording (closes the bag and writes metadata.yaml)"
+          : `Start ros2 bag record --all-topics (${bag.storage ?? "mcap"}) under ${bag.bag_dir ?? "?"}`;
+        const topics = num(bag.topic_count);
+        if (bagPending) {
+          bagChip.className = "sb-chip";
+          bagChip.style.background = "#d97706";
+          bagChip.textContent = bagPending.want ? "STARTING…" : "STOPPING…";
+          bagChip.title = "Waiting for bag_recorder's status to confirm";
+        } else if (recording) {
+          bagChip.className = "sb-chip sb-rec";
+          bagChip.style.background = "#dc2626";
+          bagChip.textContent = `REC ${fmtDuration(num(bag.duration_s) ?? 0)} · ${fmtBytes(bag.size_bytes)}`;
+          bagChip.title = `Recording every published topic${topics != null ? ` (${topics} on the graph now)` : ""} to ${bag.path}. ` +
+            "Size is what is on disk so far — rosbag2 flushes its cache in chunks, so it lags a short recording.";
+        } else if (bag.error) {
+          // The last recording ended badly (died on its own, or a start was
+          // refused): amber until the next successful start.
+          bagChip.className = "sb-chip";
+          bagChip.style.background = "#d97706";
+          bagChip.textContent = "IDLE ✗";
+          bagChip.title = `${bag.error}\n${bag.last_result && bag.last_result !== bag.error ? bag.last_result + "\n" : ""}` +
+            `Switch on to start a new bag under ${bag.bag_dir ?? "?"}`;
+        } else {
+          bagChip.className = "sb-chip sb-quiet";
+          bagChip.style.background = "";
+          bagChip.textContent = "IDLE";
+          bagChip.title = `Not recording. Switch on to record every published topic` +
+            `${topics != null ? ` (${topics} on the graph now)` : ""} under ${bag.bag_dir ?? "?"}` +
+            `${bag.last_result ? `\nLast bag — ${bag.last_result}` : ""}`;
         }
       }
 
@@ -2231,45 +2633,6 @@ function activate(extensionContext) {
         chip.style.fontSize = "10px";
         td.appendChild(chip);
         return td;
-      }
-
-      function renderWiring() {
-        const a = agents.find((x) => x.name === selected);
-        wireBody.textContent = "";
-        if (!a) {
-          wireNote.textContent = "";
-          wireBody.appendChild(el("div", "sb-note", "No agent selected."));
-          return;
-        }
-        const w = wiringFor(a);
-        const rows = [
-          ["mode", `${MODES[a.mode].label}  (${a.modeSource})`],
-          ["state", w.state],
-          ["cmd", w.command],
-          ["service", w.robotCommand],
-          ["battery", w.battery],
-        ];
-        if (a.mode === "real") {
-          rows.push(["mocap", w.mocap], ["ekf", w.ekfFlags], ["ping", w.timesync]);
-        }
-        if (caps.cellular) rows.push(["cellular", w.cellular]);
-        for (const [k, v] of rows) {
-          if (!v) continue;
-          const row = el("div", "sb-wire-row");
-          row.append(el("span", "sb-wire-key", k));
-          const val = el("span", "sb-wire-val", v);
-          if (caps.discovered && k !== "mode" && !available.has(v)) {
-            val.classList.add("sb-muted");
-            val.title = "not present on this data source";
-          }
-          row.appendChild(val);
-          wireBody.appendChild(row);
-        }
-        wireNote.textContent = a.modeSource === "detected"
-          ? "Mode detected from the topics on the wire. Pin it per agent with the Modes setting."
-          : a.modeSource === "config"
-            ? "Mode pinned in the panel settings (mirrors swarm_commander's drone_modes)."
-            : "No agent topics discovered yet — assuming sim wiring.";
       }
 
       // Rebuilding a <select> 5x/s would fight the operator's own click, so
@@ -2421,7 +2784,14 @@ function activate(extensionContext) {
               detail = `asked ${st.requested.v.toFixed(2)} — waiting for the commander to report it`;
             }
           }
-          cbfLive.textContent = `live ${live.v.toFixed(2)}${p.unit} ${mark}`.trimEnd();
+          let text = `live ${live.v.toFixed(2)}${p.unit} ${mark}`.trimEnd();
+          if (p.mirror) {
+            const m = mirrorReadout(p, live.v, now);
+            text += ` · ${m.text}`;
+            if (m.cls === "sb-warn" && cls === "sb-ok") cls = "sb-warn";
+            detail += `\n${m.detail}`;
+          }
+          cbfLive.textContent = text;
           cbfLive.className = `sb-cbf-live ${cls}`;
           cbfLive.title = detail;
           // Seed the draft from the live value until the operator touches it;
@@ -2437,7 +2807,8 @@ function activate(extensionContext) {
             if (st.draft !== "") cbfRange.value = st.draft;
           }
         } else {
-          cbfLive.textContent = ready ? "live --" : "live -- (no services)";
+          cbfLive.textContent = (ready ? "live --" : "live -- (no services)")
+            + (p.mirror ? ` · ${mirrorReadout(p, null, now).text}` : "");
           cbfLive.className = "sb-cbf-live sb-muted";
           cbfLive.title = ready
             ? `No value yet: nothing on ${cfg.statusTopic} and ${commanderService("get_parameters")} has not answered. Click ↻ to retry.`
@@ -2445,10 +2816,16 @@ function activate(extensionContext) {
           if (st.draftTouched && !editing && cbfInput.value !== st.draft) cbfInput.value = st.draft;
         }
 
-        // Activity note, off the slider row.
+        // Activity note, off the slider row. A mirrored gain whose two copies
+        // disagree is the one thing worth displacing the CBF activity for:
+        // the lower value silently wins on the sticks.
+        const mismatch = p.mirror && live ? mirrorReadout(p, live.v, now) : null;
         if (s?.emergency) {
           cbfNote.textContent = "CBF EMERGENCY push-apart engaged — drones inside each other's safety spheres";
           cbfNote.className = "sb-cbf-note sb-bad";
+        } else if (mismatch && mismatch.cls === "sb-warn") {
+          cbfNote.textContent = mismatch.detail;
+          cbfNote.className = "sb-cbf-note sb-warn";
         } else if (s?.active?.length) {
           cbfNote.textContent = `CBF correcting ${s.active.join(", ")}`;
           cbfNote.className = "sb-cbf-note sb-warn";
@@ -2459,6 +2836,33 @@ function activate(extensionContext) {
           cbfNote.textContent = "";
           cbfNote.className = "sb-cbf-note";
         }
+      }
+
+      // Fixed vocabulary for the mirrored copy of a gain: "pad <value> <mark>".
+      // ✓ equal to the commander's value, ✗ (amber) different — the smaller
+      // one wins on the sticks, so press Apply to set both — and "--" when
+      // the mirror node has not answered (teleop not running is normal).
+      function mirrorReadout(p, liveV, now) {
+        const st = cbfState[p.id];
+        const ns = cfg[p.mirror.nsCfg];
+        const name = `${ns} ${p.mirror.param}`;
+        if (!st.mirror) {
+          return { text: `${p.mirror.label} --`, cls: "sb-muted",
+            detail: st.mirrorErr ? `${name}: ${st.mirrorErr}` : `${name} not read yet (↻)` };
+        }
+        const v = st.mirror.v;
+        if (liveV == null) {
+          return { text: `${p.mirror.label} ${v.toFixed(2)}`, cls: "sb-muted",
+            detail: `${name} = ${v.toFixed(2)} (commander value unknown)` };
+        }
+        if (Math.abs(v - liveV) < 1e-6) {
+          return { text: `${p.mirror.label} ${v.toFixed(2)} ✓`, cls: "sb-ok",
+            detail: `${name} = ${v.toFixed(2)} matches ${p.param}` };
+        }
+        const asked = st.requested && now - st.requested.t < 10;
+        return { text: `${p.mirror.label} ${v.toFixed(2)} ✗`, cls: "sb-warn",
+          detail: `${name} = ${v.toFixed(2)} but the commander's ${p.param} = ${liveV.toFixed(2)}` +
+            ` — the lower one wins on the sticks; ${asked ? "waiting for safe_teleop to follow" : "press Apply to set both"}` };
       }
 
       function renderAgentTable(now) {
@@ -2598,6 +3002,7 @@ function activate(extensionContext) {
 
       function renderGoal() {
         const a = agents.find((x) => x.name === selected);
+        for (const [name, b] of pickerButtons) b.classList.toggle("sb-selected", name === selected);
         goalTitleSub.textContent = a
           ? `\u2014 ${a.name}: position & speed`
           : "\u2014 no agent selected";
@@ -2647,6 +3052,11 @@ function activate(extensionContext) {
 
           const tdMode = el("td");
           const modeSpan = el("span", `sb-mode ${a.mode}`, MODES[a.mode].label);
+          modeSpan.title = a.modeSource === "detected"
+            ? `${a.mode}: detected from the topics on the wire (/${a.name}/${a.mode === "real" ? "fmu" : "interface"}/…). Pin it with the Modes setting.`
+            : a.modeSource === "config"
+              ? `${a.mode}: pinned in the Modes setting (mirrors swarm_commander's drone_modes)`
+              : "sim assumed: no agent topics discovered yet";
           tdMode.appendChild(modeSpan);
 
           const tdTier = el("td");
@@ -2750,6 +3160,155 @@ function activate(extensionContext) {
           `Drop is over a ${METRIC_WINDOW_S}s window; outages are reported as state transitions ` +
           `instead. Transports in use: ${lanesLabel || "none"}` +
           (caps.vpnLane ? ` · VPN provisioned on ${vpnCount}/${agents.length} agents.` : ".");
+      }
+
+      // A centred bar for a signed stick / velocity value in [-1, 1].
+      function stickBar(frac) {
+        const box = el("span", "sb-stick");
+        const fill = el("span", "sb-stick-fill");
+        const f = clamp(Number(frac) || 0, -1, 1);
+        fill.style.left = f >= 0 ? "50%" : `${50 + f * 50}%`;
+        fill.style.width = `${Math.abs(f) * 50}%`;
+        box.appendChild(fill);
+        return box;
+      }
+
+      const streamHz = (st) => (st.period ? 1 / st.period : null);
+
+      function renderTeleop(now) {
+        // safe_teleop publishes at 20 Hz whenever it runs; the card exists
+        // only while that stream is fresh (or Sections = Show all).
+        const padAgents = agents.filter((a) => a.teleopCmd.lastRx != null && now - a.teleopCmd.lastRx <= TELEOP_TIMEOUT_S);
+        // The card sits beside Battery & Power in the 'power' instance, alone
+        // in a 'teleop' instance, in the right column of a 'full' one; a
+        // 'main' instance never shows it.
+        const view = currentView();
+        const visible = view !== "main" && (caps.forced || padAgents.length > 0);
+        show(teleopCard, visible);
+        show(teleopOff, view === "teleop" && !visible);
+        if (!visible) return;
+        if (teleopParams.values == null && !teleopParams.pending) refreshTeleopParams(false);
+
+        const m = teleopMap();
+        const joyFresh = joyAt != null && now - joyAt <= TELEOP_TIMEOUT_S;
+        const joyHz = streamHz(joyStream);
+        joyChip.textContent = joyFresh
+          ? `${cfg.joyTopic} ${joyHz ? `${joyHz.toFixed(0)} Hz` : "OK"}`
+          : joyAt == null ? `NO ${cfg.joyTopic}` : `${cfg.joyTopic} STALE ${fmtDuration(now - joyAt)}`;
+        joyChip.style.background = joyFresh ? "#10b981" : "#dc2626";
+        joyChip.title = joyFresh
+          ? "sensor_msgs/Joy arriving from joy_node"
+          : "Nothing on the joy topic — is joy_node running and the pad plugged in? safe_teleop publishes zero velocity meanwhile";
+
+        const names = padAgents.map((a) => a.name);
+        padChip.textContent = padAgents.length
+          ? `safe_teleop → ${names.join(", ")}` + (streamHz(padAgents[0].teleopCmd) ? ` · ${streamHz(padAgents[0].teleopCmd).toFixed(0)} Hz` : "")
+          : "safe_teleop not publishing";
+        padChip.title = padAgents.length
+          ? `stick velocity streaming on ${padAgents.map((a) => a.teleopCmd.topic).join(", ")}`
+          : `nothing fresh on ${cfg.teleopTopicTemplate}`;
+
+        // Do the sticks reach a drone? Only if the commander lists it as a
+        // teleop drone, it is ACTIVE and the mission has been started.
+        let sticks = { text: "NO COMMANDER — sticks go nowhere", color: "#6b7280",
+          title: `no fresh snapshot on ${cfg.statusTopic}; the commander forwards the sticks, safe_teleop only publishes them` };
+        if (commanderFresh(now) && padAgents.length) {
+          const live = [], parked = [];
+          for (const a of padAgents) {
+            const c = a.cmdr;
+            if (!c) parked.push(`${a.name} unknown to the commander`);
+            else if (c.role !== "teleop") parked.push(`${a.name} not in teleop_drones (role ${c.role})`);
+            else if (!commander.mission_active) parked.push(`${a.name}: press Start`);
+            else if (c.state !== "ACTIVE") parked.push(`${a.name} is ${c.state}`);
+            else live.push(a.name);
+          }
+          if (live.length && !parked.length) {
+            sticks = { text: `STICKS LIVE → ${live.join(", ")}`, color: "#10b981",
+              title: "The commander is forwarding the stick velocity (position-mode teleop)" };
+          } else {
+            sticks = { text: `STICKS PARKED — ${parked.concat(live.map((n) => `${n} live`)).join("; ")}`, color: "#f59e0b",
+              title: "safe_teleop is publishing but the commander is not forwarding it to this drone yet" };
+          }
+        }
+        sticksChip.textContent = sticks.text;
+        sticksChip.style.background = sticks.color;
+        sticksChip.title = sticks.title;
+
+        // The four sticks as safe_teleop's VelocityMapper reads them. Fixed
+        // columns only (label, raw, mapped, bar): anything that changes
+        // length — which /joy axis, deadzone, lock, a missing axis — goes to
+        // the row's tooltip and the cell colour, so rows never shift.
+        stickBody.textContent = "";
+        const axisVal = (i) => (joy && i < joy.axes.length ? joy.axes[i] : null);
+        const rows = [
+          ["fwd / back", "right stick", m.forward_axis, m.forward_sign, "vx"],
+          ["left / right", "right stick", m.left_axis, m.left_sign, "vy"],
+          ["up / down", "left stick", m.climb_axis, m.climb_sign, "vz"],
+          ["yaw", "left stick", m.yaw_axis, m.yaw_sign, "yaw"],
+        ];
+        const fmtSigned = (v) => (v >= 0 ? "+" : "") + v.toFixed(3);
+        for (const [label, stick, idx, sign, out] of rows) {
+          const raw = axisVal(idx);
+          const mapped = raw == null ? 0 : stickDeadzone(raw, m.deadzone) * sign;
+          const locked = lockLatch.engaged && (out === "vz" || out === "yaw");
+          const missing = joy != null && raw == null;
+          const tr = el("tr");
+          let why = `${stick}, /joy axis ${idx}${sign < 0 ? " (sign flipped)" : ""} → ${out}`;
+          let cls = "sb-pos";
+          if (missing) { why += ` — this pad reports only ${joy.axes.length} axes: wrong teleop_controller?`; cls = "sb-pos sb-bad"; }
+          else if (locked) { why += " — LOCKED, forced to 0 by the lock button"; cls = "sb-pos sb-warn"; }
+          else if (raw != null && Math.abs(raw) < m.deadzone) { why += ` — inside the ${m.deadzone} deadzone, reads 0`; cls = "sb-pos sb-muted"; }
+          else if (raw != null && Math.abs(raw) > 0.9 && !lockLatch.seen && joyStream.dts.length < 3) { why += " — resting at full scale: an analog trigger?"; cls = "sb-pos sb-warn"; }
+          tr.title = why;
+          tr.appendChild(el("td", null, label));
+          tr.appendChild(el("td", raw == null ? "sb-pos sb-muted" : "sb-pos", raw == null ? "--" : fmtSigned(raw)));
+          tr.appendChild(el("td", cls, locked ? "locked" : fmtSigned(mapped)));
+          const tdBar = el("td");
+          tdBar.appendChild(stickBar(locked ? 0 : mapped));
+          tr.appendChild(tdBar);
+          stickBody.appendChild(tr);
+        }
+        const lockDown = Boolean(joy && joy.buttons[m.lock_button]);
+        lockRow.textContent = `lock button ${m.lock_button}: ${lockDown ? "DOWN" : "up"} · left stick ${lockLatch.engaged ? "LOCKED" : "free"}` +
+          ` · map ${teleopParams.values ? `${teleopParams.values.teleop_controller || cfg.teleopNs}` : "assumed xbox_usb"}`;
+        lockRow.title = (lockLatch.seen ? "Lock state follows the presses seen by this panel."
+          : "No lock press seen since this panel opened: the lock may already be engaged.")
+          + (teleopParams.values ? ` Axis map, deadzone and caps read from ${cfg.teleopNs}.`
+            : ` ${cfg.teleopNs} parameters not read yet; xbox_usb layout assumed.`);
+
+        // Published velocity per pad-driven drone.
+        pubTitle.textContent = padAgents.length
+          ? `Published → ${names.join(", ")}`
+          : "Published";
+        pubTitle.title = padAgents.map((a) => a.teleopCmd.topic ?? tpl(cfg.teleopTopicTemplate, a.name)).join(", ") +
+          ` · bars span ±max_speed_mps ${m.max_speed_mps}, ±max_climb_speed_mps ${m.max_climb_speed_mps}, ±yaw_rate_rad_s ${m.yaw_rate_rad_s}`;
+        pubBody.textContent = "";
+        for (const a of padAgents) {
+          const tw = a.teleopTwist;
+          const lin = tw?.linear ?? {}, ang = tw?.angular ?? {};
+          const outs = [
+            ["vx", num(lin.x), m.max_speed_mps, " m/s"],
+            ["vy", num(lin.y), m.max_speed_mps, " m/s"],
+            ["vz", num(lin.z), m.max_climb_speed_mps, " m/s"],
+            ["yaw", num(ang.z), m.yaw_rate_rad_s, " rad/s"],
+          ];
+          for (const [label, v, scale, unit] of outs) {
+            const tr = el("tr");
+            tr.title = `full stick = ${scale}${unit}`;
+            tr.appendChild(el("td", null, padAgents.length > 1 ? `${a.name} ${label}` : label));
+            tr.appendChild(el("td", "sb-pos", v == null ? "--" : (v >= 0 ? "+" : "") + v.toFixed(3) + unit));
+            const tdBar = el("td");
+            tdBar.appendChild(stickBar(v == null || !scale ? 0 : v / scale));
+            tr.appendChild(tdBar);
+            pubBody.appendChild(tr);
+          }
+        }
+        const zeroed = padAgents.length && !joyFresh;
+        teleopNote.textContent = zeroed
+          ? "Published velocity is zero: the joy topic is stale (safe_teleop's joy_timeout_s) — that is a stop, not a hold."
+          : teleopParams.err && !teleopParams.values
+            ? `Axis map assumed; ${teleopParams.err}`
+            : "Raw = the /joy axis value. Mapped = after safe_teleop's deadzone and sign: the fraction of full stick it flies. Hover a row for its axis and why it reads 0.";
       }
 
       function renderCellular(now) {
@@ -2920,11 +3479,13 @@ function activate(extensionContext) {
         // Section visibility follows the topics actually on the wire, within
         // what this instance's view shows at all.
         const view = currentView();
-        const powerOnly = view === "power";
-        const showPower = powerOnly || (view !== "main" && caps.battery);
+        const powerOnly = view === "power" || view === "teleop";   // no banner chips
+        const showPower = view === "power" || (view === "full" && caps.battery);
         show(cellCard, caps.cellular);
         show(powerCard, showPower);
+        renderTeleop(now);
         show(formRow, caps.formation);
+        renderBag(now, !powerOnly);
         const lanes = TIERS.filter((t) => t.id === "lan" || caps.vpnLane);
         commSub.textContent = caps.mocap || caps.ekf
           ? "— ping · mocap delay · EKF status · transport"
@@ -2965,30 +3526,6 @@ function activate(extensionContext) {
         const airborne = agents.filter((a) => a.pos && a.pos[2] > 0.3).length;
         clockEl.textContent = `${airborne}/${agents.length} airborne · ${clockStamp(now)}`;
 
-        // Roster
-        for (const a of agents) {
-          const r = rosterRows.get(a.name);
-          if (!r) continue;
-          r.row.classList.toggle("sb-selected", a.name === selected);
-          r.dot.style.background = a.linkState.color;
-          r.mode.className = `sb-mode ${a.mode}`;
-          r.mode.textContent = MODES[a.mode].label;
-          const soc = a.power?.soc;
-          r.fill.style.width = `${clamp(soc ?? 0, 0, 100)}%`;
-          r.fill.style.background = socColor(soc);
-          const ping = a.metrics?.pingMs;
-          const parts = [
-            soc == null ? "-- %" : `${soc.toFixed(0)}%`,
-            a.linkState.label,
-            ping == null ? "-- ms" : `${ping.toFixed(0)} ms`,
-          ];
-          if (a.mode === "real" && caps.ekf && a.estimate?.state) {
-            parts.push(a.estimate.state.label);
-          }
-          r.meta.textContent = parts.join(" · ");
-        }
-
-        renderWiring();
         renderFormation();
         renderGoal();
         verifyCommands(now);
@@ -3033,6 +3570,7 @@ function activate(extensionContext) {
         "cruiseSpeedMps", "landSpeedMps", "reservePct", "rtbNominalPct",
         "rtbGatedPct", "dropTargetPct", "pingTargetMs", "vpnPingTargetMs",
         "mocapAgeTargetMs", "mocapTimeoutS", "cbfAlphaMax", "cbfRadiusMax", "cbfSpeedMax",
+        "teleopSpeedMax", "goalAccelMax", "goalSettleMax",
       ]);
       const ROSTER_KEYS = new Set([
         "drones", "modes", "stateTopicTemplate", "lanTopicTemplate",
@@ -3043,6 +3581,8 @@ function activate(extensionContext) {
         "positionOffsets", "statusTopic",
         "simCommandTopicTemplate", "realCommandTopicTemplate",
       ]);
+      // Keys whose change re-subscribes (teleop command / joy topics).
+      const SUB_KEYS = new Set(["teleopTopicTemplate", "joyTopic", "bagStatusTopic"]);
       const CAPS_KEYS = new Set([
         "sections", "formationTopic", "teleopTopicTemplate", "goalTopicTemplate",
         "speedTopicTemplate",
@@ -3058,6 +3598,7 @@ function activate(extensionContext) {
             cfg[key] = NUMERIC.has(key) ? Number(action.payload.value) : String(action.payload.value ?? "");
             persist();
             if (ROSTER_KEYS.has(key)) rebuildAgents();
+            else if (SUB_KEYS.has(key)) { rebuildSubscriptions(); recomputeCaps(); }
             else if (CAPS_KEYS.has(key)) recomputeCaps();
             else if (key === "view") applyView();
             updateSettingsEditor();
@@ -3070,11 +3611,13 @@ function activate(extensionContext) {
                 view: { label: "View", input: "select", value: currentView(),
                   options: [
                     { label: "Everything (one panel)", value: "full" },
-                    { label: "Main — without Battery & Power", value: "main" },
-                    { label: "Battery & Power only", value: "power" },
+                    { label: "Main — without Battery & Power / Teleop", value: "main" },
+                    { label: "Battery & Power (+ Teleop sticks beside it while teleop runs)", value: "power" },
+                    { label: "Teleop · Sticks only", value: "teleop" },
                   ],
-                  help: "Split the panel across two instances: a 'main' one and a 'power' one " +
-                        "placed under the 3D view, as in svg_basestation.json" },
+                  help: "Split the panel across two instances: 'main' on the left and 'power' under the 3D " +
+                        "view, as in svg_basestation.json. The sticks card appears beside the battery card " +
+                        "only while safe_teleop publishes; 'teleop' gives it a slot of its own instead." },
                 drones: { label: "Agents", input: "string", value: cfg.drones,
                   help: "Comma-separated agent names, in drone_names order" },
                 modes: { label: "Modes (wiring)", input: "string", value: cfg.modes,
@@ -3088,7 +3631,12 @@ function activate(extensionContext) {
                   help: "Auto hides any section whose topics are not being published" },
                 commanderNs: { label: "Commander namespace", input: "string", value: cfg.commanderNs,
                   help: "std_srvs/Trigger lifecycle services and the get/set_parameters services " +
-                        "(CBF alpha, safety radius, max speed) live under this namespace" },
+                        "(CBF alpha, safety radius, max speed; teleop max speed; goal accel, settle) " +
+                        "live under this namespace" },
+                teleopNs: { label: "Teleop node namespace", input: "string", value: cfg.teleopNs,
+                  help: "safe_teleop's get/set_parameters live here. Its max_speed_mps (full right " +
+                        "stick) is set together with the commander's teleop_max_speed_mps so the two " +
+                        "never differ; the readout shows both." },
                 statusTopic: { label: "Commander status topic", input: "string", value: cfg.statusTopic,
                   help: "std_msgs/String JSON from swarm_commander (status_topic parameter): mission " +
                         "state, last command outcome, live CBF gains, per-drone state and position" },
@@ -3098,10 +3646,22 @@ function activate(extensionContext) {
                   help: "Upper end of the CBF safety radius slider; the number box accepts any positive value" },
                 cbfSpeedMax: { label: "CBF max-speed slider max (m/s)", input: "number", value: cfg.cbfSpeedMax, step: 0.5,
                   help: "Upper end of the CBF max speed slider; the number box accepts any positive value" },
+                teleopSpeedMax: { label: "Teleop max-speed slider max (m/s)", input: "number", value: cfg.teleopSpeedMax, step: 0.5,
+                  help: "Upper end of the teleop max speed slider; the number box accepts any positive value" },
+                goalAccelMax: { label: "Goal accel slider max (m/s²)", input: "number", value: cfg.goalAccelMax, step: 1,
+                  help: "Upper end of the goal acceleration slider; the number box accepts any positive value" },
+                goalSettleMax: { label: "Goal settle slider max (s)", input: "number", value: cfg.goalSettleMax, step: 0.5,
+                  help: "Upper end of the goal settle-time slider; the number box accepts any value >= 0" },
                 formationTopic: { label: "Formation topic", input: "string", value: cfg.formationTopic },
                 formationProfiles: { label: "Formation profiles", input: "string", value: cfg.formationProfiles,
                   help: "Comma-separated profile names filling the formation dropdown (pick one, Send) — " +
                         "mirror the commander's formation_profiles parameter. Blank hides the row." },
+                bagRecorderNs: { label: "Bag recorder namespace", input: "string", value: cfg.bagRecorderNs,
+                  help: "bag_recorder's ~/record (std_srvs/SetBool) lives here — the Rosbag switch calls it " +
+                        "to start / stop ros2 bag record --all-topics" },
+                bagStatusTopic: { label: "Bag recorder status topic", input: "string", value: cfg.bagStatusTopic,
+                  help: "std_msgs/String JSON from bag_recorder: recording, path, duration, size. The switch " +
+                        "shows this, not the last click; silent = NO RECORDER, switch disabled" },
               },
             },
             simWiring: {
@@ -3143,7 +3703,12 @@ function activate(extensionContext) {
                   help: "std_msgs/String JSON: tier, rtt_ms, state (direct|relay), rsrp_dbm, interface" },
                 linkStatusTopicTemplate: { label: "Link report (optional)", input: "string", value: cfg.linkStatusTopicTemplate,
                   help: "std_msgs/String JSON; drop_rate / rtt_ms / clock_offset_ms / clock_drift_ms / active_tier override the derived values" },
-                teleopTopicTemplate: { label: "Teleop (detect only)", input: "string", value: cfg.teleopTopicTemplate },
+                teleopTopicTemplate: { label: "Teleop command", input: "string", value: cfg.teleopTopicTemplate,
+                  help: "geometry_msgs/TwistStamped from safe_teleop. While it streams, the Teleop · Sticks " +
+                        "card is shown and 'teleop' is a detected task" },
+                joyTopic: { label: "Joystick (raw)", input: "string", value: cfg.joyTopic,
+                  help: "sensor_msgs/Joy from joy_node — the raw axes and buttons shown in the Teleop · Sticks card " +
+                        "(safe_teleop's joy_topic)" },
                 goalTopicTemplate: { label: "Goal command", input: "string", value: cfg.goalTopicTemplate,
                   help: "geometry_msgs/PoseStamped — the Goal card publishes here; swarm_commander " +
                         "subscribes per drone in the 'goal' scenario" },

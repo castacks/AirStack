@@ -18,6 +18,7 @@
   <depend>nav_msgs</depend>
   <depend>std_msgs</depend>
   <depend>std_srvs</depend>
+  <depend>rcl_interfaces</depend>
   <depend>visualization_msgs</depend>
   <depend>airstack_msgs</depend>
   <depend>px4_msgs</depend>
@@ -28,6 +29,8 @@
   <exec_depend>robot_interface</exec_depend>
   <exec_depend>interface_bringup</exec_depend>
   <exec_depend>foxglove_bridge</exec_depend>
+  <exec_depend>ros2bag</exec_depend>
+  <exec_depend>rosbag2_storage_mcap</exec_depend>
 
   <export>
     <build_type>ament_python</build_type>

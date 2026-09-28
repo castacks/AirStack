@@ -20,6 +20,16 @@
     # Disable the bridge (e.g. one already running elsewhere):
     ros2 launch svg_ground_control ground_control.launch.py use_foxglove_bridge:=false
 
+    # Rosbag: the bag_recorder node starts with the commander; the Rosbag
+    # switch in the Foxglove basestation panel (or
+    # `ros2 service call /bag_recorder/record std_srvs/srv/SetBool "{data: true}"`)
+    # starts/stops `ros2 bag record --all-topics` (mcap) at
+    # bag_dir/<bag_prefix>_YYYYmmdd_HHMMSS, default ~/AirStack/robot/ros_ws/bags.
+    # record_bag:=true records from launch to Ctrl-C (still switchable):
+    ros2 launch svg_ground_control ground_control.launch.py record_bag:=true
+    ros2 launch svg_ground_control ground_control.launch.py \
+        record_bag:=true bag_dir:=/bags bag_prefix:=squeeze_c2
+
 Teleop is NOT started here by default. Start it first, in its own terminal,
 and check the printed stick readings before bringing up the commander:
     ros2 launch svg_ground_control teleop.launch.py config:=<same config>
@@ -56,6 +66,36 @@ def teleop_nodes(context, config_path: str, teleop_drones: list) -> list:
                           others=teleop_drones[1:])
 
 
+def bag_recorder(context) -> list:
+    """The switchable rosbag recorder (svg_ground_control/bag_recorder.py).
+
+    Always started (use_bag_recorder) so the Foxglove panel's Rosbag switch has
+    something to talk to; it records nothing until switched on, unless
+    `record_bag:=true`, which is the old whole-run recording: on from launch,
+    off at Ctrl-C (which still writes metadata.yaml), and switchable in
+    between. One mcap bag per start at <bag_dir>/<bag_prefix>_<YYYYmmdd_HHMMSS>;
+    the default bag_dir is the bind-mounted workspace so the bag is on the
+    host when the container goes away (experiment.md, "Recording rosbags").
+    """
+    if LaunchConfiguration('use_bag_recorder').perform(context).lower() != 'true':
+        return []
+    record_on_start = LaunchConfiguration('record_bag').perform(context).lower() == 'true'
+    return [
+        Node(
+            package='svg_ground_control',
+            executable='bag_recorder',
+            name='bag_recorder',
+            output='screen',
+            parameters=[{
+                'bag_dir': LaunchConfiguration('bag_dir'),
+                'bag_prefix': LaunchConfiguration('bag_prefix'),
+                'include_hidden': LaunchConfiguration('bag_include_hidden'),
+                'record_on_start': record_on_start,
+            }],
+        ),
+    ]
+
+
 def launch_setup(context, *args, **kwargs):
     config = LaunchConfiguration('config')
     config_path = config.perform(context)
@@ -74,7 +114,7 @@ def launch_setup(context, *args, **kwargs):
 
     teleop_names = config_teleop_drones(config_path, teleop_drones)
 
-    return teleop_nodes(context, config_path, teleop_names) + [
+    return teleop_nodes(context, config_path, teleop_names) + bag_recorder(context) + [
         Node(
             package='svg_ground_control',
             executable='swarm_commander',
@@ -195,5 +235,29 @@ def generate_launch_description():
             'use_foxglove_studio', default_value='false',
             description='Also open Foxglove Studio inside the container, '
                         'pre-connected to the bridge (needs an X display)'),
+        DeclareLaunchArgument(
+            'use_bag_recorder', default_value='true',
+            description='Start the bag_recorder node (the Rosbag switch in '
+                        'the Foxglove panel / the /bag_recorder/record '
+                        'service); records nothing until switched on'),
+        DeclareLaunchArgument(
+            'record_bag', default_value='false',
+            description='Record every published topic on this ROS domain to '
+                        'an mcap rosbag from launch (bag_recorder '
+                        'record_on_start); the panel switch can still stop '
+                        'and restart it; stops with the launch'),
+        DeclareLaunchArgument(
+            'bag_dir', default_value='~/AirStack/robot/ros_ws/bags',
+            description='Directory the bag is written under (default: the '
+                        'bind-mounted workspace, so it survives the container; '
+                        'use /bags on the robot-l4t storage mount)'),
+        DeclareLaunchArgument(
+            'bag_prefix', default_value='svg',
+            description='Bag folder name prefix: <bag_dir>/<bag_prefix>_'
+                        '<YYYYmmdd_HHMMSS>'),
+        DeclareLaunchArgument(
+            'bag_include_hidden', default_value='false',
+            description='Also record hidden topics (/_ and /rosout-style '
+                        'internals) in the bag'),
         OpaqueFunction(function=launch_setup),
     ])

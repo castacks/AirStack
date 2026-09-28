@@ -68,6 +68,48 @@ def test_cbf_alpha_rejects_non_positive_or_non_finite(bad: float) -> None:
         node.destroy_node()
 
 
+# ------------------------------------------ teleop cap / goal law, live
+
+def test_tuning_params_apply_at_runtime_and_show_in_status() -> None:
+    """The three gains the panel's dropdown adds: live, and in the snapshot."""
+    node = make_commander(teleop_max_speed_mps=2.0, goal_accel_mps2=3.0,
+                          goal_settle_s=0.3)
+    try:
+        for name, value in (("teleop_max_speed_mps", 3.0),
+                            ("goal_accel_mps2", 6.0), ("goal_settle_s", 0.0)):
+            results = node.set_parameters([Parameter(name, value=value)])
+            assert results[0].successful, results[0].reason
+        assert node.teleop_max_speed == 3.0
+        assert node.scenario.tracker.accel == 6.0
+        assert node.scenario.tracker.settle == 0.0
+        tuning = json.loads(json.dumps(node.build_status()))["tuning"]
+        assert tuning["teleop_max_speed_mps"] == 3.0
+        assert tuning["goal_accel_mps2"] == 6.0
+        assert tuning["goal_settle_s"] == 0.0
+    finally:
+        node.destroy_node()
+
+
+@pytest.mark.parametrize("name, bad", [
+    ("teleop_max_speed_mps", 0.0), ("teleop_max_speed_mps", -1.0),
+    ("teleop_max_speed_mps", float("nan")),
+    ("goal_accel_mps2", 0.0), ("goal_accel_mps2", float("inf")),
+    ("goal_settle_s", -0.1), ("goal_settle_s", float("nan")),
+])
+def test_tuning_params_reject_bad_values(name: str, bad: float) -> None:
+    node = make_commander(teleop_max_speed_mps=2.0, goal_accel_mps2=3.0,
+                          goal_settle_s=0.3)
+    try:
+        results = node.set_parameters([Parameter(name, value=bad)])
+        assert not results[0].successful
+        assert name in results[0].reason
+        assert node.teleop_max_speed == 2.0
+        assert node.scenario.tracker.accel == 3.0
+        assert node.scenario.tracker.settle == 0.3
+    finally:
+        node.destroy_node()
+
+
 def test_other_parameters_still_settable() -> None:
     # The validation callback must not veto unrelated parameters.
     node = make_commander()
@@ -101,6 +143,12 @@ def test_status_is_json_and_reports_gains_and_drones() -> None:
         assert decoded["cbf"] == {
             "alpha": 3.0, "safety_radius_m": 0.6, "max_speed_mps": 1.1,
             "external_velocity_gain": 1.0, "active": [], "emergency": False,
+        }
+        # The speed / tracking gains the panel's gain row edits, and the
+        # stick cap safe_teleop mirrors, are reported next to the CBF gains.
+        assert decoded["tuning"] == {
+            "teleop_max_speed_mps": 1.2, "goal_accel_mps2": 3.0,
+            "goal_settle_s": 0.3, "scenario_speed_mps": 0.6,
         }
 
         drones = {d["name"]: d for d in decoded["drones"]}

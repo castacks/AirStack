@@ -3,14 +3,14 @@
 Ground-station panel for the SVG counter-UAS demonstration — the SVG analogue of
 the DTC *Robot Control Panel* that anchors the `foxglove_ws` basestation layout.
 One panel owns agent selection, the swarm-wide safety command, mission
-confirmation, the CBF gains, per-drone state and position, and the operator's
-health picture.
+confirmation, the runtime gains (CBF, teleop speed cap, go-to-goal law), the
+rosbag switch, per-drone state and position, and the operator's health picture.
 
 Three ideas drive the whole panel:
 
 | Idea | What it means |
 | --- | --- |
-| **Mode is wiring** | An agent is `sim` or `real`, exactly as in `swarm_commander`'s `drone_modes`. `sim` talks to the MAVROS interface (`/{name}/interface/...`); `real` talks to `px4_interface` over uXRCE-DDS (`/{name}/fmu/...`) and additionally carries mocap, EKF and timesync telemetry. The **Wiring** card spells out the resolved topics for the selected agent. |
+| **Mode is wiring** | An agent is `sim` or `real`, exactly as in `swarm_commander`'s `drone_modes`. `sim` talks to the MAVROS interface (`/{name}/interface/...`); `real` talks to `px4_interface` over uXRCE-DDS (`/{name}/fmu/...`) and additionally carries mocap, EKF and timesync telemetry. The resolved topics are the *Wiring — sim* / *Wiring — real* settings. |
 | **Topics decide what you see** | Every section declares the topics it needs. A section with no publisher is not rendered, so a sim-only run shows no empty mocap/EKF columns and a run with no cellular reporter shows no empty cellular table. The banner lists the tasks the panel inferred. |
 | **No fabricated numbers** | Anything with no source reads `--`. Every derived value is labelled with where it came from. |
 
@@ -35,21 +35,35 @@ python3 robot/ros_ws/src/svg_ground_control/foxglove/install.py   # installs air
 in `gcs/foxglove_extensions/` with their own `install.py`.)
 
 `svg_basestation.json` (one directory up) is a ready-made layout with **two
-instances** of this panel plus a 3D view of `/svg/viz/markers`:
+instances** of this panel and a 3D view of `/svg/viz/markers`:
 
 ```
 ┌──────────────────────────┬──────────────────────────┐
 │ SVG Basestation          │ 3D  (/svg/viz/markers)    │
 │  View = main             │                          │
-│  safety · command · CBF  ├──────────────────────────┤
-│  goal · agents · state   │ SVG Battery & Power      │
+│  safety · command · CBF  │                          │
+│  goal (agent picker)     ├──────────────────────────┤
+│  agent state             │ SVG Battery & Power      │
 │  link safety · cellular  │  View = power            │
+│                          │  [battery | sticks*]     │
 └──────────────────────────┴──────────────────────────┘
+   * the Teleop · Sticks card appears beside the battery card only while
+     safe_teleop is publishing; otherwise the battery card has the width
 ```
 
 The **View** setting (gear icon → Swarm) picks what an instance shows: `main`
-(everything except Battery & Power), `power` (Battery & Power only, with the
-power chip and clock in its banner), or `full` (the old single-panel form).
+(everything except Battery & Power and Teleop), `power` (Battery & Power, with
+the Teleop · Sticks card beside it while teleop runs, and the power chip and
+clock in its banner), `teleop` (the Teleop · Sticks card alone in a slot of
+its own — it reads "Teleop off" while `safe_teleop` is not publishing; a
+Foxglove panel slot cannot remove itself, which is why the shipped layout
+uses `power` instead), or `full` (the old single-panel form).
+Inside the `main` instance the cards stack in one full-width column, so the
+Agent State and Link Safety tables get the whole panel width. (To watch a
+camera, add Foxglove's own Image panel to the layout on the drone's image
+topic — in Isaac Sim `/drone_1/sensors/front_stereo/left/image_rect`, only
+published when `svg_multi_drone_single_domain.py` runs with
+`ENABLE_CAMERA=true CAMERA_DRONES=drone_1`.)
 The 3D view's built-in grid layer is off: it is a fixed 8 m square on the
 origin and never matches the fence. The commander draws a grid on the fence
 floor instead (`fence_grid_cell_m`), clipped to the fence and aligned to world
@@ -91,9 +105,9 @@ velocity commands arriving on its command topic (`Cmd stream`, ~20 Hz while the
 commander drives it, `silent` in red if the commander thinks it is airborne but
 nothing is being published to it).
 
-## CBF gains (alpha, safety radius, max speed)
+## Runtime gains (CBF alpha, safety radius, max speed · teleop max speed · goal accel, settle)
 
-One slider row edits `swarm_commander`'s runtime CBF parameters. The **dropdown**
+One slider row edits `swarm_commander`'s runtime parameters. The **dropdown**
 on the left picks which gain the row is editing; slider and number box are one
 draft value (kept per gain, so switching does not lose a half-typed number);
 **Apply** sends that gain; the fixed-width **live** readout shows what the
@@ -106,16 +120,31 @@ reason for a rejection goes to the status line under the row.
 | `CBF α` | `cbf_alpha` | Class-K gain in the barrier constraint `ḣ + α h ≥ 0`. **Lower is gentler**: the filter starts yielding early and corrects softly. **Higher is more aggressive**: drones approach closer before a harder correction |
 | `CBF r` | `cbf_safety_radius_m` | Each drone's safety bubble; every pair of centres is kept more than `2r` apart. Larger = wider berth. Goals or squeeze posts closer than `2r` become infeasible and trigger the emergency push-apart |
 | `CBF vmax` | `cbf_max_speed_mps` | Cap on every velocity command the filter emits, exempt drones included. Higher lets drones dodge (and fly) faster |
+| `Teleop vmax` | `teleop_max_speed_mps` **and** `safe_teleop`'s `max_speed_mps` | The hand-flown drone's speed at full stick. The commander caps the stick velocity at `teleop_max_speed_mps`; `safe_teleop` scales the stick to `max_speed_mps`. The lower of the two silently wins, so **Apply sets both** — the commander first, then `safe_teleop` — and the readout shows both: `live 3.00 m/s ✓ · pad 3.00 ✓`. Still capped by `cbf_max_speed_mps` unless the drone is `cbf_exempt` |
+| `Goal accel` | `goal_accel_mps2` | Acceleration and braking of the go-to-goal reference profile. Braking distance is `v²/(2a) + v·settle`: higher brakes later and harder (PX4 auto uses 3, the airframe managed 5.5); too high for the airframe overshoots |
+| `Goal settle` | `goal_settle_s` | Exponential tail into the goal (time constant). 0.3 is PX4-like; larger = softer stop, slower arrival; smaller = sharper arrival. `0` is allowed and removes the tail |
 
 - **live** is what the commander is running with right now — from the status
-  snapshot when it is fresh, else from a `get_parameters` read (↻ re-reads all
-  three). Next to the α value: which drones the CBF is correcting this tick,
-  and a red `EMERGENCY push-apart` if the QP went infeasible.
+  snapshot when it is fresh (`cbf` for the filter gains, `tuning` for the
+  rest), else from a `get_parameters` read (↻ re-reads all six, and
+  `safe_teleop`'s `max_speed_mps`). Under the row: which drones the CBF is
+  correcting this tick, and a red `EMERGENCY push-apart` if the QP went
+  infeasible.
+- **pad** (Teleop vmax only) is `safe_teleop`'s `max_speed_mps`, read from
+  `<teleop ns>/get_parameters` (the `Teleop node namespace` setting,
+  `/safe_teleop`). `✓` when it equals the commander's `teleop_max_speed_mps`,
+  `✗` in amber with a note when it does not (press Apply to set both), `--`
+  when `safe_teleop` is not running, which is normal without a hand-flown
+  drone. `safe_teleop` also follows the commander's value on its own from the
+  status snapshot, and pushes a `ros2 param set /safe_teleop max_speed_mps`
+  back to the commander, so the two agree whichever side was changed.
 - Move a slider or type a value, then that row's **Apply**. The panel calls
   `<commander ns>/set_parameters` (`rcl_interfaces/srv/SetParameters`,
-  double) for that one parameter. The commander validates (finite, `> 0`) and
-  applies it on its next control tick; a rejection reason is shown in the
-  status line. Until the snapshot reports the new value the readout shows
+  double) for that one parameter. The commander validates (finite, `> 0`;
+  `goal_settle_s` may be `0`) and applies it on its next control tick; a
+  rejection reason is shown in the status line. For Teleop vmax the same
+  number then goes to `<teleop ns>/set_parameters` as `max_speed_mps` — only
+  after the commander accepted it, so a rejection never leaves the two apart. Until the snapshot reports the new value the readout shows
   `(asked 0.80…)`; if the commander keeps reporting the old value after the
   set, it turns amber.
 - The same parameters can be set from a shell and the panel follows:
@@ -125,8 +154,42 @@ reason for a rejection goes to the status line under the row.
   keep-out spheres in `/svg/viz/markers` follow a runtime change.
 
 The sliders' upper ends are the `CBF alpha slider max` (10), `CBF radius
-slider max` (2 m) and `CBF max-speed slider max` (3 m/s) settings; the number
-boxes accept any positive value.
+slider max` (2 m), `CBF max-speed slider max` (3 m/s), `Teleop max-speed
+slider max` (5 m/s), `Goal accel slider max` (15 m/s²) and `Goal settle
+slider max` (2 s) settings; the number boxes accept any positive value (any
+value `>= 0` for the settle time).
+
+## Rosbag switch
+
+The **Rosbag** switch at the top right of the banner (right of the task chip,
+beside the clock) is a toggle that records **every published topic** on the
+domain to an mcap bag — the Foxglove form of
+`ground_control.launch.py record_bag:=true`, but switchable mid-run. It talks
+to the `bag_recorder` node (`svg_ground_control/bag_recorder.py`, started by
+`ground_control.launch.py`): switching on calls `<bag recorder ns>/record`
+(`std_srvs/SetBool`, `data: true`), which spawns `ros2 bag record
+--all-topics --storage mcap` at `<bag_dir>/<bag_prefix>_<YYYYmmdd_HHMMSS>`;
+switching off sends `data: false`, which SIGINTs the recorder so it closes
+the file and writes `metadata.yaml` (a bag killed hard is unreadable).
+
+The switch shows the **recorder's own state**, not the last click: it follows
+`recording` in `bag_recorder`'s status snapshot (`/svg/bag_recorder/status`,
+`std_msgs/String` JSON at 2 Hz), so a bag started from a shell shows as on,
+and a recorder that dies mid-run (disk full) drops the switch back to off
+with its exit code on the row.
+
+| Element | What it shows |
+| --- | --- |
+| **Switch** | Disabled until the recorder is heard from. Held in the asked position and disabled while the recorder confirms (`STARTING…` / `STOPPING…`); springs back if the recorder refuses (unwritable `bag_dir`) with the reason in the status line; `NOT CONFIRMED` in the status line if the status topic never reflects the click |
+| **Chip** | `NO RECORDER` (nothing on the status topic for 2.5 s — `bag_recorder` is not running), `IDLE`, red `REC 1:23 · 12.4 MB` (duration and size on disk so far), or amber `IDLE ✗` when the last recording died on its own or a start was refused |
+| **Tooltip** | Hover the chip: the bag directory while recording (and the topic count on the graph); afterwards the recorder's summary of the last bag (`stopped: … (45 s, 120.3 MB)`) or why it stopped on its own; `bag_dir` when idle |
+
+`Bag recorder namespace` (`/bag_recorder`) and `Bag recorder status topic`
+(`/svg/bag_recorder/status`) are settings. The switch is banner chrome of the
+`main` / `full` instance, hidden in `power` and `teleop` like the link and task
+chips. From a shell the same
+switch is `ros2 service call /bag_recorder/record std_srvs/srv/SetBool
+"{data: true}"` (or `~/start` / `~/stop`, `std_srvs/Trigger`).
 
 ## Formation
 
@@ -137,6 +200,15 @@ profiles` setting (mirror the commander's `formation_profiles` parameter) and a
 The commander's reserved `next` verb and ad-hoc profile names are not exposed
 here — send them from a shell if needed:
 `ros2 topic pub --once /svg/formation_command std_msgs/msg/String "{data: next}"`.
+
+## Goal · agent picker
+
+The Goal card starts with a row of **agent buttons** (`drone_1` `drone_2` …,
+names only — battery, mode and link health are already in Battery & Power and
+Agent State). The highlighted one is the agent the x/y/z/speed fields edit
+and **Send Goal** targets; the same selection highlights that drone's rows in
+the Agent State and link tables and its power card. Clicking a row in those
+tables selects too. There is no separate Agents roster and no Wiring card.
 
 ## Agent State
 
@@ -152,13 +224,41 @@ One row per agent, positions in **world ENU metres** to 2 decimals:
 | **Interface** | Result of the last `robot_command` the commander sent this drone's interface (`request offboard`, `arm`, `disarm`): ✓ accepted, … pending, ✗ rejected / errored / skipped because the service was not ready |
 | **Odom** | Whether the commander is receiving fresh odometry for this drone (stale → it commands zero velocity) |
 
+## Teleop · Sticks
+
+The pad as `safe_teleop` sees it, the Foxglove form of `ros2 run
+svg_ground_control teleop_monitor`. It sits to the right of the battery card in
+the `power` instance (alone in a `teleop` instance, in the right column of a
+`full` one, never in `main`) and exists **only while `safe_teleop` is
+publishing** on `/svg/{name}/teleop_command` (it publishes at 20 Hz whenever
+it runs, zeros included; 2 s of silence hides it again and the battery card
+widens back), so a run with no hand-flown drone never shows it. `Sections =
+Show all` forces it on.
+
+| Element | What it shows |
+| --- | --- |
+| **Joy chip** | `/joy 20 Hz` when `sensor_msgs/Joy` is arriving, red `NO /joy` / `STALE` otherwise (joy_node down or pad unplugged — `safe_teleop` publishes zero meanwhile) |
+| **safe_teleop chip** | Which drone(s) the stick velocity is streaming for, and at what rate |
+| **Sticks chip** | Whether the sticks reach the drone: `STICKS LIVE → drone_3` (green) when the commander lists it in `teleop_drones`, it is `ACTIVE` and Start has been called; amber `STICKS PARKED` with the reason (`press Start`, `not in teleop_drones`, `is ASCEND`); grey `NO COMMANDER` |
+| **Sticks table** | Four fixed-width rows — `fwd / back`, `left / right` (right stick), `up / down`, `yaw` (left stick): **Raw** is the `/joy` axis value as the driver reports it (−1 … +1); **Mapped** is what `safe_teleop` makes of it — after its deadzone (a raw value inside `deadzone` reads 0, and the rest is rescaled so full deflection is still 1.0) and its sign flip — i.e. the fraction of full stick the drone will fly, times `max_speed_mps`; then a centred bar. Nothing that changes length is in the row: hover it for the `/joy` axis index and why it reads 0 (`inside the deadzone`, `LOCKED`, `axis missing` — the pad has fewer axes than the map, wrong `teleop_controller`); the Mapped cell is greyed inside the deadzone, reads `locked` in amber when the lock is engaged, red when the axis is missing |
+| **Lock line** | The lock button's state and whether the left stick is locked (mirrors `safe_teleop`'s edge-triggered latch from the presses seen since the panel opened) and which controller profile the map came from |
+| **Published** | `vx vy vz yaw` from the last `teleop_command`, each as a bar against `max_speed_mps` / `max_climb_speed_mps` / `yaw_rate_rad_s` (hover the title for the topic and the scales) |
+
+The axis map, deadzone and speed scaling are read from `safe_teleop`'s own
+parameters (`<teleop ns>/get_parameters`: `forward_axis`, `left_axis`,
+`climb_axis`, `yaw_axis`, `lock_button`, the four signs, `deadzone`,
+`max_speed_mps`, `max_climb_speed_mps`, `yaw_rate_rad_s`, `teleop_controller`),
+so a DragonRise pad is shown on its own layout. Until that read answers the
+`xbox_usb` defaults are assumed and the lock line says so. The raw joy topic is
+the `Joystick (raw)` setting (`/joy`).
+
 ## Mode and wiring
 
 `Modes` in the settings takes a comma-separated `sim|real` list in `drone_names`
 order, mirroring `swarm_commander`'s `drone_modes`. Leave it blank and each agent
 is **detected from the topics on the wire**: anything publishing under
-`/{name}/fmu/` is real, anything under `/{name}/interface/` is sim. The Wiring
-card says which of the two happened.
+`/{name}/fmu/` is real, anything under `/{name}/interface/` is sim. The Agent
+State rows say which of the two happened (hover the mode tag).
 
 | Purpose | `sim` | `real` |
 | --- | --- | --- |
@@ -263,11 +363,11 @@ why a section is or is not there:
 | --- | --- |
 | goal-tracking | `/svg/{name}/goal_command` |
 | formation | `/svg/formation_command` |
-| teleop | `/svg/{name}/teleop_command` |
+| teleop | `/svg/{name}/teleop_command` (the Teleop · Sticks card additionally needs it to be *streaming*) |
 | mocap/hardware | `/{name}/pose`, `/{name}/fmu/out/estimator_status_flags` |
 | cellular | `/{name}/comms/cellular`, `/{name}/cellular/odometry` |
 
-The Swarm Command, CBF gains and Agent State sections are controls and always
+The Swarm Command, runtime gains and Agent State sections are controls and always
 shown; their contents say `NO COMMANDER` / `--` until the commander is up.
 
 ## Development
@@ -275,7 +375,8 @@ shown; their contents say `NO COMMANDER` / `--` until the commander is up.
 The panel is plain JavaScript in `dist/extension.js` (no build step). A smoke
 test drives it under a minimal DOM stub and a fake Foxglove panel context —
 feeding a commander snapshot, odometry and velocity commands, clicking Start,
-Hold and Apply — and checks the rendered text:
+Hold, Apply (including the two-node teleop cap) and the Rosbag switch — and
+checks the rendered text:
 
 ```
 docker run --rm -v "$PWD/robot/ros_ws/src/svg_ground_control/foxglove/svg-basestation:/p" -w /p node:20-alpine \

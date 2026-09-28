@@ -19,14 +19,37 @@ Which physical device is in use is the `teleop_controller` parameter (see
 controllers.py). It supplies the default axis numbers, signs, lock button and
 joy topic for that device; the individual axis parameters can still override
 them for an odd driver build.
+
+Speed cap — one number, two nodes. `max_speed_mps` (full right stick, here)
+and the commander's `teleop_max_speed_mps` (its ceiling on the stick
+velocity) must be the same value or the smaller one silently wins. So they
+are kept equal at runtime, whichever side is changed:
+
+* the commander's status snapshot (`commander_status_topic`) carries its live
+  `teleop_max_speed_mps` in `tuning`; whenever it differs from ours, ours
+  follows (`ros2 param set /swarm_commander teleop_max_speed_mps 3.0` or the
+  basestation panel's Teleop vmax row change the pad too);
+* a runtime set of our `max_speed_mps` (`ros2 param set /safe_teleop
+  max_speed_mps 3.0`) is applied live and pushed to the commander's
+  `set_parameters` — if the commander is not up yet it adopts nothing, and
+  its own value wins once its snapshot arrives.
+
+`sync_max_speed: false` turns both directions off.
 """
+
+import json
+import math
 
 import rclpy
 from geometry_msgs.msg import TwistStamped
 from nav_msgs.msg import Odometry
+from rcl_interfaces.msg import SetParametersResult
+from rcl_interfaces.srv import SetParameters
 from rclpy.duration import Duration
 from rclpy.node import Node
+from rclpy.parameter import Parameter
 from sensor_msgs.msg import Joy
+from std_msgs.msg import String
 
 from .pad import PadState
 from .velocity import (DEADZONE, MAX_CLIMB_SPEED_MPS, MAX_SPEED_MPS,
@@ -36,8 +59,10 @@ from .controllers import DEFAULT_CONTROLLER, controller_names, get_controller
 
 class SafeTeleopNode(Node):
 
-    def __init__(self):
-        super().__init__('safe_teleop')
+    def __init__(self, **node_kwargs):
+        # node_kwargs: rclpy.node.Node options, e.g. parameter_overrides for
+        # tests that construct the node without a launch file.
+        super().__init__('safe_teleop', **node_kwargs)
 
         self.declare_parameter('drone', 'drone_1')
         # Input device. Names an entry of controllers.CONTROLLERS; its axis
@@ -67,6 +92,12 @@ class SafeTeleopNode(Node):
         self.declare_parameter('max_speed_mps', MAX_SPEED_MPS)        # full right stick
         self.declare_parameter('max_climb_speed_mps', MAX_CLIMB_SPEED_MPS)  # full left stick
         self.declare_parameter('deadzone', DEADZONE)
+        # Keep max_speed_mps equal to the commander's teleop_max_speed_mps
+        # (see the module docstring). The status topic and namespace mirror
+        # the commander's status_topic parameter and node name.
+        self.declare_parameter('sync_max_speed', True)
+        self.declare_parameter('commander_status_topic', '/svg/commander_status')
+        self.declare_parameter('commander_ns', '/swarm_commander')
 
         # Axis map: defaults come from the controller profile. Set one of
         # these explicitly only to correct a driver that maps differently.
@@ -115,6 +146,31 @@ class SafeTeleopNode(Node):
         rate = float(value('publish_rate_hz'))
         self.timer = self.create_timer(1.0 / rate, self.tick)
 
+        # ---- max_speed_mps <-> commander teleop_max_speed_mps ---------------
+        self.sync_max_speed = bool(value('sync_max_speed'))
+        self.commander_ns = str(value('commander_ns')).rstrip('/')
+        # Last teleop_max_speed_mps the commander reported (None = no
+        # snapshot yet). A push is skipped when the commander already runs
+        # with the value, which is what happens after the panel sets both.
+        self.commander_max_speed = None
+        # Set while a value from the commander is being adopted, so the
+        # parameter callback does not push it straight back.
+        self._adopting = False
+        self._pending_push = None
+        self.commander_params = None
+        if self.sync_max_speed:
+            self.create_subscription(
+                String, str(value('commander_status_topic')),
+                self.commander_status_callback, 10)
+            self.commander_params = self.create_client(
+                SetParameters, f'{self.commander_ns}/set_parameters')
+        # Registered last: rclpy runs these for every declare_parameter too.
+        self.add_on_set_parameters_callback(self.on_parameter_change)
+        if hasattr(self, 'add_post_set_parameters_callback'):   # rclpy >= Iron
+            self.add_post_set_parameters_callback(self._apply_parameters)
+        else:
+            self._apply_in_validate = True
+
         self.last_command = None
         # Axes that read full scale on the first /joy message. An analog
         # trigger rests there, so a map that points a velocity axis at one
@@ -130,6 +186,144 @@ class SafeTeleopNode(Node):
             f'({profile.description}): publishing {self.publisher.topic_name}, '
             f'reading {value("joy_topic")} and '
             f'{str(value("odometry_topic_template")).format(name=drone)}')
+
+    # ------------------------------------------------------------------
+    # Runtime parameters
+    # ------------------------------------------------------------------
+
+    # Parameters applied live (`ros2 param set /safe_teleop ...`): the
+    # stick scaling. Everything else (axes, topics, rate) is wiring read
+    # once at startup; a runtime set of it is refused with a reason.
+    LIVE_PARAMS = {
+        'max_speed_mps': 'max_speed',
+        'max_climb_speed_mps': 'max_climb_speed',
+        'yaw_rate_rad_s': 'yaw_rate',
+        'deadzone': 'deadzone_width',
+    }
+    POSITIVE_PARAMS = ('max_speed_mps', 'max_climb_speed_mps')
+    _apply_in_validate = False
+
+    def on_parameter_change(self, params):
+        """Pre-set callback: validate the live parameters, refuse the rest."""
+        for p in params:
+            if p.name not in self.LIVE_PARAMS:
+                return SetParametersResult(
+                    successful=False,
+                    reason=f'{p.name} is read once at startup; change the '
+                           'config and relaunch teleop.launch.py (live: '
+                           + ', '.join(self.LIVE_PARAMS) + ')')
+            if p.type_ not in (Parameter.Type.DOUBLE, Parameter.Type.INTEGER):
+                return SetParametersResult(
+                    successful=False,
+                    reason=f'{p.name} must be a number, got {p.type_.name}')
+            value = float(p.value)
+            if not math.isfinite(value) or (
+                    value <= 0.0 if p.name in self.POSITIVE_PARAMS else value < 0.0):
+                bound = '> 0' if p.name in self.POSITIVE_PARAMS else '>= 0'
+                return SetParametersResult(
+                    successful=False,
+                    reason=f'{p.name} must be finite and {bound}, got {p.value}')
+        if self._apply_in_validate:
+            self._apply_parameters(params)
+        return SetParametersResult(successful=True)
+
+    def _apply_parameters(self, params):
+        """Post-set callback: the parameter is stored, apply it to the mapper."""
+        for p in params:
+            if p.name not in self.LIVE_PARAMS:
+                continue
+            value = float(p.value)
+            attr = self.LIVE_PARAMS[p.name]
+            old = getattr(self.mapper, attr)
+            setattr(self.mapper, attr, value)
+            if p.name != 'max_speed_mps':
+                if value != old:
+                    self.get_logger().info(f'{p.name} {old:g} -> {value:g} (live)')
+                continue
+            if self._adopting:
+                continue        # came from the commander: nothing to push
+            if value != old:
+                self.get_logger().info(
+                    f'max_speed_mps {old:g} -> {value:g} (live; full right stick)')
+            self.push_max_speed(value)
+
+    def push_max_speed(self, value: float):
+        """Ask the commander to run with the same stick cap as this node."""
+        if not self.sync_max_speed:
+            return
+        if (self.commander_max_speed is not None
+                and abs(self.commander_max_speed - value) < 1e-6):
+            return          # it already does (the panel sets both sides)
+        if not self.commander_params.service_is_ready():
+            self.get_logger().warn(
+                f'{self.commander_ns}/set_parameters not available: '
+                f'teleop_max_speed_mps stays as the commander has it, and '
+                f'max_speed_mps will follow the commander ({value:g} is not '
+                'pushed) once its status snapshot arrives')
+            return
+        request = SetParameters.Request()
+        request.parameters = [
+            Parameter('teleop_max_speed_mps', Parameter.Type.DOUBLE,
+                      float(value)).to_parameter_msg()]
+        future = self.commander_params.call_async(request)
+        self._pending_push = future
+
+        def report(fut):
+            if self._pending_push is fut:
+                self._pending_push = None
+            try:
+                result = fut.result().results[0]
+            except Exception as error:   # noqa: BLE001 — service error, log it
+                self.get_logger().error(
+                    f'{self.commander_ns}/set_parameters failed: {error}')
+                return
+            if result.successful:
+                self.get_logger().info(
+                    f'commander teleop_max_speed_mps -> {value:g} (pushed from '
+                    'max_speed_mps)')
+            else:
+                self.get_logger().error(
+                    f'commander REJECTED teleop_max_speed_mps={value:g}: '
+                    f'{result.reason} — max_speed_mps will follow the '
+                    "commander's value instead")
+
+        future.add_done_callback(report)
+
+    def commander_status_callback(self, msg: String):
+        """Follow the commander's live teleop_max_speed_mps."""
+        try:
+            value = json.loads(msg.data).get('tuning', {}).get('teleop_max_speed_mps')
+        except (ValueError, AttributeError):
+            return
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            return
+        value = float(value)
+        if not math.isfinite(value) or value <= 0.0:
+            return
+        self.commander_max_speed = value
+        if self._pending_push is not None:
+            return          # our own push is in flight; the next snapshot decides
+        if abs(self.mapper.max_speed - value) < 1e-6:
+            return
+        old = self.mapper.max_speed
+        self._adopting = True
+        try:
+            results = self.set_parameters(
+                [Parameter('max_speed_mps', Parameter.Type.DOUBLE, value)])
+        finally:
+            self._adopting = False
+        if results[0].successful:
+            self.get_logger().info(
+                f'max_speed_mps {old:g} -> {value:g} (following the '
+                f"commander's teleop_max_speed_mps)")
+        else:
+            self.get_logger().error(
+                f"could not follow the commander's teleop_max_speed_mps="
+                f'{value:g}: {results[0].reason}')
+
+    # ------------------------------------------------------------------
+    # Inputs
+    # ------------------------------------------------------------------
 
     def joy_callback(self, msg: Joy):
         self.joy = msg
