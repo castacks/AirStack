@@ -81,6 +81,8 @@ const padParams = { max_speed_mps: 2.0, max_climb_speed_mps: 0.8, yaw_rate_rad_s
   drone: "drone_3", joy_topic: "/joy", teleop_controller: "dragonrise_usb" };
 const published = [];
 const missionState = { active: false, seq: 0, last: null };
+// bag_recorder: its ~/record switch and what its status topic then reports.
+const bagState = { recording: false, refuse: false, calls: [] };
 
 const panelContext = {
   initialState: {},
@@ -120,6 +122,13 @@ const panelContext = {
       if (name === "cbf_max_speed_mps" && v > 5) return { results: [{ successful: false, reason: "too fast for indoors" }] };
       store[name] = v;
       return { results: [{ successful: true, reason: "" }] };
+    }
+    if (service === "/bag_recorder/record") {
+      bagState.calls.push(req.data);
+      if (bagState.refuse) return { success: false, message: "cannot create bag_dir /nope: Permission denied" };
+      bagState.recording = req.data;
+      return { success: true, message: req.data ? "recording all topics to /bags/svg_20260927_143012"
+        : "stopped: /bags/svg_20260927_143012 (12 s, 12.4 MB)" };
     }
     throw new Error("unknown service " + service);
   },
@@ -176,6 +185,14 @@ function feedJoy(axes, buttons) {
 function feedTeleop(name, vx, vy, vz, yaw) {
   frame([{ topic: `/svg/${name}/teleop_command`, receiveTime: rxTime(t),
     message: { header: { stamp: rxTime(t) }, twist: { linear: { x: vx, y: vy, z: vz }, angular: { x: 0, y: 0, z: yaw } } } }]);
+}
+function feedBag(overrides = {}) {
+  const snap = { stamp: t, node: "/bag_recorder", recording: bagState.recording,
+    path: bagState.recording ? "/bags/svg_20260927_143012" : null,
+    started_at: bagState.recording ? t - 12.4 : null, duration_s: bagState.recording ? 12.4 : null,
+    size_bytes: bagState.recording ? 12400000 : null, topic_count: 87, bag_dir: "/bags", bag_prefix: "svg",
+    storage: "mcap", include_hidden: false, last_bag: null, last_result: null, error: null, ...overrides };
+  frame([{ topic: "/svg/bag_recorder/status", receiveTime: rxTime(t), message: { data: JSON.stringify(snap) } }]);
 }
 function feedCmd(name) {
   frame([{ topic: `/${name}/interface/velocity_command`, receiveTime: rxTime(t),
@@ -239,6 +256,18 @@ const text = () => root.textContent;
     assert(estCells.every((n) => n.className.includes("sb-muted")), "estimated drop cells are muted, not graded");
   }
   assert(/\d+ Hz/.test(txt), "velocity command stream rate rendered");
+  // Agent picker in the Goal card: name buttons only; no Agents roster, no Wiring card.
+  assert(!findAll(root, (n) => n.className === "sb-title" && n.textContent === "Agents").length, "no Agents roster card");
+  assert(!findAll(root, (n) => n.className === "sb-title" && n.textContent.startsWith("Wiring")).length, "no Wiring card");
+  const picks = findAll(root, (n) => n.tagName === "button" && n.className.includes("sb-pick"));
+  assert(picks.length === 3 && picks.map((b) => b.textContent).join(",") === "drone_1,drone_2,drone_3", "one picker button per agent, names only");
+  assert(picks[0].parentNode.parentNode.textContent.startsWith("Goal"), "picker lives in the Goal card");
+  assert(picks[0].classList.contains("sb-selected") && !picks[1].classList.contains("sb-selected"), "drone_1 selected by default");
+  picks[1].click();
+  assert(picks[1].classList.contains("sb-selected") && !picks[0].classList.contains("sb-selected"), "clicking drone_2 selects it");
+  assert(text().includes("drone_2: position & speed"), "goal card title follows the picked agent");
+  assert(saved && saved.selected === "drone_2", "selection persisted");
+  picks[0].click();
   findButton(root, "Use Current").click();
   const goalX = findAll(root, (n) => n.tagName === "input" && n.classList.contains("sb-goal-in"))[0];
   assert(goalX && goalX.value === "-1.23", "Use Current copies the commander's own position (goal frame) into x");
@@ -403,6 +432,68 @@ const text = () => root.textContent;
   findButton(root, "Send").click();
   assert(text().includes("Pick a formation profile first"), "Send with nothing selected is refused");
 
+  // Rosbag switch: disabled + NO RECORDER until bag_recorder's status
+  // arrives; a click calls ~/record (SetBool) and the switch follows the
+  // recorder's own `recording` flag, not the click.
+  assert(subscribed.includes("/svg/bag_recorder/status"), "subscribes to the bag recorder status topic");
+  assert(settingsNodes.swarm.fields.bagRecorderNs && settingsNodes.swarm.fields.bagRecorderNs.value === "/bag_recorder"
+    && settingsNodes.swarm.fields.bagStatusTopic, "settings editor exposes the bag recorder namespace + status topic");
+  const bagRow = findAll(root, (n) => n.className === "sb-bag")[0];
+  const bannerEl = findAll(root, (n) => n.className.includes("sb-banner"))[0];
+  assert(bagRow && bagRow.parentNode === bannerEl, "Rosbag switch lives in the banner");
+  assert(bannerEl.children.indexOf(bagRow) > bannerEl.children.findIndex((n) => n.className === "sb-spacer")
+    && bannerEl.children.indexOf(bagRow) === bannerEl.children.length - 2,
+    "switch sits right of the task chips, just before the clock");
+  assert(bagRow.textContent.startsWith("Rosbag"), "switch is labelled Rosbag");
+  const bagCheck = findAll(bagRow, (n) => n.tagName === "input" && n.type === "checkbox")[0];
+  assert(bagCheck && bagCheck.disabled && !bagCheck.checked && bagRow.textContent.includes("NO RECORDER"),
+    "switch disabled and NO RECORDER before any recorder status");
+  t += 0.1; feedBag();
+  render();
+  const bagChip = findAll(bagRow, (n) => n.className.includes("sb-chip"))[0];
+  assert(!bagCheck.disabled && !bagCheck.checked && bagChip.textContent === "IDLE" && bagChip.title.includes("under /bags"),
+    "recorder status enables the switch: IDLE, bag_dir in the tooltip");
+  bagCheck.checked = true; bagCheck.fire("change");
+  render();
+  assert(bagCheck.disabled && bagCheck.checked && bagRow.textContent.includes("STARTING"), "click: switch held on and disabled while the recorder confirms");
+  await new Promise((r) => setTimeout(r, 10));
+  assert(bagState.calls.length === 1 && bagState.calls[0] === true, "switch on calls /bag_recorder/record with data: true");
+  t += 0.3; feedBag();
+  render();
+  assert(!bagCheck.disabled && bagCheck.checked, "recorder reports recording: switch on, enabled again");
+  assert(bagChip.textContent === "REC 0:12 · 12.4 MB" && bagChip.title.includes("/bags/svg_20260927_143012"),
+    "REC chip shows duration and size; the bag path is in its tooltip");
+  assert(text().includes("recording all topics to /bags/svg_20260927_143012"), "status line carries the recorder's reply");
+  bagCheck.checked = false; bagCheck.fire("change");
+  await new Promise((r) => setTimeout(r, 10));
+  assert(bagState.calls.length === 2 && bagState.calls[1] === false, "switch off calls /bag_recorder/record with data: false");
+  t += 0.3; feedBag({ last_bag: "/bags/svg_20260927_143012", last_result: "stopped: /bags/svg_20260927_143012 (12 s, 12.4 MB)" });
+  render();
+  assert(!bagCheck.checked && !bagCheck.disabled && bagChip.textContent === "IDLE"
+    && bagChip.title.includes("stopped: /bags/svg_20260927_143012 (12 s, 12.4 MB)"), "switch off again; the tooltip reports the closed bag");
+  // Recorder refuses (e.g. unwritable bag_dir): the switch springs back and the reason is shown.
+  bagState.refuse = true;
+  bagCheck.checked = true; bagCheck.fire("change");
+  await new Promise((r) => setTimeout(r, 10));
+  render();
+  assert(!bagCheck.checked && !bagCheck.disabled && bagState.calls.length === 3, "a refused start releases the switch back to off");
+  assert(text().includes("REJECTED") && text().includes("cannot create bag_dir /nope"), "refusal reason shown in the status line");
+  bagState.refuse = false;
+  // Recorder dies mid-run: its status flips recording=false with an error.
+  bagState.recording = true; t += 0.2; feedBag();
+  render();
+  assert(bagCheck.checked, "switch follows a recorder that was started elsewhere (ros2 service call)");
+  bagState.recording = false; t += 0.2;
+  feedBag({ error: "recorder exited on its own with code 1: /bags/svg_20260927_143012 (3 s, 0.4 MB)",
+    last_result: "recorder exited on its own with code 1: /bags/svg_20260927_143012 (3 s, 0.4 MB)" });
+  render();
+  assert(!bagCheck.checked && bagChip.textContent === "IDLE ✗" && bagChip.title.includes("exited on its own with code 1"),
+    "a recorder that died: amber IDLE ✗ with the error in the tooltip, switch off");
+  // Recorder goes silent: switch disabled, NO RECORDER.
+  t += 3; feedStatus();
+  render();
+  assert(bagCheck.disabled && bagRow.textContent.includes("NO RECORDER"), "silent recorder disables the switch again");
+
   // Stale commander -> NO COMMANDER, positions fall back.
   t += 5; feedOdom("drone_1", 9.87, 0, 1);
   render();
@@ -525,6 +616,18 @@ const text = () => root.textContent;
     assert(card.hidden === !expectCard, `${view} view ${expectCard ? "shows" : "never shows"} the Teleop card while safe_teleop streams`);
     if (view === "teleop") assert(card.parentNode === r && off.hidden, "teleop view shows the card directly under the root and drops the 'off' note");
     if (view === "power") assert(card.parentNode.className === "sb-side" && !card.hidden, "power view shows the sticks beside the battery card while teleop runs");
+    disp();
+  }
+
+  // The switch is banner chrome of the main instance: not in the power one.
+  {
+    const ctx = { ...panelContext, initialState: { view: "power" }, panelElement: makeNode("div"), callService: realCall };
+    let fn = null;
+    Object.defineProperty(ctx, "onRender", { set(f) { fn = f; }, get() { return fn; } });
+    const disp = initPanel(ctx);
+    timers[timers.length - 1]();
+    const w = findAll(ctx.panelElement, (n) => n.className === "sb-bag")[0];
+    assert(w && w.hidden, "power view hides the Rosbag switch with the other banner chips");
     disp();
   }
 

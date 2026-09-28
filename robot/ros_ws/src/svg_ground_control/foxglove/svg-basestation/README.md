@@ -3,14 +3,14 @@
 Ground-station panel for the SVG counter-UAS demonstration — the SVG analogue of
 the DTC *Robot Control Panel* that anchors the `foxglove_ws` basestation layout.
 One panel owns agent selection, the swarm-wide safety command, mission
-confirmation, the runtime gains (CBF, teleop speed cap, go-to-goal law),
-per-drone state and position, and the operator's health picture.
+confirmation, the runtime gains (CBF, teleop speed cap, go-to-goal law), the
+rosbag switch, per-drone state and position, and the operator's health picture.
 
 Three ideas drive the whole panel:
 
 | Idea | What it means |
 | --- | --- |
-| **Mode is wiring** | An agent is `sim` or `real`, exactly as in `swarm_commander`'s `drone_modes`. `sim` talks to the MAVROS interface (`/{name}/interface/...`); `real` talks to `px4_interface` over uXRCE-DDS (`/{name}/fmu/...`) and additionally carries mocap, EKF and timesync telemetry. The **Wiring** card spells out the resolved topics for the selected agent. |
+| **Mode is wiring** | An agent is `sim` or `real`, exactly as in `swarm_commander`'s `drone_modes`. `sim` talks to the MAVROS interface (`/{name}/interface/...`); `real` talks to `px4_interface` over uXRCE-DDS (`/{name}/fmu/...`) and additionally carries mocap, EKF and timesync telemetry. The resolved topics are the *Wiring — sim* / *Wiring — real* settings. |
 | **Topics decide what you see** | Every section declares the topics it needs. A section with no publisher is not rendered, so a sim-only run shows no empty mocap/EKF columns and a run with no cellular reporter shows no empty cellular table. The banner lists the tasks the panel inferred. |
 | **No fabricated numbers** | Anything with no source reads `--`. Every derived value is labelled with where it came from. |
 
@@ -35,15 +35,17 @@ python3 robot/ros_ws/src/svg_ground_control/foxglove/install.py   # installs air
 in `gcs/foxglove_extensions/` with their own `install.py`.)
 
 `svg_basestation.json` (one directory up) is a ready-made layout with **two
-instances** of this panel plus a 3D view of `/svg/viz/markers`:
+instances** of this panel, a 3D view of `/svg/viz/markers` and an Image panel
+on drone_1's RGB camera:
 
 ```
-┌──────────────────────────┬──────────────────────────┐
-│ SVG Basestation          │ 3D  (/svg/viz/markers)    │
-│  View = main             │                          │
-│  safety · command · CBF  ├──────────────────────────┤
-│  goal · agents · state   │ SVG Battery & Power      │
-│  link safety · cellular  │  View = power            │
+┌──────────────────────────┬───────────────┬──────────┐
+│ SVG Basestation          │ 3D            │ Image    │
+│  View = main             │ (/svg/viz/    │ drone_1  │
+│  safety · command · CBF  │  markers)     │ camera   │
+│  goal · agents · state   ├───────────────┴──────────┤
+│  link safety · cellular  │ SVG Battery & Power      │
+│                          │  View = power            │
 │                          │  [battery | sticks*]     │
 └──────────────────────────┴──────────────────────────┘
    * the Teleop · Sticks card appears beside the battery card only while
@@ -57,7 +59,16 @@ clock in its banner), `teleop` (the Teleop · Sticks card alone in a slot of
 its own — it reads "Teleop off" while `safe_teleop` is not publishing; a
 Foxglove panel slot cannot remove itself, which is why the shipped layout
 uses `power` instead), or `full` (the old single-panel form).
-The 3D view's built-in grid layer is off: it is a fixed 8 m square on the
+The **Image** panel is Foxglove's own, on
+`/drone_1/sensors/front_stereo/left/image_rect` (`sensor_msgs/Image`, with
+`…/left/camera_info` as its calibration): the left eye of the ZED stereo
+camera the Pegasus simulator attaches to the drone. Isaac Sim only spawns
+that camera when `svg_multi_drone_single_domain.py` is started with
+`ENABLE_CAMERA=true CAMERA_DRONES=drone_1` (the default camera drone is the
+*last* one, the intruder, and the camera is off entirely without
+`ENABLE_CAMERA`); otherwise the panel reads "Waiting for images". On hardware
+retarget it from the panel's settings (gear → Image topic) to whatever the
+drone publishes. The 3D view's built-in grid layer is off: it is a fixed 8 m square on the
 origin and never matches the fence. The commander draws a grid on the fence
 floor instead (`fence_grid_cell_m`), clipped to the fence and aligned to world
 metres, inside `/svg/viz/markers`.
@@ -152,6 +163,38 @@ slider max` (5 m/s), `Goal accel slider max` (15 m/s²) and `Goal settle
 slider max` (2 s) settings; the number boxes accept any positive value (any
 value `>= 0` for the settle time).
 
+## Rosbag switch
+
+The **Rosbag** switch at the top right of the banner (right of the task chip,
+beside the clock) is a toggle that records **every published topic** on the
+domain to an mcap bag — the Foxglove form of
+`ground_control.launch.py record_bag:=true`, but switchable mid-run. It talks
+to the `bag_recorder` node (`svg_ground_control/bag_recorder.py`, started by
+`ground_control.launch.py`): switching on calls `<bag recorder ns>/record`
+(`std_srvs/SetBool`, `data: true`), which spawns `ros2 bag record
+--all-topics --storage mcap` at `<bag_dir>/<bag_prefix>_<YYYYmmdd_HHMMSS>`;
+switching off sends `data: false`, which SIGINTs the recorder so it closes
+the file and writes `metadata.yaml` (a bag killed hard is unreadable).
+
+The switch shows the **recorder's own state**, not the last click: it follows
+`recording` in `bag_recorder`'s status snapshot (`/svg/bag_recorder/status`,
+`std_msgs/String` JSON at 2 Hz), so a bag started from a shell shows as on,
+and a recorder that dies mid-run (disk full) drops the switch back to off
+with its exit code on the row.
+
+| Element | What it shows |
+| --- | --- |
+| **Switch** | Disabled until the recorder is heard from. Held in the asked position and disabled while the recorder confirms (`STARTING…` / `STOPPING…`); springs back if the recorder refuses (unwritable `bag_dir`) with the reason in the status line; `NOT CONFIRMED` in the status line if the status topic never reflects the click |
+| **Chip** | `NO RECORDER` (nothing on the status topic for 2.5 s — `bag_recorder` is not running), `IDLE`, red `REC 1:23 · 12.4 MB` (duration and size on disk so far), or amber `IDLE ✗` when the last recording died on its own or a start was refused |
+| **Tooltip** | Hover the chip: the bag directory while recording (and the topic count on the graph); afterwards the recorder's summary of the last bag (`stopped: … (45 s, 120.3 MB)`) or why it stopped on its own; `bag_dir` when idle |
+
+`Bag recorder namespace` (`/bag_recorder`) and `Bag recorder status topic`
+(`/svg/bag_recorder/status`) are settings. The switch is banner chrome of the
+`main` / `full` instance, hidden in `power` and `teleop` like the link and task
+chips. From a shell the same
+switch is `ros2 service call /bag_recorder/record std_srvs/srv/SetBool
+"{data: true}"` (or `~/start` / `~/stop`, `std_srvs/Trigger`).
+
 ## Formation
 
 The **Formation** row is a dropdown of the profiles named in the `Formation
@@ -161,6 +204,15 @@ profiles` setting (mirror the commander's `formation_profiles` parameter) and a
 The commander's reserved `next` verb and ad-hoc profile names are not exposed
 here — send them from a shell if needed:
 `ros2 topic pub --once /svg/formation_command std_msgs/msg/String "{data: next}"`.
+
+## Goal · agent picker
+
+The Goal card starts with a row of **agent buttons** (`drone_1` `drone_2` …,
+names only — battery, mode and link health are already in Battery & Power and
+Agent State). The highlighted one is the agent the x/y/z/speed fields edit
+and **Send Goal** targets; the same selection highlights that drone's rows in
+the Agent State and link tables and its power card. Clicking a row in those
+tables selects too. There is no separate Agents roster and no Wiring card.
 
 ## Agent State
 
@@ -209,8 +261,8 @@ the `Joystick (raw)` setting (`/joy`).
 `Modes` in the settings takes a comma-separated `sim|real` list in `drone_names`
 order, mirroring `swarm_commander`'s `drone_modes`. Leave it blank and each agent
 is **detected from the topics on the wire**: anything publishing under
-`/{name}/fmu/` is real, anything under `/{name}/interface/` is sim. The Wiring
-card says which of the two happened.
+`/{name}/fmu/` is real, anything under `/{name}/interface/` is sim. The Agent
+State rows say which of the two happened (hover the mode tag).
 
 | Purpose | `sim` | `real` |
 | --- | --- | --- |
@@ -327,8 +379,8 @@ shown; their contents say `NO COMMANDER` / `--` until the commander is up.
 The panel is plain JavaScript in `dist/extension.js` (no build step). A smoke
 test drives it under a minimal DOM stub and a fake Foxglove panel context —
 feeding a commander snapshot, odometry and velocity commands, clicking Start,
-Hold and Apply (including the two-node teleop cap) — and checks the rendered
-text:
+Hold, Apply (including the two-node teleop cap) and the Rosbag switch — and
+checks the rendered text:
 
 ```
 docker run --rm -v "$PWD/robot/ros_ws/src/svg_ground_control/foxglove/svg-basestation:/p" -w /p node:20-alpine \

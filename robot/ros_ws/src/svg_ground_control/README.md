@@ -138,6 +138,19 @@ velocity, no altitude hold) remains as an ad-hoc utility.
   Teleop vmax row sets both. Everything else is read once at startup; a
   `ros2 param set` on it is refused with a reason.
 
+- **Rosbag switch**: the `bag_recorder` node (started by
+  `ground_control.launch.py`) records every published topic on the domain
+  (mcap, `ros2 bag record --all-topics`) on demand: the **Rosbag** toggle in
+  the Foxglove panel, or `ros2 service call /bag_recorder/record
+  std_srvs/srv/SetBool "{data: true}"`, starts a bag at
+  `<bag_dir>/<bag_prefix>_<YYYYmmdd_HHMMSS>` (`bag_dir` defaults to the
+  bind-mounted `~/AirStack/robot/ros_ws/bags`, so the bag is on the host);
+  `data: false` closes it (SIGINT, so `metadata.yaml` is written). Its
+  status (`/svg/bag_recorder/status`, JSON: recording, path, duration, size)
+  is what the panel's switch shows. `record_bag:=true` records from launch
+  to Ctrl-C as before, still switchable in between. See experiment.md
+  "Recording rosbags".
+
 Full how-to for all of the above: **[experiment.md](experiment.md)**.
 
 ## CBF filter

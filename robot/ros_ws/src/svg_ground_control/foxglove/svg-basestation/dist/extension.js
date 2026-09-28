@@ -61,6 +61,11 @@
 //             (what safe_teleop publishes; the Teleop card is shown only
 //             while this is streaming, i.e. while safe_teleop is running)
 //             /safe_teleop/get_parameters             axis map, deadzone, caps
+//   rosbag    /bag_recorder/record                    std_srvs/SetBool
+//             (the Rosbag switch: true starts `ros2 bag record --all-topics`,
+//             false stops it — svg_ground_control/bag_recorder.py)
+//             /svg/bag_recorder/status                std_msgs/String, JSON
+//             (recording, path, duration, size — the truth the switch shows)
 
 // ─────────────────────────── constants ────────────────────────────────────────
 
@@ -199,6 +204,10 @@ const TELEOP_TIMEOUT_S = 2.0;
 // velocity. Read from <teleop ns>/get_parameters; until that answers the
 // xbox_usb defaults below (safe_teleop/controllers.py) are assumed and the
 // card says so.
+// The bag recorder publishes its status at 2 Hz; silence this long means it
+// is not running and the Rosbag switch is disabled.
+const BAG_TIMEOUT_S = 2.5;
+
 const TELEOP_MAP_DEFAULTS = {
   forward_axis: 4, left_axis: 3, climb_axis: 1, yaw_axis: 0, lock_button: 4,
   forward_sign: 1, left_sign: 1, climb_sign: 1, yaw_sign: 1,
@@ -298,6 +307,10 @@ const DEFAULTS = {
   // safe_teleop's node namespace: its max_speed_mps is set together with the
   // commander's teleop_max_speed_mps (see TUNING_PARAMS "teleop").
   teleopNs: "/safe_teleop",
+  // bag_recorder (svg_ground_control/bag_recorder.py): its ~/record
+  // std_srvs/SetBool switch and the JSON status it publishes.
+  bagRecorderNs: "/bag_recorder",
+  bagStatusTopic: "/svg/bag_recorder/status",
 
   // shared
   stateTopicTemplate: "/{name}/odometry_conversion/odometry",
@@ -1059,6 +1072,25 @@ const STYLES = `
 .sb-cbf-live { font-family: ui-monospace, monospace; font-size: 11px; white-space: nowrap; width: 104px; flex: 0 0 auto; overflow: hidden; text-overflow: ellipsis; }
 .sb-cbf-scale { display: flex; justify-content: space-between; font-size: 9.5px; opacity: 0.55; margin-top: -2px; }
 .sb-cbf-note { font-size: 11px; opacity: 0.8; min-height: 14px; margin-top: 2px; }
+/* Rosbag switch: a checkbox drawn as a toggle; red knob track while recording. */
+.sb-switch { position: relative; display: inline-block; width: 38px; height: 20px; flex: 0 0 auto; }
+.sb-switch-in { opacity: 0; width: 0; height: 0; margin: 0; position: absolute; }
+.sb-switch-knob {
+  position: absolute; inset: 0; border-radius: 20px; background: rgba(127,127,127,0.45);
+  cursor: pointer; transition: background 0.15s;
+}
+.sb-switch-knob::before {
+  content: ""; position: absolute; width: 14px; height: 14px; left: 3px; top: 3px;
+  border-radius: 50%; background: #fff; transition: transform 0.15s;
+}
+.sb-switch-in:checked + .sb-switch-knob { background: #dc2626; }
+.sb-switch-in:checked + .sb-switch-knob::before { transform: translateX(18px); }
+.sb-switch-in:disabled + .sb-switch-knob { opacity: 0.45; cursor: not-allowed; }
+.sb-switch-in:focus-visible + .sb-switch-knob { outline: 2px solid #4f46e5; outline-offset: 1px; }
+.sb-rec { animation: sb-blink 1.2s ease-in-out infinite; }
+@keyframes sb-blink { 50% { opacity: 0.6; } }
+.sb-bag { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+.sb-bag-label { font-size: 11px; font-weight: 600; opacity: 0.65; }
 .sb-cmdlog { max-height: 74px; margin-top: 5px; }   /* ~4 lines */
 .sb-pos { font-family: ui-monospace, monospace; }
 
@@ -1067,25 +1099,19 @@ const STYLES = `
 @media (max-width: 680px) { .sb-columns { grid-template-columns: 1fr; } }
 .sb-col { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
 
-/* roster */
-.sb-agent {
-  display: flex; flex-direction: column; gap: 4px; padding: 6px; border-radius: 5px;
-  border: 1px solid rgba(127,127,127,0.3); cursor: pointer; background: transparent;
-  color: inherit; text-align: left; width: 100%; box-sizing: border-box;
+/* agent picker (Goal card) + the agent-name header the power cards share */
+.sb-picker { margin-bottom: 6px; }
+.sb-pick {
+  padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(127,127,127,0.45);
+  background: transparent; color: inherit; cursor: pointer; font-size: 11px; font-weight: 700;
 }
-.sb-agent + .sb-agent { margin-top: 5px; }
-.sb-agent.sb-selected { border-color: #10b981; box-shadow: inset 0 0 0 1px #10b981; }
+.sb-pick:hover { border-color: rgba(127,127,127,0.8); }
+.sb-pick.sb-selected { background: #10b981; border-color: #10b981; color: #fff; }
 .sb-agent-top { display: flex; align-items: center; gap: 6px; }
 .sb-agent-name { font-weight: 700; font-size: 12px; flex: 1; }
 .sb-mode { font-size: 9px; font-weight: 800; letter-spacing: 0.06em; padding: 1px 5px; border-radius: 3px; color: #fff; }
 .sb-mode.sim { background: #2563eb; }
 .sb-mode.real { background: #b45309; }
-
-/* wiring */
-.sb-wire { font-family: ui-monospace, monospace; font-size: 10.5px; line-height: 1.6; }
-.sb-wire-row { display: flex; gap: 6px; }
-.sb-wire-key { opacity: 0.55; min-width: 52px; flex-shrink: 0; }
-.sb-wire-val { word-break: break-all; }
 
 /* bars */
 .sb-bar { position: relative; height: 8px; border-radius: 4px; background: rgba(127,127,127,0.25); overflow: hidden; }
@@ -1280,6 +1306,10 @@ function activate(extensionContext) {
       // safe_teleop's parameters ({values, at, err, pending}); see
       // refreshTeleopParams.
       const teleopParams = { values: null, at: null, err: null, pending: false, lastTry: 0 };
+      // bag_recorder's latest status snapshot and when it arrived; the Rosbag
+      // switch shows `bag.recording`, never what was last clicked. `bagPending`
+      // is a click whose effect the status has not confirmed yet ({want, until}).
+      let bag = null, bagAt = null, bagPending = null;
       // Which CBF gain the single slider row is editing (dropdown), persisted.
       let cbfSel = TUNING_PARAMS.some((p) => p.id === persisted.cbfSel) ? persisted.cbfSel : TUNING_PARAMS[0].id;
       const cbfSelected = () => TUNING_PARAMS.find((p) => p.id === cbfSel);
@@ -1311,24 +1341,6 @@ function activate(extensionContext) {
       // An agent's mode IS its wiring. "sim" talks to the MAVROS interface,
       // "real" talks to px4_interface over uXRCE-DDS and additionally carries
       // the mocap + EKF + timesync streams that only exist on hardware.
-
-      function wiringFor(agent) {
-        const n = agent.name;
-        const real = agent.mode === "real";
-        return {
-          state: tpl(cfg.stateTopicTemplate, n),
-          battery: tpl(real ? cfg.realBatteryTopicTemplate : cfg.simBatteryTopicTemplate, n),
-          command: tpl(real ? cfg.realCommandTopicTemplate : cfg.simCommandTopicTemplate, n),
-          robotCommand: tpl(real ? cfg.realRobotCommandTemplate : cfg.simRobotCommandTemplate, n),
-          mocap: real ? tpl(cfg.mocapTopicTemplate, n) : null,
-          ekfFlags: real ? tpl(cfg.ekfFlagsTopicTemplate, n) : null,
-          localPosition: real ? tpl(cfg.localPositionTopicTemplate, n) : null,
-          timesync: real ? tpl(cfg.timesyncTopicTemplate, n) : null,
-          lan: tpl(cfg.lanTopicTemplate, n),
-          vpn: tpl(cfg.vpnTopicTemplate, n),
-          cellular: tpl(cfg.cellularTopicTemplate, n),
-        };
-      }
 
       // px4_interface publishes under /{name}/fmu/..., the MAVROS interface
       // under /{name}/interface/... — so the topics on the wire tell us how
@@ -1382,7 +1394,7 @@ function activate(extensionContext) {
         if (!agents.some((a) => a.name === selected)) selected = agents[0]?.name ?? null;
         resolveModes();
         rebuildSubscriptions();
-        buildRoster();
+        buildAgentPicker();
         recomputeCaps();
       }
 
@@ -1422,6 +1434,7 @@ function activate(extensionContext) {
         // Swarm-wide, not per agent.
         add(cfg.statusTopic, null, "status");
         add(cfg.joyTopic, null, "joy");
+        add(cfg.bagStatusTopic, null, "bag");
         panelContext.subscribe([...byTopic.keys()].map((topic) => ({ topic })));
       }
 
@@ -1603,7 +1616,6 @@ function activate(extensionContext) {
             available = new Set(renderState.topics.map((t) => t.name));
             resolveModes();
             recomputeCaps();
-            buildRoster();
             // A new topic list usually means the commander (re)started — its
             // parameter services are the only way to read the CBF gains before
             // the first status snapshot arrives.
@@ -1630,6 +1642,9 @@ function activate(extensionContext) {
                   streamOnMessage(agent.teleopCmd, rx, stamp);
                   break;
                 case "joy": handleJoy(evt.message, rx, stamp); break;
+                case "bag":
+                  try { bag = handleJson(evt.message); bagAt = rx; } catch { /* malformed: keep the last one */ }
+                  break;
                 case "state": handleState(agent, evt.message, rx); break;
                 case "battery": handleBattery(agent, evt.message, rx); break;
                 case "ekfflags": agent.ekfFlags = evt.message; agent.ekfAt = rx; break;
@@ -1680,8 +1695,23 @@ function activate(extensionContext) {
       const modeChip = el("span", "sb-chip sb-quiet");
       const taskChip = el("span", "sb-chip sb-quiet");
       const clockEl = el("span", "sb-status");
+      // Rosbag switch — bag_recorder's ~/record (std_srvs/SetBool), top
+      // right of the banner. The switch position is the recorder's own
+      // `recording` flag from its status topic; a click only asks. Until the
+      // recorder is heard from the switch is disabled and the chip reads
+      // NO RECORDER. The bag path / last result live in the chip's tooltip.
+      const bagWrap = el("span", "sb-bag");
+      const bagLabel = el("span", "sb-bag-label", "Rosbag");
+      const bagToggle = el("label", "sb-switch");
+      const bagCheck = el("input", "sb-switch-in");
+      bagCheck.type = "checkbox";
+      const bagKnob = el("span", "sb-switch-knob");
+      bagToggle.append(bagCheck, bagKnob);
+      bagCheck.addEventListener("change", () => setRecording(Boolean(bagCheck.checked)));
+      const bagChip = el("span", "sb-chip sb-quiet", "NO RECORDER");
+      bagWrap.append(bagLabel, bagToggle, bagChip);
       banner.append(linkChip, estChip, powerChip, modeChip, taskChip,
-        el("div", "sb-spacer"), clockEl);
+        el("div", "sb-spacer"), bagWrap, clockEl);
       root.appendChild(banner);
 
       // Safety bar — the one control an operator must be able to hit without
@@ -1823,6 +1853,27 @@ function activate(extensionContext) {
       const goalTitleSub = el("span", "sb-sub");
       goalTitle.appendChild(goalTitleSub);
       goalCard.appendChild(goalTitle);
+      // Agent picker — which drone the goal fields edit. A row of name
+      // buttons only; the selection also highlights that drone's rows in the
+      // Agent State / link tables and its power card. Rebuilt with the roster.
+      const pickerRow = el("div", "sb-cmd-row sb-picker");
+      goalCard.appendChild(pickerRow);
+      const pickerButtons = new Map();
+      function buildAgentPicker() {
+        pickerRow.textContent = "";
+        pickerButtons.clear();
+        if (!agents.length) {
+          pickerRow.appendChild(el("span", "sb-note", "No agents configured — set the agent list in the panel settings."));
+          return;
+        }
+        for (const a of agents) {
+          const b = el("button", "sb-pick", a.name);
+          b.title = `Edit ${a.name}'s goal`;
+          b.addEventListener("click", () => { selected = a.name; persist(); render(); });
+          pickerRow.appendChild(b);
+          pickerButtons.set(a.name, b);
+        }
+      }
       const goalRow = el("div", "sb-cmd-row");
       const goalInputs = {};
       for (const key of ["x", "y", "z", "speed"]) {
@@ -1836,7 +1887,7 @@ function activate(extensionContext) {
           input.min = "0";
           input.title = "Cruise speed for this drone. Blank leaves the commander's current speed.";
         } else {
-          input.title = `Goal ${key} in world ENU metres — the frame the roster positions are in`;
+          input.title = `Goal ${key} in world ENU metres — the frame the Agent State positions are in`;
         }
         input.addEventListener("input", () => {
           if (!selected) return;
@@ -1867,52 +1918,6 @@ function activate(extensionContext) {
       const rightCol = el("div", "sb-col");
       columns.append(leftCol, rightCol);
       root.appendChild(columns);
-
-      // Roster
-      const rosterCard = el("div", "sb-card");
-      rosterCard.appendChild(el("div", "sb-title", "Agents"));
-      const rosterBody = el("div");
-      rosterCard.appendChild(rosterBody);
-      leftCol.appendChild(rosterCard);
-      const rosterRows = new Map();
-
-      function buildRoster() {
-        rosterBody.textContent = "";
-        rosterRows.clear();
-        if (!agents.length) {
-          rosterBody.appendChild(el("div", "sb-note", "No agents configured — set the agent list in the panel settings."));
-          return;
-        }
-        for (const a of agents) {
-          const row = el("button", "sb-agent");
-          const top = el("div", "sb-agent-top");
-          const dot = el("span", "sb-dot");
-          const name = el("span", "sb-agent-name", a.name);
-          const mode = el("span", `sb-mode ${a.mode}`, MODES[a.mode].label);
-          top.append(dot, name, mode);
-          const bar = el("div", "sb-bar");
-          const fill = el("div", "sb-bar-fill");
-          bar.appendChild(fill);
-          const meta = el("div", "sb-note");
-          row.append(top, bar, meta);
-          row.addEventListener("click", () => { selected = a.name; persist(); render(); });
-          rosterBody.appendChild(row);
-          rosterRows.set(a.name, { row, dot, fill, meta, mode });
-        }
-      }
-
-      // Wiring card — makes "mode = wiring" concrete for the selected agent.
-      const wireCard = el("div", "sb-card");
-      const wireTitle = el("div", "sb-title");
-      wireTitle.append(document.createTextNode("Wiring "));
-      wireTitle.appendChild(el("span", "sb-sub", "— topics this mode uses"));
-      wireCard.appendChild(wireTitle);
-      const wireBody = el("div", "sb-wire");
-      wireCard.appendChild(wireBody);
-      const wireNote = el("div", "sb-note");
-      wireNote.style.marginTop = "6px";
-      wireCard.appendChild(wireNote);
-      leftCol.appendChild(wireCard);
 
       // Agent state section — flight state and numeric position per drone.
       // Positions prefer the commander's own view (the numbers the CBF is
@@ -2432,6 +2437,106 @@ function activate(extensionContext) {
         }
       }
 
+      function bagService() {
+        return `${String(cfg.bagRecorderNs).replace(/\/$/, "")}/record`;
+      }
+      function bagFresh(now) {
+        return bag != null && bagAt != null && now - bagAt <= BAG_TIMEOUT_S;
+      }
+      function fmtBytes(b) {
+        const v = num(b);
+        if (v == null) return "--";
+        if (v >= 1e9) return `${(v / 1e9).toFixed(2)} GB`;
+        if (v >= 1e6) return `${(v / 1e6).toFixed(1)} MB`;
+        return `${(v / 1e3).toFixed(0)} kB`;
+      }
+
+      // The Rosbag switch: ask bag_recorder to start (true) or stop (false)
+      // `ros2 bag record --all-topics`. The reply says whether it could; the
+      // status topic then says whether it did — the switch follows that.
+      function setRecording(on) {
+        const service = bagService();
+        if (!servicesAvailable()) {
+          setStatus(`Service calls unavailable in this data source (wanted ${service})`);
+          renderBag(nowSec());
+          return;
+        }
+        bagPending = { want: on, until: nowSec() + VERIFY_WINDOW_S };
+        setStatus(`${on ? "Starting" : "Stopping"} rosbag recording via ${service} ...`);
+        renderBag(nowSec());
+        callWithTimeout(service, { data: on })
+          .then((res) => {
+            const msg = res?.message ? String(res.message) : "";
+            if (res?.success === false) {
+              bagPending = null;
+              setStatus(`${service}: REJECTED${msg ? ` — ${msg}` : ""}`);
+              return;
+            }
+            setStatus(`Rosbag ${on ? "recording" : "stopped"}${msg ? ` — ${msg}` : ""}`);
+          })
+          .catch((err) => {
+            const m = String(err?.message ?? err);
+            // A lost reply is not a lost command: keep waiting on the status.
+            setStatus(`${service} ${/no reply within/.test(m) ? "TIMEOUT" : "FAILED"}: ${m} · checking the recorder's status`);
+          })
+          .finally(() => renderBag(nowSec()));
+      }
+
+      function renderBag(now, visible = true) {
+        show(bagWrap, visible);
+        const fresh = bagFresh(now);
+        const recording = fresh && bag.recording === true;
+        if (bagPending) {
+          if (fresh && bag.recording === bagPending.want) bagPending = null;
+          else if (now > bagPending.until) {
+            setStatus(`Rosbag ${bagPending.want ? "start" : "stop"} NOT CONFIRMED by ${cfg.bagStatusTopic}`);
+            bagPending = null;
+          }
+        }
+        bagCheck.checked = bagPending ? bagPending.want : recording;
+        bagCheck.disabled = !fresh || !servicesAvailable() || bagPending != null;
+        if (!fresh) {
+          bagChip.className = "sb-chip sb-quiet";
+          bagChip.textContent = "NO RECORDER";
+          bagChip.style.background = "";
+          bagChip.title = `Nothing on ${cfg.bagStatusTopic} for ${BAG_TIMEOUT_S} s — is bag_recorder running? ` +
+            `(ground_control.launch.py starts it; ros2 run svg_ground_control bag_recorder)`;
+          bagToggle.title = "bag_recorder is not running";
+          return;
+        }
+        bagToggle.title = recording
+          ? "Stop recording (closes the bag and writes metadata.yaml)"
+          : `Start ros2 bag record --all-topics (${bag.storage ?? "mcap"}) under ${bag.bag_dir ?? "?"}`;
+        const topics = num(bag.topic_count);
+        if (bagPending) {
+          bagChip.className = "sb-chip";
+          bagChip.style.background = "#d97706";
+          bagChip.textContent = bagPending.want ? "STARTING…" : "STOPPING…";
+          bagChip.title = "Waiting for bag_recorder's status to confirm";
+        } else if (recording) {
+          bagChip.className = "sb-chip sb-rec";
+          bagChip.style.background = "#dc2626";
+          bagChip.textContent = `REC ${fmtDuration(num(bag.duration_s) ?? 0)} · ${fmtBytes(bag.size_bytes)}`;
+          bagChip.title = `Recording every published topic${topics != null ? ` (${topics} on the graph now)` : ""} to ${bag.path}. ` +
+            "Size is what is on disk so far — rosbag2 flushes its cache in chunks, so it lags a short recording.";
+        } else if (bag.error) {
+          // The last recording ended badly (died on its own, or a start was
+          // refused): amber until the next successful start.
+          bagChip.className = "sb-chip";
+          bagChip.style.background = "#d97706";
+          bagChip.textContent = "IDLE ✗";
+          bagChip.title = `${bag.error}\n${bag.last_result && bag.last_result !== bag.error ? bag.last_result + "\n" : ""}` +
+            `Switch on to start a new bag under ${bag.bag_dir ?? "?"}`;
+        } else {
+          bagChip.className = "sb-chip sb-quiet";
+          bagChip.style.background = "";
+          bagChip.textContent = "IDLE";
+          bagChip.title = `Not recording. Switch on to record every published topic` +
+            `${topics != null ? ` (${topics} on the graph now)` : ""} under ${bag.bag_dir ?? "?"}` +
+            `${bag.last_result ? `\nLast bag — ${bag.last_result}` : ""}`;
+        }
+      }
+
       // Goal entry for the selected agent. Blank fields read back as null so
       // an empty box is never silently treated as 0 (Number("") === 0).
       function goalField(key) {
@@ -2527,45 +2632,6 @@ function activate(extensionContext) {
         chip.style.fontSize = "10px";
         td.appendChild(chip);
         return td;
-      }
-
-      function renderWiring() {
-        const a = agents.find((x) => x.name === selected);
-        wireBody.textContent = "";
-        if (!a) {
-          wireNote.textContent = "";
-          wireBody.appendChild(el("div", "sb-note", "No agent selected."));
-          return;
-        }
-        const w = wiringFor(a);
-        const rows = [
-          ["mode", `${MODES[a.mode].label}  (${a.modeSource})`],
-          ["state", w.state],
-          ["cmd", w.command],
-          ["service", w.robotCommand],
-          ["battery", w.battery],
-        ];
-        if (a.mode === "real") {
-          rows.push(["mocap", w.mocap], ["ekf", w.ekfFlags], ["ping", w.timesync]);
-        }
-        if (caps.cellular) rows.push(["cellular", w.cellular]);
-        for (const [k, v] of rows) {
-          if (!v) continue;
-          const row = el("div", "sb-wire-row");
-          row.append(el("span", "sb-wire-key", k));
-          const val = el("span", "sb-wire-val", v);
-          if (caps.discovered && k !== "mode" && !available.has(v)) {
-            val.classList.add("sb-muted");
-            val.title = "not present on this data source";
-          }
-          row.appendChild(val);
-          wireBody.appendChild(row);
-        }
-        wireNote.textContent = a.modeSource === "detected"
-          ? "Mode detected from the topics on the wire. Pin it per agent with the Modes setting."
-          : a.modeSource === "config"
-            ? "Mode pinned in the panel settings (mirrors swarm_commander's drone_modes)."
-            : "No agent topics discovered yet — assuming sim wiring.";
       }
 
       // Rebuilding a <select> 5x/s would fight the operator's own click, so
@@ -2935,6 +3001,7 @@ function activate(extensionContext) {
 
       function renderGoal() {
         const a = agents.find((x) => x.name === selected);
+        for (const [name, b] of pickerButtons) b.classList.toggle("sb-selected", name === selected);
         goalTitleSub.textContent = a
           ? `\u2014 ${a.name}: position & speed`
           : "\u2014 no agent selected";
@@ -2984,6 +3051,11 @@ function activate(extensionContext) {
 
           const tdMode = el("td");
           const modeSpan = el("span", `sb-mode ${a.mode}`, MODES[a.mode].label);
+          modeSpan.title = a.modeSource === "detected"
+            ? `${a.mode}: detected from the topics on the wire (/${a.name}/${a.mode === "real" ? "fmu" : "interface"}/…). Pin it with the Modes setting.`
+            : a.modeSource === "config"
+              ? `${a.mode}: pinned in the Modes setting (mirrors swarm_commander's drone_modes)`
+              : "sim assumed: no agent topics discovered yet";
           tdMode.appendChild(modeSpan);
 
           const tdTier = el("td");
@@ -3412,6 +3484,7 @@ function activate(extensionContext) {
         show(powerCard, showPower);
         renderTeleop(now);
         show(formRow, caps.formation);
+        renderBag(now, !powerOnly);
         const lanes = TIERS.filter((t) => t.id === "lan" || caps.vpnLane);
         commSub.textContent = caps.mocap || caps.ekf
           ? "— ping · mocap delay · EKF status · transport"
@@ -3452,30 +3525,6 @@ function activate(extensionContext) {
         const airborne = agents.filter((a) => a.pos && a.pos[2] > 0.3).length;
         clockEl.textContent = `${airborne}/${agents.length} airborne · ${clockStamp(now)}`;
 
-        // Roster
-        for (const a of agents) {
-          const r = rosterRows.get(a.name);
-          if (!r) continue;
-          r.row.classList.toggle("sb-selected", a.name === selected);
-          r.dot.style.background = a.linkState.color;
-          r.mode.className = `sb-mode ${a.mode}`;
-          r.mode.textContent = MODES[a.mode].label;
-          const soc = a.power?.soc;
-          r.fill.style.width = `${clamp(soc ?? 0, 0, 100)}%`;
-          r.fill.style.background = socColor(soc);
-          const ping = a.metrics?.pingMs;
-          const parts = [
-            soc == null ? "-- %" : `${soc.toFixed(0)}%`,
-            a.linkState.label,
-            ping == null ? "-- ms" : `${ping.toFixed(0)} ms`,
-          ];
-          if (a.mode === "real" && caps.ekf && a.estimate?.state) {
-            parts.push(a.estimate.state.label);
-          }
-          r.meta.textContent = parts.join(" · ");
-        }
-
-        renderWiring();
         renderFormation();
         renderGoal();
         verifyCommands(now);
@@ -3532,7 +3581,7 @@ function activate(extensionContext) {
         "simCommandTopicTemplate", "realCommandTopicTemplate",
       ]);
       // Keys whose change re-subscribes (teleop command / joy topics).
-      const SUB_KEYS = new Set(["teleopTopicTemplate", "joyTopic"]);
+      const SUB_KEYS = new Set(["teleopTopicTemplate", "joyTopic", "bagStatusTopic"]);
       const CAPS_KEYS = new Set([
         "sections", "formationTopic", "teleopTopicTemplate", "goalTopicTemplate",
         "speedTopicTemplate",
@@ -3606,6 +3655,12 @@ function activate(extensionContext) {
                 formationProfiles: { label: "Formation profiles", input: "string", value: cfg.formationProfiles,
                   help: "Comma-separated profile names filling the formation dropdown (pick one, Send) — " +
                         "mirror the commander's formation_profiles parameter. Blank hides the row." },
+                bagRecorderNs: { label: "Bag recorder namespace", input: "string", value: cfg.bagRecorderNs,
+                  help: "bag_recorder's ~/record (std_srvs/SetBool) lives here — the Rosbag switch calls it " +
+                        "to start / stop ros2 bag record --all-topics" },
+                bagStatusTopic: { label: "Bag recorder status topic", input: "string", value: cfg.bagStatusTopic,
+                  help: "std_msgs/String JSON from bag_recorder: recording, path, duration, size. The switch " +
+                        "shows this, not the last click; silent = NO RECORDER, switch disabled" },
               },
             },
             simWiring: {
