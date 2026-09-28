@@ -1,4 +1,7 @@
-# mtl_trajectory_follower parameters (loaded with allow_substs).
+# mtl_trajectory_follower parameters for the tigris_search stack (loaded with allow_substs).
+# A copy of the package default with ONE change: accept_plan_revisions: true, so the
+# receding-horizon TIGRIS planner can extend the active sortie in flight (same
+# plan_id, newer stamp, unchanged prefix). Keep the rest in sync with the package file.
 /**:
   ros__parameters:
     rate_hz: 20.0                  # carrot + gimbal command rate
@@ -15,7 +18,7 @@
     hold_after_complete_s: 3.0     # hover on the last carrot before handing back
     odometry_timeout_s: 1.0        # stale odometry aborts an active sortie
     max_plan_age_s: 30.0           # never (re)fly a latched plan older than this
-    accept_plan_revisions: false   # true: a newer search/plan with the SAME plan_id revises the active
+    accept_plan_revisions: true    # true: a newer search/plan with the SAME plan_id revises the active
                                    # sortie in flight (receding-horizon planners; tigris_search sets it)
     tf_prefix: ""
     base_frame: base_link

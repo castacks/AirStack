@@ -175,6 +175,23 @@ class TrackFollower:
         self.window = max(int(round(cfg.window_lookaheads * cfg.lookahead / step)), cfg.min_window_samples)
 
     # ------------------------------------------------------------------ #
+    def replace_track(self, track: Track) -> None:
+        """Swap in a REVISION of the same sortie (a receding-horizon planner such as
+        tigris_search_planner re-publishes the whole track with an unchanged prefix).
+
+        The arc-length progress carries over (the prefix is identical, so the
+        index is still valid); a sortie that had reached the old end resumes
+        SEARCH when the revision extends it.
+        """
+        self.track = track
+        step = max(track.step_m, 1e-3)
+        self.window = max(int(round(self.cfg.window_lookaheads * self.cfg.lookahead / step)),
+                          self.cfg.min_window_samples)
+        self.progress = min(self.progress, track.total)
+        self.idx = min(max(self.idx, 0), len(track) - 2)
+        if self.state == COMPLETE and track.total - self.progress > self.cfg.finish_tolerance_m:
+            self.state = SEARCH
+
     def start(self, pos: Sequence[float]) -> int:
         """Pick INGRESS or SEARCH from where the vehicle is when the plan arrives."""
         self.idx, self.progress, _ = self._project(pos, 0, self.window)

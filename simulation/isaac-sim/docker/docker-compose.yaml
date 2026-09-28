@@ -54,6 +54,10 @@ services:
       # Fleet spawner input: fleet_spawn.py maps the robot-container
       # path onto this container's /isaac-sim/AirStack checkout mount.
       - FLEET_CONFIG_FILE=${FLEET_CONFIG_FILE:-}
+      # Scenario bundle of search_mission_scene.py (targets, belief texture, camera
+      # FOV): empty = stacks/mtl_search/config. The tigris_search stack sets
+      # MTL_SCENARIO_DIR=/root/AirStack/stacks/tigris_search/config.
+      - MTL_SCENARIO_DIR=${MTL_SCENARIO_DIR:-}
       - ISAAC_SIM_HEADLESS=${ISAAC_SIM_HEADLESS:-false}
       # Scene selection (`airstack up --scene <shortname>` → simulation/scenes.yaml):
       # a Pegasus SIMULATION_ENVIRONMENTS key or a USD URL, resolved by the

@@ -1,0 +1,10 @@
+# modules.repos : module pins for the tigris_search stack.
+#
+# vcstool format, PINNED to tags/commits (never branches); see
+# stacks/full_default/modules.repos for the conventions.
+#
+# No external modules: tigris_search_planner is trunk-resident
+# (robot/ros_ws/src/global/planners/tigris_search_planner) and reuses the
+# trunk search follower, metrics logger and mtl_msgs interface.
+airstack_compat: ">=0.19.0-alpha.18 <0.21.0"
+repositories: {}

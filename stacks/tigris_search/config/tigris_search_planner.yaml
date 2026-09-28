@@ -1,0 +1,54 @@
+# tigris_search_planner parameters for the tigris_search stack (loaded with allow_substs).
+# THIS is the file the stack loads (stack.launch.xml passes it to the planner); the package
+# copy only serves standalone launches. Edit TIGRIS tuning here, the mission in mission.yaml.
+# scenario_file / agent_name / runs_root come from the launch file args.
+#
+# The mission itself (area, prior, targets, aircraft speed + turn radius, camera
+# FOV + forward tilt, detection model, BUDGET) is NOT here: it lives in
+# stacks/tigris_search/config/mission.yaml -> scenario.json, exactly like MTL.
+#
+# TIGRIS lengths are the ROS 1 launch defaults (tigris/launch/tigris.launch, a
+# 5 km map at 50 m cells) scaled by the mission's 1/12.5:
+#   extend_dist 750 -> 60 m, extend_radius 251 -> 20 m, prune_radius 750 -> 60 m, RESOLUTION 50 -> 4 m.
+/**:
+  ros__parameters:
+    frame_id: map                    # robot odometry frame (origin = its spawn)
+    home_up_m: 0.0                   # height of the map origin above the ground plane
+    plan_on_startup: true            # publish a preview plan (start_mission=false) at boot
+    follower_status_timeout_s: 10.0  # abort if the follower never acknowledges / goes silent
+    mission_timeout_pad_s: 240.0     # timeout = pad + factor * budget / speed
+    mission_timeout_factor: 3.0
+    viz_path_step_m: 2.0             # decimation of the nav_msgs/Path visualisations
+    start_from_odometry: true        # first plan starts where the drone hovers (else the scenario start)
+    start_yaw_deg: -999.0            # initial heading (ENU deg); < -900 = face the area centre
+    lock_gimbal: true                # no gimbal actuation: body-fixed camera (cross-track axis locked)
+    look_period_s: 0.1               # flown looks folded into the belief at this period
+
+    # ---- TIGRIS -------------------------------------------------------------
+    reward_mode: original            # original (TIGRIS entropy / tpr-fpr) | matched (residual belief mass)
+    sampler: informed                # informed (TIGRIS) | uniform (the TIGRIS paper's random benchmark)
+    receding: true                   # false = one plan over the whole budget, never replanned
+    initial_planning_time_s: 5.0     # first solve (drone hovering)  [TIGRIS planning_time = 5 s]
+    planning_time_s: 5.0             # each in-flight solve          [TIGRIS planning_time = 5 s]
+    replan_period_s: 5.0             # replan cadence (also replans early near the end of the track)
+    commit_margin_s: 1.0             # commit = progress + lookahead + speed * (planning_time + margin)
+    lookahead_turn_radii: 1.2        # keep equal to mtl_trajectory_follower lookahead_turn_radii
+    min_replan_budget_m: 10.0        # stop replanning when less budget than this is left
+    extend_dist_m: 60.0              # steer cut
+    extend_radius_m: 20.0            # rewiring radius
+    prune_radius_m: 60.0             # dominance-pruning radius
+    reward_step_m: 2.0               # MATCHED mode only: look spacing along an edge (ORIGINAL scores nodes + straight edges like TIGRIS)
+    grid_res_m: 4.0                  # planning grid (the evaluator uses the 2 m prior raster)
+    view_point_goal: 0.6             # informed sampler: place the sampled cell at 60 % of the half-FOV
+    bounds_margin_m: -1.0            # optional geofence around the area; < 0 = off (TIGRIS has none)
+    use_entropy: true                # original reward: entropy reduction (TIGRIS launch default)
+    rs: 2.0                          # original reward weight when the belief rises (TIGRIS Rs)
+    rf: 1.0                          # ... when it falls (TIGRIS Rf)
+    initial_confidence: 0.01         # original reward: floor of the per-cell presence belief
+    max_iterations: 0                # > 0: stop each solve after this many samples (reproducible runs)
+    seed: -1                         # < 0 = mission seed
+
+    # ---- overrides (normally leave these alone; edit mission.yaml instead) ---
+    budget_m: -1.0                   # > 0 replaces min(max_flight_distance_m, max_flight_time_s * speed)
+    camera_fov_deg: -1.0             # > 0 replaces sensor.fov_deg (the logger still scores the scenario FOV!)
+    camera_tilt_deg: -1.0            # >= 0 replaces sensor.tilt_deg (forward tilt from nadir)

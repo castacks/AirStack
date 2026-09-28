@@ -136,6 +136,7 @@ nav:
           - Coordination Payloads: docs/robot/autonomy/coordination/payloads.md
           - Integration Checklist: docs/robot/autonomy/integration_checklist.md
           - MTL Target Localization Search: docs/tutorials/mtl_target_localization.md
+          - TIGRIS Baseline Search: docs/tutorials/tigris_baseline.md
       - GCS Operation:
           - Waypoints & Geofences: docs/gcs/waypoints_and_geofences.md
           - Foxglove Visualization: docs/gcs/foxglove.md
@@ -194,6 +195,7 @@ nav:
           - lite_default: stacks/lite_default/README.md
           - lite_offload_global: stacks/lite_offload_global/README.md
           - mtl_search: stacks/mtl_search/README.md
+          - tigris_search: stacks/tigris_search/README.md
       - Modules Catalog:
           - Catalog: docs/modules/index.md
           - module.yaml Schema: common/module_schema/README.md
@@ -234,6 +236,7 @@ nav:
               - Random Walk: robot/ros_ws/src/global/planners/random_walk/README.md
               - Exploration: robot/ros_ws/src/global/planners/exploration/README.md
               - MTL Search Planner: robot/ros_ws/src/global/planners/mtl_search_planner/README.md
+              - TIGRIS Search Planner: robot/ros_ws/src/global/planners/tigris_search_planner/README.md
           - Behavior:
               - Overview: docs/robot/autonomy/behavior/index.md
               - MTL Metrics Logger: robot/ros_ws/src/behavior/mtl_metrics_logger/README.md

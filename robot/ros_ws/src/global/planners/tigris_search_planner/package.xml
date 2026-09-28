@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>tigris_search_planner</name>
+  <version>0.1.0</version>
+  <description>Single-agent TIGRIS (Moon et al., ICRA 2023) informative path planner as an AirStack global planner: a ROS-free C++17 port of the sampling-based tree search (informed sampling, Dubins steering, pruning, original entropy reward or residual-belief reward) run as a receding horizon behind the mtl_msgs SearchMission interface, so the MTL follower and metrics logger fly and score it unchanged.</description>
+  <maintainer email="bshirose@andrew.cmu.edu">Burhan</maintainer>
+  <license>BSD-3-Clause-Clear</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_python</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>rclcpp_action</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>visualization_msgs</depend>
+  <depend>airstack_msgs</depend>
+  <depend>mtl_msgs</depend>
+
+  <test_depend>ament_cmake_gtest</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

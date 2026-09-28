@@ -1,0 +1,34 @@
+# Fleet: tigris_search_fleet (RFC #380 §2) — single-agent TIGRIS baseline.
+#
+# ONE gimballed quad flying the tigris_search stack over the same 400 m search
+# area, prior and ground truth as the MTL stack (stacks/tigris_search/config/
+# mission.yaml keeps mtl_search's mission, seed and bumps). robot_1 spawns
+# exactly where mtl_search_fleet's robot_1 does, so a 1-robot MTL run and a
+# TIGRIS run start from the same home.
+#
+#     MTL_SCENARIO_DIR=/root/AirStack/stacks/tigris_search/config \
+#     ISAAC_SIM_SCRIPT_NAME=search_mission_scene.py \
+#       airstack up --sim isaac --fleet tigris_search_fleet --stack tigris_search --play --wait
+#
+# The scene script must be named explicitly (`--fleet` alone selects the generic
+# fleet_spawn.py). MTL_SCENARIO_DIR points the scene at this stack's bundle
+# (targets, belief texture, camera FOV); it defaults to stacks/mtl_search/config.
+#
+#   robot     ROS_DOMAIN_ID  PX4 instance  MAVLink offboard (14540+N)  onboard (14580+N)  sysid (1+N)
+#   robot_1   1              1             udp :14541                   :14581             2
+
+defaults:
+  vehicle: quad_gimbal
+  stack: stacks/tigris_search
+
+robots:
+  robot_1:
+    spawn: [-170.0, -170.0, 0.07]   # mission NED home [-170, -170] (= mtl_search_fleet robot_1)
+
+sim:
+  scene: default                     # Pegasus "Default Environment" + the search plane
+
+network:
+  domain_policy: auto                # robot N -> domain N
+  gossip_domain: 99
+  gcs_domain: 0

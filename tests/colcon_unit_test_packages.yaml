@@ -16,6 +16,8 @@ robot:
     - mtl_search_planner
     - mtl_trajectory_follower
     - mtl_metrics_logger
+    # TIGRIS baseline (stacks/tigris_search): core gtests + the stdlib reward-mirror tests.
+    - tigris_search_planner
   # Linter skip lives in lidar_point_cloud_filter setup.cfg + test/conftest.py.
   # ament pytest does not honor PYTEST_ADDOPTS -m.
   # launch_testing is skipped via PYTEST_DISABLE_PLUGIN_AUTOLOAD in the test.

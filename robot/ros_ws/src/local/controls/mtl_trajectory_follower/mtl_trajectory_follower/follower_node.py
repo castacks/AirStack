@@ -82,6 +82,11 @@ class MtlTrajectoryFollower(Node):
         self.base_frame = str(p("base_frame", "base_link").value)
         self.publish_tf = bool(p("publish_tf", True).value)
         self.mount_offset = [float(v) for v in p("gimbal_mount_offset_m", [0.10, 0.0, -0.08]).value]
+        # Receding-horizon planners (tigris_search_planner) re-publish the active sortie
+        # under the SAME plan_id with a newer stamp; accept those as in-flight revisions.
+        # Off by default: the mtl_search stack never revises a plan.
+        self.accept_plan_revisions = bool(p("accept_plan_revisions", False).value)
+        self.plan_stamp = None
 
         latched = QoSProfile(depth=1, reliability=ReliabilityPolicy.RELIABLE,
                              durability=DurabilityPolicy.TRANSIENT_LOCAL)
@@ -142,7 +147,11 @@ class MtlTrajectoryFollower(Node):
             self.get_logger().info(f"preview plan {msg.plan_id} ({len(msg.boresight)} samples) - not flying it")
             return
         if msg.plan_id == self.plan_id and self.active:
+            if self.accept_plan_revisions:
+                self._revise(msg)
             return
+        if self.accept_plan_revisions and msg.plan_id == self.plan_id and self.state in (fc.COMPLETE, fc.ABORTED):
+            return  # a late revision of a sortie that already ended: never restart it
         age = (self.get_clock().now() - rclpy.time.Time.from_msg(msg.header.stamp)).nanoseconds * 1e-9
         if age > self.max_plan_age_s:
             # a latched plan replayed to a restarted follower: never re-fly a stale sortie
@@ -166,6 +175,7 @@ class MtlTrajectoryFollower(Node):
         if self.active:
             self.get_logger().warn(f"replacing active sortie {self.plan_id} with {msg.plan_id}")
         self.plan, self.plan_id = msg, msg.plan_id
+        self.plan_stamp = rclpy.time.Time.from_msg(msg.header.stamp)
         self.follower = fc.TrackFollower(track, cfg)
         self.state, self.active = fc.IDLE, True
         self.t_start, self.t_complete, self.last_out = self.get_clock().now(), None, None
@@ -173,6 +183,23 @@ class MtlTrajectoryFollower(Node):
             f"sortie {msg.plan_id}: {len(track)} samples, {track.total:.0f} m, "
             f"{'single-axis tau=%.0f deg' % math.degrees(cfg.tilt_rad) if cfg.single_axis else '2-axis'}, "
             f"lookahead {cfg.lookahead:.1f} m")
+
+    def _revise(self, msg: SearchPlan) -> None:
+        stamp = rclpy.time.Time.from_msg(msg.header.stamp)
+        if self.plan_stamp is not None and stamp.nanoseconds <= self.plan_stamp.nanoseconds:
+            return  # the latched copy of the revision we already fly
+        try:
+            track = track_from_plan(msg)
+        except ValueError as exc:
+            self.get_logger().error(f"rejecting revision of {msg.plan_id}: {exc}")
+            return
+        self.plan, self.plan_stamp = msg, stamp
+        self.follower.replace_track(track)
+        self.state = self.follower.state
+        if self.state == fc.SEARCH:
+            self.t_complete = None
+        self.get_logger().info(f"sortie {msg.plan_id} revised: {len(track)} samples, {track.total:.0f} m "
+                               f"(progress {self.follower.progress:.0f} m)")
 
     # ------------------------------------------------------------------ control
     def _tick(self) -> None:
