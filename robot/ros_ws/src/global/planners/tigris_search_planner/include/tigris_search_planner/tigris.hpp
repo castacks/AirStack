@@ -28,7 +28,9 @@
 //    * OMPL's GNAT is replaced by an exact spatial hash (same nearest / radius results);
 //    * the trochoid steer has no wind in AirStack, which makes it a Dubins path;
 //    * the camera footprint is the configured cone (see belief.hpp) instead of the
-//      rectangular frustum;
+//      rectangular frustum; with gimbal actuation (mission.yaml gimbal_actuation) the
+//      cone sweeps across track and every look/footprint uses its phase at that point
+//      of the track;
 //    * the RNG is seeded (mission seed + replan index) instead of std::random_device,
 //      so a run can be reproduced.
 //  Kept as in the original, deliberately: the near-node loop compares the NEW sample's
@@ -83,9 +85,11 @@ struct TreeNode {
     bool closed = false;     ///< hit the budget: never expanded
     DubinsPath edge;         ///< parent -> node (cut at edgeLen)
     double edgeLen = 0.0;
+    double arc = 0.0;        ///< Dubins arc length from the root [m] (the track's arc; sets the sweep phase)
     bool inTree = false;     ///< added to the nearest-neighbour structure (not pruned)
     bool hasEdge = false;    ///< a straight segment was recorded (Motion::start_edge / end_edge)
     Pose2 edgeStart, edgeEnd;
+    double edgeStartS = 0.0, edgeEndS = 0.0;  ///< arc of edgeStart / edgeEnd along `edge`
 };
 
 struct PlanResult {
@@ -104,16 +108,19 @@ public:
     TigrisPlanner(const PlanningGrid& grid, const PlannerSetup& setup, const TigrisParams& params);
 
     /// One TIGRIS solve from `start` with path-length `budget` over `belief`.
-    /// `replanIndex` offsets the RNG seed so every replan is reproducible.
+    /// `replanIndex` offsets the RNG seed so every replan is reproducible. `startTime` is the
+    /// planned track time at `start` [s]: with gimbal actuation it sets the sweep phase
+    /// (phi = camera.phiAt(startTime + arc / speed) along the tree).
     PlanResult plan(const Pose2& start, double budget, double timeLimit, const BeliefState& belief,
-                    int replanIndex = 0);
+                    int replanIndex = 0, double startTime = 0.0);
 
-    /// Looks along one edge (every rewardStep, weight = step / speed / dt_ref).
-    std::vector<Look> edgeLooks(const DubinsPath& edge, double len) const;
+    /// Looks along one edge (every rewardStep, weight = step / speed / dt_ref); `tStart` is the
+    /// track time at the edge's start (the swept camera's phase).
+    std::vector<Look> edgeLooks(const DubinsPath& edge, double len, double tStart = 0.0) const;
     /// Both rewards of a node chain (as a sequence of passes) over `belief`.
-    PathReward scorePath(const std::vector<TreeNode>& path, const BeliefState& belief);
+    PathReward scorePath(const std::vector<TreeNode>& path, const BeliefState& belief, double startTime = 0.0);
     /// ORIGINAL reward of a node chain the TIGRIS way (MapRepresentation::informationGain).
-    void tigrisGain(const std::vector<const TreeNode*>& chain);
+    void tigrisGain(const std::vector<const TreeNode*>& chain, double startTime = 0.0);
 
     const TigrisParams& params() const { return p_; }
     const PlannerSetup& setup() const { return s_; }

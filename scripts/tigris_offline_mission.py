@@ -11,8 +11,9 @@ A no-Isaac rehearsal of the TIGRIS baseline, the counterpart of scripts/mtl_offl
     stacks/tigris_search/config/tigris_search_planner.yaml (``--set`` overrides them). The CLI
     assumes the committed track is flown perfectly when it folds the "flown" looks in;
   * the final track is flown by ``mtl_trajectory_follower.follower_core`` at 20 Hz with the
-    gimbal LOCKED (body-fixed camera), against the same point-mass PX4 stand-in and
-    slew-limited gimbal as the MTL rehearsal;
+    gimbal limits the planner publishes (LOCKED = body-fixed camera by default; the
+    cross-track travel opens when mission.yaml ``gimbal_actuation.enabled`` makes it sweep),
+    against the same point-mass PX4 stand-in and slew-limited gimbal as the MTL rehearsal;
   * it is scored by ``mtl_metrics_logger`` per robot, then ``scripts/analyze_tigris_run.py``
     writes the team outputs and both TIGRIS reward curves.
 
@@ -92,11 +93,13 @@ def fly(name: str, tr: dict, rate_hz: float = 20.0, max_s: float = 900.0):
     n = len(s["t"])
     track = fc.Track(x=s["x_map"], y=s["y_map"], z=s["z_map"], yaw=s["yaw_enu"], speed=[tr["speed_mps"]] * n,
                      bx=s["bx_map"], by=s["by_map"], bz=s["bz_map"], arc=s["arc"], t=s["t"], phi=s["gimbal_phi"])
-    locked = bool((tr.get("tigris") or {}).get("gimbal_locked", True))
+    tg = tr.get("tigris") or {}
+    locked = bool(tg.get("gimbal_locked", True))
+    # the SearchPlan gimbal limits the node would publish (older track.json: from gimbal_locked)
+    gmax = float(tg.get("gimbal_max_rad", LOCKED if locked else math.radians(80.0)))
+    nudge = float(tg.get("pitch_nudge_max_rad", LOCKED if locked else math.radians(5.0)))
     cfg = fc.FollowerConfig(min_turn_radius_m=tr["min_turn_radius_m"], single_axis=True, tilt_rad=tr["tilt_rad"],
-                            speed_mps=tr["speed_mps"],
-                            gimbal_max_rad=LOCKED if locked else math.radians(80.0),
-                            pitch_nudge_max_rad=LOCKED if locked else math.radians(5.0))
+                            speed_mps=tr["speed_mps"], gimbal_max_rad=gmax, pitch_nudge_max_rad=nudge)
     fol = fc.TrackFollower(track, cfg)
     hx, hy, hz = tr["home_enu"]
     veh = Vehicle((0.0, 0.0, track.z[0]), track.yaw[0])

@@ -2,7 +2,9 @@
 
 This is the `mtl_search` stack with one module swapped: the global planner is
 [`tigris_search_planner`](../../robot/ros_ws/src/global/planners/tigris_search_planner/README.md).
-It runs TIGRIS (Moon et al., ICRA 2023) in a receding horizon, with no gimbal actuation. The
+It runs TIGRIS (Moon et al., ICRA 2023) in a receding horizon. By default there is no gimbal
+actuation; `gimbal_actuation.enabled: true` in `config/mission.yaml` sweeps the single-axis
+gimbal left and right at a constant rate instead. The
 follower, controllers, metrics logger, run-folder layout and analysis are the MTL ones, so a
 TIGRIS run and an MTL run are flown and scored identically.
 
@@ -25,7 +27,7 @@ Full walkthrough: [TIGRIS baseline tutorial](../../docs/tutorials/tigris_baselin
 
 | File | What |
 |---|---|
-| `config/mission.yaml` | **Source of truth** for the mission. It is a copy of `mtl_search`'s, with the same seed, prior and targets. It holds the **budget** (`team.max_flight_time_s` / `max_flight_distance_m`), the **speed** (`aircraft.speed_mps`) and the **camera mount** (`sensor.fov_deg`, `sensor.tilt_deg`). |
+| `config/mission.yaml` | **Source of truth** for the mission. It is a copy of `mtl_search`'s, with the same seed, prior and targets. It holds the **budget** (`team.max_flight_time_s` / `max_flight_distance_m`), the **speed** (`aircraft.speed_mps`) and the **camera mount** (`sensor.fov_deg`, `sensor.tilt_deg`) and the optional **gimbal sweep** (`gimbal_actuation`: `enabled`, `sweep_rate_deg_s`, `sweep_amplitude_deg`). |
 | `config/scenario.json`, `ground_truth.json`, `belief.png` | Generated from `mission.yaml` + `config/fleets/tigris_search_fleet.yaml` |
 | `config/tigris_search_planner.yaml` | TIGRIS tuning: reward mode, sampler, planning times, replan period, extend/prune radii, grid. The stack loads this copy. |
 | `config/mtl_trajectory_follower_tigris.yaml` | Follower parameters (revisions on) |

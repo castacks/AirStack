@@ -98,7 +98,7 @@ std::vector<TrackSample> RecedingHorizon::sampleSegment(const std::vector<TreeNo
     if (!(total > 0.0)) return out;
     const double step = std::max(setup_.speed * sc_.dt, 1e-3);
     const double h = setup_.altitude;
-    const double ahead = h * std::tan(setup_.camera.tilt);
+    const Camera& cam = setup_.camera;
     std::size_t e = 1;
     double cum = 0.0;  // arc at the start of edge e
     for (int k = 1;; ++k) {
@@ -117,8 +117,8 @@ std::vector<TrackSample> RecedingHorizon::sampleSegment(const std::vector<TreeNo
         s.y = q.y;
         s.z = h;
         s.yaw = q.yaw;
-        s.bx = q.x + ahead * std::cos(q.yaw);
-        s.by = q.y + ahead * std::sin(q.yaw);
+        s.phi = cam.phiAt(s.t);
+        boresightGround(q.x, q.y, h, q.yaw, s.phi, cam.tilt, &s.bx, &s.by);
         s.bz = 0.0;
         out.push_back(s);
         if (last) break;
@@ -129,7 +129,8 @@ std::vector<TrackSample> RecedingHorizon::sampleSegment(const std::vector<TreeNo
 Look RecedingHorizon::sampleLook(std::size_t k) const {
     const TrackSample& s = track_.at(k);
     const double dt = k > 0 ? s.t - track_[k - 1].t : sc_.dt;
-    return lookFromPose(s.x, s.y, s.z, s.yaw, setup_.camera, setup_.det, std::max(dt, 0.0) / setup_.det.dtRef);
+    return lookFromPose(s.x, s.y, s.z, s.yaw, setup_.camera, setup_.det, std::max(dt, 0.0) / setup_.det.dtRef,
+                        s.phi);
 }
 
 std::vector<Look> RecedingHorizon::plannedLooks(double a0, double a1) const {
@@ -156,7 +157,7 @@ void RecedingHorizon::record(ReplanRecord r, const PlanResult& res) {
 }
 
 bool RecedingHorizon::start(const Pose2& start) {
-    const PlanResult res = planner_->plan(start, budget_, hp_.initialPlanningTime, belief_, 0);
+    const PlanResult res = planner_->plan(start, budget_, hp_.initialPlanningTime, belief_, 0, 0.0);
     ReplanRecord rec;
     rec.trigger = "initial";
     rec.budgetLeft = budget_;
@@ -168,9 +169,8 @@ bool RecedingHorizon::start(const Pose2& start) {
         s0.y = start.y;
         s0.z = setup_.altitude;
         s0.yaw = start.yaw;
-        const double ahead = setup_.altitude * std::tan(setup_.camera.tilt);
-        s0.bx = start.x + ahead * std::cos(start.yaw);
-        s0.by = start.y + ahead * std::sin(start.yaw);
+        s0.phi = setup_.camera.phiAt(0.0);
+        boresightGround(start.x, start.y, setup_.altitude, start.yaw, s0.phi, setup_.camera.tilt, &s0.bx, &s0.by);
         track_.push_back(s0);
         const auto seg = sampleSegment(res.path, s0);
         track_.insert(track_.end(), seg.begin(), seg.end());
@@ -228,7 +228,9 @@ bool RecedingHorizon::replan(double progressArc, const std::vector<Look>& flownL
     start.x = c.x;
     start.y = c.y;
     start.yaw = c.yaw;
-    const PlanResult res = planner_->plan(start, rec.budgetLeft, hp_.replanPlanningTime, planB, ++replanCount_);
+    // c.t: the sweep phase at the commit point, so the new segment continues the sweep
+    const PlanResult res =
+        planner_->plan(start, rec.budgetLeft, hp_.replanPlanningTime, planB, ++replanCount_, c.t);
     bool changed = false;
     if (res.improved()) {
         const TrackSample from = track_[kc];
@@ -242,6 +244,20 @@ bool RecedingHorizon::replan(double progressArc, const std::vector<Look>& flownL
     }
     record(rec, res);
     return changed;
+}
+
+GimbalLimits gimbalLimits(const Camera& cam, bool lockGimbal) {
+    GimbalLimits g;
+    if (cam.sweep) {
+        g.locked = false;
+        g.maxRad = std::max(kGimbalTravelRad, cam.sweepAmplitude);
+        g.pitchNudgeMaxRad = lockGimbal ? kGimbalLockedRad : kPitchNudgeRad;
+    } else if (!lockGimbal) {
+        g.locked = false;
+        g.maxRad = kGimbalTravelRad;
+        g.pitchNudgeMaxRad = kPitchNudgeRad;
+    }
+    return g;
 }
 
 // ---- JSON --------------------------------------------------------------------
@@ -274,6 +290,16 @@ J::Object tigrisBlock(const RecedingHorizon& rh, const TrackMeta& meta) {
     o["reward_mode"] = J::Value(meta.rewardMode);
     o["sampler"] = J::Value(meta.sampler);
     o["gimbal_locked"] = J::Value(meta.gimbalLocked);
+    o["gimbal_max_rad"] = J::Value(meta.gimbalMaxRad);
+    o["pitch_nudge_max_rad"] = J::Value(meta.pitchNudgeMaxRad);
+    {
+        const Camera& cam = rh.setup().camera;
+        J::Object ga;
+        ga["enabled"] = J::Value(cam.sweep);
+        ga["sweep_rate_deg_s"] = J::Value(cam.sweepRate * 180.0 / kPi);
+        ga["sweep_amplitude_deg"] = J::Value(cam.sweepAmplitude * 180.0 / kPi);
+        o["gimbal_actuation"] = J::Value(std::move(ga));
+    }
     o["receding"] = J::Value(hp.receding);
     o["extend_dist_m"] = J::Value(tp.extendDist);
     o["extend_radius_m"] = J::Value(tp.extendRadius);
@@ -314,7 +340,7 @@ std::string agentTrackJson(const Scenario& sc, int agentIndex, const RecedingHor
         bx.push_back(s.bx - hx);
         by.push_back(s.by - hy);
         bz.push_back(s.bz - hz);
-        phi.push_back(0.0);
+        phi.push_back(s.phi);
         pitch.push_back(0.0);
         n.push_back(s.y);
         e.push_back(s.x);
@@ -348,7 +374,7 @@ std::string agentTrackJson(const Scenario& sc, int agentIndex, const RecedingHor
     out["home_enu"] = vec3(hx, hy, hz);
     out["frame"] = J::Value("map = world ENU - home_enu; n/e = mission NED");
     out["single_axis"] = J::Value(true);
-    out["scheduled"] = J::Value(false);
+    out["scheduled"] = J::Value(rh.setup().camera.sweep);  // the gimbal follows a planned schedule
     out["tilt_rad"] = J::Value(rh.setup().camera.tilt);
     out["fov_rad"] = J::Value(rh.setup().camera.fov);
     out["speed_mps"] = J::Value(sc.speed);
@@ -370,8 +396,9 @@ std::string agentTrackJson(const Scenario& sc, int agentIndex, const RecedingHor
 
 std::string planJson(const Scenario& sc, int agentIndex, const RecedingHorizon& rh, const TrackMeta& meta) {
     const AgentSpec& a = sc.agents.at(static_cast<std::size_t>(agentIndex));
-    std::vector<double> t, n, e, h, sn, se, roll, pitch, yaw;
+    std::vector<double> t, n, e, h, sn, se, roll, pitch, yaw, gphi;
     for (const TrackSample& s : rh.track()) {
+        gphi.push_back(s.phi);
         t.push_back(s.t);
         n.push_back(s.y);
         e.push_back(s.x);
@@ -392,6 +419,7 @@ std::string planJson(const Scenario& sc, int agentIndex, const RecedingHorizon& 
     samples["roll"] = J::Value(numbersOf(roll, 5));
     samples["pitch"] = J::Value(numbersOf(pitch, 5));
     samples["yaw"] = J::Value(numbersOf(yaw, 5));
+    samples["gimbal_phi"] = J::Value(numbersOf(gphi, 5));
     const std::vector<int> cells = servicedCells(sc, rh);
     const auto& tr = rh.track();
     J::Object diag;

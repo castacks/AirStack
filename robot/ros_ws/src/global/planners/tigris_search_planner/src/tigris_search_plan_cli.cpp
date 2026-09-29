@@ -101,9 +101,7 @@ int main(int argc, char** argv) {
         tp.seed = sc.seed;
         HorizonParams hp;
         hp.lookahead = 1.2 * sc.minTurnRadius;
-        Camera cam;
-        cam.fov = sc.fovRad;
-        cam.tilt = sc.tiltRad;
+        Camera cam = cameraFromScenario(sc);  // fov, tilt and the gimbal sweep (mission.yaml)
         bool camSet = false;
         for (const auto& s : sets) applySet(s, tp, hp, cam, camSet);
         if (oneShot) hp.receding = false;
@@ -112,6 +110,22 @@ int main(int argc, char** argv) {
                          "the scenario FOV; change it in mission.yaml instead\n";
         }
 
+        if (cam.sweep) {
+            const SweepKinematics k = sweepKinematics(cam);
+            std::cout << std::fixed << std::setprecision(1) << "tigris_search_plan: gimbal actuation ON - "
+                      << "cross-track sweep +-" << cam.sweepAmplitude / kDeg << " deg at "
+                      << cam.sweepRate / kDeg << " deg/s (period " << 4.0 * cam.sweepAmplitude / cam.sweepRate
+                      << " s), peak gimbal axis rate " << k.peakAxisRate / kDeg << " deg/s\n";
+            if (k.peakAxisRate > sc.gimbalSlewRate + 1e-9) {
+                std::cerr << "warning: the sweep needs " << k.peakAxisRate / kDeg << " deg/s on an earth-frame "
+                          << "gimbal axis, above the gimbal slew rate " << sc.gimbalSlewRate / kDeg
+                          << " deg/s: the flown sweep will lag the plan\n";
+            }
+            if (k.maxAbsRoll > sc.gimbalRollLimit + 1e-9) {
+                std::cerr << "warning: the sweep reaches roll " << k.maxAbsRoll / kDeg << " deg, beyond the "
+                          << "gimbal roll limit " << sc.gimbalRollLimit / kDeg << " deg\n";
+            }
+        }
         RecedingHorizon rh(sc, idx, cam, tp, hp);
         const Pose2 start = defaultStartPose(sc, idx, hp);
         const auto t0 = std::chrono::steady_clock::now();
@@ -145,6 +159,7 @@ int main(int argc, char** argv) {
         meta.sampler = tp.informedSampler ? "informed" : "uniform";
         meta.budget = rh.budget();
         meta.revision = rh.revision();
+        meta.setGimbal(gimbalLimits(cam, true));
         std::cout << std::fixed << std::setprecision(1) << "tigris_search_plan: " << sc.name << " / " << agent
                   << ": " << rh.records().size() << " solves in " << wall << " s wall, track "
                   << rh.totalArc() << " m of budget " << rh.budget() << " m (" << rh.track().size()

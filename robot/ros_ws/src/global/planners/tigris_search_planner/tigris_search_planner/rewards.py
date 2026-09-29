@@ -70,15 +70,35 @@ class Look:
 
 
 def look_from_pose(x: float, y: float, h: float, yaw: float, fov: float, tilt: float, det: Detection,
-                   weight: float) -> Look | None:
-    c = math.cos(tilt)
+                   weight: float, phi: float = 0.0) -> Look | None:
+    """Single-axis mount at cross-track angle ``phi`` (+ right; 0 = body-fixed camera), as
+    belief.cpp lookFromPose: ground point h tan(tilt) / cos(phi) ahead, h tan(phi) right."""
+    c = math.cos(tilt) * math.cos(phi)
     if h <= 0.0 or c <= 1e-6:
         return None
     slant = h / c
     if slant > det.beta:
         return None
-    d = h * math.tan(tilt)
-    return Look(x, y, h, x + d * math.cos(yaw), y + d * math.sin(yaw), slant * math.tan(fov / 2.0), weight)
+    ahead = h * math.tan(tilt) / math.cos(phi)
+    right = h * math.tan(phi)
+    cy, sy = math.cos(yaw), math.sin(yaw)
+    return Look(x, y, h, x + ahead * cy + right * sy, y + ahead * sy - right * cy, slant * math.tan(fov / 2.0),
+                weight)
+
+
+def sweep_phi(t: float, rate: float, amplitude: float) -> float:
+    """Cross-track angle of the gimbal sweep at track time ``t`` (belief.cpp Camera::phiAt):
+    a triangle wave of slope +-rate between -amplitude and +amplitude, phi(0) = 0 moving right."""
+    if rate <= 0.0 or amplitude <= 0.0:
+        return 0.0
+    u = math.fmod(rate * t, 4.0 * amplitude)
+    if u < 0.0:
+        u += 4.0 * amplitude
+    if u < amplitude:
+        return u
+    if u < 3.0 * amplitude:
+        return 2.0 * amplitude - u
+    return u - 4.0 * amplitude
 
 
 def look_from_gimbal(x: float, y: float, h: float, pitch: float, yaw: float, fov: float, det: Detection,

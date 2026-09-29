@@ -48,6 +48,16 @@ struct PriorRaster {
     bool empty() const { return norm.empty(); }
 };
 
+/// TIGRIS-only actuation of the single-axis (cross-track) gimbal, from mission.yaml
+/// `gimbal_actuation` (scenario `airstack.gimbal_actuation`). Enabled: the cross-track
+/// angle phi sweeps -amplitude (left) .. +amplitude (right) at the constant angular
+/// speed `rate`, as a function of the planned track time (see Camera::phiAt).
+struct GimbalActuation {
+    bool   enabled = false;
+    double rate = 0.5235987755982988;       ///< [rad/s] constant cross-track angular speed (30 deg/s)
+    double amplitude = 0.7853981633974483;  ///< [rad] half-travel of the sweep (45 deg)
+};
+
 struct AgentSpec {
     std::string name;
     double homeN = 0.0, homeE = 0.0;    ///< mission NED of the map origin (spawn)
@@ -68,6 +78,10 @@ struct Scenario {
     // sensor (camera mount): full cone FOV and forward tilt from nadir
     double fovRad = 1.0471975511965976, tiltRad = 0.5235987755982988;
     DetectionModel det;
+    GimbalActuation gimbal;            ///< airstack.gimbal_actuation (off when absent)
+    // the native Isaac gimbal (airstack.sim_gimbal): used to sanity-check the sweep
+    double gimbalSlewRate = 2.0943951023931953;   ///< [rad/s] per earth-frame axis (120 deg/s)
+    double gimbalRollLimit = 1.3962634015954636;  ///< [rad] |earth-frame roll| travel (80 deg)
     // budget (the tighter of the two binds; either may be +inf)
     double maxFlightTime = 90.0, maxFlightDistance = 1e300;
     std::vector<AgentSpec> agents;

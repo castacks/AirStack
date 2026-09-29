@@ -13,7 +13,7 @@ if str(_PKG) not in sys.path:
     sys.path.insert(0, str(_PKG))
 
 from tigris_search_planner.rewards import (Detection, Grid, RewardParams, look_from_gimbal,  # noqa: E402
-                                           look_from_pose, original_update, score_looks)
+                                           look_from_pose, original_update, score_looks, sweep_phi)
 
 pytestmark = pytest.mark.unit
 
@@ -71,3 +71,27 @@ def test_curves_are_monotone_and_rate_independent():
     assert all(y >= x - 1e-12 for x, y in zip(a.original, a.original[1:]))
     assert a.matched[-1] > 0 and a.original[-1] > 0
     assert a.matched[-1] == pytest.approx(b.matched[-1], rel=0.02)  # dt / dt_ref weighting
+
+
+def test_swept_look_matches_the_gimbal_at_the_same_boresight():
+    det = Detection.from_scenario(SCENARIO)
+    fov, tilt, phi, h = math.radians(60), math.radians(30), math.radians(30), 30.0
+    a = look_from_pose(0, 0, h, math.pi / 2, fov, tilt, det, 1.0, phi)   # heading north, swung right (east)
+    assert a.gx == pytest.approx(h * math.tan(phi))
+    assert a.gy == pytest.approx(h * math.tan(tilt) / math.cos(phi))
+    # the same boresight expressed as earth-frame pitch/yaw gives the same disc
+    horiz = math.hypot(a.gx, a.gy)
+    b = look_from_gimbal(0, 0, h, math.atan2(h, horiz), math.atan2(a.gy, a.gx), fov, det, 1.0)
+    assert (b.gx, b.gy, b.radius) == pytest.approx((a.gx, a.gy, a.radius))
+    assert look_from_pose(0, 0, h, 0.0, fov, tilt, det, 1.0, 0.0) == look_from_pose(0, 0, h, 0.0, fov, tilt, det, 1.0)
+
+
+def test_sweep_is_a_constant_rate_triangle():
+    rate, amp = math.radians(30), math.radians(45)
+    assert sweep_phi(0.0, rate, amp) == 0.0
+    assert sweep_phi(1.5, rate, amp) == pytest.approx(amp)
+    assert sweep_phi(4.5, rate, amp) == pytest.approx(-amp)
+    assert sweep_phi(3.3, 0.0, amp) == 0.0
+    for k in range(2000):
+        t = 0.01 * k
+        assert abs(sweep_phi(t + 0.01, rate, amp) - sweep_phi(t, rate, amp)) <= rate * 0.01 + 1e-12

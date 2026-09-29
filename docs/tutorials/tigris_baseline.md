@@ -28,8 +28,12 @@ compared file for file.
 
   The follower (`accept_plan_revisions: true`) swaps the track in flight without losing its
   progress.
-- **No gimbal actuation.** The plan locks the cross-track axis, so the camera is body-fixed:
-  60° cone, tilted 30° forward from nadir, the same mount as MTL.
+- **No gimbal actuation (default).** The plan locks the cross-track axis, so the camera is
+  body-fixed: 60° cone, tilted 30° forward from nadir, the same mount as MTL. Set
+  `gimbal_actuation.enabled: true` in `mission.yaml` (then regenerate the bundle) to sweep the
+  single-axis gimbal left and right at `sweep_rate_deg_s` between ±`sweep_amplitude_deg`. The
+  planner's rewards and residual belief then use the swept camera; see the
+  [planner README](../../robot/ros_ws/src/global/planners/tigris_search_planner/README.md#gimbal-actuation).
 - **Scoring.** The logger scores the flown pose and the measured gimbal with the Moon et al.
   sigmoid and writes the residual belief mass. That is the planner-comparison number; lower
   is better.
@@ -46,7 +50,8 @@ of the MTL one, so both planners solve the same problem.
 |---|---|
 | Budget (the tighter one binds) | `team.max_flight_time_s`, `team.max_flight_distance_m` |
 | Speed / turn radius / altitude | `aircraft.speed_mps`, `aircraft.min_turn_radius_m`, `aircraft.altitude_m` |
-| Camera mount (body-fixed) | `sensor.fov_deg` (full cone), `sensor.tilt_deg` (forward from nadir) |
+| Camera mount | `sensor.fov_deg` (full cone), `sensor.tilt_deg` (forward from nadir) |
+| Gimbal sweep (optional) | `gimbal_actuation.enabled`, `sweep_rate_deg_s`, `sweep_amplitude_deg` |
 | Detection model | `sensor.detection` |
 
 After editing, regenerate the bundle and check it still matches MTL:
@@ -274,6 +279,6 @@ catch frame and indexing problems, not a flight-dynamics result.
 | Goal accepted, then about 5 s with no motion | normal: the initial TIGRIS solve (`initial_planning_time_s`) |
 | Track never extends; follower reaches `COMPLETE` early | the follower is not accepting revisions: the stack must load `mtl_trajectory_follower_tigris.yaml` (check `accept_plan_revisions`), or the follower was not rebuilt |
 | Drone flies at about 3 m/s | `pid_controller_tigris.yaml` not loaded (stock ±3 m/s clamp) |
-| Camera swings sideways | the plan was not locked: `lock_gimbal: true` in `tigris_search_planner.yaml` |
+| Camera swings sideways | expected with `gimbal_actuation.enabled: true`; otherwise the plan was not locked: `lock_gimbal: true` in `tigris_search_planner.yaml` |
 | *agent 'robot_1' is not in the scenario team* | bundle / fleet out of sync; rerun `tigris_generate_scenario.py` |
 | Run folder name has `_2` | the node already flew that `run_id`; use a fresh one |

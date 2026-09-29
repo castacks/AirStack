@@ -148,6 +148,28 @@ Scenario parseScenario(const std::string& jsonText) {
     s.det.threshold = det["threshold"].num(s.det.threshold);
     s.det.dtRef     = det["dt_ref_s"].num(s.det.dtRef);
 
+    // TIGRIS-only gimbal sweep (absent = body-fixed camera, the original baseline)
+    const J::Value& ga = sc["airstack"]["gimbal_actuation"];
+    if (ga.isObject()) {
+        s.gimbal.enabled = ga["enabled"].flag(false);
+        s.gimbal.rate = ga["sweep_rate_deg_s"].num(30.0) * kPi / 180.0;
+        s.gimbal.amplitude = ga["sweep_amplitude_deg"].num(45.0) * kPi / 180.0;
+        if (s.gimbal.enabled) {
+            if (!(s.gimbal.rate > 0.0) || !std::isfinite(s.gimbal.rate)) {
+                throw std::runtime_error("scenario airstack.gimbal_actuation.sweep_rate_deg_s must be > 0");
+            }
+            if (!(s.gimbal.amplitude > 0.0) || !(s.gimbal.amplitude < kPi / 2.0)) {
+                throw std::runtime_error("scenario airstack.gimbal_actuation.sweep_amplitude_deg must be in (0, 90)");
+            }
+        }
+    }
+    const J::Value& simG = sc["airstack"]["sim_gimbal"];
+    s.gimbalSlewRate = simG["slew_rate_deg_s"].num(120.0) * kPi / 180.0;
+    if (simG["roll_limit_deg"].isArray()) {
+        const auto rl = simG["roll_limit_deg"].numbers();
+        if (rl.size() == 2) s.gimbalRollLimit = std::min(std::fabs(rl[0]), std::fabs(rl[1])) * kPi / 180.0;
+    }
+
     const J::Value& team = sc["team"];
     s.maxFlightTime     = team["max_flight_time_s"].numOrInf();
     s.maxFlightDistance = team["max_flight_distance_m"].numOrInf();

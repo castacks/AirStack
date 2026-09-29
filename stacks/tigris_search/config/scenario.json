@@ -898,6 +898,11 @@
    "generator": "scripts/mtl_generate_scenario.py",
    "mission": "stacks/tigris_search/config/mission.yaml",
    "fleet": "config/fleets/tigris_search_fleet.yaml"
+  },
+  "gimbal_actuation": {
+   "enabled": true,
+   "sweep_rate_deg_s": 30.0,
+   "sweep_amplitude_deg": 45.0
   }
  }
 }

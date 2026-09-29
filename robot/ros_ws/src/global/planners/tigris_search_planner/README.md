@@ -24,9 +24,11 @@ The node serves the same `SearchMission` interface as `mtl_search_planner`. The 
 3. **Follower revisions.** The follower accepts these as in-flight revisions
    (`accept_plan_revisions: true` in the stack). Because the prefix is unchanged, its
    arc-length progress stays valid.
-4. **No gimbal actuation.** TIGRIS has no gimbal trajectory, so the plan tells the follower
-   the cross-track axis and pitch nudge are locked (`1e-6` rad). The camera is body-fixed at
-   the mission's forward tilt and turns with the airframe.
+4. **Gimbal: locked by default, optional sweep.** TIGRIS has no gimbal trajectory, so by
+   default the plan tells the follower the cross-track axis and pitch nudge are locked
+   (`1e-6` rad). The camera is body-fixed at the mission's forward tilt and turns with the
+   airframe. With `gimbal_actuation.enabled: true` in the mission file the cross-track axis
+   sweeps left and right at a constant rate instead (see [Gimbal actuation](#gimbal-actuation)).
 
 | Interface | Type | Notes |
 |---|---|---|
@@ -82,6 +84,47 @@ The algorithm is a line-by-line port of `tigris/src/ipp.cpp` and
 expected drop in residual belief mass (the logger's metric) sampled along the whole path. The
 default is `original`.
 
+## Gimbal actuation
+
+`mission.yaml` (TIGRIS only, copied to `scenario.json` as `airstack.gimbal_actuation`):
+
+```yaml
+gimbal_actuation:
+  enabled: false            # true: sweep the single-axis gimbal left <-> right
+  sweep_rate_deg_s: 30.0    # constant cross-track angular speed
+  sweep_amplitude_deg: 45.0 # between -A (left) and +A (right)
+```
+
+When it is enabled, the cross-track angle is a triangle wave in **planned track time**:
+`phi(t)` goes 0 → +A → 0 → −A → 0 at a constant `|dphi/dt|` = rate (period 4 A / rate).
+It starts at the first track sample. Replans keep the track time running, so the phase is
+continuous across revisions. Each look of the single-axis mount at `phi` hits the ground
+`h tan(tilt) / cos(phi)` ahead and `h tan(phi)` to the right. Its slant is
+`h / (cos(tilt) cos(phi))`, and its footprint radius is that slant times `tan(fov / 2)`.
+This is the constraint plane that `mtl_trajectory_follower`'s `single_axis_command` points in.
+
+- **Plan.** Every sample carries the swept boresight ground point and
+  `planned_gimbal_phi_rad`. The cross-track travel opens to 80°, and the pitch nudge stays
+  locked while `lock_gimbal: true`. The unchanged follower points the gimbal at the swept
+  boresight.
+- **Residual belief.** The committed and planned looks (and the CLI's stand-in for the flown
+  looks) use the swept footprint. The node's flown looks come from the measured gimbal, as
+  before. `residual_mass_after_flown` in `tigris_replans.json` and the logger's planned and
+  flown residual therefore follow the sweep.
+- **TIGRIS rewards** (the only change to the tree search, and only when the sweep is on):
+  - `original`: the node footprint is the disc at the node's `phi`. The straight-edge swath is
+    the union of the swept discs every `reward_step_m` along the segment. Each cell entirely
+    inside one of them is updated once with the edge formula, at its range from the nearest
+    such pose.
+  - `matched`: the edge looks use `phi`.
+
+  The sampler, steer, prune and rewiring are unchanged. With `enabled: false` the planner's
+  output is byte-identical to the body-fixed baseline.
+- **Checks at load.** The node logs a warning when the sweep's peak earth-frame axis rate
+  exceeds the gimbal slew rate (`sim_gimbal.slew_rate_deg_s`). Near the centre, roll moves
+  `1 / sin(tilt)` = 2× faster than `phi`. It also warns when `|roll|` exceeds
+  `sim_gimbal.roll_limit_deg`, or when the end slant exceeds `detection.beta`.
+
 ## Parameters
 
 The **mission** is read from the scenario (`stacks/tigris_search/config/mission.yaml`),
@@ -90,6 +133,7 @@ exactly like MTL:
 - budget: `team.max_flight_time_s`, `team.max_flight_distance_m`;
 - speed, turn radius and altitude;
 - camera mount: `sensor.fov_deg`, `sensor.tilt_deg`;
+- gimbal sweep: `gimbal_actuation` (off by default);
 - detection model and prior.
 
 TIGRIS tuning lives in `config/tigris_search_planner.yaml`; the stack loads its own copy from
@@ -114,6 +158,9 @@ TIGRIS tuning lives in `config/tigris_search_planner.yaml`; the stack loads its 
   - both reward models;
   - determinism and budget of a solve;
   - the committed prefix across a replan;
-  - the `track.json` layout.
+  - the `track.json` layout;
+  - the gimbal sweep: parsing, the constant-rate triangle wave, the swept look geometry,
+    the earth-frame kinematics against the follower's solution, the phase across a replan,
+    the swept residual belief, and the sweep-aware tree rewards.
 - `test/test_rewards.py` covers the Python mirror.
 - The follower's `test/test_plan_revisions.py` covers in-flight revisions.

@@ -20,9 +20,11 @@
 #  tigris_search_planner.yaml next to this file):
 #    team.max_flight_time_s / max_flight_distance_m   the BUDGET (the tighter binds)
 #    aircraft.speed_mps / min_turn_radius_m / altitude_m / dt / dubins_step_m
-#    sensor.fov_deg + sensor.tilt_deg                 the CAMERA MOUNT (body-fixed, no gimbal
-#                                                     actuation): full cone and forward tilt
+#    sensor.fov_deg + sensor.tilt_deg                 the CAMERA MOUNT: full cone and forward tilt
 #                                                     from nadir. The logger scores this FOV.
+#    gimbal_actuation                                 TIGRIS-only: body-fixed camera (enabled: false)
+#                                                     or a constant-rate left/right sweep of the
+#                                                     single-axis gimbal (enabled: true)
 #    sensor.detection                                 Moon et al. sigmoid (tpr of the TIGRIS reward)
 #    mission.area / belief / seed                     prior
 #  mapping / gimbal / solver blocks are MTL-only (kept so the bundle stays
@@ -100,6 +102,20 @@ mission:
       p_out_of_range: 1.0e-6
       threshold: 0.90            # cumulative P_det at which a target is "found"
       dt_ref_s: 0.1              # the per-look calibration period (= aircraft.dt)
+
+  gimbal_actuation:              # TIGRIS ONLY (-> scenario.json airstack.gimbal_actuation; MTL never reads it)
+    enabled: true               # true: the single-axis (cross-track) gimbal SWEEPS left <-> right at a
+                                 # constant angular speed while the TIGRIS track is flown. The planner
+                                 # puts the swept boresight in the plan (the follower points it), and
+                                 # its footprints, rewards and residual belief use the swept camera.
+                                 # false: body-fixed camera at sensor.tilt_deg (the original baseline).
+    sweep_rate_deg_s: 30.0       # constant cross-track angular speed [deg/s]. Keep it under the gimbal
+                                 # slew rate (sim_gimbal.slew_rate_deg_s): near the centre the earth-frame
+                                 # roll moves ~1/sin(tilt) = 2x faster than the cross-track angle.
+    sweep_amplitude_deg: 45.0    # sweep between -A (left) and +A (right) of the forward-tilted plane;
+                                 # full cycle = 4 A / rate = 6 s = 36 m of track. The swung-out slant
+                                 # h / (cos(tilt) cos(A)) = 49 m must stay under detection.beta (61 m ->
+                                 # A < 55 deg here), or those looks see nothing.
 
   gimbal:                        # planner-side scheduler knobs (mtl GimbalSchedulerParams)
     enable_repair_loop: false

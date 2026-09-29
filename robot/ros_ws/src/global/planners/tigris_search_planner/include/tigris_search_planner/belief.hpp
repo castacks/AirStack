@@ -2,12 +2,19 @@
 //  tigris_search_planner/belief.hpp — sensor footprint, planning grid, belief
 //  and the two TIGRIS reward models.
 //
-//  SENSOR (both reward modes). A body-fixed camera (no gimbal actuation): full
-//  cone `fov` tilted `tilt` forward of nadir, yawed with the airframe. One look
-//  from height h and heading psi sees the ground disc of radius
-//  slant * tan(fov / 2) about the boresight ground point h * tan(tilt) ahead,
-//  and nothing when the slant range to that point exceeds beta. This is
-//  exactly the gate mtl_metrics_logger scores flights with.
+//  SENSOR (both reward modes). The single-axis mount: full cone `fov` on a bracket
+//  tilted `tilt` forward of nadir, yawed with the airframe, with ONE cross-track
+//  axis phi (+ right). Without gimbal actuation phi = 0 (a body-fixed camera).
+//  With actuation (mission.yaml gimbal_actuation) phi sweeps -A .. +A at a
+//  constant angular speed as a function of the planned track time
+//  (Camera::phiAt). One look from height h, heading psi and cross-track angle phi
+//  hits the ground at
+//      ahead = h tan(tilt) / cos(phi),   right = h tan(phi),
+//      slant = h / (cos(tilt) cos(phi))
+//  (the constraint plane mtl_trajectory_follower's single_axis_command points
+//  in) and sees the disc of radius slant * tan(fov / 2) about that point, and
+//  nothing when the slant exceeds beta. This is exactly the gate
+//  mtl_metrics_logger scores flights with.
 //
 //  REWARD MODES
 //    ORIGINAL  TIGRIS as written (tigris/src/MapRepresentation.cpp): an independent
@@ -25,7 +32,12 @@
 //              is the footprint shape: the user-configured cone (a disc on the
 //              ground) instead of the rectangular frustum, so the edge swath is the
 //              disc swept along the straight segment and the nearest viewing pose is
-//              computed for that disc.
+//              computed for that disc. With gimbal actuation the node footprint
+//              is the disc at the node's swept phi, and the straight-edge swath is
+//              the union of the swept discs along the segment (every reward_step_m):
+//              a cell counts when it lies entirely inside one of them, ranged from
+//              the nearest such viewing pose, and is updated once per edge as in
+//              estimateEdgeBeliefandReward.
 //    MATCHED   (not in TIGRIS; the evaluator's metric) the expected drop in
 //              residual belief mass: every cell holds prior mass * P(all looks
 //              missed), updated per look along the whole path with
@@ -50,7 +62,31 @@ const char* toString(RewardMode m);
 struct Camera {
     double fov = 1.0471975511965976;   ///< full cone [rad]
     double tilt = 0.5235987755982988;  ///< forward tilt from nadir [rad]
+    // gimbal actuation: the cross-track axis sweeps -sweepAmplitude .. +sweepAmplitude
+    bool   sweep = false;
+    double sweepRate = 0.0;            ///< [rad/s] constant cross-track angular speed
+    double sweepAmplitude = 0.0;       ///< [rad]
+    /// Cross-track angle (+ right) at planned track time t [s]: a triangle wave at constant
+    /// |dphi/dt| = sweepRate, phi(0) = 0 moving right, period 4 A / rate. 0 without actuation.
+    double phiAt(double t) const;
 };
+
+/// The mission's camera: sensor.fov_deg, sensor.tilt_deg and airstack.gimbal_actuation.
+Camera cameraFromScenario(const Scenario& sc);
+
+/// Earth-frame kinematics of the sweep (the single_axis_command solution for theta = tilt),
+/// for checking it against the gimbal: peak |d(axis)/dt| over roll/pitch/yaw [rad/s] at the
+/// camera's sweepRate, the largest |roll| and the shallowest pitch reached [rad].
+struct SweepKinematics {
+    double peakAxisRate = 0.0;
+    double maxAbsRoll = 0.0;
+    double minPitch = 0.0;
+    double maxSlantPerHeight = 0.0;  ///< slant / h at the sweep's ends = 1 / (cos(tilt) cos(A))
+};
+SweepKinematics sweepKinematics(const Camera& cam);
+
+/// Boresight ground point of the single-axis mount at cross-track angle phi (+ right).
+void boresightGround(double x, double y, double h, double yaw, double phi, double tilt, double* gx, double* gy);
 
 /// One look: camera position (pz = height above ground), footprint disc, weight dt/dt_ref.
 struct Look {
@@ -61,9 +97,10 @@ struct Look {
     bool valid = false;
 };
 
-/// Look of the body-fixed camera from pose (x, y, h, yaw).
+/// Look of the single-axis camera from pose (x, y, h, yaw) at cross-track angle phi (+ right;
+/// 0 = the body-fixed camera).
 Look lookFromPose(double x, double y, double h, double yaw, const Camera& cam, const DetectionModel& det,
-                  double weight);
+                  double weight, double phi = 0.0);
 /// Look from a MEASURED earth-frame gimbal attitude (pitch > 0 looks down), as the logger scores it.
 Look lookFromGimbal(double x, double y, double h, double pitch, double yaw, double fov,
                     const DetectionModel& det, double weight);
@@ -188,10 +225,16 @@ public:
     /// receding horizon; the tree scores ORIGINAL paths with tigrisNode / tigrisEdge).
     void pass(const std::vector<Look>& looks, bool original, bool matched);
     PathReward reward() const { return acc_; }
-    /// ORIGINAL (TIGRIS) node footprint: body-fixed camera at (x, y, h, yaw).
-    void tigrisNode(double x, double y, double h, double yaw, const Camera& cam);
-    /// ORIGINAL (TIGRIS) straight edge from (sx, sy) to (ex, ey) flown at heading `yaw`, height h.
+    /// ORIGINAL (TIGRIS) node footprint: camera at (x, y, h, yaw), cross-track angle phi.
+    void tigrisNode(double x, double y, double h, double yaw, const Camera& cam, double phi = 0.0);
+    /// ORIGINAL (TIGRIS) straight edge from (sx, sy) to (ex, ey) flown at heading `yaw`, height h
+    /// (body-fixed camera).
     void tigrisEdge(double sx, double sy, double ex, double ey, double yaw, double h, const Camera& cam);
+    /// ORIGINAL straight edge with a SWEEPING camera: the union of the footprints of `poses`
+    /// (x, y, yaw, phi along the segment); each cell entirely inside one of them is updated
+    /// once, with the edge formula, at its range from the nearest such pose.
+    struct ViewPose { double x = 0.0, y = 0.0, yaw = 0.0, phi = 0.0; };
+    void tigrisEdgeSwept(const std::vector<ViewPose>& poses, double h, const Camera& cam);
     /// Write the overlay into `dst` (normally the same object as the base).
     void commit(BeliefState& dst) const;
 

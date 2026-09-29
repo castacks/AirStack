@@ -82,7 +82,7 @@ private:
 TigrisPlanner::TigrisPlanner(const PlanningGrid& grid, const PlannerSetup& setup, const TigrisParams& params)
     : g_(grid), s_(setup), p_(params), eval_(grid, setup.det, params.reward) {}
 
-std::vector<Look> TigrisPlanner::edgeLooks(const DubinsPath& edge, double len) const {
+std::vector<Look> TigrisPlanner::edgeLooks(const DubinsPath& edge, double len, double tStart) const {
     std::vector<Look> out;
     if (!(len > 0.0)) return out;
     const double step = std::max(p_.rewardStep, 1e-3);
@@ -94,38 +94,60 @@ std::vector<Look> TigrisPlanner::edgeLooks(const DubinsPath& edge, double len) c
         const Pose2 q = edge.sample(s);
         const double w = (s - prev) / s_.speed / s_.det.dtRef;
         prev = s;
-        out.push_back(lookFromPose(q.x, q.y, s_.altitude, q.yaw, s_.camera, s_.det, w));
+        out.push_back(lookFromPose(q.x, q.y, s_.altitude, q.yaw, s_.camera, s_.det, w,
+                                   s_.camera.phiAt(tStart + s / s_.speed)));
     }
     return out;
 }
 
-void TigrisPlanner::tigrisGain(const std::vector<const TreeNode*>& chain) {
+void TigrisPlanner::tigrisGain(const std::vector<const TreeNode*>& chain, double startTime) {
     // MapRepresentation::informationGain: root -> leaf, each node's footprint, then the
     // straight part of the edge that ends at that node (edge_coords share the node index).
+    const Camera& cam = s_.camera;
+    std::vector<RewardEvaluator::ViewPose> poses;
     for (const TreeNode* n : chain) {
-        eval_.tigrisNode(n->pose.x, n->pose.y, s_.altitude, n->pose.yaw, s_.camera);
-        if (n->hasEdge) {
+        eval_.tigrisNode(n->pose.x, n->pose.y, s_.altitude, n->pose.yaw, cam,
+                         cam.phiAt(startTime + n->arc / s_.speed));
+        if (!n->hasEdge) continue;
+        if (!cam.sweep) {
             eval_.tigrisEdge(n->edgeStart.x, n->edgeStart.y, n->edgeEnd.x, n->edgeEnd.y, n->edgeStart.yaw,
-                             s_.altitude, s_.camera);
+                             s_.altitude, cam);
+            continue;
         }
+        // swept camera: the swath is the union of the footprints along the straight part
+        const double tEdge = startTime + (n->arc - n->edgeLen) / s_.speed;
+        const double a = n->edgeStartS, b = std::max(n->edgeEndS, a);
+        const double step = std::max(p_.rewardStep, 1e-3);
+        const int m = std::max(1, static_cast<int>(std::ceil((b - a) / step - 1e-9)));
+        poses.clear();
+        for (int k = 0; k <= m; ++k) {
+            const double sv = std::min(b, a + k * step);
+            const Pose2 q = n->edge.sample(sv);
+            poses.push_back({q.x, q.y, q.yaw, cam.phiAt(tEdge + sv / s_.speed)});
+        }
+        eval_.tigrisEdgeSwept(poses, s_.altitude, cam);
     }
 }
 
-PathReward TigrisPlanner::scorePath(const std::vector<TreeNode>& path, const BeliefState& belief) {
+PathReward TigrisPlanner::scorePath(const std::vector<TreeNode>& path, const BeliefState& belief,
+                                    double startTime) {
     PathReward r;
     std::vector<const TreeNode*> chain;
     for (const TreeNode& n : path) chain.push_back(&n);
     eval_.begin(belief);
-    tigrisGain(chain);
+    tigrisGain(chain, startTime);
     r.original = eval_.reward().original;
     eval_.begin(belief);
-    for (std::size_t i = 1; i < path.size(); ++i) eval_.pass(edgeLooks(path[i].edge, path[i].edgeLen), false, true);
+    for (std::size_t i = 1; i < path.size(); ++i) {
+        const double tEdge = startTime + (path[i].arc - path[i].edgeLen) / s_.speed;
+        eval_.pass(edgeLooks(path[i].edge, path[i].edgeLen, tEdge), false, true);
+    }
     r.matched = eval_.reward().matched;
     return r;
 }
 
 PlanResult TigrisPlanner::plan(const Pose2& start, double budget, double timeLimit, const BeliefState& belief,
-                               int replanIndex) {
+                               int replanIndex, double startTime) {
     using Clock = std::chrono::steady_clock;
     PlanResult res;
     const RewardMode mode = p_.reward.mode;
@@ -211,6 +233,7 @@ PlanResult TigrisPlanner::plan(const Pose2& start, double budget, double timeLim
         double oldPsi = f.pose.yaw;
         bool startEdge = false, haveStart = false, haveEnd = false;
         Pose2 eStart, eEnd;
+        double eStartS = 0.0, eEndS = 0.0;
         double dist = 0.0, prevS = 0.0, distS1 = 0.0;  // chord sums, as dist_covered in IPP::steer
         Pose2 s1 = f.pose;
         for (int i = 1; i <= nSteps; ++i) {
@@ -221,9 +244,11 @@ PlanResult TigrisPlanner::plan(const Pose2& start, double budget, double timeLim
                 if (dpsi < eps && !startEdge) {
                     startEdge = true;
                     eStart = s2;
+                    eStartS = sv;
                     haveStart = true;
                 } else if (dpsi < eps && startEdge) {
                     eEnd = s2;
+                    eEndS = sv;
                     haveEnd = true;
                 } else if (oldPsi != s2.yaw) {
                     startEdge = false;
@@ -255,12 +280,16 @@ PlanResult TigrisPlanner::plan(const Pose2& start, double budget, double timeLim
         out->edge = dp;
         out->pose = dp.sample(out->edgeLen);
         out->parent = from;
+        out->arc = f.arc + out->edgeLen;
         out->hasEdge = haveStart && haveEnd;
         out->edgeStart = eStart;
         out->edgeEnd = eEnd;
+        out->edgeStartS = eStartS;
+        out->edgeEndS = eEndS;
         return out->edgeLen > 1e-9;
     };
 
+    auto tEdge = [&](const TreeNode& n) { return startTime + (n.arc - n.edgeLen) / s_.speed; };
     std::vector<const TreeNode*> chainBuf;
     std::vector<int> idxBuf;
     auto infoOf = [&](const TreeNode& n, const std::vector<Look>& ownLooks) {
@@ -271,7 +300,7 @@ PlanResult TigrisPlanner::plan(const Pose2& start, double budget, double timeLim
             chainBuf.clear();
             for (auto it = idxBuf.rbegin(); it != idxBuf.rend(); ++it) chainBuf.push_back(&nodes[static_cast<std::size_t>(*it)]);
             chainBuf.push_back(&n);
-            tigrisGain(chainBuf);
+            tigrisGain(chainBuf, startTime);
             return eval_.reward().original;
         }
         for (auto it = idxBuf.rbegin(); it != idxBuf.rend(); ++it) {
@@ -324,7 +353,7 @@ PlanResult TigrisPlanner::plan(const Pose2& start, double budget, double timeLim
         if (nearest < 0) continue;
         TreeNode m;
         if (!steer(nearest, sample, &m)) continue;
-        std::vector<Look> mLooks = original ? std::vector<Look>() : edgeLooks(m.edge, m.edgeLen);
+        std::vector<Look> mLooks = original ? std::vector<Look>() : edgeLooks(m.edge, m.edgeLen, tEdge(m));
         m.info = infoOf(m, mLooks);
         const bool addM = !pruned(m) && !nodes[static_cast<std::size_t>(nearest)].closed;
         if (!addM) ++res.nodesPruned;
@@ -340,7 +369,7 @@ PlanResult TigrisPlanner::plan(const Pose2& start, double budget, double timeLim
             if (q == nearest || q == mIdx || nodes[static_cast<std::size_t>(q)].closed) continue;
             TreeNode a;
             if (!steer(q, mPose, &a)) continue;
-            std::vector<Look> aLooks = original ? std::vector<Look>() : edgeLooks(a.edge, a.edgeLen);
+            std::vector<Look> aLooks = original ? std::vector<Look>() : edgeLooks(a.edge, a.edgeLen, tEdge(a));
             a.info = infoOf(a, aLooks);
             const bool addA = !pruned(a);
             if (!addA) ++res.nodesPruned;
@@ -354,7 +383,7 @@ PlanResult TigrisPlanner::plan(const Pose2& start, double budget, double timeLim
     std::reverse(res.path.begin(), res.path.end());
     res.cost = nodes[static_cast<std::size_t>(best)].cost;
     res.treeSize = hash.size();
-    res.reward = scorePath(res.path, belief);
+    res.reward = scorePath(res.path, belief, startTime);
     res.seconds = elapsed();
     return res;
 }

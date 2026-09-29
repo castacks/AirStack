@@ -26,20 +26,87 @@ RewardMode rewardModeFromString(const std::string& s) {
 
 const char* toString(RewardMode m) { return m == RewardMode::ORIGINAL ? "original" : "matched"; }
 
+double Camera::phiAt(double t) const {
+    if (!sweep || !(sweepRate > 0.0) || !(sweepAmplitude > 0.0)) return 0.0;
+    // triangle wave of slope +-sweepRate: 0 -> +A -> 0 -> -A -> 0 over 4 A / rate
+    const double A = sweepAmplitude;
+    double u = std::fmod(sweepRate * t, 4.0 * A);
+    if (u < 0.0) u += 4.0 * A;
+    if (u < A) return u;
+    if (u < 3.0 * A) return 2.0 * A - u;
+    return u - 4.0 * A;
+}
+
+Camera cameraFromScenario(const Scenario& sc) {
+    Camera cam;
+    cam.fov = sc.fovRad;
+    cam.tilt = sc.tiltRad;
+    cam.sweep = sc.gimbal.enabled;
+    cam.sweepRate = sc.gimbal.enabled ? sc.gimbal.rate : 0.0;
+    cam.sweepAmplitude = sc.gimbal.enabled ? sc.gimbal.amplitude : 0.0;
+    return cam;
+}
+
+SweepKinematics sweepKinematics(const Camera& cam) {
+    // boresight in the body frame (fwd, left, up) for theta = tilt: (s_t, -c_t s_phi, -c_t c_phi);
+    // camera y = normalize(fwd x b) (camera_matrix_from_boresight) gives, in the earth frame,
+    //   roll = atan2(-sin phi, sin tilt cos phi), pitch = asin(cos tilt cos phi),
+    //   yaw - heading = atan2(-cos tilt sin phi, sin tilt)
+    SweepKinematics k;
+    const double A = cam.sweep ? cam.sweepAmplitude : 0.0;
+    const double st = std::sin(cam.tilt), ct = std::cos(cam.tilt);
+    auto angles = [&](double phi, double* r, double* p, double* y) {
+        *r = std::atan2(-std::sin(phi), st * std::cos(phi));
+        *p = std::asin(std::min(1.0, ct * std::cos(phi)));
+        *y = std::atan2(-ct * std::sin(phi), st);
+    };
+    const int n = 400;
+    double r0, p0, y0;
+    angles(-A, &r0, &p0, &y0);
+    k.maxAbsRoll = std::fabs(r0);
+    k.minPitch = p0;
+    double peak = 0.0;
+    for (int i = 1; i <= n; ++i) {
+        const double phi = -A + 2.0 * A * i / n, dphi = 2.0 * A / n;
+        double r, p, y;
+        angles(phi, &r, &p, &y);
+        if (dphi > 0.0) {
+            peak = std::max({peak, std::fabs(r - r0) / dphi, std::fabs(p - p0) / dphi, std::fabs(y - y0) / dphi});
+        }
+        k.maxAbsRoll = std::max(k.maxAbsRoll, std::fabs(r));
+        k.minPitch = std::min(k.minPitch, p);
+        r0 = r;
+        p0 = p;
+        y0 = y;
+    }
+    k.peakAxisRate = peak * (cam.sweep ? cam.sweepRate : 0.0);
+    const double den = ct * std::cos(A);
+    k.maxSlantPerHeight = den > 1e-9 ? 1.0 / den : 1e300;
+    return k;
+}
+
+void boresightGround(double x, double y, double h, double yaw, double phi, double tilt, double* gx, double* gy) {
+    const double cphi = std::cos(phi);
+    const double ahead = cphi > 1e-9 ? h * std::tan(tilt) / cphi : 0.0;
+    const double right = h * std::tan(phi);
+    const double c = std::cos(yaw), s = std::sin(yaw);
+    // right of heading (c, s) is (s, -c)
+    *gx = x + ahead * c + right * s;
+    *gy = y + ahead * s - right * c;
+}
+
 Look lookFromPose(double x, double y, double h, double yaw, const Camera& cam, const DetectionModel& det,
-                  double weight) {
+                  double weight, double phi) {
     Look l;
     if (!(h > 0.0)) return l;
-    const double c = std::cos(cam.tilt);
+    const double c = std::cos(cam.tilt) * std::cos(phi);
     if (c <= 1e-6) return l;
     const double slant = h / c;
     if (slant > det.beta) return l;  // the look point itself is out of range (logger rule)
-    const double d = h * std::tan(cam.tilt);
     l.px = x;
     l.py = y;
     l.pz = h;
-    l.gx = x + d * std::cos(yaw);
-    l.gy = y + d * std::sin(yaw);
+    boresightGround(x, y, h, yaw, phi, cam.tilt, &l.gx, &l.gy);
     l.radius = slant * std::tan(cam.fov / 2.0);
     l.weight = weight;
     l.valid = weight > 0.0 && l.radius > 0.0;
@@ -218,10 +285,10 @@ double& RewardEvaluator::presence(std::size_t k) {
 }
 
 namespace {
-/// Footprint of the body-fixed cone WITHOUT the logger's whole-look range gate
-/// (TIGRIS has none: out-of-range cells simply get tpr = 0.5).
-bool coneFootprint(double h, const Camera& cam, double* lead, double* radius) {
-    const double c = std::cos(cam.tilt);
+/// Footprint of the cone at cross-track angle phi WITHOUT the logger's whole-look range
+/// gate (TIGRIS has none: out-of-range cells simply get tpr = 0.5).
+bool coneFootprint(double h, const Camera& cam, double* lead, double* radius, double phi = 0.0) {
+    const double c = std::cos(cam.tilt) * std::cos(phi);
     if (!(h > 0.0) || c <= 1e-6) return false;
     *lead = h * std::tan(cam.tilt);
     *radius = h / c * std::tan(cam.fov / 2.0);
@@ -229,10 +296,11 @@ bool coneFootprint(double h, const Camera& cam, double* lead, double* radius) {
 }
 }  // namespace
 
-void RewardEvaluator::tigrisNode(double x, double y, double h, double yaw, const Camera& cam) {
+void RewardEvaluator::tigrisNode(double x, double y, double h, double yaw, const Camera& cam, double phi) {
     double d, R;
-    if (base_ == nullptr || !coneFootprint(h, cam, &d, &R)) return;
-    const double gx = x + d * std::cos(yaw), gy = y + d * std::sin(yaw);
+    if (base_ == nullptr || !coneFootprint(h, cam, &d, &R, phi)) return;
+    double gx, gy;
+    boresightGround(x, y, h, yaw, phi, cam.tilt, &gx, &gy);
     // estimateBeliefandReward: cells entirely inside, range from the node to the cell corner
     g_.forEachCellInside(gx, gy, gx, gy, R, [&](std::size_t k, double cx, double cy) {
         const double range = std::sqrt((cx - x) * (cx - x) + (cy - y) * (cy - y) + h * h);
@@ -285,6 +353,41 @@ void RewardEvaluator::tigrisEdge(double sx, double sy, double ex, double ey, dou
         acc_.original += originalEdgeCellUpdate(p, range, det_, rp_, &q);
         p = q;
     });
+}
+
+void RewardEvaluator::tigrisEdgeSwept(const std::vector<ViewPose>& poses, double h, const Camera& cam) {
+    if (base_ == nullptr || poses.empty()) return;
+    ++passEpoch_;
+    if (passEpoch_ == 0) {
+        std::fill(stampPass_.begin(), stampPass_.end(), 0u);
+        passEpoch_ = 1;
+    }
+    touched_.clear();
+    const double h2 = h * h;
+    for (const ViewPose& v : poses) {
+        double d, R;
+        if (!coneFootprint(h, cam, &d, &R, v.phi)) continue;
+        double gx, gy;
+        boresightGround(v.x, v.y, h, v.yaw, v.phi, cam.tilt, &gx, &gy);
+        // cells entirely inside this pose's footprint, ranged (as TIGRIS) to the cell corner
+        g_.forEachCellInside(gx, gy, gx, gy, R, [&](std::size_t k, double cx, double cy) {
+            const double r = std::sqrt((cx - v.x) * (cx - v.x) + (cy - v.y) * (cy - v.y) + h2);
+            if (stampPass_[k] != passEpoch_) {
+                stampPass_[k] = passEpoch_;
+                rmin_[k] = r;
+                touched_.push_back(k);
+            } else if (r < rmin_[k]) {
+                rmin_[k] = r;
+            }
+        });
+    }
+    // estimateEdgeBeliefandReward: each cell of the swath once, from its nearest viewing pose
+    for (const std::size_t k : touched_) {
+        double& p = presence(k);
+        double q;
+        acc_.original += originalEdgeCellUpdate(p, rmin_[k], det_, rp_, &q);
+        p = q;
+    }
 }
 
 void RewardEvaluator::commit(BeliefState& dst) const {

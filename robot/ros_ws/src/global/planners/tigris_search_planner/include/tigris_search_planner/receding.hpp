@@ -17,7 +17,10 @@
 //
 //  The belief TIGRIS plans over is maintained OUTSIDE the tree search, as in the
 //  original system (IPP::replan receives the map; ipp.cpp never updates it from
-//  observations). Every look counts as a MISS (no detector runs; the planner never
+//  observations). With gimbal actuation every planned / committed look uses the
+//  swept cross-track angle at its track time (TrackSample::phi), and the flown
+//  looks come from the measured gimbal, so the residual belief follows the sweep.
+//  Every look counts as a MISS (no detector runs; the planner never
 //  sees ground truth): MATCHED = prior * P(missed), the logger's residual belief;
 //  ORIGINAL = TIGRIS's Bayes update, the looks of one replan interval applied as one
 //  pass (each cell once, at its best range).
@@ -39,7 +42,8 @@ namespace tigris_search {
 struct TrackSample {
     double t = 0.0, arc = 0.0;
     double x = 0.0, y = 0.0, z = 0.0, yaw = 0.0;
-    double bx = 0.0, by = 0.0, bz = 0.0;  ///< boresight ground point of the body-fixed camera
+    double bx = 0.0, by = 0.0, bz = 0.0;  ///< boresight ground point (swept when the gimbal is actuated)
+    double phi = 0.0;                     ///< cross-track gimbal angle [rad, + right]; 0 = body-fixed
 };
 
 struct HorizonParams {
@@ -131,11 +135,33 @@ private:
 Pose2 defaultStartPose(const Scenario& sc, int agentIndex, const HorizonParams& hp);
 
 // ---- run-folder JSON (same layouts the MTL tooling reads) --------------------
+/// What the plan tells the follower about the single-axis gimbal (SearchPlan
+/// gimbal_max_rad / pitch_nudge_max_rad; the follower treats 0 as unset, hence 1e-6).
+struct GimbalLimits {
+    bool   locked = true;              ///< cross-track axis locked (no actuation)
+    double maxRad = 1e-6;              ///< cross-track travel
+    double pitchNudgeMaxRad = 1e-6;    ///< airframe pitch nudge
+};
+constexpr double kGimbalLockedRad = 1e-6;
+constexpr double kGimbalTravelRad = 1.3962634015954636;  ///< 80 deg mount travel
+constexpr double kPitchNudgeRad = 0.08726646259971647;   ///< 5 deg
+/// Swept camera: the travel opens (the follower points the swept boresight); otherwise
+/// `lockGimbal` keeps the body-fixed camera. The pitch nudge stays locked whenever
+/// `lockGimbal` is set, so the boresight stays on the tilt plane the planner models.
+GimbalLimits gimbalLimits(const Camera& cam, bool lockGimbal);
+
 struct TrackMeta {
     std::string planId, rewardMode, sampler;
     double budget = 0.0;
     int revision = 0;
     bool gimbalLocked = true;
+    double gimbalMaxRad = kGimbalLockedRad;
+    double pitchNudgeMaxRad = kGimbalLockedRad;
+    void setGimbal(const GimbalLimits& g) {
+        gimbalLocked = g.locked;
+        gimbalMaxRad = g.maxRad;
+        pitchNudgeMaxRad = g.pitchNudgeMaxRad;
+    }
 };
 
 /// Scenario cells whose centre falls inside any footprint of the track.

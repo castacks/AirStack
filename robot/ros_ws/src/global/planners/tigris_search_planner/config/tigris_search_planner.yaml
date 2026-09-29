@@ -19,7 +19,9 @@
     viz_path_step_m: 2.0             # decimation of the nav_msgs/Path visualisations
     start_from_odometry: true        # first plan starts where the drone hovers (else the scenario start)
     start_yaw_deg: -999.0            # initial heading (ENU deg); < -900 = face the area centre
-    lock_gimbal: true                # no gimbal actuation: body-fixed camera (cross-track axis locked)
+    lock_gimbal: true                # no gimbal actuation: body-fixed camera (cross-track axis locked).
+                                     # mission.yaml gimbal_actuation.enabled overrides it for the
+                                     # cross-track axis (the sweep); the pitch nudge stays locked
     look_period_s: 0.1               # flown looks folded into the belief at this period
 
     # ---- TIGRIS -------------------------------------------------------------

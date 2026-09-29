@@ -23,9 +23,13 @@
 //  keeps its arc-length progress across revisions (it must run with
 //  accept_plan_revisions: true, which the tigris_search stack sets).
 //
-//  No gimbal actuation: the plan tells the follower a single-axis mount with
-//  the cross-track travel and pitch nudge locked (1e-6 rad), so the camera is
-//  body-fixed at the configured forward tilt and turns with the airframe.
+//  Gimbal: by default no actuation - the plan tells the follower a single-axis
+//  mount with the cross-track travel and pitch nudge locked (1e-6 rad), so the
+//  camera is body-fixed at the configured forward tilt and turns with the
+//  airframe. With mission.yaml gimbal_actuation.enabled the cross-track axis
+//  SWEEPS left <-> right at a constant rate: the plan carries the swept
+//  boresight + planned_gimbal_phi_rad with the travel opened, the follower
+//  points it, and the planner's rewards and residual belief use the swept camera.
 // =============================================================================
 #include <algorithm>
 #include <atomic>
@@ -79,7 +83,6 @@ using FollowerStatus = mtl_msgs::msg::FollowerStatus;
 
 constexpr double kPi = 3.14159265358979323846;
 constexpr double kDeg = kPi / 180.0;
-constexpr double kLockedRad = 1e-6;  // "zero" travel: the follower treats 0 as unset
 
 geometry_msgs::msg::Quaternion yawQuat(double yaw) {
     geometry_msgs::msg::Quaternion q;
@@ -341,13 +344,35 @@ private:
     }
 
     ts::Camera camera(const ts::Scenario& sc) {
-        ts::Camera cam;
+        ts::Camera cam = ts::cameraFromScenario(sc);  // incl. the gimbal sweep (mission.yaml)
         cam.fov = camera_fov_deg_ > 0.0 ? camera_fov_deg_ * kDeg : sc.fovRad;
         cam.tilt = camera_tilt_deg_ >= 0.0 ? camera_tilt_deg_ * kDeg : sc.tiltRad;
         if (std::fabs(cam.fov - sc.fovRad) > 1e-9) {
             RCLCPP_WARN(get_logger(), "camera_fov_deg %.1f differs from the scenario sensor.fov_deg %.1f: the "
                         "metrics logger scores the SCENARIO fov - change it in mission.yaml instead",
                         cam.fov / kDeg, sc.fovRad / kDeg);
+        }
+        if (cam.sweep) {
+            const ts::SweepKinematics k = ts::sweepKinematics(cam);
+            RCLCPP_INFO(get_logger(),
+                        "gimbal actuation ON: cross-track sweep +-%.1f deg at %.1f deg/s (period %.1f s), "
+                        "peak earth-frame axis rate %.1f deg/s, |roll| <= %.1f deg, end slant %.1f m",
+                        cam.sweepAmplitude / kDeg, cam.sweepRate / kDeg, 4.0 * cam.sweepAmplitude / cam.sweepRate,
+                        k.peakAxisRate / kDeg, k.maxAbsRoll / kDeg, k.maxSlantPerHeight * sc.altitude);
+            if (k.peakAxisRate > sc.gimbalSlewRate + 1e-9) {
+                RCLCPP_WARN(get_logger(), "the sweep needs %.1f deg/s on an earth-frame gimbal axis, above the gimbal "
+                            "slew rate %.1f deg/s: the flown sweep will lag the plan (lower sweep_rate_deg_s)",
+                            k.peakAxisRate / kDeg, sc.gimbalSlewRate / kDeg);
+            }
+            if (k.maxAbsRoll > sc.gimbalRollLimit + 1e-9) {
+                RCLCPP_WARN(get_logger(), "the sweep reaches earth-frame roll %.1f deg, beyond the gimbal roll limit "
+                            "%.1f deg (lower sweep_amplitude_deg)", k.maxAbsRoll / kDeg, sc.gimbalRollLimit / kDeg);
+            }
+            if (k.maxSlantPerHeight * sc.altitude > sc.det.beta) {
+                RCLCPP_WARN(get_logger(), "at the sweep ends the slant range %.1f m exceeds detection beta %.1f m: "
+                            "those looks see nothing (lower sweep_amplitude_deg)",
+                            k.maxSlantPerHeight * sc.altitude, sc.det.beta);
+            }
         }
         return cam;
     }
@@ -426,7 +451,7 @@ private:
         m.sampler = sampler_;
         m.budget = horizon_->budget();
         m.revision = horizon_->revision();
-        m.gimbalLocked = lock_gimbal_;
+        m.setGimbal(ts::gimbalLimits(horizon_->setup().camera, lock_gimbal_));
         return m;
     }
 
@@ -452,9 +477,10 @@ private:
         msg.min_turn_radius_m = sc.minTurnRadius;
         msg.altitude_m = su.altitude;
         msg.dt_s = sc.dt;
-        msg.gimbal_max_rad = lock_gimbal_ ? kLockedRad : 80.0 * kDeg;
+        const ts::GimbalLimits gl = ts::gimbalLimits(su.camera, lock_gimbal_);
+        msg.gimbal_max_rad = gl.maxRad;
         msg.gimbal_rate_rad_s = 120.0 * kDeg;
-        msg.pitch_nudge_max_rad = lock_gimbal_ ? kLockedRad : 5.0 * kDeg;
+        msg.pitch_nudge_max_rad = gl.pitchNudgeMaxRad;
         msg.map_origin_in_world.x = hx;
         msg.map_origin_in_world.y = hy;
         msg.map_origin_in_world.z = hz;
@@ -477,7 +503,7 @@ private:
             msg.boresight.push_back(point(s.bx - hx, s.by - hy, s.bz - hz));
             msg.arc_length_m.push_back(s.arc);
             msg.time_s.push_back(s.t);
-            msg.planned_gimbal_phi_rad.push_back(0.0);
+            msg.planned_gimbal_phi_rad.push_back(s.phi);
             msg.planned_pitch_rad.push_back(0.0);
             if (s.arc - lastArc >= path_step_m_ || k + 1 == tr.size()) {
                 lastArc = s.arc;

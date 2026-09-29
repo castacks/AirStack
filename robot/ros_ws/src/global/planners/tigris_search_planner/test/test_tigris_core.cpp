@@ -216,3 +216,185 @@ TEST(Receding, TrackJsonHasTheMtlLayout) {
     EXPECT_NEAR(v["samples"]["x_map"].array()[0].number(), 0.0, 1e-3);  // starts at home
     EXPECT_EQ(v["tigris"]["planner"].str(), "tigris");
 }
+
+// ---- gimbal actuation (mission.yaml gimbal_actuation) ------------------------
+namespace {
+
+Scenario sweepScenario(bool enabled) {
+    std::string text = kScenario;
+    const std::string key = "\"airstack\": {";
+    const auto at = text.find(key);
+    text.insert(at + key.size(), std::string("\"gimbal_actuation\": {\"enabled\": ") + (enabled ? "true" : "false") +
+                                     ", \"sweep_rate_deg_s\": 30.0, \"sweep_amplitude_deg\": 45.0}, ");
+    return parseScenario(text);
+}
+
+}  // namespace
+
+TEST(GimbalSweep, ParsesTheMissionBlock) {
+    const Scenario off = scenario();
+    EXPECT_FALSE(off.gimbal.enabled);
+    EXPECT_FALSE(cameraFromScenario(off).sweep);
+    const Scenario on = sweepScenario(true);
+    EXPECT_TRUE(on.gimbal.enabled);
+    EXPECT_NEAR(on.gimbal.rate, 30.0 * kPi / 180.0, 1e-12);
+    EXPECT_NEAR(on.gimbal.amplitude, 45.0 * kPi / 180.0, 1e-12);
+    const Camera cam = cameraFromScenario(on);
+    EXPECT_TRUE(cam.sweep);
+    EXPECT_FALSE(cameraFromScenario(sweepScenario(false)).sweep);
+}
+
+TEST(GimbalSweep, TriangleWaveAtConstantRate) {
+    Camera cam;
+    cam.sweep = true;
+    cam.sweepRate = 30.0 * kPi / 180.0;
+    cam.sweepAmplitude = 45.0 * kPi / 180.0;
+    const double A = cam.sweepAmplitude, period = 4.0 * A / cam.sweepRate;  // 6 s
+    EXPECT_NEAR(period, 6.0, 1e-12);
+    EXPECT_NEAR(cam.phiAt(0.0), 0.0, 1e-12);
+    EXPECT_NEAR(cam.phiAt(1.5), A, 1e-12);        // right end
+    EXPECT_NEAR(cam.phiAt(3.0), 0.0, 1e-12);
+    EXPECT_NEAR(cam.phiAt(4.5), -A, 1e-12);       // left end
+    EXPECT_NEAR(cam.phiAt(6.0 + 0.7), cam.phiAt(0.7), 1e-12);
+    for (double t = 0.0; t < 20.0; t += 0.01) {
+        const double v = std::fabs(cam.phiAt(t + 0.01) - cam.phiAt(t)) / 0.01;
+        EXPECT_LE(v, cam.sweepRate + 1e-9);
+        EXPECT_LE(std::fabs(cam.phiAt(t)), A + 1e-12);
+    }
+    Camera fixed;
+    EXPECT_EQ(fixed.phiAt(3.3), 0.0);
+}
+
+TEST(GimbalSweep, SweptLookGeometry) {
+    DetectionModel det;
+    Camera cam;
+    const double h = 30.0, phi = 30.0 * kPi / 180.0;
+    // heading north: right = east
+    const Look l = lookFromPose(0.0, 0.0, h, kPi / 2.0, cam, det, 1.0, phi);
+    ASSERT_TRUE(l.valid);
+    EXPECT_NEAR(l.gx, h * std::tan(phi), 1e-9);                                   // right of track
+    EXPECT_NEAR(l.gy, h * std::tan(kPi / 6.0) / std::cos(phi), 1e-9);             // ahead
+    const double slant = h / (std::cos(kPi / 6.0) * std::cos(phi));
+    EXPECT_NEAR(std::sqrt(l.gx * l.gx + l.gy * l.gy + h * h), slant, 1e-9);        // on the constraint plane
+    EXPECT_NEAR(l.radius, slant * std::tan(kPi / 6.0), 1e-9);
+    // phi = 0 is the body-fixed look, bit for bit
+    const Look a = lookFromPose(3.0, -4.0, h, 0.4, cam, det, 1.0);
+    const Look b = lookFromPose(3.0, -4.0, h, 0.4, cam, det, 1.0, 0.0);
+    EXPECT_EQ(a.gx, b.gx);
+    EXPECT_EQ(a.gy, b.gy);
+    EXPECT_EQ(a.radius, b.radius);
+    // swung out past beta the look sees nothing (61 m at 30 m altitude: |phi| > 55.4 deg)
+    EXPECT_FALSE(lookFromPose(0.0, 0.0, h, 0.0, cam, det, 1.0, 60.0 * kPi / 180.0).valid);
+}
+
+TEST(GimbalSweep, KinematicsMatchTheFollowerSolution) {
+    Camera cam;
+    cam.sweep = true;
+    cam.sweepRate = 30.0 * kPi / 180.0;
+    cam.sweepAmplitude = 45.0 * kPi / 180.0;
+    const SweepKinematics k = sweepKinematics(cam);
+    // gimbal_math.single_axis_command at phi = 45 deg, tilt 30 deg: roll -63.43, pitch 37.76 deg
+    EXPECT_NEAR(k.maxAbsRoll * 180.0 / kPi, 63.43, 0.01);
+    EXPECT_NEAR(k.minPitch * 180.0 / kPi, 37.76, 0.01);
+    // near phi = 0 the roll moves 1 / sin(tilt) = 2x the cross-track rate
+    EXPECT_NEAR(k.peakAxisRate, 2.0 * cam.sweepRate, 0.01 * cam.sweepRate);
+    EXPECT_NEAR(k.maxSlantPerHeight, 1.0 / (std::cos(kPi / 6.0) * std::cos(cam.sweepAmplitude)), 1e-12);
+}
+
+TEST(GimbalSweep, TrackCarriesTheSweepAndItsResidualBelief) {
+    const Scenario on = sweepScenario(true);
+    TigrisParams tp;
+    tp.maxIterations = 300;
+    HorizonParams hp;
+    hp.initialPlanningTime = 60.0;
+    hp.replanPlanningTime = 60.0;
+    const Camera cam = cameraFromScenario(on);
+    RecedingHorizon rh(on, 0, cam, tp, hp);
+    ASSERT_TRUE(rh.start(defaultStartPose(on, 0, hp)));
+    rh.replan(30.0, rh.plannedLooks(0.0, 30.0), "period");
+    const auto& tr = rh.track();
+    double phiMax = 0.0;
+    for (std::size_t k = 0; k < tr.size(); ++k) {
+        const TrackSample& s = tr[k];
+        EXPECT_NEAR(s.phi, cam.phiAt(s.t), 1e-12);  // one phase across the splice
+        phiMax = std::max(phiMax, std::fabs(s.phi));
+        double gx, gy;
+        boresightGround(s.x, s.y, s.z, s.yaw, s.phi, cam.tilt, &gx, &gy);
+        EXPECT_NEAR(s.bx, gx, 1e-9);
+        EXPECT_NEAR(s.by, gy, 1e-9);
+        if (k > 0) {
+            EXPECT_LE(std::fabs(s.phi - tr[k - 1].phi), cam.sweepRate * (s.t - tr[k - 1].t) + 1e-9);
+        }
+    }
+    EXPECT_NEAR(phiMax, cam.sweepAmplitude, 1e-6);
+    // the residual belief is recalculated with the swept looks
+    const std::vector<Look> looks = rh.plannedLooks(0.0, rh.totalArc());
+    const PlanningGrid& g = rh.grid();
+    RewardEvaluator ev(g, on.det, tp.reward);
+    BeliefState swept = BeliefState::fromGrid(g), fixed = BeliefState::fromGrid(g);
+    ev.begin(swept);
+    ev.pass(looks, false, true);
+    ev.commit(swept);
+    std::vector<Look> fixedLooks;
+    for (std::size_t k = 0; k < tr.size(); ++k) {
+        const double dt = k > 0 ? tr[k].t - tr[k - 1].t : on.dt;
+        fixedLooks.push_back(lookFromPose(tr[k].x, tr[k].y, tr[k].z, tr[k].yaw, cam, on.det, dt / on.det.dtRef));
+    }
+    ev.begin(fixed);
+    ev.pass(fixedLooks, false, true);
+    ev.commit(fixed);
+    EXPECT_NE(swept.residualMass(), fixed.residualMass());
+    TrackMeta meta;
+    meta.setGimbal(gimbalLimits(cam, true));
+    EXPECT_FALSE(meta.gimbalLocked);
+    EXPECT_GE(meta.gimbalMaxRad, cam.sweepAmplitude);
+    EXPECT_LT(meta.pitchNudgeMaxRad, 1e-5);
+    const auto v = tigris_json::parse(agentTrackJson(on, 0, rh, meta));
+    EXPECT_TRUE(v["scheduled"].boolean());
+    EXPECT_TRUE(v["tigris"]["gimbal_actuation"]["enabled"].boolean());
+    EXPECT_EQ(v["samples"]["gimbal_phi"].array().size(), tr.size());
+}
+
+TEST(GimbalSweep, SweepAwareTreeRewardsAndOffIsUnchanged) {
+    const Scenario sc = scenario();
+    const PlanningGrid g(sc, 4.0, 0.01);
+    PlannerSetup su;
+    su.altitude = sc.altitude;
+    su.xMin = sc.xMin; su.xMax = sc.xMax; su.yMin = sc.yMin; su.yMax = sc.yMax;
+    TigrisParams tp;
+    tp.maxIterations = 300;
+    const BeliefState b = BeliefState::fromGrid(g);
+    for (const RewardMode mode : {RewardMode::ORIGINAL, RewardMode::MATCHED}) {
+        tp.reward.mode = mode;
+        TigrisPlanner fixed(g, su, tp);
+        const PlanResult a = fixed.plan({-90, -90, kPi / 4}, 150.0, 60.0, b);
+        // MATCHED: an actuated camera with a 0 deg sweep is the body-fixed camera (ORIGINAL
+        // switches to the swept-swath edge model whenever the sweep is on, so it is not compared)
+        PlannerSetup zero = su;
+        zero.camera.sweep = true;
+        zero.camera.sweepRate = 0.5;
+        zero.camera.sweepAmplitude = 0.0;
+        TigrisPlanner z(g, zero, tp);
+        const PlanResult c = z.plan({-90, -90, kPi / 4}, 150.0, 60.0, b);
+        if (mode == RewardMode::MATCHED) {
+            EXPECT_EQ(a.path.size(), c.path.size());
+            EXPECT_NEAR(a.reward.matched, c.reward.matched, 1e-12);
+        }
+        // a real sweep plans a feasible path with a positive reward, and its reward depends on the phase
+        PlannerSetup sw = su;
+        sw.camera.sweep = true;
+        sw.camera.sweepRate = 30.0 * kPi / 180.0;
+        sw.camera.sweepAmplitude = 45.0 * kPi / 180.0;
+        TigrisPlanner s(g, sw, tp);
+        const PlanResult r = s.plan({-90, -90, kPi / 4}, 150.0, 60.0, b);
+        ASSERT_TRUE(r.improved());
+        EXPECT_LE(r.cost, 150.0 + 1e-9);
+        EXPECT_GT(r.reward.of(mode), 0.0);
+        const PathReward p0 = s.scorePath(r.path, b, 0.0), p1 = s.scorePath(r.path, b, 1.5);
+        EXPECT_NEAR(p0.of(mode), r.reward.of(mode), 1e-12);
+        EXPECT_NE(p0.of(mode), p1.of(mode));
+        for (std::size_t i = 1; i < r.path.size(); ++i) {
+            EXPECT_NEAR(r.path[i].arc, r.path[i - 1].arc + r.path[i].edgeLen, 1e-9);
+        }
+    }
+}

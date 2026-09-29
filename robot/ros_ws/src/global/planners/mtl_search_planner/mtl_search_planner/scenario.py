@@ -341,6 +341,24 @@ def _finite_or_none(v: Any) -> float | None:
     return f if math.isfinite(f) else None
 
 
+def gimbal_actuation_of(block: Mapping[str, Any]) -> dict[str, Any]:
+    """``mission.gimbal_actuation`` -> the normalised ``airstack.gimbal_actuation`` block.
+
+    ``enabled``: the single-axis gimbal sweeps between ``-sweep_amplitude_deg`` (left) and
+    ``+sweep_amplitude_deg`` (right) at the constant cross-track rate ``sweep_rate_deg_s``.
+    """
+    b = dict(block or {})
+    out = {"enabled": bool(b.get("enabled", False)),
+           "sweep_rate_deg_s": float(b.get("sweep_rate_deg_s", 30.0)),
+           "sweep_amplitude_deg": float(b.get("sweep_amplitude_deg", 45.0))}
+    if out["enabled"]:
+        if not (math.isfinite(out["sweep_rate_deg_s"]) and out["sweep_rate_deg_s"] > 0.0):
+            raise ValueError("gimbal_actuation.sweep_rate_deg_s must be > 0 when enabled")
+        if not (0.0 < out["sweep_amplitude_deg"] < 90.0):
+            raise ValueError("gimbal_actuation.sweep_amplitude_deg must be in (0, 90) when enabled")
+    return out
+
+
 def build_scenario(mission: Mapping[str, Any], agents: Sequence[Mapping[str, Any]],
                    *, provenance: Mapping[str, Any] | None = None
                    ) -> tuple[dict[str, Any], dict[str, Any], BeliefGrid]:
@@ -459,6 +477,11 @@ def build_scenario(mission: Mapping[str, Any], agents: Sequence[Mapping[str, Any
             "provenance": dict(provenance or {}),
         },
     }
+    if m.get("gimbal_actuation") is not None:
+        # TIGRIS-only (stacks/tigris_search): a constant-rate left/right sweep of the
+        # single-axis gimbal. Written only when the mission has the block, so the MTL
+        # bundle is unchanged.
+        scenario["airstack"]["gimbal_actuation"] = gimbal_actuation_of(m["gimbal_actuation"])
     ground_truth = {
         "schema": GROUND_TRUTH_SCHEMA,
         "mission": scenario["mission"]["name"],
