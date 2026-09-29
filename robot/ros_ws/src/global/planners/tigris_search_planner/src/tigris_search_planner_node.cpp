@@ -38,6 +38,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <filesystem>
+#include <future>
 #include <fstream>
 #include <iomanip>
 #include <memory>
@@ -678,9 +679,19 @@ private:
         RCLCPP_INFO(get_logger(), "sortie %s started (run dir %s, timeout %.0f s, %s)", plan_id_.c_str(),
                     result->run_dir.c_str(), timeout, receding_ ? "receding horizon" : "one-shot");
         bool finished = false;
+        // The TIGRIS solve (planning_time_s) runs on its own thread so this loop keeps
+        // publishing feedback and watching the follower while it plans. Only that thread
+        // touches horizon_ while `solving` is valid (budget() is fixed at construction).
+        std::future<bool> solving;
+        std::string solveTrigger;
+        std::size_t solveLooks = 0;
+        auto waitSolve = [&]() -> bool {  // join a running solve; true if it changed the track
+            return solving.valid() ? solving.get() : false;
+        };
         while (rclcpp::ok()) {
             std::this_thread::sleep_for(200ms);
             if (gh->is_canceling()) {
+                waitSolve();
                 abort_pub_->publish(std_msgs::msg::Empty());
                 result->success = false;
                 result->message = "canceled";
@@ -713,15 +724,28 @@ private:
                 }
                 continue;
             }
+            // Against the BUDGET, not the current track: a receding-horizon revision changes the
+            // track length, so progress / track (and track remaining) jumped at every revision.
+            const double budget = horizon_->budget();
             feedback->phase = st.state_name;
             feedback->progress_m = st.progress_m;
-            feedback->remaining_m = st.remaining_m;
-            feedback->progress = st.total_m > 0.0 ? static_cast<float>(st.progress_m / st.total_m) : 0.0f;
+            feedback->remaining_m = std::max(0.0, budget - st.progress_m);
+            feedback->progress = budget > 0.0 ? static_cast<float>(std::min(1.0, st.progress_m / budget)) : 0.0f;
             feedback->cross_track_error_m = st.cross_track_error_m;
             gh->publish_feedback(feedback);
+
+            // receding horizon: the track length changes at every revision, so report the
+            // progress against the BUDGET (fixed) as well as against the current track
+            RCLCPP_INFO_THROTTLE(
+                get_logger(), *get_clock(), 5000,
+                "[%s] %.1fm flown of %.0fm budget (%.1f%%); current track %.1fm, %.1fm of it ahead",
+                st.state_name.c_str(), st.progress_m, budget, 100.0 * st.progress_m / std::max(budget, 1e-9),
+                st.total_m, st.remaining_m);
+
             result->duration_s = elapsed;
 
             if (st.state == FollowerStatus::COMPLETE) {
+                waitSolve();  // too late to extend the track: the follower hands back
                 finished = true;
                 result->success = true;
                 result->message = "sortie complete";
@@ -730,6 +754,7 @@ private:
             if (st.state == FollowerStatus::ABORTED) {
                 result->success = false;
                 result->message = "follower aborted the sortie";
+                waitSolve();
                 writeRunFiles(false);
                 gh->abort(result);
                 return;
@@ -738,29 +763,26 @@ private:
                 abort_pub_->publish(std_msgs::msg::Empty());
                 result->success = false;
                 result->message = age > status_timeout_s_ ? "follower status went silent" : "sortie timed out";
+                waitSolve();
                 writeRunFiles(false);
                 gh->abort(result);
                 return;
             }
-            // ---- receding horizon: replan while the follower is on the track
-            const bool onTrack = st.state == FollowerStatus::SEARCH || st.state == FollowerStatus::INGRESS;
-            const double since = (now() - lastReplan).seconds();
-            if (onTrack && horizon_->due(st.progress_m, since)) {
-                std::vector<ts::Look> looks;
-                {
-                    std::lock_guard<std::mutex> lk(status_mutex_);
-                    looks.swap(flown_looks_);
-                }
-                const std::string trigger = since >= replan_period_s_ ? "period" : "horizon";
-                const bool changed = horizon_->replan(st.progress_m, looks, trigger);
+            // ---- receding horizon: a finished solve is published ...
+            if (solving.valid() && solving.wait_for(0s) == std::future_status::ready) {
+                const bool changed = solving.get();
                 lastReplan = now();
                 const auto& r = horizon_->records().back();
+                const bool orig = reward_mode_ == "original";
                 RCLCPP_INFO(get_logger(),
-                            "replan %d [%s] at %.0f m (commit %.0f m, %.0f m left): %s %.0f m in %.2f s, "
-                            "%d it, tree %d, %zu flown looks, residual %.4f",
-                            r.index, trigger.c_str(), r.progressArc, r.commitArc, r.budgetLeft,
-                            changed ? "new segment" : "kept track", r.segmentLength, r.seconds, r.iterations,
-                            r.treeSize, looks.size(), r.residualMassFlown);
+                            "replan %d [%s] at %.0f m (commit %.0f m, %.0f m budget left): %s (new %.0f m, "
+                            "reward %.4g vs current tail %.4g) in %.2f s, %d it, tree %d, %zu flown looks, "
+                            "residual %.4f, track now %.0f m",
+                            r.index, solveTrigger.c_str(), r.progressArc, r.commitArc, r.budgetLeft,
+                            changed ? "new segment" : "kept current plan", r.segmentLength,
+                            orig ? r.segmentReward.original : r.segmentReward.matched,
+                            orig ? r.keptReward.original : r.keptReward.matched, r.seconds, r.iterations,
+                            r.treeSize, solveLooks, r.residualMassFlown, horizon_->totalArc());
                 if (changed) {
                     publishPlan();
                     result->planned_length_m = horizon_->totalArc();
@@ -769,7 +791,25 @@ private:
                 }
                 writeRunFiles(false);
             }
+            // ... and the next one started while the follower is on the track
+            const bool onTrack = st.state == FollowerStatus::SEARCH || st.state == FollowerStatus::INGRESS;
+            const double since = (now() - lastReplan).seconds();
+            if (!solving.valid() && onTrack && horizon_->due(st.progress_m, since)) {
+                auto looks = std::make_shared<std::vector<ts::Look>>();
+                {
+                    std::lock_guard<std::mutex> lk(status_mutex_);
+                    looks->swap(flown_looks_);
+                }
+                solveTrigger = since >= replan_period_s_ ? "period" : "horizon";
+                solveLooks = looks->size();
+                const double progress = st.progress_m;
+                const std::string trigger = solveTrigger;
+                solving = std::async(std::launch::async, [this, looks, progress, trigger]() {
+                    return horizon_->replan(progress, *looks, trigger);
+                });
+            }
         }
+        waitSolve();  // rclcpp shut down mid-solve
         if (finished) {
             // fold the last flown looks in so tigris_replans.json ends with the full belief
             std::vector<ts::Look> looks;

@@ -199,6 +199,40 @@ TEST(Receding, KeepsTheCommittedPrefixAndTheBudget) {
     EXPECT_LT(rh.belief().residualMass(), 1.0);  // the flown looks were folded in
 }
 
+TEST(Receding, ReplacesThePlanOnlyWhenTheNewSolveScoresHigher) {
+    // a replan roots a fresh random tree at the commit point; its path must beat the rest of
+    // the plan being flown (same reward, same belief) or the drone re-heads every replan
+    const Scenario sc = scenario();
+    TigrisParams tp;
+    tp.maxIterations = 300;
+    HorizonParams hp;
+    hp.initialPlanningTime = 60.0;
+    hp.replanPlanningTime = 1.0;  // sets the commit distance (14.4 + 6 * 2 m); maxIterations ends the solve
+    hp.budgetOverride = 400.0;
+    RecedingHorizon rh(sc, 0, Camera(), tp, hp);
+    ASSERT_TRUE(rh.start(defaultStartPose(sc, 0, hp)));
+    int kept = 0, replaced = 0;
+    double progress = 0.0;
+    for (int i = 0; i < 6 && !rh.exhausted(); ++i) {
+        const auto before = rh.track();
+        const double p1 = std::min(progress + 30.0, rh.totalArc());
+        const bool changed = rh.replan(p1, rh.plannedLooks(progress, p1), "period");
+        progress = p1;
+        const ReplanRecord& r = rh.records().back();
+        if (changed) {
+            ++replaced;
+            EXPECT_GT(r.segmentReward.original, r.keptReward.original);
+        } else if (!rh.exhausted()) {
+            ++kept;
+            ASSERT_EQ(rh.track().size(), before.size());  // untouched
+            EXPECT_DOUBLE_EQ(rh.track().back().x, before.back().x);
+            if (r.improved) EXPECT_LE(r.segmentReward.original, r.keptReward.original);
+        }
+        EXPECT_GT(r.keptReward.original, 0.0);  // the current tail was actually scored
+    }
+    EXPECT_GT(kept + replaced, 0);
+}
+
 TEST(Receding, TrackJsonHasTheMtlLayout) {
     const Scenario sc = scenario();
     TigrisParams tp;

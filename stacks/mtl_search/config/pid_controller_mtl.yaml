@@ -35,7 +35,7 @@
     z_ff: 0.0
     z_d_alpha: 0.0
     z_min: -1.0
-    z_max: 1.0
+    z_max: 7.0
     z_constant: 0.0
 
     vx_p: 0.2

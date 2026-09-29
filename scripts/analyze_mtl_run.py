@@ -40,6 +40,9 @@ sys.path.insert(0, str(REPO / "robot/ros_ws/src/behavior/mtl_metrics_logger"))
 from mtl_metrics_logger.analysis import planned_looks_from_track, write_run_outputs  # noqa: E402
 from mtl_metrics_logger.report import read_telemetry_csv  # noqa: E402
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from run_progress import Progress  # noqa: E402
+
 DEFAULT_CONFIG = REPO / "stacks/mtl_search/config"
 
 
@@ -82,11 +85,17 @@ def main(argv=None) -> int:
     ap.add_argument("--out-dir", type=Path, default=None, help="default: the run dir itself")
     ap.add_argument("--scenario", type=Path, default=None)
     ap.add_argument("--ground-truth", type=Path, default=None)
+    ap.add_argument("--no-progress", action="store_true", help="no progress bar (stderr)")
     args = ap.parse_args(argv)
 
     run_dir = args.run_dir.resolve()
     if not run_dir.is_dir():
         raise SystemExit(f"run dir not found: {args.run_dir}")
+    prog = None if args.no_progress else Progress("analyze_mtl_run", [
+        "load telemetry", "write telemetry.csv", "prior raster", "score flown telemetry", "score planned track",
+        "write detection.json + residual_belief.csv", "write report.html"])
+    if prog is not None:
+        prog("load telemetry", 0, 0)
     sc, gt, rows, planned, png, sc_path, gt_path = load_run(run_dir, args.scenario, args.ground_truth)
     out = (args.out_dir or run_dir).resolve()
     res = write_run_outputs(
@@ -95,7 +104,10 @@ def main(argv=None) -> int:
         subtitle=f"scenario {sc['mission']['name']} · {len(rows)} agent(s): {', '.join(sorted(rows))} · "
                  f"fused on one timeline",
         belief_png=png,
-        extra={"run_id": run_dir.name, "inputs": {"scenario": str(sc_path), "ground_truth": str(gt_path)}})
+        extra={"run_id": run_dir.name, "inputs": {"scenario": str(sc_path), "ground_truth": str(gt_path)}},
+        progress=prog)
+    if prog is not None:
+        prog.finish()
     s = res["summary"]
     mttd = s["mean_time_to_discovery_s"]
     resid, planned_resid = s.get("residual_belief_mass"), s.get("planned_residual_belief_mass")

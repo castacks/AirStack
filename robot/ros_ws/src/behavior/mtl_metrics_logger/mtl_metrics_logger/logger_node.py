@@ -231,6 +231,10 @@ class MtlMetricsLogger(Node):
         looks = {"t": [float(v) for v in times[:n_look]],
                  "pos": [(w.position.x + ox, w.position.y + oy, w.position.z + oz) for w in wps[:n_look]],
                  "bore": [(b.x + ox, b.y + oy, b.z + oz) for b in bores[:n_look]]} if n_look else None
+        self.get_logger().info(
+            f"sortie {st.plan_id} reached {st.state_name}: writing telemetry and computing post-flight outputs "
+            f"({len(self.rows)} samples)..."
+        )
         try:
             belief = Path(self.belief_png_file).read_bytes() if Path(self.belief_png_file).is_file() else None
             res = write_run_outputs(
@@ -259,8 +263,8 @@ class MtlMetricsLogger(Node):
                 f"this robot), {s['targets_detected']}/{s['targets_total']} targets, "
                 f"{100 * s['belief_mass_fraction']:.1f} % of the valid-cell mass reached, "
                 f"report -> {out / 'report.html'}")
-        except OSError as exc:
-            self.get_logger().error(f"could not write run outputs to {out}: {exc} (is runs/ mounted?)")
+        except Exception as exc:
+            self.get_logger().error(f"could not write run outputs to {out}: {exc}")
 
     # ------------------------------------------------------------ visualisation
     def _publish_footprint(self, row: dict, now) -> None:

@@ -20,7 +20,12 @@ The node serves the same `SearchMission` interface as `mtl_search_planner`. The 
    - it folds the looks actually flown into the belief (measured pose and gimbal);
    - it keeps the track up to a commit point ahead of the drone;
    - it runs TIGRIS again from that point with the remaining budget;
-   - it republishes the whole track under the same `plan_id` with a newer stamp.
+   - it scores the rest of the plan it is already flying with the same TIGRIS reward on the
+     same belief, and switches only if the new path scores higher (otherwise it keeps the
+     current plan). Every solve grows a fresh random tree at the commit point, so replacing the
+     plan unconditionally re-drew the heading every `replan_period_s` and the drone weaved back
+     and forth;
+   - on a switch, it republishes the whole track under the same `plan_id` with a newer stamp.
 3. **Follower revisions.** The follower accepts these as in-flight revisions
    (`accept_plan_revisions: true` in the stack). Because the prefix is unchanged, its
    arc-length progress stays valid.
@@ -66,8 +71,11 @@ The algorithm is a line-by-line port of `tigris/src/ipp.cpp` and
 - cells count only when all four corners are inside, and range is measured to the cell corner;
 - the node and edge reward formulas (entropy, `Rs = 2`, `Rf = 1`);
 - `tpr` / `fpr = 1 - tpr` with the `p > 0.5` branch;
-- the scaled launch parameters (`extend_dist 750 → 60 m`, `extend_radius 251 → 20 m`,
-  `prune_radius 750 → 60 m`, `RESOLUTION 50 → 4 m`, `planning_time 5 s`).
+- the launch parameters (`extend_dist 750 m`, `extend_radius 251 m`, `prune_radius 750 m`,
+  `RESOLUTION 50 m`, `planning_time 5 s`). The mission is at the original 5 km scale, so they
+  are unscaled; scale them with the area if the mission shrinks (they were 60 / 20 / 60 / 4 m
+  for the old 400 m mission, and left at that size on the 5 km map they made the track
+  zig-zag every 60 m).
 
 **Different only because AirStack or the study requires it:**
 

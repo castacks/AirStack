@@ -132,8 +132,9 @@ def _axis(lo: float, hi: float, step: float) -> list:
     return [lo + k * step for k in range(count)]
 
 
-def raw_prior(sc: Mapping):
-    """(xs, ys, raw, norm): the scenario bump raster, capped + floored (raw) and normalised."""
+def raw_prior(sc: Mapping, progress=None):
+    """(xs, ys, raw, norm): the scenario bump raster, capped + floored (raw) and normalised.
+    ``progress(stage, done, total)`` (optional) is called once per bump."""
     area = sc["mission"]["area"]
     bel = (sc.get("airstack") or {}).get("belief") or {}
     bumps = bel.get("bumps") or []
@@ -145,7 +146,9 @@ def raw_prior(sc: Mapping):
     ys, xs = _axis(cn - half, cn + half, res), _axis(ce - half, ce + half, res)
     cap, floor = float(bel.get("belief_cap", 0.85)), float(bel.get("base_uncertainty", 0.0))
     rows = [[0.0] * len(xs) for _ in ys]
-    for b in bumps:
+    for ib, b in enumerate(bumps):
+        if progress is not None:
+            progress("reward grid", ib, len(bumps) + 1)
         gn = [math.exp(-0.5 * ((y - float(b["n"])) / float(b["sigma_n"])) ** 2) for y in ys]
         ge = [math.exp(-0.5 * ((x - float(b["e"])) / float(b["sigma_e"])) ** 2) for x in xs]
         amp = float(b.get("amplitude", 0.4))
@@ -177,14 +180,15 @@ class Grid:
     presence0: list
 
     @classmethod
-    def from_scenario(cls, sc: Mapping, res: float = 4.0, initial_confidence: float = 0.01) -> "Grid":
+    def from_scenario(cls, sc: Mapping, res: float = 4.0, initial_confidence: float = 0.01,
+                      progress=None) -> "Grid":
         area = sc["mission"]["area"]
         size = float(area["size_m"])
         cn, ce = (float(v) for v in area.get("center_ned", (0.0, 0.0)))
         x_min, y_min = ce - size / 2.0, cn - size / 2.0
         nx = max(1, int(math.floor(size / res + 1e-9)))
         ny = nx
-        xs, ys, raw, norm = raw_prior(sc)
+        xs, ys, raw, norm = raw_prior(sc, progress=progress)
         mass = [0.0] * (nx * ny)
         pres = [initial_confidence] * (nx * ny)  # max of the prior point values in each cell (TIGRIS setup())
         cols = [min(nx - 1, max(0, int(math.floor((x - x_min) / res)))) for x in xs]
@@ -196,6 +200,8 @@ class Grid:
                 mass[k] += norm[base + j]
                 if raw[base + j] > pres[k]:
                     pres[k] = raw[base + j]
+        if progress is not None:
+            progress("reward grid", 1, 1)
         return cls(x_min, y_min, res, nx, ny, mass, pres)
 
     def disc(self, gx: float, gy: float, r: float):
@@ -249,7 +255,8 @@ class RewardCurve:
                 "matched": [round(v, ndigits) for v in self.matched]}
 
 
-def score_looks(grid: Grid, det: Detection, rp: RewardParams, samples: Iterable[tuple], edge_m: float) -> RewardCurve:
+def score_looks(grid: Grid, det: Detection, rp: RewardParams, samples: Iterable[tuple], edge_m: float,
+                progress=None, stage: str = "tigris rewards") -> RewardCurve:
     """Cumulative rewards along a look sequence (one agent or a fused team).
 
     ``samples``: ``(t, arc, look)`` or ``(t, arc, look, agent)`` in time order; ``arc`` is
@@ -257,6 +264,7 @@ def score_looks(grid: Grid, det: Detection, rp: RewardParams, samples: Iterable[
     MATCHED is updated per look. ORIGINAL is updated once per pass of ``edge_m`` metres of
     an agent's arc, each touched cell at its best range of the pass, so the ORIGINAL curve
     steps up at the end of every pass. Agents keep separate passes but share the belief.
+    ``progress(stage, done, total)`` (optional) is called along the samples.
     """
     residual = list(grid.mass)
     presence = list(grid.presence0)
@@ -276,7 +284,11 @@ def score_looks(grid: Grid, det: Detection, rp: RewardParams, samples: Iterable[
             totals["original"] += rew
         cells.clear()
 
-    for sample in samples:
+    samples = list(samples)
+    every = max(1, len(samples) // 500)
+    for i_s, sample in enumerate(samples):
+        if progress is not None and i_s % every == 0:
+            progress(stage, i_s, len(samples))
         t, arc, look = sample[0], sample[1], sample[2]
         agent = sample[3] if len(sample) > 3 else ""
         if agent not in pass_start:
@@ -308,6 +320,8 @@ def score_looks(grid: Grid, det: Detection, rp: RewardParams, samples: Iterable[
         cur.matched.append(totals["matched"])
     for agent in list(rmin):
         close_pass(agent)
+    if progress is not None:
+        progress(stage, len(samples), len(samples))
     if cur.t:
         cur.original[-1] = totals["original"]
     return cur

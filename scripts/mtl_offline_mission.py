@@ -99,9 +99,14 @@ def fly_agent(name, track_json, scenario, rate_hz=20.0, max_s=900.0):
     fov = tr["fov_rad"]
     rows = []
     t = 0.0
+    last_log_t = -10.0
     fol.start(veh.p)
     while t < max_s:
         out = fol.step(veh.p, veh.yaw, dt)
+        if track.total > 0 and (t - last_log_t >= 10.0 or out.state == fc.COMPLETE):
+            pct = (out.progress_m / track.total) * 100.0
+            print(f"[{name}] Trajectory completion: {pct:.1f}% ({out.progress_m:.1f} m / {track.total:.1f} m, remaining: {out.remaining_m:.1f} m, t: {t:.1f} s)")
+            last_log_t = t
         cmd = out.gimbal
         gim_meas = cmd if gim_meas is None else slew_limit(gim_meas, cmd, slew * dt)
         xw, yw, zw = veh.p[0] + hx, veh.p[1] + hy, veh.p[2] + hz

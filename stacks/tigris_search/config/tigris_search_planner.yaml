@@ -8,8 +8,10 @@
 # stacks/tigris_search/config/mission.yaml -> scenario.json, exactly like MTL.
 #
 # TIGRIS lengths are the ROS 1 launch defaults (tigris/launch/tigris.launch, a
-# 5 km map at 50 m cells) scaled by the mission's 1/12.5:
-#   extend_dist 750 -> 60 m, extend_radius 251 -> 20 m, prune_radius 750 -> 60 m, RESOLUTION 50 -> 4 m.
+# 5 km map at 50 m cells), UNSCALED: mission.yaml is now at the original TIGRIS scale
+# (5 km area, 300 m altitude). They were 1/12.5 of these (60 / 20 / 60 / 4 m) for the old
+# 400 m mission; left at that scale on the 5 km map, TIGRIS cut every edge after 60 m and
+# the track zig-zagged every ~10 s. Rescale them with the area if you change mission.yaml.
 /**:
   ros__parameters:
     frame_id: map                    # robot odometry frame (origin = its spawn)
@@ -33,14 +35,16 @@
     initial_planning_time_s: 5.0     # first solve (drone hovering)  [TIGRIS planning_time = 5 s]
     planning_time_s: 5.0             # each in-flight solve          [TIGRIS planning_time = 5 s]
     replan_period_s: 5.0             # replan cadence (also replans early near the end of the track)
-    commit_margin_s: 1.0             # commit = progress + lookahead + speed * (planning_time + margin)
+    commit_margin_s: 3.0             # commit = progress + lookahead + speed * (planning_time + margin); the
+                                     # solve's time limit is wall time and the sim can run faster than real time,
+                                     # so 1 s let the carrot pass the commit point before the revision arrived
     lookahead_turn_radii: 1.2        # keep equal to mtl_trajectory_follower lookahead_turn_radii
     min_replan_budget_m: 10.0        # stop replanning when less budget than this is left
-    extend_dist_m: 60.0              # steer cut
-    extend_radius_m: 20.0            # rewiring radius
-    prune_radius_m: 60.0             # dominance-pruning radius
+    extend_dist_m: 750.0             # steer cut                [TIGRIS extend_dist]
+    extend_radius_m: 251.0           # rewiring radius          [TIGRIS extend_radius]
+    prune_radius_m: 750.0            # dominance-pruning radius [TIGRIS prune_radius]
     reward_step_m: 2.0               # MATCHED mode only: look spacing along an edge (ORIGINAL scores nodes + straight edges like TIGRIS)
-    grid_res_m: 4.0                  # planning grid (the evaluator uses the 2 m prior raster)
+    grid_res_m: 50.0                 # planning grid [TIGRIS RESOLUTION] (the evaluator uses the 2 m prior raster)
     view_point_goal: 0.6             # informed sampler: place the sampled cell at 60 % of the half-FOV
     bounds_margin_m: -1.0            # optional geofence around the area; < 0 = off (TIGRIS has none)
     use_entropy: true                # original reward: entropy reduction (TIGRIS launch default)

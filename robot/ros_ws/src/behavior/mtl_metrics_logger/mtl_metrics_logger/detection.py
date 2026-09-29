@@ -51,6 +51,11 @@ import math
 from dataclasses import dataclass, field
 from typing import Iterable, Mapping, Sequence
 
+try:
+    import numpy as np
+except ImportError:
+    np = None
+
 __all__ = [
     "DetectionModel",
     "boresight_ground_point",
@@ -147,14 +152,15 @@ def _axis(lo: float, hi: float, step: float) -> list:
     return [lo + k * step for k in range(count)]
 
 
-def prior_from_scenario(scenario: Mapping) -> PriorGrid | None:
+def prior_from_scenario(scenario: Mapping, progress=None) -> PriorGrid | None:
     """Rebuild the scenario's prior raster (normalised) from ``airstack.belief``.
 
     Mirrors ``mtl_search_planner.scenario.generate_belief`` term for term (same
     axes, bump sum, cap, floor, then ``/ sum``) from the bump list the generator
     records, so this package needs no dependency on the planner. Works for
     scenarios written before the prior was normalised too (it normalises here).
-    Returns ``None`` when the scenario carries no bumps.
+    Returns ``None`` when the scenario carries no bumps. ``progress(stage, done, total)``
+    (optional) is called once per bump (a 1 m raster over a 5 km area is 25 M pixels).
     """
     area = scenario["mission"]["area"]
     bel = (scenario.get("airstack") or {}).get("belief") or {}
@@ -169,7 +175,9 @@ def prior_from_scenario(scenario: Mapping) -> PriorGrid | None:
     cap = float(bel.get("belief_cap", 0.85))
     floor = float(bel.get("base_uncertainty", 0.0))
     rows = [[0.0] * len(e_axis) for _ in n_axis]
-    for b in bumps:
+    for ib, b in enumerate(bumps):
+        if progress is not None:
+            progress("prior raster", ib, len(bumps) + 1)
         bn, be = float(b["n"]), float(b["e"])
         sn, se = float(b["sigma_n"]), float(b["sigma_e"])
         amp = float(b.get("amplitude", 0.4))
@@ -190,6 +198,8 @@ def prior_from_scenario(scenario: Mapping) -> PriorGrid | None:
                 v = max(v, floor)
             flat.append(v)
     total = math.fsum(flat)
+    if progress is not None:
+        progress("prior raster", len(bumps) + 1, len(bumps) + 1)
     if not total > 0.0:
         return None
     inv = 1.0 / total
@@ -207,11 +217,34 @@ class ResidualBelief:
     def __init__(self, prior: PriorGrid, model: DetectionModel) -> None:
         self.prior = prior
         self.model = model
-        self.residual = list(prior.values)
         self.prior_mass = prior.total
         self.residual_mass = self.prior_mass
         self.looks = 0
         self._log_out = math.log1p(-min(max(model.p_out_of_range, 0.0), 1.0 - 1e-15))
+        if np is not None:
+            self._np_res = np.array(prior.values, dtype=np.float64).reshape((prior.ny, prior.nx))
+            self._np_prior = np.array(prior.values, dtype=np.float64).reshape((prior.ny, prior.nx))
+            self._np_xs = np.array(prior.xs, dtype=np.float64)
+            self._np_ys = np.array(prior.ys, dtype=np.float64)
+            self._residual = None
+        else:
+            self._np_res = None
+            self._np_prior = None
+            self._np_xs = None
+            self._np_ys = None
+            self._residual = list(prior.values)
+
+    @property
+    def residual(self) -> list[float]:
+        if self._np_res is not None:
+            return self._np_res.flatten().tolist()
+        return self._residual
+
+    @residual.setter
+    def residual(self, val: list[float] | None) -> None:
+        self._residual = val
+        if val is not None and self._np_res is not None:
+            self._np_res = np.array(val, dtype=np.float64).reshape((self.prior.ny, self.prior.nx))
 
     def look(self, pos: Sequence[float], gx: float, gy: float, radius: float, weight: float,
              ground_z: float = 0.0) -> None:
@@ -219,10 +252,10 @@ class ResidualBelief:
         if not (weight > 0.0 and radius > 0.0):
             return
         pr, m = self.prior, self.model
-        xs, ys, res, nx = pr.xs, pr.ys, pr.res, pr.nx
+        xs, ys, res, nx, ny = pr.xs, pr.ys, pr.res, pr.nx, pr.ny
         x0, y0 = xs[0], ys[0]
         i0 = max(0, int(math.ceil((gy - radius - y0) / res - 1e-9)))
-        i1 = min(pr.ny - 1, int(math.floor((gy + radius - y0) / res + 1e-9)))
+        i1 = min(ny - 1, int(math.floor((gy + radius - y0) / res + 1e-9)))
         if i0 > i1:
             return
         px, py, pz = float(pos[0]), float(pos[1]), float(pos[2])
@@ -230,6 +263,43 @@ class ResidualBelief:
         r2 = radius * radius
         a, b, c, beta = m.a, m.b, m.c, m.beta
         f_out = math.exp(weight * self._log_out)
+
+        if self._np_res is not None:
+            y_arr = self._np_ys[i0:i1+1]
+            dy = y_arr - gy
+            rem = r2 - dy * dy
+            valid_y = rem >= 0.0
+            if not np.any(valid_y):
+                return
+            half = np.zeros_like(rem)
+            half[valid_y] = np.sqrt(rem[valid_y])
+
+            j0_all = np.maximum(0, np.ceil((gx - half - x0) / res - 1e-9).astype(int))
+            j1_all = np.minimum(nx - 1, np.floor((gx + half - x0) / res + 1e-9).astype(int))
+            j0_min = int(np.min(j0_all[valid_y]))
+            j1_max = int(np.max(j1_all[valid_y]))
+            if j0_min > j1_max:
+                return
+
+            sub_y = y_arr[:, None]
+            sub_x = self._np_xs[j0_min:j1_max+1][None, :]
+            sub_dx = sub_x - gx
+            sub_dy = sub_y - gy
+            mask = (sub_dx * sub_dx + sub_dy * sub_dy) <= r2
+
+            d3 = np.sqrt((sub_x - px) ** 2 + (sub_y - py) ** 2 + h2)
+            q = 1.0 - 1.0 / (a + np.exp(b * (d3 - c)))
+            f = np.where(d3 > beta, f_out, np.power(np.maximum(q, 0.0), weight))
+
+            sub_R = self._np_res[i0:i1+1, j0_min:j1_max+1]
+            old_vals = sub_R[mask]
+            new_vals = old_vals * f[mask]
+            dm = float(np.sum(old_vals - new_vals))
+            sub_R[mask] = new_vals
+            self.residual_mass -= dm
+            self.looks += 1
+            return
+
         R = self.residual
         exp, sqrt = math.exp, math.sqrt
         dm = 0.0
@@ -269,6 +339,8 @@ class ResidualBelief:
         self.looks += 1
 
     def exact_mass(self) -> float:
+        if self._np_res is not None:
+            return float(np.sum(self._np_res))
         return math.fsum(self.residual)
 
     def block_means(self, block: int, *, prior: bool = False) -> list[float]:
@@ -276,6 +348,16 @@ class ResidualBelief:
         (``ceil(ny/block)`` rows of ``ceil(nx/block)``); ``prior=True`` for the prior."""
         pr = self.prior
         block = max(int(block), 1)
+        if self._np_res is not None:
+            src = self._np_prior if prior else self._np_res
+            out = []
+            for bi in range(0, pr.ny, block):
+                i_end = min(bi + block, pr.ny)
+                sub_rows = src[bi:i_end, :]
+                for bj in range(0, pr.nx, block):
+                    j_end = min(bj + block, pr.nx)
+                    out.append(float(np.mean(sub_rows[:, bj:j_end])))
+            return out
         src = pr.values if prior else self.residual
         nbx = -(-pr.nx // block)
         nby = -(-pr.ny // block)
@@ -298,6 +380,26 @@ class ResidualBelief:
         The prior and residual columns sum to ``prior_mass`` and the residual mass."""
         pr = self.prior
         block = max(int(block), 1)
+        if self._np_res is not None:
+            out = []
+            ny, nx = pr.ny, pr.nx
+            xs_arr, ys_arr = self._np_xs, self._np_ys
+            res_arr, prior_arr = self._np_res, self._np_prior
+            for bi in range(0, ny, block):
+                i_end = min(bi + block, ny)
+                y = float(np.mean(ys_arr[bi:i_end]))
+                sub_res = res_arr[bi:i_end, :]
+                sub_prior = prior_arr[bi:i_end, :]
+                num_rows = i_end - bi
+                for bj in range(0, nx, block):
+                    j_end = min(bj + block, nx)
+                    x = float(np.mean(xs_arr[bj:j_end]))
+                    num_cols = j_end - bj
+                    p = float(np.sum(sub_prior[:, bj:j_end]))
+                    r = float(np.sum(sub_res[:, bj:j_end]))
+                    out.append({"x": x, "y": y, "prior": p, "residual": r,
+                                "n": num_rows * num_cols, "i0": bi, "j0": bj})
+            return out
         out = []
         for bi in range(0, pr.ny, block):
             rows = range(bi, min(bi + block, pr.ny))
@@ -326,16 +428,20 @@ class ResidualBelief:
 
 
 def planned_residual(prior: PriorGrid, model: DetectionModel, fov_rad: float,
-                     tracks: Iterable[Mapping[str, Sequence]]) -> ResidualBelief:
+                     tracks: Iterable[Mapping[str, Sequence]], progress=None) -> ResidualBelief:
     """Residual belief of a PLAN: every planned sample is one look at its scheduled
     boresight point, weighted ``dt / dt_ref`` like the flown score.
 
     ``tracks``: per agent ``{"t": [...], "pos": [(x, y, z)...], "bore": [(x, y, z)...]}``
     in world ENU. The footprint radius follows the slant range to the boresight
-    point, as in ``mtl::eval::computeResidualBelief``.
+    point, as in ``mtl::eval::computeResidualBelief``. ``progress(stage, done, total)``
+    (optional) is called as the looks are scored.
     """
     rb = ResidualBelief(prior, model)
     tan_half = math.tan(float(fov_rad) / 2.0)
+    tracks = list(tracks)
+    n_all = sum(min(len(tr.get("t") or []), len(tr.get("pos") or []), len(tr.get("bore") or [])) for tr in tracks)
+    n_done = 0
     for tr in tracks:
         t, pos, bore = tr.get("t") or [], tr.get("pos") or [], tr.get("bore") or []
         n = min(len(t), len(pos), len(bore))
@@ -344,6 +450,8 @@ def planned_residual(prior: PriorGrid, model: DetectionModel, fov_rad: float,
         dts = [t[k + 1] - t[k] for k in range(n - 1)]
         dt_nom = sorted(dts)[len(dts) // 2] if dts else model.dt_ref_s
         for k in range(n):
+            if progress is not None and (n_done + k) % 200 == 0:
+                progress("score planned track", n_done + k, n_all)
             dt = dts[k] if k < n - 1 else dt_nom  # the last sample looks for one period too
             p, g = pos[k], bore[k]
             if p is None or g is None:
@@ -353,6 +461,9 @@ def planned_residual(prior: PriorGrid, model: DetectionModel, fov_rad: float,
                 continue  # as TeamScorer: the look point itself is out of range
             w = max(dt, 0.0) / model.dt_ref_s if model.dt_ref_s > 0 else 1.0
             rb.look(p, g[0], g[1], slant * tan_half, w, g[2])
+        n_done += n
+    if progress is not None:
+        progress("score planned track", n_all, n_all)
     return rb
 
 

@@ -485,6 +485,11 @@ private:
             feedback->cross_track_error_m = st.cross_track_error_m;
             gh->publish_feedback(feedback);
 
+            RCLCPP_INFO_THROTTLE(
+                get_logger(), *get_clock(), 5000,
+                "[%s] Trajectory completion: %.1f%% (%.1fm / %.1fm, remaining: %.1fm)",
+                st.state_name.c_str(), feedback->progress * 100.0f, st.progress_m, st.total_m, st.remaining_m);
+
             result->duration_s = elapsed;
             if (st.state == FollowerStatus::COMPLETE) {
                 result->success = true;

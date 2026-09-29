@@ -39,8 +39,8 @@ set -euo pipefail
 
 N=1
 RUN_ID="$(date -u +%Y%m%d-%H%M%S)"
-ALT=30
-VEL=2
+ALT=300
+VEL=6
 TAKEOFF=1
 START=true
 ANALYZE=1
@@ -70,6 +70,13 @@ while [[ $# -gt 0 ]]; do
 done
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+MISSION_YAML="${REPO}/stacks/tigris_search/config/mission.yaml"
+if [[ -z "${ALT}" ]]; then
+  ALT="$(python3 -c "import yaml; m=yaml.safe_load(open('${MISSION_YAML}')).get('mission',{}); print(m.get('flight',{}).get('takeoff_altitude_m', m.get('aircraft',{}).get('altitude_m', 30.0)))" 2>/dev/null || echo 30)"
+fi
+if [[ -z "${VEL}" ]]; then
+  VEL="$(python3 -c "import yaml; m=yaml.safe_load(open('${MISSION_YAML}')).get('mission',{}); print(m.get('flight',{}).get('takeoff_velocity_m_s', 2.0))" 2>/dev/null || echo 2)"
+fi
 LOG_DIR="${REPO}/runs/${RUN_ID}/_launcher_logs"
 mkdir -p "${LOG_DIR}"
 echo "[tigris_start_mission] run ${RUN_ID}: ${N} robot(s), takeoff=${TAKEOFF} alt=${ALT} m, start_mission=${START}"
@@ -85,7 +92,7 @@ fly_one() {
   [[ "${IMAGES}" == 1 ]] || args+=" --no-images"
   # bash -i: robot/docker/.bashrc resolves ROBOT_NAME / ROS_DOMAIN_ID and defines sws.
   local cmd="sws >/dev/null 2>&1; bash /root/AirStack/stacks/tigris_search/scripts/tigris_sortie.sh ${args}"
-  if docker exec -e ROS_DOMAIN_ID="${i}" "${c}" bash -ic "${cmd}" >"${LOG_DIR}/${name}.log" 2>&1; then
+  if docker exec -e ROS_DOMAIN_ID="${i}" "${c}" bash -ic "${cmd}" 2>&1 | tee "${LOG_DIR}/${name}.log" | sed -u "s/^/  [${name}] /"; then
     echo "[tigris_start_mission] ${name}: sortie finished (log ${LOG_DIR}/${name}.log)"
     return 0
   fi
@@ -132,6 +139,21 @@ if [[ "${INTERRUPTED}" == 1 ]]; then
 fi
 
 if [[ "${ANALYZE}" == 1 && "${START}" == true ]]; then
+  # Wait briefly for tigris_metrics_logger to write telemetry.csv
+  wait_s=0
+  max_wait=30
+  while [[ ${wait_s} -lt ${max_wait} ]]; do
+    found_all=1
+    for i in $(seq 1 "${N}"); do
+      if [[ ! -f "${REPO}/runs/${RUN_ID}/robot_${i}/telemetry.csv" ]]; then
+        found_all=0
+        break
+      fi
+    done
+    [[ ${found_all} == 1 ]] && break
+    sleep 1
+    (( wait_s++ ))
+  done
   python3 "${REPO}/scripts/analyze_tigris_run.py" --run-dir "${REPO}/runs/${RUN_ID}" || fail=1
   ln -sfn "${RUN_ID}" "${REPO}/runs/latest" 2>/dev/null || true
   if [[ "${FOXGLOVE}" == 1 ]]; then

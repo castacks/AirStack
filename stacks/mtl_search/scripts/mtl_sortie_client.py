@@ -388,7 +388,9 @@ class Sortie:
                 phase = getattr(fb, "phase", None)
                 now = time.monotonic()
                 if phase != last_phase or now - last_print >= fb_period_s:
-                    self.say(f"{cfg.name}: {format_msg(fb, fb_fields)}")
+                    progress_val = getattr(fb, "progress", None)
+                    pct_str = f" [{progress_val * 100.0:.1f}% complete]" if isinstance(progress_val, float) else ""
+                    self.say(f"{cfg.name}{pct_str}: {format_msg(fb, fb_fields)}")
                     last_print, last_phase = now, phase
             if term is not None:
                 result = step.fetch_result(gid)
@@ -489,7 +491,7 @@ def parse_args(argv: Optional[List[str]] = None):
     p.add_argument("--server-timeout", type=float, default=60.0)
     p.add_argument("--state-estimate-timeout", type=float, default=20.0)
     p.add_argument("--takeoff-timeout", type=float, default=180.0)
-    p.add_argument("--mission-timeout", type=float, default=1800.0)
+    p.add_argument("--mission-timeout", type=float, default=3800.0)
     p.add_argument("--no-cancel-on-interrupt", action="store_true")
     p.add_argument("--tag", default="mtl_sortie",
                    help="log prefix and node-name stem (e.g. tigris_sortie)")

@@ -123,6 +123,7 @@ class MtlTrajectoryFollower(Node):
         self.last_tick = None
         self.gimbal_measured: tuple[float, float, float] | None = None
         self.last_cmd = (0.0, math.radians(self.idle_pitch_deg), 0.0)
+        self._last_progress_log_t = 0.0
         self.create_timer(1.0 / self.rate_hz, self._tick)
         self.get_logger().info("mtl_trajectory_follower ready (idle: forwarding the nominal tracking point)")
 
@@ -223,10 +224,20 @@ class MtlTrajectoryFollower(Node):
             self._publish_tracking_point(out, now, odom.header.frame_id or "map")
             self._publish_gimbal(out.gimbal)
             self._publish_points(out, now, odom.header.frame_id or "map")
+            total_m = float(self.follower.track.total)
+            now_s = now.nanoseconds * 1e-9
+            if total_m > 0.0 and (now_s - self._last_progress_log_t) >= 5.0 and out.state != fc.COMPLETE:
+                self._last_progress_log_t = now_s
+                pct = (out.progress_m / total_m) * 100.0
+                self.get_logger().info(
+                    f"Trajectory completion: {pct:.1f}% "
+                    f"({out.progress_m:.1f} m / {total_m:.1f} m, remaining: {out.remaining_m:.1f} m, phase: {fc.STATE_NAMES.get(out.state, str(out.state))})"
+                )
             if out.state == fc.COMPLETE:
                 if self.t_complete is None:
                     self.t_complete = now
-                    self.get_logger().info(f"sortie {self.plan_id} complete ({out.progress_m:.0f} m)")
+                    pct = (out.progress_m / total_m) * 100.0 if total_m > 0.0 else 100.0
+                    self.get_logger().info(f"sortie {self.plan_id} complete: {pct:.1f}% ({out.progress_m:.0f} m / {total_m:.0f} m)")
                 elif (now - self.t_complete).nanoseconds * 1e-9 >= self.hold_after_complete_s:
                     self._hand_back("sortie complete")
         elif have_odom:

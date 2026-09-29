@@ -12,8 +12,13 @@
 //         a carrot `lookahead` ahead, and the drone keeps flying while we plan);
 //      3. apply the committed-but-not-yet-flown looks to a planning copy;
 //      4. TIGRIS from the pose at s_c with budget - arc(s_c);
-//      5. if it found a path, track = track[0 .. s_c] + new path (arc and time
-//         continue, so the follower's progress index stays valid).
+//      5. if it found a path that scores HIGHER than the rest of the current plan
+//         (both scored with TIGRIS's own reward on the same planning belief),
+//         track = track[0 .. s_c] + new path (arc and time continue, so the
+//         follower's progress index stays valid); otherwise the current plan is
+//         kept. Without this check every solve - a fresh random tree rooted at
+//         s_c - replaced a plan TIGRIS had not found worse, so the heading was
+//         re-drawn every replan_period_s and the drone weaved back and forth.
 //
 //  The belief TIGRIS plans over is maintained OUTSIDE the tree search, as in the
 //  original system (IPP::replan receives the map; ipp.cpp never updates it from
@@ -70,6 +75,7 @@ struct ReplanRecord {
     bool improved = false;
     double segmentLength = 0.0;
     PathReward segmentReward;          ///< both rewards of the new segment (planning belief)
+    PathReward keptReward;             ///< both rewards of the current tail it had to beat (same belief)
     double residualMassFlown = 0.0;    ///< planner's residual belief after the flown looks
     double trackLength = 0.0;          ///< total track after this replan
     int flownLooks = 0;
@@ -112,6 +118,9 @@ private:
     std::vector<TrackSample> sampleSegment(const std::vector<TreeNode>& path, const TrackSample& from) const;
     std::size_t indexAtArc(double arc) const;
     void record(ReplanRecord r, const PlanResult& res);
+    /// The not-yet-committed rest of the current TIGRIS plan, re-rooted at the commit pose
+    /// (the chain scorePath() takes), so it can be scored against a new solve.
+    std::vector<TreeNode> tailFrom(const TrackSample& commit) const;
 
     Scenario sc_;
     int agent_;
@@ -124,6 +133,8 @@ private:
     BeliefState belief_;
     std::vector<TrackSample> track_;
     std::vector<ReplanRecord> records_;
+    std::vector<TreeNode> plan_;   ///< the TIGRIS path the track's tail was sampled from
+    double planArc0_ = 0.0;        ///< track arc at plan_[0]
     double budget_ = 0.0;
     int revision_ = -1;
     int replanCount_ = 0;

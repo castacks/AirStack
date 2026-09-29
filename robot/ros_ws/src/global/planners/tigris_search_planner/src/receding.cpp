@@ -175,10 +175,66 @@ bool RecedingHorizon::start(const Pose2& start) {
         const auto seg = sampleSegment(res.path, s0);
         track_.insert(track_.end(), seg.begin(), seg.end());
         revision_ = 0;
+        plan_ = res.path;
+        planArc0_ = 0.0;
     }
     if (!hp_.receding) done_ = true;
     record(rec, res);
     return res.improved();
+}
+
+std::vector<TreeNode> RecedingHorizon::tailFrom(const TrackSample& c) const {
+    std::vector<TreeNode> out;
+    if (plan_.size() < 2) return out;
+    const double rel = c.arc - planArc0_;  // commit arc along plan_
+    std::size_t i = 1;
+    while (i < plan_.size() && plan_[i].arc <= rel + 1e-6) ++i;
+    if (i >= plan_.size()) return out;  // committed to the end of the plan: nothing left
+    TreeNode root;
+    root.pose.x = c.x;
+    root.pose.y = c.y;
+    root.pose.yaw = c.yaw;
+    out.push_back(root);
+    // node i, reached from the commit pose along the rest of its edge
+    const TreeNode& ni = plan_[i];
+    const double edgeStartArc = ni.arc - ni.edgeLen;      // arc of plan_[i-1]
+    const double cut = std::max(0.0, rel - edgeStartArc);  // part of edge i already committed
+    TreeNode first = ni;
+    first.parent = 0;
+    first.edge.q0 = root.pose;
+    first.edgeLen = std::max(0.0, ni.edgeLen - cut);
+    first.arc = first.edgeLen;
+    first.cost = first.edgeLen;
+    // the straight part of the edge that is still ahead (Motion::start_edge / end_edge)
+    first.hasEdge = ni.hasEdge && ni.edgeEndS > cut;
+    if (first.hasEdge) {
+        first.edgeStartS = std::max(ni.edgeStartS, cut) - cut;
+        first.edgeEndS = ni.edgeEndS - cut;
+        first.edgeStart = ni.edge.sample(first.edgeStartS + cut);
+        first.edgeEnd = ni.edgeEnd;
+    }
+    // re-express the remaining edge as a path starting at the commit pose
+    DubinsPath rest = ni.edge;
+    {
+        // walk the segments of the original word forward by `cut`
+        double t = cut / rest.rho;
+        for (int k = 0; k < 3; ++k) {
+            const double d = std::min(t, rest.seg[k]);
+            rest.seg[k] -= d;
+            t -= d;
+        }
+        rest.q0 = root.pose;
+    }
+    first.edge = rest;
+    out.push_back(first);
+    for (std::size_t j = i + 1; j < plan_.size(); ++j) {
+        TreeNode n = plan_[j];
+        n.parent = static_cast<int>(out.size()) - 1;
+        n.arc -= rel;
+        n.cost = out.back().cost + n.edgeLen;
+        out.push_back(n);
+    }
+    return out;
 }
 
 bool RecedingHorizon::due(double progressArc, double secondsSinceLastReplan) const {
@@ -231,14 +287,22 @@ bool RecedingHorizon::replan(double progressArc, const std::vector<Look>& flownL
     // c.t: the sweep phase at the commit point, so the new segment continues the sweep
     const PlanResult res =
         planner_->plan(start, rec.budgetLeft, hp_.replanPlanningTime, planB, ++replanCount_, c.t);
+    // the rest of the plan we are flying, scored the same way on the same belief
+    const std::vector<TreeNode> kept = tailFrom(c);
+    if (kept.size() > 1) rec.keptReward = planner_->scorePath(kept, planB, c.t);
+    const bool original = tp_.reward.mode == RewardMode::ORIGINAL;
+    const double newR = original ? res.reward.original : res.reward.matched;
+    const double keptR = original ? rec.keptReward.original : rec.keptReward.matched;
     bool changed = false;
-    if (res.improved()) {
+    if (res.improved() && newR > keptR) {
         const TrackSample from = track_[kc];
         const auto seg = sampleSegment(res.path, from);
         track_.resize(kc + 1);
         track_.insert(track_.end(), seg.begin(), seg.end());
         ++revision_;
         changed = true;
+        plan_ = res.path;
+        planArc0_ = from.arc;
     } else if (kc + 1 >= track_.size()) {
         done_ = true;  // nothing reachable adds reward past the end of the track
     }
@@ -487,6 +551,7 @@ std::string replansJson(const Scenario& sc, int agentIndex, const RecedingHorizo
         o["improved"] = J::Value(r.improved);
         o["segment_length_m"] = J::Value(r.segmentLength);
         o["segment_reward"] = rewardJson(r.segmentReward);
+        o["kept_reward"] = rewardJson(r.keptReward);
         o["residual_mass_after_flown"] = J::Value(r.residualMassFlown);
         o["track_length_m"] = J::Value(r.trackLength);
         o["flown_looks"] = J::Value(r.flownLooks);

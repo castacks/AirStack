@@ -50,6 +50,7 @@ from tigris_search_planner.rewards import (Detection, Grid, RewardParams, look_f
                                            look_from_points, score_looks)
 
 import analyze_mtl_run  # noqa: E402  (load_run: same input resolution as the MTL analysis)
+from run_progress import Progress  # noqa: E402
 
 DEFAULT_CONFIG = REPO / "stacks/tigris_search/config"
 DEFAULTS = {"extend_dist_m": 60.0, "grid_res_m": 4.0, "use_entropy": True, "rs": 2.0, "rf": 1.0,
@@ -303,7 +304,9 @@ def write_csv(path: Path, curve: dict) -> None:
 
 
 # --------------------------------------------------------------------------- main
-def team_analysis(run_dir: Path, out: Path, args) -> dict:
+def team_analysis(run_dir: Path, out: Path, args, progress=None) -> dict:
+    if progress is not None:
+        progress("load telemetry", 0, 0)
     sc, gt, rows, planned, png, sc_path, gt_path = analyze_mtl_run.load_run(run_dir, args.scenario, args.ground_truth)
     res = write_run_outputs(
         out, scenario=sc, ground_truth=gt, rows_by_agent=rows, planned_by_agent=planned,
@@ -311,7 +314,10 @@ def team_analysis(run_dir: Path, out: Path, args) -> dict:
         subtitle=f"scenario {sc['mission']['name']} · {len(rows)} agent(s): {', '.join(sorted(rows))} · "
                  f"fused on one timeline",
         belief_png=png,
-        extra={"run_id": run_dir.name, "inputs": {"scenario": str(sc_path), "ground_truth": str(gt_path)}})
+        extra={"run_id": run_dir.name, "inputs": {"scenario": str(sc_path), "ground_truth": str(gt_path)}},
+        progress=progress)
+    if progress is not None:
+        progress.end_stage()
     s = res["summary"]
     mttd = s["mean_time_to_discovery_s"]
     resid, planned_resid = s.get("residual_belief_mass"), s.get("planned_residual_belief_mass")
@@ -335,6 +341,7 @@ def main(argv=None) -> int:
     ap.add_argument("--rewards-only", action="store_true", help="skip the team analysis (part 1)")
     ap.add_argument("--edge-m", type=float, default=None, help="original-reward pass length (default: extend_dist_m)")
     ap.add_argument("--grid-res-m", type=float, default=None)
+    ap.add_argument("--no-progress", action="store_true", help="no progress bar (stderr)")
     args = ap.parse_args(argv)
 
     run_dir = args.run_dir.resolve()
@@ -343,9 +350,15 @@ def main(argv=None) -> int:
     out = (args.out_dir or run_dir).resolve()
     out.mkdir(parents=True, exist_ok=True)
 
+    stages = [] if args.rewards_only else [
+        "load telemetry", "write telemetry.csv", "prior raster", "score flown telemetry", "score planned track",
+        "write detection.json + residual_belief.csv", "write report.html"]
+    stages += ["reward grid", "tigris rewards: flown", "tigris rewards: planned", "write tigris_report.html"]
+    prog = None if args.no_progress else Progress("analyze_tigris_run", stages)
+
     summary = {}
     if not args.rewards_only:
-        summary = team_analysis(run_dir, out, args)
+        summary = team_analysis(run_dir, out, args, prog)
     elif (out / "detection.json").is_file():
         summary = json.loads((out / "detection.json").read_text()).get("summary", {})
 
@@ -355,10 +368,13 @@ def main(argv=None) -> int:
     det = Detection.from_scenario(sc)
     rp = RewardParams(use_entropy=bool(prm["use_entropy"]), rs=float(prm["rs"]), rf=float(prm["rf"]),
                       initial_confidence=float(prm["initial_confidence"]))
-    grid = Grid.from_scenario(sc, res=float(prm["grid_res_m"]), initial_confidence=rp.initial_confidence)
+    grid = Grid.from_scenario(sc, res=float(prm["grid_res_m"]), initial_confidence=rp.initial_confidence,
+                              progress=prog)
     edge = float(prm["extend_dist_m"])
-    flown = score_looks(grid, det, rp, flown_samples(run_dir, sc, det), edge).as_dict()
-    planned = score_looks(grid, det, rp, planned_samples(run_dir, sc, det), edge).as_dict()
+    flown = score_looks(grid, det, rp, flown_samples(run_dir, sc, det), edge,
+                        progress=prog, stage="tigris rewards: flown").as_dict()
+    planned = score_looks(grid, det, rp, planned_samples(run_dir, sc, det), edge,
+                          progress=prog, stage="tigris rewards: planned").as_dict()
 
     evaluator = None
     det_json = out / "detection.json"
@@ -383,10 +399,14 @@ def main(argv=None) -> int:
     data = {"schema": "tigris.rewards/1", "run_id": run_dir.name, "planner": planner, "reward_mode": mode,
             "params": prm, "summary": summ, "flown": flown, "planned": planned,
             "evaluator_flown": evaluator, "replans": replans}
+    if prog is not None:
+        prog("write tigris_report.html", 0, 0)
     (out / "tigris_rewards.json").write_text(json.dumps(data, indent=1), encoding="utf-8")
     write_csv(out / "tigris_rewards.csv", flown)
     write_csv(out / "tigris_rewards_planned.csv", planned)
     write_report(out / "tigris_report.html", run_dir.name, data)
+    if prog is not None:
+        prog.finish()
     f = lambda v, d=4: "n/a" if v is None else f"{v:.{d}f}"  # noqa: E731
     print(f"  TIGRIS rewards: original {f(summ['flown_original'], 1)} flown / {f(summ['planned_original'], 1)} planned;"
           f" matched (searched mass) {f(summ['flown_matched'])} flown / {f(summ['planned_matched'])} planned"

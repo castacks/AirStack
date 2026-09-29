@@ -78,7 +78,7 @@ def planned_looks_from_track(track: Mapping[str, Any], home: Sequence[float] | N
 def score_agents(rows_by_agent: Mapping[str, Sequence[Mapping[str, Any]]], scenario: Mapping[str, Any],
                  ground_truth: Mapping[str, Any], *, use_command_fallback: bool = True,
                  dt: float | None = None, prior: PriorGrid | None = None,
-                 residual_snapshot_s: float | None = None
+                 residual_snapshot_s: float | None = None, progress=None
                  ) -> tuple[TeamScorer, dict[str, dict[str, list]], dict[str, float]]:
     """Fuse every agent's telemetry rows on one hold-last-value timeline.
 
@@ -88,12 +88,13 @@ def score_agents(rows_by_agent: Mapping[str, Sequence[Mapping[str, Any]]], scena
     resampled series for the report, and the per-agent measured fraction.
     The scorer also accumulates the residual belief over ``prior`` (default: the
     scenario's own prior, :func:`~mtl_metrics_logger.detection.prior_from_scenario`).
+    ``progress(stage, done, total)`` (optional) is called along the timeline.
     """
     model = DetectionModel.from_scenario(scenario["sensor"]["detection"])
     fov = math.radians(float(scenario["sensor"]["fov_deg"]))
     cells, masses = cells_world(scenario)
     if prior is None:
-        prior = prior_from_scenario(scenario)
+        prior = prior_from_scenario(scenario, progress=progress)
     scorer = TeamScorer(targets_world(ground_truth), cells, masses, model, fov, prior=prior,
                         residual_snapshot_s=residual_snapshot_s)
 
@@ -140,7 +141,10 @@ def score_agents(rows_by_agent: Mapping[str, Sequence[Mapping[str, Any]]], scena
     for name, tr in tracks.items():
         held[name] = {k: resample_hold(tr["t"], tr[k], timeline)
                       for k in ("pos", "pitch", "yaw", "xte", "pointing_error", "cmd_pitch", "meas_pitch")}
+    every = max(1, n // 500)
     for k, t in enumerate(timeline):
+        if progress is not None and k % every == 0:
+            progress("score flown telemetry", k, n)
         samples = {}
         for name, tr in tracks.items():
             if t < tr["t"][0] or t > tr["t"][-1] + 1e-9:
@@ -148,6 +152,8 @@ def score_agents(rows_by_agent: Mapping[str, Sequence[Mapping[str, Any]]], scena
             h = held[name]
             samples[name] = {"pos": h["pos"][k], "pitch": h["pitch"][k], "yaw": h["yaw"][k], "ground_z": 0.0}
         scorer.step(t - t0, samples, dt if k else 0.0)
+    if progress is not None:
+        progress("score flown telemetry", n, n)
 
     per_agent = {name: {"t": [t - t0 for t in timeline], "xte": held[name]["xte"],
                         "pointing_error": held[name]["pointing_error"],
@@ -160,22 +166,35 @@ def write_run_outputs(out_dir: str | Path, *, scenario: Mapping[str, Any], groun
                       rows_by_agent: Mapping[str, Sequence[Mapping[str, Any]]],
                       planned_by_agent: Mapping[str, Mapping[str, Any]], title: str, subtitle: str,
                       belief_png: bytes | None = None, write_telemetry: bool = True,
-                      extra: Mapping[str, Any] | None = None) -> dict[str, Any]:
+                      extra: Mapping[str, Any] | None = None, progress=None) -> dict[str, Any]:
     """Score and write ``telemetry.csv``, ``detection.json``, ``residual_belief.csv`` and ``report.html``.
 
     ``planned_by_agent[name]``: ``{"planned": [[x, y]...] (world), "home": [x, y],
     "serviced_cells": [...], "planned_length_m": ..., "looks": {"t", "pos", "bore"} (optional,
     world ENU; see :func:`planned_looks_from_track`)}``.
+
+    ``progress(stage, done, total)`` (optional): called at each step and along the long
+    loops, e.g. with a ``scripts/run_progress.Progress`` to draw a progress bar.
     """
+    def step(stage: str) -> None:
+        if progress is not None:
+            progress(stage, 0, 0)
+
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    prior = prior_from_scenario(scenario)
-    scorer, per_agent, measured = score_agents(rows_by_agent, scenario, ground_truth, prior=prior)
+    if write_telemetry:
+        step("write telemetry.csv")
+        merged = [dict(r, agent=name) for name, rows in sorted(rows_by_agent.items()) for r in rows]
+        merged.sort(key=lambda r: (r.get("t") or 0.0, r.get("agent")))
+        write_telemetry_csv(out / "telemetry.csv", merged)
+    prior = prior_from_scenario(scenario, progress=progress)
+    scorer, per_agent, measured = score_agents(rows_by_agent, scenario, ground_truth, prior=prior,
+                                               progress=progress)
 
     planned_rb = None
     looks = [p["looks"] for p in planned_by_agent.values() if p.get("looks")]
     if prior is not None and looks:
-        planned_rb = planned_residual(prior, scorer.model, scorer.fov, looks)
+        planned_rb = planned_residual(prior, scorer.model, scorer.fov, looks, progress=progress)
 
     cells, masses = cells_world(scenario)
     planned_cells = sorted({int(c) for p in planned_by_agent.values() for c in p.get("serviced_cells", [])
@@ -213,15 +232,11 @@ def write_run_outputs(out_dir: str | Path, *, scenario: Mapping[str, Any], groun
                    "residual_mass": [None if v is None else round(v, 6) for v in scorer.residual_curve]},
         **(dict(extra) if extra else {}),
     }
+    step("write detection.json + residual_belief.csv")
     write_json(out / "detection.json", detection)
     if scorer.residual is not None:
         block = max(1, int(round(RESIDUAL_CSV_BLOCK_M / scorer.residual.prior.res)))
         write_residual_csv(out / "residual_belief.csv", scorer.residual.blocks(block))
-
-    if write_telemetry:
-        merged = [dict(r, agent=name) for name, rows in sorted(rows_by_agent.items()) for r in rows]
-        merged.sort(key=lambda r: (r.get("t") or 0.0, r.get("agent")))
-        write_telemetry_csv(out / "telemetry.csv", merged)
 
     covered = set(i for i, c in enumerate(scorer.cell_covered) if c)
     agents = []
@@ -236,6 +251,7 @@ def write_run_outputs(out_dir: str | Path, *, scenario: Mapping[str, Any], groun
                        "flown": [(r["x_world"], r["y_world"]) for r in rows if r.get("x_world") is not None],
                        "bore": [(r["bore_x_world"], r["bore_y_world"]) for r in rows
                                 if r.get("bore_x_world") is not None]})
+    step("write report.html")
     data = build_report_data(
         title=title, subtitle=subtitle, summary=summary, targets=targets,
         area=area_world(scenario, include=homes),
