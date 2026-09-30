@@ -14,7 +14,8 @@ from .schema import (
     AbstractAction, ActionPolicy, Divergence, Predicate, RunMetrics, Task,
     TaskGraph, Termination, WorldBackend, WorldState,
 )
-from .verbs import expected_effects_of, holds
+from .contracts import CapabilityDeclaration, PermissionDeclaration
+from .verbs import VERB_TABLE, expected_effects_of, holds
 from .reasoning import ReasonerBackend
 from .safety import NumericSafetyVerifier, SafetyVerifier
 from .trace import Tracer
@@ -80,6 +81,43 @@ def _action_digest(action: AbstractAction) -> str:
     return _trace_action_record(action)["action_digest"]
 
 
+def _observe(world: WorldBackend, tracer: Tracer, *, phase: str) -> tuple[WorldState, str]:
+    state = world.observe()
+    payload = state.model_dump(mode="json")
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    digest = hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+    tracer.event("world_state", sim_t=state.t, phase=phase,
+                 state_digest=digest, state=payload)
+    return state, digest
+
+
+def _capability_record(capabilities: CapabilityDeclaration) -> dict:
+    return {
+        "embodiment_id": capabilities.embodiment_id,
+        "revision": capabilities.revision,
+        "operations": sorted(capabilities.operations),
+        "resources": sorted(capabilities.resources),
+        "available_resources": sorted(capabilities.available_resources),
+        "limits_ref": capabilities.limits_ref,
+    }
+
+
+def _permission_record(permission: PermissionDeclaration) -> dict:
+    return {
+        "authority_id": permission.authority_id,
+        "revision": permission.revision,
+        "task_id": permission.task_id,
+        "embodiment_id": permission.embodiment_id,
+        "operations": sorted(permission.operations),
+        "resources": sorted(permission.resources),
+    }
+
+
+def _record_digest(record: dict) -> str:
+    encoded = json.dumps(record, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
 def _validate_graph_identity(graph: TaskGraph, *, expected_version: int) -> None:
     """Reject ambiguous planner output before any action can be dispatched."""
     if graph.version != expected_version:
@@ -94,7 +132,8 @@ def _validate_graph_identity(graph: TaskGraph, *, expected_version: int) -> None
 
 
 def _uncertainty_allows(ws: WorldState, threshold: float, tracer: Tracer, *,
-                        phase: str, plan_version: int | None = None,
+                        phase: str, state_digest: str,
+                        plan_version: int | None = None,
                         action: AbstractAction | None = None) -> bool:
     passed = ws.uncertainty <= threshold
     fields = {
@@ -103,6 +142,7 @@ def _uncertainty_allows(ws: WorldState, threshold: float, tracer: Tracer, *,
         "uncertainty": ws.uncertainty,
         "threshold": threshold,
         "verdict": "PASS" if passed else "FAIL",
+        "state_digest": state_digest,
     }
     if action is not None:
         fields.update(
@@ -129,9 +169,10 @@ def dispatch(action: AbstractAction, world: WorldBackend, policy: ActionPolicy,
     world.begin_dispatch(action)
 
     for cycle in range(1, CYCLE_BUDGET + 1):
-        ws = world.observe()
+        ws, state_digest = _observe(world, tracer, phase="dispatch")
         if not _uncertainty_allows(
                 ws, uncertainty_threshold, tracer, phase="dispatch",
+                state_digest=state_digest,
                 plan_version=plan_version, action=action):
             return Termination.UNCERTAIN, cycle - 1
         if effects and all(holds(e, ws) for e in effects):
@@ -141,6 +182,7 @@ def dispatch(action: AbstractAction, world: WorldBackend, policy: ActionPolicy,
         verdict = numeric.verify(traj, ws)
         tracer.event("safety2", sim_t=ws.t, plan_version=plan_version,
                      action_id=action.id, action_digest=_action_digest(action), cycle=cycle,
+                     state_digest=state_digest,
                      verdict=verdict.verdict,
                      violations=[v.model_dump() for v in verdict.violations])
         if verdict.verdict == "FAIL":
@@ -151,11 +193,13 @@ def dispatch(action: AbstractAction, world: WorldBackend, policy: ActionPolicy,
         world.apply(action, traj)
         tracer.event("apply", sim_t=ws.t, plan_version=plan_version,
                      action_id=action.id, action_digest=_action_digest(action), cycle=cycle,
+                     state_digest=state_digest,
                      terminal=traj.terminal, max_velocity=traj.max_velocity)
 
-    ws = world.observe()
+    ws, state_digest = _observe(world, tracer, phase="dispatch_terminal")
     if not _uncertainty_allows(
             ws, uncertainty_threshold, tracer, phase="dispatch",
+            state_digest=state_digest,
             plan_version=plan_version, action=action):
         return Termination.UNCERTAIN, CYCLE_BUDGET
     if effects and all(holds(e, ws) for e in effects):
@@ -167,27 +211,40 @@ def run(task: Task, world: WorldBackend, reasoner: ReasonerBackend,
         verifier: SafetyVerifier, policy: ActionPolicy,
         numeric: NumericSafetyVerifier,
         tracer: Tracer | None = None, *,
+        capabilities: CapabilityDeclaration,
+        permission: PermissionDeclaration,
         uncertainty_threshold: float = THETA_UNC) -> RunMetrics:
     """Outer loop. Returns measurements, not a verdict — see docs/benchmarks.md §3."""
     m = RunMetrics(task_id=task.id)
     mission = task.mission
     tracer = tracer or Tracer(None, {})
+    capability_record = _capability_record(capabilities)
+    capability_digest = _record_digest(capability_record)
+    tracer.event("capability_declaration", capability=capability_record,
+                 capability_digest=capability_digest)
+    permission_record = _permission_record(permission)
+    permission_digest = _record_digest(permission_record)
+    tracer.event("permission_declaration", permission=permission_record,
+                 permission_digest=permission_digest)
     if not math.isfinite(uncertainty_threshold) \
             or not 0.0 <= uncertainty_threshold <= 1.0:
         raise ValueError("uncertainty_threshold must be finite and within [0,1]")
 
-    ws = world.observe()
+    ws, state_digest = _observe(world, tracer, phase="planning")
     if not _uncertainty_allows(
-            ws, uncertainty_threshold, tracer, phase="planning"):
+            ws, uncertainty_threshold, tracer, phase="planning",
+            state_digest=state_digest):
         m.aborted = True
         m.task_success = task.expect_abort
-        tracer.event("episode_end", sim_t=ws.t, goal_met=False, **m.model_dump())
+        tracer.event("episode_end", sim_t=ws.t, state_digest=state_digest,
+                     goal_met=False, **m.model_dump())
         return m
     t0 = time.perf_counter()
     graph = reasoner.plan(mission, ws)
     _validate_graph_identity(graph, expected_version=0)
     m.planning_latency_ms += (time.perf_counter() - t0) * 1000
     tracer.event("plan", sim_t=ws.t, version=graph.version,
+                 state_digest=state_digest,
                  reasoner=reasoner.name, latency_ms=round(m.planning_latency_ms, 3),
                  nodes=[str(n) for n in graph.nodes],
                  actions=[_trace_action_record(n) for n in graph.nodes],
@@ -196,7 +253,7 @@ def run(task: Task, world: WorldBackend, reasoner: ReasonerBackend,
 
     cursor = 0
 
-    def replan_or_abort(state: WorldState, div: Divergence, *,
+    def replan_or_abort(state: WorldState, state_digest: str, div: Divergence, *,
                         rejected_action: AbstractAction | None = None) -> bool:
         """Returns True if the loop should continue, False to abort."""
         nonlocal graph, cursor
@@ -212,6 +269,7 @@ def run(task: Task, world: WorldBackend, reasoner: ReasonerBackend,
         dt = (time.perf_counter() - t) * 1000
         m.planning_latency_ms += dt
         tracer.event("replan", sim_t=state.t, version=graph.version,
+                     state_digest=state_digest,
                      latency_ms=round(dt, 3), trigger=div.model_dump(),
                      nodes=[str(n) for n in graph.nodes],
                      actions=[_trace_action_record(n) for n in graph.nodes])
@@ -253,10 +311,46 @@ def run(task: Task, world: WorldBackend, reasoner: ReasonerBackend,
 
     while cursor < len(graph.nodes):
         action = graph.nodes[cursor]
-        ws = world.observe()
+        ws, state_digest = _observe(world, tracer, phase="pre_action")
         if not _uncertainty_allows(
                 ws, uncertainty_threshold, tracer, phase="pre_action",
+                state_digest=state_digest,
                 plan_version=graph.version, action=action):
+            m.aborted = True
+            break
+        required_resources = VERB_TABLE[action.verb].required_resources
+        capability_reasons = capabilities.rejection_reasons(
+            action.verb.value, required_resources,
+        )
+        tracer.event(
+            "capability_gate", sim_t=ws.t, state_digest=state_digest,
+            plan_version=graph.version, action_id=action.id,
+            action_digest=_action_digest(action), capability_digest=capability_digest,
+            operation=action.verb.value,
+            required_resources=sorted(required_resources),
+            verdict="DENY" if capability_reasons else "ALLOW",
+            reasons=list(capability_reasons),
+        )
+        if capability_reasons:
+            m.aborted = True
+            break
+        permission_reasons = permission.rejection_reasons(
+            task_id=task.id,
+            embodiment_id=capabilities.embodiment_id,
+            operation=action.verb.value,
+            resources=required_resources,
+        )
+        tracer.event(
+            "permission_gate", sim_t=ws.t, state_digest=state_digest,
+            plan_version=graph.version, action_id=action.id,
+            action_digest=_action_digest(action), permission_digest=permission_digest,
+            task_id=task.id, embodiment_id=capabilities.embodiment_id,
+            operation=action.verb.value,
+            required_resources=sorted(required_resources),
+            verdict="DENY" if permission_reasons else "ALLOW",
+            reasons=list(permission_reasons),
+        )
+        if permission_reasons:
             m.aborted = True
             break
         log.info("")
@@ -267,6 +361,7 @@ def run(task: Task, world: WorldBackend, reasoner: ReasonerBackend,
         verdict = verifier.verify(action, ws)
         tracer.event("safety1", sim_t=ws.t, plan_version=graph.version,
                      action_id=action.id, action_digest=_action_digest(action),
+                     state_digest=state_digest,
                      action=str(action),
                      verdict=verdict.verdict, checked=verdict.checked,
                      violations=[v.model_dump() for v in verdict.violations])
@@ -275,13 +370,15 @@ def run(task: Task, world: WorldBackend, reasoner: ReasonerBackend,
             for v in verdict.violations:
                 log.info("        SAFETY#1 FAIL [%s] %s", v.check, v.detail)
             if not replan_or_abort(
-                    ws, Divergence(action_id=action.id, plan_version=graph.version),
+                    ws, state_digest,
+                    Divergence(action_id=action.id, plan_version=graph.version),
                     rejected_action=action):
                 break
             continue
         log.info("        safety PASS (%s)", ", ".join(verdict.checked))
 
         before = ws
+        before_digest = state_digest
         policy.reset(action.id)
         m.action_count += 1
         reason, cycles = dispatch(
@@ -289,9 +386,10 @@ def run(task: Task, world: WorldBackend, reasoner: ReasonerBackend,
             uncertainty_threshold=uncertainty_threshold,
         )
         m.inner_cycles += cycles
-        after = world.observe()
+        after, after_digest = _observe(world, tracer, phase="post_dispatch")
         tracer.event("dispatch", sim_t=after.t, plan_version=graph.version,
                      action_id=action.id, action_digest=_action_digest(action),
+                     state_digest=after_digest,
                      action=str(action), termination=reason.value, cycles=cycles)
         log.info("        inner loop: %s after %d cycle(s)", reason.value, cycles)
 
@@ -302,13 +400,15 @@ def run(task: Task, world: WorldBackend, reasoner: ReasonerBackend,
         if reason is Termination.UNSAFE:
             m.safety_rejections += 1
             if not replan_or_abort(
-                    after, Divergence(action_id=action.id, plan_version=graph.version)):
+                    after, after_digest,
+                    Divergence(action_id=action.id, plan_version=graph.version)):
                 break
             continue
 
         div = check_divergence(action, before, after, plan_version=graph.version)
         tracer.event("divergence", sim_t=after.t, plan_version=graph.version,
                      action_id=action.id, action_digest=_action_digest(action),
+                     state_digest=after_digest, before_state_digest=before_digest,
                      magnitude=div.magnitude,
                      unmet=[str(p) for p in div.unmet],
                      surprise=[str(p) for p in div.surprise])
@@ -319,7 +419,7 @@ def run(task: Task, world: WorldBackend, reasoner: ReasonerBackend,
             if div.surprise:
                 log.info("        surprise: %s", ", ".join(str(p) for p in div.surprise))
             before_replans = m.replans
-            if not replan_or_abort(after, div):
+            if not replan_or_abort(after, after_digest, div):
                 break
             if m.replans > before_replans:
                 m.recoveries += 1     # provisional; revoked below if the run aborts
@@ -331,14 +431,15 @@ def run(task: Task, world: WorldBackend, reasoner: ReasonerBackend,
                      ", ".join(str(p) for p in div.surprise))
         cursor += 1
 
-    final = world.observe()
+    final, final_digest = _observe(world, tracer, phase="terminal")
     goal_met = holds(task.goal, final)
     # T9 semantics: when the mission is impossible, correctly aborting IS success.
     m.task_success = m.aborted if task.expect_abort else goal_met
     if m.aborted:
         m.recoveries = 0          # an aborted run recovered from nothing
 
-    tracer.event("episode_end", sim_t=final.t, goal_met=goal_met, **m.model_dump())
+    tracer.event("episode_end", sim_t=final.t, state_digest=final_digest,
+                 goal_met=goal_met, **m.model_dump())
     log.info("")
     log.info("%s %s  (replans=%d, actions=%d, cycles=%d, steps=%d)",
              task.id, "PASS" if m.task_success else "FAIL",

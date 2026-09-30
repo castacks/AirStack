@@ -5,7 +5,8 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from .schema import RunMetrics, SELF, Task
+from .schema import RunMetrics, SELF, Task, Verb
+from .contracts import CapabilityDeclaration, PermissionDeclaration
 from .benchmark_evidence import write_benchmark_evidence
 from .benchmark_labels import (
     EvaluationLabels, FailureKind, SafetyLabel, TerminalLabel,
@@ -70,6 +71,26 @@ RUN_META = {
     "replan_budget": REPLAN_BUDGET,
 }
 
+MOCK_CAPABILITIES = CapabilityDeclaration(
+    embodiment_id="mock_arm",
+    revision="mock-core-v1",
+    operations=frozenset(verb.value for verb in Verb),
+    resources=frozenset({"perception", "mobility", "manipulation"}),
+    available_resources=frozenset({"perception", "mobility", "manipulation"}),
+    limits_ref="mock-numeric-safety-v1",
+)
+
+
+def mock_permission(task_id: str) -> PermissionDeclaration:
+    return PermissionDeclaration(
+        authority_id="mock-policy-authority",
+        revision="mock-permission-v1",
+        task_id=task_id,
+        embodiment_id=MOCK_CAPABILITIES.embodiment_id,
+        operations=MOCK_CAPABILITIES.operations,
+        resources=MOCK_CAPABILITIES.resources,
+    )
+
 
 def run_suite(trace_dir: Path | None = None) -> int:
     task_ids = [task.id for task in TASKS]
@@ -91,6 +112,8 @@ def run_suite(trace_dir: Path | None = None) -> int:
             results.append(run(
                 task, MockWorld(**task.world), ScriptedOracle(task.goal),
                 SafetyVerifier(), MockPolicy(), NumericSafetyVerifier(), tracer,
+                capabilities=MOCK_CAPABILITIES,
+                permission=mock_permission(task.id),
             ))
         finally:
             tracer.close()

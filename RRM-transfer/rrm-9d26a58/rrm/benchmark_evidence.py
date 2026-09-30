@@ -19,7 +19,10 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from .benchmark_labels import EvaluationLabels, FailureKind, SafetyLabel, TerminalLabel
+from .contracts import CapabilityDeclaration, PermissionDeclaration
 from .loop import THETA_DIV
+from .schema import Verb, WorldState
+from .verbs import VERB_TABLE
 from .trace import TRACE_EVENT_SCHEMA
 
 
@@ -150,6 +153,45 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
         return EpisodeReplay(task_id, False, tuple(dict.fromkeys(findings)), None, (), trace_hash)
 
     start, end = starts[0], ends[0]
+
+    state_sequences: dict[str, int] = {}
+    for event in (item for item in events if item.get("kind") == "world_state"):
+        payload = event.get("state")
+        digest = event.get("state_digest")
+        if not isinstance(payload, dict) or not isinstance(digest, str):
+            findings.append(f"invalid_world_state_event:sequence={event.get('sequence')}")
+            continue
+        try:
+            validated = WorldState.model_validate(payload).model_dump(mode="json")
+        except Exception:
+            findings.append(f"invalid_world_state_payload:sequence={event.get('sequence')}")
+            continue
+        encoded = json.dumps(validated, sort_keys=True, separators=(",", ":"))
+        expected = hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+        if digest != expected:
+            findings.append(f"world_state_digest_mismatch:sequence={event.get('sequence')}")
+            continue
+        state_sequences.setdefault(digest, event.get("sequence", -1))
+
+    state_bound_kinds = {
+        "plan", "replan", "uncertainty_gate", "safety1", "safety2", "apply",
+        "dispatch", "divergence", "episode_end", "capability_gate", "permission_gate",
+    }
+    for event in events:
+        if event.get("kind") not in state_bound_kinds:
+            continue
+        digest = event.get("state_digest")
+        sequence = event.get("sequence", -1)
+        if not isinstance(digest, str) or digest not in state_sequences:
+            findings.append(f"unknown_state_reference:sequence={sequence}")
+        elif state_sequences[digest] >= sequence:
+            findings.append(f"state_reference_before_observation:sequence={sequence}")
+        if event.get("kind") == "divergence":
+            before_digest = event.get("before_state_digest")
+            if not isinstance(before_digest, str) or before_digest not in state_sequences:
+                findings.append(f"unknown_before_state_reference:sequence={sequence}")
+            elif state_sequences[before_digest] >= sequence:
+                findings.append(f"before_state_reference_before_observation:sequence={sequence}")
     actual_task_id = start.get("task_id")
     if not isinstance(actual_task_id, str) or not actual_task_id:
         findings.append("invalid_start_task_id")
@@ -189,6 +231,77 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
     }
     convergence_events = [event for event in events
                           if event.get("kind") == "replan_convergence"]
+    capability_events = [event for event in events
+                         if event.get("kind") == "capability_declaration"]
+    capability_gates = [event for event in events if event.get("kind") == "capability_gate"]
+    permission_events = [event for event in events
+                         if event.get("kind") == "permission_declaration"]
+    permission_gates = [event for event in events if event.get("kind") == "permission_gate"]
+    capabilities = None
+    capability_digest = None
+    capability_sequence = None
+    if len(capability_events) != 1:
+        findings.append(f"capability_declaration_count:{len(capability_events)}")
+    else:
+        record = capability_events[0].get("capability")
+        capability_digest = capability_events[0].get("capability_digest")
+        capability_sequence = capability_events[0].get("sequence")
+        try:
+            if not isinstance(record, dict) or set(record) != {
+                "embodiment_id", "revision", "operations", "resources",
+                "available_resources", "limits_ref",
+            }:
+                raise ValueError("invalid fields")
+            capabilities = CapabilityDeclaration(
+                embodiment_id=record["embodiment_id"], revision=record["revision"],
+                operations=frozenset(record["operations"]),
+                resources=frozenset(record["resources"]),
+                available_resources=frozenset(record["available_resources"]),
+                limits_ref=record["limits_ref"],
+            )
+            encoded = json.dumps(record, sort_keys=True, separators=(",", ":"))
+            if capability_digest != hashlib.sha256(encoded.encode()).hexdigest():
+                findings.append("capability_declaration_digest_mismatch")
+        except (KeyError, TypeError, ValueError):
+            findings.append("invalid_capability_declaration")
+            capabilities = None
+    permission = None
+    permission_digest = None
+    permission_sequence = None
+    if len(permission_events) != 1:
+        findings.append(f"permission_declaration_count:{len(permission_events)}")
+    else:
+        record = permission_events[0].get("permission")
+        permission_digest = permission_events[0].get("permission_digest")
+        permission_sequence = permission_events[0].get("sequence")
+        try:
+            if not isinstance(record, dict) or set(record) != {
+                "authority_id", "revision", "task_id", "embodiment_id",
+                "operations", "resources",
+            }:
+                raise ValueError("invalid fields")
+            permission = PermissionDeclaration(
+                authority_id=record["authority_id"], revision=record["revision"],
+                task_id=record["task_id"], embodiment_id=record["embodiment_id"],
+                operations=frozenset(record["operations"]),
+                resources=frozenset(record["resources"]),
+            )
+            canonical = {
+                "authority_id": permission.authority_id,
+                "revision": permission.revision,
+                "task_id": permission.task_id,
+                "embodiment_id": permission.embodiment_id,
+                "operations": sorted(permission.operations),
+                "resources": sorted(permission.resources),
+            }
+            if record != canonical:
+                findings.append("noncanonical_permission_declaration")
+            encoded = json.dumps(record, sort_keys=True, separators=(",", ":"))
+            if permission_digest != hashlib.sha256(encoded.encode()).hexdigest():
+                findings.append("permission_declaration_digest_mismatch")
+        except (AttributeError, KeyError, TypeError, ValueError):
+            findings.append("invalid_permission_declaration")
+            permission = None
     uncertainty_gates = [event for event in events
                          if event.get("kind") == "uncertainty_gate"]
     failed_uncertainty_gates = [event for event in uncertainty_gates
@@ -303,11 +416,136 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
                 f"uncertainty_action_digest_mismatch:sequence={gate.get('sequence')}"
             )
 
-    for gate in failed_uncertainty_gates:
+    for gate in capability_gates:
+        ref = (gate.get("plan_version"), gate.get("action_id"))
+        sequence = gate.get("sequence")
+        if not _integer(sequence):
+            findings.append("invalid_capability_gate_sequence")
+            continue
+        if not _integer(capability_sequence) or capability_sequence >= sequence:
+            findings.append(f"capability_reference_before_declaration:sequence={sequence}")
+        if ref not in action_catalog:
+            findings.append(f"unknown_capability_action_reference:sequence={sequence}")
+            continue
+        action = action_catalog[ref]
+        if gate.get("action_digest") != action["action_digest"] \
+                or gate.get("operation") != action["verb"]:
+            findings.append(f"capability_action_mismatch:sequence={sequence}")
+        if gate.get("capability_digest") != capability_digest:
+            findings.append(f"capability_reference_mismatch:sequence={sequence}")
+        if capabilities is not None:
+            try:
+                required = VERB_TABLE[Verb(action["verb"])].required_resources
+            except (KeyError, ValueError):
+                findings.append(f"invalid_capability_operation:sequence={sequence}")
+                continue
+            if gate.get("required_resources") != sorted(required):
+                findings.append(f"capability_resource_mismatch:sequence={sequence}")
+            reasons = list(capabilities.rejection_reasons(action["verb"], required))
+            expected = "DENY" if reasons else "ALLOW"
+            if gate.get("reasons") != reasons or gate.get("verdict") != expected:
+                findings.append(f"invalid_capability_gate_verdict:sequence={sequence}")
+        if gate.get("verdict") == "DENY":
+            following = [event for event in events[sequence + 1:]
+                         if event.get("kind") != "world_state"]
+            if len(following) != 1 or following[0].get("kind") != "episode_end":
+                findings.append("execution_after_capability_denial")
+
+    for gate in (event for event in uncertainty_gates
+                 if event.get("phase") == "pre_action"
+                 and event.get("verdict") == "PASS"):
         sequence = gate.get("sequence")
         if not _integer(sequence):
             continue
         following = events[sequence + 1:]
+        if not following or following[0].get("kind") != "capability_gate":
+            findings.append(f"missing_capability_gate:sequence={sequence}")
+            continue
+        capability_gate = following[0]
+        if (capability_gate.get("plan_version"), capability_gate.get("action_id")) != (
+                gate.get("plan_version"), gate.get("action_id")):
+            findings.append(f"capability_gate_action_order_mismatch:sequence={sequence}")
+
+    for gate in (event for event in capability_gates if event.get("verdict") == "ALLOW"):
+        sequence = gate.get("sequence")
+        if not _integer(sequence):
+            continue
+        following = events[sequence + 1:]
+        if not following or following[0].get("kind") != "permission_gate":
+            findings.append(f"capability_allow_without_permission:sequence={sequence}")
+            continue
+        permission_gate = following[0]
+        if (permission_gate.get("plan_version"), permission_gate.get("action_id")) != (
+                gate.get("plan_version"), gate.get("action_id")):
+            findings.append(f"capability_permission_action_mismatch:sequence={sequence}")
+
+    for gate in permission_gates:
+        ref = (gate.get("plan_version"), gate.get("action_id"))
+        sequence = gate.get("sequence")
+        if not _integer(sequence):
+            findings.append("invalid_permission_gate_sequence")
+            continue
+        if not _integer(permission_sequence) or permission_sequence >= sequence:
+            findings.append(f"permission_reference_before_declaration:sequence={sequence}")
+        if ref not in action_catalog:
+            findings.append(f"unknown_permission_action_reference:sequence={sequence}")
+            continue
+        action = action_catalog[ref]
+        if gate.get("action_digest") != action["action_digest"] \
+                or gate.get("operation") != action["verb"]:
+            findings.append(f"permission_action_mismatch:sequence={sequence}")
+        if gate.get("permission_digest") != permission_digest:
+            findings.append(f"permission_reference_mismatch:sequence={sequence}")
+        try:
+            required = VERB_TABLE[Verb(action["verb"])].required_resources
+        except (KeyError, ValueError):
+            findings.append(f"invalid_permission_operation:sequence={sequence}")
+            continue
+        if gate.get("required_resources") != sorted(required):
+            findings.append(f"permission_resource_mismatch:sequence={sequence}")
+        embodiment_id = capabilities.embodiment_id if capabilities is not None else None
+        if gate.get("task_id") != actual_task_id \
+                or gate.get("embodiment_id") != embodiment_id:
+            findings.append(f"permission_scope_mismatch:sequence={sequence}")
+        if permission is not None and embodiment_id is not None:
+            reasons = list(permission.rejection_reasons(
+                task_id=actual_task_id,
+                embodiment_id=embodiment_id,
+                operation=action["verb"],
+                resources=required,
+            ))
+            expected = "DENY" if reasons else "ALLOW"
+            if gate.get("reasons") != reasons or gate.get("verdict") != expected:
+                findings.append(f"invalid_permission_gate_verdict:sequence={sequence}")
+        preceding = events[:sequence]
+        if not preceding or preceding[-1].get("kind") != "capability_gate" \
+                or preceding[-1].get("verdict") != "ALLOW":
+            findings.append(f"permission_without_capability_allow:sequence={sequence}")
+        if gate.get("verdict") == "DENY":
+            following = [event for event in events[sequence + 1:]
+                         if event.get("kind") != "world_state"]
+            if len(following) != 1 or following[0].get("kind") != "episode_end":
+                findings.append("execution_after_permission_denial")
+
+    for gate in (event for event in permission_gates if event.get("verdict") == "ALLOW"):
+        sequence = gate.get("sequence")
+        if not _integer(sequence):
+            continue
+        following = events[sequence + 1:]
+        if not following or following[0].get("kind") != "safety1":
+            findings.append(f"permission_allow_without_safety:sequence={sequence}")
+            continue
+        safety = following[0]
+        if (safety.get("plan_version"), safety.get("action_id")) != (
+                gate.get("plan_version"), gate.get("action_id")):
+            findings.append(f"permission_safety_action_mismatch:sequence={sequence}")
+
+    for gate in failed_uncertainty_gates:
+        sequence = gate.get("sequence")
+        if not _integer(sequence):
+            continue
+        following = [event for event in events[sequence + 1:]
+                     if event.get("kind") != "world_state"]
         if gate.get("phase") == "dispatch":
             if not following or following[0].get("kind") != "dispatch" \
                     or following[0].get("termination") != "UNCERTAIN":
@@ -420,8 +658,10 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
                 if any(event.get("sim_t") != convergence.get("sim_t")
                        for event in preceding):
                     findings.append("invalid_replan_convergence_state_binding")
-            if sequence + 1 >= len(events) \
-                    or events[sequence + 1].get("kind") != "episode_end":
+            after_convergence = [event for event in events[sequence + 1:]
+                                 if event.get("kind") != "world_state"]
+            if len(after_convergence) != 1 \
+                    or after_convergence[0].get("kind") != "episode_end":
                 findings.append("replan_convergence_not_terminal")
             forbidden = {"safety1", "safety2", "apply", "dispatch", "replan"}
             if any(event.get("sequence", -1) > sequence and event.get("kind") in forbidden

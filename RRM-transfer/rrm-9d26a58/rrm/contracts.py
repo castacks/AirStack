@@ -68,6 +68,50 @@ class CapabilityDeclaration:
 
 
 @dataclass(frozen=True)
+class PermissionDeclaration:
+    """Policy scope only; this is neither approval nor dispatch authorization."""
+
+    authority_id: str
+    revision: str
+    task_id: str
+    embodiment_id: str
+    operations: frozenset[str]
+    resources: frozenset[str]
+
+    def __post_init__(self) -> None:
+        for name in ("authority_id", "revision", "task_id", "embodiment_id"):
+            value = getattr(self, name)
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"{name} is required")
+        for name in ("operations", "resources"):
+            raw_values = getattr(self, name)
+            if isinstance(raw_values, (str, bytes)):
+                raise ValueError(f"invalid permitted {name}")
+            try:
+                values = frozenset(raw_values)
+            except TypeError as exc:
+                raise ValueError(f"invalid permitted {name}") from exc
+            if any(not isinstance(value, str) or not value.strip() for value in values):
+                raise ValueError(f"invalid permitted {name}")
+            object.__setattr__(self, name, values)
+
+    def rejection_reasons(self, *, task_id: str, embodiment_id: str,
+                          operation: str,
+                          resources: frozenset[str]) -> tuple[str, ...]:
+        """Return every mismatch; no reasons means policy scope only allows evaluation."""
+        reasons = []
+        if task_id != self.task_id:
+            reasons.append("task_not_permitted")
+        if embodiment_id != self.embodiment_id:
+            reasons.append("embodiment_not_permitted")
+        if operation not in self.operations:
+            reasons.append("operation_not_permitted")
+        if not resources <= self.resources:
+            reasons.append("resource_not_permitted")
+        return tuple(reasons)
+
+
+@dataclass(frozen=True)
 class DispatchContext:
     """Immutable references to every checked payload; caller stores the payloads."""
 

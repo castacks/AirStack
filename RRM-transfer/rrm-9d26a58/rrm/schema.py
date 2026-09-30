@@ -66,6 +66,7 @@ class VerbSpec(BaseModel):
     arity: int
     preconditions: list[Predicate] = Field(default_factory=list)
     expected_effects: list[Predicate] = Field(default_factory=list)
+    required_resources: frozenset[str] = Field(default_factory=frozenset)
 
 
 class WorldObject(BaseModel):

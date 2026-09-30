@@ -202,6 +202,27 @@ that zero-plan trace is accepted only when the failed planning gate directly cau
 the terminal abort. The mock benchmark records `theta_unc=0.0` and emits zero
 uncertainty, so its performance denominators are unchanged.
 
+Every observation consumed by the core is also stored as a complete `WorldState` with
+a canonical digest. Replay validates the schema and digest, then requires each decision
+to reference a prior matching observation (including both sides of divergence). A
+missing, malformed, forward, or tampered state reference invalidates the episode.
+
+Each run additionally contains one digest-bound capability declaration. Replay checks
+that every admitted action has a gate referencing the prior declaration, agrees with
+the plan action's verb, reconstructs the exact resource requirements from the static
+verb table, and has the allow/deny result implied by declared operations and resource
+availability. Missing gates and mutated requirements fail replay. Capability denial
+must terminate without later safety evaluation or dispatch. These checks depend on
+generic verb semantics, not benchmark scene content.
+
+Permission evidence is independently digest-bound. Replay checks one canonical
+permission declaration, its exact task and embodiment scope, permitted operation and
+resource sets, and the ordering `capability ALLOW → permission gate → Safety #1`.
+Permission denial must terminate before safety evaluation or dispatch. A changed
+declaration with a recomputed digest, a changed gate payload, or a removed gate still
+invalidates replay. Permission admission is reported separately from approval and C06
+one-use authorization; the mock permission is not evidence of either.
+
 Additional reproducibility requirements for model-backed and simulator campaigns are:
 
 - fixed seeds per episode; seed recorded in the trace

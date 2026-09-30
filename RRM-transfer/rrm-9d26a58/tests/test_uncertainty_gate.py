@@ -8,6 +8,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from rrm.benchmark_evidence import replay_trace
+from rrm.benchmark import MOCK_CAPABILITIES, mock_permission
 from rrm.benchmark_labels import (
     EvaluationLabels, FailureKind, SafetyLabel, TerminalLabel,
 )
@@ -59,6 +60,8 @@ def execute(world: MockWorld, *, threshold: float = 0.0, trace: Path | None = No
             current_task, world, ScriptedOracle(current_task.goal), SafetyVerifier(),
             MockPolicy(), NumericSafetyVerifier(), tracer,
             uncertainty_threshold=threshold,
+            capabilities=MOCK_CAPABILITIES,
+            permission=mock_permission(current_task.id),
         )
     finally:
         tracer.close()
@@ -76,11 +79,11 @@ class UncertaintyGateTests(unittest.TestCase):
             self.assertEqual(metrics.replans, 0)
             self.assertEqual(metrics.action_count, 0)
             self.assertFalse(any(event["kind"] == "plan" for event in events))
-            self.assertEqual(events[1]["kind"], "uncertainty_gate")
-            self.assertEqual(events[1]["verdict"], "FAIL")
+            gate = next(event for event in events if event["kind"] == "uncertainty_gate")
+            self.assertEqual(gate["verdict"], "FAIL")
             self.assertTrue(replay_trace(path, expected_task_id="uncertainty").valid)
 
-            events[1]["verdict"] = "PASS"
+            gate["verdict"] = "PASS"
             tampered = Path(directory) / "tampered.jsonl"
             tampered.write_text("".join(json.dumps(event) + "\n" for event in events))
             replay = replay_trace(tampered, expected_task_id="uncertainty")

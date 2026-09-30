@@ -419,6 +419,30 @@ plan version, local ID, and digest. Ambiguous graph identity is rejected before
 execution, and an unresolvable or mismatched reference invalidates replay evidence.
 This identity rule depends only on plan history, never on a scene or object class.
 
+Every `WorldBackend.observe()` result used by the loop is serialized as a complete
+validated `world_state` event before use. A canonical SHA-256 digest binds planning,
+uncertainty, safety, application, dispatch, divergence, replanning, and terminal events
+to that exact snapshot; divergence also binds its before-state digest. This makes bad
+state distinguishable from bad decision logic without adding scene-specific logging.
+
+The core loop also requires an immutable `CapabilityDeclaration` and records its
+canonical digest. Before Safety #1, the action verb must appear in the declaration's
+operation set and its `VerbSpec.required_resources` must be both declared and currently
+available; otherwise the loop records `capability_gate=DENY` and aborts without
+dispatch or replan. The requirements are static verb semantics (`perception`,
+`mobility`, and `manipulation`), never inferred from scene names, object IDs, or model
+parameters. This is semantic support and resource availability only—not permission,
+approval, numeric feasibility, or proof of physical safety.
+
+Permission is a separate immutable declaration from a named policy authority. It binds
+one task ID and embodiment ID plus allowed operation and resource sets. After capability
+admission and before Safety #1, `permission_gate` checks that exact scope against the
+action and authored verb resources. Missing or mismatched task, embodiment, operation,
+or resource scope fails closed. This declaration is not an operator approval, expiry-
+bounded C06 safety decision, one-use dispatch authorization, or C08 stop authority;
+those require additional contracts and cannot be inferred from permission admission.
+The scope is identity- and verb-based, with no scene-specific rule.
+
 ### 3.5 Safety and divergence
 
 ```

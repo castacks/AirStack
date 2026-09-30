@@ -22,7 +22,7 @@ from rrm import (  # noqa: E402
     MockPolicy, MockWorld, NumericSafetyVerifier, SafetyVerifier, ScriptedOracle,
     Task, run, run_suite,
 )
-from rrm.benchmark import CUP, TABLE  # noqa: E402
+from rrm.benchmark import CUP, TABLE, MOCK_CAPABILITIES, mock_permission  # noqa: E402
 from rrm.verbs import _p  # noqa: E402
 
 log = logging.getLogger("rrm")
@@ -51,7 +51,8 @@ def main() -> int:
     log.info("MISSION: %s", task.mission)
     world = MockWorld(fail_grasp_once=args.fail_grasp, human=args.human)
     m = run(task, world, ScriptedOracle(task.goal), SafetyVerifier(),
-            MockPolicy(), NumericSafetyVerifier())
+            MockPolicy(), NumericSafetyVerifier(), capabilities=MOCK_CAPABILITIES,
+            permission=mock_permission(task.id))
     return 0 if m.task_success else 1
 
 

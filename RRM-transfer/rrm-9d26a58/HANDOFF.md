@@ -24,7 +24,17 @@ binds every action lifecycle event to `(plan_version, action_id)` plus a semanti
 digest; ambiguous graphs are rejected before execution and broken references fail
 replay. Aggregate uncertainty is now bounded and checked before planning, before each
 action, and before every policy cycle; the conservative default is zero and every
-decision is replay-validated. The dependency-light suite passes 304/304 tests.
+decision is replay-validated. Every core observation is now stored as a complete
+schema-validated `WorldState` with
+a canonical digest, and every downstream decision references prior state evidence.
+Core runs now require a digest-bound capability declaration and reject unsupported
+verbs or missing authored verb resources before Safety #1 or dispatch. Resource
+requirements are static verb semantics and do not branch on scenes. This is semantic
+support and resource availability only. Core runs also require a digest-bound policy
+permission scoped to the exact task, embodiment, operation, and authored resources;
+permission denial stops before Safety #1. This is not operator approval or one-use C06
+dispatch authorization. Approvals and numeric feasibility remain separate. The
+dependency-light suite passes 314/314 tests.
 
 ## Latest integrated checkpoint — 2026-09-27 UTC (commit `4d122318`)
 
@@ -1476,13 +1486,17 @@ Mock passes do not establish SIL integration or Phase 1 compliance.
 
 ### Gaps and conflicts found before any code changes
 
-1. RobotState assumes one gripper, one held object, and radial reach. Core predicates
-   depend on these assumptions. Numeric safety uses hardcoded joint/velocity limits.
-   Declared capabilities/limits have no implemented contract.
+1. **Partially resolved in the 2026-09-30 uncommitted core work:** core action admission
+   now requires an immutable capability declaration and checks verb support plus static,
+   scene-independent resource requirements authored in the verb table. RobotState still
+   assumes one gripper, one held object, and radial reach, while numeric safety still
+   uses hardcoded limits.
 2. ReasonerBackend combines reasoning and planning, receives no capability declaration,
    and the oracle is given its goal. Contextual interpretation is not implemented.
-3. Clarification, approval, permission context, and external stop/override contracts
-   are absent. Bounded abort is not confirmation of a physical safe state.
+3. **Partially resolved in the 2026-09-30 uncommitted core work:** core action admission
+   now requires an exact policy-permission scope. Clarification, operator approval,
+   single-use C06 authorization, and external stop/override contracts remain absent.
+   Bounded abort is not confirmation of a physical safe state.
 4. **Partially resolved in the 2026-09-30 uncommitted core work:** symbolic safety
    rejection now permits one replan and safely aborts if the replacement begins with
    the same semantic action. T6 still starts with a human already present; it does not
@@ -1495,8 +1509,11 @@ Mock passes do not establish SIL integration or Phase 1 compliance.
    threshold has been empirically calibrated.
 6. **Partially resolved in the 2026-09-30 uncommitted core work:** repeated planner-local
    action IDs are now unambiguous through `(plan_version, action_id)` references and
-   semantic digests validated during replay. Telemetry still lacks the full relevant
-   state, capabilities, permissions, and interventions needed for reconstruction.
+   semantic digests validated during replay. Complete world snapshots are now digest
+   bound to core decisions, and capability/resource declarations and gate decisions are
+   digest-bound and replayed. Policy permission declarations and decisions are now also
+   reconstructable. Telemetry still lacks approvals, C06 admissions, and interventions
+   needed for complete integrated-system reconstruction.
 7. Numeric path safety treats the first waypoint coordinates as Cartesian positions
    while also treating waypoint values as joints. It is a mock placeholder, not a
    verified embodiment safety model.
