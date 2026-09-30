@@ -289,15 +289,25 @@ RobotState
   holding       : ObjectID | null
 
 WorldState
-  t          : timestamp
-  objects    : list<WorldObject>
-  relations  : list<Relation>
-  robot      : RobotState
-  uncertainty: float [0,1]            # aggregate; drives replan thresholds
+  t                  : timestamp
+  objects            : list<WorldObject>
+  relations          : list<Relation>
+  relations_complete : bool            # may absence establish FALSE?
+  robot              : RobotState
+  uncertainty        : float [0,1]      # aggregate; drives replan thresholds
 ```
 
 `observed_by` is not decoration. It is how §15's baseline-vs-RRM ablation stays honest:
 state the reasoner asserted must never be silently promoted to state the sensors saw.
+
+Predicate evaluation is three-valued: `TRUE`, `FALSE`, or `UNKNOWN`. Missing objects,
+poses, Boolean properties, and unsupported predicate names are unknown; negating
+unknown remains unknown. A relation absent from `relations` is also unknown unless the
+producer sets `relations_complete=true`, asserting exhaustive coverage for the objects
+in that snapshot. The planner, effect monitor, terminal-goal check, and symbolic safety
+gate accept only explicit `TRUE`; safety records distinguish a known-false precondition
+from one lacking evidence. This contract is scene-independent—adapters establish
+evidence completeness, while core RRM applies the same truth table everywhere.
 
 Temporal state (§3 of the brief) is a **append-only delta log** plus a current snapshot.
 The log is what makes prediction accuracy measurable after the fact.
@@ -400,6 +410,15 @@ TaskGraph
 Replanning produces a new `TaskGraph` with an incremented version. The old one is
 retained. The version history *is* the recovery record for §20's recovery-rate metric.
 
+An action's trace identity is the composite `(TaskGraph.version, AbstractAction.id)`.
+Planner-local IDs must be nonempty and unique within one graph, but may repeat in a
+later graph; the version keeps those attempts distinct. Every plan event records the
+complete action catalog and a digest over ID, verb, targets, and parameters. Safety,
+policy-application, dispatch, divergence, and replan-trigger events carry the same
+plan version, local ID, and digest. Ambiguous graph identity is rejected before
+execution, and an unresolvable or mismatched reference invalidates replay evidence.
+This identity rule depends only on plan history, never on a scene or object class.
+
 ### 3.5 Safety and divergence
 
 ```
@@ -417,6 +436,7 @@ Violation
 
 Divergence
   action_id      : string
+  plan_version   : int                    # with action_id, identifies the attempt
   expected       : list<Predicate>
   observed       : list<Predicate>
   unmet          : list<Predicate>      # expected ∧ ¬observed
@@ -465,9 +485,20 @@ Replan triggers, all deterministic thresholds, none model-decided:
 - `SafetyVerdict.verdict == FAIL`
 - `Divergence.magnitude > θ_div`
 - `WorldState.uncertainty > θ_unc`
-- action precondition unsatisfied at dispatch time
+- action precondition false or unknown at dispatch time
 - executor timeout
 - human enters workspace (immediate STOP, not replan)
+
+The reference loop currently uses `θ_unc = 0.0`: only a world snapshot declaring zero
+aggregate uncertainty is admitted autonomously. This is a conservative fail-closed
+default, not a calibrated claim about perception quality. A caller may provide an
+explicit threshold in `[0,1]`; the chosen value, observed uncertainty, phase, and gate
+verdict are traced. The gate runs before planning, before symbolic action admission,
+and before every policy cycle. A breach stops logical progress without consuming the
+replan budget. If it occurs inside dispatch the attempt terminates `UNCERTAIN`; no
+later policy output is applied. Until clarification and verified physical-stop
+interfaces exist, this terminal state proves only a core logical abort, not that a
+moving robot has physically stopped.
 
 Replan budget is bounded. On exhaustion: `ABORT`, report, do not retry indefinitely.
 An unbounded replan loop is the most likely way this system burns wall-clock during

@@ -37,6 +37,7 @@ class MockWorld:
             t=0,
             objects=objects,
             relations=[Relation(subject="obj_cup", predicate="on", obj="obj_floor")],
+            relations_complete=True,
             robot=RobotState(),
         )
         self._fail_grasp = fail_grasp_once or fail_grasp_always
@@ -113,5 +114,4 @@ class MockWorld:
             if o:
                 o.properties["open"] = action.verb is Verb.OPEN
             return
-
 

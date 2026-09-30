@@ -70,10 +70,10 @@ PYTHONPATH=.rrm-deps python3 scripts/oracle_loop.py --suite
 ```
 
 ```
-task  result   replans  actions   cycles   unsafe   recovery
-T1    PASS           0        1        3        0       100%
-T2    PASS           0        2        6        0       100%
-T6    PASS           3        0        0        4       100%
+task  result   replans  actions   cycles  rejects   recovery
+T1    PASS           0        1        3        0          —
+T2    PASS           0        2        6        0          —
+T6    PASS           1        0        0        1          —
 T8    PASS           1        3       12        0       100%
 T9    PASS           3        4       24        0         0%
 5/5 passed

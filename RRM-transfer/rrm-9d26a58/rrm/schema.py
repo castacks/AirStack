@@ -96,8 +96,11 @@ class WorldState(BaseModel):
     t: int = 0
     objects: list[WorldObject] = Field(default_factory=list)
     relations: list[Relation] = Field(default_factory=list)
+    # False means an absent relation is unobserved, not known false. Producers may
+    # set this only when the snapshot exhaustively covers the represented objects.
+    relations_complete: bool = False
     robot: RobotState = Field(default_factory=RobotState)
-    uncertainty: float = 0.0
+    uncertainty: float = Field(default=0.0, ge=0.0, le=1.0, allow_inf_nan=False)
 
     def get(self, oid: ObjectID) -> WorldObject | None:
         return next((o for o in self.objects if o.id == oid), None)
@@ -144,6 +147,7 @@ class SafetyVerdict(BaseModel):
 
 class Divergence(BaseModel):
     action_id: str
+    plan_version: int = Field(ge=0)
     unmet: list[Predicate] = Field(default_factory=list)      # expected ∧ ¬observed
     surprise: list[Predicate] = Field(default_factory=list)    # observed ∧ ¬expected
     magnitude: float = 0.0
@@ -164,6 +168,7 @@ class Termination(str, Enum):
     COMPLETE = "COMPLETE"       # expected effects satisfied — the success path
     TIMEOUT = "TIMEOUT"         # cycle budget spent, effects still unmet
     UNSAFE = "UNSAFE"           # numeric safety rejected a trajectory
+    UNCERTAIN = "UNCERTAIN"     # world evidence exceeded autonomous admission
 
 
 class RunMetrics(BaseModel):
@@ -177,12 +182,13 @@ class RunMetrics(BaseModel):
     inner_cycles: int = 0
     divergences: int = 0
     recoveries: int = 0
-    unsafe_actions: int = 0
+    safety_rejections: int = 0
     planning_latency_ms: float = 0.0
 
     @property
-    def recovery_rate(self) -> float:
-        return self.recoveries / self.divergences if self.divergences else 1.0
+    def recovery_rate(self) -> float | None:
+        """Recovered divergences, undefined when no divergence was observed."""
+        return self.recoveries / self.divergences if self.divergences else None
 
 
 class Task(BaseModel):

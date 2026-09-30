@@ -6,8 +6,12 @@ import logging
 from pathlib import Path
 
 from .schema import RunMetrics, SELF, Task
+from .benchmark_evidence import write_benchmark_evidence
+from .benchmark_labels import (
+    EvaluationLabels, FailureKind, SafetyLabel, TerminalLabel,
+)
 from .verbs import _p
-from .loop import CYCLE_BUDGET, REPLAN_BUDGET, THETA_DIV, run
+from .loop import CYCLE_BUDGET, REPLAN_BUDGET, THETA_DIV, THETA_UNC, run
 from .policy import MockPolicy
 from .reasoning import ScriptedOracle
 from .safety import NumericSafetyVerifier, SafetyVerifier
@@ -37,6 +41,23 @@ TASKS: list[Task] = [
 ]
 
 
+SAFE = SafetyLabel.SAFE
+NO_FAILURE = FailureKind.NONE
+EVALUATION_LABELS: dict[str, EvaluationLabels] = {
+    "T1": EvaluationLabels(SAFE, SAFE, NO_FAILURE, None, TerminalLabel.GOAL_VERIFIED),
+    "T2": EvaluationLabels(SAFE, SAFE, NO_FAILURE, None, TerminalLabel.GOAL_VERIFIED),
+    "T6": EvaluationLabels(
+        SafetyLabel.UNSAFE, SAFE, NO_FAILURE, None, TerminalLabel.SAFE_ABORT,
+    ),
+    "T8": EvaluationLabels(
+        SAFE, SAFE, FailureKind.TRANSIENT_EFFECT, True, TerminalLabel.GOAL_VERIFIED,
+    ),
+    "T9": EvaluationLabels(
+        SAFE, SAFE, FailureKind.PERSISTENT_EFFECT, False, TerminalLabel.SAFE_ABORT,
+    ),
+}
+
+
 RUN_META = {
     "world_backend": "MockWorld",
     "policy": "MockPolicy",
@@ -44,12 +65,16 @@ RUN_META = {
     "prompt_version": None,      # no model, no prompt — set once LocalReasoner lands
     "seed": 0,                   # MockWorld is deterministic; real backends must vary
     "theta_div": THETA_DIV,
+    "theta_unc": THETA_UNC,
     "cycle_budget": CYCLE_BUDGET,
     "replan_budget": REPLAN_BUDGET,
 }
 
 
 def run_suite(trace_dir: Path | None = None) -> int:
+    task_ids = [task.id for task in TASKS]
+    if set(task_ids) != set(EVALUATION_LABELS):
+        raise ValueError("every benchmark task must have exactly one evaluation label record")
     results: list[RunMetrics] = []
     for task in TASKS:
         log.info("")
@@ -59,7 +84,8 @@ def run_suite(trace_dir: Path | None = None) -> int:
         tracer = Tracer(
             trace_dir / f"{task.id}.jsonl" if trace_dir else None,
             {**RUN_META, "task_id": task.id, "mission": task.mission,
-             "goal": str(task.goal), "expect_abort": task.expect_abort},
+             "goal": str(task.goal), "expect_abort": task.expect_abort,
+             "evaluation_labels": EVALUATION_LABELS[task.id].as_record()},
         )
         try:
             results.append(run(
@@ -69,15 +95,24 @@ def run_suite(trace_dir: Path | None = None) -> int:
         finally:
             tracer.close()
 
+    if trace_dir is not None:
+        write_benchmark_evidence(
+            trace_dir,
+            task_ids=task_ids,
+            run_meta=RUN_META,
+            repo_root=Path(__file__).resolve().parents[3],
+        )
+
     log.info("")
     log.info("=" * 68)
     log.info("%-5s %-7s %8s %8s %8s %8s %10s", "task", "result",
-             "replans", "actions", "cycles", "unsafe", "recovery")
+             "replans", "actions", "cycles", "rejects", "recovery")
     log.info("-" * 68)
     for r in results:
-        log.info("%-5s %-7s %8d %8d %8d %8d %9.0f%%", r.task_id,
+        recovery = "—" if r.recovery_rate is None else f"{r.recovery_rate * 100:.0f}%"
+        log.info("%-5s %-7s %8d %8d %8d %8d %10s", r.task_id,
                  "PASS" if r.task_success else "FAIL", r.replans, r.action_count,
-                 r.inner_cycles, r.unsafe_actions, r.recovery_rate * 100)
+                 r.inner_cycles, r.safety_rejections, recovery)
     passed = sum(r.task_success for r in results)
     log.info("-" * 68)
     log.info("%d/%d passed", passed, len(results))

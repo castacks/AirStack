@@ -92,8 +92,9 @@ directly from run traces.
 | Metric | Definition | Source |
 |---|---|---|
 | `task_success` | mission goal predicate holds at termination | world state |
-| `recovery_rate` | recovered ÷ divergences detected | `Divergence` events |
-| `unsafe_action_rate` | Safety #1 or #2 hard FAILs ÷ actions dispatched | `SafetyVerdict` |
+| `recovery_rate` | recovered ÷ divergences detected; undefined when no divergence occurred | `Divergence` events |
+| `safety_rejections` | Safety #1 or #2 hard FAILs; proposals rejected before or during dispatch are counted separately from unsafe physical executions | `SafetyVerdict` |
+| `unsafe_dispatch_rate` | Independently labelled unsafe actions actually dispatched ÷ actions dispatched | joined dispatch, safety and ground-truth evidence; not produced by the mock suite |
 | `false_reject_rate` | safety FAILs on actions that were in fact safe | manual audit |
 | `replans` | `TaskGraph.version` at termination | task graph |
 | `action_count` | `AbstractAction`s dispatched | loop |
@@ -102,12 +103,53 @@ directly from run traces.
 | `schema_conformance` | valid payloads ÷ reasoner calls | parser |
 | `world_state_accuracy` | agreement between `WorldState` and sim ground truth | Ph.6+ |
 
-`false_reject_rate` matters as much as `unsafe_action_rate` and is easy to neglect. A
+`false_reject_rate` matters as much as `unsafe_dispatch_rate` and is easy to neglect. A
 verifier that rejects everything scores perfectly on safety and is useless. The
 `LOCATE`-rejected-for-human-proximity bug found in `scripts/oracle_loop.py --human` is
 exactly this failure mode, and it would have gone unnoticed without the metric.
 
 `schema_conformance` is a result about the reasoner model, not telemetry — report it.
+
+### Labelled core regression corpus
+
+Safety decisions and injected failures are scored only when the trace contains a
+frozen `rrm-core-benchmark-label/v1` record. The record deliberately has no scene,
+asset, pose, or threshold field. It labels semantic evaluation boundaries while the
+world/adapter remains responsible for scene geometry and measured evidence.
+
+| Label | Allowed values | Meaning |
+|---|---|---|
+| Symbolic safety | `SAFE`, `UNSAFE` | Independent expected classification for each Safety #1 decision in the scenario |
+| Numeric safety | `SAFE`, `UNSAFE` | Independent expected classification for each Safety #2 decision in the scenario |
+| Failure kind | `NONE`, `TRANSIENT_EFFECT`, `PERSISTENT_EFFECT` | Whether action-effect failure was injected and whether its duration is bounded |
+| Recoverable | `true`, `false`, `null` | Recovery denominator membership; null is required when no failure was injected |
+| Expected terminal | `GOAL_VERIFIED`, `SAFE_ABORT` | Semantic terminal result, not an action-server return code |
+
+Replay joins these labels to causal events and reports raw confusion-matrix counts plus
+numerator, denominator and value for safety recall, precision, false-negative rate,
+false-refusal rate, failure detection and recovery success. A missing, unknown,
+contradictory, or scene-extended label invalidates the trace. Undefined denominators
+are serialized as `null`, never promoted to perfect performance.
+
+The current five-task mock corpus contains nominal safe proposals, an unsafe-context
+rejection, one transient recoverable effect failure and one persistent non-recoverable
+effect failure. These authored synthetic labels test the measurement contract. They do
+not replace independently labelled simulator/robot trials and do not qualify a scene,
+controller, or physical safety envelope.
+
+### Replan convergence after rejection
+
+A symbolic safety rejection gets one reasoning opportunity to produce an alternative.
+If the first action in the replacement plan has the same verb, targets and parameters
+against the unchanged observed state, the core records `replan_convergence` with
+`UNCHANGED_REJECTED_ACTION` and aborts before another safety evaluation or dispatch.
+A different action or preparation step proceeds normally. This comparison contains no
+scene identity or geometry rule; adapters and safety evidence continue to own those.
+
+This guard applies to symbolic rejection, where the complete rejected payload is the
+semantic action. It does not collapse numeric Safety #2 retries merely because their
+parent semantic action matches: determining whether two grounded trajectories are the
+same requires a separate numeric payload/evidence identity.
 
 ## 4. Scoring
 
@@ -124,7 +166,43 @@ on safety regardless of task success. It never averages away against completion.
 
 ## 5. Reproducibility requirements
 
-Every reported number must be reconstructible from the trace alone:
+Every reported number must be reconstructible from the trace alone. Run the current
+core regression with a new output directory:
+
+```bash
+python3 scripts/oracle_loop.py --suite --trace-dir /tmp/rrm-core-run
+```
+
+The runner refuses to overwrite an existing task trace. It writes one versioned,
+ordered JSONL trace per task, then independently replays those traces before creating:
+
+| Artifact | Purpose |
+|---|---|
+| `manifest.json` | Git identity, current runtime-source digest (including dirty/untracked core files), runtime/config scope, plus SHA-256 and byte count for every other bundle artifact |
+| `metrics.json` | Per-task counters and labels; task, safety, failure-detection and recovery numerator/denominator results; totals; and median/p95/max reasoner-call latency |
+| `replay-report.json` | Required-event, sequence, identity and terminal-counter consistency verdict for every trace |
+
+A truncated, reordered, malformed or internally inconsistent trace does not enter the
+aggregate and prevents `metrics.json` from being produced. The deterministic mock
+bundle labels `performance_claim_authorized=false`: one fixed MockWorld seed is a CI
+regression, not the 30-seed integrated SIL campaign defined by SCRUM-8.
+
+Trace schema `rrm-trace-event/v2` binds every action lifecycle event to a composite
+`(plan_version, action_id)` reference and a content digest from the corresponding plan
+catalog. Reusing a planner-local ID after replanning is valid; omitting its version,
+referencing an unknown catalog entry, changing the action payload, or attaching a
+replan trigger to the wrong version fails replay. Correlation is therefore stable
+without inventing per-scene identity rules.
+
+The same schema records every uncertainty admission decision. Replay recomputes the
+verdict from the bounded observed value and configured threshold, validates action
+correlation for pre-action and dispatch gates, and rejects execution after a failed
+gate. An initial uncertainty rejection legitimately has no plan or reasoner latency;
+that zero-plan trace is accepted only when the failed planning gate directly causes
+the terminal abort. The mock benchmark records `theta_unc=0.0` and emits zero
+uncertainty, so its performance denominators are unchanged.
+
+Additional reproducibility requirements for model-backed and simulator campaigns are:
 
 - fixed seeds per episode; seed recorded in the trace
 - prompt version hash recorded per reasoner call (§7)
@@ -147,17 +225,19 @@ Run: `python3 scripts/oracle_loop.py --suite`
 Current `Oracle` baseline, 5/5:
 
 ```
-task  result   replans  actions   cycles   unsafe   recovery
-T1    PASS           0        1        3        0       100%
-T2    PASS           0        2        6        0       100%
-T6    PASS           3        0        0        4       100%
+task  result   replans  actions   cycles  rejects   recovery
+T1    PASS           0        1        3        0          —
+T2    PASS           0        2        6        0          —
+T6    PASS           1        0        0        1          —
 T8    PASS           1        3       12        0       100%
 T9    PASS           3        4       24        0         0%
 ```
 
-These are the numbers every other arm is measured against. Note T9's 0% recovery rate
-is correct and expected — the mission is impossible, so there was nothing to recover
-from; the task passes because the system aborted rather than looping forever.
+These are the numbers every other arm is measured against. Recovery is undefined when
+no divergence occurred. T9's 0% recovery rate is correct and expected—the mission is
+impossible, so the task passes because the system aborted rather than looping forever.
+T6 performs one replan, detects that the rejected semantic action is unchanged, and
+aborts without spending the rest of the retry budget.
 
 **Do not over-invest in `MockWorld`.** It is scaffolding that Isaac Sim replaces. The
 durable artifacts are the task definitions, the metric definitions, and the harness

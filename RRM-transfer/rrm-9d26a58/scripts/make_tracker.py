@@ -223,7 +223,7 @@ METRICS = [
     ("Execution", "Manipulation Success", "Successful grasps and placements / attempts", ">90%", "per-verb dispatch outcome", "Unlocked by Isaac", "W2"),
     ("Execution", "Navigation Success", "Successful navigation tasks / attempts", ">95%", "per-verb dispatch outcome", "Deferred", "Phase 6"),
     ("Execution", "Execution Time", "First action to completion", "Minimize", "simulator clock", "Unlocked by Isaac", "W1"),
-    ("Safety", "Safety Violation Rate", "Unsafe actions / total actions", "~0%", "unsafe_actions / action_count", "Live now", "-"),
+    ("Safety", "Unsafe Dispatch Rate", "Labelled unsafe actions actually dispatched / total dispatches", "~0%", "requires joined ground truth", "Needs labelled ground truth", "-"),
     ("Safety", "Collision Rate", "Collisions / total trials", "~0%", "Isaac contact reporting", "Unlocked by Isaac", "W2"),
     ("Safety", "Safety Verifier Recall", "Unsafe actions correctly rejected", ">99%", "labelled unsafe actions", "Needs ground truth", "W4 GATE"),
     ("Safety", "Safety Verifier Precision", "Rejected actions that were unsafe", ">95%", "labelled unsafe actions", "Needs ground truth", "W4 GATE"),

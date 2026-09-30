@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from .contracts import Truth
 from .schema import (
     AbstractAction, Predicate, SELF, Verb, VerbSpec, WILDCARD, WorldState,
 )
@@ -121,48 +122,68 @@ def expected_effects_of(action: AbstractAction) -> list[Predicate]:
 # Predicate evaluation against world state
 # ---------------------------------------------------------------------------
 
+def predicate_truth(pred: Predicate, ws: WorldState) -> Truth:
+    """Evaluate a ground predicate without converting missing evidence to false."""
+    truth = _positive_truth(pred, ws)
+    return truth.negate() if pred.negated else truth
+
+
 def holds(pred: Predicate, ws: WorldState) -> bool:
-    """Evaluate a ground predicate. Unknown is treated as False.
-
-    TODO(phase-4): make this tri-state. Under real perception, "unknown" and
-    "false" are different, and collapsing them will understate uncertainty.
-    """
-    truth = _holds_positive(pred, ws)
-    return not truth if pred.negated else truth
+    """Strict compatibility boundary: only explicit truth satisfies a predicate."""
+    return predicate_truth(pred, ws) is Truth.TRUE
 
 
-def _holds_positive(pred: Predicate, ws: WorldState) -> bool:
+def _boolean_property(ws: WorldState, subject: str, name: str) -> Truth:
+    obj = ws.get(subject)
+    if obj is None:
+        return Truth.UNKNOWN
+    value = obj.properties.get(name)
+    if type(value) is not bool:
+        return Truth.UNKNOWN
+    return Truth.TRUE if value else Truth.FALSE
+
+
+def _positive_truth(pred: Predicate, ws: WorldState) -> Truth:
     name, subj, obj = pred.name, pred.subject, pred.obj
 
     if name == "exists":
-        return ws.get(subj) is not None
+        return Truth.TRUE if ws.get(subj) is not None else Truth.UNKNOWN
     if name == "gripper_empty":
-        return ws.robot.holding is None
+        if (ws.robot.holding is None) == (ws.robot.gripper != "holding"):
+            return Truth.TRUE if ws.robot.holding is None else Truth.FALSE
+        return Truth.UNKNOWN
     if name == "holding":
-        return ws.robot.holding == obj
+        if (ws.robot.holding is None) != (ws.robot.gripper != "holding"):
+            return Truth.UNKNOWN
+        if ws.robot.holding is not None and ws.get(ws.robot.holding) is None:
+            return Truth.UNKNOWN
+        return Truth.TRUE if ws.robot.holding == obj else Truth.FALSE
     if name == "graspable":
-        o = ws.get(subj)
-        return bool(o and o.properties.get("graspable", False))
+        return _boolean_property(ws, subj, "graspable")
     if name == "localized":
         o = ws.get(subj)
-        return bool(o and o.pose is not None)
+        return Truth.TRUE if o is not None and o.pose is not None else Truth.UNKNOWN
     if name == "open":
-        o = ws.get(subj)
-        return bool(o and o.properties.get("open", False))
+        return _boolean_property(ws, subj, "open")
     if name == "inspected":
-        o = ws.get(subj)
-        return bool(o and o.properties.get("inspected", False))
+        return _boolean_property(ws, subj, "inspected")
     if name == "reachable":
         o = ws.get(subj)
         if o is None or o.pose is None:
-            return False
+            return Truth.UNKNOWN
         bx, by, _ = ws.robot.base_pose
         ox, oy, _ = o.pose
-        return ((ox - bx) ** 2 + (oy - by) ** 2) ** 0.5 <= ws.robot.reach
+        reachable = ((ox - bx) ** 2 + (oy - by) ** 2) ** 0.5 <= ws.robot.reach
+        return Truth.TRUE if reachable else Truth.FALSE
     if name in ("on", "in", "near"):
         if subj == SELF:
-            return False  # robot-relative spatial facts not modelled in the mock
-        return ws.has_relation(subj, name, str(obj))
+            return Truth.UNKNOWN  # robot-relative spatial facts are not represented
+        if ws.get(subj) is None:
+            return Truth.UNKNOWN
+        if obj not in (None, WILDCARD) and ws.get(str(obj)) is None:
+            return Truth.UNKNOWN
+        if ws.has_relation(subj, name, str(obj)):
+            return Truth.TRUE
+        return Truth.FALSE if ws.relations_complete else Truth.UNKNOWN
 
-    log.warning("unknown predicate %r evaluated as False", name)
-    return False
+    return Truth.UNKNOWN

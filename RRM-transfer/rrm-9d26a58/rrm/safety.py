@@ -5,10 +5,11 @@ on the emitted trajectory. Neither subsumes the other. Both may only reject."""
 
 from __future__ import annotations
 
+from .contracts import Truth
 from .schema import (
     AbstractAction, SafetyVerdict, Trajectory, Violation, WorldState,
 )
-from .verbs import _p, holds, preconditions_of
+from .verbs import _p, holds, predicate_truth, preconditions_of
 
 # ---------------------------------------------------------------------------
 # Safety verifier  (docs/architecture.md §3.5) — deterministic, may only reject
@@ -50,9 +51,14 @@ class SafetyVerifier:
 
         checks.append("preconditions")
         for pre in preconditions_of(action):
-            if not holds(pre, ws):
-                violations.append(Violation(check="preconditions", severity="hard",
-                                            detail=f"unsatisfied: {pre}"))
+            truth = predicate_truth(pre, ws)
+            if truth is Truth.TRUE:
+                continue
+            check = "precondition_unknown" if truth is Truth.UNKNOWN \
+                else "precondition_false"
+            label = "unknown" if truth is Truth.UNKNOWN else "unsatisfied"
+            violations.append(Violation(check=check, severity="hard",
+                                        detail=f"{label}: {pre}"))
 
         return SafetyVerdict(
             action_id=action.id,
@@ -115,5 +121,4 @@ class NumericSafetyVerifier:
             violations=violations,
             checked=checks,
         )
-
 

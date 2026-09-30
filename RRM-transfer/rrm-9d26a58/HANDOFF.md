@@ -1,14 +1,42 @@
 # RRM remote Codex handoff
 
-## Latest working state — 2026-09-27 UTC (uncommitted changes)
+## Current development scope — 2026-09-30 UTC
 
-The current `ore_proj` checkout is still based on commit `9a2e1580`; the changes
-below are **uncommitted**. Read this section before the dated 2026-09-26 account
-below, which records an earlier checkpoint and contains superseded pause statements.
-Do not reset the worktree or treat the old `Office and Warehouse unpaused` prose as
-current. `git diff --check` passes. The modified `trajectory_controller`,
-`mavros_interface`, and `takeoff_landing_planner` packages built successfully;
-`./scripts/test_rrm.sh` from the RRM directory passed **279/279** tests.
+Development is deliberately restricted to the core RRM until its behavior is robust,
+failures are attributable, and the agreed metrics can be reconstructed from complete
+evidence. Do not extend the RRM family or begin another `RRM-*` layer in parallel.
+RRM-EM remains a frozen advisory prototype: do not integrate it into routing,
+selection, the GUI, or online execution while this scope is active. Core correctness,
+observability, safety, failure injection, and acceptance metrics take priority. Keep
+core reasoning, supervision, and evaluation scene-independent: scene geometry, assets,
+limits, and qualification belong in versioned adapter/profile evidence, not branches on
+catalog scene names. A new scene must not require a new core logic path.
+
+The current uncommitted core work stops an unchanged semantic action after one
+symbolic-safety replan instead of spending the remaining retry budget. The invariant
+compares only verb, targets, parameters, and unchanged state; it has no scene-specific
+branch. Its checksum-bound mock evidence records 5/5 valid traces with TP=1, FP=0,
+TN=55, FN=0, failure detection 2/2, and recovery 1/1. Predicate evaluation is now
+three-valued: missing or contradictory evidence remains unknown under negation,
+unknown preconditions fail closed with a distinct violation, and only producers of a
+complete relation snapshot may treat relation absence as false. Trace schema v2 now
+binds every action lifecycle event to `(plan_version, action_id)` plus a semantic
+digest; ambiguous graphs are rejected before execution and broken references fail
+replay. Aggregate uncertainty is now bounded and checked before planning, before each
+action, and before every policy cycle; the conservative default is zero and every
+decision is replay-validated. The dependency-light suite passes 304/304 tests.
+
+## Latest integrated checkpoint — 2026-09-27 UTC (commit `4d122318`)
+
+The Office, warehouse, controller and RRM-EM state below is committed in `4d122318`.
+Its original framing as uncommitted work based on `9a2e1580` is superseded. The current
+2026-09-30 working tree contains separate, uncommitted core-RRM metric-evidence work;
+preserve it. Read this section before the dated 2026-09-26 account below, which records
+an earlier checkpoint and contains superseded pause statements. Do not treat the old
+`Office and Warehouse unpaused` prose as current. At the 2026-09-27 checkpoint,
+`git diff --check` passed, the modified `trajectory_controller`, `mavros_interface`,
+and `takeoff_landing_planner` packages built successfully, and `./scripts/test_rrm.sh`
+from the RRM directory passed **279/279** tests.
 
 **Office:** the trajectory controller now caps its virtual tracking point at 0.5 m
 from physical odometry (previous config: 1000.5 m). `LandTask` requests PX4
@@ -1455,13 +1483,20 @@ Mock passes do not establish SIL integration or Phase 1 compliance.
    and the oracle is given its goal. Contextual interpretation is not implemented.
 3. Clarification, approval, permission context, and external stop/override contracts
    are absent. Bounded abort is not confirmation of a physical safe state.
-4. Safety rejection replans the same action until budget exhaustion. T6 starts with a
-   human already present; it does not test human entry during motion or active stop.
-5. World confidence/uncertainty fields do not drive escalation. Unknown predicates are
-   treated as false, so negation can turn missing evidence into apparent satisfaction.
-6. Telemetry lacks full relevant state, capabilities, permissions, and interventions
-   needed for reconstruction. Action IDs are reused across plan versions; correlation
-   semantics need definition.
+4. **Partially resolved in the 2026-09-30 uncommitted core work:** symbolic safety
+   rejection now permits one replan and safely aborts if the replacement begins with
+   the same semantic action. T6 still starts with a human already present; it does not
+   test human entry during motion or active stop.
+5. **Partially resolved in the 2026-09-30 uncommitted core work:** predicates now use
+   `TRUE`/`FALSE`/`UNKNOWN`, negated unknown remains unknown, and incomplete relation
+   snapshots cannot establish negative facts. Aggregate `WorldState.uncertainty` now
+   gates planning and execution with a recorded threshold and safe logical abort.
+   Per-object confidence is not yet aggregated into that value, and no nonzero
+   threshold has been empirically calibrated.
+6. **Partially resolved in the 2026-09-30 uncommitted core work:** repeated planner-local
+   action IDs are now unambiguous through `(plan_version, action_id)` references and
+   semantic digests validated during replay. Telemetry still lacks the full relevant
+   state, capabilities, permissions, and interventions needed for reconstruction.
 7. Numeric path safety treats the first waypoint coordinates as Cartesian positions
    while also treating waypoint values as joints. It is a mock placeholder, not a
    verified embodiment safety model.
