@@ -1,8 +1,11 @@
 # `mtl_search` — multi-agent target localization search stack
 
 A team of multirotors searches a prior-weighted area for ground targets. Each
-robot flies its own row of a team search plan from `mtl::planner`, which is vendored
-unchanged inside `mtl_search_planner`. A native earth-stabilised gimbal camera
+robot flies its own row of a team search plan from one of two planners vendored inside
+`mtl_search_planner`, chosen by `mission.yaml` `planner.type`: `orienteering`
+(`mtl::planner`, the default) or `curve` (`mtl::curve::Planner`: one continuous curve per
+aircraft, exactly the budget long, with a sinusoidal cross-track gimbal sweep). A native
+earth-stabilised gimbal camera
 points along the planned boresight. A metrics logger scores detections online
 against the scenario's ground truth, using the Moon et al. sigmoid and a
 miss-product accumulation. The headline score of a run is the **residual belief mass**:
@@ -20,8 +23,8 @@ Full walkthrough: [MTL target localization tutorial](../../docs/tutorials/mtl_ta
 | Interface | `interface_bringup/interface.launch.py` | wrapped by design |
 | Perception | `topic_keepalive` | keeps Isaac on-demand publishers alive |
 | Tasks / behavior | `takeoff_landing_planner`, `drone_safety_monitor` | canonical |
-| Global | `mtl_search_planner` | `/<robot>/search_mission` action, `search/plan`, `search/planned_trajectory`, `search/planned_boresight` |
-| Local | `mtl_trajectory_follower` | carrot pursuit (L = 1.2·R_min) + gimbal law, 20 Hz, owns `trajectory_controller/tracking_point` |
+| Global | `mtl_search_planner` | `/<robot>/search_mission` action, `search/plan`, `search/planned_trajectory`, `search/planned_boresight`; plans with `planner.type` (orienteering or curve) off the executor, plus the report-only comparison plans |
+| Local | `mtl_trajectory_follower` | carrot pursuit (L = 1.2·R_min) + gimbal law (`follower.gimbal_law`, carried by the plan: `open_loop` sweep replay or `aim_point`), 20 Hz, owns `trajectory_controller/tracking_point` |
 | Local | `trajectory_controller`, `pid_controller` | tracking point moved to `tracking_point_nominal`; stack-local PID clamp |
 | Logging | `mtl_metrics_logger` | `runs/<run_id>/<robot>/{telemetry.csv,detection.json,residual_belief.csv,report.html}` |
 | Extras | DDS router (stack-local allowlist), gossip | |
@@ -43,7 +46,7 @@ can reach the planned 6 m/s.
 
 | File | What |
 |---|---|
-| `config/mission.yaml` | **Source of truth**: search area, prior bumps (the prior is normalised to sum to 1), targets, aircraft, sensor/detection model, cell threshold `mapping.minimum_belief_mass` (a per-cell probability), the **planner mode toggle** `info_aware` (plain vs information-aware planner; `report_both` scores both in every report), sim gimbal, render |
+| `config/mission.yaml` | **Source of truth**: search area, prior bumps (the prior is normalised to sum to 1), targets, aircraft, sensor/detection model, cell threshold `mapping.minimum_belief_mass` (a per-cell probability), **which planner flies** `planner.type` (`orienteering` \| `curve`; `compare_orienteering` also plans both orienteering modes for the report when the curve flies), the orienteering **mode toggle** `info_aware` (plain vs information-aware; `report_both` scores both), the curve planner's options `curve:` (unknown keys refused, absent keys auto-scaled), the follower's single-axis `follower.gimbal_law`, sim gimbal, render |
 | `config/scenario.json`, `ground_truth.json`, `belief.png` | Generated bundle, read by the planner, the logger, the Isaac scene and the analysis script |
 | `config/pid_controller_mtl.yaml` | PID gains (speed clamp) |
 | `config/dds_router_mtl_search.yaml` | Robot↔GCS allowlist: the shared list plus the search and gimbal topics and actions (not the raw `gimbal/rgb`, to keep DDS load down) |
@@ -93,8 +96,11 @@ The tutorial covers the manual per-robot commands, topic checks and the Foxglove
 ## Known limits
 
 - Each robot plans the whole team problem independently, and the result is
-  deterministic because the scenario and seed are identical. Nothing
+  deterministic because the scenario and seed are identical (both planners). Nothing
   re-plans in flight: a robot that aborts leaves its cells unsearched.
+- The curve planner needs a finite budget and takes seconds (one agent) to tens of
+  seconds (three agents) to plan; the goal publishes `PLANNING` feedback meanwhile, and a
+  goal on an unchanged scenario reuses the boot preview plan.
 - Detection is model-based: the Moon et al. sigmoid on slant range and
   off-boresight angle. Nothing runs a detector on `gimbal/rgb`; the image
   stream is there for inspection and future perception work.

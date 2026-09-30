@@ -191,3 +191,122 @@ def test_committed_bundle_is_up_to_date():
     pytest.importorskip("yaml")
     res = subprocess.run([sys.executable, str(script), "--check"], capture_output=True, text=True)
     assert res.returncode == 0, res.stderr or res.stdout
+
+
+# --------------------------------------------------------------------------- #
+# planner selection, the curve block and the follower's gimbal law
+# --------------------------------------------------------------------------- #
+def test_planner_block_defaults_to_orienteering_and_is_optional():
+    sc0, _, _ = S.build_scenario(MISSION, AGENTS)
+    assert "planner" not in sc0 and "curve" not in sc0 and "follower" not in sc0["airstack"]
+    sc, _, _ = S.build_scenario(dict(MISSION, planner={}), AGENTS)
+    assert sc["planner"] == {"type": "orienteering", "compare_orienteering": True}
+    sc2, _, _ = S.build_scenario(dict(MISSION, planner={"type": "curve", "compare_orienteering": False}), AGENTS)
+    assert sc2["planner"] == {"type": "curve", "compare_orienteering": False}
+
+
+@pytest.mark.parametrize("block, match", [
+    ({"type": "curvy"}, "planner.type"),
+    ({"typ": "curve"}, "unknown key"),
+    ({"compare_orienteering": "yes"}, "compare_orienteering"),
+])
+def test_planner_block_refuses_bad_keys(block, match):
+    with pytest.raises(ValueError, match=match):
+        S.build_scenario(dict(MISSION, planner=block), AGENTS)
+
+
+def test_curve_block_writes_only_what_the_mission_sets():
+    curve = {"representation": "bspline", "endpoint_mode": ["return_home", "open"], "sweep_freq_hz": 0.1,
+             "altitude_stagger_m": 1, "kernel": {"table_step_m": 1.5}, "init_strategies": ["greedy"],
+             "max_realloc_trials": 2, "reallocate": False, "destinations_ned": [[0, 0], [10, 20]]}
+    sc, _, _ = S.build_scenario(dict(MISSION, planner={"type": "curve"}, curve=curve), AGENTS)
+    assert sc["curve"] == {"representation": "bspline", "endpoint_mode": ["return_home", "open"],
+                           "destinations_ned": [[0.0, 0.0], [10.0, 20.0]], "kernel": {"table_step_m": 1.5},
+                           "init_strategies": ["greedy"], "altitude_stagger_m": 1.0, "sweep_freq_hz": 0.1,
+                           "max_realloc_trials": 2, "reallocate": False}
+    # absent keys are left to the adapter's auto-scaling: nothing invented here
+    sc2, _, _ = S.build_scenario(dict(MISSION, curve={}), AGENTS)
+    assert sc2["curve"] == {}
+    # every key the generator accepts is one the C++ adapter (mtlc_plan) reads
+    assert set(S._CURVE_FLOAT + S._CURVE_INT + S._CURVE_BOOL + S._CURVE_OTHER) == {
+        "representation", "endpoint_mode", "destinations_ned", "altitude_stagger_m", "kernel", "sweep_freq_hz",
+        "sweep_range_margin", "knot_spacing_m", "num_control_points", "sample_spacing_m", "initial_heading_deg",
+        "fast_grid_step_m", "explore_grid_step_m", "max_iter", "explore_iter", "explore_iter_warm",
+        "coordination_sweeps", "init_strategies", "reallocate", "realloc_rounds", "max_realloc_trials"}
+
+
+@pytest.mark.parametrize("curve, match", [
+    ({"sweep_frq_hz": 0.2}, "unknown key"),
+    ({"kernel": {"tablestep_m": 2}}, "unknown key"),
+    ({"representation": "spline"}, "representation"),
+    ({"endpoint_mode": "home"}, "endpoint_mode"),
+    ({"endpoint_mode": ["open", "back"]}, "endpoint_mode"),
+    ({"init_strategies": ["random"]}, "init_strategies"),
+    ({"init_strategies": []}, "init_strategies"),
+    ({"max_iter": 1.5}, "integer"),
+    ({"sweep_freq_hz": "fast"}, "number"),
+    ({"sweep_freq_hz": float("inf")}, "finite"),
+    ({"reallocate": 1}, "true or false"),
+    ({"destinations_ned": [[1, 2, 3]]}, "destinations_ned"),
+])
+def test_curve_block_refuses_bad_keys_and_values(curve, match):
+    with pytest.raises(ValueError, match=match):
+        S.build_scenario(dict(MISSION, curve=curve), AGENTS)
+
+
+def test_misspelt_mission_block_is_refused():
+    with pytest.raises(ValueError, match="did you mean 'curve'"):
+        S.build_scenario(dict(MISSION, curv={"sweep_freq_hz": 0.1}), AGENTS)
+    with pytest.raises(ValueError, match="did you mean 'planner'"):
+        S.build_scenario(dict(MISSION, planer={"type": "curve"}), AGENTS)
+
+
+def test_curve_mission_must_be_flyable():
+    curve = dict(MISSION, planner={"type": "curve"})
+    S.build_scenario(curve, AGENTS)  # the test mission is fine (60 s budget, 30 m, beta 61 m)
+    with pytest.raises(ValueError, match="finite budget"):
+        S.build_scenario(dict(curve, team={"max_flight_time_s": float("inf"),
+                                           "max_flight_distance_m": float("inf")}), AGENTS)
+    with pytest.raises(ValueError, match="single_axis_gimbal"):
+        S.build_scenario(dict(curve, sensor=dict(MISSION["sensor"], single_axis_gimbal=False)), AGENTS)
+    # 0.98 * 61 * cos(30 deg) = 51.8 m: robot_2 at 30 + 25 m cannot see the ground
+    with pytest.raises(ValueError, match="agent 2"):
+        S.build_scenario(dict(curve, curve={"altitude_stagger_m": 25.0}), AGENTS)
+    # the same scenario flown by the orienteering planner is not checked
+    S.build_scenario(dict(MISSION, planner={"type": "orienteering"}, curve={"altitude_stagger_m": 25.0},
+                          team={"max_flight_time_s": float("inf")}), AGENTS)
+
+
+def test_follower_gimbal_law():
+    sc, _, _ = S.build_scenario(dict(MISSION, follower={}), AGENTS)
+    assert sc["airstack"]["follower"] == {"gimbal_law": "open_loop"}
+    sc2, _, _ = S.build_scenario(dict(MISSION, follower={"gimbal_law": "aim_point"}), AGENTS)
+    assert sc2["airstack"]["follower"] == {"gimbal_law": "aim_point"}
+    with pytest.raises(ValueError, match="gimbal_law"):
+        S.build_scenario(dict(MISSION, follower={"gimbal_law": "wobble"}), AGENTS)
+    with pytest.raises(ValueError, match="unknown key"):
+        S.build_scenario(dict(MISSION, follower={"law": "open_loop"}), AGENTS)
+
+
+def test_committed_mission_selects_orienteering_and_carries_the_curve_block():
+    """The stack's mission.yaml: orienteering flown by default, the curve block ready to switch."""
+    yaml = pytest.importorskip("yaml")
+    path = REPO / "stacks" / "mtl_search" / "config" / "mission.yaml"
+    if not path.is_file():
+        pytest.skip("repo layout not available")
+    m = yaml.safe_load(path.read_text(encoding="utf-8"))["mission"]
+    assert m["planner"]["type"] == "orienteering"
+    assert S.planner_of(m["planner"]) == {"type": "orienteering", "compare_orienteering": True}
+    cv = S.curve_of(m["curve"])
+    # the planned altitudes are the flown deconfliction layers
+    assert cv["altitude_stagger_m"] == m["team"]["altitude_separation_m"]
+    # the sweep stays within the gimbal rate the follower and the sim use (120 deg/s)
+    h, tilt, beta = m["aircraft"]["altitude_m"], math.radians(m["sensor"]["tilt_deg"]), m["sensor"]["detection"]["beta"]
+    alpha = math.acos(h / (0.98 * beta * math.cos(tilt)))            # the slant-range-bound amplitude
+    assert math.degrees(alpha * 2 * math.pi * cv["sweep_freq_hz"]) < 0.95 * m["sim_gimbal"]["slew_rate_deg_s"]
+    assert S.follower_of(m["follower"])["gimbal_law"] in S.GIMBAL_LAWS
+    # and it would be flyable as a curve mission
+    sc = {"team": {"max_flight_time_s": m["team"]["max_flight_time_s"],
+                   "max_flight_distance_m": None, "agents": [{}, {}, {}]},
+          "aircraft": m["aircraft"], "sensor": m["sensor"], "curve": cv}
+    S.check_curve_feasible(sc)

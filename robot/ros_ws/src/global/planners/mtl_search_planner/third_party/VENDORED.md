@@ -65,3 +65,63 @@ find "$DST" -name .DS_Store -delete                                             
 
 If `cmake/mtl_vendored.cmake` globs miss new source files, add them there. Then rebuild with
 `bws --packages-select mtl_search_planner` and run the gtests plus the upstream self-tests.
+
+---
+
+# Vendored: `mtl_curve_planner`
+
+| | |
+|---|---|
+| Upstream | `multi_agent_target_localization/cpp_curve_planner` (AirLab, CMU), commit `a2c5e9d` ("added cpp package") |
+| Vendored into | `third_party/mtl_curve_planner/` |
+| Changes | **none**: a byte-identical copy of the 61 git-tracked upstream files (the upstream `.gitignore` is omitted). Checked file by file with `cmp` |
+| Upstream tree hash | `3ce200088c6f6db5` = first 16 hex digits of `sha256` over the `sha256sum` of every file, sorted by path (same command as for `mtl_planner`, below) |
+| Built by | `cmake/mtl_vendored.cmake`: static `mtl_curve_planner_vendored` (always; Eigen only, `-O2` even in Debug) and `mtl_curve_eval_vendored` (`EXCLUDE_FROM_ALL`: mapgen + detection/report); the upstream `CMakeLists.txt` is not used, and `MTLC_HAVE_OPENMP` stays undefined, so a plan is serial and deterministic |
+| Tests | the six upstream suites (`test_kmeans`, `test_orienteering`, `test_curve_geometry`, `test_swath_kernel`, `test_optimizer`, `test_pipeline`) are registered with `colcon test` as `mtl_curve_vendored_*` via `mtl_curve_vendored_add_selftests()` |
+
+Namespace `mtl::curve`, headers under `mtl_curve/`: several files are copies of `mtl_planner`
+files in the new namespace, so both planners link into one binary (`mtl_search_core`).
+
+## What the adapter does with it
+
+`src/search_problem.cpp` mirrors the upstream `apps/mtl_curve_plan_json.cpp` (`mtlc_plan`)
+field for field, exactly as it mirrors `mtl_planner/apps/mtl_plan_json.cpp` for the
+orienteering planner:
+
+- **Selection.** The scenario's `planner.type` (`orienteering` | `curve`, default
+  `orienteering`) picks the planner that is FLOWN. With `orienteering` the curve library is
+  never called and the plan is the one this package produced before the curve planner existed.
+- **Parameters.** `curveParamsFromScenario()` = `mtlc_plan`'s `paramsFromScenario()` +
+  `curveFromScenario()`: the shared keys as `mtlc_plan` reads them, the optional `"curve"`
+  block, and the same automatic scaling of absent keys (grids / samples / knots by
+  `size_m / 5000`, kernel geometry and altitude stagger by `beta / 610`). The planner needs a
+  finite budget; `validate()` throws at construction otherwise.
+- **Result.** `SearchResult` carries either result type in a `std::variant`, so each planner's
+  full diagnostics reach `plan.json`; `buildAgentTrack()` produces the same `TrackSample`
+  fields for both. For the curve: `bx, by` from `sensor`, `roll, pitch` from `rpy`, `speed` =
+  V, `arc` = cumulative length, `z` = the planned (staggered) altitude, and
+  `gimbalPhi = -gimbalCmd` (the curve's `gimbalAngle` is the level-frame sweep angle, + left;
+  the host's `phi` is + right with `crossAngle = roll + phi`; proven by
+  `test_search_problem.cpp` `CurveGimbalSignRebuildsBoresight`).
+- **plan.json.** `teamPlanJson()` writes everything `mtlc_plan` writes (`samples.gimbal`, the
+  curve diagnostics, `meta.curve`, `generator.planner_type = "curve"`) plus the host's
+  `meta.planner_type` / `meta.planner_mode`.
+- **Comparison.** When the curve planner is flown and `planner.compare_orienteering` is true,
+  the orienteering planner is also planned in BOTH modes (plain and info_aware) for the report
+  only, never flown (`plan_alt_<mode>.json`, `track_alt_<mode>.json`).
+
+## Updating
+
+```bash
+SRC=/path/to/multi_agent_target_localization
+DST=robot/ros_ws/src/global/planners/mtl_search_planner/third_party/mtl_curve_planner
+# copy the git-tracked files only (no .gitignore, build/ or .DS_Store)
+(cd "$SRC" && git ls-files cpp_curve_planner | grep -v '/\.gitignore$') | while read f; do
+  r=${f#cpp_curve_planner/}; mkdir -p "$DST/$(dirname "$r")"; cp -p "$SRC/$f" "$DST/$r"; done
+(cd "$DST" && find . -type f | LC_ALL=C sort | xargs sha256sum | sha256sum | cut -c1-16)   # -> update the hash above
+```
+
+Upstream removed a file? Delete it here too (ask first), and update the source list in
+`cmake/mtl_vendored.cmake` if sources were added or removed. Never patch this tree: report
+upstream bugs and re-vendor. Then diff `apps/mtl_curve_plan_json.cpp` against the previous
+commit and mirror every change in `src/search_problem.cpp`.

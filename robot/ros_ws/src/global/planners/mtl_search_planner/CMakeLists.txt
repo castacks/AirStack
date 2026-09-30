@@ -20,14 +20,14 @@ find_package(visualization_msgs REQUIRED)
 find_package(airstack_msgs REQUIRED)
 find_package(mtl_msgs REQUIRED)
 
-# ---- vendored cpp_planner (mtl::planner), Eigen only ------------------------
+# ---- vendored cpp_planner (mtl::planner) + cpp_curve_planner (mtl::curve), Eigen only --
 include(cmake/mtl_vendored.cmake)
 
 # ---- ROS-free adapter: scenario JSON <-> planner, map-frame tracks ------------
 add_library(mtl_search_core STATIC src/search_problem.cpp)
 target_include_directories(mtl_search_core PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
-target_link_libraries(mtl_search_core PUBLIC mtl_planner_vendored)
+target_link_libraries(mtl_search_core PUBLIC mtl_planner_vendored mtl_curve_planner_vendored)
 set_target_properties(mtl_search_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_compile_options(mtl_search_core PRIVATE -Wall -Wextra)
 
@@ -57,6 +57,9 @@ if(BUILD_TESTING)
   # Upstream cpp_planner self-tests (dubins, kmeans, orienteering, geometry, pipeline)
   # plus test_info_aware (the information-aware search, see third_party/VENDORED.md).
   mtl_vendored_add_selftests()
+  # Upstream cpp_curve_planner self-tests (mtl_curve_vendored_*: kmeans, orienteering,
+  # curve_geometry, swath_kernel, optimizer, pipeline).
+  mtl_curve_vendored_add_selftests()
   # Python tests (test/test_*.py) run through the root harness
   # (`airstack test -m unit`, tests/colcon_unit_test_packages.yaml).
 endif()

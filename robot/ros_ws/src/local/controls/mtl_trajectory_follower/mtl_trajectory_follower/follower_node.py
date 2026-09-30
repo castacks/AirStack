@@ -57,7 +57,22 @@ def track_from_plan(msg: SearchPlan) -> fc.Track:
         x=[w.position.x for w in wps], y=[w.position.y for w in wps], z=[w.position.z for w in wps],
         yaw=[w.yaw for w in wps], speed=[w.velocity for w in wps],
         bx=[p.x for p in msg.boresight], by=[p.y for p in msg.boresight], bz=[p.z for p in msg.boresight],
-        arc=list(msg.arc_length_m), t=list(msg.time_s), phi=list(msg.planned_gimbal_phi_rad))
+        arc=list(msg.arc_length_m), t=list(msg.time_s), phi=list(msg.planned_gimbal_phi_rad),
+        roll=_float_list(getattr(msg, "planned_roll_rad", None)))
+
+
+def _float_list(v) -> list:
+    try:
+        return [float(x) for x in v]
+    except TypeError:  # absent / not a sequence
+        return []
+
+
+def gimbal_law_of(msg: SearchPlan) -> str:
+    """The plan's single-axis gimbal law; a plan that names none (e.g. TIGRIS) keeps
+    the follower's original ``aim_point`` law."""
+    law = getattr(msg, "gimbal_law", "")
+    return law if isinstance(law, str) and law else "aim_point"
 
 
 class MtlTrajectoryFollower(Node):
@@ -172,7 +187,8 @@ class MtlTrajectoryFollower(Node):
             gimbal_max_rad=msg.gimbal_max_rad or math.radians(80.0),
             gimbal_rate_rad_s=msg.gimbal_rate_rad_s or math.radians(120.0),
             pitch_nudge_max_rad=msg.pitch_nudge_max_rad or math.radians(5.0),
-            two_axis_rate_rad_s=math.radians(self.two_axis_rate_deg_s), speed_mps=msg.speed_mps)
+            two_axis_rate_rad_s=math.radians(self.two_axis_rate_deg_s), speed_mps=msg.speed_mps,
+            gimbal_law=gimbal_law_of(msg))
         if self.active:
             self.get_logger().warn(f"replacing active sortie {self.plan_id} with {msg.plan_id}")
         self.plan, self.plan_id = msg, msg.plan_id
@@ -182,7 +198,7 @@ class MtlTrajectoryFollower(Node):
         self.t_start, self.t_complete, self.last_out = self.get_clock().now(), None, None
         self.get_logger().info(
             f"sortie {msg.plan_id}: {len(track)} samples, {track.total:.0f} m, "
-            f"{'single-axis tau=%.0f deg' % math.degrees(cfg.tilt_rad) if cfg.single_axis else '2-axis'}, "
+            f"{'single-axis tau=%.0f deg, gimbal law %s' % (math.degrees(cfg.tilt_rad), cfg.gimbal_law) if cfg.single_axis else '2-axis'}, "
             f"lookahead {cfg.lookahead:.1f} m")
 
     def _revise(self, msg: SearchPlan) -> None:

@@ -1,9 +1,15 @@
 # Multi-Agent Target Localization (MTL) search in Isaac Sim
 
-Three PX4 multirotors search a 400 m × 400 m area for 15 ground targets. The search is
-weighted by a prior belief map. Each robot:
+PX4 multirotors (the fleet file sets how many; up to three) search the square area that
+`mission.yaml` defines for ground targets. The search is weighted by a prior belief map.
+Each robot:
 
-- flies its own row of a **team** search plan from `mtl::planner`;
+- flies its own row of a **team** search plan from one of two planners, chosen in
+  `mission.yaml` (`planner.type`):
+  - `orienteering` (default): `mtl::planner`, cells → clusters → budgeted orienteering →
+    Dubins → gimbal schedule;
+  - `curve`: `mtl::curve::Planner`, one continuous curve per aircraft, exactly the budget
+    long, with a sinusoidal cross-track gimbal sweep;
 - points a **native, ROS 2-driven gimbal camera** along the planned boresight.
 
 A logger scores every target's detection probability online. After the flight,
@@ -42,11 +48,26 @@ down.
 - the aircraft;
 - the sensor and detection model;
 - the budget;
-- the **planner mode** (`info_aware.enabled`): `false` flies the plain planner, `true` the
-  information-aware search (clusters that follow the prior's peaks, cut into core / shoulder /
-  tail levels, each candidate plan scored by what its footprint would detect). With
-  `info_aware.report_both: true` the other mode is planned too, never flown, and every report
-  compares the two.
+- **which planner flies** (`planner.type`):
+  - `orienteering` (default). Its **mode** is `info_aware.enabled`: `false` flies the plain
+    planner, `true` the information-aware search (clusters that follow the prior's peaks, cut
+    into core / shoulder / tail levels, each candidate plan scored by what its footprint would
+    detect). With `info_aware.report_both: true` the other mode is planned too, never flown,
+    and every report compares the two.
+  - `curve`: the parameterized-curve planner. Each aircraft gets one continuous curve of
+    exactly the budget length (the budget must be finite), never tighter than
+    `min_turn_radius_m`, optimised jointly with the others for the lowest residual belief,
+    while the 1-DOF gimbal sweeps `alpha(t) = alphaMax·sin(2π·f·t)` across track. Its options
+    are the `curve:` block (see the comments there; absent keys are auto-scaled to the
+    mission, unknown keys are refused). With `planner.compare_orienteering: true` (default)
+    the orienteering planner is also planned in **both** modes, never flown, and every report
+    compares all three plans. Planning takes seconds (1 agent) to tens of seconds (3 agents);
+    the planner node plans off its executor and reuses the boot preview plan when the
+    scenario has not changed;
+- how the follower drives the single-axis gimbal (`follower.gimbal_law`): `open_loop`
+  (default) replays the planned cross-track angle with the look angle fixed at the mount
+  tilt, so the gimbal just swings left and right as planned; `aim_point` is the original law
+  that aims at the planned ground point from the actual pose with a ±5° pitch nudge.
 
 After editing it, or the spawns in the fleet file, regenerate the bundle that the planner,
 the logger and the Isaac scene read:
@@ -209,11 +230,20 @@ Runs recorded before this change can still be scored again. Their `scenario.json
 prior bumps, and the analysis normalises the prior itself. Their cell masses stay in the old
 raw units.
 
-**Planner modes.** When the run carries the other planner mode (`track_alt.json`), the printout
-adds a line such as `planner modes: flown info_aware (planned residual 0.336) vs plain, not
-flown (planned residual 0.428)`, and `report.html` has a "Planner modes" card and the
-alternative's track on the map. Compare the two **planned** values with each other: they are
-scored identically; only the flown mode also has a flown value.
+**Planners.** When the run carries comparison plans (never flown), the printout adds one line
+per plan, such as `planners: flown curve (planned residual 0.308) vs info_aware, not flown
+(planned residual 0.336)`. `report.html` has a "Planners" card and each comparison plan's
+track on the map (grey, one dash pattern each), and `planner_comparison.csv` lists every plan.
+The comparison plans are:
+
+- orienteering flown: the other `info_aware` mode, in `robot_N/track_alt.json`;
+- curve flown: both orienteering modes, in `robot_N/track_alt_plain.json` and
+  `robot_N/track_alt_info_aware.json`.
+
+Compare the **planned** values with each other: they are scored identically; only the flown
+plan also has a flown value. A curve flight also gets a "Parameterized-curve plan" card
+(sweep amplitude, frequency and peak rate against the gimbal rate, swath half-width, maximum
+curvature against `1/R`), also in `detection.json` → `summary.curve`.
 
 Each robot also has its own report, which the logger writes at the end of its search:
 `runs/<run_id>/robot_N/report.html`. See [`runs/README.md`](../../runs/README.md) for the layout.

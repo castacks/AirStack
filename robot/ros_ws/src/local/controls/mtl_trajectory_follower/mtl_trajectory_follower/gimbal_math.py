@@ -26,7 +26,16 @@ boresight can only sweep the plane standing ``h tan(theta)`` ahead of the
 airframe, ``theta = tau - dp`` with the airframe pitch nudge ``|dp| <= 5 deg``.
 :func:`single_axis_command` projects a desired ground point onto that
 constraint (cross-track angle ``phi`` clamped to the gimbal travel) and returns
-the resulting earth-frame Euler angles.
+the resulting earth-frame Euler angles. That is the ``aim_point`` gimbal law.
+
+The ``open_loop`` law (:func:`single_axis_open_loop`) does not aim at all: it
+replays the PLANNED cross-track angle on the roll axis with the look angle held
+at the mount tilt (no pitch nudge), in the planners' own mount model
+(``mtl::planner`` / ``mtl::curve``: ``Rz(yaw) Ry_nosedown(theta) Rx(alpha)``
+applied to nadir, i.e. along-track offset ``h tan(theta)``, cross-track offset
+``h tan(alpha) / cos(theta)``, ``alpha`` + right), about the vehicle's actual
+heading. So the gimbal just swings left and right as planned; tracking error
+becomes pointing error, which the scorer measures.
 """
 
 from __future__ import annotations
@@ -47,6 +56,8 @@ __all__ = [
     "look_at_angles",
     "two_axis_command",
     "single_axis_command",
+    "single_axis_open_loop",
+    "GIMBAL_LAWS",
     "camera_matrix_from_boresight",
     "slew_limit",
     "OPTICAL_FROM_GIMBAL_QUAT",
@@ -253,6 +264,42 @@ def single_axis_command(pos: Sequence[float], target: Sequence[float], vehicle_y
         "phi_clipped": float(phi != phi_req), "dp_clipped": float(abs(tilt - theta_req) > pitch_nudge_max),
         "miss_m": miss,
     }
+
+
+#: Single-axis gimbal laws of the follower (``SearchPlan.gimbal_law``).
+GIMBAL_LAWS = ("open_loop", "aim_point")
+
+
+def single_axis_open_loop(pos: Sequence[float], aim: Sequence[float], vehicle_yaw: float, tilt: float,
+                          cross_angle: float, phi_max: float) -> tuple[Vec3, dict[str, float]]:
+    """1-DOF mount, OPEN LOOP: replay the planned cross-track angle, no aiming.
+
+    ``cross_angle`` is the planned level-frame cross-track angle off the mount axis,
+    + right (``roll + phi`` in the planner's convention); it is clamped to the gimbal
+    travel ``phi_max``. The look angle stays at the mount ``tilt`` (the airframe of a
+    multirotor does not pitch for the camera). The boresight, in the vehicle's level
+    frame, is ``Ry_nosedown(tilt) Rx(alpha)`` applied to nadir:
+
+        b = sin(tilt) cos(alpha) f - sin(alpha) left - cos(tilt) cos(alpha) up
+
+    Returns ``((roll, pitch, yaw), diag)`` in the earth frame like
+    :func:`single_axis_command`; ``diag["miss_m"]`` is how far that boresight lands
+    from ``aim`` (the planned ground point) on the aim's height plane.
+    """
+    f = (math.cos(vehicle_yaw), math.sin(vehicle_yaw), 0.0)
+    left = (-math.sin(vehicle_yaw), math.cos(vehicle_yaw), 0.0)
+    alpha = max(-phi_max, min(phi_max, cross_angle))
+    st, ct = math.sin(tilt), math.cos(tilt)
+    sa, ca = math.sin(alpha), math.cos(alpha)
+    b = tuple(st * ca * f[i] - sa * left[i] - (ct * ca if i == 2 else 0.0) for i in range(3))
+    euler = matrix_to_euler_zyx(camera_matrix_from_boresight(b, f), yaw_hint=vehicle_yaw)
+    miss = float("nan")
+    if b[2] < -1e-9:
+        s = (aim[2] - pos[2]) / b[2]
+        hx, hy = pos[0] + s * b[0], pos[1] + s * b[1]
+        miss = math.hypot(hx - aim[0], hy - aim[1])
+    return euler, {"phi": alpha, "theta": tilt, "dp": 0.0, "phi_clipped": float(alpha != cross_angle),
+                   "dp_clipped": 0.0, "miss_m": miss}
 
 
 def slew_limit(prev: Sequence[float], target: Sequence[float], max_step: float,

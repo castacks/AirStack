@@ -158,7 +158,8 @@ def build_report_data(*, title: str, subtitle: str, summary: Mapping[str, Any],
     """Assemble the report payload (world ENU coordinates throughout).
 
     ``agents``: ``[{"name", "home": [x, y], "planned": [[x, y]...], "flown": [[x, y]...],
-    "bore": [[x, y]...], "alt_planned": [[x, y]...] (the planner mode that was not flown)}]``. ``curves``: team ``t``, ``detected``, ``distance``, ``mass``,
+    "bore": [[x, y]...], "alt_planned": [[x, y]...] (the first comparison plan, not flown),
+    "alt_planned_by_mode": {mode: [[x, y]...]} (every comparison plan)}]``. ``curves``: team ``t``, ``detected``, ``distance``, ``mass``,
     ``residual`` (residual belief mass per step). ``residual_map``: :func:`residual_map_payload`.
     ``per_agent[name]``: ``t``, ``xte``, ``pointing_error``, ``cmd_pitch``, ``meas_pitch``.
     """
@@ -181,6 +182,7 @@ def build_report_data(*, title: str, subtitle: str, summary: Mapping[str, Any],
         "agents": [{"name": a["name"], "home": a.get("home"),
                     "planned": _thin(a.get("planned", []), 3.0), "flown": _thin(a.get("flown", []), 1.5),
                     "alt_planned": _thin(a.get("alt_planned", []), 3.0),
+                    "alt_planned_by_mode": {m: _thin(v, 3.0) for m, v in (a.get("alt_planned_by_mode") or {}).items()},
                     "bore": _thin(a.get("bore", []), 4.0)} for a in agents],
         "curves": {"t": t, "detected": det, "distance": dist, "mass": mass, "residual": res},
         "residual_map": dict(residual_map) if residual_map else None,
@@ -277,22 +279,39 @@ tile(planned?fmt(100*realized/planned,0)+" %":fmt(100*S.belief_mass_fraction,0)+
      planned?"valid cells reached, realized / planned (mass)":"valid-cell mass reached");
 tile(fmt(S.total_path_length_m/1000,2)+" km","team track flown");
 
-// ---------------- planner modes: flown vs the alternative (never flown) ----------------
-if(S.planner_comparison){(function(){const P=S.planner_comparison,A=P.alternative;
- const c=el("div",{class:"card",style:"margin:12px 0"},app);el("h2",{text:"Planner modes — flown vs alternative"},c);
+// ---------------- planners: flown vs the comparison plans (never flown) ----------------
+const modeName=m=>m==="info_aware"?"orienteering · information-aware":(m==="plain"?"orienteering · plain":(m==="curve"?"parameterized curve":(m||"—")));
+const ALTS=S.planner_comparison?(S.planner_comparison.alternatives||(S.planner_comparison.alternative?[S.planner_comparison.alternative]:[])):[];
+const ALT_DASH=["2 4","7 3 1 3","1 3"];
+if(S.planner_comparison){(function(){const P=S.planner_comparison;
+ const c=el("div",{class:"card",style:"margin:12px 0"},app);el("h2",{text:"Planners — flown vs comparison plans"},c);
  const t=el("table",{},el("div",{class:"tw"},c));const h=el("tr",{},el("thead",{},t));
  ["planner","","planned residual","flown residual","planned length [km]"].forEach(x=>el("th",{text:x},h));
- const b=el("tbody",{},t);const name=m=>m==="info_aware"?"information-aware":(m==="plain"?"plain":(m||"—"));
- const row=(m,st,pr,fr,len)=>{const r=el("tr",{},b);[name(m),st,pr==null?"—":fmt(pr,4),fr==null?"—":fmt(fr,4),len==null?"—":fmt(len/1000,2)].forEach(v=>el("td",{text:String(v)},r));};
+ const b=el("tbody",{},t);
+ const row=(m,st,pr,fr,len)=>{const r=el("tr",{},b);[modeName(m),st,pr==null?"—":fmt(pr,4),fr==null?"—":fmt(fr,4),len==null?"—":fmt(len/1000,2)].forEach(v=>el("td",{text:String(v)},r));};
  row(P.flown_mode,"flown",P.flown.planned_residual_belief_mass,P.flown.residual_belief_mass,P.flown.planned_length_m);
- if(A)row(A.mode,"planned only",A.planned_residual_belief_mass,null,A.planned_length_m);
- if(A&&A.planned_residual_belief_mass!=null&&P.flown.planned_residual_belief_mass!=null){
-  const d=A.planned_residual_belief_mass-P.flown.planned_residual_belief_mass;
-  el("p",{class:"notes",text:"Planned residual, "+name(A.mode)+" − "+name(P.flown_mode)+" = "+(d>=0?"+":"")+fmt(d,4)+
-   (d>0?" (the flown mode planned the better search)":d<0?" (the alternative would have planned the better search)":"")+
-   ". Lower is better; both planned values use the same detection model as the flown score. "+
-   "Map: the grey dotted line is the "+name(A.mode)+" plan (not flown)."},c);}
- else if(!A)el("p",{class:"notes",text:"No alternative plan in this run (info_aware.report_both off, or an older planner)."},c);
+ ALTS.forEach(A=>row(A.mode,"planned only",A.planned_residual_belief_mass,null,A.planned_length_m));
+ const fp=P.flown.planned_residual_belief_mass;
+ ALTS.forEach((A,i)=>{if(A.planned_residual_belief_mass==null||fp==null)return;
+  const d=A.planned_residual_belief_mass-fp;
+  el("p",{class:"notes",text:"Planned residual, "+modeName(A.mode)+" − "+modeName(P.flown_mode)+" = "+(d>=0?"+":"")+fmt(d,4)+
+   (d>0?" (the flown planner planned the better search)":d<0?" (this comparison plan would have searched better)":"")+
+   ". Map: grey line, dash pattern "+(i+1)+"."},c);});
+ if(ALTS.length)el("p",{class:"notes",text:"Lower is better; every planned value uses the same detection model as the flown score. Comparison plans are planned on the same scenario and never flown."},c);
+ else el("p",{class:"notes",text:"No comparison plan in this run (info_aware.report_both / planner.compare_orienteering off, or an older planner)."},c);
+})();}
+
+// ---------------- curve planner diagnostics (flown curve plans) ----------------
+if(S.curve){(function(){const c=el("div",{class:"card",style:"margin:12px 0"},app);
+ el("h2",{text:"Parameterized-curve plan"},c);
+ const t=el("table",{},el("div",{class:"tw"},c));const h=el("tr",{},el("thead",{},t));
+ ["agent","representation","endpoint","seed","sweep ± [deg]","sweep [Hz]","peak rate / gimbal [deg/s]","swath half-width [m]","max curvature [1/m] (1/R)","fast residual"].forEach(x=>el("th",{text:x},h));
+ const b=el("tbody",{},t);
+ Object.keys(S.curve).sort().forEach(n=>{const q=S.curve[n],r=el("tr",{},b);
+  [n,q.representation,q.endpoint_mode+(q.endpoint_error_m?" ("+fmt(q.endpoint_error_m,2)+" m)":""),q.init_strategy,fmt(q.sweep_amplitude_deg,1),fmt(q.sweep_freq_hz,3),
+   fmt(q.sweep_peak_rate_deg_s,1)+" / "+fmt(q.gimbal_rate_deg_s,0),fmt(q.swath_half_width_m,0),
+   fmt(q.max_curvature,4)+" ("+fmt(q.min_turn_radius_m?1/q.min_turn_radius_m:null,4)+")",fmt(q.fast_objective,4)].forEach(v=>el("td",{text:String(v)},r));});
+ el("p",{class:"notes",text:"One continuous curve per aircraft, exactly the budget long, never tighter than the turn radius; the single-axis gimbal sweeps its cross-track line sinusoidally. The fast residual is the planner's own (calibrated kernel) objective; the planned residual above re-scores the plan with the flight scorer."},c);
 })();}
 
 // ---------------- map ----------------
@@ -302,7 +321,7 @@ el("h2",{text:"Search area — planned vs flown, targets"},mapCard);
  // Extent = search area UNION every planned/flown point and home (tracks may leave the
  // area, e.g. the planner's straight run-out past the last cluster), plus a margin.
  const E={x0:A.x_min,x1:A.x_max,y0:A.y_min,y1:A.y_max};
- D.agents.forEach(a=>[].concat(a.planned||[],a.flown||[],a.alt_planned||[],a.home?[a.home]:[]).forEach(p=>{
+ D.agents.forEach(a=>[].concat(a.planned||[],a.flown||[],a.alt_planned||[],...Object.values(a.alt_planned_by_mode||{}),a.home?[a.home]:[]).forEach(p=>{
   E.x0=Math.min(E.x0,p[0]);E.x1=Math.max(E.x1,p[0]);E.y0=Math.min(E.y0,p[1]);E.y1=Math.max(E.y1,p[1]);}));
  const mg=0.02*Math.max(E.x1-E.x0,E.y1-E.y0);E.x0-=mg;E.x1+=mg;E.y0-=mg;E.y1+=mg;
  const H=Math.round(Math.max(320,Math.min(900,2*pad+(E.y1-E.y0)*(W-2*pad)/(E.x1-E.x0))));
@@ -320,7 +339,9 @@ el("h2",{text:"Search area — planned vs flown, targets"},mapCard);
  D.agents.forEach((a,i)=>{const col=SER[i%3];
   const line=(pts,attrs)=>{if(pts.length<2)return;s("polyline",Object.assign({points:pts.map(p=>X(p[0])+","+Y(p[1])).join(" "),
    fill:"none",stroke:col,"stroke-width":2,"stroke-linejoin":"round","stroke-linecap":"round"},attrs),svg);};
-  if(a.alt_planned)line(a.alt_planned,{stroke:"var(--muted)","stroke-dasharray":"2 4","stroke-opacity":.9,"stroke-width":1.5});
+  const abm=a.alt_planned_by_mode||{};
+  if(Object.keys(abm).length)ALTS.forEach((A,k)=>{if(abm[A.mode])line(abm[A.mode],{stroke:"var(--muted)","stroke-dasharray":ALT_DASH[k%ALT_DASH.length],"stroke-opacity":.9,"stroke-width":1.5});});
+  else if(a.alt_planned)line(a.alt_planned,{stroke:"var(--muted)","stroke-dasharray":"2 4","stroke-opacity":.9,"stroke-width":1.5});
   line(a.planned,{"stroke-dasharray":"5 4","stroke-opacity":.9,"stroke-width":1.5});
   line(a.flown,{"stroke-width":2});
   if(a.home){s("rect",{x:X(a.home[0])-5,y:Y(a.home[1])-5,width:10,height:10,rx:2,fill:col,stroke:"var(--surface)","stroke-width":2},svg);}
@@ -337,6 +358,7 @@ el("h2",{text:"Search area — planned vs flown, targets"},mapCard);
  const lg=el("div",{class:"legend"},mapCard);
  D.agents.forEach((a,i)=>{const sp=el("span",{},lg);el("span",{class:"key",style:"border-color:"+SER[i%3]},sp);el("span",{text:a.name+" flown"},sp);});
  const sp=el("span",{},lg);el("span",{class:"key dash",style:"border-color:var(--muted)"},sp);el("span",{text:"planned"},sp);
+ ALTS.forEach((A,k)=>{const q=el("span",{},lg);s("line",{x1:0,y1:5,x2:18,y2:5,stroke:"var(--muted)","stroke-width":1.5,"stroke-dasharray":ALT_DASH[k%ALT_DASH.length]},s("svg",{width:18,height:10,style:"width:18px;display:inline"},q));el("span",{text:modeName(A.mode)+" (not flown)"},q);});
  const f=el("span",{},lg);el("span",{class:"dot",style:"background:var(--good)"},f);el("span",{text:"✓ found"},f);
  const m=el("span",{},lg);el("span",{class:"dot",style:"border:2px solid var(--critical)"},m);el("span",{text:"✕ missed"},m);
 })();

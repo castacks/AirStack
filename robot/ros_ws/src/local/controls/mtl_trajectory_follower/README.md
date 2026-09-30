@@ -16,13 +16,21 @@ stack. It does three jobs:
 | `SEARCH` | carrot at arc length `s* + L`, `L = 1.2·R_min`; `s*` is the closest-point projection inside a forward window of `1.5·L` (prevents lane capture on serpentines) | planned aim point at `s* + lead` |
 | `COMPLETE` / `ABORTED` | holds the last point, then calls `set_trajectory_mode(ROBOT_POSE)` and returns to `IDLE` | parked |
 
-**Gimbal law.** The aim vector `Δ = aim − p_camera` gives:
+**Gimbal law.** Two-axis mounts aim at the planned ground point: with the aim vector
+`Δ = aim − p_camera`, `yaw = atan2(Δy, Δx)`, `pitch = atan2(−Δz, d_h)`. Single-axis (roll-only)
+mounts fly the law the plan names in `SearchPlan.gimbal_law` (set by `mission.yaml`
+`follower.gimbal_law`):
 
-- two-axis mode: `yaw = atan2(Δy, Δx)`, `pitch = atan2(−Δz, d_h)`;
-- single-axis (roll-only) mounts: the planner's scheduled roll, plus a pitch nudge limited to
-  `|Δp| ≤ 5°`.
+| `gimbal_law` | Single-axis command |
+|---|---|
+| `open_loop` (the MTL default) | replays the planned cross-track angle `roll + phi` at the current arc position, look angle fixed at the mount tilt (no pitch nudge), in the planners' mount model `Ry(tilt)·Rx(α)` about the vehicle's actual heading: the gimbal just swings left and right as planned, with no correction for tracking error. `gimbal_diag.miss_m` is how far that lands from the planned ground point |
+| `aim_point` (also: a plan that names none, e.g. TIGRIS) | the original law: aims from the vehicle's actual position at the planned ground point, cross-track angle plus a pitch nudge limited to `\|Δp\| ≤ 5°` |
 
-In both modes a per-axis slew limit applies. Commands go out at 20 Hz on
+It tracks both planners' plans: the orienteering planner's scheduled gimbal and the curve
+planner's continuous sinusoidal sweep (sampled every `V·dt`; at the 5 km mission ±54.6° at
+0.075 Hz, a 25.7°/s peak rate, inside the plan's 120°/s slew limit).
+
+In every mode a per-axis slew limit applies. Commands go out at 20 Hz on
 `gimbal/cmd_pitch_yaw` (`geometry_msgs/Vector3`: `x = roll`, `y = pitch`, `z = yaw`,
 radians). Angles are earth-frame (ENU) Z-Y-X, and `pitch > 0` looks down.
 
@@ -51,7 +59,8 @@ These are all launch args with canonical defaults; see
 
 ## Code
 
-- `gimbal_math.py`: rotation conventions and the gimbal laws. Stdlib only.
+- `gimbal_math.py`: rotation conventions and the gimbal laws (`single_axis_open_loop`,
+  `single_axis_command`, `two_axis_command`). Stdlib only.
 - `follower_core.py`: the ROS-free state machine, also used by
   `scripts/mtl_offline_mission.py`.
 - `follower_node.py`: the rclpy shell.

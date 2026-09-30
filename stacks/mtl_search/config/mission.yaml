@@ -28,7 +28,7 @@ mission:
   area:
     size_m: 5000.0                # square, centred on center_ned
     center_ned: [0.0, 0.0]
-    belief_res_m: 1.0            # -> 201 x 201 prior raster
+    belief_res_m: 1.0            # -> 5001 x 5001 prior raster
 
   belief:                        # sum of Gaussian bumps, capped, floored, then normalised to sum to 1
     num_centroids: 10
@@ -48,10 +48,10 @@ mission:
       rgba: [0.95, 0.12, 0.10, 1.0]
 
   team:
-    max_flight_time_s: 1000.0      # per agent -> 540 m of track at 6 m/s: binds (~97% of the mass)
+    max_flight_time_s: 1000.0      # per agent -> 6000 m of track at 6 m/s (the curve planner needs it finite)
     max_flight_distance_m: .inf  # the tighter of the two binds
     altitude_separation_m: 1.0   # vertical deconfliction: robot_N cruises (and takes off) at
-                                 # altitude_m + (N-1) * this -> 30 / 31 / 32 m. The team is
+                                 # altitude_m + (N-1) * this -> 300 / 301 / 302 m. The team is
                                  # planned at altitude_m; the planner is deconfliction-unaware
                                  # (robot_2/robot_3 were planned 0.8 m apart at t = 2 s).
 
@@ -124,6 +124,53 @@ mission:
     # restarts: 2                # extra orienteering seeds per abstraction, all scored
     # max_moves: 16              # split / peel / merge re-plans after the candidate sweep
     # threads: 0                 # 0 = hardware concurrency (max 8)
+
+  planner:                       # WHICH PLANNER IS FLOWN (mtl_search_planner)
+    type: curve           # orienteering: mtl::planner (cells -> clusters -> budgeted orienteering ->
+                                 #   Dubins -> gimbal schedule); its mode is info_aware.enabled above.
+                                 # curve: mtl::curve::Planner - ONE continuous curve per aircraft, exactly
+                                 #   the budget long, never tighter than min_turn_radius_m, optimised jointly
+                                 #   for the lowest residual belief, while the 1-DOF gimbal sweeps
+                                 #   alpha(t) = alphaMax sin(2 pi f t) across track (the curve: block below).
+                                 #   Needs a finite team budget. Plans take seconds to tens of seconds.
+    compare_orienteering: true   # curve only: ALSO plan the orienteering planner in BOTH modes (plain and
+                                 # info_aware), never flown, so the report compares all three plans
+                                 # (plan_alt_plain.json / plan_alt_info_aware.json). false: skip them.
+                                 # (With type: orienteering, info_aware.report_both decides instead.)
+
+  curve:                         # mtl::curve::Planner options = mtlc_plan's "curve" block. Every key is
+                                 # optional; an ABSENT key keeps the planner default, auto-scaled to this
+                                 # mission by the adapter (grids / samples / knots x size_m / 5000, kernel
+                                 # geometry x beta / 610). Unknown keys are refused. For THIS mission
+                                 # (5 km, 1 m raster, beta 610 m, 300 m altitude) the auto-scaled defaults are:
+                                 #   fast_grid_step_m 25 (>= the 1 m raster; 200 x 200 optimiser grid),
+                                 #   explore_grid_step_m 50, sample_spacing_m 25, knot_spacing_m 100
+                                 #   (61 curvature knots over the 6 km curve), kernel as calibrated (x1).
+                                 # Checked against the planner's validate(): reach sqrt(beta^2 - h^2) =
+                                 # 531 m >> the 25 m fast grid; every agent's boresight is in range while
+                                 # h < 0.98 beta cos(tilt) = 518 m.
+    representation: curvature    # kappa(s) piecewise linear in arc length: the curve is EXACTLY the budget
+                                 # long and |kappa| <= 1 / min_turn_radius_m everywhere by construction.
+    endpoint_mode: open          # like the orienteering routes (no return leg); return_home | fixed_dest
+                                 # (+ destinations_ned: [[n, e], ...]) also work.
+    altitude_stagger_m: 1.0      # agent a plans (and flies) at altitude_m + a * this. = team.altitude_separation_m,
+                                 # so the curve's planned altitudes ARE the flown deconfliction layers
+                                 # (300 / 301 / 302 m; the planner default 25 m would put robot_3 50 m
+                                 # above its takeoff layer). The adapter does not add altitude_offset_m again.
+    sweep_freq_hz: 0.075         # the reference 0.25 Hz is for 20 m/s (40 m flown per half-sweep); at 6 m/s,
+                                 # 0.25 x 6/20 = 0.075 Hz keeps the same 40 m spacing. Amplitude +/-54.6 deg
+                                 # (slant-range bound at 300 m / 30 deg tilt), so the peak rate is 25.7 deg/s
+                                 # instead of 85.7 - well inside the 120 deg/s gimbal (planner, follower, sim).
+                                 # Planned residual is the same at both (0.3076 vs 0.3073, 1 agent).
+    # optional, planner defaults: coordination_sweeps: 2, max_realloc_trials: 4, init_strategies:
+    # [clusters, greedy] (the main runtime knobs), max_iter: 150, explore_iter: 100, reallocate: true.
+
+  follower:                      # mtl_trajectory_follower, via every SearchPlan (gimbal_law)
+    gimbal_law: open_loop        # single-axis gimbal: open_loop = replay the PLANNED cross-track angle
+                                 # (roll + phi) with the look angle held at tilt_deg - the gimbal just swings
+                                 # left and right as planned, no correction. aim_point = the follower's
+                                 # original law: aim at the planned ground point from the ACTUAL pose, with
+                                 # a +/-5 deg pitch nudge. (2-DOF mounts always aim.)
 
   flight:                        # how scripts/mtl_start_mission.sh flies it
     takeoff_altitude_m: 300.0

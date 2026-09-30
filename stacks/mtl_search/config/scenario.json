@@ -1891,10 +1891,23 @@
    "generator": "scripts/mtl_generate_scenario.py",
    "mission": "stacks/mtl_search/config/mission.yaml",
    "fleet": "config/fleets/mtl_search_fleet.yaml"
+  },
+  "follower": {
+   "gimbal_law": "open_loop"
   }
  },
  "info_aware": {
   "enabled": true,
   "report_both": true
+ },
+ "planner": {
+  "type": "orienteering",
+  "compare_orienteering": true
+ },
+ "curve": {
+  "representation": "curvature",
+  "endpoint_mode": "open",
+  "altitude_stagger_m": 1.0,
+  "sweep_freq_hz": 0.075
  }
 }

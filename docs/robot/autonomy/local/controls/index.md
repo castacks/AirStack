@@ -21,4 +21,6 @@ between the trajectory controller and the PID controller:
   active, and publishes an arc-length carrot (`L = 1.2·R_min`) on the planned search track
   while one is. The PID controller is unchanged apart from a stack-local speed clamp.
 - **Gimbal.** The follower also commands the gimbal (`gimbal/cmd_pitch_yaw`) at 20 Hz with
-  per-axis slew limits.
+  per-axis slew limits. A single-axis mount flies the law the plan names
+  (`SearchPlan.gimbal_law`, from `mission.yaml` `follower.gimbal_law`): `open_loop` (default)
+  replays the planned cross-track angle, `aim_point` aims at the planned ground point.

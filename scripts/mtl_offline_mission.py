@@ -7,9 +7,10 @@
 A no-Isaac rehearsal of exactly the code the robots run:
 
   * the team is planned by the ``mtl_search_plan`` CLI (same adapter + vendored
-    mtl::planner as ``mtl_search_planner_node``),
+    planners as ``mtl_search_planner_node``; ``planner.type`` picks orienteering or
+    curve, and the comparison plans it writes are scored alongside, never flown),
   * each agent's track is flown by ``mtl_trajectory_follower.follower_core``
-    (the node's own logic) at 20 Hz,
+    (the node's own logic, with the scenario's ``airstack.follower.gimbal_law``) at 20 Hz,
   * against a point-mass stand-in for PX4 + the AirStack PID cascade
     (position P-loop -> saturated velocity -> acceleration-limited response,
     rate-limited yaw) and a slew-limited gimbal whose MEASURED angle lags the
@@ -40,8 +41,8 @@ for sub in ("robot/ros_ws/src/local/controls/mtl_trajectory_follower",
             "robot/ros_ws/src/behavior/mtl_metrics_logger"):
     sys.path.insert(0, str(REPO / sub))
 
-from mtl_metrics_logger.analysis import (alternative_from_track, planned_looks_from_track,  # noqa: E402
-                                         write_run_outputs)
+from mtl_metrics_logger.analysis import (alternatives_from_dir, curve_info_from_track,  # noqa: E402
+                                         planned_looks_from_track, write_run_outputs)
 from mtl_metrics_logger.detection import boresight_ground_point, footprint_radius  # noqa: E402
 from mtl_trajectory_follower import follower_core as fc  # noqa: E402
 from mtl_trajectory_follower.gimbal_math import slew_limit, wrap_pi  # noqa: E402
@@ -82,15 +83,24 @@ class Vehicle:
         self.yaw = wrap_pi(self.yaw + max(-self.yaw_rate * dt, min(self.yaw_rate * dt, wrap_pi(carrot_yaw - self.yaw))))
 
 
-def fly_agent(name, track_json, scenario, rate_hz=20.0, max_s=900.0):
+def gimbal_law_of(scenario) -> str:
+    """The follower's single-axis gimbal law, as the planner node puts it in SearchPlan.gimbal_law."""
+    return ((scenario.get("airstack") or {}).get("follower") or {}).get("gimbal_law", "open_loop")
+
+
+def fly_agent(name, track_json, scenario, rate_hz=20.0, max_s=None):
     tr = json.loads(Path(track_json).read_text())
     s = tr["samples"]
     n = len(s["t"])
     track = fc.Track(x=s["x_map"], y=s["y_map"], z=s["z_map"], yaw=s["yaw_enu"],
                      speed=[tr["speed_mps"]] * n, bx=s["bx_map"], by=s["by_map"], bz=s["bz_map"],
-                     arc=s["arc"], t=s["t"], phi=s["gimbal_phi"])
+                     arc=s["arc"], t=s["t"], phi=s["gimbal_phi"], roll=s.get("roll") or [])
     cfg = fc.FollowerConfig(min_turn_radius_m=tr["min_turn_radius_m"], single_axis=tr["single_axis"],
-                            tilt_rad=tr["tilt_rad"], speed_mps=tr["speed_mps"])
+                            tilt_rad=tr["tilt_rad"], speed_mps=tr["speed_mps"],
+                            gimbal_max_rad=tr.get("gimbal_max_rad") or math.radians(80.0),
+                            gimbal_law=gimbal_law_of(scenario))
+    if max_s is None:  # time out generously past the planned duration (a 6 km sortie is 1000 s)
+        max_s = max(900.0, 2.0 * float(tr.get("flight_time_s") or s["t"][-1]) + 120.0)
     fol = fc.TrackFollower(track, cfg)
     hx, hy, hz = tr["home_enu"]
     veh = Vehicle((0.0, 0.0, track.z[0]), track.yaw[0])
@@ -133,7 +143,7 @@ def fly_agent(name, track_json, scenario, rate_hz=20.0, max_s=900.0):
         t += dt
     planned = {"planned": [[x + hx, y + hy] for x, y in zip(s["x_map"], s["y_map"])], "home": [hx, hy],
                "serviced_cells": tr["serviced_cells"], "planned_length_m": track.total,
-               "looks": planned_looks_from_track(tr)}
+               "looks": planned_looks_from_track(tr), "curve": curve_info_from_track(tr)}
     return rows, planned, track.total
 
 
@@ -145,6 +155,7 @@ def main(argv=None) -> int:
     ap.add_argument("--runs-root", type=Path, default=REPO / "runs")
     ap.add_argument("--planner-bin", default=None)
     ap.add_argument("--rate-hz", type=float, default=20.0)
+    ap.add_argument("--no-alt", action="store_true", help="skip the comparison plans (faster)")
     args = ap.parse_args(argv)
 
     gt_path = args.ground_truth or args.scenario.with_name("ground_truth.json")
@@ -157,17 +168,22 @@ def main(argv=None) -> int:
 
     with tempfile.TemporaryDirectory() as tmp:
         exe = find_planner(args.planner_bin)
-        res = subprocess.run([exe, "--scenario", str(args.scenario), "--out-dir", tmp],
-                             capture_output=True, text=True)
+        cmd = [exe, "--scenario", str(args.scenario), "--out-dir", tmp] + (["--no-alt"] if args.no_alt else [])
+        res = subprocess.run(cmd, capture_output=True, text=True)
         print(res.stdout.strip())
         if res.returncode != 0:
             print(res.stderr, file=sys.stderr)
             return 1
-        rows_all, planned_all, alt_all, mode = {}, {}, {}, None
+        rows_all, planned_all, alt_all, mode, len_by_agent = {}, {}, {}, None, {}
+        plan_s = float("nan")
+        for line_ in res.stdout.splitlines():
+            if "] planned in " in line_ and "[flown:" in line_:
+                plan_s = float(line_.split("planned in ")[1].split(" ms")[0]) / 1000.0
         for a in scenario["team"]["agents"]:
             name = a["name"]
             track = Path(tmp) / f"{name}_track.json"
             rows, planned, total = fly_agent(name, track, scenario, rate_hz=args.rate_hz)
+            len_by_agent[name] = total
             rows_all[name], planned_all[name] = rows, planned
             mode = json.loads(track.read_text()).get("planner_mode", mode)
             out = run_dir / name
@@ -175,20 +191,21 @@ def main(argv=None) -> int:
             shutil.copyfile(track, out / "track.json")
             shutil.copyfile(Path(tmp) / "plan.json", out / "plan.json")
             shutil.copyfile(args.scenario, out / "scenario.json")
-            # the other planner mode (info_aware.report_both): planned, never flown
-            alt_track = Path(tmp) / f"{name}_track_alt.json"
-            alt = None
-            for stale in ("track_alt.json", "plan_alt.json"):
-                (out / stale).unlink(missing_ok=True)
-            if alt_track.is_file():
-                shutil.copyfile(alt_track, out / "track_alt.json")
-                shutil.copyfile(Path(tmp) / "plan_alt.json", out / "plan_alt.json")
-                alt = {name: alternative_from_track(json.loads(alt_track.read_text()))}
-                alt_all.update(alt)
+            # the comparison plans (info_aware.report_both / planner.compare_orienteering):
+            # planned, never flown; <agent>_track_alt[_<mode>].json -> track_alt[_<mode>].json
+            for stale in list(out.glob("track_alt*.json")) + list(out.glob("plan_alt*.json")):
+                stale.unlink()
+            for alt_track in sorted(Path(tmp).glob(f"{name}_track_alt*.json")):
+                suffix = alt_track.name[len(f"{name}_track"):]          # "_alt.json" / "_alt_plain.json"
+                shutil.copyfile(alt_track, out / f"track{suffix}")
+                shutil.copyfile(Path(tmp) / f"plan{suffix}", out / f"plan{suffix}")
+            alts = {m: {name: e} for m, e in alternatives_from_dir(out).items()}
+            for m, e in alts.items():
+                alt_all.setdefault(m, {}).update(e)
             r = write_run_outputs(out, scenario=scenario, ground_truth=gt, rows_by_agent={name: rows},
                                   planned_by_agent={name: planned}, title=f"MTL sortie — {name} (offline)",
                                   subtitle=f"run {args.run_id} · kinematic rehearsal · {len(rows)} samples",
-                                  belief_png=png, planner_mode=mode, alternative_by_agent=alt)
+                                  belief_png=png, planner_mode=mode, alternatives=alts or None)
             xte = [r_["xte_m"] for r_ in rows if r_["state"] == "SEARCH"]
             rms = math.sqrt(sum(v * v for v in xte) / len(xte)) if xte else float("nan")
             s = r["summary"]
@@ -202,17 +219,21 @@ def main(argv=None) -> int:
                              planned_by_agent=planned_all, title=f"MTL team search — {args.run_id} (offline)",
                              subtitle="kinematic rehearsal: mtl_search_plan -> follower_core -> point-mass "
                                       "vehicle + slew-limited gimbal -> Moon et al. scoring",
-                             belief_png=png, planner_mode=mode, alternative_by_agent=alt_all or None)
+                             belief_png=png, planner_mode=mode, alternatives=alt_all or None)
     s = team["summary"]
     print(f"TEAM: residual belief {_fmt(s['residual_belief_mass'])} = P(target missed), lower is better "
           f"(planned {_fmt(s['planned_residual_belief_mass'])}); {s['targets_detected']}/{s['targets_total']} "
           f"targets, mean time to discovery {s['mean_time_to_discovery_s'] or float('nan'):.1f} s; valid-cell "
           f"mass reached {s['belief_mass_covered']:.4f} of planned {s['planned_belief_mass'] or 0.0:.4f} "
           f"({100 * s.get('realized_over_planned_mass', 0):.1f} %) -> {run_dir / 'report.html'}")
-    alt_s = (s.get("planner_comparison") or {}).get("alternative") or {}
-    if alt_s.get("planned_residual_belief_mass") is not None:
-        print(f"      planner modes: flown {mode} planned {_fmt(s['planned_residual_belief_mass'])} vs "
-              f"{alt_s.get('mode')} (not flown) planned {_fmt(alt_s['planned_residual_belief_mass'])}")
+    for alt_s in (s.get("planner_comparison") or {}).get("alternatives") or []:
+        if alt_s.get("planned_residual_belief_mass") is not None:
+            print(f"      planners: flown {mode} planned {_fmt(s['planned_residual_belief_mass'])} vs "
+                  f"{alt_s.get('mode')} (not flown) planned {_fmt(alt_s['planned_residual_belief_mass'])}")
+    flown_len = sum(len_by_agent.values())
+    print(f"HEAD-TO-HEAD [{mode}]: flown residual {_fmt(s['residual_belief_mass'])}, planned residual "
+          f"{_fmt(s['planned_residual_belief_mass'])}, targets {s['targets_detected']}/{s['targets_total']}, "
+          f"planned length {flown_len / 1000:.2f} km, planning {plan_s:.1f} s, gimbal law {gimbal_law_of(scenario)}")
     return 0
 
 

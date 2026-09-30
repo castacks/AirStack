@@ -335,3 +335,66 @@ def test_write_run_outputs_scores_the_alternative_planner_mode(tmp_path):
     data = json.loads(html.split('type="application/json">', 1)[1].split("</script>", 1)[0])
     assert data["summary"]["planner_comparison"]["alternative"]["mode"] == "plain"
     assert len(data["agents"][0]["alt_planned"]) >= 2
+
+
+def _track_json(mode, pos, bore, **extra):
+    return {"planner_mode": mode, "flown_length_m": 20.0, "serviced_cells": [0], "home_enu": [0.0, 0.0, 0.0],
+            "samples": {"t": [0.05 * k for k in range(len(pos))], "x_map": [p[0] for p in pos],
+                        "y_map": [p[1] for p in pos], "z_map": [p[2] for p in pos], "bx_map": [b[0] for b in bore],
+                        "by_map": [b[1] for b in bore], "bz_map": [b[2] for b in bore]}, **extra}
+
+
+def test_curve_flight_is_compared_with_both_orienteering_modes(tmp_path):
+    """planner.type = curve: the flown curve plan + two comparison plans (track_alt_<mode>.json)."""
+    on = [(-10.0 + 0.5 * k, 0.0, 30.0) for k in range(40)]
+    on_b = [(p[0], p[1], 0.0) for p in on]
+    far = [(200.0 + 0.5 * k, 200.0, 30.0) for k in range(40)]
+    far_b = [(p[0], p[1], 0.0) for p in far]
+    half = [(-10.0 + 0.5 * k, 0.0, 30.0) for k in range(20)] + far[:20]
+    half_b = [(p[0], p[1], 0.0) for p in half]
+    agent = tmp_path / "robot_1"
+    agent.mkdir()
+    (agent / "track_alt_plain.json").write_text(json.dumps(_track_json("plain", far, far_b)))
+    (agent / "track_alt_info_aware.json").write_text(json.dumps(_track_json("info_aware", half, half_b)))
+    alts = A.alternatives_from_dir(agent)
+    assert sorted(alts) == ["info_aware", "plain"]
+    assert alts["plain"]["planner_type"] == "orienteering"
+    curve_track = _track_json("curve", on, on_b, planner_type="curve",
+                              curve={"representation": "curvature", "sweep_amplitude_deg": 54.6, "sweep_freq_hz": 0.075,
+                                     "sweep_peak_rate_deg_s": 25.7, "gimbal_rate_deg_s": 120.0,
+                                     "swath_half_width_m": 528.0, "max_curvature": 0.01, "min_turn_radius_m": 12.0})
+    assert A.curve_info_from_track(curve_track)["swath_half_width_m"] == 528.0
+    assert A.curve_info_from_track(alts["plain"]) is None
+    res = A.write_run_outputs(
+        agent, scenario=SCEN_PRIOR, ground_truth=GT, rows_by_agent={"robot_1": _rows("robot_1", -10.0)},
+        planned_by_agent={"robot_1": {"planned": [[-10, 0], [10, 0]], "home": [0, 0], "serviced_cells": [0],
+                                      "looks": A.planned_looks_from_track(curve_track), "planned_length_m": 20.0,
+                                      "curve": A.curve_info_from_track(curve_track)}},
+        title="t", subtitle="s", planner_mode="curve",
+        alternatives={m: {"robot_1": e} for m, e in alts.items()})
+    s = res["summary"]
+    assert s["planner_type"] == "curve" and s["planner_mode"] == "curve"
+    assert s["curve"]["robot_1"]["sweep_freq_hz"] == 0.075
+    pc = s["planner_comparison"]
+    assert pc["flown_mode"] == "curve" and pc["flown_type"] == "curve"
+    assert [a["mode"] for a in pc["alternatives"]] == ["info_aware", "plain"]
+    assert pc["alternative"] == pc["alternatives"][0]
+    r_flown = s["planned_residual_belief_mass"]
+    r_half, r_far = (a["planned_residual_belief_mass"] for a in pc["alternatives"])
+    assert r_flown < r_half < r_far == pytest.approx(1.0, abs=1e-6)
+    csv_rows = (agent / "planner_comparison.csv").read_text().splitlines()
+    assert csv_rows[0] == ("role,planner_type,planner_mode,planned_residual_belief_mass,"
+                           "flown_residual_belief_mass,planned_length_m")
+    assert [r.split(",")[:3] for r in csv_rows[1:]] == [["flown", "curve", "curve"],
+                                                         ["planned only", "orienteering", "info_aware"],
+                                                         ["planned only", "orienteering", "plain"]]
+    data = json.loads((agent / "report.html").read_text().split('type="application/json">', 1)[1]
+                      .split("</script>", 1)[0])
+    assert sorted(data["agents"][0]["alt_planned_by_mode"]) == ["info_aware", "plain"]
+    assert data["summary"]["curve"]["robot_1"]["representation"] == "curvature"
+    # an orienteering run folder (track_alt.json) still reads as ONE comparison plan
+    old = tmp_path / "old" / "robot_1"
+    old.mkdir(parents=True)
+    (old / "track_alt.json").write_text(json.dumps(_track_json("plain", far, far_b)))
+    assert list(A.alternatives_from_dir(old)) == ["plain"]
+    assert A.planner_type_of("info_aware") == "orienteering" and A.planner_type_of(None) is None

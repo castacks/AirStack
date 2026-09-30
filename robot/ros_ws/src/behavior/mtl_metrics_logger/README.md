@@ -43,13 +43,23 @@ The older **valid-cell coverage** numbers (`belief_mass_covered`, `belief_mass_f
 still reported. A cell counts, with its whole mass, once its centre falls inside any
 footprint. Cell masses are probabilities now, so these numbers are probabilities too.
 
-**Planner modes.** The MTL planner flies one of two modes (`info_aware.enabled` in the
-scenario: plain or information-aware). With `info_aware.report_both` it also writes the other
-mode's plan as `track_alt.json`; the logger scores its planned residual with the same model and
-adds `summary.planner_comparison` (`flown_mode`, the flown plan's planned and flown residual, the
-alternative's planned residual and length) to `detection.json`, a comparison card to
-`report.html`, and the alternative's track (grey, dotted) to the report map. The flown score
-never depends on it.
+**Planners and comparison plans.** The scenario's `planner.type` picks the planner that is
+flown: `orienteering` (plain or information-aware mode, `info_aware.enabled`) or `curve` (the
+parameterized-curve planner). A track's `planner_mode` is `plain` | `info_aware` | `curve`.
+The planner also writes comparison plans, never flown: the other orienteering mode as
+`track_alt.json` (`info_aware.report_both`), or, when the curve flies, both orienteering modes
+as `track_alt_plain.json` and `track_alt_info_aware.json` (`planner.compare_orienteering`).
+The logger reads whichever are there (`analysis.alternatives_from_dir`), scores each one's
+planned residual with the same model and adds `summary.planner_comparison` to
+`detection.json` (`flown_mode`, `flown_type`, the flown plan's planned and flown residual,
+and `alternatives`: every comparison plan's mode, type, planned residual and length; the
+first is also kept as `alternative`), writes `planner_comparison.csv`, and gives the report a
+"Planners" card and each comparison plan's track (grey, one dash pattern each) on the map. A
+flown curve plan's diagnostics from `track.json` (sweep amplitude / frequency / peak rate vs
+gimbal rate, swath half-width, max curvature vs `1/R`, endpoint, fast objective) become
+`summary.curve` and a "Parameterized-curve plan" card. The flown score never depends on
+any of it, and the detection / residual model is planner-agnostic (it scores sensor looks),
+so older run folders re-score unchanged.
 
 When the follower reports `COMPLETE` or `ABORTED`, the logger writes:
 
@@ -57,7 +67,8 @@ When the follower reports `COMPLETE` or `ABORTED`, the logger writes:
 runs/<run_id>/<robot>/telemetry.csv    # 20 Hz: t, pose, speed, gimbal cmd/state, boresight, footprint, cumulative metrics
 runs/<run_id>/<robot>/detection.json   # mtl.detection/1: residual belief (flown + planned), per-target P_det / time-to-detect, cell coverage, curves
 runs/<run_id>/<robot>/residual_belief.csv   # x,y,prior,residual per 10 m block (world ENU; block sums, columns sum to 1 / residual)
-runs/<run_id>/<robot>/report.html      # self-contained report: residual KPI, map over the prior, prior-vs-residual panels, curves, target table
+runs/<run_id>/<robot>/planner_comparison.csv   # flown plan + every comparison plan: type, mode, planned / flown residual, length
+runs/<run_id>/<robot>/report.html      # self-contained report: residual KPI, planners card, map over the prior, prior-vs-residual panels, curves, target table
 runs/<run_id>/{ground_truth.json,belief.png}   # copied for the team analysis
 ```
 

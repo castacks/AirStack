@@ -20,9 +20,14 @@ The headline number is the RESIDUAL BELIEF MASS = P(target missed by the
 search): every pixel of the prior (normalised to sum to 1) gets the same miss
 update as a target standing there. Lower is better; it is the number to compare
 planners (and plan vs flight: the planned value scores each robot's track.json).
-When the planner also planned its other mode (``<robot>/track_alt.json``,
-``info_aware.report_both``), that plan is scored the same way and the report
-shows both planner modes side by side (``summary.planner_comparison``).
+Every comparison plan the planner wrote (never flown) is scored the same way and
+the report shows them side by side with the flown plan
+(``summary.planner_comparison``, ``planner_comparison.csv``):
+``<robot>/track_alt.json`` (orienteering flown: its other ``info_aware`` mode) or
+``<robot>/track_alt_plain.json`` + ``track_alt_info_aware.json`` (curve planner
+flown, ``planner.compare_orienteering``). A curve plan's diagnostics (sweep,
+swath, curvature) come from ``track.json`` (``summary.curve``). Runs written
+before the curve planner existed re-score unchanged.
 
 Inputs are resolved inside the run dir first (``<robot>/scenario.json`` and
 ``<robot>/track.json`` from mtl_search_planner, ``ground_truth.json`` and
@@ -40,8 +45,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "robot/ros_ws/src/behavior/mtl_metrics_logger"))
 
-from mtl_metrics_logger.analysis import (alternative_from_track, planned_looks_from_track,  # noqa: E402
-                                         write_run_outputs)
+from mtl_metrics_logger.analysis import (alternatives_from_dir, curve_info_from_track,  # noqa: E402
+                                         planned_looks_from_track, write_run_outputs)
 from mtl_metrics_logger.report import read_telemetry_csv  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -66,7 +71,7 @@ def load_run(run_dir: Path, scenario: Path | None, ground_truth: Path | None):
     sc = json.loads(sc_path.read_text(encoding="utf-8"))
     gt = json.loads(gt_path.read_text(encoding="utf-8"))
 
-    rows, planned, alternative, modes = {}, {}, {}, set()
+    rows, planned, alternatives, modes = {}, {}, {}, set()
     for a in agents:
         name = a.name
         rows[name] = [r for r in read_telemetry_csv(a / "telemetry.csv") if r.get("agent") in (None, "", name)]
@@ -78,15 +83,14 @@ def load_run(run_dir: Path, scenario: Path | None, ground_truth: Path | None):
             planned[name] = {"planned": [[x + hx, y + hy] for x, y in zip(s["x_map"], s["y_map"])],
                              "home": [hx, hy], "serviced_cells": tr.get("serviced_cells", []),
                              "planned_length_m": tr.get("flown_length_m"),
-                             "looks": planned_looks_from_track(tr)}
+                             "looks": planned_looks_from_track(tr), "curve": curve_info_from_track(tr)}
             if tr.get("planner_mode"):
                 modes.add(tr["planner_mode"])
-        alt = a / "track_alt.json"
-        if alt.is_file():
-            alternative[name] = alternative_from_track(json.loads(alt.read_text(encoding="utf-8")))
+        for mode, entry in alternatives_from_dir(a).items():
+            alternatives.setdefault(mode, {})[name] = entry
     png = _first(run_dir / "belief.png", sc_path.with_name("belief.png"), DEFAULT_CONFIG / "belief.png")
     mode = modes.pop() if len(modes) == 1 else ("mixed" if modes else None)
-    return sc, gt, rows, planned, alternative, mode, (png.read_bytes() if png else None), sc_path, gt_path
+    return sc, gt, rows, planned, alternatives, mode, (png.read_bytes() if png else None), sc_path, gt_path
 
 
 def main(argv=None) -> int:
@@ -106,7 +110,7 @@ def main(argv=None) -> int:
         "write detection.json + residual_belief.csv", "write report.html"])
     if prog is not None:
         prog("load telemetry", 0, 0)
-    sc, gt, rows, planned, alternative, mode, png, sc_path, gt_path = load_run(
+    sc, gt, rows, planned, alternatives, mode, png, sc_path, gt_path = load_run(
         run_dir, args.scenario, args.ground_truth)
     out = (args.out_dir or run_dir).resolve()
     res = write_run_outputs(
@@ -116,7 +120,7 @@ def main(argv=None) -> int:
                  f"fused on one timeline",
         belief_png=png,
         extra={"run_id": run_dir.name, "inputs": {"scenario": str(sc_path), "ground_truth": str(gt_path)}},
-        progress=prog, planner_mode=mode, alternative_by_agent=alternative or None)
+        progress=prog, planner_mode=mode, alternatives=alternatives or None)
     if prog is not None:
         prog.finish()
     s = res["summary"]
@@ -133,17 +137,26 @@ def main(argv=None) -> int:
           f"valid cells reached {s['cells_covered']}/{s['cells_total']} "
           f"({100 * s['belief_mass_fraction']:.1f} % of their mass) over {s['total_path_length_m'] / 1000:.2f} km")
     pc = s.get("planner_comparison") or {}
-    alt_s = pc.get("alternative") or {}
-    if alt_s.get("planned_residual_belief_mass") is not None:
-        print(f"  planner modes: flown {pc.get('flown_mode')} (planned residual "
-              f"{planned_resid:.4f}) vs {alt_s.get('mode')}, not flown (planned residual "
+    for alt_s in pc.get("alternatives") or []:
+        if alt_s.get("planned_residual_belief_mass") is None:
+            continue
+        print(f"  planners: flown {pc.get('flown_mode')} (planned residual "
+              f"{_f4(planned_resid)}) vs {alt_s.get('mode')}, not flown (planned residual "
               f"{alt_s['planned_residual_belief_mass']:.4f})")
+    for name, c in sorted((s.get("curve") or {}).items()):
+        print(f"  {name} curve plan: sweep +/-{c.get('sweep_amplitude_deg', 0):.1f} deg at {c.get('sweep_freq_hz', 0):.3f} Hz "
+              f"(peak {c.get('sweep_peak_rate_deg_s', 0):.1f} deg/s), swath half-width {c.get('swath_half_width_m', 0):.0f} m, "
+              f"max curvature {c.get('max_curvature', 0):.4f} 1/m")
     if s.get("realized_over_planned_mass") is not None:
         print(f"  realized / planned coverage: {100 * s['realized_over_planned_mass']:.1f} %")
-    for name in ("telemetry.csv", "detection.json", "residual_belief.csv", "report.html"):
+    for name in ("telemetry.csv", "detection.json", "residual_belief.csv", "planner_comparison.csv", "report.html"):
         if (out / name).is_file():
             print(f"  wrote {out / name}")
     return 0
+
+
+def _f4(v) -> str:
+    return "n/a" if v is None else f"{v:.4f}"
 
 
 if __name__ == "__main__":

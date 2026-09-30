@@ -2,10 +2,11 @@
 //  mtl_search_planner_node — the MTL search planner as an AirStack global planner.
 //
 //  * Loads the scenario (stacks/mtl_search/config/scenario.json), solves the
-//    WHOLE team problem with the vendored mtl::planner and keeps this robot's
-//    agent row (matched by agent_name = $ROBOT_NAME). Every robot does the
-//    same independently; the planner is deterministic, so the team agrees
-//    without a cross-domain link.
+//    WHOLE team problem with the planner the scenario's planner.type selects
+//    (orienteering: the vendored mtl::planner; curve: the vendored
+//    mtl::curve::Planner) and keeps this robot's agent row (matched by
+//    agent_name = $ROBOT_NAME). Every robot does the same independently; both
+//    planners are deterministic, so the team agrees without a cross-domain link.
 //  * Serves the action  search_mission  (mtl_msgs/action/SearchMission).
 //  * Publishes, latched (transient local):
 //      search/plan                 mtl_msgs/SearchPlan (the atomic sortie)
@@ -16,10 +17,19 @@
 //  * Relays search/follower_status as action feedback and finishes the goal
 //    when the follower reports COMPLETE (or ABORTED).
 //  * Writes runs/<run_id>/<agent>/{plan.json, track.json, scenario.json}.
-//    The scenario's info_aware.enabled selects the planner mode that is FLOWN
-//    (plain or information-aware); with info_aware.report_both (default) a
-//    mission goal also plans the other mode and writes it as
-//    {plan_alt.json, track_alt.json} - never flown, scored in the report.
+//    Comparison plans (never flown, scored side by side in the report) are
+//    planned AFTER the flown plan is published, on a worker thread, and
+//    written when they finish:
+//      orienteering flown + info_aware.report_both   -> {plan_alt.json, track_alt.json}
+//                                                       (the other info_aware mode)
+//      curve flown + planner.compare_orienteering    -> {plan_alt_plain.json, track_alt_plain.json,
+//                                                        plan_alt_info_aware.json, track_alt_info_aware.json}
+//  * Planning never runs on the executor: the curve planner takes tens of
+//    seconds, and a blocked executor would stall goal acceptance (the sortie
+//    client resends after 10 s), odometry and follower status.  The boot
+//    preview plans on a worker thread; a mission goal reuses that plan when the
+//    scenario file is unchanged (deterministic planner), else re-plans in the
+//    goal thread while publishing PLANNING feedback every second.
 //
 //  All geometry is expressed in this robot's odometry frame ("map"), whose
 //  origin is the robot's home: p_map = p_worldENU - home_ENU (see
@@ -33,12 +43,15 @@
 #include <ctime>
 #include <filesystem>
 #include <fstream>
+#include <future>
 #include <iomanip>
+#include <iterator>
 #include <memory>
 #include <mutex>
 #include <sstream>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
@@ -97,6 +110,12 @@ bool writeText(const fs::path& path, const std::string& text) {
     if (!f) return false;
     f << text << "\n";
     return static_cast<bool>(f);
+}
+
+std::string readText(const std::string& path) {
+    std::ifstream f(path, std::ios::binary);
+    if (!f) throw std::runtime_error("cannot open scenario file: " + path);
+    return std::string(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
 }
 
 std_msgs::msg::ColorRGBA rgba(float r, float g, float b, float a) {
@@ -190,15 +209,23 @@ public:
         RCLCPP_INFO(get_logger(), "mtl_search_planner: agent '%s', scenario %s",
                     agent_name_.c_str(), scenario_file_.c_str());
         if (plan_on_startup_) {
-            // Deferred one tick so the sim clock has a chance to arrive.
+            // Deferred one tick so the sim clock has a chance to arrive, then planned
+            // on a worker thread: the curve planner takes tens of seconds, and the
+            // executor must keep accepting goals and relaying status meanwhile.
             startup_timer_ = create_wall_timer(1s, [this]() {
                 startup_timer_->cancel();
-                std::string err;
-                if (!planAndPublish(scenario_file_, "", false, &err)) {
-                    RCLCPP_ERROR(get_logger(), "startup preview plan failed: %s", err.c_str());
-                }
+                preview_thread_ = std::thread([this]() {
+                    std::string err;
+                    if (!planAndPublish(scenario_file_, "", false, &err)) {
+                        RCLCPP_ERROR(get_logger(), "startup preview plan failed: %s", err.c_str());
+                    }
+                });
             });
         }
+    }
+
+    ~MtlSearchPlannerNode() override {
+        if (preview_thread_.joinable()) preview_thread_.join();
     }
 
 private:
@@ -208,7 +235,15 @@ private:
         std::lock_guard<std::mutex> lk(plan_mutex_);
         try {
             const auto t0 = std::chrono::steady_clock::now();
-            problem_ = mtl_search::loadScenario(scenarioPath);
+            const std::string text = readText(scenarioPath);
+            // Both planners are deterministic: the same scenario text gives the same
+            // plan, so a mission goal reuses the boot preview's instead of spending
+            // the curve planner's tens of seconds again.
+            const bool reuse = have_result_ && text == planned_text_;
+            if (!reuse) {
+                have_result_ = false;
+                problem_ = mtl_search::parseScenario(text);
+            }
             const int idx = problem_.agentIndex(agent_name_);
             if (idx < 0) {
                 std::ostringstream os;
@@ -217,36 +252,33 @@ private:
                 os << ") - regenerate the scenario for this fleet";
                 throw std::runtime_error(os.str());
             }
-            result_ = mtl_search::solve(problem_);
+            if (!reuse) {
+                RCLCPP_INFO(get_logger(), "planning with the %s planner ...",
+                            mtl_search::toString(problem_.plannerType));
+                result_ = mtl_search::solveFlown(problem_);
+                planned_text_ = text;
+                have_result_ = true;
+            }
             track_  = mtl_search::buildAgentTrack(result_, problem_, idx, home_up_m_);
-            const double ms = std::chrono::duration<double, std::milli>(
-                std::chrono::steady_clock::now() - t0).count();
-            if (result_.infoAware.enabled) {
+            const double ms = reuse ? 1000.0 * result_.planningSeconds
+                                    : std::chrono::duration<double, std::milli>(
+                                          std::chrono::steady_clock::now() - t0).count();
+            if (const mtl::PlanningResult* o = result_.orienteering(); o && o->infoAware.enabled && !reuse) {
                 RCLCPP_INFO(get_logger(),
                             "info-aware planner: chose %s from %zu plans (%d/%d split/merge moves "
                             "kept); coverage model detects %.4f vs %.4f for the plain plan",
-                            result_.infoAware.chosen.c_str(), result_.infoAware.candidates.size(),
-                            result_.infoAware.movesAccepted, result_.infoAware.movesTried,
-                            result_.infoAware.chosenScore, result_.infoAware.baselineScore);
+                            o->infoAware.chosen.c_str(), o->infoAware.candidates.size(),
+                            o->infoAware.movesAccepted, o->infoAware.movesTried,
+                            o->infoAware.chosenScore, o->infoAware.baselineScore);
             }
-            // The other planner mode, for the side-by-side report.  Only for a
-            // mission goal (a run folder to write it into), never for the boot
-            // preview, and a failure here never costs the mission.
-            have_alt_ = false;
-            if (!runId.empty() && problem_.reportAlternative) {
-                try {
-                    const auto t1 = std::chrono::steady_clock::now();
-                    alt_result_ = mtl_search::solveAlternative(problem_);
-                    alt_track_  = mtl_search::buildAgentTrack(alt_result_, problem_, idx, home_up_m_);
-                    have_alt_   = true;
-                    RCLCPP_INFO(get_logger(), "alternative (%s, not flown) planned in %.0f ms: %.0f m, %zu cells",
-                                mtl_search::plannerMode(alt_result_).c_str(),
-                                std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t1).count(),
-                                alt_track_.totalArc(), alt_track_.servicedCells.size());
-                } catch (const std::exception& e) {
-                    RCLCPP_WARN(get_logger(), "alternative plan for the report failed (mission unaffected): %s",
-                                e.what());
-                }
+            if (const mtl_search::CurvePlan* c = result_.curve(); c && !reuse) {
+                RCLCPP_INFO(get_logger(),
+                            "curve planner: fast residual %.4f (static %.4f), %d/%zu reallocations kept; "
+                            "sweep +/-%.1f deg at %.3f Hz (peak %.1f deg/s of %.1f), swath half-width %.0f m",
+                            c->result.team.Jfinal, c->result.team.Jstatic, c->result.team.acceptedTrials(),
+                            c->result.team.log.size(), track_.curve.sweepAmplitude * 180.0 / mtl::kPi,
+                            track_.curve.sweepFreq, track_.curve.sweepPeakRate * 180.0 / mtl::kPi,
+                            track_.gimbalRate * 180.0 / mtl::kPi, track_.curve.swathHalfWidth);
             }
             if (track_.samples.size() < 2) {
                 throw std::runtime_error("agent '" + agent_name_ + "' has a " +
@@ -255,11 +287,12 @@ private:
             }
             plan_id_ = problem_.name + "/" + agent_name_ + "/" + (runId.empty() ? "preview" : runId);
             RCLCPP_INFO(get_logger(),
-                        "planned %s [%s] in %.0f ms: %zu samples, %.0f m of %.0f m budget, %zu cells, "
+                        "planned %s [%s] in %.0f ms%s: %zu samples, %.0f m of %.0f m budget, %zu cells, "
                         "team info %.1f %%%s",
                         plan_id_.c_str(), mtl_search::plannerMode(result_).c_str(), ms,
+                        reuse ? " (the preview plan, scenario unchanged)" : "",
                         track_.samples.size(), track_.totalArc(), track_.budget,
-                        track_.servicedCells.size(), 100.0 * result_.team.infoFraction,
+                        track_.servicedCells.size(), 100.0 * result_.teamInfoFraction(),
                         track_.feasible ? "" : " [INFEASIBLE - best effort]");
             publishPlan(runId, start);
             return true;
@@ -290,6 +323,7 @@ private:
         msg.gimbal_max_rad = track_.gimbalMax;
         msg.gimbal_rate_rad_s = track_.gimbalRate;
         msg.pitch_nudge_max_rad = track_.pitchNudgeMax;
+        msg.gimbal_law = track_.gimbalLaw;
         msg.map_origin_in_world.x = track_.homeEnu.x();
         msg.map_origin_in_world.y = track_.homeEnu.y();
         msg.map_origin_in_world.z = track_.homeEnu.z();
@@ -312,6 +346,7 @@ private:
             msg.time_s.push_back(s.t);
             msg.planned_gimbal_phi_rad.push_back(s.gimbalPhi);
             msg.planned_pitch_rad.push_back(s.pitch);
+            msg.planned_roll_rad.push_back(s.roll);
             if (s.arc - lastArc >= path_step_m_ || &s == &track_.samples.back()) {
                 lastArc = s.arc;
                 geometry_msgs::msg::PoseStamped ps;
@@ -372,13 +407,14 @@ private:
             mine.scale.z = 0.2;
             all.color = rgba(0.7f, 0.7f, 0.7f, 0.25f);
             mine.color = rgba(0.2f, 0.85f, 1.0f, 0.45f);
-            std::vector<bool> scheduled(static_cast<std::size_t>(result_.cells.size()), false);
+            std::vector<bool> scheduled(static_cast<std::size_t>(result_.numCells()), false);
             for (const long c : track_.servicedCells) {
                 if (c >= 0 && static_cast<std::size_t>(c) < scheduled.size()) scheduled[static_cast<std::size_t>(c)] = true;
             }
-            for (mtl::Index i = 0; i < result_.cells.size(); ++i) {
+            for (mtl::Index i = 0; i < result_.numCells(); ++i) {
                 double n = 0, e = 0;
-                problem_.frame.fromMtl(result_.cells.centers(i, 0), result_.cells.centers(i, 1), n, e);
+                const mtl::Vec2 c = result_.cellCenterMtl(i);
+                problem_.frame.fromMtl(c.x(), c.y(), n, e);
                 const mtl::Vec3 w = mtl_search::nedToEnu(n, e);
                 const auto p = point(w.x() - home.x(), w.y() - home.y(), 0.05 - home.z());
                 (scheduled[static_cast<std::size_t>(i)] ? mine : all).points.push_back(p);
@@ -388,12 +424,12 @@ private:
         }
         // teammates' planned tracks, expressed in THIS robot's map frame
         if (show_teammates_) {
-            for (std::size_t a = 0; a < result_.trajectories.size(); ++a) {
+            for (std::size_t a = 0; a < result_.numAgents(); ++a) {
                 if (static_cast<int>(a) == track_.index) continue;
                 auto m = base("mtl_teammates", static_cast<int>(a), visualization_msgs::msg::Marker::LINE_STRIP);
                 m.scale.x = 0.5;
                 m.color = rgba(0.9f, 0.9f, 0.9f, 0.5f);
-                const auto& d = result_.trajectories[a].drone;
+                const auto& d = result_.droneTrackMtl(a);
                 for (mtl::Index k = 0; k < d.rows(); k += 20) {
                     double n = 0, e = 0;
                     problem_.frame.fromMtl(d(k, 0), d(k, 1), n, e);
@@ -421,19 +457,54 @@ private:
             !writeText(dir / "scenario.json", problem_.raw.dump())) {
             RCLCPP_WARN(get_logger(), "could not write the plan files into %s", dir.c_str());
         }
+        // Stale comparison plans of an earlier goal with this run id must not be
+        // scored as this one's: plan_alt*.json / track_alt*.json go first.
         std::error_code rm;
-        fs::remove(dir / "plan_alt.json", rm);
-        fs::remove(dir / "track_alt.json", rm);
-        if (have_alt_ &&
-            (!writeText(dir / "plan_alt.json", mtl_search::teamPlanJson(alt_result_, problem_)) ||
-             !writeText(dir / "track_alt.json", mtl_search::agentTrackJson(alt_track_, problem_)))) {
-            RCLCPP_WARN(get_logger(), "could not write the alternative plan files into %s", dir.c_str());
+        for (const auto& entry : fs::directory_iterator(dir, rm)) {
+            const std::string f = entry.path().filename().string();
+            if ((f.rfind("plan_alt", 0) == 0 || f.rfind("track_alt", 0) == 0) &&
+                entry.path().extension() == ".json") {
+                fs::remove(entry.path(), rm);
+            }
         }
         // runs/latest -> <run_id> (relative, so it resolves on the host too)
         const fs::path latest = root / "latest";
         fs::remove(latest, ec);
         fs::create_directory_symlink(fs::path(runId), latest, ec);
         return dir.string();
+    }
+
+    /// Plan the comparison plans (never flown) on a detached worker thread with
+    /// copies of everything it needs, and write them into the run folder when
+    /// they finish.  Started after the flown plan is published, so they never
+    /// delay the sortie; a failure never costs the mission.
+    void startComparisons(const std::string& runDir) {
+        const bool any = problem_.plannerType == mtl_search::PlannerType::Curve ? problem_.compareOrienteering
+                                                                                 : problem_.reportAlternative;
+        if (!any || runDir.empty()) return;
+        const int idx = problem_.agentIndex(agent_name_);
+        auto problem = std::make_shared<const mtl_search::SearchProblem>(problem_);
+        const double homeUp = home_up_m_;
+        const rclcpp::Logger logger = get_logger();
+        std::thread([problem, idx, homeUp, runDir, logger]() {
+            try {
+                for (const mtl_search::SearchResult& alt : mtl_search::solveComparisons(*problem)) {
+                    const mtl_search::AgentTrack tr = mtl_search::buildAgentTrack(alt, *problem, idx, homeUp);
+                    const std::string suffix = mtl_search::comparisonSuffix(*problem, alt);
+                    const fs::path dir(runDir);
+                    if (!writeText(dir / ("plan" + suffix + ".json"), mtl_search::teamPlanJson(alt, *problem)) ||
+                        !writeText(dir / ("track" + suffix + ".json"), mtl_search::agentTrackJson(tr, *problem))) {
+                        RCLCPP_WARN(logger, "could not write the comparison plan files into %s", runDir.c_str());
+                        continue;
+                    }
+                    RCLCPP_INFO(logger, "comparison plan (%s, not flown) planned in %.0f ms: %.0f m, %zu cells -> %s",
+                                mtl_search::plannerMode(alt).c_str(), 1000.0 * alt.planningSeconds, tr.totalArc(),
+                                tr.servicedCells.size(), (dir / ("track" + suffix + ".json")).c_str());
+                }
+            } catch (const std::exception& e) {
+                RCLCPP_WARN(logger, "comparison plan for the report failed (mission unaffected): %s", e.what());
+            }
+        }).detach();
     }
 
     // --------------------------------------------------------------------- //
@@ -452,8 +523,16 @@ private:
             std::lock_guard<std::mutex> lk(status_mutex_);
             have_status_ = false;
         }
+        // Plan (or reuse the preview plan) on a worker, relaying PLANNING feedback
+        // every second so the client sees the goal alive through a long plan.
         std::string err;
-        if (!planAndPublish(scenario, runId, goal->start_mission, &err)) {
+        auto planned = std::async(std::launch::async, [this, &scenario, &runId, &goal, &err]() {
+            return planAndPublish(scenario, runId, goal->start_mission, &err);
+        });
+        while (planned.wait_for(1s) != std::future_status::ready) {
+            gh->publish_feedback(feedback);
+        }
+        if (!planned.get()) {
             result->success = false;
             result->message = "planning failed: " + err;
             RCLCPP_ERROR(get_logger(), "%s", result->message.c_str());
@@ -463,6 +542,7 @@ private:
         result->run_id = runId;
         result->plan_id = plan_id_;
         result->run_dir = prepareRunDir(runId);
+        startComparisons(result->run_dir);
         result->planned_length_m = track_.totalArc();
         result->cells_planned = static_cast<int32_t>(track_.servicedCells.size());
 
@@ -561,14 +641,14 @@ private:
     double mission_timeout_factor_ = 3.0, path_step_m_ = 2.0;
     bool plan_on_startup_ = true, show_teammates_ = true;
 
-    // plan state (written only by the startup timer or the single active goal thread)
+    // plan state (written only under plan_mutex_: the preview worker or the single active goal)
     mtl_search::SearchProblem problem_;
-    mtl::PlanningResult result_;
+    mtl_search::SearchResult result_;
     mtl_search::AgentTrack track_;
-    mtl::PlanningResult alt_result_;   ///< the other planner mode (report only, never flown)
-    mtl_search::AgentTrack alt_track_;
-    bool have_alt_ = false;
+    std::string planned_text_;         ///< scenario text result_ was planned from
+    bool have_result_ = false;
     std::string plan_id_;
+    std::thread preview_thread_;
     std::atomic<bool> busy_{false};
     std::mutex plan_mutex_;
 

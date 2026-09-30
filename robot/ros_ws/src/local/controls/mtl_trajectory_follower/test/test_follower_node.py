@@ -131,3 +131,18 @@ def test_stale_latched_plan_is_ignored(node_mod):
     S.SimClock.advance(120.0)
     node.subs["search/plan"](plan)
     assert not node.active
+
+
+def test_the_plan_selects_the_gimbal_law(node_mod):
+    node = node_mod.MtlTrajectoryFollower()
+    node.subs["odometry"](S.odom(0, 0, 30))
+    node.subs["search/plan"](make_plan())                       # names no law (e.g. TIGRIS)
+    assert node.follower.cfg.gimbal_law == "aim_point"
+    msg = make_plan(plan_id="t/robot_1/run2")
+    msg.gimbal_law = "open_loop"                                # the MTL planner's default
+    msg.planned_roll_rad = [0.01] * len(msg.time_s)
+    node.subs["search/plan"](msg)
+    assert node.follower.cfg.gimbal_law == "open_loop"
+    assert node.follower.track.roll == pytest.approx([0.01] * len(msg.time_s))
+    tick(node)
+    assert node.pubs["gimbal/cmd_pitch_yaw"].msgs  # it commands the gimbal

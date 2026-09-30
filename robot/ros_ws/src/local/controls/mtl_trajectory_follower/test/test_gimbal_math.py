@@ -113,3 +113,38 @@ def test_slew_limit_wraps_yaw():
     out = G.slew_limit((0.0, 0.0, D(179)), (0.5, 1.0, D(-179)), D(1))
     assert out[0] == pytest.approx(D(1)) and out[1] == pytest.approx(D(1))
     assert out[2] == pytest.approx(D(-180)) or out[2] == pytest.approx(D(180))
+
+
+# ---- the open_loop law: replay the planned cross-track angle -----------------------
+def _planner_look(pos, yaw, tilt, alpha):
+    """Where the planners' mount model (Ry_nosedown(tilt) Rx(alpha) nadir, alpha + right)
+    puts the boresight on the ground: along h tan(tilt), right h tan(alpha) / cos(tilt)."""
+    h = pos[2]
+    along, right = h * math.tan(tilt), h * math.tan(alpha) / math.cos(tilt)
+    return (pos[0] + along * math.cos(yaw) + right * math.sin(yaw),
+            pos[1] + along * math.sin(yaw) - right * math.cos(yaw), 0.0)
+
+
+@pytest.mark.parametrize("yaw, alpha", [(0.0, 0.0), (D(30), D(40)), (D(-120), D(-55)), (D(170), D(10))])
+def test_open_loop_lands_on_the_planned_ground_point(yaw, alpha):
+    pos, tilt = (12.0, -7.0, 300.0), D(30)
+    aim = _planner_look(pos, yaw, tilt, alpha)
+    (roll, pitch, gyaw), d = G.single_axis_open_loop(pos, aim, yaw, tilt, alpha, D(80))
+    assert d["miss_m"] < 1e-6 and d["dp"] == 0.0 and d["theta"] == tilt and d["phi_clipped"] == 0.0
+    # the commanded earth-frame angles point the camera axis at that ground point
+    b = G.boresight_from_euler(pitch, gyaw)
+    s = pos[2] / -b[2]
+    assert math.hypot(pos[0] + s * b[0] - aim[0], pos[1] + s * b[1] - aim[1]) < 1e-6
+
+
+def test_open_loop_does_not_aim_and_clamps_the_travel():
+    pos, tilt = (0.0, 0.0, 30.0), D(30)
+    # a ground point the planned angle does NOT point at: open loop ignores it (reports the miss)
+    (_, _, _), d = G.single_axis_open_loop(pos, (0.0, -40.0, 0.0), 0.0, tilt, 0.0, D(80))
+    assert d["miss_m"] == pytest.approx(math.hypot(30.0 * math.tan(tilt), 40.0), rel=1e-9)
+    (_, _, _), d2 = G.single_axis_open_loop(pos, (0.0, 0.0, 0.0), 0.0, tilt, D(85), D(60))
+    assert d2["phi"] == pytest.approx(D(60)) and d2["phi_clipped"] == 1.0
+    # + right: a positive angle looks to the right of the heading (East heading -> South)
+    (_, pitch, gyaw), _ = G.single_axis_open_loop(pos, (0, 0, 0), 0.0, tilt, D(45), D(80))
+    assert G.boresight_from_euler(pitch, gyaw)[1] < 0.0
+    assert G.GIMBAL_LAWS == ("open_loop", "aim_point")

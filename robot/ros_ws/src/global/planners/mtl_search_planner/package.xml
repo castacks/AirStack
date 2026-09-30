@@ -3,7 +3,7 @@
 <package format="3">
   <name>mtl_search_planner</name>
   <version>0.1.0</version>
-  <description>Multi-Agent Target Localization search planner: the vendored C++17 mtl::planner (budgeted orienteering, Dubins calibration, cell anchors, lateral coverage, 1-DOF/2-DOF gimbal scheduling) behind a SearchMission action server that publishes each robot's map-frame track and boresight schedule.</description>
+  <description>Multi-Agent Target Localization search planner: two vendored C++17 planners behind one SearchMission action server - mtl::planner (budgeted orienteering, Dubins calibration, cell anchors, lateral coverage, 1-DOF/2-DOF gimbal scheduling) and mtl::curve::Planner (one jointly optimised continuous curve per aircraft with a sinusoidal single-axis gimbal sweep), selected by the scenario planner.type - publishing each robot's map-frame track and boresight schedule.</description>
   <maintainer email="bshirose@andrew.cmu.edu">Burhan</maintainer>
   <license>BSD-3-Clause-Clear</license>
 

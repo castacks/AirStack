@@ -20,8 +20,9 @@ the selected stack's entry launch file, e.g.
   not a safety executive. It scores target detections online from the flown pose and the
   measured gimbal (Moon et al. sigmoid, miss-product accumulation). It also scores the
   **residual belief mass**: `P(target missed)` over the whole normalised prior, where lower is
-  better, used to compare planners. It writes
-  `runs/<run_id>/<robot>/{telemetry.csv,detection.json,residual_belief.csv,report.html}`.
+  better, used to compare planners: the flown plan (orienteering or curve) and every
+  comparison plan the planner wrote, side by side. It writes
+  `runs/<run_id>/<robot>/{telemetry.csv,detection.json,residual_belief.csv,planner_comparison.csv,report.html}`.
 
 ## Key Interchanges
 

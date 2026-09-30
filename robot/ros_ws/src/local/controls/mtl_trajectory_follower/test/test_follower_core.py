@@ -144,3 +144,50 @@ def test_single_axis_gimbal_slew_rate_is_bounded():
         for a, b in zip(prev, g):
             assert abs(math.remainder(b - a, 2 * math.pi)) <= math.radians(90) * 0.05 + 1e-9
         prev = g
+
+
+# ---- gimbal laws ----------------------------------------------------------------------
+def _sweep_track(n=400, step=0.6, h=300.0, tilt=math.radians(30), amp=math.radians(50)):
+    """A straight East-bound track whose boresight follows a sinusoidal cross-track sweep
+    in the planners' mount model; phi (+ right) and roll as the planner writes them."""
+    xs = [k * step for k in range(n)]
+    alpha = [amp * math.sin(2 * math.pi * 0.075 * k * 0.1) for k in range(n)]   # + right, level frame
+    roll = [0.01 * math.sin(0.03 * k) for k in range(n)]                         # advisory bank
+    bx = [x + h * math.tan(tilt) for x in xs]
+    by = [-h * math.tan(a) / math.cos(tilt) for a in alpha]
+    tr = F.Track(x=xs, y=[0.0] * n, z=[h] * n, yaw=[0.0] * n, speed=[6.0] * n, bx=bx, by=by, bz=[0.0] * n,
+                 phi=[a - r for a, r in zip(alpha, roll)], roll=roll)
+    return tr, alpha
+
+
+def test_open_loop_replays_the_planned_angle_and_hits_the_plan_on_track():
+    tr, alpha = _sweep_track()
+    cfg = F.FollowerConfig(min_turn_radius_m=12.0, tilt_rad=math.radians(30), gimbal_law="open_loop",
+                           gimbal_rate_rad_s=math.radians(1e4), gimbal_lead_s=0.0)
+    fol = F.TrackFollower(tr, cfg)
+    assert tr.cross_angle_at(tr.arc[57]) == pytest.approx(alpha[57], abs=1e-12)   # roll + phi
+    fol.start((0.0, 0.0, 300.0))
+    worst = 0.0
+    for k in range(5, 300, 7):   # the vehicle exactly on the track, heading East
+        out = fol.step((tr.x[k], 0.0, 300.0), 0.0, 0.05)
+        assert out.gimbal_diag["dp"] == 0.0           # no pitch nudge in open loop
+        worst = max(worst, out.gimbal_diag["miss_m"])
+    assert worst < 1e-6
+
+
+def test_aim_point_is_the_default_law_and_unknown_laws_are_refused():
+    tr, _ = _sweep_track()
+    assert F.FollowerConfig().gimbal_law == "aim_point"   # the follower's original behaviour
+    with pytest.raises(ValueError, match="gimbal_law"):
+        F.TrackFollower(tr, F.FollowerConfig(gimbal_law="wobble"))
+    with pytest.raises(ValueError, match="roll"):
+        F.Track(x=[0, 1, 2], y=[0, 0, 0], z=[1, 1, 1], yaw=[0, 0, 0], speed=[1, 1, 1], bx=[0, 1, 2], by=[0, 0, 0],
+                bz=[0, 0, 0], roll=[0.0, 0.0])
+    # aim_point on the same track still aims (and uses its pitch nudge)
+    fol = F.TrackFollower(tr, F.FollowerConfig(min_turn_radius_m=12.0, tilt_rad=math.radians(30),
+                                               gimbal_rate_rad_s=math.radians(1e4)))
+    fol.start((0.0, 0.0, 300.0))
+    out = fol.step((tr.x[100], 0.0, 300.0), 0.0, 0.05)
+    # the aim_point law solves its own phi / pitch nudge for the planned ground point
+    # (a different mount model, so the nudge is non-zero off the centre line)
+    assert abs(out.gimbal_diag["phi"]) > math.radians(10) and out.gimbal_diag["dp"] != 0.0

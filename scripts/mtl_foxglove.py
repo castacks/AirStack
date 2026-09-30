@@ -28,6 +28,7 @@ Topics written (see also mtl_layout.json):
   /world/targets               SceneUpdate: ground truth, colour = P_det, label = time/finder
   /robot_N/model, /frustum     SceneUpdate (frame-locked drone + camera frustum)
   /robot_N/plan                SceneUpdate: planned track + planned boresight ground track
+  /robot_N/plan_alt            SceneUpdate: the comparison plans (track_alt*.json, never flown), grey
   /robot_N/trail               SceneUpdate: flown track so far
   /robot_N/sensor              SceneUpdate: footprint circle, boresight ray, aim, carrot, label
   /robot_N/camera/image        CompressedImage (JPEG)      /robot_N/camera/calibration
@@ -35,7 +36,8 @@ Topics written (see also mtl_layout.json):
   /robot_N/telemetry           JSON: state, speed, altitude, XTE, progress, gimbal cmd/meas, ...
   /team/metrics                JSON: residual belief (P(target missed), lower is better), targets
                                found, valid-cell mass covered, distance, P_det per target
-  /events                      foxglove.Log: phase changes, takeoff, discoveries
+  /events                      foxglove.Log: planner type/mode (+ the curve sweep), phase changes,
+                               takeoff, discoveries
   /raw/robot_N/...             every recorded ROS topic, untouched (CDR)
 """
 
@@ -184,6 +186,9 @@ class Robot:
     caminfo: dict | None = None
     plan_path: list = field(default_factory=list)  # map frame
     plan_bore: list = field(default_factory=list)  # map frame
+    planner_mode: str | None = None                # plain | info_aware | curve (track.json)
+    curve: dict | None = None                      # curve-plan diagnostics (track.json "curve")
+    alt_paths: dict = field(default_factory=dict)  # {mode: [(x, y, z) map]} comparison plans, never flown
     n_images: int = 0
 
     def frame(self, f: str) -> str:
@@ -270,9 +275,18 @@ def load_telemetry(r: Robot, rows: list[dict], t_base_ns: int) -> None:
 
 
 def load_track_json(r: Robot, path: Path) -> None:
-    if r.plan_path or not path.is_file():
+    for alt in sorted(path.parent.glob("track_alt*.json")):
+        a = json.loads(alt.read_text())
+        sa = a.get("samples") or {}
+        if "x_map" in sa:
+            r.alt_paths.setdefault(a.get("planner_mode", alt.stem), list(zip(sa["x_map"], sa["y_map"], sa["z_map"])))
+    if not path.is_file():
         return
     tr = json.loads(path.read_text())
+    r.planner_mode = tr.get("planner_mode")
+    r.curve = tr.get("curve") if isinstance(tr.get("curve"), dict) else None
+    if r.plan_path:
+        return  # the recorded search/plan already gave the planned track
     if r.source != "bag" and tr.get("home_enu"):
         r.home = tuple(float(v) for v in tr["home_enu"])
     s = tr.get("samples") or {}
@@ -524,6 +538,11 @@ def build(run_dir: Path, out_path: Path, *, images: bool, jpeg_quality: int, ima
                     line([r.world(p) for p in r.plan_path[::2]], r.rgb, 0.45, 0.25),
                     line([(p[0] + r.home[0], p[1] + r.home[1], 0.12) for p in r.plan_bore[::2]], r.rgb, 0.35, 0.15)]))
             out.add(t, f"/{r.name}/plan", fm.SceneUpdate(entities=ents))
+            if r.alt_paths:  # comparison plans (never flown): grey, lighter per mode
+                out.add(t, f"/{r.name}/plan_alt", fm.SceneUpdate(entities=[
+                    entity(t, "world", f"{r.name}_plan_alt_{mode}", lines=[
+                        line([r.world(q) for q in pts[::4]], (0.6 - 0.15 * k, 0.6 - 0.15 * k, 0.6 - 0.15 * k), 0.5, 0.2)])
+                    for k, (mode, pts) in enumerate(sorted(r.alt_paths.items()))]))
             # drone model (frame-locked to base_link): X arms, rotors, body, heading arrow
             arm = 0.32
             arms = [(arm, arm, 0.0), (-arm, -arm, 0.0), (arm, -arm, 0.0), (-arm, arm, 0.0)]
@@ -558,6 +577,17 @@ def build(run_dir: Path, out_path: Path, *, images: bool, jpeg_quality: int, ima
     while t <= T1 + NS:
         static_frame(t)
         t += int(static_period_s * NS)
+    for r in robots:  # which planner flew, once at the start
+        if r.planner_mode:
+            msg = f"{r.name}: flies the {r.planner_mode} plan"
+            if r.curve:
+                c = r.curve
+                msg += (f" (parameterized curve, {c.get('representation')}; sweep +/-{c.get('sweep_amplitude_deg', 0):.1f} deg at "
+                        f"{c.get('sweep_freq_hz', 0):.3f} Hz, peak {c.get('sweep_peak_rate_deg_s', 0):.1f} deg/s; "
+                        f"swath half-width {c.get('swath_half_width_m', 0):.0f} m)")
+            if r.alt_paths:
+                msg += f"; comparison plans (not flown): {', '.join(sorted(r.alt_paths))}"
+            out.add(T0, "/events", fm.Log(timestamp=ts(T0), level=fm.LogLevel.Info, name=r.name, message=msg))
 
     # ---------------------------------------------------------------- per robot, timed
     for r in robots:
@@ -637,6 +667,8 @@ def build(run_dir: Path, out_path: Path, *, images: bool, jpeg_quality: int, ima
                 last_tel = t
                 tel = {"state": state, "speed_mps": speed, "altitude_m": pw[2], "vz_mps": vel[2],
                        "heading_deg": math.degrees(yaw_of(q)), "x_world": pw[0], "y_world": pw[1]}
+                if r.planner_mode:
+                    tel["planner_mode"] = r.planner_mode
                 if st:
                     tel.update({"xte_m": st["xte_m"], "progress_m": st["progress_m"], "remaining_m": st["remaining_m"],
                                 "progress_pct": 100.0 * st["progress_m"] / st["total_m"] if st["total_m"] > 0 else 0.0})
@@ -784,6 +816,7 @@ def write_layout(path: Path, robots: list[str]) -> None:
     for r in robots:
         for s in ("model", "frustum", "plan", "trail", "sensor"):
             topics3d[f"/{r}/{s}"] = {"visible": True}
+        topics3d[f"/{r}/plan_alt"] = {"visible": False}   # comparison plans: toggle on to compare
         topics3d[f"/{r}/camera/image"] = {"visible": False}
     config = {
         "3D!team": {"followTf": "world", "followMode": "follow-none", "topics": topics3d,

@@ -16,16 +16,28 @@ whole normalised prior. When the planned tracks carry their boresight schedule
 (``planned_by_agent[name]["looks"]``) the PLANNED residual is scored the same way,
 so plan and flight can be compared in one unit.
 
-Planner modes: the MTL planner has a toggle (``info_aware.enabled`` in the
-scenario) between the plain planner and the information-aware abstraction
-search. The FLOWN plan is one of them; with ``info_aware.report_both`` the
-planner also writes the other mode's plan (``track_alt.json``), passed here as
-``alternative_by_agent``, and its planned residual is scored with the same model
-so the report shows both outcomes side by side.
+Planners and modes: ``planner.type`` picks the planner that is FLOWN -
+``orienteering`` (mtl::planner, whose ``info_aware.enabled`` toggles between the
+plain planner and the information-aware abstraction search) or ``curve``
+(mtl::curve::Planner, one continuous curve per aircraft with a sinusoidal
+gimbal sweep). A track's ``planner_mode`` is ``plain`` | ``info_aware`` |
+``curve``. The planner also writes COMPARISON plans that are never flown:
+
+* orienteering flown + ``info_aware.report_both``: the other mode, ``track_alt.json``;
+* curve flown + ``planner.compare_orienteering``: both orienteering modes,
+  ``track_alt_plain.json`` and ``track_alt_info_aware.json``.
+
+:func:`alternatives_from_dir` reads whichever are there; each is scored with
+the same model (planned residual) so the report shows every plan side by side
+(``summary["planner_comparison"]``, ``planner_comparison.csv``). A curve plan's
+diagnostics (sweep, swath, curvature, fast objective) are carried from
+``track.json`` into ``summary["curve"]``.
 """
 
 from __future__ import annotations
 
+import csv
+import json
 import math
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -36,7 +48,8 @@ from mtl_metrics_logger.report import (build_report_data, residual_map_payload, 
                                        write_residual_csv, write_telemetry_csv)
 
 __all__ = ["targets_world", "cells_world", "area_world", "score_agents", "write_run_outputs",
-           "planned_looks_from_track", "alternative_from_track", "RESIDUAL_CSV_BLOCK_M"]
+           "planned_looks_from_track", "alternative_from_track", "alternatives_from_dir",
+           "planner_type_of", "curve_info_from_track", "RESIDUAL_CSV_BLOCK_M"]
 
 #: Block edge of ``residual_belief.csv`` [m] (10 m, as ``mtl_demo --residual-block 10`` at 1 m).
 RESIDUAL_CSV_BLOCK_M = 10.0
@@ -82,13 +95,60 @@ def planned_looks_from_track(track: Mapping[str, Any], home: Sequence[float] | N
             "bore": [(s["bx_map"][k] + hx, s["by_map"][k] + hy, s["bz_map"][k] + hz) for k in range(n)]}
 
 
+def planner_type_of(mode: str | None) -> str | None:
+    """Planner type of a ``planner_mode``: ``curve`` -> ``curve``, ``plain`` /
+    ``info_aware`` -> ``orienteering`` (tracks written before the curve planner
+    existed carry only the mode)."""
+    if mode is None:
+        return None
+    return "curve" if mode == "curve" else ("orienteering" if mode in ("plain", "info_aware") else "unknown")
+
+
+def curve_info_from_track(track: Mapping[str, Any]) -> dict[str, Any] | None:
+    """The curve planner's diagnostics block of a ``track.json`` (None for orienteering)."""
+    c = track.get("curve")
+    return dict(c) if isinstance(c, Mapping) else None
+
+
 def alternative_from_track(track: Mapping[str, Any], home: Sequence[float] | None = None) -> dict[str, Any]:
-    """``<robot>/track_alt.json`` (the planner mode that was NOT flown) -> an
-    ``alternative_by_agent`` entry for :func:`write_run_outputs`."""
+    """``<robot>/track_alt*.json`` (a comparison plan that was NOT flown) -> an
+    ``alternative_by_agent`` / ``alternatives`` entry for :func:`write_run_outputs`."""
+    mode = track.get("planner_mode", "unknown")
     return {"looks": planned_looks_from_track(track, home),
             "planned_length_m": track.get("flown_length_m"),
-            "mode": track.get("planner_mode", "unknown"),
+            "mode": mode, "planner_type": track.get("planner_type") or planner_type_of(mode),
             "serviced_cells": list(track.get("serviced_cells", []))}
+
+
+def alternatives_from_dir(agent_dir: str | Path, home: Sequence[float] | None = None) -> dict[str, dict[str, Any]]:
+    """Every comparison plan in one robot's run folder, keyed by planner mode:
+    ``track_alt.json`` (orienteering flown: the other mode) and
+    ``track_alt_<mode>.json`` (curve flown: both orienteering modes)."""
+    d = Path(agent_dir)
+    out: dict[str, dict[str, Any]] = {}
+    for f in sorted(d.glob("track_alt*.json")):
+        alt = alternative_from_track(json.loads(f.read_text(encoding="utf-8")), home)
+        out.setdefault(alt["mode"], alt)
+    return out
+
+
+def write_comparison_csv(path: str | Path, comparison: Mapping[str, Any]) -> None:
+    """``planner_comparison.csv``: the flown plan and every comparison plan, one row each."""
+    cols = ["role", "planner_type", "planner_mode", "planned_residual_belief_mass", "flown_residual_belief_mass",
+            "planned_length_m"]
+    fl = comparison.get("flown") or {}
+    rows = [{"role": "flown", "planner_type": comparison.get("flown_type"), "planner_mode": comparison.get("flown_mode"),
+             "planned_residual_belief_mass": fl.get("planned_residual_belief_mass"),
+             "flown_residual_belief_mass": fl.get("residual_belief_mass"), "planned_length_m": fl.get("planned_length_m")}]
+    for a in comparison.get("alternatives") or []:
+        rows.append({"role": "planned only", "planner_type": a.get("planner_type"), "planner_mode": a.get("mode"),
+                     "planned_residual_belief_mass": a.get("planned_residual_belief_mass"),
+                     "flown_residual_belief_mass": None, "planned_length_m": a.get("planned_length_m")})
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=cols)
+        w.writeheader()
+        for r in rows:
+            w.writerow({k: ("" if r.get(k) is None else r[k]) for k in cols})
 
 
 def score_agents(rows_by_agent: Mapping[str, Sequence[Mapping[str, Any]]], scenario: Mapping[str, Any],
@@ -184,7 +244,9 @@ def write_run_outputs(out_dir: str | Path, *, scenario: Mapping[str, Any], groun
                       belief_png: bytes | None = None, write_telemetry: bool = True,
                       extra: Mapping[str, Any] | None = None, progress=None,
                       planner_mode: str | None = None,
-                      alternative_by_agent: Mapping[str, Mapping[str, Any]] | None = None) -> dict[str, Any]:
+                      alternative_by_agent: Mapping[str, Mapping[str, Any]] | None = None,
+                      alternatives: Mapping[str, Mapping[str, Mapping[str, Any]]] | None = None
+                      ) -> dict[str, Any]:
     """Score and write ``telemetry.csv``, ``detection.json``, ``residual_belief.csv`` and ``report.html``.
 
     ``planned_by_agent[name]``: ``{"planned": [[x, y]...] (world), "home": [x, y],
@@ -195,9 +257,13 @@ def write_run_outputs(out_dir: str | Path, *, scenario: Mapping[str, Any], groun
     loops, e.g. with a ``scripts/run_progress.Progress`` to draw a progress bar.
 
     ``planner_mode``: the MTL planner mode that was flown (``"plain"`` /
-    ``"info_aware"``). ``alternative_by_agent[name]``: the other mode's plan
-    (:func:`alternative_from_track`), scored for the side-by-side comparison
-    (``summary["planner_comparison"]``); never part of the flown score.
+    ``"info_aware"`` / ``"curve"``). ``alternatives[mode][name]``: the comparison
+    plans (:func:`alternatives_from_dir` / :func:`alternative_from_track`), each
+    scored for the side-by-side comparison (``summary["planner_comparison"]``,
+    ``planner_comparison.csv``); never part of the flown score.
+    ``alternative_by_agent[name]`` is the one-comparison form (merged in by mode).
+    ``planned_by_agent[name]["curve"]`` (optional): the flown curve plan's
+    diagnostics (:func:`curve_info_from_track`), reported as ``summary["curve"]``.
     """
     def step(stage: str) -> None:
         if progress is not None:
@@ -219,12 +285,16 @@ def write_run_outputs(out_dir: str | Path, *, scenario: Mapping[str, Any], groun
     if prior is not None and looks:
         planned_rb = planned_residual(prior, scorer.model, scorer.fov, looks, progress=progress)
 
-    alt_rb = None
-    alt = dict(alternative_by_agent or {})
-    alt_looks = [p["looks"] for p in alt.values() if p.get("looks")]
-    if prior is not None and alt_looks:
-        step("score alternative plan")
-        alt_rb = planned_residual(prior, scorer.model, scorer.fov, alt_looks, progress=progress)
+    # every comparison plan, grouped by planner mode: {mode: {agent: entry}}
+    by_mode: dict[str, dict[str, Mapping[str, Any]]] = {m: dict(v) for m, v in (alternatives or {}).items()}
+    for name, entry in (alternative_by_agent or {}).items():
+        by_mode.setdefault(entry.get("mode") or "unknown", {})[name] = entry
+    alt_rbs: dict[str, Any] = {}
+    for mode, per_agent_alt in sorted(by_mode.items()):
+        alt_looks = [p["looks"] for p in per_agent_alt.values() if p.get("looks")]
+        if prior is not None and alt_looks:
+            step("score alternative plan")
+            alt_rbs[mode] = planned_residual(prior, scorer.model, scorer.fov, alt_looks, progress=progress)
 
     cells, masses = cells_world(scenario)
     planned_cells = sorted({int(c) for p in planned_by_agent.values() for c in p.get("serviced_cells", [])
@@ -240,23 +310,39 @@ def write_run_outputs(out_dir: str | Path, *, scenario: Mapping[str, Any], groun
         summary["realized_over_planned_mass"] = round(scorer.covered_mass / planned_mass, 4)
     summary["planned_residual_belief_mass"] = (round(planned_rb.exact_mass(), 6)
                                                if planned_rb is not None else None)
-    modes = {p.get("mode") for p in alt.values() if p.get("mode")}
-    alt_mode = modes.pop() if len(modes) == 1 else ("mixed" if modes else None)
-    flown_mode = planner_mode or ({"plain": "info_aware", "info_aware": "plain"}.get(alt_mode) if alt_mode else None)
-    if flown_mode is not None or alt:
-        alt_len = [p.get("planned_length_m") for p in alt.values() if p.get("planned_length_m") is not None]
+    alt_modes = sorted(by_mode)
+    single_alt = alt_modes[0] if len(alt_modes) == 1 else None
+    flown_mode = planner_mode or ({"plain": "info_aware", "info_aware": "plain"}.get(single_alt)
+                                  if single_alt else None)
+    flown_type = planner_type_of(flown_mode)
+    summary["planner_type"] = flown_type
+    summary["planner_mode"] = flown_mode
+    curve_info = {name: p["curve"] for name, p in sorted(planned_by_agent.items()) if p.get("curve")}
+    if curve_info:
+        summary["curve"] = curve_info
+    alt_rows = []
+    for mode in alt_modes:
+        per_agent_alt = by_mode[mode]
+        lens = [p.get("planned_length_m") for p in per_agent_alt.values() if p.get("planned_length_m") is not None]
+        rb = alt_rbs.get(mode)
+        alt_rows.append({
+            "mode": mode, "planner_type": planner_type_of(mode),
+            "planned_residual_belief_mass": round(rb.exact_mass(), 6) if rb is not None else None,
+            "planned_length_m": round(sum(lens), 3) if lens else None,
+            "agents": sorted(per_agent_alt),
+            "note": "planned, never flown: scored from its track and boresight schedule"})
+    if flown_mode is not None or alt_rows:
         own_len = [p.get("planned_length_m") for p in planned_by_agent.values()
                    if p.get("planned_length_m") is not None]
         summary["planner_comparison"] = {
             "flown_mode": flown_mode,
+            "flown_type": flown_type,
             "flown": {"residual_belief_mass": summary.get("residual_belief_mass"),
                       "planned_residual_belief_mass": summary["planned_residual_belief_mass"],
                       "planned_length_m": round(sum(own_len), 3) if own_len else None},
-            "alternative": None if not alt else {
-                "mode": alt_mode,
-                "planned_residual_belief_mass": round(alt_rb.exact_mass(), 6) if alt_rb is not None else None,
-                "planned_length_m": round(sum(alt_len), 3) if alt_len else None,
-                "note": "planned, never flown: scored from its track and boresight schedule"},
+            # the first comparison plan (the only one for an orienteering flight), as before
+            "alternative": alt_rows[0] if alt_rows else None,
+            "alternatives": alt_rows,
         }
     targets = scorer.target_table()
     gt = ground_truth.get("targets", [])
@@ -282,6 +368,8 @@ def write_run_outputs(out_dir: str | Path, *, scenario: Mapping[str, Any], groun
     }
     step("write detection.json + residual_belief.csv")
     write_json(out / "detection.json", detection)
+    if summary.get("planner_comparison"):
+        write_comparison_csv(out / "planner_comparison.csv", summary["planner_comparison"])
     if scorer.residual is not None:
         block = max(1, int(round(RESIDUAL_CSV_BLOCK_M / scorer.residual.prior.res)))
         write_residual_csv(out / "residual_belief.csv", scorer.residual.blocks(block))
@@ -295,9 +383,12 @@ def write_run_outputs(out_dir: str | Path, *, scenario: Mapping[str, Any], groun
         home = p.get("home")
         if home:
             homes.append(home)
-        alt_looks = (alt.get(name) or {}).get("looks") or {}
+        alt_by_mode = {mode: [(q[0], q[1]) for q in (((by_mode[mode].get(name) or {}).get("looks") or {})
+                                                      .get("pos", [])) if q is not None]
+                       for mode in alt_modes}
         agents.append({"name": name, "home": home, "planned": p.get("planned", []),
-                       "alt_planned": [(q[0], q[1]) for q in alt_looks.get("pos", []) if q is not None],
+                       "alt_planned": alt_by_mode[alt_modes[0]] if alt_modes else [],
+                       "alt_planned_by_mode": {m: v for m, v in alt_by_mode.items() if v},
                        "flown": [(r["x_world"], r["y_world"]) for r in rows if r.get("x_world") is not None],
                        "bore": [(r["bore_x_world"], r["bore_y_world"]) for r in rows
                                 if r.get("bore_x_world") is not None]})
@@ -317,9 +408,9 @@ def write_run_outputs(out_dir: str | Path, *, scenario: Mapping[str, Any], groun
             "gets the same miss update as a target standing there; lower is better. "
             + ("The planned value scores the planned track and boresight schedule the same way."
                if planned_rb is not None else ""),
-            *([f"Planner modes: flown = {flown_mode}; the {alt_mode} plan was planned on the same "
-               "scenario but not flown - its value is the PLANNED residual (compare it with the flown "
-               "plan's planned residual, same model)."] if alt else []),
+            *([f"Planners: flown = {flown_mode} ({flown_type}); the {', '.join(alt_modes)} plan(s) were "
+               "planned on the same scenario but not flown - their values are PLANNED residuals (compare "
+               "them with the flown plan's planned residual, same model)."] if alt_modes else []),
             "Scored from the flown pose and the MEASURED gimbal state "
             "(commanded angles substitute only where no measurement arrived; see gimbal_measured_fraction).",
             f"Detection: Moon et al. (2022) sigmoid a={scorer.model.a}, b={scorer.model.b}, c={scorer.model.c}, "

@@ -42,6 +42,7 @@ Frames
 from __future__ import annotations
 
 import copy
+import difflib
 import json
 import math
 import random
@@ -62,6 +63,12 @@ __all__ = [
     "sample_targets",
     "extract_valid_cells",
     "minimum_belief_mass_of",
+    "planner_of",
+    "curve_of",
+    "follower_of",
+    "GIMBAL_LAWS",
+    "PLANNER_TYPES",
+    "MISSION_KEYS",
     "build_scenario",
     "write_scenario_bundle",
     "load_json",
@@ -332,6 +339,166 @@ def minimum_belief_mass_of(mapping: Mapping[str, Any]) -> float:
 
 
 # --------------------------------------------------------------------------- #
+# planner selection + the curve planner's options
+# --------------------------------------------------------------------------- #
+#: ``planner.type``: which planner is FLOWN.
+PLANNER_TYPES = ("orienteering", "curve")
+_PLANNER_KEYS = {"type": str, "compare_orienteering": bool}
+
+# The optional "curve" block of mtl.scenario/1, exactly the keys
+# cpp_curve_planner/apps/mtl_curve_plan_json.cpp (mtlc_plan) reads (see
+# curveFromScenario there). Absent keys keep the planner defaults, with the
+# reference lengths auto-scaled by the adapter (grids / samples / knots by
+# size_m / 5000, kernel geometry and altitude stagger by beta / 610).
+_CURVE_FLOAT = ("altitude_stagger_m", "sweep_freq_hz", "sweep_range_margin", "knot_spacing_m",
+                "sample_spacing_m", "initial_heading_deg", "fast_grid_step_m", "explore_grid_step_m")
+_CURVE_INT = ("num_control_points", "max_iter", "explore_iter", "explore_iter_warm", "coordination_sweeps",
+              "realloc_rounds", "max_realloc_trials")
+_CURVE_BOOL = ("reallocate",)
+_CURVE_OTHER = ("representation", "endpoint_mode", "destinations_ned", "kernel", "init_strategies")
+_CURVE_KERNEL = ("table_step_m", "grid_step_m", "track_len_m", "edge_width_m", "edge_inset_m", "tail_sigma_m",
+                 "tail_weight")
+_CURVE_ENDPOINTS = ("open", "return_home", "fixed_dest")
+
+
+def _refuse_unknown(block: Mapping[str, Any], known: Iterable[str], where: str) -> None:
+    known = sorted(known)
+    bad = sorted(k for k in block if k not in known)
+    if bad:
+        raise ValueError(f"{where}: unknown key(s) {', '.join(map(repr, bad))} - known: {', '.join(known)}")
+
+
+def _num(v: Any, where: str, cast=float):
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        raise ValueError(f"{where} must be a number, got {v!r}")
+    out = cast(v)
+    if cast is int and out != v:
+        raise ValueError(f"{where} must be an integer, got {v!r}")
+    if not math.isfinite(out):
+        raise ValueError(f"{where} must be finite, got {v!r}")
+    return out
+
+
+def planner_of(block: Mapping[str, Any] | None) -> dict[str, Any]:
+    """``mission.planner`` -> the normalised top-level ``planner`` scenario block.
+
+    ``type`` is ``orienteering`` (default: mtl::planner, whose mode ``info_aware.enabled``
+    selects) or ``curve`` (mtl::curve::Planner). ``compare_orienteering`` (default true,
+    curve only): also plan the orienteering planner in BOTH modes for the report, never
+    flown. Unknown keys and values are refused.
+    """
+    b = dict(block or {})
+    _refuse_unknown(b, _PLANNER_KEYS, "planner")
+    t = b.get("type", "orienteering")
+    if t not in PLANNER_TYPES:
+        raise ValueError(f"planner.type {t!r} is not one of {', '.join(PLANNER_TYPES)}")
+    cmp_ = b.get("compare_orienteering", True)
+    if not isinstance(cmp_, bool):
+        raise ValueError(f"planner.compare_orienteering must be true or false, got {cmp_!r}")
+    return {"type": t, "compare_orienteering": cmp_}
+
+
+def curve_of(block: Mapping[str, Any] | None) -> dict[str, Any]:
+    """``mission.curve`` -> the normalised ``curve`` scenario block (mtlc_plan's keys).
+
+    Only the keys the mission sets are written: an absent key keeps the curve
+    planner's default, auto-scaled to the mission by the adapter. Unknown keys,
+    wrong types and bad enum values are refused.
+    """
+    b = dict(block or {})
+    _refuse_unknown(b, _CURVE_FLOAT + _CURVE_INT + _CURVE_BOOL + _CURVE_OTHER, "curve")
+    out: dict[str, Any] = {}
+    if "representation" in b:
+        if b["representation"] not in ("curvature", "bspline"):
+            raise ValueError(f"curve.representation {b['representation']!r} is not curvature | bspline")
+        out["representation"] = b["representation"]
+    if "endpoint_mode" in b:
+        em = b["endpoint_mode"]
+        modes = em if isinstance(em, list) else [em]
+        for m in modes:
+            if m not in _CURVE_ENDPOINTS:
+                raise ValueError(f"curve.endpoint_mode {m!r} is not one of {', '.join(_CURVE_ENDPOINTS)}")
+        out["endpoint_mode"] = list(em) if isinstance(em, list) else em
+    if "destinations_ned" in b:
+        dests = []
+        for d in b["destinations_ned"] or []:
+            if not isinstance(d, (list, tuple)) or len(d) != 2:
+                raise ValueError(f"curve.destinations_ned entries need [n, e], got {d!r}")
+            dests.append([_num(d[0], "curve.destinations_ned"), _num(d[1], "curve.destinations_ned")])
+        out["destinations_ned"] = dests
+    if "kernel" in b:
+        kn = dict(b["kernel"] or {})
+        _refuse_unknown(kn, _CURVE_KERNEL, "curve.kernel")
+        out["kernel"] = {k: _num(kn[k], f"curve.kernel.{k}") for k in _CURVE_KERNEL if k in kn}
+    if "init_strategies" in b:
+        strat = list(b["init_strategies"] or [])
+        if not strat or any(v not in ("clusters", "greedy") for v in strat):
+            raise ValueError(f"curve.init_strategies {strat!r} must be a non-empty list of clusters | greedy")
+        out["init_strategies"] = strat
+    for k in _CURVE_FLOAT:
+        if k in b and b[k] is not None:
+            out[k] = _num(b[k], f"curve.{k}")
+    for k in _CURVE_INT:
+        if k in b and b[k] is not None:
+            out[k] = _num(b[k], f"curve.{k}", int)
+    for k in _CURVE_BOOL:
+        if k in b and b[k] is not None:
+            if not isinstance(b[k], bool):
+                raise ValueError(f"curve.{k} must be true or false, got {b[k]!r}")
+            out[k] = b[k]
+    return out
+
+
+#: ``follower.gimbal_law``: how mtl_trajectory_follower drives a single-axis gimbal.
+GIMBAL_LAWS = ("open_loop", "aim_point")
+
+
+def follower_of(block: Mapping[str, Any] | None) -> dict[str, Any]:
+    """``mission.follower`` -> the normalised ``airstack.follower`` scenario block.
+
+    ``gimbal_law`` (default ``open_loop``): ``open_loop`` replays the planned
+    cross-track angle (roll + phi) with the look angle fixed at the mount tilt, so
+    the gimbal just swings left and right as planned; ``aim_point`` is the
+    follower's original law (aim at the planned ground point from the actual
+    pose, with a +/-5 deg pitch nudge). The planner node puts it in every
+    ``SearchPlan`` (``gimbal_law``); the offline mission reads it from here.
+    """
+    b = dict(block or {})
+    _refuse_unknown(b, ("gimbal_law",), "follower")
+    law = b.get("gimbal_law", "open_loop")
+    if law not in GIMBAL_LAWS:
+        raise ValueError(f"follower.gimbal_law {law!r} is not one of {', '.join(GIMBAL_LAWS)}")
+    return {"gimbal_law": law}
+
+
+def check_curve_feasible(scenario: Mapping[str, Any]) -> None:
+    """Refuse, at generation time, a curve mission the planner would reject at
+    construction (``mtl::curve::PlannerParams::validate``): an infinite budget, a
+    2-DOF gimbal, or an agent whose boresight is out of range even at zero sweep."""
+    team, air, sensor = scenario["team"], scenario["aircraft"], scenario["sensor"]
+    budget = min(team.get("max_flight_distance_m") or math.inf,
+                 (team.get("max_flight_time_s") or math.inf) * float(air["speed_mps"]))
+    if not math.isfinite(budget):
+        raise ValueError("planner.type curve needs a finite budget (team.max_flight_time_s or "
+                         "team.max_flight_distance_m): the curve IS the budget")
+    if not sensor.get("single_axis_gimbal", True):
+        raise ValueError("planner.type curve flies a single-axis sweep: set sensor.single_axis_gimbal: true")
+    cv = scenario.get("curve", {})
+    det = sensor["detection"]
+    beta = float(det["beta"])
+    stagger = float(cv.get("altitude_stagger_m", 25.0 * beta / 610.0))  # the adapter's auto-scaled default
+    margin = float(cv.get("sweep_range_margin", 0.98))
+    tau = math.radians(float(sensor["tilt_deg"]))
+    for a in range(len(team["agents"])):
+        h = float(air["altitude_m"]) + a * stagger
+        if h >= margin * beta * math.cos(tau):
+            raise ValueError(
+                f"curve: agent {a + 1} at {h:g} m (altitude_m + {a} x altitude_stagger_m {stagger:g}) "
+                f"cannot see the ground at {sensor['tilt_deg']:g} deg tilt: needs h < "
+                f"sweep_range_margin x beta x cos(tilt) = {margin * beta * math.cos(tau):.1f} m")
+
+
+# --------------------------------------------------------------------------- #
 # the scenario bundle
 # --------------------------------------------------------------------------- #
 def _finite_or_none(v: Any) -> float | None:
@@ -396,6 +563,12 @@ def info_aware_of(block: Mapping[str, Any]) -> dict[str, Any]:
     return out
 
 
+#: Every top-level key of a ``mission:`` block (mtl_search and tigris_search).
+MISSION_KEYS = frozenset({
+    "name", "seed", "area", "belief", "targets", "team", "aircraft", "mapping", "sensor", "gimbal", "solver",
+    "info_aware", "planner", "curve", "follower", "gimbal_actuation", "flight", "sim_gimbal", "render"})
+
+
 def build_scenario(mission: Mapping[str, Any], agents: Sequence[Mapping[str, Any]],
                    *, provenance: Mapping[str, Any] | None = None
                    ) -> tuple[dict[str, Any], dict[str, Any], BeliefGrid]:
@@ -406,6 +579,13 @@ def build_scenario(mission: Mapping[str, Any], agents: Sequence[Mapping[str, Any
     multirotor takes off where it spawned and flies from there.
     """
     m = copy.deepcopy(dict(mission))
+    unknown = sorted(set(m) - MISSION_KEYS)
+    if unknown:
+        # a misspelt block (e.g. "curv:") would otherwise be ignored and its planner default used
+        hints = {k: difflib.get_close_matches(k, sorted(MISSION_KEYS), n=1) for k in unknown}
+        raise ValueError("mission: unknown block(s) " + ", ".join(
+            f"{k!r}" + (f" (did you mean {hints[k][0]!r}?)" if hints[k] else "") for k in unknown)
+            + f" - known: {', '.join(sorted(MISSION_KEYS))}")
     seed = int(m.get("seed", 21))
     area = m["area"]
     grid, bumps = generate_belief(area, m.get("belief", {}), seed)
@@ -518,6 +698,19 @@ def build_scenario(mission: Mapping[str, Any], agents: Sequence[Mapping[str, Any
         # MTL planner mode toggle (+ report both modes). Written only when the mission
         # has the block, so a bundle without it is unchanged (plain planner).
         scenario["info_aware"] = info_aware_of(m["info_aware"])
+    if m.get("planner") is not None:
+        # Which planner is flown (orienteering | curve). Written only when the mission
+        # has the block; absent = orienteering, as every bundle before the curve planner.
+        scenario["planner"] = planner_of(m["planner"])
+    if m.get("curve") is not None:
+        # The curve planner's options (mtlc_plan's "curve" block). Written whenever the
+        # mission has it, so switching planner.type needs no other edit.
+        scenario["curve"] = curve_of(m["curve"])
+    if m.get("follower") is not None:
+        # AirStack-only (ignored by the planners): the follower's single-axis gimbal law.
+        scenario["airstack"]["follower"] = follower_of(m["follower"])
+    if scenario.get("planner", {}).get("type") == "curve":
+        check_curve_feasible(scenario)
     if m.get("gimbal_actuation") is not None:
         # TIGRIS-only (stacks/tigris_search): a constant-rate left/right sweep of the
         # single-axis gimbal. Written only when the mission has the block, so the MTL
