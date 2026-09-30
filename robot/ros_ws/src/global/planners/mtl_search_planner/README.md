@@ -29,10 +29,30 @@ row** in its `map` frame. That frame's origin is the robot's spawn/home, so
 At mission start it writes `runs/<run_id>/<robot>/{plan.json, track.json, scenario.json}` and
 points `runs/latest` at the run.
 
+### Planner mode toggle (`info_aware`)
+
+The scenario's `info_aware` block (from `stacks/mtl_search/config/mission.yaml`) selects the
+planner mode that is **flown**:
+
+| `info_aware.enabled` | Flown plan |
+|---|---|
+| `false` | the plain planner: k-means clusters by proximity, route scored by the mass the boresight is aimed at |
+| `true` | the information-aware search (`mtl::PlannerParams::infoAware`, see `third_party/mtl_planner/CHANGES_info_aware.md`): clusters follow the prior's peaks, cut into core / shoulder / tail mass levels; several abstractions are planned, each flown plan is scored by what its footprint would detect, and split / peel / merge moves refine the best |
+
+With `info_aware.report_both: true` (the default) a mission goal also plans the **other** mode and
+writes it as `plan_alt.json` / `track_alt.json` next to the flown plan. It is never published or
+flown; `mtl_metrics_logger` and `scripts/analyze_mtl_run.py` score its planned residual belief
+with the same model, and the report shows both modes side by side. `plan.json` carries
+`meta.planner_mode` and, for the information-aware mode, `meta.info_aware` (every candidate
+abstraction, its coverage score, the chosen one); `track.json` carries `planner_mode`. The
+information-aware search adds a few seconds of planning (on worker threads) before the sortie
+starts; the boot preview plans the flown mode only.
+
 Also built:
 
-- `mtl_search_plan`: offline CLI, `--scenario F --out-dir D [--agent N]`. It writes the same
-  `plan.json` / `<agent>_track.json` as the node, and `scripts/mtl_offline_mission.py`
+- `mtl_search_plan`: offline CLI, `--scenario F --out-dir D [--agent N] [--no-alt]`. It writes
+  the same `plan.json` / `<agent>_track.json` as the node (and `plan_alt.json` /
+  `<agent>_track_alt.json` for the other planner mode), and `scripts/mtl_offline_mission.py`
   uses it.
 - `mtl_search_planner.scenario`: stdlib Python that generates scenarios from
   `stacks/mtl_search/config/mission.yaml`. It is used by `scripts/mtl_generate_scenario.py`.

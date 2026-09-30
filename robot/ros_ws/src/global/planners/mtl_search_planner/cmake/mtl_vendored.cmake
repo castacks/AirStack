@@ -2,6 +2,11 @@
 #  mtl_vendored.cmake — build the vendored cpp_planner (mtl::planner) as static,
 #  position-independent libraries inside this package.
 #
+#  The vendored tree carries one AirStack-side addition (see
+#  third_party/VENDORED.md): the information-aware abstraction search
+#  (mapping/peak_clusters, planning/coverage_score, planning/info_aware and
+#  tests/test_info_aware.cpp), off unless the scenario enables it.
+#
 #  Why not add_subdirectory(third_party/mtl_planner): its install()/export rules
 #  would install a second copy of the headers and a CMake package into the ROS
 #  install space. Compiling the same source list here keeps the vendored tree
@@ -17,6 +22,7 @@
 set(MTL_VENDOR_DIR "${CMAKE_CURRENT_LIST_DIR}/../third_party/mtl_planner")
 
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
+find_package(Threads REQUIRED)   # the info-aware search plans candidates on worker threads
 
 set(MTL_VENDOR_PLANNER_SOURCES
   src/params.cpp
@@ -25,8 +31,11 @@ set(MTL_VENDOR_PLANNER_SOURCES
   src/core/dubins.cpp
   src/core/kmeans.cpp
   src/mapping/cells.cpp
+  src/mapping/peak_clusters.cpp
   src/routing/tsp.cpp
   src/planning/info_score.cpp
+  src/planning/coverage_score.cpp
+  src/planning/info_aware.cpp
   src/planning/orienteering.cpp
   src/planning/macro_route.cpp
   src/planning/cell_anchors.cpp
@@ -41,7 +50,7 @@ list(TRANSFORM MTL_VENDOR_PLANNER_SOURCES PREPEND "${MTL_VENDOR_DIR}/")
 
 add_library(mtl_planner_vendored STATIC ${MTL_VENDOR_PLANNER_SOURCES})
 target_include_directories(mtl_planner_vendored PUBLIC "${MTL_VENDOR_DIR}/include")
-target_link_libraries(mtl_planner_vendored PUBLIC Eigen3::Eigen)
+target_link_libraries(mtl_planner_vendored PUBLIC Eigen3::Eigen Threads::Threads)
 set_target_properties(mtl_planner_vendored PROPERTIES
   POSITION_INDEPENDENT_CODE ON CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
 if(NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -61,10 +70,10 @@ target_link_libraries(mtl_eval_vendored PUBLIC mtl_planner_vendored)
 set_target_properties(mtl_eval_vendored PROPERTIES
   POSITION_INDEPENDENT_CODE ON CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
 
-# Upstream self-tests (plain executables, no framework): registered with CTest
+# Upstream self-tests (plain executables, no framework; test_info_aware is the AirStack addition): registered with CTest
 # so `colcon test --packages-select mtl_search_planner` runs them.
 function(mtl_vendored_add_selftests)
-  foreach(t test_dubins test_kmeans test_orienteering test_geometry test_pipeline)
+  foreach(t test_dubins test_kmeans test_orienteering test_geometry test_pipeline test_info_aware)
     add_executable(mtl_vendored_${t} "${MTL_VENDOR_DIR}/tests/${t}.cpp")
     target_link_libraries(mtl_vendored_${t} PRIVATE mtl_eval_vendored)
     target_include_directories(mtl_vendored_${t} PRIVATE "${MTL_VENDOR_DIR}/tests")

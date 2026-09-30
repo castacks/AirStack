@@ -214,3 +214,55 @@ TEST(Plan, JsonOutputsParse) {
     EXPECT_EQ(one["agent"].text(""), "robot_1");
     EXPECT_EQ(one["samples"]["x_map"].array().size(), tr.samples.size());
 }
+
+// ---- the planner-mode toggle (info_aware) -----------------------------------
+TEST(InfoAware, OffByDefaultAndParsedFromTheScenario) {
+    const auto off = mtl_search::parseScenario(tinyScenario());
+    EXPECT_FALSE(off.params.infoAware.enabled);
+    EXPECT_TRUE(off.reportAlternative);
+
+    std::string s = tinyScenario();
+    s.replace(s.find("\"solver\": {}"), 12,
+              "\"solver\": {}, \"info_aware\": {\"enabled\": true, \"report_both\": false, "
+              "\"level_sets\": [[1.0], [0.4, 1.0]], \"max_moves\": 3, \"threads\": 2, \"persistence\": 0.5}");
+    const auto on = mtl_search::parseScenario(s);
+    EXPECT_TRUE(on.params.infoAware.enabled);
+    EXPECT_FALSE(on.reportAlternative);
+    ASSERT_EQ(on.params.infoAware.levelSets.size(), 2u);
+    EXPECT_NEAR(on.params.infoAware.levelSets[1][0], 0.4, 1e-12);
+    EXPECT_EQ(on.params.infoAware.maxMoves, 3);
+    EXPECT_EQ(on.params.infoAware.threads, 2);
+    EXPECT_NEAR(on.params.infoAware.persistence, 0.5, 1e-12);
+}
+
+TEST(InfoAware, SolveFliesTheToggleAndTheAlternativeIsTheOtherMode) {
+    std::string s = tinyScenario(120.0);
+    s.replace(s.find("\"solver\": {}"), 12,
+              "\"solver\": {}, \"info_aware\": {\"enabled\": true, \"max_moves\": 2, \"threads\": 1}");
+    const auto p = mtl_search::parseScenario(s);
+    const auto flown = mtl_search::solve(p);
+    const auto alt   = mtl_search::solveAlternative(p);
+    EXPECT_EQ(mtl_search::plannerMode(flown), "info_aware");
+    EXPECT_EQ(mtl_search::plannerMode(alt), "plain");
+    EXPECT_GE(flown.infoAware.chosenScore, flown.infoAware.baselineScore - 1e-12);
+
+    // the plain mode through the toggle is exactly the plain planner
+    const auto plain = mtl_search::solve(mtl_search::parseScenario(tinyScenario(120.0)));
+    ASSERT_EQ(plain.trajectories.size(), alt.trajectories.size());
+    EXPECT_EQ(plain.trajectories[0].drone.rows(), alt.trajectories[0].drone.rows());
+    EXPECT_TRUE(plain.trajectories[0].drone.isApprox(alt.trajectories[0].drone));
+
+    for (int a = 0; a < 2; ++a) {
+        const auto tr = mtl_search::buildAgentTrack(flown, p, a);
+        EXPECT_EQ(tr.plannerMode, "info_aware");
+        EXPECT_LE(tr.flownLength, tr.budget * 1.01);
+        const auto js = jsonmini::parse(mtl_search::agentTrackJson(tr, p));
+        EXPECT_EQ(js["planner_mode"].text(""), "info_aware");
+    }
+    const auto team = jsonmini::parse(mtl_search::teamPlanJson(flown, p));
+    EXPECT_EQ(team["meta"]["planner_mode"].text(""), "info_aware");
+    EXPECT_FALSE(team["meta"]["info_aware"]["chosen"].text("").empty());
+    EXPECT_TRUE(team["meta"]["info_aware"]["candidates"].isArray());
+    const auto teamAlt = jsonmini::parse(mtl_search::teamPlanJson(alt, p));
+    EXPECT_EQ(teamAlt["meta"]["planner_mode"].text(""), "plain");
+}

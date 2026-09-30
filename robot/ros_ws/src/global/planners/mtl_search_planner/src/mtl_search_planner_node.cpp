@@ -16,6 +16,10 @@
 //  * Relays search/follower_status as action feedback and finishes the goal
 //    when the follower reports COMPLETE (or ABORTED).
 //  * Writes runs/<run_id>/<agent>/{plan.json, track.json, scenario.json}.
+//    The scenario's info_aware.enabled selects the planner mode that is FLOWN
+//    (plain or information-aware); with info_aware.report_both (default) a
+//    mission goal also plans the other mode and writes it as
+//    {plan_alt.json, track_alt.json} - never flown, scored in the report.
 //
 //  All geometry is expressed in this robot's odometry frame ("map"), whose
 //  origin is the robot's home: p_map = p_worldENU - home_ENU (see
@@ -217,6 +221,33 @@ private:
             track_  = mtl_search::buildAgentTrack(result_, problem_, idx, home_up_m_);
             const double ms = std::chrono::duration<double, std::milli>(
                 std::chrono::steady_clock::now() - t0).count();
+            if (result_.infoAware.enabled) {
+                RCLCPP_INFO(get_logger(),
+                            "info-aware planner: chose %s from %zu plans (%d/%d split/merge moves "
+                            "kept); coverage model detects %.4f vs %.4f for the plain plan",
+                            result_.infoAware.chosen.c_str(), result_.infoAware.candidates.size(),
+                            result_.infoAware.movesAccepted, result_.infoAware.movesTried,
+                            result_.infoAware.chosenScore, result_.infoAware.baselineScore);
+            }
+            // The other planner mode, for the side-by-side report.  Only for a
+            // mission goal (a run folder to write it into), never for the boot
+            // preview, and a failure here never costs the mission.
+            have_alt_ = false;
+            if (!runId.empty() && problem_.reportAlternative) {
+                try {
+                    const auto t1 = std::chrono::steady_clock::now();
+                    alt_result_ = mtl_search::solveAlternative(problem_);
+                    alt_track_  = mtl_search::buildAgentTrack(alt_result_, problem_, idx, home_up_m_);
+                    have_alt_   = true;
+                    RCLCPP_INFO(get_logger(), "alternative (%s, not flown) planned in %.0f ms: %.0f m, %zu cells",
+                                mtl_search::plannerMode(alt_result_).c_str(),
+                                std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t1).count(),
+                                alt_track_.totalArc(), alt_track_.servicedCells.size());
+                } catch (const std::exception& e) {
+                    RCLCPP_WARN(get_logger(), "alternative plan for the report failed (mission unaffected): %s",
+                                e.what());
+                }
+            }
             if (track_.samples.size() < 2) {
                 throw std::runtime_error("agent '" + agent_name_ + "' has a " +
                                          std::to_string(track_.samples.size()) +
@@ -224,9 +255,10 @@ private:
             }
             plan_id_ = problem_.name + "/" + agent_name_ + "/" + (runId.empty() ? "preview" : runId);
             RCLCPP_INFO(get_logger(),
-                        "planned %s in %.0f ms: %zu samples, %.0f m of %.0f m budget, %zu cells, "
+                        "planned %s [%s] in %.0f ms: %zu samples, %.0f m of %.0f m budget, %zu cells, "
                         "team info %.1f %%%s",
-                        plan_id_.c_str(), ms, track_.samples.size(), track_.totalArc(), track_.budget,
+                        plan_id_.c_str(), mtl_search::plannerMode(result_).c_str(), ms,
+                        track_.samples.size(), track_.totalArc(), track_.budget,
                         track_.servicedCells.size(), 100.0 * result_.team.infoFraction,
                         track_.feasible ? "" : " [INFEASIBLE - best effort]");
             publishPlan(runId, start);
@@ -389,6 +421,14 @@ private:
             !writeText(dir / "scenario.json", problem_.raw.dump())) {
             RCLCPP_WARN(get_logger(), "could not write the plan files into %s", dir.c_str());
         }
+        std::error_code rm;
+        fs::remove(dir / "plan_alt.json", rm);
+        fs::remove(dir / "track_alt.json", rm);
+        if (have_alt_ &&
+            (!writeText(dir / "plan_alt.json", mtl_search::teamPlanJson(alt_result_, problem_)) ||
+             !writeText(dir / "track_alt.json", mtl_search::agentTrackJson(alt_track_, problem_)))) {
+            RCLCPP_WARN(get_logger(), "could not write the alternative plan files into %s", dir.c_str());
+        }
         // runs/latest -> <run_id> (relative, so it resolves on the host too)
         const fs::path latest = root / "latest";
         fs::remove(latest, ec);
@@ -525,6 +565,9 @@ private:
     mtl_search::SearchProblem problem_;
     mtl::PlanningResult result_;
     mtl_search::AgentTrack track_;
+    mtl::PlanningResult alt_result_;   ///< the other planner mode (report only, never flown)
+    mtl_search::AgentTrack alt_track_;
+    bool have_alt_ = false;
     std::string plan_id_;
     std::atomic<bool> busy_{false};
     std::mutex plan_mutex_;

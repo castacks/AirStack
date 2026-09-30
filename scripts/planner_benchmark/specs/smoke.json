@@ -1,0 +1,2 @@
+{"_doc": "A 12-scenario smoke test of the whole pipeline.", "seed": 7, "count": 12,
+ "budget_s": [700, 1000], "homes": {"near_center": [-170.0, -170.0]}}

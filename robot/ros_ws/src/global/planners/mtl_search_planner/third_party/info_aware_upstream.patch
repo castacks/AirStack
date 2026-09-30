@@ -1,0 +1,1742 @@
+diff -ruN a/CHANGES_info_aware.md b/CHANGES_info_aware.md
+--- a/CHANGES_info_aware.md	1969-12-31 19:00:00.000000000 -0500
++++ b/CHANGES_info_aware.md	2026-09-29 17:15:52.560568737 -0400
+@@ -0,0 +1,55 @@
++# Change note: information-aware abstraction search (`PlannerParams::infoAware`)
++
++**Package:** `cpp_planner/` (namespace `mtl`). **Date:** 2026-09-29. **Origin:** written in the
++AirStack vendored copy (`mtl_search_planner/third_party/mtl_planner`), offered upstream as
++`third_party/info_aware_upstream.patch`.
++
++**Opt-in. With `infoAware.enabled = false` (the default) every plan is bit-identical to before:**
++the only code path that changes is behind that flag, and the existing five test suites are
++untouched and pass.
++
++## Why
++
++The plain pipeline commits to one abstraction, k-means clusters of radius `maxClusterRadius`,
++and optimises the route against its own proxy: the mass of the cells the boresight is aimed at.
++On a peaked prior both cost detection:
++
++* a proximity cluster mixes a peak's dense core with its thin tail, so the route can take both
++  or neither, and flights spend their second half at a peak collecting about half the belief per
++  km of the first half;
++* "aimed at" is not "detected". Centres aimed at past the detection range (`sensor.beta`), cells
++  swept twice, and everything the footprint sees in transit are all valued wrongly, so a plan
++  that is better on the proxy can search less. The planner's info mass and the residual belief
++  disagree on which of two plans is better.
++
++## What
++
++| New code | Purpose |
++|---|---|
++| `mapping/peak_clusters.{hpp,cpp}` | `findPeakBasins` (discrete watershed of cell mass on the cell lattice, persistence merging); `clusterByPeaks` (basin -> cumulative-mass levels -> split under the radius); helpers `splitUnderRadius`, `clusterSetFromMembers` |
++| `planning/coverage_score.{hpp,cpp}` | `CoverageModel`: the residual-belief metric computed from the cells (each cell spread over a sub-lattice), same footprint and sigmoid as `eval::computeResidualBelief`. Lives in `mtl_planner`, so no link to `mtl_eval` |
++| `planning/info_aware.{hpp,cpp}` | `planInfoAware`: candidate abstractions x seeds, all scored with the coverage model, then PEEL / SPLIT / MERGE moves; `detectionReach` |
++| `ClusterSet::basin / level / parent` | the hierarchy of a peak abstraction (empty for k-means) |
++| `PlanningResult::infoAware` (`InfoAwareReport`) | every candidate's label, reach, coverage score, info mass, flown length; the chosen one and the plain plan's score |
++| `PlannerParams::infoAware` (`InfoAwareParams`) | `enabled`, `levelSets`, `persistence`, `reachScales`, `slantMargin`, `capGimbalToDetection`, `subsample`, `lookStride`, `restarts`, `maxMoves`, `splitMerge`, `peelKeep`, `threads`; validated when enabled |
++| `Planner::planFromCells` | dispatches to `planInfoAware` when enabled (so `plan()` does too); `planFromClusters` unchanged |
++| `apps/mtl_plan_json.cpp` | reads the optional scenario block `info_aware` (same keys, snake_case) |
++| `tests/test_info_aware.cpp` | the sixth ctest suite |
++| `CMakeLists.txt` | the three sources, the test, `Threads::Threads` (candidates are planned on worker threads) |
++
++Every candidate is an ordinary `planFromClusters` plan, so the budget guarantee (measured on the
++flown arc), the gimbal schedule and the geometry audit are exactly the plain planner's. The
++result does not depend on the thread count.
++
++## Verification
++
++* `ctest`: 6/6. `test_info_aware` also passes under `-fsanitize=address,undefined` and
++  `-fsanitize=thread`.
++* The coverage model agrees with `computeResidualBelief` to about 0.01 on the test scenario
++  (0.557 vs 0.564 detected).
++* Offline, on the AirStack `mtl_search_small` scenario (1000 s budget, one agent), planned
++  residual 0.423 -> 0.347 (the flown TIGRIS baseline was 0.428); in a closed-loop kinematic
++  rehearsal, flown 0.338 vs 0.428 planned for the plain planner. The benchmark over 216 varied
++  priors is in the AirStack run notes.
++* Cost: 8 abstractions x (1 + `restarts`) plans + up to `maxMoves` re-plans, each a plain plan
++  (0.3-1.5 s at 1000-2500 s budgets on this scenario), spread over `threads` workers.
+diff -ruN a/CMakeLists.txt b/CMakeLists.txt
+--- a/CMakeLists.txt	2026-09-29 17:15:52.532390044 -0400
++++ b/CMakeLists.txt	2026-09-29 17:15:52.560372427 -0400
+@@ -48,6 +48,9 @@
+   find_package(OpenMP)
+ endif()
+ 
++# The information-aware search plans its candidate abstractions on worker threads.
++find_package(Threads REQUIRED)
++
+ # -----------------------------------------------------------------------------
+ #  Warning set, applied through one interface target so every library shares it
+ #  without leaking the flags to consumers.
+@@ -76,8 +79,11 @@
+   src/core/dubins.cpp
+   src/core/kmeans.cpp
+   src/mapping/cells.cpp
++  src/mapping/peak_clusters.cpp
+   src/routing/tsp.cpp
+   src/planning/info_score.cpp
++  src/planning/coverage_score.cpp
++  src/planning/info_aware.cpp
+   src/planning/orienteering.cpp
+   src/planning/macro_route.cpp
+   src/planning/cell_anchors.cpp
+@@ -97,7 +103,7 @@
+     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+ 
+ target_link_libraries(mtl_planner
+-  PUBLIC  Eigen3::Eigen
++  PUBLIC  Eigen3::Eigen Threads::Threads
+   PRIVATE mtl_warnings)
+ 
+ if(MTL_ENABLE_OPENMP AND OpenMP_CXX_FOUND)
+@@ -160,7 +166,7 @@
+ if(MTL_BUILD_TESTS)
+   enable_testing()
+ 
+-  foreach(t test_dubins test_kmeans test_orienteering test_geometry test_pipeline)
++  foreach(t test_dubins test_kmeans test_orienteering test_geometry test_pipeline test_info_aware)
+     add_executable(${t} tests/${t}.cpp)
+     target_link_libraries(${t} PRIVATE mtl_planner mtl_mapgen mtl_eval mtl_warnings)
+     add_test(NAME ${t} COMMAND ${t})
+diff -ruN a/README.md b/README.md
+--- a/README.md	2026-09-29 17:15:52.532407529 -0400
++++ b/README.md	2026-09-29 17:15:52.560393423 -0400
+@@ -30,6 +30,11 @@
+ | `optimizeDroneSensorTraj` | schedule which pass each centre is served on | with one gimbal axis the *instant* is handed over by geometry; the freedom is *which crossing* plus a few degrees of pitch |
+ | `computeAirframeRPY` | read attitude off the trajectory | with a multi-axis gimbal there is nothing to schedule |
+ 
++**Optional: `PlannerParams::infoAware`** (off by default) replaces the single proximity
++abstraction with a search over abstractions: clusters that follow the prior's peaks, cut into
++nested mass levels, each flown plan scored by what its footprint would detect. See
++*Information-aware abstraction search* below.
++
+ The budget is a **hard guarantee**, not an estimate: it is enforced on the trajectory that
+ comes out, not the plan that went in (see *The budget is measured, not estimated* below).
+ 
+@@ -53,24 +58,24 @@
+   params.hpp                 EVERY tunable, in structs — the port of init_params.m
+   planner.hpp                the Planner class: the integration surface
+   core/       numeric, dubins, kmeans
+-  mapping/    cells                  (extract, cluster, reward)
++  mapping/    cells, peak_clusters   (extract, cluster, reward; peak basins + mass levels)
+   routing/    tsp                    (macro TSP, micro sweep, sensor path)
+   planning/   info_score, orienteering, macro_route, cell_anchors,
+-              agent_sortie, team_allocation
++              agent_sortie, team_allocation, coverage_score, info_aware
+   trajectory/ trajectory_gen, lateral_coverage
+   sensing/    abeam, airframe, gimbal_scheduler
+   mapgen/     scenario               → library mtl_mapgen
+   eval/       detection, geometry_audit, report   → library mtl_eval
+ src/          mirrors include/
+ apps/         demo_pipeline.cpp      the C++ equivalent of main_new.m
+-tests/        five suites, run by ctest, no external framework
++tests/        six suites, run by ctest, no external framework
+ ```
+ 
+ ### Three libraries, on purpose
+ 
+ | Target | Contents | Depends on |
+ |---|---|---|
+-| **`mtl::planner`** | the whole planning chain | Eigen only |
++| **`mtl::planner`** | the whole planning chain | Eigen (+ the platform thread library) |
+ | `mtl::mapgen` | Gaussian prior (normalised) + ground-truth targets | `mtl::planner` |
+ | `mtl::eval` | detection physics, residual belief, geometry audit, reports | `mtl::planner` |
+ 
+@@ -197,6 +202,31 @@
+ 
+ ---
+ 
++## Information-aware abstraction search (`PlannerParams::infoAware`)
++
++Off by default; `infoAware.enabled = true` makes `planFromCells` / `plan` run it instead of the
++single plain plan. It exists because the plain abstraction is chosen by proximity alone and the
++route is optimised against a proxy ("the boresight was aimed at this centre"), and on a peaked
++prior both cost detection: a k-means cluster mixes a peak's dense core with its thin tail, so the
++route can only take both or neither, and a plan that looks better on the proxy can search less.
++
++| Step | Code | What it does |
++|---|---|---|
++| peaks | `mapping::findPeakBasins` | each cell climbs to its highest lattice neighbour; the cells that reach the same top are one basin; basins whose saddle is at least `persistence` x the lower peak are merged |
++| levels | `mapping::clusterByPeaks` | each basin, densest cells first, is cut at the cumulative-mass fractions of a `levelSets` entry (e.g. `{0.5, 1}` = core holding half the mass, then the rest); every (basin, level) set is split under the reach radius exactly like `clusterCells`. The orienteering over these nodes chooses how far down each peak to go: a discretised profit curve with diminishing returns |
++| score | `planning::CoverageModel` | the residual-belief metric computed from the cells: each cell spread over a `subsample`^2 lattice, every look of the scheduled trajectory integrated with the footprint rule and the sigmoid of `eval::computeResidualBelief` |
++| search | `planning::planInfoAware` | plans the plain plan, k-means and every level set at `maxClusterRadius` and at the detection reach (the cross-track offset where the boresight slant is `slantMargin * beta`, with the scheduler's slant and reach capped there), each with `restarts` extra orienteering seeds; then PEEL / SPLIT / MERGE moves on the best, kept only if the score rises |
++
++Every candidate is an ordinary, budget-verified `planFromClusters` plan, so the budget guarantee,
++the gimbal schedule and the geometry audit are unchanged; the search only changes which
++abstraction the route is planned over. The result's `infoAware` report lists every candidate with
++its score and the plain plan's score on the same model (`baselineScore`), so a host can report
++both. Candidates run on `threads` worker threads (0 = hardware concurrency, max 8); the result is
++identical for any thread count. `tests/test_info_aware.cpp` covers the basins, the levels, the
++coverage model against `computeResidualBelief`, the detection reach, and the search end to end.
++
++---
++
+ ## Scoring a plan: residual belief
+ 
+ `mtl::eval::computeResidualBelief` is the metric to compare planners on. Once the search is
+@@ -296,6 +326,7 @@
+ | `test_kmeans` | blob recovery, k clamping, and the radius guarantee `clusterCells` must uphold for the gimbal argument to hold |
+ | `test_orienteering` | budget never exceeded, reward monotone in the budget, unreachable nodes pruned, the Dubins re-costing loop, free-harvest anchoring |
+ | `test_geometry` | the abeam gate (including the tilt shifting it), level cruise being exactly level, banking into a turn, the full audit passing at three mount tilts, and the reach repair loop recovering out-of-reach centres without breaking the geometry or the timeline |
++| `test_info_aware` | peak basins (separation, persistence merging), mass levels (a partition, densest first, under the radius, parents one level up), the coverage model agreeing with `computeResidualBelief` to 0.03, the detection reach in both mounts, and the search end to end: never below the plain plan on its own score, budget-verified, deterministic across thread counts |
+ | `test_pipeline` | end to end in every mode; the prior summing to 1, mass-threshold cell extraction (and its invariance to an un-normalised host grid), the budget invariant measured on the flown arc, exact cell/cluster bookkeeping, the residual belief (whole prior with no search, never above the prior, and equal to each target's miss probability at its pixel), determinism, and construction-time rejection of bad parameters |
+ 
+ All five pass clean under `-fsanitize=address,undefined`, as do the single-axis, multi-axis,
+diff -ruN a/apps/mtl_plan_json.cpp b/apps/mtl_plan_json.cpp
+--- a/apps/mtl_plan_json.cpp	2026-09-29 17:15:52.532499467 -0400
++++ b/apps/mtl_plan_json.cpp	2026-09-29 17:15:52.538968301 -0400
+@@ -182,6 +182,28 @@
+     p.budget.maxCellCandidates =
+         static_cast<int>(ov["max_cell_candidates"].num(p.budget.maxCellCandidates));
+ 
++    // Information-aware abstraction search (PlannerParams::infoAware), off unless
++    // the scenario carries info_aware.enabled = true.
++    {
++        const J::Value& ia = sc["info_aware"];
++        p.infoAware.enabled     = ia["enabled"].flag(p.infoAware.enabled);
++        if (ia["level_sets"].isArray()) {
++            p.infoAware.levelSets.clear();
++            for (const J::Value& ls : ia["level_sets"].array()) p.infoAware.levelSets.push_back(ls.numbers());
++        }
++        if (ia["reach_scales"].isArray()) p.infoAware.reachScales = ia["reach_scales"].numbers();
++        p.infoAware.persistence = ia["persistence"].num(p.infoAware.persistence);
++        p.infoAware.slantMargin = ia["slant_margin"].num(p.infoAware.slantMargin);
++        p.infoAware.capGimbalToDetection = ia["cap_gimbal_to_detection"].flag(p.infoAware.capGimbalToDetection);
++        p.infoAware.subsample   = static_cast<int>(ia["subsample"].num(p.infoAware.subsample));
++        p.infoAware.lookStride  = static_cast<int>(ia["look_stride"].num(p.infoAware.lookStride));
++        p.infoAware.maxMoves    = static_cast<int>(ia["max_moves"].num(p.infoAware.maxMoves));
++        p.infoAware.restarts    = static_cast<int>(ia["restarts"].num(p.infoAware.restarts));
++        p.infoAware.splitMerge  = ia["split_merge"].flag(p.infoAware.splitMerge);
++        p.infoAware.peelKeep    = ia["peel_keep"].num(p.infoAware.peelKeep);
++        p.infoAware.threads     = static_cast<int>(ia["threads"].num(p.infoAware.threads));
++    }
++
+     (void)frame;
+     return p;
+ }
+diff -ruN a/cmake/mtl_plannerConfig.cmake.in b/cmake/mtl_plannerConfig.cmake.in
+--- a/cmake/mtl_plannerConfig.cmake.in	2026-09-29 17:15:52.532535001 -0400
++++ b/cmake/mtl_plannerConfig.cmake.in	2026-09-29 17:15:52.539023946 -0400
+@@ -2,6 +2,7 @@
+ 
+ include(CMakeFindDependencyMacro)
+ find_dependency(Eigen3 3.3 NO_MODULE)
++find_dependency(Threads)
+ 
+ include("${CMAKE_CURRENT_LIST_DIR}/mtl_plannerTargets.cmake")
+ 
+diff -ruN a/include/mtl/mapping/peak_clusters.hpp b/include/mtl/mapping/peak_clusters.hpp
+--- a/include/mtl/mapping/peak_clusters.hpp	1969-12-31 19:00:00.000000000 -0500
++++ b/include/mtl/mapping/peak_clusters.hpp	2026-09-29 17:15:52.539341907 -0400
+@@ -0,0 +1,83 @@
++// =============================================================================
++//  mtl/mapping/peak_clusters.hpp
++//
++//  AN ABSTRACTION THAT FOLLOWS THE BELIEF, NOT JUST THE MAP.
++//
++//  mapping::clusterCells groups cells by proximity alone.  On a peaked prior a
++//  proximity cluster straddles a peak's dense core and its thin tail, and the
++//  route can only take both or neither.  This builds the clusters from the
++//  shape of the prior instead:
++//
++//    BASINS.  The valid cells sit on a lattice.  Every cell points at its
++//    highest-mass lattice neighbour (itself if it is a local maximum); the
++//    cells that climb to the same top form that peak's basin - a discrete
++//    watershed.  Two basins are merged when the best saddle between them (the
++//    lower of the two cells on the highest edge that crosses) is at least
++//    `persistence` times the lower peak: a shallow dip is one peak with two
++//    bumps, a deep one is two peaks.
++//
++//    LEVELS.  Each basin's cells are sorted by mass, densest first, and cut at
++//    the cumulative-mass fractions `levelFracs` (e.g. {0.5, 1}: the core that
++//    holds half the basin's mass, then the rest).  A core is compact and dense,
++//    a shoulder is the ring around it, so the orienteering problem over these
++//    nodes chooses HOW FAR DOWN each peak to go: the levels are a discretised
++//    profit curve, with diminishing returns built in.
++//
++//    REACH.  Every (basin, level) set is then split spatially exactly like
++//    clusterCells - k raised until every cell is within `maxRadius` of its
++//    centroid - so the gimbal guarantee a cluster rests on still holds.
++//
++//  The result is an ordinary ClusterSet (the route planner needs nothing new),
++//  with ClusterSet::basin / level / parent filled in.
++// =============================================================================
++#ifndef MTL_MAPPING_PEAK_CLUSTERS_HPP
++#define MTL_MAPPING_PEAK_CLUSTERS_HPP
++
++#include <cstdint>
++#include <vector>
++
++#include "mtl/params.hpp"
++#include "mtl/types.hpp"
++
++namespace mtl::mapping {
++
++/// The prior's peaks, as a partition of the valid cells.
++struct PeakBasins {
++    std::vector<int>    basinOfCell;  ///< M-by-1 basin id (0-based, dense)
++    std::vector<Index>  peakCell;     ///< per basin: the cell at its top
++    std::vector<double> mass;         ///< per basin: summed cell mass
++    Index size() const { return static_cast<Index>(peakCell.size()); }
++};
++
++/// Discrete watershed of the cell masses on the cell lattice, with
++/// persistence merging.  Cells closer than 1.5 * cellSize are neighbours
++/// (8-connectivity on the regular lattice).
++PeakBasins findPeakBasins(const CellSet& cells, double persistence);
++
++/// Build the information-aware abstraction: basins -> mass levels -> spatial
++/// split under maxRadius.  `levelFracs` must be increasing and end at 1.
++/// Fills reward and cellIdx as computeClusterRewards does.
++ClusterSet clusterByPeaks(const CellSet& cells, const PeakBasins& basins,
++                          const std::vector<double>& levelFracs, double maxRadius,
++                          const ClusterParams& opts, std::uint64_t seed);
++
++/// Split an arbitrary set of cells (global indices) under maxRadius, the rule
++/// clusterCells applies to the whole map.  Returns one list of global indices
++/// per resulting cluster.
++std::vector<std::vector<Index>> splitUnderRadius(const CellSet& cells,
++                                                 const std::vector<Index>& members,
++                                                 double maxRadius, const ClusterParams& opts,
++                                                 std::uint64_t seed);
++
++/// Rebuild centroids, reward, cellIdx, cellCluster and maxRadius of a
++/// ClusterSet from a list of member lists (global cell indices).  basin /
++/// level / parent are carried over from the per-cluster vectors given (may be
++/// empty).
++ClusterSet clusterSetFromMembers(const CellSet& cells,
++                                 const std::vector<std::vector<Index>>& members,
++                                 const std::vector<int>& basin = {},
++                                 const std::vector<int>& level = {});
++
++}  // namespace mtl::mapping
++
++#endif  // MTL_MAPPING_PEAK_CLUSTERS_HPP
+diff -ruN a/include/mtl/params.hpp b/include/mtl/params.hpp
+--- a/include/mtl/params.hpp	2026-09-29 17:15:52.532599081 -0400
++++ b/include/mtl/params.hpp	2026-09-29 17:15:52.543844196 -0400
+@@ -357,6 +357,91 @@
+ };
+ 
+ // =============================================================================
++// 11b. INFORMATION-AWARE SEARCH -> mapping::clusterByPeaks, planning::planInfoAware
++// =============================================================================
++// -----------------------------------------------------------------------------
++/// INFORMATION-AWARE ABSTRACTION SEARCH (off by default: the plain pipeline).
++///
++/// The plain pipeline clusters the valid cells by PROXIMITY (k-means under
++/// maxClusterRadius) and scores a route by the mass of the cells the boresight
++/// is aimed at.  Two things go wrong with that on a peaked prior:
++///   * a proximity cluster mixes a peak's dense core with its thin tail, so the
++///     route cannot take the core and leave the tail - it pays for both, which
++///     is the "circling a peak" the flown runs show;
++///   * "aimed at" is not "detected": a centre aimed at past the detection
++///     range, a cell swept twice, and everything the footprint sees in transit
++///     are all valued wrongly, so a better-looking plan can search less.
++///
++/// With `enabled`, Planner::planFromCells instead
++///   1. finds the prior's PEAKS - every cell climbs to its highest neighbour,
++///      the cells that reach the same top form a basin, and basins separated by
++///      a shallow saddle are merged (`persistence`);
++///   2. slices each basin into nested MASS LEVELS (core = the densest cells
++///      holding levelFracs[0] of the basin's mass, then the next ring, ...) and
++///      splits every (basin, level) set spatially under the reach radius, so a
++///      core is its own node and the orienteering chooses how far down each
++///      peak to go - a discretised profit curve, with diminishing returns by
++///      construction;
++///   3. plans several such abstractions (every level set x every reach, plus
++///      the plain k-means one, each with `restarts` extra orienteering seeds)
++///      and scores each FLOWN plan with a coverage model:
++///      the belief mass the footprint actually detects along the scheduled
++///      trajectory, with the scenario's detection sigmoid - overlap, transit
++///      and range all counted;
++///   4. runs a split / peel / merge local search on the best abstraction,
++///      re-planning after each move and keeping it only if the coverage score
++///      rises.
++/// The returned plan is the highest-scoring one, so it can only be worse than
++/// the plain plan where the coverage model disagrees with the host's scorer.
++/// PlanningResult::infoAware records every candidate and the plain plan's
++/// score, so both outcomes can be reported.
++// -----------------------------------------------------------------------------
++struct InfoAwareParams {
++    bool enabled = false;
++
++    /// Cumulative-mass fractions that cut a basin into levels.  Each inner list
++    /// is one abstraction to try; the last entry must be 1.  {1} = whole basins.
++    std::vector<std::vector<double>> levelSets = {{1.0}, {0.5, 1.0}, {0.35, 0.7, 1.0}};
++    /// Two basins merge when the saddle between them is at least this fraction
++    /// of the lower peak (a shallow dip is one peak with two bumps on it).
++    double persistence = 0.6;
++    /// Reaches to try, as multiples of the DETECTION reach (the cross-track
++    /// offset at which the boresight slant still sees targets).  The plain
++    /// maxClusterRadius is always tried as well.
++    std::vector<double> reachScales = {1.0};
++    /// Slant range the detection reach is computed at, as a fraction of
++    /// sensor.beta (past beta the model detects nothing).
++    double slantMargin = 0.97;
++    /// Cap the gimbal scheduler's slant range and cross-track reach at the
++    /// detection reach in the detection-reach candidates, so it stops aiming
++    /// at centres it cannot detect anything at.
++    bool capGimbalToDetection = true;
++
++    /// Coverage model: each cell is sampled on a subsample x subsample lattice
++    /// carrying equal shares of its mass; one look in every lookStride steps is
++    /// integrated, weighted by the stride.
++    int subsample  = 4;
++    int lookStride = 4;
++
++    /// Every candidate abstraction is also planned with this many extra seeds of
++    /// the orienteering heuristic (its GRASP restarts differ per seed).  The
++    /// route heuristic is sensitive to them, and scoring every restart with the
++    /// coverage model makes the search at least as good as re-seeding the plain
++    /// planner that many times.  0 = one seed per abstraction.
++    int restarts = 2;
++
++    /// Split / peel / merge moves evaluated after the candidate sweep.
++    int  maxMoves   = 16;
++    bool splitMerge = true;
++    /// Fraction of a cluster's mass a PEEL keeps (its densest cells); the rest
++    /// becomes a new cluster the route can drop.
++    double peelKeep = 0.6;
++
++    /// Worker threads for the candidate plans; 0 = hardware concurrency (max 8).
++    int threads = 0;
++};
++
++// =============================================================================
+ // 12. THE WHOLE PARAMETER SET
+ // =============================================================================
+ struct PlannerParams {
+@@ -436,6 +521,7 @@
+     ExtensionParams       extension;
+     TrajectoryParams      traj;
+     GimbalSchedulerParams gimbal;
++    InfoAwareParams       infoAware;
+ 
+     /// Print the full A-E geometry audit table for every agent.
+     bool verifyGeometry        = true;
+diff -ruN a/include/mtl/planning/coverage_score.hpp b/include/mtl/planning/coverage_score.hpp
+--- a/include/mtl/planning/coverage_score.hpp	1969-12-31 19:00:00.000000000 -0500
++++ b/include/mtl/planning/coverage_score.hpp	2026-09-29 17:15:52.539520537 -0400
+@@ -0,0 +1,60 @@
++// =============================================================================
++//  mtl/planning/coverage_score.hpp
++//
++//  WHAT A FLOWN PLAN ACTUALLY DETECTS, AS SEEN FROM THE CELLS.
++//
++//  The route planner's own objective is "the boresight was aimed at this
++//  cell's centre".  The metric a search is judged by (eval::computeResidualBelief)
++//  is different: every look Bayes-updates every point its footprint covers
++//  with the detection sigmoid in slant range, so it credits the footprint's
++//  whole disc, discounts range, and does not pay twice for a point seen twice.
++//
++//  This is that metric computed from what the planner has - the cells - rather
++//  than the prior raster the planner never sees: each cell is spread uniformly
++//  over a subsample x subsample lattice of points inside its block, and the
++//  looks of the scheduled trajectory are integrated over those points exactly
++//  as computeResidualBelief integrates them over pixels (same footprint rule,
++//  same sigmoid, same run-length weighting; one look in `lookStride` is taken
++//  and weighted by the stride).  It is what planning::planInfoAware ranks
++//  candidate plans by.  It lives in the planner library (not mtl_eval) so a
++//  host that links mtl::planner alone still gets the search.
++// =============================================================================
++#ifndef MTL_PLANNING_COVERAGE_SCORE_HPP
++#define MTL_PLANNING_COVERAGE_SCORE_HPP
++
++#include <vector>
++
++#include "mtl/params.hpp"
++#include "mtl/types.hpp"
++
++namespace mtl::planning {
++
++class CoverageModel {
++public:
++    CoverageModel(const CellSet& cells, int subsample, double fov, const SensorModelParams& sensor);
++
++    /// Expected belief mass detected by the team, sum over cells of
++    /// mass * (1 - P(every look missed)), in the cells' units (a probability
++    /// for a normalised prior).  Higher is better.
++    double detectedMass(const std::vector<AgentTrajectory>& trajectories, int lookStride) const;
++
++    /// Per-point miss log-likelihood after the looks (for tests / diagnostics).
++    VecX logMiss(const std::vector<AgentTrajectory>& trajectories, int lookStride) const;
++
++    Index numPoints() const { return pts_.rows(); }
++    double totalMass() const { return w_.sum(); }
++
++private:
++    Path2 pts_;        ///< sample points
++    VecX  w_;          ///< their mass
++    double fov_;
++    SensorModelParams sensor_;
++    // uniform bucket grid over the points
++    double bx0_ = 0.0, by0_ = 0.0, bs_ = 1.0;
++    Index  nbx_ = 0, nby_ = 0;
++    std::vector<std::vector<Index>> buckets_;
++};
++
++}  // namespace mtl::planning
++
++#endif  // MTL_PLANNING_COVERAGE_SCORE_HPP
+diff -ruN a/include/mtl/planning/info_aware.hpp b/include/mtl/planning/info_aware.hpp
+--- a/include/mtl/planning/info_aware.hpp	1969-12-31 19:00:00.000000000 -0500
++++ b/include/mtl/planning/info_aware.hpp	2026-09-29 17:15:52.539533973 -0400
+@@ -0,0 +1,48 @@
++// =============================================================================
++//  mtl/planning/info_aware.hpp
++//
++//  THE INFORMATION-AWARE ABSTRACTION SEARCH (PlannerParams::infoAware).
++//
++//  The plain pipeline commits to ONE abstraction - k-means clusters of radius
++//  maxClusterRadius - and then optimises the route over it against its own
++//  proxy objective.  This searches over abstractions instead, and judges every
++//  one by what its flown plan would actually detect:
++//
++//    candidates  the plain plan ("baseline"); k-means and peak/level clusters
++//                (mapping::clusterByPeaks, every infoAware.levelSets entry) at
++//                the plain radius and at the detection reach(es); each also
++//                re-planned with infoAware.restarts extra orienteering seeds;
++//    score       CoverageModel::detectedMass of the scheduled trajectories;
++//    moves       on the best candidate: PEEL a chosen cluster (keep its densest
++//                cells, hand the rest to a new cluster the route may drop),
++//                SPLIT it in two, or MERGE it with its nearest unchosen
++//                neighbour when the union still fits the reach - re-planned,
++//                kept only if the score rises.
++//
++//  Every plan is a full, budget-verified plan of the ordinary pipeline
++//  (Planner::planFromClusters), so the budget guarantee, the gimbal schedule
++//  and the geometry are exactly those of the plain planner.  The search only
++//  changes WHICH abstraction the route is planned over.
++// =============================================================================
++#ifndef MTL_PLANNING_INFO_AWARE_HPP
++#define MTL_PLANNING_INFO_AWARE_HPP
++
++#include <vector>
++
++#include "mtl/params.hpp"
++#include "mtl/types.hpp"
++
++namespace mtl::planning {
++
++/// Cross-track ground offset [m] at which the boresight's slant range reaches
++/// slantMargin * sensor.beta (single-axis: along the tilted swept line;
++/// multi-axis: straight out).  0 when even nadir is out of range.
++double detectionReach(const PlannerParams& P);
++
++/// Run the search.  `P.infoAware.enabled` is ignored (the sub-plans are plain).
++PlanningResult planInfoAware(const PlannerParams& P, const CellSet& cells,
++                             const std::vector<Vec2>& agentStarts);
++
++}  // namespace mtl::planning
++
++#endif  // MTL_PLANNING_INFO_AWARE_HPP
+diff -ruN a/include/mtl/types.hpp b/include/mtl/types.hpp
+--- a/include/mtl/types.hpp	2026-09-29 17:15:52.532627376 -0400
++++ b/include/mtl/types.hpp	2026-09-29 17:15:52.539091010 -0400
+@@ -104,6 +104,17 @@
+     std::vector<std::vector<Index>> cellIdx;      ///< K lists of the cells each cluster owns
+     double                          maxRadius = 0.0;  ///< achieved max cell-to-centroid distance
+ 
++    // --- information-aware hierarchy (mapping::clusterByPeaks) -------------
++    // Empty for the proximity (k-means) abstraction.  With peak clustering every
++    // cluster belongs to one BASIN of the prior (the cells that climb to the same
++    // peak) and one mass LEVEL of that basin (0 = core, 1 = shoulder, ...), and
++    // `parent` names the nearest cluster one level up in the same basin (-1 for
++    // a core).  The route planner does not read these; they are the audit trail
++    // of the abstraction and what the split/merge search moves around.
++    std::vector<int> basin;   ///< K-by-1 basin id per cluster
++    std::vector<int> level;   ///< K-by-1 mass level per cluster
++    std::vector<int> parent;  ///< K-by-1 parent cluster (-1 = none)
++
+     Index size() const { return centroids.rows(); }
+     bool  empty() const { return centroids.rows() == 0; }
+ };
+@@ -365,6 +376,36 @@
+ };
+ 
+ // -----------------------------------------------------------------------------
++/// One abstraction the information-aware search planned and scored.
++// -----------------------------------------------------------------------------
++struct InfoAwareCandidate {
++    std::string label;             ///< e.g. "baseline", "kmeans@416", "peaks[0.5,1]@416", "move:split"
++    double reach      = 0.0;       ///< [m] cluster radius / gimbal reach it was planned with
++    double score      = 0.0;       ///< coverage model: expected belief mass DETECTED (higher is better)
++    double info       = 0.0;       ///< the planner's own objective: mass of the serviced cells
++    double flown      = 0.0;       ///< [m] team flown length
++    Index  clusters   = 0;         ///< clusters in the abstraction
++    bool   accepted   = false;     ///< a split/merge move that improved the incumbent
++};
++
++/// What PlannerParams::infoAware did.  The chosen plan is the returned
++/// PlanningResult itself; `baseline` is the plain planner's plan on the same
++/// cells, scored with the same coverage model, so a host can report both.
++struct InfoAwareReport {
++    bool   enabled        = false;
++    std::string chosen;                    ///< label of the plan that was returned
++    double chosenScore    = 0.0;           ///< coverage-model detected mass of it
++    double baselineScore  = 0.0;           ///< ... of the plain planner's plan
++    double chosenReach    = 0.0;           ///< [m] maxClusterRadius the chosen plan used
++    double detectionReach = 0.0;           ///< [m] cross-track reach the detection model supports
++    int    movesTried     = 0;
++    int    movesAccepted  = 0;
++    Index  basins         = 0;             ///< peaks (after persistence merging) in the prior
++    double seconds        = 0.0;           ///< wall time of the whole search
++    std::vector<InfoAwareCandidate> candidates;  ///< every plan scored, in evaluation order
++};
++
++// -----------------------------------------------------------------------------
+ /// Everything one call to Planner::plan() produces.
+ // -----------------------------------------------------------------------------
+ struct PlanningResult {
+@@ -386,6 +427,10 @@
+ 
+     /// Global cell indices the gimbal actually observed, de-duplicated.
+     std::vector<Index> realizedCellIdx;
++
++    /// Audit trail of the information-aware search (PlannerParams::infoAware);
++    /// `enabled` is false and everything else empty for a plain plan.
++    InfoAwareReport infoAware;
+ };
+ 
+ }  // namespace mtl
+diff -ruN a/src/mapping/peak_clusters.cpp b/src/mapping/peak_clusters.cpp
+--- a/src/mapping/peak_clusters.cpp	1969-12-31 19:00:00.000000000 -0500
++++ b/src/mapping/peak_clusters.cpp	2026-09-29 17:15:52.544236557 -0400
+@@ -0,0 +1,306 @@
++#include "mtl/mapping/peak_clusters.hpp"
++
++#include <algorithm>
++#include <cmath>
++#include <numeric>
++#include <tuple>
++#include <vector>
++
++#include "mtl/core/kmeans.hpp"
++
++namespace mtl::mapping {
++namespace {
++
++/// Union-find over basins, tracking each set's highest peak.
++struct Dsu {
++    std::vector<int>   up;
++    std::vector<Index> top;  ///< cell at the top of the set
++    explicit Dsu(const std::vector<Index>& peaks) : up(peaks.size()), top(peaks) {
++        std::iota(up.begin(), up.end(), 0);
++    }
++    int find(int a) {
++        while (up[static_cast<std::size_t>(a)] != a) {
++            up[static_cast<std::size_t>(a)] = up[static_cast<std::size_t>(up[static_cast<std::size_t>(a)])];
++            a = up[static_cast<std::size_t>(a)];
++        }
++        return a;
++    }
++};
++
++/// Lattice neighbours of every cell: centres closer than 1.5 cell sizes.  The
++/// cells come from a regular dicing, so this is 8-connectivity; a spatial hash
++/// keeps it linear in the number of cells.
++std::vector<std::vector<Index>> latticeNeighbours(const CellSet& cells) {
++    const Index m = cells.size();
++    std::vector<std::vector<Index>> nb(static_cast<std::size_t>(m));
++    if (m == 0) return nb;
++
++    double cs = cells.cellSize;
++    if (!(cs > 0.0)) {
++        // No cell size recorded: use the smallest centre spacing.
++        cs = kInf;
++        for (Index i = 0; i < m; ++i)
++            for (Index j = i + 1; j < m; ++j)
++                cs = std::min(cs, (cells.centers.row(i) - cells.centers.row(j)).norm());
++        if (!std::isfinite(cs) || !(cs > 0.0)) cs = 1.0;
++    }
++    const double lim = 1.5 * cs;
++
++    const double x0 = cells.centers.col(0).minCoeff();
++    const double y0 = cells.centers.col(1).minCoeff();
++    auto key = [&](Index i) {
++        return std::make_pair(static_cast<long long>(std::floor((cells.centers(i, 0) - x0) / cs + 0.5)),
++                              static_cast<long long>(std::floor((cells.centers(i, 1) - y0) / cs + 0.5)));
++    };
++    std::vector<std::tuple<long long, long long, Index>> keyed;
++    keyed.reserve(static_cast<std::size_t>(m));
++    for (Index i = 0; i < m; ++i) {
++        const auto k = key(i);
++        keyed.emplace_back(k.first, k.second, i);
++    }
++    std::sort(keyed.begin(), keyed.end());
++    auto lookup = [&](long long gx, long long gy, std::vector<Index>& out) {
++        auto lo = std::lower_bound(keyed.begin(), keyed.end(), std::make_tuple(gx, gy, Index{0}));
++        for (auto it = lo; it != keyed.end() && std::get<0>(*it) == gx && std::get<1>(*it) == gy; ++it)
++            out.push_back(std::get<2>(*it));
++    };
++
++    std::vector<Index> cand;
++    for (Index i = 0; i < m; ++i) {
++        const auto k = key(i);
++        cand.clear();
++        for (long long dx = -2; dx <= 2; ++dx)
++            for (long long dy = -2; dy <= 2; ++dy) lookup(k.first + dx, k.second + dy, cand);
++        for (const Index j : cand) {
++            if (j == i) continue;
++            if ((cells.centers.row(i) - cells.centers.row(j)).norm() <= lim)
++                nb[static_cast<std::size_t>(i)].push_back(j);
++        }
++        std::sort(nb[static_cast<std::size_t>(i)].begin(), nb[static_cast<std::size_t>(i)].end());
++    }
++    return nb;
++}
++
++}  // namespace
++
++// -----------------------------------------------------------------------------
++PeakBasins findPeakBasins(const CellSet& cells, double persistence) {
++    PeakBasins out;
++    const Index m = cells.size();
++    out.basinOfCell.assign(static_cast<std::size_t>(m), -1);
++    if (m == 0) return out;
++
++    const std::vector<std::vector<Index>> nb = latticeNeighbours(cells);
++    const VecX& w = cells.mass;
++
++    // Steepest ascent: each cell points at its highest neighbour if that is
++    // higher than itself.  Ties break on the lower index so the result is
++    // deterministic and the pointers cannot cycle.
++    auto higher = [&](Index a, Index b) {  // is a strictly above b
++        return w(a) > w(b) || (w(a) == w(b) && a < b);
++    };
++    std::vector<Index> up(static_cast<std::size_t>(m));
++    for (Index i = 0; i < m; ++i) {
++        Index best = i;
++        for (const Index j : nb[static_cast<std::size_t>(i)])
++            if (higher(j, best)) best = j;
++        up[static_cast<std::size_t>(i)] = best;
++    }
++
++    // Follow the pointers to the tops; one raw basin per local maximum.
++    std::vector<int> rawOf(static_cast<std::size_t>(m), -1);
++    std::vector<Index> peaks;
++    for (Index i = 0; i < m; ++i) {
++        if (up[static_cast<std::size_t>(i)] == i) {
++            rawOf[static_cast<std::size_t>(i)] = static_cast<int>(peaks.size());
++            peaks.push_back(i);
++        }
++    }
++    for (Index i = 0; i < m; ++i) {
++        Index r = i;
++        while (up[static_cast<std::size_t>(r)] != r) r = up[static_cast<std::size_t>(r)];
++        rawOf[static_cast<std::size_t>(i)] = rawOf[static_cast<std::size_t>(r)];
++    }
++
++    // Saddles: for each lattice edge that crosses two raw basins, its height is
++    // the lower of its two cells.  Process the highest first (a merge tree) and
++    // merge when the saddle is at least `persistence` x the lower of the two
++    // current peaks.
++    std::vector<std::tuple<double, int, int>> edges;
++    for (Index i = 0; i < m; ++i)
++        for (const Index j : nb[static_cast<std::size_t>(i)]) {
++            if (j <= i) continue;
++            const int a = rawOf[static_cast<std::size_t>(i)], b = rawOf[static_cast<std::size_t>(j)];
++            if (a != b) edges.emplace_back(std::min(w(i), w(j)), a, b);
++        }
++    std::sort(edges.begin(), edges.end(), [](const auto& x, const auto& y) {
++        if (std::get<0>(x) != std::get<0>(y)) return std::get<0>(x) > std::get<0>(y);
++        return std::make_pair(std::get<1>(x), std::get<2>(x)) < std::make_pair(std::get<1>(y), std::get<2>(y));
++    });
++
++    Dsu dsu(peaks);
++    for (const auto& [saddle, a0, b0] : edges) {
++        const int a = dsu.find(a0), b = dsu.find(b0);
++        if (a == b) continue;
++        const Index ta = dsu.top[static_cast<std::size_t>(a)];
++        const Index tb = dsu.top[static_cast<std::size_t>(b)];
++        const double lowerPeak = std::min(w(ta), w(tb));
++        if (saddle + 1e-300 < persistence * lowerPeak) continue;
++        // merge the lower-topped set into the higher one
++        const bool aHigh = higher(ta, tb);
++        const int  keep = aHigh ? a : b, gone = aHigh ? b : a;
++        dsu.up[static_cast<std::size_t>(gone)] = keep;
++    }
++
++    // Dense relabelling, ordered by peak height (basin 0 = the highest peak).
++    std::vector<int> roots;
++    for (int r = 0; r < static_cast<int>(peaks.size()); ++r)
++        if (dsu.find(r) == r) roots.push_back(r);
++    std::sort(roots.begin(), roots.end(), [&](int x, int y) {
++        return higher(dsu.top[static_cast<std::size_t>(x)], dsu.top[static_cast<std::size_t>(y)]);
++    });
++    std::vector<int> dense(peaks.size(), -1);
++    for (std::size_t k = 0; k < roots.size(); ++k) dense[static_cast<std::size_t>(roots[k])] = static_cast<int>(k);
++
++    out.peakCell.resize(roots.size());
++    out.mass.assign(roots.size(), 0.0);
++    for (std::size_t k = 0; k < roots.size(); ++k) out.peakCell[k] = dsu.top[static_cast<std::size_t>(roots[k])];
++    for (Index i = 0; i < m; ++i) {
++        const int b = dense[static_cast<std::size_t>(dsu.find(rawOf[static_cast<std::size_t>(i)]))];
++        out.basinOfCell[static_cast<std::size_t>(i)] = b;
++        out.mass[static_cast<std::size_t>(b)] += w(i);
++    }
++    return out;
++}
++
++// -----------------------------------------------------------------------------
++std::vector<std::vector<Index>> splitUnderRadius(const CellSet& cells,
++                                                 const std::vector<Index>& members,
++                                                 double maxRadius, const ClusterParams& opts,
++                                                 std::uint64_t seed) {
++    std::vector<std::vector<Index>> out;
++    const auto n = static_cast<Index>(members.size());
++    if (n == 0) return out;
++
++    Path2 pts(n, 2);
++    for (Index i = 0; i < n; ++i) pts.row(i) = cells.centers.row(members[static_cast<std::size_t>(i)]);
++
++    core::KMeansOptions ko;
++    ko.maxIter    = opts.kmeansMaxIter;
++    ko.replicates = opts.kmeansReplicates;
++
++    for (int k = 1;; ++k) {
++        if (k >= static_cast<int>(n)) {
++            for (const Index g : members) out.push_back({g});
++            return out;
++        }
++        ko.seed = seed + static_cast<std::uint64_t>(k) * 7919ULL;
++        const core::KMeansResult r = core::kmeans(pts, k, ko);
++        if (core::maxClusterRadius(pts, r) <= maxRadius) {
++            out.assign(static_cast<std::size_t>(r.centroids.rows()), {});
++            for (Index i = 0; i < n; ++i)
++                out[static_cast<std::size_t>(r.assignment[static_cast<std::size_t>(i)])].push_back(
++                    members[static_cast<std::size_t>(i)]);
++            out.erase(std::remove_if(out.begin(), out.end(),
++                                     [](const std::vector<Index>& v) { return v.empty(); }),
++                      out.end());
++            return out;
++        }
++    }
++}
++
++// -----------------------------------------------------------------------------
++ClusterSet clusterSetFromMembers(const CellSet& cells,
++                                 const std::vector<std::vector<Index>>& members,
++                                 const std::vector<int>& basin, const std::vector<int>& level) {
++    ClusterSet out;
++    const auto K = static_cast<Index>(members.size());
++    out.centroids.resize(K, 2);
++    out.reward = VecX::Zero(K);
++    out.cellIdx.assign(static_cast<std::size_t>(K), {});
++    out.cellCluster.assign(static_cast<std::size_t>(cells.size()), -1);
++    out.maxRadius = 0.0;
++
++    for (Index k = 0; k < K; ++k) {
++        const std::vector<Index>& mem = members[static_cast<std::size_t>(k)];
++        Vec2 c = Vec2::Zero();
++        for (const Index g : mem) c += cells.centers.row(g).transpose();
++        if (!mem.empty()) c /= static_cast<double>(mem.size());
++        out.centroids.row(k) = c.transpose();
++        for (const Index g : mem) {
++            out.cellCluster[static_cast<std::size_t>(g)] = static_cast<int>(k);
++            out.cellIdx[static_cast<std::size_t>(k)].push_back(g);
++            out.reward(k) += cells.mass(g);
++            out.maxRadius = std::max(out.maxRadius, (cells.centers.row(g).transpose() - c).norm());
++        }
++        std::sort(out.cellIdx[static_cast<std::size_t>(k)].begin(), out.cellIdx[static_cast<std::size_t>(k)].end());
++    }
++    if (static_cast<Index>(basin.size()) == K) out.basin = basin;
++    if (static_cast<Index>(level.size()) == K) out.level = level;
++    return out;
++}
++
++// -----------------------------------------------------------------------------
++ClusterSet clusterByPeaks(const CellSet& cells, const PeakBasins& basins,
++                          const std::vector<double>& levelFracs, double maxRadius,
++                          const ClusterParams& opts, std::uint64_t seed) {
++    std::vector<std::vector<Index>> members;
++    std::vector<int> basinOf, levelOf;
++    const Index nb = basins.size();
++    const auto  nl = static_cast<int>(levelFracs.size());
++
++    for (Index b = 0; b < nb; ++b) {
++        // The basin's cells, densest first.
++        std::vector<Index> mem;
++        for (Index i = 0; i < cells.size(); ++i)
++            if (basins.basinOfCell[static_cast<std::size_t>(i)] == static_cast<int>(b)) mem.push_back(i);
++        std::stable_sort(mem.begin(), mem.end(),
++                         [&](Index x, Index y) { return cells.mass(x) > cells.mass(y); });
++        const double total = basins.mass[static_cast<std::size_t>(b)];
++
++        // Cut at the cumulative fractions.  A cell goes to the first level whose
++        // cut its cumulative mass (before it) has not yet reached, so a level is
++        // never empty unless the one before it swallowed everything.
++        std::vector<std::vector<Index>> byLevel(static_cast<std::size_t>(nl));
++        double cum = 0.0;
++        for (const Index i : mem) {
++            int l = 0;
++            while (l < nl - 1 && cum >= levelFracs[static_cast<std::size_t>(l)] * total - 1e-15) ++l;
++            byLevel[static_cast<std::size_t>(l)].push_back(i);
++            cum += cells.mass(i);
++        }
++
++        for (int l = 0; l < nl; ++l) {
++            const auto& set = byLevel[static_cast<std::size_t>(l)];
++            if (set.empty()) continue;
++            const std::uint64_t s = seed + 1000003ULL * static_cast<std::uint64_t>(b + 1) +
++                                    7919ULL * static_cast<std::uint64_t>(l);
++            for (auto& part : splitUnderRadius(cells, set, maxRadius, opts, s)) {
++                members.push_back(std::move(part));
++                basinOf.push_back(static_cast<int>(b));
++                levelOf.push_back(l);
++            }
++        }
++    }
++
++    ClusterSet out = clusterSetFromMembers(cells, members, basinOf, levelOf);
++
++    // Parent: the nearest cluster one level up in the same basin.
++    out.parent.assign(static_cast<std::size_t>(out.size()), -1);
++    for (Index k = 0; k < out.size(); ++k) {
++        if (out.level[static_cast<std::size_t>(k)] == 0) continue;
++        double best = kInf;
++        for (Index q = 0; q < out.size(); ++q) {
++            if (out.basin[static_cast<std::size_t>(q)] != out.basin[static_cast<std::size_t>(k)]) continue;
++            if (out.level[static_cast<std::size_t>(q)] != out.level[static_cast<std::size_t>(k)] - 1) continue;
++            const double d = (out.centroids.row(q) - out.centroids.row(k)).norm();
++            if (d < best) {
++                best = d;
++                out.parent[static_cast<std::size_t>(k)] = static_cast<int>(q);
++            }
++        }
++    }
++    return out;
++}
++
++}  // namespace mtl::mapping
+diff -ruN a/src/params.cpp b/src/params.cpp
+--- a/src/params.cpp	2026-09-29 17:15:52.533370476 -0400
++++ b/src/params.cpp	2026-09-29 17:15:52.544051022 -0400
+@@ -93,6 +93,33 @@
+         fail("extension.reachMargin must be in (0, 1]");
+     if (!(gimbal.reachMargin > 0.0) || gimbal.reachMargin > 1.0)
+         fail("gimbal.reachMargin must be in (0, 1]");
++
++    if (infoAware.enabled) {
++        if (infoAware.levelSets.empty()) fail("infoAware.levelSets must not be empty");
++        for (const std::vector<double>& ls : infoAware.levelSets) {
++            if (ls.empty()) fail("infoAware.levelSets entries must not be empty");
++            double prev = 0.0;
++            for (const double f : ls) {
++                if (!(f > prev) || f > 1.0)
++                    fail("infoAware.levelSets entries must be increasing fractions in (0, 1]");
++                prev = f;
++            }
++            if (std::abs(ls.back() - 1.0) > 1e-9)
++                fail("infoAware.levelSets entries must end at 1");
++        }
++        if (!(infoAware.persistence >= 0.0) || infoAware.persistence > 1.0)
++            fail("infoAware.persistence must be in [0, 1]");
++        for (const double r : infoAware.reachScales)
++            if (!(r > 0.0)) fail("infoAware.reachScales must be positive");
++        if (!(infoAware.slantMargin > 0.0) || infoAware.slantMargin > 1.0)
++            fail("infoAware.slantMargin must be in (0, 1]");
++        if (infoAware.subsample < 1) fail("infoAware.subsample must be at least 1");
++        if (infoAware.lookStride < 1) fail("infoAware.lookStride must be at least 1");
++        if (infoAware.maxMoves < 0) fail("infoAware.maxMoves must be non-negative");
++        if (infoAware.restarts < 0) fail("infoAware.restarts must be non-negative");
++        if (!(infoAware.peelKeep > 0.0) || infoAware.peelKeep >= 1.0)
++            fail("infoAware.peelKeep must be in (0, 1)");
++    }
+ }
+ 
+ }  // namespace mtl
+diff -ruN a/src/planner.cpp b/src/planner.cpp
+--- a/src/planner.cpp	2026-09-29 17:15:52.533352781 -0400
++++ b/src/planner.cpp	2026-09-29 17:15:52.544032720 -0400
+@@ -9,6 +9,7 @@
+ #include "mtl/core/numeric.hpp"
+ #include "mtl/mapping/cells.hpp"
+ #include "mtl/planning/agent_sortie.hpp"
++#include "mtl/planning/info_aware.hpp"
+ #include "mtl/planning/team_allocation.hpp"
+ #include "mtl/sensing/airframe.hpp"
+ #include "mtl/sensing/gimbal_scheduler.hpp"
+@@ -234,6 +235,9 @@
+ 
+ PlanningResult Planner::planFromCells(const CellSet& cells, const std::vector<Vec2>& agentStarts) {
+     const PlannerParams& P = impl_->params;
++    // Information-aware search: plans several abstractions of these cells
++    // (this one included) and returns the one whose flown plan detects most.
++    if (P.infoAware.enabled) return planning::planInfoAware(P, cells, agentStarts);
+     ClusterSet clusters =
+         mapping::clusterCells(cells.centers, P.maxClusterRadius, P.cluster, P.rngSeed, P.verbose);
+     return planFromClusters(cells, std::move(clusters), agentStarts);
+diff -ruN a/src/planning/coverage_score.cpp b/src/planning/coverage_score.cpp
+--- a/src/planning/coverage_score.cpp	1969-12-31 19:00:00.000000000 -0500
++++ b/src/planning/coverage_score.cpp	2026-09-29 17:15:52.544491571 -0400
+@@ -0,0 +1,98 @@
++#include "mtl/planning/coverage_score.hpp"
++
++#include <algorithm>
++#include <cmath>
++
++namespace mtl::planning {
++
++CoverageModel::CoverageModel(const CellSet& cells, int subsample, double fov,
++                             const SensorModelParams& sensor)
++    : fov_(fov), sensor_(sensor) {
++    const Index m = cells.size();
++    const int   s = std::max(1, subsample);
++    const double cs = (cells.cellSize > 0.0) ? cells.cellSize : 1.0;
++    pts_.resize(m * s * s, 2);
++    w_.resize(m * s * s);
++    Index q = 0;
++    for (Index i = 0; i < m; ++i) {
++        const double share = cells.mass(i) / static_cast<double>(s * s);
++        for (int a = 0; a < s; ++a)
++            for (int b = 0; b < s; ++b) {
++                pts_(q, 0) = cells.centers(i, 0) + ((a + 0.5) / s - 0.5) * cs;
++                pts_(q, 1) = cells.centers(i, 1) + ((b + 0.5) / s - 0.5) * cs;
++                w_(q)      = share;
++                ++q;
++            }
++    }
++    if (q == 0) return;
++
++    bs_  = cs;  // one bucket per cell block
++    bx0_ = pts_.col(0).minCoeff() - 1.0;
++    by0_ = pts_.col(1).minCoeff() - 1.0;
++    nbx_ = static_cast<Index>((pts_.col(0).maxCoeff() - bx0_) / bs_) + 2;
++    nby_ = static_cast<Index>((pts_.col(1).maxCoeff() - by0_) / bs_) + 2;
++    buckets_.assign(static_cast<std::size_t>(nbx_ * nby_), {});
++    for (Index k = 0; k < q; ++k) {
++        const auto ix = static_cast<Index>((pts_(k, 0) - bx0_) / bs_);
++        const auto iy = static_cast<Index>((pts_(k, 1) - by0_) / bs_);
++        buckets_[static_cast<std::size_t>(iy * nbx_ + ix)].push_back(k);
++    }
++}
++
++VecX CoverageModel::logMiss(const std::vector<AgentTrajectory>& trajectories, int lookStride) const {
++    VecX lm = VecX::Zero(pts_.rows());
++    if (pts_.rows() == 0) return lm;
++    const double tanHalf = std::tan(fov_ / 2.0);
++    const double logOut  = std::log1p(-sensor_.pOutOfRangeMulti);
++    const int stride = std::max(1, lookStride);
++
++    for (const AgentTrajectory& tr : trajectories) {
++        const Index N = std::min(tr.drone.rows(), tr.sensor.rows());
++        Index k = 0;
++        while (k < N) {
++            // Hover padding / a grounded agent: identical states, integrated once.
++            Index run = 1;
++            while (k + run < N && tr.drone.row(k + run) == tr.drone.row(k) &&
++                   tr.sensor.row(k + run) == tr.sensor.row(k))
++                ++run;
++            const double w = (run > 1) ? static_cast<double>(run)
++                                       : static_cast<double>(std::min<Index>(stride, N - k));
++            const Index step = (run > 1) ? run : std::min<Index>(stride, N - k);
++
++            const double px = tr.drone(k, 0), py = tr.drone(k, 1), h = tr.drone(k, 2);
++            const double lx = tr.sensor(k, 0), ly = tr.sensor(k, 1);
++            k += step;
++
++            const double radius =
++                std::sqrt((px - lx) * (px - lx) + (py - ly) * (py - ly) + h * h) * tanHalf;
++            const double r2 = radius * radius;
++            const auto ix1 = std::max<Index>(0, static_cast<Index>(std::floor((lx - radius - bx0_) / bs_)));
++            const auto ix2 = std::min<Index>(nbx_ - 1, static_cast<Index>(std::floor((lx + radius - bx0_) / bs_)));
++            const auto iy1 = std::max<Index>(0, static_cast<Index>(std::floor((ly - radius - by0_) / bs_)));
++            const auto iy2 = std::min<Index>(nby_ - 1, static_cast<Index>(std::floor((ly + radius - by0_) / bs_)));
++            for (Index iy = iy1; iy <= iy2; ++iy)
++                for (Index ix = ix1; ix <= ix2; ++ix)
++                    for (const Index q : buckets_[static_cast<std::size_t>(iy * nbx_ + ix)]) {
++                        const double dx = pts_(q, 0) - lx, dy = pts_(q, 1) - ly;
++                        if (dx * dx + dy * dy > r2) continue;
++                        const double ex = pts_(q, 0) - px, ey = pts_(q, 1) - py;
++                        const double slant = std::sqrt(ex * ex + ey * ey + h * h);
++                        const double lmiss = (slant > sensor_.beta)
++                                                 ? logOut
++                                                 : std::log1p(-sensor_.detectionProb(slant));
++                        lm(q) += w * lmiss;
++                    }
++        }
++    }
++    return lm;
++}
++
++double CoverageModel::detectedMass(const std::vector<AgentTrajectory>& trajectories,
++                                   int lookStride) const {
++    const VecX lm = logMiss(trajectories, lookStride);
++    double miss = 0.0;
++    for (Index q = 0; q < lm.size(); ++q) miss += w_(q) * std::exp(lm(q));
++    return w_.sum() - miss;
++}
++
++}  // namespace mtl::planning
+diff -ruN a/src/planning/info_aware.cpp b/src/planning/info_aware.cpp
+--- a/src/planning/info_aware.cpp	1969-12-31 19:00:00.000000000 -0500
++++ b/src/planning/info_aware.cpp	2026-09-29 17:15:52.544510022 -0400
+@@ -0,0 +1,401 @@
++#include "mtl/planning/info_aware.hpp"
++
++#include <algorithm>
++#include <chrono>
++#include <cmath>
++#include <cstdio>
++#include <functional>
++#include <future>
++#include <sstream>
++#include <string>
++#include <thread>
++#include <utility>
++
++#include "mtl/core/kmeans.hpp"
++#include "mtl/mapping/cells.hpp"
++#include "mtl/mapping/peak_clusters.hpp"
++#include "mtl/planner.hpp"
++#include "mtl/planning/coverage_score.hpp"
++
++namespace mtl::planning {
++namespace {
++
++/// One abstraction to plan: the parameter set it is planned with and, unless
++/// it is the plain plan, the clusters.
++struct Job {
++    std::string   label;
++    PlannerParams params;
++    bool          plain = false;  ///< planFromCells (the planner clusters itself)
++    ClusterSet    clusters;
++};
++
++struct Outcome {
++    PlanningResult result;
++    double         score = -kInf;
++    double         flown = 0.0;
++};
++
++std::string fracsLabel(const std::vector<double>& f) {
++    std::ostringstream o;
++    o << "[";
++    for (std::size_t i = 0; i < f.size(); ++i) o << (i ? "," : "") << f[i];
++    o << "]";
++    return o.str();
++}
++
++double teamFlown(const PlanningResult& r) {
++    double s = 0.0;
++    for (const AgentPlan& p : r.plans) s += p.flownLength;
++    return s;
++}
++
++/// Plan every job, `threads` at a time.  Order of the output = order of the jobs.
++std::vector<Outcome> runJobs(const std::vector<Job>& jobs, const CellSet& cells,
++                             const std::vector<Vec2>& starts, const CoverageModel& cov,
++                             int lookStride, int threads) {
++    std::vector<Outcome> out(jobs.size());
++    auto one = [&](std::size_t i) {
++        const Job& j = jobs[i];
++        Planner planner(j.params);
++        Outcome o;
++        o.result = j.plain ? planner.planFromCells(cells, starts)
++                           : planner.planFromClusters(cells, j.clusters, starts);
++        o.score  = cov.detectedMass(o.result.trajectories, lookStride);
++        o.flown  = teamFlown(o.result);
++        out[i]   = std::move(o);
++    };
++    if (threads <= 1 || jobs.size() <= 1) {
++        for (std::size_t i = 0; i < jobs.size(); ++i) one(i);
++        return out;
++    }
++    for (std::size_t base = 0; base < jobs.size(); base += static_cast<std::size_t>(threads)) {
++        std::vector<std::future<void>> fs;
++        const std::size_t end = std::min(jobs.size(), base + static_cast<std::size_t>(threads));
++        for (std::size_t i = base; i < end; ++i) fs.push_back(std::async(std::launch::async, one, i));
++        for (auto& f : fs) f.get();
++    }
++    return out;
++}
++
++/// Better = more detected mass; a tie (within round-off of the model) goes to
++/// the shorter flight.
++bool better(const Outcome& a, const Outcome& b) {
++    if (a.score > b.score + 1e-6) return true;
++    if (a.score < b.score - 1e-6) return false;
++    return a.flown < b.flown - 1e-6;
++}
++
++std::vector<std::vector<Index>> membersOf(const ClusterSet& cl) { return cl.cellIdx; }
++
++/// Largest cell distance from the members' mean.
++double radiusOf(const CellSet& cells, const std::vector<Index>& mem) {
++    if (mem.empty()) return 0.0;
++    Vec2 c = Vec2::Zero();
++    for (const Index g : mem) c += cells.centers.row(g).transpose();
++    c /= static_cast<double>(mem.size());
++    double r = 0.0;
++    for (const Index g : mem) r = std::max(r, (cells.centers.row(g).transpose() - c).norm());
++    return r;
++}
++
++ClusterSet rebuild(const CellSet& cells, const std::vector<std::vector<Index>>& mem,
++                   const std::vector<int>& basin, const std::vector<int>& level) {
++    // drop empties, keep the per-cluster tags aligned
++    std::vector<std::vector<Index>> m2;
++    std::vector<int> b2, l2;
++    for (std::size_t k = 0; k < mem.size(); ++k) {
++        if (mem[k].empty()) continue;
++        m2.push_back(mem[k]);
++        if (basin.size() == mem.size()) b2.push_back(basin[k]);
++        if (level.size() == mem.size()) l2.push_back(level[k]);
++    }
++    return mapping::clusterSetFromMembers(cells, m2, b2, l2);
++}
++
++/// The split / peel / merge neighbourhood of an incumbent plan.
++std::vector<std::pair<std::string, ClusterSet>> movesOf(const PlanningResult& inc,
++                                                        const ClusterSet& cl, const CellSet& cells,
++                                                        const PlannerParams& q,
++                                                        const InfoAwareParams& ia,
++                                                        std::uint64_t seed) {
++    std::vector<std::pair<std::string, ClusterSet>> moves;
++    const double reach = q.maxClusterRadius;
++    const std::vector<std::vector<Index>> mem = membersOf(cl);
++    const auto K = static_cast<Index>(mem.size());
++    std::vector<int> basin = cl.basin, level = cl.level;
++    if (static_cast<Index>(basin.size()) != K) basin.assign(static_cast<std::size_t>(K), -1);
++    if (static_cast<Index>(level.size()) != K) level.assign(static_cast<std::size_t>(K), 0);
++
++    std::vector<char> chosen(static_cast<std::size_t>(K), 0);
++    for (const Index c : inc.team.reachedClusters)
++        if (c >= 0 && c < K) chosen[static_cast<std::size_t>(c)] = 1;
++
++    // Chosen clusters, richest first: that is where a better abstraction pays most.
++    std::vector<Index> order;
++    for (Index k = 0; k < K; ++k)
++        if (chosen[static_cast<std::size_t>(k)]) order.push_back(k);
++    std::stable_sort(order.begin(), order.end(), [&](Index a, Index b) { return cl.reward(a) > cl.reward(b); });
++
++    ClusterParams cp = q.cluster;
++    for (const Index c : order) {
++        const std::vector<Index>& mc = mem[static_cast<std::size_t>(c)];
++
++        // PEEL: keep the densest cells holding peelKeep of the mass.
++        if (mc.size() >= 3) {
++            std::vector<Index> s = mc;
++            std::stable_sort(s.begin(), s.end(), [&](Index a, Index b) { return cells.mass(a) > cells.mass(b); });
++            const double tot = cl.reward(c);
++            std::vector<Index> keep, rest;
++            double cum = 0.0;
++            for (const Index g : s) {
++                (cum < ia.peelKeep * tot - 1e-15 || keep.empty() ? keep : rest).push_back(g);
++                cum += cells.mass(g);
++            }
++            if (!rest.empty()) {
++                auto m2 = mem;
++                auto b2 = basin, l2 = level;
++                m2[static_cast<std::size_t>(c)] = keep;
++                for (auto& part : mapping::splitUnderRadius(cells, rest, reach, cp, seed + 31ULL * static_cast<std::uint64_t>(c))) {
++                    m2.push_back(std::move(part));
++                    b2.push_back(basin[static_cast<std::size_t>(c)]);
++                    l2.push_back(level[static_cast<std::size_t>(c)] + 1);
++                }
++                moves.emplace_back("peel", rebuild(cells, m2, b2, l2));
++            }
++        }
++
++        // SPLIT in two.
++        if (mc.size() >= 2) {
++            Path2 pts(static_cast<Index>(mc.size()), 2);
++            for (std::size_t i = 0; i < mc.size(); ++i) pts.row(static_cast<Index>(i)) = cells.centers.row(mc[i]);
++            core::KMeansOptions ko;
++            ko.maxIter = cp.kmeansMaxIter;
++            ko.replicates = cp.kmeansReplicates;
++            ko.seed = seed + 17ULL * static_cast<std::uint64_t>(c);
++            const core::KMeansResult r = core::kmeans(pts, 2, ko);
++            std::vector<Index> a, b;
++            for (std::size_t i = 0; i < mc.size(); ++i) (r.assignment[i] == 0 ? a : b).push_back(mc[i]);
++            if (!a.empty() && !b.empty()) {
++                auto m2 = mem;
++                auto b2 = basin, l2 = level;
++                m2[static_cast<std::size_t>(c)] = a;
++                m2.push_back(b);
++                b2.push_back(basin[static_cast<std::size_t>(c)]);
++                l2.push_back(level[static_cast<std::size_t>(c)]);
++                moves.emplace_back("split", rebuild(cells, m2, b2, l2));
++            }
++        }
++
++        // MERGE with the nearest unchosen cluster whose union still fits.
++        Index best = -1;
++        double bestD = kInf;
++        for (Index d = 0; d < K; ++d) {
++            if (d == c || chosen[static_cast<std::size_t>(d)]) continue;
++            const double dist = (cl.centroids.row(c) - cl.centroids.row(d)).norm();
++            if (dist >= bestD || dist > 2.0 * reach) continue;
++            std::vector<Index> u = mc;
++            u.insert(u.end(), mem[static_cast<std::size_t>(d)].begin(), mem[static_cast<std::size_t>(d)].end());
++            if (radiusOf(cells, u) <= reach) {
++                bestD = dist;
++                best  = d;
++            }
++        }
++        if (best >= 0) {
++            auto m2 = mem;
++            m2[static_cast<std::size_t>(c)].insert(m2[static_cast<std::size_t>(c)].end(),
++                                                   mem[static_cast<std::size_t>(best)].begin(),
++                                                   mem[static_cast<std::size_t>(best)].end());
++            m2[static_cast<std::size_t>(best)].clear();
++            moves.emplace_back("merge", rebuild(cells, m2, basin, level));
++        }
++    }
++    return moves;
++}
++
++}  // namespace
++
++// -----------------------------------------------------------------------------
++double detectionReach(const PlannerParams& P) {
++    double S = P.infoAware.slantMargin * P.sensor.beta;
++    if (std::isfinite(P.gimbal.maxSlantRange)) S = std::min(S, P.gimbal.maxSlantRange);
++    const double h = P.droneAltitude;
++    if (P.singleAxisGimbal) {
++        // The swept line: a look at cross angle phi has slant h / (cos(tau) cos(phi))
++        // and lands h tan(phi) to the side.
++        const double c = h / (S * std::cos(P.sensorTiltAngle));
++        if (!(c < 1.0)) return 0.0;
++        return h * std::tan(std::acos(c));
++    }
++    return (S > h) ? std::sqrt(S * S - h * h) : 0.0;
++}
++
++// -----------------------------------------------------------------------------
++PlanningResult planInfoAware(const PlannerParams& P0, const CellSet& cells,
++                             const std::vector<Vec2>& agentStarts) {
++    const auto t0 = std::chrono::steady_clock::now();
++    const InfoAwareParams& ia = P0.infoAware;
++
++    PlannerParams plain = P0;
++    plain.infoAware.enabled = false;
++    plain.finalize();
++
++    int threads = ia.threads;
++    if (threads <= 0) threads = static_cast<int>(std::max(1u, std::min(8u, std::thread::hardware_concurrency())));
++
++    const CoverageModel cov(cells, ia.subsample, P0.fov, P0.sensor);
++    const mapping::PeakBasins basins = mapping::findPeakBasins(cells, ia.persistence);
++    const double dReach = detectionReach(P0);
++
++    // --- the candidate abstractions --------------------------------------------
++    std::vector<Job> jobs;
++    {
++        Job j;
++        j.label  = "baseline";
++        j.params = plain;
++        j.plain  = true;
++        jobs.push_back(std::move(j));
++    }
++
++    struct ReachOpt { double r; bool capped; };
++    std::vector<ReachOpt> reaches{{P0.maxClusterRadius, false}};
++    if (dReach > 0.0)
++        for (const double s : ia.reachScales) reaches.push_back({s * dReach, ia.capGimbalToDetection});
++
++    for (const ReachOpt& ro : reaches) {
++        PlannerParams q = plain;
++        q.maxClusterRadius = ro.r;
++        q.budget.cellAnchor.gimbalReach.reset();  // follows maxClusterRadius in finalize()
++        if (ro.capped) {
++            const double S = std::min(ia.slantMargin * P0.sensor.beta,
++                                      std::isfinite(P0.gimbal.maxSlantRange) ? P0.gimbal.maxSlantRange : kInf);
++            q.gimbal.maxSlantRange  = S;
++            q.gimbal.maxSensorReach = std::min(q.gimbal.maxSensorReach, dReach);
++            q.extension.maxSensorReach = std::min(q.extension.maxSensorReach, dReach);
++        }
++        q.finalize();
++        const std::string at = "@" + std::to_string(static_cast<long long>(std::lround(ro.r))) +
++                               (ro.capped ? "d" : "");
++
++        if (ro.capped || std::abs(ro.r - P0.maxClusterRadius) > 1e-9) {
++            Job j;
++            j.label    = "kmeans" + at;
++            j.params   = q;
++            j.clusters = mapping::clusterCells(cells.centers, ro.r, q.cluster, q.rngSeed, false);
++            mapping::computeClusterRewards(cells.mass, j.clusters);
++            jobs.push_back(std::move(j));
++        }
++        for (const std::vector<double>& ls : ia.levelSets) {
++            Job j;
++            j.label    = "peaks" + fracsLabel(ls) + at;
++            j.params   = q;
++            j.clusters = mapping::clusterByPeaks(cells, basins, ls, ro.r, q.cluster, q.rngSeed);
++            jobs.push_back(std::move(j));
++        }
++    }
++
++    // Re-seeded copies of every abstraction (the orienteering heuristic's GRASP
++    // restarts depend on the seed); the plain plan itself stays job 0.
++    {
++        const std::size_t nBase = jobs.size();
++        for (int r = 1; r <= ia.restarts; ++r)
++            for (std::size_t i = 0; i < nBase; ++i) {
++                Job j = jobs[i];
++                j.label += "~s" + std::to_string(r);
++                j.params.budget.orienteering.seed =
++                    jobs[i].params.budget.orienteering.seed + 7919ULL * static_cast<std::uint64_t>(r);
++                jobs.push_back(std::move(j));
++            }
++    }
++
++    std::vector<Outcome> outs = runJobs(jobs, cells, agentStarts, cov, ia.lookStride, threads);
++
++    InfoAwareReport rep;
++    rep.enabled        = true;
++    rep.detectionReach = dReach;
++    rep.basins         = basins.size();
++    std::size_t bestI = 0;
++    for (std::size_t i = 0; i < jobs.size(); ++i) {
++        InfoAwareCandidate c;
++        c.label    = jobs[i].label;
++        c.reach    = jobs[i].params.maxClusterRadius;
++        c.score    = outs[i].score;
++        c.info     = outs[i].result.team.info;
++        c.flown    = outs[i].flown;
++        c.clusters = outs[i].result.clusters.size();
++        rep.candidates.push_back(c);
++        if (better(outs[i], outs[bestI])) bestI = i;
++    }
++    rep.baselineScore = outs[0].score;
++
++    Outcome     incumbent = std::move(outs[bestI]);
++    std::string incLabel  = jobs[bestI].label;
++    PlannerParams incParams = jobs[bestI].params;
++    ClusterSet  incClusters = incumbent.result.clusters;
++
++    // --- split / peel / merge on the incumbent -----------------------------------
++    if (ia.splitMerge && ia.maxMoves > 0) {
++        std::uint64_t seed = P0.rngSeed * 2654435761ULL + 99ULL;
++        std::vector<std::pair<std::string, ClusterSet>> moves =
++            movesOf(incumbent.result, incClusters, cells, incParams, ia, seed);
++        std::size_t next = 0;
++        while (rep.movesTried < ia.maxMoves && next < moves.size()) {
++            const std::size_t take = std::min<std::size_t>(
++                {moves.size() - next, static_cast<std::size_t>(std::max(1, threads)),
++                 static_cast<std::size_t>(ia.maxMoves - rep.movesTried)});
++            std::vector<Job> batch;
++            for (std::size_t i = 0; i < take; ++i) {
++                Job j;
++                j.label    = "move:" + moves[next + i].first;
++                j.params   = incParams;
++                j.clusters = moves[next + i].second;
++                batch.push_back(std::move(j));
++            }
++            next += take;
++            rep.movesTried += static_cast<int>(take);
++            std::vector<Outcome> bo = runJobs(batch, cells, agentStarts, cov, ia.lookStride, threads);
++
++            std::size_t bi = 0;
++            for (std::size_t i = 1; i < bo.size(); ++i)
++                if (better(bo[i], bo[bi])) bi = i;
++            const bool improved = better(bo[bi], incumbent);
++            for (std::size_t i = 0; i < bo.size(); ++i) {
++                InfoAwareCandidate c;
++                c.label    = batch[i].label;
++                c.reach    = incParams.maxClusterRadius;
++                c.score    = bo[i].score;
++                c.info     = bo[i].result.team.info;
++                c.flown    = bo[i].flown;
++                c.clusters = bo[i].result.clusters.size();
++                c.accepted = improved && i == bi;
++                rep.candidates.push_back(c);
++            }
++            if (improved) {
++                ++rep.movesAccepted;
++                incumbent   = std::move(bo[bi]);
++                incLabel    = incLabel + "+" + batch[bi].label.substr(5);
++                incClusters = incumbent.result.clusters;
++                moves = movesOf(incumbent.result, incClusters, cells, incParams, ia,
++                                seed + static_cast<std::uint64_t>(rep.movesTried));
++                next = 0;
++            }
++        }
++    }
++
++    PlanningResult out = std::move(incumbent.result);
++    rep.chosen      = incLabel;
++    rep.chosenScore = incumbent.score;
++    rep.chosenReach = incParams.maxClusterRadius;
++    rep.seconds     = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
++    out.infoAware   = std::move(rep);
++
++    if (P0.verbose) {
++        std::printf("[mtl] info-aware: %zu candidates, %d/%d moves accepted; chose %s "
++                    "(detected %.4f vs baseline %.4f), %.1f s\n",
++                    out.infoAware.candidates.size(), out.infoAware.movesAccepted,
++                    out.infoAware.movesTried, out.infoAware.chosen.c_str(),
++                    out.infoAware.chosenScore, out.infoAware.baselineScore, out.infoAware.seconds);
++    }
++    return out;
++}
++
++}  // namespace mtl::planning
+diff -ruN a/tests/test_info_aware.cpp b/tests/test_info_aware.cpp
+--- a/tests/test_info_aware.cpp	1969-12-31 19:00:00.000000000 -0500
++++ b/tests/test_info_aware.cpp	2026-09-29 17:15:52.544916093 -0400
+@@ -0,0 +1,259 @@
++// The information-aware abstraction: peak basins, mass levels, the coverage
++// model, and the search that plans over them (PlannerParams::infoAware).
++#include <algorithm>
++#include <array>
++#include <stdexcept>
++#include <cmath>
++#include <map>
++#include <set>
++
++#include "mtl/core/numeric.hpp"
++#include "mtl/eval/detection.hpp"
++#include "mtl/mapgen/scenario.hpp"
++#include "mtl/mapping/cells.hpp"
++#include "mtl/mapping/peak_clusters.hpp"
++#include "mtl/planner.hpp"
++#include "mtl/planning/coverage_score.hpp"
++#include "mtl/planning/info_aware.hpp"
++#include "test_util.hpp"
++
++using namespace mtl;
++
++namespace {
++
++/// Cells on a 200 m lattice holding a sum of Gaussian bumps.
++CellSet latticeCells(const std::vector<std::array<double, 4>>& bumps, double size = 5000.0) {
++    const double cs = 200.0;
++    std::vector<Vec2> c;
++    std::vector<double> m;
++    for (double x = cs / 2; x < size; x += cs)
++        for (double y = cs / 2; y < size; y += cs) {
++            double v = 0.0;
++            for (const auto& b : bumps)  // x, y, sigma, amplitude
++                v += b[3] * std::exp(-0.5 * (std::pow((x - b[0]) / b[2], 2) + std::pow((y - b[1]) / b[2], 2)));
++            if (v > 1e-3) {
++                c.emplace_back(x, y);
++                m.push_back(v);
++            }
++        }
++    CellSet out;
++    const auto n = static_cast<Index>(c.size());
++    out.centers.resize(n, 2);
++    out.mass.resize(n);
++    double tot = 0.0;
++    for (const double v : m) tot += v;
++    for (Index i = 0; i < n; ++i) {
++        out.centers.row(i) = c[static_cast<std::size_t>(i)].transpose();
++        out.mass(i)        = m[static_cast<std::size_t>(i)] / tot;
++    }
++    out.cellSize     = cs;
++    out.area         = VecX::Constant(n, cs * cs);
++    out.nPix         = VecX::Constant(n, 1.0);
++    out.meanBelief   = out.mass / (cs * cs);
++    out.peakBelief   = out.meanBelief;
++    out.retainedMass = out.mass.sum();
++    out.totalMapMass = 1.0;
++    out.massNorm     = out.mass / out.retainedMass;
++    out.gridRes      = Vec2(10, 10);
++    return out;
++}
++
++PlannerParams smallParams() {
++    PlannerParams p;
++    p.cellSize         = 10.0;
++    p.numAgents        = 1;
++    p.verbose          = false;
++    p.verifyGeometryVerbose = false;
++    p.droneAltitude    = 300.0;
++    p.avgDroneSpeed    = 6.0;
++    p.minTurnRadius    = 12.0;
++    p.sensorTiltAngle  = deg2rad(30.0);
++    p.maxClusterRadius = 550.0;
++    p.maxFlightTime    = 700.0;
++    p.targetCellSize   = 200.0;
++    p.dubins.stepSize  = 0.5;
++    p.sensor.b         = 0.1;
++    p.gimbal.targetTol = 5.0;
++    p.extension.extendDist = 200.0;
++    p.infoAware.threads = 2;
++    p.infoAware.maxMoves = 6;
++    return p;
++}
++
++}  // namespace
++
++int main() {
++    // --- basins: two separated peaks stay two, two overlapping ones merge ----
++    {
++        const CellSet two = latticeCells({{{1200, 1200, 250, 1.0}}, {{3800, 3800, 250, 0.7}}});
++        const mapping::PeakBasins b2 = mapping::findPeakBasins(two, 0.6);
++        CHECK(b2.size() == 2);
++        // basin 0 is the higher peak, and its top is next to (1200, 1200)
++        CHECK((two.centers.row(b2.peakCell[0]).transpose() - Vec2(1200, 1200)).norm() < 150.0);
++        CHECK((two.centers.row(b2.peakCell[1]).transpose() - Vec2(3800, 3800)).norm() < 150.0);
++        double tot = 0.0;
++        for (const double m : b2.mass) tot += m;
++        CHECK_NEAR(tot, two.mass.sum(), 1e-12);
++
++        // 500 m apart with sigma 400: one peak with a shallow dip -> merged at 0.6,
++        // kept apart when nothing short of a plateau may merge (persistence 1).
++        const CellSet near = latticeCells({{{2000, 2500, 400, 1.0}}, {{3000, 2500, 400, 0.9}}});
++        const mapping::PeakBasins merged = mapping::findPeakBasins(near, 0.6);
++        const mapping::PeakBasins apart  = mapping::findPeakBasins(near, 1.0);
++        CHECK(merged.size() == 1);
++        CHECK(apart.size() >= 2);
++        // persistence 0 merges everything that touches
++        CHECK(mapping::findPeakBasins(two, 0.0).size() == 2);  // two islands, no shared edge
++    }
++
++    // --- levels: a partition, densest-first, under the radius ----------------
++    {
++        const CellSet cells = latticeCells({{{1500, 1500, 350, 1.0}}, {{3500, 2000, 250, 0.6}},
++                                            {{2500, 4000, 450, 0.8}}});
++        const mapping::PeakBasins b = mapping::findPeakBasins(cells, 0.6);
++        const std::vector<double> fr = {0.35, 0.7, 1.0};
++        const double R = 400.0;
++        const ClusterSet cl = mapping::clusterByPeaks(cells, b, fr, R, ClusterParams{}, 5);
++
++        CHECK(cl.size() > 0);
++        CHECK(static_cast<Index>(cl.cellCluster.size()) == cells.size());
++        CHECK(cl.maxRadius <= R + 1e-9);
++        CHECK(static_cast<Index>(cl.basin.size()) == cl.size());
++        CHECK(static_cast<Index>(cl.level.size()) == cl.size());
++        CHECK(static_cast<Index>(cl.parent.size()) == cl.size());
++        std::vector<int> seen(static_cast<std::size_t>(cells.size()), 0);
++        for (Index k = 0; k < cl.size(); ++k)
++            for (const Index g : cl.cellIdx[static_cast<std::size_t>(k)]) ++seen[static_cast<std::size_t>(g)];
++        CHECK(std::all_of(seen.begin(), seen.end(), [](int s) { return s == 1; }));
++        CHECK_NEAR(cl.reward.sum(), cells.mass.sum(), 1e-12);
++
++        // Within a basin every level-l cell is at least as dense as every level-(l+1) cell,
++        // and the core holds at least its fraction of the basin.
++        for (Index bb = 0; bb < b.size(); ++bb) {
++            std::map<int, double> minOf, maxOf, massOf;
++            for (Index k = 0; k < cl.size(); ++k) {
++                if (cl.basin[static_cast<std::size_t>(k)] != static_cast<int>(bb)) continue;
++                const int l = cl.level[static_cast<std::size_t>(k)];
++                for (const Index g : cl.cellIdx[static_cast<std::size_t>(k)]) {
++                    minOf[l] = minOf.count(l) ? std::min(minOf[l], cells.mass(g)) : cells.mass(g);
++                    maxOf[l] = maxOf.count(l) ? std::max(maxOf[l], cells.mass(g)) : cells.mass(g);
++                    massOf[l] += cells.mass(g);
++                }
++                const int par = cl.parent[static_cast<std::size_t>(k)];
++                if (l == 0) CHECK(par == -1);
++                else CHECK(par >= 0 && cl.level[static_cast<std::size_t>(par)] == l - 1 &&
++                           cl.basin[static_cast<std::size_t>(par)] == static_cast<int>(bb));
++            }
++            for (const auto& [l, mn] : minOf)
++                if (maxOf.count(l + 1)) CHECK(mn >= maxOf[l + 1] - 1e-15);
++            CHECK(massOf[0] >= fr[0] * b.mass[static_cast<std::size_t>(bb)] - 1e-12);
++        }
++    }
++
++    // --- the coverage model agrees with the residual-belief metric -----------
++    {
++        PlannerParams p = smallParams();
++        BeliefMapParams bp;
++        bp.numCentroids = 6;
++        bp.sigmaMin = 200;
++        bp.sigmaMax = 400;
++        const BeliefField prior = mapgen::generateBeliefMap(5000.0, 10.0, bp, 3);
++        const CellSet cells = mapping::extractValidCells(prior, 200.0, 2e-4, false);
++        Planner planner(p);
++        const PlanningResult r = planner.planFromCells(cells, {Vec2(2300, 2300)});
++        const planning::CoverageModel cov(cells, 4, p.fov, p.sensor);
++
++        CHECK_NEAR(cov.totalMass(), cells.mass.sum(), 1e-12);
++        CHECK_NEAR(cov.detectedMass({}, 1), 0.0, 1e-12);
++        const double model = cov.detectedMass(r.trajectories, 1);
++        const double strided = cov.detectedMass(r.trajectories, 4);
++        const eval::ResidualBelief rb = eval::computeResidualBelief(prior, r.trajectories, p.fov, p.sensor);
++        std::printf("  coverage model %.4f (stride 4: %.4f) vs residual-belief detected %.4f\n", model,
++                    strided, rb.detectedMass);
++        CHECK(model > 0.05);
++        CHECK_NEAR(model, rb.detectedMass, 0.03);
++        CHECK_NEAR(strided, model, 0.01);
++    }
++
++    // --- detection reach: single-axis swept line and multi-axis --------------
++    {
++        PlannerParams p = smallParams();
++        p.finalize();
++        const double S = p.infoAware.slantMargin * p.sensor.beta;
++        const double d = planning::detectionReach(p);
++        const double phi = std::atan(d / p.droneAltitude);
++        CHECK_NEAR(p.droneAltitude / (std::cos(p.sensorTiltAngle) * std::cos(phi)), S, 1e-6);
++        p.singleAxisGimbal = false;
++        CHECK_NEAR(planning::detectionReach(p), std::sqrt(S * S - 300.0 * 300.0), 1e-9);
++        p.droneAltitude = 2000.0;
++        CHECK(planning::detectionReach(p) == 0.0);
++    }
++
++    // --- the search end to end ------------------------------------------------
++    {
++        PlannerParams p = smallParams();
++        BeliefMapParams bp;
++        bp.numCentroids = 8;
++        bp.sigmaMin = 150;
++        bp.sigmaMax = 350;
++        const BeliefField prior = mapgen::generateBeliefMap(5000.0, 10.0, bp, 11);
++        const CellSet cells = mapping::extractValidCells(prior, 200.0, 2e-4, false);
++        const std::vector<Vec2> st = {Vec2(2300, 2300)};
++
++        Planner plain(p);
++        const PlanningResult base = plain.planFromCells(cells, st);
++        CHECK(!base.infoAware.enabled);
++
++        p.infoAware.enabled = true;
++        Planner smart(p);
++        const PlanningResult r = smart.planFromCells(cells, st);
++        CHECK(r.infoAware.enabled);
++        CHECK(!r.infoAware.candidates.empty());
++        CHECK(r.infoAware.candidates.front().label == "baseline");
++        CHECK(r.infoAware.chosenScore >= r.infoAware.baselineScore - 1e-12);
++        CHECK(r.infoAware.basins >= 1);
++        CHECK(r.infoAware.detectionReach > 0.0);
++
++        // the baseline candidate IS the plain plan
++        const planning::CoverageModel cov(cells, p.infoAware.subsample, p.fov, p.sensor);
++        CHECK_NEAR(r.infoAware.baselineScore, cov.detectedMass(base.trajectories, p.infoAware.lookStride), 1e-12);
++        // the returned plan is the one that was scored
++        CHECK_NEAR(r.infoAware.chosenScore, cov.detectedMass(r.trajectories, p.infoAware.lookStride), 1e-12);
++
++        // it is an ordinary, budget-verified plan
++        CHECK(r.plans.size() == 1);
++        const double flown = core::polylineLength(r.plans[0].droneTraj);
++        CHECK(flown <= r.plans[0].budget * (1.0 + p.budget.tol) + 1e-6);
++        CHECK(r.trajectories[0].drone.allFinite());
++        CHECK(static_cast<Index>(r.clusters.cellCluster.size()) == cells.size());
++
++        // ... and the metric agrees that it searched at least as well
++        const double resBase = eval::computeResidualBelief(prior, base.trajectories, p.fov, p.sensor).residualMass;
++        const double resNew  = eval::computeResidualBelief(prior, r.trajectories, p.fov, p.sensor).residualMass;
++        std::printf("  info-aware: chose %s, residual %.4f vs plain %.4f (%zu plans, %.1f s)\n",
++                    r.infoAware.chosen.c_str(), resNew, resBase, r.infoAware.candidates.size(),
++                    r.infoAware.seconds);
++        CHECK(resNew <= resBase + 0.01);
++
++        // deterministic, whatever the thread count
++        PlannerParams p1 = p;
++        p1.infoAware.threads = 1;
++        const PlanningResult r1 = Planner(p1).planFromCells(cells, st);
++        CHECK(r1.infoAware.chosen == r.infoAware.chosen);
++        CHECK_NEAR(r1.infoAware.chosenScore, r.infoAware.chosenScore, 1e-12);
++        CHECK(r1.trajectories[0].drone.rows() == r.trajectories[0].drone.rows());
++
++        // bad level sets are rejected at construction
++        bool threw = false;
++        try {
++            PlannerParams bad = p;
++            bad.infoAware.levelSets = {{0.5, 0.9}};
++            Planner x(bad);
++        } catch (const std::invalid_argument&) {
++            threw = true;
++        }
++        CHECK(threw);
++    }
++
++    return mtl::test::report("test_info_aware");
++}

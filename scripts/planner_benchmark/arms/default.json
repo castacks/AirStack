@@ -1,0 +1,15 @@
+{
+  "_doc": "Planner arms for run_benchmark.py. scenario_overrides: dotted keys set on each scenario before planning (null removes). TIGRIS arms start from the stack tuning (stacks/tigris_search/config/tigris_search_planner.yaml) and apply tigris_set on top; planning_time 1000 s + commit_margin -992 keeps the flown 8 s commit distance while max_iterations bounds each solve, so runs are deterministic and do not depend on machine load. On the robot a 5 s solve ran about 500-700 iterations.",
+  "arms": [
+    {"name": "mtl_plain", "planner": "mtl",
+     "scenario_overrides": {"info_aware": {"enabled": false, "report_both": false}}},
+    {"name": "mtl_info_aware", "planner": "mtl",
+     "scenario_overrides": {"info_aware": {"enabled": true, "report_both": false, "threads": 1}}},
+    {"name": "tigris_sweep", "planner": "tigris",
+     "scenario_overrides": {"airstack.gimbal_actuation": {"enabled": true, "sweep_rate_deg_s": 30.0, "sweep_amplitude_deg": 45.0}},
+     "tigris_set": {"planning_time_s": 1000, "initial_planning_time_s": 1000, "commit_margin_s": -992, "max_iterations": 600}},
+    {"name": "tigris_fixed", "planner": "tigris",
+     "scenario_overrides": {"airstack.gimbal_actuation": null},
+     "tigris_set": {"planning_time_s": 1000, "initial_planning_time_s": 1000, "commit_margin_s": -992, "max_iterations": 600}}
+  ]
+}

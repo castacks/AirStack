@@ -1,0 +1,56 @@
+{
+ "_doc": "The fair comparison in the 900 m world (specs/wide900.json): each planner at its best setting from the tuning runs on the first 30 scenarios (arms/tigris_tuning.json, arms/mtl_tuning.json), scored through the common gimbal (residual_hw). mtl_plain at the stack's 550 m cluster radius is kept as the reference.",
+ "arms": [
+  {
+   "name": "mtl_plain",
+   "planner": "mtl",
+   "scenario_overrides": {
+    "info_aware": {
+     "enabled": false,
+     "report_both": false
+    }
+   }
+  },
+  {
+   "name": "mtl_plain_r800",
+   "planner": "mtl",
+   "scenario_overrides": {
+    "info_aware": {
+     "enabled": false,
+     "report_both": false
+    },
+    "mapping.max_cluster_radius_m": 800.0
+   }
+  },
+  {
+   "name": "mtl_info_aware_r800",
+   "planner": "mtl",
+   "scenario_overrides": {
+    "info_aware": {
+     "enabled": true,
+     "report_both": false,
+     "threads": 1
+    },
+    "mapping.max_cluster_radius_m": 800.0
+   }
+  },
+  {
+   "name": "tigris_det_60dps",
+   "planner": "tigris",
+   "scenario_overrides": {
+    "airstack.gimbal_actuation": {
+     "enabled": true,
+     "sweep_rate_deg_s": 60.0,
+     "sweep_amplitude_deg": "detection",
+     "max_amplitude_deg": 75.0
+    }
+   },
+   "tigris_set": {
+    "planning_time_s": 1000,
+    "initial_planning_time_s": 1000,
+    "commit_margin_s": -992,
+    "max_iterations": 150
+   }
+  }
+ ]
+}

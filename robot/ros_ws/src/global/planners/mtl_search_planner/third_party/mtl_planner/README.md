@@ -30,6 +30,11 @@ The chain, and the one idea behind each link:
 | `optimizeDroneSensorTraj` | schedule which pass each centre is served on | with one gimbal axis the *instant* is handed over by geometry; the freedom is *which crossing* plus a few degrees of pitch |
 | `computeAirframeRPY` | read attitude off the trajectory | with a multi-axis gimbal there is nothing to schedule |
 
+**Optional: `PlannerParams::infoAware`** (off by default) replaces the single proximity
+abstraction with a search over abstractions: clusters that follow the prior's peaks, cut into
+nested mass levels, each flown plan scored by what its footprint would detect. See
+*Information-aware abstraction search* below.
+
 The budget is a **hard guarantee**, not an estimate: it is enforced on the trajectory that
 comes out, not the plan that went in (see *The budget is measured, not estimated* below).
 
@@ -53,24 +58,24 @@ include/mtl/
   params.hpp                 EVERY tunable, in structs — the port of init_params.m
   planner.hpp                the Planner class: the integration surface
   core/       numeric, dubins, kmeans
-  mapping/    cells                  (extract, cluster, reward)
+  mapping/    cells, peak_clusters   (extract, cluster, reward; peak basins + mass levels)
   routing/    tsp                    (macro TSP, micro sweep, sensor path)
   planning/   info_score, orienteering, macro_route, cell_anchors,
-              agent_sortie, team_allocation
+              agent_sortie, team_allocation, coverage_score, info_aware
   trajectory/ trajectory_gen, lateral_coverage
   sensing/    abeam, airframe, gimbal_scheduler
   mapgen/     scenario               → library mtl_mapgen
   eval/       detection, geometry_audit, report   → library mtl_eval
 src/          mirrors include/
 apps/         demo_pipeline.cpp      the C++ equivalent of main_new.m
-tests/        five suites, run by ctest, no external framework
+tests/        six suites, run by ctest, no external framework
 ```
 
 ### Three libraries, on purpose
 
 | Target | Contents | Depends on |
 |---|---|---|
-| **`mtl::planner`** | the whole planning chain | Eigen only |
+| **`mtl::planner`** | the whole planning chain | Eigen (+ the platform thread library) |
 | `mtl::mapgen` | Gaussian prior (normalised) + ground-truth targets | `mtl::planner` |
 | `mtl::eval` | detection physics, residual belief, geometry audit, reports | `mtl::planner` |
 
@@ -197,6 +202,31 @@ The knobs worth knowing first:
 
 ---
 
+## Information-aware abstraction search (`PlannerParams::infoAware`)
+
+Off by default; `infoAware.enabled = true` makes `planFromCells` / `plan` run it instead of the
+single plain plan. It exists because the plain abstraction is chosen by proximity alone and the
+route is optimised against a proxy ("the boresight was aimed at this centre"), and on a peaked
+prior both cost detection: a k-means cluster mixes a peak's dense core with its thin tail, so the
+route can only take both or neither, and a plan that looks better on the proxy can search less.
+
+| Step | Code | What it does |
+|---|---|---|
+| peaks | `mapping::findPeakBasins` | each cell climbs to its highest lattice neighbour; the cells that reach the same top are one basin; basins whose saddle is at least `persistence` x the lower peak are merged |
+| levels | `mapping::clusterByPeaks` | each basin, densest cells first, is cut at the cumulative-mass fractions of a `levelSets` entry (e.g. `{0.5, 1}` = core holding half the mass, then the rest); every (basin, level) set is split under the reach radius exactly like `clusterCells`. The orienteering over these nodes chooses how far down each peak to go: a discretised profit curve with diminishing returns |
+| score | `planning::CoverageModel` | the residual-belief metric computed from the cells: each cell spread over a `subsample`^2 lattice, every look of the scheduled trajectory integrated with the footprint rule and the sigmoid of `eval::computeResidualBelief` |
+| search | `planning::planInfoAware` | plans the plain plan, k-means and every level set at `maxClusterRadius` and at the detection reach (the cross-track offset where the boresight slant is `slantMargin * beta`, with the scheduler's slant and reach capped there), each with `restarts` extra orienteering seeds; then PEEL / SPLIT / MERGE moves on the best, kept only if the score rises |
+
+Every candidate is an ordinary, budget-verified `planFromClusters` plan, so the budget guarantee,
+the gimbal schedule and the geometry audit are unchanged; the search only changes which
+abstraction the route is planned over. The result's `infoAware` report lists every candidate with
+its score and the plain plan's score on the same model (`baselineScore`), so a host can report
+both. Candidates run on `threads` worker threads (0 = hardware concurrency, max 8); the result is
+identical for any thread count. `tests/test_info_aware.cpp` covers the basins, the levels, the
+coverage model against `computeResidualBelief`, the detection reach, and the search end to end.
+
+---
+
 ## Scoring a plan: residual belief
 
 `mtl::eval::computeResidualBelief` is the metric to compare planners on. Once the search is
@@ -296,6 +326,7 @@ ctest --test-dir build --output-on-failure
 | `test_kmeans` | blob recovery, k clamping, and the radius guarantee `clusterCells` must uphold for the gimbal argument to hold |
 | `test_orienteering` | budget never exceeded, reward monotone in the budget, unreachable nodes pruned, the Dubins re-costing loop, free-harvest anchoring |
 | `test_geometry` | the abeam gate (including the tilt shifting it), level cruise being exactly level, banking into a turn, the full audit passing at three mount tilts, and the reach repair loop recovering out-of-reach centres without breaking the geometry or the timeline |
+| `test_info_aware` | peak basins (separation, persistence merging), mass levels (a partition, densest first, under the radius, parents one level up), the coverage model agreeing with `computeResidualBelief` to 0.03, the detection reach in both mounts, and the search end to end: never below the plain plan on its own score, budget-verified, deterministic across thread counts |
 | `test_pipeline` | end to end in every mode; the prior summing to 1, mass-threshold cell extraction (and its invariance to an un-normalised host grid), the budget invariant measured on the flown arc, exact cell/cluster bookkeeping, the residual belief (whole prior with no search, never above the prior, and equal to each target's miss probability at its pixel), determinism, and construction-time rejection of bad parameters |
 
 All five pass clean under `-fsanitize=address,undefined`, as do the single-axis, multi-axis,

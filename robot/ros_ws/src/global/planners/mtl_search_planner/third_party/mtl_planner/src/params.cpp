@@ -93,6 +93,33 @@ void PlannerParams::validate() const {
         fail("extension.reachMargin must be in (0, 1]");
     if (!(gimbal.reachMargin > 0.0) || gimbal.reachMargin > 1.0)
         fail("gimbal.reachMargin must be in (0, 1]");
+
+    if (infoAware.enabled) {
+        if (infoAware.levelSets.empty()) fail("infoAware.levelSets must not be empty");
+        for (const std::vector<double>& ls : infoAware.levelSets) {
+            if (ls.empty()) fail("infoAware.levelSets entries must not be empty");
+            double prev = 0.0;
+            for (const double f : ls) {
+                if (!(f > prev) || f > 1.0)
+                    fail("infoAware.levelSets entries must be increasing fractions in (0, 1]");
+                prev = f;
+            }
+            if (std::abs(ls.back() - 1.0) > 1e-9)
+                fail("infoAware.levelSets entries must end at 1");
+        }
+        if (!(infoAware.persistence >= 0.0) || infoAware.persistence > 1.0)
+            fail("infoAware.persistence must be in [0, 1]");
+        for (const double r : infoAware.reachScales)
+            if (!(r > 0.0)) fail("infoAware.reachScales must be positive");
+        if (!(infoAware.slantMargin > 0.0) || infoAware.slantMargin > 1.0)
+            fail("infoAware.slantMargin must be in (0, 1]");
+        if (infoAware.subsample < 1) fail("infoAware.subsample must be at least 1");
+        if (infoAware.lookStride < 1) fail("infoAware.lookStride must be at least 1");
+        if (infoAware.maxMoves < 0) fail("infoAware.maxMoves must be non-negative");
+        if (infoAware.restarts < 0) fail("infoAware.restarts must be non-negative");
+        if (!(infoAware.peelKeep > 0.0) || infoAware.peelKeep >= 1.0)
+            fail("infoAware.peelKeep must be in (0, 1)");
+    }
 }
 
 }  // namespace mtl

@@ -89,6 +89,23 @@ def test_solver_overrides_pass_through():
     assert sc["solver"] == {"extend_dist_m": 24.0}
 
 
+def test_info_aware_block_is_normalised_and_optional():
+    sc0, _, _ = S.build_scenario(MISSION, AGENTS)
+    assert "info_aware" not in sc0  # no block in the mission -> bundle unchanged (plain planner)
+    sc, _, _ = S.build_scenario(dict(MISSION, info_aware={"enabled": True}), AGENTS)
+    assert sc["info_aware"] == {"enabled": True, "report_both": True}
+    sc2, _, _ = S.build_scenario(dict(MISSION, info_aware={
+        "enabled": False, "report_both": False, "level_sets": [[1], [0.5, 1]], "max_moves": "8",
+        "persistence": 0.5, "reach_scales": [1, 0.8], "split_merge": 0}), AGENTS)
+    assert sc2["info_aware"] == {"enabled": False, "report_both": False, "level_sets": [[1.0], [0.5, 1.0]],
+                                 "reach_scales": [1.0, 0.8], "persistence": 0.5, "max_moves": 8,
+                                 "split_merge": False}
+    with pytest.raises(ValueError):
+        S.build_scenario(dict(MISSION, info_aware={"level_sets": [[0.5, 0.9]]}), AGENTS)
+    with pytest.raises(ValueError):
+        S.build_scenario(dict(MISSION, info_aware={"level_sets": [[0.7, 0.5, 1.0]]}), AGENTS)
+
+
 def test_seed_changes_the_world():
     other = dict(MISSION, seed=6)
     a, _, _ = S.build_scenario(MISSION, AGENTS)

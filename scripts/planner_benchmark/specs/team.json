@@ -1,0 +1,5 @@
+{"_doc": "Teams of 2-3 aircraft from one launch site: MTL plans the team jointly; TIGRIS agents plan independently on the full prior (uncoordinated).",
+ "seed": 31, "count": 60, "team_size": [2, 3],
+ "families": {"gaussian_blobs": 2, "clustered": 1, "decoy": 1, "lines": 1, "ring": 1, "drift_plume": 1, "heavy_tailed": 1, "multi_scale": 1},
+ "budget_s": [400, 700, 1000], "altitude_m": [300],
+ "homes": {"near_center": [-170.0, -170.0], "edge": [-2300.0, 0.0]}}

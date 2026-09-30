@@ -41,7 +41,12 @@ down.
   so work it out again if you change the area, the cell size or the bumps;
 - the aircraft;
 - the sensor and detection model;
-- the budget.
+- the budget;
+- the **planner mode** (`info_aware.enabled`): `false` flies the plain planner, `true` the
+  information-aware search (clusters that follow the prior's peaks, cut into core / shoulder /
+  tail levels, each candidate plan scored by what its footprint would detect). With
+  `info_aware.report_both: true` the other mode is planned too, never flown, and every report
+  compares the two.
 
 After editing it, or the spawns in the fleet file, regenerate the bundle that the planner,
 the logger and the Isaac scene read:
@@ -203,6 +208,12 @@ ENU, block sums). Compare two planners only on the same prior, the same sensor p
 Runs recorded before this change can still be scored again. Their `scenario.json` has the
 prior bumps, and the analysis normalises the prior itself. Their cell masses stay in the old
 raw units.
+
+**Planner modes.** When the run carries the other planner mode (`track_alt.json`), the printout
+adds a line such as `planner modes: flown info_aware (planned residual 0.336) vs plain, not
+flown (planned residual 0.428)`, and `report.html` has a "Planner modes" card and the
+alternative's track on the map. Compare the two **planned** values with each other: they are
+scored identically; only the flown mode also has a flown value.
 
 Each robot also has its own report, which the logger writes at the end of its search:
 `runs/<run_id>/robot_N/report.html`. See [`runs/README.md`](../../runs/README.md) for the layout.

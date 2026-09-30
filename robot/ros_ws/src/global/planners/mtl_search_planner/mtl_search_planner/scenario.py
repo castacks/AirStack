@@ -359,6 +359,43 @@ def gimbal_actuation_of(block: Mapping[str, Any]) -> dict[str, Any]:
     return out
 
 
+_INFO_AWARE_NUM = {"persistence": float, "slant_margin": float, "subsample": int, "look_stride": int,
+                   "restarts": int,
+                   "max_moves": int, "peel_keep": float, "threads": int}
+_INFO_AWARE_BOOL = ("cap_gimbal_to_detection", "split_merge")
+
+
+def info_aware_of(block: Mapping[str, Any]) -> dict[str, Any]:
+    """``mission.info_aware`` -> the normalised top-level ``info_aware`` scenario block.
+
+    ``enabled`` is the TOGGLE: which planner mode is flown (the information-aware
+    abstraction search, ``mtl::PlannerParams::infoAware``, or the plain planner).
+    ``report_both`` (default true) makes the planner node also plan the other mode
+    and the logger score both, so every report carries both outcomes. The other
+    keys are optional tuning (see ``mtl::InfoAwareParams``); omitted keys keep the
+    planner defaults and are not written.
+    """
+    b = dict(block or {})
+    out: dict[str, Any] = {"enabled": bool(b.get("enabled", False)),
+                           "report_both": bool(b.get("report_both", True))}
+    if b.get("level_sets") is not None:
+        sets = [[float(f) for f in ls] for ls in b["level_sets"]]
+        for ls in sets:
+            if not ls or any(not 0.0 < f <= 1.0 for f in ls) or any(y <= x for x, y in zip(ls, ls[1:])) \
+                    or abs(ls[-1] - 1.0) > 1e-9:
+                raise ValueError(f"info_aware.level_sets: {ls} must be increasing fractions in (0, 1] ending at 1")
+        out["level_sets"] = sets
+    if b.get("reach_scales") is not None:
+        out["reach_scales"] = [float(v) for v in b["reach_scales"]]
+    for k, cast in _INFO_AWARE_NUM.items():
+        if b.get(k) is not None:
+            out[k] = cast(b[k])
+    for k in _INFO_AWARE_BOOL:
+        if b.get(k) is not None:
+            out[k] = bool(b[k])
+    return out
+
+
 def build_scenario(mission: Mapping[str, Any], agents: Sequence[Mapping[str, Any]],
                    *, provenance: Mapping[str, Any] | None = None
                    ) -> tuple[dict[str, Any], dict[str, Any], BeliefGrid]:
@@ -477,6 +514,10 @@ def build_scenario(mission: Mapping[str, Any], agents: Sequence[Mapping[str, Any
             "provenance": dict(provenance or {}),
         },
     }
+    if m.get("info_aware") is not None:
+        # MTL planner mode toggle (+ report both modes). Written only when the mission
+        # has the block, so a bundle without it is unchanged (plain planner).
+        scenario["info_aware"] = info_aware_of(m["info_aware"])
     if m.get("gimbal_actuation") is not None:
         # TIGRIS-only (stacks/tigris_search): a constant-rate left/right sweep of the
         # single-axis gimbal. Written only when the mission has the block, so the MTL

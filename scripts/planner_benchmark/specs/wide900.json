@@ -1,0 +1,11 @@
+{
+  "_doc": "The wide sweep with the detection range raised to 900 m for every planner (sigmoid c = beta = 900 m, max slant 900 m), so no planner is limited by a range it was not told about.",
+  "seed": 20260930,
+  "count": 160,
+  "families": {"gaussian_blobs": 2, "clustered": 1, "heavy_tailed": 1, "decoy": 1, "lines": 1, "ring": 1,
+               "drift_plume": 1, "random_field": 1, "diffuse_plus_peaks": 1, "multi_scale": 1},
+  "budget_s": [400, 700, 1000, 1500, 2500],
+  "altitude_m": [200, 300, 400],
+  "homes": {"near_center": [-170.0, -170.0], "edge": [-2300.0, 0.0], "corner": [-2300.0, -2300.0]},
+  "overrides": {"sensor.detection.c": 900.0, "sensor.detection.beta": 900.0, "sensor.max_slant_range_m": 900.0}
+}

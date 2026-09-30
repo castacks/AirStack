@@ -1,0 +1,51 @@
+{
+ "_doc": "MTL tuning in the 900 m world, the counterpart of tigris_tuning.json: cluster radius 400 / 800 m around the stack's 550 m (tuned for the 610 m sensor), for both modes.",
+ "arms": [
+  {
+   "name": "mtl_plain_r400",
+   "planner": "mtl",
+   "scenario_overrides": {
+    "info_aware": {
+     "enabled": false,
+     "report_both": false
+    },
+    "mapping.max_cluster_radius_m": 400.0
+   }
+  },
+  {
+   "name": "mtl_info_aware_r400",
+   "planner": "mtl",
+   "scenario_overrides": {
+    "info_aware": {
+     "enabled": true,
+     "report_both": false,
+     "threads": 1
+    },
+    "mapping.max_cluster_radius_m": 400.0
+   }
+  },
+  {
+   "name": "mtl_plain_r800",
+   "planner": "mtl",
+   "scenario_overrides": {
+    "info_aware": {
+     "enabled": false,
+     "report_both": false
+    },
+    "mapping.max_cluster_radius_m": 800.0
+   }
+  },
+  {
+   "name": "mtl_info_aware_r800",
+   "planner": "mtl",
+   "scenario_overrides": {
+    "info_aware": {
+     "enabled": true,
+     "report_both": false,
+     "threads": 1
+    },
+    "mapping.max_cluster_radius_m": 800.0
+   }
+  }
+ ]
+}

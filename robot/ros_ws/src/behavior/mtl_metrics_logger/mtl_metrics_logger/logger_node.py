@@ -42,7 +42,7 @@ from nav_msgs.msg import Odometry
 from std_msgs.msg import String
 from visualization_msgs.msg import Marker, MarkerArray
 
-from mtl_metrics_logger.analysis import cells_world, targets_world, write_run_outputs
+from mtl_metrics_logger.analysis import alternative_from_track, cells_world, targets_world, write_run_outputs
 from mtl_metrics_logger.detection import (DetectionModel, TeamScorer, boresight_ground_point, footprint_radius,
                                           prior_from_scenario)
 
@@ -231,6 +231,18 @@ class MtlMetricsLogger(Node):
         looks = {"t": [float(v) for v in times[:n_look]],
                  "pos": [(w.position.x + ox, w.position.y + oy, w.position.z + oz) for w in wps[:n_look]],
                  "bore": [(b.x + ox, b.y + oy, b.z + oz) for b in bores[:n_look]]} if n_look else None
+        # Planner modes: the flown plan's mode (track.json) and, when the planner
+        # also planned the other mode for the report, that plan (track_alt.json).
+        flown_mode, alternative = None, None
+        try:
+            tr_path, alt_path = out / "track.json", out / "track_alt.json"
+            if tr_path.is_file():
+                flown_mode = json.loads(tr_path.read_text(encoding="utf-8")).get("planner_mode")
+            if alt_path.is_file():
+                alternative = {self.agent_name: alternative_from_track(
+                    json.loads(alt_path.read_text(encoding="utf-8")), home=self.origin)}
+        except Exception as exc:  # the comparison is a report extra; never lose the run over it
+            self.get_logger().warning(f"could not read the planner-mode files in {out}: {exc}")
         self.get_logger().info(
             f"sortie {st.plan_id} reached {st.state_name}: writing telemetry and computing post-flight outputs "
             f"({len(self.rows)} samples)..."
@@ -249,7 +261,8 @@ class MtlMetricsLogger(Node):
                          f"{len(self.rows)} samples at {self.rate_hz:g} Hz",
                 belief_png=belief,
                 extra={"run_id": run_id, "plan_id": st.plan_id, "outcome": st.state_name,
-                       "agent": self.agent_name})
+                       "agent": self.agent_name},
+                planner_mode=flown_mode, alternative_by_agent=alternative)
             shutil.copyfile(self.ground_truth_file, run_root / "ground_truth.json")
             if Path(self.belief_png_file).is_file():
                 shutil.copyfile(self.belief_png_file, run_root / "belief.png")
@@ -263,6 +276,13 @@ class MtlMetricsLogger(Node):
                 f"this robot), {s['targets_detected']}/{s['targets_total']} targets, "
                 f"{100 * s['belief_mass_fraction']:.1f} % of the valid-cell mass reached, "
                 f"report -> {out / 'report.html'}")
+            pc = s.get("planner_comparison") or {}
+            alt_s = pc.get("alternative") or {}
+            if alt_s.get("planned_residual_belief_mass") is not None:
+                self.get_logger().info(
+                    f"planner modes: flown {pc.get('flown_mode')} planned residual "
+                    f"{planned_resid if planned_resid is not None else float('nan'):.4f} vs "
+                    f"{alt_s.get('mode')} (not flown) {alt_s['planned_residual_belief_mass']:.4f}")
         except Exception as exc:
             self.get_logger().error(f"could not write run outputs to {out}: {exc}")
 

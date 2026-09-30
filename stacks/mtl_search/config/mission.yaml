@@ -96,13 +96,34 @@ mission:
   solver:                        # optional mtl solver overrides (n_starts, max_outer_iter,
                                  # reserve_frac0, cell_refine, reallocate, max_cell_candidates,
                                  # extend_dist_m, max_extra_dist_m)
-    extend_dist_m: 200.0          # single-axis "lateral coverage" run-out flown straight past the
+    extend_dist_m: 2.0          # single-axis "lateral coverage" run-out flown straight past the
                                  # end of a route whose tail cells never come abeam. The planner
                                  # default (300 m) is sized for the 5 km reference; unscaled it sent
                                  # robot_3 110 m past the north boundary and, via the budget
                                  # reserve, shrank its route to 195 m (run 20260923-155234).
                                  # 300 / 12.5 = 24 m -> team info 96.9 % -> 100 %, nobody leaves
                                  # the area, and the "agent 3 could not be planned" warning is gone.
+
+  info_aware:                    # MTL PLANNER MODE TOGGLE (mtl::PlannerParams::infoAware)
+    enabled: true                # which plan is FLOWN. false: the plain planner (k-means clusters
+                                 # by proximity, route scored by the mass the boresight is aimed
+                                 # at). true: the information-aware search - clusters follow the
+                                 # prior's peaks, cut into nested mass levels (core / shoulder /
+                                 # tail) so the route can take a peak's core and move on; several
+                                 # such abstractions (and the plain one) are planned, each flown
+                                 # plan is scored by what the footprint would actually detect,
+                                 # and split / peel / merge moves refine the best. Adds seconds
+                                 # of planning at mission start (planned on worker threads).
+    report_both: true            # also plan the OTHER mode (never flown): the planner writes it
+                                 # as plan_alt.json / track_alt.json and the report scores both
+                                 # plans side by side (planned residual belief of each).
+    # optional tuning, planner defaults shown:
+    # level_sets: [[1.0], [0.5, 1.0], [0.35, 0.7, 1.0]]   # cumulative-mass cuts of each peak
+    # persistence: 0.6           # merge two peaks when the saddle >= this x the lower peak
+    # reach_scales: [1.0]        # extra cluster radii, x the detection reach (slant <= beta)
+    # restarts: 2                # extra orienteering seeds per abstraction, all scored
+    # max_moves: 16              # split / peel / merge re-plans after the candidate sweep
+    # threads: 0                 # 0 = hardware concurrency (max 8)
 
   flight:                        # how scripts/mtl_start_mission.sh flies it
     takeoff_altitude_m: 300.0

@@ -43,6 +43,14 @@ The older **valid-cell coverage** numbers (`belief_mass_covered`, `belief_mass_f
 still reported. A cell counts, with its whole mass, once its centre falls inside any
 footprint. Cell masses are probabilities now, so these numbers are probabilities too.
 
+**Planner modes.** The MTL planner flies one of two modes (`info_aware.enabled` in the
+scenario: plain or information-aware). With `info_aware.report_both` it also writes the other
+mode's plan as `track_alt.json`; the logger scores its planned residual with the same model and
+adds `summary.planner_comparison` (`flown_mode`, the flown plan's planned and flown residual, the
+alternative's planned residual and length) to `detection.json`, a comparison card to
+`report.html`, and the alternative's track (grey, dotted) to the report map. The flown score
+never depends on it.
+
 When the follower reports `COMPLETE` or `ABORTED`, the logger writes:
 
 ```

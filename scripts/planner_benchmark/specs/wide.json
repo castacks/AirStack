@@ -1,0 +1,10 @@
+{
+  "_doc": "Every prior family, budgets from very tight to generous, three altitudes, three home positions.",
+  "seed": 20260929,
+  "count": 240,
+  "families": {"gaussian_blobs": 2, "clustered": 1, "heavy_tailed": 1, "decoy": 1, "lines": 1, "ring": 1,
+               "drift_plume": 1, "random_field": 1, "diffuse_plus_peaks": 1, "multi_scale": 1},
+  "budget_s": [400, 700, 1000, 1500, 2500],
+  "altitude_m": [200, 300, 400],
+  "homes": {"near_center": [-170.0, -170.0], "edge": [-2300.0, 0.0], "corner": [-2300.0, -2300.0]}
+}

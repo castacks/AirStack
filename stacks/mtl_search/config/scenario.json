@@ -1756,7 +1756,7 @@
   "total_map_mass": 1.0
  },
  "solver": {
-  "extend_dist_m": 200.0
+  "extend_dist_m": 2.0
  },
  "verbose": false,
  "verify_geometry": true,
@@ -1892,5 +1892,9 @@
    "mission": "stacks/mtl_search/config/mission.yaml",
    "fleet": "config/fleets/mtl_search_fleet.yaml"
   }
+ },
+ "info_aware": {
+  "enabled": true,
+  "report_both": true
  }
 }

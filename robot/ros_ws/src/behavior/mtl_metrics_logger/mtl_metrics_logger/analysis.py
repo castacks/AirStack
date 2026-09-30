@@ -15,6 +15,13 @@ Headline metric: the RESIDUAL BELIEF MASS, ``P(target missed by the search)``
 whole normalised prior. When the planned tracks carry their boresight schedule
 (``planned_by_agent[name]["looks"]``) the PLANNED residual is scored the same way,
 so plan and flight can be compared in one unit.
+
+Planner modes: the MTL planner has a toggle (``info_aware.enabled`` in the
+scenario) between the plain planner and the information-aware abstraction
+search. The FLOWN plan is one of them; with ``info_aware.report_both`` the
+planner also writes the other mode's plan (``track_alt.json``), passed here as
+``alternative_by_agent``, and its planned residual is scored with the same model
+so the report shows both outcomes side by side.
 """
 
 from __future__ import annotations
@@ -29,7 +36,7 @@ from mtl_metrics_logger.report import (build_report_data, residual_map_payload, 
                                        write_residual_csv, write_telemetry_csv)
 
 __all__ = ["targets_world", "cells_world", "area_world", "score_agents", "write_run_outputs",
-           "planned_looks_from_track", "RESIDUAL_CSV_BLOCK_M"]
+           "planned_looks_from_track", "alternative_from_track", "RESIDUAL_CSV_BLOCK_M"]
 
 #: Block edge of ``residual_belief.csv`` [m] (10 m, as ``mtl_demo --residual-block 10`` at 1 m).
 RESIDUAL_CSV_BLOCK_M = 10.0
@@ -73,6 +80,15 @@ def planned_looks_from_track(track: Mapping[str, Any], home: Sequence[float] | N
     return {"t": list(s["t"]),
             "pos": [(s["x_map"][k] + hx, s["y_map"][k] + hy, s["z_map"][k] + hz) for k in range(n)],
             "bore": [(s["bx_map"][k] + hx, s["by_map"][k] + hy, s["bz_map"][k] + hz) for k in range(n)]}
+
+
+def alternative_from_track(track: Mapping[str, Any], home: Sequence[float] | None = None) -> dict[str, Any]:
+    """``<robot>/track_alt.json`` (the planner mode that was NOT flown) -> an
+    ``alternative_by_agent`` entry for :func:`write_run_outputs`."""
+    return {"looks": planned_looks_from_track(track, home),
+            "planned_length_m": track.get("flown_length_m"),
+            "mode": track.get("planner_mode", "unknown"),
+            "serviced_cells": list(track.get("serviced_cells", []))}
 
 
 def score_agents(rows_by_agent: Mapping[str, Sequence[Mapping[str, Any]]], scenario: Mapping[str, Any],
@@ -166,7 +182,9 @@ def write_run_outputs(out_dir: str | Path, *, scenario: Mapping[str, Any], groun
                       rows_by_agent: Mapping[str, Sequence[Mapping[str, Any]]],
                       planned_by_agent: Mapping[str, Mapping[str, Any]], title: str, subtitle: str,
                       belief_png: bytes | None = None, write_telemetry: bool = True,
-                      extra: Mapping[str, Any] | None = None, progress=None) -> dict[str, Any]:
+                      extra: Mapping[str, Any] | None = None, progress=None,
+                      planner_mode: str | None = None,
+                      alternative_by_agent: Mapping[str, Mapping[str, Any]] | None = None) -> dict[str, Any]:
     """Score and write ``telemetry.csv``, ``detection.json``, ``residual_belief.csv`` and ``report.html``.
 
     ``planned_by_agent[name]``: ``{"planned": [[x, y]...] (world), "home": [x, y],
@@ -175,6 +193,11 @@ def write_run_outputs(out_dir: str | Path, *, scenario: Mapping[str, Any], groun
 
     ``progress(stage, done, total)`` (optional): called at each step and along the long
     loops, e.g. with a ``scripts/run_progress.Progress`` to draw a progress bar.
+
+    ``planner_mode``: the MTL planner mode that was flown (``"plain"`` /
+    ``"info_aware"``). ``alternative_by_agent[name]``: the other mode's plan
+    (:func:`alternative_from_track`), scored for the side-by-side comparison
+    (``summary["planner_comparison"]``); never part of the flown score.
     """
     def step(stage: str) -> None:
         if progress is not None:
@@ -196,6 +219,13 @@ def write_run_outputs(out_dir: str | Path, *, scenario: Mapping[str, Any], groun
     if prior is not None and looks:
         planned_rb = planned_residual(prior, scorer.model, scorer.fov, looks, progress=progress)
 
+    alt_rb = None
+    alt = dict(alternative_by_agent or {})
+    alt_looks = [p["looks"] for p in alt.values() if p.get("looks")]
+    if prior is not None and alt_looks:
+        step("score alternative plan")
+        alt_rb = planned_residual(prior, scorer.model, scorer.fov, alt_looks, progress=progress)
+
     cells, masses = cells_world(scenario)
     planned_cells = sorted({int(c) for p in planned_by_agent.values() for c in p.get("serviced_cells", [])
                             if 0 <= int(c) < len(cells)})
@@ -210,6 +240,24 @@ def write_run_outputs(out_dir: str | Path, *, scenario: Mapping[str, Any], groun
         summary["realized_over_planned_mass"] = round(scorer.covered_mass / planned_mass, 4)
     summary["planned_residual_belief_mass"] = (round(planned_rb.exact_mass(), 6)
                                                if planned_rb is not None else None)
+    modes = {p.get("mode") for p in alt.values() if p.get("mode")}
+    alt_mode = modes.pop() if len(modes) == 1 else ("mixed" if modes else None)
+    flown_mode = planner_mode or ({"plain": "info_aware", "info_aware": "plain"}.get(alt_mode) if alt_mode else None)
+    if flown_mode is not None or alt:
+        alt_len = [p.get("planned_length_m") for p in alt.values() if p.get("planned_length_m") is not None]
+        own_len = [p.get("planned_length_m") for p in planned_by_agent.values()
+                   if p.get("planned_length_m") is not None]
+        summary["planner_comparison"] = {
+            "flown_mode": flown_mode,
+            "flown": {"residual_belief_mass": summary.get("residual_belief_mass"),
+                      "planned_residual_belief_mass": summary["planned_residual_belief_mass"],
+                      "planned_length_m": round(sum(own_len), 3) if own_len else None},
+            "alternative": None if not alt else {
+                "mode": alt_mode,
+                "planned_residual_belief_mass": round(alt_rb.exact_mass(), 6) if alt_rb is not None else None,
+                "planned_length_m": round(sum(alt_len), 3) if alt_len else None,
+                "note": "planned, never flown: scored from its track and boresight schedule"},
+        }
     targets = scorer.target_table()
     gt = ground_truth.get("targets", [])
     for row, g in zip(targets, gt):
@@ -247,7 +295,9 @@ def write_run_outputs(out_dir: str | Path, *, scenario: Mapping[str, Any], groun
         home = p.get("home")
         if home:
             homes.append(home)
+        alt_looks = (alt.get(name) or {}).get("looks") or {}
         agents.append({"name": name, "home": home, "planned": p.get("planned", []),
+                       "alt_planned": [(q[0], q[1]) for q in alt_looks.get("pos", []) if q is not None],
                        "flown": [(r["x_world"], r["y_world"]) for r in rows if r.get("x_world") is not None],
                        "bore": [(r["bore_x_world"], r["bore_y_world"]) for r in rows
                                 if r.get("bore_x_world") is not None]})
@@ -267,6 +317,9 @@ def write_run_outputs(out_dir: str | Path, *, scenario: Mapping[str, Any], groun
             "gets the same miss update as a target standing there; lower is better. "
             + ("The planned value scores the planned track and boresight schedule the same way."
                if planned_rb is not None else ""),
+            *([f"Planner modes: flown = {flown_mode}; the {alt_mode} plan was planned on the same "
+               "scenario but not flown - its value is the PLANNED residual (compare it with the flown "
+               "plan's planned residual, same model)."] if alt else []),
             "Scored from the flown pose and the MEASURED gimbal state "
             "(commanded angles substitute only where no measurement arrived; see gimbal_measured_fraction).",
             f"Detection: Moon et al. (2022) sigmoid a={scorer.model.a}, b={scorer.model.b}, c={scorer.model.c}, "

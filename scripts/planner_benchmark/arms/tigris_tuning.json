@@ -1,0 +1,112 @@
+{
+ "_doc": "TIGRIS tuning grid (sweep amplitude x rate, body-fixed, matched reward) in the 900 m world, plus both MTL modes. Sweep 'detection' = the cross-track angle where the boresight slant reaches 0.97 beta, capped at 75 deg; 60 deg/s is the fastest sweep a 120 deg/s gimbal axis can track (the earth-frame axis moves ~2x the cross-track angle).",
+ "arms": [
+  {
+   "name": "tigris_45deg_30dps",
+   "planner": "tigris",
+   "scenario_overrides": {
+    "airstack.gimbal_actuation": {
+     "enabled": true,
+     "sweep_rate_deg_s": 30.0,
+     "sweep_amplitude_deg": 45.0,
+     "max_amplitude_deg": 75.0
+    }
+   },
+   "tigris_set": {
+    "planning_time_s": 1000,
+    "initial_planning_time_s": 1000,
+    "commit_margin_s": -992,
+    "max_iterations": 150
+   }
+  },
+  {
+   "name": "tigris_det_30dps",
+   "planner": "tigris",
+   "scenario_overrides": {
+    "airstack.gimbal_actuation": {
+     "enabled": true,
+     "sweep_rate_deg_s": 30.0,
+     "sweep_amplitude_deg": "detection",
+     "max_amplitude_deg": 75.0
+    }
+   },
+   "tigris_set": {
+    "planning_time_s": 1000,
+    "initial_planning_time_s": 1000,
+    "commit_margin_s": -992,
+    "max_iterations": 150
+   }
+  },
+  {
+   "name": "tigris_det_60dps",
+   "planner": "tigris",
+   "scenario_overrides": {
+    "airstack.gimbal_actuation": {
+     "enabled": true,
+     "sweep_rate_deg_s": 60.0,
+     "sweep_amplitude_deg": "detection",
+     "max_amplitude_deg": 75.0
+    }
+   },
+   "tigris_set": {
+    "planning_time_s": 1000,
+    "initial_planning_time_s": 1000,
+    "commit_margin_s": -992,
+    "max_iterations": 150
+   }
+  },
+  {
+   "name": "tigris_fixed",
+   "planner": "tigris",
+   "scenario_overrides": {
+    "airstack.gimbal_actuation": null
+   },
+   "tigris_set": {
+    "planning_time_s": 1000,
+    "initial_planning_time_s": 1000,
+    "commit_margin_s": -992,
+    "max_iterations": 150
+   }
+  },
+  {
+   "name": "tigris_det_60dps_matched",
+   "planner": "tigris",
+   "scenario_overrides": {
+    "airstack.gimbal_actuation": {
+     "enabled": true,
+     "sweep_rate_deg_s": 60.0,
+     "sweep_amplitude_deg": "detection",
+     "max_amplitude_deg": 75.0
+    }
+   },
+   "tigris_set": {
+    "planning_time_s": 1000,
+    "initial_planning_time_s": 1000,
+    "commit_margin_s": -992,
+    "max_iterations": 150,
+    "reward_mode": "matched"
+   }
+  },
+  {
+   "name": "mtl_plain",
+   "planner": "mtl",
+   "scenario_overrides": {
+    "info_aware": {
+     "enabled": false,
+     "report_both": false
+    }
+   }
+  },
+  {
+   "name": "mtl_info_aware",
+   "planner": "mtl",
+   "scenario_overrides": {
+    "info_aware": {
+     "enabled": true,
+     "report_both": false,
+     "threads": 1
+    }
+   }
+  }
+ ]
+}

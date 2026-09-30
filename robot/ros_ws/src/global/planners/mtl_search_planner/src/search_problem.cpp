@@ -101,6 +101,28 @@ mtl::PlannerParams paramsFromScenario(const J::Value& sc, int numAgents) {
     // reserve it forces shrinks the route (see mission.yaml solver.extend_dist_m).
     p.extension.extendDist   = ov["extend_dist_m"].num(p.extension.extendDist);
     p.extension.maxExtraDist = ov["max_extra_dist_m"].num(p.extension.maxExtraDist);
+
+    // Information-aware abstraction search (PlannerParams::infoAware), off unless
+    // the scenario carries info_aware.enabled = true.
+    {
+        const J::Value& ia = sc["info_aware"];
+        p.infoAware.enabled     = ia["enabled"].flag(p.infoAware.enabled);
+        if (ia["level_sets"].isArray()) {
+            p.infoAware.levelSets.clear();
+            for (const J::Value& ls : ia["level_sets"].array()) p.infoAware.levelSets.push_back(ls.numbers());
+        }
+        if (ia["reach_scales"].isArray()) p.infoAware.reachScales = ia["reach_scales"].numbers();
+        p.infoAware.persistence = ia["persistence"].num(p.infoAware.persistence);
+        p.infoAware.slantMargin = ia["slant_margin"].num(p.infoAware.slantMargin);
+        p.infoAware.capGimbalToDetection = ia["cap_gimbal_to_detection"].flag(p.infoAware.capGimbalToDetection);
+        p.infoAware.subsample   = static_cast<int>(ia["subsample"].num(p.infoAware.subsample));
+        p.infoAware.lookStride  = static_cast<int>(ia["look_stride"].num(p.infoAware.lookStride));
+        p.infoAware.maxMoves    = static_cast<int>(ia["max_moves"].num(p.infoAware.maxMoves));
+        p.infoAware.restarts    = static_cast<int>(ia["restarts"].num(p.infoAware.restarts));
+        p.infoAware.splitMerge  = ia["split_merge"].flag(p.infoAware.splitMerge);
+        p.infoAware.peelKeep    = ia["peel_keep"].num(p.infoAware.peelKeep);
+        p.infoAware.threads     = static_cast<int>(ia["threads"].num(p.infoAware.threads));
+    }
     return p;
 }
 
@@ -228,6 +250,7 @@ SearchProblem parseScenario(const std::string& jsonText) {
         out.agents.push_back(spec);
     }
     out.params = paramsFromScenario(sc, static_cast<int>(out.agents.size()));
+    out.reportAlternative = sc["info_aware"]["report_both"].flag(true);
     out.cells  = cellsFromScenario(sc, out.frame, out.params.targetCellSize,
                                    out.params.minimumBeliefMass);
     if (out.cells.empty()) throw std::runtime_error("scenario contains no cells to plan over");
@@ -239,6 +262,17 @@ SearchProblem loadScenario(const std::string& path) { return parseScenario(readF
 mtl::PlanningResult solve(const SearchProblem& problem) {
     mtl::Planner planner(problem.params);
     return planner.planFromCells(problem.cells, problem.startsMtl);
+}
+
+mtl::PlanningResult solveAlternative(const SearchProblem& problem) {
+    mtl::PlannerParams p = problem.params;
+    p.infoAware.enabled = !p.infoAware.enabled;
+    mtl::Planner planner(p);
+    return planner.planFromCells(problem.cells, problem.startsMtl);
+}
+
+std::string plannerMode(const mtl::PlanningResult& result) {
+    return result.infoAware.enabled ? "info_aware" : "plain";
 }
 
 // -----------------------------------------------------------------------------
@@ -278,6 +312,7 @@ AgentTrack buildAgentTrack(const mtl::PlanningResult& r, const SearchProblem& pr
     out.pitchNudgeMax = p.gimbal.pitchNudgeMax;
     out.routeNote     = plan.routeInfo.note;
     out.extensionNote = plan.extInfo.note;
+    out.plannerMode   = plannerMode(r);
     const std::vector<mtl::Index>& realized =
         traj.realizedCellIdx.empty() ? plan.servicedCellIdx : traj.realizedCellIdx;
     out.servicedCells.assign(realized.begin(), realized.end());
@@ -463,6 +498,37 @@ std::string teamPlanJson(const mtl::PlanningResult& r, const SearchProblem& prob
     meta["sensor_standoff_m"] = J::Value(params.sensorStandOff());
     meta["single_axis"]       = J::Value(params.singleAxisGimbal);
     meta["steps"]             = J::Value(static_cast<double>(steps));
+    meta["planner_mode"]      = J::Value(plannerMode(r));
+    if (r.infoAware.enabled) {
+        // The information-aware search's audit trail: every abstraction it
+        // planned, the coverage-model score it ranked them by, and the plain
+        // plan's score on the same model.
+        const mtl::InfoAwareReport& ia = r.infoAware;
+        J::Array cands;
+        for (const mtl::InfoAwareCandidate& c : ia.candidates) {
+            J::Object o;
+            o["label"]     = J::Value(c.label);
+            o["reach_m"]   = J::Value(c.reach);
+            o["detected"]  = J::Value(c.score);
+            o["info_mass"] = J::Value(c.info);
+            o["flown_m"]   = J::Value(c.flown);
+            o["clusters"]  = J::Value(static_cast<double>(c.clusters));
+            o["accepted"]  = J::Value(c.accepted);
+            cands.push_back(J::Value(std::move(o)));
+        }
+        J::Object io;
+        io["chosen"]            = J::Value(ia.chosen);
+        io["chosen_detected"]   = J::Value(ia.chosenScore);
+        io["baseline_detected"] = J::Value(ia.baselineScore);
+        io["chosen_reach_m"]    = J::Value(ia.chosenReach);
+        io["detection_reach_m"] = J::Value(ia.detectionReach);
+        io["basins"]            = J::Value(static_cast<double>(ia.basins));
+        io["moves_tried"]       = J::Value(ia.movesTried);
+        io["moves_accepted"]    = J::Value(ia.movesAccepted);
+        io["seconds"]           = J::Value(ia.seconds);
+        io["candidates"]        = J::Value(std::move(cands));
+        meta["info_aware"]      = J::Value(std::move(io));
+    }
 
     J::Object out;
     out["schema"]    = J::Value(kPlanSchema);
@@ -536,6 +602,7 @@ std::string agentTrackJson(const AgentTrack& tr, const SearchProblem& problem) {
     out["planned_cells"] = J::Value(indicesOf(tr.plannedCells));
     out["route_note"] = J::Value(tr.routeNote);
     out["extension_note"] = J::Value(tr.extensionNote);
+    out["planner_mode"] = J::Value(tr.plannerMode);
     out["samples"] = J::Value(std::move(samples));
     return J::Value(std::move(out)).dump();
 }

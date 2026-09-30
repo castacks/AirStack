@@ -296,3 +296,42 @@ def test_write_run_outputs_residual(tmp_path):
     rm = data["residual_map"]
     assert rm and len(rm["prior"]) == rm["nx"] * rm["ny"] == len(rm["residual"])
     assert max(rm["prior"]) == 1.0 and all(r <= p + 1e-4 for r, p in zip(rm["residual"], rm["prior"]))
+
+
+def test_write_run_outputs_scores_the_alternative_planner_mode(tmp_path):
+    # the flown plan sweeps the bump; the alternative (never flown) looks far away
+    looks = {"t": [0.05 * k for k in range(40)], "pos": [(-10.0 + 0.5 * k, 0.0, 30.0) for k in range(40)],
+             "bore": [(-10.0 + 0.5 * k, 0.0, 0.0) for k in range(40)]}
+    far = {"t": list(looks["t"]), "pos": [(200.0 + 0.5 * k, 200.0, 30.0) for k in range(40)],
+           "bore": [(200.0 + 0.5 * k, 200.0, 0.0) for k in range(40)]}
+    track_alt = {"planner_mode": "plain", "flown_length_m": 20.0, "serviced_cells": [1], "home_enu": [0.0, 0.0, 0.0],
+                 "samples": {"t": far["t"], "x_map": [p[0] for p in far["pos"]], "y_map": [p[1] for p in far["pos"]],
+                             "z_map": [p[2] for p in far["pos"]], "bx_map": [b[0] for b in far["bore"]],
+                             "by_map": [b[1] for b in far["bore"]], "bz_map": [b[2] for b in far["bore"]]}}
+    alt = A.alternative_from_track(track_alt)
+    assert alt["mode"] == "plain" and alt["planned_length_m"] == 20.0
+    res = A.write_run_outputs(
+        tmp_path, scenario=SCEN_PRIOR, ground_truth=GT, rows_by_agent={"robot_1": _rows("robot_1", -10.0)},
+        planned_by_agent={"robot_1": {"planned": [[-10, 0], [10, 0]], "home": [-10, 0], "serviced_cells": [0],
+                                      "looks": looks, "planned_length_m": 20.0}},
+        title="t", subtitle="s", planner_mode="info_aware", alternative_by_agent={"robot_1": alt})
+    s = res["summary"]
+    pc = s["planner_comparison"]
+    assert pc["flown_mode"] == "info_aware"
+    assert pc["flown"]["planned_residual_belief_mass"] == s["planned_residual_belief_mass"]
+    assert pc["alternative"]["mode"] == "plain"
+    # looking at nothing leaves the whole prior: the alternative planned the worse search
+    assert pc["alternative"]["planned_residual_belief_mass"] == pytest.approx(1.0, abs=1e-6)
+    assert pc["alternative"]["planned_residual_belief_mass"] > s["planned_residual_belief_mass"]
+    # the flown score is untouched by the alternative
+    ref = A.write_run_outputs(
+        tmp_path / "ref", scenario=SCEN_PRIOR, ground_truth=GT, rows_by_agent={"robot_1": _rows("robot_1", -10.0)},
+        planned_by_agent={"robot_1": {"planned": [[-10, 0], [10, 0]], "home": [-10, 0], "serviced_cells": [0],
+                                      "looks": looks}},
+        title="t", subtitle="s")["summary"]
+    assert ref["residual_belief_mass"] == s["residual_belief_mass"]
+    assert "planner_comparison" not in ref
+    html = (tmp_path / "report.html").read_text()
+    data = json.loads(html.split('type="application/json">', 1)[1].split("</script>", 1)[0])
+    assert data["summary"]["planner_comparison"]["alternative"]["mode"] == "plain"
+    assert len(data["agents"][0]["alt_planned"]) >= 2

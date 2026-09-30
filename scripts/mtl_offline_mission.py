@@ -40,7 +40,8 @@ for sub in ("robot/ros_ws/src/local/controls/mtl_trajectory_follower",
             "robot/ros_ws/src/behavior/mtl_metrics_logger"):
     sys.path.insert(0, str(REPO / sub))
 
-from mtl_metrics_logger.analysis import planned_looks_from_track, write_run_outputs  # noqa: E402
+from mtl_metrics_logger.analysis import (alternative_from_track, planned_looks_from_track,  # noqa: E402
+                                         write_run_outputs)
 from mtl_metrics_logger.detection import boresight_ground_point, footprint_radius  # noqa: E402
 from mtl_trajectory_follower import follower_core as fc  # noqa: E402
 from mtl_trajectory_follower.gimbal_math import slew_limit, wrap_pi  # noqa: E402
@@ -162,21 +163,32 @@ def main(argv=None) -> int:
         if res.returncode != 0:
             print(res.stderr, file=sys.stderr)
             return 1
-        rows_all, planned_all = {}, {}
+        rows_all, planned_all, alt_all, mode = {}, {}, {}, None
         for a in scenario["team"]["agents"]:
             name = a["name"]
             track = Path(tmp) / f"{name}_track.json"
             rows, planned, total = fly_agent(name, track, scenario, rate_hz=args.rate_hz)
             rows_all[name], planned_all[name] = rows, planned
+            mode = json.loads(track.read_text()).get("planner_mode", mode)
             out = run_dir / name
             out.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(track, out / "track.json")
             shutil.copyfile(Path(tmp) / "plan.json", out / "plan.json")
             shutil.copyfile(args.scenario, out / "scenario.json")
+            # the other planner mode (info_aware.report_both): planned, never flown
+            alt_track = Path(tmp) / f"{name}_track_alt.json"
+            alt = None
+            for stale in ("track_alt.json", "plan_alt.json"):
+                (out / stale).unlink(missing_ok=True)
+            if alt_track.is_file():
+                shutil.copyfile(alt_track, out / "track_alt.json")
+                shutil.copyfile(Path(tmp) / "plan_alt.json", out / "plan_alt.json")
+                alt = {name: alternative_from_track(json.loads(alt_track.read_text()))}
+                alt_all.update(alt)
             r = write_run_outputs(out, scenario=scenario, ground_truth=gt, rows_by_agent={name: rows},
                                   planned_by_agent={name: planned}, title=f"MTL sortie — {name} (offline)",
                                   subtitle=f"run {args.run_id} · kinematic rehearsal · {len(rows)} samples",
-                                  belief_png=png)
+                                  belief_png=png, planner_mode=mode, alternative_by_agent=alt)
             xte = [r_["xte_m"] for r_ in rows if r_["state"] == "SEARCH"]
             rms = math.sqrt(sum(v * v for v in xte) / len(xte)) if xte else float("nan")
             s = r["summary"]
@@ -190,13 +202,17 @@ def main(argv=None) -> int:
                              planned_by_agent=planned_all, title=f"MTL team search — {args.run_id} (offline)",
                              subtitle="kinematic rehearsal: mtl_search_plan -> follower_core -> point-mass "
                                       "vehicle + slew-limited gimbal -> Moon et al. scoring",
-                             belief_png=png)
+                             belief_png=png, planner_mode=mode, alternative_by_agent=alt_all or None)
     s = team["summary"]
     print(f"TEAM: residual belief {_fmt(s['residual_belief_mass'])} = P(target missed), lower is better "
           f"(planned {_fmt(s['planned_residual_belief_mass'])}); {s['targets_detected']}/{s['targets_total']} "
           f"targets, mean time to discovery {s['mean_time_to_discovery_s'] or float('nan'):.1f} s; valid-cell "
           f"mass reached {s['belief_mass_covered']:.4f} of planned {s['planned_belief_mass'] or 0.0:.4f} "
           f"({100 * s.get('realized_over_planned_mass', 0):.1f} %) -> {run_dir / 'report.html'}")
+    alt_s = (s.get("planner_comparison") or {}).get("alternative") or {}
+    if alt_s.get("planned_residual_belief_mass") is not None:
+        print(f"      planner modes: flown {mode} planned {_fmt(s['planned_residual_belief_mass'])} vs "
+              f"{alt_s.get('mode')} (not flown) planned {_fmt(alt_s['planned_residual_belief_mass'])}")
     return 0
 
 

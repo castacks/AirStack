@@ -67,6 +67,9 @@ struct SearchProblem {
     std::vector<AgentSpec> agents;
     std::vector<mtl::Vec2> startsMtl;
     jsonmini::Value        raw;   ///< the parsed file (for provenance in plan.json)
+    /// info_aware.report_both (default true): also plan the OTHER planner mode
+    /// (solveAlternative) so the run folder and the report carry both outcomes.
+    bool                   reportAlternative = true;
 
     int agentIndex(const std::string& agentName) const;  ///< -1 when absent
 };
@@ -76,7 +79,16 @@ SearchProblem parseScenario(const std::string& jsonText);
 SearchProblem loadScenario(const std::string& path);
 
 /// Run the planner (deterministic for a given SearchProblem).
+/// Plan in the mode the scenario selects (info_aware.enabled: the
+/// information-aware abstraction search; otherwise the plain planner).  This
+/// is the plan that is flown.
 mtl::PlanningResult solve(const SearchProblem& problem);
+
+/// Plan in the OTHER mode, for the side-by-side report (never flown).
+mtl::PlanningResult solveAlternative(const SearchProblem& problem);
+
+/// "info_aware" or "plain": the mode a result was planned in.
+std::string plannerMode(const mtl::PlanningResult& result);
 
 // -----------------------------------------------------------------------------
 /// One sample of an agent's flight-ready track, in that agent's MAP frame.
@@ -115,6 +127,7 @@ struct AgentTrack {
     double gimbalRate = 0.0;   ///< [rad/s]
     double pitchNudgeMax = 0.0;///< [rad]
     std::string routeNote, extensionNote;
+    std::string plannerMode = "plain";  ///< "plain" | "info_aware" (see plannerMode())
 
     double totalArc() const { return samples.empty() ? 0.0 : samples.back().arc; }
 };

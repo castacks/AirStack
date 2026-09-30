@@ -43,7 +43,7 @@ can reach the planned 6 m/s.
 
 | File | What |
 |---|---|
-| `config/mission.yaml` | **Source of truth**: search area, prior bumps (the prior is normalised to sum to 1), targets, aircraft, sensor/detection model, cell threshold `mapping.minimum_belief_mass` (a per-cell probability), sim gimbal, render |
+| `config/mission.yaml` | **Source of truth**: search area, prior bumps (the prior is normalised to sum to 1), targets, aircraft, sensor/detection model, cell threshold `mapping.minimum_belief_mass` (a per-cell probability), the **planner mode toggle** `info_aware` (plain vs information-aware planner; `report_both` scores both in every report), sim gimbal, render |
 | `config/scenario.json`, `ground_truth.json`, `belief.png` | Generated bundle, read by the planner, the logger, the Isaac scene and the analysis script |
 | `config/pid_controller_mtl.yaml` | PID gains (speed clamp) |
 | `config/dds_router_mtl_search.yaml` | Robot↔GCS allowlist: the shared list plus the search and gimbal topics and actions (not the raw `gimbal/rgb`, to keep DDS load down) |

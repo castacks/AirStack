@@ -48,6 +48,9 @@ if(MTL_ENABLE_OPENMP)
   find_package(OpenMP)
 endif()
 
+# The information-aware search plans its candidate abstractions on worker threads.
+find_package(Threads REQUIRED)
+
 # -----------------------------------------------------------------------------
 #  Warning set, applied through one interface target so every library shares it
 #  without leaking the flags to consumers.
@@ -76,8 +79,11 @@ add_library(mtl_planner
   src/core/dubins.cpp
   src/core/kmeans.cpp
   src/mapping/cells.cpp
+  src/mapping/peak_clusters.cpp
   src/routing/tsp.cpp
   src/planning/info_score.cpp
+  src/planning/coverage_score.cpp
+  src/planning/info_aware.cpp
   src/planning/orienteering.cpp
   src/planning/macro_route.cpp
   src/planning/cell_anchors.cpp
@@ -97,7 +103,7 @@ target_include_directories(mtl_planner
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 
 target_link_libraries(mtl_planner
-  PUBLIC  Eigen3::Eigen
+  PUBLIC  Eigen3::Eigen Threads::Threads
   PRIVATE mtl_warnings)
 
 if(MTL_ENABLE_OPENMP AND OpenMP_CXX_FOUND)
@@ -160,7 +166,7 @@ endif()
 if(MTL_BUILD_TESTS)
   enable_testing()
 
-  foreach(t test_dubins test_kmeans test_orienteering test_geometry test_pipeline)
+  foreach(t test_dubins test_kmeans test_orienteering test_geometry test_pipeline test_info_aware)
     add_executable(${t} tests/${t}.cpp)
     target_link_libraries(${t} PRIVATE mtl_planner mtl_mapgen mtl_eval mtl_warnings)
     add_test(NAME ${t} COMMAND ${t})

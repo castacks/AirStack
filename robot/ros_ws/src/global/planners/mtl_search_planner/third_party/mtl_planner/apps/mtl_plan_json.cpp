@@ -182,6 +182,28 @@ mtl::PlannerParams paramsFromScenario(const J::Value& sc, const Frame& frame, in
     p.budget.maxCellCandidates =
         static_cast<int>(ov["max_cell_candidates"].num(p.budget.maxCellCandidates));
 
+    // Information-aware abstraction search (PlannerParams::infoAware), off unless
+    // the scenario carries info_aware.enabled = true.
+    {
+        const J::Value& ia = sc["info_aware"];
+        p.infoAware.enabled     = ia["enabled"].flag(p.infoAware.enabled);
+        if (ia["level_sets"].isArray()) {
+            p.infoAware.levelSets.clear();
+            for (const J::Value& ls : ia["level_sets"].array()) p.infoAware.levelSets.push_back(ls.numbers());
+        }
+        if (ia["reach_scales"].isArray()) p.infoAware.reachScales = ia["reach_scales"].numbers();
+        p.infoAware.persistence = ia["persistence"].num(p.infoAware.persistence);
+        p.infoAware.slantMargin = ia["slant_margin"].num(p.infoAware.slantMargin);
+        p.infoAware.capGimbalToDetection = ia["cap_gimbal_to_detection"].flag(p.infoAware.capGimbalToDetection);
+        p.infoAware.subsample   = static_cast<int>(ia["subsample"].num(p.infoAware.subsample));
+        p.infoAware.lookStride  = static_cast<int>(ia["look_stride"].num(p.infoAware.lookStride));
+        p.infoAware.maxMoves    = static_cast<int>(ia["max_moves"].num(p.infoAware.maxMoves));
+        p.infoAware.restarts    = static_cast<int>(ia["restarts"].num(p.infoAware.restarts));
+        p.infoAware.splitMerge  = ia["split_merge"].flag(p.infoAware.splitMerge);
+        p.infoAware.peelKeep    = ia["peel_keep"].num(p.infoAware.peelKeep);
+        p.infoAware.threads     = static_cast<int>(ia["threads"].num(p.infoAware.threads));
+    }
+
     (void)frame;
     return p;
 }

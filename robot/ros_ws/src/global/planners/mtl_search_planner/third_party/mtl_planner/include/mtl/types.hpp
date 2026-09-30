@@ -104,6 +104,17 @@ struct ClusterSet {
     std::vector<std::vector<Index>> cellIdx;      ///< K lists of the cells each cluster owns
     double                          maxRadius = 0.0;  ///< achieved max cell-to-centroid distance
 
+    // --- information-aware hierarchy (mapping::clusterByPeaks) -------------
+    // Empty for the proximity (k-means) abstraction.  With peak clustering every
+    // cluster belongs to one BASIN of the prior (the cells that climb to the same
+    // peak) and one mass LEVEL of that basin (0 = core, 1 = shoulder, ...), and
+    // `parent` names the nearest cluster one level up in the same basin (-1 for
+    // a core).  The route planner does not read these; they are the audit trail
+    // of the abstraction and what the split/merge search moves around.
+    std::vector<int> basin;   ///< K-by-1 basin id per cluster
+    std::vector<int> level;   ///< K-by-1 mass level per cluster
+    std::vector<int> parent;  ///< K-by-1 parent cluster (-1 = none)
+
     Index size() const { return centroids.rows(); }
     bool  empty() const { return centroids.rows() == 0; }
 };
@@ -365,6 +376,36 @@ struct AgentTrajectory {
 };
 
 // -----------------------------------------------------------------------------
+/// One abstraction the information-aware search planned and scored.
+// -----------------------------------------------------------------------------
+struct InfoAwareCandidate {
+    std::string label;             ///< e.g. "baseline", "kmeans@416", "peaks[0.5,1]@416", "move:split"
+    double reach      = 0.0;       ///< [m] cluster radius / gimbal reach it was planned with
+    double score      = 0.0;       ///< coverage model: expected belief mass DETECTED (higher is better)
+    double info       = 0.0;       ///< the planner's own objective: mass of the serviced cells
+    double flown      = 0.0;       ///< [m] team flown length
+    Index  clusters   = 0;         ///< clusters in the abstraction
+    bool   accepted   = false;     ///< a split/merge move that improved the incumbent
+};
+
+/// What PlannerParams::infoAware did.  The chosen plan is the returned
+/// PlanningResult itself; `baseline` is the plain planner's plan on the same
+/// cells, scored with the same coverage model, so a host can report both.
+struct InfoAwareReport {
+    bool   enabled        = false;
+    std::string chosen;                    ///< label of the plan that was returned
+    double chosenScore    = 0.0;           ///< coverage-model detected mass of it
+    double baselineScore  = 0.0;           ///< ... of the plain planner's plan
+    double chosenReach    = 0.0;           ///< [m] maxClusterRadius the chosen plan used
+    double detectionReach = 0.0;           ///< [m] cross-track reach the detection model supports
+    int    movesTried     = 0;
+    int    movesAccepted  = 0;
+    Index  basins         = 0;             ///< peaks (after persistence merging) in the prior
+    double seconds        = 0.0;           ///< wall time of the whole search
+    std::vector<InfoAwareCandidate> candidates;  ///< every plan scored, in evaluation order
+};
+
+// -----------------------------------------------------------------------------
 /// Everything one call to Planner::plan() produces.
 // -----------------------------------------------------------------------------
 struct PlanningResult {
@@ -386,6 +427,10 @@ struct PlanningResult {
 
     /// Global cell indices the gimbal actually observed, de-duplicated.
     std::vector<Index> realizedCellIdx;
+
+    /// Audit trail of the information-aware search (PlannerParams::infoAware);
+    /// `enabled` is false and everything else empty for a plain plan.
+    InfoAwareReport infoAware;
 };
 
 }  // namespace mtl

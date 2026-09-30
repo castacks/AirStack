@@ -1,0 +1,8 @@
+{
+  "_doc": "TIGRIS with the sweep amplitude set per scenario to the cross-track angle where the boresight slant reaches 0.97 beta (the reach MTL's scheduler is allowed), capped at 70 deg. Checks whether MTL's advantage at low altitude is only the fixed +-45 deg sweep.",
+  "arms": [
+    {"name": "tigris_sweep_det", "planner": "tigris",
+     "scenario_overrides": {"airstack.gimbal_actuation": {"enabled": true, "sweep_rate_deg_s": 30.0, "sweep_amplitude_deg": "detection", "max_amplitude_deg": 70.0}},
+     "tigris_set": {"planning_time_s": 1000, "initial_planning_time_s": 1000, "commit_margin_s": -992, "max_iterations": 150}}
+  ]
+}

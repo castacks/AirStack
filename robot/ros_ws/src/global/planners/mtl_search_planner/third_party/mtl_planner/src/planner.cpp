@@ -9,6 +9,7 @@
 #include "mtl/core/numeric.hpp"
 #include "mtl/mapping/cells.hpp"
 #include "mtl/planning/agent_sortie.hpp"
+#include "mtl/planning/info_aware.hpp"
 #include "mtl/planning/team_allocation.hpp"
 #include "mtl/sensing/airframe.hpp"
 #include "mtl/sensing/gimbal_scheduler.hpp"
@@ -234,6 +235,9 @@ PlanningResult Planner::plan(const BeliefField& belief, const std::vector<Vec2>&
 
 PlanningResult Planner::planFromCells(const CellSet& cells, const std::vector<Vec2>& agentStarts) {
     const PlannerParams& P = impl_->params;
+    // Information-aware search: plans several abstractions of these cells
+    // (this one included) and returns the one whose flown plan detects most.
+    if (P.infoAware.enabled) return planning::planInfoAware(P, cells, agentStarts);
     ClusterSet clusters =
         mapping::clusterCells(cells.centers, P.maxClusterRadius, P.cluster, P.rngSeed, P.verbose);
     return planFromClusters(cells, std::move(clusters), agentStarts);

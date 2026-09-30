@@ -357,6 +357,91 @@ struct GimbalSchedulerParams {
 };
 
 // =============================================================================
+// 11b. INFORMATION-AWARE SEARCH -> mapping::clusterByPeaks, planning::planInfoAware
+// =============================================================================
+// -----------------------------------------------------------------------------
+/// INFORMATION-AWARE ABSTRACTION SEARCH (off by default: the plain pipeline).
+///
+/// The plain pipeline clusters the valid cells by PROXIMITY (k-means under
+/// maxClusterRadius) and scores a route by the mass of the cells the boresight
+/// is aimed at.  Two things go wrong with that on a peaked prior:
+///   * a proximity cluster mixes a peak's dense core with its thin tail, so the
+///     route cannot take the core and leave the tail - it pays for both, which
+///     is the "circling a peak" the flown runs show;
+///   * "aimed at" is not "detected": a centre aimed at past the detection
+///     range, a cell swept twice, and everything the footprint sees in transit
+///     are all valued wrongly, so a better-looking plan can search less.
+///
+/// With `enabled`, Planner::planFromCells instead
+///   1. finds the prior's PEAKS - every cell climbs to its highest neighbour,
+///      the cells that reach the same top form a basin, and basins separated by
+///      a shallow saddle are merged (`persistence`);
+///   2. slices each basin into nested MASS LEVELS (core = the densest cells
+///      holding levelFracs[0] of the basin's mass, then the next ring, ...) and
+///      splits every (basin, level) set spatially under the reach radius, so a
+///      core is its own node and the orienteering chooses how far down each
+///      peak to go - a discretised profit curve, with diminishing returns by
+///      construction;
+///   3. plans several such abstractions (every level set x every reach, plus
+///      the plain k-means one, each with `restarts` extra orienteering seeds)
+///      and scores each FLOWN plan with a coverage model:
+///      the belief mass the footprint actually detects along the scheduled
+///      trajectory, with the scenario's detection sigmoid - overlap, transit
+///      and range all counted;
+///   4. runs a split / peel / merge local search on the best abstraction,
+///      re-planning after each move and keeping it only if the coverage score
+///      rises.
+/// The returned plan is the highest-scoring one, so it can only be worse than
+/// the plain plan where the coverage model disagrees with the host's scorer.
+/// PlanningResult::infoAware records every candidate and the plain plan's
+/// score, so both outcomes can be reported.
+// -----------------------------------------------------------------------------
+struct InfoAwareParams {
+    bool enabled = false;
+
+    /// Cumulative-mass fractions that cut a basin into levels.  Each inner list
+    /// is one abstraction to try; the last entry must be 1.  {1} = whole basins.
+    std::vector<std::vector<double>> levelSets = {{1.0}, {0.5, 1.0}, {0.35, 0.7, 1.0}};
+    /// Two basins merge when the saddle between them is at least this fraction
+    /// of the lower peak (a shallow dip is one peak with two bumps on it).
+    double persistence = 0.6;
+    /// Reaches to try, as multiples of the DETECTION reach (the cross-track
+    /// offset at which the boresight slant still sees targets).  The plain
+    /// maxClusterRadius is always tried as well.
+    std::vector<double> reachScales = {1.0};
+    /// Slant range the detection reach is computed at, as a fraction of
+    /// sensor.beta (past beta the model detects nothing).
+    double slantMargin = 0.97;
+    /// Cap the gimbal scheduler's slant range and cross-track reach at the
+    /// detection reach in the detection-reach candidates, so it stops aiming
+    /// at centres it cannot detect anything at.
+    bool capGimbalToDetection = true;
+
+    /// Coverage model: each cell is sampled on a subsample x subsample lattice
+    /// carrying equal shares of its mass; one look in every lookStride steps is
+    /// integrated, weighted by the stride.
+    int subsample  = 4;
+    int lookStride = 4;
+
+    /// Every candidate abstraction is also planned with this many extra seeds of
+    /// the orienteering heuristic (its GRASP restarts differ per seed).  The
+    /// route heuristic is sensitive to them, and scoring every restart with the
+    /// coverage model makes the search at least as good as re-seeding the plain
+    /// planner that many times.  0 = one seed per abstraction.
+    int restarts = 2;
+
+    /// Split / peel / merge moves evaluated after the candidate sweep.
+    int  maxMoves   = 16;
+    bool splitMerge = true;
+    /// Fraction of a cluster's mass a PEEL keeps (its densest cells); the rest
+    /// becomes a new cluster the route can drop.
+    double peelKeep = 0.6;
+
+    /// Worker threads for the candidate plans; 0 = hardware concurrency (max 8).
+    int threads = 0;
+};
+
+// =============================================================================
 // 12. THE WHOLE PARAMETER SET
 // =============================================================================
 struct PlannerParams {
@@ -436,6 +521,7 @@ struct PlannerParams {
     ExtensionParams       extension;
     TrajectoryParams      traj;
     GimbalSchedulerParams gimbal;
+    InfoAwareParams       infoAware;
 
     /// Print the full A-E geometry audit table for every agent.
     bool verifyGeometry        = true;

@@ -1,0 +1,12 @@
+{
+  "_doc": "Cheaper arms (150 TIGRIS iterations per solve) for a fast first pass; calibrated on the Sep 29 scenario: 0.423 vs 0.426 planned at flight settings.",
+  "arms": [
+    {"name": "mtl_plain", "planner": "mtl",
+     "scenario_overrides": {"info_aware": {"enabled": false, "report_both": false}}},
+    {"name": "mtl_info_aware", "planner": "mtl",
+     "scenario_overrides": {"info_aware": {"enabled": true, "report_both": false, "threads": 1}}},
+    {"name": "tigris_sweep", "planner": "tigris",
+     "scenario_overrides": {"airstack.gimbal_actuation": {"enabled": true, "sweep_rate_deg_s": 30.0, "sweep_amplitude_deg": 45.0}},
+     "tigris_set": {"planning_time_s": 1000, "initial_planning_time_s": 1000, "commit_margin_s": -992, "max_iterations": 150}}
+  ]
+}
