@@ -5,6 +5,25 @@
 Status: draft spec. Reference implementation of §3–§4 against a mock world in
 `scripts/oracle_loop.py`.
 
+A failed uncertainty gate while a mock dispatch is active now requests scoped
+mock cancellation and terminates `INTERRUPTED`; replay requires the gate, stop
+request, acknowledgement, safe-state observation, and interruption in order.
+An uncertainty failure before dispatch has no command to cancel and remains an
+ordinary abort. This does not measure a physical stop deadline.
+
+The current mock world produces `object_evidence_v1` aggregate uncertainty from
+per-object confidence/current-tick freshness and relation confidence. Missing,
+future, or older object observation ticks yield uncertainty 1; a world with no
+objects is also maximally uncertain. Core observation and replay reject an unbound
+or inconsistent aggregate. This deliberately strict simulation-tick rule is not
+calibrated to a real sensor's wall-clock latency. Relations do not yet carry
+freshness timestamps, and the default uncertainty threshold remains zero.
+
+Before mock dispatch, an unavailable planning or pre-action observation now
+causes an unsuccessful terminal abort. The initial case has no state digest;
+the later case can cite only a previously valid snapshot. Neither requests
+cancellation or reports a safe state because no action has been dispatched.
+
 An active mock dispatch now treats failed, malformed, or stale-after-apply world
 observations as a scoped interruption. It requests mock cancellation and records
 the last *valid* snapshot as provenance only; it does not substitute that snapshot

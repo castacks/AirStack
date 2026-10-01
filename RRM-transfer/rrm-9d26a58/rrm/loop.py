@@ -22,6 +22,7 @@ from .contracts import (
 )
 from .core_admission import CoreAdmission
 from .world import DispatchCancelled
+from .uncertainty import validate_uncertainty
 from .verbs import VERB_TABLE, expected_effects_of, holds
 from .reasoning import ReasonerBackend
 from .safety import NumericSafetyVerifier, SafetyVerifier
@@ -108,6 +109,7 @@ def _observe(world: WorldBackend, tracer: Tracer, *, phase: str) -> tuple[WorldS
         raise TypeError("world observation is not a WorldState")
     payload = state.model_dump(mode="json")
     state = WorldState.model_validate(payload)
+    validate_uncertainty(state)
     payload = state.model_dump(mode="json")
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     digest = hashlib.sha256(encoded.encode("utf-8")).hexdigest()
@@ -351,6 +353,19 @@ def dispatch(task: Task, graph: TaskGraph, action: AbstractAction,
         )
         return Termination.INTERRUPTED, cycle - 1
 
+    def active_uncertainty_stop(ws: WorldState, state_digest: str,
+                                completed_cycles: int) -> tuple[Termination, int]:
+        admission.stop.request_stop(
+            dispatch_id=dispatch_id, reason="active_uncertainty")
+        _stop_latched(
+            admission, tracer, phase="active_uncertainty", sim_t=ws.t,
+            state_digest=state_digest, plan_version=plan_version,
+            action=action, dispatch_id=dispatch_id,
+            decision_id=authorization_decision_id,
+            expected_generation=authorized_stop_generation,
+        )
+        return Termination.INTERRUPTED, completed_cycles
+
     for cycle in range(1, CYCLE_BUDGET + 1):
         try:
             ws, state_digest = _observe(world, tracer, phase="dispatch")
@@ -374,7 +389,7 @@ def dispatch(task: Task, graph: TaskGraph, action: AbstractAction,
                 state_digest=state_digest,
                 plan_version=plan_version, action=action,
                 dispatch_id=dispatch_id):
-            return Termination.UNCERTAIN, cycle - 1
+            return active_uncertainty_stop(ws, state_digest, cycle - 1)
         if not _context_gate(
                 task, graph, action, tracer, phase="pre_chunk", sim_t=ws.t,
                 state_digest=state_digest, task_revision=task_revision,
@@ -488,7 +503,7 @@ def dispatch(task: Task, graph: TaskGraph, action: AbstractAction,
             state_digest=state_digest,
             plan_version=plan_version, action=action,
             dispatch_id=dispatch_id):
-        return Termination.UNCERTAIN, CYCLE_BUDGET
+        return active_uncertainty_stop(ws, state_digest, CYCLE_BUDGET)
     if effects and all(holds(e, ws) for e in effects):
         return Termination.COMPLETE, CYCLE_BUDGET
     return Termination.TIMEOUT, CYCLE_BUDGET
@@ -538,7 +553,23 @@ def run(task: Task, world: WorldBackend, reasoner: ReasonerBackend,
             or not 0.0 <= uncertainty_threshold <= 1.0:
         raise ValueError("uncertainty_threshold must be finite and within [0,1]")
 
-    ws, state_digest = _observe(world, tracer, phase="planning")
+    try:
+        ws, state_digest = _observe(world, tracer, phase="planning")
+    except Exception as exc:
+        failure_kind = ("invalid_payload" if isinstance(exc, (TypeError, ValueError,
+                                                                  AttributeError))
+                        else "observation_error")
+        tracer.event("observation_failure", sim_t=None, state_digest=None,
+                     phase="planning", plan_version=None, action_id=None,
+                     action_digest=None, dispatch_id=None, cycle=None,
+                     failure_kind=failure_kind,
+                     observed_state_digest=None, observed_sim_t=None)
+        m.aborted = True
+        tracer.event("episode_end", sim_t=None, state_digest=None,
+                     goal_met=False, terminal_observation="UNAVAILABLE",
+                     stop_status="NOT_REQUESTED", **m.model_dump())
+        return m
+    last_valid_ws, last_valid_digest = ws, state_digest
     if not _uncertainty_allows(
             ws, uncertainty_threshold, tracer, phase="planning",
             state_digest=state_digest):
@@ -635,9 +666,25 @@ def run(task: Task, world: WorldBackend, reasoner: ReasonerBackend,
                 return False
         return bool(graph.nodes)
 
+    pre_action_observation_lost = False
     while cursor < len(graph.nodes):
         action = graph.nodes[cursor]
-        ws, state_digest = _observe(world, tracer, phase="pre_action")
+        try:
+            ws, state_digest = _observe(world, tracer, phase="pre_action")
+        except Exception as exc:
+            failure_kind = ("invalid_payload" if isinstance(exc, (TypeError, ValueError,
+                                                                      AttributeError))
+                            else "observation_error")
+            tracer.event("observation_failure", sim_t=last_valid_ws.t,
+                         state_digest=last_valid_digest, phase="pre_action",
+                         plan_version=graph.version, action_id=action.id,
+                         action_digest=_action_digest(action), dispatch_id=None,
+                         cycle=None, failure_kind=failure_kind,
+                         observed_state_digest=None, observed_sim_t=None)
+            m.aborted = True
+            pre_action_observation_lost = True
+            break
+        last_valid_ws, last_valid_digest = ws, state_digest
         if not _uncertainty_allows(
                 ws, uncertainty_threshold, tracer, phase="pre_action",
                 state_digest=state_digest,
@@ -868,6 +915,7 @@ def run(task: Task, world: WorldBackend, reasoner: ReasonerBackend,
             after, after_digest = dispatch_observation.state, dispatch_observation.digest
         else:
             after, after_digest = _observe(world, tracer, phase="post_dispatch")
+        last_valid_ws, last_valid_digest = after, after_digest
         tracer.event("dispatch", sim_t=after.t, plan_version=graph.version,
                      action_id=action.id, action_digest=_action_digest(action),
                      dispatch_id=dispatch_id, plan_id=plan_id,
@@ -929,7 +977,11 @@ def run(task: Task, world: WorldBackend, reasoner: ReasonerBackend,
                      ", ".join(str(p) for p in div.surprise))
         cursor += 1
 
-    if admission.stop.outcome is not None \
+    if pre_action_observation_lost:
+        final, final_digest = last_valid_ws, last_valid_digest
+        terminal_observation = "UNAVAILABLE"
+        goal_met = False
+    elif admission.stop.outcome is not None \
             and admission.stop.outcome.reason == "observation_unavailable":
         final, final_digest = after, after_digest
         terminal_observation = "UNAVAILABLE"

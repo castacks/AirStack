@@ -10,6 +10,7 @@ import time
 from threading import Lock
 
 from .core_stop import StopStateEvidence
+from .uncertainty import UNCERTAINTY_PROVENANCE, aggregate_uncertainty
 
 from .schema import (
     AbstractAction, Relation, RobotState, Trajectory, Verb, WorldObject, WorldState,
@@ -56,7 +57,13 @@ class MockWorld:
         self._cancelled = False
 
     def observe(self) -> WorldState:
-        return self.state.model_copy(deep=True)
+        snapshot = self.state.model_copy(deep=True)
+        for obj in snapshot.objects:
+            if obj.observed_by.value == "sim_ground_truth":
+                obj.observed_t = snapshot.t
+        snapshot.uncertainty_provenance = UNCERTAINTY_PROVENANCE
+        snapshot.uncertainty = aggregate_uncertainty(snapshot)
+        return snapshot
 
     def begin_dispatch(self, action: AbstractAction, dispatch_id: str) -> None:
         """Mark a new outer-loop attempt at this action.

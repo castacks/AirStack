@@ -1,5 +1,59 @@
 # RRM remote Codex handoff
 
+## Core active-uncertainty mock-stop increment — 2026-10-01 UTC
+
+The uncommitted core now routes a failed uncertainty gate during an active
+dispatch through the shared C08-shaped mock stop supervisor. The gate is followed
+by a scoped `active_uncertainty` stop request, cancellation acknowledgement,
+separate safe-state observation, interruption gate and `INTERRUPTED` dispatch.
+No further chunk is applied or replanned. Missing cancellation/safe-state evidence
+is `SAFE_UNCONFIRMED`; a confirmed result is explicitly synthetic MockWorld hold
+evidence, not physical stop proof. Planning and pre-action uncertainty failures
+still abort without a stop request because no dispatch is active. Replay rejects
+the former bare `UNCERTAIN` terminal and mismatched or incomplete stop chains.
+
+Validation for the combined uncommitted pre-dispatch observation, uncertainty
+production, and active-uncertainty stop increments: 347/347 CPU tests on final
+rerun, 5/5 deterministic benchmark tasks, 5/5 replay-valid traces, and
+`performance_claim_authorized=false`. An earlier full-suite run had one intermittent
+failure in an unchanged asynchronous console test; its 57-test file and the full
+suite passed on rerun. Runtime source digest:
+`04eb46212977c4c8844b5fd86de0394a6b2cb9b1bba2358db7fd60b8fb8c55fa`.
+
+## Core object-evidence uncertainty increment — 2026-10-01 UTC
+
+The current uncommitted core now derives `WorldState.uncertainty` from versioned
+object evidence rather than trusting a free scalar. MockWorld stamps ground-truth
+object observations at the current simulation tick and uses the maximum of object
+and relation confidence deficits; missing, future or older object timestamps
+yield maximum uncertainty. Core observation rejects an unbound or contradictory
+aggregate, and replay recomputes it even when a trace payload is rehashed.
+Scheduled-uncertainty tests now alter object confidence rather than the scalar.
+The threshold remains the conservative zero default, not an empirically calibrated
+sensor limit. Relation freshness and physical stop on an active uncertainty abort
+remain unqualified; this is not live-scene or SIL evidence.
+
+Validation for the combined uncommitted pre-dispatch observation and uncertainty
+increments: 344/344 CPU tests, 5/5 deterministic benchmark tasks, 5/5 replay-valid
+traces, and `performance_claim_authorized=false`. Runtime source digest:
+`6ff289f10f94ecb57651f4cc6a45059d9e15e77c1c743b37888134213c95a382`.
+
+## Core pre-dispatch observation-loss increment — 2026-10-01 UTC
+
+After committed checkpoint `02947784`, the new uncommitted mock increment handles
+missing or invalid world observations before an action is dispatched. A failure on
+the first planning sample aborts without a plan or world-state claim; a pre-action
+failure aborts without dispatch and retains the prior valid snapshot only as
+provenance. Both emit `terminal_observation=UNAVAILABLE`, `task_success=false`,
+and `stop_status=NOT_REQUESTED`. No stop acknowledgement is invented because no
+dispatch is active. Replay validates the failure phase, prior-state scope,
+terminal status, and absence of subsequent execution. This does not establish a
+physical safe state or a transport-loss deadline.
+
+Validation: 339/339 CPU tests, 5/5 deterministic benchmark tasks, 5/5 replay-valid
+traces, and `performance_claim_authorized=false`. The checkpoint remains
+uncommitted after `02947784`.
+
 ## Core active-observation-loss increment — 2026-10-01 UTC
 
 The uncommitted mock loop now fails closed when an active dispatch cannot obtain a

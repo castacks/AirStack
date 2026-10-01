@@ -25,6 +25,7 @@ from .contracts import (
 )
 from .loop import THETA_DIV, _constraints_record, _trace_action_record
 from .core_stop import StopStateEvidence
+from .uncertainty import validate_uncertainty
 from .schema import AbstractAction, NumericLimitProfile, Task, TaskGraph, Trajectory, Verb, WorldState
 from .safety import NumericSafetyVerifier, SafetyVerifier
 from .verbs import VERB_TABLE, expected_effects_of, holds
@@ -213,6 +214,11 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
         if digest != expected:
             findings.append(f"world_state_digest_mismatch:sequence={event.get('sequence')}")
             continue
+        try:
+            validate_uncertainty(WorldState.model_validate(validated))
+        except ValueError:
+            findings.append(f"uncertainty_evidence_mismatch:sequence={event.get('sequence')}")
+            continue
         state_sequences.setdefault(digest, event.get("sequence", -1))
         state_payloads[digest] = WorldState.model_validate(validated)
 
@@ -228,6 +234,14 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
             continue
         digest = event.get("state_digest")
         sequence = event.get("sequence", -1)
+        if digest is None and (
+                event.get("kind") == "observation_failure"
+                and event.get("phase") == "planning"
+                or event.get("kind") == "episode_end"
+                and event.get("terminal_observation") == "UNAVAILABLE"
+                and any(item.get("kind") == "observation_failure"
+                        and item.get("phase") == "planning" for item in events)):
+            continue
         if not isinstance(digest, str) or digest not in state_sequences:
             findings.append(f"unknown_state_reference:sequence={sequence}")
         elif state_sequences[digest] >= sequence:
@@ -409,7 +423,9 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
         and failed_uncertainty_gates[0].get("phase") == "planning"
     )
 
-    if len(plans) != (0 if initial_uncertainty_abort else 1):
+    initial_observation_abort = any(event.get("kind") == "observation_failure"
+                                    and event.get("phase") == "planning" for event in events)
+    if len(plans) != (0 if initial_uncertainty_abort or initial_observation_abort else 1):
         findings.append(f"initial_plan_count:{len(plans)}")
 
     for gate in uncertainty_gates:
@@ -705,6 +721,42 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
         intent = intent_by_id.get(dispatch_id)
         state = state_payloads.get(failure.get("state_digest"))
         following = events[sequence + 1:] if _integer(sequence) else []
+        phase = failure.get("phase")
+        if phase in {"planning", "pre_action"}:
+            common_valid = (
+                _integer(sequence)
+                and failure.get("failure_kind") in {"observation_error", "invalid_payload"}
+                and failure.get("dispatch_id") is None
+                and failure.get("cycle") is None
+                and failure.get("observed_state_digest") is None
+                and failure.get("observed_sim_t") is None
+            )
+            if phase == "planning":
+                scoped = (failure.get("sim_t") is None
+                          and failure.get("state_digest") is None
+                          and failure.get("plan_version") is None
+                          and failure.get("action_id") is None
+                          and failure.get("action_digest") is None
+                          and not state_payloads and not plans and not replans
+                          and not uncertainty_gates)
+            else:
+                ref = (failure.get("plan_version"), failure.get("action_id"))
+                scoped = (state is not None and failure.get("sim_t") == state.t
+                          and ref in action_catalog
+                          and failure.get("action_digest") == action_catalog[ref]["action_digest"]
+                          and catalog_sequences[ref] < sequence)
+            if not common_valid or not scoped:
+                findings.append(f"invalid_pre_dispatch_observation_failure:sequence={sequence}")
+            if len(following) != 1 or following[0].get("kind") != "episode_end" \
+                    or stop_requests or end.get("terminal_observation") != "UNAVAILABLE" \
+                    or end.get("state_digest") != failure.get("state_digest") \
+                    or end.get("sim_t") != failure.get("sim_t") \
+                    or end.get("goal_met") is not False \
+                    or end.get("task_success") is not False \
+                    or end.get("aborted") is not True \
+                    or end.get("stop_status") != "NOT_REQUESTED":
+                findings.append(f"pre_dispatch_observation_terminal_mismatch:sequence={sequence}")
+            continue
         if not _integer(sequence) or intent is None or state is None \
                 or intent.get("sequence", -1) >= sequence \
                 or (failure.get("plan_version"), failure.get("action_id")) != (
@@ -778,6 +830,13 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
                 or events[sequence - 1].get("kind") != "observation_failure"
                 or events[sequence - 1].get("dispatch_id") != dispatch_id):
             findings.append(f"observation_stop_without_failure:sequence={sequence}")
+        if request.get("reason") == "active_uncertainty" and (
+                not _integer(sequence) or sequence == 0
+                or events[sequence - 1].get("kind") != "uncertainty_gate"
+                or events[sequence - 1].get("phase") != "dispatch"
+                or events[sequence - 1].get("verdict") != "FAIL"
+                or events[sequence - 1].get("dispatch_id") != dispatch_id):
+            findings.append(f"uncertainty_stop_without_failed_gate:sequence={sequence}")
         if not _integer(sequence) or sequence + 2 >= len(events) \
                 or not isinstance(intervention_id, str) or not intervention_id.strip() \
                 or not isinstance(request.get("reason"), str) or not request["reason"].strip() \
@@ -1372,11 +1431,15 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
         following = [event for event in events[sequence + 1:]
                      if event.get("kind") != "world_state"]
         if gate.get("phase") == "dispatch":
-            if not following or following[0].get("kind") != "dispatch" \
-                    or following[0].get("termination") != "UNCERTAIN":
-                findings.append("uncertainty_dispatch_without_terminal_record")
-            following = following[1:]
-        if len(following) != 1 or following[0].get("kind") != "episode_end":
+            expected_kinds = ["stop_request", "stop_cancel", "stop_safe_state",
+                              "interruption_gate", "dispatch", "episode_end"]
+            if [event.get("kind") for event in following] != expected_kinds \
+                    or following[0].get("reason") != "active_uncertainty" \
+                    or following[0].get("dispatch_id") != gate.get("dispatch_id") \
+                    or following[4].get("termination") != "INTERRUPTED" \
+                    or following[4].get("dispatch_id") != gate.get("dispatch_id"):
+                findings.append("uncertainty_dispatch_without_stop_terminal")
+        elif len(following) != 1 or following[0].get("kind") != "episode_end":
             findings.append("execution_after_uncertainty_failure")
 
     for event in replans:

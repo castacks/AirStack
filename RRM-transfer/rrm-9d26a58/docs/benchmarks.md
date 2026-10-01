@@ -2,6 +2,23 @@
 
 # RRM-1.0 Benchmark
 
+Focused mock tests inject rising uncertainty during a policy dispatch and at the
+final dispatch observation. Both now require a scoped stop/interruption trace;
+missing cancellation acknowledgement remains `SAFE_UNCONFIRMED`. The standard
+five-task suite does not exercise these injected stops or qualify physical motion.
+
+The mock benchmark now records uncertainty provenance and object observation ticks
+in each world snapshot. Replay recomputes the aggregate from object freshness and
+confidence plus relation confidence, so a rehashed scalar-only change is rejected.
+Focused tests inject weak, missing, and stale object evidence; the five-task suite
+still uses fresh MockWorld ground truth. No nonzero threshold is calibrated, and
+an active uncertainty abort is not physical stop evidence.
+
+Focused mock tests also inject missing or invalid observations at initial planning
+and pre-action sampling. They require no dispatch, no fabricated stop evidence,
+and an unverified terminal result. These cases are not part of the five-task
+deterministic benchmark or a time-bounded communication-loss campaign.
+
 Unit-level mock fault injection now covers an exception, invalid observation, and
 stale snapshot after one active policy chunk. These cases require interruption,
 no further application, and an unverified terminal result; replay rejects

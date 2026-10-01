@@ -75,7 +75,8 @@ class WorldObject(BaseModel):
     cls: str
     pose: tuple[float, float, float] | None = None
     properties: dict[str, Any] = Field(default_factory=dict)
-    confidence: float = 1.0
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0, allow_inf_nan=False)
+    observed_t: int | None = Field(default=None, ge=0)
     observed_by: Provenance = Provenance.SIM_GROUND_TRUTH
 
 
@@ -83,7 +84,7 @@ class Relation(BaseModel):
     subject: ObjectID
     predicate: Literal["on", "in", "near", "held_by", "occludes", "supports", "blocked_by"]
     obj: ObjectID
-    confidence: float = 1.0
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0, allow_inf_nan=False)
 
 
 class RobotState(BaseModel):
@@ -103,6 +104,7 @@ class WorldState(BaseModel):
     relations_complete: bool = False
     robot: RobotState = Field(default_factory=RobotState)
     uncertainty: float = Field(default=0.0, ge=0.0, le=1.0, allow_inf_nan=False)
+    uncertainty_provenance: Literal["unbound", "object_evidence_v1"] = "unbound"
 
     def get(self, oid: ObjectID) -> WorldObject | None:
         return next((o for o in self.objects if o.id == oid), None)

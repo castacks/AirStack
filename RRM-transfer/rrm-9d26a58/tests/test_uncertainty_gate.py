@@ -23,6 +23,7 @@ from rrm.schema import Task, WorldState
 from rrm.trace import Tracer
 from rrm.verbs import _p
 from rrm.world import MockWorld
+from rrm.uncertainty import aggregate_uncertainty
 
 
 class ScheduledUncertaintyWorld(MockWorld):
@@ -35,7 +36,9 @@ class ScheduledUncertaintyWorld(MockWorld):
     def observe(self) -> WorldState:
         self.observations += 1
         state = super().observe()
-        state.uncertainty = self.schedule.get(self.observations, self.default)
+        requested = self.schedule.get(self.observations, self.default)
+        state.get("obj_cup").confidence = 1.0 - requested
+        state.uncertainty = aggregate_uncertainty(state)
         return state
 
 
@@ -128,7 +131,10 @@ class UncertaintyGateTests(unittest.TestCase):
         self.assertEqual(metrics.inner_cycles, 1)
         self.assertEqual(sum(event["kind"] == "apply" for event in events), 1)
         dispatch = next(event for event in events if event["kind"] == "dispatch")
-        self.assertEqual(dispatch["termination"], "UNCERTAIN")
+        self.assertEqual(dispatch["termination"], "INTERRUPTED")
+        self.assertEqual(next(event for event in events
+                              if event["kind"] == "stop_request")["reason"],
+                         "active_uncertainty")
         self.assertTrue(replay.valid, replay.findings)
 
     def test_threshold_is_inclusive_and_inputs_are_bounded(self) -> None:
