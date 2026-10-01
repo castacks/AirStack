@@ -1,4 +1,4 @@
-"""SCRUM-8 contract primitives; not wired into the legacy control loop.
+"""SCRUM-8 contract primitives; only scoped admission subsets enter the core loop.
 
 Trusted, in-process callers only. This module neither evaluates physical safety
 nor authenticates operators, stops actuators, or implements distributed admission.
@@ -7,10 +7,11 @@ See docs/scrum-8/interfaces.md for the full integration contract.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, fields
+from dataclasses import asdict, dataclass, fields
 from enum import Enum
 import math
 from threading import Lock
+from typing import Literal, Protocol
 from uuid import uuid4
 
 
@@ -112,6 +113,73 @@ class PermissionDeclaration:
 
 
 @dataclass(frozen=True)
+class ApprovalScope:
+    """One run/task/ordered-plan/action scope, not a dispatch authorization."""
+
+    run_id: str
+    task_id: str
+    task_revision: str
+    task_digest: str
+    plan_id: str
+    plan_version: int
+    plan_digest: str
+    action_id: str
+    action_digest: str
+
+    def __post_init__(self) -> None:
+        for field in fields(self):
+            if field.name == "plan_version":
+                continue
+            value = getattr(self, field.name)
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"{field.name} is required")
+        if type(self.plan_version) is not int or self.plan_version < 0:
+            raise ValueError("invalid approval plan version")
+
+    def as_record(self) -> dict:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class ApprovalDecision:
+    """Explicit approval state supplied by a caller; identity is not authenticated here."""
+
+    decision_id: str
+    approver_id: str
+    revision: str
+    evidence_kind: Literal["operator_assertion", "synthetic_fixture"]
+    verdict: Literal["APPROVE", "DENY"]
+    scope: ApprovalScope
+
+    def __post_init__(self) -> None:
+        for name in ("decision_id", "approver_id", "revision"):
+            value = getattr(self, name)
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"{name} is required")
+        if self.evidence_kind not in {"operator_assertion", "synthetic_fixture"}:
+            raise ValueError("invalid approval evidence kind")
+        if self.verdict not in {"APPROVE", "DENY"}:
+            raise ValueError("invalid approval verdict")
+        if not isinstance(self.scope, ApprovalScope):
+            raise ValueError("approval scope is required")
+
+    def rejection_reasons(self, expected: ApprovalScope) -> tuple[str, ...]:
+        reasons = []
+        if self.scope != expected:
+            reasons.append("approval_scope_mismatch")
+        if self.verdict != "APPROVE":
+            reasons.append("approval_denied")
+        return tuple(reasons)
+
+    def as_record(self) -> dict:
+        return asdict(self)
+
+
+class ApprovalProvider(Protocol):
+    def decide(self, scope: ApprovalScope) -> ApprovalDecision | None: ...
+
+
+@dataclass(frozen=True)
 class DispatchContext:
     """Immutable references to every checked payload; caller stores the payloads."""
 
@@ -157,6 +225,30 @@ class SafetyDecision:
             raise ValueError("decision clock must be finite")
         if not 0 <= self.issued_at < self.expires_at:
             raise ValueError("invalid validity interval")
+
+
+def admission_rejection_reason(decision: SafetyDecision, current: DispatchContext,
+                               *, now: float, stopped: bool, authority_epoch: str,
+                               stop_generation: int, decision_used: bool,
+                               dispatch_used: bool) -> str | None:
+    """Pure form of the guard's precedence, also used by offline replay."""
+    if stopped:
+        return "stopped"
+    if not math.isfinite(now) or not decision.issued_at <= now < decision.expires_at:
+        return "outside_validity_window"
+    if decision.verdict != "ALLOW":
+        return "not_allowed"
+    if current.authority_epoch != authority_epoch:
+        return "stale_authority_epoch"
+    if current.stop_generation != stop_generation:
+        return "stale_stop_generation"
+    if decision.context != current:
+        return "stale_context"
+    if decision_used:
+        return "decision_consumed"
+    if dispatch_used:
+        return "dispatch_consumed"
+    return None
 
 
 class AdmissionGuard:
@@ -208,24 +300,36 @@ class AdmissionGuard:
     def consume(self, decision: SafetyDecision, current: DispatchContext,
                 *, now: float) -> str | None:
         """Return a denial reason or atomically consume this one-use decision."""
+        reason, _ = self.consume_evidenced(decision, current, now=now)
+        return reason
+
+    def snapshot(self, *, decision_id: str, run_id: str,
+                 dispatch_id: str) -> dict:
+        """Evidence for a missing/invalid decision; no admission occurs."""
         with self._lock:
-            if self._stopped:
-                return "stopped"
-            if not math.isfinite(now) or not decision.issued_at <= now < decision.expires_at:
-                return "outside_validity_window"
-            if decision.verdict != "ALLOW":
-                return "not_allowed"
-            if current.authority_epoch != self._epoch:
-                return "stale_authority_epoch"
-            if current.stop_generation != self._generation:
-                return "stale_stop_generation"
-            if decision.context != current:
-                return "stale_context"
-            if decision.decision_id in self._used_decisions:
-                return "decision_consumed"
-            dispatch_key = (current.run_id, current.dispatch_id)
-            if dispatch_key in self._used_dispatches:
-                return "dispatch_consumed"
-            self._used_decisions.add(decision.decision_id)
-            self._used_dispatches.add(dispatch_key)
-            return None
+            return {
+                "stopped": self._stopped,
+                "authority_epoch": self._epoch,
+                "stop_generation": self._generation,
+                "decision_used": decision_id in self._used_decisions,
+                "dispatch_used": (run_id, dispatch_id) in self._used_dispatches,
+            }
+
+    def consume_evidenced(self, decision: SafetyDecision, current: DispatchContext,
+                         *, now: float) -> tuple[str | None, dict]:
+        """Atomically consume once and return the guard state used for the decision."""
+        with self._lock:
+            evidence = {
+                "stopped": self._stopped,
+                "authority_epoch": self._epoch,
+                "stop_generation": self._generation,
+                "decision_used": decision.decision_id in self._used_decisions,
+                "dispatch_used": (current.run_id, current.dispatch_id) in self._used_dispatches,
+            }
+            reason = admission_rejection_reason(
+                decision, current, now=now, **evidence,
+            )
+            if reason is None:
+                self._used_decisions.add(decision.decision_id)
+                self._used_dispatches.add((current.run_id, current.dispatch_id))
+            return reason, evidence

@@ -5,7 +5,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from rrm.benchmark import MOCK_CAPABILITIES, mock_permission
+from rrm.benchmark import (
+    MOCK_CAPABILITIES, MOCK_NUMERIC_PROFILE, SyntheticApprovalProvider,
+    mock_admission, mock_permission,
+)
 from rrm.benchmark_evidence import replay_trace
 from rrm.benchmark_labels import EvaluationLabels, FailureKind, SafetyLabel, TerminalLabel
 from rrm.contracts import CapabilityDeclaration
@@ -60,8 +63,10 @@ class CapabilityAdmissionTests(unittest.TestCase):
             try:
                 metrics = run(
                     task, MockWorld(), ScriptedOracle(task.goal), SafetyVerifier(),
-                    MockPolicy(), NumericSafetyVerifier(), tracer, capabilities=denied,
+                    MockPolicy(), NumericSafetyVerifier(MOCK_NUMERIC_PROFILE), tracer, capabilities=denied,
                     permission=mock_permission(task.id),
+                    approval=SyntheticApprovalProvider(),
+                    admission=mock_admission(),
                 )
             finally:
                 tracer.close()
@@ -92,9 +97,10 @@ class CapabilityAdmissionTests(unittest.TestCase):
                                    "evaluation_labels": labels.as_record()})
             try:
                 metrics = run(current, MockWorld(), ScriptedOracle(current.goal),
-                              SafetyVerifier(), MockPolicy(), NumericSafetyVerifier(),
+                              SafetyVerifier(), MockPolicy(), NumericSafetyVerifier(MOCK_NUMERIC_PROFILE),
                               tracer, capabilities=capability,
-                              permission=mock_permission(current.id))
+                              permission=mock_permission(current.id),
+                              approval=SyntheticApprovalProvider(), admission=mock_admission())
             finally:
                 tracer.close()
             events = [json.loads(line) for line in path.read_text().splitlines()]
@@ -120,9 +126,10 @@ class CapabilityAdmissionTests(unittest.TestCase):
                                    "evaluation_labels": labels.as_record()})
             try:
                 metrics = run(current, MockWorld(), ScriptedOracle(current.goal),
-                              SafetyVerifier(), MockPolicy(), NumericSafetyVerifier(),
+                              SafetyVerifier(), MockPolicy(), NumericSafetyVerifier(MOCK_NUMERIC_PROFILE),
                               tracer, capabilities=capability,
-                              permission=mock_permission(current.id))
+                              permission=mock_permission(current.id),
+                              approval=SyntheticApprovalProvider(), admission=mock_admission())
             finally:
                 tracer.close()
             events = [json.loads(line) for line in path.read_text().splitlines()]
@@ -179,8 +186,13 @@ class CapabilityAdmissionTests(unittest.TestCase):
             tampered.write_text("".join(json.dumps(event) + "\n" for event in events))
             result = replay_trace(tampered, expected_task_id="T1")
             self.assertFalse(result.valid)
+            preceding_context = next(
+                event for event in events
+                if event["kind"] == "context_gate"
+                and event.get("phase") == "pre_action"
+            )
             self.assertIn(
-                f"missing_capability_gate:sequence={removed_sequence - 1}",
+                f"missing_capability_gate:sequence={preceding_context['sequence']}",
                 result.findings,
             )
             self.assertIsNone(result.metrics)

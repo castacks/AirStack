@@ -62,4 +62,4 @@ Record append-before-dispatch intent durably. If evidence storage fails, inhibit
 
 ## Implementation scope
 
-The first contract foundation implements only explicit truth handling, semantic capability checks and an in-process authorization-consumption/stop-generation guard. It is not C01–C09 serialization, a planner, authenticated safety authority, physical stop implementation, telemetry replay service or a replacement for the existing loop. Integration must satisfy the full contracts above before use beyond mocks.
+The contract foundation implements explicit truth handling, semantic capability checks and an in-process authorization-consumption/stop-generation guard. The deterministic core reference loop now exercises that guard with complete digest-bound context and synthetic fixture decisions; its trace can replay the mock admission. This is not C01–C09 distributed serialization, an authenticated safety authority, durable adapter-side deduplication, resource reservation, physical stop implementation or integrated SIL. The full contracts above remain required before use beyond mocks.

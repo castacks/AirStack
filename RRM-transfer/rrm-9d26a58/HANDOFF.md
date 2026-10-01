@@ -1,5 +1,134 @@
 # RRM remote Codex handoff
 
+## Core active-observation-loss increment — 2026-10-01 UTC
+
+The uncommitted mock loop now fails closed when an active dispatch cannot obtain a
+valid, advancing world snapshot. Exceptions, malformed observations, and a stale
+snapshot after an applied chunk emit scoped `observation_failure` evidence,
+request the mock C08 stop, and end the dispatch `INTERRUPTED` without applying
+another chunk or replanning. The last valid snapshot is retained only as
+provenance: `terminal_observation=UNAVAILABLE`, `goal_met=false` means the goal is
+not verified, and `task_success=false` even for an expected-abort fixture. If
+independent safe-state evidence is missing, status is `SAFE_UNCONFIRMED`. Replay
+checks failure/stop causality, stale-snapshot evidence, last-known state scope and
+the absence of a forged success claim. This is not continuous link monitoring,
+physical stop proof, or live-scene authority. Failures before a dispatch starts
+and time-bounded transport loss detection remain separate work.
+
+Validation: 337/337 CPU tests, 5/5 deterministic benchmark tasks and 5/5
+replay-valid traces, with `performance_claim_authorized=false`.
+
+## Core observed dynamic-safety increment — 2026-10-01 UTC
+
+The uncommitted mock loop now rechecks the authored symbolic safety rules against
+each fresh, digest-bound world snapshot during an active dispatch, after testing
+whether the action's effects are already satisfied. A new unsafe observation
+records `dynamic_safety_gate=FAIL`, requests the shared mock C08 stop, and ends the
+dispatch `INTERRUPTED` without another policy application or replan. Replay
+independently recomputes each dynamic verdict and requires the stop/interruption
+chain. Injected human entry and a target moved out of reach after the first chunk
+both stop before the second chunk. This remains an observed-snapshot mock test,
+not continuous collision monitoring, communication-loss handling, physical stop
+latency, or live-scene authority. The core `TaskGraph` is still an ordered sequence.
+
+Validation: 335/335 CPU tests; 5/5 deterministic benchmark tasks and 5/5
+replay-valid traces; `performance_claim_authorized=false`. The benchmark's
+pre-existing T6 human is present before dispatch; the new mid-motion cases are
+unit-level injected fixtures, not part of those five benchmark tasks.
+
+## Core mock stop/intervention evidence increment — 2026-10-01 UTC
+
+The uncommitted reference loop now shares the C06 guard with a C08-shaped mock stop
+supervisor. A stop request latches admission first, then records cancellation
+acknowledgement and a separate observed safe-state result. The active loop checks
+the stop generation before each policy chunk and apply; an interrupted dispatch
+aborts without replanning. Replay rejects missing or contradictory stop evidence,
+wrong scope/generation/status, or an application after stop. A confirmed result is
+explicitly `SAFE_CONFIRMED_MOCK`, based only on synthetic `MockWorld` hold evidence;
+missing acknowledgement or observation is `SAFE_UNCONFIRMED`. This is not physical
+stop proof, an asynchronous adapter guarantee, or live-scene authorization.
+
+Validation: 333/333 CPU tests, 5/5 deterministic benchmark tasks, 5/5 replay-valid
+traces, safety TP=1/FP=0/TN=55/FN=0, failure detection 2/2, recovery 1/1, and
+`performance_claim_authorized=false`. The earlier four increments remain uncommitted.
+Next: qualify dynamic mid-motion hazard/communication-loss behavior and a real
+adapter's independent cancellation and safe-state observations before SIL claims.
+
+## Core single-use mock admission increment — 2026-10-01 UTC
+
+The current uncommitted reference loop now uses the in-process `AdmissionGuard`
+after Safety #1 and before `dispatch_intent`. It binds one short-lived
+`SafetyDecision` to the run, task/ordered plan/action, prior world snapshot,
+capability, permission, approval, constraint digest, dispatch ID, authority epoch
+and stop generation. The guard atomically consumes decision and dispatch IDs;
+missing, expired, stale, stopped, non-ALLOW or reused decisions abort before mock
+dispatch. Replay checks the decision, exact context, expiry, guard history and links
+through numeric checks, applications and terminal dispatch. The benchmark resets
+the guard and issues decisions only as labelled synthetic fixtures. This is not
+authenticated/durable deployed C06, physical C08 stopping, or live-scene authority.
+
+Validation: 330/330 CPU tests, 5/5 deterministic benchmark tasks, 5/5 replay-valid
+traces, safety TP=1/FP=0/TN=55/FN=0, failure detection 2/2, recovery 1/1, and
+`performance_claim_authorized=false`. Runtime source digest:
+`0df24a4448e69488a0b66da41294afbc911ab301067c665dddb999668a82d75d`.
+Earlier numeric, revision-binding and approval increments remain uncommitted.
+
+## Core explicit-approval increment — 2026-10-01 UTC
+
+The current uncommitted core now requires an explicit approval provider after policy
+permission and before numeric-profile and symbolic-safety gates. Each decision binds
+one run/task revision and digest, ordered plan version and digest, and action digest;
+missing, denied, or stale scope aborts before dispatch. Replay independently verifies
+the decision payload/digest, exact scope, verdict and gate ordering. The deterministic
+benchmark's approver is labelled `synthetic_fixture`, not an authenticated operator.
+This is approval *state*, not C06 single-use authorization, approval expiry/revocation,
+or C08 physical stop. The core `TaskGraph` remains an ordered sequence, not a DAG.
+
+Validation: 326/326 CPU tests, 5/5 deterministic benchmark tasks, 5/5 replay-valid
+traces, safety TP=1/FP=0/TN=55/FN=0, failure detection 2/2, recovery 1/1,
+`performance_claim_authorized=false`. Runtime source digest:
+`f4e5c5219f85942d4cead9fff689001634f988fd65744b7c8e71282302ce5610`.
+The earlier numeric-safety and revision-binding increments remain uncommitted in
+the same worktree.
+
+## Core task/plan revision-binding increment — 2026-10-01 UTC
+
+The current uncommitted core increment binds each run to a unique run ID, a full
+canonical task with explicit revision/digest, and a canonical digest of the complete
+ordered `TaskGraph` (plan ID, version, mission, action order and payload). The core
+graph is an ordered sequence; C05's dependency DAG is separate and is not scheduled
+by this loop. Replans keep plan ID and mission, advance version, and receive a new
+digest. Context gates reject changed task or plan before action admission and before
+each policy chunk can apply. A distinct dispatch-attempt ID is recorded before each
+attempt and carried through numeric decisions, applications and terminal dispatch
+evidence. Replay checks those identities, ordering, gate verdicts and causal links.
+This is not C06 one-use authorization, operator approval, or C08 physical stop.
+
+Validation for the combined uncommitted numeric-safety and revision-binding tree:
+323/323 CPU tests, 5/5 deterministic tasks, 5/5 replay-valid traces, safety
+TP=1/FP=0/TN=55/FN=0, failure detection 2/2, recovery 1/1, and
+`performance_claim_authorized=false`. Runtime source digest:
+`7be302a76a0108100083ff509ddabd0bb55c2c70d05aeefb517e62bfeb915639`.
+This is still one MockWorld seed, not an integrated SIL or production execution claim.
+
+## Core numeric-safety increment — 2026-10-01 UTC
+
+The `13bd761a` checkpoint committed the four core evidence and admission slices
+described below; the working tree was clean before this increment. The current
+uncommitted increment adds typed, versioned numeric limit profiles and explicit
+Cartesian or joint trajectory contracts with frame, units and ordered axes. Capability
+`limits_ref` must match the resolved profile before Safety #1. Safety #2 checks each
+policy chunk against the profile before `apply`, and replay recomputes its verdict from
+the recorded trajectory, prior world state and digest-bound profile. The mock policy
+and benchmark use a Cartesian profile; its values are no longer interpreted as joint
+angles. This is still a deterministic reference envelope, not physical collision or
+controller qualification. See `docs/architecture.md` and `docs/benchmarks.md` for the
+exact contract and replay rules. Validation at this checkpoint: 320/320 CPU tests,
+5/5 deterministic tasks, 5/5 valid replay traces, TP=1, FP=0, TN=55, FN=0,
+failure detection 2/2, recovery 1/1, and `performance_claim_authorized=false`.
+The accepted runtime source digest is
+`efaaf1c208cbc404d809d278cfe484d176371d49d335a9ec0e543840dc350779`.
+
 ## Current development scope — 2026-09-30 UTC
 
 Development is deliberately restricted to the core RRM until its behavior is robust,
@@ -12,7 +141,7 @@ core reasoning, supervision, and evaluation scene-independent: scene geometry, a
 limits, and qualification belong in versioned adapter/profile evidence, not branches on
 catalog scene names. A new scene must not require a new core logic path.
 
-The current uncommitted core work stops an unchanged semantic action after one
+The committed core work in `13bd761a` stops an unchanged semantic action after one
 symbolic-safety replan instead of spending the remaining retry budget. The invariant
 compares only verb, targets, parameters, and unchanged state; it has no scene-specific
 branch. Its checksum-bound mock evidence records 5/5 valid traces with TP=1, FP=0,
@@ -40,8 +169,8 @@ dependency-light suite passes 314/314 tests.
 
 The Office, warehouse, controller and RRM-EM state below is committed in `4d122318`.
 Its original framing as uncommitted work based on `9a2e1580` is superseded. The current
-2026-09-30 working tree contains separate, uncommitted core-RRM metric-evidence work;
-preserve it. Read this section before the dated 2026-09-26 account below, which records
+2026-09-30 core-RRM metric-evidence work was later committed in `13bd761a`.
+Read this section before the dated 2026-09-26 account below, which records
 an earlier checkpoint and contains superseded pause statements. Do not treat the old
 `Office and Warehouse unpaused` prose as current. At the 2026-09-27 checkpoint,
 `git diff --check` passed, the modified `trajectory_controller`, `mavros_interface`,

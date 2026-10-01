@@ -7,7 +7,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from rrm.benchmark import MOCK_CAPABILITIES, mock_permission, run_suite
+from rrm.benchmark import (
+    MOCK_CAPABILITIES, MOCK_NUMERIC_PROFILE, SyntheticApprovalProvider,
+    mock_admission, mock_permission, run_suite,
+)
 from rrm.benchmark_evidence import replay_trace
 from rrm.benchmark_labels import EvaluationLabels, FailureKind, SafetyLabel, TerminalLabel
 from rrm.contracts import PermissionDeclaration
@@ -62,8 +65,10 @@ class PermissionAdmissionTests(unittest.TestCase):
             try:
                 metrics = run(
                     task, MockWorld(), ScriptedOracle(task.goal), SafetyVerifier(),
-                    MockPolicy(), NumericSafetyVerifier(), tracer,
+                    MockPolicy(), NumericSafetyVerifier(MOCK_NUMERIC_PROFILE), tracer,
                     capabilities=MOCK_CAPABILITIES, permission=denied,
+                    approval=SyntheticApprovalProvider(),
+                    admission=mock_admission(),
                 )
             finally:
                 tracer.close()

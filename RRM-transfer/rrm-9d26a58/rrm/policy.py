@@ -33,6 +33,11 @@ class MockPolicy:
         bx, by, bz = ws.robot.base_pose
         return Trajectory(
             action_id=action.id,
+            kind="cartesian_position",
+            frame="mock_map",
+            position_unit="m",
+            velocity_unit="m/s",
+            axes=("x", "y", "z"),
             waypoints=[(bx + 0.1 * n, by - 0.2 * n, bz + 0.05 * n)],
             max_velocity=0.4,
             terminal=n >= budget,
@@ -40,5 +45,3 @@ class MockPolicy:
 
     def reset(self, action_id: str) -> None:
         self._elapsed.pop(action_id, None)
-
-

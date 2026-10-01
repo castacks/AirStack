@@ -6,7 +6,10 @@ import unittest
 from pathlib import Path
 
 from rrm.loop import run
-from rrm.benchmark import MOCK_CAPABILITIES, mock_permission
+from rrm.benchmark import (
+    MOCK_CAPABILITIES, MOCK_NUMERIC_PROFILE, SyntheticApprovalProvider,
+    mock_admission, mock_permission,
+)
 from rrm.policy import MockPolicy
 from rrm.reasoning import ScriptedOracle
 from rrm.safety import NumericSafetyVerifier, SafetyVerifier
@@ -56,9 +59,11 @@ class ReplanConvergenceTests(unittest.TestCase):
             try:
                 metrics = run(
                     task, world, ScriptedOracle(task.goal), SafetyVerifier(),
-                    MockPolicy(), NumericSafetyVerifier(), tracer,
+                    MockPolicy(), NumericSafetyVerifier(MOCK_NUMERIC_PROFILE), tracer,
                     capabilities=MOCK_CAPABILITIES,
                     permission=mock_permission(task.id),
+                    approval=SyntheticApprovalProvider(),
+                    admission=mock_admission(),
                 )
             finally:
                 tracer.close()
@@ -93,9 +98,11 @@ class ReplanConvergenceTests(unittest.TestCase):
         )
         metrics = run(
             task, MockWorld(), AlternativeReasoner(), SafetyVerifier(),
-            MockPolicy(), NumericSafetyVerifier(),
+            MockPolicy(), NumericSafetyVerifier(MOCK_NUMERIC_PROFILE),
             capabilities=MOCK_CAPABILITIES,
             permission=mock_permission(task.id),
+            approval=SyntheticApprovalProvider(),
+            admission=mock_admission(),
         )
 
         self.assertTrue(metrics.task_success)

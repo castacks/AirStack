@@ -5,8 +5,12 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from .schema import RunMetrics, SELF, Task, Verb
-from .contracts import CapabilityDeclaration, PermissionDeclaration
+from .schema import AxisLimit, NumericLimitProfile, RunMetrics, SELF, Task, Verb
+from .contracts import (
+    AdmissionGuard, ApprovalDecision, ApprovalScope, CapabilityDeclaration,
+    DispatchContext, PermissionDeclaration, SafetyDecision,
+)
+from .core_admission import CoreAdmission
 from .benchmark_evidence import write_benchmark_evidence
 from .benchmark_labels import (
     EvaluationLabels, FailureKind, SafetyLabel, TerminalLabel,
@@ -80,6 +84,21 @@ MOCK_CAPABILITIES = CapabilityDeclaration(
     limits_ref="mock-numeric-safety-v1",
 )
 
+MOCK_NUMERIC_PROFILE = NumericLimitProfile(
+    ref="mock-numeric-safety-v1",
+    embodiment_id="mock_arm",
+    kind="cartesian_position",
+    frame="mock_map",
+    position_unit="m",
+    velocity_unit="m/s",
+    axes=(
+        AxisLimit(axis="x", minimum=-2.0, maximum=2.0),
+        AxisLimit(axis="y", minimum=-2.0, maximum=2.0),
+        AxisLimit(axis="z", minimum=0.0, maximum=2.0),
+    ),
+    max_velocity=1.5,
+)
+
 
 def mock_permission(task_id: str) -> PermissionDeclaration:
     return PermissionDeclaration(
@@ -90,6 +109,39 @@ def mock_permission(task_id: str) -> PermissionDeclaration:
         operations=MOCK_CAPABILITIES.operations,
         resources=MOCK_CAPABILITIES.resources,
     )
+
+
+class SyntheticApprovalProvider:
+    """Benchmark-only explicit decisions; never operator or C06 evidence."""
+
+    def decide(self, scope: ApprovalScope) -> ApprovalDecision:
+        return ApprovalDecision(
+            decision_id=f"mock:{scope.run_id}:{scope.plan_version}:{scope.action_id}",
+            approver_id="synthetic-benchmark-fixture",
+            revision="mock-approval-v1",
+            evidence_kind="synthetic_fixture",
+            verdict="APPROVE",
+            scope=scope,
+        )
+
+
+class SyntheticSafetyDecisionProvider:
+    """Mock-only one-use decisions, never authority to move a real adapter."""
+
+    def decide(self, context: DispatchContext, *, now: float) -> SafetyDecision:
+        return SafetyDecision(
+            decision_id=f"mock-c06:{context.run_id}:{context.dispatch_id}",
+            context=context, verdict="ALLOW", issued_at=now, expires_at=now + 5.0,
+        )
+
+
+def mock_admission() -> CoreAdmission:
+    guard = AdmissionGuard()
+    if not guard.reset(generation=0, authorized=True, safe_confirmed=True,
+                       evidence_ref="synthetic-mock-safe-state"):
+        raise RuntimeError("mock guard reset failed")
+    return CoreAdmission(guard=guard, provider=SyntheticSafetyDecisionProvider(),
+                         evidence_kind="synthetic_fixture")
 
 
 def run_suite(trace_dir: Path | None = None) -> int:
@@ -111,9 +163,11 @@ def run_suite(trace_dir: Path | None = None) -> int:
         try:
             results.append(run(
                 task, MockWorld(**task.world), ScriptedOracle(task.goal),
-                SafetyVerifier(), MockPolicy(), NumericSafetyVerifier(), tracer,
+                SafetyVerifier(), MockPolicy(), NumericSafetyVerifier(MOCK_NUMERIC_PROFILE), tracer,
                 capabilities=MOCK_CAPABILITIES,
                 permission=mock_permission(task.id),
+                approval=SyntheticApprovalProvider(),
+                admission=mock_admission(),
             ))
         finally:
             tracer.close()

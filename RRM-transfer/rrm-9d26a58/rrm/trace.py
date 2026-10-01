@@ -5,7 +5,9 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
+from threading import Lock
 from typing import Any
+from uuid import uuid4
 
 # ---------------------------------------------------------------------------
 # Trace logging  (docs/benchmarks.md §5)
@@ -25,6 +27,11 @@ class Tracer:
     def __init__(self, path: Path | None, run_meta: dict[str, Any]) -> None:
         self._fh = None
         self._sequence = 0
+        self._lock = Lock()
+        selected = run_meta["run_id"] if "run_id" in run_meta else uuid4().hex
+        if not isinstance(selected, str) or not selected.strip():
+            raise ValueError("run_id must be a nonempty string")
+        self.run_id = selected
         if path is not None:
             path.parent.mkdir(parents=True, exist_ok=True)
             # Benchmark evidence is immutable. Reusing a trace path would silently
@@ -33,21 +40,26 @@ class Tracer:
             self.event("run_start", **run_meta)
 
     def event(self, kind: str, **fields: Any) -> None:
-        if self._fh is None:
-            return
-        rec = {
-            "schema_version": TRACE_EVENT_SCHEMA,
-            "sequence": self._sequence,
-            "wall_time_s": round(time.time(), 6),
-            "monotonic_time_s": round(time.monotonic(), 6),
-            "kind": kind,
-            **fields,
-        }
-        self._fh.write(json.dumps(rec, default=str) + "\n")
-        self._fh.flush()
-        self._sequence += 1
+        if "run_id" in fields and fields["run_id"] != self.run_id:
+            raise ValueError("event run_id does not match tracer")
+        with self._lock:
+            if self._fh is None:
+                return
+            rec = {
+                "schema_version": TRACE_EVENT_SCHEMA,
+                "sequence": self._sequence,
+                "wall_time_s": round(time.time(), 6),
+                "monotonic_time_s": round(time.monotonic(), 6),
+                "kind": kind,
+                **fields,
+                "run_id": self.run_id,
+            }
+            self._fh.write(json.dumps(rec, default=str) + "\n")
+            self._fh.flush()
+            self._sequence += 1
 
     def close(self) -> None:
-        if self._fh is not None:
-            self._fh.close()
-            self._fh = None
+        with self._lock:
+            if self._fh is not None:
+                self._fh.close()
+                self._fh = None

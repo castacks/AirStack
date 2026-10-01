@@ -2,6 +2,28 @@
 
 # RRM-1.0 Benchmark
 
+Unit-level mock fault injection now covers an exception, invalid observation, and
+stale snapshot after one active policy chunk. These cases require interruption,
+no further application, and an unverified terminal result; replay rejects
+contradictory failure or success evidence. The five-task deterministic benchmark
+does not contain a transport-loss campaign, and none of these fixtures measure
+loss-detection or physical stop latency.
+
+Additional unit-level mock fixtures inject a human or move the target out of reach
+after one active policy chunk. They verify that the next observed state fails
+dynamic symbolic safety, stops the mock dispatch, and applies no further chunk.
+The five-task deterministic benchmark has not been expanded with these cases;
+its T6 hazard is still present before dispatch. Communication loss and hazards
+between snapshots remain unqualified.
+
+Current core stop evidence is limited to injected interruption during a
+deterministic `MockWorld` policy cycle. Replay validates the stop request,
+cancellation acknowledgement, synthetic hold observation, interrupted dispatch and
+absence of later mock applications. `SAFE_CONFIRMED_MOCK` is not evidence of a
+physical safe state; absent acknowledgement or observation remains
+`SAFE_UNCONFIRMED`. No live-scene, response-latency or integrated SIL claim follows
+from this benchmark.
+
 The deliverable is a **reproducible measurement instrument**, not a demonstration. A
 task belongs here only if it discriminates between the architectures of §21 — if
 Baseline A and RRM-1 score the same on it, it is not measuring anything.
@@ -194,6 +216,14 @@ referencing an unknown catalog entry, changing the action payload, or attaching 
 replan trigger to the wrong version fails replay. Correlation is therefore stable
 without inventing per-scene identity rules.
 
+Revision binding adds a run ID to every event; one canonical task declaration with
+revision and digest; and a digest-bound plan record containing the complete ordered
+`TaskGraph`. Replay checks plan ID and mission stability across versions, exact task
+binding, context-gate verdicts, and dispatch-intent IDs through numeric decisions,
+applications and terminal results. Reordering actions changes the plan digest.
+The core plan remains linear; C05's dependency DAG is not scheduled here. Dispatch
+IDs are attempt evidence, not C06 single-use authorization.
+
 The same schema records every uncertainty admission decision. Replay recomputes the
 verdict from the bounded observed value and configured threshold, validates action
 correlation for pre-action and dispatch gates, and rejects execution after a failed
@@ -217,11 +247,42 @@ generic verb semantics, not benchmark scene content.
 
 Permission evidence is independently digest-bound. Replay checks one canonical
 permission declaration, its exact task and embodiment scope, permitted operation and
-resource sets, and the ordering `capability ALLOW → permission gate → Safety #1`.
+resource sets, and the ordering `capability ALLOW → permission gate → approval gate
+→ numeric-profile gate → Safety #1`.
 Permission denial must terminate before safety evaluation or dispatch. A changed
 declaration with a recomputed digest, a changed gate payload, or a removed gate still
 invalidates replay. Permission admission is reported separately from approval and C06
 one-use authorization; the mock permission is not evidence of either.
+
+Every permission-allowed action has an explicit approval gate bound to the run,
+task revision/digest, ordered plan version/digest, and action digest. Replay validates
+the decision schema and digest, reconstructs that exact scope, recomputes the gate
+verdict, and rejects a missing gate or execution after denial. Benchmark approvals
+are labelled `synthetic_fixture`: they exercise the interface and replay only, not
+operator authentication or C06 authorization. The core does not consume approvals
+as single-use grants or monitor revocation during active motion. Replay also checks
+the decision digest, revision and ID carried by each dispatch intent and subsequent
+numeric/application/terminal records.
+
+The reference loop also records a canonical constraint declaration and an in-process
+admission authority epoch. After Safety #1 passes, `authorization_gate` stores the
+complete `DispatchContext`, short-lived `SafetyDecision`, monotonic check time and
+atomic guard-state evidence. Replay reconstructs task, ordered plan, action, state,
+capability, permission, approval and constraint references; verifies expiry and
+single-use history; and requires a consumed allow immediately before each dispatch
+intent. The benchmark's guard reset and decisions are synthetic fixture inputs, not
+authenticated operator or live-adapter authorization. There is no physical stop or
+distributed exactly-once claim.
+
+Each run also records one canonical, digest-bound numeric limit profile. An allowed
+approval gate must be followed by a profile gate that resolves the capability's
+`limits_ref` and embodiment. Every Safety #2 event stores the complete typed
+trajectory, its digest, the profile digest, and the verifier result. Replay validates
+the profile and trajectory schemas, recomputes the numeric verdict against the prior
+world snapshot, and requires each `apply` to follow a matching Safety #2 `PASS` for
+the same chunk. The mock profile is a versioned Cartesian envelope in metres and
+m/s. It is test evidence for the deterministic fixture, not an Isaac/controller
+qualification.
 
 Additional reproducibility requirements for model-backed and simulator campaigns are:
 

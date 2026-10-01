@@ -4,11 +4,12 @@ Every payload crossing a component boundary is defined here."""
 
 from __future__ import annotations
 
+import math
 from enum import Enum
 from pathlib import Path
 from typing import Any, Literal, Protocol
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # ---------------------------------------------------------------------------
 # Schema  (docs/architecture.md §3)
@@ -157,10 +158,77 @@ class Divergence(BaseModel):
 class Trajectory(BaseModel):
     """Numeric output of the action policy. The only place coordinates appear."""
 
+    model_config = ConfigDict(frozen=True)
+
     action_id: str
+    kind: Literal["cartesian_position", "joint_position"]
+    frame: str
+    position_unit: Literal["m", "rad"]
+    velocity_unit: Literal["m/s", "rad/s"]
+    axes: tuple[str, ...]
     waypoints: list[tuple[float, ...]]
     max_velocity: float
     terminal: bool = False      # last chunk the policy will emit for this subtask
+
+    @model_validator(mode="after")
+    def validate_shape(self) -> "Trajectory":
+        if not self.action_id or not self.frame or not self.axes or len(set(self.axes)) != len(self.axes):
+            raise ValueError("trajectory identity, frame, and unique axes are required")
+        if self.kind == "cartesian_position" and self.axes != ("x", "y", "z"):
+            raise ValueError("Cartesian trajectories require x/y/z axes")
+        if (self.position_unit, self.velocity_unit) != (
+                ("m", "m/s") if self.kind == "cartesian_position" else ("rad", "rad/s")):
+            raise ValueError("trajectory units do not match coordinate kind")
+        if not self.waypoints or any(len(wp) != len(self.axes) for wp in self.waypoints):
+            raise ValueError("trajectory waypoint dimensions must match axes")
+        if not math.isfinite(self.max_velocity) or self.max_velocity < 0:
+            raise ValueError("trajectory velocity must be finite and nonnegative")
+        if any(not math.isfinite(value) for wp in self.waypoints for value in wp):
+            raise ValueError("trajectory coordinates must be finite")
+        return self
+
+
+class AxisLimit(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    axis: str
+    minimum: float
+    maximum: float
+
+    @model_validator(mode="after")
+    def validate_bounds(self) -> "AxisLimit":
+        if not self.axis or not math.isfinite(self.minimum) or not math.isfinite(self.maximum) \
+                or self.minimum >= self.maximum:
+            raise ValueError("axis limits must be named, finite, and ordered")
+        return self
+
+
+class NumericLimitProfile(BaseModel):
+    """Adapter-authored numeric envelope; units follow the coordinate kind."""
+
+    model_config = ConfigDict(frozen=True)
+    ref: str
+    embodiment_id: str
+    kind: Literal["cartesian_position", "joint_position"]
+    frame: str
+    position_unit: Literal["m", "rad"]
+    velocity_unit: Literal["m/s", "rad/s"]
+    axes: tuple[AxisLimit, ...]
+    max_velocity: float
+
+    @model_validator(mode="after")
+    def validate_profile(self) -> "NumericLimitProfile":
+        names = tuple(axis.axis for axis in self.axes)
+        if not self.ref or not self.embodiment_id or not self.frame or not names \
+                or len(set(names)) != len(names):
+            raise ValueError("numeric profile requires identity, frame, and unique axes")
+        if self.kind == "cartesian_position" and names != ("x", "y", "z"):
+            raise ValueError("Cartesian profile requires x/y/z axes")
+        if (self.position_unit, self.velocity_unit) != (
+                ("m", "m/s") if self.kind == "cartesian_position" else ("rad", "rad/s")):
+            raise ValueError("numeric profile units do not match coordinate kind")
+        if not math.isfinite(self.max_velocity) or self.max_velocity <= 0:
+            raise ValueError("numeric profile velocity must be finite and positive")
+        return self
 
 
 class Termination(str, Enum):
@@ -170,6 +238,8 @@ class Termination(str, Enum):
     TIMEOUT = "TIMEOUT"         # cycle budget spent, effects still unmet
     UNSAFE = "UNSAFE"           # numeric safety rejected a trajectory
     UNCERTAIN = "UNCERTAIN"     # world evidence exceeded autonomous admission
+    STALE_CONTEXT = "STALE_CONTEXT"  # task or plan changed after its recorded revision
+    INTERRUPTED = "INTERRUPTED"  # stop latched; safe physical state is separate evidence
 
 
 class RunMetrics(BaseModel):
@@ -196,6 +266,7 @@ class Task(BaseModel):
     """A benchmark task. See docs/benchmarks.md §2."""
 
     id: str
+    revision: str = "core-task-v1"
     mission: str
     goal: Predicate
     world: dict[str, Any] = Field(default_factory=dict)
@@ -222,8 +293,20 @@ class WorldBackend(Protocol):
         """Execute one trajectory chunk and advance time."""
         ...
 
-    def begin_dispatch(self, action: AbstractAction) -> None:
+    def begin_dispatch(self, action: AbstractAction, dispatch_id: str) -> None:
         """Signal a new outer-loop attempt at this action."""
+        ...
+
+    def end_dispatch(self, dispatch_id: str) -> None:
+        """Release a completed, failed or interrupted attempt."""
+        ...
+
+    def cancel_dispatch(self, dispatch_id: str, generation: int) -> bool:
+        """Acknowledge cancellation; acknowledgement is not safe-state proof."""
+        ...
+
+    def observe_safe_state(self, dispatch_id: str, generation: int):
+        """Return independent adapter safe-state evidence, or None."""
         ...
 
 

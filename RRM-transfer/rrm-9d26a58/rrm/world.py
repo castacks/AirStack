@@ -6,12 +6,20 @@ the WorldBackend protocol, the task definitions and the metrics."""
 from __future__ import annotations
 
 import logging
+import time
+from threading import Lock
+
+from .core_stop import StopStateEvidence
 
 from .schema import (
     AbstractAction, Relation, RobotState, Trajectory, Verb, WorldObject, WorldState,
 )
 
 log = logging.getLogger("rrm")
+
+
+class DispatchCancelled(RuntimeError):
+    """Mock dispatch was fenced before a trajectory chunk could apply."""
 
 # ---------------------------------------------------------------------------
 # Mock world  (stands in for Isaac Sim)
@@ -43,11 +51,14 @@ class MockWorld:
         self._fail_grasp = fail_grasp_once or fail_grasp_always
         self._fail_forever = fail_grasp_always
         self._attempts: dict[str, int] = {}
+        self._dispatch_lock = Lock()
+        self._active_dispatch_id: str | None = None
+        self._cancelled = False
 
     def observe(self) -> WorldState:
         return self.state.model_copy(deep=True)
 
-    def begin_dispatch(self, action: AbstractAction) -> None:
+    def begin_dispatch(self, action: AbstractAction, dispatch_id: str) -> None:
         """Mark a new outer-loop attempt at this action.
 
         Failure injection is per *attempt*, not per chunk. A policy that retries
@@ -55,15 +66,57 @@ class MockWorld:
         should never hear about it — only failures the policy cannot fix itself are
         worth replanning over.
         """
-        key = f"{action.verb.value}:{','.join(action.targets)}"
-        self._attempts[key] = self._attempts.get(key, 0) + 1
-        self._attempt_key = key
+        with self._dispatch_lock:
+            if self._active_dispatch_id is not None:
+                raise RuntimeError("mock dispatch already active")
+            key = f"{action.verb.value}:{','.join(action.targets)}"
+            self._attempts[key] = self._attempts.get(key, 0) + 1
+            self._attempt_key = key
+            self._active_dispatch_id = dispatch_id
+            self._cancelled = False
+
+    @property
+    def active_dispatch_id(self) -> str | None:
+        with self._dispatch_lock:
+            return self._active_dispatch_id
+
+    def end_dispatch(self, dispatch_id: str) -> None:
+        with self._dispatch_lock:
+            if self._active_dispatch_id == dispatch_id:
+                self._active_dispatch_id = None
+
+    def cancel_dispatch(self, dispatch_id: str, generation: int) -> bool:
+        """Synthetic cancellation of the one active mock command."""
+        with self._dispatch_lock:
+            if self._active_dispatch_id != dispatch_id:
+                return False
+            self._cancelled = True
+            self._active_dispatch_id = None
+            return True
+
+    def observe_safe_state(self, dispatch_id: str,
+                           generation: int) -> StopStateEvidence:
+        with self._dispatch_lock:
+            held = self._cancelled and self._active_dispatch_id is None
+            return StopStateEvidence(
+                dispatch_id=dispatch_id, generation=generation,
+                observed_t=self.state.t, observed_at_monotonic=time.monotonic(),
+                motion_stopped=held, active_motion_command=self._active_dispatch_id is not None,
+                safe_condition_met=held, controller_mode="MOCK_HOLD" if held else "MOCK_ACTIVE",
+                evidence_kind="synthetic_mock",
+            )
 
     def _attempt_no(self, action: AbstractAction) -> int:
         key = f"{action.verb.value}:{','.join(action.targets)}"
         return self._attempts.get(key, 1)
 
     def apply(self, action: AbstractAction, traj: Trajectory) -> None:
+        with self._dispatch_lock:
+            if self._active_dispatch_id is None or self._cancelled:
+                raise DispatchCancelled("mock dispatch was cancelled before apply")
+            self._apply_active(action, traj)
+
+    def _apply_active(self, action: AbstractAction, traj: Trajectory) -> None:
         """Advance physics by one trajectory chunk.
 
         Physical consequences land only on the terminal chunk — mid-motion the world
@@ -114,4 +167,3 @@ class MockWorld:
             if o:
                 o.properties["open"] = action.verb is Verb.OPEN
             return
-

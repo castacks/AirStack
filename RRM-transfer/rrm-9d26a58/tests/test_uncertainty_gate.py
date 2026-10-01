@@ -8,7 +8,10 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from rrm.benchmark_evidence import replay_trace
-from rrm.benchmark import MOCK_CAPABILITIES, mock_permission
+from rrm.benchmark import (
+    MOCK_CAPABILITIES, MOCK_NUMERIC_PROFILE, SyntheticApprovalProvider,
+    mock_admission, mock_permission,
+)
 from rrm.benchmark_labels import (
     EvaluationLabels, FailureKind, SafetyLabel, TerminalLabel,
 )
@@ -58,10 +61,12 @@ def execute(world: MockWorld, *, threshold: float = 0.0, trace: Path | None = No
     try:
         return run(
             current_task, world, ScriptedOracle(current_task.goal), SafetyVerifier(),
-            MockPolicy(), NumericSafetyVerifier(), tracer,
+            MockPolicy(), NumericSafetyVerifier(MOCK_NUMERIC_PROFILE), tracer,
             uncertainty_threshold=threshold,
             capabilities=MOCK_CAPABILITIES,
             permission=mock_permission(current_task.id),
+            approval=SyntheticApprovalProvider(),
+            admission=mock_admission(),
         )
     finally:
         tracer.close()

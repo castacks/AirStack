@@ -13,16 +13,21 @@ import platform
 import statistics
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
 from .benchmark_labels import EvaluationLabels, FailureKind, SafetyLabel, TerminalLabel
-from .contracts import CapabilityDeclaration, PermissionDeclaration
-from .loop import THETA_DIV
-from .schema import Verb, WorldState
-from .verbs import VERB_TABLE
+from .contracts import (
+    ApprovalDecision, ApprovalScope, CapabilityDeclaration, DispatchContext,
+    PermissionDeclaration, SafetyDecision, admission_rejection_reason,
+)
+from .loop import THETA_DIV, _constraints_record, _trace_action_record
+from .core_stop import StopStateEvidence
+from .schema import AbstractAction, NumericLimitProfile, Task, TaskGraph, Trajectory, Verb, WorldState
+from .safety import NumericSafetyVerifier, SafetyVerifier
+from .verbs import VERB_TABLE, expected_effects_of, holds
 from .trace import TRACE_EVENT_SCHEMA
 
 
@@ -116,6 +121,12 @@ def _rate(numerator: int, denominator: int) -> dict[str, Any]:
     }
 
 
+def _record_digest(record: dict[str, Any]) -> str:
+    return hashlib.sha256(json.dumps(
+        record, sort_keys=True, separators=(",", ":"),
+    ).encode("utf-8")).hexdigest()
+
+
 def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeReplay:
     """Validate and independently reconstruct one episode's reported counters."""
     events, findings = _read_events(path)
@@ -153,8 +164,39 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
         return EpisodeReplay(task_id, False, tuple(dict.fromkeys(findings)), None, (), trace_hash)
 
     start, end = starts[0], ends[0]
+    run_id = start.get("run_id")
+    if not isinstance(run_id, str) or not run_id.strip():
+        findings.append("invalid_run_id")
+    for event in events:
+        if event.get("run_id") != run_id:
+            findings.append(f"run_id_mismatch:sequence={event.get('sequence')}")
+
+    task_events = [event for event in events if event.get("kind") == "task_declaration"]
+    task_record = None
+    task_digest = None
+    task_revision = None
+    if len(task_events) != 1:
+        findings.append(f"task_declaration_count:{len(task_events)}")
+    else:
+        declaration = task_events[0]
+        task_record = declaration.get("task")
+        task_digest = declaration.get("task_digest")
+        task_revision = declaration.get("task_revision")
+        try:
+            task = Task.model_validate(task_record)
+            if task_record != task.model_dump(mode="json") \
+                    or task_digest != _record_digest(task_record) \
+                    or task_revision != task.revision \
+                    or task.id != start.get("task_id") \
+                    or task.expect_abort != start.get("expect_abort"):
+                findings.append("task_declaration_mismatch")
+        except (TypeError, ValueError):
+            findings.append("invalid_task_declaration")
+        if declaration.get("sequence", -1) <= start.get("sequence", -1):
+            findings.append("task_declaration_order")
 
     state_sequences: dict[str, int] = {}
+    state_payloads: dict[str, WorldState] = {}
     for event in (item for item in events if item.get("kind") == "world_state"):
         payload = event.get("state")
         digest = event.get("state_digest")
@@ -172,10 +214,14 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
             findings.append(f"world_state_digest_mismatch:sequence={event.get('sequence')}")
             continue
         state_sequences.setdefault(digest, event.get("sequence", -1))
+        state_payloads[digest] = WorldState.model_validate(validated)
 
     state_bound_kinds = {
         "plan", "replan", "uncertainty_gate", "safety1", "safety2", "apply",
         "dispatch", "divergence", "episode_end", "capability_gate", "permission_gate",
+        "numeric_profile_gate", "context_gate", "dispatch_intent", "approval_gate",
+        "authorization_gate", "interruption_gate", "dynamic_safety_gate",
+        "observation_failure",
     }
     for event in events:
         if event.get("kind") not in state_bound_kinds:
@@ -237,6 +283,14 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
     permission_events = [event for event in events
                          if event.get("kind") == "permission_declaration"]
     permission_gates = [event for event in events if event.get("kind") == "permission_gate"]
+    approval_gates = [event for event in events if event.get("kind") == "approval_gate"]
+    profile_events = [event for event in events
+                      if event.get("kind") == "numeric_profile_declaration"]
+    profile_gates = [event for event in events if event.get("kind") == "numeric_profile_gate"]
+    constraints_events = [event for event in events
+                          if event.get("kind") == "constraints_declaration"]
+    authority_events = [event for event in events if event.get("kind") == "admission_authority"]
+    authorization_gates = [event for event in events if event.get("kind") == "authorization_gate"]
     capabilities = None
     capability_digest = None
     capability_sequence = None
@@ -302,6 +356,50 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
         except (AttributeError, KeyError, TypeError, ValueError):
             findings.append("invalid_permission_declaration")
             permission = None
+    profile = None
+    profile_digest = None
+    profile_sequence = None
+    if len(profile_events) != 1:
+        findings.append(f"numeric_profile_declaration_count:{len(profile_events)}")
+    else:
+        record = profile_events[0].get("profile")
+        profile_digest = profile_events[0].get("profile_digest")
+        profile_sequence = profile_events[0].get("sequence")
+        try:
+            profile = NumericLimitProfile.model_validate(record)
+            canonical = profile.model_dump(mode="json")
+            if record != canonical:
+                findings.append("noncanonical_numeric_profile")
+            encoded = json.dumps(canonical, sort_keys=True, separators=(",", ":"))
+            if profile_digest != hashlib.sha256(encoded.encode()).hexdigest():
+                findings.append("numeric_profile_digest_mismatch")
+        except (TypeError, ValueError):
+            findings.append("invalid_numeric_profile")
+            profile = None
+    constraints_digest = None
+    if len(constraints_events) != 1:
+        findings.append(f"constraints_declaration_count:{len(constraints_events)}")
+    else:
+        record = constraints_events[0].get("constraints")
+        constraints_digest = constraints_events[0].get("constraints_digest")
+        if not isinstance(record, dict) or not isinstance(profile_digest, str) \
+                or record != _constraints_record(profile_digest) \
+                or constraints_digest != _record_digest(record):
+            findings.append("invalid_constraints_declaration")
+    authority_epoch = None
+    initial_stop_generation = None
+    if len(authority_events) != 1:
+        findings.append(f"admission_authority_count:{len(authority_events)}")
+    else:
+        authority = authority_events[0]
+        authority_epoch = authority.get("authority_epoch")
+        initial_stop_generation = authority.get("stop_generation")
+        if not isinstance(authority_epoch, str) or not authority_epoch.strip() \
+                or not _integer(initial_stop_generation) \
+                or authority.get("evidence_kind") not in {
+                    "trusted_in_process", "synthetic_fixture",
+                }:
+            findings.append("invalid_admission_authority")
     uncertainty_gates = [event for event in events
                          if event.get("kind") == "uncertainty_gate"]
     failed_uncertainty_gates = [event for event in uncertainty_gates
@@ -335,6 +433,9 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
     action_catalog: dict[tuple[int, str], dict[str, Any]] = {}
     catalog_sequences: dict[tuple[int, str], int] = {}
     plan_events = plans + replans
+    plan_digests: dict[int, str] = {}
+    bound_plan_id: str | None = None
+    bound_mission: str | None = None
     for expected_version, event in enumerate(plan_events):
         version = event.get("version")
         if version != expected_version:
@@ -342,6 +443,43 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
                 f"invalid_plan_version:expected={expected_version}:actual={version}"
             )
         actions = event.get("actions")
+        plan = event.get("plan")
+        if not isinstance(plan, dict) or not isinstance(event.get("plan_digest"), str):
+            findings.append(f"invalid_plan_record:version={version}")
+        else:
+            try:
+                graph = TaskGraph.model_validate(plan.get("graph"))
+                if plan["graph"] != graph.model_dump(mode="json") \
+                        or plan.get("plan_id") != graph.mission_id \
+                        or plan.get("version") != graph.version \
+                        or plan.get("mission_text") != graph.mission_text \
+                        or actions != [_trace_action_record(action) for action in graph.nodes]:
+                    findings.append(f"plan_graph_mismatch:version={version}")
+            except (TypeError, ValueError):
+                findings.append(f"invalid_plan_graph:version={version}")
+            if event["plan_digest"] != _record_digest(plan) \
+                    or plan.get("actions") != actions \
+                    or plan.get("version") != version \
+                    or plan.get("plan_id") != event.get("plan_id") \
+                    or plan.get("task_revision") != task_revision \
+                    or plan.get("task_digest") != task_digest \
+                    or event.get("task_revision") != task_revision \
+                    or event.get("task_digest") != task_digest:
+                findings.append(f"plan_binding_mismatch:version={version}")
+            if not isinstance(plan.get("plan_id"), str) or not plan["plan_id"].strip() \
+                    or not isinstance(plan.get("mission_text"), str):
+                findings.append(f"invalid_plan_identity:version={version}")
+            elif isinstance(task_record, dict) \
+                    and plan["mission_text"] != task_record.get("mission"):
+                findings.append(f"plan_mission_task_mismatch:version={version}")
+            elif bound_plan_id is None:
+                bound_plan_id = plan["plan_id"]
+                bound_mission = plan["mission_text"]
+            elif plan["plan_id"] != bound_plan_id \
+                    or plan["mission_text"] != bound_mission:
+                findings.append(f"plan_identity_changed:version={version}")
+            if _integer(version):
+                plan_digests[version] = event["plan_digest"]
         if not isinstance(actions, list):
             findings.append(f"invalid_plan_action_catalog:version={version}")
             continue
@@ -379,7 +517,385 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
                 action_catalog[ref] = action
                 catalog_sequences[ref] = event.get("sequence", -1)
 
-    action_event_kinds = {"safety1", "safety2", "apply", "dispatch", "divergence"}
+    context_gates = [event for event in events if event.get("kind") == "context_gate"]
+    for gate in context_gates:
+        sequence = gate.get("sequence")
+        version = gate.get("plan_version")
+        ref = (version, gate.get("action_id"))
+        reasons = []
+        current_task = gate.get("current_task")
+        current_plan = gate.get("current_plan")
+        if not isinstance(current_task, dict) or not isinstance(current_plan, dict):
+            findings.append(f"invalid_context_payload:sequence={sequence}")
+            continue
+        if gate.get("task_revision") != task_revision or current_task.get("revision") != task_revision:
+            reasons.append("task_revision_changed")
+        if _record_digest(current_task) != task_digest:
+            reasons.append("task_payload_changed")
+        if current_plan.get("plan_id") != bound_plan_id:
+            reasons.append("plan_id_changed")
+        if _record_digest(current_plan) != plan_digests.get(version):
+            reasons.append("plan_payload_changed")
+        if ref not in action_catalog or gate.get("action_digest") != action_catalog[ref]["action_digest"]:
+            reasons.append("action_not_in_bound_plan")
+        if gate.get("task_digest") != task_digest \
+                or gate.get("task_id") != current_task.get("id") \
+                or gate.get("observed_task_digest") != _record_digest(current_task) \
+                or gate.get("plan_id") != bound_plan_id \
+                or gate.get("plan_digest") != plan_digests.get(version) \
+                or gate.get("observed_plan_digest") != _record_digest(current_plan) \
+                or gate.get("reasons") != reasons \
+                or gate.get("verdict") != ("DENY" if reasons else "ALLOW"):
+            findings.append(f"context_gate_mismatch:sequence={sequence}")
+        if gate.get("phase") not in {"pre_action", "pre_chunk", "pre_apply"}:
+            findings.append(f"invalid_context_phase:sequence={sequence}")
+
+    intents = [event for event in events if event.get("kind") == "dispatch_intent"]
+    intent_by_id: dict[str, dict[str, Any]] = {}
+    last_action_position: dict[int, int] = {}
+    for intent in intents:
+        dispatch_id = intent.get("dispatch_id")
+        sequence = intent.get("sequence")
+        ref = (intent.get("plan_version"), intent.get("action_id"))
+        if not isinstance(dispatch_id, str) or not dispatch_id.strip() \
+                or dispatch_id in intent_by_id:
+            findings.append(f"invalid_dispatch_id:sequence={sequence}")
+        else:
+            intent_by_id[dispatch_id] = intent
+        if ref not in action_catalog or intent.get("action_digest") != action_catalog[ref]["action_digest"] \
+                or intent.get("task_id") != task_id \
+                or intent.get("task_revision") != task_revision \
+                or intent.get("task_digest") != task_digest \
+                or intent.get("plan_id") != bound_plan_id \
+                or intent.get("plan_digest") != plan_digests.get(intent.get("plan_version")):
+            findings.append(f"dispatch_intent_binding_mismatch:sequence={sequence}")
+        version = intent.get("plan_version")
+        plan_event = next((item for item in plan_events
+                           if item.get("version") == version), None)
+        plan_actions = plan_event.get("actions") if plan_event is not None else None
+        ordered_ids = [item.get("action_id") for item in plan_actions
+                       if isinstance(item, dict)] if isinstance(plan_actions, list) else []
+        if intent.get("action_id") not in ordered_ids:
+            findings.append(f"dispatch_not_in_ordered_plan:sequence={sequence}")
+        elif _integer(version):
+            position = ordered_ids.index(intent["action_id"])
+            previous = last_action_position.get(version, 0)
+            if (version not in last_action_position and position != 0) \
+                    or position < previous or position > previous + 1:
+                findings.append(f"dispatch_order_mismatch:sequence={sequence}")
+            last_action_position[version] = position
+        preceding = events[:sequence] if _integer(sequence) else []
+        if not preceding or preceding[-1].get("kind") != "authorization_gate" \
+                or preceding[-1].get("verdict") != "ALLOW":
+            findings.append(f"dispatch_intent_without_authorization:sequence={sequence}")
+        else:
+            authorization_gate = preceding[-1]
+            decision_record = authorization_gate.get("decision")
+            if authorization_gate.get("dispatch_id") != dispatch_id \
+                    or intent.get("authorization_digest") != authorization_gate.get("decision_digest") \
+                    or intent.get("authorization_context_digest") != authorization_gate.get("context_digest") \
+                    or not isinstance(decision_record, dict) \
+                    or intent.get("authorization_decision_id") != decision_record.get("decision_id"):
+                findings.append(f"dispatch_intent_authorization_mismatch:sequence={sequence}")
+        prior_approval = next((item for item in reversed(preceding)
+                               if item.get("kind") == "approval_gate"), None)
+        approval_record = (prior_approval.get("approval")
+                           if prior_approval is not None else None)
+        if prior_approval is None or prior_approval.get("verdict") != "ALLOW" \
+                or (prior_approval.get("plan_version"), prior_approval.get("action_id")) != ref \
+                or intent.get("approval_digest") != prior_approval.get("approval_digest") \
+                or not isinstance(approval_record, dict) \
+                or intent.get("approval_revision") != approval_record.get("revision") \
+                or intent.get("approval_decision_id") != approval_record.get("decision_id"):
+            findings.append(f"dispatch_intent_approval_mismatch:sequence={sequence}")
+    for event in events:
+        if event.get("kind") not in {"safety2", "apply", "dispatch"}:
+            continue
+        sequence = event.get("sequence")
+        intent = intent_by_id.get(event.get("dispatch_id"))
+        if intent is None or intent.get("sequence", -1) >= sequence \
+                or any(event.get(field) != intent.get(field) for field in (
+                    "plan_id", "plan_version", "plan_digest", "action_id", "action_digest",
+                    "approval_digest", "approval_revision", "approval_decision_id",
+                    "authorization_digest", "authorization_decision_id",
+                    "authorization_context_digest",
+                )):
+            findings.append(f"dispatch_binding_mismatch:sequence={sequence}")
+    for intent in intents:
+        terminals = [event for event in dispatches
+                     if event.get("dispatch_id") == intent.get("dispatch_id")]
+        if len(terminals) != 1:
+            findings.append(f"dispatch_terminal_count:sequence={intent.get('sequence')}")
+    dynamic_gates = [event for event in events if event.get("kind") == "dynamic_safety_gate"]
+    for gate in dynamic_gates:
+        sequence = gate.get("sequence")
+        dispatch_id = gate.get("dispatch_id")
+        ref = (gate.get("plan_version"), gate.get("action_id"))
+        action_record = action_catalog.get(ref)
+        state = state_payloads.get(gate.get("state_digest"))
+        if not _integer(sequence) or sequence == 0 or action_record is None \
+                or state is None or dispatch_id not in intent_by_id \
+                or (intent_by_id[dispatch_id].get("plan_version"),
+                    intent_by_id[dispatch_id].get("action_id")) != ref \
+                or intent_by_id[dispatch_id].get("sequence", -1) >= sequence \
+                or gate.get("action_digest") != action_record.get("action_digest") \
+                or events[sequence - 1].get("kind") != "context_gate" \
+                or events[sequence - 1].get("phase") != "pre_chunk" \
+                or events[sequence - 1].get("verdict") != "ALLOW" \
+                or events[sequence - 1].get("dispatch_id") != dispatch_id:
+            findings.append(f"invalid_dynamic_safety_binding:sequence={sequence}")
+            continue
+        try:
+            action = AbstractAction(id=action_record["action_id"],
+                                    verb=action_record["verb"],
+                                    targets=action_record["targets"],
+                                    params=action_record["params"])
+            expected = SafetyVerifier().verify(action, state)
+        except (KeyError, TypeError, ValueError):
+            findings.append(f"invalid_dynamic_safety_action:sequence={sequence}")
+            continue
+        if gate.get("verdict") != expected.verdict \
+                or gate.get("checked") != expected.checked \
+                or gate.get("violations") != [v.model_dump() for v in expected.violations] \
+                or not _integer(gate.get("cycle")) or gate["cycle"] < 1:
+            findings.append(f"dynamic_safety_verdict_mismatch:sequence={sequence}")
+        if gate.get("verdict") == "FAIL":
+            following = events[sequence + 1:]
+            if not following or following[0].get("kind") != "stop_request" \
+                    or following[0].get("dispatch_id") != dispatch_id \
+                    or following[0].get("reason") != "dynamic_symbolic_safety":
+                findings.append(f"dynamic_safety_without_stop:sequence={sequence}")
+    for gate in (event for event in events if event.get("kind") == "context_gate"
+                 and event.get("phase") == "pre_apply"):
+        sequence = gate.get("sequence")
+        prior = events[sequence - 1] if _integer(sequence) and sequence > 0 else {}
+        if prior.get("kind") != "dynamic_safety_gate" \
+                or prior.get("verdict") != "PASS" \
+                or prior.get("dispatch_id") != gate.get("dispatch_id"):
+            findings.append(f"pre_apply_without_dynamic_safety:sequence={sequence}")
+    for gate in (event for event in context_gates
+                 if event.get("phase") == "pre_chunk" and event.get("verdict") == "ALLOW"):
+        sequence = gate.get("sequence")
+        record = action_catalog.get((gate.get("plan_version"), gate.get("action_id")))
+        state = state_payloads.get(gate.get("state_digest"))
+        if not _integer(sequence) or record is None or state is None:
+            continue
+        try:
+            action = AbstractAction(id=record["action_id"], verb=record["verb"],
+                                    targets=record["targets"], params=record["params"])
+            effects = expected_effects_of(action)
+            already_complete = bool(effects and all(holds(effect, state) for effect in effects))
+        except (KeyError, TypeError, ValueError):
+            continue
+        if not already_complete and (sequence + 1 >= len(events)
+                                     or events[sequence + 1].get("kind") != "dynamic_safety_gate"
+                                     or events[sequence + 1].get("dispatch_id") != gate.get("dispatch_id")):
+            findings.append(f"missing_dynamic_safety_gate:sequence={sequence}")
+    stop_requests = [event for event in events if event.get("kind") == "stop_request"]
+    stop_cancels = [event for event in events if event.get("kind") == "stop_cancel"]
+    stop_states = [event for event in events if event.get("kind") == "stop_safe_state"]
+    interruption_gates = [event for event in events if event.get("kind") == "interruption_gate"]
+    observation_failures = [event for event in events
+                            if event.get("kind") == "observation_failure"]
+    if len(observation_failures) > 1:
+        findings.append("observation_failure_count_mismatch")
+    for failure in observation_failures:
+        sequence = failure.get("sequence")
+        dispatch_id = failure.get("dispatch_id")
+        intent = intent_by_id.get(dispatch_id)
+        state = state_payloads.get(failure.get("state_digest"))
+        following = events[sequence + 1:] if _integer(sequence) else []
+        if not _integer(sequence) or intent is None or state is None \
+                or intent.get("sequence", -1) >= sequence \
+                or (failure.get("plan_version"), failure.get("action_id")) != (
+                    intent.get("plan_version"), intent.get("action_id")) \
+                or failure.get("action_digest") != intent.get("action_digest") \
+                or failure.get("sim_t") != state.t \
+                or failure.get("phase") != "dispatch" \
+                or failure.get("failure_kind") not in {
+                    "observation_error", "invalid_payload", "stale_after_apply",
+                } or not _integer(failure.get("cycle")) \
+                or not 1 <= failure["cycle"] <= 7:
+            findings.append(f"invalid_observation_failure:sequence={sequence}")
+        if failure.get("failure_kind") == "stale_after_apply":
+            observed = events[sequence - 1] if _integer(sequence) and sequence > 0 else {}
+            prior_applies = [event for event in (events[:sequence] if _integer(sequence) else [])
+                             if event.get("kind") == "apply"
+                             and event.get("dispatch_id") == dispatch_id]
+            if observed.get("kind") != "world_state" \
+                    or observed.get("state_digest") != failure.get("observed_state_digest") \
+                    or observed.get("sim_t") != failure.get("observed_sim_t") \
+                    or not prior_applies \
+                    or not _integer(failure.get("observed_sim_t")) \
+                    or not _integer(prior_applies[-1].get("sim_t")) \
+                    or failure["observed_sim_t"] > prior_applies[-1].get("sim_t", -1):
+                findings.append(f"stale_observation_evidence_mismatch:sequence={sequence}")
+        elif failure.get("observed_state_digest") is not None \
+                or failure.get("observed_sim_t") is not None:
+            findings.append(f"unexpected_observed_state_on_failure:sequence={sequence}")
+        if not following or following[0].get("kind") != "stop_request" \
+                or following[0].get("reason") != "observation_unavailable" \
+                or following[0].get("dispatch_id") != dispatch_id:
+            findings.append(f"observation_failure_without_stop:sequence={sequence}")
+        if any(event.get("kind") in {"world_state", "apply", "replan", "plan"}
+               for event in following):
+            findings.append(f"evidence_or_execution_after_observation_loss:sequence={sequence}")
+        terminals = [event for event in dispatches if event.get("dispatch_id") == dispatch_id]
+        if len(terminals) != 1 or terminals[0].get("termination") != "INTERRUPTED" \
+                or terminals[0].get("state_scope") != "LAST_KNOWN" \
+                or terminals[0].get("state_digest") != failure.get("state_digest"):
+            findings.append(f"observation_loss_terminal_mismatch:sequence={sequence}")
+        if end.get("terminal_observation") != "UNAVAILABLE" \
+                or end.get("state_digest") != failure.get("state_digest") \
+                or end.get("goal_met") is not False \
+                or end.get("task_success") is not False \
+                or end.get("aborted") is not True:
+            findings.append(f"observation_loss_success_claim:sequence={sequence}")
+    if not observation_failures and end.get("terminal_observation") != "OBSERVED":
+        findings.append("terminal_observation_mismatch")
+    if any(event.get("state_scope") != (
+            "LAST_KNOWN" if observation_failures
+            and event.get("dispatch_id") == observation_failures[0].get("dispatch_id")
+            else "OBSERVED") for event in dispatches):
+        findings.append("dispatch_state_scope_mismatch")
+    if len(stop_requests) > 1 or len(stop_cancels) != len(stop_requests) \
+            or len(stop_states) != len(stop_requests):
+        findings.append("stop_evidence_count_mismatch")
+    stop_status = "NOT_REQUESTED"
+    for request in stop_requests:
+        sequence = request.get("sequence")
+        dispatch_id = request.get("dispatch_id")
+        generation = request.get("generation")
+        intervention_id = request.get("intervention_id")
+        if request.get("reason") == "dynamic_symbolic_safety" and (
+                not _integer(sequence) or sequence == 0
+                or events[sequence - 1].get("kind") != "dynamic_safety_gate"
+                or events[sequence - 1].get("verdict") != "FAIL"
+                or events[sequence - 1].get("dispatch_id") != dispatch_id):
+            findings.append(f"dynamic_stop_without_failed_gate:sequence={sequence}")
+        if request.get("reason") == "observation_unavailable" and (
+                not _integer(sequence) or sequence == 0
+                or events[sequence - 1].get("kind") != "observation_failure"
+                or events[sequence - 1].get("dispatch_id") != dispatch_id):
+            findings.append(f"observation_stop_without_failure:sequence={sequence}")
+        if not _integer(sequence) or sequence + 2 >= len(events) \
+                or not isinstance(intervention_id, str) or not intervention_id.strip() \
+                or not isinstance(request.get("reason"), str) or not request["reason"].strip() \
+                or not _integer(generation) \
+                or not _integer(initial_stop_generation) \
+                or request.get("previous_generation") != initial_stop_generation \
+                or generation != initial_stop_generation + 1 \
+                or dispatch_id not in intent_by_id \
+                or intent_by_id[dispatch_id].get("sequence", -1) >= sequence:
+            findings.append(f"invalid_stop_request:sequence={sequence}")
+            continue
+        cancel, safe = events[sequence + 1:sequence + 3]
+        if cancel.get("kind") != "stop_cancel" or safe.get("kind") != "stop_safe_state" \
+                or any(event.get("dispatch_id") != dispatch_id \
+                       or event.get("intervention_id") != intervention_id \
+                       or event.get("generation") != generation for event in (cancel, safe)) \
+                or type(cancel.get("acknowledged")) is not bool:
+            findings.append(f"invalid_stop_chain:sequence={sequence}")
+            continue
+        evidence = safe.get("evidence")
+        try:
+            observed = StopStateEvidence(**evidence) if isinstance(evidence, dict) else None
+            if evidence is not None and (observed is None or asdict(observed) != evidence):
+                raise ValueError("noncanonical evidence")
+        except (TypeError, ValueError):
+            findings.append(f"invalid_stop_state:sequence={sequence}")
+            observed = None
+        if observed is not None and (observed.dispatch_id != dispatch_id
+                                     or observed.generation != generation):
+            findings.append(f"stop_state_scope_mismatch:sequence={sequence}")
+        confirmed = bool(cancel["acknowledged"] and observed is not None
+                         and observed.dispatch_id == dispatch_id
+                         and observed.generation == generation
+                         and observed.motion_stopped and not observed.active_motion_command
+                         and observed.safe_condition_met
+                         and observed.evidence_kind == "synthetic_mock")
+        stop_status = "SAFE_CONFIRMED_MOCK" if confirmed else "SAFE_UNCONFIRMED"
+        if safe.get("status") != stop_status:
+            findings.append(f"stop_status_mismatch:sequence={sequence}")
+        terminal = [event for event in dispatches if event.get("dispatch_id") == dispatch_id]
+        if len(terminal) != 1 or terminal[0].get("termination") != "INTERRUPTED" \
+                or terminal[0].get("intervention_id") != intervention_id \
+                or terminal[0].get("stop_status") != stop_status \
+                or terminal[0].get("sequence", -1) <= safe.get("sequence", -1):
+            findings.append(f"stop_without_interrupted_terminal:sequence={sequence}")
+        if any(event.get("kind") in {"apply", "replan"} and
+               (event.get("dispatch_id") == dispatch_id or event.get("kind") == "replan")
+               for event in events[sequence + 1:]):
+            findings.append(f"execution_after_stop:sequence={sequence}")
+        matching_gates = [event for event in interruption_gates
+                          if event.get("dispatch_id") == dispatch_id]
+        if len(matching_gates) != 1 or len(terminal) != 1 \
+                or matching_gates[0].get("sequence", -1) <= safe.get("sequence", -1) \
+                or matching_gates[0].get("sequence", -1) >= terminal[0].get("sequence", -1) \
+                or matching_gates[0].get("intervention_id") != intervention_id \
+                or matching_gates[0].get("observed_generation") != generation \
+                or matching_gates[0].get("expected_generation") != initial_stop_generation \
+                or matching_gates[0].get("safe_status") != stop_status \
+                or matching_gates[0].get("stopped") is not True \
+                or matching_gates[0].get("verdict") != "INTERRUPT":
+            findings.append(f"invalid_interruption_gate:sequence={sequence}")
+    if len(interruption_gates) != len(stop_requests) \
+            or any(event.get("termination") == "INTERRUPTED" for event in dispatches) \
+            != bool(stop_requests):
+        findings.append("interruption_evidence_mismatch")
+    if end.get("stop_status") != stop_status \
+            or any(event.get("stop_status") != (stop_status if event.get("termination") == "INTERRUPTED"
+                                                else "NOT_REQUESTED") for event in dispatches):
+        findings.append("terminal_stop_status_mismatch")
+    for gate in context_gates:
+        sequence = gate.get("sequence")
+        if not _integer(sequence) or gate.get("phase") == "pre_action":
+            continue
+        intent = intent_by_id.get(gate.get("dispatch_id"))
+        if intent is None or intent.get("sequence", -1) >= sequence:
+            findings.append(f"context_without_dispatch_intent:sequence={sequence}")
+        following = events[sequence + 1:]
+        if gate.get("phase") == "pre_apply" and gate.get("verdict") == "ALLOW":
+            if not following or following[0].get("kind") != "safety2" \
+                    or following[0].get("dispatch_id") != gate.get("dispatch_id"):
+                findings.append(f"pre_apply_without_numeric_check:sequence={sequence}")
+        if gate.get("phase") == "pre_chunk":
+            preceding = events[:sequence]
+            if not preceding or preceding[-1].get("kind") != "uncertainty_gate" \
+                    or preceding[-1].get("phase") != "dispatch" \
+                    or preceding[-1].get("verdict") != "PASS" \
+                    or preceding[-1].get("dispatch_id") != gate.get("dispatch_id"):
+                findings.append(f"pre_chunk_without_uncertainty_allow:sequence={sequence}")
+        if gate.get("verdict") == "DENY":
+            next_significant = next((event for event in following
+                                    if event.get("kind") != "world_state"), None)
+            if next_significant is None or next_significant.get("kind") != "dispatch" \
+                    or next_significant.get("termination") != "STALE_CONTEXT" \
+                    or next_significant.get("dispatch_id") != gate.get("dispatch_id"):
+                findings.append(f"context_denial_not_terminal:sequence={sequence}")
+    for event in (item for item in events if item.get("kind") == "safety2"):
+        sequence = event.get("sequence")
+        if not _integer(sequence) or sequence == 0 \
+                or events[sequence - 1].get("kind") != "context_gate" \
+                or events[sequence - 1].get("phase") != "pre_apply" \
+                or events[sequence - 1].get("verdict") != "ALLOW" \
+                or events[sequence - 1].get("dispatch_id") != event.get("dispatch_id"):
+            findings.append(f"numeric_without_context_allow:sequence={sequence}")
+    for gate in (item for item in uncertainty_gates
+                 if item.get("phase") == "dispatch" and item.get("verdict") == "PASS"):
+        sequence = gate.get("sequence")
+        if not _integer(sequence):
+            continue
+        following = events[sequence + 1:]
+        prior = events[sequence - 1] if sequence else {}
+        if prior.get("kind") == "world_state" and prior.get("phase") == "dispatch":
+            if not following or following[0].get("kind") != "context_gate" \
+                    or following[0].get("phase") != "pre_chunk" \
+                    or following[0].get("dispatch_id") != gate.get("dispatch_id"):
+                findings.append(f"dispatch_uncertainty_without_context:sequence={sequence}")
+
+    action_event_kinds = {"safety1", "safety2", "apply", "dispatch", "divergence",
+                          "dynamic_safety_gate"}
     for event in events:
         if event.get("kind") not in action_event_kinds:
             continue
@@ -458,10 +974,25 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
         if not _integer(sequence):
             continue
         following = events[sequence + 1:]
-        if not following or following[0].get("kind") != "capability_gate":
-            findings.append(f"missing_capability_gate:sequence={sequence}")
+        if not following or following[0].get("kind") != "context_gate" \
+                or following[0].get("phase") != "pre_action":
+            findings.append(f"missing_context_gate:sequence={sequence}")
             continue
-        capability_gate = following[0]
+        context_gate = following[0]
+        if (context_gate.get("plan_version"), context_gate.get("action_id")) != (
+                gate.get("plan_version"), gate.get("action_id")):
+            findings.append(f"context_gate_action_order_mismatch:sequence={sequence}")
+        if context_gate.get("verdict") == "DENY":
+            tail = [event for event in following[1:] if event.get("kind") != "world_state"]
+            if len(tail) != 1 or tail[0].get("kind") != "episode_end":
+                findings.append("execution_after_context_denial")
+            continue
+        if len(following) < 2 or following[1].get("kind") != "capability_gate":
+            findings.append(
+                f"missing_capability_gate:sequence={context_gate.get('sequence')}"
+            )
+            continue
+        capability_gate = following[1]
         if (capability_gate.get("plan_version"), capability_gate.get("action_id")) != (
                 gate.get("plan_version"), gate.get("action_id")):
             findings.append(f"capability_gate_action_order_mismatch:sequence={sequence}")
@@ -532,13 +1063,307 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
         if not _integer(sequence):
             continue
         following = events[sequence + 1:]
-        if not following or following[0].get("kind") != "safety1":
-            findings.append(f"permission_allow_without_safety:sequence={sequence}")
+        if not following or following[0].get("kind") != "approval_gate":
+            findings.append(f"permission_allow_without_approval:sequence={sequence}")
             continue
-        safety = following[0]
-        if (safety.get("plan_version"), safety.get("action_id")) != (
+        approval_gate = following[0]
+        if (approval_gate.get("plan_version"), approval_gate.get("action_id")) != (
                 gate.get("plan_version"), gate.get("action_id")):
-            findings.append(f"permission_safety_action_mismatch:sequence={sequence}")
+            findings.append(f"permission_approval_action_mismatch:sequence={sequence}")
+
+    for gate in approval_gates:
+        sequence = gate.get("sequence")
+        version = gate.get("plan_version")
+        ref = (version, gate.get("action_id"))
+        if not _integer(sequence):
+            findings.append("invalid_approval_gate_sequence")
+            continue
+        preceding = events[:sequence]
+        if not preceding or preceding[-1].get("kind") != "permission_gate" \
+                or preceding[-1].get("verdict") != "ALLOW":
+            findings.append(f"approval_without_permission_allow:sequence={sequence}")
+        if ref not in action_catalog:
+            findings.append(f"unknown_approval_action_reference:sequence={sequence}")
+            continue
+        action = action_catalog[ref]
+        try:
+            expected_scope = ApprovalScope(
+                run_id=run_id, task_id=task_id,
+                task_revision=task_revision, task_digest=task_digest,
+                plan_id=bound_plan_id, plan_version=version,
+                plan_digest=plan_digests[version],
+                action_id=action["action_id"],
+                action_digest=action["action_digest"],
+            )
+        except (KeyError, TypeError, ValueError):
+            findings.append(f"invalid_approval_scope_reference:sequence={sequence}")
+            continue
+        if gate.get("scope") != expected_scope.as_record() \
+                or gate.get("action_digest") != action["action_digest"]:
+            findings.append(f"approval_scope_mismatch:sequence={sequence}")
+        record = gate.get("approval")
+        if record is None:
+            status = gate.get("approval_status")
+            if status not in {"missing", "invalid"}:
+                findings.append(f"invalid_approval_status:sequence={sequence}")
+            reasons = (["invalid_approval_decision"] if status == "invalid"
+                       else ["approval_missing"])
+            if gate.get("approval_digest") is not None:
+                findings.append(f"approval_digest_without_decision:sequence={sequence}")
+        else:
+            if gate.get("approval_status") != "present":
+                findings.append(f"invalid_approval_status:sequence={sequence}")
+            try:
+                if not isinstance(record, dict) or set(record) != {
+                    "decision_id", "approver_id", "revision", "evidence_kind",
+                    "verdict", "scope",
+                } or not isinstance(record["scope"], dict):
+                    raise ValueError("invalid approval fields")
+                decision = ApprovalDecision(
+                    decision_id=record["decision_id"],
+                    approver_id=record["approver_id"],
+                    revision=record["revision"],
+                    evidence_kind=record["evidence_kind"],
+                    verdict=record["verdict"],
+                    scope=ApprovalScope(**record["scope"]),
+                )
+                if record != decision.as_record():
+                    findings.append(f"noncanonical_approval_decision:sequence={sequence}")
+                if gate.get("approval_digest") != _record_digest(record):
+                    findings.append(f"approval_digest_mismatch:sequence={sequence}")
+                reasons = list(decision.rejection_reasons(expected_scope))
+            except (KeyError, TypeError, ValueError):
+                findings.append(f"invalid_approval_decision:sequence={sequence}")
+                reasons = ["invalid_approval_decision"]
+        if gate.get("reasons") != reasons \
+                or gate.get("verdict") != ("DENY" if reasons else "ALLOW"):
+            findings.append(f"approval_gate_verdict_mismatch:sequence={sequence}")
+        following = events[sequence + 1:]
+        if gate.get("verdict") == "DENY":
+            terminal = [event for event in following if event.get("kind") != "world_state"]
+            if len(terminal) != 1 or terminal[0].get("kind") != "episode_end":
+                findings.append("execution_after_approval_denial")
+        elif not following or following[0].get("kind") != "numeric_profile_gate" \
+                or (following[0].get("plan_version"), following[0].get("action_id")) != ref:
+            findings.append(f"approval_allow_without_numeric_profile:sequence={sequence}")
+
+    used_authorization_decisions: set[str] = set()
+    used_authorization_dispatches: set[tuple[str, str]] = set()
+    for gate in authorization_gates:
+        sequence = gate.get("sequence")
+        ref = (gate.get("plan_version"), gate.get("action_id"))
+        if not _integer(sequence):
+            findings.append("invalid_authorization_gate_sequence")
+            continue
+        preceding = events[:sequence]
+        if not preceding or preceding[-1].get("kind") != "safety1" \
+                or preceding[-1].get("verdict") != "PASS" \
+                or (preceding[-1].get("plan_version"), preceding[-1].get("action_id")) != ref:
+            findings.append(f"authorization_without_safety_allow:sequence={sequence}")
+        if ref not in action_catalog:
+            findings.append(f"unknown_authorization_action:sequence={sequence}")
+            continue
+        prior_approval = next((item for item in reversed(preceding)
+                               if item.get("kind") == "approval_gate"), None)
+        if prior_approval is None or prior_approval.get("verdict") != "ALLOW" \
+                or (prior_approval.get("plan_version"), prior_approval.get("action_id")) != ref:
+            findings.append(f"authorization_without_approval:sequence={sequence}")
+        context_record = gate.get("context")
+        guard_state = gate.get("guard_state")
+        if not isinstance(context_record, dict) or not isinstance(guard_state, dict):
+            findings.append(f"invalid_authorization_context:sequence={sequence}")
+            continue
+        try:
+            context = DispatchContext(**context_record)
+            if asdict(context) != context_record \
+                    or gate.get("context_digest") != _record_digest(context_record):
+                findings.append(f"authorization_context_digest_mismatch:sequence={sequence}")
+        except (TypeError, ValueError):
+            findings.append(f"invalid_authorization_context:sequence={sequence}")
+            continue
+        action = action_catalog[ref]
+        expected_refs = {
+            "run_id": run_id,
+            "task_revision": task_digest,
+            "plan_revision": plan_digests.get(ref[0]),
+            "action_id": action["action_id"],
+            "dispatch_id": gate.get("dispatch_id"),
+            "action_digest": action["action_digest"],
+            "state_revision": gate.get("state_digest"),
+            "capability_revision": capability_digest,
+            "permission_revision": permission_digest,
+            "approval_revision": prior_approval.get("approval_digest") if prior_approval else None,
+            "constraints_revision": constraints_digest,
+            "authority_epoch": authority_epoch,
+        }
+        if any(context_record.get(key) != value for key, value in expected_refs.items()) \
+                or gate.get("action_digest") != action["action_digest"]:
+            findings.append(f"authorization_context_reference_mismatch:sequence={sequence}")
+        if not isinstance(guard_state.get("stopped"), bool) \
+                or not isinstance(guard_state.get("decision_used"), bool) \
+                or not isinstance(guard_state.get("dispatch_used"), bool) \
+                or not isinstance(guard_state.get("authority_epoch"), str) \
+                or not _integer(guard_state.get("stop_generation")) \
+                or set(guard_state) != {
+                    "stopped", "decision_used", "dispatch_used",
+                    "authority_epoch", "stop_generation",
+                }:
+            findings.append(f"invalid_authorization_guard_state:sequence={sequence}")
+            continue
+        record = gate.get("decision")
+        decision = None
+        if record is None:
+            status = gate.get("decision_status")
+            if status not in {"missing", "invalid"} or gate.get("decision_digest") is not None:
+                findings.append(f"invalid_authorization_decision_status:sequence={sequence}")
+            expected_reason = ("clock_unavailable" if gate.get("now") is None
+                               else "invalid_decision" if status == "invalid"
+                               else "decision_missing")
+        else:
+            if gate.get("decision_status") != "present":
+                findings.append(f"invalid_authorization_decision_status:sequence={sequence}")
+            try:
+                if not isinstance(record, dict) or set(record) != {
+                    "decision_id", "context", "verdict", "issued_at", "expires_at",
+                } or not isinstance(record["context"], dict):
+                    raise ValueError("invalid decision fields")
+                decision = SafetyDecision(
+                    decision_id=record["decision_id"],
+                    context=DispatchContext(**record["context"]),
+                    verdict=record["verdict"], issued_at=record["issued_at"],
+                    expires_at=record["expires_at"],
+                )
+                if asdict(decision) != record:
+                    findings.append(f"noncanonical_authorization_decision:sequence={sequence}")
+                if gate.get("decision_digest") != _record_digest(record):
+                    findings.append(f"authorization_decision_digest_mismatch:sequence={sequence}")
+                now = gate.get("now")
+                if not _number(now):
+                    findings.append(f"invalid_authorization_clock:sequence={sequence}")
+                    expected_reason = "outside_validity_window"
+                else:
+                    expected_reason = admission_rejection_reason(
+                        decision, context, now=now,
+                        stopped=guard_state["stopped"],
+                        authority_epoch=guard_state["authority_epoch"],
+                        stop_generation=guard_state["stop_generation"],
+                        decision_used=guard_state["decision_used"],
+                        dispatch_used=guard_state["dispatch_used"],
+                    )
+                if guard_state["decision_used"] != (
+                        decision.decision_id in used_authorization_decisions) \
+                        or guard_state["dispatch_used"] != (
+                            (context.run_id, context.dispatch_id)
+                            in used_authorization_dispatches):
+                    findings.append(f"authorization_guard_history_mismatch:sequence={sequence}")
+            except (KeyError, TypeError, ValueError):
+                findings.append(f"invalid_authorization_decision:sequence={sequence}")
+                expected_reason = "invalid_decision"
+        if gate.get("reason") != expected_reason \
+                or gate.get("verdict") != ("ALLOW" if expected_reason is None else "DENY"):
+            findings.append(f"authorization_gate_verdict_mismatch:sequence={sequence}")
+        following = events[sequence + 1:]
+        if gate.get("verdict") == "ALLOW":
+            if guard_state["stopped"] or context.stop_generation != guard_state["stop_generation"] \
+                    or guard_state["authority_epoch"] != authority_epoch \
+                    or context.stop_generation != initial_stop_generation:
+                findings.append(f"authorization_authority_mismatch:sequence={sequence}")
+            if decision is not None:
+                used_authorization_decisions.add(decision.decision_id)
+                used_authorization_dispatches.add((context.run_id, context.dispatch_id))
+            if not following or following[0].get("kind") != "dispatch_intent" \
+                    or following[0].get("dispatch_id") != context.dispatch_id:
+                findings.append(f"authorization_allow_without_intent:sequence={sequence}")
+        else:
+            terminal = [event for event in following if event.get("kind") != "world_state"]
+            if len(terminal) != 1 or terminal[0].get("kind") != "episode_end":
+                findings.append("execution_after_authorization_denial")
+
+    for gate in profile_gates:
+        sequence = gate.get("sequence")
+        ref = (gate.get("plan_version"), gate.get("action_id"))
+        if not _integer(sequence):
+            findings.append("invalid_numeric_profile_gate_sequence")
+            continue
+        if not _integer(profile_sequence) or profile_sequence >= sequence:
+            findings.append(f"numeric_profile_before_declaration:sequence={sequence}")
+        if ref not in action_catalog or gate.get("action_digest") != action_catalog[ref]["action_digest"]:
+            findings.append(f"numeric_profile_action_mismatch:sequence={sequence}")
+        if gate.get("profile_digest") != profile_digest \
+                or gate.get("capability_digest") != capability_digest:
+            findings.append(f"numeric_profile_reference_mismatch:sequence={sequence}")
+        reasons = []
+        if capabilities is not None and profile is not None:
+            if capabilities.limits_ref != profile.ref:
+                reasons.append("limits_ref_mismatch")
+            if capabilities.embodiment_id != profile.embodiment_id:
+                reasons.append("profile_embodiment_mismatch")
+            if gate.get("reasons") != reasons or gate.get("verdict") != (
+                    "DENY" if reasons else "ALLOW"):
+                findings.append(f"invalid_numeric_profile_gate_verdict:sequence={sequence}")
+        preceding = events[:sequence]
+        if not preceding or preceding[-1].get("kind") != "approval_gate" \
+                or preceding[-1].get("verdict") != "ALLOW":
+            findings.append(f"numeric_profile_without_approval:sequence={sequence}")
+        following = events[sequence + 1:]
+        if gate.get("verdict") == "DENY":
+            terminal = [event for event in following if event.get("kind") != "world_state"]
+            if len(terminal) != 1 or terminal[0].get("kind") != "episode_end":
+                findings.append("execution_after_numeric_profile_denial")
+        elif not following or following[0].get("kind") != "safety1" \
+                or (following[0].get("plan_version"), following[0].get("action_id")) != ref:
+            findings.append(f"numeric_profile_allow_without_safety:sequence={sequence}")
+
+    numeric_by_cycle: dict[tuple[int, str, int], dict[str, Any]] = {}
+    for event in safety_events["numeric"]:
+        sequence = event.get("sequence")
+        key = (event.get("plan_version"), event.get("action_id"), event.get("cycle"))
+        if key in numeric_by_cycle:
+            findings.append(f"duplicate_numeric_decision:sequence={sequence}")
+        numeric_by_cycle[key] = event
+        if event.get("profile_digest") != profile_digest:
+            findings.append(f"numeric_profile_reference_mismatch:sequence={sequence}")
+        record = event.get("trajectory")
+        if not isinstance(record, dict):
+            findings.append(f"missing_numeric_trajectory:sequence={sequence}")
+            continue
+        try:
+            traj = Trajectory.model_validate(record)
+            canonical = traj.model_dump(mode="json")
+            if record != canonical:
+                findings.append(f"noncanonical_numeric_trajectory:sequence={sequence}")
+            encoded = json.dumps(canonical, sort_keys=True, separators=(",", ":"))
+            if event.get("trajectory_digest") != hashlib.sha256(encoded.encode()).hexdigest():
+                findings.append(f"numeric_trajectory_digest_mismatch:sequence={sequence}")
+            if traj.action_id != event.get("action_id"):
+                findings.append(f"numeric_trajectory_action_mismatch:sequence={sequence}")
+            state = state_payloads.get(event.get("state_digest"))
+            if profile is not None and state is not None:
+                verdict = NumericSafetyVerifier(profile).verify(
+                    traj, state, expected_action_id=event.get("action_id"),
+                )
+                if event.get("verdict") != verdict.verdict \
+                        or event.get("checked") != verdict.checked \
+                        or event.get("violations") != [v.model_dump() for v in verdict.violations]:
+                    findings.append(f"numeric_verdict_mismatch:sequence={sequence}")
+        except (TypeError, ValueError):
+            findings.append(f"invalid_numeric_trajectory:sequence={sequence}")
+
+    for event in (item for item in events if item.get("kind") == "apply"):
+        sequence = event.get("sequence")
+        key = (event.get("plan_version"), event.get("action_id"), event.get("cycle"))
+        numeric = numeric_by_cycle.get(key)
+        if numeric is None or numeric.get("verdict") != "PASS" \
+                or numeric.get("sequence") != sequence - 1:
+            findings.append(f"apply_without_numeric_allow:sequence={sequence}")
+            continue
+        trajectory = numeric.get("trajectory")
+        if event.get("profile_digest") != profile_digest \
+                or event.get("trajectory_digest") != numeric.get("trajectory_digest") \
+                or not isinstance(trajectory, dict) \
+                or event.get("terminal") != trajectory.get("terminal") \
+                or event.get("max_velocity") != trajectory.get("max_velocity"):
+            findings.append(f"apply_numeric_binding_mismatch:sequence={sequence}")
 
     for gate in failed_uncertainty_gates:
         sequence = gate.get("sequence")
@@ -673,7 +1498,9 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
         findings.append("invalid_expect_abort")
     elif type(reconstructed["task_success"]) is bool and type(reconstructed["goal_met"]) is bool \
             and type(reconstructed["aborted"]) is bool:
-        expected_success = reconstructed["aborted"] if expect_abort else reconstructed["goal_met"]
+        expected_success = (False if observation_failures else
+                            reconstructed["aborted"] if expect_abort
+                            else reconstructed["goal_met"])
         if reconstructed["task_success"] is not expected_success:
             findings.append("terminal_success_semantics_mismatch")
 

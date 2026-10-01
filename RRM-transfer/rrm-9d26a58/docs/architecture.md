@@ -5,6 +5,32 @@
 Status: draft spec. Reference implementation of §3–§4 against a mock world in
 `scripts/oracle_loop.py`.
 
+An active mock dispatch now treats failed, malformed, or stale-after-apply world
+observations as a scoped interruption. It requests mock cancellation and records
+the last *valid* snapshot as provenance only; it does not substitute that snapshot
+for terminal state. Terminal evidence marks observation `UNAVAILABLE` and forbids a
+task-success claim. Missing safe-state evidence remains `SAFE_UNCONFIRMED`.
+The reference loop still lacks transport deadlines, an independently qualified
+physical stop channel, and a live adapter.
+
+In the current core mock loop, symbolic safety is checked before admission and
+again against every fresh observed state while a dispatch remains active. A failed
+mid-dispatch check is digest-bound, triggers the mock stop supervisor, and is
+independently recomputed by replay. This closes the *observed* hazard gap between
+policy chunks, not hazards arising between observations or communication loss.
+No physical stop deadline, independent controller evidence, or live authorization
+is implied.
+
+Current core mock increment: `CoreStopSupervisor` latches C06 admission closed before
+requesting cancellation of one active dispatch. Request, acknowledgement and
+safe-state observation are distinct trace events; the loop interrupts without
+replanning and replay checks their scope/order plus absence of post-stop applies.
+`SAFE_CONFIRMED_MOCK` means only that `MockWorld` reported a synthetic hold. The
+synchronous mock lock cannot establish a physical stop deadline or prove an active
+hardware command was cancelled. Isaac/ROS adapters and independent physical-state
+evidence are still required. The core `TaskGraph` remains an ordered sequence,
+separate from the C05 dependency DAG.
+
 ## 0. Decisions on record
 
 | Decision | Choice | Rationale |
@@ -402,13 +428,15 @@ does not remove the need for the parser.
 TaskGraph
   mission_id : string
   mission_text: string
-  nodes      : list<AbstractAction>
-  edges      : list<Edge>        # (from, to, condition: on_success|on_failure|always)
+  nodes      : list<AbstractAction>  # ordered execution sequence in the core
   version    : int               # increments on every replan; never mutated in place
 ```
 
-Replanning produces a new `TaskGraph` with an incremented version. The old one is
-retained. The version history *is* the recovery record for §20's recovery-rate metric.
+The implemented core `TaskGraph` is a linear ordered plan, not a dependency DAG.
+The separate C05 `PlanProposal` supports dependency edges, but the core does not
+schedule them. DAG execution would need explicit dependency, readiness and failure
+semantics and is a separate change. Replanning produces a new `TaskGraph` with an
+incremented version; the trace retains the prior version as recovery evidence.
 
 An action's trace identity is the composite `(TaskGraph.version, AbstractAction.id)`.
 Planner-local IDs must be nonempty and unique within one graph, but may repeat in a
@@ -418,6 +446,16 @@ policy-application, dispatch, divergence, and replan-trigger events carry the sa
 plan version, local ID, and digest. Ambiguous graph identity is rejected before
 execution, and an unresolvable or mismatched reference invalidates replay evidence.
 This identity rule depends only on plan history, never on a scene or object class.
+
+Each run has a unique run ID and declares the full canonical task with an explicit
+revision and digest. A plan record binds the complete ordered graph, plan ID,
+version, mission, and task revision/digest. Replans must keep the plan ID and mission
+while advancing the version. Before action admission and before each policy chunk
+can apply, a context gate recomputes the task and plan digests. A stale context
+aborts without applying that chunk. Each attempt has a distinct dispatch ID recorded
+before `begin_dispatch`, then carried through numeric decisions, applications and
+the terminal dispatch result. These are reference-loop evidence identities, not C06
+one-use physical authorization or C08 intervention semantics.
 
 Every `WorldBackend.observe()` result used by the loop is serialized as a complete
 validated `world_state` event before use. A canonical SHA-256 digest binds planning,
@@ -442,6 +480,49 @@ or resource scope fails closed. This declaration is not an operator approval, ex
 bounded C06 safety decision, one-use dispatch authorization, or C08 stop authority;
 those require additional contracts and cannot be inferred from permission admission.
 The scope is identity- and verb-based, with no scene-specific rule.
+
+Approval is a third, separate decision. After permission allows and before numeric
+profile and Safety #1, the core requests an explicit `ApprovalDecision` for exactly
+one run, task ID/revision/digest, ordered plan ID/version/digest, and action ID/digest.
+Missing, denied, or mismatched approval aborts without dispatch. The trace records
+the scoped decision, its digest, and the gate verdict; replay recomputes the scope and
+verdict. Dispatch intent, numeric decisions, applications and terminal dispatch
+records carry the decision digest, revision and ID. The deterministic benchmark uses
+only a labelled `synthetic_fixture` approver. An `operator_assertion` is still
+caller-supplied and unauthenticated here;
+neither kind establishes operator identity, freshness, revocation, C06 one-use
+authorization, or C08 stopping. Approval may be reused across retries of the same
+action scope; dispatch attempts have distinct IDs.
+
+The mock core now adds a separate in-process, one-use admission immediately after
+Safety #1 and before `dispatch_intent`. A `DispatchContext` binds run, task/ordered
+plan/action, the prior world snapshot, capability, permission and approval digests,
+a canonical constraint digest, dispatch ID, authority epoch and stop generation.
+The constraint record covers authored verb semantics, the numeric profile and a
+versioned symbolic-verifier rule set. A caller-supplied `SafetyDecision` must be an
+unexpired exact-context `ALLOW`; `AdmissionGuard` atomically consumes its decision
+and dispatch IDs. The guard starts inhibited. The benchmark explicitly resets a
+fresh guard and issues short-lived `synthetic_fixture` decisions for mock execution.
+Every denial aborts before mock `begin_dispatch` and `apply`.
+
+This is not deployed C06 authorization. The core guard has no authenticated external
+authority, durable cross-process ledger, adapter-side deduplication, resource
+reservation or physical C08 stop/hold acknowledgment. A local consumed decision
+does not authorize a live scene. Those boundaries must be integrated and qualified
+separately before live motion.
+
+Numeric safety now resolves the capability's `limits_ref` against an exact,
+adapter-authored `NumericLimitProfile` before Safety #1. The profile declares an
+embodiment, coordinate kind, frame, units, ordered axes, finite bounds and maximum
+speed. A policy trajectory declares the same coordinate contract. Cartesian positions
+are checked in metres and m/s; joint positions are checked in radians and rad/s.
+The verifier never compares a Cartesian point with joint limits. A missing or
+mismatched profile stops the action before Safety #1; a violating chunk stops before
+`WorldBackend.apply`. The current mock Cartesian check measures human clearance along
+line segments from the observed base pose through the chunk waypoints. Joint chunks
+with an observed human are rejected because this core has no link geometry or swept
+volume proof. These checks remain a reference envelope, not integrated collision,
+force, or controller safety certification.
 
 ### 3.5 Safety and divergence
 
