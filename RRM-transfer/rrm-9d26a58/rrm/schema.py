@@ -85,6 +85,7 @@ class Relation(BaseModel):
     predicate: Literal["on", "in", "near", "held_by", "occludes", "supports", "blocked_by"]
     obj: ObjectID
     confidence: float = Field(default=1.0, ge=0.0, le=1.0, allow_inf_nan=False)
+    observed_t: int | None = Field(default=None, ge=0)
 
 
 class RobotState(BaseModel):
@@ -102,9 +103,14 @@ class WorldState(BaseModel):
     # False means an absent relation is unobserved, not known false. Producers may
     # set this only when the snapshot exhaustively covers the represented objects.
     relations_complete: bool = False
+    # Tick at which the producer established exhaustive relation coverage. This
+    # also binds negative evidence when the relation list is empty.
+    relations_observed_t: int | None = Field(default=None, ge=0)
     robot: RobotState = Field(default_factory=RobotState)
     uncertainty: float = Field(default=0.0, ge=0.0, le=1.0, allow_inf_nan=False)
-    uncertainty_provenance: Literal["unbound", "object_evidence_v1"] = "unbound"
+    uncertainty_provenance: Literal[
+        "unbound", "object_evidence_v1", "world_evidence_v2"
+    ] = "unbound"
 
     def get(self, oid: ObjectID) -> WorldObject | None:
         return next((o for o in self.objects if o.id == oid), None)

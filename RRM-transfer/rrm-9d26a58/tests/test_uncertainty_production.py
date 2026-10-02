@@ -20,7 +20,8 @@ from rrm.reasoning import ScriptedOracle
 from rrm.safety import NumericSafetyVerifier, SafetyVerifier
 from rrm.schema import Task, WorldObject, WorldState
 from rrm.trace import Tracer
-from rrm.uncertainty import aggregate_uncertainty, validate_uncertainty
+from rrm.uncertainty import (UNCERTAINTY_PROVENANCE, aggregate_uncertainty,
+                             validate_uncertainty)
 from rrm.verbs import _p
 from rrm.world import MockWorld
 
@@ -58,6 +59,34 @@ class StaleCupAfterChunkWorld(MockWorld):
         return state
 
 
+class MissingRelationTimestampWorld(MockWorld):
+    def observe(self):
+        state = super().observe()
+        state.relations[0].observed_t = None
+        state.uncertainty = aggregate_uncertainty(state)
+        return state
+
+
+class StaleRelationAfterChunkWorld(MockWorld):
+    def observe(self):
+        state = super().observe()
+        if state.t >= 1:
+            state.relations[0].observed_t = state.t - 1
+            state.uncertainty = aggregate_uncertainty(state)
+        return state
+
+
+class StaleCoverageAfterChunkWorld(MockWorld):
+    def observe(self):
+        state = super().observe()
+        if state.t >= 1:
+            # An empty, supposedly complete relation list can establish absence.
+            state.relations = []
+            state.relations_observed_t = state.t - 1
+            state.uncertainty = aggregate_uncertainty(state)
+        return state
+
+
 class UncertaintyProductionTests(unittest.TestCase):
     def test_aggregate_confidence_freshness_and_bounds(self):
         fresh = MockWorld().observe()
@@ -72,11 +101,39 @@ class UncertaintyProductionTests(unittest.TestCase):
         self.assertEqual(aggregate_uncertainty(fresh), 1.0)
         fresh.t = 2
         self.assertEqual(aggregate_uncertainty(fresh), 1.0)
-        empty = WorldState(t=0, uncertainty_provenance="object_evidence_v1",
+        empty = WorldState(t=0, uncertainty_provenance=UNCERTAINTY_PROVENANCE,
                            uncertainty=1.0)
         validate_uncertainty(empty)
         with self.assertRaises(ValidationError):
             WorldObject(id="bad", cls="item", confidence=1.1)
+
+    def test_relation_and_complete_coverage_freshness(self):
+        for field in ("relation", "coverage"):
+            for tick in (None, 0, 2, True):
+                with self.subTest(field=field, tick=tick):
+                    world = MockWorld()
+                    world.state.t = 1
+                    state = world.observe()
+                    if field == "relation":
+                        state.relations[0].observed_t = tick
+                    else:
+                        state.relations = []
+                        state.relations_observed_t = tick
+                    self.assertEqual(aggregate_uncertainty(state), 1.0)
+        state = MockWorld().observe()
+        state.relations[0].confidence = 0.7
+        self.assertAlmostEqual(aggregate_uncertainty(state), 0.3)
+        state.relations = []
+        self.assertEqual(aggregate_uncertainty(state), 0.0)
+        state.relations_complete = False
+        state.relations_observed_t = None
+        self.assertEqual(aggregate_uncertainty(state), 0.0)
+
+    def test_old_uncertainty_version_is_not_admitted(self):
+        state = MockWorld().observe()
+        state.uncertainty_provenance = "object_evidence_v1"
+        with self.assertRaisesRegex(ValueError, "not evidence-bound"):
+            validate_uncertainty(state)
 
     def _episode(self, world_type):
         task = Task(id="uncertainty-production", mission="pick cup",
@@ -103,7 +160,8 @@ class UncertaintyProductionTests(unittest.TestCase):
 
     def test_evidence_controls_planning_gate(self):
         for world_type, expected in ((WeakCupWorld, 0.3),
-                                     (MissingCupTimestampWorld, 1.0)):
+                                     (MissingCupTimestampWorld, 1.0),
+                                     (MissingRelationTimestampWorld, 1.0)):
             with self.subTest(world=world_type.__name__):
                 metrics, events, replay = self._episode(world_type)
                 gate = next(e for e in events if e["kind"] == "uncertainty_gate")
@@ -133,12 +191,26 @@ class UncertaintyProductionTests(unittest.TestCase):
         self.assertTrue(metrics.aborted)
         self.assertTrue(replay.valid, replay.findings)
 
+    def test_stale_relation_or_coverage_interrupts_active_dispatch(self):
+        for world_type in (StaleRelationAfterChunkWorld, StaleCoverageAfterChunkWorld):
+            with self.subTest(world=world_type.__name__):
+                metrics, events, replay = self._episode(world_type)
+                self.assertEqual(len([e for e in events if e["kind"] == "apply"]), 1)
+                self.assertEqual(next(e for e in events if e["kind"] == "dispatch")["termination"],
+                                 "INTERRUPTED")
+                self.assertEqual(next(e for e in events if e["kind"] == "stop_request")["reason"],
+                                 "active_uncertainty")
+                self.assertTrue(metrics.aborted)
+                self.assertFalse(events[-1]["goal_met"])
+                self.assertTrue(replay.valid, replay.findings)
+
     def test_replay_rejects_rehashed_scalar_and_provenance_tampering(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "suite"
             self.assertEqual(run_suite(source), 0)
             original = [json.loads(line) for line in (source / "T1.jsonl").read_text().splitlines()]
-            for name in ("scalar", "tiny_scalar", "provenance", "confidence", "timestamp"):
+            for name in ("scalar", "tiny_scalar", "provenance", "confidence", "timestamp",
+                         "relation_timestamp", "coverage_timestamp"):
                 with self.subTest(name=name):
                     events = copy.deepcopy(original)
                     state_event = next(e for e in events if e["kind"] == "world_state")
@@ -152,8 +224,12 @@ class UncertaintyProductionTests(unittest.TestCase):
                         state["uncertainty_provenance"] = "unbound"
                     elif name == "confidence":
                         state["objects"][1]["confidence"] = 0.6
-                    else:
+                    elif name == "timestamp":
                         state["objects"][1]["observed_t"] = None
+                    elif name == "relation_timestamp":
+                        state["relations"][0]["observed_t"] = None
+                    else:
+                        state["relations_observed_t"] = None
                     new_digest = hashlib.sha256(json.dumps(
                         state, sort_keys=True, separators=(",", ":")
                     ).encode()).hexdigest()

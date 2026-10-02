@@ -55,12 +55,19 @@ class MockWorld:
         self._dispatch_lock = Lock()
         self._active_dispatch_id: str | None = None
         self._cancelled = False
+        self._fenced_dispatches: set[str] = set()
 
     def observe(self) -> WorldState:
         snapshot = self.state.model_copy(deep=True)
         for obj in snapshot.objects:
             if obj.observed_by.value == "sim_ground_truth":
                 obj.observed_t = snapshot.t
+        # MockWorld owns an exhaustive ground-truth relation observation. Other
+        # producers must retain the actual observation ticks of their evidence.
+        for relation in snapshot.relations:
+            relation.observed_t = snapshot.t
+        if snapshot.relations_complete:
+            snapshot.relations_observed_t = snapshot.t
         snapshot.uncertainty_provenance = UNCERTAINTY_PROVENANCE
         snapshot.uncertainty = aggregate_uncertainty(snapshot)
         return snapshot
@@ -74,6 +81,8 @@ class MockWorld:
         worth replanning over.
         """
         with self._dispatch_lock:
+            if dispatch_id in self._fenced_dispatches:
+                raise DispatchCancelled("mock dispatch was fenced before acceptance")
             if self._active_dispatch_id is not None:
                 raise RuntimeError("mock dispatch already active")
             key = f"{action.verb.value}:{','.join(action.targets)}"
@@ -95,6 +104,9 @@ class MockWorld:
     def cancel_dispatch(self, dispatch_id: str, generation: int) -> bool:
         """Synthetic cancellation of the one active mock command."""
         with self._dispatch_lock:
+            # Cancellation fences the attempt even if begin_dispatch has not yet
+            # acquired the lock. A delayed start cannot resurrect that identity.
+            self._fenced_dispatches.add(dispatch_id)
             if self._active_dispatch_id != dispatch_id:
                 return False
             self._cancelled = True

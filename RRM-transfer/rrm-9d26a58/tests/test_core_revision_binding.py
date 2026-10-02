@@ -94,7 +94,7 @@ class RevisionBindingTests(unittest.TestCase):
         self.assertTrue(result.aborted)
         self.assertFalse(any(event["kind"] == "apply" for event in events))
         self.assertEqual(next(event for event in events if event["kind"] == "dispatch")
-                         ["termination"], "STALE_CONTEXT")
+                         ["termination"], "INTERRUPTED")
         self.assertTrue(replay.valid, replay.findings)
 
     def test_replay_rejects_run_plan_and_dispatch_tampering(self) -> None:

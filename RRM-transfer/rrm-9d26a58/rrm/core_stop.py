@@ -5,11 +5,12 @@ from __future__ import annotations
 import math
 from dataclasses import asdict, dataclass
 from threading import Lock
-from typing import Literal, Protocol
+from typing import Callable, Literal, Protocol
 from uuid import uuid4
 
 from .contracts import AdmissionGuard
 from .trace import Tracer
+from .core_deadlines import CoreCallLimits, CoreCallTimeout, bounded_call
 
 
 @dataclass(frozen=True)
@@ -54,13 +55,17 @@ class StopOutcome:
     safe_state: StopStateEvidence | None
     status: Literal["SAFE_CONFIRMED_MOCK", "SAFE_UNCONFIRMED"]
     trace_complete: bool
+    pending_execution: bool
 
 
 class CoreStopSupervisor:
     """Latch admission before mock cancellation; record each distinct C08 fact."""
 
-    def __init__(self, guard: AdmissionGuard) -> None:
+    def __init__(self, guard: AdmissionGuard, limits: CoreCallLimits | None = None,
+                 pending_actuation: Callable[[], bool] | None = None) -> None:
         self.guard = guard
+        self.limits = limits or CoreCallLimits()
+        self._pending_actuation = pending_actuation
         self._world: StoppableWorld | None = None
         self._tracer: Tracer | None = None
         self._lock = Lock()
@@ -78,7 +83,8 @@ class CoreStopSupervisor:
         with self._lock:
             return self._outcome
 
-    def request_stop(self, *, dispatch_id: str, reason: str) -> StopOutcome:
+    def request_stop(self, *, dispatch_id: str, reason: str,
+                     pending_execution: Callable[[], bool] | None = None) -> StopOutcome:
         if not isinstance(dispatch_id, str) or not dispatch_id.strip() \
                 or not isinstance(reason, str) or not reason.strip():
             raise ValueError("stop requires dispatch ID and reason")
@@ -92,32 +98,54 @@ class CoreStopSupervisor:
             generation = self.guard.stop()
             trace_complete = True
 
+            def pending() -> bool:
+                try:
+                    return bool((self._pending_actuation and self._pending_actuation())
+                                or (pending_execution and pending_execution()))
+                except Exception:
+                    return True
+
             def record(kind: str, **fields) -> None:
                 nonlocal trace_complete
                 try:
-                    self._tracer.event(kind, intervention_id=intervention_id,
-                                       dispatch_id=dispatch_id, generation=generation,
-                                       **fields)
+                    bounded_call("trace_write", self.limits.evidence_s,
+                                 lambda: self._tracer.event(
+                                     kind, intervention_id=intervention_id,
+                                     dispatch_id=dispatch_id, generation=generation, **fields))
                 except Exception:
                     trace_complete = False
 
             record("stop_request", reason=reason,
-                   previous_generation=previous_generation)
+                   previous_generation=previous_generation,
+                   pending_execution_at_request=pending())
+            cancel_deadline = None
             try:
-                acknowledged = self._world.cancel_dispatch(dispatch_id, generation) is True
+                acknowledged = bounded_call(
+                    "cancel_dispatch", self.limits.stop_s,
+                    lambda: self._world.cancel_dispatch(dispatch_id, generation)) is True
+            except CoreCallTimeout as error:
+                cancel_deadline = error.record()
+                acknowledged = False
             except Exception:
                 acknowledged = False
-            record("stop_cancel", acknowledged=acknowledged)
+            record("stop_cancel", acknowledged=acknowledged, deadline=cancel_deadline)
+            safe_deadline = None
             try:
-                safe_state = self._world.observe_safe_state(dispatch_id, generation)
+                safe_state = bounded_call(
+                    "observe_safe_state", self.limits.stop_s,
+                    lambda: self._world.observe_safe_state(dispatch_id, generation))
+            except CoreCallTimeout as error:
+                safe_deadline = error.record()
+                safe_state = None
             except Exception:
                 safe_state = None
             if not isinstance(safe_state, StopStateEvidence) \
                     or safe_state.dispatch_id != dispatch_id \
                     or safe_state.generation != generation:
                 safe_state = None
+            execution_pending = pending()
             confirmed = bool(
-                acknowledged and safe_state is not None
+                not execution_pending and acknowledged and safe_state is not None
                 and safe_state.motion_stopped
                 and not safe_state.active_motion_command
                 and safe_state.safe_condition_met
@@ -126,9 +154,9 @@ class CoreStopSupervisor:
             status = "SAFE_CONFIRMED_MOCK" if confirmed else "SAFE_UNCONFIRMED"
             record("stop_safe_state", evidence=(asdict(safe_state)
                                                 if safe_state is not None else None),
-                   status=status)
+                   status=status, pending_execution=execution_pending, deadline=safe_deadline)
             self._outcome = StopOutcome(
                 intervention_id, dispatch_id, reason, generation, acknowledged,
-                safe_state, status, trace_complete,
+                safe_state, status, trace_complete, execution_pending,
             )
             return self._outcome

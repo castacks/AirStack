@@ -14,13 +14,14 @@ from uuid import uuid4
 
 from .schema import (
     AbstractAction, ActionPolicy, Divergence, Predicate, RunMetrics, Task,
-    TaskGraph, Termination, WorldBackend, WorldState,
+    TaskGraph, Termination, Trajectory, WorldBackend, WorldState,
 )
 from .contracts import (
     ApprovalDecision, ApprovalProvider, ApprovalScope,
     CapabilityDeclaration, DispatchContext, PermissionDeclaration, SafetyDecision,
 )
 from .core_admission import CoreAdmission
+from .core_deadlines import BoundedTracer, CoreCallTimeout, bounded_call
 from .world import DispatchCancelled
 from .uncertainty import validate_uncertainty
 from .verbs import VERB_TABLE, expected_effects_of, holds
@@ -71,6 +72,13 @@ class DispatchObservation:
     state: WorldState
     digest: str
     failed: bool = False
+    phase: str = "begin_dispatch"
+    cycles: int = 0
+    interruption_recorded: bool = False
+
+
+class CoreEvidenceUnavailable(RuntimeError):
+    """Execution was inhibited/stopped but its complete evidence could not be saved."""
 
 
 def _semantic_action_record(action: AbstractAction) -> dict:
@@ -104,7 +112,7 @@ def _trajectory_record(traj) -> tuple[dict, str]:
 
 
 def _observe(world: WorldBackend, tracer: Tracer, *, phase: str) -> tuple[WorldState, str]:
-    state = world.observe()
+    state = bounded_call("observe", tracer.observation_timeout_s, world.observe)
     if not isinstance(state, WorldState):
         raise TypeError("world observation is not a WorldState")
     payload = state.model_dump(mode="json")
@@ -274,23 +282,31 @@ def _uncertainty_allows(ws: WorldState, threshold: float, tracer: Tracer, *,
 def _stop_latched(admission: CoreAdmission, tracer: Tracer, *, phase: str,
                   sim_t: int, state_digest: str, plan_version: int,
                   action: AbstractAction, dispatch_id: str,
-                  decision_id: str, expected_generation: int) -> bool:
+                  decision_id: str, expected_generation: int,
+                  observation: DispatchObservation | None = None) -> bool:
     state = admission.guard.snapshot(
         decision_id=decision_id, run_id=tracer.run_id, dispatch_id=dispatch_id,
     )
     latched = state["stopped"] or state["stop_generation"] != expected_generation
     if latched:
         outcome = admission.stop.outcome
-        tracer.event(
-            "interruption_gate", sim_t=sim_t, state_digest=state_digest,
-            phase=phase, plan_version=plan_version,
-            action_id=action.id, action_digest=_action_digest(action),
-            dispatch_id=dispatch_id, expected_generation=expected_generation,
-            observed_generation=state["stop_generation"], stopped=state["stopped"],
-            intervention_id=outcome.intervention_id if outcome else None,
-            safe_status=outcome.status if outcome else "SAFE_UNCONFIRMED",
-            verdict="INTERRUPT",
-        )
+        if outcome is not None and not outcome.trace_complete:
+            raise CoreEvidenceUnavailable("stop completed with incomplete evidence")
+        try:
+            tracer.event(
+                "interruption_gate", sim_t=sim_t, state_digest=state_digest,
+                phase=phase, plan_version=plan_version,
+                action_id=action.id, action_digest=_action_digest(action),
+                dispatch_id=dispatch_id, expected_generation=expected_generation,
+                observed_generation=state["stop_generation"], stopped=state["stopped"],
+                intervention_id=outcome.intervention_id if outcome else None,
+                safe_status=outcome.status if outcome else "SAFE_UNCONFIRMED",
+                verdict="INTERRUPT",
+            )
+            if observation is not None:
+                observation.interruption_recorded = True
+        except Exception as error:
+            raise CoreEvidenceUnavailable("interruption evidence could not be saved") from error
     return latched
 
 
@@ -324,9 +340,10 @@ def dispatch(task: Task, graph: TaskGraph, action: AbstractAction,
             state_digest=authorized_state_digest, plan_version=plan_version,
             action=action, dispatch_id=dispatch_id,
             decision_id=authorization_decision_id,
-            expected_generation=authorized_stop_generation):
+            expected_generation=authorized_stop_generation, observation=observation):
         return Termination.INTERRUPTED, 0
-    world.begin_dispatch(action, dispatch_id)
+    bounded_call("begin_dispatch", admission.stop.limits.adapter_s,
+                 lambda: world.begin_dispatch(action, dispatch_id), admission.pending_actuation)
     last_applied_t: int | None = None
 
     def observation_failure(cycle: int, failure_kind: str, *,
@@ -341,6 +358,8 @@ def dispatch(task: Task, graph: TaskGraph, action: AbstractAction,
                          cycle=cycle, failure_kind=failure_kind,
                          observed_state_digest=observed_digest,
                          observed_sim_t=observed_t)
+        except Exception as error:
+            raise CoreEvidenceUnavailable("observation failure evidence could not be saved") from error
         finally:
             admission.stop.request_stop(
                 dispatch_id=dispatch_id, reason="observation_unavailable")
@@ -349,26 +368,30 @@ def dispatch(task: Task, graph: TaskGraph, action: AbstractAction,
             state_digest=observation.digest, plan_version=plan_version,
             action=action, dispatch_id=dispatch_id,
             decision_id=authorization_decision_id,
-            expected_generation=authorized_stop_generation,
+            expected_generation=authorized_stop_generation, observation=observation,
         )
         return Termination.INTERRUPTED, cycle - 1
 
-    def active_uncertainty_stop(ws: WorldState, state_digest: str,
-                                completed_cycles: int) -> tuple[Termination, int]:
+    def interrupt(reason: str, phase: str, ws: WorldState, state_digest: str,
+                  completed_cycles: int) -> tuple[Termination, int]:
         admission.stop.request_stop(
-            dispatch_id=dispatch_id, reason="active_uncertainty")
+            dispatch_id=dispatch_id, reason=reason)
         _stop_latched(
-            admission, tracer, phase="active_uncertainty", sim_t=ws.t,
+            admission, tracer, phase=phase, sim_t=ws.t,
             state_digest=state_digest, plan_version=plan_version,
             action=action, dispatch_id=dispatch_id,
             decision_id=authorization_decision_id,
-            expected_generation=authorized_stop_generation,
+            expected_generation=authorized_stop_generation, observation=observation,
         )
         return Termination.INTERRUPTED, completed_cycles
 
     for cycle in range(1, CYCLE_BUDGET + 1):
+        observation.phase = "observation"
+        observation.cycles = cycle - 1
         try:
             ws, state_digest = _observe(world, tracer, phase="dispatch")
+        except CoreCallTimeout:
+            raise
         except (TypeError, ValueError, AttributeError):
             return observation_failure(cycle, "invalid_payload")
         except Exception:
@@ -382,24 +405,26 @@ def dispatch(task: Task, graph: TaskGraph, action: AbstractAction,
                 state_digest=state_digest, plan_version=plan_version,
                 action=action, dispatch_id=dispatch_id,
                 decision_id=authorization_decision_id,
-                expected_generation=authorized_stop_generation):
+                expected_generation=authorized_stop_generation, observation=observation):
             return Termination.INTERRUPTED, cycle - 1
         if not _uncertainty_allows(
                 ws, uncertainty_threshold, tracer, phase="dispatch",
                 state_digest=state_digest,
                 plan_version=plan_version, action=action,
                 dispatch_id=dispatch_id):
-            return active_uncertainty_stop(ws, state_digest, cycle - 1)
+            return interrupt("active_uncertainty", "active_uncertainty", ws, state_digest, cycle - 1)
+        observation.phase = "context_validation"
         if not _context_gate(
                 task, graph, action, tracer, phase="pre_chunk", sim_t=ws.t,
                 state_digest=state_digest, task_revision=task_revision,
                 task_digest=task_digest, plan_id=plan_id,
                 plan_record=plan_record, plan_digest=plan_digest,
                 dispatch_id=dispatch_id):
-            return Termination.STALE_CONTEXT, cycle - 1
+            return interrupt("active_context_changed", "context_changed", ws, state_digest, cycle - 1)
         if effects and all(holds(e, ws) for e in effects):
             return Termination.COMPLETE, cycle - 1
 
+        observation.phase = "symbolic_verification"
         dynamic_verdict = verifier.verify(action, ws)
         tracer.event("dynamic_safety_gate", sim_t=ws.t,
                      state_digest=state_digest, plan_version=plan_version,
@@ -409,33 +434,37 @@ def dispatch(task: Task, graph: TaskGraph, action: AbstractAction,
                      checked=dynamic_verdict.checked,
                      violations=[v.model_dump() for v in dynamic_verdict.violations])
         if dynamic_verdict.verdict == "FAIL":
-            admission.stop.request_stop(
-                dispatch_id=dispatch_id, reason="dynamic_symbolic_safety")
-            _stop_latched(
-                admission, tracer, phase="dynamic_safety", sim_t=ws.t,
-                state_digest=state_digest, plan_version=plan_version,
-                action=action, dispatch_id=dispatch_id,
-                decision_id=authorization_decision_id,
-                expected_generation=authorized_stop_generation,
-            )
-            return Termination.INTERRUPTED, cycle - 1
+            return interrupt("dynamic_symbolic_safety", "dynamic_safety", ws, state_digest, cycle - 1)
 
-        traj = policy.step(action, ws)
+        observation.phase = "policy_step"
+        observation.cycles = cycle
+        # A proposal source cannot rewrite the immutable evidence snapshot used
+        # by independent safety or fault provenance.
+        policy_action, policy_state = action.model_copy(deep=True), ws.model_copy(deep=True)
+        traj = bounded_call("policy_step", admission.stop.limits.policy_s,
+                            lambda: policy.step(policy_action, policy_state))
         if _stop_latched(
                 admission, tracer, phase="post_policy", sim_t=ws.t,
                 state_digest=state_digest, plan_version=plan_version,
                 action=action, dispatch_id=dispatch_id,
                 decision_id=authorization_decision_id,
-                expected_generation=authorized_stop_generation):
+                expected_generation=authorized_stop_generation, observation=observation):
             return Termination.INTERRUPTED, cycle - 1
+        observation.phase = "context_validation"
         if not _context_gate(
                 task, graph, action, tracer, phase="pre_apply", sim_t=ws.t,
                 state_digest=state_digest, task_revision=task_revision,
                 task_digest=task_digest, plan_id=plan_id,
                 plan_record=plan_record, plan_digest=plan_digest,
                 dispatch_id=dispatch_id):
-            return Termination.STALE_CONTEXT, cycle
+            return interrupt("active_context_changed", "context_changed", ws, state_digest, cycle)
+        observation.phase = "trajectory_validation"
+        if not isinstance(traj, Trajectory):
+            raise TypeError("policy result is not a Trajectory")
+        # model_copy/model_construct and later mutation can bypass validation.
+        traj = Trajectory.model_validate(traj.model_dump(mode="json"))
         trajectory, trajectory_digest = _trajectory_record(traj)
+        observation.phase = "numeric_validation"
         verdict = numeric.verify(traj, ws, expected_action_id=action.id)
         tracer.event("safety2", sim_t=ws.t, plan_version=plan_version,
                      action_id=action.id, action_digest=_action_digest(action), cycle=cycle,
@@ -453,28 +482,31 @@ def dispatch(task: Task, graph: TaskGraph, action: AbstractAction,
         if verdict.verdict == "FAIL":
             for v in verdict.violations:
                 log.info("        SAFETY#2 FAIL [%s] %s", v.check, v.detail)
-            return Termination.UNSAFE, cycle
+            return interrupt("active_numeric_safety", "numeric_safety", ws, state_digest, cycle)
 
         if _stop_latched(
                 admission, tracer, phase="pre_apply", sim_t=ws.t,
                 state_digest=state_digest, plan_version=plan_version,
                 action=action, dispatch_id=dispatch_id,
                 decision_id=authorization_decision_id,
-                expected_generation=authorized_stop_generation):
+                expected_generation=authorized_stop_generation, observation=observation):
             return Termination.INTERRUPTED, cycle - 1
 
         try:
-            world.apply(action, traj)
+            observation.phase = "apply"
+            bounded_call("apply", admission.stop.limits.adapter_s,
+                         lambda: world.apply(action, traj), admission.pending_actuation)
         except DispatchCancelled:
             if not _stop_latched(
                 admission, tracer, phase="apply_cancelled", sim_t=ws.t,
                 state_digest=state_digest, plan_version=plan_version,
                 action=action, dispatch_id=dispatch_id,
                 decision_id=authorization_decision_id,
-                expected_generation=authorized_stop_generation,
+                expected_generation=authorized_stop_generation, observation=observation,
             ):
                 raise
             return Termination.INTERRUPTED, cycle - 1
+        observation.phase = "apply_evidence"
         tracer.event("apply", sim_t=ws.t, plan_version=plan_version,
                      action_id=action.id, action_digest=_action_digest(action), cycle=cycle,
                      dispatch_id=dispatch_id, plan_id=plan_id, plan_digest=plan_digest,
@@ -489,8 +521,11 @@ def dispatch(task: Task, graph: TaskGraph, action: AbstractAction,
                      terminal=traj.terminal, max_velocity=traj.max_velocity)
         last_applied_t = ws.t
 
+    observation.phase = "dispatch_terminal_observation"
     try:
         ws, state_digest = _observe(world, tracer, phase="dispatch_terminal")
+    except CoreCallTimeout:
+        raise
     except (TypeError, ValueError, AttributeError):
         return observation_failure(CYCLE_BUDGET + 1, "invalid_payload")
     except Exception:
@@ -498,12 +533,13 @@ def dispatch(task: Task, graph: TaskGraph, action: AbstractAction,
     if last_applied_t is not None and ws.t <= last_applied_t:
         return observation_failure(CYCLE_BUDGET + 1, "stale_after_apply",
                                    observed_digest=state_digest, observed_t=ws.t)
+    observation.state, observation.digest = ws, state_digest
     if not _uncertainty_allows(
             ws, uncertainty_threshold, tracer, phase="dispatch",
             state_digest=state_digest,
             plan_version=plan_version, action=action,
             dispatch_id=dispatch_id):
-        return active_uncertainty_stop(ws, state_digest, CYCLE_BUDGET)
+        return interrupt("active_uncertainty", "active_uncertainty", ws, state_digest, CYCLE_BUDGET)
     if effects and all(holds(e, ws) for e in effects):
         return Termination.COMPLETE, CYCLE_BUDGET
     return Termination.TIMEOUT, CYCLE_BUDGET
@@ -521,11 +557,17 @@ def run(task: Task, world: WorldBackend, reasoner: ReasonerBackend,
     """Outer loop. Returns measurements, not a verdict — see docs/benchmarks.md §3."""
     m = RunMetrics(task_id=task.id)
     mission = task.mission
+    if admission.call_limits != admission.stop.limits:
+        raise ValueError("core call limits changed after supervision was configured")
     tracer = tracer or Tracer(None, {})
+    tracer = BoundedTracer(tracer, admission.stop.limits.evidence_s)
+    tracer.observation_timeout_s = admission.stop.limits.observation_s
     admission.stop.bind(world, tracer)
+    tracer.event("call_limits_declaration", limits=admission.stop.limits.record())
     if not task.id.strip() or not task.revision.strip():
         raise ValueError("task ID and revision must be nonempty")
     task_record = task.model_dump(mode="json")
+    bound_goal = task.goal.model_copy(deep=True)
     task_digest = _record_digest(task_record)
     task_revision = task.revision
     tracer.event("task_declaration", task=task_record, task_digest=task_digest,
@@ -667,8 +709,9 @@ def run(task: Task, world: WorldBackend, reasoner: ReasonerBackend,
         return bool(graph.nodes)
 
     pre_action_observation_lost = False
+    active_execution_evidence_lost = False
     while cursor < len(graph.nodes):
-        action = graph.nodes[cursor]
+        action = graph.nodes[cursor].model_copy(deep=True)
         try:
             ws, state_digest = _observe(world, tracer, phase="pre_action")
         except Exception as exc:
@@ -888,35 +931,91 @@ def run(task: Task, world: WorldBackend, reasoner: ReasonerBackend,
                      authorization_context_digest=context_digest)
         m.action_count += 1
         dispatch_observation = DispatchObservation(ws, state_digest)
+
+        def execution_fault(error: Exception) -> tuple[Termination, int]:
+            """Quarantine uncertain execution; cancellation never waits for logging."""
+            dispatch_observation.failed = True
+            evidence_complete = not isinstance(error, CoreEvidenceUnavailable)
+            stop_before_fault = admission.stop.outcome
+            try:
+                tracer.event(
+                    "execution_fault", sim_t=dispatch_observation.state.t,
+                    state_digest=dispatch_observation.digest,
+                    plan_version=plan_record["version"], action_id=action.id,
+                    action_digest=plan_record["actions"][cursor]["action_digest"],
+                    dispatch_id=dispatch_id, phase=dispatch_observation.phase,
+                    cycles=dispatch_observation.cycles,
+                    error_type=type(error).__name__, execution_outcome="UNKNOWN",
+                    deadline=error.record() if isinstance(error, CoreCallTimeout) else None,
+                    prior_intervention_id=(stop_before_fault.intervention_id
+                                           if stop_before_fault else None),
+                )
+            except Exception:
+                evidence_complete = False
+            finally:
+                outcome = admission.stop.request_stop(
+                    dispatch_id=dispatch_id, reason="execution_fault",
+                    pending_execution=(lambda: error.pending)
+                    if isinstance(error, CoreCallTimeout)
+                    and error.label in {"begin_dispatch", "apply", "end_dispatch"} else None)
+            if not dispatch_observation.interruption_recorded:
+                try:
+                    _stop_latched(
+                        admission, tracer, phase="execution_fault",
+                        sim_t=dispatch_observation.state.t,
+                        state_digest=dispatch_observation.digest,
+                        plan_version=plan_record["version"], action=action,
+                        dispatch_id=dispatch_id, decision_id=decision.decision_id,
+                        expected_generation=authorization_context.stop_generation,
+                        observation=dispatch_observation)
+                except Exception:
+                    evidence_complete = False
+            if not evidence_complete or not outcome.trace_complete:
+                raise CoreEvidenceUnavailable(
+                    "dispatch stopped; execution evidence is incomplete") from error
+            return Termination.INTERRUPTED, dispatch_observation.cycles
+
         try:
-            reason, cycles = dispatch(
-                task, graph, action, world, policy, verifier, numeric, tracer,
-                plan_version=graph.version, profile_digest=profile_digest,
-                task_revision=task_revision, task_digest=task_digest,
-                plan_id=plan_id, plan_record=plan_record, plan_digest=plan_digest,
-                dispatch_id=dispatch_id,
-                approval_digest=approval_digest,
-                approval_revision=approved_decision.revision,
-                approval_decision_id=approved_decision.decision_id,
-                authorization_digest=decision_digest,
-                authorization_decision_id=decision.decision_id,
-                authorization_context_digest=context_digest,
-                authorized_state_digest=state_digest, authorized_sim_t=ws.t,
-                authorized_stop_generation=authorization_context.stop_generation,
-                observation=dispatch_observation,
-                admission=admission,
-                uncertainty_threshold=uncertainty_threshold,
-            )
+            try:
+                reason, cycles = dispatch(
+                    task, graph, action, world, policy, verifier, numeric, tracer,
+                    plan_version=graph.version, profile_digest=profile_digest,
+                    task_revision=task_revision, task_digest=task_digest,
+                    plan_id=plan_id, plan_record=plan_record, plan_digest=plan_digest,
+                    dispatch_id=dispatch_id,
+                    approval_digest=approval_digest,
+                    approval_revision=approved_decision.revision,
+                    approval_decision_id=approved_decision.decision_id,
+                    authorization_digest=decision_digest,
+                    authorization_decision_id=decision.decision_id,
+                    authorization_context_digest=context_digest,
+                    authorized_state_digest=state_digest, authorized_sim_t=ws.t,
+                    authorized_stop_generation=authorization_context.stop_generation,
+                    observation=dispatch_observation,
+                    admission=admission,
+                    uncertainty_threshold=uncertainty_threshold,
+                )
+                dispatch_observation.cycles = cycles
+                if not dispatch_observation.failed:
+                    dispatch_observation.phase = "post_dispatch_observation"
+                    after, after_digest = _observe(world, tracer, phase="post_dispatch")
+            except Exception as error:
+                reason, cycles = execution_fault(error)
         finally:
-            world.end_dispatch(dispatch_id)
+            try:
+                bounded_call("end_dispatch", admission.stop.limits.adapter_s,
+                             lambda: world.end_dispatch(dispatch_id), admission.pending_actuation)
+            except Exception as error:
+                if not dispatch_observation.failed:
+                    dispatch_observation.phase = "end_dispatch"
+                    reason, cycles = execution_fault(error)
         m.inner_cycles += cycles
         observation_lost = dispatch_observation.failed
+        active_execution_evidence_lost = observation_lost
         if observation_lost:
             after, after_digest = dispatch_observation.state, dispatch_observation.digest
-        else:
-            after, after_digest = _observe(world, tracer, phase="post_dispatch")
         last_valid_ws, last_valid_digest = after, after_digest
-        tracer.event("dispatch", sim_t=after.t, plan_version=graph.version,
+        tracer.event("dispatch", sim_t=after.t, plan_version=plan_record["version"],
                      action_id=action.id, action_digest=_action_digest(action),
                      dispatch_id=dispatch_id, plan_id=plan_id,
                      plan_digest=plan_digest,
@@ -940,6 +1039,9 @@ def run(task: Task, world: WorldBackend, reasoner: ReasonerBackend,
 
         if reason in {Termination.UNCERTAIN, Termination.STALE_CONTEXT,
                       Termination.INTERRUPTED}:
+            if reason is Termination.INTERRUPTED and admission.stop.outcome \
+                    and admission.stop.outcome.reason == "active_numeric_safety":
+                m.safety_rejections += 1
             m.aborted = True
             break
 
@@ -981,18 +1083,17 @@ def run(task: Task, world: WorldBackend, reasoner: ReasonerBackend,
         final, final_digest = last_valid_ws, last_valid_digest
         terminal_observation = "UNAVAILABLE"
         goal_met = False
-    elif admission.stop.outcome is not None \
-            and admission.stop.outcome.reason == "observation_unavailable":
+    elif active_execution_evidence_lost:
         final, final_digest = after, after_digest
         terminal_observation = "UNAVAILABLE"
         goal_met = False  # no verified goal claim without terminal state
     else:
         final, final_digest = _observe(world, tracer, phase="terminal")
         terminal_observation = "OBSERVED"
-        goal_met = holds(task.goal, final)
+        goal_met = holds(bound_goal, final)
     # T9 semantics: when the mission is impossible, correctly aborting IS success.
     m.task_success = (False if terminal_observation == "UNAVAILABLE"
-                      else m.aborted if task.expect_abort else goal_met)
+                      else m.aborted if task_record["expect_abort"] else goal_met)
     if m.aborted:
         m.recoveries = 0          # an aborted run recovered from nothing
 

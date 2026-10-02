@@ -5,19 +5,80 @@
 Status: draft spec. Reference implementation of §3–§4 against a mock world in
 `scripts/oracle_loop.py`.
 
+`core-call-limits/v1` now declares finite positive monotonic callback deadlines:
+policy 5 s, observation/adapter 2 s, cancellation/safe observation 1 s and evidence
+writing 1 s by default. `CoreAdmission` supplies an immutable limit profile; the
+same profile configures execution and stop supervision. Each policy, observation,
+adapter and evidence callback runs in a daemon worker while the caller waits only
+until its absolute deadline. A late result is discarded. A policy result that
+returns after its deadline cannot be numerically checked or applied by the core.
+
+Deadline faults record the call label, deadline, elapsed monotonic duration and
+pending callback evidence. Stop latches admission first; cancellation, safe-state
+observation and stop-evidence writes have independent bounds. Pending actuation
+is tracked until its callback actually returns, including callbacks that request
+stop themselves. It suppresses `SAFE_CONFIRMED_MOCK` even if an adapter reports
+hold. A timed-out cancellation or safe observation remains `SAFE_UNCONFIRMED`;
+late returns do not upgrade the immutable outcome. Mock cancellation fences a
+dispatch ID before acceptance so a delayed start cannot resurrect it.
+
+This bounds caller waits under normal Python scheduling; it does not terminate
+a thread or provide a real-time guarantee. A callback can still have physical
+side effects after timeout. Unresolved actuation therefore stays `UNKNOWN` with
+unconfirmed safety and no automatic continuation. Process isolation, external
+process-loss monitoring, durable deployed fencing and physical protective control
+remain separate work. Observation before dispatch is bounded too, but a stall there
+creates no cancellation claim because no dispatch has begun.
+
+Active dispatch now has one fault-containment boundary covering adapter start,
+policy output, symbolic/numeric verifier exceptions, application, post-dispatch
+observation and adapter cleanup. `execution_fault` records the stage, attempted
+cycle, exception type and digest-bound last valid snapshot. Cancellation uses the
+shared stop supervisor; dispatch ends `INTERRUPTED` without replan. A command that
+may have applied before an exception has outcome `UNKNOWN`. Prior state remains
+`LAST_KNOWN` provenance; terminal observation is `UNAVAILABLE`, `goal_met=false`
+and `task_success=false`, including expected-abort fixtures. This is deliberately
+conservative rather than inferring an outcome from a partial application.
+
+Active task/plan/action context changes also request cancellation. The dispatch
+retains the admitted action identity and plan version in evidence, even if the
+reasoner mutates its graph. Policies receive separate copies of action/state,
+and returned trajectories are schema-validated again because model construction,
+copy or mutation can bypass validation. The original task goal remains the scoring
+reference. Post-dispatch observation occurs before releasing adapter identity so
+a failed observation can still target that dispatch for cancellation.
+
+Evidence errors cannot bypass cancellation. If a stop-chain or interruption record
+is missing, or fault evidence cannot be written, `CoreEvidenceUnavailable` is raised
+after the admission latch and cancellation attempt. No completed metrics result is
+returned. Replay requires fault scope, stage/cycle boundary, stop cause and unverified
+terminal; it cannot reproduce an external exception or prove physical stop. This
+pass leaves bounded mock cycle-budget timeout/recovery semantics unchanged. The
+callback deadlines described above now address calls that do not return promptly.
+
 A failed uncertainty gate while a mock dispatch is active now requests scoped
 mock cancellation and terminates `INTERRUPTED`; replay requires the gate, stop
 request, acknowledgement, safe-state observation, and interruption in order.
 An uncertainty failure before dispatch has no command to cancel and remains an
 ordinary abort. This does not measure a physical stop deadline.
 
-The current mock world produces `object_evidence_v1` aggregate uncertainty from
-per-object confidence/current-tick freshness and relation confidence. Missing,
-future, or older object observation ticks yield uncertainty 1; a world with no
+A failed numeric Safety #2 verdict also requests scoped `active_numeric_safety`
+mock cancellation, closes admission, and ends dispatch `INTERRUPTED`. The rejected
+chunk is never applied and no replan follows. This applies even to the first policy
+chunk because the dispatch is already active. The numeric rejection count is
+retained. Replay requires the failed verdict, matching stop chain and interrupted
+terminal; missing cancellation or safe-state observation is `SAFE_UNCONFIRMED`.
+
+The current mock world produces `world_evidence_v2` aggregate uncertainty from
+object and relation confidence/current-tick freshness. Complete relation coverage
+also carries `relations_observed_t`, including when the relation list is empty.
+Missing, future, or older object, relation, or complete-coverage observation ticks
+yield uncertainty 1; a world with no
 objects is also maximally uncertain. Core observation and replay reject an unbound
 or inconsistent aggregate. This deliberately strict simulation-tick rule is not
-calibrated to a real sensor's wall-clock latency. Relations do not yet carry
-freshness timestamps, and the default uncertainty threshold remains zero.
+calibrated to a real sensor's wall-clock latency. The previous `object_evidence_v1`
+provenance remains parseable for historical payloads but is rejected by current
+observation/replay validation. The default uncertainty threshold remains zero.
 
 Before mock dispatch, an unavailable planning or pre-action observation now
 causes an unsuccessful terminal abort. The initial case has no state digest;
@@ -619,10 +680,10 @@ default, not a calibrated claim about perception quality. A caller may provide a
 explicit threshold in `[0,1]`; the chosen value, observed uncertainty, phase, and gate
 verdict are traced. The gate runs before planning, before symbolic action admission,
 and before every policy cycle. A breach stops logical progress without consuming the
-replan budget. If it occurs inside dispatch the attempt terminates `UNCERTAIN`; no
-later policy output is applied. Until clarification and verified physical-stop
-interfaces exist, this terminal state proves only a core logical abort, not that a
-moving robot has physically stopped.
+replan budget. If it occurs inside dispatch, the mock supervisor requests scoped
+cancellation and the attempt terminates `INTERRUPTED`; no later policy output is
+applied. The cancellation acknowledgement and separately observed mock hold are
+traced. Physical stop remains unqualified.
 
 Replan budget is bounded. On exhaustion: `ABORT`, report, do not retry indefinitely.
 An unbounded replan loop is the most likely way this system burns wall-clock during

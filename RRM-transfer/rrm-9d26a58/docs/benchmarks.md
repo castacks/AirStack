@@ -2,15 +2,56 @@
 
 # RRM-1.0 Benchmark
 
+Event-controlled deadline fixtures stall policy, observation, delayed acceptance,
+apply (both before and while holding the adapter lock), cleanup, cancellation,
+safe observation and evidence writing. The runner must return before the fixture
+releases its worker; late proposal results cannot apply, delayed starts remain
+fenced, pending actuation cannot establish a confirmed safe state, and late stop
+responses cannot revise terminal evidence. Callback-initiated stop and deadline
+expiry share one generation and one interruption record.
+
+Traces declare `core-call-limits/v1` before task evidence. Replay validates each
+deadline's label, configured duration, elapsed time, pending flags and causal stop
+scope. Missing/mismatched limits or deadline records fail replay. Older evidence
+must be evaluated with its pinned earlier source revision. Deadline values are
+configured reference bounds; short injected test limits and generous test-level
+upper bounds do not constitute a physical stop-latency measurement.
+
+The core fault matrix covers policy exceptions and malformed outputs before/after
+a chunk; adapter start, apply and cleanup errors; verifier exceptions;
+post-dispatch observation loss; and task/plan/action mutation during execution.
+A partial application fixture physically reaches its mock effect before throwing,
+but retains an `UNKNOWN` command outcome and no success claim because terminal
+evidence is unavailable. Fault traces require a single stop generation, no replan,
+an interrupted dispatch and digest-bound `LAST_KNOWN` provenance.
+
+Trace-write injections cover transient numeric/application record failures,
+permanent storage failure, missing observation-failure evidence and every stop-chain
+record. Cancellation is attempted despite lost evidence. Incomplete chains raise
+`CoreEvidenceUnavailable` and do not return completed metrics. Replay rejects
+wrong fault scope/stage/cycle, detached stops, forged terminal success and later
+applications. These injected cases supplement the five-task mock regression and
+do not authorize a live-performance claim or measure blocking-call deadlines.
+
+Focused numeric-stop fixtures reject the first or second policy chunk and require
+zero or one applications respectively, no replan, one numeric rejection and a
+terminal interruption. Missing cancellation acknowledgement or safe-state evidence
+remains `SAFE_UNCONFIRMED`. Replay rejects a detached stop reason/dispatch, incomplete
+stop evidence, or the former bare `UNSAFE` terminal. These fixtures supplement the
+five-task deterministic benchmark; they do not measure physical stop latency.
+
 Focused mock tests inject rising uncertainty during a policy dispatch and at the
 final dispatch observation. Both now require a scoped stop/interruption trace;
 missing cancellation acknowledgement remains `SAFE_UNCONFIRMED`. The standard
 five-task suite does not exercise these injected stops or qualify physical motion.
 
-The mock benchmark now records uncertainty provenance and object observation ticks
-in each world snapshot. Replay recomputes the aggregate from object freshness and
-confidence plus relation confidence, so a rehashed scalar-only change is rejected.
-Focused tests inject weak, missing, and stale object evidence; the five-task suite
+The mock benchmark now records `world_evidence_v2` uncertainty provenance and object,
+relation, and complete-relation-coverage observation ticks in each world snapshot.
+Replay recomputes the aggregate from freshness and confidence, so rehashed scalar,
+relation-timestamp, or coverage-timestamp changes are rejected. Complete coverage
+needs a current tick even when no relations are present. Focused tests inject weak,
+missing, and stale evidence, including stale relation/coverage during dispatch;
+the five-task suite
 still uses fresh MockWorld ground truth. No nonzero threshold is calibrated, and
 an active uncertainty abort is not physical stop evidence.
 

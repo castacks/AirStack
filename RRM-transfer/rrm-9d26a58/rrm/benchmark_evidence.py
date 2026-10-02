@@ -25,6 +25,7 @@ from .contracts import (
 )
 from .loop import THETA_DIV, _constraints_record, _trace_action_record
 from .core_stop import StopStateEvidence
+from .core_deadlines import CoreCallLimits
 from .uncertainty import validate_uncertainty
 from .schema import AbstractAction, NumericLimitProfile, Task, TaskGraph, Trajectory, Verb, WorldState
 from .safety import NumericSafetyVerifier, SafetyVerifier
@@ -196,6 +197,38 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
         if declaration.get("sequence", -1) <= start.get("sequence", -1):
             findings.append("task_declaration_order")
 
+    limit_events = [event for event in events if event.get("kind") == "call_limits_declaration"]
+    limits = None
+    if len(limit_events) != 1:
+        findings.append("call_limits_declaration_count_mismatch")
+    else:
+        record = limit_events[0].get("limits")
+        try:
+            limits = CoreCallLimits(**{key: value for key, value in record.items()
+                                      if key != "version"})
+            if limits.record() != record or limit_events[0].get("sequence") != 1:
+                raise ValueError("noncanonical limits")
+        except (AttributeError, TypeError, ValueError):
+            findings.append("invalid_call_limits_declaration")
+            limits = None
+
+    def deadline_valid(record, label=None) -> bool:
+        if not isinstance(record, dict) or limits is None or set(record) != {
+                "call", "timeout_s", "elapsed_s", "operation_pending"}:
+            return False
+        configured = {
+            "policy_step": limits.policy_s, "observe": limits.observation_s,
+            "begin_dispatch": limits.adapter_s, "apply": limits.adapter_s,
+            "end_dispatch": limits.adapter_s, "cancel_dispatch": limits.stop_s,
+            "observe_safe_state": limits.stop_s, "trace_write": limits.evidence_s,
+        }
+        return bool(record.get("call") in configured
+                    and (label is None or record.get("call") == label)
+                    and record.get("timeout_s") == configured.get(record.get("call"))
+                    and _number(record.get("elapsed_s"))
+                    and record["elapsed_s"] >= record["timeout_s"]
+                    and type(record.get("operation_pending")) is bool)
+
     state_sequences: dict[str, int] = {}
     state_payloads: dict[str, WorldState] = {}
     for event in (item for item in events if item.get("kind") == "world_state"):
@@ -227,7 +260,7 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
         "dispatch", "divergence", "episode_end", "capability_gate", "permission_gate",
         "numeric_profile_gate", "context_gate", "dispatch_intent", "approval_gate",
         "authorization_gate", "interruption_gate", "dynamic_safety_gate",
-        "observation_failure",
+        "observation_failure", "execution_fault",
     }
     for event in events:
         if event.get("kind") not in state_bound_kinds:
@@ -704,7 +737,8 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
         except (KeyError, TypeError, ValueError):
             continue
         if not already_complete and (sequence + 1 >= len(events)
-                                     or events[sequence + 1].get("kind") != "dynamic_safety_gate"
+                                     or events[sequence + 1].get("kind") not in {
+                                         "dynamic_safety_gate", "execution_fault"}
                                      or events[sequence + 1].get("dispatch_id") != gate.get("dispatch_id")):
             findings.append(f"missing_dynamic_safety_gate:sequence={sequence}")
     stop_requests = [event for event in events if event.get("kind") == "stop_request"]
@@ -713,6 +747,111 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
     interruption_gates = [event for event in events if event.get("kind") == "interruption_gate"]
     observation_failures = [event for event in events
                             if event.get("kind") == "observation_failure"]
+    execution_faults = [event for event in events if event.get("kind") == "execution_fault"]
+    if len(execution_faults) > 1:
+        findings.append("execution_fault_count_mismatch")
+    for fault in execution_faults:
+        sequence = fault.get("sequence")
+        dispatch_id = fault.get("dispatch_id")
+        intent = intent_by_id.get(dispatch_id)
+        state = state_payloads.get(fault.get("state_digest"))
+        phase = fault.get("phase")
+        deadline = fault.get("deadline")
+        if fault.get("error_type") == "CoreCallTimeout":
+            phase_call = {"policy_step": "policy_step", "observation": "observe",
+                          "dispatch_terminal_observation": "observe",
+                          "post_dispatch_observation": "observe", "begin_dispatch": "begin_dispatch",
+                          "apply": "apply", "end_dispatch": "end_dispatch"}.get(phase)
+            if not deadline_valid(deadline) or deadline.get("call") not in {phase_call, "trace_write"}:
+                findings.append(f"invalid_execution_deadline:sequence={sequence}")
+        elif deadline is not None:
+            findings.append(f"unexpected_execution_deadline:sequence={sequence}")
+        phases = {
+            "begin_dispatch", "observation", "symbolic_verification", "policy_step",
+            "context_validation", "trajectory_validation", "numeric_validation",
+            "apply", "apply_evidence", "dispatch_terminal_observation",
+            "post_dispatch_observation", "end_dispatch",
+        }
+        if not _integer(sequence) or intent is None or state is None \
+                or intent.get("sequence", -1) >= sequence \
+                or (fault.get("plan_version"), fault.get("action_id")) != (
+                    intent.get("plan_version"), intent.get("action_id")) \
+                or fault.get("action_digest") != intent.get("action_digest") \
+                or fault.get("sim_t") != state.t or phase not in phases \
+                or not isinstance(fault.get("error_type"), str) \
+                or not fault.get("error_type", "").strip() \
+                or fault.get("execution_outcome") != "UNKNOWN" \
+                or not _integer(fault.get("cycles")) or not 0 <= fault["cycles"] <= 6:
+            findings.append(f"invalid_execution_fault:sequence={sequence}")
+            continue
+        preceding = events[:sequence]
+        previous = preceding[-1] if preceding else {}
+        prior_applies = [event for event in preceding if event.get("kind") == "apply"
+                         and event.get("dispatch_id") == dispatch_id]
+        prior_numeric = [event for event in preceding if event.get("kind") == "safety2"
+                         and event.get("dispatch_id") == dispatch_id]
+        last_cycle = prior_applies[-1].get("cycle") if prior_applies else 0
+        if not _integer(last_cycle):
+            findings.append(f"execution_fault_prior_cycle_invalid:sequence={sequence}")
+            last_cycle = -1
+        if fault["cycles"] not in {last_cycle, last_cycle + 1} \
+                or phase == "begin_dispatch" and (fault["cycles"] != 0 or prior_numeric) \
+                or phase in {"apply", "apply_evidence"} and (
+                    not prior_numeric or prior_numeric[-1].get("verdict") != "PASS"
+                    or prior_numeric[-1].get("cycle") != fault["cycles"]):
+            findings.append(f"execution_fault_cycle_mismatch:sequence={sequence}")
+        boundary_valid = {
+            "begin_dispatch": previous.get("kind") == "dispatch_intent",
+            "symbolic_verification": previous.get("kind") == "context_gate"
+                and previous.get("phase") == "pre_chunk" and previous.get("verdict") == "ALLOW",
+            "policy_step": previous.get("kind") == "dynamic_safety_gate"
+                and previous.get("verdict") == "PASS",
+            "context_validation": previous.get("kind") in {"dynamic_safety_gate", "uncertainty_gate"}
+                and previous.get("verdict") == "PASS",
+            "trajectory_validation": previous.get("kind") == "context_gate"
+                and previous.get("phase") == "pre_apply" and previous.get("verdict") == "ALLOW",
+            "numeric_validation": previous.get("kind") == "context_gate"
+                and previous.get("phase") == "pre_apply" and previous.get("verdict") == "ALLOW",
+            "apply": previous.get("kind") == "safety2" and previous.get("verdict") == "PASS",
+            "apply_evidence": previous.get("kind") == "safety2" and previous.get("verdict") == "PASS",
+            "observation": previous.get("kind") in {"dispatch_intent", "apply"},
+            "dispatch_terminal_observation": previous.get("kind") == "apply" and last_cycle == 6,
+            "post_dispatch_observation": previous.get("kind") in {
+                "context_gate", "uncertainty_gate", "interruption_gate"},
+            "end_dispatch": previous.get("kind") == "world_state"
+                and previous.get("phase") == "post_dispatch",
+        }.get(phase, False)
+        if previous.get("kind") == "stop_safe_state" \
+                and previous.get("intervention_id") == fault.get("prior_intervention_id"):
+            boundary_valid = True
+        if not boundary_valid or previous.get("dispatch_id", dispatch_id) != dispatch_id:
+            findings.append(f"execution_fault_boundary_mismatch:sequence={sequence}")
+        matching_stops = [event for event in stop_requests
+                          if event.get("dispatch_id") == dispatch_id]
+        following = events[sequence + 1:]
+        if len(matching_stops) == 1 and fault.get("prior_intervention_id") != (
+                matching_stops[0].get("intervention_id")
+                if matching_stops[0].get("sequence", -1) < sequence else None):
+            findings.append(f"execution_fault_prior_stop_mismatch:sequence={sequence}")
+        if len(matching_stops) != 1 or (matching_stops[0].get("sequence", -1) > sequence
+                and (not following or following[0].get("kind") != "stop_request"
+                     or following[0].get("reason") != "execution_fault"
+                     or following[0].get("dispatch_id") != dispatch_id)):
+            findings.append(f"execution_fault_without_stop:sequence={sequence}")
+        if any(event.get("kind") in {"world_state", "apply", "replan", "plan"}
+               for event in following):
+            findings.append(f"evidence_or_execution_after_fault:sequence={sequence}")
+        terminals = [event for event in dispatches if event.get("dispatch_id") == dispatch_id]
+        if len(terminals) != 1 or terminals[0].get("termination") != "INTERRUPTED" \
+                or terminals[0].get("state_scope") != "LAST_KNOWN" \
+                or terminals[0].get("state_digest") != fault.get("state_digest") \
+                or terminals[0].get("cycles") != fault.get("cycles"):
+            findings.append(f"execution_fault_terminal_mismatch:sequence={sequence}")
+        if end.get("terminal_observation") != "UNAVAILABLE" \
+                or end.get("state_digest") != fault.get("state_digest") \
+                or end.get("goal_met") is not False or end.get("task_success") is not False \
+                or end.get("aborted") is not True:
+            findings.append(f"execution_fault_success_claim:sequence={sequence}")
     if len(observation_failures) > 1:
         findings.append("observation_failure_count_mismatch")
     for failure in observation_failures:
@@ -803,11 +942,13 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
                 or end.get("task_success") is not False \
                 or end.get("aborted") is not True:
             findings.append(f"observation_loss_success_claim:sequence={sequence}")
-    if not observation_failures and end.get("terminal_observation") != "OBSERVED":
+    if not observation_failures and not execution_faults \
+            and end.get("terminal_observation") != "OBSERVED":
         findings.append("terminal_observation_mismatch")
     if any(event.get("state_scope") != (
-            "LAST_KNOWN" if observation_failures
-            and event.get("dispatch_id") == observation_failures[0].get("dispatch_id")
+            "LAST_KNOWN" if any(
+                event.get("dispatch_id") == failure.get("dispatch_id")
+                for failure in observation_failures + execution_faults)
             else "OBSERVED") for event in dispatches):
         findings.append("dispatch_state_scope_mismatch")
     if len(stop_requests) > 1 or len(stop_cancels) != len(stop_requests) \
@@ -819,6 +960,8 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
         dispatch_id = request.get("dispatch_id")
         generation = request.get("generation")
         intervention_id = request.get("intervention_id")
+        if type(request.get("pending_execution_at_request")) is not bool:
+            findings.append(f"invalid_stop_pending_evidence:sequence={sequence}")
         if request.get("reason") == "dynamic_symbolic_safety" and (
                 not _integer(sequence) or sequence == 0
                 or events[sequence - 1].get("kind") != "dynamic_safety_gate"
@@ -837,6 +980,24 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
                 or events[sequence - 1].get("verdict") != "FAIL"
                 or events[sequence - 1].get("dispatch_id") != dispatch_id):
             findings.append(f"uncertainty_stop_without_failed_gate:sequence={sequence}")
+        if request.get("reason") == "active_numeric_safety" and (
+                not _integer(sequence) or sequence == 0
+                or events[sequence - 1].get("kind") != "safety2"
+                or events[sequence - 1].get("verdict") != "FAIL"
+                or events[sequence - 1].get("dispatch_id") != dispatch_id):
+            findings.append(f"numeric_stop_without_failed_gate:sequence={sequence}")
+        if request.get("reason") == "execution_fault" and (
+                not _integer(sequence) or sequence == 0
+                or events[sequence - 1].get("kind") != "execution_fault"
+                or events[sequence - 1].get("dispatch_id") != dispatch_id):
+            findings.append(f"fault_stop_without_fault:sequence={sequence}")
+        if request.get("reason") == "active_context_changed" and (
+                not _integer(sequence) or sequence == 0
+                or events[sequence - 1].get("kind") != "context_gate"
+                or events[sequence - 1].get("verdict") != "DENY"
+                or events[sequence - 1].get("phase") not in {"pre_chunk", "pre_apply"}
+                or events[sequence - 1].get("dispatch_id") != dispatch_id):
+            findings.append(f"context_stop_without_denial:sequence={sequence}")
         if not _integer(sequence) or sequence + 2 >= len(events) \
                 or not isinstance(intervention_id, str) or not intervention_id.strip() \
                 or not isinstance(request.get("reason"), str) or not request["reason"].strip() \
@@ -857,6 +1018,17 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
             findings.append(f"invalid_stop_chain:sequence={sequence}")
             continue
         evidence = safe.get("evidence")
+        for event, label in ((cancel, "cancel_dispatch"), (safe, "observe_safe_state")):
+            if event.get("deadline") is not None and not deadline_valid(event["deadline"], label):
+                findings.append(f"invalid_stop_deadline:sequence={sequence}")
+        if cancel.get("deadline") is not None and cancel.get("acknowledged") is not False \
+                or safe.get("deadline") is not None and evidence is not None:
+            findings.append(f"stop_deadline_outcome_mismatch:sequence={sequence}")
+        # The registry can gain an already-admitted racing callback between the
+        # request and proof. Its presence must suppress confirmation, not make
+        # otherwise conservative SAFE_UNCONFIRMED evidence unreplayable.
+        if type(safe.get("pending_execution")) is not bool:
+            findings.append(f"invalid_safe_pending_evidence:sequence={sequence}")
         try:
             observed = StopStateEvidence(**evidence) if isinstance(evidence, dict) else None
             if evidence is not None and (observed is None or asdict(observed) != evidence):
@@ -867,7 +1039,8 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
         if observed is not None and (observed.dispatch_id != dispatch_id
                                      or observed.generation != generation):
             findings.append(f"stop_state_scope_mismatch:sequence={sequence}")
-        confirmed = bool(cancel["acknowledged"] and observed is not None
+        confirmed = bool(safe.get("pending_execution") is False
+                         and cancel["acknowledged"] and observed is not None
                          and observed.dispatch_id == dispatch_id
                          and observed.generation == generation
                          and observed.motion_stopped and not observed.active_motion_command
@@ -915,7 +1088,7 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
             findings.append(f"context_without_dispatch_intent:sequence={sequence}")
         following = events[sequence + 1:]
         if gate.get("phase") == "pre_apply" and gate.get("verdict") == "ALLOW":
-            if not following or following[0].get("kind") != "safety2" \
+            if not following or following[0].get("kind") not in {"safety2", "execution_fault"} \
                     or following[0].get("dispatch_id") != gate.get("dispatch_id"):
                 findings.append(f"pre_apply_without_numeric_check:sequence={sequence}")
         if gate.get("phase") == "pre_chunk":
@@ -926,14 +1099,22 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
                     or preceding[-1].get("dispatch_id") != gate.get("dispatch_id"):
                 findings.append(f"pre_chunk_without_uncertainty_allow:sequence={sequence}")
         if gate.get("verdict") == "DENY":
-            next_significant = next((event for event in following
-                                    if event.get("kind") != "world_state"), None)
-            if next_significant is None or next_significant.get("kind") != "dispatch" \
-                    or next_significant.get("termination") != "STALE_CONTEXT" \
-                    or next_significant.get("dispatch_id") != gate.get("dispatch_id"):
-                findings.append(f"context_denial_not_terminal:sequence={sequence}")
+            if not following or following[0].get("kind") != "stop_request" \
+                    or following[0].get("reason") != "active_context_changed" \
+                    or following[0].get("dispatch_id") != gate.get("dispatch_id"):
+                findings.append(f"context_denial_without_stop:sequence={sequence}")
     for event in (item for item in events if item.get("kind") == "safety2"):
         sequence = event.get("sequence")
+        if event.get("verdict") == "FAIL":
+            following = events[sequence + 1:] if _integer(sequence) else []
+            terminals = [terminal for terminal in dispatches
+                         if terminal.get("dispatch_id") == event.get("dispatch_id")]
+            if not following or following[0].get("kind") != "stop_request" \
+                    or following[0].get("reason") != "active_numeric_safety" \
+                    or following[0].get("dispatch_id") != event.get("dispatch_id") \
+                    or len(terminals) != 1 \
+                    or terminals[0].get("termination") != "INTERRUPTED":
+                findings.append(f"numeric_rejection_without_stop_terminal:sequence={sequence}")
         if not _integer(sequence) or sequence == 0 \
                 or events[sequence - 1].get("kind") != "context_gate" \
                 or events[sequence - 1].get("phase") != "pre_apply" \
@@ -954,7 +1135,7 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
                 findings.append(f"dispatch_uncertainty_without_context:sequence={sequence}")
 
     action_event_kinds = {"safety1", "safety2", "apply", "dispatch", "divergence",
-                          "dynamic_safety_gate"}
+                          "dynamic_safety_gate", "execution_fault"}
     for event in events:
         if event.get("kind") not in action_event_kinds:
             continue
@@ -1432,12 +1613,17 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
                      if event.get("kind") != "world_state"]
         if gate.get("phase") == "dispatch":
             expected_kinds = ["stop_request", "stop_cancel", "stop_safe_state",
-                              "interruption_gate", "dispatch", "episode_end"]
+                             "interruption_gate", "dispatch", "episode_end"]
+            terminal_index = 4
+            if any(fault.get("dispatch_id") == gate.get("dispatch_id")
+                   for fault in execution_faults):
+                expected_kinds.insert(4, "execution_fault")
+                terminal_index = 5
             if [event.get("kind") for event in following] != expected_kinds \
                     or following[0].get("reason") != "active_uncertainty" \
                     or following[0].get("dispatch_id") != gate.get("dispatch_id") \
-                    or following[4].get("termination") != "INTERRUPTED" \
-                    or following[4].get("dispatch_id") != gate.get("dispatch_id"):
+                    or following[terminal_index].get("termination") != "INTERRUPTED" \
+                    or following[terminal_index].get("dispatch_id") != gate.get("dispatch_id"):
                 findings.append("uncertainty_dispatch_without_stop_terminal")
         elif len(following) != 1 or following[0].get("kind") != "episode_end":
             findings.append("execution_after_uncertainty_failure")
@@ -1561,7 +1747,7 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
         findings.append("invalid_expect_abort")
     elif type(reconstructed["task_success"]) is bool and type(reconstructed["goal_met"]) is bool \
             and type(reconstructed["aborted"]) is bool:
-        expected_success = (False if observation_failures else
+        expected_success = (False if observation_failures or execution_faults else
                             reconstructed["aborted"] if expect_abort
                             else reconstructed["goal_met"])
         if reconstructed["task_success"] is not expected_success:

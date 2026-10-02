@@ -8,6 +8,7 @@ from typing import Callable, Literal, Protocol
 
 from .contracts import AdmissionGuard, DispatchContext, SafetyDecision
 from .core_stop import CoreStopSupervisor
+from .core_deadlines import CoreCallLimits, PendingActuation
 
 
 class SafetyDecisionProvider(Protocol):
@@ -22,12 +23,16 @@ class CoreAdmission:
     provider: SafetyDecisionProvider
     evidence_kind: Literal["trusted_in_process", "synthetic_fixture"]
     clock: Callable[[], float] = field(default=time.monotonic)
+    call_limits: CoreCallLimits = field(default_factory=CoreCallLimits)
     stop: CoreStopSupervisor = field(init=False)
+    pending_actuation: PendingActuation = field(init=False)
 
     def __post_init__(self) -> None:
         if not isinstance(self.guard, AdmissionGuard) or self.provider is None \
                 or not callable(getattr(self.provider, "decide", None)) \
                 or self.evidence_kind not in {"trusted_in_process", "synthetic_fixture"} \
-                or not callable(self.clock):
+                or not callable(self.clock) or not isinstance(self.call_limits, CoreCallLimits):
             raise ValueError("invalid core admission dependency")
-        self.stop = CoreStopSupervisor(self.guard)
+        self.pending_actuation = PendingActuation()
+        self.stop = CoreStopSupervisor(self.guard, self.call_limits,
+                                       self.pending_actuation.pending)

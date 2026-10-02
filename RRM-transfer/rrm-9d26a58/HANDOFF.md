@@ -1,5 +1,126 @@
 # RRM remote Codex handoff
 
+## Core callback-deadline and late-operation checkpoint — 2026-10-02 UTC
+
+The core now declares `core-call-limits/v1` and bounds caller waits for policy
+steps, world observation, adapter start/apply/cleanup, cancellation, safe-state
+observation and evidence writes. Default limits are policy 5 s, observation/adapter
+2 s, and stop/evidence 1 s. `CoreAdmission.call_limits` accepts a validated
+`rrm.core_deadlines.CoreCallLimits`; execution and supervision use the same frozen
+configuration. Expiry records the call, configured deadline, elapsed monotonic
+duration and pending status, cancels the scoped attempt, and ends with unavailable
+execution evidence instead of applying a late result or replanning.
+
+Callbacks run in daemon threads; a deadline does **not** terminate a thread.
+Pending actuation remains tracked until the actual callback returns. It suppresses
+`SAFE_CONFIRMED_MOCK` even when a permissive adapter reports hold. Stop callbacks
+and trace writes have independent bounds; late acknowledgement/observation cannot
+upgrade the immutable result. Mock cancellation fences dispatch IDs before
+acceptance, rejecting a delayed start after cancellation. A callback-initiated stop
+and simultaneous deadline use one generation and one interruption record, linked
+by `prior_intervention_id`. Replay permits conservative unconfirmed evidence when
+a racing callback becomes pending between request and safe-state observation.
+
+Final validation: **373/373 CPU tests**, **8/8 focused deadline tests**, **5/5
+Oracle tasks and 5/5 replay-valid benchmark traces**. Retained deadline artifacts
+cover 12 attempts: 11 complete valid traces plus one intentionally incomplete
+trace-stall result that cancels and raises `CoreEvidenceUnavailable`. At configured
+0.08-second per-call fixture limits, maximum observed parent runtime was 0.4091 s
+(test upper bound 1.5 s). This is a mock scheduling observation, not a real-time or
+physical stopping guarantee. The earlier pre-review run (372 tests) and its
+artifacts remain retained separately. `performance_claim_authorized=false`.
+Final runtime source digest:
+`67389d84d60c6d8b79e414412160a410c56a85f41656f060b05c7ac40cce8c74`.
+
+This checkpoint integrates all four latest increments over `da84e340`; references
+to uncommitted work below describe their historical development state. Cycle-budget
+timeout/recovery semantics are unchanged. Threads may still have side effects
+after caller timeout; unresolved actuation remains `UNKNOWN`/`SAFE_UNCONFIRMED`
+with no automatic restart. Process isolation, external process-loss monitoring,
+durable deployed fencing and physical protective control remain open.
+
+## Core dispatch fault-containment checkpoint — 2026-10-02 UTC
+
+The combined working tree now contains a broader active-dispatch fault boundary.
+Task/plan/action context changes request scoped cancellation instead of ending
+with a bare `STALE_CONTEXT`. Adapter start, policy, verifier, trajectory validation,
+apply, post-dispatch observation and cleanup exceptions emit `execution_fault`
+with the admitted identity, stage, attempted cycle and prior state digest. They
+stop once and end `INTERRUPTED` without replanning. A possibly partially applied
+command remains `UNKNOWN`; prior state is `LAST_KNOWN`, terminal observation is
+`UNAVAILABLE`, and both goal verification and task success are false.
+
+Policies receive independent action/state copies. Returned trajectories are
+validated again, including objects constructed/copied without Pydantic validation.
+Dispatch evidence retains the admitted action and plan version after graph mutation;
+the original task goal remains the scoring reference. Post-dispatch observation
+occurs before adapter identity is released so cancellation can target that attempt.
+
+Stop supervision operates even when evidence writes fail. Missing stop-chain or
+interruption records, lost observation-failure evidence, or unrecoverable fault
+logging raise `CoreEvidenceUnavailable` after the cancellation attempt. They do
+not return complete metrics. Replay validates fault stage/cycle boundaries, causal
+stop scope, single generation, interruption and unavailable terminal evidence;
+tampered scope, stage, cycles, stops, success claims and late applications fail.
+
+Validation: **365/365 CPU tests**, 12/12 focused fault-matrix tests, **5/5 Oracle
+tasks and 5/5 replay-valid benchmark traces**. Retained fault artifacts cover 29
+attempts: 23 complete replay-valid traces and six intentionally incomplete traces
+that correctly raise the evidence error after cancellation. These counts have
+separate denominators; incomplete traces are not successful replay results.
+`performance_claim_authorized=false`. Runtime source digest:
+`b02434d877641c37ec1062caaa9eeb12b611663ee08c3908df264f948323e74a`.
+
+All three latest increments remain uncommitted over `da84e340`. Bounded mock
+timeout/recovery semantics remain unchanged. Blocking-call watchdogs, external
+process loss, wall-clock transport deadlines and physical stop qualification remain
+open; these results establish deterministic mock fault containment and evidence.
+
+## Core numeric-rejection mock-stop increment — 2026-10-02 UTC
+
+The working core now handles a failed numeric Safety #2 verdict through the shared
+stop supervisor. It latches admission, requests scoped `active_numeric_safety`
+cancellation, records acknowledgement and independent safe-state evidence, and
+ends dispatch `INTERRUPTED` without applying the rejected chunk or replanning.
+This applies to first-chunk rejection as well: dispatch has already begun.
+The numeric safety rejection remains counted exactly once. Missing cancellation
+or safe-state evidence remains `SAFE_UNCONFIRMED`.
+
+Replay recomputes the numeric verdict and requires its immediately following
+matching stop request, complete stop chain and interrupted dispatch. It rejects
+the former bare `UNSAFE` terminal, detached stop reason/dispatch, missing stop,
+and contradictory cancellation or safe-state records.
+
+Validation on the combined relation-freshness and numeric-stop working tree:
+353/353 CPU tests, 3/3 focused numeric-stop tests, 5/5 deterministic benchmark
+tasks and 5/5 replay-valid traces, with `performance_claim_authorized=false`.
+Runtime source digest:
+`3b81eb6efdf95be2c0a8bb66c4c4081830fcbb15810c88741df0a0c5415b4979`.
+Both latest increments remain uncommitted over `da84e340`. These results measure
+mock cancellation and replay causality; physical stop deadlines remain unqualified.
+
+## Core relation-evidence freshness increment — 2026-10-02 UTC
+
+The current working increment extends aggregate uncertainty to `world_evidence_v2`:
+relations now carry `observed_t`, and complete relation coverage carries
+`relations_observed_t`, including when the relation list is empty. Missing, future,
+or older relation/coverage ticks yield maximum uncertainty. MockWorld stamps its
+exhaustive ground-truth observations at the current simulation tick. Current core
+observation and replay reject the earlier `object_evidence_v1` version; it remains
+parseable only for historical payloads. The existing zero-default gate blocks stale
+evidence before planning or requests scoped mock cancellation during dispatch.
+Rehashed relation or coverage timestamps cannot bypass replay validation.
+
+Validation: 350/350 CPU tests, 12/12 focused uncertainty tests, 5/5 deterministic
+benchmark tasks and 5/5 replay-valid traces. `performance_claim_authorized=false`.
+Runtime source digest:
+`9a08aa3adc9317484a68d4367c96e5d36f3aa6b3904b33bfd1d89201b6d6bfdf`.
+This qualifies exact-tick mock evidence freshness; physical sensor freshness,
+transport deadlines, and independent physical stop remain outside this result.
+The older entries below describing increments as uncommitted were incorporated
+into `02947784` and `da84e340`. This increment and the numeric-stop increment
+above are currently uncommitted.
+
 ## Core active-uncertainty mock-stop increment — 2026-10-01 UTC
 
 The uncommitted core now routes a failed uncertainty gate during an active
