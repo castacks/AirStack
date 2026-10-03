@@ -71,13 +71,24 @@ it is not worker-only, robot completion or physical stop latency. Differences fr
 these deterministic repetitions have no uncertainty interval or significance claim.
 Timing differences can reflect host scheduling rather than system behavior.
 
-The retained validation also encountered real evidence-write deadline failures at
+Earlier retained validation encountered real evidence-write deadline failures at
 the fixture's 0.1-second bound, under both concurrent and sequential execution.
 Some traces lacked a terminal record; others contained a late gate record that did
 not satisfy replay's strict fault-phase boundary. Those attempts remain unqualified
 and UNKNOWN in comparison. The reporter does not repair the trace, widen deadlines,
-or select only passing repetitions. These observations leave evidence-write timing
-and late-write fault reconstruction as a separate core reliability gap.
+or select only passing repetitions. Current source adds v3 commit receipts and strict
+identity/phase reconstruction for records already flushed when timeout is observed.
+It deliberately leaves missing, pre-commit, reordered and rejecting-gate writes
+incomplete. Historical v2 outcomes are not retroactively upgraded. This closes the
+narrow late-commit reconstruction defect, not host scheduling sensitivity or durable
+storage qualification.
+
+Two retained v3 34-attempt regressions each produced 33 expectation matches and 31
+complete attempts. The additional unqualified attempt was different in each run:
+one pre-dispatch gate write timed out; one active numeric write was reconstructed but
+a subsequent interruption record was not. These all-attempt observations keep the
+remaining scheduling/liveness limitation visible rather than treating strict replay
+reconstruction as a throughput fix.
 
 The original legacy `task_success` includes expected-abort success. The report retains
 it as a separate all-attempt rate, never a substitute for `goal_met`. Safety confusion

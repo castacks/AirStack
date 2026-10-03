@@ -8,9 +8,10 @@ replan attempts. Plan versions count only accepted proposals. Replay checks boun
 task/state/authority, prior plan and actual divergence or safety-rejection trigger.
 No dispatch is active during these calls, so proposal failure makes no cancellation
 or safe-state claim. Late workers cannot write a plan or dispatch through the core.
-The declaration is now `core-call-limits/v2`; earlier v1 traces without reasoner
-limits require their version-pinned historical reader and are rejected by current
-canonical replay, rather than silently assigning a deadline that was never recorded.
+The declaration is now `core-call-limits/v3`; earlier v1 traces without reasoner
+limits and v2 traces without write receipts require their version-pinned historical
+readers and are rejected by current canonical replay, rather than silently assigning
+evidence that was never recorded.
 
 Focused retained traces cover initial and recovery planning stalls, exceptions,
 abnormal worker termination, invalid graphs and context changes, plus successful
@@ -45,10 +46,14 @@ fenced, pending actuation cannot establish a confirmed safe state, and late stop
 responses cannot revise terminal evidence. Callback-initiated stop and deadline
 expiry share one generation and one interruption record.
 
-Traces declare `core-call-limits/v2` before task evidence. Replay validates each
+Traces declare `core-call-limits/v3` before task evidence. Replay validates each
 deadline's label, configured duration, elapsed time, pending flags and causal stop
-scope. Missing/mismatched limits or deadline records fail replay. Older evidence
-must be evaluated with its pinned earlier source revision. Deadline values are
+scope. Every bounded event has a unique write identity. A timed-out trace callback
+qualifies only when its flush receipt says committed and the identified event is the
+immediately preceding, phase-correct observation/apply or non-rejecting gate. Missing,
+pre-commit, duplicate, reordered, wrong-phase or rejection records fail complete
+replay; they are not repaired. Older evidence must be evaluated with its pinned
+earlier source revision. Deadline values are
 configured reference bounds; short injected test limits and generous test-level
 upper bounds do not constitute a physical stop-latency measurement.
 

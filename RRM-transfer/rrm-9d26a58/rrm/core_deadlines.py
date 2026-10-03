@@ -7,6 +7,7 @@ import time
 from dataclasses import asdict, dataclass
 from threading import Event, Lock, Thread
 from typing import Callable, TypeVar
+from uuid import uuid4
 
 T = TypeVar("T")
 
@@ -46,14 +47,16 @@ class CoreCallLimits:
             raise ValueError("call deadlines must be finite positive seconds")
 
     def record(self) -> dict:
-        return {"version": "core-call-limits/v2", **asdict(self)}
+        return {"version": "core-call-limits/v3", **asdict(self)}
 
 
 class CoreCallTimeout(TimeoutError):
-    def __init__(self, label: str, timeout_s: float, elapsed_s: float, completion: Event):
+    def __init__(self, label: str, timeout_s: float, elapsed_s: float, completion: Event,
+                 context: dict | None = None):
         super().__init__(f"{label} exceeded its callback deadline")
         self.label, self.timeout_s, self.elapsed_s = label, timeout_s, elapsed_s
         self.completion = completion
+        self.context = dict(context or {})
 
     @property
     def pending(self) -> bool:
@@ -61,7 +64,8 @@ class CoreCallTimeout(TimeoutError):
 
     def record(self) -> dict:
         return {"call": self.label, "timeout_s": self.timeout_s,
-                "elapsed_s": self.elapsed_s, "operation_pending": self.pending}
+                "elapsed_s": self.elapsed_s, "operation_pending": self.pending,
+                **self.context}
 
 
 def bounded_call(label: str, timeout_s: float, callback: Callable[[], T],
@@ -110,6 +114,22 @@ class BoundedTracer:
         self.tracer, self.timeout_s = tracer, timeout_s
         self.run_id = tracer.run_id
 
-    def event(self, kind: str, **fields) -> None:
-        bounded_call("trace_write", self.timeout_s,
-                     lambda: self.tracer.event(kind, **fields))
+    def event(self, kind: str, **fields) -> int | None:
+        write_id = uuid4().hex
+        committed = Event()
+        reconstructible = (
+            kind in {"world_state", "apply"}
+            or kind in {"uncertainty_gate", "dynamic_safety_gate", "safety2"}
+            and fields.get("verdict") == "PASS"
+            or kind == "context_gate" and fields.get("verdict") == "ALLOW"
+        )
+        try:
+            return bounded_call("trace_write", self.timeout_s,
+                                lambda: self.tracer.event(
+                                    kind, evidence_write_id=write_id,
+                                    _commit_event=committed, **fields))
+        except CoreCallTimeout as error:
+            error.context = {"event_kind": kind, "event_write_id": write_id,
+                             "event_committed": committed.is_set(),
+                             "event_reconstructible": reconstructible}
+            raise

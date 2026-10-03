@@ -11,12 +11,16 @@ goal -> GUI -> semantic RRM -> capability route -> embodiment grounding
 
 ## Core evaluation checkpoint — 2026-10-02
 
-The core CPU suite passes 404/404 tests. T now exports a fixed 17-case
+The core CPU suite passes 410/410 tests. T now exports a fixed 17-case
 [acceptance campaign](../core-acceptance.md) with authored event-scoped safety labels
 and a [paired comparison report](../core-comparison.md) over matching, same-source
 campaigns. Every scheduled attempt and unknown outcome remains in reporting.
-Retained runs also expose evidence-write deadline/replay gaps at the short mock
-fixture bounds. This advances measurement and reconstruction; it does not add live
+Retained v2 runs exposed evidence-write deadline/replay gaps at the short mock
+fixture bounds. Current v3 evidence reconstructs only receipt-proven, adjacent late
+commits; pending/missing/reordered writes remain incomplete. Two retained v3 runs
+each qualified 31/34 attempts and matched 33/34 expectations, preserving one additional
+observed write-liveness failure plus the two intentional trace-loss cases. This advances
+measurement and reconstruction; it does not add live
 goal-to-finish evidence to the dated assessment below. Comparative architecture/model
 trials and externally adjudicated integrated outcomes remain outstanding.
 

@@ -1,5 +1,36 @@
 # RRM remote Codex handoff
 
+## Late evidence reconstruction checkpoint — 2026-10-02
+
+Current source advances **T telemetry/evaluation and M fault reconstruction supporting
+S supervision** to `core-call-limits/v3`. Every bounded event has a unique write ID,
+and the tracer issues an in-process receipt only after the JSONL append is flushed.
+A trace-write timeout is complete only when its receipt is true and replay finds that
+exact event immediately before the fault at an allowed phase boundary. Phase-correct
+observations, apply evidence and non-rejecting PASS/ALLOW gates can be reconstructed.
+Pre-commit, missing, duplicate, reordered, wrong-phase and rejecting-gate writes remain
+incomplete; cancellation is attempted and no completed metrics are returned.
+
+Focused validation covers committed-late dynamic, numeric, uncertainty, apply,
+dispatch-observation and post-dispatch records; a deterministic pre-commit stall;
+a committed rejecting gate; forged identity/type/order/phase/receipt mutations; and
+the existing deadline/fault matrices. The full dependency-light suite passes
+**410/410** in 35.456 s. The unchanged Oracle remains **5/5**, with all five traces
+valid under current replay. Independent read-only review found no blocking defect.
+
+Two separately retained 34-attempt acceptance runs each verify as internally valid,
+but each reports **33/34 expectation matches and 31/34 complete attempts**. Alongside
+the two intentional trace-loss attempts, campaign A lost nominal-place evidence after
+a pre-dispatch `safety1` write deadline; campaign B reconstructed a committed late
+numeric gate but lost a later interruption record. Both affected attempts remain
+UNKNOWN and unqualified. These non-cherry-picked outcomes show the narrow active-fault
+boundary is repaired while callback/sidecar scheduling and subsequent write liveness
+remain open; no limit was widened.
+
+This is CPU/mock evidence only: no simulator or robot motion, control/adaptor change,
+new RRM layer, or frozen RRM-EM expansion occurred. Historical v1/v2 bundles retain
+their source-pinned readers and are intentionally rejected by current canonical replay.
+
 ## Paired campaign comparison checkpoint — 2026-10-02
 
 This checkpoint completes **T telemetry/evaluation** pairing and is committed with

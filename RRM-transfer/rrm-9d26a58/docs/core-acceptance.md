@@ -18,6 +18,21 @@ exercise scheduling stability, not distinct stochastic seeds or confidence inter
 callback limits are independently declared at 0.1 seconds. These are test bounds,
 not calibrated deployment limits or physical stop-response measurements.
 
+Campaigns produced by current source declare `core-call-limits/v3`. Each bounded
+event has a unique write identity, and a trace-write fault carries an append receipt.
+A record flushed before its callback deadline is observed can remain replayable only
+when it is adjacent, identity-bound and valid for that fault phase. Pre-commit,
+missing, reordered, wrong-phase, rejecting-gate and duplicate-identity cases remain
+incomplete. Earlier v2 bundles retain their original source-pinned reader; current
+replay intentionally does not reinterpret them.
+
+In the retained v3 regression, two 34-attempt runs each had 33 expectation matches
+and 31 complete attempts. One encountered a pre-dispatch write deadline; the other
+successfully bound a late numeric record but lost later interruption evidence. Both
+remain unqualified and UNKNOWN. Thus v3 establishes strict reconstruction semantics,
+not deadline-free callback/sidecar scheduling, and no 0.1-second fixture bound was
+widened to obtain a favorable rate.
+
 ## Frozen cases
 
 | Family | Cases |

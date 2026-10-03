@@ -151,6 +151,11 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
         if not isinstance(event.get("kind"), str) or not event["kind"]:
             findings.append(f"invalid_kind:sequence={index}")
 
+    write_ids = [event.get("evidence_write_id") for event in events[1:]]
+    if any(not isinstance(value, str) or not value.strip() for value in write_ids) \
+            or len(write_ids) != len(set(str(value) for value in write_ids)):
+        findings.append("invalid_evidence_write_identity")
+
     if not events or events[0].get("kind") != "run_start":
         findings.append("missing_run_start")
     if not events or events[-1].get("kind") != "episode_end":
@@ -213,8 +218,13 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
             limits = None
 
     def deadline_valid(record, label=None) -> bool:
-        if not isinstance(record, dict) or limits is None or set(record) != {
-                "call", "timeout_s", "elapsed_s", "operation_pending"}:
+        if not isinstance(record, dict) or limits is None:
+            return False
+        base_fields = {"call", "timeout_s", "elapsed_s", "operation_pending"}
+        expected_fields = (base_fields | {"event_kind", "event_write_id", "event_committed",
+                                          "event_reconstructible"}
+                           if record.get("call") == "trace_write" else base_fields)
+        if set(record) != expected_fields:
             return False
         configured = {
             "reasoner_plan": limits.reasoner_s, "reasoner_replan": limits.reasoner_s,
@@ -228,7 +238,14 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
                     and record.get("timeout_s") == configured.get(record.get("call"))
                     and _number(record.get("elapsed_s"))
                     and record["elapsed_s"] >= record["timeout_s"]
-                    and type(record.get("operation_pending")) is bool)
+                    and type(record.get("operation_pending")) is bool
+                    and (record.get("call") != "trace_write" or (
+                        isinstance(record.get("event_kind"), str)
+                        and bool(record["event_kind"].strip())
+                        and isinstance(record.get("event_write_id"), str)
+                        and bool(record["event_write_id"].strip())
+                        and type(record.get("event_committed")) is bool
+                        and type(record.get("event_reconstructible")) is bool)))
 
     state_sequences: dict[str, int] = {}
     state_payloads: dict[str, WorldState] = {}
@@ -760,6 +777,7 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
         state = state_payloads.get(fault.get("state_digest"))
         phase = fault.get("phase")
         deadline = fault.get("deadline")
+        late_evidence = None
         if fault.get("error_type") == "CoreCallTimeout":
             phase_call = {"policy_step": "policy_step", "observation": "observe",
                           "dispatch_terminal_observation": "observe",
@@ -767,6 +785,17 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
                           "apply": "apply", "end_dispatch": "end_dispatch"}.get(phase)
             if not deadline_valid(deadline) or deadline.get("call") not in {phase_call, "trace_write"}:
                 findings.append(f"invalid_execution_deadline:sequence={sequence}")
+            elif deadline.get("call") == "trace_write":
+                matches = [event for event in events
+                           if event.get("evidence_write_id") == deadline.get("event_write_id")]
+                if deadline.get("event_committed") is not True \
+                        or deadline.get("event_reconstructible") is not True \
+                        or len(matches) != 1 \
+                        or matches[0].get("kind") != deadline.get("event_kind") \
+                        or matches[0].get("sequence") != sequence - 1:
+                    findings.append(f"invalid_late_evidence_binding:sequence={sequence}")
+                else:
+                    late_evidence = matches[0]
         elif deadline is not None:
             findings.append(f"unexpected_execution_deadline:sequence={sequence}")
         phases = {
@@ -824,6 +853,37 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
             "end_dispatch": previous.get("kind") == "world_state"
                 and previous.get("phase") == "post_dispatch",
         }.get(phase, False)
+        allowed_late_evidence = {
+            "observation": {"world_state", "uncertainty_gate"},
+            "context_validation": {"context_gate"},
+            "symbolic_verification": {"dynamic_safety_gate"},
+            "numeric_validation": {"safety2"},
+            "apply_evidence": {"apply"},
+            "dispatch_terminal_observation": {"world_state", "uncertainty_gate"},
+            "post_dispatch_observation": {"world_state"},
+        }
+        if late_evidence is not None:
+            expected_world_phase = {
+                "observation": "dispatch",
+                "dispatch_terminal_observation": "dispatch_terminal",
+                "post_dispatch_observation": "post_dispatch",
+            }.get(phase)
+            verdict = late_evidence.get("verdict")
+            semantic_boundary_valid = (
+                late_evidence.get("kind") not in {
+                    "uncertainty_gate", "dynamic_safety_gate", "safety2", "context_gate",
+                }
+                or verdict == ("ALLOW" if late_evidence.get("kind") == "context_gate"
+                               else "PASS")
+            )
+            semantic_boundary_valid = (semantic_boundary_valid
+                                       and deadline.get("event_reconstructible") is True)
+            boundary_valid = (late_evidence is previous
+                              and late_evidence.get("kind") in allowed_late_evidence.get(phase, set())
+                              and late_evidence.get("dispatch_id", dispatch_id) == dispatch_id
+                              and semantic_boundary_valid
+                              and (late_evidence.get("kind") != "world_state"
+                                   or late_evidence.get("phase") == expected_world_phase))
         if previous.get("kind") == "stop_safe_state" \
                 and previous.get("intervention_id") == fault.get("prior_intervention_id"):
             boundary_valid = True
@@ -1132,9 +1192,19 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
         following = events[sequence + 1:]
         prior = events[sequence - 1] if sequence else {}
         if prior.get("kind") == "world_state" and prior.get("phase") == "dispatch":
-            if not following or following[0].get("kind") != "context_gate" \
-                    or following[0].get("phase") != "pre_chunk" \
-                    or following[0].get("dispatch_id") != gate.get("dispatch_id"):
+            next_event = following[0] if following else {}
+            continued = (next_event.get("kind") == "context_gate"
+                         and next_event.get("phase") == "pre_chunk"
+                         and next_event.get("dispatch_id") == gate.get("dispatch_id"))
+            receipt_fault = (next_event.get("kind") == "execution_fault"
+                             and next_event.get("phase") == "observation"
+                             and next_event.get("dispatch_id") == gate.get("dispatch_id")
+                             and isinstance(next_event.get("deadline"), dict)
+                             and next_event["deadline"].get("call") == "trace_write"
+                             and next_event["deadline"].get("event_committed") is True
+                             and next_event["deadline"].get("event_write_id")
+                             == gate.get("evidence_write_id"))
+            if not continued and not receipt_fault:
                 findings.append(f"dispatch_uncertainty_without_context:sequence={sequence}")
 
     action_event_kinds = {"safety1", "safety2", "apply", "dispatch", "divergence",

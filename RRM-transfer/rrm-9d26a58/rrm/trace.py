@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from threading import Lock
+from threading import Event, Lock
 from typing import Any
 from uuid import uuid4
 
@@ -39,15 +39,21 @@ class Tracer:
             self._fh = path.open("x", encoding="utf-8")
             self.event("run_start", **run_meta)
 
-    def event(self, kind: str, **fields: Any) -> None:
+    def event(self, kind: str, **fields: Any) -> int | None:
+        commit_event = fields.pop("_commit_event", None)
+        if commit_event is not None and not isinstance(commit_event, Event):
+            raise TypeError("_commit_event must be a threading.Event")
         if "run_id" in fields and fields["run_id"] != self.run_id:
             raise ValueError("event run_id does not match tracer")
         with self._lock:
             if self._fh is None:
-                return
+                if commit_event is not None:
+                    commit_event.set()
+                return None
+            sequence = self._sequence
             rec = {
                 "schema_version": TRACE_EVENT_SCHEMA,
-                "sequence": self._sequence,
+                "sequence": sequence,
                 "wall_time_s": round(time.time(), 6),
                 "monotonic_time_s": round(time.monotonic(), 6),
                 "kind": kind,
@@ -57,6 +63,9 @@ class Tracer:
             self._fh.write(json.dumps(rec, default=str) + "\n")
             self._fh.flush()
             self._sequence += 1
+            if commit_event is not None:
+                commit_event.set()
+            return sequence
 
     def close(self) -> None:
         with self._lock:

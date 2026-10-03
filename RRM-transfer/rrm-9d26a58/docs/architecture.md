@@ -21,7 +21,7 @@ joins requests/results and actual divergence/rejection triggers. Threads are not
 terminated, models are not isolated processes, and no realtime/physical guarantee
 or integrated S06 qualification follows.
 
-`core-call-limits/v2` declares finite positive monotonic callback deadlines:
+`core-call-limits/v3` declares finite positive monotonic callback deadlines:
 policy 5 s, observation/adapter 2 s, cancellation/safe observation 1 s and evidence
 writing 1 s by default. `CoreAdmission` supplies an immutable limit profile; the
 same profile configures execution and stop supervision. Each policy, observation,
@@ -37,6 +37,17 @@ stop themselves. It suppresses `SAFE_CONFIRMED_MOCK` even if an adapter reports
 hold. A timed-out cancellation or safe observation remains `SAFE_UNCONFIRMED`;
 late returns do not upgrade the immutable outcome. Mock cancellation fences a
 dispatch ID before acceptance so a delayed start cannot resurrect it.
+
+Every bounded trace event carries a unique write identity. The append-only tracer
+sets an in-process commit receipt only after its JSONL record is flushed. If the
+callback deadline expires after that receipt, fault evidence binds the exact event
+kind, identity and committed status; replay accepts only an immediately preceding,
+phase-appropriate PASS/ALLOW gate, observation, or apply record. A callback that is
+still pre-commit makes evidence incomplete even if its daemon later appends, and no
+completed metrics are returned. Replay also rejects duplicate write identities,
+wrong observation phases and forged committed flags. This reconstructs a narrow
+completed-write race; it does not repair files or infer missing/reordered evidence.
+The schema bump intentionally requires v1/v2 traces to use their source-pinned readers.
 
 This bounds caller waits under normal Python scheduling; it does not terminate
 a thread or provide a real-time guarantee. A callback can still have physical

@@ -183,13 +183,14 @@ class FixtureTracer(Tracer):
             if self.mode == "trace" and (kind == "safety2" or self.failed):
                 self.failed = True
                 raise OSError("authored permanent trace-write loss")
-            super().event(kind, **fields)
+            sequence = super().event(kind, **fields)
             if kind in STAGES:
                 label = expected_label({**fields, "kind": kind, "sequence": self._sequence - 1,
                                         "run_id": self.run_id}, self._rule, self._configuration_hash)
                 self._labels.write(json.dumps(label, sort_keys=True) + "\n")
                 self._labels.flush()
                 os.fsync(self._labels.fileno())
+            return sequence
 
     def close(self):
         with self._label_lock:

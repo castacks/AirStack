@@ -988,6 +988,10 @@ def run(task: Task, world: WorldBackend, reasoner: ReasonerBackend,
             """Quarantine uncertain execution; cancellation never waits for logging."""
             dispatch_observation.failed = True
             evidence_complete = not isinstance(error, CoreEvidenceUnavailable)
+            if isinstance(error, CoreCallTimeout) and error.label == "trace_write" \
+                    and (error.context.get("event_committed") is not True
+                         or error.context.get("event_reconstructible") is not True):
+                evidence_complete = False
             stop_before_fault = admission.stop.outcome
             try:
                 tracer.event(
