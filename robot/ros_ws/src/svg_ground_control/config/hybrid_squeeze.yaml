@@ -38,7 +38,10 @@ swarm_commander:
     cbf_exempt_drones: "drone_3"
 
     scenario: "squeeze"
-    scenario_speed_mps: 0.5
+    scenario_speed_mps: 0.5     # nominal speed. Live: ros2 param set /swarm_commander scenario_speed_mps X
+    # (also capped by cbf_max_speed_mps below; it is a cruise cap — the drone
+    # brakes at goal_accel_mps2, so a goal closer than v^2/(2a) + v*settle
+    # never sees the full speed)
     arena_low: [-2.0, -2.0, 0.8]
     arena_high: [2.0, 2.0, 2.0]
     # real holders mocap-anchored (0); sim intruder at its SITL spawn (x=+2)
@@ -65,6 +68,9 @@ swarm_commander:
     hover_kp: 1.0
     arrival_threshold_m: 0.15
     land_speed_mps: 0.3
+    takeoff_speed_mps: 0.5    # climb profile speed (braking law to the target)
+    hold_lead_m: 0.2          # reference leash while taking off/landing/holding:
+                              # PX4's z loop is stiff, keep it close (C1_0920_203148)
     land_complete_altitude_m: 0.15
 
     cbf_safety_radius_m: 0.55
@@ -72,18 +78,58 @@ swarm_commander:
     cbf_alpha: 2.5
 
     fence_enabled: true
+    # fence_behavior: what a breach of [fence_min, fence_max] does.
+    #   "hold_all" - any ACTIVE drone (auto, teleop OR external) outside the
+    #                box latches: everyone freezes, scenario stops, until
+    #                ~/reset_fence. Safe default for autonomous runs.
+    #   "keep_in"  - nobody stops. Commanded drones are held inside the box by
+    #                a per-axis velocity barrier (outward speed <= gain *
+    #                distance to the wall, pushed back if outside); external
+    #                drones cannot be steered and are only reported.
+    fence_behavior: "hold_all"
+    fence_brake_accel_mps2: 4.0   # keep_in: braking deceleration of the wall envelope (m/s2); 0 = plain gain*distance barrier
+    fence_keep_in_gain: 1.0       # keep_in: near the wall speed <= gain*distance (1/s); 1/gain = lag margin of the envelope
+    fence_margin_m: 0.0           # keep_in: meet the wall this early (m)
     fence_min: [-4.0, -2.0, 0.0]
     fence_max: [4.0, 2.0, 3.0]
 
 # Launch with use_mocap:=true so the REAL holders' PX4 EKFs get mocap as
-# external vision (mocap_bridge: /{name}/pose -> /{name}/fmu/visual_odometry_in).
-# Only the real drones have mocap; the sim intruder (drone_3) has none, so it
-# is omitted here. Set mocap_topic_template to your natnet_ros2 output prefix.
+# external vision (direct mode: /{name}/pose -> /{name}/fmu/in/vehicle_visual_odometry,
+# mirroring the proven model_ai_tfpub.cpp — see B4b). Only the real drones have
+# mocap; the sim intruder (drone_3) has none, so it is omitted here.
 mocap_bridge:
   ros__parameters:
     drone_names: ["drone_1", "drone_2"]
     mocap_topic_template: "/{name}/pose"
-    visual_odometry_topic_template: "/{name}/fmu/visual_odometry_in"
+    px4_vio_mode: "direct"
+    px4_vio_frame: "enu_to_ned"     # B4b hand-check; 'modalai_flip' if mirrored
+    vio_quality: 100
+    px4_vio_topic_template: "/{name}/fmu/in/vehicle_visual_odometry"
+    visual_odometry_topic_template: "/{name}/fmu/visual_odometry_in"  # via_interface only
     mocap_frame: "map"
     velocity_filter_alpha: 0.4
     mocap_qos_best_effort: false
+
+# Onboard LED strips — REAL holders only (drone_3 is simulated, no strip).
+# Green by default, red while the CBF yields to the sim intruder.
+led_controller:
+  ros__parameters:
+    drone_names: ["drone_1", "drone_2"]
+    default_color: "green"
+    cbf_color: "red"
+    cbf_hold_s: 0.5
+    brightness: 80
+    heartbeat_port: 47901
+
+# Gamepad teleop (teleop.launch.py drone:=drone_3), only if a drone is
+# hand-flown (teleop_drones:=drone_3 on the commander launch, or set above).
+# teleop_controller = input device, an entry of
+# svg_ground_control/safe_teleop/controllers.py ("dragonrise_usb", "xbox_usb").
+safe_teleop:
+  ros__parameters:
+    # The pad on the bench is a SHANWAN/DragonRise "Android gamepad", whose
+    # DirectInput layout is NOT the Xbox one (right stick on axes 2/3, left
+    # bumper button 6, and axes 4/5 are triggers that rest at FULL SCALE).
+    # Set this to "xbox_usb" if you swap in a real Xbox pad. Check an unknown
+    # pad with `ros2 run svg_ground_control joy_map` before flying it.
+    teleop_controller: "dragonrise_usb"

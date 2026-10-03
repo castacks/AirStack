@@ -4,6 +4,9 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /MarkerArray1
+        - /solo drone_1 RGB1
+        - /squeeze-hover intruder drone_3 RGB1
+        - /real robot_1 RGB1
       Splitter Ratio: 0.5
   - Class: rviz_common/Views
     Name: Views
@@ -36,7 +39,91 @@ Visualization Manager:
         Reliability Policy: Reliable
         Value: /svg/viz/markers
       Value: true
-  Enabled: true
+    - Class: rviz_default_plugins/Image
+      Enabled: true
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Name: solo drone_1 RGB
+      Normalize Range: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /drone_1/sensors/front_stereo/left/image_rect
+      Value: true
+    - Class: rviz_default_plugins/Image
+      Enabled: true
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Name: solo drone_1 depth
+      Normalize Range: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /drone_1/sensors/front_stereo/left/depth_ground_truth
+      Value: true
+    - Class: rviz_default_plugins/Image
+      Enabled: true
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Name: squeeze-hover intruder drone_3 RGB
+      Normalize Range: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /drone_3/sensors/front_stereo/left/image_rect
+      Value: true
+    - Class: rviz_default_plugins/Image
+      Enabled: true
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Name: squeeze-hover intruder drone_3 depth
+      Normalize Range: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /drone_3/sensors/front_stereo/left/depth_ground_truth
+      Value: true
+    - Class: rviz_default_plugins/Image
+      Enabled: true
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Name: real robot_1 RGB
+      Normalize Range: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /robot_1/sensors/front_stereo/left/image_rect
+      Value: true
+    - Class: rviz_default_plugins/Image
+      Enabled: true
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Name: real robot_1 depth
+      Normalize Range: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /robot_1/sensors/front_stereo/left/depth_ground_truth
+      Value: true
+      Enabled: true
   Global Options:
     Background Color: 30; 30; 36
     Fixed Frame: map

@@ -1,0 +1,12 @@
+# Set the onboard LED strip color of one drone (svg_ground_control/led_controller).
+#
+# color: a name  -> off | red | green | blue | white | yellow | cyan | magenta | orange
+#        or raw   -> "r,g,b" or "r,g,b,w"  (0-255 each; scaled by the controller's brightness cap)
+# mode:  MODE_SOLID (default) or MODE_BLINK
+string color
+uint8 MODE_SOLID=0
+uint8 MODE_BLINK=1
+uint8 mode
+---
+bool success
+string message

@@ -31,20 +31,23 @@ services:
     command: >
       bash -c "
       service ssh restart;
+      python3 /root/AirStack/gcs/foxglove_extensions/install.py || echo 'Foxglove extension install failed (non-fatal)';
+      python3 /root/AirStack/robot/ros_ws/src/svg_ground_control/foxglove/install.py || echo 'SVG Foxglove panel install failed (non-fatal)';
       tmux new -d -s bringup;
       if [ $$AUTOLAUNCH == 'true' ]; then
         tmux send-keys -t bringup:0.0 'bws && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml role:=$$AUTONOMY_ROLE' ENTER;
       fi;
       sleep infinity"
     # assumes you're connected to work internet, so creates a network to isolate from other developers on your work internet
-    networks:
-      - airstack_network
-    # allow scaling multiple robots on the same machine
-    ports:
-      # for ssh, starting from 2223-2243 on the host port all map to 22 in the container. Assumes no more than 21 robots
-      - "2223-2243:22"
-      - "8767-8787:8765" # for Foxglove remote display (range supports up to 21 robots; GCS uses 8765)
+    # networks:
+    #   - airstack_network
+    # # allow scaling multiple robots on the same machine
+    # ports:
+    #   # for ssh, starting from 2223-2243 on the host port all map to 22 in the container. Assumes no more than 21 robots
+    #   - "2223-2243:22"
+    #   - "8767-8787:8765" # for Foxglove remote display (range supports up to 21 robots; GCS uses 8765)
     # for multiple robots
+    network_mode: host
     deploy:
       replicas: ${NUM_ROBOTS:-1}
       resources:

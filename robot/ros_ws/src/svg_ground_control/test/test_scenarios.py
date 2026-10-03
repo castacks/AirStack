@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from svg_ground_control.cbf_filter import filter_velocities
 from svg_ground_control.scenarios import Bounds, make_scenario
@@ -46,6 +47,28 @@ def test_goal_scenario_live_retarget_and_speed() -> None:
     v = s.nominal_velocity(pos)
     assert v[1, 0] > 0.0
     assert abs(np.linalg.norm(v[1]) - 0.5) < 1e-6   # far goal -> capped at speed
+
+
+def test_tracked_rows_follow_the_reference_profile() -> None:
+    """With a reference the row ramps at the acceleration limit and reports
+    the feedforward; a NaN reference row keeps the stateless law."""
+    initial = np.array([[0.0, 0.0, 1.2], [1.0, 0.0, 1.2]])
+    s = make('goal', 2, initial_goals=initial, accel=2.0, settle_s=0.3)
+    s.set_goal(0, np.array([5.0, 0.0, 1.2]))
+    s.set_goal(1, np.array([6.0, 0.0, 1.2]))
+    refs = np.array([[0.0, 0.0, 1.2], [np.nan, np.nan, np.nan]])
+    v = s.nominal_velocity(initial, references=refs, applied=np.zeros((2, 3)), dt=0.05)
+    assert np.linalg.norm(v[0]) == pytest.approx(2.0 * 0.05)     # one tick of accel
+    assert s.nominal_acceleration[0] == pytest.approx([2.0, 0.0, 0.0])
+    assert np.linalg.norm(v[1]) == pytest.approx(0.6)             # stateless: capped
+    assert s.nominal_acceleration[1] == pytest.approx([0.0, 0.0, 0.0])
+    # keeps ramping while the reference moves with what was applied
+    for _ in range(20):
+        refs[0] += v[0] * 0.05
+        v = s.nominal_velocity(initial, references=refs, applied=v, dt=0.05)
+    assert np.linalg.norm(v[0]) == pytest.approx(0.6)             # cruise
+    s.reset_tracking()
+    assert np.all(s.tracker.velocity == 0.0)
 
 
 def test_hover_scenario_seeks_targets() -> None:

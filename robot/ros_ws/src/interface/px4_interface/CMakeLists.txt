@@ -14,6 +14,7 @@ find_package(rclcpp REQUIRED)
 find_package(px4_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(trajectory_msgs REQUIRED)
 find_package(mav_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 
@@ -33,6 +34,7 @@ ament_target_dependencies(px4_interface
   px4_msgs
   nav_msgs
   geometry_msgs
+  trajectory_msgs
   mav_msgs
   tf2)
 

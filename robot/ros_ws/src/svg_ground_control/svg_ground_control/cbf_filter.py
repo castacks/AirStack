@@ -137,11 +137,19 @@ def solve_safe_commands(
     alpha_unused: float = 0.0,
     max_iterations: int = 200,
     tolerance: float = 2e-3,
+    fixed: np.ndarray | None = None,
 ) -> CBFResult:
     """Project `nominal` onto the safe set (hybrid Dykstra projection).
 
     Minimizes ``sum_k ||x_k - nominal_k||^2`` subject to every pairwise
     half-space in `constraints` and the per-drone cap ``||x_k|| <= norm_cap``.
+
+    Rows marked in ``fixed`` are NOT decision variables: their nominal is
+    taken as ground truth (e.g. the measured velocity of an RC-flown
+    intruder, or the command an exempt obstacle will execute regardless).
+    They are never projected, capped, or averaged — each pair constraint
+    involving one puts its FULL correction on the movable drone, so the
+    movable drones absorb all of the evasion instead of half.
 
     Two phases over the *pruned* active constraint set:
 
@@ -161,6 +169,9 @@ def solve_safe_commands(
         max_iterations: maximum sweeps per phase.
         tolerance: convergence threshold on both the residual and the
             per-sweep change.
+        fixed: optional shape (N,) bool; True rows are held at their nominal
+            (see above). None (default) = every row adjustable, identical to
+            the original solver.
 
     Returns:
         `CBFResult` with the safe commands and solver diagnostics.
@@ -168,6 +179,9 @@ def solve_safe_commands(
     del alpha_unused
 
     commands = np.asarray(nominal, dtype=float).copy()
+    num_drones = commands.shape[0]
+    movable = (np.ones(num_drones, dtype=bool) if fixed is None
+               else ~np.asarray(fixed, dtype=bool))
 
     gradient_all = constraints.gradient
     bias_all = constraints.bias
@@ -181,44 +195,62 @@ def solve_safe_commands(
         )
     )
 
-    # Prune pairs that no feasible commands can violate:
-    # |g . (x_i - x_j)| <= ||g|| * 2 * norm_cap, so bias beyond that bound
-    # makes the constraint inactive this step. Cost then scales with the
-    # number of actual conflicts instead of all N^2/2 pairs.
-    active = bias_all < gradient_norm_all * 2.0 * norm_cap
+    # Prune pairs that no feasible commands can violate. A fixed row's part
+    # of the pair lhs is a CONSTANT (it stays at its nominal), so fold it
+    # into the bound; the movable side can shift the lhs by at most
+    # ||g|| * norm_cap per movable drone. Pairs with no movable drone can't
+    # be influenced at all and are dropped outright. With every row movable
+    # this reduces to the original bias < ||g|| * 2 * norm_cap test.
+    movable_i_all = movable[constraints.idx_i]
+    movable_j_all = movable[constraints.idx_j]
+    num_movable_all = movable_i_all.astype(float) + movable_j_all.astype(float)
+    fixed_contrib = np.einsum(
+        "md,md->m",
+        gradient_all,
+        commands[constraints.idx_i] * (~movable_i_all)[:, None]
+        - commands[constraints.idx_j] * (~movable_j_all)[:, None],
+    )
+    active = (
+        (bias_all + fixed_contrib < gradient_norm_all * num_movable_all * norm_cap)
+        & (num_movable_all > 0)
+    )
     idx_i = constraints.idx_i[active]
     idx_j = constraints.idx_j[active]
     gradient = gradient_all[active]
     bias = bias_all[active]
 
     commands, converged, residual, iterations = _parallel_dykstra(
-        commands, idx_i, idx_j, gradient, bias, norm_cap, max_iterations, tolerance
+        commands, idx_i, idx_j, gradient, bias, norm_cap, max_iterations,
+        tolerance, movable,
     )
     if not converged:
         commands, converged, residual, polish_iterations = _gauss_seidel_dykstra(
             commands, idx_i, idx_j, gradient, bias, norm_cap, max_iterations,
-            tolerance,
+            tolerance, movable,
         )
         iterations += polish_iterations
 
     # Final safeguard (as in the 2D reference): the consensus average can
-    # leave commands a hair over the cap -- clamp them, and zero any
-    # non-finite rows.
+    # leave commands a hair over the cap -- clamp them (movable rows only:
+    # a fixed obstacle's measured speed may legitimately exceed the cap and
+    # must not be understated), and zero any non-finite rows.
     non_finite = ~np.all(np.isfinite(commands), axis=-1)
     if np.any(non_finite):
         commands[non_finite] = 0.0
         converged = False
     norms = np.linalg.norm(commands, axis=-1)
-    over_cap = norms > norm_cap
+    over_cap = (norms > norm_cap) & movable
     if np.any(over_cap):
         commands[over_cap] *= (norm_cap / norms[over_cap])[:, None]
-    residual = _residual_active(commands, idx_i, idx_j, gradient, bias, norm_cap)
+    residual = _residual_active(
+        commands, idx_i, idx_j, gradient, bias, norm_cap, movable
+    )
 
     used_emergency_stop = False
     if not converged or num_infeasible or residual > 5.0 * tolerance:
-        commands = _emergency_push_apart(commands, constraints, norm_cap)
+        commands = _emergency_push_apart(commands, constraints, norm_cap, movable)
         residual = _residual_active(
-            commands, idx_i, idx_j, gradient, bias, norm_cap
+            commands, idx_i, idx_j, gradient, bias, norm_cap, movable
         )
         used_emergency_stop = True
 
@@ -244,17 +276,25 @@ def filter_velocities(
     alpha: float = 2.5,
     max_iterations: int = 200,
     tolerance: float = 2e-3,
+    fixed: np.ndarray | None = None,
 ) -> CBFResult:
     """Convenience wrapper: build velocity-CBF constraints and solve them.
 
     Args:
         nominal_velocities: shape (N, D) desired per-drone velocities (m/s).
+            For a ``fixed`` row this must be the velocity the drone will
+            ACTUALLY fly (measured velocity of an uncommanded drone, or the
+            command an exempt obstacle will execute) — that is what the
+            other drones react to.
         positions: shape (N, D) world-frame drone positions (m).
         safety_radius: per-drone safety radius r (m).
         max_speed: per-drone speed cap (m/s).
         alpha: CBF class-K gain.
         max_iterations: maximum Dykstra sweeps.
         tolerance: solver convergence tolerance.
+        fixed: optional shape (N,) bool; True rows are held at their nominal
+            and the movable drones absorb the full correction (see
+            `solve_safe_commands`).
 
     Returns:
         `CBFResult` with safe velocities and diagnostics.
@@ -266,6 +306,7 @@ def filter_velocities(
         norm_cap=max_speed,
         max_iterations=max_iterations,
         tolerance=tolerance,
+        fixed=fixed,
     )
 
 
@@ -278,19 +319,30 @@ def _parallel_dykstra(
     norm_cap: float,
     max_iterations: int,
     tolerance: float,
+    movable: np.ndarray,
 ) -> tuple[np.ndarray, bool, float, int]:
     """Phase 1: parallel (product-space) Dykstra over the active set.
 
     Every constraint set is projected simultaneously in vectorized numpy and
     the per-drone results are averaged, weighted by how many sets each drone
-    participates in (its pair count + the speed-cap set).
+    participates in (its pair count + the speed-cap set). Fixed
+    (non-movable) rows are never projected or capped and are re-pinned to
+    their nominal after every consensus average.
 
     Returns:
         (commands, converged, residual, iterations).
     """
     num_drones, dim = commands.shape
     num_active = int(idx_i.shape[0])
-    pair_norm_sq = 2.0 * np.einsum("md,md->m", gradient, gradient)
+    movable_i = movable[idx_i].astype(float)[:, None]
+    movable_j = movable[idx_j].astype(float)[:, None]
+    # The projection step distributes over the movable member(s) only: with
+    # both movable this is the classic symmetric split (2 ||g||^2); with one
+    # fixed, the movable drone takes the full step (||g||^2).
+    pair_norm_sq = (movable_i + movable_j)[:, 0] * np.einsum(
+        "md,md->m", gradient, gradient
+    )
+    pinned = commands[~movable].copy()
 
     cap_correction = np.zeros_like(commands)
     pair_correction_i = np.zeros((num_active, dim))
@@ -305,10 +357,11 @@ def _parallel_dykstra(
     iterations = 0
 
     for sweep in range(max_iterations):
-        # Speed-cap projections (independent per drone).
+        # Speed-cap projections (independent per drone; fixed rows exempt).
         capped = commands + cap_correction
         norms = np.linalg.norm(capped, axis=-1)
-        scale = np.where(norms > norm_cap, norm_cap / np.maximum(norms, 1e-12), 1.0)
+        scale = np.where((norms > norm_cap) & movable,
+                         norm_cap / np.maximum(norms, 1e-12), 1.0)
         cap_projection = capped * scale[:, None]
         cap_correction = capped - cap_projection
 
@@ -317,8 +370,8 @@ def _parallel_dykstra(
         yj = commands[idx_j] + pair_correction_j
         lhs = np.einsum("md,md->m", gradient, yi - yj) + bias
         step = np.maximum(0.0, -lhs) / np.maximum(pair_norm_sq, 1e-12)
-        wi = yi + step[:, None] * gradient
-        wj = yj - step[:, None] * gradient
+        wi = yi + (step[:, None] * gradient) * movable_i
+        wj = yj - (step[:, None] * gradient) * movable_j
         pair_correction_i = yi - wi
         pair_correction_j = yj - wj
 
@@ -327,11 +380,14 @@ def _parallel_dykstra(
         np.add.at(accumulator, idx_i, wi)
         np.add.at(accumulator, idx_j, wj)
         new_commands = accumulator / weight
+        new_commands[~movable] = pinned
 
         max_delta = float(np.max(np.abs(new_commands - commands)))
         commands = new_commands
 
-        residual = _residual_active(commands, idx_i, idx_j, gradient, bias, norm_cap)
+        residual = _residual_active(
+            commands, idx_i, idx_j, gradient, bias, norm_cap, movable
+        )
         iterations = sweep + 1
         if residual <= tolerance and max_delta <= tolerance:
             converged = True
@@ -349,6 +405,7 @@ def _gauss_seidel_dykstra(
     norm_cap: float,
     max_iterations: int,
     tolerance: float,
+    movable: np.ndarray,
 ) -> tuple[np.ndarray, bool, float, int]:
     """Phase 2: sequential Dykstra polish, warm-started from phase 1.
 
@@ -362,7 +419,9 @@ def _gauss_seidel_dykstra(
         (commands, converged, residual, iterations).
     """
     num_active = int(idx_i.shape[0])
-    pair_norm_sq = 2.0 * np.einsum("md,md->m", gradient, gradient)
+    # Step distributes over the movable member(s) only, as in phase 1.
+    pair_movable = movable[idx_i].astype(float) + movable[idx_j].astype(float)
+    pair_norm_sq = pair_movable * np.einsum("md,md->m", gradient, gradient)
 
     cap_correction = np.zeros_like(commands)
     pair_correction_i = np.zeros((num_active, commands.shape[1]))
@@ -375,7 +434,8 @@ def _gauss_seidel_dykstra(
     for sweep in range(max_iterations):
         capped = commands + cap_correction
         norms = np.linalg.norm(capped, axis=-1)
-        scale = np.where(norms > norm_cap, norm_cap / np.maximum(norms, 1e-12), 1.0)
+        scale = np.where((norms > norm_cap) & movable,
+                         norm_cap / np.maximum(norms, 1e-12), 1.0)
         projected = capped * scale[:, None]
         cap_correction = capped - projected
         max_delta = float(np.max(np.abs(projected - commands)))
@@ -393,8 +453,10 @@ def _gauss_seidel_dykstra(
             new_j = yj
             if lhs < 0.0 and pair_norm_sq[pair] > 1e-12:
                 step = (-lhs) / pair_norm_sq[pair]
-                new_i = yi + step * grad
-                new_j = yj - step * grad
+                if movable[i]:
+                    new_i = yi + step * grad
+                if movable[j]:
+                    new_j = yj - step * grad
 
             pair_correction_i[pair] = yi - new_i
             pair_correction_j[pair] = yj - new_j
@@ -406,7 +468,9 @@ def _gauss_seidel_dykstra(
             commands[i] = new_i
             commands[j] = new_j
 
-        residual = _residual_active(commands, idx_i, idx_j, gradient, bias, norm_cap)
+        residual = _residual_active(
+            commands, idx_i, idx_j, gradient, bias, norm_cap, movable
+        )
         iterations = sweep + 1
         if residual <= tolerance and max_delta <= tolerance:
             converged = True
@@ -422,14 +486,19 @@ def _residual_active(
     gradient: np.ndarray,
     bias: np.ndarray,
     norm_cap: float,
+    movable: np.ndarray | None = None,
 ) -> float:
     """Worst violation over the active pair constraints plus the speed cap.
 
     Pruned (inactive) pairs are satisfied by construction -- their bias
     exceeds the largest possible gradient term -- so checking the active set
-    equals checking every pair.
+    equals checking every pair. The speed cap applies only to movable rows:
+    a fixed obstacle flying faster than the cap is a fact, not a violation.
     """
-    speed_violation = np.maximum(0.0, np.linalg.norm(commands, axis=-1) - norm_cap)
+    speeds = np.linalg.norm(commands, axis=-1)
+    if movable is not None:
+        speeds = speeds[movable]
+    speed_violation = np.maximum(0.0, speeds - norm_cap)
     worst = float(np.max(speed_violation)) if speed_violation.size else 0.0
 
     if idx_i.shape[0]:
@@ -443,18 +512,24 @@ def _emergency_push_apart(
     commands: np.ndarray,
     constraints: PairwiseConstraints,
     norm_cap: float,
+    movable: np.ndarray | None = None,
 ) -> np.ndarray:
     """Fallback when the QP is infeasible: shove violated pairs apart.
 
-    For any pair still violating its constraint, overwrite both drones'
-    commands with an away-from-each-other velocity along the line between
-    them, magnitude capped at ``norm_cap``. A best-effort safety action, not
-    an optimal one.
+    For any pair still violating its constraint, overwrite the movable
+    drones' commands with an away-from-each-other velocity along the line
+    between them, magnitude capped at ``norm_cap``. Fixed rows are left
+    untouched (an RC-flown intruder cannot be shoved). A best-effort safety
+    action, not an optimal one.
     """
     commands = commands.copy()
     for pair in range(constraints.num_pairs):
         i = constraints.idx_i[pair]
         j = constraints.idx_j[pair]
+        i_movable = movable is None or movable[i]
+        j_movable = movable is None or movable[j]
+        if not i_movable and not j_movable:
+            continue
         grad = constraints.gradient[pair]
         lhs = float(grad @ (commands[i] - commands[j]) + constraints.bias[pair])
         if lhs >= 0.0:
@@ -469,6 +544,8 @@ def _emergency_push_apart(
             norm = 1.0
         speed = min(norm_cap, 0.5 * norm_cap + max(0.0, -constraints.barrier[pair]) * 0.1)
         push = direction / norm * speed
-        commands[i] = push
-        commands[j] = -push
+        if i_movable:
+            commands[i] = push
+        if j_movable:
+            commands[j] = -push
     return commands

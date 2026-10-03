@@ -105,3 +105,7 @@ bags/
 eval/runs/
 runs/airstack/
 replay.mp4
+
+# Local-only: uXRCE agent build clone and ModalAI LED reference workspace
+robot/ros_ws/Micro-XRCE-DDS-Agent/
+robot/ros_ws/src/svg_ground_control/led_ws/

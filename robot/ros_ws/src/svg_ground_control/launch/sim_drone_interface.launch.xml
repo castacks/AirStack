@@ -12,6 +12,13 @@
 
   <group>
     <push-ros-namespace namespace="$(var drone_name)" />
-    <include file="$(find-pkg-share interface_bringup)/launch/interface.launch.py" />
+    <include file="$(find-pkg-share interface_bringup)/launch/interface.launch.py">
+      <!-- All drones share one ROS domain here (no per-robot domain
+           isolation), so TF frames must be namespaced per drone or every
+           drone's odometry_conversion collides on a single map->base_link. -->
+      <arg name="new_frame_id" value="$(var drone_name)/map" />
+      <arg name="new_child_frame_id" value="$(var drone_name)/base_link" />
+      <arg name="target_frame" value="$(var drone_name)/base_link" />
+    </include>
   </group>
 </launch>
