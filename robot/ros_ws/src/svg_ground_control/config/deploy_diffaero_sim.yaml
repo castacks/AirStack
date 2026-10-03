@@ -1,0 +1,21 @@
+# One short DiffAero trial through the generic PolicyCommanderBase.
+# The checkpoint must exist at this path inside the robot container.
+diffaero_commander:
+  ros__parameters:
+    drone_name: drone_1
+    drone_mode: sim
+    policy_name: diffaero
+    trial_log_dir: /root/AirStack/robot/ros_ws/safe_trials
+    drone_position_offset: [0.0, 0.0, 0.0]
+    hover_position: [0.0, 0.0, 1.2]
+    goal_position: [2.0, 0.0, 1.2]
+    control_rate_hz: 30.0
+    state_timeout_s: 0.5
+    goal_arrival_threshold_m: 0.4
+    fence_enabled: true
+    fence_min: [-3.0, -3.0, 0.0]
+    fence_max: [3.0, 3.0, 3.0]
+    checkpoint_path: /root/AirStack/robot/ros_ws/checkpoints/diffaero/sha2c_pmc_lag_2026-06-22/
+    max_accel: 20.0
+    max_vel: 1.5
+    max_acc_xy: 3.0

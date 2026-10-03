@@ -3,21 +3,16 @@
 Runs the REAL AirStack stack (Isaac Sim via AirStack's own bring-up + the
 full autonomy stack in the robot container) as the system under test. Plain
 python — no Isaac interpreter needed on the host, only `pip install
-safe-benchmark` and the docker CLI:
+safe-benchmark` and the docker CLI.
 
-    # Smoke test — one episode, DROAN through the full stack, empty domain
-    python eval/run.py --agent droan --domains empty --simple -y
+Every run knob (agents, domains, grid, dt, keep_up, ...) is a key in an
+experiment yaml; the CLI carries only actions and session facts:
 
-    # DROAN vs baselines, warehouse, full SAFE stats
-    python eval/run.py --agents droan aggressive conservative \\
-        --domains warehouse -N 5 -P 5 -T 10
+    python eval/run.py --config eval/experiments/<name>.yaml -y
+    python eval/run.py --list
 
-    # Keep the stack running between runs while iterating
-    python eval/run.py --agent droan --domains empty --simple -y --keep-up
-
-Output: eval/runs/airstack/<run_id>/
-    <agent>/   — per-agent RE/RP/CVaR plots, text summary, episodes.csv
-    comparison.png / comparison_summary.txt (when multiple agents)
+Output: runs/airstack/<run_id>/ under the working directory (the job pool
+in safe_core resolves the run root relative to cwd).
 """
 
 from __future__ import annotations
@@ -53,17 +48,20 @@ class AirstackRunner(BaseRunner):
         return sorted(PROFILES)
 
     def add_args(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument(
-            "--epsilon-unsafe", type=float, default=0.3, dest="epsilon_unsafe",
-            help="Risk-proximate shell width δ (metres). Default: 0.3.")
-        parser.add_argument(
-            "--goal-tolerance", type=float, default=1.0, dest="goal_tolerance",
-            help="XY distance (m) at which the goal counts as reached.")
-        parser.add_argument(
-            "--takeoff-velocity", type=float, default=1.0, dest="takeoff_velocity")
-        parser.add_argument(
-            "--keep-up", action="store_true", dest="keep_up",
-            help="Leave the Docker stack running after the run (faster iteration).")
+        # Yaml-only run knobs: registered so the yaml auto-map finds the dest,
+        # hidden from --help and rejected as flags by enforce_cli_surface().
+        parser.add_argument("--epsilon-unsafe", type=float, default=0.3,
+                            dest="epsilon_unsafe", help=argparse.SUPPRESS)
+        parser.add_argument("--goal-tolerance", type=float, default=1.0,
+                            dest="goal_tolerance", help=argparse.SUPPRESS)
+        parser.add_argument("--takeoff-velocity", type=float, default=1.0,
+                            dest="takeoff_velocity", help=argparse.SUPPRESS)
+        parser.add_argument("--keep-up", action="store_true", dest="keep_up",
+                            help=argparse.SUPPRESS)
+
+    def available_domains(self, args) -> list[str]:
+        from .sim.environment_config import get_domain_registry
+        return sorted(get_domain_registry())
 
     def validate(self, args: argparse.Namespace) -> int:
         from .sim.environment_config import get_domain_registry

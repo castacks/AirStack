@@ -8,6 +8,7 @@ host does not have) as a single long-lived `docker exec -i` process:
     stdout → JSON lines to the host harness
 
 It only touches the stack's REAL interfaces:
+    action     /{robot}/tasks/navigate                               (task_msgs/NavigateTask)
     publishes  /{robot}/global_plan                                (nav_msgs/Path)
     publishes  /{robot}/trajectory_controller/trajectory_override  (airstack_msgs/TrajectoryXYZVYaw)
     subscribes /{robot}/odometry_conversion/odometry               (frame_id + EKF pose passthrough)
@@ -16,11 +17,14 @@ It only touches the stack's REAL interfaces:
 eval/stack/scenario_client.py — not this bridge.)
 
 stdin message kinds:
-    {"kind": "global_plan",   "waypoints": [[x,y,z], ...]}
-    {"kind": "traj_override", "waypoints": [[x,y,z], ...], "velocity": 1.0}
+    {"kind": "navigate",        "waypoints": [[x,y,z], ...], "goal_tolerance": 1.0}
+    {"kind": "cancel_navigate"}
+    {"kind": "global_plan",     "waypoints": [[x,y,z], ...]}
+    {"kind": "traj_override",   "waypoints": [[x,y,z], ...], "velocity": 1.0}
 
 stdout message kinds (one JSON object per line):
     {"kind": "odom", "frame": ..., "pos": [...]} — throttled EKF odometry
+    {"kind": "navigate", "accepted": bool}       — NavigateTask goal response
     {"kind": "ready"}           — bridge is up and spinning
 """
 
@@ -31,6 +35,7 @@ import sys
 import threading
 
 import rclpy
+from rclpy.action import ActionClient
 from rclpy.node import Node
 from rclpy.parameter import Parameter
 
@@ -41,6 +46,12 @@ try:
     from airstack_msgs.msg import TrajectoryXYZVYaw, WaypointXYZVYaw
 except ImportError:  # workspace not built — global_plan / command paths still work
     TrajectoryXYZVYaw = WaypointXYZVYaw = None
+
+try:
+    from task_msgs.action import NavigateTask
+    from action_msgs.srv import CancelGoal
+except ImportError:
+    NavigateTask = CancelGoal = None
 
 
 def emit(obj: dict) -> None:
@@ -68,6 +79,20 @@ class SafeEvalBridge(Node):
 
         self.create_subscription(Odometry, f"/{robot}/odometry_conversion/odometry",
                                  self._on_odom, 10)
+
+        # The planner only starts following a plan once a NavigateTask goal is
+        # active; a bare global_plan publish is stored but never executed.
+        self.navigate_client = (
+            ActionClient(self, NavigateTask, f"/{robot}/tasks/navigate")
+            if NavigateTask is not None else None
+        )
+        # Cancel-all through the action's own service: a goal left by another
+        # client would otherwise make the planner reject every new one.
+        self.cancel_client = (
+            self.create_client(CancelGoal, f"/{robot}/tasks/navigate/_action/cancel_goal")
+            if CancelGoal is not None else None
+        )
+        self._navigate_handle = None
 
         self._inbox: "queue.Queue[dict]" = queue.Queue()
         self.create_timer(0.02, self._drain_inbox)
@@ -110,7 +135,11 @@ class SafeEvalBridge(Node):
 
     def _handle(self, msg: dict):
         kind = msg.get("kind")
-        if kind == "global_plan":
+        if kind == "navigate":
+            self._send_navigate(msg["waypoints"], float(msg.get("goal_tolerance", 1.0)))
+        elif kind == "cancel_navigate":
+            self._cancel_navigate()
+        elif kind == "global_plan":
             self.plan_pub.publish(self._make_path(msg["waypoints"]))
         elif kind == "traj_override":
             if self.traj_pub is None:
@@ -119,6 +148,27 @@ class SafeEvalBridge(Node):
                 self._make_traj(msg["waypoints"], float(msg.get("velocity", 1.0))))
         else:
             raise ValueError(f"unknown kind '{kind}'")
+
+    def _send_navigate(self, waypoints, goal_tolerance: float) -> None:
+        if self.navigate_client is None:
+            raise RuntimeError("task_msgs not available — build the workspace first")
+        if not self.navigate_client.wait_for_server(timeout_sec=5.0):
+            emit({"kind": "navigate", "accepted": False, "error": "navigate action server absent"})
+            return
+        goal = NavigateTask.Goal()
+        goal.global_plan = self._make_path(waypoints)
+        goal.goal_tolerance_m = float(goal_tolerance)
+        self.navigate_client.send_goal_async(goal).add_done_callback(self._on_navigate_response)
+
+    def _on_navigate_response(self, future) -> None:
+        handle = future.result()
+        self._navigate_handle = handle if handle.accepted else None
+        emit({"kind": "navigate", "accepted": bool(handle.accepted)})
+
+    def _cancel_navigate(self) -> None:
+        self._navigate_handle = None
+        if self.cancel_client is not None and self.cancel_client.wait_for_service(timeout_sec=2.0):
+            self.cancel_client.call_async(CancelGoal.Request())  # zero goal id cancels all
 
     def _make_path(self, waypoints) -> Path:
         path = Path()

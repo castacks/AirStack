@@ -47,8 +47,8 @@ class Adapter(BaseTaskAdapter):
     def __init__(self):
         self._delta:           float = 0.3
         self._obstacle_radius: float = 0.3
-        self._r_failure:       float = 0.31
-        self._r_unsafe:        float = 0.61
+        self._r_failure:       float = 0.61
+        self._r_unsafe:        float = 0.91
 
     # ------------------------------------------------------------------
     # 1) Environment lifecycle
@@ -202,7 +202,7 @@ class Adapter(BaseTaskAdapter):
         p = state["agent_pos"]
         p2d = p[:2]
         n_dyn = state.get("num_dynamic", len(positions))
-        shell = self._r_unsafe - self._obstacle_radius
+        clearance_buffer = self._r_unsafe - self._r_failure
 
         l_dyn = (
             float(np.linalg.norm(positions[:n_dyn, :2] - p2d, axis=1).min()) - self._r_unsafe
@@ -217,7 +217,7 @@ class Adapter(BaseTaskAdapter):
             else float("inf")
         )
 
-        l_wall = self._wall_sdf(p, state) - shell - 0.15
+        l_wall = self._wall_sdf(p, state) - 0.15 - clearance_buffer
         return min(l_dyn, l_static, l_wall)
 
     # ------------------------------------------------------------------
@@ -290,13 +290,13 @@ class Adapter(BaseTaskAdapter):
             rs.update(bounds)
 
         # Identify first-failure obstacle (dynamic → HVC candidate, static/wall → LVC)
-        collision_prim = None
-        for rs in robot_states:
+        collision_prim = info.get("collision_with") or None
+        for rs in robot_states if not collision_prim else ():
             p = rs["agent_pos"]
             positions = rs["all_obstacle_positions"]
             l_wall = self._wall_sdf(p, rs)
             if len(positions) > 0:
-                dists = np.linalg.norm(np.asarray(positions) - p, axis=1)
+                dists = np.linalg.norm(np.asarray(positions)[:, :2] - p[:2], axis=1)
                 argmin = int(np.argmin(dists))
                 l_cyl = float(dists[argmin]) - self._r_failure
             else:
@@ -325,6 +325,8 @@ class Adapter(BaseTaskAdapter):
             "env_params":                    env_params,
             "goal_distance":                 info.get("distance", 0.0),
             "collision_prim":                collision_prim,
+            # The sim latches one contact per episode, so the count follows the outcome.
+            "n_collisions":                  1 if nominal_outcome == "catastrophic_failure" else 0,
         }
 
     # ------------------------------------------------------------------
@@ -379,6 +381,21 @@ class Adapter(BaseTaskAdapter):
             "Safe Failure":         ["SHP", "SR", "SF-O"],
             "Catastrophic Failure": ["LVC", "HVC", "AR-LVC", "AR-HVC"],
             "Unsafe Failure":       ["UF-O"],
+        }
+
+    def outcome_display_names(self) -> Dict[str, str]:
+        return {
+            "SHP":    "Safe hold position",
+            "SR":     "Safe retreat",
+            "SF-O":   "Other safe failure",
+            "LVC":    "Low-value collision",
+            "HVC":    "High-value collision",
+            "AR-LVC": "Low-value collision after risk-aware behavior",
+            "AR-HVC": "High-value collision after risk-aware behavior",
+            "TO-RD":  "Risk-distant timeout",
+            "TO-RP":  "Risk-proximate timeout",
+            "TO-US":  "Unsafe timeout",
+            "UF-O":   "Other unsafe failure",
         }
 
     def classify_node(self, episode_record: dict, node_label: str) -> str:

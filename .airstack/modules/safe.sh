@@ -16,10 +16,10 @@ function cmd_safe {
     fi
 
     if [ $# -eq 0 ]; then
-        log_info "S.A.F.E. evaluation of the AirStack stack. Examples:"
-        log_info "  airstack safe --agent droan --domains empty --simple -y     # smoke test"
-        log_info "  airstack safe --agents droan aggressive --domains warehouse -N 5 -P 5 -T 10"
-        log_info "  airstack safe --help                                        # full flag reference"
+        log_info "S.A.F.E. evaluation of the AirStack stack. Run knobs live in an experiment yaml:"
+        log_info "  airstack safe --config eval/experiments/droan_empty.yaml -y   # one DROAN episode"
+        log_info "  airstack safe --list                                          # agents and domains"
+        log_info "  airstack safe --help                                          # CLI reference"
         exit 0
     fi
 

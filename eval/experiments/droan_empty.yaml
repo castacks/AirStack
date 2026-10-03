@@ -1,0 +1,19 @@
+# First DROAN episode through the stack-driven env: one flight in the empty arena.
+# Run (from the AirStack root):
+#   PYTHONPATH=/home/kayla/workspace/benchmark:/home/kayla/AirStack \
+#   python3 eval/run.py --config eval/experiments/droan_empty.yaml -y --headless -v
+benchmark_seed: 42
+agents:
+  - droan
+env_domains:
+  - empty
+simple: true
+num_scenarios:     1
+num_perturbations: 1
+max_episodes:      1
+max_episode_time:  90
+env_dt: 0.5
+keep_up: true
+workers: 0
+debug:   default
+save_videos: none

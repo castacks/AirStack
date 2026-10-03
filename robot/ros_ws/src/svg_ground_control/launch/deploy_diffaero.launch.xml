@@ -1,0 +1,7 @@
+<launch>
+  <arg name="deploy_diffaero_config"
+       default="$(find-pkg-share svg_ground_control)/config/deploy_diffaero_sim.yaml" />
+  <node pkg="svg_ground_control" exec="deploy_diffaero" name="diffaero_commander" output="screen">
+    <param from="$(var deploy_diffaero_config)" allow_substs="true" />
+  </node>
+</launch>

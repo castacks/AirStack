@@ -33,6 +33,7 @@ from typing import Any, Dict, Optional, Tuple
 import numpy as np
 
 from safe_core.core.env_backend import BaseEnvBackend
+from safe_core.utils import console
 
 from ..sim import scenario_config
 from ..stack.compose import StackHandle
@@ -54,8 +55,8 @@ class AirstackStackEnv(BaseEnvBackend):
     def __init__(self, env_cfg, agent_profile: dict, *,
                  max_episode_time: float = 60.0, dt: float = 0.5,
                  max_steps: Optional[int] = None, max_speed: float = 3.0,
-                 epsilon_unsafe: float = 0.3, r_failure: float = 0.31,
-                 r_unsafe: float = 0.61, goal_tolerance: float = 1.0,
+                 epsilon_unsafe: float = 0.3, r_failure: float = 0.61,
+                 r_unsafe: float = 0.91, goal_tolerance: float = 1.0,
                  takeoff_velocity: float = 1.0, headless: bool = True,
                  keep_up: bool = False):
         self.env_cfg = env_cfg
@@ -73,7 +74,16 @@ class AirstackStackEnv(BaseEnvBackend):
 
         self.agent_radius = 0.15
         self.obstacle_radius = 0.3
+        self.collision_radius = 0.31  # ScenarioManager drone-body contact radius
         self.v_threshold = 0.05
+        # Run-up flown before each episode: stereo planners need two airborne
+        # viewpoints more than a metre apart before they will certify a path.
+        self.warmup_runup_m = 1.5
+        # Start and goal stay this far from the arena walls, which are physical
+        # here: the stack planner inflates them by 2 m and looks 6 m ahead, so a
+        # goal closer than that is never approached within tolerance.
+        self.wall_margin = 8.0
+        self.min_goal_distance = 12.0
 
         self.stack = StackHandle(headless=headless, keep_up=keep_up)
         self._action_space = _BoxActionSpace(3)
@@ -95,6 +105,7 @@ class AirstackStackEnv(BaseEnvBackend):
         self._step_count = 0
         self._last_obs: dict | None = None
         self._last_state_t = 0.0
+        self._episode_start_t = 0.0
         self._ros_offset = np.zeros(3)
         self._airborne = False
 
@@ -130,8 +141,9 @@ class AirstackStackEnv(BaseEnvBackend):
             "max_dynamic": max(1, self.num_dynamic_obstacles),
             "max_static": max(1, self.num_static_cylinders),
             "obstacle_radius": self.obstacle_radius,
-            "drone_radius": self.r_failure,
+            "drone_radius": self.collision_radius,
             "arena": self._arena(),
+            "size_z": float(self.size_z),
         }
 
     # ── reset ─────────────────────────────────────────────────────────────
@@ -164,8 +176,18 @@ class AirstackStackEnv(BaseEnvBackend):
         self._target = np.asarray(layout["target_location"], dtype=np.float32).copy()
         self._target[2] = self.flight_z
 
-        # 1. Get the drone on the ground at the scenario start.
-        self._ensure_landed_at(self._start)
+        # 1. Get the drone on the ground a short run-up behind the start, facing
+        #    the goal, so the warm-up flight to the start seeds the planner's
+        #    view of the space ahead before the episode clock starts.
+        heading = self._target[:2] - self._start[:2]
+        heading = heading / max(float(np.linalg.norm(heading)), 1e-6)
+        yaw = float(np.arctan2(heading[1], heading[0]))
+        runup = self._start.copy()
+        runup[:2] -= heading * self.warmup_runup_m
+        arena = self._arena()
+        runup[0] = float(np.clip(runup[0], arena[0] + 0.4, arena[2] - 0.4))
+        runup[1] = float(np.clip(runup[1], arena[1] + 0.4, arena[3] - 0.4))
+        self._ensure_landed_at(runup, yaw)
 
         # 2. Place the obstacle field (episodes restore perturbed velocities).
         n_active = self._active_dynamic_obstacles
@@ -179,35 +201,39 @@ class AirstackStackEnv(BaseEnvBackend):
             "seed": int(self._scenario_seed or 0),
         })
 
-        # 3. Take off through the stack's own action server.
+        # 3. Take off through the stack's own action server, then fly the run-up
+        #    to the start on the trajectory controller.
         self.stack.takeoff(self.flight_z, self.takeoff_velocity)
         self._airborne = True
         self._measure_ros_offset()
+        self._fly_to(self._start)
 
-        # 4. Hand the goal to the planner-under-test: a real global plan.
+        # 4. Hand the goal to the planner-under-test through its own task action.
         if self.agent_profile.get("control_mode", "stack") == "stack":
-            self._publish_goal_plan()
+            self._send_navigate_goal()
 
         scenario.command("clear_collision")
         state = scenario.wait_state()
         self._last_state_t = float(state.get("t", 0.0))
+        self._episode_start_t = self._last_state_t
         self._step_count = 0
         obs = self._build_obs(state)
         self._last_obs = obs
         return obs, {"distance": self._goal_distance(obs)}
 
-    def _ensure_landed_at(self, start_world: np.ndarray) -> None:
-        """Land wherever we are, then teleport (disarmed) to the episode start."""
+    def _ensure_landed_at(self, start_world: np.ndarray, yaw: float = 0.0) -> None:
+        """Land wherever we are, then teleport (disarmed) to the given pose."""
         scenario = self.stack.scenario
         state = scenario.wait_state()
         if self._airborne or float(state["drone_pos"][2]) > 0.3:
+            self.stack.bridge.cancel_navigate()
             self.stack.land()
             time.sleep(2.0)
         self.stack.disarm()
         self._airborne = False
         scenario.command("reset_vehicle", {
             "pos": [float(start_world[0]), float(start_world[1]), 0.07],
-            "yaw": 0.0,
+            "yaw": float(yaw),
         })
         # Let the EKF settle on the new (GPS-consistent) position before arming.
         time.sleep(10.0)
@@ -217,23 +243,82 @@ class AirstackStackEnv(BaseEnvBackend):
         odom = self.stack.bridge.latest_odom_pos()
         if odom is None:
             # Odometry passthrough not seen yet — fall back to spawn-relative.
+            console.detail("[stack] no EKF odometry seen on the bridge; assuming zero offset")
             self._ros_offset = np.zeros(3)
             return
         world = np.asarray(state["drone_pos"], dtype=np.float64)
         self._ros_offset = world - np.asarray(odom, dtype=np.float64)
+        console.detail(f"[stack] world→ros offset {np.round(self._ros_offset, 2).tolist()} "
+                       f"(world {np.round(world, 2).tolist()}, odom {np.round(odom, 2).tolist()})")
 
     def _world_to_ros(self, p) -> list[float]:
         q = np.asarray(p, dtype=np.float64) - self._ros_offset
         return [float(q[0]), float(q[1]), float(q[2])]
 
-    def _publish_goal_plan(self) -> None:
+    def _fly_to(self, point_world: np.ndarray, speed: float = 0.7,
+                tolerance: float = 0.4, timeout: float = 40.0) -> None:
+        """Fly a straight override segment on the trajectory controller and wait
+        for arrival. TRACK mode is required: takeoff leaves the controller
+        holding pose, where overrides are ignored."""
+        TRACK = 2
+        goal = np.asarray(point_world, dtype=np.float64)
+        goal[2] = self.flight_z
+        deadline = time.monotonic() + timeout
+        # The takeoff task switches the controller back to pose-hold as it
+        # finishes, which can land after our TRACK switch; re-issue until the
+        # drone is actually moving toward the point.
+        while time.monotonic() < deadline:
+            self.stack.set_trajectory_mode(TRACK)
+            pos = np.asarray(self.stack.scenario.wait_state()["drone_pos"], dtype=np.float64)
+            self.stack.bridge.publish_traj_override(
+                [self._world_to_ros(pos), self._world_to_ros(goal)], velocity=speed)
+            issued = np.linalg.norm(pos[:2] - goal[:2])
+            for _ in range(20):
+                time.sleep(0.5)
+                pos = np.asarray(self.stack.scenario.wait_state()["drone_pos"], dtype=np.float64)
+                remaining = float(np.linalg.norm(pos[:2] - goal[:2]))
+                if remaining < tolerance:
+                    console.detail(f"[stack] run-up complete at {np.round(pos, 2).tolist()}")
+                    return
+                if issued - remaining > 0.3:
+                    break  # moving; keep waiting on the same override
+            else:
+                console.detail("[stack] run-up override not followed; re-issuing")
+                continue
+            while time.monotonic() < deadline:
+                pos = np.asarray(self.stack.scenario.wait_state()["drone_pos"], dtype=np.float64)
+                if float(np.linalg.norm(pos[:2] - goal[:2])) < tolerance:
+                    console.detail(f"[stack] run-up complete at {np.round(pos, 2).tolist()}")
+                    return
+                time.sleep(0.5)
+        console.detail("[stack] run-up did not reach the start in time; continuing from "
+                       f"{np.round(pos, 2).tolist()}")
+
+    def _hold_position(self) -> None:
+        """End the planner's task and park the controller on the current pose."""
+        ROBOT_POSE = 1
+        try:
+            self.stack.bridge.cancel_navigate()
+            self.stack.set_trajectory_mode(ROBOT_POSE)
+        except Exception as e:
+            console.detail(f"[stack] hold after episode failed: {e}")
+
+    def _send_navigate_goal(self) -> None:
+        """Start the planner on a straight two-pose plan to the target. The
+        planner rejects a goal while one is active, so a leftover goal is
+        cancelled and the send retried once."""
         state = self.stack.scenario.wait_state()
         current = np.asarray(state["drone_pos"], dtype=np.float64)
         current[2] = self.flight_z
-        self.stack.bridge.publish_global_plan([
-            self._world_to_ros(current),
-            self._world_to_ros(self._target),
-        ])
+        plan = [self._world_to_ros(current), self._world_to_ros(self._target)]
+        for attempt in range(3):
+            if self.stack.bridge.navigate(plan, self.goal_tolerance):
+                console.detail(f"[stack] navigate goal accepted: {np.round(plan, 2).tolist()}")
+                return
+            console.detail("[stack] navigate goal rejected — cancelling stale goal and retrying")
+            self.stack.bridge.cancel_navigate()
+            time.sleep(4.0)  # the planner's executor polls cancel at 1 Hz sim time
+        raise RuntimeError("planner rejected the NavigateTask goal three times")
 
     # ── step ──────────────────────────────────────────────────────────────
 
@@ -254,10 +339,13 @@ class AirstackStackEnv(BaseEnvBackend):
         reached = distance < self.goal_tolerance
         terminated = collision or reached
         truncated = (not terminated) and self._step_count >= self.max_steps
+        if terminated or truncated:
+            self._hold_position()
         info = {
             "collision": collision,
             "collision_with": state.get("collision_with", ""),
             "distance": distance,
+            "elapsed_time": self._last_state_t - self._episode_start_t,
         }
         return obs, terminated, truncated, info
 
@@ -352,6 +440,7 @@ class AirstackStackEnv(BaseEnvBackend):
     def close(self) -> None:
         try:
             if self._airborne:
+                self._hold_position()
                 self.stack.land()
         except Exception:
             pass

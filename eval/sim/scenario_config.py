@@ -150,7 +150,7 @@ def update_dynamic_obstacles(
 
 
 def generate_agent_start(env, static_obstacle_locations=None):
-    margin = env.agent_radius
+    margin = getattr(env, "wall_margin", env.agent_radius)
     ox, oy, sx, sy = _benchmark_floor_bounds(env)
     low = np.array([ox + margin, oy + margin] + [margin] * (env.dimension - 2), dtype=np.float32)
     high = np.array(
@@ -179,20 +179,31 @@ def generate_agent_start(env, static_obstacle_locations=None):
 
 
 def generate_target(env, agent_location):
-    margin = env.agent_radius
-    min_distance = min(env.size_x, env.size_y) * 0.6
+    margin = getattr(env, "wall_margin", env.agent_radius)
+    min_distance = getattr(env, "min_goal_distance", None) or min(env.size_x, env.size_y) * 0.6
     ox, oy, sx, sy = _benchmark_floor_bounds(env)
     low = np.array([ox + margin, oy + margin] + [margin] * (env.dimension - 2), dtype=np.float32)
     high = np.array(
         [ox + sx - margin, oy + sy - margin] + [max(sx, sy) - margin] * (env.dimension - 2),
         dtype=np.float32,
     )
+    # The requested separation must fit inside the usable floor. A 20 m
+    # scene with an 8 m wall margin has only a 4 m square to sample from.
+    if np.any(high[:2] <= low[:2]):
+        raise ValueError("AirStack arena is too small for its wall margin")
+    corners = np.array([[low[0], low[1]], [low[0], high[1]],
+                        [high[0], low[1]], [high[0], high[1]]])
+    available = float(np.max(np.linalg.norm(corners - agent_location[:2], axis=1)))
+    if min_distance >= available:
+        min_distance = available * 0.8
     target = agent_location.copy()
-    while np.linalg.norm(target - agent_location) < min_distance:
+    for _ in range(1000):
         target = env.np_random.uniform(low, high).astype(np.float32)
         if env.dimension > 2:
             target[2] = 0.0
-    return target
+        if np.linalg.norm(target[:2] - agent_location[:2]) >= min_distance:
+            return target
+    raise ValueError("Could not sample an AirStack goal inside the usable arena")
 
 
 def generate_dynamic_obstacles(env, agent_location, target_location, static_obstacle_locations,

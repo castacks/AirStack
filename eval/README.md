@@ -11,7 +11,7 @@ container. S.A.F.E. does not fly the drone or replace any internals; it sets
 up scenarios, hands the planner a real global plan, observes ground truth, and
 scores.
 
-The benchmark loops **K domains × N scenarios × P perturbations × T episodes**
+Current port status and the AirStack-native parity gates are in [PORT_STATUS.md](PORT_STATUS.md). The benchmark loops **K domains × N scenarios × P perturbations × T episodes**
 and produces CVaR-aggregated risk metrics (RE, RP, RET, RPT) and SAFE
 certification properties (P0–P3b).
 
@@ -44,10 +44,10 @@ host (plain python + safe_core + docker CLI)
            eval/stack/scenario_client.py is the host side)
 ```
 
-There are **no custom planner bridges**: DROAN runs exactly as `airstack up`
-launches it and is commanded through the same `global_plan` interface the
-global planner uses. Velocity baselines (`random`, `aggressive`,
-`conservative`) are executed as `trajectory_override` segments on the real
+The currently registered profiles use no custom planner bridge. The other SAFE ROS planners still need an AirStack ROS integration; see [PORT_STATUS.md](PORT_STATUS.md). DROAN runs exactly as `airstack up`
+launches it and receives a `NavigateTask` goal through its existing action
+interface. Velocity baselines (`random`, `aggressive`, `conservative`, and the imported
+`safe*` counterparts) are executed as `trajectory_override` segments on the real
 trajectory controller, so every agent flies through the same interface layer.
 
 ## Prerequisites
@@ -64,20 +64,25 @@ via `docker exec`.
 
 S.A.F.E. is a first-class AirStack command (`.airstack/modules/safe.sh`):
 
+Every run knob lives in an experiment yaml (keys are the argparse dest
+names: `agents`, `domains`, `scenarios`, `perturbations`, `episodes`,
+`max_episode_time`, `env_dt`, `simple`, `keep_up`, `goal_tolerance`,
+`takeoff_velocity`, `epsilon_unsafe`, `save_videos`); the CLI carries only
+actions and session facts (`--config`, `-y`, `--headless`, `--list`,
+`--resume`, `--compare`, `-v`):
+
 ```bash
-# Smoke test — one episode, DROAN through the full stack, empty grid domain
-airstack safe --agent droan --domains empty --simple -y
+# One DROAN episode through the full stack on the empty grid domain
+airstack safe --config eval/experiments/droan_empty.yaml -y
 
-# DROAN vs baselines in the warehouse, full SAFE stats
-airstack safe --agents droan aggressive conservative \
-    --domains warehouse -N 5 -P 5 -T 10
-
-# Iterating? Keep the stack up between runs (skips the ~5 min Isaac boot
-# when the domain and agent profile don't change)
-airstack safe --agent droan --domains empty --simple -y --keep-up
+# Iterating? `keep_up: true` in the yaml leaves the stack running between
+# runs (skips the ~5 min Isaac boot when the domain and profile don't change)
+airstack safe --list                                 # agents and domains
 ```
 
-(`python eval/run.py ...` is the same entry point without the CLI wrapper.)
+(`python eval/run.py ...` is the same entry point without the CLI wrapper;
+`--config` takes a path, or a name resolved against
+`integrations/airstack/experiments/` relative to the working directory.)
 
 Timing expectations: Isaac + PX4 bring-up is minutes; each episode adds
 land/teleport/takeoff overhead (~30 s) plus the flight itself. Budget
@@ -88,7 +93,8 @@ accordingly when picking K/N/P/T. Domain switches restart the stack.
 | Agent | Mode | What flies |
 |-------|------|------------|
 | `droan` | stack | Full stack; DROAN (droan_gl) follows the published global plan |
-| `aggressive` / `conservative` / `random` | velocity | Baseline policy → `trajectory_override` on the real trajectory controller |
+| `aggressive` / `conservative` / `random` | velocity | AirStack baseline → `trajectory_override`; differs from SAFE aerial source |
+| `safeaggressive` / `safeconservative` / `saferandom` | velocity | Imported SAFE aerial source policy → AirStack trajectory override; CPU tested only |
 
 Profiles (bring-up env, post-up commands, control mode) live in
 [`eval/agents/agents.py`](agents/agents.py) `PROFILES`. A SuperPlanner profile
@@ -107,27 +113,32 @@ arena bounds are centered on the Isaac world origin.
 | `hospital` / `office` / `outdoor` | Nucleus scenes | 25 / 20 / 40 | arena origins untuned — verify before trusting results |
 
 Obstacles are cylinder prims spawned by the ScenarioManager (visible to the
-drone's ZED/lidar); "pedestrians" walk waypoint patterns, with speeds
+drone's ZED/lidar); cylinder movers follow waypoint patterns, with speeds
 resampled ±20% per perturbation (`perturb_scenario`).
 
 ## Safety definitions
 
 | Symbol | Meaning |
 |--------|---------|
-| `r_failure` = 0.31 m | drone body contacts obstacle — catastrophic failure |
-| `r_unsafe` = 0.61 m | safety constraint violated, no contact yet |
+| `r_failure` = 0.61 m | 0.31 m drone contact radius + 0.30 m obstacle radius |
+| `r_unsafe` = 0.91 m | contact radius plus a 0.30 m clearance buffer |
 | `δ` = 0.3 m | risk-proximate shell width (`--epsilon-unsafe`) |
-| `l_failure` / `l_unsafe` | min(obstacle SDF, wall SDF) − radius |
+| `l_failure` / `l_unsafe` | horizontal center clearance to spawned obstacles and arena walls, minus the corresponding threshold |
 
 Collision ground truth is the ScenarioManager's analytic contact check
 (latched per episode), consistent with the same SDFs used for scoring.
 
 ## Outputs
 
-`eval/runs/airstack/<run_id>/` — per-agent RE/RP/CVaR plots, `episodes.csv`,
-text summary; `comparison.*` for multi-agent runs.
+`runs/airstack/<run_id>/` under the working directory — per-agent RE/RP/CVaR
+plots, `episodes.csv`, text summary; `comparison.*` for multi-agent runs.
+There is no replay renderer for this integration, so set `save_videos: none`
+in the yaml or the post-run video stage exits with a warning.
 
 ## Known limitations (v1)
+
+- **SAFE parity**: these are AirStack-specific scenes and movers today, not the
+  SAFE aerial worlds and animated humans. See [PORT_STATUS.md](PORT_STATUS.md).
 
 - **Frames**: goals published to the stack are converted from Isaac world to
   the stack's local frame using a measured (ground truth − EKF) offset; EKF

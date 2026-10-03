@@ -55,7 +55,7 @@ import omni.kit.app
 import omni.timeline
 import omni.usd
 
-from pxr import Gf, UsdGeom
+from pxr import Gf, Sdf, UsdGeom, UsdShade
 
 from omni.isaac.core.world import World
 
@@ -146,6 +146,82 @@ def wait_for_stage(stage, timeout_s: float = 10.0):
     return False
 
 
+def _write_noise_texture(path: str, size: int = 512, seed: int = 7) -> None:
+    """Multi-scale grey noise PNG: dense stereo texture at every viewing distance."""
+    import zlib
+    import struct
+    rng = np.random.RandomState(seed)
+    img = np.zeros((size, size), dtype=np.float64)
+    for cells in (8, 32, 128, 512):
+        coarse = rng.uniform(0.0, 1.0, (cells, cells))
+        img += np.kron(coarse, np.ones((size // cells, size // cells)))
+    img = (img - img.min()) / (img.max() - img.min())
+    px = (40 + 175 * img).astype(np.uint8)
+    raw = b"".join(b"\x00" + px[y].tobytes() for y in range(size))
+
+    def chunk(tag, data):
+        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xffffffff)
+    with open(path, "wb") as f:
+        f.write(b"\x89PNG\r\n\x1a\n"
+                + chunk(b"IHDR", struct.pack(">IIBBBBB", size, size, 8, 0, 0, 0, 0))
+                + chunk(b"IDAT", zlib.compress(raw))
+                + chunk(b"IEND", b""))
+
+
+def _textured_quad(stage, path: str, corners, material, repeat_u: float, repeat_v: float) -> None:
+    mesh = UsdGeom.Mesh.Define(stage, path)
+    mesh.CreatePointsAttr([Gf.Vec3f(*c) for c in corners])
+    mesh.CreateFaceVertexCountsAttr([4])
+    mesh.CreateFaceVertexIndicesAttr([0, 1, 2, 3])
+    mesh.CreateDoubleSidedAttr(True)
+    st = UsdGeom.PrimvarsAPI(mesh).CreatePrimvar(
+        "st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.faceVarying)
+    st.Set([Gf.Vec2f(0, 0), Gf.Vec2f(repeat_u, 0), Gf.Vec2f(repeat_u, repeat_v), Gf.Vec2f(0, repeat_v)])
+    UsdShade.MaterialBindingAPI.Apply(mesh.GetPrim()).Bind(material)
+
+
+def build_textured_arena(stage, arena, height: float) -> None:
+    """Floor and four walls at the arena boundary with a noise texture, for scenes
+    with no USD environment. The default grid is textureless, so stereo planners
+    see nothing and never certify a free trajectory."""
+    tex = "/tmp/safe_eval_noise.png"
+    _write_noise_texture(tex)
+    x0, y0, x1, y1 = [float(v) for v in arena]
+    root = "/World/safe_arena"
+    UsdGeom.Xform.Define(stage, root)
+    material = UsdShade.Material.Define(stage, root + "/noise_mat")
+    shader = UsdShade.Shader.Define(stage, root + "/noise_mat/surface")
+    shader.CreateIdAttr("UsdPreviewSurface")
+    shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.9)
+    reader = UsdShade.Shader.Define(stage, root + "/noise_mat/st_reader")
+    reader.CreateIdAttr("UsdPrimvarReader_float2")
+    reader.CreateInput("varname", Sdf.ValueTypeNames.Token).Set("st")
+    texture = UsdShade.Shader.Define(stage, root + "/noise_mat/texture")
+    texture.CreateIdAttr("UsdUVTexture")
+    texture.CreateInput("file", Sdf.ValueTypeNames.Asset).Set(tex)
+    texture.CreateInput("wrapS", Sdf.ValueTypeNames.Token).Set("repeat")
+    texture.CreateInput("wrapT", Sdf.ValueTypeNames.Token).Set("repeat")
+    texture.CreateInput("st", Sdf.ValueTypeNames.Float2).ConnectToSource(
+        reader.CreateOutput("result", Sdf.ValueTypeNames.Float2))
+    shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(
+        texture.CreateOutput("rgb", Sdf.ValueTypeNames.Float3))
+    material.CreateSurfaceOutput().ConnectToSource(shader.CreateOutput("surface", Sdf.ValueTypeNames.Token))
+
+    # 1 m per texture tile: features from a few cm to a metre.
+    z = 0.01
+    _textured_quad(stage, root + "/floor",
+                   [(x0, y0, z), (x1, y0, z), (x1, y1, z), (x0, y1, z)],
+                   material, x1 - x0, y1 - y0)
+    walls = {
+        "wall_south": ([(x0, y0, 0), (x1, y0, 0), (x1, y0, height), (x0, y0, height)], x1 - x0),
+        "wall_north": ([(x1, y1, 0), (x0, y1, 0), (x0, y1, height), (x1, y1, height)], x1 - x0),
+        "wall_west":  ([(x0, y1, 0), (x0, y0, 0), (x0, y0, height), (x0, y1, height)], y1 - y0),
+        "wall_east":  ([(x1, y0, 0), (x1, y1, 0), (x1, y1, height), (x1, y0, height)], y1 - y0),
+    }
+    for name, (corners, length) in walls.items():
+        _textured_quad(stage, f"{root}/{name}", corners, material, length, height)
+
+
 class ObstaclePool:
     """Pre-spawned kinematic cylinder prims, teleported per step.
 
@@ -210,7 +286,7 @@ class ScenarioManager:
     every connected client.
     """
 
-    def __init__(self, stage, pool: ObstaclePool, cfg: dict):
+    def __init__(self, stage, pool: ObstaclePool, cfg: dict, pegasus: PegasusInterface):
         self._clients: list = []
         self._clients_lock = threading.Lock()
         self._inbox: "queue.Queue" = queue.Queue()
@@ -222,6 +298,8 @@ class ScenarioManager:
         self.stage = stage
         self.pool = pool
         self.cfg = cfg
+        # Pegasus interface: its vehicle_manager holds the PX4 backend restarted after a teleport.
+        self.pegasus = pegasus
         self.arena = [float(v) for v in cfg["arena"]]
         self.obstacle_radius = float(cfg["obstacle_radius"])
         self.drone_radius = float(cfg["drone_radius"])
@@ -368,34 +446,56 @@ class ScenarioManager:
         world = World.instance()
         return float(world.current_time) if world is not None else 0.0
 
+    def _vehicle(self):
+        try:
+            return next(iter(self.pegasus.vehicle_manager.vehicles.values()))
+        except (AttributeError, StopIteration):
+            return None
+
     def _drone_world_pose(self):
+        """Ground truth from the Pegasus vehicle state, which reads the PhysX body.
+        The USD xform is only a fallback before the vehicle exists: physics does
+        not write back to it, so it freezes at the last teleport."""
+        vehicle = self._vehicle()
+        if vehicle is not None:
+            s = vehicle.state
+            q = s.attitude  # [qx, qy, qz, qw]
+            return (np.asarray(s.position, dtype=np.float64),
+                    [float(q[3]), float(q[0]), float(q[1]), float(q[2])],
+                    np.asarray(s.linear_velocity, dtype=np.float64))
         if self._drone_xform is None:
             prim = self.stage.GetPrimAtPath(DRONE_PRIM)
             if not prim.IsValid():
-                return None, None
+                return None, None, None
             self._drone_xform = UsdGeom.Xformable(prim)
         mat = self._drone_xform.ComputeLocalToWorldTransform(0)
         pos = mat.ExtractTranslation()
         quat = mat.ExtractRotationQuat()
         im = quat.GetImaginary()
         return (np.array([pos[0], pos[1], pos[2]], dtype=np.float64),
-                [float(quat.GetReal()), float(im[0]), float(im[1]), float(im[2])])
+                [float(quat.GetReal()), float(im[0]), float(im[1]), float(im[2])],
+                None)
 
     def _apply_pending_vehicle_reset(self):
         if self._pending_vehicle_reset is None:
             return
         req = self._pending_vehicle_reset
         self._pending_vehicle_reset = None
-        prim = self.stage.GetPrimAtPath(DRONE_PRIM)
-        if not prim.IsValid():
-            carb.log_warn("[safe_eval] reset_vehicle: drone prim not found")
+        vehicle = self._vehicle()
+        if vehicle is None:
+            carb.log_warn("[safe_eval] reset_vehicle: no Pegasus vehicle yet")
             return
         try:
-            from isaacsim.core.prims import XFormPrim
-            xf = XFormPrim(DRONE_PRIM)
+            from omni.isaac.dynamic_control import _dynamic_control
+            dc = vehicle.get_dc_interface()
+            body = dc.get_rigid_body(vehicle._stage_prefix + "/body")
             yaw = req["yaw"]
-            quat = np.array([[np.cos(yaw / 2.0), 0.0, 0.0, np.sin(yaw / 2.0)]])
-            xf.set_world_poses(positions=np.array([req["pos"]]), orientations=quat)
+            pose = _dynamic_control.Transform(
+                [float(v) for v in req["pos"]],
+                [0.0, 0.0, float(np.sin(yaw / 2.0)), float(np.cos(yaw / 2.0))])
+            dc.set_rigid_body_pose(body, pose)
+            dc.set_rigid_body_linear_velocity(body, [0.0, 0.0, 0.0])
+            dc.set_rigid_body_angular_velocity(body, [0.0, 0.0, 0.0])
         except Exception as e:
             carb.log_error(f"[safe_eval] reset_vehicle failed: {e}")
             return
@@ -406,7 +506,7 @@ class ScenarioManager:
         A position teleport poisons the estimator and PX4 then denies the arm."""
         backend = None
         try:
-            for v in self.pg.vehicle_manager.vehicles.values():
+            for v in self.pegasus.vehicle_manager.vehicles.values():
                 for b in getattr(v, "_backends", []):
                     if type(b).__name__ == "PX4MavlinkBackend":
                         backend = b
@@ -415,6 +515,10 @@ class ScenarioManager:
             carb.log_warn(f"[safe_eval] could not reach PX4 backend: {e}")
         if backend is None:
             carb.log_warn("[safe_eval] no PX4MavlinkBackend to restart — arm may fail")
+            return
+        if not getattr(backend, "px4_autolaunch", False):
+            carb.log_warn("[safe_eval] PX4 is not autolaunched by Pegasus, so it cannot be "
+                          "restarted from here — arm may fail after the teleport")
             return
         try:
             backend.stop()
@@ -499,9 +603,11 @@ class ScenarioManager:
         dt = 0.0 if self._last_sim_time is None else max(0.0, t - self._last_sim_time)
         self._step_dynamic_obstacles(dt)
 
-        pos, quat = self._drone_world_pose()
+        pos, quat, vel = self._drone_world_pose()
         if pos is not None:
-            if self._last_drone_pos is not None and dt > 1e-6:
+            if vel is not None:
+                self._drone_vel = vel
+            elif self._last_drone_pos is not None and dt > 1e-6:
                 self._drone_vel = (pos - self._last_drone_pos) / dt
             self._last_drone_pos = pos
             self._check_collision(pos)
@@ -554,6 +660,8 @@ class SafeEvalApp:
             for _ in range(10):
                 omni.kit.app.get_app().update()
         add_dome_light(stage)
+        if not CONFIG["env_url"]:
+            build_textured_arena(stage, CONFIG["arena"], float(CONFIG.get("size_z", 5.0)))
 
         spawn = CONFIG["spawn"]
         graph_handle = spawn_px4_multirotor_node(
@@ -592,7 +700,7 @@ class SafeEvalApp:
 
         pool = ObstaclePool(stage, radius=float(CONFIG["obstacle_radius"]))
         pool.build(int(CONFIG["max_static"]), int(CONFIG["max_dynamic"]))
-        self.manager = ScenarioManager(stage, pool, CONFIG)
+        self.manager = ScenarioManager(stage, pool, CONFIG, self.pg)
 
         self.play_on_start = os.environ.get("PLAY_SIM_ON_START", "true").lower() == "true"
 

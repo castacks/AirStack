@@ -31,6 +31,7 @@ class StackBridge:
         self._lock = threading.Condition()
         self._odom_frame: str | None = None
         self._odom_pos: list | None = None
+        self._navigate_ack: bool | None = None
         self._ready = False
         self._stderr_tail: list[str] = []
 
@@ -88,6 +89,8 @@ class StackBridge:
                 if kind == "odom":
                     self._odom_frame = msg.get("frame")
                     self._odom_pos = msg.get("pos")
+                elif kind == "navigate":
+                    self._navigate_ack = bool(msg.get("accepted"))
                 elif kind == "ready":
                     self._ready = True
                 self._lock.notify_all()
@@ -105,6 +108,22 @@ class StackBridge:
             raise BridgeError("container bridge is not running")
         self._proc.stdin.write(json.dumps(obj) + "\n")
         self._proc.stdin.flush()
+
+    def navigate(self, waypoints, goal_tolerance: float, timeout: float = 15.0) -> bool:
+        """Send a NavigateTask goal and return whether the planner accepted it."""
+        with self._lock:
+            self._navigate_ack = None
+        self._send({"kind": "navigate",
+                    "waypoints": [[float(v) for v in wp] for wp in waypoints],
+                    "goal_tolerance": float(goal_tolerance)})
+        with self._lock:
+            self._lock.wait_for(lambda: self._navigate_ack is not None or not self.alive,
+                                timeout=timeout)
+            return bool(self._navigate_ack)
+
+    def cancel_navigate(self) -> None:
+        if self.alive:
+            self._send({"kind": "cancel_navigate"})
 
     def publish_global_plan(self, waypoints) -> None:
         self._send({"kind": "global_plan",

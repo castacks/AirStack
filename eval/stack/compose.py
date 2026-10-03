@@ -205,3 +205,10 @@ class StackHandle:
             self.container, f"/{ROBOT}/interface/robot_command",
             "airstack_msgs/srv/RobotCommand", "{command: 2}",  # DISARM
             domain_id=ROBOT_DOMAIN)
+
+    def set_trajectory_mode(self, mode: int) -> None:
+        """airstack_msgs/TrajectoryMode: PAUSE=0 ROBOT_POSE=1 TRACK=2 ADD_SEGMENT=3 REWIND=4."""
+        ros.service_call(
+            self.container, f"/{ROBOT}/trajectory_controller/set_trajectory_mode",
+            "airstack_msgs/srv/TrajectoryMode", f"{{mode: {int(mode)}}}",
+            domain_id=ROBOT_DOMAIN)

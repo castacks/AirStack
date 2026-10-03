@@ -129,15 +129,17 @@ register_domain(AirstackDomainCfg(
     outdoor=True,
 ))
 
-# Sanity-check domain: no obstacles, just the goal.
+# Sanity-check domain: no obstacles, just the goal. Flight altitude clears the
+# stack planner's 2 m obstacle inflation of the floor, and the arena is wide
+# enough that its 7 s trajectory horizon clears the wall inflation past a goal.
 register_domain(AirstackDomainCfg(
     domain="empty",
     usd_path=None,
-    flight_z=1.5,
-    size_x=15.0,
-    size_y=15.0,
-    origin_x=-7.5,
-    origin_y=-7.5,
+    flight_z=2.5,
+    size_x=30.0,
+    size_y=30.0,
+    origin_x=-15.0,
+    origin_y=-15.0,
     num_static_cylinders=0,
     num_dynamic_obstacles=0,
     dynamic_obstacle_speed=0.0,
