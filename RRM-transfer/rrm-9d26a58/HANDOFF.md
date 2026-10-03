@@ -1,5 +1,151 @@
 # RRM remote Codex handoff
 
+## Paired campaign comparison checkpoint — 2026-10-02
+
+This checkpoint completes **T telemetry/evaluation** pairing and is committed with
+the preceding bounded-reasoner lifecycle, all-attempt campaign and authored safety
+label increments. Earlier notes below retain their historical source pins and
+development status. Current comparison reads two verified same-implementation v2
+campaigns with identical frozen schedules. It rejects aliases, copied artifact
+inventories, reused run IDs, source drift, changed input bytes and boolean/integer
+substitutions in reconstructed campaign objects. Every scheduled attempt survives
+pairing; incomplete evidence remains UNKNOWN. `GOAL_NOT_VERIFIED` describes a
+complete false goal report without asserting fresh independent negative truth.
+
+Final validation: **404/404 CPU tests** (34.274 s), **11/11 comparison methods**,
+**10/10 campaign methods**, **5/5 unchanged Oracle tasks and replay-valid traces**,
+independent read-only review with no blocking findings, and whitespace checks.
+Relevant local links and new MkDocs navigation targets were checked. MkDocs is
+unavailable on this host, so no full documentation build is claimed.
+
+Final two-run comparison retains **34 pairs**, **32 jointly qualified pairs**, six
+VERIFIED_GOAL/VERIFIED_GOAL pairs, 26 GOAL_NOT_VERIFIED/GOAL_NOT_VERIFIED pairs and two
+UNKNOWN/UNKNOWN pairs. Each run has 34/34 expectation matches, 32/34 complete labelled
+attempts, 6/34 verified goals and 22/34 legacy task-success outcomes. All five
+reported all-attempt rate differences are zero. All-attempt reference/candidate
+harness medians are 0.214477/0.214600 s; nearest-rank p95 values are 0.464902/0.414731 s.
+These timing differences include process startup and host scheduling.
+
+Earlier retained validation is also part of the evidence: concurrent runs each had
+32/34 expectation matches and 30/34 complete attempts; a sequential diagnostic had
+34/34 and 32/34 matches, with 32/34 and 30/34 complete attempts. Actual evidence-write
+deadlines expired at the unchanged 0.1 s fixture limit. Some lacked terminal records;
+two late gate records failed strict fault-phase replay. All these attempts remain
+unqualified, with their historical reader source retained. The final runs do not
+replace those failures. Evidence-write timing and late-write fault reconstruction
+remain a separate core reliability gap; no bounds were widened.
+
+Runtime SHA-256:
+`4a22ff956e9b81677ef839dd36072df4e12c481f8d918bfef182e19fd98dbcab`;
+acceptance runner SHA-256:
+`d22ccc15f43c00d4b8ad9c389a642018c2bb9b3ad7666b351bed08a496b8616f`;
+comparison CLI SHA-256:
+`4ab2200f504c33c5a8ebaf9facd4ddd0c212376ac95b6735fad107cce167682d`.
+Read [paired reporting definitions and usage](docs/core-comparison.md). Source pins
+do not establish interpreter/dependency/hardware parity. Scope is mock repeatability,
+supporting S/M evidence; distinct architecture arms, external adjudication and
+integrated trials remain open. This phase issued no simulator/robot action and
+made no control, adapter or frozen RRM-EM change.
+
+## Event-scoped safety evaluation checkpoint — 2026-10-02
+
+Latest uncommitted increment is **T (telemetry/evaluation)**, supporting verification
+of S safety supervision and M execution monitoring. `rrm/safety_event_evidence.py`
+adds authored, verdict-independent gate schedules and ordered event-label joins.
+Campaign v2 freezes these schedules and retains mandatory per-attempt sidecars,
+including empty sidecars for upstream planning failure. Labels bind sequence,
+run/action/version/state and active dispatch/cycle; missing or forged evidence
+cannot qualify. Core control, reasoner/policy authority, adapters and frozen RRM-EM
+are unchanged by this increment. Geometry remains fixture/profile evidence.
+
+Validation: **392/392 CPU tests** (28.201 s), **6/6 classifier methods**, **9/9 campaign
+methods**, **5/5 unchanged Oracle tasks with valid replay**, and independent read-only
+review with no blocking findings. The two-repeat export retains **34/34 expectation
+matches**, **32/34 complete replay-qualified and labelled attempts**, **6/34 verified
+goals**, **22/34 legacy task-success outcomes**, and two unknown goals. Four decisions
+from the two intentional incomplete prefixes are excluded from classifier counts.
+Two complete planning-failure attempts have no safety decisions and mandatory empty
+sidecars. No labels were missing/invalid in the final export.
+
+Qualified confusion counts (TP/FP/TN/FN): symbolic **2/0/38/0**, dynamic-symbolic
+**4/0/118/0**, numeric **2/0/114/0**. No authored UNKNOWN decision was reached in
+this matrix; focused tests exercise UNKNOWN and all four confusion outcomes.
+This is deterministic mock measurement correctness, not generalized safety
+performance. Labels are independent of verifier verdicts, not external/blinded
+adjudication. Incomplete evidence and UNKNOWN are never promoted to safe.
+
+Offline bundle verification and whitespace checks passed. Runtime SHA-256:
+`c5c99452d6d53f48cc006edde30349df1335a8f669cc33ada713c1a3b78596e9`;
+runner SHA-256:
+`d22ccc15f43c00d4b8ad9c389a642018c2bb9b3ad7666b351bed08a496b8616f`.
+Read [campaign usage and claim boundaries](docs/core-acceptance.md). Older checkpoints
+below retain historical source pins. Next evidence gap is controlled architectural
+comparison and externally adjudicated integrated trials, not more favorable mock
+rates. Neither runtime adoption nor live simulator/robot actions occurred.
+
+## All-attempt core acceptance checkpoint — 2026-10-02
+
+Current working tree adds a fixed mock-only acceptance campaign over the reasoner
+lifecycle increment below. `scripts/core_acceptance.py` exports 17 authored scenarios
+with frozen config and IDs, fsynced attempt ledger, isolated direct worker processes,
+per-attempt assessments and source/artifact hashes. Offline verification reconstructs
+results independently. Geometry and injected scene changes remain fixture/profile
+concerns; no campaign or scene branch was added to the core loop.
+
+Reviewed two-repeat export: **34/34 expectation matches**, **32/34 complete valid
+traces and replay-qualified acceptance**, **6/34 verified goals**, **22/34 legacy
+task-success outcomes**, and **two unknown goal outcomes** from intentional trace loss.
+Expected error does not establish successful task completion, confirmed safety or
+complete evidence. Missing acknowledgement remains `SAFE_UNCONFIRMED`. Harness crash,
+timeout, launch error and missing/corrupt result are retained attempted failures.
+Outer timeout contains the direct mock worker, not descendants or physical motion.
+
+Final validation: **384/384 CPU tests** in 24.860 s, **7/7 focused campaign methods**,
+**5/5 unchanged Oracle tasks and replay-valid traces**, whitespace check passed.
+Independent reviewer found source/config/prefix/harness binding issues during
+development; all were fixed and adversarially tested. Final review has no blocking
+finding within mock-component scope. Raw historical runs remain retained separately.
+Runtime SHA-256:
+`ab97c1ded40ef68fafb7fd613b381934f1174fd03abd514c33c020706f017318`;
+runner SHA-256:
+`d22ccc15f43c00d4b8ad9c389a642018c2bb9b3ad7666b351bed08a496b8616f`.
+
+Read [campaign usage and claim boundaries](docs/core-acceptance.md). Dynamic
+SAFE-to-UNSAFE gates use authored sequence checks, not static confusion aggregation.
+No independent unsafe-dispatch/false-refusal performance rate is reported. Next
+measurement gap is independent event/dispatch-scoped labels for changing contexts,
+then controlled architectural comparison. No live simulator/robot actions, runtime
+adoption or RRM-EM expansion occurred. This increment remains uncommitted.
+
+## Core reasoner lifecycle and research-alignment checkpoint — 2026-10-02
+
+Current uncommitted increment over `b1b8d85e`: planning/replanning now have a
+10-second default reasoner deadline under `core-call-limits/v2`. Request/result
+evidence binds task/state, authority generation, previous accepted plan and actual
+divergence/rejection trigger. Inputs are isolated and returned graphs validated
+and detached inside the bounded worker. Late results cannot become core plans.
+Task/authority changes, invalid output, exceptions and expiry end unsuccessfully,
+including expected-abort fixtures. Failed replans and latency stay in counters.
+No dispatch is active during these calls, so no cancellation/safe-state claim is
+invented. Earlier observation remains last-known; terminal verification is unavailable.
+
+Final validation: **377/377 CPU tests**, **4/4 focused methods**, **26/26 exported
+replay-valid episodes** (20 failed proposals, six successful isolation cases),
+**27/27 tampered traces rejected**, **5/5 Oracle tasks and valid traces**.
+Fixture reasoner limit 0.08 s; maximum parent runtime 0.103738 s (upper bound 1.5 s).
+Runtime source digest:
+`83c785a0b3da1a28c55dc444285589401b2bb3abba9dbb1ac707bfbe10f0904d`.
+No physical stopping, realtime guarantee or integrated SIL claim follows. Historical
+v1 deadline traces require their pinned reader. Threads are not terminated.
+
+Read-only independent review confirmed alignment and found two replay gaps during
+development (generation and recovery-trigger causality); both were fixed and retested.
+[Retriever research positioning](docs/scrum-8/retriever-positioning.md) records the
+substantial prior-art overlap, candidate RRM distinction and fair controlled experiment.
+No runtime adoption or frozen RRM-EM expansion occurred. Next core evidence increment:
+consolidate existing dynamic/failure fixtures into a fixed all-attempt acceptance
+campaign, keeping mock correctness separate from integrated performance.
+
 ## Core callback-deadline and late-operation checkpoint — 2026-10-02 UTC
 
 The core now declares `core-call-limits/v1` and bounds caller waits for policy

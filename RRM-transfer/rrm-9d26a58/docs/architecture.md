@@ -5,7 +5,23 @@
 Status: draft spec. Reference implementation of §3–§4 against a mock world in
 `scripts/oracle_loop.py`.
 
-`core-call-limits/v1` now declares finite positive monotonic callback deadlines:
+Planning and replanning now use a declared 10-second default `reasoner_s` deadline.
+Each `reasoner_request` binds the task, observed snapshot, authority epoch/stop
+generation, previous accepted plan and recovery trigger. Exactly one accepted plan
+or `reasoner_failure` follows. Input state/graph/divergence are copied; output is
+schema-validated and detached inside the bounded worker. Changed task or admission
+context invalidates a returned proposal. Late proposals cannot be admitted.
+
+Failure ends unsuccessful, including expected-abort fixtures. The planning snapshot
+remains last-known evidence; `terminal_observation=UNAVAILABLE` means no fresh terminal
+goal verification was performed, not that the earlier sensor snapshot failed.
+Planning happens between dispatches, so this path invents neither cancellation nor
+safe-state evidence. Failed replans and their latency remain in counters. Replay
+joins requests/results and actual divergence/rejection triggers. Threads are not
+terminated, models are not isolated processes, and no realtime/physical guarantee
+or integrated S06 qualification follows.
+
+`core-call-limits/v2` declares finite positive monotonic callback deadlines:
 policy 5 s, observation/adapter 2 s, cancellation/safe observation 1 s and evidence
 writing 1 s by default. `CoreAdmission` supplies an immutable limit profile; the
 same profile configures execution and stop supervision. Each policy, observation,

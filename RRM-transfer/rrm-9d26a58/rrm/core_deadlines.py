@@ -33,6 +33,7 @@ class PendingActuation:
 
 @dataclass(frozen=True)
 class CoreCallLimits:
+    reasoner_s: float = 10.0
     policy_s: float = 5.0
     observation_s: float = 2.0
     adapter_s: float = 2.0
@@ -45,7 +46,7 @@ class CoreCallLimits:
             raise ValueError("call deadlines must be finite positive seconds")
 
     def record(self) -> dict:
-        return {"version": "core-call-limits/v1", **asdict(self)}
+        return {"version": "core-call-limits/v2", **asdict(self)}
 
 
 class CoreCallTimeout(TimeoutError):

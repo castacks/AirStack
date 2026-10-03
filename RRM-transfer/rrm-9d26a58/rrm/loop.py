@@ -621,17 +621,72 @@ def run(task: Task, world: WorldBackend, reasoner: ReasonerBackend,
                      goal_met=False, terminal_observation="OBSERVED",
                      stop_status="NOT_REQUESTED", **m.model_dump())
         return m
-    t0 = time.perf_counter()
-    graph = reasoner.plan(mission, ws)
-    _validate_graph_identity(graph, expected_version=0,
-                             expected_mission=mission)
+    reasoner_failed = False
+
+    def propose(state, digest, previous=None, div=None):
+        nonlocal reasoner_failed
+        phase = "plan" if previous is None else "replan"
+        request_id = uuid4().hex
+        authority_epoch, stop_generation = admission.guard.epoch, admission.guard.generation
+        previous_record = (_plan_record(previous, task_revision=task_revision,
+                                         task_digest=task_digest) if previous is not None else None)
+        tracer.event("reasoner_request", sim_t=state.t, state_digest=digest,
+                     request_id=request_id, phase=phase, task_digest=task_digest,
+                     authority_epoch=authority_epoch, stop_generation=stop_generation,
+                     task_revision=task_revision, previous_plan=previous_record,
+                     previous_plan_digest=(_record_digest(previous_record)
+                                           if previous_record is not None else None),
+                     trigger=div.model_dump(mode="json") if div is not None else None)
+        started = time.perf_counter()
+        try:
+            snapshot = state.model_copy(deep=True)
+            old_graph = previous.model_copy(deep=True) if previous is not None else None
+            trigger = div.model_copy(deep=True) if div is not None else None
+            def compute():
+                candidate = (reasoner.plan(mission, snapshot) if previous is None else
+                             reasoner.replan(mission, snapshot, old_graph, trigger))
+                if not isinstance(candidate, TaskGraph):
+                    raise TypeError("reasoner result is not a TaskGraph")
+                candidate = TaskGraph.model_validate(candidate.model_dump(mode="json"))
+                _validate_graph_identity(
+                    candidate, expected_version=0 if previous is None else previous.version + 1,
+                    expected_plan_id=None if previous is None else previous.mission_id,
+                    expected_mission=mission)
+                return candidate
+            candidate = bounded_call("reasoner_" + phase, admission.stop.limits.reasoner_s, compute)
+            if task.model_dump(mode="json") != task_record:
+                raise ValueError("task context changed while reasoner was running")
+            if (admission.guard.epoch, admission.guard.generation) != (authority_epoch, stop_generation):
+                raise ValueError("admission context changed while reasoner was running")
+        except Exception as error:
+            dt = (time.perf_counter() - started) * 1000
+            m.planning_latency_ms += dt
+            m.aborted = True
+            reasoner_failed = True
+            try:
+                tracer.event("reasoner_failure", sim_t=state.t, state_digest=digest,
+                             request_id=request_id, phase=phase,
+                             exception_type=type(error).__name__, latency_ms=round(dt, 3),
+                             deadline=error.record() if isinstance(error, CoreCallTimeout) else None)
+            except Exception as evidence_error:
+                raise CoreEvidenceUnavailable("reasoner failure evidence unavailable") from evidence_error
+            return None, request_id, dt
+        dt = (time.perf_counter() - started) * 1000
+        m.planning_latency_ms += dt
+        return candidate, request_id, dt
+
+    graph, request_id, dt = propose(ws, state_digest)
+    if graph is None:
+        tracer.event("episode_end", sim_t=ws.t, state_digest=state_digest,
+                     goal_met=False, terminal_observation="UNAVAILABLE",
+                     stop_status="NOT_REQUESTED", **m.model_dump())
+        return m
     plan_id = graph.mission_id
-    plan_mission = graph.mission_text
     plan_record = _plan_record(graph, task_revision=task_revision,
                                task_digest=task_digest)
     plan_digest = _record_digest(plan_record)
-    m.planning_latency_ms += (time.perf_counter() - t0) * 1000
     tracer.event("plan", sim_t=ws.t, version=graph.version,
+                 request_id=request_id,
                  state_digest=state_digest,
                  plan_id=plan_id, plan_digest=plan_digest,
                  plan=plan_record, task_revision=task_revision,
@@ -653,18 +708,15 @@ def run(task: Task, world: WorldBackend, reasoner: ReasonerBackend,
             m.aborted = True
             return False
         m.replans += 1
-        t = time.perf_counter()
-        previous_version = graph.version
-        graph = reasoner.replan(mission, state, graph, div)
-        _validate_graph_identity(graph, expected_version=previous_version + 1,
-                                 expected_plan_id=plan_id,
-                                 expected_mission=plan_mission)
+        candidate, request_id, dt = propose(state, state_digest, graph, div)
+        if candidate is None:
+            return False
+        graph = candidate
         plan_record = _plan_record(graph, task_revision=task_revision,
                                    task_digest=task_digest)
         plan_digest = _record_digest(plan_record)
-        dt = (time.perf_counter() - t) * 1000
-        m.planning_latency_ms += dt
         tracer.event("replan", sim_t=state.t, version=graph.version,
+                     request_id=request_id,
                      state_digest=state_digest,
                      plan_id=plan_id, plan_digest=plan_digest,
                      plan=plan_record, task_revision=task_revision,
@@ -1079,7 +1131,11 @@ def run(task: Task, world: WorldBackend, reasoner: ReasonerBackend,
                      ", ".join(str(p) for p in div.surprise))
         cursor += 1
 
-    if pre_action_observation_lost:
+    if reasoner_failed:
+        final, final_digest = last_valid_ws, last_valid_digest
+        terminal_observation = "UNAVAILABLE"
+        goal_met = False
+    elif pre_action_observation_lost:
         final, final_digest = last_valid_ws, last_valid_digest
         terminal_observation = "UNAVAILABLE"
         goal_met = False

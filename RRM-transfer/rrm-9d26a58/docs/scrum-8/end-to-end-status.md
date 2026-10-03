@@ -9,11 +9,22 @@ goal -> GUI -> semantic RRM -> capability route -> embodiment grounding
      -> independently verified goal or explicit terminal failure
 ```
 
-## Current assessment — 2026-09-27
+## Core evaluation checkpoint — 2026-10-02
+
+The core CPU suite passes 404/404 tests. T now exports a fixed 17-case
+[acceptance campaign](../core-acceptance.md) with authored event-scoped safety labels
+and a [paired comparison report](../core-comparison.md) over matching, same-source
+campaigns. Every scheduled attempt and unknown outcome remains in reporting.
+Retained runs also expose evidence-write deadline/replay gaps at the short mock
+fixture bounds. This advances measurement and reconstruction; it does not add live
+goal-to-finish evidence to the dated assessment below. Comparative architecture/model
+trials and externally adjudicated integrated outcomes remain outstanding.
+
+## Live-path assessment — 2026-09-27
 
 There is not yet enough repeated live evidence to report a meaningful end-to-end
-success rate, latency distribution, or recovery rate. The dependency-light suite passes
-279/279 tests, but unit and fake-adapter coverage is not a physical-task benchmark.
+success rate, latency distribution, or recovery rate. At that checkpoint the dependency-light
+suite passed 279/279 tests; unit and fake-adapter coverage is not a physical-task benchmark.
 
 | Segment | What has been demonstrated | Current limitation |
 | --- | --- | --- |

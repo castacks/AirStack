@@ -1,6 +1,41 @@
 > **SCRUM-8 continuation (2026-09-13):** Read the [current allocation, contracts and verification status](scrum-8/README.md). The material below records the original prototype; its hardware/model prescriptions and oracle-ceiling claims do not override the Phase 1 baseline. Existing mock passes are not SIL compliance.
 
+Core proposal lifecycle now records `reasoner_request` paired with one accepted
+`plan`/`replan` or `reasoner_failure`. A finite `reasoner_s` deadline defaults to
+10 seconds. Failed initial/recovery proposals are unsuccessful even for expected
+abort tasks; planning latency includes failed calls and `replans` includes failed
+replan attempts. Plan versions count only accepted proposals. Replay checks bound
+task/state/authority, prior plan and actual divergence or safety-rejection trigger.
+No dispatch is active during these calls, so proposal failure makes no cancellation
+or safe-state claim. Late workers cannot write a plan or dispatch through the core.
+The declaration is now `core-call-limits/v2`; earlier v1 traces without reasoner
+limits require their version-pinned historical reader and are rejected by current
+canonical replay, rather than silently assigning a deadline that was never recorded.
+
+Focused retained traces cover initial and recovery planning stalls, exceptions,
+abnormal worker termination, invalid graphs and context changes, plus successful
+input isolation. They qualify the mock measurement contract, not comparative
+learned-model performance. See [Retriever positioning and the proposed controlled
+comparison](scrum-8/retriever-positioning.md) for the research-evidence boundary.
+
 # RRM-1.0 Benchmark
+
+The [all-attempt core acceptance campaign](core-acceptance.md) exports a separate
+17-case matrix spanning dynamic change, unavailable evidence, execution faults,
+proposal stalls and intentional trace loss. It preserves all attempts and keeps
+expectation match, goal verification and replay completeness separate. The original
+five-task Oracle below remains unchanged; neither export is integrated SIL evidence.
+
+Campaign v2 additionally freezes authored event-scoped safety labels independent
+of verifier verdicts and scores symbolic, dynamic-symbolic and numeric gates
+separately. Only complete qualified attempts contribute confusion counts; missing
+labels and incomplete prefixes remain explicit in coverage. This is T evaluation
+of mock S/M evidence, not external adjudication or general safety performance.
+
+The [paired comparison tool](core-comparison.md) compares two distinct exports with
+the same frozen schedule and pinned implementation. It reports every paired outcome,
+including unknowns, per-arm safety denominators and all-attempt harness latency.
+Its present scope qualifies repeatability reporting before architectural trials.
 
 Event-controlled deadline fixtures stall policy, observation, delayed acceptance,
 apply (both before and while holding the adapter lock), cleanup, cancellation,
@@ -10,7 +45,7 @@ fenced, pending actuation cannot establish a confirmed safe state, and late stop
 responses cannot revise terminal evidence. Callback-initiated stop and deadline
 expiry share one generation and one interruption record.
 
-Traces declare `core-call-limits/v1` before task evidence. Replay validates each
+Traces declare `core-call-limits/v2` before task evidence. Replay validates each
 deadline's label, configured duration, elapsed time, pending flags and causal stop
 scope. Missing/mismatched limits or deadline records fail replay. Older evidence
 must be evaluated with its pinned earlier source revision. Deadline values are

@@ -23,9 +23,9 @@ from rrm.world import MockWorld
 
 
 class RevisionBindingTests(unittest.TestCase):
-    def test_ordered_plan_change_during_policy_step_aborts_before_apply(self) -> None:
+    def test_oracle_owned_plan_mutation_cannot_change_accepted_plan(self) -> None:
         task = Task(id="plan-change", mission="pick cup",
-                    goal=_p("on", "obj_cup", "obj_table"), expect_abort=True)
+                    goal=_p("on", "obj_cup", "obj_table"))
 
         class RetainingOracle(ScriptedOracle):
             def plan(self, mission, ws):
@@ -41,10 +41,10 @@ class RevisionBindingTests(unittest.TestCase):
                 return trajectory
 
         labels = EvaluationLabels(SafetyLabel.SAFE, SafetyLabel.SAFE,
-                                  FailureKind.NONE, None, TerminalLabel.SAFE_ABORT)
+                                  FailureKind.NONE, None, TerminalLabel.GOAL_VERIFIED)
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "trace.jsonl"
-            tracer = Tracer(path, {"task_id": task.id, "expect_abort": True,
+            tracer = Tracer(path, {"task_id": task.id, "expect_abort": False,
                                    "evaluation_labels": labels.as_record()})
             try:
                 result = run(task, MockWorld(), oracle, SafetyVerifier(),
@@ -57,12 +57,9 @@ class RevisionBindingTests(unittest.TestCase):
             events = [json.loads(line) for line in path.read_text().splitlines()]
             replay = replay_trace(path, expected_task_id=task.id)
         self.assertGreater(len(oracle.graph.nodes), 1)
-        self.assertTrue(result.aborted)
-        self.assertFalse(any(event["kind"] == "apply" for event in events))
-        self.assertIn("plan_payload_changed", next(
-            event for event in events if event["kind"] == "context_gate"
-            and event["phase"] == "pre_apply"
-        )["reasons"])
+        self.assertFalse(result.aborted)
+        self.assertTrue(result.task_success)
+        self.assertTrue(any(event["kind"] == "apply" for event in events))
         self.assertTrue(replay.valid, replay.findings)
 
     def test_task_change_during_policy_step_aborts_before_apply(self) -> None:

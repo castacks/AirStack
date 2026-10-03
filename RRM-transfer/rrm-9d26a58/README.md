@@ -81,6 +81,12 @@ T9    PASS           3        4       24        0         0%
 
 Other entry points:
 
+The [core acceptance campaign](docs/core-acceptance.md) exports the fixed 17-case
+mock matrix with replay and event-scoped authored safety evidence. The
+[paired comparison tool](docs/core-comparison.md) reconstructs two matching exports
+with all attempts, unknown outcomes, evidence coverage and harness timing retained.
+These T evaluation instruments qualify mock reporting before comparative trials.
+
 ```bash
 # Use .venv/bin/python on a venv-capable host, or prefix these with
 # PYTHONPATH=.rrm-deps python3 on the minimal-host fallback.

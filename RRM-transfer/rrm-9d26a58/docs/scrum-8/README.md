@@ -20,6 +20,9 @@ Read in order:
 12. [Current goal-to-finish performance status](end-to-end-status.md)
 13. [Phase-1 hand embodiment decision and qualification gates](hand-embodiment-decision.md)
 14. [Proposed learned embodiment model (RRM-EM)](../embodiment-learning-architecture.md)
+15. [Retriever adjacency and research positioning](retriever-positioning.md)
+16. [Core acceptance campaign and authored event labels](../core-acceptance.md)
+17. [Paired core campaign comparison](../core-comparison.md)
 
 ## Document lifecycle
 

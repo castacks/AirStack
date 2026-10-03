@@ -27,7 +27,7 @@ from .loop import THETA_DIV, _constraints_record, _trace_action_record
 from .core_stop import StopStateEvidence
 from .core_deadlines import CoreCallLimits
 from .uncertainty import validate_uncertainty
-from .schema import AbstractAction, NumericLimitProfile, Task, TaskGraph, Trajectory, Verb, WorldState
+from .schema import AbstractAction, Divergence, NumericLimitProfile, Task, TaskGraph, Trajectory, Verb, WorldState
 from .safety import NumericSafetyVerifier, SafetyVerifier
 from .verbs import VERB_TABLE, expected_effects_of, holds
 from .trace import TRACE_EVENT_SCHEMA
@@ -217,6 +217,7 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
                 "call", "timeout_s", "elapsed_s", "operation_pending"}:
             return False
         configured = {
+            "reasoner_plan": limits.reasoner_s, "reasoner_replan": limits.reasoner_s,
             "policy_step": limits.policy_s, "observe": limits.observation_s,
             "begin_dispatch": limits.adapter_s, "apply": limits.adapter_s,
             "end_dispatch": limits.adapter_s, "cancel_dispatch": limits.stop_s,
@@ -260,7 +261,7 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
         "dispatch", "divergence", "episode_end", "capability_gate", "permission_gate",
         "numeric_profile_gate", "context_gate", "dispatch_intent", "approval_gate",
         "authorization_gate", "interruption_gate", "dynamic_safety_gate",
-        "observation_failure", "execution_fault",
+        "observation_failure", "execution_fault", "reasoner_request", "reasoner_failure",
     }
     for event in events:
         if event.get("kind") not in state_bound_kinds:
@@ -458,7 +459,9 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
 
     initial_observation_abort = any(event.get("kind") == "observation_failure"
                                     and event.get("phase") == "planning" for event in events)
-    if len(plans) != (0 if initial_uncertainty_abort or initial_observation_abort else 1):
+    reasoner_failures = [event for event in events if event.get("kind") == "reasoner_failure"]
+    initial_reasoner_abort = any(event.get("phase") == "plan" for event in reasoner_failures)
+    if len(plans) != (0 if initial_uncertainty_abort or initial_observation_abort or initial_reasoner_abort else 1):
         findings.append(f"initial_plan_count:{len(plans)}")
 
     for gate in uncertainty_gates:
@@ -942,7 +945,7 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
                 or end.get("task_success") is not False \
                 or end.get("aborted") is not True:
             findings.append(f"observation_loss_success_claim:sequence={sequence}")
-    if not observation_failures and not execution_faults \
+    if not observation_failures and not execution_faults and not reasoner_failures \
             and end.get("terminal_observation") != "OBSERVED":
         findings.append("terminal_observation_mismatch")
     if any(event.get("state_scope") != (
@@ -1644,7 +1647,93 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
 
     if any(not _integer(event.get("cycles")) for event in dispatches):
         findings.append("invalid_dispatch_cycles")
-    planning_events = plans + replans
+    requests = [event for event in events if event.get("kind") == "reasoner_request"]
+    outcomes = plans + replans + reasoner_failures
+    request_ids = [event.get("request_id") for event in requests]
+    if any(not isinstance(value, str) or not value.strip() for value in request_ids) \
+            or len(set(str(value) for value in request_ids)) != len(request_ids):
+        findings.append("invalid_reasoner_request_identity")
+    for outcome in outcomes:
+        matches = [request for request in requests
+                   if request.get("request_id") == outcome.get("request_id")]
+        if len(matches) != 1:
+            findings.append("reasoner_outcome_without_request")
+    for request in requests:
+        sequence = request.get("sequence", -1)
+        phase = request.get("phase")
+        matches = [outcome for outcome in outcomes
+                   if outcome.get("request_id") == request.get("request_id")]
+        if len(matches) != 1:
+            findings.append("reasoner_request_outcome_count")
+            continue
+        outcome = matches[0]
+        if phase not in {"plan", "replan"} \
+                or outcome.get("sequence") != sequence + 1 \
+                or (outcome.get("kind") != "reasoner_failure" and outcome.get("kind") != phase) \
+                or (outcome.get("kind") == "reasoner_failure" and outcome.get("phase") != phase) \
+                or outcome.get("state_digest") != request.get("state_digest") \
+                or outcome.get("sim_t") != request.get("sim_t") \
+                or request.get("task_digest") != task_digest \
+                or request.get("task_revision") != task_revision:
+            findings.append("reasoner_request_binding_mismatch")
+        if len(authority_events) != 1 \
+                or request.get("authority_epoch") != authority_events[0].get("authority_epoch") \
+                or request.get("stop_generation") != authority_events[0].get("stop_generation") \
+                or not _integer(request.get("stop_generation")):
+            findings.append("reasoner_request_authority_mismatch")
+        previous = request.get("previous_plan")
+        accepted_before = [event for event in plans + replans if event.get("sequence", -1) < sequence]
+        if phase == "plan":
+            if accepted_before or previous is not None \
+                    or request.get("previous_plan_digest") is not None or request.get("trigger") is not None:
+                findings.append("invalid_initial_reasoner_request")
+        elif phase == "replan":
+            if not accepted_before or previous != accepted_before[-1].get("plan") \
+                    or request.get("previous_plan_digest") != accepted_before[-1].get("plan_digest"):
+                findings.append("reasoner_previous_plan_mismatch")
+            trigger = request.get("trigger")
+            if not isinstance(trigger, dict) or not accepted_before \
+                    or trigger.get("plan_version") != accepted_before[-1].get("version") \
+                    or (trigger.get("plan_version"), trigger.get("action_id")) not in action_catalog:
+                findings.append("reasoner_trigger_mismatch")
+            if outcome.get("kind") == "replan" and outcome.get("trigger") != trigger:
+                findings.append("reasoner_trigger_mismatch")
+            preceding = events[sequence - 1] if sequence > 0 else {}
+            try:
+                parsed_trigger = Divergence.model_validate(trigger)
+                if preceding.get("kind") == "divergence":
+                    valid_trigger = (
+                        parsed_trigger.action_id == preceding.get("action_id")
+                        and parsed_trigger.plan_version == preceding.get("plan_version")
+                        and parsed_trigger.magnitude == preceding.get("magnitude")
+                        and [str(item) for item in parsed_trigger.unmet] == preceding.get("unmet")
+                        and [str(item) for item in parsed_trigger.surprise] == preceding.get("surprise"))
+                elif preceding.get("kind") == "safety1" and preceding.get("verdict") == "FAIL":
+                    valid_trigger = parsed_trigger == Divergence(
+                        action_id=preceding.get("action_id"), plan_version=preceding.get("plan_version"))
+                else:
+                    valid_trigger = False
+                if not valid_trigger or preceding.get("state_digest") != request.get("state_digest"):
+                    findings.append("reasoner_trigger_causal_mismatch")
+            except (TypeError, ValueError):
+                findings.append("invalid_reasoner_trigger")
+        if outcome.get("kind") == "reasoner_failure":
+            deadline = outcome.get("deadline")
+            if not isinstance(outcome.get("exception_type"), str) or not outcome.get("exception_type") \
+                    or (outcome.get("exception_type") == "CoreCallTimeout") != (deadline is not None) \
+                    or deadline is not None and (not deadline_valid(deadline, "reasoner_" + phase)
+                        or not _number(outcome.get("latency_ms"))
+                        or outcome["latency_ms"] + 0.01 < deadline["elapsed_s"] * 1000):
+                findings.append("invalid_reasoner_failure")
+            if events[outcome.get("sequence", -1) + 1:] != [end] \
+                    or end.get("terminal_observation") != "UNAVAILABLE" \
+                    or end.get("state_digest") != outcome.get("state_digest") \
+                    or end.get("aborted") is not True or end.get("goal_met") is not False \
+                    or end.get("task_success") is not False:
+                findings.append("reasoner_failure_terminal_mismatch")
+    if len(reasoner_failures) > 1:
+        findings.append("reasoner_failure_count")
+    planning_events = outcomes
     if any(not _number(event.get("latency_ms")) or event["latency_ms"] < 0
            for event in planning_events):
         findings.append("invalid_planning_latency")
@@ -1657,7 +1746,7 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
         "task_success": end.get("task_success"),
         "goal_met": end.get("goal_met"),
         "aborted": end.get("aborted"),
-        "replans": len(replans),
+        "replans": len(replans) + sum(event.get("phase") == "replan" for event in reasoner_failures),
         "action_count": len(dispatches),
         "inner_cycles": sum(event.get("cycles", 0) for event in dispatches
                             if _integer(event.get("cycles"))),
@@ -1713,7 +1802,8 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
             findings.append("replan_convergence_without_abort")
         sequence = convergence.get("sequence")
         if _integer(sequence):
-            preceding = events[max(0, sequence - 2):sequence]
+            preceding = [event for event in events[:sequence]
+                         if event.get("kind") != "reasoner_request"][-2:]
             if len(preceding) != 2 \
                     or preceding[0].get("kind") != "safety1" \
                     or preceding[0].get("verdict") != "FAIL" \
@@ -1747,7 +1837,7 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
         findings.append("invalid_expect_abort")
     elif type(reconstructed["task_success"]) is bool and type(reconstructed["goal_met"]) is bool \
             and type(reconstructed["aborted"]) is bool:
-        expected_success = (False if observation_failures or execution_faults else
+        expected_success = (False if observation_failures or execution_faults or reasoner_failures else
                             reconstructed["aborted"] if expect_abort
                             else reconstructed["goal_met"])
         if reconstructed["task_success"] is not expected_success:

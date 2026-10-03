@@ -17,6 +17,11 @@ The task-level core interprets objectives and plans over entity IDs, predicates 
 
 These are logical responsibilities, not eight required processes or new ROS packages. Perception and sensing enter W through E's observation boundary. Manipulation, navigation, motion generation and control stay behind E. The simulator supplies observations and receives actuation through the same contracts; evaluation ground truth is a separate evidence channel. Memory is W's task/context history. Learning is an offline candidate-production/evaluation activity supporting R/P/E, not an authorized online mutation of safety rules or action semantics. This accounts for all capability blocks in the architecture outline without inventing a requirement for a learner or humanoid deployment.
 
+T's implemented mock instruments include the [all-attempt acceptance campaign](../core-acceptance.md),
+verdict-independent authored gate labels, and [paired campaign reconstruction](../core-comparison.md).
+They assess S/M evidence while keeping safety/admission and embodiment authority with
+their allocated owners. Current comparison scope is same-implementation repeatability.
+
 R is deliberately **not required to be deterministic**. A deterministic interpreter or
 oracle is useful only as a reproducible lower-bound/reference condition: it exercises
 the contracts, isolates adapter defects, and lets an evaluation show what a learned

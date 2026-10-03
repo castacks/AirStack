@@ -37,6 +37,8 @@ exclude_docs: |
   # MkDocs' default dotfile rule; listed here to keep that intent explicit.
   .airstack/**
   stacks/.external/**
+  # Feature notebooks are local experiment records, never published documentation.
+  /notebook/**
 extra:
   version:
     provider: mike
@@ -238,6 +240,11 @@ nav:
           - System Test Suite: tests/README.md
           - CI/CD Orchestrator Runbook: tests/ci-cd-orchestrator.md
           - OSMO Lab Admin Guide: osmo/README.md
+      - RRM Research Reference:
+          - Overview: RRM-transfer/rrm-9d26a58/README.md
+          - Architecture Allocation: RRM-transfer/rrm-9d26a58/docs/scrum-8/README.md
+          - Core Acceptance: RRM-transfer/rrm-9d26a58/docs/core-acceptance.md
+          - Paired Campaign Comparison: RRM-transfer/rrm-9d26a58/docs/core-comparison.md
       - AI Agent Guide: docs/development/advanced/ai_agent_guide.md
   - Release Notes: docs/release_notes/index.md
   - About: docs/about.md

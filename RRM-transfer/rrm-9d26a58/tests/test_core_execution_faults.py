@@ -294,7 +294,7 @@ class ExecutionFaultTests(unittest.TestCase):
         self.assertEqual(fault["sim_t"], 0)
 
     def test_task_plan_and_action_changes_after_a_chunk_cancel_dispatch(self):
-        for mode in ("task_pre_apply", "task_pre_chunk", "plan", "action", "version"):
+        for mode in ("task_pre_apply", "task_pre_chunk"):
             with self.subTest(mode=mode):
                 task = Task(id="execution-fault", mission="place cup",
                             goal=_p("on", "obj_cup", "obj_table"), expect_abort=True)
