@@ -1,6 +1,7 @@
 import numpy as np
 
-from eval.agents.safe_source import SafeAggressive, SafeConservative
+from eval.agents.safe_source import (
+    SafeAggressive, SafeConservative, _swap_xy, _to_safe_benchmark_frame)
 from integrations.aerial_nav.agents.baselines import Aggressive, Conservative
 
 
@@ -14,7 +15,7 @@ def test_safe_aggressive_delegates_to_source_policy():
         'max_speed': 3.,
     }
     actual = SafeAggressive().act(obs)
-    expected = Aggressive().act(obs) / obs['max_speed']
+    expected = _swap_xy(Aggressive().act(_to_safe_benchmark_frame(obs))) / obs['max_speed']
     np.testing.assert_allclose(actual, expected)
 
 
@@ -32,5 +33,24 @@ def test_safe_conservative_delegates_to_source_policy():
     actual = SafeConservative().act(obs)
     reference = Conservative()
     reference.reset()
-    expected = reference.act(obs) / obs['max_speed']
+    expected = _swap_xy(reference.act(_to_safe_benchmark_frame(obs))) / obs['max_speed']
     np.testing.assert_allclose(actual, expected)
+
+
+def test_frame_conversion_preserves_geometry():
+    obs = {
+        'agent': np.array([2., 5., 1.]),
+        'target': np.array([7., 9., 1.]),
+        'dynamic_obstacles': np.array([[3., 4., 1., 0.1, 0.2, 0.]]),
+        'static_obstacle_aabbs': np.array([[1., 2., 4., 8.]]),
+        'env_bounds': np.array([-10., -20., 0., 10., 20., 5.]),
+    }
+    safe = _to_safe_benchmark_frame(obs)
+    np.testing.assert_array_equal(safe['agent'], [5., 2., 1.])
+    np.testing.assert_array_equal(safe['dynamic_obstacles'][0],
+                                  [4., 3., 1., 0.2, 0.1, 0.])
+    np.testing.assert_array_equal(safe['static_obstacle_aabbs'][0],
+                                  [2., 1., 8., 4.])
+    np.testing.assert_array_equal(safe['env_bounds'],
+                                  [-20., -10., 0., 20., 10., 5.])
+    np.testing.assert_array_equal(obs['agent'], [2., 5., 1.])

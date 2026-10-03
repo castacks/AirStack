@@ -13,6 +13,39 @@ import numpy as np
 from safe_core.core.policy import Policy
 
 
+def _swap_xy(value):
+    arr = np.asarray(value).copy()
+    if arr.size:
+        arr[..., [0, 1]] = arr[..., [1, 0]]
+    return arr
+
+
+def _to_safe_benchmark_frame(obs):
+    """SAFE's aerial benchmark position convention swaps Isaac X/Y."""
+    converted = dict(obs)
+    for key in ('agent', 'target', 'agent_vel', 'static_obstacles',
+                'static_cylinders'):
+        if key in converted and converted[key] is not None:
+            converted[key] = _swap_xy(converted[key])
+    if obs.get('dynamic_obstacles') is not None:
+        dynamic = np.asarray(obs['dynamic_obstacles']).copy()
+        if dynamic.size:
+            dynamic[..., [0, 1]] = dynamic[..., [1, 0]]
+            if dynamic.shape[-1] >= 6:
+                dynamic[..., [3, 4]] = dynamic[..., [4, 3]]
+        converted['dynamic_obstacles'] = dynamic
+    if obs.get('static_obstacle_aabbs') is not None:
+        aabb = np.asarray(obs['static_obstacle_aabbs']).copy()
+        if aabb.size:
+            aabb[..., [0, 1, 2, 3]] = aabb[..., [1, 0, 3, 2]]
+        converted['static_obstacle_aabbs'] = aabb
+    if obs.get('env_bounds') is not None:
+        bounds = np.asarray(obs['env_bounds']).copy()
+        bounds[[0, 1, 3, 4]] = bounds[[1, 0, 4, 3]]
+        converted['env_bounds'] = bounds
+    return converted
+
+
 class _SafeVelocity(Policy):
     sensors = ['full_state']
     source_name = ''
@@ -36,8 +69,9 @@ class _SafeVelocity(Policy):
         max_speed = float(obs['max_speed'])
         if max_speed <= 0:
             raise ValueError('max_speed must be positive')
-        velocity_m_s = np.asarray(self._source.act(obs), dtype=np.float32)
-        return velocity_m_s / max_speed
+        safe_obs = _to_safe_benchmark_frame(obs)
+        velocity_benchmark = np.asarray(self._source.act(safe_obs), dtype=np.float32)
+        return _swap_xy(velocity_benchmark) / max_speed
 
 
 class SafeRandom(_SafeVelocity):

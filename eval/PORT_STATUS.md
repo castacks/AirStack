@@ -15,7 +15,9 @@ control path is a new experiment, even when the names and seeds match.
 - `saferandom`, `safeaggressive`, `safeconservative`: import SAFE's source
   classes from `integrations.aerial_nav.agents.baselines`, call their policy
   logic on AirStack observations, and convert their m/s velocity to the
-  normalized AirStack trajectory-override input. CPU delegation tests pass;
+  normalized AirStack trajectory-override input. Their observations and
+  actions cross SAFE's X/Y-swapped benchmark frame at this boundary. CPU
+  delegation and frame tests pass;
   no Isaac/PX4 flight has been validated. A SAFE source checkout must be on
   `PYTHONPATH`: the current `safe-benchmark` wheel packages `safe_core` and
   `safe_isaac`, not `integrations.aerial_nav`.
