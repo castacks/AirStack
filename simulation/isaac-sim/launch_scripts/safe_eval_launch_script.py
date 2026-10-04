@@ -44,6 +44,7 @@ _headless = os.environ.get("ISAAC_SIM_HEADLESS", "false").lower() == "true"
 simulation_app = SimulationApp({"headless": _headless})
 
 import queue
+import math
 import socketserver
 import sys
 import threading
@@ -858,6 +859,10 @@ class SafeEvalApp:
             init_pos=[float(spawn[0]), float(spawn[1]), float(CONFIG["spawn_z"])],
             init_orient=[0.0, 0.0, 0.0, 1.0],
         )
+        pov_res = int(os.environ.get("SAFE_POV_RES", "0"))
+        if pov_res and not 32 <= pov_res <= 1024:
+            raise ValueError(f"SAFE_POV_RES must be in [32, 1024], got {pov_res}")
+        camera_kwargs = {"frame_height": pov_res, "frame_width": pov_res} if pov_res else {}
         add_zed_stereo_camera_subgraph(
             parent_graph_handle=graph_handle,
             drone_prim=DRONE_PRIM,
@@ -865,22 +870,41 @@ class SafeEvalApp:
             camera_name="ZEDCamera",
             camera_offset=[0.2, 0.0, -0.05],
             camera_rotation_offset=[0.0, 0.0, 0.0],
+            **camera_kwargs,
         )
+        # Policy camera intrinsics are a real part of the observation contract.
+        # Configure the attached ZED optics rather than resizing a wrong-FOV image.
+        hfov = os.environ.get("SAFE_POV_HFOV_DEG")
+        vfov = os.environ.get("SAFE_POV_VFOV_DEG")
+        if hfov:
+            for side in ("camera_left", "camera_right"):
+                prim = stage.GetPrimAtPath(f"{DRONE_PRIM}/ZEDCamera/base_link/ZED_X/{side}")
+                if not prim.IsValid():
+                    raise RuntimeError(f"attached ZED camera {side} is missing")
+                camera = UsdGeom.Camera(prim)
+                aperture = camera.GetHorizontalApertureAttr().Get()
+                focal = 0.5 * float(aperture) / math.tan(math.radians(float(hfov)) / 2.0)
+                camera.GetFocalLengthAttr().Set(focal)
+                if vfov:
+                    camera.GetVerticalApertureAttr().Set(
+                        2.0 * focal * math.tan(math.radians(float(vfov)) / 2.0))
+                elif pov_res:
+                    camera.GetVerticalApertureAttr().Set(float(aperture))
         if os.environ.get("ENABLE_LIDAR", "false").lower() == "true":
             try:
-                from pegasus.simulator.ogn.api.spawn_rtx_lidar import add_rtx_lidar_subgraph
-                add_rtx_lidar_subgraph(
+                from pegasus.simulator.ogn.api.spawn_ouster_lidar import add_ouster_lidar_subgraph
+                add_ouster_lidar_subgraph(
                     parent_graph_handle=graph_handle,
                     drone_prim=DRONE_PRIM,
                     robot_name=ROBOT_NAME,
-                    lidar_config="ouster_os1",
+                    lidar_name="OS1_REV6_128_10hz___512_resolution",
                     lidar_topic_name="point_cloud_raw",
                     lidar_offset=[0.0, 0.0, 0.025],
                     lidar_rotation_offset=[0.0, 0.0, 0.0],
-                    min_range=0.75,
+                    lidar_min_range=0.75,
                 )
             except ImportError as e:
-                carb.log_warn(f"[safe_eval] lidar unavailable ({e}) — continuing without it")
+                raise RuntimeError(f"[safe_eval] requested lidar unavailable: {e}") from e
 
         safe_static_prims = []
         if safe_cfg is not None:
