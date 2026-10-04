@@ -360,7 +360,11 @@ def configure_scenario(env):
     )
     world_offset = getattr(sim, "_world_offset_isaac", (0.0, 0.0)) if sim is not None else (0.0, 0.0)
 
-    if env_prim_paths:
+    if getattr(env, '_static_mesh_positions', None) is not None and getattr(cfg, 'source_domain', None):
+        static_locs = env._static_mesh_positions.copy()
+        env.num_obstacles = len(static_locs)
+        # AABBs came from SAFE's stage inspection in the Isaac process.
+    elif env_prim_paths:
         oz = float(getattr(cfg, "origin_z", 0.0))
         static_locs = _read_obstacle_positions_from_stage(
             env_prim_paths, env.dimension, origin_z=oz, world_offset_isaac=world_offset

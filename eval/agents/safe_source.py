@@ -84,3 +84,7 @@ class SafeAggressive(_SafeVelocity):
 
 class SafeConservative(_SafeVelocity):
     source_name = 'Conservative'
+
+
+class SafeAdaptiveApf(_SafeVelocity):
+    source_name = 'AdaptiveApf'

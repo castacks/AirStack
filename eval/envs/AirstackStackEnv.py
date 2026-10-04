@@ -58,9 +58,15 @@ class AirstackStackEnv(BaseEnvBackend):
                  epsilon_unsafe: float = 0.3, r_failure: float = 0.61,
                  r_unsafe: float = 0.91, goal_tolerance: float = 1.0,
                  takeoff_velocity: float = 1.0, headless: bool = True,
-                 keep_up: bool = False):
+                 keep_up: bool = False, humans: bool = False,
+                 goal_distance: float | None = None,
+                 static_only: bool = False):
         self.env_cfg = env_cfg
         self.agent_profile = dict(agent_profile)
+        self.humans = bool(humans)
+        self.goal_distance = goal_distance
+        self.static_only = bool(static_only)
+        self._ground_z = 0.0
         self.dimension = 3
         self.dt = float(dt)
         self.max_episode_time = float(max_episode_time)
@@ -98,6 +104,7 @@ class AirstackStackEnv(BaseEnvBackend):
         self._dynamic_obstacle_velocities = np.zeros((0, 3), dtype=np.float32)
         self._initial_dynamic_obstacle_velocities = np.zeros((0, 3), dtype=np.float32)
         self.static_obstacle_aabbs = np.zeros((0, 4), dtype=np.float32)
+        self._static_mesh_positions = np.zeros((0, 3), dtype=np.float32)
 
         # Episode state
         self._target = np.zeros(3, dtype=np.float32)
@@ -121,7 +128,7 @@ class AirstackStackEnv(BaseEnvBackend):
         self.num_dynamic_obstacles = int(cfg.num_dynamic_obstacles)
         self.num_static_cylinders = int(cfg.num_static_cylinders)
         self.num_obstacles = 0  # scene-mesh obstacles: not tracked in v1
-        self.dynamic_obstacle_speed = float(cfg.dynamic_obstacle_speed)
+        self.dynamic_obstacle_speed = (1.5 if self.humans else float(cfg.dynamic_obstacle_speed))
         self.flight_z = float(cfg.flight_z)
         self._active_dynamic_obstacles = self.num_dynamic_obstacles
         self._layout = None
@@ -132,10 +139,30 @@ class AirstackStackEnv(BaseEnvBackend):
                 self.origin_x + self.size_x, self.origin_y + self.size_y]
 
     def _safe_eval_config(self) -> dict:
+        if getattr(self.env_cfg, 'source_domain', None):
+            # The source stage measures its own bounds after load. Do not put
+            # those measured values into the stack fingerprint: that would
+            # restart Isaac on the next episode for the same domain.
+            return {
+                'safe_domain': self.env_cfg.source_domain,
+                'humans': self.humans,
+                'static_only': self.static_only,
+                'goal_distance': self.goal_distance,
+                'env_url': None,
+                'stage_scale': 1.0,
+                'spawn': [0.0, 0.0],
+                'max_dynamic': self.num_dynamic_obstacles,
+                'max_static': self.num_static_cylinders,
+                'obstacle_radius': self.obstacle_radius,
+                'drone_radius': self.collision_radius,
+                'arena': [0.0, 0.0, 1.0, 1.0],
+            }
         cx = self.origin_x + self.size_x / 2.0
         cy = self.origin_y + self.size_y / 2.0
         return {
             "env_url": self.env_cfg.usd_path,
+            "safe_domain": getattr(self.env_cfg, "source_domain", None),
+            "humans": self.humans,
             "stage_scale": float(getattr(self.env_cfg, "stage_scale", 1.0)),
             "spawn": [cx, cy],
             "max_dynamic": max(1, self.num_dynamic_obstacles),
@@ -166,15 +193,62 @@ class AirstackStackEnv(BaseEnvBackend):
         )
         bridge = self.stack.bridge  # noqa: F841 — real-topic publisher
         scenario = self.stack.scenario
+        if getattr(self.env_cfg, 'source_domain', None):
+            info = scenario.command('get_info')['domain_info']
+            if not info:
+                raise RuntimeError('SAFE source world did not report measured bounds')
+            # SAFE reports benchmark X/Y; AirStack operates in Isaac world XY.
+            self.size_x = float(info['size_y'])
+            self.size_y = float(info['size_x'])
+            self.size_z = float(info['size_z'])
+            self.origin_x = float(info['origin_y'])
+            self.origin_y = float(info['origin_x'])
+            self._ground_z = float(info['origin_z'])
+            self.flight_z = 2.5  # AirStack TakeoffTask altitude above local ground
+            self.env_cfg.size_x, self.env_cfg.size_y = self.size_x, self.size_y
+            self.env_cfg.origin_x, self.env_cfg.origin_y = self.origin_x, self.origin_y
+            self._static_mesh_positions = np.asarray(
+                info.get('static_mesh_positions', []), dtype=np.float32).reshape(-1, 3)
+            self.static_obstacle_aabbs = np.asarray(
+                info.get('static_mesh_aabbs', []), dtype=np.float32).reshape(-1, 4)
+            self.num_obstacles = len(self._static_mesh_positions)
 
-        if self._layout is None or (seed is not None and seed != self._scenario_seed):
-            self.prepare_scenario(seed if seed is not None else 0)
+        source_domain = getattr(self.env_cfg, 'source_domain', None)
+        if source_domain:
+            generated = scenario.command('generate_safe_scenario', {
+                'seed': int(self._scenario_seed if self._scenario_seed is not None else 0),
+                'goal_distance': self.goal_distance,
+                'perturbation_seed': getattr(self, '_pending_perturbation_seed', None),
+            }, timeout=120)
+            self._layout = {
+                'agent_location': np.asarray(generated['start'], dtype=np.float32),
+                'target_location': np.asarray(generated['target'], dtype=np.float32),
+                'static_obstacle_locations': np.asarray(
+                    generated['static_obstacle_locations'], dtype=np.float32).reshape(-1, 3),
+                'static_cylinder_locations': np.asarray(
+                    generated['static_cylinder_locations'], dtype=np.float32).reshape(-1, 3),
+                'dynamic_obstacle_locations': np.asarray(
+                    generated['dynamic_obstacle_locations'], dtype=np.float32).reshape(-1, 3),
+                'dynamic_obstacle_velocities': np.asarray(
+                    generated['dynamic_obstacle_velocities'], dtype=np.float32).reshape(-1, 3),
+                'dynamic_obstacle_waypoints': np.asarray(
+                    generated['dynamic_obstacle_waypoints'], dtype=np.float32).reshape(-1, 3),
+            }
+            self._initial_dynamic_obstacle_velocities = (
+                self._layout['dynamic_obstacle_velocities'].copy())
+        else:
+            if self._layout is None:
+                self.prepare_scenario(self._scenario_seed if self._scenario_seed is not None else 0)
+            if getattr(self, '_pending_perturbation_seed', None) is not None:
+                scenario_config.perturb_scenario(
+                    self, self._pending_perturbation_seed, scale_range=(0.8, 1.2))
 
         layout = self._layout
         self._start = np.asarray(layout["agent_location"], dtype=np.float32).copy()
-        self._start[2] = self.flight_z
         self._target = np.asarray(layout["target_location"], dtype=np.float32).copy()
-        self._target[2] = self.flight_z
+        if not source_domain:
+            self._start[2] = self.flight_z
+            self._target[2] = self.flight_z
 
         # 1. Get the drone on the ground a short run-up behind the start, facing
         #    the goal, so the warm-up flight to the start seeds the planner's
@@ -192,14 +266,15 @@ class AirstackStackEnv(BaseEnvBackend):
         # 2. Place the obstacle field (episodes restore perturbed velocities).
         n_active = self._active_dynamic_obstacles
         cylinders = layout["static_cylinder_locations"]
-        scenario.command("set_scenario", {
-            "static": cylinders.tolist(),
-            "dynamic": layout["dynamic_obstacle_locations"][:n_active].tolist(),
-            "dynamic_vel": self._initial_dynamic_obstacle_velocities[:n_active].tolist(),
-            "waypoints": layout["dynamic_obstacle_waypoints"][:n_active].tolist(),
-            "target": self._target.tolist(),
-            "seed": int(self._scenario_seed or 0),
-        })
+        if not source_domain:
+            scenario.command("set_scenario", {
+                "static": cylinders.tolist(),
+                "dynamic": layout["dynamic_obstacle_locations"][:n_active].tolist(),
+                "dynamic_vel": self._initial_dynamic_obstacle_velocities[:n_active].tolist(),
+                "waypoints": layout["dynamic_obstacle_waypoints"][:n_active].tolist(),
+                "target": self._target.tolist(),
+                "seed": int(self._scenario_seed or 0),
+            })
 
         # 3. Take off through the stack's own action server, then fly the run-up
         #    to the start on the trajectory controller.
@@ -232,7 +307,8 @@ class AirstackStackEnv(BaseEnvBackend):
         self.stack.disarm()
         self._airborne = False
         scenario.command("reset_vehicle", {
-            "pos": [float(start_world[0]), float(start_world[1]), 0.07],
+            "pos": [float(start_world[0]), float(start_world[1]),
+                    float(self._ground_z + 0.07)],
             "yaw": float(yaw),
         })
         # Let the EKF settle on the new (GPS-consistent) position before arming.
@@ -390,7 +466,7 @@ class AirstackStackEnv(BaseEnvBackend):
             "agent": np.asarray(state["drone_pos"], dtype=np.float32),
             "agent_vel": np.asarray(state.get("drone_vel", [0, 0, 0]), dtype=np.float32),
             "target": self._target.copy(),
-            "static_obstacles": np.zeros((0, 3), dtype=np.float32),
+            "static_obstacles": self._static_mesh_positions.copy(),
             "static_cylinders": np.asarray(cylinders, dtype=np.float32),
             "dynamic_obstacles": np.concatenate(
                 [dyn_pos[:n_active], dyn_vel[:n_active]], axis=1),

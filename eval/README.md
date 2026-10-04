@@ -103,18 +103,13 @@ there.
 
 ## Domains
 
-Registered in [`eval/sim/environment_config.py`](sim/environment_config.py);
-arena bounds are centered on the Isaac world origin.
-
-| Domain | Scene | Dynamic obstacles | Notes |
-|--------|-------|-------------------|-------|
-| `empty` | default grid | 0 | sanity/smoke domain |
-| `warehouse` | Simple Warehouse (Nucleus) | 30 | `stage_scale=0.01` |
-| `hospital` / `office` / `outdoor` | Nucleus scenes | 25 / 20 / 40 | arena origins untuned — verify before trusting results |
-
-Obstacles are cylinder prims spawned by the ScenarioManager (visible to the
-drone's ZED/lidar); cylinder movers follow waypoint patterns, with speeds
-resampled ±20% per perturbation (`perturb_scenario`).
+The AirStack-native path now reads SAFE's Isaac domain registry from a
+read-only SAFE source mount. The launcher calls SAFE's world builder for the
+USD/procedural scene and its CCT controller for walking humans when
+`humans: true` is set. The source scenario sampler now supplies seeded placements; the contact
+check still needs Isaac flight validation; see
+[PORT_STATUS.md](PORT_STATUS.md). Set `AIRSTACK_SAFE_LEGACY_DOMAINS=1` only to
+inspect the prior five-domain AirStack registry.
 
 ## Safety definitions
 

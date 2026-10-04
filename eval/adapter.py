@@ -76,6 +76,9 @@ class Adapter(BaseTaskAdapter):
             takeoff_velocity=float(ctx.get("takeoff_velocity", 1.0)),
             headless=bool(ctx.get("headless", True)),
             keep_up=bool(ctx.get("keep_up", False)),
+            humans=bool(ctx.get("humans", False)),
+            goal_distance=ctx.get("goal_distance"),
+            static_only=bool(ctx.get("static_only", False)),
         )
 
     def close_env(self, env: Any) -> None:
@@ -96,8 +99,11 @@ class Adapter(BaseTaskAdapter):
 
     def apply_scenario(self, env: Any, scenario_cfg: ScenarioCfg) -> None:
         env._active_dynamic_obstacles = env.num_dynamic_obstacles
-        # Layout only — the stack bring-up + flight happen in reset_episode.
-        env.prepare_scenario(scenario_cfg.scenario_seed)
+        # SAFE USD bounds are measured inside Isaac at boot. Defer the layout
+        # until reset_episode, after that measured geometry reaches the host.
+        env._scenario_seed = scenario_cfg.scenario_seed
+        env._layout = None
+        env._pending_perturbation_seed = None
 
     def disturbance(self) -> Disturbance:
         return Disturbance(
@@ -118,7 +124,9 @@ class Adapter(BaseTaskAdapter):
     def apply_perturbation(self, env: Any, scenario_cfg: ScenarioCfg,
                             perturbation_seed: int) -> PerturbationCfg:
         scale_range = self.disturbance().perturb_range
-        perturb_scenario(env, perturbation_seed, scale_range=scale_range)
+        env._pending_perturbation_seed = int(perturbation_seed)
+        if env._layout is not None and not getattr(env.env_cfg, 'source_domain', None):
+            perturb_scenario(env, perturbation_seed, scale_range=scale_range)
         return PerturbationCfg(perturbation_seed=int(perturbation_seed))
 
     # ------------------------------------------------------------------

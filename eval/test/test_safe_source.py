@@ -1,8 +1,9 @@
 import numpy as np
 
 from eval.agents.safe_source import (
-    SafeAggressive, SafeConservative, _swap_xy, _to_safe_benchmark_frame)
-from integrations.aerial_nav.agents.baselines import Aggressive, Conservative
+    SafeAggressive, SafeConservative, SafeAdaptiveApf, _swap_xy,
+    _to_safe_benchmark_frame)
+from integrations.aerial_nav.agents.baselines import Aggressive, Conservative, AdaptiveApf
 
 
 def test_safe_aggressive_delegates_to_source_policy():
@@ -54,3 +55,23 @@ def test_frame_conversion_preserves_geometry():
     np.testing.assert_array_equal(safe['env_bounds'],
                                   [-20., -10., 0., 20., 10., 5.])
     np.testing.assert_array_equal(obs['agent'], [2., 5., 1.])
+
+
+def test_safe_adaptive_apf_delegates_to_source_policy():
+    obs = {
+        'agent': np.array([0., 0., 1.]),
+        'target': np.array([5., 0., 1.]),
+        'static_obstacles': np.empty((0, 3)),
+        'static_cylinders': np.empty((0, 3)),
+        'dynamic_obstacles': np.empty((0, 6)),
+        'static_obstacle_aabbs': np.empty((0, 4)),
+        'env_bounds': np.array([-10., -10., 0., 10., 10., 5.]),
+        'max_speed': 3.,
+        'r_unsafe': 0.91,
+        't': 0.,
+    }
+    reference = AdaptiveApf()
+    reference.reset()
+    expected = _swap_xy(reference.act(_to_safe_benchmark_frame(obs))) / obs['max_speed']
+    actual = SafeAdaptiveApf().act(obs)
+    np.testing.assert_allclose(actual, expected)

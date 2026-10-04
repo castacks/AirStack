@@ -25,7 +25,8 @@ import numpy as np
 from safe_core.core.policy import Policy
 
 from .baselines import Random, Aggressive, Conservative  # noqa: F401  (auto-discovered)
-from .safe_source import SafeRandom, SafeAggressive, SafeConservative  # noqa: F401
+from .safe_source import (SafeRandom, SafeAggressive, SafeConservative,
+                          SafeAdaptiveApf)  # noqa: F401
 
 
 class DROAN(Policy):
@@ -62,6 +63,7 @@ PROFILES: dict[str, dict] = {
     "saferandom":       {"name": "saferandom",       "control_mode": "velocity"},
     "safeaggressive":   {"name": "safeaggressive",   "control_mode": "velocity"},
     "safeconservative": {"name": "safeconservative", "control_mode": "velocity"},
+    "safeadaptiveapf":  {"name": "safeadaptiveapf",  "control_mode": "velocity"},
     # TODO(super): a SuperPlanner profile needs a bring-up variant that
     # launches super_planner INSTEAD of droan_gl (two local planners fight
     # over the trajectory controller). local_bringup exposes no swap arg yet.

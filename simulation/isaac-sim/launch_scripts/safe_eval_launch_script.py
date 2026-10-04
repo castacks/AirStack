@@ -53,6 +53,7 @@ import threading
 _safe_source = "/isaac-sim/SAFE_BENCHMARK"
 if os.path.isfile(os.path.join(_safe_source, "safe_isaac", "world_builder.py")):
     sys.path.insert(0, _safe_source)
+sys.path.insert(0, "/isaac-sim/AirStack")
 import time
 
 import numpy as np
@@ -90,6 +91,11 @@ _DEFAULT_CONFIG = {
     "obstacle_radius": 0.3,
     "drone_radius": 0.31,
     "arena": [-10.0, -10.0, 10.0, 10.0],
+    "safe_domain": None,
+    "humans": False,
+    "static_only": False,
+    "goal_distance": None,
+    "spawn_z": 0.07,
 }
 
 
@@ -292,7 +298,8 @@ class ScenarioManager:
     every connected client.
     """
 
-    def __init__(self, stage, pool: ObstaclePool, cfg: dict, pegasus: PegasusInterface):
+    def __init__(self, stage, pool: ObstaclePool, cfg: dict, pegasus: PegasusInterface,
+                 humans=None, safe_cfg=None, safe_static_prims=None):
         self._clients: list = []
         self._clients_lock = threading.Lock()
         self._inbox: "queue.Queue" = queue.Queue()
@@ -303,6 +310,9 @@ class ScenarioManager:
 
         self.stage = stage
         self.pool = pool
+        self.humans = humans
+        self.safe_cfg = safe_cfg
+        self.safe_static_prims = safe_static_prims or []
         self.cfg = cfg
         # Pegasus interface: its vehicle_manager holds the PX4 backend restarted after a teleport.
         self.pegasus = pegasus
@@ -317,6 +327,7 @@ class ScenarioManager:
 
         # Scenario state (set by set_scenario)
         self.static_positions = np.zeros((0, 3), dtype=np.float32)
+        self.static_radii = np.zeros(0, dtype=np.float32)
         self.dyn_positions = np.zeros((0, 3), dtype=np.float32)
         self.dyn_velocities = np.zeros((0, 3), dtype=np.float32)
         self.dyn_waypoints = np.zeros((0, 3), dtype=np.float32)
@@ -398,11 +409,16 @@ class ScenarioManager:
                 "arena": self.arena,
                 "obstacle_radius": self.obstacle_radius,
                 "drone_radius": self.drone_radius,
-                "max_static": len(self.pool.static_ops),
-                "max_dynamic": len(self.pool.dynamic_ops),
+                "max_static": (len(self.safe_static_prims) if self.safe_cfg is not None
+                               else len(self.pool.static_ops)),
+                "max_dynamic": self.humans.n if self.humans is not None else len(self.pool.dynamic_ops),
+                "safe_domain": self.cfg.get("safe_domain"),
+                "domain_info": self.cfg.get("domain_info"),
             }
         if cmd == "set_scenario":
             return self._set_scenario(args)
+        if cmd == "generate_safe_scenario":
+            return self._generate_safe_scenario(args)
         if cmd == "reset_vehicle":
             # Defer to the main loop so the teleport happens between physics
             # steps, not inside a ROS callback.
@@ -417,6 +433,67 @@ class ScenarioManager:
             return {}
         raise ValueError(f"unknown cmd '{cmd}'")
 
+    def _generate_safe_scenario(self, args):
+        if self.safe_cfg is None:
+            raise RuntimeError('generate_safe_scenario requires a SAFE source domain')
+        from eval.sim.safe_source_scene import sample_scenario
+        layout, behavior = sample_scenario(
+            self.safe_cfg,
+            seed=int(args['seed']),
+            goal_distance=args.get('goal_distance'),
+            perturbation_seed=args.get('perturbation_seed'),
+            humans=self.humans is not None,
+            agent_radius=float(self.cfg['drone_radius']),
+            obstacle_radius=float(self.cfg['obstacle_radius']),
+        )
+        if self.humans is not None:
+            self.humans.set_behavior(behavior)
+        from safe_isaac.world_builder import (
+            rebuild_static_obstacle_shapes, spawn_tree_obstacles,
+            rebuild_blocker_wall_gap)
+        static_radii = None
+        if layout.get('static_obstacle_shapes') is not None:
+            rebuild_static_obstacle_shapes(
+                layout['static_obstacle_shapes'], env_prefix='safe_eval')
+            static_radii = layout['static_obstacle_shapes']['radii']
+        if layout.get('tree_variants') is not None:
+            static_radii, _ = spawn_tree_obstacles(
+                layout['tree_variants'], self.safe_cfg, env_prefix='safe_eval')
+        if layout.get('wall_gap') is not None:
+            rebuild_blocker_wall_gap(
+                layout['wall_gap'], self.safe_cfg.size_y, env_prefix='safe_eval')
+
+        def world_positions(value, *, ground=False):
+            arr = np.asarray(value, dtype=np.float32).copy().reshape(-1, 3)
+            if arr.size:
+                arr[:, [0, 1]] = arr[:, [1, 0]]
+                if not ground:
+                    arr[:, 2] += float(self.safe_cfg.origin_z)
+            return arr.tolist()
+
+        start = world_positions([layout['agent_location']])[0]
+        target = world_positions([layout['target_location']])[0]
+        static = world_positions(layout['static_cylinder_locations'], ground=True)
+        dynamic = world_positions(layout['dynamic_obstacle_locations'])
+        velocities = world_positions(layout['dynamic_obstacle_velocities'], ground=True)
+        waypoints = world_positions(layout['dynamic_obstacle_waypoints'], ground=True)
+        self._set_scenario({
+            'static': static, 'dynamic': dynamic,
+            'dynamic_vel': velocities, 'waypoints': waypoints,
+            'target': target, 'seed': int(args['seed']),
+            'start': start,
+            'static_radii': (np.asarray(static_radii).tolist()
+                             if static_radii is not None else None),
+        })
+        return {
+            'start': start, 'target': target,
+            'static_cylinder_locations': static,
+            'static_obstacle_locations': world_positions(layout['static_obstacle_locations']),
+            'dynamic_obstacle_locations': dynamic,
+            'dynamic_obstacle_velocities': velocities,
+            'dynamic_obstacle_waypoints': waypoints,
+        }
+
     def _set_scenario(self, args):
         static = np.asarray(args.get("static", []), dtype=np.float32).reshape(-1, 3) \
             if args.get("static") else np.zeros((0, 3), dtype=np.float32)
@@ -427,12 +504,19 @@ class ScenarioManager:
         wpts = np.asarray(args.get("waypoints", []), dtype=np.float32).reshape(-1, 3) \
             if args.get("waypoints") else dyn.copy()
 
-        if len(static) > len(self.pool.static_ops):
-            raise ValueError(f"{len(static)} static > pool {len(self.pool.static_ops)}")
-        if len(dyn) > len(self.pool.dynamic_ops):
-            raise ValueError(f"{len(dyn)} dynamic > pool {len(self.pool.dynamic_ops)}")
+        max_static = (len(self.safe_static_prims) if self.safe_cfg is not None
+                      else len(self.pool.static_ops))
+        if len(static) > max_static:
+            raise ValueError(f"{len(static)} static > pool {max_static}")
+        max_dynamic = self.humans.n if self.humans is not None else len(self.pool.dynamic_ops)
+        if len(dyn) > max_dynamic:
+            raise ValueError(f"{len(dyn)} dynamic > pool {max_dynamic}")
 
         self.static_positions = static
+        radii = args.get('static_radii')
+        self.static_radii = (np.asarray(radii, dtype=np.float32)
+                             if radii is not None else
+                             np.full(len(static), self.obstacle_radius, dtype=np.float32))
         self.dyn_positions = dyn
         self.dyn_velocities = vel
         self.dyn_waypoints = wpts
@@ -440,8 +524,43 @@ class ScenarioManager:
         self.target = [float(v) for v in args["target"]] if args.get("target") else None
         self._rng = np.random.RandomState(int(args.get("seed", 0)))
 
-        self.pool._place(self.pool.static_ops, static)
-        self.pool._place(self.pool.dynamic_ops, dyn)
+        if self.safe_cfg is not None:
+            gm = getattr(self.safe_cfg, '_ground_map', None)
+            for i, prim in enumerate(self.safe_static_prims):
+                if i < len(static):
+                    pos = static[i].astype(np.float32).copy()
+                    ground = gm.ground_at(float(pos[0]), float(pos[1])) if gm else None
+                    pos[2] = (float(ground) if ground is not None
+                              else float(self.safe_cfg.origin_z))
+                else:
+                    pos = np.array([0.0, 0.0, -100.0], dtype=np.float32)
+                prim.set_world_poses(positions=pos.reshape(1, 3))
+        else:
+            self.pool._place(self.pool.static_ops, static)
+        if self.humans is not None:
+            # SAFE's character controller accepts benchmark XY (Isaac Y/X).
+            bench_pos, bench_vel = dyn.copy(), vel.copy()
+            bench_pos[:, [0, 1]] = bench_pos[:, [1, 0]]
+            bench_vel[:, [0, 1]] = bench_vel[:, [1, 0]]
+            corridor = None
+            if args.get('start') and args.get('target'):
+                start_b = np.asarray(args['start'], dtype=np.float32).copy()
+                target_b = np.asarray(args['target'], dtype=np.float32).copy()
+                start_b[[0, 1]] = start_b[[1, 0]]
+                target_b[[0, 1]] = target_b[[1, 0]]
+                corridor = (start_b, target_b)
+            self.humans.reset_episode(
+                bench_pos, bench_vel,
+                bounds=(self.cfg['domain_info']['origin_x'],
+                        self.cfg['domain_info']['origin_y'],
+                        self.cfg['domain_info']['size_x'],
+                        self.cfg['domain_info']['size_y']),
+                corridor=corridor)
+            static_bench = static.copy()
+            static_bench[:, [0, 1]] = static_bench[:, [1, 0]]
+            self.humans.set_static_obstacles(static_bench)
+        else:
+            self.pool._place(self.pool.dynamic_ops, dyn)
         self.collision = False
         self.collision_with = ""
         return {"n_static": len(static), "n_dynamic": len(dyn)}
@@ -550,6 +669,12 @@ class ScenarioManager:
         carb.log_warn("[safe_eval] PX4 HIL did not reconnect after relaunch")
 
     def _step_dynamic_obstacles(self, dt: float):
+        if self.humans is not None and self.n_active_dyn and dt > 0.0:
+            self.humans.step(dt)
+            pos, vel = self.humans.get_positions_velocities_isaac(dt)
+            self.dyn_positions = pos[:self.n_active_dyn]
+            self.dyn_velocities = vel[:self.n_active_dyn]
+            return
         if self.n_active_dyn == 0 or dt <= 0.0:
             return
         x_min, y_min, x_max, y_max = self.arena
@@ -581,7 +706,8 @@ class ScenarioManager:
         if self.collision:
             return
         p2d = drone_pos[:2]
-        contact = self.drone_radius + self.obstacle_radius
+        contact = self.drone_radius + (self.humans.CAPSULE_RADIUS
+                                       if self.humans is not None else self.obstacle_radius)
         if self.n_active_dyn > 0:
             d = np.linalg.norm(self.dyn_positions[: self.n_active_dyn, :2] - p2d, axis=1)
             i = int(np.argmin(d))
@@ -590,8 +716,9 @@ class ScenarioManager:
                 return
         if len(self.static_positions) > 0:
             d = np.linalg.norm(self.static_positions[:, :2] - p2d, axis=1)
-            i = int(np.argmin(d))
-            if d[i] < contact:
+            clear = d - self.static_radii - self.drone_radius
+            i = int(np.argmin(clear))
+            if clear[i] < 0.0:
                 self.collision, self.collision_with = True, f"static_obstacle_{i}"
                 return
         x_min, y_min, x_max, y_max = self.arena
@@ -651,13 +778,64 @@ class SafeEvalApp:
         self.world = self.pg.world
         self.timeline.stop()
 
-        self.pg.load_environment(resolve_env_url(CONFIG["env_url"]))
+        source_domain = CONFIG.get("safe_domain")
+        self.pg.load_environment(resolve_env_url(None if source_domain else CONFIG["env_url"]))
 
         stage = omni.usd.get_context().get_stage()
         if stage is None:
             raise RuntimeError("Stage failed to load")
         if not wait_for_stage(stage):
             carb.log_warn("Stage load timed out — continuing anyway.")
+
+        safe_cfg = None
+        humans = None
+        if source_domain:
+            if _safe_source not in sys.path:
+                raise RuntimeError('SAFE source checkout is not mounted in Isaac')
+            # Pegasus owns the vehicle; SAFE owns the scene. Remove Pegasus's
+            # default grid before adding SAFE's authored stage/ground.
+            if stage.GetPrimAtPath('/World/stage').IsValid():
+                stage.RemovePrim(Sdf.Path('/World/stage'))
+            if CONFIG.get('static_only'):
+                os.environ['SAFE_NO_DYNAMIC'] = '1'
+                os.environ['SAFE_NO_DYNAMIC_FROM_YAML'] = '1'
+            from eval.sim.safe_source_scene import load_domain, create_humans
+            safe_cfg = load_domain(source_domain, CONFIG.get('goal_distance'))
+            CONFIG['domain_info'] = {
+                'size_x': float(safe_cfg.size_x),
+                'size_y': float(safe_cfg.size_y),
+                'size_z': float(safe_cfg.size_z),
+                'origin_x': float(safe_cfg.origin_x),
+                'origin_y': float(safe_cfg.origin_y),
+                'origin_z': float(safe_cfg.origin_z),
+            }
+            paths = safe_cfg.static_obstacle_prim_paths or []
+            if paths:
+                from integrations.aerial_nav.config.scenarios import (
+                    _read_obstacle_positions_from_stage,
+                    _read_obstacle_aabbs_from_stage,
+                )
+                mesh_pos = _read_obstacle_positions_from_stage(
+                    paths, 3, origin_z=safe_cfg.origin_z)
+                mesh_aabb = _read_obstacle_aabbs_from_stage(paths)
+                mesh_pos[:, [0, 1]] = mesh_pos[:, [1, 0]]
+                mesh_pos[:, 2] += float(safe_cfg.origin_z)
+                mesh_aabb[:, [0, 1, 2, 3]] = mesh_aabb[:, [1, 0, 3, 2]]
+                CONFIG['domain_info']['static_mesh_positions'] = mesh_pos.tolist()
+                CONFIG['domain_info']['static_mesh_aabbs'] = mesh_aabb.tolist()
+            else:
+                CONFIG['domain_info']['static_mesh_positions'] = []
+                CONFIG['domain_info']['static_mesh_aabbs'] = []
+            CONFIG['arena'] = [float(safe_cfg.origin_y), float(safe_cfg.origin_x),
+                               float(safe_cfg.origin_y + safe_cfg.size_y),
+                               float(safe_cfg.origin_x + safe_cfg.size_x)]
+            CONFIG['spawn'] = [(CONFIG['arena'][0] + CONFIG['arena'][2]) / 2,
+                               (CONFIG['arena'][1] + CONFIG['arena'][3]) / 2]
+            CONFIG['spawn_z'] = float(safe_cfg.origin_z) + 0.07
+            CONFIG['max_dynamic'] = int(safe_cfg.num_dynamic_obstacles)
+            CONFIG['max_static'] = int(safe_cfg.num_static_cylinders)
+            if CONFIG.get('humans') and safe_cfg.num_dynamic_obstacles:
+                humans = create_humans(safe_cfg)
 
         stage_prim = stage.GetPrimAtPath("/World/stage")
         if stage_prim.IsValid():
@@ -666,7 +844,7 @@ class SafeEvalApp:
             for _ in range(10):
                 omni.kit.app.get_app().update()
         add_dome_light(stage)
-        if not CONFIG["env_url"]:
+        if not source_domain and not CONFIG["env_url"]:
             build_textured_arena(stage, CONFIG["arena"], float(CONFIG.get("size_z", 5.0)))
 
         spawn = CONFIG["spawn"]
@@ -677,7 +855,7 @@ class SafeEvalApp:
             vehicle_id=1,
             domain_id=ROS_DOMAIN,
             usd_file=DRONE_USD,
-            init_pos=[float(spawn[0]), float(spawn[1]), 0.07],
+            init_pos=[float(spawn[0]), float(spawn[1]), float(CONFIG["spawn_z"])],
             init_orient=[0.0, 0.0, 0.0, 1.0],
         )
         add_zed_stereo_camera_subgraph(
@@ -704,9 +882,18 @@ class SafeEvalApp:
             except ImportError as e:
                 carb.log_warn(f"[safe_eval] lidar unavailable ({e}) — continuing without it")
 
+        safe_static_prims = []
+        if safe_cfg is not None:
+            from safe_isaac.world_builder import spawn_static_cylinder_obstacles
+            safe_static_prims = spawn_static_cylinder_obstacles(
+                int(safe_cfg.num_static_cylinders), env_prefix='safe_eval',
+                trees=bool(safe_cfg.tree_usd))
         pool = ObstaclePool(stage, radius=float(CONFIG["obstacle_radius"]))
-        pool.build(int(CONFIG["max_static"]), int(CONFIG["max_dynamic"]))
-        self.manager = ScenarioManager(stage, pool, CONFIG, self.pg)
+        pool.build(0 if safe_cfg is not None else int(CONFIG["max_static"]),
+                   0 if humans is not None else int(CONFIG["max_dynamic"]))
+        self.manager = ScenarioManager(stage, pool, CONFIG, self.pg,
+                                       humans=humans, safe_cfg=safe_cfg,
+                                       safe_static_prims=safe_static_prims)
 
         self.play_on_start = os.environ.get("PLAY_SIM_ON_START", "true").lower() == "true"
 

@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 @dataclass
 class AirstackDomainCfg:
     domain: str
+    source_domain: str | None = None
     # USD path relative to the Isaac Nucleus root (same paths used by AirStack's Pegasus scenes)
     usd_path: str | None = None
     size_x: float = 20.0
@@ -22,6 +23,7 @@ class AirstackDomainCfg:
     size_z: float = 5.0
     origin_x: float = 0.0
     origin_y: float = 0.0
+    origin_z: float = 0.0
     origin_z: float = 0.0
     flight_z: float = 1.5
     stage_scale: float = 1.0  # /World/stage scale (0.01 for cm-unit Nucleus assets)
@@ -44,17 +46,48 @@ def register_domain(cfg: AirstackDomainCfg) -> None:
 
 
 def get_domain_registry(sim_backend: str | None = None) -> dict[str, AirstackDomainCfg]:
-    """Return the full registry.  sim_backend is accepted for API compatibility but ignored
-    (AirStack always uses Isaac Sim)."""
-    return dict(_REGISTRY)
+    """Project SAFE's canonical Isaac domain registry into AirStack coordinates.
+
+    SAFE writes domain extents in its X/Y-swapped benchmark frame. AirStack
+    positions are Isaac-world ENU, so the projection swaps X/Y once. USD
+    bounds are measured again by SAFE's world builder inside Isaac at boot.
+    """
+    if sim_backend not in (None, 'isaac'):
+        return {}
+    if __import__('os').environ.get('AIRSTACK_SAFE_LEGACY_DOMAINS') == '1':
+        return dict(_REGISTRY)
+    try:
+        import integrations.aerial_nav.config.domains_isaac  # noqa: F401
+        from integrations.aerial_nav.config.domains import get_domain_registry as source_registry
+    except ImportError as exc:
+        raise RuntimeError('AirStack SAFE domains require the SAFE source checkout') from exc
+    result = {}
+    for name, src in source_registry('isaac').items():
+        result[name] = AirstackDomainCfg(
+            domain=name, source_domain=name,
+            usd_path=src.usd_path,
+            size_x=float(src.size_y), size_y=float(src.size_x),
+            size_z=float(src.size_z),
+            origin_x=float(src.origin_y), origin_y=float(src.origin_x),
+            origin_z=float(src.origin_z),
+            stage_scale=float(src.stage_scale or 1.0),
+            num_dynamic_obstacles=int(src.num_dynamic_obstacles),
+            num_static_cylinders=int(src.num_static_cylinders),
+            dynamic_obstacle_speed=float(src.dynamic_obstacle_speed),
+            dynamic_obstacle_usd=src.dynamic_obstacle_usd,
+            obstacle_layout=src.obstacle_layout,
+            outdoor=bool(src.outdoor),
+            flight_z=2.5,
+        )
+    return result
 
 
 def max_dynamic_obstacles() -> int:
-    return max((cfg.num_dynamic_obstacles for cfg in _REGISTRY.values()), default=0)
+    return max((cfg.num_dynamic_obstacles for cfg in get_domain_registry().values()), default=0)
 
 
 def max_static_obstacles() -> int:
-    return max((cfg.num_static_cylinders for cfg in _REGISTRY.values()), default=0)
+    return max((cfg.num_static_cylinders for cfg in get_domain_registry().values()), default=0)
 
 
 def switch_domain(env, domain_cfg: AirstackDomainCfg) -> None:

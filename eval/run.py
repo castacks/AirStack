@@ -64,6 +64,9 @@ class AirstackRunner(BaseRunner):
         return sorted(get_domain_registry())
 
     def validate(self, args: argparse.Namespace) -> int:
+        import integrations.aerial_nav.config.domains_isaac  # noqa: F401
+        from integrations.aerial_nav.config.domains import scale_procedural_domains
+        scale_procedural_domains(getattr(args, 'goal_distance', None), sim_backend='isaac')
         from .sim.environment_config import get_domain_registry
         available = list(get_domain_registry())
         if not args.domains:
@@ -109,6 +112,9 @@ class AirstackRunner(BaseRunner):
             "takeoff_velocity": args.takeoff_velocity,
             "headless":         args.headless,
             "keep_up":          args.keep_up,
+            "humans":           bool(getattr(args, "humans", False)),
+            "goal_distance":    getattr(args, "goal_distance", None),
+            "static_only":      bool(getattr(args, "static_only", False)),
         }
 
 

@@ -12,7 +12,7 @@ control path is a new experiment, even when the names and seeds match.
 - `random`, `aggressive`, `conservative`: older AirStack-specific baselines.
   Their implementations and speeds differ from SAFE's namesakes. Do not pool
   these results with the SAFE aerial runs.
-- `saferandom`, `safeaggressive`, `safeconservative`: import SAFE's source
+- `saferandom`, `safeaggressive`, `safeconservative`, `safeadaptiveapf`: import SAFE's source
   classes from `integrations.aerial_nav.agents.baselines`, call their policy
   logic on AirStack observations, and convert their m/s velocity to the
   normalized AirStack trajectory-override input. Their observations and
@@ -30,7 +30,8 @@ control path is a new experiment, even when the names and seeds match.
 
 | SAFE source policy | AirStack control path needed | State |
 | --- | --- | --- |
-| Adaptive, AdaptiveApf | trajectory override plus their perception inputs | Not ported |
+| Adaptive | trajectory override plus its perception inputs | Not ported |
+| AdaptiveApf | source-imported velocity policy | CPU-tested adapter; no Isaac flight |
 | AgileAutonomy, AgileRGB variants, DepthNav, DiffAero, DiffPhysDrone, Vitfly | policy-specific RGB/depth/IMU/odometry observation adapter and attitude/thrust command via PX4 | Not ported to `eval`; DiffAero has an unflown SVG deployment adapter |
 | Dynus, EgoPlanner, FastPlanner, Faster, Mighty, Panther, Raptor, Super | their ROS planner process, sensor/map bridge, goal and setpoint handoff through AirStack | Not ported |
 | Crash, CrashHVC, CrashLVC, SR, SHP | diagnostic baselines and probe-specific contracts | Not ported |
@@ -40,19 +41,25 @@ robot container instead of a separate sidecar container, but it does not
 remove their ROS node, dependencies, mapping, or timing contract. A planner
 must replace AirStack's local planner rather than publish competing commands.
 
-## Remaining world parity
+## Source-backed worlds: current state
 
-`eval/sim/environment_config.py` currently has AirStack's own five domains,
-including untuned hospital/office/outdoor locations. `safe_eval_launch_script`
-spawns cylinder movers. SAFE's domain registry, scene placement, ground maps,
-scenario seeds, CCT human controller, gait, contact checks, and collision
-geometry come from its aerial integration and `safe_isaac`. Thus *named-world
-parity and walking-human parity have not been reached*. Before running the
-large suite, mount/install SAFE source read-only in the Isaac container, reuse
-those builders from the source package, and test one scenario against SAFE's
-recorded scene manifest. Keep AirStack's PX4/ROS drone bring-up and policy
-control path. The generated world and simulator geometry must be compared,
-not just the YAML strings.
+AirStack now reads domain names and authored properties from SAFE's Isaac
+registry. The Isaac and robot containers mount that SAFE checkout read-only.
+AirStack's Isaac launcher calls SAFE's `world_builder` to load the USD stage,
+measure the floor/ground map and static meshes, and calls
+`CctHumanController` when the experiment sets `humans: true`. Pegasus still
+owns the AirStack PX4 drone and ROS sensors. The measured stage bounds and
+mesh AABBs return to the host. Seeded starts, goals, static obstacle shapes,
+wall gaps, pedestrian positions and perturbations now come from SAFE's own
+scenario sampler inside Isaac. SAFE's tree and shape builders are called for
+procedural static obstacles.
+
+This path has only passed Python compilation and Docker Compose configuration.
+It has **not flown in Isaac**. The remaining gaps are AirStack's approximate
+contact monitor and safety adapter, and its different PX4/ROS drone dynamics.
+Matching the source world and scenario code does not yet prove the generated
+scene or contact labels agree. The next check is one domain/seed against a
+SAFE scene manifest, followed by an AirStack flight and contact audit.
 
 ## Sim and real trial flow
 
@@ -69,8 +76,8 @@ same outcome and safety definitions; no new SAFE core metric is required.
 
 ## Validation required before claims
 
-1. Build the AirStack robot and Isaac images with the source mount, without
-   replacing the running SAFE checkout's GPU workload.
+1. Once GPU use is available, boot one source-backed domain without
+   disturbing the SAFE benchmark workload.
 2. Smoke one policy in one SAFE domain; compare stage USD, transform, static
    meshes, human actor count/paths, seeded start/goal, and collision/clearance
    against SAFE's source manifest.
