@@ -51,8 +51,23 @@ class StackHandle:
 
     # ── bring-up / teardown ───────────────────────────────────────────────
 
+    @staticmethod
+    def _safe_source_root() -> str:
+        from pathlib import Path
+        import safe_core
+        root = Path(safe_core.__file__).resolve().parent.parent
+        required = root / "integrations" / "aerial_nav" / "config" / "domains_isaac.py"
+        if not required.is_file():
+            raise RuntimeError(
+                "AirStack-native SAFE worlds need a SAFE source checkout, not the "
+                "core-only wheel. Install SAFE editable from source or add its "
+                "checkout to PYTHONPATH."
+            )
+        return str(root)
+
     def _env_for(self, safe_eval_config: dict, agent_env: dict) -> dict:
         env = {
+            "SAFE_BENCHMARK_SOURCE": self._safe_source_root(),
             "AUTOLAUNCH": "true",
             "NUM_ROBOTS": "1",
             "COMPOSE_PROFILES": "desktop,isaac-sim",

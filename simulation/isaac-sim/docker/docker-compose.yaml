@@ -78,6 +78,9 @@ services:
       - .bashrc:/isaac-sim/.bashrc:rw # bash config
       - ../../../common/inputrc:/etc/inputrc:rw # for using page up/down to search through command history
       - ../../../common/.tmux.conf:/isaac-sim/.tmux.conf:rw
+      # SAFE source is read-only so AirStack can import its domain/world/human code.
+      # The eval runner sets this to the installed SAFE source checkout.
+      - ${SAFE_BENCHMARK_SOURCE:-../../..}:/isaac-sim/SAFE_BENCHMARK:ro
       # airstack code
       - ../../..:/isaac-sim/AirStack:rw
       - ../../../.devcontainer/isaac-sim/launch.json:/isaac-sim/AirStack/.vscode/launch.json:rw

@@ -47,6 +47,12 @@ import queue
 import socketserver
 import sys
 import threading
+
+# Docker mounts the SAFE checkout read-only. World and human modules are imported
+# from that single source, never vendored into AirStack.
+_safe_source = "/isaac-sim/SAFE_BENCHMARK"
+if os.path.isfile(os.path.join(_safe_source, "safe_isaac", "world_builder.py")):
+    sys.path.insert(0, _safe_source)
 import time
 
 import numpy as np
