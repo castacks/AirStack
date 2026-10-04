@@ -148,6 +148,21 @@ class StackBridge:
                     'attitude_xyzw_enu_flu': [float(x) for x in xyzw_enu_flu],
                     'thrust': float(thrust)})
 
+    def publish_setpoint(self, position_enu, velocity_enu, acceleration_enu,
+                         yaw_enu: float, yaw_rate_enu: float | None) -> None:
+        """Complete ROS-ENU planner reference for MAVROS local setpoint."""
+        self._send({'kind': 'setpoint',
+                    'position': [float(x) for x in position_enu],
+                    'velocity': [float(x) for x in velocity_enu],
+                    'acceleration': [float(x) for x in acceleration_enu],
+                    'yaw': float(yaw_enu),
+                    'yaw_rate': None if yaw_rate_enu is None else float(yaw_rate_enu)})
+
+    def clear_external_command(self) -> None:
+        """Stop the bridge's offboard setpoint heartbeat."""
+        if self.alive:
+            self._send({'kind': 'clear_external_command'})
+
     def latest_sensor_obs(self, timeout: float = 5.0) -> dict:
         """Request one actual ROS snapshot; absent frames stay absent (never fabricated)."""
         with self._lock:
@@ -161,6 +176,8 @@ class StackBridge:
         for key in ('depth', 'rgb'):
             if key in raw:
                 out[key] = _decode_ros_image(raw[key])
+        if 'lidar' in raw:
+            out['lidar'] = _decode_ros_pointcloud(raw['lidar'])
         for key in ('imu', 'imu_ros'):
             if key in raw:
                 out[key] = np.asarray(raw[key], dtype=np.float32)
@@ -202,3 +219,27 @@ def _decode_ros_image(image: dict) -> np.ndarray:
     if encoding == 'rgba8':
         return arr[..., :3].copy()
     return arr
+
+
+def _decode_ros_pointcloud(cloud: dict) -> np.ndarray:
+    """Extract finite XYZ from a PointCloud2 without assuming packed field order."""
+    fields = {f['name']: f for f in cloud['fields']}
+    if not all(k in fields for k in ('x', 'y', 'z')):
+        raise BridgeError('PointCloud2 lacks x/y/z fields')
+    if any(int(fields[k]['datatype']) != 7 for k in ('x', 'y', 'z')):
+        raise BridgeError('PointCloud2 x/y/z must be FLOAT32')
+    width, height = int(cloud['width']), int(cloud['height'])
+    point_step, row_step = int(cloud['point_step']), int(cloud['row_step'])
+    raw = zlib.decompress(base64.b64decode(cloud['data']))
+    if len(raw) != height * row_step or point_step < 12 or row_step < width * point_step:
+        raise BridgeError('invalid PointCloud2 payload length or stride')
+    byte_order = '>' if cloud.get('is_bigendian') else '<'
+    out = np.empty((width * height, 3), dtype=np.float32)
+    for i, key in enumerate(('x', 'y', 'z')):
+        offset = int(fields[key]['offset'])
+        if offset < 0 or offset + 4 > point_step:
+            raise BridgeError(f'invalid PointCloud2 {key} field offset')
+        view = np.ndarray((height, width), dtype=np.dtype(byte_order + 'f4'),
+                          buffer=raw, offset=offset, strides=(row_step, point_step))
+        out[:, i] = view.reshape(-1)
+    return out[np.isfinite(out).all(axis=1)]

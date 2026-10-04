@@ -10,6 +10,7 @@
 #include <tf2/LinearMath/Quaternion.h>
 #include <pid_controller_msgs/msg/pid_info.hpp>
 #include <std_msgs/msg/empty.hpp>
+#include <std_srvs/srv/set_bool.hpp>
 
 class PID {
 public:
@@ -118,6 +119,8 @@ private:
   rclcpp::Subscription<airstack_msgs::msg::Odometry>::SharedPtr tracking_point_sub;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odometry_sub;
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr reset_integrators_sub;
+  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr safe_eval_control_service;
+  bool command_output_enabled = true;
   tf2_ros::Buffer* tf_buffer;
   tf2_ros::TransformListener* tf_listener;
 
@@ -145,8 +148,16 @@ public:
 										 std::bind(&PIDControllerNode::tracking_point_callback,
 											   this, std::placeholders::_1));
     reset_integrators_sub = this->create_subscription<std_msgs::msg::Empty>("reset_integrators", 1,
-									    std::bind(&PIDControllerNode::reset_integrators_callback,
-										      this, std::placeholders::_1));
+								    std::bind(&PIDControllerNode::reset_integrators_callback,
+									      this, std::placeholders::_1));
+    safe_eval_control_service = this->create_service<std_srvs::srv::SetBool>(
+      "safe_eval_pid_output_enabled",
+      [this](const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+             std::shared_ptr<std_srvs::srv::SetBool::Response> response) {
+        command_output_enabled = request->data;
+        response->success = true;
+        response->message = command_output_enabled ? "PID output enabled" : "PID output disabled";
+      });
     
     tf_buffer = new tf2_ros::Buffer(this->get_clock());
     //tf_buffer->setUsingDedicatedThread(true);
@@ -161,6 +172,8 @@ public:
   }
 
   void tracking_point_callback(const airstack_msgs::msg::Odometry::SharedPtr msg){
+    if (!command_output_enabled)
+      return;
     if(!got_odometry)
       return;
 

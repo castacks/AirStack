@@ -28,9 +28,11 @@ initialized; the offset between the two is measured once per bring-up from
 from __future__ import annotations
 
 import time
+import math
 from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
+from scipy.spatial.transform import Rotation
 
 from safe_core.core.env_backend import BaseEnvBackend
 from safe_core.utils import console
@@ -115,6 +117,7 @@ class AirstackStackEnv(BaseEnvBackend):
         self._episode_start_t = 0.0
         self._ros_offset = np.zeros(3)
         self._airborne = False
+        self._external_control_active = False
 
     # ── domain plumbing (called by sim.environment_config.switch_domain) ──
 
@@ -299,6 +302,10 @@ class AirstackStackEnv(BaseEnvBackend):
     def _ensure_landed_at(self, start_world: np.ndarray, yaw: float = 0.0) -> None:
         """Land wherever we are, then teleport (disarmed) to the given pose."""
         scenario = self.stack.scenario
+        if self._external_control_active:
+            self.stack.bridge.clear_external_command()
+            self.stack.set_pid_output(True)
+            self._external_control_active = False
         state = scenario.wait_state()
         if self._airborne or float(state["drone_pos"][2]) > 0.3:
             self.stack.bridge.cancel_navigate()
@@ -374,6 +381,10 @@ class AirstackStackEnv(BaseEnvBackend):
         """End the planner's task and park the controller on the current pose."""
         ROBOT_POSE = 1
         try:
+            if self._external_control_active:
+                self.stack.bridge.clear_external_command()
+                self.stack.set_pid_output(True)
+                self._external_control_active = False
             self.stack.bridge.cancel_navigate()
             self.stack.set_trajectory_mode(ROBOT_POSE)
         except Exception as e:
@@ -399,8 +410,25 @@ class AirstackStackEnv(BaseEnvBackend):
     # ── step ──────────────────────────────────────────────────────────────
 
     def step(self, action: Any) -> Tuple[Dict, bool, bool, Dict]:
-        if self.agent_profile.get("control_mode", "stack") == "velocity":
-            self._apply_velocity_action(np.asarray(action, dtype=np.float64))
+        mode = self.agent_profile.get("control_mode", "stack")
+        try:
+            if mode in ("setpoint", "attitude_thrust") and not self._external_control_active:
+                self.stack.set_pid_output(False)
+                self._external_control_active = True
+            if mode == "velocity":
+                self._apply_velocity_action(np.asarray(action, dtype=np.float64))
+            elif mode == "setpoint":
+                self._apply_setpoint_action(action)
+            elif mode == "attitude_thrust":
+                self._apply_attitude_action(action)
+            elif mode != "stack":
+                raise ValueError(f"unknown AirStack SAFE control_mode {mode!r}")
+        except Exception:
+            if self._external_control_active:
+                self.stack.bridge.clear_external_command()
+                self.stack.set_pid_output(True)
+                self._external_control_active = False
+            raise
 
         target_t = self._last_state_t + self.dt
         state = self.stack.scenario.wait_sim_time(target_t, timeout=max(60.0, self.dt * 30))
@@ -446,6 +474,45 @@ class AirstackStackEnv(BaseEnvBackend):
         self.stack.bridge.publish_traj_override(
             [self._world_to_ros(current), self._world_to_ros(ahead)], velocity=speed)
 
+    def _apply_setpoint_action(self, action: dict) -> None:
+        """Forward the planner wrapper's complete world-ENU reference to PX4.
+
+        The AirStack planner wrapper has already converted SAFE benchmark
+        X/Y and compass heading into ENU. Only position needs the EKF offset.
+        """
+        if not isinstance(action, dict):
+            # SAFE sidecars return a zero velocity fallback when no reference
+            # is available. Use AirStack's ordinary hover path for that case.
+            fallback = np.asarray(action, dtype=np.float64).reshape(-1)
+            if fallback.size != 3 or not np.allclose(fallback, 0.0):
+                raise ValueError("planner fallback must be a zero velocity")
+            self._apply_velocity_action(fallback)
+            return
+        from integrations.aerial_nav.envs.setpoint import parse
+
+        sp = parse(action)
+        ros_pos = self._world_to_ros(sp.position)
+        yaw = math.atan2(math.sin(sp.heading), math.cos(sp.heading))
+        self.stack.bridge.publish_setpoint(
+            ros_pos, sp.velocity.tolist(), sp.acceleration.tolist(), yaw, sp.heading_rate)
+
+    def _apply_attitude_action(self, action: dict) -> None:
+        """Convert SAFE's PX4 NED/FRD quaternion to the AirStack ENU/FLU topic."""
+        if not isinstance(action, dict) or "attitude" not in action or "thrust" not in action:
+            raise ValueError("attitude_thrust action needs attitude and thrust")
+        q = np.asarray(action["attitude"], dtype=np.float64).reshape(-1)
+        if q.size != 4 or not np.all(np.isfinite(q)) or np.linalg.norm(q) < 1e-8:
+            raise ValueError("attitude must be four finite PX4 NED/FRD wxyz values")
+        thrust = float(action["thrust"])
+        if not math.isfinite(thrust) or not 0.0 <= thrust <= 1.0:
+            raise ValueError("normalized thrust must be finite in [0, 1]")
+        ned_to_enu = np.array([[0., 1., 0.], [1., 0., 0.], [0., 0., -1.]])
+        frd_to_flu = np.diag([1., -1., -1.])
+        rotation_ned_frd = Rotation.from_quat([q[1], q[2], q[3], q[0]])
+        rotation_enu_flu = ned_to_enu @ rotation_ned_frd.as_matrix() @ frd_to_flu
+        q_enu_flu_xyzw = Rotation.from_matrix(rotation_enu_flu).as_quat()
+        self.stack.bridge.publish_attitude_thrust(q_enu_flu_xyzw.tolist(), thrust)
+
     # ── observations / contract ───────────────────────────────────────────
 
     def _build_obs(self, state: dict) -> Dict[str, Any]:
@@ -462,9 +529,10 @@ class AirstackStackEnv(BaseEnvBackend):
                      if self._layout is not None
                      else np.zeros((0, 3), dtype=np.float32))
         arena = self._arena()
-        return {
+        obs = {
             "agent": np.asarray(state["drone_pos"], dtype=np.float32),
             "agent_vel": np.asarray(state.get("drone_vel", [0, 0, 0]), dtype=np.float32),
+            "velocity": np.asarray(state.get("drone_vel", [0, 0, 0]), dtype=np.float32),
             "target": self._target.copy(),
             "static_obstacles": self._static_mesh_positions.copy(),
             "static_cylinders": np.asarray(cylinders, dtype=np.float32),
@@ -478,6 +546,10 @@ class AirstackStackEnv(BaseEnvBackend):
             "max_speed": self.max_speed,
             "t": float(state.get("t", 0.0)),
         }
+        sensor_obs = self.stack.bridge.latest_sensor_obs()
+        if sensor_obs:
+            obs.update(sensor_obs)
+        return obs
 
     def _goal_distance(self, obs: dict) -> float:
         return float(np.linalg.norm(obs["agent"][:2] - self._target[:2]))

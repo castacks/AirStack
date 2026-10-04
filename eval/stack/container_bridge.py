@@ -35,6 +35,7 @@ import json
 import queue
 import sys
 import threading
+import time
 
 import rclpy
 from rclpy.action import ActionClient
@@ -43,13 +44,17 @@ from rclpy.parameter import Parameter
 
 from nav_msgs.msg import Odometry, Path
 from geometry_msgs.msg import PoseStamped
-from sensor_msgs.msg import Image, Imu
+from sensor_msgs.msg import Image, Imu, PointCloud2
 from rclpy.qos import qos_profile_sensor_data
 
 try:
     from mav_msgs.msg import AttitudeThrust
 except ImportError:
     AttitudeThrust = None
+try:
+    from mavros_msgs.msg import PositionTarget
+except ImportError:
+    PositionTarget = None
 
 try:
     from airstack_msgs.msg import TrajectoryXYZVYaw, WaypointXYZVYaw
@@ -86,9 +91,17 @@ class SafeEvalBridge(Node):
                                  lambda msg: self._on_image("rgb", msg), qos_profile_sensor_data)
         self.create_subscription(Imu, f"/{robot}/sensors/imu", self._on_imu,
                                  qos_profile_sensor_data)
+        self.create_subscription(PointCloud2, f"/{robot}/sensors/lidar/point_cloud_raw",
+                                 self._on_lidar, qos_profile_sensor_data)
         self.att_pub = (self.create_publisher(
             AttitudeThrust, f"/{robot}/interface/attitude_thrust_command", 10)
             if AttitudeThrust is not None else None)
+        self.setpoint_pub = (self.create_publisher(
+            PositionTarget, f"/{robot}/interface/mavros/setpoint_raw/local", 10)
+            if PositionTarget is not None else None)
+        self._external_command = None
+        self._external_command_time = 0.0
+        self.create_timer(0.05, self._repeat_external_command)
 
         self.plan_pub = self.create_publisher(Path, f"/{robot}/global_plan", 1)
         self.traj_pub = (
@@ -128,6 +141,18 @@ class SafeEvalBridge(Node):
             self._sensors[key] = {
                 'width': msg.width, 'height': msg.height, 'step': msg.step,
                 'encoding': msg.encoding, 'data': packed,
+            }
+
+    def _on_lidar(self, msg: PointCloud2):
+        packed = base64.b64encode(zlib.compress(bytes(msg.data), level=1)).decode('ascii')
+        with self._sensor_lock:
+            self._sensors['lidar'] = {
+                'width': msg.width, 'height': msg.height,
+                'point_step': msg.point_step, 'row_step': msg.row_step,
+                'is_bigendian': msg.is_bigendian, 'frame_id': msg.header.frame_id,
+                'fields': [{'name': f.name, 'offset': f.offset, 'datatype': f.datatype,
+                            'count': f.count} for f in msg.fields],
+                'data': packed,
             }
 
     def _on_imu(self, msg: Imu):
@@ -202,14 +227,17 @@ class SafeEvalBridge(Node):
         elif kind == "attitude_thrust":
             if self.att_pub is None:
                 raise RuntimeError("mav_msgs not available — build the workspace first")
-            cmd = AttitudeThrust()
-            cmd.header.stamp = self.get_clock().now().to_msg()
-            cmd.header.frame_id = 'map'
-            q = msg['attitude_xyzw_enu_flu']
-            cmd.attitude.x, cmd.attitude.y = float(q[0]), float(q[1])
-            cmd.attitude.z, cmd.attitude.w = float(q[2]), float(q[3])
-            cmd.thrust.z = float(msg['thrust'])
-            self.att_pub.publish(cmd)
+            self._external_command = msg
+            self._external_command_time = time.monotonic()
+            self._repeat_external_command()
+        elif kind == "setpoint":
+            if self.setpoint_pub is None:
+                raise RuntimeError("mavros_msgs not available — build the workspace first")
+            self._external_command = msg
+            self._external_command_time = time.monotonic()
+            self._repeat_external_command()
+        elif kind == "clear_external_command":
+            self._external_command = None
         elif kind == "traj_override":
             if self.traj_pub is None:
                 raise RuntimeError("airstack_msgs not available — build the workspace first")
@@ -217,6 +245,45 @@ class SafeEvalBridge(Node):
                 self._make_traj(msg["waypoints"], float(msg.get("velocity", 1.0))))
         else:
             raise ValueError(f"unknown kind '{kind}'")
+
+    def _repeat_external_command(self):
+        """Keep PX4 offboard setpoints above its minimum rate between SAFE ticks.
+
+        A stopped host must not leave an old command latched indefinitely.
+        """
+        msg = self._external_command
+        if msg is None:
+            return
+        if time.monotonic() - self._external_command_time > 3.0:
+            self._external_command = None
+            emit({'kind': 'error', 'error': 'external setpoint expired after 3 s'})
+            return
+        stamp = self.get_clock().now().to_msg()
+        if msg['kind'] == 'attitude_thrust':
+            cmd = AttitudeThrust()
+            cmd.header.stamp = stamp
+            cmd.header.frame_id = 'map'
+            q = msg['attitude_xyzw_enu_flu']
+            cmd.attitude.x, cmd.attitude.y = float(q[0]), float(q[1])
+            cmd.attitude.z, cmd.attitude.w = float(q[2]), float(q[3])
+            cmd.thrust.z = float(msg['thrust'])
+            self.att_pub.publish(cmd)
+        elif msg['kind'] == 'setpoint':
+            cmd = PositionTarget()
+            cmd.header.stamp = stamp
+            cmd.header.frame_id = 'map'
+            cmd.coordinate_frame = PositionTarget.FRAME_LOCAL_NED
+            if msg.get('yaw_rate') is None:
+                cmd.type_mask = PositionTarget.IGNORE_YAW_RATE
+            for field, vector in (('position', msg['position']),
+                                  ('velocity', msg['velocity']),
+                                  ('acceleration_or_force', msg['acceleration'])):
+                value = getattr(cmd, field)
+                value.x, value.y, value.z = [float(x) for x in vector]
+            cmd.yaw = float(msg['yaw'])
+            if msg.get('yaw_rate') is not None:
+                cmd.yaw_rate = float(msg['yaw_rate'])
+            self.setpoint_pub.publish(cmd)
 
     def _send_navigate(self, waypoints, goal_tolerance: float) -> None:
         if self.navigate_client is None:

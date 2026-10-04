@@ -9,6 +9,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 find_package(mav_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(pid_controller_msgs REQUIRED)
@@ -20,6 +21,7 @@ find_package(tf2_ros REQUIRED)
 
 add_executable(pid_controller src/pid_controller.cpp)
 ament_target_dependencies(pid_controller
+  std_srvs
   rclcpp
   std_msgs
   mav_msgs
