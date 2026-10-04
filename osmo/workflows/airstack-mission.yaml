@@ -126,7 +126,8 @@ workflow:
       # for Isaac Sim, which is pinned to GPU 0. At gpu: 3 the third robot
       # landed on the sim's GPU and its rayfronts died with a CUDA OOM, which
       # silently cost that drone the whole mission.
-      cpu: 30
+      # DSTA allocation: exactly 8 CPUs per GPU (4 GPUs × 8 = 32 CPUs).
+      cpu: 32
       gpu: 4
       memory: 96Gi
       # Same sizing rationale as airstack-dev.yaml (inner image set alone
