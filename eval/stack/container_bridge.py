@@ -29,6 +29,8 @@ stdout message kinds (one JSON object per line):
 """
 
 import argparse
+import base64
+import zlib
 import json
 import queue
 import sys
@@ -41,6 +43,13 @@ from rclpy.parameter import Parameter
 
 from nav_msgs.msg import Odometry, Path
 from geometry_msgs.msg import PoseStamped
+from sensor_msgs.msg import Image, Imu
+from rclpy.qos import qos_profile_sensor_data
+
+try:
+    from mav_msgs.msg import AttitudeThrust
+except ImportError:
+    AttitudeThrust = None
 
 try:
     from airstack_msgs.msg import TrajectoryXYZVYaw, WaypointXYZVYaw
@@ -69,6 +78,17 @@ class SafeEvalBridge(Node):
         self.robot = robot
         self._frame = "map"
         self._last_odom_emit = 0.0
+        self._sensor_lock = threading.Lock()
+        self._sensors = {}
+        self.create_subscription(Image, f"/{robot}/sensors/front_stereo/left/depth_ground_truth",
+                                 lambda msg: self._on_image("depth", msg), qos_profile_sensor_data)
+        self.create_subscription(Image, f"/{robot}/sensors/front_stereo/left/image_rect",
+                                 lambda msg: self._on_image("rgb", msg), qos_profile_sensor_data)
+        self.create_subscription(Imu, f"/{robot}/sensors/imu", self._on_imu,
+                                 qos_profile_sensor_data)
+        self.att_pub = (self.create_publisher(
+            AttitudeThrust, f"/{robot}/interface/attitude_thrust_command", 10)
+            if AttitudeThrust is not None else None)
 
         self.plan_pub = self.create_publisher(Path, f"/{robot}/global_plan", 1)
         self.traj_pub = (
@@ -100,6 +120,42 @@ class SafeEvalBridge(Node):
         emit({"kind": "ready"})
 
     # ── ROS → host ────────────────────────────────────────────────────────
+
+    def _on_image(self, key: str, msg: Image):
+        # Preserve raw pixels, row stride and encoding. Decode exactly on the host.
+        packed = base64.b64encode(zlib.compress(bytes(msg.data), level=1)).decode('ascii')
+        with self._sensor_lock:
+            self._sensors[key] = {
+                'width': msg.width, 'height': msg.height, 'step': msg.step,
+                'encoding': msg.encoding, 'data': packed,
+            }
+
+    def _on_imu(self, msg: Imu):
+        # ROS IMU is REP-103 FLU→ENU. SAFE's Pegasus contract is FRD→NED.
+        # Convert explicitly so SAFE policy attitude decoding remains valid.
+        q = msg.orientation
+        q_ros = [q.x, q.y, q.z, q.w]
+        def quat_mul(a, b):
+            ax, ay, az, aw = a
+            bx, by, bz, bw = b
+            return [aw*bx + ax*bw + ay*bz - az*by,
+                    aw*by - ax*bz + ay*bw + az*bx,
+                    aw*bz + ax*by - ay*bx + az*bw,
+                    aw*bw - ax*bx - ay*by - az*bz]
+        q_safe = quat_mul(quat_mul(
+            [0.7071067811865476, 0.7071067811865476, 0, 0], q_ros),
+            [1, 0, 0, 0])
+        omega = msg.angular_velocity
+        with self._sensor_lock:
+            self._sensors['imu'] = [float(v) for v in q_safe] + [
+                float(omega.x), -float(omega.y), -float(omega.z)]
+            self._sensors['imu_ros'] = [float(v) for v in q_ros] + [
+                float(omega.x), float(omega.y), float(omega.z)]
+
+    def _send_sensor_snapshot(self):
+        with self._sensor_lock:
+            payload = dict(self._sensors)
+        emit({'kind': 'sensors', 'values': payload})
 
     def _on_odom(self, msg: Odometry):
         self._frame = msg.header.frame_id or self._frame
@@ -141,6 +197,19 @@ class SafeEvalBridge(Node):
             self._cancel_navigate()
         elif kind == "global_plan":
             self.plan_pub.publish(self._make_path(msg["waypoints"]))
+        elif kind == "sensor_snapshot":
+            self._send_sensor_snapshot()
+        elif kind == "attitude_thrust":
+            if self.att_pub is None:
+                raise RuntimeError("mav_msgs not available — build the workspace first")
+            cmd = AttitudeThrust()
+            cmd.header.stamp = self.get_clock().now().to_msg()
+            cmd.header.frame_id = 'map'
+            q = msg['attitude_xyzw_enu_flu']
+            cmd.attitude.x, cmd.attitude.y = float(q[0]), float(q[1])
+            cmd.attitude.z, cmd.attitude.w = float(q[2]), float(q[3])
+            cmd.thrust.z = float(msg['thrust'])
+            self.att_pub.publish(cmd)
         elif kind == "traj_override":
             if self.traj_pub is None:
                 raise RuntimeError("airstack_msgs not available — build the workspace first")

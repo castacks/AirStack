@@ -10,6 +10,10 @@ scenario_client.py instead.
 from __future__ import annotations
 
 import json
+import base64
+import zlib
+
+import numpy as np
 import os
 import subprocess
 import threading
@@ -32,6 +36,8 @@ class StackBridge:
         self._odom_frame: str | None = None
         self._odom_pos: list | None = None
         self._navigate_ack: bool | None = None
+        self._sensors: dict = {}
+        self._sensor_revision = 0
         self._ready = False
         self._stderr_tail: list[str] = []
 
@@ -89,6 +95,9 @@ class StackBridge:
                 if kind == "odom":
                     self._odom_frame = msg.get("frame")
                     self._odom_pos = msg.get("pos")
+                elif kind == "sensors":
+                    self._sensors = msg.get("values") or {}
+                    self._sensor_revision += 1
                 elif kind == "navigate":
                     self._navigate_ack = bool(msg.get("accepted"))
                 elif kind == "ready":
@@ -134,8 +143,62 @@ class StackBridge:
                     "waypoints": [[float(v) for v in wp] for wp in waypoints],
                     "velocity": float(velocity)})
 
+    def publish_attitude_thrust(self, xyzw_enu_flu, thrust: float) -> None:
+        self._send({'kind': 'attitude_thrust',
+                    'attitude_xyzw_enu_flu': [float(x) for x in xyzw_enu_flu],
+                    'thrust': float(thrust)})
+
+    def latest_sensor_obs(self, timeout: float = 5.0) -> dict:
+        """Request one actual ROS snapshot; absent frames stay absent (never fabricated)."""
+        with self._lock:
+            revision = self._sensor_revision
+        self._send({'kind': 'sensor_snapshot'})
+        with self._lock:
+            self._lock.wait_for(lambda: self._sensor_revision > revision or not self.alive,
+                                timeout=timeout)
+            raw = dict(self._sensors)
+        out = {}
+        for key in ('depth', 'rgb'):
+            if key in raw:
+                out[key] = _decode_ros_image(raw[key])
+        for key in ('imu', 'imu_ros'):
+            if key in raw:
+                out[key] = np.asarray(raw[key], dtype=np.float32)
+        return out
+
     # ── state access ──────────────────────────────────────────────────────
 
     def latest_odom_pos(self) -> list | None:
         with self._lock:
             return list(self._odom_pos) if self._odom_pos else None
+
+
+def _decode_ros_image(image: dict) -> np.ndarray:
+    """Decode ROS Image with row padding and explicit metric depth units."""
+    encoding = image['encoding'].lower()
+    formats = {
+        '32fc1': (np.float32, 1), '16uc1': (np.uint16, 1),
+        'mono8': (np.uint8, 1), 'rgb8': (np.uint8, 3),
+        'bgr8': (np.uint8, 3), 'rgba8': (np.uint8, 4), 'bgra8': (np.uint8, 4),
+    }
+    if encoding not in formats:
+        raise BridgeError(f"unsupported ROS image encoding {encoding!r}")
+    dtype, channels = formats[encoding]
+    width, height, step = int(image['width']), int(image['height']), int(image['step'])
+    raw = zlib.decompress(base64.b64decode(image['data']))
+    row_bytes = width * channels * np.dtype(dtype).itemsize
+    if len(raw) != height * step or step < row_bytes:
+        raise BridgeError('invalid ROS image payload length or row stride')
+    arr = np.ndarray((height, step // np.dtype(dtype).itemsize), dtype=dtype,
+                     buffer=raw)[:, :width * channels].copy()
+    if channels > 1:
+        arr = arr.reshape(height, width, channels)
+    if encoding == '16uc1':
+        return arr.astype(np.float32) / 1000.0
+    if encoding == 'bgr8':
+        return arr[..., ::-1].copy()
+    if encoding == 'bgra8':
+        return arr[..., [2, 1, 0]].copy()
+    if encoding == 'rgba8':
+        return arr[..., :3].copy()
+    return arr
