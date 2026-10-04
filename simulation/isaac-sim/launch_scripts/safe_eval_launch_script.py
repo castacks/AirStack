@@ -859,7 +859,7 @@ class SafeEvalApp:
             init_pos=[float(spawn[0]), float(spawn[1]), float(CONFIG["spawn_z"])],
             init_orient=[0.0, 0.0, 0.0, 1.0],
         )
-        pov_res = int(os.environ.get("SAFE_POV_RES", "0"))
+        pov_res = int(os.environ.get("SAFE_POV_RES") or "0")
         if pov_res and not 32 <= pov_res <= 1024:
             raise ValueError(f"SAFE_POV_RES must be in [32, 1024], got {pov_res}")
         camera_kwargs = {"frame_height": pov_res, "frame_width": pov_res} if pov_res else {}
