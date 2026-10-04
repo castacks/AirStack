@@ -77,6 +77,19 @@ class AirstackRunner(BaseRunner):
             if unknown:
                 raise SystemExit(f"Unknown domain(s): {unknown}. Available: {available}")
             args.num_env_domains = len(args.domains)
+        selected = ([args.agent] if getattr(args, "agent", None) else
+                    list(getattr(args, "agents", None) or []))
+        learned = {"safediffphysdrone", "safedepthnav", "safediffaero",
+                   "safevitfly", "safeagileautonomy"}
+        if any(name.lower() in learned for name in selected):
+            from safe_isaac.sim_config import PHYSICS_DT
+            if args.env_dt is not None and abs(args.env_dt - PHYSICS_DT) > 1e-9:
+                raise SystemExit(
+                    f"[validate] SAFE learned policies call act() once per Isaac physics "
+                    f"tick ({PHYSICS_DT:g} s); env_dt={args.env_dt:g} s would change "
+                    "their trained control, camera, and model cadence. Set env_dt to "
+                    f"{PHYSICS_DT:g} or omit it.")
+            args.env_dt = PHYSICS_DT
         return int(args.max_episode_time / args.env_dt)
 
     def get_runs_root(self):
@@ -98,7 +111,8 @@ class AirstackRunner(BaseRunner):
         if not selected:
             return
         from .agents.planner_source import PLANNER_NAMES
-        planner = PLANNER_NAMES.get(selected.lower())
+        planner = PLANNER_NAMES.get(selected.lower()) or (
+            "vitfly" if selected.lower() == "safevitfly" else None)
         if planner is None:
             return
         import subprocess

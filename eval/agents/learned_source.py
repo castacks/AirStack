@@ -16,6 +16,9 @@ class _SafeLearned(Policy):
     source_class = ''
     sensors = ['odometry', 'goal', 'depth', 'imu']
     action_type = 'attitude_thrust'
+    # SAFE Isaac calls act() once per 60 Hz physics tick; source policies perform
+    # their own camera/model decimation on top of that cadence.
+    required_dt_s = 1.0 / 60.0
 
     def __init__(self):
         try:
@@ -61,7 +64,6 @@ class SafeDepthNav(_SafeLearned):
 class SafeDiffAero(_SafeLearned):
     source_module = 'agent_diffaero'
     source_class = 'DiffAero'
-    required_dt_s = 1.0 / 30.0
 
 
 class SafeAgileAutonomy(_SafeLearned):
