@@ -127,6 +127,20 @@ function _gate_px4_odom_ok {
         | grep -q "pose:"
 }
 
+# MAVROS dynamically creates this child node without global ROS arguments.
+# A readable YAML entry is not proof that the child received its actuation
+# configuration. This AirStack PX4 profile requires normalized thrust scaling 1.0.
+function _gate_px4_actuation_ok {
+    local domain="$1" name="$2" container="$3" value
+    value=$(_ready_ros2_exec "$container" "$domain" \
+        "ros2 param get /${name}/interface/mavros/setpoint_raw thrust_scaling" 6) || return 1
+    [[ "$value" == "Double value is: 1.0" ]] || return 1
+    value=$(_ready_ros2_exec "$container" "$domain" \
+        "ros2 topic echo --once --csv --field data /${name}/interface/actuation_ready" 6) || return 1
+    # Jazzy echo may include its document separator after a single CSV sample.
+    [[ "$value" == "True" || "$value" == $'True\n---' ]]
+}
+
 # Run every gate, filling the caller's `results` map and READY_OVERALL.
 # All output from this function is progress reporting — cmd_ready redirects
 # it wholesale to stderr in --json mode.
@@ -225,6 +239,14 @@ function _ready_run_gates {
             else
                 results["px4_ready_${name}"]=failed
                 log_error "$name: PX4 connected but local_position/odom never streamed (EKF has no local origin)."
+                READY_OVERALL=1
+            fi
+
+            if _ready_poll "$READY_PX4_TIMEOUT" "$name: MAVROS effective thrust scaling" _gate_px4_actuation_ok "$domain" "$name" "$c"; then
+                results["px4_actuation_${name}"]=ok
+            else
+                results["px4_actuation_${name}"]=failed
+                log_error "$name: effective thrust scaling or interface startup is not verified. Require child double1.0 AND actuation_ready=true; do not arm/retry until startup configuration is repaired and verified."
                 READY_OVERALL=1
             fi
         done

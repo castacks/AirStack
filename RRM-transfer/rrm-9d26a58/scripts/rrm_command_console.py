@@ -9,6 +9,7 @@ import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import importlib.util
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -24,6 +25,8 @@ from rrm_cosmos_reason2 import load_context
 from rrm_import_office import import_bundle
 from rrm_hand_shadow import build_records as build_hand_shadow_records
 from rrm.airstack_command import CommandEnvironment, ground_command, takeoff_recovery_action
+from rrm.airstack_drone import DroneTaskProposal
+from rrm.isaac_runtime import probe_isaac_runtime
 from rrm.contracts import CapabilityDeclaration
 from rrm.execution_supervisor import ExecutionSupervisor, RunningDispatch
 from rrm.goal_contracts import GoalRequest, bind_selected_route_to_c01, route_goal
@@ -455,8 +458,8 @@ class Console:
             return None
         return robot_started >= simulator_started
 
-    def start_command_mission(self, run_id: str) -> dict:
-        """Compile and launch one GUI command through discovered public task actions."""
+    def stage_command_mission(self, run_id: str) -> dict:
+        """Save the actual immutable runtime plan without launching anything."""
         with self.mission_lock:
             status = self._mission_status_locked()
             if status.get("active"):
@@ -464,6 +467,13 @@ class Console:
             run = self.store.get_run(run_id)
             if run is None:
                 raise ValueError("Saved run not found.")
+            if run["execution_state"] == "REVIEW_REQUIRED" and run["status"] == "SAVED_NOT_SUBMITTED":
+                raw = (Path(run["artifact_dir"]) / "command-plan.json").read_bytes()
+                digest = hashlib.sha256(raw).hexdigest()
+                if digest != run["proposal_sha256"]:
+                    raise RuntimeError("Staged disk plan was modified.")
+                return {"state": "REVIEW_REQUIRED", "active": False, "run_id": run_id,
+                        "plan": json.loads(raw), "plan_sha256": digest, "execution_dispatch": False}
             if (run["status"] != "SAVED_NOT_SUBMITTED"
                     or run["execution_state"] != "NOT_DISPATCHED"):
                 raise RuntimeError("Only a new, undispatched command attempt can be executed.")
@@ -474,7 +484,7 @@ class Console:
                     or discovery.get("frame_id") != "map"
                     or discovery.get("child_frame_id") != "base_link"):
                 raise RuntimeError("Fresh canonical AirStack flight state is unavailable.")
-            if discovery.get("clock_epoch_consistent") is False:
+            if discovery.get("clock_epoch_consistent") is not True:
                 raise RuntimeError(
                     "Robot control nodes predate the current Isaac clock epoch. While grounded, "
                     "restart the robot stack after Isaac before dispatching a mission."
@@ -524,6 +534,8 @@ class Console:
                 raise RuntimeError(
                     "Fresh map-frame VDB evidence is required for exploration planning."
                 )
+            runtime = self.require_isaac_runtime(proposals)
+            identity = self._command_runtime_identity()
             directory = Path(run["artifact_dir"])
             plan_path = directory / "command-plan.json"
             if plan_path.exists():
@@ -533,6 +545,9 @@ class Console:
                 "run_id": run_id,
                 "active_scene": self.active_scene_shortname,
                 "discovery": discovery,
+                "isaac_runtime": runtime,
+                "runtime_identity": identity,
+                "source_manifest": self._command_source_manifest(),
                 "actions": [proposal.model_dump(mode="json") for proposal in proposals],
                 "grounding": {
                     "schema_version": grounded.schema_version,
@@ -550,7 +565,7 @@ class Console:
                     "blind_retry": False,
                 },
                 "recovery": None,
-                "execution_dispatch": True,
+                "execution_dispatch": False,
             }
             recovery = takeoff_recovery_action(proposals)
             if recovery is not None:
@@ -558,59 +573,221 @@ class Console:
                     "trigger": "verified_mission_halt_while_airborne",
                     "action": recovery.model_dump(mode="json"),
                 }
-            plan_path.write_text(json.dumps(plan_record, indent=2, sort_keys=True) + "\n",
-                                 encoding="utf-8")
+            with plan_path.open("x", encoding="utf-8") as stream:
+                stream.write(json.dumps(plan_record, indent=2, sort_keys=True) + "\n")
             plan_sha256 = hashlib.sha256(plan_path.read_bytes()).hexdigest()
             self.store.record_event(
                 run_id, kind="command_plan", artifact_path=plan_path,
                 summary={"actions": len(proposals), "plan_sha256": plan_sha256},
             )
-            mission_id = uuid.uuid4().hex
-            self._ensure_robot_rrm_dependencies()
-            remote_root = f"/tmp/rrm-command-mission-{mission_id}"
-            remote_source = remote_root + "/source"
-            remote_plan = remote_root + "/plan.json"
-            remote_evidence = remote_root + "/evidence"
-            remote_pid = remote_root + "/mission.pid"
-            subprocess.run(["docker", "exec", "airstack-robot-desktop-1",
-                            "mkdir", "-p", remote_source],
-                           check=True, capture_output=True, timeout=10)
-            source_root = Path(__file__).resolve().parents[1]
-            subprocess.run(["docker", "cp", str(source_root) + "/.",
-                            f"airstack-robot-desktop-1:{remote_source}"],
-                           check=True, capture_output=True, timeout=30)
-            subprocess.run(["docker", "cp", str(plan_path),
-                            f"airstack-robot-desktop-1:{remote_plan}"],
-                           check=True, capture_output=True, timeout=10)
-            command = (
-                "source /root/AirStack/robot/ros_ws/install/local_setup.bash; "
-                f"echo \"$$\" > {remote_pid}; "
-                f"export PYTHONPATH=/tmp/rrm-canonical-deps:{remote_source}:$PYTHONPATH; "
-                f"exec python3 {remote_source}/scripts/airstack_command_mission.py "
-                f"--plan-json {remote_plan} --evidence-dir {remote_evidence} --execute"
-            )
-            log_path = directory / "command-mission.log"
-            log_handle = log_path.open("wb")
+            self.store.set_lifecycle(run_id, execution_state="REVIEW_REQUIRED",
+                                     proposal_sha256=plan_sha256)
+            return {"state": "REVIEW_REQUIRED", "active": False, "run_id": run_id,
+                    "plan": plan_record, "plan_sha256": plan_sha256,
+                    "execution_dispatch": False}
+
+    @staticmethod
+    def _command_source_manifest() -> dict:
+        root = Path(__file__).resolve().parents[1]
+        return {str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
+                for name in ("rrm", "scripts") for p in sorted((root / name).rglob("*.py"))}
+
+    @staticmethod
+    def _command_runtime_identity() -> list:
+        result = subprocess.run(
+            ["docker", "inspect", "--format", "{{json .}}", "airstack-robot-desktop-1",
+             "isaac-sim-livestream"], check=True, capture_output=True, text=True, timeout=10)
+        values = [json.loads(line) for line in result.stdout.splitlines()]
+        if len(values) != 2 or any(v["State"]["Running"] is not True for v in values):
+            raise RuntimeError("Robot/simulator identity unavailable.")
+        return [{"id": v["Id"], "image": v["Image"], "started_at": v["State"]["StartedAt"]}
+                for v in values]
+
+    def _recheck_staged_command(self, plan: dict, proposals: tuple) -> dict:
+        """Revalidate live admission, never regenerate the reviewed actions."""
+        # Slow image/dependency probes must precede fresh flight-state discovery.
+        if plan.get("runtime_identity") != self._command_runtime_identity():
+            raise RuntimeError("Robot/simulator identity changed since staging.")
+        if plan.get("source_manifest") != self._command_source_manifest():
+            raise RuntimeError("Executor source changed since staging.")
+        self.require_isaac_runtime(proposals)
+        fresh = self.discover_tasks()
+        if (fresh.get("missing_state") or fresh.get("stale_state")
+                or fresh.get("connected") is not True
+                or fresh.get("frame_id") != "map" or fresh.get("child_frame_id") != "base_link"
+                or fresh.get("clock_epoch_consistent") is not True):
+            raise RuntimeError("Fresh canonical state and clock epoch are required.")
+        if plan.get("active_scene") != self.active_scene_shortname:
+            raise RuntimeError("Staged scene changed; save a new attempt.")
+        before = plan["discovery"]
+        ordinary = any(p.kind.value != "LAND" for p in proposals)
+        if ordinary:
+            if fresh.get("flight_state_consistent") is not True:
+                raise RuntimeError("Fresh consistent flight state is required.")
+            if any(fresh.get(key) != before.get(key) for key in ("armed", "airborne")):
+                raise RuntimeError("Flight authority/state changed since staging.")
+            if any(type(fresh.get(key)) is not bool or type(before.get(key)) is not bool
+                   for key in ("armed", "airborne")):
+                raise RuntimeError("Explicit armed/airborne state required.")
+            old, new = before.get("position", {}), fresh.get("position", {})
+            if not all(type(old.get(k)) in (float, int) and type(new.get(k)) in (float, int)
+                       and math.isfinite(old[k]) and math.isfinite(new[k])
+                       for k in ("x", "y", "z")):
+                raise RuntimeError("Staged and fresh positions required.")
+            if sum((old[k] - new[k]) ** 2 for k in ("x", "y", "z")) > .1 ** 2:
+                raise RuntimeError("Position changed beyond staged 0.1m admission bound.")
+            a, b = before.get("yaw_rad"), fresh.get("yaw_rad")
+            if (type(a) not in (float, int) or type(b) not in (float, int)
+                    or not math.isfinite(a) or not math.isfinite(b)
+                    or abs(math.atan2(math.sin(a-b), math.cos(a-b))) > .1):
+                raise RuntimeError("Heading changed beyond staged 0.1rad admission bound.")
+        kind_types = {"TAKEOFF": "TakeoffTask", "LAND": "LandTask",
+                      "EXPLORE": "ExplorationTask", "NAVIGATE": "NavigateTask"}
+        needed = list(proposals)
+        if plan.get("recovery"):
+            needed.append(DroneTaskProposal.model_validate(plan["recovery"]["action"]))
+        for p in needed:
+            required_type = "task_msgs/action/" + kind_types[p.kind.value]
+            if required_type not in fresh.get("task_servers", {}).get(p.action_name, []):
+                raise RuntimeError("Staged task server unavailable.")
+        if any(p.kind.value == "EXPLORE" for p in proposals):
+            if fresh.get("vdb_map_fresh") is not True or fresh.get("vdb_map_frame_id") != "map":
+                raise RuntimeError("Fresh map-frame VDB evidence required.")
+        return fresh
+
+    def start_command_mission(self, run_id: str, reviewed_plan_sha256: str | None = None) -> dict:
+        """Launch exactly the reviewed staged bytes once, with fresh admission."""
+        with self.mission_lock:
+            if not isinstance(reviewed_plan_sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", reviewed_plan_sha256):
+                raise ValueError("A reviewed staged plan SHA256 is required.")
+            if self._mission_status_locked().get("active"):
+                raise RuntimeError("A command mission is already active.")
+            run = self.store.get_run(run_id)
+            if run is None or run["execution_state"] != "REVIEW_REQUIRED":
+                raise RuntimeError("Only a staged, unconsumed mission can execute.")
+            directory = Path(run["artifact_dir"])
+            plan_path = directory / "command-plan.json"
+            plan_bytes = plan_path.read_bytes()
+            plan_sha256 = hashlib.sha256(plan_bytes).hexdigest()
+            if plan_sha256 != reviewed_plan_sha256 or plan_sha256 != run["proposal_sha256"]:
+                raise RuntimeError("Reviewed, stored and disk plan hashes must match.")
+            plan_record = json.loads(plan_bytes)
+            if plan_record.get("run_id") != run_id or plan_record.get("execution_dispatch") is not False:
+                raise RuntimeError("Invalid staged plan identity.")
+            proposals = tuple(DroneTaskProposal.model_validate(p) for p in plan_record["actions"])
+            if not proposals:
+                raise RuntimeError("Empty staged plan.")
+            expected_recovery = takeoff_recovery_action(proposals)
+            if expected_recovery is not None:
+                actual = plan_record.get("recovery") or {}
+                if (actual.get("trigger") != "verified_mission_halt_while_airborne"
+                        or actual.get("action") != expected_recovery.model_dump(mode="json")):
+                    raise RuntimeError("Staged takeoff requires its distinct recovery LAND.")
+            self._recheck_staged_command(plan_record, proposals)
+            # A conditional durable claim also excludes another console process.
+            with self.store.connect() as db:
+                claimed = db.execute(
+                    "UPDATE runs SET execution_state='DISPATCHING' WHERE run_id=? "
+                    "AND execution_state='REVIEW_REQUIRED' AND proposal_sha256=? "
+                    "AND NOT EXISTS (SELECT 1 FROM runs WHERE execution_state='DISPATCHING')",
+                    (run_id, plan_sha256)).rowcount
+            if claimed != 1:
+                raise RuntimeError("Staged mission launch already consumed.")
             try:
-                process = subprocess.Popen(
-                    ["docker", "exec", "-e", "ROS_DOMAIN_ID=1",
-                     "airstack-robot-desktop-1", "bash", "-lc", command],
-                    stdout=log_handle, stderr=subprocess.STDOUT,
-                )
-            except Exception:
-                log_handle.close()
+                return self._launch_staged_command(run_id, directory, plan_record,
+                                                   plan_bytes, plan_sha256, proposals)
+            except Exception as error:
+                self.store.set_lifecycle(run_id, execution_state="FINISHED")
+                failure_path = directory / "command-launch-failed.json"
+                failure_path.write_text(json.dumps({"plan_sha256": plan_sha256,
+                                                   "reason": str(error), "retry_allowed": False}))
+                self.store.record_event(run_id, kind="command_launch_failed",
+                                        artifact_path=failure_path,
+                                        summary={"plan_sha256": plan_sha256,
+                                                 "reason": str(error), "retry_allowed": False})
                 raise
-            self.mission_runtime = {
-                "mission_id": mission_id, "run_id": run_id, "process": process,
-                "log_handle": log_handle, "log_path": log_path, "remote_pid": remote_pid,
-                "remote_evidence": remote_evidence,
-                "evidence_dir": directory / "command-mission-evidence",
-                "plan": plan_record, "finalized": False, "stop_requested": False,
-            }
-            self.store.set_lifecycle(
-                run_id, execution_state="DISPATCHING", proposal_sha256=plan_sha256,
+
+    def _launch_staged_command(self, run_id, directory, plan_record, plan_bytes, plan_sha256, proposals):
+        # Immutable snapshot prevents a local path mutation during docker cp.
+        snapshot = directory / "reviewed-command-plan.json"
+        with snapshot.open("xb") as stream:
+            stream.write(plan_bytes)
+        self.store.record_event(run_id, kind="command_launch_claimed", artifact_path=snapshot,
+                                summary={"plan_sha256": plan_sha256, "execution_dispatch": True})
+        mission_id = uuid.uuid4().hex
+        subprocess.run(["docker", "exec", "airstack-robot-desktop-1", "bash", "-c",
+                        "PYTHONPATH=/tmp/rrm-canonical-deps python3 -c "
+                        "'import pydantic; assert pydantic.VERSION.startswith(\"2.\")'"],
+                       check=True, capture_output=True, timeout=10)
+        remote_root = f"/tmp/rrm-command-mission-{mission_id}"
+        remote_source = remote_root + "/source"
+        remote_plan = remote_root + "/plan.json"
+        remote_evidence = remote_root + "/evidence"
+        remote_pid = remote_root + "/mission.pid"
+        subprocess.run(["docker", "exec", "airstack-robot-desktop-1",
+                        "mkdir", "-p", remote_source],
+                       check=True, capture_output=True, timeout=10)
+        source_root = Path(__file__).resolve().parents[1]
+        source_snapshot = directory / "reviewed-executor-source"
+        source_snapshot.mkdir()
+        for relative, digest in plan_record["source_manifest"].items():
+            target = source_snapshot / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source_root / relative, target)
+            if hashlib.sha256(target.read_bytes()).hexdigest() != digest:
+                raise RuntimeError("Executor source changed during snapshot.")
+        subprocess.run(["docker", "cp", str(source_snapshot) + "/.",
+                        f"airstack-robot-desktop-1:{remote_source}"],
+                       check=True, capture_output=True, timeout=30)
+        subprocess.run(["docker", "cp", str(snapshot),
+                        f"airstack-robot-desktop-1:{remote_plan}"],
+                       check=True, capture_output=True, timeout=10)
+        remote_digest = subprocess.run(
+            ["docker", "exec", "airstack-robot-desktop-1", "sha256sum", remote_plan],
+            check=True, capture_output=True, text=True, timeout=10).stdout.split()[0]
+        if remote_digest != plan_sha256:
+            raise RuntimeError("Remote staged plan digest mismatch; launch consumed.")
+        manifest_code = (
+            "import sys,json,hashlib; from pathlib import Path; root=Path(sys.argv[1]); "
+            "print(json.dumps({str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() "
+            "for name in ('rrm','scripts') for p in sorted((root/name).rglob('*.py'))}))"
+        )
+        remote_manifest = subprocess.run(
+            ["docker", "exec", "airstack-robot-desktop-1", "python3", "-c",
+             manifest_code, remote_source], check=True, capture_output=True, text=True, timeout=10)
+        if json.loads(remote_manifest.stdout) != plan_record["source_manifest"]:
+            raise RuntimeError("Remote executor source manifest mismatch; launch consumed.")
+        self._recheck_staged_command(plan_record, proposals)
+        command = (
+            "source /root/AirStack/robot/ros_ws/install/local_setup.bash; "
+            f"echo \"$$\" > {remote_pid}; "
+            f"export PYTHONPATH=/tmp/rrm-canonical-deps:{remote_source}:$PYTHONPATH; "
+            f"exec python3 {remote_source}/scripts/airstack_command_mission.py "
+            f"--plan-json {remote_plan} --evidence-dir {remote_evidence} --execute"
+        )
+        log_path = directory / "command-mission.log"
+        log_handle = log_path.open("wb")
+        try:
+            process = subprocess.Popen(
+                ["docker", "exec", "-e", "ROS_DOMAIN_ID=1",
+                 "airstack-robot-desktop-1", "bash", "-lc", command],
+                stdout=log_handle, stderr=subprocess.STDOUT,
             )
-            return self._mission_status_locked()
+        except Exception:
+            log_handle.close()
+            raise
+        self.mission_runtime = {
+            "mission_id": mission_id, "run_id": run_id, "process": process,
+            "log_handle": log_handle, "log_path": log_path, "remote_pid": remote_pid,
+            "remote_evidence": remote_evidence,
+            "evidence_dir": directory / "command-mission-evidence",
+            "plan": plan_record, "finalized": False, "stop_requested": False,
+        }
+        # Do not finalize/persist a fast-exiting child inside the launch-failure
+        # handler: Popen succeeded, so outcome collection belongs to later polling.
+        return {"state": "RUNNING", "active": True, "mission_id": mission_id,
+                "run_id": run_id, "plan": plan_record, "events": [],
+                "execution_dispatch": True}
 
     def command_mission_status(self) -> dict:
         with self.mission_lock:
@@ -767,9 +944,25 @@ class Console:
                                         summary={key: record.get(key) for key in
                                                  ("stop_generation", "signal_delivery_latency_ms")})
 
+    @staticmethod
+    def require_isaac_runtime(proposals) -> dict:
+        """Fresh launch-time check; LAND recovery never depends on render dependencies."""
+        if proposals and all(proposal.kind.value == "LAND" for proposal in proposals):
+            return {"schema_version": "rrm-isaac-runtime/v1", "status": "LAND_EXEMPT",
+                    "compatible": None, "execution_dispatch": False,
+                    "reason": "Landing recovery is exempt from the render-dependency gate."}
+        runtime = probe_isaac_runtime()
+        if runtime.get("compatible") is not True:
+            raise RuntimeError(runtime["reason"])
+        return runtime
+
     def _launch_dispatch(self, dispatch_id: str, run_dir: Path,
                          proposal_path: Path) -> RunningDispatch:
         """Stage and launch the existing ActionClient-only adapter in the robot container."""
+        proposal = DroneTaskProposal.model_validate_json(proposal_path.read_text(encoding="utf-8"))
+        runtime = self.require_isaac_runtime((proposal,))
+        (run_dir / "isaac-runtime.json").write_text(
+            json.dumps(runtime, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         self._ensure_robot_rrm_dependencies()
         container = "airstack-robot-desktop-1"
         remote_root = f"/tmp/rrm-console-dispatch-{dispatch_id}"
@@ -1198,7 +1391,9 @@ def make_handler(app: Console):
                 return self.respond((Path(__file__).parent / "ui/command_console.html").read_bytes(),
                                     "text/html; charset=utf-8")
             if path == "/api/state":
+                runtime = probe_isaac_runtime()
                 return self.respond({"token": app.token,
+                                     "isaac_runtime": runtime,
                                      "context": (app.context if app.scene_context_matches else None),
                                      "decision": (app.decision.model_dump(mode="json")
                                                   if app.decision is not None else None),
@@ -1208,6 +1403,7 @@ def make_handler(app: Console):
                                      "active_scene": app.active_scene_shortname,
                                      "rrm_live_enabled": app.scene_context_matches,
                                      "command_execution_enabled": app.active_scene_shortname is not None,
+                                     "ordinary_motion_dependency_compatible": runtime["compatible"] is True,
                                      "scene_context_status": (
                                          "MATCHED" if app.scene_context_matches
                                          else ("COMMAND_ONLY" if app.active_scene_shortname
@@ -1343,9 +1539,13 @@ def make_handler(app: Console):
                     ))
                 if self.path == "/api/camera":
                     return self.respond(app.capture())
+                mission_stage = re.fullmatch(r"/api/runs/([0-9a-f]{32})/stage", self.path)
+                if mission_stage:
+                    return self.respond(app.stage_command_mission(mission_stage[1]))
                 mission_start = re.fullmatch(r"/api/runs/([0-9a-f]{32})/execute", self.path)
                 if mission_start:
-                    return self.respond(app.start_command_mission(mission_start[1]), status=202)
+                    return self.respond(app.start_command_mission(
+                        mission_start[1], value.get("reviewed_plan_sha256")), status=202)
                 if self.path == "/api/mission/stop":
                     return self.respond(app.stop_command_mission())
                 live_start = re.fullmatch(r"/api/live/([0-9a-f]{32})/start", self.path)

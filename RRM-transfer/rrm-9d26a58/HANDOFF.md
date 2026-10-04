@@ -1,5 +1,760 @@
 # RRM remote Codex handoff
 
+## PID admission diagnostics — source-only — 2026-10-04 02:36 EDT
+
+PID now publishes best-effort relative admission_diagnostic String JSON v1 after
+each tracking callback output: monotonic sequence, multi-reason mask/phase, coherent
+per-phase ROSnow/header stamps and steady receipt ages. Future/stale tracking or
+odom, missing/preactivation/stale receipt, disarmed/no-control/expired authority,
+and tracking/odom TF failures are separately identifiable. TF failures union any
+simultaneous time/authority reasons. Null unknown ages, tracking gap and pre-callback
+history reset flags documented in the [PID README](../../robot/ros_ws/src/local/controls/pid_controller/README.md).
+No freshness/gain/bounds change; strict negative source age still rejected. Output
+precedes diagnostics; best-effort transport is not a safety input or watchdog.
+
+Separate candidate build16.2s; registered CTest3/3 PASS23.84s:11gtests,26actualPID
+lifecycle phases19.52s,6deterministic ROSclock phases4.22s in emptydomain197.
+Tests show30ms futuretracking/futureodom yields correct reason/idleI0/baseline;
+clock catch-up restores admitted control with firstdt/I0. Backward clock produces
+both future bits; mixed futuretracking/staleodom and expiredauthority retain both
+causes. Initial lifecycle test assumed last callback must carry TF failure; retained
+failure corrected to select matching TF callback, not relax controller checks.
+
+Candidate PID executable SHA
+343a876ec2f6df10ec652d36c0e59ca376ec4afbd673596acc286a9c89bee4aa.
+Running/installed PID remainsdfbe1f5f41fa55671b346fb1d7fe09f9d06c367733a19bc89d107b2ef3fff80f;
+robot/Isaac/GCS IDs/start epochs unchanged. Armed-aware interface repair from the
+previous source checkpoint also remains undeployed. No live mission/restart,
+deployment, tuning, commit/push. Reviewer cleared source/test scope.
+
+Next: separately admitted grounded deployment of the reviewed authority/diagnostic
+candidates, then read-only diagnostic coverage/state/hash checks. No flight follows
+automatically. Earlier failed flight has no callback reason trace, so deterministic
+reproduction proves the rejection mechanism but NOT that it caused that flight's
+initial vertical lag. Continue clock-order and thrust/plant/model analysis; preserve
+all safety bounds. Ordinary Office/Warehouse flight stays paused.
+
+## Armed authority repair and control forensics — source-only — 2026-10-04 02:09 EDT
+
+MAVROSInterface::has_control() now requires received armed state plus OFFBOARD/
+GUIDED mode. Actual-plugin red regression reproduced disarmed/OFFBOARD=true on
+the old implementation; isolated candidate passes18scenarios plus authority-state
+matrix and explicit retained-OFFBOARD LOITER-before-rearm ordering. arm() direct
+mode check unchanged. Candidate separate build40.4s, serial CTest56.50s in empty
+domain198. Source-only, NOT deployed. Candidate librarySHA
+67cc46dd2288d1ecb68a901dca6c6ecd4321c6d2cd807f1eba08a3583110cbbc;
+running library remains61ecda7e3a8730a3d87025b75d53c653fee9ef4614ee7261bfc919b0bc3f03ad.
+Live interface/PID hashes and robot/Isaac/GCS IDs/start epochs unchanged. GUI
+remains priorHALTED/inactive; no live dispatch/restart/tuning/commit/push.
+
+Saved flight029 correlation checks180command samples. Position→velocity cascade
+target and PID→command math exact; PID component/clamp error<=1.12e-16;
+ROScommand→raw thrust error<3e-8. PX4 time fit uses143unique dynamic pre-abort
+ENU/NED position tuples: median ROS−PX4 offset1.697811s; affine slope1.00031161,
+drift1.795ms over5.759s, max fit residual11.182ms. This is observational clock
+association, NOT precise latency or physical truth. After mapping, pre-abort
+ENU/NED position residual median0.000100m/max0.004234m; velocity median0.000538m/s.
+PX4 thrust residual median0/p95.008627/max.146779: broadly matching setpoints,
+not exact every-sample correspondence or proof of calibrated dynamics.
+
+First substantial vertical lag precedes lateral breach: at~2s trackingz.136 versus
+odom-.024, at~3s .465 versus-.021, at~6s .737 versus.249. Velocity PID adds baseline
+.71 with fresh—not retained—integral. Target retreat before abort is explained by
+the odom-dependent0.5m tracking-distance protective clamp, NOT a LAND-caused retreat.
+This does not identify the initial response-lag cause or justify tuning.
+
+Eight midflight idle/reset command samples occur while independently observed
+armed/controltrue; six have nearby tracking headers30ms ahead of PIDInfo clock.
+fresh_stamp() rejects negative age, making these candidate clock-ordering rejection
+associations. Two resets have no such nearby future-header evidence. Recorder
+ordering does not prove internal callback pairing or exclude other admission
+conditions. Added isolated future-tracking rejection/reactivation regression:
+PID19phases PASS in emptydomain197; nine math/lifecycle gtests PASS. Strict freshness
+unchanged, future input produces baseline/I0, clean reactivation firstdt/I0.
+
+Next: source-only reason-coded PID admission/idle instrumentation and isolated
+clock-skew/order tests to distinguish future tracking/odometry, stale receipt,
+authority and TF failures without relaxing checks. Continue plant/thrust/dynamics
+analysis; hover baseline/model/estimator/controller causation remains open. Any
+grounded deployment must be separately admitted/reviewed; no new flight authorized.
+Office/Warehouse motion remains paused. Historical checkpoints below retain scope.
+
+## Instrumented Office diagnostic — failed, grounded — 2026-10-04 01:49 EDT
+
+Exactly one reviewed GUI execute after deployed actuation/authority repair:
+run6084848ede9349338fbdf8bbd49fc5ab, missiona3bb5003c3f04e0c95b3fa44352deb6d,
+immutable planSHA dc2d84f3f46b44b7e1874e86b7dec3b3975d5325a713b54031ae728d7063ffba.
+TAKEOFF1m/.5m/s thenLAND.5, distinct recoveryLAND. Source74hashes/runtime identities
+matched; NumPy1.26.4 Office1.0, readiness7/7, raw childdouble1.0/actuationreadytrue,
+fresh camera/LiDAR/VDB, ground/disarmed/controlfalse/I0 and all15 recorder streams
+verified before POST. Preparation-only recorder refreshes retained; no launch retry.
+
+Armed OFFBOARD observed before trajectory publication. Task aborted lateral>.3m
+at05:49:16.985UTC; hold/LAND accepted, grounding initially UNVERIFIED. Outcome
+at10.918s displacement0.325969m; takeoff-window270ROSodom estimates maxz0.504356m,
+upwardspeedmax0.229626m/s, downwardmin-3.121843m/s. These estimates are NOT scene
+ground truth. Vx/Vy/Vz integrals became nonzero; thrust/raw target reached1.0.
+Full post-abort trace reaches lateral0.722659m and zmin-1.400551m; physical
+containment is not qualified merely because the vehicle eventually grounded.
+
+PX4 confirms armed OFFBOARD→AUTO.LAND→disarmed OFFBOARD. Landed1 observed at
+05:49:24.298UTC, disarmed at05:49:27.659UTC; GUI monitor confirmed consecutive
+SAFE_GROUNDED and HALTED/inactive at05:49:32.274UTC. No operator STOP or extra LAND
+dispatch was needed. Final six integrals0, but OFFBOARD/has_controltrue persisted
+while disarmed, so current idle admission is NOT clean for another flight.
+Matching ULog05_49_07.ulg SHA256
+5d57623eda53ff27332e9208738c9536e7745c34086225237e02c82f2ee5cafa;
+PX4 logger closed after disarm. Complete180.020s trace:4428odom,2952eachPID/command/
+raw,148state,737extended,738airborne,1trajectory. No retry/tuning/bounds relaxation,
+scene swap, container restart, commit or push. All work stays on ore_proj.
+
+Next: source-only/read-only analysis of tracking/frame alignment and thrust/
+actuation response around the sharp descent, plus post-LAND/disarm OFFBOARD
+mode lifecycle. Proven semantic issue: MAVROSInterface::has_control() tests mode
+alone, so auto-disarmed OFFBOARD still publishes authoritytrue. Add an armed-aware
+authority regression/fix in isolation, preserving arm()'s direct OFFBOARD mode
+check before rearm. This does not establish why the takeoff dynamics failed.
+Align tracking/PID components/commands/raw targets/PX4 samples before any tuning.
+Reproduce only in isolated tests first; any repair/deployment/flight
+is a separate chunk with its own admission/review. PID0.71 baseline, nominal
+takeoff/LAND and physical abort containment remain unqualified. Ordinary Office/
+Warehouse flight paused; historical checkpoints below do not override this result.
+
+## Actuation startup and authority repair — grounded-deployed — 2026-10-04 00:56 EDT
+
+MAVROSInterface now owns PX4 startup configuration: parse installed normalized
+float1.0 profile; wait for fresh connected/disarmed/ON_GROUND state; at most one
+bounded child Set then exact Get/readback. Any armed/IN_AIR startup observation
+locks out repair until restart. Commands never write parameters: ARM/control/
+takeoff require a fresh bounded Get; LAND/DISARM stay open. Read-only monitoring
+publishes actuation_ready. This is interface command admission, not enforcement
+against direct MAVROS clients; GUI mission launch itself has no independent query.
+
+Takeoff observed-authority and uncertain ARM/control/TRACK containment from the
+previous source checkpoint are now deployed too. Guard default startup10s;
+task acquisition2s and telemetry age0.5s read back. All changes remain uncommitted
+on ore_proj. Robot image itself is unchanged: this workspace uses mounted builds.
+
+Validation: actual-plugin18cases PASS52.12s; actual-task21cases PASS60.20s, registered
+serial tests in empty domain198; ready/intent45/45 PASS6.43s. Plugin shutdown testing
+exposed/fixed global interface lifetime versus loader; clean exits verified. Initial
+CTest underlay selection, overlapping-domain refusal and CLI CSV separator failure
+are retained; final tests/readiness pass without relaxed safety checks.
+
+Fresh grounded/inactive/no-dispatcher admission preceded stopping exact robot
+launch, verifying child exit and normal3package build56.4s. Restarted only robot
+container at2026-10-04T04:52:35.558404601Z. Isaac/GCS IDs/images/start times unchanged,
+consolePID509792 unchanged. Effective child thrust_scaling now double1.0,
+actuation_ready=true; readiness7/7 in13s. Running/installed hashes match:
+
+- InterfacePID2973: e47541733df88c7476b50bfce72c31a7c0b09a62f77d7cf1327e1127918fe675.
+- TaskPID2980: 6b7d2e292bcf6296dfcee8db5014d09b0237a6ea1d476885ea867cf262e1edcd.
+- PID controllerPID2984 unchanged: dfbe1f5f41fa55671b346fb1d7fe09f9d06c367733a19bc89d107b2ef3fff80f.
+- Loaded MAVROS interface library: 61ecda7e3a8730a3d87025b75d53c653fee9ef4614ee7261bfc919b0bc3f03ad.
+
+Post12.021s read-only trace: all15 streams fresh at4/8/12s,286odom,174 each PID/
+command,185raw targets,42extended/8PX4 state; all integrals0, connected/disarmed
+AUTO.LOITER, landed1, control/airbornefalse, maxspeed0.022863m/s, one command
+publisher. GUI remains HALTED/inactive, prior attempt consumed. Reviewer cleared
+grounded deployment only. No ARM/control/LAND/mission call, flight, commit or push.
+
+Next: a separately authorized single instrumented Office diagnostic under the
+[qualification plan](docs/scrum-8/office-control-qualification.md), using a **new**
+staged immutable plan because robot identity/start epoch changed. Recheck all
+admission/recorder/recovery gates first. Do not auto-retry. PID0.71 active baseline,
+airborne behavior and physical containment remain unqualified; ordinary flight
+stays paused. See [MAVROS interface](../../robot/ros_ws/src/interface/mavros_interface/README.md).
+
+## Observed authority repair — source-only — 2026-10-04 00:23 EDT
+
+The new takeoff action waits for fresh post-request armed/control observations
+before TRACK/ascent and fails through hold/LAND containment if authority becomes
+false/stale. Default acquisition wait2s, receipt age0.5s, both steady-time and
+finite-positive validated. Failed/uncertain ARM, REQUEST_CONTROL and TRACK responses
+cannot silently exit after potentially activating the vehicle: sent/uncertain
+requests attempt hold/LAND; ARM NOT_SENT fails without claiming grounding.
+
+Validation: isolated build passed; actual-node empty-domain198 regression passed
+13 authority/uncertain-transition cases plus8 envelope/recovery cases.40 readiness/
+launch-intent tests passed. A pre-existing misplaced UDP assertion was moved into
+its owning test, preserving its check. These are synthetic/source results, not
+flight or physical stop-time qualification.
+
+`airstack ready` now rejects effective child-node thrust scaling other than
+double1.0 for this PX4 profile. Live readback remains NaN/NOT_READY. MAVROS plugin
+nodes ignore global arguments, so source/installed YAML1.0 is not proof of loading.
+No manual live parameter patch was applied.
+
+This is source-only, built in separate `/tmp` build/install bases: live task/PID
+hashes and robot/Isaac/GCS start epochs remain unchanged. The new action guard is
+not deployed. The readiness shell is host source and reports failures now, but
+the running GUI execute path does **not** independently consult this new gate.
+Ordinary flight remains paused; no retry, restart, commit or push.
+
+Next chunk: durable namespaced MAVROS child configuration **and independent
+task/command admission gating** so initialization cannot race arming/control;
+test unavailable/rejected/wrong readback and namespace/restart cases, then reviewer-
+cleared grounded deployment/readback. Only subsequently consider a separately
+authorized instrumented flight. Synthetic authority tests are not physical
+containment or airborne controller qualification.
+
+## Instrumented Office attempt — HALTED/no lift — 2026-10-04 00:01 EDT
+
+One actual reviewed-hash execute of run `f248859d57944ff191d25036a0482279`, mission
+`90d4d6c5e14b450b9c3ed0195a7d1521`. Nominal takeoff/LAND **not achieved**.
+PX4 briefly armed but stayed AUTO.LOITER; observed `has_control` was never true.
+It auto-disarmed while grounded. Task feedback incorrectly continued `ascending`.
+Used existing GUI mission STOP, cancel acknowledged1.178ms; independently observed
+motion stopped87.093ms at0.006823m/s. Final mission HALTED/inactive, rc4; recovery
+monitor independently SAFE_GROUNDED, so no ordinary/recovery LAND dispatched.
+No flight retry, parameter/gain/bound change, manual reset or workflow restart.
+
+Concrete control-path blocker: live plugin
+`/robot_1/interface/mavros/setpoint_raw` has `thrust_scaling=nan`, although source
+`interface_bringup/config/px4_config.yaml` specifies1.0. MAVROS repeatedly logs
+`ignore_thrust`/actuation ignored. Querying the parent MAVROS node first returned
+unset; the corrected plugin-node query proves the live NaN. Exact configuration
+loading mechanism remains to be diagnosed. ROS/raw attitude commands reaching a
+topic did **not** establish delivery to PX4. Existing readiness6/6 misses this.
+
+Independent180.0375s recorder started before actual execute and continued through
+terminal outcome/poststate:4097 odometry,2774 each PID/ROScommand,2737 raw attitude,
+136 state/683 extended-state samples. All integrals0, commands0.71; odometry
+z[-0.04535,0.01436]m, maxspeed0.025626m/s, final connected/disarmed/on-ground.
+First4s coverage lacked vehicle-state; all15 streams were fresh before dispatch
+and thereafter. Earlier recorder budget expired during preparation; local gate
+stopped before any POST. Preserved it and began a fresh recorder before the only
+execute request; not a motion retry.
+
+Matching PX4 ULog `04_00_14.ulg` retained: navstate4 unchanged, armed2->1,
+offboard-enabled false throughout, landed/ground_contact true and near-zero motor
+outputs. Confirms no takeoff/OFFBOARD; does not qualify PID active behavior or
+abort handover. Both were unexercised because control authority was never obtained.
+
+Reviewer independently confirmed negative qualification, matching PX4 evidence
+and HALTED/MOTION_STOPPED grounded outcome. Next chunk: grounded-only diagnose/fix MAVROS plugin parameter loading and add
+fail-closed actuation-path readiness; require independently observed armed/OFFBOARD
+authority before takeoff ascent and bound/control-loss termination. Service request
+acceptance alone is not authority. Test/review these changes before another
+diagnostic; do not patch NaN live then retry. Office/Warehouse ordinary flight stays
+paused. All work remains uncommitted on `ore_proj`.
+
+## Live staged-console deployment — no dispatch — 2026-10-03 23:38 EDT
+
+The two-stage backend is now deployed on localhost:8787. After grounded/disarmed
+and command/model inactivity/absent-dispatcher checks, stopped only old console
+PID259792 and started PID509792 with identical argv, cwd, environment and history
+directory. Isaac/robot/GCS IDs/images/start times unchanged; no robot restart.
+Reload the GUI to refresh its token and Stage plan / Execute reviewed plan controls.
+
+Saved/staged run `f248859d57944ff191d25036a0482279` through the public GUI API;
+**REVIEW_REQUIRED, not executed**. Actual `command-plan.json` hash:
+`b4b4889eba96ef029cf9f284e35beb61155576c0dcd7aa93ee5fe417df12c219`.
+Response/disk/store agree. Actions TAKEOFF1m at0.5m/s then LAND; distinct recovery
+`takeoff-0-recovery-land`.74 Python source hashes and robot/simulator identity are
+bound in the saved plan. Repeating Stage plan returns identical bytes/hash; served
+GUI contains the separate review/execute controls. Historical failed/recovered
+run `c1765b83be4f4cb698c6e72e9cff3317` remains FINISHED in the same history.
+No `/execute` call, launch artifacts or new remote mission directory/process.
+
+All6 readiness gates pass in8s, NumPy1.26.4 COMPATIBLE/MATCHED Office. Running PID
+and task executable hashes unchanged from grounded deployment.8s before/20.0277s
+after console restart plus8s poststage read-only traces retain grounded/disarmed
+PX4 and all6 integrals0. The20s window has all15 required streams present/fresh,
+476 odometry,317 tracking,315–317 each PID/command stream,317 raw attitude,
+77 extended-state/16 state samples; max speed0.02181m/s, AUTO.LOITER/landed_state1.
+Pydantic major2 is available in the robot dependency cache; no installation done.
+
+This is console deployment and no-dispatch staging evidence, not flight or abort
+qualification. Reviewer accepted that scope. Next chunk: separately authorized one-attempt instrumented Office
+diagnostic using the actual reviewed hash, recorder before admission, matching PX4
+evidence and fresh state rechecks under the [qualification plan](docs/scrum-8/office-control-qualification.md).
+Old staged state is not flight admission. Ordinary Office/Warehouse flight stays
+paused. No gains/bounds/source-runtime changes, commit or push; all on `ore_proj`.
+
+## Two-stage console missions — source-only — 2026-10-03 22:48 EDT
+
+Implemented `POST /api/runs/<id>/stage` to compile/save actual immutable plan with
+`execution_dispatch:false`, distinct takeoff recovery LAND, runtime identity and
+Python executor-source manifest. Returns SHA256 and REVIEW_REQUIRED; no dependency
+installation or mission launch. Repeat Stage plan restores the same artifact/hash,
+including after selecting a staged attempt from history after a page refresh.
+
+`/execute` now requires `reviewed_plan_sha256`, equal to durable store and exact
+disk bytes; no recompile. Validates plan/recovery and fresh canonical state/clock,
+scene, robot/simulator IDs/images/start epochs, runtime compatibility, exact named
+servers including recovery, consistent explicit armed/airborne state, finite
+position drift<=0.1m and heading drift<=0.1rad for ordinary motion. LAND retains
+NumPy exemption. CAS REVIEW_REQUIRED->DISPATCHING excludes repeated/cross-console
+claims and other pending dispatches. Claims before Docker work; failed launches
+record `command-launch-failed.json` and consume the run as FINISHED (not success).
+
+Verified plan-byte snapshot and Python source snapshot are copied; remote plan
+digest/source manifest must match, followed by another admission check. No
+throw-capable persistence/finalization after successful Popen; later polling
+collects actual outcomes. Crash-stranded staging/dispatch fails closed, not replay.
+The UI has separate Stage plan and Execute reviewed plan controls with hash/recovery
+display; backend enforces binding. UI coverage is static/syntax, not browser E2E.
+
+Reviewer cleared source after fixes for restore, post-launch bookkeeping and
+executor-source provenance.14 focused lifecycle tests pass, including HTTP hash
+rejection and concurrent claims by two console instances. Final full suite444/444
+PASS in40.639s. A prior overlapping run hit an existing hand-stop timing bound;
+retained, threshold unchanged, final rerun passes. JS syntax/static contracts pass,
+not browser E2E. No live console restart/deployment, motion,
+parameter changes, commit or push. Next: controlled console deployment and a
+**no-dispatch live staging/review check**, then instrumented Office qualification
+under its existing hard gates. Ordinary Office/Warehouse flight stays paused.
+
+## Instrumented admission — no dispatch — 2026-10-03 22:27 EDT
+
+User authorized the next bounded simulator diagnostic. Reviewer found a hard
+admission blocker: GUI `start_command_mission()` saves the compiled plan then
+launches in the same `/execute` request. Actual immutable recovery-plan review
+before motion is impossible with that path. No flight/mission was dispatched;
+the earlier RECOVERED_HALT mission remains inactive.
+
+Completed a20.0045s independent read-only full-message recorder check (steady
+receipt timestamps plus UTC and ROS headers; no downsampling). All15 required
+streams present and fresh at4/8/12/16s:473 odometry,273 tracking,311 samples each
+PID axis/ROS command,314 raw attitude,77 extended-state,15 vehicle-state samples.
+All6 integrals0; PX4 connected/disarmed AUTO.LOITER, landed_state=1, airborne=false,
+authority=false. Max observed speed0.023759m/s. Running PID/task hashes unchanged,
+one command publisher; readiness6/6; Office/NumPy1.26.4 COMPATIBLE/MATCHED.
+No restarts, runtime source/parameter changes, new goals or control requests.
+
+Next: separately reviewed **two-stage GUI lifecycle**: stage immutable runtime
+plan with no launch; review actions/recovery/hash; explicit one-shot execute of
+exact staged hash, rechecking fresh canonical state/clock/dependencies. Preserve
+tamper/replay/concurrency/admission-failure evidence. Do not substitute a preview
+or relax the gate. See [qualification plan](docs/scrum-8/office-control-qualification.md).
+Recorder coverage is not flight or abort qualification; ordinary Office/Warehouse
+flight stays paused. All source changes stay uncommitted on `ore_proj`.
+
+## Grounded abort-handover deployment — 2026-10-04 02:17 UTC
+
+Both PID lifecycle and takeoff-envelope handover repairs now run in this workspace
+on `ore_proj`. Built/installed `takeoff_landing_planner` normally; its isolated
+8-scenario regression passed in33.82s. Restarted **only**
+`airstack-robot-desktop-1` at02:17:02UTC after fresh connected/disarmed/grounded and
+inactive-mission checks. Isaac, GCS and the outer OSMO workflow were unchanged.
+This is mounted-source/install deployment, not a published robot image.
+
+Running/installed task executable SHA256:
+`a659c2c2ca247e26f145a7df7ccd53c52ad181feaf45db6e2f76e6731386f69d`.
+Running/installed PID executable SHA256 remains:
+`dfbe1f5f41fa55671b346fb1d7fe09f9d06c367733a19bc89d107b2ef3fff80f`.
+Exactly one server each for takeoff/land; one control-command publisher. Live
+odometry publisher/PID subscription QoS is compatible. Bounds remain lateral0.3m,
+overshoot0.3m, upward speed1.5m/s; landing stall5s/total60s; preflight hold
+error0.1m/3samples/2s. All6 readiness gates pass.
+
+An8.03s read-only post-restart window retained112 PID/ROS commands and112 MAVROS
+attitude commands: all6 integrals/I-components0, thrust0.71, zero tilt/yaw rate
+(MAVROS thrust0.7099999785/identity attitude). PX4 stayed connected/disarmed
+AUTO.LOITER and airborne=false; max observed speed0.010185m/s. Separate8s sensor
+window retained183 camera frames,56 raw LiDAR clouds and14 populated VDB clouds,
+with advancing stamps. Console: Office, NumPy1.26.4, COMPATIBLE/MATCHED, inactive.
+
+Reviewer accepted **grounded deployment only**. No arming, flight, live action goal,
+gain change or bound relaxation occurred. Inactive readback and sensor freshness
+do not establish active control or physical abort containment; the0.71 baseline
+remains unqualified. The next chunk is the separately reviewed/instrumented
+[Office control qualification plan](docs/scrum-8/office-control-qualification.md),
+not ordinary exploration. Warehouse remains paused. Nothing committed/pushed;
+all source changes remain on `ore_proj`.
+
+## Takeoff-envelope abort handover — source-only checkpoint — 2026-10-04
+
+Next repair is in `takeoff_landing_planner` source on `ore_proj`, built in separate
+colcon bases (not deployed). The3 takeoff envelope breaches now independently
+attempt ROBOT_POSE and immediate interface LAND before completing the failed
+action; LAND is attempted even when hold fails. Service discovery/response waits
+are each bounded2s (two serial services up to8s plus scheduling, not a physical
+stop-time guarantee). Result/log tokens: `abort_hold`, `abort_land`,
+`grounding=UNVERIFIED`. LAND acceptance is not descent or ground confirmation.
+
+The bool interface cannot distinguish an inner MAVROS timeout from refusal.
+Any sent LAND therefore latches subsequent recovery to observation-only: no
+TRACK/trajectory override or pre-ground cleanup on cancel/timeout/shutdown.
+Dispositions are ACCEPTED, FAILED_OR_UNCONFIRMED (false response), UNCONFIRMED
+(response timeout), NOT_SENT (service unavailable before dispatch). Only NOT_SENT
+permits ordinary trajectory landing. Removing a pending future cannot cancel a
+remote request. The latch persists until next takeoff. Autopilot LAND uses its
+own profile, not the trajectory goal velocity. No midair PID reset/disarm added.
+
+Actual action-node regressions use synthetic telemetry/mock services on empty
+domain198, not PX4/Isaac actuation. Final8 scenarios passed33.84s; each mock abort
+response was<5s, with ordinary landing regression on each fresh node. Reviewer
+cleared source/component scope after uncertainty/cleanup corrections.
+Coverage includes all3 bounds, ordinary landing,
+failed/delayed hold and LAND, unavailable service, accepted/uncertain handover,
+timeout/cancel without conflicting cleanup, and request acceptance not completing
+recovery before synthetic ground. Separate build leaves live task process2872
+and installed hash `acd37f4f3460c9fc1bb9c0e1c26589cfd85fced07a174ff92d463f2aea6c89ab`
+unchanged. No domain1 control publications, restart, arming, gains or flight.
+
+Next: controlled grounded deployment of this task-node repair, then a reviewed,
+instrumented physical qualification plan (PIDInfo/tracking/state/odometry/actuator
+recording before dispatch). This logical handover is not physical containment
+evidence. Stale telemetry, cancellation/shutdown of takeoff, interface uncertainty,
+active thrust adequacy and wider scene physics remain open. Office candidate and
+Warehouse flight remain paused; source remains uncommitted on the user's branch.
+
+## Grounded PID deployment/readback — 2026-10-04 01:57 UTC
+
+The lifecycle/anti-windup repair is now deployed in this workspace on `ore_proj`.
+Fresh pre-deployment observation confirmed connected/disarmed AUTO.LOITER,
+airborne=false, max speed0.013m/s, near-ground altitude and inactive mission.
+It retained the old defect: vz integral5.038, I contribution0.504 and thrust1.0.
+Backed up installed PID package at robot `/tmp/rrm-pid-020-before-install`, rebuilt
+only that package, then restarted only `airstack-robot-desktop-1` at01:54:27UTC.
+Isaac start00:02:55UTC and GCS start2026-10-03 16:59:20UTC are unchanged; outer
+OSMO workflow untouched. Robot image remains v0.20.8 (mounted source/install
+deployment, not a new published robot image).
+
+Running PID process2876 executable and installed binary both SHA256
+`dfbe1f5f41fa55671b346fb1d7fe09f9d06c367733a19bc89d107b2ef3fff80f`.
+Live node subscribes to canonical interface/is_armed and interface/has_control;
+direct parameter reads confirm both paths and timeout0.5s. `ros2 param dump` was
+unexpectedly empty, so direct gets and node graph are retained as the readback.
+Exactly one command publisher: PID controller. All six readiness gates pass,
+including clock_epoch; Isaac remains NumPy1.26.4 COMPATIBLE and Office active.
+
+Two separated8s read-only probes: all six integrals stayed exactly0. First window
+received120 PID/ROS-command records,102 MAVROS raw commands,180 odometry records,
+30 airborne=false and6 connected/disarmed AUTO.LOITER records. ROS output has
+zero roll/pitch/yaw-rate and thrust0.71; MAVROS raw attitude has identity orientation,
+yaw-rate0 and thrust0.7099999785 (float representation). Max speed0.0161m/s,
+altitude[-0.0304,-0.0121]m. Second window repeats I0/baseline output/disarmed.
+These probes begin after restart, not continuous proof over the restart interval.
+
+Observed full_default wiring is regenerated and retained locally. Compared with
+committed baseline it includes the expected two PID subscriptions, but also
+MAVROS namespace/clock and disparity-expander drift not attributable to this PID
+change. No type/QoS mismatches. Do not replace the baseline with this wider drift
+without reconciliation; CI wiring equality is not claimed.
+
+No task dispatch, arming, OFFBOARD request, gain/limit change or reset publication.
+Thrust transport into MAVROS is verified grounded; PX4 airborne/prestream behavior,
+hover baseline0.71 and task-abort containment remain unqualified. Next chunk:
+isolate/test abort-to-recovery containment and reconcile relevant runtime profile
+evidence before any new bounded flight. Office candidate/Warehouse remain paused.
+All source changes remain uncommitted on the user's branch.
+
+## PID lifecycle repair — source validated, not live-deployed — 2026-10-04
+
+On `ore_proj`, PID source observes fresh interface `is_armed`/`has_control` inputs;
+both must be true. Steady receipt TTL0.5s and ROS header freshness guard tracking
+and odometry, including after blocked TF lookup. Activation requires newer
+odometry, then a first zero-dt computation. All six histories reset on inactive,
+missing/stale state or data, TF failure, tracking gap and nonpositive ROS time.
+Conditional integration considers full P+D+FF+constant output saturation, prevents
+worsening windup and permits unwind. Gains, limits, mission and MAVROS code unchanged.
+
+Inactive/invalid callbacks preserve prestream with zero tilt/yaw-rate and clamped
+configured thrust constant0.71, without stale-target feedback/integral. This is an
+unqualified compatibility baseline, not safe/neutral hover thrust. Abort while
+still armed/OFFBOARD is not a lifecycle edge; containment remains open. The repair
+does not prove integral alone caused the prior flight failure.
+
+Separate colcon build/install bases left the live executable/install untouched.
+Production-helper gtests passed9/9; synthetic lifecycle test passed17 phases in
+isolated empty ROS domain197, including disarm, independently expired state, stale
+tracking/odometry, missing TF and clean reactivation with first-active zero dt/I/D.
+No vehicle interface/arming service was launched. Reviewer cleared implementation
+after TF/freshness corrections. Launch print/XML parse and diff checks pass.
+These are component/synthetic results, not transport or flight qualification.
+
+**Live domain1 still runs the previous controller.** No restart, live reset or
+parameter publication, arming or flight. Changes remain uncommitted on the user's
+branch. Next: controlled grounded deployment/readback of subscriptions, PID state
+and ROS/MAVROS prestream; regenerate observed wiring, then qualify abort containment
+before a new bounded flight. Office candidate and Warehouse remain paused.
+
+## Grounded control diagnosis — 2026-10-04
+
+Read-only followup to the failed candidate mission below found a concrete
+controller-state defect. While connected/disarmed in AUTO.LOITER, vertical PID
+readback has integral5.0331, I contribution0.5033 and constant0.71, yielding clipped
+control/thrust1.0 despite near-zero velocity error. Disarmed PX4 ignores actuation;
+this observation is unsafe retained command state, not motors running on ground.
+PID updates on tracking callbacks without armed/control gating; its I clamp does
+not account for P/constant headroom before final saturation. MAVROS's only automatic
+reset publication is ArduPilot-specific and cannot execute on current PX4. The
+reset topic is connected. Abort's ROBOT_POSE reference does not clear PID state;
+its current-odom semantics alone are not proof of a faulty transform or hold mode.
+
+Matching retained PX4 ULog `2026-10-04/00_05_27.ulg` confirms OFFBOARD at361.613835s,
+near-maximum upward thrust during initial takeoff and renewed maximum thrust around
+364.5–365s after abort at altitude~2.87m. Descent follows AUTO.LAND369.113085s;
+disarm375.852411s and AUTO.LOITER375.892407s. Negative thrust_body[2] represents
+upward thrust magnitude. Flight-time PIDInfo was not retained, and prearm LOITER's
+ULog setpoint is autopilot-owned: the exact initial integral and when it accumulated
+remain unknown. State retention is proven; its contribution to the flight failure
+is strongly consistent with the log, not a complete isolated causal proof.
+
+Reviewer independently confirmed the reset/state defect and causal limits.
+No new flight, reset publication, parameter change, controller patch or restart.
+Next: reproduce state retention/saturation offline, implement PX4 controller-state
+lifecycle and final-output-aware anti-windup with regressions, then qualify
+abort/recovery. Preserve required OFFBOARD prestream. Future bounded flight must
+record PIDInfo/tracking point/odometry/state/actuator evidence before dispatch.
+Office candidate and Warehouse remain paused; do not raise safety limits.
+
+## Candidate Office flight failure with verified recovery — 2026-10-04 00:15 UTC
+
+One authorized GUI mission was saved/executed on `ore_proj`: run
+`c1765b83be4f4cb698c6e72e9cff3317`, mission `fa9a8e0ab2714c4b9839c6af0d076819`.
+Objective: `Take off to 1 meter at 0.5 m/s, then land.` The immutable plan contains
+TAKEOFF/1m/0.5m/s and LAND/0.5m/s, plus a separate predeclared recovery LAND.
+Its SHA256 is `10c0a2fa2937a19b2a6aefa55d33be4c8f3fd7d0e72e4d4b1f94eb9bdaf38191`.
+The compiler tags the 0.5m/s value as vehicle-envelope default, rather than parsed
+operator speed; it matches the requested value in this attempt.
+
+Fresh preflight passed: Office/scale1.0, exact candidate manifest/image from the
+previous checkpoint, NumPy1.26.4, COMPATIBLE/MATCHED, six readiness gates, fresh
+camera/raw LiDAR/VDB/canonical state, connected/disarmed/grounded, no active mission.
+Live controller bounds were still tracking-point0.5m, sphere0.3m, takeoff lateral
+and altitude-overshoot0.3m, vertical-speed1.5m/s, landing stall/total5s/60s.
+
+**The mission failed; Office flight on this candidate is paused.** Takeoff reported
+`vertical speed limit exceeded` at observed1.51m/s, aborting ~0.90s after its ascent
+log. Outcome verification returned UNCONFIRMED: post altitude0.682m, target error
+0.318m, lateral displacement0.285m. The requested second action `land-1` was not
+executed after that halt; recovery used `takeoff-0-recovery-land`.
+
+An independent subscriber recorded before admission and through recovery:1,090
+odometry samples plus vehicle/airborne records over150s. Physical altitude continued
+to **2.888m**, total speed peaked **2.380m/s**, and lateral displacement reached
+**2.092m** relative to pre-takeoff pose (that lateral peak occurred during recovery).
+Airborne telemetry did turn true:37 records; it is not missing/false throughout.
+Recovery dispatch followed takeoff failure completion by4.114s. The task's abort
+did not establish physical containment within the declared takeoff envelope.
+
+Recovery LAND started from2.868m, stalled for5s, then the existing task requested
+autopilot LAND. Landing completed; its independent verifier reports VERIFIED,
+final altitude0.009m, connected=true, armed=false. Mission terminal state is
+`RECOVERED_HALT`, inactive, return code4. The later independent trace ends grounded,
+disarmed, AUTO.LOITER, altitude-0.0155m and speed0.0048m/s. Fresh post-recovery sensors
+also remain live. No retry, tuning change, controller patch or service restart occurred.
+
+Read-only diagnosis: abort requests ROBOT_POSE mode, whose controller target follows
+current odometry each update rather than retaining a fixed stop pose. This deserves
+control-path investigation, but the record lacks actual tracking-point/setpoint/actuator
+streams and does not establish the root cause of the initial acceleration or stalled
+descent. Old and candidate images both contain PX4v1.16.1 at commit94cb201...;
+their built executable hashes differ. This alone is not evidence of a PX4 regression.
+Reviewer independently confirms failure, overshoot and recovered grounding.
+
+Next: diagnose the takeoff/abort/landing control path from the retained attempt and
+add appropriate setpoint/TF/actuator evidence before another flight. Do not raise
+limits to turn this failure into a pass. Warehouse remains paused. The image/input
+repair is successful, but bounded flight and integrated goal completion are unqualified.
+
+## Published Isaac candidate and recreation checkpoint — 2026-10-04 00:07 UTC
+
+Built the current pinned Dockerfile on branch `ore_proj` and directly pushed only
+`airlab-docker.andrew.cmu.edu/airstack/airstack:v0.20.8-rrm-numpyfix-20261003t1930edt_isaac-sim`.
+The registry manifest digest is
+`sha256:3e08f31c208fb5fd4435d782761f105289903d30debc8bdfaca92349ddb4a49d`;
+its image/config ID is
+`sha256:dfe91c2ed7680c5bfc7ccfc1f4bc424fe96fd65790353cf07595f12baae849cf`.
+The image build assertion and a fresh image interpreter check pass NumPy 1.26.4;
+`dpkg --audit` is clean. The original release tag retains image ID `dd08249...`.
+The build refreshed the floating cache tag locally; that tag was not published.
+
+AirStack compose now supports `ISAAC_SIM_IMAGE` for an Isaac-only runtime pin.
+This branch's `.env` pins the published manifest digest, leaving `VERSION=0.20.8`
+for robot/GCS; the CLI records the pin in effective launch configuration. Normal
+GUI scene launch reads this `.env` through the existing CLI. Clear the runtime
+pin with `ISAAC_SIM_IMAGE=''` for future builds and select a unique candidate
+VERSION/cache tag; a digest is not a valid build tag. Use `AIRSTACK_NO_IMAGE_BUILD=1`
+when launching the published digest.
+
+Only Isaac livestream and robot were recreated, after an IDLE mission and live
+connected/disarmed/grounded state were confirmed. Office/scale 1.0 remains explicit.
+The recreated Isaac container runs the exact candidate digest and retains NumPy
+1.26.4; `/api/state` reports COMPATIBLE/MATCHED. Robot retains the existing v0.20.8
+image; GCS has its original start time. The outer OSMO workflow remains running.
+All six readiness gates pass in a clean follow-up invocation.
+
+An 8-second sensor window at 00:05:47 UTC received 180 camera frames (~22.85 Hz),
+56 raw LiDAR clouds (~7.07 Hz, latest 44,817 points), and 11 VDB maps (latest 2,008
+points). Clock/camera/cloud/odometry/map stamps advance with recent receive ages.
+Vehicle state: connected, disarmed, AUTO.LOITER, airborne=false, speed ~0.009 m/s.
+GUI read-only camera capture at 00:06:21 UTC returns a 480x300 RGB image with advancing
+source stamp. The GCS websocket handshake at port 8766 accepts `foxglove.sdk.v1`;
+this is connection evidence, not a visual-client inspection or decoded websocket
+sensor-content check. Earlier startup-only window had no streams and is not a
+completed-startup result.
+
+Validation: 14/14 runtime tests, 57/57 console tests, shell syntax and compose
+configuration checks; independent reviewer approves exact pin and branch scope.
+One long-running `up --wait` shell returned 127 after announcing readiness while
+its script was edited to record the image pin; separate subsequent readiness
+invocations exit 0 with every gate OK. No mission execute request or flight occurred.
+Next: one bounded Office takeoff/land on this candidate with fresh admission and
+independent outcome evidence. Outer workspace/robot image provenance, broader
+scene/physics qualification and warehouse flight remain open.
+
+## Office binding and recreation failure checkpoint — 2026-10-03 19:16 EDT
+
+Office is now explicitly selected through the existing console scene launcher:
+`active_scene: office`, `scene_context_status: MATCHED`. Container environment and
+Isaac log identify `Office` / `office.usd` at scale 1.0. This restarted only Isaac
+and the robot stack while the observed vehicle was disarmed/grounded and no mission
+was active. GCS/OSMO were not restarted. All six readiness gates pass.
+
+**No flight was attempted.** Recreating the same local Isaac image
+`sha256:dd08249bb061ff2d8fcb42587caf1bc65202ca40a8fbd3f1c5bdfbaf9ba60cd9`
+restored NumPy **2.4.6**. `/api/state` now reports `INCOMPATIBLE` and ordinary-motion
+dependency compatibility false even though scene binding is MATCHED. A read-only
+call to `Console.require_isaac_runtime` rejects a typed 1 m takeoff proposal; this
+is a helper-level live guard check, **not a GUI execute request or dispatched task**.
+Mission status remains IDLE and no new goal/mission artifacts were created.
+
+The completed-startup sensor window received advancing clock, canonical odometry,
+MAVROS and airborne state, but **zero camera images, zero raw-LiDAR clouds, and empty
+VDB payloads**. Isaac logged writer attachment failures with unknown dtype/size 0.
+An earlier startup window received no streams at all and is retained separately;
+it is not a completed-startup sensor result. State is connected, disarmed,
+AUTO.LOITER, airborne=false. Source/model/flight readiness are distinct.
+
+The actual image history installs bare `numpy` and contains no NumPy assertion layer,
+whereas the current source Dockerfile pins 1.26.4 and asserts that exact version.
+Together with the same image ID and prior running-container 1.26.4 observation, this
+supports the inference that the earlier repair existed only in the container writable
+layer and was lost on recreation. A version tag alone did not ensure source/image parity.
+Do not repeat the prior healthy sensor checkpoint as current after this recreation.
+
+Individual live control readbacks retain tracking-point limit 0.5 m, sphere radius
+0.3 m, map target frame, takeoff lateral/overshoot limits 0.3 m, vertical-speed bound
+1.5 m/s, and LAND no-progress/total limits 5/60 s. Installed executable hashes and
+mounted source hashes are retained, but no new flight qualification follows.
+
+The previous tool-owned foreground console did not persist. During this turn an
+IDE-terminal-owned backend (PID 259792) appeared before a named-tmux startup attempt;
+that attempt exited on port conflict. The existing IDE backend was preserved and
+handled the scene selection. **No durable tmux ownership is claimed.** An optional
+named-session launch is documented for a future start when the port is unoccupied.
+
+Validation: **57/57 console tests and 14/14 runtime tests**; independent review confirms
+the runtime mismatch, writer failures, image-history divergence and no-flight decision.
+Next: rebuild/validate the actual Isaac image from the pinned source, prove compatibility
+survives container recreation, then recheck live inputs and qualify one bounded Office
+takeoff/land attempt. Publishing registry artifacts or changing workflow image references
+is separate from this local checkpoint. No temporary package repair or blind flight retry
+was performed; warehouse flight remains paused.
+
+## Live console activation and input checkpoint — 2026-10-03 21:38 UTC
+
+The updated preflight backend is now **running** on localhost:8787. The previous
+live-only console was restarted only after command/model inactivity, absent dispatch
+processes, and connected/disarmed/grounded observations were confirmed. It uses the
+same request directory, arguments and isolated dependency cache. Saved goal history
+is unchanged. Isaac, robot and GCS container start times and image IDs are unchanged;
+no mission, scene change, simulator restart or package mutation was performed.
+
+`/api/state` reports `COMPATIBLE`, NumPy 1.26.4, and ordinary-motion dependency
+compatibility. `/api/mission` remains IDLE. All six `airstack ready --json` gates pass,
+including clock epoch; robot start follows Isaac start.
+
+An 8.02-second read-only subscriber window received advancing, nonempty inputs:
+
+| Input | Received | Approx. observed Hz | Latest content/frame |
+| --- | --- | --- | --- |
+| Front camera | 199 images | 25.10 | 480×300 RGB, `camera_left` |
+| Raw Ouster | 67 clouds | 8.35 | 12,028 points, `ouster` |
+| VDB map | 16 clouds | 1.90 | 845 points, `map` |
+| Canonical odometry | 180 messages | 22.68 | `map` / `base_link` |
+| Simulation clock | 200 messages | 25.09 | Advancing |
+
+Latest source stamps were within 0.27 simulation seconds of the observed clock;
+last receipt ages were under 0.35 wall seconds for these inputs. Two GUI camera
+captures succeeded with advancing source timestamps; the downloaded second PNG's
+checksum matches its returned metadata.
+The optional camera metadata does not include armed state; disarm/grounding came
+from separately subscribed MAVROS and airborne state, not inferred from the image.
+The Foxglove bridge listens on workspace port 8766 and local WebSocket negotiation
+succeeded (HTTP 101) using `foxglove.sdk.v1`. A legacy-only `foxglove.websocket.v1`
+probe returned HTTP 400; offering SDK plus legacy negotiated SDK successfully. This
+does not verify the remote tunnel, browser display, or sensor delivery through that
+WebSocket; the payload observations above came directly from ROS subscriptions.
+
+The source scene binding remains **UNKNOWN** (`active_scene: null`); sensor availability
+does not identify or bind the stage to the Office semantic manifest. No scene was
+selected merely to clear this status. These are bounded observation checks, not a
+flight/physics or goal-to-finish benchmark.
+
+Actual images now carry version tags, but locally built Isaac/robot images have no
+registry RepoDigest. Retained local content IDs begin `dd08249bb061` (Isaac) and
+`c882e7674be5` (robot); this does not yet establish a portable immutable workflow.
+Next: resolve scene binding explicitly, publish/pin reproducible image provenance,
+then qualify one bounded mission under the declared adapter/profile. Core evidence
+scheduling/storage work remains open. Runtime and console tests pass **14/14** and
+**57/57**; independent review found no blocking defect.
+
+## Isaac runtime preflight checkpoint — 2026-10-03
+
+Console source now probes the running Isaac interpreter's NumPy dependency through
+bounded, read-only Docker calls. Exactly one running simulator and the image-pinned
+1.26.4 profile are required for new non-LAND motion. Missing, ambiguous, malformed,
+failed and incompatible evidence fail closed. Every actual launch rechecks; GUI state
+cannot authorize execution. Command admission follows grounding and existing task
+discovery but precedes mission-plan publication and mission staging. Historical
+proposal launch validates the proposal kind before checking and staging. Command plans
+retain the report; historical launches retain `isaac-runtime.json`.
+
+LAND-only missions, operator LAND, STOP, and predeclared recovery remain available;
+other existing flight-state checks still apply. GUI dependency status and recheck use
+read-only state. Goal intake, preview, camera refresh and scene repair remain available.
+The existing scene-selection flag is preserved, with separate dependency compatibility
+evidence. No compatibility result establishes sensor freshness or scene physics.
+
+Validation: **429/429 CPU tests** in 37.401 s and **14/14 focused probe/admission
+tests**; independent reviewer found no blocking defect. The read-only live probe at
+20:55 UTC now reports NumPy **1.26.4 COMPATIBLE**, unlike the previously observed
+2.4.6. No package change, restart or robot motion occurred in this chunk. The source
+Dockerfile already pins 1.26.4; deployed mutable-image drift remains the concern.
+
+This update is source/test complete, **not deployed into the already running GUI**.
+Next live-workflow chunk: start the updated console only after confirming inactivity,
+verify camera/raw-LiDAR freshness and clock ordering read-only, and retain actual image
+identity for a version-pinned workflow. Existing core scheduling/storage qualification
+remains open. External restarts during staging are not solved by this preflight.
+
+## Safety-sidecar finalization checkpoint — 2026-10-03
+
+The next core reliability increment changes only campaign fixture evidence
+finalization. `FixtureTracer` writes and flushes authored safety labels after each
+gate under its existing ordering lock, then synchronizes the sidecar once at close
+before worker result publication. Removing a disk synchronization from every gate
+reduces storage work inside the unchanged 0.1-second evidence callback limit.
+Close is idempotent and closes both files if flush or synchronization raises.
+Finalization failures still propagate: absent worker results and failed harness
+exits remain UNKNOWN and unqualified, including when trace replay itself succeeds.
+The outer harness deadline bounds finalization; no callback bound was widened.
+
+The retained original-source baseline reproduced **33/34 expectation matches and
+31/34 complete attempts**, including an unexpected incomplete stale-coverage attempt
+and two intentional trace-loss cases. Two fresh exports with this change each retain
+**34/34 expectation matches, 32/34 complete attempts, and two UNKNOWN outcomes** from
+intentional trace loss. Both bundles independently verify, and their same-source
+paired report verifies with **34 pairs and 32 jointly qualified pairs**. Baseline
+artifacts remain preserved with their original source-pinned reader. This is
+descriptive mock regression evidence, not statistical proof of a reliability gain.
+
+Validation: **415/415 CPU tests** in 37.097 s, **5/5 focused finalization tests**,
+**5/5 Oracle tasks and replay-valid traces**, and independent reviewer approval with
+no blocking findings in implementation/tests. Runtime SHA-256:
+`1dc0e7e9722239c4fa8c7709a8c1ee6cc43cc7d35d9b40e037c4463ea91fd94a`.
+The trace receipt still proves a flushed trace append in-process, not durable labels
+or power-loss safety. Per-event thread scheduling, flush stalls, and final sync
+liveness remain open. No simulator/robot action, GUI adoption, adapter/control
+change, or RRM-EM expansion occurred. Next: qualify remaining scheduling/write
+failure paths, then integrate a version-pinned live observation/adapter boundary.
+
 ## Late evidence reconstruction checkpoint — 2026-10-02
 
 Current source advances **T telemetry/evaluation and M fault reconstruction supporting

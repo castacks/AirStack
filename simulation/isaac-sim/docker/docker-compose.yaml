@@ -2,7 +2,8 @@ services:
   isaac-sim:
     profiles:
       - isaac-sim
-    image: &image_tag ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_isaac-sim
+    # Pin only Isaac for candidate validation without changing robot/GCS versions.
+    image: &image_tag ${ISAAC_SIM_IMAGE:-${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_isaac-sim}
     build:
       context: ../
       dockerfile: docker/Dockerfile.isaac-ros

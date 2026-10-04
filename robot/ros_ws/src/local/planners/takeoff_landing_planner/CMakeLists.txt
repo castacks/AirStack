@@ -77,6 +77,12 @@ function(add_ros_isolated_launch_test path)
 endfunction()
 
 if(BUILD_TESTING)
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  add_test(NAME isolated_abort_handover
+    COMMAND ${CMAKE_COMMAND} -E env ROS_DOMAIN_ID=198 ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/test/isolated_abort_handover.py
+      $<TARGET_FILE:takeoff_landing_task>)
+  set_tests_properties(isolated_abort_handover PROPERTIES TIMEOUT 90 RUN_SERIAL TRUE)
   # find_package(ament_lint_auto REQUIRED)
   # ament_lint_auto_find_test_dependencies()
   

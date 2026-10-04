@@ -53,6 +53,7 @@
 #include <std_srvs/srv/trigger.hpp>
 #include <std_msgs/msg/empty.hpp>
 #include <robot_interface/robot_interface.hpp>
+#include <mavros_interface/px4_actuation_guard.hpp>
 
 #include "GeographicLib/Geoid.hpp"
 #include <message_filters/subscriber.h>
@@ -323,6 +324,7 @@ namespace mavros_interface
         bool is_ardupilot;
         float post_takeoff_command_delay_time;
         bool do_global_pose_command;
+        std::unique_ptr<Px4ActuationGuard> actuation_guard_;
 
         bool is_state_received_ = false;
         mavros_msgs::msg::State current_state_;
@@ -384,6 +386,9 @@ namespace mavros_interface
             is_ardupilot = airstack::get_param(this, "is_ardupilot", false);
             post_takeoff_command_delay_time = airstack::get_param(this, "post_takeoff_command_delay_time", 5.);
             do_global_pose_command = airstack::get_param(this, "do_global_pose_command", false);
+            if (!is_ardupilot) {
+                actuation_guard_ = std::make_unique<Px4ActuationGuard>(*this);
+            }
 
             // services
             service_callback_group =
@@ -614,6 +619,7 @@ namespace mavros_interface
 
         bool request_control() override
         {
+            if (actuation_guard_ && !actuation_guard_->admit()) { return false; }
             auto request = std::make_shared<mavros_msgs::srv::SetMode::Request>();
             if (is_ardupilot)
                 request->custom_mode = "GUIDED"; //"OFFBOARD";
@@ -622,7 +628,9 @@ namespace mavros_interface
 
             auto result = set_mode_client_->async_send_request(request);
             std::cout << "waiting rc" << std::endl;
-            result.wait();
+            if (result.wait_for(std::chrono::seconds(2)) != std::future_status::ready) {
+                set_mode_client_->remove_pending_request(result); return false;
+            }
             std::cout << "done rc" << std::endl;
 
             return result.get()->mode_sent;
@@ -630,6 +638,7 @@ namespace mavros_interface
 
         bool arm() override
         {
+            if (actuation_guard_ && !actuation_guard_->admit()) { return false; }
             // A previous landing can leave PX4 disarmed but still in OFFBOARD.
             // Arming in that mode applies the retained attitude/thrust stream
             // immediately, before the next takeoff has established its hold.
@@ -652,7 +661,9 @@ namespace mavros_interface
 
             auto result = arming_client_->async_send_request(request);
             std::cout << "waiting arm" << std::endl;
-            result.wait();
+            if (result.wait_for(std::chrono::seconds(2)) != std::future_status::ready) {
+                arming_client_->remove_pending_request(result); return false;
+            }
             std::cout << "done arm" << std::endl;
 
             return result.get()->success;
@@ -665,7 +676,9 @@ namespace mavros_interface
 
             auto result = arming_client_->async_send_request(request);
             std::cout << "waiting disarm" << std::endl;
-            result.wait();
+            if (result.wait_for(std::chrono::seconds(2)) != std::future_status::ready) {
+                arming_client_->remove_pending_request(result); return false;
+            }
             std::cout << "done disarm" << std::endl;
 
             if (!result.get()->success)
@@ -693,12 +706,16 @@ namespace mavros_interface
 
         bool has_control() override
         {
-            return is_state_received_ &&
+            // PX4 may retain OFFBOARD after automatic landing/disarm. Mode
+            // selection alone is not armed control authority. arm() deliberately
+            // checks that retained mode directly before its LOITER/rearm handoff.
+            return is_state_received_ && current_state_.armed &&
                    (is_ardupilot ? current_state_.mode == "GUIDED" : current_state_.mode == "OFFBOARD");
         }
 
         bool takeoff() override
         {
+            if (actuation_guard_ && !actuation_guard_->admit()) { return false; }
             if (is_ardupilot)
             {
                 std_srvs::srv::Trigger::Request::SharedPtr takeoff_request =
@@ -706,7 +723,9 @@ namespace mavros_interface
 
                 std::cout << "calling ardupilot takeoff 1" << std::endl;
                 auto takeoff_result = ardupilot_takeoff_client_->async_send_request(takeoff_request);
-                takeoff_result.wait();
+                if (takeoff_result.wait_for(std::chrono::seconds(2)) != std::future_status::ready) {
+                    ardupilot_takeoff_client_->remove_pending_request(takeoff_result); return false;
+                }
                 std::cout << "calling ardupilot takeoff 2" << std::endl;
                 if (takeoff_result.get()->success)
                 {

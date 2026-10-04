@@ -10,6 +10,9 @@
 robot:
   packages:
     - lidar_point_cloud_filter
+    - pid_controller
+    - takeoff_landing_planner
+    - mavros_interface
   # Linter skip lives in lidar_point_cloud_filter setup.cfg + test/conftest.py.
   # ament pytest does not honor PYTEST_ADDOPTS -m.
   # launch_testing is skipped via PYTEST_DISABLE_PLUGIN_AUTOLOAD in the test.

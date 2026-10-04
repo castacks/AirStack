@@ -18,6 +18,9 @@ find_package(std_srvs REQUIRED)
 find_package(message_filters REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(ament_index_cpp REQUIRED)
+find_package(rcl_interfaces REQUIRED)
+find_package(yaml-cpp REQUIRED)
 
 set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH};/usr/share/cmake/geographiclib")
 find_package(GeographicLib REQUIRED)
@@ -38,7 +41,10 @@ ament_target_dependencies(
   airstack_common
   std_srvs
   GeographicLib
+  ament_index_cpp
+  rcl_interfaces
 )
+target_link_libraries(mavros_interface yaml-cpp)
 
 pluginlib_export_plugin_description_file(robot_interface plugins.xml)
 
@@ -61,6 +67,12 @@ install(
 install(PROGRAMS scripts/position_setpoint_pub.py DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  add_test(NAME isolated_actuation_admission
+    COMMAND ${CMAKE_COMMAND} -E env ROS_DOMAIN_ID=198 ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/test/isolated_actuation_admission.py)
+  set_tests_properties(isolated_actuation_admission PROPERTIES TIMEOUT 120 RUN_SERIAL TRUE
+    ENVIRONMENT "AMENT_PREFIX_PATH=${CMAKE_INSTALL_PREFIX}:$ENV{AMENT_PREFIX_PATH};LD_LIBRARY_PATH=${CMAKE_INSTALL_PREFIX}/lib:$ENV{LD_LIBRARY_PATH}")
   find_package(ament_lint_auto REQUIRED)
 
   # the following line skips the linter which checks for copyrights

@@ -21,6 +21,7 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <deque>
 #include <mutex>
 #include <string>
@@ -62,6 +63,8 @@ private:
   double preflight_hold_max_position_error_;
   int preflight_hold_confirmation_samples_;
   double preflight_hold_timeout_;
+  double control_acquisition_timeout_s_;
+  double control_state_max_age_s_;
   double landing_stationary_distance_;
   double landing_acceptance_time_;
   double landing_tracking_point_ahead_time_;
@@ -88,6 +91,10 @@ private:
   // precondition state (atomic for lock-free reads in handle_goal)
   std::atomic<bool> is_armed_{false};
   std::atomic<bool> has_control_{false};
+  std::mutex authority_mutex_;
+  std::chrono::steady_clock::time_point armed_received_{};
+  std::chrono::steady_clock::time_point control_received_{};
+  bool fresh_authority(std::chrono::steady_clock::time_point after = {});
   std::atomic<bool> state_estimate_timed_out_{false};
 
   // landed state from mavros
@@ -101,6 +108,8 @@ private:
   // prevents extended_state callback from re-publishing is_airborne=true
   // after MAVROS transiently reverts to IN_AIR post-landing.
   std::atomic<bool> landed_{false};
+  // Sent/uncertain LAND must not race a trajectory landing; not physical completion.
+  std::atomic<bool> abort_land_handover_{false};
 
   // subscribers
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr robot_odom_sub_;
@@ -131,7 +140,10 @@ private:
   // helpers
   bool set_trajectory_mode(int32_t mode);
   bool send_robot_command(uint8_t command);
+  enum class CommandDisposition { ACCEPTED, REJECTED, NOT_SENT, UNCONFIRMED };
+  CommandDisposition robot_command_disposition(uint8_t command);
   bool confirm_tracking_point_hold();
+  std::string contain_takeoff_breach();
 
   // TakeoffTask action server callbacks
   rclcpp_action::GoalResponse takeoff_handle_goal(

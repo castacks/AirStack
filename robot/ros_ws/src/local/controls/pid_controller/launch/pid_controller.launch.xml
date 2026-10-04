@@ -24,6 +24,11 @@
        default="/$(env ROBOT_NAME)/interface/cmd_roll_pitch_yawrate_thrust"
        description="Output attitude/thrust command to the robot interface (mav_msgs/RollPitchYawrateThrust)" />
 
+  <arg name="pid_controller_is_armed_topic" default="/$(env ROBOT_NAME)/interface/is_armed"
+       description="Input fresh armed state (std_msgs/Bool)" />
+  <arg name="pid_controller_has_control_topic" default="/$(env ROBOT_NAME)/interface/has_control"
+       description="Input fresh interface command authority (std_msgs/Bool)" />
+
   <group>
     <push-ros-namespace namespace="control" />
     <set_remap from="odometry" to="$(var pid_controller_odometry_topic)" />
@@ -32,6 +37,8 @@
 
     <node pkg="pid_controller" exec="pid_controller" output="screen">
       <param from="$(var pid_controller_config)" allow_substs="true" />
+      <param name="is_armed_topic" value="$(var pid_controller_is_armed_topic)" />
+      <param name="has_control_topic" value="$(var pid_controller_has_control_topic)" />
     </node>
   </group>
 </launch>

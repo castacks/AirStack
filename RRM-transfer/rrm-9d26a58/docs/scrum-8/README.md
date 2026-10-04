@@ -39,7 +39,7 @@ Read in order:
 
 Live reads on 2026-09-13 confirmed [CONOPS v4](https://deboabolade.atlassian.net/wiki/spaces/SCRUM/pages/1048599), [requirements v3](https://deboabolade.atlassian.net/wiki/spaces/SCRUM/pages/786434), and the [architecture outline v1](https://deboabolade.atlassian.net/wiki/spaces/SCRUM/pages/1015810). SCRUM-6 and SCRUM-7 are Done. [SCRUM-8](https://deboabolade.atlassian.net/browse/SCRUM-8) remains To Do and links to SCRUM-9 for the simulation/SIL/HIL pipeline. No Jira or Confluence writes were performed.
 
-User instructions and Phase 1 requirements take precedence over the old A10G/Panda/GR00T/Qwen choices. Curriculum examples are reference material, not additional approved requirements. Search also exposed an RRM2 capstone collection in the Software Development space; it is not silently merged into the SCRUM-7 baseline.
+User instructions and Phase 1 requirements take precedence over the old A10G/Panda/GR00T/Qwen choices. Curriculum examples are reference material, not additional approved requirements.
 
 ## Design readiness
 

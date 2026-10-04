@@ -19,6 +19,35 @@
 
 # RRM-1 — Robotics Reasoning Model
 
+For the current work sequence and claim boundaries, read
+[MILESTONES.md](MILESTONES.md) before the historical SCRUM-era records.
+
+## Current work reading order
+
+Current checkpoint (2026-10-04): the single instrumented Office diagnostic after
+actuation/authority repair failed. OFFBOARD and lift were observed, but takeoff
+breached the 0.3m lateral limit before reaching 1m. Hold/LAND were accepted;
+ground/disarm was independently observed and the GUI halted. Complete ROS/PX4
+logs are retained. Armed-aware authority reporting is repaired/tested in source,
+not deployed. Saved-flight correlation verifies PID/command math and identifies
+early vertical lag plus candidate future-stamp idle/reset events; physical cause
+remains unproven. Reason-coded PID diagnostics and deterministic clock-order tests
+now pass in isolation; they are also source-only. Next: separately admitted grounded
+deployment and read-only diagnostic coverage checks, not another flight.
+No retry or flight qualification; ordinary flight remains paused.
+
+1. [Milestones](MILESTONES.md) — current progress, blockers, and priority order.
+2. [Handoff](HANDOFF.md) — dated checkpoints, retained evidence, and immediate
+   technical continuation.
+3. [Goal-to-finish status](docs/scrum-8/end-to-end-status.md) — the boundary between
+   demonstrated live behavior and unproven performance claims.
+
+Use the [core acceptance campaign](docs/core-acceptance.md) and
+[paired comparison](docs/core-comparison.md) for evaluation work, or the
+[command-console runbook](docs/scrum-8/command-console.md) for the live aerial path.
+The remaining SCRUM-era files are supporting design and historical records, not the
+primary tracker.
+
 A modular embodied-reasoning architecture. Perception feeds a persistent semantic
 world model, a reasoner plans over symbols, a deterministic verifier gates every
 action, and a VLA policy converts verbs into motion.
@@ -145,6 +174,21 @@ task servers and canonical robot state.
 cd /root/AirStack/RRM-transfer/rrm-9d26a58
 bash scripts/rrm_command_console.sh
 ```
+
+The foreground command requires its terminal to remain open. For a detached
+workspace session, start it in tmux **only when no console already owns port 8787**:
+
+```bash
+tmux new-session -d -s rrm-console \
+  -c /root/AirStack/RRM-transfer/rrm-9d26a58 \
+  'bash scripts/rrm_command_console.sh'
+tmux attach -t rrm-console
+```
+
+Detach with Ctrl-b then d. This is workspace-local supervision, not an OSMO boot
+service. Do not kill/restart an existing console to use this recipe while a mission
+or scene operation is active. Reload the browser after any backend restart to obtain
+its new session token. The current IDE-owned console need not be replaced.
 
 The page exposes **Plan and run** plus **Stop / hold**. The single Plan and run click
 starts the autonomous mission; its compiled task plan, task feedback, and published
@@ -326,6 +370,80 @@ GUI's active-scene record; use the selector before relying on Office-specific
 proposals.
 
 #### Temporary OSMO boot checklist (until the version-pinned images land)
+
+Latest workspace check (2026-10-04 00:15 UTC): the rebuilt Isaac candidate is published
+as `v0.20.8-rrm-numpyfix-20261003t1930edt_isaac-sim` and this branch's AirStack `.env`
+pins its manifest digest through `ISAAC_SIM_IMAGE`. The recreated Office container
+retains NumPy 1.26.4; the console reports COMPATIBLE/MATCHED. Camera, raw LiDAR and
+populated VDB output are fresh, and the GUI camera capture succeeds. All readiness
+gates pass. A subsequent 1m takeoff mission failed its vertical-speed bound and
+physically overshot to2.888m; the automatic recovery landing independently VERIFIED
+grounding/disarm and ended `RECOVERED_HALT`. Office flight on this candidate is paused
+pending controller repair and qualification. Grounded diagnosis confirmed retained
+vertical PID integral producing clipped thrust1.0 while disarmed and no automatic
+PX4 integrator-reset path. The retained flight log confirms high thrust during
+takeoff/after abort, but lacks flight-time PIDInfo for complete causal attribution.
+PID source now has fresh armed/authority gating, full history resets and
+full-output-aware anti-windup. Separate builds passed9 unit tests and17 synthetic
+lifecycle phases; reviewer cleared the fix. It is now deployed in this workspace
+after a robot-only restart: two grounded readbacks show all six integrals0 and
+thrust0.71 reaching MAVROS, with PX4 disarmed and all readiness gates passing.
+Isaac/GCS/outer OSMO were not restarted. This is a mounted-source deployment, not
+a published robot image. The0.71 baseline and airborne behavior remain unqualified.
+The task-node repair requests immediate bounded LAND on takeoff
+envelope breach and prevents conflicting trajectory recovery after any sent/
+uncertain LAND. Its8-scenario isolated regression passes, and a subsequent
+robot-only restart deployed it alongside the PID fix. Running/installed hashes
+match; grounded readback retains zero integrals, disarmed PX4 and passing readiness.
+Physical containment remains unqualified. Instrumented admission found a blocker:
+the previous GUI saved/launched in one request, so the actual plan could not be reviewed before
+motion. A two-stage stage/review/execute lifecycle is now implemented/tested in
+source and is now deployed into the running console. Live no-dispatch staging
+verified the actual saved plan/recovery, matching response/disk/store hash and
+idempotent restore; no flight ran. Reload the GUI for Stage plan and Execute
+reviewed plan controls. One separately authorized attempt under the
+[Office control qualification plan](docs/scrum-8/office-control-qualification.md)
+then HALTED without lift: MAVROS raw-setpoint plugin reports NaN
+thrust_scaling/ignored actuation; OFFBOARD authority was never observed. Vehicle
+returned grounded/disarmed. Next is grounded config/readiness and takeoff
+observed-authority admission repair, not another flight or Warehouse exploration.
+See the [dated handoff](HANDOFF.md) for evidence.
+
+`ISAAC_SIM_IMAGE` overrides only the simulator image; `VERSION` remains 0.20.8 for
+robot/GCS. Normal CLI and GUI scene recreation read the pin from `.env`. To build
+another candidate, clear the runtime digest override for that build and use a unique
+version/cache tag, for example from `/root/AirStack`:
+
+```bash
+candidate_version='0.20.8-rrm-next-candidate' # replace with a new unique version
+ISAAC_SIM_IMAGE='' VERSION="$candidate_version" CACHE_TAG='ore-proj-candidate' \
+  COMPOSE_PROFILES='desktop,isaac-sim-livestream' \
+  ./airstack.sh images build isaac-sim-livestream
+docker push "airlab-docker.andrew.cmu.edu/airstack/airstack:v${candidate_version}_isaac-sim"
+```
+
+Validate the image before updating `ISAAC_SIM_IMAGE` to its published digest. Use
+`AIRSTACK_NO_IMAGE_BUILD=1` when launching a published digest. This fixes the inner
+Isaac image for this checkout; the outer OSMO workspace image and robot image have
+not been republished. A container-local pip repair alone does not survive recreation.
+
+The command console now exposes a **Simulator dependency preflight** and a read-only
+`isaac_runtime` report in `/api/state`. New non-LAND command missions and historical
+proposal dispatches recheck the running Isaac interpreter before mission staging.
+Only the source image's pinned NumPy **1.26.4** profile passes; unavailable,
+ambiguous, failed, or incompatible probes block new motion. The command plan retains
+the report; historical dispatches retain `isaac-runtime.json`. Existing task discovery
+still stages its read-only discovery helpers before command admission.
+
+Landing-only commands, operator LAND, STOP, and predeclared recovery are not blocked
+by this dependency gate. Save, camera refresh, scene repair, and hand preview remain
+available. `command_execution_enabled` remains the scene-selection indicator;
+`ordinary_motion_dependency_compatible` reports dependency compatibility. Neither is
+launch authority: the server rechecks admission on execution. Passing this check does
+**not** establish camera/LiDAR freshness, scene physics, or protection against an
+external restart during launch. The source Dockerfile already pins NumPy; this check
+detects deployed-image drift. Source changes take effect when the console is next
+started; an already running console is not updated automatically.
 
 The deployed OSMO images are currently mutable. A new workflow can therefore
 boot with two independent regressions even when the source checkout is correct:

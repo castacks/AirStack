@@ -9,9 +9,82 @@ goal -> GUI -> semantic RRM -> capability route -> embodiment grounding
      -> independently verified goal or explicit terminal failure
 ```
 
-## Core evaluation checkpoint — 2026-10-02
+## Core evaluation checkpoint — 2026-10-03
 
-The core CPU suite passes 410/410 tests. T now exports a fixed 17-case
+Source-only continuation2026-10-04 02:36EDT: PID callback reason snapshots and
+deterministic clock-order tests pass (11gtests,26lifecycle,6clock phases).30ms future
+tracking/odom inputs yield conservative idle/reset reasons; clock catch-up reactivates
+cleanly. No freshness relaxation. Both diagnostics and armed-aware authority repair
+remain undeployed. Next is separately admitted grounded deployment/read-only coverage,
+not flight. Historical flight lacks these callback reasons; primary cause unproven.
+
+Latest flight checkpoint (2026-10-04 01:49EDT): one reviewed instrumented Office diagnostic
+after actuation/authority deployment failed the0.3m lateral takeoff bound. Armed
+OFFBOARD and lift were observed; ROS takeoff-window maximum altitude estimate0.504m
+and displacement0.326m at outcome. Hold/LAND accepted, ground/disarm independently
+observed, GUI HALTED/inactive. Full180s ROS/PX4 traces retained, no retry. Thrust
+saturated and a sharp downward estimate excursion occurred; OFFBOARD/control
+remained selected after disarm, final integrals0. Next is source-only tracking/
+frame/actuation and mode-lifecycle investigation, not another flight. No nominal
+goal or physical-containment qualification; ordinary flight stays paused.
+
+Source-only continuation2026-10-04 02:09EDT: armed-aware has_control reporting
+passes actual-plugin transition/rearm tests; live interface unchanged. Offline
+correlation verifies PID/cascade/raw thrust consistency and observational ROS/PX4
+state matching with an explicit uncertain clock fit. Early vertical lag and
+candidate future-tracking timestamp resets remain unresolved, not a proved gain
+or plant defect. PID future-stamp rejection/clean reactivation passes19isolated
+phases, plus9gtests. Next: reason-coded admission/idle diagnostics and isolated
+clock-order tests; strict freshness/bounds unchanged, no deployment or new flight.
+
+Prior grounded deployment passed18plugin+21task+45readiness/intent tests. Effective
+scaling1.0 and readiness7/7 were confirmed before this attempt. GUI launch itself
+does not query the gate; routed interface commands do. Historical checkpoints below
+retain their original claim scope and do not override this latest result.
+
+The CPU suite passes 429/429 tests, including 14 simulator dependency preflight and
+launch-admission tests. Console source rechecks the pinned Isaac NumPy profile before
+new non-LAND missions; LAND/STOP recovery remains available.
+The 2026-10-04 candidate image checkpoint supersedes the earlier recreation failure:
+the published Isaac candidate is pinned by manifest digest in this branch's `.env`.
+Recreation retains NumPy 1.26.4; console state is COMPATIBLE/MATCHED and all readiness
+gates pass. An 8-second read-only window received 180 camera frames, 56 raw LiDAR
+clouds and a populated VDB map; the GUI camera capture also succeeds. The vehicle
+was grounded/disarmed at that image checkpoint; no flight had yet been attempted.
+The subsequent 00:15UTC bounded flight checkpoint failed: one GUI 1m takeoff
+violated its vertical-speed bound and physically overshot to2.888m. Predeclared
+recovery LAND independently VERIFIED grounding/disarm; terminal state RECOVERED_HALT.
+Grounded diagnosis confirmed retained vertical PID integral saturating thrust while
+disarmed and an automatic reset path available only for ArduPilot, not current PX4.
+The retained PX4 log shows high thrust during takeoff/after abort, but flight PIDInfo
+is absent; exact initial controller state and full causation remain open.
+PID lifecycle/anti-windup source repair subsequently passed9 unit tests and17
+synthetic phases in isolated ROS domain197, with reviewer clearance. It is now
+deployed to domain1 via mounted source/install and robot-only restart. Two grounded
+readbacks show all integrals0 and baseline thrust0.71 reaching MAVROS; PX4 remained
+disarmed and readiness passes. This does not qualify airborne baseline behavior
+or abort containment. No new flight has occurred.
+Takeoff-envelope failover source now requests immediate LAND and keeps recovery
+observation-only after sent/uncertain handover. Synthetic action tests cover
+authority ordering and cancel/timeout cleanup. This task-node repair is now deployed
+alongside PID via another robot-only restart at02:17UTC; all8 isolated scenarios
+pass, executable hashes match, readiness passes, and grounded readback keeps all
+integrals0/PX4 disarmed. No new flight or physical containment qualification occurred.
+Next is the [instrumented Office plan](office-control-qualification.md).
+The console now has deployed two-stage plan review/execution; a live no-dispatch
+staging check verified saved plan/recovery/hash and retained grounded idle state.
+This is admission plumbing evidence, not a new integrated motion outcome.
+The subsequent single instrumented attempt HALTED/no lift: live MAVROS raw-setpoint
+plugin thrust_scaling=NaN, ignored actuation, no observed OFFBOARD authority. PX4
+auto-disarmed grounded; GUI STOP ended pending takeoff. Complete ROS/PX4 evidence
+is retained. No nominal takeoff/LAND, active PID or abort-containment qualification.
+Grounded config/readiness and observed-authority admission repair is next.
+Ordinary Office flight on this candidate is paused pending qualification, with no
+retry or relaxed bounds. Outer workspace/robot image provenance and wider physics
+qualification remain open. Environment/input recovery and safe terminal grounding
+do not constitute successful goal-to-finish evidence.
+
+T now exports a fixed 17-case
 [acceptance campaign](../core-acceptance.md) with authored event-scoped safety labels
 and a [paired comparison report](../core-comparison.md) over matching, same-source
 campaigns. Every scheduled attempt and unknown outcome remains in reporting.
@@ -19,7 +92,12 @@ Retained v2 runs exposed evidence-write deadline/replay gaps at the short mock
 fixture bounds. Current v3 evidence reconstructs only receipt-proven, adjacent late
 commits; pending/missing/reordered writes remain incomplete. Two retained v3 runs
 each qualified 31/34 attempts and matched 33/34 expectations, preserving one additional
-observed write-liveness failure plus the two intentional trace-loss cases. This advances
+observed write-liveness failure plus the two intentional trace-loss cases. The latest
+fixture increment moves safety-sidecar disk synchronization from each gate to attempt
+finalization, before worker result publication. Two fresh exports each matched 34/34
+expectations and qualified 32/34 attempts, retaining the two intentional trace-loss
+cases as UNKNOWN. Finalization errors cannot publish completed worker results;
+remaining callback scheduling and storage stalls are still open. This advances
 measurement and reconstruction; it does not add live
 goal-to-finish evidence to the dated assessment below. Comparative architecture/model
 trials and externally adjudicated integrated outcomes remain outstanding.

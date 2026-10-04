@@ -204,6 +204,7 @@ nav:
           - Robot Overview: docs/robot/index.md
           - Autonomy Overview: docs/robot/autonomy/index.md
           - Interface: docs/robot/autonomy/interface/index.md
+          - MAVROS Actuation Admission: robot/ros_ws/src/interface/mavros_interface/README.md
           - Sensors:
               - Overview: docs/robot/autonomy/sensors/index.md
               - LiDAR Point Cloud Filter: robot/ros_ws/src/sensors/lidar_point_cloud_filter/README.md

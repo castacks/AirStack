@@ -80,6 +80,14 @@ class CommandConsoleUiTests(unittest.TestCase):
         self.assertIn("grounding:result.plan.grounding", ui)
         self.assertIn("replan_policy:result.plan.replan_policy", ui)
 
+    def test_staged_ui_restore_and_explicit_hash_execution(self):
+        ui = (Path(__file__).parents[1] / "scripts/ui/command_console.html").read_text()
+        self.assertIn("['NOT_DISPATCHED','REVIEW_REQUIRED'].includes(run.execution_state)", ui)
+        self.assertIn("clearStagedPlan();byId('execute').disabled=!selectedRunId", ui)
+        self.assertIn("+'/stage',{}", ui)
+        self.assertIn("reviewed_plan_sha256:reviewed.hash", ui)
+        self.assertNotIn("execution continues automatically after", ui)
+
     def test_cross_embodiment_preview_is_visibly_non_executing(self):
         ui = (Path(__file__).parents[1] / "scripts" / "ui" / "command_console.html").read_text()
         self.assertIn("Cross-embodiment goal preview", ui)
@@ -92,7 +100,7 @@ class CommandConsoleUiTests(unittest.TestCase):
     def test_mission_console_removes_manual_shadow_workflow_controls(self):
         ui = (Path(__file__).parents[1] / "scripts" / "ui" / "command_console.html").read_text()
         self.assertIn("RRM mission", ui)
-        self.assertIn("Plan and run", ui)
+        self.assertIn("Stage plan", ui)
         self.assertIn("AirStack task planning and execution", ui)
         self.assertIn("/execute", ui)
         self.assertIn("/api/mission/stop", ui)
@@ -764,10 +772,19 @@ class CommandConsoleTests(unittest.TestCase):
             "execution_dispatch": False,
         }
         process = FakeProcess()
+        discovery.update(armed=False, clock_epoch_consistent=True, flight_state_consistent=True)
         with patch.object(app, "discover_tasks", return_value=discovery), \
+                patch("rrm_command_console.probe_isaac_runtime", return_value={"compatible": True}), \
                 patch("rrm_command_console.subprocess.run"), \
                 patch("rrm_command_console.subprocess.Popen", return_value=process):
-            status = app.start_command_mission(saved["request_id"])
+            with patch.object(app, "_command_runtime_identity", return_value=["mock-identity"]):
+                staged = app.stage_command_mission(saved["request_id"])
+                with patch.object(app, "_recheck_staged_command", return_value=discovery):
+                    with patch("rrm_command_console.subprocess.run") as remote:
+                        remote.side_effect = lambda args, **kwargs: type('Result', (), {
+                            'stdout': json.dumps(staged['plan']['source_manifest']) if 'python3' in args
+                            else staged['plan_sha256'] + ' /plan.json'})()
+                        status = app.start_command_mission(saved["request_id"], staged["plan_sha256"])
         self.addCleanup(app.mission_runtime["log_handle"].close)
         self.assertTrue(status["active"])
         self.assertEqual([item["kind"] for item in status["plan"]["actions"]],
@@ -776,7 +793,7 @@ class CommandConsoleTests(unittest.TestCase):
                          "verified_mission_halt_while_airborne")
         self.assertEqual(status["plan"]["recovery"]["action"]["kind"], "LAND")
         plan = json.loads((self.output / saved["request_id"] / "command-plan.json").read_text())
-        self.assertTrue(plan["execution_dispatch"])
+        self.assertFalse(plan["execution_dispatch"])
         self.assertEqual(plan["discovery"]["task_servers"], discovery["task_servers"])
         self.assertEqual(plan["grounding"]["schema_version"], "rrm-grounded-command/v1")
         self.assertTrue(plan["grounding"]["parameter_grounding"])
@@ -786,7 +803,7 @@ class CommandConsoleTests(unittest.TestCase):
                          "DISPATCHING")
         events = next(run for goal in app.store.history() for run in goal["runs"]
                       if run["run_id"] == saved["request_id"])["events"]
-        self.assertEqual(events[-1]["kind"], "command_plan")
+        self.assertEqual(events[-1]["kind"], "command_launch_claimed")
 
     def test_exploration_is_not_dispatched_without_fresh_vdb_map(self):
         office = Path(__file__).parents[1] / "examples" / "office_visual_eval"
@@ -809,7 +826,8 @@ class CommandConsoleTests(unittest.TestCase):
         }
         with patch.object(app, "discover_tasks", return_value=discovery), \
                 self.assertRaisesRegex(RuntimeError, "VDB"):
-            app.start_command_mission(saved["request_id"])
+            discovery["clock_epoch_consistent"] = True
+            app.stage_command_mission(saved["request_id"])
         self.assertFalse((self.output / saved["request_id"] / "command-plan.json").exists())
 
     def test_contradictory_airborne_state_allows_only_reconciliation(self):
@@ -835,7 +853,8 @@ class CommandConsoleTests(unittest.TestCase):
         }
         with patch.object(app, "discover_tasks", return_value=discovery), \
                 self.assertRaisesRegex(RuntimeError, "Only an explicit landing"):
-            app.start_command_mission(saved["request_id"])
+            discovery["clock_epoch_consistent"] = True
+            app.stage_command_mission(saved["request_id"])
         self.assertFalse((self.output / saved["request_id"] / "command-plan.json").exists())
 
     def test_goal_reuse_and_restart_preserve_independent_runs(self):

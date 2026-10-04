@@ -1521,9 +1521,9 @@ function print_launch_config {
     local _fleet_cfg
     _fleet_cfg=$(resolve_launch_var FLEET_CONFIG_FILE "$@")
     [[ -n "$_fleet_cfg" ]] && keys+=(FLEET_CONFIG_FILE)
-    # Scene keys likewise only appear when a scene is selected (--scene or env).
+    # Optional scene/image pins only appear when selected (--scene or env).
     local _sk
-    for _sk in ISAAC_SIM_SCENE ISAAC_SIM_STAGE_SCALE MS_AIRSIM_SCENE; do
+    for _sk in ISAAC_SIM_SCENE ISAAC_SIM_STAGE_SCALE MS_AIRSIM_SCENE ISAAC_SIM_IMAGE; do
         [[ -n "$(resolve_launch_var "$_sk" "$@")" ]] && keys+=("$_sk")
     done
     local k v lines=()

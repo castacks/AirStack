@@ -189,10 +189,19 @@ class FixtureTracer(Tracer):
                                         "run_id": self.run_id}, self._rule, self._configuration_hash)
                 self._labels.write(json.dumps(label, sort_keys=True) + "\n")
                 self._labels.flush()
-                os.fsync(self._labels.fileno())
             return sequence
 
     def close(self):
         with self._label_lock:
-            super().close()
-            self._labels.close()
+            try:
+                if not self._labels.closed:
+                    # Gate callbacks retain flush-visible labels. Synchronize once
+                    # at attempt finalization, before worker result publication,
+                    # rather than adding storage latency to each evidence deadline.
+                    self._labels.flush()
+                    os.fsync(self._labels.fileno())
+            finally:
+                try:
+                    super().close()
+                finally:
+                    self._labels.close()

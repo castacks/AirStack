@@ -1,0 +1,3 @@
+/**/setpoint_raw:
+  ros__parameters:
+    thrust_scaling: "1.0"

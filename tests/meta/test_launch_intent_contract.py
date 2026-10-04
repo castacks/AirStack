@@ -192,6 +192,7 @@ def test_livestream_compose_pins_the_forwarded_udp_media_port_on_kit_cli():
     assert f"--/app/livestream/fixedHostPort={port}" in command
     assert f"--/app/livestream/minHostPort={port}" in command
     assert f"--/app/livestream/maxHostPort={port}" in command
+    assert f'"{port}:{port}/udp"' in livestream
 
 
 def test_readiness_rejects_robot_graph_from_an_older_isaac_clock_epoch():
@@ -199,7 +200,6 @@ def test_readiness_rejects_robot_graph_from_an_older_isaac_clock_epoch():
     assert "_gate_clock_epoch_ok" in ready
     assert "TF_OLD_DATA" in ready
     assert "results[clock_epoch]=failed" in ready
-    assert f'"{port}:{port}/udp"' in livestream
 
 
 def test_headless_and_play_flags():

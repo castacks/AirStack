@@ -27,19 +27,31 @@ The server binds only to `127.0.0.1`.
 ## Current command path
 
 1. Enter a movement command and select **Save goal**. A camera capture is optional.
-2. Select **Plan and run**. That deliberate click starts the autonomous mission; the
-   generated plan is displayed as evidence and is not a second approval gate.
+2. Select **Stage plan**. This saves the actual immutable `command-plan.json`
+   without starting a mission. Review the displayed actions, parameter sources,
+   distinct recovery LAND and SHA256; then select **Execute reviewed plan**.
+   Execution requires that exact hash and cannot silently recompile the plan.
 3. The server reads current `map -> base_link` odometry, MAVROS state, airborne state,
    VDB map availability, and the ROS action graph from robot domain 1.
    For Isaac, it also verifies that the robot container started in the current
    simulation-clock epoch; a robot graph retained across an Isaac restart is rejected.
 4. It distinguishes actual action servers from client-only action names and compiles
    only against executors present in the active robot configuration.
-5. It writes `command-plan.json` before launch, including every parameter's origin and
-   every declared assumption, and serially invokes the existing public
+5. Staging writes `command-plan.json` with `execution_dispatch:false`, including
+   parameter origins, assumptions, runtime identity and executor-source hashes.
+   Execution rechecks canonical state/clock, scene, runtime identity/dependencies,
+   named task servers (including recovery), flight state, position within0.1m and
+   heading within0.1rad of staged state. Ordinary motion requires explicit
+   consistent armed/airborne evidence; LAND keeps its NumPy dependency exemption.
+   The server claims one launch durably before copying. It copies verified plan
+   and executor-source snapshots, checks their remote hashes and rechecks admission
+   before starting the runner, which serially invokes the existing public
    task actions. It never publishes a trajectory or sends PX4/MAVROS commands.
    The GUI shows the exact compiled actions plus new `/robot_1/global_plan` publications
    and task feedback in bounded, scrollable evidence panels while execution continues.
+   Post-claim launch failure consumes the attempt and records failure; no automatic
+   retry. Reloading a REVIEW_REQUIRED attempt restores its same saved artifact via
+   Stage plan. Stranded/incomplete staging fails closed: save a new attempt.
 6. Each task result is checked against fresh causal odometry/state. Before every later
    action, the runner reacquires canonical state and records an immutable
    `CONTINUE`, `SKIP_SATISFIED`, or `HALT` replan decision. Failure,

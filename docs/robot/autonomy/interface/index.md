@@ -83,6 +83,10 @@ All messages are in the robot's body frame, except `cmd_velocity` and `cmd_pose`
 
 ## MAVROSInterface
 
+The PX4 implementation owns grounded startup configuration and independent fresh
+actuation readback before ARM/control/takeoff commands. LAND/DISARM remain available
+if configuration is not verified. See [MAVROS actuation admission](../../../../robot/ros_ws/src/interface/mavros_interface/README.md).
+
 The available implementation in AirStack is called `MAVROSInterface` implemented in `mavros_interface.cpp`. It forwards the control commands over MAVROS to any MAVLink-compatible flight controller (PX4 in simulation).
 
 ## Custom Robot Interface

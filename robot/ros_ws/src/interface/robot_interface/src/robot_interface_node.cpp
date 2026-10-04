@@ -160,10 +160,25 @@ int main(int argc, char** argv) {
         rclcpp::TimerBase::SharedPtr timer = rclcpp::create_timer(
             ri, ri->get_clock(), rclcpp::Duration::from_seconds(1. / 20.), &timer_callback);
 
-        rclcpp::executors::MultiThreadedExecutor executor;
+        // Guard timer, state callbacks, and bounded client responses must be able
+        // to progress while a command callback is waiting.
+        rclcpp::executors::MultiThreadedExecutor executor(rclcpp::ExecutorOptions(), 4);
         executor.add_node(ri);
         executor.spin();
-        // rclcpp::spin(ri);
+        executor.remove_node(ri);
+        timer.reset();
+        service.reset();
+        attitude_thrust_sub.reset();
+        rate_thrust_sub.reset();
+        roll_pitch_yawrate_thrust_sub.reset();
+        torque_thrust_sub.reset();
+        velocity_sub.reset();
+        pose_sub.reset();
+        is_armed_pub.reset();
+        has_control_pub.reset();
+        // The plugin object must die before its stack-local class loader, not
+        // during global teardown after the loader/library has gone away.
+        ri.reset();
         rclcpp::shutdown();
     } catch (pluginlib::PluginlibException& ex) {
         std::cout << "The plugin failed to load. Error: " << ex.what() << std::endl;

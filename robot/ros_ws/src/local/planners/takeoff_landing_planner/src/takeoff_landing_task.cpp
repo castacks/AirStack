@@ -26,6 +26,15 @@
 #include <cmath>
 #include <thread>
 
+bool TakeoffLandingTaskNode::fresh_authority(std::chrono::steady_clock::time_point after)
+{
+  std::lock_guard<std::mutex> lock(authority_mutex_);
+  const auto now = std::chrono::steady_clock::now();
+  return is_armed_.load() && has_control_.load() && armed_received_ > after && control_received_ > after &&
+    std::chrono::duration<double>(now - armed_received_).count() <= control_state_max_age_s_ &&
+    std::chrono::duration<double>(now - control_received_).count() <= control_state_max_age_s_;
+}
+
 TakeoffLandingTaskNode::TakeoffLandingTaskNode()
 : rclcpp::Node("takeoff_landing_task")
 {
@@ -45,6 +54,8 @@ TakeoffLandingTaskNode::TakeoffLandingTaskNode()
   preflight_hold_confirmation_samples_ =
     airstack::get_param(this, "preflight_hold_confirmation_samples", 3);
   preflight_hold_timeout_ = airstack::get_param(this, "preflight_hold_timeout", 2.0);
+  control_acquisition_timeout_s_ = airstack::get_param(this, "control_acquisition_timeout_s", 2.0);
+  control_state_max_age_s_ = airstack::get_param(this, "control_state_max_age_s", 0.5);
   landing_stationary_distance_ = airstack::get_param(this, "landing_stationary_distance", 0.02);
   landing_acceptance_time_ = airstack::get_param(this, "landing_acceptance_time", 5.0);
   landing_tracking_point_ahead_time_ =
@@ -75,11 +86,17 @@ TakeoffLandingTaskNode::TakeoffLandingTaskNode()
 
   is_armed_sub_ = this->create_subscription<std_msgs::msg::Bool>(
     "is_armed", 1,
-    [this](std_msgs::msg::Bool::SharedPtr msg) { is_armed_ = msg->data; });
+    [this](std_msgs::msg::Bool::SharedPtr msg) {
+      std::lock_guard<std::mutex> lock(authority_mutex_);
+      is_armed_ = msg->data; armed_received_ = std::chrono::steady_clock::now();
+    });
 
   has_control_sub_ = this->create_subscription<std_msgs::msg::Bool>(
     "has_control", 1,
-    [this](std_msgs::msg::Bool::SharedPtr msg) { has_control_ = msg->data; });
+    [this](std_msgs::msg::Bool::SharedPtr msg) {
+      std::lock_guard<std::mutex> lock(authority_mutex_);
+      has_control_ = msg->data; control_received_ = std::chrono::steady_clock::now();
+    });
 
   state_estimate_timed_out_sub_ = this->create_subscription<std_msgs::msg::Bool>(
     "state_estimate_timed_out", 1,
@@ -171,21 +188,53 @@ bool TakeoffLandingTaskNode::set_trajectory_mode(int32_t mode)
   auto request = std::make_shared<airstack_msgs::srv::TrajectoryMode::Request>();
   request->mode = mode;
   auto future = traj_mode_client_->async_send_request(request);
-  future.wait();
+  if (future.wait_for(std::chrono::seconds(2)) != std::future_status::ready) {
+    traj_mode_client_->remove_pending_request(future);
+    RCLCPP_ERROR(this->get_logger(), "set_trajectory_mode response timed out");
+    return false;
+  }
   return future.get()->success;
 }
 
 bool TakeoffLandingTaskNode::send_robot_command(uint8_t command)
 {
+  return robot_command_disposition(command) == CommandDisposition::ACCEPTED;
+}
+
+TakeoffLandingTaskNode::CommandDisposition
+TakeoffLandingTaskNode::robot_command_disposition(uint8_t command)
+{
   if (!robot_command_client_->wait_for_service(std::chrono::seconds(2))) {
     RCLCPP_ERROR(this->get_logger(), "robot_command service not available");
-    return false;
+    return CommandDisposition::NOT_SENT;
   }
   auto request = std::make_shared<airstack_msgs::srv::RobotCommand::Request>();
   request->command = command;
   auto future = robot_command_client_->async_send_request(request);
-  future.wait();
-  return future.get()->success;
+  if (future.wait_for(std::chrono::seconds(2)) != std::future_status::ready) {
+    robot_command_client_->remove_pending_request(future);
+    RCLCPP_ERROR(this->get_logger(), "robot_command response timed out (outcome unknown)");
+    return CommandDisposition::UNCONFIRMED;
+  }
+  return future.get()->success ? CommandDisposition::ACCEPTED : CommandDisposition::REJECTED;
+}
+
+std::string TakeoffLandingTaskNode::contain_takeoff_breach()
+{
+  const bool hold = set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE);
+  // Still request LAND if the trajectory service is unavailable/unconfirmed.
+  // Do not wait for the higher-level recovery action while ascent continues.
+  const auto disposition = robot_command_disposition(airstack_msgs::srv::RobotCommand::Request::LAND);
+  // The bool interface cannot distinguish an inner MAVROS timeout from refusal.
+  // Any sent LAND may still take effect; only NOT_SENT permits trajectory fallback.
+  abort_land_handover_ = disposition != CommandDisposition::NOT_SENT;
+  const char *token = disposition == CommandDisposition::ACCEPTED ? "ACCEPTED" :
+    disposition == CommandDisposition::REJECTED ? "FAILED_OR_UNCONFIRMED" :
+    disposition == CommandDisposition::NOT_SENT ? "NOT_SENT" : "UNCONFIRMED";
+  RCLCPP_ERROR(this->get_logger(), "takeoff_abort hold=%s abort_land=%s grounding=UNVERIFIED",
+    hold ? "ACCEPTED" : "UNCONFIRMED", token);
+  return std::string("; abort_hold=") + (hold ? "ACCEPTED" : "UNCONFIRMED") +
+    "; abort_land=" + token + "; grounding=UNVERIFIED";
 }
 
 bool TakeoffLandingTaskNode::confirm_tracking_point_hold()
@@ -288,6 +337,7 @@ void TakeoffLandingTaskNode::takeoff_execute(std::shared_ptr<TakeoffGoalHandle> 
   feedback->target_altitude_m = target_altitude;
 
   landed_ = false;  // clear latch — a new takeoff is starting
+  abort_land_handover_ = false;
 
   // wait for odometry
   rclcpp::Rate wait_rate(10);
@@ -317,14 +367,25 @@ void TakeoffLandingTaskNode::takeoff_execute(std::shared_ptr<TakeoffGoalHandle> 
     return;
   }
 
+  if (!std::isfinite(control_acquisition_timeout_s_) || control_acquisition_timeout_s_ <= 0.0 ||
+    !std::isfinite(control_state_max_age_s_) || control_state_max_age_s_ <= 0.0)
+  {
+    result->success = false;
+    result->message = "invalid control authority timing configuration";
+    goal_handle->abort(result); task_active_ = false; return;
+  }
+
   // arm the robot
   if (!is_armed_) {
     RCLCPP_INFO(this->get_logger(), "TakeoffTask: arming robot");
-    if (!send_robot_command(airstack_msgs::srv::RobotCommand::Request::ARM)) {
+    const auto arm_disposition = robot_command_disposition(airstack_msgs::srv::RobotCommand::Request::ARM);
+    if (arm_disposition != CommandDisposition::ACCEPTED) {
       RCLCPP_ERROR(this->get_logger(), "TakeoffTask aborted: failed to arm");
       result->success = false;
-      result->message = "failed to arm";
-      goal_handle->abort(result);
+      result->message = arm_disposition == CommandDisposition::NOT_SENT ?
+        "arm request not sent" : "failed or unconfirmed arm request; " + contain_takeoff_breach();
+      if (cancel_requested_) { goal_handle->canceled(result); }
+      else { goal_handle->abort(result); }
       task_active_ = false;
       return;
     }
@@ -334,22 +395,49 @@ void TakeoffLandingTaskNode::takeoff_execute(std::shared_ptr<TakeoffGoalHandle> 
   // Always make a fresh control request after arming. The cached has_control
   // flag can describe a previous disarmed OFFBOARD session.
   RCLCPP_INFO(this->get_logger(), "TakeoffTask: requesting offboard control");
+  const auto control_requested_at = std::chrono::steady_clock::now();
   if (!send_robot_command(airstack_msgs::srv::RobotCommand::Request::REQUEST_CONTROL)) {
     RCLCPP_ERROR(this->get_logger(), "TakeoffTask aborted: failed to request offboard control");
     result->success = false;
-    result->message = "failed to request offboard control";
-    goal_handle->abort(result);
+    // The boolean interface may hide an inner MAVROS timeout. A request can
+    // have reached PX4 even when its response was not observed.
+    result->message = "failed or unconfirmed offboard control request; " + contain_takeoff_breach();
+    if (cancel_requested_) { goal_handle->canceled(result); }
+    else { goal_handle->abort(result); }
     task_active_ = false;
     return;
+  }
+
+  // Require post-request armed/control observations, not service acceptance.
+  const auto authority_deadline = std::chrono::steady_clock::now() +
+    std::chrono::duration<double>(control_acquisition_timeout_s_);
+  while (rclcpp::ok() && !cancel_requested_ && !fresh_authority(control_requested_at) &&
+    std::chrono::steady_clock::now() < authority_deadline)
+  {
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  }
+  if (!rclcpp::ok() || cancel_requested_ || !fresh_authority(control_requested_at)) {
+    result->success = false;
+    result->message = "control authority not observed before ascent; " + contain_takeoff_breach();
+    if (cancel_requested_) { goal_handle->canceled(result); }
+    else { goal_handle->abort(result); }
+    task_active_ = false; return;
   }
 
   // set trajectory mode to TRACK
   if (!set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::TRACK)) {
     result->success = false;
-    result->message = "failed to set trajectory mode";
-    goal_handle->abort(result);
+    result->message = "failed or unconfirmed TRACK transition; " + contain_takeoff_breach();
+    if (cancel_requested_) { goal_handle->canceled(result); }
+    else { goal_handle->abort(result); }
     task_active_ = false;
     return;
+  }
+
+  if (!fresh_authority()) {
+    result->success = false;
+    result->message = "control authority lost before trajectory; " + contain_takeoff_breach();
+    goal_handle->abort(result); task_active_ = false; return;
   }
 
   // generate and publish takeoff trajectory
@@ -409,6 +497,12 @@ void TakeoffLandingTaskNode::takeoff_execute(std::shared_ptr<TakeoffGoalHandle> 
       return;
     }
 
+    if (!fresh_authority()) {
+      result->success = false;
+      result->message = "control authority lost during ascent; " + contain_takeoff_breach();
+      goal_handle->abort(result); task_active_ = false; return;
+    }
+
     float current_x;
     float current_y;
     float current_z;
@@ -435,9 +529,8 @@ void TakeoffLandingTaskNode::takeoff_execute(std::shared_ptr<TakeoffGoalHandle> 
       RCLCPP_ERROR(this->get_logger(),
         "TakeoffTask aborted: horizontal displacement %.2fm exceeds %.2fm",
         horizontal_displacement, takeoff_max_horizontal_displacement_);
-      set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE);
       result->success = false;
-      result->message = "horizontal displacement limit exceeded";
+      result->message = "horizontal displacement limit exceeded" + contain_takeoff_breach();
       goal_handle->abort(result);
       task_active_ = false;
       return;
@@ -449,9 +542,8 @@ void TakeoffLandingTaskNode::takeoff_execute(std::shared_ptr<TakeoffGoalHandle> 
       RCLCPP_ERROR(this->get_logger(),
         "TakeoffTask aborted: altitude %.2fm exceeds target %.2fm plus %.2fm overshoot limit",
         current_z, target_altitude, takeoff_max_altitude_overshoot_);
-      set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE);
       result->success = false;
-      result->message = "altitude overshoot limit exceeded";
+      result->message = "altitude overshoot limit exceeded" + contain_takeoff_breach();
       goal_handle->abort(result);
       task_active_ = false;
       return;
@@ -463,9 +555,8 @@ void TakeoffLandingTaskNode::takeoff_execute(std::shared_ptr<TakeoffGoalHandle> 
       RCLCPP_ERROR(this->get_logger(),
         "TakeoffTask aborted: vertical speed %.2fm/s exceeds %.2fm/s",
         current_vertical_speed, takeoff_max_vertical_speed_);
-      set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE);
       result->success = false;
-      result->message = "vertical speed limit exceeded";
+      result->message = "vertical speed limit exceeded" + contain_takeoff_breach();
       goal_handle->abort(result);
       task_active_ = false;
       return;
@@ -552,6 +643,8 @@ void TakeoffLandingTaskNode::land_execute(std::shared_ptr<LandGoalHandle> goal_h
     wait_rate.sleep();
   }
 
+  const bool observing_abort_land = abort_land_handover_.load();
+  if (!observing_abort_land) {
   // Stop following any prior trajectory before constructing the landing path. Recovery
   // must never inherit the takeoff tracking point that preceded an abort.
   if (!set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE)) {
@@ -590,8 +683,13 @@ void TakeoffLandingTaskNode::land_execute(std::shared_ptr<LandGoalHandle> goal_h
     TakeoffTrajectory land_traj(landing_descent, velocity);
     traj_override_pub_->publish(land_traj.get_trajectory(start_point));
   }
+  }  // Accepted/uncertain abort LAND is observation-only; no conflicting trajectory.
 
-  RCLCPP_INFO(this->get_logger(), "LandTask: descending at %.2f m/s", velocity);
+  if (observing_abort_land) {
+    RCLCPP_WARN(this->get_logger(), "LandTask: observing prior autopilot LAND request; grounding unverified");
+  } else {
+    RCLCPP_INFO(this->get_logger(), "LandTask: descending at %.2f m/s", velocity);
+  }
 
   rclcpp::Rate rate(10);
   const auto landing_started = std::chrono::steady_clock::now();
@@ -601,10 +699,12 @@ void TakeoffLandingTaskNode::land_execute(std::shared_ptr<LandGoalHandle> goal_h
     std::lock_guard<std::mutex> lock(odom_mutex_);
     progress_altitude = robot_odom_.pose.pose.position.z;
   }
-  bool px4_land_requested = false;
+  bool px4_land_requested = observing_abort_land;
   while (rclcpp::ok()) {
     if (cancel_requested_) {
-      set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE);
+      if (!observing_abort_land) {
+        set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE);
+      }
       result->success = false;
       result->message = "canceled";
       goal_handle->canceled(result);
@@ -619,7 +719,7 @@ void TakeoffLandingTaskNode::land_execute(std::shared_ptr<LandGoalHandle> goal_h
     }
 
     feedback->current_altitude_m = current_z;
-    feedback->status = "landing";
+    feedback->status = observing_abort_land ? "observing_autopilot_handover" : "landing";
     goal_handle->publish_feedback(feedback);
 
     // check if mavros reports on-ground
@@ -665,7 +765,9 @@ void TakeoffLandingTaskNode::land_execute(std::shared_ptr<LandGoalHandle> goal_h
       std::chrono::duration<double>(now - landing_started).count() >= landing_max_duration_s_)
     {
       RCLCPP_ERROR(this->get_logger(), "LandTask timed out without confirmed ground state");
-      set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE);
+      if (!observing_abort_land) {
+        set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE);
+      }
       result->success = false;
       result->message = "landing confirmation timed out";
       goal_handle->abort(result);
@@ -676,7 +778,9 @@ void TakeoffLandingTaskNode::land_execute(std::shared_ptr<LandGoalHandle> goal_h
     rate.sleep();
   }
 
-  set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE);
+  if (!observing_abort_land) {
+    set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE);
+  }
   result->success = false;
   result->message = "node shutting down";
   goal_handle->abort(result);

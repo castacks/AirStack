@@ -49,6 +49,23 @@ These are not integrated S01–S10 trials. Scenario-specific assets/coordinates 
 limits live in mock fixtures/profile evidence; the core loop has no campaign-ID or
 scene-name branches. One mock adapter is not cross-embodiment validation.
 
+The 2026-10-03 sidecar-finalization increment removes per-gate disk synchronization
+from safety-label callbacks. Each label is still written and flushed in event order;
+the sidecar is synchronized once at attempt close, before `result.json` is published.
+Synchronization errors propagate, and both files are closed even on error. A stalled
+finalization remains subject to the outer harness deadline; missing worker results
+and failed harness exits remain unqualified and UNKNOWN, even with a valid trace.
+The trace append receipt establishes an in-process flushed trace record, not a
+durable safety-label commit or a power-loss guarantee for the entire bundle.
+
+A retained pre-change 34-attempt baseline matched 33 expectations and qualified 31
+attempts. Two subsequent exports with the finalization change each matched 34/34 and
+qualified 32/34; their two intentional trace-loss attempts remain UNKNOWN. These
+observations qualify the changed finalization behavior under this host's scheduling,
+not the elimination of all write deadlines. Per-event thread scheduling, flush stalls,
+and final storage synchronization remain possible failure modes. The baseline uses
+its retained original reader and is not compared as a distinct architecture arm.
+
 ## Distinct outcome measures
 
 - `verified_goal_rate`: replay-grounded `goal_met=true` over **all attempts**.
