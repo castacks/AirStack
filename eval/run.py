@@ -79,15 +79,13 @@ class AirstackRunner(BaseRunner):
             args.num_env_domains = len(args.domains)
         selected = ([args.agent] if getattr(args, "agent", None) else
                     list(getattr(args, "agents", None) or []))
-        learned = {"safediffphysdrone", "safedepthnav", "safediffaero",
-                   "safevitfly", "safeagileautonomy"}
-        if any(name.lower() in learned for name in selected):
+        if any(name.lower().startswith("safe") for name in selected):
             from safe_isaac.sim_config import PHYSICS_DT
             if args.env_dt is not None and abs(args.env_dt - PHYSICS_DT) > 1e-9:
                 raise SystemExit(
-                    f"[validate] SAFE learned policies call act() once per Isaac physics "
+                    f"[validate] SAFE Isaac policies call act() once per Isaac physics "
                     f"tick ({PHYSICS_DT:g} s); env_dt={args.env_dt:g} s would change "
-                    "their trained control, camera, and model cadence. Set env_dt to "
+                    "their control and sensor cadence. Set env_dt to "
                     f"{PHYSICS_DT:g} or omit it.")
             args.env_dt = PHYSICS_DT
         return int(args.max_episode_time / args.env_dt)

@@ -81,7 +81,7 @@ DRONE_PRIM = "/World/base_link"
 ROS_DOMAIN = 1  # matches robot_1's resolved ROS_DOMAIN_ID in the robot container
 
 SERVER_PORT = 8899
-STATE_HZ = 10.0
+STATE_HZ = float(os.environ.get("SAFE_EVAL_STATE_HZ") or "10.0")
 
 _DEFAULT_CONFIG = {
     "env_url": None,
