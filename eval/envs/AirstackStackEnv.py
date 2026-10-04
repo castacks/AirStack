@@ -73,7 +73,9 @@ class AirstackStackEnv(BaseEnvBackend):
         self.dt = float(dt)
         self.max_episode_time = float(max_episode_time)
         self.max_steps = int(max_steps if max_steps else max_episode_time / dt)
-        self.max_speed = float(max_speed)
+        # SAFE source velocity policies command physical m/s; their profile
+        # cap must not silently cut a 10 m/s source action down to 3 m/s.
+        self.max_speed = float(self.agent_profile.get("max_speed", max_speed))
         self.epsilon_unsafe = float(epsilon_unsafe)
         self.r_failure = float(r_failure)
         self.r_unsafe = float(r_unsafe)
@@ -432,7 +434,15 @@ class AirstackStackEnv(BaseEnvBackend):
 
         target_t = self._last_state_t + self.dt
         state = self.stack.scenario.wait_sim_time(target_t, timeout=max(60.0, self.dt * 30))
-        self._last_state_t = float(state.get("t", target_t))
+        observed_t = float(state.get("t", target_t))
+        elapsed = observed_t - self._last_state_t
+        if (str(self.agent_profile.get("name", "")).startswith("safe")
+                and elapsed > 1.5 * self.dt + 1e-6):
+            raise RuntimeError(
+                f"SAFE policy missed physics ticks: observed {elapsed:.5f}s between "
+                f"states, expected {self.dt:.5f}s. AirStack's free-running sim "
+                "cannot claim the SAFE source policy cadence for this episode.")
+        self._last_state_t = observed_t
 
         obs = self._build_obs(state)
         self._last_obs = obs
@@ -482,11 +492,17 @@ class AirstackStackEnv(BaseEnvBackend):
         """
         if not isinstance(action, dict):
             # SAFE sidecars return a zero velocity fallback when no reference
-            # is available. Use AirStack's ordinary hover path for that case.
+            # is available. Command a PX4 local position hold because the
+            # AirStack PID is gated off while this planner owns the vehicle.
             fallback = np.asarray(action, dtype=np.float64).reshape(-1)
             if fallback.size != 3 or not np.allclose(fallback, 0.0):
                 raise ValueError("planner fallback must be a zero velocity")
-            self._apply_velocity_action(fallback)
+            state = self.stack.scenario.latest_state()
+            if state is None:
+                raise RuntimeError("cannot issue planner hover without drone state")
+            hover = self._world_to_ros(state["drone_pos"])
+            self.stack.bridge.publish_setpoint(
+                hover, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], 0.0, None)
             return
         from integrations.aerial_nav.envs.setpoint import parse
 
