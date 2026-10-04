@@ -87,9 +87,56 @@ class AirstackRunner(BaseRunner):
         return environment_config
 
     def run_agent_hook(self, args: argparse.Namespace) -> None:
-        # No sidecars: the stack IS the environment; bring-up happens inside
-        # AirstackStackEnv.reset() via `airstack up`.
-        pass
+        """Start a selected SAFE planner's real ROS sidecar on the host.
+
+        Its hook owns the planner container and publishes a verified TCP record.
+        This runs before AirStack's Isaac/ROS bring-up; no planner is silently
+        replaced with a kinematic baseline.
+        """
+        selected = (args.agent or
+                    (args.agents[0] if args.agents and len(args.agents) == 1 else None))
+        if not selected:
+            return
+        from .agents.planner_source import PLANNER_NAMES
+        planner = PLANNER_NAMES.get(selected.lower())
+        if planner is None:
+            return
+        import subprocess
+        from pathlib import Path
+        from integrations.aerial_nav.agents.planners import sidecar_registry
+        from safe_core.core.records import rulebook
+        from safe_core.utils.plumbing import (
+            MAP_ARENA_EXTENT_FALLBACK_M, MAP_MARGIN_M,
+            MAP_Z_ABOVE_M, MAP_Z_BELOW_M,
+        )
+        from .sim.environment_config import get_domain_registry
+
+        registry = get_domain_registry()
+        domains = [registry[name] for name in (args.domains or list(registry))]
+        goal = float(getattr(args, 'goal_distance', None) or 0.0)
+        xy = (goal if goal > 0 else
+              max((max(c.size_x, c.size_y) for c in domains),
+                  default=MAP_ARENA_EXTENT_FALLBACK_M)) + 2 * MAP_MARGIN_M
+        terrain = any(bool(c.usd_path) for c in domains)
+        env = dict(os.environ)
+        record_dir = Path(self.get_runs_root()) / '.sidecars'
+        record_dir.mkdir(parents=True, exist_ok=True)
+        env['SAFE_SIDECAR_RECORD_DIR'] = str(record_dir)
+        env.setdefault('SAFE_MAP_SIZE_XY', f'{xy:.1f}')
+        env.setdefault('SAFE_MAP_Z_MIN',
+                       f'{-MAP_Z_BELOW_M if terrain else 0.0:.1f}')
+        env.setdefault('SAFE_MAP_Z_MAX',
+                       f'{rulebook().altitude_floor_m + MAP_Z_ABOVE_M:.1f}')
+        hook = Path(sidecar_registry.HOOK_DIR) / f'{planner}.sh'
+        if not hook.is_file():
+            raise RuntimeError(f'SAFE planner hook is missing: {hook}')
+        print(f'[airstack] Starting SAFE {planner} planner: {hook}', flush=True)
+        subprocess.run(['bash', str(hook)], check=True, env=env)
+        # The child runner and source policy must resolve the same sidecar map.
+        for key in ('SAFE_MAP_SIZE_XY', 'SAFE_MAP_Z_MIN', 'SAFE_MAP_Z_MAX',
+                    'SAFE_SIDECAR_RECORD_DIR'):
+            os.environ[key] = env[key]
+        sidecar_registry.verified(planner)
 
     def build_adapter(self, args: argparse.Namespace):
         from .adapter import Adapter
