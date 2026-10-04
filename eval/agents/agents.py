@@ -26,7 +26,12 @@ from safe_core.core.policy import Policy
 
 from .baselines import Random, Aggressive, Conservative  # noqa: F401  (auto-discovered)
 from .safe_source import (SafeRandom, SafeAggressive, SafeConservative,
-                          SafeAdaptiveApf)  # noqa: F401
+                          SafeAdaptiveApf, SafeAdaptive)  # noqa: F401
+from .learned_source import (SafeDiffPhysDrone, SafeDepthNav, SafeDiffAero,
+                             SafeVitfly, SafeAgileAutonomy)  # noqa: F401
+from .planner_source import (SafeFastPlanner, SafeEgoPlanner, SafeRaptor,
+                             SafeFaster, SafeSuper, SafeMighty, SafeDynus,
+                             SafePanther)  # noqa: F401
 
 
 class DROAN(Policy):
@@ -60,13 +65,24 @@ PROFILES: dict[str, dict] = {
     "random":       {"name": "random",       "control_mode": "velocity"},
     "aggressive":   {"name": "aggressive",   "control_mode": "velocity"},
     "conservative": {"name": "conservative", "control_mode": "velocity"},
-    "saferandom":       {"name": "saferandom",       "control_mode": "velocity"},
-    "safeaggressive":   {"name": "safeaggressive",   "control_mode": "velocity"},
-    "safeconservative": {"name": "safeconservative", "control_mode": "velocity"},
-    "safeadaptiveapf":  {"name": "safeadaptiveapf",  "control_mode": "velocity"},
-    # TODO(super): a SuperPlanner profile needs a bring-up variant that
-    # launches super_planner INSTEAD of droan_gl (two local planners fight
-    # over the trajectory controller). local_bringup exposes no swap arg yet.
+    "saferandom":       {"name": "saferandom",       "control_mode": "velocity", "max_speed": 10.0},
+    "safeaggressive":   {"name": "safeaggressive",   "control_mode": "velocity", "max_speed": 10.0},
+    "safeconservative": {"name": "safeconservative", "control_mode": "velocity", "max_speed": 10.0},
+    "safeadaptiveapf":  {"name": "safeadaptiveapf",  "control_mode": "velocity", "max_speed": 10.0},
+    "safeadaptive":     {"name": "safeadaptive", "control_mode": "velocity", "max_speed": 10.0,
+                         "agent_env": {"ENABLE_LIDAR": "true"}},
+    **{name: ({"name": name, "control_mode": "setpoint",
+               "agent_env": {"ENABLE_LIDAR": "true"}}
+              if name in ("safesuper", "safemighty", "safedynus",
+                          "safeegoplanner")
+              else {"name": name, "control_mode": "setpoint"})
+       for name in ("safefastplanner", "safeegoplanner", "saferaptor",
+                    "safefaster", "safesuper", "safemighty", "safedynus",
+                    "safepanther")},
+    **{name: {"name": name, "control_mode": "attitude_thrust"} for name in (
+        "safediffphysdrone", "safedepthnav", "safediffaero",
+        "safeagileautonomy")},
+    "safevitfly": {"name": "safevitfly", "control_mode": "velocity", "max_speed": 10.0},
 }
 
 
@@ -78,4 +94,32 @@ def get_profile(agent_name: str | None) -> dict:
         raise SystemExit(
             f"No bring-up profile for agent '{agent_name}'. "
             f"Known: {', '.join(sorted(PROFILES))}")
+    profile = {**profile, "agent_env": dict(profile.get("agent_env") or {})}
+    if agent_name.lower().startswith("safe"):
+        profile["agent_env"]["SAFE_EVAL_STATE_HZ"] = "60"
+    # Read each trained camera contract from SAFE's policy class, so changing a
+    # SAFE checkpoint/camera definition does not leave an AirStack copy stale.
+    learned = {
+        "safediffphysdrone": SafeDiffPhysDrone,
+        "safedepthnav": SafeDepthNav,
+        "safediffaero": SafeDiffAero,
+        "safevitfly": SafeVitfly,
+        "safeagileautonomy": SafeAgileAutonomy,
+    }
+    wrapper = learned.get(agent_name.lower())
+    if wrapper is not None:
+        import importlib
+        from pathlib import Path
+        import sys
+        import safe_core
+        root = Path(safe_core.__file__).resolve().parent.parent
+        if str(root) not in sys.path:
+            sys.path.insert(0, str(root))
+        module = importlib.import_module(
+            f"integrations.aerial_nav.agents.learned.{wrapper.source_module}")
+        source = getattr(module, wrapper.source_class)
+        profile["agent_env"].update(getattr(source, "pov_env", {}))
+        camera_hz = profile["agent_env"].get("SAFE_POV_HZ")
+        if camera_hz is not None:
+            profile["agent_env"]["PX4_RENDERING_HZ"] = str(camera_hz)
     return profile

@@ -52,6 +52,12 @@ class _SafeVelocity(Policy):
 
     def __init__(self):
         try:
+            import sys
+            from pathlib import Path
+            import safe_core
+            source_root = Path(safe_core.__file__).resolve().parent.parent
+            if str(source_root) not in sys.path:
+                sys.path.insert(0, str(source_root))
             from integrations.aerial_nav.agents import baselines
         except ImportError as exc:
             raise RuntimeError(
@@ -70,6 +76,8 @@ class _SafeVelocity(Policy):
         if max_speed <= 0:
             raise ValueError('max_speed must be positive')
         safe_obs = _to_safe_benchmark_frame(obs)
+        if hasattr(self, "_env"):
+            self._source._env = self._env
         velocity_benchmark = np.asarray(self._source.act(safe_obs), dtype=np.float32)
         return _swap_xy(velocity_benchmark) / max_speed
 
@@ -88,3 +96,10 @@ class SafeConservative(_SafeVelocity):
 
 class SafeAdaptiveApf(_SafeVelocity):
     source_name = 'AdaptiveApf'
+
+
+class SafeAdaptive(_SafeVelocity):
+    """SAFE main-study Adaptive baseline with the same source policy logic."""
+
+    source_name = "Adaptive"
+    sensors = ["full_state", "lidar", "imu", "rgb", "depth", "tof_depth"]

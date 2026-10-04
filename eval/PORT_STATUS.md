@@ -26,20 +26,23 @@ control path is a new experiment, even when the names and seeds match.
   path in the example YAML is a placeholder until the identical SAFE
   checkpoint is installed in the robot container.
 
-## Remaining policy ports
+## Main-study policy ports
 
-| SAFE source policy | AirStack control path needed | State |
-| --- | --- | --- |
-| Adaptive | trajectory override plus its perception inputs | Not ported |
-| AdaptiveApf | source-imported velocity policy | CPU-tested adapter; no Isaac flight |
-| AgileAutonomy, AgileRGB variants, DepthNav, DiffAero, DiffPhysDrone, Vitfly | policy-specific RGB/depth/IMU/odometry observation adapter and attitude/thrust command via PX4 | Not ported to `eval`; DiffAero has an unflown SVG deployment adapter |
-| Dynus, EgoPlanner, FastPlanner, Faster, Mighty, Panther, Raptor, Super | their ROS planner process, sensor/map bridge, goal and setpoint handoff through AirStack | Not ported |
-| Crash, CrashHVC, CrashLVC, SR, SHP | diagnostic baselines and probe-specific contracts | Not ported |
+Every one of the 16 `main_moving.yaml` policies now has an AirStack `safe*`
+wrapper. Source velocity baselines use trajectory override; learned policies
+use AirStack's attitude/thrust ROS/PX4 path; eight planner policies start their
+SAFE ROS sidecars and use AirStack's full setpoint path. VitFly starts its own
+SAFE ROS sidecar and issues velocity commands. The AirStack bridge carries
+ZED depth/RGB, IMU, and real Ouster lidar observations; learned camera settings
+come from each source policy. SAFE source is mounted or imported read-only.
 
-The ROS planners still need their processes. AirStack may let some run in its
-robot container instead of a separate sidecar container, but it does not
-remove their ROS node, dependencies, mapping, or timing contract. A planner
-must replace AirStack's local planner rather than publish competing commands.
+This is **code integration, not a completed benchmark run**. No source-backed
+Isaac scene, sidecar, learned model, or PX4 policy flight has been run during
+this port. The AirStack robot workspace/container must be rebuilt for the PID
+control gate, then one episode per action/sensor family must pass flight and
+telemetry checks. Policy-specific camera orientation, stereo baseline, frame
+conversions, command timing, and physical command limits are still unverified.
+Do not pool these unflown adapters with the SAFE aerial run.
 
 ## Source-backed worlds: current state
 

@@ -44,11 +44,14 @@ host (plain python + safe_core + docker CLI)
            eval/stack/scenario_client.py is the host side)
 ```
 
-The currently registered profiles use no custom planner bridge. The other SAFE ROS planners still need an AirStack ROS integration; see [PORT_STATUS.md](PORT_STATUS.md). DROAN runs exactly as `airstack up`
-launches it and receives a `NavigateTask` goal through its existing action
-interface. Velocity baselines (`random`, `aggressive`, `conservative`, and the imported
-`safe*` counterparts) are executed as `trajectory_override` segments on the real
-trajectory controller, so every agent flies through the same interface layer.
+SAFE source policies are imported from the separate SAFE checkout. The main-study
+set has 16 AirStack adapters: source velocity baselines, learned policies, and
+ROS sidecar planners. `droan` remains AirStack's own planner. The SAFE planner
+sidecars are launched by SAFE's hooks, while their outputs go through the
+AirStack ROS/PX4 command bridge; the AirStack PID output is gated during direct
+external control. The registered adapters and CPU tests are **not flight
+validation**. Build the updated robot workspace and run a one-episode Isaac/PX4
+smoke test before using their results; see [PORT_STATUS.md](PORT_STATUS.md).
 
 ## Prerequisites
 
@@ -90,16 +93,18 @@ accordingly when picking K/N/P/T. Domain switches restart the stack.
 
 ## Agents
 
-| Agent | Mode | What flies |
-|-------|------|------------|
-| `droan` | stack | Full stack; DROAN (droan_gl) follows the published global plan |
-| `aggressive` / `conservative` / `random` | velocity | AirStack baseline → `trajectory_override`; differs from SAFE aerial source |
-| `safeaggressive` / `safeconservative` / `saferandom` | velocity | Imported SAFE aerial source policy → AirStack trajectory override; CPU tested only |
+`safeaggressive`, `safeconservative`, `safeadaptive`, the eight `safe*`
+planner wrappers, and the five `safe*` learned wrappers correspond to all 16
+agents in SAFE's `main_moving.yaml`. The `safe` prefix distinguishes source
+policies from AirStack's older `aggressive` and `conservative` baselines.
+`safevitfly` also starts the source VitFly ROS sidecar. `airstack safe --list`
+shows exact selectable names. Learned profiles read each source policy's camera
+contract and pass it to the AirStack Isaac launcher. Planner profiles enable
+RTX lidar where their source sensor contract requires it.
 
-Profiles (bring-up env, post-up commands, control mode) live in
-[`eval/agents/agents.py`](agents/agents.py) `PROFILES`. A SuperPlanner profile
-needs a `local_bringup` variant that swaps the local planner — see the TODO
-there.
+Policy registration and CPU tests pass. Actual sensor frames, camera geometry,
+sidecar startup, controller ownership, and PX4 behavior need an Isaac flight
+check before benchmark results can be claimed.
 
 ## Domains
 
@@ -132,8 +137,9 @@ in the yaml or the post-run video stage exits with a warning.
 
 ## Known limitations (v1)
 
-- **SAFE parity**: these are AirStack-specific scenes and movers today, not the
-  SAFE aerial worlds and animated humans. See [PORT_STATUS.md](PORT_STATUS.md).
+- **SAFE parity**: source-backed worlds and walking humans are wired in but
+  have not been validated in Isaac; AirStack PX4 dynamics differ from SAFE.
+  See [PORT_STATUS.md](PORT_STATUS.md).
 
 - **Frames**: goals published to the stack are converted from Isaac world to
   the stack's local frame using a measured (ground truth − EKF) offset; EKF

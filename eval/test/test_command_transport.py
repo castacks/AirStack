@@ -7,6 +7,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 
 from eval.envs.AirstackStackEnv import AirstackStackEnv
+from eval.agents.agents import PROFILES
 
 
 class FakeBridge:
@@ -68,6 +69,18 @@ def test_safe_ned_frd_attitude_becomes_ros_enu_flu():
     assert args[1] == 0.48
 
 
+def test_planner_no_command_fallback_holds_current_pose_through_px4():
+    env, bridge, _, _ = _env()
+    env.stack.scenario = SimpleNamespace(
+        latest_state=lambda: {'drone_pos': [12., 23., 4.]})
+    env._apply_setpoint_action(np.zeros(3))
+    name, args = bridge.calls[-1]
+    assert name == 'setpoint'
+    np.testing.assert_allclose(args[0], [2., 3., 3.])
+    np.testing.assert_allclose(args[1], [0., 0., 0.])
+    assert args[4] is None
+
+
 def test_episode_hold_restores_pid_before_trajectory_hold():
     env, bridge, gate, modes = _env()
     env._external_control_active = True
@@ -76,3 +89,9 @@ def test_episode_hold_restores_pid_before_trajectory_hold():
     assert gate == [True]
     assert modes == [1]
     assert env._external_control_active is False
+
+
+def test_safe_source_velocity_profiles_do_not_clamp_ten_meter_per_second_actions():
+    for name in ('saferandom', 'safeaggressive', 'safeconservative',
+                 'safeadaptiveapf', 'safeadaptive', 'safevitfly'):
+        assert PROFILES[name]['max_speed'] >= 10.0
