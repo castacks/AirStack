@@ -136,7 +136,16 @@ class AirstackRunner(BaseRunner):
         for key in ('SAFE_MAP_SIZE_XY', 'SAFE_MAP_Z_MIN', 'SAFE_MAP_Z_MAX',
                     'SAFE_SIDECAR_RECORD_DIR'):
             os.environ[key] = env[key]
-        sidecar_registry.verified(planner)
+        # Hooks may publish their record just before the TCP listener binds.
+        import time
+        deadline = time.monotonic() + 120.0
+        while True:
+            fault = sidecar_registry.fault(planner)
+            if fault is None:
+                break
+            if time.monotonic() >= deadline:
+                raise RuntimeError(f'{planner} sidecar failed verification: {fault}')
+            time.sleep(2.0)
 
     def build_adapter(self, args: argparse.Namespace):
         from .adapter import Adapter
