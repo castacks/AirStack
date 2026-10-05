@@ -6,6 +6,7 @@ import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
+import math
 from pathlib import Path
 import subprocess
 import sys
@@ -17,6 +18,57 @@ sys.path.insert(0, str(SOURCE_ROOT / ".rrm-deps"))
 
 import airstack_drone_dispatch as dispatcher
 from rrm.airstack_drone import DroneTaskKind, DroneTaskProposal
+from rrm.airstack_command import RelativeNavigationBinding, _relative_destination
+from rrm.airstack_drone import MapWaypoint
+
+
+def _relative_bindings(value: dict, proposals: tuple[DroneTaskProposal, ...]) -> dict:
+    bindings = {}
+    by_id = {item.action_id: item for item in proposals}
+    for raw in (value.get("grounding") or {}).get("relative_navigation_bindings", []):
+        intent = RelativeNavigationBinding.model_validate(raw)
+        proposal = by_id.get(intent.action_id)
+        if (intent.action_id in bindings or proposal is None
+                or proposal.kind is not DroneTaskKind.NAVIGATE
+                or len(proposal.waypoints) != 1
+                or proposal.goal_tolerance_m > min(0.15, intent.distance_m * 0.1)):
+            raise ValueError("relative intent does not match a reviewed navigation action")
+        bindings[intent.action_id] = intent
+    return bindings
+
+
+def _bind_relative(proposal: DroneTaskProposal, intent: RelativeNavigationBinding,
+                   observation: dict) -> DroneTaskProposal:
+    """Bind only reviewed intent, using one fresh canonical snapshot, never a fallback."""
+    ages = observation.get("state_receipt_age_s") or {}
+    stamp = observation.get("odometry_source_stamp_ns")
+    if (observation.get("missing_state") != [] or observation.get("stale_state") != []
+            or observation.get("connected") is not True
+            or observation.get("armed") is not True
+            or observation.get("airborne") is not True
+            or observation.get("flight_state_consistent") is not True
+            or observation.get("frame_id") != "map"
+            or observation.get("child_frame_id") != "base_link"):
+        raise ValueError("fresh framed airborne state required for relative binding")
+    if (not isinstance(stamp, int) or isinstance(stamp, bool) or stamp <= 0
+            or not all(isinstance(ages.get(name), (float, int))
+                       and not isinstance(ages.get(name), bool)
+                       and math.isfinite(ages[name]) and 0 <= ages[name] <= 2.0
+                       for name in ("airborne", "vehicle", "odometry"))):
+        raise ValueError("canonical receipt freshness and odometry provenance required")
+    position = observation.get("position") or {}
+    pose = tuple(position.get(axis) for axis in ("x", "y", "z"))
+    yaw = observation.get("yaw_rad")
+    if not all(isinstance(v, (float, int)) and not isinstance(v, bool)
+               and math.isfinite(v) for v in (*pose, yaw)):
+        raise ValueError("finite position and heading required for relative binding")
+    point = _relative_destination(
+        f"move {intent.direction} {intent.distance_m}m", pose, yaw,
+    )
+    assert point is not None
+    return proposal.model_copy(update={
+        "waypoints": (MapWaypoint(x=point[0], y=point[1], z=point[2]),),
+    })
 
 
 def _observe_state(robot_name: str, timeout_s: float = 4.0) -> dict:
@@ -56,8 +108,14 @@ def _replan_decision(proposal: DroneTaskProposal, observation: dict) -> dict:
         return {**base, "decision": "HALT", "reason": "canonical_state_unavailable"}
     if observation.get("connected") is not True:
         return {**base, "decision": "HALT", "reason": "vehicle_not_connected"}
-    if observation.get("flight_state_consistent") is False:
+    landing_reconciliation = (proposal.kind is DroneTaskKind.LAND
+                              and observation.get("armed") is True
+                              and type(observation.get("airborne")) is bool)
+    if observation.get("flight_state_consistent") is False and not landing_reconciliation:
         return {**base, "decision": "HALT", "reason": "contradictory_flight_state"}
+    if proposal.kind is DroneTaskKind.LAND and any(
+            type(observation.get(key)) is not bool for key in ("armed", "airborne")):
+        return {**base, "decision": "HALT", "reason": "explicit_flight_state_required"}
     airborne = observation.get("airborne") is True
     armed = observation.get("armed") is True
     if proposal.kind is DroneTaskKind.TAKEOFF and airborne and armed:
@@ -292,11 +350,15 @@ def main() -> int:
     if not proposals:
         raise SystemExit("command plan has no actions")
     recovery_action = _recovery_action(value, proposals)
+    relative_bindings = _relative_bindings(value, proposals)
     preview = {
         "plan_sha256": hashlib.sha256(raw).hexdigest(),
         "actions": [proposal.preview() for proposal in proposals],
         "recovery": recovery_action.preview() if recovery_action is not None else None,
         "execution_requested": args.execute,
+        "relative_navigation_bindings": [
+            item.model_dump(mode="json") for item in relative_bindings.values()
+        ],
     }
     print(json.dumps(preview, sort_keys=True), flush=True)
     if not args.execute:
@@ -308,10 +370,20 @@ def main() -> int:
     recovery_monitor = None
     replan_policy = value.get("replan_policy") or {}
     for index, proposal in enumerate(proposals):
-        if index and replan_policy.get("mode") == "observe_between_actions":
+        intent = relative_bindings.get(proposal.action_id)
+        if intent is not None or (index and replan_policy.get("mode") == "observe_between_actions"):
             try:
                 observation = _observe_state(proposal.robot_name)
+                original_preview = proposal.model_dump(mode="json")
+                if intent is not None:
+                    proposal = _bind_relative(proposal, intent, observation)
                 decision = _replan_decision(proposal, observation)
+                if intent is not None:
+                    decision["relative_binding"] = {
+                        "intent": intent.model_dump(mode="json"),
+                        "staged_preview": original_preview,
+                        "bound_action": proposal.model_dump(mode="json"),
+                    }
             except Exception as error:
                 decision = {
                     "schema_version": "rrm-command-replan/v1",

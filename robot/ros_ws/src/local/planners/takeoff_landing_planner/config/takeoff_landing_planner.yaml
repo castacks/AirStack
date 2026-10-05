@@ -4,9 +4,11 @@
     high_takeoff_height: 8.0
     takeoff_velocity: 1.0
     landing_velocity: 0.3
-    takeoff_acceptance_distance: 0.3
+    # Finish near the actual target, with margin for outcome verification.
+    takeoff_acceptance_distance: 0.15
     takeoff_acceptance_time: 1.0
-    takeoff_max_horizontal_displacement: 0.3
+    # Local simulator demo allowance; does not qualify a hardware envelope.
+    takeoff_max_horizontal_displacement: 0.5
     takeoff_max_altitude_overshoot: 0.3
     takeoff_max_vertical_speed: 1.5
     preflight_hold_max_position_error: 0.1

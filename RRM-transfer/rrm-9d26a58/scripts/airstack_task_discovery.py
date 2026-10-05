@@ -80,8 +80,11 @@ def main() -> int:
         required = ("airborne", "vehicle", "odometry") if args.state_only else (
             "airborne", "vehicle", "odometry", "vdb_map"
         )
-        while time.monotonic() < deadline and any(
-                getattr(node, name) is None for name in required):
+        # Sensor samples can arrive before the DDS action-server graph. A full
+        # discovery snapshot must use its bounded graph-discovery window rather
+        # than declaring healthy servers unavailable after the first telemetry.
+        while time.monotonic() < deadline and (
+                not args.state_only or any(getattr(node, name) is None for name in required)):
             rclpy.spin_once(node, timeout_sec=0.1)
         server_types = {}
         for name, namespace in node.get_node_names_and_namespaces():
@@ -124,6 +127,14 @@ def main() -> int:
             "child_frame_id": node.odometry.child_frame_id if node.odometry is not None else None,
             "position": ({"x": pose.x, "y": pose.y, "z": pose.z} if pose is not None else None),
             "yaw_rad": yaw,
+            "odometry_source_stamp_ns": (
+                node.odometry.header.stamp.sec * 1_000_000_000
+                + node.odometry.header.stamp.nanosec
+                if node.odometry is not None else None
+            ),
+            "state_receipt_age_s": {
+                name: now - received for name, received in node.received.items()
+            },
             "flight_state_consistent": not flight_state_reasons,
             "flight_state_reasons": flight_state_reasons,
             "vdb_map_available": node.vdb_map is not None,

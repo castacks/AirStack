@@ -328,29 +328,39 @@ void GLInterface::publish_viz(const std_msgs::msg::Header &hdr,
  * 
  * Trajectory points contain position, velocity, and counts of seen/unseen/collision nodes.
  */
-void GLInterface::evaluate_trajectories(const airstack_msgs::msg::Odometry &look_ahead, std::vector<TrajectoryPoint> &trajectory_points, tf2::Transform &look_ahead_to_target_tf)
+bool GLInterface::evaluate_trajectories(const airstack_msgs::msg::Odometry &look_ahead, std::vector<TrajectoryPoint> &trajectory_points)
 {
+  // Failed evaluations must not expose last cycle's points or an unset transform.
+  trajectory_points.clear();
   if (!gl_inited)
-    return;
+  {
+    RCLCPP_WARN_ONCE(node->get_logger(), "Trajectory evaluation waiting for camera/GL initialization");
+    return false;
+  }
 
   // transform look ahead
   airstack_msgs::msg::Odometry look_ahead_odom;
   if (!tflib::transform_odometry(tf_buffer, look_ahead, look_ahead_frame, look_ahead_frame, &look_ahead_odom))
-    return;
+  {
+    RCLCPP_WARN_THROTTLE(node->get_logger(), *node->get_clock(), 2000,
+                        "Trajectory evaluation rejected: look-ahead odometry transform unavailable");
+    return false;
+  }
   tf2::Stamped<tf2::Transform> look_ahead_tf;
   try
   {
     geometry_msgs::msg::TransformStamped t;
     t = tf_buffer->lookupTransform(target_frame, look_ahead_frame,
-                                   tf2::TimePointZero);
+                                   look_ahead.header.stamp);
     tf2::fromMsg(t, look_ahead_tf);
   }
   catch (tf2::TransformException &ex)
   {
     RCLCPP_ERROR_THROTTLE(node->get_logger(), *(node->get_clock()), 1000, "Transform exception in evaluate_trajectories: %s", ex.what());
-    return;
+    return false;
   }
-  look_ahead_to_target_tf = look_ahead_tf.inverse();
+  // collision.cs applies look_ahead_tf and writes TARGET-frame positions back
+  // into the sample buffer. Callers must not transform these points a second time.
 
   glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
@@ -409,6 +419,7 @@ void GLInterface::evaluate_trajectories(const airstack_msgs::msg::Odometry &look
   trajectory_points.resize(traj_params.size() * get_traj_size());
   memcpy(trajectory_points.data(), output_data, trajectory_points.size() * sizeof(TrajectoryPoint));
   glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+  return true;
 }
 
 /**
@@ -536,6 +547,8 @@ void GLInterface::initGL(int original_width, int original_height, int downsample
       traj_params.push_back(params);
     }
   }
+
+  append_vertical_trajectory_params(traj_params);
 
   GLint maxWorkGroupCount[3];
   GLint maxWorkGroupSize[3];

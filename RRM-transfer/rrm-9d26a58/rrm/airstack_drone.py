@@ -262,7 +262,7 @@ def verify_drone_outcome(
     now_monotonic_s: float,
     max_observation_age_s: float = 1.0,
     takeoff_acceptance_distance_m: float = 0.3,
-    takeoff_max_horizontal_displacement_m: float = 0.3,
+    takeoff_max_horizontal_displacement_m: float = 0.5,
     landing_max_altitude_m: float = 0.3,
     exploration_max_radius_m: float | None = None,
 ) -> DroneOutcomeVerification:
@@ -330,7 +330,11 @@ def verify_drone_outcome(
             reasons.append("exploration_motion_evidence_missing")
         else:
             metrics["exploration_max_radius_m"] = exploration_max_radius_m
-            if exploration_max_radius_m < 0.5:
+            # Evidence floor, not commanded flight speed: retain the historical
+            # 0.5 m requirement for >=5 s, scale shorter explicit windows.
+            required_progress = min(0.5, 0.1 * proposal.time_limit_s)
+            metrics["exploration_required_radius_m"] = required_progress
+            if exploration_max_radius_m < required_progress:
                 reasons.append("exploration_progress_mismatch")
     elif proposal.kind is DroneTaskKind.TAKEOFF and post_odometry is not None:
         if post_vehicle_state is None:

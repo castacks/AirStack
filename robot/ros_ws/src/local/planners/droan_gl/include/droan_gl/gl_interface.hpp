@@ -95,6 +95,15 @@ struct TrajectoryParams
   float vel_max;
 };
 
+// Extend, rather than replace, the yaw/pitch library. These use the same
+// integration and checked-space pipeline; a moving initial state still brakes
+// its horizontal velocity before converging to the vertical desired velocity.
+inline void append_vertical_trajectory_params(std::vector<TrajectoryParams>& params)
+{
+  params.push_back({{0.f, 0.f, .5f}, 2.f});
+  params.push_back({{0.f, 0.f, -.5f}, 2.f});
+}
+
 struct alignas(16) CommonInit
 {
   State initial_state;
@@ -186,6 +195,11 @@ struct alignas(16) TrajectoryPoint
   float y() { return v1.y; }
   float z() { return v1.z; }
   float w() { return v1.w; }
+  // Collision shader readback is already in target_frame, not look-ahead-local.
+  tf2::Vector3 position() const
+  {
+    return tf2::Vector3(v1.x, v1.y, v1.z);
+  }
 
   float get_vel() { return v2.w; }
 
@@ -200,7 +214,7 @@ private:
   rclcpp::Node *node;
   tf2_ros::Buffer *tf_buffer;
 
-  bool gl_inited;
+  bool gl_inited = false;
 
   GLFWwindow *window_;
   GLuint horizProg_, vertProg_;
@@ -241,7 +255,7 @@ public:
                    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr bg_pub,
                    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr fg_bg_cloud_pub,
                    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub);
-  void evaluate_trajectories(const airstack_msgs::msg::Odometry &look_ahead, std::vector<TrajectoryPoint> &trajectory_points, tf2::Transform &look_ahead_to_target_tf);
+  bool evaluate_trajectories(const airstack_msgs::msg::Odometry &look_ahead, std::vector<TrajectoryPoint> &trajectory_points);
 
   int get_traj_size();
   void check_gl_error();

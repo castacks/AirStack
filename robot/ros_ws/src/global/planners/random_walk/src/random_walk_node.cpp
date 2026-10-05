@@ -19,6 +19,7 @@
 // SOFTWARE.
 
 #include "../include/random_walk_node.hpp"
+#include "../include/exploration_budget.hpp"
 
 #include "../include/random_walk_logic.hpp"
 
@@ -145,6 +146,10 @@ void RandomWalkNode::mapCallback(const visualization_msgs::msg::Marker::SharedPt
         {
             std::lock_guard<std::mutex> lock(pending_bounds_mutex_);
             this->random_walk_planner->set_search_bounds(pending_bounds_);
+            if (pending_altitude_bounds_) {
+                this->random_walk_planner->set_altitude_bounds(
+                    pending_altitude_bounds_->first, pending_altitude_bounds_->second);
+            }
         }
         RCLCPP_INFO(this->get_logger(), "Received first map, initialized planner");
     }
@@ -170,6 +175,12 @@ void RandomWalkNode::odometryCallback(const nav_msgs::msg::Odometry::SharedPtr m
 rclcpp_action::GoalResponse RandomWalkNode::handle_goal(
     const rclcpp_action::GoalUUID&,
     std::shared_ptr<const ExplorationTask::Goal> goal) {
+    if (!std::isfinite(goal->min_altitude_agl) || !std::isfinite(goal->max_altitude_agl) ||
+        goal->min_altitude_agl < 0.0f || goal->max_altitude_agl < goal->min_altitude_agl
+        || !std::isfinite(goal->time_limit_sec) || goal->time_limit_sec < 0.0f) {
+        RCLCPP_WARN(this->get_logger(), "Rejecting invalid exploration altitude bounds");
+        return rclcpp_action::GoalResponse::REJECT;
+    }
     if (task_active_) {
         RCLCPP_WARN(this->get_logger(), "Rejecting goal: a task is already active");
         return rclcpp_action::GoalResponse::REJECT;
@@ -202,9 +213,8 @@ void RandomWalkNode::handle_accepted(std::shared_ptr<GoalHandle> goal_handle) {
 void RandomWalkNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
     const auto goal = goal_handle->get_goal();
 
-    // TODO: pass min/max altitude AGL and flight speed bounds into RandomWalkPlanner
-    // Currently the planner uses fixed bounds from config; these goal params are logged
-    // and will be wired in when the planner supports them.
+    // Altitude bounds use the supported map-zero-ground convention. Flight speed
+    // bounds are still not wired into the local planner; do not claim otherwise.
     RCLCPP_INFO(this->get_logger(),
                 "ExplorationTask executing: alt=[%.1f,%.1f]m AGL, "
                 "speed=[%.1f,%.1f]m/s, time_limit=%.1fs, %zu bounds vertices",
@@ -223,12 +233,16 @@ void RandomWalkNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
         }
         std::lock_guard<std::mutex> lock(pending_bounds_mutex_);
         pending_bounds_ = bounds_xy;
+        pending_altitude_bounds_ = std::make_pair(goal->min_altitude_agl, goal->max_altitude_agl);
         if (this->random_walk_planner) {
             this->random_walk_planner->set_search_bounds(pending_bounds_);
+            this->random_walk_planner->set_altitude_bounds(
+                goal->min_altitude_agl, goal->max_altitude_agl);
         }
     }
 
-    task_start_time_ = this->now();
+    auto budget = std::make_shared<ExplorationBudget>(
+        exploration_steady_seconds(), goal->time_limit_sec);
     task_time_limit_sec_ = goal->time_limit_sec;
     cancel_requested_ = false;
 
@@ -245,8 +259,9 @@ void RandomWalkNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
         const float cur_y = static_cast<float>(this->current_location.position.y);
         if (!this->random_walk_planner->is_inside_search_bounds(cur_x, cur_y)) {
             const auto target = this->random_walk_planner->nearest_inside_point(cur_x, cur_y);
-            const float target_z = std::max(
-                static_cast<float>(this->current_location.position.z), 0.5f);
+            const float target_z = std::clamp(
+                static_cast<float>(this->current_location.position.z),
+                goal->min_altitude_agl, goal->max_altitude_agl);
             RCLCPP_INFO(this->get_logger(),
                         "Drone at (%.2f,%.2f) is outside search_bounds; "
                         "navigating to (%.2f,%.2f,%.2f) before exploring",
@@ -281,7 +296,6 @@ void RandomWalkNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
                 auto goal_options = rclcpp_action::Client<NavigateTask>::SendGoalOptions();
                 goal_options.goal_response_callback =
                     [this](const rclcpp_action::ClientGoalHandle<NavigateTask>::SharedPtr& gh) {
-                        navigate_goal_handle_ = gh;
                         if (!gh) navigate_goal_done_ = true;
                     };
                 goal_options.result_callback =
@@ -290,18 +304,20 @@ void RandomWalkNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
                             (r.code == rclcpp_action::ResultCode::SUCCEEDED) && r.result->success;
                         navigate_goal_done_ = true;
                     };
-                navigate_client_->async_send_goal(nav_goal, goal_options);
+                navigate_response_ = navigate_client_->async_send_goal(nav_goal, goal_options);
 
                 rclcpp::Rate approach_rate(5.0);
                 while (rclcpp::ok() && !navigate_goal_done_) {
-                    if (cancel_requested_) {
-                        if (navigate_goal_handle_)
-                            navigate_client_->async_cancel_goal(navigate_goal_handle_);
+                    if (cancel_requested_ || budget->remaining(
+                            exploration_steady_seconds(), this->now().nanoseconds()) <= 0) {
+                        const bool settled = settle_navigation();
                         auto result = std::make_shared<ExplorationTask::Result>();
                         result->success = false;
-                        result->message = "Task canceled while approaching polygon";
-                        task_active_ = false;
-                        goal_handle->canceled(result);
+                        result->message = settled ? "Preparation canceled or deadline exceeded"
+                                                  : "Nested navigation settlement timed out";
+                        task_active_ = !settled;
+                        if (cancel_requested_) goal_handle->canceled(result);
+                        else goal_handle->abort(result);
                         return;
                     }
                     approach_rate.sleep();
@@ -328,38 +344,45 @@ void RandomWalkNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
         // --- Check for cancellation ---
         if (cancel_requested_) {
             // Cancel any active NavigateTask goal
-            if (navigate_goal_handle_ && !navigate_goal_done_)
-                navigate_client_->async_cancel_goal(navigate_goal_handle_);
+            const bool settled = settle_navigation();
             auto result = std::make_shared<ExplorationTask::Result>();
             result->success = false;
-            result->message = "Task canceled";
-            task_active_ = false;
+            result->message = settled ? "Task canceled" : "Nested navigation settlement timed out";
+            task_active_ = !settled;
             goal_handle->canceled(result);
             RCLCPP_INFO(this->get_logger(), "ExplorationTask canceled");
             return;
         }
 
         // --- Check time limit ---
-        if (task_time_limit_sec_ > 0.0f) {
-            double elapsed = (this->now() - task_start_time_).seconds();
-            if (elapsed >= static_cast<double>(task_time_limit_sec_)) {
-                if (navigate_goal_handle_ && !navigate_goal_done_)
-                    navigate_client_->async_cancel_goal(navigate_goal_handle_);
+        {
+            if (budget->remaining(exploration_steady_seconds(), this->now().nanoseconds()) <= 0) {
+                const bool settled = settle_navigation();
                 auto result = std::make_shared<ExplorationTask::Result>();
-                result->success = max_horizontal_radius_m >= 0.5;
+                const double required_progress_m = std::min(0.5, 0.1 * task_time_limit_sec_);
+                result->success = settled && max_horizontal_radius_m >= required_progress_m;
                 result->message = result->success ? "Time limit reached after exploration"
                                                   : "Time limit reached without exploration progress";
-                task_active_ = false;
+                if (budget->first_accept_ns() == 0) {
+                    result->success = false;
+                    result->message = "Exploration preparation deadline exceeded";
+                }
+                if (budget->clock_rolled_back() || budget->elapsed(this->now().nanoseconds()) < 0) {
+                    result->success = false;
+                    result->message = "Simulator clock rolled back during exploration";
+                }
+                if (!settled) result->message = "Nested navigation settlement timed out";
+                task_active_ = !settled;
                 if (result->success) {
                     goal_handle->succeed(result);
                     RCLCPP_INFO(this->get_logger(),
-                                "ExplorationTask succeeded (maximum radius %.2f m)",
-                                max_horizontal_radius_m);
+                                "ExplorationTask succeeded (maximum radius %.2f m, required %.2f m)",
+                                max_horizontal_radius_m, required_progress_m);
                 } else {
                     goal_handle->abort(result);
                     RCLCPP_WARN(this->get_logger(),
-                                "ExplorationTask made no progress (maximum radius %.2f m)",
-                                max_horizontal_radius_m);
+                                "ExplorationTask failed (maximum radius %.2f m, required %.2f m, settled %d)",
+                                max_horizontal_radius_m, required_progress_m, settled);
                 }
                 return;
             }
@@ -371,12 +394,13 @@ void RandomWalkNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
         feedback->current_position.y = current_location.position.y;
         feedback->current_position.z = current_location.position.z;
         if (task_time_limit_sec_ > 0.0f) {
-            double elapsed = (this->now() - task_start_time_).seconds();
+            double elapsed = budget->elapsed(this->now().nanoseconds());
             feedback->progress = static_cast<float>(elapsed / task_time_limit_sec_);
         } else {
             feedback->progress = 0.0f;
         }
-        feedback->status = is_path_executing ? "navigating" : "planning";
+        feedback->status = budget->first_accept_ns() == 0 ? "preparing (10s wall budget)"
+            : (is_path_executing ? "navigating" : "replanning within active horizon");
         goal_handle->publish_feedback(feedback);
 
         // --- Planning / navigation loop ---
@@ -384,9 +408,19 @@ void RandomWalkNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
             if (received_first_map && received_first_robot_tf) {
                 generated_paths.clear();
                 for (int i = 0; i < num_paths_to_generate_; i++) {
-                    generate_plan();
+                    const double remaining = budget->remaining(
+                        exploration_steady_seconds(), this->now().nanoseconds());
+                    if (cancel_requested_ || remaining <= 0) break;
+                    generate_plan(static_cast<float>(std::min(
+                        budget->first_accept_ns() == 0 ? 5.0 : 0.25, remaining)));
+                    // Admit the first valid startup route immediately, rather
+                    // than consuming a short horizon concatenating future legs.
+                    if (budget->first_accept_ns() == 0 && !generated_paths.empty()) break;
                 }
-                is_path_executing = send_navigate_goal();
+                if (!cancel_requested_ && budget->remaining(
+                        exploration_steady_seconds(), this->now().nanoseconds()) > 0) {
+                    is_path_executing = send_navigate_goal(budget);
+                }
             } else {
                 RCLCPP_INFO_ONCE(this->get_logger(),
                                  "Waiting for map and odometry before planning...");
@@ -406,8 +440,7 @@ void RandomWalkNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
     }
 
     // Node is shutting down
-    if (navigate_goal_handle_ && !navigate_goal_done_)
-        navigate_client_->async_cancel_goal(navigate_goal_handle_);
+    settle_navigation();
     auto result = std::make_shared<ExplorationTask::Result>();
     result->success = false;
     result->message = "Node shutting down";
@@ -419,7 +452,7 @@ void RandomWalkNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
 // Planning helpers (unchanged from original)
 // ---------------------------------------------------------------------------
 
-void RandomWalkNode::generate_plan() {
+void RandomWalkNode::generate_plan(float timeout_s) {
     RCLCPP_INFO(this->get_logger(), "Generating plan...");
 
     std::tuple<float, float, float, float> start_loc;
@@ -445,9 +478,8 @@ void RandomWalkNode::generate_plan() {
                                     static_cast<float>(yaw));
     }
 
-    float timeout_duration = 5.0;
     std::optional<Path> gen_path_opt =
-        this->random_walk_planner->generate_straight_rand_path(start_loc, timeout_duration);
+        this->random_walk_planner->generate_straight_rand_path(start_loc, timeout_s);
     if (gen_path_opt.has_value() && !gen_path_opt.value().empty()) {
         RCLCPP_INFO(this->get_logger(), "Generated path with %ld points",
                     gen_path_opt.value().size());
@@ -477,12 +509,36 @@ void RandomWalkNode::generate_plan() {
     }
 }
 
-bool RandomWalkNode::send_navigate_goal() {
+bool RandomWalkNode::settle_navigation() {
+    // Execution-thread-owned response future covers the pending-acceptance race.
+    // The executor remains running; never wait while holding a callback mutex.
+    try {
+        if (!navigate_response_.valid()) return true;
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+        if (navigate_response_.wait_until(deadline) != std::future_status::ready) return false;
+        auto handle = navigate_response_.get();
+        if (!handle || navigate_goal_done_) return true;
+        navigate_client_->async_cancel_goal(handle);
+        auto terminal = navigate_client_->async_get_result(handle);
+        if (terminal.wait_until(deadline) != std::future_status::ready) return false;
+        terminal.get();
+        navigate_goal_done_ = true;
+        RCLCPP_INFO(this->get_logger(), "Nested NavigateTask terminal before exploration handoff");
+        return true;
+    } catch (const std::exception& error) {
+        RCLCPP_ERROR(this->get_logger(), "Nested navigation settlement failed: %s", error.what());
+        return false;
+    }
+}
+
+bool RandomWalkNode::send_navigate_goal(std::shared_ptr<ExplorationBudget> budget) {
     if (!navigate_client_->wait_for_action_server(std::chrono::seconds(2))) {
         RCLCPP_WARN(this->get_logger(), "NavigateTask action server not available");
         is_path_executing = false;
         return false;
     }
+    if (budget->remaining(exploration_steady_seconds(), this->now().nanoseconds()) <= 0
+            || cancel_requested_) return false;
 
     // Concatenate generated path segments
     nav_msgs::msg::Path full_path;
@@ -510,11 +566,15 @@ bool RandomWalkNode::send_navigate_goal() {
 
     auto goal_options = rclcpp_action::Client<NavigateTask>::SendGoalOptions();
     goal_options.goal_response_callback =
-        [this](const rclcpp_action::ClientGoalHandle<NavigateTask>::SharedPtr& gh) {
-            navigate_goal_handle_ = gh;
+        [this, budget](const rclcpp_action::ClientGoalHandle<NavigateTask>::SharedPtr& gh) {
             if (!gh) {
                 RCLCPP_WARN(this->get_logger(), "NavigateTask goal rejected by server");
                 navigate_goal_done_ = true;
+            } else {
+                budget->accepted(this->now().nanoseconds(), exploration_steady_seconds());
+                RCLCPP_INFO(this->get_logger(),
+                    "Exploration active horizon origin: %ld ns (first accepted navigation)",
+                    budget->first_accept_ns());
             }
         };
     goal_options.result_callback =
@@ -524,7 +584,7 @@ bool RandomWalkNode::send_navigate_goal() {
             navigate_goal_done_ = true;
         };
 
-    navigate_client_->async_send_goal(nav_goal, goal_options);
+    navigate_response_ = navigate_client_->async_send_goal(nav_goal, goal_options);
 
     RCLCPP_INFO(this->get_logger(), "Sent NavigateTask goal (%zu waypoints)",
                 full_path.poses.size());

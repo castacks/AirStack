@@ -24,7 +24,7 @@ import uuid
 from rrm_cosmos_reason2 import load_context
 from rrm_import_office import import_bundle
 from rrm_hand_shadow import build_records as build_hand_shadow_records
-from rrm.airstack_command import CommandEnvironment, ground_command, takeoff_recovery_action
+from rrm.airstack_command import CommandEnvironment, ground_command, plan_command, takeoff_recovery_action
 from rrm.airstack_drone import DroneTaskProposal
 from rrm.isaac_runtime import probe_isaac_runtime
 from rrm.contracts import CapabilityDeclaration
@@ -47,6 +47,45 @@ COMMAND_ONLY_PNG = base64.b64decode(
 )
 HAND_SHADOW_FIXTURE = Path(__file__).parents[1] / "examples/hand_shadow/fixture.json"
 HAND_SHADOW_OBJECTIVE = "place the context-selected block on the tray"
+
+
+def _landing_only_command(objective: str) -> bool:
+    """Classify via the canonical compiler, never substring-match recovery text."""
+    # Compilation drops already-satisfied TAKEOFF when airborne and does not
+    # interpret negation. Only complete, affirmative landing clauses qualify.
+    if not isinstance(objective, str) or not re.fullmatch(
+            r"\s*(?:please\s+)?(?:land|touch[ -]?down)(?:\s+(?:safely|now))?[.!]?\s*",
+            objective, flags=re.IGNORECASE):
+        return False
+    try:
+        actions = plan_command(objective, task_id="admission-classification",
+                               robot_name="robot_1", action_servers={"task_msgs/action/LandTask"},
+                               airborne=True)
+    except ValueError:
+        return False
+    return bool(actions) and all(action.kind.value == "LAND" for action in actions)
+
+
+def _command_state_rejection(state: dict, *, landing_only: bool) -> dict | None:
+    """LAND needs fresh flight state, not a fresh map; unknown fields fail closed."""
+    missing = state.get("missing_state")
+    stale = state.get("stale_state")
+    ignored = {"vdb_map"} if landing_only else set()
+    blocked_missing = [key for key in missing if key not in ignored] if isinstance(missing, list) else ["invalid_missing_state"]
+    blocked_stale = [key for key in stale if key not in ignored] if isinstance(stale, list) else ["invalid_stale_state"]
+    invalid = []
+    if state.get("connected") is not True:
+        invalid.append("connected")
+    if state.get("frame_id") != "map":
+        invalid.append("frame_id")
+    if state.get("child_frame_id") != "base_link":
+        invalid.append("child_frame_id")
+    if landing_only:
+        invalid.extend(key for key in ("armed", "airborne") if type(state.get(key)) is not bool)
+    if blocked_missing or blocked_stale or invalid:
+        return {"missing_state": blocked_missing, "stale_state": blocked_stale,
+                "invalid_fields": invalid, "state_receipt_age_s": state.get("state_receipt_age_s", {})}
+    return None
 
 
 def isaac_scene_catalog(path: Path = ISAAC_SCENE_CATALOG) -> dict[str, dict[str, str]]:
@@ -479,11 +518,11 @@ class Console:
                 raise RuntimeError("Only a new, undispatched command attempt can be executed.")
             goal = self.store.get_goal(run["goal_id"])
             discovery = self.discover_tasks()
-            if (discovery.get("missing_state") or discovery.get("stale_state")
-                    or discovery.get("connected") is not True
-                    or discovery.get("frame_id") != "map"
-                    or discovery.get("child_frame_id") != "base_link"):
-                raise RuntimeError("Fresh canonical AirStack flight state is unavailable.")
+            state_rejection = _command_state_rejection(
+                discovery, landing_only=_landing_only_command(goal["objective"]))
+            if state_rejection:
+                raise RuntimeError("Fresh canonical AirStack flight state is unavailable: "
+                                   + json.dumps(state_rejection, sort_keys=True))
             if discovery.get("clock_epoch_consistent") is not True:
                 raise RuntimeError(
                     "Robot control nodes predate the current Isaac clock epoch. While grounded, "
@@ -558,6 +597,10 @@ class Console:
                     "assumptions": list(grounded.assumptions),
                     "environment": grounded.environment.model_dump(mode="json"),
                     "vehicle_envelope_revision": grounded.vehicle_envelope_revision,
+                    "relative_navigation_bindings": [
+                        item.model_dump(mode="json")
+                        for item in grounded.relative_navigation_bindings
+                    ],
                 },
                 "replan_policy": {
                     "mode": "observe_between_actions",
@@ -612,15 +655,18 @@ class Console:
             raise RuntimeError("Executor source changed since staging.")
         self.require_isaac_runtime(proposals)
         fresh = self.discover_tasks()
-        if (fresh.get("missing_state") or fresh.get("stale_state")
-                or fresh.get("connected") is not True
-                or fresh.get("frame_id") != "map" or fresh.get("child_frame_id") != "base_link"
-                or fresh.get("clock_epoch_consistent") is not True):
-            raise RuntimeError("Fresh canonical state and clock epoch are required.")
+        ordinary = any(p.kind.value != "LAND" for p in proposals)
+        landing_only = (bool(proposals) and not ordinary
+                        and _landing_only_command(plan.get("grounding", {}).get("objective", "")))
+        state_rejection = _command_state_rejection(fresh, landing_only=landing_only)
+        if state_rejection or fresh.get("clock_epoch_consistent") is not True:
+            raise RuntimeError("Fresh canonical state and clock epoch are required: "
+                               + json.dumps({"state": state_rejection,
+                                             "clock_epoch_consistent": fresh.get("clock_epoch_consistent")},
+                                            sort_keys=True))
         if plan.get("active_scene") != self.active_scene_shortname:
             raise RuntimeError("Staged scene changed; save a new attempt.")
         before = plan["discovery"]
-        ordinary = any(p.kind.value != "LAND" for p in proposals)
         if ordinary:
             if fresh.get("flight_state_consistent") is not True:
                 raise RuntimeError("Fresh consistent flight state is required.")

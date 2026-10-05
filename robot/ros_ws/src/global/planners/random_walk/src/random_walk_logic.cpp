@@ -44,11 +44,13 @@ std::optional<Path> RandomWalkPlanner::generate_straight_rand_path(
     const std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now();
     // RCLCPP_INFO(rclcpp::get_logger("random_walk_planner"), "Starting Path Search...");
 
-    while (!is_goal_point_valid && std::chrono::duration_cast<std::chrono::seconds>(
-                                       std::chrono::steady_clock::now() - start_time)
-                                           .count() < timeout_duration)
+    while (!is_goal_point_valid && std::chrono::duration<double>(
+               std::chrono::steady_clock::now() - start_time).count() < timeout_duration)
     {
-        std::tuple<float, float, float> goal_point = generate_goal_point(start_point);
+        const double remaining = timeout_duration - std::chrono::duration<double>(
+            std::chrono::steady_clock::now() - start_time).count();
+        std::tuple<float, float, float> goal_point = generate_goal_point(
+            start_point, std::min(1.0, remaining));
         // RCLCPP_INFO(rclcpp::get_logger("random_walk_planner"), "Point Generated...");
         if (std::get<2>(goal_point) == -1)
         {
@@ -73,12 +75,22 @@ std::optional<Path> RandomWalkPlanner::generate_straight_rand_path(
         // start moving in the direction of the goal point
         while (get_point_distance(current_point, goal_point) > 0.001)
         {
+            if (std::chrono::duration<double>(std::chrono::steady_clock::now()
+                    - start_time).count() >= timeout_duration) {
+                is_goal_point_valid = false;
+                break;
+            }
             if (!check_if_collided(current_point))
             {
                 // add small delay to stop crashing
                 float new_x = std::get<0>(current_point) + x_diff / float(this->checking_point_cnt);
                 float new_y = std::get<1>(current_point) + y_diff / float(this->checking_point_cnt);
                 float new_z = std::get<2>(current_point) + z_diff / float(this->checking_point_cnt);
+                // Avoid accumulated floating-point steps escaping an endpoint
+                // envelope, including when the start is slightly below minimum.
+                new_z = std::clamp(new_z,
+                    std::min(std::get<2>(start_point), std::get<2>(goal_point)),
+                    std::max(std::get<2>(start_point), std::get<2>(goal_point)));
                 std::tuple<float, float, float> new_point(new_x, new_y, new_z);
                 current_point = new_point;
                 std::tuple<float, float, float, float> new_point_with_yaw(
@@ -139,6 +151,16 @@ void RandomWalkPlanner::clear_search_bounds()
 {
     std::lock_guard<std::mutex> lock(this->mutex);
     search_bounds_xy_.clear();
+}
+
+void RandomWalkPlanner::set_altitude_bounds(float minimum_m, float maximum_m)
+{
+    if (!std::isfinite(minimum_m) || !std::isfinite(maximum_m) ||
+        minimum_m < 0.0f || maximum_m < minimum_m)
+        throw std::invalid_argument("Invalid exploration altitude bounds");
+    std::lock_guard<std::mutex> lock(this->mutex);
+    min_altitude_m_ = minimum_m;
+    max_altitude_m_ = maximum_m;
 }
 
 bool RandomWalkPlanner::point_in_search_bounds(float x, float y) const
@@ -247,12 +269,12 @@ bool RandomWalkPlanner::check_if_collided(const std::tuple<float, float, float>&
 }
 
 std::tuple<float, float, float> RandomWalkPlanner::generate_goal_point(
-    std::tuple<float, float, float, float> start_point)
+    std::tuple<float, float, float, float> start_point, double timeout_s)
 {
-    float time_out_duration = 1.0;
-    const clock_t start_time = clock();
+    const auto start_time = std::chrono::steady_clock::now();
 
-    while ((clock() - start_time) / CLOCKS_PER_SEC < time_out_duration)
+    while (std::chrono::duration<double>(std::chrono::steady_clock::now()
+               - start_time).count() < timeout_s)
     {
         std::random_device rd;
         std::mt19937 gen(rd());
@@ -265,7 +287,9 @@ std::tuple<float, float, float> RandomWalkPlanner::generate_goal_point(
         float rand_x = std::get<0>(start_point) + delta_x;
         float rand_y = std::get<1>(start_point) + delta_y;
         float rand_z = std::get<2>(start_point) + delta_z;
-        rand_z = std::max(0.5f, rand_z); // ensure don't go below the ground
+        // Bound candidates before constructing/collision-checking a segment;
+        // every chained segment uses the same per-task envelope.
+        rand_z = std::clamp(rand_z, min_altitude_m_, max_altitude_m_);
         std::tuple<float, float, float> rand_point(rand_x, rand_y, rand_z);
         std::tuple<float, float, float> start_point_wo_yaw(
             std::get<0>(start_point), std::get<1>(start_point), std::get<2>(start_point));

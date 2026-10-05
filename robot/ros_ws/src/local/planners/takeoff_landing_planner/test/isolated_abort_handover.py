@@ -75,6 +75,8 @@ def pump(duration):
         msg.header.stamp=stamp; msg.pose.pose.orientation.w=1.
         if scenario.get('ascent'):
             msg.pose.pose.position.z = 1.5 if scenario.get('bound')=='altitude' else .5
+            if scenario.get('success'):
+                msg.pose.pose.position.z = 1.
             msg.pose.pose.position.x = .5 if scenario.get('bound')=='horizontal' else 0.
             msg.twist.twist.linear.z = 2. if scenario.get('bound')=='speed' else 0.
         odom.publish(msg)
@@ -100,6 +102,25 @@ def await_future(future,timeout=9.):
     return future.result()
 
 results=[]
+scenario['success'] = True
+proc=subprocess.Popen([sys.argv[1], '--ros-args', '-r', '__ns:=/rrm_abort_test',
+    '-p', 'takeoff_acceptance_distance:=0.15', '-p', 'takeoff_acceptance_time:=0.1'])
+try:
+    assert takeoff.wait_for_server(timeout_sec=5.)
+    pump(.5)
+    handle=await_future(takeoff.send_goal_async(
+        TakeoffTask.Goal(target_altitude_m=1., velocity_m_s=.5)))
+    assert handle.accepted
+    terminal=await_future(handle.get_result_async())
+    assert terminal.result.success, terminal.result
+    trajectory_at=next(i for i,e in enumerate(events) if e[0]=='trajectory')
+    assert not any(e==('mode',1) for e in events[trajectory_at+1:]), events
+    pump(.3)
+    assert events[-1][0]=='trajectory', 'success must retain the endpoint trajectory'
+    results.append({'success_endpoint_retained':True,'events':list(events)})
+finally:
+    proc.terminate(); proc.wait(timeout=5)
+    pump(.2)
 # Accepted services must not substitute for observed, fresh flight authority.
 for case in ['false_control', 'stale_pre_request', 'missing_control', 'missing_armed',
              'cancel_acquisition', 'false_ascent', 'stale_ascent',

@@ -31,11 +31,23 @@ This graph is the obstacle representation used for collision checking — it giv
 
 A timer fires at 2.5 Hz to plan the next local trajectory. Planning is relative to the **look-ahead point** published by the trajectory controller, which is always slightly ahead of the drone's current tracking point.
 
+The library has 120 yaw/pitch candidates plus vertical up/down candidates with
+desired velocity `(0, 0, ±0.5)` m/s and the same 2 m/s speed limit. All 122 use
+the same integration, collision checking, prefix reservation and scoring. Vertical
+desired velocity does not imply immediately vertical motion from a moving initial
+state, or permission to enter unobserved space.
+
+Vertical coverage alone does not guarantee goal arrival: checked-space admission,
+stopping references, and observed physical task completion remain separate checks.
+
 For each candidate trajectory in the library:
 
 1. Every waypoint along the trajectory is projected into the camera frame of each disparity graph node.
 2. The GPU counts how many graph nodes see the waypoint as **seen** (obstacle-free), **unseen** (outside camera FOV), or **in collision** (inside expanded obstacle).
-3. A trajectory is marked **safe** if no waypoint has more collisions than seen observations.
+3. Only a contiguous checked prefix is eligible: samples must be finite, have nonnegative speed, remain inside the active altitude corridor, have more than one seen observation, and not have more collisions than seen observations. A partially checked horizon normally retains a 0.5 m setback from its first rejected sample; unchecked islands are never joined. An originally singleton **vertical** goal at the crossed upper/lower corridor plane can instead terminate at an existing checked sample when the last checked point is within 0.5 m of that goal and closer than the candidate start. Eligibility is bound once from the task's MAP physical start: XY displacement ≤0.05 m and absolute Z displacement > twice XY displacement plus 1e-6 m. A horizontal task does not gain eligibility as it approaches its goal; route replacement clears it. The crossing sample must pass every non-altitude check, and is never published. Unknown, colliding, invalid, opposite-plane or distant-goal crossings retain the setback. This is intentional goal termination, not permission to leave the altitude corridor.
+4. For an originally single-waypoint task, a prefix that approaches within 0.5 m of the MAP-frame goal may end at its nearest existing checked sample. This avoids penalizing a useful forward candidate solely because its full horizon overshoots a short goal. Multi-waypoint tasks do not use this cutoff, and a replacement `global_plan` clears it. The stopping ramp is applied once, after trimming; no unchecked points or increased speeds are introduced.
+
+The 0.5 m capture radius is a candidate-selection trigger, **not** the task completion tolerance. Completion uses observed robot odometry and the requested `goal_tolerance_m`.
 
 ### 4. Trajectory Scoring
 
@@ -60,7 +72,7 @@ Two stuck conditions trigger a rewind (reversal along the past trajectory):
 
 ## Task Executor
 
-This node is a **task executor**: it runs as a ROS 2 action server and is activated on demand via a `NavigateTask` goal. It does not plan continuously — planning only happens while a goal is active.
+This node is a **task executor**: it runs as a ROS 2 action server and accepts a `NavigateTask` goal. The planning timer also runs outside active tasks; active tasks supply the navigation altitude corridor and goal-specific checks.
 
 **Action server:** `/{robot_name}/tasks/navigate`
 **Type:** `task_msgs/action/NavigateTask`
@@ -88,7 +100,7 @@ random_walk_planner  →  NavigateTask  →  droan_gl
 | ----- | ---- | ----------- |
 | `status` | string | `"navigating"` |
 | `distance_to_goal` | float32 | 3D Euclidean distance to goal pose (m) |
-| `current_position` | geometry_msgs/Point | Current tracking point position |
+| `current_position` | geometry_msgs/Point | Observed robot odometry position, not the trajectory tracking reference |
 
 ### Result
 
@@ -100,6 +112,14 @@ random_walk_planner  →  NavigateTask  →  droan_gl
 ### Trajectory controller mode
 
 On goal acceptance the node calls the `set_trajectory_mode` service with mode `ADD_SEGMENT`, enabling the trajectory controller to extend the trajectory buffer as new segments arrive. On goal completion or cancellation it restores mode `TRACK`.
+
+Navigation initialization requires a finite MAP look-ahead anchor with simulation
+source age and steady-clock receipt age both in `[0, 0.5]` seconds. An unavailable
+anchor aborts with `Fresh MAP commanded start unavailable`, followed by its exact
+reason (`missing`, `frame`, `source_future`, `source_stale`, `receipt_future`,
+`receipt_stale`, or nonfinite data) and sampled ages/timestamps. The accepted-anchor
+log confirms this check only, not complete route initialization or physical arrival.
+Recorder topic freshness alone does not establish callback ordering inside the node.
 
 ### CLI test
 
@@ -144,7 +164,8 @@ ros2 action send_goal /robot_1/tasks/navigate task_msgs/action/NavigateTask \
 | `disparity` | stereo_msgs/DisparityImage | Stereo disparity image |
 | `camera_info` | sensor_msgs/CameraInfo | Camera intrinsics for disparity unprojection |
 | `look_ahead` | airstack_msgs/Odometry | Look-ahead point from trajectory controller (trajectory planning origin) |
-| `tracking_point` | airstack_msgs/Odometry | Current robot tracking point (for stuck detection and goal distance) |
+| `tracking_point` | airstack_msgs/Odometry | Trajectory tracking reference (for stuck detection) |
+| `robot_odometry` | nav_msgs/Odometry | Observed robot position for task feedback, completion, and initial altitude corridor |
 | `global_plan` | nav_msgs/Path | Global path for trajectory scoring (also set via NavigateTask goal) |
 | `reset_stuck` | std_msgs/Empty | Manually clear stuck detection history |
 | `clear_map` | std_msgs/Empty | Clear stuck detection history (GL map clearing not yet implemented) |
@@ -154,6 +175,7 @@ ros2 action send_goal /robot_1/tasks/navigate task_msgs/action/NavigateTask \
 | Topic | Type | Description |
 | ----- | ---- | ----------- |
 | `trajectory_segment_to_add` | airstack_msgs/TrajectoryXYZVYaw | Best local trajectory segment |
+| `selection_diagnostic` | std_msgs/String | Subscriber-enabled `droan-selection/v1` JSON during active tasks: frame/origin/corridor, candidate rejection and prefix/crop counts, scores, selected index, cycle time. At most 256 candidates are serialized; check `total_candidates` for truncation. Diagnostic only, not an actuation or clearance certificate. |
 | `foreground_expanded` | sensor_msgs/Image | GPU-expanded foreground disparity (visualization) |
 | `background_expanded` | sensor_msgs/Image | GPU-expanded background disparity (visualization) |
 | `fg_bg_cloud` | sensor_msgs/PointCloud2 | Expanded obstacle pointcloud (visualization) |

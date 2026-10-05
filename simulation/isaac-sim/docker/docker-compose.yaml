@@ -61,6 +61,8 @@ services:
       # launch scripts (pegasus_app.resolve_scene_from_env). Empty = script default.
       - ISAAC_SIM_SCENE=${ISAAC_SIM_SCENE:-}
       - ISAAC_SIM_STAGE_SCALE=${ISAAC_SIM_STAGE_SCALE:-}
+      # Optional bounded, read-only physical/USD/sensor pose diagnostics.
+      - ISAAC_SIM_STATE_LOG=${ISAAC_SIM_STATE_LOG:-}
       # Viewport follow-camera (pegasus_app.py): domain id of the drone to
       # chase (default 1; off/none/0 disables) and its world-frame x,y,z
       # offset in meters.

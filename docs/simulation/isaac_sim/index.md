@@ -42,6 +42,45 @@ This modularity enables rapid iteration, large-scale simulation generation, and 
 
 Together, these features make Isaac Sim a comprehensive platform for robotics simulation, bridging the gap between visual realism, physical accuracy, and ROS 2-based autonomy stacks.
 
+## Optional bounded physics diagnostics
+
+`ISAAC_SIM_STATE_LOG` opts Pegasus vehicles into state/contact diagnostics. The
+legacy base JSONL file records at most 10,000 samples at nominal 10Hz. Contact
+reporting is optional: an inactive subscription or empty report is not proof of
+no collision. Collider AABBs are broad-phase bounds, not exact contact geometry.
+
+For a fresh named capture, place a JSON request at
+`<ISAAC_SIM_STATE_LOG>.capture.json` inside the simulator filesystem:
+
+```json
+{"capture_id": "diagnostic_attempt_01", "enabled": true}
+```
+
+The ID must contain 1–64 ASCII letters, digits, underscores or hyphens. The file
+is polled once per wall second during state sampling. Each vehicle writes a
+separate `<base>.capture-<vehicle-hash>-<capture-id>.jsonl` using exclusive creation:
+existing captures are never truncated. Each capture stops at 10,000 samples,
+64MiB, or 300 wall seconds, whichever is reached first. Use a **new** ID for every
+attempt, including after STOP/pause, errors or a simulator restart. Setting
+`enabled` to false or removing the request stops capture at the next poll. Files
+remain on disk; manage their retention separately. Request/output I/O and JSON
+failures are contained, and legacy-file failure does not disable named captures.
+
+Records distinguish independent rigid-body pose, corrected sensor orientation,
+latest HIL receipt/source/backend timestamps, and the previous vehicle update's
+modeled rotor forces/rolling torque. The force snapshot includes its own timing
+and associated HIL snapshot. `modeled_force_before_apply_api` describes a model
+output, **not measured delivered rotor force**. Contacts and snapshots may belong
+to different callback phases; compare their timestamps, not just row placement.
+Logging is synchronous; output caps do not guarantee bounded I/O latency or zero
+simulation overhead. Qualify cadence and overhead while grounded before flight.
+
+Python source edits do not reload existing simulator objects. Load instrumentation
+through a planned simulator restart only while grounded/disarmed with no active
+mission; restore the intended scene and restart the robot stack after the new
+Isaac clock epoch, then verify fresh readiness. A capture request never commands
+flight or resets the simulator.
+
 ## USD File Naming Conventions
 AirStack uses the following file naming conventions:
 

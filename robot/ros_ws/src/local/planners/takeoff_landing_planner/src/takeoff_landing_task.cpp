@@ -570,7 +570,10 @@ void TakeoffLandingTaskNode::takeoff_execute(std::shared_ptr<TakeoffGoalHandle> 
       }
       if ((this->now() - acceptance_start).seconds() >= takeoff_acceptance_time_) {
         RCLCPP_INFO(this->get_logger(), "TakeoffTask: complete at %.2fm", current_z);
-        set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE);
+        // Keep the completed TRACK trajectory: its zero-velocity endpoint holds
+        // the requested altitude until the next task replaces it. ROBOT_POSE
+        // clears that target and continually follows odometry, allowing descent
+        // during the action-result/next-command handoff.
         result->success = true;
         result->message = "takeoff complete";
         goal_handle->succeed(result);

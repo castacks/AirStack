@@ -86,6 +86,7 @@ class VehicleEnvelope(BaseModel):
     default_takeoff_altitude_m: float = 1.5
     default_takeoff_speed_m_s: float = 0.5
     min_exploration_duration_s: float = 5.0
+    min_explicit_exploration_duration_s: float = 1.0
     max_exploration_duration_s: float = 900.0
     default_exploration_duration_s: float = 30.0
     default_exploration_radius_m: float = 3.0
@@ -110,10 +111,29 @@ class VehicleEnvelope(BaseModel):
         if not (self.min_exploration_duration_s <= self.default_exploration_duration_s
                 <= self.max_exploration_duration_s):
             raise ValueError("default exploration duration must be inside the envelope")
+        if self.min_explicit_exploration_duration_s > self.max_exploration_duration_s:
+            raise ValueError("explicit exploration duration envelope is inverted")
         if self.min_exploration_altitude_agl_m > self.max_exploration_altitude_agl_m:
             raise ValueError("exploration altitude envelope is inverted")
         if self.min_exploration_speed_m_s > self.max_exploration_speed_m_s:
             raise ValueError("exploration speed envelope is inverted")
+        return self
+
+
+class RelativeNavigationBinding(BaseModel):
+    """Reviewed body-heading intent; staged map waypoints are preview estimates."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    action_id: str
+    direction: str
+    distance_m: float
+
+    @model_validator(mode="after")
+    def validate_intent(self) -> "RelativeNavigationBinding":
+        if (not self.action_id or self.direction not in
+                {"forward", "back", "backward", "left", "right", "up", "down"}
+                or not math.isfinite(self.distance_m) or not 0 < self.distance_m <= 100):
+            raise ValueError("invalid relative navigation intent")
         return self
 
 
@@ -129,6 +149,7 @@ class GroundedCommandPlan(BaseModel):
     assumptions: tuple[str, ...]
     environment: CommandEnvironment
     vehicle_envelope_revision: str
+    relative_navigation_bindings: tuple[RelativeNavigationBinding, ...] = ()
 
 
 class CommandClarificationRequired(ValueError):
@@ -153,12 +174,18 @@ def ground_command(
     if not isinstance(objective, str) or not objective.strip():
         raise ValueError("Movement command is required.")
     text = objective.strip().lower()
+    # Preserve measured vertical verbs through the existing relative-move parser,
+    # including its missing-distance, unit and ordering checks. Keep the original
+    # objective as provenance; do not reinterpret an absolute "climb to" altitude.
+    text = re.sub(r"\bclimb\b", "fly up", text)
+    text = re.sub(r"\bdescend\b", "fly down", text)
     available = frozenset(action_servers)
     environment = environment or CommandEnvironment()
     envelope = envelope or VehicleEnvelope()
     proposals: list[DroneTaskProposal] = []
     grounding: list[ParameterGrounding] = []
     assumptions: list[str] = []
+    relative_bindings: list[RelativeNavigationBinding] = []
 
     wants_takeoff = bool(re.search(r"\b(take[ -]?off|launch|ascend)\b", text))
     wants_land = bool(re.search(r"\b(land|touch[ -]?down)\b", text))
@@ -176,13 +203,58 @@ def ground_command(
             relative_origin[0], relative_origin[1],
             max(relative_origin[2], takeoff_altitude),
         )
-    relative = _relative_destination(text, relative_origin, environment.yaw_rad)
-    if relative is not None:
+    relative_clauses = re.findall(
+        r"\b(?:move|fly|go)\s+(?:forward|back(?:ward)?|left|right|up|down)"
+        r"[^,;]*?(?=\s+then\b|,|;|$)", text,
+    )
+    if relative_clauses:
+        ranks = []
+        for rank, pattern in enumerate((
+            r"\b(take[ -]?off|launch|ascend)\b",
+            r"\b(?:move|fly|go)\s+(?:forward|back(?:ward)?|left|right|up|down)\b",
+            r"\b(explore|survey|roam|map the|move around)\b",
+            r"\b(come back|return(?:\s+(?:home|to (?:the )?start))?)\b",
+            r"\b(land|touch[ -]?down)\b",
+        )):
+            ranks.extend((m.start(), rank) for m in re.finditer(pattern, text))
+        ordered = [rank for _, rank in sorted(ranks)]
+        if ordered != sorted(ordered):
+            raise CommandClarificationRequired(
+                "Use takeoff, consecutive measured moves, exploration, return, then land; "
+                "interleaved action orders are not yet supported."
+            )
+        return_text = re.sub(
+            r"\bgo\s+back(?=\s+(?:(?:by|for)\s+)?-?\d)",
+            "measured backward", text,
+        )
+        wants_return = bool(re.search(
+            r"\b(come back|go back|return(?:\s+(?:home|to (?:the )?start))?)\b",
+            return_text,
+        ))
+    relative_points = []
+    relative_intents = []
+    for clause in relative_clauses:
+        point = _relative_destination(clause, relative_origin, environment.yaw_rad)
+        assert point is not None
+        intent = re.search(
+            r"\b(forward|back(?:ward)?|left|right|up|down)"
+            r"(?:\s+(?:by|for))?\s+(-?\d+(?:\.\d+)?)", clause,
+        )
+        assert intent is not None
+        relative_intents.append((intent.group(1), float(intent.group(2))))
+        relative_points.append(point)
+        relative_origin = point
+    relative = bool(relative_points)
+    if relative:
         if coordinates:
             raise CommandClarificationRequired(
                 "Should I follow the map coordinates or the relative movement?"
             )
-        coordinates = (relative,)
+        coordinates = tuple(relative_points)
+        assumptions.append(
+            "Relative map waypoints are preview estimates; each reviewed direction/distance "
+            "is bound to fresh pose and body heading immediately before its own dispatch."
+        )
 
     if (re.search(r"\b(?:fly|go|move)(?:\s+over)?\s+there\b", text)
             and not coordinates and not wants_explore):
@@ -223,30 +295,40 @@ def ground_command(
             ),
         ))
 
-    if coordinates:
+    navigation_legs = [(point,) for point in coordinates] if relative else [coordinates]
+    for leg_index, leg in enumerate(navigation_legs):
+        if not leg:
+            continue
         _require(available, NAVIGATE_ACTION, "navigation")
         action_id = f"navigate-{len(proposals)}"
+        tolerance = envelope.default_goal_tolerance_m
+        if relative:
+            direction, distance = relative_intents[leg_index]
+            relative_bindings.append(RelativeNavigationBinding(
+                action_id=action_id, direction=direction, distance_m=distance,
+            ))
+            tolerance = min(tolerance, 0.15, distance * 0.1)
         proposals.append(DroneTaskProposal(
             task_id=task_id, action_id=action_id, robot_name=robot_name,
             kind=DroneTaskKind.NAVIGATE, frame_id="map",
-            waypoints=tuple(MapWaypoint(x=x, y=y, z=z) for x, y, z in coordinates),
-            goal_tolerance_m=envelope.default_goal_tolerance_m,
+            waypoints=tuple(MapWaypoint(x=x, y=y, z=z) for x, y, z in leg),
+            goal_tolerance_m=tolerance,
         ))
         coordinate_source = (ParameterSource.ENVIRONMENT_OBSERVATION
-                             if relative is not None else ParameterSource.OPERATOR_EXPLICIT)
+                             if relative else ParameterSource.OPERATOR_EXPLICIT)
         coordinate_evidence = (
-            "operator distance applied to the fresh map-frame pose and heading"
-            if relative is not None else "map coordinates stated by the operator"
+            "staged preview only; reviewed relative intent binds to fresh dispatch pose/heading"
+            if relative else "map coordinates stated by the operator"
         )
         grounding.extend((
             ParameterGrounding(
                 action_id=action_id, parameter="waypoints",
-                value=[[x, y, z] for x, y, z in coordinates], unit="m",
+                value=[[x, y, z] for x, y, z in leg], unit="m",
                 source=coordinate_source, evidence=coordinate_evidence, confidence=1.0,
             ),
             ParameterGrounding(
                 action_id=action_id, parameter="goal_tolerance_m",
-                value=envelope.default_goal_tolerance_m, unit="m",
+                value=tolerance, unit="m",
                 source=ParameterSource.VEHICLE_ENVELOPE,
                 evidence=f"conservative task envelope {envelope.revision}", confidence=1.0,
             ),
@@ -342,6 +424,7 @@ def ground_command(
         objective=objective.strip(), actions=tuple(proposals),
         parameter_grounding=tuple(grounding), assumptions=tuple(assumptions),
         environment=environment, vehicle_envelope_revision=envelope.revision,
+        relative_navigation_bindings=tuple(relative_bindings),
     )
 
 
@@ -405,7 +488,12 @@ def _exploration_duration(
 ) -> tuple[float, ParameterSource, str, float | None]:
     quantity = r"(?:a\s+|an\s+)?(\d+(?:\.\d+)?|one|two|three|couple|few|several)"
     matches = re.findall(
-        rf"(?:for|during)\s+{quantity}(?:\s+of)?\s*(seconds?|secs?|minutes?|mins?)?",
+        # A distance in another movement clause is not an exploration timer.
+        # Guard before consuming whitespace, and prevent numeric backtracking
+        # (e.g. '12 meters' must not fall back to the duration token '1').
+        rf"(?:for|during)\s+{quantity}(?![\d.])"
+        rf"(?!(?:\s*(?:meters?|metres?|m|feet|ft)\b))"
+        rf"(?:\s+of)?\s*(seconds?|secs?|minutes?|mins?)?(?![a-z])",
         text,
     )
     if len(matches) > 1:
@@ -419,13 +507,15 @@ def _exploration_duration(
         if unit.startswith(("minute", "min")):
             requested *= 60.0
         explicit = bool(re.fullmatch(r"\d+(?:\.\d+)?", token))
-        if explicit and not (envelope.min_exploration_duration_s
+        minimum = (envelope.min_explicit_exploration_duration_s if explicit
+                   else envelope.min_exploration_duration_s)
+        if explicit and not (minimum
                              <= requested <= envelope.max_exploration_duration_s):
             raise CommandClarificationRequired(
-                f"What exploration duration between {envelope.min_exploration_duration_s:g} "
+                f"What exploration duration between {minimum:g} "
                 f"and {envelope.max_exploration_duration_s:g} seconds should I use?"
             )
-        value = min(max(requested, envelope.min_exploration_duration_s),
+        value = min(max(requested, minimum),
                     envelope.max_exploration_duration_s)
         if value != requested:
             assumptions.append(
@@ -522,12 +612,27 @@ def _coordinate_path(text: str) -> tuple[tuple[float, float, float], ...]:
 
 def _relative_destination(text: str, current_position: tuple[float, float, float] | None,
                           yaw_rad: float | None) -> tuple[float, float, float] | None:
+    directions = re.findall(
+        r"\b(?:move|fly|go)\s+(?:forward|back(?:ward)?|left|right|up|down)\b", text,
+    )
+    if len(directions) > 1:
+        raise CommandClarificationRequired(
+            "Please specify one relative movement per command, or use a map waypoint route."
+        )
     match = re.search(
         r"\b(?:move|fly|go)\s+(forward|back(?:ward)?|left|right|up|down)"
-        r"(?:\s+by)?\s+(-?\d+(?:\.\d+)?)\s*(?:m|meter|meters)?\b", text,
+        r"(?:\s+(?:by|for))?\s+(-?\d+(?:\.\d+)?)\s*(?:m|meter|meters)?\b", text,
     )
     if not match:
+        if re.search(r"\b(?:move|fly|go)\s+(?:forward|back(?:ward)?|left|right|up|down)\b", text):
+            raise CommandClarificationRequired(
+                "How many meters should I move in that relative direction?"
+            )
         return None
+    if re.match(r"\s*(?:seconds?|secs?|minutes?|mins?|hours?)\b", text[match.end():]):
+        raise CommandClarificationRequired(
+            "How many meters should I move? Relative movement requires distance, not duration."
+        )
     if current_position is None or yaw_rad is None:
         raise CommandClarificationRequired(
             "Can I capture a fresh position and heading for that relative movement?"

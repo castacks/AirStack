@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 import sys
 import tempfile
@@ -12,6 +13,90 @@ sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
 
 import airstack_command_mission as mission
 from rrm.airstack_drone import DroneTaskKind, DroneTaskProposal
+from rrm.airstack_drone import MapWaypoint
+from rrm.airstack_command import RelativeNavigationBinding
+
+
+class RelativeBindingTests(unittest.TestCase):
+    def setUp(self):
+        self.proposal = DroneTaskProposal(
+            task_id="t", action_id="navigate-0", robot_name="robot_1",
+            kind=DroneTaskKind.NAVIGATE, frame_id="map", goal_tolerance_m=.1,
+            waypoints=(MapWaypoint(x=1., y=0., z=1.1),),
+        )
+        self.intent = RelativeNavigationBinding(
+            action_id="navigate-0", direction="forward", distance_m=1.,
+        )
+        self.observation = {
+            "connected": True, "armed": True, "airborne": True,
+            "missing_state": [], "stale_state": [], "flight_state_consistent": True,
+            "frame_id": "map", "child_frame_id": "base_link",
+            "position": {"x": 1., "y": 0., "z": 1.1}, "yaw_rad": math.pi / 2,
+            "odometry_source_stamp_ns": 1_000_000_000,
+            "state_receipt_age_s": {"airborne": .1, "vehicle": .1, "odometry": .1},
+        }
+
+    def test_fresh_heading_binding_precedes_satisfaction(self):
+        self.assertEqual(mission._replan_decision(self.proposal, self.observation)
+                         ["decision"], "SKIP_SATISFIED")
+        bound = mission._bind_relative(self.proposal, self.intent, self.observation)
+        self.assertAlmostEqual(bound.waypoints[0].x, 1.)
+        self.assertAlmostEqual(bound.waypoints[0].y, 1.)
+        self.assertEqual(bound.waypoints[0].z, 1.1)
+        self.assertEqual(bound.goal_tolerance_m, .1)
+        self.assertEqual(mission._replan_decision(bound, self.observation)
+                         ["decision"], "CONTINUE")
+        self.assertEqual(self.proposal.waypoints[0].y, 0.)
+
+    def test_missing_stale_invalid_or_unframed_state_has_no_fallback(self):
+        for change in ({"yaw_rad": None}, {"yaw_rad": float("nan")},
+                       {"yaw_rad": True}, {"position": {"x": float("inf"), "y": 0, "z": 1}},
+                       {"missing_state": ["vehicle"]}, {"stale_state": ["odometry"]},
+                       {"frame_id": "odom"}, {"child_frame_id": None},
+                       {"connected": False}, {"armed": False}, {"airborne": False},
+                       {"flight_state_consistent": False}, {"flight_state_consistent": None},
+                       {"odometry_source_stamp_ns": None}, {"missing_state": None},
+                       {"state_receipt_age_s": {"odometry": 3.0}}):
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                mission._bind_relative(self.proposal, self.intent,
+                                       {**self.observation, **change})
+
+    def test_reviewed_binding_rejects_unknown_duplicate_and_loose_action(self):
+        raw = self.intent.model_dump(mode="json")
+        for bindings, proposals in (
+                ([{**raw, "action_id": "unknown"}], (self.proposal,)),
+                ([raw, raw], (self.proposal,)),
+                ([raw], (self.proposal.model_copy(update={"goal_tolerance_m": .5}),))):
+            with self.subTest(bindings=bindings), self.assertRaises(ValueError):
+                mission._relative_bindings(
+                    {"grounding": {"relative_navigation_bindings": bindings}}, proposals)
+
+    def test_first_airborne_relative_action_observes_and_dispatches_bound_goal(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = root / "plan.json"
+            evidence = root / "evidence"
+            plan.write_text(json.dumps({
+                "schema_version": "rrm-airstack-command-plan/v1",
+                "actions": [self.proposal.model_dump(mode="json")],
+                "grounding": {"relative_navigation_bindings": [
+                    self.intent.model_dump(mode="json")]},
+            }))
+            calls = []
+            def dispatch(action, outcome):
+                calls.append(action)
+                outcome.write_text(json.dumps({"verdict": "VERIFIED"}))
+                return 0
+            with patch.object(sys, "argv", ["mission", "--plan-json", str(plan),
+                                            "--evidence-dir", str(evidence), "--execute"]), \
+                    patch.object(mission, "_observe_state", return_value=self.observation), \
+                    patch.object(mission, "_dispatch", side_effect=dispatch):
+                self.assertEqual(mission.main(), 0)
+            self.assertEqual(len(calls), 1)
+            self.assertAlmostEqual(calls[0].waypoints[0].y, 1.)
+            record = json.loads((evidence / "replan-0000-navigate-0.json").read_text())
+            self.assertEqual(record["relative_binding"]["intent"]["distance_m"], 1.)
+            self.assertEqual(record["decision"], "CONTINUE")
 
 
 def proposal(kind: DroneTaskKind, action_id: str) -> DroneTaskProposal:
@@ -55,6 +140,19 @@ def state(*, airborne: bool, armed: bool, position=None) -> dict:
 
 
 class CommandMissionRecoveryTests(unittest.TestCase):
+    def test_landing_can_reconcile_fresh_armed_low_altitude_contradiction(self):
+        land = proposal(DroneTaskKind.LAND, "land-reconcile")
+        fresh = state(airborne=True, armed=True, position={"x": 0, "y": 0, "z": 0.02})
+        fresh["flight_state_consistent"] = False
+        fresh["stale_state"] = ["vdb_map"]
+        self.assertEqual(mission._replan_decision(land, fresh)["decision"], "CONTINUE")
+        explore = proposal(DroneTaskKind.EXPLORE, "ordinary")
+        self.assertEqual(mission._replan_decision(explore, fresh)["decision"], "HALT")
+        for key, value in (("connected", False), ("armed", None), ("airborne", None),
+                           ("stale_state", ["odometry"]), ("missing_state", ["vehicle"])):
+            bad = dict(fresh, **{key: value})
+            self.assertEqual(mission._replan_decision(land, bad)["decision"], "HALT", key)
+
     def test_exploration_without_progress_lands_from_fresh_airborne_state(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -85,6 +85,11 @@ private:
   bool closed_loop_started = false;
   double active_since = 0.0, odometry_at = -INFINITY, tracking_at = -INFINITY;
   double state_timeout_s;
+  double clock_order_wait_s;
+  airstack_msgs::msg::Odometry::SharedPtr pending_tracking;
+  double pending_tracking_received = 0.0;
+  double pending_window_started = 0.0;
+  rclcpp::TimerBase::SharedPtr clock_order_timer;
 
   // variables
   bool got_odometry;
@@ -119,6 +124,10 @@ public:
        !std::isfinite(this->get_parameter("state_timeout_s").as_double()))
       throw std::invalid_argument("state_timeout_s must be finite and positive");
     state_timeout_s = this->get_parameter("state_timeout_s").as_double();
+    clock_order_wait_s = this->declare_parameter<double>("clock_order_wait_s", 0.1);
+    if(!std::isfinite(clock_order_wait_s) || clock_order_wait_s <= 0.0 ||
+       clock_order_wait_s > state_timeout_s)
+      throw std::invalid_argument("clock_order_wait_s must be positive and no greater than state_timeout_s");
     // init params
     target_frame = airstack::get_param(this, "target_frame", std::string("base_link"));
     max_roll_pitch = airstack::get_param(this, "max_roll_pitch", 10.)*M_PI/180.;
@@ -157,19 +166,50 @@ public:
 
     // init variables
     got_odometry = false;
+    clock_order_timer = this->create_wall_timer(std::chrono::milliseconds(5), [this](){
+      if(!pending_tracking) return;
+      const double now = steady_seconds();
+      const auto stamp = rclcpp::Time(pending_tracking->header.stamp,
+                                     this->get_clock()->get_clock_type());
+      if(this->now() < stamp && now-pending_window_started < clock_order_wait_s &&
+         authority.active(now)) return;
+      auto message = pending_tracking;
+      const double received = pending_tracking_received;
+      pending_tracking.reset();
+      process_tracking_point(message, received);
+    });
   }
 
   void tracking_point_callback(const airstack_msgs::msg::Odometry::SharedPtr msg){
+    const double received = steady_seconds();
+    const double lead = (rclcpp::Time(msg->header.stamp,
+                          this->get_clock()->get_clock_type())-this->now()).seconds();
+    // /clock and tracking travel on separate DDS subscriptions in Isaac.
+    // Retain original receipt age and wait for a small positive clock lead;
+    // never admit future evidence, refresh its receipt, or wait indefinitely.
+    if(this->get_parameter("use_sim_time").as_bool() && authority.active(received) &&
+       lead > 0.0 && lead <= clock_order_wait_s){
+      // New samples replace the target, not the bounded wait's deadline.
+      if(!pending_tracking) pending_window_started = received;
+      pending_tracking = msg;
+      pending_tracking_received = received;
+      return;
+    }
+    pending_tracking.reset();
+    process_tracking_point(msg, received);
+  }
+
+  void process_tracking_point(const airstack_msgs::msg::Odometry::SharedPtr msg, double received){
     const double now = steady_seconds();
     const bool active = authority.active(now);
-    tracking_gap_s = now - tracking_at;
+    tracking_gap_s = received - tracking_at;
     history_reset_mask = (!active ? 1u : 0u) | (!active_previous ? 2u : 0u) |
                          (tracking_gap_s > state_timeout_s ? 4u : 0u);
     if(!active || !active_previous || now - tracking_at > state_timeout_s){
       reset_pids();
       active_since = now;
     }
-    tracking_at = now;
+    tracking_at = received;
     active_previous = active;
     const auto pre_ros_now = this->now();
     uint32_t reasons = admission_reasons(now, pre_ros_now, msg->header.stamp);
@@ -221,6 +261,13 @@ public:
 
     tf2::Vector3 tp_pos = tflib::to_tf(tp.pose.position);
     tf2::Vector3 tp_vel = tflib::to_tf(tp.twist.linear);
+    if (!pid_controller::horizontal_reference_valid(tp_vel.x(), tp_vel.y())) {
+      reset_pids();
+      publish_idle();
+      publish_admission(pid_controller::TRACKING_VELOCITY_INVALID, "post_tf",
+                        post_now, post_ros_now, msg->header.stamp);
+      return;
+    }
     tf2::Vector3 odom_pos = tflib::to_tf(odom.pose.pose.position);
     tf2::Vector3 odom_vel = tflib::to_tf(odom.twist.twist.linear);
 
@@ -238,8 +285,10 @@ public:
     double vy = y_pid.get_control(odom_pos.y());
     double vz = z_pid.get_control(odom_pos.z());
 
-    vx_pid.set_target(vx);
-    vy_pid.set_target(vy);
+    vx_pid.set_target(pid_controller::horizontal_velocity_target(
+        vx, tp_vel.x(), x_pid.info.min, x_pid.info.max));
+    vy_pid.set_target(pid_controller::horizontal_velocity_target(
+        vy, tp_vel.y(), y_pid.info.min, y_pid.info.max));
     vz_pid.set_target(vz);
 
     double roll = -vy_pid.get_control(odom_vel.y());

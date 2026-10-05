@@ -28,6 +28,8 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/float32.hpp>
+#include <std_msgs/msg/string.hpp>
+#include <sstream>
 #include <std_srvs/srv/set_bool.hpp>
 #include <trajectory_library/trajectory_library.hpp>
 #include <visualization_msgs/msg/marker.hpp>
@@ -55,6 +57,7 @@ class TrajectoryControlNode : public rclcpp::Node {
     rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr trajectory_time_pub;
     rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr tracking_error_pub;
     rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr velocity_pub;
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr consumption_diagnostic_pub;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr debug_markers_pub;
 
     tf2_ros::TransformBroadcaster* tf_broadcaster;
@@ -136,6 +139,8 @@ TrajectoryControlNode::TrajectoryControlNode() : rclcpp::Node("trajectory_contro
     rewind_skip_max_distance = airstack::get_param(this, "rewind_skip_max_distance", 0.1);
     velocity_sphere_radius_multiplier = airstack::get_param(this, "velocity_sphere_radius_multiplier", -1.0);
     
+    consumption_diagnostic_pub = this->create_publisher<std_msgs::msg::String>(
+        "consumption_diagnostic", rclcpp::QoS(10).best_effort());
     got_odom = false;
 
     trajectory_mode = airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE;
@@ -392,6 +397,7 @@ void TrajectoryControlNode::timer_callback() {
             "reference trajectory. If no trajectory is available yet, this is okay.");
     }
 
+    const double raw_tracking_speed = tflib::to_tf(virtual_tracking_point_odom.twist.linear).length();
     if (trajectory->get_num_waypoints() <= 3) {
         virtual_tracking_point_odom.twist.linear.x = 0;
         virtual_tracking_point_odom.twist.linear.y = 0;
@@ -511,6 +517,19 @@ void TrajectoryControlNode::timer_callback() {
         virtual_tracking_point_odom.twist.linear.z * virtual_tracking_point_odom.twist.linear.z);
     if (time_multiplier >= 1.f) current_velocity = velocity_msg.data;
     velocity_pub->publish(velocity_msg);
+    if (consumption_diagnostic_pub->get_subscription_count() > 0) {
+        std::ostringstream data;
+        data << "{\"event\":\"sample\",\"sim_s\":" << std::fixed << now.seconds()
+             << ",\"mode\":" << trajectory_mode << ",\"virtual_time\":" << virtual_time
+             << ",\"duration\":" << trajectory->get_duration()
+             << ",\"waypoints\":" << trajectory->get_num_waypoints()
+             << ",\"raw_speed\":" << raw_tracking_speed
+             << ",\"command_speed\":" << velocity_msg.data
+             << ",\"low_speed_floor\":" << min_virtual_tracking_velocity << "}";
+        std_msgs::msg::String msg;
+        msg.data = data.str();
+        consumption_diagnostic_pub->publish(msg);
+    }
     tracking_point_pub->publish(virtual_tracking_point_odom);
     look_ahead_pub->publish(look_ahead_point);
     drone_point_pub->publish(drone_point);
@@ -608,8 +627,23 @@ void TrajectoryControlNode::set_trajectory_mode(
 
 void TrajectoryControlNode::traj_seg_to_add_callback(
     const airstack_msgs::msg::TrajectoryXYZVYaw::SharedPtr traj) {
-    if (trajectory_mode == airstack_msgs::srv::TrajectoryMode::Request::ADD_SEGMENT)
-        trajectory->merge(Trajectory(this, *traj), virtual_time);
+    if (trajectory_mode == airstack_msgs::srv::TrajectoryMode::Request::ADD_SEGMENT) {
+        const auto before = trajectory->get_num_waypoints();
+        const bool merged = trajectory->merge(Trajectory(this, *traj), virtual_time);
+        if (consumption_diagnostic_pub->get_subscription_count() > 0) {
+            std::ostringstream data;
+            data << "{\"event\":\"merge\",\"sim_s\":" << std::fixed << this->now().seconds()
+                 << ",\"merged\":" << (merged ? "true" : "false")
+                 << ",\"input_waypoints\":" << traj->waypoints.size()
+                 << ",\"before\":" << before
+                 << ",\"after\":" << trajectory->get_num_waypoints()
+                 << ",\"virtual_time\":" << virtual_time
+                 << ",\"duration\":" << trajectory->get_duration() << "}";
+            std_msgs::msg::String msg;
+            msg.data = data.str();
+            consumption_diagnostic_pub->publish(msg);
+        }
+    }
 }
 
 void TrajectoryControlNode::traj_override_callback(

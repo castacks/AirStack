@@ -41,6 +41,14 @@ install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY shaders DESTINATION share/${PROJECT_NAME})
 
 if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_segment_frames test/test_segment_frames.cpp src/gl_interface.cpp src/global_plan.cpp src/glad/src/glad.c)
+  target_include_directories(test_segment_frames PRIVATE include)
+  ament_target_dependencies(test_segment_frames
+    rclcpp sensor_msgs stereo_msgs nav_msgs visualization_msgs tf2 tf2_ros
+    tf2_geometry_msgs cv_bridge ament_index_cpp pcl_conversions
+    airstack_common airstack_msgs trajectory_library)
+  target_link_libraries(test_segment_frames glfw dl assimp EGL GL)
   find_package(ament_lint_auto REQUIRED)
 
   # the following line skips the linter which checks for copyrights

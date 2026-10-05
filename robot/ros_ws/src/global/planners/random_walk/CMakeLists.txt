@@ -57,9 +57,11 @@ install(DIRECTORY
 ## Testing ##
 #############
 
-# ament_add_gtest(${PROJECT_NAME}-test test/test_random_walk_planner.cpp)
-# if(TARGET ${PROJECT_NAME}-test)
-#   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME}_node)
-# endif()
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_altitude_bounds test/test_altitude_bounds.cpp src/random_walk_logic.cpp)
+  ament_target_dependencies(test_altitude_bounds rclcpp)
+  ament_add_gtest(test_exploration_budget test/test_exploration_budget.cpp)
+endif()
 
 ament_package()

@@ -25,6 +25,7 @@
 
 #include <atomic>
 #include <cmath>
+#include <future>
 #include <mutex>
 #include <utility>
 #include <vector>
@@ -68,7 +69,7 @@ class RandomWalkNode : public rclcpp::Node {
 
     // ROS action client (NavigateTask → local planner)
     rclcpp_action::Client<NavigateTask>::SharedPtr navigate_client_;
-    rclcpp_action::ClientGoalHandle<NavigateTask>::SharedPtr navigate_goal_handle_;
+    std::shared_future<rclcpp_action::ClientGoalHandle<NavigateTask>::SharedPtr> navigate_response_;
     std::atomic<bool> navigate_goal_done_{true};
     std::atomic<bool> navigate_goal_succeeded_{false};
 
@@ -101,13 +102,13 @@ class RandomWalkNode : public rclcpp::Node {
     // Active task state
     std::atomic<bool> task_active_{false};
     std::atomic<bool> cancel_requested_{false};
-    rclcpp::Time task_start_time_;
     float task_time_limit_sec_ = 0.0f;
 
     // Latest requested search bounds (XY polygon in robot-local map). Stored
     // here so we can apply them either when execute() begins or, if the
     // planner doesn't exist yet, the moment it's constructed in mapCallback.
     std::vector<std::pair<float, float>> pending_bounds_;
+    std::optional<std::pair<float, float>> pending_altitude_bounds_;
     std::mutex pending_bounds_mutex_;
 
     // Subscriber callbacks
@@ -122,8 +123,9 @@ class RandomWalkNode : public rclcpp::Node {
     void execute(std::shared_ptr<GoalHandle> goal_handle);
 
     // Planning helpers
-    void generate_plan();
-    bool send_navigate_goal();
+    void generate_plan(float timeout_s = 5.0f);
+    bool send_navigate_goal(std::shared_ptr<class ExplorationBudget> budget);
+    bool settle_navigation();
 
     std::optional<init_params> readParameters();
 };

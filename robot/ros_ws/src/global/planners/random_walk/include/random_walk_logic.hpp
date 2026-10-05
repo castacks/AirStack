@@ -21,6 +21,7 @@
 #pragma once
 
 #include <chrono>
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <limits>
@@ -28,6 +29,7 @@
 #include <optional>
 #include <random>
 #include <string>
+#include <stdexcept>
 #include <tuple>
 #include <vector>
 
@@ -59,6 +61,8 @@ class RandomWalkPlanner {
     // voxel_points and odometry (the robot's local "map", rooted at takeoff).
     void set_search_bounds(const std::vector<std::pair<float, float>>& xy_polygon);
     void clear_search_bounds();
+    // Supported simulator convention: map z=0 is ground (not terrain-following).
+    void set_altitude_bounds(float minimum_m, float maximum_m);
     bool has_search_bounds() const;
     bool is_inside_search_bounds(float x, float y) const;
     // Returns the closest point on the polygon boundary, then nudged a small
@@ -74,6 +78,8 @@ class RandomWalkPlanner {
    private:
     bool point_in_search_bounds(float x, float y) const;
     std::vector<std::pair<float, float>> search_bounds_xy_;
+    float min_altitude_m_ = 0.5f;
+    float max_altitude_m_ = std::numeric_limits<float>::infinity();
 
     // Numerical constants
     float max_start_to_goal_dist_m_;
@@ -94,7 +100,7 @@ class RandomWalkPlanner {
     bool check_if_collided(const std::tuple<float, float, float>& point);
 
     std::tuple<float, float, float> generate_goal_point(
-        std::tuple<float, float, float, float> start_point);
+        std::tuple<float, float, float, float> start_point, double timeout_s = 1.0);
 };
 
 double get_point_distance(const std::tuple<float, float, float>& point1,

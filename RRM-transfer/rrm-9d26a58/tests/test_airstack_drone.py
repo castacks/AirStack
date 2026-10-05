@@ -128,7 +128,7 @@ class DroneProposalTests(unittest.TestCase):
         horizontal_mismatch = verify_drone_outcome(
             takeoff, action_success=True, action_message="takeoff complete",
             pre_odometry=pre,
-            post_odometry=post.model_copy(update={"x": 0.31}),
+            post_odometry=post.model_copy(update={"x": 0.51}),
             post_vehicle_state=VehicleStateEvidence(
                 received_monotonic_s=11.1, connected=True, armed=True),
             dispatch_monotonic_s=10.1, now_monotonic_s=11.2,
@@ -136,8 +136,20 @@ class DroneProposalTests(unittest.TestCase):
         self.assertEqual(horizontal_mismatch.verdict, DroneOutcomeVerdict.MISMATCH)
         self.assertIn("takeoff_horizontal_displacement_mismatch", horizontal_mismatch.reasons)
         self.assertIn("LATERAL_INSTABILITY_OBSERVED", horizontal_mismatch.diagnostics)
-        self.assertAlmostEqual(horizontal_mismatch.metrics["horizontal_displacement_m"], 0.31)
+        self.assertAlmostEqual(horizontal_mismatch.metrics["horizontal_displacement_m"], 0.51)
         self.assertAlmostEqual(horizontal_mismatch.metrics["takeoff_altitude_error_m"], 0.2)
+
+        for drift in (0.35, 0.49):
+            with self.subTest(drift=drift):
+                within_allowance = verify_drone_outcome(
+                    takeoff, action_success=True, action_message="takeoff complete",
+                    pre_odometry=pre,
+                    post_odometry=post.model_copy(update={"x": drift}),
+                    post_vehicle_state=VehicleStateEvidence(
+                        received_monotonic_s=11.1, connected=True, armed=True),
+                    dispatch_monotonic_s=10.1, now_monotonic_s=11.2,
+                )
+                self.assertEqual(within_allowance.verdict, DroneOutcomeVerdict.VERIFIED)
 
     def test_landing_outcome_fails_closed_without_fresh_disarmed_evidence(self):
         land = proposal(DroneTaskKind.LAND, velocity_m_s=1.0)
@@ -199,6 +211,26 @@ class DroneProposalTests(unittest.TestCase):
                 dispatch_monotonic_s=10.1, now_monotonic_s=11.1,
             )
             self.assertEqual(result.verdict, expected)
+
+    def test_explicit_short_exploration_progress_boundaries(self):
+        pre = OdometryEvidence(received_monotonic_s=10, source_stamp_ns=100,
+                               frame_id="map", child_frame_id="base_link", x=0, y=0, z=1.5)
+        post = pre.model_copy(update={"received_monotonic_s": 40, "source_stamp_ns": 400})
+        for duration, required in ((1., .1), (4., .4), (5., .5), (30., .5)):
+            explore = proposal(
+                DroneTaskKind.EXPLORE, min_altitude_agl_m=1., max_altitude_agl_m=3.,
+                min_flight_speed_m_s=.5, max_flight_speed_m_s=2., time_limit_s=duration)
+            for radius, expected in ((0., DroneOutcomeVerdict.MISMATCH),
+                                     (required - .001, DroneOutcomeVerdict.MISMATCH),
+                                     (required, DroneOutcomeVerdict.VERIFIED)):
+                with self.subTest(duration=duration, radius=radius):
+                    result = verify_drone_outcome(
+                        explore, action_success=True, action_message="Time limit reached",
+                        pre_odometry=pre, post_odometry=post, post_vehicle_state=None,
+                        dispatch_monotonic_s=10.1, now_monotonic_s=40.1,
+                        exploration_max_radius_m=radius)
+                    self.assertEqual(result.verdict, expected)
+                    self.assertEqual(result.metrics["exploration_required_radius_m"], required)
 
     def test_exploration_requires_independently_observed_motion(self):
         explore = proposal(

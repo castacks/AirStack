@@ -24,6 +24,109 @@ For the current work sequence and claim boundaries, read
 
 ## Current work reading order
 
+Local GUI debugging update (2026-10-04, uncommitted): the pinned Isaac image is
+running NumPy 1.26.4 in Office. Relative movement now accepts `fly forward for
+1m`; unsupported/missing distances clarify rather than silently dropping motion.
+Live GUI recording confirmed 30 ms tracking/clock delivery reordering repeatedly
+reset PID history. A simulation-only bounded delivery wait (`clock_order_wait_s`,
+default 0.1 s) retains original receipt age and a fixed deadline across target
+replacements; it does not admit future timestamps. A live GUI trial eliminated
+future-stamp rejection and lifted to 0.814 m, but did not verify the 1 m target.
+Recovery LAND verified disarm. The deployed fix preserves the completed takeoff
+trajectory endpoint instead of replacing it with continuously following robot
+pose, with 0.15 m task completion tolerance. Equal delivered simulation-clock
+timestamps also preserve PID integral rather than treating equality as rollback;
+backward time still resets history. Full action-server snapshots use their bounded
+DDS discovery window instead of returning on the first sensor sample. The exact
+compound GUI trial `179cb0b914164e76acb25f89bc88a456` still failed takeoff with
+0.579 m lateral displacement after 9.76 s; no NAVIGATE was dispatched. Recovery
+LAND verified disarm. The recording shows a sudden estimated heading change
+while commanded heading stayed fixed; its cause remains under investigation.
+After a fresh Office reload, GUI takeoff/LAND `ec2b42785e364ff4bf0dc745a406e6dc`
+VERIFIED, followed by exact compound
+`e2489a5adb694becb3f06468f230f0e2`: TAKEOFF VERIFIED at 0.971 m with 0.063 m
+lateral drift; NAVIGATE VERIFIED with 0.279 m endpoint error (configured 0.5 m
+tolerance); LAND VERIFIED disarmed. No recovery was needed and dispatch was
+serial. This is a successful narrow GUI regression, not long-duration reliability
+or a causal repair of the prior heading issue. Opt-in `ISAAC_SIM_STATE_LOG` records
+physical/USD/sensor attitudes at 10 Hz, capped at 10,000 records per vehicle.
+The observed roughly 2.4 degree sensor offset remains under investigation; no
+speculative physics or gain changes were applied.
+
+GUI complexity continuation (2026-10-04, uncommitted): explicit numeric exploration
+supports 1–900 seconds without changing the five-second vague-request floor.
+Timed exploration requires observed radius `min(0.5 m, 0.1 m/s * seconds)` in both
+task and verifier, and waits for nested navigation's terminal result before handoff.
+The random-walk planner now honors requested altitude bounds across all segments
+under the supported map-zero-ground convention. GUI replay
+`a835ab8fa11d40c391b1c500e28d678c` confirms the route stays at or below 3 m and
+nested navigation terminates before the outer exploration result. However actual
+four-second exploration still moved only 0.025 m: mission RECOVERED_HALT, recovery
+LAND VERIFIED disarmed. The complexity ladder remains stopped at this genuine
+local-planner/tracking stall. Explicit speed bounds are not yet wired into local
+planning. This is not a qualified takeoff/explore/LAND demo; retained request
+artifacts contain the plan, outcomes and recovery evidence.
+
+Local-planner continuation (2026-10-04, uncommitted): failed GPU/TF evaluation
+now clears cached samples and cannot publish stale/unset-transform output.
+Collision-shader readback is already MAP; it is scored and published directly
+with a MAP header. Active navigation may select a consecutive checked-free
+prefix, retaining the existing collision/unknown classification, route/start
+altitude corridor, a 0.5 m checked-path setback, and terminal zero requested speed.
+Seven focused tests pass, including actual Mesa compute-shader readback. Exact
+GUI replay `2da7fcb1a402424e92c357b37ecf6eac` improved four-second exploration
+radius to 0.327 m, still below the unchanged 0.4 m requirement. Recovery LAND
+VERIFIED disarmed; normal requested LAND was not dispatched. Longer usable
+segments arrive while tracking remains on the initial short path: controller
+segment consumption/lookahead handoff is the next investigation, not a proven
+causal diagnosis. The ladder remains stopped; do not call this demo qualified.
+Full package tests also expose unresolved lint failures; focused gtests passing
+does not mean the package suite is green.
+
+Latest GUI continuation (2026-10-04, uncommitted): the fresh commanded MAP
+anchor is now included in the start-transition altitude corridor, fixing a
+micrometre-scale exclusion of the held 1m target. PID now combines transformed
+horizontal reference velocity with bounded position correction; vertical control
+and gains remain unchanged. Exact GUI request
+`337a1838b4a14c1cb5e620c60c271124` VERIFIED TAKEOFF → four-second EXPLORE →
+ordinary LAND, no recovery: radius0.754m exceeds unchanged0.4m floor, disarm
+verified. Reviewer confirmed serial handoff, MAP segments, altitude bounds and
+zero-speed endpoints. Eight DROAN and thirteen PID focused gtests pass; full
+lint suites remain unresolved. This qualifies one exact Office replay, not
+arbitrary exploration or the untested move+explore/two-leg complexity cases.
+
+Next GUI rung (2026-10-04, uncommitted): movement distance `for 1m` no longer
+counts as a second exploration timer. 31command/drone and71console/mission/history
+tests pass. GUI `e4214c18dfa34fc2a61f4f9ecca1b2f6` VERIFIED serial TAKEOFF →
+NAVIGATE → EXPLORE4s → ordinary LAND/disarm, no recovery; exploration radius2.46m.
+Qualification gap: forward target still uses staged pose/heading rather than fresh
+post-takeoff heading. Actual navigation travel0.541m passed existing0.5m endpoint
+tolerance (error0.459m). Do not claim faithful full1m body-forward translation.
+Reviewed relative navigation now retains each direction/distance in the immutable
+GUI plan. Map coordinates shown during staging are preview estimates: each leg is
+bound to its own fresh map pose and body heading immediately before dispatch,
+before already-satisfied checks. The binding and canonical receipt freshness are
+recorded in replan evidence. Relative goal tolerance is the minimum of the normal
+map-waypoint tolerance, 0.15m, and 10% of requested distance (0.1m for a 1m leg).
+Consecutive measured legs are separate NAV actions; unsupported interleaved action
+orders are rejected instead of silently reordered. Absolute map goals keep their
+existing tolerance. Receipt freshness is checked; positive source timestamps are
+recorded but not independently compared against simulator source age here.
+
+Exact Office replay `10ff5ad5dc5e4ead944437f97050505d` verified fresh forward1m
+with0.920m observed travel and0.094m endpoint error. Exploration then failed:
+preparation consumed almost the whole four-second horizon before navigation could
+move. Recovery LAND/disarm verified. The planner separates a bounded ten-second
+wall-time preparation phase from active simulator-time exploration beginning at
+the first accepted navigation; the active timer never resets during replanning.
+The follow-up replay `4986ad279567421a86edf4edaaeaf9d7` stopped before exploration:
+navigation lost altitude and failed to reach its bound goal. GUI STOP independently
+verified motion stopped; explicit GUI LAND `7518dd83f98749598fb53f6415421805`
+verified disarm. The active-horizon planner change builds and its focused tests
+pass, but was not exercised in this failed replay. Longer/two-leg qualification
+remains pending navigation-failure diagnosis. No collision or progress thresholds
+were relaxed.
+
 Current checkpoint (2026-10-04): the single instrumented Office diagnostic after
 actuation/authority repair failed. OFFBOARD and lift were observed, but takeoff
 breached the 0.3m lateral limit before reaching 1m. Hold/LAND were accepted;
@@ -138,7 +241,9 @@ runs it after browser confirmation. Supported scene-independent command forms ar
 - one or more robot-local map points, such as `fly to x=2 y=-1 z=1.5` or
   `fly through (1,2,1.5), (4,-2,2)`;
 - current-heading-relative movement such as `move forward 2 meters`, `move left 1m`,
-  or `move up 1m`;
+  or `move up 1m`; measured `climb 0.5m` / `descend 0.5m` (also `by` / `for`)
+  use the same relative up/down validation. Missing distances, duration-only wording,
+  and ambiguous absolute wording such as `climb to 1.5m` request clarification;
 - `come back`, `go back`, or `return home/to the start`, which inserts navigation to
   the fresh command-start map pose before any requested landing.
 
@@ -220,6 +325,16 @@ post-abort state, not permission to skip takeoff and begin navigation. RRM block
 new motion except an explicit landing/reconciliation command until the state is
 cleared. This threshold matches the command adapter's existing recovery boundary and
 assumes the supported AirStack configuration's map-zero ground convention.
+
+Explicit LAND-only recovery commands (`land`, `land safely`, `land now`, or
+`touch down`) do not require VDB map freshness. Mixed commands retain normal map
+admission. LAND still requires fresh canonical airborne/vehicle/odometry evidence,
+connection, map/base-link frames, compatible simulator runtime and clock epoch,
+and the public landing action server. Admission errors report the sampled missing,
+stale, invalid fields and receipt ages; save a new attempt after correcting them.
+Between actions, LAND may reconcile an armed vehicle's contradictory airborne/altitude
+report, but missing/stale critical evidence remains blocking. This is permission to
+attempt landing, not evidence that landing or physical stopping succeeded.
 
 ### Command-mission history and evidence
 

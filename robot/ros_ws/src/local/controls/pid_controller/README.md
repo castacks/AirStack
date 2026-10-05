@@ -5,6 +5,13 @@ odometry and emits roll/pitch/yaw-rate/thrust commands. Runs onboard; dependenci
 rclcpp, std_msgs, nav_msgs, airstack_msgs/common, mav_msgs, pid_controller_msgs,
 TF2. Gains live in `config/pid_controller.yaml`.
 
+Horizontal velocity targets combine the tracking point's frame-transformed
+velocity reference with position-PID correction, clamped to existing `x_min/max`
+and `y_min/max` limits. Zero reference preserves position hold; the vertical
+cascade remains position-only. This reference is independent of the configurable
+PID `ff` term; no gains changed. Nonfinite horizontal references reset history and
+use the existing idle/admission path rather than reaching the velocity PID.
+
 ```mermaid
 flowchart LR
   TP[Tracking point] --> POS[Position PIDs]
@@ -73,6 +80,7 @@ This is observational, not a safety input, watchdog or guaranteed recorder deliv
 |256 /512|TRACKING_FUTURE /TRACKING_STALE|
 |1024 /2048|ODOM_FUTURE /ODOM_STALE|
 |4096 /8192|TRACKING_TF_FAILED /ODOM_TF_FAILED|
+|16384|TRACKING_VELOCITY_INVALID|
 
 One coherent ROS/steady snapshot per decision phase records `ros_now_ns`, both
 source header stamps and steady receipt ages (armed/control/odometry/tracking).
@@ -85,9 +93,11 @@ tracking receipt age starts at0 and is mainly useful after a blocking TF lookup.
 2prior inactive,4tracking gap. It is not a counter of all resets; TF/post-TF resets
 are represented by phase/reason bits. No callback means no diagnostic heartbeat.
 
-The diagnostics and armed-aware interface authority fix are source-only candidates
-in the current workflow; neither is deployed to its live robot yet. Grounded
-deployment must verify these binaries explicitly before expecting live diagnostics.
+The current uncommitted simulator workflow deployed these diagnostics and authority
+checks while grounded/disarmed. Office GUI replay on2026-10-04 verified takeoff,
+four-second exploration and ordinary landing/disarm after horizontal-reference
+integration. This is one bounded simulator regression, not physical-flight or
+long-duration qualification; full package lint failures remain unresolved.
 
 ## Tests/deployment
 

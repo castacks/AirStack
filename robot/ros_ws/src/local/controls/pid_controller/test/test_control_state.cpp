@@ -9,6 +9,29 @@ struct Info {
   double p_component=0., i_component=0., d_component=0., ff_component=0., control=0.;
 };
 
+TEST(ControlState, HorizontalReferenceAddsVelocityWithoutChangingHoldOrBounds) {
+  using pid_controller::horizontal_velocity_target;
+  EXPECT_DOUBLE_EQ(horizontal_velocity_target(.1, .2, -3., 3.), .1 + .2);
+  EXPECT_DOUBLE_EQ(horizontal_velocity_target(-.1, -.2, -3., 3.), -.1 - .2);
+  EXPECT_DOUBLE_EQ(horizontal_velocity_target(.1, 0., -3., 3.), .1);
+  EXPECT_DOUBLE_EQ(horizontal_velocity_target(-.1, 0., -3., 3.), -.1);
+  EXPECT_DOUBLE_EQ(horizontal_velocity_target(.2, 5., -3., 3.), 3.);
+  EXPECT_DOUBLE_EQ(horizontal_velocity_target(-.2, -5., -3., 3.), -3.);
+  EXPECT_DOUBLE_EQ(horizontal_velocity_target(-.2, .1, -3., 3.), -.1);
+  EXPECT_DOUBLE_EQ(horizontal_velocity_target(.1, NAN, -3., 3.), .1);
+  EXPECT_DOUBLE_EQ(horizontal_velocity_target(.1, INFINITY, -3., 3.), .1);
+}
+
+TEST(Admission, HorizontalReferenceRequiresBothFiniteComponents) {
+  using pid_controller::horizontal_reference_valid;
+  EXPECT_TRUE(horizontal_reference_valid(.2, -.3));
+  EXPECT_TRUE(horizontal_reference_valid(0., 0.));
+  EXPECT_FALSE(horizontal_reference_valid(NAN, .2));
+  EXPECT_FALSE(horizontal_reference_valid(.2, NAN));
+  EXPECT_FALSE(horizontal_reference_valid(INFINITY, 0.));
+  EXPECT_FALSE(horizontal_reference_valid(0., -INFINITY));
+}
+
 TEST(ControlState, ConstantHeadroomPreventsWindup) {
   Info s; s.target=1.;
   for(int n=0; n<1000; ++n) pid_controller::step(s,.1);
@@ -51,7 +74,7 @@ TEST(ControlState, AuthorityRequiresBothFreshInputs) {
   a.armed(false,2.1); EXPECT_FALSE(a.active(2.1));
   a.armed(true,2.2); a.control(false,2.2); EXPECT_FALSE(a.active(2.2));
 }
-TEST(ControlState, ClockRollbackAndDuplicateClearHistory) {
+TEST(ControlState, ClockRollbackClearsButDuplicatePreservesIntegral) {
   Info s; pid_controller::SampleClock clock;
   EXPECT_DOUBLE_EQ(clock.next(1000000000,s),0.);
   EXPECT_DOUBLE_EQ(clock.next(1100000000,s),.1);
@@ -59,7 +82,12 @@ TEST(ControlState, ClockRollbackAndDuplicateClearHistory) {
   EXPECT_DOUBLE_EQ(clock.next(900000000,s),0.);
   EXPECT_DOUBLE_EQ(s.integral,0.); EXPECT_DOUBLE_EQ(s.derivative,0.);
   s.integral=5.;
-  EXPECT_DOUBLE_EQ(clock.next(900000000,s),0.); EXPECT_DOUBLE_EQ(s.integral,0.);
+  const double dt = clock.next(900000000,s);
+  EXPECT_DOUBLE_EQ(dt,0.); EXPECT_DOUBLE_EQ(s.integral,5.);
+  s.target=.1;
+  pid_controller::step(s,dt);
+  EXPECT_DOUBLE_EQ(s.integral,5.); EXPECT_DOUBLE_EQ(s.i_component,.5);
+  EXPECT_DOUBLE_EQ(s.d_component,0.);
   clock.reset(); EXPECT_DOUBLE_EQ(clock.next(2000000000,s),0.);
 }
 TEST(ControlState, EqualityAcceptsIntegralAndSaturatedBaseCanUnwind) {

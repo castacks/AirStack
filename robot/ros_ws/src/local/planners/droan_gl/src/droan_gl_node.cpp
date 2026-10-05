@@ -11,8 +11,10 @@
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <nav_msgs/msg/odometry.hpp>
+#include <optional>
 #include <std_msgs/msg/bool.hpp>
 #include <std_msgs/msg/empty.hpp>
+#include <std_msgs/msg/string.hpp>
 #include <airstack_common/vislib.hpp>
 #include <cv_bridge/cv_bridge.hpp>
 #include <opencv2/opencv.hpp>
@@ -46,8 +48,12 @@
 
 #include <vector>
 #include <mutex>
+#include <chrono>
+#include <sstream>
+#include <iomanip>
 
 #include <droan_gl/gl_interface.hpp>
+#include <droan_gl/checked_prefix.hpp>
 #include <droan_gl/global_plan.hpp>
 #include <droan_gl/rewind_monitor.hpp>
 
@@ -72,6 +78,7 @@ private:
   rclcpp::Publisher<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr traj_pub;
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr stuck_pub;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr rewind_info_pub;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr selection_diagnostic_pub_;
 
   rclcpp::TimerBase::SharedPtr timer;
 
@@ -88,10 +95,14 @@ private:
   std::mutex robot_odometry_mutex_;
   nav_msgs::msg::Odometry robot_odometry_;
   bool robot_odometry_valid_ = false;
+  std::optional<std::pair<double, double>> navigation_altitude_bounds_;
+  SingletonGoalStop singleton_goal_stop_;
+  std::mutex global_plan_mutex_;
 
   std::string target_frame, look_ahead_frame, rewind_info_frame;
   bool look_ahead_valid;
   airstack_msgs::msg::Odometry look_ahead;
+  std::chrono::steady_clock::time_point look_ahead_received_;
   std::vector<TrajectoryPoint> trajectory_points;
   vis::MarkerArray traj_markers;
   bool visualize;
@@ -144,6 +155,7 @@ public:
     traj_pub = create_publisher<airstack_msgs::msg::TrajectoryXYZVYaw>("trajectory_segment_to_add", 1);
     stuck_pub = create_publisher<std_msgs::msg::Bool>("stuck", 1);
     rewind_info_pub = create_publisher<visualization_msgs::msg::MarkerArray>("rewind_info", 1);
+    selection_diagnostic_pub_ = create_publisher<std_msgs::msg::String>("selection_diagnostic", 1);
 
     target_frame = airstack::get_param(this, "target_frame", std::string("map"));
     look_ahead_frame = airstack::get_param(this, "look_ahead_frame", std::string("look_ahead_point_stabilized"));
@@ -210,6 +222,7 @@ private:
    */
   void timer_callback()
   {
+    const auto cycle_started = std::chrono::steady_clock::now();
     if (!look_ahead_valid)
       return;
 
@@ -218,11 +231,12 @@ private:
     stuck_pub->publish(stuck_msg);
     rewind_monitor->publish_vis(rewind_info_pub, rewind_info_frame);
 
-    tf2::Transform look_ahead_to_target_tf;
-    gl_interface->evaluate_trajectories(look_ahead, trajectory_points, look_ahead_to_target_tf);
+    if (!gl_interface->evaluate_trajectories(look_ahead, trajectory_points))
+      return;
     if (trajectory_points.empty())
       return;
 
+    std::lock_guard<std::mutex> plan_lock(global_plan_mutex_);
     global_plan->trim(look_ahead);
 
     traj_markers.overwrite();
@@ -254,7 +268,35 @@ private:
     unseen_traj_markers.set_namespace("unseen_trajectories");
 
     int best_traj_index = -1;
+    std::vector<TrajectoryPoint> best_points;
+    std::optional<std::pair<double, double>> altitude_bounds;
+    std::optional<tf2::Vector3> singleton_goal;
+    bool allow_goal_height_stop = false;
+    {
+      std::lock_guard<std::mutex> lock(robot_odometry_mutex_);
+      if (task_active_) {
+        altitude_bounds = navigation_altitude_bounds_;
+        singleton_goal = singleton_goal_stop_.goal();
+        allow_goal_height_stop = singleton_goal_stop_.height_stop();
+      }
+    }
+    if (task_active_ && !altitude_bounds) return;  // Goal initialization not complete.
+    int safe_prefix_points = 0;
+    int longest_prefix_points = 0;
+    double longest_prefix_distance = 0.;
     float best_traj_cost = std::numeric_limits<float>::infinity();
+    const bool record_selection = task_active_ && selection_diagnostic_pub_->get_subscription_count() > 0;
+    std::ostringstream diagnostic;
+    diagnostic << std::setprecision(9);
+    if (record_selection) {
+      diagnostic << "{\"schema_version\":\"droan-selection/v1\",\"source_stamp_ns\":"
+                 << rclcpp::Time(look_ahead.header.stamp).nanoseconds()
+                 << ",\"frame_id\":\"" << target_frame << "\",\"origin\":["
+                 << look_ahead.pose.position.x << ',' << look_ahead.pose.position.y << ','
+                 << look_ahead.pose.position.z << "],\"altitude_bounds\":["
+                 << altitude_bounds->first << ',' << altitude_bounds->second
+                 << "],\"candidates\":[";
+    }
     bool is_traj_safe = true;
     int SEEN = 0;
     int UNSEEN = 1;
@@ -274,27 +316,37 @@ private:
       int unseen = state.get_unseen();
       int collision = state.get_collision();
 
-      traj_points[point_index] = tf2::Vector3(state.x(), state.y(), state.z());
+      const tf2::Vector3 target_point = state.position();
+      traj_points[point_index] = target_point;
 
       if (collision > 0 && collision > seen)
       {
         is_traj_safe = false;
-        collision_markers.add_point(state.x(), state.y(), state.z());
+        collision_markers.add_point(target_point.x(), target_point.y(), target_point.z());
         traj_status = COLLISION;
       }
       else if (seen > 1)
-        free_markers.add_point(state.x(), state.y(), state.z());
+        free_markers.add_point(target_point.x(), target_point.y(), target_point.z());
       else
       {
         is_traj_safe = false;
-        unseen_markers.add_point(state.x(), state.y(), state.z());
+        unseen_markers.add_point(target_point.x(), target_point.y(), target_point.z());
         if (traj_status == SEEN)
           traj_status = UNSEEN;
       }
+      if (is_traj_safe) ++safe_prefix_points;
 
       // if last waypoint in trajectory
       if (point_index == (gl_interface->get_traj_size() - 1))
       {
+        if (safe_prefix_points > 1) {
+          const double distance = traj_points[0].distance(traj_points[safe_prefix_points - 1]);
+          if (distance > longest_prefix_distance) {
+            longest_prefix_distance = distance;
+            longest_prefix_points = safe_prefix_points;
+          }
+        }
+        safe_prefix_points = 0;
         vis::Marker *tm = &free_traj_markers;
         if (traj_status == UNSEEN)
           tm = &unseen_traj_markers;
@@ -312,13 +364,62 @@ private:
         int traj_status_log = traj_status;
 
         traj_status = SEEN;
-        if (!is_traj_safe)
-        {
-          is_traj_safe = true;
-          continue;
+        std::vector<TrajectoryPoint> candidate;
+        size_t before_goal_crop_count = 0;
+        if (altitude_bounds) {
+          candidate = checked_prefix(trajectory_points,
+              traj_index * gl_interface->get_traj_size(), gl_interface->get_traj_size(),
+              altitude_bounds->first, altitude_bounds->second, 0.5,
+              singleton_goal ? &*singleton_goal : nullptr, &before_goal_crop_count,
+              allow_goal_height_stop);
+        } else if (is_traj_safe) {
+          const auto start = trajectory_points.begin() + traj_index * gl_interface->get_traj_size();
+          candidate.assign(start, start + gl_interface->get_traj_size());
         }
+        is_traj_safe = true;
+        if (record_selection && traj_index < 256) {
+          if (traj_index) diagnostic << ',';
+          const size_t offset = traj_index * gl_interface->get_traj_size();
+          const size_t count = gl_interface->get_traj_size();
+          size_t first = 0;
+          const char* reason = nullptr;
+          for (; first < count; ++first) {
+            reason = checked_point_rejection(trajectory_points[offset + first],
+                altitude_bounds->first, altitude_bounds->second);
+            if (reason) break;
+          }
+          const auto& end = trajectory_points[offset + count - 1];
+          const auto number = [&diagnostic](double value) {
+            if (std::isfinite(value)) diagnostic << value; else diagnostic << "null";
+          };
+          diagnostic << "{\"index\":" << traj_index << ",\"full_endpoint\":[";
+          number(end.v1.x); diagnostic << ','; number(end.v1.y); diagnostic << ','; number(end.v1.z);
+          diagnostic << "],\"checked_count\":" << first << ",\"first_rejection\":\""
+                     << (reason ? reason : "none") << "\",\"before_goal_crop_count\":"
+                     << before_goal_crop_count << ",\"published_count\":" << candidate.size();
+          if (first < count) {
+            const auto& rejected = trajectory_points[offset + first];
+            diagnostic << ",\"rejected_point\":[";
+            number(rejected.v1.x); diagnostic << ','; number(rejected.v1.y); diagnostic << ','; number(rejected.v1.z);
+            diagnostic << "],\"rejected_counts\":[";
+            number(rejected.v2.x); diagnostic << ','; number(rejected.v2.y); diagnostic << ','; number(rejected.v2.z);
+            diagnostic << ']';
+          }
+          if (candidate.size() >= 2) {
+            const auto end_point = candidate.back().position();
+            const auto [deviation, progress] = global_plan->get_distance(end_point.x(), end_point.y(), end_point.z());
+            diagnostic << ",\"endpoint\":[" << end_point.x() << ',' << end_point.y() << ',' << end_point.z()
+                       << "],\"deviation\":"; number(deviation);
+            diagnostic << ",\"path_distance\":"; number(progress);
+            diagnostic << ",\"cost\":"; number(deviation - progress);
+          }
+          diagnostic << '}';
+        }
+        if (candidate.size() < 2) continue;
 
-        auto [deviation, path_distance] = global_plan->get_distance(state.x(), state.y(), state.z());
+        const auto endpoint = candidate.back().position();
+        auto [deviation, path_distance] = global_plan->get_distance(
+            endpoint.x(), endpoint.y(), endpoint.z());
         // RCLCPP_INFO_STREAM(get_logger(), i << " " << traj_status_log << " " << deviation << " " <<  path_distance);
         if (deviation >= 0 && path_distance >= 0)
         {
@@ -328,29 +429,43 @@ private:
           {
             best_traj_cost = cost;
             best_traj_index = traj_index;
+            best_points = std::move(candidate);
           }
         }
       }
     }
 
     traj_debug_pub_->publish(traj_markers.get_marker_array());
+    if (record_selection) {
+      diagnostic << "],\"selected_index\":" << best_traj_index
+                 << ",\"candidate_limit\":256,\"total_candidates\":"
+                 << trajectory_points.size() / gl_interface->get_traj_size()
+                 << ",\"cycle_elapsed_ms\":"
+                 << std::chrono::duration<double, std::milli>(
+                      std::chrono::steady_clock::now() - cycle_started).count() << '}';
+      std_msgs::msg::String message;
+      message.data = diagnostic.str();
+      selection_diagnostic_pub_->publish(message);
+    }
     global_plan->publish_vis(global_plan_vis_pub);
 
     if (best_traj_index < 0)
     {
+      RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 2000,
+          "No full safe trajectory: longest checked-safe prefix %.3f m (%d samples)",
+          longest_prefix_distance, longest_prefix_points);
       rewind_monitor->found_trajectory(false);
       return;
     }
     rewind_monitor->found_trajectory(true);
 
     airstack_msgs::msg::TrajectoryXYZVYaw traj;
-    for (int i = 0; i < gl_interface->get_traj_size(); i++)
+    for (size_t i = 0; i < best_points.size(); i++)
     {
       airstack_msgs::msg::WaypointXYZVYaw wp;
 
-      TrajectoryPoint &state = trajectory_points[best_traj_index * gl_interface->get_traj_size() + i];
-      tf2::Vector3 p(state.x(), state.y(), state.z());
-      p = look_ahead_to_target_tf * p;
+      TrajectoryPoint &state = best_points[i];
+      const tf2::Vector3 p = state.position();
 
       wp.position.x = p.x();
       wp.position.y = p.y();
@@ -361,7 +476,7 @@ private:
     }
 
     traj.header.stamp = look_ahead.header.stamp;
-    traj.header.frame_id = look_ahead_frame;
+    traj.header.frame_id = target_frame;
     global_plan->apply_smooth_yaw(traj, look_ahead);
     traj_pub->publish(traj);
   }
@@ -401,7 +516,9 @@ private:
    */
   void look_ahead_callback(const airstack_msgs::msg::Odometry::SharedPtr msg)
   {
+    std::lock_guard<std::mutex> lock(robot_odometry_mutex_);
     look_ahead = *msg;
+    look_ahead_received_ = std::chrono::steady_clock::now();
     look_ahead_valid = true;
   }
 
@@ -428,6 +545,9 @@ private:
    */
   void global_plan_callback(const nav_msgs::msg::Path::SharedPtr msg)
   {
+    std::lock_guard<std::mutex> lock(global_plan_mutex_);
+    std::lock_guard<std::mutex> state_lock(robot_odometry_mutex_);
+    singleton_goal_stop_.route_replaced();
     global_plan->set_global_plan(msg);
   }
 
@@ -442,6 +562,10 @@ private:
     if (task_active_) {
       RCLCPP_WARN(get_logger(), "Rejecting NavigateTask goal: task already active");
       return rclcpp_action::GoalResponse::REJECT;
+    }
+    {
+      std::lock_guard<std::mutex> lock(robot_odometry_mutex_);
+      navigation_altitude_bounds_.reset();
     }
     task_active_ = true;
     return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
@@ -465,9 +589,58 @@ private:
     const auto goal = goal_handle->get_goal();
     cancel_requested_ = false;
 
-    // Feed the goal path into the planner
-    global_plan->set_global_plan(
-        std::make_shared<nav_msgs::msg::Path>(goal->global_plan));
+    // Atomically bind the route and its MAP vertical corridor to this goal.
+    try {
+      if (goal->global_plan.poses.empty()) throw std::runtime_error("Empty navigation route");
+      const auto route_to_map = tf_buffer->lookupTransform(
+          target_frame, goal->global_plan.header.frame_id, goal->global_plan.header.stamp);
+      tf2::Transform transform;
+      tf2::fromMsg(route_to_map.transform, transform);
+      double minimum = std::numeric_limits<double>::infinity();
+      double maximum = -minimum;
+      for (const auto& pose : goal->global_plan.poses) {
+        const auto p = transform * tflib::to_tf(pose.pose.position);
+        if (!std::isfinite(p.x()) || !std::isfinite(p.y()) || !std::isfinite(p.z()))
+          throw std::runtime_error("Nonfinite navigation route");
+        minimum = std::min(minimum, p.z()); maximum = std::max(maximum, p.z());
+      }
+      std::lock_guard<std::mutex> plan_lock(global_plan_mutex_);
+      std::lock_guard<std::mutex> state_lock(robot_odometry_mutex_);
+      if (!robot_odometry_valid_ || robot_odometry_.header.frame_id != target_frame)
+        throw std::runtime_error("MAP physical start unavailable");
+      const double start_z = robot_odometry_.pose.pose.position.z;
+      if (!std::isfinite(start_z)) throw std::runtime_error("Nonfinite physical start");
+      const auto anchor_now = this->now();
+      const auto anchor_stamp = rclcpp::Time(look_ahead.header.stamp);
+      const double anchor_age = (anchor_now - anchor_stamp).seconds();
+      const double anchor_receipt_age = std::chrono::duration<double>(
+          std::chrono::steady_clock::now() - look_ahead_received_).count();
+      const char* anchor_rejection = commanded_anchor_rejection(
+          look_ahead_valid, look_ahead.header.frame_id == target_frame,
+          anchor_age, anchor_receipt_age,
+          std::isfinite(look_ahead.pose.position.x) && std::isfinite(look_ahead.pose.position.y));
+      std::ostringstream anchor_diagnostic;
+      anchor_diagnostic << std::setprecision(12)
+          << "reason=" << (anchor_rejection ? anchor_rejection : "accepted")
+          << " source_age_s=" << anchor_age << " receipt_age_s=" << anchor_receipt_age
+          << " now_ns=" << anchor_now.nanoseconds() << " stamp_ns=" << anchor_stamp.nanoseconds()
+          << " valid=" << look_ahead_valid << " frame=" << std::quoted(look_ahead.header.frame_id);
+      if (anchor_rejection)
+        throw std::runtime_error("Fresh MAP commanded start unavailable: " + anchor_diagnostic.str());
+      RCLCPP_INFO(get_logger(), "Navigation start anchor: %s", anchor_diagnostic.str().c_str());
+      // Candidate trajectories originate at the controller's commanded anchor,
+      // not physical odometry. Both belong to the existing start transition.
+      navigation_altitude_bounds_ = navigation_start_corridor(
+          minimum, maximum, start_z, look_ahead.pose.position.z);
+      const auto physical_start = tflib::to_tf(robot_odometry_.pose.pose.position);
+      singleton_goal_stop_.bind(goal->global_plan.poses.size(),
+          transform * tflib::to_tf(goal->global_plan.poses.back().pose.position), &physical_start);
+      global_plan->set_global_plan(std::make_shared<nav_msgs::msg::Path>(goal->global_plan));
+    } catch (const std::exception& error) {
+      auto result = std::make_shared<NavigateTask::Result>();
+      result->success = false; result->message = error.what();
+      task_active_ = false; goal_handle->abort(result); return;
+    }
 
     // Set trajectory controller to ADD_SEGMENT mode
     auto mode_req = std::make_shared<airstack_msgs::srv::TrajectoryMode::Request>();

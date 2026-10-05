@@ -13,6 +13,7 @@ robot:
     - pid_controller
     - takeoff_landing_planner
     - mavros_interface
+    - droan_gl
   # Linter skip lives in lidar_point_cloud_filter setup.cfg + test/conftest.py.
   # ament pytest does not honor PYTEST_ADDOPTS -m.
   # launch_testing is skipped via PYTEST_DISABLE_PLUGIN_AUTOLOAD in the test.
@@ -23,4 +24,5 @@ robot:
 # Currently empty: optitrack.natnet.emulator moved to the asm_optitrack module
 # (its tests run in the module repo's CI).
 sim:
-  packages: []
+  packages:
+    - pegasus.simulator

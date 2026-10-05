@@ -7,6 +7,14 @@
 
 namespace pid_controller {
 
+// Moving horizontal references need velocity plus position-error correction.
+// A stationary reference retains the existing hold behavior and all output limits.
+inline double horizontal_velocity_target(
+    double correction, double reference, double minimum, double maximum) {
+  return std::clamp(correction + (std::isfinite(reference) ? reference : 0.0),
+                    minimum, maximum);
+}
+
 // Works with PIDInfo; no ROS runtime is needed to exercise the control math.
 template<class Info>
 void reset_history(Info &s) {
@@ -50,7 +58,9 @@ class SampleClock {
   template<class Info>
   double next(int64_t now_ns, Info &s) {
     double dt = initialized_ ? static_cast<double>(now_ns - previous_ns_) / 1e9 : 0.0;
-    if (initialized_ && dt <= 0.0) {
+    // Multiple admitted callbacks can share one delivered simulation tick.
+    // Zero elapsed time adds no integral, but is not a clock rollback.
+    if (initialized_ && dt < 0.0) {
       reset_history(s);
       dt = 0.0;
     }

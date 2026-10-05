@@ -18,12 +18,74 @@ from urllib.request import Request, urlopen
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
 from rrm_command_console import Console, isaac_scene_catalog, make_handler, private_cosmos_worker_url, save_request
+from rrm_command_console import _landing_only_command, _command_state_rejection
 from rrm_cosmos_reason2 import load_context
 from rrm.cosmos_reason2 import parse_cosmos_candidate, render_cosmos_prompt
 from rrm.airstack_drone import DroneTaskKind, DroneTaskProposal, MapWaypoint
 from rrm.execution_supervisor import ExecutionSupervisor, RunningDispatch
 from rrm.live_replan import LiveCycleResponse
 import test_office_import
+
+
+class LandingAdmissionTests(unittest.TestCase):
+    def fresh(self):
+        return dict(missing_state=[], stale_state=[], connected=True,
+                    frame_id="map", child_frame_id="base_link", armed=True, airborne=True,
+                    clock_epoch_consistent=True, flight_state_consistent=False,
+                    task_servers={"/robot_1/tasks/land": ["task_msgs/action/LandTask"]})
+
+    def test_classifier_uses_complete_compilable_landing_command(self):
+        for text in ("land", "land safely"):
+            self.assertTrue(_landing_only_command(text), text)
+        for text in ("takeoff then land", "fly forward for 1m, then land", "explore then land", "do not land", ""):
+            self.assertFalse(_landing_only_command(text), text)
+
+    def test_only_map_is_optional_for_landing(self):
+        for field in ("missing_state", "stale_state"):
+            fresh = self.fresh()
+            fresh[field] = ["vdb_map"]
+            self.assertIsNone(_command_state_rejection(fresh, landing_only=True))
+            self.assertIsNotNone(_command_state_rejection(fresh, landing_only=False))
+            for critical in ("vehicle", "vehicle_state", "odometry", "airborne", "unknown"):
+                fresh[field] = ["vdb_map", critical]
+                error = _command_state_rejection(fresh, landing_only=True)
+                self.assertEqual(error[field], [critical])
+
+    def test_invalid_frames_connection_and_schema_stay_blocked(self):
+        for key, value in (("connected", False), ("frame_id", "odom"),
+                           ("child_frame_id", "other"), ("missing_state", None), ("stale_state", None),
+                           ("armed", None), ("airborne", None)):
+            fresh = self.fresh()
+            fresh[key] = value
+            self.assertIsNotNone(_command_state_rejection(fresh, landing_only=True))
+
+    def test_execute_recheck_allows_map_only_loss_not_critical_loss_or_epoch(self):
+        app = Console.__new__(Console)
+        app.active_scene_shortname = "office"
+        land = DroneTaskProposal(task_id="land-admission", action_id="land-0", kind=DroneTaskKind.LAND,
+                                 action_name="/robot_1/land", velocity_m_s=0.25)
+        fresh = self.fresh()
+        fresh["stale_state"] = ["vdb_map"]
+        plan = dict(runtime_identity={}, source_manifest={}, active_scene="office", discovery={},
+                    grounding={"objective": "land safely"})
+        with patch.object(app, "_command_runtime_identity", return_value={}), \
+             patch.object(app, "_command_source_manifest", return_value={}), \
+             patch.object(app, "require_isaac_runtime"), \
+             patch.object(app, "discover_tasks", return_value=fresh):
+            self.assertEqual(app._recheck_staged_command(plan, (land,)), fresh)
+            for objective in ("takeoff then land", "do not land", ""):
+                plan["grounding"] = {"objective": objective}
+                with self.assertRaisesRegex(RuntimeError, "vdb_map"):
+                    app._recheck_staged_command(plan, (land,))
+            plan["grounding"] = {"objective": "land safely"}
+            fresh["stale_state"] = ["vdb_map", "odometry"]
+            fresh["state_receipt_age_s"] = {"odometry": 2.1}
+            with self.assertRaisesRegex(RuntimeError, 'odometry.*state_receipt_age_s'):
+                app._recheck_staged_command(plan, (land,))
+            fresh["stale_state"] = []
+            fresh["clock_epoch_consistent"] = False
+            with self.assertRaisesRegex(RuntimeError, 'clock_epoch_consistent.*false'):
+                app._recheck_staged_command(plan, (land,))
 
 
 class PrivateCosmosWorkerUrlTests(unittest.TestCase):
@@ -646,6 +708,29 @@ class ExecutionSupervisorTests(unittest.TestCase):
 
 
 class CommandConsoleTests(unittest.TestCase):
+    def test_stage_land_only_ignores_map_loss_but_mixed_and_critical_loss_block(self):
+        office = Path(__file__).parents[1] / "examples" / "office_visual_eval"
+        app = Console(None, self.output, "/unused-capture.py",
+                      context_template=office / "navigation_context.json",
+                      scene_manifest=office / "scene_manifest.json")
+        fresh = LandingAdmissionTests().fresh()
+        fresh.update(position={"x": 0.0, "y": 0.0, "z": 0.02}, yaw_rad=0.0,
+                     stale_state=["vdb_map"], vdb_map_fresh=False)
+        with patch.object(app, "discover_tasks", return_value=fresh), \
+             patch.object(app, "require_isaac_runtime", return_value={"compatible": True}), \
+             patch.object(app, "_command_runtime_identity", return_value={}):
+            saved = app.save("land safely")
+            staged = app.stage_command_mission(saved["request_id"])
+            self.assertFalse(staged["execution_dispatch"])
+            self.assertEqual([p["kind"] for p in staged["plan"]["actions"]], ["LAND"])
+            mixed = app.save("takeoff then land")
+            with self.assertRaisesRegex(RuntimeError, "vdb_map"):
+                app.stage_command_mission(mixed["request_id"])
+            fresh["stale_state"] = ["vdb_map", "vehicle"]
+            critical = app.save("land")
+            with self.assertRaisesRegex(RuntimeError, "vehicle"):
+                app.stage_command_mission(critical["request_id"])
+
     def setUp(self):
         self.fixture = test_office_import.OfficeImportTests("test_actual_plan_ids_survive_import")
         self.fixture.setUp()

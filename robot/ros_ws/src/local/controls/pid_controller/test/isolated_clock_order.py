@@ -60,14 +60,56 @@ def phase(name,now_ns,tp_ns,odom_ns,mask):
         assert valid and valid[0].dt==0. and valid[0].i_component==0.,name
         assert commands[-1].thrust.z>.71,name
     return {'phase':name,'diagnostic':d,'thrust':commands[-1].thrust.z}
+
+def delivery_catchup(base):
+    def publish(now_ns, tracking_ns):
+        clock.publish(Clock(clock=stamp(now_ns))); spin(.015)
+        armed.publish(Bool(data=True)); control.publish(Bool(data=True))
+        o=Odometry(); o.header.stamp=stamp(now_ns)
+        o.header.frame_id=o.child_frame_id='map'; o.pose.pose.orientation.w=1.
+        odom.publish(o); spin(.01)
+        t=Tracking(); t.header.stamp=stamp(tracking_ns)
+        t.header.frame_id=t.child_frame_id='map'; t.pose.orientation.w=1.; t.pose.position.z=.2
+        tracking.publish(t)
+    publish(base,base); spin(.04)
+    publish(base+30_000_000,base+30_000_000); spin(.04)
+    integral_before=infos[-1].integral
+    assert integral_before>0., infos[-1]
+    publish(base+30_000_000,base+30_000_000); spin(.04)
+    assert infos[-1].dt==0. and infos[-1].integral==integral_before
+    count=len(commands)
+    publish(base+30_000_000,base+60_000_000); spin(.02)
+    assert len(commands)==count, 'future target emitted before clock catchup'
+    clock.publish(Clock(clock=stamp(base+60_000_000))); spin(.04)
+    assert len(commands)==count+1, 'pending target must process exactly once'
+    assert diagnostics[-1]['reason_mask']==0 and infos[-1].integral>integral_before
+    assert diagnostics[-1]['tracking_receipt_age_s']>0., 'original receipt must survive buffering'
+    publish(base+60_000_000,base+90_000_000); spin(.15)
+    assert diagnostics[-1]['reason_mask']&256 and infos[-1].integral==0.
+    first=len(diagnostics)
+    started=time.monotonic()
+    for _ in range(4):
+        publish(base+60_000_000,base+90_000_000); spin(.02)
+    assert len(diagnostics)>first and diagnostics[-1]['reason_mask']&256
+    assert time.monotonic()-started<.3, 'replacement must not extend the wait window'
+    publish(base+60_000_000,base+90_000_000); spin(.01)
+    armed.publish(Bool(data=False)); control.publish(Bool(data=False)); spin(.04)
+    assert diagnostics[-1]['reason_mask']&3 and infos[-1].integral==0.
+    return {'phase':'bounded-delivery-catchup-expiry-authority-loss','status':'PASS'}
 try:
+    deadline=time.monotonic()+5.
+    while clock.get_subscription_count()<1 or tracking.get_subscription_count()<1:
+        assert time.monotonic()<deadline, 'PID subscriptions did not discover'
+        spin(.05)
+    spin(.2)
     base=1700*10**9
     results=[phase('future-tracking30ms',base,base+30_000_000,base,256),
         phase('clock-catches-tracking',base+30_000_000,base+30_000_000,base+30_000_000,0),
         phase('future-odom30ms',base+60_000_000,base+60_000_000,base+90_000_000,1024),
         phase('clock-catches-odom',base+90_000_000,base+90_000_000,base+90_000_000,0),
         phase('backward-clock-both-future',base,base+90_000_000,base+90_000_000,256|1024),
-        phase('clock-restored',base+90_000_000,base+90_000_000,base+90_000_000,0)]
+        phase('clock-restored',base+90_000_000,base+90_000_000,base+90_000_000,0),
+        delivery_catchup(base+120_000_000)]
     print(json.dumps({'status':'PASS','domain':197,'phases':results},indent=2))
 finally:
     proc.terminate(); proc.wait(timeout=5)
