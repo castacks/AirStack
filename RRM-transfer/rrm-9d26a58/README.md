@@ -1,3 +1,48 @@
+> **Physics clock checkpoint (2026-10-05 EDT):** Actual grounded callback dt
+> confirms 4.112 ms backend clock loss over 41.13 simulation seconds. All 456 windows
+> match per-step microsecond truncation. Six observer plus ten recorder tests,
+> independent review, real Office GUI and readiness 7/7 pass. No flight or timing
+> correction yet; older collapse and acquisition timing remain open.
+> See [HANDOFF.md](HANDOFF.md) for evidence and the next bounded correction.
+
+> **Raw timing checkpoint (2026-10-05 EDT):** New read-only telemetry capture
+> retained 14,567 grounded events, including raw PX4 packet timestamps. All 731
+> matched odometry samples preserve packet/raw/converted header stamps. Clock-origin
+> and acquisition mapping remain unresolved; the roughly 315 ms timestamp difference
+> is not a measured delay. Eight tests, reviewer checks and live GUI/readiness pass.
+> See [HANDOFF.md](HANDOFF.md) for timing roles and missing-status evidence.
+
+> **Alignment diagnosis (2026-10-05 EDT):** New offline pose comparison preserves
+> raw differences and subtracts only a verified grounded baseline. Direct body and
+> Pegasus sensor positions agree exactly; map height offsets vary between captures.
+> Receipt-phase headers do not establish estimator acquisition time. Six comparison
+> tests and fresh live GUI/grounded checks pass. See [HANDOFF.md](HANDOFF.md).
+
+> **Physical-truth checkpoint (2026-10-05 EDT):** One real GUI Office replay
+> VERIFIED takeoff 1 m → forward 0.25 m → left 0.25 m → LAND/disarm,
+> with 2.31/0.88 cm navigation errors and no recovery/retry. Direct rigid-body
+> capture confirms both legs and return to rest. A reviewed opt-in physical-state
+> recorder is deployed; ten recorder tests and seven readiness gates pass.
+> Physical/odometry differences remain visible; older collapse causation,
+> mixed-height/longer reliability and collision containment remain open.
+> See [HANDOFF.md](HANDOFF.md) for hashes, provenance and measurement limits.
+
+> **Live GUI checkpoint (2026-10-05 21:10 EDT):** Office scene launch, fresh camera,
+> and a GUI-reviewed takeoff 1 m → forward 0.25 m → ordinary LAND replay VERIFIED,
+> with 0.018999 m navigation error and confirmed disarm. The unknown-scene label
+> and implicit first-scene selection are repaired. Live control capture contains
+> no future-tracking rejection with active command authority in this one replay.
+> Older collapse causation and mixed-height/longer qualification remain open;
+> see [HANDOFF.md](HANDOFF.md).
+
+> **Current checkpoint (2026-10-05 EDT):** The workspace now runs the published
+> NumPy-fix Isaac digest with NumPy 1.26.4, seven readiness gates passing and a
+> fresh camera capture. PID admission diagnostics are deployed and observed while
+> grounded. Commit `e633a658` records a narrow Office takeoff 1 m → forward 0.25 m
+> → LAND success; the older forward-collapse cause and mixed-height/longer missions
+> remain unresolved. Older source-only deployment and flight checkpoints below are
+> historical. See [HANDOFF.md](HANDOFF.md) for the current diagnostic continuation.
+
 > **Current continuation (2026-09-26):** Read [HANDOFF.md](HANDOFF.md) first. The
 > [localhost command console](docs/scrum-8/command-console.md) now has a real,
 > explicitly confirmed simulator execution path. It translates scene-independent
@@ -337,6 +382,41 @@ report, but missing/stale critical evidence remains blocking. This is permission
 attempt landing, not evidence that landing or physical stopping succeeded.
 
 ### Command-mission history and evidence
+
+For read-only control diagnosis, use `scripts/airstack_control_capture.py`. It
+subscribes to tracking, odometry, six PID streams, admission diagnostics, authority,
+controller commands, MAVROS commands/targets, and vehicle/landed state. Copy it into
+the robot container (the RRM source directory is not mounted there):
+
+```bash
+docker cp scripts/airstack_control_capture.py airstack-robot-desktop-1:/tmp/airstack_control_capture.py
+docker exec airstack-robot-desktop-1 bash -lc '
+  python3 /tmp/airstack_control_capture.py \
+    --output /tmp/control-capture.jsonl --duration 15
+'
+docker cp airstack-robot-desktop-1:/tmp/control-capture.jsonl ./control-capture.jsonl
+docker cp airstack-robot-desktop-1:/tmp/control-capture.jsonl.summary.json ./control-capture.summary.json
+```
+
+Use a new output filename for each run; existing evidence is never overwritten.
+The recorder emits each actual callback and flushes JSONL incrementally. It stops
+after a monotonic wall-time horizon (maximum 300 seconds) or 100,000 events, so a
+paused simulation clock does not extend collection. Synchronous disk I/O can still
+block; these are collection bounds, not a storage-latency guarantee. Nonfinite
+message values fail the run, retain previous events, and produce an error summary.
+Malformed admission JSON is retained and counted. The summary reports missing
+channels, final receipt ages, largest receipt gaps and sequence discontinuities;
+it does not turn missing data into a pass.
+
+`ros_now_ns` uses `/clock` (zero before first clock receipt). Header timestamps
+retain each publisher's own convention: MAVROS headers can use wall time, while
+tracking/odometry use simulator time. Compare clocks only after establishing their
+domain. Streams without headers retain a null source stamp. Graph metadata shows
+only the ROS infrastructure `/parameter_events` publisher, with no capture services
+or command publishers. No mission is dispatched. Record image/container identity
+and installed binary hashes separately: `--source-revision` is a label, not proof
+that the running binary was built from that revision. Receipt coverage and PID
+`active` do not establish flight safety or physical containment.
 
 Each saved goal produces an immutable `<request-id>` directory under
 `/root/AirStack/.rrm-artifacts/command-requests/`. These gitignored files are the
@@ -1020,3 +1100,53 @@ friction for anyone reproducing this work or building on it commercially.
 **Model weights are not covered.** GR00T and Cosmos weights carry the NVIDIA Open
 Model License, and that follows any checkpoint you fine-tune from them. See
 [NOTICE](NOTICE) before publishing a derivative model.
+
+### Offline physical/odometry comparison
+
+After independently verifying the files share a simulator epoch and aligned axes,
+and that the selected baseline interval is grounded/disarmed, run:
+
+```bash
+python3 scripts/airstack_pose_compare.py \
+  --truth /path/to/physical-truth.jsonl --control /path/to/control.jsonl \
+  --baseline-start-s 300 --baseline-end-s 309 --assume-aligned-axes \
+  --output /path/to/new-comparison.json
+```
+
+Baseline times above are an example; select the interval from that capture's actual
+flight/state evidence. The tool reports raw residuals and the result of subtracting
+only the baseline median. It uses linear interpolation without extrapolation,
+skips brackets wider than 0.25 simulation seconds and writes an exclusive output.
+Reset clocks, mixed truth identities, inconsistent map/base_link labels, invalid
+positions and header/event stamp disagreement are rejected. Overlapping numeric
+timestamps alone cannot prove common epoch or frame registration. Receipt-phase
+comparison excludes unknown sensor/estimator/transport latency and does not qualify
+flight accuracy, collision containment or control safety. Velocity comparison would
+also require body/world frame conversion; this tool compares positions only.
+
+### Raw PX4 timing capture
+
+Run inside the robot container with its normal ROS/domain setup:
+
+```bash
+python3 /path/to/airstack_timing_capture.py \
+  --output /tmp/new-timing-attempt.jsonl --duration 30 \
+  --robot robot_1 --uas uas2
+```
+
+Default robot/UAS correspond to the current one-vehicle Office configuration;
+choose them from the actual graph for other fleets. The helper subscribes to raw
+MAVLink source, raw/converted odometry, time-reference/timesync-status and vehicle
+state. It creates no control publisher or service. It preserves unknown raw messages,
+records known wire timestamp fields and writes a separate summary including missing
+channels, decode errors, source hash and candidate publisher endpoints. Missing
+per-event publisher identity is null, not inferred from the endpoint list. Only the
+bridge framing flag is checked; CRC/signatures are not independently verified.
+
+Exclusive files, per-event flushing, 50,000-event/64 MiB caps and maximum 300-second
+requested duration bound output, not synchronous storage latency. The recorder
+stops on serialization/storage error and retains any prior evidence. Timesync status
+may be absent with current settings; absence does not mean zero offset. Publication,
+IMU/estimator sample, header, RMW transport and callback timestamps have distinct
+meaning and clock origins. Inspect the installed PX4 source/build and epoch mapping
+before treating their differences as latency. No timing settings are changed.

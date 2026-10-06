@@ -1,5 +1,61 @@
 # Goal-to-finish performance status
 
+## Current continuation — 2026-10-05 EDT
+
+Actual grounded physics callback measurement confirms **4.112 ms backend clock
+loss over 41.13 simulation seconds**: all 456 recorded windows exactly match
+per-step microsecond truncation. Six observer plus ten recorder tests, independent
+review, real Office GUI reload and readiness 7/7 pass. Maximum capture receipt gap
+was 0.740 s; this is grounded measurement, not flight performance qualification.
+Next is a fraction-preserving clock correction with grounded regression. Older
+collapse causation, epoch/acquisition registration and broader reliability remain
+open. See [HANDOFF.md](../../HANDOFF.md) for source identity and measurement limits.
+
+Read-only raw timing capture now retains PX4 packet timestamp fields alongside
+raw/converted odometry and available timing metadata. Eight tests pass, and the
+reviewer reproduced all 731 unique-position associations with unchanged headers.
+Fresh live GUI/grounded readiness passes 7/7. Clock-origin/acquisition registration
+remains unresolved; approximately 315 ms header/packet differences are not measured
+delay, and absent timing status does not imply zero offset. See [HANDOFF.md](../../HANDOFF.md).
+
+The latest grounded measurement diagnosis adds a tested offline pose comparison.
+Height offsets vary between captures, and receipt-phase timestamps do not establish
+PX4 acquisition alignment. Legacy sensor-state fields are physical sensor inputs,
+not PX4 belief. Fresh Office GUI, grounded capture and readiness 7/7 pass; no new
+flight or timing/control change. See [HANDOFF.md](../../HANDOFF.md) for the next raw-time
+instrumentation step and the retained comparison assumptions.
+
+The 2026-10-05 physical-truth continuation VERIFIED one GUI-reviewed Office
+TAKEOFF 1 m → forward 0.25 m → left 0.25 m → ordinary LAND/disarm replay,
+with navigation errors 0.023108/0.008781 m and no recovery/retry. Direct PhysX
+capture confirms motion and return to rest; physical displacement differs from
+odometry by about 3 cm, with timestamp/phase uncertainty retained. The new opt-in
+AirStack recorder is reviewed, tested and reloaded while grounded; all seven
+readiness gates pass. The older Pegasus diagnostic commit remains unavailable.
+This qualifies one short two-leg replay, not mixed-height/longer reliability,
+collision containment or the older collapse cause. See [HANDOFF.md](../../HANDOFF.md).
+
+Live GUI replay at21:10EDT VERIFIED takeoff1m → forward0.25m → ordinary LAND/disarm,
+navigation endpoint error0.018999m. Scene launch/camera/staging/execution were driven
+through the running browser GUI. All16 control streams were captured for180s;
+658 active PID callbacks were admitted, with no future-tracking rejection while
+armed/control authority was active. No recovery or retry. Unknown-scene presentation
+and implicit initial scene selection are repaired. Earlier collapse causation,
+mixed-height/longer reliability and physical containment remain open.
+
+Latest committed evidence (`e633a658`) records a narrow serial Office takeoff 1 m,
+forward 0.25 m, and ordinary LAND/disarm success with navigation error 0.02198 m.
+The older forward-collapse cause and mixed-height/longer mission qualification
+remain open. The historical paused-flight and source-only deployment checkpoints
+below retain their original dates; they do not describe current deployment.
+
+The current workspace now uses the published NumPy-fix Isaac digest. NumPy 1.26.4,
+seven readiness gates and fresh camera capture are verified. A subscription-only
+control capture observes deployed admission diagnostics while grounded; receipt
+coverage does not establish airborne performance. That initial image-reset step
+dispatched no flight; the later GUI replay checkpoints above report actual flights.
+See [handoff](../../HANDOFF.md) for coverage, observed reasons and limitations.
+
 This page distinguishes a connected software path from demonstrated autonomous task
 performance. The target loop is:
 

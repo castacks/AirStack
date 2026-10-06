@@ -334,6 +334,16 @@ class PegasusApp:
         self.lidar_min_range = lidar_min_range
         self.dome_light = dome_light
         self.stop_sim = False
+        self.physical_truth = None
+        self.clock_observation = None
+        truth_directory = os.environ.get("ISAAC_SIM_TRUTH_DIR", "").strip()
+        if truth_directory:
+            try:
+                from physical_truth import PhysicalTruthCapture, ClockObservation
+                self.physical_truth = PhysicalTruthCapture(truth_directory, warn=carb.log_warn)
+                self.clock_observation = ClockObservation(warn=carb.log_warn)
+            except Exception as exc:
+                carb.log_warn("[physical_truth] initialization disabled: " + str(exc))
 
         # GPS origins must be written before the PX4 SITL subprocesses start
         # (robot containers read them during their own bring-up).
@@ -702,7 +712,23 @@ class PegasusApp:
             # Fall back to app.update() until the extension re-creates it.
             world = World.instance()
             if world is not None and hasattr(world, "_scene"):
+                if self.clock_observation is not None:
+                    try:
+                        self.clock_observation.bind(world)
+                    except Exception as exc:
+                        carb.log_warn("[physical_clock] integration disabled: " + str(exc))
+                        self.clock_observation = None
                 world.step(render=True)
+                if self.physical_truth is not None:
+                    try:
+                        from pegasus.simulator.logic.vehicle_manager import VehicleManager
+                        self.physical_truth.sample(
+                            float(world.current_time),
+                            VehicleManager.get_vehicle_manager().vehicles,
+                            playing=world.is_playing(), clock_observation=self.clock_observation)
+                    except Exception as exc:
+                        carb.log_warn("[physical_truth] integration disabled: " + str(exc))
+                        self.physical_truth = None
                 if world is not self.world:
                     self.world = world
                     self.pg._world = world
@@ -710,5 +736,13 @@ class PegasusApp:
                 app.update()
 
         carb.log_warn("Closing simulation.")
-        self.timeline.stop()
-        SIMULATION_APP.close()
+        try:
+            if self.clock_observation is not None:
+                self.clock_observation.close()
+            if self.physical_truth is not None:
+                self.physical_truth.close("simulation_closed")
+        except Exception as exc:
+            carb.log_warn("[physical_truth] close failed: " + str(exc))
+        finally:
+            self.timeline.stop()
+            SIMULATION_APP.close()

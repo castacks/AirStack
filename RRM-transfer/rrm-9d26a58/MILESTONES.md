@@ -1,5 +1,59 @@
 # RRM milestones
 
+## Current continuation — 2026-10-05 EDT
+
+Actual grounded physics callback measurement confirms **4.112 ms backend clock
+loss over 41.13 simulation seconds**: all 456 recorded windows exactly match
+per-step microsecond truncation. Six observer plus ten recorder tests, independent
+review, real Office GUI reload and readiness 7/7 pass. Maximum capture receipt gap
+was 0.740 s; this is grounded measurement, not flight performance qualification.
+Next is a fraction-preserving clock correction with grounded regression. Older
+collapse causation, epoch/acquisition registration and broader reliability remain
+open. See [HANDOFF.md](HANDOFF.md) for source identity and measurement limits.
+
+Read-only raw timing capture now retains PX4 packet timestamp fields alongside
+raw/converted odometry and available timing metadata. Eight tests pass, and the
+reviewer reproduced all 731 unique-position associations with unchanged headers.
+Fresh live GUI/grounded readiness passes 7/7. Clock-origin/acquisition registration
+remains unresolved; approximately 315 ms header/packet differences are not measured
+delay, and absent timing status does not imply zero offset. See [HANDOFF.md](HANDOFF.md).
+
+The latest grounded measurement diagnosis adds a tested offline pose comparison.
+Height offsets vary between captures, and receipt-phase timestamps do not establish
+PX4 acquisition alignment. Legacy sensor-state fields are physical sensor inputs,
+not PX4 belief. Fresh Office GUI, grounded capture and readiness 7/7 pass; no new
+flight or timing/control change. See [HANDOFF.md](HANDOFF.md) for the next raw-time
+instrumentation step and the retained comparison assumptions.
+
+The 2026-10-05 physical-truth continuation VERIFIED one GUI-reviewed Office
+TAKEOFF 1 m → forward 0.25 m → left 0.25 m → ordinary LAND/disarm replay,
+with navigation errors 0.023108/0.008781 m and no recovery/retry. Direct PhysX
+capture confirms motion and return to rest; physical displacement differs from
+odometry by about 3 cm, with timestamp/phase uncertainty retained. The new opt-in
+AirStack recorder is reviewed, tested and reloaded while grounded; all seven
+readiness gates pass. The older Pegasus diagnostic commit remains unavailable.
+This qualifies one short two-leg replay, not mixed-height/longer reliability,
+collision containment or the older collapse cause. See [HANDOFF.md](HANDOFF.md).
+
+Live GUI continuation at21:10EDT independently repeated the bounded Office
+takeoff1m → forward0.25m → ordinary LAND/disarm sequence, navigation error0.018999m.
+The GUI's unknown-scene report and implicit initial selection are repaired.
+180s live capture observes all16 control streams,658 active admitted PID callbacks,
+and no future-tracking rejection with active authority. This is one narrow replay,
+not closure of the older collapse or mixed-height/longer qualification gaps.
+
+Commit `e633a658` supersedes the older source-only deployment state below: it
+records one independently verified Office takeoff 1 m → forward 0.25 m → LAND
+sequence, navigation endpoint error 0.02198 m, and disarm. This narrow success
+does not resolve the older forward-collapse cause, mixed-height qualification,
+longer missions, general two-leg reliability, or physical containment. Milestones 3–6 remain active.
+
+The current workspace's old Isaac image was replaced with the published digest
+containing NumPy 1.26.4. Seven readiness gates and a fresh camera capture pass.
+The initial image-reset step added a read-only control recorder and grounded
+coverage check without dispatching flight. The later live replay and physical-truth
+results above extend that initial checkpoint. See [HANDOFF.md](HANDOFF.md).
+
 Status as of 2026-10-04. This is the current progress view for RRM. It replaces
 Jira/SCRUM labels as the planning vocabulary for new work. Earlier Jira records and
 `SCRUM-*` documents remain historical requirement, design, and evidence records; do

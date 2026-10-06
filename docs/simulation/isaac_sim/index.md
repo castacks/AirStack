@@ -44,6 +44,75 @@ Together, these features make Isaac Sim a comprehensive platform for robotics si
 
 ## Optional bounded physics diagnostics
 
+### AirStack-owned rigid-body recorder
+
+`ISAAC_SIM_TRUTH_DIR` enables the recorder in
+`simulation/isaac-sim/launch_scripts/physical_truth.py`. Set it to an existing
+directory visible inside Isaac. The source belongs to AirStack, so it does not
+depend on the unavailable Pegasus diagnostic commit described below. Load it
+through a grounded simulator restart; source edits do not update running objects.
+
+Create `<directory>/capture.json` with a fresh ID:
+
+```json
+{"capture_id": "grounded_check_01", "enabled": true}
+```
+
+The recorder creates `<capture_id>.jsonl` exclusively and polls the request once
+per wall second. It samples after world steps at nominal 10 Hz wall time, only
+while playing, and caps each capture at 10,000 records, 64 MiB or 300 wall seconds.
+Records from all vehicles share these caps. Disable the request to stop; a stopped
+ID cannot be resumed, and existing files are never overwritten. Invalid requests,
+nonfinite data and request/data I/O failures disable capture without changing control
+or physics. `status.json` reports counts, stop/error reason, receipt/wall timestamps
+and maximum sampling duration after state transitions. Check its freshness: status
+storage failure produces a warning and can leave an old file; it cannot certify
+current capture state. Observer initialization and cleanup failures are contained.
+That duration excludes request/status-file I/O; synchronous storage can stall.
+Measure actual cadence and overhead while grounded before collecting flight evidence.
+
+Schema `airstack-physical-truth/v1` records direct Dynamic Control rigid-body pose,
+linear/angular velocity, world simulation time, monotonic receipt and wall time.
+The legacy `sensor_state_position_m`/quaternion fields retain Pegasus `vehicle.state`,
+the physical-state input to simulated sensors, not their noisy measurements or a
+PX4 estimate. Agreement with direct pose checks capture paths only; callback phase
+can differ. The earlier "sensor belief" docstring was a mislabel, now corrected. Rigid-body
+quaternions include the asset body's rotation, whereas sensor orientation may be
+corrected. Record the scene's units/frame conventions before comparing poses.
+This recorder has no contact or rotor-force stream and makes no collision or
+delivered-actuation claim. It reads state and never issues a control command.
+
+With the current AirStack observer source, records also contain `physics_clock`
+and `backend_clocks`. A separate engine physics callback accumulates the actual
+callback count, duration sum, min/max and sum of `int(dt * 1e6)`. The callback has
+no file I/O or backend writes. After `world.step`, the recorder reads those totals
+and each available PX4 backend's HIL microsecond counter, source-file hash, process
+instance identity and gate flags. The latter are **post-step snapshots**, not a
+trace of the branches taken by every backend update. Source inspection relates
+the engine callback argument to backend forwarding; the backend call is not wrapped.
+
+Observer identities and totals reset when the World object changes, and an old
+callback is inert after replacement even if removal fails. Registration retries
+are contained; attachment/error status is explicit. Reject clock resets, identity
+changes, missing or invalid observations before comparing interval deltas. A
+callback error remains visible rather than becoming valid timing evidence.
+The optional environment setting enables callback accumulation even while no
+named capture is active; without it, no observer callback is registered. These
+fields need a grounded restart to load. Measure their callback and sampling
+cost/cadence while grounded; maximum sampling duration still excludes request and
+status I/O. Counter agreement alone does not establish source/binary equivalence,
+acquisition-time epoch mapping, transport latency or the cause of a prior flight.
+
+
+### Earlier Pegasus instrumentation
+
+The earlier `ISAAC_SIM_STATE_LOG` contract below requires Pegasus commit
+`627ece9128d66d99bd53753092d964e2630a9fb4`, referenced by AirStack `e633a658`.
+In the fresh 2026-10-05 workspace, that object was absent and the configured
+Pegasus remote refused fetching it. Available checkout `8c7a664` lacks this
+instrumentation. The contract below is historical until that source is recovered;
+setting its environment variable alone does not establish recording.
+
 `ISAAC_SIM_STATE_LOG` opts Pegasus vehicles into state/contact diagnostics. The
 legacy base JSONL file records at most 10,000 samples at nominal 10Hz. Contact
 reporting is optional: an inactive subscription or empty report is not proof of

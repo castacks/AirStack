@@ -1,5 +1,312 @@
 # RRM remote Codex handoff
 
+## Grounded physics clock measurement — 2026-10-05 EDT
+
+An opt-in AirStack observer now records actual world physics callback dt, cumulative
+callback duration and per-step truncated microseconds, alongside read-only Pegasus
+backend counter/gate snapshots and source/instance identity. It adds no backend
+writes. Callback errors are contained; world replacement resets identity and makes
+old callbacks inert. Backend argument equivalence is source-backed forwarding, not
+an instrumented backend call. Gate snapshots are after world.step and cannot prove
+every earlier branch. No callback is installed without ISAAC_SIM_TRUTH_DIR.
+
+The actual Office GUI reload, camera/scene MATCHED, NumPy COMPATIBLE and readiness
+7/7 pass. Vehicle ended connected/disarmed, authority false and landed. Grounded
+capture retained 457 records over 51.47 wall seconds. Across 4,113 callbacks and
+41.1299990807 simulation seconds, callback dt was 0.009999999776482582 s and the
+backend counter advanced 41,125,887 microseconds. All 456 sample windows exactly
+match the observed sum of int(dt*1e6), and world-time deltas equal callback-duration
+sums. Cumulative loss is **4.11208 ms (99.98 ppm)** in this interval. This supports
+the live per-step truncation mechanism; it does not explain the older collapse,
+roughly 315 ms epoch difference, or sensor latency.
+
+Independent reviewer reproduced all windows and identities. Six clock-observer
+and ten physical-recorder tests pass, including failed callback removal, stale-world
+isolation and shutdown containment. Maximum callback wall time since observer bind
+was 42.45 microseconds; maximum sampled recorder work was 0.561 ms, excluding request
+and status I/O. Maximum receipt gap was 0.740 s under host load: nominal 10 Hz capture
+is not guaranteed cadence or a flight performance qualification. Source backend
+SHA256 is b40c10210cb3c2b75a65812e46f67bd956e14d7d18b8ca608d0b8a8f633f296c;
+Pegasus remains clean at 8c7a664, and the parent-pinned 627ece diagnostic commit is
+still unavailable. No flight or backend timing/control change occurred this chunk.
+
+Next bounded step: implement fraction-preserving backend clock accumulation with
+reset/gating regression checks, then repeat grounded GUI measurement before any
+flight qualification. Source/binary acquisition registration and older collapse
+causation remain separate open work.
+
+## Raw PX4 timing capture — 2026-10-05 EDT
+
+Added subscription-only `scripts/airstack_timing_capture.py`. It retains raw MAVROS
+MAVLink envelopes, decoded timestamps for common IDs 2/30/31/32/105/111/331,
+raw/converted odometry, time reference/status and grounded vehicle/authority state.
+Events have simulation ROS now, monotonic receipt and available RMW transport
+metadata. This Jazzy callback API has no per-event publisher GID: null explicitly
+means unavailable; separately recorded graph endpoints are candidates, not event
+attribution. RMW timestamps are middleware timestamps, not acquisition time.
+Output is exclusive, flushed per event and bounded to 50,000 events/64 MiB and a
+requested wall horizon up to 300 s. Strict wire checks support legitimate MAVLink2
+zero-tail truncation; unknown packets and decode errors retain original envelopes.
+Bridge framing is trusted; CRC/signature verification is not independently repeated.
+
+Eight tests pass, including signed TIMESYNC, wire sizes/truncation, bad framing,
+MAVLink1 ID bounds, dict/object callback metadata, missing GID and cap accounting.
+Two initial observer captures failed on callback metadata shape (zero retained
+events); their logs/summaries are retained as unqualified. Final loaded recorder
+hash matches source. Independent reviewer redecoded every final raw envelope and
+reproduced summary/association results. No control publisher/service is created;
+only the infrastructure parameter-events publisher remains.
+
+Actual 30.0057-second grounded capture retained 14,567 events (13,007,225 bytes),
+including 11,944 raw packets, 731 raw and 738 converted odometry samples, 24 time
+reference samples and zero decode errors. Sender system/component is solely 2/1.
+All 731 raw odometry positions map exactly from unique LOCAL_POSITION_NED NED
+packet positions to ENU and each matches one converted sample. All packet/raw/
+converted header stamps agree exactly. This is descriptive unique-value association,
+not a packet trace ID. Callback receipt differences include negative values, so
+subscription callback order must not be treated as causal pipeline latency.
+
+Raw header minus PX4 field median is 0.314948 s for LOCAL_POSITION_NED, 0.314311 s
+for HIGHRES_IMU and 0.314188 s for ODOMETRY. These combine clock-origin and phase
+and are **not measured sensor/estimator/transport delays**. All 245 TIMESYNC packets
+are tc1=0 requests; no timesync-status sample was observed. Missing status does not
+prove internal offset zero. SYSTEM_TIME/time-reference expose another wall-time
+domain; they do not establish world-time acquisition registration by themselves.
+
+Installed PX4 source HEAD `94cb2012792b2ae89f0b147cfee53ee31ae550be` shows local-position
+stream time_boot_ms uses vehicle_local_position.timestamp (publication), while
+HIGHRES_IMU and ODOMETRY use timestamp_sample. HIGHRES_IMU's sample stamp describes
+its IMU input, not every cached mag/barometer field. Source/binary equivalence remains
+unverified; provisional decoded roles state that limit. Installed common headers
+confirm decoder wire lengths. See [MAVLink serialization](https://mavlink.io/en/guide/serialization.html).
+
+Live Office GUI camera/scene MATCHED and NumPy COMPATIBLE were checked, readiness
+passes 7/7, and vehicle ended connected/disarmed, authority false, landed. Physical
+capture was stopped normally; it records the existing body-state schema. No new
+flight, timing-rate/mode, gains or physics changes occurred.
+
+A further source-level hypothesis is per-step timestamp truncation: Pegasus adds
+`int(dt * 1000000)` to its HIL microsecond counter. A float32 0.01 s example becomes
+9,999 microseconds per step (about 10 ms loss over 10,000 steps). Actual backend
+callback dt was not observed, so this is sensitivity evidence, not the cause of
+the captured difference/trend or the older collapse. Next measurement can record
+actual callback dt, backend HIL counter increments and world-time deltas before
+changing accumulation. Heartbeat/new-IMU gating and callback phase must be captured;
+world.physics_dt alone does not establish the actual backend callback argument.
+
+Next: inspect available PX4 ULog/sample-to-publication evidence and establish
+source/binary identity plus a common epoch before interpreting acquisition timing.
+Older collapse cause and broader mission/collision reliability remain open.
+
+## Physical/odometry alignment diagnosis — 2026-10-05 EDT
+
+Added `scripts/airstack_pose_compare.py`, an offline interpolation report with
+exclusive output, input/source hashes, sequence/clock/identity checks, finite
+positions, consistent frame labels, header/event-stamp agreement and sparse-bracket
+exclusion. It requires explicit aligned-axis assumption and an independently
+verified grounded baseline. Matching numeric clock ranges alone does not prove
+same epoch or frames. It never fits flight lag/offset, commands motion, or assigns
+a flight verdict. Six analytic tests pass, including preserving a known dynamic
+error after baseline subtraction and rejecting reset/mixed/malformed inputs.
+
+Retained two-leg evidence has exact direct-body/sensor position agreement in all
+1,783 samples. Here "sensor state" means vehicle.state physical input to simulated
+sensors, not their noisy measurements or PX4 belief; equality checks two capture
+paths only. The recorder's older "sensor belief" docstring is a mislabel. Interpolation at odometry header times matches 4,538 odometry records
+(max bracket 0.120 s). Before arming, sim seconds 300–309 give median body-minus-map
+translation [-0.005335, -0.003506, +0.078277] m. After subtracting only that baseline,
+post-baseline residual vector RMS is 0.023867 m, including flight and grounded data.
+This is descriptive disagreement, not EKF accuracy or a corrected flight endpoint.
+The earlier ≤0.060 s nearest-sample errors bound selection error only, not acquisition
+latency. Original endpoint/correlation records remain unchanged.
+
+Live/source trace: odometry conversion output mode OVERWRITE (2) relabels frames
+without translating position; restamp_now_post is false, pre is not explicitly set
+(source default false). MAVROS 2.15.1 parent uses simulation time; its time plugin
+reports MAVLINK with timesync/system-time rates 0. Upstream synchronized-header code
+can fall back to parent now() when internal offset is zero. Together with observed
+odom stamp/receipt ages near zero this supports receipt-phase stamping, but the
+internal offset and PX4 acquisition chronology were not measured. The configured
+SYSTEM_TIME source YAML differs from the effective live timing parameters.
+MAVROS odometry linear twist is in body coordinates, while PhysX velocity is world
+coordinates; the pose tool does not compare those velocities. See
+[MAVROS timing source](https://github.com/mavlink/mavros/blob/2.15.1/mavros/src/lib/uas_timesync.cpp)
+and [local-position source](https://github.com/mavlink/mavros/blob/2.15.1/mavros/src/plugins/local_position.cpp).
+
+Pegasus barometer subtracts initial body height before modeling pressure, providing
+a relative-altitude mechanism; this alone does not establish the actual fused EKF
+height reference. A fresh grounded capture (same current recorder/clock epoch) has
+473 matched odometry samples and grounded median height difference 0.114822 m,
+rather than the prior 0.078277 m. One universal fixed height correction is unsupported.
+After its own baseline, remaining grounded residual RMS is 0.016798 m.
+
+Live Office GUI camera and NumPy preflight were checked, readiness passes 7/7,
+and a fresh 20-second ROS capture retained 4,484 events ending connected/disarmed,
+landed. Body/sensor positions agree exactly again; capture was stopped normally.
+No new flight, gains, physics or clock settings changed in this diagnostic chunk.
+Next: capture raw PX4 acquisition timestamps and timesync offset (or suitable ULog)
+with common epoch mapping before claiming acquisition alignment or changing timing.
+Older collapse cause and broader mission/collision reliability remain unresolved.
+
+## Physical-truth capture and two-leg GUI replay — 2026-10-05 EDT
+
+The running Office GUI saved, staged, restored the exact immutable plan, and
+executed one bounded sequence: takeoff 1 m → forward 0.25 m → left 0.25 m →
+ordinary LAND. Request `b88685fd3f2d4658a468340b266b6506`, mission
+`7807827d6717477994694b3d974555a8`, reviewed plan SHA256
+`d38439915398e29c7c46b27f734e06cf3ead5d41bc2e1a16e717210dd705d055`.
+All four actions VERIFIED serially; no recovery or retry. Takeoff observed altitude
+0.925827 m and lateral displacement 0.124676 m. Forward/left endpoint errors were
+0.023108/0.008781 m within unchanged 0.025 m tolerance. Each relative leg bound to
+fresh dispatch pose/heading. PX4 connected/disarmed and landed; physical body at rest.
+
+The documented Pegasus diagnostic pin `627ece91` is absent locally, and its remote
+refuses fetching it (`not our ref`). Current clean child `8c7a664` was preserved.
+A separate AirStack-owned, opt-in `ISAAC_SIM_TRUTH_DIR` recorder now reads Dynamic
+Control rigid-body pose/velocity and separate sensor pose after world steps. It is
+observation-only, nominal 10 Hz wall cadence, bounded to 10,000 records/64 MiB/300 s
+per capture across vehicles, with exclusive files and contained observer failures.
+See [simulator recorder usage](../../docs/simulation/isaac_sim/index.md#airstack-owned-rigid-body-recorder).
+This does not recover or implement the older contact/HIL/rotor-force contract.
+
+The flight's original recorder retained 1,783 contiguous records over 196.372 wall
+seconds; loaded source hash matches the retained deployed source. Maximum receipt
+gap 0.158185 s; measured body z range 0.071513–1.125905 m. Nearest shared-simulation-
+time samples (matching errors ≤0.060 s) show forward/left physical horizontal travel
+0.271050/0.247347 m. Physical/odometry displacement vectors differ by approximately
+0.0291/0.0305 m; phase, estimator error and frame assumptions remain explicit.
+Body-origin height differs from map altitude: these are not interchangeable.
+No contact/collision-containment or old-collapse-causation conclusion follows.
+
+A 180.026-second control capture retained 43,416 events across all 16 streams,
+1,079 active admitted PID callbacks, no malformed diagnostic or observed sequence
+discontinuity, and no TRACKING_FUTURE rejection with armed/control authority.
+Active tracking receipt ages ranged approximately 0.020–81.947 ms. Inactive future
+callbacks remain retained, including one mask290 armed/no-control transition.
+
+Independent reviewer caught stale status after malformed requests and uncontained
+observer initialization/cleanup paths. Fixed source publishes status after transitions
+with receipt/wall timestamps, contains observer lifecycle failures, and passes ten
+recorder tests; seven control-recorder and 63 console tests also pass. The flight
+used the retained earlier recorder source. Fixed source was separately reloaded while
+grounded through the GUI: its hash matches real records, malformed JSON reports
+recording=false/error, a fresh ID recovers (1,417 records/156.625 s, maximum
+receipt gap 0.137559 s, maximum sampling duration 0.616 ms excluding request/status
+I/O), and seven readiness gates pass after
+clock-epoch robot recovery. Reviewer independently verified tests, source and flight
+evidence; earlier usage-limit notes below describe the previous chunk only.
+
+Older collapse cause, mixed-height/longer reliability, full physical containment,
+and unavailable Pegasus-pin provenance remain open. No gains, physics or flight
+thresholds changed. Next: investigate the retained estimator/physical displacement
+and height differences before expanding mission complexity.
+
+## Live GUI Office replay — 2026-10-05 21:10 EDT
+
+User explicitly requested live GUI/simulator checks for the next chunk. Browser
+inspection of the running console showed the default flat scene camera while the
+GUI claimed "Scene unknown is active" and implicitly selected abandoned-factory.
+The UI now reports unknown binding explicitly, starts with "Choose a scene…",
+disables launch until selection, and locks selection during a scene switch.
+Actual browser checks cover unknown/selected/deselected states and in-progress
+controls; all 63 console tests pass.
+
+Office was selected and launched through the GUI. Cold scene preparation took
+approximately 207 seconds before PX4 startup. The concurrently started robot's
+actuation guard correctly latched NOT_READY during that delay. The existing
+clock-epoch recovery restarted the robot after Isaac, then readiness passed and
+the GUI reported Office MATCHED. The exact NumPy-fix digest and NumPy 1.26.4 were
+preserved; Docker's short image display was not an actual provenance regression.
+Fresh rendered camera views confirm the Office room and floor. An initial Save
+was rejected because its previous camera snapshot was stale; refresh then Save
+succeeded. No camera freshness or actuation limits were relaxed.
+
+One GUI-reviewed immutable replay ran: `take off to 1m, fly forward for 0.25m, then land`.
+Request `396f6646ab8c454f85ceaef9c88d90e4`, mission
+`62a519ba04cd41fcb48099e8c8483bb7`, reviewed plan SHA256
+`e0b4c1b4d20f755922353c22119693120ead4a92fdef0a29bbe0bd401cb2db5c`.
+Stage/restore retained that exact hash, and execution used the GUI's Execute
+reviewed plan control. TAKEOFF → NAVIGATE → ordinary LAND each independently
+VERIFIED, serially, with no recovery and no retry. Takeoff observed altitude
+0.938759 m, lateral displacement 0.109757 m; forward endpoint error 0.018999 m
+within unchanged 0.025 m tolerance, observed action travel 0.222885 m. LAND
+verified connected/disarmed state; independent PX4 readback reports landed,
+ground contact, at rest and disarmed. Seven post-flight readiness gates pass.
+
+A subscription-only 180.012-second control capture retained 41,409 events across
+all 16 streams; no missing channels, malformed diagnostics or observed diagnostic
+sequence discontinuities. There were 658 active admitted PID callbacks and no
+TRACKING_FUTURE rejection with armed/control authority. Active tracking receipt
+ages ranged from approximately 0.016 ms to 82.395 ms. Grounded/inactive future
+callbacks remain visible (140 mask291 records). This supports the bounded clock
+delivery handling in this one replay, not a causal explanation of the older
+collapse or qualification of mixed-height/longer missions. Camera snapshots are
+visual observation, not independent numeric physical-truth measurement.
+
+Screenshots, browser results, original task outcomes/replan bindings, logs,
+container/binary identities and control JSONL/summary are retained locally.
+No controller gains, physics, admission bounds or flight thresholds changed.
+The reviewer remained unavailable after its previously reported usage limit;
+the final GUI checks and live replay were assessed by the primary agent.
+Next: extend the bounded mission ladder with physical-truth evidence, preserving
+the unresolved older collapse and mixed-height limits.
+
+## Grounded control evidence continuation — 2026-10-05 20:55 EDT
+
+The user requested an independent reviewer and the next bounded work chunk after
+the Isaac image reset. Reviewer selected diagnostic coverage and checkpoint
+reconciliation; no flight, gain/bounds change, or speculative physics repair ran.
+
+Latest commit `e633a658` (2026-10-05) records independently verified serial Office
+takeoff 1 m → forward 0.25 m → LAND/disarm, endpoint error 0.02198 m. This supersedes
+older source-only deployment statements below, but leaves the older forward-collapse
+cause and mixed-height/longer/two-leg qualification open. Original flight artifacts
+are absent from this fresh workspace; the recorded success is committed evidence,
+not a flight repeated in this continuation.
+
+Current Isaac container was initially on the old release image with NumPy 2.4.6.
+While mission IDLE and PX4 disarmed/landed/at rest, it was recreated using
+`airlab-docker.andrew.cmu.edu/airstack/airstack@sha256:3e08f31c208fb5fd4435d782761f105289903d30debc8bdfaca92349ddb4a49d`
+(config ID `dfe91c2ed7680c5bfc7ccfc1f4bc424fe96fd65790353cf07595f12baae849cf`).
+Robot restarted after PX4 startup and rebuilt the mounted workspace. NumPy 1.26.4,
+console COMPATIBLE, all seven readiness gates, and fresh camera capture pass.
+The current environment-selected scene is the default environment, with console
+active scene UNKNOWN; this is not an Office qualification or scene-binding result.
+
+New `scripts/airstack_control_capture.py` records actual subscription callbacks,
+not cached consolidated snapshots. It captures all six PID streams, admission JSON,
+tracking/odometry, armed/control state, controller/MAVROS commands and targets, and
+vehicle/landed state. It uses `/clock` for ROS now and monotonic wall time for its
+duration; publisher header conventions remain distinct. JSONL flushes each event;
+missing channels, receipt gaps/ages, malformed diagnostics and sequence discontinuities
+are explicit. Limits: 300-second requested horizon and 100,000 events; synchronous
+storage latency remains unbounded. Nonfinite messages fail-stop with retained partial
+evidence. Output creation is exclusive. See [README usage](README.md#command-mission-history-and-evidence).
+
+Final grounded 15.015-second capture retained 3,792 events across all 16 channels,
+including 282 admission diagnostics; none missing or malformed and no observed
+diagnostic sequence discontinuity. Reason mask 35 occurred 277 times (DISARMED,
+NO_CONTROL, ODOM_BEFORE_ACTIVATION), and mask 291 five times (also TRACKING_FUTURE).
+These grounded inactive callbacks do not identify the earlier flight cause or
+demonstrate active-control safety. Each of the five TRACKING_FUTURE callbacks has
+an approximately 30 ms tracking-header lead over its controller ROS-clock snapshot.
+All six observed PID integrals remained zero;
+latest vehicle state connected/disarmed AUTO.LOITER. Graph inspection shows only
+the ROS infrastructure `/parameter_events` publisher and no capture services;
+the recorder creates no command publisher or action client/server.
+
+Seven CPU evidence tests pass; `git diff --check` passes. Independent review caught
+the initial wall-time ROS-clock mismatch before acceptance; that first capture
+remains retained as unqualified. Corrected final capture, summary, recorder hash,
+container/image identities and installed PID executable hash are retained locally.
+Source revision labels do not prove deployed binary/source equivalence. The existing
+modified Pegasus submodule and `robot/ros_ws/core` artifact were preserved.
+
+Next: correlate tracking/header delivery with admission and command/physical-truth
+evidence before advancing the bounded Office mission ladder. Re-establish Office
+scene binding and capture readiness for any later Office-specific trial; current
+grounded coverage alone does not qualify a flight or physical containment.
+
 ## PID admission diagnostics — source-only — 2026-10-04 02:36 EDT
 
 PID now publishes best-effort relative admission_diagnostic String JSON v1 after
