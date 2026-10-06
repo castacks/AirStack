@@ -142,6 +142,7 @@ if [[ "${ANALYZE}" == 1 && "${START}" == true ]]; then
   # Wait briefly for tigris_metrics_logger to write telemetry.csv
   wait_s=0
   max_wait=30
+  sleep 10
   while [[ ${wait_s} -lt ${max_wait} ]]; do
     found_all=1
     for i in $(seq 1 "${N}"); do
@@ -150,6 +151,9 @@ if [[ "${ANALYZE}" == 1 && "${START}" == true ]]; then
         break
       fi
     done
+    # if [[ ! -f "${REPO}/runs/${RUN_ID}/ground_truth.json" || ! -f "${REPO}/runs/${RUN_ID}/belief.png" ]]; then
+    #   found_all=0
+    # fi
     [[ ${found_all} == 1 ]] && break
     sleep 1
     (( wait_s++ ))

@@ -1,0 +1,81 @@
+{
+ "_doc": "Curve-planner (mtl::curve, planner.type curve) tuning in the 900 m world (specs/wide900.json), the counterpart of tigris_tuning.json / mtl_tuning.json, on the first 30 scenarios only (--limit 30). Every arm starts from stacks/mtl_search/config/mission.yaml's curve block (representation curvature, endpoint_mode open, altitude_stagger_m 1.0) and is given TIGRIS's sensor and gimbal model: the sweep amplitude is the angle where the boresight slant reaches 0.97 beta (sweep_range_margin 0.97, as run_benchmark.py's 'detection' amplitude for TIGRIS), capped at 75 deg (gimbal.gimbal_max_deg 75 = TIGRIS's max_amplitude_deg; in mtl::curve this key only caps the amplitude), and sensor.max_sensor_reach_m = 900 (= beta) so the ground-reach cap (adapter default 600 m, not scaled with beta) does not bind; the scorer flies it through the same 80 deg / 120 deg/s mount with no pitch nudge as TIGRIS. The detection sigmoid, FOV, tilt, altitude, speed, turn radius and budget come from the scenario as for every planner. Tuned knob: sweep_freq_hz {0.05, 0.075 (stack), 0.10, 0.14}; 0.14 Hz is about 60 deg/s peak at 300 m, the rate of TIGRIS's best sweep. A preliminary run before the amplitude was matched (bench/wide900/side/curve_prelim_reach_fix.jsonl, 18 scenarios) showed max_iter 300 changes nothing (0.3036 vs 0.3037) at +60 % plan time, and the 600 m reach cap costs 0.0005, so neither is in this grid. Winner by mean residual_hw over the informative tuning scenarios -> arms/curve900.json.",
+ "arms": [
+  {
+   "name": "mtl_curve_f050",
+   "planner": "mtl",
+   "scenario_overrides": {
+    "planner": {
+     "type": "curve",
+     "compare_orienteering": false
+    },
+    "curve": {
+     "representation": "curvature",
+     "endpoint_mode": "open",
+     "altitude_stagger_m": 1.0,
+     "sweep_freq_hz": 0.05,
+     "sweep_range_margin": 0.97
+    },
+    "sensor.max_sensor_reach_m": 900.0,
+    "gimbal.gimbal_max_deg": 75.0
+   }
+  },
+  {
+   "name": "mtl_curve_f075",
+   "planner": "mtl",
+   "scenario_overrides": {
+    "planner": {
+     "type": "curve",
+     "compare_orienteering": false
+    },
+    "curve": {
+     "representation": "curvature",
+     "endpoint_mode": "open",
+     "altitude_stagger_m": 1.0,
+     "sweep_freq_hz": 0.075,
+     "sweep_range_margin": 0.97
+    },
+    "sensor.max_sensor_reach_m": 900.0,
+    "gimbal.gimbal_max_deg": 75.0
+   }
+  },
+  {
+   "name": "mtl_curve_f100",
+   "planner": "mtl",
+   "scenario_overrides": {
+    "planner": {
+     "type": "curve",
+     "compare_orienteering": false
+    },
+    "curve": {
+     "representation": "curvature",
+     "endpoint_mode": "open",
+     "altitude_stagger_m": 1.0,
+     "sweep_freq_hz": 0.1,
+     "sweep_range_margin": 0.97
+    },
+    "sensor.max_sensor_reach_m": 900.0,
+    "gimbal.gimbal_max_deg": 75.0
+   }
+  },
+  {
+   "name": "mtl_curve_f140",
+   "planner": "mtl",
+   "scenario_overrides": {
+    "planner": {
+     "type": "curve",
+     "compare_orienteering": false
+    },
+    "curve": {
+     "representation": "curvature",
+     "endpoint_mode": "open",
+     "altitude_stagger_m": 1.0,
+     "sweep_freq_hz": 0.14,
+     "sweep_range_margin": 0.97
+    },
+    "sensor.max_sensor_reach_m": 900.0,
+    "gimbal.gimbal_max_deg": 75.0
+   }
+  }
+ ]
+}

@@ -1,0 +1,24 @@
+{
+ "_doc": "The curve planner (mtl::curve, planner.type curve) for the fair comparison in the 900 m world, run on all 160 scenarios: the winner of arms/curve_tuning.json on the first 30 (sweep_freq_hz 0.14, mean residual_hw 0.3285 on the 24 informative tuning scenarios vs 0.3290 / 0.3297 / 0.3314 at 0.10 / 0.075 / 0.05 Hz). 0.14 Hz is also the top of the grid on purpose: about 60 deg/s peak sweep rate at 300 m, the rate cap TIGRIS's best sweep was given. Same sensor / gimbal model as TIGRIS (amplitude to 0.97 beta, capped 75 deg; reach not capped below beta; scored with 80 deg travel, 120 deg/s, no pitch nudge); everything else from stacks/mtl_search/config/mission.yaml's curve block.",
+ "arms": [
+  {
+   "name": "mtl_curve",
+   "planner": "mtl",
+   "scenario_overrides": {
+    "planner": {
+     "type": "curve",
+     "compare_orienteering": false
+    },
+    "curve": {
+     "representation": "curvature",
+     "endpoint_mode": "open",
+     "altitude_stagger_m": 1.0,
+     "sweep_freq_hz": 0.14,
+     "sweep_range_margin": 0.97
+    },
+    "sensor.max_sensor_reach_m": 900.0,
+    "gimbal.gimbal_max_deg": 75.0
+   }
+  }
+ ]
+}

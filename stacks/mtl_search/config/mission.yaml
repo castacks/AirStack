@@ -48,7 +48,7 @@ mission:
       rgba: [0.95, 0.12, 0.10, 1.0]
 
   team:
-    max_flight_time_s: 1000.0      # per agent -> 6000 m of track at 6 m/s (the curve planner needs it finite)
+    max_flight_time_s: 500.0      # per agent -> 6000 m of track at 6 m/s (the curve planner needs it finite)
     max_flight_distance_m: .inf  # the tighter of the two binds
     altitude_separation_m: 1.0   # vertical deconfliction: robot_N cruises (and takes off) at
                                  # altitude_m + (N-1) * this -> 300 / 301 / 302 m. The team is

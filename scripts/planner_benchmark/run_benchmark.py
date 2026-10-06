@@ -96,9 +96,43 @@ def decimate(track: dict, step_m: float = 25.0):
     return out
 
 
-def run_one(job):
-    sid, arm, sc_path, bins, res, keep_dir, timeout = job
-    sc = json.loads(Path(sc_path).read_text())
+def sweep_check(tracks: list[dict]) -> dict:
+    """The planned 1-DOF sweep against the common gimbal (80 deg travel, 120 deg/s): max |phi| off
+    the mount axis, max |roll + phi| (level frame) and the max planned slew rate, over all agents."""
+    out = {"phi_max_deg": 0.0, "cross_max_deg": 0.0, "rate_max_deg_s": 0.0}
+    for t in tracks:
+        s = t["samples"]
+        phi = [float(v) for v in s.get("gimbal_phi") or []]
+        roll = [float(v) for v in s.get("roll") or [0.0] * len(phi)]
+        dt = float(t.get("dt_s", 0.1))
+        if not phi:
+            continue
+        out["phi_max_deg"] = max(out["phi_max_deg"], math.degrees(max(abs(v) for v in phi)))
+        out["cross_max_deg"] = max(out["cross_max_deg"], math.degrees(max(abs(a + b) for a, b in zip(phi, roll))))
+        if len(phi) > 1:
+            out["rate_max_deg_s"] = max(out["rate_max_deg_s"], math.degrees(
+                max(abs(phi[k + 1] - phi[k]) for k in range(len(phi) - 1)) / dt))
+    out = {k: round(v, 3) for k, v in out.items()}
+    out["within_limits"] = out["phi_max_deg"] <= score.HW["gimbal_max_deg"] + 1e-6 and \
+        out["rate_max_deg_s"] <= score.HW["slew_rate_deg_s"] + 1e-6
+    return out
+
+
+def curve_meta(plan: dict) -> dict:
+    """The curve planner's own diagnostics (plan.json), per agent: sweep, optimiser, fast residual."""
+    keys = ["sweep_amplitude_deg", "sweep_freq_hz", "sweep_peak_rate_deg_s", "gimbal_max_deg", "roll_max_deg",
+            "slant_range_max_m", "swath_half_width_m", "max_curvature", "optimizer_exit", "optimizer_iters",
+            "init_strategy", "fast_objective", "flown_length_m", "budget_used_frac", "info_fraction", "altitude_m"]
+    mc = (plan.get("meta") or {}).get("curve") or {}
+    return {"fast_residual": mc.get("fast_residual"), "fast_grid_step_m": mc.get("fast_grid_step_m"),
+            "realloc_accepted": mc.get("realloc_accepted"),
+            "agents": [{k: (a.get("diagnostics") or {}).get(k) for k in keys} for a in plan.get("agents", [])]}
+
+
+def apply_arm(sc: dict, arm: dict) -> dict:
+    """The scenario an arm plans: its ``scenario_overrides`` applied (dotted keys), and a TIGRIS
+    sweep amplitude of "detection" resolved to degrees. Shared by run_one and export_to_sim.py,
+    so a scenario flown in Isaac is exactly the one the benchmark planned."""
     for k, v in (arm.get("scenario_overrides") or {}).items():
         set_path(sc, k, copy.deepcopy(v))
     ga = (sc.get("airstack") or {}).get("gimbal_actuation") or {}
@@ -112,6 +146,12 @@ def run_one(job):
         amp = math.degrees(math.acos(min(1.0, c))) if c < 1 else 5.0
         ga["sweep_amplitude_deg"] = round(max(5.0, min(float(ga.get("max_amplitude_deg", 70.0)), amp)), 2)
         ga.pop("max_amplitude_deg", None)
+    return sc
+
+
+def run_one(job):
+    sid, arm, sc_path, bins, res, keep_dir, timeout = job
+    sc = apply_arm(json.loads(Path(sc_path).read_text()), arm)
     rec = {"id": sid, "arm": arm["name"], "planner": arm["planner"]}
     with tempfile.TemporaryDirectory() as tmp:
         scf = Path(tmp) / "scenario.json"
@@ -159,10 +199,23 @@ def run_one(job):
         rec.update(residual_hw=hw["residual"], curve_hw=hw["curve"])
         if arm["planner"] == "mtl":  # MTL's schedule without the +-5 deg airframe pitch nudge
             rec["residual_hw_nonudge"] = score.residual(sc, tracks, res, hardware={"pitch_nudge_max_deg": 0.0})["residual"]
+        curve_arm = arm["planner"] == "mtl" and (sc.get("planner") or {}).get("type") == "curve"
+        if curve_arm:
+            # secondary score: the follower's open_loop law (mission.yaml follower.gimbal_law), which
+            # replays the planned cross-track angle instead of aiming; residual_hw stays the headline
+            ol = score.residual(sc, tracks, res, hardware={"gimbal_law": "open_loop"})
+            rec.update(residual_hw_openloop=ol["residual"], curve_hw_openloop=ol["curve"])
+            rec["sweep_check"] = sweep_check(tracks)
         rec.update(residual=sco["residual"], flown_m=round(sco["flown_m"], 1), curve=sco["curve"],
                    budget_m=len(agents) * float(sc["team"]["max_flight_time_s"]) * float(sc["aircraft"]["speed_mps"]),
                    n_agents=len(agents), track=decimate(tracks[0]),
                    tracks=[decimate(t) for t in tracks] if len(tracks) > 1 else None)
+        if curve_arm:
+            try:
+                plan = json.loads((out / "plan.json").read_text())
+                rec["curve_meta"] = curve_meta(plan)
+            except Exception as ex:  # metadata only; the scores above do not depend on it
+                rec["curve_meta"] = {"error": str(ex)[:200]}
         if arm["planner"] == "mtl":
             try:
                 meta = json.loads((out / "plan.json").read_text()).get("meta", {})
@@ -221,7 +274,16 @@ def main(argv=None) -> int:
                     done.add((r["id"], r["arm"]))
             except Exception:
                 pass
-    (a.bench / "arms.json").write_text(json.dumps({"arms": arms, "binaries": bins}, indent=1))
+    # arms.json records every arm ever run into this bench: arms from earlier runs are kept (an arm
+    # of the same name is replaced by this run's definition)
+    prev = []
+    try:
+        prev = json.loads((a.bench / "arms.json").read_text()).get("arms", [])
+    except Exception:
+        pass
+    names = {x["name"] for x in arms}
+    (a.bench / "arms.json").write_text(json.dumps(
+        {"arms": [x for x in prev if x["name"] not in names] + arms, "binaries": bins}, indent=1))
     jobs = [(r["id"], arm, str(a.bench / "scenarios" / f"{r['id']}.json"), bins, a.res,
              str(a.bench / "tracks") if a.keep_tracks else None, a.timeout)
             for r in idx for arm in arms if (r["id"], arm["name"]) not in done]

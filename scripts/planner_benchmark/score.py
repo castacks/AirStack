@@ -33,7 +33,10 @@ from priors import rasterize  # noqa: E402
 # The gimbal every planner's plan is flown through in "hardware" scoring: the Isaac scene's
 # gimbal (stacks/*/config/mission.yaml sim_gimbal) driven by mtl_trajectory_follower's law.
 HW = {"slew_rate_deg_s": 120.0, "roll_limit_deg": 80.0, "pitch_limit_deg": (-20.0, 110.0),
-      "gimbal_max_deg": 80.0, "pitch_nudge_max_deg": 5.0}
+      "gimbal_max_deg": 80.0, "pitch_nudge_max_deg": 5.0, "gimbal_law": "aim_point"}
+# gimbal_law: "aim_point" (the headline residual_hw for every arm: aim at the planned ground point,
+# single_axis_command) or "open_loop" (replay the planned cross-track angle roll + phi with the look
+# angle at the mount tilt, single_axis_open_loop; what mission.yaml follower.gimbal_law flies).
 
 CURVE_FRACS = [round(0.05 * k, 2) for k in range(1, 21)]
 
@@ -65,8 +68,15 @@ def looks_from_track(track: dict, hardware: dict | None = None):
     bn, be = np.asarray(s["sensor_n"], float), np.asarray(s["sensor_e"], float)
     if hardware is None:
         return n, e, h, bn, be
-    from mtl_trajectory_follower.gimbal_math import boresight_from_euler, single_axis_command, slew_limit
+    from mtl_trajectory_follower.gimbal_math import (boresight_from_euler, single_axis_command,
+                                                      single_axis_open_loop, slew_limit)
     hw = dict(HW, **hardware)
+    open_loop = hw["gimbal_law"] == "open_loop"
+    if hw["gimbal_law"] not in ("aim_point", "open_loop"):
+        raise ValueError(f"gimbal_law {hw['gimbal_law']!r} is not aim_point | open_loop")
+    if open_loop:  # planned level-frame cross-track angle, + right (follower cross_angle_at)
+        cross = np.asarray(s.get("gimbal_phi") or np.zeros(n.size), float) + \
+            np.asarray(s.get("roll") or np.zeros(n.size), float)
     dt = float(track.get("dt_s", 0.1))
     tilt = float(track.get("tilt_rad", math.radians(30.0)))
     gmax, nudge = math.radians(hw["gimbal_max_deg"]), math.radians(hw["pitch_nudge_max_deg"])
@@ -77,7 +87,10 @@ def looks_from_track(track: dict, hardware: dict | None = None):
     state = None
     for k in range(n.size):
         pos = (e[k], n[k], h[k])  # ENU
-        cmd, _ = single_axis_command(pos, (be[k], bn[k], 0.0), float(yaw[k]), tilt, gmax, nudge)
+        if open_loop:
+            cmd, _ = single_axis_open_loop(pos, (be[k], bn[k], 0.0), float(yaw[k]), tilt, float(cross[k]), gmax)
+        else:
+            cmd, _ = single_axis_command(pos, (be[k], bn[k], 0.0), float(yaw[k]), tilt, gmax, nudge)
         state = cmd if state is None else slew_limit(state, cmd, step)
         roll, pitch, yw = state
         state = (max(-rl, min(rl, roll)), max(p0, min(p1, pitch)), yw)
@@ -97,6 +110,10 @@ def hardware_for(track: dict, **over) -> dict:
     if tg:
         hw["gimbal_max_deg"] = math.degrees(float(tg.get("gimbal_max_rad", math.radians(80.0))))
         hw["pitch_nudge_max_deg"] = math.degrees(float(tg.get("pitch_nudge_max_rad", 0.0)))
+    elif track.get("planner_type") == "curve":
+        # mtl::curve plans the sweep at a fixed look angle (no airframe pitch nudge), like TIGRIS's
+        # sweep: scored with the same mount as TIGRIS (80 deg travel, no nudge)
+        hw["pitch_nudge_max_deg"] = 0.0
     hw.update(over)
     return hw
 

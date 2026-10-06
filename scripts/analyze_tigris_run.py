@@ -307,7 +307,8 @@ def write_csv(path: Path, curve: dict) -> None:
 def team_analysis(run_dir: Path, out: Path, args, progress=None) -> dict:
     if progress is not None:
         progress("load telemetry", 0, 0)
-    sc, gt, rows, planned, png, sc_path, gt_path = analyze_mtl_run.load_run(run_dir, args.scenario, args.ground_truth)
+    # sc, gt, rows, planned, png, sc_path, gt_path = analyze_mtl_run.load_run(run_dir, args.scenario, args.ground_truth)
+    sc, gt, rows, planned, alternatives, mode, png, sc_path, gt_path = analyze_mtl_run.load_run(run_dir, args.scenario, args.ground_truth)
     res = write_run_outputs(
         out, scenario=sc, ground_truth=gt, rows_by_agent=rows, planned_by_agent=planned,
         title=f"TIGRIS search — {run_dir.name}",

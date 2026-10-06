@@ -45,7 +45,7 @@
   "enable_repair_loop": false
  },
  "team": {
-  "max_flight_time_s": 1000.0,
+  "max_flight_time_s": 500.0,
   "max_flight_distance_m": null,
   "altitude_separation_m": 1.0,
   "agents": [

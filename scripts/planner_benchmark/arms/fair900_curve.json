@@ -1,0 +1,75 @@
+{
+ "_doc": "The whole fair comparison in the 900 m world in one arms file: the four arms of fair900.json (mtl_plain, mtl_plain_r800, mtl_info_aware_r800, tigris_det_60dps) plus mtl_curve (curve900.json). Reproduces bench/wide900 from scratch in one run_benchmark.py call; on the existing bench the four fair900 arms are already done and are skipped.",
+ "arms": [
+  {
+   "name": "mtl_plain",
+   "planner": "mtl",
+   "scenario_overrides": {
+    "info_aware": {
+     "enabled": false,
+     "report_both": false
+    }
+   }
+  },
+  {
+   "name": "mtl_plain_r800",
+   "planner": "mtl",
+   "scenario_overrides": {
+    "info_aware": {
+     "enabled": false,
+     "report_both": false
+    },
+    "mapping.max_cluster_radius_m": 800.0
+   }
+  },
+  {
+   "name": "mtl_info_aware_r800",
+   "planner": "mtl",
+   "scenario_overrides": {
+    "info_aware": {
+     "enabled": true,
+     "report_both": false,
+     "threads": 1
+    },
+    "mapping.max_cluster_radius_m": 800.0
+   }
+  },
+  {
+   "name": "tigris_det_60dps",
+   "planner": "tigris",
+   "scenario_overrides": {
+    "airstack.gimbal_actuation": {
+     "enabled": true,
+     "sweep_rate_deg_s": 60.0,
+     "sweep_amplitude_deg": "detection",
+     "max_amplitude_deg": 75.0
+    }
+   },
+   "tigris_set": {
+    "planning_time_s": 1000,
+    "initial_planning_time_s": 1000,
+    "commit_margin_s": -992,
+    "max_iterations": 150
+   }
+  },
+  {
+   "name": "mtl_curve",
+   "planner": "mtl",
+   "scenario_overrides": {
+    "planner": {
+     "type": "curve",
+     "compare_orienteering": false
+    },
+    "curve": {
+     "representation": "curvature",
+     "endpoint_mode": "open",
+     "altitude_stagger_m": 1.0,
+     "sweep_freq_hz": 0.14,
+     "sweep_range_margin": 0.97
+    },
+    "sensor.max_sensor_reach_m": 900.0,
+    "gimbal.gimbal_max_deg": 75.0
+   }
+  }
+ ]
+}

@@ -3,8 +3,7 @@
 #  mtl_start_mission.sh — fly one MTL team sortie on a running AirStack sim.
 #
 #  Prerequisite (see docs/tutorials/mtl_target_localization.md):
-#    ISAAC_SIM_SCRIPT_NAME=search_mission_scene.py \
-#      airstack up --sim isaac --fleet mtl_search_fleet --stack mtl_search --play --wait
+#    ISAAC_SIM_SCRIPT_NAME=search_mission_scene.py airstack up --sim isaac --fleet mtl_search_fleet --stack mtl_search --play --wait
 #
 #  For every robot (in parallel) it runs stacks/mtl_search/scripts/mtl_sortie.sh
 #  inside that robot's container, with ONE shared run_id: preflight (the
@@ -135,7 +134,7 @@ if [[ "${INTERRUPTED}" == 1 ]]; then
   echo "[mtl_start_mission] stopped; partial run in ${REPO}/runs/${RUN_ID}" >&2
   exit 130
 fi
-
+ sleep 10
 if [[ "${ANALYZE}" == 1 && "${START}" == true ]]; then
   # Wait briefly for mtl_metrics_logger to write telemetry.csv
   wait_s=0
@@ -148,6 +147,9 @@ if [[ "${ANALYZE}" == 1 && "${START}" == true ]]; then
         break
       fi
     done
+    # if [[ ! -f "${REPO}/runs/${RUN_ID}/ground_truth.json" || ! -f "${REPO}/runs/${RUN_ID}/belief.png" ]]; then
+    #   found_all=0
+    # fi
     [[ ${found_all} == 1 ]] && break
     sleep 1
     (( wait_s++ ))
