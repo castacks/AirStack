@@ -445,6 +445,35 @@ class Console:
         report["clock_epoch_consistent"] = self._clock_epoch_consistent()
         return report
 
+    def _discover_command_state(self, *, landing_only: bool) -> dict:
+        """Reacquire missing/stale evidence within three bounded discovery windows.
+
+        This runs before plan claim/dispatch. Known contradictory/disconnected state
+        and clock mismatch still reject immediately; no task action is retried.
+        """
+        for attempt in range(3):
+            state = self.discover_tasks()
+            rejection = _command_state_rejection(state, landing_only=landing_only)
+            if not rejection or state.get("clock_epoch_consistent") is not True:
+                return state
+            missing = rejection.get("missing_state", [])
+            stale = rejection.get("stale_state", [])
+            allowed_unknown = set()
+            if "vehicle" in missing:
+                allowed_unknown.update(("connected", "armed"))
+            if "airborne" in missing:
+                allowed_unknown.add("airborne")
+            if "odometry" in missing:
+                allowed_unknown.update(("frame_id", "child_frame_id"))
+            # Reacquisition cannot erase known negative or contradictory evidence.
+            if (state.get("connected") is False
+                    or state.get("flight_state_consistent") is False
+                    or set(rejection.get("invalid_fields", [])) - allowed_unknown
+                    or not (missing or stale)
+                    or any(key.startswith("invalid_") for key in missing + stale)):
+                return state
+        return state
+
     @staticmethod
     def _ensure_robot_rrm_dependencies() -> None:
         """Restore ephemeral Python dependencies after a robot-container restart."""
@@ -517,7 +546,8 @@ class Console:
                     or run["execution_state"] != "NOT_DISPATCHED"):
                 raise RuntimeError("Only a new, undispatched command attempt can be executed.")
             goal = self.store.get_goal(run["goal_id"])
-            discovery = self.discover_tasks()
+            discovery = self._discover_command_state(
+                landing_only=_landing_only_command(goal["objective"]))
             state_rejection = _command_state_rejection(
                 discovery, landing_only=_landing_only_command(goal["objective"]))
             if state_rejection:
@@ -654,10 +684,10 @@ class Console:
         if plan.get("source_manifest") != self._command_source_manifest():
             raise RuntimeError("Executor source changed since staging.")
         self.require_isaac_runtime(proposals)
-        fresh = self.discover_tasks()
         ordinary = any(p.kind.value != "LAND" for p in proposals)
         landing_only = (bool(proposals) and not ordinary
                         and _landing_only_command(plan.get("grounding", {}).get("objective", "")))
+        fresh = self._discover_command_state(landing_only=landing_only)
         state_rejection = _command_state_rejection(fresh, landing_only=landing_only)
         if state_rejection or fresh.get("clock_epoch_consistent") is not True:
             raise RuntimeError("Fresh canonical state and clock epoch are required: "

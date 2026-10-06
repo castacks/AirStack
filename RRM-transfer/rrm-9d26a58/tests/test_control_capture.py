@@ -70,5 +70,46 @@ class ControlCaptureTests(unittest.TestCase):
         self.assertEqual(recorder.summary(3)["events"], 1)
 
 
+
+
+class GraphSnapshotTests(unittest.TestCase):
+    def test_live_graph_preserves_read_only_metadata(self):
+        class Node:
+            def count_publishers(self, topic): return 1
+            def get_name(self): return 'capture'
+            def get_namespace(self): return '/'
+            def get_publisher_names_and_types_by_node(self, name, namespace):
+                return [('/parameter_events', ['ParameterEvent'])]
+            def get_service_names_and_types_by_node(self, name, namespace): return []
+        result=capture.graph_snapshot(Node(), '/admission')
+        self.assertTrue(result['available']);self.assertIsNone(result['error'])
+        self.assertEqual(result['publishers'],1)
+        self.assertEqual(result['capture_services'],[])
+        self.assertEqual(result['capture_publishers'][0][0],'/parameter_events')
+
+    def test_invalid_context_does_not_fabricate_empty_graph_or_escape(self):
+        class Node:
+            def count_publishers(self, topic): raise RuntimeError('context is invalid')
+        result=capture.graph_snapshot(Node(), '/admission')
+        self.assertFalse(result['available'])
+        self.assertIn('context is invalid',result['error'])
+        for key in ['publishers','capture_publishers','capture_services']:
+            self.assertIsNone(result[key])
+
+class CaptureChannelTests(unittest.TestCase):
+    def test_channels_have_unique_names_and_capture_both_authority_streams(self):
+        import ast
+        tree = ast.parse(Path(capture.__file__).read_text())
+        assignment = next(n for n in ast.walk(tree) if isinstance(n, ast.Assign)
+                          and any(isinstance(t, ast.Name) and t.id == 'specs' for t in n.targets))
+        keys = [ast.literal_eval(k) for k in assignment.value.keys]
+        self.assertEqual(len(keys), len(set(keys)))
+        topics = {ast.literal_eval(k): ast.literal_eval(v.elts[0].right if isinstance(v.elts[0], ast.BinOp) else v.elts[0])
+                  for k, v in zip(assignment.value.keys, assignment.value.values)}
+        self.assertEqual(topics['sim_clock'], '/clock')
+        self.assertEqual(topics['authority'], '/interface/has_control')
+        self.assertEqual(topics['authority_diagnostic'],
+                         '/takeoff_landing_planner/takeoff_landing_task/authority_diagnostic')
+
 if __name__ == "__main__":
     unittest.main()

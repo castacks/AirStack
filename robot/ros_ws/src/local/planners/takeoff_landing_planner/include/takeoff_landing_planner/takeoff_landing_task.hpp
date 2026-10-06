@@ -36,6 +36,8 @@
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <std_msgs/msg/bool.hpp>
+#include <std_msgs/msg/string.hpp>
+#include <takeoff_landing_planner/authority_check.hpp>
 #include <trajectory_library/trajectory_library.hpp>
 
 #include "task_msgs/action/land_task.hpp"
@@ -94,7 +96,9 @@ private:
   std::mutex authority_mutex_;
   std::chrono::steady_clock::time_point armed_received_{};
   std::chrono::steady_clock::time_point control_received_{};
-  bool fresh_authority(std::chrono::steady_clock::time_point after = {});
+  bool fresh_authority(std::chrono::steady_clock::time_point after = {},
+    authority_check::Snapshot *snapshot = nullptr);
+  std::string authority_failure(const authority_check::Snapshot &snapshot, const char *phase);
   std::atomic<bool> state_estimate_timed_out_{false};
 
   // landed state from mavros
@@ -123,6 +127,8 @@ private:
   // publishers
   rclcpp::Publisher<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr traj_override_pub_;
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr is_airborne_pub_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr authority_diagnostic_pub_;
+  rclcpp::TimerBase::SharedPtr authority_diagnostic_timer_;
 
   // service clients
   rclcpp::Client<airstack_msgs::srv::TrajectoryMode>::SharedPtr traj_mode_client_;

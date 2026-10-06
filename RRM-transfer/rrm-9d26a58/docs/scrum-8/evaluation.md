@@ -1,8 +1,43 @@
 # SIL evaluation and curriculum mapping
 
+## Retained control diagnosis and visual API compatibility — 2026-10-06 UTC
+
+Retained recovery trace identifies a source-backed precursor to the pre-LAND dip:
+tracking TF rejection (4096) at LAND−4.2823 s resets PID integrals and emits idle
+thrust 0.71, clearing the prior vertical integral contribution ≈0.0916; lower thrust
+appears downstream before the dip. The next rejection is ODOM_BEFORE_ACTIVATION (32),
+following reset of activation history. All 185 tracking receipts in the preceding
+12 s retain a 1 m height reference and zero vertical reference. The actual PID log
+confirms a generic transform failure but omits lookup details. TF failure cause and
+counterfactual body causation remain unresolved. Fresh external authority does not
+prove uninterrupted internal controller admission. Independent reviewer corroborates.
+
+Actual GUI camera-to-private-worker diagnostic contains no teacher facts or dispatch
+request. Worker health is ready, but deployed POST `/v1/verify-entities` returns 404;
+zero successful inference, no perception score. Actual Isaac uses the standard Office
+launcher, not the authored marker fixture; no independent per-frame labels acquired.
+Seven prepared cases remain PREPARED_NOT_RUN. Final live ROS observation confirms
+connected/disarmed/landed, GUI VERIFIED/inactive, readiness 7/7. No flight, gain,
+guard, simulator image or scene changes in this chunk.
+
+Next substantial work: bounded TF lookup diagnostics and reviewed active-authority
+fallback policy; separately align worker entity API/model provenance and marker scene
+with frame-bound teacher acquisition, then execute scored shadow cases. Stable hover
+and broader robustness remain unqualified. Full recorded LAND coverage still stands.
+
+
 ## Campaign definition
 
-The representative scene is a structured simulated manipulation workspace with multiple objects, contextual multi-step instructions, explicit constraints and injected ambiguity/change/failure. Select a dexterous hand asset and controller against declared capabilities before integrating; do not substitute the existing AirStack drone scene or silently assume Panda. Start with simulator-ground-truth observation ingestion clearly labeled as such, then independently evaluate perception. A ground-truth shim is not evidence of perception accuracy.
+Current integrated SIL uses the aerial Office adapter selected in the
+[architecture](architecture.md). The manipulation examples below remain planned
+transfer scenarios, not the current flight benchmark. The current control checkpoint
+qualifies one fully recorded STOP trial and separate LAND action; repeated robustness and an
+unresolved pre-LAND height excursion remain open. Visual cases are prepared in the
+[vision evaluation protocol](vision-evaluation-protocol.md), with no acquired teacher
+labels or measured model accuracy yet. Use proposal-only visual pilots while the
+retained controller/reference timeline is investigated before more flight.
+
+The planned manipulation transfer scene is a structured simulated manipulation workspace with multiple objects, contextual multi-step instructions, explicit constraints and injected ambiguity/change/failure. Select a dexterous hand asset and controller against declared capabilities before integrating; do not substitute the existing AirStack drone scene or silently assume Panda. Start with simulator-ground-truth observation ingestion clearly labeled as such, then independently evaluate perception. A ground-truth shim is not evidence of perception accuracy.
 
 All S01–S10 scenarios below are planned integrated tests, not names for the existing mock passes. Use 30 recorded seeds per scenario and supported embodiment profile, three repetitions per seed for stochastic candidate models. Freeze seeds, scenes, prompt/config hashes and assessment rules before comparison; hold out layouts for generalization. Report numerator/denominator, confidence intervals, median/p95/max latency and failures separately. Safety failures cannot be averaged away by task completion. Functional expectations below are proposed engineering acceptance criteria derived from Phase 1; numerical performance targets are provisional references requiring applicability review.
 

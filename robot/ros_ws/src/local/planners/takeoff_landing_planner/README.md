@@ -174,3 +174,24 @@ component tests, not flight qualification. Rebuild/relaunch is required to deplo
 - `std_msgs`
 - `task_msgs`
 - `trajectory_library`
+
+### Authority diagnostics
+
+The action node publishes `~/authority_diagnostic` (`std_msgs/String`) at 2 Hz.
+JSON schema `takeoff-authority/v1` labels passive snapshots
+`periodic_observation` and actual rejected terminal guard checks
+`terminal_guard_failure`. A terminal snapshot is captured under the authority mutex
+at the decision and included verbatim in the action result before hold/LAND
+containment. Cancellation and shutdown do not produce invented guard failures.
+Diagnostic publication errors are contained so they cannot block containment.
+
+`reason_mask` uses bits 1/2 for armed/control false, 4/8 for armed/control receipt
+not strictly after the required request bound, and 16/32 for armed/control age not
+within `max_age_s`. Several bits may be set. Receipt ages and receipt steady times
+are null when no receipt was seen. Steady times are process/host observations,
+not ROS sensor stamps or transport latency. Passive grounded rejection is expected
+while disarmed and does not indicate an action failure. The original conjunction,
+strict request bound and inclusive freshness boundary are unchanged.
+
+The RRM subscription-only control recorder captures this stream as
+`authority_diagnostic`, separately from the interface `authority` boolean.

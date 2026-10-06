@@ -336,12 +336,15 @@ class PegasusApp:
         self.stop_sim = False
         self.physical_truth = None
         self.clock_observation = None
+        self.loop_observation = None
         truth_directory = os.environ.get("ISAAC_SIM_TRUTH_DIR", "").strip()
         if truth_directory:
             try:
                 from physical_truth import PhysicalTruthCapture, ClockObservation
+                from loop_timing import LoopTiming
                 self.physical_truth = PhysicalTruthCapture(truth_directory, warn=carb.log_warn)
                 self.clock_observation = ClockObservation(warn=carb.log_warn)
+                self.loop_observation = LoopTiming()
             except Exception as exc:
                 carb.log_warn("[physical_truth] initialization disabled: " + str(exc))
 
@@ -706,8 +709,18 @@ class PegasusApp:
             self.timeline.stop()
 
         app = omni.kit.app.get_app()
+        def observe(method, *args):
+            if self.loop_observation is not None:
+                try:
+                    getattr(self.loop_observation, method)(*args)
+                except Exception as exc:
+                    carb.log_warn("[loop_timing] observation disabled: " + str(exc))
+                    self.loop_observation = None
+
         while SIMULATION_APP.is_running() and not self.stop_sim:
+            observe("begin", self.clock_observation)
             self._update_follow_cam()
+            observe("mark", "follow_camera", self.clock_observation)
             # File → Save re-opens the stage, which invalidates the World.
             # Fall back to app.update() until the extension re-creates it.
             world = World.instance()
@@ -718,22 +731,34 @@ class PegasusApp:
                     except Exception as exc:
                         carb.log_warn("[physical_clock] integration disabled: " + str(exc))
                         self.clock_observation = None
+                observe("mark", "clock_bind", self.clock_observation)
                 world.step(render=True)
+                observe("mark", "world_step", self.clock_observation)
                 if self.physical_truth is not None:
                     try:
-                        from pegasus.simulator.logic.vehicle_manager import VehicleManager
+                        from contextlib import nullcontext
+                        metadata_span = self.loop_observation.span("metadata_lookup", self.clock_observation) if self.loop_observation else nullcontext()
+                        with metadata_span:
+                            from pegasus.simulator.logic.vehicle_manager import VehicleManager
+                            sim_time = float(world.current_time)
+                            vehicles = VehicleManager.get_vehicle_manager().vehicles
+                            playing = world.is_playing()
                         self.physical_truth.sample(
-                            float(world.current_time),
-                            VehicleManager.get_vehicle_manager().vehicles,
-                            playing=world.is_playing(), clock_observation=self.clock_observation)
+                            sim_time, vehicles,
+                            playing=playing, clock_observation=self.clock_observation,
+                            loop_observation=self.loop_observation)
                     except Exception as exc:
                         carb.log_warn("[physical_truth] integration disabled: " + str(exc))
                         self.physical_truth = None
+                observe("mark", "truth_sample", self.clock_observation)
                 if world is not self.world:
                     self.world = world
                     self.pg._world = world
+                observe("mark", "world_rebind", self.clock_observation)
             else:
                 app.update()
+                observe("mark", "app_update", self.clock_observation)
+            observe("finish")
 
         carb.log_warn("Closing simulation.")
         try:

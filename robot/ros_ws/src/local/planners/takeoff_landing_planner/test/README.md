@@ -169,3 +169,16 @@ For more verbose output:
 ```bash
 colcon test --packages-select takeoff_landing_planner --event-handlers=console_direct+ --pytest-args -v
 ```
+
+### Action authority evidence
+
+`authority_check` compares the pure evaluator with the original guard over 1,728
+input combinations, including strict request-bound equality, exact freshness
+boundary, future and missing receipts, and nonfinite limits. It checks reason bits
+and nullable missing receipt serialization. `isolated_abort_handover` runs the
+actual action binary only on empty ROS domain 198. Authority failure cases assert
+that the emitted terminal diagnostic equals the result snapshot, stale control
+receipts identify their failing age bit, false control identifies its boolean bit,
+and cancellation/service failures do not invent guard records. Existing endpoint,
+containment and service timeout assertions remain in place. These checks do not
+qualify simulator flight; grounded GUI deployment checks are separate.

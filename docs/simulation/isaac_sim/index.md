@@ -104,6 +104,20 @@ status I/O. Counter agreement alone does not establish source/binary equivalence
 acquisition-time epoch mapping, transport latency or the cause of a prior flight.
 
 
+The fraction-preserving PX4 backend candidate adds `utime_remainder_us` to these
+snapshots (null with older backend sources). Its integer HIL counter carries the
+sub-microsecond remainder between admitted updates instead of truncating every
+step. The remainder is per instance and shares the existing counter lifetime;
+stop/start/reinitialize and the existing no-op reset preserve both. This correction
+does not change heartbeat/IMU gates, lockstep, rates or the timestamp origin.
+Compare interval counter delta **plus remainder delta** against callback-duration
+sum; integer counter deltas alone retain up to one microsecond of quantization.
+Keep backend/observer identity and source hash fixed within an interval. The patch
+is in the Pegasus child checkout, so a clean parent checkout alone cannot supply
+it until a child commit and parent pin are published. Grounded qualification does
+not establish sensor acquisition registration or flight robustness.
+
+
 ### Earlier Pegasus instrumentation
 
 The earlier `ISAAC_SIM_STATE_LOG` contract below requires Pegasus commit
@@ -164,3 +178,61 @@ AirStack uses the following file naming conventions:
 - `*.robot.usd` ⟵ a prop representing a robot plus ROS2 topic and TF publishers, physics, etc.
 
 - `*.scene.usd` ⟵ an environment PLUS physics, simulation, or robots
+
+### Opt-in loop timing for grounded pause diagnosis
+
+With `ISAAC_SIM_TRUTH_DIR` enabled, physical capture records now include
+`loop_timing` (`airstack-loop-timing/v1`). Wall-monotonic and current-thread CPU
+boundaries measure follow-camera work, observer binding, the unchanged
+`world.step(render=True)` call, physical capture, world rebinding, or fallback
+`app.update()`. Gaps between loops are measured separately. Engine exceptions
+still propagate; observer failures disable only timing observation.
+
+Each 10 Hz physical record distinguishes its current partial loop from the prior
+completed loop. Completed slow loops or between-loop gaps above 0.1 s enter a
+32-entry history, with cumulative counts and eviction metadata. Slow entries are
+streamed after successful writes without consuming the current partial loop.
+History delivery is capture-global; per-vehicle history is not guaranteed for
+multi-vehicle captures. Physics-observer IDs at boundaries prevent interpreting
+callback counts across a world change. A separate bounded physics-callback gap
+history reports callback receipt intervals, not ROS publication or acquisition.
+
+Timing brackets around `world_step` include rendering, physics and bridge work.
+Current-thread CPU does not measure all engine workers, GPU time or OS scheduling.
+These diagnostics localize a broad phase and require grounded GUI checks; they do
+not qualify flight robustness or instrumentation overhead. The RRM read-only
+control capture also retains raw `/clock` messages as `sim_clock`, separately from
+physical callback timing and control receipt ages.
+
+
+Optional loop timing also retains separate operation spans for metadata lookup,
+request polling, body reads, clock and backend metadata, loop snapshot copying,
+record encoding/write/flush, and status encoding/write/replace. These spans do not
+add outer phases or change engine/control execution. Each loop keeps at most 32
+completed spans, with explicit count/drop metadata; cumulative maxima cover
+successfully measured completed spans. A span measurement failure disables only
+subphase timing, reports its error, and lets the original operation run. Original
+operation exceptions retain the existing capture/status containment behavior.
+
+The current physical record snapshots an active `loop_snapshot` span. Its own
+encoding/write/status tail is incomplete. `latest_sampling_completed` retains one
+latest completed loop containing successfully flushed physical records, separately
+from the immediate prior engine loop. Capture/observer identity and successful-write
+delivery cursors prevent an old capture or failed containing write from consuming
+this evidence. Nonsampling loops do not replace it. Capacity one is qualified for
+the single-vehicle stream; arbitrary multi-vehicle queues are not guaranteed.
+
+`sampling_record` identifies capture and first/last physical record sequences.
+Final status reports retention availability, errors and the last written versus
+last delivered loop. It distinguishes a pending written loop from a known completed
+pending loop, without writing an extra final-tail record. Consumers must check
+retention state and status freshness. The final successful record normally remains
+undelivered because it needs a later containing record.
+
+`max_subphase_records` carries the full completed span setting each cumulative wall
+maximum: loop/observer identity, wall timestamps, current-thread CPU and physics
+boundary metadata. Strictly larger maxima replace records; ties retain the first.
+These maxima apply through the snapshot, including startup and settling; timestamps
+permit attribution to comparison windows. Selected brackets exclude observer
+bookkeeping and do not measure total observer overhead. Low current-thread CPU
+alone cannot identify I/O or scheduling.

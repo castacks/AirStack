@@ -77,6 +77,10 @@ function(add_ros_isolated_launch_test path)
 endfunction()
 
 if(BUILD_TESTING)
+  add_executable(authority_check_test test/authority_check.cpp)
+  target_include_directories(authority_check_test PRIVATE include)
+  target_compile_features(authority_check_test PRIVATE cxx_std_17)
+  add_test(NAME authority_check COMMAND authority_check_test)
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
   add_test(NAME isolated_abort_handover
     COMMAND ${CMAKE_COMMAND} -E env ROS_DOMAIN_ID=198 ${Python3_EXECUTABLE}

@@ -1,6 +1,92 @@
 # RRM milestones
 
-## Current continuation — 2026-10-05 EDT
+## Retained control diagnosis and visual API compatibility — 2026-10-06 UTC
+
+Retained recovery trace identifies a source-backed precursor to the pre-LAND dip:
+tracking TF rejection (4096) at LAND−4.2823 s resets PID integrals and emits idle
+thrust 0.71, clearing the prior vertical integral contribution ≈0.0916; lower thrust
+appears downstream before the dip. The next rejection is ODOM_BEFORE_ACTIVATION (32),
+following reset of activation history. All 185 tracking receipts in the preceding
+12 s retain a 1 m height reference and zero vertical reference. The actual PID log
+confirms a generic transform failure but omits lookup details. TF failure cause and
+counterfactual body causation remain unresolved. Fresh external authority does not
+prove uninterrupted internal controller admission. Independent reviewer corroborates.
+
+Actual GUI camera-to-private-worker diagnostic contains no teacher facts or dispatch
+request. Worker health is ready, but deployed POST `/v1/verify-entities` returns 404;
+zero successful inference, no perception score. Actual Isaac uses the standard Office
+launcher, not the authored marker fixture; no independent per-frame labels acquired.
+Seven prepared cases remain PREPARED_NOT_RUN. Final live ROS observation confirms
+connected/disarmed/landed, GUI VERIFIED/inactive, readiness 7/7. No flight, gain,
+guard, simulator image or scene changes in this chunk.
+
+Next substantial work: bounded TF lookup diagnostics and reviewed active-authority
+fallback policy; separately align worker entity API/model provenance and marker scene
+with frame-bound teacher acquisition, then execute scored shadow cases. Stable hover
+and broader robustness remain unqualified. Full recorded LAND coverage still stands.
+
+
+## Current continuation — 2026-10-06 EDT
+
+Recovery-aware capture and bounded canonical-state reacquisition pass 76 tests and
+independent review. Grounded final-source rollover verifies four overlapping control
+segments and 574 exact clock windows. Actual GUI completes TAKEOFF/NAV1/NAV2, stops
+moving NAV3 and withholds later actions; separate LAND verifies in 11.619 s with its
+whole recorded action covered by 99 physical samples and all 18 control streams.
+Live session retains 1,854 physical samples, 1,852 exact clock comparisons and two
+explicit pending tails. Later 1.046 s rollover gap is outside LAND. Final GUI inactive,
+vehicle disarmed/landed, capture COMPLETE, readiness 7/7.
+
+A substantial predispatched body-height excursion (1.019 →0.569 →0.878 m) has no
+established cause despite fresh inputs and persistent OFFBOARD/authority. Stable hold
+and broader robustness stay open. Next: retained controller/reference diagnosis before
+more flight, alongside a teacher-labeled proposal-only visual pilot. Seven visual cases
+are PREPARED_NOT_RUN; no perception accuracy claim. Preserve guards and provenance.
+See [HANDOFF.md](HANDOFF.md) and [vision protocol](docs/scrum-8/vision-evaluation-protocol.md).
+
+### Previous complex GUI mission checkpoint — 2026-10-06 EDT
+
+An actual GUI six-action Office mission completes VERIFIED: takeoff 1 m, four
+relative 0.5 m navigation legs, then land. Two moving STOP trials during NAV1/NAV3
+halt and withhold later actions; each interrupted mission stays HALTED. Separate
+one-action LAND tasks verify once, and fresh final ROS/PhysX confirms grounding.
+Both separate LAND descents remain unqualified across harness raw-capture gaps of
+54.175/85.850 s. LAND2 first rejects missing canonical vehicle state before dispatch,
+then the same unconsumed plan admits once after fresh observation; no action retry.
+
+Unchanged source, image, planner and Office epoch retain 4,085 physical records,
+4,079 exact within-segment clock comparisons and six explicit final pending tails.
+No physical cap truncation or timing/retention error. Existing 55 tests apply to
+unchanged instrumentation; independent review checks plans and behavioral evidence.
+Final GUI is VERIFIED/inactive, readiness 7/7, vehicle disarmed/landed, recording
+disabled. Next: recovery-aware capture/admission orchestration, grounded validation,
+then full descent coverage. Preserve the 0.5 s guard and candidate provenance.
+See [HANDOFF.md](HANDOFF.md).
+
+### Previous completed sampling checkpoint — 2026-10-06 EDT
+
+Completed sampling-loop retention and timestamped maxima pass 55 tests, independent
+review, actual GUI reload and readiness 7/7. The grounded comparison retains 44,361
+control events/18 streams and 1,525 physical records. All 1,524 preceding sampling
+loops deliver complete snapshot/encode/write tails; the final tail is explicitly
+pending completed. All clock windows agree exactly, with zero timing/retention
+errors. No large pause recurs. Span-start attribution separates comparison maxima
+from outside-window events; no total-overhead bound or prior-abort cause follows.
+The larger payload remains below 64 MiB here; future warmed comparisons need shorter
+windows or bounded segments. Next: unchanged-source warmed observation with byte
+margin. Final state is disarmed/landed, mission inactive and capture disabled.
+Preserve the 0.5 s guard and uncommitted candidate provenance.
+See [HANDOFF.md](HANDOFF.md).
+
+A fraction-preserving Pegasus clock candidate passes 22 tests and two actual
+Office GUI grounded reloads, both readiness 7/7. All 549 comparison windows
+match counter-plus-remainder to observed duration; integer quantization stays
+below 1 µs. The child patch is uncommitted and requires publication/pinning for
+reproduction from clean checkouts. No new flight qualification. Next is bounded GUI
+mission/stop/recovery testing; acquisition alignment and older collapse remain
+open. See [HANDOFF.md](HANDOFF.md).
+
+### Previous grounded measurements — 2026-10-05 EDT
 
 Actual grounded physics callback measurement confirms **4.112 ms backend clock
 loss over 41.13 simulation seconds**: all 456 recorded windows exactly match

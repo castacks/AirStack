@@ -1,3 +1,98 @@
+## Retained control diagnosis and visual API compatibility — 2026-10-06 UTC
+
+Retained recovery trace identifies a source-backed precursor to the pre-LAND dip:
+tracking TF rejection (4096) at LAND−4.2823 s resets PID integrals and emits idle
+thrust 0.71, clearing the prior vertical integral contribution ≈0.0916; lower thrust
+appears downstream before the dip. The next rejection is ODOM_BEFORE_ACTIVATION (32),
+following reset of activation history. All 185 tracking receipts in the preceding
+12 s retain a 1 m height reference and zero vertical reference. The actual PID log
+confirms a generic transform failure but omits lookup details. TF failure cause and
+counterfactual body causation remain unresolved. Fresh external authority does not
+prove uninterrupted internal controller admission. Independent reviewer corroborates.
+
+Actual GUI camera-to-private-worker diagnostic contains no teacher facts or dispatch
+request. Worker health is ready, but deployed POST `/v1/verify-entities` returns 404;
+zero successful inference, no perception score. Actual Isaac uses the standard Office
+launcher, not the authored marker fixture; no independent per-frame labels acquired.
+Seven prepared cases remain PREPARED_NOT_RUN. Final live ROS observation confirms
+connected/disarmed/landed, GUI VERIFIED/inactive, readiness 7/7. No flight, gain,
+guard, simulator image or scene changes in this chunk.
+
+Next substantial work: bounded TF lookup diagnostics and reviewed active-authority
+fallback policy; separately align worker entity API/model provenance and marker scene
+with frame-bound teacher acquisition, then execute scored shadow cases. Stable hover
+and broader robustness remain unqualified. Full recorded LAND coverage still stands.
+
+> **Recovery capture checkpoint (2026-10-06 EDT):** Recovery-aware recording and
+> canonical observation reacquisition pass 76 tests. Actual GUI STOP followed by
+> separate LAND verifies, with 99 physical samples/all 18 streams covering the LAND
+> action. Final disarmed/landed, readiness 7/7. A substantial predispatch altitude
+> excursion remains unexplained; stable hold is unqualified. Seven vision cases
+> are prepared, with no model accuracy claim. Next: retained-data diagnosis and
+> teacher-labeled visual shadow evaluation. See [HANDOFF.md](HANDOFF.md).
+
+> **Complex GUI mission checkpoint (2026-10-06 EDT):** A six-action Office mission
+> completes VERIFIED, and two moving STOP trials halt with later actions withheld.
+> Separate LAND tasks verify once and fresh final captures confirm grounding;
+> both descents remain unqualified across documented harness capture gaps. Same
+> source/epoch retains 4,085 physical records and 4,079 exact clock comparisons.
+> Final GUI inactive, vehicle disarmed/landed, readiness 7/7. Next: coordinate
+> recovery capture and fresh-state admission before full descent qualification.
+> See [HANDOFF.md](HANDOFF.md).
+
+> **Completed sampling checkpoint (2026-10-06 EDT):** Retained completed sampling
+> loops and timestamped maxima pass 55 tests, independent review and actual GUI/
+> readiness 7/7. A grounded capture delivers all 1,524 preceding sampling tails;
+> its final tail is explicitly pending. 44,361 events/18 streams and all clock
+> comparisons pass; neither large pause recurs. Vehicle ends disarmed/landed.
+> Next: a warmed comparison sized for the larger payload and existing byte cap.
+> See [HANDOFF.md](HANDOFF.md).
+
+> **Observer operation checkpoint (2026-10-06 EDT):** Finer operation timing passes
+> 47 tests, source review and actual GUI/readiness 7/7. A grounded comparison retains
+> 43,506 events across 18 streams; neither large pause recurs. Timing reports no
+> errors; measured operation maxima stay below 4.220 ms through the last snapshot.
+> Total overhead and ordinary write-tail delivery remain unqualified. Vehicle ends
+> disarmed/landed. Next: bounded delivery of completed sampling-loop timings.
+> See [HANDOFF.md](HANDOFF.md).
+
+> **Extended grounded checkpoint (2026-10-06 EDT):** Same-epoch actual GUI checks
+> and a 272 s warmed comparison retain 66,270 events/18 streams and 2,289 physical
+> records. No comparable ~0.7 s input pause recurs. Historical warm timing includes
+> a 0.530 s observation-associated housekeeping interval as well as >0.5 s engine
+> calls; cause and impact remain unknown. New history is retained despite ring
+> eviction. Vehicle ends disarmed/landed; next is finer observer-phase timing.
+> See [HANDOFF.md](HANDOFF.md).
+
+> **Simulator timing checkpoint (2026-10-06 EDT):** Bounded loop/callback timing and
+> raw `/clock` capture pass 38 tests, independent review and real Office GUI/readiness
+> 7/7. A settled grounded run retains 34,493 events across 18 streams; no ~0.7 s input
+> pause recurs. A 0.118 s baseline delay falls inside `world.step(render=True)`;
+> retained startup engine delays reach 1.709 s before simultaneous control capture.
+> Cause and flight robustness remain unresolved. See [HANDOFF.md](HANDOFF.md).
+
+> **Authority diagnostic checkpoint (2026-10-06 EDT):** Exact failure snapshots and
+> separate passive telemetry preserve the 0.5 s guard. Build, 1,728 guard-equivalence
+> cases, action regressions, 10 recorder tests and real Office GUI readiness 7/7 pass.
+> A shared ~0.71–0.79 s pause appears in a camera-free grounded baseline; five camera
+> requests succeed with smaller gaps. Cause remains unresolved; no flight was run.
+> See [HANDOFF.md](HANDOFF.md) for sampling limits and next grounded instrumentation.
+
+> **GUI failure checkpoint (2026-10-06 EDT):** The latest nominal attempt halted
+> during takeoff and returned to disarmed/grounded rest through automatic containment.
+> A shared ~0.7 s receipt/physics pause exceeds the 0.5 s authority freshness guard;
+> exact internal cause remains unrecorded. GUI STOP/recovery qualification is deferred.
+> Recorder SIGINT summary loss is repaired: nine tests and real grounded signal checks
+> pass. See [HANDOFF.md](HANDOFF.md) for the failed attempt and next diagnostics.
+
+> **Fractional clock candidate (2026-10-06 EDT):** Pegasus now carries fractional
+> microseconds across admitted updates. Two grounded Office GUI reloads qualify
+> 549 windows with exact counter-plus-remainder agreement; integer quantization
+> stays below 1 µs. 22 tests, independent code review and both readiness 7/7 pass.
+> The child patch is uncommitted; clean parent checkouts need its eventual child
+> commit/pin. Flight robustness and acquisition alignment remain open.
+> See [HANDOFF.md](HANDOFF.md) for source provenance and the next GUI qualification.
+
 > **Physics clock checkpoint (2026-10-05 EDT):** Actual grounded callback dt
 > confirms 4.112 ms backend clock loss over 41.13 simulation seconds. All 456 windows
 > match per-step microsecond truncation. Six observer plus ten recorder tests,

@@ -26,13 +26,27 @@
 #include <cmath>
 #include <thread>
 
-bool TakeoffLandingTaskNode::fresh_authority(std::chrono::steady_clock::time_point after)
+bool TakeoffLandingTaskNode::fresh_authority(std::chrono::steady_clock::time_point after,
+  authority_check::Snapshot *snapshot)
 {
   std::lock_guard<std::mutex> lock(authority_mutex_);
-  const auto now = std::chrono::steady_clock::now();
-  return is_armed_.load() && has_control_.load() && armed_received_ > after && control_received_ > after &&
-    std::chrono::duration<double>(now - armed_received_).count() <= control_state_max_age_s_ &&
-    std::chrono::duration<double>(now - control_received_).count() <= control_state_max_age_s_;
+  const auto observed = authority_check::evaluate(is_armed_.load(), has_control_.load(),
+    armed_received_, control_received_, std::chrono::steady_clock::now(), after,
+    control_state_max_age_s_);
+  if (snapshot) *snapshot = observed;
+  return observed.valid();
+}
+
+std::string TakeoffLandingTaskNode::authority_failure(
+  const authority_check::Snapshot &snapshot, const char *phase)
+{
+  std_msgs::msg::String msg;
+  msg.data = authority_check::json(snapshot, "terminal_guard_failure", phase);
+  try { authority_diagnostic_pub_->publish(msg); }
+  catch (const std::exception &error) {
+    RCLCPP_WARN(this->get_logger(), "Authority diagnostic publish failed: %s", error.what());
+  }
+  return "authority_diagnostic=" + msg.data + "; ";
 }
 
 TakeoffLandingTaskNode::TakeoffLandingTaskNode()
@@ -126,6 +140,19 @@ TakeoffLandingTaskNode::TakeoffLandingTaskNode()
   traj_override_pub_ =
     this->create_publisher<airstack_msgs::msg::TrajectoryXYZVYaw>("trajectory_override", 1);
   is_airborne_pub_ = this->create_publisher<std_msgs::msg::Bool>("is_airborne", 1);
+
+  authority_diagnostic_pub_ =
+    this->create_publisher<std_msgs::msg::String>("~/authority_diagnostic", 10);
+  authority_diagnostic_timer_ = this->create_wall_timer(std::chrono::milliseconds(500), [this]() {
+    authority_check::Snapshot snapshot;
+    fresh_authority({}, &snapshot);
+    std_msgs::msg::String msg;
+    msg.data = authority_check::json(snapshot, "periodic_observation", "passive");
+    try { authority_diagnostic_pub_->publish(msg); }
+    catch (const std::exception &error) {
+      RCLCPP_WARN(this->get_logger(), "Passive authority diagnostic publish failed: %s", error.what());
+    }
+  });
 
   // service clients
   traj_mode_client_ =
@@ -416,9 +443,13 @@ void TakeoffLandingTaskNode::takeoff_execute(std::shared_ptr<TakeoffGoalHandle> 
   {
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
   }
-  if (!rclcpp::ok() || cancel_requested_ || !fresh_authority(control_requested_at)) {
+  authority_check::Snapshot authority_snapshot;
+  const bool authority_not_evaluated = !rclcpp::ok() || cancel_requested_;
+  if (authority_not_evaluated || !fresh_authority(control_requested_at, &authority_snapshot)) {
     result->success = false;
-    result->message = "control authority not observed before ascent; " + contain_takeoff_breach();
+    result->message = "control authority not observed before ascent; ";
+    if (!authority_not_evaluated) result->message += authority_failure(authority_snapshot, "acquisition");
+    result->message += contain_takeoff_breach();
     if (cancel_requested_) { goal_handle->canceled(result); }
     else { goal_handle->abort(result); }
     task_active_ = false; return;
@@ -434,9 +465,11 @@ void TakeoffLandingTaskNode::takeoff_execute(std::shared_ptr<TakeoffGoalHandle> 
     return;
   }
 
-  if (!fresh_authority()) {
+  if (!fresh_authority({}, &authority_snapshot)) {
     result->success = false;
-    result->message = "control authority lost before trajectory; " + contain_takeoff_breach();
+    result->message = "control authority lost before trajectory; " +
+      authority_failure(authority_snapshot, "before_trajectory");
+    result->message += contain_takeoff_breach();
     goal_handle->abort(result); task_active_ = false; return;
   }
 
@@ -497,9 +530,11 @@ void TakeoffLandingTaskNode::takeoff_execute(std::shared_ptr<TakeoffGoalHandle> 
       return;
     }
 
-    if (!fresh_authority()) {
+    if (!fresh_authority({}, &authority_snapshot)) {
       result->success = false;
-      result->message = "control authority lost during ascent; " + contain_takeoff_breach();
+      result->message = "control authority lost during ascent; " +
+        authority_failure(authority_snapshot, "ascent");
+      result->message += contain_takeoff_breach();
       goal_handle->abort(result); task_active_ = false; return;
     }
 

@@ -1,0 +1,20 @@
+{
+  "schema": "rrm-visual-evaluation-cases/v1",
+  "revision": "office-visual-grounding-v1",
+  "status": "PREPARED_NOT_RUN",
+  "execution_dispatch": false,
+  "scene": "office",
+  "catalog_reference": "../entity_catalog.json",
+  "teacher_policy": "Independent simulator labels retained separately; never supplied as sensor evidence to the visual candidate.",
+  "cases": [
+    {"case_id": "V01", "scenario": "contextual_target", "objective": "Inspect the blue navigation marker", "setup": "One independently labeled visible blue marker and one visible orange distractor", "expected": "GROUND_BLUE_MARKER", "required_teacher": ["entity_ids", "visibility", "image_region"], "requirement_scenarios": ["S01"]},
+    {"case_id": "V02", "scenario": "ambiguous_target", "objective": "Inspect that marker", "setup": "Both catalog markers visible; no pointing or disambiguating context", "expected": "CLARIFY_NO_DISPATCH", "required_teacher": ["entity_ids", "visibility", "ambiguity_label"], "requirement_scenarios": ["S03"]},
+    {"case_id": "V03", "scenario": "absent_target", "objective": "Inspect the green navigation marker", "setup": "No green marker exists in the independently verified scene/catalog", "expected": "UNSUPPORTED_OR_UNRESOLVED_NO_DISPATCH", "required_teacher": ["entity_ids", "target_absence"], "requirement_scenarios": ["S04", "S10"]},
+    {"case_id": "V04", "scenario": "occluded_target", "objective": "Inspect the blue navigation marker", "setup": "Teacher confirms blue marker exists but is fully occluded in this observation", "expected": "INSUFFICIENT_VISUAL_EVIDENCE_NO_DISPATCH", "required_teacher": ["entity_ids", "visibility", "occlusion_label"], "requirement_scenarios": ["S10"]},
+    {"case_id": "V05", "scenario": "displaced_target", "objective": "Inspect the blue navigation marker", "setup": "Move target after proposal; capture a new frame and scene revision before admission", "expected": "INVALIDATE_OLD_BINDING_REGROUND_NEW_REVISION", "required_teacher": ["entity_ids", "poses_before_after", "injection_time", "scene_revisions"], "requirement_scenarios": ["S02"]},
+    {"case_id": "V06", "scenario": "stale_frame", "objective": "Inspect the blue navigation marker", "setup": "Replay a valid prior image beyond the declared observation-age budget", "expected": "REJECT_STALE_EVIDENCE_NO_DISPATCH", "required_teacher": ["capture_time", "assessment_time", "declared_age_budget"], "requirement_scenarios": ["S10"]},
+    {"case_id": "V07", "scenario": "broken_evidence", "objective": "Inspect the blue navigation marker", "setup": "Alter image bytes or result observation hash after capture", "expected": "REJECT_INTEGRITY_MISMATCH_NO_DISPATCH", "required_teacher": ["original_image_hash", "presented_image_hash", "result_observation_hash"], "requirement_scenarios": ["S10"]}
+  ],
+  "metrics": ["grounding_accuracy_all_attempts", "false_target_groundings", "clarification_accuracy", "stale_or_broken_evidence_acceptances", "median_p95_max_wall_latency", "observation_age", "evidence_complete_fraction"],
+  "campaign": {"freeze_before_comparison": ["case_revision", "scene_and_controller_hashes", "seeds", "model_revision", "prompt_hash", "assessment_rules", "frame_age_budget"], "seeds_per_supported_scenario": 30, "repetitions_per_seed_for_stochastic_candidates": 3, "held_out_layouts": true, "retain_failed_and_incomplete_attempts": true}
+}

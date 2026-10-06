@@ -1,5 +1,480 @@
 # RRM remote Codex handoff
 
+## Retained control diagnosis and visual API compatibility — 2026-10-06 UTC
+
+Retained recovery trace identifies a source-backed precursor to the pre-LAND dip:
+tracking TF rejection (4096) at LAND−4.2823 s resets PID integrals and emits idle
+thrust 0.71, clearing the prior vertical integral contribution ≈0.0916; lower thrust
+appears downstream before the dip. The next rejection is ODOM_BEFORE_ACTIVATION (32),
+following reset of activation history. All 185 tracking receipts in the preceding
+12 s retain a 1 m height reference and zero vertical reference. The actual PID log
+confirms a generic transform failure but omits lookup details. TF failure cause and
+counterfactual body causation remain unresolved. Fresh external authority does not
+prove uninterrupted internal controller admission. Independent reviewer corroborates.
+
+Actual GUI camera-to-private-worker diagnostic contains no teacher facts or dispatch
+request. Worker health is ready, but deployed POST `/v1/verify-entities` returns 404;
+zero successful inference, no perception score. Actual Isaac uses the standard Office
+launcher, not the authored marker fixture; no independent per-frame labels acquired.
+Seven prepared cases remain PREPARED_NOT_RUN. Final live ROS observation confirms
+connected/disarmed/landed, GUI VERIFIED/inactive, readiness 7/7. No flight, gain,
+guard, simulator image or scene changes in this chunk.
+
+Next substantial work: bounded TF lookup diagnostics and reviewed active-authority
+fallback policy; separately align worker entity API/model provenance and marker scene
+with frame-bound teacher acquisition, then execute scored shadow cases. Stable hover
+and broader robustness remain unqualified. Full recorded LAND coverage still stands.
+
+
+## Recovery capture and vision preparation checkpoint — 2026-10-06 EDT
+
+Recovery-aware recording is independent of GUI monitor/review lifetime. Explicit
+finish requires inactive mission and two distinct fresh ground receipts. Physical
+segments use 120 s/48 MiB targets; LAND plans are protected before feedback and
+unknown mission state is conservative, within 240 s/56 MiB deferral margins below
+hard caps. Control segments warm all 18 streams before old recorder closure;
+startup source snapshots freeze actual copied bytes. Finalization failures yield
+INCOMPLETE. Canonical admission can reacquire missing/stale evidence through three
+bounded observation windows before single-use plan claim; known negative state and
+clock mismatch still reject. No controller guards, rates, gains or image changes.
+76 tests pass, independently rerun by reviewer. Grounded final-source rollover
+records 577 physical samples/574 exact clock comparisons and four overlapping
+18-stream control segments (18,466 events including overlap), ending disarmed/landed.
+
+One actual GUI six-action mission completes TAKEOFF/NAV1/NAV2, then moving STOP
+interrupts NAV3 and withholds NAV4/ordinary LAND. Route stays HALTED. Independent
+body samples reach three consecutive receipts below 0.1 m/s by 1.45094 s after GUI
+request; receipt-based movement through those samples is 0.21914 m. App cancellation
+ack is 102.889 ms, while its stopped field is odometry-based, not independent PhysX.
+
+A separately reviewed one-action LAND verifies once in 11.61924 s. Its entire recorded
+public-action interval is covered in one physical segment by 99 body samples and
+2,829 control events across all 18 streams. Maximum body receipt gap is 0.13308 s;
+armed/authority gaps are below 0.09502 s. Endpoint receipts bracket the action.
+The explicit 1.04577 s physical rollover gap is AFTER landing. Session retains 1,854
+physical records/1,852 exact clock comparisons and two explicit pending completed
+tails, plus 53,038 control events. First protected segment reaches 59,110,440 bytes
+before closing, under 64 MiB. Final capture COMPLETE, vehicle connected/disarmed/
+landed1 and at rest, actual GUI VERIFIED/inactive, readiness 7/7. Source/runtime
+hashes and current Office epoch preserved. Independent reviewer checks raw evidence.
+This closes the missing recovery-descent capture for this action, not all future runs.
+
+**New unresolved control observation:** in the 10 s before recorded LAND dispatch,
+first retained body height is 1.019 m, minimum 0.569 m, then 0.878 m just before dispatch;
+peak speed is 0.617 m/s. Sampled state stays connected/armed/OFFBOARD, authority true;
+armed/authority/odometry/clock receipts remain fresh, with no terminal guard failure.
+The cause is not established. Full recorded LAND action coverage stands, but stable
+hover/hold and broader control robustness remain unqualified. Inspect retained
+controller/reference/trajectory timeline before further flight or live visual actuation.
+No further flight for this checkpoint. Earlier pause/collapse causes remain open.
+
+Seven proposal-only visual cases and a teacher-separated assessment protocol are
+prepared: contextual selection, ambiguity, absent target, occlusion, displacement,
+stale frame and integrity mismatch. Status PREPARED_NOT_RUN, teacher labels not yet
+acquired, model attempts zero. An actual floor-camera anchor is not marker visibility
+proof. See [vision evaluation protocol](docs/scrum-8/vision-evaluation-protocol.md).
+Next substantial phase combines retained-data control diagnosis with independently
+labeled proposal-only visual grounding, then matched robustness/integrated trials
+when their gates pass. Preserve uncommitted candidates, pinned Pegasus limitation,
+NumPy-fixed image and preexisting core.
+
+## Complex GUI mission and STOP checkpoint — 2026-10-06 EDT
+
+Actual browser execution in Office completes a six-action mission: takeoff 1 m,
+forward/left/backward/right 0.5 m each, then land. All six task outcomes VERIFIED
+without recovery or retry. Relative legs rebind to fresh pose/heading; this is not
+an absolute-frame closed square or return-to-start guarantee. Navigation endpoint
+errors are 0.04079–0.04846 m under the existing 0.05 m tolerance. Direct body samples
+independently cover takeoff, all four legs and nominal landing. The reviewer checks
+exact plans and all 77 executor-source hashes before dispatch.
+
+Two separately reviewed missions receive GUI STOP during measured navigation:
+first during NAV1, then after two completed legs during NAV3. Both report
+MOTION_STOPPED, acknowledge cancellation and withhold later navigation/ordinary
+LAND. Mission statuses remain HALTED. Independent direct-body observations reach
+three consecutive receipts at or below 0.1 m/s by 1.34036/2.06100 s after the GUI
+request, with 0.16858/0.34400 m horizontal movement through those receipts. These
+are receipt-based observations, not exact actuator latency or universal stopping
+bounds. The app's physical_stop_verified field is odometry-based; use retained
+PhysX evidence for independent body motion. No guard, rate or gain changes.
+
+Each STOP is followed by one separately reviewed LAND, task VERIFIED once. Their
+entire descents lack concurrent raw capture: harness shutdown/restart gaps of
+54.175/85.850 s cover both landing dispatch-to-completion intervals. Fresh final
+captures confirm connected/disarmed/landed1, authority false and body rest;
+they do not qualify descent continuity. The first GUI LAND monitor was interrupted
+while its task continued to completion. Second LAND first rejects before claim or
+dispatch because canonical observation lacks vehicle state; after fresh read-only
+discovery, the same unconsumed plan admits and dispatches once. This is admission
+rechecking, not a failed action retry. Preserve all rejection/driver artifacts.
+
+Six bounded physical segments retain 4,085 records and 4,079 exact within-segment
+counter-plus-remainder clock comparisons. Every preceding successful sampling loop
+delivers its full timing tail; six final known-completed tails remain explicitly
+pending. Main nominal/STOP1/STOP3 captures retain 30,490/25,912/46,968 control events
+across 18 streams each. Final ground captures add 7,695/7,500 events. No physical
+cap truncation or timing/retention errors occurs. Cleanup slightly exceeds the
+120 s rollover target in two segments, under hard 300 s/64 MiB caps. Post-SIGINT
+control graph-query errors are retained explicitly. No total observer-overhead,
+prior pause-cause or broad reliability qualification follows from these windows.
+
+Unchanged source hashes, backend clock candidate, planner ELF, NumPy-fixed image
+and same Office epoch match the prior completed-sampling checkpoint. Its 55 tests
+remain applicable; this chunk adds behavioral evidence and documentation, not
+product code. Final actual GUI is VERIFIED/inactive with a fresh floor-level
+camera; readiness passes 7/7. Vehicle is disarmed/landed and recording disabled.
+Independent review confirms the nominal, STOP and narrowed recovery conclusions.
+
+Next substantial chunk: recovery-aware recorder lifetime, bounded automatic
+rollover with explicit gaps/pending tails, fresh canonical-state waiting before
+staging/execution and uninterrupted GUI terminal monitoring. Validate orchestration
+deterministically and while grounded before qualifying a complete recovery descent.
+Earlier abort cause and general robustness remain open. Preserve the 0.5 s guard,
+uncommitted candidates, unavailable pinned Pegasus commit and preexisting core.
+
+## Completed sampling timing checkpoint — 2026-10-06 EDT
+
+A bounded latest completed sampling loop now survives intervening nonsampling
+engine loops. Successful flush precedes capture/physical-sequence markers and
+containing-write delivery acknowledgment. Capture/observer identity and cursors
+prevent stale or failed delivery. Capacity one is qualified for this single-vehicle
+stream. Full argmax spans retain timestamps, loop/observer identity, current-thread
+CPU and physics boundaries; ties retain the first. Final status exposes retention
+availability/errors and written versus known-completed pending loops. No extra I/O,
+engine/control changes or final-tail write. 55 tests and independent source review pass.
+
+Actual GUI Office reload, standard grounded robot clock-epoch recovery, fresh camera
+and readiness 7/7 deploy and check the new source. Live preflight confirms connected/
+disarmed/landed state1. NumPy is COMPATIBLE and context matched. Loaded hashes and
+running planner ELF match; the published image and planner are unchanged. New loop,
+physics and backend identities are stable throughout the comparison.
+
+After 30 s settling, baseline/camera/recovery last 90.193/31.632/60.116 s. Capture
+retains 44,361 events across 18 streams, 1,525 physical records and 3,053 unique
+completed loops. All 1,524 preceding successful sampling loops deliver full snapshot/
+encode/write tails; final record 1,524, loop 7,020, remains explicitly pending completed
+with delivery cursor 7,017. No tail is silently assumed delivered. Retention and
+subphase timing report no errors or span evictions; all 1,524 clock windows agree
+exactly. Physical capture is 46,916,395 bytes, below 64 MiB, and no cap truncates a
+window. Control/physical finalization is clean after 184.630/184.395 s.
+
+Five GUI camera requests succeed HTTP 200. Neither comparable ~0.7 s input pause
+nor historical 0.530 s observer interval recurs; no new slow loop/callback gap occurs
+in the windows. Four startup slow loops and four callback gaps are separate from
+simultaneous capture. Armed/control receipt gaps stay below 0.108 s and sampled
+internal ages below 0.088 s. These are passive/disarmed observations; no active
+flight guard is evaluated. Snapshot/encode/write maxima in comparison windows are
+2.388/1.593/0.617 ms; outer truth_sample reaches 4.722 ms. Operations are assigned
+by span start, including a sampling loop crossing baseline start. Timestamped epoch
+argmax records keep outside-window events explicit. These measured operations do
+not bound total instrumentation overhead or establish I/O/scheduling causation.
+
+The larger payload requires shorter or segmented future warmed comparisons with
+margin below the byte cap; copying an older 272 s run could hit 64 MiB. Next: reuse
+unchanged instrumentation in the warmed epoch to observe natural rare delays with
+simultaneous controls and completed sampling evidence. No further instrumentation
+or I/O optimization is justified by this non-reproduction alone.
+
+Final state is connected/disarmed/AUTO.LOITER/landed, authority false, mission
+inactive and capture disabled without error; body span below 0.000000053 m. Source
+and live evidence receive independent review. Earlier abort cause and nominal/STOP
+flight qualification remain unresolved. Preserve the 0.5 s guard, uncommitted
+candidates, child pin limitation and preexisting core.
+
+## Observer operation timing checkpoint — 2026-10-06 EDT
+
+Opt-in timing now separates metadata lookup, request polling, body reads,
+clock/backend metadata, loop snapshot, record encoding/write/flush and status
+encoding/write/replace. Completed operation spans are bounded to 32 per loop;
+count/drop/error fields and cumulative completed-span maxima are explicit.
+Measurement failures preserve original operations and exceptions, disabling only
+subphase timing. Outer loop boundaries and engine/control behavior are unchanged.
+47 targeted tests pass. Independent source review clears grounded qualification.
+
+Actual GUI Office reload deploys the source. Standard readiness rejects the old
+robot clock epoch and performs its grounded restart; fresh readiness is 7/7.
+Fresh camera is visually inspected, NumPy COMPATIBLE and context matched.
+Six-second live preflight confirms connected/disarmed/landed state. The new loop,
+physics and backend epochs differ from the preceding run; loaded recorder hashes
+and running planner ELF match the manifest. Published image and planner unchanged.
+
+After 30 s settling, baseline/camera/recovery last 90.194/30.861/60.133 s.
+43,506 events cover all 18 streams; 1,506 physical records and 1,509 retained
+completed loops pass timing arithmetic. All 1,505 fractional-clock windows agree
+exactly. Five GUI camera requests succeed HTTP 200. Capture finalizes normally
+below duration/byte/record/event caps, with 22,655,721 physical bytes and no error.
+No comparable ~0.7 s input pause or historical 0.530 s observer interval recurs.
+Max armed/control receipt gaps stay below 0.129 s; sampled internal ages stay
+below 0.103 s. No active flight guard is evaluated. There are no new slow loops
+or callback gaps in the windows; initial startup history remains explicitly separate.
+
+Timing reports zero errors and zero per-loop span evictions. Cumulative operation
+maxima through the last row, including startup/settling, reach 4.220 ms for loop
+snapshot copying, 1.294 ms for encoding, 2.473 ms for record write/flush and
+1.232 ms for status write/replace. These are measured operation maxima, without
+max-event timestamps/CPU pairs, not per-window values or total-overhead bounds.
+
+A coverage limit remains: the immediate previous engine loop usually differs from
+the previous 10 Hz sampling loop. Current partial records retain body/clock/backend
+spans; ordinary snapshot/encode/write/status tails are not guaranteed later delivery
+unless their completed loop is retained, such as in slow history. Cumulative maxima
+still cover completed spans. Per-window analysis includes only retained timestamped
+spans and does not substitute cumulative write maxima. Next: bounded delivery of
+completed sampling loops, with timestamps/CPU pairs, before claiming full write
+attribution or proceeding to nominal/STOP flight qualification.
+
+Final state is connected/disarmed/AUTO.LOITER/landed, authority false, mission
+inactive and capture disabled. Body span stays below 0.000000045 m. Earlier abort
+cause remains unresolved. Preserve the 0.5 s guard, uncommitted candidates, child
+pin provenance and preexisting core.
+
+## Extended warmed observation checkpoint — 2026-10-06 EDT
+
+The existing Office simulator stayed running: no source change, reload, flight,
+control service or injected pause. Actual GUI fresh-camera/profile/context checks,
+readiness 7/7, six-second live connected/disarmed/landed preflight, source hashes
+and running planner ELF match the prior tested candidate. Loop, physics and backend
+identities remain the same as the previous capture. No unit rerun was needed;
+the unchanged source retains its prior 38-test/reviewer validation.
+
+After 20 s settling, baseline/camera/recovery windows last 180.365/31.272/60.119 s
+(271.756 s total). Retained 66,270 events cover all 18 streams, with 2,289 physical
+records and 2,322 unique completed-loop records: ordinary samples plus slow history,
+not every engine loop. All 2,288 fractional-clock windows agree exactly. Five GUI
+camera requests succeed, HTTP 200, taking 1.087–1.639 s. No window was truncated:
+capture stops normally after 274.190 s, below the 300 s/64 MiB/record/event caps.
+
+No comparable ~0.7 s armed/control/odometry/clock pause occurs in the simultaneous
+windows. Maximum armed/control gaps are 0.10956/0.10153/0.22378 s, and sampled
+internal ages are at most 0.09146/0.08059/0.20765 s. These are passive disarmed
+observations, without age-rejection bits; neither heartbeat nor 2 Hz diagnostic
+cadence is the armed/control freshness guard. One recovery slow loop lasts
+0.175140 s, dominated by 0.171300 s in `world_step` (current-thread CPU 0.030793 s).
+It aligns with a 0.171564 s callback gap and 0.175017 s physical receipt interval
+advancing 0.030 simulation seconds. It identifies a broad measured boundary,
+without identifying an underlying engine, bridge, GPU or OS cause.
+
+The first record retains 32 pre-capture slow loops from the preceding warm interval.
+Cumulative slow count is 41 with 9 prior evictions; 34 slow events accumulated
+since the last previous capture record. The retained historical loops include
+`world_step` intervals of 0.543000/0.509114/0.502836 s with current-thread CPU
+0.503793/0.502749/0.492462 s. A separate loop spends 0.529909 s in `truth_sample`,
+with only 0.000658 s current-thread CPU. That observation-associated boundary
+includes metadata lookup, request polling and synchronous status/capture work.
+It is a real measured historical interval, not evidence that file I/O, scheduling
+or the recorder caused the earlier flight abort. Historical records lack simultaneous
+control ages and positions; the retained ring is not complete coverage of the idle
+period. Observation overhead cannot be assumed negligible from this run.
+
+During the new capture, slow totals increase 41→42 and evictions 9→10; all 33
+unique delivered slow records are retained (32 historical plus one new). Callback
+gap totals increase 37→38 and evictions 5→6, likewise 32 initial plus one new.
+The cumulative evictions discard older ring entries already written in this capture;
+they do not mean new-capture evidence was lost. Accounting is through the last
+retained physical record, not an unfinished final loop or subsequent idle time.
+
+Final state is connected/disarmed/AUTO.LOITER/landed, authority false and mission
+inactive. Maximum physical speed is 0.000005505 m/s and body span below
+0.000000030 m. Capture is disabled without error; SIGINT finalizes the matching
+control summary. Physical sampling maximum 9.620 ms excludes some housekeeping
+and is not a full instrumentation-overhead measurement. Independent review confirms
+counts, hashes, same-epoch identity, timing arithmetic, history accounting, clock
+agreement, grounding and caps. No nominal/STOP flight qualification or explanation
+of the prior failed takeoff is established.
+
+Next: narrow timing inside the observation-associated boundary (metadata lookup,
+request polling, status writing, body snapshot, encoding and record writing) before
+claiming its overhead is bounded or attempting another nominal/STOP flight. Preserve
+the 0.5 s guard, uncommitted candidates, child/pin provenance and preexisting core.
+
+## Simulator loop timing checkpoint — 2026-10-06 EDT
+
+Opt-in parent instrumentation now brackets the unchanged simulator loop with wall
+and current-thread CPU timing. It distinguishes follow-camera, observer binding,
+`world.step(render=True)`, physical capture, world rebinding, fallback app update
+and gaps between loops. Engine exceptions still propagate; observer errors disable
+only observation. Physics epoch IDs label boundaries and bounded callback-gap
+history. Physical records distinguish current partial and previous completed loops;
+a 32-entry slow-loop history streams new entries only after successful writes.
+Cumulative counts/evictions expose truncation. History is capture-global, with only
+single-vehicle use qualified. Raw `/clock` is a separate 18th control-capture stream.
+
+All 38 tests pass independently, including world-change provenance, partial-loop
+eligibility, capture reset, failed-write retention and actual engine exception
+propagation after observer failure. Real Office GUI reload/fresh camera/profile
+compatibility and readiness 7/7 pass. Planner ELF is unchanged from the tested
+authority build. Loaded physical/loop/backend digests match the source manifest.
+
+After 30 s settling, baseline/camera/recovery windows last 60.129/33.461/60.114 s.
+Retained 34,493 events cover all 18 streams, with 1,214 physical records and 1,221
+unique completed-loop records (sampled ordinary loops plus slow history, not every
+engine loop). All 1,213 fractional-clock windows agree exactly. Five camera refreshes
+succeed, HTTP 200, taking 1.292–3.044 s; request duration alone is not simulator delay.
+
+No comparable ~0.7 s authority/input pause occurs in these settled windows. Maximum
+armed/control receipt gaps are 0.1405/0.1241/0.1380 s; physical receipt maxima are
+0.2111/0.1659/0.1652 s. Retained `world_step` sample maxima are 0.1180/0.0633/0.0688 s.
+One baseline slow loop lasts 0.122508 s, dominated by 0.117976 s inside `world_step`
+(current-thread CPU 0.033924 s). It overlaps a 0.117351 s physics callback gap and
+the 0.211067 s physical receipt interval, which advances 0.090 simulation seconds.
+This localizes the measured delay to a combined engine/render/physics/bridge boundary,
+without identifying an underlying GPU, OS, physics or ROS publication cause.
+
+The first record also preserves six pre-capture slow loops. The first three engine
+loops spend 1.708671/0.857532/0.692240 s in `world_step`, with current-thread CPU
+0.499074/0.805979/0.685309 s. They precede the baseline by roughly 90–93 s and
+have no simultaneous control capture. They locate large startup work inside the
+engine call; they cannot explain the earlier GUI abort or establish startup authority
+ages. Seven total slow loops and eight callback gaps have zero history evictions.
+
+All live authority diagnostics are passive disarmed observations, without age-rejection
+bits; 2 Hz cadence is not armed/control freshness. Heartbeat receipt cadence also
+must not be compared directly with the 0.5 s authority-input guard. Final state remains
+connected/disarmed/AUTO.LOITER/landed with authority false; maximum physical speed
+0.00001819 m/s and body span under 0.000000045 m. Capture disabled cleanly with
+no error. Maximum physical sampling cost 3.712 ms is not a complete observer-overhead
+measurement. No flight, control service, injected pause or retry occurred.
+
+Next: extend grounded observation to catch a comparable rare stall with phase history
+and simultaneous input receipts before further nominal/STOP testing. This one short
+settled sequence does not qualify flight, prove cameras safe or resolve the previous
+failure. Keep the 0.5 s guard and existing child/pin/core provenance. Changes remain
+uncommitted.
+
+## Authority diagnostics and grounded pause checkpoint — 2026-10-06 EDT
+
+The takeoff action now preserves the exact mutex-protected authority guard snapshot
+before containment, publishes it as `terminal_guard_failure`, and includes the same
+JSON in its result. A separate 2 Hz `periodic_observation` reports passive state.
+The six original checks and 0.5 s guard are unchanged; cancellation/shutdown do not
+invent guard failures, and diagnostic publish exceptions cannot block hold/LAND.
+Nullable steady receipt times/ages and reason bits distinguish false flags, missing
+receipts, pre-request receipts and stale input. The read-only control recorder now
+captures 17 streams, including `authority_diagnostic` separately from `authority`.
+
+Actual robot-toolchain build, 1,728 original-guard equivalence cases, isolated action
+regressions and 10 recorder tests pass. Isolated stale-ascent evidence reports armed
+and control true with stale-control bit 32 and age 0.214542255 s above its test limit
+0.2 s; false-control reports bit 2. Terminal publication equals result evidence and
+existing containment assertions pass. These tests do not retrospectively establish
+the earlier GUI flight's exact internal failure. An overlapped final test was
+interrupted by GUI container restart; the final complete rerun passes both targets.
+
+Actual Office GUI reload, fresh camera and readiness 7/7 pass; runtime ELF matches
+tested SHA256 `aedd42590007aedf23668626ad002993da41f1a42689f2b3a61b4fa1be513ee4`.
+Grounded baseline/camera/recovery windows last 30.061/30.961/30.061 s. Retained
+19,587 control events cover all 17 streams and 747 physical records share one
+observer/backend epoch; all 746 counter-plus-remainder windows agree exactly.
+Five GUI camera requests succeed (HTTP 200), taking 1.107–1.263 s each.
+
+A shared pause occurs about 5.8 s into the camera-free baseline: armed/control
+receipt gaps 0.710 s, odometry/tracking/admission about 0.747 s, physical gap
+0.790 s with only 0.090 simulation seconds advancing. Planner passive wall-timer
+observations continue during the upstream input pause; a mid-pause age is 0.270 s
+and the next sample follows fresh input. No age-rejection sample is observed,
+but 2 Hz passive sampling can miss a shorter stale interval and no action guard
+was active. The camera window has max armed/control gap 0.113 s and physical gap
+0.176 s; recovery maxima are 0.095/0.136 s. This comparison does not implicate
+an immediate camera request as the trigger and cannot establish cause or exclude
+startup/load/other delayed effects. The baseline follows a cold reload; this is
+one short sequence, not a warmed-up or observer-overhead qualification.
+
+No flight, injected pause, fake live telemetry or command service was used. Final
+state is connected/disarmed/AUTO.LOITER/landed with authority false; physical speed
+never exceeds 0.00001819 m/s and body span stays below 0.000000045 m. Capture is
+disabled cleanly. Next: localize natural grounded stalls in simulator loop phases
+and upstream publication timing before another bounded nominal flight. Moving
+GUI STOP/recovery remains untested. Preserve uncommitted clock/recorder candidates,
+Pegasus child/pin provenance and the preexisting core dump.
+
+## GUI flight containment checkpoint — 2026-10-06 EDT
+
+The corrected-clock GUI nominal attempt **FAILED** during its first 1 m takeoff;
+the planned moving STOP/recovery scenario was not run. Initial staging rejected a
+missing fresh vehicle sample without dispatch. After read-only state diagnostics,
+the same pending attempt staged successfully under unchanged gates. Reviewer
+verified the bounded four-action plan/hash and executor source manifest. One GUI
+Execute reviewed plan click launched run `09f457eaee664b0c8a2a94317eb521c6`, mission
+`02a75ae590ca473bb1da53d69b1a24bd`, plan SHA256
+`25ec06710e4caea449e7862f54dca6fb96c3b3d8f7e01fc19962cda21d4d6c95`.
+
+At 10.544 wall seconds, takeoff reported lost authority at 0.114624 m odometry
+altitude, requested abort hold/landing (both accepted), and initially left grounding
+unverified. Two later fresh recovery-monitor samples established disarmed/grounded
+state. Mission ended HALTED with only takeoff dispatched: neither navigation leg,
+ordinary plan LAND nor RRM recovery LAND ran. The takeoff server's own containment
+is distinct from a verified mission landing or operator STOP.
+
+Retained 944 direct physical records and 17,115 control events cover all 16 streams.
+Body rise peaked at 0.150054 m above its pre-dispatch baseline; horizontal displacement
+peaked at 0.160817 m. Final direct speed was 0.000002535 m/s and ROS state was
+connected/disarmed/landed, authority false. Retained OFFBOARD mode while disarmed
+is not authority. All 943 physical-clock windows still match counter plus remainder
+to observed duration exactly. A shared 0.693–0.703 s receipt/physics pause near the
+abort advances only 0.030 simulation seconds and exceeds the existing 0.5 s
+armed/control freshness guard. Last pre-pause MAVROS sample is armed/OFFBOARD;
+AUTO.LAND appears afterward with containment. External receipt gaps and PID ages
+strongly support freshness containment, but internal planner ages/reason and the
+cause of the shared pause were not recorded. No basis to widen the guard, blame
+fractional accumulation or call nominal/STOP qualification successful.
+
+SIGINT exposed a control-recorder finalization bug: raw events survived, but querying
+the invalid ROS context prevented summary creation. Reconstructed counts are marked
+as reconstructed with unknown graph data; the failed original log is retained.
+The observer repair contains graph unavailability as explicit null/error metadata,
+retains startup graph, distinguishes ROS shutdown and uses idempotent cleanup.
+Nine tests pass. A real grounded early-SIGINT capture writes all 1,543 retained events
+and matching summary, reports interrupted, exits cleanly and records the unavailable
+end graph without fabricating zero publishers. Startup graph has only infrastructure
+parameter-events and no services. No new flight or control/gain/guard change followed.
+
+The subsequent checkpoint above adds and qualifies internal diagnostics while
+grounded. Natural upstream pauses remain unresolved before another nominal flight.
+Then resume the separate GUI moving STOP and recovery LAND ladder. Parent observer
+repair and the Pegasus clock candidate remain uncommitted; preserve child/pin/core
+provenance. Earlier narrow successful flights remain historical evidence.
+
+## Fraction-preserving clock candidate — 2026-10-06 EDT
+
+The Pegasus PX4 backend candidate now carries fractional microseconds between
+admitted updates instead of truncating each physics step. Counter and remainder
+are per instance and share the existing epoch/lifecycle. Heartbeat/IMU gates,
+stop/start/reinitialize behavior, no-op reset, lockstep, rates, physics and control
+are unchanged. The AirStack observer reads the optional remainder alongside the
+counter; compare deltas of both against observed callback duration.
+
+Six new tests execute actual backend methods with dependency stubs and exact
+rational duration oracles. They cover float32/mixed/sub-microsecond steps, integer
+steps, instance isolation, all early gates and lifecycle reuse/new-instance reset.
+Those plus 16 recorder/observer tests pass; independent code review passed.
+Two real Office GUI cold reloads checked fresh camera, scene MATCHED and NumPy
+COMPATIBLE. Both readiness checks pass 7/7; each ended connected, disarmed,
+AUTO.LOITER, landed and authority false. No flight or command request occurred.
+
+Grounded runs retained 275/276 records, with 549 total
+comparison windows. Counter plus remainder agrees exactly with engine-duration
+sum in every window; world deltas also agree. Integer counter cumulative errors
+are -0.405220/0.578016 microseconds
+across 26.610/25.860 simulation seconds.
+Integer-window quantization stays below one microsecond. The old rule would have
+lost 2.660/2.585 ms for these same callback inputs;
+these are predictions from current inputs, not extra old-backend replays. Distinct
+observer/backend identities after reload were qualified as separate intervals.
+Maximum receipt gaps were 0.139/0.141 s; nominal capture cadence
+is not guaranteed. Callback maximum covers time since bind, recorder work excludes
+request/status I/O, and post-step gate flags do not reconstruct each earlier branch.
+
+Qualified backend source SHA256 is
+`de028f9fb0b30d7212600c43e465a9751a85a9bda5271c3a46f2b5b3d5244264`.
+This is a modified child checkout based on `8c7a664`, not a clean child or recovery
+of the unavailable parent pin `627ece`. The candidate is uncommitted/unpublished;
+a clean parent checkout alone cannot supply it until child change and parent pin
+are published. Preserve the existing core dump and source-provenance distinction.
+The fix addresses clock accumulation only; acquisition registration, roughly
+315 ms epoch difference, PX4 source/binary identity and older collapse cause remain
+open. Next bounded qualification: GUI mission replay and stop/recovery behavior
+with physical/control captures and scenario-specific verdicts.
+
 ## Grounded physics clock measurement — 2026-10-05 EDT
 
 An opt-in AirStack observer now records actual world physics callback dt, cumulative

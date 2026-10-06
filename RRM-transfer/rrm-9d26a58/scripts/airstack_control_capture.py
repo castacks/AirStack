@@ -84,6 +84,21 @@ class Capture:
                 "transport loss or process reset. No flight/safety or source/binary equivalence claim."}
 
 
+def graph_snapshot(node, admission_topic):
+    """Graph availability can disappear before Python handles a ROS SIGINT."""
+    try:
+        return {"available": True, "error": None,
+                "publishers": node.count_publishers(admission_topic),
+                "capture_publishers": node.get_publisher_names_and_types_by_node(
+                    node.get_name(), node.get_namespace()),
+                "capture_services": node.get_service_names_and_types_by_node(
+                    node.get_name(), node.get_namespace())}
+    except Exception as exc:
+        # Unknown must not be reported as zero publishers or an empty graph.
+        return {"available": False, "error": type(exc).__name__ + ": " + str(exc),
+                "publishers": None, "capture_publishers": None, "capture_services": None}
+
+
 def bounded_duration(value):
     duration = float(value)
     if not math.isfinite(duration) or not 0 < duration <= 300:
@@ -99,6 +114,7 @@ def main():
     parser.add_argument("--source-revision", default="UNKNOWN")
     args = parser.parse_args()
     import rclpy
+    from rclpy.executors import ExternalShutdownException
     from rclpy.qos import QoSProfile, ReliabilityPolicy
     from rclpy.parameter import Parameter
     from rosidl_runtime_py.convert import message_to_ordereddict
@@ -108,11 +124,14 @@ def main():
     from mavros_msgs.msg import AttitudeTarget, State, ExtendedState
     from mav_msgs.msg import RollPitchYawrateThrust
     from std_msgs.msg import Bool, String
+    from rosgraph_msgs.msg import Clock
 
     prefix = f"/{args.robot}"
-    specs = {"tracking": (prefix + "/trajectory_controller/tracking_point", Tracking),
+    specs = {"sim_clock": ("/clock", Clock),
+             "tracking": (prefix + "/trajectory_controller/tracking_point", Tracking),
              "odom": (prefix + "/odometry_conversion/odometry", Odometry),
              "admission": (prefix + "/control/admission_diagnostic", String),
+             "authority_diagnostic": (prefix + "/takeoff_landing_planner/takeoff_landing_task/authority_diagnostic", String),
              "armed": (prefix + "/interface/is_armed", Bool),
              "authority": (prefix + "/interface/has_control", Bool),
              "controller_cmd": (prefix + "/interface/cmd_roll_pitch_yawrate_thrust", RollPitchYawrateThrust),
@@ -134,19 +153,25 @@ def main():
         capture = Capture(stream, {c: spec[0] for c, spec in specs.items()}, start)
         qos = QoSProfile(depth=100, reliability=ReliabilityPolicy.BEST_EFFORT)
         stop_reason = "duration"
+        initial_graph = None
         try:
             for channel, (topic, message_type) in specs.items():
                 node.create_subscription(message_type, topic,
                     lambda msg, c=channel: capture.record(
                         c, message_to_ordereddict(msg), time.monotonic(),
                         node.get_clock().now().nanoseconds), qos)
+            initial_graph = graph_snapshot(node, prefix + "/control/admission_diagnostic")
             while rclpy.ok() and time.monotonic() - start < args.duration:
                 if capture.total >= capture.max_events:
                     stop_reason = "event_limit"
                     break
                 rclpy.spin_once(node, timeout_sec=0.05)
+            if stop_reason == "duration" and not rclpy.ok():
+                stop_reason = "ros_shutdown"
         except KeyboardInterrupt:
             stop_reason = "interrupted"
+        except ExternalShutdownException:
+            stop_reason = "ros_shutdown"
         except Exception:
             stop_reason = "error"
             raise
@@ -157,15 +182,12 @@ def main():
                             "source_revision_label": args.source_revision,
                             "ros_clock": "simulation (/clock); zero until first clock delivery",
                             "recorder_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
-                            "graph": {"publishers": node.count_publishers(prefix + "/control/admission_diagnostic"),
-                                      "capture_publishers": node.get_publisher_names_and_types_by_node(
-                                          node.get_name(), node.get_namespace()),
-                                      "capture_services": node.get_service_names_and_types_by_node(
-                                          node.get_name(), node.get_namespace())}})
+                            "graph_at_start": initial_graph,
+                            "graph": graph_snapshot(node, prefix + "/control/admission_diagnostic")})
             args.output.with_suffix(args.output.suffix + ".summary.json").write_text(
                 json.dumps(summary, indent=2) + "\n")
             node.destroy_node()
-            rclpy.shutdown()
+            rclpy.try_shutdown()
     print(json.dumps(summary, sort_keys=True))
 
 

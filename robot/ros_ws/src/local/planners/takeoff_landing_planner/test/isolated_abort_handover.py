@@ -11,7 +11,7 @@ import rclpy
 from rclpy.action import ActionClient
 from rclpy.qos import qos_profile_sensor_data
 from nav_msgs.msg import Odometry
-from std_msgs.msg import Bool
+from std_msgs.msg import Bool, String
 from mavros_msgs.msg import ExtendedState
 from airstack_msgs.msg import Odometry as Tracking, TrajectoryXYZVYaw
 from airstack_msgs.srv import TrajectoryMode, RobotCommand
@@ -30,6 +30,11 @@ control = node.create_publisher(Bool, 'has_control', 10)
 extended = node.create_publisher(ExtendedState, 'extended_state', 10)
 events = []
 scenario = {}
+diagnostics = []
+def diagnostic(msg):
+    diagnostics.append(json.loads(msg.data))
+diagnostic_sub = node.create_subscription(String,
+    '/rrm_abort_test/takeoff_landing_task/authority_diagnostic', diagnostic, 10)
 def mode_callback(request, response):
     events.append(('mode', request.mode))
     if request.mode == TrajectoryMode.Request.TRACK and scenario.get('delay_track'):
@@ -130,6 +135,7 @@ for case in ['false_control', 'stale_pre_request', 'missing_control', 'missing_a
     if case == 'cancel_acquisition':
         scenario['false_control'] = True
     events.clear()
+    diagnostics.clear()
     proc=subprocess.Popen([sys.argv[1], '--ros-args', '-r', '__ns:=/rrm_abort_test',
         '-p', 'control_acquisition_timeout_s:=0.7', '-p', 'control_state_max_age_s:=0.2'])
     try:
@@ -148,6 +154,21 @@ for case in ['false_control', 'stale_pre_request', 'missing_control', 'missing_a
         terminal=await_future(future, timeout=6.)
         elapsed=time.monotonic()-started
         assert not terminal.result.success and elapsed < 6., (case,terminal,events)
+        pump(.1)
+        failures = [d for d in diagnostics if d['record_kind'] == 'terminal_guard_failure']
+        if case in ('false_control', 'stale_pre_request', 'missing_control', 'missing_armed',
+                    'false_ascent', 'stale_ascent'):
+            assert len(failures) == 1, (case, diagnostics)
+            captured = json.loads(terminal.result.message.split('authority_diagnostic=', 1)[1].split('; ', 1)[0])
+            assert captured == failures[0] and not captured['valid'], (case, captured)
+            if case == 'stale_ascent':
+                assert captured['armed'] and captured['has_control']
+                assert captured['control_age_s'] > .2 and captured['reason_mask'] & 32
+            if case == 'false_ascent':
+                assert not captured['has_control'] and captured['reason_mask'] & 2
+        else:
+            assert not failures, (case, failures)
+        assert any(d['record_kind'] == 'periodic_observation' for d in diagnostics), (case, diagnostics)
         assert ('command',4) in events, events
         after_ascent=case in ('false_ascent','stale_ascent')
         trajectories=[e for e in events if e[0]=='trajectory']
@@ -175,6 +196,7 @@ for bound,bad_hold,reject_land,delay_land,not_sent,delay_hold in [
     scenario.clear(); scenario.update(bound=bound,bad_hold=bad_hold,reject_land=reject_land,
         delay_land=delay_land,not_sent=not_sent,delay_hold=delay_hold,ordinary=True)
     events.clear()
+    diagnostics.clear()
     proc=subprocess.Popen([sys.argv[1],'--ros-args','-r','__ns:=/rrm_abort_test',
         '-p','takeoff_max_horizontal_displacement:=0.3','-p','takeoff_max_altitude_overshoot:=0.3',
         '-p','takeoff_max_vertical_speed:=1.5','-p','landing_max_duration_s:=3.0'])

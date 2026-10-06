@@ -1377,5 +1377,38 @@ class CommandConsoleTests(unittest.TestCase):
             self.assertNotIn(prohibited, source)
 
 
+
+class CanonicalReacquisitionTests(unittest.TestCase):
+    def healthy(self):
+        return {'connected': True, 'armed':True, 'airborne':True,
+                'frame_id':'map','child_frame_id':'base_link','missing_state':[],
+                'stale_state':[],'clock_epoch_consistent':True,'flight_state_consistent':True}
+
+    def test_missing_vehicle_is_reacquired_before_return(self):
+        app=Console.__new__(Console);good=self.healthy();missing={**good,'connected':None,'armed':None,'missing_state':['vehicle']}
+        with patch.object(app,'discover_tasks',side_effect=[missing,good]) as discover:
+            self.assertEqual(app._discover_command_state(landing_only=True),good)
+            self.assertEqual(discover.call_count,2)
+
+    def test_persistent_missing_or_stale_stays_rejected_after_three_windows(self):
+        app=Console.__new__(Console)
+        for key in ('missing_state','stale_state'):
+            bad={**self.healthy(),key:['vehicle']}
+            with patch.object(app,'discover_tasks',return_value=bad) as discover:
+                result=app._discover_command_state(landing_only=True)
+                self.assertIsNotNone(_command_state_rejection(result,landing_only=True))
+                self.assertEqual(discover.call_count,3)
+
+    def test_known_failure_or_epoch_mismatch_is_not_retried(self):
+        app=Console.__new__(Console)
+        for change in ({'connected':False},{'clock_epoch_consistent':False},
+                       {'flight_state_consistent':False},{'frame_id':'bad'},
+                       {'missing_state':['invalid_missing_state']}):
+            bad={**self.healthy(),**change,'stale_state':['vehicle']}
+            with patch.object(app,'discover_tasks',return_value=bad) as discover:
+                self.assertEqual(app._discover_command_state(landing_only=True),bad)
+                self.assertEqual(discover.call_count,1)
+
+
 if __name__ == "__main__":
     unittest.main()

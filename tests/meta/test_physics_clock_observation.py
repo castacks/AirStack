@@ -48,6 +48,10 @@ class ClockTests(unittest.TestCase):
         self.assertEqual(r[0]['backend_instance_id'],hex(id(b)))
         self.assertEqual(r[0]['current_utime_us'],123);self.assertEqual(b._current_utime,123)
         self.assertEqual(len(r[0]['source_sha256']),64);self.assertFalse(r[0]['new_imu_data'])
+        self.assertIsNone(r[0]['utime_remainder_us'])
+        b._utime_remainder_us=.25
+        self.assertEqual(p.backend_clocks(NS(_backends=[b]),{})[0]['utime_remainder_us'],.25)
+        self.assertEqual(b._utime_remainder_us,.25)
         self.assertEqual(p.backend_clocks(NS(),{}),[])
     def test_attach_and_remove_failure_do_not_escape(self):
         class Bad(World):
