@@ -35,12 +35,15 @@ def test_report_confirmation_and_attribution_limits():
     pair={'planner':'kim','clean':{'outcome':'completed_horizon','metrics':{'path_length_m':8}},
           'perturbed':{'outcome':'collision','metrics':{'path_length_m':4}}}
     h=[{'decision':decision,'pairs':[pair]}]
-    config={'planners':['kim']};rows=[{'outcome':'completed_horizon'},{'outcome':'collision'},{'outcome':'user_stopped'}]
+    config={'planners':['kim']};rows=[{'round':1,'planner':'kim','role':'clean','outcome':'completed_horizon'},
+                                   {'round':1,'planner':'kim','role':'perturbed','outcome':'collision'},
+                                   {'round':2,'planner':'kim','role':'clean','outcome':'user_stopped'}]
     r=analyze(h,rows,config,'running')
     assert r['findings'][0]['status']=='candidate_needs_repeat'
     assert len(r['findings'][0]['active_factors'])==3 and 'unresolved' in r['findings'][0]['interpretation']
     assert r['evaluated_flights']==2 and r['excluded_flights']==1
-    assert analyze(h+h,rows,config,'complete')['findings'][0]['status']=='reproduced_condition'
+    repeat=copy.deepcopy(h);repeat[0]['decision']['round']=2
+    assert analyze(h+repeat,rows,config,'complete')['findings'][0]['status']=='reproduced_condition'
     bad=copy.deepcopy(h);bad[0]['pairs'][0]['clean']['outcome']='insufficient_progress'
     r=analyze(bad,rows,config,'complete');assert not r['findings'] and len(r['conditions_with_clean_failure'])==1
 

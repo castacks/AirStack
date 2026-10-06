@@ -81,8 +81,26 @@ def worker_command(c,run_id=''):
                    '--min-tsdf-points','1000','--tsdf-local-radius','8']
     return command
 
+def verify_runtime_mounts():
+    """Refuse to start an isolated checkout against another checkout's containers."""
+    requirements=[('isaac-sim','/isaac-sim/AirStack/tools/ws2_bench',HERE),
+                  ('isaac-sim','/isaac-sim/AirStack/robot/ros_ws/ws2_runtime',RUNTIME),
+                  (ROBOT,CONTAINER_RUNTIME,RUNTIME)]
+    mounts={}
+    for container,target,expected in requirements:
+        if container not in mounts:
+            mounts[container]=json.loads(cmd(['docker','inspect','--format','{{json .Mounts}}',container],timeout=15))
+        candidates=[m for m in mounts[container] if target==m['Destination'] or target.startswith(m['Destination'].rstrip('/')+'/')]
+        if not candidates:
+            raise RuntimeError(f'{container} does not mount the active bench runtime; configure this checkout before flying')
+        mount=max(candidates,key=lambda m:len(m['Destination']))
+        relative=Path(target).relative_to(mount['Destination'])
+        actual=(Path(mount['Source'])/relative).resolve()
+        if actual!=expected.resolve():
+            raise RuntimeError(f'{container} uses {actual}, but this bench uses {expected.resolve()}; no container was started')
+
 def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag=True,control_path=None):
-    c=resolved(raw);out=Path(output).resolve()
+    c=resolved(raw);verify_runtime_mounts();out=Path(output).resolve()
     # Artifact/bag paths must remain inside the shared runtime mount.
     out.relative_to(RUNTIME.resolve());out.mkdir(parents=True,exist_ok=False)
     log=out/'lifecycle.log';events=(out/'events.jsonl').open('w')

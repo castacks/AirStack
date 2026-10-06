@@ -2,6 +2,11 @@
 
 User decision,2026-09-22. This is planned work, not implemented behavior.
 
+Update 2026-10-06: optional Claude selection and final interpretation are now
+integrated; see [CLAUDE_AGENT.md](CLAUDE_AGENT.md). That version selects among
+explicitly supplied saved layouts. The new-coordinate generator described here
+is still future work.
+
 The current web bench selects from24saved layouts: eight each for Easy, Medium
 and Hard. It does not sample fresh obstacle coordinates for each campaign.
 The future LLM adversary must be able to explore **new obstacle positions**,

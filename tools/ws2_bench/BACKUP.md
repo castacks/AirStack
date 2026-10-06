@@ -113,6 +113,20 @@ it does not alter the training repository, deployed policy or learned PNG.
 
 ## Restore Office assets and local containers
 
+The optional Claude integration is on the same `eungchang/adv-ws2` branch.
+Tag `ws2-basic-2026-09-22` preserves the pre-agent basic version. Back up
+`agent_*.py`, `claude_*.py`, their tests and `CLAUDE_AGENT.md` with the other bench
+source. Claude authentication stays in the local official CLI; do not commit
+tokens or credential files. `llm_calls/`, reports and simulator evidence stay
+under the ignored runtime directory. See [CLAUDE_AGENT.md](CLAUDE_AGENT.md).
+
+If a reboot removed a temporary Xauthority file used by an existing container,
+Docker may create a directory at that bind path and then reject container startup
+with a file/directory mismatch. Restore that specific bind source as a file before
+starting a campaign. A headless run can use an empty file; graphical sessions need
+their appropriate X authentication. Do not remove a nonempty path or recreate the
+container without preserving its downloaded Office assets.
+
 This implementation was validated with the Office **4.5 asset set** in the
 existing local AirStack v0.18 containers. The simulator itself reports Isaac Sim
 5.1; record the actual image ID from each episode's `provenance.json`.

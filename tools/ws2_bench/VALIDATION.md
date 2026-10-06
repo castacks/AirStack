@@ -1,4 +1,74 @@
-# Office bench validation — 2026-09-22
+# Office bench validation
+
+## Optional Claude integration — 2026-10-06
+
+Integrated Ravi's adaptive policy source from `4366377557f984797e7f7b8cebe0f95f35ff8cc0`
+over local basic `35fc5646`, preserving the existing v0.18 runtime, observer,
+MonoNav image `mononav-demo:1.0` and both workers' existing arguments. The basic
+revision is preserved by tag `ws2-basic-2026-09-22`. Source provenance is in
+[REUSE.md](REUSE.md); subscription setup is in [CLAUDE_AGENT.md](CLAUDE_AGENT.md).
+
+Exactly one actual MonoNav clean/attacked pair was run through the dashboard
+at `http://127.0.0.1:8892`, campaign
+`campaigns/adaptive_20261006_162302_532252`. Mission: 8m goal, 0.5m goal radius,
+0.3m/s commanded speed, 180 simulation-second timeout. Budget2, additional
+clean validation0, infrastructure retries0, clean-failure policy `record`.
+No video or raw ROS bag was recorded; GT traces, metrics, logs, rendered/inference
+images, source hashes, exact LLM requests/responses and reports are retained.
+
+Official Claude Code2.1.261 used the existing Team OAuth login via its own print
+interface. Requested `sonnet` resolved to `claude-sonnet-5-5`. Claude chose
+`easy:2`, zero added delay, continuous original-texture 0.6m patch. The clean
+twin used the same placement and illumination with the patch off.
+
+| Flight | Outcome/contact | Mission time | Path length |
+|---|---|---:|---:|
+| Clean | collision, `WS2_plant/SM_Plant01` |8.70sim s|1.662m|
+| Attacked | collision, `WS2_column/SM_ColumnA` |29.79sim s|4.794m|
+
+**The pipeline worked; this pair does not establish attack effectiveness.**
+The clean baseline failed, so the deterministic report records
+`invalid_clean_baseline`, no candidate attack finding, and two evaluated flights.
+Claude's final Korean interpretation likewise explicitly says the patch effect
+cannot be inferred. Stabilizing/qualifying a clean baseline is separate work;
+no extra flights or planner retuning were done here.
+
+Independent saved-artifact audit passed for both trials: planner trajectories
+published, increasing GT times, matching inference run IDs, identical realized
+geometry, initial positions differing by only1.86e-7m, requested/applied sensor
+settings, exact model-selected action and no cleanup errors. The two simulation
+containers and worker were stopped after completion; viewer remains available.
+Audit: `validation/integration_audit.json` under that campaign.
+
+Using the completed pair as history, one further Claude **selection-only** call
+also succeeded. It acknowledged the failed clean baseline and proposed a
+0.9m patch at t=5s for5s, zero delay. This proposal was validated and saved as
+`validation/next_proposal_not_executed.json`; it was **not executed** and does
+not increase the campaign's two-flight count. This checks history-driven
+selection, not the quality of that proposed experiment.
+
+The real browser showed both the rendered scene (including the original patch)
+and MonoNav RGB/ZoeDepth/TSDF output, final rows, deterministic report and Claude
+interpretation, with no JavaScript exceptions. Intercepted Start requests checked
+basic feedback/random/search/Claude forms without launching further campaigns.
+Screenshots and checks are in the campaign's ignored `validation/` directory.
+102CPU tests passed, including legacy feedback, random/grid, bounded adaptive
+selection, pairing, resume, auth, schema rejection and report preservation.
+Both worker command lines match the installed source parsers. Kim and LLM-free
+modes received compatibility/CPU checks, not additional live flights this turn.
+
+An earlier campaign `adaptive_20261006_162043_663842` made two startup attempts
+that never started simulation or armed a drone: a removed temporary Xauthority
+bind file had been recreated as an empty directory by Docker. After restoring
+that specific headless bind file, container/asset readiness checks passed and
+the actual pair above ran. Those startup failures are preserved as infrastructure
+errors, not flight or planner failures.
+
+The current agent uses saved layouts, delay and patch only. Noise/light selection,
+fresh obstacle coordinates, model comparison and statistical attack validation
+were not added or demonstrated by this integration.
+
+## Earlier validation — 2026-09-22
 
 This is local implementation validation, not a paper-quality comparison or an
 adversarial-patch effectiveness result. All paths below are relative to

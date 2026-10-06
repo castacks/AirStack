@@ -13,7 +13,21 @@ python3 tools/ws2_bench/dashboard.py
 
 한 campaign은 **선택한 모델 하나만** 시험한다. 기본 8비행은 4개의 clean/attack
 쌍이다. 첫 쌍이 끝나면 결과를 보고 다음 조건을 골라 자동으로 반복한다.
-다른 모델은 새 campaign에서 선택한다. 아직 LLM은 없고 결과 기반 규칙을 사용한다.
+다른 모델은 새 campaign에서 선택한다. 기본 **Basic feedback**은 LLM 인증 없이
+기존 결과 기반 규칙을 사용한다.
+
+Claude를 쓰려면 터미널에서 `claude auth login --claudeai`로 Team 계정에 로그인한 뒤,
+Method를 **LLM-guided tests**, LLM을 **Claude · Team login**으로 고른다.
+Clean-checked layouts에는 선택 모델로 확인한 배치(예: `easy:2`)를 입력한다.
+Claude가 delay/patch 조건을 선택하고, 비행 종료 후 아래 **Claude interpretation**에
+근거를 포함한 분석이 나온다. 기존 metrics 보고서와 별도로 저장된다.
+현재 LLM 모드는 저장된 배치·센서 delay·patch on/off·크기·시점을 선택한다.
+Noise/조명과 새 장애물 좌표 생성은 아직 LLM 동작 범위에 포함되지 않는다.
+
+한 쌍만 확인할 때는 **Flights=2 / Extra clean checks=0 / Infrastructure retries=0**.
+추가 clean 확인과 인프라 재시도는 기본값이 각각 2/1이므로, 그대로 두면
+Flights에 표시한 수보다 실제 실행 횟수가 늘어날 수 있다.
+자세한 설정은 [CLAUDE_AGENT.md](CLAUDE_AGENT.md)를 참고한다.
 
 ## 비행 조건
 

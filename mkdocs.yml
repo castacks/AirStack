@@ -85,6 +85,7 @@ nav:
           - Spawning Drones: docs/simulation/isaac_sim/spawning_drones.md
           - Overhead Camera: docs/simulation/isaac_sim/overhead_camera.md
           - WS2 Office Automated Bench: tools/ws2_bench/README.md
+          - WS2 Claude Team Agent: tools/ws2_bench/CLAUDE_AGENT.md
           - docs/simulation/isaac_sim/ascent_sitl_extension.md
           - docs/simulation/isaac_sim/export_stages_from_unreal.md
       - Microsoft AirSim (legacy):

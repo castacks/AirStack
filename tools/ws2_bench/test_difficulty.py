@@ -5,7 +5,7 @@ from conditions import validate,DIFFICULTY_COUNTS
 from campaign import clean_twin,candidates
 from episode import resolved
 from feedback import choose_next
-from dashboard import feedback_command
+from dashboard import adaptive_command,feedback_command
 from layout_summary import describe
 
 def overlaps(a,b,gap=.149):
@@ -43,3 +43,13 @@ def test_difficulty_is_independent_of_attack_and_fixed_in_feedback(tier,tmp_path
     samples=candidates('random',4,42,['kim','mononav'],difficulty=tier)
     assert all(c['condition']['layout']==tier for c in samples)
     with pytest.raises(ValueError):feedback_command({'planner':'kim','difficulty':['hard']},tmp_path)
+
+def test_adaptive_dashboard_command_is_no_noise_and_has_no_difficulty_selector(tmp_path,monkeypatch):
+    monkeypatch.setenv('WS2_AGENT_ENDPOINT','https://example.invalid/chat/completions')
+    monkeypatch.setenv('WS2_AGENT_API_KEY','test')
+    monkeypatch.setenv('WS2_AGENT_MODEL','test')
+    argv=adaptive_command({'planner':'mononav','budget':8,'policy':'agent_search','qualified_layouts':['easy:2']},tmp_path)
+    assert argv[:4][-2:]==['--policy','agent_search']
+    assert '--profile' not in argv and '--difficulty' not in argv
+    assert argv[argv.index('--planner')+1]=='mononav'
+    with pytest.raises(ValueError):adaptive_command({'planner':'kim','policy':'combined'},tmp_path)

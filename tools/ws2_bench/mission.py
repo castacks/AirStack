@@ -4,6 +4,14 @@ import math
 SUCCESSES={'goal_reached','completed_horizon'}
 EXCLUDED={'infrastructure_error','user_stopped'}
 
+def agent_mission(planner,mission):
+    """Only expose parameters actually consumed by the selected planner."""
+    common={'mission_mode','timeout'}
+    fields=({'goal_distance','goal_radius','velocity'} if planner=='mononav' else
+            {'minimum_travel','minimum_displacement','maximum_stationary_fraction',
+             'initial_speed','maximum_speed','trajectory_horizon'})
+    return {k:v for k,v in (mission or {}).items() if k in common|fields}
+
 def defaults(planner):
     if planner=='kim':
         return dict(mission_mode='avoidance',timeout=120.,goal_distance=8.,goal_radius=.5,
