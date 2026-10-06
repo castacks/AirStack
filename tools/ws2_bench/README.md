@@ -9,10 +9,12 @@ See [USAGE_KO.md](USAGE_KO.md) for running and screen recording, and
 [BACKUP.md](BACKUP.md) for repository scope and asset recovery.
 
 Optional Claude Team support uses the same viewer and flight runtime. Choose
-**LLM-guided tests** to let Claude select bounded delay/patch configurations and
+**LLM-guided tests** to let Claude select bounded scene/sensor/patch configurations and
 interpret the measured results. See [CLAUDE_AGENT.md](CLAUDE_AGENT.md) for login,
 commands, limits and artifacts. **Basic feedback** remains the dashboard default
 and needs no LLM login or API key. MonoNav/Kim worker launchers are unchanged.
+The expanded space generates fresh checked coordinates and exposes noise/light;
+[EVALUATION.md](EVALUATION.md) documents the common bounds and comparison protocol.
 
 ## Automated bench (actual planner flight)
 
@@ -44,9 +46,8 @@ configuration using only that target model's completed results:
 - Infrastructure error: keep configuration; do not optimize against that error.
 
 Basic feedback is deterministic rule-based search. The optional Claude mode uses
-the same episode runner, with explicit model-selected actions. Generating new
-obstacle coordinates beyond the saved sets remains planned;
-see [AGENT_ROADMAP.md](AGENT_ROADMAP.md).
+the same episode runner, with explicit model-selected actions. Expanded mode
+generates new coordinates; the original feedback mode retains its saved catalogue.
 Noise/delay values and patch size share a scalar search level; this is not per-parameter causal
 attribution. Decisions, input results and explanations are saved. Random/grid
 remain predefined baselines and do not use result feedback.
@@ -60,16 +61,16 @@ do not identify the individual cause. Select Noise only, Delay only or Patch onl
 for separate single-factor campaigns. This metric report stays deterministic in
 every mode. Claude mode adds a separate evidence-linked interpretation at the end.
 
-The new **Random**, **Search** and **LLM-guided tests** modes share Ravi's bounded
-delay/patch action space and the same selected-model mission. Supply clean-checked
-layout/seed pairs explicitly. Noise and illumination are fixed in these three
-modes; existing basic feedback and random/grid CLI profiles still support them.
+The **Random**, **Search** and **LLM-guided tests** modes share the same selected-model
+mission and condition bounds. Choose **Generated scenes + noise + light + delay + patch**
+for fresh checked positions, or **Saved layouts + delay + patch** for the original
+restricted space (which requires explicit clean-checked layout/seed pairs).
 Extra clean checks (default 2) and infrastructure retries (default 1) are shown
 separately in the viewer and are outside the paired flight budget. Set both to
 zero for a strict one-pair smoke run. A failing clean baseline never establishes
 an attack effect, even if **Continue; mark baseline failure** is selected.
 
-Office now has24density-tier layouts (three tiers × eight seeds):
+The original saved-layout mode has24density-tier layouts (three tiers × eight seeds):
 
 | Difficulty | Additional plants | Additional columns |
 |---|---:|---:|
@@ -259,8 +260,8 @@ Start Kim separately using its existing `docker/run_airstack_live.sh`, with
 Restart a worker after bridge/container restarts if its HTTP connection exited.
 This optional condition viewer starts no bag or screen recording; actual episodes
 above do start a bag before takeoff.
-The new dashboard omits Office preview and shows real inference instead. The
-native Isaac viewport remains an optional second recording view.
+The current dashboard shows the headless Office observer view beside real model
+inference. The native Isaac viewport remains an optional recording view.
 
 ## Conditions and interfaces
 
@@ -271,8 +272,10 @@ simulation seconds. Depth noise modifies the optional GT-depth bridge input,
 not the inferred FCRN/ZoeDepth output. All current ranges are local engineering
 settings, **not CyLab-approved attack bounds**.
 
-`layout_seed` selects one of eight prevalidated layouts for each of two variants.
-Generate the catalogue using an interpreter with OpenUSD:
+In the legacy `furnished_a/b` modes, `layout_seed` selects one of eight layouts
+per variant. Generated mode instead stores a new continuous placement and its
+seed; see [EVALUATION.md](EVALUATION.md). Generate the legacy catalogue using an
+interpreter with OpenUSD:
 
 ```bash
 python3 tools/ws2_bench/prepare_layouts.py /path/to/Office/office.usd

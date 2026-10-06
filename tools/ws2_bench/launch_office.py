@@ -27,6 +27,7 @@ from isaacsim.core.utils.viewports import set_camera_view
 from isaacsim.core.utils.extensions import enable_extension
 from conditions import validate,PATCH_HEIGHT_M
 from layout_summary import describe
+from generated_layouts import realized
 for name in ("isaacsim.ros2.bridge", "pegasus.simulator"):
     enable_extension(name)
 for _ in range(10):
@@ -43,6 +44,7 @@ OFFICE = os.environ.get("WS2_OFFICE_USD", "/tmp/ws2_assets/Isaac/4.5/Isaac/Envir
 PATCH = os.environ.get("WS2_PATCH_TEXTURE", str(HERE / "assets/learned_patch.png"))
 PATCH_KIND = os.environ.get("WS2_PATCH_KIND", "Rui learned FCRN patch")
 import hashlib
+OFFICE_SHA256 = hashlib.sha256(Path(OFFICE).read_bytes()).hexdigest()
 PATCH_SHA256 = hashlib.sha256(Path(PATCH).read_bytes()).hexdigest()
 episode_path=os.environ.get('WS2_EPISODE_CONFIG')
 episode=json.loads(Path(episode_path).read_text()) if episode_path else {}
@@ -117,13 +119,14 @@ def apply_condition(raw):
     c = validate(raw)
     # Layout edits are for stopped/grounded vehicle between trials. Never move a
     # collider into a flying aircraft just to make the demo look adversarial.
-    if drone_sim_dict and condition and (c["layout"],c["layout_seed"]) != (condition["layout"],condition["layout_seed"]):
+    if drone_sim_dict and condition and (c["layout"],c["layout_seed"],c.get('placement')) != (condition["layout"],condition["layout_seed"],condition.get('placement')):
         state = next(iter(drone_sim_dict.values()))["multirotor"].state
         if float(state.position[2]) > .35:
             raise ValueError("land before changing layout")
     active = c["layout"] != "stock"
-    catalog=json.loads((HERE/"layouts.json").read_text())
-    placement=catalog[c["layout"]][c["layout_seed"]] if active else {}
+    placement=realized(c) if active else {}
+    if c['layout']=='generated' and placement['source_sha256']!=OFFICE_SHA256:
+        raise ValueError('Runtime Office asset differs from the validated geometry source')
     delta=placement.get("move",[0,0,0])
     matrix = Gf.Matrix4d(original_move)
     if active:
@@ -261,7 +264,7 @@ while app.is_running():
     if time.monotonic()-last_status>.1:
         data={"sim_time":float(world.current_time),"condition":condition,"patch_kind":PATCH_KIND,
               "patch_sha256":PATCH_SHA256,"patch_corners_world":[list(p) for p in quad.GetPointsAttr().Get() or []],
-              "realized_layout":json.loads((HERE/"layouts.json").read_text()).get(condition["layout"],[{}]*8)[condition["layout_seed"]],
+              "realized_layout":realized(condition),
               "position":None if state is None else state.position.tolist(),
               "attitude_xyzw":None if state is None else state.attitude.tolist(),
               "velocity":None if state is None else state.linear_velocity.tolist(),"camera":camera_mode,

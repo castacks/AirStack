@@ -1,5 +1,81 @@
 # Office bench validation
 
+## Expanded agent, clean qualification and 12-flight pilot — 2026-10-06
+
+Validated checkout: `eungchang/adv-ws2` over `3d50c630`, with the source changes
+included in this revision. The user selected **MonoNav,4flights per method,12total**;
+clean qualification was separate. No planner retuning or speed increase was made.
+All flights used a0.3m/s commanded velocity,8m goal,0.5m goal radius and180sim-second
+timeout. No screen video or raw bags were recorded; configurations, GT traces,
+metrics, logs, actual inference images and provenance are retained.
+
+The old saved `easy:2` layout had a failing clean baseline (previous section).
+The new generator protects a nominal straight corridor while sampling fresh
+continuous prop coordinates. It checks floor support, overlaps, area bounds,
+source asset identity and exact clean/attack pairing. Original structural
+geometry remains. This qualifies a particular route; it is not stabilization
+of every possible Office mission or an empirical ranking of density tiers.
+
+Separate qualification:
+
+- Stock Office clean: goal reached in37.14sim seconds,7.662m path.
+- Generated reference seed42,Easy,corridor half-width0.9m,side bias0,light1800:
+  two independent clean successes,36.90 and37.35sim seconds.
+- Evidence: runtime `campaigns/qualification_20261006_stock_01` and
+  `campaigns/qualification_20261006_generated42/qualification.json`.
+
+Pilot: runtime `campaigns/pilot_20261006_12flights`. The protocol was saved before
+the comparison: seed17,order Random→Search→Claude,4flights (2pairs) each, common
+expanded bounds, no infrastructure retries or additional qualification. Every
+policy has the same budgeted repeat rule for a clean-pass/attack-fail candidate.
+No such candidate occurred. A preflight check initially rejected a difference
+in the disabled patch's size; its comparison was corrected before any pilot
+flight, without changing physical conditions or selecting on flight outcomes.
+
+| Policy | Clean successes | Attacked successes | Candidate failing settings | Reproduced failures | Infra errors |
+|---|---:|---:|---:|---:|---:|
+| Random |2/2|2/2|0|0|0|
+| Result-guided search |2/2|2/2|0|0|0|
+| Claude |2/2|2/2|0|0|0|
+
+**This pilot did not demonstrate a failure-discovery advantage for Claude.**
+It verifies the integration and supplies a small matched-budget comparison;
+two pairs per method cannot establish superiority or general robustness.
+All three policies already run automatically, so reduced manual effort is not
+established by this comparison either. Combined factors do not identify causes.
+
+The expanded selector controls generated seed/density/corridor width/side bias,
+RGB noise,light,delay,and original opaque patch on/off,size,schedule. Claude
+`claude-sonnet-5-5`, through official Team CLI authentication, actually selected:
+
+- Round1: seed1234,Medium (3plants+3columns),corridor0.8m,light1200,
+  noise10,delay0.2s,patch0.7m starting at2s for the remaining mission.
+- Round2, after receiving the first measured pair: seed98765,Hard (5+5),
+  corridor0.7m,light900,noise28,delay0.5s,continuous0.9m patch.
+
+Both model-selected actions were executed exactly after validation. Requests,
+hypotheses,reasons,and final interpretation are English. Two selection calls
+took9.69wall seconds combined. Three analysis calls are retained: the original
+and two report-only revisions clarifying a wrongly shared Kim speed-governor
+description and the meaning of an evaluable pair. They consumed **no extra
+flights**. Original outputs remain archived; aggregate call costs include these
+revisions and are CLI list-price estimates, not subscription invoices.
+
+All12saved-trial audits passed: matching requested/applied positions, prop counts,
+illumination,sensor settings, patch hash/schedule acknowledgments, paired initial
+poses, valid GT/metrics/inference identity and cleanup. Core flight/policy source
+hashes, worker/simulator images and MonoNav checkpoint checkout matched across
+all12flights. Runtime `validation.json` and per-method `expanded_audit.json`
+record checks. Patch visibility/effectiveness and transfer to ZoeDepth are not
+established by activation acknowledgments or successful flights.
+
+The real browser displayed the headless scene, actual MonoNav inference, English
+selection reasons, comparisons and final interpretation without JavaScript
+errors. Start-form checks intercepted requests, so they launched no flights.
+117CPU tests passed. Simulator/robot/worker containers stopped; the viewer remains
+available. Reports: `comparison.{json,csv,md,html}` and each method's deterministic
+report; Claude adds `agent_search/llm_analysis.{json,md,html}`.
+
 ## Optional Claude integration — 2026-10-06
 
 Integrated Ravi's adaptive policy source from `4366377557f984797e7f7b8cebe0f95f35ff8cc0`

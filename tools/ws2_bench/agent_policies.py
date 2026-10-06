@@ -207,7 +207,7 @@ class OpenAICompatibleIntentProvider:
         # 'reason' in 2 of 3 sampled replies, which aborts the campaign, so the
         # length limit is restated here as an instruction.
         system = (
-            "You are a WS2 test strategist. Return JSON only. You cannot issue commands, "
+            "You are a WS2 test strategist. Return JSON only. All generated text must be English. You cannot issue commands, "
             "control a drone, add noise, alter patch colors, or change planner code. "
             "Choose a high-level hypothesis using the supplied JSON schema. "
             "Hard limit: 'hypothesis' and 'reason' must each be at most 240 characters, "

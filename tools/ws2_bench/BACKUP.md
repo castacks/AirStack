@@ -28,8 +28,9 @@ Companion worker revisions for this bench backup:
   FCRN/D3QN inference preview export.
 
 The AirStack revision is the commit containing this document; record it with
-`git rev-parse HEAD`. The future dynamic-placement LLM plan is in
-[AGENT_ROADMAP.md](AGENT_ROADMAP.md), and is not current functionality.
+`git rev-parse HEAD`. Dynamic placement and optional Claude selection are
+implemented. [AGENT_ROADMAP.md](AGENT_ROADMAP.md) separates completed work from
+the remaining attack-validation and evaluation tasks.
 
 ## Exclude from Git
 
@@ -119,6 +120,11 @@ Tag `ws2-basic-2026-09-22` preserves the pre-agent basic version. Back up
 source. Claude authentication stays in the local official CLI; do not commit
 tokens or credential files. `llm_calls/`, reports and simulator evidence stay
 under the ignored runtime directory. See [CLAUDE_AGENT.md](CLAUDE_AGENT.md).
+Expanded-space source also includes `generated_layouts.py`, `expanded_space.py`,
+`export_geometry.py`, the small USD-derived `office_geometry.json`, comparison
+runner/tests and `EVALUATION.md`. The manifest stores numeric bounds and the
+source asset hash, not Office meshes/textures. Download the original Office asset
+as below; the generator rejects a different asset hash.
 
 If a reboot removed a temporary Xauthority file used by an existing container,
 Docker may create a directory at that bind path and then reject container startup

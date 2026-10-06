@@ -18,11 +18,14 @@ python3 tools/ws2_bench/dashboard.py
 
 Claude를 쓰려면 터미널에서 `claude auth login --claudeai`로 Team 계정에 로그인한 뒤,
 Method를 **LLM-guided tests**, LLM을 **Claude · Team login**으로 고른다.
-Clean-checked layouts에는 선택 모델로 확인한 배치(예: `easy:2`)를 입력한다.
+Conditions에서 **Generated scenes + noise + light + delay + patch**를 고르면
+새 장애물 좌표 생성·밀도·통로 폭·배치 방향·RGB 노이즈·조명·delay·patch를 선택한다.
+이전 saved 모드를 고를 때만 Clean-checked layouts에 확인한 배치를 입력한다.
 Claude가 delay/patch 조건을 선택하고, 비행 종료 후 아래 **Claude interpretation**에
 근거를 포함한 분석이 나온다. 기존 metrics 보고서와 별도로 저장된다.
-현재 LLM 모드는 저장된 배치·센서 delay·patch on/off·크기·시점을 선택한다.
-Noise/조명과 새 장애물 좌표 생성은 아직 LLM 동작 범위에 포함되지 않는다.
+LLM 요청·응답과 새 보고서는 모두 영어다. 좌표는 seed와 공간 제약으로 새로 생성하고
+검증한 실제 좌표를 저장한다. **Open comparison**에서 방식별 비교 결과를 볼 수 있다.
+시험 범위와 해석 기준은 [EVALUATION.md](EVALUATION.md)에 정리되어 있다.
 
 한 쌍만 확인할 때는 **Flights=2 / Extra clean checks=0 / Infrastructure retries=0**.
 추가 clean 확인과 인프라 재시도는 기본값이 각각 2/1이므로, 그대로 두면

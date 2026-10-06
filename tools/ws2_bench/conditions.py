@@ -12,7 +12,7 @@ def validate(raw):
     if {'patch_strength','patch_height'} & raw.keys():
         raise ValueError('Legacy patch controls are unsupported: use patch_enabled and patch_size only. '
                          'Start a new campaign; historical settings/results must not be silently converted.')
-    allowed = {"name", "layout", "layout_seed", "seed", "light", "rgb_noise", "depth_noise", "delay", "patch_enabled", "patch_size"}
+    allowed = {"name", "layout", "layout_seed", "seed", "light", "rgb_noise", "depth_noise", "delay", "patch_enabled", "patch_size", "placement"}
     if set(raw) - allowed:
         raise ValueError(f"unknown condition fields: {set(raw) - allowed}")
     c = dict(name="clean", layout="furnished_a", layout_seed=0, seed=42, light=1800., rgb_noise=0.,
@@ -20,10 +20,16 @@ def validate(raw):
     c.update(raw)
     if not isinstance(c["name"], str) or not c["name"].strip():
         raise ValueError("condition name required")
-    if c["layout"] not in ("stock", "furnished_a", "furnished_b",*DIFFICULTY_COUNTS):
+    if c["layout"] not in ("stock", "furnished_a", "furnished_b", "generated",*DIFFICULTY_COUNTS):
         raise ValueError("unsupported layout")
-    if isinstance(c["layout_seed"], bool) or not isinstance(c["layout_seed"], int) or not 0<=c["layout_seed"]<=7:
+    maximum_seed=2**31-1 if c['layout']=='generated' else 7
+    if isinstance(c["layout_seed"], bool) or not isinstance(c["layout_seed"], int) or not 0<=c["layout_seed"]<=maximum_seed:
         raise ValueError("layout_seed must select one of the validated layouts, 0..7")
+    if c['layout']=='generated':
+        from generated_layouts import validate_placement
+        p=validate_placement(c.get('placement'))
+        if p['parameters']['seed']!=c['layout_seed']:raise ValueError('Placement seed does not match condition')
+    elif 'placement' in c:raise ValueError('Explicit placement requires generated layout')
     if isinstance(c["seed"], bool) or not isinstance(c["seed"], int) or not 0 <= c["seed"] < 2**31:
         raise ValueError("seed must be a nonnegative 31-bit integer")
     if not isinstance(c["patch_enabled"], bool):

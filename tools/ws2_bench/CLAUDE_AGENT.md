@@ -3,6 +3,8 @@
 Claude selects exact test configurations and writes an evidence-linked final
 interpretation. The bench validates configurations, controls the simulator,
 computes metrics, classifies outcomes and retains replayable results.
+All current prompts and generated text are English. See [EVALUATION.md](EVALUATION.md)
+for the expanded scene/noise/light space and equal-budget policy comparison.
 
 ```mermaid
 flowchart LR
@@ -68,21 +70,23 @@ source/runtime bind mounts and rejects mismatches before starting containers.
 ```bash
 python3 tools/ws2_bench/agent_campaign.py \
   --policy agent_search --provider claude --planner mononav --budget 8 \
-  --qualified-layout easy:2 \
+  --action-space expanded \
   --output robot/ros_ws/ws2_runtime/campaigns/claude_mononav_01
 ```
 
-Supply layout/seed combinations checked with the selected target. `easy:2` is
-an example, not a guarantee of clean success. Multiple `--qualified-layout`
-options permit multiple saved layouts. One campaign evaluates one planner.
+Expanded mode generates new coordinates from a seed and bounded spatial
+constraints. For the older saved-layout mode, use `--action-space saved` plus
+`--qualified-layout easy:2` (repeatable); that example is not a clean-success
+guarantee. One campaign evaluates one planner.
 Budget 8 means four clean/attacked pairs; initial clean validation and
 infrastructure retries are accounted separately. Model missions/speeds stay unchanged.
 
 In the updated dashboard choose target, **LLM-guided tests**, **Claude · Team
-login**, enter clean-checked layouts, then set the flight budget. Final Claude
+login**, choose the expanded or saved condition space, then set the flight budget. Final Claude
 interpretation is shown separately from the deterministic metric report.
-Gemini remains available through **Gemini / compatible API** and its existing
-environment variables. The dashboard remains the observer/control interface.
+Gemini remains available in the saved-layout mode through **Gemini / compatible
+API** and its existing environment variables. Expanded LLM mode currently requires
+Claude's exact-action provider. The dashboard remains the observer/control interface.
 
 For exactly one clean/attacked pair, set **Flights=2**, **Extra clean checks=0**
 and **Infrastructure retries=0**. Normally stop when clean fails. For pipeline
@@ -92,6 +96,13 @@ but excludes that pair from candidate attack findings. Equivalent CLI options:
 --clean-failure-policy record`. No confirmation or next pair can exceed the budget.
 
 ## What Claude controls
+
+Expanded mode: new placement seed, Easy/Medium/Hard prop counts, protected-corridor
+width and side bias, RGB noise sigma, illumination, sensor delay, and patch on/off,
+size and activation schedule. Realized positions are checked and saved for replay.
+All three policies use the same ranges; see [EVALUATION.md](EVALUATION.md).
+
+The older saved-layout mode retains:
 
 - Exact saved layout and seed, among the supplied qualified combinations.
 - Additional sensor delay: 0, 0.05, 0.15 or 0.25 simulation seconds.
@@ -106,10 +117,8 @@ confirmation uses no additional selection request. This is a repeated
 observation, not statistical proof. Invalid structured output receives one
 repair attempt; a still-invalid configuration cannot start a flight.
 
-This initial integration retains Ravi's delay/patch action space. Noise/light
-remain fixed; new obstacle coordinates are not generated. Configurable RGB
-noise, lighting and validated continuous obstacle placement remain separate
-scope expansions. FCRN training does not establish attack effectiveness on
+Saved mode retains Ravi's delay/patch action space; expanded mode adds the
+controls described above. FCRN training does not establish attack effectiveness on
 either deployed FCRN or ZoeDepth.
 
 ## Final interpretation and evidence

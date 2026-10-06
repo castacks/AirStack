@@ -20,13 +20,19 @@ def evidence_for_report(report):
     return {"target": report["target"], "mission": agent_mission(report['target'],report["mission"]), "phase": report["phase"],
             "evaluated_flights": report["evaluated_flights"], "excluded_flights": report["excluded_flights"],
             "outcomes": report["outcomes"], "rounds": rounds, "limitations": report["limitations"],
+            "action_space":report.get('action_space','saved'),"action_bounds":report.get('action_bounds'),
             "parameter_definitions": {
                 "patch_enabled": "False means off. True means on according to the schedule, with opaque original texture.",
                 "patch_start_s": "Simulation seconds after mission start. Zero means immediate activation.",
                 "patch_duration_s": "Zero is a sentinel: remain active for the rest of the mission. It does NOT mean zero exposure. Missing schedule fields in older records have the same zero defaults.",
                 "patch_size": "Physical metres. Size is a condition, not a validated monotonic measure of attack effect.",
                 "delay": "Additional camera delivery delay in simulation seconds, distinct from patch activation timing.",
+                "rgb_noise":"Gaussian RGB pixel standard deviation in 0..255 units. No direct perturbation of inferred depth.",
+                "placement":"Generated offsets are saved explicit coordinates shared by both flights. A protected nominal corridor does not guarantee planner success.",
+                "light":"Illumination is shared by the clean/attacked pair, so a failed clean run limits attribution to added sensor/patch attacks.",
                 "clearance": "Collider distance minus nominal 0.25m vehicle envelope; negative is not itself a PhysX collision.",
+                "mean_speed_m_s":"Measured path length divided by mission duration. A difference from commanded velocity does not by itself establish a speed governor or its cause.",
+                "attack_effect_evaluable":"A passing clean control makes the pair eligible for comparison. It does not establish that metric differences are caused by or attributable to the perturbations; repeat variance remains unknown.",
                 "condition_vs_observation": "Conditions specify requested inputs. Metrics/outcomes are measured; condition data alone does not prove rendered patch exposure.",
             },
             "interpretation_rule": "Repeated observations are not proof of causality or statistical significance."}
@@ -101,13 +107,15 @@ def write_analysis(root, report, provider):
             "Distinguish candidate attack effects, clean baseline failures, and unresolved combined factors. "
             "One or two failures do not prove causality. Do not invent p-values or claim patch transfer to "
             "ZoeDepth or deployed FCRN is established. State sample limits and recommend concrete repeat or "
-            "single-factor tests. No tools or further flights are available. Write clear, concise Korean; "
+            "single-factor tests. No tools or further flights are available. Write clear, concise English; "
             "keep parameter names and round IDs unchanged. If phase is synthetic_smoke, explicitly say "
             "these are invented software-test inputs, not real flights or vulnerability evidence. "
             "Use parameter_definitions exactly: patch_duration_s=0 means active for the remaining mission, "
-            "not zero exposure. Recommend tests with saved layouts, delay and patch only; noise and light "
-            "are outside the current agent action space."
+            "not zero exposure. "
         )
+        system += ('The expanded space supports new seeded obstacle positions, density, corridor width, side bias, RGB noise, lighting, delay and patch. Use only action_bounds. '
+                   if evidence['action_space']=='expanded' else
+                   'Recommend tests with saved layouts, delay and patch only; noise and light are outside this saved-layout agent action space. ')
         try:
             value = provider.complete('analysis', system, evidence, analysis_schema(evidence),
                                       lambda raw: validate_analysis(raw, evidence))
