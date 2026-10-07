@@ -1,0 +1,10 @@
+P=scripts/planner_benchmark/sim_scenario.py
+
+
+python3 $P new --family gaussian_blobs --budget-s 700 --altitude-m 300 --home near_center \
+    --param n_peaks=8 --param 'sigma=[150,300]' --seed 7 --offline
+
+python3 $P fly --id s0136_gaussian_blobs --planner tigris --airstack ./airstack.sh
+python3 $P fly --id s0110_gaussian_blobs --planner curve --airstack ./airstack.sh
+
+python3 $P restore

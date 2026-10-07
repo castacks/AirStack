@@ -243,6 +243,7 @@ def main(argv=None) -> int:
     ap.add_argument("--res", type=float, default=10.0, help="scoring raster [m] (default 10)")
     ap.add_argument("--timeout", type=float, default=3600.0, help="per-plan timeout [s]")
     ap.add_argument("--limit", type=int, default=None, help="first N scenarios only")
+    ap.add_argument("--ids", default=None, help="comma-separated scenario ids only (default: all)")
     ap.add_argument("--keep-tracks", action="store_true", help="also keep full track.json files")
     ap.add_argument("--mtl-bin", default=None)
     ap.add_argument("--tigris-bin", default=None)
@@ -256,6 +257,9 @@ def main(argv=None) -> int:
     idx = json.loads((a.bench / "index.json").read_text())["scenarios"]
     if a.limit:
         idx = idx[:a.limit]
+    if a.ids:
+        want = set(a.ids.split(","))
+        idx = [r for r in idx if r["id"] in want]
     bins = {"mtl": find_bin(a.mtl_bin, "mtl_search_plan", "mtl_search_planner"),
             "tigris": find_bin(a.tigris_bin, "tigris_search_plan", "tigris_search_planner"),
             "tigris_stack": tigris_stack_sets(a.tigris_params)}

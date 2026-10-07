@@ -100,6 +100,8 @@ def main(argv=None) -> int:
     ap.add_argument("--scenario", type=Path, default=None)
     ap.add_argument("--ground-truth", type=Path, default=None)
     ap.add_argument("--no-progress", action="store_true", help="no progress bar (stderr)")
+    ap.add_argument("--no-extras", action="store_true",
+                    help="skip the detection-reach / gimbal figures (scripts/mtl_report_extras.py)")
     args = ap.parse_args(argv)
 
     run_dir = args.run_dir.resolve()
@@ -149,6 +151,17 @@ def main(argv=None) -> int:
               f"max curvature {c.get('max_curvature', 0):.4f} 1/m")
     if s.get("realized_over_planned_mass") is not None:
         print(f"  realized / planned coverage: {100 * s['realized_over_planned_mass']:.1f} %")
+    if not args.no_extras:
+        try:
+            import mtl_report_extras  # needs numpy + matplotlib
+        except ImportError as e:
+            print(f"  report extras skipped ({e}); pip install numpy matplotlib scipy")
+        else:
+            if out == run_dir:
+                try:
+                    mtl_report_extras.main(["--run-dir", str(run_dir)])
+                except Exception as e:  # never lose the main report over the extra figures
+                    print(f"  report extras failed: {e!r}")
     for name in ("telemetry.csv", "detection.json", "residual_belief.csv", "planner_comparison.csv", "report.html"):
         if (out / name).is_file():
             print(f"  wrote {out / name}")

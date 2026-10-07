@@ -65,7 +65,7 @@ numpy; matplotlib is optional (it draws the scenario maps in the report), and Py
 | `arms/fair_sweep.json` | TIGRIS with the detection-matched sweep only. |
 | `arms/curve_tuning.json` | The curve planner's tuning arms (first 30 scenarios): `mtl_curve_f050`, `_f075` (stack), `_f100`, `_f140` = `sweep_freq_hz`, all with TIGRIS's sensor / gimbal model (below). |
 | `arms/curve900.json` | The chosen curve arm, `mtl_curve` (= `mtl_curve_f140`), run on all 160 scenarios. |
-| `sim_scenario.py` | Flies one scenario in Isaac Sim with the curve planner or TIGRIS: `list` / `new` (a scenario from family, budget, altitude, home and family parameters) / `export` / `fly` / `compare` / `restore` (see "Flying a scenario in Isaac Sim"). |
+| `sim_scenario.py` | Flies one scenario in Isaac Sim with the curve planner or TIGRIS: `list` / `new` (a scenario from family, budget, altitude, home and family parameters) / `derive` (an existing scenario's prior with other drones: budget, altitude, homes, team size) / `export` / `fly` / `compare` / `restore` (see "Flying a scenario in Isaac Sim"). |
 | `arms/fair900_curve.json` | The four `fair900.json` arms plus `mtl_curve`: the whole comparison from scratch in one command. |
 | `specs/*.json` | `wide` (240 scenarios, all families), `wide900` (160, detection range 900 m for everyone), `team` (60, 2–3 agents: MTL plans jointly, TIGRIS per agent), `smoke` (12). |
 
@@ -207,6 +207,7 @@ P=scripts/planner_benchmark/sim_scenario.py
 python3 $P list --budget-s 700 --home near_center --sort adv          # pick one of the 160 ...
 python3 $P new --family gaussian_blobs --budget-s 700 --altitude-m 300 --home near_center \
     --param n_peaks=8 --param 'sigma=[150,300]' --seed 7 --offline    # ... or make one (-> bench/wide900/custom/)
+python3 $P derive --from s0136_gaussian_blobs --agents 3 --home edge --budget-s 700 --offline   # same prior, other drones
 python3 $P fly --id s0136_gaussian_blobs --planner curve              # export + airstack up + sortie + airstack down
 python3 $P fly --id s0136_gaussian_blobs --planner tigris
 python3 $P compare --id s0136_gaussian_blobs                          # flown vs planned vs offline
@@ -225,6 +226,15 @@ python3 $P restore                                                    # original
 - **`new`:** family parameters you do not give are sampled from `--seed` (printed). An unknown parameter
   lists the family's parameters. Homes: `near_center` / `edge` / `corner` (the benchmark's) or `N,E` in
   mission NED metres. `--offline` also plans and scores it with both arms (`bench/wide900/custom/results.jsonl`).
+- **`derive`:** keeps the prior, the cells and the mission seed (so the same ground-truth targets) of `--from`
+  and changes the drones: `--budget-s` (per drone), `--altitude-m`, `--agents N`, `--home` (one site; the team
+  lines up `--spacing` m apart along east, 12 m by default, like the fleet file) or `--homes="N,E;N,E"` (one
+  per drone; write it with `=` because the values start with `-`). Drone i flies i x 1 m higher (the stack's
+  `team.altitude_separation_m` layers, = the curve's `altitude_stagger_m`). Default id
+  `<from>__<N>a_<budget>s_<alt>m_<home>`. Teams fly with `--planner curve` only: the `tigris_search` stack
+  flies one robot, and TIGRIS has no team coordination (offline it flies each drone separately on the full
+  prior). `export` / `fly` rewrite the fleet's `robots:` block to robot_1..N and start N sorties; the
+  mtl_search fleet was set up for up to 3 robots (more is untested).
 - **Differences from offline, by design of a live flight:** TIGRIS replans every 5 s with a 5 s wall-time solve
   (the stack's `tigris_search_planner.yaml`) instead of 150 iterations per replan; the follower flies the real
   gimbal and controller. TIGRIS plans carry no gimbal law, so the follower aims (`aim_point`); the curve

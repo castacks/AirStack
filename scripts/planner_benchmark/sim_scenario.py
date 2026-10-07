@@ -6,6 +6,9 @@
     # ... or a new one from family / budget / altitude / home / family parameters
     python3 scripts/planner_benchmark/sim_scenario.py new --family gaussian_blobs --budget-s 700 \\
         --altitude-m 300 --home near_center --param n_peaks=8 --param 'sigma=[150,300]' --seed 7 --offline
+    # ... or keep a scenario's prior and change the drones: budget, altitude, homes, team size
+    python3 scripts/planner_benchmark/sim_scenario.py derive --from s0136_gaussian_blobs --budget-s 1000 \
+        --agents 3 --home edge --offline
     # 2. fly it (exports the bundle, airstack up, sortie + rosbag + report, airstack down)
     python3 scripts/planner_benchmark/sim_scenario.py fly --id s0136_gaussian_blobs --planner curve
     python3 scripts/planner_benchmark/sim_scenario.py fly --id s0136_gaussian_blobs --planner tigris
@@ -21,6 +24,11 @@ new      Generate a scenario from a prior family with your parameters, in the be
          (copied from a benchmark scenario: 5 km area, 900 m detection, sensor, mapping). Written
          to <bench>/custom/ (a bench of its own: scenarios/, index.json); --offline also plans and
          scores it with both arms offline (run_benchmark.py), for the sim-vs-offline comparison.
+derive   A variant of an existing scenario that keeps its PRIOR (bumps, cells, mission seed, hence
+         the same ground-truth targets) and changes the drones: --budget-s, --altitude-m, --agents,
+         --home (one start site; the team lines up --spacing m apart along east, like the fleet
+         file) or --homes "N,E;N,E;..." (one per drone). Written to <bench>/custom/ like `new`.
+         Teams: agent i flies i * team.altitude_separation_m (1 m) higher (the stack's layers).
 export   Write the scenario into the Isaac stack(s) with the arm's overrides applied by the SAME
          code the benchmark used (run_benchmark.apply_arm): stacks/{mtl,tigris}_search/config/
          {scenario.json, ground_truth.json, belief.png} and robot_1's spawn in config/fleets/
@@ -34,6 +42,11 @@ fly      export, then `airstack down` (any previous sim), `airstack up --sim isa
 compare  Every recorded sim run of a scenario: flown residual (runs/<run_id>/detection.json, the
          logger's score of the real flight), planned residual, and the offline benchmark's numbers.
 restore  Copy the original stack bundles and fleet files back.
+
+Teams: the curve planner plans the whole team jointly (mtl_search stack, robot_1..N; the fleet file's
+robots: block is rewritten to N spawns). TIGRIS is single-agent: the tigris_search stack flies one
+robot, so a multi-drone scenario can be flown with --planner curve only; offline (--offline,
+run_benchmark.py) TIGRIS flies every agent independently on the full prior, uncoordinated.
 
 Planners: --planner curve (arm mtl_curve, stack mtl_search) or tigris (arm tigris_det_60dps,
 stack tigris_search); other arms with --mtl-arm / --tigris-arm. Both get the same prior, cells,
@@ -130,6 +143,8 @@ def cmd_list(a) -> int:
                 continue
             if a.budget_s and float(r["budget_s"]) != a.budget_s:
                 continue
+            if a.from_id and r["id"] != a.from_id and r.get("derived_from") != a.from_id:
+                continue
             if a.home and r["home"] != a.home:
                 continue
             if a.altitude_m and float(r["altitude_m"]) != a.altitude_m:
@@ -140,12 +155,146 @@ def cmd_list(a) -> int:
     if a.sort == "adv":
         rows.sort(key=lambda x: -((x[2] or 0) - (x[1] or 0)))
     f = lambda v: "   -  " if v is None else f"{v:.3f}"  # noqa: E731
-    print(f"{'id':28s} {'family':18s} {'budget':>6s} {'alt':>4s} {'home':11s}  curve  tigris   adv")
+    print(f"{'id':44s} {'family':18s} {'budget':>6s} {'alt':>4s} {'home':11s} {'n':>2s}  curve  tigris   adv")
     for r, c, t, custom in rows[:a.limit]:
         adv = "" if c is None or t is None else f"{t - c:+.3f}"
-        print(f"{r['id']:28s} {r['family']:18s} {r['budget_s']:6.0f} {r['altitude_m']:4.0f} {str(r['home']):11s} "
+        print(f"{r['id']:44s} {r['family']:18s} {r['budget_s']:6.0f} {r['altitude_m']:4.0f} {str(r['home']):11s} "
+              f"{r.get('team_size', 1):2d} "
               f"{f(c)} {f(t)} {adv:>6s}{'  (custom)' if custom else ''}")
     print(f"[{len(rows)} scenarios; residual_hw offline, lower is better; adv = tigris - curve]")
+    return 0
+
+
+def bench_area(sc: dict):
+    size = float(sc["mission"]["area"]["size_m"])
+    cn0, ce0 = sc["mission"]["area"].get("center_ned", [0.0, 0.0])
+    return (cn0 - size / 2, cn0 + size / 2, ce0 - size / 2, ce0 + size / 2)
+
+
+def parse_home(txt: str, area) -> tuple[str, list[float]]:
+    """near_center | edge | corner | N,E -> (label, [n, e])."""
+    if txt in HOMES:
+        return txt, list(HOMES[txt])
+    try:
+        home = [float(v) for v in txt.split(",")]
+        assert len(home) == 2
+    except Exception:
+        raise SystemExit(f"home {txt!r}: use near_center | edge | corner | N,E (mission NED metres)")
+    if not (area[0] <= home[0] <= area[1] and area[2] <= home[1] <= area[3]):
+        raise SystemExit(f"home {home} is outside the search area")
+    return f"{home[0]:.0f},{home[1]:.0f}", home
+
+
+def make_team(homes: list[list[float]], alt_sep: float) -> list[dict]:
+    """robot_1..N at the given homes; agent i cruises i * alt_sep higher (team.altitude_separation_m,
+    the layers mtl_sortie.sh takes off to and the curve planner's altitude_stagger_m)."""
+    for i in range(len(homes)):
+        for j in range(i):
+            if abs(homes[i][0] - homes[j][0]) + abs(homes[i][1] - homes[j][1]) < 5.0:
+                raise SystemExit(f"robot_{j + 1} and robot_{i + 1} start {homes[j]} / {homes[i]}: closer than 5 m "
+                                 "(the SITL vehicles would spawn inside each other)")
+    return [{"name": f"robot_{i + 1}", "start_ned": [float(h[0]), float(h[1])], "home_ned": [float(h[0]), float(h[1])],
+             "altitude_offset_m": round(i * alt_sep, 6)} for i, h in enumerate(homes)]
+
+
+def add_custom(bench: Path, sid: str, sc: dict, rec: dict, template_id: str, res: float) -> Path:
+    """Write <bench>/custom/scenarios/<sid>.json and its index.json record (replacing one of the same id)."""
+    cd = custom_dir(bench)
+    (cd / "scenarios").mkdir(parents=True, exist_ok=True)
+    path = cd / "scenarios" / f"{sid}.json"
+    path.write_text(json.dumps(sc, default=_py))
+    cidx = [r for r in load_index(cd) if r["id"] != sid] + [rec]
+    (cd / "index.json").write_text(json.dumps({"spec": {"custom": True, "template": template_id}, "res_m": res,
+                                              "scenarios": cidx}, indent=1, default=_py))
+    return path
+
+
+def check_name(sid: str) -> str:
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+", sid):
+        raise SystemExit("--name: letters, digits, _ . - only")
+    return sid
+
+
+def run_offline(a, sid: str) -> None:
+    cd = custom_dir(a.bench)
+    names = ",".join([a.mtl_arm, a.tigris_arm])
+    print(f"[sim_scenario] planning {sid} offline with {names} (the benchmark's runner and scorer) ...")
+    # a re-generated id replaces its old offline results: drop them so the runner plans it again
+    rp = cd / "results.jsonl"
+    if rp.is_file():
+        keep = [ln for ln in rp.read_text().splitlines() if ln.strip() and json.loads(ln).get("id") != sid]
+        rp.write_text("".join(ln + "\n" for ln in keep))
+    run_benchmark.main(["--bench", str(cd), "--arms", str(a.arms), "--only-arms", names, "--ids", sid,
+                        "--workers", "2", "--timeout", "3600"])
+    r = load_results(cd).get(sid, {})
+    for arm in (a.mtl_arm, a.tigris_arm):
+        if arm in r:
+            print(f"  offline {arm:18s} residual_hw {r[arm]['residual_hw']:.4f} (planned {r[arm]['residual']:.4f}, "
+                  f"{r[arm]['plan_s']:.0f} s to plan, flown {r[arm]['flown_m']:.0f} of {r[arm]['budget_m']:.0f} m)")
+
+
+def cmd_derive(a) -> int:
+    src_path, src_bench = find_scenario(a.bench, a.src)
+    sc = json.loads(src_path.read_text())
+    src_rec = next((r for r in load_index(src_bench) if r["id"] == a.src), {})
+    area = bench_area(sc)
+    team0 = sc["team"]
+    n = int(a.agents) if a.agents else len(team0["agents"])
+    if a.homes:
+        parsed = [parse_home(h.strip(), area) for h in a.homes.split(";") if h.strip()]
+        if a.agents and len(parsed) != n:
+            raise SystemExit(f"--homes gives {len(parsed)} homes for --agents {n}")
+        n = len(parsed)
+        homes = [h for _, h in parsed]
+        home_label = "custom" if n > 1 else parsed[0][0]
+    else:
+        if a.home:
+            home_label, h0 = parse_home(a.home, area)
+        else:
+            h0 = [float(v) for v in team0["agents"][0]["home_ned"]]
+            home_label = src_rec.get("home", f"{h0[0]:.0f},{h0[1]:.0f}")
+        # line the team up along east from the site, like the fleet file (12 m apart), staying inside the area
+        sgn = 1.0 if h0[1] + a.spacing * (n - 1) <= area[3] else -1.0
+        homes = [[h0[0], h0[1] + sgn * a.spacing * i] for i in range(n)]
+    if n < 1:
+        raise SystemExit("--agents must be >= 1")
+    alt_sep = float(team0.get("altitude_separation_m", 1.0) or 1.0)
+    if a.budget_s:
+        sc["team"]["max_flight_time_s"] = float(a.budget_s)
+        sc["team"]["max_flight_distance_m"] = None
+    if a.altitude_m:
+        sc["aircraft"]["altitude_m"] = float(a.altitude_m)
+    sc["team"]["agents"] = make_team(homes, alt_sep)
+    budget_s = float(sc["team"]["max_flight_time_s"])
+    alt = float(sc["aircraft"]["altitude_m"])
+    sid = check_name(a.name or "{}__{}a_{:.0f}s_{:.0f}m_{}".format(
+        a.src, n, budget_s, alt, home_label.replace(",", "_").replace("-", "m")))
+    sc["mission"]["name"] = sid  # mission.seed is kept: same prior, same ground-truth targets
+    res = float(json.loads(((src_bench if (src_bench / "index.json").is_file() else a.bench) / "index.json")
+                           .read_text()).get("res_m", 5.0))
+    bel = sc["airstack"]["belief"]
+    na, ea, V = rasterize(bel["bumps"], float(bel.get("base_uncertainty", 0.0)), area, res=res,
+                          cap=float(bel.get("belief_cap", 0.85)))
+    cell_m = float(sc["mapping"]["target_cell_size_m"])
+    _, _, blk = extract_cells(na, ea, V, cell_m, float(sc["mapping"]["minimum_belief_mass"]))
+    speed = float(sc["aircraft"]["speed_mps"])
+    budget_m = budget_s * speed  # per agent
+    rec = {"id": sid, "family": src_rec.get("family", "derived"), "params": src_rec.get("params", {}),
+           "derived_from": a.src, "home": home_label, "homes_ned": homes, "budget_s": budget_s,
+           "budget_m": budget_m, "altitude_m": alt, "team_size": n, "seed": sc["mission"]["seed"],
+           "n_bumps": len(bel["bumps"]), "floor": float(bel.get("base_uncertainty", 0.0)),
+           "n_cells": len(sc["cells"]["centers"]), "cells_mass": round(sum(sc["cells"]["mass"]), 4),
+           **descriptors(na, ea, V, blk, homes[0], budget_m * n, cell_m)}
+    path = add_custom(a.bench, sid, sc, rec, a.src, res)
+    print(f"[sim_scenario] {sid}: the prior of {a.src}, {n} drone(s), budget {budget_s:.0f} s ({budget_m:.0f} m each), "
+          f"altitude {alt:.0f} m (+{alt_sep:g} m per drone) -> {path}")
+    for ag in sc["team"]["agents"]:
+        print(f"  {ag['name']}: home NED {ag['home_ned']}, altitude {alt + ag['altitude_offset_m']:g} m")
+    if n > 1:
+        print("  multi-drone: fly it with --planner curve (TIGRIS is single-agent in the sim; offline it runs "
+              "each drone independently)")
+    if a.offline:
+        run_offline(a, sid)
     return 0
 
 
@@ -157,20 +306,8 @@ def cmd_new(a) -> int:
         raise SystemExit(f"{a.bench}/index.json not found")
     template = json.loads(find_scenario(a.bench, idx[0]["id"])[0].read_text())
     res = float(json.loads((a.bench / "index.json").read_text()).get("res_m", 5.0))
-    size = float(template["mission"]["area"]["size_m"])
-    cn0, ce0 = template["mission"]["area"].get("center_ned", [0.0, 0.0])
-    area = (cn0 - size / 2, cn0 + size / 2, ce0 - size / 2, ce0 + size / 2)
-    if a.home in HOMES:
-        home_name, home = a.home, HOMES[a.home]
-    else:
-        try:
-            home = [float(v) for v in a.home.split(",")]
-            assert len(home) == 2
-        except Exception:
-            raise SystemExit("--home is near_center | edge | corner | N,E (mission NED metres)")
-        if not (area[0] <= home[0] <= area[1] and area[2] <= home[1] <= area[3]):
-            raise SystemExit(f"--home {home} is outside the {size:.0f} m area")
-        home_name = f"{home[0]:.0f},{home[1]:.0f}"
+    area = bench_area(template)
+    home_name, home = parse_home(a.home, area)
     seed = a.seed if a.seed is not None else int(np.random.default_rng().integers(1 << 31))
     prng = np.random.default_rng(seed)
     params = dict(sample_family_params(a.family, prng))  # unspecified parameters: sampled from the seed
@@ -194,22 +331,16 @@ def cmd_new(a) -> int:
     centers, masses, blk = extract_cells(na, ea, V, cell_m, float(template["mapping"]["minimum_belief_mass"]))
     if not centers:
         raise SystemExit("no cell holds enough belief mass; widen the prior")
-    cd = custom_dir(a.bench)
-    (cd / "scenarios").mkdir(parents=True, exist_ok=True)
-    cidx = load_index(cd)
-    sid = a.name or f"c{len(cidx):04d}_{a.family}"
-    if not re.fullmatch(r"[A-Za-z0-9_.-]+", sid):
-        raise SystemExit("--name: letters, digits, _ . - only")
+    sid = check_name(a.name or f"c{len(load_index(custom_dir(a.bench))):04d}_{a.family}")
     sc = json.loads(json.dumps(template))
     sc["mission"]["name"], sc["mission"]["seed"] = sid, seed
     sc["aircraft"]["altitude_m"] = float(a.altitude_m)
     sc["team"]["max_flight_time_s"], sc["team"]["max_flight_distance_m"] = float(a.budget_s), None
-    sc["team"]["agents"] = [{"name": "robot_1", "start_ned": home, "home_ned": home, "altitude_offset_m": 0.0}]
+    sc["team"]["agents"] = make_team([home], 0.0)
     sc["cells"] = {"centers": centers, "mass": masses, "total_map_mass": 1.0}
     sc["airstack"]["belief"] = {"bumps": [{k: round(v, 6) for k, v in b.items()} for b in bumps], "belief_cap": cap,
                                 "base_uncertainty": round(floor, 9), "normalised": True, "peak": float(V.max()),
                                 "texture": "belief.png"}
-    (cd / "scenarios" / f"{sid}.json").write_text(json.dumps(sc, default=_py))
     budget_m = float(a.budget_s) * float(sc["aircraft"]["speed_mps"])
     rec = {"id": sid, "family": a.family, "params": {k: (list(v) if isinstance(v, tuple) else v)
                                                     for k, v in used.items() if k != "home"},
@@ -217,23 +348,13 @@ def cmd_new(a) -> int:
            "altitude_m": float(a.altitude_m), "team_size": 1, "seed": seed, "n_bumps": len(bumps), "floor": floor,
            "n_cells": len(centers), "cells_mass": round(sum(masses), 4),
            **descriptors(na, ea, V, blk, home, budget_m, cell_m)}
-    cidx = [r for r in cidx if r["id"] != sid] + [rec]
-    (cd / "index.json").write_text(json.dumps({"spec": {"custom": True, "template": idx[0]["id"]}, "res_m": res,
-                                              "scenarios": cidx}, indent=1, default=_py))
-    print(f"[sim_scenario] new scenario {sid} -> {cd / 'scenarios' / (sid + '.json')}")
+    path = add_custom(a.bench, sid, sc, rec, idx[0]["id"], res)
+    print(f"[sim_scenario] new scenario {sid} -> {path}")
     print(f"  family {a.family}, seed {seed}, params {json.dumps(rec['params'], default=_py)}")
     print(f"  budget {a.budget_s:.0f} s ({budget_m:.0f} m), altitude {a.altitude_m:.0f} m, home {home_name} {home}, "
           f"{len(centers)} cells, {len(bumps)} bumps")
     if a.offline:
-        names = ",".join([a.mtl_arm, a.tigris_arm])
-        print(f"[sim_scenario] planning it offline with {names} (the benchmark's runner and scorer) ...")
-        run_benchmark.main(["--bench", str(cd), "--arms", str(a.arms), "--only-arms", names, "--workers", "2",
-                            "--timeout", "3600"])
-        r = load_results(cd).get(sid, {})
-        for arm in (a.mtl_arm, a.tigris_arm):
-            if arm in r:
-                print(f"  offline {arm:18s} residual_hw {r[arm]['residual_hw']:.4f} (planned {r[arm]['residual']:.4f}, "
-                      f"{r[arm]['plan_s']:.0f} s to plan)")
+        run_offline(a, sid)
     return 0
 
 
@@ -271,18 +392,19 @@ def cmd_restore(a) -> int:
     return 0
 
 
-def set_spawn(fleet: Path, n: float, e: float) -> None:
-    """robot_1's spawn = world ENU [x = e, y = n, z]; the fleet must hold exactly one robot."""
+def set_fleet_robots(fleet: Path, agents: list[dict]) -> None:
+    """Rewrite the fleet's `robots:` block to robot_1..N, spawn = world ENU [x = e, y = n, z] of each
+    agent's home (robot N = agent N = ROS domain N). The rest of the file is untouched."""
     txt = fleet.read_text()
-    active = re.findall(r"^  (robot_\d+):\s*$", txt, flags=re.M)
-    if active != ["robot_1"]:
-        raise SystemExit(f"{fleet}: expected exactly one active robot (robot_1), found {active}; "
-                         "comment the others out - the benchmark is single-agent")
-    pat = re.compile(r"(^  robot_1:\s*\n\s+spawn:\s*)\[[^\]]*\](.*)$", flags=re.M)
+    pat = re.compile(r"(^robots:[ \t]*\n)(.*?)(?=^\S)", flags=re.M | re.S)
     if not pat.search(txt):
-        raise SystemExit(f"{fleet}: could not find robot_1's spawn line")
-    fleet.write_text(pat.sub(lambda m: f"{m.group(1)}[{e:.1f}, {n:.1f}, 0.07]   # mission NED home "
-                                       f"[{n:.1f}, {e:.1f}] (sim_scenario.py)", txt, count=1))
+        raise SystemExit(f"{fleet}: could not find its top-level robots: block")
+    lines = []
+    for ag in agents:
+        n, e = (float(v) for v in ag["home_ned"])
+        lines.append(f"  {ag['name']}:\n    spawn: [{e:.1f}, {n:.1f}, 0.07]   # mission NED home [{n:.1f}, {e:.1f}] "
+                     "(sim_scenario.py)\n")
+    fleet.write_text(pat.sub(lambda m: m.group(1) + "".join(lines) + "\n", txt, count=1))
 
 
 def ground_truth(sc: dict, res: float = 5.0):
@@ -317,11 +439,17 @@ def export(a, planners: list[str]) -> dict:
         if arm_of[p] not in arms:
             raise SystemExit(f"arm {arm_of[p]} not in {a.arms}")
     base = json.loads(sc_path.read_text())
-    if len(base["team"]["agents"]) != 1:
-        raise SystemExit(f"{a.id} has {len(base['team']['agents'])} agents; only single-agent scenarios are supported")
+    agents = base["team"]["agents"]
+    if len(agents) > 1 and "tigris" in planners:
+        raise SystemExit(f"{a.id} has {len(agents)} drones: the tigris_search stack flies a single robot (TIGRIS has no "
+                         "team coordination). Use --planner curve, or derive a 1-drone variant for TIGRIS "
+                         "(offline, run_benchmark.py flies each drone with its own TIGRIS)")
+    if len(agents) > 3:
+        print(f"[sim_scenario] note: {len(agents)} drones - the mtl_search fleet was set up for up to 3 (ROS domains "
+              "and MAVLink ports follow the fleet order); more is untested")
     backup(a.bench)
     gt, grid = ground_truth(base)
-    home_n, home_e = (float(v) for v in base["team"]["agents"][0]["home_ned"])
+    home_n, home_e = (float(v) for v in agents[0]["home_ned"])
     alt = float(base["aircraft"]["altitude_m"])
     md = a.bench / "sim" / a.id
     md.mkdir(parents=True, exist_ok=True)
@@ -329,6 +457,8 @@ def export(a, planners: list[str]) -> dict:
     man = json.loads(man_p.read_text()) if man_p.is_file() else {}
     man.update({"id": a.id, "scenario": str(sc_path.relative_to(REPO)) if sc_path.is_relative_to(REPO) else str(sc_path),
                 "home_ned": [home_n, home_e], "spawn_enu": [home_e, home_n, 0.07], "altitude_m": alt,
+                "agents": [{"name": ag["name"], "home_ned": ag["home_ned"],
+                            "altitude_m": alt + float(ag.get("altitude_offset_m", 0.0) or 0.0)} for ag in agents],
                 "budget_s": float(base["team"]["max_flight_time_s"]), "speed_mps": float(base["aircraft"]["speed_mps"]),
                 "targets": len(gt["targets"])})
     man.setdefault("planners", {})
@@ -347,7 +477,7 @@ def export(a, planners: list[str]) -> dict:
             if (sc.get("planner") or {}).get("type") == "curve":
                 sc["planner"]["compare_orienteering"] = bool(a.compare_orienteering)
         write_scenario_bundle(STACK_DIR[cfg["key"]], sc, dict(gt, mission=sc["mission"]["name"]), grid)
-        set_spawn(FLEET_FILE[cfg["key"]], home_n, home_e)
+        set_fleet_robots(FLEET_FILE[cfg["key"]], agents)
         off = offline.get(arm) or {}
         man["planners"][p] = {"arm": arm, "stack": cfg["stack"], "fleet": cfg["fleet"],
                               "gimbal_law": a.gimbal_law if cfg["key"] == "mtl" else "aim_point (TIGRIS plans carry none)",
@@ -355,8 +485,9 @@ def export(a, planners: list[str]) -> dict:
                               {"sweep_freq_hz": (sc.get("curve") or {}).get("sweep_freq_hz")},
                               "offline": {k: off.get(k) for k in ("residual", "residual_hw", "residual_hw_openloop",
                                                                   "flown_m", "budget_m", "plan_s")} if off else None}
-        print(f"[sim_scenario] {a.id} -> {STACK_DIR[cfg['key']].relative_to(REPO)} ({arm}); robot_1 spawn ENU "
-              f"[{home_e:.0f}, {home_n:.0f}] in {FLEET_FILE[cfg['key']].relative_to(REPO)}")
+        spawns = ", ".join(f"{ag['name']} [{ag['home_ned'][1]:.0f}, {ag['home_ned'][0]:.0f}]" for ag in agents)
+        print(f"[sim_scenario] {a.id} -> {STACK_DIR[cfg['key']].relative_to(REPO)} ({arm}); spawns ENU {spawns} in "
+              f"{FLEET_FILE[cfg['key']].relative_to(REPO)}")
         if off:
             print(f"  offline benchmark: residual_hw {off['residual_hw']:.4f} (planned {off['residual']:.4f})")
     man_p.write_text(json.dumps(man, indent=1))
@@ -400,7 +531,8 @@ def cmd_fly(a) -> int:
         sh([airstack, "down"], a.print_only, check=False)   # a previous sim (other stack) must not linger
         sh([airstack, "up", "--sim", "isaac", "--fleet", cfg["fleet"], "--stack", cfg["stack"], "--play", "--wait"],
            a.print_only)
-    rc = sh(["bash", cfg["start"], "-n", "1", "-a", f"{man['altitude_m']:g}", "-r", run_id] + (a.start_args or []),
+    n = len(man.get("agents") or [1])
+    rc = sh(["bash", cfg["start"], "-n", str(n), "-a", f"{man['altitude_m']:g}", "-r", run_id] + (a.start_args or []),
             a.print_only, check=False)
     if not a.no_up and not a.keep_up:
         sh([airstack, "down"], a.print_only, check=False)
@@ -455,6 +587,7 @@ def main(argv=None) -> int:
     p.add_argument("--budget-s", type=float)
     p.add_argument("--altitude-m", type=float)
     p.add_argument("--home", choices=list(HOMES))
+    p.add_argument("--from", dest="from_id", default=None, help="a scenario and the variants derived from it")
     p.add_argument("--sort", choices=["id", "adv"], default="id")
     p.add_argument("--limit", type=int, default=400)
     p.set_defaults(fn=cmd_list)
@@ -470,6 +603,20 @@ def main(argv=None) -> int:
     p.add_argument("--offline", action="store_true", help="also plan + score it offline with both arms")
     p.set_defaults(fn=cmd_new)
 
+    p = sub.add_parser("derive", parents=[common], help="same prior, different drones (budget, homes, team size)")
+    p.add_argument("--from", dest="src", required=True, help="scenario id whose prior is kept (benchmark or custom)")
+    p.add_argument("--budget-s", type=float, default=None, help="flight-time budget per drone [s] (default: unchanged)")
+    p.add_argument("--altitude-m", type=float, default=None, help="cruise altitude [m] (default: unchanged)")
+    p.add_argument("--agents", type=int, default=None, help="number of drones (default: unchanged)")
+    p.add_argument("--home", default=None,
+                   help="start site: near_center | edge | corner | N,E; the team lines up --spacing m along east")
+    p.add_argument("--homes", default=None, help='one start per drone, written with "=": --homes="N,E;N,E;..." (mission NED m)')
+    p.add_argument("--spacing", type=float, default=12.0, help="drone spacing at a shared start site [m] (default 12)")
+    p.add_argument("--name", default=None, help="scenario id (default <from>__<n>a_<budget>s_<alt>m_<home>)")
+    p.add_argument("--offline", action="store_true", help="also plan + score it offline with both arms")
+
+    p.set_defaults(fn=cmd_derive)
+    p.add_argument("--airstack", default="airstack", help="the airstack CLI (default: airstack on PATH)")
     for name, fn, hlp in (("export", cmd_export, "write the scenario into the Isaac stack(s)"),
                           ("fly", cmd_fly, "export + airstack up + sortie (bag, report) + airstack down")):
         p = sub.add_parser(name, parents=[common], help=hlp)
