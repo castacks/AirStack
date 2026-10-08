@@ -32,7 +32,7 @@ def test_feedback_resume_and_bounded_retry(tmp_path,monkeypatch):
     def run(c,path,**kwargs):
         path.mkdir();calls.append(copy.deepcopy(c))
         result={'configuration_hash':fingerprint(c),'outcome':'infrastructure_error' if len(calls)==1 else
-                'collision' if c['condition']['patch_enabled'] else 'goal_reached','metrics':{},'result_dir':str(path)}
+                'collision' if c['condition']['rgb_noise']>0 else 'goal_reached','metrics':{},'result_dir':str(path)}
         (path/'result.json').write_text(json.dumps(result));return result
     monkeypatch.setattr(feedback,'run_episode',run)
     h=feedback.run_feedback(tmp_path/'case',6,42,['mononav'],pause_seconds=0)

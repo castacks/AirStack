@@ -307,7 +307,7 @@ class AgentSearchPolicy(SearchPolicy):
             if not available:
                 raise RuntimeError("agent exhausted the allowed action space")
             context["action_space"] = {key: sorted({a[key] for a in self.actions}) for key in
-                                       ("layout", "layout_seed", "delay_s", "patch_size_m",
+                                       ("layout", "layout_seed", "delay_s", "patch_enabled", "patch_size_m",
                                         "patch_start_s", "patch_duration_s")}
             context["available_action_keys"] = list(available)
             from claude_provider import validate_proposal

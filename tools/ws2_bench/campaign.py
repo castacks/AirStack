@@ -14,6 +14,8 @@ def clean_twin(c):
 def candidates(backend,budget,seed,planners,matrix=False,profile='sensors',difficulty=None):
     if difficulty is not None and difficulty not in DIFFICULTY_COUNTS:raise ValueError('unknown difficulty')
     if profile not in ('sensors','noise','delay','patch','combined'):raise ValueError('unknown attack profile')
+    if 'mononav' in (planners or []) and profile in ('patch','combined'):
+        raise ValueError('No ZoeDepth patch is available; select sensors, noise or delay for MonoNav')
     if budget<2 or budget%2:raise ValueError('flight budget must be a positive even number; each candidate needs two flights')
     if backend not in ('random','grid'):raise ValueError('unknown backend')
     if not planners or any(p not in ('kim','mononav') for p in planners):raise ValueError('unknown planner')

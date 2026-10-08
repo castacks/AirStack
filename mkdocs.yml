@@ -87,6 +87,8 @@ nav:
           - WS2 Office Automated Bench: tools/ws2_bench/README.md
           - WS2 Claude Team Agent: tools/ws2_bench/CLAUDE_AGENT.md
           - WS2 Expanded Agent Evaluation: tools/ws2_bench/EVALUATION.md
+          - WS2 Sensor Effect Validation: tools/ws2_bench/SENSOR_VALIDATION.md
+          - WS2 Model Adapters: tools/ws2_bench/MODEL_ADAPTERS.md
           - docs/simulation/isaac_sim/ascent_sitl_extension.md
           - docs/simulation/isaac_sim/export_stages_from_unreal.md
       - Microsoft AirSim (legacy):

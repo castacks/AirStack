@@ -47,7 +47,7 @@ def test_agent_campaign_is_no_noise_and_resumes_without_another_model_call(tmp_p
     monkeypatch.setattr(agent_campaign, "run_episode", fake_run)
     provider = FakeProvider()
     root = tmp_path / "campaign"
-    history = agent_campaign.run_adaptive_campaign(root, "agent_search", 4, 42, "mononav",
+    history = agent_campaign.run_adaptive_campaign(root, "agent_search", 4, 42, "kim",
                                                     retries=0, pause_seconds=0, provider=provider,
                                                     clean_validation_runs=0)
     assert len(history) == 2
@@ -61,7 +61,7 @@ def test_agent_campaign_is_no_noise_and_resumes_without_another_model_call(tmp_p
     assert calls[1]["patch_duration_s"] == calls[3]["patch_duration_s"]
     assert history[1]["decision"]["rule"] == "confirm_failure"
 
-    agent_campaign.run_adaptive_campaign(root, "agent_search", 4, 42, "mononav",
+    agent_campaign.run_adaptive_campaign(root, "agent_search", 4, 42, "kim",
                                          retries=0, pause_seconds=0, provider=provider,
                                          clean_validation_runs=0)
     assert provider.calls == 1

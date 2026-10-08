@@ -99,10 +99,13 @@ def summary(history,extra_rows=()):
         g['collision_rate']=g['collisions']/g['evaluable'] if g['evaluable'] else None
     return {'rows':rows,'groups':groups}
 
-def run_feedback(output,budget=8,seed=42,planners=None,profile='combined',retries=1,
+def run_feedback(output,budget=8,seed=42,planners=None,profile=None,retries=1,
                  record_bags=False,wait_for_recording=False,pause_seconds=5,timeout=None,goal_distance=None,difficulty=None):
     if not planners or len(planners)!=1 or planners[0] not in ['mononav','kim']:
         raise ValueError('select exactly one target model for feedback')
+    if profile is None:profile='sensors' if planners[0]=='mononav' else 'combined'
+    if planners[0]=='mononav' and profile in ('patch','combined'):
+        raise ValueError('No ZoeDepth patch is available; select sensors, noise or delay for MonoNav')
     if budget<2 or budget%2:raise ValueError('budget must be even: one clean/perturbed pair per round')
     if not 0<=pause_seconds<=60 or not math.isfinite(pause_seconds):raise ValueError('pause must be 0..60 seconds')
     if retries not in [0,1,2]:raise ValueError('invalid infrastructure retry limit')

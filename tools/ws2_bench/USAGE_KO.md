@@ -18,11 +18,13 @@ python3 tools/ws2_bench/dashboard.py
 
 Claude를 쓰려면 터미널에서 `claude auth login --claudeai`로 Team 계정에 로그인한 뒤,
 Method를 **LLM-guided tests**, LLM을 **Claude · Team login**으로 고른다.
-Conditions에서 **Generated scenes + noise + light + delay + patch**를 고르면
-새 장애물 좌표 생성·밀도·통로 폭·배치 방향·RGB 노이즈·조명·delay·patch를 선택한다.
+Conditions에서 **Avoidance scenes + noise + light + delay (patch excluded)**를 고르면
+새 장애물 좌표·회피 challenge·밀도·통로 폭·RGB 노이즈·조명·delay를 선택한다.
+현재 expanded profile은 두 모델 모두 patch를 제외한다.
 이전 saved 모드를 고를 때만 Clean-checked layouts에 확인한 배치를 입력한다.
-Claude가 delay/patch 조건을 선택하고, 비행 종료 후 아래 **Claude interpretation**에
-근거를 포함한 분석이 나온다. 기존 metrics 보고서와 별도로 저장된다.
+Claude가 허용된 환경/센서 조건을 선택하고, 비행 종료 후 아래 **Claude interpretation**에
+근거를 포함한 분석과 미검증 방어 후보가 나온다. 기존 metrics와 별도로 저장된다.
+후보에는 근거·tradeoff·검증 계획이 붙는다. 실패가 없으면 후보를 꾸며내지 않는다.
 LLM 요청·응답과 새 보고서는 모두 영어다. 좌표는 seed와 공간 제약으로 새로 생성하고
 검증한 실제 좌표를 저장한다. **Open comparison**에서 방식별 비교 결과를 볼 수 있다.
 시험 범위와 해석 기준은 [EVALUATION.md](EVALUATION.md)에 정리되어 있다.
@@ -108,8 +110,9 @@ clean은 센서 noise/delay와 patch만 끈다. 공격 실패를 재확인할 �
 | 둘 다 여유 있게 성공 | 다음 배치 + 강도 증가 |
 | 실행 환경 오류 | 성능 평가에서 제외, 제한된 재시도 |
 
-기본 Combined는 noise/delay/patch를 함께 바꾼다. 원인을 나눠 보려면 Attack에서
-**Noise only / Delay only / Patch only**를 골라 별도 campaign을 실행한다.
+기본 sensor profile은 noise/delay를 바꾼다. 원인을 나눠 보려면 Attack에서
+**Noise only / Delay only**를 고른다. FCRN Patch only/Combined는 Kim에서만 가능하며
+현재 센서 검증에서는 사용하지 않는다. MonoNav patch 요청은 실행 전에 거절한다.
 
 Patch는 **원본 이미지 그대로 on/off와 크기만** 바꾼다. 부착 높이는1.2m로
 고정이며 contrast·투명도 조절은 없다. 크기가 커진다고 공격 효과가 반드시
@@ -135,7 +138,7 @@ LLM을 붙일 때는 이 결과/설정 이력을 읽고 다음 설정을 선택�
 중간에 정지하면 완료되지 않은 쌍은 취약성 판정에서 제외한다.
 
 ```bash
-python3 tools/ws2_bench/campaign.py --backend feedback --profile combined --difficulty medium \
+python3 tools/ws2_bench/campaign.py --backend feedback --profile sensors --difficulty medium \
   --budget 8 --planner mononav --timeout 180 --goal-distance 8 \
   --output robot/ros_ws/ws2_runtime/campaigns/presentation_01
 ```
@@ -157,3 +160,6 @@ Kim은 `--planner kim --timeout 120`으로 새 output을 사용한다.
 
 실제 검증 결과와 한계는 [VALIDATION.md](VALIDATION.md),
 Git 백업 범위는 [BACKUP.md](BACKUP.md)를 참고한다.
+
+현재 단일 요인 검증/새 회피 환경: [SENSOR_VALIDATION.md](SENSOR_VALIDATION.md).
+새 비교 실행 전 검토할 평가/논문 계획: [AGENT_EVALUATION_PLAN.md](AGENT_EVALUATION_PLAN.md).

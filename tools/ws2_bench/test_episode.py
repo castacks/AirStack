@@ -45,8 +45,8 @@ def test_patch_schedule_and_clean_twin():
     with pytest.raises(ValueError):resolved({'patch_start_s':-1})
 
 def test_patch_campaign_profiles():
-    c=candidates('grid',4,42,['kim','mononav'],True,'patch')
-    assert c[0]['condition']==c[1]['condition']
+    with pytest.raises(ValueError,match='ZoeDepth'):candidates('grid',4,42,['kim','mononav'],True,'patch')
+    c=candidates('grid',2,42,['kim'],True,'patch')
     assert c[0]['condition']['patch_enabled'] and c[0]['condition']['rgb_noise']==0
     combined=candidates('random',4,42,['kim'],profile='combined')
     assert combined==candidates('random',4,42,['kim'],profile='combined')

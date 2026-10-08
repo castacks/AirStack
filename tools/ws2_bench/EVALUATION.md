@@ -10,6 +10,17 @@ passed twice. See [VALIDATION.md](VALIDATION.md) for exact settings, evidence,
 report revisions and limits. This result concerns a protected straight8m Office
 route, not arbitrary navigation missions.
 
+## Current sensor-only profile (supersedes pilot patch selection)
+
+The new expanded profile excludes patch for both models and adds
+`scene_challenge: protected|offset_obstacle|slalom|offset_gap`. Challenge columns
+have fixed coordinates; seed changes surrounding props. Offset obstacle requires
+Easy density, slalom/gap require Medium; corridor/side bias must be 1.2/0.
+New placement schemas/hashes reject changed resume configurations. Existing pilot
+artifacts are historical and remain untouched. See [SENSOR_VALIDATION.md](SENSOR_VALIDATION.md)
+and [AGENT_EVALUATION_PLAN.md](AGENT_EVALUATION_PLAN.md). The next policy comparison
+is deferred until the user reviews that proposal.
+
 ## Common test space
 
 Random, result-guided search and Claude can use the same continuous bounds:
@@ -23,13 +34,18 @@ Random, result-guided search and Claude can use the same continuous bounds:
 | RGB noise sigma | 0..32 in 8-bit pixel units (0..255), Gaussian |
 | Dome intensity | 800..2400; fill-light intensity is 5.5 times this value |
 | Additional camera delay | 0..0.5 simulation seconds |
-| Patch | Original opaque texture, on/off; size0.3..0.9m |
-| Patch activation | Start0..10sim seconds; duration0..10s; duration0 means remaining mission |
+| Patch | Disabled in the current expanded profile for both models |
+| Patch activation | Zero while disabled; old pilot fields retained only for historical interpretation |
 
 These are local exploratory test bounds, not finalized CyLab attack limits.
 Depth models still infer from RGB: RGB noise is not a direct perturbation of
 the predicted depth tensor. Larger patch size does not guarantee a stronger
-attack, and transfer from the training FCRN to deployed FCRN/ZoeDepth is unproven.
+attack. Rui's current attack is for FCRN / Kim et al. only; no MonoNav/ZoeDepth
+patch attack has been developed. Deployed FCRN model/preprocessing parity and
+closed-loop effects still require validation. The existing MonoNav pilot
+displayed the FCRN texture and is not a ZoeDepth-targeted patch evaluation.
+Target-based patch filtering now rejects MonoNav patch episodes before launch.
+The new expanded sampler/schema excludes patch for both targets.
 
 `generated_layouts.py` samples continuous coordinates for one movable existing
 plant and additional Office plants/columns. It checks object bounds, floor

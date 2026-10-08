@@ -5,6 +5,9 @@ interpretation. The bench validates configurations, controls the simulator,
 computes metrics, classifies outcomes and retains replayable results.
 All current prompts and generated text are English. See [EVALUATION.md](EVALUATION.md)
 for the expanded scene/noise/light space and equal-budget policy comparison.
+The current expanded profile excludes patch for both targets, supports checked
+avoidance challenges, and reports unvalidated defense candidates. See
+[SENSOR_VALIDATION.md](SENSOR_VALIDATION.md) and [MODEL_ADAPTERS.md](MODEL_ADAPTERS.md).
 
 ```mermaid
 flowchart LR
@@ -98,8 +101,9 @@ but excludes that pair from candidate attack findings. Equivalent CLI options:
 ## What Claude controls
 
 Expanded mode: new placement seed, Easy/Medium/Hard prop counts, protected-corridor
-width and side bias, RGB noise sigma, illumination, sensor delay, and patch on/off,
-size and activation schedule. Realized positions are checked and saved for replay.
+width and side bias, RGB noise sigma, illumination and sensor delay, plus checked
+avoidance challenges. Patch is off for both targets in the current expanded
+profile. Realized positions are checked and saved for replay.
 All three policies use the same ranges; see [EVALUATION.md](EVALUATION.md).
 
 The older saved-layout mode retains:
@@ -118,8 +122,11 @@ observation, not statistical proof. Invalid structured output receives one
 repair attempt; a still-invalid configuration cannot start a flight.
 
 Saved mode retains Ravi's delay/patch action space; expanded mode adds the
-controls described above. FCRN training does not establish attack effectiveness on
-either deployed FCRN or ZoeDepth.
+controls described above. Rui's current patch attack targets FCRN / Kim et al.
+only; no MonoNav/ZoeDepth patch attack has been developed. FCRN deployment parity
+and closed-loop effects still need validation. MonoNav patch requests are now
+rejected before flight; the new expanded profile excludes patch for both models.
+See [AGENT_ROADMAP.md](AGENT_ROADMAP.md).
 
 ## Final interpretation and evidence
 
@@ -131,6 +138,10 @@ passing clean and failing attacked pair. These checks do not prove every
 natural-language interpretation; review the generated hypotheses.
 The report request contains numerical/text evidence, not camera images. Check
 the viewer and saved images separately when judging actual patch visibility.
+The schema covers summary, findings, limitations, recommended next tests and
+defense_candidates. Each proposal cites evidence, explains a failure hypothesis,
+rationale, tradeoffs and a validation plan. Its required status is
+unvalidated_proposal. Proposing a defense does not test or implement it.
 
 Campaign artifacts:
 

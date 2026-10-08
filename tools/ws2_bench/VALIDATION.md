@@ -1,5 +1,79 @@
 # Office bench validation
 
+## Patch-free avoidance and sensor effects — 2026-10-06
+
+Validated source changes over `11b9a979`, included in this revision. Added a column
+across the former protected center line and retained a checked geometric detour.
+All ten actual flights used `offset_obstacle`, seed42, light1800, patch OFF,
+and identical realized geometry within each clean/perturbed pair. Clean controls
+passed before the corresponding perturbations were flown. Worker/controller
+speeds and model-specific mission criteria were unchanged: MonoNav0.3m/s,
+8m goal,180sim s; Kim reactive avoidance,0.2/0.35m/s,120sim s with the existing
+minimum travel/displacement and maximum50% stationary criteria. Kim has no goal.
+
+Evidence root: `robot/ros_ws/ws2_runtime/campaigns/sensor_challenges_20261006/`.
+The first qualification per model is reused once as the first pair's control;
+it is not counted twice. There are five real clean and five perturbed flights.
+
+| Target / factor | Clean control | Perturbed result |
+|---|---|---|
+| MonoNav / RGB sigma32 | Goal,51.78sim s,9.10m | Goal,42.99sim s,8.39m |
+| MonoNav / additional delay0.5s | Goal,48.63sim s,8.90m | Goal,42.69sim s,8.56m |
+| Kim / RGB sigma32 | Horizon success,120.03sim s,16.18m | Plant contact at mission64.26sim s,5.77m |
+| Kim / additional delay0.5s | Horizon success,120.06sim s,22.45m | Insufficient progress,120.06sim s,8.82m; stationary63.06% |
+| Kim / RGB sigma32 repeat | Horizon success,120.06sim s,21.57m | Same plant contact at mission75.27sim s,5.46m |
+
+Both noise contacts were PhysX contacts with
+`/World/Office/WS2_plant/SM_Plant01`. Their simulator-clock timestamps92.72/101.95s
+include initialization and are not elapsed time-to-collision. Nominal spherical
+clearance can remain positive at an actual vehicle-mesh contact. Delay had no
+contact but exceeded Kim's fixed stationary-time criterion. The clean controls
+also varied in route and duration: matching seed/config is not bitwise flight
+determinism. Two noise failures establish a repeated condition in this sample,
+not a general failure probability or an identified FCRN/D3QN failure mechanism.
+Delay remains a one-pair candidate. MonoNav passes do not establish robustness
+beyond this scene and these two conditions.
+
+`audit_sensor_study.py` passed all ten unique episodes and five pairs: scenario
+fingerprints, realized placement, starting position, mission matching, patch
+disabled, observed sensor settings and measured RGB corruption. All cleanup
+error lists are empty; no infrastructure failures occurred. Example noise-frame
+RMSE was27.66pixel units after clipping. A passive MonoNav delay probe measured
+camera age0.54–0.93sim s (mean0.72), which includes ordinary capture/processing age
+in addition to the requested0.5s. No raw bags or screen videos were recorded.
+Saved evidence includes GT traces, metrics, contacts, configuration/provenance,
+worker logs, sensor observations and real inference images.
+
+- `mononav_sensors/`: four-flight paired report, artifact audit and trajectory plot.
+- `kim_sensors/` and `kim_noise_confirmation/`: original per-study evidence.
+- `kim_all_evidence/`: six-flight combined report and audit; no additional flights.
+  Noise is `reproduced_condition`, delay `candidate_needs_repeat`.
+- `flight_summary.json` lists all ten actual flights. `viewer_final.png/json`
+  checks the real scene/inference, final results and intercepted form routing.
+
+Claude Team produced English reports from the actual results. The final Kim
+report contains three **unvalidated** defensive proposals: perception-confidence/
+depth-consistency checks, RGB input denoising, and delay-aware staleness handling.
+Each cites existing rounds and states its hypothesis, costs and
+validation plan. Delay handling can worsen progress; it is not a demonstrated
+solution to insufficient progress. No defense was implemented or effectiveness
+claimed. MonoNav's report returned no evidence-grounded defense proposal.
+The final prompt documents existing timestamps/governor/safety behavior and
+warns that HOLD/RECOVERY token counts are not universal model safety events.
+Report inputs now enumerate isolated factors and repeated condition counts;
+validation rejects a global one-run-per-condition claim when repetitions exist.
+Earlier model responses remain in the call audit; the final report uses these
+corrected evidence definitions, without changing flight metrics.
+
+130 CPU tests pass. The two real workers used the shared ModelAdapter;
+third-model support is a dummy contract test only. Offset-obstacle, slalom and
+offset-gap geometry/route checks pass, but **slalom and gap have not been flown**.
+A real Claude selection call returned a valid patch-free slalom action; that
+action was not executed. These flights were fixed single-factor validation,
+not an Agent/Random/Search comparison. The next comparison awaits user review
+of `AGENT_EVALUATION_PLAN.md`. Simulator/robot/worker containers are stopped;
+the viewer remains on8892, showing the combined Kim report.
+
 ## Expanded agent, clean qualification and 12-flight pilot — 2026-10-06
 
 Validated checkout: `eungchang/adv-ws2` over `3d50c630`, with the source changes

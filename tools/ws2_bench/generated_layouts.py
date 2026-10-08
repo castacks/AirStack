@@ -43,8 +43,8 @@ def valid_box(box,occupied,corridor):
     if not all(any(f[0][0]<=x<=f[1][0] and f[0][1]<=y<=f[1][1] for f in g['floors'])
                for x in (box[0][0],box[1][0]) for y in (box[0][1],box[1][1])):return False
     # In source axes, the world x=-4..+4 route runs along source y.
-    protected=[[-corridor,-4.8,-.1],[corridor,4.8,2.2]]
-    return not any(intersects(box,other) for other in [protected,*occupied])
+    protected=[] if corridor is None else [[[-corridor,-4.8,-.1],[corridor,4.8,2.2]]]
+    return not any(intersects(box,other) for other in [*protected,*occupied])
 
 def generate(seed,density='easy',corridor_half_width_m=.9,side_bias=0.):
     spec=parameters(seed,density,corridor_half_width_m,side_bias);g=geometry()
@@ -75,6 +75,9 @@ def generate(seed,density='easy',corridor_half_width_m=.9,side_bias=0.):
     raise ValueError('No supported, nonoverlapping placement for requested constraints; select a different seed or density')
 
 def validate_placement(raw):
+    if isinstance(raw,dict) and raw.get('schema')=='office_challenge_v1':
+        from challenge_layouts import validate_challenge
+        return validate_challenge(raw)
     if not isinstance(raw,dict) or set(raw)!={'schema','source_sha256','parameters','generation_attempt','offsets','bounds_source_m','placement_id'}:
         raise ValueError('Malformed generated placement')
     if raw['schema']!=SCHEMA or raw['source_sha256']!=geometry()['source_sha256']:

@@ -18,6 +18,7 @@ from feedback import summary
 from mission import SUCCESSES, defaults
 from operator_control import UserStop, wait_between_trials
 from vulnerability_report import write_report, report_rows
+from model_adapters import REGISTRY, get_adapter
 
 
 BACKEND_LABELS = {
@@ -110,8 +111,7 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
     """
     if policy_name not in BACKEND_LABELS:
         raise ValueError("policy must be random, search, or agent_search")
-    if planner not in ("mononav", "kim"):
-        raise ValueError("planner must be mononav or kim")
+    adapter=get_adapter(planner)
     if budget < 2 or budget % 2:
         raise ValueError("budget must be even: one clean/attack pair needs two flights")
     if retries not in (0, 1, 2):
@@ -127,6 +127,8 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
     if action_space=='saved':
         qualified_layouts = parse_qualified_layouts([f"{layout}:{layout_seed}" for layout, layout_seed in qualified_layouts])
         allowed_actions = [action for action in all_actions() if (action["layout"], action["layout_seed"]) in qualified_layouts]
+        if 'fcrn_patch' not in adapter.attacks:
+            allowed_actions=[action for action in allowed_actions if not action['patch_enabled']]
         validate_selected=validate_action
     else:
         from expanded_space import validate_action as validate_selected
@@ -183,6 +185,7 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
     else:policy = policy_from_name(policy_name, seed, provider, allowed_actions)
     if hasattr(policy, 'campaign_context'):
         policy.campaign_context = {'target_planner': planner, 'mission': config['mission'],
+                                   'model_adapter':adapter.describe(),
                                    'metric_notes': 'clearance is a nominal envelope margin; collision is simulator contact'}
     completed = len(history) * 2
     actual_attempts = sum(p.is_dir() for pattern in ('round_*/*/*/attempt_*','clean_validation/attempt_*')

@@ -1,5 +1,19 @@
 # WS2 agent: completed work and next steps
 
+## Project objective
+
+Build a general agent-driven test bench for learning-based UAV obstacle-avoidance
+models: connect one target, select applicable attacks and environment conditions,
+execute and evaluate tests, identify reproducible vulnerabilities, then produce
+an evidence-based report with possible defensive methods. The shared experiment
+loop should remain unchanged when a new model is connected through an adapter.
+Attack availability and mission success criteria remain target-specific.
+
+The LLM selects experiments and interprets evidence. The bench validates settings,
+executes flights and calculates authoritative outcomes. Proposed defenses are
+recommendations with a validation plan; they are not automatically implemented,
+retrained or presented as proven improvements.
+
 ## Implemented and checked on 2026-10-06
 
 - The same bench supports LLM-free feedback/random/search and optional Claude
@@ -8,51 +22,40 @@
 - Expanded mode generates fresh continuous obstacle coordinates from a seed,
   density, corridor width and side bias. Bounds, support, intersections and
   source identity are checked; explicit transforms are saved for replay.
-- Noise, illumination, delay and original opaque patch on/off, size and schedule
-  are exposed within common bounds. Clean/attack twins share geometry and light.
-  Patch opacity, contrast and height are not agent controls.
-- English requests, reasons, replies and reports are visible in the existing web
-  viewer alongside actual simulator and planner inference images.
-- Two independent reference clean flights passed. The subsequent MonoNav pilot
-  completed4flights per method,12total, with every flight reaching the goal.
-  No method found a failing condition; no Claude advantage was demonstrated.
+- Current expanded mode excludes patches for both models. MonoNav patch requests
+  are rejected at runtime and removed from allowed saved-mode actions. Legacy Kim
+  FCRN patch controls remain available, but are outside current sensor validation.
+- Added offset obstacle, slalom and narrow-gap challenges with saved geometry,
+  protected endpoints and checked free-space routes. Real qualification and
+  single-factor noise/delay results are in `VALIDATION.md`.
+- Shared ModelAdapter defines worker/mission/reset/attack contracts; MonoNav and
+  Kim use it. Third-model support has a CPU contract test, not a third real flight.
+- English final reports now include evidence-linked unvalidated defense proposals
+  with rationale, tradeoffs and validation plans; measured metrics stay authoritative.
+- The earlier protected-corridor MonoNav pilot remains 12/12 goal reached. It
+  demonstrated no agent advantage and is not a ZoeDepth patch-attack evaluation.
 
 See [EVALUATION.md](EVALUATION.md) for bounds/protocol and
 [VALIDATION.md](VALIDATION.md) for the measured evidence and limitations.
 
-## Next priorities — planned, not yet implemented or evaluated
+## Next priorities
 
-1. **Establish useful attack conditions.** Measure whether the surface patch is
-   actually in the target camera view and its projected size/exposure. Verify
-   its effect on the deployed depth model before attributing flight changes to
-   the texture. Rui's patch targets FCRN; deployed TensorFlow/PyTorch preprocessing
-   parity remains unresolved, and transfer to MonoNav's ZoeDepth is unproven.
-   Use separate noise-only, delay-only and patch-only trials to identify failure
-   boundaries and avoid confounding combined factors. Rendering a patch is not
-   evidence of an effective attack. Finalize permitted bounds with CyLab.
-
-2. **Broaden feasible navigation challenges.** The pilot preserves a straight8m
-   corridor. Add turns, narrower passages and obstacle placements that require
-   avoidance, while retaining protected launch/goal regions and a feasible route.
-   Qualify clean controls on the new missions. Report environment-only baseline
-   failures separately from added sensor/patch effects. Do not change mission,
-   speed, planner or bounds between policies within a comparison.
-
-3. **Run a larger matched-budget evaluation.** Agree on the next flight budget
-   before execution; the completed12-flight budget is not permission for more.
-   Use multiple independent seeds and balanced method orders, the same action
-   space, target and confirmation rules, and saved-case replay. Measure distinct
-   reproducible failure mechanisms, flights to a failure, and LLM latency/usage.
-   Different configuration IDs do not necessarily represent different failure
-   mechanisms. Keep inference errors and failed clean controls separate. All
-   three methods are already automated, so reduced human effort needs its own
-   measurement. Preserve a no-advantage result if that is what the data show.
-
-4. **Prepare the presentation from measured results.** Show the actual
-   condition→flight→metrics→Claude decision loop and the report. State that
-   integration and this clean route were validated; improved failure discovery
-   remains unestablished. The user records video. Expand the same evaluation to
-   Kim only after its own clean mission and target-specific attacks are checked.
+1. Continue target-specific attack-effect validation from the current sensor-only
+   evidence. Wait for Rui's separately developed ZoeDepth patch; current FCRN
+   patch tests are also deferred per user. Never claim arbitrary patch transfer.
+2. Qualify slalom/narrow-gap and held-out scenes beyond the initial offset-obstacle
+   runtime cases. Preserve failed clean results; a feasible geometric route is
+   not a planner success guarantee. Keep speed/mission fixed within comparisons.
+3. **Wait for user review before the larger method comparison.**
+   [AGENT_EVALUATION_PLAN.md](AGENT_EVALUATION_PLAN.md) proposes distinct reproduced
+   failures per budget, hypothesis isolation and validated defensive follow-up,
+   fair baselines/manual comparisons, presentation evidence and publication venues.
+4. Connect and qualify a third real model through the existing adapter contract.
+5. Test selected defense proposals on held-out clean/attack cases; report safety
+   and progress/false-stop costs. Generating a proposal is not proving its effect.
+6. Prepare the next meeting's slides from measured results, preserving Ravi's
+   original design/order. The October6 meeting used Ravi's original file named
+   `0923 presentation.pptx` (actually presented October1). User records video.
 
 ## Retained design constraints
 

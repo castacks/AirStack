@@ -5,11 +5,16 @@ noise/delay and a surface patch. The automated episode adapter runs actual
 MonoNav/Kim trajectories on the existing v0.18 AirStack/PX4 control path.
 Ravi's metric/report implementation is reused; see [REUSE.md](REUSE.md).
 Completed runtime checks and their limits are recorded in [VALIDATION.md](VALIDATION.md).
+The current expanded profile excludes patches for **both** models, adds checked
+avoidance challenges and English, evidence-linked **unvalidated defense proposals**.
+See [SENSOR_VALIDATION.md](SENSOR_VALIDATION.md) for single-factor testing and
+[MODEL_ADAPTERS.md](MODEL_ADAPTERS.md) for the common worker contract. Rui's patch
+is FCRN/Kim-only; MonoNav patch requests are rejected before flight.
 See [USAGE_KO.md](USAGE_KO.md) for running and screen recording, and
 [BACKUP.md](BACKUP.md) for repository scope and asset recovery.
 
 Optional Claude Team support uses the same viewer and flight runtime. Choose
-**LLM-guided tests** to let Claude select bounded scene/sensor/patch configurations and
+**LLM-guided tests** to let Claude select bounded scene/sensor configurations and
 interpret the measured results. See [CLAUDE_AGENT.md](CLAUDE_AGENT.md) for login,
 commands, limits and artifacts. **Basic feedback** remains the dashboard default
 and needs no LLM login or API key. MonoNav/Kim worker launchers are unchanged.
@@ -31,7 +36,7 @@ rates. After collision the simulator is stopped instead of attempting another fl
 No separate planner or Isaac GUI launcher is needed. Reload existing browser tabs
 after updating the dashboard.
 
-The default **Basic feedback** runs `--backend feedback --profile combined --planner <selected model>`:
+The default **Basic feedback** runs `--backend feedback --profile sensors --planner <selected model>`:
 four rounds, each containing that model's clean/perturbed flights. Each flight starts fresh, runs the
 planner, evaluates and finishes automatically. `feedback.py` selects the next
 configuration using only that target model's completed results:
@@ -96,7 +101,7 @@ Office assets, run `prepare_difficulty.py /path/to/office.usd` in the USD toolin
 environment after the legacy `prepare_layouts.py`. It retains legacy entries.
 
 ```bash
-python3 tools/ws2_bench/campaign.py --backend feedback --profile combined \
+python3 tools/ws2_bench/campaign.py --backend feedback --profile sensors \
   --budget 8 --planner mononav --wait-for-recording \
   --output robot/ros_ws/ws2_runtime/campaigns/my_feedback_demo
 ```
@@ -144,7 +149,7 @@ planner, and switches off RGB/depth noise, additional delay and the surface
 patch. Here lighting/layout are **scene conditions**, not attack parameters.
 Random/grid baselines use local engineering bounds. The default `--profile sensors`
 varies RGB noise and delay; `--profile patch` varies only Rui patch size;
-`--profile combined` varies both. Grid enumerates fixed combinations; it is not
+`--profile combined` varies both; patch/combined profiles require Kim/FCRN. Grid enumerates fixed combinations; it is not
 LLM- or Bayesian-guided search. These bounds are chosen for WS2 testing, not
 claimed to be Rui's training setup or a finalized CyLab threat model.
 

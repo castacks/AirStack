@@ -27,7 +27,7 @@ def test_even_rehashed_geometry_cannot_enter_protected_flight_corridor():
 def test_expanded_twins_keep_realized_positions_and_lighting():
     a=reference_action();a.update(rgb_noise_stddev=21.,light_intensity=923.,delay_s=.23,patch_enabled=True)
     from mission import defaults
-    c=resolved(action_to_episode(a,'mononav',17,'paired',defaults('mononav')));clean=clean_twin(c)
+    c=resolved(action_to_episode(a,'kim',17,'paired',defaults('kim')));clean=clean_twin(c)
     for key in ('placement','layout_seed','light','seed','patch_size'):assert clean['condition'][key]==c['condition'][key]
     assert clean['condition']['rgb_noise']==clean['condition']['delay']==0
     assert not clean['condition']['patch_enabled']

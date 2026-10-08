@@ -12,11 +12,12 @@ def feedback_command(payload,output):
     if not isinstance(payload,dict) or set(payload)-{'planner','budget','timeout','goal_distance','profile','difficulty'} or payload.get('planner') not in ('mononav','kim'):
         raise ValueError('Select one target model: mononav or kim')
     budget=payload.get('budget',8);timeout=payload.get('timeout',defaults(payload['planner'])['timeout'])
-    distance=payload.get('goal_distance',8);profile=payload.get('profile','combined')
+    distance=payload.get('goal_distance',8);profile=payload.get('profile','sensors')
     if isinstance(budget,bool) or not isinstance(budget,int) or not 2<=budget<=100 or budget%2:raise ValueError('Flight budget must be even, 2..100')
     if any(isinstance(x,bool) or not isinstance(x,(int,float)) or not math.isfinite(x) for x in [timeout,distance]):raise ValueError('Invalid numeric mission settings')
     if not 60<=timeout<=600 or not 2<=distance<=30:raise ValueError('Duration60..600 seconds, goal2..30 metres')
     if profile not in ['combined','sensors','noise','delay','patch']:raise ValueError('Invalid attack profile')
+    if payload['planner']=='mononav' and profile in ('combined','patch'):raise ValueError('No ZoeDepth patch is available; use a sensor profile')
     difficulty=payload.get('difficulty','easy')
     if not isinstance(difficulty,str) or difficulty not in DIFFICULTY_COUNTS:raise ValueError('Difficulty must be easy, medium or hard')
     return [sys.executable,str(HERE/'campaign.py'),'--backend','feedback','--profile',profile,

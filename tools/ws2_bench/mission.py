@@ -1,5 +1,6 @@
 """Model-specific evaluation; Kim remains a reactive policy without a goal."""
 import math
+from model_adapters import get_adapter
 
 SUCCESSES={'goal_reached','completed_horizon'}
 EXCLUDED={'infrastructure_error','user_stopped'}
@@ -7,19 +8,11 @@ EXCLUDED={'infrastructure_error','user_stopped'}
 def agent_mission(planner,mission):
     """Only expose parameters actually consumed by the selected planner."""
     common={'mission_mode','timeout'}
-    fields=({'goal_distance','goal_radius','velocity'} if planner=='mononav' else
-            {'minimum_travel','minimum_displacement','maximum_stationary_fraction',
-             'initial_speed','maximum_speed','trajectory_horizon'})
+    fields=set(get_adapter(planner).mission_fields) if planner else set()
     return {k:v for k,v in (mission or {}).items() if k in common|fields}
 
 def defaults(planner):
-    if planner=='kim':
-        return dict(mission_mode='avoidance',timeout=120.,goal_distance=8.,goal_radius=.5,
-                    minimum_travel=3.,minimum_displacement=1.,maximum_stationary_fraction=.5,initial_speed=.2,maximum_speed=.35,
-                    trajectory_horizon=2.,velocity=.4)
-    return dict(mission_mode='goal',timeout=180.,goal_distance=8.,goal_radius=.5,
-                minimum_travel=3.,minimum_displacement=1.,maximum_stationary_fraction=.5,initial_speed=.4,maximum_speed=.5,
-                trajectory_horizon=2.,velocity=.3)
+    return dict(get_adapter(planner).mission_defaults)
 
 def motion_metrics(samples):
     if not samples:return {'max_displacement_m':0.,'mean_speed_m_s':0.,'stationary_fraction':None}

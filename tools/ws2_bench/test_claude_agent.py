@@ -40,7 +40,7 @@ class DirectProvider:
         return validate({'summary': 'Synthetic evidence only.', 'findings': [
             {'claim': 'Attack flight failed after a passing clean run.', 'status': 'candidate',
              'evidence_rounds': [evidence['rounds'][0]['id']]}],
-            'limitations': ['Too few runs for causal attribution.'], 'next_tests': ['Repeat with patch disabled.']})
+            'limitations': ['Too few runs for causal attribution.'], 'next_tests': ['Repeat with patch disabled.'], 'defense_candidates':[]})
 
 
 def test_exact_configuration_is_selected_by_model_not_ranker(monkeypatch):
@@ -103,7 +103,7 @@ def test_final_analysis_resumes_without_new_flights_or_llm_calls(tmp_path, monke
         return result
     monkeypatch.setattr(agent_campaign, 'run_episode', fly)
     provider = DirectProvider(); root = tmp_path/'campaign'
-    args = dict(provider=provider, retries=0, pause_seconds=0, clean_validation_runs=0)
+    args = dict(provider=provider, planner='kim', retries=0, pause_seconds=0, clean_validation_runs=0)
     agent_campaign.run_adaptive_campaign(root, 'agent_search', 4, **args)
     assert len(flights) == 4
     assert provider.selections == provider.analyses == 1
@@ -123,7 +123,7 @@ def test_analysis_rejects_fabricated_evidence_and_false_candidates():
     evidence = {'rounds':[{'id':'round_01','attack_effect_evaluable':False,
                            'attacked':{'outcome':'collision'}}]}
     raw = {'summary':'x','findings':[{'claim':'x','status':'candidate','evidence_rounds':['round_02']}],
-           'limitations':['small sample'],'next_tests':[]}
+           'limitations':['small sample'],'next_tests':[], 'defense_candidates':[]}
     with pytest.raises(ValueError, match='existing'):
         validate_analysis(raw, evidence)
     raw['findings'][0]['evidence_rounds'] = ['round_01']

@@ -7,13 +7,11 @@ from run_conditions import RUNTIME,HERE,bridge_url,apply,scene_command
 from ravi_metrics import summarize
 from mission import defaults,motion_metrics,horizon_outcome
 from operator_control import request,UserStop
+from model_adapters import get_adapter, REGISTRY, validate_attacks
 
 WORKSPACE=HERE.parents[2]
 ROBOT='airstack-robot-desktop-1'
 CONTAINER_RUNTIME='/root/AirStack/robot/ros_ws/ws2_runtime'
-IMAGES={'mononav':'mononav-demo:1.0','kim':'collision-avoidance-airstack:1.0'}
-REPOS={'mononav':WORKSPACE/'MonoNav','kim':WORKSPACE/'Collision-avoidance'}
-WORKERS={'mononav':'mononav_airstack.py','kim':'collision_avoidance_airstack.py'}
 
 def resolved(raw):
     if not isinstance(raw,dict):raise ValueError('episode must be a mapping')
@@ -21,7 +19,8 @@ def resolved(raw):
     if raw.keys()-allowed:raise ValueError('unknown episode keys: '+str(raw.keys()-allowed))
     c=dict(name='office',planner='kim',height=1.2,fault=None,**defaults(raw.get('planner','kim')))
     c.update(raw);c['condition']=validate(c.get('condition',{'layout':'stock','light':2200}))
-    if c['planner'] not in IMAGES:raise ValueError('planner must be kim or mononav')
+    get_adapter(c['planner'])
+    validate_attacks(c['planner'],c['condition'])
     if c['mission_mode']!=defaults(c['planner'])['mission_mode']:raise ValueError('mission mode must match model: Kim avoidance, MonoNav goal')
     if c['fault'] not in (None,'bridge_unavailable','contact_probe'):raise ValueError('unknown fault injection')
     if not isinstance(c['name'],str) or not c['name']:raise ValueError('name required')
@@ -67,18 +66,14 @@ def action(name,out,height=1.2):
     return robot('sws && python3 -u /tmp/ws2_flight_action.py "$1" --height "$2"',name,str(height),log=out/(name+'.log'),timeout=140)
 
 def worker_command(c,run_id=''):
-    method=c['planner'];repo=REPOS[method]
+    adapter=get_adapter(c['planner']);repo=adapter.repository
     command=['docker','run','--rm','--name','ws2-episode-worker','--gpus','all','--ipc=host','--network','airstack_airstack_network',
              '-v',str(repo)+':/workspace/planner','-w','/workspace/planner',
              '-v',str(RUNTIME/'inference')+':/ws2_inference',
              '-e','WS2_INFERENCE_DIR=/ws2_inference','-e','WS2_RUN_ID='+run_id]
-    if method=='mononav':command+=['-v','mononav-torch-cache:/root/.cache/torch']
-    command += [IMAGES[method],'python','-u',WORKERS[method],'--headless','--execute','--server','http://'+ROBOT+':8765']
-    if method=='kim':command+=['--depth-source','fcrn','--rate','3','--initial-speed',str(c['initial_speed']),
-                              '--maximum-speed',str(c['maximum_speed']),'--trajectory-horizon',str(c['trajectory_horizon'])]
-    else:command+=['--depth-source','zoe','--zoe-depth-scale','1.68','--rate','1','--warmup-frames','6',
-                   '--velocity',str(c['velocity']),'--goal-distance',str(c['goal_distance']),'--goal-radius',str(c['goal_radius']),
-                   '--min-tsdf-points','1000','--tsdf-local-radius','8']
+    if adapter.torch_cache:command+=['-v','mononav-torch-cache:/root/.cache/torch']
+    command += [adapter.image,'python','-u',adapter.entrypoint,'--headless','--execute','--server','http://'+ROBOT+':8765']
+    command += adapter.arguments(c)
     return command
 
 def verify_runtime_mounts():
@@ -144,24 +139,26 @@ def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag
         if (RUNTIME/'flight_guard.json').exists():
             shutil.move(RUNTIME/'flight_guard.json',out/'previous_guard.json')
         for f in ['scene_status.json','scene_reply.json','scene_command.json']:(RUNTIME/f).unlink(missing_ok=True)
-        provenance={}
-        for name,repo in {'AirStack':HERE.parents[1],**REPOS}.items():
+        provenance={};adapter=get_adapter(c['planner'])
+        for name,repo in {'AirStack':HERE.parents[1],adapter.name:adapter.repository}.items():
             provenance[name]={'head':cmd(['git','-C',str(repo),'rev-parse','HEAD']).strip(),
                               'diff_sha256':hashlib.sha256(cmd(['git','-C',str(repo),'diff']).encode()).hexdigest()}
-        provenance['worker_image']=json.loads(cmd(['docker','image','inspect',IMAGES[c['planner']]]))[0]['Id']
+        adapter=get_adapter(c['planner'])
+        provenance['model_adapter']=adapter.describe()
+        provenance['worker_image']=json.loads(cmd(['docker','image','inspect',adapter.image]))[0]['Id']
         provenance['runtime_images']={name:json.loads(cmd(['docker','inspect',name]))[0]['Image'] for name in ['isaac-sim',ROBOT]}
         provenance['runtime_sources']={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in HERE.glob('*.py')}
         provenance['layout_catalog_sha256']=sha256_file(HERE/'layouts.json')
         provenance['patch']=json.loads((HERE/'assets/patch_manifest.json').read_text())
         if sha256_file(HERE/'assets/learned_patch.png')!=provenance['patch']['sha256']:
             raise ValueError('Installed patch differs from its manifest')
-        if c['planner']=='kim':
-            model_files=[*REPOS['kim'].glob('airstack_models/NYU_FCRN-checkpoint/NYU_FCRN.ckpt.*'),REPOS['kim']/'save_model/D3QN_V_3_single.h5']
-            provenance['model_weights']={str(p.relative_to(REPOS['kim'])):sha256_file(p) for p in model_files}
-        else:
+        model_files=[p for pattern in adapter.weight_patterns for p in adapter.repository.glob(pattern)]
+        if adapter.weight_patterns and not model_files:raise ValueError('Adapter weight files are missing')
+        provenance['model_weights']={str(p.relative_to(adapter.repository)):sha256_file(p) for p in model_files}
+        if adapter.torch_cache:
             hash_code="import hashlib,json,pathlib; p=pathlib.Path('/cache/hub/checkpoints/ZoeD_M12_N.pt'); h=hashlib.sha256(); f=p.open('rb'); [h.update(b) for b in iter(lambda:f.read(1048576),b'')]; print(json.dumps({p.name:h.hexdigest()}))"
             provenance['model_weights']=json.loads(cmd(['docker','run','--rm','--network','none','-v','mononav-torch-cache:/cache:ro',
-                '--entrypoint','python',IMAGES['mononav'],'-c',hash_code],log,timeout=30))
+                '--entrypoint','python',adapter.image,'-c',hash_code],log,timeout=30))
         atomic(out/'provenance.json',provenance)
         initial_condition=dict(c['condition'],patch_enabled=patch_active(c,0))
         atomic(RUNTIME/'episode.json',{'condition':initial_condition,'spawn':[-4,0,.07],'fault':c['fault']})
@@ -273,7 +270,9 @@ def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag
             if mission_start is not None:
                 if not samples or samples[-1]['sim_time_s']!=t:
                     sample={'sim_time_s':t,'position_m':s['position'],'clearance_m':oracle['clearance_m'],
-                            'clearance_censored':oracle['clearance_censored']}
+                            'clearance_censored':oracle['clearance_censored'],
+                            'camera_age_sim_s':None if h.get('image_stamp') is None else t-h['image_stamp'],
+                            'sensor_disturbance':h.get('sensor_disturbance')}
                     samples.append(sample);event('sample',**sample)
                 if goal is not None and math.dist(s['position'],goal)<=c['goal_radius']:
                     reached=len(samples)-1;terminate('goal_reached','goal_region');break

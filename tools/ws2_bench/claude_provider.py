@@ -20,7 +20,7 @@ import uuid
 from agent_schema import validate_action
 from mission import agent_mission
 
-PROMPT_VERSION = "ws2_claude_v4_english"
+PROMPT_VERSION = "ws2_claude_v5_target_capabilities"
 ACTION_FIELDS = {"layout", "layout_seed", "delay_s", "patch_enabled", "patch_size_m",
                  "patch_start_s", "patch_duration_s"}
 
@@ -53,7 +53,7 @@ def proposal_schema(context):
     properties = {k: {"type": t, "enum": space[k]} for k, t in
                   [("layout", "string"), ("layout_seed", "integer"), ("delay_s", "number"),
                    ("patch_size_m", "number"), ("patch_start_s", "number"), ("patch_duration_s", "number")]}
-    properties["patch_enabled"] = {"type": "boolean"}
+    properties["patch_enabled"] = {"type": "boolean", "enum":space.get('patch_enabled',[False,True])}
     return {"type": "object", "additionalProperties": False,
             "required": ["hypothesis", "reason", "action"],
             "properties": {
@@ -165,8 +165,8 @@ class ClaudeSubscriptionProvider:
             "A failed clean control is not attack evidence. Use only qualified layout/seed combinations "
             "and untried allowed actions; all timing is simulation seconds, sizes are metres. "
             "Do not change noise, light, planner, mission, patch colors or opacity. The patch uses its "
-            "original texture; larger size does not guarantee a stronger attack. FCRN training does not "
-            "establish effectiveness on deployed FCRN or MonoNav's ZoeDepth. For patch off, start and "
+            "original texture; larger size does not guarantee a stronger attack. Rui's patch targets FCRN/Kim only. "
+            "No ZoeDepth patch is available. Follow model_adapter capabilities and allowed patch_enabled values. For patch off, start and "
             "duration must be zero. For continuous patch, both are zero. Timed patch has positive start "
             "and duration. Choose isolation tests when factors are confounded. You cannot operate tools."
         )
