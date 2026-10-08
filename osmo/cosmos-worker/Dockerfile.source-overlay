@@ -1,0 +1,13 @@
+# Reuse a validated worker runtime while updating only the RRM source.
+# Build from the AirStack repository root. BASE_IMAGE must be an immutable digest.
+ARG BASE_IMAGE=airlab-docker.andrew.cmu.edu/airstack/airstack-rrm-cosmos-worker@sha256:ddd2fcbfa57a0b981beca5f66a294c7288c264f0082f3b8852e028553564828c
+FROM ${BASE_IMAGE}
+
+ARG BASE_IMAGE
+RUN case "$BASE_IMAGE" in *@sha256:*) ;; *) exit 1 ;; esac
+
+COPY RRM-transfer/rrm-9d26a58/rrm /opt/rrm/rrm
+COPY RRM-transfer/rrm-9d26a58/scripts /opt/rrm/scripts
+
+# Import and compile without loading weights or requesting GPU inference.
+RUN python3 -c 'import compileall; assert compileall.compile_dir("/opt/rrm/rrm", quiet=1); assert compileall.compile_dir("/opt/rrm/scripts", quiet=1); from rrm_cosmos_worker import CosmosWorker, make_handler; assert callable(CosmosWorker.verify_entities)'

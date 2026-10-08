@@ -38,3 +38,33 @@ Git, the image registry, or the Isaac workspace.
 
 Do not expose worker port 8090 through `osmo workflow port-forward`; only the workspace
 task in the same OSMO group should call it.
+
+## Entity-capable source overlay — 2026-10-08
+
+The branch-scoped `airstack-live-replan-ore-proj.yaml` now pins the published image
+`airlab-docker.andrew.cmu.edu/airstack/airstack-rrm-cosmos-worker@sha256:6a6f1ea7233003a2e44c05b32041832a61af8a5957ef37be84c104edd24f2e83`
+(tag `rrm-entities-20261008-4db36377`). It overlays the working RRM source from
+`ore_proj` commit `4db36377` plus the capability-endpoint changes onto immutable
+runtime parent `sha256:ddd2fcbfa57a0b981beca5f66a294c7288c264f0082f3b8852e028553564828c`.
+This is not a clean-commit build. No model weights were added.
+
+Rebuild from the repository root with a new unique tag:
+
+```bash
+docker build --platform linux/amd64 \
+  -f osmo/cosmos-worker/Dockerfile.source-overlay \
+  -t airlab-docker.andrew.cmu.edu/airstack/airstack-rrm-cosmos-worker:<unique-tag> .
+```
+
+Seven boundary/service tests passed inside the published candidate, including actual
+HTTP `/v1/capabilities` and `/v1/verify-entities` routing with a fake model. This does
+**not** qualify GPU inference, model accuracy, scene registration or visual grounding.
+Capabilities report only an entrypoint-source hash and declared routes, not dependency
+or checkpoint identity.
+
+Editing the workflow does not change an existing worker. Submit the updated YAML
+from an authenticated OSMO control host for a new workflow; do not kill the current
+worker main process to attempt a reload. `ignoreNonleadStatus: false` can terminate
+the whole workflow when that task exits. Preserve uncommitted workspace changes and
+artifacts before retiring it. Updating only a Mac checkout's YAML selects this worker
+image; updating only the remote checkout does not update the Mac launch file.

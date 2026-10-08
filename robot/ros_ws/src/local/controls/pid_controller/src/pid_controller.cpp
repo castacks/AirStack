@@ -15,6 +15,7 @@
 #include <sstream>
 #include <chrono>
 #include <pid_controller/control_state.hpp>
+#include <pid_controller/tf_diagnostic.hpp>
 
 class PID {
 public:
@@ -107,6 +108,7 @@ private:
   rclcpp::Publisher<mav_msgs::msg::RollPitchYawrateThrust>::SharedPtr command_pub;
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr admission_pub;
   uint64_t admission_sequence = 0;
+  std::string tf_diagnostic = "null";
   double tracking_gap_s = INFINITY;
   uint32_t history_reset_mask = 0;
   
@@ -200,6 +202,7 @@ public:
   }
 
   void process_tracking_point(const airstack_msgs::msg::Odometry::SharedPtr msg, double received){
+    tf_diagnostic = "null";
     const double now = steady_seconds();
     const bool active = authority.active(now);
     tracking_gap_s = received - tracking_at;
@@ -222,8 +225,7 @@ public:
     airstack_msgs::msg::Odometry tp;
     nav_msgs::msg::Odometry odom;
     airstack_msgs::msg::Odometry temp = *msg;
-    bool tp_tf_success = tflib::transform_odometry(tf_buffer, temp, target_frame, target_frame, &tp,
-						   rclcpp::Duration::from_seconds(0.1));
+    bool tp_tf_success = transform_with_diagnostic(temp, &tp, "tracking");
     if(!tp_tf_success){
       RCLCPP_ERROR_STREAM(get_logger(), "failed to transform tracking point");
       const double tf_now = steady_seconds();
@@ -235,8 +237,7 @@ public:
       publish_admission(tf_reasons, "tf", tf_now, tf_ros_now, msg->header.stamp);
       return;
     }
-    bool odom_tf_success = tflib::transform_odometry(tf_buffer, odometry, target_frame, target_frame, &odom,
-						     rclcpp::Duration::from_seconds(0.1));
+    bool odom_tf_success = transform_with_diagnostic(odometry, &odom, "odometry");
     if(!odom_tf_success){
       RCLCPP_ERROR_STREAM(get_logger(), "failed to transform odometry");
       const double tf_now = steady_seconds();
@@ -348,6 +349,42 @@ public:
     return result;
   }
 
+  template<typename Odometry>
+  bool transform_with_diagnostic(const Odometry &input, Odometry *output, const char *channel){
+    const double started = steady_seconds();
+    try {
+      // Same transform implementation and per-lookup timeout as the bool overload.
+      // Catch here so the original exception is retained without a second lookup.
+      *output = tflib::transform_odometry(tf_buffer, input, target_frame, target_frame,
+                                         rclcpp::Duration::from_seconds(0.1));
+      return true;
+    } catch (const tf2::TransformException &error) {
+      const char *kind = "transform";
+      if (dynamic_cast<const tf2::LookupException *>(&error)) kind = "lookup";
+      else if (dynamic_cast<const tf2::ConnectivityException *>(&error)) kind = "connectivity";
+      else if (dynamic_cast<const tf2::ExtrapolationException *>(&error)) kind = "extrapolation";
+      else if (dynamic_cast<const tf2::InvalidArgumentException *>(&error)) kind = "invalid_argument";
+      using pid_controller::bounded_json_string;
+      const std::string detail = error.what();
+      std::ostringstream out;
+      out.precision(17);
+      out << "{\"channel\":\"" << channel << "\",\"exception_kind\":\"" << kind << "\""
+          << ",\"source_frame\":" << bounded_json_string(input.header.frame_id, 192)
+          << ",\"source_child_frame\":" << bounded_json_string(input.child_frame_id, 192)
+          << ",\"target_frame\":" << bounded_json_string(target_frame, 192)
+          << ",\"stamp_ns\":" << rclcpp::Time(input.header.stamp).nanoseconds()
+          << ",\"lookup_wall_s\":" << steady_seconds() - started
+          << ",\"per_lookup_timeout_s\":0.1"
+          << ",\"exception\":" << bounded_json_string(detail, 512)
+          << ",\"exception_truncated\":" << (detail.size() > 512 ? "true" : "false")
+          << ",\"frames_truncated\":" << (input.header.frame_id.size() > 192 ||
+              input.child_frame_id.size() > 192 || target_frame.size() > 192 ? "true" : "false")
+          << "}";
+      tf_diagnostic = out.str();
+      return false;
+    }
+  }
+
   void publish_admission(uint32_t reasons, const char *phase, double now,
                          const rclcpp::Time &ros_now, const builtin_interfaces::msg::Time &stamp){
     const auto clock_type = this->get_clock()->get_clock_type();
@@ -369,7 +406,8 @@ public:
         << ",\"control_receipt_age_s\":" << age(authority.control_age(now))
         << ",\"odom_receipt_age_s\":" << (got_odometry ? age(now-odometry_at) : "null")
         << ",\"tracking_gap_s\":" << age(tracking_gap_s)
-        << ",\"tracking_receipt_age_s\":" << age(now-tracking_at) << "}";
+        << ",\"tracking_receipt_age_s\":" << age(now-tracking_at)
+        << ",\"tf_failure\":" << tf_diagnostic << "}";
     std_msgs::msg::String message; message.data = out.str();
     admission_pub->publish(message);
   }

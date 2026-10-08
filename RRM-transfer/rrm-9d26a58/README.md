@@ -563,9 +563,14 @@ the current workspace's Isaac and robot services; it does not affect the next OS
 submission and disables the Office-specific semantic path until its scene binding
 matches again.
 
+The RRM Office workflow must use the branch-scoped, image-pinned definition
+`airstack-live-replan-ore-proj.yaml`.  It clones `ore_proj`, whose committed
+`.env` pins the NumPy-1.26.4 Isaac image; using the generic workflow instead
+clones `main` and does not carry this RRM runtime contract.
+
 ```bash
 cd /root/AirStack
-osmo workflow submit osmo/workflows/airstack-live-replan.yaml \
+osmo workflow submit osmo/workflows/airstack-live-replan-ore-proj.yaml \
   --pool <gpu-pool> \
   --set-env "SSH_PUB_KEY=$(cat ~/.ssh/id_ed25519.pub)" \
   --set-env "ISAAC_SIM_SCENE=Office" \
@@ -941,13 +946,19 @@ GUI command loop.
 
 ### Persistent Cosmos worker on OSMO
 
-The two-GPU workflow is [`osmo/workflows/airstack-live-replan.yaml`](../../osmo/workflows/airstack-live-replan.yaml):
-one GPU is the existing Isaac workspace and one is a private warm Cosmos worker. They
-are in one OSMO workflow group, so the workspace receives the internal worker URL
+The two-GPU RRM workflow is
+[`osmo/workflows/airstack-live-replan-ore-proj.yaml`](../../osmo/workflows/airstack-live-replan-ore-proj.yaml):
+one GPU is the existing Isaac workspace and one is a private warm Cosmos worker. It
+uses the published workspace image that performs epoch reconciliation and clones
+`ore_proj`, so its committed `ISAAC_SIM_IMAGE` digest keeps the inner Isaac runtime on
+NumPy 1.26.4. Its tasks are in one OSMO workflow group, so the workspace receives the internal worker URL
 through `RRM_COSMOS_WORKER_URL`; port `8090` must not be port-forwarded to a browser.
 
-The worker image is published at
-`airlab-docker.andrew.cmu.edu/airstack/airstack-rrm-cosmos-worker:latest`. Before
+The branch workflow pins the entity-capable worker digest published as
+`airlab-docker.andrew.cmu.edu/airstack/airstack-rrm-cosmos-worker:rrm-entities-20261008-4db36377`.
+Use the updated YAML on the machine submitting the workflow; existing workflows
+retain their old worker. See the image README below for digest/build provenance and
+the distinction between routing tests and actual model qualification. Before
 submitting, accept the Cosmos model terms in Hugging Face and create the user-owned
 OSMO generic credential `rrm-huggingface-read` described in
 [`osmo/cosmos-worker/README.md`](../../osmo/cosmos-worker/README.md). At every new
@@ -959,7 +970,7 @@ restart the shared pool):
 
 ```bash
 cd /root/AirStack
-osmo workflow submit osmo/workflows/airstack-live-replan.yaml \
+osmo workflow submit osmo/workflows/airstack-live-replan-ore-proj.yaml \
   --pool <gpu-pool> \
   --set-env "SSH_PUB_KEY=$(cat ~/.ssh/id_ed25519.pub)" \
   --set-env "ISAAC_SIM_SCENE=Office" \

@@ -27,6 +27,7 @@ from rrm_hand_shadow import build_records as build_hand_shadow_records
 from rrm.airstack_command import CommandEnvironment, ground_command, plan_command, takeoff_recovery_action
 from rrm.airstack_drone import DroneTaskProposal
 from rrm.isaac_runtime import probe_isaac_runtime
+from rrm.visual_service import probe_visual_service
 from rrm.contracts import CapabilityDeclaration
 from rrm.execution_supervisor import ExecutionSupervisor, RunningDispatch
 from rrm.goal_contracts import GoalRequest, bind_selected_route_to_c01, route_goal
@@ -1463,6 +1464,8 @@ def make_handler(app: Console):
 
         def do_GET(self):
             path = urlsplit(self.path).path
+            if path == "/api/visual-service":
+                return self.respond(probe_visual_service(app.cosmos_worker_url))
             if path == "/":
                 return self.respond((Path(__file__).parent / "ui/command_console.html").read_bytes(),
                                     "text/html; charset=utf-8")

@@ -47,6 +47,9 @@ if(BUILD_TESTING)
   ament_add_gtest(test_control_state test/test_control_state.cpp)
   target_include_directories(test_control_state PRIVATE include)
   target_compile_features(test_control_state PRIVATE cxx_std_17)
+  ament_add_gtest(test_tf_diagnostic test/test_tf_diagnostic.cpp)
+  target_include_directories(test_tf_diagnostic PRIVATE include)
+  target_compile_features(test_tf_diagnostic PRIVATE cxx_std_17)
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
   add_test(NAME isolated_lifecycle
     COMMAND ${CMAKE_COMMAND} -E env ROS_DOMAIN_ID=197 ${Python3_EXECUTABLE}

@@ -1,5 +1,56 @@
 # RRM remote Codex handoff
 
+## Entity-capable worker published — 2026-10-08 EDT
+
+Published source-overlay tag `rrm-entities-20261008-4db36377`, digest
+`sha256:6a6f1ea7233003a2e44c05b32041832a61af8a5957ef37be84c104edd24f2e83`.
+Branch workflow now pins that digest instead of floating latest. Parent runtime is
+immutable; current RRM working source is overlaid, with no model weights included.
+Seven boundary/service tests pass inside the image (actual HTTP, fake model), and
+registry inspection confirms the published digest. No GPU inference qualification.
+
+Existing workflow is unchanged. Activation requires an authenticated OSMO control
+host, absent here; copy the updated YAML to the submitting Mac. Do not terminate the
+worker to reload it: task exit can terminate the workspace group. Preserve the
+uncommitted source and local evidence before retiring this workflow. The seven
+scored visual cases remain PREPARED_NOT_RUN pending activation, intended marker
+fixture registration and independent frame-bound labels. No flight authorized by
+these routing checks.
+
+## TF diagnostics and GUI visual service check — 2026-10-08 EDT
+
+PID source now retains the original transform exception kind/text, source pose and
+child frames, target, requested stamp and elapsed lookup time in `tf_failure` on
+admission diagnostics. Text/frame bytes are bounded and JSON escaped; later callbacks
+clear the diagnostic. Same transform implementation, per-lookup timeout, rejection,
+reset and idle behavior. Separate robot-container build and selected CTest groups
+pass (19 tests reported, no failures). The candidate is not installed in the running
+controller. Isolated lifecycle exercises actual tracking/odometry lookup failures and
+recovery; clock ordering and existing control-state tests pass. This instrumentation
+does not establish the historical failure cause or qualify active-authority fallback.
+
+Worker source adds read-only `/v1/capabilities` with declared routes and frozen
+entrypoint SHA256. Console adds **Check visual service**, reporting declarations
+separately from model provenance/visual qualification. 73 targeted Python tests pass.
+One reviewer approves the substantial diff, noting the entrypoint-only hash and
+socket-inactivity timeout limits. Actual browser camera refresh and service check on
+normal localhost8787 pass; screenshot retained locally. Console restarted alone in
+tmux `rrm-console-chunk`, preserving its original artifact directory.
+
+This fresh workspace runs actual NumPy1.26.4 under the version-tag Isaac image, not
+the committed digest reference. Its scene env is empty (Default Environment), and
+GUI binding remains UNKNOWN. Worker health200 still coexists with entity endpoint404
+and capability endpoint404. No inference or scored visual case completed. Fresh ROS
+domain1 confirms connected/disarmed/AUTO.LOITER/landed1; GUI IDLE/inactive. No action
+goal, simulator/robot restart, scene edit or controller-policy change in this chunk.
+Historical recovery raw captures are absent from this fresh workspace.
+
+Next: deploy a source-matched worker from the authenticated OSMO control host (CLI
+and login absent here); register the intended marker fixture and acquire independent
+frame-bound labels before the seven shadow cases. Controller diagnostics need a
+grounded deployment/readback before future flight. Historical TF cause, qualified
+fallback, stable hold and broader control qualification remain open.
+
 ## Retained control diagnosis and visual API compatibility — 2026-10-06 UTC
 
 Retained recovery trace identifies a source-backed precursor to the pre-LAND dip:

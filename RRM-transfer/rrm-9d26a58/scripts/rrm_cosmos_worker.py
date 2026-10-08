@@ -27,6 +27,8 @@ from rrm_cosmos_reason2 import CosmosGenerator, load_context_payload
 
 MAX_REQUEST_BYTES = 12 * 1024 * 1024
 HEX_ID = re.compile(r"[0-9a-f]{32}")
+# Freeze the executing worker module's identity at startup, not after source edits.
+WORKER_SOURCE_SHA256 = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
 
 
 def decode_request(value: dict) -> tuple[str, int, str, dict, bytes]:
@@ -139,6 +141,13 @@ def make_handler(worker: CosmosWorker):
             self.wfile.write(body)
 
         def do_GET(self):
+            if self.path == "/v1/capabilities":
+                return self.respond({
+                    "schema_version": "rrm-cosmos-capabilities/v1",
+                    "routes": ["/v1/propose", "/v1/verify-entities"],
+                    "worker_source_sha256": WORKER_SOURCE_SHA256,
+                    "execution_dispatch": False,
+                })
             if self.path == "/healthz":
                 return self.respond({"status": "ready", "execution_dispatch": False})
             self.respond({"error": "Not found"}, status=404)

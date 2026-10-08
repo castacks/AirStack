@@ -5,6 +5,8 @@
 #     robot's clock epoch after Isaac starts.
 #   - `ore_proj` contains the Isaac Sim NumPy pin that keeps the ZED, RTX
 #     LiDAR, and VDB map publishers working.
+#   - The Cosmos worker is pinned to the entity-capable source-overlay digest;
+#     see osmo/cosmos-worker/README.md for provenance and activation limits.
 #
 # Before submitting, publish the workspace image from this checkout:
 #   cd osmo/workspace
@@ -51,7 +53,7 @@ workflow:
 
     - name: cosmos-worker
       resource: cosmos-worker-gpu
-      image: airlab-docker.andrew.cmu.edu/airstack/airstack-rrm-cosmos-worker:latest
+      image: airlab-docker.andrew.cmu.edu/airstack/airstack-rrm-cosmos-worker@sha256:6a6f1ea7233003a2e44c05b32041832a61af8a5957ef37be84c104edd24f2e83
       command: ["bash", "-lc"]
       args:
       - |

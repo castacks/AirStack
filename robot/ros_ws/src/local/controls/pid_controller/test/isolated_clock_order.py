@@ -53,6 +53,7 @@ def phase(name,now_ns,tp_ns,odom_ns,mask):
     d=diagnostics[-1]
     assert d['ros_now_ns']==now_ns and d['tracking_stamp_ns']==tp_ns and d['odom_stamp_ns']==odom_ns,d
     assert d['reason_mask']==mask,d
+    assert d['tf_failure'] is None, 'old TF failure leaked into later callback'
     if mask:
         assert commands[-1].thrust.z==.71 and infos[-1].integral==0.,d
     else:

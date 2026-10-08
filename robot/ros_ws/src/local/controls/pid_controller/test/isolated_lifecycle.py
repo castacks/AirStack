@@ -53,6 +53,18 @@ def receive_diagnostic(msg):
         assert d[key] is None or math.isfinite(d[key]),d
     assert all(key in d for key in ('ros_now_ns','tracking_stamp_ns','odom_stamp_ns',
                                    'steady_now_s','history_reset_mask','phase')),d
+    failure=d['tf_failure']
+    if d['reason_mask'] & (TRACKING_TF_FAILED|ODOM_TF_FAILED):
+        tracking=bool(d['reason_mask'] & TRACKING_TF_FAILED)
+        assert failure['channel']==('tracking' if tracking else 'odometry'),d
+        assert failure['source_frame']==('missing_transform_frame' if tracking else 'missing_odom_transform_frame'),d
+        assert failure['source_child_frame']==failure['target_frame']=='map',d
+        assert failure['stamp_ns']==d['tracking_stamp_ns' if tracking else 'odom_stamp_ns'],d
+        assert failure['exception_kind']=='lookup' and failure['exception'],d
+        assert 0 <= failure['lookup_wall_s'] < .3 and failure['per_lookup_timeout_s']==.1,d
+        assert not failure['exception_truncated'] and not failure['frames_truncated'],d
+    else:
+        assert failure is None, 'old TF failure leaked into later callback'
     diagnostics.append(d)
 def receive_info(axis, msg):
     infos[axis] = msg

@@ -87,6 +87,14 @@ source header stamps and steady receipt ages (armed/control/odometry/tracking).
 Absent odometry header is-1; unknown/nonfinite ages are JSON null. Source age must
 remain between0 and `state_timeout_s`, inclusive; future input still fails closed.
 TF-failure snapshots also include any contemporaneous non-TF guard failures.
+`tf_failure` is null outside a failed transform. On failure it retains the channel,
+source pose/child frames, target frame, requested stamp, exception kind/text and
+elapsed wall duration of the original transform call. Each of its two lookups keeps
+the existing 0.1 s timeout; the diagnostic performs no additional lookup. Exception
+text is capped at 512 bytes and each frame at 192 bytes before JSON escaping, with
+explicit truncation flags. Both candidate frame pairs are recorded; the exception
+may identify which lookup failed. These fields do not establish failure causation
+or a qualified alternative to the existing idle/reset behavior.
 `tracking_gap_s` measures time since the preceding tracking callback; current
 tracking receipt age starts at0 and is mainly useful after a blocking TF lookup.
 `history_reset_mask` records only **pre-callback** reset triggers:1inactive authority,
@@ -105,7 +113,7 @@ Inside the robot container:
 
 ```bash
 colcon build --packages-select pid_controller --cmake-args -DBUILD_TESTING=ON
-colcon test --packages-select pid_controller --ctest-args -R 'test_control_state|isolated_lifecycle|isolated_clock_order'
+colcon test --packages-select pid_controller --ctest-args -R 'test_control_state|test_tf_diagnostic|isolated_lifecycle|isolated_clock_order'
 ```
 
 The gtest exercises production math/reset/clock/authority helpers. Synthetic ROS

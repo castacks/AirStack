@@ -12,7 +12,7 @@ from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
-from rrm_cosmos_worker import decode_request, make_handler
+from rrm_cosmos_worker import decode_request, make_handler, WORKER_SOURCE_SHA256
 
 
 def payload(image=b"fresh-image"):
@@ -45,6 +45,9 @@ class CosmosWorkerBoundaryTests(unittest.TestCase):
             def propose(self, value):
                 return {"echo_step": value["step_index"], "execution_dispatch": False}
 
+            def verify_entities(self, value):
+                return {"echo_entity_step": value["step_index"], "execution_dispatch": False}
+
         server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(FakeWorker()))
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
@@ -53,9 +56,18 @@ class CosmosWorkerBoundaryTests(unittest.TestCase):
         base = f"http://127.0.0.1:{server.server_port}"
         with urlopen(base + "/healthz") as response:
             self.assertEqual(json.load(response), {"status": "ready", "execution_dispatch": False})
+        with urlopen(base + "/v1/capabilities") as response:
+            info = json.load(response)
+            self.assertEqual(info["schema_version"], "rrm-cosmos-capabilities/v1")
+            self.assertEqual(info["worker_source_sha256"], WORKER_SOURCE_SHA256)
+            self.assertIn("/v1/verify-entities", info["routes"])
+            self.assertFalse(info["execution_dispatch"])
         with urlopen(Request(base + "/v1/propose", data=json.dumps(payload()).encode(),
                              headers={"Content-Type": "application/json"})) as response:
             self.assertEqual(json.load(response), {"echo_step": 2, "execution_dispatch": False})
+        with urlopen(Request(base + "/v1/verify-entities", data=json.dumps(payload()).encode(),
+                             headers={"Content-Type": "application/json"})) as response:
+            self.assertEqual(json.load(response), {"echo_entity_step": 2, "execution_dispatch": False})
 
     def test_worker_source_has_no_vehicle_or_scheduler_control_surface(self):
         source = (ROOT / "scripts" / "rrm_cosmos_worker.py").read_text(encoding="utf-8")
