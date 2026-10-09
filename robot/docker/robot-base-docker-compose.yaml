@@ -28,6 +28,8 @@ services:
       # Empty = auto (highest card no rayfronts claims); -1 = don't pin.
       - CONAVGPT_ASSIGNER_GPU=${CONAVGPT_ASSIGNER_GPU:-}
       - RAYFRONTS_COMPUTE_PROB=${RAYFRONTS_COMPUTE_PROB:-True}
+      - RAVEN_SHARE_RAYS=${RAVEN_SHARE_RAYS:-true}
+      - RAVEN_SHARE_BBS=${RAVEN_SHARE_BBS:-true}
       - LVLM_BASELINE=${LVLM_BASELINE:-false}
       - URDF_FILE=${URDF_FILE}
       # MAVROS

@@ -495,6 +495,10 @@ class RavenNavNode(Node):
         # Publish /debug/auction_solve JSON + [auction] log lines each tick.
         self._debug_auction = bool(self.declare_parameter(
             'debug_auction', True).value)
+        self._share_rays = bool(self.declare_parameter('share_rays', True).value)
+        self._share_bbs = bool(self.declare_parameter('share_bbs', True).value)
+        self.get_logger().info(
+            f'[auction] share_rays={self._share_rays} share_bbs={self._share_bbs}')
         self._consensus = bid_manager.ConsensusAssigner(self._bundle_len)
         # Ray-leads this robot has serviced (reached + rays cohered); persistent,
         # accumulated own + peer, so a completed lead isn't re-added (bounds table).
@@ -850,7 +854,7 @@ class RavenNavNode(Node):
                 size=np.array(bb[3:6], dtype=float),
                 status=status,
                 confidence=float(vb.cluster_confidence.get(cid, 1.0)),
-                ts=now_ts,
+                ts=now_ts, source_ids=frozenset({self._my_id}),
             ))
         live_centers = [np.asarray(c.center, dtype=float) for c in out]
         for label, vcenter, vsize in vb.visited_instances:
@@ -985,6 +989,8 @@ class RavenNavNode(Node):
                     status=pct.status,
                     confidence=pct.confidence,
                     ts=pct.ts,
+                    source_ids=frozenset({self._peer_state.peer_ids[name]})
+                    if name in self._peer_state.peer_ids else frozenset(),
                 ))
         return out
 
@@ -1334,12 +1340,13 @@ class RavenNavNode(Node):
                 continue
             known_bbs.append((i, ct.label, np.concatenate([c, size])))
             items.append((ct.label, c, size, 'bb-observing', None, None,
-                          float(getattr(ct, 'confidence', 0.0))))
+                          float(getattr(ct, 'confidence', 0.0)),
+                          None if self._share_bbs else ct.source_ids))
         # 2. Accumulate current rays into persistent memory, then emit each lead
         # directly as a ray task (origin + bearing). No triangulation: it only
         # confirms rays against a BB, which the BB-prune already handles.
         self._accumulate_ray_leads(ray_groups, all_completed, now_ts, agent_pos)
-        combined = list(self._ray_leads)
+        combined = [dict(L, source_ids={self._my_id}) for L in self._ray_leads]
         # Static environment: a peer's reported rays persist after the peer goes
         # position-stale (the target is still there). Resolution-based pruning
         # (points-at-known-BB / reached / completed) removes them, not peer TTL.
@@ -1355,8 +1362,13 @@ class RavenNavNode(Node):
                     continue
                 if self._lead_served(pl['label'], pl['o']):
                     continue
-                if self._lead_match(pl['o'], pl['d'], pl['label'], combined) is None:
-                    combined.append(pl)
+                match = self._lead_match(pl['o'], pl['d'], pl['label'], combined)
+                pid = self._peer_state.peer_ids.get(name)
+                sources = {pid} if pid is not None else set()
+                if match is None:
+                    combined.append(dict(pl, source_ids=sources))
+                else:
+                    match['source_ids'].update(sources)
         for L in combined:
             o = np.asarray(L['o'], dtype=float)
             # Sanity gate: a lead outside the altitude band is a bad frame
@@ -1365,7 +1377,8 @@ class RavenNavNode(Node):
                 continue
             d = np.asarray(L['d'], dtype=float)
             items.append((L['label'], o, np.zeros(3), 'ray', o, d,
-                          float(L.get('score', 0.0))))
+                          float(L.get('score', 0.0)),
+                          None if self._share_rays else L['source_ids']))
         tasks = bid_manager.build_tasks(
             items, self._TASK_MATCH_M, self._TASK_KEY_GRID)
         # Re-check merged BB boxes against the visited set. build_tasks unions BB
@@ -2318,7 +2331,8 @@ class RavenNavNode(Node):
             chunks_o.append(own_o)
             chunks_d.append(own_d)
             chunks_s.append(own_s)
-        for name, pr in self._peer_state.peer_rays.items():
+        for name, pr in (self._peer_state.peer_rays.items()
+                         if self._share_rays else []):
             if pr.scores.size == 0:
                 continue
             if K is None:
@@ -2815,6 +2829,7 @@ class RavenNavNode(Node):
             dbg = dict(self._consensus.last_debug)
             dbg.update(robot=self._robot_name, my_id=self._my_id,
                        ts=round(now, 2))
+            dbg['params'].update(share_rays=self._share_rays, share_bbs=self._share_bbs)
             dbg['dropped_bbs'] = list(self._dropped_bbs)
             dbg['visited_fragments'] = [
                 {'label': str(lab),

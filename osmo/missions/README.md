@@ -246,3 +246,31 @@ airstack osmo:mission osmo/missions/conavgpt_5robot.yaml \
   driver — budget pod `storage:` accordingly.
 - `/tf` and `/tf_static` are in the default topic set because without them a
   Foxglove 3D panel can't pose anything during replay.
+
+## RAVEN evidence-sharing ablations
+
+`RAVEN_SHARE_RAYS` and `RAVEN_SHARE_BBS` default to `true`. Set either to
+`false` in the mission's `env` to restrict auction eligibility to robots that
+produced that evidence. These switches do not change the communication range:
+positions, visited targets, exploration and other coordination remain shared.
+
+| Arm | RAVEN_SHARE_RAYS | RAVEN_SHARE_BBS |
+| --- | --- | --- |
+| No ray sharing | false | true |
+| No voxel/BB sharing | true | false |
+| Neither | false | false |
+
+The semantic-search executor passes these environment values to raven_nav's
+`share_rays` / `share_bbs` ROS parameters. With ray sharing disabled, raw peer
+rays are excluded from local grouping, so a received ray cannot become a
+locally produced lead. Peer leads retain their producer through deduplication.
+BB producer IDs are attached before local/peer box fusion and unioned during
+fusion. A jointly detected target is eligible for its actual contributors.
+Missing provenance fails closed; both bundle heads and reservations enforce
+eligibility. Auction traces record `eligible_agents` and both switches.
+
+The `raven_3robot_full_no_*_s1_20261009.yaml` missions each run eight scenes,
+using the exact s1 spawns from `multi_raven_mission.yaml`, three robots,
+`COMMS_RANGE_M=5000`, bundle length 3 and a 300-simulated-second search.
+Results are isolated under `/volume4/dsta/raven-ablations/`; keep each ablation
+in a separate analysis group rather than mixing it into the baseline scores.

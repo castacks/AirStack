@@ -74,6 +74,7 @@ class ConfirmedTarget:
     status: str = 'observing'
     confidence: float = 0.0
     ts: float = 0.0
+    source_ids: frozenset = field(default_factory=frozenset)
 
 
 @dataclass
@@ -135,6 +136,7 @@ def _merge_two(a: ConfirmedTarget, b: ConfirmedTarget) -> ConfirmedTarget:
         label=a.label, center=center, size=size, status=status,
         confidence=max(a.confidence, b.confidence),
         ts=max(a.ts, b.ts),
+        source_ids=a.source_ids | b.source_ids,
     )
 
 

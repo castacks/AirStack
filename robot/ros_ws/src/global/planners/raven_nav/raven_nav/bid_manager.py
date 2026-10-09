@@ -308,6 +308,7 @@ class Task:
     origin: Optional[np.ndarray] = None      # (3,) ray-lead bearing origin
     direction: Optional[np.ndarray] = None   # (3,) ray-lead bearing direction
     confidence: float = 0.0        # BB detection confidence / ray semantic score
+    eligible_agents: Optional[frozenset] = None  # None = shared; empty = no bidder
 
 
 def _task_surface_dist_xy(pos_xy, task) -> float:
@@ -384,7 +385,7 @@ def build_tasks(items, match_m: float, key_grid: float) -> List[Task]:
     filtered ray (already clustered upstream by compute_ray_groups); they are not
     re-merged here. Deterministic -> same tasks per robot.
 
-    items: (label, point(3), size(3), status[, origin(3)[, direction(3)[, conf]]])."""
+    items: (label, point(3), size(3), status[, origin(3)[, direction(3)[, conf[, eligible_agents]]]])."""
     norm = []
     for it in items:
         org = it[4] if len(it) > 4 and it[4] is not None else None
@@ -392,7 +393,8 @@ def build_tasks(items, match_m: float, key_grid: float) -> List[Task]:
         conf = float(it[6]) if len(it) > 6 and it[6] is not None else 0.0
         norm.append((str(it[0]), np.asarray(it[1], float), np.asarray(it[2], float),
                      str(it[3]), None if org is None else np.asarray(org, float),
-                     None if dirc is None else np.asarray(dirc, float), conf))
+                     None if dirc is None else np.asarray(dirc, float), conf,
+                     None if len(it) < 8 or it[7] is None else frozenset(it[7])))
     bb = sorted([x for x in norm if x[3].startswith('bb')], key=_canon)
     ray = sorted([x for x in norm if not x[3].startswith('bb')], key=_canon)
     tasks: List[Task] = []
@@ -421,13 +423,16 @@ def build_tasks(items, match_m: float, key_grid: float) -> List[Task]:
               else 'bb-observing')
         tasks.append(Task(key=_key(bb[i][0], pt), label=bb[i][0],
                           centroid=pt, size=hi - lo, status=st,
-                          confidence=max(bb[k][6] for k in grp)))
+                          confidence=max(bb[k][6] for k in grp),
+                          eligible_agents=(None if any(bb[k][7] is None for k in grp)
+                                           else frozenset().union(*(bb[k][7] for k in grp)))))
 
-    for lab, pt, siz, st, org, dirc, conf in ray:
+    for lab, pt, siz, st, org, dirc, conf, eligible in ray:
         tasks.append(Task(
             key=_key(lab, pt), label=lab, centroid=pt.copy(), size=siz.copy(),
             status=st, origin=None if org is None else org.copy(),
-            direction=None if dirc is None else dirc.copy(), confidence=conf))
+            direction=None if dirc is None else dirc.copy(), confidence=conf,
+            eligible_agents=eligible))
     return tasks
 
 
@@ -479,9 +484,16 @@ class ConsensusAssigner:
             p = np.asarray(agent_pos[a], float)
             for t in tasks:
                 eff[(a, t.key)] = _task_surface_dist_xy(p, t) / max(w[a], _W_EPS)
-        owner = {t.key: min(aids, key=lambda a: (eff[(a, t.key)], a))
+        def eligible(a, tk):
+            allowed = by_key[tk].eligible_agents
+            return allowed is None or a in allowed
+
+        owner = {t.key: min((a for a in aids if eligible(a, t.key)),
+                            key=lambda a: (eff[(a, t.key)], a), default=None)
                  for t in tasks}
-        owner_dist = {t.key: eff[(owner[t.key], t.key)] for t in tasks}
+        owner_dist = {t.key: (eff[(owner[t.key], t.key)]
+                             if owner[t.key] is not None else float('inf'))
+                      for t in tasks}
 
         def _is_ray(tk) -> bool:
             return str(by_key[tk].status).startswith('ray')
@@ -559,6 +571,8 @@ class ConsensusAssigner:
             for a in pool:
                 a_owns = any(owner[tk] == a for tk in remaining)
                 for tk in remaining:
+                    if not eligible(a, tk):
+                        continue
                     if (a_owns and owner[tk] != a
                             and eff[(a, tk)] - owner_dist[tk] > GEO_MARGIN_M):
                         continue
@@ -571,7 +585,7 @@ class ConsensusAssigner:
                     k = (ex[a] + EXPLORE_MARKUP_M + ret, a, EXPLORE_KEY)
                     bd = {'base': round(ex[a], 2), 'markup': EXPLORE_MARKUP_M,
                           'retention': round(ret, 2)}
-                    if k < per_agent[a][0]:
+                    if a not in per_agent or k < per_agent[a][0]:
                         per_agent[a] = (k, bd)
             if not per_agent:
                 break
@@ -601,6 +615,8 @@ class ConsensusAssigner:
                 for a in pool:
                     last = by_key[bundles[a][-1]]
                     for tk in remaining:
+                        if not eligible(a, tk):
+                            continue
                         chain = _task_surface_dist_xy(
                             last.centroid, by_key[tk])
                         if chain > BUNDLE_MAX_DETOUR_M:
@@ -652,7 +668,10 @@ class ConsensusAssigner:
                        'xy': [float(t.centroid[0]), float(t.centroid[1])],
                        'size': [float(t.size[0]), float(t.size[1])],
                        'owner': owner[t.key],
-                       'owner_dist': round(owner_dist[t.key], 1)}
+                       'eligible_agents': (None if t.eligible_agents is None
+                                           else sorted(t.eligible_agents)),
+                       'owner_dist': (round(owner_dist[t.key], 1)
+                                      if owner[t.key] is not None else None)}
                       for t in tasks],
             'prev': prev_in,
             'prev_explored': sorted(prev_explored_in),

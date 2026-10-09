@@ -54,7 +54,9 @@ def build_tasks(trace):
             key=_key(t['key']), label=str(t['label']),
             centroid=np.array([t['xy'][0], t['xy'][1], 0.0]),
             size=np.array([t['size'][0], t['size'][1], 0.0]),
-            status=str(t['status'])))
+            status=str(t['status']),
+            eligible_agents=(None if t.get('eligible_agents') is None
+                             else frozenset(t['eligible_agents']))))
     return out
 
 
