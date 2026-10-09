@@ -28,6 +28,7 @@ class RrmOfficeVisualEval(PegasusApp):
 
     def post_scene_prep(self, stage):
         from pxr import Gf, Sdf, UsdGeom, UsdShade
+        from isaacsim.core.utils.semantics import add_update_semantics
 
         markers = (
             ("blue_marker", (4.0, 0.0, 1.0), (0.05, 0.2, 1.0)),
@@ -40,6 +41,9 @@ class RrmOfficeVisualEval(PegasusApp):
             marker.AddTranslateOp().Set(Gf.Vec3d(*position))
             marker.CreateDisplayColorAttr([Gf.Vec3f(*color)])
             marker.GetPrim().CreateAttribute("rrm:entity_id", Sdf.ValueTypeNames.String).Set(entity_id)
+            marker.GetPrim().CreateAttribute("rrm:kind", Sdf.ValueTypeNames.String).Set(
+                entity_id.removesuffix("_marker") + " navigation marker")
+            add_update_semantics(marker.GetPrim(), entity_id)
             material = UsdShade.Material.Define(stage, f"/World/RRMMarkers/{entity_id}_material")
             shader = UsdShade.Shader.Define(stage, f"/World/RRMMarkers/{entity_id}_shader")
             shader.CreateIdAttr("UsdPreviewSurface")
@@ -49,6 +53,67 @@ class RrmOfficeVisualEval(PegasusApp):
             material.CreateSurfaceOutput().ConnectToSource(shader.ConnectableAPI(), "surface")
             UsdShade.MaterialBindingAPI(marker.GetPrim()).Bind(material)
         print("[rrm-office-eval] authored blue_marker and orange_marker")
+
+    def post_spawn(self, stage):
+        """Opt-in bounded observation of actual stage prims; never navigation authority."""
+        directory = os.environ.get("ISAAC_SIM_TRUTH_DIR", "").strip()
+        if not directory:
+            return
+        import hashlib
+        import json
+        import time
+        import uuid
+        from pathlib import Path
+        from pxr import UsdGeom
+
+        output = Path(directory) / "office-marker-observation.json"
+        output.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            from office_camera_teacher import OfficeCameraTeacher
+            self.office_camera_teacher = OfficeCameraTeacher(directory, stage,
+                launcher_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest())
+        except Exception as exc:
+            print("[office-camera-teacher] initialization disabled: " + str(exc))
+        episode = uuid.uuid4().hex
+        count, elapsed, last = 0, 0.0, -1.0
+
+        def observe(dt):
+            nonlocal count, elapsed, last
+            elapsed += float(dt)
+            if count >= 600 or elapsed - last < 1.0:
+                return
+            last = elapsed
+            try:
+                cache = UsdGeom.XformCache()
+                markers = []
+                for entity in ("blue_marker", "orange_marker"):
+                    prim = stage.GetPrimAtPath("/World/RRMMarkers/" + entity)
+                    valid = bool(prim.IsValid() and prim.IsActive())
+                    markers.append(dict(entity_id=entity, prim_path=str(prim.GetPath()),
+                        exists=valid, observed_entity_id=prim.GetAttribute("rrm:entity_id").Get() if valid else None,
+                        world_position_stage_units=list(cache.GetLocalToWorldTransform(prim).ExtractTranslation()) if valid else None))
+                record = dict(schema_version="rrm-office-stage-observation/v1", episode_id=episode,
+                    sample_index=count, receipt_monotonic_s=time.monotonic(),
+                    physics_callback_elapsed_s=elapsed, engine_time_s=float(self.world.current_time),
+                    stage_meters_per_unit=float(UsdGeom.GetStageMetersPerUnit(stage)),
+                    environment_ref=self.env_url, stage_scale=self.stage_scale, markers=markers,
+                    launcher_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                    camera_frame_bound=False, map_alignment_verified=False, execution_dispatch=False)
+                temporary = output.with_suffix(".json.tmp")
+                temporary.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n")
+                temporary.replace(output)
+                count += 1
+            except Exception as exc:
+                count = 600
+                print("[rrm-office-eval] stage observation disabled: " + str(exc))
+
+        self.world.add_physics_callback("rrm_office_stage_observation", observe)
+
+    def post_step(self):
+        # OmniGraph attach/detach mutates the graph; never do it during PhysX work.
+        teacher = getattr(self, "office_camera_teacher", None)
+        if teacher is not None:
+            teacher.poll()
 
 
 def main():

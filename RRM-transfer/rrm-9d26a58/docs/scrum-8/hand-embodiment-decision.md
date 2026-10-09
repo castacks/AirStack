@@ -1,4 +1,8 @@
-# Phase-1 manipulation embodiment decision — 2026-09-24
+# Manipulation embodiment decision — 2026-09-24
+
+Historical hand selection (gate G1 in [integration-plan.md](integration-plan.md)).
+Embodiment extension is stage 6 in the revisable [working roadmap](../../WORK_PHASES.md).
+Later [handoff](../../HANDOFF.md) checkpoints supersede this record's deployment status.
 
 Status: **Kuka arm + Allegro hand selected; isolated prerequisites permit preparation of one bounded contact trial, but execution remains disconnected.** This record follows the user's 2026-09-24 direction to resume the hand-workspace track. It supersedes the aerial-first ordering in [architecture.md](architecture.md) for this increment. The AirStack Iris/Office setup remains a separate transport regression fixture.
 

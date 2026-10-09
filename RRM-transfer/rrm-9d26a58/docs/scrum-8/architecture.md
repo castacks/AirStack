@@ -1,5 +1,9 @@
 # Architecture and requirement allocation
 
+The [working roadmap](../../WORK_PHASES.md) proposes a route toward RRM's overall
+purpose; requirements and the contracts below govern the design. Engineering
+“Phase 1” refers to the historical needs/requirements baseline.
+
 ## Boundary and responsibilities
 
 The task-level core interprets objectives and plans over entity IDs, predicates and declared resources. It never selects behavior by robot product name, generates actuator coordinates or grants itself permission. Different capability declarations may yield different valid plans from the same reasoning behavior.
@@ -57,7 +61,7 @@ flowchart LR
 
 ## Complete allocation
 
-IDs in the first column have prefix `RRM-SYS-REQ-`; stakeholder parents have prefix `RRM-STK-REQ-`. Full requirement wording remains in the linked Phase 1 baseline and HANDOFF.md. Contract IDs are defined in [interfaces](interfaces.md); scenario IDs and evidence contents in [evaluation](evaluation.md). Evidence targets are planned files under an exported run bundle, not existing passing tests.
+IDs in the first column have prefix `RRM-SYS-REQ-`; stakeholder parents have prefix `RRM-STK-REQ-`. Full requirement wording remains in the linked engineering Phase 1 requirements baseline and HANDOFF.md. Contract IDs are defined in [interfaces](interfaces.md); scenario IDs and evidence contents in [evaluation](evaluation.md). Evidence targets are planned files under an exported run bundle, not existing passing tests.
 
 | ID | Required behavior | Parent/source | Primary owner | Supporting owners | Contracts | Verification/scenarios | Evidence target |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -103,16 +107,19 @@ embodiment-specific evidence at E. Aerial, ground and manipulation adapters are
 therefore comparable only through the same contracts and measured outcomes—not by
 passing controller coordinates or product-specific behavior into R/P.
 
-Current SIL selection (2026-09-17): AirStack drone in the controlled Office scene,
+Historical SIL selection (2026-09-17): AirStack drone in the controlled Office scene,
 then warehouse-shelves. The earlier hand-first plan is superseded by the user's
 aerial-first decision. Manipulation, VLA and physics/IK research remain later work.
 Profile-only tests can test portability logic but cannot demonstrate cross-robot execution.
+The later hand selection is a separate dated increment. The working roadmap does
+not require replacing the aerial visual fixture.
 
-Current sequence: ground-truth evidence → learned Cosmos C04/C05 → drone embodiment
-adapter → supervised task execution and observed effects → visual evidence and matched
-robustness trials. The core reasoner is learned, not the deterministic baseline text
-parser. Validation and adapter binding are deterministic contract checks, not a claim
-that cognition must be deterministic. Keep the oracle suite as a regression baseline.
+Proposed progression: complete recovery evaluation → evaluate visual grounding against
+separate simulator truth → connect learned Cosmos C04/C05 to supervised execution →
+close observation/replanning → comparative robustness → another actual embodiment.
+The intended learned reasoning path remains distinct from the deterministic movement
+parser, whose narrow trial results are reported separately. Validation and adapter
+binding are deterministic contract checks. Keep the oracle as a regression baseline.
 
 ## Open decisions and closure gates
 

@@ -1,61 +1,17 @@
-# Office learned-plan demonstration
+# Historical Office learned-plan runbook — 2026-09-17–18
 
-Verified 2026-09-17 23:27 UTC: job `46288765` has been downloaded, hash-checked
-and imported successfully. Fresh reimport matches saved decision and proposal;
-status READY, action ID NAVIGATE_TO, target blue_marker, waypoint (3.2, 0, 1.5).
-No dispatch. See [evidence](evidence/office-inference-46288765.md).
-Full connection and visual command-entry UI remain deferred.
+Job `46288765` was downloaded, hash-checked and imported on Sep 17; reimport
+matched the READY blue_marker navigation proposal at (3.2, 0, 1.5). See the
+[inference evidence](evidence/office-inference-46288765.md) and later
+[flight evidence](evidence/office-flight-46288765-20260918.md). The latter records
+a navigation timeout, not target achievement. Earlier retries included rejected
+noncanonical entity IDs and a source-path failure before inference; these failed
+attempts remain in the [handoff](../../HANDOFF.md#historical-chronology).
 
-The retrieval instructions below are retained for reproducibility; this job's
-retrieval/import milestone is complete.
-
-Current next step: job `46288765` completed with ACCEPTED and execution_dispatch=false
-according to the user's console/raw-output transcript. It selects NAVIGATE_TO
-blue_marker with goal near($self, blue_marker). Actual bundle verification remains
-pending authentication. Run in the **OSMO host terminal**:
-
-```bash
-cd /root/AirStack/RRM-transfer/rrm-9d26a58
-bash scripts/rrm_office_fetch_import.sh 46288765
-```
-
-This downloads into a new `.rrm-artifacts/psc-office-46288765.*` directory, verifies
-SHA256SUMS and runs the existing offline importer using isolated Pydantic dependencies
-in the running robot container. It prints the unexecuted proposal path. Source evidence
-stays on PSC; the OSMO copy is ephemeral. No flight or model rerun occurs. The helper
-requires `/tmp/rrm-canonical-deps` prepared in this session and fails early if absent.
-
-Follow-up: retry job `46288321` failed before inference because its source path
-fell back to `/src/rrm`. Updated transfer scripts pass source-root as a positional
-batch argument and the batch logs it. For the already uploaded older snapshot,
-explicitly export its `RRM_SOURCE_ROOT` and use `sbatch --export=ALL` to retry.
-Accounting confirmed the requested 30-minute limit; elapsed time was one second.
-
-Latest update, 2026-09-17: job `46280177` finished its inference bundle but its
-candidate was REJECTED for using marker descriptions as entity IDs. The prompt
-has been clarified. Full simulator connection is deferred at the user's request;
-a visual command-entry interface for RRM is a later step. No retry result is claimed.
-
-Run this in the **OSMO host terminal** to transfer the updated source:
-
-```bash
-cd /root/AirStack/RRM-transfer/rrm-9d26a58
-bash scripts/rrm_office_retry_transfer.sh 46280177
-```
-
-Authenticate to PSC in that terminal. Then run the printed `sbatch` command in the
-**PSC login terminal**. It reuses `46280177/input.png`, creates a new source snapshot
-and result directory, and requests 30 minutes because the prior model load took
-18m08s. It does not connect to ROS or execute a flight. The original rejected bundle
-remains evidence; do not edit it into an accepted candidate. New results must be
-checked against the matching updated source/prompt before any later import.
-
-The following section records the earlier integration state and plan:
-
-Status, 2026-09-17: Office camera/PX4/GCS live. PSC job `46273277` has been
-submitted for actual Office Cosmos inference; learned flight remains pending its
-hash-checked result and live revalidation. An earlier accepted warehouse-label
-candidate is not an Office decision or a flight result.
+This preserves the original transfer/import procedure and its limits, not current
+next-step instructions or flight authority. Use [measured status](end-to-end-status.md),
+the [console runbook](command-console.md) and current preflight gates before any
+separately approved execution. No old job needs resubmission merely to read this doc.
 
 ## What this first demonstration tests
 
@@ -74,8 +30,8 @@ simulator observations. Scene markers are visual labels, not collision obstacles
 
 ## Persistent model job
 
-The Office inference was submitted as PSC job `46273277`. It runs independently of
-OSMO. Monitor and inspect it from a Bridges-2 shell:
+Historical job `46273277` ran independently of OSMO. Its retained logs can be
+inspected from a Bridges-2 shell; it is not an active job to monitor:
 
 ```bash
 squeue -j 46273277

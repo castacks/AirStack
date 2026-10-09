@@ -1,7 +1,7 @@
 # Retriever adjacency and RRM research positioning
 
 Reviewed 2026-10-02. This is a research assessment and proposed experiment, not a
-change to Phase 1 requirements, runtime selection, or the frozen RRM-EM scope.
+change to the engineering Phase 1 requirements baseline, runtime selection, or the frozen RRM-EM scope.
 
 ## Assessment
 

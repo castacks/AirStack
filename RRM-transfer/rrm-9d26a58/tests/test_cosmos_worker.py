@@ -12,7 +12,8 @@ from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
-from rrm_cosmos_worker import decode_request, make_handler, WORKER_SOURCE_SHA256
+from rrm_cosmos_worker import decode_request, make_handler, WORKER_SOURCE_SHA256, VISUAL_SOURCE_SHA256
+from rrm.visual_world_builder import VISUAL_PROMPT_REVISION
 
 
 def payload(image=b"fresh-image"):
@@ -60,6 +61,8 @@ class CosmosWorkerBoundaryTests(unittest.TestCase):
             info = json.load(response)
             self.assertEqual(info["schema_version"], "rrm-cosmos-capabilities/v1")
             self.assertEqual(info["worker_source_sha256"], WORKER_SOURCE_SHA256)
+            self.assertEqual(info["visual_prompt_revision"], VISUAL_PROMPT_REVISION)
+            self.assertEqual(info["visual_world_builder_source_sha256"], VISUAL_SOURCE_SHA256)
             self.assertIn("/v1/verify-entities", info["routes"])
             self.assertFalse(info["execution_dispatch"])
         with urlopen(Request(base + "/v1/propose", data=json.dumps(payload()).encode(),

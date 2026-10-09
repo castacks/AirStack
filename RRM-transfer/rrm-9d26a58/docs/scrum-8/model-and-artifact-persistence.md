@@ -11,29 +11,16 @@ It supports the body-agnostic RRM claim: a reasoner is evaluated from durable in
 and evidence at the C01--C09 boundaries, while an embodiment adapter supplies its
 own observations and action translation.
 
-## Current model status
+## Recorded model selection — 2026-09-17
 
-`nvidia/Cosmos-Reason2-*` is the remembered candidate family.  The prior report of a
-roughly 33 GB temporary download is consistent with an 8B-class, higher-precision
-checkpoint, but is **not** enough to identify an exact checkpoint, revision, dtype,
-or license acceptance.  A search of the current workspace's `/tmp` and Hugging Face
-cache found no recoverable Cosmos/Reason2 files.  Do not infer that Cosmos-Reason2-2B
-is the prior model from the older prototype documentation, and do not treat a model
-family as a selected model.
-
-PSC feasibility validation on 2026-09-17 allocated one GPU-shared H100 session and
-observed `NVIDIA H100 80GB HBM3`, 81,559 MiB VRAM, driver `610.57.04`.  Cosmos
-Reason2-8B is therefore hardware-eligible on this allocation (NVIDIA documents a
-32 GB minimum); it was not selected until its exact revision, terms and manifest were
-recorded.  This feasibility test did not download or execute a learned model.
-
-The selection and cache gate subsequently completed on the same date.  The approved
-shadow-only candidate is `nvidia/Cosmos-Reason2-8B`, revision
-`a9fae2cf89dc64db96b12860417f0eb403013bb9`.  Its 19-file cache was downloaded directly
-to PSC Ocean (15.3 GB transfer, 17.5 GB reconstructed), with a JSON provenance record
-and SHA-256 file list in `checkpoints/cosmos/manifests/`.  This replaces the old
-repeated temporary download workflow; the model remains excluded from Git and any
-control/dispatch path.
+The approved shadow-only candidate was `nvidia/Cosmos-Reason2-8B`, revision
+`a9fae2cf89dc64db96b12860417f0eb403013bb9`. Its 19-file cache was downloaded
+to PSC Ocean (15.3 GB transfer, 17.5 GB reconstructed), with provenance and SHA-256
+records in `checkpoints/cosmos/manifests/`. A preceding H100 80GB allocation probe
+established hardware eligibility only; the historical ~33 GB temporary-download
+report never established model identity. See the [selection gate](model-selection-gate.md)
+for the dated decision and [measured status](end-to-end-status.md) for later worker
+verification limits. This record does not prove today's allocation or cache health.
 
 Before a model is downloaded or integrated, create a non-secret manifest containing:
 
@@ -144,13 +131,12 @@ User Services.  Until that completes, prompt-based PSC password authentication i
 working direct-transfer mechanism.  Do not store that password, any private key, or a
 Hugging Face token in this repository or in an artifact manifest.
 
-## Operational gate for the next learned RRM increment
+## Gate for a new model or deployment
 
-The next work item is not another manual checkpoint download.  It is a one-time
-storage readiness check followed by a shadow reasoner deployment:
+Before a new deployment, verify storage and provenance, then evaluate in shadow mode:
 
 1. Confirm the exact Cosmos checkpoint (or select another candidate) by its manifest.
-2. Confirm durable AirLab storage and its transfer/mount method.
+2. Confirm verified durable storage and its transfer/mount method (for example, the recorded PSC Ocean route).
 3. Measure the currently allocated GPU's usable VRAM in the *actual inference
    container*, rather than relying on a historical size estimate.
 4. Cache once, verify hashes, and record the model manifest.

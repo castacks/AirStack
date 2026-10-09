@@ -44,6 +44,42 @@ Together, these features make Isaac Sim a comprehensive platform for robotics si
 
 ## Optional bounded physics diagnostics
 
+The existing `rrm_office_visual_eval.py` launcher selects the Office marker fixture
+when launched with `ISAAC_SIM_SCENE=Office` and scale 1. With `ISAAC_SIM_TRUTH_DIR`
+set, it also writes `office-marker-observation.json`: actual active prim identities,
+USD world translations, stage units, observer episode, engine time and receipt time.
+Output updates at most once per simulated second for up to 600 samples. Check its
+timestamp/sample advancement; the final file becomes stale after observation stops.
+This is read-only stage evidence, not camera-frame labels, map alignment, navigation
+waypoints, physical feasibility or execution authority. Use a new diagnostic directory
+per startup so old observations cannot be mistaken for a new scene epoch.
+
+For fresh camera assessment, the same launcher also enables
+`office_camera_teacher.py`. Write `office-camera-request.json` in that directory
+with `{"capture_id":"check_01","enabled":true}`. A new ID exclusively creates
+`office-camera-check_01/`; one native writer on the existing drone-left render
+product retains RGB, semantic pixels, ReferenceTime, the bridge's
+`IsaacReadSimulationTime` and camera parameters from the same callback. It stops
+after three frames or 15 wall seconds and detaches during
+the post-render hook, not inside a physics callback. Disable the request to stop;
+stopped IDs cannot resume. `office-camera-status.json` reports lifecycle/errors;
+check freshness and actual output, not status alone. Idle capture is detached.
+Marker prim identities/poses are separately read during the writer callback, not
+historical rendered transforms. Native ReferenceTime and ROS image stamps are
+distinct clocks in the observed profile: do not equate or rebase them. Use the
+same-render bridge clock plus exact ROS stamp/RGB correspondence, not a fitted
+offset. Read-only vehicle physical input is separately retained at writer-callback
+phase to diagnose mounting versus estimated-pose error; it is not historical render
+state or a map calibration. Native segmentation pairing is assessment-only; map
+binding and authority remain separate checks. Load changes through a grounded restart.
+
+Camera diagnostics retain the composed USD attachment chain, physics joint targets
+and vehicle body-frame correction. Pegasus reads authored `/body` rotation before
+Robot initialization; for an already-simulated OmniGraph vehicle it reads the selected
+source USD asset, not a live body tilt. The stereo optical-link translations in the
+Pegasus Iris URDF match the pinned Isaac5.1 ZED_X asset. Passing this mount check does
+not establish the separate USD-world↔ROS-map origin/estimated-pose binding.
+
 ### AirStack-owned rigid-body recorder
 
 `ISAAC_SIM_TRUTH_DIR` enables the recorder in

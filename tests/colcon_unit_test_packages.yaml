@@ -26,3 +26,4 @@ robot:
 sim:
   packages:
     - pegasus.simulator
+    - launch_scripts

@@ -1,4 +1,9 @@
-# RRM SIL integration plan
+# Historical RRM hand-adapter integration plan
+
+Historical hand-adapter plan: **G0–G7** retain the 2026-09-17 scope and gate criteria,
+separate from the revisable [working roadmap](../../WORK_PHASES.md). Requirements
+and safety/admission contracts still apply. For current measured deployment and
+open gaps, see [performance status](end-to-end-status.md).
 
 Status: implementation plan as of 2026-09-17. This turns the SCRUM-8 logical
 allocation into an ordered, testable integration programme. It does not grant RRM
@@ -35,7 +40,7 @@ is unavailable: the configured asset root is
 `omniverse://airlab-nucleus.andrew.cmu.edu/NVIDIA/Assets/Isaac/5.1`, and the installed
 Kit configuration enables Isaac's Franka extensions. The standalone Python environment
 does not expose an `omni.client` module, so no Nucleus browse was attempted by starting
-Kit or opening a scene. Phase 1 must query the configured asset source and controller
+Kit or opening a scene. Gate G1 must query the configured asset source and controller
 availability, then either select a suitable existing asset or explicitly scope/import a
 versioned asset.
 
@@ -45,10 +50,10 @@ and PX4 backend. It is an aerial transport baseline, not a latent manipulation s
 do not modify it in place. The image contains Isaac robot-motion/Lula infrastructure,
 but that establishes only controller framework availability, not a compatible hand asset
 or a validated manipulation controller. A separate, controlled hand-scene launch is
-required after the Phase-1 selection record is complete.
+required after the gate G1 selection record is complete.
 
 No RRM route to live hardware, PX4, AirStack task action, trajectory topic, service or
-actuator publisher is added before the relevant phase's acceptance criteria are met and
+actuator publisher is added before the relevant adapter gate's acceptance criteria are met and
 the user authorizes that controlled change.
 
 ## Target integration shape
@@ -77,18 +82,18 @@ deduplicate a `dispatch_id`; a local RRM lock alone is insufficient.
 
 ## Work packages and gates
 
-| Phase | Deliverable | Implementation scope | Exit criteria |
+| Historical adapter gate | Deliverable | Implementation scope | Exit criteria |
 | --- | --- | --- | --- |
-| 0. Freeze the baseline | Reproducible shadow baseline | Record source/image hashes, container mounts, live topic inventory and exported evidence location. Preserve the current observer-only tests and GCS takeoff/land record. | Clean regression suite; source and raw evidence persisted outside the ephemeral workflow. |
-| 1. Select the actual SIL embodiment | Hand-workspace decision record and capability profile | Evaluate available Isaac hand assets/controllers against S01's contextual two-step task, observation access, measurable safe condition, reset determinism and stop behavior. Define semantic resources/actions and explicitly reject unsupported operations. | A selected hand/controller can reset deterministically, publish required observations, support a bounded task, and report a testable safe state. |
-| 2. Make C01–C05 executable in shadow | Task/context/state/plan pipeline | Add versioned task request, clarification/approval, three-valued state evidence, capability/feasibility, interpreted intent and versioned plan records. Keep action output in `PROPOSED`; no ROS execution request exists. | S01–S05 run against the simulator/mock adapter with immutable correlation IDs, stale/unknown data blocking progress, and complete evidence records. |
-| 3. Build the conforming adapter | C02/C03/C07 observation and dry-run adapter | Map scene observations to state snapshots; map an abstract action only to a typed grounded-command proposal. Add numeric feasibility, resource reservations, command-adjustment reporting, dispatch deduplication and status reconciliation. Dry-run accepts nothing physical. | Grounding never fabricates a pose; unsupported/stale/unknown cases are rejected; S02, S04 and S10 pass in dry-run. |
-| 4. Implement independent supervision | C06/C08 supervisor and safe-state proof | Implement permission/approval validation, single-use admission, expiry, stop generation, independent cancellation and reset. Define adapter-specific `received`, `cancel_accepted`, `motion_stopped`, and `safe_confirmed` evidence. | S05 and all S06 injections pass: no new admission after stop, stalled reasoner cannot block stop, and missing acknowledgement is `SAFE_UNCONFIRMED`. |
-| 5. Controlled simulated execution | Narrow C07 command path | Enable only the selected hand simulator adapter, only the declared verb/resource profile, only after C06 admission. Numeric validation occurs after grounding and before each motion chunk. Monitor verifies effects from fresh observations. | S01, S02, S07 and S08 pass with generated evidence; every dispatch has one allow decision and one resolved outcome. No drone/PX4 authority is added. |
-| 6. Measurement campaign | Frozen S01–S10 protocol | Freeze scenes, seeds, run configuration, metrics and acceptance rules; run deterministic Oracle then matched model candidates. Include 30 seeds per supported profile and three repetitions for stochastic models. | Bundles replay causally; numerator/denominator, confidence intervals, latency percentiles and all failures are reported. Safety failures remain disqualifying. |
-| 7. Portability and expansion | Second actual embodiment and model comparison | Reuse the task-level core unchanged with a second adapter/profile; then compare candidate reasoners/policies under identical inputs and resources. | S09 demonstrates unchanged core/semantics hashes and capability-dependent outcomes. Model reports identify revision, license, precision, resource use and failure modes. |
+| G0. Freeze the baseline | Reproducible shadow baseline | Record source/image hashes, container mounts, live topic inventory and exported evidence location. Preserve the current observer-only tests and GCS takeoff/land record. | Clean regression suite; source and raw evidence persisted outside the ephemeral workflow. |
+| G1. Select the actual SIL embodiment | Hand-workspace decision record and capability profile | Evaluate available Isaac hand assets/controllers against S01's contextual two-step task, observation access, measurable safe condition, reset determinism and stop behavior. Define semantic resources/actions and explicitly reject unsupported operations. | A selected hand/controller can reset deterministically, publish required observations, support a bounded task, and report a testable safe state. |
+| G2. Make C01–C05 executable in shadow | Task/context/state/plan pipeline | Add versioned task request, clarification/approval, three-valued state evidence, capability/feasibility, interpreted intent and versioned plan records. Keep action output in `PROPOSED`; no ROS execution request exists. | S01–S05 run against the simulator/mock adapter with immutable correlation IDs, stale/unknown data blocking progress, and complete evidence records. |
+| G3. Build the conforming adapter | C02/C03/C07 observation and dry-run adapter | Map scene observations to state snapshots; map an abstract action only to a typed grounded-command proposal. Add numeric feasibility, resource reservations, command-adjustment reporting, dispatch deduplication and status reconciliation. Dry-run accepts nothing physical. | Grounding never fabricates a pose; unsupported/stale/unknown cases are rejected; S02, S04 and S10 pass in dry-run. |
+| G4. Implement independent supervision | C06/C08 supervisor and safe-state proof | Implement permission/approval validation, single-use admission, expiry, stop generation, independent cancellation and reset. Define adapter-specific `received`, `cancel_accepted`, `motion_stopped`, and `safe_confirmed` evidence. | S05 and all S06 injections pass: no new admission after stop, stalled reasoner cannot block stop, and missing acknowledgement is `SAFE_UNCONFIRMED`. |
+| G5. Controlled simulated execution | Narrow C07 command path | Enable only the selected hand simulator adapter, only the declared verb/resource profile, only after C06 admission. Numeric validation occurs after grounding and before each motion chunk. Monitor verifies effects from fresh observations. | S01, S02, S07 and S08 pass with generated evidence; every dispatch has one allow decision and one resolved outcome. No drone/PX4 authority is added. |
+| G6. Measurement campaign | Frozen S01–S10 protocol | Freeze scenes, seeds, run configuration, metrics and acceptance rules; run deterministic Oracle then matched model candidates. Include 30 seeds per supported profile and three repetitions for stochastic models. | Bundles replay causally; numerator/denominator, confidence intervals, latency percentiles and all failures are reported. Safety failures remain disqualifying. |
+| G7. Portability and expansion | Second actual embodiment and model comparison | Reuse the task-level core unchanged with a second adapter/profile; then compare candidate reasoners/policies under identical inputs and resources. | S09 demonstrates unchanged core/semantics hashes and capability-dependent outcomes. Model reports identify revision, license, precision, resource use and failure modes. |
 
-## Concrete implementation order
+## Historical implementation order — 2026-09-17
 
 1. Create a feature notebook and a dedicated RRM integration branch; retain the current
    Oracle, contract and shadow tests as required regressions.

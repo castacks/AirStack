@@ -1,320 +1,32 @@
-## Retained control diagnosis and visual API compatibility — 2026-10-06 UTC
+# RRM — Robotics Reasoning Model
 
-Retained recovery trace identifies a source-backed precursor to the pre-LAND dip:
-tracking TF rejection (4096) at LAND−4.2823 s resets PID integrals and emits idle
-thrust 0.71, clearing the prior vertical integral contribution ≈0.0916; lower thrust
-appears downstream before the dip. The next rejection is ODOM_BEFORE_ACTIVATION (32),
-following reset of activation history. All 185 tracking receipts in the preceding
-12 s retain a 1 m height reference and zero vertical reference. The actual PID log
-confirms a generic transform failure but omits lookup details. TF failure cause and
-counterfactual body causation remain unresolved. Fresh external authority does not
-prove uninterrupted internal controller admission. Independent reviewer corroborates.
+RRM aims to provide reusable, embodiment-independent task reasoning: interpret
+contextual goals, maintain world/task memory, plan within declared capabilities and
+safety limits, observe effects, and recover or request assistance. Its research
+deliverable is a reproducible benchmark and reference architecture comparing this
+explicit loop with end-to-end control.
 
-Actual GUI camera-to-private-worker diagnostic contains no teacher facts or dispatch
-request. Worker health is ready, but deployed POST `/v1/verify-entities` returns 404;
-zero successful inference, no perception score. Actual Isaac uses the standard Office
-launcher, not the authored marker fixture; no independent per-frame labels acquired.
-Seven prepared cases remain PREPARED_NOT_RUN. Final live ROS observation confirms
-connected/disarmed/landed, GUI VERIFIED/inactive, readiness 7/7. No flight, gain,
-guard, simulator image or scene changes in this chunk.
+The reasoner proposes semantic actions; embodiment adapters own numeric grounding
+and control, while independent safety/admission gates execution.
 
-Next substantial work: bounded TF lookup diagnostics and reviewed active-authority
-fallback policy; separately align worker entity API/model provenance and marker scene
-with frame-bound teacher acquisition, then execute scored shadow cases. Stable hover
-and broader robustness remain unqualified. Full recorded LAND coverage still stands.
+## Start here
 
-> **Recovery capture checkpoint (2026-10-06 EDT):** Recovery-aware recording and
-> canonical observation reacquisition pass 76 tests. Actual GUI STOP followed by
-> separate LAND verifies, with 99 physical samples/all 18 streams covering the LAND
-> action. Final disarmed/landed, readiness 7/7. A substantial predispatch altitude
-> excursion remains unexplained; stable hold is unqualified. Seven vision cases
-> are prepared, with no model accuracy claim. Next: retained-data diagnosis and
-> teacher-labeled visual shadow evaluation. See [HANDOFF.md](HANDOFF.md).
+- [Architecture and requirements allocation](docs/scrum-8/architecture.md) and
+  [interface contracts](docs/scrum-8/interfaces.md): governing design and boundaries.
+- [Working roadmap](WORK_PHASES.md): a revisable six-stage route toward that purpose.
+- [Current performance status](docs/scrum-8/end-to-end-status.md): what is demonstrated
+  and what remains open.
+- [Handoff evidence](HANDOFF.md): detailed dated runs, failures and provenance.
+- [Engineering milestones](MILESTONES.md): separate historical lifecycle categories.
 
-> **Complex GUI mission checkpoint (2026-10-06 EDT):** A six-action Office mission
-> completes VERIFIED, and two moving STOP trials halt with later actions withheld.
-> Separate LAND tasks verify once and fresh final captures confirm grounding;
-> both descents remain unqualified across documented harness capture gaps. Same
-> source/epoch retains 4,085 physical records and 4,079 exact clock comparisons.
-> Final GUI inactive, vehicle disarmed/landed, readiness 7/7. Next: coordinate
-> recovery capture and fresh-state admission before full descent qualification.
-> See [HANDOFF.md](HANDOFF.md).
+Latest checkpoint (2026-10-08): GUI camera/service checks pass and the entity API
+responds, but empty claims are rejected. No accepted visual grounding or perception
+score; scene binding is UNKNOWN. Recovery has a retained fully covered LAND subcase,
+with broader control and capture questions still open. Details live in the status
+and handoff documents rather than being repeated here.
 
-> **Completed sampling checkpoint (2026-10-06 EDT):** Retained completed sampling
-> loops and timestamped maxima pass 55 tests, independent review and actual GUI/
-> readiness 7/7. A grounded capture delivers all 1,524 preceding sampling tails;
-> its final tail is explicitly pending. 44,361 events/18 streams and all clock
-> comparisons pass; neither large pause recurs. Vehicle ends disarmed/landed.
-> Next: a warmed comparison sized for the larger payload and existing byte cap.
-> See [HANDOFF.md](HANDOFF.md).
-
-> **Observer operation checkpoint (2026-10-06 EDT):** Finer operation timing passes
-> 47 tests, source review and actual GUI/readiness 7/7. A grounded comparison retains
-> 43,506 events across 18 streams; neither large pause recurs. Timing reports no
-> errors; measured operation maxima stay below 4.220 ms through the last snapshot.
-> Total overhead and ordinary write-tail delivery remain unqualified. Vehicle ends
-> disarmed/landed. Next: bounded delivery of completed sampling-loop timings.
-> See [HANDOFF.md](HANDOFF.md).
-
-> **Extended grounded checkpoint (2026-10-06 EDT):** Same-epoch actual GUI checks
-> and a 272 s warmed comparison retain 66,270 events/18 streams and 2,289 physical
-> records. No comparable ~0.7 s input pause recurs. Historical warm timing includes
-> a 0.530 s observation-associated housekeeping interval as well as >0.5 s engine
-> calls; cause and impact remain unknown. New history is retained despite ring
-> eviction. Vehicle ends disarmed/landed; next is finer observer-phase timing.
-> See [HANDOFF.md](HANDOFF.md).
-
-> **Simulator timing checkpoint (2026-10-06 EDT):** Bounded loop/callback timing and
-> raw `/clock` capture pass 38 tests, independent review and real Office GUI/readiness
-> 7/7. A settled grounded run retains 34,493 events across 18 streams; no ~0.7 s input
-> pause recurs. A 0.118 s baseline delay falls inside `world.step(render=True)`;
-> retained startup engine delays reach 1.709 s before simultaneous control capture.
-> Cause and flight robustness remain unresolved. See [HANDOFF.md](HANDOFF.md).
-
-> **Authority diagnostic checkpoint (2026-10-06 EDT):** Exact failure snapshots and
-> separate passive telemetry preserve the 0.5 s guard. Build, 1,728 guard-equivalence
-> cases, action regressions, 10 recorder tests and real Office GUI readiness 7/7 pass.
-> A shared ~0.71–0.79 s pause appears in a camera-free grounded baseline; five camera
-> requests succeed with smaller gaps. Cause remains unresolved; no flight was run.
-> See [HANDOFF.md](HANDOFF.md) for sampling limits and next grounded instrumentation.
-
-> **GUI failure checkpoint (2026-10-06 EDT):** The latest nominal attempt halted
-> during takeoff and returned to disarmed/grounded rest through automatic containment.
-> A shared ~0.7 s receipt/physics pause exceeds the 0.5 s authority freshness guard;
-> exact internal cause remains unrecorded. GUI STOP/recovery qualification is deferred.
-> Recorder SIGINT summary loss is repaired: nine tests and real grounded signal checks
-> pass. See [HANDOFF.md](HANDOFF.md) for the failed attempt and next diagnostics.
-
-> **Fractional clock candidate (2026-10-06 EDT):** Pegasus now carries fractional
-> microseconds across admitted updates. Two grounded Office GUI reloads qualify
-> 549 windows with exact counter-plus-remainder agreement; integer quantization
-> stays below 1 µs. 22 tests, independent code review and both readiness 7/7 pass.
-> The child patch is uncommitted; clean parent checkouts need its eventual child
-> commit/pin. Flight robustness and acquisition alignment remain open.
-> See [HANDOFF.md](HANDOFF.md) for source provenance and the next GUI qualification.
-
-> **Physics clock checkpoint (2026-10-05 EDT):** Actual grounded callback dt
-> confirms 4.112 ms backend clock loss over 41.13 simulation seconds. All 456 windows
-> match per-step microsecond truncation. Six observer plus ten recorder tests,
-> independent review, real Office GUI and readiness 7/7 pass. No flight or timing
-> correction yet; older collapse and acquisition timing remain open.
-> See [HANDOFF.md](HANDOFF.md) for evidence and the next bounded correction.
-
-> **Raw timing checkpoint (2026-10-05 EDT):** New read-only telemetry capture
-> retained 14,567 grounded events, including raw PX4 packet timestamps. All 731
-> matched odometry samples preserve packet/raw/converted header stamps. Clock-origin
-> and acquisition mapping remain unresolved; the roughly 315 ms timestamp difference
-> is not a measured delay. Eight tests, reviewer checks and live GUI/readiness pass.
-> See [HANDOFF.md](HANDOFF.md) for timing roles and missing-status evidence.
-
-> **Alignment diagnosis (2026-10-05 EDT):** New offline pose comparison preserves
-> raw differences and subtracts only a verified grounded baseline. Direct body and
-> Pegasus sensor positions agree exactly; map height offsets vary between captures.
-> Receipt-phase headers do not establish estimator acquisition time. Six comparison
-> tests and fresh live GUI/grounded checks pass. See [HANDOFF.md](HANDOFF.md).
-
-> **Physical-truth checkpoint (2026-10-05 EDT):** One real GUI Office replay
-> VERIFIED takeoff 1 m → forward 0.25 m → left 0.25 m → LAND/disarm,
-> with 2.31/0.88 cm navigation errors and no recovery/retry. Direct rigid-body
-> capture confirms both legs and return to rest. A reviewed opt-in physical-state
-> recorder is deployed; ten recorder tests and seven readiness gates pass.
-> Physical/odometry differences remain visible; older collapse causation,
-> mixed-height/longer reliability and collision containment remain open.
-> See [HANDOFF.md](HANDOFF.md) for hashes, provenance and measurement limits.
-
-> **Live GUI checkpoint (2026-10-05 21:10 EDT):** Office scene launch, fresh camera,
-> and a GUI-reviewed takeoff 1 m → forward 0.25 m → ordinary LAND replay VERIFIED,
-> with 0.018999 m navigation error and confirmed disarm. The unknown-scene label
-> and implicit first-scene selection are repaired. Live control capture contains
-> no future-tracking rejection with active command authority in this one replay.
-> Older collapse causation and mixed-height/longer qualification remain open;
-> see [HANDOFF.md](HANDOFF.md).
-
-> **Current checkpoint (2026-10-05 EDT):** The workspace now runs the published
-> NumPy-fix Isaac digest with NumPy 1.26.4, seven readiness gates passing and a
-> fresh camera capture. PID admission diagnostics are deployed and observed while
-> grounded. Commit `e633a658` records a narrow Office takeoff 1 m → forward 0.25 m
-> → LAND success; the older forward-collapse cause and mixed-height/longer missions
-> remain unresolved. Older source-only deployment and flight checkpoints below are
-> historical. See [HANDOFF.md](HANDOFF.md) for the current diagnostic continuation.
-
-> **Current continuation (2026-09-26):** Read [HANDOFF.md](HANDOFF.md) first. The
-> [localhost command console](docs/scrum-8/command-console.md) now has a real,
-> explicitly confirmed simulator execution path. It translates scene-independent
-> movement text into typed goals only for task action servers discovered in the active
-> AirStack configuration, executes them serially, verifies outcomes from fresh state,
-> and exposes STOP/HOLD. It does not send PX4/MAVROS or trajectory commands directly.
-> The older Cosmos/PSC proposal flows remain available as research/evidence paths; they
-> are not required for direct takeoff, land, exploration, waypoint, or relative-motion
-> commands.
-> This is not yet a validated cross-embodiment goal-to-finish result. The newer
-> [qualitative goal contract](docs/scrum-8/semantic-goal-routing.md) now has a narrow,
-> explicitly non-executing Kuka-Allegro GUI preview. It is not wired to live hand
-> feasibility, C06 admission, or simulator actuation. A subsequent bounded aerial
-> regression (`949b6027`) verified the 1 m takeoff and landing and reduced takeoff
-> horizontal displacement to 0.005 m. A later 1.5 m Office regression
-> (`719298f1`) aborted takeoff with lateral drift, so further aerial demo
-> execution is paused pending a new qualified regression. See
-> the [current performance assessment](docs/scrum-8/end-to-end-status.md).
-
-# RRM-1 — Robotics Reasoning Model
-
-For the current work sequence and claim boundaries, read
-[MILESTONES.md](MILESTONES.md) before the historical SCRUM-era records.
-
-## Current work reading order
-
-Local GUI debugging update (2026-10-04, uncommitted): the pinned Isaac image is
-running NumPy 1.26.4 in Office. Relative movement now accepts `fly forward for
-1m`; unsupported/missing distances clarify rather than silently dropping motion.
-Live GUI recording confirmed 30 ms tracking/clock delivery reordering repeatedly
-reset PID history. A simulation-only bounded delivery wait (`clock_order_wait_s`,
-default 0.1 s) retains original receipt age and a fixed deadline across target
-replacements; it does not admit future timestamps. A live GUI trial eliminated
-future-stamp rejection and lifted to 0.814 m, but did not verify the 1 m target.
-Recovery LAND verified disarm. The deployed fix preserves the completed takeoff
-trajectory endpoint instead of replacing it with continuously following robot
-pose, with 0.15 m task completion tolerance. Equal delivered simulation-clock
-timestamps also preserve PID integral rather than treating equality as rollback;
-backward time still resets history. Full action-server snapshots use their bounded
-DDS discovery window instead of returning on the first sensor sample. The exact
-compound GUI trial `179cb0b914164e76acb25f89bc88a456` still failed takeoff with
-0.579 m lateral displacement after 9.76 s; no NAVIGATE was dispatched. Recovery
-LAND verified disarm. The recording shows a sudden estimated heading change
-while commanded heading stayed fixed; its cause remains under investigation.
-After a fresh Office reload, GUI takeoff/LAND `ec2b42785e364ff4bf0dc745a406e6dc`
-VERIFIED, followed by exact compound
-`e2489a5adb694becb3f06468f230f0e2`: TAKEOFF VERIFIED at 0.971 m with 0.063 m
-lateral drift; NAVIGATE VERIFIED with 0.279 m endpoint error (configured 0.5 m
-tolerance); LAND VERIFIED disarmed. No recovery was needed and dispatch was
-serial. This is a successful narrow GUI regression, not long-duration reliability
-or a causal repair of the prior heading issue. Opt-in `ISAAC_SIM_STATE_LOG` records
-physical/USD/sensor attitudes at 10 Hz, capped at 10,000 records per vehicle.
-The observed roughly 2.4 degree sensor offset remains under investigation; no
-speculative physics or gain changes were applied.
-
-GUI complexity continuation (2026-10-04, uncommitted): explicit numeric exploration
-supports 1–900 seconds without changing the five-second vague-request floor.
-Timed exploration requires observed radius `min(0.5 m, 0.1 m/s * seconds)` in both
-task and verifier, and waits for nested navigation's terminal result before handoff.
-The random-walk planner now honors requested altitude bounds across all segments
-under the supported map-zero-ground convention. GUI replay
-`a835ab8fa11d40c391b1c500e28d678c` confirms the route stays at or below 3 m and
-nested navigation terminates before the outer exploration result. However actual
-four-second exploration still moved only 0.025 m: mission RECOVERED_HALT, recovery
-LAND VERIFIED disarmed. The complexity ladder remains stopped at this genuine
-local-planner/tracking stall. Explicit speed bounds are not yet wired into local
-planning. This is not a qualified takeoff/explore/LAND demo; retained request
-artifacts contain the plan, outcomes and recovery evidence.
-
-Local-planner continuation (2026-10-04, uncommitted): failed GPU/TF evaluation
-now clears cached samples and cannot publish stale/unset-transform output.
-Collision-shader readback is already MAP; it is scored and published directly
-with a MAP header. Active navigation may select a consecutive checked-free
-prefix, retaining the existing collision/unknown classification, route/start
-altitude corridor, a 0.5 m checked-path setback, and terminal zero requested speed.
-Seven focused tests pass, including actual Mesa compute-shader readback. Exact
-GUI replay `2da7fcb1a402424e92c357b37ecf6eac` improved four-second exploration
-radius to 0.327 m, still below the unchanged 0.4 m requirement. Recovery LAND
-VERIFIED disarmed; normal requested LAND was not dispatched. Longer usable
-segments arrive while tracking remains on the initial short path: controller
-segment consumption/lookahead handoff is the next investigation, not a proven
-causal diagnosis. The ladder remains stopped; do not call this demo qualified.
-Full package tests also expose unresolved lint failures; focused gtests passing
-does not mean the package suite is green.
-
-Latest GUI continuation (2026-10-04, uncommitted): the fresh commanded MAP
-anchor is now included in the start-transition altitude corridor, fixing a
-micrometre-scale exclusion of the held 1m target. PID now combines transformed
-horizontal reference velocity with bounded position correction; vertical control
-and gains remain unchanged. Exact GUI request
-`337a1838b4a14c1cb5e620c60c271124` VERIFIED TAKEOFF → four-second EXPLORE →
-ordinary LAND, no recovery: radius0.754m exceeds unchanged0.4m floor, disarm
-verified. Reviewer confirmed serial handoff, MAP segments, altitude bounds and
-zero-speed endpoints. Eight DROAN and thirteen PID focused gtests pass; full
-lint suites remain unresolved. This qualifies one exact Office replay, not
-arbitrary exploration or the untested move+explore/two-leg complexity cases.
-
-Next GUI rung (2026-10-04, uncommitted): movement distance `for 1m` no longer
-counts as a second exploration timer. 31command/drone and71console/mission/history
-tests pass. GUI `e4214c18dfa34fc2a61f4f9ecca1b2f6` VERIFIED serial TAKEOFF →
-NAVIGATE → EXPLORE4s → ordinary LAND/disarm, no recovery; exploration radius2.46m.
-Qualification gap: forward target still uses staged pose/heading rather than fresh
-post-takeoff heading. Actual navigation travel0.541m passed existing0.5m endpoint
-tolerance (error0.459m). Do not claim faithful full1m body-forward translation.
-Reviewed relative navigation now retains each direction/distance in the immutable
-GUI plan. Map coordinates shown during staging are preview estimates: each leg is
-bound to its own fresh map pose and body heading immediately before dispatch,
-before already-satisfied checks. The binding and canonical receipt freshness are
-recorded in replan evidence. Relative goal tolerance is the minimum of the normal
-map-waypoint tolerance, 0.15m, and 10% of requested distance (0.1m for a 1m leg).
-Consecutive measured legs are separate NAV actions; unsupported interleaved action
-orders are rejected instead of silently reordered. Absolute map goals keep their
-existing tolerance. Receipt freshness is checked; positive source timestamps are
-recorded but not independently compared against simulator source age here.
-
-Exact Office replay `10ff5ad5dc5e4ead944437f97050505d` verified fresh forward1m
-with0.920m observed travel and0.094m endpoint error. Exploration then failed:
-preparation consumed almost the whole four-second horizon before navigation could
-move. Recovery LAND/disarm verified. The planner separates a bounded ten-second
-wall-time preparation phase from active simulator-time exploration beginning at
-the first accepted navigation; the active timer never resets during replanning.
-The follow-up replay `4986ad279567421a86edf4edaaeaf9d7` stopped before exploration:
-navigation lost altitude and failed to reach its bound goal. GUI STOP independently
-verified motion stopped; explicit GUI LAND `7518dd83f98749598fb53f6415421805`
-verified disarm. The active-horizon planner change builds and its focused tests
-pass, but was not exercised in this failed replay. Longer/two-leg qualification
-remains pending navigation-failure diagnosis. No collision or progress thresholds
-were relaxed.
-
-Current checkpoint (2026-10-04): the single instrumented Office diagnostic after
-actuation/authority repair failed. OFFBOARD and lift were observed, but takeoff
-breached the 0.3m lateral limit before reaching 1m. Hold/LAND were accepted;
-ground/disarm was independently observed and the GUI halted. Complete ROS/PX4
-logs are retained. Armed-aware authority reporting is repaired/tested in source,
-not deployed. Saved-flight correlation verifies PID/command math and identifies
-early vertical lag plus candidate future-stamp idle/reset events; physical cause
-remains unproven. Reason-coded PID diagnostics and deterministic clock-order tests
-now pass in isolation; they are also source-only. Next: separately admitted grounded
-deployment and read-only diagnostic coverage checks, not another flight.
-No retry or flight qualification; ordinary flight remains paused.
-
-1. [Milestones](MILESTONES.md) — current progress, blockers, and priority order.
-2. [Handoff](HANDOFF.md) — dated checkpoints, retained evidence, and immediate
-   technical continuation.
-3. [Goal-to-finish status](docs/scrum-8/end-to-end-status.md) — the boundary between
-   demonstrated live behavior and unproven performance claims.
-
-Use the [core acceptance campaign](docs/core-acceptance.md) and
-[paired comparison](docs/core-comparison.md) for evaluation work, or the
-[command-console runbook](docs/scrum-8/command-console.md) for the live aerial path.
-The remaining SCRUM-era files are supporting design and historical records, not the
-primary tracker.
-
-A modular embodied-reasoning architecture. Perception feeds a persistent semantic
-world model, a reasoner plans over symbols, a deterministic verifier gates every
-action, and a VLA policy converts verbs into motion.
-
-**The deliverable is a reproducible benchmark and reference architecture — not a robot
-demo.** The research question is whether an explicit world model, predictive planner
-and independent safety verifier measurably improve task success, recovery and safety
-over end-to-end VLA control.
-
-```text
-qualitative goal -> GUI -> semantic RRM -> capability/embodiment route
-                                      -> embodiment adapter and numeric grounding
-                                      -> independent safety/admission -> actuation
-                                      -> observation/effect check -> replan or finish
-```
-
-Safety is not a drone-specific layer and the manipulation fixture is not part of the
-Iris/PX4 robot. Each aerial, ground, or manipulation adapter owns its geometry,
-controller limits, and safe-state evidence behind the same independent admission
-contract. Current measured scope and gaps are summarized in
-[goal-to-finish performance status](docs/scrum-8/end-to-end-status.md).
-The proposed continuously learned body/capability model is specified separately in
-[Learned embodiment architecture: RRM-EM](docs/embodiment-learning-architecture.md).
-It is a research direction, not a claim about the current implementation.
+The [RRM-EM proposal](docs/embodiment-learning-architecture.md) describes advisory
+embodiment learning; it does not establish online learning or cross-robot results.
 
 ## Run it now — no GPU, no models, no Isaac Sim
 
@@ -951,14 +663,16 @@ The two-GPU RRM workflow is
 one GPU is the existing Isaac workspace and one is a private warm Cosmos worker. It
 uses the published workspace image that performs epoch reconciliation and clones
 `ore_proj`, so its committed `ISAAC_SIM_IMAGE` digest keeps the inner Isaac runtime on
-NumPy 1.26.4. Its tasks are in one OSMO workflow group, so the workspace receives the internal worker URL
+NumPy 1.26.4. Its tasks are in one OSMO workflow group, so the workspace receives the
+internal worker URL
 through `RRM_COSMOS_WORKER_URL`; port `8090` must not be port-forwarded to a browser.
 
-The branch workflow pins the entity-capable worker digest published as
-`airlab-docker.andrew.cmu.edu/airstack/airstack-rrm-cosmos-worker:rrm-entities-20261008-4db36377`.
-Use the updated YAML on the machine submitting the workflow; existing workflows
-retain their old worker. See the image README below for digest/build provenance and
-the distinction between routing tests and actual model qualification. Before
+The branch workflow pins the entity-capable worker image at
+`airlab-docker.andrew.cmu.edu/airstack/airstack-rrm-cosmos-worker@sha256:6a6f1ea7233003a2e44c05b32041832a61af8a5957ef37be84c104edd24f2e83`
+(tag `rrm-entities-20261008-4db36377`). Use the updated YAML on the machine submitting
+the workflow; existing workflows retain their prior worker. See the image README below
+for build provenance and the distinction between API-routing tests and model
+qualification. Before
 submitting, accept the Cosmos model terms in Hugging Face and create the user-owned
 OSMO generic credential `rrm-huggingface-read` described in
 [`osmo/cosmos-worker/README.md`](../../osmo/cosmos-worker/README.md). At every new
@@ -1024,10 +738,11 @@ the terminal remain valid. Capture a fresh observation after any external change
 ```
 
 **Remotely (via OSMO workflow):**
-For the active two-GPU Cosmos workflow, use the `airstack-live-replan.yaml` command
-above. The one-GPU `airstack-dev.yaml` workflow remains valid for ordinary development,
-but a direct environment override must use the resolved Pegasus key `Office`, not the
-catalog shortname `office`. Submit it from a local/authenticated OSMO control terminal,
+For the active two-GPU Cosmos workflow, use the branch-scoped,
+image-pinned `airstack-live-replan-ore-proj.yaml` command above. The one-GPU
+`airstack-dev.yaml` workflow remains valid for ordinary development, but a direct
+environment override must use the resolved Pegasus key `Office`, not the catalog
+shortname `office`. Submit it from a local/authenticated OSMO control terminal,
 not from inside a Remote-SSH workspace:
 
 ```bash
@@ -1185,7 +900,7 @@ Four things that will bite otherwise:
   cannot parse language. When a learned reasoner trails it, the gap is reasoning; when
   it fails, the bug is elsewhere.
 
-## Status
+## Original prototype status
 
 | | |
 |---|---|

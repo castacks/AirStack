@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 import json
+import math
 import re
 from typing import Any, Mapping
 
@@ -21,6 +22,27 @@ from .state_contracts import FactEvidence, FactKey, FactProvenance, StateSnapsho
 
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _VISUAL_PREDICATES = frozenset({"exists", "kind", "localized"})
+VISUAL_PROMPT_REVISION = "visual-claims/v3"
+
+
+def visual_output_schema() -> dict[str, Any]:
+    """JSON Schema for the prompt, not constrained decoding or a truth oracle."""
+    return {
+        "type": "object", "required": ["status", "claims"], "additionalProperties": False,
+        "properties": {
+            "status": {"enum": ["READY", "NEEDS_CLARIFICATION"]},
+            "claims": {"type": "array", "items": {
+                "type": "object", "required": ["subject", "predicate", "obj", "truth"],
+                "additionalProperties": False,
+                "properties": {
+                    "subject": {"type": "string"},
+                    "predicate": {"enum": ["exists", "kind", "localized"]},
+                    "obj": {"type": ["string", "null"]},
+                    "truth": {"enum": ["TRUE", "FALSE", "UNKNOWN"]},
+                },
+            }},
+        },
+    }
 
 
 class VisualCandidateStatus(str, Enum):
@@ -119,18 +141,47 @@ def render_visual_prompt(context: VisualGroundingInput) -> str:
     catalog = [{"id": entity_id, "kind": kind}
                for entity_id, kind in sorted(context.entity_catalog.items())]
     return "\n".join((
-        "You are a visual world-building component for a body-agnostic robotics reasoning model.",
-        "Inspect the supplied image or video. Use only the entity IDs and kinds in the catalog.",
-        "Do not invent an entity ID, coordinate, safety state, capability, action, plan, or control command.",
-        "Return exactly one JSON object:",
-        '{"status":"READY|NEEDS_CLARIFICATION","claims":['
-        '{"subject":str,"predicate":"exists|kind|localized","obj":str|null,'
-        '"truth":"TRUE|FALSE"}]}.',
-        "For READY provide one or more claims. For NEEDS_CLARIFICATION provide no claims.",
-        "For predicate kind, obj must equal the catalog kind for that entity. For exists and localized, obj is null.",
-        "Entity catalog follows:",
+        "Inspect the supplied image or video and report catalog-bound visual evidence, not actions.",
+        f"Output contract revision: {VISUAL_PROMPT_REVISION}",
+        "For EACH confidently recognized entity, return TWO TRUE claims: exists with obj null, and kind with obj equal to its exact catalog kind.",
+        "Use only actual catalog IDs/kinds. Catalog membership is not image evidence.",
+        "Not seeing an entity does not prove absence: use UNKNOWN or request clarification, never FALSE from absence from view.",
+        'If no entity can be confidently recognized, return {"status":"NEEDS_CLARIFICATION","claims":[]}, not READY with empty claims.',
+        "A 2-D image is not physical localization: do not claim localized TRUE without physical localization evidence.",
+        "Do not invent coordinates, safety states, capabilities, actions, plans or control commands.",
+        "FORMAT EXAMPLE ONLY (fictional catalog/image, not evidence for the supplied image):",
+        'If a fictional catalog maps demo_ball to violet ball and that ball is clearly recognized, output:',
+        '{"status":"READY","claims":[{"subject":"demo_ball","predicate":"exists","obj":null,"truth":"TRUE"},{"subject":"demo_ball","predicate":"kind","obj":"violet ball","truth":"TRUE"}]}',
+        "Do not copy demo_ball or violet ball unless they occur in the actual catalog and are supported by the actual image.",
+        "Return only one JSON object, no Markdown or commentary. Every claim must contain subject, predicate, obj and truth. For exists/localized obj is null. Schema:",
+        json.dumps(visual_output_schema(), sort_keys=True, separators=(",", ":")),
+        "ACTUAL ENTITY CATALOG:",
         json.dumps(catalog, sort_keys=True, separators=(",", ":")),
     ))
+
+
+def complete_visual_identities(snapshot: StateSnapshot, *, entity_catalog: Mapping[str, str],
+                               now_monotonic_s: float, require_localized: bool = False) -> tuple[str, ...]:
+    """Qualify candidate fact completeness, not visual truth or motion authority.
+
+    Catalog membership supplies allowed IDs/kinds, never missing evidence. Unknown,
+    false, contradictory or expired facts cannot satisfy a positive qualification.
+    A model's localized claim remains a claim, not independent physical verification.
+    """
+    if type(now_monotonic_s) not in (int, float) or not math.isfinite(now_monotonic_s) or now_monotonic_s < 0:
+        raise ValueError("invalid visual qualification clock")
+    if not entity_catalog or any(not isinstance(key, str) or not isinstance(kind, str)
+                                 or not key.strip() or not kind.strip()
+                                 for key, kind in entity_catalog.items()):
+        raise ValueError("invalid visual qualification catalog")
+    identified = []
+    for entity, kind in sorted(entity_catalog.items()):
+        keys = [FactKey(subject=entity, predicate="exists"), FactKey(subject=entity, predicate="kind", obj=kind)]
+        if require_localized:
+            keys.append(FactKey(subject=entity, predicate="localized"))
+        if all(snapshot.resolve(key, now_monotonic_s=now_monotonic_s) is Truth.TRUE for key in keys):
+            identified.append(entity)
+    return tuple(identified)
 
 
 def _extract_json_object(raw_response: str) -> dict[str, Any]:
@@ -178,6 +229,9 @@ def parse_visual_candidate(raw_response: str, context: VisualGroundingInput) -> 
         return _rejected(context, raw_response, VisualCandidateStatus.REJECTED,
                          f"malformed_model_json:{error}")
     status_value = value.get("status")
+    if not isinstance(value.get("claims"), list):
+        return _rejected(context, raw_response, VisualCandidateStatus.REJECTED,
+                         "visual_claims_must_be_explicit_array")
     if status_value == "NEEDS_CLARIFICATION":
         if value.get("claims", []):
             return _rejected(context, raw_response, VisualCandidateStatus.REJECTED,
@@ -197,6 +251,8 @@ def parse_visual_candidate(raw_response: str, context: VisualGroundingInput) -> 
         for claim in claims:
             if not isinstance(claim, dict):
                 raise ValueError("claim_must_be_object")
+            if not {"subject", "predicate", "obj", "truth"}.issubset(claim):
+                raise ValueError("claim_missing_required_fields")
             subject = claim["subject"]
             predicate = claim["predicate"]
             obj = claim.get("obj")

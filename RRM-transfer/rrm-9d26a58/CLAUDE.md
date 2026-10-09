@@ -1,4 +1,6 @@
-> **SCRUM-8 continuation (2026-09-13):** Read the [current allocation, contracts and verification status](docs/scrum-8/README.md). The material below records the original prototype; its hardware/model prescriptions and oracle-ceiling claims do not override the Phase 1 baseline. Existing mock passes are not SIL compliance.
+> Historical prototype guidance. Current [architecture/contracts](docs/scrum-8/README.md)
+> govern the design; [WORK_PHASES.md](WORK_PHASES.md) is a revisable roadmap.
+> Prototype phase numbers, hardware/model choices and mock results retain their historical scope.
 
 # RRM-1 — context for Claude Code
 
@@ -10,9 +12,9 @@ question is whether an explicit world model, predictive planning and an independ
 safety verifier measurably improve task success, recovery and safety over end-to-end
 VLA control.
 
-Read `docs/architecture.md` (design + decisions on record) and `docs/benchmarks.md`
-(tasks, metrics, reproducibility rules) before proposing changes. Those are the source
-of truth; this file exists so you do not re-derive them.
+Read `docs/scrum-8/architecture.md` and `docs/scrum-8/interfaces.md` for current
+allocation and contracts. `docs/architecture.md` and `docs/benchmarks.md` retain
+prototype design, benchmark definitions and reproducibility history.
 
 ## Commands
 
@@ -79,7 +81,7 @@ Target: AWS `g5.2xlarge` / Brev A10G — **22.35 GiB usable VRAM**, 8 vCPU, 32 G
 | Reasoner precision | **INT4 required.** bf16 is ~8 GB and will not fit |
 | FP8 | **unavailable** — A10G is Ampere sm_86; FP8 needs Ada/Hopper |
 | Embodiment | **`LIBERO_PANDA`** — GR00T fine-tuning needs 40 GB+, so use a pre-registered one |
-| Perception | **Isaac Sim ground truth through Phase 5** — no VRAM for detector + depth, and it isolates the reasoning variable |
+| Perception | **Isaac Sim ground truth through prototype Phase 5** — no VRAM for detector + depth, and it isolates the reasoning variable |
 | vLLM | cap `--gpu-memory-utilization 0.15`; the 0.9 default takes ~20 GiB |
 | Weights | must land on storage surviving stop/start — `setup_instance.sh` probes for it |
 

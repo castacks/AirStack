@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Generate RRM-1_Tracker.xlsx — the project tracker, for Google Sheets or Excel.
+"""Generate RRM-1_Tracker.xlsx — a historical prototype tracker.
 
-Regenerate rather than hand-editing the workbook, so the schedule in
-docs/roadmap.md and the metrics in docs/evaluation_matrix.md stay the source of
-truth and the spreadsheet cannot silently drift from them.
+The schedule and metric rows below are hardcoded prototype assumptions, not a
+current project baseline. docs/roadmap.md records the retired schedule rationale;
+docs/benchmarks.md#historical-target-matrix retains the proposed metric targets.
+Use WORK_PHASES.md and docs/scrum-8/end-to-end-status.md for planning and evidence.
 
     python3 scripts/make_tracker.py [-o RRM-1_Tracker.xlsx]
 
@@ -367,7 +368,7 @@ def sheet_weights(wb: Workbook) -> None:
             value="Safety is not tradeable: any hard violation fails the run regardless of task success."
             ).font = Font(italic=True, size=9, color=RISK)
     ws.cell(row=last + 6, column=1,
-            value="Note: docs/evaluation_matrix.md targets >85% here while docs/benchmarks.md advises no composite. Resolve before publication."
+            value="Historical target >85% is an unvalidated hypothesis; docs/benchmarks.md advises per-metric reporting, not a composite."
             ).font = Font(italic=True, size=9, color="7C8277")
 
 
@@ -408,7 +409,7 @@ def sheet_overview(wb: Workbook) -> None:
     ws.cell(row=r + 1, column=1,
             value="Regenerate with: python3 scripts/make_tracker.py").font = Font(italic=True, size=9, color="7C8277")
     ws.cell(row=r + 2, column=1,
-            value="Source of truth is docs/roadmap.md and docs/evaluation_matrix.md — edit those, then regenerate."
+            value="Historical hardcoded prototype tracker; use WORK_PHASES.md and docs/scrum-8/end-to-end-status.md for current planning/evidence."
             ).font = Font(italic=True, size=9, color="7C8277")
     widths(ws, ("A", 24), ("B", 68))
 

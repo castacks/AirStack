@@ -1,362 +1,64 @@
 # Goal-to-finish performance status
 
-## Retained control diagnosis and visual API compatibility — 2026-10-06 UTC
+As of 2026-10-09. This page summarizes measured scope; [HANDOFF.md](../../HANDOFF.md)
+retains the detailed dated evidence. The six stages in [WORK_PHASES.md](../../WORK_PHASES.md)
+are a revisable roadmap toward RRM's overall purpose, not a separate requirements baseline.
 
-Retained recovery trace identifies a source-backed precursor to the pre-LAND dip:
-tracking TF rejection (4096) at LAND−4.2823 s resets PID integrals and emits idle
-thrust 0.71, clearing the prior vertical integral contribution ≈0.0916; lower thrust
-appears downstream before the dip. The next rejection is ODOM_BEFORE_ACTIVATION (32),
-following reset of activation history. All 185 tracking receipts in the preceding
-12 s retain a 1 m height reference and zero vertical reference. The actual PID log
-confirms a generic transform failure but omits lookup details. TF failure cause and
-counterfactual body causation remain unresolved. Fresh external authority does not
-prove uninterrupted internal controller admission. Independent reviewer corroborates.
+Latest runtime checkpoint: Office's opt-in requestable writer acquires actual
+drone-camera RGB/segmentation pairs; one native pair independently labels both
+markers VISIBLE and passes the assessment pairing gate. Initial native detach crash
+is retained; post-render lifecycle recovery captures/detaches three frames, with
+healthy readiness/GUI and disarmed inactive robot afterward. Same-render bridge clock
+now gives exact ROS stamp/RGB correspondence for three captures without equating
+ReferenceTime. Camera-frame reconciliation corrects a live tilt mistakenly cached as
+authored body rotation and updates stereo offsets to the pinned ZED asset. Latest
+three-frame mounting residual is ~2µm/0.00053°; the mount check passes. Physical-base
+versus ROS map-frame base discrepancy is8.44–8.47cm/1.05–1.06° in this episode;
+world-camera consistency still fails unchanged3cm/2° bounds (~8.4cm/1.06°). Map
+binding remains blocked, console UNKNOWN and seven Office cases PREPARED_NOT_RUN. Same pinned image;
+no learned inference or flight. Native teacher pairing is not learned goal success.
 
-Actual GUI camera-to-private-worker diagnostic contains no teacher facts or dispatch
-request. Worker health is ready, but deployed POST `/v1/verify-entities` returns 404;
-zero successful inference, no perception score. Actual Isaac uses the standard Office
-launcher, not the authored marker fixture; no independent per-frame labels acquired.
-Seven prepared cases remain PREPARED_NOT_RUN. Final live ROS observation confirms
-connected/disarmed/landed, GUI VERIFIED/inactive, readiness 7/7. No flight, gain,
-guard, simulator image or scene changes in this chunk.
+## Demonstrated scope and remaining gaps
 
-Next substantial work: bounded TF lookup diagnostics and reviewed active-authority
-fallback policy; separately align worker entity API/model provenance and marker scene
-with frame-bound teacher acquisition, then execute scored shadow cases. Stable hover
-and broader robustness remain unqualified. Full recorded LAND coverage still stands.
-
-
-## Current continuation — 2026-10-06 EDT
-
-Recovery-aware capture and bounded canonical-state reacquisition pass 76 tests and
-independent review. Grounded final-source rollover verifies four overlapping control
-segments and 574 exact clock windows. Actual GUI completes TAKEOFF/NAV1/NAV2, stops
-moving NAV3 and withholds later actions; separate LAND verifies in 11.619 s with its
-whole recorded action covered by 99 physical samples and all 18 control streams.
-Live session retains 1,854 physical samples, 1,852 exact clock comparisons and two
-explicit pending tails. Later 1.046 s rollover gap is outside LAND. Final GUI inactive,
-vehicle disarmed/landed, capture COMPLETE, readiness 7/7.
-
-A substantial predispatched body-height excursion (1.019 →0.569 →0.878 m) has no
-established cause despite fresh inputs and persistent OFFBOARD/authority. Stable hold
-and broader robustness stay open. Next: retained controller/reference diagnosis before
-more flight, alongside a teacher-labeled proposal-only visual pilot. Seven visual cases
-are PREPARED_NOT_RUN; no perception accuracy claim. Preserve guards and provenance.
-See [HANDOFF.md](../../HANDOFF.md) and [vision protocol](vision-evaluation-protocol.md).
-
-### Previous complex GUI mission checkpoint — 2026-10-06 EDT
-
-An actual GUI six-action Office mission completes VERIFIED: takeoff 1 m, four
-relative 0.5 m navigation legs, then land. Two moving STOP trials during NAV1/NAV3
-halt and withhold later actions; each interrupted mission stays HALTED. Separate
-one-action LAND tasks verify once, and fresh final ROS/PhysX confirms grounding.
-Both separate LAND descents remain unqualified across harness raw-capture gaps of
-54.175/85.850 s. LAND2 first rejects missing canonical vehicle state before dispatch,
-then the same unconsumed plan admits once after fresh observation; no action retry.
-
-Unchanged source, image, planner and Office epoch retain 4,085 physical records,
-4,079 exact within-segment clock comparisons and six explicit final pending tails.
-No physical cap truncation or timing/retention error. Existing 55 tests apply to
-unchanged instrumentation; independent review checks plans and behavioral evidence.
-Final GUI is VERIFIED/inactive, readiness 7/7, vehicle disarmed/landed, recording
-disabled. Next: recovery-aware capture/admission orchestration, grounded validation,
-then full descent coverage. Preserve the 0.5 s guard and candidate provenance.
-See [HANDOFF.md](../../HANDOFF.md).
-
-### Previous completed sampling checkpoint — 2026-10-06 EDT
-
-Completed sampling-loop retention and timestamped maxima pass 55 tests, independent
-review, actual GUI reload and readiness 7/7. The grounded comparison retains 44,361
-control events/18 streams and 1,525 physical records. All 1,524 preceding sampling
-loops deliver complete snapshot/encode/write tails; the final tail is explicitly
-pending completed. All clock windows agree exactly, with zero timing/retention
-errors. No large pause recurs. Span-start attribution separates comparison maxima
-from outside-window events; no total-overhead bound or prior-abort cause follows.
-The larger payload remains below 64 MiB here; future warmed comparisons need shorter
-windows or bounded segments. Next: unchanged-source warmed observation with byte
-margin. Final state is disarmed/landed, mission inactive and capture disabled.
-Preserve the 0.5 s guard and uncommitted candidate provenance.
-See [HANDOFF.md](../../HANDOFF.md).
-
-A fraction-preserving Pegasus clock candidate passes 22 tests and two actual
-Office GUI grounded reloads, both readiness 7/7. All 549 comparison windows
-match counter-plus-remainder to observed duration; integer quantization stays
-below 1 µs. The child patch is uncommitted and requires publication/pinning for
-reproduction from clean checkouts. No new flight qualification. Next is bounded GUI
-mission/stop/recovery testing; acquisition alignment and older collapse remain
-open. See [HANDOFF.md](../../HANDOFF.md).
-
-### Previous grounded measurements — 2026-10-05 EDT
-
-Actual grounded physics callback measurement confirms **4.112 ms backend clock
-loss over 41.13 simulation seconds**: all 456 recorded windows exactly match
-per-step microsecond truncation. Six observer plus ten recorder tests, independent
-review, real Office GUI reload and readiness 7/7 pass. Maximum capture receipt gap
-was 0.740 s; this is grounded measurement, not flight performance qualification.
-Next is a fraction-preserving clock correction with grounded regression. Older
-collapse causation, epoch/acquisition registration and broader reliability remain
-open. See [HANDOFF.md](../../HANDOFF.md) for source identity and measurement limits.
-
-Read-only raw timing capture now retains PX4 packet timestamp fields alongside
-raw/converted odometry and available timing metadata. Eight tests pass, and the
-reviewer reproduced all 731 unique-position associations with unchanged headers.
-Fresh live GUI/grounded readiness passes 7/7. Clock-origin/acquisition registration
-remains unresolved; approximately 315 ms header/packet differences are not measured
-delay, and absent timing status does not imply zero offset. See [HANDOFF.md](../../HANDOFF.md).
-
-The latest grounded measurement diagnosis adds a tested offline pose comparison.
-Height offsets vary between captures, and receipt-phase timestamps do not establish
-PX4 acquisition alignment. Legacy sensor-state fields are physical sensor inputs,
-not PX4 belief. Fresh Office GUI, grounded capture and readiness 7/7 pass; no new
-flight or timing/control change. See [HANDOFF.md](../../HANDOFF.md) for the next raw-time
-instrumentation step and the retained comparison assumptions.
-
-The 2026-10-05 physical-truth continuation VERIFIED one GUI-reviewed Office
-TAKEOFF 1 m → forward 0.25 m → left 0.25 m → ordinary LAND/disarm replay,
-with navigation errors 0.023108/0.008781 m and no recovery/retry. Direct PhysX
-capture confirms motion and return to rest; physical displacement differs from
-odometry by about 3 cm, with timestamp/phase uncertainty retained. The new opt-in
-AirStack recorder is reviewed, tested and reloaded while grounded; all seven
-readiness gates pass. The older Pegasus diagnostic commit remains unavailable.
-This qualifies one short two-leg replay, not mixed-height/longer reliability,
-collision containment or the older collapse cause. See [HANDOFF.md](../../HANDOFF.md).
-
-Live GUI replay at21:10EDT VERIFIED takeoff1m → forward0.25m → ordinary LAND/disarm,
-navigation endpoint error0.018999m. Scene launch/camera/staging/execution were driven
-through the running browser GUI. All16 control streams were captured for180s;
-658 active PID callbacks were admitted, with no future-tracking rejection while
-armed/control authority was active. No recovery or retry. Unknown-scene presentation
-and implicit initial scene selection are repaired. Earlier collapse causation,
-mixed-height/longer reliability and physical containment remain open.
-
-Latest committed evidence (`e633a658`) records a narrow serial Office takeoff 1 m,
-forward 0.25 m, and ordinary LAND/disarm success with navigation error 0.02198 m.
-The older forward-collapse cause and mixed-height/longer mission qualification
-remain open. The historical paused-flight and source-only deployment checkpoints
-below retain their original dates; they do not describe current deployment.
-
-The current workspace now uses the published NumPy-fix Isaac digest. NumPy 1.26.4,
-seven readiness gates and fresh camera capture are verified. A subscription-only
-control capture observes deployed admission diagnostics while grounded; receipt
-coverage does not establish airborne performance. That initial image-reset step
-dispatched no flight; the later GUI replay checkpoints above report actual flights.
-See [handoff](../../HANDOFF.md) for coverage, observed reasons and limitations.
-
-This page distinguishes a connected software path from demonstrated autonomous task
-performance. The target loop is:
-
-```text
-goal -> GUI -> semantic RRM -> capability route -> embodiment grounding
-     -> independent safety/admission -> actuation -> observation/replan
-     -> independently verified goal or explicit terminal failure
-```
-
-## Core evaluation checkpoint — 2026-10-03
-
-Source-only continuation2026-10-04 02:36EDT: PID callback reason snapshots and
-deterministic clock-order tests pass (11gtests,26lifecycle,6clock phases).30ms future
-tracking/odom inputs yield conservative idle/reset reasons; clock catch-up reactivates
-cleanly. No freshness relaxation. Both diagnostics and armed-aware authority repair
-remain undeployed. Next is separately admitted grounded deployment/read-only coverage,
-not flight. Historical flight lacks these callback reasons; primary cause unproven.
-
-Latest flight checkpoint (2026-10-04 01:49EDT): one reviewed instrumented Office diagnostic
-after actuation/authority deployment failed the0.3m lateral takeoff bound. Armed
-OFFBOARD and lift were observed; ROS takeoff-window maximum altitude estimate0.504m
-and displacement0.326m at outcome. Hold/LAND accepted, ground/disarm independently
-observed, GUI HALTED/inactive. Full180s ROS/PX4 traces retained, no retry. Thrust
-saturated and a sharp downward estimate excursion occurred; OFFBOARD/control
-remained selected after disarm, final integrals0. Next is source-only tracking/
-frame/actuation and mode-lifecycle investigation, not another flight. No nominal
-goal or physical-containment qualification; ordinary flight stays paused.
-
-Source-only continuation2026-10-04 02:09EDT: armed-aware has_control reporting
-passes actual-plugin transition/rearm tests; live interface unchanged. Offline
-correlation verifies PID/cascade/raw thrust consistency and observational ROS/PX4
-state matching with an explicit uncertain clock fit. Early vertical lag and
-candidate future-tracking timestamp resets remain unresolved, not a proved gain
-or plant defect. PID future-stamp rejection/clean reactivation passes19isolated
-phases, plus9gtests. Next: reason-coded admission/idle diagnostics and isolated
-clock-order tests; strict freshness/bounds unchanged, no deployment or new flight.
-
-Prior grounded deployment passed18plugin+21task+45readiness/intent tests. Effective
-scaling1.0 and readiness7/7 were confirmed before this attempt. GUI launch itself
-does not query the gate; routed interface commands do. Historical checkpoints below
-retain their original claim scope and do not override this latest result.
-
-The CPU suite passes 429/429 tests, including 14 simulator dependency preflight and
-launch-admission tests. Console source rechecks the pinned Isaac NumPy profile before
-new non-LAND missions; LAND/STOP recovery remains available.
-The 2026-10-04 candidate image checkpoint supersedes the earlier recreation failure:
-the published Isaac candidate is pinned by manifest digest in this branch's `.env`.
-Recreation retains NumPy 1.26.4; console state is COMPATIBLE/MATCHED and all readiness
-gates pass. An 8-second read-only window received 180 camera frames, 56 raw LiDAR
-clouds and a populated VDB map; the GUI camera capture also succeeds. The vehicle
-was grounded/disarmed at that image checkpoint; no flight had yet been attempted.
-The subsequent 00:15UTC bounded flight checkpoint failed: one GUI 1m takeoff
-violated its vertical-speed bound and physically overshot to2.888m. Predeclared
-recovery LAND independently VERIFIED grounding/disarm; terminal state RECOVERED_HALT.
-Grounded diagnosis confirmed retained vertical PID integral saturating thrust while
-disarmed and an automatic reset path available only for ArduPilot, not current PX4.
-The retained PX4 log shows high thrust during takeoff/after abort, but flight PIDInfo
-is absent; exact initial controller state and full causation remain open.
-PID lifecycle/anti-windup source repair subsequently passed9 unit tests and17
-synthetic phases in isolated ROS domain197, with reviewer clearance. It is now
-deployed to domain1 via mounted source/install and robot-only restart. Two grounded
-readbacks show all integrals0 and baseline thrust0.71 reaching MAVROS; PX4 remained
-disarmed and readiness passes. This does not qualify airborne baseline behavior
-or abort containment. No new flight has occurred.
-Takeoff-envelope failover source now requests immediate LAND and keeps recovery
-observation-only after sent/uncertain handover. Synthetic action tests cover
-authority ordering and cancel/timeout cleanup. This task-node repair is now deployed
-alongside PID via another robot-only restart at02:17UTC; all8 isolated scenarios
-pass, executable hashes match, readiness passes, and grounded readback keeps all
-integrals0/PX4 disarmed. No new flight or physical containment qualification occurred.
-Next is the [instrumented Office plan](office-control-qualification.md).
-The console now has deployed two-stage plan review/execution; a live no-dispatch
-staging check verified saved plan/recovery/hash and retained grounded idle state.
-This is admission plumbing evidence, not a new integrated motion outcome.
-The subsequent single instrumented attempt HALTED/no lift: live MAVROS raw-setpoint
-plugin thrust_scaling=NaN, ignored actuation, no observed OFFBOARD authority. PX4
-auto-disarmed grounded; GUI STOP ended pending takeoff. Complete ROS/PX4 evidence
-is retained. No nominal takeoff/LAND, active PID or abort-containment qualification.
-Grounded config/readiness and observed-authority admission repair is next.
-Ordinary Office flight on this candidate is paused pending qualification, with no
-retry or relaxed bounds. Outer workspace/robot image provenance and wider physics
-qualification remain open. Environment/input recovery and safe terminal grounding
-do not constitute successful goal-to-finish evidence.
-
-T now exports a fixed 17-case
-[acceptance campaign](../core-acceptance.md) with authored event-scoped safety labels
-and a [paired comparison report](../core-comparison.md) over matching, same-source
-campaigns. Every scheduled attempt and unknown outcome remains in reporting.
-Retained v2 runs exposed evidence-write deadline/replay gaps at the short mock
-fixture bounds. Current v3 evidence reconstructs only receipt-proven, adjacent late
-commits; pending/missing/reordered writes remain incomplete. Two retained v3 runs
-each qualified 31/34 attempts and matched 33/34 expectations, preserving one additional
-observed write-liveness failure plus the two intentional trace-loss cases. The latest
-fixture increment moves safety-sidecar disk synchronization from each gate to attempt
-finalization, before worker result publication. Two fresh exports each matched 34/34
-expectations and qualified 32/34 attempts, retaining the two intentional trace-loss
-cases as UNKNOWN. Finalization errors cannot publish completed worker results;
-remaining callback scheduling and storage stalls are still open. This advances
-measurement and reconstruction; it does not add live
-goal-to-finish evidence to the dated assessment below. Comparative architecture/model
-trials and externally adjudicated integrated outcomes remain outstanding.
-
-## Live-path assessment — 2026-09-27
-
-There is not yet enough repeated live evidence to report a meaningful end-to-end
-success rate, latency distribution, or recovery rate. At that checkpoint the dependency-light
-suite passed 279/279 tests; unit and fake-adapter coverage is not a physical-task benchmark.
-
-| Segment | What has been demonstrated | Current limitation |
+| Area | Retained evidence | Limit |
 | --- | --- | --- |
-| Goal -> GUI | Immutable goal/attempt storage, deterministic parsing of a narrow aerial movement grammar, clarification for selected ambiguous forms, and one exact Kuka-Allegro placement goal exposed as a non-executing preview | The hand preview uses a synthetic fixture and a selected block field; arbitrary language and deictic visual grounding are not general |
-| GUI -> RRM | Typed plans, discovered-server checks, numeric provenance, predeclared recovery, evidence display, and persisted `GoalRequest -> route -> C01 -> C04/C05` hand-preview records | The direct execution path remains a deterministic aerial adapter; the neutral hand path ends before numeric feasibility and C06 |
-| RRM -> actuation | Public AirStack task actions only; two consecutive Office GUI takeoff/explore/land missions independently verified all actions with over 2.9 m measured exploration radius | No direct PX4/trajectory authority is intended; warehouse-shelves takeoff failed three fresh regressions; other scenes remain unqualified |
-| Actuation -> replan | Fresh state is reacquired between actions and produces `CONTINUE`, `SKIP_SATISFIED`, or `HALT`; AirStack exploration/navigation planners can publish route updates | RRM currently performs inter-action reconciliation, not general semantic replanning from arbitrary observed divergence |
-| Replan -> finish | Terminal outcomes distinguish `VERIFIED`, `HALTED`, `RECOVERED_HALT`, and `RECOVERY_FAILED`; a failed warehouse takeoff triggered a separately verified recovery landing; uncertain takeoff failures retain supervision for delayed airborne evidence | One recovered failure does not establish a repeated nominal/off-nominal acceptance matrix |
-| Other embodiments | Kuka-Allegro has qualified a bounded calibration action and its C06/C08/C09 boundary in an isolated live fixture; neutral goal routing has CPU coverage | No qualitative hand goal has run through GUI -> reasoning -> `GRASP`/`PLACE` -> observed task completion; rover/mobile-manipulator routes are contracts only |
+| Recovery capture | The 2026-10-06 STOP/fresh-state/separate LAND checkpoint covers the 11.619 s LAND with 99 physical samples and all 18 control streams; final grounding/disarm is verified. | Earlier descents have capture gaps. A later 1.046 s gap lies outside the covered LAND. Assess the complete lifecycle with these boundaries visible; stable hold and broader capture/control reliability remain open. |
+| Visual grounding | Real GUI checks pass. Latest frozen v3 prompt check on the same color-qualified development frames identifies both markers (6.564 s, 2/2 complete identities); blue-absent frame produces valid clarification (3.490 s). Separate teachers and exact prompt/source/raw binding retained; earlier v2 failures remain recorded. | Absent-blue: 0/1 visible identities; no false blue-presence claim, but clarification is not successful orange identification or absence verification. Two development frames and simplified emissive lighting do not establish generalization, Office appearance, uncertainty calibration, localization or live freshness. Temporary services stopped; default worker remains old. Office binding UNKNOWN; seven cases PREPARED_NOT_RUN. Model/dependency/OCI provenance unresolved. |
+| Learned execution | Historical Cosmos proposal/import/public-task integration exists; a learned Office navigation attempt timed out and recovered by landing. Latest frozen INFERRED C02→qualitative inspection probe returns a learned blue-target navigation plan (7.621 s). Capability router reports unsupported INSPECT; adapter holds for missing map binding. | Parser acceptance is not goal/effect correctness: NAVIGATE_TO alone does not implement inspection. No physical feasibility or safety admission, execution or qualitative learned target achievement demonstrated. Frozen replay is not fresh live state. Deterministic movement-parser successes are separate evidence. |
+| Observation/replanning | Fresh-state reacquisition, inter-action CONTINUE/SKIP_SATISFIED/HALT and bounded stop/recovery paths have narrow trial evidence. | General learned semantic replanning under changed targets and execution failures remains unverified. |
+| Comparative evaluation | Mock acceptance, strict replay and matched same-implementation reports exist. Latest retained mock exports each match 34/34 expectations, with 32/34 complete attempts; intentional trace loss stays UNKNOWN. | These are component/instrument results. Matched learned/oracle/baseline/ablation campaigns and defensible integrated distributions remain outstanding. |
+| Embodiment coverage | Neutral contracts/profile routing and isolated Kuka-Allegro calibration, gateway and bounded joint-action evidence exist. | No shared-core semantic GRASP/PLACE task has completed through live reasoning, admission, actuation and verified effects. Other profile declarations are preliminary. |
 
-## Live evidence that bounds the claim
+## Control and measurement questions
 
-- A 2026-09-21 GUI mission took off toward 1.0 m and landed; both task outcomes were
-  independently `VERIFIED`, with 0.182 m takeoff horizontal displacement and a final
-  connected, disarmed, on-ground observation.
-- The learned Office `NAVIGATE_TO` run demonstrated inference, proposal import, public
-  action dispatch, and recovery landing, but navigation timed out after 120 seconds and
-  the target was not achieved. This is a transport/integration demonstration, not a
-  successful end-to-end task.
-- A later 2026-09-24 GUI regression aborted takeoff after exceeding its 0.30 m lateral
-  bound. During recovery the vehicle climbed to 4.076 m despite a 1 m request, then
-  landed grounded/disarmed. The terminal state was `RECOVERED_HALT`, not task success.
-- A 2026-09-26 instrumented regression (`ba6d25fa`) completed takeoff/land with both
-  actions `VERIFIED`, but MCAP bag analysis revealed 0.65 m X-drift during the mission.
-  Root cause: the trajectory controller's sphere-intersection algorithm advanced the
-  tracking point to z=1.0 in ~3.5 s while the drone was still on the ground (z=0.017).
-  The Sep-24 4.076 m climb is now confirmed to have been caused by this same
-  tracking-ahead phase: when lateral abort fired, the old landing code started from the
-  stale tracking point rather than fresh odometry. Fixes applied: `sphere_radius`
-  reduced 1.0→0.3, `velocity_sphere_radius_multiplier` 1.0→0.5, and landing trajectory
-  bounded to `-(altitude + 1.0)` instead of −10000.
-- A subsequent 2026-09-26 verification flight (`949b6027`) successfully completed
-  the 1.0 m takeoff and landing with both actions `VERIFIED`. Takeoff horizontal
-  displacement dropped from 0.65 m to **0.005 m**. The z=-9999 issue is resolved.
-  This clears the Office baseline; it does not qualify every Isaac catalog scene.
-- A later 2026-09-26 `warehouse-shelves` mission (`a0ae6283`) failed takeoff after
-  1.226 m horizontal displacement. Its terminal action observation was armed at
-  z=-0.362 m, so immediate recovery correctly refused a blind landing; the simulator
-  then evolved to a consistent armed/airborne state after the mission process had
-  exited. The vehicle was reset grounded/disarmed without claiming mission success.
-  The mission supervisor now persists a post-failure monitor, requires two consecutive
-  fresh connected/armed/airborne observations above 0.3 m, and only then sends the
-  predeclared recovery landing. Two consecutive fresh grounded/disarmed observations
-  terminate safely without dispatch; unresolved evidence becomes explicit
-  `RECOVERY_FAILED`. The exact delayed-ascent sequence is covered deterministically,
-  but **Warehouse aerial flight remains paused pending a new qualified regression**.
-- A subsequent Office goal (`92b3863e`) took off and landed, but its 30-second
-  exploration action moved at most 0.107 m from its start. The action's timer returned
-  success, causing a false `VERIFIED` mission label. The exploration action and RRM
-  verifier now require at least 0.5 m of independently observed horizontal excursion;
-  NavigateTask completion now uses physical odometry and the random-walk endpoint
-  tolerance is 0.5 m instead of 3 m. These changes compile and pass unit tests but
-  had not yet produced a qualified exploration flight at that checkpoint.
-- The next bounded Office regression (`719298f1`) never reached exploration: takeoff
-  aborted for lateral drift, with 0.574 m measured horizontal displacement at the
-  terminal observation. Fresh state remained armed with contradictory low-altitude
-  airborne evidence, so the monitor refused a blind landing and the simulator was
-  reset. Office aerial execution was paused at that checkpoint.
-- A later candidate controller limits the virtual tracking point to 0.5 m from
-  physical odometry, rather than the previous 1000.5 m. A landing-stall fallback
-  requests PX4 `AUTO.LAND`, and successful disarm returns PX4 to `AUTO.LOITER`.
-  Two consecutive Office takeoff/land missions (`office-repeat-b713f6cb` and
-  `office-second-c59d7189`) passed independent verification without a restart;
-  takeoff horizontal displacement was 0.170 m and 0.028 m. This re-establishes a
-  **narrow Office takeoff/land baseline** at that checkpoint.
-- A new warehouse-shelves GUI takeoff/explore/land attempt (`2bb8476f`) failed
-  takeoff before exploration, with observed altitude −4.65 m and 1.35 m lateral
-  displacement. The stage contains a second `PhysicsScene` absent from Office.
-  Preserving the World scene and disabling the duplicate did **not** fix the fall:
-  a second attempt (`f63e0584`) reached −4.86 m. An explicit test collision slab
-  altered the failure but did not qualify flight; a third attempt (`eec771ba`)
-  failed takeoff at −1.10 m, with recovery landing independently verified.
-  The slab was removed. Warehouse aerial execution remains **paused**. The GUI
-  was returned to Office after these tests.
-- Two 2026-09-27 Office GUI missions (`3c14d513` and `202ab815`) requested
-  takeoff, 15 s of exploration, then landing. Each independently verified all
-  three actions and the mission terminal status was `VERIFIED`. Exploration
-  reached maximum horizontal radii of **2.981 m** and **2.915 m**, respectively,
-  compared with the earlier 0.107 m false success. The second ran immediately
-  without a restart. PX4 ended connected, disarmed, and in `AUTO.LOITER`.
-  This qualifies the bounded Office deterministic command path for this goal;
-  it does not qualify warehouse or general semantic replanning.
-- The hand Gate 4/5 fixture exercises only an authenticated, bounded joint calibration
-  action. It explicitly does not authorize semantic `GRASP` or `PLACE` execution.
+The retained pre-LAND height excursion remains unresolved. A tracking TF rejection
+reset PID integrals and emitted idle thrust before the dip; the TF cause and
+counterfactual physical causation are not established. The source has bounded TF
+lookup diagnostics; their current deployment must be checked before drawing new
+controller conclusions. Fresh external authority alone does not establish
+uninterrupted internal controller admission.
 
-## Meaning of "finish"
+Earlier failed takeoffs, nominal replays, STOP trials and clock/pose measurements
+remain in the [handoff](../../HANDOFF.md). Their source/image/epoch and raw-capture
+limits matter: receipt timestamps do not prove sensor acquisition alignment, and
+odometry is not independent physical truth. Passing dependency/readiness checks
+does not establish scene physics or flight robustness.
 
-`SUCCEEDED` from an action server is not enough. A mission finishes successfully only
-when fresh independent observations establish the requested semantic effect. A safe
-landing after a failed mission is successful recovery but remains failed task
-completion. Unknown evidence produces an explicit halt, never inferred success.
+## Meaning of finish and performance claims
 
-## Minimum evidence needed for a performance claim
+An action-server SUCCEEDED response is insufficient. Successful task completion
+requires fresh independent evidence of the requested effects. Landing after a
+failed goal can verify recovery while the requested task remains failed.
+Missing, stale or contradictory evidence remains UNKNOWN and blocks unsupported
+success claims.
 
-Run a version-pinned simulator acceptance matrix with exported artifacts and count all
-attempts, including failures:
+A performance claim requires frozen scenarios, source/model/scene/controller identity,
+seeds, complete exported evidence and independent assessment. Include every failed
+or incomplete attempt; distinguish deterministic parsing, learned reasoning,
+route planning and physical execution. Report success/recovery/grounding outcomes
+and latency distributions with their actual coverage and uncertainty.
 
-1. repeated nominal qualitative goals for at least aerial, ground, and manipulation
-   profiles;
-2. ambiguity, unavailable-capability, stale-state, unsafe-route, execution-failure,
-   and stop injections;
-3. per-stage latency, semantic-goal accuracy, dispatch count, independently verified
-   goal success, safe terminal-state rate, and recovery rate;
-4. distinct reporting for deterministic parsing, learned reasoning, route replanning,
-   and physical execution;
-5. immutable manifests containing source, scene, controller, model, seed, and evidence
-   hashes.
-
-Until that matrix exists, the correct characterization is: **strong contract and
-fail-closed component coverage; a narrow partially demonstrated aerial loop; no
-validated cross-embodiment autonomous goal-to-finish performance result yet.**
+Use the [evaluation protocol](evaluation.md), [visual protocol](vision-evaluation-protocol.md)
+and [contract allocation](architecture.md) for the detailed criteria. Current scope
+is strong component coverage and a narrow partially demonstrated aerial loop;
+integrated learned reasoning and cross-embodiment performance remain open.

@@ -21,7 +21,9 @@ import time
 
 from rrm.cosmos_reason2 import parse_cosmos_candidate, render_cosmos_prompt
 from rrm.visual_world_builder import (MediaArtifact, VisualGroundingInput,
-                                      parse_visual_candidate, render_visual_prompt)
+                                      parse_visual_candidate, render_visual_prompt,
+                                      VISUAL_PROMPT_REVISION)
+from rrm import visual_world_builder
 from rrm_cosmos_reason2 import CosmosGenerator, load_context_payload
 
 
@@ -29,6 +31,7 @@ MAX_REQUEST_BYTES = 12 * 1024 * 1024
 HEX_ID = re.compile(r"[0-9a-f]{32}")
 # Freeze the executing worker module's identity at startup, not after source edits.
 WORKER_SOURCE_SHA256 = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+VISUAL_SOURCE_SHA256 = hashlib.sha256(Path(visual_world_builder.__file__).read_bytes()).hexdigest()
 
 
 def decode_request(value: dict) -> tuple[str, int, str, dict, bytes]:
@@ -122,6 +125,9 @@ class CosmosWorker:
             "cycle_id": cycle_id, "step_index": step_index,
             "observation_sha256": observation_sha256,
             "visual_candidate": candidate.model_dump(mode="json"),
+            "visual_prompt_revision": VISUAL_PROMPT_REVISION,
+            "visual_prompt_sha256": hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
+            "visual_world_builder_source_sha256": VISUAL_SOURCE_SHA256,
             "now_monotonic_s": now,
             "inference_wall_s": round(time.monotonic() - started, 3),
             "execution_dispatch": False,
@@ -146,6 +152,8 @@ def make_handler(worker: CosmosWorker):
                     "schema_version": "rrm-cosmos-capabilities/v1",
                     "routes": ["/v1/propose", "/v1/verify-entities"],
                     "worker_source_sha256": WORKER_SOURCE_SHA256,
+                    "visual_prompt_revision": VISUAL_PROMPT_REVISION,
+                    "visual_world_builder_source_sha256": VISUAL_SOURCE_SHA256,
                     "execution_dispatch": False,
                 })
             if self.path == "/healthz":

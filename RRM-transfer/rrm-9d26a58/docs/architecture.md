@@ -1,4 +1,7 @@
-> **SCRUM-8 continuation (2026-09-13):** Read the [current allocation, contracts and verification status](scrum-8/README.md). The material below records the original prototype; its hardware/model prescriptions and oracle-ceiling claims do not override the Phase 1 baseline. Existing mock passes are not SIL compliance.
+> Original prototype design with later core-evidence updates. Current requirements
+> and [SCRUM-8 contracts](scrum-8/README.md) govern the architecture;
+> [WORK_PHASES.md](../WORK_PHASES.md) is a revisable roadmap. Prototype phase numbers
+> and hardware/model choices below are historical; mock passes are not integrated SIL evidence.
 
 # RRM-1 Architecture — Schema and Agentic Reasoning
 
@@ -761,7 +764,7 @@ ReasonerBackend
 
 **Build `ScriptedOracle` first.** Hand-written correct task graphs for the benchmark
 tasks let the world model, safety verifier, grounding, and recovery loop be developed
-and tested with zero model variance. Every failure in Phases 4–6 is then unambiguously
+and tested with zero model variance. Every failure in prototype Phases 4–6 is then unambiguously
 a bug in our code rather than a bad generation. It is also the zero-cost path for CI,
 and it remains the control condition in the §21 comparison permanently.
 
@@ -876,7 +879,7 @@ helps reproducibility claims.
 
 Two consequences, neither optional:
 
-1. **Take perception from Isaac Sim ground truth through Phase 5.** There is no VRAM
+1. **Take perception from Isaac Sim ground truth through prototype Phase 5.** There is no VRAM
    for detector and depth models alongside the rest. This was previously a
    methodological preference (cleaner ablation); it is now also a hard requirement.
 2. **Fall back to SmolVLA (~1–2 GB) if the budget breaks.** The LeRobot harness makes
@@ -924,17 +927,17 @@ And fine-tuning does not fit on this GPU:
 24 GB is short of all of these. LoRA and gradient accumulation are documented
 workarounds and success is reported on 32 GB cards, but the supported path needs 40 GB+.
 
-**Consequence:** choosing an unregistered arm converts the `g6e` upgrade from a Phase 6
-convenience into a Phase 2 blocker. Choosing `LIBERO_PANDA` avoids fine-tuning entirely
-through Phase 7.
+**Consequence:** choosing an unregistered arm converts the `g6e` upgrade from a prototype Phase 6
+convenience into a prototype Phase 2 blocker. Choosing `LIBERO_PANDA` avoids fine-tuning entirely
+through prototype Phase 7.
 
 Dataset trap for later: GR00T reads **LeRobot v2.1** format, while the LeRobot framework
 now records **v3.0**. Any data collection needs a conversion step.
 
 ### 8.1 Upgrade path
 
-The budget above fits Phases 3–5 because perception is Isaac Sim ground truth. **The
-predictable break point is Phase 6**, when the first real detector and depth model add
+The budget above fits prototype Phases 3–5 because perception is Isaac Sim ground truth. **The
+predictable break point is prototype Phase 6**, when the first real detector and depth model add
 2–4 GB and push the total to 19–27 GB. Do not upgrade before then.
 
 | Instance | GPU | vCPU / RAM | $/hr |
@@ -960,9 +963,9 @@ stop/start. Model weights and the Hugging Face cache belong on the EBS root volu
 they must be re-pulled every session — which matters because stopping the instance when
 idle is the main cost control.
 
-For Phases 3–5, take segmentation, depth, and object poses from Isaac Sim ground truth
+For prototype Phases 3–5, take segmentation, depth, and object poses from Isaac Sim ground truth
 and run **no perception models at all**. This isolates the reasoning research from
-perception error, frees VRAM, and makes the Phase 6 introduction of real perception a
+perception error, frees VRAM, and makes the prototype Phase 6 introduction of real perception a
 clean, measurable ablation rather than a confound present from day one.
 
 ## 9. The Isaac Sim seam
@@ -982,7 +985,7 @@ class ActionPolicy(Protocol):
 ```
 
 `observe()` returns semantic belief, so the backend owns the perception step. In
-Phases 3–5 that is a ground-truth shim reading poses directly from the simulator (§8).
+prototype Phases 3–5 that is a ground-truth shim reading poses directly from the simulator (§8).
 
 ### 9.1 Node granularity — start with one node, not six
 

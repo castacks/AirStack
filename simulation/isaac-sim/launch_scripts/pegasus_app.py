@@ -277,6 +277,8 @@ class PegasusApp:
       (e.g. authoring an overhead map camera).
     - ``post_spawn(stage)``      — after all drones spawn (e.g. authoring
       extra scene-level prims such as a mocap interface).
+    - ``post_step()``            — after synchronous world.step returns;
+      graph lifecycle changes must not run inside a physics callback.
 
     Each entry in ``drone_configs`` is a dict:
       ``domain_id`` (required) — ROS 2 domain; also the default vehicle_id
@@ -479,6 +481,10 @@ class PegasusApp:
         pass
 
     def post_spawn(self, stage):
+        pass
+
+    def post_step(self):
+        """Optional post-render hook; default scenes keep their existing behavior."""
         pass
 
     # --- Building blocks ---
@@ -734,6 +740,7 @@ class PegasusApp:
                 observe("mark", "clock_bind", self.clock_observation)
                 world.step(render=True)
                 observe("mark", "world_step", self.clock_observation)
+                self.post_step()
                 if self.physical_truth is not None:
                     try:
                         from contextlib import nullcontext

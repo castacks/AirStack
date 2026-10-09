@@ -1,5 +1,433 @@
 # RRM remote Codex handoff
 
+## Reading this record
+
+This is the detailed dated evidence log. Start with [current status](docs/scrum-8/end-to-end-status.md)
+for the concise assessment and [working roadmap](WORK_PHASES.md) for proposed next
+steps aligned with RRM's overall purpose. Requirements/contracts and verified
+evidence govern the work; the roadmap is revisable. Historical phase/gate numbers
+below retain their original meanings and then-current scope.
+
+## Camera mount/frame reconciliation — 2026-10-09 13:11–13:28 UTC
+
+Actual composed attachment evidence shows renderer/current USD camera agreement and
+USD/PhysX body agreement; the joint's mesh target resolves to the rigid body correctly.
+The sensor-state inverse correction was2.365° although the source Iris `/body` is
+authored identity. Vehicle constructor had cached a live tilt. Cache before Robot
+initialization for fresh prims; actual OmniGraph uses spawn_prim=False, so read the
+selected source USD's authored body frame for that path. Preserve real authored
+rotation compensation. Update both stereo translations to actual ZED5.1 prims:
+left(.06,-.015,.015), right(-.06,-.015,.015). No joint, gain or map-origin fitting.
+
+Final-source three-frame capture retains exact ROS timestamp/RGB binding and native
+teacher pair BOUND_FOR_ASSESSMENT/both VISIBLE. Mount residual~2µm/0.00053° passes
+unchanged3cm/2° bounds. Physical-base vs ROS map-base discrepancy8.44–8.47cm/1.05–1.06°;
+world-camera~8.4cm/1.06° still fails translation. This is an episode-specific frame/
+estimated-pose discrepancy, not a calibrated origin or estimator-error distribution.
+GUI advances480×300 with both markers/no JS errors; readiness24s, connected/disarmed,
+missionIDLE. No inference, flight, new workflow or allocation; GCS/Cosmos/image unchanged.
+Initial diagnostic, intermediate constructor-only reload and final-source reload
+retained; two robot clock recoveries. 19 observer/frame +10 physical +8 renderer +10
+pairing tests pass. Migration must include the uncommitted Pegasus submodule source
+change (base8c7a664…), not only the parent checkout. Map authority remains blocked,
+console UNKNOWN and seven Office cases PREPARED_NOT_RUN. Next link: explicit world/map
+origin and pose binding, not more camera-mount polishing.
+One bounded reviewer finds no material issues; hashes/gates and migration scope agree.
+
+## Office clock pairing / pose separation — 2026-10-09 08:27–08:35 EDT
+
+Pinned bridge source registers an RP-specific IsaacReadSimulationTime annotator.
+Native writer now retains its same-callback clock alongside distinct ReferenceTime.
+All3 fresh captures exactly match ROS image stamp/RGB/frame/dimensions; no fitted
+offset, rebasing or weaker pixel-only association. Actual native pair remains
+BOUND_FOR_ASSESSMENT with both markers VISIBLE. This diagnostic does not wire the
+pair into console admission or mark selected scene MATCHED.
+
+Physical vehicle input and exact-time base→camera/map→base TF separate pose residuals:
+mount1.28cm/2.365°, physical-versus-estimated base3.46–3.48cm/1.30–1.31°, world camera
+4.46–4.49cm/2.67°. Frozen3cm/2° consistency bounds unchanged; mounting rotation and
+world-camera pose still fail. Callback physical reads are not historical rendered
+vehicle state (same simulation time here, sub-nanosecond conversion residual).
+No map fitting, controller changes, teacher coordinates admitted, inference or flight.
+One scoped Isaac restart + robot clock recovery, readiness25s, healthy advancing
+GUI/no JS errors, connected/disarmed missionIDLE. GCS/Cosmos and pinned image unchanged;
+no new workflow/allocation. 14 observer +10 physical +8 renderer +10 pairing tests
+pass; one reviewer finds no material issues. Next link is mounting/frame consistency,
+not more clock fitting or marker/prompt tuning. Seven Office cases PREPARED_NOT_RUN.
+
+## Requestable Office camera assessment — 2026-10-09 07:45–08:09 EDT
+
+Existing Office launcher adds semantic identity/kind and an opt-in request-triggered
+writer on the actual drone-left render product. Three frames/15 wall seconds per
+fresh ID, exclusive output, same-callback RGB/segmentation/camera parameters/native
+ReferenceTime; no teacher coordinates sent to a model. Idle writer detached.
+Initial capture writes three frames, then OmniGraph crashes during physics-callback
+detachment. Failure retained; graph lifecycle moved to optional post-world.step hook.
+One bounded recovery loads it, captures/detaches three frames and remains healthy
+through subsequent GUI checks. Each Isaac restart required robot clock recovery;
+final readiness passes22s, ROS connected/disarmed, missionIDLE, GUI advances/no JS errors.
+Same pinned image, no new workflow/allocation, GCS/Cosmos untouched, no inference/flight.
+
+Recovery native pair passes existing assessment gate with both markers VISIBLE and
+independent semantic regions. This is actual Office camera evidence, not the earlier
+isolated fixture, but it is not learned grounding success. All three RGB rasters have
+unique exact ROS pixel matches at differing stamps (~9.33s native-minus-ROS); clocks
+are retained separately, not rebased. Pixel-only diagnostic native/ROS camera poses
+disagree7.0–7.1cm/2.60–2.61° against frozen3cm/2° bounds. Exact-time pairing/alignment
+remain blocked; console UNKNOWN and all seven Office cases PREPARED_NOT_RUN.
+Native stage pose reads are callback-phase observations, not historical render poses.
+10 new observer tests +8 renderer +10 pairing regressions pass; new test discovered
+by root unit collector. No production acceptance/safety gate bypass or plan proposal.
+
+## Approved Office activation — 2026-10-09 02:31–02:42 EDT
+
+After explicit user approval, recreated only inner Isaac with existing Office marker
+launcher, scene Office/scale1 and the same pinned image (image ID dfe91…; OCI config
+digest3e08…). No new workflow/GPU allocation or flight. Office asset/material startup
+took about five minutes; retained the first attempt rather than restarting repeatedly.
+Readiness then rejected the old robot clock epoch as expected. One robot restart
+restored all readiness gates in34 s; GCS and Cosmos primary service were untouched.
+
+Opt-in bounded stage observer reuses the launcher's post_spawn hook. Two retained
+same-episode samples advance12→64 and read actual active marker IDs/world positions:
+blue(4,0,1), orange(4,-1.5,1), stage metersPerUnit1. No source-coordinate substitution
+or map waypoint construction. Launcher source hash matches the retained snapshot.
+Fresh GUI→Isaac frames advance with matching checksums, both markers visible; no JS
+errors. ROS connected/disarmed AUTO.LOITER, mission IDLE/inactive; post-restart camera
+stamps belong to the new epoch. No inference or goal dispatch in this checkpoint.
+
+Runtime Office activation is verified, but camera-frame teacher pairing and map
+alignment remain unverified. The console's selected-scene state remains UNKNOWN and
+live proposals inhibited; it was not manually marked MATCHED. Seven Office evaluation
+cases remain PREPARED_NOT_RUN. Stage observer is not C02 admission or physical safety.
+Syntax/dry-run and native advancing-observer/readiness/GUI checks pass. One bounded
+reviewer finds no material issues; separately migrated evidence closes this checkpoint.
+
+## Frozen qualitative-goal boundary — 2026-10-09 01:58–02:00 EDT
+
+Revalidated the retained v3 image/raw C02 facts and used only INFERRED evidence in
+one C01→Cosmos C04/C05 request: "Inspect the blue marker." No teacher facts, fixture
+poses or synthesized localization. Recorded evidence clock is explicit frozen replay,
+not live freshness. Existing NAVIGATE_TO-only declaration yields UNSUPPORTED for
+required INSPECT; the single learned call is a labeled capability-mismatch probe,
+not a production-routed goal. Absent-blue clarification gates before reasoning.
+
+HTTP200/7.621 s returns schema/evidence-accepted C04/C05 targeting blue with only
+NAVIGATE_TO. Its `inspect($self,blue_marker)` goal is not authored `inspected(blue_marker)`
+and navigation alone does not implement inspection. Local raw reparse and response
+cycle/image binding match; reasoner source hash matches the isolated deployed copy.
+Expected prompt hash retained, but /propose does not return a prompt hash, so rendered
+prompt identity is not independently verified. Adapter returns HOLD/missing_map_binding;
+localized remains UNKNOWN. No typed numeric proposal, physics feasibility assessment,
+safety admission, dispatch or achieved-goal claim. This surfaces a goal/effect mismatch
+despite parser acceptance; no prompt tuning or new adapter is slipped into this check.
+
+23 Cosmos + 8 adapter + 10 goal-contract CPU tests pass. Temporary PID1141 cleanup
+preserves primary PID60; recent GUI evidence reused (no console/scene edits).
+One bounded reviewer finds no material issue with scope, separation or cleanup.
+No production source change, flight, new workflow/GPU allocation or live-scene claim.
+Next meaningful integration needs supported goal semantics and independent live
+target binding, not more tuning of the same two marker frames.
+
+## Frozen prompt-v3 check — 2026-10-09 01:08–01:10 EDT
+
+`visual-claims/v3` makes the two-claim requirement explicit and adds a fictional
+violet-ball example, not scene evidence. Schema, parser, identity qualification,
+cached model and deterministic768 settings stay unchanged. One request per retained
+color-qualified native frame; no recapture, teacher leakage, repair, tuning or retry.
+Exact deployed module/revision/prompt hashes and local raw reparse match. Prompt
+SHA256 `15defd2c5d96e2e2682bfb8f933b252d26eb97603cdad44d6b2ad42044e2dd26`;
+module SHA256 `4be4a21e86f22db37fc7c3f45d3d29bba9e7567f526f417e7855d8e96a34a57d`.
+
+Positive HTTP200/6.564 s: explicit TRUE exists+exact-kind for both markers, 4/4 fact
+matches and 2/2 teacher-supported identities (prior same-frame v2: 0/2). Blue absent
+HTTP200/3.490 s: valid NEEDS_CLARIFICATION/empty claims, no C02 snapshot, 0/1 visible
+identities, no false blue-presence claim. Clarification is a valid non-admission
+outcome, not successful identification of orange or learned absence verification.
+Markdown fences persist and are handled by the existing extractor. Two reused
+development frames do not establish generalization, uncertainty calibration,
+localization, live freshness, Office qualification or readiness for execution.
+
+75 relevant CPU tests pass. Temporary PID960 stopped; primary PID60/8090 available,
+and later GPU query lists only PID60 (17264 MiB). One bounded reviewer finds no
+material issue with example separation, scores, bindings, scope or cleanup.
+No allocation/workflow replacement, model download, scene/console edit, restart or
+flight. The recent GUI→Isaac check is reused, not rerun for this prompt-only change.
+Default service remains old, identity-client changes source-only, Office UNKNOWN
+with seven cases PREPARED_NOT_RUN; model/dependency/OCI provenance unresolved.
+Separately migrated evidence closes this bounded prompt check.
+
+## Combined color/grounding checkpoint — 2026-10-09 00:53–01:00 EDT
+
+One opt-in `emissive-v1` isolated fixture profile was frozen before two native
+captures and two unchanged-v2 requests. Semantic-region hue/saturation/value checks
+pass on both frames: qualifying fractions 91.48% blue/91.56% orange in the positive
+frame, 91.34% orange in the blue-absent frame (frozen minimum90%). Actual prim/paired
+RGB/semantic teachers confirm both VISIBLE versus blue ABSENT/orange VISIBLE.
+This simplified emissive fixture does not qualify Office appearance or lighting.
+
+Both requests return HTTP200 with exact source/prompt/frame binding and local raw
+reparse. Positive: 5.193 s, two accepted presence facts but missing kinds, 2/4 fact
+matches and 0/2 complete identities. Blue absent: 3.326 s, READY/empty claims rejected,
+0/1 visible identities. Zero false blue-presence claims is not absence-handling
+success. No retries, prompt tuning, teacher facts sent or unsupported completion.
+Color qualification did not resolve the failure in these two cases; causation and
+general accuracy remain unestablished. Grounding remains insufficient for execution.
+
+Temporary PID777 stopped after both trials; primary PID60/8090 stays available.
+Later GPU query lists only PID60 (17264 MiB). One bounded reviewer finds no material
+issue with color qualification, teacher separation, scores, bindings or cleanup.
+No new workflow/GPU allocation, model download, live-stage edit, restart or flight.
+GUI→Isaac has advancing checksum-matching frames, no JS errors, IDLE/inactive mission
+and connected/disarmed ROS. 43 visual + 8 renderer + 23 Cosmos tests pass. Default
+worker remains old; live-client identity changes are source-only. Office binding
+UNKNOWN, seven cases PREPARED_NOT_RUN and model/dependency/OCI provenance unresolved.
+Existing evidence record is reused; findings stay in chat, artifacts migrate separately.
+
+## Isolated absent-marker trial — 2026-10-09 00:17–00:20 EDT
+
+`render_teacher_probe.py --absent-entity blue_marker` acquired one native paired
+480×300 RGB/semantic frame in a separate fixture. The blue prim is omitted; callback
+stage observation reports exists=false/ABSENT, region=null. Orange is active/VISIBLE
+with region [64,89,196,211). Missing pixels alone are still UNKNOWN, not absence.
+Fixture ID is `rrm-isolated-marker-render-probe-v1-blue_marker-absent`; native run
+exits 0, one callback, no error. Probe hash matches retained source snapshot:
+`7f8086168b4e369b239c60affa0a18322b6c306346dc1ae231493e1fae7f477c`.
+This is not an Office/drone sensor frame or an active-stage modification.
+
+One temporary v2 worker request receives only RGB and both catalog entries, not
+teacher labels. Source/module/revision/rendered prompt hashes and local raw reparse
+match. HTTP200, 4.034 s inference (4.038 s total); raw READY with empty claims is
+REJECTED as `ready_candidate_missing_claims`. Visible identity: 0/1. Measured-absent
+blue false-positive presence: 0/1, but rejected empty output is not successful
+absence handling or clarification. No C02 snapshot, repair, tuning or retry.
+Absent-claim accounting now distinguishes independently measured ABSENT from UNKNOWN.
+
+Temporary PID526 stopped; original PID60/8090 remains available and later GPU query
+lists only PID60 (17264 MiB). Cached checkpoint, unchanged deterministic/768-token
+settings, no new workflow/GPU allocation, flight or shared worker/Isaac restart.
+Actual GUI camera checks pass with advancing checksum-matching frames and no JS
+errors; IDLE/inactive mission, connected/disarmed ROS. 43 visual + 7 renderer + 23
+Cosmos tests pass; one reviewer finds no material issue. Evidence migrates separately.
+Default console worker remains old, model/dependency/OCI provenance unresolved,
+Office binding UNKNOWN and all seven Office cases PREPARED_NOT_RUN.
+
+Follow-up input audit — 2026-10-09 00:45–00:47 EDT: staged and local inference-helper
+hashes match (`e52dae7a889a4f4ab8879692d56967161f89281ee7a8bd68339f82822298a78c`).
+Exact generate-method replay uses cached Qwen3VLProcessor and a CPU recording stub,
+not a real model. Both original PNG hashes match; pixel tensors are [540,1536] with
+distinct digests, image grids [1,18,30], input length529. No preprocessing delivery
+mismatch was observed in this replay; original generation inputs/attention were not
+recorded and weight revision remains unverified. Worker versions observed:
+Transformers4.57.3/Torch2.9.0+cu128/NumPy2.5.2 (separate from Isaac's NumPy profile).
+The warm marker's dominant colored RGB is approximately (249,217,143), pale gold;
+blue is approximately (162,214,249). Render-color fidelity is a concern, not a proven
+cause of empty output. Qualify fixture appearance before another learned comparison.
+No production change, model load/download, learned trial, restart or flight; GUI
+checks pass and one reviewer finds no material issue. Diagnostic evidence is bundled
+separately; prior learned failures and Office status remain unchanged.
+
+## Identity qualification boundary — 2026-10-09 00:11 EDT
+
+Shared `complete_visual_identities()` requires fresh explicit `exists=TRUE` and
+exact catalog-kind TRUE evidence. Missing/UNKNOWN/FALSE/contradictory/expired facts
+do not qualify; catalog membership cannot supply a missing kind. Live verifier
+client source now adds this requirement to its existing localized-claim check,
+rejecting invalid clocks and task/episode/revision mismatch. This is candidate
+completeness, not independent truth/localization, unique target selection or motion
+authority. Partial C02 facts remain available without being silently completed.
+The updated client is source-only, not reloaded into the running console.
+
+Offline re-assessment of the retained v2 response reports schema acceptance separately
+from candidate and teacher-supported complete identities: still 2/4 fact matches,
+0/2 identities. Candidate kinds cannot override teacher kinds. Zero new inference
+requests. 42 visual + 23 Cosmos tests pass; negative/uncertainty cases are synthetic
+contract checks, not learned scenario results. Actual GUI→Isaac camera/mission
+checks pass; connected/disarmed, IDLE/inactive, unchanged image. One checkpoint
+reviewer finds no material issue. No worker/scene restart or flight; seven Office
+cases remain PREPARED_NOT_RUN. Next measured work needs a separately labeled absent
+or ambiguous-target frame, not another pass over this single positive fixture.
+
+## Temporary deployed visual v2 trial — 2026-10-09 00:00–00:03 EDT
+
+After reload/recovery approval, GPU inspection found 30951 MiB free on the existing
+worker GPU. A separate copy of the worker package ran temporarily on private port8091
+using the cached checkpoint and unchanged 768-token/deterministic generation settings.
+Only the visual module and entrypoint were overlaid; exact deployed source/module,
+`visual-claims/v2` revision and rendered-prompt digest match retained host records.
+The original PID60/port8090 and its files stayed intact. No new workflow/GPU allocation,
+model download, shared-task restart, flight or scene change was needed.
+
+One frozen isolated-render image request returned HTTP200 in 5.203 s (5.207 s total).
+Both `exists=TRUE` facts match separate renderer labels. `kind` facts are absent:
+2/4 exact identity/presence fact matches, 0/2 complete entity identifications. A
+proposal-only INFERRED C02 snapshot is returned; no downstream state admission or
+execution. Markdown fences remain despite prompt instructions; the existing JSON
+extractor handles them. Local raw re-parsing and response/prompt binding agree.
+This one positive frame is not a perception-accuracy estimate, uncertainty/negative
+case evaluation, physical localization or live-freshness proof. The prior malformed
+trial remains retained; no tuning, repair or inference retry followed this attempt.
+
+The temporary PID388 was identity-checked and terminated; the primary API remains
+available, and a later GPU process query lists only PID60 (17264 MiB). Actual GUI
+camera checks retain two advancing checksum-matching 480×300 frames, no JS errors,
+IDLE/inactive mission and connected/disarmed ROS state. 35 visual + 20 Cosmos tests
+pass; one checkpoint reviewer finds no material issue. Model/dependency/worker OCI
+provenance remains unresolved. Actual-launch credential-env sanitization was not
+verified; no credential values were recorded. The staging launcher now removes
+HF_TOKEN for future runs. Source/capture/response/cleanup evidence is bundled for
+migration; this is not a persistent upgrade of the console's default worker.
+
+Earlier worker-only restart concern: OSMO supervises PID60 as the main task and
+CLI restart is workflow-wide; submitted group policy was not verified, so shared
+workspace disruption was a risk, not an observed event. The temporary trial avoids
+that boundary. Office binding remains UNKNOWN and seven cases PREPARED_NOT_RUN.
+Next: freeze a completeness/negative-evidence check; do not infer missing kinds from
+catalog membership or promote this partial result into target achievement.
+
+## Visual prompt contract revision — 2026-10-08 23:14 EDT
+
+Source-only `visual-claims/v2` replaces pseudo-JSON type placeholders with a JSON
+Schema and explicit required claim fields, UNKNOWN/clarification handling and a
+warning against physical localization from 2-D evidence. Parsing remains fail-closed:
+missing fields are rejected, not repaired. This is a prompt-clarity hypothesis, not
+a demonstrated explanation or correction of model behavior. Schema/localization
+instructions are not constrained decoding or an independent grounding guarantee.
+
+Worker source now advertises prompt revision and visual-module digest at startup,
+and retains the actual rendered prompt digest per response. 34 visual + 20 Cosmos
+tests pass, including the real warm-worker method with fake generation; this is not
+a learned trial. One checkpoint reviewer finds no material issue. Actual private
+capabilities still identify the old worker and omit the new prompt/module identity:
+BLOCKED_UNDEPLOYED_PROMPT, zero new inference attempts. Deployment/reload requires
+separate approval; no shared worker, simulator or scene was restarted.
+
+Actual GUI→Isaac checks retain two advancing checksum-matching 480×300 frames, no
+JavaScript errors, IDLE/inactive mission and connected/disarmed ROS state. Image
+identity is unchanged. At this checkpoint the prior 0/2 schema failure was the latest learned
+result; Office binding is UNKNOWN and seven cases remain PREPARED_NOT_RUN.
+
+## Frozen learned grounding pilot — 2026-10-08 23:05 EDT
+
+`rrm/visual_pilot.py` builds image/catalog-only requests with empty prior evidence
+and no execution capabilities. The assessor separately checks the bound teacher
+digest and response identity, locally re-parses raw output and measures accepted
+identity/presence only. Pixel regions do not verify physical localization.
+
+The isolated marker image below produced one HTTP200 learned response in 4.656 s
+(4.662 s total). Raw output named both markers, but `exists` had non-null objects
+and no `truth`; worker and local parser agree on REJECTED with
+`invalid_visual_claim:non_kind_claim_has_object:exists`. Accepted identities: 0/2;
+no C02 snapshot or execution. This is a schema failure, not an accuracy estimate.
+The harness first sent an invalid non-hex cycle ID and received a pre-inference
+HTTP error; that failure is retained. After manual correction/local preflight,
+one model generation ran, with no learned retry or prompt tuning. Eight new tests
+and 29 combined visual regressions pass. Frozen source stamps do not prove current
+freshness; model/dependency/worker OCI provenance remains unresolved.
+
+Actual GUI verification retains two advancing checksum-matching 480×300 frames,
+no JavaScript errors and IDLE/inactive mission. ROS reports connected/disarmed
+AUTO.LOITER, z≈−0.0113 m (odometry, not physical truth). Isaac image is unchanged;
+no flight, scene change or restart. Office binding remains UNKNOWN and all seven
+cases PREPARED_NOT_RUN. Next bounded work: inspect prompt/output-contract failure
+before another explicitly frozen attempt; do not silently repair model facts.
+
+## Isolated render teacher acquisition — 2026-10-08 22:51 EDT
+
+`simulation/render_teacher_probe.py` and `rrm/render_teacher.py` acquired one native
+480×300 RGB image and independent semantic-pixel labels from one Replicator writer
+callback. The static fixture is `rrm-isolated-marker-render-probe-v1`, not Office;
+it has no ROS/PX4/drone. Blue region [284,89,416,211), orange [64,89,196,211),
+both VISIBLE. Render reference is 1531/30 s (integer-truncated stamp 51033333333 ns),
+not a ROS/sensor or callback-time receipt. Image SHA256:
+`164c67c29ee893a4690ef94fdfd4c84b9a581da435b6d6f83bc90a0a2c01207f`.
+Actual prim ID/kind/semantic identity is checked independently of image inference;
+missing labeled pixels remain UNKNOWN, not assumed occlusion or absence.
+
+Native run exits 0 after approximately 62 s under a 180 s cap; one paired callback,
+NumPy1.26.4/Pydantic2.11.7, no candidate inference or score. Renderer reports its
+asset-loading timeout warning; the captured image and both regions are observed,
+not a qualification of all assets. Frozen replay is BOUND_FOR_ASSESSMENT with host
+source hashes verified; it does not establish current freshness. Seven new tests/
+28 combined visual regressions pass; bounded code reviewer finds no material issue.
+
+Separate actual GUI camera check retains advancing checksum-matching 480×300 frames,
+no JavaScript errors and IDLE/inactive mission. ROS is connected/disarmed/AUTO.LOITER,
+z≈−0.0339 m; this is odometry, not new physical truth. Live Isaac PID210, container
+identity/start time and image remain unchanged. The isolated process exits normally;
+no live stage change, stack restart or flight. Office scene binding remains UNKNOWN;
+seven cases remain PREPARED_NOT_RUN. Selected capture, raw mask, teacher/registration,
+source snapshots, logs and GUI evidence are bundled separately for migration.
+
+Next: review integration with the actual Office sensor render product and its epoch;
+then run proposal-only paired scoring. Do not substitute this fixture's labels for
+GUI frames or claim Office-case completion from the isolated probe.
+
+## Frozen visual/teacher pairing checkpoint — 2026-10-08 22:13 EDT
+
+Source-only `rrm/visual_evaluation.py` and `scripts/rrm_validate_visual_pair.py`
+validate supplied fixture registration and independent teacher/frame records.
+Manifest/launcher/exporter identity, episode/revision, exact image/camera/stamp,
+PNG header dimensions, catalog/prim labels, visibility/regions and same-epoch age
+must agree. `BOUND_FOR_ASSESSMENT` is structural binding only, not correct labels,
+decoded pixels, scoring or execution authority. Trusted acquisition/exporter/clock
+remain caller responsibilities; hashes do not authenticate. Existing scorers are
+unchanged and no teacher exporter or fixture activation is deployed.
+
+Ten new contract tests and 21 total visual regressions pass; changed Python compiles
+and whitespace checks pass. One bounded reviewer reports no material issue.
+Actual Chromium GUI checks retain two decoded checksum-matching 480×300 frames,
+simulation stamps 14155369683602 → 14156359683580 ns, no JavaScript errors, only
+GETs/camera POSTs, and IDLE/inactive mission before/after. The new gate blocks this
+image as `fixture_registration_missing`; teacher/assessment epoch are also absent,
+not evaluated as fresh. Read-only ROS observation is connected/disarmed/AUTO.LOITER,
+z≈−0.0435 m, speed≈0.0142 m/s; this is odometry, not independent physical truth.
+Isaac digest remains unchanged; scene binding UNKNOWN. No inference, flight, scene
+edit, restart or runtime deployment. Seven cases remain PREPARED_NOT_RUN.
+
+Next reviewable step: design/activate a controlled fixture and acquire synchronous
+sensor-frame/independent-render labels with verified exporter and epoch identity.
+Do not fill the registration or teacher records from static catalog examples.
+
+## Live visual worker and GUI camera checkpoint — 2026-10-08 18:30 EDT
+
+Current workspace at `ore_proj` / `d329192b` supersedes the earlier entity/capability
+404 checkpoint below. Real Chromium on localhost8787 completed **Check visual
+service** and two **Refresh camera** clicks, displaying decoded 480×300 images with
+matching capture checksums and advancing simulation stamps (2841229936493 →
+2842159936472 ns). No browser JavaScript errors; captured browser traffic contains
+only GETs and the two camera POSTs. GUI mission stays IDLE/inactive and scene binding
+stays UNKNOWN. Its camera view does not establish the authored marker fixture.
+
+The private worker declares `/v1/verify-entities`; entrypoint SHA256
+`f005b6c88ef6e53f4b7b22ead66ed8af8a5fe78eafdf540537a70288cdb9e374` matches
+the local worker source. One diagnostic request used the second GUI image, the
+catalog and an empty C02 evidence snapshot, without teacher facts. HTTP200 arrived
+in 5.548 s (worker-reported inference 5.545 s), with matching cycle/step/image/task
+identity and `execution_dispatch=false`. Raw output was `READY` with empty claims;
+the parser rejected it as `ready_candidate_missing_claims`, with no state snapshot.
+This establishes a working inference API and conservative rejection of this output;
+it establishes neither successful visual grounding nor perception accuracy.
+
+Isaac container inspection records the runtime image ID and configuration using the committed digest
+`sha256:3e08f31c208fb5fd4435d782761f105289903d30debc8bdfaca92349ddb4a49d`;
+GUI dependency preflight reports NumPy1.26.4. Scene environment values are empty.
+Fresh ROS-domain1 observation records connected/disarmed/AUTO.LOITER, 25 odometry
+samples, z≈−0.0227 m and speed≈0.0118 m/s. This is grounded odometry observation,
+not new physical-truth measurement. No task action, scene change or stack restart
+occurred. Browser verification required workspace-local Playwright/Chromium and OS
+browser libraries; runtime container images were unchanged. Image/metadata,
+screenshot, request/response and observation artifacts are retained locally.
+One independent reviewer finds no material issue and confirms the evidence and
+claim limits. Seven targeted service/worker regressions and `git diff --check` pass.
+
+Next reviewable chunk: register the intended marker fixture and independent
+frame-bound teacher acquisition, then run the seven prepared shadow cases. Worker
+entrypoint identity does not prove deployed OCI digest, checkpoint revision or
+dependency identity; those provenance checks remain open. The seven cases remain
+PREPARED_NOT_RUN. Controller deployment/TF diagnosis and stable-hold qualification
+remain separate unfinished work.
+
 ## Entity-capable worker published — 2026-10-08 EDT
 
 Published source-overlay tag `rrm-entities-20261008-4db36377`, digest
@@ -2660,7 +3088,7 @@ qualification tests, the complete dependency-light RRM suite now passes **206/20
 This uses the agreed temporary workflow option; no image publish rights or image
 publication.
 
-Phase-1 manipulation is a **different, isolated Kuka-Allegro embodiment**, never
+Hand-selection gate G1 manipulation is a **different, isolated Kuka-Allegro embodiment**, never
 the aerial Iris/PX4 robot. See
 `docs/scrum-8/hand-embodiment-decision.md`. The proposal-only C01–C05 bridge in
 `rrm/hand_shadow.py` grounds one context-selected block and emits semantic
@@ -3429,7 +3857,7 @@ stack there. This archive contains the RRM source, not AirStack or model weights
 1. Read this handoff and the applicable AGENTS.md in the remote AirStack checkout.
 2. Inspect the actual remote branch, uncommitted changes, containers, and resource
    allocation. Preserve existing work. Do not infer remote state from local findings.
-3. Read the Phase 1 sources below and inspect RRM's existing code. If connectors are
+3. Read the engineering Phase 1 sources below and inspect RRM's existing code. If connectors are
    unavailable, use the requirement transcription below and identify that limitation.
 4. Complete the SCRUM-8 architecture allocation and logical interface contracts before
    adding components or making detailed model/transport/deployment commitments.
@@ -3442,7 +3870,7 @@ Do not send Jira comments or other messages without the user's authorization.
 
 ## User decisions and scope
 
-- Phase 1 is complete in Jira/Confluence: SCRUM-6 / RRM-01 Needs & CONOPS and
+- Engineering Phase 1 is complete in Jira/Confluence: SCRUM-6 / RRM-01 Needs & CONOPS and
   SCRUM-7 / RRM-02 Requirements & Traceability are Done.
 - Next work: SCRUM-8 / RRM-03 System Architecture, last read as To Do.
 - Map every system requirement to architecture responsibilities; define stable
@@ -3464,7 +3892,7 @@ Do not send Jira comments or other messages without the user's authorization.
   integration target is remote. Do not require a local full AirStack setup.
 - Reachy Mini was an aside/reference, not a selected embodiment or scope change.
 
-## Authoritative Phase 1 sources
+## Historical engineering Phase 1 baseline sources
 
 - CONOPS, page 1048599, version 4 when read:
   https://deboabolade.atlassian.net/wiki/spaces/SCRUM/pages/1048599
@@ -3477,7 +3905,7 @@ Do not send Jira comments or other messages without the user's authorization.
 - https://deboabolade.atlassian.net/browse/SCRUM-8
 - Atlassian cloud ID used: 13ecd67f-0309-4e63-838e-f3e1da003e98.
 
-The user's instructions and Phase 1 baseline supersede conflicting prototype choices
+The user's instructions and engineering Phase 1 baseline supersede conflicting prototype choices
 in CLAUDE.md, README.md, docs/architecture.md, requirements.txt comments, and setup
 scripts. Preserve useful design history but distinguish it from current requirements.
 The old repo's phase numbers are not the Jira engineering lifecycle's phase numbers.
@@ -3551,7 +3979,7 @@ python simulation/isaac_backend.py      → relation inference PASS
 The local commands used the existing .venv, which is excluded from the archive.
 Core dependency is pydantic>=2.0. Recreate the environment on the remote machine.
 No Isaac/GR00T/learned-reasoner integration or GPU job has been run here.
-Mock passes do not establish SIL integration or Phase 1 compliance.
+Mock passes do not establish SIL integration or engineering Phase 1 requirements compliance.
 
 ### Gaps and conflicts found before any code changes
 
@@ -3785,7 +4213,7 @@ lists operational RAM <8 GB and models/data storage <100 GB. These are source ta
 to map and assess, not proof that every target applies to the current SIL scenario or
 that the larger OSMO allocation changes an operational requirement.
 
-Next deliverable: source-linked metric → Phase 1 requirement → architecture owner →
+Next deliverable: source-linked metric → engineering Phase 1 requirement → architecture owner →
 scenario/test → measurement definition → acceptance target → evidence mapping.
 Record applicability, measurement start/end boundaries, simulation versus wall-clock
 time, trial counts, and unresolved conflicts. Keep system performance distinct from

@@ -13,11 +13,9 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
-from rrm.contracts import Truth
 from rrm.cosmos_reason2 import CosmosReasoningInput
 from rrm.cosmos_worker_client import _context_payload
-from rrm.state_contracts import FactKey
-from rrm.visual_world_builder import VisualCandidateStatus, VisualGroundingCandidate
+from rrm.visual_world_builder import VisualCandidateStatus, VisualGroundingCandidate, complete_visual_identities
 
 
 class CosmosEntityVerifierClient:
@@ -64,12 +62,18 @@ class CosmosEntityVerifierClient:
             raise RuntimeError("Cosmos entity verifier response is not bound to the active frame.")
         if candidate.status is not VisualCandidateStatus.ACCEPTED or candidate.snapshot is None:
             raise RuntimeError("Cosmos entity verifier did not produce accepted visual evidence.")
-        verified = sorted({item.key.subject for item in candidate.snapshot.evidence
-                           if item.truth is Truth.TRUE and item.key.predicate == "exists"
-                           and candidate.snapshot.resolve(FactKey(subject=item.key.subject, predicate="localized"),
-                                                          now_monotonic_s=now) is Truth.TRUE})
+        if (candidate.task_id != context.task.task_id
+                or candidate.snapshot.task_id != context.task.task_id
+                or candidate.snapshot.episode_id != context.snapshot.episode_id
+                or candidate.snapshot.revision != context.snapshot.revision):
+            raise RuntimeError("Cosmos entity verifier snapshot is not bound to the active context.")
+        try:
+            verified = list(complete_visual_identities(candidate.snapshot, entity_catalog=entity_catalog,
+                                                       now_monotonic_s=now, require_localized=True))
+        except ValueError as error:
+            raise RuntimeError("Cosmos entity verifier returned invalid qualification context.") from error
         if not verified:
-            raise RuntimeError("Cosmos entity verifier proved no localized catalog entity in this frame.")
+            raise RuntimeError("Cosmos entity verifier qualified no complete localized catalog identity in this frame.")
         scene = {
             "source_stamp_ns": metadata["source_stamp_ns"], "observation_sha256": checksum,
             "verified_entities": verified,
