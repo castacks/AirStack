@@ -166,6 +166,7 @@ services:
       # never reaches the launch script, which looks like the script ignoring
       # the mission rather than like a plumbing gap.
       - SPAWN_CONFIGS=${SPAWN_CONFIGS:-}
+      - DISASTER_CITY_USD=${DISASTER_CITY_USD:-}
       - SPAWN_POLY=${SPAWN_POLY:-}
       - SPAWN_SEED=${SPAWN_SEED:-}
       - SPAWN_HEIGHT_M=${SPAWN_HEIGHT_M:-}
@@ -282,6 +283,8 @@ services:
       # repo counts it. Its own mount keeps the artefact and the source apart.
       # Override the host side with FINAL_DATASET_DIR in .env.
       - ${FINAL_DATASET_DIR:-$HOME/SEI-COA/final_disaster_dataset}:/isaac-sim/final_disaster_dataset:rw
+      # Disaster City twin data (scene_gen/disaster_city: its `data` symlink, or DISASTER_CITY_DATA).
+      - ${DISASTER_CITY_DATA:-../../../scene_gen/disaster_city/data}:/isaac-sim/disaster_city_data:ro
 
   # ===================================================================================================================
   isaac-sim-gui:
@@ -453,6 +456,7 @@ services:
       # never reaches the launch script, which looks like the script ignoring
       # the mission rather than like a plumbing gap.
       - SPAWN_CONFIGS=${SPAWN_CONFIGS:-}
+      - DISASTER_CITY_USD=${DISASTER_CITY_USD:-}
       - SPAWN_POLY=${SPAWN_POLY:-}
       - SPAWN_SEED=${SPAWN_SEED:-}
       - SPAWN_HEIGHT_M=${SPAWN_HEIGHT_M:-}
@@ -556,3 +560,5 @@ services:
       # repo counts it. Its own mount keeps the artefact and the source apart.
       # Override the host side with FINAL_DATASET_DIR in .env.
       - ${FINAL_DATASET_DIR:-$HOME/SEI-COA/final_disaster_dataset}:/isaac-sim/final_disaster_dataset:rw
+      # Disaster City twin data (scene_gen/disaster_city: its `data` symlink, or DISASTER_CITY_DATA).
+      - ${DISASTER_CITY_DATA:-../../../scene_gen/disaster_city/data}:/isaac-sim/disaster_city_data:ro
