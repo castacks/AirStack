@@ -802,7 +802,7 @@ function cmd_up {
     fi
 
     log_info "Starting services..."
-    run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" up "${subcmd_args[@]}" -d
+    run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" up "${subcmd_args[@]}" -d || return $?
     log_info "Services brought up successfully"
 }
 

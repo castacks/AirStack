@@ -485,6 +485,10 @@ class Stack:
     def up(self):
         result = self._airstack("up", self.mission["up_timeout_s"],
                                 extra_args=self.services)
+        if result.stdout:
+            log("bring-up stdout:\n" + result.stdout)
+        if result.stderr:
+            log("bring-up stderr:\n" + result.stderr)
         if result.returncode != 0:
             raise RuntimeError(f"airstack up failed (exit {result.returncode}):\n"
                                + "\n".join(result.stdout.splitlines()[-20:])
@@ -1184,6 +1188,20 @@ def snapshot_raven_results(dest_dir):
         f"→ {dest_dir}")
 
 
+def snapshot_simulator_logs(dest_dir):
+    """Isaac runs inside tmux; docker logs alone misses its startup exceptions."""
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    for name in list_containers(all_states=True):
+        if not name.startswith("isaac-sim"):
+            continue
+        r = docker_exec(name, "tmux capture-pane -p -t isaac -S -2000", timeout=15)
+        (dest_dir / f"{name}_console.log").write_text(
+            (r.stdout or "") + (r.stderr or ""), encoding="utf-8")
+        r = sh(["docker", "top", name, "-eo", "pid,args"], timeout=15)
+        (dest_dir / f"{name}_processes.log").write_text(
+            (r.stdout or "") + (r.stderr or ""), encoding="utf-8")
+
+
 def snapshot_container_logs(dest_dir):
     dest_dir.mkdir(parents=True, exist_ok=True)
     pats = ("airstack", "isaac-sim", "ms-airsim")
@@ -1470,6 +1488,7 @@ def transport_snapshot_loop(iter_dir, stop_event, interval_s=5):
         if tick % tee_every == 0:
             try:
                 _copy_tmp_tee_logs(iter_dir / "logs")
+                snapshot_simulator_logs(iter_dir / "logs")
             except Exception as e:
                 log(f"WARN: periodic tee-log copy failed: {e}")
         tick += 1
@@ -1552,6 +1571,7 @@ def run_iteration(stack, mission, iter_dir):
             recorder.collect(iter_dir / "bags")
         if container is not None or list_containers("airstack", all_states=True):
             snapshot_container_logs(iter_dir / "logs")
+            snapshot_simulator_logs(iter_dir / "logs")
             snapshot_task_logs(iter_dir / "logs")
             # Metrics live in the robot ./cache mount, not the bag staging dir —
             # collect them before down() so osmo:fetch includes them.

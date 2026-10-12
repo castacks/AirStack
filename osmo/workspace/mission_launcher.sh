@@ -95,6 +95,7 @@ if ! python3 -c "import yaml" >/dev/null 2>&1; then
 fi
 
 # ── 3. run the mission ─────────────────────────────────────────────────────
+MISSION_RC=1
 MISSION="${OSMO_MISSION_FILE:-}"
 if [ -z "$MISSION" ]; then
   fail "OSMO_MISSION_FILE not set — nothing to run"
@@ -105,7 +106,8 @@ else
     log "running mission: $MISSION_PATH"
     python3 "$AIRSTACK_ROOT/osmo/workspace/mission_runner.py" "$MISSION_PATH" \
       --airstack-root "$AIRSTACK_ROOT"
-    log "mission_runner exited $?"
+    MISSION_RC=$?
+    log "mission_runner exited $MISSION_RC"
   else
     fail "mission file not found: $MISSION (looked under the clone and as an absolute path)"
   fi
@@ -145,7 +147,7 @@ if [ "${OSMO_MISSION_NO_UPLOAD:-false}" != "true" ] \
     if [ "$nas_rc" -eq 0 ]; then
       log "NAS upload OK → ${nas_host}:${NAS_DEST} — tearing pod down (GPU freed)"
       release_osmo_pipe
-      exit 0
+      exit "$MISSION_RC"
     fi
     fail "NAS upload FAILED (rc=$nas_rc) — keeping pod alive for 'airstack osmo:fetch' / SSH debug"
     exec sleep infinity
@@ -162,4 +164,4 @@ if [ "${OSMO_MISSION_KEEP_ALIVE:-true}" = "true" ]; then
 fi
 log "OSMO_MISSION_KEEP_ALIVE=false — exiting so OSMO uploads /osmo/output and frees the GPU"
 release_osmo_pipe
-exit 0
+exit "$MISSION_RC"
