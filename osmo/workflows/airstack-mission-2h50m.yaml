@@ -138,4 +138,4 @@ workflow:
 
   timeout:
     # Five-trial repeats: 2h50m including setup, trials, and NAS upload.
-    exec_timeout: 2h50m
+    exec_timeout: 170m
