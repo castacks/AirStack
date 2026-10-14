@@ -27,7 +27,8 @@ from rrm.authorized_live_mission import (AuthorizedLiveMission, VerifiedLiveStep
 from rrm.continuous_replan import MissionAuthorization
 from rrm.cosmos_entity_verifier_client import CosmosEntityVerifierClient
 from rrm.cosmos_worker_client import CosmosWorkerClient
-from rrm.drone_decision import AirStackDroneDecisionBridge, DroneNavigationTarget
+from rrm.drone_decision import (AirStackDroneDecisionBridge, DroneNavigationTarget,
+                                TargetFrameBinding, TargetBindingAuthority)
 from rrm.dynamic_feasibility import DynamicFeasibilityResult
 from rrm.live_replan import LiveReplanCycle
 from rrm_cosmos_reason2 import load_context
@@ -183,7 +184,8 @@ def _authorization(path: Path) -> MissionAuthorization:
 
 
 def _bridge(manifest: Path):
-    markers = json.loads(manifest.read_text(encoding="utf-8"))["markers"]
+    scene = json.loads(manifest.read_text(encoding="utf-8"))
+    markers = scene["markers"]
     targets = []
     for entity_id, marker in markers.items():
         route = marker.get("map_route")
@@ -198,7 +200,11 @@ def _bridge(manifest: Path):
             waypoints = ()
         if waypoints:
             targets.append(DroneNavigationTarget(entity_id=entity_id,
-                waypoints=waypoints, goal_tolerance_m=0.3))
+                waypoints=waypoints, goal_tolerance_m=0.3,
+                binding=TargetFrameBinding(
+                    frame_id="map", authority=TargetBindingAuthority.FIXTURE_REPLAY,
+                    episode_id=scene.get("scene_id", "manifest-unscoped"), source_ref=str(manifest),
+                    observed_monotonic_s=0, max_age_s=1)))
     return AirStackDroneDecisionBridge(embodiment_id="aerial-eval", robot_name="robot_1",
                                        targets=tuple(targets))
 

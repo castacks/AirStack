@@ -1,6 +1,6 @@
 # Proposed Office frame contract — 2026-10-14 EDT
 
-Status: **design for review; no runtime frame or admission change**. This proposal
+Status: **frame design for review; target provenance gate implemented**. This proposal
 follows the [grounded world/map measurements](world-map-binding.md).
 
 ## What the measurement says
@@ -104,3 +104,11 @@ robot control. A later migration can audit every
 consumer of ROS `world`, decide whether to retire its alias, and validate the full
 stack before altering the shared launcher. None of these steps should promote
 simulator truth to operational authority by default.
+
+The target-provenance slice now requires a live navigation binding to match the
+current episode, `map` frame, a fresh SENSOR localization fact, and a fresh SENSOR
+fact committing to the exact waypoint route hash. The legacy manifest loader
+labels routes `FIXTURE_REPLAY`; the live compiler holds them, and the standalone
+dispatcher refuses a replay-labeled proposal. This is an admission contract,
+not proof that a map localization producer exists yet. The offline importer
+continues to emit a labeled replay proposal for historical evaluation.

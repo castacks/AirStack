@@ -8,6 +8,9 @@ It creates a typed proposal but has no ROS or dispatch dependency.
 
 from __future__ import annotations
 
+import hashlib
+import json
+import math
 import re
 from enum import Enum
 
@@ -16,12 +19,18 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from .airstack_drone import DroneTaskKind, DroneTaskProposal, MapWaypoint
 from .contracts import CapabilityDeclaration, Truth
 from .schema import AbstractAction, Predicate, SELF, Verb
-from .state_contracts import FactKey, StateSnapshot
+from .state_contracts import FactKey, FactProvenance, StateSnapshot
 from .task_contracts import IntentStatus, PlanProposal, PlannedAction, ReasoningResult, TaskRequest
 
 
 _NAVIGATE_OBJECTIVE = re.compile(r"^navigate to ([A-Za-z0-9][A-Za-z0-9_.-]*)$", re.IGNORECASE)
 _AIRFRAME_RESOURCE = frozenset({"airframe"})
+
+
+def map_waypoints_sha256(waypoints: tuple[MapWaypoint, ...]) -> str:
+    """Stable commitment for the exact route supplied to the task adapter."""
+    payload = [point.model_dump(mode="json") for point in waypoints]
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
 class DroneDecisionStatus(str, Enum):
@@ -31,6 +40,32 @@ class DroneDecisionStatus(str, Enum):
     HOLD = "HOLD"
     NEEDS_CLARIFICATION = "NEEDS_CLARIFICATION"
     UNSUPPORTED = "UNSUPPORTED"
+
+
+class TargetBindingAuthority(str, Enum):
+    LIVE_SENSOR = "LIVE_SENSOR"
+    FIXTURE_REPLAY = "FIXTURE_REPLAY"
+
+
+class TargetFrameBinding(BaseModel):
+    """Where target coordinates came from; a claim checked against C02 evidence."""
+
+    model_config = ConfigDict(frozen=True)
+
+    frame_id: str
+    authority: TargetBindingAuthority
+    episode_id: str
+    source_ref: str
+    observed_monotonic_s: float = Field(ge=0)
+    max_age_s: float = Field(gt=0)
+
+    @model_validator(mode="after")
+    def validate_binding(self) -> "TargetFrameBinding":
+        if not all(value.strip() for value in (self.frame_id, self.episode_id, self.source_ref)):
+            raise ValueError("binding frame, episode and source are required")
+        if not all(math.isfinite(value) for value in (self.observed_monotonic_s, self.max_age_s)):
+            raise ValueError("binding times must be finite")
+        return self
 
 
 class DroneNavigationTarget(BaseModel):
@@ -45,6 +80,7 @@ class DroneNavigationTarget(BaseModel):
     entity_id: str
     waypoints: tuple[MapWaypoint, ...]
     goal_tolerance_m: float = Field(gt=0)
+    binding: TargetFrameBinding
 
     @model_validator(mode="after")
     def validate_target(self) -> "DroneNavigationTarget":
@@ -91,6 +127,7 @@ class AirStackDroneDecisionBridge:
 
     def __init__(self, *, embodiment_id: str, robot_name: str,
                  targets: tuple[DroneNavigationTarget, ...],
+                 fixture_replay: bool = False,
                  takeoff_altitude_m: float = 1.5,
                  takeoff_velocity_m_s: float = 0.5,
                  semantics_revision: str = "rrm/verbs/v1",
@@ -105,6 +142,7 @@ class AirStackDroneDecisionBridge:
         self.embodiment_id = embodiment_id
         self.robot_name = robot_name
         self.targets = {target.entity_id: target for target in targets}
+        self.fixture_replay = fixture_replay
         if takeoff_altitude_m <= 0 or takeoff_velocity_m_s <= 0:
             raise ValueError("takeoff altitude and velocity must be positive")
         self.takeoff_altitude_m = takeoff_altitude_m
@@ -137,6 +175,9 @@ class AirStackDroneDecisionBridge:
         if localization is not Truth.TRUE:
             reason = "target_localization_false" if localization is Truth.FALSE else "target_localization_unknown"
             return self._refusal(DroneDecisionStatus.HOLD, task, reason)
+        binding_reason = self._binding_refusal(target, snapshot, now_monotonic_s)
+        if binding_reason:
+            return self._refusal(DroneDecisionStatus.HOLD, task, binding_reason)
 
         intent = ReasoningResult(
             task_id=task.task_id,
@@ -173,6 +214,7 @@ class AirStackDroneDecisionBridge:
             frame_id="map",
             waypoints=target.waypoints,
             goal_tolerance_m=target.goal_tolerance_m,
+            source_scope=target.binding.authority.value,
         )
         return DroneDecision(
             status=DroneDecisionStatus.READY,
@@ -241,6 +283,9 @@ class AirStackDroneDecisionBridge:
         if snapshot.resolve(FactKey(subject=target_id, predicate="localized"),
                             now_monotonic_s=now_monotonic_s) is not Truth.TRUE:
             return self._refusal(DroneDecisionStatus.HOLD, task, "target_localization_not_true")
+        binding_reason = self._binding_refusal(target, snapshot, now_monotonic_s)
+        if binding_reason:
+            return self._refusal(DroneDecisionStatus.HOLD, task, binding_reason)
         return DroneDecision(
             status=DroneDecisionStatus.READY, task_id=task.task_id,
             intent=plan.intent, plan=plan,
@@ -248,8 +293,43 @@ class AirStackDroneDecisionBridge:
                 task_id=task.task_id, action_id=action.id, robot_name=self.robot_name,
                 kind=DroneTaskKind.NAVIGATE, frame_id="map", waypoints=target.waypoints,
                 goal_tolerance_m=target.goal_tolerance_m,
+                source_scope=target.binding.authority.value,
             ),
         )
+
+    def _binding_refusal(self, target: DroneNavigationTarget, snapshot: StateSnapshot,
+                         now_monotonic_s: float) -> str | None:
+        binding = target.binding
+        if binding.frame_id != "map":
+            return "target_frame_not_map"
+        expected = (TargetBindingAuthority.FIXTURE_REPLAY if self.fixture_replay
+                    else TargetBindingAuthority.LIVE_SENSOR)
+        if binding.authority is not expected:
+            return ("target_binding_not_fixture" if self.fixture_replay
+                    else "target_binding_not_live")
+        if binding.episode_id != snapshot.episode_id:
+            return "target_binding_episode_mismatch"
+        if (not math.isfinite(now_monotonic_s)
+                or now_monotonic_s < binding.observed_monotonic_s
+                or now_monotonic_s - binding.observed_monotonic_s > binding.max_age_s):
+            return "target_binding_stale"
+        if self.fixture_replay:
+            return None
+        def matching(key: FactKey) -> bool:
+            return any(item.key == key and item.truth is Truth.TRUE
+                       and item.provenance is FactProvenance.SENSOR
+                       and item.source_ref == binding.source_ref
+                       and item.observed_monotonic_s == binding.observed_monotonic_s
+                       and item.is_fresh(now_monotonic_s)
+                       for item in snapshot.evidence)
+
+        if not matching(FactKey(subject=target.entity_id, predicate="localized")):
+            return "target_binding_evidence_mismatch"
+        coordinate_key = FactKey(subject=target.entity_id, predicate="map_waypoints_sha256",
+                                 obj=map_waypoints_sha256(target.waypoints))
+        if not matching(coordinate_key):
+            return "target_coordinates_unverified"
+        return None
 
     @staticmethod
     def _refusal(status: DroneDecisionStatus, task: TaskRequest, *reasons: str) -> DroneDecision:

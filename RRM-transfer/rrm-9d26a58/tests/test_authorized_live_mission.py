@@ -1,4 +1,5 @@
 """Authorized live-mission composition tests; no worker, ROS, or dispatch runtime."""
+from dataclasses import replace
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -15,7 +16,11 @@ from rrm.airstack_drone import DroneOutcomeVerdict, DroneOutcomeVerification, Ma
 from rrm.authorized_live_mission import AuthorizedLiveMission, VerifiedLiveStep
 from rrm.continuous_replan import MissionAuthorization
 from rrm.cosmos_reason2 import parse_cosmos_candidate
-from rrm.drone_decision import AirStackDroneDecisionBridge, DroneNavigationTarget
+from rrm.drone_decision import (AirStackDroneDecisionBridge, DroneNavigationTarget,
+                                TargetBindingAuthority, TargetFrameBinding)
+from rrm.drone_decision import map_waypoints_sha256
+from rrm.contracts import Truth
+from rrm.state_contracts import FactEvidence, FactKey, FactProvenance
 from rrm.dynamic_feasibility import (
     DynamicFeasibilityResult, EvidenceAuthority, FeasibilityCheck,
     FeasibilityVerdict, proposal_sha256,
@@ -113,13 +118,33 @@ class AuthorizedLiveMissionTests(unittest.TestCase):
         context_path = Path(self.temp.name) / "context.json"
         shutil.copy(fixture / "navigation_context.json", context_path)
         self.context = load_context(context_path)
+        # The mission harness supplies a synthetic current-episode sensor binding.
+        # The checked-in static manifest has no operational map binding.
+        route = (MapWaypoint(x=3.2, y=0.0, z=1.5),)
+        evidence = tuple(item.model_copy(update={
+            "provenance": FactProvenance.SENSOR, "source_ref": "test:target-fix",
+        }) if item.key.subject == "blue_marker" and item.key.predicate == "localized" else item
+            for item in self.context.snapshot.evidence)
+        evidence += (FactEvidence(
+            key=FactKey(subject="blue_marker", predicate="map_waypoints_sha256",
+                        obj=map_waypoints_sha256(route)), truth=Truth.TRUE,
+            provenance=FactProvenance.SENSOR, source_ref="test:target-fix",
+            observed_monotonic_s=0, received_monotonic_s=0, max_age_s=10,
+        ),)
+        self.context = replace(self.context, snapshot=self.context.snapshot.model_copy(
+            update={"evidence": evidence}))
         self.cycle = LiveReplanCycle(Path(self.temp.name) / "cycle", task_id=self.context.task.task_id,
                                      task_revision=self.context.task.revision, expected_camera_frame="camera_left")
         bridge = AirStackDroneDecisionBridge(
             embodiment_id="aerial-eval", robot_name="robot_1",
             targets=(DroneNavigationTarget(entity_id="blue_marker",
-                                           waypoints=(MapWaypoint(x=3.2, y=0.0, z=1.5),),
-                                           goal_tolerance_m=0.3),),
+                                           waypoints=route,
+                                           goal_tolerance_m=0.3,
+                                           binding=TargetFrameBinding(
+                                               frame_id="map", authority=TargetBindingAuthority.LIVE_SENSOR,
+                                               episode_id=self.context.snapshot.episode_id,
+                                               source_ref="test:target-fix", observed_monotonic_s=0,
+                                               max_age_s=1)),),
         )
         self.compiler = lambda plan, context: bridge.compile_plan(
             plan, context.task, context.snapshot, context.capabilities,

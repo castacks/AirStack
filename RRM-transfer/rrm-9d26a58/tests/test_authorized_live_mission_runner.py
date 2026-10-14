@@ -6,6 +6,9 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+from rrm.cosmos_reason2 import parse_cosmos_candidate
+from rrm.drone_decision import DroneDecisionStatus, TargetBindingAuthority
+
 sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
 import rrm_authorized_live_mission as runner
 
@@ -31,6 +34,27 @@ class AuthorizedLiveMissionRunnerTests(unittest.TestCase):
             }}}))
             bridge = runner._bridge(manifest)
         self.assertEqual(len(bridge.targets["target"].waypoints), 2)
+        self.assertIs(bridge.targets["target"].binding.authority,
+                      TargetBindingAuthority.FIXTURE_REPLAY)
+        self.assertFalse(bridge.fixture_replay)
+
+    def test_static_manifest_navigation_is_held_at_live_compiler(self):
+        root = Path(__file__).parents[1] / "examples" / "office_visual_eval"
+        context = runner.load_context(root / "navigation_context.json")
+        raw = json.dumps({
+            "status": "READY", "grounded_entities": ["blue_marker"],
+            "grounded_goal": {"name": "near", "subject": "$self", "obj": "blue_marker"},
+            "ambiguity_refs": [], "actions": [{"id": "nav", "verb": "NAVIGATE_TO",
+                                             "targets": ["blue_marker"], "dependencies": []}],
+            "recovery_budget": 0,
+        })
+        plan = parse_cosmos_candidate(raw, context).plan
+        decision = runner._bridge(root / "scene_manifest.json").compile_plan(
+            plan, context.task, context.snapshot, context.capabilities,
+            now_monotonic_s=context.now_monotonic_s)
+        self.assertIs(decision.status, DroneDecisionStatus.HOLD)
+        self.assertEqual(decision.reasons, ("target_binding_not_live",))
+        self.assertIsNone(decision.proposal)
 
     def test_execution_requires_both_explicit_flags_before_any_runtime_setup(self):
         base = ["rrm_authorized_live_mission.py", "--context", "context.json", "--scene-manifest", "scene.json",

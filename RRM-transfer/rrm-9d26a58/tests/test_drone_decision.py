@@ -8,6 +8,9 @@ from rrm.drone_decision import (
     AirStackDroneDecisionBridge,
     DroneDecisionStatus,
     DroneNavigationTarget,
+    TargetBindingAuthority,
+    TargetFrameBinding,
+    map_waypoints_sha256,
 )
 from rrm.schema import AbstractAction, Predicate, SELF, Verb
 from rrm.state_contracts import FactEvidence, FactKey, FactProvenance, StateSnapshot
@@ -22,12 +25,19 @@ def task(objective="navigate to waypoint-a", embodiment="iris-v1"):
     )
 
 
-def snapshot(*, truth=Truth.TRUE, received=10.0, task_id="task-1"):
+def snapshot(*, truth=Truth.TRUE, received=10.0, task_id="task-1", waypoints=None):
+    if waypoints is None:
+        waypoints = (MapWaypoint(x=1.0, y=2.0, z=3.0),)
     return StateSnapshot(
         snapshot_id="state-1", revision="state/v1", task_id=task_id, episode_id="episode-1",
         evidence=(FactEvidence(
             key=FactKey(subject="waypoint-a", predicate="localized"), truth=truth,
-            provenance=FactProvenance.SIMULATOR, source_ref="shadow/run-1",
+            provenance=FactProvenance.SENSOR, source_ref="sensor/target-fix",
+            observed_monotonic_s=received, received_monotonic_s=received, max_age_s=1.0,
+        ), FactEvidence(
+            key=FactKey(subject="waypoint-a", predicate="map_waypoints_sha256",
+                        obj=map_waypoints_sha256(waypoints)), truth=truth,
+            provenance=FactProvenance.SENSOR, source_ref="sensor/target-fix",
             observed_monotonic_s=received, received_monotonic_s=received, max_age_s=1.0,
         ),),
     )
@@ -45,9 +55,16 @@ def bridge():
         embodiment_id="iris-v1", robot_name="robot_1",
         targets=(DroneNavigationTarget(
             entity_id="waypoint-a", waypoints=(MapWaypoint(x=1.0, y=2.0, z=3.0),),
-            goal_tolerance_m=0.5,
+            goal_tolerance_m=0.5, binding=live_binding(),
         ),),
     )
+
+
+def live_binding(**changes):
+    values = dict(frame_id="map", authority=TargetBindingAuthority.LIVE_SENSOR,
+                  episode_id="episode-1", source_ref="sensor/target-fix",
+                  observed_monotonic_s=10.0, max_age_s=1.0)
+    return TargetFrameBinding(**(values | changes))
 
 
 class DroneDecisionBridgeTests(unittest.TestCase):
@@ -83,16 +100,16 @@ class DroneDecisionBridgeTests(unittest.TestCase):
         self.assertEqual(result.proposal.velocity_m_s, 0.4)
 
     def test_multi_waypoint_binding_is_preserved_as_one_route(self):
+        route = (MapWaypoint(x=1.0, y=1.0, z=1.5), MapWaypoint(x=3.0, y=2.0, z=1.5))
         route_bridge = AirStackDroneDecisionBridge(
             embodiment_id="iris-v1", robot_name="robot_1",
             targets=(DroneNavigationTarget(
                 entity_id="waypoint-a",
-                waypoints=(MapWaypoint(x=1.0, y=1.0, z=1.5),
-                           MapWaypoint(x=3.0, y=2.0, z=1.5)),
-                goal_tolerance_m=0.4,
+                waypoints=route,
+                goal_tolerance_m=0.4, binding=live_binding(),
             ),),
         )
-        result = route_bridge.decide(task(), snapshot(), profile(), now_monotonic_s=10.5)
+        result = route_bridge.decide(task(), snapshot(waypoints=route), profile(), now_monotonic_s=10.5)
         self.assertIs(result.status, DroneDecisionStatus.READY)
         self.assertEqual(len(result.proposal.waypoints), 2)
         self.assertEqual(result.proposal.waypoints[-1].x, 3.0)
@@ -129,6 +146,59 @@ class DroneDecisionBridgeTests(unittest.TestCase):
         self.assertEqual(preview["action_name"], "/robot_1/tasks/navigate")
         self.assertEqual(preview["goal"]["global_plan"]["header"]["frame_id"], "map")
         self.assertFalse(preview["execution_requested"])
+
+    def test_navigation_binding_rejects_wrong_frame_episode_age_source_and_fixture(self):
+        valid = bridge()
+        plan = valid.decide(task(), snapshot(), profile(), now_monotonic_s=10.5).plan
+        cases = (
+            (live_binding(frame_id="isaac_world"), "target_frame_not_map"),
+            (live_binding(episode_id="earlier-episode"), "target_binding_episode_mismatch"),
+            (live_binding(observed_monotonic_s=1.0), "target_binding_stale"),
+            (live_binding(source_ref="unrelated-source"), "target_binding_evidence_mismatch"),
+            (live_binding(observed_monotonic_s=10.1), "target_binding_evidence_mismatch"),
+            (live_binding(authority=TargetBindingAuthority.FIXTURE_REPLAY), "target_binding_not_live"),
+        )
+        for binding, reason in cases:
+            with self.subTest(reason=reason):
+                target = valid.targets["waypoint-a"].model_copy(update={"binding": binding})
+                candidate = AirStackDroneDecisionBridge(
+                    embodiment_id="iris-v1", robot_name="robot_1", targets=(target,))
+                for decision in (
+                    candidate.decide(task(), snapshot(), profile(), now_monotonic_s=10.5),
+                    candidate.compile_plan(plan, task(), snapshot(), profile(), now_monotonic_s=10.5),
+                ):
+                    self.assertIs(decision.status, DroneDecisionStatus.HOLD)
+                    self.assertEqual(decision.reasons, (reason,))
+                    self.assertIsNone(decision.proposal)
+
+    def test_simulator_fact_cannot_back_a_live_target_binding(self):
+        state = snapshot()
+        simulator_facts = tuple(item.model_copy(update={"provenance": FactProvenance.SIMULATOR})
+                                for item in state.evidence)
+        state = state.model_copy(update={"evidence": simulator_facts})
+        result = bridge().decide(task(), state, profile(), now_monotonic_s=10.5)
+        self.assertEqual(result.reasons, ("target_binding_evidence_mismatch",))
+
+    def test_changed_route_cannot_reuse_a_valid_coordinate_fact(self):
+        candidate = bridge()
+        target = candidate.targets["waypoint-a"].model_copy(update={
+            "waypoints": (MapWaypoint(x=9, y=2, z=3),),
+        })
+        changed = AirStackDroneDecisionBridge(embodiment_id="iris-v1", robot_name="robot_1",
+                                               targets=(target,))
+        result = changed.decide(task(), snapshot(), profile(), now_monotonic_s=10.5)
+        self.assertEqual(result.reasons, ("target_coordinates_unverified",))
+
+    def test_fixture_requires_explicit_replay_mode(self):
+        fixture = bridge().targets["waypoint-a"].model_copy(update={
+            "binding": live_binding(authority=TargetBindingAuthority.FIXTURE_REPLAY),
+        })
+        replay = AirStackDroneDecisionBridge(
+            embodiment_id="iris-v1", robot_name="robot_1", targets=(fixture,), fixture_replay=True)
+        self.assertIs(replay.decide(task(), snapshot(), profile(),
+                                    now_monotonic_s=10.5).status, DroneDecisionStatus.READY)
+        self.assertIs(bridge().decide(task(), snapshot(), profile(),
+                                      now_monotonic_s=10.5).status, DroneDecisionStatus.READY)
 
     def test_unknown_or_stale_location_holds_without_a_plan_or_proposal(self):
         for state, now in ((snapshot(truth=Truth.UNKNOWN), 10.5), (snapshot(received=1.0), 10.5)):

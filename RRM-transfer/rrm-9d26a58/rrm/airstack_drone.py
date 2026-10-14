@@ -73,6 +73,7 @@ class DroneTaskProposal(BaseModel):
     frame_id: str | None = None
     waypoints: tuple[MapWaypoint, ...] = ()
     goal_tolerance_m: float | None = None
+    source_scope: str | None = None
     min_altitude_agl_m: float | None = None
     max_altitude_agl_m: float | None = None
     min_flight_speed_m_s: float | None = None
@@ -85,6 +86,10 @@ class DroneTaskProposal(BaseModel):
         for name in ("task_id", "action_id", "robot_name"):
             if not getattr(self, name).strip():
                 raise ValueError(f"{name} is required")
+        if self.source_scope not in (None, "LIVE_SENSOR", "FIXTURE_REPLAY"):
+            raise ValueError("unknown proposal source scope")
+        if self.source_scope is not None and self.kind is not DroneTaskKind.NAVIGATE:
+            raise ValueError("source scope applies only to navigation")
         numeric = (self.target_altitude_m, self.velocity_m_s, self.goal_tolerance_m,
                    self.min_altitude_agl_m, self.max_altitude_agl_m,
                    self.min_flight_speed_m_s, self.max_flight_speed_m_s,

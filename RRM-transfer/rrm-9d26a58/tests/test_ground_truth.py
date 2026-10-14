@@ -4,7 +4,8 @@ import unittest
 
 from rrm.airstack_drone import MapWaypoint
 from rrm.contracts import CapabilityDeclaration, Truth
-from rrm.drone_decision import AirStackDroneDecisionBridge, DroneDecisionStatus, DroneNavigationTarget
+from rrm.drone_decision import (AirStackDroneDecisionBridge, DroneDecisionStatus,
+                                DroneNavigationTarget, TargetBindingAuthority, TargetFrameBinding)
 from rrm.ground_truth import GroundTruthWorldBuilder
 from rrm.schema import Verb
 from rrm.state_contracts import FactKey
@@ -36,7 +37,11 @@ def bridge():
         embodiment_id="iris-v1", robot_name="robot_1",
         targets=(DroneNavigationTarget(
             entity_id="marker-a", waypoints=(MapWaypoint(x=1.0, y=2.0, z=3.0),), goal_tolerance_m=0.5,
+            binding=TargetFrameBinding(frame_id="map", authority=TargetBindingAuthority.FIXTURE_REPLAY,
+                                       episode_id="episode-1", source_ref="test:ground-truth",
+                                       observed_monotonic_s=10.0, max_age_s=2.0),
         ),),
+        fixture_replay=True,
     )
 
 

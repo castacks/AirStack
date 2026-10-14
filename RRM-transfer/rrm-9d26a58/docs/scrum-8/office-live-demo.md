@@ -68,20 +68,17 @@ PYTHONPATH=. python scripts/rrm_import_office.py \
 
 The importer verifies image/context hashes, exact prompt, reparsed raw response,
 stored candidate equality and local scene binding before emitting the **actual**
-learned proposal. It does not execute or establish freshness/authority. Checksums
+learned proposal for **offline fixture replay**. It does not execute or establish freshness/authority. Checksums
 detect changed artifacts; they are not cryptographic proof of model authorship.
 
-After live revalidation, takeoff and navigation use public AirStack task actions;
-do not bypass them with raw setpoints. For the navigation goal, the dispatcher is:
+The imported `proposal.json` carries coordinates from a static manifest. It is
+**not a live navigation command**: the manifest has no independently measured,
+current-episode map binding. The live mission compiler holds this target, and
+the public dispatcher refuses proposals labeled `FIXTURE_REPLAY`. A future
+operational target source must supply a fresh map-frame binding linked to
+sensor C02 evidence for the exact route before live mission admission.
 
-```bash
-PYTHONPATH=. python scripts/airstack_drone_dispatch.py \
-  --proposal-json /path/to/new-import/proposal.json --execute \
-  --verify-observation --action-timeout-s 90 \
-  --outcome-json /path/to/new-run/navigation-outcome.json
-```
-
-This command requires an already armed vehicle after verified takeoff. Navigation
+Live navigation requires an already armed vehicle after verified takeoff. Navigation
 success requires task success plus fresh causal odometry within the endpoint
 tolerance. A timeout requests cancellation and records UNCONFIRMED; cancellation
 acknowledgement is not proof of physical stop. No automatic retry/resume is allowed

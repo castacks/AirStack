@@ -11,7 +11,8 @@ import json
 from pathlib import Path
 
 from rrm.cosmos_reason2 import CosmosCandidateStatus, parse_cosmos_candidate, render_cosmos_prompt
-from rrm.drone_decision import AirStackDroneDecisionBridge, DroneNavigationTarget, DroneDecisionStatus
+from rrm.drone_decision import (AirStackDroneDecisionBridge, DroneNavigationTarget,
+                                DroneDecisionStatus, TargetFrameBinding, TargetBindingAuthority)
 from rrm.airstack_drone import MapWaypoint
 from rrm_cosmos_reason2 import load_context
 
@@ -40,9 +41,13 @@ def import_bundle(bundle: Path):
         raise ValueError("stored candidate differs from reparsed raw response")
     targets = tuple(DroneNavigationTarget(
         entity_id=entity, waypoints=(MapWaypoint(**item["map_waypoint"]),), goal_tolerance_m=0.3,
+        binding=TargetFrameBinding(frame_id="map", authority=TargetBindingAuthority.FIXTURE_REPLAY,
+                                   episode_id=scene["scene_id"], source_ref="scene_manifest.json",
+                                   observed_monotonic_s=0, max_age_s=10),
     ) for entity, item in scene["markers"].items() if "map_waypoint" in item)
     adapter = AirStackDroneDecisionBridge(
         embodiment_id=context.capabilities.embodiment_id, robot_name="robot_1", targets=targets,
+        fixture_replay=True,
     )
     decision = adapter.compile_plan(candidate.plan, context.task, context.snapshot,
                                     context.capabilities, now_monotonic_s=context.now_monotonic_s)

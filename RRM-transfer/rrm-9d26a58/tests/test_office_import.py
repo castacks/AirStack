@@ -44,6 +44,7 @@ class OfficeImportTests(unittest.TestCase):
 
     def test_actual_plan_ids_survive_import(self):
         result = import_bundle(self.bundle)
+        self.assertEqual(result.proposal.source_scope, "FIXTURE_REPLAY")
         self.assertEqual(result.proposal.action_id, "model-selected-nav")
         self.assertEqual(result.proposal.waypoints[-1].x, 3.2)
 

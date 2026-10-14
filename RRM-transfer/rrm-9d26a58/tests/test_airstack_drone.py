@@ -1,6 +1,10 @@
 """RRM drone proposals map only to the public AirStack task action boundary."""
 
 from pathlib import Path
+import os
+import subprocess
+import sys
+import tempfile
 import unittest
 
 from pydantic import ValidationError
@@ -24,6 +28,22 @@ def proposal(kind, **changes):
 
 
 class DroneProposalTests(unittest.TestCase):
+    def test_fixture_replay_proposal_is_refused_before_dispatch(self):
+        fixture = proposal(DroneTaskKind.NAVIGATE, frame_id="map",
+                           waypoints=(MapWaypoint(x=1, y=2, z=3),), goal_tolerance_m=0.5,
+                           source_scope="FIXTURE_REPLAY")
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "proposal.json"
+            path.write_text(fixture.model_dump_json())
+            runner = Path(__file__).parents[1] / "scripts" / "airstack_drone_dispatch.py"
+            env = os.environ.copy()
+            env["PYTHONPATH"] = os.pathsep.join((str(Path(__file__).parents[1]),
+                                                   env.get("PYTHONPATH", "")))
+            result = subprocess.run([sys.executable, str(runner), "--proposal-json", str(path),
+                                     "--execute"], capture_output=True, text=True, env=env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Fixture replay navigation proposals cannot be executed", result.stderr)
+
     def test_takeoff_maps_to_existing_task_action(self):
         result = proposal(DroneTaskKind.TAKEOFF, target_altitude_m=2.0, velocity_m_s=1.0).preview()
         self.assertEqual(result["action_name"], "/robot_1/tasks/takeoff")

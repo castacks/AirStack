@@ -447,6 +447,8 @@ def main() -> int:
     if not args.execute:
         print(json.dumps(preview, indent=2, sort_keys=True))
         return 0
+    if proposal.source_scope == "FIXTURE_REPLAY":
+        raise SystemExit("Fixture replay navigation proposals cannot be executed.")
     preview["execution_requested"] = True
     print(json.dumps(preview, sort_keys=True), flush=True)
     return _execute(
