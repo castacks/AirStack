@@ -75,8 +75,8 @@ class HandShadowTests(unittest.TestCase):
                             for node in records["c05-plan"]["actions"]))
         self.assertFalse(records["c03-capability"]["numeric_feasibility_verified"])
         score = records["visual-score"]
-        self.assertEqual((score["exact_matches"], score["missed_teacher_facts"]), (5, 4))
-        self.assertEqual(score["recall"], 5 / 9)
+        self.assertEqual((score["exact_matches"], score["missed_teacher_facts"]), (4, 2))
+        self.assertEqual(score["recall"], 4 / 6)
         self.assertFalse(score["perception_result"])
 
     def test_stale_or_contradictory_required_fact_holds(self):

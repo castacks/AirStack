@@ -41,7 +41,9 @@ Separate stationary episodes do not establish a motion-stable transform. No
 flight, target binding, learned inference or console admission followed.
 The [proposed frame contract](world-map-frame-contract.md) treats ROS `world` as
 the current local-map alias and Isaac stage positions as privileged assessment
-data. It is a design for review, not an implemented binding.
+data. No operational transform is implemented. The later target-provenance gate
+holds static manifest waypoints; the visual v4 contract excludes localization
+claims from 2-D image evidence. Neither creates an operational map target source.
 
 ## Demonstrated scope and remaining gaps
 

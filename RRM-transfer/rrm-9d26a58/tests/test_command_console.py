@@ -192,6 +192,8 @@ class CommandConsoleUiTests(unittest.TestCase):
         self.assertIn("same request key will be reused", ui)
         self.assertIn("entity-grounded RRM is inhibited", ui)
         self.assertIn("Flight commands use live AirStack discovery", ui)
+        self.assertIn("Target map coordinates still need separate localization", ui)
+        self.assertIn("A recognized entity has no map waypoint", ui)
 
     def test_mission_log_exposes_only_recent_structured_evidence(self):
         with tempfile.TemporaryDirectory() as directory:

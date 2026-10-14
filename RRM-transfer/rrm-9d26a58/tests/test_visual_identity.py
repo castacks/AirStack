@@ -2,6 +2,7 @@
 import unittest
 
 from rrm.contracts import Truth
+from rrm.state_contracts import FactEvidence, FactKey, FactProvenance
 from rrm.visual_world_builder import complete_visual_identities, parse_visual_candidate
 from test_visual_world_builder import _context, _ready
 
@@ -19,10 +20,16 @@ class IdentityTests(unittest.TestCase):
     def test_complete_identity_is_not_localization(self):
         self.assertEqual(self.qualify(self.snapshot()), ('red_crate',))
         self.assertEqual(self.qualify(self.snapshot(), localized=True), ())
-        self.assertEqual(self.qualify(self.snapshot(('exists', 'kind', 'localized')), localized=True), ('red_crate',))
+        visual = self.snapshot()
+        independent = FactEvidence(
+            key=FactKey(subject='red_crate', predicate='localized'), truth=Truth.TRUE,
+            provenance=FactProvenance.SENSOR, source_ref='test:depth',
+            observed_monotonic_s=10.0, received_monotonic_s=10.2, max_age_s=1.0)
+        combined = visual.model_copy(update={'evidence': visual.evidence + (independent,)})
+        self.assertEqual(self.qualify(combined, localized=True), ('red_crate',))
 
     def test_partial_identity_never_filled_from_catalog(self):
-        for predicates in (('exists',), ('kind',), ('exists', 'localized'), ('kind', 'localized')):
+        for predicates in (('exists',), ('kind',)):
             with self.subTest(predicates=predicates):
                 self.assertEqual(self.qualify(self.snapshot(predicates)), ())
 

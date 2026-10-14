@@ -47,15 +47,15 @@ class PilotTests(unittest.TestCase):
         for forbidden in ('teacher', 'labels', 'image_region', 'scene_prim', 'producer_ref'):
             self.assertNotIn(forbidden, json.dumps(self.request))
 
-    def test_exact_identity_and_unassessed_localization(self):
+    def test_exact_identity_without_physical_localization(self):
         claims = [dict(subject=entity, predicate=predicate, obj=kind if predicate == 'kind' else None,
                        truth='TRUE') for entity, kind in self.catalog.items()
-                  for predicate in ('exists', 'kind', 'localized')]
+                  for predicate in ('exists', 'kind')]
         result = self.assess(self.response(claims))
         self.assertEqual(result['identity_numerator'], 2)
         self.assertEqual(result['identity_fact_precision'], 1.)
         self.assertEqual(result['identity_fact_recall'], 1.)
-        self.assertEqual(result['unassessed_localization_claims'], 2)
+        self.assertEqual(result['unassessed_localization_claims'], 0)
         self.assertFalse(result['spatial_localization_verified'])
 
     def test_refusal_retained_with_denominator(self):

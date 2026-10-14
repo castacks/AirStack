@@ -69,10 +69,13 @@ explicit exists and exact-kind TRUE facts without completing them from the catal
 Pilot reports candidate status, evidence acceptance, candidate completeness and
 teacher-supported identities; its legacy `schema_accepted` flag means ACCEPTED
 evidence, so it is false for a valid NEEDS_CLARIFICATION response.
-[Live-client source](../../rrm/cosmos_entity_verifier_client.py) additionally
-requires its existing localized claim and matching task/episode/revision; this change
-is not deployed in the console. These are evidence-contract checks, not independent
-physical localization, unique target selection or sensor-freshness verification.
+[Live-client source](../../rrm/cosmos_entity_verifier_client.py) checks matching
+task/episode/revision and reparses the worker's raw result. The current v4 visual
+contract admits only exists/kind claims: a 2-D image cannot supply a map
+localization fact. The GUI worker check blocks an older prompt/source revision;
+deploying v4 and measuring its accuracy remain separate work. These are
+evidence-contract checks, not independent physical localization, unique target
+selection or sensor-freshness verification.
 Synthetic absence/uncertainty checks do not count as learned Office cases.
 
 This protocol prepares the Office evaluation and authorizes no motion. The current deterministic aerial command

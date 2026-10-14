@@ -26,7 +26,8 @@ class PromptContractTests(unittest.TestCase):
         prompt = render_visual_prompt(_context())
         self.assertIn(json.dumps(schema, sort_keys=True, separators=(',', ':')), prompt)
         self.assertNotIn('str|null', prompt)
-        self.assertIn('do not claim localized TRUE', prompt)
+        self.assertIn('do not return localized claims', prompt)
+        self.assertEqual(claim['properties']['predicate']['enum'], ['exists', 'kind'])
         self.assertIn('Catalog membership is not image evidence', prompt)
         self.assertIn(VISUAL_PROMPT_REVISION, prompt)
         for forbidden in ('image_region', 'scene_prim', 'SIMULATOR'):
@@ -42,7 +43,7 @@ class PromptContractTests(unittest.TestCase):
 
     def test_generic_example_is_not_target_evidence_and_rules_stay_strict(self):
         prompt = render_visual_prompt(_context())
-        self.assertEqual(VISUAL_PROMPT_REVISION, 'visual-claims/v3')
+        self.assertEqual(VISUAL_PROMPT_REVISION, 'visual-claims/v4')
         self.assertIn('TWO TRUE claims', prompt)
         self.assertIn('FORMAT EXAMPLE ONLY', prompt)
         self.assertIn('not evidence for the supplied image', prompt)

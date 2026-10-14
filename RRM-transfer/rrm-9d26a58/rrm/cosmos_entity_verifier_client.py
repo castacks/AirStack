@@ -9,13 +9,17 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import math
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 from rrm.cosmos_reason2 import CosmosReasoningInput
 from rrm.cosmos_worker_client import _context_payload
-from rrm.visual_world_builder import VisualCandidateStatus, VisualGroundingCandidate, complete_visual_identities
+from rrm.visual_world_builder import (MediaArtifact, VISUAL_PROMPT_REVISION,
+                                      VisualCandidateStatus, VisualGroundingCandidate,
+                                      VisualGroundingInput, complete_visual_identities,
+                                      parse_visual_candidate)
 
 
 class CosmosEntityVerifierClient:
@@ -58,7 +62,8 @@ class CosmosEntityVerifierClient:
         except (KeyError, TypeError, ValueError) as error:
             raise RuntimeError("Cosmos entity verifier returned invalid evidence.") from error
         if (value.get("execution_dispatch") is not False or value.get("cycle_id") != cycle_id
-                or value.get("step_index") != step_index or value.get("observation_sha256") != checksum):
+                or value.get("step_index") != step_index or value.get("observation_sha256") != checksum
+                or value.get("visual_prompt_revision") != VISUAL_PROMPT_REVISION):
             raise RuntimeError("Cosmos entity verifier response is not bound to the active frame.")
         if candidate.status is not VisualCandidateStatus.ACCEPTED or candidate.snapshot is None:
             raise RuntimeError("Cosmos entity verifier did not produce accepted visual evidence.")
@@ -67,17 +72,30 @@ class CosmosEntityVerifierClient:
                 or candidate.snapshot.episode_id != context.snapshot.episode_id
                 or candidate.snapshot.revision != context.snapshot.revision):
             raise RuntimeError("Cosmos entity verifier snapshot is not bound to the active context.")
+        if type(now) not in (int, float) or not math.isfinite(now) or now < 0:
+            raise RuntimeError("Cosmos entity verifier returned an invalid evidence clock.")
+        visual = VisualGroundingInput(
+            task_id=context.task.task_id, episode_id=context.snapshot.episode_id,
+            state_revision=context.snapshot.revision, entity_catalog=entity_catalog,
+            media=MediaArtifact(source_ref=f"live/{cycle_id}/{step_index}",
+                                sha256=checksum, observed_monotonic_s=now),
+            received_monotonic_s=now, max_age_s=5.0,
+            model_ref="cosmos-reason2-live-entity-verifier/v1",
+        )
+        if parse_visual_candidate(candidate.raw_response, visual) != candidate:
+            raise RuntimeError("Cosmos entity verifier evidence differs from raw model output.")
         try:
             verified = list(complete_visual_identities(candidate.snapshot, entity_catalog=entity_catalog,
-                                                       now_monotonic_s=now, require_localized=True))
+                                                       now_monotonic_s=now))
         except ValueError as error:
             raise RuntimeError("Cosmos entity verifier returned invalid qualification context.") from error
         if not verified:
-            raise RuntimeError("Cosmos entity verifier qualified no complete localized catalog identity in this frame.")
+            raise RuntimeError("Cosmos entity verifier qualified no complete visual identity in this frame.")
         scene = {
             "source_stamp_ns": metadata["source_stamp_ns"], "observation_sha256": checksum,
             "verified_entities": verified,
             "provenance": "cosmos-reason2-live-entity-verifier/v1",
+            "evidence_scope": "VISUAL_IDENTITY_ONLY",
         }
         return scene, CosmosReasoningInput(task=context.task, snapshot=candidate.snapshot,
                                            capabilities=context.capabilities, now_monotonic_s=now)

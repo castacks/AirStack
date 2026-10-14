@@ -1,10 +1,14 @@
 """Read-only worker capability inspection; never calls inference or dispatch."""
+import hashlib
 import json
+from pathlib import Path
 import re
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from rrm.cosmos_entity_verifier_client import CosmosEntityVerifierClient
+from rrm import visual_world_builder
+from rrm.visual_world_builder import VISUAL_PROMPT_REVISION
 
 
 def probe_visual_service(base_url: str) -> dict:
@@ -27,9 +31,13 @@ def probe_visual_service(base_url: str) -> dict:
                 or not isinstance(value.get("worker_source_sha256"), str)
                 or not re.fullmatch(r"[0-9a-f]{64}", value["worker_source_sha256"])):
             raise ValueError("Invalid capability response")
+        expected_builder_hash = hashlib.sha256(Path(visual_world_builder.__file__).read_bytes()).hexdigest()
+        if (value.get("visual_prompt_revision") != VISUAL_PROMPT_REVISION
+                or value.get("visual_world_builder_source_sha256") != expected_builder_hash):
+            return {**report, "reason": "Worker visual contract differs from this RRM source; deploy the matching worker before visual evaluation."}
         return {**report, "status": "DECLARED", "entity_api_declared": True,
                 "worker_source_sha256": value["worker_source_sha256"],
-                "reason": "Worker declares entity grounding. Model revision, scene labels and visual accuracy still require verification."}
+                "reason": "Worker declares the matching visual identity contract. Model revision, scene labels and visual accuracy still require verification."}
     except HTTPError as error:
         return {**report, "http_status": error.code,
                 "reason": "Worker capability API is unavailable; deploy the current worker before visual evaluation."}

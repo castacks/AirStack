@@ -45,12 +45,21 @@ class VisualWorldBuilderTests(unittest.TestCase):
         candidate = parse_visual_candidate(_ready([
             {"subject": "loading_bay_marker", "predicate": "exists", "obj": None, "truth": "TRUE"},
             {"subject": "loading_bay_marker", "predicate": "kind", "obj": "marker", "truth": "TRUE"},
-            {"subject": "loading_bay_marker", "predicate": "localized", "obj": None, "truth": "TRUE"},
         ]), _context())
         self.assertEqual(candidate.status, VisualCandidateStatus.ACCEPTED)
         self.assertTrue(all(item.provenance is FactProvenance.INFERRED
                             for item in candidate.snapshot.evidence))
         self.assertIn("sha256:" + "a" * 64, candidate.snapshot.evidence[0].source_ref)
+        self.assertEqual({item.key.predicate for item in candidate.snapshot.evidence}, {"exists", "kind"})
+
+    def test_visual_localization_claim_is_rejected(self) -> None:
+        candidate = parse_visual_candidate(_ready([
+            {"subject": "loading_bay_marker", "predicate": "exists", "obj": None, "truth": "TRUE"},
+            {"subject": "loading_bay_marker", "predicate": "kind", "obj": "marker", "truth": "TRUE"},
+            {"subject": "loading_bay_marker", "predicate": "localized", "obj": None, "truth": "TRUE"},
+        ]), _context())
+        self.assertEqual(candidate.status, VisualCandidateStatus.REJECTED)
+        self.assertIn("unsupported_visual_predicate:localized", candidate.reasons[0])
 
     def test_unknown_entity_and_unsupported_predicate_are_rejected(self) -> None:
         unknown = parse_visual_candidate(_ready([
@@ -90,9 +99,9 @@ class VisualWorldBuilderTests(unittest.TestCase):
         score = score_visual_snapshot(candidate, teacher, now_monotonic_s=10.3,
                                       entity_catalog=_context().entity_catalog)
         self.assertEqual(score.exact_matches, 1)
-        self.assertEqual(score.missed_teacher_facts, 2)
+        self.assertEqual(score.missed_teacher_facts, 1)
         self.assertEqual(score.mismatches, 0)
-        self.assertEqual(score.recall, 1 / 3)
+        self.assertEqual(score.recall, 1 / 2)
 
     def test_teacher_score_counts_wrong_truth_and_extra_fact(self) -> None:
         candidate = parse_visual_candidate(_ready([

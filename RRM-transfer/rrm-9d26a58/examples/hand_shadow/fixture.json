@@ -64,6 +64,6 @@
     "media_source_ref": "synthetic-episode-001/placeholder-frame",
     "media_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "model_ref": "synthetic-protocol-probe/v1",
-    "raw_response": "{\"status\":\"READY\",\"claims\":[{\"subject\":\"red_block\",\"predicate\":\"exists\",\"obj\":null,\"truth\":\"TRUE\"},{\"subject\":\"red_block\",\"predicate\":\"kind\",\"obj\":\"block\",\"truth\":\"TRUE\"},{\"subject\":\"red_block\",\"predicate\":\"localized\",\"obj\":null,\"truth\":\"TRUE\"},{\"subject\":\"tray_1\",\"predicate\":\"exists\",\"obj\":null,\"truth\":\"TRUE\"},{\"subject\":\"tray_1\",\"predicate\":\"kind\",\"obj\":\"tray\",\"truth\":\"TRUE\"}]}"
+    "raw_response": "{\"status\":\"READY\",\"claims\":[{\"subject\":\"red_block\",\"predicate\":\"exists\",\"obj\":null,\"truth\":\"TRUE\"},{\"subject\":\"red_block\",\"predicate\":\"kind\",\"obj\":\"block\",\"truth\":\"TRUE\"},{\"subject\":\"tray_1\",\"predicate\":\"exists\",\"obj\":null,\"truth\":\"TRUE\"},{\"subject\":\"tray_1\",\"predicate\":\"kind\",\"obj\":\"tray\",\"truth\":\"TRUE\"}]}"
   }
 }

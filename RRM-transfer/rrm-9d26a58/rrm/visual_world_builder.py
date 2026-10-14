@@ -21,8 +21,8 @@ from .state_contracts import FactEvidence, FactKey, FactProvenance, StateSnapsho
 
 
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
-_VISUAL_PREDICATES = frozenset({"exists", "kind", "localized"})
-VISUAL_PROMPT_REVISION = "visual-claims/v3"
+_VISUAL_PREDICATES = frozenset({"exists", "kind"})
+VISUAL_PROMPT_REVISION = "visual-claims/v4"
 
 
 def visual_output_schema() -> dict[str, Any]:
@@ -36,7 +36,7 @@ def visual_output_schema() -> dict[str, Any]:
                 "additionalProperties": False,
                 "properties": {
                     "subject": {"type": "string"},
-                    "predicate": {"enum": ["exists", "kind", "localized"]},
+                    "predicate": {"enum": ["exists", "kind"]},
                     "obj": {"type": ["string", "null"]},
                     "truth": {"enum": ["TRUE", "FALSE", "UNKNOWN"]},
                 },
@@ -147,13 +147,13 @@ def render_visual_prompt(context: VisualGroundingInput) -> str:
         "Use only actual catalog IDs/kinds. Catalog membership is not image evidence.",
         "Not seeing an entity does not prove absence: use UNKNOWN or request clarification, never FALSE from absence from view.",
         'If no entity can be confidently recognized, return {"status":"NEEDS_CLARIFICATION","claims":[]}, not READY with empty claims.',
-        "A 2-D image is not physical localization: do not claim localized TRUE without physical localization evidence.",
+        "A 2-D image is not physical localization: do not return localized claims. Independent sensors must establish map coordinates.",
         "Do not invent coordinates, safety states, capabilities, actions, plans or control commands.",
         "FORMAT EXAMPLE ONLY (fictional catalog/image, not evidence for the supplied image):",
         'If a fictional catalog maps demo_ball to violet ball and that ball is clearly recognized, output:',
         '{"status":"READY","claims":[{"subject":"demo_ball","predicate":"exists","obj":null,"truth":"TRUE"},{"subject":"demo_ball","predicate":"kind","obj":"violet ball","truth":"TRUE"}]}',
         "Do not copy demo_ball or violet ball unless they occur in the actual catalog and are supported by the actual image.",
-        "Return only one JSON object, no Markdown or commentary. Every claim must contain subject, predicate, obj and truth. For exists/localized obj is null. Schema:",
+        "Return only one JSON object, no Markdown or commentary. Every claim must contain subject, predicate, obj and truth. For exists obj is null. Schema:",
         json.dumps(visual_output_schema(), sort_keys=True, separators=(",", ":")),
         "ACTUAL ENTITY CATALOG:",
         json.dumps(catalog, sort_keys=True, separators=(",", ":")),

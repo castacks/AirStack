@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
 
 from rrm.cosmos_entity_verifier_client import CosmosEntityVerifierClient
 from rrm.visual_world_builder import (MediaArtifact, VisualGroundingInput,
-                                      parse_visual_candidate)
+                                      VISUAL_PROMPT_REVISION, parse_visual_candidate)
 from rrm_cosmos_reason2 import load_context
 
 
@@ -32,8 +32,8 @@ class EntityVerifierClientTests(unittest.TestCase):
         self.image = b"verified-live-image"
         self.metadata = {"sha256": hashlib.sha256(self.image).hexdigest(), "source_stamp_ns": 77}
 
-    def server(self, *, dispatch=False, localized=True, kind=True, kind_truth='TRUE', clock=5.0,
-               snapshot_override=None):
+    def server(self, *, dispatch=False, localized=False, kind=True, kind_truth='TRUE', clock=5.0,
+               snapshot_override=None, forge_localization=False):
         outer = self
         class Handler(BaseHTTPRequestHandler):
             def do_POST(self):
@@ -44,9 +44,11 @@ class EntityVerifierClientTests(unittest.TestCase):
                     task_id=outer.context.task.task_id, episode_id=outer.context.snapshot.episode_id,
                     state_revision=outer.context.snapshot.revision,
                     entity_catalog=value["entity_catalog"],
-                    media=MediaArtifact(source_ref="test", sha256=value["observation_sha256"],
+                    media=MediaArtifact(source_ref=f"live/{value['cycle_id']}/{value['step_index']}",
+                                        sha256=value["observation_sha256"],
                                         observed_monotonic_s=5.0),
-                    received_monotonic_s=5.0, max_age_s=5.0, model_ref="test-verifier",
+                    received_monotonic_s=5.0, max_age_s=5.0,
+                    model_ref="cosmos-reason2-live-entity-verifier/v1",
                 )
                 claims = [{"subject": "blue_marker", "predicate": "exists", "obj": None, "truth": "TRUE"}]
                 if kind:
@@ -57,9 +59,15 @@ class EntityVerifierClientTests(unittest.TestCase):
                 result = {"cycle_id": value["cycle_id"], "step_index": value["step_index"],
                           "observation_sha256": value["observation_sha256"],
                           "visual_candidate": candidate.model_dump(mode="json"),
+                          "visual_prompt_revision": VISUAL_PROMPT_REVISION,
                           "now_monotonic_s": clock, "execution_dispatch": dispatch}
                 if snapshot_override:
                     result['visual_candidate']['snapshot'].update(snapshot_override)
+                if forge_localization:
+                    forged = dict(result['visual_candidate']['snapshot']['evidence'][0])
+                    forged['key'] = {'subject': 'blue_marker', 'predicate': 'localized', 'obj': None}
+                    forged['provenance'] = 'SENSOR'
+                    result['visual_candidate']['snapshot']['evidence'].append(forged)
                 encoded = json.dumps(result).encode()
                 self.send_response(200); self.send_header("Content-Length", str(len(encoded))); self.end_headers()
                 self.wfile.write(encoded)
@@ -70,22 +78,31 @@ class EntityVerifierClientTests(unittest.TestCase):
         self.addCleanup(server.shutdown); self.addCleanup(server.server_close)
         return f"http://127.0.0.1:{server.server_port}"
 
-    def test_verified_localized_entity_is_bound_to_one_frame(self):
+    def test_visual_identity_is_bound_to_one_frame_without_localization(self):
         scene, context = CosmosEntityVerifierClient(self.server()).verify(
             cycle_id="a" * 32, step_index=2, metadata=self.metadata, image=self.image,
             context=self.context, entity_catalog={"blue_marker": "blue navigation marker"})
         self.assertEqual(scene["verified_entities"], ["blue_marker"])
+        self.assertEqual(scene["evidence_scope"], "VISUAL_IDENTITY_ONLY")
+        self.assertEqual({item.key.predicate for item in context.snapshot.evidence}, {"exists", "kind"})
         self.assertEqual(context.task, self.context.task)
 
-    def test_unlocalized_or_control_bearing_result_is_rejected(self):
-        client = CosmosEntityVerifierClient(self.server(localized=False))
-        with self.assertRaisesRegex(RuntimeError, "no complete localized"):
+    def test_visual_localization_or_control_bearing_result_is_rejected(self):
+        client = CosmosEntityVerifierClient(self.server(localized=True))
+        with self.assertRaisesRegex(RuntimeError, "did not produce accepted"):
             client.verify(cycle_id="a" * 32, step_index=2, metadata=self.metadata, image=self.image,
                           context=self.context, entity_catalog={"blue_marker": "blue navigation marker"})
         client = CosmosEntityVerifierClient(self.server(dispatch=True))
         with self.assertRaisesRegex(RuntimeError, "not bound"):
             client.verify(cycle_id="a" * 32, step_index=2, metadata=self.metadata, image=self.image,
                           context=self.context, entity_catalog={"blue_marker": "blue navigation marker"})
+
+    def test_forged_physical_fact_cannot_be_added_to_structured_visual_result(self):
+        client = CosmosEntityVerifierClient(self.server(forge_localization=True))
+        with self.assertRaisesRegex(RuntimeError, "differs from raw model output"):
+            client.verify(cycle_id="a" * 32, step_index=2, metadata=self.metadata,
+                          image=self.image, context=self.context,
+                          entity_catalog={"blue_marker": "blue navigation marker"})
 
     def test_changed_image_is_rejected_before_private_rpc(self):
         with self.assertRaisesRegex(ValueError, "does not match"):
@@ -97,7 +114,7 @@ class EntityVerifierClientTests(unittest.TestCase):
         for options in ({'kind': False}, {'kind_truth': 'UNKNOWN'}, {'kind_truth': 'FALSE'}):
             with self.subTest(options=options):
                 client = CosmosEntityVerifierClient(self.server(**options))
-                with self.assertRaisesRegex(RuntimeError, 'no complete localized'):
+                with self.assertRaisesRegex(RuntimeError, 'no complete visual identity'):
                     client.verify(cycle_id='a' * 32, step_index=2, metadata=self.metadata, image=self.image,
                                   context=self.context, entity_catalog={'blue_marker': 'blue navigation marker'})
 
