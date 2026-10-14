@@ -8,6 +8,30 @@ steps aligned with RRM's overall purpose. Requirements/contracts and verified
 evidence govern the work; the roadmap is revisable. Historical phase/gate numbers
 below retain their original meanings and then-current scope.
 
+## Fresh-boot Office world/map repeatability — 2026-10-13 EDT
+
+After approval for the next grounded diagnostic, a second fresh Office/scale-1.0
+simulator boot retained three native camera frames and two longer physical/ROS
+traces. Seven readiness gates passed, the later GUI camera frames advanced and
+showed both markers, and the console remained UNKNOWN/IDLE. No flight or action
+was dispatched. Rendered-versus-ROS camera translation was 6.20–6.26 cm against
+the frozen 3 cm gate; mount residual remained about 2 µm. The first boot had
+8.47–8.54 cm. The second boot's early 64 exact-stamp physical/ROS base pairs
+spanned 5.50–8.66 cm; a late 63-pair trace, at simulator time ~5127–5139 s,
+spanned 5.37–7.44 cm while the physical body stayed nearly still.
+
+Raw/converted odometry and converted/TF agreed. Live PX4 readback had GPS height
+reference; source and home-position evidence are consistent with a local estimator
+origin contribution, but do not prove cause. This is not a fixed map transform or
+multi-pose calibration. Second-boot image *headers* matched native stamps; no
+independent RGB equality check. Its static world/map identity was observed later
+in the same run, not in the concurrent trace. Recorder rows lack the camera
+episode ID. The [binding checkpoint](docs/scrum-8/world-map-binding.md) gives
+measurements and limits. Local gitignored second-boot evidence is in
+`.rrm-artifacts/world-map-episode-b-20261013/`; both bundles need durable export
+before workflow replacement. Console admission and all seven Office cases remain
+blocked/PREPARED_NOT_RUN pending independent multi-pose binding evidence.
+
 ## Grounded Office world/map capture — 2026-10-13 EDT
 
 User approved one bounded, read-only grounded diagnostic. Inner Isaac was switched

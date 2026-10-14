@@ -27,7 +27,7 @@ one 480×300 `camera_left` image at ROS source stamp 305449993172 ns and near-gr
 map odometry (z≈0.003 m). Visual inspection showed floor and wall only; this view
 cannot establish either Office marker's visibility. The console remains unbound.
 
-## Next bounded diagnostic
+## Prior bounded diagnostic plan
 
 Acquire a fresh same-episode, read-only pose set while the vehicle is grounded:
 
@@ -85,9 +85,9 @@ run identity follows the unchanged container and advancing clock, so this is not
 an independently encoded episode join. Physical speed was at most 0.000020 m/s
 in the matched records; all 20 sampled MAVROS states were connected/disarmed and
 all 97 sampled extended states reported landed. Exact numeric stamps do not prove
-equal sensor-acquisition times; these
-readings are a grounded residual distribution, not an estimator root-cause or a
-calibration. The recorder stopped with `request_disabled`, 162 records, no error.
+equal sensor-acquisition times; these readings are a grounded residual
+distribution, not an estimator root-cause or a calibration. The recorder stopped
+with `request_disabled`, 162 records, no error.
 
 Two later read-only GUI camera refreshes advanced in source stamp and image hash;
 the second visibly contained both Office markers. Those later GUI images are not
@@ -98,3 +98,63 @@ authority was granted. Raw records, collector source, analysis scripts, status a
 checksums are in the local gitignored
 `.rrm-artifacts/world-map-capture-20261013/` bundle. This workspace bundle still
 needs separate durable export before the OSMO task is replaced.
+
+## Fresh-boot estimator-origin and repeatability check — 2026-10-13 EDT
+
+With approval for the next grounded diagnostic, a second Office/scale-1.0 simulator
+boot used the same pinned measurement source and image. Only inner Isaac was
+recreated, then robot once to join its clock epoch. All seven readiness gates
+passed. GCS stayed up; ROS state samples were connected/disarmed/landed, and
+no control or mission action was dispatched. The native writer acquired three
+frames and detached cleanly. Two later GUI camera refreshes advanced in stamp
+and image hash and visibly showed both markers. Console binding remained
+`UNKNOWN`, mission `IDLE`.
+
+At native render stamps 65.780, 65.810 and 65.840 s, rendered-versus-composed-ROS
+camera translation residuals were 6.257, 6.227 and 6.197 cm, with rotation about
+1.27°. All exceed the frozen 3 cm translation gate. Rendered camera versus
+physical-body-plus-mount translation stayed about 2 µm. Raw MAVROS and converted
+odom matched, as did converted odom and map-base TF, at the paired stamps. All
+three ROS image *headers* matched the native simulation stamps; this run did not
+independently check RGB pixel equality. The second physical read was one 30 ms
+step after its render; the other two matched render simulation time.
+
+| Grounded comparison | Exact numeric pairs | Physical versus ROS map-base translation | Rotation |
+| --- | ---: | --- | --- |
+| First boot, later trace | 77 over 14.07 s | 7.06–9.14 cm; median 7.79 cm | 1.67–1.80°; median 1.76° |
+| Second boot, early trace | 64 over 15.72 s | 5.50–8.66 cm; median 7.48 cm | 1.09–1.28°; median 1.14° |
+| Second boot, late trace | 63 over 11.43 s | 5.37–7.44 cm; median 6.23 cm | 0.37–0.46°; median 0.43° |
+
+The late trace was at simulator time about 5127–5139 s in the same second boot,
+not at a matched elapsed time in the first. Across these grounded traces, measured
+physical speed was at most 0.000020 m/s. The physical body location at the two
+native captures was nearly identical, while converted odometry position differed
+between boots. That supports an episode-dependent estimated/local-pose offset;
+it does not identify a fixed world/map transform or prove the estimator's cause.
+The first boot's native camera residual was 8.47–8.54 cm; the second boot's was
+6.20–6.26 cm. A single stationary pose per boot cannot establish a transform's
+rotation, behavior under motion, or repeatability across poses.
+
+Source inspection shows the active odometry converter's `OVERWRITE` mode only
+relabels incoming MAVROS odometry as `map`/`base_link`. The launch file declares
+identity ROS `world -> map`. PX4 EKF2 labels its published local position as the
+body origin in local NED; the active `EKF2_HGT_REF` readback was `1` (GPS) and
+`EKF2_GPS_CTRL` was `7`. Pegasus GPS simulation derives altitude from physical
+height plus configured origin altitude, with noise and bias. These facts make a
+local estimator origin a plausible contributor, not a measured causal diagnosis.
+The read-only home-position sample is near local zero; no origin-setting parameter
+or frame transform was changed.
+
+The second boot's concurrent ROS recorder missed the static `world -> map` TF at
+startup. A later read-only `tf2_echo` in the same run observed identity; it is
+explicitly labeled as later same-run evidence. Physical recorder rows do not embed
+the camera writer episode ID; linkage again uses the uninterrupted container and
+clock. Exact numeric stamp matches are not independent proof of equal acquisition
+time. No multi-pose calibration, flight, inference or console admission occurred.
+The seven Office cases remain `PREPARED_NOT_RUN`.
+
+Raw records, GUI images, source and analysis files, and a SHA256 manifest are in
+the local gitignored `.rrm-artifacts/world-map-episode-b-20261013/` bundle. Both
+workspace capture bundles still need separate durable export before workflow
+replacement. A decision about world/map ownership or target coordinates should
+wait for independent multi-pose evidence and review of the proposed contract.

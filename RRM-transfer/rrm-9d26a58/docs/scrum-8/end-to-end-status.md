@@ -23,6 +23,14 @@ and live-state audit. An approved grounded Office capture in a new episode found
 while camera mounting remained within its existing limit. A separate 77-pair
 exact-stamp grounded base comparison spanned 7.06–9.14 cm. Neither result establishes
 a world/map transform or permits console admission.
+In a second fresh Office boot, three native frames still exceeded the frozen 3 cm
+world-camera translation gate (6.20–6.26 cm), while physical camera mounting
+remained about 2 µm. Its early and late grounded base traces retained 64 and 63
+exact-stamp pairs with 5.50–8.66 cm and 5.37–7.44 cm translation residuals.
+The changing residual across boots and within the second boot is consistent with
+an estimated local-pose offset, but no causal estimator diagnosis or multi-pose
+world/map calibration exists. GUI frames advanced and showed both markers; console
+binding remains UNKNOWN, mission IDLE, and all seven cases PREPARED_NOT_RUN.
 
 ## Demonstrated scope and remaining gaps
 
