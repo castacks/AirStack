@@ -41,7 +41,7 @@ task in the same OSMO group should call it.
 
 ## Entity-capable source overlay — 2026-10-08
 
-The branch-scoped `airstack-live-replan-ore-proj.yaml` now pins the published image
+The branch-scoped `airstack-live-replan-ore-proj.yaml` originally pinned the published image
 `airlab-docker.andrew.cmu.edu/airstack/airstack-rrm-cosmos-worker@sha256:6a6f1ea7233003a2e44c05b32041832a61af8a5957ef37be84c104edd24f2e83`
 (tag `rrm-entities-20261008-4db36377`). It overlays the working RRM source from
 `ore_proj` commit `4db36377` plus the capability-endpoint changes onto immutable
@@ -59,8 +59,10 @@ docker build --platform linux/amd64 \
 Seven boundary/service tests passed inside the published candidate, including actual
 HTTP `/v1/capabilities` and `/v1/verify-entities` routing with a fake model. This does
 **not** qualify GPU inference, model accuracy, scene registration or visual grounding.
-Capabilities report only an entrypoint-source hash and declared routes, not dependency
-or checkpoint identity.
+That earlier candidate's capabilities reported only an entrypoint-source hash and
+declared routes, not dependency or checkpoint identity. The v4 worker additionally
+reports its visual prompt revision and visual builder source hash; neither is a
+checkpoint or model-accuracy attestation.
 
 Editing the workflow does not change an existing worker. Submit the updated YAML
 from an authenticated OSMO control host for a new workflow; do not kill the current
@@ -72,11 +74,12 @@ image; updating only the remote checkout does not update the Mac launch file.
 ## Visual identity v4 source overlay — 2026-10-14
 
 The RRM visual contract now admits image-observable `exists` and `kind` facts only.
-The running image pinned above predates that revision, so the console capability
-check reports `BLOCKED`. A source-overlay image built locally from the current
-checkout passed the import/compile check and reported `visual-claims/v4` with the
-current `visual_world_builder.py` SHA256. This local build is not the worker running
-in OSMO. Publish a uniquely tagged image, record its registry digest, update the
-branch-scoped workflow image pin, and submit a new workflow from an authenticated
-OSMO control host. The GUI then needs a matching active scene and fresh camera image
-before its read-only identity check can run. Visual identity is not map localization.
+The previously running worker predates that revision, so the console capability
+check reports `BLOCKED`. The source-overlay image from commit `d10c4e9b` was built,
+import-checked and published as tag `visual-v4-d10c4e9b` at registry digest
+`sha256:8ffbf30a140d3565d8c95510aeb0f9762fe6566cfcae39cc1b3f0b9e146cbe52`.
+The branch-scoped workflow selects this digest for its **next submission**. Existing
+OSMO workers do not change when the YAML changes; submit a new workflow from an
+authenticated OSMO control host after preserving current workspace artifacts. The
+GUI then needs a matching active scene and fresh camera image before its read-only
+identity check can run. Visual identity is not map localization.
