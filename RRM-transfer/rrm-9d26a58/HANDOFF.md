@@ -8,6 +8,26 @@ steps aligned with RRM's overall purpose. Requirements/contracts and verified
 evidence govern the work; the roadmap is revisable. Historical phase/gate numbers
 below retain their original meanings and then-current scope.
 
+## Grounded Office world/map capture — 2026-10-13 EDT
+
+User approved one bounded, read-only grounded diagnostic. Inner Isaac was switched
+from the default launcher to Office/scale 1.0 with the opt-in observation directory;
+robot was recreated once for the new clock epoch. Seven readiness gates passed,
+MAVROS stayed connected/disarmed/landed and GUI mission stayed IDLE. The native
+three-frame writer detached cleanly. Exact-stamp raw/converted odometry and TF
+matched, but rendered-versus-ROS camera translation stayed 8.47–8.54 cm against
+the frozen 3 cm gate. The camera mount itself stayed near 2 µm/0.00054°.
+An independent longer grounded trace had 77 exact-stamp physical/ROS base pairs
+over 14.07 s, with 7.06–9.14 cm residual. This is the same uninterrupted simulator
+run; the physical trace does not itself encode the camera writer's episode ID.
+These are run-scoped observations, not a fitted origin, causal estimator diagnosis,
+or cross-episode calibration.
+Two later GUI camera frames advanced and showed both Office markers; console scene
+binding remained UNKNOWN and all seven cases remain PREPARED_NOT_RUN. No flight,
+inference, map transform or admission change. The [binding checkpoint](docs/scrum-8/world-map-binding.md)
+has limits and the next measurement gate. The local gitignored capture bundle needs
+separate durable export before workflow replacement.
+
 ## Camera mount/frame reconciliation — 2026-10-09 13:11–13:28 UTC
 
 Actual composed attachment evidence shows renderer/current USD camera agreement and

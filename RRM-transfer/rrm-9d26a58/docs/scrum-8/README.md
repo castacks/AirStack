@@ -20,6 +20,7 @@ This is the working SCRUM-8 design and incremental implementation record. It doe
 - [Embodiment-neutral goal intake and routing](semantic-goal-routing.md)
 - [Current goal-to-finish performance status](end-to-end-status.md)
 - [Historical hand embodiment decision and qualification gates](hand-embodiment-decision.md)
+- [Office world/map binding checkpoint](world-map-binding.md)
 - [Proposed learned embodiment model (RRM-EM)](../embodiment-learning-architecture.md)
 - [Retriever adjacency and research positioning](retriever-positioning.md)
 - [Core acceptance campaign and authored event labels](../core-acceptance.md)

@@ -1,10 +1,10 @@
 # Goal-to-finish performance status
 
-As of 2026-10-09. This page summarizes measured scope; [HANDOFF.md](../../HANDOFF.md)
+As of 2026-10-13. This page summarizes measured scope; [HANDOFF.md](../../HANDOFF.md)
 retains the detailed dated evidence. The six stages in [WORK_PHASES.md](../../WORK_PHASES.md)
 are a revisable roadmap toward RRM's overall purpose, not a separate requirements baseline.
 
-Latest runtime checkpoint: Office's opt-in requestable writer acquires actual
+The 2026-10-09 runtime checkpoint: Office's opt-in requestable writer acquires actual
 drone-camera RGB/segmentation pairs; one native pair independently labels both
 markers VISIBLE and passes the assessment pairing gate. Initial native detach crash
 is retained; post-render lifecycle recovery captures/detaches three frames, with
@@ -17,6 +17,12 @@ versus ROS map-frame base discrepancy is8.44–8.47cm/1.05–1.06° in this epis
 world-camera consistency still fails unchanged3cm/2° bounds (~8.4cm/1.06°). Map
 binding remains blocked, console UNKNOWN and seven Office cases PREPARED_NOT_RUN. Same pinned image;
 no learned inference or flight. Native teacher pairing is not learned goal success.
+The [world/map binding checkpoint](world-map-binding.md) records a read-only source
+and live-state audit. An approved grounded Office capture in a new episode found
+8.47–8.54 cm rendered-versus-ROS world-camera translation residual in three frames,
+while camera mounting remained within its existing limit. A separate 77-pair
+exact-stamp grounded base comparison spanned 7.06–9.14 cm. Neither result establishes
+a world/map transform or permits console admission.
 
 ## Demonstrated scope and remaining gaps
 
