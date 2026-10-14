@@ -1,0 +1,129 @@
+-   type: TartanAirv2_NoIMU
+    name: v2_H000
+    args:
+        root: /data2/datasets/yuhengq/tartanair_new/Data_hard/P000
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAirv2_NoIMU
+    name: v2_H001
+    args:
+        root: /data2/datasets/yuhengq/tartanair_new/Data_hard/P001
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAirv2_NoIMU
+    name: v2_H002
+    args:
+        root: /data2/datasets/yuhengq/tartanair_new/Data_hard/P002
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAirv2_NoIMU
+    name: v2_H003
+    args:
+        root: /data2/datasets/yuhengq/tartanair_new/Data_hard/P003
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAirv2_NoIMU
+    name: v2_H004
+    args:
+        root: /data2/datasets/yuhengq/tartanair_new/Data_hard/P004
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAirv2_NoIMU
+    name: v2_H005
+    args:
+        root: /data2/datasets/yuhengq/tartanair_new/Data_hard/P005
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAirv2_NoIMU
+    name: v2_H006
+    args:
+        root: /data2/datasets/yuhengq/tartanair_new/Data_hard/P006
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAirv2_NoIMU
+    name: v2_H007
+    args:
+        root: /data2/datasets/yuhengq/tartanair_new/Data_hard/P007
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+
+-   type: TartanAirv2_NoIMU
+    name: v2_E000
+    args:
+        root: /data2/datasets/yuhengq/tartanair_new/Data_easy/P000
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAirv2_NoIMU
+    name: v2_E001
+    args:
+        root: /data2/datasets/yuhengq/tartanair_new/Data_easy/P001
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAirv2_NoIMU
+    name: v2_E002
+    args:
+        root: /data2/datasets/yuhengq/tartanair_new/Data_easy/P002
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAirv2_NoIMU
+    name: v2_E003
+    args:
+        root: /data2/datasets/yuhengq/tartanair_new/Data_easy/P003
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAirv2_NoIMU
+    name: v2_E004
+    args:
+        root: /data2/datasets/yuhengq/tartanair_new/Data_easy/P004
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAirv2_NoIMU
+    name: v2_E005
+    args:
+        root: /data2/datasets/yuhengq/tartanair_new/Data_easy/P005
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAirv2_NoIMU
+    name: v2_E006
+    args:
+        root: /data2/datasets/yuhengq/tartanair_new/Data_easy/P006
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAirv2_NoIMU
+    name: v2_E007
+    args:
+        root: /data2/datasets/yuhengq/tartanair_new/Data_easy/P007
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true

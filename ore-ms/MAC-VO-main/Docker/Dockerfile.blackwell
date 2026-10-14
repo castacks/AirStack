@@ -1,0 +1,19 @@
+# GPU frontend runtime for Blackwell. Keep the original image independently usable.
+FROM pytorch/pytorch:2.7.1-cuda12.8-cudnn9-runtime@sha256:c16f4c749e2d9e96878875cdf6cc45cddda1d1a36fddd371dd6f2360f1b6e2a2
+
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    rclone git libgl1 libglib2.0-0 && rm -rf /var/lib/apt/lists/*
+
+# Pin the framework during dependency resolution. The recovered FlowFormer uses
+# native PyTorch attention; the old xFormers wheel would downgrade PyTorch.
+RUN python -m pip install --no-cache-dir \
+    torch==2.7.1 torchvision==0.22.1 'pypose>=0.6.8' \
+    timm==0.9.12 yacs einops numpy opencv-python-headless \
+    matplotlib tabulate tqdm rich pyyaml scipy pillow h5py flow_vis \
+    rerun-sdk==0.21.0 wandb evo jaxtyping typeguard==2.13.3 onnx
+
+WORKDIR /workspace/MAC-VO-main
+CMD ["bash"]

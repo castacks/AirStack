@@ -1,0 +1,26 @@
+# Private credentials and local state
+.env
+.env.*
+!*.example
+**/rclone.conf
+**/*token*.json
+**/*credential*.json
+**/secret.txt
+__pycache__/
+*.pyc
+.venv/
+
+# Model/data archives and generated artifacts
+macslam/
+*.zip
+*.pth
+*.pt
+*.pkl
+*.bundle
+data/
+datasets/
+results/
+outputs/
+
+# Upstream demonstration video is reproducible from upstream.
+MAC-VO-main/asset/ICRAvideo.gif

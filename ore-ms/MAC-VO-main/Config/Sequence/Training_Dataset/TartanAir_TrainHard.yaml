@@ -1,0 +1,1376 @@
+-   type: TartanAir_NoIMU
+    name: house006
+    args:
+        root: /project/learningvo/tartanair_v1_5/house/Data_fast/P006
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: house001
+    args:
+        root: /project/learningvo/tartanair_v1_5/house/Data_fast/P001
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: house005
+    args:
+        root: /project/learningvo/tartanair_v1_5/house/Data_fast/P005
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: house002
+    args:
+        root: /project/learningvo/tartanair_v1_5/house/Data_fast/P002
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: house000
+    args:
+        root: /project/learningvo/tartanair_v1_5/house/Data_fast/P000
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: house007
+    args:
+        root: /project/learningvo/tartanair_v1_5/house/Data_fast/P007
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: house003
+    args:
+        root: /project/learningvo/tartanair_v1_5/house/Data_fast/P003
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: house004
+    args:
+        root: /project/learningvo/tartanair_v1_5/house/Data_fast/P004
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: house_dist0001
+    args:
+        root: /project/learningvo/tartanair_v1_5/house_dist0/Data_fast/P001
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: house_dist0006
+    args:
+        root: /project/learningvo/tartanair_v1_5/house_dist0/Data_fast/P006
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: house_dist0002
+    args:
+        root: /project/learningvo/tartanair_v1_5/house_dist0/Data_fast/P002
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: house_dist0005
+    args:
+        root: /project/learningvo/tartanair_v1_5/house_dist0/Data_fast/P005
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: house_dist0007
+    args:
+        root: /project/learningvo/tartanair_v1_5/house_dist0/Data_fast/P007
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: house_dist0000
+    args:
+        root: /project/learningvo/tartanair_v1_5/house_dist0/Data_fast/P000
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: house_dist0004
+    args:
+        root: /project/learningvo/tartanair_v1_5/house_dist0/Data_fast/P004
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: house_dist0003
+    args:
+        root: /project/learningvo/tartanair_v1_5/house_dist0/Data_fast/P003
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: slaughter006
+    args:
+        root: /project/learningvo/tartanair_v1_5/slaughter/Data_fast/P006
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: slaughter001
+    args:
+        root: /project/learningvo/tartanair_v1_5/slaughter/Data_fast/P001
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: slaughter008
+    args:
+        root: /project/learningvo/tartanair_v1_5/slaughter/Data_fast/P008
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: slaughter002
+    args:
+        root: /project/learningvo/tartanair_v1_5/slaughter/Data_fast/P002
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: slaughter000
+    args:
+        root: /project/learningvo/tartanair_v1_5/slaughter/Data_fast/P000
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: slaughter007
+    args:
+        root: /project/learningvo/tartanair_v1_5/slaughter/Data_fast/P007
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: slaughter003
+    args:
+        root: /project/learningvo/tartanair_v1_5/slaughter/Data_fast/P003
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: slaughter004
+    args:
+        root: /project/learningvo/tartanair_v1_5/slaughter/Data_fast/P004
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: abandonedfactory007
+    args:
+        root: /project/learningvo/tartanair_v1_5/abandonedfactory/Data_fast/P007
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: abandonedfactory000
+    args:
+        root: /project/learningvo/tartanair_v1_5/abandonedfactory/Data_fast/P000
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: abandonedfactory004
+    args:
+        root: /project/learningvo/tartanair_v1_5/abandonedfactory/Data_fast/P004
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: abandonedfactory003
+    args:
+        root: /project/learningvo/tartanair_v1_5/abandonedfactory/Data_fast/P003
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: abandonedfactory001
+    args:
+        root: /project/learningvo/tartanair_v1_5/abandonedfactory/Data_fast/P001
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: abandonedfactory006
+    args:
+        root: /project/learningvo/tartanair_v1_5/abandonedfactory/Data_fast/P006
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: abandonedfactory008
+    args:
+        root: /project/learningvo/tartanair_v1_5/abandonedfactory/Data_fast/P008
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: abandonedfactory002
+    args:
+        root: /project/learningvo/tartanair_v1_5/abandonedfactory/Data_fast/P002
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: abandonedfactory005
+    args:
+        root: /project/learningvo/tartanair_v1_5/abandonedfactory/Data_fast/P005
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: abandonedfactory_night001
+    args:
+        root: /project/learningvo/tartanair_v1_5/abandonedfactory_night/Data_fast/P001
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: abandonedfactory_night006
+    args:
+        root: /project/learningvo/tartanair_v1_5/abandonedfactory_night/Data_fast/P006
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: abandonedfactory_night008
+    args:
+        root: /project/learningvo/tartanair_v1_5/abandonedfactory_night/Data_fast/P008
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: abandonedfactory_night002
+    args:
+        root: /project/learningvo/tartanair_v1_5/abandonedfactory_night/Data_fast/P002
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: abandonedfactory_night005
+    args:
+        root: /project/learningvo/tartanair_v1_5/abandonedfactory_night/Data_fast/P005
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: abandonedfactory_night007
+    args:
+        root: /project/learningvo/tartanair_v1_5/abandonedfactory_night/Data_fast/P007
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: abandonedfactory_night000
+    args:
+        root: /project/learningvo/tartanair_v1_5/abandonedfactory_night/Data_fast/P000
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: abandonedfactory_night004
+    args:
+        root: /project/learningvo/tartanair_v1_5/abandonedfactory_night/Data_fast/P004
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: westerndesert000
+    args:
+        root: /project/learningvo/tartanair_v1_5/westerndesert/Data_fast/P000
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: westerndesert007
+    args:
+        root: /project/learningvo/tartanair_v1_5/westerndesert/Data_fast/P007
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: westerndesert003
+    args:
+        root: /project/learningvo/tartanair_v1_5/westerndesert/Data_fast/P003
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: westerndesert004
+    args:
+        root: /project/learningvo/tartanair_v1_5/westerndesert/Data_fast/P004
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: westerndesert006
+    args:
+        root: /project/learningvo/tartanair_v1_5/westerndesert/Data_fast/P006
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: westerndesert001
+    args:
+        root: /project/learningvo/tartanair_v1_5/westerndesert/Data_fast/P001
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: westerndesert005
+    args:
+        root: /project/learningvo/tartanair_v1_5/westerndesert/Data_fast/P005
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: westerndesert002
+    args:
+        root: /project/learningvo/tartanair_v1_5/westerndesert/Data_fast/P002
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: ocean002
+    args:
+        root: /project/learningvo/tartanair_v1_5/ocean/Data_fast/P002
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: ocean008
+    args:
+        root: /project/learningvo/tartanair_v1_5/ocean/Data_fast/P008
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: ocean005
+    args:
+        root: /project/learningvo/tartanair_v1_5/ocean/Data_fast/P005
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: ocean001
+    args:
+        root: /project/learningvo/tartanair_v1_5/ocean/Data_fast/P001
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: ocean006
+    args:
+        root: /project/learningvo/tartanair_v1_5/ocean/Data_fast/P006
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: ocean004
+    args:
+        root: /project/learningvo/tartanair_v1_5/ocean/Data_fast/P004
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: ocean003
+    args:
+        root: /project/learningvo/tartanair_v1_5/ocean/Data_fast/P003
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: ocean007
+    args:
+        root: /project/learningvo/tartanair_v1_5/ocean/Data_fast/P007
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: ocean000
+    args:
+        root: /project/learningvo/tartanair_v1_5/ocean/Data_fast/P000
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: soulcity004
+    args:
+        root: /project/learningvo/tartanair_v1_5/soulcity/Data_fast/P004
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: soulcity010
+    args:
+        root: /project/learningvo/tartanair_v1_5/soulcity/Data_fast/P010
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: soulcity003
+    args:
+        root: /project/learningvo/tartanair_v1_5/soulcity/Data_fast/P003
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: soulcity009
+    args:
+        root: /project/learningvo/tartanair_v1_5/soulcity/Data_fast/P009
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: soulcity007
+    args:
+        root: /project/learningvo/tartanair_v1_5/soulcity/Data_fast/P007
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: soulcity000
+    args:
+        root: /project/learningvo/tartanair_v1_5/soulcity/Data_fast/P000
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: soulcity008
+    args:
+        root: /project/learningvo/tartanair_v1_5/soulcity/Data_fast/P008
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: soulcity002
+    args:
+        root: /project/learningvo/tartanair_v1_5/soulcity/Data_fast/P002
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: soulcity005
+    args:
+        root: /project/learningvo/tartanair_v1_5/soulcity/Data_fast/P005
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: soulcity001
+    args:
+        root: /project/learningvo/tartanair_v1_5/soulcity/Data_fast/P001
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: oldtown006
+    args:
+        root: /project/learningvo/tartanair_v1_5/oldtown/Data_fast/P006
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: oldtown001
+    args:
+        root: /project/learningvo/tartanair_v1_5/oldtown/Data_fast/P001
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: oldtown005
+    args:
+        root: /project/learningvo/tartanair_v1_5/oldtown/Data_fast/P005
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: oldtown002
+    args:
+        root: /project/learningvo/tartanair_v1_5/oldtown/Data_fast/P002
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: oldtown000
+    args:
+        root: /project/learningvo/tartanair_v1_5/oldtown/Data_fast/P000
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: oldtown007
+    args:
+        root: /project/learningvo/tartanair_v1_5/oldtown/Data_fast/P007
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: oldtown003
+    args:
+        root: /project/learningvo/tartanair_v1_5/oldtown/Data_fast/P003
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: oldtown004
+    args:
+        root: /project/learningvo/tartanair_v1_5/oldtown/Data_fast/P004
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: office2004
+    args:
+        root: /project/learningvo/tartanair_v1_5/office2/Data_fast/P004
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: office2003
+    args:
+        root: /project/learningvo/tartanair_v1_5/office2/Data_fast/P003
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: office2000
+    args:
+        root: /project/learningvo/tartanair_v1_5/office2/Data_fast/P000
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: office2002
+    args:
+        root: /project/learningvo/tartanair_v1_5/office2/Data_fast/P002
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: office2005
+    args:
+        root: /project/learningvo/tartanair_v1_5/office2/Data_fast/P005
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: office2001
+    args:
+        root: /project/learningvo/tartanair_v1_5/office2/Data_fast/P001
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: office2006
+    args:
+        root: /project/learningvo/tartanair_v1_5/office2/Data_fast/P006
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: office005
+    args:
+        root: /project/learningvo/tartanair_v1_5/office/Data_fast/P005
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: office002
+    args:
+        root: /project/learningvo/tartanair_v1_5/office/Data_fast/P002
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: office001
+    args:
+        root: /project/learningvo/tartanair_v1_5/office/Data_fast/P001
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: office003
+    args:
+        root: /project/learningvo/tartanair_v1_5/office/Data_fast/P003
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: office004
+    args:
+        root: /project/learningvo/tartanair_v1_5/office/Data_fast/P004
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: office000
+    args:
+        root: /project/learningvo/tartanair_v1_5/office/Data_fast/P000
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: amusement002
+    args:
+        root: /project/learningvo/tartanair_v1_5/amusement/Data_fast/P002
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: amusement005
+    args:
+        root: /project/learningvo/tartanair_v1_5/amusement/Data_fast/P005
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: amusement001
+    args:
+        root: /project/learningvo/tartanair_v1_5/amusement/Data_fast/P001
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: amusement006
+    args:
+        root: /project/learningvo/tartanair_v1_5/amusement/Data_fast/P006
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: amusement004
+    args:
+        root: /project/learningvo/tartanair_v1_5/amusement/Data_fast/P004
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: amusement003
+    args:
+        root: /project/learningvo/tartanair_v1_5/amusement/Data_fast/P003
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: amusement007
+    args:
+        root: /project/learningvo/tartanair_v1_5/amusement/Data_fast/P007
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: amusement000
+    args:
+        root: /project/learningvo/tartanair_v1_5/amusement/Data_fast/P000
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: japanesealley007
+    args:
+        root: /project/learningvo/tartanair_v1_5/japanesealley/Data_fast/P007
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: japanesealley000
+    args:
+        root: /project/learningvo/tartanair_v1_5/japanesealley/Data_fast/P000
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: japanesealley004
+    args:
+        root: /project/learningvo/tartanair_v1_5/japanesealley/Data_fast/P004
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: japanesealley003
+    args:
+        root: /project/learningvo/tartanair_v1_5/japanesealley/Data_fast/P003
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: japanesealley001
+    args:
+        root: /project/learningvo/tartanair_v1_5/japanesealley/Data_fast/P001
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: japanesealley006
+    args:
+        root: /project/learningvo/tartanair_v1_5/japanesealley/Data_fast/P006
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: japanesealley002
+    args:
+        root: /project/learningvo/tartanair_v1_5/japanesealley/Data_fast/P002
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: japanesealley005
+    args:
+        root: /project/learningvo/tartanair_v1_5/japanesealley/Data_fast/P005
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: seasonsforest004
+    args:
+        root: /project/learningvo/tartanair_v1_5/seasonsforest/Data_fast/P004
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: seasonsforest007
+    args:
+        root: /project/learningvo/tartanair_v1_5/seasonsforest/Data_fast/P007
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: seasonsforest000
+    args:
+        root: /project/learningvo/tartanair_v1_5/seasonsforest/Data_fast/P000
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: seasonsforest002
+    args:
+        root: /project/learningvo/tartanair_v1_5/seasonsforest/Data_fast/P002
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: seasonsforest005
+    args:
+        root: /project/learningvo/tartanair_v1_5/seasonsforest/Data_fast/P005
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: seasonsforest001
+    args:
+        root: /project/learningvo/tartanair_v1_5/seasonsforest/Data_fast/P001
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: seasonsforest006
+    args:
+        root: /project/learningvo/tartanair_v1_5/seasonsforest/Data_fast/P006
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: endofworld004
+    args:
+        root: /project/learningvo/tartanair_v1_5/endofworld/Data_fast/P004
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: endofworld007
+    args:
+        root: /project/learningvo/tartanair_v1_5/endofworld/Data_fast/P007
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: endofworld000
+    args:
+        root: /project/learningvo/tartanair_v1_5/endofworld/Data_fast/P000
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: endofworld002
+    args:
+        root: /project/learningvo/tartanair_v1_5/endofworld/Data_fast/P002
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: endofworld005
+    args:
+        root: /project/learningvo/tartanair_v1_5/endofworld/Data_fast/P005
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: endofworld001
+    args:
+        root: /project/learningvo/tartanair_v1_5/endofworld/Data_fast/P001
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: endofworld006
+    args:
+        root: /project/learningvo/tartanair_v1_5/endofworld/Data_fast/P006
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: seasonsforest_winter005
+    args:
+        root: /project/learningvo/tartanair_v1_5/seasonsforest_winter/Data_fast/P005
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: seasonsforest_winter002
+    args:
+        root: /project/learningvo/tartanair_v1_5/seasonsforest_winter/Data_fast/P002
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: seasonsforest_winter006
+    args:
+        root: /project/learningvo/tartanair_v1_5/seasonsforest_winter/Data_fast/P006
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: seasonsforest_winter001
+    args:
+        root: /project/learningvo/tartanair_v1_5/seasonsforest_winter/Data_fast/P001
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: seasonsforest_winter003
+    args:
+        root: /project/learningvo/tartanair_v1_5/seasonsforest_winter/Data_fast/P003
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: seasonsforest_winter004
+    args:
+        root: /project/learningvo/tartanair_v1_5/seasonsforest_winter/Data_fast/P004
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: seasonsforest_winter000
+    args:
+        root: /project/learningvo/tartanair_v1_5/seasonsforest_winter/Data_fast/P000
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: hospital014
+    args:
+        root: /project/learningvo/tartanair_v1_5/hospital/Data_fast/P014
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: hospital007
+    args:
+        root: /project/learningvo/tartanair_v1_5/hospital/Data_fast/P007
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: hospital000
+    args:
+        root: /project/learningvo/tartanair_v1_5/hospital/Data_fast/P000
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: hospital013
+    args:
+        root: /project/learningvo/tartanair_v1_5/hospital/Data_fast/P013
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: hospital017
+    args:
+        root: /project/learningvo/tartanair_v1_5/hospital/Data_fast/P017
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: hospital004
+    args:
+        root: /project/learningvo/tartanair_v1_5/hospital/Data_fast/P004
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: hospital009
+    args:
+        root: /project/learningvo/tartanair_v1_5/hospital/Data_fast/P009
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: hospital003
+    args:
+        root: /project/learningvo/tartanair_v1_5/hospital/Data_fast/P003
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: hospital010
+    args:
+        root: /project/learningvo/tartanair_v1_5/hospital/Data_fast/P010
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: hospital012
+    args:
+        root: /project/learningvo/tartanair_v1_5/hospital/Data_fast/P012
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: hospital001
+    args:
+        root: /project/learningvo/tartanair_v1_5/hospital/Data_fast/P001
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: hospital006
+    args:
+        root: /project/learningvo/tartanair_v1_5/hospital/Data_fast/P006
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: hospital015
+    args:
+        root: /project/learningvo/tartanair_v1_5/hospital/Data_fast/P015
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: hospital011
+    args:
+        root: /project/learningvo/tartanair_v1_5/hospital/Data_fast/P011
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: hospital002
+    args:
+        root: /project/learningvo/tartanair_v1_5/hospital/Data_fast/P002
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: hospital008
+    args:
+        root: /project/learningvo/tartanair_v1_5/hospital/Data_fast/P008
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: hospital005
+    args:
+        root: /project/learningvo/tartanair_v1_5/hospital/Data_fast/P005
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: hospital016
+    args:
+        root: /project/learningvo/tartanair_v1_5/hospital/Data_fast/P016
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: carwelding003
+    args:
+        root: /project/learningvo/tartanair_v1_5/carwelding/Data_fast/P003
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: carwelding000
+    args:
+        root: /project/learningvo/tartanair_v1_5/carwelding/Data_fast/P000
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: carwelding007
+    args:
+        root: /project/learningvo/tartanair_v1_5/carwelding/Data_fast/P007
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: carwelding005
+    args:
+        root: /project/learningvo/tartanair_v1_5/carwelding/Data_fast/P005
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: carwelding002
+    args:
+        root: /project/learningvo/tartanair_v1_5/carwelding/Data_fast/P002
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: carwelding006
+    args:
+        root: /project/learningvo/tartanair_v1_5/carwelding/Data_fast/P006
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: carwelding001
+    args:
+        root: /project/learningvo/tartanair_v1_5/carwelding/Data_fast/P001
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: gascola001
+    args:
+        root: /project/learningvo/tartanair_v1_5/gascola/Data_fast/P001
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: gascola006
+    args:
+        root: /project/learningvo/tartanair_v1_5/gascola/Data_fast/P006
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: gascola002
+    args:
+        root: /project/learningvo/tartanair_v1_5/gascola/Data_fast/P002
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: gascola005
+    args:
+        root: /project/learningvo/tartanair_v1_5/gascola/Data_fast/P005
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: gascola000
+    args:
+        root: /project/learningvo/tartanair_v1_5/gascola/Data_fast/P000
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: gascola004
+    args:
+        root: /project/learningvo/tartanair_v1_5/gascola/Data_fast/P004
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: gascola003
+    args:
+        root: /project/learningvo/tartanair_v1_5/gascola/Data_fast/P003
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: neighborhood002
+    args:
+        root: /project/learningvo/tartanair_v1_5/neighborhood/Data_fast/P002
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: neighborhood008
+    args:
+        root: /project/learningvo/tartanair_v1_5/neighborhood/Data_fast/P008
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: neighborhood011
+    args:
+        root: /project/learningvo/tartanair_v1_5/neighborhood/Data_fast/P011
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: neighborhood005
+    args:
+        root: /project/learningvo/tartanair_v1_5/neighborhood/Data_fast/P005
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: neighborhood001
+    args:
+        root: /project/learningvo/tartanair_v1_5/neighborhood/Data_fast/P001
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: neighborhood012
+    args:
+        root: /project/learningvo/tartanair_v1_5/neighborhood/Data_fast/P012
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: neighborhood006
+    args:
+        root: /project/learningvo/tartanair_v1_5/neighborhood/Data_fast/P006
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: neighborhood004
+    args:
+        root: /project/learningvo/tartanair_v1_5/neighborhood/Data_fast/P004
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: neighborhood010
+    args:
+        root: /project/learningvo/tartanair_v1_5/neighborhood/Data_fast/P010
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: neighborhood009
+    args:
+        root: /project/learningvo/tartanair_v1_5/neighborhood/Data_fast/P009
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: neighborhood003
+    args:
+        root: /project/learningvo/tartanair_v1_5/neighborhood/Data_fast/P003
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: neighborhood007
+    args:
+        root: /project/learningvo/tartanair_v1_5/neighborhood/Data_fast/P007
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: neighborhood013
+    args:
+        root: /project/learningvo/tartanair_v1_5/neighborhood/Data_fast/P013
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true
+-   type: TartanAir_NoIMU
+    name: neighborhood000
+    args:
+        root: /project/learningvo/tartanair_v1_5/neighborhood/Data_fast/P000
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true

@@ -1,0 +1,6 @@
+[submodule "Module/Network/FlowFormer"]
+	path = Module/Network/FlowFormer
+	url = https://github.com/MAC-VO/S_FlowFormer.git
+[submodule "Baseline/DPVO"]
+	path = Baseline/DPVO
+	url = https://github.com/MAC-VO/S_DPVO.git

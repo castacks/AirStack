@@ -1,0 +1,40 @@
+[tool.pytest.ini_options]
+testpaths = [
+    "./Scripts/UnitTest",
+]
+pythonpath = [
+    "."
+]
+markers = [
+    "local: marks tests that should only run locally (deselect with '-m \"not local\"')",
+    "trt: marks tests that requires TensorRT to run (deselect with '-m \"not trt\"')",
+    "vio: marks tests that is realted with vio (deselect with '-m \"not vio\"')"
+]
+addopts = """--jaxtyping-packages=DataLoader,\
+    Module.Covariance,Module.Frontend,Module.Map,Module.Optimization,Module.MotionModel,Module.MapProcessor,\
+    Odometry,typeguard.typechecked \
+    -p no:launch_testing -p no:ament_flake8 -p no:ament_xmllint -p no:launch_ros -p no:ament_copyright \
+    -p no:ament_lint -p no:ament_pep257
+"""
+
+[tool.pyright]
+include = [
+    "DataLoader", "Evaluation", "Module", "Odometry",
+    "Scripts", "Train", "Utility", "*.py", "Baseline"
+]
+exclude = [
+    "./Module/Network/PWCNet",              # Third-party lib
+    "./Module/Network/FlowFormer",          # Third-party lib
+    "./Module/Network/GMFlow",              # Third-party lib
+    "./Module/Network/UniMatch",            # Third-party lib
+    "./Module/Network/UniCeption",          # Third-party lib
+    "./Module/Network/match_anything",      # Third-party lib
+    "./Baseline/DPVO",                      # Need install DPVO and compile cuda kernel
+    "./Scripts/AdHoc/FLOPS_analyzer.py",    # Need additional package fvcore
+]
+typeCheckingMode = "standard"
+reportImportCycles = "information"
+reportDuplicateImport = "error"
+reportAbstractUsage = "error"
+reportPrivateImportUsage = "information"
+stubPath = "./stubs"

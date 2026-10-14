@@ -1,0 +1,55 @@
+-   type: EuRoC_NoIMU
+    name: MH01
+    args:
+        root: /data2/datasets/yuhengq/Euroc/MH_01_easy/mav0
+        gt_pose: true
+-   type: EuRoC_NoIMU
+    name: MH02
+    args:
+        root: /data2/datasets/yuhengq/Euroc/MH_02_easy/mav0
+        gt_pose: true
+-   type: EuRoC_NoIMU
+    name: MH03
+    args:
+        root: /data2/datasets/yuhengq/Euroc/MH_03_medium/mav0
+        gt_pose: true
+-   type: EuRoC_NoIMU
+    name: MH04
+    args:
+        root: /data2/datasets/yuhengq/Euroc/MH_04_difficult/mav0
+        gt_pose: true
+-   type: EuRoC_NoIMU
+    name: MH05
+    args:
+        root: /data2/datasets/yuhengq/Euroc/MH_05_difficult/mav0
+        gt_pose: true
+-   type: EuRoC_NoIMU
+    name: V101
+    args:
+        root: /data2/datasets/yuhengq/Euroc/V1_01_easy/mav0
+        gt_pose: true
+-   type: EuRoC_NoIMU
+    name: V102
+    args:
+        root: /data2/datasets/yuhengq/Euroc/V1_02_medium/mav0
+        gt_pose: true
+-   type: EuRoC_NoIMU
+    name: V103
+    args:
+        root: /data2/datasets/yuhengq/Euroc/V1_03_difficult/mav0
+        gt_pose: true
+-   type: EuRoC_NoIMU
+    name: V201
+    args:
+        root: /data2/datasets/yuhengq/Euroc/V2_01_easy/mav0
+        gt_pose: true
+-   type: EuRoC_NoIMU
+    name: V202
+    args:
+        root: /data2/datasets/yuhengq/Euroc/V2_02_medium/mav0
+        gt_pose: true
+-   type: EuRoC_NoIMU
+    name: V203
+    args:
+        root: /data2/datasets/yuhengq/Euroc/V2_03_difficult/mav0
+        gt_pose: true

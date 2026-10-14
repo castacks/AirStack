@@ -1,0 +1,8 @@
+Odometry:
+  name: DPVO
+  args:
+    config_file: ./Baseline/DPVO/config/default.yaml
+    weight_file: ./Model/DPVO.pth
+
+Data: !include ../../Common/EvaluationDataset.yaml
+Preprocess: !include ../../Common/Preprocess.yaml

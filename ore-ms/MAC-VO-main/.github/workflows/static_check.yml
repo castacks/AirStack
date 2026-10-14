@@ -1,0 +1,27 @@
+name: StaticAnalysis
+
+on: [push]
+
+jobs:
+  AutomatedTesting:
+    container:
+        image: yutianchen/macslam:github-action
+        env:
+          PYTHONUNBUFFERED: 1
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      
+      - name: Report Environment
+        run: |
+          python -m pip list
+      
+      - name: Static Analysis by PyRight
+        uses: jakebailey/pyright-action@v2
+        with:
+          project: ./pyproject.toml
+
+      - name: Dynamic Analysis by PyTest
+        run: pytest -m "not local"

@@ -11,3 +11,9 @@
 [submodule "common/ros_packages/gui/rviz/rviz_polygon_selection_tool"]
 	path = common/ros_packages/gui/rviz/rviz_polygon_selection_tool
 	url = https://github.com/swri-robotics/rviz_polygon_selection_tool.git
+[submodule "ore-ms/MAC-VO-main/Module/Network/FlowFormer"]
+	path = ore-ms/MAC-VO-main/Module/Network/FlowFormer
+	url = https://github.com/MAC-VO/S_FlowFormer.git
+[submodule "ore-ms/MAC-VO-main/Baseline/DPVO"]
+	path = ore-ms/MAC-VO-main/Baseline/DPVO
+	url = https://github.com/MAC-VO/S_DPVO.git

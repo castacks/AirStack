@@ -1,0 +1,8 @@
+-   type: TartanAir_NoIMU
+    name: abandonedfactory_E001
+    args:
+        root: /project/learningvo/tartanair_v1_5/abandonedfactory/Data/P001
+        compressed: true
+        gtDepth: false
+        gtPose: true
+        gtFlow: true

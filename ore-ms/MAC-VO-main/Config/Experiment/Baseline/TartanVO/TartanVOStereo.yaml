@@ -1,0 +1,27 @@
+Odometry:
+  name: TartanVOStereo
+
+  depth:
+    type: TartanVODepth
+    args:
+      weight: ./Model/TartanVO_depth_cov.pth
+      device: cuda
+      cov_mode: Est
+
+  match:
+    type: TartanVOMatcher
+    args:
+      weight: ./Model/MACVO_posenet.pkl
+      device: cuda
+    
+  tartanvo:
+      weight: ./Model/MACVO_posenet.pkl
+      device: cuda
+  
+  keyframe:
+    type: UniformKeyframe
+    args:
+      keyframe_freq: 1
+
+Data: !include ../../Common/EvaluationDataset.yaml
+Preprocess: !include ../../Common/Preprocess.yaml

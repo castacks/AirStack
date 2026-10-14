@@ -1,0 +1,10 @@
+type: GeneralStereo
+name: Zed_ICRA2025_0250
+args:
+  root: /your/path/here/ICRA_2025_Scan_Release/zed_record_may20_0250
+
+  # Camera Calibration
+  camera: # Leave it empty to let the dataloader load intrinsic.npy automatically. 
+  
+  bl: 0.119981    # Unit: meter
+  format: jpg
