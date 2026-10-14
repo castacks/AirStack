@@ -202,6 +202,7 @@ class CommandConsoleUiTests(unittest.TestCase):
         self.assertIn("workerReady=result.status==='DECLARED'", ui)
         self.assertIn("no map waypoint or action proposal", ui)
         self.assertIn("epoch!==visualContextEpoch", ui)
+        self.assertIn("capture stamp not yet proven to advance", ui)
 
     def test_mission_log_exposes_only_recent_structured_evidence(self):
         with tempfile.TemporaryDirectory() as directory:
