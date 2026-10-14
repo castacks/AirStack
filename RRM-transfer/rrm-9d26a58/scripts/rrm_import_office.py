@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Verify a PSC artifact and compile its actual C05 into an unexecuted proposal.
+"""Verify a historical PSC artifact and export a non-executable replay report.
 
 Offline replay time is intentionally used only for this import. It is NOT a live
-freshness check or execution approval. A live run must revalidate scene binding,
-vehicle readiness and evidence before using the public task action adapter.
+freshness check or execution approval. A live run needs an independent current-
+episode map binding, vehicle readiness and admission before public dispatch.
 """
 import argparse
 import hashlib
@@ -63,9 +63,15 @@ def main():
     args = parser.parse_args()
     decision = import_bundle(args.bundle)
     args.output_dir.mkdir(parents=True, exist_ok=False)
-    (args.output_dir / "decision.json").write_text(decision.model_dump_json(indent=2) + "\n")
-    (args.output_dir / "proposal.json").write_text(decision.proposal.model_dump_json(indent=2) + "\n")
-    print("Actual learned plan imported. Proposal requires live scene/readiness validation; no dispatch.")
+    report = {
+        "schema_version": "rrm-offline-replay-report/v1",
+        "authority": TargetBindingAuthority.FIXTURE_REPLAY.value,
+        "execution_allowed": False,
+        "decision": decision.model_dump(mode="json", exclude={"proposal"}),
+        "proposal_preview": decision.proposal.preview(),
+    }
+    (args.output_dir / "replay_report.json").write_text(json.dumps(report, indent=2) + "\n")
+    print("Historical learned plan imported as a non-executable replay report; no dispatch.")
 
 
 if __name__ == "__main__":

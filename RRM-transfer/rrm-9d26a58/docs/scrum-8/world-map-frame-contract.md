@@ -110,5 +110,6 @@ current episode, `map` frame, a fresh SENSOR localization fact, and a fresh SENS
 fact committing to the exact waypoint route hash. The legacy manifest loader
 labels routes `FIXTURE_REPLAY`; the live compiler holds them, and the standalone
 dispatcher refuses a replay-labeled proposal. This is an admission contract,
-not proof that a map localization producer exists yet. The offline importer
-continues to emit a labeled replay proposal for historical evaluation.
+not proof that a map localization producer exists yet. The historical Office
+importer now emits a non-executable replay report containing the plan and
+waypoint preview; it no longer exports a standalone task proposal.

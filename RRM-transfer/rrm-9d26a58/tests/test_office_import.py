@@ -1,11 +1,16 @@
 """Synthetic transport tests, not Cosmos inference or flight evidence."""
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
+
+from pydantic import ValidationError
+from rrm.airstack_drone import DroneTaskProposal
 
 ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -47,6 +52,27 @@ class OfficeImportTests(unittest.TestCase):
         self.assertEqual(result.proposal.source_scope, "FIXTURE_REPLAY")
         self.assertEqual(result.proposal.action_id, "model-selected-nav")
         self.assertEqual(result.proposal.waypoints[-1].x, 3.2)
+
+    def test_cli_exports_audit_report_without_executable_proposal(self):
+        output = self.bundle / "imported"
+        script = ROOT / "scripts" / "rrm_import_office.py"
+        env = os.environ.copy()
+        env["PYTHONPATH"] = os.pathsep.join((str(ROOT), str(ROOT / "scripts"),
+                                              env.get("PYTHONPATH", "")))
+        result = subprocess.run([sys.executable, str(script), "--bundle", str(self.bundle),
+                                 "--output-dir", str(output)], capture_output=True,
+                                text=True, env=env)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual({path.name for path in output.iterdir()}, {"replay_report.json"})
+        report = json.loads((output / "replay_report.json").read_text())
+        self.assertEqual(report["authority"], "FIXTURE_REPLAY")
+        self.assertFalse(report["execution_allowed"])
+        self.assertEqual(report["decision"]["plan"]["actions"][0]["action"]["id"],
+                         "model-selected-nav")
+        self.assertEqual(report["proposal_preview"]["goal"]["global_plan"]["poses"][-1]
+                         ["pose"]["position"]["x"], 3.2)
+        with self.assertRaises(ValidationError):
+            DroneTaskProposal.model_validate(report)
 
     def test_changed_image_rejected(self):
         (self.bundle / "input.png").write_bytes(b"changed")

@@ -22,9 +22,11 @@ and action IDs, without calling the deterministic objective parser. This is
 ground-truth-assisted cognition plus embodiment execution, not proof of visual
 localization, full world-building, online learning or cross-body generalization.
 
-The first binding is a **draft** approach point `(3.2, 0, 1.5)` in robot-local map,
-with 0.3 m endpoint tolerance. Before flight verify that current stage/spawn and
-map alignment still match, the approach is clear, and the vehicle is ready.
+The first binding is a **historical draft** approach point `(3.2, 0, 1.5)`
+with 0.3 m endpoint tolerance. It was labeled as robot-local `map`, but the
+fixture did not establish a measured Isaac-world-to-map transform. It cannot
+authorize a current navigation goal. A live target needs independent map-frame
+localization, a clear approach and a ready vehicle.
 Frozen replay timestamps are not live freshness. Do not relabel them as fresh
 simulator observations. Scene markers are visual labels, not collision obstacles.
 
@@ -67,14 +69,14 @@ PYTHONPATH=. python scripts/rrm_import_office.py \
 ```
 
 The importer verifies image/context hashes, exact prompt, reparsed raw response,
-stored candidate equality and local scene binding before emitting the **actual**
-learned proposal for **offline fixture replay**. It does not execute or establish freshness/authority. Checksums
+stored candidate equality and local scene binding before recording the **actual**
+learned plan and waypoint preview in `replay_report.json`. It does not execute or establish freshness/authority. Checksums
 detect changed artifacts; they are not cryptographic proof of model authorship.
 
-The imported `proposal.json` carries coordinates from a static manifest. It is
-**not a live navigation command**: the manifest has no independently measured,
-current-episode map binding. The live mission compiler holds this target, and
-the public dispatcher refuses proposals labeled `FIXTURE_REPLAY`. A future
+The current importer no longer emits a standalone `proposal.json`. Its report
+contains coordinates from a static manifest and is **not a live navigation
+command**: the manifest has no independently measured, current-episode map
+binding. The live mission compiler holds this target. A future
 operational target source must supply a fresh map-frame binding linked to
 sensor C02 evidence for the exact route before live mission admission.
 

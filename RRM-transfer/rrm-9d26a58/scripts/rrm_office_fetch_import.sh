@@ -25,7 +25,7 @@ docker exec "$rrm_container" env PYTHONPATH="$rrm_deps" \
 mkdir -p "$rrm_artifacts"
 rrm_dest=$(mktemp -d "$rrm_artifacts/psc-office-$rrm_job.XXXXXX")
 rrm_dest=$(cd "$rrm_dest" && pwd)
-echo "Preserving bundle and imported proposal under: $rrm_dest"
+echo "Preserving bundle and offline replay report under: $rrm_dest"
 rrm_ssh='ssh -l oabolade -o HostName=192.231.243.28 -o HostKeyAlias=data.bridges2.psc.edu'
 rsync -avP -e "$rrm_ssh" \
   "data.bridges2.psc.edu:/ocean/projects/eng260004p/oabolade/physical-ai/runs/rrm/office/$rrm_job/" \
@@ -43,5 +43,5 @@ docker exec "$rrm_container" env PYTHONPATH="$rrm_deps:$rrm_work/source" \
   --bundle "$rrm_work/bundle" --output-dir "$rrm_work/imported"
 docker cp "$rrm_container:$rrm_work/imported" "$rrm_dest/imported"
 echo "Verified bundle: $rrm_dest/bundle"
-echo "Unexecuted proposal: $rrm_dest/imported/proposal.json"
+echo "Offline replay report: $rrm_dest/imported/replay_report.json"
 echo 'Original evidence remains on PSC. This OSMO copy is ephemeral.'
