@@ -972,7 +972,7 @@ class Console:
 
     def _require_scene_context(self) -> None:
         if not self.scene_context_matches:
-            raise RuntimeError("This scene has no matching RRM manifest/catalog; live proposals are inhibited.")
+            raise RuntimeError("This scene has no matching RRM manifest/catalog; entity-grounded checks and proposals are inhibited.")
 
     @staticmethod
     def _canonical_proposal_sha256(path: Path) -> str:
