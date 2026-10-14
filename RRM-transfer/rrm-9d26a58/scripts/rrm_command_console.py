@@ -28,6 +28,7 @@ from rrm.airstack_command import CommandEnvironment, ground_command, plan_comman
 from rrm.airstack_drone import DroneTaskProposal
 from rrm.isaac_runtime import probe_isaac_runtime
 from rrm.visual_service import probe_visual_service
+from rrm.visual_world_builder import VISUAL_PROMPT_REVISION
 from rrm.contracts import CapabilityDeclaration
 from rrm.execution_supervisor import ExecutionSupervisor, RunningDispatch
 from rrm.goal_contracts import GoalRequest, bind_selected_route_to_c01, route_goal
@@ -1396,6 +1397,57 @@ class Console:
                 run_id, scene_state, verified_context=verified_context,
             )
 
+    def inspect_visual_identity(self, run_id: str) -> dict:
+        """Inspect one current camera frame without creating a plan or cycle."""
+        if not self.scene_switch_lock.acquire(blocking=False):
+            raise RuntimeError("A scene switch is in progress; capture a new image afterward.")
+        try:
+            return self._inspect_visual_identity_in_scene(run_id)
+        finally:
+            self.scene_switch_lock.release()
+
+    def _inspect_visual_identity_in_scene(self, run_id: str) -> dict:
+        with self.live_lock:
+            self._require_scene_context()
+            if not self.cosmos_worker_url:
+                raise RuntimeError("No private Cosmos worker URL is configured for this workspace.")
+            service = probe_visual_service(self.cosmos_worker_url)
+            if service["status"] != "DECLARED":
+                raise RuntimeError(service["reason"])
+            if self.latest_camera is None or self.latest_camera_metadata is None:
+                raise ValueError("Capture a fresh Isaac camera image before checking visual identity.")
+            metadata, image = self.latest_camera_metadata, self.latest_camera
+            validate_live_observation(metadata, expected_camera_frame=self.expected_camera_frame)
+            if hashlib.sha256(image).hexdigest() != metadata["sha256"]:
+                raise ValueError("Live camera image does not match its capture metadata.")
+            run = self.store.get_run(run_id)
+            if run is None:
+                raise ValueError("Saved run not found.")
+            directory = Path(run["artifact_dir"])
+            manifest = json.loads((directory / "request.json").read_text(encoding="utf-8"))
+            if (manifest.get("active_scene") != self.active_scene_shortname
+                    or manifest.get("semantic_scene_context") != "MATCHED"
+                    or manifest.get("context_mode") != "live-isaac-observation"
+                    or manifest.get("observation_sha256") != hashlib.sha256(
+                        (directory / "observation.json").read_bytes()).hexdigest()
+                    or manifest.get("media_sha256") != metadata["sha256"]):
+                raise ValueError("Save this goal with the current scene and camera capture before visual inspection.")
+            context = load_context(directory / "input.json")
+            try:
+                catalog = json.loads(self.entity_catalog_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as error:
+                raise RuntimeError("The active scene entity catalog is unavailable.") from error
+            scene, _ = CosmosEntityVerifierClient(self.cosmos_worker_url).verify(
+                cycle_id=uuid.uuid4().hex, step_index=0, metadata=metadata,
+                image=image, context=context, entity_catalog=catalog,
+            )
+            validate_live_observation(metadata, expected_camera_frame=self.expected_camera_frame)
+            if metadata is not self.latest_camera_metadata or image is not self.latest_camera:
+                raise ValueError("Camera capture changed during visual identity check; refresh and retry.")
+            return {"schema_version": "rrm-visual-identity-check/v1", **scene,
+                    "visual_prompt_revision": VISUAL_PROMPT_REVISION,
+                    "execution_dispatch": False}
+
     def start_live_replan(self, run_id: str, scene_state: dict) -> dict:
         """Start shadow-only live planning from a new capture and verifier record."""
         with self.live_lock:
@@ -1608,6 +1660,9 @@ def make_handler(app: Console):
                 propose_match = re.fullmatch(r"/api/runs/([0-9a-f]{32})/propose", self.path)
                 if propose_match:
                     return self.respond(app.propose_live_goal(propose_match[1]))
+                visual_match = re.fullmatch(r"/api/runs/([0-9a-f]{32})/visual-check", self.path)
+                if visual_match:
+                    return self.respond(app.inspect_visual_identity(visual_match[1]))
                 submit_match = re.fullmatch(r"/api/runs/([0-9a-f]{32})/submit", self.path)
                 if submit_match:
                     return self.respond(app.submit_to_psc(submit_match[1]), status=202)

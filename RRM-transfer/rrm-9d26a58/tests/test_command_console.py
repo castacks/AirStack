@@ -195,6 +195,14 @@ class CommandConsoleUiTests(unittest.TestCase):
         self.assertIn("Target map coordinates still need separate localization", ui)
         self.assertIn("A recognized entity has no map waypoint", ui)
 
+    def test_visual_identity_control_uses_only_read_only_endpoint(self):
+        ui = (Path(__file__).parents[1] / "scripts/ui/command_console.html").read_text()
+        self.assertIn('id="visual-identity-check"', ui)
+        self.assertIn("+'/visual-check'", ui)
+        self.assertIn("workerReady=result.status==='DECLARED'", ui)
+        self.assertIn("no map waypoint or action proposal", ui)
+        self.assertIn("epoch!==visualContextEpoch", ui)
+
     def test_mission_log_exposes_only_recent_structured_evidence(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "mission.log"
@@ -1089,6 +1097,92 @@ class CommandConsoleTests(unittest.TestCase):
         evidence = self.output / saved["request_id"] / "live-cycle" / "steps" / "0000"
         self.assertTrue((evidence / "provider-response.json").is_file())
         self.assertFalse((self.output / "execution").exists())
+
+    def test_visual_identity_inspection_has_no_plan_or_cycle_side_effects(self):
+        class FakeEntityVerifier:
+            def __init__(self, url):
+                self.url = url
+
+            def verify(self, **values):
+                return ({"source_stamp_ns": values["metadata"]["source_stamp_ns"],
+                         "observation_sha256": values["metadata"]["sha256"],
+                         "verified_entities": ["blue_marker"],
+                         "evidence_scope": "VISUAL_IDENTITY_ONLY"}, values["context"])
+
+        app = Console(self.bundle, self.output, "/unused-capture.py")
+        app.cosmos_worker_url = "http://cosmos-worker:8090"
+        app._save_active_scene("office")
+        app.active_scene_shortname = "office"
+        app.scene_context_matches = True
+        seed_live_capture(app)
+        saved = app.save("Inspect the blue marker.")
+        with patch("rrm_command_console.probe_visual_service", return_value={"status": "DECLARED"}), \
+             patch("rrm_command_console.CosmosEntityVerifierClient", FakeEntityVerifier):
+            app.scene_context_matches = False
+            with self.assertRaisesRegex(RuntimeError, "matching RRM manifest"):
+                app.inspect_visual_identity(saved["request_id"])
+            app.scene_context_matches = True
+            result = app.inspect_visual_identity(saved["request_id"])
+        self.assertEqual(result["verified_entities"], ["blue_marker"])
+        self.assertEqual(result["evidence_scope"], "VISUAL_IDENTITY_ONLY")
+        self.assertFalse(result["execution_dispatch"])
+        self.assertFalse((self.output / saved["request_id"] / "live-cycle").exists())
+        self.assertFalse((self.output / "execution").exists())
+
+    def test_visual_identity_inspection_rejects_saved_run_from_another_scene(self):
+        app = Console(self.bundle, self.output, "/unused-capture.py")
+        app.cosmos_worker_url = "http://cosmos-worker:8090"
+        seed_live_capture(app)
+        saved = app.save("Inspect the blue marker.")
+        app._save_active_scene("office")
+        app.active_scene_shortname = "office"
+        app.scene_context_matches = True
+        with patch("rrm_command_console.probe_visual_service", return_value={"status": "DECLARED"}), \
+             patch("rrm_command_console.CosmosEntityVerifierClient") as verifier:
+            with self.assertRaisesRegex(ValueError, "Save this goal with the current scene"):
+                app.inspect_visual_identity(saved["request_id"])
+            verifier.assert_not_called()
+
+    def test_visual_identity_inspection_rejects_old_worker_and_stale_capture(self):
+        app = Console(self.bundle, self.output, "/unused-capture.py")
+        app.cosmos_worker_url = "http://cosmos-worker:8090"
+        app._save_active_scene("office")
+        app.active_scene_shortname = "office"
+        app.scene_context_matches = True
+        seed_live_capture(app)
+        saved = app.save("Inspect the blue marker.")
+        with patch("rrm_command_console.probe_visual_service", return_value={
+                "status": "BLOCKED", "reason": "old visual contract"}):
+            with self.assertRaisesRegex(RuntimeError, "old visual contract"):
+                app.inspect_visual_identity(saved["request_id"])
+        app.latest_camera_metadata["captured_at"] = "2020-01-01T00:00:00+00:00"
+        with patch("rrm_command_console.probe_visual_service", return_value={"status": "DECLARED"}), \
+             patch("rrm_command_console.CosmosEntityVerifierClient") as verifier:
+            with self.assertRaisesRegex(ValueError, "stale"):
+                app.inspect_visual_identity(saved["request_id"])
+            verifier.assert_not_called()
+
+    def test_visual_identity_inspection_rechecks_capture_after_inference(self):
+        class SlowVerifier:
+            def __init__(self, url):
+                pass
+
+            def verify(self, **values):
+                values["metadata"]["captured_at"] = "2020-01-01T00:00:00+00:00"
+                return ({"verified_entities": ["blue_marker"]}, values["context"])
+
+        app = Console(self.bundle, self.output, "/unused-capture.py")
+        app.cosmos_worker_url = "http://cosmos-worker:8090"
+        app._save_active_scene("office")
+        app.active_scene_shortname = "office"
+        app.scene_context_matches = True
+        seed_live_capture(app)
+        saved = app.save("Inspect the blue marker.")
+        with patch("rrm_command_console.probe_visual_service", return_value={"status": "DECLARED"}), \
+             patch("rrm_command_console.CosmosEntityVerifierClient", SlowVerifier):
+            with self.assertRaisesRegex(ValueError, "stale"):
+                app.inspect_visual_identity(saved["request_id"])
+        self.assertFalse((self.output / saved["request_id"] / "live-cycle").exists())
 
     def test_async_psc_result_is_run_bound_validated_and_requires_approval(self):
         fixture_bundle = self.bundle

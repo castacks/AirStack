@@ -68,3 +68,15 @@ worker main process to attempt a reload. `ignoreNonleadStatus: false` can termin
 the whole workflow when that task exits. Preserve uncommitted workspace changes and
 artifacts before retiring it. Updating only a Mac checkout's YAML selects this worker
 image; updating only the remote checkout does not update the Mac launch file.
+
+## Visual identity v4 source overlay — 2026-10-14
+
+The RRM visual contract now admits image-observable `exists` and `kind` facts only.
+The running image pinned above predates that revision, so the console capability
+check reports `BLOCKED`. A source-overlay image built locally from the current
+checkout passed the import/compile check and reported `visual-claims/v4` with the
+current `visual_world_builder.py` SHA256. This local build is not the worker running
+in OSMO. Publish a uniquely tagged image, record its registry digest, update the
+branch-scoped workflow image pin, and submit a new workflow from an authenticated
+OSMO control host. The GUI then needs a matching active scene and fresh camera image
+before its read-only identity check can run. Visual identity is not map localization.

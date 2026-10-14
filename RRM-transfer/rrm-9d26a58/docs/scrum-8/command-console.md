@@ -14,6 +14,18 @@ entry in AirStack's checked-in scene catalog, optionally capture the front camer
 save immutable movement commands, translate them to public AirStack task actions, run
 one serial mission, show its state, and request STOP/HOLD.
 
+## Visual identity check
+
+The **Visual grounding service** panel supports a read-only identity check. Select a
+scene with a matching semantic catalog, choose **Check visual service**, refresh the
+camera, and save the goal with that exact capture. **Inspect current image** then
+asks the matching private v4 worker which catalog entities are visible. The response
+shows the qualified IDs, image checksum, simulation stamp and visual contract
+revision. It creates no action proposal or live planning cycle and sends no simulator
+command. If the worker contract differs, the scene changes, or the image gets stale,
+the check holds and a new capture is needed. Identity is not a map waypoint;
+physical localization must supply one separately.
+
 Start it in the running AirStack workspace:
 
 ```bash
