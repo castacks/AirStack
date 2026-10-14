@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# Build the two ROS-free planner CLIs on the host, no ROS or colcon needed:
+# Build the four ROS-free planner CLIs on the host, no ROS or colcon needed:
 #   scripts/planner_benchmark/bin/mtl_search_plan     (mtl_search_planner adapter + vendored mtl::planner
 #                                                      + vendored mtl::curve planner; planner.type picks one)
 #   scripts/planner_benchmark/bin/tigris_search_plan  (tigris_search_planner core)
+#   scripts/planner_benchmark/bin/ia_tigris_search_plan  (ia_tigris_search_planner core)
+#   scripts/planner_benchmark/bin/ipp_baselines_search_plan  (ipp_baselines_search_planner core)
 # Needs a C++17 compiler and Eigen 3 headers (libeigen3-dev). Usage: build_offline_tools.sh
 #
 # The vendored source lists are read from mtl_search_planner/cmake/mtl_vendored.cmake
@@ -60,4 +62,10 @@ rm -rf "$OBJ"
 T="$P/tigris_search_planner"
 echo "[build_offline_tools] tigris_search_plan ..."
 $CXX $FLAGS -I"$T/include" -I"$EIGEN" $(ls "$T"/src/*.cpp | grep -v _node.cpp) -o "$HERE/bin/tigris_search_plan"
+IA="$P/ia_tigris_search_planner"
+echo "[build_offline_tools] ia_tigris_search_plan ..."
+$CXX $FLAGS -I"$IA/include" $(ls "$IA"/src/*.cpp | grep -v _node.cpp) -o "$HERE/bin/ia_tigris_search_plan"
+IPP="$P/ipp_baselines_search_planner"
+echo "[build_offline_tools] ipp_baselines_search_plan (greedy / rect_coverage / mcts_search) ..."
+$CXX $FLAGS -I"$IPP/include" $(ls "$IPP"/src/*.cpp | grep -v _node.cpp) -o "$HERE/bin/ipp_baselines_search_plan"
 echo "[build_offline_tools] done -> $HERE/bin"

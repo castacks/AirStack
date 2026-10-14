@@ -1,0 +1,74 @@
+# ipp_baselines_search_planner node parameters (loaded with allow_substs).
+# scenario_file / agent_name / runs_root come from the launch file args.
+#
+# `planner` picks the ia-tigris baseline (ipp_planners_node.h init_planner). It is read at
+# launch: switch planners by editing this file (the stack loads its own copy from
+# stacks/ipp_baselines_search/config/) and restarting - no rebuild.
+#
+# The mission itself (area, prior, targets, aircraft speed + turn radius, camera FOV +
+# forward tilt, gimbal sweep, detection model, BUDGET) is NOT here: it lives in
+# stacks/ipp_baselines_search/config/mission.yaml -> scenario.json, as for MTL / TIGRIS /
+# IA-TIGRIS. Released ia-tigris values (src/ipp_planners/config/fixed-wing/*.yaml) are given
+# with their original key; greedy.yaml, random.yaml and rect_coverage.yaml are empty there.
+/**:
+  ros__parameters:
+    frame_id: map                    # robot odometry frame (origin = its spawn)
+    home_up_m: 0.0                   # height of the map origin above the ground plane
+    plan_on_startup: true            # publish a preview plan (start_mission=false) at boot
+    follower_status_timeout_s: 10.0  # abort if the follower never acknowledges / goes silent
+    mission_timeout_pad_s: 240.0     # timeout = pad + factor * budget / speed
+    mission_timeout_factor: 3.0
+    viz_path_step_m: 2.0             # decimation of the nav_msgs/Path visualisations
+    start_from_odometry: true        # first plan starts where the drone hovers (else the scenario start)
+    start_yaw_deg: -999.0            # initial heading (ENU deg); < -900 = face the area centre
+    lock_gimbal: true                # body-fixed camera unless mission.yaml gimbal_actuation sweeps it
+    look_period_s: 0.1               # flown looks folded into the belief at this period
+
+    # ---- which baseline -----------------------------------------------------
+    planner: greedy                  # greedy | rect_coverage | mcts_search
+    reward_mode: matched             # matched (residual belief mass; the evaluator's metric, an addition)
+                                     # | original (ia-tigris SearchMap::calc_reward_and_belief entropy reward)
+
+    # ---- receding horizon (shared with ia_tigris_search) --------------------
+    receding: true                   # false = one plan over the whole budget, never replanned
+    initial_planning_time_s: 5.0     # first solve (max_planning_time)
+    planning_time_s: 5.0             # each in-flight solve (same compute as tigris_search / ia_tigris_search)
+    replan_period_s: 5.0             # = planning_time_s: back-to-back solves (seconds_until_auto_replan: 0.1)
+    commit_margin_s: 3.0             # commit target = progress + lookahead + speed * (planning_time + margin),
+                                     # then snapped forward to the next node of the current plan
+                                     # (ipp_planners_node.h: speed * (max_planning_time + 1.5 s), end of that segment)
+    lookahead_turn_radii: 1.2        # keep equal to mtl_trajectory_follower lookahead_turn_radii
+    min_replan_budget_m: 10.0        # stop replanning when less budget than this is left
+    snap_to_node: true               # the ipp_planners_node.h commit rule (false: plain commit point)
+
+    # ---- shared ia-tigris parameters (planner.yaml / search_map.yaml) -------
+    grid_res_m: 50.0                 # planning grid [= tigris_search / ia_tigris_search; released map_resolution: 30]
+    view_point_goal: 0.6             # viewpoint_goal: where in the FOV a target cell is placed
+    use_edge_reward: true            # use_edge_reward (include_edge)
+    reward_step_m: 2.0               # look spacing along an edge (MATCHED; and the swept-camera edge swath)
+    use_entropy: true                # original reward: entropy reduction
+    rs: 1.0                          # SearchMap::Rs
+    rf: 1.0                          # SearchMap::Rf
+    initial_confidence: 0.01         # original reward: floor of the per-cell presence belief
+    max_iterations: 0                # > 0: stop each solve after this many replan_loop calls (reproducible runs)
+    seed: -1                         # < 0 = mission seed
+
+    # ---- rect_coverage (CoveragePlanner.h; rect_coverage.yaml has no parameters) ----
+    rect_coverage_enforce_turn_check: false  # RectangleCoverage throws if 2 R < sensor width. With this mission
+                                             # 2 R = 24 m << 354 m, so true refuses every solve (deviation D2)
+
+    # ---- mcts_search (MCTSSearch.h; fixed-wing/mcts_search.yaml) --------------
+    mcts_max_rollout_depth: 5        # max_rollout_depth
+    mcts_num_actions: 10             # num_actions
+    mcts_exploration_weight: 0.141421356  # exploration_weight (sqrt(2) * 0.1)
+    mcts_extend_angle_rad: 3.1415926 # mcts_extend_angle   (read but unused by MCTSSearch.h)
+    mcts_extend_radius_m: 300.0      # mcts_extend_radius  (primitive radius; x3 for the long actions)
+    mcts_extend_dist_m: 3000.0       # mcts_extend_dist    (read but unused: the steer is unbounded)
+    mcts_branches_each_side: 3       # mcts_branches_each_side (read but unused)
+    mcts_rollout_type: primitive     # rollout_type: primitive | informed ("learned" needs models: refused)
+    mcts_retain_map_copies: false    # true = keep every node's InfoMapSearch copy alive (ROS 1 memory, ~3.7 GB / 5 s)
+
+    # ---- overrides (normally leave these alone; edit mission.yaml instead) ---
+    budget_m: -1.0                   # > 0 replaces min(max_flight_distance_m, max_flight_time_s * speed)
+    camera_fov_deg: -1.0             # > 0 replaces sensor.fov_deg (the logger still scores the scenario FOV!)
+    camera_tilt_deg: -1.0            # >= 0 replaces sensor.tilt_deg (forward tilt from nadir)

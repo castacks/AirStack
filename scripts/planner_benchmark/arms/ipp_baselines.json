@@ -1,0 +1,173 @@
+{
+ "_doc": "The ia-tigris baselines (planner \"ipp\": greedy, rect_coverage, mcts_search from ia-tigris/src/ipp_planners, ported in ipp_baselines_search_planner) with the same detection-matched 60 deg/s sweep as tigris_det_60dps / ia_tigris_det_60dps. Each starts from stacks/ipp_baselines_search/config/ipp_baselines_search_planner.yaml (released ia-tigris parameters, matched reward, 50 m grid) and names its baseline in tigris_set.planner. _det_60dps arms are WALL-TIME bounded as flown (5 s solves, commit margin 3 s): give every worker a whole core (--workers <= cores), or the solves get less compute than in flight. greedy and rect_coverage end their solves themselves (the whole chain / one lawnmower), so only mcts_search uses the full 5 s. _original arms use the ia-tigris SearchMap reward. _it150 arms are iteration-bounded (150 replan_loop calls per solve, deterministic) for determinism checks only: an iteration is not the same compute across planners (a greedy iteration is a whole view point, an MCTS one an expansion + roll-out).",
+ "arms": [
+  {
+   "name": "ipp_greedy_det_60dps",
+   "planner": "ipp",
+   "scenario_overrides": {
+    "airstack.gimbal_actuation": {
+     "enabled": true,
+     "sweep_rate_deg_s": 60.0,
+     "sweep_amplitude_deg": "detection",
+     "max_amplitude_deg": 75.0
+    }
+   },
+   "tigris_set": {
+    "planner": "greedy",
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3
+   }
+  },
+  {
+   "name": "ipp_greedy_det_60dps_original",
+   "planner": "ipp",
+   "scenario_overrides": {
+    "airstack.gimbal_actuation": {
+     "enabled": true,
+     "sweep_rate_deg_s": 60.0,
+     "sweep_amplitude_deg": "detection",
+     "max_amplitude_deg": 75.0
+    }
+   },
+   "tigris_set": {
+    "planner": "greedy",
+    "reward_mode": "original",
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3
+   }
+  },
+  {
+   "name": "ipp_greedy_det_60dps_it150",
+   "planner": "ipp",
+   "scenario_overrides": {
+    "airstack.gimbal_actuation": {
+     "enabled": true,
+     "sweep_rate_deg_s": 60.0,
+     "sweep_amplitude_deg": "detection",
+     "max_amplitude_deg": 75.0
+    }
+   },
+   "tigris_set": {
+    "planner": "greedy",
+    "planning_time_s": 1000,
+    "initial_planning_time_s": 1000,
+    "commit_margin_s": -992,
+    "max_iterations": 150
+   }
+  },
+  {
+   "name": "ipp_rect_coverage_det_60dps",
+   "planner": "ipp",
+   "scenario_overrides": {
+    "airstack.gimbal_actuation": {
+     "enabled": true,
+     "sweep_rate_deg_s": 60.0,
+     "sweep_amplitude_deg": "detection",
+     "max_amplitude_deg": 75.0
+    }
+   },
+   "tigris_set": {
+    "planner": "rect_coverage",
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3
+   }
+  },
+  {
+   "name": "ipp_rect_coverage_det_60dps_original",
+   "planner": "ipp",
+   "scenario_overrides": {
+    "airstack.gimbal_actuation": {
+     "enabled": true,
+     "sweep_rate_deg_s": 60.0,
+     "sweep_amplitude_deg": "detection",
+     "max_amplitude_deg": 75.0
+    }
+   },
+   "tigris_set": {
+    "planner": "rect_coverage",
+    "reward_mode": "original",
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3
+   }
+  },
+  {
+   "name": "ipp_rect_coverage_det_60dps_it150",
+   "planner": "ipp",
+   "scenario_overrides": {
+    "airstack.gimbal_actuation": {
+     "enabled": true,
+     "sweep_rate_deg_s": 60.0,
+     "sweep_amplitude_deg": "detection",
+     "max_amplitude_deg": 75.0
+    }
+   },
+   "tigris_set": {
+    "planner": "rect_coverage",
+    "planning_time_s": 1000,
+    "initial_planning_time_s": 1000,
+    "commit_margin_s": -992,
+    "max_iterations": 150
+   }
+  },
+  {
+   "name": "ipp_mcts_search_det_60dps",
+   "planner": "ipp",
+   "scenario_overrides": {
+    "airstack.gimbal_actuation": {
+     "enabled": true,
+     "sweep_rate_deg_s": 60.0,
+     "sweep_amplitude_deg": "detection",
+     "max_amplitude_deg": 75.0
+    }
+   },
+   "tigris_set": {
+    "planner": "mcts_search",
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3
+   }
+  },
+  {
+   "name": "ipp_mcts_search_det_60dps_original",
+   "planner": "ipp",
+   "scenario_overrides": {
+    "airstack.gimbal_actuation": {
+     "enabled": true,
+     "sweep_rate_deg_s": 60.0,
+     "sweep_amplitude_deg": "detection",
+     "max_amplitude_deg": 75.0
+    }
+   },
+   "tigris_set": {
+    "planner": "mcts_search",
+    "reward_mode": "original",
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3
+   }
+  },
+  {
+   "name": "ipp_mcts_search_det_60dps_it150",
+   "planner": "ipp",
+   "scenario_overrides": {
+    "airstack.gimbal_actuation": {
+     "enabled": true,
+     "sweep_rate_deg_s": 60.0,
+     "sweep_amplitude_deg": "detection",
+     "max_amplitude_deg": 75.0
+    }
+   },
+   "tigris_set": {
+    "planner": "mcts_search",
+    "planning_time_s": 1000,
+    "initial_planning_time_s": 1000,
+    "commit_margin_s": -992,
+    "max_iterations": 150
+   }
+  }
+ ]
+}

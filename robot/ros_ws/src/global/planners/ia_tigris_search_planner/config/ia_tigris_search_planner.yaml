@@ -1,0 +1,65 @@
+# ia_tigris_search_planner node parameters (loaded with allow_substs).
+# scenario_file / agent_name / runs_root come from the launch file args.
+#
+# The mission itself (area, prior, targets, aircraft speed + turn radius, camera
+# FOV + forward tilt, gimbal sweep, detection model, BUDGET) is NOT here: it lives in
+# stacks/ia_tigris_search/config/mission.yaml -> scenario.json, exactly like MTL and TIGRIS.
+#
+# IA-TIGRIS tree lengths and grid are the SAME as tigris_search (the TIGRIS launch values 750 /
+# 251 / 750 m, 50 m grid), so an IA-TIGRIS vs TIGRIS comparison differs only in the algorithm.
+# The released fixed-wing config (ia-tigris/src/ipp_planners/config/fixed-wing/ia-tigris.yaml:
+# extend_dist 1500, extend_radius 1500, prune_radius 400; search_map.yaml map_resolution 30)
+# scored worse on this mission's 3 km budget (1500 m edges = half the budget): residual 0.561
+# vs 0.529 with these values (offline, matched reward, mission seed, 2026-10-13; one seed).
+/**:
+  ros__parameters:
+    frame_id: map                    # robot odometry frame (origin = its spawn)
+    home_up_m: 0.0                   # height of the map origin above the ground plane
+    plan_on_startup: true            # publish a preview plan (start_mission=false) at boot
+    follower_status_timeout_s: 10.0  # abort if the follower never acknowledges / goes silent
+    mission_timeout_pad_s: 240.0     # timeout = pad + factor * budget / speed
+    mission_timeout_factor: 3.0
+    viz_path_step_m: 2.0             # decimation of the nav_msgs/Path visualisations
+    start_from_odometry: true        # first plan starts where the drone hovers (else the scenario start)
+    start_yaw_deg: -999.0            # initial heading (ENU deg); < -900 = face the area centre
+    lock_gimbal: true                # no gimbal actuation: body-fixed camera (cross-track axis locked).
+                                     # mission.yaml gimbal_actuation.enabled overrides it for the
+                                     # cross-track axis (the sweep); the pitch nudge stays locked
+    look_period_s: 0.1               # flown looks folded into the belief at this period
+
+    # ---- IA-TIGRIS ----------------------------------------------------------
+    reward_mode: matched             # matched (residual belief mass; the evaluator's metric, an addition)
+                                     # | original (IA-TIGRIS entropy reward, SearchMap::calc_reward_and_belief)
+    sampler: informed                # informed (IA-TIGRIS) | uniform (random benchmark)
+    recycle_tree: true               # IA-TIGRIS tree recycling; false = a fresh tree every solve
+                                     # (the paper's "replanning without recycling" ablation)
+    receding: true                   # false = one plan over the whole budget, never replanned
+    initial_planning_time_s: 5.0     # first solve (drone hovering); recycling counts against it
+    planning_time_s: 5.0             # each in-flight solve (same compute as tigris_search)
+    replan_period_s: 5.0             # replan cadence (also replans early near the end of the track);
+                                     # = planning_time_s: solves run back to back, as IA-TIGRIS's
+                                     # seconds_until_auto_replan 0.1
+    commit_margin_s: 3.0             # commit target = progress + lookahead + speed * (planning_time + margin),
+                                     # then snapped FORWARD to the next node of the current path
+                                     # (IA-TIGRIS: speed * (planning_time + 1.5 s) to the end of that edge).
+                                     # Same value as tigris_search, so both planners commit alike
+    lookahead_turn_radii: 1.2        # keep equal to mtl_trajectory_follower lookahead_turn_radii
+    min_replan_budget_m: 10.0        # stop replanning when less budget than this is left
+    extend_dist_m: 750.0             # steer cut                [= tigris_search; released IA-TIGRIS: 1500]
+    extend_radius_m: 251.0           # near-node radius         [= tigris_search; released IA-TIGRIS: 1500]
+    prune_radius_m: 750.0            # dominance-pruning radius [= tigris_search; released IA-TIGRIS: 400]
+    reward_step_m: 2.0               # look spacing along an edge (MATCHED; and the swept-camera edge swath)
+    grid_res_m: 50.0                 # planning grid [= tigris_search; released IA-TIGRIS map_resolution: 30]
+    view_point_goal: 0.6             # informed sampler: place the sampled cell at 60 % of the half-FOV
+    bounds_margin_m: -1.0            # optional geofence around the area; < 0 = off
+    use_entropy: true                # original reward: entropy reduction (IA-TIGRIS)
+    rs: 1.0                          # original reward weight when the belief rises (SearchMap::Rs)
+    rf: 1.0                          # ... when it falls (SearchMap::Rf)
+    initial_confidence: 0.01         # original reward: floor of the per-cell presence belief
+    max_iterations: 0                # > 0: stop each solve after this many samples (reproducible runs)
+    seed: -1                         # < 0 = mission seed
+
+    # ---- overrides (normally leave these alone; edit mission.yaml instead) ---
+    budget_m: -1.0                   # > 0 replaces min(max_flight_distance_m, max_flight_time_s * speed)
+    camera_fov_deg: -1.0             # > 0 replaces sensor.fov_deg (the logger still scores the scenario FOV!)
+    camera_tilt_deg: -1.0            # >= 0 replaces sensor.tilt_deg (forward tilt from nadir)

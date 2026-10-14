@@ -238,7 +238,8 @@ def test_dry_run_fleet_exports():
     assert "robot_1" in out  # the resolved robot table prints
 
 
-@pytest.mark.parametrize("fleet", ["mtl_search_fleet", "tigris_search_fleet"])
+@pytest.mark.parametrize("fleet", ["mtl_search_fleet", "tigris_search_fleet", "ia_tigris_search_fleet",
+                                   "ipp_baselines_search_fleet"])
 def test_dry_run_fleet_sim_script_replaces_fleet_spawner(fleet):
     """A fleet that declares `sim.script` gets that Isaac launch script from
     `--fleet` alone (the search fleets need search_mission_scene.py: search

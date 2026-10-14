@@ -137,6 +137,8 @@ nav:
           - Integration Checklist: docs/robot/autonomy/integration_checklist.md
           - MTL Target Localization Search: docs/tutorials/mtl_target_localization.md
           - TIGRIS Baseline Search: docs/tutorials/tigris_baseline.md
+          - IA-TIGRIS Search: docs/tutorials/ia_tigris_search.md
+          - IPP Baselines Search: docs/tutorials/ipp_baselines_search.md
       - GCS Operation:
           - Waypoints & Geofences: docs/gcs/waypoints_and_geofences.md
           - Foxglove Visualization: docs/gcs/foxglove.md
@@ -196,6 +198,8 @@ nav:
           - lite_offload_global: stacks/lite_offload_global/README.md
           - mtl_search: stacks/mtl_search/README.md
           - tigris_search: stacks/tigris_search/README.md
+          - ia_tigris_search: stacks/ia_tigris_search/README.md
+          - ipp_baselines_search: stacks/ipp_baselines_search/README.md
       - Modules Catalog:
           - Catalog: docs/modules/index.md
           - module.yaml Schema: common/module_schema/README.md
@@ -237,6 +241,8 @@ nav:
               - Exploration: robot/ros_ws/src/global/planners/exploration/README.md
               - MTL Search Planner: robot/ros_ws/src/global/planners/mtl_search_planner/README.md
               - TIGRIS Search Planner: robot/ros_ws/src/global/planners/tigris_search_planner/README.md
+              - IA-TIGRIS Search Planner: robot/ros_ws/src/global/planners/ia_tigris_search_planner/README.md
+              - IPP Baselines Search Planner: robot/ros_ws/src/global/planners/ipp_baselines_search_planner/README.md
           - Behavior:
               - Overview: docs/robot/autonomy/behavior/index.md
               - MTL Metrics Logger: robot/ros_ws/src/behavior/mtl_metrics_logger/README.md

@@ -20,7 +20,9 @@ Two parts:
    each for the FLOWN telemetry and for the PLANNED track (track.json). Writes
    ``<run-dir>/tigris_rewards.json``, ``tigris_rewards.csv`` (flown),
    ``tigris_rewards_planned.csv`` and ``tigris_report.html`` (charts + the replan table
-   from ``<robot>/tigris_replans.json``).
+   from ``<robot>/tigris_replans.json``, or ``ia_tigris_replans.json`` for an IA-TIGRIS run, or
+   ``ipp_replans.json`` for an ia-tigris baseline run (greedy / rect_coverage / mcts_search; the
+   planner label is taken from the file).
 
 The reward parameters (edge_m = extend_dist_m, grid_res_m, use_entropy, rs, rf,
 initial_confidence) are read from the run's ``tigris_replans.json`` when there is one,
@@ -66,9 +68,14 @@ def agent_dirs(run_dir: Path) -> list[Path]:
 def load_replans(run_dir: Path) -> dict[str, dict]:
     out = {}
     for d in agent_dirs(run_dir):
-        p = d / "tigris_replans.json"
-        if p.is_file():
-            out[d.name] = json.loads(p.read_text(encoding="utf-8"))
+        # tigris_search_planner writes tigris_replans.json, ia_tigris_search_planner (IA-TIGRIS)
+        # ia_tigris_replans.json (same layout plus the tree-recycling fields) and
+        # ipp_baselines_search_planner ipp_replans.json (same layout, "planner": its name)
+        for name in ("tigris_replans.json", "ia_tigris_replans.json", "ipp_replans.json"):
+            p = d / name
+            if p.is_file():
+                out[d.name] = json.loads(p.read_text(encoding="utf-8"))
+                break
     return out
 
 
@@ -386,7 +393,8 @@ def main(argv=None) -> int:
         if pts:
             evaluator = {"t_s": [a for a, _ in pts], "searched": [round(b, 6) for _, b in pts]}
 
-    planner = "tigris" if replans else "unknown (no tigris_replans.json: MTL or other)"
+    planner = (next((rp_.get("planner") or (rp_.get("params") or {}).get("planner") for rp_ in replans.values()),
+                    None) or "tigris") if replans else "unknown (no tigris_replans.json: MTL or other)"
     mode = next((rp_["params"].get("reward_mode") for rp_ in replans.values() if rp_.get("params")), None)
     summ = {
         "residual_belief_mass": summary.get("residual_belief_mass"),

@@ -1,0 +1,369 @@
+{
+ "_doc": "Phase-5 evaluation of the ia-tigris baselines on the ipp_baselines_search stack scenario (bench/ipp_stack): the mission's own sweep (+-45 deg at 30 deg/s), 3 km budget, WALL-TIME 5 s solves (commit margin 3 s) as flown, matched reward, mission seed 210 + 211..214; one original-reward run (seed 210) per planner; TIGRIS and IA-TIGRIS from their stack yaml the same way; the curve planner (mtl_search mission's curve block) once. Run with --workers <= cores - 1. Scored by run_benchmark's residual_hw = score.residual(sc, [track], 10.0, hardware={}).",
+ "arms": [
+  {
+   "name": "tigris_s210",
+   "planner": "tigris",
+   "tigris_set": {
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3,
+    "reward_mode": "matched",
+    "seed": 210
+   }
+  },
+  {
+   "name": "ia_tigris_s210",
+   "planner": "ia_tigris",
+   "tigris_set": {
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3,
+    "reward_mode": "matched",
+    "seed": 210
+   }
+  },
+  {
+   "name": "ipp_greedy_s210",
+   "planner": "ipp",
+   "tigris_set": {
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3,
+    "reward_mode": "matched",
+    "planner": "greedy",
+    "seed": 210
+   }
+  },
+  {
+   "name": "ipp_rect_coverage_s210",
+   "planner": "ipp",
+   "tigris_set": {
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3,
+    "reward_mode": "matched",
+    "planner": "rect_coverage",
+    "seed": 210
+   }
+  },
+  {
+   "name": "ipp_mcts_search_s210",
+   "planner": "ipp",
+   "tigris_set": {
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3,
+    "reward_mode": "matched",
+    "planner": "mcts_search",
+    "seed": 210
+   }
+  },
+  {
+   "name": "tigris_s211",
+   "planner": "tigris",
+   "tigris_set": {
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3,
+    "reward_mode": "matched",
+    "seed": 211
+   }
+  },
+  {
+   "name": "ia_tigris_s211",
+   "planner": "ia_tigris",
+   "tigris_set": {
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3,
+    "reward_mode": "matched",
+    "seed": 211
+   }
+  },
+  {
+   "name": "ipp_greedy_s211",
+   "planner": "ipp",
+   "tigris_set": {
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3,
+    "reward_mode": "matched",
+    "planner": "greedy",
+    "seed": 211
+   }
+  },
+  {
+   "name": "ipp_rect_coverage_s211",
+   "planner": "ipp",
+   "tigris_set": {
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3,
+    "reward_mode": "matched",
+    "planner": "rect_coverage",
+    "seed": 211
+   }
+  },
+  {
+   "name": "ipp_mcts_search_s211",
+   "planner": "ipp",
+   "tigris_set": {
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3,
+    "reward_mode": "matched",
+    "planner": "mcts_search",
+    "seed": 211
+   }
+  },
+  {
+   "name": "tigris_s212",
+   "planner": "tigris",
+   "tigris_set": {
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3,
+    "reward_mode": "matched",
+    "seed": 212
+   }
+  },
+  {
+   "name": "ia_tigris_s212",
+   "planner": "ia_tigris",
+   "tigris_set": {
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3,
+    "reward_mode": "matched",
+    "seed": 212
+   }
+  },
+  {
+   "name": "ipp_greedy_s212",
+   "planner": "ipp",
+   "tigris_set": {
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3,
+    "reward_mode": "matched",
+    "planner": "greedy",
+    "seed": 212
+   }
+  },
+  {
+   "name": "ipp_rect_coverage_s212",
+   "planner": "ipp",
+   "tigris_set": {
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3,
+    "reward_mode": "matched",
+    "planner": "rect_coverage",
+    "seed": 212
+   }
+  },
+  {
+   "name": "ipp_mcts_search_s212",
+   "planner": "ipp",
+   "tigris_set": {
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3,
+    "reward_mode": "matched",
+    "planner": "mcts_search",
+    "seed": 212
+   }
+  },
+  {
+   "name": "tigris_s213",
+   "planner": "tigris",
+   "tigris_set": {
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3,
+    "reward_mode": "matched",
+    "seed": 213
+   }
+  },
+  {
+   "name": "ia_tigris_s213",
+   "planner": "ia_tigris",
+   "tigris_set": {
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3,
+    "reward_mode": "matched",
+    "seed": 213
+   }
+  },
+  {
+   "name": "ipp_greedy_s213",
+   "planner": "ipp",
+   "tigris_set": {
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3,
+    "reward_mode": "matched",
+    "planner": "greedy",
+    "seed": 213
+   }
+  },
+  {
+   "name": "ipp_rect_coverage_s213",
+   "planner": "ipp",
+   "tigris_set": {
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3,
+    "reward_mode": "matched",
+    "planner": "rect_coverage",
+    "seed": 213
+   }
+  },
+  {
+   "name": "ipp_mcts_search_s213",
+   "planner": "ipp",
+   "tigris_set": {
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3,
+    "reward_mode": "matched",
+    "planner": "mcts_search",
+    "seed": 213
+   }
+  },
+  {
+   "name": "tigris_s214",
+   "planner": "tigris",
+   "tigris_set": {
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3,
+    "reward_mode": "matched",
+    "seed": 214
+   }
+  },
+  {
+   "name": "ia_tigris_s214",
+   "planner": "ia_tigris",
+   "tigris_set": {
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3,
+    "reward_mode": "matched",
+    "seed": 214
+   }
+  },
+  {
+   "name": "ipp_greedy_s214",
+   "planner": "ipp",
+   "tigris_set": {
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3,
+    "reward_mode": "matched",
+    "planner": "greedy",
+    "seed": 214
+   }
+  },
+  {
+   "name": "ipp_rect_coverage_s214",
+   "planner": "ipp",
+   "tigris_set": {
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3,
+    "reward_mode": "matched",
+    "planner": "rect_coverage",
+    "seed": 214
+   }
+  },
+  {
+   "name": "ipp_mcts_search_s214",
+   "planner": "ipp",
+   "tigris_set": {
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3,
+    "reward_mode": "matched",
+    "planner": "mcts_search",
+    "seed": 214
+   }
+  },
+  {
+   "name": "tigris_original_s210",
+   "planner": "tigris",
+   "tigris_set": {
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3,
+    "reward_mode": "original",
+    "seed": 210
+   }
+  },
+  {
+   "name": "ia_tigris_original_s210",
+   "planner": "ia_tigris",
+   "tigris_set": {
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3,
+    "reward_mode": "original",
+    "seed": 210
+   }
+  },
+  {
+   "name": "ipp_greedy_original_s210",
+   "planner": "ipp",
+   "tigris_set": {
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3,
+    "reward_mode": "original",
+    "seed": 210,
+    "planner": "greedy"
+   }
+  },
+  {
+   "name": "ipp_rect_coverage_original_s210",
+   "planner": "ipp",
+   "tigris_set": {
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3,
+    "reward_mode": "original",
+    "seed": 210,
+    "planner": "rect_coverage"
+   }
+  },
+  {
+   "name": "ipp_mcts_search_original_s210",
+   "planner": "ipp",
+   "tigris_set": {
+    "planning_time_s": 5,
+    "initial_planning_time_s": 5,
+    "commit_margin_s": 3,
+    "reward_mode": "original",
+    "seed": 210,
+    "planner": "mcts_search"
+   }
+  },
+  {
+   "name": "mtl_curve",
+   "planner": "mtl",
+   "scenario_overrides": {
+    "planner": {
+     "type": "curve",
+     "compare_orienteering": false
+    },
+    "curve": {
+     "representation": "curvature",
+     "endpoint_mode": "open",
+     "altitude_stagger_m": 1.0,
+     "sweep_freq_hz": 0.075
+    }
+   }
+  }
+ ]
+}

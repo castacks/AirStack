@@ -5,13 +5,15 @@
         --arms scripts/planner_benchmark/arms/default.json --workers 8
 
 For every (scenario, arm) it writes a per-arm scenario variant (the arm's overrides applied),
-runs the arm's planner CLI (``mtl_search_plan`` or ``tigris_search_plan``, both ROS-free),
+runs the arm's planner CLI (``mtl_search_plan``, ``tigris_search_plan``, ``ia_tigris_search_plan`` or
+``ipp_baselines_search_plan``, all ROS-free; an ``"ipp"`` arm names its baseline in ``tigris_set.planner``:
+greedy | rect_coverage | mcts_search),
 scores the resulting track with ``score.py`` (residual belief, the anytime curve) and appends
 one JSON line to ``<bench>/results.jsonl``. Resumable: pairs already in the file are skipped,
 so you can stop it and start it again, or add arms later.
 
 Planner binaries are found in the ROS workspace (install/ or build/), on PATH, or via
---mtl-bin / --tigris-bin, or build them host-side with build_offline_tools.sh.
+--mtl-bin / --tigris-bin / --ia-tigris-bin / --ipp-bin, or build them host-side with build_offline_tools.sh.
 """
 
 from __future__ import annotations
@@ -35,10 +37,13 @@ sys.path.insert(0, str(HERE))
 import score  # noqa: E402
 
 TIGRIS_YAML = REPO / "stacks/tigris_search/config/tigris_search_planner.yaml"
+IA_TIGRIS_YAML = REPO / "stacks/ia_tigris_search/config/ia_tigris_search_planner.yaml"
+IPP_YAML = REPO / "stacks/ipp_baselines_search/config/ipp_baselines_search_planner.yaml"
 TIGRIS_CLI_KEYS = ["reward_mode", "sampler", "planning_time_s", "initial_planning_time_s", "replan_period_s",
                    "commit_margin_s", "extend_dist_m", "extend_radius_m", "prune_radius_m", "reward_step_m",
                    "grid_res_m", "view_point_goal", "bounds_margin_m", "use_entropy", "rs", "rf",
-                   "initial_confidence", "budget_m", "camera_fov_deg", "camera_tilt_deg", "max_iterations", "seed"]
+                   "initial_confidence", "budget_m", "camera_fov_deg", "camera_tilt_deg", "max_iterations", "seed",
+                   "recycle_tree"]  # recycle_tree: IA-TIGRIS only (absent from the TIGRIS yaml)
 
 
 def find_bin(explicit, name, pkg):
@@ -51,8 +56,19 @@ def find_bin(explicit, name, pkg):
     return None
 
 
-def tigris_stack_sets(path: Path) -> list[str]:
-    """The TIGRIS tuning the stack flies (stacks/tigris_search/config/tigris_search_planner.yaml)."""
+# ipp_baselines_search_planner/src/params.cpp paramKeys() (planner is in it: the arm's
+# tigris_set.planner overrides the stack yaml's)
+IPP_CLI_KEYS = ["planner", "reward_mode", "planning_time_s", "initial_planning_time_s", "replan_period_s",
+                "commit_margin_s", "snap_to_node", "reward_step_m", "grid_res_m", "view_point_goal",
+                "use_edge_reward", "use_entropy", "rs", "rf", "initial_confidence", "budget_m", "camera_fov_deg",
+                "camera_tilt_deg", "max_iterations", "seed", "rect_coverage_enforce_turn_check",
+                "mcts_max_rollout_depth", "mcts_num_actions", "mcts_exploration_weight", "mcts_extend_angle_rad",
+                "mcts_extend_radius_m", "mcts_extend_dist_m", "mcts_branches_each_side", "mcts_rollout_type",
+                "mcts_retain_map_copies"]
+
+
+def tigris_stack_sets(path: Path, keys: list[str] = TIGRIS_CLI_KEYS) -> list[str]:
+    """The tuning the stack flies (stacks/<stack>/config/<planner>.yaml), restricted to `keys`."""
     try:
         import yaml
         raw = yaml.safe_load(path.read_text()) or {}
@@ -60,7 +76,7 @@ def tigris_stack_sets(path: Path) -> list[str]:
         return []
     prm = (raw.get("/**") or {}).get("ros__parameters") or {}
     out = {}
-    for k in TIGRIS_CLI_KEYS:
+    for k in keys:
         if k not in prm:
             continue
         v = prm[k]
@@ -153,6 +169,8 @@ def run_one(job):
     sid, arm, sc_path, bins, res, keep_dir, timeout = job
     sc = apply_arm(json.loads(Path(sc_path).read_text()), arm)
     rec = {"id": sid, "arm": arm["name"], "planner": arm["planner"]}
+    if arm["planner"] == "ipp":  # which ia-tigris baseline
+        rec["ipp_planner"] = (arm.get("tigris_set") or {}).get("planner") or "greedy"
     with tempfile.TemporaryDirectory() as tmp:
         scf = Path(tmp) / "scenario.json"
         scf.write_text(json.dumps(sc))
@@ -165,15 +183,17 @@ def run_one(job):
             cmds.append(([bins["mtl"], "--scenario", str(scf), "--out-dir", str(out), "--no-alt"],
                          [out / f"{n}_track.json" for n in agents]))
         else:
-            # TIGRIS is single-agent: with a team every agent runs its own TIGRIS on the full
-            # prior, uncoordinated (the natural multi-agent baseline for a single-agent planner)
-            sets = dict(bins.get("tigris_stack") or {}) if arm.get("use_stack_params", True) else {}
+            # TIGRIS / IA-TIGRIS / the ia-tigris baselines are single-agent: with a team every agent
+            # runs its own planner on the full prior, uncoordinated (the natural multi-agent baseline
+            # for a single-agent planner). All start from their stack's yaml, then the arm's tigris_set.
+            key = arm["planner"]  # "tigris" | "ia_tigris" | "ipp" (tigris_set.planner = the baseline)
+            sets = dict(bins.get(f"{key}_stack") or {}) if arm.get("use_stack_params", True) else {}
             sets.update({k: str(v).lower() if isinstance(v, bool) else str(v)
                          for k, v in (arm.get("tigris_set") or {}).items()})
             for n in agents:
                 od = out / n
                 od.mkdir()
-                cmd = [bins["tigris"], "--scenario", str(scf), "--out-dir", str(od), "--agent", n]
+                cmd = [bins[key], "--scenario", str(scf), "--out-dir", str(od), "--agent", n]
                 for k, v in sets.items():
                     cmd += ["--set", f"{k}={v}"]
                 if arm.get("one_shot"):
@@ -248,6 +268,10 @@ def main(argv=None) -> int:
     ap.add_argument("--mtl-bin", default=None)
     ap.add_argument("--tigris-bin", default=None)
     ap.add_argument("--tigris-params", type=Path, default=TIGRIS_YAML)
+    ap.add_argument("--ia-tigris-bin", default=None)
+    ap.add_argument("--ia-tigris-params", type=Path, default=IA_TIGRIS_YAML)
+    ap.add_argument("--ipp-bin", default=None, help="ipp_baselines_search_plan (greedy / rect_coverage / mcts_search)")
+    ap.add_argument("--ipp-params", type=Path, default=IPP_YAML)
     a = ap.parse_args(argv)
 
     arms = json.loads(a.arms.read_text())["arms"]
@@ -262,11 +286,15 @@ def main(argv=None) -> int:
         idx = [r for r in idx if r["id"] in want]
     bins = {"mtl": find_bin(a.mtl_bin, "mtl_search_plan", "mtl_search_planner"),
             "tigris": find_bin(a.tigris_bin, "tigris_search_plan", "tigris_search_planner"),
-            "tigris_stack": tigris_stack_sets(a.tigris_params)}
+            "tigris_stack": tigris_stack_sets(a.tigris_params),
+            "ia_tigris": find_bin(a.ia_tigris_bin, "ia_tigris_search_plan", "ia_tigris_search_planner"),
+            "ia_tigris_stack": tigris_stack_sets(a.ia_tigris_params),
+            "ipp": find_bin(a.ipp_bin, "ipp_baselines_search_plan", "ipp_baselines_search_planner"),
+            "ipp_stack": tigris_stack_sets(a.ipp_params, IPP_CLI_KEYS)}
     need = {x["planner"] for x in arms}
     for p in need:
         if not bins[p]:
-            raise SystemExit(f"no {p} planner binary: pass --{p}-bin, build the ROS package, or run "
+            raise SystemExit(f"no {p} planner binary: pass --{p.replace('_', '-')}-bin, build the ROS package, or run "
                              "scripts/planner_benchmark/build_offline_tools.sh")
     res_path = a.bench / "results.jsonl"
     done = set()
@@ -294,7 +322,7 @@ def main(argv=None) -> int:
     # interleave arms so partial results are balanced
     jobs.sort(key=lambda j: (idx.index(next(x for x in idx if x["id"] == j[0])), j[1]["name"]))
     print(f"[run_benchmark] {len(jobs)} plans to run ({len(done)} already done), {a.workers} workers; "
-          f"mtl={bins['mtl']} tigris={bins['tigris']}")
+          f"mtl={bins['mtl']} tigris={bins['tigris']} ia_tigris={bins['ia_tigris']} ipp={bins['ipp']}")
     t0, n = time.time(), 0
     with ProcessPoolExecutor(max_workers=a.workers) as ex, res_path.open("a") as f:
         futs = [ex.submit(run_one, j) for j in jobs]

@@ -1,0 +1,20 @@
+{
+ "_doc": "IA-TIGRIS arms for comparing against the curve planner (mtl_curve) and TIGRIS. They start from the stack tuning (stacks/ia_tigris_search/config/ia_tigris_search_planner.yaml: matched reward, tree recycling, the tigris_search lengths 750/251/750 m and 50 m grid; the released IA-TIGRIS fixed-wing values are 1500/1500/400 m and 30 m, see the _released arm) and use the same detection-matched 60 deg/s sweep as tigris_det_60dps. Each solve is WALL-TIME bounded as flown (5 s, commit margin 3 s): IA-TIGRIS carries its tree across solves and recycling is charged to the solve, so a per-solve iteration cap is not the same compute as TIGRIS's. Give every worker a whole core (--workers <= cores). The _it150 arm is iteration-bounded (150 new samples per solve, deterministic) for a like-for-like check against tigris_det_60dps.",
+ "arms": [
+  {"name": "ia_tigris_det_60dps", "planner": "ia_tigris",
+   "scenario_overrides": {"airstack.gimbal_actuation": {"enabled": true, "sweep_rate_deg_s": 60.0, "sweep_amplitude_deg": "detection", "max_amplitude_deg": 75.0}},
+   "tigris_set": {"planning_time_s": 5, "initial_planning_time_s": 5, "commit_margin_s": 3}},
+  {"name": "ia_tigris_det_60dps_original", "planner": "ia_tigris",
+   "scenario_overrides": {"airstack.gimbal_actuation": {"enabled": true, "sweep_rate_deg_s": 60.0, "sweep_amplitude_deg": "detection", "max_amplitude_deg": 75.0}},
+   "tigris_set": {"reward_mode": "original", "planning_time_s": 5, "initial_planning_time_s": 5, "commit_margin_s": 3}},
+  {"name": "ia_tigris_det_60dps_norecycle", "planner": "ia_tigris",
+   "scenario_overrides": {"airstack.gimbal_actuation": {"enabled": true, "sweep_rate_deg_s": 60.0, "sweep_amplitude_deg": "detection", "max_amplitude_deg": 75.0}},
+   "tigris_set": {"recycle_tree": false, "planning_time_s": 5, "initial_planning_time_s": 5, "commit_margin_s": 3}},
+  {"name": "ia_tigris_det_60dps_released", "planner": "ia_tigris",
+   "scenario_overrides": {"airstack.gimbal_actuation": {"enabled": true, "sweep_rate_deg_s": 60.0, "sweep_amplitude_deg": "detection", "max_amplitude_deg": 75.0}},
+   "tigris_set": {"extend_dist_m": 1500, "extend_radius_m": 1500, "prune_radius_m": 400, "grid_res_m": 30, "planning_time_s": 5, "initial_planning_time_s": 5, "commit_margin_s": 3}},
+  {"name": "ia_tigris_det_60dps_it150", "planner": "ia_tigris",
+   "scenario_overrides": {"airstack.gimbal_actuation": {"enabled": true, "sweep_rate_deg_s": 60.0, "sweep_amplitude_deg": "detection", "max_amplitude_deg": 75.0}},
+   "tigris_set": {"planning_time_s": 1000, "initial_planning_time_s": 1000, "commit_margin_s": -992, "max_iterations": 150}}
+ ]
+}

@@ -1,0 +1,26 @@
+# mtl_trajectory_follower parameters for the ia_tigris_search stack (loaded with allow_substs).
+# A copy of the package default with ONE change: accept_plan_revisions: true, so the
+# receding-horizon IA-TIGRIS planner can extend the active sortie in flight (same
+# plan_id, newer stamp, unchanged prefix). Keep the rest in sync with the package file.
+/**:
+  ros__parameters:
+    rate_hz: 20.0                  # carrot + gimbal command rate
+    lookahead_turn_radii: 1.2      # carrot distance L = 1.2 * R_min (from the plan)
+    lookahead_m: 0.0               # > 0 overrides the turn-radius rule
+    window_lookaheads: 1.5         # forward-only projection window, in lookaheads
+    finish_tolerance_m: 3.0        # COMPLETE when this close to the end of the track (arc)
+    ingress_tolerance_m: 4.0       # start the sweep within this of the track start ...
+    ingress_alt_tolerance_m: 2.0   # ... and this of its altitude
+    gimbal_lead_s: 0.2             # aim this far ahead along the track (command latency)
+    yaw_lead_s: 0.5                # heading reference ahead of the vehicle
+    two_axis_rate_deg_s: 120.0     # slew limit of the 2-DOF mode (1-DOF uses the plan's)
+    idle_gimbal_pitch_deg: 60.0    # parked camera when no sortie is active
+    hold_after_complete_s: 3.0     # hover on the last carrot before handing back
+    odometry_timeout_s: 1.0        # stale odometry aborts an active sortie
+    max_plan_age_s: 30.0           # never (re)fly a latched plan older than this
+    accept_plan_revisions: true    # true: a newer search/plan with the SAME plan_id revises the active
+                                   # sortie in flight (receding-horizon planners; ia_tigris_search sets it)
+    tf_prefix: ""
+    base_frame: base_link
+    publish_tf: true
+    gimbal_mount_offset_m: [0.10, 0.0, -0.08]   # FLU; keep equal to mission.yaml sim_gimbal.mount_offset_m

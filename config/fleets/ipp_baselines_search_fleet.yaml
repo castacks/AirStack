@@ -1,0 +1,38 @@
+# Fleet: ipp_baselines_search_fleet (RFC #380 §2) — single-agent ia-tigris baselines.
+#
+# ONE gimballed quad flying the ipp_baselines_search stack over the same 400 m search
+# area, prior and ground truth as the MTL stack (stacks/ipp_baselines_search/config/
+# mission.yaml keeps mtl_search's mission, seed and bumps). robot_1 spawns
+# exactly where mtl_search_fleet's robot_1 does, so a 1-robot MTL run and an
+# ia-tigris baseline run start from the same home.
+#
+#     airstack up --sim isaac --fleet ipp_baselines_search_fleet --stack ipp_baselines_search --play --wait
+#
+# `sim.script` below makes `--fleet` launch search_mission_scene.py (search area,
+# belief texture, targets, native gimbal) instead of the generic fleet_spawn.py,
+# whose bare grey "Default Environment" has none of that. `sim.scenario_dir`
+# points that scene at this stack's bundle (targets, belief texture, camera FOV).
+# The old explicit form still works (explicit env wins):
+#     MTL_SCENARIO_DIR=/root/AirStack/stacks/ipp_baselines_search/config \
+#     ISAAC_SIM_SCRIPT_NAME=search_mission_scene.py airstack up ...
+#
+#   robot     ROS_DOMAIN_ID  PX4 instance  MAVLink offboard (14540+N)  onboard (14580+N)  sysid (1+N)
+#   robot_1   1              1             udp :14541                   :14581             2
+
+defaults:
+  vehicle: quad_gimbal
+  stack: stacks/ipp_baselines_search
+
+robots:
+  robot_1:
+    spawn: [-170.0, -170.0, 0.07]   # mission NED home [-170, -170] (= mtl_search_fleet robot_1)
+
+sim:
+  scene: default                     # Pegasus "Default Environment" + the search plane
+  script: search_mission_scene.py    # `airstack up --fleet` launches this scene (not fleet_spawn.py)
+  scenario_dir: stacks/ipp_baselines_search/config   # the scene's bundle (= MTL_SCENARIO_DIR)
+
+network:
+  domain_policy: auto                # robot N -> domain N
+  gossip_domain: 99
+  gcs_domain: 0
