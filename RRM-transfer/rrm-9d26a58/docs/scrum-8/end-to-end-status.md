@@ -31,6 +31,14 @@ The changing residual across boots and within the second boot is consistent with
 an estimated local-pose offset, but no causal estimator diagnosis or multi-pose
 world/map calibration exists. GUI frames advanced and showed both markers; console
 binding remains UNKNOWN, mission IDLE, and all seven cases PREPARED_NOT_RUN.
+An approved disarmed offset-spawn check then compared the origin with fresh
+X=0.75 m and Y=0.75 m Office boots. Physical displacement was about 0.75 m on
+each chosen axis, while ROS local displacement was +0.000095 m on X and -0.029117 m
+on Y. Rendered-versus-ROS camera translation residuals became 73.34–73.36 cm
+and 76.30–76.31 cm. The declared identity ROS world/map TF cannot be used to map
+the simulator's marker coordinates to the estimator-local pose across these boots.
+Separate stationary episodes do not establish a motion-stable transform. No
+flight, target binding, learned inference or console admission followed.
 
 ## Demonstrated scope and remaining gaps
 

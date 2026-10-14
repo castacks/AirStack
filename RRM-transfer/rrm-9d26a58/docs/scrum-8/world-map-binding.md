@@ -158,3 +158,70 @@ the local gitignored `.rrm-artifacts/world-map-episode-b-20261013/` bundle. Both
 workspace capture bundles still need separate durable export before workflow
 replacement. A decision about world/map ownership or target coordinates should
 wait for independent multi-pose evidence and review of the proposed contract.
+
+## Disarmed offset-spawn check — 2026-10-13 EDT / 2026-10-14 UTC
+
+The next approved measurement used three distinct grounded Office start positions
+across fresh simulator boots: the retained origin boot above, then opt-in X=0.75 m
+and Y=0.75 m spawns. This deliberately avoided flight: earlier Office takeoffs had
+large drift and delayed recovery. The launcher now accepts only finite opt-in X/Y
+spawn values within ±1 m; its default remains (0,0). Inner Isaac was recreated for
+each offset, and robot restarted after each new clock epoch. Both new boots passed
+all seven readiness gates in live terminal checks; those results are transcribed
+as such in each bundle because the original stdout was not saved. The camera and
+physical recorders each stopped cleanly; each native capture has three frames.
+Sampled MAVROS state stayed connected and
+disarmed, extended state landed. No task or vehicle action was sent.
+
+The first native frame in each boot has exact numeric render/ROS odometry/TF stamp
+pairing. Physical pose is the actual rigid-body read, and `map` pose is converted
+MAVROS odometry. Coordinates below are meters and are **not** target coordinates.
+
+| Boot | Physical world X,Y | ROS `map` X,Y | Rendered versus ROS camera translation |
+| --- | --- | --- | ---: |
+| Origin | (-0.003717, 0.000016) | (0.014097, 0.014424) | 6.20–6.26 cm over three frames |
+| X offset | (0.746276, 0.000010) | (0.014192, 0.014442) | 73.34–73.36 cm over three frames |
+| Y offset | (-0.003660, 0.750082) | (0.009418, -0.014693) | 76.30–76.31 cm over three frames |
+
+Relative to the origin boot, physical X changed +0.749993 m while local X changed
++0.000095 m. Physical Y changed +0.750066 m in the other boot while local Y changed
+-0.029117 m. The corresponding full 3D displacement mismatches are 0.751 and
+0.779 m; their vertical components include different estimator states between
+boots and should not be interpreted as horizontal registration error. The
+X-offset physical/ROS base residual ranged 0.724–0.752 m over 108 exact numeric
+pairs; the Y-offset range was 0.749–0.769 m over 101 pairs. Maximum measured
+physical speeds were below 0.000045 m/s. Camera mounting remained about 2 µm;
+raw and converted odometry and converted odometry and TF matched exactly at the
+paired camera stamps. The static ROS `world -> map` identity appeared in each
+concurrent trace, yet it does not represent the measured physical-to-local pose.
+
+This is strong evidence that the published `map` pose is anchored near a fresh
+boot's local origin rather than the simulator's fixed world origin, for these
+stationary starts. It falsifies reuse of the declared identity for marker world
+coordinates. Each position was measured in a **separate** episode at a different
+elapsed time; estimator variation and origin reset are confounded. These samples
+cannot fit or validate a same-episode rigid transform, its rotation, stability
+under motion, or its ownership. They do not turn simulator truth into live
+localization authority. Exact numeric stamps do not independently prove equal
+sensor acquisition time, and physical recorder lines still lack the native camera
+episode ID; linkage uses the uninterrupted container and clock within each boot.
+
+The X and Y GUI camera images each visibly showed both Office markers; saved GUI
+state/mission remained `UNKNOWN`/`IDLE`. The seven Office cases remain
+`PREPARED_NOT_RUN`. The new local gitignored bundles are
+`.rrm-artifacts/world-map-spawn-x-20261014/`,
+`.rrm-artifacts/world-map-spawn-y-20261014/`, and
+`.rrm-artifacts/world-map-spawn-comparison-20261014/`. Each per-boot bundle has
+source/preflight metadata, native frames, ROS/physical traces, GUI image, analysis
+and a checksum manifest. They need durable export with the earlier bundles before
+workflow replacement. The next design decision is to define an explicit
+simulator-world versus estimator-local frame contract and obtain independent
+same-episode registration evidence before applying marker coordinates or changing
+console admission.
+
+After the diagnostic, inner Isaac was returned to the launcher's default (0,0)
+ground spawn and robot restarted into its new clock epoch. A saved follow-up
+readiness run passed all seven gates; MAVROS reported connected/disarmed/landed,
+and the GUI camera showed both markers with console `UNKNOWN`/`IDLE`. The local
+`.rrm-artifacts/world-map-restored-origin-20261014/` bundle retains that cleanup
+check and its checksum manifest.

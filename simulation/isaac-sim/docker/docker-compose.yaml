@@ -64,6 +64,9 @@ services:
       # Optional bounded, read-only physical/USD/sensor pose diagnostics.
       - ISAAC_SIM_STATE_LOG=${ISAAC_SIM_STATE_LOG:-}
       - ISAAC_SIM_TRUTH_DIR=${ISAAC_SIM_TRUTH_DIR:-}
+      # Opt-in bounded Office ground-spawn diagnostic; ignored by other scripts.
+      - RRM_OFFICE_SPAWN_X_M=${RRM_OFFICE_SPAWN_X_M:-0}
+      - RRM_OFFICE_SPAWN_Y_M=${RRM_OFFICE_SPAWN_Y_M:-0}
       # Viewport follow-camera (pegasus_app.py): domain id of the drone to
       # chase (default 1; off/none/0 disables) and its world-frame x,y,z
       # offset in meters.

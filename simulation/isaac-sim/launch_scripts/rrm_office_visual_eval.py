@@ -7,6 +7,21 @@ semantic IDs through its task-scoped catalog; a later drone adapter owns map way
 
 import os
 import sys
+import math
+
+
+def office_spawn_xy():
+    """Bound optional disarmed frame-diagnostic spawns to the central Office floor."""
+    coordinates = []
+    for axis in ("X", "Y"):
+        value = float(os.environ.get(f"RRM_OFFICE_SPAWN_{axis}_M", "0"))
+        if not math.isfinite(value) or abs(value) > 1.0:
+            raise ValueError(f"RRM_OFFICE_SPAWN_{axis}_M must be finite within [-1, 1] m")
+        coordinates.append(value)
+    return tuple(coordinates)
+
+
+SPAWN_X_M, SPAWN_Y_M = office_spawn_xy()
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pegasus_app import create_simulation_app
@@ -119,11 +134,12 @@ class RrmOfficeVisualEval(PegasusApp):
 def main():
     env_url, stage_scale = resolve_scene_from_env(SIMULATION_ENVIRONMENTS)
     print(f"[rrm-office-eval] Scene: {env_url} (stage_scale={stage_scale})")
+    print(f"[rrm-office-eval] Ground spawn: x={SPAWN_X_M} m y={SPAWN_Y_M} m z=0.07 m")
     RrmOfficeVisualEval(
         env_url=env_url,
         stage_scale=stage_scale,
         drone_configs=[{
-            "domain_id": 1, "x_m": 0.0, "y_m": 0.0, "z_m": 0.07,
+            "domain_id": 1, "x_m": SPAWN_X_M, "y_m": SPAWN_Y_M, "z_m": 0.07,
             "prim": "/World/base_link", "node_name": "PX4Multirotor",
         }],
         enable_lidar=True,

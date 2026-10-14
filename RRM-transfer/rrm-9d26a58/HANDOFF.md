@@ -8,6 +8,35 @@ steps aligned with RRM's overall purpose. Requirements/contracts and verified
 evidence govern the work; the roadmap is revisable. Historical phase/gate numbers
 below retain their original meanings and then-current scope.
 
+## Disarmed Office offset-spawn frame check — 2026-10-13 EDT / 2026-10-14 UTC
+
+With approval for a controlled multi-pose measurement, used two fresh grounded
+Office boots at X=0.75 m and Y=0.75 m, alongside the retained origin boot. This
+avoided flight after prior Office takeoff drift. Opt-in bounded launcher spawn
+values leave its default origin unchanged. Each new boot passed seven readiness
+gates after robot clock recovery; three native frames, concurrent ROS/TF, longer
+physical traces and GUI images were captured. MAVROS stayed connected/disarmed/
+landed, console `UNKNOWN`/`IDLE`; no goal or flight was dispatched.
+
+Physical X displacement from the origin boot was +0.749993 m while ROS local X
+changed +0.000095 m. Physical Y displacement was +0.750066 m in the other boot
+while ROS local Y changed -0.029117 m. Rendered-versus-ROS camera translation
+residuals rose to 73.34–73.36 cm and 76.30–76.31 cm, respectively, against the
+frozen 3 cm gate; camera mount stayed about 2 µm. The declared identity ROS
+`world -> map` therefore does not bind simulator world to the observed estimator
+local coordinates across these fresh spawns. This is consistent with a boot-local
+origin, but separate stationary episodes do not establish a same-episode rigid
+transform or causal estimator diagnosis. No target coordinates or admission were
+changed. The [binding checkpoint](docs/scrum-8/world-map-binding.md) gives the
+full measurements and limits. Local gitignored checksum bundles are
+`.rrm-artifacts/world-map-spawn-{x,y}-20261014/` plus
+`.rrm-artifacts/world-map-spawn-comparison-20261014/`; export them durably before
+workflow replacement. Seven Office cases remain `PREPARED_NOT_RUN`.
+The live simulator was then restored to the default (0,0) Office spawn. A fresh
+robot clock recovery and saved seven-gate readiness check passed; ROS was
+connected/disarmed/landed and the GUI remained `UNKNOWN`/`IDLE` with both markers
+visible. Cleanup evidence is in `.rrm-artifacts/world-map-restored-origin-20261014/`.
+
 ## Fresh-boot Office world/map repeatability — 2026-10-13 EDT
 
 After approval for the next grounded diagnostic, a second fresh Office/scale-1.0
