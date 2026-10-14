@@ -8,14 +8,12 @@
 #   - The Cosmos worker is pinned to the visual identity v4 source-overlay digest;
 #     see osmo/cosmos-worker/README.md for provenance and activation limits.
 #
-# Before submitting, publish the workspace image from this checkout:
-#   cd osmo/workspace
-#   docker buildx build --platform linux/amd64 \
-#     -t airlab-docker.andrew.cmu.edu/airstack/airstack-osmo-workspace:ore-proj-epoch-numpy126-1 \
-#     --push .
-#
-# Also commit and push the Dockerfile change on `ore_proj`; the workspace
-# clones that remote branch before building the inner Isaac Sim image.
+# For this handover, both selected images are already published. The submit host
+# needs this YAML, an authenticated OSMO CLI, an SSH public key, and the existing
+# airlab-nucleus, airlab-docker-login, registry, and rrm-huggingface-read OSMO
+# credentials. It does not need to build Docker images or hold a full AirStack
+# checkout. Rebuild the workspace image only if its Dockerfile/entrypoint changes.
+# The new workspace clones the already-pushed `ore_proj` branch on startup.
 #
 # Submit:
 #   osmo workflow submit osmo/workflows/airstack-live-replan-ore-proj.yaml \
