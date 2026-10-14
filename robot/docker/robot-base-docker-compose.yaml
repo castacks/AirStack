@@ -30,6 +30,7 @@ services:
       - RAYFRONTS_COMPUTE_PROB=${RAYFRONTS_COMPUTE_PROB:-True}
       - RAVEN_SHARE_RAYS=${RAVEN_SHARE_RAYS:-true}
       - RAVEN_SHARE_BBS=${RAVEN_SHARE_BBS:-true}
+      - RAVEN_ASSIGNMENT_MODE=${RAVEN_ASSIGNMENT_MODE:-auction}
       - LVLM_BASELINE=${LVLM_BASELINE:-false}
       - URDF_FILE=${URDF_FILE}
       # MAVROS
@@ -66,4 +67,3 @@ services:
       # persistent model cache (huggingface / torch / clip / etc.) so rayfronts
       # doesn't redownload weights on every container start
       - ./cache:/root/.cache:rw
-

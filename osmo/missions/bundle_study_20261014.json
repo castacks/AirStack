@@ -1,0 +1,129 @@
+{
+  "experiment": "bundle_study_20261014",
+  "robots": 3,
+  "comms_range_m": 5000,
+  "horizon_sim_s": 300,
+  "workflow": "osmo/workflows/airstack-mission-6h.yaml",
+  "pool": "dsta",
+  "priority": "HIGH",
+  "jobs": [
+    {
+      "mission": "osmo/missions/raven_bundle_auction_l1_s1_20261014.yaml",
+      "arm": "auction_l1",
+      "assignment_mode": "auction",
+      "bundle_len": 1,
+      "start": 1,
+      "trials": [
+        "militarybase_s1",
+        "retroneighborhood_s1",
+        "constructionsite_s1",
+        "downtownwest_s1",
+        "abandonedfactory_s1",
+        "shipyard_s1",
+        "moderncitydowntown_s1",
+        "fireacademy_s1"
+      ]
+    },
+    {
+      "mission": "osmo/missions/raven_bundle_auction_l6_s1_20261014.yaml",
+      "arm": "auction_l6",
+      "assignment_mode": "auction",
+      "bundle_len": 6,
+      "start": 1,
+      "trials": [
+        "militarybase_s1",
+        "retroneighborhood_s1",
+        "constructionsite_s1",
+        "downtownwest_s1",
+        "abandonedfactory_s1",
+        "shipyard_s1",
+        "moderncitydowntown_s1",
+        "fireacademy_s1"
+      ]
+    },
+    {
+      "mission": "osmo/missions/raven_bundle_auction_l12_s1_20261014.yaml",
+      "arm": "auction_l12",
+      "assignment_mode": "auction",
+      "bundle_len": 12,
+      "start": 1,
+      "trials": [
+        "militarybase_s1",
+        "retroneighborhood_s1",
+        "constructionsite_s1",
+        "downtownwest_s1",
+        "abandonedfactory_s1",
+        "shipyard_s1",
+        "moderncitydowntown_s1",
+        "fireacademy_s1"
+      ]
+    },
+    {
+      "mission": "osmo/missions/raven_bundle_greedy_l1_s1_20261014.yaml",
+      "arm": "greedy_l1",
+      "assignment_mode": "independent_greedy",
+      "bundle_len": 1,
+      "start": 1,
+      "trials": [
+        "militarybase_s1",
+        "retroneighborhood_s1",
+        "constructionsite_s1",
+        "downtownwest_s1",
+        "abandonedfactory_s1",
+        "shipyard_s1",
+        "moderncitydowntown_s1",
+        "fireacademy_s1"
+      ]
+    }
+  ],
+  "scenes": [
+    {
+      "scene": "DowntownWest",
+      "search_polygon_area_m2": 84000.0,
+      "query_target_count": 12,
+      "targets_per_hectare": 1.4285714285714286
+    },
+    {
+      "scene": "ModernCityDowntown",
+      "search_polygon_area_m2": 37800.0,
+      "query_target_count": 14,
+      "targets_per_hectare": 3.7037037037037037
+    },
+    {
+      "scene": "RetroNeighborhood",
+      "search_polygon_area_m2": 57600.0,
+      "query_target_count": 24,
+      "targets_per_hectare": 4.166666666666667
+    },
+    {
+      "scene": "FireAcademy",
+      "search_polygon_area_m2": 36450.0,
+      "query_target_count": 10,
+      "targets_per_hectare": 2.7434842249657065
+    },
+    {
+      "scene": "ConstructionSite",
+      "search_polygon_area_m2": 26350.0,
+      "query_target_count": 7,
+      "targets_per_hectare": 2.6565464895635675
+    },
+    {
+      "scene": "AbandonedFactory",
+      "search_polygon_area_m2": 30646.0,
+      "query_target_count": 7,
+      "targets_per_hectare": 2.284148012791229
+    },
+    {
+      "scene": "MilitaryBase",
+      "search_polygon_area_m2": 154875.0,
+      "query_target_count": 7,
+      "targets_per_hectare": 0.4519774011299435
+    },
+    {
+      "scene": "Shipyard",
+      "search_polygon_area_m2": 250000.0,
+      "query_target_count": 50,
+      "targets_per_hectare": 2.0
+    }
+  ]
+}

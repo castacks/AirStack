@@ -497,9 +497,17 @@ class RavenNavNode(Node):
             'debug_auction', True).value)
         self._share_rays = bool(self.declare_parameter('share_rays', True).value)
         self._share_bbs = bool(self.declare_parameter('share_bbs', True).value)
+        self._assignment_mode = str(self.declare_parameter(
+            'assignment_mode', 'auction').value)
+        if self._assignment_mode not in ('auction', 'independent_greedy'):
+            raise ValueError(f'Unknown assignment_mode: {self._assignment_mode}')
+        self._independent_greedy = self._assignment_mode == 'independent_greedy'
         self.get_logger().info(
-            f'[auction] share_rays={self._share_rays} share_bbs={self._share_bbs}')
-        self._consensus = bid_manager.ConsensusAssigner(self._bundle_len)
+            f'[auction] mode={self._assignment_mode} L={self._bundle_len} '
+            f'share_rays={self._share_rays} share_bbs={self._share_bbs}')
+        assigner = (bid_manager.IndependentGreedyAssigner if self._independent_greedy
+                    else bid_manager.ConsensusAssigner)
+        self._consensus = assigner(self._bundle_len)
         # Ray-leads this robot has serviced (reached + rays cohered); persistent,
         # accumulated own + peer, so a completed lead isn't re-added (bounds table).
         self._served_leads: list = []   # [(label, point(3))] in local frame
@@ -1594,6 +1602,8 @@ class RavenNavNode(Node):
         """True if my ray points at a BB a peer is OBSERVING and that peer is
         clearly closer to it — yield so the closer (voxel-mode) drone takes it.
         Applies even to my own committed ray."""
+        if self._independent_greedy:
+            return False
         bbs = getattr(self, '_peer_observing_bbs', None)
         if not bbs or self._cur_pose is None:
             return False
@@ -1717,6 +1727,8 @@ class RavenNavNode(Node):
     def _fresh_peer_committed_instances(self, now):
         """[(name, label, origin, dir, pid)] of peers whose committed instance is
         fresh (last seen within the TTL)."""
+        if self._independent_greedy:
+            return []
         out = []
         for name, inst in self._peer_state.peer_committed_instance.items():
             if now - self._peer_state.peer_last_seen.get(name, 0.0) > self._PEER_TTL_S:
@@ -2420,10 +2432,12 @@ class RavenNavNode(Node):
         so GCS can build the overlay; the terminal viewer + GCS read this topic.
         Pre-GPS (no boot_enu) it stays in the local frame."""
         owner = {}
+        assignments = {}
         slot = {}
         for aid, ks in assigned_map.items():
             for i, tk in enumerate(ks):
                 owner[tk] = aid
+                assignments.setdefault(tk, []).append(aid)
                 slot[tk] = i
         to_world = (self._local_to_world if self._boot_enu is not None
                     else (lambda p: np.asarray(p, dtype=float)))
@@ -2448,6 +2462,11 @@ class RavenNavNode(Node):
                      'conf': float(t.confidence), 'assigned': owner.get(t.key),
                      'slot': slot.get(t.key),
                      'queued': bool(slot.get(t.key, 0) > 0)}
+            entry['assigned_agents'] = sorted(assignments.get(t.key, []))
+            if len(entry['assigned_agents']) > 1:
+                # A greedy task has no exclusive owner. Preserve the existing
+                # scalar field for auction consumers and expose all selectors.
+                entry['assigned'] = None
             if t.direction is not None:
                 # Unit bearing (frame-invariant) so GCS draws a fixed-length
                 # arrow from the ray point — no projected far endpoint.
@@ -2825,11 +2844,19 @@ class RavenNavNode(Node):
             agent_weight=agent_w, explore_dist=explore_dists,
             agent_waypoints=self._agent_waypoints(fresh_peers))
         my_task = self._consensus.my_task(assigned_map, self._my_id, tasks)
-        if self._debug_auction and self._consensus.last_debug:
+        if self._debug_auction:
             dbg = dict(self._consensus.last_debug)
             dbg.update(robot=self._robot_name, my_id=self._my_id,
                        ts=round(now, 2))
-            dbg['params'].update(share_rays=self._share_rays, share_bbs=self._share_bbs)
+            dbg.setdefault('params', {}).update(
+                share_rays=self._share_rays, share_bbs=self._share_bbs,
+                assignment_mode=self._assignment_mode, bundle_len=self._bundle_len)
+            dbg['bundle_occupancy'] = {str(a): len(assigned_map.get(a, []))
+                                       for a in agent_pos}
+            dbg['task_count'] = len(tasks)
+            dbg['task_counts_by_status'] = {
+                status: sum(t.status == status for t in tasks)
+                for status in sorted({t.status for t in tasks})}
             dbg['dropped_bbs'] = list(self._dropped_bbs)
             dbg['visited_fragments'] = [
                 {'label': str(lab),
@@ -3097,7 +3124,8 @@ class RavenNavNode(Node):
         vb.my_id = self._my_id
         vb.fresh_peer_points = [
             (self._peer_state.peer_ids.get(n), self._peer_state.peer_positions[n])
-            for n in fresh_peers if n in self._peer_state.peer_positions]
+            for n in fresh_peers if n in self._peer_state.peer_positions
+            and not self._independent_greedy]
         vb.peer_committed_points = [
             self._ray_point(po, pd)
             for (_n, _lbl, po, pd, _pid) in peer_committed_instances]

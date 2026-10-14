@@ -688,3 +688,49 @@ class ConsensusAssigner:
         if not ks:
             return None
         return next((t for t in tasks if t.key == ks[0]), None)
+
+
+class IndependentGreedyAssigner:
+    """One local greedy head per robot; shared tasks are never reserved.
+
+    Reuse the single-agent L=1 cost calculation to retain surface distance,
+    ray penalty, eligibility and switch hysteresis exactly. Each local solve
+    sees only that robot: no peer positions, waypoints, ownership competition,
+    removal or repulsion. Multiple robots may select the same task. As in a
+    single-agent consensus solve, any eligible target takes precedence over
+    exploration; with none available the node falls back to exploration.
+    This is a target-allocation ablation, not a communication ablation.
+    """
+
+    def __init__(self, bundle_len: int = 1) -> None:
+        if int(bundle_len) != 1:
+            raise ValueError('independent_greedy requires bundle_len=1')
+        self.bundle_len = 1
+        self._local: Dict[int, ConsensusAssigner] = {}
+        self.last_debug: dict = {}
+
+    def assign(self, tasks, agent_pos, switch_margin, match_m,
+               agent_weight=None, explore_dist=None, agent_waypoints=None):
+        self._local = {a: self._local.get(a, ConsensusAssigner(1))
+                       for a in agent_pos}
+        assigned, debug = {}, {}
+        for a in sorted(agent_pos):
+            solver = self._local[a]
+            assigned.update(solver.assign(
+                tasks, {a: agent_pos[a]}, switch_margin, match_m,
+                agent_weight={a: (agent_weight or {}).get(a, 1.0)},
+                explore_dist=({a: explore_dist[a]}
+                              if explore_dist and a in explore_dist else None)))
+            debug[str(a)] = solver.last_debug
+        selected = {k for ks in assigned.values() for k in ks}
+        self.last_debug = {
+            'params': {'bundle_len': 1, 'assignment_mode': 'independent_greedy',
+                       'switch_margin': switch_margin, 'match_m': match_m},
+            'local_solves': debug,
+            'result': {str(a): ('explore' if not ks else [list(k) for k in ks])
+                       for a, ks in assigned.items()},
+            'unassigned_tasks': [list(t.key) for t in tasks if t.key not in selected],
+        }
+        return assigned
+
+    my_task = ConsensusAssigner.my_task

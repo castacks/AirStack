@@ -5,6 +5,10 @@
 
 Global planners output a high level, coarse trajectory for the robot to follow. 
 
+RAVEN performs multi-robot semantic search using shared rays and voxel targets.
+See the [bundle-length and independent-selection experiment](../../../../experiments/raven_bundle_study_20261014.md)
+for its allocation controls and matched evaluation protocol.
+
 A **trajectory** is a spatial path plus a schedule. 
 This means each waypoint in the trajectory has a time associated with it, indicating when the robot should reach that waypoint.
 These timestamps are fed to the local planner and controller to determine velocity and acceleration.
@@ -93,4 +97,3 @@ The global planner can do whatever it wants internally with this information.
 ### Random Walk planner
 
 The random walk planner replans when the robot is getting close to the goal. The random walk planner is a trivial planner that generates a plan by randomly selecting a direction to move in. The random walk planner is useful for testing the robot's ability to follow a plan.
-
