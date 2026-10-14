@@ -8,6 +8,18 @@ steps aligned with RRM's overall purpose. Requirements/contracts and verified
 evidence govern the work; the roadmap is revisable. Historical phase/gate numbers
 below retain their original meanings and then-current scope.
 
+## Office frame-contract proposal — 2026-10-14 EDT
+
+The [proposed contract](docs/scrum-8/world-map-frame-contract.md) clarifies the
+measured issue: ROS `world -> map` is a valid identity TF declaration, but it is
+not an independent transform from Isaac stage world into PX4's episode-local
+`map`. The proposal keeps the shared ROS alias and current map-frame control
+unchanged while labeling privileged stage coordinates `isaac_world` in RRM
+evidence. It defines explicit provenance, episode lifetime, and separate
+evaluation-only versus operational binding gates. No transform, live TF edge,
+teacher-to-waypoint conversion, console admission or flight was implemented.
+Source impact and held-out multi-pose validation criteria are in the proposal.
+
 ## Disarmed Office offset-spawn frame check — 2026-10-13 EDT / 2026-10-14 UTC
 
 With approval for a controlled multi-pose measurement, used two fresh grounded

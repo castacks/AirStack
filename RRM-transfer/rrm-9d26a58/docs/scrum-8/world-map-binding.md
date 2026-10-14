@@ -225,3 +225,7 @@ readiness run passed all seven gates; MAVROS reported connected/disarmed/landed,
 and the GUI camera showed both markers with console `UNKNOWN`/`IDLE`. The local
 `.rrm-artifacts/world-map-restored-origin-20261014/` bundle retains that cleanup
 check and its checksum manifest.
+
+The [proposed frame contract](world-map-frame-contract.md) separates the valid
+ROS identity alias from unmeasured Isaac-world alignment. It specifies provenance
+and hold gates for review; it changes no runtime TF or target authority.

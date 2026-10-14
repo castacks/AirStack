@@ -39,6 +39,9 @@ and 76.30–76.31 cm. The declared identity ROS world/map TF cannot be used to m
 the simulator's marker coordinates to the estimator-local pose across these boots.
 Separate stationary episodes do not establish a motion-stable transform. No
 flight, target binding, learned inference or console admission followed.
+The [proposed frame contract](world-map-frame-contract.md) treats ROS `world` as
+the current local-map alias and Isaac stage positions as privileged assessment
+data. It is a design for review, not an implemented binding.
 
 ## Demonstrated scope and remaining gaps
 
