@@ -110,6 +110,17 @@ RUN apt update -y && apt install -y --no-install-recommends \
 
 RUN /opt/ros/${ROS_DISTRO}/lib/mavros/install_geographiclib_datasets.sh
 
+# Pinned stereo_image_proc dependency fix: the apt 5.0.13 node computes its
+# valid-window metadata before its output image dimensions have been populated.
+# Build separately; retain apt ROS as the underlay and record source/patch hashes.
+COPY stereo_image_proc_overlay /tmp/stereo_image_proc_overlay
+RUN CMAKE_BUILD_PARALLEL_LEVEL=2 bash /tmp/stereo_image_proc_overlay/build.sh \
+      /opt/airstack/stereo_image_proc \
+    && source /opt/ros/${ROS_DISTRO}/setup.bash \
+    && source /opt/airstack/stereo_image_proc/local_setup.bash \
+    && ROS_DOMAIN_ID=92 python3 /tmp/stereo_image_proc_overlay/regression.py \
+         --prefix /opt/airstack/stereo_image_proc
+
 # Install Python dependencies (unconditional)
 # Note: numpy>=1.26 required for Python 3.12 compatibility
 # Using --ignore-installed to avoid conflicts with system packages
@@ -330,6 +341,7 @@ COPY --from=builder /usr/local/bin            /usr/local/bin
 COPY --from=builder /usr/local/lib            /usr/local/lib
 COPY --from=builder /usr/local/include        /usr/local/include
 COPY --from=builder /root/.tmux               /root/.tmux
+COPY --from=builder /opt/airstack/stereo_image_proc /opt/airstack/stereo_image_proc
 
 # Password is airstack
 RUN echo 'root:airstack' | chpasswd \

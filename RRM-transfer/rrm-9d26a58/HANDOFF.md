@@ -8,6 +8,298 @@ steps aligned with RRM's overall purpose. Requirements/contracts and verified
 evidence govern the work; the roadmap is revisable. Historical phase/gate numbers
 below retain their original meanings and then-current scope.
 
+## Editable development worker preparation — 2026-10-15 19:43 UTC
+
+User approved preparing a worker editable from the next workspace, without touching
+the current workflow. New osmo/cosmos-worker/dev_control.py is the long-lived task
+process supervising a replaceable Python model server. Private bearer-authenticated
+HTTP8091 supports status, inert bounded Python-source release uploads and explicit
+quiesced activation. Releases are hash-addressed; validation precedes child stop;
+crash leaves supervisor alive, prior releases support manual rollback. Child token/
+HF credentials removed; no generic shell, robot control or public port added.
+
+Development client rejects public/link-local destinations, pins checked private IP,
+disables proxy/redirect forwarding, and requires a private regular token file. Loaded
+verify compares worker startup source/release identity and stable child, not just PID;
+the bearer is not sent to inference8090. Private HTTP is not encryption/server auth:
+trusted development network only, code upload grants arbitrary worker-user execution,
+and a malicious same-user/root child is not sandboxed from the supervisor/token.
+
+Worker adds frozen startup source hashes, model-artifact byte hashes, package versions,
+explicit generation arguments and per-response semantic user-prompt SHA. These are
+self-reported file identities, not cryptographic remote attestation or full expanded
+multimodal/effective-generation settings. Checkpoint hashing adds startup IO/latency.
+
+Separate Dockerfile.dev uses fresh seed path and narrow context allowlist; separate
+airstack-live-replan-dev.yaml requires an explicitly published dev-image digest and
+rrm-worker-dev generic token credential mapped into both tasks. Workspace token file
+mode0600 stays in the outer workspace. Existing immutable workflow unchanged. Source
+edits are staged/activated explicitly; supervisor/dependency changes still need image
+replacement. Caller must pause inference first; in-flight requests may be interrupted.
+
+16 new Docker tests pass: actual disposable-child crash/restart/rollback/forced kill,
+real control HTTP/client CLI, auth/archive/integrity/secret handling, synthetic source/
+checkpoint hashes, fake-generator prompt response, YAML and embedded-shell syntax.
+Broad isolated suite646tests:645pass, same known LAND-fixture missing-armed error.
+One reviewer passes after client hardening. No GPU/model accuracy/OSMO launch claim.
+
+Preparation only: nothing committed/pushed, built/published, submitted or restarted.
+Mac handoff in [worker README](../../osmo/cosmos-worker/README.md#editable-development-worker)
+requires source push, ignored artifact backup, dev image build/publish, private token
+credential, new submission and loaded-source verification. Preserve current workspace
+until backups are verified. Export:.rrm-artifacts/editable-cosmos-worker-20261015/.
+
+## Missing-case intent continuation — 2026-10-15 17:19 UTC
+
+User approved transport/provenance qualification and the six missing opaque cases.
+New `scripts/continue_intent_probe.py` verifies original artifact/source/corpus and
+recomputed-assessment parity before selecting only ERROR/NOT_RUN records. Six requests
+retain original context/image/step and use fresh cycle IDs; no prior response was
+resampled. Three health/capability pairs matched the previous proposal-only contract.
+
+All six responded without new transport errors. Absent-blue correctly clarified;
+conflicting color, stale target, unknown qualifier, unknown competitor and unsupported
+inspection declared READY. Continuation valid-contract intent matches 1/6 (clarify
+1/5, unsupported 0/1). Independent pipeline withheld every proposal: five clarification
+holds, one unsupported hold. Two intent-wrong READY outputs were locally schema
+accepted (inspection and unknown competitor); three omitted grounded_entities.
+
+Across the two opaque sessions, descriptive unique-case coverage is 12/12, matches
+4/12 (READY 2/4, clarify 2/7, unsupported 0/1); two guarded proposals. This is not an
+uninterrupted or held-out benchmark; do not pool the earlier case-cued exploratory
+run. The prior ERROR's inference delivery/cause remains unknown. No retry loop.
+
+Endpoint entrypoint SHA matches historical `8037a9954`, not current worker source.
+Capability/source parity does not attest semantic prompt/parser/generator dependencies,
+checkpoint or generation settings. The updated YAML selects a future worker, not
+proof of current runtime. No restart/deployment, robot action or model download.
+
+Six new tests and 22 existing intent tests pass; isolated full suite 630 tests in
+55.072s: 629 pass, one same known LAND-fixture missing-armed error. One reviewer passed
+after independently verifying all raw continuation hashes and recomputing scores.
+Evidence: `.rrm-artifacts/intent-probe-continuation-20261015/` including original
+opaque parent input. Existing-page documentation updated, no full MkDocs build claim.
+Next material chunk needs approval: source-matched worker provenance/rollout and
+fresh development evaluation; do not tune against these cases and call it held-out.
+
+## Independent restricted intent and real-worker probe — 2026-10-15 13:12 EDT
+
+Notebook019 adds a sensor-neutral, independent template resolver over task/facts/
+capabilities and finite caller-owned candidate scope. It derives bindings only for
+uniquely confirmed supported navigation requests, otherwise clarifies or reports
+unsupported semantics. Unknown competitors prevent binding; model output never
+supplies the reference. This is opt-in probe code, not a live admission deployment.
+
+Reviewer found case-name cues in initial task/snapshot IDs. Retained the initial
+12-response run (4/12 valid-contract intent matches) and original source separately;
+corrected IDs to opaque ordinals and added a regression test. Corrected v2 run:
+12 scheduled, 6 responded, 1 URLError, 5 NOT_RUN; stopped without retry. Responded
+model matches 3/6: READY 2/4, clarification 1/2; unsupported has no responses.
+All four READY outputs selected the authored target, but two omitted required
+grounded_entities and were held. Two guarded proposals; duplicate-marker arbitrary
+selection was withheld for clarification. Do not pool runs or report 3/12 accuracy.
+Transport cause unknown; development cases reused, not held-out. Worker capabilities
+and local source hashes stable, but model/prompt/generation identities unattested.
+
+Nine new tests pass, reference matches 12/12 authored fixtures; one reviewer passes
+after cue correction. Final isolated suite: 624 tests in 53.379s, 623 pass and the
+same known LAND-fixture missing-armed error. No robot dispatch, worker restart,
+controller change or sensor requirement. Documentation workflow updated existing
+pages only; no full MkDocs build claim. Evidence/checksums:
+`.rrm-artifacts/independent-intent-grounding-20261015/`; next approval should qualify
+transport/provenance and complete missing cases, not infer full-corpus performance.
+
+## Caller-bound task intent consistency — 2026-10-15 12:45 EDT
+
+User approved task-to-target alignment after the wrong-valid-target shadow case.
+Added optional `TaskIntentBinding` in `rrm/intent_alignment.py`; the caller supplies
+an independently resolved exact semantic goal, allowed targets/operations, task/
+state/capability revisions and snapshot/episode/body identity. The goal is copied
+into an immutable type; task and capability bodies must agree. Bound proposals must
+match goal including negation, keep every action target/operation within scope and
+contain an authored goal-producing effect. This is not an action-order or feasibility
+proof. No sensor/depth or controller assumptions are added.
+
+`CosmosReasoningInput` and the CLI loader accept the optional binding; it is rendered
+to the reasoner. Model-output binding fields cannot create or override it. Accepted
+bound candidates carry MATCHED plus binding ID/hash; unbound legacy candidates remain
+NOT_CHECKED. Goal negation is retained and non-Boolean negation rejected. The caller
+must independently establish the intended task; neither provenance strings nor hashes
+prove correct language interpretation, authentication, permission or admission.
+
+Retained original017bundle and before-wrong-target input/candidate/source. On the
+unchanged24case/27step v1 corpus (SHA348141…), all original4arm summaries stay equal.
+Report v2 adds a fifth variant consuming a binding from the already authored task
+effect, not model output or adjudication. All5receive the same binding input. Bound
+variant accepts0/11invalid proposals, refuses0/15valid ones, has0/15false and0/6
+unsupported completion claims, and claims6/6labeled true goals. Unbound controls
+retain wrong-target acceptance. This is a development regression, not held-out or
+learned grounding performance. Per-step hashes change from017because explicit
+binding is added to ALL arms; only within-run parity is claimed.
+
+13new intent tests and one reviewer pass; scoped-campaign reconstruction and hashes
+pass. Broad isolated suite615tests:614pass,1unchanged LAND-fixture error missing
+armed state,0skips. Earlier intermediate source runs remain retained separately;
+the final source-qualified campaign is scoped-campaign. No deployment, inference,
+robot action, automatic language-grounder/binding authority or admission integration.
+See [binding contract](docs/scrum-8/interfaces.md#optional-caller-bound-task-intent).
+Checksum bundle:.rrm-artifacts/task-intent-alignment-20261015/. Independent qualitative
+intent resolution/clarification and real learned closed-loop comparison remain next.
+
+## Matched-tape shadow robustness campaign — 2026-10-15 12:24 EDT
+
+User approved the next matched-backend reasoning campaign. First qualification is
+an authored, non-dispatching shadow replay, not physical backend/model execution.
+New `scripts/shadow_robustness_campaign.py` runs24cases/27steps through4checking
+variants sharing exact input hashes, semantic observations, raw proposals, backend
+feedback, requested task effects and replay opportunities. Common synthetic stop,
+permission and deadline filters stay enabled; labels are excluded from decisions.
+
+Independent authored invalid-proposal denominator11: current context+effect accepts1,
+raw-identity ablation accepts5. False actual-goal denominator15: current/effect0false
+completion claims, status-effect ablation7, both ablated11. Unknown actual-goal
+denominator6:0unsupported claims with effect checks,1with status-only claims.
+Every variant refuses0/15labeled valid proposal steps and retains1unknown proposal
+label plus8UNKNOWN observed effects. All108rows remain in the report.
+
+The remaining wrong-valid-target acceptance is deliberately retained: grounded
+target-2 is not requested target-1. Task-effect checking prevents a false completion
+claim but does not establish correct intent. No candidate fix/tuning followed this
+development score. The legacy identity ablation uses private function globals and
+does not mutate production parsing. Allsource/artifact hashes and complete report
+reconstruction pass.8new tests pass; one independent reviewer recomputed counts,
+parity and provenance with no material finding. Broad suite602tests:601pass,1known
+LAND-fixture error (missing armed Boolean), no safety weakening or unrelated fix.
+
+This is NOT full RRM versus a capable closed-loop baseline. Feedback tape continues
+after refusals/claims, so it cannot establish counterfactual motion or causal
+recovery. Backend identity is a frozen feedback tape, not a qualified executed
+controller. No learned inference, perception benchmark, uncertainty interval,
+held-out performance, physical safety, cross-body execution or architecture advantage
+is claimed. Existing runtime behavior/workers are unchanged. See
+[method and interpretation](docs/core-comparison.md#matched-tape-shadow-checking-campaign).
+Checksum bundle `.rrm-artifacts/matched-shadow-robustness-20261015/` retains source,
+raw corpus/report, tests, integration log and review. Larger learned closed-loop
+comparison and task-to-target intent alignment remain further work.
+
+## Sensor-neutral contradiction grounding — 2026-10-15 12:14 EDT
+
+User clarified RRM's priority is reasoning robustness around interchangeable robot
+architectures, not a required depth/VLA/RL stack, and requested the next chunk.
+README and roadmap preserve that scope: geometry stays adapter-specific; the next
+larger experiment should hold the backend fixed and retain baseline feedback,
+permission and stop. RRM-EM capability estimation is distinct from motor training.
+
+Found and corrected a concrete learned-proposal boundary defect in
+`rrm/cosmos_reason2.py`: any raw fresh TRUE fact previously grounded a subject,
+even when its existence was FALSE/UNKNOWN/conflicting or sole positive property
+support was contradictory. Eligibility now uses C02 fact-key resolution. Explicit
+fresh existence must resolve TRUE; property-only support remains compatible when
+uncontradicted. Prompt retains raw observations plus aggregate resolved_truth.
+This is identity-reference validation, not property/goal correctness, localization,
+physical feasibility, permission or execution admission. No depth/pose requirement.
+
+The same14 authored contexts/raw proposals were retained before/after: expectation
+matches9/14→14/14;5unsupported identity acceptances now reject;9unchanged cases.
+Four new test methods cover this matrix, resolved/raw evidence,4provenance labels
+under2opaque body IDs and targetless no-depth proposals. One reviewer independently
+confirmed all14 and found no material issue. These are contract regressions, not
+learned model inference, physical safety trials or architecture superiority.
+
+Broad isolated-container suite:594tests,593passes,1pre-existing error in the LAND
+fixture missing armed state. The identical error reproduced with pre-change
+reasoning source. Initial live-container full-suite run had51path-related errors
+because console tests assume /root/AirStack; it is retained, not counted as passing.
+No admission logic was weakened or unrelated test modified. Existing C02 receipt
+freshness is unchanged; no sensor-acquisition alignment solution is implied.
+Source/prompt changes are not deployed to running workers. No model, perception,
+controller or mission changes. Checksum bundle:
+`.rrm-artifacts/contradictory-entity-evidence-20261015/`.
+
+## Frozen depth model benchmark — 2026-10-15 11:22 EDT
+
+User approved comparing improved classical stereo and a learned candidate on saved
+captures. New offline `scripts/benchmark_stereo_candidates.py` separates image-only
+prediction from teacher-only scoring; no runtime/navigation integration. Both frozen
+Office captures retained: 18 paired frames, 2 missing attempts. Fixed SGBM64/128
+and official RAFT-Stereo Middlebury32 compared with recorded BM. No tuning, training,
+truth scale fitting, flight or scene edit. Helper opt_einsum3.4.0 exists only in an
+isolated artifact import directory, not simulator/robot installed packages.
+
+Second capture original-window coverage/median/p95 absolute error: BM18.0%/.152/7.301m,
+SGBM64 45.3%/.337/37.469m, SGBM128 36.2%/.305/38.603m, RAFT100%/2.060/60.889m.
+Same-support conservative observable intersection (133,505 pixels) also disfavors
+RAFT: median/p95 4.878/42.463m versus BM .159/7.333m. Denser predictions do not mean
+validated geometry. RAFT median time333ms, SGBM64 13.5ms on simulator-shared RTX PRO
+5000; no deployed timing guarantee. Synthetic8px RAFT shift test recovered8.001px.
+All23 focused stereo tests pass; one reviewer independently verified integration
+and both captures' arithmetic, no material findings.
+
+No candidate adopted; one failed checkpoint does not rule out learned depth.
+Next proposed approval chunk: controlled observable-target/native pairing and
+registration validation before choosing a depth model or semantic navigation.
+[Durable method/results](docs/scrum-8/stereo-depth-localization.md).
+Checksum bundle `.rrm-artifacts/depth-model-benchmark-20261015/` retains source,
+raw inputs/outputs, metadata and checkpoint. Export before workspace replacement.
+No active perception configuration or mission dispatch changed.
+
+## Stereo depth assessment and pixel-to-map prototype — 2026-10-14 20:08 EDT
+
+User approved the next depth-accuracy and read-only localization chunk. The pure
+sensor localizer returns an operator-region surface point in current `map` or
+HOLD, with image/episode/stamp/pose and frozen coverage/coherence/freshness checks.
+Teacher depth enters only separate assessment. It emits no C02 localization facts,
+target waypoints, route hashes or permission. See the
+[prototype and measured limits](docs/scrum-8/stereo-depth-localization.md).
+
+Two grounded standard Office captures each retained 9/10 ROS-header-matched pairs;
+missing image/depth attempts, TF failures and outliers remain recorded. Review
+tightened actual-image-size and stereo-intrinsic validation; 18 focused tests pass.
+The second run had 166,810 compared pixels, pooled MAE 2.221846 m, absolute-error
+median 0.152168 m and p95 7.301182 m. Median-frame truth coverage was 17.99%, or 31.55%
+inside nominal stereo range. Operator regions produced 7/10 and 8/10 surface previews,
+with unverified identity and accuracy; coherence does not establish correctness.
+
+Floor truth depth median 0.081881 m lay wholly below the configured ~0.350476 m
+minimum, so its missing support alone does not justify another model. ROS header
+matches do not prove native same-render pairing; these remain stationary diagnostic
+estimates. Installed camera-helper source confirms axial DistanceToImagePlane truth.
+No inference, flight, scene edit or mission goal occurred. Vehicle stayed connected/
+disarmed/landed and mission idle. One reviewer verified final arithmetic and passed
+diagnostic scope. Checksum bundle: .rrm-artifacts/stereo-depth-localization-20261014/.
+Export it before workflow replacement. Marker cases and semantic navigation remain
+unqualified; depth-model comparison and target association are proposed next work.
+
+## Grounded stereo valid-window fix — 2026-10-14 19:37 EDT
+
+User approved the pinned stereo dependency fix and grounded validation. The apt
+Jazzy stereo_image_proc 5.0.13 node calculates valid_window before its output image
+dimensions are set. A source overlay of image_pipeline commit
+6c3df3099bc7b1ec92215719215c8eefd0d3aa69 uses available input dimensions and emits
+canonical empty windows for invalid extents. Archive/source/patch/compiler/dependency
+and binary identities are retained. The robot Docker build now includes the overlay
+and synthetic actual-node regressions; the shell sources its isolated prefix.
+The full robot image and arm64 build have not been rebuilt or published.
+
+In one uninterrupted standard Office simulator episode, two 15-second grounded
+captures measured 324 invalid windows before deployment and 362/362 bounded windows
+after a robot restart. The corrected rectangle is x=70, y=7, width=402, height=285.
+Normal, negative-minimum-disparity and narrow-image regressions pass; every tested
+candidate shuts down cleanly. The live process maps the regression-tested library
+SHA256 e492c01d8d6e4a246f991e993e2cd5339f17afe94c3749e9704033209fc93e75.
+Seven readiness gates passed in 23 s, vehicle remained connected/disarmed/landed,
+and mission remained IDLE. No flight, inference or semantic goal was dispatched.
+
+Strict interior numeric disparity support was 13.426% of full-image pixels at the
+median (16.875% within the valid window). Camera-to-map TF resolved at the exact
+disparity stamp for every post-fix frame, 358 immediately and 4 after bounded retry.
+Depth quantiles have no independent accuracy assessment. Standard Office is not
+the RRM marker fixture; no entity localization or world/map binding follows.
+An independent reviewer passed the fix and evidence. Local checksum bundle:
+.rrm-artifacts/stereo-valid-window-fix-20261014/. It needs durable export before
+workspace replacement; the live prefix also needs an updated robot image before
+container replacement. The seven marker evaluation cases remain PREPARED_NOT_RUN.
+
 ## Office frame-contract proposal — 2026-10-14 EDT
 
 The [proposed contract](docs/scrum-8/world-map-frame-contract.md) clarifies the

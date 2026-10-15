@@ -92,6 +92,11 @@ function autolaunch(){
 }
 
 source /opt/ros/jazzy/setup.bash
+# Image-baked or explicitly installed pinned stereo dependency overlay. Older
+# images keep their apt package until this prefix is built; no runtime download.
+if [ -f /opt/airstack/stereo_image_proc/local_setup.bash ]; then
+    source /opt/airstack/stereo_image_proc/local_setup.bash
+fi
 sws # source the ROS2 workspace by default
 
 # Resolve this container's docker compose container name from inside the

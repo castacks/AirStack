@@ -24,6 +24,7 @@ from rrm.visual_world_builder import (MediaArtifact, VisualGroundingInput,
                                       parse_visual_candidate, render_visual_prompt,
                                       VISUAL_PROMPT_REVISION)
 from rrm import visual_world_builder
+from rrm.worker_provenance import startup_identity
 from rrm_cosmos_reason2 import CosmosGenerator, load_context_payload
 
 
@@ -70,6 +71,9 @@ class CosmosWorker:
             raise ValueError("Cosmos model path is unavailable; mount or bake an approved local snapshot.")
         self.model_path = model_path
         self.max_new_tokens = max_new_tokens
+        # Hash once before loading; development releases are never edited in place.
+        self.provenance = startup_identity(Path(__file__).resolve().parents[1],
+                                           model_path, max_new_tokens)
         self.generator = CosmosGenerator(model_path)
         self.lock = threading.Lock()
 
@@ -90,6 +94,8 @@ class CosmosWorker:
             "step_index": step_index,
             "observation_sha256": observation_sha256,
             "candidate": candidate.model_dump(mode="json"),
+            "semantic_prompt_sha256": hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
+            "worker_provenance": self.provenance,
             "inference_wall_s": round(time.monotonic() - started, 3),
             "execution_dispatch": False,
         }
@@ -128,6 +134,7 @@ class CosmosWorker:
             "visual_prompt_revision": VISUAL_PROMPT_REVISION,
             "visual_prompt_sha256": hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
             "visual_world_builder_source_sha256": VISUAL_SOURCE_SHA256,
+            "worker_provenance": self.provenance,
             "now_monotonic_s": now,
             "inference_wall_s": round(time.monotonic() - started, 3),
             "execution_dispatch": False,
@@ -154,6 +161,7 @@ def make_handler(worker: CosmosWorker):
                     "worker_source_sha256": WORKER_SOURCE_SHA256,
                     "visual_prompt_revision": VISUAL_PROMPT_REVISION,
                     "visual_world_builder_source_sha256": VISUAL_SOURCE_SHA256,
+                    "worker_provenance": getattr(worker, "provenance", None),
                     "execution_dispatch": False,
                 })
             if self.path == "/healthz":

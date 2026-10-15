@@ -1,0 +1,13 @@
+# Development-only: trusted private code upload + replaceable model process.
+# Build with an explicit immutable worker runtime digest; no weights/secrets baked.
+ARG BASE_IMAGE=airlab-docker.andrew.cmu.edu/airstack/airstack-rrm-cosmos-worker@sha256:ddd2fcbfa57a0b981beca5f66a294c7288c264f0082f3b8852e028553564828c
+FROM ${BASE_IMAGE}
+ARG BASE_IMAGE
+RUN case "$BASE_IMAGE" in *@sha256:*) ;; *) exit 1 ;; esac
+# A fresh seed path avoids retaining deleted source files from the runtime parent.
+ENV PYTHONPATH=/opt/rrm-dev/seed:/opt/rrm-dev/seed/scripts
+COPY RRM-transfer/rrm-9d26a58/rrm /opt/rrm-dev/seed/rrm
+COPY RRM-transfer/rrm-9d26a58/scripts /opt/rrm-dev/seed/scripts
+COPY osmo/cosmos-worker/dev_control.py /opt/rrm-dev/dev_control.py
+RUN python3 -c 'import compileall; assert compileall.compile_dir("/opt/rrm-dev", quiet=1); from rrm_cosmos_worker import CosmosWorker'
+ENTRYPOINT ["python3", "/opt/rrm-dev/dev_control.py"]

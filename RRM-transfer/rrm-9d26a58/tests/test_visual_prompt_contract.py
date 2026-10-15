@@ -84,6 +84,7 @@ class PromptContractTests(unittest.TestCase):
                 self.image = Path(kwargs['image_path']).read_bytes()
                 return '{"status":"READY","claims":[]}'
         worker = CosmosWorker.__new__(CosmosWorker)
+        worker.provenance = {"identity_scope": "UNIT_TEST_FAKE_GENERATOR"}
         worker.generator = FakeGenerator()
         worker.lock = threading.Lock()
         worker.max_new_tokens = 768

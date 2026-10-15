@@ -28,6 +28,77 @@ Clarification resolves intent or entity binding. Approval grants a scoped permis
 
 ## C02: evidence and memory
 
+At the learned proposal boundary, entity eligibility resolves fresh C02 fact keys
+before using positive support. A fresh explicit `exists` fact must resolve TRUE;
+FALSE, UNKNOWN or conflicting existence evidence vetoes grounding even if a
+descriptive property is TRUE. Property-only identities remain eligible when at
+least one fresh property resolves TRUE and no fresh explicit existence veto exists.
+Raw evidence stays in the prompt together with its aggregate `resolved_truth`;
+conflicts are not silently deleted. This checks semantic identity references, not
+task-specific property correctness, metric localization, feasibility or permission.
+It imposes no depth-camera, pose or particular sensor requirement. Those backend
+requirements remain separate from C04/C05 proposal acceptance.
+
+### Optional caller-bound task intent
+
+`TaskIntentBinding` in `rrm/intent_alignment.py` is an independently supplied semantic
+constraint, not a model output. It binds task ID/revision, snapshot ID/state revision,
+episode, embodiment/capability revision, expected predicate (including negation),
+allowed target IDs and allowed operations, plus binding ID and source reference.
+The binding owns an immutable copy of its goal. Its targets must be eligible in
+current C02 and operations declared in C03. The requested body and capability body
+must agree; this is identity equality, not robot-product-specific behavior.
+
+`CosmosReasoningInput.intent_binding` is optional, and the reasoning CLI loader
+accepts a top-level `intent_binding` input. It is exposed in the prompt, but a raw
+model response cannot create or override it. Bound proposals must preserve the exact
+goal and may not add undeclared action targets or operations. At least one authored
+action effect must support the bound goal; allowed preparatory actions remain valid.
+This does not prove dependency/effect ordering, feasibility or ultimate achievement.
+
+Accepted candidates carry `intent_alignment=MATCHED`, binding reference and content
+SHA256 only after these checks. Legacy unbound candidates remain proposal-compatible
+with `intent_alignment=NOT_CHECKED` and no binding reference/hash. Do not interpret
+unbound ACCEPTED as intent alignment. Inconsistent bound proposals are rejected.
+Goal negation is retained by parsing; non-Boolean negation is rejected.
+
+The caller must establish the intended goal independently; copying the same model's
+guess into this record is not independent checking. Provenance strings and hashes
+do not authenticate an issuer, prove correct language interpretation, authorize a
+skill or change safety/permission authority. No automatic language grounder, binding
+authority, live worker deployment, admission integration or sensor requirement is
+introduced by this optional contract. Qualitative ambiguous tasks still need a
+qualified interpretation/clarification path.
+
+### Restricted independent navigation reference
+
+`rrm/intent_resolution.py` provides an opt-in reference, not a general binding
+authority or live admission integration. It consumes C01/C02/C03 plus a caller-owned
+finite candidate-ID scope and provenance reference; it never consumes model output.
+Supported full-match templates are `navigate to`, `go to`, or `approach`, followed
+by an exact scoped entity ID or an optional `the` and a blue/orange/red/green marker.
+Entity IDs are case-sensitive. Inspection is outside this reference's supported
+semantics and returns UNSUPPORTED; qualifiers, negation and multistep language clarify.
+
+Fresh existence/kind/color facts must confirm exactly one selector candidate. A
+fresh FALSE conjunct excludes a competitor; missing, stale or contradictory facts
+leave it possible, requiring clarification. Scope completeness outside the supplied
+finite set is not established. Explicit-ID requests require confirmed existence.
+READY derives a revision-bound `near($self, target)` binding for declared
+NAVIGATE_TO; all other outcomes carry no binding. No depth, coordinates, particular
+sensor or motor policy is assumed. Provenance strings are not authentication.
+
+The development probe withholds independently unresolved tasks and locally checks
+raw proposals against independently derived bindings; it never substitutes a
+reference plan for a malformed model plan. See the
+[real-worker development evidence](../core-comparison.md#independent-intent-development-probe).
+
+The approved missing-only continuation completes coverage across two sessions while
+retaining separate raw results and unattested worker prompt/checkpoint/settings.
+It checks prior source/artifact/corpus parity before inference and never resamples
+responded cases; this does not turn the restricted resolver into general language
+grounding or its withheld outputs into demonstrated physical safety.
+
 Fact truth is `TRUE`, `FALSE` or `UNKNOWN`. Missing, stale, contradictory or insufficiently supported evidence is UNKNOWN; negating UNKNOWN remains UNKNOWN. Preconditions and successful effects require TRUE. Explicit negative evidence is required for FALSE unless a named source declares complete coverage of the relevant domain. For wildcard negation such as “not on any support,” absence in a partial scene is not negative proof. Confidence never substitutes for provenance or observation time.
 
 Snapshots are immutable, task-relevant views including resource states, operator decisions and observation gaps. They describe belief; separate simulator ground truth is used for scoring. State update and dispatch races must be serialized or conservatively revalidated. The first implementation invalidates on any snapshot revision; a later dependency-filtered strategy needs explicit evidence that omitted changes are irrelevant.

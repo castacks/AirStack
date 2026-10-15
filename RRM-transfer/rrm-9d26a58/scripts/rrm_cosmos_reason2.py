@@ -10,6 +10,7 @@ from pathlib import Path
 import time
 
 from rrm.contracts import CapabilityDeclaration
+from rrm.intent_alignment import TaskIntentBinding
 from rrm.cosmos_reason2 import CosmosReasoningInput, parse_cosmos_candidate, render_cosmos_prompt
 from rrm.state_contracts import StateSnapshot
 from rrm.task_contracts import TaskRequest
@@ -32,6 +33,8 @@ def load_context_payload(payload: dict) -> CosmosReasoningInput:
         snapshot=StateSnapshot.model_validate(payload["snapshot"]),
         capabilities=capability,
         now_monotonic_s=payload["now_monotonic_s"],
+        intent_binding=TaskIntentBinding.model_validate(payload["intent_binding"])
+            if payload.get("intent_binding") is not None else None,
     )
 
 

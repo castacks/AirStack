@@ -15,8 +15,9 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from .contracts import CapabilityDeclaration, Truth
+from .intent_alignment import TaskIntentBinding, alignment_reasons
 from .schema import AbstractAction, Predicate, Verb
-from .state_contracts import StateSnapshot
+from .state_contracts import FactKey, StateSnapshot
 from .task_contracts import IntentStatus, PlanProposal, PlannedAction, ReasoningResult, TaskRequest
 from .verbs import VERB_TABLE
 
@@ -38,12 +39,15 @@ class CosmosReasoningInput:
     snapshot: StateSnapshot
     capabilities: CapabilityDeclaration
     now_monotonic_s: float
+    intent_binding: TaskIntentBinding | None = None
 
     def __post_init__(self) -> None:
         if self.snapshot.task_id != self.task.task_id:
             raise ValueError("snapshot task must match task request")
         if self.now_monotonic_s < 0:
             raise ValueError("reasoning clock must be nonnegative")
+        if self.intent_binding is not None and not isinstance(self.intent_binding, TaskIntentBinding):
+            raise ValueError("intent_binding must be a validated TaskIntentBinding")
 
 
 class CosmosReasoningCandidate(BaseModel):
@@ -57,6 +61,9 @@ class CosmosReasoningCandidate(BaseModel):
     reasons: tuple[str, ...] = ()
     intent: ReasoningResult | None = None
     plan: PlanProposal | None = None
+    intent_alignment: str = "NOT_CHECKED"
+    intent_binding_ref: str | None = None
+    intent_binding_sha256: str | None = None
 
     def model_post_init(self, __context: Any) -> None:
         if not self.task_id.strip():
@@ -70,9 +77,16 @@ class CosmosReasoningCandidate(BaseModel):
             raise ValueError("accepted candidate requires exactly C04 and C05 artifacts")
         if not accepted and (self.intent is not None or self.plan is not None):
             raise ValueError("non-accepted candidate cannot carry a plan")
+        if self.intent_alignment not in {"NOT_CHECKED", "MATCHED"}:
+            raise ValueError("invalid intent alignment status")
+        if self.intent_alignment == "MATCHED":
+            if not accepted or not self.intent_binding_ref or not self.intent_binding_sha256:
+                raise ValueError("matched intent requires accepted proposal and binding identity")
+        elif self.intent_binding_ref is not None or self.intent_binding_sha256 is not None:
+            raise ValueError("unchecked intent cannot carry a matched binding")
 
 
-def _evidence_record(item: Any, *, now_monotonic_s: float) -> dict[str, Any]:
+def _evidence_record(item: Any, *, context: CosmosReasoningInput) -> dict[str, Any]:
     return {
         "subject": item.key.subject,
         "predicate": item.key.predicate,
@@ -80,7 +94,10 @@ def _evidence_record(item: Any, *, now_monotonic_s: float) -> dict[str, Any]:
         "truth": item.truth.value,
         "provenance": item.provenance.value,
         "source_ref": item.source_ref,
-        "fresh": item.is_fresh(now_monotonic_s),
+        "fresh": item.is_fresh(context.now_monotonic_s),
+        "resolved_truth": context.snapshot.resolve(
+            item.key, now_monotonic_s=context.now_monotonic_s,
+        ).value,
     }
 
 
@@ -93,7 +110,7 @@ def render_cosmos_prompt(context: CosmosReasoningInput) -> str:
             "revision": context.snapshot.revision,
             "episode_id": context.snapshot.episode_id,
             "entity_ids": sorted(_fresh_entities(context)),
-            "evidence": [_evidence_record(item, now_monotonic_s=context.now_monotonic_s)
+            "evidence": [_evidence_record(item, context=context)
                          for item in context.snapshot.evidence],
         },
         "capabilities": {
@@ -106,6 +123,8 @@ def render_cosmos_prompt(context: CosmosReasoningInput) -> str:
         },
     }
     allowed_verbs = sorted(context.capabilities.operations & {verb.value for verb in Verb})
+    if context.intent_binding is not None:
+        payload["intent_binding"] = context.intent_binding.model_dump(mode="json")
     action_semantics = {
         verb: {
             "target_count": VERB_TABLE[Verb(verb)].arity,
@@ -117,11 +136,17 @@ def render_cosmos_prompt(context: CosmosReasoningInput) -> str:
     return "\n".join((
         "You are the learned reasoning component of a body-agnostic robotics reasoning model.",
         "Interpret the task using only the evidence and capabilities supplied below. ",
+        "Raw evidence can conflict. resolved_truth is C02's aggregate over fresh evidence "
+        "for the same fact key; UNKNOWN is not TRUE. Entity IDs are eligible semantic "
+        "references, not proof of a property, localization, feasibility or permission.",
         "Never invent an entity, fact, coordinate, capability, safety approval, or execution result.",
         "You propose semantic intent and plan candidates only. You do not control a robot.",
+        "When intent_binding is supplied by the caller, preserve its exact grounded_goal "
+        "and use only its allowed_targets and allowed_operations. Never create or replace "
+        "that binding in your response. Without a binding, task-intent alignment is unchecked.",
         "Return exactly one JSON object with this schema:",
         '{"status":"READY|NEEDS_CLARIFICATION|UNSUPPORTED",'
-        '"grounded_goal":{"name":str,"subject":str,"obj":str|number|null},'
+        '"grounded_goal":{"name":str,"subject":str,"obj":str|number|null,"negated":bool},'
         '"grounded_entities":[str],"ambiguity_refs":[str],"explanation":str,'
         '"actions":[{"id":str,"verb":str,"targets":[str],"dependencies":[str]}],'
         '"recovery_budget":nonnegative_integer}',
@@ -188,10 +213,20 @@ def _extract_json_object(raw_response: str) -> dict[str, Any]:
 
 
 def _fresh_entities(context: CosmosReasoningInput) -> frozenset[str]:
-    return frozenset(
-        item.key.subject for item in context.snapshot.evidence
-        if item.is_fresh(context.now_monotonic_s) and item.truth is Truth.TRUE
-    )
+    """Resolve support before grounding; explicit uncertain/nonexistence vetoes it.
+
+    Property-only identity evidence remains supported for existing adapters. A fresh
+    explicit exists fact, however, must resolve TRUE, even when another descriptive
+    fact is TRUE. This is semantic identity eligibility, not geometric localization.
+    """
+    keys = {item.key for item in context.snapshot.evidence
+            if item.is_fresh(context.now_monotonic_s)}
+    resolved = {key: context.snapshot.resolve(key, now_monotonic_s=context.now_monotonic_s)
+                for key in keys}
+    supported = {key.subject for key, truth in resolved.items() if truth is Truth.TRUE}
+    return frozenset(subject for subject in supported
+                     if resolved.get(FactKey(subject=subject, predicate="exists"), Truth.TRUE)
+                     is Truth.TRUE)
 
 
 def _rejected(context: CosmosReasoningInput, raw_response: str,
@@ -259,6 +294,8 @@ def parse_cosmos_candidate(raw_response: str, context: CosmosReasoningInput, *,
     goal_value = value.get("grounded_goal")
     if not isinstance(goal_value, dict):
         return _rejected(context, raw_response, CosmosCandidateStatus.REJECTED, "missing_grounded_goal")
+    if type(goal_value.get("negated", False)) is not bool:
+        return _rejected(context, raw_response, CosmosCandidateStatus.REJECTED, "invalid_goal_negation")
     goal_object = goal_value.get("obj")
     if isinstance(goal_object, str) and goal_object not in fresh_entities and goal_object != "$self":
         return _rejected(context, raw_response, CosmosCandidateStatus.REJECTED,
@@ -278,7 +315,8 @@ def parse_cosmos_candidate(raw_response: str, context: CosmosReasoningInput, *,
                              "empty_grounded_entities_for_targeted_plan")
 
     try:
-        goal = Predicate(name=goal_value["name"], subject=goal_value["subject"], obj=goal_object)
+        goal = Predicate(name=goal_value["name"], subject=goal_value["subject"], obj=goal_object,
+                         negated=goal_value.get("negated", False))
         intent = ReasoningResult(
             task_id=context.task.task_id,
             task_revision=context.task.revision,
@@ -324,6 +362,15 @@ def parse_cosmos_candidate(raw_response: str, context: CosmosReasoningInput, *,
     except (KeyError, TypeError, ValueError) as error:
         return _rejected(context, raw_response, CosmosCandidateStatus.REJECTED,
                          f"invalid_ready_candidate:{error}")
+    binding = context.intent_binding
+    if binding is not None:
+        reasons = alignment_reasons(binding, task=context.task, snapshot=context.snapshot,
+                                    capabilities=context.capabilities, eligible_entities=fresh_entities, plan=plan)
+        if reasons:
+            return _rejected(context, raw_response, CosmosCandidateStatus.REJECTED, *reasons)
     return CosmosReasoningCandidate(status=CosmosCandidateStatus.ACCEPTED,
                                     task_id=context.task.task_id, raw_response=raw_response,
-                                    intent=intent, plan=plan)
+                                    intent=intent, plan=plan,
+                                    intent_alignment="MATCHED" if binding else "NOT_CHECKED",
+                                    intent_binding_ref=binding.binding_id if binding else None,
+                                    intent_binding_sha256=binding.content_sha256() if binding else None)

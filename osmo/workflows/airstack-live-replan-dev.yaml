@@ -1,0 +1,83 @@
+# Development only. Requires published dev-image digest and rrm-worker-dev credential.
+# Does not change or replace an existing workflow. Never forward ports8090/8091.
+default-values:
+  worker_dev_image: "REQUIRED_PUBLISHED_DEV_IMAGE_AT_SHA256_DIGEST"
+
+workflow:
+  name: airstack-live-replan-dev
+  groups:
+  - name: airstack-live-replan
+    ignoreNonleadStatus: false
+    tasks:
+    - name: workspace
+      lead: true
+      resource: workspace-gpu
+      image: airlab-docker.andrew.cmu.edu/airstack/airstack-osmo-workspace:ore-proj-epoch-numpy126-1
+      privileged: true
+      command: ["bash", "-lc"]
+      args:
+      - |
+        set -euo pipefail
+        : "${RRM_WORKER_DEV_TOKEN:?Missing rrm-worker-dev credential}"
+        umask 077
+        touch /run/rrm-worker-dev.token
+        chmod 600 /run/rrm-worker-dev.token
+        printf '%s' "$RRM_WORKER_DEV_TOKEN" > /run/rrm-worker-dev.token
+        unset RRM_WORKER_DEV_TOKEN
+        exec /usr/local/bin/entrypoint.sh
+      environment:
+        AUTOLAUNCH: "true"
+        ISAAC_SIM_LIVESTREAM: "true"
+        NUM_ROBOTS: "1"
+        AIRSTACK_BRANCH: "ore_proj"
+        AIRSTACK_REPO_URL: "https://github.com/castacks/AirStack.git"
+        RRM_COSMOS_WORKER_URL: "http://{{host:cosmos-worker}}:8090"
+        RRM_WORKER_DEV_URL: "http://{{host:cosmos-worker}}:8091"
+      credentials:
+        airlab-nucleus:
+          OMNI_USER: omni_user
+          OMNI_PASS: omni_pass
+          OMNI_SERVER: omni_server
+        airlab-docker-login:
+          AIRLAB_REGISTRY_USER: username
+          AIRLAB_REGISTRY_PASS: password
+        rrm-worker-dev:
+          RRM_WORKER_DEV_TOKEN: token
+    - name: cosmos-worker
+      resource: cosmos-worker-gpu
+      image: "{{worker_dev_image}}"
+      command: ["bash", "-lc"]
+      args:
+      - |
+        set -euo pipefail
+        : "${HF_TOKEN:?Missing rrm-huggingface-read credential}"
+        : "${RRM_WORKER_DEV_TOKEN:?Missing rrm-worker-dev credential}"
+        if [[ ! -f "$COSMOS_MODEL_PATH/config.json" ]]; then
+          mkdir -p "$COSMOS_MODEL_PATH"
+          hf download nvidia/Cosmos-Reason2-8B --revision "$COSMOS_MODEL_REVISION" \
+            --local-dir "$COSMOS_MODEL_PATH" --token "$HF_TOKEN"
+        fi
+        unset HF_TOKEN
+        exec python3 /opt/rrm-dev/dev_control.py --model-path "$COSMOS_MODEL_PATH"
+      environment:
+        COSMOS_MODEL_PATH: "/var/lib/rrm/models/Cosmos-Reason2-8B"
+        COSMOS_MODEL_REVISION: "a9fae2cf89dc64db96b12860417f0eb403013bb9"
+        HF_HOME: "/var/lib/rrm/hf-cache"
+      credentials:
+        rrm-huggingface-read:
+          HF_TOKEN: hf_token
+        rrm-worker-dev:
+          RRM_WORKER_DEV_TOKEN: token
+  resources:
+    workspace-gpu:
+      cpu: 10
+      gpu: 1
+      memory: 48Gi
+      storage: 500Gi
+    cosmos-worker-gpu:
+      cpu: 10
+      gpu: 1
+      memory: 48Gi
+      storage: 200Gi
+  timeout:
+    exec_timeout: 1d

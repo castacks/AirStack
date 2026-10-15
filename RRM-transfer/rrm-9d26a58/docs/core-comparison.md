@@ -1,5 +1,193 @@
 # Paired core campaign comparison
 
+## Independent intent development probe
+
+`scripts/independent_intent_probe.py` queries the existing private Cosmos worker
+with authored semantic C02 facts and a constant neutral image (transport only).
+This tests semantic output contracts, not visual perception, physical execution or
+general language understanding. The independent restricted resolver receives no
+model output; the worker receives no binding, label or resolved reference target.
+
+The corrected opaque-ID corpus has 12 scheduled development cases. One transport
+URLError stopped the run after six responses; five remaining cases were NOT_RUN.
+No retry or response repair was performed. On responded cases only:
+
+| Authored intent | Scheduled | Responded | Valid-contract intent matches |
+|---|---:|---:|---:|
+| READY | 4 | 4 | 2 |
+| NEEDS_CLARIFICATION | 7 | 2 | 1 |
+| UNSUPPORTED | 1 | 0 | Not evaluated |
+
+Overall this is 3/6 matches among responses, **not** 3/12 accuracy. All four READY
+responses declared the correct target; two omitted required grounded-entity lists
+and were held rather than repaired. Two proposals passed the independent guard.
+On duplicate blue markers the model arbitrarily chose one despite a valid local
+schema; the independent resolver withheld a binding/plan and requested clarification.
+The other responded ambiguity case correctly requested clarification.
+
+Reviewer discovery: the initial 12-response run exposed case-name cues through task
+and snapshot IDs. Its 4/12 matches are retained separately as exploratory only, with
+the original source snapshot. The corrected run uses opaque IDs and is primary;
+neither run is held-out, and their results must not be pooled. Reference unit tests
+match all 12 authored labels, which is not evidence of 12 model responses.
+
+Local source hashes and before/after worker capability records stayed unchanged.
+The endpoint does not attest checkpoint, semantic prompt or generation settings;
+stable capabilities/source hashes alone do not establish those identities. The
+underlying transport-error cause was not retained and remains unknown. No runtime
+activation, robot dispatch or permission change occurred. See
+`.rrm-artifacts/independent-intent-grounding-20261015/` for raw evidence.
+
+For a separately approved new probe, from the RRM root with the configured runtime:
+
+```bash
+python scripts/independent_intent_probe.py --worker-url "$RRM_COSMOS_WORKER_URL" --output /tmp/rrm-intent-new
+python -m unittest discover -s tests -p test_intent_resolution.py -v
+```
+
+Use a fresh output directory and an existing private worker; no public service port
+or deployment is required. The probe stops issuing requests after the first transport
+or identity error. Broad integration: 624 tests, 623 pass, one independently reproduced
+pre-existing LAND-fixture error (missing `armed` state); no full documentation build
+was performed for these existing-page updates.
+
+### Approved missing-case continuation
+
+`scripts/continue_intent_probe.py` verifies the saved opaque run's artifact manifest,
+inference-source hashes, corpus, requests and recomputed assessments. It selects only
+ERROR/NOT_RUN cases, never repeats a responded case, preserves task/context/image/step
+and assigns fresh cycle IDs. Three bounded health/capability pairs must match the
+prior proposal-only contract. It stops on the first RPC/identity error and retains
+safe structured transport-cause metadata. Manifest hashes detect drift; they do not
+authenticate an issuer. Neither script grants permission or dispatches actions.
+
+The approved continuation returned all six selected cases with no new errors:
+
+| Missing case | Raw declared status | Independent outcome |
+|---|---|---|
+| Conflicting color | READY | NEEDS_CLARIFICATION |
+| Stale target | READY | NEEDS_CLARIFICATION |
+| Absent blue marker | NEEDS_CLARIFICATION | NEEDS_CLARIFICATION |
+| Unsupported inspection | READY | UNSUPPORTED |
+| Unknown qualifier | READY | NEEDS_CLARIFICATION |
+| Unknown competitor | READY | NEEDS_CLARIFICATION |
+
+Only absent-blue matched the authored intent contract: 1/6, including 1/5
+clarification cases and 0/1 unsupported cases. Two raw READY outputs were locally
+schema-accepted (inspection and unknown competitor); neither acquired a binding or
+plan. The other three READY outputs omitted required grounded_entities. All six
+were withheld, not repaired into reference plans. Existing six responses were not
+resampled; prior ERROR delivery to inference remains unknown.
+
+Descriptive cross-session coverage is now 12/12 unique cases with 4/12 valid-contract
+matches (READY 2/4, clarification 2/7, unsupported 0/1), two guarded proposals, two
+clear-request contract failures held, seven clarification holds and one unsupported
+hold. This joins unchanged prior responses with the approved continuation; it is
+not an uninterrupted run, held-out estimate or controlled performance comparison.
+Do not include the earlier case-cued exploratory run in these counts.
+
+Exposed capabilities matched before/after both sessions. The reported entrypoint hash
+matches historical commit `8037a9954`, not the current worker source. This identifies
+that entrypoint only, not imported semantic prompt/parser/generator modules, loaded
+checkpoint bytes or settings. Local workflow pins describe a future launch, not
+proof of this process. No restart/deployment was performed; prompt/checkpoint/settings
+remain unattested. Stronger provenance requires a separately approved source-matched
+worker rollout, followed by a newly frozen development evaluation before held-out work.
+
+From the RRM root, with a retained prior opaque output and a fresh output directory:
+
+```bash
+python scripts/continue_intent_probe.py --previous /path/to/prior-opaque-probe --output /tmp/rrm-intent-continuation-new --worker-url "$RRM_COSMOS_WORKER_URL"
+python -m unittest discover -s tests -p 'test_intent*.py' -v
+```
+
+Each continuation requires an explicit approved protocol; the CLI is not a retry
+daemon. Source drift or changed capabilities prevent inference. Evidence is retained
+in `.rrm-artifacts/intent-probe-continuation-20261015/` including its prior-run inputs.
+Six new continuation tests and all 22 existing intent tests pass. Final isolated
+suite: 630 tests, 629 pass, one unchanged LAND-fixture missing-`armed` error. One
+independent reviewer verified raw hashes, selection/input parity and recomputed scores.
+Existing documentation pages were updated; no full MkDocs build is claimed.
+
+## Matched-tape shadow checking campaign
+
+`scripts/shadow_robustness_campaign.py` is a separate, non-dispatching qualification
+instrument for sensor-neutral reasoning checks. It audits 24 authored development
+cases / 27 proposal-feedback steps under five checking variants. Each variant gets
+the exact same semantic observations, raw proposals, backend feedback, requested
+task effect and bounded replay schedule. Labels are independently authored fixture
+records, excluded from each variant's decision inputs. No model, ROS, physical
+backend or live safety authority is invoked.
+
+The two axes are current C02-resolved identity eligibility versus its legacy
+raw-positive ablation, and resolved task-effect evidence versus a backend-status
+completion ablation. Syntax, entity/verb vocabulary checks and common synthetic
+stop, permission and deadline filters remain in every arm. The legacy parser uses
+a private function-global namespace; production parser globals are unchanged.
+These are checking ablations, **not** a full RRM implementation versus a capable
+closed-loop baseline. In particular, the status-only variant is not the sole
+baseline for a future architectural claim.
+
+A fifth variant applies the caller-bound task intent consistency guard. The same
+explicit binding input is given to every variant, authored from the tape's existing
+requested task effect, not from labels or model output. Only the fifth consumes it;
+the original four remain unbound controls. This adds a guard, not extra oracle
+observations or a learned interpretation algorithm. Report schema is v2; the v1
+corpus hash and its original cases/proposals/labels remain unchanged. Earlier reports
+need their pinned historical source reader, not the current v2 implementation.
+
+From the RRM directory, using an isolated Python with existing requirements:
+
+```bash
+python scripts/shadow_robustness_campaign.py --output /tmp/rrm-shadow-new
+python scripts/shadow_robustness_campaign.py --output /tmp/rrm-shadow-new --verify
+```
+
+Output must not exist. The bundle holds `corpus.json`, `report.json`, `run.json`
+and `manifest.json`. Verification requires the current pinned corpus and executable
+source, checks all artifact hashes, and independently reconstructs every arm/step
+and count. Modified case selection, identities, budgets, labels, reports or source
+are rejected; no chosen intersection is compared. Hashes are corruption detection,
+not signatures or evidence that authored labels are physically correct. Runtime
+records Python/Pydantic versions and instrument duration, not model/robot latency.
+
+The frozen development census produces:
+
+| Checking variant | Invalid proposal acceptances / 11 | False completion claims / 15 | Unsupported completion claims / 6 |
+| --- | ---: | ---: | ---: |
+| Context + effect |1|0|0|
+| Raw identity ablation + effect |5|0|0|
+| Context + status effect ablation |1|7|1|
+| Both ablated |5|11|1|
+| Bound intent + context + effect |0|0|0|
+
+The denominators are independently labeled invalid proposals, false actual goals
+and unknown actual goals, respectively; unknown labels are not relabeled failures.
+All five have zero refusals among 15 labeled valid proposal steps. There is one
+unknown proposal label, eight UNKNOWN observed effect resolutions, and every step
+stays in the report. Context/effect variants claim all six labeled true goals;
+status-only effect variants claim five, missing an observed goal despite backend
+failure. A completion claim is not actual goal achievement and implies no actuation.
+
+The residual invalid acceptance is an intentional wrong-valid-target challenge:
+the contract parser accepts a grounded but task-inappropriate entity. Resolving the
+requested task effect, rather than trusting the model's different goal, avoids a
+false completion claim but does not repair intent alignment. The fifth bound variant
+rejects this proposal; all four unbound controls retain it. Correct binding production
+from qualitative language remains open. This is a development regression after
+observing the failure, not a held-out performance gain or general intent proof.
+
+The tape continues identically after refusals/claims and supplies the same two-step
+recovery examples to every variant. Therefore nonclaim→claim transitions measure
+only replay behavior, not causal recovery, a closed-loop counterfactual or skill
+performance. The backend identity denotes a frozen feedback tape, not an executed
+qualified controller. There are no images, depth maps, real scene trials, learned
+proposals, held-out results, statistical uncertainty intervals or architecture
+advantage claims. Qualification of a real matched-backend learned campaign remains
+the next boundary; do not substitute these deterministic counts for that experiment.
+
+## Same-implementation core campaign instrument
+
 `scripts/core_comparison.py` implements T telemetry/evaluation over two independently
 verified [core acceptance campaigns](core-acceptance.md). It matches every frozen
 attempt and reports paired outcomes, evidence coverage, stage-specific safety

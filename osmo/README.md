@@ -1,5 +1,9 @@
 # AirStack on OSMO
 
+For editable Cosmos worker development, see the
+[supervised private worker and Mac handoff](cosmos-worker/README.md#editable-development-worker).
+It uses a separate development workflow; the standard immutable workflow is unchanged.
+
 This directory holds the bits that let students develop on AirStack remotely
 through [NVIDIA OSMO](https://github.com/NVIDIA/OSMO):
 

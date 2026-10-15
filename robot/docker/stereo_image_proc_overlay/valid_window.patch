@@ -1,0 +1,31 @@
+--- a/stereo_image_proc/src/stereo_image_proc/disparity_node.cpp
++++ b/stereo_image_proc/src/stereo_image_proc/disparity_node.cpp
+@@ -361,13 +361,21 @@
+   } else {
+     wtf = std::max(border, -block_matcher_.getMinDisparity());
+   }
+-  // TODO(jacobperron): the message width has not been set yet! What should we do here?
+-  int right = disp_msg->image.width - 1 - wtf;
++  // processDisparity fills the output image later; use the available input size.
++  int right = static_cast<int>(l_image_msg->width) - 1 - wtf;
+   int top = border;
+-  int bottom = disp_msg->image.height - 1 - border;
+-  disp_msg->valid_window.x_offset = left;
+-  disp_msg->valid_window.y_offset = top;
+-  disp_msg->valid_window.width = right - left;
+-  disp_msg->valid_window.height = bottom - top;
++  int bottom = static_cast<int>(l_image_msg->height) - 1 - border;
++  if (left >= 0 && top >= 0 && right > left && bottom > top) {
++    disp_msg->valid_window.x_offset = left;
++    disp_msg->valid_window.y_offset = top;
++    disp_msg->valid_window.width = right - left;
++    disp_msg->valid_window.height = bottom - top;
++  } else {
++    // Canonical empty ROI, never a negative extent converted to uint32_t.
++    disp_msg->valid_window.x_offset = 0;
++    disp_msg->valid_window.y_offset = 0;
++    disp_msg->valid_window.width = 0;
++    disp_msg->valid_window.height = 0;
++  }
+ 
+   // Create cv::Mat views onto all buffers

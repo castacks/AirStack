@@ -9,7 +9,35 @@ explicit loop with end-to-end control.
 The reasoner proposes semantic actions; embodiment adapters own numeric grounding
 and control, while independent safety/admission gates execution.
 
+The reasoning contracts do not require depth cameras or a particular motor policy.
+Sensor grounding and classical/VLA/hybrid execution stay behind the embodiment
+boundary. RRM-EM estimates backend capabilities; developing a new motor policy is
+separate work. See the [scope and comparison priorities](WORK_PHASES.md#scope-clarification--2026-10-15).
+
+The [matched-tape shadow campaign](docs/core-comparison.md#matched-tape-shadow-checking-campaign)
+audits contextual/effect checks over identical authored semantic inputs, retaining
+missing evidence and wrong-target failures. It runs without robot/model execution;
+it does not demonstrate learned reasoning or architectural superiority.
+
+An optional [caller-bound task intent](docs/scrum-8/interfaces.md#optional-caller-bound-task-intent)
+checks exact goal, targets, operations and context scope. A model cannot supply its
+own binding. Unbound accepted proposals remain explicitly `NOT_CHECKED`; `MATCHED`
+is consistency evidence, not language-grounding accuracy or execution permission.
+
+A restricted independent navigation-reference resolver now derives bindings from
+explicit task templates and fresh semantic facts, without consulting model output.
+The [real-worker development probe](docs/core-comparison.md#independent-intent-development-probe)
+now covers all 12 cases across an initial partial run and an approved missing-only
+continuation. The continuation matched 1/6 expected intents and withheld all six
+plans. Model/prompt/settings remain unattested; this is not general language
+understanding, visual grounding or a controlled model benchmark.
+
 ## Start here
+
+For the next OSMO submission, an optional
+[editable-worker setup](../../osmo/cosmos-worker/README.md#editable-development-worker)
+supports explicit source releases and child-only restarts. It is development-only,
+not installed in the current workflow or yet qualified by a live image/GPU launch.
 
 - [Architecture and requirements allocation](docs/scrum-8/architecture.md) and
   [interface contracts](docs/scrum-8/interfaces.md): governing design and boundaries.

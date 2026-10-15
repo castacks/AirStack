@@ -1,0 +1,12 @@
+**
+!RRM-transfer/
+!RRM-transfer/rrm-9d26a58/
+!RRM-transfer/rrm-9d26a58/rrm/
+!RRM-transfer/rrm-9d26a58/rrm/*.py
+!RRM-transfer/rrm-9d26a58/scripts/
+!RRM-transfer/rrm-9d26a58/scripts/*.py
+!osmo/
+!osmo/cosmos-worker/
+!osmo/cosmos-worker/dev_control.py
+!osmo/cosmos-worker/Dockerfile.dev
+!osmo/cosmos-worker/Dockerfile.dev.dockerignore
