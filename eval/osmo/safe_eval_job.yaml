@@ -113,4 +113,5 @@ workflow:
       storage: 300Gi
 
   timeout:
-    exec_timeout: 4h
+    # The interactive pool caps jobs at 3 h, which covers image pulls and one smoke flight.
+    exec_timeout: 3h

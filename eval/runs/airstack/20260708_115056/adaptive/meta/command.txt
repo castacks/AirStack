@@ -1,1 +1,0 @@
-eval/run.py --agent adaptive --domains empty --simple --headless --debug
