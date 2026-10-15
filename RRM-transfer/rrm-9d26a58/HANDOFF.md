@@ -8,6 +8,51 @@ steps aligned with RRM's overall purpose. Requirements/contracts and verified
 evidence govern the work; the roadmap is revisable. Historical phase/gate numbers
 below retain their original meanings and then-current scope.
 
+## Workflow-expiry handoff — 2026-10-15 19:53 UTC
+
+User has little workflow time/Codex usage remaining; stop experiments and preserve
+the handoff. Implementation commit `e0f4d784c` contains all pending RRM/stereo/dev-worker
+source. Initial workspace push failed for missing GitHub credentials; a verified
+incremental Git bundle was transferred to the Mac. User's subsequent Mac output
+shows origin/ore_proj at e0f4d784 and bundle merge/push "Already up to date" /
+"Everything up-to-date". Thus that source commit is on GitHub and the Mac branch.
+Do not repeat the earlier claim that implementation source remains uncommitted.
+
+Mac-local edits to both workflow YAMLs were stashed (including the formerly untracked
+dev YAML) to allow fast-forward; keep that stash, do not blindly pop over tracked
+files. Implementation commit already preserves the observed dev-YAML edits:10 CPUs
+per task and exec_timeout1d. The existing immutable workflow was not changed here.
+
+Deployment is NOT complete. No dev-image build/publish result or registry digest has
+been received. No new rrm-worker-dev credential or OSMO submission is confirmed.
+`osmo/workflows/airstack-live-replan-dev.yaml` still has the required published-image
+placeholder; it is not runnable by copying alone. Do not substitute the old immutable
+worker digest: that image has no development supervisor. Current workflow was never
+restarted or modified by this work. Mac retains authenticated OSMO access; this
+workspace lacks OSMO CLI/control access and GitHub push credentials.
+
+After workflow expiry, resume from GitHub ore_proj at e0f4d784c or later. Read
+[the worker guide](../../osmo/cosmos-worker/README.md#editable-development-worker),
+build/publish Dockerfile.dev from repo root on an authenticated Docker build host,
+record the registry digest, create the private rrm-worker-dev generic credential,
+then submit the dev YAML from Mac with worker_dev_image set to that digest. Verify
+loaded source before experiments. Never expose8090/8091 publicly; private HTTP token
+is trusted-development code-execution authority, not TLS or hostile-code isolation.
+
+Evidence backup is NOT confirmed. `.rrm-artifacts/` (~615MiB before the latest small
+export) and `notebook/` (~138MiB) are gitignored, workspace-local and absent from the
+source push. The transferred102KiB Git bundle preserves source only, NOT experiment
+data. If the workflow disappears without downloading them, raw artifacts may be lost;
+do not claim they were backed up or can be recovered from Git. This committed log and
+the other committed documentation retain summaries, not all raw responses/images.
+
+Latest validation:16new tests pass; full isolated suite646tests,645pass and one known
+pre-existing LAND fixture missing-armed error. One reviewer passed. No new live model
+inference, image build, GPU startup, OSMO CLI validation or deployment qualification.
+Next agent should conserve usage: finish packaging/submission prerequisites, not
+rerun the old campaigns. Learned/held-out reasoning and physical execution remain
+unproven; prior development scores and identity limitations are recorded below.
+
 ## Editable development worker preparation — 2026-10-15 19:43 UTC
 
 User approved preparing a worker editable from the next workspace, without touching
