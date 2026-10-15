@@ -83,6 +83,10 @@ class StackHandle:
             "SAFE_BENCHMARK_ASSETS": self._safe_assets_root(),
             "AUTOLAUNCH": "true",
             "NUM_ROBOTS": "1",
+            # The robot is named from the hostname by a one-rule map, since the container-name
+            # lookup depends on the host's reverse DNS.
+            "ROBOT_NAME_SOURCE": "hostname",
+            "ROBOT_NAME_MAP_CONFIG_FILE": "safe_eval_robot_name_map.yaml",
             "COMPOSE_PROFILES": self.PROFILES,
             "ISAAC_SIM_USE_STANDALONE": "true",
             "ISAAC_SIM_SCRIPT_NAME": "safe_eval_launch_script.py",

@@ -20,7 +20,7 @@ services:
         - *desktop_image
     # we use tmux sd-keys so that the session stays alive
     environment:
-      - ROBOT_NAME_SOURCE=container_name # see .bashrc
+      - ROBOT_NAME_SOURCE=${ROBOT_NAME_SOURCE:-container_name} # see .bashrc
       - AUTOLAUNCH=${AUTOLAUNCH:-true}
       - NVIDIA_DRIVER_CAPABILITIES=all
       - LAUNCH_PACKAGE=desktop_bringup  # desktop_bringup adds RViz; real robots use autonomy_bringup

@@ -1,0 +1,5 @@
+# The SAFE eval flies one robot, robot_1 on domain 1, whatever the machine's hostname is.
+mappings:
+  - pattern: '.*'
+    robot: 'robot_1'
+    domain_id: '1'
