@@ -1,0 +1,28 @@
+diff --git a/extensions/pegasus.simulator/pegasus/simulator/logic/backends/px4_mavlink_backend.py b/extensions/pegasus.simulator/pegasus/simulator/logic/backends/px4_mavlink_backend.py
+index 04394fe..aa59a6d 100644
+--- a/extensions/pegasus.simulator/pegasus/simulator/logic/backends/px4_mavlink_backend.py
++++ b/extensions/pegasus.simulator/pegasus/simulator/logic/backends/px4_mavlink_backend.py
+@@ -596,6 +596,9 @@ class PX4MavlinkBackend(Backend):
+             dt (float): The time elapsed between the previous and current function calls (s).
+         """
+ 
++        if not self._is_running:
++            return
++
+         # Check for the first hearbeat on the first few iterations
+         if not self._received_first_hearbeat:
+             self.wait_for_first_hearbeat()
+diff --git a/extensions/pegasus.simulator/pegasus/simulator/logic/graphical_sensors/monocular_camera.py b/extensions/pegasus.simulator/pegasus/simulator/logic/graphical_sensors/monocular_camera.py
+index 01dc9d5..d16b44d 100644
+--- a/extensions/pegasus.simulator/pegasus/simulator/logic/graphical_sensors/monocular_camera.py
++++ b/extensions/pegasus.simulator/pegasus/simulator/logic/graphical_sensors/monocular_camera.py
+@@ -65,8 +65,7 @@ class MonocularCamera(GraphicalSensor):
+ 
+         # Set the values for the intrinsics if provided
+         if self._intrinsics is not None:
+-            # Set the camera intrinsics
+-            ((fx,_,cx),(_,fy,cy),(_,_,_)) = self._intrinsics
++            ((self.fx,_,self.cx),(_,self.fy,self.cy),(_,_,_)) = self._intrinsics
+         else:
+             # Assume a default field of view of 70 degrees
+             self.fov = 70.0  # degrees

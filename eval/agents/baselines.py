@@ -1,5 +1,5 @@
 """Velocity baselines, vendored from the S.A.F.E. reference integration
-(integrations/aerial_nav/agents/baselines.py) so this integration depends on
+(integrations/navigation/aerial/policies/baselines.py) so this integration depends on
 the installed safe_core package only — integrations are not installed.
 
 Actions are normalized velocities in [-1, 1]^3; AirstackStackEnv executes

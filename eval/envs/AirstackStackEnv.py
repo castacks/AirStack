@@ -105,6 +105,11 @@ class AirstackStackEnv(BaseEnvBackend):
         # Scenario state
         self._layout: dict | None = None
         self._scenario_seed: int | None = None
+        # Set by Adapter.apply_scenario; SAFE's sampler picks a photoreal density band from it.
+        self._scenario_index: int | None = None
+        self._scenario_difficulty: dict | None = None
+        self._collided = False
+        self._traj_risk: list = []
         self._dynamic_obstacle_velocities = np.zeros((0, 3), dtype=np.float32)
         self._initial_dynamic_obstacle_velocities = np.zeros((0, 3), dtype=np.float32)
         self.static_obstacle_aabbs = np.zeros((0, 4), dtype=np.float32)
@@ -220,11 +225,18 @@ class AirstackStackEnv(BaseEnvBackend):
 
         source_domain = getattr(self.env_cfg, 'source_domain', None)
         if source_domain:
+            if self._scenario_seed is None or self._scenario_index is None:
+                raise RuntimeError(
+                    'reset() before Adapter.apply_scenario: SAFE scenarios need the '
+                    'framework scenario seed and index')
             generated = scenario.command('generate_safe_scenario', {
-                'seed': int(self._scenario_seed if self._scenario_seed is not None else 0),
+                'seed': int(self._scenario_seed),
+                'scenario_index': int(self._scenario_index),
                 'goal_distance': self.goal_distance,
                 'perturbation_seed': getattr(self, '_pending_perturbation_seed', None),
             }, timeout=120)
+            self._ground_z = float(generated['ground_z'])
+            self._scenario_difficulty = generated.get('scenario_difficulty')
             self._layout = {
                 'agent_location': np.asarray(generated['start'], dtype=np.float32),
                 'target_location': np.asarray(generated['target'], dtype=np.float32),
@@ -297,6 +309,8 @@ class AirstackStackEnv(BaseEnvBackend):
         self._last_state_t = float(state.get("t", 0.0))
         self._episode_start_t = self._last_state_t
         self._step_count = 0
+        self._collided = False
+        self._traj_risk = []
         obs = self._build_obs(state)
         self._last_obs = obs
         return obs, {"distance": self._goal_distance(obs)}
@@ -450,6 +464,8 @@ class AirstackStackEnv(BaseEnvBackend):
 
         distance = self._goal_distance(obs)
         collision = bool(state.get("collision", False))
+        # SAFE's rollout reads the sticky info["failure"] for the nominal outcome.
+        self._collided = self._collided or collision
         reached = distance < self.goal_tolerance
         terminated = collision or reached
         truncated = (not terminated) and self._step_count >= self.max_steps
@@ -457,7 +473,9 @@ class AirstackStackEnv(BaseEnvBackend):
             self._hold_position()
         info = {
             "collision": collision,
+            "failure": self._collided,
             "collision_with": state.get("collision_with", ""),
+            "n_collisions": int(self._collided),
             "distance": distance,
             "elapsed_time": self._last_state_t - self._episode_start_t,
         }
@@ -504,7 +522,7 @@ class AirstackStackEnv(BaseEnvBackend):
             self.stack.bridge.publish_setpoint(
                 hover, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], 0.0, None)
             return
-        from integrations.aerial_nav.envs.setpoint import parse
+        from integrations.navigation.aerial.envs.setpoint import parse
 
         sp = parse(action)
         ros_pos = self._world_to_ros(sp.position)
@@ -578,11 +596,15 @@ class AirstackStackEnv(BaseEnvBackend):
         return self._action_space
 
     def get_env_params(self) -> Dict[str, Any]:
+        from safe_core.core.records import rulebook
         arena = self._arena()
         return {
             "dt": self.dt,
+            "max_steps": self.max_steps,
             "max_speed": self.max_speed,
             "epsilon_unsafe": self.epsilon_unsafe,
+            # Width of the violation band, the risk-exposure normalizer SAFE core reads.
+            "RE_max": rulebook().risk_exposure_max_m,
             "obstacle_radius": self.obstacle_radius,
             "r_failure": self.r_failure,
             "r_unsafe": self.r_unsafe,
@@ -596,6 +618,42 @@ class AirstackStackEnv(BaseEnvBackend):
             "num_static_cylinders": self.num_static_cylinders,
             "agent_profile": self.agent_profile.get("name", "unknown"),
         }
+
+    # ── debug video (SAFE's EpisodeRecorder, on when the debug profile captures) ──
+
+    def set_viz_risk(self, l_failure: float, l_unsafe: float) -> None:
+        self._traj_risk.append((float(l_failure), float(l_unsafe)))
+
+    @staticmethod
+    def _decode_frame(encoded):
+        import base64
+        import zlib
+        if not encoded:
+            return None
+        raw = zlib.decompress(base64.b64decode(encoded["rgb_zlib_b64"]))
+        return np.frombuffer(raw, dtype=np.uint8).reshape(encoded["shape"])
+
+    def get_debug_frames(self) -> Dict[str, Any]:
+        """The Isaac overview and drone-tracking camera frames, as SAFE's recorder views."""
+        frames = self.stack.scenario.command("capture_frames", timeout=60)
+        return {key: self._decode_frame(frames.get(key)) for key in ("overview", "tracking")}
+
+    # Capture requests the warm-up spends waiting for fresh render products to fill.
+    CAPTURE_WARMUP_TRIES = 30
+
+    def get_frame(self):
+        """Renderer warm-up: builds the Isaac capture cameras and waits until both views
+        return frames, so SAFE's recorder sees both at its seed capture and writes the
+        composite. A camera that never fills stops the flight instead of flying unfilmed."""
+        frames = {}
+        for _ in range(self.CAPTURE_WARMUP_TRIES):
+            frames = self.get_debug_frames()
+            if all(frames.get(k) is not None for k in ("overview", "tracking")):
+                return frames["overview"]
+        missing = [k for k in ("overview", "tracking") if frames.get(k) is None]
+        raise RuntimeError(
+            f"Isaac capture camera(s) {missing} returned no frame after "
+            f"{self.CAPTURE_WARMUP_TRIES} renders; the episode video cannot be recorded")
 
     def get_runtime_state(self) -> Dict[str, Any]:
         s = self.stack.scenario.latest_state() if self.stack.scenario else None

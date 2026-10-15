@@ -15,20 +15,21 @@ import safe_core
 # Editable SAFE installs put safe_core on sys.path, but their repository-level
 # integrations/ package is not itself installed. Resolve it from that checkout.
 _source_root = Path(safe_core.__file__).resolve().parent.parent
-if not (_source_root / 'integrations' / 'aerial_nav').is_dir():
+if not (_source_root / 'integrations' / 'navigation' / 'aerial' / 'policies').is_dir():
     raise RuntimeError('SAFE aerial integration source checkout is required for planners')
 if str(_source_root) not in sys.path:
     sys.path.insert(0, str(_source_root))
 
 from .safe_source import _to_safe_benchmark_frame, _swap_xy
-from integrations.aerial_nav.agents.planners import agent_fast_planner as _fast_planner
-from integrations.aerial_nav.agents.planners import agent_ego_planner as _ego_planner
-from integrations.aerial_nav.agents.planners import agent_raptor as _raptor
-from integrations.aerial_nav.agents.planners import agent_faster as _faster
-from integrations.aerial_nav.agents.planners import agent_super as _super
-from integrations.aerial_nav.agents.planners import agent_mighty as _mighty
-from integrations.aerial_nav.agents.planners import agent_dynus as _dynus
-from integrations.aerial_nav.agents.planners import agent_panther as _panther
+from integrations.navigation.aerial.policies.planners import agent_fast_planner as _fast_planner
+from integrations.navigation.aerial.policies.planners import agent_ego_planner as _ego_planner
+from integrations.navigation.aerial.policies.planners import agent_raptor as _raptor
+from integrations.navigation.aerial.policies.planners import agent_faster as _faster
+from integrations.navigation.aerial.policies.planners import agent_super as _super
+from integrations.navigation.aerial.policies.planners import agent_mighty as _mighty
+from integrations.navigation.aerial.policies.planners import agent_dynus as _dynus
+from integrations.navigation.aerial.policies.planners import agent_panther as _panther
+from integrations.navigation.aerial.policies.planners import agent_sando as _sando
 
 
 class _AirStackPlanner:
@@ -86,6 +87,10 @@ class SafePanther(_AirStackPlanner, _panther.Panther):
     pass
 
 
+class SafeSando(_AirStackPlanner, _sando.Sando):
+    pass
+
+
 PLANNER_NAMES = {
     'safefastplanner': 'fastplanner',
     'safeegoplanner': 'egoplanner',
@@ -95,4 +100,5 @@ PLANNER_NAMES = {
     'safemighty': 'mighty',
     'safedynus': 'dynus',
     'safepanther': 'panther',
+    'safesando': 'sando',
 }

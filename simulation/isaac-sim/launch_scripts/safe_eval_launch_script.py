@@ -289,6 +289,62 @@ class ObstaclePool:
                 op.Set(Gf.Vec3d(0.0, 0.0, ObstaclePool.PARKED_Z))
 
 
+class FrameCapture:
+    """SAFE's overview and tracking debug cameras, built on the first capture request.
+    Frames go back to the host as zlib-compressed RGB so SAFE's episode recorder can
+    write the episode video."""
+
+    RESOLUTION = 480
+    # SAFE's CameraRigGeometry follow height above the drone.
+    TRACKING_HEIGHT_M = 4.5
+
+    def __init__(self, stage, arena):
+        import omni.replicator.core as rep
+        from safe_isaac.visualization.overview_framing import overview_view
+
+        x_min, y_min, x_max, y_max = (float(v) for v in arena)
+        mid_x, mid_y, height = overview_view(x_min, y_min, x_max - x_min, y_max - y_min)
+        res = (self.RESOLUTION, self.RESOLUTION)
+        self._overview_cam = rep.create.camera(
+            position=(mid_x, mid_y, height), look_at=(mid_x, mid_y, 0.0), focal_length=18.0)
+        self._overview_product = rep.create.render_product(self._overview_cam, res)
+        self._overview = rep.AnnotatorRegistry.get_annotator("rgb")
+        self._overview.attach([self._overview_product])
+
+        self._track_path = "/World/SafeEvalTrackingCamera"
+        cam = UsdGeom.Camera.Define(stage, Sdf.Path(self._track_path))
+        cam.GetFocalLengthAttr().Set(18.0)
+        self._track_op = UsdGeom.Xformable(cam).AddTranslateOp()
+        self._track_op.Set(Gf.Vec3d(mid_x, mid_y, self.TRACKING_HEIGHT_M))
+        self._track_product = rep.create.render_product(self._track_path, res)
+        self._tracking = rep.AnnotatorRegistry.get_annotator("rgb")
+        self._tracking.attach([self._track_product])
+
+    def follow(self, drone_pos):
+        """Hold the tracking camera above the drone; the next render shows it there."""
+        if drone_pos is not None:
+            self._track_op.Set(Gf.Vec3d(float(drone_pos[0]), float(drone_pos[1]),
+                                        float(drone_pos[2]) + self.TRACKING_HEIGHT_M))
+
+    @staticmethod
+    def _encode(annotator):
+        import base64
+        import zlib
+        data = annotator.get_data()
+        if data is None or getattr(data, "size", 0) == 0:
+            return None
+        rgb = np.asarray(data)[:, :, :3]
+        if np.issubdtype(rgb.dtype, np.floating):
+            rgb = np.clip(rgb, 0.0, 1.0) * 255.0
+        rgb = np.ascontiguousarray(rgb.astype(np.uint8))
+        return {"shape": list(rgb.shape),
+                "rgb_zlib_b64": base64.b64encode(zlib.compress(rgb.tobytes(), 3)).decode()}
+
+    def frames(self):
+        return {"overview": self._encode(self._overview),
+                "tracking": self._encode(self._tracking)}
+
+
 class ScenarioManager:
     """Episode control + ground-truth state stream over a JSON-lines TCP
     server on the docker network.
@@ -340,6 +396,7 @@ class ScenarioManager:
         self.collision_with = ""
         self._last_state_pub = -1e9
         self._pending_vehicle_reset = None
+        self._capture = None  # FrameCapture, built on the first capture_frames request
 
     # ── TCP plumbing ─────────────────────────────────────────────────────
 
@@ -432,13 +489,19 @@ class ScenarioManager:
             self.collision = False
             self.collision_with = ""
             return {}
+        if cmd == "capture_frames":
+            if self._capture is None:
+                self._capture = FrameCapture(self.stage, self.arena)
+                # The new render products fill on the next rendered step.
+                return {}
+            return self._capture.frames()
         raise ValueError(f"unknown cmd '{cmd}'")
 
     def _generate_safe_scenario(self, args):
         if self.safe_cfg is None:
             raise RuntimeError('generate_safe_scenario requires a SAFE source domain')
         from eval.sim.safe_source_scene import sample_scenario
-        layout, behavior = sample_scenario(
+        layout, behavior, difficulty = sample_scenario(
             self.safe_cfg,
             seed=int(args['seed']),
             goal_distance=args.get('goal_distance'),
@@ -446,6 +509,7 @@ class ScenarioManager:
             humans=self.humans is not None,
             agent_radius=float(self.cfg['drone_radius']),
             obstacle_radius=float(self.cfg['obstacle_radius']),
+            scenario_index=args.get('scenario_index'),
         )
         if self.humans is not None:
             self.humans.set_behavior(behavior)
@@ -493,6 +557,10 @@ class ScenarioManager:
             'dynamic_obstacle_locations': dynamic,
             'dynamic_obstacle_velocities': velocities,
             'dynamic_obstacle_waypoints': waypoints,
+            # The sampler moves origin_z to the floor of the window it drew on a photoreal
+            # stage, so the host teleports the drone onto this scenario's own floor.
+            'ground_z': float(self.safe_cfg.origin_z),
+            'scenario_difficulty': difficulty,
         }
 
     def _set_scenario(self, args):
@@ -745,6 +813,8 @@ class ScenarioManager:
                 self._drone_vel = (pos - self._last_drone_pos) / dt
             self._last_drone_pos = pos
             self._check_collision(pos)
+            if self._capture is not None:
+                self._capture.follow(pos)
         self._last_sim_time = t
 
         if t - self._last_state_pub >= 1.0 / STATE_HZ and pos is not None:
@@ -812,7 +882,7 @@ class SafeEvalApp:
             }
             paths = safe_cfg.static_obstacle_prim_paths or []
             if paths:
-                from integrations.aerial_nav.config.scenarios import (
+                from integrations.navigation.common.config.scenarios import (
                     _read_obstacle_positions_from_stage,
                     _read_obstacle_aabbs_from_stage,
                 )

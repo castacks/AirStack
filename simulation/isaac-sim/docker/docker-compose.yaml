@@ -48,6 +48,12 @@ services:
       - SAFE_POV_HFOV_DEG=${SAFE_POV_HFOV_DEG:-}
       - SAFE_POV_VFOV_DEG=${SAFE_POV_VFOV_DEG:-}
       - SAFE_POV_HZ=${SAFE_POV_HZ:-}
+      # SAFE's photoreal stages, stage exports (ground map, occupancy, density bands),
+      # skies and UrbanVerse cities, read from the read-only assets mount below.
+      - SAFE_BAKED_STAGES=${SAFE_BENCHMARK_ASSETS:-${HOME}/safe_benchmark_assets}/stages
+      - SAFE_STAGE_EXPORTS=${SAFE_BENCHMARK_ASSETS:-${HOME}/safe_benchmark_assets}/stage_exports
+      - SAFE_SKIES=${SAFE_BENCHMARK_ASSETS:-${HOME}/safe_benchmark_assets}/skies
+      - SAFE_URBANVERSE=${SAFE_BENCHMARK_ASSETS:-${HOME}/safe_benchmark_assets}/urbanverse
       - ISAAC_SIM_HEADLESS=${ISAAC_SIM_HEADLESS:-false}
       # Pegasus physics tuning — read by pegasus/simulator/params.py
       - PX4_PHYSICS_HZ=${PX4_PHYSICS_HZ:-100}
@@ -86,6 +92,8 @@ services:
       # SAFE source is read-only so AirStack can import its domain/world/human code.
       # The eval runner sets this to the installed SAFE source checkout.
       - ${SAFE_BENCHMARK_SOURCE:-../../..}:/isaac-sim/SAFE_BENCHMARK:ro
+      # SAFE's stage assets at their host path, since UrbanVerse stages reference it absolutely.
+      - ${SAFE_BENCHMARK_ASSETS:-${HOME}/safe_benchmark_assets}:${SAFE_BENCHMARK_ASSETS:-${HOME}/safe_benchmark_assets}:ro
       # airstack code
       - ../../..:/isaac-sim/AirStack:rw
       - ../../../.devcontainer/isaac-sim/launch.json:/isaac-sim/AirStack/.vscode/launch.json:rw

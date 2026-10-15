@@ -23,8 +23,8 @@ def _swap_xy(value):
 def _to_safe_benchmark_frame(obs):
     """SAFE's aerial benchmark position convention swaps Isaac X/Y."""
     converted = dict(obs)
-    for key in ('agent', 'target', 'agent_vel', 'static_obstacles',
-                'static_cylinders'):
+    for key in ('agent', 'target', 'agent_vel', 'velocity', 'static_obstacles',
+                'static_cylinders', 'dynamic_obstacle_targets'):
         if key in converted and converted[key] is not None:
             converted[key] = _swap_xy(converted[key])
     if obs.get('dynamic_obstacles') is not None:
@@ -58,12 +58,12 @@ class _SafeVelocity(Policy):
             source_root = Path(safe_core.__file__).resolve().parent.parent
             if str(source_root) not in sys.path:
                 sys.path.insert(0, str(source_root))
-            from integrations.aerial_nav.agents import baselines
+            from integrations.navigation.aerial.policies import baselines
         except ImportError as exc:
             raise RuntimeError(
                 'SAFE aerial policy source is unavailable. Install SAFE from its '
                 'source checkout or add the checkout to PYTHONPATH; the safe_core '
-                'wheel alone does not include integrations/aerial_nav.'
+                'wheel alone does not include integrations/navigation.'
             ) from exc
         self._source = getattr(baselines, self.source_name)()
         self._source.reset()

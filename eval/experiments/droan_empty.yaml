@@ -1,12 +1,17 @@
-# First DROAN episode through the stack-driven env: one flight in the empty arena.
+# First DROAN episode through the stack-driven env: one flight in SAFE's empty arena,
+# recorded on video by SAFE's episode recorder (debug: default captures every episode).
 # Run (from the AirStack root):
 #   PYTHONPATH=/home/kayla/workspace/benchmark:/home/kayla/AirStack \
-#   python3 eval/run.py --config eval/experiments/droan_empty.yaml -y --headless -v
+#   python3 eval/run.py --config eval/experiments/droan_empty.yaml -y --headless
+experiment_tag: droan_empty
+robot: iris
 benchmark_seed: 42
 agents:
   - droan
 env_domains:
   - empty
+# SAFE scales the 15 m procedural arena to 1.5 x this (30 m) and draws the goal this far away.
+goal_distance: 20
 simple: true
 num_scenarios:     1
 num_perturbations: 1
@@ -14,6 +19,7 @@ max_episodes:      1
 max_episode_time:  90
 env_dt: 0.5
 keep_up: true
-workers: 0
+workers: 1
 debug:   default
+# The post-run replay stage has no AirStack renderer; the video comes from live capture.
 save_videos: none

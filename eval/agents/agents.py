@@ -8,7 +8,7 @@ Stack agents — the planner-under-test IS the AirStack autonomy stack. The
     runs is a bring-up profile, not a bridge.
 
 Velocity baselines — vendored from the S.A.F.E. reference integration
-    (integrations/aerial_nav/agents/baselines.py). Their normalized velocity
+    (integrations/navigation/aerial/policies/baselines.py). Their normalized velocity
     actions are executed as trajectory_override segments on the real
     trajectory controller, so baselines and planners share the same
     interface layer and the comparison is apples-to-apples.
@@ -31,7 +31,7 @@ from .learned_source import (SafeDiffPhysDrone, SafeDepthNav, SafeDiffAero,
                              SafeVitfly, SafeAgileAutonomy)  # noqa: F401
 from .planner_source import (SafeFastPlanner, SafeEgoPlanner, SafeRaptor,
                              SafeFaster, SafeSuper, SafeMighty, SafeDynus,
-                             SafePanther)  # noqa: F401
+                             SafePanther, SafeSando)  # noqa: F401
 
 
 class DROAN(Policy):
@@ -74,11 +74,11 @@ PROFILES: dict[str, dict] = {
     **{name: ({"name": name, "control_mode": "setpoint",
                "agent_env": {"ENABLE_LIDAR": "true"}}
               if name in ("safesuper", "safemighty", "safedynus",
-                          "safeegoplanner")
+                          "safeegoplanner", "safesando")
               else {"name": name, "control_mode": "setpoint"})
        for name in ("safefastplanner", "safeegoplanner", "saferaptor",
                     "safefaster", "safesuper", "safemighty", "safedynus",
-                    "safepanther")},
+                    "safepanther", "safesando")},
     **{name: {"name": name, "control_mode": "attitude_thrust"} for name in (
         "safediffphysdrone", "safedepthnav", "safediffaero",
         "safeagileautonomy")},
@@ -116,7 +116,7 @@ def get_profile(agent_name: str | None) -> dict:
         if str(root) not in sys.path:
             sys.path.insert(0, str(root))
         module = importlib.import_module(
-            f"integrations.aerial_nav.agents.learned.{wrapper.source_module}")
+            f"integrations.navigation.aerial.policies.learned.{wrapper.source_module}")
         source = getattr(module, wrapper.source_class)
         profile["agent_env"].update(getattr(source, "pov_env", {}))
         camera_hz = profile["agent_env"].get("SAFE_POV_HZ")

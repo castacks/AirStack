@@ -1,9 +1,10 @@
 """AirStack × S.A.F.E. task adapter.
 
 Implements the BaseTaskAdapter contract for the AirStack integration.
-Safety level-set functions are identical to those in aerial_nav/adapter.py
-(clearance distance minus threshold radius), since the task structure is the same:
-aerial navigation among dynamic and static obstacles.
+Safety level-set functions follow the point-obstacle path of SAFE's
+integrations/navigation/aerial/adapter.py (centre distance minus contact radius),
+since the task structure is the same: aerial navigation among dynamic and static
+obstacles.
 
 Usage:
     Full SAFE mode (default) — define l_failure, l_unsafe, delta, run K×N×P×T.
@@ -102,6 +103,8 @@ class Adapter(BaseTaskAdapter):
         # SAFE USD bounds are measured inside Isaac at boot. Defer the layout
         # until reset_episode, after that measured geometry reaches the host.
         env._scenario_seed = scenario_cfg.scenario_seed
+        # As SAFE's aerial adapter does: the index picks a photoreal stage's density band.
+        env._scenario_index = scenario_cfg.scenario_idx
         env._layout = None
         env._pending_perturbation_seed = None
 
@@ -128,6 +131,19 @@ class Adapter(BaseTaskAdapter):
         if env._layout is not None and not getattr(env.env_cfg, 'source_domain', None):
             perturb_scenario(env, perturbation_seed, scale_range=scale_range)
         return PerturbationCfg(perturbation_seed=int(perturbation_seed))
+
+    def resolved_domain(self, env: Any) -> Optional[Dict[str, Any]]:
+        """The arena the loaded domain measured, recorded in provenance.json."""
+        env_cfg = getattr(env, "env_cfg", None)
+        if env_cfg is None:
+            return None
+        fields = ("size_x", "size_y", "origin_x", "origin_y", "origin_z", "floor_z",
+                  "num_static_cylinders", "num_dynamic_obstacles", "dynamic_obstacle_speed")
+        return {f: getattr(env_cfg, f, None) for f in fields}
+
+    def perturbations_vary_episodes(self, domain_cfg: Any) -> bool:
+        """A perturbation resamples only the movers, so a domain without them replays."""
+        return bool(getattr(domain_cfg, "num_dynamic_obstacles", 0))
 
     # ------------------------------------------------------------------
     # 3) Episode rollout
@@ -180,7 +196,27 @@ class Adapter(BaseTaskAdapter):
                 best = dist
         return best
 
+    @staticmethod
+    def _as_state(state: dict) -> dict:
+        """A scoring state from a raw env observation, which SAFE's per-step video risk
+        feed passes; a state built by extract_episode_context passes through unchanged."""
+        if "all_obstacle_positions" in state:
+            return state
+        p = np.asarray(state["agent"], dtype=np.float64)
+        dim = len(p)
+        static = [np.asarray(state.get(k, np.zeros((0, dim))), dtype=np.float64).reshape(-1, dim)
+                  for k in ("static_obstacles", "static_cylinders")]
+        dyn = np.asarray(state.get("dynamic_obstacles", np.zeros((0, 2 * dim))),
+                         dtype=np.float64).reshape(-1, 2 * dim)[:, :dim]
+        out = {"agent_pos": p, "all_obstacle_positions": np.concatenate([dyn, *static]),
+               "num_dynamic": len(dyn)}
+        bounds = state.get("env_bounds")
+        if bounds is not None:
+            out.update(x_min=bounds[0], y_min=bounds[1], x_max=bounds[3], y_max=bounds[4])
+        return out
+
     def l_failure(self, state: Any) -> float:
+        state = self._as_state(state)
         positions = np.asarray(state["all_obstacle_positions"])
         p = state["agent_pos"]
         p2d = p[:2]
@@ -206,6 +242,7 @@ class Adapter(BaseTaskAdapter):
         return min(l_dyn, l_static, l_wall)
 
     def l_unsafe(self, state: Any) -> float:
+        state = self._as_state(state)
         positions = np.asarray(state["all_obstacle_positions"])
         p = state["agent_pos"]
         p2d = p[:2]
@@ -319,6 +356,8 @@ class Adapter(BaseTaskAdapter):
                 break
 
         return {
+            # Computed inside Isaac by SAFE's scenario_bands; None off photoreal stages.
+            "scenario_difficulty": getattr(env, "_scenario_difficulty", None),
             "robot_trajectory": {
                 "states":  robot_states,
                 "actions": action_list,
@@ -333,9 +372,15 @@ class Adapter(BaseTaskAdapter):
             "env_params":                    env_params,
             "goal_distance":                 info.get("distance", 0.0),
             "collision_prim":                collision_prim,
-            # The sim latches one contact per episode, so the count follows the outcome.
-            "n_collisions":                  1 if nominal_outcome == "catastrophic_failure" else 0,
+            # The sim latches one contact per episode, so the count is 0 or 1.
+            "n_collisions":                  int(info.get(
+                "n_collisions", 1 if nominal_outcome == "catastrophic_failure" else 0)),
         }
+
+    def trajectory_arrays(self, rollout_buffer: Dict[str, Any]) -> Dict[str, Any]:
+        """SAFE's navigation npz schema, which replay and rescore read."""
+        from safe_core.utils.benchmark_io import navigation_trajectory_arrays
+        return navigation_trajectory_arrays(rollout_buffer)
 
     # ------------------------------------------------------------------
     # 6) Taxonomy + cost

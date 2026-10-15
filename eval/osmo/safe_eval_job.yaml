@@ -1,0 +1,116 @@
+# One SAFE evaluation of AirStack on an OSMO GPU: the pod brings up the AirStack stack
+# on its own Docker daemon, runs eval/run.py on one experiment, and uploads the run
+# folder (report, episodes, videos) to spill/<workflow id>/airstack/ in the SAFE bucket.
+#
+#   osmo workflow submit eval/osmo/safe_eval_job.yaml --pool svg \
+#     --set-env AIRSTACK_COMMIT=$(git rev-parse HEAD) \
+#     --set-env SAFE_COMMIT=$(git -C ~/workspace/benchmark rev-parse HEAD)
+
+workflow:
+  name: airstack-safe-eval
+  groups:
+  - name: eval
+    tasks:
+    - name: run
+      lead: true
+      # The SAFE image: SAFE's Python, a Docker daemon with the NVIDIA runtime, and boto3.
+      image: airlab-docker.andrew.cmu.edu/airstack/safe-benchmark:7ae5d90
+      privileged: true
+      command: ["bash"]
+      args:
+      - "-c"
+      - |
+        set -uo pipefail
+        export HOME=/root
+        log() { echo "[airstack-eval] $*"; }
+
+        upload() {
+          log "uploading results to spill/${WF_ID}/airstack/"
+          for c in $(docker ps -aq 2>/dev/null); do
+            docker logs "$c" > "/root/AirStack/runs/airstack/container_${c}.log" 2>&1 || true
+          done
+          cp /var/log/dockerd.log /root/AirStack/runs/airstack/ 2>/dev/null || true
+          /isaac-sim/python.sh - <<'PY'
+        import os, boto3
+        s3 = boto3.client("s3", endpoint_url=os.environ["SAFE_STAGE_S3_ENDPOINT"])
+        root = "/root/AirStack/runs/airstack"
+        for d, _, files in os.walk(root):
+            for f in files:
+                p = os.path.join(d, f)
+                key = f"spill/{os.environ['WF_ID']}/airstack/{os.path.relpath(p, root)}"
+                s3.upload_file(p, "safe-benchmark-stages", key)
+                print("uploaded", key)
+        PY
+        }
+
+        git clone --filter=blob:none "https://${GITHUB_TOKEN}@github.com/kay-000/SAFE_benchmark.git" /workspace/benchmark || exit 1
+        git -C /workspace/benchmark checkout --detach "$SAFE_COMMIT" || exit 1
+        git clone --branch safebench https://github.com/castacks/AirStack.git /root/AirStack || exit 1
+        cd /root/AirStack
+        git checkout --detach "$AIRSTACK_COMMIT" || exit 1
+        git submodule update --init --recursive --depth 1 || exit 1
+        git -C simulation/isaac-sim/extensions/PegasusSimulator apply /root/AirStack/eval/osmo/pegasus_fixes.patch || exit 1
+        mkdir -p runs/airstack
+        trap upload EXIT
+
+        log "installing docker compose v5.0.2"
+        mkdir -p /root/.docker/cli-plugins
+        curl -fsSL "https://github.com/docker/compose/releases/download/v5.0.2/docker-compose-linux-$(uname -m)" \
+          -o /root/.docker/cli-plugins/docker-compose && chmod +x /root/.docker/cli-plugins/docker-compose || exit 1
+
+        log "starting the pod's Docker daemon"
+        nvidia-ctk runtime configure --runtime=docker --set-as-default || exit 1
+        DATA_ROOT=/var/lib/docker
+        [ -d /osmo/run ] && [ -w /osmo/run ] && DATA_ROOT=/osmo/run/docker
+        mkdir -p "$DATA_ROOT"
+        for drv in overlay2 fuse-overlayfs vfs; do
+          dockerd --host=unix:///var/run/docker.sock --data-root="$DATA_ROOT" --storage-driver="$drv" \
+            --max-concurrent-downloads=10 > /var/log/dockerd.log 2>&1 &
+          for i in $(seq 1 30); do docker info >/dev/null 2>&1 && break; sleep 1; done
+          docker info >/dev/null 2>&1 && { log "dockerd ready ($drv)"; break; }
+          pkill -f "dockerd --host" || true; sleep 2
+        done
+        docker info >/dev/null 2>&1 || { log "dockerd did not start"; exit 1; }
+        echo "$AIRLAB_REGISTRY_PASS" | docker login airlab-docker.andrew.cmu.edu -u "$AIRLAB_REGISTRY_USER" --password-stdin || exit 1
+
+        # Nucleus API tokens authenticate under the sentinel user $omni-api-token.
+        case "$OMNI_PASS" in eyJ*.*.*) OMNI_USER_LINE='OMNI_USER=$$omni-api-token' ;; *) OMNI_USER_LINE="OMNI_USER=${OMNI_USER}" ;; esac
+        printf '%s\nOMNI_PASS=%s\nOMNI_SERVER=%s\nACCEPT_EULA=Y\nOMNI_ENV_PRIVACY_CONSENT=Y\n' \
+          "$OMNI_USER_LINE" "$OMNI_PASS" "$OMNI_SERVER" > simulation/isaac-sim/docker/omni_pass.env
+
+        export SAFE_BENCHMARK_SOURCE=/workspace/benchmark
+        export SAFE_BENCHMARK_ASSETS=/root/safe_benchmark_assets
+        mkdir -p "$SAFE_BENCHMARK_ASSETS"
+        export PYTHONPATH=/workspace/benchmark:/root/AirStack
+        log "running $EVAL_CONFIG"
+        /isaac-sim/python.sh eval/run.py --config "$EVAL_CONFIG" -y --headless
+        log "eval exit $?"
+      environment:
+        EVAL_CONFIG: "eval/experiments/droan_empty.yaml"
+        WF_ID: "{{workflow_id}}"
+        SAFE_STAGE_S3_ENDPOINT: "https://airlab-cloud.andrew.cmu.edu:8080"
+        # AIRSTACK_COMMIT and SAFE_COMMIT are supplied at submit time.
+      credentials:
+        airlab-nucleus:
+          OMNI_USER: omni_user
+          OMNI_PASS: omni_pass
+          OMNI_SERVER: omni_server
+        airlab-docker-login:
+          AIRLAB_REGISTRY_USER: username
+          AIRLAB_REGISTRY_PASS: password
+        safe-benchmark-github:
+          GITHUB_TOKEN: token
+        safe-benchmark-s3:
+          AWS_ACCESS_KEY_ID: access_key_id
+          AWS_SECRET_ACCESS_KEY: access_key
+
+  resources:
+    default:
+      cpu: 10
+      gpu: 1
+      memory: 50Gi
+      # The SAFE image plus the AirStack Isaac Sim and robot images on the inner daemon.
+      storage: 300Gi
+
+  timeout:
+    exec_timeout: 4h

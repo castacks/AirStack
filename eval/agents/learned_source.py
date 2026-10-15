@@ -24,7 +24,7 @@ class _SafeLearned(Policy):
         try:
             import importlib
             module = importlib.import_module(
-                f'integrations.aerial_nav.agents.learned.{self.source_module}')
+                f'integrations.navigation.aerial.policies.learned.{self.source_module}')
         except ImportError as exc:
             raise RuntimeError('SAFE aerial policy source/dependencies are unavailable') from exc
         self._source = getattr(module, self.source_class)()

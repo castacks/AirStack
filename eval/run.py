@@ -34,14 +34,53 @@ import argparse
 
 from safe_core.core.runner import BaseRunner
 
+INTEGRATION = "airstack"
+
+
+def register_integration_paths() -> None:
+    """Resolve the airstack integration to this eval package in SAFE's integration_paths.
+
+    SAFE core looks every integration up under its own integrations/ tree (provenance code
+    hashes, scoring-code version, policy directory). AirStack's integration lives in this
+    repository, so its name maps here; every other name resolves exactly as before.
+    """
+    from pathlib import Path
+    import safe_core.utils.integration_paths as paths
+    import safe_core.verification.lock as lock
+    if getattr(paths.package, "_airstack", False):
+        return
+    package, directory = paths.package, paths.directory
+    here = Path(__file__).resolve().parent
+
+    def airstack_package(integration: str) -> str:
+        return (__package__ or "eval") if integration == INTEGRATION else package(integration)
+
+    def airstack_directory(integration: str) -> Path:
+        return here if integration == INTEGRATION else directory(integration)
+
+    airstack_package._airstack = True
+    paths.package = lock.package = airstack_package
+    paths.directory = airstack_directory
+
+
+register_integration_paths()
+
 
 class AirstackRunner(BaseRunner):
 
+    # AirStack's Isaac bring-up spawns the Pegasus Iris, so the yaml must say so.
+    required_yaml_keys = ("robot",)
+    ROBOT = "iris"
+
     def get_integration(self) -> str:
-        return "airstack"
+        return INTEGRATION
 
     def get_agents_dir(self) -> str:
         return os.path.join(os.path.dirname(__file__), "agents")
+
+    def get_experiments_dir(self) -> str:
+        # SAFE resolves integrations/<name>/experiments, which does not exist for airstack.
+        return os.path.join(os.path.dirname(__file__), "experiments")
 
     def get_available_agents(self) -> list[str]:
         from .agents.agents import PROFILES
@@ -58,14 +97,28 @@ class AirstackRunner(BaseRunner):
                             dest="takeoff_velocity", help=argparse.SUPPRESS)
         parser.add_argument("--keep-up", action="store_true", dest="keep_up",
                             help=argparse.SUPPRESS)
+        # SAFE aerial protocol keys the AirStack env and Isaac launcher honour.
+        parser.add_argument("--humans", action="store_true", dest="humans",
+                            help=argparse.SUPPRESS)
+        parser.add_argument("--static-only", action="store_true", dest="static_only",
+                            help=argparse.SUPPRESS)
+        parser.add_argument("--goal-distance", type=float, default=None,
+                            dest="goal_distance", help=argparse.SUPPRESS)
 
     def available_domains(self, args) -> list[str]:
         from .sim.environment_config import get_domain_registry
         return sorted(get_domain_registry())
 
     def validate(self, args: argparse.Namespace) -> int:
-        import integrations.aerial_nav.config.domains_isaac  # noqa: F401
-        from integrations.aerial_nav.config.domains import scale_procedural_domains
+        # Importing SAFE's robot registry makes `robot:` a required, checked yaml key.
+        import integrations.navigation.common.config.robot_spec  # noqa: F401
+        robot = getattr(args, "robot", None)
+        if robot is not None and robot != self.ROBOT:
+            raise SystemExit(
+                f"[validate] robot: {robot!r} cannot fly here; AirStack's Isaac bring-up "
+                f"spawns the Pegasus {self.ROBOT}, so set robot: {self.ROBOT}.")
+        import integrations.navigation.common.config.domains_isaac  # noqa: F401
+        from integrations.navigation.common.config.domains import scale_procedural_domains
         scale_procedural_domains(getattr(args, 'goal_distance', None), sim_backend='isaac')
         from .sim.environment_config import get_domain_registry
         available = list(get_domain_registry())
@@ -102,7 +155,9 @@ class AirstackRunner(BaseRunner):
 
         Its hook owns the planner container and publishes a verified TCP record.
         This runs before AirStack's Isaac/ROS bring-up; no planner is silently
-        replaced with a kinematic baseline.
+        replaced with a kinematic baseline. SAFE's hooks `docker rm -f` and pkill by
+        container name and port, so AirStack gives the hook its own container name
+        and a free port, and never touches a SAFE run's sidecar on this machine.
         """
         selected = (args.agent or
                     (args.agents[0] if args.agents and len(args.agents) == 1 else None))
@@ -115,8 +170,10 @@ class AirstackRunner(BaseRunner):
             return
         import subprocess
         from pathlib import Path
-        from integrations.aerial_nav.agents.planners import sidecar_registry
+        from integrations.navigation.aerial.policies.planners import sidecar_registry
         from safe_core.core.records import rulebook
+        from safe_core.utils.benchmark_utils import SIDECAR_VARS
+        from safe_core.utils.container_reaper import hook_owner_env
         from safe_core.utils.plumbing import (
             MAP_ARENA_EXTENT_FALLBACK_M, MAP_MARGIN_M,
             MAP_Z_ABOVE_M, MAP_Z_BELOW_M,
@@ -139,25 +196,50 @@ class AirstackRunner(BaseRunner):
                        f'{-MAP_Z_BELOW_M if terrain else 0.0:.1f}')
         env.setdefault('SAFE_MAP_Z_MAX',
                        f'{rulebook().altitude_floor_m + MAP_Z_ABOVE_M:.1f}')
+        container_var, port_var, base_port = SIDECAR_VARS[planner]
+        env[container_var] = f'airstack_safe_{planner}'
+        env[port_var] = str(self._free_port(base_port + self.SIDECAR_PORT_OFFSET))
+        env.update(hook_owner_env())
         hook = Path(sidecar_registry.HOOK_DIR) / f'{planner}.sh'
         if not hook.is_file():
             raise RuntimeError(f'SAFE planner hook is missing: {hook}')
-        print(f'[airstack] Starting SAFE {planner} planner: {hook}', flush=True)
+        print(f'[airstack] Starting SAFE {planner} planner: {hook} '
+              f'({container_var}={env[container_var]}, {port_var}={env[port_var]})',
+              flush=True)
         subprocess.run(['bash', str(hook)], check=True, env=env)
-        # The child runner and source policy must resolve the same sidecar map.
+        # The child runner and source policy must resolve the same sidecar map and port.
         for key in ('SAFE_MAP_SIZE_XY', 'SAFE_MAP_Z_MIN', 'SAFE_MAP_Z_MAX',
-                    'SAFE_SIDECAR_RECORD_DIR'):
+                    'SAFE_SIDECAR_RECORD_DIR', container_var, port_var):
             os.environ[key] = env[key]
         # Hooks may publish their record just before the TCP listener binds.
         import time
         deadline = time.monotonic() + 120.0
         while True:
-            fault = sidecar_registry.fault(planner)
-            if fault is None:
+            record = sidecar_registry.resolve(planner)
+            reply = sidecar_registry.sidecar_reply(record.host, record.port)
+            if reply is not None and sidecar_registry.is_sidecar(reply):
                 break
             if time.monotonic() >= deadline:
-                raise RuntimeError(f'{planner} sidecar failed verification: {fault}')
+                raise RuntimeError(
+                    f'{planner} sidecar on port {record.port} failed verification: '
+                    f'{reply or "nothing listening"}')
             time.sleep(2.0)
+
+    # AirStack sidecars bind this far above SAFE's base ports, clear of a SAFE run's
+    # per-job ports (base + up to 16 instances).
+    SIDECAR_PORT_OFFSET = 1000
+
+    @staticmethod
+    def _free_port(start: int, span: int = 16) -> int:
+        import socket
+        for port in range(start, start + span):
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                try:
+                    s.bind(("127.0.0.1", port))
+                except OSError:
+                    continue
+                return port
+        raise RuntimeError(f'no free sidecar port in {start}..{start + span - 1}')
 
     def build_adapter(self, args: argparse.Namespace):
         from .adapter import Adapter

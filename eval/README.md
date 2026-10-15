@@ -78,14 +78,14 @@ actions and session facts (`--config`, `-y`, `--headless`, `--list`,
 # One DROAN episode through the full stack on the empty grid domain
 airstack safe --config eval/experiments/droan_empty.yaml -y
 
-# Iterating? `keep_up: true` in the yaml leaves the stack running between
-# runs (skips the ~5 min Isaac boot when the domain and profile don't change)
+# `keep_up: true` in the yaml leaves the stack running after a run for
+# inspection; a new run restarts it
 airstack safe --list                                 # agents and domains
 ```
 
 (`python eval/run.py ...` is the same entry point without the CLI wrapper;
-`--config` takes a path, or a name resolved against
-`integrations/airstack/experiments/` relative to the working directory.)
+`--config` takes a path, or a name resolved against `eval/experiments/`. The
+yaml must set `robot: iris`, since AirStack's bring-up spawns the Pegasus Iris.)
 
 Timing expectations: Isaac + PX4 bring-up is minutes; each episode adds
 land/teleport/takeoff overhead (~30 s) plus the flight itself. Budget
@@ -93,9 +93,10 @@ accordingly when picking K/N/P/T. Domain switches restart the stack.
 
 ## Agents
 
-`safeaggressive`, `safeconservative`, `safeadaptive`, the eight `safe*`
-planner wrappers, and the five `safe*` learned wrappers correspond to all 16
-agents in SAFE's `main_moving.yaml`. The `safe` prefix distinguishes source
+`safeaggressive`, `safeconservative`, `safeadaptive`, the nine `safe*`
+planner wrappers (SAFE's main study flies eight of them; panther is left out
+there), and the five `safe*` learned wrappers cover every policy in SAFE's
+`paper/main_moving.yaml`. The `safe` prefix distinguishes source
 policies from AirStack's older `aggressive` and `conservative` baselines.
 `safevitfly` also starts the source VitFly ROS sidecar. `airstack safe --list`
 shows exact selectable names. Learned profiles read each source policy's camera
@@ -130,10 +131,14 @@ Collision ground truth is the ScenarioManager's analytic contact check
 
 ## Outputs
 
-`runs/airstack/<run_id>/` under the working directory — per-agent RE/RP/CVaR
-plots, `episodes.csv`, text summary; `comparison.*` for multi-agent runs.
-There is no replay renderer for this integration, so set `save_videos: none`
-in the yaml or the post-run video stage exits with a warning.
+`runs/airstack/<experiment_tag>_<MMDD>/` under the working directory, in SAFE's
+`RunLayout`: `report.html`, `meta/episodes.csv`, and per episode
+`raw/<domain>/scenario_N/perturbation_M/trajectories/epT.npz`. Episode video comes
+from live capture: a `debug:` profile that captures (`default`) makes the Isaac
+launcher render an overview and a drone-tracking camera, written to
+`raw/<domain>/scenario_N/perturbation_M/epT_<outcome>/episode_composite.mp4` at
+1/env_dt frames per second. There is no post-hoc replay renderer for this
+integration, so keep `save_videos: none`.
 
 ## Known limitations (v1)
 

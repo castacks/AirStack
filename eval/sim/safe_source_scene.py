@@ -9,10 +9,12 @@ from __future__ import annotations
 
 
 def load_domain(name: str, goal_distance: float | None = None):
+    """Build SAFE domain `name` on the live stage the way SAFE's SimulatorManager does,
+    attaching a photoreal stage's export (ground map, occupancy, density bands)."""
     # Importing the registrations fills SAFE's canonical Isaac registry.
-    import integrations.aerial_nav.config.domains_isaac  # noqa: F401
-    from integrations.aerial_nav.config.domains import (
-        get_domain_registry, scale_procedural_domains)
+    import integrations.navigation.common.config.domains_isaac  # noqa: F401
+    from integrations.navigation.common.config.domains import (
+        get_domain_registry, scale_procedural_domains, sky_files)
     scale_procedural_domains(goal_distance, sim_backend='isaac')
     from safe_isaac.world_builder import (
         add_ground_collider, load_environment_usd, setup_lighting, setup_sky,
@@ -24,13 +26,16 @@ def load_domain(name: str, goal_distance: float | None = None):
         raise ValueError(f"SAFE has no Isaac domain {name!r}")
     cfg = domains[name]
     prefix = 'safe_eval'
-    if cfg.usd_path:
-        load_environment_usd(cfg, env_prefix=prefix)
+    sky = sky_files(cfg, faces_needed=False)
+    if cfg.outdoor and sky is None:
+        setup_sky(cfg.size_x, cfg.size_y, staged=bool(cfg.usd_path))
     else:
-        if cfg.outdoor:
-            setup_sky(cfg.size_x, cfg.size_y)
-        else:
-            setup_lighting(cfg.size_x, cfg.size_y)
+        setup_lighting(cfg.size_x, cfg.size_y, sky_hdr=sky[0] if sky else None)
+    if cfg.usd_path:
+        stage_url = load_environment_usd(cfg, env_prefix=prefix)
+        from integrations.navigation.common.config.stage_occupancy import attach_stage_export
+        attach_stage_export(cfg, stage_url)
+    else:
         add_ground_collider(prefix, cfg)
         if cfg.outdoor:
             setup_outdoor_ground(
@@ -73,18 +78,21 @@ def create_humans(cfg, *, seed: int = 0):
 
 def sample_scenario(cfg, *, seed: int, goal_distance: float | None,
                     perturbation_seed: int | None, humans: bool,
-                    agent_radius: float, obstacle_radius: float):
+                    agent_radius: float, obstacle_radius: float,
+                    scenario_index: int | None = None):
     """Call SAFE's canonical seeded aerial scenario sampler inside Isaac.
 
     It must run in the Isaac process: photoreal scenes inspect live USD prims
-    and ground maps while choosing starts, goals and static AABBs.
+    and ground maps while choosing starts, goals and static AABBs. Returns the
+    layout, the human behaviour, and SAFE's scenario difficulty record.
     """
     from types import SimpleNamespace
 
     import numpy as np
 
-    from integrations.aerial_nav.config.scenarios import (
+    from integrations.navigation.common.config.scenarios import (
         configure_scenario, perturb_scenario)
+    from integrations.navigation.common.config.scenario_bands import scenario_difficulty
     from safe_isaac import sim_config
 
     sim_config.USE_HUMANS = bool(humans)
@@ -109,11 +117,15 @@ def sample_scenario(cfg, *, seed: int, goal_distance: float | None,
         _active_dynamic_obstacles=int(cfg.num_dynamic_obstacles),
         _human_behavior=None,
         static_obstacle_aabbs=np.zeros((0, 4), dtype=np.float32),
+        # The scenario index picks a photoreal stage's corridor density band.
+        _scenario_index=None if scenario_index is None else int(scenario_index),
     )
     layout = configure_scenario(env)
+    env._initial_agent_location = np.asarray(layout['agent_location']).copy()
+    env._target_location = np.asarray(layout['target_location']).copy()
     env._dynamic_obstacle_velocities = layout['dynamic_obstacle_velocities'].copy()
     env._initial_dynamic_obstacle_velocities = layout['dynamic_obstacle_velocities'].copy()
     if perturbation_seed is not None:
         perturb_scenario(env, int(perturbation_seed), (0.8, 1.2))
         layout['dynamic_obstacle_velocities'] = env._initial_dynamic_obstacle_velocities.copy()
-    return layout, env._human_behavior
+    return layout, env._human_behavior, scenario_difficulty(env)

@@ -24,7 +24,8 @@ class AirstackDomainCfg:
     origin_x: float = 0.0
     origin_y: float = 0.0
     origin_z: float = 0.0
-    origin_z: float = 0.0
+    # SAFE's pinned walkable floor for USD stages whose AABB minimum is not the floor.
+    floor_z: float | None = None
     flight_z: float = 1.5
     stage_scale: float = 1.0  # /World/stage scale (0.01 for cm-unit Nucleus assets)
     num_dynamic_obstacles: int = 20
@@ -57,8 +58,9 @@ def get_domain_registry(sim_backend: str | None = None) -> dict[str, AirstackDom
     if __import__('os').environ.get('AIRSTACK_SAFE_LEGACY_DOMAINS') == '1':
         return dict(_REGISTRY)
     try:
-        import integrations.aerial_nav.config.domains_isaac  # noqa: F401
-        from integrations.aerial_nav.config.domains import get_domain_registry as source_registry
+        import integrations.navigation.common.config.domains_isaac  # noqa: F401
+        from integrations.navigation.common.config.domains import (
+            get_domain_registry as source_registry)
     except ImportError as exc:
         raise RuntimeError('AirStack SAFE domains require the SAFE source checkout') from exc
     result = {}
@@ -70,6 +72,7 @@ def get_domain_registry(sim_backend: str | None = None) -> dict[str, AirstackDom
             size_z=float(src.size_z),
             origin_x=float(src.origin_y), origin_y=float(src.origin_x),
             origin_z=float(src.origin_z),
+            floor_z=None if src.floor_z is None else float(src.floor_z),
             stage_scale=float(src.stage_scale or 1.0),
             num_dynamic_obstacles=int(src.num_dynamic_obstacles),
             num_static_cylinders=int(src.num_static_cylinders),

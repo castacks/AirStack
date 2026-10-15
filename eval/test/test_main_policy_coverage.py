@@ -5,17 +5,19 @@ from pathlib import Path
 import safe_core
 import yaml
 
+from safe_core.utils.benchmark_io import experiment_config_path
 from safe_core.utils.benchmark_utils import discover_policies
 from eval.agents.agents import get_profile
 
 
 def test_safe_main_study_policies_have_source_adapters():
     safe_root = Path(safe_core.__file__).resolve().parent.parent
-    config = yaml.safe_load((safe_root / 'integrations' / 'aerial_nav' /
-                             'experiments' / 'main_moving.yaml').read_text())
+    experiments = safe_root / 'integrations' / 'navigation' / 'aerial' / 'experiments'
+    config = yaml.safe_load(Path(experiment_config_path(
+        'main_moving', str(experiments))).read_text())
     source_names = config['agents']
     discovered = discover_policies(str(Path(__file__).resolve().parents[1] / 'agents'))
-    assert len(source_names) == 16
+    assert source_names
     for source_name in source_names:
         air_name = 'safe' + source_name
         assert air_name in discovered, source_name

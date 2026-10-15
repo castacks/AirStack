@@ -37,9 +37,20 @@ def ros2_exec(container: str, ros2_cmd: str, domain_id: int = 1,
                        timeout=timeout, check=check)
 
 
+def compose_project() -> str:
+    """AirStack's compose project name, as docker compose derives it for the repo root."""
+    import os
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    return os.environ.get("COMPOSE_PROJECT_NAME") or os.path.basename(root).lower()
+
+
 def find_containers(name_pattern: str) -> list[str]:
+    """Running containers of AirStack's own compose project whose name contains the pattern,
+    so a SAFE benchmark or any other stack on the same machine is never matched."""
     result = subprocess.run(
-        ["docker", "ps", "--filter", f"name={name_pattern}", "--format", "{{.Names}}"],
+        ["docker", "ps", "--filter", f"name={name_pattern}",
+         "--filter", f"label=com.docker.compose.project={compose_project()}",
+         "--format", "{{.Names}}"],
         capture_output=True, text=True, timeout=15,
     )
     return sorted(n for n in result.stdout.split() if n)

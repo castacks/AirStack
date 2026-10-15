@@ -39,6 +39,10 @@ def airstack_cmd(*args: str, env_overrides: dict | None = None,
 class StackHandle:
     """One running stack (Isaac sim + robot container) plus its bridge."""
 
+    # The compose services the eval starts and stops; the GCS and other stacks are untouched.
+    SERVICES = ("robot-desktop", "isaac-sim")
+    PROFILES = "desktop,isaac-sim"
+
     def __init__(self, headless: bool = True, keep_up: bool = False,
                  ready_timeout: float = 600.0):
         self.headless = headless
@@ -56,7 +60,8 @@ class StackHandle:
         from pathlib import Path
         import safe_core
         root = Path(safe_core.__file__).resolve().parent.parent
-        required = root / "integrations" / "aerial_nav" / "config" / "domains_isaac.py"
+        required = (root / "integrations" / "navigation" / "common" / "config"
+                    / "domains_isaac.py")
         if not required.is_file():
             raise RuntimeError(
                 "AirStack-native SAFE worlds need a SAFE source checkout, not the "
@@ -65,12 +70,20 @@ class StackHandle:
             )
         return str(root)
 
+    @staticmethod
+    def _safe_assets_root() -> str:
+        """Host folder of SAFE's baked stages, stage exports, skies and UrbanVerse cities,
+        which the Isaac container mounts read-only at the same path."""
+        from integrations.navigation.common.config.domains_isaac import BAKED_DIR
+        return os.path.dirname(os.path.abspath(BAKED_DIR))
+
     def _env_for(self, safe_eval_config: dict, agent_env: dict) -> dict:
         env = {
             "SAFE_BENCHMARK_SOURCE": self._safe_source_root(),
+            "SAFE_BENCHMARK_ASSETS": self._safe_assets_root(),
             "AUTOLAUNCH": "true",
             "NUM_ROBOTS": "1",
-            "COMPOSE_PROFILES": "desktop,isaac-sim",
+            "COMPOSE_PROFILES": self.PROFILES,
             "ISAAC_SIM_USE_STANDALONE": "true",
             "ISAAC_SIM_SCRIPT_NAME": "safe_eval_launch_script.py",
             "ISAAC_SIM_HEADLESS": "true" if self.headless else "false",
@@ -95,8 +108,7 @@ class StackHandle:
         line = console.LiveLine(f"airstack up  ({scene})").start_auto()
         # Only the services the eval needs — the GCS is irrelevant here and its
         # host ports may be taken by other stacks on a shared machine.
-        result = airstack_cmd("up", "robot-desktop", "isaac-sim",
-                              env_overrides=env, timeout=600)
+        result = airstack_cmd("up", *self.SERVICES, env_overrides=env, timeout=600)
         if result.returncode != 0:
             line.fail("airstack up failed")
             raise RuntimeError(f"airstack up failed:\n{result.stdout[-3000:]}\n{result.stderr[-3000:]}")
@@ -117,7 +129,9 @@ class StackHandle:
             self.bridge.stop()
             self.bridge = None
         if self._up_config is not None or ros.find_containers("robot"):
-            airstack_cmd("down", timeout=300)
+            # Only the services ensure_up started, never the whole compose project.
+            airstack_cmd("down", *self.SERVICES, timeout=300,
+                         env_overrides={"COMPOSE_PROFILES": self.PROFILES})
         self._up_config = None
         self.container = None
 
