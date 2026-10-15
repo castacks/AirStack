@@ -497,6 +497,8 @@ class RavenNavNode(Node):
             'debug_auction', True).value)
         self._share_rays = bool(self.declare_parameter('share_rays', True).value)
         self._share_bbs = bool(self.declare_parameter('share_bbs', True).value)
+        self._use_shared_completion = bool(self.declare_parameter(
+            'use_shared_completion', True).value)
         self._assignment_mode = str(self.declare_parameter(
             'assignment_mode', 'auction').value)
         if self._assignment_mode not in ('auction', 'independent_greedy'):
@@ -504,7 +506,8 @@ class RavenNavNode(Node):
         self._independent_greedy = self._assignment_mode == 'independent_greedy'
         self.get_logger().info(
             f'[auction] mode={self._assignment_mode} L={self._bundle_len} '
-            f'share_rays={self._share_rays} share_bbs={self._share_bbs}')
+            f'share_rays={self._share_rays} share_bbs={self._share_bbs} '
+            f'use_shared_completion={self._use_shared_completion}')
         assigner = (bid_manager.IndependentGreedyAssigner if self._independent_greedy
                     else bid_manager.ConsensusAssigner)
         self._consensus = assigner(self._bundle_len)
@@ -994,13 +997,26 @@ class RavenNavNode(Node):
                     label=pct.label,
                     center=np.asarray(pct.center, dtype=float),
                     size=np.asarray(pct.size, dtype=float),
-                    status=pct.status,
+                    # Keep all shared geometry. In the local-completion
+                    # ablation a peer visit is not evidence that *I* visited
+                    # this instance. Normalize before sticky visited fusion.
+                    status=('observing' if not self._use_shared_completion
+                            and str(pct.status).lower() == 'visited'
+                            else pct.status),
                     confidence=pct.confidence,
                     ts=pct.ts,
                     source_ids=frozenset({self._peer_state.peer_ids[name]})
                     if name in self._peer_state.peer_ids else frozenset(),
                 ))
         return out
+
+    def _completed_target_labels(self) -> set:
+        """Navigation's completion view; publishing own completion is unchanged."""
+        completed = set(self._behavior_manager.completed_queries)
+        if self._use_shared_completion:
+            for peer_done in self._peer_state.peer_completed.values():
+                completed.update(peer_done)
+        return completed
 
     def _update_discoveries(self, ray_groups) -> None:
         """Build RayTargets + ConfirmedTargets → Discoveries, publish 2 topics.
@@ -1019,7 +1035,8 @@ class RavenNavNode(Node):
         peer_cts = self._peer_confirmed_targets_flat()
         merged_cts = merge_similar_targets(own_cts + peer_cts)
 
-        # Visited BBs (own + peer) gate ray exclusion / commitment release;
+        # Visited BBs gate ray exclusion / commitment release. peer_cts has
+        # already removed peer completion status when using local completion.
         # consensus (own+peer) is the double-commit same-target key.
         def _bb(ct):
             return np.concatenate([np.asarray(ct.center, dtype=float),
@@ -2786,9 +2803,7 @@ class RavenNavNode(Node):
             self._debug_print_voxel_table()
 
         own_completed = set(self._behavior_manager.completed_queries)
-        all_completed = set(own_completed)
-        for peer_done in self._peer_state.peer_completed.values():
-            all_completed |= peer_done
+        all_completed = self._completed_target_labels()
 
         now = self.get_clock().now().nanoseconds * 1e-9
         fresh_peers = self._fresh_peers(now)
@@ -2850,7 +2865,8 @@ class RavenNavNode(Node):
                        ts=round(now, 2))
             dbg.setdefault('params', {}).update(
                 share_rays=self._share_rays, share_bbs=self._share_bbs,
-                assignment_mode=self._assignment_mode, bundle_len=self._bundle_len)
+                assignment_mode=self._assignment_mode, bundle_len=self._bundle_len,
+                use_shared_completion=self._use_shared_completion)
             dbg['bundle_occupancy'] = {str(a): len(assigned_map.get(a, []))
                                        for a in agent_pos}
             dbg['task_count'] = len(tasks)
@@ -2865,6 +2881,7 @@ class RavenNavNode(Node):
                           if np.asarray(b).size >= 6 else [0.0, 0.0])}
                 for lab, b in self._peer_visited_bbs]
             dbg['all_completed'] = sorted(all_completed)
+            dbg['own_completed'] = sorted(own_completed)
             dbg['my_task'] = (list(my_task.key) if my_task is not None
                               else None)
             self._auction_solve_pub.publish(String(data=json.dumps(dbg)))

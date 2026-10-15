@@ -21,6 +21,7 @@ flowchart LR
 | `bundle_len` | 1 | Maximum ordered reservation count; missions normally use 3 |
 | `share_rays` | true | Allow bidding on peer ray leads |
 | `share_bbs` | true | Allow bidding on peer BB/voxel targets |
+| `use_shared_completion` | true | Adopt peer completed labels and visited-BB status |
 | `debug_auction` | true | Publish and save assignment diagnostics |
 
 `RAVEN_ASSIGNMENT_MODE`, `RAVEN_SHARE_RAYS` and `RAVEN_SHARE_BBS` pass through
@@ -33,6 +34,35 @@ and limits each tail extension to 20 m. Independent greedy reuses the same
 single-robot L1 scoring but does not consider peer allocation or ownership.
 It disables target-level peer yielding while preserving shared perception,
 completed-target filtering, frontier behavior and navigation safety.
+
+## Local completion ablation
+
+Set `RAVEN_USE_SHARED_COMPLETION=false` in the mission environment to pass
+`use_shared_completion:=false` through Compose and the semantic-search executor.
+Each robot then maintains its own completed-target state. Peer completed labels
+are not merged into its navigation completion list. Shared bounding-box geometry
+is still consumed, including boxes peers report as visited, but their status is
+interpreted locally as observing until this robot completes the instance.
+Normalize that status before BB fusion: fusion otherwise propagates visited
+status into the persistent visited cache and silently restores shared completion.
+
+Own visited instances remain sticky and excluded from further pursuit. Both
+confirmed-target and completed-target publications continue unchanged; this
+ablation changes how peer completion is consumed, not what is transmitted.
+The existing `_peer_visited_bbs` cache contains only locally completed instances
+in this mode, despite its historical name. The setting is fixed at node startup.
+
+Ray/BB sharing, auction allocation, peer intentions, ray-lead service messages,
+frontier coverage sharing and navigation remain enabled. This is separate from
+both the no-sharing and independent-greedy ablations. GT scoring still counts
+each physical target once across the fleet, regardless of local completion lists.
+
+`raven_3robot_full_local_completion_s1_20261015.yaml` runs all eight matched s1
+scenes with three robots, full communication, auction bundle length 3 and a
+300-second simulated search window. Compare against the existing matched L3
+control. `test/test_local_completion.py` exercises actual node methods to verify
+peer geometry preservation, local completion isolation, sticky own visits,
+unchanged completion publication and the default shared behavior.
 
 ## Interfaces and dependencies
 
