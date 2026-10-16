@@ -337,6 +337,13 @@ TEST(CurveScenario, SharedKeysAndAutoScalingMirrorMtlcPlan) {
     EXPECT_EQ(c.curve.representation, mtl::curve::CurveRepresentation::Curvature);
     ASSERT_EQ(c.curve.endpointModes.size(), 1u);
     EXPECT_EQ(c.curve.endpointModes[0], mtl::curve::EndpointMode::Open);
+    // reallocation seeds: the upstream defaults (7a45427: path splice, then direct)
+    EXPECT_EQ(c.team.reallocInitStrategies, ref.team.reallocInitStrategies);
+    ASSERT_EQ(c.team.reallocInitStrategies.size(), 2u);
+    EXPECT_EQ(c.team.reallocInitStrategies[0], mtl::curve::ReallocStrategy::Path);
+    EXPECT_EQ(c.team.reallocInitStrategies[1], mtl::curve::ReallocStrategy::Direct);
+    EXPECT_EQ(c.team.reallocPathMaxIter, 75);
+    EXPECT_TRUE(c.team.reallocPathWarm);
     EXPECT_EQ(p.curveCells.size(), p.cells.size());
     EXPECT_NEAR(p.curveCells.centers(3, 0), p.cells.centers(3, 0), 1e-12);
     ASSERT_EQ(p.curveStarts.size(), 2u);
@@ -346,7 +353,8 @@ TEST(CurveScenario, SharedKeysAndAutoScalingMirrorMtlcPlan) {
         R"({"representation": "bspline", "endpoint_mode": ["return_home", "open"], "altitude_stagger_m": 1.0,
             "fast_grid_step_m": 7.0, "sweep_freq_hz": 0.1, "kernel": {"table_step_m": 3.0, "tail_weight": 0.25},
             "init_strategies": ["greedy"], "max_realloc_trials": 1, "reallocate": false,
-            "initial_heading_deg": 90.0, "destinations_ned": [[0.0, 0.0], [10.0, 20.0]]})"));
+            "initial_heading_deg": 90.0, "destinations_ned": [[0.0, 0.0], [10.0, 20.0]],
+            "realloc_strategies": ["insert", "path"], "realloc_path_warm": false, "realloc_path_max_iter": 0})"));
     const mtl::curve::PlannerParams& d = q.curveParams;
     EXPECT_EQ(d.curve.representation, mtl::curve::CurveRepresentation::BSpline);
     ASSERT_EQ(d.curve.endpointModes.size(), 2u);
@@ -361,6 +369,11 @@ TEST(CurveScenario, SharedKeysAndAutoScalingMirrorMtlcPlan) {
     EXPECT_EQ(d.team.initStrategies[0], mtl::curve::InitStrategy::Greedy);
     EXPECT_EQ(d.team.maxReallocTrials, 1);
     EXPECT_FALSE(d.team.reallocate);
+    ASSERT_EQ(d.team.reallocInitStrategies.size(), 2u);
+    EXPECT_EQ(d.team.reallocInitStrategies[0], mtl::curve::ReallocStrategy::Insert);
+    EXPECT_EQ(d.team.reallocInitStrategies[1], mtl::curve::ReallocStrategy::Path);
+    EXPECT_FALSE(d.team.reallocPathWarm);
+    EXPECT_EQ(d.team.reallocPathMaxIter, 0);
     ASSERT_TRUE(d.curve.initialHeading.has_value());
     EXPECT_NEAR(*d.curve.initialHeading, 0.0, 1e-12);                         // NED 90 deg (East) = mtl 0
     ASSERT_EQ(d.curve.destinations.size(), 2u);
@@ -374,6 +387,9 @@ TEST(CurveScenario, RefusesUnknownKeysAndBadValues) {
     EXPECT_THROW(mtl_search::parseScenario(curveScenario(R"({"representation": "spline"})")), std::runtime_error);
     EXPECT_THROW(mtl_search::parseScenario(curveScenario(R"({"endpoint_mode": "home"})")), std::runtime_error);
     EXPECT_THROW(mtl_search::parseScenario(curveScenario(R"({"init_strategies": ["random"]})")), std::runtime_error);
+    EXPECT_THROW(mtl_search::parseScenario(curveScenario(R"({"realloc_strategies": ["splice"]})")), std::runtime_error);
+    // planner defaults mtlc_plan does not read are not scenario keys either
+    EXPECT_THROW(mtl_search::parseScenario(curveScenario(R"({"realloc_path_wp_spacing": 50})")), std::runtime_error);
     EXPECT_THROW(mtl_search::parseScenario(curveScenario("", 120.0, R"({"type": "curvy"})")), std::runtime_error);
     EXPECT_THROW(mtl_search::parseScenario(curveScenario("", 120.0, R"({"type": "curve", "compare": true})")),
                  std::runtime_error);
@@ -546,6 +562,24 @@ TEST(CurvePlan, DeterministicAndJsonOutputsParse) {
     EXPECT_EQ(team["meta"]["planner_mode"].text(""), "curve");
     EXPECT_EQ(team["generator"]["planner_type"].text(""), "curve");
     EXPECT_EQ(team["meta"]["curve"]["representation"].text(""), "curvature");
+    // the reallocation seeds and every trial, with the seed that won it
+    const auto& mcv = team["meta"]["curve"];
+    ASSERT_EQ(mcv["realloc_strategies"].array().size(), 2u);
+    EXPECT_EQ(mcv["realloc_strategies"].array()[0].text(""), "path");
+    EXPECT_EQ(mcv["realloc_strategies"].array()[1].text(""), "direct");
+    const auto& rlog = mcv["realloc_log"].array();
+    EXPECT_EQ(static_cast<double>(rlog.size()), mcv["realloc_trials"].num(-1.0));
+    int accepted = 0;
+    for (const auto& t : rlog) {
+        const std::string st = t["strategy"].text("?");
+        EXPECT_TRUE(st == "path" || st == "direct" || st.empty()) << st;   // "" = every seed skipped / infeasible
+        if (t["accepted"].flag(false)) {
+            ++accepted;
+            EXPECT_LT(t["j_new"].num(1e9), t["j_old"].num(0.0));
+        }
+    }
+    EXPECT_EQ(static_cast<double>(accepted), mcv["realloc_accepted"].num(-1.0));
+    EXPECT_TRUE(mcv["static_time_s"].isNull());   // wall times stay out of plan.json (deterministic)
     ASSERT_EQ(team["agents"].array().size(), 2u);
     const auto& a0 = team["agents"].array()[0];
     EXPECT_EQ(a0["samples"]["gimbal"].array().size(), a0["samples"]["t"].array().size());

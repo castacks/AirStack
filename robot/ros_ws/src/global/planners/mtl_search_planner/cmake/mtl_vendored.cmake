@@ -109,6 +109,7 @@ set(MTL_CURVE_VENDOR_PLANNER_SOURCES
   src/curve_planning/parametric_curve.cpp
   src/curve_planning/arc_length.cpp
   src/curve_planning/init_spline.cpp
+  src/curve_planning/path_insert.cpp
   src/curve_planning/swath_polygon.cpp
   src/curve_planning/team_curves.cpp
   src/optimization/fast_grid.cpp
@@ -145,10 +146,11 @@ if(NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "Debug")
   target_compile_options(mtl_curve_eval_vendored PRIVATE -O2)
 endif()
 
-# The six upstream curve self-tests (plain executables, no framework), under a
+# The seven upstream curve self-tests (plain executables, no framework), under a
 # distinct prefix so they never collide with the mtl_planner ones.
 function(mtl_curve_vendored_add_selftests)
-  foreach(t test_kmeans test_orienteering test_curve_geometry test_swath_kernel test_optimizer test_pipeline)
+  foreach(t test_kmeans test_orienteering test_curve_geometry test_swath_kernel test_optimizer test_path_insert
+           test_pipeline)
     add_executable(mtl_curve_vendored_${t} "${MTL_CURVE_VENDOR_DIR}/tests/${t}.cpp")
     target_link_libraries(mtl_curve_vendored_${t} PRIVATE mtl_curve_eval_vendored)
     target_include_directories(mtl_curve_vendored_${t} PRIVATE "${MTL_CURVE_VENDOR_DIR}/tests")

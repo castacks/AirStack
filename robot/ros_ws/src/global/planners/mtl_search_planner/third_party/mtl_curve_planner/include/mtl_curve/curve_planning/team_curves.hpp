@@ -19,8 +19,11 @@
 //     0.02 or its own clusters are swept to slackMarginThreshold.
 //  4. REALLOCATION ROUNDS.  Pooled clusters, most residual mass first, are
 //     offered to the nearest slack agents.  The candidate re-seeds with the
-//     cluster claimed ('insert': cheapest insertion into its waypoints, the
-//     plan; 'direct': fly to it first), re-optimises at the SAME length, and
+//     cluster claimed ('path' (default): spliced into its current OPTIMISED
+//     curve, budget repaired on the lowest-yield arc, prefix kept exactly -
+//     see path_insert.hpp; 'insert': cheapest insertion into its cluster
+//     waypoints and a fresh seed, the plan; 'direct': fly to it first),
+//     re-optimises at the SAME length, and
 //     the move is committed only if the team objective falls by more than
 //     reallocEps and the curve stays feasible.  Each accepting round ends with
 //     a warm coordination sweep.

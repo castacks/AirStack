@@ -58,7 +58,7 @@ if(BUILD_TESTING)
   # plus test_info_aware (the information-aware search, see third_party/VENDORED.md).
   mtl_vendored_add_selftests()
   # Upstream cpp_curve_planner self-tests (mtl_curve_vendored_*: kmeans, orienteering,
-  # curve_geometry, swath_kernel, optimizer, pipeline).
+  # curve_geometry, swath_kernel, optimizer, path_insert, pipeline).
   mtl_curve_vendored_add_selftests()
   # Python tests (test/test_*.py) run through the root harness
   # (`airstack test -m unit`, tests/colcon_unit_test_packages.yaml).

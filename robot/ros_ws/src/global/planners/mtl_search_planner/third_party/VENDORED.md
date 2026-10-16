@@ -72,15 +72,48 @@ If `cmake/mtl_vendored.cmake` globs miss new source files, add them there. Then 
 
 | | |
 |---|---|
-| Upstream | `multi_agent_target_localization/cpp_curve_planner` (AirLab, CMU), commit `a2c5e9d` ("added cpp package") |
+| Upstream | `multi_agent_target_localization/cpp_curve_planner` (AirLab, CMU), commit `7a45427` ("added path as a realloc strategy"; previously `a2c5e9d`) **plus one upstream working-tree fix not yet committed there**: `include/mtl_curve/params.hpp` `KernelParams::lambdaCap` 15 → 150 (see below) |
 | Vendored into | `third_party/mtl_curve_planner/` |
-| Changes | **none**: a byte-identical copy of the 61 git-tracked upstream files (the upstream `.gitignore` is omitted). Checked file by file with `cmp` |
-| Upstream tree hash | `3ce200088c6f6db5` = first 16 hex digits of `sha256` over the `sha256sum` of every file, sorted by path (same command as for `mtl_planner`, below) |
+| Changes | **none**: a byte-identical copy of the 64 git-tracked upstream files (the upstream `.gitignore` is omitted). Checked file by file with `cmp` |
+| Upstream tree hash | `a48d80580279722a` (`7a45427` as committed: `9097128aaaa5f542`; `a2c5e9d`: `3ce200088c6f6db5`) = first 16 hex digits of `sha256` over the `sha256sum` of every file, sorted by path (same command as for `mtl_planner`, below) |
 | Built by | `cmake/mtl_vendored.cmake`: static `mtl_curve_planner_vendored` (always; Eigen only, `-O2` even in Debug) and `mtl_curve_eval_vendored` (`EXCLUDE_FROM_ALL`: mapgen + detection/report); the upstream `CMakeLists.txt` is not used, and `MTLC_HAVE_OPENMP` stays undefined, so a plan is serial and deterministic |
-| Tests | the six upstream suites (`test_kmeans`, `test_orienteering`, `test_curve_geometry`, `test_swath_kernel`, `test_optimizer`, `test_pipeline`) are registered with `colcon test` as `mtl_curve_vendored_*` via `mtl_curve_vendored_add_selftests()` |
+| Tests | the seven upstream suites (`test_kmeans`, `test_orienteering`, `test_curve_geometry`, `test_swath_kernel`, `test_optimizer`, `test_path_insert`, `test_pipeline`) are registered with `colcon test` as `mtl_curve_vendored_*` via `mtl_curve_vendored_add_selftests()` |
 
 Namespace `mtl::curve`, headers under `mtl_curve/`: several files are copies of `mtl_planner`
 files in the new namespace, so both planners link into one binary (`mtl_search_core`).
+
+## What the `7a45427` update changed (and what the adapter does about it)
+
+See `mtl_curve_planner/README.md` (`pathInsertSeed`) and the upstream `README_curve_planner.md`
+("Reallocation seed: 'path'") for the method and benchmark.
+
+- **New reallocation seed `ReallocStrategy::Path`** (`curve_planning/path_insert.{hpp,cpp}`,
+  splice support in `init_spline`): a slack agent's claim is spliced into its current
+  OPTIMISED curve. The kept arcs are copied, the length overrun is cut from the lowest-yield
+  arcs, and the result is re-solved warm with `reallocPathMaxIter` = 75 refine iterations.
+  A claim that cannot fit is skipped without a solve.
+- **Changed default:** `TeamParams::reallocInitStrategies` went from `{Insert, Direct}` to
+  `{Path, Direct}`. `Insert` and `Direct` are unchanged: the new build with
+  `[insert, direct]` reproduces the `a2c5e9d` plans byte for byte.
+- **New scenario keys in `mtlc_plan`:** `curve.realloc_strategies` (`path | insert | direct`),
+  `realloc_path_warm` and `realloc_path_max_iter`. `src/search_problem.cpp` reads them
+  exactly as `mtlc_plan` does, and `mtl_search_planner/scenario.py` validates them. An empty
+  list, an unknown seed or a negative iteration count is refused.
+  `TeamParams::reallocPathWpSpacing` (100 m) and `reallocPathMargin` (π/2·Rmin) are not
+  `mtlc_plan` keys and stay at the planner defaults.
+- **New `TeamInfo::staticTime` / `reallocTime`:** these go to the CLI and node logs only, so
+  `plan.json` stays deterministic. `plan.json` → `meta.curve` gains the host-only
+  `realloc_strategies` and `realloc_log` fields (every `ReallocTrial`).
+- `cmake/mtl_vendored.cmake` builds `src/curve_planning/path_insert.cpp` and registers
+  `test_path_insert`.
+- **`lambdaCap` 15 → 150.** The same commit raised `init_curve_params.m`
+  `kernelOpts.lambdaCap` (the log-miss saturation of the calibrated swath kernel) from 15 to
+  150, but left the C++ `KernelParams::lambdaCap` at 15. The fix was made **upstream**, in
+  `cpp_curve_planner/include/mtl_curve/params.hpp` (default 150), and re-vendored; this tree
+  is not patched. It is not an `mtlc_plan` key, so the adapter and `mission.yaml` have nothing
+  to set. **Commit that one-line change upstream**, then re-vendor from the commit and replace
+  the hash above. It changes the fast objective (the 1-agent mission plans a different
+  curve; see the integration notes).
 
 ## What the adapter does with it
 

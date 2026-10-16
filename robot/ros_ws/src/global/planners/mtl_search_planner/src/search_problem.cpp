@@ -212,7 +212,7 @@ const std::set<std::string> kCurveKeys = {
     "sweep_freq_hz", "sweep_range_margin", "knot_spacing_m", "num_control_points", "sample_spacing_m",
     "initial_heading_deg", "fast_grid_step_m", "explore_grid_step_m", "max_iter", "explore_iter",
     "explore_iter_warm", "coordination_sweeps", "init_strategies", "reallocate", "realloc_rounds",
-    "max_realloc_trials"};
+    "max_realloc_trials", "realloc_strategies", "realloc_path_warm", "realloc_path_max_iter"};
 const std::set<std::string> kCurveKernelKeys = {"table_step_m", "grid_step_m", "track_len_m", "edge_width_m",
                                                 "edge_inset_m", "tail_sigma_m", "tail_weight"};
 
@@ -338,6 +338,18 @@ void curveFromScenario(const J::Value& sc, const Frame& frame, mc::PlannerParams
             else throw std::runtime_error("curve.init_strategies: '" + t + "' is not clusters | greedy");
         }
     }
+    if (cv["realloc_strategies"].isArray()) {
+        p.team.reallocInitStrategies.clear();
+        for (const J::Value& v : cv["realloc_strategies"].array()) {
+            const std::string t = v.str();
+            if (t == "path") p.team.reallocInitStrategies.push_back(mc::ReallocStrategy::Path);
+            else if (t == "insert") p.team.reallocInitStrategies.push_back(mc::ReallocStrategy::Insert);
+            else if (t == "direct") p.team.reallocInitStrategies.push_back(mc::ReallocStrategy::Direct);
+            else throw std::runtime_error("curve.realloc_strategies: '" + t + "' is not path | insert | direct");
+        }
+    }
+    p.team.reallocPathWarm  = cv["realloc_path_warm"].flag(p.team.reallocPathWarm);
+    p.team.reallocPathMaxIter = static_cast<int>(cv["realloc_path_max_iter"].num(p.team.reallocPathMaxIter));
     p.team.reallocate       = cv["reallocate"].flag(p.team.reallocate);
     p.team.reallocRounds    = static_cast<int>(cv["realloc_rounds"].num(p.team.reallocRounds));
     p.team.maxReallocTrials = static_cast<int>(cv["max_realloc_trials"].num(p.team.maxReallocTrials));
@@ -1187,6 +1199,26 @@ std::string teamPlanJson(const CurvePlan& cp, const SearchProblem& problem) {
     curve["stages"] = J::Value(std::move(stages));
     curve["realloc_trials"] = J::Value(static_cast<double>(r.team.log.size()));
     curve["realloc_accepted"] = J::Value(r.team.acceptedTrials());
+    // Host additions (mtlc_plan does not write these): the reallocation seeds
+    // tried and every trial with the seed that won it. The phase wall times
+    // (team.staticTime / reallocTime) go to the logs only: plan.json stays
+    // deterministic.
+    J::Array strategies;
+    for (const mc::ReallocStrategy s : params.team.reallocInitStrategies) strategies.push_back(J::Value(mc::toString(s)));
+    curve["realloc_strategies"] = J::Value(std::move(strategies));
+    J::Array trials;
+    for (const mc::ReallocTrial& t : r.team.log) {
+        J::Object o;
+        o["round"] = J::Value(t.round);
+        o["cluster"] = J::Value(static_cast<double>(t.cluster));
+        o["agent"] = J::Value(t.agent);
+        o["strategy"] = J::Value(t.strategy);
+        o["j_old"] = J::Value(t.Jold);
+        o["j_new"] = std::isfinite(t.Jnew) ? J::Value(t.Jnew) : J::Value();
+        o["accepted"] = J::Value(t.accepted);
+        trials.push_back(J::Value(std::move(o)));
+    }
+    curve["realloc_log"] = J::Value(std::move(trials));
     curve["fast_grid_step_m"] = J::Value(r.grid.hg);
 
     J::Object meta;

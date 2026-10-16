@@ -4,6 +4,7 @@
 #include <cmath>
 #include <vector>
 
+#include <Eigen/Cholesky>
 #include <Eigen/QR>
 
 #include "mtl_curve/core/bspline.hpp"
@@ -73,11 +74,72 @@ MatX depositPath(const Path2& pts, const VecX& th, double ds, const optimization
     return optimization::swathKernelDeposit(pts, tan, VecX::Constant(pts.rows(), ds), *prob.G, *prob.K);
 }
 
+/// Least-squares fit of the curvature coefficients (and theta0) to the flown
+/// headings th:  min ||theta0 + Phi c - th||^2 + mu ||c - cQI||^2  over the box,
+/// by a few active-set passes.  Used for spliced seeds, whose copied arcs the
+/// quasi-interpolant would smooth and drift; the hats wholly inside the first
+/// nPrefix copied samples (and theta0, when nPrefix > 0) keep the old values,
+/// so that stretch of the old curve is reproduced exactly.
+VecX fitHeadings(const VecX& th, double ds, const CurveRep& rep, const VecX& vQI, const VecX& vOld, Index nPrefix) {
+    const Index N = th.size(), Nk = rep.Nk, nv = Nk + 1;
+    VecX s(N);
+    for (Index i = 0; i < N; ++i) s(i) = (static_cast<double>(i) + 0.5) * ds;
+    MatX A(N, nv);
+    A.leftCols(Nk) = hatIntegrals(s, rep.knots);
+    A.col(Nk).setOnes();
+    const double h = rep.knots(1) - rep.knots(0);
+    const double mu = 0.01 * h * h;
+    VecX x = vQI;
+    std::vector<char> fixed(static_cast<std::size_t>(nv), 0);
+    if (nPrefix > 0) {
+        for (Index m = 0; m < Nk; ++m)
+            if (rep.knots(m) + h <= static_cast<double>(nPrefix) * ds + 1e-9) {
+                x(m) = vOld(m);
+                fixed[static_cast<std::size_t>(m)] = 1;
+            }
+        x(Nk) = vOld(Nk);
+        fixed[static_cast<std::size_t>(Nk)] = 1;
+    }
+    for (int pass = 0; pass < 6; ++pass) {
+        std::vector<Index> fr;
+        for (Index m = 0; m < nv; ++m)
+            if (!fixed[static_cast<std::size_t>(m)]) fr.push_back(m);
+        if (fr.empty()) break;
+        VecX r = th;
+        for (Index m = 0; m < nv; ++m)
+            if (fixed[static_cast<std::size_t>(m)]) r -= A.col(m) * x(m);
+        const Index nf = static_cast<Index>(fr.size());
+        MatX Af(N, nf);
+        for (Index k = 0; k < nf; ++k) Af.col(k) = A.col(fr[static_cast<std::size_t>(k)]);
+        MatX H = Af.transpose() * Af;
+        VecX g = Af.transpose() * r;
+        for (Index k = 0; k < nf; ++k) {
+            const Index m = fr[static_cast<std::size_t>(k)];
+            const double w = m < Nk ? mu : 1e-9;
+            H(k, k) += w;
+            g(k) += w * vQI(m);
+        }
+        const VecX xf = H.ldlt().solve(g);
+        bool clamped = false;
+        for (Index k = 0; k < nf; ++k) {
+            const Index m = fr[static_cast<std::size_t>(k)];
+            x(m) = xf(k);
+            if (m < Nk && (x(m) < rep.lb(m) || x(m) > rep.ub(m))) {
+                x(m) = std::min(std::max(x(m), rep.lb(m)), rep.ub(m));
+                fixed[static_cast<std::size_t>(m)] = 1;
+                clamped = true;
+            }
+        }
+        if (!clamped) break;
+    }
+    return x;
+}
+
 }  // namespace
 
 InitResult initParametricSpline(const Vec2& pStart, const Path2& waypoints, double L, EndpointMode mode,
                                 const std::optional<Vec2>& pDest, const CurveParams& curve,
-                                const optimization::AgentProblem& prob) {
+                                const optimization::AgentProblem& prob, const Splice* splice) {
     InitResult out;
     out.rep = enforceEndpointConstraints(curve.representation, L, pStart, mode, pDest, curve);
     const CurveRep& rep = out.rep;
@@ -90,6 +152,40 @@ InitResult initParametricSpline(const Vec2& pStart, const Path2& waypoints, doub
     const double dth = kMax * ds;
     const double hw = prob.K->halfWidth;
     const double capture = curve.captureFrac * hw;
+
+    // ---- splice (reallocation Path seed): copy arcs of an existing curve ------
+    const bool useSplice = splice != nullptr && splice->v != nullptr && splice->rep != nullptr &&
+                           splice->pieces != nullptr && !splice->pieces->empty() &&
+                           rep.type == CurveRepresentation::Curvature &&
+                           splice->rep->type == CurveRepresentation::Curvature && splice->rep->M == N;
+    VecX thOld;
+    Path2 nodeOld;                                   // node j = start of old sample j (N+1 rows)
+    if (useSplice) {
+        thOld = evalParametricCurve(*splice->v, *splice->rep).theta;
+        nodeOld.resize(N + 1, 2);
+        nodeOld.row(0) = pStart.transpose();
+        for (Index j = 0; j < N; ++j)
+            nodeOld.row(j + 1) = nodeOld.row(j) + ds * Eigen::RowVector2d(std::cos(thOld(j)), std::sin(thOld(j)));
+    }
+    const std::vector<SplicePiece> noPieces;
+    const std::vector<SplicePiece>& pieces = useSplice ? *splice->pieces : noPieces;
+    std::size_t pc = 0;                              // current piece
+    bool copying = false;                            // arc piece: copying (else acquiring)
+    Index jp = 0;                                    // arc piece: next old sample
+    double turnOffset = 0.0;                         // 2*pi multiple between flown and old headings
+    Index pieceSteps = 0;
+    double viaBudget = kInf;
+    Index copiedFromStart = 0;                       // samples copied before the first deviation
+    bool deviated = false;
+    auto startPiece = [&]() {
+        pieceSteps = 0;
+        copying = false;
+        if (pc < pieces.size() && !pieces[pc].via) jp = pieces[pc].j0;
+    };
+    if (useSplice) {
+        startPiece();
+        if (!pieces[0].via && pieces[0].j0 == 0) copying = true;   // the kept prefix
+    }
 
     const Index nWp = waypoints.rows();
     out.captured.assign(static_cast<std::size_t>(nWp), 0);
@@ -108,16 +204,94 @@ InitResult initParametricSpline(const Vec2& pStart, const Path2& waypoints, doub
     std::vector<Vec2> greedy;
 
     double head;
-    if (curve.initialHeading) {
+    if (useSplice && copying) {
+        head = (*splice->v)(splice->rep->Nk);            // theta(0) of the kept curve
+    } else if (curve.initialHeading) {
         head = *curve.initialHeading;
     } else {
-        const Vec2 tg = nWp > 0 ? Vec2(waypoints.row(0).transpose())
-                                : pickGreedy(pos, std::nullopt, lamRun, G, hw, capture, L, goal);
+        Vec2 tg;
+        if (useSplice) tg = pieces[0].via ? pieces[0].pt : Vec2(nodeOld.row(pieces[0].j0).transpose());
+        else tg = nWp > 0 ? Vec2(waypoints.row(0).transpose()) : pickGreedy(pos, std::nullopt, lamRun, G, hw, capture, L, goal);
         head = std::atan2(tg.y() - pos.y(), tg.x() - pos.x());
     }
 
+    auto stepTo = [&](Index i, double hm) {
+        pts(i, 0) = pos.x() + 0.5 * ds * std::cos(hm);
+        pts(i, 1) = pos.y() + 0.5 * ds * std::sin(hm);
+        th(i) = hm;
+        pos += ds * Vec2(std::cos(hm), std::sin(hm));
+    };
+    auto pursue = [&](Index i, const Vec2& tg) {
+        const double want = std::atan2(tg.y() - pos.y(), tg.x() - pos.x());
+        const double turn = std::max(-dth, std::min(dth, wrap(want - head)));
+        stepTo(i, head + 0.5 * turn);
+        head += turn;
+    };
+
     for (Index i = 0; i < N; ++i) {
         const double remLen = static_cast<double>(N - i) * ds;
+
+        // ---- spliced pieces first ------------------------------------------
+        if (pc < pieces.size() && !homing) {
+            if (goal && remLen <= (*goal - pos).norm() + (copying ? 0.0 : 2.5 * kPi * Rmin)) {
+                homing = true;                           // the goal comes first
+                pc = pieces.size();
+            }
+        }
+        if (pc < pieces.size() && !homing) {
+            const SplicePiece& P = pieces[pc];
+            ++pieceSteps;
+            if (P.via) {
+                if (pieceSteps == 1) viaBudget = ((P.pt - pos).norm() + 2.0 * kPi * Rmin) / ds * 1.5 + 10.0;
+                pursue(i, P.pt);
+                deviated = true;
+                if ((P.pt - pos).norm() < capture || static_cast<double>(pieceSteps) > viaBudget) {
+                    ++pc;
+                    startPiece();
+                }
+                continue;
+            }
+            if (!copying) {
+                // ACQUIRE: track the old arc until on it and aligned, then copy
+                Index best = jp;
+                double bd = (Vec2(nodeOld.row(jp).transpose()) - pos).norm();
+                for (Index j = jp + 1; j <= std::min<Index>(P.j1, jp + 8); ++j) {
+                    const double d = (Vec2(nodeOld.row(j).transpose()) - pos).norm();
+                    if (d < bd) {
+                        bd = d;
+                        best = j;
+                    }
+                }
+                jp = best;
+                const double herr = wrap(head - thOld(jp));
+                if (bd < ds && std::abs(herr) < dth) {
+                    copying = true;
+                    turnOffset = (head - herr) - thOld(jp);   // a 2*pi multiple
+                } else {
+                    pursue(i, Vec2(nodeOld.row(std::min<Index>(jp + 3, P.j1 + 1)).transpose()));
+                    deviated = true;
+                    if (jp >= P.j1) {
+                        ++pc;
+                        startPiece();
+                    }
+                    continue;
+                }
+            }
+            // COPY the old heading (the arc is the old one, translated by the
+            // small offset left at acquisition)
+            const double hm = thOld(jp) + turnOffset;
+            stepTo(i, hm);
+            head = jp + 1 <= P.j1 ? 0.5 * (thOld(jp) + thOld(jp + 1)) + turnOffset : hm;
+            if (!deviated) copiedFromStart = i + 1;
+            ++jp;
+            if (jp > P.j1) {
+                ++pc;
+                startPiece();
+                deviated = true;
+            }
+            continue;
+        }
+
         if (goal && !homing && remLen <= (*goal - pos).norm() + 2.5 * kPi * Rmin) homing = true;
         if (homing) {
             target = *goal;
@@ -148,10 +322,7 @@ InitResult initParametricSpline(const Vec2& pStart, const Path2& waypoints, doub
             turn = std::max(-dth, std::min(dth, wrap(want - head)));
         }
         const double hm = head + 0.5 * turn;
-        pts(i, 0) = pos.x() + 0.5 * ds * std::cos(hm);
-        pts(i, 1) = pos.y() + 0.5 * ds * std::sin(hm);
-        th(i) = hm;
-        pos += ds * Vec2(std::cos(hm), std::sin(hm));
+        stepTo(i, hm);
         head += turn;
 
         if (!homing && target) {
@@ -166,6 +337,8 @@ InitResult initParametricSpline(const Vec2& pStart, const Path2& waypoints, doub
             }
         }
     }
+    out.splicePieceReached = static_cast<Index>(pc);
+    out.splicePrefix = copiedFromStart;
 
     out.path.resize(N + 1, 2);
     out.path.row(0) = pStart.transpose();
@@ -193,7 +366,9 @@ InitResult initParametricSpline(const Vec2& pStart, const Path2& waypoints, doub
         VecX v0(rep.nv);
         v0.head(rep.Nk) = c;
         v0(rep.Nk) = th(0) - 0.5 * ds * c(0);
-        if (curve.initialHeading) {
+        if (useSplice) {
+            v0 = fitHeadings(th, ds, rep, v0, *splice->v, out.splicePrefix);
+        } else if (curve.initialHeading) {
             v0(rep.Nk) = *curve.initialHeading;
         } else {
             // the quasi-interpolant smooths the turns and drifts the curve;

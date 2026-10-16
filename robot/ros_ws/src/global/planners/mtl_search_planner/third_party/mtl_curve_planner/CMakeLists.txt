@@ -84,6 +84,7 @@ add_library(mtl_curve_planner
   src/curve_planning/parametric_curve.cpp
   src/curve_planning/arc_length.cpp
   src/curve_planning/init_spline.cpp
+  src/curve_planning/path_insert.cpp
   src/curve_planning/swath_polygon.cpp
   src/curve_planning/team_curves.cpp
   src/optimization/fast_grid.cpp
@@ -178,7 +179,7 @@ endif()
 if(MTLC_BUILD_TESTS)
   enable_testing()
 
-  foreach(t test_kmeans test_orienteering test_curve_geometry test_swath_kernel test_optimizer test_pipeline)
+  foreach(t test_kmeans test_orienteering test_curve_geometry test_swath_kernel test_optimizer test_path_insert test_pipeline)
     add_executable(${t} tests/${t}.cpp)
     target_link_libraries(${t} PRIVATE mtl_curve_planner mtl_curve_mapgen mtl_curve_eval mtl_curve_warnings)
     add_test(NAME ${t} COMMAND ${t})

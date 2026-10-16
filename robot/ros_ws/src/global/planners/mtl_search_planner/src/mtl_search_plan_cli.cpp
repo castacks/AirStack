@@ -45,7 +45,9 @@ void summarise(const char* tag, const mtl_search::SearchResult& r) {
     if (const mtl_search::CurvePlan* c = r.curve()) {
         std::cout << std::setprecision(4) << "; fast residual " << c->result.team.Jfinal << " (static "
                   << c->result.team.Jstatic << ", " << c->result.team.acceptedTrials() << "/"
-                  << c->result.team.log.size() << " reallocations kept)";
+                  << c->result.team.log.size() << " reallocations kept; static solve "
+                  << std::setprecision(3) << c->result.team.staticTime << " s, reallocation "
+                  << c->result.team.reallocTime << " s)";
     }
     std::cout << std::setprecision(1) << "\n";
 }

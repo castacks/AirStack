@@ -353,9 +353,15 @@ _PLANNER_KEYS = {"type": str, "compare_orienteering": bool}
 _CURVE_FLOAT = ("altitude_stagger_m", "sweep_freq_hz", "sweep_range_margin", "knot_spacing_m",
                 "sample_spacing_m", "initial_heading_deg", "fast_grid_step_m", "explore_grid_step_m")
 _CURVE_INT = ("num_control_points", "max_iter", "explore_iter", "explore_iter_warm", "coordination_sweeps",
-              "realloc_rounds", "max_realloc_trials")
-_CURVE_BOOL = ("reallocate",)
-_CURVE_OTHER = ("representation", "endpoint_mode", "destinations_ned", "kernel", "init_strategies")
+              "realloc_rounds", "max_realloc_trials", "realloc_path_max_iter")
+_CURVE_BOOL = ("reallocate", "realloc_path_warm")
+_CURVE_OTHER = ("representation", "endpoint_mode", "destinations_ned", "kernel", "init_strategies",
+                "realloc_strategies")
+#: ``curve.realloc_strategies``: the seeds a slack agent tries when it claims a pooled
+#: cluster (mtl::curve::ReallocStrategy). ``path`` splices the cluster into the agent's
+#: current OPTIMISED curve (upstream 7a45427, the default with ``direct``); ``insert`` is
+#: the previous seed (cheapest insertion into the cluster waypoints, fresh seed).
+CURVE_REALLOC_STRATEGIES = ("path", "insert", "direct")
 _CURVE_KERNEL = ("table_step_m", "grid_step_m", "track_len_m", "edge_width_m", "edge_inset_m", "tail_sigma_m",
                  "tail_weight")
 _CURVE_ENDPOINTS = ("open", "return_home", "fixed_dest")
@@ -435,12 +441,21 @@ def curve_of(block: Mapping[str, Any] | None) -> dict[str, Any]:
         if not strat or any(v not in ("clusters", "greedy") for v in strat):
             raise ValueError(f"curve.init_strategies {strat!r} must be a non-empty list of clusters | greedy")
         out["init_strategies"] = strat
+    if "realloc_strategies" in b:
+        rs = b["realloc_strategies"]
+        if (not isinstance(rs, list) or not rs
+                or any(v not in CURVE_REALLOC_STRATEGIES for v in rs)):
+            raise ValueError(f"curve.realloc_strategies {rs!r} must be a non-empty list of "
+                             f"{' | '.join(CURVE_REALLOC_STRATEGIES)} (reallocate: false turns reallocation off)")
+        out["realloc_strategies"] = list(rs)
     for k in _CURVE_FLOAT:
         if k in b and b[k] is not None:
             out[k] = _num(b[k], f"curve.{k}")
     for k in _CURVE_INT:
         if k in b and b[k] is not None:
             out[k] = _num(b[k], f"curve.{k}", int)
+    if out.get("realloc_path_max_iter", 0) < 0:
+        raise ValueError(f"curve.realloc_path_max_iter must be >= 0 (0 = max_iter), got {out['realloc_path_max_iter']}")
     for k in _CURVE_BOOL:
         if k in b and b[k] is not None:
             if not isinstance(b[k], bool):

@@ -141,7 +141,8 @@ def curve_meta(plan: dict) -> dict:
             "init_strategy", "fast_objective", "flown_length_m", "budget_used_frac", "info_fraction", "altitude_m"]
     mc = (plan.get("meta") or {}).get("curve") or {}
     return {"fast_residual": mc.get("fast_residual"), "fast_grid_step_m": mc.get("fast_grid_step_m"),
-            "realloc_accepted": mc.get("realloc_accepted"),
+            "realloc_accepted": mc.get("realloc_accepted"), "realloc_trials": mc.get("realloc_trials"),
+            "realloc_strategies": mc.get("realloc_strategies"),   # absent in plans before 7a45427
             "agents": [{k: (a.get("diagnostics") or {}).get(k) for k in keys} for a in plan.get("agents", [])]}
 
 

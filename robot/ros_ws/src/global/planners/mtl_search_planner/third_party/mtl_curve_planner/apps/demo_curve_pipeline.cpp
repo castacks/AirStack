@@ -21,6 +21,7 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <string>
 
@@ -133,6 +134,24 @@ int main(int argc, char** argv) {
         } else if (arg == "--no-explore") {
             params.optimizer.exploreIter = 0;
             params.optimizer.exploreIterWarm = 0;
+        } else if (arg == "--realloc" && i + 1 < argc) {
+            // comma-separated reallocation seeds, e.g. path,direct | insert
+            params.team.reallocInitStrategies.clear();
+            std::string list = argv[++i];
+            std::size_t p0 = 0;
+            while (p0 <= list.size()) {
+                const std::size_t p1 = std::min(list.find(',', p0), list.size());
+                const std::string t = list.substr(p0, p1 - p0);
+                if (t == "path") params.team.reallocInitStrategies.push_back(mc::ReallocStrategy::Path);
+                else if (t == "insert") params.team.reallocInitStrategies.push_back(mc::ReallocStrategy::Insert);
+                else if (t == "direct") params.team.reallocInitStrategies.push_back(mc::ReallocStrategy::Direct);
+                else { std::cerr << "unknown realloc strategy: " << t << "\n"; return 2; }
+                p0 = p1 + 1;
+            }
+        } else if (arg == "--realloc-cold") {
+            params.team.reallocPathWarm = false;
+        } else if (arg == "--realloc-path-iter") {
+            params.team.reallocPathMaxIter = static_cast<int>(next(75));
         } else if (arg == "--greedy-only") {
             params.team.initStrategies = {mc::InitStrategy::Greedy};
         } else if (arg == "--no-residual") {
@@ -147,6 +166,8 @@ int main(int argc, char** argv) {
             std::cout << "usage: mtlc_demo [--agents N] [--budget-seconds S] [--tilt DEG] [--cell-size M]\n"
                          "                 [--seed N] [--targets N] [--bspline] [--endpoint open|return_home|fixed_dest]\n"
                          "                 [--stagger M] [--no-realloc] [--no-explore] [--greedy-only]\n"
+                         "                 [--realloc path,direct|insert,direct|...] [--realloc-cold]\n"
+                         "                 [--realloc-path-iter N]\n"
                          "                 [--quiet] [--csv DIR] [--no-residual] [--residual-block N]\n";
             return 0;
         } else {
@@ -176,6 +197,9 @@ int main(int argc, char** argv) {
                                              params.sensor, params.detectionThreshold);
         const bool ok = mc::eval::reportCurveSummary(std::cout, result, planner.params());
         mc::eval::reportDetectionSummary(std::cout, targets, params);
+        std::cout << "\nTeam solve: static " << result.team.staticTime << " s, reallocation "
+                  << result.team.reallocTime << " s (" << result.team.log.size() << " trial(s), "
+                  << result.team.acceptedTrials() << " accepted)\n";
         std::cout << "\nPlanning time " << planSec << " s; horizon " << result.timeVec(result.numSteps() - 1)
                   << " s over " << result.numSteps() << " steps.\n";
 
@@ -187,7 +211,7 @@ int main(int argc, char** argv) {
             if (!result.staticTrajectories.empty()) {
                 const mc::eval::ResidualBelief rs =
                     mc::eval::computeResidualBelief(belief, result.staticTrajectories, params.fov, params.sensor);
-                std::cout << "Static partition residual: " << rs.residualMass << " -> after reallocation "
+                std::cout << std::setprecision(6) << "Static partition residual: " << rs.residualMass << " -> after reallocation "
                           << rb.residualMass << " (" << (rb.residualMass - rs.residualMass) << ")\n";
             }
         }

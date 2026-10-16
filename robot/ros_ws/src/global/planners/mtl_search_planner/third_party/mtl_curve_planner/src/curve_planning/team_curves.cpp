@@ -1,6 +1,7 @@
 #include "mtl_curve/curve_planning/team_curves.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <numeric>
@@ -9,6 +10,7 @@
 
 #include "mtl_curve/curve_planning/init_spline.hpp"
 #include "mtl_curve/curve_planning/parametric_curve.hpp"
+#include "mtl_curve/curve_planning/path_insert.hpp"
 #include "mtl_curve/optimization/objective.hpp"
 #include "mtl_curve/optimization/optimizer.hpp"
 #include "mtl_curve/optimization/swath_kernel.hpp"
@@ -27,6 +29,7 @@ struct Candidate {
     Path2 seed;
     double J = kInf;
     bool feasible = false;
+    bool skipped = false;   ///< Path seed whose budget could not be repaired
 };
 
 double teamJ(const FastGrid& G, const std::vector<MatX>& lam) {
@@ -239,6 +242,41 @@ TeamSolution reallocateCurveClusters(const TeamConfig& cfg, const PlannerParams&
         return cand;
     };
 
+    // the Path seed: splice cluster k into agent a's OPTIMISED curve (see
+    // pathInsertSeed), copy the kept arcs into the seed, re-solve warm
+    auto solvePathSeed = [&](std::size_t a, const Probs& pr, Index k) {
+        Candidate cand;
+        const MatX W = (G.prior.array() * (pr.Lo + team.lam[a]).array().exp()).matrix();
+        const PathInsertSeed ps = pathInsertSeed(team.v[a], team.rep[a], Vec2(cfg.centroids.row(k).transpose()),
+                                                 cfg.kernels[a]->accurate, G, W, P.team);
+        if (verbose)
+            std::fprintf(stderr,
+                         "      path seed: insert after wp %lld (detour %.0f m), overrun %.0f -> %.0f m, %d cut(s), "
+                         "%zu piece(s), prefix %.0f m kept\n",
+                         static_cast<long long>(ps.insertAfter), ps.detour, ps.overrun0, ps.overrun, ps.cuts,
+                         ps.pieces.size(), ps.sPrefix);
+        if (ps.overrun > 0.0) {
+            // even with every removable arc cut, the detour does not fit the
+            // budget: the cluster cannot be claimed this way - do not spend an
+            // optimisation on it
+            cand.skipped = true;
+            return cand;
+        }
+        const Splice sp{&team.v[a], &team.rep[a], &ps.pieces};
+        const InitResult init = initParametricSpline(cfg.starts[a], Path2(0, 2), cfg.L[a], cfg.modes[a],
+                                                     cfg.dests[a], P.curve, pr.prob, &sp);
+        cand.rep = init.rep;
+        cand.seed = init.path;
+        const int xIt = P.team.reallocPathWarm ? P.optimizer.exploreIterWarm : P.optimizer.exploreIter;
+        OptimizerParams op = P.optimizer;
+        if (P.team.reallocPathMaxIter > 0) op.maxIter = P.team.reallocPathMaxIter;
+        cand.v = optimization::optimizeAgentCurve(init.v0, cand.rep, pr.prob, hasX ? &pr.probX : nullptr,
+                                                  op, xIt, denseStep, &cand.info);
+        cand.J = cand.info.J;
+        return cand;
+    };
+
+    const auto tStatic0 = std::chrono::steady_clock::now();
     // ---- 1. initial ordering + solve ---------------------------------------
     for (std::size_t a = 0; a < N; ++a) {
         std::vector<Index> own;
@@ -292,6 +330,8 @@ TeamSolution reallocateCurveClusters(const TeamConfig& cfg, const PlannerParams&
     team.info.Jstatic = team.info.Jhist.empty() ? teamJ(G, team.lam) : team.info.Jhist.back();
     team.vStatic = team.v;
     team.repStatic = team.rep;
+    const auto tRealloc0 = std::chrono::steady_clock::now();
+    team.info.staticTime = std::chrono::duration<double>(tRealloc0 - tStatic0).count();
 
     // ---- 2-4. audit, slack, reallocation ------------------------------------
     team.info.audit = auditTeam(cfg, team, P);
@@ -328,14 +368,23 @@ TeamSolution reallocateCurveClusters(const TeamConfig& cfg, const PlannerParams&
                     std::vector<Candidate> cands(rs.size());
                     std::vector<std::vector<Index>> wpq(rs.size());
                     for (std::size_t q = 0; q < rs.size(); ++q)
-                        wpq[q] = rs[q] == ReallocStrategy::Insert ? insertCheapest(cfg, a, team.wp[a], k)
-                                                                  : std::vector<Index>{k};
+                        wpq[q] = rs[q] == ReallocStrategy::Direct ? std::vector<Index>{k}
+                                                                  : insertCheapest(cfg, a, team.wp[a], k);
 #if defined(MTLC_HAVE_OPENMP)
 #pragma omp parallel for schedule(dynamic)
 #endif
                     for (int q = 0; q < static_cast<int>(rs.size()); ++q) {
                         const auto uq = static_cast<std::size_t>(q);
-                        Candidate c = solveSeed(a, pr, gatherCentroids(cfg, wpq[uq]), P.optimizer.exploreIter);
+                        // the splice needs the curvature representation; a
+                        // B-spline curve falls back to the Insert seed
+                        const bool pathOk = team.rep[a].type == CurveRepresentation::Curvature;
+                        Candidate c = rs[uq] == ReallocStrategy::Path && pathOk
+                                          ? solvePathSeed(a, pr, k)
+                                          : solveSeed(a, pr, gatherCentroids(cfg, wpq[uq]), P.optimizer.exploreIter);
+                        if (c.skipped) {
+                            cands[uq] = std::move(c);
+                            continue;
+                        }
                         c.lam = optimization::agentDeposit(c.v, c.rep, G, cfg.kernels[a]->accurate);
                         c.J = (G.prior.array() * (pr.Lo + c.lam).array().exp()).sum();
                         c.feasible = curveFeasible(c.v, c.rep, denseStep);
@@ -398,6 +447,7 @@ TeamSolution reallocateCurveClusters(const TeamConfig& cfg, const PlannerParams&
         }
     }
     team.info.Jfinal = teamJ(G, team.lam);
+    team.info.reallocTime = std::chrono::duration<double>(std::chrono::steady_clock::now() - tRealloc0).count();
     return team;
 }
 

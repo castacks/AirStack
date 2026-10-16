@@ -56,6 +56,24 @@ block plans exactly as before). The curve planner:
   block in `track.json` (sweep amplitude / frequency / peak rate, swath half-width, max
   curvature, endpoint, fast objective).
 
+**Reallocation seeds** (`curve.realloc_strategies`, upstream `7a45427`). When a slack agent
+claims an unserviced cluster it tries each listed seed, keeps the best feasible one, and commits
+it only if the team residual falls:
+
+- `path` (default, with `direct`): the cluster is spliced into the agent's current *optimised*
+  curve. Waypoints every 100 m along it, cheapest insertion, the length overrun cut from the
+  lowest-yield arcs, the kept arcs copied into the new seed, then a lighter warm solve
+  (`realloc_path_warm`, `realloc_path_max_iter` = 75 refine iterations; 0 = `max_iter`). A
+  claim that cannot fit the budget is skipped without a solve.
+- `insert`: cheapest insertion into its cluster waypoints and a fresh seed (the only seed
+  before `7a45427`; `[insert, direct]` reproduces those plans exactly).
+- `direct`: fly to the cluster first, then information pursuit.
+
+`plan.json` → `meta.curve` also carries `realloc_strategies` and `realloc_log` (every trial:
+round, cluster, agent, winning seed, `j_old` / `j_new`, accepted). An accepted trial shows
+as `diagnostics.init_strategy = "realloc:<seed>"`. The static-solve and reallocation wall
+times go to the CLI / node log only, so `plan.json` stays deterministic.
+
 With `planner.compare_orienteering: true` (default) a curve mission goal also plans the
 **orienteering** planner in both modes, never flown: `plan_alt_plain.json` /
 `track_alt_plain.json` and `plan_alt_info_aware.json` / `track_alt_info_aware.json`.
@@ -152,7 +170,8 @@ See `config/mtl_search_planner.yaml`. The launch args set `scenario_file`, `agen
   fixed-destination endpoints < 1 m, determinism, the comparison plans, and that
   `planner.type: orienteering` through the dispatch is the orienteering plan unchanged.
 - The five upstream `mtl_planner` self-tests plus `test_info_aware` (`mtl_vendored_*`), and the
-  six upstream `mtl_curve_planner` self-tests (`mtl_curve_vendored_*`).
+  seven upstream `mtl_curve_planner` self-tests (`mtl_curve_vendored_*`, including
+  `test_path_insert` for the `path` reallocation seed).
 - `test/test_scenario.py`: the scenario generator, including a byte-for-byte `--check` of the
   committed bundle, the `planner` / `curve` / `follower` blocks (normalised, unknown keys and
   misspelt mission blocks refused, a curve mission checked flyable at generation), and the

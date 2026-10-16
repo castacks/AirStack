@@ -273,10 +273,12 @@ private:
             }
             if (const mtl_search::CurvePlan* c = result_.curve(); c && !reuse) {
                 RCLCPP_INFO(get_logger(),
-                            "curve planner: fast residual %.4f (static %.4f), %d/%zu reallocations kept; "
+                            "curve planner: fast residual %.4f (static %.4f), %d/%zu reallocations kept "
+                            "(static solve %.1f s, reallocation %.1f s); "
                             "sweep +/-%.1f deg at %.3f Hz (peak %.1f deg/s of %.1f), swath half-width %.0f m",
                             c->result.team.Jfinal, c->result.team.Jstatic, c->result.team.acceptedTrials(),
-                            c->result.team.log.size(), track_.curve.sweepAmplitude * 180.0 / mtl::kPi,
+                            c->result.team.log.size(), c->result.team.staticTime, c->result.team.reallocTime,
+                            track_.curve.sweepAmplitude * 180.0 / mtl::kPi,
                             track_.curve.sweepFreq, track_.curve.sweepPeakRate * 180.0 / mtl::kPi,
                             track_.gimbalRate * 180.0 / mtl::kPi, track_.curve.swathHalfWidth);
             }

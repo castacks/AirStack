@@ -180,7 +180,9 @@ mc::PlannerParams paramsFromScenario(const J::Value& sc, int numAgents) {
 //    fast_grid_step_m, explore_grid_step_m  (auto-scaled if absent, see below)
 //    max_iter, explore_iter, explore_iter_warm
 //    coordination_sweeps, init_strategies ["clusters", "greedy"]
-//    reallocate, realloc_rounds, max_realloc_trials
+//    reallocate, realloc_rounds, max_realloc_trials,
+//    realloc_strategies ["path", "direct"]  (any of path | insert | direct),
+//    realloc_path_warm, realloc_path_max_iter
 // --------------------------------------------------------------------------- //
 void curveFromScenario(const J::Value& sc, const Frame& frame, mc::PlannerParams& p) {
     const J::Value& cv = sc["curve"];
@@ -247,6 +249,18 @@ void curveFromScenario(const J::Value& sc, const Frame& frame, mc::PlannerParams
             else throw std::runtime_error("curve.init_strategies: '" + t + "' is not clusters | greedy");
         }
     }
+    if (cv["realloc_strategies"].isArray()) {
+        p.team.reallocInitStrategies.clear();
+        for (const J::Value& v : cv["realloc_strategies"].array()) {
+            const std::string t = v.str();
+            if (t == "path") p.team.reallocInitStrategies.push_back(mc::ReallocStrategy::Path);
+            else if (t == "insert") p.team.reallocInitStrategies.push_back(mc::ReallocStrategy::Insert);
+            else if (t == "direct") p.team.reallocInitStrategies.push_back(mc::ReallocStrategy::Direct);
+            else throw std::runtime_error("curve.realloc_strategies: '" + t + "' is not path | insert | direct");
+        }
+    }
+    p.team.reallocPathWarm  = cv["realloc_path_warm"].flag(p.team.reallocPathWarm);
+    p.team.reallocPathMaxIter = static_cast<int>(cv["realloc_path_max_iter"].num(p.team.reallocPathMaxIter));
     p.team.reallocate       = cv["reallocate"].flag(p.team.reallocate);
     p.team.reallocRounds    = static_cast<int>(cv["realloc_rounds"].num(p.team.reallocRounds));
     p.team.maxReallocTrials = static_cast<int>(cv["max_realloc_trials"].num(p.team.maxReallocTrials));

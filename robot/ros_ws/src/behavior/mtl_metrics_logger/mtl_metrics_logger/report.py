@@ -311,7 +311,7 @@ if(S.curve){(function(){const c=el("div",{class:"card",style:"margin:12px 0"},ap
   [n,q.representation,q.endpoint_mode+(q.endpoint_error_m?" ("+fmt(q.endpoint_error_m,2)+" m)":""),q.init_strategy,fmt(q.sweep_amplitude_deg,1),fmt(q.sweep_freq_hz,3),
    fmt(q.sweep_peak_rate_deg_s,1)+" / "+fmt(q.gimbal_rate_deg_s,0),fmt(q.swath_half_width_m,0),
    fmt(q.max_curvature,4)+" ("+fmt(q.min_turn_radius_m?1/q.min_turn_radius_m:null,4)+")",fmt(q.fast_objective,4)].forEach(v=>el("td",{text:String(v)},r));});
- el("p",{class:"notes",text:"One continuous curve per aircraft, exactly the budget long, never tighter than the turn radius; the single-axis gimbal sweeps its cross-track line sinusoidally. The fast residual is the planner's own (calibrated kernel) objective; the planned residual above re-scores the plan with the flight scorer."},c);
+ el("p",{class:"notes",text:"One continuous curve per aircraft, exactly the budget long, never tighter than the turn radius; the single-axis gimbal sweeps its cross-track line sinusoidally. Seed: the start that won the agent's first solve (clusters | greedy), or realloc:path | realloc:insert | realloc:direct when a reallocation trial with that seed replaced the curve (path = the claimed cluster spliced into the optimised curve). The fast residual is the planner's own (calibrated kernel) objective; the planned residual above re-scores the plan with the flight scorer."},c);
 })();}
 
 // ---------------- map ----------------

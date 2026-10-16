@@ -38,6 +38,7 @@ run-out. There are no waypoints, no Dubins re-costing and no lateral-coverage ex
 | `initParametricSpline` | a **flown** seed of exactly the budget length: pursue the ordered clusters, then chase unswept belief | a scaled or extended spline breaks the start pin and the curvature bound |
 | `optimizeAgentCurve` | L-BFGS + augmented Lagrangian; explore → refine; Gauss-Newton feasibility projection | analytic gradients, so one evaluation per step |
 | `reallocateCurveClusters` | multi-start seeding, Gauss-Seidel team solve, service audit, slack, reallocation rounds | the plan's PHASE 5 |
+| `pathInsertSeed` | reallocation seed (`ReallocStrategy::Path`, default with `Direct`): splices a claimed cluster into the agent's **optimised** curve, cuts the length overrun from the lowest-yield arcs, copies every kept arc into the new seed, re-solves with `reallocPathMaxIter` = 75 refine iterations | the old `Insert` seed restarted from the orienteering waypoints and threw the optimised curve away; benchmark in `../README_curve_planner.md` |
 | `generateCurveTrajectories` | 2 m resampling, coordinated-turn RPY (`computeAirframeRPY`, copied), sinusoidal cross-track sweep, padding | flight-ready output |
 
 ### Representations
@@ -78,7 +79,7 @@ include/mtl_curve/
   mapping/        cells (copied)
   planning/       orienteering (copied; used to ORDER each agent's clusters)
   curve_planning/ endpoint_constraints, parametric_curve, arc_length, init_spline,
-                  swath_polygon, team_curves
+                  swath_polygon, path_insert, team_curves
   optimization/   fast_grid, swath_kernel, objective, optimizer
   sensing/        sweep, airframe (copied)
   trajectory/     curve_trajectory
@@ -89,7 +90,7 @@ apps/             demo_curve_pipeline.cpp  (mtlc_demo, the C++ main_curve_planne
                   mtl_curve_plan_json.cpp  (mtlc_plan, drop-in for mtl_plan)
                   compare_planners.cpp     (mtlc_compare, head-to-head vs cpp_planner)
                   json_mini.hpp            (copied)
-tests/            six suites, run by ctest, no external framework
+tests/            seven suites, run by ctest, no external framework
 ```
 
 **Copied from `cpp_planner`, with only the namespace, include paths and guards changed:**
@@ -127,7 +128,7 @@ ctest --test-dir build --output-on-failure
 | Option | Default | |
 |---|---|---|
 | `MTLC_BUILD_APPS` | ON | `mtlc_demo`, `mtlc_plan` |
-| `MTLC_BUILD_TESTS` | ON | the six suites |
+| `MTLC_BUILD_TESTS` | ON | the seven suites |
 | `MTLC_ENABLE_WARNINGS` | ON | the same strict set as `cpp_planner` |
 | `MTLC_ENABLE_OPENMP` | OFF | run the multi-start seeds (and the residual pass) in parallel |
 | `MTLC_BUILD_COMPARE` | OFF | `mtlc_compare`: builds `../cpp_planner` in-tree and runs both planners on the same scenarios |
@@ -188,7 +189,7 @@ for (const mtl::curve::AgentTrajectory& t : r.trajectories) {
 carries:
 
 - the curve parameters and the representation;
-- the seed that won (`clusters`, `greedy`, `realloc:insert` or `realloc:direct`);
+- the seed that won (`clusters`, `greedy`, `realloc:path`, `realloc:insert` or `realloc:direct`);
 - the altitude, sweep and calibrated swath half-width;
 - the measured length, maximum curvature and endpoint error;
 - `servicedCellIdx`: cells whose centre this agent's swath detects with P ≥ 0.5.
@@ -196,6 +197,7 @@ carries:
 `team` carries:
 
 - the fast-objective history (`Jhist`, `Jstatic`, `Jfinal`);
+- the wall time of the static solve and of the reallocation phase (`staticTime`, `reallocTime`);
 - every reallocation trial;
 - the final cluster audit, with unserviced clusters and slack.
 

@@ -59,7 +59,10 @@ down.
     `min_turn_radius_m`, optimised jointly with the others for the lowest residual belief,
     while the 1-DOF gimbal sweeps `alpha(t) = alphaMax·sin(2π·f·t)` across track. Its options
     are the `curve:` block (see the comments there; absent keys are auto-scaled to the
-    mission, unknown keys are refused). With `planner.compare_orienteering: true` (default)
+    mission, unknown keys are refused). `realloc_strategies: [path, direct]` sets how a slack
+    aircraft takes over an unserviced cluster: `path` splices it into its already optimised
+    curve, `direct` flies to it first, and `insert` (the seed before upstream `7a45427`)
+    re-seeds from the cluster waypoints. With `planner.compare_orienteering: true` (default)
     the orienteering planner is also planned in **both** modes, never flown, and every report
     compares all three plans. Planning takes seconds (1 agent) to tens of seconds (3 agents);
     the planner node plans off its executor and reuses the boot preview plan when the

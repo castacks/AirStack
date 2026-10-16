@@ -218,12 +218,14 @@ def test_planner_block_refuses_bad_keys(block, match):
 def test_curve_block_writes_only_what_the_mission_sets():
     curve = {"representation": "bspline", "endpoint_mode": ["return_home", "open"], "sweep_freq_hz": 0.1,
              "altitude_stagger_m": 1, "kernel": {"table_step_m": 1.5}, "init_strategies": ["greedy"],
-             "max_realloc_trials": 2, "reallocate": False, "destinations_ned": [[0, 0], [10, 20]]}
+             "max_realloc_trials": 2, "reallocate": False, "destinations_ned": [[0, 0], [10, 20]],
+             "realloc_strategies": ["insert", "direct"], "realloc_path_max_iter": 0, "realloc_path_warm": False}
     sc, _, _ = S.build_scenario(dict(MISSION, planner={"type": "curve"}, curve=curve), AGENTS)
     assert sc["curve"] == {"representation": "bspline", "endpoint_mode": ["return_home", "open"],
                            "destinations_ned": [[0.0, 0.0], [10.0, 20.0]], "kernel": {"table_step_m": 1.5},
-                           "init_strategies": ["greedy"], "altitude_stagger_m": 1.0, "sweep_freq_hz": 0.1,
-                           "max_realloc_trials": 2, "reallocate": False}
+                           "init_strategies": ["greedy"], "realloc_strategies": ["insert", "direct"],
+                           "altitude_stagger_m": 1.0, "sweep_freq_hz": 0.1, "max_realloc_trials": 2,
+                           "realloc_path_max_iter": 0, "reallocate": False, "realloc_path_warm": False}
     # absent keys are left to the adapter's auto-scaling: nothing invented here
     sc2, _, _ = S.build_scenario(dict(MISSION, curve={}), AGENTS)
     assert sc2["curve"] == {}
@@ -232,7 +234,9 @@ def test_curve_block_writes_only_what_the_mission_sets():
         "representation", "endpoint_mode", "destinations_ned", "altitude_stagger_m", "kernel", "sweep_freq_hz",
         "sweep_range_margin", "knot_spacing_m", "num_control_points", "sample_spacing_m", "initial_heading_deg",
         "fast_grid_step_m", "explore_grid_step_m", "max_iter", "explore_iter", "explore_iter_warm",
-        "coordination_sweeps", "init_strategies", "reallocate", "realloc_rounds", "max_realloc_trials"}
+        "coordination_sweeps", "init_strategies", "reallocate", "realloc_rounds", "max_realloc_trials",
+        "realloc_strategies", "realloc_path_warm", "realloc_path_max_iter"}
+    assert S.CURVE_REALLOC_STRATEGIES == ("path", "insert", "direct")
 
 
 @pytest.mark.parametrize("curve, match", [
@@ -247,6 +251,13 @@ def test_curve_block_writes_only_what_the_mission_sets():
     ({"sweep_freq_hz": "fast"}, "number"),
     ({"sweep_freq_hz": float("inf")}, "finite"),
     ({"reallocate": 1}, "true or false"),
+    ({"realloc_strategies": ["splice"]}, "realloc_strategies"),
+    ({"realloc_strategies": []}, "realloc_strategies"),
+    ({"realloc_strategies": "path"}, "realloc_strategies"),
+    ({"realloc_path_max_iter": -1}, "realloc_path_max_iter"),
+    ({"realloc_path_max_iter": 7.5}, "integer"),
+    ({"realloc_path_warm": "yes"}, "true or false"),
+    ({"realloc_path_wp_spacing": 50}, "unknown key"),   # a planner default, not an mtlc_plan key
     ({"destinations_ned": [[1, 2, 3]]}, "destinations_ned"),
 ])
 def test_curve_block_refuses_bad_keys_and_values(curve, match):
@@ -288,16 +299,21 @@ def test_follower_gimbal_law():
         S.build_scenario(dict(MISSION, follower={"law": "open_loop"}), AGENTS)
 
 
-def test_committed_mission_selects_orienteering_and_carries_the_curve_block():
-    """The stack's mission.yaml: orienteering flown by default, the curve block ready to switch."""
+def test_committed_mission_flies_the_curve_planner():
+    """The stack's mission.yaml: the curve planner is flown (orienteering compared, never flown)."""
     yaml = pytest.importorskip("yaml")
     path = REPO / "stacks" / "mtl_search" / "config" / "mission.yaml"
     if not path.is_file():
         pytest.skip("repo layout not available")
     m = yaml.safe_load(path.read_text(encoding="utf-8"))["mission"]
-    assert m["planner"]["type"] == "orienteering"
-    assert S.planner_of(m["planner"]) == {"type": "orienteering", "compare_orienteering": True}
+    assert m["planner"]["type"] == "curve"
+    assert S.planner_of(m["planner"]) == {"type": "curve", "compare_orienteering": True}
+    # the detection sigmoid's slant-range scale the curve kernel is calibrated for
+    assert m["sensor"]["detection"]["beta"] == 900.0
     cv = S.curve_of(m["curve"])
+    # reallocation splices claims into the optimised curve (upstream 7a45427), direct as the alternative
+    assert cv["realloc_strategies"] == ["path", "direct"]
+    assert cv["realloc_path_max_iter"] > 0 and cv["realloc_path_warm"] is True
     # the planned altitudes are the flown deconfliction layers
     assert cv["altitude_stagger_m"] == m["team"]["altitude_separation_m"]
     # the sweep stays within the gimbal rate the follower and the sim use (120 deg/s)

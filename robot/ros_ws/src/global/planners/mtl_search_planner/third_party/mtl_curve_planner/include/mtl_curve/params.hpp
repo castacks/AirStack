@@ -174,7 +174,7 @@ struct KernelParams {
     int    nPhase     = 48;     ///< sweep phases averaged
     double gridStep   = 4.0;    ///< [m] raster of the straight-pass calibration
     double trackLen   = 2400.0; ///< [m] length of that straight pass
-    double lambdaCap  = 15.0;   ///< log-miss saturation of the profile
+    double lambdaCap  = 150.0;  ///< log-miss saturation of the profile (= init_curve_params.m)
     double edgeWidth  = 6.0;    ///< [m] logistic width of the swath edge
     double edgeInset  = 12.0;   ///< [m] edge pulled INSIDE the real reach (conservative)
     /// Exploration kernel = accurate + tailWeight * Gaussian(tailSigma) blur.
@@ -284,8 +284,23 @@ struct TeamParams {
     int    maxCandidatesPerCluster = 2;
     int    maxReallocTrials        = 4;
     double reallocEps              = 1e-4;  ///< required team-objective improvement
-    std::vector<ReallocStrategy> reallocInitStrategies = {ReallocStrategy::Insert,
+    std::vector<ReallocStrategy> reallocInitStrategies = {ReallocStrategy::Path,
                                                           ReallocStrategy::Direct};
+    /// Path seed: [m] waypoint spacing along the optimised curve.
+    double reallocPathWpSpacing = 100.0;
+    /// Path seed: [m] length slack kept when repairing the budget (turning
+    /// at each join, beyond the turn the estimate already counts).  Unset =
+    /// 0.5 * pi * minTurnRadius per join.  The
+    /// closed endpoint modes add 2.5 * pi * minTurnRadius of homing slack.
+    std::optional<double> reallocPathMargin = std::nullopt;
+    /// Path seed: re-optimise with the warm settings (exploreIterWarm); the
+    /// seed already sits in the optimised curve's basin.  false = cold solve.
+    bool   reallocPathWarm = true;
+    /// Path seed: refine iterations of its solve (0 = optimizer.maxIter).
+    /// The seed keeps most of the optimised curve, so half the usual solve
+    /// loses next to nothing (benchmark: residual 0.0577 vs 0.0573 over six
+    /// seeds) and halves the cost of a trial.
+    int    reallocPathMaxIter = 75;
     /// Ordering solver settings: a lighter copy of cpp_planner's (2 deterministic
     /// starts, no ruin-and-recreate).
     OrienteeringParams orienteering = [] {

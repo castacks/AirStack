@@ -35,7 +35,7 @@
    "a": 1.1,
    "b": 0.1,
    "c": 610.0,
-   "beta": 610.0,
+   "beta": 900.0,
    "p_out_of_range": 1e-06,
    "threshold": 0.9,
    "dt_ref_s": 0.1
@@ -1907,7 +1907,13 @@
  "curve": {
   "representation": "curvature",
   "endpoint_mode": "open",
+  "realloc_strategies": [
+   "path",
+   "direct"
+  ],
   "altitude_stagger_m": 1.0,
-  "sweep_freq_hz": 0.075
+  "sweep_freq_hz": 0.075,
+  "realloc_path_max_iter": 75,
+  "realloc_path_warm": true
  }
 }

@@ -155,8 +155,14 @@ enum class EndpointMode : int { Open = 0, ReturnHome = 1, FixedDest = 2 };
 /// Seeds for an agent's first solve: pursue the ordered cluster centroids and
 /// then continue greedily ('clusters', the plan), or greedy from the start.
 enum class InitStrategy : int { Clusters = 0, Greedy = 1 };
-/// Seeds tried when a slack agent claims a pooled cluster.
-enum class ReallocStrategy : int { Insert = 0, Direct = 1 };
+/// Seeds tried when a slack agent claims a pooled cluster:
+///   Insert  cheapest insertion into the agent's ORDERED CLUSTER waypoints and a
+///           fresh seed through them (the plan; discards the optimised curve)
+///   Direct  fly to the cluster first, then greedy information pursuit
+///   Path    cheapest insertion into the agent's current OPTIMISED curve
+///           (turned into waypoints), length overrun cut from the lowest-yield
+///           arc, untouched prefix replayed exactly (curve_planning::pathInsertSeed)
+enum class ReallocStrategy : int { Insert = 0, Direct = 1, Path = 2 };
 
 inline const char* toString(CurveRepresentation r) {
     return r == CurveRepresentation::Curvature ? "curvature" : "bspline";
@@ -169,7 +175,13 @@ inline const char* toString(EndpointMode m) {
     }
 }
 inline const char* toString(InitStrategy s) { return s == InitStrategy::Clusters ? "clusters" : "greedy"; }
-inline const char* toString(ReallocStrategy s) { return s == ReallocStrategy::Insert ? "insert" : "direct"; }
+inline const char* toString(ReallocStrategy s) {
+    switch (s) {
+        case ReallocStrategy::Insert: return "insert";
+        case ReallocStrategy::Path:   return "path";
+        default:                      return "direct";
+    }
+}
 
 // -----------------------------------------------------------------------------
 /// The cross-track sweep an agent's single-axis gimbal flies
@@ -388,6 +400,8 @@ struct TeamInfo {
     std::vector<std::string> stageNames;
     double Jstatic = 0.0;                 ///< after the coordination sweeps
     double Jfinal  = 0.0;                 ///< after reallocation
+    double staticTime  = 0.0;             ///< [s] wall time of the initial (static) solve
+    double reallocTime = 0.0;             ///< [s] wall time of the audit + reallocation rounds
     std::vector<ReallocTrial> log;
     ClusterAudit audit;                   ///< the final audit
     /// Cells whose centre the TEAM detects with P >= 0.5 (fast model), their
