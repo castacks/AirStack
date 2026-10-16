@@ -18,17 +18,22 @@ def test_safe_main_study_policies_have_source_adapters():
     source_names = config['agents']
     discovered = discover_policies(str(Path(__file__).resolve().parents[1] / 'agents'))
     assert source_names
-    for source_name in source_names:
-        air_name = 'safe' + source_name
-        assert air_name in discovered, source_name
-        profile = get_profile(air_name)
-        assert profile['name'] == air_name
+    for name in source_names:
+        assert name in discovered, name
+        profile = get_profile(name)
+        assert profile['name'] == name
+        assert profile['source'] == 'safe'
         assert profile['control_mode'] in ('velocity', 'setpoint', 'attitude_thrust')
 
 
+def test_airstack_baselines_are_not_safe_policies():
+    for name in ('droan', 'airstackrandom', 'airstackaggressive', 'airstackconservative'):
+        assert get_profile(name).get('source') != 'safe'
+        assert 'SAFE_EVAL_STATE_HZ' not in get_profile(name)['agent_env']
+
+
 def test_learned_camera_contract_reaches_launch_profile():
-    for name in ('safediffphysdrone', 'safedepthnav', 'safediffaero',
-                 'safevitfly', 'safeagileautonomy'):
+    for name in ('diffphysdrone', 'depthnav', 'diffaero', 'vitfly', 'agileautonomy'):
         env = get_profile(name)['agent_env']
         assert int(env['SAFE_POV_RES']) > 0
         assert float(env['SAFE_POV_HFOV_DEG']) > 0

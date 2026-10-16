@@ -114,11 +114,13 @@ class _FakeScenario:
         self.pos = np.zeros(3)
         self.target = None
         self.capture_built = 0
+        self.static_radii = []
         self.alive = True
 
     def _state(self):
         return {"t": self.t, "drone_pos": self.pos.tolist(), "drone_vel": [0.0, 0.0, 0.0],
-                "dynamic": [], "dynamic_vel": [], "collision": False, "collision_with": ""}
+                "dynamic": [], "dynamic_vel": [], "dynamic_targets": [],
+                "collision": False, "collision_with": ""}
 
     def command(self, cmd, args=None, timeout=30.0):
         args = args or {}
@@ -143,12 +145,17 @@ class _FakeScenario:
                 return a.tolist()
             start, target = isaac([layout["agent_location"]])[0], isaac([layout["target_location"]])[0]
             self.target = np.asarray(target)
+            self.static_radii = [0.3] * len(layout["static_cylinder_locations"])
             return {"start": start, "target": target,
                     "static_cylinder_locations": isaac(layout["static_cylinder_locations"]),
                     "static_obstacle_locations": isaac(layout["static_obstacle_locations"]),
                     "dynamic_obstacle_locations": [], "dynamic_obstacle_velocities": [],
                     "dynamic_obstacle_waypoints": [],
+                    "static_radii": self.static_radii,
+                    "dynamic_radius": 0.3,
                     "ground_z": float(cfg.origin_z), "scenario_difficulty": difficulty}
+        if cmd == "restart_movers":
+            return {"static_radii": self.static_radii, "dynamic_radius": 0.3}
         if cmd == "reset_vehicle":
             self.pos = np.asarray(args["pos"], dtype=float)
             return {}

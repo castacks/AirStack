@@ -40,7 +40,7 @@ def _wall_repulsion(pos, env_bounds, repulsion_radius=1.0, repulsion_gain=1.5):
     return force
 
 
-class Random(Policy):
+class AirstackRandom(Policy):
     """Uniform random baseline — samples a velocity direction each step."""
 
     sensors = ["full_state"]
@@ -53,7 +53,7 @@ class Random(Policy):
         return np.random.uniform(-1.0, 1.0, size=dim).astype(np.float32)
 
 
-class Aggressive(Policy):
+class AirstackAggressive(Policy):
     """Full-speed beeline to the goal, no obstacle avoidance — establishes
     the worst-case risk exposure / collision-rate reference."""
 
@@ -77,7 +77,7 @@ class Aggressive(Policy):
         return action.astype(np.float32)
 
 
-class Conservative(Policy):
+class AirstackConservative(Policy):
     """Moves toward the goal but slows proportionally as obstacles approach,
     and retreats inside stop_radius."""
 

@@ -49,6 +49,8 @@ def _to_safe_benchmark_frame(obs):
 class _SafeVelocity(Policy):
     sensors = ['full_state']
     source_name = ''
+    # Declared so SAFE's harness injects the env, which the source policy reads (e.g. its dt).
+    _env = None
 
     def __init__(self):
         try:
@@ -82,23 +84,23 @@ class _SafeVelocity(Policy):
         return _swap_xy(velocity_benchmark) / max_speed
 
 
-class SafeRandom(_SafeVelocity):
+class Random(_SafeVelocity):
     source_name = 'Random'
 
 
-class SafeAggressive(_SafeVelocity):
+class Aggressive(_SafeVelocity):
     source_name = 'Aggressive'
 
 
-class SafeConservative(_SafeVelocity):
+class Conservative(_SafeVelocity):
     source_name = 'Conservative'
 
 
-class SafeAdaptiveApf(_SafeVelocity):
+class AdaptiveApf(_SafeVelocity):
     source_name = 'AdaptiveApf'
 
 
-class SafeAdaptive(_SafeVelocity):
+class Adaptive(_SafeVelocity):
     """SAFE main-study Adaptive baseline with the same source policy logic."""
 
     source_name = "Adaptive"

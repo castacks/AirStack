@@ -248,11 +248,4 @@ class StackHandle:
 
     def set_pid_output(self, enabled: bool) -> None:
         """Give external SAFE setpoints exclusive PX4 control after AirStack takeoff."""
-        result = ros.service_call(
-            self.container, f"/{ROBOT}/control/safe_eval_pid_output_enabled",
-            "std_srvs/srv/SetBool", f"{{data: {str(bool(enabled)).lower()}}}",
-            domain_id=ROBOT_DOMAIN)
-        if result.returncode != 0 or "success=true" not in result.stdout.replace(" ", "").lower():
-            raise RuntimeError(
-                f"failed to {'enable' if enabled else 'disable'} AirStack PID output: "
-                f"{result.stdout[-800:]} {result.stderr[-800:]}")
+        self.bridge.set_pid_output(enabled)

@@ -13,11 +13,11 @@ on this branch since that update, or before it. Everything below marked
 
 - `droan`: AirStack full-stack planner profile (source is AirStack, not a SAFE
   aerial policy). Its native task interface is `NavigateTask`.
-- `random`, `aggressive`, `conservative`: older AirStack-specific baselines.
-  Their implementations and speeds differ from SAFE's namesakes. Do not pool
-  these results with the SAFE aerial runs.
-- `saferandom`, `safeaggressive`, `safeconservative`, `safeadaptive`,
-  `safeadaptiveapf`: import SAFE's source classes from
+- `airstackrandom`, `airstackaggressive`, `airstackconservative`: older
+  AirStack-specific baselines. Their implementations and speeds differ from
+  SAFE's namesakes. Do not pool these results with the SAFE aerial runs.
+- `random`, `aggressive`, `conservative`, `adaptive`, `adaptiveapf`: import
+  SAFE's source classes from
   `integrations.navigation.aerial.policies.baselines`, call their policy logic
   on AirStack observations, and convert their m/s velocity to the normalized
   AirStack trajectory-override input. Their observations and actions cross
@@ -46,7 +46,7 @@ The branch was written against SAFE as of 2026-10-03. These breaks were fixed:
 | Lighting | SAFE lights USD stages too, with the domain's sky HDR when it has one | `safe_source_scene.load_domain` |
 | Optional hooks | `resolved_domain`, `perturbations_vary_episodes` | `eval/adapter.py` |
 | Planner sidecar registry | `fault()` is gone; records are resolved and probed | `run_agent_hook` polls `resolve()` and `is_sidecar()` |
-| Main study roster | `paper/main_moving.yaml` now flies `sando` and leaves `panther` out | `safesando` wrapper added (unflown) |
+| Main study roster | `paper/main_moving.yaml` now flies `sando` and leaves `panther` out | `sando` wrapper added (unflown) |
 | Episode video | `debug:` profiles with capture call `env.get_debug_frames()` | the launcher's `capture_frames` command renders an overview and a drone-tracking camera; the env decodes them for SAFE's recorder |
 
 Container safety on a shared machine:
@@ -63,7 +63,7 @@ Container safety on a shared machine:
 
 Known gaps, not fixed:
 
-- SAFE's oracles (`safeaggressive`, `safeconservative`, `safeadaptive`) now read
+- SAFE's oracles (`aggressive`, `conservative`, `adaptive`) now read
   `static_cylinder_radii`, `dynamic_obstacle_targets` and `dynamic_obstacle_radii`
   from `full_state`. AirStack's observation does not carry them yet, so those
   wrappers raise a `KeyError` at their first step. DROAN is unaffected.

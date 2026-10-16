@@ -39,6 +39,7 @@ import time
 
 import rclpy
 from rclpy.action import ActionClient
+from rclpy.clock import Clock, ClockType
 from rclpy.node import Node
 from rclpy.parameter import Parameter
 
@@ -60,6 +61,8 @@ try:
     from airstack_msgs.msg import TrajectoryXYZVYaw, WaypointXYZVYaw
 except ImportError:  # workspace not built — global_plan / command paths still work
     TrajectoryXYZVYaw = WaypointXYZVYaw = None
+
+from std_srvs.srv import SetBool
 
 try:
     from task_msgs.action import NavigateTask
@@ -85,11 +88,13 @@ class SafeEvalBridge(Node):
         self._last_odom_emit = 0.0
         self._sensor_lock = threading.Lock()
         self._sensors = {}
-        self.create_subscription(Image, f"/{robot}/sensors/front_stereo/left/depth_ground_truth",
+        # The policy camera is the right ZED eye: Isaac's ZED graph advertises no left depth topic.
+        self.create_subscription(Image, f"/{robot}/sensors/front_stereo/right/depth_ground_truth",
                                  lambda msg: self._on_image("depth", msg), qos_profile_sensor_data)
-        self.create_subscription(Image, f"/{robot}/sensors/front_stereo/left/image_rect",
+        self.create_subscription(Image, f"/{robot}/sensors/front_stereo/right/image_rect",
                                  lambda msg: self._on_image("rgb", msg), qos_profile_sensor_data)
-        self.create_subscription(Imu, f"/{robot}/sensors/imu", self._on_imu,
+        # PX4's IMU through MAVROS, the only IMU topic the stack publishes.
+        self.create_subscription(Imu, f"/{robot}/interface/mavros/imu/data", self._on_imu,
                                  qos_profile_sensor_data)
         self.create_subscription(PointCloud2, f"/{robot}/sensors/lidar/point_cloud_raw",
                                  self._on_lidar, qos_profile_sensor_data)
@@ -126,9 +131,15 @@ class SafeEvalBridge(Node):
             if CancelGoal is not None else None
         )
         self._navigate_handle = None
+        # The PID gate is called from this already-discovered node: a fresh ros2 CLI process
+        # can take longer than its timeout to discover the service under lidar traffic.
+        self.pid_gate_client = self.create_client(
+            SetBool, f"/{robot}/control/safe_eval_pid_output_enabled")
 
         self._inbox: "queue.Queue[dict]" = queue.Queue()
-        self.create_timer(0.02, self._drain_inbox)
+        # Host requests are served on wall time, since sim time stands still while the host
+        # holds Isaac between ticks.
+        self.create_timer(0.02, self._drain_inbox, clock=Clock(clock_type=ClockType.STEADY_TIME))
         threading.Thread(target=self._stdin_loop, daemon=True).start()
         emit({"kind": "ready"})
 
@@ -220,6 +231,17 @@ class SafeEvalBridge(Node):
             self._send_navigate(msg["waypoints"], float(msg.get("goal_tolerance", 1.0)))
         elif kind == "cancel_navigate":
             self._cancel_navigate()
+        elif kind == "pid_output":
+            if not self.pid_gate_client.service_is_ready():
+                emit({"kind": "pid_output", "success": False,
+                      "error": "safe_eval_pid_output_enabled service is not available"})
+                return
+            request = SetBool.Request()
+            request.data = bool(msg["enabled"])
+            self.pid_gate_client.call_async(request).add_done_callback(
+                lambda future: emit({"kind": "pid_output",
+                                     "success": bool(future.result().success),
+                                     "error": future.result().message}))
         elif kind == "global_plan":
             self.plan_pub.publish(self._make_path(msg["waypoints"]))
         elif kind == "sensor_snapshot":

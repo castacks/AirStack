@@ -37,6 +37,7 @@ def _env():
         set_trajectory_mode=modes.append)
     env._ros_offset = np.array([10., 20., 1.])
     env._external_control_active = False
+    env.host_steps = False
     return env, bridge, gate, modes
 
 
@@ -92,6 +93,5 @@ def test_episode_hold_restores_pid_before_trajectory_hold():
 
 
 def test_safe_source_velocity_profiles_do_not_clamp_ten_meter_per_second_actions():
-    for name in ('saferandom', 'safeaggressive', 'safeconservative',
-                 'safeadaptiveapf', 'safeadaptive', 'safevitfly'):
+    for name in ('random', 'aggressive', 'conservative', 'adaptiveapf', 'adaptive', 'vitfly'):
         assert PROFILES[name]['max_speed'] >= 10.0

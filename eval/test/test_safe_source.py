@@ -1,9 +1,8 @@
 import numpy as np
 import pytest
 
-from eval.agents.safe_source import (
-    SafeAggressive, SafeConservative, SafeAdaptiveApf, _swap_xy,
-    _to_safe_benchmark_frame)
+from eval.agents import safe_source as air
+from eval.agents.safe_source import _swap_xy, _to_safe_benchmark_frame
 from integrations.navigation.aerial.policies.baselines import (
     Aggressive, Conservative, AdaptiveApf)
 
@@ -38,14 +37,14 @@ def _oracle_obs():
 
 def test_safe_aggressive_delegates_to_source_policy():
     obs = _oracle_obs()
-    actual = SafeAggressive().act(obs)
+    actual = air.Aggressive().act(obs)
     expected = _swap_xy(Aggressive().act(_to_safe_benchmark_frame(obs))) / obs['max_speed']
     np.testing.assert_allclose(actual, expected)
 
 
 def test_safe_conservative_delegates_to_source_policy():
     obs = _oracle_obs()
-    actual = SafeConservative().act(obs)
+    actual = air.Conservative().act(obs)
     reference = Conservative()
     reference.reset()
     expected = _swap_xy(reference.act(_to_safe_benchmark_frame(obs))) / obs['max_speed']
@@ -87,5 +86,5 @@ def test_safe_adaptive_apf_delegates_to_source_policy():
     reference = AdaptiveApf()
     reference.reset()
     expected = _swap_xy(reference.act(_to_safe_benchmark_frame(obs))) / obs['max_speed']
-    actual = SafeAdaptiveApf().act(obs)
+    actual = air.AdaptiveApf().act(obs)
     np.testing.assert_allclose(actual, expected)

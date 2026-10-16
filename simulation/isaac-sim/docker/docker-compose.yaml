@@ -48,6 +48,8 @@ services:
       - SAFE_POV_HFOV_DEG=${SAFE_POV_HFOV_DEG:-}
       - SAFE_POV_VFOV_DEG=${SAFE_POV_VFOV_DEG:-}
       - SAFE_POV_HZ=${SAFE_POV_HZ:-}
+      # Kit's sensor extensions can switch the process locale to ASCII; SAFE's files are UTF-8.
+      - PYTHONUTF8=1
       # SAFE's photoreal stages, stage exports (ground map, occupancy, density bands),
       # skies and UrbanVerse cities, read from the read-only assets mount below.
       - SAFE_BAKED_STAGES=${SAFE_BENCHMARK_ASSETS:-${HOME}/safe_benchmark_assets}/stages

@@ -36,6 +36,7 @@ class StackBridge:
         self._odom_frame: str | None = None
         self._odom_pos: list | None = None
         self._navigate_ack: bool | None = None
+        self._pid_reply: dict | None = None
         self._sensors: dict = {}
         self._sensor_revision = 0
         self._ready = False
@@ -100,6 +101,8 @@ class StackBridge:
                     self._sensor_revision += 1
                 elif kind == "navigate":
                     self._navigate_ack = bool(msg.get("accepted"))
+                elif kind == "pid_output":
+                    self._pid_reply = msg
                 elif kind == "ready":
                     self._ready = True
                 self._lock.notify_all()
@@ -129,6 +132,27 @@ class StackBridge:
             self._lock.wait_for(lambda: self._navigate_ack is not None or not self.alive,
                                 timeout=timeout)
             return bool(self._navigate_ack)
+
+    def set_pid_output(self, enabled: bool, timeout: float = 20.0) -> None:
+        """Gate AirStack's PID output through the bridge node; raises when the gate refuses
+        or the service never appears within the timeout."""
+        import time
+        deadline = time.monotonic() + timeout
+        while True:
+            with self._lock:
+                self._pid_reply = None
+            self._send({"kind": "pid_output", "enabled": bool(enabled)})
+            with self._lock:
+                self._lock.wait_for(lambda: self._pid_reply is not None or not self.alive,
+                                    timeout=max(0.1, deadline - time.monotonic()))
+                reply = self._pid_reply
+            if reply is not None and reply.get("success"):
+                return
+            if time.monotonic() >= deadline or not self.alive:
+                raise BridgeError(
+                    f"failed to {'enable' if enabled else 'disable'} AirStack PID output: "
+                    f"{(reply or {}).get('error', 'no reply from the container bridge')}")
+            time.sleep(0.5)
 
     def cancel_navigate(self) -> None:
         if self.alive:

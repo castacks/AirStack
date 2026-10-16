@@ -7,11 +7,9 @@ Stack agents — the planner-under-test IS the AirStack autonomy stack. The
     drone is flown by the stack itself, fed a real global plan. Which planner
     runs is a bring-up profile, not a bridge.
 
-Velocity baselines — vendored from the S.A.F.E. reference integration
-    (integrations/navigation/aerial/policies/baselines.py). Their normalized velocity
-    actions are executed as trajectory_override segments on the real
-    trajectory controller, so baselines and planners share the same
-    interface layer and the comparison is apples-to-apples.
+SAFE policies — SAFE's own oracles, learned policies and planners under their
+    SAFE names, wrapped so AirStack's stack executes their actions. Their
+    profiles carry "source": "safe".
 
 The runner looks up each agent's bring-up profile in PROFILES by lowercase
 class name (one process per agent — safe_core's multi-agent suite spawns
@@ -24,14 +22,14 @@ import numpy as np
 
 from safe_core.core.policy import Policy
 
-from .baselines import Random, Aggressive, Conservative  # noqa: F401  (auto-discovered)
-from .safe_source import (SafeRandom, SafeAggressive, SafeConservative,
-                          SafeAdaptiveApf, SafeAdaptive)  # noqa: F401
-from .learned_source import (SafeDiffPhysDrone, SafeDepthNav, SafeDiffAero,
-                             SafeVitfly, SafeAgileAutonomy)  # noqa: F401
-from .planner_source import (SafeFastPlanner, SafeEgoPlanner, SafeRaptor,
-                             SafeFaster, SafeSuper, SafeMighty, SafeDynus,
-                             SafePanther, SafeSando)  # noqa: F401
+from .baselines import AirstackRandom, AirstackAggressive, AirstackConservative  # noqa: F401  (auto-discovered)
+from .safe_source import (Random, Aggressive, Conservative,
+                          AdaptiveApf, Adaptive)  # noqa: F401
+from .learned_source import (DiffPhysDrone, DepthNav, DiffAero,
+                             Vitfly, AgileAutonomy)  # noqa: F401
+from .planner_source import (FastPlanner, EgoPlanner, Raptor,
+                             Faster, Super, Mighty, Dynus,
+                             Panther, Sando)  # noqa: F401
 
 
 class DROAN(Policy):
@@ -48,11 +46,19 @@ class DROAN(Policy):
         pass
 
 
+def _safe(name: str, mode: str, **extra) -> dict:
+    """The bring-up profile of a SAFE policy flown by AirStack's stack."""
+    return {"name": name, "control_mode": mode, "source": "safe", **extra}
+
+
 # Bring-up profile per lowercase agent class name. The env consumes:
-#   control_mode  "stack" (env publishes global_plan, ignores actions) or
-#                 "velocity" (actions → trajectory_override)
+#   control_mode  "stack" (env publishes global_plan, ignores actions),
+#                 "velocity" (actions → trajectory_override), "setpoint" or "attitude_thrust"
+#   source        "safe" for SAFE's policies, which step Isaac one tick per act() and need the
+#                 60 Hz state stream
 #   agent_env     extra env vars for `airstack up`
 #   post_up_cmds  commands run in the robot container after readiness
+LIDAR = {"agent_env": {"ENABLE_LIDAR": "true"}}
 PROFILES: dict[str, dict] = {
     "droan": {
         "name": "droan",
@@ -60,30 +66,26 @@ PROFILES: dict[str, dict] = {
         "agent_env": {"AUTONOMY_ROLE": "full"},
         "post_up_cmds": [],
     },
-    # Velocity baselines fly through the trajectory controller; the local
+    # AirStack's own velocity baselines fly through the trajectory controller; the local
     # planner's own output is unused (it has no global plan to follow).
-    "random":       {"name": "random",       "control_mode": "velocity"},
-    "aggressive":   {"name": "aggressive",   "control_mode": "velocity"},
-    "conservative": {"name": "conservative", "control_mode": "velocity"},
-    "saferandom":       {"name": "saferandom",       "control_mode": "velocity", "max_speed": 10.0},
-    "safeaggressive":   {"name": "safeaggressive",   "control_mode": "velocity", "max_speed": 10.0},
-    "safeconservative": {"name": "safeconservative", "control_mode": "velocity", "max_speed": 10.0},
-    "safeadaptiveapf":  {"name": "safeadaptiveapf",  "control_mode": "velocity", "max_speed": 10.0},
-    "safeadaptive":     {"name": "safeadaptive", "control_mode": "velocity", "max_speed": 10.0,
-                         "agent_env": {"ENABLE_LIDAR": "true"}},
-    **{name: ({"name": name, "control_mode": "setpoint",
-               "agent_env": {"ENABLE_LIDAR": "true"}}
-              if name in ("safesuper", "safemighty", "safedynus",
-                          "safeegoplanner", "safesando")
-              else {"name": name, "control_mode": "setpoint"})
-       for name in ("safefastplanner", "safeegoplanner", "saferaptor",
-                    "safefaster", "safesuper", "safemighty", "safedynus",
-                    "safepanther", "safesando")},
-    **{name: {"name": name, "control_mode": "attitude_thrust"} for name in (
-        "safediffphysdrone", "safedepthnav", "safediffaero",
-        "safeagileautonomy")},
-    "safevitfly": {"name": "safevitfly", "control_mode": "velocity", "max_speed": 10.0},
+    "airstackrandom":       {"name": "airstackrandom",       "control_mode": "velocity"},
+    "airstackaggressive":   {"name": "airstackaggressive",   "control_mode": "velocity"},
+    "airstackconservative": {"name": "airstackconservative", "control_mode": "velocity"},
+    "random":       _safe("random", "velocity", max_speed=10.0),
+    "aggressive":   _safe("aggressive", "velocity", max_speed=10.0),
+    "conservative": _safe("conservative", "velocity", max_speed=10.0),
+    "adaptiveapf":  _safe("adaptiveapf", "velocity", max_speed=10.0),
+    "adaptive":     _safe("adaptive", "velocity", max_speed=10.0, **LIDAR),
+    **{name: _safe(name, "setpoint", **(LIDAR if name in ("super", "mighty", "dynus", "egoplanner", "sando") else {}))
+       for name in ("fastplanner", "egoplanner", "raptor", "faster", "super", "mighty", "dynus", "panther", "sando")},
+    **{name: _safe(name, "attitude_thrust") for name in ("diffphysdrone", "depthnav", "diffaero", "agileautonomy")},
+    "vitfly": _safe("vitfly", "velocity", max_speed=10.0),
 }
+
+
+def is_safe_policy(agent_name: str | None) -> bool:
+    """Whether the named agent is one of SAFE's policies rather than AirStack's own."""
+    return bool(agent_name) and PROFILES.get(agent_name.lower(), {}).get("source") == "safe"
 
 
 def get_profile(agent_name: str | None) -> dict:
@@ -95,16 +97,16 @@ def get_profile(agent_name: str | None) -> dict:
             f"No bring-up profile for agent '{agent_name}'. "
             f"Known: {', '.join(sorted(PROFILES))}")
     profile = {**profile, "agent_env": dict(profile.get("agent_env") or {})}
-    if agent_name.lower().startswith("safe"):
+    if profile.get("source") == "safe":
         profile["agent_env"]["SAFE_EVAL_STATE_HZ"] = "60"
     # Read each trained camera contract from SAFE's policy class, so changing a
     # SAFE checkpoint/camera definition does not leave an AirStack copy stale.
     learned = {
-        "safediffphysdrone": SafeDiffPhysDrone,
-        "safedepthnav": SafeDepthNav,
-        "safediffaero": SafeDiffAero,
-        "safevitfly": SafeVitfly,
-        "safeagileautonomy": SafeAgileAutonomy,
+        "diffphysdrone": DiffPhysDrone,
+        "depthnav": DepthNav,
+        "diffaero": DiffAero,
+        "vitfly": Vitfly,
+        "agileautonomy": AgileAutonomy,
     }
     wrapper = learned.get(agent_name.lower())
     if wrapper is not None:

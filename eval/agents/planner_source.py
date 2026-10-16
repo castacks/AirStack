@@ -55,50 +55,42 @@ class _AirStackPlanner:
         return action
 
 
-class SafeFastPlanner(_AirStackPlanner, _fast_planner.FastPlanner):
+class FastPlanner(_AirStackPlanner, _fast_planner.FastPlanner):
     pass
 
 
-class SafeEgoPlanner(_AirStackPlanner, _ego_planner.EgoPlanner):
+class EgoPlanner(_AirStackPlanner, _ego_planner.EgoPlanner):
     pass
 
 
-class SafeRaptor(_AirStackPlanner, _raptor.Raptor):
+class Raptor(_AirStackPlanner, _raptor.Raptor):
     pass
 
 
-class SafeFaster(_AirStackPlanner, _faster.Faster):
+class Faster(_AirStackPlanner, _faster.Faster):
     pass
 
 
-class SafeSuper(_AirStackPlanner, _super.Super):
+class Super(_AirStackPlanner, _super.Super):
     pass
 
 
-class SafeMighty(_AirStackPlanner, _mighty.Mighty):
+class Mighty(_AirStackPlanner, _mighty.Mighty):
     pass
 
 
-class SafeDynus(_AirStackPlanner, _dynus.Dynus):
+class Dynus(_AirStackPlanner, _dynus.Dynus):
     pass
 
 
-class SafePanther(_AirStackPlanner, _panther.Panther):
+class Panther(_AirStackPlanner, _panther.Panther):
     pass
 
 
-class SafeSando(_AirStackPlanner, _sando.Sando):
+class Sando(_AirStackPlanner, _sando.Sando):
     pass
 
 
-PLANNER_NAMES = {
-    'safefastplanner': 'fastplanner',
-    'safeegoplanner': 'egoplanner',
-    'saferaptor': 'raptor',
-    'safefaster': 'faster',
-    'safesuper': 'super',
-    'safemighty': 'mighty',
-    'safedynus': 'dynus',
-    'safepanther': 'panther',
-    'safesando': 'sando',
-}
+# The SAFE planners that run a ROS sidecar, by policy name, which is also the sidecar's name.
+PLANNER_NAMES = frozenset(('fastplanner', 'egoplanner', 'raptor', 'faster', 'super', 'mighty', 'dynus',
+                           'panther', 'sando'))

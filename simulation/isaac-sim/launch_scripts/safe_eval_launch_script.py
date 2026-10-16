@@ -82,6 +82,10 @@ ROS_DOMAIN = 1  # matches robot_1's resolved ROS_DOMAIN_ID in the robot containe
 
 SERVER_PORT = 8899
 STATE_HZ = float(os.environ.get("SAFE_EVAL_STATE_HZ") or "10.0")
+RENDER_DT = 1.0 / 60.0
+PHYSICS_DT = RENDER_DT / 4
+# Sim times closer than this are the same tick; accumulated float sums differ in the last bits.
+TICK_TOLERANCE_S = PHYSICS_DT / 2
 
 _DEFAULT_CONFIG = {
     "env_url": None,
@@ -397,6 +401,17 @@ class ScenarioManager:
         self._last_state_pub = -1e9
         self._pending_vehicle_reset = None
         self._capture = None  # FrameCapture, built on the first capture_frames request
+        # Ticks the host has released while it steps the sim; None while the sim free-runs.
+        self._ticks_left: int | None = None
+        self._last_scenario_args: dict | None = None
+
+    def holding(self) -> bool:
+        """Whether the host is stepping the sim and has no tick released."""
+        return self._ticks_left == 0
+
+    def tick_done(self) -> None:
+        if self._ticks_left:
+            self._ticks_left -= 1
 
     # ── TCP plumbing ─────────────────────────────────────────────────────
 
@@ -455,8 +470,9 @@ class ScenarioManager:
                 resp = {"kind": "response", "id": cmd_id, "cmd": cmd, "ok": True,
                         "data": data}
             except Exception as e:  # report failure to harness, keep sim alive
+                import traceback
                 resp = {"kind": "response", "id": cmd_id, "cmd": cmd, "ok": False,
-                        "error": str(e)}
+                        "error": f"{e}\n{traceback.format_exc(limit=-4)}"}
             self._send_line(wfile, resp)
 
     def _dispatch(self, cmd, args):
@@ -475,6 +491,12 @@ class ScenarioManager:
             }
         if cmd == "set_scenario":
             return self._set_scenario(args)
+        if cmd == "restart_movers":
+            # Episodes start with the movers at the scenario's sampled poses, not wherever
+            # they walked during takeoff and the run-up.
+            if self._last_scenario_args is None:
+                raise ValueError("restart_movers needs a scenario set first")
+            return self._set_scenario(self._last_scenario_args)
         if cmd == "generate_safe_scenario":
             return self._generate_safe_scenario(args)
         if cmd == "reset_vehicle":
@@ -488,6 +510,15 @@ class ScenarioManager:
         if cmd == "clear_collision":
             self.collision = False
             self.collision_with = ""
+            return {}
+        if cmd == "set_stepping":
+            # On, the sim holds after this tick until the host advances it; off, it free-runs.
+            self._ticks_left = 0 if args.get("on") else None
+            return {"t": self._sim_time()}
+        if cmd == "advance":
+            if self._ticks_left is None:
+                raise ValueError("advance needs set_stepping on")
+            self._ticks_left += int(args.get("ticks", 1))
             return {}
         if cmd == "capture_frames":
             if self._capture is None:
@@ -542,7 +573,7 @@ class ScenarioManager:
         dynamic = world_positions(layout['dynamic_obstacle_locations'])
         velocities = world_positions(layout['dynamic_obstacle_velocities'], ground=True)
         waypoints = world_positions(layout['dynamic_obstacle_waypoints'], ground=True)
-        self._set_scenario({
+        placed = self._set_scenario({
             'static': static, 'dynamic': dynamic,
             'dynamic_vel': velocities, 'waypoints': waypoints,
             'target': target, 'seed': int(args['seed']),
@@ -553,6 +584,8 @@ class ScenarioManager:
         return {
             'start': start, 'target': target,
             'static_cylinder_locations': static,
+            'static_radii': placed['static_radii'],
+            'dynamic_radius': placed['dynamic_radius'],
             'static_obstacle_locations': world_positions(layout['static_obstacle_locations']),
             'dynamic_obstacle_locations': dynamic,
             'dynamic_obstacle_velocities': velocities,
@@ -564,7 +597,8 @@ class ScenarioManager:
         }
 
     def _set_scenario(self, args):
-        static = np.asarray(args.get("static", []), dtype=np.float32).reshape(-1, 3) \
+        self._last_scenario_args = dict(args)
+        static =np.asarray(args.get("static", []), dtype=np.float32).reshape(-1, 3) \
             if args.get("static") else np.zeros((0, 3), dtype=np.float32)
         dyn = np.asarray(args.get("dynamic", []), dtype=np.float32).reshape(-1, 3) \
             if args.get("dynamic") else np.zeros((0, 3), dtype=np.float32)
@@ -632,7 +666,9 @@ class ScenarioManager:
             self.pool._place(self.pool.dynamic_ops, dyn)
         self.collision = False
         self.collision_with = ""
-        return {"n_static": len(static), "n_dynamic": len(dyn)}
+        return {"n_static": len(static), "n_dynamic": len(dyn),
+                "static_radii": self.static_radii.tolist(),
+                "dynamic_radius": self._dynamic_radius()}
 
     # ── per-step update ──────────────────────────────────────────────────
 
@@ -771,14 +807,34 @@ class ScenarioManager:
             )
         self.pool._place(self.pool.dynamic_ops, self.dyn_positions[: self.n_active_dyn])
 
+    def _dynamic_radius(self) -> float:
+        """Collision radius of every moving obstacle: the walker capsule with people, else the pool cylinder."""
+        return float(self.humans.CAPSULE_RADIUS if self.humans is not None else self.obstacle_radius)
+
+    def _dynamic_targets(self) -> np.ndarray:
+        """The waypoint each active mover is walking toward, in Isaac world XY at the mover's height."""
+        targets = np.asarray(self.dyn_positions[: self.n_active_dyn], dtype=np.float32).copy()
+        if self.humans is not None:
+            bench = self.humans.get_waypoints_benchmark()[: len(targets)]
+            targets[:, 0], targets[:, 1] = bench[:, 1], bench[:, 0]
+        else:
+            targets[:, :2] = self.dyn_waypoints[: len(targets), :2]
+        return targets
+
     def _check_collision(self, drone_pos):
         if self.collision:
             return
         p2d = drone_pos[:2]
-        contact = self.drone_radius + (self.humans.CAPSULE_RADIUS
-                                       if self.humans is not None else self.obstacle_radius)
+        contact = self.drone_radius + self._dynamic_radius()
         if self.n_active_dyn > 0:
-            d = np.linalg.norm(self.dyn_positions[: self.n_active_dyn, :2] - p2d, axis=1)
+            centres = self.dyn_positions[: self.n_active_dyn]
+            d = np.linalg.norm(centres[:, :2] - p2d, axis=1)
+            if self.humans is not None:
+                # People are SAFE's collision capsules around these centres, so a drone above a
+                # head is clear: distance to the capsule's axis segment, not to its vertical line.
+                half = self.humans.CAPSULE_HEIGHT / 2.0
+                dz = drone_pos[2] - np.clip(drone_pos[2], centres[:, 2] - half, centres[:, 2] + half)
+                d = np.hypot(d, dz)
             i = int(np.argmin(d))
             if d[i] < contact:
                 self.collision, self.collision_with = True, f"dynamic_obstacle_{i}"
@@ -817,7 +873,7 @@ class ScenarioManager:
                 self._capture.follow(pos)
         self._last_sim_time = t
 
-        if t - self._last_state_pub >= 1.0 / STATE_HZ and pos is not None:
+        if t - self._last_state_pub >= 1.0 / STATE_HZ - TICK_TOLERANCE_S and pos is not None:
             self._last_state_pub = t
             self._broadcast({
                 "kind": "state",
@@ -828,6 +884,7 @@ class ScenarioManager:
                 "static": self.static_positions.round(3).tolist(),
                 "dynamic": self.dyn_positions[: self.n_active_dyn].round(3).tolist(),
                 "dynamic_vel": self.dyn_velocities[: self.n_active_dyn].round(3).tolist(),
+                "dynamic_targets": self._dynamic_targets().round(3).tolist(),
                 "collision": self.collision,
                 "collision_with": self.collision_with,
             })
@@ -845,6 +902,9 @@ class SafeEvalApp:
     def __init__(self):
         self.timeline = omni.timeline.get_timeline_interface()
         self.pg = PegasusInterface()
+        # One loop step is exactly SAFE's 1/60 s control tick: four 1/240 s physics substeps
+        # per render, where Pegasus's 1/250 s default would make each step 0.016 s.
+        self.pg.set_world_settings(physics_dt=PHYSICS_DT, rendering_dt=RENDER_DT)
         self.pg._world = World(**self.pg._world_settings)
         self.world = self.pg.world
         self.timeline.stop()
@@ -1001,6 +1061,11 @@ class SafeEvalApp:
         print(f"[safe_eval] running — ScenarioManager TCP on :{SERVER_PORT}, "
               f"drone topics on ROS domain {ROS_DOMAIN}", flush=True)
         while simulation_app.is_running():
+            if self.manager.holding():
+                # Neither physics nor rendering advances; host commands are still served.
+                self.manager.update()
+                time.sleep(0.0005)
+                continue
             world = World.instance()
             if world is not None and hasattr(world, "_scene"):
                 world.step(render=True)
@@ -1010,6 +1075,7 @@ class SafeEvalApp:
             else:
                 app.update()
             self.manager.update()
+            self.manager.tick_done()
 
         carb.log_warn("Closing simulation.")
         self.manager.shutdown()

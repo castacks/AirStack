@@ -91,7 +91,7 @@ def sample_scenario(cfg, *, seed: int, goal_distance: float | None,
     import numpy as np
 
     from integrations.navigation.common.config.scenarios import (
-        configure_scenario, perturb_scenario)
+        configure_scenario, goal_flight_z, perturb_scenario)
     from integrations.navigation.common.config.scenario_bands import scenario_difficulty
     from safe_isaac import sim_config
 
@@ -123,6 +123,10 @@ def sample_scenario(cfg, *, seed: int, goal_distance: float | None,
     layout = configure_scenario(env)
     env._initial_agent_location = np.asarray(layout['agent_location']).copy()
     env._target_location = np.asarray(layout['target_location']).copy()
+    # Policies see the goal at SAFE's goal altitude above its local ground, as SAFE's Isaac env
+    # presents it; a ground-level goal makes 3D goal-seekers descend into the floor.
+    env._target_location[2] = goal_flight_z(env, env._target_location)
+    layout['target_location'] = env._target_location.copy()
     env._dynamic_obstacle_velocities = layout['dynamic_obstacle_velocities'].copy()
     env._initial_dynamic_obstacle_velocities = layout['dynamic_obstacle_velocities'].copy()
     if perturbation_seed is not None:

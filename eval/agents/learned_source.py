@@ -19,6 +19,8 @@ class _SafeLearned(Policy):
     # SAFE Isaac calls act() once per 60 Hz physics tick; source policies perform
     # their own camera/model decimation on top of that cadence.
     required_dt_s = 1.0 / 60.0
+    # Declared so SAFE's harness injects the env, which the source policy reads (e.g. its dt).
+    _env = None
 
     def __init__(self):
         try:
@@ -51,27 +53,27 @@ class _SafeLearned(Policy):
         return self._source.act(safe_obs)
 
 
-class SafeDiffPhysDrone(_SafeLearned):
+class DiffPhysDrone(_SafeLearned):
     source_module = 'agent_diffphysdrone'
     source_class = 'DiffPhysDrone'
 
 
-class SafeDepthNav(_SafeLearned):
+class DepthNav(_SafeLearned):
     source_module = 'agent_depthnav'
     source_class = 'DepthNav'
 
 
-class SafeDiffAero(_SafeLearned):
+class DiffAero(_SafeLearned):
     source_module = 'agent_diffaero'
     source_class = 'DiffAero'
 
 
-class SafeAgileAutonomy(_SafeLearned):
+class AgileAutonomy(_SafeLearned):
     source_module = 'agent_agile_autonomy'
     source_class = 'AgileAutonomy'
 
 
-class SafeVitfly(_SafeLearned):
+class Vitfly(_SafeLearned):
     source_module = 'agent_vitfly'
     source_class = 'Vitfly'
     action_type = 'velocity'

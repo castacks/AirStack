@@ -93,12 +93,12 @@ accordingly when picking K/N/P/T. Domain switches restart the stack.
 
 ## Agents
 
-`safeaggressive`, `safeconservative`, `safeadaptive`, the nine `safe*`
-planner wrappers (SAFE's main study flies eight of them; panther is left out
-there), and the five `safe*` learned wrappers cover every policy in SAFE's
-`paper/main_moving.yaml`. The `safe` prefix distinguishes source
-policies from AirStack's older `aggressive` and `conservative` baselines.
-`safevitfly` also starts the source VitFly ROS sidecar. `airstack safe --list`
+SAFE's policies keep their SAFE names: `aggressive`, `conservative`, `adaptive`, the nine
+planner wrappers (SAFE's main study flies eight of them; panther is left out there), and the
+five learned wrappers cover every policy in SAFE's `paper/main_moving.yaml`. Their profiles in
+`eval/agents/agents.py` carry `"source": "safe"`, which selects the 60 Hz state stream and the
+one-tick lockstep. AirStack's own older baselines are `airstackrandom`, `airstackaggressive` and
+`airstackconservative`. `vitfly` also starts the source VitFly ROS sidecar. `airstack safe --list`
 shows exact selectable names. Learned profiles read each source policy's camera
 contract and pass it to the AirStack Isaac launcher. Planner profiles enable
 RTX lidar where their source sensor contract requires it.

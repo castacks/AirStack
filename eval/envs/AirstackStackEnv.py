@@ -35,7 +35,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 
 from safe_core.core.env_backend import BaseEnvBackend
-from safe_core.utils import console
+from safe_core.utils import config, console
 
 from ..sim import scenario_config
 from ..stack.compose import StackHandle
@@ -54,6 +54,13 @@ class _BoxActionSpace:
 
 class AirstackStackEnv(BaseEnvBackend):
 
+    # Sim times closer than this are the same Isaac tick (1/60 s apart).
+    TICK_TOLERANCE_S = 1e-3
+    # Policy sensors served from the robot container's ROS topics rather than ground truth.
+    ROS_SENSORS = frozenset({"depth", "rgb", "lidar", "imu", "tof_depth"})
+    # Farthest a velocity policy's integrated reference may lead the drone, in metres.
+    VELOCITY_REF_LEASH_M = 1.0
+
     def __init__(self, env_cfg, agent_profile: dict, *,
                  max_episode_time: float = 60.0, dt: float = 0.5,
                  max_steps: Optional[int] = None, max_speed: float = 3.0,
@@ -62,8 +69,12 @@ class AirstackStackEnv(BaseEnvBackend):
                  takeoff_velocity: float = 1.0, headless: bool = True,
                  keep_up: bool = False, humans: bool = False,
                  goal_distance: float | None = None,
-                 static_only: bool = False):
+                 static_only: bool = False, sensors: list | None = None):
         self.env_cfg = env_cfg
+        # The ROS sensor snapshot is a bridge round trip, so it is taken only for policies that read one.
+        self.reads_ros_sensors = bool(set(sensors or []) & self.ROS_SENSORS)
+        # SAFE policies act once per 1/60 s tick, so Isaac waits for each of their steps.
+        self.host_steps = agent_profile.get("source") == "safe"
         self.agent_profile = dict(agent_profile)
         self.humans = bool(humans)
         self.goal_distance = goal_distance
@@ -112,6 +123,9 @@ class AirstackStackEnv(BaseEnvBackend):
         self._traj_risk: list = []
         self._dynamic_obstacle_velocities = np.zeros((0, 3), dtype=np.float32)
         self._initial_dynamic_obstacle_velocities = np.zeros((0, 3), dtype=np.float32)
+        # Collider radii the ScenarioManager placed, set from its reply on every reset.
+        self._static_cylinder_radii = np.zeros(0, dtype=np.float32)
+        self._dynamic_radius: float | None = None
         self.static_obstacle_aabbs = np.zeros((0, 4), dtype=np.float32)
         self._static_mesh_positions = np.zeros((0, 3), dtype=np.float32)
 
@@ -120,6 +134,10 @@ class AirstackStackEnv(BaseEnvBackend):
         self._start = np.zeros(3, dtype=np.float32)
         self._step_count = 0
         self._last_obs: dict | None = None
+        # Frames reset rendered for the recorder warm-up, served until the first step.
+        self._warm_frames: dict | None = None
+        # World position a velocity policy's commands have integrated to this episode.
+        self._velocity_ref: np.ndarray | None = None
         self._last_state_t = 0.0
         self._episode_start_t = 0.0
         self._ros_offset = np.zeros(3)
@@ -237,6 +255,7 @@ class AirstackStackEnv(BaseEnvBackend):
             }, timeout=120)
             self._ground_z = float(generated['ground_z'])
             self._scenario_difficulty = generated.get('scenario_difficulty')
+            self._set_collider_radii(generated)
             self._layout = {
                 'agent_location': np.asarray(generated['start'], dtype=np.float32),
                 'target_location': np.asarray(generated['target'], dtype=np.float32),
@@ -284,14 +303,14 @@ class AirstackStackEnv(BaseEnvBackend):
         n_active = self._active_dynamic_obstacles
         cylinders = layout["static_cylinder_locations"]
         if not source_domain:
-            scenario.command("set_scenario", {
+            self._set_collider_radii(scenario.command("set_scenario", {
                 "static": cylinders.tolist(),
                 "dynamic": layout["dynamic_obstacle_locations"][:n_active].tolist(),
                 "dynamic_vel": self._initial_dynamic_obstacle_velocities[:n_active].tolist(),
                 "waypoints": layout["dynamic_obstacle_waypoints"][:n_active].tolist(),
                 "target": self._target.tolist(),
                 "seed": int(self._scenario_seed or 0),
-            })
+            }))
 
         # 3. Take off through the stack's own action server, then fly the run-up
         #    to the start on the trajectory controller.
@@ -304,20 +323,50 @@ class AirstackStackEnv(BaseEnvBackend):
         if self.agent_profile.get("control_mode", "stack") == "stack":
             self._send_navigate_goal()
 
-        scenario.command("clear_collision")
-        state = scenario.wait_state()
+        # Recorder warm-up renders happen here, before the episode's first state, so the
+        # policy's first step is not measured across them.
+        self._warm_frames = None
+        if config.debug.capture_video:
+            self._warm_frames = self._warm_capture()
+        # The people walked during takeoff and the run-up, so they go back to the scenario's
+        # sampled start poses as the episode begins.
+        self._set_collider_radii(scenario.command("restart_movers"))
+        if self.host_steps:
+            # AirStack's PID gate answers only while sim time runs, so external control is
+            # taken here, the moment before Isaac is held.
+            if self.agent_profile.get("control_mode") in ("setpoint", "attitude_thrust"):
+                self.stack.set_pid_output(False)
+                self._external_control_active = True
+            held_t = float(scenario.command("set_stepping", {"on": True})["t"])
+            scenario.command("clear_collision")
+            state = scenario.wait_sim_time(held_t - self.TICK_TOLERANCE_S)
+        else:
+            scenario.command("clear_collision")
+            state = scenario.wait_state()
         self._last_state_t = float(state.get("t", 0.0))
         self._episode_start_t = self._last_state_t
         self._step_count = 0
         self._collided = False
         self._traj_risk = []
+        self._velocity_ref = None
         obs = self._build_obs(state)
         self._last_obs = obs
         return obs, {"distance": self._goal_distance(obs)}
 
+    def _set_collider_radii(self, reply: dict) -> None:
+        """Keep the static and moving collider radii from the ScenarioManager's scenario reply."""
+        for key in ("static_radii", "dynamic_radius"):
+            if reply.get(key) is None:
+                raise RuntimeError(
+                    f"ScenarioManager reply lacks {key!r}; the Isaac launch script predates "
+                    "the oracle observation fields, so restart the stack with the current one")
+        self._static_cylinder_radii = np.asarray(reply["static_radii"], dtype=np.float32).reshape(-1)
+        self._dynamic_radius = float(reply["dynamic_radius"])
+
     def _ensure_landed_at(self, start_world: np.ndarray, yaw: float = 0.0) -> None:
         """Land wherever we are, then teleport (disarmed) to the given pose."""
         scenario = self.stack.scenario
+        self._free_run()
         if self._external_control_active:
             self.stack.bridge.clear_external_command()
             self.stack.set_pid_output(True)
@@ -397,6 +446,7 @@ class AirstackStackEnv(BaseEnvBackend):
         """End the planner's task and park the controller on the current pose."""
         ROBOT_POSE = 1
         try:
+            self._free_run()
             if self._external_control_active:
                 self.stack.bridge.clear_external_command()
                 self.stack.set_pid_output(True)
@@ -405,6 +455,11 @@ class AirstackStackEnv(BaseEnvBackend):
             self.stack.set_trajectory_mode(ROBOT_POSE)
         except Exception as e:
             console.detail(f"[stack] hold after episode failed: {e}")
+
+    def _free_run(self) -> None:
+        """Let Isaac run on its own clock again after a host-stepped episode."""
+        if self.host_steps:
+            self.stack.scenario.command("set_stepping", {"on": False})
 
     def _send_navigate_goal(self) -> None:
         """Start the planner on a straight two-pose plan to the target. The
@@ -440,22 +495,25 @@ class AirstackStackEnv(BaseEnvBackend):
             elif mode != "stack":
                 raise ValueError(f"unknown AirStack SAFE control_mode {mode!r}")
         except Exception:
+            self._free_run()
             if self._external_control_active:
                 self.stack.bridge.clear_external_command()
                 self.stack.set_pid_output(True)
                 self._external_control_active = False
             raise
 
-        target_t = self._last_state_t + self.dt
+        self._warm_frames = None
+        if self.host_steps:
+            self.stack.scenario.command("advance", {"ticks": 1})
+        target_t = self._last_state_t + self.dt - self.TICK_TOLERANCE_S
         state = self.stack.scenario.wait_sim_time(target_t, timeout=max(60.0, self.dt * 30))
         observed_t = float(state.get("t", target_t))
         elapsed = observed_t - self._last_state_t
-        if (str(self.agent_profile.get("name", "")).startswith("safe")
-                and elapsed > 1.5 * self.dt + 1e-6):
+        if self.host_steps and elapsed > 1.5 * self.dt + 1e-6:
             raise RuntimeError(
                 f"SAFE policy missed physics ticks: observed {elapsed:.5f}s between "
-                f"states, expected {self.dt:.5f}s. AirStack's free-running sim "
-                "cannot claim the SAFE source policy cadence for this episode.")
+                f"states, expected {self.dt:.5f}s; the host-stepped sim advanced more "
+                "than one tick, so this episode cannot claim the SAFE policy cadence.")
         self._last_state_t = observed_t
 
         obs = self._build_obs(state)
@@ -483,24 +541,32 @@ class AirstackStackEnv(BaseEnvBackend):
 
     def _apply_velocity_action(self, action: np.ndarray) -> None:
         """Normalized velocity → short trajectory_override segment on the real
-        trajectory controller (same interface layer the planners command)."""
+        trajectory controller (same interface layer the planners command).
+
+        Each override restarts the controller's trajectory at its first point, so that point
+        is the commanded velocity integrated over the episode, leashed to the drone."""
         state = self.stack.scenario.latest_state()
         if state is None:
             return
         norm = float(np.linalg.norm(action))
         speed = float(np.clip(norm, 0.0, 1.0) * self.max_speed)
         current = np.asarray(state["drone_pos"], dtype=np.float64)
-        if speed < 1e-3:
-            hover = current.copy()
-            hover[2] = max(hover[2], self.flight_z * 0.5)
-            self.stack.bridge.publish_traj_override(
-                [self._world_to_ros(hover)], velocity=0.1)
-            return
+        if self._velocity_ref is None:
+            self._velocity_ref = current.copy()
         direction = action / max(norm, 1e-8)
-        ahead = current + direction * speed * max(self.dt * 2.0, 1.0)
+        ref = self._velocity_ref + direction * speed * self.dt
+        ref[2] = float(np.clip(ref[2], 0.5, self.size_z))
+        lead = ref - current
+        if float(np.linalg.norm(lead)) > self.VELOCITY_REF_LEASH_M:
+            ref = current + lead / float(np.linalg.norm(lead)) * self.VELOCITY_REF_LEASH_M
+        self._velocity_ref = ref
+        if speed < 1e-3:
+            self.stack.bridge.publish_traj_override([self._world_to_ros(ref)], velocity=0.1)
+            return
+        ahead = ref + direction * speed * max(self.dt * 2.0, 1.0)
         ahead[2] = float(np.clip(ahead[2], 0.5, self.size_z))
         self.stack.bridge.publish_traj_override(
-            [self._world_to_ros(current), self._world_to_ros(ahead)], velocity=speed)
+            [self._world_to_ros(ref), self._world_to_ros(ahead)], velocity=speed)
 
     def _apply_setpoint_action(self, action: dict) -> None:
         """Forward the planner wrapper's complete world-ENU reference to PX4.
@@ -553,12 +619,15 @@ class AirstackStackEnv(BaseEnvBackend):
         n_active = self._active_dynamic_obstacles
         dyn_pos = np.asarray(state.get("dynamic", []), dtype=np.float32).reshape(-1, 3)
         dyn_vel = np.asarray(state.get("dynamic_vel", []), dtype=np.float32).reshape(-1, 3)
-        if len(dyn_pos) < n_active:  # stream may briefly lag a scenario change
-            pad = n_active - len(dyn_pos)
-            dyn_pos = np.vstack([dyn_pos, np.zeros((pad, 3), dtype=np.float32)]) \
-                if len(dyn_pos) else np.zeros((n_active, 3), dtype=np.float32)
-            dyn_vel = np.vstack([dyn_vel, np.zeros((pad, 3), dtype=np.float32)]) \
-                if len(dyn_vel) else np.zeros((n_active, 3), dtype=np.float32)
+        if "dynamic_targets" not in state:
+            raise RuntimeError("ScenarioManager state lacks 'dynamic_targets'; restart the "
+                               "stack with the current Isaac launch script")
+        dyn_tgt = np.asarray(state["dynamic_targets"], dtype=np.float32).reshape(-1, 3)
+        # The stream may briefly lag a scenario change, so short rows are zero-padded.
+        dyn_pos, dyn_vel, dyn_tgt = (
+            np.vstack([a, np.zeros((n_active - len(a), 3), dtype=np.float32)])
+            if len(a) < n_active else a
+            for a in (dyn_pos, dyn_vel, dyn_tgt))
         cylinders = (self._layout["static_cylinder_locations"]
                      if self._layout is not None
                      else np.zeros((0, 3), dtype=np.float32))
@@ -570,8 +639,12 @@ class AirstackStackEnv(BaseEnvBackend):
             "target": self._target.copy(),
             "static_obstacles": self._static_mesh_positions.copy(),
             "static_cylinders": np.asarray(cylinders, dtype=np.float32),
+            "static_cylinder_radii": self._static_cylinder_radii.copy(),
             "dynamic_obstacles": np.concatenate(
                 [dyn_pos[:n_active], dyn_vel[:n_active]], axis=1),
+            "dynamic_obstacle_targets": dyn_tgt[:n_active],
+            "dynamic_obstacle_radii": np.full(n_active, float(self._dynamic_radius),
+                                              dtype=np.float32),
             "static_obstacle_aabbs": self.static_obstacle_aabbs,
             "env_bounds": np.array(
                 [arena[0], arena[1], 0.0, arena[2], arena[3], self.size_z],
@@ -580,9 +653,8 @@ class AirstackStackEnv(BaseEnvBackend):
             "max_speed": self.max_speed,
             "t": float(state.get("t", 0.0)),
         }
-        sensor_obs = self.stack.bridge.latest_sensor_obs()
-        if sensor_obs:
-            obs.update(sensor_obs)
+        if self.reads_ros_sensors:
+            obs.update(self.stack.bridge.latest_sensor_obs())
         return obs
 
     def _goal_distance(self, obs: dict) -> float:
@@ -634,7 +706,10 @@ class AirstackStackEnv(BaseEnvBackend):
         return np.frombuffer(raw, dtype=np.uint8).reshape(encoded["shape"])
 
     def get_debug_frames(self) -> Dict[str, Any]:
-        """The Isaac overview and drone-tracking camera frames, as SAFE's recorder views."""
+        """The Isaac overview and drone-tracking camera frames, as SAFE's recorder views.
+        Before the first step it returns the frames reset rendered, without a new render."""
+        if self._warm_frames is not None:
+            return dict(self._warm_frames)
         frames = self.stack.scenario.command("capture_frames", timeout=60)
         return {key: self._decode_frame(frames.get(key)) for key in ("overview", "tracking")}
 
@@ -642,14 +717,19 @@ class AirstackStackEnv(BaseEnvBackend):
     CAPTURE_WARMUP_TRIES = 30
 
     def get_frame(self):
-        """Renderer warm-up: builds the Isaac capture cameras and waits until both views
-        return frames, so SAFE's recorder sees both at its seed capture and writes the
-        composite. A camera that never fills stops the flight instead of flying unfilmed."""
+        """Renderer warm-up for SAFE's recorder; returns the overview frame."""
+        frames = self._warm_frames if self._warm_frames is not None else self._warm_capture()
+        return frames["overview"]
+
+    def _warm_capture(self) -> Dict[str, Any]:
+        """Build the Isaac capture cameras and wait until both views return frames, so SAFE's
+        recorder writes the composite. A camera that never fills stops the flight instead
+        of flying unfilmed."""
         frames = {}
         for _ in range(self.CAPTURE_WARMUP_TRIES):
             frames = self.get_debug_frames()
             if all(frames.get(k) is not None for k in ("overview", "tracking")):
-                return frames["overview"]
+                return frames
         missing = [k for k in ("overview", "tracking") if frames.get(k) is None]
         raise RuntimeError(
             f"Isaac capture camera(s) {missing} returned no frame after "

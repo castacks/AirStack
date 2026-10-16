@@ -80,6 +80,7 @@ class Adapter(BaseTaskAdapter):
             humans=bool(ctx.get("humans", False)),
             goal_distance=ctx.get("goal_distance"),
             static_only=bool(ctx.get("static_only", False)),
+            sensors=list(ctx.get("sensors") or []),
         )
 
     def close_env(self, env: Any) -> None:

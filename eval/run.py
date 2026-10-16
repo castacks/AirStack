@@ -132,7 +132,8 @@ class AirstackRunner(BaseRunner):
             args.num_env_domains = len(args.domains)
         selected = ([args.agent] if getattr(args, "agent", None) else
                     list(getattr(args, "agents", None) or []))
-        if any(name.lower().startswith("safe") for name in selected):
+        from .agents.agents import is_safe_policy
+        if any(is_safe_policy(name) for name in selected):
             from safe_isaac.sim_config import PHYSICS_DT
             if args.env_dt is not None and abs(args.env_dt - PHYSICS_DT) > 1e-9:
                 raise SystemExit(
@@ -164,9 +165,8 @@ class AirstackRunner(BaseRunner):
         if not selected:
             return
         from .agents.planner_source import PLANNER_NAMES
-        planner = PLANNER_NAMES.get(selected.lower()) or (
-            "vitfly" if selected.lower() == "safevitfly" else None)
-        if planner is None:
+        planner = selected.lower()
+        if planner not in PLANNER_NAMES and planner != "vitfly":
             return
         import subprocess
         from pathlib import Path
@@ -249,11 +249,15 @@ class AirstackRunner(BaseRunner):
                       sensor_union: list) -> dict:
         from .agents.agents import get_profile
         agent_name = args.agent or (args.agents[0] if args.agents else None)
+        profile = get_profile(agent_name)
+        # The ground-truth stream must publish at least once per env step, or a step waits
+        # for the next state and spans several env_dt of sim time.
+        profile["agent_env"]["SAFE_EVAL_STATE_HZ"] = str(max(10, round(1.0 / args.env_dt)))
         return {
             **ctx,
             "sensors":          sensor_union,
             "domains":          args.domains,
-            "agent_profile":    get_profile(agent_name),
+            "agent_profile":    profile,
             "max_episode_time": args.max_episode_time,
             "env_dt":           args.env_dt,
             "max_steps":        max_steps,
