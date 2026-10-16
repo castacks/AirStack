@@ -1,5 +1,11 @@
 # Office bench validation
 
+## Current bent-corridor validation
+
+See [CORRIDOR_VALIDATION.md](CORRIDOR_VALIDATION.md) for the latest three-model
+corridor tuning, repeated clean checks and matched sensor/patch experiments.
+The Office results below remain historical evidence with their original settings.
+
 ## Patch-free avoidance and sensor effects — 2026-10-06
 
 Validated source changes over `11b9a979`, included in this revision. Added a column
@@ -520,3 +526,166 @@ empty cleanup errors. Episode-owned containers were stopped afterwards.
   local test choices. The earlier checker is retained as diagnostic only. Actual
   attack efficacy remains unestablished; see the measured model mismatch above.
 - No LLM agent or video recording is part of this validation.
+
+## 2026-10-14 — agent-selected follow-ups and Kim-only patch validation
+
+Implemented expanded-agent `explore`, `repeat`, `isolate`, and `threshold`
+experiments. The agent chooses the purpose and exact action. The bench checks
+source rounds, identical repeats, isolation with unchanged geometry/light, and
+noise/delay probes strictly between observed passing/failing endpoints. Patch
+size is not a calibrated threshold axis. Random/search keep their own repeat
+rules and target-specific bounds; no policy comparison was run here.
+
+Input to selection/reporting now includes recent camera age, model predictions,
+published command summaries, GT motion/contact evidence, and realized obstacle/
+patch-mount coordinates. GT and command frame origins must not be mixed. These
+are asynchronous diagnostic observations, not an automatic causal diagnosis.
+Original Rui texture is enabled only for Kim; MonoNav patch remains blocked.
+
+Functional validation used `campaigns/agent_followups_20261014/`. Initially four
+pair slots per target were scheduled. Seven failed clean controls skipped their
+attack twins. Explicit continuation then used remaining actual-flight headroom:
+two more MonoNav pair slots and one Kim pair slot. The final counts are **15
+actual flights: MonoNav 8, Kim 7** (22 reserved slots, 7 skipped attacks). No extra
+reference qualification flights, infrastructure retries, bags, or video were run.
+The maximum actual-flight allowance was eight per target.
+
+| Target / rounds | Clean | Perturbed | Interpretation |
+|---|---|---|---|
+| MonoNav 1–4: slalom/gap, seeds42/1234/7 | 3 safe planner stops, 1 collision | All skipped | Shared-scene baseline limitations; not sensor effects |
+| MonoNav 5: protected seed42, noise16 + delay0.25s | Goal reached | Goal reached | One successful pair; no attack failure |
+| MonoNav 6: same geometry, noise32 + delay0.5s | Goal reached | Goal reached | One successful pair; no general robustness claim |
+| Kim 1–3: slalom, gap, offset obstacle, seed42 | 3 collisions | All skipped | Baseline failures; no noise/delay/patch attribution |
+| Kim 4–5: protected seed7, original patch0.6m, whole mission | 2 completed horizons | 2 collisions | Reproduced failing condition; patch causality/exposure unverified |
+
+Kim round5 was an actual **Claude-selected repeat of round4**, with an audited
+source-round link and identical settings. It was not inserted by a repeat rule.
+All flights used the existing mission/speed settings. Exploration and repeat
+were exercised with actual Claude/simulator calls. Isolation and threshold were
+validated by CPU contract/integration tests (including an executed mock
+explore→isolate→threshold→repeat chain), but were **not selected in these real
+flights**. Do not describe them as flight-validated scientific conclusions.
+
+Both `agent_artifact_audit.json` files pass: 15 episode artifacts and 11 decisions,
+including exact provider outputs, preceding history, pairing, sensor settings,
+geometry, diagnostics and recomputed report counts. CPU suite: **140 passed**.
+Both final `llm_analysis.json` reports have status `complete`; they contain three
+MonoNav and two Kim defense proposals, all `unvalidated_proposal`. No defense
+was implemented or tested. The viewer remains on the final Kim report.
+
+### Findings from validation and implementation limits
+
+- Slalom/gap were actually flown but did not yield passing clean controls in the
+  tested seeds. The geometric route check does not establish planner capability.
+  Even the previously passing offset-obstacle Kim setting failed clean here;
+  settings are replayable, but closed-loop outcomes are not bitwise deterministic.
+- Kim patch-conditioned failures repeat in two valid pairs, but this does not
+  prove the patch caused them. Initial inspected imagery did not establish patch
+  exposure. The mount was approximately `(-3.726, -3.095, 1.2)m` in `ws2_world`,
+  lateral to the nominal spawn. Full-flight visible exposure and matched-pose
+  FCRN depth effects remain unmeasured; do not call this a verified patch attack.
+- First-phase English analysis confused negative nominal clearance with a
+  partially failed clean pass and suggested lowering attacks to improve clean.
+  Report inputs/prompts/validation were corrected. Clean always has zero added
+  noise/delay and patch off; the PhysX/mission outcome remains authoritative.
+  Initial reports and their prompts are preserved in `initial_validation_reports/`
+  and `llm_calls/`; final reports were reviewed against the actual outcomes.
+- In MonoNav round3, an Open3D allocation error occurred **after** the recorded
+  terminal stop (12 unsuccessful yaw scans). The recorded planner stop remains
+  valid. Headless bench workers now stop further TSDF/inference updates after a
+  terminal frame while waiting for bench cleanup. No planner tuning, speed,
+  clearance threshold, success criterion, or contact scoring was changed.
+- Decision context/baseline-priority guidance and reporting were refined during
+  this functional validation; `validation_protocol.json` records the continuation
+  and review. Raw flight results/logs remain unchanged. This is not a fixed-version
+  statistical comparison, nor evidence of an advantage over Random/Search.
+
+Next: qualify useful avoidance environments across repeats, verify camera patch
+exposure and matched-input FCRN responses, then test hypothesis isolation/boundary
+choices in real flights where informative. Larger method comparison still needs
+user review. Third-model integration and validation of proposed defenses remain
+separate future work.
+
+## October 14: learned/GT-depth clean-flight diagnosis
+
+Artifacts: `robot/ros_ws/ws2_runtime/campaigns/depth_diagnostic_20261014/`.
+Four actual flights, one learned/GT pair per target, replayed the prior slalom
+seed42 clean scenarios. No attacks, bags, speed/controller changes, new target
+integration, or larger agent comparison. See [protocol](DEPTH_DIAGNOSTIC.md).
+
+| Target / depth | Recorded outcome | Mission sim s | Path m | Interpretation |
+|---|---|---:|---:|---|
+| MonoNav / ZoeDepth | planner_stopped | 32.91 | 4.10 | Terminal stop after 12 unsuccessful yaw scans; final goal distance4.64m |
+| MonoNav / GT | planner_stopped (legacy classification) | 112.41 | 11.99 | **Runtime error, inconclusive**: Open3D TSDF integration exception, worker exit1; final goal distance7.26m |
+| Kim / FCRN | insufficient_progress | 120.09 | 7.31 | No PhysX collision; stationary fraction78.7% exceeds the fixed50% criterion |
+| Kim / GT | collision | 16.89 | 3.01 | PhysX contact with `/World/Office/WS2_column/SM_ColumnA` |
+
+Both pairs have identical resolved configurations except name/depth source,
+identical realized geometry, and initial position differences below1cm. Observed
+depth sources match requests; sampled RGB/GT timestamp skew is at most0.06sim s.
+The derived `diagnostic_audit.json` passed evidence-consistency checks and explicitly
+marks one runtime-error trial. This is **not four successful flights**. All four
+cleanup lists are empty and the owned containers stopped.
+
+The MonoNav GT log contains `stdgpu::vector::push_back` bounds warnings and then
+Open3D `DepthTouchCUDA: No block is touched in TSDF volume`. The exact mechanism
+(invalid/out-of-range input, allocation/hash-map behavior, or their interaction)
+has not been isolated. Do not claim GT proved the perception stage irrelevant.
+The pre-error trajectory also did not complete the slalom route. This mapping
+runtime failure must be investigated before a conclusive MonoNav A/B comparison.
+
+Kim did not become reliable simply by replacing FCRN with GT. Inspect D3QN input
+distribution/normalization, selected actions, governor and trajectory tracking
+next; the four-flight diagnostic does not identify one as the cause. It also
+does not establish that learned depth is safer than GT across repetitions.
+
+Bypassing perception changes latency. Sampled mean inference times (including
+startup/warmup where sampled) were Mono learned497.8ms/GT2.81ms and Kim
+learned27.96ms/GT2.15ms. Input interval means were0.496/0.556sim s and
+0.373/0.368sim s, respectively. GT uses the existing target-specific preprocessing
+and is a privileged input, so exclude these trials from RGB performance and
+agent/random/search or patch-effect comparisons.
+
+Corrections after examining the diagnostic:
+
+- New episodes classify a nonzero worker exit after mission start as
+  `infrastructure_error`, separating it from a deliberate planner stop. The old
+  result JSON is preserved. The diagnostic derived summary marks its exit1 as
+  `runtime_error_inconclusive` rather than silently rewriting history.
+- Both workers reject GT/RGB shape mismatch or skew above0.15sim s and record
+  depth-source/timestamp metadata. Ordinary learned-depth inputs are unchanged.
+- `--summarize-only` regenerates derived summaries without starting flights.
+  All143CPUtests and8CPU transport checks passed; paired artifacts independently
+  audited. No successful clean qualification or attack causality is claimed.
+- `trajectories.png` plots GT motion and prop bounding boxes. Walls are omitted;
+  the figure is a diagnostic view, not a collision oracle or full scene map.
+
+Follow-up priority: resolve the MonoNav TSDF runtime failure; inspect/replay Kim
+GT action/command behavior; qualify clean avoidance scenes; then resume informative
+agent isolate/threshold experiments. Existing Kim patch results remain unverified
+for visibility/causality. Candidate third targets and availability checks are in
+[RGB_MODEL_CANDIDATES.md](RGB_MODEL_CANDIDATES.md).
+
+## 2026-10-14: PULP-DroNet v3 third-target integration
+
+The official pretrained float network is connected through the same HTTP
+adapter/episode/viewer path. Checkpoint integrity, strict loading and8-input
+upstream float output parity passed. All148bench CPU tests passed.
+
+Ten actual Office/ResBlock tuning flights produced8collisions and2insufficient-progress
+outcomes; **Office qualification remains unsuccessful**. PULP-only low-speed
+tracking and simulation-time yaw conversion improved movement, but did not
+resolve column/window avoidance. Final current defaults were flown on the same
+seed7placement as Kim's passing reference and collided with a window after
+55.05sim s/8.90m. This is not a controlled success-rate comparison or attack
+experiment. See [the complete trial table and limits](PULP_DRONET_VALIDATION.md).
+
+## 2026-10-14: bent-corridor qualification
+
+Subsequent L/curve/zigzag/U-course development, repeated clean checks and matched
+attacks are recorded in [CORRIDOR_VALIDATION.md](CORRIDOR_VALIDATION.md), with
+per-flight source/configuration hashes and measured trajectory plots. MonoNav
+and PULP Tiny completed repeated clean U-course checks and separate single-factor
+noise/delay comparisons. Kim qualification is still in progress. The170CPU
+checks do not replace that physical-flight validation. No larger agent policy
+comparison was run; no Office failures were relabelled.

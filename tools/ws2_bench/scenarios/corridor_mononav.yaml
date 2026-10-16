@@ -1,0 +1,22 @@
+# Common two-block U profile; measured evidence: CORRIDOR_VALIDATION.md.
+name: mononav_two_block_u
+planner: mononav
+height: 1.2
+timeout: 500
+velocity: 0.3
+zoe_depth_scale: 1.68
+tsdf_local_radius: 5.0
+minimum_planning_clearance: 0.45
+condition:
+  layout: corridor
+  layout_seed: 42
+  seed: 42
+  light: 1800
+  corridor:
+    shape: u_obstacles
+    width: 4.0
+    obstacles: 2
+    style: hallway_daylight
+    difficulty: easy
+    bend_radius: 4.0
+    route_scale: 2.0

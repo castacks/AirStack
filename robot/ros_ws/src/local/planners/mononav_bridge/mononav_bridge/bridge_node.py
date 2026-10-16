@@ -478,6 +478,9 @@ class VisionPlannerBridge(Node):
                 "stamp": time.time(),
                 "sim_stamp": self._clock_now_s(),
                 "execute_requested": execute_requested,
+                "velocity_m_s": float(payload.get("velocity", self._command_velocity)),
+                "first_waypoint_m": [float(v)+float(d) for v,d in zip(points[0][:3],offset)],
+                "last_waypoint_m": [float(v)+float(d) for v,d in zip(points[-1][:3],offset)],
                 "published": False,
             }
 

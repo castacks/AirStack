@@ -36,8 +36,8 @@ def test_expanded_twins_keep_realized_positions_and_lighting():
 def test_expanded_bounds_reject_invalid_or_legacy_controls(change):
     with pytest.raises(ValueError):validate_action(dict(reference_action(),**change))
 
-@pytest.mark.parametrize('method',['random','search','agent_search'])
-def test_confirmation_is_identical_and_budgeted_for_every_method(method):
+@pytest.mark.parametrize('method',['random','search'])
+def test_baselines_retain_budgeted_rule_based_confirmation(method):
     action=reference_action();action.update(rgb_noise_stddev=15.)
     h=[{'decision':{'round':1,'rule':'initial','action':action},'pairs':[{'clean':{'outcome':'goal_reached'},'perturbed':{'outcome':'collision'}}]}]
     d=ExpandedPolicy(method,42).choose_next(h,1)

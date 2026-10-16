@@ -44,10 +44,11 @@ OFFICE = os.environ.get("WS2_OFFICE_USD", "/tmp/ws2_assets/Isaac/4.5/Isaac/Envir
 PATCH = os.environ.get("WS2_PATCH_TEXTURE", str(HERE / "assets/learned_patch.png"))
 PATCH_KIND = os.environ.get("WS2_PATCH_KIND", "Rui learned FCRN patch")
 import hashlib
-OFFICE_SHA256 = hashlib.sha256(Path(OFFICE).read_bytes()).hexdigest()
 PATCH_SHA256 = hashlib.sha256(Path(PATCH).read_bytes()).hexdigest()
 episode_path=os.environ.get('WS2_EPISODE_CONFIG')
 episode=json.loads(Path(episode_path).read_text()) if episode_path else {}
+CORRIDOR=episode.get('condition',{}).get('layout')=='corridor'
+OFFICE_SHA256=None if CORRIDOR else hashlib.sha256(Path(OFFICE).read_bytes()).hexdigest()
 pg = PegasusInterface()
 pg._world_settings["physics_dt"] = 1/200
 pg._world_settings["rendering_dt"] = 1/30
@@ -55,31 +56,41 @@ world = World(physics_dt=1/200, rendering_dt=1/30, stage_units_in_meters=1.)
 pg._world = world
 stage = omni.usd.get_context().get_stage()
 omni.timeline.get_timeline_interface().stop()
-environment = stage.DefinePrim("/World/Office", "Xform")
-environment.GetReferences().AddReference(OFFICE)
-UsdGeom.Xformable(environment).AddRotateZOp().Set(-90.)
-for p in Usd.PrimRange(environment, Usd.TraverseInstanceProxies()):
-    if p.IsA(UsdGeom.Mesh) and not p.IsInstanceProxy():
-        UsdPhysics.CollisionAPI.Apply(p)
-        UsdPhysics.MeshCollisionAPI.Apply(p).CreateApproximationAttr("none")
-
-sources = {"plant": "/Root/SM_Plant8", "column": "/Root/SM_ColumnA13", "plant2": "/Root/SM_Plant8"}
-sources.update({f'{kind}_{i}':path for kind,path in [('plant','/Root/SM_Plant8'),('column','/Root/SM_ColumnA13')] for i in range(2,6)})
-original = Usd.Stage.Open(OFFICE)
-for name, src in sources.items():
-    dst = stage.DefinePrim("/World/Office/WS2_" + name, "Xform")
-    dst.GetReferences().AddReference(OFFICE, src)
-    if dst.IsInstance():
-        dst.SetInstanceable(False)
-    for p in Usd.PrimRange(dst):
-        if p.IsA(UsdGeom.Mesh):
+corridor_scene=None
+if CORRIDOR:
+    from corridor_scene import CorridorScene
+    initial=validate(episode['condition'])
+    corridor_scene=CorridorScene(stage,initial['corridor'],initial['layout_seed'],RUNTIME/'corridor_textures')
+    sources={}
+else:
+    environment = stage.DefinePrim("/World/Office", "Xform")
+    environment.GetReferences().AddReference(OFFICE)
+    UsdGeom.Xformable(environment).AddRotateZOp().Set(-90.)
+    for p in Usd.PrimRange(environment, Usd.TraverseInstanceProxies()):
+        if p.IsA(UsdGeom.Mesh) and not p.IsInstanceProxy():
             UsdPhysics.CollisionAPI.Apply(p)
             UsdPhysics.MeshCollisionAPI.Apply(p).CreateApproximationAttr("none")
-move_path = "/World/Office/SM_Plant7_463"
-original_move = UsdGeom.Xformable(stage.GetPrimAtPath(move_path)).GetLocalTransformation()
-source_matrices = {n: UsdGeom.Xformable(original.GetPrimAtPath(p)).GetLocalTransformation() for n,p in sources.items()}
+
+    sources = {"plant": "/Root/SM_Plant8", "column": "/Root/SM_ColumnA13", "plant2": "/Root/SM_Plant8"}
+    sources.update({f'{kind}_{i}':path for kind,path in [('plant','/Root/SM_Plant8'),('column','/Root/SM_ColumnA13')] for i in range(2,6)})
+    original = Usd.Stage.Open(OFFICE)
+    for name, src in sources.items():
+        dst = stage.DefinePrim("/World/Office/WS2_" + name, "Xform")
+        dst.GetReferences().AddReference(OFFICE, src)
+        if dst.IsInstance():
+            dst.SetInstanceable(False)
+        for p in Usd.PrimRange(dst):
+            if p.IsA(UsdGeom.Mesh):
+                UsdPhysics.CollisionAPI.Apply(p)
+                UsdPhysics.MeshCollisionAPI.Apply(p).CreateApproximationAttr("none")
+    move_path = "/World/Office/SM_Plant7_463"
+    original_move = UsdGeom.Xformable(stage.GetPrimAtPath(move_path)).GetLocalTransformation()
+    source_matrices = {n: UsdGeom.Xformable(original.GetPrimAtPath(p)).GetLocalTransformation() for n,p in sources.items()}
 dome = UsdLux.DomeLight.Define(stage, "/World/WS2Light")
 dome.CreateIntensityAttr(1800.)
+if CORRIDOR and initial['corridor']['style']=='hallway_daylight':
+    # Uniform diffuse indoor fill; the ceiling must not black out the dome.
+    UsdLux.ShadowAPI.Apply(dome.GetPrim()).CreateShadowEnableAttr(False)
 fill = UsdLux.SphereLight.Define(stage, "/World/WS2Fill")
 fill.CreateIntensityAttr(10000.)
 fill.CreateRadiusAttr(2.)
@@ -117,6 +128,17 @@ condition = None
 def apply_condition(raw):
     global condition
     c = validate(raw)
+    if CORRIDOR:
+        if c['layout']!='corridor' or c['corridor']!=corridor_scene.data['spec'] or c['layout_seed']!=corridor_scene.data['seed']:
+            raise ValueError('corridor geometry changes require a fresh episode')
+        dome.GetIntensityAttr().Set(c['light']);fill.GetIntensityAttr().Set(c['light']*2.)
+        corridor_scene.illumination(c['light'])
+        if corridor_scene.data['obstacles']:
+            quad.GetPointsAttr().Set(corridor_scene.patch_corners(c['patch_size']))
+        (UsdGeom.Imageable(quad).MakeVisible if c['patch_enabled'] else UsdGeom.Imageable(quad).MakeInvisible)()
+        condition=c
+        print('[WS2] Corridor condition applied: '+json.dumps(c),flush=True)
+        return
     # Layout edits are for stopped/grounded vehicle between trials. Never move a
     # collider into a flying aircraft just to make the demo look adversarial.
     if drone_sim_dict and condition and (c["layout"],c["layout_seed"],c.get('placement')) != (condition["layout"],condition["layout_seed"],condition.get('placement')):
@@ -164,7 +186,7 @@ iris = "/isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simula
 graph=spawn_px4_multirotor_node(drone_prim="/World/base_link",usd_file=iris,robot_name="robot_1",vehicle_id=1,domain_id=1,
                               init_pos=episode.get('spawn',[-4.,0.,.07]),init_orient=[0.,0.,0.,1.])
 add_zed_stereo_camera_subgraph(parent_graph_handle=graph,drone_prim="/World/base_link",robot_name="robot_1",camera_name="ZEDCamera",
-                              camera_offset=[.2,0.,-.05],camera_rotation_offset=[0.,0.,0.])
+                              camera_offset=[.2,0.,-.05],camera_rotation_offset=[0.,episode.get('camera_pitch_deg',0.),0.])
 set_camera_view(eye=np.array([-8.,-3.,2.3]),target=np.array([2.,0.,1.2]))
 import omni.replicator.core as rep
 from PIL import Image as PilImage
@@ -200,7 +222,7 @@ def publish_state(dt):
     if tilt>20 or (state.position[2]>.2 and np.linalg.norm(state.linear_velocity)>.9):
         guard={"tilt":tilt,"position":state.position.tolist(),"velocity":state.linear_velocity.tolist(),"oracle":oracle.status}
         (RUNTIME/"flight_guard.json").write_text(json.dumps(guard))
-print("[WS2] Office ready. Physics running; vehicle remains disarmed.",flush=True)
+print("[WS2] Scene ready. Physics running; vehicle remains disarmed.",flush=True)
 while app.is_running():
     if guard:
         omni.timeline.get_timeline_interface().pause()
@@ -249,16 +271,19 @@ while app.is_running():
         if camera_mode!='free':
             center=np.array(state.position if camera_mode=='follow' else [0.,0.,0.])
             angle=np.radians(view['azimuth']);d=view['distance']
+            if camera_mode=='follow' and view.get('relative_heading',False):
+                angle+=Rotation.from_quat(state.attitude).as_euler('xyz')[2]
             observer_eye=center+np.array([d*np.cos(angle),d*np.sin(angle),view['height']])
             observer_target=center+np.array([0.,0.,.3])
             observer_transform.Set(Gf.Matrix4d().SetLookAt(Gf.Vec3d(*map(float,observer_eye)),Gf.Vec3d(*map(float,observer_target)),Gf.Vec3d(0,0,1)).GetInverse())
             if not HEADLESS:set_camera_view(eye=observer_eye,target=observer_target)
-    if time.monotonic()-last_preview>.125:
+    if time.monotonic()-last_preview>.05:
         pixels=observer_rgb.get_data()
         if pixels is not None and getattr(pixels,'size',0):
             target=RUNTIME/'live_view.jpg';tmp=target.with_suffix('.tmp.jpg')
             PilImage.fromarray(np.asarray(pixels)[:,:,:3]).save(tmp,quality=85);tmp.replace(target)
-            meta={'wall_time':time.time(),'sim_time':float(world.current_time),'view':view,'headless':HEADLESS}
+            meta={'wall_time':time.time(),'sim_time':float(world.current_time),'view':view,'headless':HEADLESS,
+                  'run_id':episode.get('run_id')}
             temp=RUNTIME/'live_view.tmp.json';temp.write_text(json.dumps(meta));temp.replace(RUNTIME/'live_view.json')
         last_preview=time.monotonic()
     if time.monotonic()-last_status>.1:
@@ -270,7 +295,7 @@ while app.is_running():
               "velocity":None if state is None else state.linear_velocity.tolist(),"camera":camera_mode,
               "oracle":oracle.status,'paused':operator_paused,'view':view,'headless':HEADLESS,
               'layout_description':describe(condition),
-              'active_added_obstacles':[n for n in sources if stage.GetPrimAtPath('/World/Office/WS2_'+n).IsActive()]}
+              'active_added_obstacles':([f'Obstacle_{i:02}' for i in range(len(corridor_scene.data['obstacles']))] if CORRIDOR else [n for n in sources if stage.GetPrimAtPath('/World/Office/WS2_'+n).IsActive()])}
         temp=RUNTIME/"scene_status.tmp";temp.write_text(json.dumps(data));temp.replace(RUNTIME/"scene_status.json")
         last_status=time.monotonic()
 app.close()

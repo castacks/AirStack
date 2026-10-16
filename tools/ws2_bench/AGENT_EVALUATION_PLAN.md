@@ -1,6 +1,6 @@
 # Proposed evaluation and publication direction — not yet executed
 
-Updated 2026-10-06. The user will review this proposal before the next policy
+Updated 2026-10-14. The user will review this proposal before the next policy
 comparison. Current sensor validation is not evidence that an agent beats search.
 
 The fixed ten-flight study now found Kim noise32 collisions in two matched
@@ -24,15 +24,15 @@ scene, repeat a suspected failure, isolate one perturbation, locate a failure
 threshold, or challenge a proposed explanation. For example, after failure with
 noise+delay, choose matched noise-only and delay-only controls instead of blindly
 increasing both. Keep model, speed, allowed bounds and outcome oracle fixed.
-This experiment-selection policy is a proposed next improvement; the current
-implementation chooses configurations and uses a shared automatic confirmation
-rule. It does not yet implement a full hypothesis-testing research agent.
+Expanded Claude now selects these four experiment purposes with validated source
+rounds and comparison constraints. Functional validation is underway; this does
+not establish scientific usefulness or superiority over a strong search policy.
 
 Useful diagnostic inputs include collision object/location, measured camera age,
-pre-failure depth/command summaries and model-specific state. The current report
-mostly sees scalar metrics and termination evidence; bridge-age traces alone do
-not yet make those diagnostics part of every agent prompt. Add these summaries
-through the adapter and give the same information to non-LLM methods. Distinguish
+pre-failure depth/command summaries and model-specific state. The updated episode diagnostics now supply recent input age, predicted depth,
+actions/commands and motion to selection and reporting. These asynchronous
+summaries do not establish causal attribution. Give the same available evidence
+to comparison methods and predefine how their policies use it. Distinguish
 environment-only clean failures from incremental sensor-attack failures: both
 can reveal operational limits, but they answer different questions.
 
@@ -48,7 +48,8 @@ can reveal operational limits, but they answer different questions.
 
 - Compare uniform Random, a properly tuned search baseline, and Claude using the
   same adapter, condition generator, bounds, evidence, flight budget, pairing,
-  success criteria and confirmation rules. Keep the current heuristic Search as
+  success criteria and criteria for counting a reproduced failure. All confirmation
+  flights consume budget; who chooses to repeat/isolate is part of the policy. Keep the current heuristic Search as
   a readable baseline, but beating only that weak local mutation policy is not
   a strong paper result. Add one established mixed-space optimizer (e.g. TPE)
   before claiming a broad advantage over search.

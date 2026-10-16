@@ -13,7 +13,8 @@ from task_msgs.action import TakeoffTask,LandTask
 from airstack_msgs.srv import TrajectoryMode
 
 p=argparse.ArgumentParser();p.add_argument('action',choices=['takeoff','land','pause'])
-p.add_argument('--height',type=float,default=1.2);a=p.parse_args()
+p.add_argument('--height',type=float,default=1.2)
+p.add_argument('--event-file',type=Path);a=p.parse_args()
 rclpy.init();n=rclpy.create_node('ws2_episode_action',parameter_overrides=[Parameter('use_sim_time',value=True)])
 latest_odom=None;connected=False
 def odom(m):
@@ -66,6 +67,10 @@ try:
             for _ in range(30):reset.publish(Empty());rclpy.spin_once(n,timeout_sec=.03)
         g=kind.Goal();g.velocity_m_s=.15
         if a.action=='takeoff':g.target_altitude_m=a.height
+        if a.event_file:
+            with a.event_file.open('a') as stream:
+                stream.write(json.dumps({'event':a.action+'_command_sent','wall_time':time.time(),
+                                         'sim_time':n.get_clock().now().nanoseconds/1e9})+'\n')
         h=await_future(c.send_goal_async(g),15)
         if not h.accepted:raise RuntimeError('action rejected')
         r=await_future(h.get_result_async(),120)

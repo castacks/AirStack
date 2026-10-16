@@ -102,6 +102,9 @@ def validate_placement(raw):
     return raw
 
 def realized(condition):
+    if condition['layout']=='corridor':
+        from corridors import geometry
+        return geometry(condition['corridor'],condition['layout_seed'])
     if condition['layout']=='generated':
         p=validate_placement(condition['placement'])
         return {**p['offsets'],'placement_id':p['placement_id'],'source_sha256':p['source_sha256'],

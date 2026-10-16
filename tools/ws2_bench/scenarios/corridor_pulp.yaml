@@ -1,0 +1,22 @@
+# Common two-block U profile; measured evidence: CORRIDOR_VALIDATION.md.
+name: pulp_dronet_two_block_u
+planner: pulp_dronet
+pulp_variant: tiny
+height: 1.2
+timeout: 500
+maximum_speed: 0.35
+yaw_gain_deg_s: 90
+input_fov_deg: 78
+condition:
+  layout: corridor
+  layout_seed: 42
+  seed: 42
+  light: 1800
+  corridor:
+    shape: u_obstacles
+    width: 4.0
+    obstacles: 2
+    style: hallway_daylight
+    difficulty: easy
+    bend_radius: 4.0
+    route_scale: 2.0

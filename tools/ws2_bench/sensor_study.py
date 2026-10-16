@@ -3,6 +3,7 @@
 Each factor has a fresh clean control; a supplied qualification may be reused
 once if its full scenario matches. Failed clean controls stop the study.
 """
+from model_adapters import REGISTRY, get_adapter
 import argparse, copy, fcntl, json
 from pathlib import Path
 from challenge_layouts import CHALLENGES, generate_challenge
@@ -92,7 +93,7 @@ def run_study(root, planner, challenge='offset_obstacle', seed=42, noise=32., de
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--output',type=Path,required=True)
-    p.add_argument('--planner',choices=['kim','mononav'],required=True)
+    p.add_argument('--planner',choices=sorted(REGISTRY),required=True)
     p.add_argument('--challenge',choices=CHALLENGES,default='offset_obstacle');p.add_argument('--seed',type=int,default=42)
     p.add_argument('--noise',type=float,default=32.);p.add_argument('--delay',type=float,default=.5)
     p.add_argument('--reuse-clean',type=Path);p.add_argument('--confirm-failures',action='store_true')

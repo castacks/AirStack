@@ -1,0 +1,19 @@
+# Shared by all three targets. Change the output directory after editing.
+map:
+  width: 4.0
+  route_scale: 2.0
+  style: hallway_daylight
+  bend_radius: 4.0  # curve has its own continuous arc
+layout_seed: 42
+disturbance_seed: 42
+light: 1800.0
+attacks:
+  rgb_noise: 32.0  # Gaussian sigma, RGB pixels 0..255
+  delay: 0.5      # additional simulation seconds
+  patch_size: 0.8 # metres; original opaque Rui image, Kim/FCRN only
+observer:
+  mode: follow
+  distance: 1.7
+  height: 0.85
+  azimuth: 180.0
+  relative_heading: true

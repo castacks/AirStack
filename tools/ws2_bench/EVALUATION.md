@@ -10,9 +10,9 @@ passed twice. See [VALIDATION.md](VALIDATION.md) for exact settings, evidence,
 report revisions and limits. This result concerns a protected straight8m Office
 route, not arbitrary navigation missions.
 
-## Current sensor-only profile (supersedes pilot patch selection)
+## Target-specific expanded profile (updated October 14)
 
-The new expanded profile excludes patch for both models and adds
+Expanded mode enables the original Rui FCRN patch for Kim only and supports
 `scene_challenge: protected|offset_obstacle|slalom|offset_gap`. Challenge columns
 have fixed coordinates; seed changes surrounding props. Offset obstacle requires
 Easy density, slalom/gap require Medium; corridor/side bias must be 1.2/0.
@@ -34,8 +34,8 @@ Random, result-guided search and Claude can use the same continuous bounds:
 | RGB noise sigma | 0..32 in 8-bit pixel units (0..255), Gaussian |
 | Dome intensity | 800..2400; fill-light intensity is 5.5 times this value |
 | Additional camera delay | 0..0.5 simulation seconds |
-| Patch | Disabled in the current expanded profile for both models |
-| Patch activation | Zero while disabled; old pilot fields retained only for historical interpretation |
+| Patch | Kim only: original opaque texture, on/off, size 0.3..0.9m |
+| Patch activation | Start/duration 0..10 sim s; duration 0 means remaining mission; off requires zero timing |
 
 These are local exploratory test bounds, not finalized CyLab attack limits.
 Depth models still infer from RGB: RGB noise is not a direct perturbation of
@@ -45,7 +45,17 @@ patch attack has been developed. Deployed FCRN model/preprocessing parity and
 closed-loop effects still require validation. The existing MonoNav pilot
 displayed the FCRN texture and is not a ZoeDepth-targeted patch evaluation.
 Target-based patch filtering now rejects MonoNav patch episodes before launch.
-The new expanded sampler/schema excludes patch for both targets.
+The expanded sampler/schema uses the same target-specific capabilities for all policies.
+October6 sensor-only results remain unchanged.
+
+Expanded Claude now selects explore/repeat/isolate/threshold purposes with cited
+source rounds. Bench checks comparison validity; it does not choose follow-ups
+for the agent. Threshold means an empirical noise/delay bracket, not proven
+monotonicity. The patch-size control is excluded from threshold semantics.
+After a clean failure, expanded record mode skips the attack and continues with
+baseline evidence. Skipped slots are not flights and are not reused. Reports
+include diagnostic summaries and retain the separation between measured
+outcomes and unvalidated causal/defense hypotheses.
 
 `generated_layouts.py` samples continuous coordinates for one movable existing
 plant and additional Office plants/columns. It checks object bounds, floor

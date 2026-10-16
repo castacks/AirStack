@@ -5,7 +5,7 @@ interpretation. The bench validates configurations, controls the simulator,
 computes metrics, classifies outcomes and retains replayable results.
 All current prompts and generated text are English. See [EVALUATION.md](EVALUATION.md)
 for the expanded scene/noise/light space and equal-budget policy comparison.
-The current expanded profile excludes patch for both targets, supports checked
+The expanded profile permits the original FCRN patch for Kim only and supports checked
 avoidance challenges, and reports unvalidated defense candidates. See
 [SENSOR_VALIDATION.md](SENSOR_VALIDATION.md) and [MODEL_ADAPTERS.md](MODEL_ADAPTERS.md).
 
@@ -93,8 +93,10 @@ Claude's exact-action provider. The dashboard remains the observer/control inter
 
 For exactly one clean/attacked pair, set **Flights=2**, **Extra clean checks=0**
 and **Infrastructure retries=0**. Normally stop when clean fails. For pipeline
-validation, **Continue; mark baseline failure** still runs the attacked flight
-but excludes that pair from candidate attack findings. Equivalent CLI options:
+validation, **Continue; mark baseline failure** in expanded mode skips the attacked
+flight after a failed clean control, records baseline evidence and lets the next
+agent decision proceed. The skipped slot is not counted as a flight or reallocated.
+Legacy saved mode retains its previous record-and-run behavior. Equivalent CLI options:
 `--budget 2 --clean-validation-runs 0 --infrastructure-retries 0
 --clean-failure-policy record`. No confirmation or next pair can exceed the budget.
 
@@ -102,8 +104,8 @@ but excludes that pair from candidate attack findings. Equivalent CLI options:
 
 Expanded mode: new placement seed, Easy/Medium/Hard prop counts, protected-corridor
 width and side bias, RGB noise sigma, illumination and sensor delay, plus checked
-avoidance challenges. Patch is off for both targets in the current expanded
-profile. Realized positions are checked and saved for replay.
+avoidance challenges. Kim can use the original opaque FCRN patch (on/off,
+size 0.3–0.9m, start/duration 0–10 simulation seconds). MonoNav cannot use patch. Realized positions are checked and saved for replay.
 All three policies use the same ranges; see [EVALUATION.md](EVALUATION.md).
 
 The older saved-layout mode retains:
@@ -116,23 +118,27 @@ The older saved-layout mode retains:
 
 Claude returns the exact configuration; the search ranker does not override
 its numerical values. The runner checks every field and action-space membership.
-A clean-pass/attack-fail candidate is repeated once by deterministic policy;
-confirmation uses no additional selection request. This is a repeated
-observation, not statistical proof. Invalid structured output receives one
+In expanded Claude mode, the model also selects an experiment purpose:
+explore, repeat, isolate one factor, or probe a noise/delay failure boundary.
+The bench validates referenced rounds, identical repeat settings, isolation of
+a single factor with unchanged geometry/light, and scalar probes inside observed
+pass/fail endpoints. Each follow-up consumes the paired budget. Random/search
+and legacy saved mode retain their existing rule-based confirmation behavior.
+Repeated observations and a sampled bracket are not statistical proof. Invalid structured output receives one
 repair attempt; a still-invalid configuration cannot start a flight.
 
 Saved mode retains Ravi's delay/patch action space; expanded mode adds the
 controls described above. Rui's current patch attack targets FCRN / Kim et al.
 only; no MonoNav/ZoeDepth patch attack has been developed. FCRN deployment parity
 and closed-loop effects still need validation. MonoNav patch requests are now
-rejected before flight; the new expanded profile excludes patch for both models.
+rejected before flight; the expanded schema and sampler use target-specific attack capabilities.
 See [AGENT_ROADMAP.md](AGENT_ROADMAP.md).
 
 ## Final interpretation and evidence
 
 At completion/stop, Claude receives mission, clean/attacked outcomes,
 metrics/differences, conditions including patch schedules, counts, limitations
-and round IDs. It cannot overwrite outcomes, decide collisions or start extra
+and round IDs, executed experiment purposes and pre-termination diagnostics. It cannot overwrite outcomes, decide collisions or start extra
 flights. Findings must cite existing round IDs; candidate effects require a
 passing clean and failing attacked pair. These checks do not prove every
 natural-language interpretation; review the generated hypotheses.
@@ -142,6 +148,21 @@ The schema covers summary, findings, limitations, recommended next tests and
 defense_candidates. Each proposal cites evidence, explains a failure hypothesis,
 rationale, tradeoffs and a validation plan. Its required status is
 unvalidated_proposal. Proposing a defense does not test or implement it.
+
+Each flight saves `diagnostic_trace.json`, `diagnostics.json`, and up to six
+recent inference previews. Selection also receives realized moved/added obstacle bounds and the physical
+patch mount location in `ws2_world`; original furniture is not fully listed.
+The compact last-five-simulation-second summary joins
+camera age, model output, bridge command acknowledgement, GT motion and contact
+evidence. Samples are asynchronous: this supports hypotheses, not a proven
+perception-versus-controller diagnosis. GT uses `ws2_world`; commands use the
+ROS planner target frame. Do not subtract their unaligned absolute coordinates. Patch-enabled state is not proof of
+camera visibility or attack efficacy. The LLM receives text/numbers, not images.
+
+`--study-objective '...'` records evaluation priorities in the campaign and
+passes them to selection. It does not change scoring or authorize more flights.
+Final report `next_tests` are future work after the budget; follow-ups executed
+inside the budget are recorded as `decision.experiment` in history.
 
 Campaign artifacts:
 

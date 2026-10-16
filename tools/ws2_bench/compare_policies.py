@@ -17,14 +17,17 @@ def method_result(root):
     for r in history:
         p=r['pairs'][0];key=action_key(r['decision']['action'])
         for role in ('clean','perturbed'):
-            result=p[role];flights+=1;seconds+=result.get('wall_duration_s',0.)
+            result=p[role]
+            if result.get('executed') is False:continue
+            flights+=1;seconds+=result.get('wall_duration_s',0.)
             if result['outcome']=='infrastructure_error':infra+=1
+        if p['clean']['outcome'] not in EXCLUDED and p['clean']['outcome'] not in SUCCESSES:
+            baseline_fail+=1;continue
         if any(p[role]['outcome'] in EXCLUDED for role in ('clean','perturbed')):continue
-        if p['clean']['outcome'] not in SUCCESSES:baseline_fail+=1;continue
         clean_pass+=1
         if p['perturbed']['outcome'] not in SUCCESSES:
             attacked_fail+=1;groups[key]=groups.get(key,0)+1
-            if first is None:first=2*r['decision']['round']
+            if first is None:first=flights
     calls=[];usage={};selection_s=0.;analysis_s=0.;cost=0.
     for path in sorted((root/'llm_calls').glob('*.json')):
         d=read(path);calls.append(d['call_id'])
@@ -36,7 +39,7 @@ def method_result(root):
             for name,value in (attempt.get('usage') or {}).items():
                 if isinstance(value,(int,float)):usage[name]=usage.get(name,0)+value
     evaluated_pairs=sum(all(p[role]['outcome'] not in EXCLUDED for role in ('clean','perturbed')) for r in history for p in r['pairs'])
-    return {'method':root.name,'scheduled_flights':flights,'evaluated_pairs':evaluated_pairs,
+    return {'method':root.name,'scheduled_flights':len(history)*2,'executed_flights':flights,'skipped_flight_slots':len(history)*2-flights,'evaluated_pairs':evaluated_pairs,
             'clean_pass_pairs':clean_pass,'clean_failure_pairs':baseline_fail,
             'attack_failure_pairs_with_clean_pass':attacked_fail,'distinct_candidate_conditions':len(groups),
             'reproduced_conditions':sum(n>=2 for n in groups.values()),'flights_to_first_candidate':first,
@@ -61,9 +64,9 @@ def report_study(root):
                      'This pilot did not show a higher candidate yield for Claude. ')+
                     'The sample is too small to establish statistical superiority; inspect reproduced settings and clean failures separately.')
     limitations=['Two pairs per method at the default budget; no statistical significance or generalization claim.',
-                 'This pilot covers MonoNav on one Office route with a protected straight corridor, one seed and one method order.',
+                 ('Historical pilot: MonoNav protected straight Office route, one seed/order.' if protocol.get('schema')=='ws2_comparison_pilot_v1' else 'Small MonoNav Office campaign with one campaign seed/order and expanded challenges; no held-out generalization.'),
                  'A distinct condition is not necessarily a distinct failure mechanism.',
-                 'Every policy uses identical limits, pairing, mission and one-repeat confirmation; confirmation consumes budget.',
+                 ('Legacy pilot: identical one-repeat confirmation.' if protocol.get('schema')=='ws2_comparison_pilot_v1' else 'Identical bounds and pair-slot caps; agent selects follow-up purposes while baselines keep rule-based repeats. Skipped attack slots are not executed flights; compare actual costs separately.'),
                  'A failed clean pair is not counted as an additional sensor/patch attack effect.',
                  'Changing several factors together does not establish which factor caused a failure.',
                  'CLI dollar values are list-price estimates, not a subscription invoice.',
@@ -117,11 +120,11 @@ def run_study(root,flights=4,seed=17,qualification=()):
         qualified.append(str(Path(directory).resolve()))
     provider=ClaudeSubscriptionProvider(model='claude-sonnet-5-5');provider.check_auth()
     order=list(METHODS);random.Random(seed).shuffle(order)
-    protocol={'schema':'ws2_comparison_pilot_v1','target':'mononav','flights_per_method':flights,'total_flights':3*flights,
+    protocol={'schema':'ws2_comparison_experiments_v2','target':'mononav','flights_per_method':flights,'total_flights':3*flights,
               'seed':seed,'order':order,'mission':defaults('mononav'),'action_space':bounds(),
               'qualified_reference':'generated seed42 easy, corridor half-width0.9m, side bias0, light1800, no perturbations',
               'qualification_directories':qualified,'llm_provider':provider.metadata(),
-              'rules':'Equal budget; paired clean/attack; identical confirmation for all policies; no infrastructure retries; no cherry-picking runs.'}
+              'rules':'Equal budget; paired clean/attack; agent-selected follow-ups versus rule-based baseline repeats; skipped attack slots are not reused; no infrastructure retries; no cherry-picking runs.'}
     root.mkdir(parents=True,exist_ok=True)
     if (root/'protocol.json').exists() and read(root/'protocol.json')!=protocol:raise ValueError('Study protocol changed')
     atomic(root/'protocol.json',protocol)

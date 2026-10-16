@@ -5,9 +5,10 @@ below contains the WS2 source, documentation and the supplied small patch asset.
 
 | Repository / branch | Changes to preserve |
 |---|---|
-| `castacks/AirStack`, `eungchang/adv-ws2` | `tools/ws2_bench/` source/YAML/tests/docs/layout catalogue/patch manifest **and `assets/learned_patch.png`**, `mononav_bridge/` source/config/launch/package/README changes, `mkdocs.yml`, runtime `.gitignore` |
-| `engcang/MonoNav`, `main` | `mononav_airstack.py` headless mode, shared goal-radius option and actual inference preview export, README |
-| `engcang/Collision-avoidance`, `main` | `collision_avoidance_airstack.py` headless mode and actual inference preview export, README |
+| `castacks/AirStack`, `eungchang/adv-ws2` | `tools/ws2_bench/` source/config/tests/docs, including corridor maps, recording/audit tools and **`assets/learned_patch.png`**; bridge and `local_bringup` launch changes; `mkdocs.yml` and ignore rules |
+| `engcang/MonoNav`, `main` | `mononav_airstack.py`, `utils/utils.py` mapping/planning integration, README |
+| `engcang/Collision-avoidance`, `main` | `collision_avoidance_airstack.py`, `airstack_integration/` camera/control/transport, relevant tests, README |
+| `engcang/pulp-dronet`, `master` | `airstack_integration/`, `pulp_dronet_airstack.py`, `docker/Dockerfile.airstack`, installation README |
 | `CyAirDSTA-internal-CyLab/Humanflow` | No modifications in this task. Record the source revision; no duplicate checkout or checkpoint in AirStack |
 
 Ravi's metrics/report sources were reused from FloareDor/AirStack revision
@@ -20,12 +21,8 @@ MonoNav `99a86fb`, Collision-avoidance `45a4b63`, Humanflow `e393826`.
 Record the checked-out exact SHAs for reproduction; episode provenance also
 records repository and runtime source identities.
 
-Companion worker revisions for this bench backup:
-
-- `engcang/MonoNav`: `cc5ec88` — headless execution, goal-radius override and
-  actual inference preview export.
-- `engcang/Collision-avoidance`: `395485b` — headless execution and actual
-  FCRN/D3QN inference preview export.
+Use the companion revisions in each episode's `provenance.json`; the current
+worker source/weight hashes are recorded alongside its repository HEAD.
 
 The AirStack revision is the commit containing this document; record it with
 `git rev-parse HEAD`. Dynamic placement and optional Claude selection are
@@ -40,7 +37,7 @@ the remaining attack-validation and evaluation tasks.
   `ws2_offline/local_assets/`, simulator caches and Docker image archives.
 - FCRN/ZoeDepth downloaded weights, converted PyTorch checkpoints,
   `ws2_assets/`, `.venvs/`, ROS `build/install/log`, `__pycache__`.
-- Videos, PPT/PDF exports, authentication files, private keys and machine-specific
+- `.venv-ws2/`, videos, PPT/PDF exports, authentication files, private keys and machine-specific
   connection configuration.
 
 **The necessary 41 KB patch is included in the AirStack backup** at
@@ -67,9 +64,10 @@ Clone these as siblings in any workspace directory:
 git clone --recursive -b eungchang/adv-ws2 git@github.com:castacks/AirStack.git
 git clone --recursive https://github.com/engcang/MonoNav.git
 git clone --recursive https://github.com/engcang/Collision-avoidance.git
+git clone git@github.com:engcang/pulp-dronet.git
 ```
 
-Use revisions containing this bench and both headless planner adapters.
+Use revisions containing this bench and the selected headless planner adapters.
 AirStack setup/image access and optional GUI requirements remain those of the
 repository README. Build planner images from
 the checked-in Dockerfiles:
@@ -77,6 +75,7 @@ the checked-in Dockerfiles:
 ```bash
 (cd MonoNav && bash docker/build_image.sh)
 (cd Collision-avoidance && bash docker/build_image.sh && bash docker/download_models.sh)
+(cd pulp-dronet && python3 airstack_integration/check_weights.py && docker build -t pulp-dronet-airstack:1.0 -f docker/Dockerfile.airstack .)
 ```
 
 - FCRN download: `Collision-avoidance/docker/download_models.sh` downloads the
@@ -183,16 +182,17 @@ catalogue restores these placements without regenerating them. Density selection
 is stored in campaign configuration, and resolved layouts are saved per episode.
 No claim is made that arbitrary future asset versions reproduce identical scenes.
 
-## Review before a future commit
+## Review before committing
 
-On 2026-09-22, `git add --dry-run .` was checked separately in AirStack, MonoNav
-and Collision-avoidance. Each repository's root currently selects the intended
-source/docs/config changes; bags/checkpoints/runtime outputs are ignored and the
-learned PNG is included. Thus `git add .` from each of those repository roots is
-appropriate for the current tree. Do not run it from the parent workspace.
-`git status --short`, `git diff --stat` and `git ls-files --others --exclude-standard`
-should show source/docs/config changes plus the explicitly included learned PNG.
-Other `assets/*.png` and runtime outputs remain ignored. This guide does not
-stage, commit or push anything automatically. Commit stores changes locally;
-remote backup also requires push. MonoNav's backup remote is `fork` (engcang),
-while AirStack and Collision-avoidance use `origin`.
+Check `git status --short`, `git diff --stat`, and untracked files in each
+repository before staging the requested source/docs/config changes. Never stage
+the parent workspace wholesale or assume an older dry run still covers the
+current files. Runtime videos, downloaded models, credentials and caches must
+remain excluded. MonoNav's backup remote is `fork` (engcang); the other three
+repositories use `origin`. Check the branch and staged diff before committing,
+then verify the remote SHA after pushing.
+
+PULP integration was moved out of AirStack into its own fork. The upstream
+float checkpoint is already tracked there; do not copy another weights folder
+into AirStack. Corridor textures, figures and trajectories are generated into
+the ignored runtime directory.

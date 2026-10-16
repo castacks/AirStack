@@ -5,6 +5,10 @@ from pathlib import Path
 def describe(condition,previous=None):
     from generated_layouts import realized
     entry=realized(condition)
+    if condition['layout']=='corridor':
+        return {'library':f"Textured {entry['spec']['shape']} corridor, {entry['spec']['width']}m wide, {len(entry['obstacles'])} blocks",
+                'difficulty':'corridor','added_counts':{'blocks':len(entry['obstacles'])},'objects':[],
+                'placement_id':entry['placement_id'],'same_as_previous':bool(previous and entry==realized(previous))}
     old=realized(previous) if previous else {}
     names={'move':'Existing plant','plant':'Added plant 1','column':'Added column','plant2':'Added plant 2'}
     names.update({f'{kind}_{i}':f'Added {kind} {i}' for i in range(2,6) for kind in ['plant','column']})

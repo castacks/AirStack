@@ -30,6 +30,10 @@ def test_current_yaml_uses_only_enabled_and_size_for_patch():
     from episode import resolved
     here=Path(__file__).resolve().parent
     for path in (here/'scenarios').glob('*.yaml'):
+        if path.name=='corridor_suite.yaml':
+            # Suite configuration has a different schema; resolved per-target
+            # episodes are covered by test_corridor_suite.py.
+            continue
         c=resolved(yaml.safe_load(path.read_text()))['condition']
         assert {k for k in c if k.startswith('patch_')}=={'patch_enabled','patch_size'}
     for raw in yaml.safe_load((here/'demo.yaml').read_text())['conditions']:

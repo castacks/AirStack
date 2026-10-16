@@ -1,373 +1,141 @@
-# WS2 Office automated test bench
+# WS2 automated flight bench
 
-Automates existing Office prop placement, added plants/columns, lighting, camera
-noise/delay and a surface patch. The automated episode adapter runs actual
-MonoNav/Kim trajectories on the existing v0.18 AirStack/PX4 control path.
-Ravi's metric/report implementation is reused; see [REUSE.md](REUSE.md).
-Completed runtime checks and their limits are recorded in [VALIDATION.md](VALIDATION.md).
-The current expanded profile excludes patches for **both** models, adds checked
-avoidance challenges and English, evidence-linked **unvalidated defense proposals**.
-See [SENSOR_VALIDATION.md](SENSOR_VALIDATION.md) for single-factor testing and
-[MODEL_ADAPTERS.md](MODEL_ADAPTERS.md) for the common worker contract. Rui's patch
-is FCRN/Kim-only; MonoNav patch requests are rejected before flight.
-See [USAGE_KO.md](USAGE_KO.md) for running and screen recording, and
-[BACKUP.md](BACKUP.md) for repository scope and asset recovery.
+Runs MonoNav, Kim/FCRN and PULP-DroNet v3 through the same AirStack/PX4
+execution and evaluation path. Office supports feedback/random/search/Claude;
+the corridor suite uses fixed common maps and recorded clean/attack tests.
 
-Optional Claude Team support uses the same viewer and flight runtime. Choose
-**LLM-guided tests** to let Claude select bounded scene/sensor configurations and
-interpret the measured results. See [CLAUDE_AGENT.md](CLAUDE_AGENT.md) for login,
-commands, limits and artifacts. **Basic feedback** remains the dashboard default
-and needs no LLM login or API key. MonoNav/Kim worker launchers are unchanged.
-The expanded space generates fresh checked coordinates and exposes noise/light;
-[EVALUATION.md](EVALUATION.md) documents the common bounds and comparison protocol.
+## Installation
 
-## Automated bench (actual planner flight)
-
-**Presentation workflow:** run `python3 tools/ws2_bench/dashboard.py`, open
-`http://127.0.0.1:8892`, select **one target model**, set the flight budget and mission
-duration and **Difficulty**, start screen recording, then click **Start tests**. The left panel shows
-actual headless Isaac rendering; the right shows the selected model's real
-RGB/depth and TSDF/path or D3QN inference. Camera distance/height/orbit persist
-between frames and flights without changing the model's sensor camera.
-**Pause / Resume / Stop & land** control the campaign. Pause freezes simulator time
-and the worker; an in-progress takeoff/landing action finishes before pausing.
-Stop lands an intact vehicle and excludes that interrupted trial from performance
-rates. After collision the simulator is stopped instead of attempting another flight.
-No separate planner or Isaac GUI launcher is needed. Reload existing browser tabs
-after updating the dashboard.
-
-The default **Basic feedback** runs `--backend feedback --profile sensors --planner <selected model>`:
-four rounds, each containing that model's clean/perturbed flights. Each flight starts fresh, runs the
-planner, evaluates and finishes automatically. `feedback.py` selects the next
-configuration using only that target model's completed results:
-
-- Clean fails: try another saved layout before attributing failure to attacks.
-- Clean passes, perturbed fails: repeat the same pair once to check reproducibility;
-  if that also fails, keep the scene and lower the search setting: lower sensor
-  noise/delay and/or a smaller patch, depending on the profile. Patch size is a
-  test condition, not a calibrated or necessarily monotonic attack strength.
-- Both pass with low clearance: increase disturbances slightly in the same scene.
-- Both pass comfortably: increase disturbances and explore another layout.
-- Infrastructure error: keep configuration; do not optimize against that error.
-
-Basic feedback is deterministic rule-based search. The optional Claude mode uses
-the same episode runner, with explicit model-selected actions. Expanded mode
-generates new coordinates; the original feedback mode retains its saved catalogue.
-Noise/delay values and patch size share a scalar search level; this is not per-parameter causal
-attribution. Decisions, input results and explanations are saved. Random/grid
-remain predefined baselines and do not use result feedback.
-
-`Vulnerability analysis / Open report` presents candidate failing conditions,
-repeat counts, clean/attack metric differences and termination evidence. Reports
-are updated after each completed pair and on completion/operator stop as
-`vulnerability_report.html`, `.md` and `.json`. A failing clean baseline is reported
-separately; partial pairs establish no attack effect. Combined-factor failures
-do not identify the individual cause. Select Noise only, Delay only or Patch only
-for separate single-factor campaigns. This metric report stays deterministic in
-every mode. Claude mode adds a separate evidence-linked interpretation at the end.
-
-The **Random**, **Search** and **LLM-guided tests** modes share the same selected-model
-mission and condition bounds. Choose **Generated scenes + noise + light + delay + patch**
-for fresh checked positions, or **Saved layouts + delay + patch** for the original
-restricted space (which requires explicit clean-checked layout/seed pairs).
-Extra clean checks (default 2) and infrastructure retries (default 1) are shown
-separately in the viewer and are outside the paired flight budget. Set both to
-zero for a strict one-pair smoke run. A failing clean baseline never establishes
-an attack effect, even if **Continue; mark baseline failure** is selected.
-
-The original saved-layout mode has24density-tier layouts (three tiers × eight seeds):
-
-| Difficulty | Additional plants | Additional columns |
-|---|---:|---:|
-| Easy (default) |1|1|
-| Medium |3|3|
-| Hard |5|5|
-
-One existing plant is also moved; original walls and furniture remain. For the
-same seed, higher tiers preserve lower-tier placements and add props. Difficulty
-stays fixed within a campaign; feedback selects other seeds in that tier, while
-attack magnitude is independent. The UI shows added counts and displacement
-ranges. Counts define the tier; monotonic empirical planner difficulty is not claimed.
-Generation rejects AABB overlaps, unsupported props and blocked default spawn/8m
-goal boxes. A coarse2Dgrid checks a0.35mradius route at1.2maltitude. This does not
-prove learned-planner success or feasibility for arbitrary user-defined goals.
-The old16furnished_a/b layouts remain for historical replay. Clean/attack twins
-use the same layout and illumination; confirmation keeps those settings too.
-
-Use `--difficulty easy|medium|hard` for feedback, random or grid campaigns.
-Individual YAML episodes use `condition.layout: easy|medium|hard` and
-`condition.layout_seed: 0..7`. To regenerate the tier catalogue against the same
-Office assets, run `prepare_difficulty.py /path/to/office.usd` in the USD tooling
-environment after the legacy `prepare_layouts.py`. It retains legacy entries.
+Requirements: Linux, NVIDIA GPU/driver, Docker Compose/NVIDIA Container Toolkit,
+AirLab registry access, and the AirStack v0.18 Isaac/robot images used by this
+branch. Keep the selected model repositories beside `AirStack/`.
 
 ```bash
-python3 tools/ws2_bench/campaign.py --backend feedback --profile sensors \
-  --budget 8 --planner mononav --wait-for-recording \
-  --output robot/ros_ws/ws2_runtime/campaigns/my_feedback_demo
+git clone --recursive --branch eungchang/adv-ws2 git@github.com:castacks/AirStack.git
+cd AirStack
+./airstack.sh setup
+docker login airlab-docker.andrew.cmu.edu
+./airstack.sh image-pull
 ```
 
-Feedback presentation saves GT traces, metrics, configuration, logs and actual
-inference snapshots, without large raw bags by default. Add `--record-bags` for
-full ROS recording from before takeoff. Worker headless mode now also exports
-real inference to the browser; it only disables separate desktop windows.
+Install/build the selected workers using their own READMEs:
+[MonoNav](https://github.com/engcang/MonoNav),
+[Kim](https://github.com/engcang/Collision-avoidance),
+[PULP](https://github.com/engcang/pulp-dronet/blob/master/README_AIRSTACK.md).
+The expected images are `mononav-demo:1.0`,
+`collision-avoidance-airstack:1.0`, and `pulp-dronet-airstack:1.0`.
 
-Use a separate output directory and `--planner kim` to audit Kim. Feedback
-requires exactly one model and an even flight budget; it rejects multiple models
-and `--matrix`. Historical mixed-model feedback campaigns are preserved as old
-evidence but cannot be resumed with this single-target implementation. Random/grid
-may still run explicit comparison matrices; those are separate from feedback search.
-
-The following commands own only the named local simulator, robot and planner
-containers. They start fresh physics/PX4 and a fresh worker for every episode,
-record **before takeoff**, score with simulator GT, finalize the bag/report, and
-stop the owned containers. No GUI interaction or video recording is required.
+Prepare the existing containers once, with application autostart disabled:
 
 ```bash
-# Run from AirStack; requires the existing images, mounts and Office assets below.
-python3 tools/ws2_bench/episode.py tools/ws2_bench/scenarios/kim_stock.yaml
-python3 tools/ws2_bench/episode.py tools/ws2_bench/scenarios/mononav_stock.yaml
-# Four flights = two clean/perturbed pairs, one for each planner.
-python3 tools/ws2_bench/campaign.py --backend random --budget 4 --seed 42 \
-  --output robot/ros_ws/ws2_runtime/campaigns/random_42
-python3 tools/ws2_bench/campaign.py --backend grid --budget 4 --seed 42 \
-  --output robot/ros_ws/ws2_runtime/campaigns/grid_42
+sudo apt-get install python3-venv fonts-dejavu-core
+AUTOLAUNCH=false ./airstack.sh up isaac-sim robot-desktop
+docker exec airstack-robot-desktop-1 bash -lc 'bws --packages-select mononav_bridge local_bringup'
+docker stop --timeout 3 isaac-sim airstack-robot-desktop-1
+python3 -m venv .venv-ws2
+.venv-ws2/bin/pip install PyYAML Pillow imageio-ffmpeg
 ```
 
-Reusing a campaign output directory resumes completed results and reruns only
-missing/infrastructure attempts, with a bounded retry count. Every attempt is
-retained and reported. Collision, timeout and planner stops are never retried
-as infrastructure failures. An interrupted attempt is preserved rather than
-overwritten. Use a new output directory to intentionally replay saved YAML:
+The runner checks that container source/runtime mounts belong to this checkout.
+Corridors are generated locally; no Office asset download is needed for them.
+For Office, restore the USD/textures using [BACKUP.md](BACKUP.md).
+Keep weights, runtime videos/bags, build outputs and caches out of Git.
+Rui's small original patch is already in `assets/learned_patch.png`.
+
+## Run
+
+Use the venv Python below, or an existing Python with those dependencies.
+Start the viewer in one terminal:
 
 ```bash
-python3 tools/ws2_bench/episode.py /path/to/saved/scenario.yaml \
-  --output robot/ros_ws/ws2_runtime/episodes/replay_001
+.venv-ws2/bin/python tools/ws2_bench/dashboard.py --port 8892
 ```
 
-The clean twin preserves layout/seed, initial pose, illumination, mission and
-planner, and switches off RGB/depth noise, additional delay and the surface
-patch. Here lighting/layout are **scene conditions**, not attack parameters.
-Random/grid baselines use local engineering bounds. The default `--profile sensors`
-varies RGB noise and delay; `--profile patch` varies only Rui patch size;
-`--profile combined` varies both; patch/combined profiles require Kim/FCRN. Grid enumerates fixed combinations; it is not
-LLM- or Bayesian-guided search. These bounds are chosen for WS2 testing, not
-claimed to be Rui's training setup or a finalized CyLab threat model.
+Open **http://127.0.0.1:8892**. Simulator and actual model inference appear side
+by side; Pause, Resume and Stop control the active campaign. Only one flight
+worker may execute at a time. The viewer's **Start tests** form launches Office
+campaigns. Choose a target and feedback/random/search, or optional Claude
+([authentication and agent options](CLAUDE_AGENT.md)).
 
-Each episode produces YAML/JSON configuration, source/image provenance, raw
-camera and planner-input MCAP, actual flight/worker logs, GT samples and metrics.
-MCAP uses simulation timestamps and internal Zstd compression. The verifier
-checks at least one second of grounded GT before flight and monotonic pose time.
-Random/grid campaigns produce `report.json`, `trials.csv`, and `report.html`, with success /
-collision rates grouped by planner and clean/perturbed role. Infrastructure
-errors are excluded from the rate denominator and listed separately. A failed
-clean trial is marked `invalid_clean_baseline`, never attack success.
-
-Add `--matrix` to cross each sampled condition with **both** planners. Its
-budget must be divisible by `2 * number_of_planners`; e.g. budget 8 gives two
-conditions x two planners x clean/perturbed. Without this flag, the small smoke
-campaign alternates planners across candidates and is not a fair planner ranking.
-
-Mission timeouts/time-to-goal use simulator time; startup/service watchdogs use
-wall time. Defaults are now model-specific, superseding the earlier short demos:
-
-- **MonoNav:**8mforward goal,0.5mradius,180sim-second limit,0.3m/scommand speed.
-- **Kim:** no goal input or goal-success check;120sim-second observation period.
-  Passing requires collision-free completion, at least3mpath length and1mmaximum
-  displacement from start, and no more than50%stationary time (one-second windows
-  below0.03m/s). Otherwise the outcome is `insufficient_progress`.
-  Initial/max command speeds are0.2/0.35m/s, with a2sreceding trajectory horizon.
-  The D3QN action policy and depth-based speed governor remain active; actual
-  speed is measured from GT and can be substantially below commanded speed.
-
-These are local evaluation criteria, not paper-reproduction settings. Duration
-is an upper bound: collision/planner termination can end a flight earlier. Model
-initialization and operator pause are excluded from the mission clock. The web
-allows60..600s, MonoNav goals2..30m and2..100even-numbered flights. YAML can set
-the motion thresholds and speed/horizon within validated bounds. Existing explicit
-diagnostic YAMLs retain their own values. Eight flights can take many
-minutes because each trial reloads Isaac/PX4 and model state. For a presentation,
-trim initialization/landing waits while retaining the result and next-decision
-screens. Verify a completed feedback run independently with:
+Launch recorded corridor suites from another terminal:
 
 ```bash
-python3 tools/ws2_bench/audit_feedback.py robot/ros_ws/ws2_runtime/campaigns/my_feedback_demo
+.venv-ws2/bin/python tools/ws2_bench/corridor_suite.py \
+  --targets mononav kim pulp_dronet --tiers easy \
+  --output robot/ros_ws/ws2_runtime/campaigns/corridor_recorded
 ```
 
-Collision uses every drone rigid body's external PhysX contacts. A contact is
-armed after takeoff (>0.3 m); planned landing occurs after mission evaluation.
-After a mission collision, finalize evidence and stop/reset instead of trying
-to fly a crashed vehicle. Clearance queries all external scene colliders,
-including floor/ceiling: nearest center-to-collider distance minus a **nominal
-0.25 m spherical envelope**, not the exact drone collision hull. This metric is
-independent of FCRN/ZoeDepth and does not replace authoritative contact detection.
-Report the simulation-time-weighted mean and sampled minimum clearance.
+Shapes are `elbow`, `curve`, `zigzag`, `u_obstacles`; use `--shapes` to select a
+subset. All targets receive the same geometry for each shape/tier. Other tiers
+are `medium` and `hard`. `--phase clean` runs only two clean repeats per map;
+`--phase attacks` resumes these checks and runs attacks after the clean gate.
+Default `all` performs both. For medium/hard, first inspect the observed clean
+rates and adjust a new map version if needed. These are small preliminary
+checks, not statistical reliability estimates.
+For a bounded follow-up, `--clean-repeats 4 --phase clean` explicitly extends
+selected maps to four repeats. All previous failures remain in qualification
+and attack comparisons; resuming with the default never discards extra repeats.
 
-`validate_bridge.yaml` deliberately removes the bridge before arming and must
-produce an infrastructure error. `validate_timeout.yaml` uses a short simulated
-mission budget. `validate_contact.yaml` deliberately inserts a diagnostic
-collider into an airborne vehicle; its result is marked validation-only and
-must never be counted as a planner/attack result.
+Clean gates require at least one success per map and aggregate success of
+100%/75%/50% for easy/medium/hard. On qualified tiers, attacks run on every map
+using a successful clean reference. A map with variable clean outcomes is
+labeled `baseline_variable_no_attack_attribution`. RGB noise and delay are isolated; their combination is tried
+if both individually complete. Kim additionally uses the original FCRN patch
+where an obstacle exists. PULP/MonoNav patch requests are rejected.
+Clean and attacked flights share geometry, lighting and target settings.
+A reused successful clean reference is explicitly recorded in `comparison.json`.
 
-The following diagnostic hover sections describe the legacy CLI, not the main
-feedback presentation above. The new dashboard always presents actual inference.
+Each flight starts fresh and records **takeoff command through landing or
+collision/termination**. `flight.mp4` contains two 960×540 panels, without
+cropping, plus labels; timing/source-frame metadata are in `video.json` and
+`video_frames.jsonl`. Model loading is labeled until the current worker has a
+frame. `videos.html` opens all videos, `flights.csv` lists measured outcomes,
+and `qualification.json` contains the clean counts. Failures and surviving
+attacks are retained. A recorder/runtime error stops the suite for review.
 
-## Data flow
-
-```mermaid
-flowchart LR
-  YAML[Condition YAML or seeded sampler] --> Scene[Office USD changes]
-  YAML --> Params[Atomic bridge parameters]
-  Scene --> RGB[Isaac camera]
-  RGB --> Params --> Worker[Kim or MonoNav worker]
-  GT[Simulator truth] --> PID[AirStack PID demo hover] --> PX4
-  RGB --> Viewer[Local presentation viewer]
-  Params --> Viewer
-```
-
-The optional presentation flight holds position using simulator GT and AirStack PID.
-The learned worker runs inference with execution disabled. This demonstration
-does **not** establish closed-loop obstacle avoidance or attack success.
-
-## Setup and startup
-
-Requires the existing `isaac-sim` and `airstack-robot-desktop-1` containers,
-AirStack bind mounts, ROS domain 1, the local Office
-asset tree, and a built `mononav_bridge`. No image installation is performed.
-Isaac is headless by default; its observer camera publishes JPEG previews to the
-local web UI. `WS2_HEADLESS=0` enables its desktop window if X11 is configured.
-The simulator must contain Office at
-`/tmp/ws2_assets/Isaac/4.5/Isaac/Environments/Office/office.usd`.
-Copy the collected `Assets` directory to `/tmp/ws2_assets` with `docker cp`
-if rebuilding the container. Preserve the referenced textures and materials.
-
-From the AirStack repository:
+Check source/configuration consistency and decode the saved recordings:
 
 ```bash
-docker exec airstack-robot-desktop-1 bash -lc 'bws --packages-select mononav_bridge'
-# Cold start only: both demo containers must already be stopped.
-bash tools/ws2_bench/start_existing.sh
-python3 tools/ws2_bench/run_conditions.py --config tools/ws2_bench/demo.yaml
+.venv-ws2/bin/python tools/ws2_bench/audit_corridor_suite.py \
+  robot/ros_ws/ws2_runtime/campaigns/corridor_recorded --decode-videos
 ```
 
-In its default `demo` mode, the cold-start helper replaces the standard PID
-**process only** with the separate GT-feedback PID namespace. Episodes explicitly
-select `bench` mode and retain the standard controller. Neither mode changes the
-normal robot launch configuration. Do not use this helper for real hardware. Wait for fresh
-`robot/ros_ws/ws2_runtime/scene_status.json` and `/health` camera readiness.
+Add `--require-complete` for a final audit of all three targets, four shapes and
+three tiers. `recording_catalog.csv` includes video paths, conditions and metrics.
 
-The old dashboard buttons for condition sequences and GT hover were removed.
-Use `run_conditions.py --random-count 6` for the legacy ground-only diagnostic,
-or `run_conditions.py --flight` for the legacy GT hover. These are not the main
-automatic presentation and are not learned-planner navigation.
-
-Start Kim separately using its existing `docker/run_airstack_live.sh`, with
-`COLLISION_AVOIDANCE_EXECUTE=false`. The bridge also disables command execution.
-Restart a worker after bridge/container restarts if its HTTP connection exited.
-This optional condition viewer starts no bag or screen recording; actual episodes
-above do start a bag before takeoff.
-The current dashboard shows the headless Office observer view beside real model
-inference. The native Isaac viewport remains an optional recording view.
-
-## Conditions and interfaces
-
-`demo.yaml` contains the sequence; `conditions.py` is the validation contract.
-Light intensity is a renderer parameter, RGB noise standard deviation uses
-0–255 pixel units, simulator-depth noise uses metres, and additional delay uses
-simulation seconds. Depth noise modifies the optional GT-depth bridge input,
-not the inferred FCRN/ZoeDepth output. All current ranges are local engineering
-settings, **not CyLab-approved attack bounds**.
-
-In the legacy `furnished_a/b` modes, `layout_seed` selects one of eight layouts
-per variant. Generated mode instead stores a new continuous placement and its
-seed; see [EVALUATION.md](EVALUATION.md). Generate the legacy catalogue using an
-interpreter with OpenUSD:
+Re-running the same command resumes completed results. Use a **new output
+directory** after changing source, maps, target settings or weights.
+For one custom flight:
 
 ```bash
-python3 tools/ws2_bench/prepare_layouts.py /path/to/Office/office.usd
-python3 tools/ws2_bench/run_conditions.py --random-count 6 --seed 42
-python3 tools/ws2_bench/run_conditions.py --flight
+.venv-ws2/bin/python tools/ws2_bench/episode.py \
+  tools/ws2_bench/scenarios/corridor_kim.yaml --no-bag --camera follow --record-video
 ```
 
-The catalogue moves a native plant and duplicates native plants/columns with
-their original materials/colliders. It preserves building walls/floors and
-checks coarse AABB overlap and a protected launch region. These checks do not
-prove route feasibility or contact-metric correctness. Original launch surfaces
-must also be checked: the first candidate at world `[-6,0]` overlapped a sofa;
-the corrected launch point is `[-4,0]`.
+Omit `--no-bag` to also record ROS data, beginning on the ground. Omit
+`--record-video` when a video is unnecessary. Automatic recording does not
+capture or interrupt the desktop.
 
-`scene_command.json` carries an ID and condition/camera request. The simulator
-returns `scene_reply.json`; status includes resolved placement and simulator time.
-The host then sets `/vision_planner/bridge/set_parameters_atomically` and checks
-the resulting camera frame metadata. Scene and ROS updates are sequential, not
-a single distributed transaction. There is a rendering settling interval.
-Do not classify intermediate frames as a completed test condition.
+## Configuration
 
-`/raw.jpg` is the latest camera image; `/image.jpg` is the delayed/disturbed
-planner input. They need not represent the same instant. The bridge's original
-`/frame` protocol is retained. Pose evidence is published as PoseStamped on
-`/ws2/ground_truth/pose`; `/ws2/control/*` is dedicated to demonstration control.
+| File | Edit here |
+|---|---|
+| `scenarios/corridor_suite.yaml` | Common width/scale, wall style, lighting, noise sigma, delay, patch size and observer camera |
+| `scenarios/corridor_mononav.yaml` | MonoNav speed, depth scale, clearance, map radius, height/timeout |
+| `scenarios/corridor_kim.yaml` | Kim policy, speed limits, FOV, camera pitch, input rate, trajectory horizon |
+| `scenarios/corridor_pulp.yaml` | PULP variant, speed, FOV, yaw gain, smoothing, height/timeout |
+| Individual episode YAML `condition` | Custom scene/seed/light/noise/delay/patch settings for `episode.py` |
 
-## Patch asset and clean comparison
+The suite replaces target YAML geometry with the shared suite map. Easy uses
+bare L/curve/zigzag and the existing two-block U; medium adds two blocks, hard
+adds another two. Walls, route and existing obstacle coordinates remain fixed
+between tiers. This is a map designation; measured difficulty must be checked.
+Scene generation is in `corridors.py`, target registration in `model_adapters.py`.
 
-The default is Rui's supplied 128x128 `assets/learned_patch.png`, bundled with
-the AirStack source backup. A clone containing these changes restores it directly.
-`python3 tools/ws2_bench/import_patch.py /path/to/learned_patch.png` can verify or
-restore the same original image against the SHA-256 in `assets/patch_manifest.json`.
-Every episode verifies and records its hash. The obsolete diagnostic checker was
-removed during cleanup; the supplied learned image is the retained asset.
-
-The patch is a noncolliding plane on an added column face. The column remains
-collidable. The only patch controls are **on/off** (`patch_enabled`) and physical
-side length (`patch_size`, 0.1–0.95 m). The center height is fixed at1.2m on the
-same column face. The original PNG is rendered opaque, with identity texture
-scale and zero bias: no gray mixing, contrast or opacity adjustment. Lighting
-and ordinary material shading still affect the camera image. Clean hides the
-plane and shows the original column without changing obstacle geometry.
-
-New campaigns record patch policy `original_texture_size_only_v1`. Old configs
-containing `patch_strength` or `patch_height` are rejected, and old campaigns
-cannot resume under the new policy. Preserve their original results; start a
-new campaign (or remove those fields from a copy of a scenario for a new trial).
-Historical runs used the previous behavior and are not rewritten or relabeled.
-
-Optional episode `patch_start_s` and `patch_duration_s` control activation relative
-to the first executed planner command, using simulator time. Start defaults to
-0 (visible from setup), duration 0 means continuously active. Positive start
-hides the patch until that mission time; clean twins never activate it. The
-actual activation timestamps are recorded in `events.jsonl`. Existing YAML
-phase/dwell controls are also available for the hover demonstration.
-
-The physical defaults are our test choices; Rui's image can be used without
-requesting a prescribed physical size. His PyTorch training FCRN and the deployed
-TensorFlow FCRN were tested on identical input arrays and do not give identical
-outputs. Keep the original Kim target unchanged; patch transfer/effectiveness
-requires measurement. See `VALIDATION.md` for results, not assumed attack success.
-
-## Evidence, checks, and recovery
-
-Local verification on 2026-09-22: run `20260922_083812` completed all nine
-conditions, 1.2 m GT-controlled hover, landing and disarm. Its 58.8 s simulated
-flight had 0.05445 m maximum horizontal drift and 0.00759 m hover position RMSE.
-Noise sigma 25 produced pre-JPEG RGB RMSE 23.60 (clipping lowers RMSE); the
-0.25 s delayed frame was 0.27 s behind the latest odometry timestamp. Kim
-FCRN/D3QN continued inference with execution disabled. This verifies these
-interfaces and the demonstration flight only.
-
-Each run saves resolved conditions, scene state, camera metadata, pixel noise
-RMSE and planner-input JPEGs under `robot/ros_ws/ws2_runtime/runs/`.
-Completed flight runs additionally save a GT trace and landing result. Runtime
-outputs are git-ignored. Layout changes are refused above 0.35 m world height.
-The physics guard pauses on excessive speed or tilt and writes `flight_guard.json`.
-Review its cause, stop the two demo containers, and archive that file before
-restarting; do not erase it to continue an unresolved flight.
-
-```bash
-python3 -m pytest -q tools/ws2_bench/test_conditions.py
-```
-
-This validates condition bounds and paired-condition invariants. Runtime
-evidence is required separately for rendering, delays, flight and inference.
-The episode adapter above provides collision/metric evaluation and isolated
-clean/perturbed flights. Rui rendering and inference-input integration are now
-implemented. Training reproduction and statistically established adversarial
-effectiveness are separate research tasks.
+Noise sigma uses RGB pixel units (0–255); delay and timeouts use simulation
+seconds. Patch is an unchanged opaque image with size/on-off/timing controls.
+MonoNav receives explicit corner task goals, while Kim/PULP receive no route
+or goal. All-scene PhysX contact and ordered gates determine corridor results.
+Camera/control integration safeguards are separate from the pretrained networks.
+Detailed historical evidence is in [CORRIDOR_VALIDATION.md](CORRIDOR_VALIDATION.md);
+source/asset recovery is in [BACKUP.md](BACKUP.md).

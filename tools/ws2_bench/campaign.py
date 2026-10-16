@@ -1,4 +1,5 @@
 """Budgeted random/grid baseline campaigns with clean twins and resume."""
+from model_adapters import REGISTRY, get_adapter
 import argparse,copy,csv,fcntl,html,json,random
 from pathlib import Path
 from episode import resolved,fingerprint,atomic,run_episode,RUNTIME
@@ -14,11 +15,11 @@ def clean_twin(c):
 def candidates(backend,budget,seed,planners,matrix=False,profile='sensors',difficulty=None):
     if difficulty is not None and difficulty not in DIFFICULTY_COUNTS:raise ValueError('unknown difficulty')
     if profile not in ('sensors','noise','delay','patch','combined'):raise ValueError('unknown attack profile')
-    if 'mononav' in (planners or []) and profile in ('patch','combined'):
-        raise ValueError('No ZoeDepth patch is available; select sensors, noise or delay for MonoNav')
+    if any('fcrn_patch' not in get_adapter(p).attacks for p in (planners or [])) and profile in ('patch','combined'):
+        raise ValueError('Rui patch is FCRN/Kim only; no ZoeDepth or DroNet patch is available; select sensors, noise or delay for MonoNav')
     if budget<2 or budget%2:raise ValueError('flight budget must be a positive even number; each candidate needs two flights')
     if backend not in ('random','grid'):raise ValueError('unknown backend')
-    if not planners or any(p not in ('kim','mononav') for p in planners):raise ValueError('unknown planner')
+    if not planners or any(p not in REGISTRY for p in planners):raise ValueError('unknown planner')
     if len(set(planners))!=len(planners):raise ValueError('planner list must not contain duplicates')
     if matrix:
         if budget%(2*len(planners)):raise ValueError('matrix budget must cover complete planner x clean/perturbed groups')
@@ -27,7 +28,10 @@ def candidates(backend,budget,seed,planners,matrix=False,profile='sensors',diffi
         expanded=[]
         for c in base:
             for planner in planners:
-                trial=copy.deepcopy(c);trial.update(planner=planner,**defaults(planner));trial['name']+='_'+planner;expanded.append(resolved(trial))
+                trial=copy.deepcopy(c)
+                for key in set(defaults(c['planner']))-set(defaults(planner)):
+                    trial.pop(key,None)
+                trial.update(planner=planner,**defaults(planner));trial['name']+='_'+planner;expanded.append(resolved(trial))
         return expanded
     rng=random.Random(seed);proposals=[]
     grid=[(8.,.05),(16.,.15),(24.,.25),(24.,.05),(8.,.25),(16.,.05)]
@@ -124,8 +128,8 @@ if __name__=='__main__':
     p.add_argument('--backend',choices=['random','grid','feedback'],default='random');p.add_argument('--budget',type=int,default=4)
     p.add_argument('--seed',type=int,default=42)
     target=p.add_mutually_exclusive_group()
-    target.add_argument('--planner',choices=['mononav','kim'],help='Target model; required for feedback')
-    target.add_argument('--planners',nargs='+',choices=['mononav','kim'],help='Random/grid comparison models; feedback accepts only one')
+    target.add_argument('--planner',choices=sorted(REGISTRY),help='Target model; required for feedback')
+    target.add_argument('--planners',nargs='+',choices=sorted(REGISTRY),help='Random/grid comparison models; feedback accepts only one')
     p.add_argument('--matrix',action='store_true',help='Run every sampled condition with every planner')
     p.add_argument('--profile',choices=['sensors','noise','delay','patch','combined'],default='sensors')
     p.add_argument('--difficulty',choices=list(DIFFICULTY_COUNTS),default='easy',help='Additional plants/columns per type: easy1, medium3, hard5')

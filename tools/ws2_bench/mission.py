@@ -2,8 +2,8 @@
 import math
 from model_adapters import get_adapter
 
-SUCCESSES={'goal_reached','completed_horizon'}
-EXCLUDED={'infrastructure_error','user_stopped'}
+SUCCESSES={'goal_reached','completed_horizon','route_completed'}
+EXCLUDED={'infrastructure_error','user_stopped','not_run_clean_failed'}
 
 def agent_mission(planner,mission):
     """Only expose parameters actually consumed by the selected planner."""

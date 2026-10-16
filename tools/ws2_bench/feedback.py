@@ -4,6 +4,7 @@ Each campaign targets one selected planner. Each round runs clean then perturbed
 That model's outcomes and minimum clearance choose the next
 configuration. Decisions are saved before execution and reconstructed on resume.
 """
+from model_adapters import REGISTRY, get_adapter
 import copy,csv,fcntl,json,math,time
 from pathlib import Path
 from episode import RUNTIME,atomic,fingerprint,resolved,run_episode
@@ -76,7 +77,9 @@ def summary(history,extra_rows=()):
     for round_ in history:
         for pair in round_['pairs']:
             for role in ['clean','perturbed']:
-                result=pair[role];m=result['metrics']
+                result=pair[role]
+                if result.get('executed') is False:continue
+                m=result['metrics']
                 rows.append({'round':round_['decision']['round'],'planner':pair['planner'],'role':role,
                              'outcome':result['outcome'],'time_s':m.get('mission_duration_sim_s'),
                              'distance_m':m.get('path_length_m'),'min_clearance_m':m.get('minimum_obstacle_clearance_m'),
@@ -101,11 +104,11 @@ def summary(history,extra_rows=()):
 
 def run_feedback(output,budget=8,seed=42,planners=None,profile=None,retries=1,
                  record_bags=False,wait_for_recording=False,pause_seconds=5,timeout=None,goal_distance=None,difficulty=None):
-    if not planners or len(planners)!=1 or planners[0] not in ['mononav','kim']:
+    if not planners or len(planners)!=1 or planners[0] not in REGISTRY:
         raise ValueError('select exactly one target model for feedback')
-    if profile is None:profile='sensors' if planners[0]=='mononav' else 'combined'
-    if planners[0]=='mononav' and profile in ('patch','combined'):
-        raise ValueError('No ZoeDepth patch is available; select sensors, noise or delay for MonoNav')
+    if profile is None:profile='sensors' if 'fcrn_patch' not in get_adapter(planners[0]).attacks else 'combined'
+    if 'fcrn_patch' not in get_adapter(planners[0]).attacks and profile in ('patch','combined'):
+        raise ValueError('Rui patch is FCRN/Kim only; no ZoeDepth or DroNet patch is available; select sensors, noise or delay for MonoNav')
     if budget<2 or budget%2:raise ValueError('budget must be even: one clean/perturbed pair per round')
     if not 0<=pause_seconds<=60 or not math.isfinite(pause_seconds):raise ValueError('pause must be 0..60 seconds')
     if retries not in [0,1,2]:raise ValueError('invalid infrastructure retry limit')

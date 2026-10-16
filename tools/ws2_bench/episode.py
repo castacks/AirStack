@@ -6,6 +6,7 @@ from conditions import validate
 from run_conditions import RUNTIME,HERE,bridge_url,apply,scene_command
 from ravi_metrics import summarize
 from mission import defaults,motion_metrics,horizon_outcome
+from diagnostics import Recorder
 from operator_control import request,UserStop
 from model_adapters import get_adapter, REGISTRY, validate_attacks
 
@@ -15,13 +16,22 @@ CONTAINER_RUNTIME='/root/AirStack/robot/ros_ws/ws2_runtime'
 
 def resolved(raw):
     if not isinstance(raw,dict):raise ValueError('episode must be a mapping')
-    allowed={'name','planner','condition','height','goal_distance','goal_radius','timeout','fault','patch_start_s','patch_duration_s',*defaults('kim')}
+    allowed={'name','planner','condition','height','goal_distance','goal_radius','timeout','fault','patch_start_s','patch_duration_s','diagnostic_depth_source','corridor_stall_timeout',*defaults(raw.get('planner','kim'))}
     if raw.keys()-allowed:raise ValueError('unknown episode keys: '+str(raw.keys()-allowed))
     c=dict(name='office',planner='kim',height=1.2,fault=None,**defaults(raw.get('planner','kim')))
     c.update(raw);c['condition']=validate(c.get('condition',{'layout':'stock','light':2200}))
+    if c['condition']['layout']=='corridor':c.setdefault('corridor_stall_timeout',60.)
+    elif 'corridor_stall_timeout' in c:raise ValueError('corridor_stall_timeout requires a corridor scene')
     get_adapter(c['planner'])
     validate_attacks(c['planner'],c['condition'])
-    if c['mission_mode']!=defaults(c['planner'])['mission_mode']:raise ValueError('mission mode must match model: Kim avoidance, MonoNav goal')
+    if 'diagnostic_depth_source' in c:
+        if '--depth-source' not in get_adapter(c['planner']).worker_arguments:
+            raise ValueError('This model does not expose a replaceable depth estimator')
+        if c['diagnostic_depth_source'] not in ('learned','ground-truth'):
+            raise ValueError('diagnostic_depth_source must be learned or ground-truth')
+        if any(c['condition'][k] for k in ('rgb_noise','depth_noise','delay','patch_enabled')):
+            raise ValueError('Depth diagnostics require an unperturbed scene')
+    if c['mission_mode']!=defaults(c['planner'])['mission_mode']:raise ValueError('mission mode must match the registered model adapter')
     if c['fault'] not in (None,'bridge_unavailable','contact_probe'):raise ValueError('unknown fault injection')
     if not isinstance(c['name'],str) or not c['name']:raise ValueError('name required')
     for key in ['patch_start_s','patch_duration_s']:
@@ -35,6 +45,21 @@ def resolved(raw):
         v=c[key]
         if isinstance(v,bool) or not isinstance(v,(int,float)) or not math.isfinite(v) or not lo<=v<=hi:raise ValueError(key+' out of range')
         c[key]=float(v)
+    for key,lo,hi in [('yaw_gain_deg_s',30,180),('input_fov_deg',40,85),('command_smoothing',0,.95),
+                      ('camera_pitch_deg',0,30),('input_rate_hz',1,10),
+                      ('zoe_depth_scale',.5,2.),('minimum_planning_clearance',.35,1.2),('tsdf_local_radius',2.,8.),('corridor_stall_timeout',15.,300.)]:
+        if key not in c:continue
+        v=c[key]
+        if key=='input_fov_deg' and c['planner']=='kim' and v==0 and not isinstance(v,bool):continue
+        if isinstance(v,bool) or not isinstance(v,(int,float)) or not math.isfinite(v) or not lo<=v<=hi:
+            raise ValueError(key+' out of range')
+        c[key]=float(v)
+    if 'kim_policy' in c and c['kim_policy'] not in ('simulation','real-world'):
+        raise ValueError('kim_policy must be simulation or real-world')
+    if 'pulp_variant' in c and c['pulp_variant'] not in ('resblock','tiny'):
+        raise ValueError('pulp_variant must be resblock or tiny')
+    if 'yaw_reference_mode' in c and c['yaw_reference_mode'] not in ('trajectory','integrated'):
+        raise ValueError('yaw_reference_mode must be trajectory or integrated')
     return c
 
 def fingerprint(c):return hashlib.sha256(json.dumps(c,sort_keys=True,separators=(',',':')).encode()).hexdigest()
@@ -63,17 +88,35 @@ def state():return json.loads((RUNTIME/'scene_status.json').read_text())
 def health(url):
     with urllib.request.urlopen(url+'/health',timeout=2) as r:return json.load(r)
 def action(name,out,height=1.2):
-    return robot('sws && python3 -u /tmp/ws2_flight_action.py "$1" --height "$2"',name,str(height),log=out/(name+'.log'),timeout=140)
+    marker=CONTAINER_RUNTIME+'/'+str(out.relative_to(RUNTIME.resolve()))+'/capture_events.jsonl'
+    return robot('sws && python3 -u /tmp/ws2_flight_action.py "$1" --height "$2" --event-file "$3"',
+                 name,str(height),marker,log=out/(name+'.log'),timeout=140)
 
 def worker_command(c,run_id=''):
     adapter=get_adapter(c['planner']);repo=adapter.repository
     command=['docker','run','--rm','--name','ws2-episode-worker','--gpus','all','--ipc=host','--network','airstack_airstack_network',
              '-v',str(repo)+':/workspace/planner','-w','/workspace/planner',
              '-v',str(RUNTIME/'inference')+':/ws2_inference',
+             '-e','PYTHONDONTWRITEBYTECODE=1',
              '-e','WS2_INFERENCE_DIR=/ws2_inference','-e','WS2_RUN_ID='+run_id]
     if adapter.torch_cache:command+=['-v','mononav-torch-cache:/root/.cache/torch']
     command += [adapter.image,'python','-u',adapter.entrypoint,'--headless','--execute','--server','http://'+ROBOT+':8765']
-    command += adapter.arguments(c)
+    arguments=adapter.arguments(c)
+    if c['planner']=='kim' and c.get('kim_policy')=='real-world':
+        arguments+=['--d3qn-weights','real_world_test/Saved_models/D3QN_V_17_single.h5','--action-profile','real-world']
+    if c['condition']['layout']=='corridor' and c['planner']=='mononav':
+        from corridors import geometry
+        route=geometry(c['condition']['corridor'],c['condition']['layout_seed'])['route']
+        goals=[[p[0]-route[0][0],p[1]-route[0][1]] for p in route[1:]]
+        # Let the bench stop at the scoring cross-section before the worker's
+        # goal-radius hold. The corridor continues another 3m beyond that gate.
+        # This is an explicit task goal, never an obstacle-avoidance trajectory.
+        last_length=math.dist(route[-2],route[-1])
+        for j in range(2):goals[-1][j]+=.75*(route[-1][j]-route[-2][j])/last_length
+        arguments+=['--mission-goals',json.dumps(goals,separators=(',',':'))]
+    if c.get('diagnostic_depth_source')=='ground-truth':
+        arguments[arguments.index('--depth-source')+1]='ground-truth'
+    command += arguments
     return command
 
 def verify_runtime_mounts():
@@ -94,7 +137,7 @@ def verify_runtime_mounts():
         if actual!=expected.resolve():
             raise RuntimeError(f'{container} uses {actual}, but this bench uses {expected.resolve()}; no container was started')
 
-def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag=True,control_path=None):
+def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag=True,control_path=None,record_video=False):
     c=resolved(raw);verify_runtime_mounts();out=Path(output).resolve()
     # Artifact/bag paths must remain inside the shared runtime mount.
     out.relative_to(RUNTIME.resolve());out.mkdir(parents=True,exist_ok=False)
@@ -108,7 +151,17 @@ def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag
     atomic(out/'scenario.json',c);(out/'scenario.yaml').write_text(yaml.safe_dump(c,sort_keys=False))
     result={'schema_version':3,'scenario_id':c['name'],'configuration_hash':fingerprint(c),'outcome':'infrastructure_error',
             'termination':{'source':'runner','reason':'not_started'},'result_dir':str(out),'metrics':{}}
-    samples=[];goal=None;reached=None;commands=0;worker=None;bag=None;airborne=False;recording=False;mission_start=None
+    if 'diagnostic_depth_source' in c:
+        result['evaluation_track']='depth_source_diagnostic'
+        result['diagnostic_depth_source']=c['diagnostic_depth_source']
+    diagnostic=Recorder(out,RUNTIME,c['planner'])
+    samples=[];goal=None;reached=None;commands=0;worker=None;bag=None;airborne=False;recording=False;mission_start=None;video=None
+    traversal=None
+    if c['condition']['layout']=='corridor':
+        from corridors import geometry,Traversal
+        traversal=Traversal(geometry(c['condition']['corridor'],c['condition']['layout_seed']))
+        atomic(out/'corridor_geometry.json',traversal.geometry)
+        result['evaluation_track']='corridor_traversal'
     phase='preflight';started=time.monotonic();workerlog=None
     (RUNTIME/'inference').mkdir(exist_ok=True)
     result['bag_recorded']=False
@@ -145,9 +198,17 @@ def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag
                               'diff_sha256':hashlib.sha256(cmd(['git','-C',str(repo),'diff']).encode()).hexdigest()}
         adapter=get_adapter(c['planner'])
         provenance['model_adapter']=adapter.describe()
+        provenance['effective_input']={'frame_rate_hz':c.get('input_rate_hz',adapter.frame_rate),
+                                      'camera_pitch_deg':c.get('camera_pitch_deg',0.),
+                                      'horizontal_fov_deg':c.get('input_fov_deg')}
+        # Include wrapper sources even before a commit; git diff omits new files.
+        provenance['worker_sources']={str(p.relative_to(adapter.repository)):sha256_file(p)
+            for pattern in ('*.py','airstack_integration/*.py') for p in adapter.repository.glob(pattern)}
         provenance['worker_image']=json.loads(cmd(['docker','image','inspect',adapter.image]))[0]['Id']
         provenance['runtime_images']={name:json.loads(cmd(['docker','inspect',name]))[0]['Image'] for name in ['isaac-sim',ROBOT]}
         provenance['runtime_sources']={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in HERE.glob('*.py')}
+        control_launch=HERE.parents[1]/'robot/ros_ws/src/local/local_bringup/launch/local.launch.xml'
+        provenance['control_launch_sha256']=sha256_file(control_launch)
         provenance['layout_catalog_sha256']=sha256_file(HERE/'layouts.json')
         provenance['patch']=json.loads((HERE/'assets/patch_manifest.json').read_text())
         if sha256_file(HERE/'assets/learned_patch.png')!=provenance['patch']['sha256']:
@@ -161,8 +222,10 @@ def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag
                 '--entrypoint','python',adapter.image,'-c',hash_code],log,timeout=30))
         atomic(out/'provenance.json',provenance)
         initial_condition=dict(c['condition'],patch_enabled=patch_active(c,0))
-        atomic(RUNTIME/'episode.json',{'condition':initial_condition,'spawn':[-4,0,.07],'fault':c['fault']})
+        atomic(RUNTIME/'episode.json',{'condition':initial_condition,'spawn':[-4,0,.07],'fault':c['fault'],'run_id':str(out),
+                                      'camera_pitch_deg':c.get('camera_pitch_deg',0.)})
         env=os.environ.copy();env.update(WS2_CONTROL_MODE='bench',WS2_EPISODE_CONFIG='/isaac-sim/AirStack/robot/ros_ws/ws2_runtime/episode.json',
+            WS2_FRAME_RATE=str(c.get('input_rate_hz',adapter.frame_rate)),WS2_MIN_TRACKING_SPEED=str(adapter.min_tracking_speed),
             WS2_PATCH_TEXTURE='/isaac-sim/AirStack/tools/ws2_bench/assets/learned_patch.png',WS2_PATCH_KIND='Rui learned FCRN patch')
         phase='startup';event('starting_simulator');cmd(['bash',str(HERE/'start_existing.sh')],log,timeout=60,env=env)
         url=bridge_url();deadline=time.monotonic()+180;previous=None;ready_count=0
@@ -176,6 +239,11 @@ def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag
             except (OSError,ValueError,KeyError):pass
             time.sleep(.3)
         else:raise RuntimeError('fresh simulator/oracle/camera readiness timed out')
+        if traversal:
+            expected=traversal.geometry['placement_id']
+            actual=s.get('realized_layout',{}).get('placement_id')
+            if actual!=expected:raise RuntimeError('Corridor scorer/simulator geometry mismatch; freeze scene sources before launching')
+            result['scene_placement_id']=actual
         event('ready',scene=s)
         operator_check(True)
         if c['fault']=='bridge_unavailable':
@@ -210,6 +278,9 @@ def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag
             recording=True;result['bag_recorded']=True;event('recording_started',sim_time=state()['sim_time'])
         ground_until=state()['sim_time']+2
         while state()['sim_time']<ground_until:time.sleep(.1)
+        if record_video:
+            from flight_video import FlightVideo
+            video=FlightVideo(RUNTIME,out,c['planner'],c['name'])
         phase='takeoff';event('taking_off');action('takeoff',out,c['height']);airborne=True
         s=state()
         if abs(s['position'][2]-c['height'])>.3:raise RuntimeError('takeoff action succeeded but GT height is wrong')
@@ -227,6 +298,7 @@ def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag
                 time.sleep(.05)
             raise RuntimeError('injected collider was not detected')
         goal=[s['position'][0]+c['goal_distance'],s['position'][1],s['position'][2]] if c['mission_mode']=='goal' else None
+        if traversal:goal=None # corridor completion is scored by ordered route gates
         atomic(out/'mission.json',{'start':s['position'],'goal':goal,'radius':c['goal_radius'] if goal else None,
                                   'mode':c['mission_mode'],'duration_s':c['timeout'],'takeoff_sim_time':s['sim_time']})
         phase='model_loading';event('loading_model')
@@ -237,6 +309,7 @@ def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag
             if operator_check(True):
                 last_advance=time.monotonic();deadline=time.monotonic()+120
             s=state();h=health(url);t=s['sim_time'];oracle=s['oracle']
+            diagnostic.capture(s,h)
             if mission_start is not None:
                 enabled=patch_active(c,t-mission_start)
                 if s['condition']['patch_enabled']!=enabled:
@@ -264,7 +337,8 @@ def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag
                 terminate('collision' if collision else 'planner_stopped','physx_contact' if collision else 'flight_envelope_guard',guard);break
             if worker.poll() is not None:
                 if mission_start is not None:
-                    terminate('planner_stopped','planner_process_exit',worker.returncode);break
+                    terminate('planner_stopped' if worker.returncode==0 else 'infrastructure_error',
+                              'planner_process_exit',worker.returncode);break
                 raise RuntimeError('planner process exited before execution: '+str(worker.returncode))
             text=(out/'worker.log').read_text()
             if mission_start is not None:
@@ -276,7 +350,12 @@ def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag
                     samples.append(sample);event('sample',**sample)
                 if goal is not None and math.dist(s['position'],goal)<=c['goal_radius']:
                     reached=len(samples)-1;terminate('goal_reached','goal_region');break
-                if t-mission_start>=c['timeout']:terminate(horizon_outcome(c,samples),'simulation_time_budget');break
+                if traversal and traversal.update(s['position'],t):
+                    terminate('route_completed','ordered_corridor_gates');break
+                if traversal and traversal.stalled(t,c['corridor_stall_timeout']):
+                    terminate('insufficient_progress','corridor_no_progress',{'minimum_advance_m':.25,'window_sim_s':c['corridor_stall_timeout']});break
+                if t-mission_start>=c['timeout']:
+                    terminate('timeout' if traversal else horizon_outcome(c,samples),'simulation_time_budget');break
             elif time.monotonic()>deadline:
                 if 'frame=' in text:terminate('planner_stopped','no_executable_plan');break
                 raise RuntimeError('planner startup timeout without processed frames')
@@ -286,6 +365,7 @@ def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag
         result['planner_command_count']=commands
         result['metrics']=summarize(samples,goal,[],.25,reached,text.count('HOLD'),text.count('RECOVERY'))
         result['metrics'].update(motion_metrics(samples))
+        if traversal:result['metrics'].update(traversal.metrics())
         clearances=[x['clearance_m'] for x in samples]
         result['metrics'].update(minimum_obstacle_clearance_m=min(clearances) if clearances else None,
             mean_obstacle_clearance_m=(sum((a['clearance_m']+b['clearance_m'])/2*(b['sim_time_s']-a['sim_time_s']) for a,b in zip(samples,samples[1:]))/(samples[-1]['sim_time_s']-samples[0]['sim_time_s'])) if len(samples)>1 else (clearances[0] if clearances else None),
@@ -298,6 +378,7 @@ def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag
         result['planner_command_count']=commands
         result['metrics']=summarize(samples,goal,[],.25,None,0,0)
         result['metrics'].update(motion_metrics(samples))
+        if traversal:result['metrics'].update(traversal.metrics())
         clearances=[x['clearance_m'] for x in samples if x.get('clearance_m') is not None]
         duration=samples[-1]['sim_time_s']-samples[0]['sim_time_s'] if len(samples)>1 else 0.
         result['metrics'].update(path_efficiency=None,
@@ -308,12 +389,16 @@ def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag
         terminate('infrastructure_error',str(exc));event('error',phase=phase,message=str(exc))
     finally:
         phase='cleanup';cleanup=[];event('evaluating_and_cleanup')
+        if video is not None and (result['outcome']=='collision' or (RUNTIME/'flight_guard.json').exists()):
+            result['video']=video.stop('flight_terminated');video=None
         if worker is not None:
             try:cmd(['docker','stop','--timeout','3','ws2-episode-worker'],log,check=False);worker.wait(timeout=10)
             except Exception as exc:cleanup.append(str(exc))
         if airborne and result['outcome']!='collision' and not (RUNTIME/'flight_guard.json').exists():
             try:action('pause',out);action('land',out);event('landed',scene=state())
             except Exception as exc:cleanup.append('landing: '+str(exc))
+        if video is not None:
+            result['video']=video.stop('landed' if airborne and not cleanup else 'flight_terminated')
         if recording:
             try:
                 robot('kill -INT "$(cat /tmp/ws2_episode_bag.pid)"',log=log,check=False)
@@ -333,6 +418,8 @@ def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag
         except (OSError,ValueError) as exc:cleanup.append('inference preview: '+str(exc))
         try:stop_owned(log)
         except Exception as exc:cleanup.append('container cleanup: '+str(exc))
+        try:result['diagnostics']=diagnostic.finish(mission_start,result['outcome'])
+        except (OSError,ValueError) as exc:cleanup.append('diagnostics: '+str(exc))
         result['cleanup_errors']=cleanup;result['wall_duration_s']=time.monotonic()-started
         atomic(out/'result.json',result);atomic(out/'samples.json',samples);event('result',result=result)
         events.close();lock.close()
@@ -344,8 +431,10 @@ if __name__=='__main__':
     p.add_argument('--resolve-only',action='store_true')
     p.add_argument('--wait-for-recording',action='store_true',help='Wait on ground for Enter before starting bag/takeoff')
     p.add_argument('--camera',choices=['overview','follow'],default='overview')
+    p.add_argument('--no-bag',action='store_true',help='Keep metrics/diagnostics/previews without a large ROS bag')
+    p.add_argument('--record-video',action='store_true',help='Equal-sized simulator/inference MP4 from takeoff command to flight end')
     a=p.parse_args();c=resolved(yaml.safe_load(a.scenario.read_text()))
     if a.resolve_only:print(yaml.safe_dump(c,sort_keys=False))
     else:
         output=a.output or RUNTIME/'episodes'/datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-        print(json.dumps(run_episode(c,output,a.wait_for_recording,a.camera),indent=2))
+        print(json.dumps(run_episode(c,output,a.wait_for_recording,a.camera,record_bag=not a.no_bag,record_video=a.record_video),indent=2))

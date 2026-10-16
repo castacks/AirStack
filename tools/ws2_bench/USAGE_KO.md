@@ -1,6 +1,52 @@
 # WS2 자동 시험 실행·녹화
 
-## 실행
+## 공통 복도: clean·공격 비행과 자동 녹화
+
+설치는 [README](README.md)를 따른다. AirStack 폴더에서 실행한다.
+한 터미널에서 viewer를 시작하고 **http://127.0.0.1:8892**를 연다.
+
+```bash
+.venv-ws2/bin/python tools/ws2_bench/dashboard.py --port 8892
+```
+
+다른 터미널에서:
+
+```bash
+.venv-ws2/bin/python tools/ws2_bench/corridor_suite.py \
+  --targets mononav kim pulp_dronet --tiers easy \
+  --output robot/ros_ws/ws2_runtime/campaigns/corridor_recorded
+```
+
+세 모델이 L자/곡선/리을자/U자 각각에서 같은 길이·폭·장애물 배치를 사용한다.
+`--targets`로 모델, `--shapes elbow curve zigzag u_obstacles`로 씬을 선택한다.
+기본은 환경별 clean2회 확인 후 noise/delay, 필요한 경우 조합을 실행한다.
+Kim은 장애물이 있는 곳에서 원본 FCRN patch도 시험한다. MonoNav/PULP patch는 금지.
+
+Medium/hard는 먼저 `--tiers medium hard --phase clean`으로 확인하고, 같은 output에
+`--phase attacks`로 이어간다. 기존 완료 비행을 다시 실행한 것으로 세지 않는다.
+동일 조건 resume만 가능하며 config/코드/가중치 변경 시 새 output을 사용한다.
+작은 clean 표본의 기준은 easy100%, medium75%, hard50% + 각 맵 최소1회 성공이다.
+공격 비교는 두 clean을 통과한 맵에서만 수행한다. 일반적인 성공률 입증은 아니다.
+
+녹화는 자동이다. **실제 takeoff 명령부터 착륙/충돌 종료까지**, 왼쪽 Isaac과 오른쪽
+추론 화면을 각각960×540으로 저장한다. 바탕화면/다른 작업은 캡처하지 않는다.
+`videos.html`에서 비행별 영상을 열고, `flights.csv`와 `qualification.json`에서 결과를 본다.
+각 비행 폴더에는 `flight.mp4`, 설정·GT 지표·diagnostics·녹화 시각이 남는다.
+새 trial부터 모델 화면이 초기화되며, 모델 로딩 구간은 그 사실을 표시한다.
+
+설정 파일:
+
+- `scenarios/corridor_suite.yaml`: 공통 맵/조명/noise/delay/patch size/관찰 카메라.
+- `scenarios/corridor_mononav.yaml`, `corridor_kim.yaml`, `corridor_pulp.yaml`: 각 모델 설정.
+- Suite의 공통 맵이 모델 YAML의 scene을 덮어쓴다. 모델별 속도/카메라는 유지한다.
+
+한 번만 실행할 때는 `episode.py <YAML> --no-bag --camera follow --record-video`를 쓴다.
+Bag이 필요하면 `--no-bag`를 빼며, 이 경우 이륙 전 지상부터 기록한다.
+성공은 ordered gates와 끝 단면 완주이며,500sim s는 상한이다. Kim/PULP에는 goal/route를
+주지 않고 MonoNav에만 명시적 task goals를 제공한다. 측정 결과는 해당 integration의 결과다.
+웹 Start tests 버튼은 Office용이고, 복도 실행 중에는 웹에서 관찰/pause/resume/stop한다.
+
+## Office 실행
 
 AirStack 폴더에서 다음 명령으로 웹을 연다. 이미 켜져 있으면 브라우저 새로고침만 한다.
 
@@ -12,15 +58,17 @@ python3 tools/ws2_bench/dashboard.py
 → 화면 녹화 시작 → **Start tests**.
 
 한 campaign은 **선택한 모델 하나만** 시험한다. 기본 8비행은 4개의 clean/attack
-쌍이다. 첫 쌍이 끝나면 결과를 보고 다음 조건을 골라 자동으로 반복한다.
+쌍의 상한이다. Expanded에서 clean 실패 후 공격을 생략하면 실제 비행은 더 적다. 첫 쌍이 끝나면 결과를 보고 다음 조건을 골라 자동으로 반복한다.
 다른 모델은 새 campaign에서 선택한다. 기본 **Basic feedback**은 LLM 인증 없이
 기존 결과 기반 규칙을 사용한다.
 
 Claude를 쓰려면 터미널에서 `claude auth login --claudeai`로 Team 계정에 로그인한 뒤,
 Method를 **LLM-guided tests**, LLM을 **Claude · Team login**으로 고른다.
-Conditions에서 **Avoidance scenes + noise + light + delay (patch excluded)**를 고르면
+Conditions에서 **Avoidance scenes + sensors (Rui FCRN patch: Kim only)**를 고르면
 새 장애물 좌표·회피 challenge·밀도·통로 폭·RGB 노이즈·조명·delay를 선택한다.
-현재 expanded profile은 두 모델 모두 patch를 제외한다.
+Expanded에서 Kim은 원본 Rui FCRN patch의 on/off·크기·시점도 선택한다. MonoNav patch는 차단한다.
+Claude는 새 조건 탐색·동일 조건 반복·한 요인 분리·noise/delay 경계 확인 중 목적까지 선택한다.
+실험마다 실패 직전 5초의 센서 age·모델 출력·명령·GT 움직임을 받아 다음 판단에 사용한다.
 이전 saved 모드를 고를 때만 Clean-checked layouts에 확인한 배치를 입력한다.
 Claude가 허용된 환경/센서 조건을 선택하고, 비행 종료 후 아래 **Claude interpretation**에
 근거를 포함한 분석과 미검증 방어 후보가 나온다. 기존 metrics와 별도로 저장된다.
@@ -101,6 +149,11 @@ clean은 센서 noise/delay와 patch만 끈다. 공격 실패를 재확인할 �
 
 ## 다음 조건 선택과 분석
 
+아래 표는 **Basic feedback**의 규칙이다. Expanded Claude는 결과와 진단 자료를
+읽고 실험 목적과 정확한 설정을 직접 고른다. `Continue` 설정에서도 expanded 모드는
+clean 실패 후 공격을 생략한다. 남은 pair에서 다음 선택을 진행하며 비행 예산은 늘리지 않는다.
+최종 보고서의 추가 시험 제안은 예산 종료 후의 향후 계획이며 자동으로 추가 실행하지 않는다.
+
 | 결과 | 다음 시험 |
 |---|---|
 | clean부터 실패 | 공격 효과로 단정하지 않고 다음 배치 |
@@ -112,7 +165,8 @@ clean은 센서 noise/delay와 patch만 끈다. 공격 실패를 재확인할 �
 
 기본 sensor profile은 noise/delay를 바꾼다. 원인을 나눠 보려면 Attack에서
 **Noise only / Delay only**를 고른다. FCRN Patch only/Combined는 Kim에서만 가능하며
-현재 센서 검증에서는 사용하지 않는다. MonoNav patch 요청은 실행 전에 거절한다.
+10월6일 센서 검증은 patch off였으며, 10월14일부터 Kim의 agent 검증에는 patch를 허용한다.
+MonoNav patch 요청은 실행 전에 거절한다.
 
 Patch는 **원본 이미지 그대로 on/off와 크기만** 바꾼다. 부착 높이는1.2m로
 고정이며 contrast·투명도 조절은 없다. 크기가 커진다고 공격 효과가 반드시
@@ -128,7 +182,8 @@ Combined 실패만으로 특정 patch/noise가 원인이라고 단정하지 않�
 
 LLM을 붙일 때는 이 결과/설정 이력을 읽고 다음 설정을 선택하는 부분을 대체한다.
 검증된 bench가 비행·평가·증거 저장을 담당하고, 웹은 관찰과 중단 인터페이스로
-남길 수 있다. 현재 LLM이나 자동 자연어 원인 추론은 연결돼 있지 않다.
+남긴다. 현재 Claude가 연결되어 있지만, 해석과 방어 제안은 측정값 및 검증된
+인과관계와 구분한다. 복도 qualification 명령은 LLM을 호출하지 않는다.
 
 ## 저장 및 CLI
 
@@ -156,7 +211,7 @@ Kim은 `--planner kim --timeout 120`으로 새 output을 사용한다.
 > The bench measures the flight results and chooses the next condition.
 > The report shows failing conditions and whether they repeat.
 > We can watch the simulation and model output on the same page.
-> We will add an LLM to the test selection step later.
+> In agent mode, Claude selects the next test and interprets the evidence.
 
 실제 검증 결과와 한계는 [VALIDATION.md](VALIDATION.md),
 Git 백업 범위는 [BACKUP.md](BACKUP.md)를 참고한다.

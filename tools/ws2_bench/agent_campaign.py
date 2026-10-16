@@ -103,7 +103,7 @@ def _load_json(path):
 def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="mononav", retries=1,
                           record_bags=False, pause_seconds=5, timeout=None, goal_distance=None,
                           provider=None, qualified_layouts=(("easy", 2),), clean_validation_runs=2,
-                          clean_failure_policy="halt", provider_name=None, llm_report=True, action_space="saved"):
+                          clean_failure_policy="halt", provider_name=None, llm_report=True, action_space="saved", study_objective=""):
     """Run one paired campaign after repeated pristine-clean validation.
 
     The scheduled budget counts matched clean/attack flights. Validation and
@@ -112,6 +112,7 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
     if policy_name not in BACKEND_LABELS:
         raise ValueError("policy must be random, search, or agent_search")
     adapter=get_adapter(planner)
+    if not isinstance(study_objective,str) or len(study_objective)>2000:raise ValueError('study_objective must be text <=2000 characters')
     if budget < 2 or budget % 2:
         raise ValueError("budget must be even: one clean/attack pair needs two flights")
     if retries not in (0, 1, 2):
@@ -144,7 +145,7 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
                      qualified_layouts, clean_validation_runs, clean_failure_policy)
     if action_space=='expanded':
         from expanded_space import bounds, VERSION
-        config.update(action_space='expanded',action_schema=VERSION,profile='expanded',noise='configurable',expanded_bounds=bounds(),
+        config.update(action_space='expanded',action_schema=VERSION,profile='expanded',noise='configurable',expanded_bounds=bounds(planner),study_objective=study_objective,
                       label={'random':'Seeded random sampling','search':'Result-guided search','agent_search':'Claude-guided testing'}[policy_name])
         if planner=='mononav' and config['mission']['goal_distance']!=8:
             raise ValueError('Generated placement currently protects the qualified 8m mission; use goal_distance=8')
@@ -185,9 +186,9 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
     else:policy = policy_from_name(policy_name, seed, provider, allowed_actions)
     if hasattr(policy, 'campaign_context'):
         policy.campaign_context = {'target_planner': planner, 'mission': config['mission'],
-                                   'model_adapter':adapter.describe(),
+                                   'model_adapter':adapter.describe(),'study_objective':study_objective,
                                    'metric_notes': 'clearance is a nominal envelope margin; collision is simulator contact'}
-    completed = len(history) * 2
+    completed = sum(p[role].get('executed',True) for r in history for p in r['pairs'] for role in ('clean','perturbed'))
     actual_attempts = sum(p.is_dir() for pattern in ('round_*/*/*/attempt_*','clean_validation/attempt_*')
                           for p in root.glob(pattern))
     live_rows = []
@@ -199,6 +200,8 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
             "phase": phase,
             "budget": budget,
             "completed": completed,
+            "reserved_flights":len(history)*2,
+            "skipped_attacks":sum(not p['perturbed'].get('executed',True) for r in history for p in r['pairs']),
             "actual_attempts": actual_attempts,
             "decision": decision,
             "trial": trial,
@@ -306,6 +309,13 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
                     wait_between_trials(control_path, lambda phase: publish(phase, decision))
                 except UserStop:
                     return finish("stopped", decision)
+                # Expanded experiments never spend an attack flight after a failed clean control.
+                # The unspent slot is retained, not silently reallocated to more experiments.
+                if role == 'perturbed' and action_space == 'expanded' and pair['clean']['outcome'] not in SUCCESSES:
+                    pair[role] = {'outcome':'not_run_clean_failed','metrics':{},'executed':False,
+                                  'termination':{'reason':'clean control failed; attack effect not evaluable'},'attempts':[]}
+                    atomic(round_root / planner / (role + '.json'), pair[role])
+                    break
                 attempts = []
                 for attempt in range(retries + 1):
                     folder = round_root / planner / role / f"attempt_{attempt}"
@@ -338,10 +348,8 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
                         "phase": "unstable_clean_baseline", "decision": decision, "result": pair["clean"],
                         "policy": clean_failure_policy,
                         "message": ("Attack flight was not run because its pristine clean control failed."
-                                    if halting else
-                                    "Clean control failed; the attack flight still ran so the round "
-                                    "contributes to the measured failure rate. verdict() marks the pair "
-                                    "invalid_clean_baseline so it cannot count as a candidate."),
+                                    if halting or action_space=='expanded' else
+                                    "Legacy record mode executes the attack but the failed clean invalidates attack attribution."),
                     })
                     if halting:
                         return finish("unstable_clean_baseline", decision)
@@ -373,7 +381,7 @@ def main():
     parser.add_argument("--no-llm-report", action="store_true", help="skip final Claude interpretation")
     parser.add_argument("--budget", type=int, default=8)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--planner", choices=("mononav", "kim"), required=True)
+    parser.add_argument("--planner", choices=sorted(REGISTRY), required=True)
     parser.add_argument("--infrastructure-retries", choices=(0, 1, 2), type=int, default=1)
     parser.add_argument("--record-bags", action="store_true")
     parser.add_argument("--review-seconds", type=float, default=5)
@@ -386,6 +394,7 @@ def main():
     parser.add_argument("--clean-validation-runs", choices=(0, 1, 2, 3), type=int, default=2,
                         help="pristine clean successes required before the paired flight budget (default: 2)")
     parser.add_argument('--action-space',choices=('saved','expanded'),default='saved')
+    parser.add_argument("--study-objective",default="",help="Recorded scope/priorities for agent experiment selection; does not change budget or metrics")
     parser.add_argument("--qualified-layout", action="append", metavar="LAYOUT:SEED",
                         help="a layout that has already passed a clean flight, e.g. easy:2 (repeatable)")
     args = parser.parse_args()
@@ -395,7 +404,7 @@ def main():
                           qualified_layouts=parse_qualified_layouts(args.qualified_layout or []) if args.action_space=='saved' else (),
                           clean_validation_runs=args.clean_validation_runs,
                            clean_failure_policy=args.clean_failure_policy,
-                           provider_name=args.provider, llm_report=not args.no_llm_report,action_space=args.action_space)
+                           provider_name=args.provider, llm_report=not args.no_llm_report,action_space=args.action_space,study_objective=args.study_objective)
 
 
 if __name__ == "__main__":

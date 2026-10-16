@@ -24,9 +24,18 @@ fi
 docker start isaac-sim airstack-robot-desktop-1
 docker cp "$task_dir/ground_truth.py" airstack-robot-desktop-1:/tmp/ws2_ground_truth.py
 docker cp "$task_dir/gt_pid.yaml" airstack-robot-desktop-1:/tmp/ws2_gt_pid.yaml
-docker exec -d airstack-robot-desktop-1 bash -lc 'sws && ros2 launch desktop_bringup robot.launch.xml role:=full > /root/AirStack/robot/ros_ws/ws2_runtime/robot_gt.log 2>&1'
+camera_env=()
+if [[ -n ${WS2_EPISODE_CONFIG:-} ]]; then
+  camera_pitch=$(python3 -c 'import json,sys; print(format(float(json.load(open(sys.argv[1])).get("camera_pitch_deg",0)),"g"))' "$runtime/episode.json")
+  if [[ "$camera_pitch" != 0 ]]; then
+    docker cp "$task_dir/camera_urdf.py" airstack-robot-desktop-1:/tmp/ws2_camera_urdf.py
+    docker exec airstack-robot-desktop-1 bash -lc 'sws && python3 /tmp/ws2_camera_urdf.py --pitch "$1" --output /tmp/ws2_camera.urdf' ws2 "$camera_pitch"
+    camera_env=(-e URDF_FILE=/tmp/ws2_camera.urdf)
+  fi
+fi
+docker exec -d "${camera_env[@]}" -e WS2_MIN_TRACKING_SPEED="${WS2_MIN_TRACKING_SPEED:-0.2}" airstack-robot-desktop-1 bash -lc 'sws && ros2 launch desktop_bringup robot.launch.xml role:=full > /root/AirStack/robot/ros_ws/ws2_runtime/robot_gt.log 2>&1'
 docker exec -d airstack-robot-desktop-1 bash -lc 'sws && python3 /tmp/ws2_ground_truth.py > /root/AirStack/robot/ros_ws/ws2_runtime/ground_truth.log 2>&1'
-docker exec -d -e WS2_EXECUTE="$([[ "$control_mode" == bench ]] && echo true || echo false)" airstack-robot-desktop-1 bash -lc 'sws && ros2 launch mononav_bridge vision_planner_bridge.launch.xml vision_planner_name:=ws2_bench vision_planner_max_frame_rate:=3.0 vision_planner_execute_commands:="$WS2_EXECUTE" > /root/AirStack/robot/ros_ws/ws2_runtime/bridge_gt.log 2>&1'
+docker exec -d -e WS2_FRAME_RATE="${WS2_FRAME_RATE:-3.0}" -e WS2_EXECUTE="$([[ "$control_mode" == bench ]] && echo true || echo false)" airstack-robot-desktop-1 bash -lc 'sws && ros2 launch mononav_bridge vision_planner_bridge.launch.xml vision_planner_name:=ws2_bench vision_planner_max_frame_rate:="$WS2_FRAME_RATE" vision_planner_execute_commands:="$WS2_EXECUTE" > /root/AirStack/robot/ros_ws/ws2_runtime/bridge_gt.log 2>&1'
 if [[ "$control_mode" == demo ]]; then
 for attempt in {1..30}; do
   if docker exec airstack-robot-desktop-1 pgrep -f '^/root/AirStack/robot/ros_ws/install/pid_controller/lib/pid_controller/pid_controller .*__ns:=/robot_1/control' >/dev/null; then break; fi
