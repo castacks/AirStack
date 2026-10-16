@@ -29,7 +29,7 @@
     look_period_s: 0.1               # flown looks folded into the belief at this period
 
     # ---- TIGRIS -------------------------------------------------------------
-    reward_mode: original            # original (TIGRIS entropy / tpr-fpr) | matched (residual belief mass)
+    reward_mode: matched            # original (TIGRIS entropy / tpr-fpr) | matched (residual belief mass)
     sampler: informed                # informed (TIGRIS) | uniform (the TIGRIS paper's random benchmark)
     receding: true                   # false = one plan over the whole budget, never replanned
     initial_planning_time_s: 5.0     # first solve (drone hovering)  [TIGRIS planning_time = 5 s]

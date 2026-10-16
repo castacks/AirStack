@@ -266,7 +266,7 @@ struct TeamParams {
     double exploreGridStep = 50.0;
     /// Euclidean budget (fraction of the agent budget) for ORDERING each agent's
     /// clusters with solveBudgetedOrienteering, for the 'clusters' seed.
-    double orderBudgetFrac = 0.8;
+    double orderBudgetFrac = 0.95;
     /// Gauss-Seidel passes over the team, each agent optimised with the others'
     /// swaths frozen in the joint objective.
     int    coordinationSweeps = 2;

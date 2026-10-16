@@ -164,7 +164,7 @@ mission:
                                  # binds), so the peak rate is 28.3 deg/s instead of 94 - well inside the
                                  # 120 deg/s gimbal (planner, follower, sim). Planned residual was the same at
                                  # both (0.3076 vs 0.3073, 1 agent, measured at beta 610).
-    realloc_strategies: [path, direct]   # seeds a slack agent tries when it claims an unserviced cluster
+    realloc_strategies: [path]   # seeds a slack agent tries when it claims an unserviced cluster
                                  # (best feasible one kept, only if the team residual falls):
                                  #   path   splice the cluster into the agent's current OPTIMISED curve -
                                  #          waypoints every 100 m along it, cheapest insertion, the length
