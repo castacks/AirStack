@@ -1212,6 +1212,19 @@ def snapshot_container_logs(dest_dir):
         (dest_dir / f"{name}.log").write_text(
             (r.stdout or "") + (("\n--- stderr ---\n" + r.stderr) if r.stderr else ""),
             encoding="utf-8")
+        if "robot-desktop" in name:
+            # Build and launch run inside tmux, so docker logs can contain
+            # only sshd output even when the entire autonomy startup failed.
+            r = docker_exec(name, "tmux capture-pane -p -t bringup:0.0 -S -2000",
+                            timeout=15)
+            (dest_dir / f"{name}_bringup.log").write_text(
+                (r.stdout or "") + (r.stderr or ""), encoding="utf-8")
+            r = docker_exec(
+                name,
+                "tail -n 500 /root/AirStack/robot/ros_ws/log/latest_build/logger_all.log",
+                timeout=15)
+            (dest_dir / f"{name}_build.log").write_text(
+                (r.stdout or "") + (r.stderr or ""), encoding="utf-8")
 
 
 def write_json(path, data):
