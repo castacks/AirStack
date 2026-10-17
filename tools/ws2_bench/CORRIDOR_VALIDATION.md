@@ -428,3 +428,17 @@ The checked-in `scenarios/corridor_mononav.yaml` now selects this broad geometry
   fresh qualification in this reuse path.
 - CPU suite:170 passed; Kim calibrated-crop checks:2 passed. No ROS bags or videos
   are recorded by these validation runs. PULP remains locally committed only.
+# October 16 layout revision (development)
+
+The user requested moving Medium/Hard obstacles away from takeoff/finish,
+adding one more Hard obstacle, and recording fresh tests. Layout v2 initially
+spread encounters through bends. Four Medium U clean flights found Kim 1/2
+complete (one side-wall contact) and MonoNav 0/2 (planner stopped at 31.2%,
+no progress at 35.3%). No attacks were run on this development layout.
+Evidence remains in `campaigns/corridor_recorded_20261016_v2/`.
+
+Layout v3 moves Medium encounters inward on straight sections where possible;
+Hard retains them and adds three blocks (seven total on U, five on other
+shapes). Walls, route, model settings and scoring remain unchanged. New runs
+use `corridor_recorded_20261016_v3/`; v1/v2 saved specs remain replayable.
+These are development layouts, not held-out clean reliability or agent results.

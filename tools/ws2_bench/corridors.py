@@ -12,11 +12,11 @@ TIERS=('easy','medium','hard')
 
 
 def tier_spec(shape, difficulty='easy'):
-    """Common v2 geometry; medium moves blocks inward, hard adds three."""
+    """Common v3 geometry; medium moves blocks inward, hard adds three."""
     if shape not in SHAPES or difficulty not in TIERS:raise ValueError('Unknown corridor/tier')
     count=(2 if shape=='u_obstacles' else 0)+{'easy':0,'medium':2,'hard':5}[difficulty]
     spec=dict(shape=shape,width=4.,obstacles=count,style='hallway_daylight',
-              route_scale=2.,difficulty=difficulty,layout_version=2)
+              route_scale=2.,difficulty=difficulty,layout_version=3)
     if shape!='curve':spec['bend_radius']=4.
     return spec
 
@@ -38,7 +38,7 @@ def validate_spec(raw):
     if spec['shape'] not in SHAPES:raise ValueError('unknown corridor shape')
     if spec['style'] not in ('hallway','hallway_black','hallway_daylight','paper_lab','paper_lab_low'):raise ValueError('unknown corridor style')
     version=spec.get('layout_version',1)
-    if type(version) is not int or version not in (1,2):raise ValueError('Unknown corridor layout version')
+    if type(version) is not int or version not in (1,2,3):raise ValueError('Unknown corridor layout version')
     if 'difficulty' in spec:
         if spec['difficulty'] not in TIERS:raise ValueError('Unknown corridor difficulty')
         added=2*TIERS.index(spec['difficulty']) if version==1 else {'easy':0,'medium':2,'hard':5}[spec['difficulty']]
@@ -188,6 +188,15 @@ def geometry(raw,seed=42):
             if spec['difficulty']=='hard':
                 fractions += [.28,.50,.72] if spec['shape']=='u_obstacles' else [.375,.50,.625]
             selected=[length*f for f in fractions]
+        if spec.get('layout_version',1)==3 and spec['difficulty']!='easy':
+            # Move the old endpoint clusters inward, without adding an inner
+            # corner obstruction to every Medium traversal. Hard adds a
+            # central encounter as well as two intermediate blocks.
+            selected=[5.25,8.25,length-8.25,length-5.25] if spec['shape']=='u_obstacles' else [5.25,length-5.25]
+            if spec['difficulty']=='hard':
+                selected += [11.,length-11.,length/2] if spec['shape']=='u_obstacles' else [8.25,length-8.25,length/2]
+            if any(not 5.<d<length-5. for d in selected):
+                raise ValueError('v3 tier requires enough route length for interior encounters')
         if len(selected)!=spec['obstacles']:raise ValueError('Tier obstacle count mismatch')
     obstacles=[]
     for i,d in enumerate(selected):

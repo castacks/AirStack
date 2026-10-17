@@ -126,12 +126,13 @@ capture or interrupt the desktop.
 | `scenarios/corridor_pulp.yaml` | PULP variant, speed, FOV, yaw gain, smoothing, height/timeout |
 | Individual episode YAML `condition` | Custom scene/seed/light/noise/delay/patch settings for `episode.py` |
 
-The suite replaces target YAML geometry with the shared suite map. Layout v2
+The suite replaces target YAML geometry with the shared suite map. Layout v3
 keeps Easy unchanged (bare L/curve/zigzag, two-block U). Medium places two blocks
 (four on U) inside the route, away from takeoff and finish. Hard preserves those
 Medium blocks and adds three, giving five blocks (seven on U). Walls and route
 stay fixed. These are map designations; measured difficulty must be checked.
-Saved specs without `layout_version` retain v1 coordinates for historical replay.
+Saved specs without `layout_version` retain v1 coordinates; explicit v2 specs
+retain their development geometry. Use v3/new outputs for the current suite.
 Scene generation is in `corridors.py`, target registration in `model_adapters.py`.
 
 Noise sigma uses RGB pixel units (0–255); delay and timeouts use simulation

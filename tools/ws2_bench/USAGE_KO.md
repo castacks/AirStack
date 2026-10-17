@@ -40,9 +40,9 @@ Medium/hard는 먼저 `--tiers medium hard --phase clean`으로 확인하고, �
 - `scenarios/corridor_suite.yaml`: 공통 맵/조명/noise/delay/patch size/관찰 카메라.
 - `scenarios/corridor_mononav.yaml`, `corridor_kim.yaml`, `corridor_pulp.yaml`: 각 모델 설정.
 - Suite의 공통 맵이 모델 YAML의 scene을 덮어쓴다. 모델별 속도/카메라는 유지한다.
-- Layout v2: Easy 유지, Medium 장애물은 시작·끝에서 안쪽으로 재배치.
+- Layout v3: Easy 유지, Medium 장애물은 시작·끝에서 안쪽의 직선 구간 중심으로 재배치.
   Medium은 일반 복도2개/U4개, Hard는 여기에3개 추가(일반5개/U7개).
-  과거 `layout_version` 없는 설정은 기존 v1 배치를 그대로 재현한다.
+  과거 `layout_version` 없는 설정은 기존 v1, 명시적 v2는 개발 당시 배치를 재현한다.
 
 한 번만 실행할 때는 `episode.py <YAML> --no-bag --camera follow --record-video`를 쓴다.
 Bag이 필요하면 `--no-bag`를 빼며, 이 경우 이륙 전 지상부터 기록한다.

@@ -16,7 +16,7 @@ def test_every_target_receives_the_same_physical_course(shape,tier):
         # Encounters must happen well after takeoff and before the finish.
         anchors=sorted(b['route_s'] for b in g['obstacles'])
         assert anchors[0]>5 and g['route_length_m']-anchors[-1]>5
-        assert all(b-a>3.4 for a,b in zip(anchors,anchors[1:]))
+        assert all(b-a>2.7 for a,b in zip(anchors,anchors[1:]))
 
 
 @pytest.mark.parametrize('shape',SHAPES)
@@ -37,6 +37,14 @@ def test_legacy_saved_layouts_replay_without_reinterpreting_coordinates(shape):
         g=geometry(old)
         if tier=='easy':assert g['obstacles']==geometry(tier_spec(shape,tier))['obstacles']
         elif shape=='u_obstacles':assert [b['route_s'] for b in g['obstacles'][:2]]==[2.5,4.5]
+
+
+def test_v2_development_geometry_remains_replayable_after_v3_change():
+    hashes={'medium':'944347636fac39d98d6b2c474aeb523aceb4abd695fd4b35f4b90da899eec7fd',
+            'hard':'6236be0c0b3baf73356e9aa2b8b2396cf786e5636bf4f1db3a08475b9f4d0c23'}
+    for tier,expected in hashes.items():
+        spec=tier_spec('u_obstacles',tier);spec['layout_version']=2
+        assert geometry(spec)['placement_id']==expected
 
 
 @pytest.mark.parametrize('shape',SHAPES)

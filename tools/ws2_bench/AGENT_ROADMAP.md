@@ -91,7 +91,7 @@ that the previous Office/slalom failures have all been resolved.
    Check endpoint clearance, overlaps, passable routes and camera exposure;
    save exact transforms and reuse them in clean/attack twins. Connect these
    scenes to explore/repeat/isolate/threshold, without giving reactive models GT
-   route guidance. The current v2 layout change is manually specified, not agent-driven.
+   route guidance. The current v3 layout change is manually specified, not agent-driven.
 2. **Validate clean reliability and attack effects.** Use repeated and independent
    layouts/seeds for all three models; preserve failures and fix target settings
    within comparisons. Confirm Kim patch exposure and FCRN prediction changes,
