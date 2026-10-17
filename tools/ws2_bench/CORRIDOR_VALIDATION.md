@@ -1,6 +1,84 @@
 # Bent-corridor clean qualification and matched attacks
 
-## Common-map recordings, 2026-10-15–16
+## Revised Medium/Hard recordings, 2026-10-16–17
+
+The requested revised matrix is complete: **106 flights, 48 clean and 58
+perturbed**, covering all four shapes and three targets on both Medium and
+Hard. Evidence is in
+`robot/ros_ws/ws2_runtime/campaigns/corridor_recorded_20261016_v3/`.
+The requested-subset audit passed with no missing flights. Original recordings
+total **607.87 minutes / 6.74 GB**. The full source/configuration/paired-condition
+audit and complete decoding of all 106 MP4s passed with zero errors.
+`requested_matrix_audit.json` certifies the requested Medium/Hard subset;
+`artifact_audit.json` checks each recording. Easy was unchanged and was not
+re-recorded in this batch.
+
+Layout v3 (`adc03a2e`) moves the Medium obstacles away from the start and finish,
+using straight portions where possible. The first encounter is 5.25m along the
+route. Hard preserves these Medium blocks and adds three: five total on
+L/curved/zigzag and seven on U, one more than the previous Hard layouts.
+Easy, walls, route lengths, lighting, target settings and scoring are unchanged.
+Saved v1/v2 specifications still replay their original coordinates. Geometry
+tests check endpoint separation, obstacle spacing and a passable swept route;
+these checks do not substitute for clean flight qualification. The CPU bench
+suite passed **201 tests** before recording.
+
+| Target | Medium clean | Hard clean |
+|---|---|---|
+| MonoNav | 8/8 | 8/8 |
+| Kim/FCRN | 7/8 | 4/8 |
+| PULP Tiny | 8/8 | 8/8 |
+
+There are two repeats per map at the same seed. Kim Medium U and every Kim
+Hard map completed only one of two clean trials. Their perturbed failures are
+marked `baseline_variable_no_attack_attribution`. All five clean failures are
+retained. These small within-map counts are not population reliability or a
+calibrated difficulty ranking.
+
+| Target / tier | Noise (4 runs) | Delay (4 runs) | Other conditions |
+|---|---|---|---|
+| MonoNav / Medium | 3 insufficient progress, 1 planner stop | 4 completed | Patch blocked |
+| MonoNav / Hard | 4 insufficient progress | 4 completed | Patch blocked |
+| Kim / Medium | 4 collisions | 4 completed | Patch: 3 collisions, 1 completed |
+| Kim / Hard | 3 collisions, 1 insufficient progress | 3 collisions, 1 completed | Patch: 4 collisions |
+| PULP / Medium | 1 collision, 3 completed | 1 collision, 3 completed | Noise + delay: 2 completed |
+| PULP / Hard | 4 collisions | 4 completed | No combination required |
+
+Noise is RGB Gaussian sigma 32 on 0–255 pixels; delay is an additional 0.5sim s.
+Kim uses the original opaque Rui FCRN patch at 0.8m. Medium Kim patch collisions
+occurred on L/curved/zigzag, whose clean controls each completed 2/2. The first
+saved FCRN inference frames on L and U show the patch surface, now farther into
+the route. This verifies initial visual exposure, **not a causal FCRN depth
+change**. Repeated confirmation and matched depth evidence remain necessary.
+PULP Medium noise collided on U and delay collided on zigzag, each with clean
+2/2. No patch is applied to MonoNav or PULP. These are fixed-condition tests,
+not an agent comparison.
+
+Two operational attempts are preserved under `infrastructure/` and excluded
+from the complete-execution matrix: a GitHub 502 during MonoNav loading before
+path execution, and a completed MonoNav flight whose landing action response
+timed out. Both received one identical-config retry; the successful mission
+and all original failure logs/videos remain intact. No model/scorer change was
+used to resolve these errors. Four earlier v2 development flights remain in
+`corridor_recorded_20261016_v2/` (see the development section below).
+
+Presentation exports are in the new campaign's `presentation/`: environment
+overview 10.27s, MonoNav 46.93s, Kim 44.77s, PULP 45.53s, and the 147.50s combined
+MP4. All five exports passed complete decoding and source/outcome checks.
+Both actual feeds retain equal 960×540 panels; the output is 1920×720/30fps.
+Environment/success playback is 1.75× faster than the previous edit, collision
+final approaches use original speed, and failure captions show route progress
+and checkpoints. The previous MonoNav U failure was only 9.46% along the route
+(2/21 checkpoints), not arrival. Kim's representative clip uses Medium L with
+clean 2/2 rather than the variable U baseline. All unselected outcomes remain in
+the raw gallery; edits are not aggregate performance evidence.
+
+At the user's request, the previous campaign's 175 MP4s (about 11.7GB) were
+removed; metrics, configurations, logs and the deletion inventory remain.
+The historical sections below describe those experiments and their audits
+before video deletion. Use the new campaign for available recordings.
+
+## Historical common-map recordings, 2026-10-15–16
 
 All requested clean and attack recordings are complete on the final layouts:
 **163 flights (72 clean, 91 perturbed)**, plus eight archived Hard U development
