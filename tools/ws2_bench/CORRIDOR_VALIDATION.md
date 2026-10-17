@@ -63,14 +63,15 @@ used to resolve these errors. Four earlier v2 development flights remain in
 `corridor_recorded_20261016_v2/` (see the development section below).
 
 Presentation exports are in the new campaign's `presentation/`: environment
-overview 10.27s, MonoNav 72.20s, Kim 78.30s, PULP 88.13s, and the 248.90s combined
+overview 10.27s, MonoNav 48.63s, Kim 46.23s, PULP 43.77s, and the 148.90s combined
 MP4. All five exports passed complete decoding and source/outcome checks.
 Both actual feeds retain equal 960×540 panels; the output is 1920×720/30fps.
 The October 17 edit retains full active-flight sequences, including stalls and
 all approaches to failure; only model loading and post-decision cleanup are
-omitted. Failed flights use 2–8× playback. Kim's patch sequence uses 4×, with
-the last 12 recorded seconds at 2×. Environment/success playback retains the
-prior accelerated pace. Large centered outcomes appear on held final frames;
+omitted. Successful runs use constant 32× playback. MonoNav's no-progress run
+and Kim's noise collision use 8×; Kim's patch run uses constant 6×. PULP's noise
+run uses 32× until the final 30 recorded seconds before collision, then 8×.
+The environment overview pace is unchanged. Large centered outcomes appear on held final frames;
 footer captions retain route progress and checkpoints. The previous MonoNav U
 failure was only 9.46% along the route
 (2/21 checkpoints), not arrival. Kim's representative clip uses Medium L with
