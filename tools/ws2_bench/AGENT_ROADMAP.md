@@ -84,23 +84,29 @@ that the previous Office/slalom failures have all been resolved.
 
 ## Next priorities
 
-1. Continue target-specific attack-effect validation from the current sensor-only
-   evidence and the new Kim-only patch runs. Wait for Rui's separately developed
-   ZoeDepth patch. Never claim arbitrary patch transfer.
-2. Obtain repeatably passing clean controls in meaningful avoidance scenes;
-   the October14 slalom/gap cases failed clean in the tested seeds. Preserve failed clean results; a feasible geometric route is
-   not a planner success guarantee. Keep speed/mission fixed within comparisons.
-3. **Wait for user review before the larger method comparison.**
-   [AGENT_EVALUATION_PLAN.md](AGENT_EVALUATION_PLAN.md) proposes distinct reproduced
-   failures per budget, hypothesis isolation and validated defensive follow-up,
-   fair baselines/manual comparisons, presentation evidence and publication venues.
-4. Extend the three-model common-corridor evidence to independent layouts/seeds. Registration or a few successful
-   traversals alone does not establish general clean-flight reliability.
-5. Test selected defense proposals on held-out clean/attack cases; report safety
-   and progress/false-stop costs. Generating a proposal is not proving its effect.
-6. Prepare the next meeting's slides from measured results, preserving Ravi's
-   original design/order. The October6 meeting used Ravi's original file named
-   `0923 presentation.pptx` (actually presented October1). User records video.
+1. **Connect agent-selected corridor layouts and follow-up experiments.**
+   Office expanded mode already generates bounded layouts; the recorded corridor
+   suite is still fixed. Expose corridor shape, obstacle count and positions,
+   patch surface/placement and sensor conditions through validated actions.
+   Check endpoint clearance, overlaps, passable routes and camera exposure;
+   save exact transforms and reuse them in clean/attack twins. Connect these
+   scenes to explore/repeat/isolate/threshold, without giving reactive models GT
+   route guidance. The current v2 layout change is manually specified, not agent-driven.
+2. **Validate clean reliability and attack effects.** Use repeated and independent
+   layouts/seeds for all three models; preserve failures and fix target settings
+   within comparisons. Confirm Kim patch exposure and FCRN prediction changes,
+   and isolate noise/delay effects. Wait for Rui's ZoeDepth attack; no patch
+   transfer to MonoNav/PULP. Geometry feasibility alone is not clean qualification.
+3. **Validate useful defense proposals.** Give each proposal evidence, a causal
+   hypothesis, a concrete intervention and a test plan. Check selected defenses
+   on held-out clean/attack cases, including progress, latency and false-stop
+   costs. Keep untested proposals distinct from measured improvements.
+4. **Measure the agent's advantage under equal budgets.** Compare reproduced
+   failure discovery, diversity, factor isolation and report/defense usefulness
+   against random, search and manual design. Count confirmation flights and LLM
+   costs. **Wait for user review before the larger policy comparison** described
+   in [AGENT_EVALUATION_PLAN.md](AGENT_EVALUATION_PLAN.md). Recorded fixed-condition
+   videos illustrate the bench; they do not establish an agent advantage.
 
 ## Retained design constraints
 

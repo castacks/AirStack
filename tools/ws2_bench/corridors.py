@@ -12,11 +12,11 @@ TIERS=('easy','medium','hard')
 
 
 def tier_spec(shape, difficulty='easy'):
-    """Common geometry for every target; tiers only add physical obstacles."""
+    """Common v2 geometry; medium moves blocks inward, hard adds three."""
     if shape not in SHAPES or difficulty not in TIERS:raise ValueError('Unknown corridor/tier')
-    count=(2 if shape=='u_obstacles' else 0)+2*TIERS.index(difficulty)
+    count=(2 if shape=='u_obstacles' else 0)+{'easy':0,'medium':2,'hard':5}[difficulty]
     spec=dict(shape=shape,width=4.,obstacles=count,style='hallway_daylight',
-              route_scale=2.,difficulty=difficulty)
+              route_scale=2.,difficulty=difficulty,layout_version=2)
     if shape!='curve':spec['bend_radius']=4.
     return spec
 
@@ -32,20 +32,23 @@ def geometry_hash(data):
 
 
 def validate_spec(raw):
-    if not isinstance(raw,dict) or set(raw)-{'shape','width','obstacles','style','corner_bevel','bend_radius','route_scale','difficulty'}:
+    if not isinstance(raw,dict) or set(raw)-{'shape','width','obstacles','style','corner_bevel','bend_radius','route_scale','difficulty','layout_version'}:
         raise ValueError('corridor requires shape, width and obstacle count')
     spec=dict(shape='elbow',width=3.5,obstacles=2,style='hallway');spec.update(raw)
     if spec['shape'] not in SHAPES:raise ValueError('unknown corridor shape')
     if spec['style'] not in ('hallway','hallway_black','hallway_daylight','paper_lab','paper_lab_low'):raise ValueError('unknown corridor style')
+    version=spec.get('layout_version',1)
+    if type(version) is not int or version not in (1,2):raise ValueError('Unknown corridor layout version')
     if 'difficulty' in spec:
         if spec['difficulty'] not in TIERS:raise ValueError('Unknown corridor difficulty')
-        expected=(2 if spec['shape']=='u_obstacles' else 0)+2*TIERS.index(spec['difficulty'])
+        added=2*TIERS.index(spec['difficulty']) if version==1 else {'easy':0,'medium':2,'hard':5}[spec['difficulty']]
+        expected=(2 if spec['shape']=='u_obstacles' else 0)+added
         if spec['obstacles']!=expected:raise ValueError('Obstacle count must match corridor difficulty')
     w=spec['width']
     if isinstance(w,bool) or not isinstance(w,(float,int)) or not math.isfinite(w) or not 2.8<=w<=5:
         raise ValueError('corridor width must be 2.8..5m')
-    if type(spec['obstacles']) is not int or not 0<=spec['obstacles']<=6:
-        raise ValueError('corridor obstacle count must be 0..6')
+    if type(spec['obstacles']) is not int or not 0<=spec['obstacles']<=7:
+        raise ValueError('corridor obstacle count must be 0..7')
     spec['width']=float(w)
     if 'route_scale' in spec:
         scale=spec['route_scale']
@@ -176,6 +179,15 @@ def geometry(raw,seed=42):
             selected += [length-6.,length-3.] if selected else [2.5,length-3.]
         if spec['difficulty']=='hard':
             selected += [10.,length-10.] if spec['shape']=='u_obstacles' else [5.5,length-6.]
+        if spec.get('layout_version',1)==2 and spec['difficulty']!='easy':
+            # Spread encounters through the route, rather than concentrating
+            # them at takeoff/finish. Curved sections use the local tangent.
+            # Medium intentionally relocates Easy's U blocks. Hard retains
+            # every Medium block (index/side/pose) and adds three encounters.
+            fractions=[.18,.38,.62,.82] if spec['shape']=='u_obstacles' else [.25,.75]
+            if spec['difficulty']=='hard':
+                fractions += [.28,.50,.72] if spec['shape']=='u_obstacles' else [.375,.50,.625]
+            selected=[length*f for f in fractions]
         if len(selected)!=spec['obstacles']:raise ValueError('Tier obstacle count mismatch')
     obstacles=[]
     for i,d in enumerate(selected):
