@@ -22,6 +22,7 @@ flowchart LR
 | `share_rays` | true | Allow bidding on peer ray leads |
 | `share_bbs` | true | Allow bidding on peer BB/voxel targets |
 | `use_shared_completion` | true | Adopt peer completed labels and visited-BB status |
+| `use_peer_allocation_state` | true | Use peer positions, destinations and selection state for allocation and yielding |
 | `debug_auction` | true | Publish and save assignment diagnostics |
 
 `RAVEN_ASSIGNMENT_MODE`, `RAVEN_SHARE_RAYS` and `RAVEN_SHARE_BBS` pass through
@@ -29,11 +30,46 @@ robot Compose into the semantic-search executor, which supplies the ROS
 parameters. Bundle length is supplied in the `SemanticSearchTask` action goal.
 Independent greedy requires length 1 and rejects other values at startup.
 
+The ray/BB sharing flags restrict task eligibility to robots recorded as
+observers; they do not stop all observation transport. Multiple observers can
+still compete for a task, while a single-observer task has only one eligible
+robot. Peer positions, intentions, completion and frontier coordination remain
+active unless separately disabled. Thus disabling both eligibility-sharing
+flags is not equivalent to removing all coordination.
+
 The auction assigns exclusive heads before growing tails, stops at ray tasks,
 and limits each tail extension to 20 m. Independent greedy reuses the same
 single-robot L1 scoring but does not consider peer allocation or ownership.
 It disables target-level peer yielding while preserving shared perception,
 completed-target filtering, frontier behavior and navigation safety.
+
+## Peer position and selection ablation
+
+Set `RAVEN_USE_PEER_ALLOCATION_STATE=false` in the mission environment. Compose
+and the semantic-search executor pass `use_peer_allocation_state:=false` to
+each robot. The assignment solver receives only that robot's position, weight,
+exploration cost and committed waypoint. Peer commitments no longer exclude
+rays, peer observers no longer cause ray yielding, and voxel behavior no longer
+defers to a closer or committed peer. Frontier selection also ignores peer
+position and waypoint repulsion.
+
+Shared rays, bounding boxes, completed targets, serviced leads, frontiers and
+explored coverage remain enabled. Received messages and their coordinate
+transforms are preserved; a masked view removes planning state only where
+navigation behaviors consume it. This is a consumption ablation, not a network
+bandwidth ablation. Local collision avoidance and control are unchanged.
+
+The matched experiment retains `assignment_mode=auction` and bundle length 3.
+With only one agent row, the existing solver constructs a local bundle; it
+cannot allocate exclusively across robots or compute their distance-based bids.
+This differs from the independent-greedy ablation, which uses length 1 and
+retains frontier coordination. `test/test_peer_allocation_state.py` checks
+invariance to peer motion/selection, length-3 bundles, shared-information
+preservation, frontier repulsion removal and the unchanged default behavior.
+
+`raven_3robot_full_no_peer_allocation_s1_20261018.yaml` runs eight matched s1
+scenes with three robots, full communication and 300 simulated search seconds.
+The flag is recorded in every auction trace alongside actual bundle occupancy.
 
 ## Local completion ablation
 

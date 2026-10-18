@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from raven_nav.bid_manager import Task, ConsensusAssigner
 
 
@@ -101,13 +102,15 @@ def test_disabled_ray_sharing_does_not_relabel_peer_raw_rays_as_own():
     assert len(merge(node)[0]) == 2
 
 
-def test_node_task_table_applies_each_ablation_independently():
+@pytest.mark.parametrize('use_peer_allocation_state', [True, False])
+def test_node_task_table_applies_each_ablation_independently(use_peer_allocation_state):
     from types import SimpleNamespace as S
     own = dict(label='car', o=np.array([0., 0., 5.]), d=np.array([1., 0., 0.]))
     peer = dict(label='car', o=np.array([30., 0., 5.]), d=np.array([1., 0., 0.]))
     box = S(label='house', center=np.array([80., 0., 5.]), size=np.ones(3),
             status='observing', confidence=1., source_ids=frozenset({2}))
-    node = S(_my_id=1, _target_objects=[], _house_boxes=lambda: [box],
+    node = S(_my_id=1, _use_peer_allocation_state=use_peer_allocation_state,
+             _target_objects=[], _house_boxes=lambda: [box],
              _visited_match=lambda *a: None, _bb_is_visited=lambda *a: False,
              _accumulate_ray_leads=lambda *a: None, _ray_leads=[own],
              _peer_state=S(peer_ray_leads={'robot_2': [peer]}, peer_ids={'robot_2': 2}),

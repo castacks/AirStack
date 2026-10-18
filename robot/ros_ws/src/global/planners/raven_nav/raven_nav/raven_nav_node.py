@@ -499,6 +499,8 @@ class RavenNavNode(Node):
         self._share_bbs = bool(self.declare_parameter('share_bbs', True).value)
         self._use_shared_completion = bool(self.declare_parameter(
             'use_shared_completion', True).value)
+        self._use_peer_allocation_state = bool(self.declare_parameter(
+            'use_peer_allocation_state', True).value)
         self._assignment_mode = str(self.declare_parameter(
             'assignment_mode', 'auction').value)
         if self._assignment_mode not in ('auction', 'independent_greedy'):
@@ -507,7 +509,8 @@ class RavenNavNode(Node):
         self.get_logger().info(
             f'[auction] mode={self._assignment_mode} L={self._bundle_len} '
             f'share_rays={self._share_rays} share_bbs={self._share_bbs} '
-            f'use_shared_completion={self._use_shared_completion}')
+            f'use_shared_completion={self._use_shared_completion} '
+            f'use_peer_allocation_state={self._use_peer_allocation_state}')
         assigner = (bid_manager.IndependentGreedyAssigner if self._independent_greedy
                     else bid_manager.ConsensusAssigner)
         self._consensus = assigner(self._bundle_len)
@@ -1510,6 +1513,8 @@ class RavenNavNode(Node):
     def _agent_positions(self, fresh_peers):
         """{agent_id: xyz} for me + fresh peers with a known position."""
         pos = {self._my_id: np.asarray(self._cur_pose, dtype=float)}
+        if not getattr(self, '_use_peer_allocation_state', True):
+            return pos
         for name in fresh_peers:
             pid = self._peer_state.peer_ids.get(name)
             p = self._peer_state.peer_positions.get(name)
@@ -1526,6 +1531,8 @@ class RavenNavNode(Node):
         wps = {}
         if self._target_waypoint is not None:
             wps[self._my_id] = np.asarray(self._target_waypoint, dtype=float)
+        if not getattr(self, '_use_peer_allocation_state', True):
+            return wps
         for name in fresh_peers:
             pid = self._peer_state.peer_ids.get(name)
             wp = self._peer_state.peer_waypoints.get(name)
@@ -1536,6 +1543,8 @@ class RavenNavNode(Node):
     def _peer_weights_by_name(self, now) -> dict:
         """{name: w} age weight: 1.0 within the grace, linear to 0 at the TTL."""
         ws = {}
+        if not getattr(self, '_use_peer_allocation_state', True):
+            return ws
         for name, t in self._peer_state.peer_last_seen.items():
             age = now - t
             if age <= self._PEER_GRACE_S:
@@ -1551,11 +1560,39 @@ class RavenNavNode(Node):
         """{agent_id: w} for me + fresh peers."""
         by_name = self._peer_weights_by_name(now)
         ws = {self._my_id: 1.0}
+        if not getattr(self, '_use_peer_allocation_state', True):
+            return ws
         for name in fresh_peers:
             pid = self._peer_state.peer_ids.get(name)
             if pid is not None:
                 ws[pid] = by_name.get(name, 0.0)
         return ws
+
+    def _agent_explore_dists(self, my_explore, fresh_peers):
+        dists = {self._my_id: my_explore} if my_explore >= 0.0 else {}
+        if not getattr(self, '_use_peer_allocation_state', True):
+            return dists
+        for name in fresh_peers:
+            pid = self._peer_state.peer_ids.get(name)
+            d = self._peer_state.peer_explore_dist.get(name)
+            if pid is not None and d is not None and d >= 0.0:
+                dists[pid] = d
+        return dists
+
+    def _planning_peer_state(self):
+        """Mask allocation inputs, preserving received observations and coverage.
+
+        The received cache remains intact for frame transforms and diagnostics.
+        Only the high-level navigation behaviors consume this masked view.
+        """
+        if getattr(self, '_use_peer_allocation_state', True):
+            return self._peer_state
+        state = SimpleNamespace(**vars(self._peer_state))
+        for field in ('peer_positions', 'peer_waypoints', 'peer_nav_modes',
+                      'peer_bids', 'peer_explore_dist', 'peer_committed_instance',
+                      'peer_committed_target', 'peer_conavgpt_assignment'):
+            setattr(state, field, {})
+        return state
 
     def _explore_bid_dist(self) -> float:
         """XY distance to my nearest viable frontier (altitude + polygon +
@@ -1619,7 +1656,8 @@ class RavenNavNode(Node):
         """True if my ray points at a BB a peer is OBSERVING and that peer is
         clearly closer to it — yield so the closer (voxel-mode) drone takes it.
         Applies even to my own committed ray."""
-        if self._independent_greedy:
+        if (self._independent_greedy
+                or not getattr(self, '_use_peer_allocation_state', True)):
             return False
         bbs = getattr(self, '_peer_observing_bbs', None)
         if not bbs or self._cur_pose is None:
@@ -1744,7 +1782,8 @@ class RavenNavNode(Node):
     def _fresh_peer_committed_instances(self, now):
         """[(name, label, origin, dir, pid)] of peers whose committed instance is
         fresh (last seen within the TTL)."""
-        if self._independent_greedy:
+        if (self._independent_greedy
+                or not getattr(self, '_use_peer_allocation_state', True)):
             return []
         out = []
         for name, inst in self._peer_state.peer_committed_instance.items():
@@ -2832,7 +2871,7 @@ class RavenNavNode(Node):
             name: [e for e in entries
                    if e.label not in all_completed and e.num_rays > 0]
             for name, entries in self._peer_state.peer_bids.items()
-            if name in fresh_peers
+            if name in fresh_peers and self._use_peer_allocation_state
         }
 
         # Consensus over the unified task table (ray-leads + confirmed BBs):
@@ -2844,14 +2883,7 @@ class RavenNavNode(Node):
         my_explore = self._explore_bid_dist()
         self._explore_bid_pub.publish(
             String(data=json.dumps({'d': my_explore})))
-        explore_dists = {}
-        if my_explore >= 0.0:
-            explore_dists[self._my_id] = my_explore
-        for name in fresh_peers:
-            pid = self._peer_state.peer_ids.get(name)
-            d = self._peer_state.peer_explore_dist.get(name)
-            if pid is not None and d is not None and d >= 0.0:
-                explore_dists[pid] = d
+        explore_dists = self._agent_explore_dists(my_explore, fresh_peers)
         tasks = self._build_consensus_tasks(
             ray_groups, all_completed, polygon_xy, now, agent_pos)
         assigned_map = self._consensus.assign(
@@ -2866,7 +2898,8 @@ class RavenNavNode(Node):
             dbg.setdefault('params', {}).update(
                 share_rays=self._share_rays, share_bbs=self._share_bbs,
                 assignment_mode=self._assignment_mode, bundle_len=self._bundle_len,
-                use_shared_completion=self._use_shared_completion)
+                use_shared_completion=self._use_shared_completion,
+                use_peer_allocation_state=self._use_peer_allocation_state)
             dbg['bundle_occupancy'] = {str(a): len(assigned_map.get(a, []))
                                        for a in agent_pos}
             dbg['task_count'] = len(tasks)
@@ -3142,7 +3175,7 @@ class RavenNavNode(Node):
         vb.fresh_peer_points = [
             (self._peer_state.peer_ids.get(n), self._peer_state.peer_positions[n])
             for n in fresh_peers if n in self._peer_state.peer_positions
-            and not self._independent_greedy]
+            and not self._independent_greedy and self._use_peer_allocation_state]
         vb.peer_committed_points = [
             self._ray_point(po, pd)
             for (_n, _lbl, po, pd, _pid) in peer_committed_instances]
@@ -3327,7 +3360,7 @@ class RavenNavNode(Node):
                 vox_xyz=self._vox_xyz,
                 vox_scores=self._vox_scores,
                 query_labels=self._query_labels,
-                peer_state=self._peer_state,
+                peer_state=self._planning_peer_state(),
                 peer_weights=self._peer_weights_by_name(now),
                 completed_zones_xy=completed_zones_xy,
                 cell_size_m=self._cell_size_m,
