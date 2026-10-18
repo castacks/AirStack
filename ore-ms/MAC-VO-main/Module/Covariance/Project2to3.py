@@ -118,6 +118,8 @@ class MatchCovariance(ICovariance2to3):
     def __init__(self, config: SimpleNamespace):
         super().__init__(config)
         self.config.kernel_size_hlf = self.config.kernel_size // 2
+        # Optional research observer receives detached copies.
+        self.diagnostic_observer = None
 
     @Timer.cpu_timeit("Cov Model")
     @Timer.gpu_timeit("Cov Model")
@@ -125,6 +127,9 @@ class MatchCovariance(ICovariance2to3):
         n_sample = kp.size(0)
 
         kp_long = kp.clone().long()
+        observer = self.diagnostic_observer
+        if observer is not None:
+            raw_flow_cov = None if flow_cov is None else flow_cov.detach().clone()
         if (has_flow_cov_flag := flow_cov is not None):
             # Min clamp to 0.16 since camera plane is descretelized by pixels, which has at least an
             # uncertainty of 0.16
@@ -169,6 +174,11 @@ class MatchCovariance(ICovariance2to3):
             assert depth_cov is not None
             wvar_depth = depth_cov
         
+        if observer is not None:
+            observer({"kp_uv": kp.detach().clone(), "flow_cov_before": raw_flow_cov,
+                      "flow_cov_after": flow_cov.detach().clone(),
+                      "depth_variance_before": wvar_depth.detach().clone(),
+                      "depth_variance_after": wvar_depth.clamp(min=self.config.min_depth_cov).detach().clone()})
         wvar_depth = wvar_depth.clamp(min=self.config.min_depth_cov)
 
         # Inverse project 2D keypoint to 3D space.

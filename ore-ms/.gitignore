@@ -11,7 +11,7 @@ __pycache__/
 .venv/
 
 # Model/data archives and generated artifacts
-macslam/
+models/macslam/
 *.zip
 *.pth
 *.pt

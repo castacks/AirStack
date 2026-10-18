@@ -167,6 +167,8 @@ class FlowFormerCovFrontend(IFrontend):
         from ..Network.FlowFormerCov import build_flowformer
         
         cfg = get_cfg()
+        # A complete frontend checkpoint is loaded below; avoid unrelated encoder downloads.
+        cfg.latentcostformer.pretrain = False
         cfg.latentcostformer.decoder_depth = self.config.decoder_depth
         model = build_flowformer(cfg, reflect_torch_dtype(config.enc_dtype), reflect_torch_dtype(config.dec_dtype))
         ckpt  = torch.load(self.config.weight, map_location=self.config.device, weights_only=True)

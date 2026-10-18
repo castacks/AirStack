@@ -45,5 +45,5 @@ rclone is ready. The Box token is available only at:
   ${RCLONE_CONFIG_FILE}
 
 Example pull (use copy, never sync, for experiment inputs):
-  rclone copy ${RCLONE_REMOTE}:ore-ms/macslam.zip ./Model --progress
+  rclone copyto ${RCLONE_REMOTE}:ore-ms/macslam.zip ../data/archives/macslam.zip --progress
 EOF

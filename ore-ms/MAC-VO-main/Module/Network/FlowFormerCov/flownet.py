@@ -44,11 +44,14 @@ class FlowFormerCov(FlowFormer):
         return flow_pre, torch.exp(cov_pre * 2)
 
     def load_ddp_state_dict(self, ckpt: OrderedDict):
-        cvt_ckpt = OrderedDict()
-        for k in ckpt:
-            if k.startswith("module."):
-                cvt_ckpt[k[7:]] = ckpt[k]
-            else:
-                cvt_ckpt[k] = ckpt[k]
-        self.load_state_dict(cvt_ckpt, strict=False)
+        from .checkpoint import load_cov_checkpoint
+        report = load_cov_checkpoint(self, ckpt)
+        if report["migration"] != "none":
+            import warnings
+            warnings.warn(
+                "Loaded legacy RGB checkpoint: removed seven unused upstream "
+                "keys and initialized the deterministic sampling grid.",
+                stacklevel=2,
+            )
+        return report
 

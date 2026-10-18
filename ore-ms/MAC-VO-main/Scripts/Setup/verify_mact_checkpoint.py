@@ -8,6 +8,7 @@ Synthetic outputs test execution only, not thermal accuracy or preprocessing.
 import argparse
 import sys
 import time
+import json
 from pathlib import Path
 
 import torch
@@ -17,25 +18,28 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from Module.Network.FlowFormer.configs.submission import get_cfg
 from Module.Network.FlowFormerCov import build_flowformer
+from Module.Network.FlowFormerCov.checkpoint import load_cov_checkpoint
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--checkpoint", type=Path,
-                        default=REPO_ROOT.parent / "macslam/MACT_Offroad.pth")
+                        default=REPO_ROOT.parent / "models/macslam/MACT_Offroad.pth")
     parser.add_argument("--forward", action="store_true")
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--height", type=int, default=128)
     parser.add_argument("--width", type=int, default=128)
+    parser.add_argument("--allow-legacy-rgb", action="store_true",
+                        help="Allow only the audited released-RGB checkpoint migration")
     args = parser.parse_args()
 
     cfg = get_cfg()
     cfg.latentcostformer.pretrain = False
     model = build_flowformer(cfg, torch.float32, torch.float32).eval()
     weights = torch.load(args.checkpoint, map_location="cpu", weights_only=True)
-    weights = {key.removeprefix("module."): value for key, value in weights.items()}
-    model.load_state_dict(weights, strict=True)
-    print(f"PASS strict checkpoint load: {len(weights)} entries")
+    report = load_cov_checkpoint(model, weights, allow_legacy=args.allow_legacy_rgb)
+    print(f"PASS checkpoint load with strict active-state validation: {len(weights)} entries")
+    print(json.dumps(report))
     print(f"Model parameters: {sum(p.numel() for p in model.parameters())}")
 
     if args.forward:

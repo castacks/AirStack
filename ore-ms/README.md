@@ -12,16 +12,33 @@ research scope, decisions, resource pointers, and verified progress.
 
 - `MAC-VO-main/`: extracted MAC-VO source, recovered FlowFormer/DPVO dependencies,
   and environment/verification scripts. See its upstream README for the pipeline.
-- `macslam/`: downloaded checkpoint bundle, excluded from Git.
+- `models/macslam/`: extracted checkpoints, excluded from Git.
+- `data/archives/`: original model and dataset ZIPs, excluded from Git.
+- `data/calibration/yamaha.yaml`: supplied extrinsics source, excluded from Git.
+- `data/tartandrive3/`: extracted recordings, excluded from Git.
+- `experiments/`: reproducibility notes and measured findings.
+- `results/`: generated manifests, arrays, plots, and logs, excluded from Git.
+- `docs/research-proposal.pdf`: research proposal.
 - `MAC-VO-main/Scripts/Setup/README.md`: environment and Box staging instructions.
-- The research proposal PDF is retained at the project root.
 
 ## Verified starting point
 
 `MACT_Offroad.pth` strictly loads all 428 checkpoint entries into FlowFormerCov.
 The MACT frontend runs on the RTX PRO 5000 Blackwell GPU using Torch 2.7.1 and
 CUDA 12.8. Synthetic inference at 128x128 and 480x640 produces finite flow and
-positive covariance. Full thermal VO and dataset accuracy remain unverified.
+positive covariance. Bounded 10-frame camera-local RGB and thermal odometry
+execution is now exercised; calibration validity and dataset accuracy remain
+unverified. See [EXP-003](experiments/EXP-003-bounded-vo.md) for execution evidence
+and [EXP-004](experiments/EXP-004-moving-reference.md) for the first moving-window
+comparison against recorded SLAM. Raw uncertainty recording and separate-window
+scale checks are complete in [EXP-006](experiments/EXP-006-raw-uncertainty.md):
+a single thermal scale does not transfer uniformly, so no correction is adopted.
+[EXP-007](experiments/EXP-007-thermal-failure.md) narrows the late thermal failure
+and confirms that this backend directly weights image/disparity residuals.
+[EXP-008](experiments/EXP-008-backend-ablation.md) replays both objectives on
+identical inputs: removing target disparity does not resolve the late failure.
+[EXP-009](experiments/EXP-009-weight-ablation.md) finds strong pixel-weight
+sensitivity: fixed weights improve late thermal translation but worsen rotation.
 
 The older `macvo:box` image cannot execute on Blackwell. Use `macvo:blackwell`:
 
@@ -41,8 +58,8 @@ would downgrade the framework. The recovered frontend uses native attention.
 
 ## Checkpoints and data
 
-The shared CMU Box bundle is `macslam.zip`. Extract it at the project root to
-produce `macslam/MACT_Offroad.pth`, `MACVO_FrontendCov.pth`, and
+The shared CMU Box bundle is `macslam.zip`. Keep it in `data/archives/` and
+extract it into `models/` to produce `models/macslam/MACT_Offroad.pth`, `MACVO_FrontendCov.pth`, and
 `MACVO_posenet.pkl`. Archive SHA-256:
 
 ```text
@@ -53,9 +70,12 @@ AirLab processed data: `/offroad/datasets/tartandrive3`; raw bags:
 `/offroad/rosbags`. Prioritize `20251027` or `20251106` for RGB-stereo and
 thermal-stereo. These paths are not mounted in the current workspace.
 
-Next obtain about 10 synchronized stereo frames per modality, timestamps,
-intrinsics, extrinsics/baseline, and rectification metadata. Preserve the raw
-thermal files. Thermal normalization and the checkpoint's training split are
+The `20251027/1_salon_mac_cov_day` clip is staged locally, with camera streams,
+timestamps, intrinsics, recorded TF, and SLAM inputs. Both RGB and thermal pass
+real-image frontend execution. The supplied `yamaha.yaml` is staged under
+`data/calibration/`; camera calibration reconciliation is in progress. See the
+latest notes under `experiments/` before running geometry evaluation.
+Thermal normalization and the checkpoint's training split are
 still unknown; three-channel input compatibility alone does not establish the
 original preprocessing recipe.
 
