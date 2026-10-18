@@ -501,6 +501,10 @@ class RavenNavNode(Node):
             'use_shared_completion', True).value)
         self._use_peer_allocation_state = bool(self.declare_parameter(
             'use_peer_allocation_state', True).value)
+        self._associate_bbs = bool(self.declare_parameter('associate_bbs', True).value)
+        self._associate_ray_bbs = bool(self.declare_parameter(
+            'associate_ray_bbs', True).value)
+        self._associate_rays = bool(self.declare_parameter('associate_rays', True).value)
         self._assignment_mode = str(self.declare_parameter(
             'assignment_mode', 'auction').value)
         if self._assignment_mode not in ('auction', 'independent_greedy'):
@@ -510,7 +514,10 @@ class RavenNavNode(Node):
             f'[auction] mode={self._assignment_mode} L={self._bundle_len} '
             f'share_rays={self._share_rays} share_bbs={self._share_bbs} '
             f'use_shared_completion={self._use_shared_completion} '
-            f'use_peer_allocation_state={self._use_peer_allocation_state}')
+            f'use_peer_allocation_state={self._use_peer_allocation_state} '
+            f'associate_bbs={self._associate_bbs} '
+            f'associate_ray_bbs={self._associate_ray_bbs} '
+            f'associate_rays={self._associate_rays}')
         assigner = (bid_manager.IndependentGreedyAssigner if self._independent_greedy
                     else bid_manager.ConsensusAssigner)
         self._consensus = assigner(self._bundle_len)
@@ -884,6 +891,34 @@ class RavenNavNode(Node):
         c = np.round(np.asarray(center, dtype=float)[:3] / 2.0).astype(int)
         return (label, int(c[0]), int(c[1]), int(c[2]))
 
+    def _remember_observed_bbs(self, targets):
+        """Retain hypotheses across ticks without collapsing unassociated BBs.
+
+        In the BB ablation, source and occurrence distinguish boxes sharing a
+        cache cell. Repeated identical snapshots update those slots instead of
+        creating an extra task on every tick. Completed-instance filtering is
+        independent of association and remains active.
+        """
+        counts = {}
+        if not getattr(self, '_associate_bbs', True):
+            targets = sorted(targets, key=lambda ct: (
+                ct.label, tuple(ct.center), tuple(ct.size), tuple(sorted(ct.source_ids))))
+        for ct in targets:
+            key = self._obs_key(ct.label, ct.center)
+            if not getattr(self, '_associate_bbs', True):
+                key = (*key, tuple(sorted(ct.source_ids)))
+                slot = counts.get(key, 0)
+                counts[key] = slot + 1
+                key = (*key, slot)
+            if str(ct.status).lower() == 'visited':
+                self._observed_bbs.pop(key, None)
+            else:
+                self._observed_bbs[key] = ct
+        for key in list(self._observed_bbs):
+            ct = self._observed_bbs[key]
+            if self._bb_is_visited(ct.label, ct.center, ct.size):
+                self._observed_bbs.pop(key, None)
+
     def _visited_match(self, label, center, size=None):
         """The visited fragment this BB is the same instance as (same label +
         xy overlap): (centre(3), size(3)), or None."""
@@ -956,7 +991,8 @@ class RavenNavNode(Node):
             srcs.append(ConfirmedTarget(label=lab, center=b[:3],
                                         size=(b[3:6] if b.size >= 6 else np.full(3, 1.0)),
                                         status='visited', confidence=1.0, ts=0.0))
-        return merge_house_boxes(srcs)
+        return (merge_house_boxes(srcs) if getattr(self, '_associate_bbs', True)
+                else srcs)
 
     def _mark_reached(self, cur_pose) -> None:
         """Flag a target visited when the drone reaches it, judged against the
@@ -1034,9 +1070,13 @@ class RavenNavNode(Node):
         # Combine own fragments locally (peak-aware) BEFORE transmit, so each
         # robot ships clean per-target boxes; the cross-robot step then fuses only
         # SIMILAR boxes (same target) and leaves dissimilar ones as distinct.
-        own_cts = merge_confirmed_targets(self._own_confirmed_targets())
+        own_cts = self._own_confirmed_targets()
+        if getattr(self, '_associate_bbs', True):
+            own_cts = merge_confirmed_targets(own_cts)
         peer_cts = self._peer_confirmed_targets_flat()
-        merged_cts = merge_similar_targets(own_cts + peer_cts)
+        merged_cts = own_cts + peer_cts
+        if getattr(self, '_associate_bbs', True):
+            merged_cts = merge_similar_targets(merged_cts)
 
         # Visited BBs gate ray exclusion / commitment release. peer_cts has
         # already removed peer completion status when using local completion.
@@ -1049,16 +1089,7 @@ class RavenNavNode(Node):
         for ct in (own_cts + peer_cts):
             if str(ct.status).lower() == 'visited':
                 self._add_visited(ct.label, _bb(ct))
-        for ct in merged_cts:
-            key = self._obs_key(ct.label, ct.center)
-            if str(ct.status).lower() == 'visited':
-                self._observed_bbs.pop(key, None)
-            else:
-                self._observed_bbs[key] = ct
-        for key in list(self._observed_bbs):
-            oct = self._observed_bbs[key]
-            if self._bb_is_visited(oct.label, oct.center, oct.size):
-                self._observed_bbs.pop(key, None)
+        self._remember_observed_bbs(merged_cts)
         self._consensus_bbs = [(ct.label, _bb(ct)) for ct in merged_cts]
         self._behavior_manager.voxel_behavior.peer_visited_bbs = [
             bb for _, bb in self._peer_visited_bbs]
@@ -1106,6 +1137,8 @@ class RavenNavNode(Node):
             known_bbs=known_bbs,
             polygon_xy=polygon_xy,
             now_ts=now_ts,
+            associate_ray_bbs=getattr(self, '_associate_ray_bbs', True),
+            associate_rays=getattr(self, '_associate_rays', True),
         )
 
         peer_names = list(self._peer_state.peer_confirmed_targets.keys())
@@ -1183,7 +1216,8 @@ class RavenNavNode(Node):
         d = np.asarray(d, dtype=float)
         bl = (label or '').lower()
         cand = []
-        for ct in self._observed_bbs.values():
+        for ct in (self._observed_bbs.values()
+                   if getattr(self, '_associate_ray_bbs', True) else []):
             cl = (ct.label or '').lower()
             if bl in cl or cl in bl:
                 cand.append((np.asarray(ct.center, float), np.asarray(ct.size, float)))
@@ -1293,6 +1327,9 @@ class RavenNavNode(Node):
         observed/visited, that a drone has reached, or whose label completed. No
         TTL — leads persist until resolved."""
         targets = set(self._target_objects or [])
+        # No ray association: update each previous track at most once. Never
+        # fold two hypotheses from the current snapshot into the same lead.
+        temporal_candidates = list(self._ray_leads)
         for g in ray_groups:
             if g.num_rays <= 0 or g.label in all_completed:
                 continue
@@ -1307,11 +1344,15 @@ class RavenNavNode(Node):
             # rays re-spawn it, else the drone oscillates back to it.
             if self._lead_served(g.label, o):
                 continue
-            m = self._lead_match(o, d, g.label, self._ray_leads,
+            m = self._lead_match(o, d, g.label,
+                                 self._ray_leads if getattr(self, '_associate_rays', True)
+                                 else temporal_candidates,
                                  match_m=self._RAY_LEAD_DEDUP_M,
                                  dir_cos=self._RAY_LEAD_DEDUP_DIR_COS)
             if m is not None:
                 m['o'], m['d'], m['ts'], m['score'] = o, d, now, score
+                if not getattr(self, '_associate_rays', True):
+                    temporal_candidates = [x for x in temporal_candidates if x is not m]
             else:
                 self._ray_leads.append(
                     {'o': o, 'd': d, 'label': g.label, 'ts': now, 'score': score})
@@ -1390,7 +1431,8 @@ class RavenNavNode(Node):
                     continue
                 if self._lead_served(pl['label'], pl['o']):
                     continue
-                match = self._lead_match(pl['o'], pl['d'], pl['label'], combined)
+                match = (self._lead_match(pl['o'], pl['d'], pl['label'], combined)
+                         if getattr(self, '_associate_rays', True) else None)
                 pid = self._peer_state.peer_ids.get(name)
                 sources = {pid} if pid is not None else set()
                 if match is None:
@@ -1408,7 +1450,8 @@ class RavenNavNode(Node):
                           float(L.get('score', 0.0)),
                           None if self._share_rays else L['source_ids']))
         tasks = bid_manager.build_tasks(
-            items, self._TASK_MATCH_M, self._TASK_KEY_GRID)
+            items, self._TASK_MATCH_M, self._TASK_KEY_GRID,
+            associate_bbs=getattr(self, '_associate_bbs', True))
         # Re-check merged BB boxes against the visited set. build_tasks unions BB
         # fragments within TASK_MATCH_M, so the merged task box can grow to overlap
         # an already-visited instance that each individual fragment did NOT match
@@ -1656,7 +1699,8 @@ class RavenNavNode(Node):
         """True if my ray points at a BB a peer is OBSERVING and that peer is
         clearly closer to it — yield so the closer (voxel-mode) drone takes it.
         Applies even to my own committed ray."""
-        if (self._independent_greedy
+        if (not getattr(self, '_associate_ray_bbs', True)
+                or self._independent_greedy
                 or not getattr(self, '_use_peer_allocation_state', True)):
             return False
         bbs = getattr(self, '_peer_observing_bbs', None)
@@ -1697,6 +1741,8 @@ class RavenNavNode(Node):
         if self._ray_on_peer_bbs(g.avg_origin, g.avg_dir, g.label, visited) \
                 or self._point_near_bbs(my_pt, g.label, visited):
             return True
+        if not getattr(self, '_associate_rays', True):
+            return False
         if (self._committed_to_assigned
                 and self._assigned_target == g.label
                 and self._committed_target_last_dir is not None
@@ -1720,6 +1766,8 @@ class RavenNavNode(Node):
     def _rays_share_bb(self, o1, d1, o2, d2, label) -> bool:
         """True if a consensus BB (label-compatible) that BOTH rays pass through
         exists — a same-target signal independent of triangulation."""
+        if not getattr(self, '_associate_ray_bbs', True):
+            return False
         bbs = getattr(self, '_consensus_bbs', None)
         if not bbs:
             return False
@@ -1741,6 +1789,8 @@ class RavenNavNode(Node):
         """Two bearings point at the same physical target: triangulation OR a
         shared consensus BB (the latter catches wide-baseline triangulation
         misses once a BB exists)."""
+        if not getattr(self, '_associate_rays', True):
+            return False
         a = SimpleNamespace(label=label, avg_origin=np.asarray(o1, float),
                             avg_dir=np.asarray(d1, float))
         b = SimpleNamespace(label=label, avg_origin=np.asarray(o2, float),
@@ -2899,7 +2949,10 @@ class RavenNavNode(Node):
                 share_rays=self._share_rays, share_bbs=self._share_bbs,
                 assignment_mode=self._assignment_mode, bundle_len=self._bundle_len,
                 use_shared_completion=self._use_shared_completion,
-                use_peer_allocation_state=self._use_peer_allocation_state)
+                use_peer_allocation_state=self._use_peer_allocation_state,
+                associate_bbs=self._associate_bbs,
+                associate_ray_bbs=self._associate_ray_bbs,
+                associate_rays=self._associate_rays)
             dbg['bundle_occupancy'] = {str(a): len(assigned_map.get(a, []))
                                        for a in agent_pos}
             dbg['task_count'] = len(tasks)

@@ -46,7 +46,7 @@ def node(shared):
           _publish_discoveries_table=lambda d:None)
     for name in ['_peer_confirmed_targets_flat','_completed_target_labels',
                  '_visited_match','_bb_is_visited','_add_visited','_obs_key',
-                 '_house_boxes','_update_discoveries']:
+                 '_house_boxes','_remember_observed_bbs','_update_discoveries']:
         setattr(obj,name,MethodType(method(name),obj))
     return obj,own,published
 

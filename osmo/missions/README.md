@@ -30,6 +30,13 @@ Docker.
 
 ## Results
 
+Task-association ablations are documented in the
+[RAVEN navigation README](../../robot/ros_ws/src/global/planners/raven_nav/README.md#task-association-ablations).
+The October 18 three-robot full-comms missions disable BB–BB, ray–BB, or ray–ray
+association separately (eight matched s1 trials per mission). All sharing and
+completion settings remain enabled. Verify the three `associate_*` flags in
+each robot's auction trace before comparing results.
+
 ```
 osmo/results/<mission-name>/<UTC stamp>/
 ├── summary.json              # per-iteration status + durations

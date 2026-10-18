@@ -1092,6 +1092,9 @@ class SemanticSearchTaskNode(Node):
                 '-p', f'assignment_mode:={os.getenv("RAVEN_ASSIGNMENT_MODE", "auction").strip().lower()}',
                 '-p', f'use_shared_completion:={os.getenv("RAVEN_USE_SHARED_COMPLETION", "true").strip().lower()}',
                 '-p', f'use_peer_allocation_state:={os.getenv("RAVEN_USE_PEER_ALLOCATION_STATE", "true").strip().lower()}',
+                '-p', f'associate_bbs:={os.getenv("RAVEN_ASSOCIATE_BBS", "true").strip().lower()}',
+                '-p', f'associate_ray_bbs:={os.getenv("RAVEN_ASSOCIATE_RAY_BBS", "true").strip().lower()}',
+                '-p', f'associate_rays:={os.getenv("RAVEN_ASSOCIATE_RAYS", "true").strip().lower()}',
                 # Default full coordination; FRONTIER_ONLY_BASELINE=true → baseline.
                 '-p', f'frontier_only_baseline:={os.getenv("FRONTIER_ONLY_BASELINE", "false").strip().lower()}',
                 # VLFM_BASELINE=true → greedy VLFM baseline (mutually exclusive

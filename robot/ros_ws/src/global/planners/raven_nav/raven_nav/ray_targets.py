@@ -201,6 +201,8 @@ def build_targets(
     eps_max: float = EPS_MAX_M,
     t_min: float = T_MIN_M,
     angle_min_deg: float = ANGLE_MIN_DEG,
+    associate_ray_bbs: bool = True,
+    associate_rays: bool = True,
 ) -> List[RayTarget]:
     """Build RayTarget list from own + peer ray groups, anchored by known BBs.
 
@@ -212,6 +214,10 @@ def build_targets(
     plus one RayTarget per bb_id that has at least one attached group. BBs
     with no attached rays do NOT appear here — they'll be carried by the
     confirmed-target list in discoveries.py.
+
+    Association switches control BB attachment and the ray triangulation graph
+    independently. This discovery list is not the auction task table; the node
+    also applies the switches to persistent leads and task-level filtering.
     """
     groups = list(own_groups) + list(peer_groups)
     if not groups:
@@ -229,7 +235,7 @@ def build_targets(
     bb_attachments: dict = {}
     consumed = [False] * n
     for i, g in enumerate(groups):
-        for bb_id, bb_label, bb in known_bbs:
+        for bb_id, bb_label, bb in (known_bbs if associate_ray_bbs else []):
             if bb_label != g.label:
                 continue
             hit, _ = ray_aabb_hits(g.avg_origin, g.avg_dir, bb, t_min_ahead=t_min)
@@ -253,7 +259,7 @@ def build_targets(
             parent[ra] = rb
 
     for i in range(n):
-        if consumed[i]:
+        if consumed[i] or not associate_rays:
             continue
         for j in range(i + 1, n):
             if consumed[j]:

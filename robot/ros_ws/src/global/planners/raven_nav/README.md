@@ -23,6 +23,9 @@ flowchart LR
 | `share_bbs` | true | Allow bidding on peer BB/voxel targets |
 | `use_shared_completion` | true | Adopt peer completed labels and visited-BB status |
 | `use_peer_allocation_state` | true | Use peer positions, destinations and selection state for allocation and yielding |
+| `associate_bbs` | true | Fuse BB hypotheses before publication, in persistent memory and in the auction table |
+| `associate_ray_bbs` | true | Resolve unfinished ray leads against observed BBs and apply ray-to-BB observer yielding |
+| `associate_rays` | true | Combine ray hypotheses and apply peer same-target ray conflict checks |
 | `debug_auction` | true | Publish and save assignment diagnostics |
 
 `RAVEN_ASSIGNMENT_MODE`, `RAVEN_SHARE_RAYS` and `RAVEN_SHARE_BBS` pass through
@@ -70,6 +73,52 @@ preservation, frontier repulsion removal and the unchanged default behavior.
 `raven_3robot_full_no_peer_allocation_s1_20261018.yaml` runs eight matched s1
 scenes with three robots, full communication and 300 simulated search seconds.
 The flag is recorded in every auction trace alongside actual bundle occupancy.
+
+## Task association ablations
+
+The October 18 experiments disable one association type at a time with
+`RAVEN_ASSOCIATE_BBS`, `RAVEN_ASSOCIATE_RAY_BBS` or `RAVEN_ASSOCIATE_RAYS`.
+Each environment variable passes through Compose and the semantic-search
+executor to the corresponding ROS parameter. All default to true; all three
+flags are recorded in startup logs and every auction solve trace.
+
+| Variant | Removed associations | Retained mechanisms |
+|---|---|---|
+| No BB–BB | Own-fragment fusion, cross-robot BB fusion, persistent house-box fusion, final task-table BB union | Voxel clustering and temporal confirmation; completed-instance filtering |
+| No ray–BB | Pruning leads against unfinished observed boxes, discovery BB attachment, observer yielding, shared-BB inference between bearings | Completed-BB exclusion; ray triangulation; navigation from a selected bearing into local voxel observations |
+| No ray–ray | Same-snapshot lead deduplication, peer-lead deduplication, discovery triangulation, peer same-target ray conflict suppression (including proximity fallback) | Upstream 45-degree raw-ray grouping, temporal confirmation and one-to-one temporal lead refresh; ray–BB resolution |
+
+These switches ablate association of unfinished **task hypotheses**, not all
+perception processing or temporal identity. Local voxel clustering/containment
+suppression and raw-ray grouping still generate the input hypotheses. Repeated
+BB snapshots update source-and-occurrence slots within the existing spatial
+cache cells; two BBs in one cell remain separate when association is off.
+Ray snapshots update each previous lead at most once, so two current hypotheses
+remain distinct without creating fresh copies on every tick. Peer lead arrays
+are rebuilt from the received snapshot rather than appended to persistent
+memory on every receipt.
+
+Completion labels, visited-instance matching, serviced-lead handling and pursuit
+continuity remain active in every arm. Removing duplicate unfinished tasks is
+different from forgetting that a target has been completed. With ray–ray
+association off, two rays may still independently resolve to the same BB via
+the retained ray–BB mechanism; these are individual, not combined, ablations.
+
+The `build_targets()` triangulation graph produces discovery diagnostics, not
+the auction input directly. Auction BBs come through `_house_boxes()` and
+`build_tasks()`; ray tasks come from persistent leads. Changing only the
+triangulation graph would therefore not implement a task-table ablation.
+`test/test_task_association.py` checks the actual node-to-task-builder path,
+duplicate keys, repeated snapshots, independent switches, peer conflict gates
+and preserved completed-target filtering.
+
+The three `raven_3robot_full_no_*_association_s1_20261018.yaml` missions each run
+eight matched s1 scenes, three robots, full communication, auction L3 and 300
+simulated search seconds. Rays, BBs, completion, coverage and peer allocation
+state are shared in all arms. Reuse the existing matched original RAVEN control;
+report these as single-start descriptive comparisons. Score against the same
+query-filtered GT and actual trajectories, deduplicating targets fleet-wide.
+Retain all valid trials regardless of performance.
 
 ## Local completion ablation
 

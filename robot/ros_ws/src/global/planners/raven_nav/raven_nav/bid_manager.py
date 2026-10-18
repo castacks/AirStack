@@ -379,11 +379,15 @@ def _canon(t):
     return (t[0], round(float(t[1][0]), 2), round(float(t[1][1]), 2))
 
 
-def build_tasks(items, match_m: float, key_grid: float) -> List[Task]:
+def build_tasks(items, match_m: float, key_grid: float,
+                associate_bbs: bool = True) -> List[Task]:
     """Build the shared task list. BB fragments of one physical target fuse
     (union) within match_m. Ray-leads are passed through AS-IS — one task per
     filtered ray (already clustered upstream by compute_ray_groups); they are not
     re-merged here. Deterministic -> same tasks per robot.
+
+    associate_bbs=False preserves every supplied BB as its own task, including
+    coincident boxes. The key suffix keeps those rows distinct.
 
     items: (label, point(3), size(3), status[, origin(3)[, direction(3)[, conf[, eligible_agents]]]])."""
     norm = []
@@ -413,7 +417,8 @@ def build_tasks(items, match_m: float, key_grid: float) -> List[Task]:
         for j in range(i + 1, len(bb)):
             if used[j] or bb[j][0] != bb[i][0]:
                 continue
-            if float(np.linalg.norm(bb[j][1][:2] - ci[:2])) <= match_m:
+            if (associate_bbs
+                    and float(np.linalg.norm(bb[j][1][:2] - ci[:2])) <= match_m):
                 used[j] = True
                 grp.append(j)
         lo = np.min([bb[k][1][:3] - bb[k][2] / 2.0 for k in grp], axis=0)
