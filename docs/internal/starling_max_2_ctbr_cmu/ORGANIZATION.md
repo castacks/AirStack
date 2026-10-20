@@ -25,10 +25,14 @@ Live mode remains gated on physical transforms, thrust calibration, firmware han
 
 ## Reorganization validation — 2026-10-20
 
-Naming-only model changes preserve numerical physics. No training, hardware connection or flight was started. Existing actor bundles and archived receipts were not modified. Feature source paths/content were scanned for the private aircraft label. New files are intent-to-add so `git diff -M` includes them; changes remain uncommitted and unpushed.
+Naming-only model changes preserve numerical physics. No training, hardware connection or flight was started. Existing actor bundles and archived receipts were not modified. Feature source paths/content were scanned for the private aircraft label. The reorganization was committed locally; no branch was pushed.
 
 - Fresh dependency build failed because robot_interface could not discover airstack_msgs. The changed gamma_zero_controller package then built against the existing validated ROS dependency overlay into separate build-starling/install-starling directories. C++ source did not change in this reorganization.
 - 220 unit/regression tests passed (41 controller, 179 SVG).
 - 64-step cross-CPU actor parity passed: maximum physical error 2.1852552890777588e-5, under the existing 1e-4 tolerance. Socket latency median 5.16 ms, p95 5.65 ms, maximum 5.90 ms in this sample; not a real-time guarantee.
 - Renamed interface, actual-policy backend and SVG lifecycle fixtures passed with synthetic FCU state. New receipts are in the existing external runtime's organization-validation directory; old receipts remain intact.
 - New input metadata was exported and parity-checked on S2, then transferred to Xiaoxin. The actor SHA binding is unchanged. No hardware qualification is implied.
+
+## Obsolete-path cleanup — 2026-10-20
+
+AirStack is the sole maintained ROS deployment path. The obsolete standalone S2 runner/bridge, configuration, fixture, session/worker copies and runbook were removed from the policy repository. This AirStack package and its current validation tools remain active. The analyzer in internal/starling_max_2_ctbr_cmu/analysis/analyze_flight.py supports both selected-command logs and legacy prepared/published pairs, so the old S2 analyzer is unnecessary. No AirStack runtime behavior changed in this cleanup.
