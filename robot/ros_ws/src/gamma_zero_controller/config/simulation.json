@@ -1,0 +1,37 @@
+{
+  "position_min_enu": [
+    -4.0,
+    -4.0,
+    0.2
+  ],
+  "position_max_enu": [
+    4.0,
+    4.0,
+    3.0
+  ],
+  "body_origin_to_imu_flu": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "state_timeout_s": 0.1,
+  "max_tick_gap_s": 0.08,
+  "max_tilt_deg": 20,
+  "max_tracking_error_m": 0.5,
+  "completion_hold_s": 30.0,
+  "max_speed_mps": 0.8,
+  "fence_margin_m": 0.15,
+  "brake_accel_mps2": 0.5,
+  "transforms_verified": false,
+  "thrust_verified": false,
+  "firmware_verified": false,
+  "trajectory": {
+    "pattern": "flown",
+    "settle_s": 10,
+    "laps": 2,
+    "ramp_s": 3,
+    "position_gain": 1,
+    "yaw_gain": 1.5,
+    "max_yaw_rate": 1
+  }
+}

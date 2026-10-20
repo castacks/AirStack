@@ -173,5 +173,14 @@ int main(int argc, char** argv) {
         std::cout << "The plugin failed to load. Error: " << ex.what() << std::endl;
     }
 
+    attitude_thrust_sub.reset();
+    rate_thrust_sub.reset();
+    roll_pitch_yawrate_thrust_sub.reset();
+    torque_thrust_sub.reset();
+    velocity_sub.reset();
+    pose_sub.reset();
+    is_armed_pub.reset();
+    has_control_pub.reset();
+    ri.reset();
     return 0;
 } 

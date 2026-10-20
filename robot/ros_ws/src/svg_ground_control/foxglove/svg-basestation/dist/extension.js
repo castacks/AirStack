@@ -2707,7 +2707,12 @@ function activate(extensionContext) {
         const v = missionVerdict(now);
         missionChip.textContent = v.state.label;
         missionChip.style.background = v.state.color;
-        missionNote.textContent = v.note;
+        const gamma = commanderFresh(now) ? commander.gamma : null;
+        const owner = gamma?.ack_fresh ? (gamma.ack?.mode === 1 ? "CTBR" : "conventional") : "unconfirmed";
+        missionNote.textContent = v.note + (gamma ?
+          ` | Gamma ${gamma.mode}, owner ${owner}, reference ${gamma.source}, inference ${(1000 * gamma.inference_s).toFixed(1)} ms` +
+          (gamma.handoff_pending ? " | HANDOFF PENDING" : "") +
+          (gamma.fault ? ` | FAULT: ${gamma.fault}` : "") : "");
 
         // The commander's own record of the last lifecycle call it received.
         const last = commanderFresh(now) ? commander.last_command : null;

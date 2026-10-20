@@ -17,6 +17,8 @@ find_package(geometry_msgs REQUIRED)
 find_package(trajectory_msgs REQUIRED)
 find_package(mav_msgs REQUIRED)
 find_package(tf2 REQUIRED)
+find_package(gamma_zero_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 
 # ── Library ─────────────────────────────────────────────────────────────────
 add_library(px4_interface src/px4_interface.cpp)
@@ -36,7 +38,7 @@ ament_target_dependencies(px4_interface
   geometry_msgs
   trajectory_msgs
   mav_msgs
-  tf2)
+  tf2 gamma_zero_msgs std_msgs)
 
 pluginlib_export_plugin_description_file(robot_interface plugins.xml)
 

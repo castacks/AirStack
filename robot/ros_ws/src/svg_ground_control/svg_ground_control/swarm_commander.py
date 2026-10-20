@@ -449,6 +449,22 @@ class SwarmCommander(Node):
         # tracks with feedforward, like its own Position mode — needs the
         # px4_interface with trajectory_command); 'velocity' = the old bare
         # TwistStamped velocity setpoint.
+        self.gamma_enabled = self.declare_parameter('gamma_enabled', False).value
+        self.gamma_reference_mode = self.declare_parameter('gamma_reference_mode', 'tested_trajectory').value
+        if self.gamma_reference_mode not in ('tested_trajectory', 'svg'):
+            raise ValueError('Unknown Gamma reference mode')
+        self.gamma_status = {}
+        self.gamma_status_received = None
+        self.gamma_land_pending = False
+        self.gamma_land_started = None
+        self.gamma_land_generation = None
+        if self.gamma_enabled:
+            self.create_subscription(String, '/gamma/status', self.gamma_status_callback, 10)
+            self.gamma_handback = self.create_client(Trigger, '/gamma_controller/handback')
+            self.gamma_hold = self.create_client(Trigger, '/gamma_controller/hold')
+            self.gamma_start = self.create_client(Trigger, '/gamma_controller/start_trajectory')
+            self.gamma_use_svg = self.create_client(Trigger, '/gamma_controller/use_svg')
+            self.create_timer(.05, self.gamma_landing_tick)
         self.declare_parameter('real_command_mode', 'trajectory')
         self.declare_parameter('real_trajectory_command_topic_template',
                                '/{name}/fmu/trajectory_command')
@@ -1201,6 +1217,7 @@ class SwarmCommander(Node):
             'node': self.get_fully_qualified_name(),
             'pid': os.getpid(),
             'scenario': self.scenario_name,
+            'gamma': self.gamma_status if self.gamma_enabled else None,
             'mission_active': self.mission_active,
             'mission_ever_started': self.mission_ever_started,
             'mission_started_at': self.mission_started_at,
@@ -1491,7 +1508,36 @@ class SwarmCommander(Node):
     # Operator services
     # ------------------------------------------------------------------
 
+    def gamma_status_callback(self, msg):
+        try:
+            self.gamma_status = json.loads(msg.data)
+            self.gamma_status_received = self.get_clock().now()
+        except ValueError:
+            self.gamma_status = {}
+
+    def gamma_landing_tick(self):
+        if not self.gamma_land_pending:
+            return
+        fresh = self.gamma_status_received is not None and (self.get_clock().now()-self.gamma_status_received).nanoseconds < 200000000
+        status = self.gamma_status
+        ack = status.get('ack', {})
+        if fresh and status.get('mode') == 'conventional' and status.get('ack_fresh') and not status.get('handoff_pending') and ack.get('mode') == 0 and ack.get('generation') == status.get('generation') == self.gamma_land_generation:
+            self.gamma_land_pending = False
+            self.gamma_use_svg.call_async(Trigger.Request())
+            for d in self.drones:
+                if d.commanded and d.state in (FlightState.ASCEND, FlightState.ACTIVE):
+                    d.state, d.ref = FlightState.LANDING, None
+            self.mission_active = False
+        elif (self.get_clock().now()-self.gamma_land_started).nanoseconds > 1000000000:
+            self.gamma_land_pending = False
+            self.get_logger().error('Landing refused: conventional handoff was not acknowledged')
+
     def handle_takeoff(self, request, response):
+        if self.gamma_enabled:
+            fresh = self.gamma_status_received is not None and (self.get_clock().now()-self.gamma_status_received).nanoseconds < 200000000
+            if not fresh or self.gamma_status.get('mode') != 'conventional' or self.gamma_status.get('fault'):
+                response.success, response.message = False, 'Healthy conventional Gamma backend required before takeoff'
+                return self._record_command('takeoff', response)
         now = self.get_clock().now()
         # A new sortie has not run the planner yet.
         self.mission_ever_started = False
@@ -1530,6 +1576,18 @@ class SwarmCommander(Node):
         return self._record_command('takeoff', response)
 
     def handle_start(self, request, response):
+        if self.gamma_enabled and self.gamma_reference_mode == 'svg':
+            if not self.gamma_use_svg.service_is_ready():
+                response.success, response.message = False, 'Gamma backend unavailable'
+                return self._record_command('start', response)
+            self.gamma_use_svg.call_async(Trigger.Request())
+        if self.gamma_enabled and self.gamma_reference_mode == 'tested_trajectory':
+            if self.gamma_status.get('mode') != 'ctbr' or not self.gamma_start.service_is_ready():
+                response.success, response.message = False, 'Engage Gamma backend before starting the tested trajectory'
+            else:
+                self.gamma_start.call_async(Trigger.Request())
+                response.success, response.message = True, 'Tested trajectory requested; inspect Gamma status for acceptance'
+            return self._record_command('start', response)
         if self.duplicate_commander:
             response.success = False
             response.message = ('REFUSED: another swarm_commander is running '
@@ -1557,6 +1615,8 @@ class SwarmCommander(Node):
         return self._record_command('start', response)
 
     def handle_hold(self, request, response):
+        if self.gamma_enabled and self.gamma_hold.service_is_ready():
+            self.gamma_hold.call_async(Trigger.Request())
         self.mission_active = False
         held = []
         for d in self.drones:
@@ -1575,6 +1635,16 @@ class SwarmCommander(Node):
         return self._record_command('hold', response)
 
     def handle_land(self, request, response):
+        if self.gamma_enabled:
+            if not self.gamma_handback.service_is_ready():
+                response.success, response.message = False, 'Gamma handback service unavailable'
+            else:
+                self.gamma_land_pending = True
+                self.gamma_land_started = self.get_clock().now()
+                self.gamma_land_generation = self.gamma_status.get('generation', -1) + 1
+                self.gamma_handback.call_async(Trigger.Request())
+                response.success, response.message = True, 'Landing queued after acknowledged conventional handoff'
+            return self._record_command('land', response)
         self.mission_active = False
         landing = []
         for d in self.drones:

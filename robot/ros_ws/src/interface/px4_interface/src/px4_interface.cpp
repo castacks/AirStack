@@ -102,6 +102,9 @@
 #include <px4_msgs/msg/vehicle_status.hpp>
 
 #include <robot_interface/robot_interface.hpp>
+#include <gamma_zero_msgs/msg/selected_command.hpp>
+#include <std_msgs/msg/string.hpp>
+#include <chrono>
 
 namespace px4_interface
 {
@@ -156,8 +159,57 @@ static inline std::array<double, 4> ned_frd_to_enu_flu(double qw, double qx,
 class PX4Interface : public robot_interface::RobotInterface
 {
 public:
+    bool gamma_managed = false;
+    bool selected_dispatch = false;
+    double command_timeout_s = 0.1;
+    int64_t selected_stamp = 0;
+    std::chrono::steady_clock::time_point last_command{};
+    rclcpp::Subscription<gamma_zero_msgs::msg::SelectedCommand>::SharedPtr selected_sub;
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr selection_status;
+
     PX4Interface() : RobotInterface("px4_interface")
     {
+        gamma_managed = declare_parameter<bool>("gamma_managed", false);
+        command_timeout_s = declare_parameter<double>("offboard_command_timeout_s", 0.1);
+        if (!(command_timeout_s > 0.0 && command_timeout_s <= 0.5))
+            throw std::invalid_argument("Invalid offboard command timeout");
+        selection_status = create_publisher<std_msgs::msg::String>("selected_command_status", 1);
+        selected_sub = create_subscription<gamma_zero_msgs::msg::SelectedCommand>(
+            "selected_command", 1, [this](gamma_zero_msgs::msg::SelectedCommand::SharedPtr msg) {
+                if (!gamma_managed) return;
+                const double age = (get_clock()->now() - rclcpp::Time(msg->header.stamp)).seconds();
+                const int64_t stamp = rclcpp::Time(msg->header.stamp).nanoseconds();
+                if (count_publishers(selected_sub->get_topic_name()) != 1 || age < -0.02 || age > command_timeout_s || stamp <= selected_stamp) {
+                    control_mode_ = ControlMode::NONE;
+                    return;
+                }
+                selected_stamp = stamp;
+                if (msg->mode == 0) {
+                    if (msg->trajectory.points.size() != 1 || msg->trajectory.points[0].transforms.size() != 1 ||
+                        msg->trajectory.points[0].velocities.size() != 1) return;
+                    const auto &t = msg->trajectory.points[0].transforms[0];
+                    const auto &v = msg->trajectory.points[0].velocities[0];
+                    for (double x : {t.translation.x, t.translation.y, t.translation.z,
+                                     t.rotation.x, t.rotation.y, t.rotation.z, t.rotation.w,
+                                     v.linear.x, v.linear.y, v.linear.z, v.angular.z})
+                        if (!std::isfinite(x)) return;
+                    selected_dispatch = true;
+                    trajectory_callback(std::make_shared<trajectory_msgs::msg::MultiDOFJointTrajectory>(msg->trajectory));
+                } else if (msg->mode == 1) {
+                    const auto &r = msg->rates;
+                    for (double x : {r.thrust.z, r.angular_rates.x, r.angular_rates.y, r.angular_rates.z})
+                        if (!std::isfinite(x)) return;
+                    if (r.thrust.z < 0 || r.thrust.z > 1 || std::abs(r.angular_rates.x) > 2.3 ||
+                        std::abs(r.angular_rates.y) > 2.3 || std::abs(r.angular_rates.z) > 2.6) return;
+                    selected_dispatch = true;
+                    rate_thrust_callback(std::make_shared<mav_msgs::msg::RateThrust>(msg->rates));
+                } else return;
+                selected_dispatch = false;
+                std_msgs::msg::String status;
+                status.data = "{\"generation\":" + std::to_string(msg->generation) +
+                              ",\"mode\":" + std::to_string(msg->mode) + "}";
+                selection_status->publish(status);
+            });
         // MAVLink system id of the autopilot we command (must match MAV_SYS_ID).
         target_system_ = static_cast<uint8_t>(
             this->declare_parameter<int>("target_system", 1));
@@ -261,6 +313,8 @@ public:
      */
     void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr cmd) override
     {
+        if (gamma_managed && !selected_dispatch) return;
+
         set_control_mode(ControlMode::POSITION);
         publish_offboard_heartbeat();
 
@@ -294,6 +348,8 @@ public:
      */
     void velocity_callback(const geometry_msgs::msg::TwistStamped::SharedPtr cmd) override
     {
+        if (gamma_managed && !selected_dispatch) return;
+
         set_control_mode(ControlMode::VELOCITY);
         publish_offboard_heartbeat();
 
@@ -333,6 +389,8 @@ public:
     void trajectory_callback(
         const trajectory_msgs::msg::MultiDOFJointTrajectory::SharedPtr cmd)
     {
+        if (gamma_managed && !selected_dispatch) return;
+
         if (cmd->points.empty()) {
             RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
                                  "trajectory_command with no points ignored");
@@ -403,6 +461,8 @@ public:
     void attitude_thrust_callback(
         const mav_msgs::msg::AttitudeThrust::SharedPtr cmd) override
     {
+        if (gamma_managed && !selected_dispatch) return;
+
         set_control_mode(ControlMode::ATTITUDE);
         publish_offboard_heartbeat();
 
@@ -435,6 +495,8 @@ public:
     void rate_thrust_callback(
         const mav_msgs::msg::RateThrust::SharedPtr cmd) override
     {
+        if (gamma_managed && !selected_dispatch) return;
+
         set_control_mode(ControlMode::BODY_RATE);
         publish_offboard_heartbeat();
 
@@ -462,6 +524,8 @@ public:
     void roll_pitch_yawrate_thrust_callback(
         const mav_msgs::msg::RollPitchYawrateThrust::SharedPtr cmd) override
     {
+        if (gamma_managed && !selected_dispatch) return;
+
         set_control_mode(ControlMode::BODY_RATE);
         publish_offboard_heartbeat();
 
@@ -614,11 +678,16 @@ private:
             this->get_clock()->now().nanoseconds() / 1000ULL);
     }
 
-    void set_control_mode(ControlMode mode) { control_mode_ = mode; }
+    void set_control_mode(ControlMode mode) {
+        control_mode_ = mode;
+        last_command = std::chrono::steady_clock::now();
+    }
 
     /// Publish the offboard_control_mode heartbeat with the current mode flags.
     void publish_offboard_heartbeat()
     {
+        if (std::chrono::duration<double>(std::chrono::steady_clock::now()-last_command).count() > command_timeout_s)
+            control_mode_ = ControlMode::NONE;
         if (control_mode_ == ControlMode::NONE) return;
 
         px4_msgs::msg::OffboardControlMode msg{};
