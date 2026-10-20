@@ -36,3 +36,7 @@ Naming-only model changes preserve numerical physics. No training, hardware conn
 ## Obsolete-path cleanup — 2026-10-20
 
 AirStack is the sole maintained ROS deployment path. The obsolete standalone S2 runner/bridge, configuration, fixture, session/worker copies and runbook were removed from the policy repository. This AirStack package and its current validation tools remain active. The analyzer in internal/starling_max_2_ctbr_cmu/analysis/analyze_flight.py supports both selected-command logs and legacy prepared/published pairs, so the old S2 analyzer is unnecessary. No AirStack runtime behavior changed in this cleanup.
+
+## Review cleanup — 2026-10-20
+
+Formatted package manifests and setup.py for review; XML element content and Python AST were checked unchanged. Replaced nonexistent normalized example locations with explicit operator-supplied paths, clarified actor/metadata socket wiring, corrected source-provenance wording and highlighted that the watchdog also affects conventional mode. No controller, interface, launch or configuration behavior changed.
