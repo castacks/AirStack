@@ -4,7 +4,7 @@ import numpy as np
 
 
 @dataclass(frozen=True)
-class BVConfig:
+class CTBRConfig:
     mass_kg: float = .602
     gravity: float = 9.81
     hover_normalized: float = .15190907567739487
@@ -15,7 +15,7 @@ class BVConfig:
     future_tolerance_s: float = .02
 
 
-def action_to_ctbr(action, config=BVConfig()):
+def action_to_ctbr(action, config=CTBRConfig()):
     action = np.asarray(action, dtype=float)
     if action.shape != (4,) or not np.isfinite(action).all():
         raise ValueError("Expected four finite policy actions")
@@ -24,12 +24,12 @@ def action_to_ctbr(action, config=BVConfig()):
     return np.clip(physical, [0., -2.3, -2.3, -2.6], [18., 2.3, 2.3, 2.6])
 
 
-def ctbr_to_airstack(command, config=BVConfig()):
+def ctbr_to_airstack(command, config=CTBRConfig()):
     command = np.asarray(command, dtype=float)
     if command.shape != (4,) or not np.isfinite(command).all():
         raise ValueError("Expected [collective N, p, q, r rad/s] in body FLU")
     if command[0] < 0:
-        raise ValueError("Negative collective is invalid for BV")
+        raise ValueError("Negative collective is invalid for STARLING_CMU")
     limits = np.asarray(config.rate_limits_flu)
     bounded = np.clip(command, np.r_[0., -limits], np.r_[config.thrust_limit_n, limits])
     normalized = bounded[0] * config.hover_normalized / (config.mass_kg*config.gravity)
@@ -71,7 +71,7 @@ def px4_state_to_policy(q_wxyz, position_ned, velocity_ned, rates_frd):
 
 @dataclass
 class CommandGate:
-    config: BVConfig = field(default_factory=BVConfig)
+    config: CTBRConfig = field(default_factory=CTBRConfig)
     enabled: bool = False
     command: object = None
     command_stamp_s: float = float("-inf")

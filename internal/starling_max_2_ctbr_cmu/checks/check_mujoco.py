@@ -1,20 +1,21 @@
+import os
 import json
 from pathlib import Path
 import sys
 from collections import deque
 import mujoco
 import numpy as np
-from gamma_zero_controller.inference import BVPolicy
+from gamma_zero_controller.inference import StarlingPolicy
 from gamma_zero_controller.control import Controller
 
 root=Path(sys.argv[1])
-policy=BVPolicy(root/'inputs_301989888.json',root/'bv_long_301989888.model')
+policy=StarlingPolicy(root/'starling_cmu_inputs.json',Path(os.environ['STARLING_BUNDLE']))
 results=[]
 for pattern in ['flown','large']:
     for delay in [0.,.1]:
-        config=json.loads((Path(__file__).parents[1]/'config/simulation.json').read_text())
+        config=json.loads((Path(__file__).parents[3]/'robot/ros_ws/src/gamma_zero_controller/config/simulation.json').read_text())
         config['trajectory']['pattern']=pattern
-        model=mujoco.MjModel.from_xml_path(str(root/'bv_model.xml'))
+        model=mujoco.MjModel.from_xml_path(str(Path(os.environ['STARLING_MODEL_XML'])))
         data=mujoco.MjData(model);data.qpos[:]=[0.,0.,1.3,1.,0.,0.,0.]
         mujoco.mj_forward(model,data)
         c=Controller(policy,config)

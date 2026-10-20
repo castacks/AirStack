@@ -6,5 +6,5 @@ setup(name="gamma_zero_controller", version="0.1.0", packages=["gamma_zero_contr
                   ("share/gamma_zero_controller/launch", glob("launch/*.py")),
                   ("share/gamma_zero_controller/config", glob("config/*"))],
       install_requires=["setuptools", "numpy"], maintainer="Yutong Wang",
-      maintainer_email="yutongw3@andrew.cmu.edu", description="BV Gamma-Zero CTBR backend", license="Proprietary",
+      maintainer_email="yutongw3@andrew.cmu.edu", description="STARLING_CMU Gamma-Zero CTBR backend", license="Proprietary",
       entry_points={"console_scripts": ["controller = gamma_zero_controller.node:main", "policy_worker = gamma_zero_controller.policy_worker:main"]})

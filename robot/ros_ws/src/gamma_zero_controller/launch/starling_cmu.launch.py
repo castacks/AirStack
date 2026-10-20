@@ -14,7 +14,7 @@ def launch_nodes(context):
     config = json.loads(Path(config_path).read_text())
     if not simulation and not all(config.get(k, False) for k in ['transforms_verified', 'thrust_verified', 'firmware_verified']):
         raise ValueError('Live interface launch requires completed hardware verification')
-    interface = '/bv_test/interface' if simulation else '/drone_3/fmu'
+    interface = '/starling_cmu_test/interface' if simulation else '/drone_3/fmu'
     return [
         Node(package='robot_interface', executable='robot_interface_node', namespace=interface,
              parameters=[{'interface': 'px4_interface::PX4Interface', 'gamma_managed': True, 'offboard_command_timeout_s': .1}],

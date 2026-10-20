@@ -16,12 +16,12 @@ from trajectory_msgs.msg import MultiDOFJointTrajectoryPoint
 rclpy.init()
 n=Node('interface_fixture')
 rates=[]; trajectories=[]; heartbeats=[]
-n.create_subscription(VehicleRatesSetpoint,'/bv_test/interface/in/vehicle_rates_setpoint',lambda m: rates.append(m),qos_profile_sensor_data)
-n.create_subscription(TrajectorySetpoint,'/bv_test/interface/in/trajectory_setpoint',lambda m: trajectories.append(m),qos_profile_sensor_data)
-n.create_subscription(OffboardControlMode,'/bv_test/interface/in/offboard_control_mode',lambda m: heartbeats.append(m),qos_profile_sensor_data)
-pub=n.create_publisher(SelectedCommand,'/bv_test/interface/selected_command',1)
-legacy=n.create_publisher(RateThrust,'/bv_test/interface/rate_thrust_command',1)
-process=subprocess.Popen(['ros2','run','robot_interface','robot_interface_node','--ros-args','-r','__ns:=/bv_test/interface','-p','interface:=px4_interface::PX4Interface','-p','gamma_managed:=true'],stdout=open('/runtime/interface-fixture.log','w'),stderr=subprocess.STDOUT,start_new_session=True)
+n.create_subscription(VehicleRatesSetpoint,'/starling_cmu_test/interface/in/vehicle_rates_setpoint',lambda m: rates.append(m),qos_profile_sensor_data)
+n.create_subscription(TrajectorySetpoint,'/starling_cmu_test/interface/in/trajectory_setpoint',lambda m: trajectories.append(m),qos_profile_sensor_data)
+n.create_subscription(OffboardControlMode,'/starling_cmu_test/interface/in/offboard_control_mode',lambda m: heartbeats.append(m),qos_profile_sensor_data)
+pub=n.create_publisher(SelectedCommand,'/starling_cmu_test/interface/selected_command',1)
+legacy=n.create_publisher(RateThrust,'/starling_cmu_test/interface/rate_thrust_command',1)
+process=subprocess.Popen(['ros2','run','robot_interface','robot_interface_node','--ros-args','-r','__ns:=/starling_cmu_test/interface','-p','interface:=px4_interface::PX4Interface','-p','gamma_managed:=true'],stdout=open('/runtime/organization-validation/interface-fixture.log','w'),stderr=subprocess.STDOUT,start_new_session=True)
 
 
 def spin(duration,publish=None):
@@ -54,7 +54,7 @@ try:
     before=len(rates)
     spin(.2,lambda: pub.publish(msg))
     assert len(rates)==before
-    other=Node('conflicting_owner'); otherpub=other.create_publisher(SelectedCommand,'/bv_test/interface/selected_command',1)
+    other=Node('conflicting_owner'); otherpub=other.create_publisher(SelectedCommand,'/starling_cmu_test/interface/selected_command',1)
     spin(1.)
     before=len(rates);spin(.2,send);assert len(rates)==before
     other.destroy_node()

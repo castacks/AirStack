@@ -61,7 +61,7 @@ def test_invalid_trajectory_config(config):
 def test_golden_samples_generated_on_s2():
     import json
     from pathlib import Path
-    rows = json.loads((Path(__file__).parent/'trajectory_golden.json').read_text())
+    rows = json.loads((Path(__file__).parent/'fixtures/trajectory_golden.json').read_text())
     for row in rows:
         tr = Trajectory(TrajectoryConfig(pattern=row['pattern'],ramp_s=row['ramp']))
         tr.start([.2,-.1,1.3],.7)

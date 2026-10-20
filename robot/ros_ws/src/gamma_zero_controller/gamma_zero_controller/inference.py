@@ -11,12 +11,12 @@ from flax import serialization
 from gamma_zero_controller.architecture import get_policy
 
 
-class BVPolicy:
+class StarlingPolicy:
     def __init__(self, assets, bundle):
         self.assets = json.loads(Path(assets).read_text())
         payload = Path(bundle).read_bytes()
-        if self.assets["format"] != "bv-ctbr-inputs-v1" or hashlib.sha256(payload).hexdigest() != self.assets["bundle_sha256"]:
-            raise ValueError("BV assets and bundle do not match")
+        if self.assets["format"] != "starling_cmu-ctbr-inputs-v1" or hashlib.sha256(payload).hexdigest() != self.assets["bundle_sha256"]:
+            raise ValueError("STARLING_CMU assets and bundle do not match")
         with zipfile.ZipFile(bundle) as archive:
             manifest = json.loads(archive.read("manifest.json"))
             self.algorithm = json.loads(archive.read("config_algorithm.json"))

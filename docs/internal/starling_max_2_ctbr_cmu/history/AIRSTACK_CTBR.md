@@ -1,10 +1,10 @@
-# BV AirStack CTBR integration — 2026-10-20
+# STARLING_CMU AirStack CTBR integration — 2026-10-20
 
 ## Location and boundary
 
-Deployment development is on yutong-xiaoxin, `/home/yutongw/Desktop/AirStack_worktrees/bv-ctbr`, branch `codex/bv-airstack-ctbr`, based on `yikuan/SVG_ground_control_dev` at b21d28c75d45b6b0d858d7f9485690435fdeb24f. The original `/home/yutongw/Desktop/AirStack` release checkout was preserved. S2 remains policy/training/export only. No hardware connection, arming, flight or publication was performed.
+Deployment development is on yutong-xiaoxin, `/home/yutongw/Desktop/AirStack_worktrees/starling_cmu-ctbr`, branch `codex/starling_cmu-airstack-ctbr`, based on `yikuan/SVG_ground_control_dev` at b21d28c75d45b6b0d858d7f9485690435fdeb24f. The original `/home/yutongw/Desktop/AirStack` release checkout was preserved. S2 remains policy/training/export only. No hardware connection, arming, flight or publication was performed.
 
-Runtime `/home/yutongw/Desktop/AirStack_runtime/bv-ctbr`; container `bv-ctbr-dev`, installed AirStack v0.18.0 robot-x86-64_dev image, network none, not privileged, no devices, ROS domain87. Separate `/runtime/build` and `/runtime/install`; host runtime stores policy, private Python environment, receipts and bags. Host CPU worker uses JAX0.7.2/Flax0.12.0; ROS is Jazzy/Python3.12 in Docker.
+Runtime `/home/yutongw/Desktop/AirStack_runtime/starling_cmu-ctbr`; container `starling_cmu-ctbr-dev`, installed AirStack v0.18.0 robot-x86-64_dev image, network none, not privileged, no devices, ROS domain87. Separate `/runtime/build` and `/runtime/install`; host runtime stores policy, private Python environment, receipts and bags. Host CPU worker uses JAX0.7.2/Flax0.12.0; ROS is Jazzy/Python3.12 in Docker.
 
 Ported source from loco_mjx db888431fb69a9edfd9569fd371cfd370b0a59f3. Candidate exported actor:301989888 transitions, SHA256 61486e97f5ed79af90933bb480c9fff7e1c23bfb360e60baeddaefa9db876f26; matching inputs_301989888.json copied together. Never replace this bundle with a raw training checkpoint.
 
@@ -24,7 +24,7 @@ Actual-policy ROS fixture: engagement, tested-reference start, policy hold, ackn
 
 Full SVG lifecycle fixture uses synthetic FCU feedback: takeoff→engage→start→hold→handback→land→idle, with actual SVG/backend/PX4Interface/recorder processes. This tests software routing/state transitions, not PX4 firmware dynamics. MCAP metadata verifies nonzero reference, selected command, acknowledgement, trace, odometry, rates setpoint and trajectory setpoint streams. See svg-lifecycle-result.json and bag-audit.json. Isolated shadow namespace only.
 
-Native MuJoCo3.7.0 on Xiaoxin used the saved evaluated BV model, actual ported policy/controller, a30ms thrust filter, two full laps plus2s final hold. Four runs completed:
+Native MuJoCo3.7.0 on Xiaoxin used the saved evaluated STARLING_CMU model, actual ported policy/controller, a30ms thrust filter, two full laps plus2s final hold. Four runs completed:
 
 | Pattern | Extra delay | Position RMS m | Maximum m |
 |---|---:|---:|---:|
@@ -51,3 +51,6 @@ Final lifecycle and graceful shutdown passed without faults or plugin teardown e
 Timing alignment: completion_hold_s=2 matches the evaluated policy trajectory protocol; fault_hold_s=30 separately bounds conventional hold after a fault/terminal handback. The two limits must not be conflated.
 
 One final repeat triggered the unchanged20ms preparation deadline despite ~6ms inference; conventional handback worked. Blocking file writes were removed from the callback using a bounded background recorder, and diagnostic trace publishing is best-effort. Recorder tests cover flush completion, slow disk/queue overflow and disk failure. Latest controller41tests and actual-policy/lifecycle/recording checks passed without relaxing deadlines. This does not establish hard real-time scheduling on the laptop.
+
+
+Naming migration (2026-10-20): historical aircraft labels and example paths in this snapshot have been normalized. Historical run directories are not renamed. Use explicit paths from the private artifact inventory when reproducing old runs; normalized historical paths are not executable instructions.

@@ -60,8 +60,8 @@ def main():
     parser.add_argument("--assets", required=True)
     parser.add_argument("--socket", required=True, type=Path)
     args = parser.parse_args()
-    from gamma_zero_controller.inference import BVPolicy
-    policy = BVPolicy(args.assets, args.bundle)
+    from gamma_zero_controller.inference import StarlingPolicy
+    policy = StarlingPolicy(args.assets, args.bundle)
     policy.act({"linear_velocity_flu": np.zeros(3), "angular_velocity_flu": np.zeros(3),
                 "projected_gravity_flu": np.array([0., 0., -1.])}, np.zeros(4), np.zeros(4))
     policy.reset_history()

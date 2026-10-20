@@ -14,14 +14,14 @@ from std_msgs.msg import String
 from std_srvs.srv import Trigger, SetBool
 
 rclpy.init();n=Node('svg_lifecycle_fixture')
-odpub=n.create_publisher(VehicleOdometry,'/bv_test/interface/out/vehicle_odometry',qos_profile_sensor_data)
-statuspub=n.create_publisher(VehicleStatus,'/bv_test/interface/out/vehicle_status',qos_profile_sensor_data)
+odpub=n.create_publisher(VehicleOdometry,'/starling_cmu_test/interface/out/vehicle_odometry',qos_profile_sensor_data)
+statuspub=n.create_publisher(VehicleStatus,'/starling_cmu_test/interface/out/vehicle_status',qos_profile_sensor_data)
 svg=[];gamma=[];bag=[]
 n.create_subscription(String,'/svg/commander_status',lambda m:svg.append(json.loads(m.data)),10)
 n.create_subscription(String,'/gamma/status',lambda m:gamma.append(json.loads(m.data)),10)
 n.create_subscription(String,'/svg/bag_recorder/status',lambda m:bag.append(json.loads(m.data)),10)
-Path('/runtime/svg-fixture.jsonl').unlink(missing_ok=True)
-p=subprocess.Popen(['ros2','launch','gamma_zero_controller','bv.launch.py','assets:=/runtime/inputs_301989888.json','policy_socket:=/runtime/policy.sock','log:=/runtime/svg-fixture.jsonl','reference_mode:='+('svg' if len(sys.argv)>1 else 'tested_trajectory')],stdout=open('/runtime/svg-fixture.log','w'),stderr=subprocess.STDOUT,start_new_session=True)
+Path('/runtime/organization-validation/svg-fixture.jsonl').unlink(missing_ok=True)
+p=subprocess.Popen(['ros2','launch','gamma_zero_controller','starling_cmu.launch.py','assets:=/runtime/organization-validation/starling_cmu_inputs.json','policy_socket:=/runtime/organization-validation/policy.sock','log:=/runtime/organization-validation/svg-fixture.jsonl','reference_mode:='+('svg' if len(sys.argv)>1 else 'tested_trajectory')],stdout=open('/runtime/organization-validation/svg-fixture.log','w'),stderr=subprocess.STDOUT,start_new_session=True)
 altitude=0.
 
 
@@ -73,5 +73,5 @@ finally:
     except subprocess.TimeoutExpired:os.killpg(p.pid,signal.SIGKILL);p.wait()
     n.destroy_node();rclpy.shutdown()
 
-text=Path('/runtime/svg-fixture.log').read_text()
+text=Path('/runtime/organization-validation/svg-fixture.log').read_text()
 assert 'Fatal glibc error' not in text and 'SEVERE WARNING' not in text,text[-3000:]

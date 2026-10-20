@@ -6,7 +6,7 @@ import numpy as np
 from gamma_zero_controller.policy_worker import PolicyClient
 
 root=Path(sys.argv[1])
-p=PolicyClient(root/'inputs_301989888.json',str(root/'policy.sock'))
+p=PolicyClient(root/'starling_cmu_inputs.json',str(root/'policy.sock'))
 aerror=np.zeros(4);cerror=np.zeros(4);times=[]
 for row in json.loads((root/'policy_golden.json').read_text()):
     if row['reset']: p.reset_history()

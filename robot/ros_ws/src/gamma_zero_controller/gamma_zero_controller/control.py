@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from gamma_zero_controller.ctbr import BVConfig, ctbr_to_airstack
+from gamma_zero_controller.ctbr import CTBRConfig, ctbr_to_airstack
 from gamma_zero_controller.session import FlightSession
 
 
@@ -26,7 +26,7 @@ class Controller:
         self.generation = 0
         self.inference_s = 0.
         self.last_record = {}
-        self.thrust = BVConfig(hover_normalized=float(config.get('hover_normalized', .15190907567739487)))
+        self.thrust = CTBRConfig(hover_normalized=float(config.get('hover_normalized', .15190907567739487)))
         self.stable_since = None
 
 

@@ -3,17 +3,17 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from gamma_zero_controller.ctbr import BVConfig, CommandGate, action_to_ctbr, airstack_to_px4, ctbr_to_airstack, px4_state_to_policy
+from gamma_zero_controller.ctbr import CTBRConfig, CommandGate, action_to_ctbr, airstack_to_px4, ctbr_to_airstack, px4_state_to_policy
 
 
 def test_hover_units_and_flu_frd_boundary():
     physical = action_to_ctbr([0., .4, -.3, .2])
     assert physical[0] == pytest.approx(.602*9.81)
     mapped = ctbr_to_airstack(physical)
-    assert mapped["normalized_collective"] == pytest.approx(BVConfig().hover_normalized)
+    assert mapped["normalized_collective"] == pytest.approx(CTBRConfig().hover_normalized)
     px4 = airstack_to_px4(mapped["rates_flu"], mapped["normalized_collective"])
     np.testing.assert_allclose([px4["roll"], px4["pitch"], px4["yaw"]], [.4, .3, -.2])
-    np.testing.assert_allclose(px4["thrust_body"], [0., 0., -BVConfig().hover_normalized])
+    np.testing.assert_allclose(px4["thrust_body"], [0., 0., -CTBRConfig().hover_normalized])
     assert px4["offboard"]["body_rate"] and sum(px4["offboard"].values()) == 1
 
 
