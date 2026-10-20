@@ -12,7 +12,7 @@ def validate(raw):
     if {'patch_strength','patch_height'} & raw.keys():
         raise ValueError('Legacy patch controls are unsupported: use patch_enabled and patch_size only. '
                          'Start a new campaign; historical settings/results must not be silently converted.')
-    allowed = {"name", "layout", "layout_seed", "seed", "light", "rgb_noise", "depth_noise", "delay", "patch_enabled", "patch_size", "placement", "corridor"}
+    allowed = {"name", "layout", "layout_seed", "seed", "light", "rgb_noise", "depth_noise", "delay", "patch_enabled", "patch_size", "placement", "corridor", "patch_mount"}
     if set(raw) - allowed:
         raise ValueError(f"unknown condition fields: {set(raw) - allowed}")
     c = dict(name="clean", layout="furnished_a", layout_seed=0, seed=42, light=1800., rgb_noise=0.,
@@ -48,6 +48,10 @@ def validate(raw):
         raise ValueError("patch requires the added column in a furnished layout")
     if c["patch_enabled"] and c["layout"]=="corridor" and c["corridor"]["obstacles"]==0:
         raise ValueError("corridor patch requires an obstacle surface")
+    if 'patch_mount' in c:
+        if c['layout']!='corridor':raise ValueError('Explicit patch mounts require corridor layout')
+        from corridors import geometry,patch_corners
+        patch_corners(geometry(c['corridor'],c['layout_seed']),c['patch_size'],c['patch_mount'])
     return c
 
 

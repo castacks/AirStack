@@ -127,9 +127,6 @@ class CorridorScene:
         UsdPhysics.CollisionAPI.Apply(mesh.GetPrim());UsdPhysics.MeshCollisionAPI.Apply(mesh.GetPrim()).CreateApproximationAttr('convexHull')
         return mesh
 
-    def patch_corners(self,size):
-        b=self.data['obstacles'][0];x,y,z=b['center'];a=b['yaw'];forward=(math.cos(a),math.sin(a));left=(-math.sin(a),math.cos(a))
-        patch_z=.5 if self.data['spec']['style']=='paper_lab_low' else 1.2
-        center=(x-forward[0]*(b['size'][0]/2+.008),y-forward[1]*(b['size'][0]/2+.008),patch_z)
-        half=size/2
-        return [(center[0]+left[0]*u,center[1]+left[1]*u,center[2]+v) for u,v in [(-half,-half),(half,-half),(half,half),(-half,half)]]
+    def patch_corners(self,size,mount=None):
+        from corridors import patch_corners
+        return patch_corners(self.data,size,mount)

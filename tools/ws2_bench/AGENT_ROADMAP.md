@@ -82,16 +82,52 @@ MonoNav's empty-depth handling, TSDF allocation/retention and horizontal path
 execution were corrected before those corridor trials. This is not evidence
 that the previous Office/slalom failures have all been resolved.
 
-## Next priorities
+## Corridor agent implementation — October18
 
-1. **Connect agent-selected corridor layouts and follow-up experiments.**
+The adaptive corridor mode now uses version4 geometry. Claude selects shape,
+obstacle count and route-relative positions, sensor conditions and Kim-only patch
+surface/placement. Exact settings are validated and saved; the common flight loop
+executes one target per campaign. Random/Search use the same action space and
+receive rule-based diagnostic follow-ups. See [CORRIDOR_AGENT.md](CORRIDOR_AGENT.md).
+
+Functional validation completed 11 actual MonoNav flights within the separate
+12-flight allowance. One failed clean control skipped its attack twin. Claude
+removed that obstacle, repeated a combined noise24/delay0.4 failure, isolated
+delay0.4 (completed) and noise24 (insufficient progress), then selected noise12
+(insufficient progress). The 11-flight artifact audit passed. This verifies an
+executed diagnostic loop, not an advantage over another selection policy or a
+statistically established noise threshold. Raw evidence is in
+`campaigns/corridor_agent_validation_20261018/mononav/`; see
+[CORRIDOR_AGENT_VALIDATION.md](CORRIDOR_AGENT_VALIDATION.md) for the evidence review.
+
+The user authorized a separate **108-slot** comparison: MonoNav/Kim/PULP ×
+Random/Search/Claude ×12 reserved slots. Failed clean controls skip attack slots;
+actual and reserved costs are reported separately. The study uses frozen presets,
+sources and scoring, with the same final reporting model for every policy.
+This specific approval supersedes the earlier wait-for-review restriction.
+Comparison completed October19:105 actual flights,3 skipped attack slots, no
+infrastructure errors, all105 artifact checks passed. Reproduced conditions
+Random/Search/Claude: MonoNav3/3/1, Kim2/2/0, PULP1/1/0. Claude made more measured
+factor contrasts (2 per target versus1/1/0), but this did not show an advantage
+in reproduced failures or first-reproduction cost. All9 English reports are
+available after a report-validator negation fix and one provider-only retry.
+Seven of17 defense proposals need design revision; none has measured efficacy.
+The source snapshot preserves the original comparison. Later prompt/report
+improvements are documented separately in CORRIDOR_AGENT_VALIDATION.md.
+
+## Remaining research priorities
+
+1. **Broaden agent-selected corridor validation and budget planning.**
    Office expanded mode already generates bounded layouts; the recorded corridor
-   suite is still fixed. Expose corridor shape, obstacle count and positions,
-   patch surface/placement and sensor conditions through validated actions.
-   Check endpoint clearance, overlaps, passable routes and camera exposure;
+   suite remains historical fixed-condition evidence. The new v4 action space
+   exposes shape, obstacle count/positions, patch placement and sensor settings.
+   Endpoint/overlap/path checks are implemented; measured camera exposure remains
+   separate from physical mount validation. Continue checking these across targets;
    save exact transforms and reuse them in clean/attack twins. Connect these
    scenes to explore/repeat/isolate/threshold, without giving reactive models GT
-   route guidance. The current v3 layout change is manually specified, not agent-driven.
+   route guidance. Historical v3 trials must not be relabeled agent-driven.
+   Reserve enough pairs to confirm discovered failures: the initial Claude
+   Kim/PULP campaigns exhausted their budgets without an exact-condition repeat.
 2. **Validate clean reliability and attack effects.** Use repeated and independent
    layouts/seeds for all three models; preserve failures and fix target settings
    within comparisons. Confirm Kim patch exposure and FCRN prediction changes,
@@ -104,8 +140,10 @@ that the previous Office/slalom failures have all been resolved.
 4. **Measure the agent's advantage under equal budgets.** Compare reproduced
    failure discovery, diversity, factor isolation and report/defense usefulness
    against random, search and manual design. Count confirmation flights and LLM
-   costs. **Wait for user review before the larger policy comparison** described
-   in [AGENT_EVALUATION_PLAN.md](AGENT_EVALUATION_PLAN.md). Recorded fixed-condition
+   costs. The completed 108-slot initial comparison is described
+   in [AGENT_EVALUATION_PLAN.md](AGENT_EVALUATION_PLAN.md). Independent campaign
+   seeds, a stronger optimizer and a human baseline remain future studies, requiring
+   a separately agreed budget. Recorded fixed-condition
    videos illustrate the bench; they do not establish an agent advantage.
 
 ## Retained design constraints

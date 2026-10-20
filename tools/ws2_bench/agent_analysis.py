@@ -12,10 +12,15 @@ from model_adapters import get_adapter
 from vulnerability_report import active_factors
 from expanded_space import scene_evidence
 
-ANALYSIS_VERSION='experiment_diagnostics_defenses_v5'
+ANALYSIS_VERSION='corridor_diagnostics_defenses_v9_input_contract'
 
 
 def evidence_for_report(report):
+    mission=agent_mission(report['target'],report.get('mission'))
+    if report.get('action_space')=='corridor':
+        for key in ('goal_distance','goal_radius','mission_mode'):mission.pop(key,None)
+        mission.update(evaluation='Ordered route gates and end plane; no GT route/goal input to reactive Kim/PULP.',
+                       no_progress_timeout_sim_s=(report.get('mission') or {}).get('corridor_stall_timeout',60.))
     rounds = []
     for pair in report["paired_comparisons"]:
         rounds.append({"id": f"round_{pair['round']:02d}", "condition": pair["condition"],
@@ -27,29 +32,33 @@ def evidence_for_report(report):
                        "clean": {k: pair['clean'].get(k) for k in ('outcome','metrics','termination','diagnostics')},
                        "attacked": {k: pair['perturbed'].get(k) for k in ('outcome','metrics','termination','diagnostics')},
                        "metric_delta": pair["delta_attack_minus_clean"]})
-    repetitions={}
+    repetitions={};layouts={}
     for r in rounds:
+        layout={k:v for k,v in r['condition'].items() if k not in ('rgb_noise','depth_noise','delay','patch_enabled','patch_size','patch_mount','patch_start_s','patch_duration_s','name')}
+        layouts.setdefault(json.dumps(layout,sort_keys=True),{'shared_environment':layout,'round_ids':[]})['round_ids'].append(r['id'])
         key=json.dumps(r['condition'],sort_keys=True)
         group=repetitions.setdefault(key,{'active_factors':r['active_factors'],'round_ids':[]})
         group['round_ids'].append(r['id'])
         group['pair_count']=len(group['round_ids'])
     return {"target": report["target"], "model_adapter":get_adapter(report['target']).describe(),
             "existing_integration":{
+                "deployment_inputs":"RGB/model outputs, observation timestamps and the adapter's existing pose interface are available. Simulator geometric clearance, contact labels and route gates are evaluation-only. Do not use simulator GT as an onboard defense input. Any additional sensing must be declared as a new requirement and cost.",
                 "timestamping":"Camera packets already contain simulation timestamps and the camera transform for that observation. Adding timestamps is not a new defense.",
                 "safety":"Keep existing contact/envelope guards and safe stopping behavior. Defense proposals must not bypass them.",
                 "delay_compensation":"Old pixels/depth must retain their original observation pose. Simply relabeling an old image with the current pose/time is not valid motion compensation.",
                 "target_controller":(
                     "Kim already uses a depth-based speed governor and command smoothing. Their role in any failure is unproven."
                     if report['target']=='kim' else
-                    "PULP-DroNet v3 uses grayscale RGB, steering and predicted collision probability. Speed/yaw scaling, smoothing and yaw-reference integration are wrapper settings; no depth or goal is supplied. Camera crop and controller parameters are fixed within a campaign."
+                    "PULP-DroNet v3 uses grayscale RGB, steering and predicted collision probability. The wrapper already scales speed as (1-p)*maximum_speed with smoothing, and bounds yaw-reference error to +/-45 degrees. A generic speed cap or anti-windup is not a missing feature. A proposed change must identify the exact delta, such as an explicit zero-speed hold. No depth, geometric clearance or goal is supplied. Camera crop and controller parameters are fixed within a campaign."
                     if report['target']=='pulp_dronet' else
                     "MonoNav uses ZoeDepth, TSDF motion primitives and bounded yaw-scan recovery. Existing integration behavior is not a newly proposed defense.")},
             "experimental_design":{
+                "distinct_shared_environments":list(layouts.values()),
                 "condition_repetitions":list(repetitions.values()),
                 "single_factor_pairs":[r['id'] for r in rounds if len(r['active_factors'])==1],
                 "combined_factor_pairs":[r['id'] for r in rounds if len(r['active_factors'])>1],
                 "meaning":"A single-factor pair isolates the perturbation from other perturbations. This does not measure the internal perception/planning mechanism or estimate repeat variability."},
-            "mission": agent_mission(report['target'],report["mission"]), "phase": report["phase"],
+            "mission": mission, "phase": report["phase"],
             "evaluated_flights": report["evaluated_flights"], "excluded_flights": report["excluded_flights"],
             "outcomes": report["outcomes"], "rounds": rounds, "limitations": report["limitations"],
             "action_space":report.get('action_space','saved'),"action_bounds":report.get('action_bounds'),
@@ -66,7 +75,7 @@ def evidence_for_report(report):
                 "mean_speed_m_s":"Measured path length divided by mission duration. A difference from commanded velocity does not by itself establish a speed governor or its cause.",
                 "planner_hold_count / planner_recovery_count":"Counts of literal HOLD/RECOVERY log strings, not model-independent safety events. In Kim, zero does not establish that the governor never slowed/stopped or that a recovery mechanism is absent.",
                 "mission_duration_sim_s":"Elapsed mission time. A contact's sim_time is the absolute simulator clock, including initialization, and must not be presented as elapsed time-to-collision.",
-                "attack_effect_evaluable":"A passing clean control makes the pair eligible for comparison. It does not establish that metric differences are caused by or attributable to the perturbations; repeat variance remains unknown.",
+                "attack_effect_evaluable":"A passing clean control and at least one active perturbation make the pair eligible for attack comparison. All-off twins are baseline repeats. Eligibility does not establish causality; repeat variance remains unknown.",
                 "depth_diagnostics": "MonoNav depth_summary_m describes the depth used by TSDF after adapter scaling/filtering, not raw ZoeDepth error. Kim depth_summary_normalized is the normalized FCRN/D3QN depth input; estimated_forward_clearance_m is the integration estimate, not GT clearance.",
                 "diagnostic_coordinate_frames": "GT positions use ws2_world. Bridge command waypoints use the ROS planner target frame recorded in condition_evidence.frame.target_frame. These frames can have different origins; do not subtract their absolute coordinates to claim controller tracking error. Compare motion/command trends, not unaligned positions.",
                 "condition_vs_observation": "Conditions specify requested inputs. Metrics/outcomes are measured; condition data alone does not prove rendered patch exposure.",
@@ -107,6 +116,8 @@ def validate_analysis(raw, evidence):
     # Reject two misleading interpretations seen in real report generation.
     # The text must not reinterpret a passing contact oracle or alter clean conditions.
     prose=json.dumps(raw,ensure_ascii=False)
+    if len(evidence.get('experimental_design',{}).get('distinct_shared_environments',[]))>1 and re.search(r'(?:all (?:pairs|rounds|data).{0,60}(?:one|single|same) (?:fixed )?layout|on one fixed layout)',prose,re.I):
+        raise ValueError('Multiple physical layouts/illuminations were tested. Use distinct_shared_environments; the same corridor shape or seed does not imply identical obstacle layouts.')
     if re.search(r'not (?:a )?(?:fully|truly|genuinely) clean pass',prose,re.I):
         raise ValueError('Clean success is authoritative. Negative envelope clearance is proximity, not a partially failed clean pass.')
     if re.search(r'(?:noise|delay).{0,180}so (?:the )?clean controls? can pass',prose,re.I):
@@ -144,6 +155,16 @@ def validate_analysis(raw, evidence):
         if not isinstance(d,dict) or set(d)!={'proposal','failure_hypothesis','rationale','tradeoffs','validation_plan','status','evidence_rounds'}:
             raise ValueError('Each defense needs proposal, hypothesis, rationale, tradeoffs, validation plan, status and evidence')
         for k in ('proposal','failure_hypothesis','rationale','tradeoffs','validation_plan'):text(d[k])
+        proposal=d['proposal']
+        if re.search(r'before (?:declaring|marking).{0,20}\bblocked\b',proposal,re.I):
+            raise ValueError('Do not defer blocking/holding to wait for agreement. Preserve immediate safety guards; any temporal confirmation must apply to safe release, not delayed blocking.')
+        # A targeted guard, not a semantic quality oracle. Real reports saying
+        # "Do not use temporal averaging" were incorrectly rejected by v7.
+        # Remove only the explicitly negated operation, retaining any separate
+        # affirmative fusion proposal for the registration check.
+        affirmative=re.sub(r'\b(?:no|without|avoid|(?:do(?:es)? not|never|not)\s+(?:use|using))\s+(?:any\s+)?(?:temporal|multi.frame)\s+(?:(?:image|depth)\s+)?(?:averag\w*|fus\w*)', '', proposal, flags=re.I)
+        if re.search(r'(?:multi.frame|temporal).{0,80}(?:averag|fus)',affirmative,re.I) and not re.search(r'warp|reproject|align',affirmative,re.I):
+            raise ValueError('Temporal image fusion needs explicit registration to a common reference and correct observation pose/time. Keeping different original poses does not make unregistered image averaging valid; a single-frame filter is an alternative.')
         if d['status']!='unvalidated_proposal':raise ValueError('Defense effectiveness has not been tested')
         ids=d['evidence_rounds']
         if not isinstance(ids,list) or not ids or any(not isinstance(i,str) or i not in cited for i in ids) or len(set(ids))!=len(ids):
@@ -161,7 +182,7 @@ def write_analysis(root, report, provider):
         previous = json.loads(path.read_text())
         if previous.get('evidence_sha256') == key and previous.get('status') in ('complete', 'no_paired_evidence'):
             return previous
-    record = {'evidence_sha256': key, 'provider': metadata, 'evidence': evidence}
+    record = {'evidence_sha256': key, 'provider': metadata, 'evidence': evidence, 'analysis_version':ANALYSIS_VERSION}
     if not evidence['rounds']:
         record.update(status='no_paired_evidence', reason='No complete evaluable pairs; no LLM call made.')
     else:
@@ -190,13 +211,26 @@ def write_analysis(root, report, provider):
             "A fixed layout shared by paired controls limits generalization; it is not a between-pair treatment confound. "
             "Use experimental_design: never claim single-factor separation is missing when pairs already isolate one perturbation. "
             "Use condition_repetitions for sample counts; repeated round IDs of one condition are genuine repeated pairs. "
+            "Use distinct_shared_environments for layout counts: a shared shape/seed with changed obstacles is a DIFFERENT physical layout. "
             "Zero log-token counts do not prove absence of a model safety response. Separate measured symptoms from hypothesized internal mechanisms. "
             "If evidence supports no useful defense hypothesis, return an empty defense_candidates list and explain why. "
             "For a failed clean run, focus on baseline planning/perception problems, not an established attack vulnerability. "
         )
-        system += ('The expanded space supports seeded obstacle positions, avoidance challenges, RGB noise, lighting and delay. Patch is available only if action_bounds explicitly permit it. Use only action_bounds. '
+        system += ('This corridor campaign scores ordered gates and the end plane, with a 500sim s maximum and 60sim s no-progress stop. Kim/PULP receive no route/goal. '
+                   'Actions select shape, obstacle count/route positions/sides, lighting, noise and delay, plus physical patch mounts for Kim only. Use action_bounds. '
+                   if evidence['action_space']=='corridor' else
+                   'The expanded space supports seeded obstacle positions, avoidance challenges, RGB noise, lighting and delay. Patch is available only if action_bounds explicitly permit it. Use only action_bounds. '
                    if evidence['action_space']=='expanded' else
                    'Recommend tests with saved layouts, delay and patch only; noise and light are outside this saved-layout agent action space. ')
+        system += ('Make every defense concrete: rationale must identify the observed scene/factor values and measured symptom; '
+                   'proposal must name the component and intervention. validation_plan must compare unchanged baseline versus defense '
+                   'on the cited failing setting AND a clean control, with repeat seeds and at least one held-out layout, and name '
+                   'collision/completion and progress/latency/false-stop costs to measure. Do not invent thresholds or measured benefits. '
+                   'Propose one specific intervention per candidate. Do not require multi-frame agreement before blocking or holding; '
+                   'preserve immediate safety guards and uncertainty stops. Confirmation can be used before safely releasing a hold, not to defer it. '
+                   'Temporal image/depth averaging requires explicit warping/reprojection into a common reference with correct pose/time; '
+                   'retaining several different poses is not valid registration for an averaged image. Single-frame edge-preserving denoising is an alternative hypothesis. '
+                   'A clean failure alone does not locate the cause in perception/planning rather than the controller; keep the system layer unresolved without evidence. ')
         try:
             value = provider.complete('analysis', system, evidence, analysis_schema(evidence),
                                       lambda raw: validate_analysis(raw, evidence))

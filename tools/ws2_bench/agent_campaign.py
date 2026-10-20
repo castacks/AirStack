@@ -78,8 +78,11 @@ def _config(policy_name, budget, seed, planner, retries, record_bags, timeout, g
 
 
 def _candidate(decision, config, index):
-    if config.get('action_space')=='expanded':
-        from expanded_space import action_to_episode as expanded_episode
+    if config.get('action_space') in ('expanded','corridor'):
+        if config['action_space']=='corridor':
+            from corridor_space import action_to_episode as expanded_episode
+        else:
+            from expanded_space import action_to_episode as expanded_episode
         raw=expanded_episode(decision['action'],config['planners'][0],config['seed'],
             f"{config['backend']} round {index+1} {config['planners'][0]}",config['mission'],
             placement=decision.get('condition',{}).get('placement'))
@@ -124,7 +127,7 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
     if not 0 <= pause_seconds <= 60 or not math.isfinite(pause_seconds):
         raise ValueError("pause_seconds must be 0..60")
 
-    if action_space not in ('saved','expanded'):raise ValueError('action_space must be saved or expanded')
+    if action_space not in ('saved','expanded','corridor'):raise ValueError('action_space must be saved, expanded or corridor')
     if action_space=='saved':
         qualified_layouts = parse_qualified_layouts([f"{layout}:{layout_seed}" for layout, layout_seed in qualified_layouts])
         allowed_actions = [action for action in all_actions() if (action["layout"], action["layout_seed"]) in qualified_layouts]
@@ -132,7 +135,10 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
             allowed_actions=[action for action in allowed_actions if not action['patch_enabled']]
         validate_selected=validate_action
     else:
-        from expanded_space import validate_action as validate_selected
+        if action_space=='corridor':
+            from corridor_space import validate_action as validate_selected
+        else:
+            from expanded_space import validate_action as validate_selected
         qualified_layouts=();allowed_actions=None
     root = Path(output).resolve()
     root.relative_to(RUNTIME.resolve())
@@ -149,10 +155,16 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
                       label={'random':'Seeded random sampling','search':'Result-guided search','agent_search':'Claude-guided testing'}[policy_name])
         if planner=='mononav' and config['mission']['goal_distance']!=8:
             raise ValueError('Generated placement currently protects the qualified 8m mission; use goal_distance=8')
+    if action_space=='corridor':
+        from corridor_space import bounds, VERSION, mission_for
+        if timeout is not None or goal_distance is not None:raise ValueError('Corridor missions use frozen target presets')
+        config.update(action_space='corridor',action_schema=VERSION,profile='corridor_agent',noise='configurable',
+                      expanded_bounds=bounds(planner),study_objective=study_objective,mission=mission_for(planner),
+                      label={'random':'Random + diagnostic follow-ups','search':'Heuristic search + diagnostic follow-ups','agent_search':'Claude corridor testing'}[policy_name])
     if provider is not None and hasattr(provider, 'metadata'):
         config['llm_provider'] = provider.metadata()
         config['llm_report'] = bool(llm_report)
-    resolved({"planner": planner, **config["mission"]})
+    if action_space!='corridor':resolved({"planner": planner, **config["mission"]})
     config_path = root / "config.json"
     if config_path.exists():
         previous = _load_json(config_path)
@@ -178,8 +190,11 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
     history = _load_json(history_path) if history_path.exists() else []
     if len(history) > budget // 2:
         raise ValueError("saved history exceeds the configured budget")
-    if action_space=='expanded':
-        from expanded_space import ExpandedPolicy
+    if action_space in ('expanded','corridor'):
+        if action_space=='corridor':
+            from corridor_space import CorridorPolicy as ExpandedPolicy
+        else:
+            from expanded_space import ExpandedPolicy
         if policy_name=='agent_search' and not getattr(provider,'chooses_action',False):
             raise ValueError('Expanded agent mode requires the exact-action Claude provider')
         policy=ExpandedPolicy(policy_name,seed,provider)
@@ -227,6 +242,8 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
             publish('analyzing_results', decision)
             write_analysis(root, report, provider)
         table = summary(history, live_rows)
+        from diagnostic_evaluation import write_audit
+        write_audit(root)
         atomic(root / "report.json", dict(table, analysis=report, actual_attempts=actual_attempts))
         if table["rows"]:
             with (root / "trials.csv").open("w", newline="") as stream:
@@ -248,8 +265,11 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
         saved = _load_json(validation_path) if validation_path.exists() else []
         if len(saved) > clean_validation_runs:
             raise ValueError("saved clean validation exceeds configured runs")
-        if action_space=='expanded':
-            from expanded_space import reference_action,action_to_episode as expanded_episode
+        if action_space in ('expanded','corridor'):
+            if action_space=='corridor':
+                from corridor_space import reference_action,action_to_episode as expanded_episode
+            else:
+                from expanded_space import reference_action,action_to_episode as expanded_episode
             base=resolved(expanded_episode(reference_action(),planner,seed,'pristine clean validation',config['mission']))
         else:
             action = dict(allowed_actions[0])
@@ -311,7 +331,7 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
                     return finish("stopped", decision)
                 # Expanded experiments never spend an attack flight after a failed clean control.
                 # The unspent slot is retained, not silently reallocated to more experiments.
-                if role == 'perturbed' and action_space == 'expanded' and pair['clean']['outcome'] not in SUCCESSES:
+                if role == 'perturbed' and action_space in ('expanded','corridor') and pair['clean']['outcome'] not in SUCCESSES:
                     pair[role] = {'outcome':'not_run_clean_failed','metrics':{},'executed':False,
                                   'termination':{'reason':'clean control failed; attack effect not evaluable'},'attempts':[]}
                     atomic(round_root / planner / (role + '.json'), pair[role])
@@ -348,7 +368,7 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
                         "phase": "unstable_clean_baseline", "decision": decision, "result": pair["clean"],
                         "policy": clean_failure_policy,
                         "message": ("Attack flight was not run because its pristine clean control failed."
-                                    if halting or action_space=='expanded' else
+                                    if halting or action_space in ('expanded','corridor') else
                                     "Legacy record mode executes the attack but the failed clean invalidates attack attribution."),
                     })
                     if halting:
@@ -393,7 +413,7 @@ def main():
                              "baseline is known to fail at a non-trivial rate.")
     parser.add_argument("--clean-validation-runs", choices=(0, 1, 2, 3), type=int, default=2,
                         help="pristine clean successes required before the paired flight budget (default: 2)")
-    parser.add_argument('--action-space',choices=('saved','expanded'),default='saved')
+    parser.add_argument('--action-space',choices=('saved','expanded','corridor'),default='saved')
     parser.add_argument("--study-objective",default="",help="Recorded scope/priorities for agent experiment selection; does not change budget or metrics")
     parser.add_argument("--qualified-layout", action="append", metavar="LAYOUT:SEED",
                         help="a layout that has already passed a clean flight, e.g. easy:2 (repeatable)")

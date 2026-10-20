@@ -103,6 +103,9 @@ def proposal_schema(planner='mononav'):
 
 def scene_evidence(decision):
     """Compact realized geometry in the same frame as contact/GT positions."""
+    if decision.get('condition',{}).get('layout')=='corridor':
+        from corridor_space import scene_evidence as corridor_evidence
+        return corridor_evidence(decision)
     placement=decision.get('condition',{}).get('placement',{})
     boxes={name:[[b[0][1],-b[1][0],b[0][2]],[b[1][1],-b[0][0],b[1][2]]]
            for name,b in placement.get('bounds_source_m',{}).items()}

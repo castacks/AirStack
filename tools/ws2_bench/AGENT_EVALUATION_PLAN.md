@@ -134,3 +134,47 @@ Recommended decision: aim first for **ICUAS** if a regular UAV paper matters, or
 A relevant workshop is appropriate for earlier feedback. Strengthen the claim
 around experimental diagnosis and validated defensive follow-up before aiming
 at a stronger robotics/ML main track or journal.
+
+## Authorized corridor comparison — 2026-10-18
+
+User approved three targets × three policies × 12 reserved flight slots = **108**,
+plus at most12 separate functional-validation flights. This supersedes the earlier
+wait-for-review restriction for this specific budget; the old144-flight proposal
+remains unexecuted. Each 12-slot campaign has six clean/attack pairs. Failed clean
+controls skip the attack slot without reallocation, so the executed total may be lower.
+
+Use geometry v4 in `corridor_space.py`, one target per campaign. All policies share
+bounds, frozen target presets, contact scoring, diagnostics and exact pair geometry.
+Random/Search also have rule-based repeat/isolation/bisection; Claude chooses its own
+purposes. Search remains a **local heuristic**, not a strong optimizer or BO claim.
+A later paper needs a stronger optimizer and independent campaign seeds.
+
+Primary descriptive outcomes: reproduced conditions per reserved and actual flight
+budget, first-reproduction cost, and predefined shape × perturbation-set × outcome
+families. Secondary diagnostic outcomes: valid actual isolation interventions and
+observed scalar-bracket reductions. Neither family counts nor bracket probes prove
+internal causes, monotonic response or statistical significance.
+
+All methods get the same final Claude reporting model; only agent mode uses LLM
+selection. Review defense proposals for evidence fit, concrete intervention,
+trade-offs and a baseline-vs-defense / clean-vs-attack / repeated-held-out validation
+plan. Field/citation presence is not a semantic quality score. Defense effectiveness
+and human performance are not being tested in this comparison. Functional-validation
+runs and historical fixed-matrix runs are excluded from policy wins.
+
+Diagnostic comparison uses **distinct measured factor contrasts**, not how often
+an LLM labels a test `isolate`: a failed combined condition must have a valid,
+matched single-factor observation with unchanged geometry/light and retained
+factor value. Identical repeated contrasts count once. Executed isolation/probe
+counts remain separate. Conditional scalar probes require a measured passing
+endpoint with every other factor unchanged; an all-off clean control cannot anchor
+a multi-factor bracket. Reported intervals are observations, not proven thresholds.
+
+The authorized study finished on October19:105 actual flights and3 skipped slots,
+with no infrastructure errors and all artifact checks passing. Claude had fewer
+reproduced conditions than Random/Search but more distinct measured factor contrasts.
+This is not evidence of overall agent superiority. Full counts, report recovery,
+defense review and limits are in [CORRIDOR_AGENT_VALIDATION.md](CORRIDOR_AGENT_VALIDATION.md).
+No additional comparison budget is implied. Next study design should address
+confirmation-budget allocation, matched held-out cases and a stronger optimizer;
+report fluency or proposal counts are not benefit metrics.

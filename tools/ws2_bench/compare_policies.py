@@ -13,9 +13,12 @@ def read(path):return json.loads(Path(path).read_text())
 
 def method_result(root):
     history=read(root/'history.json') if (root/'history.json').exists() else []
+    key_for=action_key
+    if history and 'shape' in history[0]['decision']['action']:
+        from corridor_space import action_key as key_for
     groups={};clean_pass=0;attacked_fail=0;baseline_fail=0;infra=0;flights=0;seconds=0.;first=None
     for r in history:
-        p=r['pairs'][0];key=action_key(r['decision']['action'])
+        p=r['pairs'][0];key=key_for(r['decision']['action'])
         for role in ('clean','perturbed'):
             result=p[role]
             if result.get('executed') is False:continue
@@ -25,6 +28,8 @@ def method_result(root):
             baseline_fail+=1;continue
         if any(p[role]['outcome'] in EXCLUDED for role in ('clean','perturbed')):continue
         clean_pass+=1
+        from experiment_protocol import active
+        if not active(r['decision']['action']):continue
         if p['perturbed']['outcome'] not in SUCCESSES:
             attacked_fail+=1;groups[key]=groups.get(key,0)+1
             if first is None:first=flights

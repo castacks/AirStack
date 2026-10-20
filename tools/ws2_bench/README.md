@@ -142,3 +142,9 @@ or goal. All-scene PhysX contact and ordered gates determine corridor results.
 Camera/control integration safeguards are separate from the pretrained networks.
 Detailed historical evidence is in [CORRIDOR_VALIDATION.md](CORRIDOR_VALIDATION.md);
 source/asset recovery is in [BACKUP.md](BACKUP.md).
+
+## Agent-selected corridors
+
+[Corridor agent usage and configuration](CORRIDOR_AGENT.md): select a target, then run
+Random/Search/Claude over corridor geometry and supported attacks, with validated
+follow-up experiments and English evidence/defense reports.

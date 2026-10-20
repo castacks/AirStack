@@ -32,14 +32,26 @@ def geometry_hash(data):
 
 
 def validate_spec(raw):
-    if not isinstance(raw,dict) or set(raw)-{'shape','width','obstacles','style','corner_bevel','bend_radius','route_scale','difficulty','layout_version'}:
+    if not isinstance(raw,dict) or set(raw)-{'shape','width','obstacles','style','corner_bevel','bend_radius','route_scale','difficulty','layout_version','obstacle_placements'}:
         raise ValueError('corridor requires shape, width and obstacle count')
     spec=dict(shape='elbow',width=3.5,obstacles=2,style='hallway');spec.update(raw)
     if spec['shape'] not in SHAPES:raise ValueError('unknown corridor shape')
     if spec['style'] not in ('hallway','hallway_black','hallway_daylight','paper_lab','paper_lab_low'):raise ValueError('unknown corridor style')
     version=spec.get('layout_version',1)
-    if type(version) is not int or version not in (1,2,3):raise ValueError('Unknown corridor layout version')
-    if 'difficulty' in spec:
+    if type(version) is not int or version not in (1,2,3,4):raise ValueError('Unknown corridor layout version')
+    if version==4:
+        limits={'easy':(0,2),'medium':(2,4),'hard':(4,7)}
+        if spec.get('difficulty') not in limits:raise ValueError('v4 requires difficulty')
+        lo,hi=limits[spec['difficulty']]
+        placements=spec.get('obstacle_placements')
+        if not isinstance(placements,list) or not lo<=len(placements)<=hi or len(placements)!=spec['obstacles']:
+            raise ValueError('v4 obstacle count must match placements and difficulty bounds')
+        for p in placements:
+            if not isinstance(p,dict) or set(p)!={'route_s','side'} or type(p['side']) is not int or p['side'] not in (-1,1):
+                raise ValueError('Each obstacle requires route_s in metres and side -1 or 1')
+            if type(p['route_s']) not in (int,float) or not math.isfinite(p['route_s']):raise ValueError('Invalid obstacle route_s')
+    elif 'obstacle_placements' in spec:raise ValueError('Explicit obstacles require layout_version=4')
+    if 'difficulty' in spec and version<4:
         if spec['difficulty'] not in TIERS:raise ValueError('Unknown corridor difficulty')
         added=2*TIERS.index(spec['difficulty']) if version==1 else {'easy':0,'medium':2,'hard':5}[spec['difficulty']]
         expected=(2 if spec['shape']=='u_obstacles' else 0)+added
@@ -171,7 +183,7 @@ def geometry(raw,seed=42):
     selected=candidates[:spec['obstacles']]
     if len(selected)<spec['obstacles']:
         selected=[length*(i+1)/(spec['obstacles']+1) for i in range(spec['obstacles'])]
-    if 'difficulty' in spec:
+    if 'difficulty' in spec and spec.get('layout_version',1)<4:
         # Preserve every easier-tier obstacle, including side and index.
         # Distances lie on straight sections, outside the takeoff footprint.
         selected=[2.5,4.5] if spec['shape']=='u_obstacles' else []
@@ -198,20 +210,63 @@ def geometry(raw,seed=42):
             if any(not 5.<d<length-5. for d in selected):
                 raise ValueError('v3 tier requires enough route length for interior encounters')
         if len(selected)!=spec['obstacles']:raise ValueError('Tier obstacle count mismatch')
+    if spec.get('layout_version')==4:
+        selected=[p['route_s'] for p in spec['obstacle_placements']]
+        if any(not 4.<=d<=length-4. for d in selected):raise ValueError('Obstacles must be at least 4m from route endpoints')
+        if any(abs(a-b)<1.5 for i,a in enumerate(selected) for b in selected[i+1:]):
+            raise ValueError('Obstacle encounters must be separated by at least 1.5m along the route')
     obstacles=[]
     for i,d in enumerate(selected):
-        p,u=point_at(points,d);side=1 if (i+seed)%2 else -1
+        p,u=point_at(points,d);side=spec['obstacle_placements'][i]['side'] if spec.get('layout_version')==4 else (1 if (i+seed)%2 else -1)
         depth=spec['width']*.45 if spec['style'].startswith('paper_lab') else 1.0
         height=1.0 if spec['style']=='paper_lab_low' else 1.6 if spec['style']=='paper_lab' else 2.5
         offset=side*(spec['width']/2-depth/2)
         obstacles.append(dict(center=[p[0]-u[1]*offset,p[1]+u[0]*offset,height/2],
                               size=[.65,depth,height],yaw=math.atan2(u[1],u[0]),route_s=d))
+    if spec.get('layout_version')==4:
+        # Preserve a continuous nominal-envelope path; this is geometric
+        # feasibility, never a guarantee that a target can fly the course.
+        samples=[point_at(points,min(length,i*.2))[0] for i in range(math.ceil(length/.2)+1)]
+        for b in obstacles:
+            def distance(p):
+                dx,dy=p[0]-b['center'][0],p[1]-b['center'][1];a=b['yaw']
+                x=abs(dx*math.cos(a)+dy*math.sin(a));y=abs(-dx*math.sin(a)+dy*math.cos(a))
+                return math.hypot(max(0,x-b['size'][0]/2),max(0,y-b['size'][1]/2))
+            if min(map(distance,samples))<.7:raise ValueError('Obstacle blocks the protected 0.7m centreline envelope')
+        for i,b in enumerate(obstacles):
+            for other in obstacles[i+1:]:
+                # Bounding circles conservatively prevent block intersections.
+                if math.dist(b['center'][:2],other['center'][:2])<math.hypot(.65,1.)+.1:
+                    raise ValueError('Obstacle boxes overlap or are too close')
     # Closely spaced scoring gates prevent shortcutting corners in evaluation.
     gates=[point_at(points,min(length,d))[0] for d in range(2,math.ceil(length),2)]+[points[-1]]
     data=dict(schema='corridor_v1',spec=spec,seed=seed,route=points,route_length_m=length,
               walls=walls,obstacles=obstacles,gates=gates,spawn=[*points[0],.07])
     data['placement_id']=geometry_hash(data)
     return data
+
+
+def patch_corners(data,size,mount=None):
+    """Original texture on one real block face, with explicit replayable mount."""
+    mount=mount or {'obstacle_index':0,'face':'front','height_m':.5 if data['spec']['style']=='paper_lab_low' else 1.2}
+    if not isinstance(mount,dict) or set(mount)!={'obstacle_index','face','height_m'}:
+        raise ValueError('Patch mount requires obstacle_index, face and height_m')
+    index=mount['obstacle_index'];height=mount['height_m'];face=mount['face']
+    if type(index) is not int or not 0<=index<len(data['obstacles']):raise ValueError('Patch obstacle index is unavailable')
+    if type(height) not in (int,float) or not math.isfinite(height):raise ValueError('Invalid patch height')
+    b=data['obstacles'][index];x,y,z=b['center'];a=b['yaw']
+    forward=(math.cos(a),math.sin(a));left=(-math.sin(a),math.cos(a))
+    if face=='front':normal=(-forward[0],-forward[1]);horizontal=left;depth=b['size'][0];width=b['size'][1]
+    elif face=='inner':
+        p,_=point_at(data['route'],b['route_s'])
+        side=1 if (x-p[0])*left[0]+(y-p[1])*left[1]>0 else -1
+        normal=(-side*left[0],-side*left[1]);horizontal=forward;depth=b['size'][1];width=b['size'][0]
+    else:raise ValueError('Patch face must be front or inner')
+    if size>width-.02 or height-size/2<.05 or height+size/2>b['size'][2]-.05:
+        raise ValueError('Patch must fit completely on its selected physical surface')
+    center=(x+normal[0]*(depth/2+.008),y+normal[1]*(depth/2+.008),height)
+    return [(center[0]+horizontal[0]*u,center[1]+horizontal[1]*u,center[2]+v)
+            for u,v in [(-size/2,-size/2),(size/2,-size/2),(size/2,size/2),(-size/2,size/2)]]
 
 
 class Traversal:

@@ -31,13 +31,13 @@ def adaptive_command(payload,output):
         raise ValueError('Select one registered target model: '+', '.join(REGISTRY))
     policy=payload.get('policy','search')
     action_space=payload.get('action_space','saved')
-    if action_space not in ('saved','expanded'):raise ValueError('Unknown action space')
+    if action_space not in ('saved','expanded','corridor'):raise ValueError('Unknown action space')
     budget=payload.get('budget',8);timeout=payload.get('timeout',defaults(payload['planner'])['timeout'])
     distance=payload.get('goal_distance',8)
     if policy not in ('random','search','agent_search'):raise ValueError('Invalid adaptive policy')
     provider=payload.get('provider',os.environ.get('WS2_AGENT_PROVIDER','openai'))
     if provider not in ('claude','openai'):raise ValueError('Provider must be claude or openai')
-    if action_space=='expanded' and policy=='agent_search' and provider!='claude':raise ValueError('Expanded agent mode requires Claude')
+    if action_space in ('expanded','corridor') and policy=='agent_search' and provider!='claude':raise ValueError('Expanded agent mode requires Claude')
     if policy=='agent_search' and provider=='openai' and not all(os.environ.get(key) for key in ('WS2_AGENT_ENDPOINT','WS2_AGENT_API_KEY','WS2_AGENT_MODEL')):
         raise ValueError('Agent mode needs WS2_AGENT_ENDPOINT, WS2_AGENT_API_KEY, and WS2_AGENT_MODEL')
     if policy=='agent_search' and provider=='claude':
@@ -64,6 +64,9 @@ def adaptive_command(payload,output):
             '--goal-distance',str(distance),'--output',str(output),
             '--clean-validation-runs',str(validations),'--infrastructure-retries',str(retries),
             '--clean-failure-policy',clean_policy,'--action-space',action_space]
+    if action_space=='corridor':
+        for flag in ('--timeout','--goal-distance'):
+            i=command.index(flag);del command[i:i+2]
     for layout,seed in qualified:command+=['--qualified-layout',f'{layout}:{seed}']
     if policy=='agent_search':command+=['--provider',provider]
     return command

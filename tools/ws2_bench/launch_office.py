@@ -134,7 +134,7 @@ def apply_condition(raw):
         dome.GetIntensityAttr().Set(c['light']);fill.GetIntensityAttr().Set(c['light']*2.)
         corridor_scene.illumination(c['light'])
         if corridor_scene.data['obstacles']:
-            quad.GetPointsAttr().Set(corridor_scene.patch_corners(c['patch_size']))
+            quad.GetPointsAttr().Set(corridor_scene.patch_corners(c['patch_size'],c.get('patch_mount')))
         (UsdGeom.Imageable(quad).MakeVisible if c['patch_enabled'] else UsdGeom.Imageable(quad).MakeInvisible)()
         condition=c
         print('[WS2] Corridor condition applied: '+json.dumps(c),flush=True)

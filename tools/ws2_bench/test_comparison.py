@@ -8,7 +8,7 @@ def write(root,name,value):
     root.mkdir(parents=True,exist_ok=True);(root/name).write_text(json.dumps(value))
 
 def history(clean='goal_reached',attack='collision'):
-    return [{'decision':{'round':i,'action':reference_action()},'pairs':[{
+    return [{'decision':{'round':i,'action':dict(reference_action(),rgb_noise_stddev=16.)},'pairs':[{
         role:{'outcome':outcome,'metrics':{},'wall_duration_s':2.} for role,outcome in [('clean',clean),('perturbed',attack)]}]} for i in (1,2)]
 
 def test_clean_failures_and_infrastructure_are_not_agent_successes(tmp_path):

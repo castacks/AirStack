@@ -22,7 +22,7 @@ def schema():
 
 
 def active(a):
-    return [f for f, keys in FACTORS.items() if a[keys[0]] > 0]
+    return [f for f, keys in FACTORS.items() if a.get(keys[0],0) > 0]
 
 
 def disable(a, factor):
@@ -68,12 +68,14 @@ def validate(experiment, action, history, action_key):
         if action_key(action) != action_key(expected):
             raise ValueError('Isolation must keep geometry/light and the chosen factor unchanged, disable other attacks')
         return experiment
-    if factor not in ('rgb_noise', 'delay') or active(base) != [factor]:
-        raise ValueError('Threshold requires a single noise or delay factor; patch size is not calibrated strength')
+    if factor not in ('rgb_noise', 'delay') or factor not in active(base):
+        raise ValueError('Threshold must vary an active noise or delay scalar; patch size is not calibrated strength')
     if pair['perturbed']['outcome'] in SUCCESSES:
         raise ValueError('Threshold source_round must be a failed attack with a passing clean control')
     key = FACTORS[factor][0]
     if passing == 0:
+        if active(base) != [factor]:
+            raise ValueError('A conditional threshold needs a measured passing_round with the other factors unchanged; the clean control disables all factors')
         low = 0.  # The source pair's clean control is the measured zero endpoint.
     else:
         if passing not in rounds:
@@ -95,8 +97,10 @@ INSTRUCTIONS = (
     'explore: new configuration, source_round=passing_round=0, factor=none. '
     'repeat: exact source action, source_round set, passing_round=0, factor=none. '
     'isolate: from a valid combined pair, keep exactly one active factor and disable the others, keep geometry/light unchanged; passing_round=0. '
-    'threshold: source is a failed single-factor noise or delay pair with successful clean control; change ONLY that scalar strictly between '
-    'the source failing value and a passing_round value (0 means the source clean control at zero perturbation). '
+    'threshold: source is a failed noise or delay pair with successful clean control; change ONLY that scalar strictly between '
+    'the source failing value and a measured passing_round value. Other factors may remain active ONLY if the passing endpoint '
+    'has exactly those same other factors/geometry/light. passing_round=0 means the source clean control, valid ONLY for a single-factor source. '
+    'A combined-factor bracket is conditional on the fixed other factors, not a universal single-factor threshold. '
     'Do not assume monotonic failure probability or treat patch size as calibrated strength. '
     'Clean failure is environment/baseline evidence: the attack twin is skipped. Explore another layout or explicitly repeat the baseline. '
     'Use compact pre-failure diagnostics to distinguish sensor age, model output and motion observations; do not claim a proven internal cause. '
