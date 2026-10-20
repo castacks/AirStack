@@ -16,6 +16,7 @@ from gamma_zero_msgs.msg import SelectedCommand
 
 from gamma_zero_controller.control import Controller, Reference
 from gamma_zero_controller.policy_worker import PolicyClient
+from gamma_zero_controller.recording import Recorder
 
 
 class GammaController(Node):
@@ -23,6 +24,8 @@ class GammaController(Node):
         super().__init__('gamma_controller')
         config = json.loads(Path(self.declare_parameter('config', '').value).read_text())
         self.simulation = self.declare_parameter('simulation', True).value
+        if not np.isfinite(config.get('fault_hold_s', 30.)) or config.get('fault_hold_s', 30.) <= 0:
+            raise ValueError('Invalid fault hold timeout')
         self.robot = self.declare_parameter('robot_name', 'drone_3').value
         if not self.simulation and not all(config.get(k, False) for k in ['transforms_verified', 'thrust_verified', 'firmware_verified']):
             raise ValueError('Live mode requires verified transforms, thrust and firmware')
@@ -48,7 +51,7 @@ class GammaController(Node):
         self.fault_hold_started = None
         self.selected = self.create_publisher(SelectedCommand, 'selected_command', 1)
         self.status = self.create_publisher(String, 'status', 10)
-        self.trace = self.create_publisher(String, 'trace', 10)
+        self.trace = self.create_publisher(String, 'trace', qos_profile_sensor_data)
         self.create_subscription(VehicleOdometry, 'vehicle_odometry', self.state_callback, qos_profile_sensor_data)
         self.create_subscription(MultiDOFJointTrajectory, 'svg_reference', self.reference_callback, 1)
         self.create_subscription(String, 'svg_status', self.svg_callback, 1)
@@ -58,7 +61,7 @@ class GammaController(Node):
         self.create_service(Trigger, '~/start_trajectory', self.start_trajectory)
         self.create_service(Trigger, '~/use_svg', self.use_svg)
         self.create_service(Trigger, '~/hold', self.hold)
-        self.log = Path(self.declare_parameter('log', '').value).open('x', buffering=1)
+        self.log = Recorder(self.declare_parameter('log', '').value)
         self.record({'event': 'configuration', 'config': config, 'bundle_sha256': self.policy.assets['bundle_sha256']})
         self.timer = self.create_timer(self.dt, self.tick)
         self.status_timer = self.create_timer(.1, self.publish_status)
@@ -66,7 +69,7 @@ class GammaController(Node):
 
     def record(self, record):
         record = dict(record, ros_s=self.get_clock().now().nanoseconds*1e-9)
-        self.log.write(json.dumps(record, allow_nan=False)+'\n')
+        self.log.append(record)
         self.trace.publish(String(data=json.dumps(record, allow_nan=False)))
 
 
@@ -212,7 +215,7 @@ class GammaController(Node):
         try:
             if c.mode == 'fault':
                 return
-            if self.fault_hold_started is not None and started-self.fault_hold_started > c.config['completion_hold_s']:
+            if self.fault_hold_started is not None and started-self.fault_hold_started > c.config.get('fault_hold_s', 30.):
                 self.trip('Fault hold expired', allow_hold=False)
                 return
             owners = self.count_publishers(self.selected.topic_name)
@@ -300,7 +303,7 @@ class GammaController(Node):
         status = {'mode': c.mode, 'source': c.source, 'fault': c.fault, 'generation': c.generation,
                   'ack': self.ack, 'ack_fresh': time.monotonic()-self.ack_received < .1,
                   'handoff_pending': self.pending_since is not None, 'inference_s': c.inference_s,
-                  'ready_for_engage': c.mode == 'conventional' and not c.fault and c.stable_since is not None and time.monotonic()-c.stable_since >= 1. and time.monotonic()-c.session.received_s <= .1 and time.monotonic()-self.reference_received <= .1 and time.monotonic()-self.svg_received <= .5,
+                  'ready_for_engage': c.mode == 'conventional' and not c.fault and c.stable_since is not None and time.monotonic()-c.stable_since >= 1. and time.monotonic()-c.session.received_s <= .1 and time.monotonic()-self.reference_received <= .1 and time.monotonic()-self.svg_received <= .5 and self.pending_since is None and self.ack.get('mode') == 0 and time.monotonic()-self.ack_received <= .1,
                   'state_age_s': time.monotonic()-c.session.received_s if np.isfinite(c.session.received_s) else None,
                   'reference_age_s': time.monotonic()-self.reference_received if np.isfinite(self.reference_received) else None,
                   'saturated': c.last_record.get('saturated', False),

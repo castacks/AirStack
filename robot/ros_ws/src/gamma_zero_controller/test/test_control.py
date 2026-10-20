@@ -63,3 +63,18 @@ def test_deployment_command_matches_existing_evaluator(control,pattern,ramp):
     expected,*_=trajectory.command(t,control.session.state['position_enu'],control.session.state['rotation_enu_flu'],[1.]*4)
     control.command(None,101.1+t,11.1+t)
     np.testing.assert_allclose(control.session.policy.goal,expected,atol=1e-7)
+
+
+@pytest.mark.parametrize("pattern", ["flown", "large"])
+def test_evaluated_terminal_hold_is_two_seconds(control, pattern):
+    from gamma_zero_controller.trajectory import Trajectory
+    control.session.trajectory = Trajectory(TrajectoryConfig(pattern=pattern))
+    assert control.config["completion_hold_s"] == 2.
+    control.engage(101.1, 11.1, True)
+    control.start_trajectory(101.1, 11.1)
+    elapsed = control.session.trajectory.duration_s + 2.02
+    control.session.source_s = 101.1 + elapsed
+    control.session.received_s = 11.1 + elapsed
+    control.session.last_tick_s = 11.1 + elapsed
+    with pytest.raises(ValueError, match="completion hold expired"):
+        control.command(None, 101.1 + elapsed, 11.1 + elapsed)

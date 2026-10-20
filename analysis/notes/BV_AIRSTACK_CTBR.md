@@ -16,7 +16,7 @@ Default references are the original loco_mjx `flown` and `large` figure-eights, 
 
 ## Validation receipts
 
-Baseline:8 packages built;177 unchanged SVG tests passed. New controller suite:36 tests, including404 original-S2 reference samples across both patterns/ramp variants. Final SVG suite:179 passed, including2 new tests rejecting stale/old-generation landing acknowledgements. Both tested_trajectory and explicit svg reference modes passed the integrated lifecycle fixture. Foxglove smoke suite passed.
+Baseline:8 packages built;177 unchanged SVG tests passed. Final controller suite:41 tests, including404 original-S2 reference samples across both patterns/ramp variants. Final SVG suite:179 passed, including2 new tests rejecting stale/old-generation landing acknowledgements. Both tested_trajectory and explicit svg reference modes passed the integrated lifecycle fixture. Foxglove smoke suite passed.
 
 Compiled interface fixture: legacy command rejection, trajectory forwarding, CTBR FLU/FRD axes/thrust sign, stale heartbeat shutdown, replayed timestamp rejection, duplicate selected-publisher rejection. See interface-result.json.
 
@@ -47,3 +47,7 @@ These are new native rollouts, not identical saved S2 traces or firmware-in-loop
 Hardware remains unqualified: measured estimator/IMU transform, verified thrust map, firmware CTBR/Offboard-loss behavior and radio handback, attended props-off checks and bounded flights are outstanding. Fence/braking effectiveness on real hardware is not proven. No direct motor-control path was added. No default SVG trajectory should be substituted for the evaluated reference without a new matching simulation evaluation.
 
 Final lifecycle and graceful shutdown passed without faults or plugin teardown errors. flight-analysis.json parsed the new selected-command log, reported zero faults and zero tracking-phase samples for the short lifecycle fixture (correct: it only sampled settling/hold). Full trajectory scores come from mujoco-results.json, not this fixture.
+
+Timing alignment: completion_hold_s=2 matches the evaluated policy trajectory protocol; fault_hold_s=30 separately bounds conventional hold after a fault/terminal handback. The two limits must not be conflated.
+
+One final repeat triggered the unchanged20ms preparation deadline despite ~6ms inference; conventional handback worked. Blocking file writes were removed from the callback using a bounded background recorder, and diagnostic trace publishing is best-effort. Recorder tests cover flush completion, slow disk/queue overflow and disk failure. Latest controller41tests and actual-policy/lifecycle/recording checks passed without relaxing deadlines. This does not establish hard real-time scheduling on the laptop.

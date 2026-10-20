@@ -18,7 +18,7 @@
   "max_tick_gap_s": 0.08,
   "max_tilt_deg": 20,
   "max_tracking_error_m": 0.5,
-  "completion_hold_s": 30.0,
+  "completion_hold_s": 2.0,
   "max_speed_mps": 0.8,
   "fence_margin_m": 0.15,
   "brake_accel_mps2": 0.5,
@@ -33,5 +33,6 @@
     "position_gain": 1,
     "yaw_gain": 1.5,
     "max_yaw_rate": 1
-  }
+  },
+  "fault_hold_s": 30.0
 }

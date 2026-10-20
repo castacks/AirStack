@@ -21,7 +21,7 @@ refpub=n.create_publisher(MultiDOFJointTrajectory,'/gamma/svg_reference',1)
 svgpub=n.create_publisher(String,'/svg/commander_status',1)
 statuses=[];rates=[]; traces=[]
 n.create_subscription(String,'/gamma/status',lambda m: statuses.append(json.loads(m.data)),10)
-n.create_subscription(String,'/gamma/trace',lambda m: traces.append(json.loads(m.data)),10)
+n.create_subscription(String,'/gamma/trace',lambda m: traces.append(json.loads(m.data)),qos_profile_sensor_data)
 n.create_subscription(VehicleRatesSetpoint,'/bv_test/interface/in/vehicle_rates_setpoint',lambda m: rates.append(m),qos_profile_sensor_data)
 args=['--ros-args','-p','config:=/root/AirStack/robot/ros_ws/src/gamma_zero_controller/config/simulation.json','-p','assets:=/runtime/inputs_301989888.json','-p','policy_socket:=/runtime/policy.sock','-p','log:=/runtime/backend-fixture.jsonl',
       '-r','selected_command:=/gamma/selected_command','-r','selected_command_status:=/gamma/interface_status','-r','vehicle_odometry:=/bv_test/interface/out/vehicle_odometry','-r','svg_reference:=/gamma/svg_reference','-r','svg_status:=/svg/commander_status','-r','status:=/gamma/status','-r','trace:=/gamma/trace']
@@ -87,6 +87,7 @@ try:
     expected={'stale':'State stale','reset':'Estimator reset','worker':'timed out','reference':'SVG reference','ack':'acknowledgement'}
     assert expected[case] in statuses[-1]['fault'],statuses[-1]
     before=len(rates);spin(.4);assert len(rates)==before
+    assert traces, 'Diagnostic subscription must receive trace records'
     print(json.dumps({'local_policy_ctbr_messages':len(rates),'trajectory_start':True,'hold_on_policy':True,'acknowledged_handback':True,'fault_latches':statuses[-1]['fault'],'trace_records':len(traces)}))
 finally:
     for p in reversed(processes):
