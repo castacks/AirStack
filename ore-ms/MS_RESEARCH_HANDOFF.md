@@ -528,6 +528,190 @@ justified geometric error reference and a common frame/units protocol.
 
 ## 11. Decision log
 
+### 2026-10-20: thermal preprocessing and signed geometry audit (EXP-017)
+
+- Fixed9 night stereo captures (window positions0/9/19). Staged18 raw PNGs +6 metadata files, exact raw/processed timestamp matches and ZIP-member CRCs.
+- OpenCV4.10.0.84 replays the original producer functions/config to18/18 pixel-exact supplied images, including3 replicated channels. OpenCV5 differences MAE0.053–0.151 disappear under the single declared version sensitivity. This verifies sampled computational compatibility; historical runtime, all frames and checkpoint split remain unverified.
+- Run-001's OpenCV5 strided-R/T failure retained; run-002 adds only contiguous layout/column-vector adapter, with original AST bodies/numeric values. Run-003 uses the same source under pinned OpenCV4.10; no source images/defaults changed.
+- Saved R/P reproduce exactly. Night signed disparity supports saved negative baseline in7/9 sample medians;906 fitted inliers give778 points in front with saved P vs128 after sign flip. Middle is mixed; physical calibration is not validated. This differs from the earlier day diagnostic; do not apply one sign correction universally.
+- Body/stereo inconsistency0.670113m horizontal and0.617019deg remains. Kalibr and OpenCV both document first-to-second transform convention, while producer inverts config. This is a convention discrepancy, not sufficient evidence to rewrite inputs.
+- 67 tests pass under each OpenCV version;783 hashes pass in both successful plans. Exact pixel/triangle/sign invariance independently checked. Evidence: `experiments/EXP-017-thermal-provenance.md`, `results/thermal-provenance/run-003/` plus run-001/002 and inputs. Box `backups/2026-10-20-exp-017`, prerequisites EXP-013..016.
+- Next bounded check: day/night raw-camera ordering and model stereo disparity signs versus observed signed correspondences, using saved model outputs first. Authoritative physical camera/calibration provenance and independent reference remain needed before cross-modal fusion claims.
+
+### 2026-10-20: within-window temporal/context characterization (EXP-016)
+
+- User authorized continuation and paper references. Analysis uses all114 EXP-015 grid pairs, all/inbound populations;19 consecutive observations per camera/window (~1.9s).
+- Context-adjusted temporal rank correlations have mixed signs. Late RGB flow/error rho0.981/0.921 vs uncertainty adjusted0.120/0.100 (reprojection/epipolar); flow/error share prediction errors, so this is diagnostic.
+- Limited positives remain (early RGB reprojection adjusted0.414; late thermal epipolar0.290). Five of12 all-grid raw associations reverse sign across chronological9/10 halves. Inbound filtering flips adjusted reprojection sign for late RGB and middle thermal. No general additional temporal signal or fusion rule established.
+- 60 tests pass;750 hashes unchanged;24 independent numeric partial-correlation equivalence checks pass. Source data/pipeline unchanged. Full context/median/rank-residual arrays saved.
+- Official MAC-VO v2 methods and MACThermal thesis sections inspected; see `docs/research/literature-2026-10-20.md`. Published thermal preprocessing recipe is now a concrete audit target, not proof of our input equivalence. No MSO/MAC-I² novelty review claimed.
+- Evidence: `experiments/EXP-016-temporal-context.md`, `results/temporal-context/run-001/`; Box `backups/2026-10-20-exp-016` requires EXP-013/014/015.
+- Next gate before fusion training: trace thermal processed-topic conversion to published recipe and verify signed geometry, then evaluate longer recordings with independent reference. Current phase remains characterization with validation in parallel.
+
+### 2026-10-20: night fixed-grid geometric consistency (EXP-015)
+
+- Completed all114 saved pairs including failed late RGB without using VO trajectories.
+- RGB early/middle/late median reprojection5.67/232.42/139.06px; depth-independent Sampson0.776/47.578/35.687px. Inbound/depth sensitivities preserve the contrast.
+- Within-pair rank associations vary: RGB middle Sampson rho=-0.134; thermal late=-0.163. Window warning evidence strengthens, pointwise calibrated reliability is unproven.
+- 54 tests pass, all631 hashes unchanged,160056 grid samples; full point arrays and masks saved. No inference or defaults changed.
+- Evidence: `experiments/EXP-015-night-geometry.md`, `results/night-geometry/run-001/`. Box snapshot `backups/2026-10-20-exp-015` with EXP-013/014 prerequisites.
+- Next bounded analysis: within-window temporal covariation and repeatability against flow/motion/depth context, with no fitted fusion rule. Recorded SLAM and provisional calibration still limit accuracy claims.
+
+### 2026-10-20: night raw-uncertainty/retention characterization (EXP-014)
+
+- User authorized the EXP-013 follow-up. Enabled only the existing recorder on
+  the same six night cases/runtime/settings. All five available graphs/poses
+  and six initial depth arrays are bitwise unchanged; configs/status/error and
+  input/model provenance match. Late RGB still fails after saving diagnostics.
+  All 114 pair files, 45 tests and 514 frozen file checks pass.
+- RGB median raw fixed-grid trace (px²), early/middle/late: 5.74/6499.89/6435.59.
+  Selected/inbound/retained totals: early 3800/3791/3791, middle 4/4/4, late 0/0/0.
+  Starvation occurs at selection before inbound/outlier filtering. Grid q<100
+  fraction median 91.83%/0%/0%; middle at most 0.111%, late always zero. High raw
+  uncertainty spans all image thirds; no region mask or downstream weight fix
+  is justified by this availability diagnostic.
+- Raw `<10 retained` labels mark all 19 middle and 19 late RGB pairs, thermal
+  0/57. Native MotionInterpolate clears first/last two motion flags, explaining
+  middle's saved 15 flags; cleared endpoint flags do not prove tracking. No
+  native code changed. Late RGB has no graph, so no graph equality/export claim.
+- RGB contemporaneous AUROC 1.0 and Spearman -0.8255 on 57 dependent pairs are
+  descriptive/selection-coupled, not independent error calibration or early
+  prediction. Thermal AUROC undefined (one class), Spearman +0.4195. Camera-local
+  variances are not physically comparable confidence estimates.
+- Evidence: EXP-014 and `results/night-uncertainty/run-001/`. Keep defaults.
+  Next proposed bounded measurement: fixed-grid reference-conditioned
+  reprojection/epipolar consistency including rejected points, with motion/depth
+  strata and no fitted corrections; SLAM/calibration limits remain explicit.
+
+### 2026-10-20: separate night recording validation completed (EXP-013)
+
+- User added `night_thermal_so_salon2.zip` to Box folder `428559630945`.
+  Recording audit identifies `20251027/night_thermal_so_salon2`, distinct from
+  day, with nonoverlapping source timestamps. Staged metadata and 240 images
+  by ZIP ranges/CRCs. Original checkpoints restored with matching archive/model
+  hashes; Blackwell runtime rebuilt and strict GPU checkpoint inference passes.
+- Frozen protocol unchanged: 1,149 paired groups, starts 123/619/789 within
+  thirds, 20 groups each, body displacements 1.7623/6.1707/0.2613 m. Same
+  provisional thermal geometry; all 13 supplied transforms match the archive.
+  Frozen 481 source/input files and runtime settings before six baselines.
+- Thermal tracks all three windows (3748/3677/3313 matches; no interpolation).
+  RGB early tracks (3791 matches); middle retains four matches with 15
+  interpolated frames; late fails with no retained matches. Both RGB failures
+  remain reported and are unavailable for valid fixed-prior replay metrics.
+- All four eligible learned replay controls pass (max 1.82e-7 m / 7.51e-7 deg),
+  all 228 pair solves and invariants pass, precision mass error <=5.62e-8,
+  37 tests pass, and all frozen/baseline hashes remain unchanged.
+- U-only transfer is mixed: night thermal middle accumulated T/R worsens
+  0.7670 m/2.6308 deg → 0.9822 m/4.3995 deg; early T improves but R worsens;
+  late changes little. No u-only default change. The technical controls pass
+  while scientific transfer is not consistent. Recorded SLAM remains a proxy.
+- Evidence: `experiments/EXP-013-separate-clip-validation.md`,
+  `results/separate-clip/night-run-001/` and `night-audit/`. Next proposed step:
+  unchanged opt-in raw-uncertainty recording on the fixed night windows,
+  graph-preservation checks, and uncertainty/retention characterization around
+  RGB failures; no further weight tuning or fusion claim from these windows.
+
+### 2026-10-20: separate-clip validation protocol prepared; data required
+
+- User authorized the next validation gate after EXP-012. Authenticated Box
+  listing of folder `428559630945` shows only the previously evaluated
+  `1_salon_mac_cov_day.zip` and backups; the account root's `ore-ms` entry is
+  the same folder. No second dataset was found there. No NAS mount is available.
+- Asked the user for a different clip's authorized Box path/link or staging
+  from `20251027`/`20251106`, including all four processed streams, calibration,
+  acquisition timestamps, TF and recorded odometry. A renamed copy or another
+  window of the original recording does not satisfy separate-clip validation.
+- EXP-013 preregisters unchanged learned/u-only/both-channel native replay,
+  three disjoint reference-motion-selected 20-group windows across clip thirds,
+  original pairing/gap bounds, and both local/accumulated translation/rotation.
+  Source/protocol fingerprints saved before new outcomes. No new clip, selected
+  windows, inference or validation results exist yet; default weighting unchanged.
+
+### 2026-10-19: channel-specific native replay completed (EXP-012)
+
+- User requested the next experiment. Frozen four mass-preserving arms before
+  evaluation: learned, u-only, v-only and both-channel redistribution. Selected
+  channels use per-pair harmonic-mean variance; unselected channels remain
+  bitwise unchanged. Disparity, geometry, priors and native solver stay fixed.
+- All 456 pair solves, 31 focused tests and 63 frozen file checks pass. Learned
+  and both-channel controls reproduce EXP-011 within 2.23e-16 m / 3.74e-16 deg.
+  Precision mass maximum relative change 5.69e-8; all channel/nonpixel checks pass.
+- Late thermal accumulated translation/rotation RMS: learned 2.8966 m/1.7129 deg;
+  u-only 1.4812 m/2.0122 deg; v-only 2.4742 m/4.0743 deg; both 0.7979 m/4.2469 deg.
+  U-only provides a more favorable late-window tradeoff than both here, but
+  early local translation and late local rotation still worsen versus learned.
+  V-only worsens accumulated thermal rotation in all three windows. Effects are
+  conditional and not additive; no region or physical failure cause identified.
+- Results: `results/channel-mass/run-001/`; report: EXP-012. Existing CPU image
+  reused; no new inference/data download. EXP-011 inputs/source/outputs unchanged.
+- Keep defaults. Next gate is a separate-clip test of the unchanged u-only rule
+  with learned and both-channel controls, plus thermal geometry/reference
+  validation. Do not treat further same-clip tuning as independent validation.
+
+### 2026-10-19: native precision-mass replay completed (EXP-011)
+
+- User authorized the EXP-010 follow-up. Frozen three arms before replay:
+  learned, original fixed_uv, and fixed_uv_mass (per-pair/channel harmonic-mean
+  variance, preserving u/v total inverse variance before Huber). Native solver,
+  disparity, matches, depth, points and initialization remain unchanged.
+- Restored five camera/reference metadata files via 8.7 MB of authenticated
+  ZIP range reads; selected-member CRCs and all three historical odometry hashes
+  pass. Built `macvo:replay-cpu` with Torch 2.7.1+cpu/PyPose 0.9.5; no GPU image,
+  checkpoint or full dataset download required. Runtime is reproducible from
+  `Docker/Dockerfile.replay`; package freeze/image ID archived with the results.
+- All 342 pair solves, 21 focused test cases, source/nonpixel fingerprints and
+  48 frozen file hashes pass. Controls match EXP-009 local motions within
+  2.23e-16 m / 3.74e-16 degrees. Mass relative change is at most 5.69e-8.
+- Late thermal accumulated translation RMS, learned/fixed/mass-preserved:
+  2.8966/0.7898/0.7979 m; rotation 1.7129/4.3745/4.2469 degrees. Translation
+  benefit survives without increasing total pixel precision; rotation penalty
+  persists. This is fixed-input same-clip SLAM-proxy evidence, not new
+  end-to-end VO or grounds for replacing defaults. Results and full tables:
+  `results/precision-mass/run-001/`, `experiments/EXP-011-precision-mass.md`.
+- Keep defaults. Next proposed bounded test: u-only versus v-only redistribution
+  with channel mass preserved and both-channel/learned controls, reporting
+  local and accumulated translation AND rotation. Separate-clip evidence,
+  thermal geometry/preprocessing and comparable confidence remain unresolved.
+
+### 2026-10-19: Box restored and EXP-010 completed
+
+- User reauthorized rclone. Folder `428559630945` contains the preserved
+  `backups/2026-10-18-3ac07f047/` snapshot. Artifact archive SHA-256 matches
+  its manifest; selected graphs, weight outputs, audits and calibration were
+  restored without overwriting existing files. All 18 frozen EXP-009 source
+  hashes match before/after the new analysis. The active private config is
+  `/root/.config/rclone/ore-ms-recovery.conf`; use `--config` explicitly.
+- All six common-pose cases complete (114 pairs, two arms each). Full and
+  group-deleted Jacobians have rank six; precision/count/leverage partition
+  checks pass. Results: `results/weight-influence/run-001/`, with per-pair JSON,
+  summary tables, figure and provenance. No GPU/image/weight download needed.
+- Late thermal upper third: median feature share 56.6%, learned u/v precision
+  74.0%/73.5%; lower third 10.9% features but only 1.4%/0.4% precision. Fixed_uv
+  increases lower-third leverage 9.4%→25.4%. Upper-third linear deletion
+  sensitivity changes 0.343→0.157 m and 0.623→0.283 degrees. These are
+  pre-Huber local step differences, not new pose errors or causal proof.
+- Keep VO defaults. Proposed next test: native replay with fixed u/v precision
+  rescaled per pair to preserve each learned channel's total, retaining learned
+  and fixed_uv controls. This separates precision mass from redistribution
+  before masks/fusion. EXP-009's rotation penalty and geometry/SLAM-proxy limits
+  still apply. Full protocol, control tables and evidence: EXP-010.
+
+### 2026-10-19: next diagnostic prepared; real-data run pending
+
+- Added `Scripts/Setup/td3_weight_influence.py`: NumPy-only common-original-pose
+  learned/fixed_uv precision shares, pre-Huber leverage, and linearized group
+  deletion sensitivity, with separate translation/rotation summaries. Uses
+  frozen EXP-009 constants and verifies source hashes; no model or VO defaults
+  changed. Four synthetic tests pass. Protocol/limits: EXP-010.
+- Historical ignored data, checkpoints and results and `macvo:blackwell` are
+  absent in this workspace. Both submodules remain initialized. A private Box
+  recovery config was prepared while preserving the original; listing failed.
+  No restored access or real-data result is claimed. User was asked where
+  `results/uncertainty/run-001` and `results/weight-ablation/run-001` were saved.
+- Restore those graphs and the frozen plan first; the diagnostic does not need
+  GPUs, weights, dataset images or independent reference poses. Run all six
+  window/modality cases with verified image sizes before interpreting results.
+
 ### Git location correction
 
 The MS source and notes are now tracked under `ore-ms/` in the AirStack

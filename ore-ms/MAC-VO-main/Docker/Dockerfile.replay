@@ -1,0 +1,19 @@
+# CPU-only native backend replay; no GPU runtime or model weights required.
+FROM python:3.11-slim@sha256:e88e9763f943ec1834f992a4b51e0f24500486803e8bc534e5767af9ea65f6ce
+
+RUN python -m pip install --no-cache-dir \
+    torch==2.7.1+cpu torchvision==0.22.1+cpu \
+    --index-url https://download.pytorch.org/whl/cpu
+RUN python -m pip install --no-cache-dir \
+    pypose==0.9.5 numpy==2.2.6 scipy==1.17.1 \
+    jaxtyping==0.3.11 typeguard==2.13.3 timm==0.9.12 \
+    opencv-python-headless==5.0.0.93 matplotlib rich tqdm pyyaml \
+    tabulate einops yacs pillow h5py flow_vis rerun-sdk==0.21.0 pytest
+
+# Earlier GPU image used eager fallback because it lacked a C compiler.
+# Replay controls must still verify numerical agreement in this CPU image.
+ENV TORCHDYNAMO_DISABLE=1
+ENV OMP_NUM_THREADS=1
+ENV OPENBLAS_NUM_THREADS=1
+WORKDIR /workspace/MAC-VO-main
+CMD ["bash"]

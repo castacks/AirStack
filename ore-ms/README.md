@@ -39,6 +39,33 @@ and confirms that this backend directly weights image/disparity residuals.
 identical inputs: removing target disparity does not resolve the late failure.
 [EXP-009](experiments/EXP-009-weight-ablation.md) finds strong pixel-weight
 sensitivity: fixed weights improve late thermal translation but worsen rotation.
+[EXP-010](experiments/EXP-010-weight-influence.md) locates strong upper-image
+precision concentration in late thermal. Native replay in
+[EXP-011](experiments/EXP-011-precision-mass.md) retains most of the translation
+gain with total u/v precision preserved, alongside the rotation penalty.
+[EXP-012](experiments/EXP-012-channel-mass.md) isolates the channels: u-only
+redistribution gives a smaller late thermal rotation penalty than redistributing
+both, but still needs separate-clip and geometry validation.
+[EXP-013](experiments/EXP-013-separate-clip-validation.md) tests the frozen rule
+on a separate night recording: benefits do not transfer consistently, and RGB
+tracking fails in two selected windows. Thermal completes all three windows.
+[EXP-014](experiments/EXP-014-night-uncertainty.md) records raw uncertainty
+without changing those outputs: RGB uncertainty rises strongly in failed
+windows and candidate selection collapses. This is a selection-coupled
+availability signal, not independent uncertainty calibration.
+[EXP-015](experiments/EXP-015-night-geometry.md) adds fixed-grid geometric
+residuals: RGB disagreement rises strongly in both failed windows, while
+within-pair uncertainty/error ranking remains inconsistent. Keep defaults.
+[EXP-016](experiments/EXP-016-temporal-context.md) tests within-window
+association after motion/flow/depth controls: signs vary and temporal
+repeatability is weak. No general additional temporal signal is established.
+[Verified paper notes](docs/research/literature-2026-10-20.md) ground target
+definitions and the next thermal preprocessing provenance audit.
+[EXP-017](experiments/EXP-017-thermal-provenance.md) reproduces all18 sampled
+night thermal images exactly under OpenCV4.10. Saved stereo matrices also
+reproduce, but physical body/stereo geometry remains inconsistent; night
+cheirality does not justify a blanket baseline-sign flip.
+No weighting default has changed.
 
 The older `macvo:box` image cannot execute on Blackwell. Use `macvo:blackwell`:
 

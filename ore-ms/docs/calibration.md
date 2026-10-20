@@ -77,3 +77,18 @@ Local ignored artifacts: `results/data-access/geometry-with-yamaha.json`,
 `epipolar-diagnostic.json`, its diagnostic script `check_epipolar.py`, and
 `layout-migration.json`. The latter maps historical paths to the current layout;
 historical experiment logs retain the paths used at their execution time.
+
+## 2026-10-20 night extension (EXP-017)
+
+The earlier image diagnostic above concerns the day clip. The fixed night sample
+now reproduces18/18 processed images exactly from timestamp-matched raw images
+under OpenCV4.10.0.84 and the inspected producer/config. OpenCV5 produces tiny
+pixel differences; this fixed version comparison explains those differences.
+
+Night feature medians have negative left-minus-right disparity in7/9 captures,
+consistent with saved negative signed P; two middle captures are mixed. A blanket
+sign correction is unsupported. Body extrinsics remain inconsistent with saved
+stereo geometry by0.670113m horizontally and0.617019degrees. Reproducing a producer
+or choosing a triangulation sign does not validate physical geometry. See
+[EXP-017](../experiments/EXP-017-thermal-provenance.md) for all counts, failures,
+reproduction commands and limits. Original inputs/calibration remain unchanged.
