@@ -124,3 +124,10 @@ exactly; day camera-local SLAM-proxy errors improve markedly, while night is
 mixed. Each reference keeps the original nominal body anchor and uses its own
 rectification; no new vehicle anchor is inferred. Recompute uncertainty/error
 diagnostics under MSA; do not relabel old depths or claim independent accuracy.
+
+[EXP-024](../experiments/EXP-024-msa-uncertainty-geometry.md) recomputes
+original/MSA thermal uncertainty against the same SLAM proxy across all six
+windows. Day reprojection errors fall, but spatial ranking does not become a
+consistent temporal reliability score. Late-night epipolar association remains
+negative, and depth/visibility sensitivity weakens late reprojection ranking.
+No new inference, weights or fusion rule. MSA remains the experimental baseline.

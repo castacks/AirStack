@@ -908,3 +908,10 @@ All25 tests,788/50 frozen hashes and independent controls pass. See
 [EXP-023](experiments/EXP-023-msa-preprocessing-vo.md). Use MSA as experimental
 thermal baseline; recompute uncertainty/error diagnostics before fusion claims.
 No production defaults or old outputs replaced.
+
+[EXP-024](experiments/EXP-024-msa-uncertainty-geometry.md) recomputes
+original/MSA thermal uncertainty against the same SLAM proxy across all six
+windows. Day reprojection errors fall, but spatial ranking does not become a
+consistent temporal reliability score. Late-night epipolar association remains
+negative, and depth/visibility sensitivity weakens late reprojection ranking.
+No new inference, weights or fusion rule. MSA remains the experimental baseline.

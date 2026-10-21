@@ -169,3 +169,10 @@ images with MSA calibration and runs the same six20-frame windows. All240
 old-image replay controls pass. Day VO proxy errors improve substantially;
 night results remain mixed. MSA is the experimental baseline for subsequent
 geometry diagnostics; production defaults and previous results are unchanged.
+
+[EXP-024](experiments/EXP-024-msa-uncertainty-geometry.md) recomputes
+original/MSA thermal uncertainty against the same SLAM proxy across all six
+windows. Day reprojection errors fall, but spatial ranking does not become a
+consistent temporal reliability score. Late-night epipolar association remains
+negative, and depth/visibility sensitivity weakens late reprojection ranking.
+No new inference, weights or fusion rule. MSA remains the experimental baseline.

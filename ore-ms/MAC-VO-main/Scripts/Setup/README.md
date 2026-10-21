@@ -730,3 +730,13 @@ uses the existing bounded runner with passive signed-stereo/uncertainty capture.
 Use pinned geometry/GPU images respectively. All baseline config/checkpoint
 settings remain unchanged. See EXP-023 and its recovery staging for exact
 acquisition, execution, analysis and validation commands and limitations.
+
+## MSA uncertainty recomputation (EXP-024)
+
+`python -m Scripts.Setup.td3_msa_uncertainty prepare --output <new-run>` freezes
+original/MSA saved uncertainty records and EXP-023 camera proxy references.
+`run --output <new-run>` writes grid/retained geometric strata and fixed-context
+temporal rank diagnostics. No GPU inference or correction is performed.
+Use the geometry image for analysis and Blackwell image for the complete test
+suite (active-backend test needs Torch). See EXP-024 and preserved staging for
+independent validation, commands, source controls and scientific limitations.
