@@ -750,3 +750,15 @@ RGB, using the fixed preflight/acquisition records for0_salon_so_day.
 uses unchanged bounded VO settings and passive uncertainty/signed capture.
 Geometry/GPU images, acquisition/preflight/analysis/validation scripts and
 commands are retained in EXP-025 recovery. No GNSS ground-truth assumption.
+
+## Longer recording windows (EXP-026)
+
+`td3_long_recording.select_long_windows` selects fixed-length windows near
+chronological-third midpoints, excluding prior samples, under an explicit gap
+bound. It rejects insufficient coverage instead of silently shortening.
+`python -m Scripts.Setup.td3_long_recording prepare --output <new-prepared>`
+uses the frozen long-salon acquisition to replay old thermal and write separate
+MSA datasets. `execute --plan <prepared>/plan.json --case early --modality thermal
+--output <new-case>` runs100 frames with unchanged bounded-runner settings.
+See EXP-026 for strict150ms failure, documented250ms revision, analysis targets,
+independent validators and no-ground-truth/no-fusion limitations.

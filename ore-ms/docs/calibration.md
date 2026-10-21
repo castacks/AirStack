@@ -140,3 +140,12 @@ rotation error in all3. Source camera metadata matches;120 old thermal replays
 exact. GNSS-labelled data are present, but public converter maps their name
 to `/odometry/filtered_odom`; upstream sensor/fusion/accuracy/timing provenance
 requires confirmation. Keep SLAM-proxy interpretation and unchanged defaults.
+
+[EXP-026](../experiments/EXP-026-long-salon-so-day.md) extends the added
+day capture to3 fixed100-frame RGB/MSA-thermal windows, excluding old samples.
+Strict150ms continuity failed middle/late; preregistered250ms revision retained
+actual gaps (9.9/10.2/10.0s). All6 attempts complete with no interpolation.
+Near-static early spatial uncertainty/reprojection ranking is negative; moving
+windows positive. Image/translation/rotation uncertainty associations differ,
+and accumulated drift versus per-step errors can rank cameras differently.
+SLAM/body anchor provisional;21 tests pass. No defaults/weights changed.
