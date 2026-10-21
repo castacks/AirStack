@@ -23,6 +23,9 @@ class GammaController(Node):
     def __init__(self):
         super().__init__('gamma_controller')
         config = json.loads(Path(self.declare_parameter('config', '').value).read_text())
+        pattern = self.declare_parameter('trajectory_pattern', '').value
+        if pattern:
+            config.setdefault('trajectory', {})['pattern'] = pattern
         self.simulation = self.declare_parameter('simulation', True).value
         if not np.isfinite(config.get('fault_hold_s', 30.)) or config.get('fault_hold_s', 30.) <= 0:
             raise ValueError('Invalid fault hold timeout')
@@ -300,7 +303,7 @@ class GammaController(Node):
 
     def publish_status(self):
         c = self.control
-        status = {'mode': c.mode, 'source': c.source, 'fault': c.fault, 'generation': c.generation,
+        status = {'mode': c.mode, 'source': c.source, 'trajectory_pattern': c.session.trajectory.config.pattern, 'fault': c.fault, 'generation': c.generation,
                   'ack': self.ack, 'ack_fresh': time.monotonic()-self.ack_received < .1,
                   'handoff_pending': self.pending_since is not None, 'inference_s': c.inference_s,
                   'ready_for_engage': c.mode == 'conventional' and not c.fault and c.stable_since is not None and time.monotonic()-c.stable_since >= 1. and time.monotonic()-c.session.received_s <= .1 and time.monotonic()-self.reference_received <= .1 and time.monotonic()-self.svg_received <= .5 and self.pending_since is None and self.ack.get('mode') == 0 and time.monotonic()-self.ack_received <= .1,

@@ -78,3 +78,38 @@ def test_evaluated_terminal_hold_is_two_seconds(control, pattern):
     control.session.last_tick_s = 11.1 + elapsed
     with pytest.raises(ValueError, match="completion hold expired"):
         control.command(None, 101.1 + elapsed, 11.1 + elapsed)
+
+
+
+def test_yaw_pattern_reaches_policy_with_heading_feedback_and_feedforward(control):
+    from gamma_zero_controller.trajectory import Trajectory
+    control.session.trajectory = Trajectory(TrajectoryConfig(pattern='yaw', settle_s=0.))
+    control.engage(101.1, 11.1, True)
+    control.start_trajectory(101.1, 11.1)
+    control.session.source_s, control.session.received_s = 103.6, 13.6
+    control.session.last_tick_s = 13.6
+    control.command(None, 103.6, 13.6)
+    target, feedforward = control.session.trajectory.heading(2.5)
+    assert control.session.policy.goal[3] == pytest.approx(1.5*(target-np.pi/2)+feedforward)
+    assert control.last_record['reference_yaw'] == pytest.approx(target)
+
+
+@pytest.mark.parametrize('pattern', ['hover', 'forward_backward', 'yaw', 'altitude'])
+def test_simple_completion_enters_existing_handback_path(control, pattern):
+    from gamma_zero_controller.trajectory import Trajectory
+    control.session.trajectory = Trajectory(TrajectoryConfig(pattern=pattern, settle_s=0.))
+    control.engage(101.1, 11.1, True)
+    control.start_trajectory(101.1, 11.1)
+    control.session.source_s, control.session.received_s = 123.2, 33.2
+    control.session.last_tick_s = 33.2
+    with pytest.raises(ValueError, match='completion hold expired'):
+        control.command(None, 123.2, 33.2)
+
+
+def test_forward_excursion_rejected_when_route_exceeds_fence(control):
+    from gamma_zero_controller.trajectory import Trajectory
+    control.session.trajectory = Trajectory(TrajectoryConfig(pattern='forward_backward'))
+    control.session.state['position_enu'][:2] = control.session.high[:2]-.6
+    control.engage(101.1, 11.1, True)
+    with pytest.raises(ValueError, match='Planned route'):
+        control.start_trajectory(101.1, 11.1)

@@ -19,6 +19,23 @@ The original formula is x=Ax sin(theta), y=0.5 Ay sin(2 theta), z=Az sin(theta).
 
 The position and heading loops use the evaluated gains 1 and 1.5, with velocity caps 0.8/1 m/s and yaw-rate cap 1 rad/s. Final body commands are also clipped to the exported training envelope. Acceleration feedforward is not consumed by the policy. Fence braking limits are applied after position correction; their physical effectiveness still requires validation.
 
+## Simple routines
+
+Select one at launch using `trajectory_pattern:=hover`, `forward_backward`, `yaw`, or `altitude`. An empty override uses `trajectory.pattern` from the config (still `flown` by default). Restart the controller to change selection; this is not an in-flight switching service. Keep `reference_mode:=tested_trajectory` so SVG Start selects this routine. Status reports `trajectory_pattern`.
+
+| Pattern | Reference relative to captured start pose |
+|---|---|
+| hover | Hold position and heading for 20 seconds. |
+| forward_backward | Smoothly move 0 → +0.5 → 0 → −0.5 → 0 m along the captured forward axis. |
+| yaw | Hold position; smoothly turn 0 → +20° → 0 → −20° → 0 relative to captured heading. |
+| altitude | Hold horizontal position/heading; smoothly move 0 → +0.15 → 0 → −0.15 → 0 m vertically. |
+
+Defaults add 10 seconds of settling before the 20-second routine and a 2-second terminal hold (32 seconds total), then use the existing conventional handback path. The four moving legs use quintic smoothstep with zero velocity/acceleration at each waypoint. These are bounded position/heading routines, not the earlier pilot evaluator's abrupt velocity steps. Hover is position hold, not merely a zero-velocity command.
+
+Optional `trajectory` config fields: `simple_duration_s` (20), `forward_distance_m` (0.5), `altitude_distance_m` (0.15), `yaw_amplitude_deg` (20). The simple routines ignore `laps` and `ramp_s`; existing figure-eight timing is unchanged. Translational commands are capped at 0.3 m/s, including correction; configurations with faster nominal references are rejected. Yaw combines wrapped heading error with analytic rate feedforward, capped by `max_yaw_rate`. Planned positional extent plus the tracking margin must fit the configured fence before Start is accepted.
+
+Conventional takeoff → explicit Engage → SVG Start remains the sequence. Engage alone does not start the routine. Hold retains the selected backend; handback disengages the policy. Completion uses the existing latched conventional-hold path, not automatic landing or policy re-engagement. The existing fault-hold timeout still applies. These software routines are not hardware-qualified flight procedures.
+
 ## Local test installation
 
 Use the existing isolated Xiaoxin worktree and runtime. Set `STARLING_WORKTREE`,

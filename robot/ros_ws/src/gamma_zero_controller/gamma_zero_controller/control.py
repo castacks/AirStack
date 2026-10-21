@@ -81,7 +81,7 @@ class Controller:
             if elapsed > self.session.trajectory.duration_s+self.config['completion_hold_s']:
                 raise ValueError('Tested trajectory completion hold expired')
             p, v, phase = self.session.trajectory.reference(elapsed)
-            reference = Reference(p, v, self.session.trajectory.yaw)
+            reference = Reference(p, v, *self.session.trajectory.heading(elapsed))
             speed_limit = self.session.trajectory.max_speed
         else:
             phase, speed_limit = 'svg', float(self.config.get('max_speed_mps', .8))
@@ -104,6 +104,8 @@ class Controller:
         yaw = np.arctan2(s['rotation_enu_flu'][1, 0], s['rotation_enu_flu'][0, 0])
         yaw_error = np.arctan2(np.sin(reference.yaw-yaw), np.cos(reference.yaw-yaw))
         yaw_rate = reference.yaw_rate if reference.rate_mode else self.session.trajectory.config.yaw_gain*yaw_error
+        if self.source == 'tested_trajectory':
+            yaw_rate += reference.yaw_rate
         yaw_rate = np.clip(yaw_rate, -self.session.trajectory.config.max_yaw_rate, self.session.trajectory.config.max_yaw_rate)
         goal = np.r_[s['rotation_enu_flu'].T@bounded, yaw_rate].astype(np.float32)
         goal = np.clip(goal, -np.asarray(self.session.policy.assets['max_command_velocity']), self.session.policy.assets['max_command_velocity'])
@@ -112,6 +114,7 @@ class Controller:
         self.session.previous = action.copy()
         self.session.last_tick_s = monotonic_s
         self.last_record = {'phase': phase, 'position_enu': s['position_enu'].tolist(),
+                            'reference_yaw': float(reference.yaw), 'reference_yaw_rate': float(reference.yaw_rate),
                             'reference_enu': reference.position.tolist(), 'reference_velocity_enu': reference.velocity.tolist(),
                             'goal_velocity': goal.tolist(), 'ctbr_si': physical.tolist(),
                             'saturated': mapped['saturated'], 'fence_limited': bool(np.any(world != bounded))}

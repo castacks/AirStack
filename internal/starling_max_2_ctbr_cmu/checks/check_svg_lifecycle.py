@@ -21,7 +21,7 @@ n.create_subscription(String,'/svg/commander_status',lambda m:svg.append(json.lo
 n.create_subscription(String,'/gamma/status',lambda m:gamma.append(json.loads(m.data)),10)
 n.create_subscription(String,'/svg/bag_recorder/status',lambda m:bag.append(json.loads(m.data)),10)
 Path('/runtime/organization-validation/svg-fixture.jsonl').unlink(missing_ok=True)
-p=subprocess.Popen(['ros2','launch','gamma_zero_controller','starling_cmu.launch.py','assets:=/runtime/organization-validation/starling_cmu_inputs.json','policy_socket:=/runtime/organization-validation/policy.sock','log:=/runtime/organization-validation/svg-fixture.jsonl','reference_mode:='+('svg' if len(sys.argv)>1 else 'tested_trajectory')],stdout=open('/runtime/organization-validation/svg-fixture.log','w'),stderr=subprocess.STDOUT,start_new_session=True)
+p=subprocess.Popen(['ros2','launch','gamma_zero_controller','starling_cmu.launch.py','assets:=/runtime/organization-validation/starling_cmu_inputs.json','policy_socket:=/runtime/organization-validation/policy.sock','log:=/runtime/organization-validation/svg-fixture.jsonl','trajectory_pattern:='+os.environ.get('STARLING_TEST_PATTERN',''), 'reference_mode:='+('svg' if len(sys.argv)>1 else 'tested_trajectory')],stdout=open('/runtime/organization-validation/svg-fixture.log','w'),stderr=subprocess.STDOUT,start_new_session=True)
 altitude=0.
 
 
@@ -51,6 +51,8 @@ try:
     spin(5.)
     assert p.poll() is None
     assert svg and gamma,(svg[-1:],gamma[-1:])
+    if os.environ.get('STARLING_TEST_PATTERN'):
+        assert gamma[-1]['trajectory_pattern']==os.environ['STARLING_TEST_PATTERN'],gamma[-1]
     call('/bag_recorder/record',True)
     call('/swarm_commander/takeoff');spin(6.)
     altitude=1.3;spin(3.)

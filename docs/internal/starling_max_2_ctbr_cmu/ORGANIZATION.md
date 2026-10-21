@@ -40,3 +40,13 @@ AirStack is the sole maintained ROS deployment path. The obsolete standalone S2 
 ## Review cleanup — 2026-10-20
 
 Formatted package manifests and setup.py for review; XML element content and Python AST were checked unchanged. Replaced nonexistent normalized example locations with explicit operator-supplied paths, clarified actor/metadata socket wiring, corrected source-provenance wording and highlighted that the watchdog also affects conventional mode. No controller, interface, launch or configuration behavior changed.
+
+## Simple trajectory validation — 2026-10-20
+
+Implemented directly on the dronesoccer deployment worktree: hover, forward/backward, yaw and altitude routines, selected by launch argument. Existing figure-eight defaults remain unchanged. No live aircraft connection or flight was started.
+
+- Controller rebuild and 238 controller/SVG regression tests passed, including yaw feedforward, fence admission and timed completion.
+- Frozen 302M actor parity passed for 64 samples with zero observed action/physical error; socket median 0.605 ms, p95 0.752 ms, maximum 1.198 ms (sample measurements, not real-time guarantees).
+- All four 32-second routines completed in native MuJoCo at 0 and 100 ms additional command delay. Position RMS across eight runs: 0.0602–0.0702 m; maximum position error: 0.1199 m. Yaw-routine heading RMS: 0.0187/0.0197 rad. These results do not validate physical braking or firmware behavior.
+- Synthetic ROS lifecycle passed with the yaw launch override and actual policy worker: takeoff, engage, start, hold, handback, land, idle; recorder produced a 40-topic bag.
+- Receipts and native results are outside source control in the deployment runtime simple-pattern-validation directory. Physical transforms, thrust calibration, firmware handoff/failsafe and attended checks remain open.

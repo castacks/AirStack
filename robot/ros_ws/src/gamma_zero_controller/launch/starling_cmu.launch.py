@@ -21,6 +21,7 @@ def launch_nodes(context):
              remappings=[('selected_command', '/gamma/selected_command'), ('selected_command_status', '/gamma/interface_status')], output='screen'),
         Node(package='gamma_zero_controller', executable='controller', name='gamma_controller',
              parameters=[{'simulation': simulation, 'config': config_path, 'robot_name': 'drone_3',
+                          'trajectory_pattern': LaunchConfiguration('trajectory_pattern'),
                           'assets': LaunchConfiguration('assets'), 'policy_socket': LaunchConfiguration('policy_socket'),
                           'log': LaunchConfiguration('log')}],
              remappings=[('selected_command', '/gamma/selected_command'), ('selected_command_status', '/gamma/interface_status'),
@@ -47,6 +48,7 @@ def generate_launch_description():
     share = get_package_share_directory('gamma_zero_controller')
     return LaunchDescription([
         DeclareLaunchArgument('simulation', default_value='true'),
+        DeclareLaunchArgument('trajectory_pattern', default_value='', description='Empty uses config; hover, forward_backward, yaw, altitude, flown, large'),
         DeclareLaunchArgument('reference_mode', default_value='tested_trajectory'),
         DeclareLaunchArgument('teleop_drones', default_value=''),
         DeclareLaunchArgument('config', default_value=share+'/config/simulation.json'),
