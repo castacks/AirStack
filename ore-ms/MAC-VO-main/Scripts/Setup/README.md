@@ -740,3 +740,13 @@ temporal rank diagnostics. No GPU inference or correction is performed.
 Use the geometry image for analysis and Blackwell image for the complete test
 suite (active-backend test needs Torch). See EXP-024 and preserved staging for
 independent validation, commands, source controls and scientific limitations.
+
+## Additional day recording (EXP-025)
+
+`python -m Scripts.Setup.td3_additional_recording prepare --output <new-prepared>`
+replays old thermal processing, generates separate MSA data and copies source
+RGB, using the fixed preflight/acquisition records for0_salon_so_day.
+`execute --plan <prepared>/plan.json --case early --modality thermal --output <new-case>`
+uses unchanged bounded VO settings and passive uncertainty/signed capture.
+Geometry/GPU images, acquisition/preflight/analysis/validation scripts and
+commands are retained in EXP-025 recovery. No GNSS ground-truth assumption.

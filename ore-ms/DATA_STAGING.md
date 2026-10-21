@@ -117,3 +117,12 @@ stereo baseline, frame conventions, and RGB-to-thermal extrinsics. Confirm
 calibration applicability to this recording. Only then select and record a
 thermal preprocessing recipe. Unknown preprocessing must remain labeled an
 experimental choice rather than a reproduction of MACThermal training.
+
+[EXP-025](experiments/EXP-025-salon-so-day-validation.md) stages the added
+`20251027/0_salon_so_day`:1335 synchronized groups/~163s, no timestamp overlap
+with earlier two recordings. Six RGB/MSA-thermal20-frame runs complete. Thermal
+translation proxy RMSE0.185/0.198/0.084m; RGB0.381/0.122/0.130m, with RGB lower
+rotation error in all3. Source camera metadata matches;120 old thermal replays
+exact. GNSS-labelled data are present, but public converter maps their name
+to `/odometry/filtered_odom`; upstream sensor/fusion/accuracy/timing provenance
+requires confirmation. Keep SLAM-proxy interpretation and unchanged defaults.
