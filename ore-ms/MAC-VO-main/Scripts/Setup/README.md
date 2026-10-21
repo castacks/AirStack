@@ -718,3 +718,15 @@ checks source JPEGs under `data/calibration/msa_camera_images`, using MSA source
 files and the original radtan config. It matches original images once, scores
 all mutual/F-inlier populations without fitting calibration, and saves a
 rectification preview. See EXP-022 for source and scope.
+
+## MSA raw-first replay (EXP-023)
+
+`python -m Scripts.Setup.td3_msa_replay prepare --output <new-directory>`
+consumes the preserved240 raw/120 original-day processed inputs and exact
+archived report rows, reproduces the original producer, then writes separate
+MSA fisheye datasets/manifests/camera-info and first-frame geometry checks.
+`execute --plan <prepared>/plan.json --case day-original --output <new-case>`
+uses the existing bounded runner with passive signed-stereo/uncertainty capture.
+Use pinned geometry/GPU images respectively. All baseline config/checkpoint
+settings remain unchanged. See EXP-023 and its recovery staging for exact
+acquisition, execution, analysis and validation commands and limitations.

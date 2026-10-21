@@ -894,3 +894,17 @@ checks the subsequently supplied thermal JPEG pair. Both all242 mutual matches
 and214 F inliers pass the retained image criteria without calibration fitting.
 This supports separate raw/depth/VO replay; metric/body/timing accuracy and
 October applicability remain unconfirmed. Existing inputs/defaults unchanged.
+
+## EXP-023: Raw-first MSA bounded VO (2026-10-21)
+
+Completed six20-frame thermal replays, fixed old windows/config/checkpoint/seed.
+All240 old images reproduce exactly from selected raw data; one duplicate raw
+timestamp resolved by source index1518 AND exact image replay. New MSA data
+saved separately. Day translation proxy RMSE1.517/0.703/2.897m becomes
+0.076/0.160/0.179m. Night0.301/0.767/0.142m becomes0.176/0.742/0.141m;
+night early/late rotation worsen and late motion remains nearly zero. Same
+original nominal body anchor, each own rectification; SLAM is still a proxy.
+All25 tests,788/50 frozen hashes and independent controls pass. See
+[EXP-023](experiments/EXP-023-msa-preprocessing-vo.md). Use MSA as experimental
+thermal baseline; recompute uncertainty/error diagnostics before fusion claims.
+No production defaults or old outputs replaced.

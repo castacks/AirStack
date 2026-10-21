@@ -117,3 +117,10 @@ checks the subsequently supplied thermal JPEG pair. Both all242 mutual matches
 and214 F inliers pass the retained image criteria without calibration fitting.
 This supports separate raw/depth/VO replay; metric/body/timing accuracy and
 October applicability remain unconfirmed. Existing inputs/defaults unchanged.
+
+[EXP-023](../experiments/EXP-023-msa-preprocessing-vo.md) now tests raw-first MSA
+preprocessing/depth/VO on six fixed windows. All240 old-producer controls match
+exactly; day camera-local SLAM-proxy errors improve markedly, while night is
+mixed. Each reference keeps the original nominal body anchor and uses its own
+rectification; no new vehicle anchor is inferred. Recompute uncertainty/error
+diagnostics under MSA; do not relabel old depths or claim independent accuracy.

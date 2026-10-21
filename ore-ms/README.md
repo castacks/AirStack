@@ -163,3 +163,9 @@ checks the subsequently supplied thermal JPEG pair. Both all242 mutual matches
 and214 F inliers pass the retained image criteria without calibration fitting.
 This supports separate raw/depth/VO replay; metric/body/timing accuracy and
 October applicability remain unconfirmed. Existing inputs/defaults unchanged.
+
+[EXP-023](experiments/EXP-023-msa-preprocessing-vo.md) regenerates raw thermal
+images with MSA calibration and runs the same six20-frame windows. All240
+old-image replay controls pass. Day VO proxy errors improve substantially;
+night results remain mixed. MSA is the experimental baseline for subsequent
+geometry diagnostics; production defaults and previous results are unchanged.
