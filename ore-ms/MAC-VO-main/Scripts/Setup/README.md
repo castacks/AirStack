@@ -762,3 +762,12 @@ MSA datasets. `execute --plan <prepared>/plan.json --case early --modality therm
 --output <new-case>` runs100 frames with unchanged bounded-runner settings.
 See EXP-026 for strict150ms failure, documented250ms revision, analysis targets,
 independent validators and no-ground-truth/no-fusion limitations.
+
+## Low-motion thermal diagnosis (EXP-027)
+
+`python -m Scripts.Setup.td3_low_motion prepare --output <new-run>` freezes
+EXP-023 night/late-day and EXP-026 early-day source images/grid/depth/pose
+records. `run --output <new-run>` compares fixed-source LK tracks with saved
+model endpoints and pose/depth projections. FB<=1px primary; .5px/texture>=5
+sensitivities and image thirds preserved. No GPU inference or fitting.
+See EXP-027 for known LK limitations, reference/depth ambiguity and source checks.

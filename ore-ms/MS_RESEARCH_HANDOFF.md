@@ -933,3 +933,12 @@ Near-static early spatial uncertainty/reprojection ranking is negative; moving
 windows positive. Image/translation/rotation uncertainty associations differ,
 and accumulated drift versus per-step errors can rank cameras differently.
 SLAM/body anchor provisional;21 tests pass. No defaults/weights changed.
+
+[EXP-027](experiments/EXP-027-night-low-motion.md) checks late-night
+thermal low motion with independent LK tracking on fixed saved source pixels.
+LK0.053px/model0.083px,model-LKerror0.103px on95.54% valid grid tracks;
+LK-SLAM/predicted-deptherror0.925px. Texture/region sensitivity persists; no
+exact decoded frame duplication. The0.0085m VO vs0.261m SLAM discrepancy remains,
+but network-alone visible-motion suppression is unsupported. Reference/timing/
+depth/calibration causes unresolved; no tuning. Exact bag interval
+2025-10-27 22:13:40.207–22:13:42.107 EDT.7 tests/222 source hashes pass.
