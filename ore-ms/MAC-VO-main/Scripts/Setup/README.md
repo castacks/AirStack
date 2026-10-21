@@ -712,3 +712,9 @@ MSA extrinsics, checks URDF rounding and synthetic geometry, and scores24 old
 pair sets without fitting or rematching. Requires source files under
 `data/calibration/msa_cal` and EXP-020 observations. It does not replace any
 calibration. See EXP-021 for the passed image checks and applicability limits.
+
+`python -m Scripts.Setup.td3_msa_source_images --output /workspace/results/msa-source-images/new-run`
+checks source JPEGs under `data/calibration/msa_camera_images`, using MSA source
+files and the original radtan config. It matches original images once, scores
+all mutual/F-inlier populations without fitting calibration, and saves a
+rectification preview. See EXP-022 for source and scope.

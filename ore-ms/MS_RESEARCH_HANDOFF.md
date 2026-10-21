@@ -888,3 +888,9 @@ for a separate raw-image replay, not an adopted VO calibration. Source-export
 status explicitly leaves October applicability unconfirmed. Do not reuse old
 processed R/P/depths as if generated under MSA. No vehicle-body anchor inferred.
 Next source: separately listed thermal JPEG pair/applicability notes.
+
+MSA source-image follow-up: [EXP-022](experiments/EXP-022-msa-source-images.md)
+checks the subsequently supplied thermal JPEG pair. Both all242 mutual matches
+and214 F inliers pass the retained image criteria without calibration fitting.
+This supports separate raw/depth/VO replay; metric/body/timing accuracy and
+October applicability remain unconfirmed. Existing inputs/defaults unchanged.

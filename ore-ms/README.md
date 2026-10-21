@@ -157,3 +157,9 @@ git submodule update --init --recursive
 
 Then restore the checkpoint bundle and rebuild the GPU image. DPVO source is
 present, but its compiled extensions and execution have not been verified.
+
+MSA source-image follow-up: [EXP-022](experiments/EXP-022-msa-source-images.md)
+checks the subsequently supplied thermal JPEG pair. Both all242 mutual matches
+and214 F inliers pass the retained image criteria without calibration fitting.
+This supports separate raw/depth/VO replay; metric/body/timing accuracy and
+October applicability remain unconfirmed. Existing inputs/defaults unchanged.

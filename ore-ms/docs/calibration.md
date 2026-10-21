@@ -111,3 +111,9 @@ stereo geometry by0.670113m horizontally and0.617019degrees. Reproducing a produ
 or choosing a triangulation sign does not validate physical geometry. See
 [EXP-017](../experiments/EXP-017-thermal-provenance.md) for all counts, failures,
 reproduction commands and limits. Original inputs/calibration remain unchanged.
+
+MSA source-image follow-up: [EXP-022](../experiments/EXP-022-msa-source-images.md)
+checks the subsequently supplied thermal JPEG pair. Both all242 mutual matches
+and214 F inliers pass the retained image criteria without calibration fitting.
+This supports separate raw/depth/VO replay; metric/body/timing accuracy and
+October applicability remain unconfirmed. Existing inputs/defaults unchanged.
