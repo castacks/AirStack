@@ -552,6 +552,10 @@ justified geometric error reference and a common frame/units protocol.
   tf_manager/demo, intrinsics and timestamp pointers already incorporated by
   earlier audits. No additional recording-specific mounting evidence is known.
   Existing images suffice for this audit. No blanket sign flip or region mask.
+- A subsequent Google summary conflated public TD2.0 with later thermal rigs
+  and mischaracterized GO. Primary sources confirm later physical AirLab
+  thermal integration; thesis nominal hardware does not establish our exact
+  recording provenance. See [dataset source boundaries](docs/research/dataset-provenance-2026-10-20.md).
 
 ### 2026-10-20: signed stereo and camera-topic ordering (EXP-018)
 
