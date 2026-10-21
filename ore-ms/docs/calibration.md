@@ -1,5 +1,17 @@
 # Supplied calibration and archived transform comparison
 
+Latest follow-up: [EXP-020](../experiments/EXP-020-calibration-reconciliation.md)
+checks the loader/conventions and tests two concrete corrections. Our adapter
+uses P correctly for rectified images; raw K/D matching the stereo config is
+not independent evidence of valid physical calibration. The producer's inverse
+disagrees with the declared Kalibr format, but using the matrix directly worsens
+vertical alignment. A free essential-pose fit and a body-center-constrained
+rotation fit both fail stability/held-out criteria. Their explicit rejected
+candidate exports, fresh image checks and numerical validation are preserved.
+No original calibration is replaced. A known-target raw thermal stereo sequence
+or independently measured applicable stereo calibration is the next required
+constraint; camera serial numbers are not a prerequisite.
+
 Inspected October 17, 2026 (America/New_York), on `ore_ms`, base commit
 `af553955e844d42abb164ce5218e6be06cf19c8c` plus the current audit implementation.
 Dataset: `20251027/1_salon_mac_cov_day`.

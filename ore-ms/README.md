@@ -75,6 +75,12 @@ recordings share upper-negative/lower-positive thermal predictions, while
 night fitted features concentrate in the upper image. This makes the apparent
 feature sign contrast spatially selection-dependent. Physical calibration
 remains unresolved. No weighting default has changed.
+[EXP-020](experiments/EXP-020-calibration-reconciliation.md) verifies our
+camera-info usage and tests concrete stereo corrections. Both a free-pose fit
+and a body-center-constrained rotation fit fail their validation criteria.
+Rejected candidates and source-convention exports are preserved separately;
+a known-target thermal stereo sequence or independent applicable calibration
+is needed to resolve the remaining geometry. Serial numbers are not required.
 
 The older `macvo:box` image cannot execute on Blackwell. Use `macvo:blackwell`:
 

@@ -528,6 +528,34 @@ justified geometric error reference and a common frame/units protocol.
 
 ## 11. Decision log
 
+### 2026-10-20: calibration reconciliation attempts rejected (EXP-020)
+
+- User authorized addressing calibration, without requiring camera identity.
+  Adapter correctly uses rectified P. Raw K/D match supplied stereo config;
+  metadata consistency does not establish physical validity. Current TfManager
+  composition matches T_first<-second. Pinned publisher source still404.
+- Producer inverses a field declared by Kalibr as cam0-to-cam1. Direct source
+  interpretation improves cheirality but worsens vertical alignment; neither
+  label change nor translation-sign flip validates the full geometry.
+- Stage A: two fixed training pairs,ten original held-out pairs. Free essential
+  fit fails: single-training translation directions differ73.10deg; four
+  held-out residual-improvement failures. Attempt and explicit failed export kept.
+- Stage B: same training pairs,body centers fixed,rotation-only robust fit;
+  preregistered fresh positions4/8 across all six windows,12 pairs/1631 matches.
+  Vertical medians improve0.317–1.659px to0.223–0.435px, but four cheirality
+  failures and1.254deg single-training rotation disagreement reject it. Eleven
+  of12 meet the fixed residual criterion. No per-recording correction selected.
+- 20 tests and228/269 frozen hashes pass; independent24 pair-set/20513
+  candidate-point checks pass. These are technical controls, not calibration
+  success. Original calibration,images,depths,model files and VO defaults unchanged.
+- Artifacts: EXP-020, `results/calibration-reconcile/`, Box snapshot
+  `backups/2026-10-20-exp-020` plus inherited inputs. Both fitted candidates
+  explicitly failed; direct-source export explicitly unvalidated. No new VO/GPU.
+- Asked for raw thermal stereo calibration-target images with known target
+  geometry, or an independently measured stereo calibration for these recordings.
+  Existing scene evidence has not yielded a stable physical replacement;
+  serial numbers are not required. Metric/cross-modal calibration remains open.
+
 ### 2026-10-20: fixed-grid spatial stereo consistency (EXP-019)
 
 - User authorized the spatial audit. No new images/inference/VO: all12 EXP-018

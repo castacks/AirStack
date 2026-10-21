@@ -1,5 +1,35 @@
 # OSMO + Box staging
 
+## Thermal calibration reconciliation
+
+EXP-020 preserves original inputs and exports experimental candidates with
+explicit acceptance status. In `macvo:geometry`, from `MAC-VO-main/`:
+
+```bash
+python -m Scripts.Setup.td3_calibration_reconcile prepare \
+  --output /workspace/results/calibration-reconcile/new-run
+python -m Scripts.Setup.td3_calibration_reconcile run \
+  --output /workspace/results/calibration-reconcile/new-run
+```
+
+The second stage was preregistered after the first attempt failed. Its recovery
+snapshot includes the selected fresh validation images/extraction manifest:
+
+```bash
+python -m Scripts.Setup.td3_calibration_refine prepare \
+  --output /workspace/results/calibration-reconcile/new-rotation-run
+python -m Scripts.Setup.td3_calibration_refine run \
+  --output /workspace/results/calibration-reconcile/new-rotation-run
+```
+
+The refinement prepare command deliberately uses the preserved first attempt
+at `results/calibration-reconcile/run-001` and its frozen training observations.
+Recover that prerequisite before rerunning. The two original candidates both
+fail their physical/image-support checks; their output files must not be
+treated as validated calibrations. No default image or geometry is replaced.
+See [EXP-020](../../../experiments/EXP-020-calibration-reconciliation.md) for
+fixed splits, failure counts, direct-source interpretation and required data.
+
 ## Fixed-grid spatial stereo consistency
 
 EXP-019 uses the saved signed outputs and exact images from EXP-018; it requires
