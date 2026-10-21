@@ -1,0 +1,6 @@
+# Saved-output geometric diagnostics; no model inference.
+FROM python:3.11-slim@sha256:e88e9763f943ec1834f992a4b51e0f24500486803e8bc534e5767af9ea65f6ce
+RUN python -m pip install --no-cache-dir numpy==2.2.6 scipy==1.17.1 \
+    opencv-python-headless==4.10.0.84 pyyaml==6.0.3 matplotlib==3.10.8 pytest==8.4.2
+ENV OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+WORKDIR /workspace/MAC-VO-main

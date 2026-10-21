@@ -528,6 +528,30 @@ justified geometric error reference and a common frame/units protocol.
 
 ## 11. Decision log
 
+### 2026-10-20: signed stereo and camera-topic ordering (EXP-018)
+
+- User authorized the next bounded geometry check after Box recovery. Original
+  model bundle SHA/CRCs verified; Blackwell runtime restored. Six fixed first
+  stereo pairs per modality, from the existing day/night reports, no reselection.
+- Saved positive depth erases model flow sign. Native signed stereo inference
+  now retains it; all12 saved depth arrays reproduce bitwise, all strict
+  checkpoint/finite covariance controls pass. No VO or defaults changed.
+- Thermal feature signs agree99.4–100% on |observed| and |model| >1px; median
+  signed horizontal errors0.160–0.364px. Day medians positive, selected night
+  starts negative, while all six dense fields remain60.5–67.2% positive. Feature
+  agreement is not whole-image or physical-depth validation. Night RGB has no
+  usable fixed-protocol stereo SIFT fit in all three cases; empty results kept.
+- All12 thermal processed images reproduce exactly from labeled raw topics;
+  swapped raw inputs reproduce none. Day/night raw frame labels/camera-info
+  and processed matrices are identical. No software topic-swap evidence;
+  physical identity/mounting and calibration applicability remain unknown.
+- 13 tests pass,112/174 frozen-plan hashes pass; independent interpolation,
+  signed statistics and depth-byte controls pass. Evidence: EXP-018 and
+  `results/stereo-sign/`; Box `backups/2026-10-20-exp-018` plus inherited snapshots.
+- Keep defaults and no blanket sign flip. Next: authoritative physical camera
+  and per-recording calibration provenance; preregister fixed-grid spatial
+  sign/vertical-consistency diagnostics before extending beyond selected matches.
+
 ### 2026-10-20: thermal preprocessing and signed geometry audit (EXP-017)
 
 - Fixed9 night stereo captures (window positions0/9/19). Staged18 raw PNGs +6 metadata files, exact raw/processed timestamp matches and ZIP-member CRCs.

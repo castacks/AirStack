@@ -65,7 +65,11 @@ definitions and the next thermal preprocessing provenance audit.
 night thermal images exactly under OpenCV4.10. Saved stereo matrices also
 reproduce, but physical body/stereo geometry remains inconsistent; night
 cheirality does not justify a blanket baseline-sign flip.
-No weighting default has changed.
+[EXP-018](experiments/EXP-018-stereo-sign.md) retains signed stereo flow on
+12 fixed first-frame inputs and reproduces every saved depth array bitwise.
+Thermal model signs agree with feature displacements across day/night;
+raw-to-processed topic ordering reproduces exactly, while physical calibration
+and dense-field validity remain unresolved. No weighting default has changed.
 
 The older `macvo:box` image cannot execute on Blackwell. Use `macvo:blackwell`:
 

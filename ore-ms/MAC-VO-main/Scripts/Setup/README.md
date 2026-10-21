@@ -1,5 +1,39 @@
 # OSMO + Box staging
 
+## Signed stereo and saved-depth controls
+
+EXP-018 checks exact first-frame input rows from the existing day/night
+reports. Saved depth uses absolute disparity and cannot recover model sign.
+The CPU geometry stage uses `Docker/Dockerfile.geometry` with OpenCV4.10.0.84:
+
+```bash
+python -m Scripts.Setup.td3_stereo_sign prepare \
+  --extraction /workspace/results/stereo-sign/inputs/extraction.json \
+  --output /workspace/results/stereo-sign/new-cpu-run
+python -m Scripts.Setup.td3_stereo_sign run \
+  --output /workspace/results/stereo-sign/new-cpu-run
+python -m Scripts.Setup.td3_signed_frontend prepare \
+  --source /workspace/results/stereo-sign/new-cpu-run \
+  --output /workspace/results/stereo-sign/new-signed-run
+```
+
+The extraction manifest and exact image samples are in the EXP-018 recovery
+snapshot. Restore prerequisite saved outputs and original checkpoints first.
+Run the signed stage in `macvo:blackwell` with GPU access, project mount at
+`/workspace`, and `TORCHDYNAMO_DISABLE=1`:
+
+```bash
+python -m Scripts.Setup.td3_signed_frontend run \
+  --output /workspace/results/stereo-sign/new-signed-run
+```
+
+It retains signed flow/covariance and every attempt, checks original checkpoint
+hashes, and gates interpretation on saved-depth reproduction. No VO defaults,
+calibration or existing outputs are changed. Model flow is right-minus-left;
+reported left-minus-right disparity negates horizontal flow. See
+[EXP-018](../../../experiments/EXP-018-stereo-sign.md) for sample counts,
+selection caveats, physical-geometry limits and recovery instructions.
+
 ## Night tracking-loss raw-uncertainty characterization
 
 EXP-014 enables the existing recorder on the exact EXP-013 windows, with no
