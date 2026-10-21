@@ -1,5 +1,25 @@
 # OSMO + Box staging
 
+## Fixed-grid spatial stereo consistency
+
+EXP-019 uses the saved signed outputs and exact images from EXP-018; it requires
+no new inference or GPU access. In `macvo:geometry`, from `MAC-VO-main/`:
+
+```bash
+python -m Scripts.Setup.td3_spatial_stereo prepare \
+  --source /workspace/results/stereo-sign/signed-run-001 \
+  --output /workspace/results/spatial-stereo/new-run
+python -m Scripts.Setup.td3_spatial_stereo run \
+  --output /workspace/results/spatial-stereo/new-run
+```
+
+The frozen16px grid retains all points and saves sign, model vertical
+displacement, texture, model-target patch NCC, proximity to existing inliers,
+spatial groups and undefined counts. The same measurements are evaluated at
+the old feature locations. These are conditional consistency diagnostics;
+they do not establish independent geometric truth or a corrected calibration.
+See [EXP-019](../../../experiments/EXP-019-spatial-stereo.md).
+
 ## Signed stereo and saved-depth controls
 
 EXP-018 checks exact first-frame input rows from the existing day/night

@@ -528,6 +528,31 @@ justified geometric error reference and a common frame/units protocol.
 
 ## 11. Decision log
 
+### 2026-10-20: fixed-grid spatial stereo consistency (EXP-019)
+
+- User authorized the spatial audit. No new images/inference/VO: all12 EXP-018
+  first stereo pairs, fixed border32/stride16 grid,16848 points retained.
+- Thermal spatial signs agree across day/night: upper-third positive0–15.7%,
+  lower-third100% positive (all also>1px). Grid positives60.3–67.2%; night
+  feature-location positives0–2.5%, with98.1–100% of those features in the upper
+  third. Earlier feature-median contrast is spatially selection-dependent,
+  not evidence of a recording-wide sign reversal.
+- Lower thermal thirds have larger model vertical displacement and poorer
+  model-target patch NCC than upper thirds in all six inputs. Inbound/vertical
+  sensitivity leaves55.1–62.9% positive; NCC-defined grids60.2–66.5%. Conditional
+  patch agreement and predicted vertical flow are not independent geometry.
+- Night RGB source std<=1 covers1784/1800,1800/1800,1800/1800 points; NCC
+  defined14/1800,0,0. All three absent fitted feature populations retained.
+- 17 tests pass;190 frozen hashes,16848 grid points,24 populations and900
+  summaries independently validated. Report EXP-019; `results/spatial-stereo/`;
+  Box `backups/2026-10-20-exp-019`, with EXP-018 prerequisites. Defaults unchanged.
+- User offered more data; requested authoritative physical left/right camera
+  identity, mounting history and per-recording stereo/body calibration pointers.
+  User supplied the existing converter/get_slam_data, pinned Yamaha extrinsics,
+  tf_manager/demo, intrinsics and timestamp pointers already incorporated by
+  earlier audits. No additional recording-specific mounting evidence is known.
+  Existing images suffice for this audit. No blanket sign flip or region mask.
+
 ### 2026-10-20: signed stereo and camera-topic ordering (EXP-018)
 
 - User authorized the next bounded geometry check after Box recovery. Original

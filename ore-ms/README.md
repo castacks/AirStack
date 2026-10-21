@@ -69,7 +69,12 @@ cheirality does not justify a blanket baseline-sign flip.
 12 fixed first-frame inputs and reproduces every saved depth array bitwise.
 Thermal model signs agree with feature displacements across day/night;
 raw-to-processed topic ordering reproduces exactly, while physical calibration
-and dense-field validity remain unresolved. No weighting default has changed.
+and dense-field validity remain unresolved.
+[EXP-019](experiments/EXP-019-spatial-stereo.md) audits a fixed grid: both
+recordings share upper-negative/lower-positive thermal predictions, while
+night fitted features concentrate in the upper image. This makes the apparent
+feature sign contrast spatially selection-dependent. Physical calibration
+remains unresolved. No weighting default has changed.
 
 The older `macvo:box` image cannot execute on Blackwell. Use `macvo:blackwell`:
 
