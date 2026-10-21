@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 import signal
 import subprocess
 import time
@@ -13,6 +14,11 @@ from mav_msgs.msg import RateThrust
 from px4_msgs.msg import VehicleRatesSetpoint, TrajectorySetpoint, OffboardControlMode
 from trajectory_msgs.msg import MultiDOFJointTrajectoryPoint
 
+# Override for isolated test environments; defaults to this checkout's local assets.
+VALIDATION = Path(os.environ.get('STARLING_VALIDATION_DIR',
+    str(Path(__file__).resolve().parents[3] / 'robot/ros_ws/.starling/validation')))
+VALIDATION.mkdir(parents=True, exist_ok=True)
+
 rclpy.init()
 n=Node('interface_fixture')
 rates=[]; trajectories=[]; heartbeats=[]
@@ -21,7 +27,7 @@ n.create_subscription(TrajectorySetpoint,'/starling_cmu_test/interface/in/trajec
 n.create_subscription(OffboardControlMode,'/starling_cmu_test/interface/in/offboard_control_mode',lambda m: heartbeats.append(m),qos_profile_sensor_data)
 pub=n.create_publisher(SelectedCommand,'/starling_cmu_test/interface/selected_command',1)
 legacy=n.create_publisher(RateThrust,'/starling_cmu_test/interface/rate_thrust_command',1)
-process=subprocess.Popen(['ros2','run','robot_interface','robot_interface_node','--ros-args','-r','__ns:=/starling_cmu_test/interface','-p','interface:=px4_interface::PX4Interface','-p','gamma_managed:=true'],stdout=open('/runtime/organization-validation/interface-fixture.log','w'),stderr=subprocess.STDOUT,start_new_session=True)
+process=subprocess.Popen(['ros2','run','robot_interface','robot_interface_node','--ros-args','-r','__ns:=/starling_cmu_test/interface','-p','interface:=px4_interface::PX4Interface','-p','gamma_managed:=true'],stdout=open(f'{VALIDATION}/interface-fixture.log','w'),stderr=subprocess.STDOUT,start_new_session=True)
 
 
 def spin(duration,publish=None):

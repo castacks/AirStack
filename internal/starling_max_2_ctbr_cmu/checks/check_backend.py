@@ -15,6 +15,11 @@ from px4_msgs.msg import VehicleOdometry, VehicleRatesSetpoint
 from std_msgs.msg import String
 from std_srvs.srv import Trigger
 
+# Override for isolated test environments; defaults to this checkout's local assets.
+VALIDATION = Path(os.environ.get('STARLING_VALIDATION_DIR',
+    str(Path(__file__).resolve().parents[3] / 'robot/ros_ws/.starling/validation')))
+VALIDATION.mkdir(parents=True, exist_ok=True)
+
 rclpy.init(); n=Node('backend_fixture')
 statepub=n.create_publisher(VehicleOdometry,'/starling_cmu_test/interface/out/vehicle_odometry',qos_profile_sensor_data)
 refpub=n.create_publisher(MultiDOFJointTrajectory,'/gamma/svg_reference',1)
@@ -23,7 +28,7 @@ statuses=[];rates=[]; traces=[]
 n.create_subscription(String,'/gamma/status',lambda m: statuses.append(json.loads(m.data)),10)
 n.create_subscription(String,'/gamma/trace',lambda m: traces.append(json.loads(m.data)),qos_profile_sensor_data)
 n.create_subscription(VehicleRatesSetpoint,'/starling_cmu_test/interface/in/vehicle_rates_setpoint',lambda m: rates.append(m),qos_profile_sensor_data)
-args=['--ros-args','-p','config:=/root/AirStack/robot/ros_ws/src/gamma_zero_controller/config/simulation.json','-p','assets:=/runtime/organization-validation/starling_cmu_inputs.json','-p','policy_socket:=/runtime/organization-validation/policy.sock','-p','log:=/runtime/organization-validation/backend-fixture.jsonl',
+args=['--ros-args','-p','config:=/root/AirStack/robot/ros_ws/src/gamma_zero_controller/config/simulation.json','-p',f'assets:={VALIDATION}/starling_cmu_inputs.json','-p',f'policy_socket:={VALIDATION}/policy.sock','-p',f'log:={VALIDATION}/backend-fixture.jsonl',
       '-r','selected_command:=/gamma/selected_command','-r','selected_command_status:=/gamma/interface_status','-r','vehicle_odometry:=/starling_cmu_test/interface/out/vehicle_odometry','-r','svg_reference:=/gamma/svg_reference','-r','svg_status:=/svg/commander_status','-r','status:=/gamma/status','-r','trace:=/gamma/trace']
 processes=[]
 reset=0
@@ -58,9 +63,9 @@ def call(name):
 
 
 try:
-    Path('/runtime/organization-validation/backend-fixture.jsonl').unlink(missing_ok=True)
-    processes.append(subprocess.Popen(['ros2','run','robot_interface','robot_interface_node','--ros-args','-r','__ns:=/starling_cmu_test/interface','-p','interface:=px4_interface::PX4Interface','-p','gamma_managed:=true','-r','selected_command:=/gamma/selected_command','-r','selected_command_status:=/gamma/interface_status'],stdout=open('/runtime/organization-validation/backend-interface.log','w'),stderr=subprocess.STDOUT,start_new_session=True))
-    processes.append(subprocess.Popen(['ros2','run','gamma_zero_controller','controller']+args,stdout=open('/runtime/organization-validation/backend-node.log','w'),stderr=subprocess.STDOUT,start_new_session=True))
+    (VALIDATION / 'backend-fixture.jsonl').unlink(missing_ok=True)
+    processes.append(subprocess.Popen(['ros2','run','robot_interface','robot_interface_node','--ros-args','-r','__ns:=/starling_cmu_test/interface','-p','interface:=px4_interface::PX4Interface','-p','gamma_managed:=true','-r','selected_command:=/gamma/selected_command','-r','selected_command_status:=/gamma/interface_status'],stdout=open(f'{VALIDATION}/backend-interface.log','w'),stderr=subprocess.STDOUT,start_new_session=True))
+    processes.append(subprocess.Popen(['ros2','run','gamma_zero_controller','controller']+args,stdout=open(f'{VALIDATION}/backend-node.log','w'),stderr=subprocess.STDOUT,start_new_session=True))
     spin(5.)
     assert all(p.poll() is None for p in processes)
     assert statuses and statuses[-1]['mode']=='conventional',statuses[-1:]
@@ -77,7 +82,7 @@ try:
     elif case=='ack':
         os.killpg(processes[0].pid,signal.SIGTERM);processes[0].wait(timeout=5);spin(.4)
     elif case=='worker':
-        Path('/runtime/organization-validation/stop-worker').touch();spin(.4)
+        (VALIDATION / 'stop-worker').touch();spin(.4)
         assert statuses[-1]['mode']=='conventional' and statuses[-1]['fault'],statuses[-1]
     elif case=='reset':
         reset=1;spin(.35)

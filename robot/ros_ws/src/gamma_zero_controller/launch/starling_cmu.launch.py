@@ -53,4 +53,4 @@ def generate_launch_description():
         DeclareLaunchArgument('teleop_drones', default_value=''),
         DeclareLaunchArgument('config', default_value=share+'/config/simulation.json'),
         DeclareLaunchArgument('assets'), DeclareLaunchArgument('policy_socket'), DeclareLaunchArgument('log'),
-        DeclareLaunchArgument('bag_dir', default_value='/runtime/bags'), OpaqueFunction(function=launch_nodes)])
+        DeclareLaunchArgument('bag_dir', default_value='/bags'), OpaqueFunction(function=launch_nodes)])

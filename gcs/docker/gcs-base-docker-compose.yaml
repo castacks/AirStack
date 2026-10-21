@@ -11,7 +11,7 @@ services:
         - *gcs_image
     command: >
       bash -c "
-      ssh service restart;
+      service ssh restart;
       python3 /root/AirStack/gcs/foxglove_extensions/install.py;
       python3 /root/AirStack/gcs/foxglove_extensions/render_layout.py;
       tmux new -d -s bringup;

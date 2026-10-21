@@ -55,6 +55,8 @@ qtcreator-*
 **/ros_ws/install/
 **/ros_ws/log/
 .build.lock
+# Local exported Starling policy and CPU inference environment (not source packages).
+robot/ros_ws/.starling/
 
 # ROS2 custom files
 COLCON_IGNORE
