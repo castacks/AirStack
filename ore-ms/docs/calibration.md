@@ -1,6 +1,13 @@
 # Supplied calibration and archived transform comparison
 
-Latest follow-up: [EXP-020](../experiments/EXP-020-calibration-reconciliation.md)
+Latest: [EXP-021](../experiments/EXP-021-msa-calibration-audit.md) examines the
+user-supplied January2025 MSA calibration. Its equidistant thermal model and
+source extrinsics pass all24 fixed image checks without fitting. This is a
+credible candidate for separate raw-image replay; October applicability,
+metric scale and vehicle-body anchoring remain unconfirmed. Existing processed
+images/depths cannot be relabeled with the new calibration. No defaults changed.
+
+Previous follow-up: [EXP-020](../experiments/EXP-020-calibration-reconciliation.md)
 checks the loader/conventions and tests two concrete corrections. Our adapter
 uses P correctly for rectified images; raw K/D matching the stereo config is
 not independent evidence of valid physical calibration. The producer's inverse

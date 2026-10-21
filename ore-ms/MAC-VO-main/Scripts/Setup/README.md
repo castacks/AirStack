@@ -702,3 +702,13 @@ Geometry outputs retain source correspondences/masks, both matrix conventions,
 saved projection triangulation and a translation-sign diagnostic. None is an
 adopted calibration fix. See EXP-017 and docs/calibration.md for night/day sign
 disagreement and limits; original input hashes and VO outputs remain untouched.
+
+## Supplied MSA calibration audit (EXP-021)
+
+`python -m Scripts.Setup.td3_msa_calibration_audit --output /workspace/results/msa-calibration/new-run`
+reinterprets fixed EXP-020 correspondences at the same raw sensor pixels using
+the supplied equidistant intrinsics. It derives stereo pose from common-parent
+MSA extrinsics, checks URDF rounding and synthetic geometry, and scores24 old
+pair sets without fitting or rematching. Requires source files under
+`data/calibration/msa_cal` and EXP-020 observations. It does not replace any
+calibration. See EXP-021 for the passed image checks and applicability limits.

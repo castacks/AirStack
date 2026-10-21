@@ -875,3 +875,16 @@ will push the AirStack branch before shutting down.
 ---
 
 **Handoff instruction:** When resuming this project, read this file first, then inspect repository state and recent experiment/decision logs. Summarize verified progress, unresolved questions, and the smallest useful next experiment. Do not revert the project to a pre-approval stage or treat the prior respiratory-rate/integration tasks as outstanding.
+
+## EXP-021: MSA source calibration (2026-10-21)
+
+User supplied msa_cal.zip from NAS offroad/calibration/msa_cal. Six text files,
+no camera JPEGs. January26,2025 MSA source uses equidistant intrinsics and
+common-LiDAR-parent extrinsics; baseline0.326186422m. All24 fixed EXP-020 pair
+sets/3147 inliers pass inherited per-image checks without fitting/rematching.
+10 relevant tests and independent validation pass. See
+[EXP-021](experiments/EXP-021-msa-calibration-audit.md). This is a credible source
+for a separate raw-image replay, not an adopted VO calibration. Source-export
+status explicitly leaves October applicability unconfirmed. Do not reuse old
+processed R/P/depths as if generated under MSA. No vehicle-body anchor inferred.
+Next source: separately listed thermal JPEG pair/applicability notes.

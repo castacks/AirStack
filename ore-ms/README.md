@@ -80,7 +80,11 @@ camera-info usage and tests concrete stereo corrections. Both a free-pose fit
 and a body-center-constrained rotation fit fail their validation criteria.
 Rejected candidates and source-convention exports are preserved separately;
 a known-target thermal stereo sequence or independent applicable calibration
-is needed to resolve the remaining geometry. Serial numbers are not required.
+was requested to resolve the remaining geometry. Serial numbers are not required.
+[EXP-021](experiments/EXP-021-msa-calibration-audit.md) audits the subsequently
+supplied MSA source calibration: all24 fixed image checks pass without fitting.
+Its fisheye model differs from the current producer; applicability and metric/body
+accuracy remain unconfirmed. No original calibration or VO output is replaced.
 
 The older `macvo:box` image cannot execute on Blackwell. Use `macvo:blackwell`:
 
