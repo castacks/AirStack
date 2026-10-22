@@ -1011,3 +1011,7 @@ Keep MSA/VO defaults, no depth/scale/sign/fusion correction. Box recovery
 `backups/2026-10-21-exp-029` requires prior EXP-023/025/026 input/signed-output
 context; no weights/GPU required for this saved-output diagnostic. Exact
 recording odometry/quality/timing and physical frame provenance still pending.
+
+## EXP-030: Temporal angular image consistency (2026-10-21)
+
+[EXP-030](experiments/EXP-030-temporal-angular-consistency.md) checks342 saved temporal pairs in nominal angular units without a pose reference. Median spatial uncertainty/LK-disagreement rho ranges−0.187–0.572 for thermal and0.361–0.594 for RGB. Late-night thermal remains negative despite94–97% LK support; normalization is not physical confidence calibration. Seven tests,2,394 independent ray/covariance checks,95 exactly reproduced prior LK pairs and729 frozen hashes pass;402 earlier audit hashes unchanged. Keep defaults and pending provenance gates. Box recovery: `backups/2026-10-21-exp-030`.

@@ -227,3 +227,6 @@ disagreement; most locations remain unvalidated. Stereo variance/discrepancy
 associations are weak and selection-dependent. A recorded NCC precision issue
 is stabilized without threshold changes;9 tests/97 hashes and independent
 numeric controls pass. Keep MSA/defaults and the pending reference-source gate.
+
+
+[EXP-030](experiments/EXP-030-temporal-angular-consistency.md) checks342 saved temporal pairs in nominal angular units without a pose reference. Median spatial uncertainty/LK-disagreement rho ranges−0.187–0.572 for thermal and0.361–0.594 for RGB. Late-night thermal remains negative despite94–97% LK support; normalization is not physical confidence calibration. Seven tests,2,394 independent ray/covariance checks,95 exactly reproduced prior LK pairs and729 frozen hashes pass;402 earlier audit hashes unchanged. Keep defaults and pending provenance gates. Box recovery: `backups/2026-10-21-exp-030`.
