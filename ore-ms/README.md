@@ -8,6 +8,10 @@ fusion follows only if the measurements support it.
 Start with [MS_RESEARCH_HANDOFF.md](MS_RESEARCH_HANDOFF.md) for the approved
 research scope, decisions, resource pointers, and verified progress.
 
+## New bounded execution checks
+
+Use [run_td3_execution_v2.py](MAC-VO-main/Scripts/Setup/run_td3_execution_v2.py) for new runs. Inspect `tracking_diagnostics.support_state` and original unsupported-pair counts as well as raw execution status. These preserve tracking failures before interpolation changes stored flags. [EXP-033](experiments/EXP-033-gnss-and-tracking-reporting.md) documents usage and bitwise pose-equivalence controls; earlier runners remain available for historical reproduction.
+
 ## Repository layout
 
 - `MAC-VO-main/`: extracted MAC-VO source, recovered FlowFormer/DPVO dependencies,
@@ -236,3 +240,5 @@ numeric controls pass. Keep MSA/defaults and the pending reference-source gate.
 
 
 [EXP-032](experiments/EXP-032-long-night-validation.md) extends the new night recording to three nonoverlapping100-group midpoint blocks (14.9/9.9/11.0s), preserving30/0/1 gaps>150ms. All thermal attempts have0 pre-refinement lost pairs; RGB has99/97/99 out of99. Middle/late RGB raw execution passes are interpolation-dominated; existing MotionInterpolate aliases/clears boundary flags, understating original losses (97→94,99→95). Preserve reports/settings; audit raw counts/logs. Thermal median spatial uncertainty/LK-disagreement rho0.407/0.397/0.537; temporal/gap effects vary, not physical confidence calibration.25 tests,4,158 scalar/finite-difference checks,594 pairs/833,976 points,54 strata and3,041/1,229 hashes pass; prior751/267/729/402/97 unchanged. Box recovery `backups/2026-10-22-exp-032`. Next software task: pre-refinement diagnostics with unchanged poses. For future numerical RGB/thermal error comparison, request another night recording with visible RGB detail; names first. No more data needed to reproduce this audit.
+
+[EXP-033](experiments/EXP-033-gnss-and-tracking-reporting.md) completes GNSS scalar translation cross-checks on15 fixed cases x3 offsets and a versioned reporting fix. New `run_td3_execution_v2.py` preserves pre-refinement support/flags even on zero-observation failure; original runner/postprocessor unchanged. Three GPU controls reproduce5,753 arrays bitwise; middle RGB correctly exposes97 original unsupported pairs vs94 stored flags.13 tests pass. GNSS original late-night0.0161m vs VO0.0085m/camera SLAM0.2610m; canonical early and new short late also show reference-dependent disagreement. Longer thermal GNSS31.71/32.52/31.47m vs VO26.45/31.72/26.74m retains early/late shortfall. Magnitudes from distinct physical origins are not camera-pose errors or calibrated GT; no axes/latency/scale/lever arm fitted.45 comparisons/2,340 queries validated, max bracket41.56ms;828 final hashes,291 reporting-control hashes and previous scientific hashes unchanged. GNSS phase001 source preserved after scope-label correction; phase002 arrays bitwise identical. Owner axes/RTK/origin/timing and checkpoint train split still pending. No more image upload needed for these checks. Box `backups/2026-10-22-exp-033`.

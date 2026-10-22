@@ -803,3 +803,7 @@ records. `run --output <new-run>` compares fixed-source LK tracks with saved
 model endpoints and pose/depth projections. FB<=1px primary; .5px/texture>=5
 sensitivities and image thirds preserved. No GPU inference or fitting.
 See EXP-027 for known LK limitations, reference/depth ambiguity and source checks.
+
+## Tracking diagnostics for new bounded runs
+
+Use `python -m Scripts.Setup.run_td3_execution_v2` with the same dataset/manifest/modality/frames/output and acknowledgement flags as the original bounded runner. `tracking_diagnostics` and `tracking-flags.npz` preserve the original pre-refinement flags, post-refinement flags and an explicit support state; `PASS_EXECUTION_ONLY` alone does not indicate sustained tracking. Completed zero-observation failures also keep these diagnostics. The original runner and interpolation algorithms remain frozen. See the project EXP-033 report for exact control commands and unchanged-pose evidence.
