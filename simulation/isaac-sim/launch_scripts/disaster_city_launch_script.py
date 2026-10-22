@@ -13,8 +13,10 @@ stack flies them.
     airstack up isaac-sim
 
 Env:
-  DISASTER_CITY_USD  stage to load (default: the mounted data dir's recon/disaster_city.usda;
-                     the mount is `DISASTER_CITY_DATA` in docker-compose.yaml)
+  DISASTER_CITY_USD  stage to load: a container path or an omniverse:// URL (e.g. the
+                     Nucleus copy, for an OSMO pod with no data mount). Default: the
+                     mounted data dir's recon/disaster_city.usda (the mount is
+                     `DISASTER_CITY_DATA` in docker-compose.yaml)
   SPAWN_CONFIGS      JSON list of {x_m, y_m, z_m[, orient, domain_id]} in TWIN WORLD metres.
                      The ground is NOT at z=0 (z is WGS84 ellipsoidal height, ~55 m on the
                      north field), so z_m is required: there is no terrain raycast.
@@ -45,6 +47,7 @@ else:
         "extra_args": _ARGS})
 
 import carb
+import omni.client
 import omni.kit.app
 import omni.timeline
 import omni.usd
@@ -133,7 +136,10 @@ def drone_configs():
 
 
 def main():
-    if not os.path.exists(TWIN_USD):
+    if TWIN_USD.startswith("omniverse://"):
+        if omni.client.stat(TWIN_USD)[0] != omni.client.Result.OK:
+            raise SystemExit(f"twin USD not reachable on Nucleus: {TWIN_USD} (OMNI_USER / OMNI_PASS?)")
+    elif not os.path.exists(TWIN_USD):
         raise SystemExit(f"twin USD not found in the container: {TWIN_USD} "
                          "(set DISASTER_CITY_DATA so docker-compose mounts the data dir)")
     cfgs = drone_configs()
