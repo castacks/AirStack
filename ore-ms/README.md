@@ -212,3 +212,10 @@ A55-case fixed reference-time sweep retains the late-night discrepancy; no
 offset is fitted or adopted.11 tests/402 hashes and independent checks pass.
 Keep MSA and all VO defaults; resolve reference provenance before using this
 window as a physical pose-error or fusion-calibration target.
+
+The follow-up [filtered-odometry source audit](docs/research/filtered-odometry-provenance-2026-10-21.md)
+identifies a historical NovAtel GPS/IMU origin and the legacy `novatel_span`
+package lead. Exact October2025 producer, aiding inputs, clock behavior,
+quality and gps_frame geometry remain unverified. Public candidate drivers
+must not be substituted for recording-specific source; no reference is promoted
+to ground truth and no new VO experiment is claimed.

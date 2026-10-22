@@ -962,3 +962,21 @@ inputs, timing/quality/covariance and gps_frame extrinsic. Box recovery
 `backups/2026-10-21-exp-028` requires prior EXP-023/026/027 context. Do not label
 late-night thermal-network failure or calibrate fusion against an unvalidated
 physical error target. MSA remains the experimental thermal baseline.
+
+## Filtered-odometry source audit (2026-10-21)
+
+The [dated source note](docs/research/filtered-odometry-provenance-2026-10-21.md)
+records a stronger historical lead: TartanDrive2.0 describes NovAtel GPS/IMU
+poses, and a2022 CMU report attributes `/odometry/filtered_odom` to legacy
+`physics_atv_ws/src/novatel_span`. It also lists NovAtel IMU as an SO input.
+Neither establishes the2025 graph or independence. Pinned public candidate
+SPAN code accepts external odometry aiding and stamps with ROS time; those
+behaviors are questions for the actual driver, not findings about our recording.
+Another public EKF uses the same topic with different inputs/frames, so the name
+alone does not identify an estimator. Nine public files pass remote SHA checks;
+all402 EXP-028 scientific hashes remain unchanged. No new inference/tests or
+corrections. Connected mail searches returned no matches; GitHub integration
+was offered but remains uninstalled/unconnected. Exact source/launch/config,
+gps_frame/lever arm and original covariance/receiver quality for the late interval
+are still required. A local request is prepared; no messages sent. Box snapshot:
+`backups/2026-10-21-filtered-odom-provenance`, with prior EXP-028 prerequisites.
