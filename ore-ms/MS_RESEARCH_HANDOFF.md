@@ -980,3 +980,12 @@ was offered but remains uninstalled/unconnected. Exact source/launch/config,
 gps_frame/lever arm and original covariance/receiver quality for the late interval
 are still required. A local request is prepared; no messages sent. Box snapshot:
 `backups/2026-10-21-filtered-odom-provenance`, with prior EXP-028 prerequisites.
+
+User follow-up: a supplied Slack-search summary reports a February2024 ATV
+launch/mesh discussion and `/home/physics_atv/physics_atv_ws/` as a workspace
+lead, with Matthew Sivaprakasam or Wenshan in `#learningphysics` suggested as
+contacts. Original messages were not independently retrieved; no2025 driver
+or recording-specific source was confirmed. That path and candidate packages
+are not present in this compute environment. The source note includes read-only
+file searches for the actual ATV computer; present-day HEAD alone is not proof
+of the recording revision. A refined local request is prepared; nothing sent.

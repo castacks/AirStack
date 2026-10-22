@@ -35,6 +35,35 @@ No `gps_frame` transform was found in the restored night TF/calibration files in
 
 The [recording-derived EXP-028 evidence](../../experiments/EXP-028-reference-timing.md) remains intact. All402 frozen scientific input hashes are unchanged. No inference, reference replacement, alignment fitting, calibration change or new numerical test was performed for this documentation audit.
 
+## User-supplied ATV workspace lead
+
+The user supplied a Slack-search summary identifying a February2024 discussion
+by Matthew Sivaprakasam about ATV RViz mesh/launch files, with a follow-up path
+`/home/physics_atv/physics_atv_ws/`. The summary suggests Matthew or Wenshan in
+`#learningphysics` as possible contacts. This is a reported historical workspace
+lead: the original Slack messages/links were not independently retrieved, the
+driver package was not identified, and applicability to October2025 remains
+unconfirmed. The supplied search summary itself found no definitive driver or
+recording-specific messages.
+
+The reported path is absent from this compute workspace. A bounded local search
+under `/home`, `/mnt`, `/opt` and the AirStack checkout also found no ATV workspace
+or NovAtel package. This does not establish that the path is absent on the ATV
+computer. No remote host, login or mount is inferred from a local filesystem path.
+
+On the actual ATV computer, these read-only searches can locate candidate files:
+
+```bash
+find /home/physics_atv/physics_atv_ws/src -name package.xml -print | rg -i 'novatel|gps|gnss'
+rg -l --glob '*.launch' --glob '*.yaml' --glob '*.py' --glob '*.cpp' \
+  'filtered_odom|novatel_span|gps_frame' /home/physics_atv/physics_atv_ws/src
+```
+
+Then identify the owning repository/commit and launch/remap chain. A present-day
+checkout alone still does not prove which revision/configuration ran on
+October27,2025. The first focused request is to confirm whether this workspace
+held the recording's driver and identify that specific revision/configuration.
+
 ## Smallest useful source request
 
 For `20251027/night_thermal_so_salon2`, focus on **2025-10-27 22:13:40.207–22:13:42.107 EDT**, equivalently **2025-10-28 02:13:40.207–02:13:42.107 UTC**:
