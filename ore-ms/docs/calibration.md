@@ -1,5 +1,7 @@
 # Supplied calibration and archived transform comparison
 
+Latest source update (2026-10-22): [Geethika’s user-supplied reply](research/source-replies-2026-10-22.md) supports applying the MSA calibrations to these recordings. This upgrades recording applicability beyond the earlier candidate-only status. Direct GNSS origin is also owner-reported; exact axes, quality and physical frame mapping still require separate checks. Historical calibration notes follow.
+
 Latest: [EXP-028](../experiments/EXP-028-reference-timing.md) checks reference
 consistency and supplied auxiliary motion during the late-night discrepancy.
 No calibration or VO default changes; independent reference provenance remains

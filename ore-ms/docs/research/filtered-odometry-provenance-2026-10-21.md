@@ -1,4 +1,5 @@
 # Filtered-odometry provenance: historical lead, recording verification pending
+**Owner follow-up received 2026-10-22:** [attributed replies and updated status](source-replies-2026-10-22.md) identify the stream as direct GNSS output in approximately described UTM axes. MSA applicability has owner support; non-use of GNSS odometry by SO is tentatively reported. Exact axes, quality/RTK, timing and reference origin remain open. The original audit below is historical and is not the latest provenance assessment.
 
 Checked2026-10-21 (America/New_York), branch `ore_ms`, base `391a70fcb`. This is a source audit following [EXP-028](../../experiments/EXP-028-reference-timing.md), not a new accuracy experiment. **Public primary sources support a NovAtel GPS/IMU origin as the historical lead. They do not identify the producer, sensor dependencies, clock behavior, quality or physical frame of the October2025 recording. Filtered odometry remains an unvalidated auxiliary stream.**
 
