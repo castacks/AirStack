@@ -219,3 +219,11 @@ package lead. Exact October2025 producer, aiding inputs, clock behavior,
 quality and gps_frame geometry remain unverified. Public candidate drivers
 must not be substituted for recording-specific source; no reference is promoted
 to ground truth and no new VO experiment is claimed.
+
+[EXP-029](experiments/EXP-029-stereo-image-consistency.md) checks18 saved stereo
+pairs without a pose reference or new inference. Independent patch matching
+supports68/1,008 late-night thermal grid points with0.423px median model
+disagreement; most locations remain unvalidated. Stereo variance/discrepancy
+associations are weak and selection-dependent. A recorded NCC precision issue
+is stabilized without threshold changes;9 tests/97 hashes and independent
+numeric controls pass. Keep MSA/defaults and the pending reference-source gate.

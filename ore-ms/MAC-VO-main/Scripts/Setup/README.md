@@ -1,5 +1,21 @@
 # OSMO + Box staging
 
+## Stereo image consistency without a pose reference (EXP-029)
+
+Restore the EXP-023/025/026 prepared images, reports and signed first-stereo
+outputs. In `macvo:geometry`, with ore-ms mounted at `/workspace`:
+
+```bash
+python -m Scripts.Setup.td3_stereo_image_consistency prepare --output /workspace/results/stereo-image-consistency/new-run
+python -m Scripts.Setup.td3_stereo_image_consistency run --output /workspace/results/stereo-image-consistency/new-run
+```
+
+Prepare freezes all18 inherited cases and refuses an existing output directory.
+Run retains every source-grid point and independent match failure; mean-centered
+NCC avoids high-DC float32 score cancellation. Matching availability/discrepancy
+is not physical depth accuracy or calibrated uncertainty. No inference/weights
+or pose reference needed. See [EXP-029](../../../experiments/EXP-029-stereo-image-consistency.md).
+
 ## Fixed-window reference and timing audit (EXP-028)
 
 Restore EXP-023/026/027 context and the selected EXP-028 metadata/upstream

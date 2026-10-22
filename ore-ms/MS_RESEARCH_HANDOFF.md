@@ -989,3 +989,25 @@ or recording-specific source was confirmed. That path and candidate packages
 are not present in this compute environment. The source note includes read-only
 file searches for the actual ATV computer; present-day HEAD alone is not proof
 of the recording revision. A refined local request is prepared; nothing sent.
+
+## EXP-029: Stereo-image correspondence consistency (2026-10-21)
+
+[EXP-029](experiments/EXP-029-stereo-image-consistency.md) progresses while
+reference replies are pending:18 saved first stereo pairs (12 MSA-thermal,
+6 day RGB controls) compared with an independent exhaustive/reciprocal NCC
+matcher on22,896 fixed source pixels. No pose reference or inference. Thermal
+primary support6.75–30.26% versus RGB41.11–70.22%, with different views/native
+resolutions; these are matcher availability, not physical modality rankings.
+Late-night thermal supports68/1,008 points, median model/matcher difference
+0.423px and64/64 eligible signs agreeing;940 locations remain unvalidated.
+Stereo-variance/discrepancy association is weak/mixed and selection-dependent,
+not a temporal-flow or pose-reliability calibration. Run-001 revealed float32
+NCC gate sensitivity; preserved fully. Mean-centering before NCC stabilizes
+run-002 with identical scientific thresholds/inputs.9 tests/97 frozen hashes
+pass,17,046 accepted scalar NCC checks/108 summaries and1,008 independent
+night-late exhaustive searches pass at the original1e-4 NCC tolerance, with
+zero remaining float64 forward gate changes. All402 EXP-028 hashes unchanged.
+Keep MSA/VO defaults, no depth/scale/sign/fusion correction. Box recovery
+`backups/2026-10-21-exp-029` requires prior EXP-023/025/026 input/signed-output
+context; no weights/GPU required for this saved-output diagnostic. Exact
+recording odometry/quality/timing and physical frame provenance still pending.
