@@ -60,6 +60,7 @@ PATH, and `~/isaacsim/python.sh` (Isaac Sim 6.0.1) for the check.
 | Trees (`trees/`) | Canopy peaks in the tile heights; 4 NVIDIA tree species as instanceable references | Position and height from the tiles; invisible trunk and crown colliders |
 | Vehicles (`vehicles/`) | Road vehicles: vehicle-sized blobs on roads, parking lots and near vehicle labels, fitted in the world frame. Rail cars: hand-surveyed car by car (`specs/rail_cars.yaml`), because the tiles merge coupled and derailed cars | Cars, vans and buses from the standalone pack; box truck, dump truck and container from `assets/lib`; tank cars, box cars, coaches and a locomotive from Nucleus + Objaverse. Nothing vehicle-sized is left as raw tile mesh or a box |
 | Survivors (`people/`, `specs/survivors.yaml`) | 11 casualty actors found in the drone video: `find_people.py` (keypoint R-CNN on the georeferenced frames, rays onto the model, clustered), then picked by eye | Posed RenderPeople rigs (`place_people.py`, scene_gen's pose and ground-contact code) where the video shows them: on B01's decks, its roof, inside its first floor, on the road and the kerbs. Class `person` |
+| Survivor variants (`survivors/`) | 10,270 placement candidates on the people-free scene (`survivor_candidates.py`: level supports on a 1 m grid over the search area with room to sit or lie and some sky visible, classed ground / elevated / covered / canopy); 5 seeded draws (`sample_survivors.py`) with the video's class mix (6 ground, 1 elevated, 4 covered) | `disaster_city_v1..v5.usda` = the empty scene + `people_v<k>.usd`, each posed body checked against the scene (`verify_people.py`); `ground_truth.json` per variant; the packaged folder's `manifest.json` is DisasterWorld's (variants 1-5 generated, 6 the video) |
 | Props (`specs/props.yaml`, S08, S09, D01) | S10 water tower (library asset); S08 canopy, S09 tent pavilion, D01 roll-off dumpster (specs) | Measured off the tiles / ortho; D01 and S09 as the video shows them |
 | Everything else raised (`site/tiles_*`) | Raw tile triangles, classified | Crude: kept so the silhouette is complete |
 
@@ -124,6 +125,13 @@ $PY find_people.py b01 rubble_west                  # people in the video -> dat
 OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh nucleus_mirror.py /Library/Stages/Muyang/People/Assets/rp_carla_rigged_001_ue4.usd ...   # the 6 rigs
 OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh place_people.py             # -> data/recon/people.usd
 $PY gen_lod2.py && for f in data/recon/lod2/*_spec.yaml; do $PY build_hero.py $f; done   # roofed plain buildings; replace their LOD1 boxes
+$PY assemble_scene.py                               # disaster_city.usda, disaster_city_empty.usda (nobody), disaster_city_v<k>.usda
+# survivor variants: verified candidates on the people-free scene, seeded draws, posed and checked
+OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh scene_mesh.py               # empty scene's triangles round the search area
+$PY survivor_candidates.py                           # -> data/recon/survivors/placement_candidates.json (+ the video's class mix)
+$PY sample_survivors.py 1 2 3 4 5                    # -> survivors/v<k>/survivors.yaml + ground_truth.json (v0 = the video)
+for k in 1 2 3 4 5; do OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh place_people.py survivors/v$k/survivors.yaml people_v$k.usd; done
+$PY verify_people.py 0 1 2 3 4 5                     # posed bodies vs the scene; rejects -> redraw (sample, place, verify) until clear
 $PY assemble_scene.py
 $PY ground_texture.py && $PY ground_texture.py --season autumn && $PY autumn.py     # the video-look variant: disaster_city_autumn.usda
 # 4. check and ship
@@ -145,6 +153,7 @@ OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh gallery.py <out_dir>        # spec
 $PY georef.py --write                                                 # WGS84 sidecars + stage metadata
 OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh overview.py <out_dir>       # top-down site: render, geofence, semantic segmentation
 OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh package.py --scene summer --zip        # data/dist/disaster_city_summer{/,.zip} (Kit USD); --scene autumn likewise
+OMNI_KIT_ACCEPT_EULA=YES ~/isaacsim/python.sh package.py --scene all --zip           # every root + survivors/ + DisasterWorld manifest -> data/dist/disaster_city{/,.zip}
 ```
 
 `place_assets.py` reads local copies of assets under `data/recon/assets/`, taken

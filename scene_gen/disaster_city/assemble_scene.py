@@ -1,4 +1,8 @@
-"""Compose everything built so far into one stage: data/recon/disaster_city.usda.
+"""Compose everything built so far into the scene and its survivor variants (data/recon/):
+
+  disaster_city.usda        the survivors seen in the video (people.usd, specs/survivors.yaml)
+  disaster_city_empty.usda  the same scene with nobody in it (survivor generation samples on it)
+  disaster_city_v<k>.usda   one per generated people_v<k>.usd (sample_survivors.py, place_people.py)
 
     ~/.venvs/recon/bin/python assemble_scene.py
 
@@ -9,7 +13,7 @@ References (world coordinates throughout, Z-up, metres):
   /World/site        data/recon/site_ground.usd (ground.py: terrain + classified tile surface)
   /World/trees, /World/vehicles  place_assets.py (tile canopy switched off when trees exist)
   /World/lod2/<ID>   data/recon/lod2/<ID>.usd (gen_lod2.py), in place of that building's LOD1 box
-  /World/people      place_people.py: the survivors seen in the video (specs/survivors.yaml)
+  /World/people      place_people.py: the variant's survivors (absent from the empty scene)
 Add new pieces to PIECES; a hero's ID deactivates its LOD1 box.
 """
 from pathlib import Path
@@ -18,34 +22,46 @@ from _paths import R
 
 PIECES = {"R01": "rubble_west/R01_assets.usd", "B01": "b01/B01.usd", "R02": "rubble_east/R02_assets.usd", "S01": "s01/S01.usd", "B03": "b03/B03.usd", "PAD": "pad/PAD.usd", "B06": "b06/B06.usd", "S08": "s08/S08.usd", "B35": "b35/B35.usd", "D01": "d01/D01.usd", "S09": "s09/S09.usd", "D02": "d02/D02.usd"}
 
-stage = Usd.Stage.CreateNew(str(R / "disaster_city.usda"))
-UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z); UsdGeom.SetStageMetersPerUnit(stage, 1.0)
-from georef import stamp; stamp(stage)                     # WGS84: the scene is an ENU frame (georef.py)
-world = UsdGeom.Xform.Define(stage, "/World"); stage.SetDefaultPrim(world.GetPrim())
-if (R / "site_ground.usd").exists(): stage.DefinePrim("/World/site").GetReferences().AddReference("./site_ground.usd")
-for name in ("trees", "vehicles", "debris", "people"):                # place_assets.py; place_people.py
-    if (R / f"{name}.usd").exists(): stage.DefinePrim(f"/World/{name}").GetReferences().AddReference(f"./{name}.usd")
-if (R / "trees.usd").exists():                              # the placed trees replace the tile canopy
-    stage.OverridePrim("/World/site/tiles_vegetation").SetActive(False)
-# the scene carries its own sun + sky: a frozen scene with no sky light renders black on another
-# machine (see .agents/skills/freeze-portable-scenes). The HDR is an Isaac-shipped outdoor probe,
-# copied into data/recon/sky/ so the relative path travels with package.py.
-env = UsdGeom.Xform.Define(stage, "/World/Environment")
-sun = UsdLux.DistantLight.Define(stage, "/World/Environment/sun"); sun.CreateIntensityAttr(3000.0); sun.CreateAngleAttr(0.5)
-UsdGeom.Xformable(sun).AddRotateXYZOp().Set(Gf.Vec3f(35, 0, 150))            # ~55 deg sun elevation from the SSE
-sky = UsdLux.DomeLight.Define(stage, "/World/Environment/sky"); sky.CreateIntensityAttr(1000.0)
-sky.CreateTextureFileAttr(Sdf.AssetPath("./sky/sunflowers.hdr")); sky.CreateTextureFormatAttr(UsdLux.Tokens.latlong)
-lod1 = stage.DefinePrim("/World/lod1"); lod1.GetReferences().AddReference("./buildings_lod1.usd")
-for p in lod1.GetChildren():
-    if p.GetName().split("_")[0] in PIECES: p.SetActive(False)
-for pid, rel in PIECES.items():
-    if not (R / rel).exists(): print(f"missing {rel}"); continue
-    stage.DefinePrim(f"/World/{pid}").GetReferences().AddReference(f"./{rel}")
+
+
+def compose(name: str, people: str | None):
+    stage = Usd.Stage.CreateNew(str(R / name))
+    UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z); UsdGeom.SetStageMetersPerUnit(stage, 1.0)
+    stamp(stage)                                             # WGS84: the scene is an ENU frame (georef.py)
+    world = UsdGeom.Xform.Define(stage, "/World"); stage.SetDefaultPrim(world.GetPrim())
+    if (R / "site_ground.usd").exists(): stage.DefinePrim("/World/site").GetReferences().AddReference("./site_ground.usd")
+    for name_, layer in (("trees", "trees.usd"), ("vehicles", "vehicles.usd"), ("debris", "debris.usd"), ("people", people)):
+        if layer and (R / layer).exists(): stage.DefinePrim(f"/World/{name_}").GetReferences().AddReference(f"./{layer}")
+    if (R / "trees.usd").exists():                          # the placed trees replace the tile canopy
+        stage.OverridePrim("/World/site/tiles_vegetation").SetActive(False)
+    # the scene carries its own sun + sky: a frozen scene with no sky light renders black on another
+    # machine (see .agents/skills/freeze-portable-scenes). The HDR is an Isaac-shipped outdoor probe,
+    # copied into data/recon/sky/ so the relative path travels with package.py.
+    UsdGeom.Xform.Define(stage, "/World/Environment")
+    sun = UsdLux.DistantLight.Define(stage, "/World/Environment/sun"); sun.CreateIntensityAttr(3000.0); sun.CreateAngleAttr(0.5)
+    UsdGeom.Xformable(sun).AddRotateXYZOp().Set(Gf.Vec3f(35, 0, 150))            # ~55 deg sun elevation from the SSE
+    sky = UsdLux.DomeLight.Define(stage, "/World/Environment/sky"); sky.CreateIntensityAttr(1000.0)
+    sky.CreateTextureFileAttr(Sdf.AssetPath("./sky/sunflowers.hdr")); sky.CreateTextureFormatAttr(UsdLux.Tokens.latlong)
+    lod1 = stage.DefinePrim("/World/lod1"); lod1.GetReferences().AddReference("./buildings_lod1.usd")
+    for p in lod1.GetChildren():
+        if p.GetName().split("_")[0] in PIECES: p.SetActive(False)
+    for pid, rel in PIECES.items():
+        if not (R / rel).exists(): print(f"missing {rel}"); continue
+        stage.DefinePrim(f"/World/{pid}").GetReferences().AddReference(f"./{rel}")
+    for bid in LOD2: stage.DefinePrim(f"/World/lod2/{bid}").GetReferences().AddReference(f"./lod2/{bid}.usd")
+    for p in lod1.GetChildren():
+        if p.GetName().split("_")[0] in LOD2: p.SetActive(False)
+    stage.Save()
+    return sum(p.IsActive() for p in lod1.GetChildren())
+
+
+from georef import stamp                                     # noqa: E402
 LOD2 = sorted(f.stem for f in (R / "lod2").glob("*.usd") if f.stem not in PIECES)   # gen_lod2.py: roofs, eaves, openings
-for bid in LOD2: stage.DefinePrim(f"/World/lod2/{bid}").GetReferences().AddReference(f"./lod2/{bid}.usd")
-for p in lod1.GetChildren():
-    if p.GetName().split("_")[0] in LOD2: p.SetActive(False)
-stage.Save()
+n_lod1 = compose("disaster_city.usda", "people.usd")
+compose("disaster_city_empty.usda", None)
+VARIANTS = sorted(R.glob("people_v*.usd"))
+for f in VARIANTS:
+    compose(f"disaster_city_{f.stem.split('_')[1]}.usda", f.name)
 
 # the BEFORE scene for comparisons: the raw Google tiles (tiles_extract.py disc, r 400 m round the
 # site), no grafts, same sun + sky -- so a render of each from the same camera shows what the
@@ -59,4 +75,5 @@ if (R / "raw_tiles/tiles_site.usd").exists():
     raw.DefinePrim("/World/Environment").GetReferences().AddReference("./disaster_city.usda", "/World/Environment")
     raw.Save()
     print(f"wrote {R / 'disaster_city_raw_tiles.usda'} (before scene)")
-print(f"wrote {R / 'disaster_city.usda'}: {len(PIECES)} pieces + {len(LOD2)} LOD2 buildings + {sum(p.IsActive() for p in lod1.GetChildren())} LOD1 boxes")
+print(f"wrote {R / 'disaster_city.usda'}: {len(PIECES)} pieces + {len(LOD2)} LOD2 buildings + {n_lod1} LOD1 boxes; "
+      f"disaster_city_empty.usda; {len(VARIANTS)} variant(s)")
