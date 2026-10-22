@@ -203,3 +203,12 @@ exact decoded frame duplication. The0.0085m VO vs0.261m SLAM discrepancy remains
 but network-alone visible-motion suppression is unsupported. Reference/timing/
 depth/calibration causes unresolved; no tuning. Exact bag interval
 2025-10-27 22:13:40.207–22:13:42.107 EDT.7 tests/222 source hashes pass.
+
+[EXP-028](experiments/EXP-028-reference-timing.md) finds no indexed timestamp
+or SLAM-export mismatch on the fixed windows. Late-night filtered odometry
+reports0.0161m displacement versus SLAM vehicle0.2608m, with zero mux/teleop
+commands; its upstream sensors, independence and accuracy remain unconfirmed.
+A55-case fixed reference-time sweep retains the late-night discrepancy; no
+offset is fitted or adopted.11 tests/402 hashes and independent checks pass.
+Keep MSA and all VO defaults; resolve reference provenance before using this
+window as a physical pose-error or fusion-calibration target.

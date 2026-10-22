@@ -942,3 +942,23 @@ exact decoded frame duplication. The0.0085m VO vs0.261m SLAM discrepancy remains
 but network-alone visible-motion suppression is unsupported. Reference/timing/
 depth/calibration causes unresolved; no tuning. Exact bag interval
 2025-10-27 22:13:40.207–22:13:42.107 EDT.7 tests/222 source hashes pass.
+
+## EXP-028: Reference/timestamp audit (2026-10-21)
+
+[EXP-028](experiments/EXP-028-reference-timing.md) checks the same five windows
+without inference. All120 night raw/processed acquisition joins pass;1,952
+binding-grid SLAM samples and1,916 supported TF samples reproduce the source-rate
+series. All55 prescribed window/offset cases are retained without fitting; late-night
+LK–SLAM/depth disagreement remains. Auxiliary `/odometry/filtered_odom` reports
+0.0161m net displacement at gps_frame versus SLAM vehicle0.2608m over the exact
+late interval; median supplied speeds0.0097 vs0.1030m/s. All57 mux and38 teleop
+command samples are zero, while auto requests remain nonzero. These are distinct
+frames/streams, not independent GT or a verified standstill.52 selected ZIP
+metadata members pass CRC/SHA;11 tests and402 frozen hashes pass; independent
+controls check1,045 pair/offset cases and882,684 projection/Sampson scores each.
+No VO/settings/corrections changed. Source question: vehicle stopped/creeping
+at2025-10-27 22:13:40.207–22:13:42.107 EDT; filtered-odom generator/sensors/SLAM
+inputs, timing/quality/covariance and gps_frame extrinsic. Box recovery
+`backups/2026-10-21-exp-028` requires prior EXP-023/026/027 context. Do not label
+late-night thermal-network failure or calibrate fusion against an unvalidated
+physical error target. MSA remains the experimental thermal baseline.

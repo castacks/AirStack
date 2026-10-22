@@ -1,5 +1,21 @@
 # OSMO + Box staging
 
+## Fixed-window reference and timing audit (EXP-028)
+
+Restore EXP-023/026/027 context and the selected EXP-028 metadata/upstream
+snapshot. In the CPU geometry image with ore-ms mounted at `/workspace`:
+
+```bash
+python -m Scripts.Setup.td3_reference_timing prepare --output /workspace/results/reference-timing/new-run
+python -m Scripts.Setup.td3_reference_timing run --output /workspace/results/reference-timing/new-run
+```
+
+Prepare refuses an existing output directory and freezes all inputs. Run retains
+all five original windows and eleven fixed reference-time offsets, with no
+fitting or extrapolation. Source/export/TF consistency and auxiliary motion
+context are not independent ground truth. See
+[EXP-028](../../../experiments/EXP-028-reference-timing.md) for results and limits.
+
 ## Thermal calibration reconciliation
 
 EXP-020 preserves original inputs and exports experimental candidates with

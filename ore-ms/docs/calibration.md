@@ -1,6 +1,11 @@
 # Supplied calibration and archived transform comparison
 
-Latest: [EXP-021](../experiments/EXP-021-msa-calibration-audit.md) examines the
+Latest: [EXP-028](../experiments/EXP-028-reference-timing.md) checks reference
+consistency and supplied auxiliary motion during the late-night discrepancy.
+No calibration or VO default changes; independent reference provenance remains
+unconfirmed.
+
+Calibration source follow-up: [EXP-021](../experiments/EXP-021-msa-calibration-audit.md) examines the
 user-supplied January2025 MSA calibration. Its equidistant thermal model and
 source extrinsics pass all24 fixed image checks without fitting. This is a
 credible candidate for separate raw-image replay; October applicability,
@@ -158,3 +163,15 @@ exact decoded frame duplication. The0.0085m VO vs0.261m SLAM discrepancy remains
 but network-alone visible-motion suppression is unsupported. Reference/timing/
 depth/calibration causes unresolved; no tuning. Exact bag interval
 2025-10-27 22:13:40.207–22:13:42.107 EDT.7 tests/222 source hashes pass.
+## EXP-028: Reference disagreement during late-night low image motion
+
+The fixed-window [reference/timing audit](../experiments/EXP-028-reference-timing.md)
+finds exact acquisition joins and numerically consistent SLAM source/export/TF
+data. Predefined reference-time shifts do not eliminate the late-night image
+projection discrepancy. The available filtered-odometry stream reports0.0161m
+displacement at its gps_frame origin versus SLAM vehicle0.2608m, and recorded
+mux/teleop requests are zero. Different sensor origins, unknown estimator inputs,
+quality and timing prevent treating this as independent ground truth or a
+validated standstill. No body/stereo calibration, timing offset, depth scale,
+weight or VO default is changed. Resolve source provenance for the exact
+2025-10-27 22:13:40.207–22:13:42.107 EDT interval before physical error claims.
