@@ -126,3 +126,8 @@ rotation error in all3. Source camera metadata matches;120 old thermal replays
 exact. GNSS-labelled data are present, but public converter maps their name
 to `/odometry/filtered_odom`; upstream sensor/fusion/accuracy/timing provenance
 requires confirmation. Keep SLAM-proxy interpretation and unchanged defaults.
+
+
+[EXP-031](experiments/EXP-031-new-night-validation.md) stages the new `night_mac_salon_warehousefig8`:1,500 paired groups, no overlap with three prior recordings. Three fixed first-eligible20-frame windows,751 prepared hashes. All three MSA-thermal attempts and early RGB complete without interpolation; middle/late RGB retain0 matches and fail, with0 independent LK support. Preserve failures and unavailable errors. Thermal median spatial angular uncertainty/disagreement rho0.005/−0.223/0.529; operational availability differs from calibrated reliability.24 tests,600 identical image decodes,798 scalar/finite-difference checks,114 pairs/160,056 points and267 analysis hashes pass; prior729/402/97 hashes unchanged. Rebuilt GPU image f429af4afa23 has recorded transitive version differences; CPU analysis unchanged. Keep defaults/provisional calibration/reference gates. No more upload needed now: unused intervals of this archive suffice for a next bounded study. Box recovery `backups/2026-10-22-exp-031`.
+
+User preference: explicitly flag when additional data would materially strengthen a study, and name the recording or conditions needed. Check existing/Box coverage before asking for an upload.
