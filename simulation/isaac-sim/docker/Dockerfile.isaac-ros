@@ -104,10 +104,13 @@ RUN mkdir -p /isaac-sim/.local/share/ov/pkg/ && \
 
 
 # install python packages
+# numpy<2: Isaac Sim 5.1's bundled extensions are built against numpy 1.x; an
+# unpinned numpy (2.x) breaks the ROS2 camera writers ("Unable to write from
+# unknown dtype") so no camera topics are published.
 RUN /isaac-sim/python.sh -m pip install --no-cache-dir --upgrade pip && \
     /isaac-sim/python.sh -m pip install --no-cache-dir git+https://github.com/dronekit/dronekit-python#egg=dronekit && \
     /isaac-sim/python.sh -m pip install --no-cache-dir PyYAML mavproxy tmuxp scipy \
-    kconfiglib jinja2 empy==3.3.4 jsonschema pyros-genmsg packaging toml numpy future
+    kconfiglib jinja2 empy==3.3.4 jsonschema pyros-genmsg packaging toml "numpy<2" future
 
 ARG isaac_dir_name="IsaacSim-ros_workspaces-IsaacSim-${ISAAC_VERSION}"
 # Install Isaac Sim ROS2 workspace so that we can run the isaacsim ROS package
