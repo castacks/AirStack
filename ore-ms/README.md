@@ -249,3 +249,9 @@ redcourse-waypointskip1 has a brief illuminated late candidate (10.56% median
 LK support), requiring sustained-support and timing checks before VO. The
 source-image screen includes569 selected images and456 pairs; no inference,
 calibration or weighting change. No further upload is needed for this candidate.
+
+[EXP-037](experiments/EXP-037-redcourse-lit-interval.md) extends that redcourse
+candidate by100 RGB acquisitions on each side. Only6/1800 tracks survive the
+original20-frame interval; a short preceding block retains74. Current stereo/
+cross-modal timing gates yield no continuous paired window. No learned VO was
+run; temporal pairing needs separate justification before a numerical comparison.

@@ -1081,3 +1081,22 @@ pairing checks around redcourse's illuminated interval before seeking a public
 fallback. Outcome-selected follow-up is exploratory, not independent evaluation.
 No additional upload needed for that candidate. Full plans, images, masks,
 source/logs and validation preserved at Box target backups/2026-10-22-exp-036.
+
+## EXP-037: Redcourse illuminated-interval persistence (2026-10-22)
+
+[EXP-037](experiments/EXP-037-redcourse-lit-interval.md) expands fixed redcourse
+RGB4173–4192 by100 acquisitions each side:220frames/21.9s,874 unique images
+including both stereo views/nearby thermal. Original190 RGB arrays reproduce
+exactly;1088 previous hashes unchanged. RGB-left adjacent median support
+before/original/after5.78/10.56/4.22%, but only6/1800 identities survive original
+20frames (0 initially textured). Precursor4153–4172 is stronger:74/1800 survive,
+43 initially textured; retain as exploratory candidate, not sustained VO proof.
+Thermal original20 retains308/1008. Three nearest thermal frame reuses are
+explicitly removed from tracking. Joint2ms stereo/30ms cross timing admits
+16/220rows;50ms cross sensitivity admits84, both longest continuous unique
+run1frame. Median cross offset−40.819ms; no correction/threshold adoption.
+150ms thermal-boundary excesses are only95–96ns, not major dropout claims.
+2984570 computational checks pass; no learned inference or calibration/weights/
+pose/default changes. Current limits yield no continuous paired window; justify
+pairing separately before learned comparisons, or use a synchronized public-data
+alternative. Recovery target backups/2026-10-22-exp-037; no new upload needed.
