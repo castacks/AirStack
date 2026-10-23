@@ -845,3 +845,13 @@ files named rgb_left/right and thr_left/right with `.txt` suffix. CPU NumPy only
 no timestamp correction or input re-pairing. EXP042 preserves the scalar validator,
 source-backed interpretation and20-ID MAC input manifest. Physical exposure
 semantics remain unverified.
+
+MS² adapter: explicitly import `MS2ManifestSequence, THERMAL_RECIPE` from
+`DataLoader.Dataset.MS2` and supply the EXP042 source-protocol manifest/root.
+Raw thermal access preservesuint16;thermal model frames require the named audited
+recipe. Both camera times survive clip/collate/resize. Use `depth(index,variant)`
+for explicit meters/mask labels;gt_pose/gt_depth remain unset. EXP043 records
+realCPU replay on80 source images and120depth maps. Run
+`python -m pytest Scripts/UnitTest/test_ms2_adapter.py -q` in the project runtime;
+artifact full-pilot validator compares against original archived producer bodies.
+No checkpoint/GPU needed;exact released-training preprocessing is unverified.

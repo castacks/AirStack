@@ -293,3 +293,12 @@ times;constant clock shifts and fixed±1-index shifts cannot satisfy the inherit
 20-ID source-input manifest preserves all four times and raw pixels. Generic
 loader would collapse619 thermal levels to5 and fabricate timestamps; implement
 MS²-specific/model-compatible input handling next. Box2026-10-23-exp-042.
+
+[EXP-043](experiments/EXP-043-ms2-mac-adapter.md) implements a real MS² MAC
+sequence adapter. Rawuint16 thermal and both recorded camera times are retained;
+model frames require an explicit audited percentile/CLAHE/bilateral recipe.
+All80 source images and120 depth maps pass independent full-array checks;
+14 tests/1087 controls pass with real CPU Torch/PyPose. Clip,batch and resize
+preserve metadata;reference labels remain explicit. No model inference,timing
+correction or default changes. Checkpoint training preprocessing remains
+unconfirmed. Box `backups/2026-10-23-exp-043`.

@@ -1181,3 +1181,19 @@ preprocessing. Publishedsourceprotocol permits labelled preliminary diagnostics,
 not physical same-time calibration claims. Authorquestion drafted in EXP042,not
 sent. Box2026-10-23-exp-042 preserves sources/timestamps/manifest;restoreEXP041
 for referenced pilot pixels/poses/depth. No newmodels/inference/training.
+
+2026-10-23 — EXP043:MS2ManifestSequence adapter implemented/tested on fixed20IDs.
+Direct import DataLoader.Dataset.MS2;no globalregistration/defaultchange. Native
+uint16 raw_pair access;thermalmodel frames require explicit
+THERMAL_RECIPE=td3-firestereo-v2-clahe-bilateral-v1,exact archivedproducer replay
+with1/99orderstatistics,CLAHE2/8×8,bilateral5/20/15. Rawcopiesnotmutated;no repeat
+rectification of MS² pixels. Thesis recipe evidence/sourceSHA reconfirmed,but
+releasedcheckpointtrainingrecipe/split unverified. Bothcamera integerns retained
+via MS2StereoData.right_time_ns;frame time usesexactleft time,not same-timeclaim.
+Source-ID clip/collate/resize metadata pass;depthvariants explicit meter/maskAPI;
+no inferredgt_pose or auto-selectedgt_depth.14tests+1087 independentcontrols,
+80images/120depthmaps/205frozenhashes pass with realCPU Torch2.9.1,PyPose0.7.3,
+NP2.2.6,CV4.10. Pytestfirstfailedmissingplugin,thenpassedwithupstreamwarnings.
+No GPU/models/inference/default/calibration/timestampchanges. Full bounded replay
+preserved Box2026-10-23-exp-043. Next:bounded originalfrontend execution smoke
+check;that doesnotresolve physicaltimestamp/ref/trainingprovenance.
