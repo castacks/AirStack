@@ -269,3 +269,9 @@ rules on57 saved pairs from the different1_salon_mac_cov_day capture. Both
 angular rules selectRGB throughout;all matching-disagreement targets also favor
 RGB,so they equal the fixed baseline without testing successful thermal switches.
 Ratio association changes sign across recordings. No inference/training/tuning.
+
+[EXP-040](experiments/EXP-040-public-data-audit.md) audits public paired-data
+access and independent reference suitability. MS² is preferred; user-supplied scripts now verify access. STheReO calibration/poses are preserved, but images hit Drive quota;
+reference gaps reach7.4s and thermal baseline conventions need review. TartanRGBT's
+MACVO poses cannot independently validate MAC. 2,753 STheReO and222,538 MS² schema/hash controls pass;22 source rotations flagged;
+no model run or dataset-readiness claim. Box `backups/2026-10-23-exp-040`.

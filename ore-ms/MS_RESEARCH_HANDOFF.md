@@ -1142,3 +1142,13 @@ network-training-held-out. Matching disagreement remains a proxy,not physical
 accuracy or full3D/pose covariance. Need relative-error variation while both
 cameras remain observable and a stronger error target. Recovery target
 backups/2026-10-22-exp-039;all prepared CPU inputs preserved,no models/GPU needed.
+
+2026-10-23 — EXP040 public-data audit: MS² user-supplied download scripts verified.
+Pinned official loader flags uint16 thermal, mm calibration translation, depth/256
+and network-filtered depth provenance; actual pose schema must be inspected.
+Fixed pilot candidates: first lexical official test sequence per day/night/rain.
+STheReO Valley Evening metadata downloaded; pose gaps max7.4s, thermal projected
+vs raw baseline differs0.564%; no fixes or camera-pose conversion made. Images
+return Drive quota-exceeded HTML; bounded scout failed safely. TartanRGBT raw
+MACVO poses are circular as independent MAC labels. 2753 STheReO plus222538 MS² schema/hash controls pass;22 source rotations flagged;
+no inference/training/fusion. See EXP040 and backup2026-10-23-exp-040.

@@ -825,3 +825,9 @@ arrays. Restore the prepared input archive and follow its metadata restoration
 map before replay;use a fresh prepared copy without a derived-rgb folder. This
 runs CPU NumPy/OpenCV,without checkpoints or new inference. Per-recording class
 imbalance and proxy-target limitations remain explicit.
+
+`audit_public_stereo_metadata.py --directory <STheReO-metadata> --output <json>`
+parses public camera YAML/extrinsics and local/global pose CSVs without inference
+or fitting. Restore EXP-040's extracted calibration/pose files first. It reports
+projection/extrinsic baseline differences and sparse reference gaps; it does not
+resolve frame conventions or certify dataset readiness. CPU NumPy required.
