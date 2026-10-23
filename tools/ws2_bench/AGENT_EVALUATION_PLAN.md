@@ -1,7 +1,31 @@
-# Proposed evaluation and publication direction — not yet executed
+# Evaluation and publication direction
 
-Updated 2026-10-14. The user will review this proposal before the next policy
-comparison. Current sensor validation is not evidence that an agent beats search.
+Current priority (2026-10-22): the first12 functional flights and12 additional
+PULP development flights completed without mission failures. The matched PULP
+pilot now uses two held-out seeds × Random/Search/Astra × eight new pairs,
+at most96 reserved flights. The first six pairs measure failure discovery and
+same-setting/same-outcome confirmation; the last two test a frozen conditional
+outcome prediction through a common reporter. Source, weights, runtime identity,
+priors, model/effort and execution order are frozen before outcomes. Exact pilot
+protocol is saved in `campaigns/matched_selection_pilot_20261022_r2/protocol.json`.
+The first attempt stopped before takeoff because disabled patch geometry was
+validated against an unused small surface. Its startup failure and source snapshot
+remain in `matched_selection_pilot_20261022`; r2 fixes that initialization only
+and checks that seeds, draws, order, priors and budgets are unchanged.
+This small pilot cannot establish general superiority or root-cause accuracy.
+Future comparisons across targets still require the same effective space,
+evidence, prior information and budget. Historical narrower-space results are
+development references, not matched controls. Preserve every result even when
+the LLM loses. Defense implementation/effect validation follows attack/agent
+evaluation. These two deferred tasks must remain in future-work updates.
+
+The October18–19 comparison is recorded separately in
+CORRIDOR_AGENT_VALIDATION.md. The older proposal below is research rationale,
+not the current run budget. October22 authorizes an initial12-flight functional
+batch followed by autonomous development and additional experiments.
+
+Original proposal: 2026-10-14. Sensor validation alone is not evidence that an
+agent beats search.
 
 The fixed ten-flight study now found Kim noise32 collisions in two matched
 pairs, and one delay0.5 progress failure; MonoNav passed both tested factors.

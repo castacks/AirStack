@@ -21,7 +21,7 @@ def workflow_evidence(history):
             try:experiments.validate(e,a,history[:i],key)
             except ValueError as exc:invalid.append(dict(round=d['round'],error=str(exc)));continue
             counts[e['kind']]+=1
-        valid=p['clean']['outcome'] in SUCCESSES and p['perturbed']['outcome'] not in EXCLUDED
+        valid=experiments.attack_evidence_eligible(a,p)
         if not valid:continue
         failed=p['perturbed']['outcome'] not in SUCCESSES
         if failed and experiments.active(a):
@@ -48,7 +48,7 @@ def workflow_evidence(history):
     # Count information in the measured designs, regardless of the policy's
     # declared purpose. Repeating an isolation does not create a new contrast.
     contrasts={}
-    valid=[r for r in history if r['pairs'][0]['clean']['outcome'] in SUCCESSES and r['pairs'][0]['perturbed']['outcome'] not in EXCLUDED]
+    valid=[r for r in history if experiments.attack_evidence_eligible(r['decision']['action'],r['pairs'][0])]
     for source in valid:
         base=source['decision']['action']
         if len(experiments.active(base))<2 or source['pairs'][0]['perturbed']['outcome'] in SUCCESSES:continue

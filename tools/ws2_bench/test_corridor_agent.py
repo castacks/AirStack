@@ -57,6 +57,10 @@ def test_baselines_get_valid_repeat_isolation_and_threshold():
 
 
 def test_corridor_agent_full_chain_uses_existing_runner(tmp_path,monkeypatch):
+    # Historical v1 fixture predates measured sensor exposure. Current canonical
+    # exposure/consumption and versioned planning have separate integration tests.
+    import campaign_versions
+    monkeypatch.setattr(campaign_versions,'apply',lambda config,previous=None,**kw:config)
     monkeypatch.setattr(agent_campaign,'RUNTIME',tmp_path)
     combined=dict(reference_action(),rgb_noise_stddev=24.,delay_s=.4)
     single=dict(combined,delay_s=0.);threshold=dict(single,rgb_noise_stddev=12.)

@@ -7,6 +7,7 @@ available to the model; it returns validated data to the existing bench runner.
 from __future__ import annotations
 
 import hashlib
+import base64
 import json
 import math
 import os
@@ -65,6 +66,8 @@ def proposal_schema(context):
 
 class ClaudeSubscriptionProvider:
     chooses_action = True
+    supports_images = True
+    supports_experiment_planning = True
 
     def __init__(self, audit_dir=None, model=None, timeout_s=None):
         self.executable = shutil.which("claude")
@@ -104,11 +107,30 @@ class ClaudeSubscriptionProvider:
             raise RuntimeError("A Claude subscription login is required, not an API key/provider")
         return {k: status[k] for k in ("loggedIn", "authMethod", "apiProvider", "subscriptionType") if k in status}
 
-    def complete(self, purpose, system, payload, schema, validate):
+    def complete(self, purpose, system, payload, schema, validate, images=None):
         self.check_auth()
+        image_blocks = []
+        image_records = []
+        if images and len(images) > 6:
+            raise ValueError('At most six evidence images per call')
+        total_bytes = 0
+        for name in images or []:
+            path = Path(name).resolve()
+            data = path.read_bytes()
+            total_bytes += len(data)
+            if len(data) > 5_000_000 or total_bytes > 20_000_000:
+                raise ValueError('Evidence images exceed the bounded input size')
+            media = 'image/png' if data.startswith(b'\x89PNG\r\n\x1a\n') else 'image/jpeg' if data.startswith(b'\xff\xd8\xff') else None
+            if media is None:
+                raise ValueError('Evidence must be a PNG or JPEG image')
+            image_blocks.append({'type': 'image', 'source': {'type': 'base64', 'media_type': media,
+                                 'data': base64.b64encode(data).decode('ascii')}})
+            image_records.append({'path': str(path), 'sha256': hashlib.sha256(data).hexdigest(), 'bytes': len(data)})
         call_id = purpose + "_" + uuid.uuid4().hex[:12]
         self.last_call_id = call_id
         request = {"purpose": purpose, "system": system, "input": payload, "schema": schema}
+        if image_records:
+            request['images'] = image_records
         record = {"call_id": call_id, **self.metadata(), "request": request,
                   "request_sha256": digest(request), "attempts": []}
         audit_path = self.audit_dir / (call_id + ".json") if self.audit_dir else None
@@ -123,6 +145,12 @@ class ClaudeSubscriptionProvider:
                        "--json-schema", json.dumps(schema), "--system-prompt", system,
                        "--tools", "", "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',
                        "--safe-mode", "--no-session-persistence", "--permission-mode", "dontAsk"]
+            if image_blocks:
+                command[command.index('--output-format') + 1] = 'stream-json'
+                command += ['--input-format', 'stream-json', '--verbose']
+                prompt = json.dumps({'type': 'user', 'message': {'role': 'user', 'content':
+                                     [{'type': 'text', 'text': prompt}, *image_blocks]},
+                                     'parent_tool_use_id': None}) + '\n'
             started = time.monotonic()
             try:
                 # An empty working directory prevents unrelated project context.
@@ -136,7 +164,11 @@ class ClaudeSubscriptionProvider:
                 record.update(status="provider_error", exit_code=result.returncode); save()
                 raise RuntimeError(f"Claude exited {result.returncode}; check login and plan usage limits")
             try:
-                envelope = json.loads(result.stdout)
+                if image_blocks:
+                    messages = [json.loads(line) for line in result.stdout.splitlines() if line.strip()]
+                    envelope = next((m for m in reversed(messages) if m.get('type') == 'result'), {})
+                else:
+                    envelope = json.loads(result.stdout)
                 if envelope.get("is_error") or envelope.get("subtype") != "success":
                     raise ValueError("Claude did not complete a successful structured response")
                 raw = envelope.get("structured_output")

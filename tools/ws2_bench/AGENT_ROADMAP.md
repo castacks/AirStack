@@ -1,5 +1,41 @@
 # WS2 agent: completed work and next steps
 
+## Current priority — October22
+
+1. Complete the LLM development loop: trusted visual evidence requests,
+   simulation-time noise/delay windows, feasible obstacle dimensions/positions,
+   falsifiable hypotheses, budget allocation and feedback after every pair.
+   Claude and Codex are selectable; this development campaign uses official
+   subscription `codex exec`, `gpt-6-astra`, effort `high`.
+2. The first **12 total flights** across MonoNav, Kim and PULP and a second
+   **12-flight PULP development batch** completed. All completed the route;
+   there is no demonstrated failure/advantage yet. The user authorizes continued
+   analysis, improvements and further development
+   experiments without another confirmation. Save all failures and negative
+   results; development tuning is not a held-out superiority result.
+   The next matched PULP pilot is running: two seeds × Random/Search/Astra ×
+   eight pairs, at most96 reserved flights. Six pairs measure discovery and
+   confirmation; two prospective diagnostic pairs are scored separately.
+   The r2 run preserves the first attempt's preflight initialization failure;
+   no performance flight preceded the fix, and comparison conditions are unchanged.
+3. **Always include in future-work updates:** after the LLM implementation is
+   ready, rerun Random/Search with the **same expanded action space, prior
+   information, flight budget, pairing and scoring**. The old105-flight pilot
+   cannot serve as a matched baseline for the larger action space. Improve the
+   search baseline so shared follow-ups do not consume all its search budget.
+4. **Always include in future-work updates:** defense implementation and effect/
+   side-effect validation are deferred until the attack framework and agent
+   benefit evaluation. Existing proposals remain unvalidated.
+
+Weekly Codex quota is read through the official account interface. At <=1%
+remaining, send Mason three Slack alerts and stop new bench LLM calls. Unknown
+quota blocks new calls too; never silently switch to paid API authentication.
+The independent watcher also observes account usage while this coding session
+works. A30-second poll cannot guarantee noticing exactly1% before a large call
+crosses the threshold; it alerts on the first reported value at or below1%.
+Actual runtime evidence belongs in a new campaign directory, never in the old
+pilot's immutable source/results snapshot.
+
 ## Project objective
 
 Build a general agent-driven test bench for learning-based UAV obstacle-avoidance

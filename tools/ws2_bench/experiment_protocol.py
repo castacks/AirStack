@@ -32,6 +32,25 @@ def disable(a, factor):
         a[FACTORS[factor][0]] = 0.
 
 
+def attack_evidence_eligible(action, pair):
+    """An executed passing control and verified scheduled exposure are needed.
+
+    Legacy studies predate captured-frame exposure fields and remain readable.
+    New v2 trials fail closed when that measurement is missing or invalid.
+    Eligibility supports a comparison, not a claim of attack causality.
+    """
+    if 'factor_exposure' in pair:
+        from factor_exposure import VERSION, assess
+        saved = pair['factor_exposure']
+        return (isinstance(saved, dict) and saved.get('schema') == VERSION
+                and saved.get('eligible') is True and assess(action, pair)['eligible'])
+    if any(pair[role].get('executed') is False for role in ('clean','perturbed')):return False
+    if pair['clean']['outcome'] not in SUCCESSES or pair['perturbed']['outcome'] in EXCLUDED:return False
+    exposure=pair['perturbed'].get('attack_exposure')
+    if exposure is None and action.get('action_space_version')!='corridor_agent_v2':return True
+    return isinstance(exposure,dict) and exposure.get('exposure_verified') is True
+
+
 def validate(experiment, action, history, action_key):
     if not isinstance(experiment, dict) or set(experiment) != {'kind', 'source_round', 'passing_round', 'factor'}:
         raise ValueError('experiment requires kind, source_round, passing_round and factor')
@@ -58,6 +77,8 @@ def validate(experiment, action, history, action_key):
         return experiment
     if pair['clean']['outcome'] not in SUCCESSES or pair['perturbed']['outcome'] in EXCLUDED:
         raise ValueError('Isolation/threshold require an executed pair with a passing clean control')
+    if not attack_evidence_eligible(base,pair):
+        raise ValueError('Isolation/threshold require verified attack exposure in the source pair')
     if kind == 'isolate':
         if passing or len(active(base)) < 2 or factor not in active(base):
             raise ValueError('Isolation retains ONE active factor from a combined pair; passing_round=0')
@@ -83,6 +104,8 @@ def validate(experiment, action, history, action_key):
         passed = rounds[passing]; pp = passed['pairs'][0]
         if any(pp[role]['outcome'] not in SUCCESSES for role in ('clean', 'perturbed')):
             raise ValueError('passing_round must have both flights pass')
+        if not attack_evidence_eligible(passed['decision']['action'],pp):
+            raise ValueError('passing_round requires verified attack exposure')
         pa = copy.deepcopy(passed['decision']['action']); low = pa[key]; pa[key] = base[key]
         if action_key(pa) != action_key(base):
             raise ValueError('Threshold endpoints must differ only in the selected scalar')
@@ -103,6 +126,9 @@ INSTRUCTIONS = (
     'A combined-factor bracket is conditional on the fixed other factors, not a universal single-factor threshold. '
     'Do not assume monotonic failure probability or treat patch size as calibrated strength. '
     'Clean failure is environment/baseline evidence: the attack twin is skipped. Explore another layout or explicitly repeat the baseline. '
+    'For new versioned trials, factor_exposure eligibility requires each active factor to have measured application and observed worker-consumed input evidence; patch visibility is separate. '
+    'For historical scheduled records without factor_exposure, attack_exposure.exposure_verified=true is the legacy eligibility check. '
+    'A flight ending before the planned window, or missing exposure telemetry, cannot establish an attack outcome. '
     'Use compact pre-failure diagnostics to distinguish sensor age, model output and motion observations; do not claim a proven internal cause. '
     'Spend remaining pairs on the most informative follow-up; all repeats/isolation/probes use the same budget. '
     'After the budget, the report may suggest future work but those suggestions are not additional authorized flights.'

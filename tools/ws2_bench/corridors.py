@@ -9,6 +9,8 @@ import math
 
 SHAPES=('elbow','curve','zigzag','u_obstacles')
 TIERS=('easy','medium','hard')
+OBSTACLE_LIMITS={'lateral_m':(-1.65,1.65),'width_m':(.4,1.4),'depth_m':(.4,1.5),
+                 'height_m':(.6,2.8),'yaw_deg':(-60.,60.)}
 
 
 def tier_spec(shape, difficulty='easy'):
@@ -38,8 +40,8 @@ def validate_spec(raw):
     if spec['shape'] not in SHAPES:raise ValueError('unknown corridor shape')
     if spec['style'] not in ('hallway','hallway_black','hallway_daylight','paper_lab','paper_lab_low'):raise ValueError('unknown corridor style')
     version=spec.get('layout_version',1)
-    if type(version) is not int or version not in (1,2,3,4):raise ValueError('Unknown corridor layout version')
-    if version==4:
+    if type(version) is not int or version not in (1,2,3,4,5):raise ValueError('Unknown corridor layout version')
+    if version>=4:
         limits={'easy':(0,2),'medium':(2,4),'hard':(4,7)}
         if spec.get('difficulty') not in limits:raise ValueError('v4 requires difficulty')
         lo,hi=limits[spec['difficulty']]
@@ -47,10 +49,18 @@ def validate_spec(raw):
         if not isinstance(placements,list) or not lo<=len(placements)<=hi or len(placements)!=spec['obstacles']:
             raise ValueError('v4 obstacle count must match placements and difficulty bounds')
         for p in placements:
-            if not isinstance(p,dict) or set(p)!={'route_s','side'} or type(p['side']) is not int or p['side'] not in (-1,1):
-                raise ValueError('Each obstacle requires route_s in metres and side -1 or 1')
+            fields={'route_s','side'} if version==4 else {'route_s',*OBSTACLE_LIMITS}
+            if not isinstance(p,dict) or set(p)!=fields:raise ValueError('Obstacle fields must be '+', '.join(sorted(fields)))
+            if version==4 and (type(p['side']) is not int or p['side'] not in (-1,1)):
+                raise ValueError('Each obstacle requires side -1 or 1')
             if type(p['route_s']) not in (int,float) or not math.isfinite(p['route_s']):raise ValueError('Invalid obstacle route_s')
-    elif 'obstacle_placements' in spec:raise ValueError('Explicit obstacles require layout_version=4')
+            if version==5:
+                for key,(low,high) in OBSTACLE_LIMITS.items():
+                    if type(p[key]) not in (int,float) or not math.isfinite(p[key]) or not low<=p[key]<=high:
+                        raise ValueError(f'{key} must be finite and in [{low}, {high}]')
+        if version==5 and (spec['width']!=4. or spec.get('route_scale')!=2.):
+            raise ValueError('v5 keeps corridor width 4m and route scale 2; only obstacle geometry expands')
+    elif 'obstacle_placements' in spec:raise ValueError('Explicit obstacles require layout_version 4 or 5')
     if 'difficulty' in spec and version<4:
         if spec['difficulty'] not in TIERS:raise ValueError('Unknown corridor difficulty')
         added=2*TIERS.index(spec['difficulty']) if version==1 else {'easy':0,'medium':2,'hard':5}[spec['difficulty']]
@@ -140,6 +150,50 @@ def offset_line(points,offset):
     return result
 
 
+def _box_corners(box):
+    x,y=box['center'][:2];a=box['yaw'];c,s=math.cos(a),math.sin(a)
+    w,d=box['size'][:2]
+    return [(x+c*u-s*v,y+s*u+c*v) for u,v in [(-w/2,-d/2),(w/2,-d/2),(w/2,d/2),(-w/2,d/2)]]
+
+
+def _boxes_overlap(a,b,margin=0.):
+    """Separating-axis test on the actual rotated collision footprints."""
+    for angle in (a['yaw'],a['yaw']+math.pi/2,b['yaw'],b['yaw']+math.pi/2):
+        axis=(math.cos(angle),math.sin(angle))
+        aa=[x*axis[0]+y*axis[1] for x,y in _box_corners(a)]
+        bb=[x*axis[0]+y*axis[1] for x,y in _box_corners(b)]
+        if max(aa)+margin<=min(bb) or max(bb)+margin<=min(aa):return False
+    return True
+
+
+def _point_segment_distance(p,a,b):
+    dx,dy=b[0]-a[0],b[1]-a[1];den=dx*dx+dy*dy
+    f=0. if den==0. else max(0.,min(1.,((p[0]-a[0])*dx+(p[1]-a[1])*dy)/den))
+    return math.dist(p,(a[0]+f*dx,a[1]+f*dy))
+
+
+def _segment_box_distance(a,b,box):
+    """Exact 2-D route-segment distance to a rotated rectangle."""
+    angle=box['yaw'];c,s=math.cos(angle),math.sin(angle)
+    def local(p):
+        dx,dy=p[0]-box['center'][0],p[1]-box['center'][1]
+        return (dx*c+dy*s,-dx*s+dy*c)
+    a,b=local(a),local(b);w,d=box['size'][0]/2,box['size'][1]/2
+    # Slab clipping detects an intersection, including tangency.
+    low,high=0.,1.
+    for j,half in enumerate((w,d)):
+        delta=b[j]-a[j]
+        if abs(delta)<1e-12:
+            if abs(a[j])>half:low,high=1.,0.;break
+        else:
+            t0,t1=sorted(((-half-a[j])/delta,(half-a[j])/delta))
+            low=max(low,t0);high=min(high,t1)
+    if low<=high:return 0.
+    corners=[(-w,-d),(w,-d),(w,d),(-w,d)]
+    return min([math.hypot(max(abs(p[0])-w,0.),max(abs(p[1])-d,0.)) for p in (a,b)]+
+               [_point_segment_distance(p,a,b) for p in corners])
+
+
 def geometry(raw,seed=42):
     spec=validate_spec(raw);points=path(spec['shape'])
     if spec.get('route_scale'):
@@ -210,7 +264,7 @@ def geometry(raw,seed=42):
             if any(not 5.<d<length-5. for d in selected):
                 raise ValueError('v3 tier requires enough route length for interior encounters')
         if len(selected)!=spec['obstacles']:raise ValueError('Tier obstacle count mismatch')
-    if spec.get('layout_version')==4:
+    if spec.get('layout_version') in (4,5):
         selected=[p['route_s'] for p in spec['obstacle_placements']]
         if any(not 4.<=d<=length-4. for d in selected):raise ValueError('Obstacles must be at least 4m from route endpoints')
         if any(abs(a-b)<1.5 for i,a in enumerate(selected) for b in selected[i+1:]):
@@ -221,8 +275,13 @@ def geometry(raw,seed=42):
         depth=spec['width']*.45 if spec['style'].startswith('paper_lab') else 1.0
         height=1.0 if spec['style']=='paper_lab_low' else 1.6 if spec['style']=='paper_lab' else 2.5
         offset=side*(spec['width']/2-depth/2)
+        width=.65;yaw=math.atan2(u[1],u[0])
+        if spec.get('layout_version')==5:
+            placement=spec['obstacle_placements'][i]
+            offset=placement['lateral_m'];width=placement['width_m'];depth=placement['depth_m'];height=placement['height_m']
+            yaw+=math.radians(placement['yaw_deg'])
         obstacles.append(dict(center=[p[0]-u[1]*offset,p[1]+u[0]*offset,height/2],
-                              size=[.65,depth,height],yaw=math.atan2(u[1],u[0]),route_s=d))
+                              size=[width,depth,height],yaw=yaw,route_s=d))
     if spec.get('layout_version')==4:
         # Preserve a continuous nominal-envelope path; this is geometric
         # feasibility, never a guarantee that a target can fly the course.
@@ -238,6 +297,16 @@ def geometry(raw,seed=42):
                 # Bounding circles conservatively prevent block intersections.
                 if math.dist(b['center'][:2],other['center'][:2])<math.hypot(.65,1.)+.1:
                     raise ValueError('Obstacle boxes overlap or are too close')
+    elif spec.get('layout_version')==5:
+        # Continuous segment checks preserve the full nominal route envelope;
+        # exact rotated collision footprints prevent wall/block intersections.
+        for i,b in enumerate(obstacles):
+            if min(_segment_box_distance(a,z,b) for a,z in zip(points,points[1:]))<.7:
+                raise ValueError('Obstacle blocks the protected 0.7m centreline envelope')
+            if any(_boxes_overlap(b,w,.03) for w in walls):
+                raise ValueError('Obstacle intersects a corridor wall or its 3cm margin')
+            if any(_boxes_overlap(b,o,.1) for o in obstacles[i+1:]):
+                raise ValueError('Obstacle boxes overlap or are less than 10cm apart')
     # Closely spaced scoring gates prevent shortcutting corners in evaluation.
     gates=[point_at(points,min(length,d))[0] for d in range(2,math.ceil(length),2)]+[points[-1]]
     data=dict(schema='corridor_v1',spec=spec,seed=seed,route=points,route_length_m=length,

@@ -133,7 +133,9 @@ def apply_condition(raw):
             raise ValueError('corridor geometry changes require a fresh episode')
         dome.GetIntensityAttr().Set(c['light']);fill.GetIntensityAttr().Set(c['light']*2.)
         corridor_scene.illumination(c['light'])
-        if corridor_scene.data['obstacles']:
+        # A disabled patch without a mount has no surface geometry to validate.
+        # Explicit mounts are retained for clean/attack scene evidence matching.
+        if corridor_scene.data['obstacles'] and (c['patch_enabled'] or 'patch_mount' in c):
             quad.GetPointsAttr().Set(corridor_scene.patch_corners(c['patch_size'],c.get('patch_mount')))
         (UsdGeom.Imageable(quad).MakeVisible if c['patch_enabled'] else UsdGeom.Imageable(quad).MakeInvisible)()
         condition=c

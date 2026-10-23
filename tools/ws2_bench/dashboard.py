@@ -36,13 +36,13 @@ def adaptive_command(payload,output):
     distance=payload.get('goal_distance',8)
     if policy not in ('random','search','agent_search'):raise ValueError('Invalid adaptive policy')
     provider=payload.get('provider',os.environ.get('WS2_AGENT_PROVIDER','openai'))
-    if provider not in ('claude','openai'):raise ValueError('Provider must be claude or openai')
-    if action_space in ('expanded','corridor') and policy=='agent_search' and provider!='claude':raise ValueError('Expanded agent mode requires Claude')
+    if provider not in ('claude','codex','openai'):raise ValueError('Provider must be claude, codex or openai')
+    if action_space in ('expanded','corridor') and policy=='agent_search' and provider not in ('claude','codex'):raise ValueError('Expanded agent mode requires Claude or Codex')
     if policy=='agent_search' and provider=='openai' and not all(os.environ.get(key) for key in ('WS2_AGENT_ENDPOINT','WS2_AGENT_API_KEY','WS2_AGENT_MODEL')):
         raise ValueError('Agent mode needs WS2_AGENT_ENDPOINT, WS2_AGENT_API_KEY, and WS2_AGENT_MODEL')
-    if policy=='agent_search' and provider=='claude':
-        from claude_provider import ClaudeSubscriptionProvider
-        try:ClaudeSubscriptionProvider().check_auth()
+    if policy=='agent_search' and provider in ('claude','codex'):
+        from agent_policies import provider_from_name
+        try:provider_from_name(provider).check_auth()
         except (RuntimeError,OSError,subprocess.TimeoutExpired) as exc:raise ValueError(str(exc)) from None
     if isinstance(budget,bool) or not isinstance(budget,int) or not 2<=budget<=100 or budget%2:raise ValueError('Flight budget must be even, 2..100')
     if any(isinstance(x,bool) or not isinstance(x,(int,float)) or not math.isfinite(x) for x in [timeout,distance]):raise ValueError('Invalid numeric mission settings')

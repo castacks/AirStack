@@ -1,8 +1,8 @@
 # WS2 automated flight bench
 
 Runs MonoNav, Kim/FCRN and PULP-DroNet v3 through the same AirStack/PX4
-execution and evaluation path. Office supports feedback/random/search/Claude;
-the corridor suite uses fixed common maps and recorded clean/attack tests.
+execution and evaluation path. Office supports feedback/random/search;
+corridors support fixed suites and optional Claude/Codex experiment selection.
 
 ## Installation
 
@@ -54,8 +54,9 @@ Start the viewer in one terminal:
 Open **http://127.0.0.1:8892**. Simulator and actual model inference appear side
 by side; Pause, Resume and Stop control the active campaign. Only one flight
 worker may execute at a time. The viewer's **Start tests** form launches Office
-campaigns. Choose a target and feedback/random/search, or optional Claude
-([authentication and agent options](CLAUDE_AGENT.md)).
+campaigns. Choose a target and feedback/random/search, or LLM-guided tests with
+Claude/Codex. Select `Corridors` for visual evidence, timed sensor perturbations
+and generated obstacle dimensions ([setup and configuration](CORRIDOR_AGENT.md)).
 
 Launch recorded corridor suites from another terminal:
 

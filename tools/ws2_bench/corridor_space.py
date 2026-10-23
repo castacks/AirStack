@@ -7,15 +7,19 @@ import random
 from pathlib import Path
 import yaml
 import experiment_protocol as experiments
-from corridors import SHAPES, tier_spec, geometry, patch_corners
+from corridors import SHAPES, OBSTACLE_LIMITS, tier_spec, geometry, patch_corners
+from conditions import validate_schedule, schedule_schema
 from model_adapters import get_adapter, validate_attacks
 from mission import SUCCESSES, EXCLUDED
+from semantic_settings import settings_key
 
-VERSION='corridor_agent_v1'
+LEGACY_VERSION='corridor_agent_v1'
+VERSION='corridor_agent_v2'
 COUNTS={'easy':(0,2),'medium':(2,4),'hard':(4,7)}
 LIMITS={'rgb_noise_stddev':(0.,32.),'delay_s':(0.,.5),'light_intensity':(1000.,2200.),
         'patch_size_m':(.3,.9),'patch_start_s':(0.,120.),'patch_duration_s':(0.,120.)}
-FIELDS={'shape','difficulty','obstacles','layout_seed','patch_enabled','patch_mount',*LIMITS}
+LEGACY_FIELDS={'shape','difficulty','obstacles','layout_seed','patch_enabled','patch_mount',*LIMITS}
+FIELDS={*LEGACY_FIELDS,'action_space_version','noise_schedule','delay_schedule'}
 PRESETS={'mononav':'corridor_mononav.yaml','kim':'corridor_kim.yaml','pulp_dronet':'corridor_pulp.yaml'}
 
 
@@ -27,19 +31,31 @@ def mission_for(target):
 
 def spec_for(a):
     spec=tier_spec(a['shape'],a['difficulty'])
-    spec.update(layout_version=4,obstacles=len(a['obstacles']),obstacle_placements=copy.deepcopy(a['obstacles']))
+    spec.update(layout_version=5 if a.get('action_space_version')==VERSION else 4,
+                obstacles=len(a['obstacles']),obstacle_placements=copy.deepcopy(a['obstacles']))
     return spec
 
 
-def reference_action():
-    return dict(shape='elbow',difficulty='easy',obstacles=[],layout_seed=42,rgb_noise_stddev=0.,
+def reference_action(version=LEGACY_VERSION):
+    """Old callers retain exact v1 replay; new proposals explicitly request v2."""
+    action=dict(shape='elbow',difficulty='easy',obstacles=[],layout_seed=42,rgb_noise_stddev=0.,
                 delay_s=0.,light_intensity=1800.,patch_enabled=False,patch_size_m=.6,
                 patch_start_s=0.,patch_duration_s=0.,patch_mount=None)
+    if version==VERSION:
+        action.update(action_space_version=VERSION,noise_schedule=dict(start_s=0.,duration_s=0.,period_s=0.),
+                      delay_schedule=dict(start_s=0.,duration_s=0.,period_s=0.))
+    elif version!=LEGACY_VERSION:raise ValueError('Unknown corridor action space version')
+    return action
 
 
 def validate_action(raw, target=None):
-    if not isinstance(raw,dict) or set(raw)!=FIELDS:raise ValueError('Corridor action must supply exactly '+', '.join(sorted(FIELDS)))
+    if not isinstance(raw,dict):raise ValueError('Corridor action must be an object')
+    fields=FIELDS if 'action_space_version' in raw else LEGACY_FIELDS
+    if set(raw)!=fields:raise ValueError('Corridor action must supply exactly '+', '.join(sorted(fields)))
     a=copy.deepcopy(raw)
+    if fields==FIELDS:
+        if a['action_space_version']!=VERSION:raise ValueError('Unknown corridor action space version')
+        for key in ('noise_schedule','delay_schedule'):a[key]=validate_schedule(a[key])
     if a['shape'] not in SHAPES or a['difficulty'] not in COUNTS:raise ValueError('Unknown shape/difficulty')
     if type(a['layout_seed']) is not int or not 0<=a['layout_seed']<2**31:raise ValueError('Invalid layout seed')
     if type(a['patch_enabled']) is not bool:raise ValueError('patch_enabled must be boolean')
@@ -60,7 +76,11 @@ def action_key(a):
     a=validate_action(a)
     if not a['patch_enabled']:
         a.pop('patch_size_m');a.pop('patch_mount')
-    return json.dumps(a,sort_keys=True,separators=(',',':'))
+    # A disabled factor has no temporal intervention. This keeps isolation and
+    # zero endpoints comparable without mutating their saved configuration.
+    if a['rgb_noise_stddev']==0:a.pop('noise_schedule',None)
+    if a['delay_s']==0:a.pop('delay_schedule',None)
+    return settings_key(a)
 
 
 def bounds(target='mononav'):
@@ -68,9 +88,10 @@ def bounds(target='mononav'):
     return dict(version=VERSION,shapes=list(SHAPES),obstacle_count_bounds={k:list(v) for k,v in COUNTS.items()},route_lengths_m=lengths,
         numeric_limits={k:list(v) for k,v in LIMITS.items()},layout_seed=[0,2**31-1],patch_enabled=[False,True] if target=='kim' else [False],
         generator_sha256=hashlib.sha256(Path(__file__).with_name('corridors.py').read_bytes()).hexdigest(),
-        constraints='Width 4m, scale 2, daylight texture. Each obstacle has route_s [4, route_length-4] metres and side -1/right or +1/left relative to forward route. Encounters >=1.5m apart. Boxes must not overlap; a 0.7m centreline envelope remains free. Difficulty is nominal count, not measured difficulty.',
-        patch='Kim/FCRN only, original opaque PNG. Select obstacle_index, face front/inner and height_m. Must fit face (inner face size <=0.63m). No ZoeDepth/PULP patch. Size is not calibrated strength. Duration 0 means remaining mission.',
-        timing='All times simulation seconds after takeoff; noise sigma in RGB pixel 0..255. Additional delay is not attack activation timing.',
+        obstacle_limits={k:list(v) for k,v in OBSTACLE_LIMITS.items()},
+        constraints='Width 4m, scale 2, daylight texture. V2 obstacles have route_s [4, route_length-4] metres, signed lateral_m (+left/-right), width_m along route tangent, depth_m across route, height_m, yaw_deg relative to tangent. Encounters >=1.5m apart; actual rotated boxes must not intersect walls/other boxes; continuous 0.7m centreline envelope stays free. Difficulty is nominal count, not measured difficulty.',
+        patch='Kim/FCRN only, original opaque PNG. Select obstacle_index, face front/inner and height_m. Must fit the selected actual face. No ZoeDepth/PULP patch. Size is not calibrated strength. Duration 0 means remaining mission.',
+        timing='Noise/delay schedules use simulation seconds after the first published planner trajectory, not wall time or model loading. start_s=0 starts then; duration_s=0 lasts to mission end; period_s=0 is one-shot, positive period repeats finite pulses and must exceed duration. The configured magnitude is used only inside a window. This v2 supports time-based windows, not route-progress triggers. Patch timing follows the runner mission-start clock. Noise sigma is RGB pixel 0..255; delay_s is added latency, not activation time.',
         pairing='Exact geometry/light/texture seed/model settings are identical within each clean/attack pair. Only noise/delay/patch are disabled in clean.',
         bounds_status='Local exploratory ranges, not finalized CyLab threat bounds')
 
@@ -78,9 +99,10 @@ def bounds(target='mononav'):
 def schema(target):
     props={k:dict(type='number',minimum=lo,maximum=hi) for k,(lo,hi) in LIMITS.items()}
     props.update(shape=dict(type='string',enum=list(SHAPES)),difficulty=dict(type='string',enum=list(COUNTS)),
+        action_space_version=dict(type='string',enum=[VERSION]),noise_schedule=schedule_schema(),delay_schedule=schedule_schema(),
         layout_seed=dict(type='integer',minimum=0,maximum=2**31-1),patch_enabled=dict(type='boolean',enum=bounds(target)['patch_enabled']),
-        obstacles=dict(type='array',maxItems=7,items=dict(type='object',additionalProperties=False,required=['route_s','side'],
-            properties=dict(route_s=dict(type='number',minimum=4),side=dict(type='integer',enum=[-1,1])))),
+        obstacles=dict(type='array',maxItems=7,items=dict(type='object',additionalProperties=False,required=['route_s',*OBSTACLE_LIMITS],
+            properties=dict(route_s=dict(type='number',minimum=4),**{k:dict(type='number',minimum=lo,maximum=hi) for k,(lo,hi) in OBSTACLE_LIMITS.items()}))),
         patch_mount={'anyOf':[{'type':'null'},{'type':'object','additionalProperties':False,'required':['obstacle_index','face','height_m'],
             'properties':{'obstacle_index':{'type':'integer','minimum':0,'maximum':6},'face':{'type':'string','enum':['front','inner']},'height_m':{'type':'number','minimum':.5,'maximum':2.}}}]})
     return dict(type='object',additionalProperties=False,required=['hypothesis','reason','action','experiment'],properties={
@@ -92,6 +114,8 @@ def action_to_episode(action,planner,seed,name,mission,placement=None):
     a=validate_action(action,planner)
     c=dict(layout='corridor',corridor=spec_for(a),layout_seed=a['layout_seed'],seed=seed,light=a['light_intensity'],
            rgb_noise=a['rgb_noise_stddev'],delay=a['delay_s'],patch_enabled=a['patch_enabled'],patch_size=a['patch_size_m'])
+    if a.get('action_space_version')==VERSION:
+        c.update(noise_schedule=a['noise_schedule'],delay_schedule=a['delay_schedule'])
     if a['patch_enabled']:c['patch_mount']=a['patch_mount']
     raw=dict(planner=planner,name=name,**mission,condition=c)
     raw.update(patch_start_s=a['patch_start_s'],patch_duration_s=a['patch_duration_s'])
@@ -107,9 +131,14 @@ def scene_evidence(decision):
 
 def sample(rng,target):
     for _ in range(256):
-        a=reference_action();a.update(shape=rng.choice(SHAPES),difficulty=rng.choice(list(COUNTS)),layout_seed=rng.randrange(2**31))
+        a=reference_action(VERSION);a.update(shape=rng.choice(SHAPES),difficulty=rng.choice(list(COUNTS)),layout_seed=rng.randrange(2**31))
         length=geometry(tier_spec(a['shape'],'easy'))['route_length_m'];count=rng.randint(*COUNTS[a['difficulty']])
-        a['obstacles']=[dict(route_s=round(rng.uniform(4,length-4),3),side=rng.choice([-1,1])) for _ in range(count)]
+        a['obstacles']=[dict(route_s=round(rng.uniform(4,length-4),3),lateral_m=rng.choice([-1,1])*round(rng.uniform(1.2,1.5),3),
+                             width_m=round(rng.uniform(.4,.9),3),depth_m=round(rng.uniform(.4,.8),3),
+                             height_m=round(rng.uniform(1.8,2.8),3),yaw_deg=round(rng.uniform(-15,15),3)) for _ in range(count)]
+        for key in ('noise_schedule','delay_schedule'):
+            duration=rng.choice([0.,5.,15.,30.]);period=rng.choice([0.,duration+10.]) if duration else 0.
+            a[key]=dict(start_s=round(rng.uniform(0.,80.),3),duration_s=duration,period_s=period)
         for k in ('rgb_noise_stddev','delay_s','light_intensity'):a[k]=round(rng.uniform(*LIMITS[k]),3)
         factor=rng.choice(['noise','delay','combined']+(['patch'] if target=='kim' and count else []))
         if factor in ('delay','patch'):a['rgb_noise_stddev']=0.
@@ -131,7 +160,7 @@ def baseline_followup(history):
     tested={action_key(r['decision']['action']) for r in history}
     for r in reversed(history):
         p=r['pairs'][0];a=r['decision']['action'];number=r['decision']['round']
-        if p['clean']['outcome'] not in SUCCESSES or p['perturbed']['outcome'] in (*SUCCESSES,*EXCLUDED):continue
+        if not experiments.attack_evidence_eligible(a,p) or p['perturbed']['outcome'] in SUCCESSES:continue
         same=[h for h in history if action_key(h['decision']['action'])==action_key(a)]
         if len(same)<2:return copy.deepcopy(a),experiment('repeat',number)
         factors=experiments.active(a)
@@ -145,7 +174,8 @@ def baseline_followup(history):
             key=experiments.FACTORS[factor][0];lo=0. if len(factors)==1 else None;passing=0
             for h in history:
                 b=copy.deepcopy(h['decision']['action']);value=b[key];b[key]=a[key]
-                if all(h['pairs'][0][role]['outcome'] in SUCCESSES for role in ('clean','perturbed')) and action_key(b)==action_key(a) and value<a[key] and (lo is None or value>lo):
+                if (experiments.attack_evidence_eligible(h['decision']['action'],h['pairs'][0]) and
+                    all(h['pairs'][0][role]['outcome'] in SUCCESSES for role in ('clean','perturbed')) and action_key(b)==action_key(a) and value<a[key] and (lo is None or value>lo)):
                     lo=value;passing=h['decision']['round']
             if lo is None:continue  # No matched passing endpoint for a conditional probe.
             b=copy.deepcopy(a);b[key]=(lo+a[key])/2
@@ -159,6 +189,9 @@ class CorridorPolicy:
     def choose_next(self,history,remaining_pairs):
         target=self.campaign_context.get('target_planner','mononav')
         if self.name=='agent_search':
+            if getattr(self.provider,'supports_experiment_planning',False):
+                from agent_exploration import choose_next
+                return choose_next(self,history,remaining_pairs)
             from mission import agent_mission
             from corridors import segments
             mission=agent_mission(target,self.campaign_context.get('mission'))
@@ -203,7 +236,9 @@ class CorridorPolicy:
                     else:a=sample(rng,target)
                 elif p['clean']['outcome'] not in (*SUCCESSES,*EXCLUDED):
                     a=copy.deepcopy(base);a['difficulty']='easy'
-                    a['obstacles']=[dict(route_s=6.,side=-1)] if a['patch_enabled'] else []
+                    obstacle=(dict(route_s=6.,lateral_m=-1.4,width_m=.65,depth_m=.8,height_m=2.5,yaw_deg=0.)
+                              if a.get('action_space_version')==VERSION else dict(route_s=6.,side=-1))
+                    a['obstacles']=[obstacle] if a['patch_enabled'] else []
                     if a['patch_enabled']:a['patch_mount']=dict(obstacle_index=0,face='front',height_m=1.2)
                 # A local duplicate restarts rather than being mislabeled explore.
                 if action_key(a) in {action_key(r['decision']['action']) for r in history}:a=sample(rng,target)
@@ -213,5 +248,5 @@ class CorridorPolicy:
 
     def decision(self,history,a,e,reason,hypothesis):
         a=validate_action(a,self.campaign_context.get('target_planner','mononav'))
-        return dict(schema=VERSION,round=len(history)+1,policy=self.name,rule='llm_selected_configuration' if self.name=='agent_search' else e['kind'],
+        return dict(schema=a.get('action_space_version',LEGACY_VERSION),round=len(history)+1,policy=self.name,rule='llm_selected_configuration' if self.name=='agent_search' else e['kind'],
                     action=a,experiment=e,reason=reason,hypothesis=hypothesis)

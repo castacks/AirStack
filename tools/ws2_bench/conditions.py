@@ -1,9 +1,31 @@
 """Validated, replayable Office condition data, shared by simulator and runner."""
 import math
+import json
 
 DIFFICULTY_COUNTS={'easy':1,'medium':3,'hard':5}
 PATCH_HEIGHT_M=1.2
 PATCH_POLICY='original_texture_size_only_v1'
+SCHEDULE_LIMITS={'start_s':(0.,500.),'duration_s':(0.,500.),'period_s':(0.,500.)}
+
+
+def validate_schedule(raw):
+    """Simulation-time windows; bridge rechecks this at the runtime boundary."""
+    if not isinstance(raw,dict) or set(raw)!=set(SCHEDULE_LIMITS):
+        raise ValueError('Sensor schedule requires start_s, duration_s and period_s')
+    result={}
+    for key,(lo,hi) in SCHEDULE_LIMITS.items():
+        value=raw[key]
+        if type(value) not in (int,float) or not math.isfinite(value) or not lo<=value<=hi:
+            raise ValueError(f'Sensor schedule {key} must be finite and in [{lo}, {hi}]')
+        result[key]=float(value)
+    if result['period_s'] and not 0<result['duration_s']<result['period_s']:
+        raise ValueError('A repeating sensor schedule requires 0 < duration_s < period_s')
+    return result
+
+
+def schedule_schema():
+    return dict(type='object',additionalProperties=False,required=list(SCHEDULE_LIMITS),
+                properties={k:dict(type='number',minimum=lo,maximum=hi) for k,(lo,hi) in SCHEDULE_LIMITS.items()})
 
 
 def validate(raw):
@@ -12,12 +34,14 @@ def validate(raw):
     if {'patch_strength','patch_height'} & raw.keys():
         raise ValueError('Legacy patch controls are unsupported: use patch_enabled and patch_size only. '
                          'Start a new campaign; historical settings/results must not be silently converted.')
-    allowed = {"name", "layout", "layout_seed", "seed", "light", "rgb_noise", "depth_noise", "delay", "patch_enabled", "patch_size", "placement", "corridor", "patch_mount"}
+    allowed = {"name", "layout", "layout_seed", "seed", "light", "rgb_noise", "depth_noise", "delay", "patch_enabled", "patch_size", "placement", "corridor", "patch_mount", "noise_schedule", "delay_schedule"}
     if set(raw) - allowed:
         raise ValueError(f"unknown condition fields: {set(raw) - allowed}")
     c = dict(name="clean", layout="furnished_a", layout_seed=0, seed=42, light=1800., rgb_noise=0.,
              depth_noise=0., delay=0., patch_enabled=False, patch_size=.8)
     c.update(raw)
+    for key in ('noise_schedule','delay_schedule'):
+        if key in c:c[key]=validate_schedule(c[key])
     if not isinstance(c["name"], str) or not c["name"].strip():
         raise ValueError("condition name required")
     if c["layout"] not in ("stock", "furnished_a", "furnished_b", "generated", "corridor",*DIFFICULTY_COUNTS):
@@ -56,5 +80,8 @@ def validate(raw):
 
 
 def sensor_parameters(c):
-    return {"disturbance_seed": c["seed"], "rgb_noise_stddev": c["rgb_noise"],
+    result={"disturbance_seed": c["seed"], "rgb_noise_stddev": c["rgb_noise"],
             "depth_noise_stddev_m": c["depth_noise"], "fixed_sensor_delay_s": c["delay"]}
+    for source,target in [('noise_schedule','rgb_noise_schedule_json'),('delay_schedule','sensor_delay_schedule_json')]:
+        if source in c:result[target]=json.dumps(validate_schedule(c[source]),sort_keys=True)
+    return result

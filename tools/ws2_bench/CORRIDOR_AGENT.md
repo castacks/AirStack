@@ -2,20 +2,37 @@
 
 Run from the AirStack checkout used by the existing simulator/robot containers.
 Install the three target workers as described in their repositories and authenticate
-with the official Claude CLI (`claude auth login --claudeai`). Authentication stays
-inside Claude Code; the bench never reads or exports OAuth credentials.
+with the official Codex CLI (`codex login`) or Claude CLI
+(`claude auth login --claudeai`). Authentication stays with the selected CLI;
+the bench never reads or exports OAuth credentials.
 
 ## Run one target
 
 ```bash
 python3 tools/ws2_bench/agent_campaign.py \
   --output robot/ros_ws/ws2_runtime/campaigns/my_corridor_campaign \
-  --planner mononav --policy agent_search --provider claude \
+  --planner mononav --policy agent_search --provider codex \
   --action-space corridor --budget 12 --clean-validation-runs 0 \
   --infrastructure-retries 0 --clean-failure-policy record --review-seconds 0
 ```
 
 `--planner`: `mononav`, `kim`, `pulp_dronet`. One target per campaign.
+`--provider codex`: saved ChatGPT subscription, default `gpt-6-astra` / `high`.
+`--provider claude`: saved Claude subscription. The viewer exposes both choices.
+Optional Codex settings: `WS2_CODEX_MODEL`, `WS2_CODEX_EFFORT`,
+`WS2_CODEX_TIMEOUT_S` (default600s). API-key/provider environment conflicts are
+rejected instead of silently switching billing. Keep tokens out of YAML/Git.
+
+Run the account watcher independently of flights:
+
+```bash
+python3 tools/ws2_bench/codex_quota.py --watch --interval 30
+```
+
+At weekly remaining<=1%, it sends three user-authorized Slack messages through
+`~/notify_slack.py`; each Codex call also checks quota. No new calls start at low
+or unknown quota. Reset and resume the same campaign, or start a new campaign
+with Claude. Provider changes never rewrite the original campaign identity.
 `--policy`: `random`, `search`, `agent_search`. Search is a local heuristic,
 not Bayesian optimization. Both baselines have rule-based confirmation,
 single-factor isolation and scalar bisection; Claude chooses its follow-ups. Search simplifies the shared layout after a failed
@@ -42,6 +59,17 @@ The corridor's frozen model preset overrides the Office time/goal controls.
   obstacle count and positions measured along the route (`route_s`, metres), and
   side (`+1` left, `-1` right). Easy0–2, Medium2–4, Hard4–7 are nominal count ranges,
   **not** proven difficulty ordering. Geometry version4 is distinct from fixed v3 tiers.
+- New `corridor_agent_v2` actions use layout5: each obstacle specifies `route_s`,
+  `lateral_m`, `width_m`, `depth_m`, `height_m`, `yaw_deg` relative to the route.
+  Validators check rotated geometry, walls, other boxes and a continuous free
+  route envelope. Existing v3/v4 geometry remains replayable. Width/curvature
+  remain fixed in this version; these dimensions do not imply measured difficulty.
+- `noise_schedule` / `delay_schedule`: `{start_s,duration_s,period_s}` in
+  simulation seconds from the first accepted planner trajectory. Duration0 means
+  remainder, period0 means one-shot; repeating windows require finite duration.
+  Captured-frame metadata verifies actual pixels/age and exposure. A flight that
+  ends before activation is not evidence of an attack effect. These are time
+  windows, not route-progress-triggered attacks.
 - `corridors.py`: versioned geometry, overlap/end-point checks and a continuous
   nominal 0.7m centreline envelope. Geometric feasibility does not guarantee clean flight.
 - RGB Gaussian noise sigma0–32 (pixel0–255), additional delay0–0.5 simulation seconds,
@@ -58,6 +86,17 @@ Stored scenario, actual geometry/hash, sensor/command/motion diagnostics and CLI
 request/response/usage support replay and audit. No credentials are recorded.
 
 ## Follow-ups and reports
+
+The current structured providers can inspect saved evidence before choosing a
+flight. `agent_exploration.py` requests bounded inference images/GT trajectory,
+records testable hypotheses and predicted outcomes, and allocates remaining pairs
+to exploration, confirmation and diagnosis. Only the next action is executed;
+the rest of a proposed plan is revised after feedback. Up to two evidence queries
+per next-test decision bound LLM overhead. No file/shell/flight tools are exposed.
+`agent_evidence/`, `llm_calls/`, `hypothesis_predictions.json` and each episode's
+`visual_evidence.json` preserve what was shown and predicted. Image hashes prevent
+mixing another run's preview or mismatched worker metadata. Prediction matches
+and self-reviews are not independent validation of a causal explanation.
 
 Claude can choose `explore`, exact `repeat`, `isolate` (retain one factor from a
 combined test), or `threshold` (probe between observed pass/fail scalar values).

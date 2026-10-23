@@ -60,14 +60,20 @@ def apply(c,url):
         time.sleep(.05)
     else:raise TimeoutError("scene did not settle")
     subprocess.run(["docker","cp",str(HERE/"ros_control.py"),"airstack-robot-desktop-1:/tmp/ws2_ros_control.py"],check=True,capture_output=True)
+    # Always clear prior schedules when applying a legacy condition. The bridge
+    # resets its mission anchor and queues atomically with these parameters.
+    parameters={'rgb_noise_schedule_json':'{}','sensor_delay_schedule_json':'{}',**sensor_parameters(c)}
     subprocess.run(["docker","exec","airstack-robot-desktop-1","bash","-lc",
-                    'sws && python3 /tmp/ws2_ros_control.py "$1"',"ws2",json.dumps(sensor_parameters(c))],check=True,capture_output=True,text=True)
+                    'sws && python3 /tmp/ws2_ros_control.py "$1"',"ws2",json.dumps(parameters)],check=True,capture_output=True,text=True)
     deadline=time.monotonic()+30
     while time.monotonic()<deadline:
         try:
             metadata,jpeg=get_frame(url)
             d=metadata["sensor_disturbance"]
-            if all(d[k]==v for k,v in {"seed":c["seed"],"rgb_noise_stddev":c["rgb_noise"],"depth_noise_stddev_m":c["depth_noise"],"fixed_delay_s":c["delay"]}.items()):
+            requested={"seed":c["seed"],"rgb_noise_stddev":c["rgb_noise"],"depth_noise_stddev_m":c["depth_noise"],"fixed_delay_s":c["delay"]}
+            actual=d.get('configured',d)
+            schedules_match=all(d.get(key)==c.get(key) for key in ('noise_schedule','delay_schedule'))
+            if all(actual[k]==v for k,v in requested.items()) and schedules_match:
                 return metadata,jpeg
         except (OSError,KeyError):pass
         time.sleep(.15)

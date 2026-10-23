@@ -20,9 +20,12 @@ def provider_from_name(name=None, audit_dir=None):
     if name == "claude":
         from claude_provider import ClaudeSubscriptionProvider
         return ClaudeSubscriptionProvider(audit_dir=audit_dir)
+    if name == "codex":
+        from codex_provider import CodexSubscriptionProvider
+        return CodexSubscriptionProvider(audit_dir=audit_dir)
     if name == "openai":
         return OpenAICompatibleIntentProvider()
-    raise ValueError("provider must be claude or openai")
+    raise ValueError("provider must be claude, codex or openai")
 
 
 def all_actions():

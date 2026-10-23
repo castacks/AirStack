@@ -26,7 +26,8 @@ from std_msgs.msg import String
 from tf2_ros import Buffer, TransformException, TransformListener
 from visualization_msgs.msg import Marker, MarkerArray
 
-from .disturbances import DelayedSampleBuffer, add_depth_noise, add_rgb_noise
+from .disturbances import (DelayedSampleBuffer, SensorScheduleClock, add_depth_noise,
+                          add_rgb_noise, parse_schedule, schedule_active)
 
 
 def _transform_matrix(transform):
@@ -137,6 +138,8 @@ class VisionPlannerBridge(Node):
         self.declare_parameter("fixed_sensor_delay_s", 0.0)
         self.declare_parameter("rgb_noise_stddev", 0.0)
         self.declare_parameter("depth_noise_stddev_m", 0.0)
+        self.declare_parameter("rgb_noise_schedule_json", "{}")
+        self.declare_parameter("sensor_delay_schedule_json", "{}")
 
         self._planner_name = str(self.get_parameter("planner_name").value)
         self._target_frame = self.get_parameter("target_frame").value
@@ -157,6 +160,9 @@ class VisionPlannerBridge(Node):
         self._depth_noise_stddev_m = float(
             self.get_parameter("depth_noise_stddev_m").value
         )
+        self._noise_schedule=parse_schedule(self.get_parameter("rgb_noise_schedule_json").value)
+        self._delay_schedule=parse_schedule(self.get_parameter("sensor_delay_schedule_json").value)
+        self._schedule_clock=SensorScheduleClock()
         for name, value in (
             ("fixed_sensor_delay_s", self._fixed_sensor_delay_s),
             ("rgb_noise_stddev", self._rgb_noise_stddev),
@@ -229,18 +235,30 @@ class VisionPlannerBridge(Node):
                   "rgb_noise_stddev": "_rgb_noise_stddev",
                   "depth_noise_stddev_m": "_depth_noise_stddev_m"}
         changed = {p.name: p.value for p in parameters if p.name in fields}
+        schedules={"rgb_noise_schedule_json":"_noise_schedule","sensor_delay_schedule_json":"_delay_schedule"}
+        try:
+            changed_schedules={schedules[p.name]:parse_schedule(p.value) for p in parameters if p.name in schedules}
+        except (ValueError,TypeError) as exc:
+            return SetParametersResult(successful=False,reason=str(exc))
         for name, value in changed.items():
             if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
                 return SetParametersResult(successful=False, reason=f"{name} must be finite and nonnegative")
             if name == "disturbance_seed" and not isinstance(value, int):
                 return SetParametersResult(successful=False, reason="seed must be an integer")
-        if changed:
+        if changed or changed_schedules:
             with self._lock:
                 for name, value in changed.items():
                     setattr(self, fields[name], value)
+                for name,value in changed_schedules.items():setattr(self,name,value)
                 self._sample_buffer = DelayedSampleBuffer(self._fixed_sensor_delay_s)
                 self._sample = None
                 self._depth_sample = None
+                self._schedule_clock.reset()
+                # A fresh condition is replayable without inheriting RNG frame
+                # indices or the previous run's first-command anchor.
+                self._sequence=0
+                self._depth_sequence=0
+                self._last_recorded_sample=None
                 self._disturbance_revision += 1
         return SetParametersResult(successful=True)
 
@@ -308,11 +326,15 @@ class VisionPlannerBridge(Node):
 
     def _image_callback(self, msg):
         now = self._clock_now_s()
+        stamp = msg.header.stamp.sec + 1.0e-9 * msg.header.stamp.nanosec
+        if now<self._last_frame_time_s:self._last_frame_time_s=now-1./max(self._max_frame_rate,.1)
         if now - self._last_frame_time_s < 1.0 / max(self._max_frame_rate, 0.1):
             return
         with self._lock:
             camera_info = self._camera_info
             depth_sample = self._depth_sample
+            disturbance=self.sensor_disturbance(stamp)
+            revision=self._disturbance_revision
         if camera_info is None:
             return
         try:
@@ -337,7 +359,7 @@ class VisionPlannerBridge(Node):
                 self._raw_jpeg = raw_jpeg.tobytes()
             image = add_rgb_noise(
                 image,
-                self._rgb_noise_stddev,
+                disturbance['rgb_noise_stddev'],
                 self._disturbance_seed,
                 self._sequence,
             )
@@ -360,9 +382,9 @@ class VisionPlannerBridge(Node):
             "height": msg.height,
             "k": camera_info["k"],
             "t_world_camera": _transform_matrix(transform.transform).reshape(-1).tolist(),
-            "sensor_disturbance": self.sensor_disturbance(),
+            "sensor_disturbance": disturbance,
             "rgb_noise_rmse": float(np.sqrt(np.mean((image.astype(np.float32) - raw_image.astype(np.float32)) ** 2))),
-            "disturbance_revision": self._disturbance_revision,
+            "disturbance_revision": revision,
         }
         depth_bytes = b""
         if depth_sample is not None:
@@ -376,8 +398,9 @@ class VisionPlannerBridge(Node):
                 }
             )
         with self._lock:
+            if revision!=self._disturbance_revision:return # condition changed during conversion
             self._sample_buffer.push(
-                (metadata, encoded.tobytes(), depth_bytes), self._clock_now_s()
+                (metadata, encoded.tobytes(), depth_bytes), self._clock_now_s(), disturbance['fixed_delay_s']
             )
             self._sample = self._sample_buffer.latest(self._clock_now_s())
             self._sequence += 1
@@ -398,13 +421,30 @@ class VisionPlannerBridge(Node):
                     self._last_recorded_sample=identity
             return self._sample
 
-    def sensor_disturbance(self):
+    def sensor_disturbance(self,capture_time_s=None):
+        now=self._clock_now_s()
+        previous=self._schedule_clock.last_s
+        elapsed=self._schedule_clock.elapsed(now)
+        if previous is not None and now<previous-1e-6:
+            self._sample_buffer=DelayedSampleBuffer(self._fixed_sensor_delay_s)
+            self._sample=None
+            self._disturbance_revision+=1
+        if capture_time_s is not None and self._schedule_clock.start_s is not None:
+            elapsed=float(capture_time_s)-self._schedule_clock.start_s
+        noise_active=schedule_active(self._noise_schedule,elapsed)
+        delay_active=schedule_active(self._delay_schedule,elapsed)
         return {
             "seed": self._disturbance_seed,
-            "fixed_delay_s": self._fixed_sensor_delay_s,
-            "rgb_noise_stddev": self._rgb_noise_stddev,
+            "fixed_delay_s": self._fixed_sensor_delay_s if delay_active else 0.,
+            "rgb_noise_stddev": self._rgb_noise_stddev if noise_active else 0.,
             "depth_noise_stddev_m": self._depth_noise_stddev_m,
             "revision": self._disturbance_revision,
+            "configured":{"seed":self._disturbance_seed,"fixed_delay_s":self._fixed_sensor_delay_s,
+                          "rgb_noise_stddev":self._rgb_noise_stddev,"depth_noise_stddev_m":self._depth_noise_stddev_m},
+            "noise_schedule":self._noise_schedule,"delay_schedule":self._delay_schedule,
+            "schedule_clock":"simulation_seconds_after_first_published_trajectory",
+            "schedule_start_sim_s":self._schedule_clock.start_s,"schedule_elapsed_s":elapsed,
+            "noise_window_active":noise_active,"delay_window_active":delay_active,
         }
 
     def health(self):
@@ -423,6 +463,9 @@ class VisionPlannerBridge(Node):
             "depth_stamp": None if depth_sample is None else depth_sample[0],
             "execute_commands": self._execute_commands,
             "sensor_disturbance": self.sensor_disturbance(),
+            "latest_input_disturbance": None if sample is None else sample[0].get('sensor_disturbance'),
+            "latest_input_rgb_noise_rmse": None if sample is None else sample[0].get('rgb_noise_rmse'),
+            "latest_input_stamp": None if sample is None else sample[0].get('stamp'),
             "pending_delayed_samples": self._sample_buffer.pending_count,
             "last_command": last_command,
         }
@@ -508,6 +551,7 @@ class VisionPlannerBridge(Node):
             self._trajectory_publisher.publish(trajectory)
         with self._lock:
             self._last_command["published"] = True
+            self._schedule_clock.arm(self._clock_now_s())
         self.get_logger().info(
             f"Published {self._planner_name} command {command_index} with {len(points)} waypoints "
             f"({'override' if replace_trajectory else 'segment'})"
