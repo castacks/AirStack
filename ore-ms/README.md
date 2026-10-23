@@ -255,3 +255,11 @@ candidate by100 RGB acquisitions on each side. Only6/1800 tracks survive the
 original20-frame interval; a short preceding block retains74. Current stereo/
 cross-modal timing gates yield no continuous paired window. No learned VO was
 run; temporal pairing needs separate justification before a numerical comparison.
+
+[EXP-038](experiments/EXP-038-mac-relative-ranking.md) directly tests saved MAC
+raw temporal covariance ranking on114 paired day transitions. Nominal-angular
+ranking agrees with lower MAC–LK disagreement on108/114 versus112/114 for
+alwaysRGB; six thermal switches help1/hurt5. A full-grid uncertainty sensitivity
+helps on one switch. This is population-sensitive matching-disagreement evidence,
+not physical reliability calibration or a full3D/pose covariance test. No training,
+new inference or fusion change.

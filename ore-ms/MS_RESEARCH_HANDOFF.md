@@ -1100,3 +1100,24 @@ run1frame. Median cross offset−40.819ms; no correction/threshold adoption.
 pose/default changes. Current limits yield no continuous paired window; justify
 pairing separately before learned comparisons, or use a synchronized public-data
 alternative. Recovery target backups/2026-10-22-exp-037; no new upload needed.
+
+## EXP-038: Direct MAC relative covariance ranking (2026-10-22)
+
+[EXP-038](experiments/EXP-038-mac-relative-ranking.md) returns to MAC uncertainty
+using saved outputs, with no inference/training/new images. Six paired day
+windows from the same previously inspected recording,114 paired transitions;
+all existing stereo/cross timing gates pass. Primary raw temporal covariance
+trace in nominal ray units selects lower LK angular disagreement on108/114,
+versus112/114 alwaysRGB; six thermal switches help1/hurt5. Mean selected
+D0.8575mrad vsRGB0.8212mrad(+4.42%). Native-pixel rule99/114. Only2 targets
+favor thermal, so high agreement/balanced recall is not strong general evidence.
+Predeclared full-grid-U sensitivity gives113/114 with one helpful switch and
+−0.86% meanD vsRGB; preserve as population-sensitive hypothesis,not tuned method.
+Tight/textured rules remain worse than their RGB baselines. Pooled log-ratio
+rho0.499 contrasts with within-window−0.418–0.711; no significance/held-out
+claim. LK disagreement is not physical error; views/features differ. This tests
+raw temporal matching covariance,not full3D/pose covariance.231 frozen hashes/
+11452 independent controls pass. Float32-median discrepancy fixed in run002
+using prior float64 convention; no policy choices changed; old attempt preserved.
+Keep weights/defaults; no fusion adopted. Recovery target backups/2026-10-22-exp-038
+contains saved inputs for standalone CPU replay; no models/GPU needed.

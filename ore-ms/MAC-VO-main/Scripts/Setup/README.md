@@ -807,3 +807,13 @@ See EXP-027 for known LK limitations, reference/depth ambiguity and source check
 ## Tracking diagnostics for new bounded runs
 
 Use `python -m Scripts.Setup.run_td3_execution_v2` with the same dataset/manifest/modality/frames/output and acknowledgement flags as the original bounded runner. `tracking_diagnostics` and `tracking-flags.npz` preserve the original pre-refinement flags, post-refinement flags and an explicit support state; `PASS_EXECUTION_ONLY` alone does not indicate sustained tracking. Completed zero-observation failures also keep these diagnostics. The original runner and interpolation algorithms remain frozen. See the project EXP-033 report for exact control commands and unchanged-pose evidence.
+
+### Saved MAC relative-ranking diagnostic (EXP-038)
+
+`td3_relative_ranking.py --source <EXP030-run> --output <new-run>` compares
+existing paired RGB/thermal raw temporal matching covariance summaries with
+independent LK angular disagreement. It runs with NumPy on CPU and preserves
+primary/tight/texture/full-grid populations, angular/native-pixel policies,
+fixed-camera baselines, costs and exact timing eligibility. Restore the EXP-038
+saved-input archive for standalone replay; no checkpoints or inference needed.
+This descriptive rule test does not certify physical accuracy or3D/pose covariance.
