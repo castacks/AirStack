@@ -1039,3 +1039,45 @@ recording odometry/quality/timing and physical frame provenance still pending.
 ## EXP-035: New waypoint-skip2 night recording readiness (2026-10-22)
 
 [EXP-035](experiments/EXP-035-waypoint-skip2-readiness.md): Box night_so_waypoint_skip2.zip20.33GB,54,855entries;103metadata+360selectedimages+12RGBscout verified by member CRC/SHA, no fullZIP hash.549s capture. Strict2ms stereo/30ms cross pairing184groups/no middle20-frame eligible window; separately labelled5ms diagnostic281groups, starts0/98/195. Nearest thermal−RGBmedian−43.46ms, no time correction. Source RGB LK median4.06%/.056%/0%, thermal95.9%/69.5%/95.3%; prior-dark controls and12even sourceRGBframes still mostly dark. Sourceprocessed thermal only, no MSA or inference.320,112scalar gates/228pairs,3tests,728analysis hashes; prior828/3041/1229/751/267 unchanged. Useful thermal capture, limited sampledRGB comparison. Faint late scout intervals remain possible targets; visibleRGB night preview/names preferred before another large upload. Box target backups/2026-10-22-exp-035.
+## Resumption context: remaining night recordings (2026-10-22)
+
+The user supplied the closing conversation from the previous session: after
+EXP-035, they requested screening all remaining `20251027` night-session
+folders together because folder names do not identify brighter RGB intervals.
+This supersedes earlier requests to have the user select a bright clip first.
+Screen representative previews, RGB detail/tracking support and stereo/cross-modal
+timing before deciding which recordings support further VO comparisons.
+
+On resumption, authenticated Box folder `428559630945` contains four additional
+night ZIPs beyond the three already inspected (`night_thermal_so_salon2`,
+`night_mac_salon_warehousefig8`, `night_so_waypoint_skip2`):
+`night_macthermal_salon_redcourse_waypointskip1`,
+`night_teleop_so_salon_fig8`, `night_thermal_so_salon`, and
+`night_thermal_so_salon3`. Presence is verified; their image readiness is not.
+Screen these available archives before requesting another upload. A public
+dataset is a fallback if the available session lacks usable RGB; the previously
+suggested MS2 access and suitability have not been reverified in this session.
+
+The Box incremental bundles recover eleven commits after `46784eb6e`, through
+`9e40ba724` (EXP-035), including source replies and EXP-028–034. The research
+branch was fast-forwarded to that preserved commit. Archive SHA256 and all listed
+member hashes passed for the eleven recovered backup snapshots. This restores
+historical evidence, not a new execution of the experiments. Earlier model/data
+snapshots remain prerequisites for full replay.
+
+## EXP-036: Remaining night archive batch screen (2026-10-22)
+
+[EXP-036](experiments/EXP-036-night-batch-screen.md) screens all four additionally
+available night archives using fixed twelve-image scouts and three independent
+20-frame windows per modality.569 selected images,456 pairs,640224 grid points;
+1985521 computational checks pass. RGB is mostly dark. Redcourse-waypointskip1
+late RGB frames4173–4192 show illuminated vegetation,10.56% median LK support
+(2.78–19.78% pair range),8.72% tighter-gate/4.33% texture-restricted support;
+other fixed RGB windows0–4.06%. Thermal window medians69.2–96.9%. Redcourse
+nearest thermal-minus-RGB median−41.48ms; thermal-salon3 has large timing holes
+(abs cross-modal p99~22s), despite near-zero median. No time correction, model
+inference or VO/calibration/weight change. Prefer bounded sustained-support and
+pairing checks around redcourse's illuminated interval before seeking a public
+fallback. Outcome-selected follow-up is exploratory, not independent evaluation.
+No additional upload needed for that candidate. Full plans, images, masks,
+source/logs and validation preserved at Box target backups/2026-10-22-exp-036.
