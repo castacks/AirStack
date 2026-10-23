@@ -1152,3 +1152,16 @@ vs raw baseline differs0.564%; no fixes or camera-pose conversion made. Images
 return Drive quota-exceeded HTML; bounded scout failed safely. TartanRGBT raw
 MACVO poses are circular as independent MAC labels. 2753 STheReO plus222538 MS² schema/hash controls pass;22 source rotations flagged;
 no inference/training/fusion. See EXP040 and backup2026-10-23-exp-040.
+
+2026-10-23 — EXP041 MS² night _2021-08-13-21-18-04: acquired39.732GB sync/depth,
+small odometry already staged; preserve first20 IDs without outcome selection.
+80 stereo source images+120 single/multi/filtered depthPNG+40poses,calibration,
+full timestamps; raw thermaluint16 and metric depth/256 confirmed. All pilot
+poses pass1e-5 rigidity screen; reference translation changes~2.4cm/1.93s.
+5355 source+37 independent timing controls pass,but full10131 thermal stereo
+recorded offsets15.219–49.754ms (median33.766ms),nearest-right minimum also15.219ms;
+0 frames satisfy inherited2ms-stereo/30ms-cross gate. Official setup says thermal
+sync uses left camera signal; timestamp semantics unresolved,not proof of physical
+async. Do not fit clock shift or relax gate by default. No inference/training.
+Full archives remain local; Box2026-10-23-exp-041 contains boundedpilot replay.
+Next:ground timestamp semantics/protocol before selecting movinginterval/MAC test.

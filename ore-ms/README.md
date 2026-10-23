@@ -275,3 +275,12 @@ access and independent reference suitability. MS² is preferred; user-supplied s
 reference gaps reach7.4s and thermal baseline conventions need review. TartanRGBT's
 MACVO poses cannot independently validate MAC. 2,753 STheReO and222,538 MS² schema/hash controls pass;22 source rotations flagged;
 no model run or dataset-readiness claim. Box `backups/2026-10-23-exp-040`.
+
+[EXP-041](experiments/EXP-041-ms2-night-pilot.md) acquires the fixed MS² night
+sequence and preserves20 IDs with stereo RGB/raw16-bit thermal, three depth
+variants and camera poses.5355 source controls plus37 independent timing controls
+pass. Recorded thermal stereo offsets span15.2–49.8ms throughout10131 frames;
+no pair passes the inherited2ms gate,including nearest-right pairing. Official
+hardware-sync description does not resolve recorded timestamp semantics. No MAC
+inference; resolve timing before a motion-sensitive comparison. Box
+`backups/2026-10-23-exp-041` preserves the bounded pilot,not40GB archives.

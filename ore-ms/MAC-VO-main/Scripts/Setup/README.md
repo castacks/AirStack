@@ -831,3 +831,9 @@ parses public camera YAML/extrinsics and local/global pose CSVs without inferenc
 or fitting. Restore EXP-040's extracted calibration/pose files first. It reports
 projection/extrinsic baseline differences and sparse reference gaps; it does not
 resolve frame conventions or certify dataset readiness. CPU NumPy required.
+
+`audit_ms2_pilot.py --directory <EXP041-restored-root> --output <json>` verifies
+preserved20-ID MS² night source images/depth/poses and member hashes. It restricts
+calibration pickle globals to numeric NumPy constructors, retains uint16 PNGs,
+and reports pose rigidity. This CPU NumPy/OpenCV source inspection is not a model
+run; separate preserved timing audits document the unresolved thermal offsets.
