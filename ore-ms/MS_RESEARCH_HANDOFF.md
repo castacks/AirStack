@@ -1121,3 +1121,24 @@ raw temporal matching covariance,not full3D/pose covariance.231 frozen hashes/
 using prior float64 convention; no policy choices changed; old attempt preserved.
 Keep weights/defaults; no fusion adopted. Recovery target backups/2026-10-22-exp-038
 contains saved inputs for standalone CPU replay; no models/GPU needed.
+
+## EXP-039: Frozen rules on a different day capture (2026-10-22)
+
+[EXP-039](experiments/EXP-039-mac-recording-replication.md) applies EXP038's
+unchanged primary/full-grid angular covariance rules to three historical
+1_salon_mac_cov_day windows,57 paired transitions,disjoint from0_salon_so_day.
+Recover saved RGB predictions+60 source images;derive angular/LK quantities with
+unchanged EXP030 helpers;reuse MSA-thermal arrays. No model inference/training.
+Both angular rules chooseRGB57/57,and all targets favorRGB:equal to alwaysRGB,
+no switches/no added benefit. There are no thermal-favored examples,so EXP038's
+one helpful full-grid switch is neither validated nor refuted as a general gain.
+Native-pixel primary makes3 harmful switches(full-grid9). Primary ratio rho
+−0.728 here vs+0.499 previously;within-window−0.221/−0.005/−0.416. Keep rules/
+weights/defaults unchanged; no stable ratio mapping established.314020 controls
+pass,including399 scalar geometry checks. Initial validator precision mismatch
+corrected to honor historical float32 inverseK before float64 ray algebra;no
+output changes. Different recording is previously examined/same-date and not
+network-training-held-out. Matching disagreement remains a proxy,not physical
+accuracy or full3D/pose covariance. Need relative-error variation while both
+cameras remain observable and a stronger error target. Recovery target
+backups/2026-10-22-exp-039;all prepared CPU inputs preserved,no models/GPU needed.

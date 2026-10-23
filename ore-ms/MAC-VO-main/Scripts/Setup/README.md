@@ -817,3 +817,11 @@ primary/tight/texture/full-grid populations, angular/native-pixel policies,
 fixed-camera baselines, costs and exact timing eligibility. Restore the EXP-038
 saved-input archive for standalone replay; no checkpoints or inference needed.
 This descriptive rule test does not certify physical accuracy or3D/pose covariance.
+
+`td3_recording_replication.py --root <ore-ms> --run <fresh-prepared-run>`
+(EXP-039) derives the same angular/LK arrays from preserved RGB predictions and
+images,then applies the unchanged ranking functions to inherited MSA-thermal
+arrays. Restore the prepared input archive and follow its metadata restoration
+map before replay;use a fresh prepared copy without a derived-rgb folder. This
+runs CPU NumPy/OpenCV,without checkpoints or new inference. Per-recording class
+imbalance and proxy-target limitations remain explicit.

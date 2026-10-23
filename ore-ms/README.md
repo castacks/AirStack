@@ -263,3 +263,9 @@ alwaysRGB; six thermal switches help1/hurt5. A full-grid uncertainty sensitivity
 helps on one switch. This is population-sensitive matching-disagreement evidence,
 not physical reliability calibration or a full3D/pose covariance test. No training,
 new inference or fusion change.
+
+[EXP-039](experiments/EXP-039-mac-recording-replication.md) repeats those frozen
+rules on57 saved pairs from the different1_salon_mac_cov_day capture. Both
+angular rules selectRGB throughout;all matching-disagreement targets also favor
+RGB,so they equal the fixed baseline without testing successful thermal switches.
+Ratio association changes sign across recordings. No inference/training/tuning.
