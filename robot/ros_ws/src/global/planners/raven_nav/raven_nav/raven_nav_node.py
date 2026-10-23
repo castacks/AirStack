@@ -463,8 +463,8 @@ class RavenNavNode(Node):
             'commit_radius_m', 3.0).value
 
         # A ray's target sits further out than its origin: scale ray bid distance
-        # by this (scene-tunable) so rays don't masquerade as close vs BBs. This is
-        # the sole knob favoring BBs over rays now.
+        # by this (scene-tunable) so rays don't masquerade as close vs BBs.
+        # This affects legacy broadcast bids, not the unified auction cost.
         self._ray_reach_factor = float(self.declare_parameter(
             'ray_reach_factor', 3.0).value)
         # Gentle behind-only heading penalty for ray/BB target selection (front/
@@ -475,6 +475,12 @@ class RavenNavNode(Node):
         # committed to by this much (m-equivalent) for the auction to switch.
         self._commit_switch_margin_m = float(self.declare_parameter(
             'commit_switch_margin_m', 8.0).value)
+        self._ray_cost_penalty = float(self.declare_parameter(
+            'ray_cost_penalty', bid_manager.RAY_COST_PENALTY).value)
+        for name, value in [('ray_cost_penalty', self._ray_cost_penalty),
+                            ('commit_switch_margin_m', self._commit_switch_margin_m)]:
+            if not np.isfinite(value) or value < 0.0:
+                raise ValueError(f'{name} must be finite and nonnegative')
         # Centre of the BB this drone is currently committed to (None = none / ray).
         self._committed_bb_center: 'np.ndarray | None' = None
         # Persistent visited-target BBs (own + peer) — accumulated, never TTL'd.
@@ -517,7 +523,9 @@ class RavenNavNode(Node):
             f'use_peer_allocation_state={self._use_peer_allocation_state} '
             f'associate_bbs={self._associate_bbs} '
             f'associate_ray_bbs={self._associate_ray_bbs} '
-            f'associate_rays={self._associate_rays}')
+            f'associate_rays={self._associate_rays} '
+            f'ray_penalty={self._ray_cost_penalty} '
+            f'switch_margin={self._commit_switch_margin_m}')
         assigner = (bid_manager.IndependentGreedyAssigner if self._independent_greedy
                     else bid_manager.ConsensusAssigner)
         self._consensus = assigner(self._bundle_len)
@@ -2939,7 +2947,8 @@ class RavenNavNode(Node):
         assigned_map = self._consensus.assign(
             tasks, agent_pos, self._commit_switch_margin_m, self._TASK_MATCH_M,
             agent_weight=agent_w, explore_dist=explore_dists,
-            agent_waypoints=self._agent_waypoints(fresh_peers))
+            agent_waypoints=self._agent_waypoints(fresh_peers),
+            ray_penalty=self._ray_cost_penalty)
         my_task = self._consensus.my_task(assigned_map, self._my_id, tasks)
         if self._debug_auction:
             dbg = dict(self._consensus.last_debug)
@@ -2948,6 +2957,8 @@ class RavenNavNode(Node):
             dbg.setdefault('params', {}).update(
                 share_rays=self._share_rays, share_bbs=self._share_bbs,
                 assignment_mode=self._assignment_mode, bundle_len=self._bundle_len,
+                ray_penalty=self._ray_cost_penalty,
+                switch_margin=self._commit_switch_margin_m,
                 use_shared_completion=self._use_shared_completion,
                 use_peer_allocation_state=self._use_peer_allocation_state,
                 associate_bbs=self._associate_bbs,

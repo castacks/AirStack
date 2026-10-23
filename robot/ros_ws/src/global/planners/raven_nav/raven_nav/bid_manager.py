@@ -467,7 +467,12 @@ class ConsensusAssigner:
                agent_weight: Optional[Dict[int, float]] = None,
                explore_dist: Optional[Dict[int, float]] = None,
                agent_waypoints: Optional[Dict[int, np.ndarray]] = None,
+               ray_penalty: Optional[float] = None,
                ) -> Dict[int, list]:
+        ray_penalty = (RAY_COST_PENALTY if ray_penalty is None
+                       else float(ray_penalty))
+        if not np.isfinite(ray_penalty) or ray_penalty < 0.0:
+            raise ValueError('ray_penalty must be finite and nonnegative')
         if not tasks or not agent_pos:
             self._prev = {}
             self._prev_explored = set()
@@ -506,7 +511,7 @@ class ConsensusAssigner:
         taken: List[Tuple[int, np.ndarray]] = []
 
         def _breakdown(base, a, tk, is_head):
-            rp = RAY_COST_PENALTY if _is_ray(tk) else 0.0
+            rp = ray_penalty if _is_ray(tk) else 0.0
             rep = 0.0
             c = by_key[tk].centroid[:2]
             for ta, tc in taken:
@@ -659,7 +664,7 @@ class ConsensusAssigner:
         self.last_debug = {
             'params': {'bundle_len': self.bundle_len,
                        'switch_margin': switch_margin, 'match_m': match_m,
-                       'ray_penalty': RAY_COST_PENALTY,
+                       'ray_penalty': ray_penalty,
                        'geo_margin': GEO_MARGIN_M,
                        'explore_markup': EXPLORE_MARKUP_M,
                        'detour_cap': BUNDLE_MAX_DETOUR_M},
@@ -715,7 +720,8 @@ class IndependentGreedyAssigner:
         self.last_debug: dict = {}
 
     def assign(self, tasks, agent_pos, switch_margin, match_m,
-               agent_weight=None, explore_dist=None, agent_waypoints=None):
+               agent_weight=None, explore_dist=None, agent_waypoints=None,
+               ray_penalty=None):
         self._local = {a: self._local.get(a, ConsensusAssigner(1))
                        for a in agent_pos}
         assigned, debug = {}, {}
@@ -725,11 +731,14 @@ class IndependentGreedyAssigner:
                 tasks, {a: agent_pos[a]}, switch_margin, match_m,
                 agent_weight={a: (agent_weight or {}).get(a, 1.0)},
                 explore_dist=({a: explore_dist[a]}
-                              if explore_dist and a in explore_dist else None)))
+                              if explore_dist and a in explore_dist else None),
+                ray_penalty=ray_penalty))
             debug[str(a)] = solver.last_debug
         selected = {k for ks in assigned.values() for k in ks}
         self.last_debug = {
             'params': {'bundle_len': 1, 'assignment_mode': 'independent_greedy',
+                       'ray_penalty': (RAY_COST_PENALTY if ray_penalty is None
+                                       else float(ray_penalty)),
                        'switch_margin': switch_margin, 'match_m': match_m},
             'local_solves': debug,
             'result': {str(a): ('explore' if not ks else [list(k) for k in ks])

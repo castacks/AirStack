@@ -19,6 +19,8 @@ flowchart LR
 |---|---|---|
 | `assignment_mode` | `auction` | `auction` or `independent_greedy` |
 | `bundle_len` | 1 | Maximum ordered reservation count; missions normally use 3 |
+| `ray_cost_penalty` | 50.0 | Additive auction cost for ray and ray-localized tasks, in m-equivalent units; 0 removes it |
+| `commit_switch_margin_m` | 8.0 | Auction incumbent-head bonus magnitude; tails and exploration retention use half; 0 removes auction retention |
 | `share_rays` | true | Allow bidding on peer ray leads |
 | `share_bbs` | true | Allow bidding on peer BB/voxel targets |
 | `use_shared_completion` | true | Adopt peer completed labels and visited-BB status |
@@ -45,6 +47,32 @@ and limits each tail extension to 20 m. Independent greedy reuses the same
 single-robot L1 scoring but does not consider peer allocation or ownership.
 It disables target-level peer yielding while preserving shared perception,
 completed-target filtering, frontier behavior and navigation safety.
+
+## Bidding cost ablations
+
+The unified auction minimizes travel cost **plus** the ray uncertainty penalty
+**minus** incumbent retention, plus peer repulsion. The sign matters: rays are
+penalized, while an incumbent is made cheaper. Head retention is 8 m-equivalent;
+tail matches and previous exploration receive 4 m-equivalent retention.
+
+Set `RAVEN_RAY_COST_PENALTY=0.0` to remove the additive ray penalty for every
+head and tail candidate, leaving `RAVEN_COMMIT_SWITCH_MARGIN_M=8.0`.
+Set `RAVEN_COMMIT_SWITCH_MARGIN_M=0.0` to remove all auction retention (head,
+tail and exploration), leaving `RAVEN_RAY_COST_PENALTY=50.0`. These environment
+variables pass through robot Compose and the semantic-search executor as ROS
+parameters. Both must be finite and nonnegative. Defaults preserve existing
+behavior. Separate ray-pursuit bearing locks and navigation safety remain active:
+the experiment removes a bidding-cost term, not every form of temporal memory.
+
+The October 23 `no_ray_penalty` and `no_retention` missions each run all eight
+matched s1 scenes with three robots, full communication, bundle length 3 and
+300 simulated search seconds. All sharing, completion and task-association
+switches remain enabled. Compare with the existing matched original RAVEN
+control; retain all valid results regardless of score. `params.ray_penalty`
+and `params.switch_margin` in each robot's auction trace record the effective
+coefficients, including ticks without candidates. Nonempty solves also record
+the selected candidates' `ray_pen` and `retention` contributions. Offline replay
+reads the logged ray coefficient and supports a `no_ray_penalty` variant.
 
 ## Peer position and selection ablation
 
