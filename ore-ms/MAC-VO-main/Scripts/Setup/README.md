@@ -837,3 +837,11 @@ preserved20-ID MS² night source images/depth/poses and member hashes. It restri
 calibration pickle globals to numeric NumPy constructors, retains uint16 PNGs,
 and reports pose rigidity. This CPU NumPy/OpenCV source inspection is not a model
 run; separate preserved timing audits document the unresolved thermal offsets.
+
+`ms2_timestamp_structure.py --input <four-series-directory> --output <fresh-dir>`
+reports signed thermal offsets,fixed±1-index sensitivities,native source intervals
+and a constant-shift residual bound. Inputs are four newline-separated integerns
+files named rgb_left/right and thr_left/right with `.txt` suffix. CPU NumPy only;
+no timestamp correction or input re-pairing. EXP042 preserves the scalar validator,
+source-backed interpretation and20-ID MAC input manifest. Physical exposure
+semantics remain unverified.

@@ -1165,3 +1165,19 @@ sync uses left camera signal; timestamp semantics unresolved,not proof of physic
 async. Do not fit clock shift or relax gate by default. No inference/training.
 Full archives remain local; Box2026-10-23-exp-041 contains boundedpilot replay.
 Next:ground timestamp semantics/protocol before selecting movinginterval/MAC test.
+
+2026-10-23 — EXP042:timestamp meaning remains unresolved by public papers,
+supplement,archive notes,official loaders/issues or accessreply(user says no notes).
+Both official loaders use sorted same-ID stereo pairs without timestamp reads;
+sourceprotocol differs from exposure verification. Thermal signedR−L spans−49.754
+to+47.091ms,4572negative/5559positive and8810signchanges;no constant can put all
+recorded residuals within2ms(48.422ms worst-case lowerbound),nor fixed±1rightindex.
+No timestamps/pairing/gates changed.10174 controls pass;EXP041 inputs unchanged.
+Prepared20-ID inputmanifest with rawimageSHA/dtype,all4times,K/B,depthprovenance,
+pose direction explicitlyunverified. ExistingGeneralStereo fabricates timestamps
+and uint8COLOR decoding collapses firstthermal619values→5;TD3 rejectsuint16.
+Next implement model-compatible MS² adapter;do not use displaycontrast as network
+preprocessing. Publishedsourceprotocol permits labelled preliminary diagnostics,
+not physical same-time calibration claims. Authorquestion drafted in EXP042,not
+sent. Box2026-10-23-exp-042 preserves sources/timestamps/manifest;restoreEXP041
+for referenced pilot pixels/poses/depth. No newmodels/inference/training.

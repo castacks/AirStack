@@ -284,3 +284,12 @@ no pair passes the inherited2ms gate,including nearest-right pairing. Official
 hardware-sync description does not resolve recorded timestamp semantics. No MAC
 inference; resolve timing before a motion-sensitive comparison. Box
 `backups/2026-10-23-exp-041` preserves the bounded pilot,not40GB archives.
+
+[EXP-042](experiments/EXP-042-ms2-timestamp-semantics.md) checks primary acquisition
+descriptions and both official MS² loaders. They use same-ID stereo pairing but
+do not define exported exposure-time semantics. Thermal offsets flip sign8810
+times;constant clock shifts and fixed±1-index shifts cannot satisfy the inherited
+2ms diagnostic throughout.10174 controls pass,no correction/inference. Prepared
+20-ID source-input manifest preserves all four times and raw pixels. Generic
+loader would collapse619 thermal levels to5 and fabricate timestamps; implement
+MS²-specific/model-compatible input handling next. Box2026-10-23-exp-042.
