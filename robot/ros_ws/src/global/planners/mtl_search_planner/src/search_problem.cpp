@@ -208,12 +208,12 @@ void refuseUnknownKeys(const J::Value& block, const std::set<std::string>& known
 
 const std::set<std::string> kPlannerKeys = {"type", "compare_orienteering"};
 const std::set<std::string> kCurveKeys = {
-    "representation", "endpoint_mode", "destinations_ned", "altitude_stagger_m", "kernel",
+    "representation","order_budget_frac", "endpoint_mode", "destinations_ned", "altitude_stagger_m", "kernel",
     "sweep_freq_hz", "sweep_range_margin", "knot_spacing_m", "num_control_points", "sample_spacing_m",
     "initial_heading_deg", "fast_grid_step_m", "explore_grid_step_m", "max_iter", "explore_iter",
     "explore_iter_warm", "coordination_sweeps", "init_strategies", "reallocate", "realloc_rounds",
     "max_realloc_trials", "realloc_strategies", "realloc_path_warm", "realloc_path_max_iter"};
-const std::set<std::string> kCurveKernelKeys = {"table_step_m", "grid_step_m", "track_len_m", "edge_width_m",
+const std::set<std::string> kCurveKernelKeys = {"table_step_m","lambda_cap", "grid_step_m", "track_len_m", "edge_width_m",
                                                 "edge_inset_m", "tail_sigma_m", "tail_weight"};
 
 mc::EndpointMode curveModeFrom(const std::string& s) {
@@ -307,6 +307,7 @@ void curveFromScenario(const J::Value& sc, const Frame& frame, mc::PlannerParams
     p.kernel.trackLen   = kn["track_len_m"].num(p.kernel.trackLen * ks);
     p.kernel.edgeWidth  = kn["edge_width_m"].num(p.kernel.edgeWidth * ks);
     p.kernel.edgeInset  = kn["edge_inset_m"].num(p.kernel.edgeInset * ks);
+    p.kernel.lambdaCap = kn["lambda_cap"].num(p.kernel.lambdaCap);
     p.kernel.tailSigma  = kn["tail_sigma_m"].num(p.kernel.tailSigma * ks);
     p.kernel.tailWeight = kn["tail_weight"].num(p.kernel.tailWeight);
     p.team.altitudeStagger = cv["altitude_stagger_m"].num(p.team.altitudeStagger * ks);
@@ -327,6 +328,7 @@ void curveFromScenario(const J::Value& sc, const Frame& frame, mc::PlannerParams
 
     p.optimizer.maxIter         = static_cast<int>(cv["max_iter"].num(p.optimizer.maxIter));
     p.optimizer.exploreIter     = static_cast<int>(cv["explore_iter"].num(p.optimizer.exploreIter));
+    p.team.orderBudgetFrac = cv["order_budget_frac"].num(p.team.orderBudgetFrac);
     p.optimizer.exploreIterWarm = static_cast<int>(cv["explore_iter_warm"].num(p.optimizer.exploreIterWarm));
     p.team.coordinationSweeps   = static_cast<int>(cv["coordination_sweeps"].num(p.team.coordinationSweeps));
     if (cv["init_strategies"].isArray()) {
