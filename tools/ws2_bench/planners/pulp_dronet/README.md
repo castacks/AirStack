@@ -6,6 +6,6 @@ Clone it next to `AirStack/` and build `pulp-dronet-airstack:1.0` using
 `docker/Dockerfile.airstack` in that checkout. The adapter registry selects
 `pulp_dronet_airstack.py`; no copied worker or weights are needed here.
 
-Current flight evidence: [Office trials](../../PULP_DRONET_VALIDATION.md) and
-[bent-corridor qualification](../../CORRIDOR_VALIDATION.md). The model is
-experimental; do not infer reliable navigation from successful installation.
+Run clean qualification using the [common bench instructions](../../README.md)
+before interpreting attacked flights. Successful installation alone does not
+establish reliable navigation in a new environment.

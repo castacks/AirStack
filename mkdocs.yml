@@ -84,15 +84,11 @@ nav:
           - docs/simulation/isaac_sim/pegasus_scene_setup.md
           - Spawning Drones: docs/simulation/isaac_sim/spawning_drones.md
           - Overhead Camera: docs/simulation/isaac_sim/overhead_camera.md
-          - WS2 Office Automated Bench: tools/ws2_bench/README.md
-          - WS2 Claude Team Agent: tools/ws2_bench/CLAUDE_AGENT.md
-          - WS2 Expanded Agent Evaluation: tools/ws2_bench/EVALUATION.md
-          - WS2 Sensor Effect Validation: tools/ws2_bench/SENSOR_VALIDATION.md
+          - WS2 Installation and Usage: tools/ws2_bench/README.md
+          - WS2 Agent Configuration: tools/ws2_bench/CORRIDOR_AGENT.md
           - WS2 Model Adapters: tools/ws2_bench/MODEL_ADAPTERS.md
-          - WS2 Bent Corridors: tools/ws2_bench/CORRIDOR_VALIDATION.md
           - PULP-DroNet v3: tools/ws2_bench/planners/pulp_dronet/README.md
-          - WS2 September 22 Baseline: tools/ws2_bench/BASELINE_2026-09-22.md
-          - WS2 RGB Model Candidates: tools/ws2_bench/RGB_MODEL_CANDIDATES.md
+          - WS2 Asset Recovery: tools/ws2_bench/BACKUP.md
           - WS2 Depth Diagnosis: tools/ws2_bench/DEPTH_DIAGNOSTIC.md
           - docs/simulation/isaac_sim/ascent_sitl_extension.md
           - docs/simulation/isaac_sim/export_stages_from_unreal.md

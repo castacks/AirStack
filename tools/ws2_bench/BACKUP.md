@@ -25,9 +25,8 @@ Use the companion revisions in each episode's `provenance.json`; the current
 worker source/weight hashes are recorded alongside its repository HEAD.
 
 The AirStack revision is the commit containing this document; record it with
-`git rev-parse HEAD`. Dynamic placement and optional Claude selection are
-implemented. [AGENT_ROADMAP.md](AGENT_ROADMAP.md) separates completed work from
-the remaining attack-validation and evaluation tasks.
+`git rev-parse HEAD`. See [CORRIDOR_AGENT.md](CORRIDOR_AGENT.md) for the current
+agent configuration and prompt locations.
 
 ## Exclude from Git
 
@@ -39,6 +38,9 @@ the remaining attack-validation and evaluation tasks.
   `ws2_assets/`, `.venvs/`, ROS `build/install/log`, `__pycache__`.
 - `.venv-ws2/`, videos, PPT/PDF exports, authentication files, private keys and machine-specific
   connection configuration.
+- Internal development journals, experimental status notes, research plans and
+  one-off session scripts: maintain these outside the checkout. Keep reusable
+  execution/evaluation code, regression tests and user-facing setup instructions in Git.
 
 **The necessary 41 KB patch is included in the AirStack backup** at
 `tools/ws2_bench/assets/learned_patch.png`, per the user's instruction. Its
@@ -53,8 +55,8 @@ or uploaded again as a new generated file. Removing it from existing Git history
 is outside this task; no history rewrite was done.
 
 Keep selected experimental bags/videos separately if needed for research evidence;
-excluding them from Git does not mean deleting them. `VALIDATION.md` is the small
-text record of checks, not a substitute for raw experimental evidence.
+excluding them from Git does not mean deleting them. Keep internal written
+validation records with the separately archived experimental evidence.
 
 ## Restore code and model dependencies
 
@@ -113,15 +115,15 @@ it does not alter the training repository, deployed policy or learned PNG.
 
 ## Restore Office assets and local containers
 
-The optional Claude integration is on the same `eungchang/adv-ws2` branch.
+The optional Claude/Codex integration is on the same `eungchang/adv-ws2` branch.
 Tag `ws2-basic-2026-09-22` preserves the pre-agent basic version. Back up
-`agent_*.py`, `claude_*.py`, their tests and `CLAUDE_AGENT.md` with the other bench
-source. Claude authentication stays in the local official CLI; do not commit
+the reusable bench/provider source, tests and `CORRIDOR_AGENT.md` together.
+Authentication stays in the local official CLI; do not commit
 tokens or credential files. `llm_calls/`, reports and simulator evidence stay
-under the ignored runtime directory. See [CLAUDE_AGENT.md](CLAUDE_AGENT.md).
+under the ignored runtime directory. See [CORRIDOR_AGENT.md](CORRIDOR_AGENT.md).
 Expanded-space source also includes `generated_layouts.py`, `expanded_space.py`,
 `export_geometry.py`, the small USD-derived `office_geometry.json`, comparison
-runner/tests and `EVALUATION.md`. The manifest stores numeric bounds and the
+runner/tests. The manifest stores numeric bounds and the
 source asset hash, not Office meshes/textures. Download the original Office asset
 as below; the generator rejects a different asset hash.
 

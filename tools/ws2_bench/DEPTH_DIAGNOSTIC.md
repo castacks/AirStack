@@ -48,5 +48,5 @@ Results carry `evaluation_track: depth_source_diagnostic`.
   classified them as `planner_stopped`. New episodes classify such exits as
   `infrastructure_error`; normal zero-exit/terminal stops remain separate.
 
-The October 14 results and limits are recorded in [VALIDATION.md](VALIDATION.md).
-They must not be pooled with the normal RGB pilot or attack success rates.
+Keep these diagnostic results separate from normal RGB evaluation and attack
+success rates. Preserve the original inputs and per-run provenance outside Git.

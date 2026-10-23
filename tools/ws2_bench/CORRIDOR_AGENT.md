@@ -138,8 +138,19 @@ One seed per policy/target is an initial comparison, not statistical proof. The 
 baseline is a heuristic; a strong optimizer and held-out seeds are needed before
 broad research claims. No human-performance comparison is implied.
 
-The completed October18–19 pilot and separate defense review are documented in
-[CORRIDOR_AGENT_VALIDATION.md](CORRIDOR_AGENT_VALIDATION.md). It did not establish
-a Claude advantage. Report annotations identify design issues; they are not
-defense-effectiveness measurements. Use a fresh campaign directory for the updated
-prompts; the completed study retains its original frozen source snapshot.
+Report annotations identify design issues; they are not defense-effectiveness
+measurements. Use a fresh campaign directory after changing prompts; completed
+studies retain their original results and frozen source snapshots outside Git.
+
+## Prompt locations
+
+- `agent_exploration_v2.py`, `SYSTEM`: current experiment planning prompt;
+  appends `experiment_protocol.py` and `planning_contract.py` instructions.
+- `agent_analysis.py`, `write_analysis`: final interpretation and unvalidated
+  defense proposals. `matched_policy.py` contains the matched diagnostic prompt.
+- `codex_provider.py` / `claude_provider.py`: provider transport and authentication.
+- Each campaign's `llm_calls/*.json`: exact `request.system`, `request.input`,
+  `request.schema`, attached-image metadata and actual response/usage.
+
+The context is generated from that campaign's bounds, budget and measured history;
+editing a provider's name does not replace the experiment prompt.

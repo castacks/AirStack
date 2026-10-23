@@ -178,8 +178,9 @@ seconds. Patch is an unchanged opaque image with size/on-off/timing controls.
 MonoNav receives explicit corner task goals, while Kim/PULP receive no route
 or goal. All-scene PhysX contact and ordered gates determine corridor results.
 Camera/control integration safeguards are separate from the pretrained networks.
-Detailed historical evidence is in [CORRIDOR_VALIDATION.md](CORRIDOR_VALIDATION.md);
-source/asset recovery is in [BACKUP.md](BACKUP.md).
+Source/asset recovery is in [BACKUP.md](BACKUP.md). Per-campaign results and
+provenance are saved in the runtime output directory, outside Git. Internal
+development journals and research plans are maintained separately from this repository.
 
 ## Agent-selected corridors
 
