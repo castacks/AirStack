@@ -15,7 +15,7 @@ git clone --recursive --branch eungchang/adv-ws2 git@github.com:castacks/AirStac
 cd AirStack
 ./airstack.sh setup
 docker login airlab-docker.andrew.cmu.edu
-./airstack.sh image-pull
+./airstack.sh image-pull isaac-sim robot-desktop
 ```
 
 Install/build the selected workers using their own READMEs:
@@ -25,12 +25,16 @@ Install/build the selected workers using their own READMEs:
 The expected images are `mononav-demo:1.0`,
 `collision-avoidance-airstack:1.0`, and `pulp-dronet-airstack:1.0`.
 
-Prepare the existing containers once, with application autostart disabled:
+Prepare the containers once, with application autostart disabled. A fresh clone
+needs the **full robot workspace build**: building only `mononav_bridge` and
+`local_bringup` leaves launch-time packages and their dependencies missing.
+The bench expects Compose project `airstack` and the container names below.
 
 ```bash
 sudo apt-get install python3-venv fonts-dejavu-core
-AUTOLAUNCH=false ./airstack.sh up isaac-sim robot-desktop
-docker exec airstack-robot-desktop-1 bash -lc 'bws --packages-select mononav_bridge local_bringup'
+mkdir -p robot/ros_ws/ws2_runtime
+AUTOLAUNCH=false COMPOSE_PROJECT_NAME=airstack ./airstack.sh up isaac-sim robot-desktop
+docker exec airstack-robot-desktop-1 bash -lc 'bws && sws && ros2 pkg prefix desktop_bringup && ros2 pkg prefix mononav_bridge'
 docker stop --timeout 3 isaac-sim airstack-robot-desktop-1
 python3 -m venv .venv-ws2
 .venv-ws2/bin/pip install PyYAML Pillow imageio-ffmpeg
@@ -41,6 +45,23 @@ Corridors are generated locally; no Office asset download is needed for them.
 For Office, restore the USD/textures using [BACKUP.md](BACKUP.md).
 Keep weights, runtime videos/bags, build outputs and caches out of Git.
 Rui's small original patch is already in `assets/learned_patch.png`.
+
+Do not continue past a failed pull/build. Registry permission, Docker GPU support,
+and model checkpoint downloads are separate prerequisites. Run Docker as the same
+user that runs the viewer (`docker info` must work without `sudo`). Keep the viewer
+unprivileged; creating the shared runtime directory before starting containers
+avoids a root-owned top-level directory on a new checkout.
+
+Check the selected target without starting any simulator or flight:
+
+```bash
+.venv-ws2/bin/python tools/ws2_bench/check_install.py --planner pulp_dronet
+```
+
+Replace `pulp_dronet` with `mononav` or `kim`. Fix every reported missing item.
+This checks local packages, worker files, weight paths, ROS build markers and
+Docker mounts/images/network; GPU execution and checkpoint contents are still
+verified when a run starts.
 
 ## Run
 
@@ -53,10 +74,26 @@ Start the viewer in one terminal:
 
 Open **http://127.0.0.1:8892**. Simulator and actual model inference appear side
 by side; Pause, Resume and Stop control the active campaign. Only one flight
-worker may execute at a time. The viewer's **Start tests** form launches Office
-campaigns. Choose a target and feedback/random/search, or LLM-guided tests with
-Claude/Codex. Select `Corridors` for visual evidence, timed sensor perturbations
-and generated obstacle dimensions ([setup and configuration](CORRIDOR_AGENT.md)).
+worker may execute at a time. For the first run, select the installed target,
+**Search → Corridors → 2 flights**, and set extra clean checks and infrastructure
+retries to **0**. Click **Start tests**. This uses generated corridors, requires
+no Office assets and does not require an LLM login. Simulator startup and model
+loading take time; open **Startup / campaign log** to see progress or errors.
+For agent decisions, select **LLM-guided tests** and authenticate the selected
+Claude/Codex CLI first ([setup and configuration](CORRIDOR_AGENT.md)).
+**Basic feedback** uses Office and requires its separately downloaded assets.
+
+If nothing starts, copy the error shown in the web page and the startup log:
+
+```bash
+tail -n 80 robot/ros_ws/ws2_runtime/dashboard_campaign.log
+```
+
+If that file does not exist, check the terminal running `dashboard.py` and the
+installation checker output. A failed installation check is shown before a child
+process is started, so it does not create a campaign log. After updating dashboard
+code, restart only the viewer process and reload the browser; do not stop an
+active flight or recreate containers just to update the web page.
 
 Launch recorded corridor suites from another terminal:
 

@@ -1,7 +1,7 @@
 """Presentation console: actual inference and result-guided automatic flights."""
 from model_adapters import REGISTRY, get_adapter
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
-import argparse,datetime,fcntl,json,os,subprocess,sys,threading,math
+import argparse,datetime,fcntl,json,os,subprocess,sys,threading,math,time
 from run_conditions import RUNTIME,HERE
 from episode import atomic
 from mission import defaults
@@ -72,7 +72,8 @@ def adaptive_command(payload,output):
     return command
 
 def campaign_root():
-    value={'output':str(job_output)} if job_output is not None and job is not None and job.poll() is None else read_json(RUNTIME/'live_campaign.json') or {}
+    launch=launch_status()
+    value=launch if launch else read_json(RUNTIME/'live_campaign.json') or {}
     if not value.get('output'):raise ValueError('No campaign yet')
     from pathlib import Path
     root=Path(value['output']).resolve();root.relative_to((RUNTIME/'campaigns').resolve())
@@ -99,6 +100,39 @@ def read_json(path):
     try:return json.loads(path.read_text())
     except (OSError,ValueError):return None
 
+def launch_status():
+    """Keep early child exits visible even before campaign code writes its state."""
+    record=read_json(RUNTIME/'dashboard_launch.json')
+    if not record:return None
+    live=RUNTIME/'live_campaign.json';campaign=read_json(live)
+    if campaign and campaign.get('output')!=record.get('output') and live.stat().st_mtime>record['started_at']:
+        return None  # A newer CLI campaign owns the viewer.
+    if job is not None and str(job_output)==record['output']:
+        code=job.poll()
+        record.update(status='running' if code is None else 'failed' if code else 'exited',exit_code=code)
+    elif record.get('status') in ('starting','running'):
+        record.update(status='unknown',error='Viewer restarted; inspect the campaign log before starting another run.')
+    return record
+
+def launch_log_tail():
+    try:
+        with (RUNTIME/'dashboard_campaign.log').open('rb') as stream:
+            stream.seek(0,2);stream.seek(max(0,stream.tell()-12000))
+            value=stream.read().decode('utf-8',errors='replace')
+        for key,secret in os.environ.items():
+            if len(secret)>=8 and any(part in key.upper() for part in ('TOKEN','SECRET','PASSWORD','WEBHOOK','API_KEY')):
+                value=value.replace(secret,'[REDACTED]')
+        return value
+    except OSError as exc:return str(exc)
+
+def watch_launch(process,output):
+    code=process.wait()
+    with job_lock:
+        record=read_json(RUNTIME/'dashboard_launch.json')
+        if record and record.get('pid')==process.pid and record['output']==str(output):
+            record.update(status='failed' if code else 'exited',exit_code=code)
+            atomic(RUNTIME/'dashboard_launch.json',record)
+
 def active():
     if job is not None and job.poll() is None:return True
     for name in ['feedback.lock','adaptive.lock','sequence.lock']:
@@ -120,6 +154,10 @@ class Handler(BaseHTTPRequestHandler):
             if path=='/':self.send((HERE/'presentation.html').read_bytes(),'text/html; charset=utf-8')
             elif path=='/state':
                 campaign=read_json(RUNTIME/'live_campaign.json')
+                launch=launch_status()
+                if launch and (not campaign or campaign.get('output')!=launch['output']):
+                    campaign={'output':launch['output'],'target_planner':launch['planner'],
+                              'phase':'preflight' if launch['status']=='running' else 'error'}
                 comparison=read_json(RUNTIME/'live_comparison.json')
                 try:
                     compare_root=comparison_root();comparison_report=read_json(compare_root/'comparison.json');comparison_protocol=read_json(compare_root/'protocol.json')
@@ -135,8 +173,10 @@ class Handler(BaseHTTPRequestHandler):
                            'scene':read_json(RUNTIME/'scene_status.json'),'analysis':report,'control':control,
                            'llm_analysis':llm_analysis,'campaign_error':campaign_error,
                            'campaign_config':campaign_config,
+                           'launch':launch,
                            'comparison':comparison,'comparison_report':comparison_report,'comparison_protocol':comparison_protocol,
                            'inference':{m:read_json(RUNTIME/'inference'/(m+'.json')) for m in REGISTRY}})
+            elif path=='/launch-log':self.send(launch_log_tail().encode(),'text/plain; charset=utf-8')
             elif path=='/scene.jpg':self.send((RUNTIME/'live_view.jpg').read_bytes(),'image/jpeg')
             elif path in ['/report','/report.md','/report.json']:
                 ext={'/report':'html','/report.md':'md','/report.json':'json'}[path]
@@ -180,11 +220,22 @@ class Handler(BaseHTTPRequestHandler):
             argv=adaptive_command(payload,output) if kind=='adaptive' else feedback_command(payload,output)
         except (ValueError,UnicodeError) as exc:self.send({'error':str(exc)},status=400);return
         with job_lock:
-            if active():self.send({'error':'another bench run is active'},status=409);return
-            with (RUNTIME/'dashboard_campaign.log').open('w') as log:
-                job=subprocess.Popen(argv,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
-                job_output=output
-            self.send({'ok':True,'output':str(output)})
+            try:
+                if active():self.send({'error':'another bench run is active'},status=409);return
+                from check_install import check_install
+                check=check_install(payload['planner'])
+                if not check['ok']:
+                    self.send({'error':'Installation incomplete:\n'+'\n'.join(check['errors'])},status=400);return
+                record={'output':str(output),'planner':payload['planner'],'started_at':time.time(),'status':'starting','exit_code':None}
+                with (RUNTIME/'dashboard_campaign.log').open('w') as log:
+                    job=subprocess.Popen(argv,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+                    job_output=output
+                    record.update(pid=job.pid,status='running')
+                    atomic(RUNTIME/'dashboard_launch.json',record)
+                threading.Thread(target=watch_launch,args=(job,output),daemon=True).start()
+                self.send({'ok':True,'output':str(output)})
+            except OSError as exc:
+                self.send({'error':f'Cannot start campaign: {exc}. Check runtime permissions and the Python executable.'},status=500)
 
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('--monitor',action='store_true');p.add_argument('--port',type=int,default=8892)
