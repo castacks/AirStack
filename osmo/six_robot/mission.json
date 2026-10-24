@@ -1,0 +1,127 @@
+{
+  "high_robots": [
+    1,
+    2
+  ],
+  "low_robots": [
+    3,
+    4,
+    5,
+    6
+  ],
+  "offsets": {
+    "1": [
+      0,
+      0
+    ],
+    "2": [
+      0,
+      0
+    ],
+    "3": [
+      0,
+      0
+    ],
+    "4": [
+      0,
+      0
+    ],
+    "5": [
+      0,
+      0
+    ],
+    "6": [
+      0,
+      0
+    ]
+  },
+  "survey_routes": {
+    "1": [
+      [
+        103.0,
+        48.0,
+        25.0
+      ],
+      [
+        79.204,
+        -23.874,
+        25.0
+      ],
+      [
+        -4.358,
+        75.712,
+        25.0
+      ],
+      [
+        -35.0,
+        50.0,
+        25.0
+      ],
+      [
+        48.562,
+        -49.586,
+        25.0
+      ],
+      [
+        17.921,
+        -75.297,
+        25.0
+      ],
+      [
+        -65.642,
+        24.288,
+        25.0
+      ]
+    ],
+    "2": [
+      [
+        111.0,
+        48.0,
+        25.0
+      ],
+      [
+        -7.572,
+        79.542,
+        25.0
+      ],
+      [
+        -94.348,
+        182.958,
+        25.0
+      ],
+      [
+        -124.99,
+        157.246,
+        25.0
+      ],
+      [
+        -38.214,
+        53.83,
+        25.0
+      ],
+      [
+        -68.856,
+        28.119,
+        25.0
+      ],
+      [
+        -155.632,
+        131.535,
+        25.0
+      ]
+    ]
+  },
+  "inspection_bounds": [
+    -195,
+    -195,
+    195,
+    195
+  ],
+  "wall_timeout_s": 3600,
+  "inspection_budget_s": 2400,
+  "survey_drain_s": 45,
+  "coverage_min_humans": 35,
+  "coverage_max_route_distance_m": 40,
+  "scope": "400 m suburban tornado scene; two survey sectors along the damage corridor, six drones at one base",
+  "inspection_policy": "Grouped RayFronts predicted damage; continuous reachable inspection queue"
+}

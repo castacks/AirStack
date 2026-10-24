@@ -1,0 +1,62 @@
+{
+  "workflow": "coordinator-scene-refresh-20261023-1",
+  "source": "Exact retained AirStack runtime files from the recorded six-drone mission",
+  "files": [
+    {
+      "file": "scripts/three_aoi_mission.py",
+      "sha256": "b99d98203e59afcadf992ed160513ddab4a4aa75534618210c83a8cd83e25010"
+    },
+    {
+      "file": "scripts/survey_damage_regions.py",
+      "sha256": "6a6377311c9f95f99f9c2b4999f4179ff6c52856ebd86e60b8f369f7bb005d0b"
+    },
+    {
+      "file": "scripts/group_aois.py",
+      "sha256": "2f7bc29c8eddbd9028367de7c248b9f1e86795b33352d5d4c0fd2be38965d96e"
+    },
+    {
+      "file": "scripts/aoi_queue.py",
+      "sha256": "0efbfebecbef5828954d51be1f4c931f7db72c517ee5547443bf79df0abf2d5e"
+    },
+    {
+      "file": "scripts/aoi_dispatch.py",
+      "sha256": "eae9fcfa1d33ae471b2164e6ca9eadccbe67f44a4618a4e156445e21e65b5ef7"
+    },
+    {
+      "file": "scripts/damage_aoi.py",
+      "sha256": "8ec4dafa8fd2174140ddd6f90a170aad499bc8b540e91a768f1fb40e374f7d60"
+    },
+    {
+      "file": "scripts/route_search.py",
+      "sha256": "85371f95026c4f283a8451fe993309cdb845917f37d5f7d09dd25323282162c2"
+    },
+    {
+      "file": "osmo/six_robot/launch.py",
+      "sha256": "7056b6202cce386c39b1c2332eb483162ac8d9e925ebb201c5344ead04cfe590"
+    },
+    {
+      "file": "osmo/six_robot/robot.sh",
+      "sha256": "e731497212cb6cc60cd8f3ccca741686be34a93a5ff161c514ecd687a33bf026"
+    },
+    {
+      "file": "osmo/six_robot/mission.json",
+      "sha256": "3ae0cba9a301905924b8db2eee3a75b4cd8ebf1f8a17dad33b7e09787a90794c"
+    },
+    {
+      "file": "osmo/six_robot/fleet.yaml",
+      "sha256": "1c610f993782d03ba22c71607ed4551ae29d1b27e1d6825b95de71f9fcea9c96"
+    },
+    {
+      "file": "osmo/six_robot/coverage_preflight.py",
+      "sha256": "d485830d293974d1bce067a48b98533c942305b6c681b9b7e252262666a525de"
+    },
+    {
+      "file": "scripts/test_continuous_aoi_queue.py",
+      "sha256": "1f6165988fea45f4fa80ef81b1ec27ab84e9b48b1093b141804ab2dd26008355"
+    },
+    {
+      "file": "scripts/test_route_dispatch.py",
+      "sha256": "9907a53c2d4dc9ecc286d2669418e557a1a525307e10d42a5c580dc7a555738b"
+    }
+  ]
+}

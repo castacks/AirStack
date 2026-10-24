@@ -1,0 +1,103 @@
+drones:
+- cruise_speed_mps: 6.0
+  drone_class: large
+  drone_id: large_1
+  home:
+  - 0.0
+  - 0.0
+  - 0.0
+  metadata:
+    task_frame_offset_xy:
+    - 0.0
+    - 0.0
+  position:
+  - 0.0
+  - 0.0
+  - 0.0
+  robot_name: robot_1
+  status: idle
+- cruise_speed_mps: 6.0
+  drone_class: large
+  drone_id: large_2
+  home:
+  - 0.0
+  - 0.0
+  - 0.0
+  metadata:
+    task_frame_offset_xy:
+    - 0.0
+    - 0.0
+  position:
+  - 0.0
+  - 0.0
+  - 0.0
+  robot_name: robot_2
+  status: idle
+- cruise_speed_mps: 3.0
+  drone_class: small
+  drone_id: small_1
+  home:
+  - 0.0
+  - 0.0
+  - 0.0
+  metadata:
+    task_frame_offset_xy:
+    - 0.0
+    - 0.0
+  position:
+  - 0.0
+  - 0.0
+  - 0.0
+  robot_name: robot_3
+  status: idle
+- cruise_speed_mps: 3.0
+  drone_class: small
+  drone_id: small_2
+  home:
+  - 0.0
+  - 0.0
+  - 0.0
+  metadata:
+    task_frame_offset_xy:
+    - 0.0
+    - 0.0
+  position:
+  - 0.0
+  - 0.0
+  - 0.0
+  robot_name: robot_4
+  status: idle
+- cruise_speed_mps: 3.0
+  drone_class: small
+  drone_id: small_3
+  home:
+  - 0.0
+  - 0.0
+  - 0.0
+  metadata:
+    task_frame_offset_xy:
+    - 0.0
+    - 0.0
+  position:
+  - 0.0
+  - 0.0
+  - 0.0
+  robot_name: robot_5
+  status: idle
+- cruise_speed_mps: 3.0
+  drone_class: small
+  drone_id: small_4
+  home:
+  - 0.0
+  - 0.0
+  - 0.0
+  metadata:
+    task_frame_offset_xy:
+    - 0.0
+    - 0.0
+  position:
+  - 0.0
+  - 0.0
+  - 0.0
+  robot_name: robot_6
+  status: idle
