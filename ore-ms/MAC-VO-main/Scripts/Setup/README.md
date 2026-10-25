@@ -855,3 +855,14 @@ realCPU replay on80 source images and120depth maps. Run
 `python -m pytest Scripts/UnitTest/test_ms2_adapter.py -q` in the project runtime;
 artifact full-pilot validator compares against original archived producer bodies.
 No checkpoint/GPU needed;exact released-training preprocessing is unverified.
+
+## MS² pretrained frontend smoke test (EXP044)
+
+Build `Docker/Dockerfile.ms2-smoke` after the existing Blackwell image to pin
+NumPy/OpenCV/PyPose to the audited input recipe. `ms2_frontend_smoke.py` runs
+20 stereo+19 temporal calls per explicitly selected modality,at native resolution,
+with strict checkpoint loading and saved complete flow/covariance arrays.
+`validate_ms2_frontend_smoke.py` independently checks source-producer replay,
+saved arrays and exact IDs/times. See `../../../experiments/EXP-044-ms2-frontend-smoke.md`
+for full commands. RGB passes;thermal awaits original shared checkpoint access.
+No accuracy/timing/calibration claim follows from execution success.

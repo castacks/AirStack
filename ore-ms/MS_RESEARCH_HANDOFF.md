@@ -1197,3 +1197,18 @@ NP2.2.6,CV4.10. Pytestfirstfailedmissingplugin,thenpassedwithupstreamwarnings.
 No GPU/models/inference/default/calibration/timestampchanges. Full bounded replay
 preserved Box2026-10-23-exp-043. Next:bounded originalfrontend execution smoke
 check;that doesnotresolve physicaltimestamp/ref/trainingprovenance.
+
+2026-10-24 — EXP044: restored self-contained EXP043 archive;277 member hashes
+pass. Rebuilt Blackwell runtime with pinned MS² input libraries;14 adapter tests
+pass;independent producer replay matches80 input tensors and4 saved first-input
+arrays. Official-release RGB checkpoint SHA256
+bec6edd7e195bab863132f1e9659cdd26e6eaeae7cfd24a626828de294cf5b3a loads using
+audited legacy migration.20 stereo+19 temporal native384×1224 calls pass shapes,
+float32,finiteness and positive covariance. First stereo/temporal repeats bitwise
+identical;39 saved files independently validated;81 input hashes unchanged.
+Arrays/metadata:results/ms2-frontend-smoke/rgb-run-001. Thermal still pending:
+original Box folder303805616544/file2037543542268 return404;sharedURL or archive
+in project folder requested. Do not claim all-modality completion. Added opt-in
+smoke runner/independent validator;no defaults,pixels,times,geometry,VO or fusion
+changes. Runtime compatibility only;physical timing/reference/training provenance
+open. Recovery target backups/2026-10-24-exp-044 excludes models/full archives.

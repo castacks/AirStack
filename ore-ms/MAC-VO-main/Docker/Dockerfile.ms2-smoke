@@ -1,0 +1,4 @@
+# Reuse the original Blackwell frontend runtime; reproduce the audited input recipe.
+FROM macvo:blackwell
+RUN python -m pip install --no-cache-dir \
+    numpy==2.2.6 opencv-python-headless==4.10.0.84 pypose==0.7.3 pytest==8.4.2
