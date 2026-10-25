@@ -3,6 +3,8 @@
 Date:2026-10-25 America/New_York. Branch `ore_ms`; starting commit `d4a163977`.
 **A conditional provided-pair depth diagnostic is defined. Physical temporal/cross-modal error evaluation remains ineligible.** No model inference, error scoring, direction selection, clock correction, fitted calibration, VO or fusion was performed.
 
+**Scope clarification (2026-10-25):** [EXP050](EXP-050-ms2-timing-metadata.md) clarifies that the inherited timing gate is a diagnostic, not a validated universal MS² benchmark acceptance rule. Provided-pair/reference benchmarking can proceed while precise exposure semantics remain qualified. Historical numerical results and flags below are unchanged.
+
 ## Source evidence and intended pose convention
 
 Re-read and archive the official [data format](https://sites.google.com/view/multi-spectral-stereo-dataset/data-format), [setup](https://sites.google.com/view/multi-spectral-stereo-dataset/setup) and [original loader at 0bb0fc1a](https://github.com/UkcheolShin/MS2-MultiSpectralStereoDataset/blob/0bb0fc1a544d8ad58c7fda5bc025cb0cbb400284/dataloader/MS2_dataset.py). Source URLs, retrieval date, byte counts and SHA256 are in `results/ms2-reference-protocol/sources/registry.json`. No new author communication was sent.
