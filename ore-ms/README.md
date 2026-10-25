@@ -304,8 +304,8 @@ correction or default changes. Checkpoint training preprocessing remains
 unconfirmed. Box `backups/2026-10-23-exp-043`.
 
 [EXP-044](experiments/EXP-044-ms2-frontend-smoke.md) runs pretrained RGB on the
-fixed MS² pilot at native384×1224:20 stereo+19 temporal calls pass shape,
+fixed MS² pilot:39 calls each for RGB384×1224 and thermal256×640 all pass shape,
 finiteness,positive covariance and independent saved-array validation. All80
-RGB/thermal model-input tensors match archived producer replay;14 adapter tests
-pass in the GPU runtime. Thermal execution awaits original checkpoint access;
-historical Box IDs return404. Runtime compatibility only,not physical accuracy.
+model-input tensors match archived producer replay;14 adapter tests pass. The
+original checkpoint archive is hash-verified after shared-link recovery. Runtime
+compatibility only,not physical accuracy. Full Box recovery:2026-10-24-exp-044-complete.

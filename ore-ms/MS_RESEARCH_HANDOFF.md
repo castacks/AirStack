@@ -1212,3 +1212,20 @@ in project folder requested. Do not claim all-modality completion. Added opt-in
 smoke runner/independent validator;no defaults,pixels,times,geometry,VO or fusion
 changes. Runtime compatibility only;physical timing/reference/training provenance
 open. Recovery target backups/2026-10-24-exp-044 excludes models/full archives.
+
+2026-10-24 — EXP044 completed after user supplied original shared Box link
+https://cmu.app.box.com/s/daz2l4ei8m864vbhkbk3k2igzz6kxc69 . Resolve via shared_items
+and retain BoxApi shared_link header for original file content;direct ID access
+alone returns404.318804129-byte macslam archive SHA/CRC verify. RGB weights are
+byte-identical to upstream release;MACT_Offroad SHA256
+eed20722b73c80f016c4646741def4e4e5e2999feaf2c2715c5a6293dc35287a
+loads428 entries strictly,without migration. Thermal20 stereo+19 temporal calls
+at native256x640 pass shapes,float32,finiteness,positive covariance;independent
+saved-array validation passes39/39. Thermal first stereo/temporal repeats both
+bitwise identical. Combined RGB+thermal78/78 calls PASS,same runner/inputmanifest;
+267 historical scientific/source files unchanged. Full arrays/metadata and combined
+validation:results/ms2-frontend-smoke. Runtime compatibility only;timing/reference/
+training provenance and uncertainty calibration remain unresolved. No defaults,
+VO,fusion or source changes. New complete snapshot backups/2026-10-24-exp-044-complete
+preserves both runs;earlier RGB-only snapshot unchanged. Original source URL/hash
+now recorded in models/README.md to avoid repeating the shared-access blocker.

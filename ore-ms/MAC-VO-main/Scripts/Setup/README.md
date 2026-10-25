@@ -864,5 +864,6 @@ NumPy/OpenCV/PyPose to the audited input recipe. `ms2_frontend_smoke.py` runs
 with strict checkpoint loading and saved complete flow/covariance arrays.
 `validate_ms2_frontend_smoke.py` independently checks source-producer replay,
 saved arrays and exact IDs/times. See `../../../experiments/EXP-044-ms2-frontend-smoke.md`
-for full commands. RGB passes;thermal awaits original shared checkpoint access.
+for full commands. Both modalities pass all78 calls with original checkpoints;
+shared-link recovery and archive hashes are documented in EXP044.
 No accuracy/timing/calibration claim follows from execution success.

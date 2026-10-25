@@ -1,7 +1,7 @@
 # EXP-044: MS² pretrained frontend execution smoke test
 
 Date: 2026-10-24 America/New_York. Branch `ore_ms`; starting commit `ef6ca6f57`.
-**RGB passes all39 native-resolution calls. Thermal execution is pending access to the original checkpoint.** Runtime compatibility only; no physical accuracy, uncertainty calibration or stereo simultaneity claim.
+**Both RGB and thermal pass all 78 native-resolution calls and independent saved-array validation.** Runtime compatibility only; no physical accuracy, uncertainty calibration or stereo simultaneity claim.
 
 ## Scope and recovery
 
@@ -9,7 +9,7 @@ Exactly EXP041–043's first20 pilot IDs000000–000019 from MS² night `_2021-0
 
 EXP043's self-contained archive SHA256 `5658f69f6b2b186453003728a5a56e78b65cc5b523797c2ec204100f0e657fd9` verifies, as do all277 member hashes. It contains the full bounded pilot; no separate EXP041/042 downloads or full dataset archives needed. All prior files remain unchanged.
 
-Original checkpoint folder303805616544 and file2037543542268 return404 with the restored Box account. The project Box folder has no model archive. User was asked for the shared Box URL or `macslam.zip` in the project folder. Thermal inference has not run. Original archive must match SHA256 `77ad168672019f94d8e48ebb087cb109b938bcf8784e3df480070cd5f437f00c`.
+Direct access to checkpoint folder303805616544/file2037543542268 initially returned404. The user supplied the [original shared Box link](https://cmu.app.box.com/s/daz2l4ei8m864vbhkbk3k2igzz6kxc69), which resolves through `/2.0/shared_items`. Downloading the known file with a `BoxApi: shared_link=...` header restored the 318,804,129-byte archive. Its SHA256 matches `77ad168672019f94d8e48ebb087cb109b938bcf8784e3df480070cd5f437f00c`; ZIP CRC checks pass. Redirected download requests contain no OAuth or BoxApi headers. Thermal checkpoint SHA256 is `eed20722b73c80f016c4646741def4e4e5e2999feaf2c2715c5a6293dc35287a`; all428 entries load strictly with no migration. RGB bytes from the archive exactly equal the official release used in the first run.
 
 RGB recovered from the [official MAC-VO release](https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth), SHA256 `bec6edd7e195bab863132f1e9659cdd26e6eaeae7cfd24a626828de294cf5b3a`. Existing audited migration loads434 entries: seven unused upstream keys removed, deterministic sampling-grid buffer initialized, all active state loaded strictly. No learned state synthesized.
 
@@ -40,6 +40,22 @@ Times include synchronization around the model call and exclude image loading, G
 
 Save complete flow/covariance fields, source IDs, inference input times and all four associated camera times in compressed NPZ files. Independent validation re-reads every array, checks shape/dtype/finiteness/positivity, file/checkpoint hashes, source IDs/times, and complete expected pair coverage. It independently regenerates all input tensors using original producer bodies and checks recorded inference-input hashes.
 
+## Measured thermal result
+
+| Check | Result |
+|---|---|
+| Stereo / temporal calls |20/20 and19/19 pass|
+| Flow and covariance shape/dtype |1×2×256×640 / float32|
+| Finite flow and finite positive covariance |39/39 pass|
+| Stereo covariance range, pixel² |0.00565608–2562.1519|
+| Temporal covariance range, pixel² |0.000325325–307.5430|
+| Median stereo / temporal forward time |0.04427s /0.04434s|
+| Maximum allocated CUDA memory |1.293GiB|
+| First stereo / temporal repeated inference |Both flow/covariance bitwise identical|
+| Independent saved-array audit |39/39 files pass|
+
+Thermal uses the same recorded environment and frozen input contract as RGB, from commit `a0ec22920`; the runner SHA256 is unchanged between runs. Independent validation checks all80 RGB/thermal model-input tensors again and all39 thermal output files, including exact source IDs and both camera times. Each run separately verifies the manifest and80 image hashes unchanged. The267 historical source/input/artifact files from the recovery manifest remain unchanged after both runs. No numerical RGB-versus-thermal accuracy comparison is made: image populations, resolution, timing and checkpoint training assumptions differ.
+
 ## Reproduction
 
 From `ore-ms/MAC-VO-main`:
@@ -67,8 +83,12 @@ python Scripts/Setup/validate_ms2_frontend_smoke.py \
   --output /root/AirStack/ore-ms/results/ms2-frontend-smoke/rgb-run-001/independent-validation.json
 ```
 
-Fresh paths required: existing outputs are rejected. After restoring original thermal weights, run `--modalities thr` into a fresh directory and validate it. Omitting `--modalities` runs both; validator checks coverage for the explicitly requested modalities. No existing runner, dataset registration, calibration or defaults change.
+Fresh paths required: existing outputs are rejected. For thermal, run `--modalities thr` with output `thermal-run-001` and validate that directory. Omitting `--modalities` runs both; validator checks coverage for the explicitly requested modalities. No existing runner, dataset registration, calibration or defaults change.
 
-## Remaining work and preservation
+## Outcome and preservation
 
-Restore/hash-verify original thermal checkpoint; execute and independently audit its39 fixed calls at native256×640. Timing/reference/training-provenance limits remain regardless of runtime success. Recovery target `backups/2026-10-24-exp-044` preserves bounded pilot/manifest, preprocessing producer, RGB outputs, logs and code. Model weights/full dataset archives excluded; recover from official release/original shared checkpoint source.
+The bounded frontend smoke test is complete: 78/78 calls pass, all saved outputs independently validate, and all four first-pair repeats are bitwise identical. This establishes runtime compatibility for the explicit source protocol and thermal recipe. It does not resolve exposure timing, reference-pose direction, training recipe/split, uncertainty calibration or physical accuracy.
+
+The next research step is to establish an explicitly justified timing/reference protocol before using these outputs for physical RGB/thermal error comparisons. VO, fusion, fitted calibration and timestamp corrections remain untested.
+
+Complete recovery snapshot: `backups/2026-10-24-exp-044-complete`, preserving bounded pilot/manifest, producer, both modalities' outputs, logs and code. The earlier RGB-only snapshot `backups/2026-10-24-exp-044` is retained unchanged as an intermediate checkpoint. Model weights/full archives remain excluded; original Box link and hashes above permit recovery.
