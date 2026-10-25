@@ -309,3 +309,5 @@ finiteness,positive covariance and independent saved-array validation. All80
 model-input tensors match archived producer replay;14 adapter tests pass. The
 original checkpoint archive is hash-verified after shared-link recovery. Runtime
 compatibility only,not physical accuracy. Full Box recovery:2026-10-24-exp-044-complete.
+
+[EXP-045](experiments/EXP-045-ms2-reference-protocol.md) audits MS² pose/timing/calibration metadata and freezes a provided-pair single-scan-depth diagnostic before scoring. Both pose-direction interpretations remain explicit; physical timing/reference gates remain unresolved. Existing stereo outputs can support separately labelled per-modality projected-reference diagnostics, without a physical cross-modal accuracy claim.
