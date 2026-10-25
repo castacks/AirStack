@@ -1229,3 +1229,5 @@ training provenance and uncertainty calibration remain unresolved. No defaults,
 VO,fusion or source changes. New complete snapshot backups/2026-10-24-exp-044-complete
 preserves both runs;earlier RGB-only snapshot unchanged. Original source URL/hash
 now recorded in models/README.md to avoid repeating the shared-access blocker.
+
+2026-10-25 — [Recovery audit](docs/research/recovery-checkpoint-2026-10-25.md): restored newer Box EXP044-complete and fast-forwarded ef6ca6f57→018e7dbcf (two commits). EXP043277/EXP044109 archive-member hashes verified; original checkpoint archive SHA/CRC and both model hashes pass. Rebuilt Blackwell/smoke images;14 adapter tests and independent audits of all78 saved pairs pass,with80 producer-input tensors exact per audit. CUDA matmul passes;startup diagnostics retained. No new model inference or repeat execution;historical repeat flags remain historical. Full source archives not restored. Scientific next step remains justified timing/reference protocol. Session audit backup:backups/2026-10-25-recovery-audit.
