@@ -1907,13 +1907,24 @@
  "curve": {
   "representation": "curvature",
   "endpoint_mode": "open",
+  "init_strategies": [
+   "sector"
+  ],
+  "sector": {
+   "size_m": 200.0,
+   "box_frac": 1.2,
+   "budget_frac": 1.0,
+   "grid_step_m": 50.0
+  },
   "realloc_strategies": [
-   "path",
-   "direct"
+   "path"
   ],
   "altitude_stagger_m": 1.0,
   "sweep_freq_hz": 0.075,
+  "order_budget_frac": 0.95,
+  "coordination_sweeps": 1,
   "realloc_path_max_iter": 75,
+  "reallocate": false,
   "realloc_path_warm": true
  }
 }

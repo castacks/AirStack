@@ -46,8 +46,12 @@ void summarise(const char* tag, const mtl_search::SearchResult& r) {
         std::cout << std::setprecision(4) << "; fast residual " << c->result.team.Jfinal << " (static "
                   << c->result.team.Jstatic << ", " << c->result.team.acceptedTrials() << "/"
                   << c->result.team.log.size() << " reallocations kept; static solve "
-                  << std::setprecision(3) << c->result.team.staticTime << " s, reallocation "
-                  << c->result.team.reallocTime << " s)";
+                  << std::setprecision(3) << c->result.team.staticTime << " s (sector seeds "
+                  << c->result.team.sectorTime << " s), reallocation " << c->result.team.reallocTime
+                  << " s); seed '";
+        for (std::size_t a = 0; a < c->result.plans.size(); ++a)
+            std::cout << (a ? "', '" : "") << c->result.plans[a].initStrategy;
+        std::cout << "'";
     }
     std::cout << std::setprecision(1) << "\n";
 }

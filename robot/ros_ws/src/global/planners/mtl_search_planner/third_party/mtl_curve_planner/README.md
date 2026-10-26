@@ -68,6 +68,39 @@ over a coarser grid so that belief beyond the swath edge still pulls on the curv
 
 ---
 
+## Quadrotor with a body-fixed camera (`quadrotor/`)
+
+This is the C++ twin of `main_curve_planner.m` step 6b (see `../README_curve_planner.md`, *Quadrotor with a body-fixed camera*). With `PlannerParams::quad.enabled` set, `Planner::plan` also re-plans every agent for a quadrotor whose camera is fixed to its body:
+
+- the flat outputs x, y, ψ are quintic B-splines in time, at the agent's altitude;
+- Levenberg-Marquardt on the sparse normal equations makes the boresight follow the gimbal's ground points and the vehicle follow the curve;
+- the limits on tilt, roll/pitch rate, yaw rate and acceleration, speed and look angle are enforced by escalated hinge penalties.
+
+```cpp
+params.quad.enabled = true;          // OFF by default in C++ (MATLAB's init_curve_params turns it on)
+params.quad.speed   = 6.0;           // [m/s]; maxTilt 30 deg, maxRollPitchRate 60 deg/s, maxYawRate 45 deg/s, ...
+const auto r = planner.plan(belief, starts);
+for (const mtl::curve::QuadTrajectory& q : r.quad) {
+    // q.traj.drone / q.traj.sensor / q.traj.rpy  - AgentTrajectory layout, on r.quadTimeVec
+    // q.vel, q.acc, q.jerk, q.yawRate, q.rates (body p q r), q.thrust, q.tilt, q.look
+    // q.boreErr / q.crossErr / q.alongErr against the plan, q.stats (feasible, peaks, rms)
+}
+```
+
+| Piece | |
+|---|---|
+| `quadrotor/flatness` | `resolveQuadParams` (drag, trim, matched camera tilt), `uniformBspline`, `flatMap` |
+| `quadrotor/quad_trajectory` | `quadReference`, `optimizeQuadFlatTrajectory`, `generateQuadTrajectories`, `quadAgentTrajectories` (for `eval::`), `quadMatchedLooks` |
+| `eval::reportQuadSummary` | the per-agent table |
+| `mtlc_demo --quad [--quad-speed V] [--quad-no-yaw] [--quad-max-tilt DEG] [--quad-mount matched\|fixed\|nadir]` | conversion, detections, residual (also at the fixed wing's look count), and `agentN_quad.csv` with `--csv` |
+| `tests/test_quadrotor` | B-spline, RPY convention, open-loop rigid-body integration of the flat inputs, limits, tracking, yaw-locked mode, shapes |
+
+On the same input it matches the MATLAB module to < 1 mm, with the same iteration counts. Seed 21 (`mtlc_demo --quad`): boresight rms 0.8–1.0 m and path rms 5–8 m, all limits hold, 0.8–2.3 s per agent. Residual: fixed wing 0.0150, quad 0.0138, and 0.0140 at the fixed wing's look count.
+
+The JSON adapter (`mtlc_plan`) does not emit the quad trajectories yet.
+
+---
+
 ## Layout
 
 ```
@@ -83,6 +116,7 @@ include/mtl_curve/
   optimization/   fast_grid, swath_kernel, objective, optimizer
   sensing/        sweep, airframe (copied)
   trajectory/     curve_trajectory
+  quadrotor/      flatness, quad_trajectory (body-fixed-camera quadrotor conversion)
   mapgen/         scenario (copied)                    → library mtl_curve_mapgen
   eval/           detection (copied), report           → library mtl_curve_eval
 src/              mirrors include/
@@ -90,7 +124,7 @@ apps/             demo_curve_pipeline.cpp  (mtlc_demo, the C++ main_curve_planne
                   mtl_curve_plan_json.cpp  (mtlc_plan, drop-in for mtl_plan)
                   compare_planners.cpp     (mtlc_compare, head-to-head vs cpp_planner)
                   json_mini.hpp            (copied)
-tests/            seven suites, run by ctest, no external framework
+tests/            the suites (incl. test_quadrotor), run by ctest, no external framework
 ```
 
 **Copied from `cpp_planner`, with only the namespace, include paths and guards changed:**
@@ -237,10 +271,15 @@ Everything is in `mtl_curve/params.hpp`, in the same order as `init_curve_params
 | `curve.representation` | `Curvature` (exact length and turn radius) or `BSpline` (the plan) |
 | `curve.endpointModes` | one mode, or one per agent |
 | `team.altitudeStagger` | 25 m in the plan; each altitude gets its own kernel. Higher costs reach: at 350 m and 50° tilt, 500 m instead of 531 m. **0 is like-for-like with `cpp_planner`.** |
-| `team.initStrategies` | `{Clusters, Greedy}` multi-start; `{Greedy}` halves the first sweep |
+| `team.initStrategies` | **`{Sector}` (default)**: one seed from the coverage orienteering over a sector grid (`planning::solveSectorOrienteering`, parameters in `team.sector`); add `Clusters` for a second seed (fewer bad cases, 2 optimisations); `{Clusters, Greedy}` was the previous default |
+| `team.sector` | sector seed: `sectorSize` 200 m, `boxFrac` 1.2 (box half-side / swath half-width), `budgetFrac` 1.0, `nStarts` 8, `nPerturb` 40, `maxCandidates` 250, `gridStep` 50 m |
+| `team.coordinationSweeps` | **1 (default): one optimisation per seed.** 2 adds a warm re-solve of every agent (the previous default) |
+| `team.reallocate` | slack audit + cluster reallocation after the static solve; **off by default** |
+| `team.orderBudgetFrac` | Euclidean budget of the `Clusters` seed's ordering, 1.0 |
 | `optimizer.exploreIter` | the exploration stage; 0 disables it |
 | `team.fastGridStep` | 25 m; the optimiser never touches the full-resolution grid |
 | `team.maxReallocTrials`, `team.coordinationSweeps` | the main runtime knobs |
+| `quad.enabled` | quadrotor conversion of the plan (`PlanningResult::quad`); off by default, the output is the optimised fixed-wing curve |
 
 `finalize()` derives the curvature limit (`1/minTurnRadius`), the dense step (`V·dt`), the
 control-point box and the gimbal `dt`. `validate()` throws `std::invalid_argument` at
@@ -271,7 +310,9 @@ stagger.
 | 5 | 0.0830 | 48 | **0.0159** | 50 | −81% |
 | **mean** | **0.1437** | 44.7 | **0.0554** | 47.5 | **−61%** |
 
-On one core, planning takes 0.4–0.7 s for `mtl::Planner` and 45–75 s for the curve planner.
+(These numbers predate the sector seed; they were measured with the previous defaults:
+`{Clusters, Greedy}`, 2 sweeps, reallocation on.) On one core, planning took 0.4–0.7 s for
+`mtl::Planner` and 45–75 s for the curve planner.
 Most of that time goes to the multi-start seeds and the reallocation trials; see
 `team.initStrategies`, `team.maxReallocTrials` and `team.coordinationSweeps`, or build with
 `MTLC_ENABLE_OPENMP`. The copied `mtl::curve::eval` scores every curve plan identically to
@@ -312,3 +353,23 @@ ctest --test-dir build --output-on-failure
 * **Negligible kernel entries are trimmed** (below 1e-7 log-miss per metre, which cannot move
   a pixel by 0.01% over a kilometre). This lets the deposit skip the part of the stencil a
   forward-tilted mount never sees.
+
+
+---
+
+## Information-aware clusters and the GCS seed (2026-10-22)
+
+* **`PlannerParams::infoAware`** (off by default): replaces the radius clusters with the AirStack
+  information-aware abstraction. The prior's peak basins are cut into mass levels and split under a reach
+  (`mapping/peak_clusters`). Candidates (plain, k-means, level sets × reaches) are scored by the fast
+  objective of their cluster-dependent seeds after `scoreIters` (40) optimisation iterations, then refined
+  by peel / split / merge moves (`curve_planning/info_aware`, the search loop in `planner.cpp`). The
+  result's `infoAware` report lists every candidate. MATLAB: `curveOpts.infoAware`,
+  `selectInfoAwareClusters.m`.
+* **GCS seed** (`InitStrategy::Gcs`, `TeamParams::gcs`): integrated from `gcs/cpp`. It is now orienteering
+  mode with 8-NN edges, capture-radius sets and a warm start from the orienteering order by default; see
+  `gcs/GCS_REVIVAL_NOTES.md`.
+* **Study:** `bench_ia_gcs/REPORT.md` (`apps/bench_study.cpp` → `mtlc_bench_study`). Recommended: IA clusters
+  with the clusters + greedy seeds, −1.7 % residual at 2.2× planning time. Do not replace clusters + greedy
+  with GCS.
+* Tests: `test_gcs`, `test_info_aware_clusters`.

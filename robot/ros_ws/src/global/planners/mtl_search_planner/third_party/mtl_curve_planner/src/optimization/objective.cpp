@@ -39,6 +39,22 @@ MatX kappaJacobian(const CurveRep& rep, const MatX& B1, const MatX& B2, const Pa
     return Jk;
 }
 
+/// Nearest point on the polyline Q to p.
+Vec2 nearestOnPolyline(const Path2& Q, const Vec2& p) {
+    Vec2 best = Q.row(0).transpose();
+    double bd = (best - p).squaredNorm();
+    for (Index i = 0; i + 1 < Q.rows(); ++i) {
+        const Vec2 a = Q.row(i).transpose(), b = Q.row(i + 1).transpose();
+        const Vec2 ab = b - a;
+        const double l2 = ab.squaredNorm();
+        const double t = l2 > 0.0 ? std::clamp((p - a).dot(ab) / l2, 0.0, 1.0) : 0.0;
+        const Vec2 q = a + t * ab;
+        const double d = (q - p).squaredNorm();
+        if (d < bd) { bd = d; best = q; }
+    }
+    return best;
+}
+
 }  // namespace
 
 MatX agentDeposit(const VecX& v, const CurveRep& rep, const FastGrid& G, const SwathKernel& K) {
@@ -64,10 +80,32 @@ double objectiveResidualBelief(const VecX& v, const CurveRep& rep, const AgentPr
         J += lamK * (ex.array().square() * C.ds.array()).sum();
     }
 
+    // corridor penalty
+    const bool corr = prob.corridor != nullptr && prob.corridorMu > 0.0 && prob.corridor->rows() > 0;
+    Path2 gpC;
+    VecX gdsC;
+    if (corr) {
+        const double Lc = std::max(C.ds.sum(), 1e-9), s2 = prob.corridorScale * prob.corridorScale;
+        gpC = Path2::Zero(C.pts.rows(), 2);
+        gdsC = VecX::Zero(C.pts.rows());
+        for (Index j = 0; j < C.pts.rows(); ++j) {
+            const Vec2 p = C.pts.row(j).transpose();
+            const Vec2 dv = p - nearestOnPolyline(*prob.corridor, p);
+            const double d2 = dv.squaredNorm();
+            J += prob.corridorMu * C.ds(j) * d2 / (s2 * Lc);
+            gpC.row(j) = (prob.corridorMu * C.ds(j) * 2.0 / (s2 * Lc)) * dv.transpose();
+            gdsC(j) = prob.corridorMu * d2 / (s2 * Lc);
+        }
+    }
+
     if (grad) {
         Path2 gp;
         VecX gth, gds;
         swathKernelGradient(C.pts, C.tan, C.ds, G, *prob.K, W, gp, gth, gds);
+        if (corr) {
+            gp += gpC;
+            gds += gdsC;
+        }
         *grad = curve_planning::curveVJP(rep, C, gp, gth, gds);
         if (lamK > 0.0 && ex.maxCoeff() > 0.0) {
             // penalty: through kappa (r', r'') and through ds (|r'|)

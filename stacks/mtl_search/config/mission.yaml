@@ -164,6 +164,35 @@ mission:
                                  # binds), so the peak rate is 28.3 deg/s instead of 94 - well inside the
                                  # 120 deg/s gimbal (planner, follower, sim). Planned residual was the same at
                                  # both (0.3076 vs 0.3073, 1 agent, measured at beta 610).
+    # --- first solve (upstream 8ba811a defaults, adopted 2026-10-23; written out so a later
+    #     upstream default change cannot silently change the flown plan) ---------------------
+    init_strategies: [sector]    # ONE seed per agent, optimised once: sector = coverage orienteering over a
+                                 # sector grid (planning::solveSectorOrienteering) on the belief the agents
+                                 # already planned leave unswept. Upstream: ~-3% mean residual at ~40% of the
+                                 # time of the previous [clusters, greedy] over 118 maps, with a tail of maps
+                                 # that do worse; [sector, clusters] (2 optimisations) removes most of it.
+                                 # Any of sector | clusters | greedy (gcs needs SCS: not built here).
+                                 # KNOWN (2026-10-23, kept on purpose until the multi-agent pipeline is
+                                 # revamped): good for 1 agent (fast residual 0.4921 vs 0.4925, 3.4 s vs 9.4 s)
+                                 # but much worse for a TEAM: 3 agents homed 30 m apart planned 0.138 with
+                                 # [sector] vs 0.103 with [clusters, greedy] (1 sweep) and 0.073 with the old
+                                 # pipeline below; reallocate: true brings [sector] to 0.105.
+    coordination_sweeps: 1       # 1 = one optimisation per seed (was 2: + a warm re-solve of every agent)
+    order_budget_frac: 0.95      # Euclidean ordering budget of the 'clusters' seed (x curve length). Unused with
+                                 # [sector]. 0.95 is AirStack's own tune (5ee6f4209 had patched it into the
+                                 # vendored params.hpp; upstream: 0.8 before 8ba811a, 1.0 now): kept here as a key.
+    sector:                      # the sector seed (mtlc_plan curve.sector). size_m and grid_step_m auto-scale
+                                 # with size_m / 5000; for THIS 5 km mission that is the reference scale, so
+                                 # these ARE the upstream defaults (written out as the calibration record):
+      size_m: 200.0              #   sector pitch: 25 x 25 = 625 sectors over 5 km, the best 250 kept as nodes
+                                 #   (max_candidates); 0.35 calibrated swath half-widths (hw 578 m here)
+      grid_step_m: 50.0          #   raster of the box sums (= explore_grid_step_m; >= the 1 m belief raster)
+      box_frac: 1.2              #   a visited sector credits a box of half-side 1.2 x the calibrated swath
+                                 #   half-width (694 m here; scales with beta by itself); the study's best "f1.2b1"
+      budget_frac: 1.0           #   Euclidean route budget = 1.0 x the curve length (3000 m here)
+                                 # (starts 8, perturb 40, max_candidates 250: planner defaults)
+    reallocate: false            # slack audit + cluster reallocation after the static solve: OFF (upstream
+                                 # default since 8ba811a; was true). The realloc_* keys below only act with true.
     realloc_strategies: [path]   # seeds a slack agent tries when it claims an unserviced cluster
                                  # (best feasible one kept, only if the team residual falls):
                                  #   path   splice the cluster into the agent's current OPTIMISED curve -
@@ -181,8 +210,10 @@ mission:
                                  # as upstream: the seed keeps most of the optimised curve.
     realloc_path_warm: true      # path trials explore with explore_iter_warm (the seed is already in the
                                  # optimised curve's basin); false = the full cold exploration.
-    # optional, planner defaults: coordination_sweeps: 2, max_realloc_trials: 4, init_strategies:
-    # [clusters, greedy] (the main runtime knobs), max_iter: 150, explore_iter: 100, reallocate: true.
+    # optional, planner defaults: max_realloc_trials: 4, realloc_rounds: 2, max_iter: 150, explore_iter: 100.
+    # The previous (pre-8ba811a) first solve was init_strategies: [clusters, greedy], coordination_sweeps: 2,
+    # reallocate: true (with order_budget_frac 0.95) - set those to plan exactly as before (checked: the same
+    # plan, byte for byte, as the 7a45427 build).
 
   follower:                      # mtl_trajectory_follower, via every SearchPlan (gimbal_law)
     gimbal_law: open_loop        # single-axis gimbal: open_loop = replay the PLANNED cross-track angle

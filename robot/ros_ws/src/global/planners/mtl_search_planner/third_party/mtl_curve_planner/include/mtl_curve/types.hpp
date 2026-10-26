@@ -44,6 +44,7 @@ using Path3 = Eigen::Matrix<double, Eigen::Dynamic, 3>;
 
 inline constexpr double kInf = std::numeric_limits<double>::infinity();
 inline constexpr double kPi  = 3.14159265358979323846;
+inline constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 
 inline constexpr double deg2rad(double d) { return d * kPi / 180.0; }
 inline constexpr double rad2deg(double r) { return r * 180.0 / kPi; }
@@ -110,6 +111,16 @@ struct ClusterSet {
     std::vector<std::vector<Index>> cellIdx;      ///< K lists of the cells each cluster owns
     double                          maxRadius = 0.0;  ///< achieved max cell-to-centroid distance
 
+    // --- information-aware hierarchy (mapping::clusterByPeaks) -------------
+    // Empty for the proximity (radius / k-means) abstraction.  basin = the
+    // prior peak a cluster belongs to, level = its mass level in that basin
+    // (0 = core, 1 = shoulder, ...), parent = nearest cluster one level up
+    // in the same basin (-1 for a core).  Audit trail only: the route planner
+    // does not read them.
+    std::vector<int> basin;
+    std::vector<int> level;
+    std::vector<int> parent;
+
     Index size() const { return centroids.rows(); }
     bool  empty() const { return centroids.rows() == 0; }
 };
@@ -154,7 +165,25 @@ enum class CurveRepresentation : int { Curvature = 0, BSpline = 1 };
 enum class EndpointMode : int { Open = 0, ReturnHome = 1, FixedDest = 2 };
 /// Seeds for an agent's first solve: pursue the ordered cluster centroids and
 /// then continue greedily ('clusters', the plan), or greedy from the start.
-enum class InitStrategy : int { Clusters = 0, Greedy = 1 };
+///   Gcs       pursue the points of a graph-of-convex-sets route through the
+///             agent's clusters, trimmed to the budget (gcs::planAgentGcs).
+///   Sector    pursue the route of the coverage orienteering over a sector grid
+///             (planning::solveSectorOrienteering) - the default.
+enum class InitStrategy : int { Clusters = 0, Greedy = 1, Gcs = 2, Sector = 3 };
+/// Where the macro-clusters come from:
+///   Radius  clusterCells with maxClusterRadius (cpp_planner's abstraction)
+///   Kernel  gcs::kernelClusters - greedy peeling of the camera-kernel box sum
+///           of the prior; a cluster is what one swath look collects
+enum class ClusterMode : int { Radius = 0, Kernel = 1 };
+/// Which cluster a GCS route drops while it is over budget.
+enum class GcsDropRule : int { Info = 0, Ratio = 1 };
+/// Radius of a cluster's GCS convex set:
+///   Fixed    setRadiusFrac * swath half-width for every cluster (the original)
+///   Capture  hw - (the cluster's own radius), clamped to
+///            [captureMinFrac, setRadiusFrac] * hw: any route point in the set
+///            then has EVERY cell of the cluster within one swath half-width,
+///            so a visit cannot just graze the cluster
+enum class GcsSetRadius : int { Fixed = 0, Capture = 1 };
 /// Seeds tried when a slack agent claims a pooled cluster:
 ///   Insert  cheapest insertion into the agent's ORDERED CLUSTER waypoints and a
 ///           fresh seed through them (the plan; discards the optimised curve)
@@ -174,7 +203,16 @@ inline const char* toString(EndpointMode m) {
         default:                       return "open";
     }
 }
-inline const char* toString(InitStrategy s) { return s == InitStrategy::Clusters ? "clusters" : "greedy"; }
+inline const char* toString(InitStrategy s) {
+    switch (s) {
+        case InitStrategy::Clusters: return "clusters";
+        case InitStrategy::Gcs:      return "gcs";
+        case InitStrategy::Sector:   return "sector";
+        default:                     return "greedy";
+    }
+}
+inline const char* toString(ClusterMode m) { return m == ClusterMode::Kernel ? "kernel" : "radius"; }
+inline const char* toString(GcsDropRule r) { return r == GcsDropRule::Ratio ? "ratio" : "info"; }
 inline const char* toString(ReallocStrategy s) {
     switch (s) {
         case ReallocStrategy::Insert: return "insert";
@@ -394,6 +432,49 @@ struct AgentTrajectory {
     Vec2  startPt = Vec2::Zero(), endPt = Vec2::Zero();
 };
 
+/// Quadrotor conversion of one agent: how well it went, and the peaks of every
+/// limited quantity (quadrotor::optimizeQuadFlatTrajectory).
+struct QuadStats {
+    double boreRms = 0.0, boreP95 = 0.0, boreMax = 0.0;   ///< [m] boresight vs the gimbal's ground points
+    double pathRms = 0.0, crossMax = 0.0, alongMax = 0.0; ///< [m] vehicle vs the curve (re-timed)
+    double maxTiltDeg = 0.0, maxRollDeg = 0.0, maxPitchDeg = 0.0;
+    double maxRateXYDegS = 0.0, maxYawRateDegS = 0.0, maxYawAccDegS2 = 0.0;
+    double maxSpeed = 0.0, minSpeed = 0.0;                ///< [m/s]
+    double maxLookDeg = 0.0, lookLimitDeg = 0.0;
+    double maxThrustToWeight = 0.0;
+    bool   thrustOK = false;
+    bool   feasible = false;                              ///< every limit holds
+    int    iterations = 0;                                ///< Levenberg-Marquardt iterations, all rounds
+    std::vector<double> costHist;
+    double solveTime = 0.0;                               ///< [s]
+    Index  nCoef = 0;
+    double length = 0.0;                                  ///< [m] flown
+};
+
+/// One agent re-planned for a quadrotor with a BODY-FIXED camera
+/// (quadrotor::generateQuadTrajectories).  `traj` has the fixed wing's layout,
+/// so eval:: and every consumer of AgentTrajectory take it unchanged:
+/// traj.drone = [x y h], traj.sensor = the camera boresight's ground point,
+/// traj.rpy = [roll pitch yaw] (roll + right side down, pitch + nose up, yaw
+/// CCW from East); gimbalAngle / gimbalCmd are zero (there is no gimbal).
+struct QuadTrajectory {
+    AgentTrajectory traj;     ///< padded to the team's longest quad trajectory
+    VecX  t;                  ///< [s] own timeline (unpadded), step = output dt
+    Path3 vel, acc, jerk;     ///< world, z rows zero (altitude held)
+    VecX  yaw, yawRate;       ///< [rad], [rad/s]
+    Path3 rates;              ///< body rates [p q r] (FLU body frame) [rad/s]
+    VecX  thrust;             ///< collective thrust / mass [m/s^2]
+    VecX  thrustToWeight, tilt, look;
+    Path2 boreRef, pathRef;   ///< the gimbal's ground points / the curve, re-timed
+    VecX  boreErr, crossErr, alongErr, trackHeading;
+    // the flat-output spline (uniform B-spline in time), for re-sampling
+    VecX   cx, cy, cpsi;
+    double knotSpacing = 0.0, horizon = 0.0;
+    int    degree = 5;
+    double altitude = 0.0;
+    QuadStats stats;
+};
+
 /// What the team solve did.
 struct TeamInfo {
     std::vector<double>      Jhist;       ///< fast team objective after each stage
@@ -401,6 +482,22 @@ struct TeamInfo {
     double Jstatic = 0.0;                 ///< after the coordination sweeps
     double Jfinal  = 0.0;                 ///< after reallocation
     double staticTime  = 0.0;             ///< [s] wall time of the initial (static) solve
+    double clusterTime = 0.0;             ///< [s] kernel clustering (ClusterMode::Kernel), outside staticTime
+    double orderTime   = 0.0;             ///< [s] orienteering ordering (part of staticTime)
+    double gcsTime     = 0.0;             ///< [s] GCS routes (part of staticTime)
+    /// Per agent, per init strategy: fast J of the flown seed, and after its
+    /// first optimisation (sweep 1).
+    std::vector<std::vector<double>> seedJ0, seedJ1;
+    /// Per agent: the GCS route (InitStrategy::Gcs): clusters kept, in order.
+    std::vector<std::vector<Index>> gcsClusters;
+    std::vector<Path2>  gcsWaypoints;
+    std::vector<double> gcsLength, gcsLowerBound, gcsGap;
+    std::vector<int>    gcsSolves;
+    /// Per agent: the sector route (InitStrategy::Sector) - ordered sector
+    /// centres, its union-box reward and Euclidean length.
+    std::vector<Path2>  sectorWaypoints;
+    std::vector<double> sectorReward, sectorLength;
+    double sectorTime = 0.0;              ///< [s] sector routes (part of staticTime)
     double reallocTime = 0.0;             ///< [s] wall time of the audit + reallocation rounds
     std::vector<ReallocTrial> log;
     ClusterAudit audit;                   ///< the final audit
@@ -418,6 +515,29 @@ struct TeamInfo {
 // -----------------------------------------------------------------------------
 /// Everything one call to Planner::plan() produces.
 // -----------------------------------------------------------------------------
+/// One abstraction the information-aware cluster search scored.
+struct InfoAwareCandidate {
+    std::string label;          ///< e.g. "plain", "kmeans@260", "peaks[0.5,1]@520", "move:peel"
+    double reach    = 0.0;      ///< [m] cluster radius it was built with
+    Index  clusters = 0;
+    double seedJ    = 0.0;      ///< fast team objective of its seeds (lower is better)
+    double finalJ   = -1.0;     ///< after the full solve (only for the optimizeTopK best), else -1
+    bool   accepted = false;    ///< a move that improved the incumbent
+};
+
+/// What PlannerParams::infoAware did.  `plainSeedJ` is the plain clusters'
+/// seed objective, so a host can report both.
+struct InfoAwareReport {
+    bool   enabled = false;
+    std::string chosen;
+    double chosenSeedJ = 0.0, plainSeedJ = 0.0;
+    double chosenReach = 0.0, swathHalfWidth = 0.0;
+    Index  basins = 0;
+    int    movesTried = 0, movesAccepted = 0;
+    double seconds = 0.0;       ///< wall time of the search (scoring + top-K solves)
+    std::vector<InfoAwareCandidate> candidates;
+};
+
 struct PlanningResult {
     CellSet    cells;
     ClusterSet clusters;
@@ -437,6 +557,15 @@ struct PlanningResult {
 
     FastGrid grid;                         ///< the fast grid the plan was optimised on
     MatX     teamLambda;                   ///< its final team log-miss (fast model)
+
+    /// Audit trail of the information-aware cluster search (enabled = false
+    /// for a plain plan).
+    InfoAwareReport infoAware;
+
+    /// Quadrotor (body-fixed camera) version of `trajectories`, one per agent,
+    /// when PlannerParams::quad.enabled; empty otherwise.
+    std::vector<QuadTrajectory> quad;
+    VecX quadTimeVec;                      ///< team-wide quad timeline
 };
 }  // namespace mtl::curve
 

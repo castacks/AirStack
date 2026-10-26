@@ -4,12 +4,15 @@
 //  The team solve: initial curves, service audit, slack, reallocation - the
 //  port of reallocateCurveClusters.m (the plan's PHASE 5).
 //
-//  1. INITIAL SOLVE.  Each agent orders its partition of the macro-clusters
-//     with solveBudgetedOrienteering (Euclidean budget orderBudgetFrac * L),
-//     seeds a curve - MULTI-START over team.initStrategies: 'clusters' (the
-//     plan) and 'greedy' - and optimises each AGAINST THE TEAM (the other
-//     agents' log-miss frozen: Gauss-Seidel), keeping the best seed.
-//     team.coordinationSweeps passes; the later ones warm-start.
+//  1. INITIAL SOLVE.  Each agent seeds a curve - one seed per entry of
+//     team.initStrategies: 'sector' (default: the coverage orienteering over a
+//     sector grid, planning::solveSectorOrienteering, on the belief the agents
+//     already planned leave unswept), 'clusters' (the plan: its partition of
+//     the macro-clusters ordered by solveBudgetedOrienteering on a Euclidean
+//     budget of orderBudgetFrac * L), 'greedy', 'gcs' - and optimises each
+//     AGAINST THE TEAM (the other agents' log-miss frozen: Gauss-Seidel),
+//     keeping the best seed.  team.coordinationSweeps passes (default 1: one
+//     optimisation per seed); the later ones re-optimise warm.
 //  2. SERVICE AUDIT.  Per cluster, the residual fraction of its prior mass the
 //     team leaves (fast grid); UNSERVICED when above unservicedResidualFrac.
 //     The plan's centroid-in-swath test is reported alongside.
@@ -17,7 +20,7 @@
 //     slack_a = share of agent a's length with yield density below
 //     slackYieldFrac of the team mean; an agent is a slack agent if slack_a >
 //     0.02 or its own clusters are swept to slackMarginThreshold.
-//  4. REALLOCATION ROUNDS.  Pooled clusters, most residual mass first, are
+//  4. REALLOCATION ROUNDS (team.reallocate, default off).  Pooled clusters, most residual mass first, are
 //     offered to the nearest slack agents.  The candidate re-seeds with the
 //     cluster claimed ('path' (default): spliced into its current OPTIMISED
 //     curve, budget repaired on the lowest-yield arc, prefix kept exactly -
@@ -51,6 +54,9 @@ struct TeamConfig {
     VecX             rewards;
     std::vector<int> assign;                      ///< initial agent of each cluster
     Eigen::MatrixXi  clusterOfPixel;              ///< ny-by-nx cluster of each fast pixel, -1 = none
+    VecX             clusterRadius;               ///< K-by-1 max cell-to-centroid distance (GcsSetRadius::Capture)
+    /// [xmin xmax ymin ymax] the GCS sets are clipped to (unset = the fast grid's extent)
+    std::optional<Eigen::Vector4d> bounds;
 };
 
 struct TeamSolution {
@@ -64,7 +70,12 @@ struct TeamSolution {
     TeamInfo info;
 };
 
-TeamSolution reallocateCurveClusters(const TeamConfig& cfg, const PlannerParams& params);
+/// seedOnly: build each agent's cluster-dependent seeds ('clusters', 'gcs';
+/// 'greedy' only if nothing else is listed) WITHOUT optimising them, keep the
+/// best by its fast objective, and return after the first sweep with
+/// info.Jstatic = the team objective of the seeds.  This is how the
+/// information-aware cluster search scores an abstraction cheaply.
+TeamSolution reallocateCurveClusters(const TeamConfig& cfg, const PlannerParams& params, bool seedOnly = false);
 
 /// Coarse pixel -> the targetCellSize block (valid cell) containing it -> its
 /// cluster (-1 where no valid cell).

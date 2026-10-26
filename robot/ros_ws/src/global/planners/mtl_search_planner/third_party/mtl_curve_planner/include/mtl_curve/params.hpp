@@ -253,6 +253,119 @@ struct OptimizerParams {
 };
 
 // =============================================================================
+// 9b. KERNEL CLUSTERS AND THE GCS SEED      -> gcs::kernelClusters, gcs::planAgentGcs
+// =============================================================================
+/// Macro-clusters sized by the camera kernel (ClusterMode::Kernel): the same
+/// box sum the greedy seed scores with, peeled greedily off the prior.
+struct KernelClusterParams {
+    double boxFrac     = 0.8;    ///< box half-side / swath half-width (as pickGreedy)
+    double minInfoFrac = 0.005;  ///< stop when the best box holds < this of the prior
+    double coverFrac   = 0.995;  ///< stop once this fraction of the prior is taken
+    int    maxClusters = 1000;
+};
+
+/// The GCS seed (InitStrategy::Gcs).  One convex set per cluster: its Voronoi
+/// cell cut to a disc of setRadiusFrac * swath half-width (an nPoly-gon) and
+/// the map.  The tour through every set of an agent is solved as a convex
+/// relaxation (SOCP, SCS) with cutset separation, rounded, re-solved exactly
+/// for the order and polished; clusters are dropped (dropRule) until the
+/// tour plus Rmin (D - sin D) per turn fits orderBudgetFrac * L.
+/// Drop     tour EVERY set of the agent, drop clusters (dropRule) until it fits
+/// Orienteering  choose the sets inside the GCS (visit variables + budget)
+/// Coverage      a path through swath-sized hexagonal cells of the whole free
+///               space, maximising the belief its swath covers (planAgentGcsCoverage)
+enum class GcsMode : int { Drop = 0, Orienteering = 1, Coverage = 2 };
+
+struct GcsParams {
+    /// Defaults = the recommended settings of the 2026-10-22 revival
+    /// (gcs/GCS_REVIVAL_NOTES.md): orienteering mode, 8-NN edges, warm start,
+    /// capture-radius sets.
+    GcsMode mode = GcsMode::Orienteering;
+    /// Orienteering: length tie-break in the objective, per km of route in
+    /// units of the agent's largest cluster information.
+    double opLengthWeight = 1e-3;
+    /// Orienteering: connect each set only to its knn nearest sets (by centre,
+    /// symmetrised) instead of to every set.  The relaxation then has O(n k)
+    /// edges instead of O(n^2) - the difference between ~1 s and ~1 min on the
+    /// 100+ small clusters of an information-aware abstraction.  A route can
+    /// still go anywhere through intermediate sets (and collects them on the
+    /// way); rounding re-solves any order exactly.  0 = complete graph.
+    int    knn = 8;
+    /// Orienteering: also round from the orienteering heuristic's order
+    /// (solveBudgetedOrienteering on the same clusters and budget).
+    bool   warmStart = true;
+    /// Weight on the Rmin (D - sin D) turning overhead each route is charged
+    /// against the budget (1 = the original; 0 = Euclidean length only, the
+    /// budget the 'clusters' seed's orienteering uses).
+    double turnWeight = 1.0;
+    double setRadiusFrac = 1.0;
+    GcsSetRadius setRadiusMode = GcsSetRadius::Capture;
+    double captureMinFrac = 0.25;
+    int    nPoly         = 16;
+    /// Coverage: hexagon circumradius / swath half-width.
+    double coverageCellFrac = 0.5;
+    /// Coverage: the route point inside each cell is confined to the cell
+    /// shrunk about its centre by this factor (1 = the whole cell), so a pass
+    /// goes through the cell rather than grazing its edge.
+    double coveragePointFrac = 1.0;
+    /// Coverage: reward a visit with the cell's OWN belief (prize-collecting,
+    /// tight relaxation, best with swath-wide cells) instead of the swath
+    /// coverage of every cell it reaches (q_c <= sum_v a_cv p_v).
+    bool   coverageOwnOnly = false;
+    /// Optimise the best nSeeds distinct GCS routes (coverage mode) as
+    /// separate seeds of the multi-start, keeping the best curve.
+    int    nSeeds = 1;
+    /// Coverage: extra tilings (cellFrac, pointFrac) whose routes are added as
+    /// further seeds of the multi-start (structurally different routes).
+    std::vector<std::pair<double, double>> coverageExtra;
+    /// Coordination: plan each agent's GCS route inside the first sweep, with
+    /// the cluster rewards re-scored as the belief the agents already planned
+    /// leave unswept (what the greedy seed does with lambdaOther).
+    bool   residualRewards = false;
+    /// ... and offer each agent EVERY cluster still worth minResidualFrac of
+    /// its prior reward, instead of its k-means partition.
+    bool   ignorePartition = false;
+    double minResidualFrac = 0.2;
+    GcsDropRule dropRule = GcsDropRule::Info;
+    bool   dropBatch     = false;  ///< drop on the current points until it fits, then re-solve
+    int    maxCutRounds  = 15;
+    int    nRound        = 30;     ///< random rounding walks
+    int    nExact        = 3;      ///< best rounded orders re-solved exactly
+    bool   polish        = true;   ///< 2-opt / or-opt + exact re-solve
+    int    polishRounds  = 4;
+    /// Pull each route point toward its cluster centre: w metres of route per
+    /// metre of offset (0 = pure length: the points graze the sets).
+    double centerWeight       = 0.0;
+    bool   centerWeightByInfo = true;  ///< scale w by info_k / the agent's mean info
+    double tol       = 1e-5;       ///< SCS eps_abs = eps_rel
+    int    maxIters  = 100000;
+    double scale     = 1000.0;     ///< [m] coordinates are divided by this in the conic problems
+    std::uint64_t seed = 1;        ///< rounding RNG (private stream)
+};
+
+// =============================================================================
+// 9b. THE 'sector' SEED                -> planning::solveSectorOrienteering
+// =============================================================================
+/// Coverage orienteering over a sector grid (InitStrategy::Sector, the default
+/// seed).  A sectorSize lattice covers the search area; a visited sector
+/// credits the belief in a box of half-side boxFrac x the calibrated swath
+/// half-width around its centre; a route scores the belief in the UNION of its
+/// boxes (marginal gains), under a Euclidean budget of budgetFrac x the curve
+/// length.  The ordered sector centres are flown like the cluster centroids.
+/// Defaults are the study's best ("f1.2b1": box 1.2 hw, budget 1.0 L).
+struct SectorParams {
+    double sectorSize    = 200.0;  ///< [m] sector pitch
+    double boxFrac       = 1.2;    ///< box half-side / swath half-width
+    double budgetFrac    = 1.0;    ///< Euclidean route budget / curve length
+    int    nStarts       = 8;      ///< multi-starts: gain/detour, gain^2/detour, then GRASP
+    int    rcl           = 3;      ///< GRASP restricted candidate list
+    int    nPerturb      = 40;     ///< ruin-and-recreate iterations, shared by the starts
+    int    maxCandidates = 250;    ///< sectors kept as nodes (highest box value first)
+    double gridStep      = 50.0;   ///< [m] raster the box sums are taken on
+    std::uint64_t seed   = 1234;   ///< private Park-Miller stream
+};
+
+// =============================================================================
 // 10. TEAM: GRIDS, SEEDING, COORDINATION, REALLOCATION
 //                                    -> curve_planning::reallocateCurveClusters
 // =============================================================================
@@ -266,14 +379,33 @@ struct TeamParams {
     double exploreGridStep = 50.0;
     /// Euclidean budget (fraction of the agent budget) for ORDERING each agent's
     /// clusters with solveBudgetedOrienteering, for the 'clusters' seed.
-    double orderBudgetFrac = 0.95;
-    /// Gauss-Seidel passes over the team, each agent optimised with the others'
-    /// swaths frozen in the joint objective.
-    int    coordinationSweeps = 2;
-    /// Multi-start seeds for each agent's first solve (best one kept).
-    std::vector<InitStrategy> initStrategies = {InitStrategy::Clusters, InitStrategy::Greedy};
+    double orderBudgetFrac = 1.0;
+    /// Passes over the team.  Pass 1 seeds and optimises every agent (each
+    /// against the agents already planned: Gauss-Seidel); every further pass
+    /// re-optimises each agent warm (exploreIterWarm) against the others' final
+    /// swaths.  Default 1 = ONE optimisation per seed; 2 adds the warm re-solve
+    /// (the previous default; for a single agent it is a polish worth ~0.5%).
+    int    coordinationSweeps = 1;
+    /// Seeds for each agent's first solve, each optimised, best one kept.
+    /// Default: the sector seed alone (one optimisation).  The previous default
+    /// was {Clusters, Greedy}.
+    std::vector<InitStrategy> initStrategies = {InitStrategy::Sector};
+    /// The 'sector' seed (coverage orienteering over a sector grid).
+    SectorParams sector;
+    /// Corridor: keep the optimised curve near its seed route with the penalty
+    /// corridorMu * mean((dist to the seed / corridorScale)^2) (0 = off).
+    double corridorMu = 0.0;
+    double corridorScale = 500.0;   ///< [m]
+    bool   corridorGcsOnly = true;  ///< only GCS seeds get the corridor
+    bool   corridorKeep = true;     ///< keep it in the later sweeps (false: released after sweep 1)
+    /// Where the macro-clusters come from (Radius = cpp_planner's).
+    ClusterMode clusterMode = ClusterMode::Radius;
+    KernelClusterParams kernelClusters;
+    GcsParams gcs;
 
-    bool   reallocate    = true;
+    /// Slack audit + cluster reallocation between agents after the static
+    /// solve (each trial is another optimisation).  Off by default.
+    bool   reallocate    = false;
     int    reallocRounds = 2;
     /// An agent whose own clusters are swept to this fraction has slack.
     double slackMarginThreshold   = 0.85;
@@ -309,6 +441,155 @@ struct TeamParams {
         o.nPerturb = 0;
         return o;
     }();
+};
+
+// =============================================================================
+// 10b. INFORMATION-AWARE CLUSTERS  -> mapping::clusterByPeaks, curve_planning::info_aware
+// =============================================================================
+/// INFORMATION-AWARE ABSTRACTION SEARCH for the curve planner (off by default:
+/// the plain radius clusters).  The port of the orienteering planner's
+/// PlannerParams::infoAware (cpp_planner, AirStack mtl_search_planner), with
+/// one change: a candidate abstraction is scored CHEAPLY, by the fast-model
+/// team objective of the cluster-dependent SEED curves it produces ('clusters'
+/// = orienteering order + pursuit, 'gcs' = graph-of-convex-sets route), not by
+/// a full curve optimisation.  The winner (or the optimizeTopK best) is then
+/// solved by the ordinary pipeline, so the curve, its length and curvature
+/// guarantee are exactly the plain planner's.
+///   1. PEAKS: every cell climbs to its highest lattice neighbour; basins
+///      whose saddle is at least `persistence` x the lower peak are merged.
+///   2. LEVELS: each basin is cut, densest cells first, at the cumulative-mass
+///      fractions of a levelSets entry; each (basin, level) set is split under
+///      the reach (k-means, k raised until every cell is within reach).
+///   3. CANDIDATES: the plain clusters, k-means and every level set at
+///      maxClusterRadius and at reachScales x the swath half-width, each with
+///      `restarts` extra orienteering seeds; scored by the seed objective.
+///   4. MOVES: PEEL / SPLIT / MERGE on the best candidate's visited clusters,
+///      kept only if the seed objective falls.
+struct InfoAwareParams {
+    bool enabled = false;
+    std::vector<std::vector<double>> levelSets = {{1.0}, {0.5, 1.0}, {0.35, 0.7, 1.0}};
+    double persistence = 0.6;
+    /// Reaches tried, as multiples of the calibrated swath half-width (the
+    /// curve planner's detection reach); maxClusterRadius is always tried too.
+    std::vector<double> reachScales = {1.0};
+    bool includeKmeans = true;   ///< k-means clusters at each extra reach as candidates
+    /// Extra orienteering / GCS-rounding seeds per candidate (0 = one).
+    int  restarts = 0;
+    int  maxMoves = 12;
+    bool splitMerge = true;
+    double peelKeep = 0.6;
+    /// Candidates (distinct, best seed score first) that get the FULL solve;
+    /// the lowest optimised team objective wins.  1 = cheapest.
+    int  optimizeTopK = 1;
+    /// Score every candidate with the cheap 'clusters' seed (orienteering
+    /// order + pursuit) even when the flown seeds include 'gcs', whose route
+    /// costs a conic solve per candidate.  false = score with the planner's
+    /// own cluster-dependent seeds.
+    bool scoreWithClusters = false;
+    /// Score a candidate after a SHORT optimisation of its seeds instead of on
+    /// the raw seeds: scoreExploreIters iterations on the exploration kernel,
+    /// then scoreIters on the accurate one (0 / 0 = raw seed, the cheapest).
+    /// The optimiser moves curves far from their seeds, so the raw seed
+    /// objective predicts the optimised one only loosely; a short solve
+    /// predicts it better at ~0.3-0.5 s per candidate.  Defaults = the tuned
+    /// setting of the 2026-10-22 single-agent study (bench_ia_gcs/REPORT.md):
+    /// reachScales {1}, scoreIters 40.
+    int  scoreIters = 40;
+    int  scoreExploreIters = 0;
+};
+
+// =============================================================================
+// 10b. QUADROTOR CONVERSION (body-fixed camera)    -> quadrotor::generateQuadTrajectories
+// =============================================================================
+/// The port of init_curve_params.m section 8 (quadOpts) / quadResolveOpts.m.
+///
+/// The curve is planned for a fixed wing whose 1-DOF gimbal sweeps the
+/// boresight across track.  A quadrotor with the camera FIXED to its body has
+/// no gimbal: it points the camera by pointing the body, and its roll / pitch
+/// ARE the direction of its thrust, i.e. of its acceleration.  Using the
+/// differential flatness of the quadrotor (flat outputs x, y, z, yaw) the
+/// conversion re-plans every agent so that the camera boresight lands on the
+/// gimbal's ground points while the vehicle stays on the curve, inside the
+/// attitude / rate / speed limits below.
+///
+/// Default vehicle: a 6-9 kg survey quad (DJI M300/M350, Freefly Astro,
+/// large-PX4 class) flown inside a survey autopilot's envelope.
+enum class CameraMount {
+    Matched,  ///< tilt = sensorTiltAngle + cruise trim pitch: looks where the gimbal centre does
+    Fixed,    ///< tilt = camTiltFixed
+    Nadir     ///< straight down the body
+};
+
+struct QuadParams {
+    /// Run the conversion in Planner::plan (PlanningResult::quad).  OFF by
+    /// default in C++ so a host that only flies fixed wings pays nothing; the
+    /// MATLAB reference (init_curve_params) turns it on.
+    bool enabled = false;
+
+    // --- vehicle -------------------------------------------------------------
+    double speed            = 6.0;            ///< [m/s] cruise; the curve's timeline is stretched by avgDroneSpeed/speed
+    double maxSpeed         = 17.0;           ///< [m/s]
+    double maxTilt          = deg2rad(30);    ///< [rad] thrust axis from vertical
+    double maxRollPitchRate = deg2rad(60);    ///< [rad/s] |(p, q)|
+    double maxYawRate       = deg2rad(45);    ///< [rad/s] (PX4 MPC_YAWRAUTO_MAX)
+    double maxYawAcc        = deg2rad(60);    ///< [rad/s^2]
+    double thrustToWeight   = 2.0;
+    double minThrustFrac    = 0.3;            ///< [x g]
+    /// Isotropic quadratic drag a_drag = (c_d |v| + k_l) v, c_d calibrated so
+    /// that dragSpecSpeed needs dragSpecTilt (0.0107 1/m: 2.2 deg trim at 6 m/s).
+    double dragSpecSpeed = 23.0;
+    double dragSpecTilt  = deg2rad(30);
+    std::optional<double> dragQuad = std::nullopt;  ///< [1/m] explicit c_d
+    double dragLin = 0.0;                           ///< [1/s] linear (rotor) drag
+    double gravity = 9.81;
+
+    // --- camera --------------------------------------------------------------
+    CameraMount cameraMount = CameraMount::Matched;
+    std::optional<double> camTiltFixed = std::nullopt;  ///< [rad] Fixed mount (default: sensorTiltAngle)
+    double maxLookAngle    = deg2rad(75);    ///< [rad] boresight off-nadir hard cap ...
+    double lookRangeMargin = 0.98;           ///< ... and acos(h / (margin * beta))
+    double lookPlanMargin  = deg2rad(0.25);  ///< [rad] planned this far inside the look cap
+
+    /// Yaw is a flat output: with a forward-tilted camera it swings the
+    /// boresight across track without moving the vehicle.  false = yaw locked
+    /// to the track heading (roll / pitch only; the reach shrinks to ~h tan(maxTilt)).
+    bool useYaw = true;
+
+    // --- spline / discretisation -----------------------------------------------
+    int    splineDegree = 5;                 ///< quintic: snap-continuous, smooth body rates
+    double knotSpacing  = 0.5;               ///< [s]
+    double dtOpt        = 0.25;              ///< [s] residual sampling in the optimisation
+    std::optional<double> dtOut = std::nullopt;  ///< [s] output step (default: PlannerParams::dt)
+
+    // --- objective (1-sigma tolerances) ------------------------------------------
+    double sigmaBore     = 5.0;              ///< [m] boresight ground point vs the gimbal's
+    double sigmaCross    = 5.0;              ///< [m] cross-track deviation from the curve
+    double sigmaAlong    = 10.0;             ///< [m] along-track (timing) deviation
+    double sigmaYawReg   = deg2rad(180);     ///< [rad] weak pull of yaw toward the track
+    double sigmaSnap     = 2.0;              ///< [m/s^4]
+    double sigmaYawAcc   = deg2rad(30);      ///< [rad/s^2]
+    double sigmaStartPos = 0.1;              ///< [m]
+    double sigmaStartVel = 0.05;             ///< [m/s]
+
+    // --- constraints (squared hinges, escalated until the true limits hold) -----
+    double limitMargin     = 0.97;
+    double hingeScaleAngle = deg2rad(0.25);
+    double hingeScaleRate  = deg2rad(1.0);
+    double hingeScaleSpeed = 0.1;
+    int    penaltyRounds   = 4;
+    double penaltyGrowth   = 10.0;
+
+    // --- Levenberg-Marquardt ----------------------------------------------------
+    int    maxIter = 80;
+    double tolFun  = 1e-7;
+    double lambda0 = 1e-3;
+    bool   verbose = false;
+
+    // --- derived by quadrotor::resolveQuadParams ----------------------------------
+    double dragQuadResolved = 0.0;   ///< [1/m]
+    double trimPitch        = 0.0;   ///< [rad] nose-down pitch that holds `speed`
+    double camTilt          = 0.0;   ///< [rad] camera tilt from body -z toward body +x
+    bool   resolved         = false;
 };
 
 // =============================================================================
@@ -358,6 +639,8 @@ struct PlannerParams {
     CurveParams     curve;
     OptimizerParams optimizer;
     TeamParams      team;
+    InfoAwareParams infoAware;
+    QuadParams      quad;
 
     // --- derived -------------------------------------------------------------
     double budgetDist() const {

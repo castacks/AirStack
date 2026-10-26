@@ -11,7 +11,12 @@
 //                [--seed N] [--targets N] [--bspline] [--endpoint MODE]
 //                [--stagger M] [--no-realloc] [--no-explore] [--greedy-only]
 //                [--quiet] [--csv DIR] [--no-residual] [--residual-block N]
+//                [--quad] [--quad-speed V] [--quad-no-yaw] [--quad-max-tilt DEG]
+//                [--quad-mount matched|fixed|nadir]
 //
+//  --quad also re-plans every agent for a quadrotor with a BODY-FIXED camera
+//  (quadrotor::generateQuadTrajectories, the C++ twin of main_curve_planner.m
+//  step 6b) and scores it with the same evaluator.
 //  MODE is open | return_home | fixed_dest.  The mapgen library is a copy of
 //  cpp_planner's, so a given --seed/--cell-size is the SAME scenario mtl_demo
 //  plans, and the residual belief printed at the end is directly comparable
@@ -30,6 +35,7 @@
 #include "mtl_curve/eval/report.hpp"
 #include "mtl_curve/mapgen/scenario.hpp"
 #include "mtl_curve/planner.hpp"
+#include "mtl_curve/quadrotor/quad_trajectory.hpp"
 
 namespace mc = mtl::curve;
 
@@ -91,6 +97,21 @@ void writeCsv(const std::string& dir, const mc::PlanningResult& r, const std::ve
         for (const mc::Target& t : targets)
             f << t.pose.x() << ',' << t.pose.y() << ',' << t.detectionProb << ','
               << (t.detected() ? std::to_string(t.detectionTime) : std::string("nan")) << '\n';
+    }
+    for (std::size_t a = 0; a < r.quad.size(); ++a) {
+        const mc::QuadTrajectory& Q = r.quad[a];
+        std::ofstream f(dir + "/agent" + std::to_string(a + 1) + "_quad.csv");
+        f << "t,x,y,h,bore_x,bore_y,roll,pitch,yaw,vx,vy,ax,ay,p,q,r,thrust,tilt,look,"
+             "bore_ref_x,bore_ref_y,path_ref_x,path_ref_y,bore_err,cross_err,along_err\n";
+        for (mc::Index k = 0; k < Q.t.size(); ++k) {
+            f << Q.t(k) << ',' << Q.traj.drone(k, 0) << ',' << Q.traj.drone(k, 1) << ',' << Q.traj.drone(k, 2) << ','
+              << Q.traj.sensor(k, 0) << ',' << Q.traj.sensor(k, 1) << ',' << Q.traj.rpy(k, 0) << ','
+              << Q.traj.rpy(k, 1) << ',' << Q.traj.rpy(k, 2) << ',' << Q.vel(k, 0) << ',' << Q.vel(k, 1) << ','
+              << Q.acc(k, 0) << ',' << Q.acc(k, 1) << ',' << Q.rates(k, 0) << ',' << Q.rates(k, 1) << ','
+              << Q.rates(k, 2) << ',' << Q.thrust(k) << ',' << Q.tilt(k) << ',' << Q.look(k) << ','
+              << Q.boreRef(k, 0) << ',' << Q.boreRef(k, 1) << ',' << Q.pathRef(k, 0) << ',' << Q.pathRef(k, 1)
+              << ',' << Q.boreErr(k) << ',' << Q.crossErr(k) << ',' << Q.alongErr(k) << '\n';
+        }
     }
     std::cout << "CSV written to " << dir << "\n";
 }
@@ -158,6 +179,24 @@ int main(int argc, char** argv) {
             residual = false;
         } else if (arg == "--residual-block") {
             residualBlock = static_cast<int>(next(10));
+        } else if (arg == "--quad") {
+            params.quad.enabled = true;
+        } else if (arg == "--quad-speed") {
+            params.quad.enabled = true;
+            params.quad.speed = next(6.0);
+        } else if (arg == "--quad-no-yaw") {
+            params.quad.enabled = true;
+            params.quad.useYaw = false;
+        } else if (arg == "--quad-max-tilt") {
+            params.quad.enabled = true;
+            params.quad.maxTilt = mc::deg2rad(next(30.0));
+        } else if (arg == "--quad-mount" && i + 1 < argc) {
+            params.quad.enabled = true;
+            const std::string m = argv[++i];
+            if (m == "matched") params.quad.cameraMount = mc::CameraMount::Matched;
+            else if (m == "fixed") params.quad.cameraMount = mc::CameraMount::Fixed;
+            else if (m == "nadir") params.quad.cameraMount = mc::CameraMount::Nadir;
+            else { std::cerr << "unknown camera mount: " << m << "\n"; return 2; }
         } else if (arg == "--quiet") {
             params.verbose = false;
         } else if (arg == "--csv") {
@@ -168,7 +207,9 @@ int main(int argc, char** argv) {
                          "                 [--stagger M] [--no-realloc] [--no-explore] [--greedy-only]\n"
                          "                 [--realloc path,direct|insert,direct|...] [--realloc-cold]\n"
                          "                 [--realloc-path-iter N]\n"
-                         "                 [--quiet] [--csv DIR] [--no-residual] [--residual-block N]\n";
+                         "                 [--quiet] [--csv DIR] [--no-residual] [--residual-block N]\n"
+                         "                 [--quad] [--quad-speed V] [--quad-no-yaw] [--quad-max-tilt DEG]\n"
+                         "                 [--quad-mount matched|fixed|nadir]\n";
             return 0;
         } else {
             std::cerr << "unknown argument: " << arg << "\n";
@@ -215,11 +256,39 @@ int main(int argc, char** argv) {
                           << rb.residualMass << " (" << (rb.residualMass - rs.residualMass) << ")\n";
             }
         }
+        // ---- 5. the quadrotor (body-fixed camera) version, same evaluator -------
+        bool quadOK = true;
+        if (!result.quad.empty()) {
+            quadOK = mc::eval::reportQuadSummary(std::cout, result, planner.params());
+            std::vector<mc::Target> tq = targets;
+            const std::vector<mc::AgentTrajectory> qa = mc::quadrotor::quadAgentTrajectories(result.quad);
+            const mc::eval::DetectionSummary dq = mc::eval::updateTargetDetectionProbs(
+                qa, result.quadTimeVec, tq, params.fov, params.sensor, params.detectionThreshold);
+            mc::Index nfw = 0;
+            for (const mc::Target& t : targets) nfw += t.detected() ? 1 : 0;
+            std::cout << std::setprecision(6) << "Targets detected: fixed wing " << nfw << ", quadrotor "
+                      << dq.nDetected << " of " << targets.size() << "\n";
+            if (residual) {
+                const mc::eval::ResidualBelief rq =
+                    mc::eval::computeResidualBelief(belief, qa, params.fov, params.sensor);
+                mc::VecX tm;
+                const std::vector<mc::AgentTrajectory> qm = mc::quadrotor::quadMatchedLooks(
+                    result.quad, result.trajectories, params.avgDroneSpeed, params.dt,
+                    planner.params().quad.speed, tm);
+                const mc::eval::ResidualBelief rm =
+                    mc::eval::computeResidualBelief(belief, qm, params.fov, params.sensor);
+                std::cout << "Residual belief: fixed wing " << rb.residualMass << ", quadrotor " << rq.residualMass
+                          << " (" << std::setprecision(0) << result.quadTimeVec(result.quadTimeVec.size() - 1)
+                          << std::setprecision(6) << " s of looks), quadrotor at the fixed wing's look count "
+                          << rm.residualMass
+                          << " (geometry only)\n";
+            }
+        }
         if (!csvDir.empty()) {
             writeCsv(csvDir, result, targets);
             if (residual) writeResidualCsv(csvDir, belief, rb, residualBlock);
         }
-        return ok ? 0 : 3;
+        return (ok && quadOK) ? 0 : 3;
     } catch (const std::exception& e) {
         std::cerr << "error: " << e.what() << "\n";
         return 1;

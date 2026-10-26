@@ -344,6 +344,25 @@ TEST(CurveScenario, SharedKeysAndAutoScalingMirrorMtlcPlan) {
     EXPECT_EQ(c.team.reallocInitStrategies[1], mtl::curve::ReallocStrategy::Direct);
     EXPECT_EQ(c.team.reallocPathMaxIter, 75);
     EXPECT_TRUE(c.team.reallocPathWarm);
+    // first solve: the upstream 8ba811a defaults (one sector seed, one sweep, no reallocation)
+    ASSERT_EQ(c.team.initStrategies.size(), 1u);
+    EXPECT_EQ(c.team.initStrategies[0], mtl::curve::InitStrategy::Sector);
+    EXPECT_EQ(c.team.coordinationSweeps, 1);
+    EXPECT_FALSE(c.team.reallocate);
+    EXPECT_DOUBLE_EQ(c.team.orderBudgetFrac, 1.0);
+    // the sector seed: lattice and raster scaled like the grids (= mtlc_plan), the rest as upstream
+    EXPECT_NEAR(c.team.sector.sectorSize, 200.0 * s, 1e-12);
+    EXPECT_NEAR(c.team.sector.gridStep, std::max(2.0, 50.0 * s), 1e-12);
+    EXPECT_DOUBLE_EQ(c.team.sector.boxFrac, ref.team.sector.boxFrac);
+    EXPECT_DOUBLE_EQ(c.team.sector.budgetFrac, ref.team.sector.budgetFrac);
+    EXPECT_EQ(c.team.sector.nStarts, ref.team.sector.nStarts);
+    EXPECT_EQ(c.team.sector.nPerturb, ref.team.sector.nPerturb);
+    EXPECT_EQ(c.team.sector.maxCandidates, ref.team.sector.maxCandidates);
+    // features the adapter does not expose stay off (strict mirror of mtlc_plan)
+    EXPECT_FALSE(c.infoAware.enabled);
+    EXPECT_FALSE(c.quad.enabled);
+    EXPECT_EQ(c.team.clusterMode, mtl::curve::ClusterMode::Radius);
+    EXPECT_DOUBLE_EQ(c.team.corridorMu, 0.0);
     EXPECT_EQ(p.curveCells.size(), p.cells.size());
     EXPECT_NEAR(p.curveCells.centers(3, 0), p.cells.centers(3, 0), 1e-12);
     ASSERT_EQ(p.curveStarts.size(), 2u);
@@ -381,6 +400,27 @@ TEST(CurveScenario, SharedKeysAndAutoScalingMirrorMtlcPlan) {
     EXPECT_NEAR(d.curve.destinations[1].y(), 10.0 - (-50.0), 1e-12);         // n - nMin
 }
 
+TEST(CurveScenario, SectorSeedKeysAreReadAsMtlcPlanReadsThem) {
+    const auto q = mtl_search::parseScenario(curveScenario(
+        R"({"init_strategies": ["sector", "clusters", "greedy"], "order_budget_frac": 0.95, "coordination_sweeps": 2,
+            "sector": {"size_m": 40.0, "grid_step_m": 4.0, "box_frac": 0.9, "budget_frac": 0.8, "starts": 3,
+                       "perturb": 0, "max_candidates": 30}})"));
+    const mtl::curve::PlannerParams& d = q.curveParams;
+    ASSERT_EQ(d.team.initStrategies.size(), 3u);
+    EXPECT_EQ(d.team.initStrategies[0], mtl::curve::InitStrategy::Sector);
+    EXPECT_EQ(d.team.initStrategies[1], mtl::curve::InitStrategy::Clusters);
+    EXPECT_EQ(d.team.initStrategies[2], mtl::curve::InitStrategy::Greedy);
+    EXPECT_DOUBLE_EQ(d.team.orderBudgetFrac, 0.95);
+    EXPECT_EQ(d.team.coordinationSweeps, 2);
+    EXPECT_DOUBLE_EQ(d.team.sector.sectorSize, 40.0);     // set: not scaled
+    EXPECT_DOUBLE_EQ(d.team.sector.gridStep, 4.0);
+    EXPECT_DOUBLE_EQ(d.team.sector.boxFrac, 0.9);
+    EXPECT_DOUBLE_EQ(d.team.sector.budgetFrac, 0.8);
+    EXPECT_EQ(d.team.sector.nStarts, 3);
+    EXPECT_EQ(d.team.sector.nPerturb, 0);
+    EXPECT_EQ(d.team.sector.maxCandidates, 30);
+}
+
 TEST(CurveScenario, RefusesUnknownKeysAndBadValues) {
     EXPECT_THROW(mtl_search::parseScenario(curveScenario(R"({"sweep_frq_hz": 0.2})")), std::runtime_error);
     EXPECT_THROW(mtl_search::parseScenario(curveScenario(R"({"kernel": {"tablestep_m": 2}})")), std::runtime_error);
@@ -388,6 +428,16 @@ TEST(CurveScenario, RefusesUnknownKeysAndBadValues) {
     EXPECT_THROW(mtl_search::parseScenario(curveScenario(R"({"endpoint_mode": "home"})")), std::runtime_error);
     EXPECT_THROW(mtl_search::parseScenario(curveScenario(R"({"init_strategies": ["random"]})")), std::runtime_error);
     EXPECT_THROW(mtl_search::parseScenario(curveScenario(R"({"realloc_strategies": ["splice"]})")), std::runtime_error);
+    // 'gcs' is an upstream seed, but mtlc_plan does not accept it and this build has no SCS
+    EXPECT_THROW(mtl_search::parseScenario(curveScenario(R"({"init_strategies": ["gcs"]})")), std::runtime_error);
+    EXPECT_THROW(mtl_search::parseScenario(curveScenario(R"({"sector": {"size": 200}})")), std::runtime_error);
+    // a bad value is refused by the planner's validate(), at construction (as in mtlc_plan)
+    EXPECT_THROW(mtl_search::solveCurve(mtl_search::parseScenario(curveScenario(R"({"sector": {"starts": 0}})"))),
+                 std::invalid_argument);
+    // upstream PlannerParams blocks mtlc_plan does not read are refused, not ignored
+    EXPECT_THROW(mtl_search::parseScenario(curveScenario(R"({"info_aware": {"enabled": true}})")), std::runtime_error);
+    EXPECT_THROW(mtl_search::parseScenario(curveScenario(R"({"quad": {"enabled": true}})")), std::runtime_error);
+    EXPECT_THROW(mtl_search::parseScenario(curveScenario(R"({"gcs": {}})")), std::runtime_error);
     // planner defaults mtlc_plan does not read are not scenario keys either
     EXPECT_THROW(mtl_search::parseScenario(curveScenario(R"({"realloc_path_wp_spacing": 50})")), std::runtime_error);
     EXPECT_THROW(mtl_search::parseScenario(curveScenario("", 120.0, R"({"type": "curvy"})")), std::runtime_error);
@@ -592,6 +642,69 @@ TEST(CurvePlan, DeterministicAndJsonOutputsParse) {
     EXPECT_EQ(one["samples"]["roll"].array().size(), tr.samples.size());
     EXPECT_NEAR(one["curve"]["min_turn_radius_m"].num(0.0), 12.0, 1e-12);
     EXPECT_GT(one["curve"]["swath_half_width_m"].num(0.0), 0.0);
+}
+
+TEST(CurvePlan, SectorSeedIsFlownAndReported) {
+    const auto& f = CurveFixture::get();
+    const mtl_search::CurvePlan* cp = f.result.curve();
+    ASSERT_NE(cp, nullptr);
+    // default first solve: one sector seed per agent, one sweep, no reallocation stage
+    ASSERT_EQ(cp->result.team.stageNames.size(), 1u);
+    EXPECT_EQ(cp->result.team.stageNames[0], "coordination sweep 1");
+    EXPECT_TRUE(cp->result.team.log.empty());
+    for (const auto& pl : cp->result.plans) EXPECT_EQ(pl.initStrategy, "sector");
+    const auto team = jsonmini::parse(mtl_search::teamPlanJson(f.result, f.problem));
+    const auto& mcv = team["meta"]["curve"];
+    ASSERT_EQ(mcv["init_strategies"].array().size(), 1u);
+    EXPECT_EQ(mcv["init_strategies"].array()[0].text(""), "sector");
+    const auto& seeds = mcv["seeds"].array();
+    ASSERT_EQ(seeds.size(), 2u);
+    const double half = 100.0;   // the 200 m map, centred on the mission origin
+    for (std::size_t a = 0; a < seeds.size(); ++a) {
+        const auto& sd = seeds[a];
+        ASSERT_EQ(sd["j_seed"].array().size(), 1u);
+        ASSERT_EQ(sd["j_optimised"].array().size(), 1u);
+        const double j0 = sd["j_seed"].array()[0].num(-1.0), j1 = sd["j_optimised"].array()[0].num(-1.0);
+        EXPECT_GE(j0, 0.0);
+        EXPECT_GE(j1, 0.0);
+        EXPECT_LE(j1, j0 + 1e-9);                       // the optimiser never ends above its seed
+        // the route: sector centres inside the map, Euclidean length within budget_frac x the curve.
+        // Each agent plans on the belief the agents before it leave unswept: on this tiny map
+        // robot_1 sweeps it all, so robot_2's route may be empty (reward 0).
+        const auto& route = sd["sector_route_ned"].array();
+        if (a == 0) {
+            EXPECT_FALSE(route.empty());
+            EXPECT_GT(sd["sector_reward"].num(0.0), 0.0);
+        }
+        for (const auto& w : route) {
+            EXPECT_LE(std::abs(w.array()[0].num(1e9) - f.problem.frame.nMin - half), half + 1e-9);
+            EXPECT_LE(std::abs(w.array()[1].num(1e9) - f.problem.frame.eMin - half), half + 1e-9);
+        }
+        EXPECT_LE(sd["sector_length_m"].num(1e9),
+                  f.problem.curveParams.team.sector.budgetFrac * cp->result.plans[a].budget + 1e-6);
+        EXPECT_GE(sd["sector_reward"].num(-1.0), 0.0);
+    }
+}
+
+TEST(CurvePlan, PreviousFirstSolveIsStillAvailable) {
+    // [clusters, greedy] + 2 sweeps + reallocation = the pre-8ba811a pipeline: two seeds per agent,
+    // two sweeps and a reallocation stage, and no sector route
+    const auto p = mtl_search::parseScenario(curveScenario(
+        R"({"init_strategies": ["clusters", "greedy"], "coordination_sweeps": 2, "reallocate": true,
+            "order_budget_frac": 0.95, "max_iter": 20, "explore_iter": 10})"));
+    const auto r = mtl_search::solveFlown(p);
+    const mtl_search::CurvePlan* cp = r.curve();
+    ASSERT_NE(cp, nullptr);
+    ASSERT_GE(cp->result.team.stageNames.size(), 2u);
+    EXPECT_EQ(cp->result.team.stageNames[1], "coordination sweep 2");
+    const auto team = jsonmini::parse(mtl_search::teamPlanJson(r, p));
+    for (const auto& sd : team["meta"]["curve"]["seeds"].array()) {
+        EXPECT_EQ(sd["j_optimised"].array().size(), 2u);
+        EXPECT_TRUE(sd["sector_route_ned"].isNull());
+    }
+    for (const auto& pl : cp->result.plans)
+        EXPECT_TRUE(pl.initStrategy == "clusters" || pl.initStrategy == "greedy" || pl.initStrategy == "realloc")
+            << pl.initStrategy;
 }
 
 TEST(CurvePlan, ComparisonsAreBothOrienteeringModesNeverTheCurve) {

@@ -235,8 +235,24 @@ def test_curve_block_writes_only_what_the_mission_sets():
         "sweep_range_margin", "knot_spacing_m", "num_control_points", "sample_spacing_m", "initial_heading_deg",
         "fast_grid_step_m", "explore_grid_step_m", "max_iter", "explore_iter", "explore_iter_warm",
         "coordination_sweeps", "init_strategies", "reallocate", "realloc_rounds", "max_realloc_trials",
-        "realloc_strategies", "realloc_path_warm", "realloc_path_max_iter"}
+        "realloc_strategies", "realloc_path_warm", "realloc_path_max_iter", "order_budget_frac", "sector"}
+    assert set(S._CURVE_SECTOR_FLOAT + S._CURVE_SECTOR_INT) == {
+        "size_m", "box_frac", "budget_frac", "starts", "perturb", "max_candidates", "grid_step_m"}
     assert S.CURVE_REALLOC_STRATEGIES == ("path", "insert", "direct")
+    assert S.CURVE_INIT_STRATEGIES == ("sector", "clusters", "greedy")
+
+
+def test_curve_sector_seed_block():
+    """upstream 8ba811a: the 'sector' seed and its block, written only as the mission sets it."""
+    curve = {"init_strategies": ["sector", "clusters"], "order_budget_frac": 0.95, "coordination_sweeps": 1,
+             "sector": {"size_m": 200, "grid_step_m": 50, "box_frac": 1.2, "starts": 8, "perturb": 0}}
+    sc, _, _ = S.build_scenario(dict(MISSION, planner={"type": "curve"}, curve=curve), AGENTS)
+    assert sc["curve"] == {"init_strategies": ["sector", "clusters"], "order_budget_frac": 0.95,
+                           "coordination_sweeps": 1,
+                           "sector": {"size_m": 200.0, "grid_step_m": 50.0, "box_frac": 1.2, "starts": 8,
+                                      "perturb": 0}}
+    sc2, _, _ = S.build_scenario(dict(MISSION, curve={"sector": {}}), AGENTS)
+    assert sc2["curve"] == {"sector": {}}
 
 
 @pytest.mark.parametrize("curve, match", [
@@ -247,6 +263,18 @@ def test_curve_block_writes_only_what_the_mission_sets():
     ({"endpoint_mode": ["open", "back"]}, "endpoint_mode"),
     ({"init_strategies": ["random"]}, "init_strategies"),
     ({"init_strategies": []}, "init_strategies"),
+    ({"init_strategies": ["gcs"]}, "SCS"),                # upstream seed; not built here, not an mtlc_plan value
+    ({"sector": {"size": 200}}, "unknown key"),
+    ({"sector": {"size_m": 0}}, "positive"),
+    ({"sector": {"box_frac": -1}}, "positive"),
+    ({"sector": {"starts": 0}}, "starts"),
+    ({"sector": {"max_candidates": 0}}, "max_candidates"),
+    ({"sector": {"perturb": -1}}, "perturb"),
+    ({"sector": {"starts": 2.5}}, "integer"),
+    ({"order_budget_frac": 0}, "order_budget_frac"),
+    ({"info_aware": {"enabled": True}}, "unknown key"),    # upstream curve blocks mtlc_plan does not read
+    ({"quad": {"enabled": True}}, "unknown key"),
+    ({"gcs": {}}, "unknown key"),
     ({"max_iter": 1.5}, "integer"),
     ({"sweep_freq_hz": "fast"}, "number"),
     ({"sweep_freq_hz": float("inf")}, "finite"),
@@ -311,8 +339,16 @@ def test_committed_mission_flies_the_curve_planner():
     # the detection sigmoid's slant-range scale the curve kernel is calibrated for
     assert m["sensor"]["detection"]["beta"] == 900.0
     cv = S.curve_of(m["curve"])
-    # reallocation splices claims into the optimised curve (upstream 7a45427), direct as the alternative
-    assert cv["realloc_strategies"] == ["path", "direct"]
+    # the first solve: the upstream 8ba811a defaults, written out (one sector seed, one optimisation, no
+    # reallocation), the sector lattice at the 5 km reference scale
+    assert cv["init_strategies"] == ["sector"]
+    assert cv["coordination_sweeps"] == 1 and cv["reallocate"] is False
+    assert cv["sector"] == {"size_m": 200.0, "grid_step_m": 50.0, "box_frac": 1.2, "budget_frac": 1.0}
+    assert m["area"]["size_m"] == 5000.0 and cv["sector"]["size_m"] == 200.0 * m["area"]["size_m"] / 5000.0
+    assert cv["sector"]["grid_step_m"] >= m["area"]["belief_res_m"]
+    # reallocation (inactive while reallocate is false) splices claims into the optimised curve
+    assert cv["realloc_strategies"][0] == "path"
+    assert set(cv["realloc_strategies"]) <= set(S.CURVE_REALLOC_STRATEGIES)
     assert cv["realloc_path_max_iter"] > 0 and cv["realloc_path_warm"] is True
     # the planned altitudes are the flown deconfliction layers
     assert cv["altitude_stagger_m"] == m["team"]["altitude_separation_m"]

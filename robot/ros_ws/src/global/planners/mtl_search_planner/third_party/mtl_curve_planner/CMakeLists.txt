@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.16)
 project(mtl_curve_planner
         VERSION 1.0.0
         DESCRIPTION "Multi-agent parameterized-curve, information-aware search planner"
-        LANGUAGES CXX)
+        LANGUAGES C CXX)
 
 # -----------------------------------------------------------------------------
 #  Options  (the same four as cpp_planner, MTLC_ prefix, plus the optional
@@ -14,6 +14,9 @@ option(MTLC_BUILD_TESTS     "Build the self-tests"                         ON)
 option(MTLC_ENABLE_WARNINGS "Enable a strict warning set"                  ON)
 option(MTLC_ENABLE_OPENMP   "Parallelise multi-start seeds and the residual pass with OpenMP" OFF)
 option(MTLC_BUILD_COMPARE   "Build mtlc_compare against the sibling ../cpp_planner (mtl::planner)" OFF)
+option(MTLC_ENABLE_GCS      "Graph-of-convex-sets seed (InitStrategy::Gcs); needs the SCS conic solver" ON)
+set(MTLC_SCS_SOURCE_DIR "" CACHE PATH "Local SCS source tree (empty = fetch SCS ${MTLC_SCS_TAG})")
+set(MTLC_SCS_TAG "3.3.1" CACHE STRING "SCS release fetched when MTLC_SCS_SOURCE_DIR is empty")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -51,6 +54,47 @@ if(MTLC_ENABLE_OPENMP)
 endif()
 
 # -----------------------------------------------------------------------------
+#  SCS (MIT, pure C) - the conic solver behind the GCS seed.  Built here as a
+#  small static library from its sources (direct LDL solver, no BLAS/LAPACK:
+#  the GCS problems are SOCPs, LAPACK is only needed for SDP cones).
+# -----------------------------------------------------------------------------
+if(MTLC_ENABLE_GCS)
+  if(MTLC_SCS_SOURCE_DIR)
+    set(_scs_dir "${MTLC_SCS_SOURCE_DIR}")
+  else()
+    include(FetchContent)
+    FetchContent_Declare(
+      mtlc_scs
+      GIT_REPOSITORY https://github.com/cvxgrp/scs.git
+      GIT_TAG        ${MTLC_SCS_TAG}
+      GIT_SHALLOW    TRUE)
+    FetchContent_GetProperties(mtlc_scs)
+    if(NOT mtlc_scs_POPULATED)
+      FetchContent_Populate(mtlc_scs)
+    endif()
+    set(_scs_dir "${mtlc_scs_SOURCE_DIR}")
+  endif()
+  file(GLOB _scs_amd "${_scs_dir}/linsys/external/amd/*.c")
+  add_library(mtl_curve_scs STATIC
+    ${_scs_dir}/src/linalg.c ${_scs_dir}/src/cones.c ${_scs_dir}/src/exp_cone.c
+    ${_scs_dir}/src/aa.c ${_scs_dir}/src/util.c ${_scs_dir}/src/scs.c
+    ${_scs_dir}/src/ctrlc.c ${_scs_dir}/src/normalize.c ${_scs_dir}/src/scs_version.c
+    ${_scs_dir}/src/rw.c
+    ${_scs_dir}/linsys/scs_matrix.c ${_scs_dir}/linsys/csparse.c
+    ${_scs_dir}/linsys/cpu/direct/private.c
+    ${_scs_dir}/linsys/external/qdldl/qdldl.c
+    ${_scs_amd})
+  target_include_directories(mtl_curve_scs
+    PUBLIC  $<BUILD_INTERFACE:${_scs_dir}/include>
+    PRIVATE ${_scs_dir}/linsys ${_scs_dir}/linsys/cpu/direct
+            ${_scs_dir}/linsys/external/amd ${_scs_dir}/linsys/external/qdldl)
+  target_compile_definitions(mtl_curve_scs PRIVATE CTRLC=0 VERBOSITY=0 _POSIX_C_SOURCE=200809L)
+  set_target_properties(mtl_curve_scs PROPERTIES POSITION_INDEPENDENT_CODE ON C_STANDARD 99)
+  find_package(Threads REQUIRED)
+  target_link_libraries(mtl_curve_scs PRIVATE Threads::Threads $<$<NOT:$<PLATFORM_ID:Windows>>:m>)
+endif()
+
+# -----------------------------------------------------------------------------
 #  Warning set, applied through one interface target.
 # -----------------------------------------------------------------------------
 add_library(mtl_curve_warnings INTERFACE)
@@ -80,6 +124,7 @@ add_library(mtl_curve_planner
   src/core/bspline.cpp
   src/mapping/cells.cpp
   src/planning/orienteering.cpp
+  src/planning/sector_orienteering.cpp
   src/curve_planning/endpoint_constraints.cpp
   src/curve_planning/parametric_curve.cpp
   src/curve_planning/arc_length.cpp
@@ -87,13 +132,22 @@ add_library(mtl_curve_planner
   src/curve_planning/path_insert.cpp
   src/curve_planning/swath_polygon.cpp
   src/curve_planning/team_curves.cpp
+  src/curve_planning/info_aware.cpp
+  src/mapping/peak_clusters.cpp
   src/optimization/fast_grid.cpp
   src/optimization/swath_kernel.cpp
   src/optimization/objective.cpp
   src/optimization/optimizer.cpp
   src/sensing/sweep.cpp
   src/sensing/airframe.cpp
-  src/trajectory/curve_trajectory.cpp)
+  src/trajectory/curve_trajectory.cpp
+  src/quadrotor/flatness.cpp
+  src/quadrotor/quad_trajectory.cpp
+  src/gcs/kernel_clusters.cpp
+  src/gcs/convex_sets.cpp
+  src/gcs/conic.cpp
+  src/gcs/tour.cpp
+  src/gcs/plan_agent.cpp)
 
 add_library(mtl_curve::planner ALIAS mtl_curve_planner)
 
@@ -105,6 +159,11 @@ target_include_directories(mtl_curve_planner
 target_link_libraries(mtl_curve_planner
   PUBLIC  Eigen3::Eigen
   PRIVATE mtl_curve_warnings)
+
+if(MTLC_ENABLE_GCS)
+  target_link_libraries(mtl_curve_planner PRIVATE mtl_curve_scs)
+  target_compile_definitions(mtl_curve_planner PRIVATE MTLC_HAVE_SCS=1)
+endif()
 
 if(MTLC_ENABLE_OPENMP AND OpenMP_CXX_FOUND)
   target_link_libraries(mtl_curve_planner PUBLIC OpenMP::OpenMP_CXX)
@@ -156,6 +215,12 @@ if(MTLC_BUILD_APPS)
   add_executable(mtlc_plan apps/mtl_curve_plan_json.cpp)
   target_link_libraries(mtlc_plan PRIVATE mtl_curve_planner mtl_curve_warnings)
   target_include_directories(mtlc_plan PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/apps)
+
+  # mtlc_bench_gcs - static-stage benchmark: GCS seed vs orienteering / greedy.
+  add_executable(mtlc_bench_gcs apps/bench_gcs.cpp)
+  target_link_libraries(mtlc_bench_gcs PRIVATE mtl_curve_planner mtl_curve_mapgen mtl_curve_eval mtl_curve_warnings)
+  add_executable(mtlc_bench_study apps/bench_study.cpp)
+  target_link_libraries(mtlc_bench_study PRIVATE mtl_curve_planner mtl_curve_mapgen mtl_curve_eval mtl_curve_warnings)
 endif()
 
 # mtlc_compare - both planners on the same scenario, scored by the same
@@ -179,7 +244,7 @@ endif()
 if(MTLC_BUILD_TESTS)
   enable_testing()
 
-  foreach(t test_kmeans test_orienteering test_curve_geometry test_swath_kernel test_optimizer test_path_insert test_pipeline)
+  foreach(t test_kmeans test_orienteering test_curve_geometry test_swath_kernel test_optimizer test_path_insert test_pipeline test_gcs test_info_aware_clusters test_quadrotor test_sector_orienteering)
     add_executable(${t} tests/${t}.cpp)
     target_link_libraries(${t} PRIVATE mtl_curve_planner mtl_curve_mapgen mtl_curve_eval mtl_curve_warnings)
     add_test(NAME ${t} COMMAND ${t})
@@ -191,7 +256,11 @@ endif()
 #     find_package(mtl_curve_planner REQUIRED)
 #     target_link_libraries(my_sim PRIVATE mtl_curve::planner)
 # =============================================================================
-install(TARGETS mtl_curve_planner mtl_curve_mapgen mtl_curve_eval mtl_curve_warnings
+set(_mtlc_install_targets mtl_curve_planner mtl_curve_mapgen mtl_curve_eval mtl_curve_warnings)
+if(MTLC_ENABLE_GCS)
+  list(APPEND _mtlc_install_targets mtl_curve_scs)
+endif()
+install(TARGETS ${_mtlc_install_targets}
         EXPORT mtl_curve_plannerTargets
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}

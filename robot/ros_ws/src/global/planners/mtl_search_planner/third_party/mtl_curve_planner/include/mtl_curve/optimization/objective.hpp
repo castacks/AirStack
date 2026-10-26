@@ -32,6 +32,12 @@ struct AgentProblem {
     const FastGrid*    G = nullptr;
     const SwathKernel* K = nullptr;
     const MatX*        lambdaOther = nullptr;  ///< ny-by-nx, or nullptr = zeros
+    /// Optional corridor: J += corridorMu * (1/L) sum_j ds_j (d_j / corridorScale)^2,
+    /// d_j = distance of sample j to the polyline `corridor` (e.g. the seed),
+    /// so the optimiser reshapes the curve near the route instead of moving it.
+    const Path2*       corridor = nullptr;
+    double             corridorMu = 0.0;
+    double             corridorScale = 500.0;  ///< [m]
 };
 
 /// @param grad  filled with dJ/dv when non-null

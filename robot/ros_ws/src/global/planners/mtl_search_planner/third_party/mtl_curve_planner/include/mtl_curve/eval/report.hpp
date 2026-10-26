@@ -28,6 +28,12 @@ struct ResidualBelief;  // mtl_curve/eval/detection.hpp
 /// The post-search residual belief - the planner-comparison metric, lower is better.
 void reportResidualBelief(std::ostream& os, const ResidualBelief& residual);
 
+/// The quadrotor (body-fixed camera) conversion table, the C++ twin of
+/// main_curve_planner.m step 6b: per agent, boresight / path errors against
+/// the plan and the peaks of every limited quantity.  Returns true when every
+/// agent's limits hold.
+bool reportQuadSummary(std::ostream& os, const PlanningResult& result, const PlannerParams& params);
+
 }  // namespace mtl::curve::eval
 
 #endif  // MTLC_EVAL_REPORT_HPP

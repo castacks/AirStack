@@ -351,12 +351,22 @@ _PLANNER_KEYS = {"type": str, "compare_orienteering": bool}
 # reference lengths auto-scaled by the adapter (grids / samples / knots by
 # size_m / 5000, kernel geometry and altitude stagger by beta / 610).
 _CURVE_FLOAT = ("altitude_stagger_m", "sweep_freq_hz", "sweep_range_margin", "knot_spacing_m",
-                "sample_spacing_m", "initial_heading_deg", "fast_grid_step_m", "explore_grid_step_m")
+                "sample_spacing_m", "initial_heading_deg", "fast_grid_step_m", "explore_grid_step_m",
+                "order_budget_frac")
 _CURVE_INT = ("num_control_points", "max_iter", "explore_iter", "explore_iter_warm", "coordination_sweeps",
               "realloc_rounds", "max_realloc_trials", "realloc_path_max_iter")
 _CURVE_BOOL = ("reallocate", "realloc_path_warm")
 _CURVE_OTHER = ("representation", "endpoint_mode", "destinations_ned", "kernel", "init_strategies",
-                "realloc_strategies")
+                "realloc_strategies", "sector")
+#: ``curve.init_strategies``: the seeds of each agent's first solve, each optimised, the best
+#: flown (mtl::curve::InitStrategy). ``sector`` (the planner default since upstream 8ba811a)
+#: is a coverage orienteering over a sector grid; ``clusters`` orders the agent's
+#: macro-clusters; ``greedy`` is information pursuit. ``gcs`` exists upstream but needs the
+#: SCS solver, which this build does not include, and mtlc_plan does not accept it either.
+CURVE_INIT_STRATEGIES = ("sector", "clusters", "greedy")
+#: ``curve.sector``: the sector seed's options (mtl::curve::SectorParams, mtlc_plan keys).
+_CURVE_SECTOR_FLOAT = ("size_m", "box_frac", "budget_frac", "grid_step_m")
+_CURVE_SECTOR_INT = ("starts", "perturb", "max_candidates")
 #: ``curve.realloc_strategies``: the seeds a slack agent tries when it claims a pooled
 #: cluster (mtl::curve::ReallocStrategy). ``path`` splices the cluster into the agent's
 #: current OPTIMISED curve (upstream 7a45427, the default with ``direct``); ``insert`` is
@@ -438,9 +448,28 @@ def curve_of(block: Mapping[str, Any] | None) -> dict[str, Any]:
         out["kernel"] = {k: _num(kn[k], f"curve.kernel.{k}") for k in _CURVE_KERNEL if k in kn}
     if "init_strategies" in b:
         strat = list(b["init_strategies"] or [])
-        if not strat or any(v not in ("clusters", "greedy") for v in strat):
-            raise ValueError(f"curve.init_strategies {strat!r} must be a non-empty list of clusters | greedy")
+        if "gcs" in strat:
+            raise ValueError("curve.init_strategies: 'gcs' needs the SCS conic solver, which the vendored "
+                             "curve planner is built without (and mtlc_plan does not accept it)")
+        if not strat or any(v not in CURVE_INIT_STRATEGIES for v in strat):
+            raise ValueError(f"curve.init_strategies {strat!r} must be a non-empty list of "
+                             f"{' | '.join(CURVE_INIT_STRATEGIES)}")
         out["init_strategies"] = strat
+    if "sector" in b:
+        sb = dict(b["sector"] or {})
+        _refuse_unknown(sb, _CURVE_SECTOR_FLOAT + _CURVE_SECTOR_INT, "curve.sector")
+        sec: dict[str, Any] = {}
+        for k in _CURVE_SECTOR_FLOAT:
+            if k in sb:
+                sec[k] = _num(sb[k], f"curve.sector.{k}")
+                if not sec[k] > 0.0:
+                    raise ValueError(f"curve.sector.{k} must be positive, got {sb[k]!r}")
+        for k in _CURVE_SECTOR_INT:
+            if k in sb:
+                sec[k] = _num(sb[k], f"curve.sector.{k}", int)
+                if sec[k] < (0 if k == "perturb" else 1):
+                    raise ValueError(f"curve.sector.{k} must be >= {0 if k == 'perturb' else 1}, got {sb[k]!r}")
+        out["sector"] = sec
     if "realloc_strategies" in b:
         rs = b["realloc_strategies"]
         if (not isinstance(rs, list) or not rs
@@ -454,6 +483,8 @@ def curve_of(block: Mapping[str, Any] | None) -> dict[str, Any]:
     for k in _CURVE_INT:
         if k in b and b[k] is not None:
             out[k] = _num(b[k], f"curve.{k}", int)
+    if "order_budget_frac" in out and not out["order_budget_frac"] > 0.0:
+        raise ValueError(f"curve.order_budget_frac must be positive, got {out['order_budget_frac']}")
     if out.get("realloc_path_max_iter", 0) < 0:
         raise ValueError(f"curve.realloc_path_max_iter must be >= 0 (0 = max_iter), got {out['realloc_path_max_iter']}")
     for k in _CURVE_BOOL:

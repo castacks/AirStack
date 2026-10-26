@@ -46,7 +46,7 @@ can reach the planned 6 m/s.
 
 | File | What |
 |---|---|
-| `config/mission.yaml` | **Source of truth**: search area, prior bumps (the prior is normalised to sum to 1), targets, aircraft, sensor/detection model, cell threshold `mapping.minimum_belief_mass` (a per-cell probability), **which planner flies** `planner.type` (`orienteering` \| `curve`; `compare_orienteering` also plans both orienteering modes for the report when the curve flies), the orienteering **mode toggle** `info_aware` (plain vs information-aware; `report_both` scores both), the curve planner's options `curve:` (unknown keys refused, absent keys auto-scaled; `realloc_strategies: [path, direct]` = how a slack aircraft claims an unserviced cluster), the follower's single-axis `follower.gimbal_law`, sim gimbal, render |
+| `config/mission.yaml` | **Source of truth**: search area, prior bumps (the prior is normalised to sum to 1), targets, aircraft, sensor/detection model, cell threshold `mapping.minimum_belief_mass` (a per-cell probability), **which planner flies** `planner.type` (`orienteering` \| `curve`; `compare_orienteering` also plans both orienteering modes for the report when the curve flies), the orienteering **mode toggle** `info_aware` (plain vs information-aware; `report_both` scores both), the curve planner's options `curve:` (unknown keys refused, absent keys auto-scaled; `init_strategies: [sector]` + the `sector:` block = how each curve is seeded, `coordination_sweeps: 1`, `reallocate: false`; `realloc_strategies` = how a slack aircraft claims an unserviced cluster when reallocation is on), the follower's single-axis `follower.gimbal_law`, sim gimbal, render |
 | `config/scenario.json`, `ground_truth.json`, `belief.png` | Generated bundle, read by the planner, the logger, the Isaac scene and the analysis script |
 | `config/pid_controller_mtl.yaml` | PID gains (speed clamp) |
 | `config/dds_router_mtl_search.yaml` | Robot↔GCS allowlist: the shared list plus the search and gimbal topics and actions (not the raw `gimbal/rgb`, to keep DDS load down) |
@@ -98,8 +98,8 @@ The tutorial covers the manual per-robot commands, topic checks and the Foxglove
 - Each robot plans the whole team problem independently, and the result is
   deterministic because the scenario and seed are identical (both planners). Nothing
   re-plans in flight: a robot that aborts leaves its cells unsearched.
-- The curve planner needs a finite budget and takes seconds (one agent) to tens of
-  seconds (three agents) to plan; the goal publishes `PLANNING` feedback meanwhile, and a
+- The curve planner needs a finite budget and takes seconds to plan (about 3 s for one
+  agent with the default sector seed; `[clusters, greedy]` + reallocation takes 10–30 s); the goal publishes `PLANNING` feedback meanwhile, and a
   goal on an unchanged scenario reuses the boot preview plan.
 - Detection is model-based: the Moon et al. sigmoid on slant range and
   off-boresight angle. Nothing runs a detector on `gimbal/rgb`; the image

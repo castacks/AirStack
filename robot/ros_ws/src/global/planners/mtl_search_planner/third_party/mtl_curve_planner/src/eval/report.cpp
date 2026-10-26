@@ -5,6 +5,7 @@
 #include <iomanip>
 
 #include "mtl_curve/eval/detection.hpp"
+#include "mtl_curve/quadrotor/flatness.hpp"
 
 namespace mtl::curve::eval {
 
@@ -68,6 +69,39 @@ void reportResidualBelief(std::ostream& os, const ResidualBelief& rb) {
     os << "Belief mass searched:   " << rb.detectedMass << "   (" << std::setprecision(1)
        << (100.0 * rb.detectedMass / std::max(rb.priorMass, 1e-300)) << "% of the prior)\n";
     os << "-----------------------------------------\n";
+}
+
+bool reportQuadSummary(std::ostream& os, const PlanningResult& r, const PlannerParams& P) {
+    if (r.quad.empty()) return true;
+    const QuadParams q = quadrotor::resolveQuadParams(P.quad, P.sensorTiltAngle);
+    const char* mount = q.cameraMount == CameraMount::Matched ? "matched"
+                        : (q.cameraMount == CameraMount::Fixed ? "fixed" : "nadir");
+    os << "\n=================== QUADROTOR CONVERSION (body-fixed camera) ===================\n"
+       << std::fixed << std::setprecision(0) << "Vehicle: " << q.speed << " m/s cruise (plan flown "
+       << std::setprecision(2) << P.avgDroneSpeed / q.speed << "x slower), tilt <= " << std::setprecision(0)
+       << rad2deg(q.maxTilt) << " deg, roll/pitch rate <= " << rad2deg(q.maxRollPitchRate) << " deg/s,\n"
+       << "         yaw " << (q.useYaw ? "free" : "locked to the track") << " (rate <= " << rad2deg(q.maxYawRate)
+       << " deg/s), drag trim " << std::setprecision(1) << rad2deg(q.trimPitch) << " deg; camera " << mount
+       << ", tilt " << rad2deg(q.camTilt) << " deg from body -z\n";
+    os << std::left << std::setw(6) << "agent" << std::right << std::setw(7) << "T [s]" << std::setw(10)
+       << "bore rms" << std::setw(10) << "bore p95" << std::setw(10) << "bore max" << std::setw(10) << "path rms"
+       << std::setw(10) << "cross mx" << std::setw(8) << "tilt" << std::setw(9) << "pq rate" << std::setw(9)
+       << "yaw rt" << std::setw(8) << "look" << std::setw(7) << "ok" << std::setw(8) << "solve" << "\n";
+    bool ok = true;
+    for (std::size_t a = 0; a < r.quad.size(); ++a) {
+        const QuadTrajectory& Q = r.quad[a];
+        const QuadStats& S = Q.stats;
+        ok = ok && S.feasible;
+        os << std::left << std::setw(6) << a + 1 << std::right << std::setprecision(0) << std::setw(7)
+           << Q.t(Q.t.size() - 1) << std::setprecision(1) << std::setw(9) << S.boreRms << 'm' << std::setw(9)
+           << S.boreP95 << 'm' << std::setw(9) << S.boreMax << 'm' << std::setw(9) << S.pathRms << 'm'
+           << std::setw(9) << S.crossMax << 'm' << std::setw(7) << S.maxTiltDeg << 'd' << std::setprecision(0)
+           << std::setw(5) << S.maxRateXYDegS << "d/s" << std::setw(5) << S.maxYawRateDegS << "d/s"
+           << std::setprecision(1) << std::setw(7) << S.maxLookDeg << 'd' << std::setw(7)
+           << (S.feasible ? "true" : "FALSE") << std::setprecision(2) << std::setw(7) << S.solveTime << "s\n";
+    }
+    os << "All attitude / rate / speed / thrust limits hold: " << (ok ? "true" : "false") << "\n";
+    return ok;
 }
 
 }  // namespace mtl::curve::eval

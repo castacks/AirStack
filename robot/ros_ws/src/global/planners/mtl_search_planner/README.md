@@ -56,7 +56,38 @@ block plans exactly as before). The curve planner:
   block in `track.json` (sweep amplitude / frequency / peak rate, swath half-width, max
   curvature, endpoint, fast objective).
 
-**Reallocation seeds** (`curve.realloc_strategies`, upstream `7a45427`). When a slack agent
+**First solve** (`curve.init_strategies`, `coordination_sweeps`, `reallocate`; upstream
+`8ba811a` defaults, written out in `mission.yaml`). Each agent, in turn and against the swaths of
+the agents already planned, seeds a curve from every listed strategy, optimises each, and flies
+the one with the lowest fast residual:
+
+- `sector` (default): coverage orienteering over a sector grid
+  (`planning::solveSectorOrienteering`). A `curve.sector.size_m` lattice (200 m on the 5 km
+  mission; auto-scaled × `size_m / 5000` when absent) covers the map; a visited sector credits
+  the belief in a box of half-side `box_frac` (1.2) × the calibrated swath half-width; the
+  route maximises the belief in the union of its boxes under a Euclidean budget of
+  `budget_frac` (1.0) × the curve length. Box sums on a `grid_step_m` raster (50 m).
+- `clusters`: the agent's macro-clusters ordered by budgeted orienteering on
+  `order_budget_frac` × the curve length (AirStack sets 0.95), then information pursuit.
+- `greedy`: information pursuit from the start.
+
+`[sector]` with `coordination_sweeps: 1` and `reallocate: false` is one optimisation per
+agent: upstream measured about −3 % mean residual at about 40 % of the time of the previous
+`[clusters, greedy]` + 2 sweeps + reallocation, with a tail of maps that do worse
+(`[sector, clusters]` removes most of it for a second optimisation). Setting
+`init_strategies: [clusters, greedy]`, `coordination_sweeps: 2`, `reallocate: true` (with
+`order_budget_frac: 0.95`) reproduces the previous plans byte for byte. `gcs` (an upstream
+graph-of-convex-sets seed) needs the SCS solver, which this build does not include, so it is
+refused, like every upstream option `mtlc_plan` does not read (the curve planner's
+`info_aware`, `quad`, `gcs`, corridor and cluster-mode blocks stay at their defaults: off).
+
+`plan.json` → `meta.curve` also carries `init_strategies` and `seeds` (per agent: every seed's
+fast objective before and after its optimisation, `j_seed` / `j_optimised`, and for `sector`
+the ordered sector centres `sector_route_ned` with `sector_reward` / `sector_length_m`). An
+agent planned after a teammate that already swept everything can get an empty sector route.
+
+**Reallocation seeds** (`curve.realloc_strategies`, upstream `7a45427`; only with
+`reallocate: true`, off by default since `8ba811a`). When a slack agent
 claims an unserviced cluster it tries each listed seed, keeps the best feasible one, and commits
 it only if the team residual falls:
 
@@ -169,9 +200,11 @@ See `config/mtl_search_planner.yaml`. The launch args set `scenario_file`, `agen
   metres), track length = budget ± 0.2 %, curvature ≤ 1/R + 1e-4, return-home and
   fixed-destination endpoints < 1 m, determinism, the comparison plans, and that
   `planner.type: orienteering` through the dispatch is the orienteering plan unchanged.
-- The five upstream `mtl_planner` self-tests plus `test_info_aware` (`mtl_vendored_*`), and the
-  seven upstream `mtl_curve_planner` self-tests (`mtl_curve_vendored_*`, including
-  `test_path_insert` for the `path` reallocation seed).
+- The six upstream `mtl_planner` self-tests, including `test_info_aware` (`mtl_vendored_*`), and
+  ten upstream `mtl_curve_planner` self-tests (`mtl_curve_vendored_*`, including
+  `test_path_insert` for the `path` reallocation seed and `test_sector_orienteering`,
+  `test_info_aware_clusters`, `test_quadrotor` from `8ba811a`). Upstream `test_gcs` is not
+  built: it needs the SCS solver.
 - `test/test_scenario.py`: the scenario generator, including a byte-for-byte `--check` of the
   committed bundle, the `planner` / `curve` / `follower` blocks (normalised, unknown keys and
   misspelt mission blocks refused, a curve mission checked flyable at generation), and the

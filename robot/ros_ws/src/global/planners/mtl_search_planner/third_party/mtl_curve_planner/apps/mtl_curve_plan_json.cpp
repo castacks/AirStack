@@ -179,7 +179,10 @@ mc::PlannerParams paramsFromScenario(const J::Value& sc, int numAgents) {
 //    knot_spacing_m, num_control_points, sample_spacing_m, initial_heading_deg
 //    fast_grid_step_m, explore_grid_step_m  (auto-scaled if absent, see below)
 //    max_iter, explore_iter, explore_iter_warm
-//    coordination_sweeps, init_strategies ["clusters", "greedy"]
+//    coordination_sweeps (default 1), init_strategies ["sector"] (default; any of
+//      sector | clusters | greedy), order_budget_frac
+//    sector { size_m, box_frac, budget_frac, starts, perturb, max_candidates,
+//             grid_step_m }  (size and grid step auto-scaled like the grids)
 //    reallocate, realloc_rounds, max_realloc_trials,
 //    realloc_strategies ["path", "direct"]  (any of path | insert | direct),
 //    realloc_path_warm, realloc_path_max_iter
@@ -246,9 +249,20 @@ void curveFromScenario(const J::Value& sc, const Frame& frame, mc::PlannerParams
             const std::string t = v.str();
             if (t == "clusters") p.team.initStrategies.push_back(mc::InitStrategy::Clusters);
             else if (t == "greedy") p.team.initStrategies.push_back(mc::InitStrategy::Greedy);
-            else throw std::runtime_error("curve.init_strategies: '" + t + "' is not clusters | greedy");
+            else if (t == "sector") p.team.initStrategies.push_back(mc::InitStrategy::Sector);
+            else throw std::runtime_error("curve.init_strategies: '" + t + "' is not sector | clusters | greedy");
         }
     }
+    p.team.orderBudgetFrac = cv["order_budget_frac"].num(p.team.orderBudgetFrac);
+    // the sector seed: lattice and raster scale with the mission like the grids
+    const J::Value& se = cv["sector"];
+    p.team.sector.sectorSize    = se["size_m"].num(200.0 * s);
+    p.team.sector.gridStep      = se["grid_step_m"].num(std::max(p.cellSize, 50.0 * s));
+    p.team.sector.boxFrac       = se["box_frac"].num(p.team.sector.boxFrac);
+    p.team.sector.budgetFrac    = se["budget_frac"].num(p.team.sector.budgetFrac);
+    p.team.sector.nStarts       = static_cast<int>(se["starts"].num(p.team.sector.nStarts));
+    p.team.sector.nPerturb      = static_cast<int>(se["perturb"].num(p.team.sector.nPerturb));
+    p.team.sector.maxCandidates = static_cast<int>(se["max_candidates"].num(p.team.sector.maxCandidates));
     if (cv["realloc_strategies"].isArray()) {
         p.team.reallocInitStrategies.clear();
         for (const J::Value& v : cv["realloc_strategies"].array()) {

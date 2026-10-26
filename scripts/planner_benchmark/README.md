@@ -123,7 +123,7 @@ Add your own arms freely. For example, TIGRIS with `reward_mode: matched`; MTL w
 
 ## The curve arm (`mtl_curve`, 2026-09-30)
 
-`mtl::curve::Planner` (vendored `third_party/mtl_curve_planner`, upstream `cpp_curve_planner` `7a45427`, `path` reallocation seed) plans ONE
+`mtl::curve::Planner` (vendored `third_party/mtl_curve_planner`, upstream `cpp_curve_planner` `7a45427`, `path` reallocation seed, when these results were produced; the vendored tree is now `8ba811a`, whose defaults differ: an arm that does not set `curve.init_strategies` / `coordination_sweeps` / `reallocate` now plans with `[sector]`, 1 sweep, no reallocation, so re-running an existing curve arm does NOT reproduce the numbers below) plans ONE
 continuous curve per aircraft, exactly the budget long, with curvature never above 1 / turn radius, optimised for
 the lowest residual belief while the 1-DOF gimbal sweeps `alpha(t) = alphaMax sin(2 pi f t)` across track. It runs
 through the same CLI as the orienteering planner (`mtl_search_plan --no-alt`); the arm selects it with

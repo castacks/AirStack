@@ -212,7 +212,10 @@ const std::set<std::string> kCurveKeys = {
     "sweep_freq_hz", "sweep_range_margin", "knot_spacing_m", "num_control_points", "sample_spacing_m",
     "initial_heading_deg", "fast_grid_step_m", "explore_grid_step_m", "max_iter", "explore_iter",
     "explore_iter_warm", "coordination_sweeps", "init_strategies", "reallocate", "realloc_rounds",
-    "max_realloc_trials", "realloc_strategies", "realloc_path_warm", "realloc_path_max_iter"};
+    "max_realloc_trials", "realloc_strategies", "realloc_path_warm", "realloc_path_max_iter", "sector"};
+/// mtlc_plan's "curve.sector" block (the 'sector' seed, upstream 8ba811a).
+const std::set<std::string> kCurveSectorKeys = {"size_m", "box_frac", "budget_frac", "starts", "perturb",
+                                                "max_candidates", "grid_step_m"};
 const std::set<std::string> kCurveKernelKeys = {"table_step_m","lambda_cap", "grid_step_m", "track_len_m", "edge_width_m",
                                                 "edge_inset_m", "tail_sigma_m", "tail_weight"};
 
@@ -277,6 +280,7 @@ void curveFromScenario(const J::Value& sc, const Frame& frame, mc::PlannerParams
     const J::Value& cv = sc["curve"];
     refuseUnknownKeys(cv, kCurveKeys, "curve");
     refuseUnknownKeys(cv["kernel"], kCurveKernelKeys, "curve.kernel");
+    refuseUnknownKeys(cv["sector"], kCurveSectorKeys, "curve.sector");
     const std::string rep = cv["representation"].text("curvature");
     if (rep == "curvature") p.curve.representation = mc::CurveRepresentation::Curvature;
     else if (rep == "bspline") p.curve.representation = mc::CurveRepresentation::BSpline;
@@ -337,9 +341,19 @@ void curveFromScenario(const J::Value& sc, const Frame& frame, mc::PlannerParams
             const std::string t = v.str();
             if (t == "clusters") p.team.initStrategies.push_back(mc::InitStrategy::Clusters);
             else if (t == "greedy") p.team.initStrategies.push_back(mc::InitStrategy::Greedy);
-            else throw std::runtime_error("curve.init_strategies: '" + t + "' is not clusters | greedy");
+            else if (t == "sector") p.team.initStrategies.push_back(mc::InitStrategy::Sector);
+            else throw std::runtime_error("curve.init_strategies: '" + t + "' is not sector | clusters | greedy");
         }
     }
+    // the sector seed (upstream 8ba811a): lattice and raster scale with the mission like the grids
+    const J::Value& se = cv["sector"];
+    p.team.sector.sectorSize    = se["size_m"].num(200.0 * s);
+    p.team.sector.gridStep      = se["grid_step_m"].num(std::max(p.cellSize, 50.0 * s));
+    p.team.sector.boxFrac       = se["box_frac"].num(p.team.sector.boxFrac);
+    p.team.sector.budgetFrac    = se["budget_frac"].num(p.team.sector.budgetFrac);
+    p.team.sector.nStarts       = static_cast<int>(se["starts"].num(p.team.sector.nStarts));
+    p.team.sector.nPerturb      = static_cast<int>(se["perturb"].num(p.team.sector.nPerturb));
+    p.team.sector.maxCandidates = static_cast<int>(se["max_candidates"].num(p.team.sector.maxCandidates));
     if (cv["realloc_strategies"].isArray()) {
         p.team.reallocInitStrategies.clear();
         for (const J::Value& v : cv["realloc_strategies"].array()) {
@@ -1222,6 +1236,40 @@ std::string teamPlanJson(const CurvePlan& cp, const SearchProblem& problem) {
     }
     curve["realloc_log"] = J::Value(std::move(trials));
     curve["fast_grid_step_m"] = J::Value(r.grid.hg);
+    // Host addition: the first-solve seeds (upstream 8ba811a TeamInfo::seedJ0/seedJ1 and the
+    // sector routes). Per agent, every seed's fast objective before and after its optimisation
+    // (the lowest optimised one is flown, agents[].diagnostics.init_strategy) and, for the
+    // 'sector' seed, the ordered sector centres (mission NED), their union-box reward and
+    // Euclidean length. Wall times (team.sectorTime, ...) go to the logs only.
+    J::Array configured;
+    for (const mc::InitStrategy st : params.team.initStrategies) configured.push_back(J::Value(mc::toString(st)));
+    curve["init_strategies"] = J::Value(std::move(configured));
+    J::Array seeds;
+    for (std::size_t a = 0; a < r.plans.size(); ++a) {
+        J::Object o;
+        auto numsAt = [](const std::vector<std::vector<double>>& v, std::size_t a) {
+            J::Array out;
+            if (a < v.size())
+                for (const double x : v[a]) out.push_back(std::isfinite(x) ? J::Value(x) : J::Value());
+            return J::Value(std::move(out));
+        };
+        o["j_seed"] = numsAt(r.team.seedJ0, a);
+        o["j_optimised"] = numsAt(r.team.seedJ1, a);
+        if (a < r.team.sectorWaypoints.size()) {
+            J::Array route;
+            const mc::Path2& wp = r.team.sectorWaypoints[a];
+            for (mc::Index k = 0; k < wp.rows(); ++k) {
+                double wn = 0.0, we = 0.0;
+                problem.frame.fromMtl(wp(k, 0), wp(k, 1), wn, we);
+                route.push_back(J::Value(J::Array{J::Value(wn), J::Value(we)}));
+            }
+            o["sector_route_ned"] = J::Value(std::move(route));
+            o["sector_reward"] = J::Value(r.team.sectorReward[a]);
+            o["sector_length_m"] = J::Value(r.team.sectorLength[a]);
+        }
+        seeds.push_back(J::Value(std::move(o)));
+    }
+    curve["seeds"] = J::Value(std::move(seeds));
 
     J::Object meta;
     meta["team"] = J::Value(std::move(team));
