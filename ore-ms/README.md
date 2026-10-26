@@ -12,6 +12,9 @@ For the consolidated MS² result and current research priorities, see
 [MS² findings and research decision — 2026-10-26](docs/research/ms2-findings-2026-10-26.md).
 The completed experiments support within-camera uncertainty ranking; cross-modal
 reliability comparison still needs a defined comparison target and support.
+The [EXP-055 feasibility audit](experiments/EXP-055-ms2-cross-modal-feasibility.md)
+finds promising overlap in existing MS² rain data; correspondence/visibility
+validation is the next bounded step before a shared-point modality comparison.
 
 ## New bounded execution checks
 

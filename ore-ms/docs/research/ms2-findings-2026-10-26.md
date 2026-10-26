@@ -58,6 +58,8 @@ No additional experiment is necessary to report the bounded within-camera findin
 
 To advance the **original cross-modal research question**, the next necessary design step is to define a defensible comparison target: what RGB and thermal measurements refer to, which scene/support is shared, and what error quantity makes one modality more reliable. Audit whether the existing MS² calibration and selected reference data can support that comparison before implementing it. A per-camera ratio-to-random table cannot substitute for this definition. If matched physical support cannot be justified, keep the conclusion at within-camera ranking rather than manufacturing a modality winner from separate camera populations. Any future cross-modal experiment should freeze its target, support, baseline and recording split before examining its outcome.
 
+The subsequent [EXP-055 feasibility audit](../../experiments/EXP-055-ms2-cross-modal-feasibility.md) finds promising supplied-calibration overlap on the existing rain pairs: a median85.4% of supported RGB depth pixels project within1 target pixel of a thermal depth label. Nearest-label agreement is not verified common-point identity. The next bounded experiment is a frozen correspondence/visibility pilot, followed by a common metric point-error comparison if that support is credible. No new images or model inference were needed for this feasibility audit.
+
 Two parallel items strengthen specific claims but do not block the current benchmark report:
 
 - Yifei's checkpoint training/split information is needed before calling recordings training-held-out or unseen by the model. Until a reply arrives, state that membership is unknown; no further calibration questions to Geethika are needed now.
