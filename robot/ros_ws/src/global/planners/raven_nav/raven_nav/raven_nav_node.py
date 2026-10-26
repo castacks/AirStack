@@ -452,6 +452,8 @@ class RavenNavNode(Node):
         self._committed_target_last_origin: 'np.ndarray | None' = None
         # Ray-mode hysteresis: hold the committed bearing unless a rival ray group
         # beats it by commit_swap_improvement_frac AND it's been held commit_min_hold_s.
+        self._ray_bearing_persistence = bool(self.declare_parameter(
+            'ray_bearing_persistence', True).value)
         self._committed_bearing_lock_ts: 'float | None' = None
         self._commit_swap_frac = float(self.declare_parameter(
             'commit_swap_improvement_frac', 0.25).value)
@@ -525,7 +527,8 @@ class RavenNavNode(Node):
             f'associate_ray_bbs={self._associate_ray_bbs} '
             f'associate_rays={self._associate_rays} '
             f'ray_penalty={self._ray_cost_penalty} '
-            f'switch_margin={self._commit_switch_margin_m}')
+            f'switch_margin={self._commit_switch_margin_m} '
+            f'ray_bearing_persistence={self._ray_bearing_persistence}')
         assigner = (bid_manager.IndependentGreedyAssigner if self._independent_greedy
                     else bid_manager.ConsensusAssigner)
         self._consensus = assigner(self._bundle_len)
@@ -1811,7 +1814,7 @@ class RavenNavNode(Node):
         weighted toward the same direction as the previous ray and an origin
         moving along it; falls back to closeness with no prior bearing."""
         cost = float(g.avg_dist_to_robot)
-        if prev_o is None or prev_d is None:
+        if not self._ray_bearing_persistence or prev_o is None or prev_d is None:
             return cost
         pd = np.asarray(prev_d, float); pd = pd / (np.linalg.norm(pd) + 1e-6)
         gd = np.asarray(g.avg_dir, float); gd = gd / (np.linalg.norm(gd) + 1e-6)
@@ -1821,6 +1824,31 @@ class RavenNavNode(Node):
         if rn > 1.0:
             cost += 20.0 * (1.0 - float(np.dot(rel / rn, pd)))
         return cost
+
+    def _select_ray_group(self, cands, now):
+        """Follow a ray group, optionally retaining the prior bearing.
+
+        Disabling persistence removes directional/origin score penalties and
+        bypasses both the relative-improvement threshold and minimum hold time.
+        """
+        def _pin(g):
+            return self._ray_pin_cost(
+                g, self._committed_target_last_origin,
+                self._committed_target_last_dir)
+        best = min(cands, key=_pin)
+        chosen = best
+        held = self._match_committed_group(cands)
+        if (self._ray_bearing_persistence and held is not None and held is not best
+                and self._committed_bearing_lock_ts is not None):
+            held_c = _pin(held)
+            margin = self._commit_swap_frac * (abs(held_c) + 1e-6)
+            held_for = now - self._committed_bearing_lock_ts
+            if not (_pin(best) < held_c - margin
+                    and held_for >= self._commit_min_hold_s):
+                chosen = held
+        if held is None or chosen is not held:
+            self._committed_bearing_lock_ts = now
+        return chosen
 
     def _match_committed_group(self, cands):
         """Candidate ray group matching the currently-held committed bearing
@@ -2959,6 +2987,7 @@ class RavenNavNode(Node):
                 assignment_mode=self._assignment_mode, bundle_len=self._bundle_len,
                 ray_penalty=self._ray_cost_penalty,
                 switch_margin=self._commit_switch_margin_m,
+                ray_bearing_persistence=self._ray_bearing_persistence,
                 use_shared_completion=self._use_shared_completion,
                 use_peer_allocation_state=self._use_peer_allocation_state,
                 associate_bbs=self._associate_bbs,
@@ -3094,23 +3123,7 @@ class RavenNavNode(Node):
             cands = [g for g in ray_groups
                      if g.label == self._assigned_target and g.num_rays > 0]
             if cands:
-                def _pin(gg):
-                    return self._ray_pin_cost(
-                        gg, self._committed_target_last_origin,
-                        self._committed_target_last_dir)
-                best = min(cands, key=_pin)
-                chosen = best
-                held = self._match_committed_group(cands)
-                if (held is not None and held is not best
-                        and self._committed_bearing_lock_ts is not None):
-                    held_c = _pin(held)
-                    margin = self._commit_swap_frac * (abs(held_c) + 1e-6)
-                    held_for = now - self._committed_bearing_lock_ts
-                    if not (_pin(best) < held_c - margin
-                            and held_for >= self._commit_min_hold_s):
-                        chosen = held
-                if held is None or chosen is not held:
-                    self._committed_bearing_lock_ts = now
+                chosen = self._select_ray_group(cands, now)
                 self._committed_target_last_dir = np.asarray(
                     chosen.avg_dir, dtype=np.float64).copy()
                 self._committed_target_last_origin = np.asarray(

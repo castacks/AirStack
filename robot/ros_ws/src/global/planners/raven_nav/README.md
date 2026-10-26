@@ -74,6 +74,18 @@ coefficients, including ticks without candidates. Nonempty solves also record
 the selected candidates' `ray_pen` and `retention` contributions. Offline replay
 reads the logged ray coefficient and supports a `no_ray_penalty` variant.
 
+To remove the separate ray-bearing persistence as well, set
+`RAVEN_RAY_BEARING_PERSISTENCE=false` with
+`RAVEN_COMMIT_SWITCH_MARGIN_M=0.0`. This disables the previous-direction and
+origin-alignment penalties in ray-group selection, the 25% improvement gate,
+and the 4-second minimum hold. Candidate groups still match the auction-assigned
+label; selection uses their current distance. Shared perception, task association,
+ray uncertainty penalty, stalled-target release, and navigation safety are retained.
+The default is `true`, preserving the previous behavior. The effective boolean is
+recorded as `params.ray_bearing_persistence` even on empty auction ticks.
+The October 25 `no_retention_no_bearing_hold` mission runs eight matched s1 scenes
+with this switch off, retention zero, and ray penalty 50.
+
 ## Peer position and selection ablation
 
 Set `RAVEN_USE_PEER_ALLOCATION_STATE=false` in the mission environment. Compose

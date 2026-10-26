@@ -1097,6 +1097,7 @@ class SemanticSearchTaskNode(Node):
                 '-p', f'associate_rays:={os.getenv("RAVEN_ASSOCIATE_RAYS", "true").strip().lower()}',
                 '-p', f'ray_cost_penalty:={float(os.getenv("RAVEN_RAY_COST_PENALTY", "50.0"))}',
                 '-p', f'commit_switch_margin_m:={float(os.getenv("RAVEN_COMMIT_SWITCH_MARGIN_M", "8.0"))}',
+                '-p', f'ray_bearing_persistence:={os.getenv("RAVEN_RAY_BEARING_PERSISTENCE", "true").strip().lower()}',
                 # Default full coordination; FRONTIER_ONLY_BASELINE=true → baseline.
                 '-p', f'frontier_only_baseline:={os.getenv("FRONTIER_ONLY_BASELINE", "false").strip().lower()}',
                 # VLFM_BASELINE=true → greedy VLFM baseline (mutually exclusive
