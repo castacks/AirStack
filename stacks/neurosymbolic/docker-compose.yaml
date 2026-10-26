@@ -1,0 +1,4 @@
+# Per-stack image composition. asm_neurosymbolic declares a Dockerfile.module (Fast Downward +
+# OR-Tools over the robot image) and a compose sidecar (its detectors); both are composed by
+# `airstack module lock --build` / `airstack up`, never committed here.
+services: {}

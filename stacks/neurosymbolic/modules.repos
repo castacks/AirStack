@@ -1,0 +1,15 @@
+# modules.repos : module pins for the neurosymbolic DEBUG stack (vcstool format,
+# pinned to tags/commits). asm_mighty is full_default's local planner; the method
+# itself is the asm_neurosymbolic module (COA-SEI, private: cloning needs GitHub access).
+# To debug a local checkout instead: `airstack module add /path/to/asm_neurosymbolic`.
+airstack_compat: ">=0.21.0-dev.15 <0.22.0"
+repositories:
+  asm_mighty:
+    type: git
+    url: https://github.com/castacks/asm_mighty
+    version: v0.1.5
+  asm_neurosymbolic:
+    type: git
+    url: https://github.com/COA-SEI/asm_neurosymbolic
+    version: dd292d9b5a619a1f560fb0672baf3ebb0f09699f
+x-local-modules: []

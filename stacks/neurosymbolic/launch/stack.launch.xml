@@ -1,0 +1,125 @@
+<!--
+  neurosymbolic : DEBUG stack for the asm_neurosymbolic module (COA-SEI). Not a
+  reference stack; it exists to run and debug that module against this trunk.
+
+  full_default with one change: the per-robot random-walk global planner is
+  replaced by the neurosymbolic TEAM, a single process included on robot_1
+  only. It reaches every robot in that robot's own ROS domain (robot_<n> on
+  domain n), serves tasks/semantic_search (task_msgs/SemanticSearchTask) on
+  each, and writes each robot's canonical global_plan, which MIGHTY follows.
+  The module's detectors run as its compose sidecar (neurosymbolic-perception).
+  No method code lives in AirStack: this file only includes the module.
+
+  Run (see README.md): NUM_ROBOTS=2, ENABLE_LIDAR=true,
+  ISAAC_SIM_SCRIPT_NAME=example_multi_px4_pegasus_launch_script.py, then
+  `airstack up` with stack neurosymbolic and sim isaac; then send a
+  SemanticSearchTask goal to each robot.
+
+  Requires the asm_mighty and asm_neurosymbolic modules (pinned in
+  modules.repos; `airstack up` syncs them when missing).
+-->
+<launch>
+
+  <!-- ── Interface (wrapped by design — see header) ──────────────────────── -->
+
+  <!-- Interface (MAVROS/PX4 hardware interface + safety) -->
+  <include file="$(find-pkg-share interface_bringup)/launch/interface.launch.py" />
+
+  <!-- ── Sensors, flat ───────────────────────────────────────────────────── -->
+
+  <!-- LiDAR near-range filter: raw ouster cloud in, filtered cloud out
+       (canonical defaults, endpoints are node parameters). The namespace
+       group keeps the legacy node path /$ROBOT_NAME/sensors/... -->
+  <group>
+    <push-ros-namespace namespace="sensors" />
+    <include file="$(find-pkg-share lidar_point_cloud_filter)/launch/lidar_point_cloud_filter.launch.xml" />
+  </group>
+
+  <!-- ── Perception, flat ────────────────────────────────────────────────── -->
+
+  <!-- Stereo disparity + point cloud (stereo_image_proc pair): rectified
+       stereo pair in from sensors/front_stereo (canonical); disparity and
+       point_cloud out under perception/stereo_image_proc. (MAC-VO comes via
+       the asm_macvo module — see stacks/full_macvo; OptiTrack via the
+       asm_optitrack module.) -->
+  <include file="$(find-pkg-share perception_bringup)/launch/stereo_image_proc.launch.xml" />
+
+  <!-- Topic keepalive: silently subscribes Isaac Sim's on-demand publishers
+       so they keep publishing with rviz off; no topic endpoints declared -->
+  <include file="$(find-pkg-share perception_bringup)/launch/topic_keepalive.launch.xml" />
+
+  <!-- ── Local layer, flat (module launch files; canonical defaults) ────── -->
+
+  <!-- Takeoff/Land task server: odometry in from odometry_conversion;
+       trajectory_override + mode out to the trajectory controller;
+       arming/extended state from the interface; actions at tasks/{takeoff,land} -->
+  <include file="$(find-pkg-share takeoff_landing_planner)/launch/takeoff_landing_planner.launch.xml" />
+
+  <!-- Fixed-trajectory task server: trajectory_override + mode out to the
+       trajectory controller; action at tasks/fixed_trajectory -->
+  <include file="$(find-pkg-share trajectory_controller)/launch/fixed_trajectory_task.launch.xml" />
+
+  <!-- MIGHTY local planner (asm_mighty module, CPU): filtered Ouster cloud in
+       to its acl-mapping voxel world model, odometry in from
+       odometry_conversion; trajectory_override out to the trajectory
+       controller (the bridge sets TRACK mode itself); navigate action at
+       tasks/navigate. The DROAN reactive planner is the same seam one
+       include away (stacks/full_droan). -->
+  <include file="$(find-pkg-share mighty_bridge)/launch/mighty_module.launch.xml" />
+
+  <!-- Trajectory controller: odometry in from odometry_conversion; serves the
+       trajectory_controller/* topic group (override, segment, mode, tracking
+       point, look_ahead) by relative name in its namespace -->
+  <include file="$(find-pkg-share trajectory_controller)/launch/trajectory_controller.launch.xml" />
+
+  <!-- PID controller: odometry in from odometry_conversion, tracking_point in
+       from the trajectory controller; attitude/thrust command out to the
+       interface (cmd_roll_pitch_yawrate_thrust) -->
+  <include file="$(find-pkg-share pid_controller)/launch/pid_controller.launch.xml" />
+
+  <!-- ── Global, flat ────────────────────────────────────────────────────── -->
+
+  <!-- Global world model: VDB occupancy map; filtered LiDAR cloud in, map
+       visualization out (topics live in the params YAML — cross-package
+       config owned by global_bringup, selected here). NOTE: 'config' is the
+       arg name the vendored vdb_mapping_ros2 launch declares. -->
+  <include file="$(find-pkg-share vdb_mapping_ros2)/launch/vdb_mapping_ros2.py">
+    <arg name="config" value="$(find-pkg-share global_bringup)/config/vdb_params.yaml" />
+  </include>
+
+  <!-- Global planner: the neurosymbolic team (asm_neurosymbolic module), ONE
+       process for the whole team, hosted on robot_1. It reads every robot's
+       front stereo (left image + depth), odometry and GPS in that robot's own
+       domain and writes each robot's global_plan there; canonical defaults. -->
+  <group if="$(eval '\'$(env ROBOT_NAME)\' == \'robot_1\'')">
+    <include file="$(find-pkg-share neurosymbolic_search)/launch/neurosymbolic_search.launch.xml" />
+  </group>
+
+  <!-- ── Behavior, flat ──────────────────────────────────────────────────── -->
+
+  <!-- Safety monitor: odometry watchdog (state_estimate in from
+       odometry_conversion); trajectory mode out to the trajectory controller
+       on safety events -->
+  <include file="$(find-pkg-share drone_safety_monitor)/launch/drone_safety_monitor.launch.xml" />
+
+  <!-- ── Logging (already a single self-contained module — see header) ───── -->
+  <include file="$(find-pkg-share logging_bringup)/launch/logging.launch.xml" />
+
+  <!-- ── Cross-domain extras (formerly robot.launch.xml's full-role group) ─ -->
+
+  <!-- Domain Bridge (GCS) -->
+  <include file="$(find-pkg-share autonomy_bringup)/launch/interpolate_dds_router.launch.py">
+    <arg name="dds_router_config_file"
+      value="$(find-pkg-share autonomy_bringup)/config/dds_router.yaml" />
+    <!-- 0 = robot.launch.xml's gcs_domain default -->
+    <arg name="dds_router_args" value="gcs_domain:=0" />
+  </include>
+
+  <!-- Gossip coordination layer -->
+  <include file="$(find-pkg-share coordination_bringup)/launch/gossip.launch.xml">
+    <!-- 99 / 1.0 = robot.launch.xml's gossip_domain / gossip_publish_rate defaults -->
+    <arg name="gossip_domain" value="99" />
+    <arg name="gossip_publish_rate" value="1.0" />
+  </include>
+
+</launch>
