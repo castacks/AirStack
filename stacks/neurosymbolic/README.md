@@ -20,9 +20,9 @@ Use any Isaac scene. For example, two drones in the Retro Neighborhood stage, wi
 for MIGHTY:
 
 ```bash
-airstack module add https://github.com/COA-SEI/asm_neurosymbolic --version <sha>   # or a local path
-ENABLE_LIDAR=true airstack up robot-desktop isaac-sim neurosymbolic-perception \
-  --sim isaac --robots 2 --stack neurosymbolic --scene retro-neighborhood
+# modules.repos pins asm_neurosymbolic (private: cloning needs COA-SEI access);
+# to debug a local checkout instead: airstack module add /path/to/asm_neurosymbolic
+ENABLE_LIDAR=true airstack up --sim isaac --robots 2 --stack neurosymbolic --scene retro-neighborhood
 ```
 
 Take off, then send each robot a search goal. The polygon is in that robot's own `map`
