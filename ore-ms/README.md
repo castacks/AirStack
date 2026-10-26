@@ -8,6 +8,11 @@ fusion follows only if the measurements support it.
 Start with [MS_RESEARCH_HANDOFF.md](MS_RESEARCH_HANDOFF.md) for the approved
 research scope, decisions, resource pointers, and verified progress.
 
+For the consolidated MS² result and current research priorities, see
+[MS² findings and research decision — 2026-10-26](docs/research/ms2-findings-2026-10-26.md).
+The completed experiments support within-camera uncertainty ranking; cross-modal
+reliability comparison still needs a defined comparison target and support.
+
 ## New bounded execution checks
 
 Use [run_td3_execution_v2.py](MAC-VO-main/Scripts/Setup/run_td3_execution_v2.py) for new runs. Inspect `tracking_diagnostics.support_state` and original unsupported-pair counts as well as raw execution status. These preserve tracking failures before interpolation changes stored flags. [EXP-033](experiments/EXP-033-gnss-and-tracking-reporting.md) documents usage and bitwise pose-equivalence controls; earlier runners remain available for historical reproduction.

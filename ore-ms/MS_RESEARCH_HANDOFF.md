@@ -6,6 +6,8 @@
 **Document role:** Living research context for an AI coding/research assistant. Update the progress log, decisions, and experiments as evidence accumulates.  
 **Last contextual update:** 2026-10-11.
 
+**Current synthesis — 2026-10-26:** [MS² findings and research decision](docs/research/ms2-findings-2026-10-26.md) consolidates EXP046–054. Controlled mean-L2 selection improves over matched random in all tested primary image/modality cases, with group median reductions about9–37%; central-pixel thermal counterexamples remain. This supports within-camera ranking against supplied references, not cross-modal comparability, covariance calibration or VO/fusion improvement. User priority: focus on necessary work; CATS access remains pending, and no further TD3 calibration questions are needed now. The next design task for the original research question is a defensible RGB/thermal comparison target and support, beginning with a feasibility audit of existing MS² data. Training membership is needed only before training-held-out claims. This synthesis recomputes30 group-level scalar checks from restored reports, not historical array validation or new inference.
+
 > **Source boundaries:** The technical formulation below is based on the attached three-page Overleaf PDF, *Cross-Modal Uncertainty and Relative Geometric Reliability*, plus decisions and context stated in our conversations. The linked Google Doc has **not** been inspected. Literature descriptions and links are orientation pointers, **not** a completed or verified systematic literature review. Do not represent proposed hypotheses as established findings.
 
 ## 1. Project in one paragraph
