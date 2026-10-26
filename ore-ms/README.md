@@ -13,8 +13,11 @@ For the consolidated MS² result and current research priorities, see
 The completed experiments support within-camera uncertainty ranking; cross-modal
 reliability comparison still needs a defined comparison target and support.
 The [EXP-055 feasibility audit](experiments/EXP-055-ms2-cross-modal-feasibility.md)
-finds promising overlap in existing MS² rain data; correspondence/visibility
-validation is the next bounded step before a shared-point modality comparison.
+finds promising overlap in existing MS² rain data. The subsequent
+[EXP-056 candidate-support comparison](experiments/EXP-056-ms2-cross-modal-support.md)
+finds that image-wide per-camera variance scales largely match pointwise learned
+selection; a consistent additional spatial-uncertainty benefit is not established.
+Exact physical correspondence and cross-recording transfer remain unverified.
 
 ## New bounded execution checks
 

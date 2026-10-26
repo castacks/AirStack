@@ -4,6 +4,8 @@ Consolidated 2026-10-26, America/New_York, from EXP-046–054 at code commit `4b
 
 Low predicted covariance trace selects lower stereo reference error within each camera on the tested MS² windows. The benefit survives coarse depth/location composition controls and a change from squared residual to mean Euclidean residual magnitude. This supports uncertainty as a useful within-camera ranking signal against the supplied references. It does not yet answer the project's original question of whether RGB and thermal uncertainty values predict relative reliability across modalities.
 
+**Subsequent cross-modal pilot:** [EXP-056](../../experiments/EXP-056-ms2-cross-modal-support.md) evaluates25,754 mutual/frontmost candidate pairs from the existing rain window,25,554 with both predictions valid. Learned propagated uncertainty beats equal-angular-noise geometry in all20 frames, but a per-image/per-camera median-variance baseline largely matches it: full pointwise learned/control median risk ratios0.988 for squared3D error and1.002 for mean3D distance (11/20 and9/20 improve). Thus spatially varying learned uncertainty has no consistent demonstrated advantage over camera-wide scale in this pilot. Sparse projected references do not certify exact shared physical points. The next empirical priority is frozen replication on a distinct existing recording, retaining the camera-scale baseline and both reference anchors; fusion is not justified yet.
+
 ## What was evaluated
 
 Five windows from three distinct recordings: night opening, day opening/middle/late, and rain opening. Each window has 20 provided stereo-ID pairs for each of RGB and thermal: 100 paired groups, or 200 image/modality cases. The day windows share one recording; neighboring frames are dependent. Depth products, own/common supports, losses and coverages repeat those same cases rather than increasing the independent sample size. Rain is a different recording labeled rain, not an isolated weather intervention or a verified training-held-out recording.
@@ -47,7 +49,7 @@ Three findings prevent overstating the result:
 | Is uncertainty always better than simple selection? | No. | Central-pixel thermal counterexamples remain. |
 | Does the frozen protocol replicate beyond one recording? | Yes, on the selected night/day/rain recordings. | Small dependent windows; no causal weather or verified training-held-out claim. |
 | Are the numerical covariance values calibrated? | Not established. | Ranking/selective risk is not covariance calibration. |
-| Does lower RGB uncertainty mean RGB is more reliable than thermal? | Not tested by these results. | Different camera supports/FOVs and reference populations; normalized coordinates alone do not make the comparison equivalent. |
+| Does lower RGB uncertainty mean RGB is more reliable than thermal? | Not established by EXP046–054; conditional pilot now in EXP056. | Common metric candidate-support results depend on camera scale and do not certify physical same-point identity. |
 | Will selection or fusion improve VO? | Not established. | Stereo-reference diagnostics are not an end-to-end motion experiment. |
 
 The earlier rank-association studies [EXP-046](../../experiments/EXP-046-ms2-stereo-depth-proxy.md), [EXP-047](../../experiments/EXP-047-ms2-depth-spatial-controls.md), [EXP-048](../../experiments/EXP-048-ms2-day-replication.md) and [EXP-049](../../experiments/EXP-049-ms2-day-later-windows.md) motivate the selection analysis; their correlations are not interchangeable with selective-risk reductions.
