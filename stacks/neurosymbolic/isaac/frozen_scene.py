@@ -16,8 +16,9 @@ render product as its image and depth: /robot_<n>/sensors/front_stereo/left/inst
 own visible pixels can be counted (neurosymbolic_lite's perfect detector, the SEI-COA rules demo's
 annotation rule).
 
-The ZED cameras render at 640x400 (Pegasus' default is 480x300), the resolution of the SEI-COA
-rules demo's cameras, so its pixel thresholds mean the same here.
+The ZED cameras render at 640x400 (Pegasus' default is 480x300) and sit as on the SEI-COA rules
+demo's drones: the housing at (0.21, 0, 0.05) m in base_link, pitched 45 degrees nose-down, so its
+pixel thresholds and views mean the same here.
 """
 import os
 import sys
@@ -103,6 +104,7 @@ def main():
     n = int(os.environ.get("NUM_ROBOTS", "1"))
     print(f"[frozen_scene] {n} drone(s) in {env_url}")
     FrozenScene(env_url=env_url, stage_scale=stage_scale, drone_configs=spawns(n),
+                camera_offset=(0.21, 0.0, 0.05), camera_rotation_offset=(0.0, 45.0, 0.0),
                 enable_lidar=os.environ.get("ENABLE_LIDAR", "false").lower() == "true").run()
 
 
