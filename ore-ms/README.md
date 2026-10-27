@@ -18,6 +18,10 @@ finds promising overlap in existing MS² rain data. The subsequent
 finds that image-wide per-camera variance scales largely match pointwise learned
 selection; a consistent additional spatial-uncertainty benefit is not established.
 Exact physical correspondence and cross-recording transfer remain unverified.
+The frozen [EXP-057 day replication](experiments/EXP-057-ms2-day-cross-modal-replication.md)
+shows a pointwise advantage over camera-scale control in 19/20 mean-distance
+comparisons, while always RGB beats the learned selector in all 20. Results vary
+between the tested recordings; no universal camera-selection rule is adopted.
 
 ## New bounded execution checks
 
