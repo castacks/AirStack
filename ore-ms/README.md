@@ -26,6 +26,10 @@ The third-recording [EXP-058 night replication](experiments/EXP-058-ms2-night-cr
 finds the learned selector worse than always RGB and equal-random selection in
 every frame under both losses, despite a small gain over camera-scale control.
 The next research priority is diagnosing cross-camera score failure.
+[EXP-059](experiments/EXP-059-ms2-score-failure-diagnosis.md) separates camera
+median scale from predicted-depth propagation: neither median normalization nor
+reference-depth diagnostics repair night selection, and effects vary across
+day/rain. No blanket rescaling or propagation replacement is adopted.
 
 ## New bounded execution checks
 
