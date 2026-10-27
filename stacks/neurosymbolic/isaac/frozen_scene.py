@@ -10,10 +10,11 @@ SEI-COA demo's 2x3 grid "103,48;111,48;103,52;107,52;111,52;107,48"; z, default 
 whose ground is not at 0, such as Disaster City's ~58 m). Select it with
   ISAAC_SIM_SCRIPT_NAME=../../../stacks/neurosymbolic/isaac/frozen_scene.py
 
-Each drone's front-stereo LEFT camera also publishes its semantic segmentation, from the same
-render product as its image and depth: /robot_<n>/sensors/front_stereo/left/semantic_segmentation
-(32-bit ids per pixel) and .../semantic_labels (JSON, id -> labels). neurosymbolic_lite's perfect
-person detector counts a body point as seen only on a pixel labelled person.
+Each drone's front-stereo LEFT camera also publishes its instance segmentation, from the same
+render product as its image and depth: /robot_<n>/sensors/front_stereo/left/instance_segmentation
+(32-bit ids per pixel) and .../instance_labels (JSON, id -> the labelled prim), so each person's
+own visible pixels can be counted (neurosymbolic_lite's perfect detector, the SEI-COA rules demo's
+annotation rule).
 """
 import os
 import sys
@@ -53,7 +54,7 @@ class FrozenScene(PegasusApp):
 
 
 def add_left_segmentation(robot, drone_root):
-    """A semantic-segmentation ROS2CameraHelper on the left camera's existing render product (no
+    """An instance-segmentation ROS2CameraHelper on the left camera's existing render product (no
     extra render), in the drone's graph, on its ROS 2 context."""
     import omni.graph.core as og
     import omni.usd
@@ -69,13 +70,13 @@ def add_left_segmentation(robot, drone_root):
                                           (helper, "isaacsim.ros2.bridge.ROS2CameraHelper")],
         og.Controller.Keys.CONNECT: [(f"{tick}.outputs:tick", f"{helper}.inputs:execIn"),       # existing nodes need full paths
                                      (f"{ctx_node}.outputs:context", f"{helper}.inputs:context")],
-        og.Controller.Keys.SET_VALUES: [(f"{helper}.inputs:type", "semantic_segmentation"),
+        og.Controller.Keys.SET_VALUES: [(f"{helper}.inputs:type", "instance_segmentation"),
                                         (f"{helper}.inputs:renderProductPath", rp),
                                         (f"{helper}.inputs:nodeNamespace", f"{robot}/sensors/front_stereo/left"),
-                                        (f"{helper}.inputs:topicName", "semantic_segmentation"),
+                                        (f"{helper}.inputs:topicName", "instance_segmentation"),
                                         (f"{helper}.inputs:enableSemanticLabels", True),
-                                        (f"{helper}.inputs:semanticLabelsTopicName", "semantic_labels")]})
-    print(f"[frozen_scene] {robot}: left semantic segmentation on {rp}")
+                                        (f"{helper}.inputs:semanticLabelsTopicName", "instance_labels")]})
+    print(f"[frozen_scene] {robot}: left instance segmentation on {rp}")
 
 
 def spawns(n):
