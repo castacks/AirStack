@@ -31,6 +31,8 @@ median scale from predicted-depth propagation: neither median normalization nor
 reference-depth diagnostics repair night selection, and effects vary across
 day/rain. No blanket rescaling or propagation replacement is adopted.
 
+[EXP-060](experiments/EXP-060-ms2-camera-scale-transfer.md) tests a fitted relative score multiplier with recording exclusion. It improves day and partly improves night, but worsens rain and leaves night worse than always RGB in all20 frames under both losses. These inspected recordings provide exploratory transfer evidence; no global scale correction is adopted.
+
 ## New bounded execution checks
 
 Use [run_td3_execution_v2.py](MAC-VO-main/Scripts/Setup/run_td3_execution_v2.py) for new runs. Inspect `tracking_diagnostics.support_state` and original unsupported-pair counts as well as raw execution status. These preserve tracking failures before interpolation changes stored flags. [EXP-033](experiments/EXP-033-gnss-and-tracking-reporting.md) documents usage and bitwise pose-equivalence controls; earlier runners remain available for historical reproduction.
