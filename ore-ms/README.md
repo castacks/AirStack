@@ -35,6 +35,8 @@ day/rain. No blanket rescaling or propagation replacement is adopted.
 
 [EXP-061](experiments/EXP-061-ms2-error-structure.md) separates fixed range, image-region and tail effects: thermal has lower mean error below20m and RGB at20–80m in the tested night window. Night RGB’s absolute-risk advantage survives tail diagnostics; rain’s ordering is tail-sensitive. Reference-supported diagnostics do not establish a universal night-camera winner.
 
+[EXP-062](experiments/EXP-062-ms2-geometry-risk-selection.md) fits a declared small camera selector using predicted geometry/position and uncertainty with recording exclusion. Combined inputs improve night beyond both fixed cameras and single-family controls, but worsen day versus uncertainty-only and retain severe rain failures. No general transfer or calibrated-confidence claim; defaults unchanged.
+
 ## New bounded execution checks
 
 Use [run_td3_execution_v2.py](MAC-VO-main/Scripts/Setup/run_td3_execution_v2.py) for new runs. Inspect `tracking_diagnostics.support_state` and original unsupported-pair counts as well as raw execution status. These preserve tracking failures before interpolation changes stored flags. [EXP-033](experiments/EXP-033-gnss-and-tracking-reporting.md) documents usage and bitwise pose-equivalence controls; earlier runners remain available for historical reproduction.
