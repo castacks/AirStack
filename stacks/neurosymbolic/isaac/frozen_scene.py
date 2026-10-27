@@ -15,6 +15,9 @@ render product as its image and depth: /robot_<n>/sensors/front_stereo/left/inst
 (32-bit ids per pixel) and .../instance_labels (JSON, id -> the labelled prim), so each person's
 own visible pixels can be counted (neurosymbolic_lite's perfect detector, the SEI-COA rules demo's
 annotation rule).
+
+The ZED cameras render at 640x400 (Pegasus' default is 480x300), the resolution of the SEI-COA
+rules demo's cameras, so its pixel thresholds mean the same here.
 """
 import os
 import sys
@@ -23,6 +26,12 @@ sys.path.insert(0, "/isaac-sim/AirStack/simulation/isaac-sim/launch_scripts")
 from pegasus_app import create_simulation_app  # noqa: E402
 
 simulation_app = create_simulation_app()
+
+import functools  # noqa: E402
+
+import pegasus.simulator.ogn.api.spawn_zed_camera as zed  # noqa: E402
+
+zed.add_zed_stereo_camera_subgraph = functools.partial(zed.add_zed_stereo_camera_subgraph, frame_width=640, frame_height=400)
 
 from pegasus.simulator.params import SIMULATION_ENVIRONMENTS  # noqa: E402
 from pegasus_app import (  # noqa: E402
