@@ -37,6 +37,8 @@ day/rain. No blanket rescaling or propagation replacement is adopted.
 
 [EXP-062](experiments/EXP-062-ms2-geometry-risk-selection.md) fits a declared small camera selector using predicted geometry/position and uncertainty with recording exclusion. Combined inputs improve night beyond both fixed cameras and single-family controls, but worsen day versus uncertainty-only and retain severe rain failures. No general transfer or calibrated-confidence claim; defaults unchanged.
 
+[EXP-063](experiments/EXP-063-ms2-unexamined-recording.md) freezes all parameters before acquiring a previously unexamined MS² recording. Combined geometry/uncertainty never beats uncertainty-only (17 worse,3 ties) and never beats always RGB (15 worse,5 ties) under either loss. The night-specific gain does not establish general transfer; no retuning/default change.
+
 ## New bounded execution checks
 
 Use [run_td3_execution_v2.py](MAC-VO-main/Scripts/Setup/run_td3_execution_v2.py) for new runs. Inspect `tracking_diagnostics.support_state` and original unsupported-pair counts as well as raw execution status. These preserve tracking failures before interpolation changes stored flags. [EXP-033](experiments/EXP-033-gnss-and-tracking-reporting.md) documents usage and bitwise pose-equivalence controls; earlier runners remain available for historical reproduction.
