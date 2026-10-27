@@ -22,6 +22,10 @@ The frozen [EXP-057 day replication](experiments/EXP-057-ms2-day-cross-modal-rep
 shows a pointwise advantage over camera-scale control in 19/20 mean-distance
 comparisons, while always RGB beats the learned selector in all 20. Results vary
 between the tested recordings; no universal camera-selection rule is adopted.
+The third-recording [EXP-058 night replication](experiments/EXP-058-ms2-night-cross-modal-replication.md)
+finds the learned selector worse than always RGB and equal-random selection in
+every frame under both losses, despite a small gain over camera-scale control.
+The next research priority is diagnosing cross-camera score failure.
 
 ## New bounded execution checks
 
