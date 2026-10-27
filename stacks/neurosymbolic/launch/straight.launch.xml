@@ -1,0 +1,16 @@
+<!--
+  neurosymbolic:straight : the neurosymbolic debug stack with NO local planner
+  and no team process. The team (e.g. neurosymbolic_lite, flight:=trajectory)
+  is started by hand and flies straight legs on each robot's trajectory
+  controller, its routes checked against the scene's prior boxes, as the
+  SEI-COA rules planner demo does (LOCAL_PLANNER=false). No lidar needed:
+  ENABLE_LIDAR=false.
+
+  Select it with the stack name neurosymbolic:straight on `airstack up` (see README.md).
+-->
+<launch>
+  <include file="$(dirname)/stack.launch.xml">
+    <arg name="local_planner" value="none" />
+    <arg name="team" value="none" />
+  </include>
+</launch>

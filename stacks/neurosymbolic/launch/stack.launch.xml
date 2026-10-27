@@ -19,6 +19,8 @@
   modules.repos; `airstack up` syncs them when missing).
 -->
 <launch>
+  <arg name="local_planner" default="mighty" description="mighty | none (the team flies straight legs on the trajectory controller itself; see straight.launch.xml)" />
+  <arg name="team" default="search" description="search (neurosymbolic_search on robot_1) | none (start a team by hand, e.g. neurosymbolic_lite)" />
 
   <!-- ── Interface (wrapped by design — see header) ──────────────────────── -->
 
@@ -65,7 +67,8 @@
        controller (the bridge sets TRACK mode itself); navigate action at
        tasks/navigate. The DROAN reactive planner is the same seam one
        include away (stacks/full_droan). -->
-  <include file="$(find-pkg-share mighty_bridge)/launch/mighty_module.launch.xml" />
+  <include file="$(find-pkg-share mighty_bridge)/launch/mighty_module.launch.xml"
+           if="$(eval '\'$(var local_planner)\' == \'mighty\'')" />
 
   <!-- Trajectory controller: odometry in from odometry_conversion; serves the
        trajectory_controller/* topic group (override, segment, mode, tracking
@@ -91,7 +94,7 @@
        process for the whole team, hosted on robot_1. It reads every robot's
        front stereo (left image + depth), odometry and GPS in that robot's own
        domain and writes each robot's global_plan there; canonical defaults. -->
-  <group if="$(eval '\'$(env ROBOT_NAME)\' == \'robot_1\'')">
+  <group if="$(eval '\'$(env ROBOT_NAME)\' == \'robot_1\' and \'$(var team)\' == \'search\'')">
     <include file="$(find-pkg-share neurosymbolic_search)/launch/neurosymbolic_search.launch.xml" />
   </group>
 

@@ -45,3 +45,27 @@ Where to look:
 - The team's log is in `robot_1`'s bringup output.
 - `/robot_<n>/neurosymbolic/found` carries one point per person found.
 - To keep a `team.jsonl` and sampled frames per search, set the launch arg `log_dir`.
+
+## Lite planner without MIGHTY (SEI-COA demo setup)
+
+The `straight` entry drops MIGHTY and the team process; the lite team, started by hand,
+flies straight legs on each trajectory controller with its routes checked against the
+scene's `GT_hints.json` boxes. No LiDAR. For the tornado demo scene with the rules
+planner demo's 2x3 spawn grid:
+
+```bash
+ENABLE_LIDAR=false \
+ISAAC_SIM_SCRIPT_NAME=../../../stacks/neurosymbolic/isaac/frozen_scene.py \
+ISAAC_SIM_SCENE=omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/final_disaster_dataset_revisions/2026-10-23-coordinator/Tornado/Suburban400/level_3/1/tornado_suburban400_lvl3_1.usd \
+ISAAC_SIM_SPAWN_XY="103,48;111,48;103,52;107,52;111,52;107,48" \
+airstack up --sim isaac --robots 6 --stack neurosymbolic:straight --headless
+
+# in robot_1's container (M=/root/AirStack/modules/asm_neurosymbolic; GT files from the scene's folder)
+ros2 launch neurosymbolic_lite neurosymbolic_lite.launch.xml prior_file:=GT_hints.json people_file:=GT_people.json \
+  mission_dir:=$M/neurosymbolic_lite/missions/tornado_suburban400 robots:=robot_1,robot_2,robot_3,robot_4,robot_5,robot_6
+```
+
+Then take off and send goals as above, with `max_flight_speed` for the cruise speed.
+`frozen_scene.py` references a flattened scene_gen dataset USD's `/World` (those have no
+defaultPrim); `ISAAC_SIM_SPAWN_XY` takes one `x,y` per robot, `;`-separated, or a single
+`x,y` row centre.
