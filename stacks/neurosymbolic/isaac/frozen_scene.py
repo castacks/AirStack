@@ -9,6 +9,11 @@ ISAAC_SIM_SPAWN_XY, which here may also list one spawn per robot, "x,y[,z];x,y[,
 SEI-COA demo's 2x3 grid "103,48;111,48;103,52;107,52;111,52;107,48"; z, default 0.07, for scenes
 whose ground is not at 0, such as Disaster City's ~58 m). Select it with
   ISAAC_SIM_SCRIPT_NAME=../../../stacks/neurosymbolic/isaac/frozen_scene.py
+
+Each drone's front-stereo LEFT camera also publishes its semantic segmentation, from the same
+render product as its image and depth: /robot_<n>/sensors/front_stereo/left/semantic_segmentation
+(32-bit ids per pixel) and .../semantic_labels (JSON, id -> labels). neurosymbolic_lite's perfect
+person detector counts a body point as seen only on a pixel labelled person.
 """
 import os
 import sys
@@ -35,6 +40,42 @@ class FrozenScene(PegasusApp):
         refs.ClearReferences()
         refs.AddReference(self.env_url, Sdf.Path("/World"))
         wait_for_stage(stage)
+
+    def run(self):
+        # the render products exist only once their graphs have ticked: play a few frames first
+        import omni.kit.app
+        self.timeline.play()
+        for _ in range(10):
+            omni.kit.app.get_app().update()
+        for cfg in self.drone_configs:
+            add_left_segmentation(f"robot_{cfg['domain_id']}", f"/World/drone{cfg['domain_id']}")
+        super().run()
+
+
+def add_left_segmentation(robot, drone_root):
+    """A semantic-segmentation ROS2CameraHelper on the left camera's existing render product (no
+    extra render), in the drone's graph, on its ROS 2 context."""
+    import omni.graph.core as og
+    import omni.usd
+    from pxr import Usd
+
+    stage = omni.usd.get_context().get_stage()
+    found = {p.GetName(): p.GetPath() for p in Usd.PrimRange(stage.GetPrimAtPath(drone_root))}
+    rp_node, ctx_node = found[f"{robot}_ZEDCamera_LeftCreateRenderProduct"], found[f"{robot}_ROS2Context"]
+    rp = og.Controller.get(og.Controller.attribute(f"{rp_node}.outputs:renderProductPath"))
+    tick, helper = f"{robot}_SegmentationTick", f"{robot}_LeftSegmentationHelper"
+    og.Controller.edit(str(ctx_node.GetParentPath()), {
+        og.Controller.Keys.CREATE_NODES: [(tick, "omni.graph.action.OnPlaybackTick"),
+                                          (helper, "isaacsim.ros2.bridge.ROS2CameraHelper")],
+        og.Controller.Keys.CONNECT: [(f"{tick}.outputs:tick", f"{helper}.inputs:execIn"),       # existing nodes need full paths
+                                     (f"{ctx_node}.outputs:context", f"{helper}.inputs:context")],
+        og.Controller.Keys.SET_VALUES: [(f"{helper}.inputs:type", "semantic_segmentation"),
+                                        (f"{helper}.inputs:renderProductPath", rp),
+                                        (f"{helper}.inputs:nodeNamespace", f"{robot}/sensors/front_stereo/left"),
+                                        (f"{helper}.inputs:topicName", "semantic_segmentation"),
+                                        (f"{helper}.inputs:enableSemanticLabels", True),
+                                        (f"{helper}.inputs:semanticLabelsTopicName", "semantic_labels")]})
+    print(f"[frozen_scene] {robot}: left semantic segmentation on {rp}")
 
 
 def spawns(n):
