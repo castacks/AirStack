@@ -469,6 +469,8 @@ class ConsensusAssigner:
                agent_waypoints: Optional[Dict[int, np.ndarray]] = None,
                ray_penalty: Optional[float] = None,
                distance_weight: float = 1.0,
+               task_repulsion: bool = True,
+               destination_repulsion: bool = True,
                ) -> Dict[int, list]:
         distance_weight = float(distance_weight)
         if not np.isfinite(distance_weight) or distance_weight < 0.0:
@@ -522,7 +524,7 @@ class ConsensusAssigner:
             rp = ray_penalty if _is_ray(tk) else 0.0
             rep = 0.0
             c = by_key[tk].centroid[:2]
-            for ta, tc in taken:
+            for ta, tc in (taken if task_repulsion else []):
                 d = float(np.linalg.norm(c - tc[:2]))
                 rep += w[ta] * PEER_REPULSION_W * float(
                     np.exp(-d / PEER_REPULSION_SCALE))
@@ -533,7 +535,7 @@ class ConsensusAssigner:
             # count); for a BB, the box centroid. Mirrors the frontier layer's
             # exp(-d/scale), age-weighted so a stale peer stops repelling.
             hd = 0.0
-            if agent_waypoints:
+            if destination_repulsion and agent_waypoints:
                 t = by_key[tk]
                 ray_dir = (_is_ray(tk) and t.origin is not None
                            and t.direction is not None)
@@ -677,6 +679,8 @@ class ConsensusAssigner:
                        'switch_margin': switch_margin, 'match_m': match_m,
                        'ray_penalty': ray_penalty,
                        'distance_weight': distance_weight,
+                       'task_repulsion': task_repulsion,
+                       'destination_repulsion': destination_repulsion,
                        'geo_margin': GEO_MARGIN_M,
                        'explore_markup': EXPLORE_MARKUP_M,
                        'detour_cap': BUNDLE_MAX_DETOUR_M},
@@ -685,7 +689,13 @@ class ConsensusAssigner:
                 'w': float(w[a]),
                 'explore_dist': float(ex[a]) if a in ex else None,
                 'explored_prev_tick': a in prev_explored_in} for a in aids},
+            'agent_waypoints': {str(a): np.asarray(wp, float).tolist()
+                                for a, wp in (agent_waypoints or {}).items()},
             'tasks': [{'key': list(t.key), 'label': t.label,
+                       'origin': (None if t.origin is None else
+                                  np.asarray(t.origin, float).tolist()),
+                       'direction': (None if t.direction is None else
+                                     np.asarray(t.direction, float).tolist()),
                        'status': t.status,
                        'xy': [float(t.centroid[0]), float(t.centroid[1])],
                        'size': [float(t.size[0]), float(t.size[1])],
@@ -733,7 +743,8 @@ class IndependentGreedyAssigner:
 
     def assign(self, tasks, agent_pos, switch_margin, match_m,
                agent_weight=None, explore_dist=None, agent_waypoints=None,
-               ray_penalty=None, distance_weight=1.0):
+               ray_penalty=None, distance_weight=1.0,
+               task_repulsion=True, destination_repulsion=True):
         self._local = {a: self._local.get(a, ConsensusAssigner(1))
                        for a in agent_pos}
         assigned, debug = {}, {}
@@ -744,12 +755,16 @@ class IndependentGreedyAssigner:
                 agent_weight={a: (agent_weight or {}).get(a, 1.0)},
                 explore_dist=({a: explore_dist[a]}
                               if explore_dist and a in explore_dist else None),
-                ray_penalty=ray_penalty, distance_weight=distance_weight))
+                ray_penalty=ray_penalty, distance_weight=distance_weight,
+                task_repulsion=task_repulsion,
+                destination_repulsion=destination_repulsion))
             debug[str(a)] = solver.last_debug
         selected = {k for ks in assigned.values() for k in ks}
         self.last_debug = {
             'params': {'bundle_len': 1, 'assignment_mode': 'independent_greedy',
                        'distance_weight': float(distance_weight),
+                       'task_repulsion': task_repulsion,
+                       'destination_repulsion': destination_repulsion,
                        'ray_penalty': (RAY_COST_PENALTY if ray_penalty is None
                                        else float(ray_penalty)),
                        'switch_margin': switch_margin, 'match_m': match_m},

@@ -21,6 +21,8 @@ flowchart LR
 | `bundle_len` | 1 | Maximum ordered reservation count; missions normally use 3 |
 | `ray_cost_penalty` | 50.0 | Additive auction cost for ray and ray-localized tasks, in m-equivalent units; 0 removes it |
 | `distance_cost_weight` | 1.0 | Nonnegative multiplier on additive travel cost for heads, tails and exploration; 0 removes this term |
+| `task_repulsion` | true | Include repulsion from tasks allocated earlier in the solve |
+| `destination_repulsion` | true | Include repulsion from other robots' shared destinations |
 | `commit_switch_margin_m` | 8.0 | Auction incumbent-head bonus magnitude; tails and exploration retention use half; 0 removes auction retention |
 | `share_rays` | true | Allow bidding on peer ray leads |
 | `share_bbs` | true | Allow bidding on peer BB/voxel targets |
@@ -50,6 +52,28 @@ It disables target-level peer yielding while preserving shared perception,
 completed-target filtering, frontier behavior and navigation safety.
 
 ## Bidding cost ablations
+
+The October 28 repulsion missions independently disable the two additive sums:
+
+| Mission variant | `RAVEN_TASK_REPULSION` | `RAVEN_DESTINATION_REPULSION` |
+|---|---|---|
+| `no_task_repulsion` | `false` | `true` |
+| `no_destination_repulsion` | `true` | `false` |
+| `no_repulsion` | `false` | `false` |
+
+Both environment switches pass through robot Compose to identically named
+lowercase ROS parameters, defaulting to true. They affect head and tail costs.
+The first sum includes every earlier allocation in the solve, including the
+same robot's preceding tasks during bundle growth. The second sum excludes the
+robot itself and uses the existing forward-ray geometry for ray tasks.
+All three missions retain distance weight 1, ray penalty 50, retention margin 8,
+bearing persistence, sharing, freshness weights, ownership gates and bundle
+detour limits. Each runs eight matched s1 scenes with three robots, full comms,
+bundle length 3 and 300 simulated search seconds. Trace parameters record both
+switches even on empty ticks; selected costs retain separate `repulsion` and
+`peer_heading` fields. New traces also preserve peer destinations and ray
+origin/direction for offline replay. Older traces lacking those inputs cannot
+fully reproduce destination repulsion.
 
 Set `RAVEN_DISTANCE_COST_WEIGHT=0.0` for the no-distance-cost ablation.
 Robot Compose passes it to the semantic-search executor as the ROS parameter

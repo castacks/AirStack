@@ -29,7 +29,9 @@ from raven_nav.bid_manager import ConsensusAssigner, Task
 VARIANTS = {
     'no_ray_penalty': {'ray_penalty': 0.0},
     'no_distance_cost': {'distance_weight': 0.0},
-    'no_repulsion':  {'PEER_REPULSION_W': 0.0},
+    'no_task_repulsion': {'task_repulsion': False},
+    'no_destination_repulsion': {'destination_repulsion': False},
+    'no_repulsion': {'task_repulsion': False, 'destination_repulsion': False},
     'no_retention':  {'switch_margin': 0.0},
     'no_age_weight': {'unit_weights': True},
     'no_detour_cap': {'BUNDLE_MAX_DETOUR_M': 1e9},
@@ -57,6 +59,8 @@ def build_tasks(trace):
             centroid=np.array([t['xy'][0], t['xy'][1], 0.0]),
             size=np.array([t['size'][0], t['size'][1], 0.0]),
             status=str(t['status']),
+            origin=(None if t.get('origin') is None else np.array(t['origin'])),
+            direction=(None if t.get('direction') is None else np.array(t['direction'])),
             eligible_agents=(None if t.get('eligible_agents') is None
                              else frozenset(t['eligible_agents']))))
     return out
@@ -97,6 +101,12 @@ def replay_solve(trace, variant=None):
         assigned = ca.assign(build_tasks(trace), pos, sm,
                              float(p['match_m']),
                              agent_weight=w, explore_dist=ex,
+                             agent_waypoints={int(a): np.array(wp) for a, wp in
+                                              trace.get('agent_waypoints', {}).items()},
+                             task_repulsion=v.get('task_repulsion', p.get(
+                                 'task_repulsion', True)),
+                             destination_repulsion=v.get('destination_repulsion', p.get(
+                                 'destination_repulsion', True)),
                              ray_penalty=v.get('ray_penalty', p.get(
                                  'ray_penalty', bid_manager.RAY_COST_PENALTY)),
                              distance_weight=v.get('distance_weight', p.get(

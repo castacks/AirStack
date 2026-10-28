@@ -128,3 +128,52 @@ def test_invalid_distance_weight_rejected(value):
     with pytest.raises(ValueError, match='finite and nonnegative'):
         ConsensusAssigner().assign([task(0, 10)], {1: np.zeros(3)}, 8., 1.,
                                    distance_weight=value)
+
+
+def test_task_repulsion_switch_changes_second_robot_allocation():
+    head, near, far = task(0, 0, 'ray'), task(1, 9, 'ray'), task(2, 11, 'ray')
+    args = ([head, near, far], {1: np.zeros(3), 2: np.array([10., 0., 0.])}, 8., 1.)
+    assert ConsensusAssigner(1).assign(*args)[2] == [far.key]
+    solver = ConsensusAssigner(1)
+    assert solver.assign(*args, task_repulsion=False)[2] == [near.key]
+    assert all(p['repulsion'] == 0 for ps in solver.last_debug['passes'] for p in ps['picks'])
+
+
+def test_destination_repulsion_switch_changes_head():
+    near, far = task(0, 10), task(1, -11)
+    args = ([near, far], {1: np.zeros(3)}, 8., 1.)
+    wp = {2: near.centroid}
+    assert ConsensusAssigner(1).assign(*args, agent_waypoints=wp)[1] == [far.key]
+    solver = ConsensusAssigner(1)
+    assert solver.assign(*args, agent_waypoints=wp, destination_repulsion=False)[1] == [near.key]
+    assert solver.last_debug['passes'][0]['picks'][0]['peer_heading'] == 0
+
+
+@pytest.mark.parametrize('task_on,destination_on', [(True, True),(False, True),(True, False),(False, False)])
+def test_repulsion_switches_are_independent_in_bundle_tails(task_on, destination_on):
+    head, tail = task(0, 10), task(1, 20)
+    solver = ConsensusAssigner(2)
+    solver.assign([head, tail], {1: np.zeros(3)}, 8., 1.,
+                  agent_waypoints={2: np.array([20., 0., 0.])},
+                  task_repulsion=task_on, destination_repulsion=destination_on)
+    picks = [p for ps in solver.last_debug['passes'] for p in ps['picks']]
+    assert len(picks) == 2
+    assert (picks[1]['repulsion'] > 0) == task_on
+    assert all((p['peer_heading'] > 0) == destination_on for p in picks)
+    assert all(p['base'] > 0 for p in picks)
+    assert solver.last_debug['params']['ray_penalty'] == 50.
+    assert solver.last_debug['params']['switch_margin'] == 8.
+    assert replay_solve(solver.last_debug) == norm_logged(solver.last_debug)
+
+
+@pytest.mark.parametrize('destination_on', [True, False])
+def test_ray_destination_geometry_survives_trace_replay(destination_on):
+    ray, box = task(0, 10, 'ray'), task(1, 12)
+    ray.origin = np.zeros(3)
+    ray.direction = np.array([1., 0., 0.])
+    solver = ConsensusAssigner(1)
+    solver.assign([ray, box], {1: np.zeros(3)}, 8., 1., ray_penalty=0.,
+                  agent_waypoints={2: np.array([100., 0., 0.])},
+                  destination_repulsion=destination_on)
+    assert replay_solve(solver.last_debug) == norm_logged(solver.last_debug)
+    assert solver.last_debug['result']['1'] == [list(box.key if destination_on else ray.key)]

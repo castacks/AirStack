@@ -40,6 +40,9 @@ raven_nav:
     commit_switch_margin_m: 8.0
     # Multiplier on additive head, tail and exploration travel costs only.
     distance_cost_weight: 1.0
+    # Independent switches for allocated-task and peer-destination cost sums.
+    task_repulsion: true
+    destination_repulsion: true
     # Max tasks per robot in the consensus bundle (head executed, tail reserved
     # + replanned each tick). 1 = single-target.
     bundle_len: 3
