@@ -73,3 +73,58 @@ def test_invalid_ray_penalty_rejected(value):
     with pytest.raises(ValueError, match='finite and nonnegative'):
         ConsensusAssigner().assign([task(0, 10)], {1: np.zeros(3)}, 8., 1.,
                                    ray_penalty=value)
+
+
+@pytest.mark.parametrize('assigner', [ConsensusAssigner, IndependentGreedyAssigner])
+def test_zero_distance_changes_head_and_keeps_ray_penalty(assigner):
+    far, near, ray = task(0, 30), task(1, 10), task(2, 5, 'ray')
+    args = ([far, near, ray], {1: np.zeros(3)}, 8., 1.)
+    assert assigner(1).assign(*args)[1] == [near.key]
+    assert assigner(1).assign(*args, distance_weight=1.)[1] == [near.key]
+    solver = assigner(1)
+    # Equal BB costs now tie by key; the nearer ray still has its penalty.
+    assert solver.assign(*args, distance_weight=0.)[1] == [far.key]
+    assert solver.last_debug['params']['distance_weight'] == 0.
+    assert solver.last_debug['params']['ray_penalty'] == 50.
+
+
+def test_no_distance_preserves_retention_and_tail_geometry():
+    head, near, far = task(1, 10), task(2, 20), task(0, 100)
+    solver = ConsensusAssigner(3)
+    solver._prev = {1: [head.centroid]}
+    result = solver.assign([head, near, far], {1: np.zeros(3)}, 8., 1.,
+                           distance_weight=0.)
+    assert result[1] == [head.key, near.key]  # far still exceeds detour cap
+    picks = [p for ps in solver.last_debug['passes'] for p in ps['picks']]
+    assert all(p['base'] == 0. and p['raw_distance'] > 0. for p in picks)
+    assert picks[0]['retention'] == -8.
+    assert picks[1]['repulsion'] > 0.
+
+
+def test_no_distance_removes_exploration_travel_only():
+    unavailable = task(0, 40)
+    unavailable.eligible_agents = frozenset({2})
+    solver = ConsensusAssigner(1)
+    solver._prev_explored = {1}
+    solver.assign([unavailable], {1: np.zeros(3)}, 8., 1.,
+                  explore_dist={1: 80.}, distance_weight=0.)
+    pick = solver.last_debug['passes'][0]['picks'][0]
+    assert pick['base'] == 0. and pick['raw_distance'] == 80.
+    assert pick['cost'] == pick['markup'] - 4.
+
+
+def test_replay_uses_distance_weight_and_old_trace_default():
+    tasks = [task(0, 30), task(1, 10)]
+    solver = ConsensusAssigner(1)
+    solver.assign(tasks, {1: np.zeros(3)}, 8., 1., distance_weight=0.)
+    assert replay_solve(solver.last_debug) == norm_logged(solver.last_debug)
+    del solver.last_debug['params']['distance_weight']
+    assert replay_solve(solver.last_debug)[1] == [tasks[1].key]
+    assert replay_solve(solver.last_debug, 'no_distance_cost')[1] == [tasks[0].key]
+
+
+@pytest.mark.parametrize('value', [-1., float('nan'), float('inf')])
+def test_invalid_distance_weight_rejected(value):
+    with pytest.raises(ValueError, match='finite and nonnegative'):
+        ConsensusAssigner().assign([task(0, 10)], {1: np.zeros(3)}, 8., 1.,
+                                   distance_weight=value)

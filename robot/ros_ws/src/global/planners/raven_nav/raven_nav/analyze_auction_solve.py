@@ -28,6 +28,7 @@ from raven_nav.bid_manager import ConsensusAssigner, Task
 # variant -> module-constant overrides / replay flags.
 VARIANTS = {
     'no_ray_penalty': {'ray_penalty': 0.0},
+    'no_distance_cost': {'distance_weight': 0.0},
     'no_repulsion':  {'PEER_REPULSION_W': 0.0},
     'no_retention':  {'switch_margin': 0.0},
     'no_age_weight': {'unit_weights': True},
@@ -97,7 +98,9 @@ def replay_solve(trace, variant=None):
                              float(p['match_m']),
                              agent_weight=w, explore_dist=ex,
                              ray_penalty=v.get('ray_penalty', p.get(
-                                 'ray_penalty', bid_manager.RAY_COST_PENALTY)))
+                                 'ray_penalty', bid_manager.RAY_COST_PENALTY)),
+                             distance_weight=v.get('distance_weight', p.get(
+                                 'distance_weight', 1.0)))
     return norm_assigned(assigned)
 
 

@@ -38,6 +38,8 @@ raven_nav:
     # Assignment hysteresis: a different target must beat the committed one by this
     # much for the auction to switch (stops Hungarian swapping near-equal matchings).
     commit_switch_margin_m: 8.0
+    # Multiplier on additive head, tail and exploration travel costs only.
+    distance_cost_weight: 1.0
     # Max tasks per robot in the consensus bundle (head executed, tail reserved
     # + replanned each tick). 1 = single-target.
     bundle_len: 3

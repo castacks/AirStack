@@ -468,7 +468,11 @@ class ConsensusAssigner:
                explore_dist: Optional[Dict[int, float]] = None,
                agent_waypoints: Optional[Dict[int, np.ndarray]] = None,
                ray_penalty: Optional[float] = None,
+               distance_weight: float = 1.0,
                ) -> Dict[int, list]:
+        distance_weight = float(distance_weight)
+        if not np.isfinite(distance_weight) or distance_weight < 0.0:
+            raise ValueError('distance_weight must be finite and nonnegative')
         ray_penalty = (RAY_COST_PENALTY if ray_penalty is None
                        else float(ray_penalty))
         if not np.isfinite(ray_penalty) or ray_penalty < 0.0:
@@ -511,6 +515,10 @@ class ConsensusAssigner:
         taken: List[Tuple[int, np.ndarray]] = []
 
         def _breakdown(base, a, tk, is_head):
+            # Ablate the additive travel term, preserving geometric ownership
+            # and the tail detour eligibility cap in physical metres.
+            raw_base = base
+            base = distance_weight * base
             rp = ray_penalty if _is_ray(tk) else 0.0
             rep = 0.0
             c = by_key[tk].centroid[:2]
@@ -557,6 +565,7 @@ class ConsensusAssigner:
                     break
             return base + rp + rep + hd + ret, {
                 'base': round(base, 2), 'ray_pen': round(rp, 2),
+                'raw_distance': round(raw_base, 2),
                 'repulsion': round(rep, 2),
                 'peer_heading': round(hd, 2),
                 'retention': round(ret, 2)}
@@ -592,8 +601,10 @@ class ConsensusAssigner:
                         per_agent[a] = (k, bd)
                 if a in ex and all(owner[tk] != a for tk in remaining):
                     ret = -0.5 * switch_margin if a in self._prev_explored else 0.0
-                    k = (ex[a] + EXPLORE_MARKUP_M + ret, a, EXPLORE_KEY)
-                    bd = {'base': round(ex[a], 2), 'markup': EXPLORE_MARKUP_M,
+                    base = distance_weight * ex[a]
+                    k = (base + EXPLORE_MARKUP_M + ret, a, EXPLORE_KEY)
+                    bd = {'base': round(base, 2), 'raw_distance': round(ex[a], 2),
+                          'markup': EXPLORE_MARKUP_M,
                           'retention': round(ret, 2)}
                     if a not in per_agent or k < per_agent[a][0]:
                         per_agent[a] = (k, bd)
@@ -665,6 +676,7 @@ class ConsensusAssigner:
             'params': {'bundle_len': self.bundle_len,
                        'switch_margin': switch_margin, 'match_m': match_m,
                        'ray_penalty': ray_penalty,
+                       'distance_weight': distance_weight,
                        'geo_margin': GEO_MARGIN_M,
                        'explore_markup': EXPLORE_MARKUP_M,
                        'detour_cap': BUNDLE_MAX_DETOUR_M},
@@ -721,7 +733,7 @@ class IndependentGreedyAssigner:
 
     def assign(self, tasks, agent_pos, switch_margin, match_m,
                agent_weight=None, explore_dist=None, agent_waypoints=None,
-               ray_penalty=None):
+               ray_penalty=None, distance_weight=1.0):
         self._local = {a: self._local.get(a, ConsensusAssigner(1))
                        for a in agent_pos}
         assigned, debug = {}, {}
@@ -732,11 +744,12 @@ class IndependentGreedyAssigner:
                 agent_weight={a: (agent_weight or {}).get(a, 1.0)},
                 explore_dist=({a: explore_dist[a]}
                               if explore_dist and a in explore_dist else None),
-                ray_penalty=ray_penalty))
+                ray_penalty=ray_penalty, distance_weight=distance_weight))
             debug[str(a)] = solver.last_debug
         selected = {k for ks in assigned.values() for k in ks}
         self.last_debug = {
             'params': {'bundle_len': 1, 'assignment_mode': 'independent_greedy',
+                       'distance_weight': float(distance_weight),
                        'ray_penalty': (RAY_COST_PENALTY if ray_penalty is None
                                        else float(ray_penalty)),
                        'switch_margin': switch_margin, 'match_m': match_m},

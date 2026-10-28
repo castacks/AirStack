@@ -479,7 +479,10 @@ class RavenNavNode(Node):
             'commit_switch_margin_m', 8.0).value)
         self._ray_cost_penalty = float(self.declare_parameter(
             'ray_cost_penalty', bid_manager.RAY_COST_PENALTY).value)
+        self._distance_cost_weight = float(self.declare_parameter(
+            'distance_cost_weight', 1.0).value)
         for name, value in [('ray_cost_penalty', self._ray_cost_penalty),
+                            ('distance_cost_weight', self._distance_cost_weight),
                             ('commit_switch_margin_m', self._commit_switch_margin_m)]:
             if not np.isfinite(value) or value < 0.0:
                 raise ValueError(f'{name} must be finite and nonnegative')
@@ -527,6 +530,7 @@ class RavenNavNode(Node):
             f'associate_ray_bbs={self._associate_ray_bbs} '
             f'associate_rays={self._associate_rays} '
             f'ray_penalty={self._ray_cost_penalty} '
+            f'distance_weight={self._distance_cost_weight} '
             f'switch_margin={self._commit_switch_margin_m} '
             f'ray_bearing_persistence={self._ray_bearing_persistence}')
         assigner = (bid_manager.IndependentGreedyAssigner if self._independent_greedy
@@ -2976,7 +2980,8 @@ class RavenNavNode(Node):
             tasks, agent_pos, self._commit_switch_margin_m, self._TASK_MATCH_M,
             agent_weight=agent_w, explore_dist=explore_dists,
             agent_waypoints=self._agent_waypoints(fresh_peers),
-            ray_penalty=self._ray_cost_penalty)
+            ray_penalty=self._ray_cost_penalty,
+            distance_weight=self._distance_cost_weight)
         my_task = self._consensus.my_task(assigned_map, self._my_id, tasks)
         if self._debug_auction:
             dbg = dict(self._consensus.last_debug)
@@ -2986,6 +2991,7 @@ class RavenNavNode(Node):
                 share_rays=self._share_rays, share_bbs=self._share_bbs,
                 assignment_mode=self._assignment_mode, bundle_len=self._bundle_len,
                 ray_penalty=self._ray_cost_penalty,
+                distance_weight=self._distance_cost_weight,
                 switch_margin=self._commit_switch_margin_m,
                 ray_bearing_persistence=self._ray_bearing_persistence,
                 use_shared_completion=self._use_shared_completion,

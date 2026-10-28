@@ -20,6 +20,7 @@ flowchart LR
 | `assignment_mode` | `auction` | `auction` or `independent_greedy` |
 | `bundle_len` | 1 | Maximum ordered reservation count; missions normally use 3 |
 | `ray_cost_penalty` | 50.0 | Additive auction cost for ray and ray-localized tasks, in m-equivalent units; 0 removes it |
+| `distance_cost_weight` | 1.0 | Nonnegative multiplier on additive travel cost for heads, tails and exploration; 0 removes this term |
 | `commit_switch_margin_m` | 8.0 | Auction incumbent-head bonus magnitude; tails and exploration retention use half; 0 removes auction retention |
 | `share_rays` | true | Allow bidding on peer ray leads |
 | `share_bbs` | true | Allow bidding on peer BB/voxel targets |
@@ -49,6 +50,21 @@ It disables target-level peer yielding while preserving shared perception,
 completed-target filtering, frontier behavior and navigation safety.
 
 ## Bidding cost ablations
+
+Set `RAVEN_DISTANCE_COST_WEIGHT=0.0` for the no-distance-cost ablation.
+Robot Compose passes it to the semantic-search executor as the ROS parameter
+`distance_cost_weight` (default 1.0; must be finite and nonnegative). It scales
+the head's age-weighted surface distance, each tail's chain distance, and the
+exploration alternative's travel distance. The exploration markup, ray penalty,
+incumbent retention and both peer-repulsion terms are unchanged. Physical-distance
+ownership/poaching gates, the 20 m tail detour cap, ray-bearing persistence,
+frontier selection and navigation still use geometry. This isolates the additive
+auction travel term rather than removing every use of distance in the planner.
+The October 28 mission uses all eight matched s1 scenes, three robots, full
+communication, bundle length 3 and 300 simulated search seconds; all other
+ablation switches retain their original settings. The auction trace records
+`params.distance_weight`, weighted `base`, and unweighted `raw_distance`.
+Offline replay honors the logged coefficient (old traces default to 1.0).
 
 The unified auction minimizes travel cost **plus** the ray uncertainty penalty
 **minus** incumbent retention, plus peer repulsion. The sign matters: rays are
