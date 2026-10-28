@@ -39,6 +39,10 @@ day/rain. No blanket rescaling or propagation replacement is adopted.
 
 [EXP-063](experiments/EXP-063-ms2-unexamined-recording.md) freezes all parameters before acquiring a previously unexamined MS² recording. Combined geometry/uncertainty never beats uncertainty-only (17 worse,3 ties) and never beats always RGB (15 worse,5 ties) under either loss. The night-specific gain does not establish general transfer; no retuning/default change.
 
+[EXP-064](experiments/EXP-064-ms2-frozen-suite.md) prospectively tests the unchanged uncertainty-only model on three additional day/night/rain captures. The declared consistent gain over both fixed cameras and the scalar-fit control is **not met**. All model families,anchors,losses,ties and failures are preserved; no retuning or default change.
+
+The [cross-camera transfer synthesis](docs/research/ms2-transfer-findings-2026-10-27.md) consolidates the method tests throughEXP064. Current evidence supports capture-specific gains,while general transfer remains unsupported; the next saved-array diagnostic is signed residual structure and mean-versus-spread accounting before further fitting.
+
 ## New bounded execution checks
 
 Use [run_td3_execution_v2.py](MAC-VO-main/Scripts/Setup/run_td3_execution_v2.py) for new runs. Inspect `tracking_diagnostics.support_state` and original unsupported-pair counts as well as raw execution status. These preserve tracking failures before interpolation changes stored flags. [EXP-033](experiments/EXP-033-gnss-and-tracking-reporting.md) documents usage and bitwise pose-equivalence controls; earlier runners remain available for historical reproduction.
