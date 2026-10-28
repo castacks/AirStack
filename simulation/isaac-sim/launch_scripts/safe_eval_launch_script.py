@@ -430,6 +430,10 @@ class ScenarioManager:
         self.arena = [float(v) for v in cfg["arena"]]
         self.obstacle_radius = float(cfg["obstacle_radius"])
         self.drone_radius = float(cfg["drone_radius"])
+        # The drone's collider box, measured from the stage on first use, and its latest clearance.
+        self._box = None
+        self.body_clearance = float("inf")
+        self._measured = None
 
         self._drone_xform = None  # created lazily once the drone prim exists
         self._last_drone_pos = None
@@ -871,37 +875,162 @@ class ScenarioManager:
             targets[:, :2] = self.dyn_waypoints[: len(targets), :2]
         return targets
 
-    def _check_collision(self, drone_pos):
-        if self.collision:
-            return
-        p2d = drone_pos[:2]
-        contact = self.drone_radius + self._dynamic_radius()
-        if self.n_active_dyn > 0:
-            centres = self.dyn_positions[: self.n_active_dyn]
-            d = np.linalg.norm(centres[:, :2] - p2d, axis=1)
-            if self.humans is not None:
-                # People are SAFE's collision capsules around these centres, so a drone above a
-                # head is clear: distance to the capsule's axis segment, not to its vertical line.
-                half = self.humans.CAPSULE_HEIGHT / 2.0
-                dz = drone_pos[2] - np.clip(drone_pos[2], centres[:, 2] - half, centres[:, 2] + half)
-                d = np.hypot(d, dz)
-            i = int(np.argmin(d))
-            if d[i] < contact:
-                self.collision, self.collision_with = True, f"dynamic_obstacle_{i}"
-                return
-        if len(self.static_positions) > 0:
-            d = np.linalg.norm(self.static_positions[:, :2] - p2d, axis=1)
-            clear = d - self.static_radii - self.drone_radius
-            i = int(np.argmin(clear))
-            if clear[i] < 0.0:
-                self.collision, self.collision_with = True, f"static_obstacle_{i}"
-                return
+    # Hits that are never obstacles, as SAFE's PhysX probe skips them: ground and terrain, and
+    # synthetic boundary leaves. People's capsules are kept, since the probe is the drone's real box.
+    _BOUNDARY = ("floor", "ground", "plane", "terrain", "road", "pavement", "room_bound")
+    _BOUNDARY_LEAF_NAMES = ("wall_n", "wall_s", "wall_e", "wall_w", "ceiling")
+    # How far beyond the drone's surface the clearance search looks, and its resolution.
+    CLEARANCE_TOLERANCE_M = 0.02
+
+    def _drone_box(self):
+        """(centre, half extents) of the box around the drone's collision shapes in its body frame,
+        read from the stage once. A rotor's shapes count as the disk they sweep about its z axis."""
+        if self._box is None:
+            from pxr import Usd, UsdPhysics
+            body = self.stage.GetPrimAtPath(f"{DRONE_PRIM}/body")
+            if not body.IsValid():
+                raise RuntimeError(f"no drone body prim at {DRONE_PRIM}/body to measure the collider box from")
+            purposes = [UsdGeom.Tokens.default_, UsdGeom.Tokens.proxy, UsdGeom.Tokens.guide,
+                        UsdGeom.Tokens.render]
+            time = Usd.TimeCode.Default()
+            cache = UsdGeom.BBoxCache(time, purposes)
+            to_body = UsdGeom.Xformable(body).ComputeLocalToWorldTransform(time).GetInverse()
+            signs = [(sx, sy, sz) for sx in (0, 1) for sy in (0, 1) for sz in (0, 1)]
+            points = []
+            for prim in Usd.PrimRange(self.stage.GetPrimAtPath(DRONE_PRIM)):
+                if not (prim.HasAPI(UsdPhysics.CollisionAPI) and prim.IsA(UsdGeom.Gprim)):
+                    continue
+                owner = prim
+                while owner.IsValid() and not owner.HasAPI(UsdPhysics.RigidBodyAPI):
+                    owner = owner.GetParent()
+                if not owner.IsValid():
+                    continue
+                r = cache.ComputeRelativeBound(prim, owner).ComputeAlignedRange()
+                lo, hi = np.asarray(r.GetMin(), dtype=np.float64), np.asarray(r.GetMax(), dtype=np.float64)
+                if owner == body:
+                    to_frame = Gf.Matrix4d(1.0)
+                else:
+                    reach = max(np.hypot(x, y) for x in (lo[0], hi[0]) for y in (lo[1], hi[1]))
+                    lo[:2], hi[:2] = -reach, reach
+                    to_frame = UsdGeom.Xformable(owner).ComputeLocalToWorldTransform(time) * to_body
+                for s in signs:
+                    c = np.where(s, hi, lo)
+                    points.append(to_frame.Transform(Gf.Vec3d(*c.tolist())))
+            if not points:
+                raise RuntimeError(f"no collision shape under {DRONE_PRIM} to measure the collider box from")
+            points = np.asarray(points, dtype=np.float64)
+            lo, hi = points.min(axis=0), points.max(axis=0)
+            self._box = ((lo + hi) / 2.0, (hi - lo) / 2.0)
+            print(f"[SafeEval] drone collider box: centre {self._box[0].round(3).tolist()}, "
+                  f"half extents {self._box[1].round(3).tolist()} m", flush=True)
+        return self._box
+
+    @staticmethod
+    def _rotation(quat_wxyz):
+        w, x, y, z = (float(v) for v in quat_wxyz)
+        return np.array([[1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y)],
+                         [2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x)],
+                         [2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)]])
+
+    def _box_hit(self, margin, pos, quat_wxyz):
+        """The first obstacle prim the drone's collider box, grown by `margin` on every side, overlaps."""
+        from omni.physx import get_physx_scene_query_interface
+        centre, half = self._drone_box()
+        world = np.asarray(pos, dtype=np.float64) + self._rotation(quat_wxyz) @ centre
+        w, x, y, z = (float(v) for v in quat_wxyz)
+        found = [None]
+        drone = DRONE_PRIM.lower()
+
+        def report(hit):
+            path = str(hit.rigid_body)
+            low = path.lower()
+            if low.startswith(drone) or low.rsplit("/", 1)[-1] in self._BOUNDARY_LEAF_NAMES:
+                return True
+            if any(b in low for b in self._BOUNDARY):
+                return True
+            found[0] = path
+            return False
+
+        get_physx_scene_query_interface().overlap_box(
+            carb.Float3(*(half + margin).tolist()), carb.Float3(*world.tolist()),
+            carb.Float4(x, y, z, w), report, False)
+        return found[0]
+
+    def _box_corners(self, pos, quat_wxyz):
+        centre, half = self._drone_box()
+        signs = np.array([[sx, sy, sz] for sx in (-1, 1) for sy in (-1, 1) for sz in (-1, 1)])
+        return np.asarray(pos, dtype=np.float64) + (self._rotation(quat_wxyz) @ (centre + signs * half).T).T
+
+    @staticmethod
+    def _footprint_distance(points, corners):
+        """Horizontal distance from each point to the convex footprint of `corners`, 0 inside it."""
+        from scipy.spatial import ConvexHull
+        a = corners[ConvexHull(corners).vertices]
+        e = np.roll(a, -1, axis=0) - a
+        q = np.asarray(points, dtype=np.float64).reshape(-1, 1, 2) - a
+        # ConvexHull lists 2-D vertices counter-clockwise, so inside is left of every edge.
+        inside = (e[:, 0] * q[..., 1] - e[:, 1] * q[..., 0] >= 0.0).all(axis=1)
+        t = np.clip((q * e).sum(axis=2) / np.maximum((e * e).sum(axis=1), 1e-12), 0.0, 1.0)
+        d = np.linalg.norm(q - t[..., None] * e, axis=2).min(axis=1)
+        return np.where(inside, 0.0, d)
+
+    def _body_clearance(self, pos, quat_wxyz):
+        """(clearance, what) from the drone's collider box to the nearest surface: every PhysX
+        collider by growing the box until it touches, then the arena walls and colliderless
+        pool columns exactly."""
+        from safe_isaac.sim_config import CLEARANCE_SEARCH_REACH_M
+        reach = float(CLEARANCE_SEARCH_REACH_M)
+        hit = self._box_hit(0.0, pos, quat_wxyz)
+        if hit is not None:
+            best = (0.0, hit)
+        else:
+            what = self._box_hit(reach, pos, quat_wxyz)
+            if what is None:
+                best = (reach, "")
+            else:
+                lo, hi = 0.0, reach
+                while hi - lo > self.CLEARANCE_TOLERANCE_M:
+                    mid = (lo + hi) / 2.0
+                    h = self._box_hit(mid, pos, quat_wxyz)
+                    if h is None:
+                        lo = mid
+                    else:
+                        hi, what = mid, h
+                best = ((lo + hi) / 2.0, what)
+        if best[1] and self.humans is not None:
+            i = self.humans.human_index(best[1])
+            if i is not None:
+                best = (best[0], f"dynamic_obstacle_{i}")
+        corners = self._box_corners(pos, quat_wxyz)
         x_min, y_min, x_max, y_max = self.arena
-        wall = min(p2d[0] - x_min, x_max - p2d[0], p2d[1] - y_min, y_max - p2d[1])
-        # Only flag wall hits while airborne — sitting on the pad near a wall
-        # before takeoff is not a collision.
-        if wall < self.drone_radius / 2.0 and drone_pos[2] > 0.3:
-            self.collision, self.collision_with = True, "wall"
+        wall = float(min((corners[:, 0] - x_min).min(), (x_max - corners[:, 0]).min(),
+                         (corners[:, 1] - y_min).min(), (y_max - corners[:, 1]).min()))
+        if wall < best[0]:
+            best = (max(wall, 0.0), "wall")
+        # AirStack's own pool columns are visual only: moving ones when there are no people, and
+        # static ones on its legacy domains, where SAFE's collider prims are not built.
+        if self.humans is None and self.n_active_dyn > 0:
+            d = self._footprint_distance(self.dyn_positions[: self.n_active_dyn, :2],
+                                         corners[:, :2]) - self.obstacle_radius
+            i = int(np.argmin(d))
+            if d[i] < best[0]:
+                best = (max(float(d[i]), 0.0), f"dynamic_obstacle_{i}")
+        if self.safe_cfg is None and len(self.static_positions):
+            d = self._footprint_distance(self.static_positions[:, :2], corners[:, :2]) - self.static_radii
+            i = int(np.argmin(d))
+            if d[i] < best[0]:
+                best = (max(float(d[i]), 0.0), f"static_obstacle_{i}")
+        return best
+
+    def _check_collision(self, drone_pos, quat_wxyz):
+        """Measure the drone's clearance every tick and latch the first contact, which is the
+        collider box touching anything. A wall touch counts only once airborne, off the pad."""
+        self.body_clearance, what = self._body_clearance(drone_pos, quat_wxyz)
+        if self.collision or self.body_clearance > 0.0:
+            return
+        if what == "wall" and drone_pos[2] <= 0.3:
+            return
+        self.collision, self.collision_with = True, what
 
     def update(self):
         self._process_commands()
@@ -918,7 +1047,11 @@ class ScenarioManager:
             elif self._last_drone_pos is not None and dt > 1e-6:
                 self._drone_vel = (pos - self._last_drone_pos) / dt
             self._last_drone_pos = pos
-            self._check_collision(pos)
+            # A held sim calls this between ticks at a fixed pose, and that pose is measured once.
+            measured = (t, tuple(pos.tolist()), tuple(quat))
+            if measured != self._measured:
+                self._measured = measured
+                self._check_collision(pos, quat)
             if self._capture is not None:
                 self._capture.follow(pos, quat)
         self._last_sim_time = t
@@ -937,6 +1070,7 @@ class ScenarioManager:
                 "dynamic_targets": self._dynamic_targets().round(3).tolist(),
                 "collision": self.collision,
                 "collision_with": self.collision_with,
+                "body_clearance": round(float(self.body_clearance), 4),
             })
 
     def shutdown(self):

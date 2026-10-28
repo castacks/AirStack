@@ -67,10 +67,13 @@ Known gaps, not fixed:
   `static_cylinder_radii`, `dynamic_obstacle_targets` and `dynamic_obstacle_radii`
   from `full_state`. AirStack's observation does not carry them yet, so those
   wrappers raise a `KeyError` at their first step. DROAN is unaffected.
-- AirStack scores with its own centre-distance contact model (drone 0.31 m plus
-  obstacle 0.30 m, matching the ScenarioManager's latched contact). The
-  certification rulebook's point-obstacle `r_failure_m` is 0.31 m. The shell
-  width (0.3 m) agrees, so `RE_max` agrees, but the radii are not the rulebook's.
+- AirStack scores from the drone's collider box, not SAFE's body sphere. Isaac
+  grows the oriented box with PhysX `overlap_box` to 2 cm resolution against
+  every stage collider, photoreal stages included, and people's capsules. Arena
+  walls and colliderless pool columns are exact. Contact is clearance 0. The box
+  counts each rotor as its swept disk, so it is 0.35 m in half width where
+  SAFE's MuJoCo Iris box is 0.24 m. The shell width (0.3 m) agrees with the
+  rulebook.
 - SAFE tools that resolve a run's integration on their own (`safe report RUN`,
   `--compare`, `--stop-at-collision`) do not import `eval/run.py`, so they do not
   know `airstack`. The runner writes its own report at the end of a run. A
@@ -100,7 +103,9 @@ passes 17 tests. `eval/test/test_cpu_smoke.py` checks:
 
 Not verified: anything inside Isaac or the robot container. In particular
 `FrameCapture` (replicator cameras), `attach_stage_export` on a photoreal stage,
-SAFE's world builder inside AirStack's Isaac image, and DROAN reaching the goal
+SAFE's world builder inside AirStack's Isaac image, the collider box and
+clearance measured on a live stage (`eval/test/test_collider_box.py` checks the
+box geometry and, where `pxr` imports, the box read from `iris.usd`), and DROAN reaching the goal
 in SAFE's 30 m `empty` room (its start and goal can sit 5 m from a wall).
 
 ## Validation required before claims

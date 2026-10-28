@@ -121,13 +121,22 @@ inspect the prior five-domain AirStack registry.
 
 | Symbol | Meaning |
 |--------|---------|
-| `r_failure` = 0.61 m | 0.31 m drone contact radius + 0.30 m obstacle radius |
-| `r_unsafe` = 0.91 m | contact radius plus a 0.30 m clearance buffer |
+| Drone collider box | the box around iris.usd's collision meshes in the body frame, with each rotor counted as the disk it sweeps; half extents about 0.26 x 0.35 x 0.06 m |
+| `l_failure` | clearance from the oriented collider box to the nearest surface; contact at 0 |
+| `l_unsafe` | `l_failure` minus the rulebook's 0.30 m `r_unsafe_offset_m` |
 | `δ` = 0.3 m | risk-proximate shell width (`--epsilon-unsafe`) |
-| `l_failure` / `l_unsafe` | horizontal center clearance to spawned obstacles and arena walls, minus the corresponding threshold |
 
-Collision ground truth is the ScenarioManager's analytic contact check
-(latched per episode), consistent with the same SDFs used for scoring.
+The ScenarioManager measures the clearance in Isaac every tick. It grows the
+box with PhysX `overlap_box` until it touches a collider, to 2 cm resolution
+and up to SAFE's `CLEARANCE_SEARCH_REACH_M`. Every PhysX collider counts except
+the drone, ground and boundary prims. People count as their character
+controller capsules. Arena walls and AirStack's colliderless pool columns are
+measured exactly from the box corners. The grown box is a cube margin, so away
+from contact the clearance can read up to 1.7 times closer than the true
+distance near box edges. Contact is clearance 0, latched per episode, and a
+wall touch counts only above 0.3 m. The value travels as `body_clearance` in the
+state line. Records without it fall back to the centre geometry less the body
+radius.
 
 ## Outputs
 
@@ -151,7 +160,8 @@ integration, so keep `save_videos: none`.
   drift during long episodes shifts goal placement accordingly.
 - **Crash recovery**: after a collision the harness lands/disarms/teleports;
   if PX4 refuses to re-arm after a hard crash the run needs a stack restart.
-- **Scene-mesh obstacles** (shelves, walls of the USD scenes) are not in the
-  scoring SDF — only spawned cylinders, pedestrians, and arena walls. Choose
-  arena bounds over open floor.
+- **Scene-mesh obstacles**: shelves, walls and other stage meshes with PhysX
+  colliders are scored, on photoreal stages too. A stage floor counts as an
+  obstacle unless its prim path names it ground, floor, plane, terrain, road or
+  pavement.
 - Non-warehouse Nucleus domains have untuned arena origins/scales.

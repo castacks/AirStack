@@ -638,6 +638,8 @@ class AirstackStackEnv(BaseEnvBackend):
         arena = self._arena()
         obs = {
             "agent": np.asarray(state["drone_pos"], dtype=np.float32),
+            # Distance from the drone's collider box to the nearest surface, measured inside Isaac.
+            "body_clearance": float(state["body_clearance"]),
             "agent_vel": np.asarray(state.get("drone_vel", [0, 0, 0]), dtype=np.float32),
             "velocity": np.asarray(state.get("drone_vel", [0, 0, 0]), dtype=np.float32),
             "target": self._target.copy(),

@@ -39,12 +39,13 @@ class Adapter(BaseTaskAdapter):
         num_dynamic            — int, count of dynamic obstacles in all_obstacle_positions[:num_dynamic]
         static_aabbs           — (M, 4) XY axis-aligned bboxes for static mesh obstacles
         x_min/x_max/y_min/y_max — environment wall bounds
+        body_clearance         — clearance from the drone's collider box, measured in Isaac
 
-    Safety level sets, as SAFE's aerial adapter defines them:
-        l_failure = clearance - body_radius
+    Safety level sets:
+        l_failure = body_clearance
         l_unsafe  = l_failure - r_unsafe_offset_m
-    where clearance runs from the drone's centre to the nearest surface: a person's capsule
-    in 3-D, a column at its own radius, or an arena wall.
+    Records without body_clearance take clearance - body_radius from the drone's centre to a
+    person's capsule in 3-D, a column at its own radius, or an arena wall.
     """
 
     # SAFE's walker collision capsule: its radius, and half the length of its straight section.
@@ -267,6 +268,10 @@ class Adapter(BaseTaskAdapter):
         return best
 
     def l_failure(self, state: Any) -> float:
+        # Isaac measures from the drone's collider box itself, so no body radius comes off it.
+        # Records flown before that measurement existed fall back to the centre geometry.
+        if "body_clearance" in state:
+            return float(state["body_clearance"])
         return self._nearest(self._as_state(state))[0] - self._body_radius()
 
     def l_unsafe(self, state: Any) -> float:
@@ -332,6 +337,7 @@ class Adapter(BaseTaskAdapter):
                 "static_aabbs":           static_aabbs,
                 "static_radii":           static_radii,
                 "people":                 bool(getattr(env, "humans", False)),
+                "body_clearance":         float(obs["body_clearance"]),
             })
 
         env_params = env.get_env_params()
