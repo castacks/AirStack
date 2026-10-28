@@ -1,5 +1,7 @@
 # MS² uncertainty findings and research decision
 
+**2026-10-28 update:** [CATS access is approved and a static sample inspected](cats-intake-2026-10-28.md); earlier pending-access statements below are historical. See the [temporal arbiter proposal](temporal-selector-proposal-2026-10-28.md) for the distinction between published VO benefits and our cross-camera score tests.
+
 Consolidated 2026-10-26, America/New_York, from EXP-046–054 at code commit `4b238c517`. This is a synthesis of completed experiments, not a new model run or an additional validation dataset.
 
 Low predicted covariance trace selects lower stereo reference error within each camera on the tested MS² windows. The benefit survives coarse depth/location composition controls and a change from squared residual to mean Euclidean residual magnitude. This supports uncertainty as a useful within-camera ranking signal against the supplied references. It does not yet answer the project's original question of whether RGB and thermal uncertainty values predict relative reliability across modalities.

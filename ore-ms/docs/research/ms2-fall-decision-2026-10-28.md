@@ -5,11 +5,20 @@ This is an assessment of completed work, not an experiment, a new method,
 or an advisor-approved change of scope.
 
 The current results support reporting a bounded within-camera ranking finding
-and a negative cross-camera transfer finding. They do not support deploying
-adaptive RGB–thermal selection or fusion. Constant uncertainty scaling and
+and a negative cross-camera transfer finding for the tested methods. They do
+not establish added VO benefit from a new RGB–thermal selector or fusion layer.
+Constant uncertainty scaling and
 additive disparity bias plus scaling have now been tested; neither resolves
 the observed selection failures. Keep the original inference contract and
 defaults, and preserve the final two unexamined captures.
+
+**Scope clarification and new access, 2026-10-28:** this assessment does not
+overturn the published MAC-VO or MACThermal system results. Our recent tests
+used a narrower measurement-level cross-camera risk score. The user has now
+supplied CATS approval; [bounded file access and one scene are verified](cats-intake-2026-10-28.md).
+A [temporal arbiter using estimator health/history](temporal-selector-proposal-2026-10-28.md)
+is a concrete proposed extension, distinct from adopting the failed constant
+corrections. No new gate has been trained or evaluated.
 
 ## Answer to the original research question
 
@@ -27,9 +36,10 @@ being tested:
 
 The working Fall assessment is that raw comparability is unestablished and
 the tested simple calibration approaches are insufficient. Refinement of the
-reliability representation/evaluation is justified as a research question;
-selection integration and a large training campaign are not justified by these
-results. This follows the approved characterization/fallback scope in the
+reliability representation/evaluation is justified as a research question.
+A temporal gate can be developed as a candidate, with its inputs and evaluation
+audited before training; the present evidence does not establish its benefit.
+This follows the approved characterization/fallback scope in the
 [research handoff](../../MS_RESEARCH_HANDOFF.md), rather than declaring a new
 advisor decision.
 
@@ -142,10 +152,12 @@ Any subsequent design must specify:
 These requirements define missing evidence, not authorization to consume the
 reserved captures or start a new training campaign. Method novelty and a
 physical reference claim are separate questions. Independent geometric
-reference data would strengthen physical-error attribution; no usable CATS
-access is confirmed in the reviewed project records. The needed material would
-be a bounded synchronized RGB-stereo/thermal-stereo sample with applicable
-calibration, timestamps and an independently justified geometric reference.
+reference data would strengthen physical-error attribution. CATS access is now
+approved and bounded static stereo payload access is verified; native disparity
+sign/mask conventions and the applicable calibration remain unresolved in the
+inspected files. CATS addresses stereo reference validation; temporal VO testing
+still needs suitable synchronized sequences, frame transforms and a justified
+pose reference.
 No additional source upload is needed for the completed MS² result. Training
 membership and the thermal checkpoint recipe remain separate provenance needs.
 

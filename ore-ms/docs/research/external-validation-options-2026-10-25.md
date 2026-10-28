@@ -1,5 +1,7 @@
 # External validation options — 2026-10-25
 
+**Access update, 2026-10-28:** CATS approval is now received from the user and bounded v2 payload access is verified. See [the intake and sample schema](cats-intake-2026-10-28.md). The access statements below describe the original 2026-10-25 shortlist; they no longer describe current CATS availability.
+
 User update: current students may not know the original acquisition/reference details. Responses from Yifei and Matthew remain pending. Treat those replies as useful source clarification; pursue independent research datasets in parallel rather than making all validation depend on the replies. This note is a source-based shortlist, not a new experiment or verified dataset readiness result.
 
 ## Priority and scope
