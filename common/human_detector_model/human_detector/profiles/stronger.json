@@ -1,0 +1,8 @@
+{
+  "pixels_50": 40,
+  "pixel_slope": 1.5,
+  "visibility_weight": 0.5,
+  "parts_weight": 0.35,
+  "contrast_weight": 0.5,
+  "clutter_weight": 0.5
+}

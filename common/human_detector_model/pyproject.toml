@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "human-detector-model"
+version = "0.1.0"
+description = "Tunable, stateless human detection surrogate for planner experiments"
+requires-python = ">=3.10"
+dependencies = []
+readme = "README.md"
+
+[project.scripts]
+human-detector = "human_detector.cli:main"
+
+[tool.setuptools.package-data]
+human_detector = ["profiles/*.json"]
+
+[tool.setuptools.packages.find]
+include = ["human_detector*"]

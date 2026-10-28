@@ -1,0 +1,5 @@
+{"key":"scene1/person1/overview","observation":{"visible_pixels":40,"visible_body_fraction":1.0,"visible_parts":{"head":1,"torso":1,"left_arm":1,"right_arm":1,"left_leg":1,"right_leg":1},"contrast":0.8,"clutter":0.2}}
+{"key":"scene1/person1/close","observation":{"visible_pixels":400,"visible_body_fraction":1.0,"visible_parts":{"head":1,"torso":1,"left_arm":1,"right_arm":1,"left_leg":1,"right_leg":1},"contrast":0.8,"clutter":0.2}}
+{"key":"scene1/person2/head_torso","observation":{"visible_pixels":120,"visible_body_fraction":0.4,"visible_parts":{"head":1,"torso":0.7,"left_arm":0,"right_arm":0,"left_leg":0,"right_leg":0},"contrast":0.8,"clutter":0.6}}
+{"key":"scene1/person3/arm_only","observation":{"visible_pixels":120,"visible_body_fraction":0.1,"visible_parts":{"head":0,"torso":0,"left_arm":1,"right_arm":0,"left_leg":0,"right_leg":0},"contrast":0.8,"clutter":0.6}}
+{"key":"scene1/person4/hidden","observation":{"visible_pixels":0,"visible_body_fraction":0,"visible_parts":{"head":0,"torso":0,"left_arm":0,"right_arm":0,"left_leg":0,"right_leg":0},"contrast":0.8,"clutter":0.6}}

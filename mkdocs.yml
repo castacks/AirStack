@@ -213,6 +213,7 @@ nav:
               - LiDAR Point Cloud Filter: robot/ros_ws/src/sensors/lidar_point_cloud_filter/README.md
           - Perception:
               - Overview: docs/robot/autonomy/perception/index.md
+              - Human Detector Model: common/human_detector_model/README.md
               - OptiTrack (asm_optitrack module): docs/robot/optitrack.md
           - Local:
               - Overview: docs/robot/autonomy/local/index.md
