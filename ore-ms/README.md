@@ -1,5 +1,7 @@
 # MS project: RGB–thermal geometric uncertainty
 
+2026-10-28 — [EXP070 retrospective bias/scale calibration](experiments/EXP-070-ms2-bias-scale-calibration.md): four recording-exclusion folds on the same 80 frames/106562 pairs. Both fitted selectors worsen primary mean-distance medians versus the original in all four captures. Bias plus scale improves thermal likelihood versus scale only but worsens selection in three captures; no method adopted. Independent 5234111-check native-source audit and 10 fixtures pass; defaults and two reserved captures unchanged.
+
 2026-10-28 — [Calibration target and evaluation protocol](docs/research/ms2-calibration-protocol-2026-10-28.md): specifies per-camera scale-only versus additive-bias-plus-scale controls, four retrospective recording-exclusion folds, conditional interval coverage and fixed-point camera-selection losses. Declaration only; no fitting, new results or reserved-capture access.
 
 2026-10-28 — [EXP069 empirical disparity coverage](experiments/EXP-069-ms2-disparity-coverage.md): four reused captures/80frames/106562pairs. At nominal95%, median RGB coverage43.18%–91.61%,thermal64.01%–99.12%. Newer-rain thermal95.11% and meanz²1.025 coexist with positive signed bias/asymmetric tails and variance-bin differences. Independent698988-check raw/native-reference audit passes;9fixtures PASS. No fit/inference/clipping/default change; no probability/physical-calibration claim, holdouts reserved.
