@@ -1,5 +1,7 @@
 # MS Research Handoff — Cross-Modal Geometric Uncertainty for RGB–Thermal Visual Odometry
 
+2026-10-27 — [EXP066 disparity-domain diagnostics](experiments/EXP-066-ms2-disparity-diagnostics.md): four complete saved-frontend captures/80frames/106562 both-valid pairs. EXP064 day RGB: median0.684% tiny-relative-disparity points contribute99.05% axial-depth squared error. Raw uncertainty ranking changes with error domain; thermal night variance/depth-error correlation median-0.563 despite positive disparity-error ranking. Independent4512464-check native-PNG audit passes. No fitting/inference/clipping/default change; holdouts untouched.
+
 2026-10-27 — [EXP065 signed residual accounting](experiments/EXP-065-ms2-signed-residuals.md): all7 examined captures/140frames/240003 both-valid pairs,3anchors,fixed range/grid groups. Global mean subtraction retains RGB lower squared error20/20 in both night windows; thermal has larger spatial mean components. This is reference-assisted descriptive accounting, not physical bias identification or a deployable correction. Independent502138-check audit passes; no fit/inference/default changes; two remaining recordings untouched.
 
 **Status:** Research direction approved by Basti in October 2026. Previous integration and respiratory-rate work is complete.  
