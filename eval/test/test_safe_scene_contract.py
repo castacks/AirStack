@@ -15,7 +15,7 @@ def test_main_procedural_domains_come_from_safe_registry():
     experiments = (Path(safe_core.__file__).resolve().parent.parent
                    / 'integrations' / 'navigation' / 'aerial' / 'experiments')
     main = yaml.safe_load(Path(experiment_config_path(
-        'main_moving', str(experiments))).read_text())
+        'isaac_moving_primitive', str(experiments))).read_text())
     domains = get_domain_registry()
     # Photoreal stages register only where their bake exists, so only the procedural
     # ones are guaranteed on every machine.

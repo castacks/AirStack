@@ -157,7 +157,8 @@ def generate_agent_start(env, static_obstacle_locations=None):
         [ox + sx - margin, oy + sy - margin] + [max(sx, sy) - margin] * (env.dimension - 2),
         dtype=np.float32,
     )
-    r_unsafe = getattr(env, "r_unsafe", env.agent_radius)
+    # The start keep-out; the stack env names its own so a scoring change never moves a seed's starts.
+    r_unsafe = getattr(env, "spawn_clearance", None) or getattr(env, "r_unsafe", env.agent_radius)
     static_aabbs = getattr(env, "static_obstacle_aabbs", np.zeros((0, 4), dtype=np.float32))
     for _ in range(1000):
         pos = env.np_random.uniform(low, high).astype(np.float32)

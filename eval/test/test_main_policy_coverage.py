@@ -14,7 +14,7 @@ def test_safe_main_study_policies_have_source_adapters():
     safe_root = Path(safe_core.__file__).resolve().parent.parent
     experiments = safe_root / 'integrations' / 'navigation' / 'aerial' / 'experiments'
     config = yaml.safe_load(Path(experiment_config_path(
-        'main_moving', str(experiments))).read_text())
+        'isaac_moving_primitive', str(experiments))).read_text())
     source_names = config['agents']
     discovered = discover_policies(str(Path(__file__).resolve().parents[1] / 'agents'))
     assert source_names

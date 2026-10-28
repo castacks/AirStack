@@ -1,0 +1,34 @@
+# DROAN through the full AirStack stack on SAFE's primitive and photoreal domains with
+# SAFE's walking people. 9 domains x 1 scenario x 10 perturbations x 1 episode = 90 episodes,
+# above the 73-episode Wilson floor for P2, with 10 episodes per scenario for its CVaR.
+# Run (from the AirStack root):
+#   PYTHONPATH=/home/kayla/workspace/benchmark:/home/kayla/AirStack \
+#   python3 eval/run.py --config eval/experiments/droan_primitive_photoreal.yaml -y --headless
+experiment_tag: droan_primitive_photoreal
+robot: iris
+benchmark_seed: 100
+agents:
+  - droan
+env_domains:
+  - primitive_sparse
+  - primitive_dense
+  - floating
+  - construction
+  - snowy_village
+  - conifer_forest
+  - warehouse
+  - hospital
+  - retro_neighborhood
+humans: true
+simple: false
+num_scenarios:     1
+num_perturbations: 10
+max_episodes:      1
+max_episode_time:  60
+# One host step per Isaac physics tick (1/60 s), the resolution SAFE's own runs score at.
+env_dt: 0.016666666666666666
+keep_up: true
+workers: 1
+debug:   default
+# The post-run replay stage has no AirStack renderer; the video comes from live capture.
+save_videos: none

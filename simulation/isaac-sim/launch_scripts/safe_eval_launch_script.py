@@ -294,9 +294,9 @@ class ObstaclePool:
 
 
 class FrameCapture:
-    """SAFE's overview and tracking debug cameras, built on the first capture request.
-    Frames go back to the host as zlib-compressed RGB so SAFE's episode recorder can
-    write the episode video."""
+    """SAFE's four debug cameras (overview, tracking, side and first-person), built on the first
+    capture request. Frames go back to the host as zlib-compressed RGB so SAFE's episode
+    recorder can write the four-pane episode video."""
 
     RESOLUTION = 480
     # SAFE's CameraRigGeometry follow height above the drone.
@@ -324,11 +324,59 @@ class FrameCapture:
         self._tracking = rep.AnnotatorRegistry.get_annotator("rgb")
         self._tracking.attach([self._track_product])
 
-    def follow(self, drone_pos):
-        """Hold the tracking camera above the drone; the next render shows it there."""
-        if drone_pos is not None:
-            self._track_op.Set(Gf.Vec3d(float(drone_pos[0]), float(drone_pos[1]),
-                                        float(drone_pos[2]) + self.TRACKING_HEIGHT_M))
+        # The side and first-person cameras use SAFE's rig geometry and lenses.
+        from safe_isaac.visualization.capture_rig import CameraRigGeometry
+        self._geom = CameraRigGeometry()
+        self._heading = None
+        self._side_op, self._side_orient, self._side = self._posed_camera(
+            stage, "/World/SafeEvalSideCamera", 18.0, res)
+        self._fpv_op, self._fpv_orient, self._fpv = self._posed_camera(
+            stage, "/World/SafeEvalFPVCamera", 14.0, res)
+
+    @staticmethod
+    def _posed_camera(stage, path, focal_length, res):
+        """A camera at `path` with translate and orient ops, and its RGB annotator."""
+        import omni.replicator.core as rep
+        cam = UsdGeom.Camera.Define(stage, Sdf.Path(path))
+        cam.GetFocalLengthAttr().Set(focal_length)
+        xf = UsdGeom.Xformable(cam)
+        translate = xf.AddTranslateOp()
+        orient = xf.AddOrientOp()
+        orient.Set(Gf.Quatf(1.0, Gf.Vec3f(0.0, 0.0, 0.0)))
+        annotator = rep.AnnotatorRegistry.get_annotator("rgb")
+        annotator.attach([rep.create.render_product(path, res)])
+        return translate, orient, annotator
+
+    def follow(self, drone_pos, quat_wxyz=None):
+        """Hold the tracking camera above the drone, and the side and first-person cameras on its
+        level heading, smoothed as SAFE's rig smooths it; the next render shows them there."""
+        if drone_pos is None:
+            return
+        from safe_isaac.visualization.capture_rig import CaptureRigMixin
+        p = np.asarray(drone_pos, dtype=np.float64)
+        self._track_op.Set(Gf.Vec3d(float(p[0]), float(p[1]), float(p[2]) + self.TRACKING_HEIGHT_M))
+        if quat_wxyz is not None:
+            w, x, y, z = (float(v) for v in quat_wxyz)
+            # Body x axis in the world frame, projected level.
+            f = np.array([1.0 - 2.0 * (y * y + z * z), 2.0 * (x * y + w * z)])
+            if np.linalg.norm(f) > 1e-3:
+                new = f / np.linalg.norm(f)
+                prev = new if self._heading is None else self._heading
+                sm = 0.92 * prev + 0.08 * new
+                self._heading = sm / np.linalg.norm(sm) if np.linalg.norm(sm) > 1e-6 else new
+        fwd = self._heading if self._heading is not None else np.array([1.0, 0.0])
+        g = self._geom
+        side = np.array([-fwd[1], fwd[0]])
+        aim = np.array([p[0], p[1], p[2] + g.aim_rise])
+        # The eye rides just above the drone, which flies well above any stage's floor.
+        eye = np.array([p[0] + g.side_distance * side[0], p[1] + g.side_distance * side[1],
+                        aim[2] + g.side_eye_rise])
+        self._side_op.Set(Gf.Vec3d(*eye.tolist()))
+        self._side_orient.Set(CaptureRigMixin._look_at_quatf(eye, aim))
+        fwd3 = np.array([fwd[0], fwd[1], 0.0])
+        eye = np.array([p[0], p[1], p[2] + g.fpv_eye_rise]) + g.fpv_eye_forward * fwd3
+        self._fpv_op.Set(Gf.Vec3d(*eye.tolist()))
+        self._fpv_orient.Set(CaptureRigMixin._look_at_quatf(eye, eye + fwd3))
 
     @staticmethod
     def _encode(annotator):
@@ -346,7 +394,9 @@ class FrameCapture:
 
     def frames(self):
         return {"overview": self._encode(self._overview),
-                "tracking": self._encode(self._tracking)}
+                "tracking": self._encode(self._tracking),
+                "side": self._encode(self._side),
+                "fpv": self._encode(self._fpv)}
 
 
 class ScenarioManager:
@@ -870,7 +920,7 @@ class ScenarioManager:
             self._last_drone_pos = pos
             self._check_collision(pos)
             if self._capture is not None:
-                self._capture.follow(pos)
+                self._capture.follow(pos, quat)
         self._last_sim_time = t
 
         if t - self._last_state_pub >= 1.0 / STATE_HZ - TICK_TOLERANCE_S and pos is not None:

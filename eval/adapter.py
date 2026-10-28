@@ -40,16 +40,33 @@ class Adapter(BaseTaskAdapter):
         static_aabbs           — (M, 4) XY axis-aligned bboxes for static mesh obstacles
         x_min/x_max/y_min/y_max — environment wall bounds
 
-    Safety level sets:
-        l_failure = min(obstacle_SDF, wall_SDF) - r_failure
-        l_unsafe  = min(obstacle_SDF, wall_SDF) - r_unsafe
+    Safety level sets, as SAFE's aerial adapter defines them:
+        l_failure = clearance - body_radius
+        l_unsafe  = l_failure - r_unsafe_offset_m
+    where clearance runs from the drone's centre to the nearest surface: a person's capsule
+    in 3-D, a column at its own radius, or an arena wall.
     """
+
+    # SAFE's walker collision capsule: its radius, and half the length of its straight section.
+    PERSON_RADIUS = 0.3
+    PERSON_HALF_LENGTH = 0.6
 
     def __init__(self):
         self._delta:           float = 0.3
         self._obstacle_radius: float = 0.3
-        self._r_failure:       float = 0.61
-        self._r_unsafe:        float = 0.91
+
+    @staticmethod
+    def _body_radius() -> float:
+        """The flown robot's body radius from SAFE's robot registry."""
+        import integrations.navigation.common.config.robot_spec  # noqa: F401
+        from safe_core.core.robot_spec import get_active_robot
+        return float(get_active_robot().body_radius)
+
+    @staticmethod
+    def _band() -> float:
+        """Width of the unsafe band beyond the failure surface, from the rulebook."""
+        from safe_core.core.records import rulebook
+        return float(rulebook().r_unsafe_offset_m)
 
     # ------------------------------------------------------------------
     # 1) Environment lifecycle
@@ -197,8 +214,7 @@ class Adapter(BaseTaskAdapter):
                 best = dist
         return best
 
-    @staticmethod
-    def _as_state(state: dict) -> dict:
+    def _as_state(self, state: dict) -> dict:
         """A scoring state from a raw env observation, which SAFE's per-step video risk
         feed passes; a state built by extract_episode_context passes through unchanged."""
         if "all_obstacle_positions" in state:
@@ -209,62 +225,52 @@ class Adapter(BaseTaskAdapter):
                   for k in ("static_obstacles", "static_cylinders")]
         dyn = np.asarray(state.get("dynamic_obstacles", np.zeros((0, 2 * dim))),
                          dtype=np.float64).reshape(-1, 2 * dim)[:, :dim]
+        radii = [np.full(len(static[0]), self._obstacle_radius),
+                 np.asarray(state.get("static_cylinder_radii", np.full(len(static[1]), self._obstacle_radius)),
+                            dtype=np.float64).reshape(-1)]
         out = {"agent_pos": p, "all_obstacle_positions": np.concatenate([dyn, *static]),
-               "num_dynamic": len(dyn)}
+               "num_dynamic": len(dyn), "static_radii": np.concatenate(radii),
+               "people": bool(state.get("humans", False))}
         bounds = state.get("env_bounds")
         if bounds is not None:
             out.update(x_min=bounds[0], y_min=bounds[1], x_max=bounds[3], y_max=bounds[4])
         return out
 
+    def _nearest(self, state: dict) -> Tuple[float, str]:
+        """(clearance, what it is) from the drone's centre to the nearest surface: a person's
+        capsule in 3-D, a moving pool cylinder or a column at its radius, or a wall."""
+        p = np.asarray(state["agent_pos"], dtype=np.float64)
+        positions = np.asarray(state["all_obstacle_positions"], dtype=np.float64).reshape(-1, len(p))
+        n_dyn = int(state.get("num_dynamic", 0))
+        best = (self._wall_sdf(p, state), "wall")
+        if n_dyn > 0:
+            centres = positions[:n_dyn]
+            d = np.linalg.norm(centres[:, :2] - p[:2], axis=1)
+            people = bool(state.get("people", False))
+            if people and len(p) > 2:
+                # A drone above a head is clear: distance to the capsule's axis segment.
+                dz = p[2] - np.clip(p[2], centres[:, 2] - self.PERSON_HALF_LENGTH,
+                                    centres[:, 2] + self.PERSON_HALF_LENGTH)
+                d = np.hypot(d, dz)
+            clear = d - (self.PERSON_RADIUS if people else self._obstacle_radius)
+            i = int(np.argmin(clear))
+            if clear[i] < best[0]:
+                best = (float(clear[i]), f"dynamic_obstacle_{i}")
+        static = positions[n_dyn:]
+        if len(static):
+            radii = np.asarray(state.get("static_radii", np.full(len(static), self._obstacle_radius)),
+                               dtype=np.float64)
+            clear = np.linalg.norm(static[:, :2] - p[:2], axis=1) - radii
+            i = int(np.argmin(clear))
+            if clear[i] < best[0]:
+                best = (float(clear[i]), f"static_obstacle_{i}")
+        return best
+
     def l_failure(self, state: Any) -> float:
-        state = self._as_state(state)
-        positions = np.asarray(state["all_obstacle_positions"])
-        p = state["agent_pos"]
-        p2d = p[:2]
-        n_dyn = state.get("num_dynamic", len(positions))
-        aabbs = state.get("static_aabbs", np.zeros((0, 4), dtype=np.float32))
-
-        l_dyn = (
-            float(np.linalg.norm(positions[:n_dyn, :2] - p2d, axis=1).min()) - self._r_failure
-            if n_dyn > 0 and len(positions) >= n_dyn
-            else float("inf")
-        )
-
-        n_static = len(positions) - n_dyn
-        # In 3D the drone flies above floor obstacles — use sphere SDF not AABB projection
-        l_static = (
-            float(np.linalg.norm(positions[n_dyn:, :2] - p2d, axis=1).min()) - self._r_failure
-            if n_static > 0
-            else float("inf")
-        )
-
-        # Subtract agent body radius from wall SDF so l_failure goes negative when body hits wall
-        l_wall = self._wall_sdf(p, state) - 0.15
-        return min(l_dyn, l_static, l_wall)
+        return self._nearest(self._as_state(state))[0] - self._body_radius()
 
     def l_unsafe(self, state: Any) -> float:
-        state = self._as_state(state)
-        positions = np.asarray(state["all_obstacle_positions"])
-        p = state["agent_pos"]
-        p2d = p[:2]
-        n_dyn = state.get("num_dynamic", len(positions))
-        clearance_buffer = self._r_unsafe - self._r_failure
-
-        l_dyn = (
-            float(np.linalg.norm(positions[:n_dyn, :2] - p2d, axis=1).min()) - self._r_unsafe
-            if n_dyn > 0 and len(positions) >= n_dyn
-            else float("inf")
-        )
-
-        n_static = len(positions) - n_dyn
-        l_static = (
-            float(np.linalg.norm(positions[n_dyn:, :2] - p2d, axis=1).min()) - self._r_unsafe
-            if n_static > 0
-            else float("inf")
-        )
-
-        l_wall = self._wall_sdf(p, state) - 0.15 - clearance_buffer
-        return min(l_dyn, l_static, l_wall)
+        return self.l_failure(state) - self._band()
 
     # ------------------------------------------------------------------
     # 5) Episode context extraction
@@ -283,12 +289,16 @@ class Adapter(BaseTaskAdapter):
         obs0 = obs_list[0]
         dim = len(obs0["agent"])
         static_pos = obs0["static_obstacles"].copy()
+        static_radii = np.full(len(static_pos), self._obstacle_radius)
 
-        # Include static cylinders in the obstacle set for post-hoc scoring
+        # Include static cylinders in the obstacle set for post-hoc scoring, each at its own radius
         cylinders = obs0.get("static_cylinders")
         if cylinders is not None and len(cylinders):
             cyl_pos = np.asarray(cylinders, dtype=np.float32)[:, :dim]
             static_pos = np.concatenate([static_pos, cyl_pos], axis=0) if len(static_pos) else cyl_pos
+            static_radii = np.concatenate([static_radii, np.asarray(
+                obs0.get("static_cylinder_radii", np.full(len(cyl_pos), self._obstacle_radius)),
+                dtype=np.float64).reshape(-1)])
 
         num_dynamic = env.num_dynamic_obstacles
 
@@ -320,6 +330,8 @@ class Adapter(BaseTaskAdapter):
                 "all_obstacle_positions": all_positions,
                 "num_dynamic":            num_dynamic,
                 "static_aabbs":           static_aabbs,
+                "static_radii":           static_radii,
+                "people":                 bool(getattr(env, "humans", False)),
             })
 
         env_params = env.get_env_params()
@@ -327,8 +339,6 @@ class Adapter(BaseTaskAdapter):
         # Set adapter params before trajectory_scoring calls l_failure / l_unsafe
         self._delta           = env_params["epsilon_unsafe"]
         self._obstacle_radius = env_params["obstacle_radius"]
-        self._r_failure       = env_params["r_failure"]
-        self._r_unsafe        = env_params["r_unsafe"]
 
         # Inject env bounds so wall SDF is computed correctly
         bounds = {k: env_params[k] for k in ("x_min", "x_max", "y_min", "y_max") if k in env_params}
@@ -337,23 +347,11 @@ class Adapter(BaseTaskAdapter):
 
         # Identify first-failure obstacle (dynamic → HVC candidate, static/wall → LVC)
         collision_prim = info.get("collision_with") or None
+        body = self._body_radius()
         for rs in robot_states if not collision_prim else ():
-            p = rs["agent_pos"]
-            positions = rs["all_obstacle_positions"]
-            l_wall = self._wall_sdf(p, rs)
-            if len(positions) > 0:
-                dists = np.linalg.norm(np.asarray(positions)[:, :2] - p[:2], axis=1)
-                argmin = int(np.argmin(dists))
-                l_cyl = float(dists[argmin]) - self._r_failure
-            else:
-                l_cyl, argmin = float("inf"), -1
-            if min(l_cyl, l_wall) < 0:
-                if l_wall < l_cyl:
-                    collision_prim = "wall"
-                elif argmin < num_dynamic:
-                    collision_prim = f"dynamic_obstacle_{argmin}"
-                else:
-                    collision_prim = f"static_obstacle_{argmin - num_dynamic}"
+            clearance, what = self._nearest(rs)
+            if clearance - body < 0:
+                collision_prim = what
                 break
 
         return {

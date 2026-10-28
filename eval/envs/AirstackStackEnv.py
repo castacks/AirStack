@@ -64,8 +64,7 @@ class AirstackStackEnv(BaseEnvBackend):
     def __init__(self, env_cfg, agent_profile: dict, *,
                  max_episode_time: float = 60.0, dt: float = 0.5,
                  max_steps: Optional[int] = None, max_speed: float = 3.0,
-                 epsilon_unsafe: float = 0.3, r_failure: float = 0.61,
-                 r_unsafe: float = 0.91, goal_tolerance: float = 1.0,
+                 epsilon_unsafe: float = 0.3, goal_tolerance: float = 1.0,
                  takeoff_velocity: float = 1.0, headless: bool = True,
                  keep_up: bool = False, humans: bool = False,
                  goal_distance: float | None = None,
@@ -88,13 +87,18 @@ class AirstackStackEnv(BaseEnvBackend):
         # cap must not silently cut a 10 m/s source action down to 3 m/s.
         self.max_speed = float(self.agent_profile.get("max_speed", max_speed))
         self.epsilon_unsafe = float(epsilon_unsafe)
-        self.r_failure = float(r_failure)
-        self.r_unsafe = float(r_unsafe)
         self.goal_tolerance = float(goal_tolerance)
         self.takeoff_velocity = float(takeoff_velocity)
 
         self.agent_radius = 0.15
         self.obstacle_radius = 0.3
+        # The recorded centre-to-centre radii of a 0.3 m obstacle under the adapter's scoring:
+        # failure at obstacle plus body radius, unsafe one rulebook band beyond it.
+        from ..adapter import Adapter
+        self.r_failure = self.obstacle_radius + Adapter._body_radius()
+        self.r_unsafe = self.r_failure + Adapter._band()
+        # Start keep-out from obstacle centres, held at its earlier value so seeds keep their starts.
+        self.spawn_clearance = 0.91
         self.collision_radius = 0.31  # ScenarioManager drone-body contact radius
         self.v_threshold = 0.05
         # Run-up flown before each episode: stereo planners need two airborne
@@ -650,6 +654,7 @@ class AirstackStackEnv(BaseEnvBackend):
                 [arena[0], arena[1], 0.0, arena[2], arena[3], self.size_z],
                 dtype=np.float32),
             "r_unsafe": self.r_unsafe,
+            "humans": self.humans,
             "max_speed": self.max_speed,
             "t": float(state.get("t", 0.0)),
         }
@@ -705,13 +710,16 @@ class AirstackStackEnv(BaseEnvBackend):
         raw = zlib.decompress(base64.b64decode(encoded["rgb_zlib_b64"]))
         return np.frombuffer(raw, dtype=np.uint8).reshape(encoded["shape"])
 
+    # The four views of SAFE's episode composite, all captured inside Isaac.
+    CAPTURE_VIEWS = ("overview", "tracking", "side", "fpv")
+
     def get_debug_frames(self) -> Dict[str, Any]:
-        """The Isaac overview and drone-tracking camera frames, as SAFE's recorder views.
+        """The Isaac overview, tracking, side and first-person frames, as SAFE's recorder views.
         Before the first step it returns the frames reset rendered, without a new render."""
         if self._warm_frames is not None:
             return dict(self._warm_frames)
         frames = self.stack.scenario.command("capture_frames", timeout=60)
-        return {key: self._decode_frame(frames.get(key)) for key in ("overview", "tracking")}
+        return {key: self._decode_frame(frames.get(key)) for key in self.CAPTURE_VIEWS}
 
     # Capture requests the warm-up spends waiting for fresh render products to fill.
     CAPTURE_WARMUP_TRIES = 30
@@ -728,9 +736,9 @@ class AirstackStackEnv(BaseEnvBackend):
         frames = {}
         for _ in range(self.CAPTURE_WARMUP_TRIES):
             frames = self.get_debug_frames()
-            if all(frames.get(k) is not None for k in ("overview", "tracking")):
+            if all(frames.get(k) is not None for k in self.CAPTURE_VIEWS):
                 return frames
-        missing = [k for k in ("overview", "tracking") if frames.get(k) is None]
+        missing = [k for k in self.CAPTURE_VIEWS if frames.get(k) is None]
         raise RuntimeError(
             f"Isaac capture camera(s) {missing} returned no frame after "
             f"{self.CAPTURE_WARMUP_TRIES} renders; the episode video cannot be recorded")
