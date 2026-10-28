@@ -1,5 +1,7 @@
 # MS project: RGB–thermal geometric uncertainty
 
+2026-10-28 — [Fall research assessment through EXP070](docs/research/ms2-fall-decision-2026-10-28.md): consolidates useful within-camera ranking, failed cross-camera transfer and insufficient constant calibration. Includes a report-ready narrative, an evidence/claim map and requirements for a distinct prospective method. Synthesis only; no new experiment, inference or reserved-capture access.
+
 2026-10-28 — [EXP070 retrospective bias/scale calibration](experiments/EXP-070-ms2-bias-scale-calibration.md): four recording-exclusion folds on the same 80 frames/106562 pairs. Both fitted selectors worsen primary mean-distance medians versus the original in all four captures. Bias plus scale improves thermal likelihood versus scale only but worsens selection in three captures; no method adopted. Independent 5234111-check native-source audit and 10 fixtures pass; defaults and two reserved captures unchanged.
 
 2026-10-28 — [Calibration target and evaluation protocol](docs/research/ms2-calibration-protocol-2026-10-28.md): specifies per-camera scale-only versus additive-bias-plus-scale controls, four retrospective recording-exclusion folds, conditional interval coverage and fixed-point camera-selection losses. Declaration only; no fitting, new results or reserved-capture access.
