@@ -1,6 +1,6 @@
 # MS² cross-camera selection: findings and next decision
 
-Updated2026-10-28 America/New_York through EXP068. This note separates the earlier within-camera ranking result from the cross-camera method tests. It summarizes completed work, not a new inference run or an additional test set.
+Updated2026-10-28 America/New_York through EXP069. This note separates the earlier within-camera ranking result from the cross-camera method tests. It summarizes completed work, not a new inference run or an additional test set.
 
 The measured uncertainties contain useful selection information in some tested populations, but the current fitted camera selectors do not transfer consistently across captures. The prospective rain result is positive; the day and night counterexamples prevent a general selector claim. Keep the existing defaults and preserve both outcomes.
 
@@ -48,7 +48,9 @@ The primary model is a fixed learned decision from two log metric-variance input
 
 [EXP068](../../experiments/EXP-068-ms2-training-semantics.md) traced the training/inference contract and checkpoint containers. Inference exp(2*raw) conflicts with available cov_loss using raw+epsilon; that loss also ignores its mask/max_cov arguments. Exact-source CPU probes, upstream code comparison and independent88-check audit verify the source finding. RGB is byte-identical to its official release; neither weights container establishes the historical training recipe, especially thermal. Do not attribute our transfer failures to this mismatch or change checkpoint interpretation. The [full semantics note](uncertainty-training-semantics-2026-10-28.md) separates interface, available code, papers and artifact-specific provenance.
 
-Next predeclare an empirical scale/interval-coverage check against supplied endpoint disparity references on already examined arrays. It can evaluate current outputs without assuming a calibrated positive-disparity distribution or a historical trainer. Keep signed bias,ranking,coverage and camera selection separate; no fit or holdout consumption is needed.
+[EXP069](../../experiments/EXP-069-ms2-disparity-coverage.md) completed the fixed empirical coverage check on those four already examined captures. At approximately95% nominal, per-record median coverage is43.18%–91.61% RGB and64.01%–99.12% thermal. Newer-rain thermal95.11% coverage and mean z²1.025 coexist with positive bias, asymmetric tails and variance-group differences. Range/score groups, interval positivity and sparse availability are explicit. Independent698988-check native-source audit and9fixtures pass. No recalibration, physical-calibration guarantee or causal attribution to source code follows.
+
+Before further fitting, declare the calibration target and recording-level comparison of scale-only versus signed-bias-plus-scale controls, including conditional coverage,selection loss,positivity/availability and explicit retrospective reuse. Keep current defaults and reserve the final two captures until a complete new method/evaluation is specified.
 Avoid spending the last two untouched official test captures on another unchanged repeat or choosing a more flexible model from these observed outcomes. A genuinely new method needs a declared target/model and reserved evaluation. Independent geometric-reference data such as a usable CATS sample would materially strengthen physical-error claims; access remains unconfirmed. Existing saved arrays suffice for the proposed diagnostic, so no immediate upload is needed.
 
 The [targeted paper note](uncertainty-method-papers-2026-10-27.md) remains useful for distinguishing calibration,discrimination,error-distribution learning and transfer. No new paper-access blocker or author message is introduced by this synthesis.
