@@ -1,5 +1,7 @@
 # MS project: RGB–thermal geometric uncertainty
 
+2026-10-28 — [Calibration target and evaluation protocol](docs/research/ms2-calibration-protocol-2026-10-28.md): specifies per-camera scale-only versus additive-bias-plus-scale controls, four retrospective recording-exclusion folds, conditional interval coverage and fixed-point camera-selection losses. Declaration only; no fitting, new results or reserved-capture access.
+
 2026-10-28 — [EXP069 empirical disparity coverage](experiments/EXP-069-ms2-disparity-coverage.md): four reused captures/80frames/106562pairs. At nominal95%, median RGB coverage43.18%–91.61%,thermal64.01%–99.12%. Newer-rain thermal95.11% and meanz²1.025 coexist with positive signed bias/asymmetric tails and variance-bin differences. Independent698988-check raw/native-reference audit passes;9fixtures PASS. No fit/inference/clipping/default change; no probability/physical-calibration claim, holdouts reserved.
 
 2026-10-28 — [EXP068 training semantics audit](experiments/EXP-068-ms2-training-semantics.md): available inference exp(2*raw) conflicts with current covariance trainer raw+epsilon; cov_loss ignores mask/max_cov. Exact CPU probes and independent88-check audit pass; relevant upstream code matches. RGB checkpoint byte-identical to official release; thermal exact training recipe remains unverified. No training/fix/neural inference/default change or claim that this caused prior failures. Next empirical scale/coverage check on saved data; holdouts reserved.
