@@ -1,5 +1,7 @@
 # MS Research Handoff — Cross-Modal Geometric Uncertainty for RGB–Thermal Visual Odometry
 
+2026-10-27 — [EXP065 signed residual accounting](experiments/EXP-065-ms2-signed-residuals.md): all7 examined captures/140frames/240003 both-valid pairs,3anchors,fixed range/grid groups. Global mean subtraction retains RGB lower squared error20/20 in both night windows; thermal has larger spatial mean components. This is reference-assisted descriptive accounting, not physical bias identification or a deployable correction. Independent502138-check audit passes; no fit/inference/default changes; two remaining recordings untouched.
+
 **Status:** Research direction approved by Basti in October 2026. Previous integration and respiratory-rate work is complete.  
 **Program:** CMU MS ECE, Intensive Project Option.  
 **Research window:** Fall 2026 (12 units) and Spring 2027 (24 units); expected completion May 2027.  

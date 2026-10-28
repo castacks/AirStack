@@ -1,6 +1,6 @@
 # MS² cross-camera selection: findings and next decision
 
-Consolidated2026-10-27 America/New_York after EXP064. This note separates the earlier within-camera ranking result from the cross-camera method tests. It summarizes completed work, not a new inference run or an additional test set.
+Consolidated2026-10-27 America/New_York through EXP065. This note separates the earlier within-camera ranking result from the cross-camera method tests. It summarizes completed work, not a new inference run or an additional test set.
 
 The measured uncertainties contain useful selection information in some tested populations, but the current fitted camera selectors do not transfer consistently across captures. The prospective rain result is positive; the day and night counterexamples prevent a general selector claim. Keep the existing defaults and preserve both outcomes.
 
@@ -40,8 +40,9 @@ The primary model is a fixed learned decision from two log metric-variance input
 
 ## Next necessary work
 
-Use the saved results to distinguish what the scores represent from the total reconstruction error being selected. A useful bounded next diagnostic is signed residual structure and mean-versus-centered-spread accounting across the examined captures, with explicit reference/geometry strata. A spatial mean residual is an empirical summary; it must not be silently interpreted as an unbiased stochastic model or physical sensor bias. Whether systematic errors or reference/visibility effects explain transfer remains an open question, not a result of this suite.
+[EXP065](../../experiments/EXP-065-ms2-signed-residuals.md) completed signed residual accounting on all seven examined captures (140 frames,240003 both-valid pairs). Thermal has larger empirical global and fixed range/grid mean components; removing the global mean still leaves RGB lower squared error in all20 frames of both night windows. Original rain and new day retain huge RGB centered-spread errors. All anchors and explicit empty strata are preserved; independent502138-check audit passes. These reference-assisted spatial summaries identify neither physical sensor bias nor the cause of transfer failure. No selector was fitted or changed.
 
+Next, audit availability for a bounded disparity-domain diagnostic on already saved raw frontends, to examine inverse-depth amplification and uncertainty ordering before proposing another method. Keep reference assistance explicit, avoid physical causal attribution, and retain per-recording outcomes.
 Avoid spending the last two untouched official test captures on another unchanged repeat or choosing a more flexible model from these observed outcomes. A genuinely new method needs a declared target/model and reserved evaluation. Independent geometric-reference data such as a usable CATS sample would materially strengthen physical-error claims; access remains unconfirmed. Existing saved arrays suffice for the proposed diagnostic, so no immediate upload is needed.
 
 The [targeted paper note](uncertainty-method-papers-2026-10-27.md) remains useful for distinguishing calibration,discrimination,error-distribution learning and transfer. No new paper-access blocker or author message is introduced by this synthesis.

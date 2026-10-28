@@ -1,5 +1,7 @@
 # MS project: RGB–thermal geometric uncertainty
 
+2026-10-27 — [EXP065 signed residual accounting](experiments/EXP-065-ms2-signed-residuals.md): all7 examined captures/140frames/240003 both-valid pairs,3anchors,fixed range/grid groups. Global mean subtraction retains RGB lower squared error20/20 in both night windows; thermal has larger spatial mean components. This is reference-assisted descriptive accounting, not physical bias identification or a deployable correction. Independent502138-check audit passes; no fit/inference/default changes; two remaining recordings untouched.
+
 Study whether RGB and thermal uncertainty estimates are comparable and predict
 which modality supplies more reliable geometric measurements. The first stage
 is baseline reproduction and uncertainty/error characterization; adaptive
