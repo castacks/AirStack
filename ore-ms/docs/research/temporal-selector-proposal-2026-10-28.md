@@ -198,3 +198,13 @@ there is no recovery intervention or quality advantage over RGB. Earlier VO
 outcomes were known, so this is separate-recording replication, not unseen
 accuracy. Keep history as a recovery baseline and next characterize uncertainty
 and optimizer-health inputs for both-supported quality selection.
+
+## EXP078: median uncertainty is insufficient as a pose-quality score
+
+[Quality-input characterization](../../experiments/EXP-078-arbiter-quality-signals.md)
+retains117 both-supported comparisons and all missing/tie populations. Native and
+angular trace avoid the known night outlier but day RMSE~0.044m exceeds fixedRGB
+0.03146m. Coverage ties dominate; ratio18/18 selects the bad RGB motion. No scalar
+is adopted. All331 available first writes lack pose covariance/convergence. Next
+inspect saved optimizer factors for residual/pose-information summaries, preserving
+causality and nominal-proxy limits instead of inventing missing telemetry.

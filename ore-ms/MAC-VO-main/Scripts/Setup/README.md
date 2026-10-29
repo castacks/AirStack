@@ -918,3 +918,12 @@ reuse the separate scorer. `validate_history_day_replication.py` supplies bounde
 shared-event, pose and history audit stages without predictor/scorer imports.
 See [EXP077](../../../experiments/EXP-077-history-day-replication.md) for commands,
 matched populations and the unchanged cold-start cost.
+
+## Causal quality-signal audit (EXP078)
+
+`arbiter_quality_features.py prepare/extract` saves current/prior health and native/
+angular covariance diagnostics without labels. `analyze_arbiter_quality.py` joins
+verified proxy losses separately, preserving missing/tie/decisive and matched
+populations. `validate_arbiter_quality.py` independently reconstructs raw geometry,
+prefix provenance, preferences and statistics. No fitted/adopted gate. See
+[EXP078](../../../experiments/EXP-078-arbiter-quality-signals.md).

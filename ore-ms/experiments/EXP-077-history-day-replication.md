@@ -171,3 +171,7 @@ both experts are supported: characterize available uncertainty/optimizer-health
 inputs against the fixed proxy losses before choosing another selector. Do not
 tune confirmation length to these outcomes or portray the proxy oracle as a
 working quality gate. Reserved MS² captures remain untouched.
+
+Follow-up: [EXP078](EXP-078-arbiter-quality-signals.md) characterizes five fixed
+quality diagnostics on the saved night/day prefixes. No scalar consistently
+beats the best fixed expert; pose covariance/convergence remain unrecorded.
