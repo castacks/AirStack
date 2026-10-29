@@ -909,3 +909,12 @@ proxy labels. `score_arbiter_history.py` joins saved predictions to offline prox
 losses; `validate_arbiter_history.py` independently checks actions, deadlines and
 full/matched populations. See [EXP076](../../../experiments/EXP-076-arbiter-history-rule.md)
 for cold-start costs and retrospective limits. No estimator/default changes.
+
+## Frozen history day replication (EXP077)
+
+`history_day_replication.py` binds the unchanged predictor/proxy helpers to the
+separately declared EXP026 middle day window. Save predictions before labels;
+reuse the separate scorer. `validate_history_day_replication.py` supplies bounded
+shared-event, pose and history audit stages without predictor/scorer imports.
+See [EXP077](../../../experiments/EXP-077-history-day-replication.md) for commands,
+matched populations and the unchanged cold-start cost.

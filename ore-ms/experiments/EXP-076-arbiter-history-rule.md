@@ -146,3 +146,8 @@ Do not promote it as a generally better selector. Next replicate the unchanged
 rule under a separately declared condition before tuning richer uncertainty or
 history features. Preserve the already-used status of these windows and the
 reserved MS² captures; a new scoring run cannot erase their development history.
+
+Follow-up: [EXP077](EXP-077-history-day-replication.md) replicates the unchanged
+rule on a separately declared100-group day recording. Both experts track; history
+matches RGB on97 retained intervals and costs the same cold start. No quality
+improvement over fixed RGB is established in that condition.

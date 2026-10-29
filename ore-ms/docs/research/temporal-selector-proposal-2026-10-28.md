@@ -188,3 +188,13 @@ middle isolated RGB choice, reducing matched97-interval proxy RMSE0.11041m to
 does not improve early matched RGB choices. Predictions are saved without labels;
 scoring remains separate. Keep this retrospective baseline fixed for replication,
 not an adopted quality selector or physical accuracy claim.
+
+## EXP077: separate day replication bounds the history claim
+
+[Unchanged history replication](../../experiments/EXP-077-history-day-replication.md)
+on0_salon_so_day middle100 retains97RGB/2ABSTAIN, equal to fixedRGB matched loss
+0.03151m versus thermal0.07805m on97 intervals. Both experts support all99 pairs;
+there is no recovery intervention or quality advantage over RGB. Earlier VO
+outcomes were known, so this is separate-recording replication, not unseen
+accuracy. Keep history as a recovery baseline and next characterize uncertainty
+and optimizer-health inputs for both-supported quality selection.
