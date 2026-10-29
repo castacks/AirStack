@@ -900,3 +900,12 @@ nominal body extrinsics, offline reference endpoint bridges and separate meter/d
 losses. `validate_arbiter_pose_proxy.py` independently reconstructs losses and
 populations. Reference bridges are evaluation-only; no causal feature or fitted
 gate. See [EXP075](../../../experiments/EXP-075-arbiter-pose-proxy.md).
+
+## Causal history baseline (EXP076)
+
+`arbiter_history.py prepare/predict` freezes and replays original decision prefixes
+with symmetric two-interval confirmation. Predictions use standard Python and no
+proxy labels. `score_arbiter_history.py` joins saved predictions to offline proxy
+losses; `validate_arbiter_history.py` independently checks actions, deadlines and
+full/matched populations. See [EXP076](../../../experiments/EXP-076-arbiter-history-rule.md)
+for cold-start costs and retrospective limits. No estimator/default changes.

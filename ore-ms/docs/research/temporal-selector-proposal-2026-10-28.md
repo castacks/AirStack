@@ -178,3 +178,13 @@ thermal-only0.04262m on equal98/99 available intervals because the one selected
 RGB result has1.00308m proxy loss. The source is recorded SLAM, not independent
 GT; body anchoring remains nominal. No gate fitted. Next predeclare a causal
 history/recovery baseline rather than promote tracking support as pose quality.
+
+## EXP076: causal confirmation is a recovery control
+
+[Two-interval confirmation](../../experiments/EXP-076-arbiter-history-rule.md)
+requires target and prior supported motions symmetrically. It avoids the known
+middle isolated RGB choice, reducing matched97-interval proxy RMSE0.11041m to
+0.04282m, equal to thermal-only. It adds one cold-start abstention per window and
+does not improve early matched RGB choices. Predictions are saved without labels;
+scoring remains separate. Keep this retrospective baseline fixed for replication,
+not an adopted quality selector or physical accuracy claim.

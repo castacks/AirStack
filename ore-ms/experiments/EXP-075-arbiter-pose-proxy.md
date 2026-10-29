@@ -151,3 +151,8 @@ Do not tune it to the lone middle outlier and call the same recording validation
 Independent physical claims still need justified body/interval/reference
 provenance; the proxy benchmark can support explicitly scoped software research
 without waiting for those claims to become available.
+
+Follow-up: [EXP076](EXP-076-arbiter-history-rule.md) tests a fixed symmetric
+two-interval confirmation rule on original causal prefixes. It avoids the known
+middle isolated RGB recovery, matches thermal-only there, costs a cold-start
+abstention and does not improve early matched choices.
