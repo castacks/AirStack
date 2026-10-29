@@ -1,5 +1,9 @@
 # OSMO + Box staging
 
+## Frozen collapse replication (EXP-085)
+
+`vo_solver_replication.py` freezes/runs the existing middle100-frame window. `run_td3_solver_replication.py` delegates the unchanged EXP084 adapter/run function with an explicit100-frame bound. Versioned evaluation/audit retain all99slots per arm/camera, unsupported motions and stale/terminal distinctions. See [EXP-085](../../../experiments/EXP-085-solver-collapse-replication.md) for controls, results and commands. RGB tracking remains97/99unsupported; defaults unchanged.
+
 ## Bounded original/repair VO control (EXP-084)
 
 `vo_solver_control.py` freezes inputs, source, image ID and six same-runtime GPU commands before inference. The opt-in instance adapter in `run_td3_solver_arm.py` delegates unchanged v3 execution and restores the original factory/optimizer on exit. Original/passthrough parity gates the repair arm. `evaluate_vo_solver_control.py` separately scores all first pre-refinement writes using the qualified existing SLAM proxy; `validate_vo_solver_control.py` independently checks arrays, events, reference arithmetic and solver attempts. See [EXP-084](../../../experiments/EXP-084-end-to-end-solver-control.md) for commands, mixed results and limits. No production/default change.
