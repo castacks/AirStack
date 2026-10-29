@@ -1,0 +1,146 @@
+command_route: gcs
+env:
+  AUTOLAUNCH: 'true'
+  COMMS_RANGE_M: 5000
+  CONAVGPT_BASELINE: 'false'
+  FRONTIER_ONLY_BASELINE: 'false'
+  ISAAC_SIM_HEADLESS: 'true'
+  ISAAC_SIM_LIVESTREAM: 'false'
+  ISAAC_SIM_SCRIPT_NAME: example_multi_drone_scene_import.py
+  ISAAC_SIM_USE_STANDALONE: 'true'
+  LVLM_BASELINE: 'false'
+  NUM_ROBOTS: 3
+  PLAY_SIM_ON_START: 'true'
+  RAVEN_ASSIGNMENT_MODE: auction
+  RAVEN_SHARE_BBS: 'true'
+  RAVEN_SHARE_RAYS: 'true'
+  RAVEN_USE_SHARED_COMPLETION: 'true'
+  RAYFRONTS_COMPUTE_PROB: 'True'
+  VLFM_BASELINE: 'false'
+  RAVEN_USE_PEER_ALLOCATION_STATE: 'true'
+  RAVEN_ASSOCIATE_BBS: 'true'
+  RAVEN_ASSOCIATE_RAY_BBS: 'true'
+  RAVEN_ASSOCIATE_RAYS: 'true'
+  RAVEN_RAY_COST_PENALTY: '50.0'
+  RAVEN_DISTANCE_COST_WEIGHT: '1.0'
+  RAVEN_TASK_REPULSION: 'true'
+  RAVEN_DESTINATION_REPULSION: 'false'
+  RAVEN_RAY_BEARING_PERSISTENCE: 'true'
+  RAVEN_COMMIT_SWITCH_MARGIN_M: '8.0'
+environment_order: grouped
+environments:
+- COMMS_RANGE_M: 5000
+  CONAVGPT_BASELINE: 'false'
+  ENV_URL: Library/Stages/Dmytro/ModernCityDowntown.stage.usd
+  FRONTIER_ONLY_BASELINE: 'false'
+  LVLM_BASELINE: 'false'
+  RESULTS_SCENE: ModernCityDowntown
+  SPAWN_CONFIGS: '[{"x_m": -17.273, "y_m": -57.947, "orient": [0.0, 0.0, -0.9896, 0.1438]}, {"x_m": -13.396, "y_m":
+    -53.247, "orient": [0.0, 0.0, 0.4571, 0.8894]}, {"x_m": -17.857, "y_m": -48.541, "orient": [0.0, 0.0, -0.632,
+    0.775]}]'
+  SPAWN_HEIGHT_M: '0.2'
+  STAGE_SCALE: '1.0'
+  VLFM_BASELINE: 'false'
+  background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond,
+    rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse,
+    house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power
+    line, street lamp, street light, traffic signal, sign, mast, ground
+  method: multi-raven
+  name: moderncitydowntown_s1
+  query: yellow truck, obelisk, bankomat, cafe table, car
+  score_threshold: -1
+  search_area:
+    points:
+    - x: -100.0
+      y: -110.0
+      z: 0.0
+    - x: -100.0
+      y: 100.0
+      z: 0.0
+    - x: 80.0
+      y: 100.0
+      z: 0.0
+    - x: 80.0
+      y: -110.0
+      z: 0.0
+  voxel_min_cluster_size: 30
+  voxel_score_threshold: 0.5
+iteration_attempts: 2
+iterations: 1
+name: raven_3robot_full_no_destination_repulsion_moderncity_retry_20261029
+nas_dest: /volume4/dsta/raven-ablations/
+on_step_failure: abort_iteration
+ready:
+  timeout_s: 1200
+record:
+  enabled: true
+  required: true
+  robot_topics:
+  - /robot_{n}/rayfronts/voxel_rgb
+  - /robot_{n}/rayfronts/msg_serv/voxels_sim/all
+  scope: both
+  topics:
+  - /tf
+  - /tf_static
+  - /{robot}/odometry_conversion/odometry
+  - /gcs/robot_markers
+  - /gcs/payload/{robot}/filtered_rays
+  - /gcs/payload/{robot}/filtered_frontiers
+  - /gcs/payload/{robot}/explored_area_coverage
+  - /gcs/payload/{robot}/confirmed_targets
+  - /gcs/payload/{robot}/auction_table
+  - /gcs/sim_ground
+  - /gcs/annotations/bboxes
+stack:
+  services:
+  - isaac-sim
+  - robot-desktop
+  - gcs
+steps:
+- optional: true
+  run:
+    cmd: 'echo "[pod] shm: $(df -h /dev/shm | tail -1) segments=$(ls -1 /dev/shm 2>/dev/null | wc -l)"; echo "[pod]
+      disk: $(df -h / | tail -1)"'
+    container: pod
+    expect_success: false
+    timeout_s: 60
+- run:
+    attempts: 5
+    cmd: python3 -c "import torch; torch.hub.load('NVlabs/RADIO', 'radio_model', version='c-radio_v3-b', skip_validation=True,
+      adaptor_names=['siglip2','sam'])"
+    container: robot_1
+    retry_delay_s: 15
+    timeout_s: 900
+- run:
+    attempts: 5
+    cmd: python3 -c "from huggingface_hub import snapshot_download; snapshot_download('OpenGVLab/InternVL3-2B')"
+    container: robot_1
+    retry_delay_s: 15
+    timeout_s: 900
+- action:
+    goal:
+      target_altitude_m: 12.0
+      velocity_m_s: 1.0
+    task: takeoff
+    timeout_s: 180
+- wait: 5
+- action:
+    attempts: 1
+    cancel_on_timeout: false
+    goal:
+      background_queries: '{{env.background_queries}}'
+      bundle_len: 3
+      confidence_threshold: 0.95
+      max_altitude_agl: 20.0
+      max_flight_speed: 1.0
+      max_sim_seconds: 300
+      min_altitude_agl: 5.0
+      min_flight_speed: 0.5
+      query: '{{env.query}}'
+      score_threshold: '{{env.score_threshold}}'
+      search_area: '{{env.search_area}}'
+      voxel_min_cluster_size: '{{env.voxel_min_cluster_size}}'
+      voxel_score_threshold: '{{env.voxel_score_threshold}}'
+    pass_on_feedback: false
+    task: semantic_search
+    timeout_s: 2400
