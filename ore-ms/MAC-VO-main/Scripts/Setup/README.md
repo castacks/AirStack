@@ -1,5 +1,9 @@
 # OSMO + Box staging
 
+## Bounded original/repair VO control (EXP-084)
+
+`vo_solver_control.py` freezes inputs, source, image ID and six same-runtime GPU commands before inference. The opt-in instance adapter in `run_td3_solver_arm.py` delegates unchanged v3 execution and restores the original factory/optimizer on exit. Original/passthrough parity gates the repair arm. `evaluate_vo_solver_control.py` separately scores all first pre-refinement writes using the qualified existing SLAM proxy; `validate_vo_solver_control.py` independently checks arrays, events, reference arithmetic and solver attempts. See [EXP-084](../../../experiments/EXP-084-end-to-end-solver-control.md) for commands, mixed results and limits. No production/default change.
+
 ## Causal arbiter event recording (EXP-071)
 
 The [EXP-072 paired contract](../../../experiments/EXP-072-paired-arbiter-events.md) now joins verified RGB/thermal captures while keeping actual intervals and camera frames separate. `pair_arbiter_events.py` creates the table; `validate_paired_arbiter_events.py` checks it against the original manifest/journals. These separate replays do not establish concurrent availability or a common-body pose target.

@@ -1,0 +1,11 @@
+# Fresh pinned Blackwell runtime for a bounded original/repair control.
+FROM pytorch/pytorch:2.7.1-cuda12.8-cudnn9-runtime@sha256:c16f4c749e2d9e96878875cdf6cc45cddda1d1a36fddd371dd6f2360f1b6e2a2
+RUN apt-get update && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 && rm -rf /var/lib/apt/lists/*
+RUN python -m pip install --no-cache-dir torchvision==0.22.1+cu128 --index-url https://download.pytorch.org/whl/cu128
+RUN python -m pip install --no-cache-dir pypose==0.9.5 numpy==2.2.6 scipy==1.17.1 \
+    timm==0.9.12 opencv-python-headless==4.10.0.84 matplotlib==3.10.8 \
+    yacs einops tabulate tqdm rich pyyaml pillow h5py flow_vis rerun-sdk==0.21.0 \
+    wandb evo==1.34.0 jaxtyping==0.3.11 typeguard==2.13.3 onnx pytest==8.4.2
+ENV NVIDIA_VISIBLE_DEVICES=all NVIDIA_DRIVER_CAPABILITIES=compute,utility TORCHDYNAMO_DISABLE=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+WORKDIR /workspace/MAC-VO-main
+CMD ["bash"]
