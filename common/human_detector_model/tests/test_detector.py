@@ -88,7 +88,7 @@ class ValidationTests(unittest.TestCase):
                        {"visible_pixels": 300000}, {"visible_body_fraction": 1.1},
                        {"visible_body_fraction": 0}, {"visible_body_fraction": math.nan},
                        {"contrast": math.inf}, {"clutter": -.1}, {"visible_parts": {"head": 1}},
-                       {"visible_parts": {p: 0 for p in BODY_PARTS}}, {"image_width": 0}):
+                       {"image_width": 0}):
             with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
                 full_view(**kwargs)
 

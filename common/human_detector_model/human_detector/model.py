@@ -41,7 +41,9 @@ class Observation:
 
     visible_parts contains the visible fraction of EACH part's unoccluded,
     in-frame projected silhouette (not each part's share of visible pixels).
-    None means unavailable, never fully hidden. No pose or temporal inputs.
+    None means unavailable, never fully hidden. The placement adapter can supply
+    fixed binary exposure assumptions instead. Zero for every part is valid:
+    visible fragments need not expose any complete part. No pose/temporal inputs.
     """
 
     visible_pixels: int
@@ -65,8 +67,6 @@ class Observation:
             values = _parts("visible_parts", self.visible_parts)
             if self.visible_pixels == 0 and any(values.values()):
                 raise ValueError("a hidden person cannot have visible parts")
-            if self.visible_pixels > 0 and not any(values.values()):
-                raise ValueError("visible pixels require at least one visible part, or visible_parts=None")
             object.__setattr__(self, "visible_parts", values)
         for name in ("contrast", "clutter"):
             value = getattr(self, name)

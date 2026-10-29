@@ -94,8 +94,9 @@ cover fraction. If you have no in-frame silhouette, supply zero pixels/fraction.
 
 Parts use `head`, `torso`, `left_arm`, `right_arm`, `left_leg`, `right_leg`.
 Supply all six or omit the entire mapping. For a part with zero unoccluded
-in-frame pixels, use 0. Body-part masks require part labels on the human meshes;
-whole-person instance segmentation alone cannot provide them.
+in-frame pixels, use 0. Measured body-part masks require part labels on the human meshes;
+whole-person instance segmentation alone cannot provide them. Alternatively,
+use the explicit placement assumption below.
 
 Parts, contrast and clutter can be `None` when unavailable. Their contributions
 are then neutral and they appear in `missing_features`; they are **not measured
@@ -161,6 +162,46 @@ view = from_counts(visible_pixels=120, unoccluded_pixels=300)
 view = from_demo_evidence({"pixels": 120, "visibleBodyFraction": 0.4})
 # Both adapters accept visible_parts, contrast, clutter and image dimensions.
 ```
+
+### Fixed body parts from human placement
+
+When camera-specific part masks are unavailable, use the scene's listed parts
+as a fixed exposure assumption: listed complete parts are **1**, unlisted parts
+are **0**, from every direction. Pixel count and body fraction still come from
+the actual camera view. Contrast and clutter remain optional separate inputs.
+
+```python
+from human_detector import Detector, from_placement_evidence, parts_from_placement
+
+placement = {"visible_parts": ["head", "arms"]}
+view = from_placement_evidence(
+    {"pixels": 800, "visibleBodyFraction": 0.5}, placement,
+)
+result = Detector().detect(view, seed=7, key="scene/person/drone/view")
+print(result["probability"], result["detected"])
+# Or apply your experiment's threshold to Detector().probability(view).
+
+# For generators that save intended exposure in a different field:
+parts = parts_from_placement(
+    {"planned_visible_parts": ["feet", "shins", "thighs", "head"]},
+    field="planned_visible_parts",  # Explicit, never an automatic fallback.
+)
+```
+
+| Placement labels | Detector parts set to 1 |
+|---|---|
+| The six canonical names | Matching part |
+| `arms` / `legs` | Both arms / both legs |
+| `feet` + `shins` + `thighs` | Both complete legs; all three are required |
+| `left_foot` + `left_shin` + `left_thigh` (likewise right) | Complete leg on that side; generic segment names can also supply a segment |
+| `hips`, `shoulders` alone | No complete canonical part |
+
+An explicit empty list means no complete canonical parts are exposed; visible
+fragments can still have nonzero pixels. Missing/null lists and unknown labels
+raise an error. An empty camera view produces zero visible parts regardless of
+placement. A planned list is an intended-exposure assumption, not a verified
+visibility measurement. This mode adds no viewing-angle or observation-history
+factor. Keep the same assumption and `parts_weight` across planner comparisons.
 
 The recording adapter ignores `rangeMeters`, `knownCoverFraction`, pose and
 bounding-box dimensions. Existing recordings lack measured part visibility and
