@@ -168,3 +168,13 @@ backfill advice. Both experts preserve2613arrays bitwise. The availability path
 now works in supported and collapse cases. A quality gate next needs a declared
 common-body/interval comparison target, applicable reference and fixed loss;
 these results do not establish a VO advantage over thermal-only.
+
+## EXP075: a fixed proxy loss exposes the RGB-preference weakness
+
+[Conditional body/interval benchmarking](../../experiments/EXP-075-arbiter-pose-proxy.md)
+now uses copied first-write motions at original deadlines, supplied nominal
+extrinsics and offline reference bridges. Middle advisory RMSE0.10985m exceeds
+thermal-only0.04262m on equal98/99 available intervals because the one selected
+RGB result has1.00308m proxy loss. The source is recorded SLAM, not independent
+GT; body anchoring remains nominal. No gate fitted. Next predeclare a causal
+history/recovery baseline rather than promote tracking support as pose quality.

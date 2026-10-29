@@ -892,3 +892,11 @@ raw health and first/stale result semantics when tracking support is sparse.
 and compares RGB-only, thermal-only and unchanged advisory availability at the
 same deadlines. Original validators, scheduler and rule remain unchanged.
 See [EXP074](../../../experiments/EXP-074-arbiter-support-collapse.md).
+
+## Conditional pose proxy (EXP075)
+
+`arbiter_pose_proxy.py` evaluates the frozen early/middle advice using supplied
+nominal body extrinsics, offline reference endpoint bridges and separate meter/degree
+losses. `validate_arbiter_pose_proxy.py` independently reconstructs losses and
+populations. Reference bridges are evaluation-only; no causal feature or fitted
+gate. See [EXP075](../../../experiments/EXP-075-arbiter-pose-proxy.md).

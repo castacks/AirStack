@@ -158,3 +158,7 @@ uncertainty/history can improve selection over both fixed experts. These
 camera-local advisory records are not a fused trajectory, pose-quality labels,
 a trained gate, or evidence of VO accuracy improvement. No new data upload was
 needed for this test.
+
+Follow-up: [EXP075](EXP-075-arbiter-pose-proxy.md) implements a conditional
+nominal-body SLAM-proxy comparison. The sole RGB preference worsens middle proxy
+loss relative to thermal-only, showing why support is insufficient for quality.
