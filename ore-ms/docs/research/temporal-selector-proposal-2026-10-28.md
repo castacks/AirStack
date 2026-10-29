@@ -147,3 +147,13 @@ question. No claim is made that it is novel, that an LLM is needed, or that it
 will improve VO. No training, extensive compute, baseline replacement or reserved
 capture access is part of this proposal. The next implementation should make
 the required data and targets reviewable before committing to the method.
+
+## EXP073: causal advisory path established
+
+The [shared replay](../../experiments/EXP-073-shared-arbiter-replay.md) now
+records decisions from live prefixes on one controller timeline. The 20-group
+early window produces 18 both-available RGB-preference decisions and one final
+pre-drain abstention. Both experts preserve 533 arrays bitwise. This is an
+offline availability baseline; uncertainty/history quality gating still needs
+a common-frame interval target and independent loss. Next test an already
+examined support-collapse segment with declared fixed baselines.

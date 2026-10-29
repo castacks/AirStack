@@ -873,3 +873,13 @@ saved arrays and exact IDs/times. See `../../../experiments/EXP-044-ms2-frontend
 for full commands. Both modalities pass all78 calls with original checkpoints;
 shared-link recovery and archive hashes are documented in EXP044.
 No accuracy/timing/calibration claim follows from execution success.
+
+## Shared advisory replay (EXP073)
+
+`shared_arbiter_replay.py` gates two unchanged v3 workers in acquisition-time order,
+streams events to one controller timeline and records prefix-only advisory
+RGB/THERMAL/ABSTAIN decisions. One group of observation lag; final decision before
+optimizer drain. Offline serial execution, fixed RGB tie preference, no feedback
+or pose fusion. `validate_shared_arbiter_replay.py` independently audits the bounded
+early-night run. See [EXP073](../../../experiments/EXP-073-shared-arbiter-replay.md)
+for scheduling, proofs, tests and limitations.

@@ -159,3 +159,7 @@ do not claim pose or VO improvement from this supported-window interface check.
 A pose-quality gate additionally needs common-frame interval transport and a
 declared reference/loss before fitting. No new CATS scene,MS² holdout,estimator
 default or gate coefficient was used or changed here.
+
+Follow-up: [EXP073](EXP-073-shared-arbiter-replay.md) implements the shared
+offline chronological replay and advisory availability rule, preserving both
+experts bitwise and recording the final pre-drain abstention causally.
