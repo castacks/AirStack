@@ -13,17 +13,17 @@ repositories:
   asm_neurosymbolic:
     type: git
     url: https://github.com/COA-SEI/asm_neurosymbolic
-    version: b7383ff400b5fe6b98e1def91ea81442ce737c1c
+    version: 3f00de23d76bffc879f56bccd3ef31337e67affd
   asm_team_platform:
     type: git
     url: https://github.com/COA-SEI/asm_team_platform
-    version: ca4f0ff769cd59bac2df9ca0e6c9a324d4d508d4
+    version: 311edc3bbc35b83a9e04f427980abd5a73e46cdf
   asm_search_oracle:
     type: git
     url: https://github.com/COA-SEI/asm_search_oracle
-    version: 49e58ce0507bb0b84d4d77c318490dd1c8778ee6
+    version: 42c7e0e36737a83820fdd9e5e37e3c19410e9727
   asm_search_baselines:
     type: git
     url: https://github.com/COA-SEI/asm_search_baselines
-    version: 542a4bdb2c208034ef93b59c4dde7d45bffc8ea9
+    version: ec546ba5ebda1cddd10f754c0db4ec528dbb1cb2
 x-local-modules: []
