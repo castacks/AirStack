@@ -951,3 +951,10 @@ then run `solver_contract_probe.py` and `validate_solver_contract.py` on a fresh
 output. Tiny affine controls expose weighting/acceptance/rejection semantics;
 original core/defaults remain unchanged. See
 [EXP082](../../../experiments/EXP-082-robust-solver-contract.md).
+
+Research-only repair arm: `weighted_huber_research.py` uses a consistent whitened
+Huber objective and explicit best-state/status contract.
+`solver_repair_experiment.py prepare/run` compares fixed original controls;
+`validate_solver_repair.py` checks independent projection/retraction/objectives.
+See [EXP083](../../../experiments/EXP-083-weighted-solver-repair.md).
+No production optimizer/default is replaced.
