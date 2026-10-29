@@ -933,3 +933,9 @@ undamped fixed-landmark residual/information summaries at pre-write native poses
 `validate_optimizer_factors.py` independently checks factors and finite differences.
 See [EXP079](../../../experiments/EXP-079-optimizer-factor-audit.md). These are not
 calibrated pose covariance or convergence telemetry.
+
+Fixed factor-to-proxy diagnostics: `compare_factor_proxy.py prepare/predict/score`
+freezes label-free deadline-bound preferences, then joins existing qualified
+labels with matched fixed-camera/history controls; `validate_factor_proxy.py`
+independently verifies choices/populations/statistics. See
+[EXP080](../../../experiments/EXP-080-factor-proxy-comparison.md); no gate adopted.
