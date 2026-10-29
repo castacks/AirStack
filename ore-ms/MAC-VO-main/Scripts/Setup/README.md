@@ -945,3 +945,9 @@ materializes label-free UV/disparity energy, fixed depth/cell partitions and
 conditional leverage before joining frozen outcomes; `validate_factor_geometry.py`
 checks independent finite differences, QR, partitions and classifications. See
 [EXP081](../../../experiments/EXP-081-factor-geometry-audit.md); no separator adopted.
+
+Native robust/weighted contract probes: build `Docker/Dockerfile.solver-contract`,
+then run `solver_contract_probe.py` and `validate_solver_contract.py` on a fresh
+output. Tiny affine controls expose weighting/acceptance/rejection semantics;
+original core/defaults remain unchanged. See
+[EXP082](../../../experiments/EXP-082-robust-solver-contract.md).

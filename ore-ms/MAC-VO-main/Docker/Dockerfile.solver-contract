@@ -1,0 +1,8 @@
+# Bounded native optimizer contract probes, with no neural/frontend dependencies.
+FROM airlab-docker.andrew.cmu.edu/airstack/airstack:v0.20.8_robot-x86-64_dev
+USER root
+RUN python3 -m pip install --no-cache-dir --target=/opt/solver-contract torch==2.7.1+cpu --index-url https://download.pytorch.org/whl/cpu
+RUN python3 -m pip install --no-cache-dir --no-deps --target=/opt/solver-contract pypose==0.9.5
+ENV OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 TORCHDYNAMO_DISABLE=1 NVIDIA_VISIBLE_DEVICES=void PYTHONPATH=/opt/solver-contract
+WORKDIR /workspace/MAC-VO-main
+ENTRYPOINT ["python3"]
