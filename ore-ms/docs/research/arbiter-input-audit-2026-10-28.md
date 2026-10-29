@@ -1,5 +1,7 @@
 # Arbiter input audit: CATS conventions and temporal health fields
 
+**Follow-up, 2026-10-29:** [EXP-071](../../experiments/EXP-071-causal-arbiter-events.md) implements the read-only event recorder identified here. It preserves fresh GPU control outputs bitwise and exposes pre-refinement motion commits. The missing common-frame/reference and CATS convention questions below are not resolved by instrumentation.
+
 2026-10-28, America/New_York. Base `7a99bd8af`, branch `ore_ms`.
 This audit uses the already inspected CATS scene and recovered EXP033 controls.
 No new neural inference, gate training, pose correction or reserved-capture

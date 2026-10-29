@@ -1,5 +1,9 @@
 # OSMO + Box staging
 
+## Causal arbiter event recording (EXP-071)
+
+`run_td3_execution_v3.py` adds opt-in `--record-arbiter-events` to the bounded v2 execution path. The JSONL journal records health, optimizer submissions/returns, raw camera motion writebacks and refinement boundaries without polling extra optimizer results. Recording is off by default; v2 and original algorithms are unchanged. See [EXP-071](../../../experiments/EXP-071-causal-arbiter-events.md) for the event schema and commands. Twenty focused tests pass; a fresh20-frameRGB GPU control preserves533 arrays across23NPZ files bitwise. This is numerical-preservation evidence, not gate or pose-accuracy validation.
+
 ## Stereo image consistency without a pose reference (EXP-029)
 
 Restore the EXP-023/025/026 prepared images, reports and signed first-stereo

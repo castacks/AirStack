@@ -1,5 +1,7 @@
 # MS project: RGB–thermal geometric uncertainty
 
+2026-10-29 — [EXP071 causal arbiter event recorder](experiments/EXP-071-causal-arbiter-events.md): opt-in v3 logging now captures pair health and pre-refinement camera motion writebacks with submission IDs and observation stages. 20 focused tests pass; fresh 20-frame RGB GPU v2/v3 control preserves all533 arrays/23NPZ files bitwise, and all97 events pass independent audit. No gate fit or default change; next capture paired RGB/thermal events and define interval/frame comparison before arbitration.
+
 2026-10-28 — [Arbiter input audit](docs/research/arbiter-input-audit-2026-10-28.md): CATS left-mask support is evidenced in the inspected scene, but signed-reference anchor/direction remains ambiguous. Recovered EXP033 controls yield 217 pair health records; middle RGB has97/99 unsupported transitions versus thermal0/99. Post-refinement poses are unsuitable as unqualified online inputs; optimization telemetry/common-frame target still missing. Next: read-only pre-refinement event recorder, without gate fitting or reserved captures.
 
 2026-10-28 — [CATS access and sample inspection](docs/research/cats-intake-2026-10-28.md): user approval received; six ZIP metadata reads, two v2 indices and one preselected outdoor scene inspected. Native thermal is uint16; disparity has mixed signs/NaNs; conventions/calibration still need audit. [Temporal selector proposal](docs/research/temporal-selector-proposal-2026-10-28.md) distinguishes published MAC/thermal VO gains from failed cross-camera score corrections and proposes an estimator-health/history gate. No new inference, training or reserved-capture access.
@@ -64,6 +66,8 @@ day/rain. No blanket rescaling or propagation replacement is adopted.
 The [cross-camera transfer synthesis](docs/research/ms2-transfer-findings-2026-10-27.md) consolidates the method tests throughEXP064. Current evidence supports capture-specific gains,while general transfer remains unsupported; the next saved-array diagnostic is signed residual structure and mean-versus-spread accounting before further fitting.
 
 ## New bounded execution checks
+
+For causal arbiter inputs, use [run_td3_execution_v3.py](MAC-VO-main/Scripts/Setup/run_td3_execution_v3.py) with `--record-arbiter-events`. [EXP-071](experiments/EXP-071-causal-arbiter-events.md) defines the journal, timing semantics, opt-in behavior and numerical-preservation evidence. Recording is disabled by default; events do not imply calibrated pose confidence or a gate decision.
 
 Use [run_td3_execution_v2.py](MAC-VO-main/Scripts/Setup/run_td3_execution_v2.py) for new runs. Inspect `tracking_diagnostics.support_state` and original unsupported-pair counts as well as raw execution status. These preserve tracking failures before interpolation changes stored flags. [EXP-033](experiments/EXP-033-gnss-and-tracking-reporting.md) documents usage and bitwise pose-equivalence controls; earlier runners remain available for historical reproduction.
 

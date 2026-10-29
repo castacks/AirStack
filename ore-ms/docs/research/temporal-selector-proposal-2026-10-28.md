@@ -1,5 +1,7 @@
 # Proposal: a temporal arbiter for RGB and thermal VO
 
+**2026-10-29 implementation update:** the [opt-in causal event recorder](../../experiments/EXP-071-causal-arbiter-events.md) is implemented and passes state/CPU/native GPU preservation controls. It records motion result commits before refinement and labels submission/availability stages. No arbiter has been trained; paired expert intervals and the comparison target remain next.
+
 **Input audit completed:** [saved health fields and causal-use limits](arbiter-input-audit-2026-10-28.md) are now inventoried on 217 EXP033 pair records. Counts, coverage and raw temporal uncertainty are present; online unfilled motion snapshots and optimizer convergence telemetry are not. Next implementation is a read-only event recorder; no gate has been fitted.
 
 2026-10-28 America/New_York. User proposed an agent/elector layer after CATS

@@ -1,0 +1,3 @@
+# First build Dockerfile.replay as macvo:replay-cpu.
+FROM macvo:replay-cpu
+RUN python -m pip install --no-cache-dir evo==1.34.0
