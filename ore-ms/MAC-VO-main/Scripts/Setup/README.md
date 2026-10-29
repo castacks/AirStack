@@ -939,3 +939,9 @@ freezes label-free deadline-bound preferences, then joins existing qualified
 labels with matched fixed-camera/history controls; `validate_factor_proxy.py`
 independently verifies choices/populations/statistics. See
 [EXP080](../../../experiments/EXP-080-factor-proxy-comparison.md); no gate adopted.
+
+Saved objective/geometry accounting: `factor_geometry_audit.py prepare/geometry/outcome`
+materializes label-free UV/disparity energy, fixed depth/cell partitions and
+conditional leverage before joining frozen outcomes; `validate_factor_geometry.py`
+checks independent finite differences, QR, partitions and classifications. See
+[EXP081](../../../experiments/EXP-081-factor-geometry-audit.md); no separator adopted.
