@@ -883,3 +883,12 @@ optimizer drain. Offline serial execution, fixed RGB tie preference, no feedback
 or pose fusion. `validate_shared_arbiter_replay.py` independently audits the bounded
 early-night run. See [EXP073](../../../experiments/EXP-073-shared-arbiter-replay.md)
 for scheduling, proofs, tests and limitations.
+
+## Sparse-support advisory validation (EXP074)
+
+`validate_arbiter_event_replay_v2.py` independently checks bitwise preservation,
+raw health and first/stale result semantics when tracking support is sparse.
+`validate_shared_arbiter_replay_v2.py` audits the fixed100-group middle window
+and compares RGB-only, thermal-only and unchanged advisory availability at the
+same deadlines. Original validators, scheduler and rule remain unchanged.
+See [EXP074](../../../experiments/EXP-074-arbiter-support-collapse.md).

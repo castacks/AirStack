@@ -149,3 +149,8 @@ interface; it cannot demonstrate a thermal fallback benefit. Before fitting a
 pose-quality gate, still establish verified common-body/interval transport and
 an applicable independent reference/loss. No VO gain, physical calibration or
 real-time throughput claim follows from EXP073.
+
+Follow-up: [EXP074](EXP-074-arbiter-support-collapse.md) exercises the unchanged
+rule on the known100-group middle collapse window. Thermal fallback restores
+availability relative to RGB-only and matches thermal-only; both estimators
+remain bitwise preserved.

@@ -157,3 +157,14 @@ pre-drain abstention. Both experts preserve 533 arrays bitwise. This is an
 offline availability baseline; uncertainty/history quality gating still needs
 a common-frame interval target and independent loss. Next test an already
 examined support-collapse segment with declared fixed baselines.
+
+## EXP074: thermal fallback verified, quality selection still untested
+
+The [known-collapse diagnostic](../../experiments/EXP-074-arbiter-support-collapse.md)
+produces97thermal,1RGB and1abstain decisions under the unchanged rule. Availability
+is98/99 versusRGB-only1/99, matchingthermal-only98/99 at identical deadlines.
+No unsupported result is chosen; stale RGB writes and shutdown results cannot
+backfill advice. Both experts preserve2613arrays bitwise. The availability path
+now works in supported and collapse cases. A quality gate next needs a declared
+common-body/interval comparison target, applicable reference and fixed loss;
+these results do not establish a VO advantage over thermal-only.
