@@ -1,5 +1,7 @@
 # CATS approved access and bounded file inspection
 
+**Follow-up:** the [convention and temporal-input audit](arbiter-input-audit-2026-10-28.md) checks the left mask against padding and tests signed correspondence hypotheses. It finds useful support evidence but does not resolve a trusted disparity sign/anchor. No model comparison has been run.
+
 2026-10-28, America/New_York. Base `e80574d32`, branch `ore_ms`.
 The user supplied a dataset-access approval and six download links. Metadata
 was read through the connected Google Drive plugin. Byte-range reads then

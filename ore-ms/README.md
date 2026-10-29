@@ -1,5 +1,7 @@
 # MS project: RGB–thermal geometric uncertainty
 
+2026-10-28 — [Arbiter input audit](docs/research/arbiter-input-audit-2026-10-28.md): CATS left-mask support is evidenced in the inspected scene, but signed-reference anchor/direction remains ambiguous. Recovered EXP033 controls yield 217 pair health records; middle RGB has97/99 unsupported transitions versus thermal0/99. Post-refinement poses are unsuitable as unqualified online inputs; optimization telemetry/common-frame target still missing. Next: read-only pre-refinement event recorder, without gate fitting or reserved captures.
+
 2026-10-28 — [CATS access and sample inspection](docs/research/cats-intake-2026-10-28.md): user approval received; six ZIP metadata reads, two v2 indices and one preselected outdoor scene inspected. Native thermal is uint16; disparity has mixed signs/NaNs; conventions/calibration still need audit. [Temporal selector proposal](docs/research/temporal-selector-proposal-2026-10-28.md) distinguishes published MAC/thermal VO gains from failed cross-camera score corrections and proposes an estimator-health/history gate. No new inference, training or reserved-capture access.
 
 2026-10-28 — [Fall research assessment through EXP070](docs/research/ms2-fall-decision-2026-10-28.md): consolidates useful within-camera ranking, failed cross-camera transfer and insufficient constant calibration. Includes a report-ready narrative, an evidence/claim map and requirements for a distinct prospective method. Synthesis only; no new experiment, inference or reserved-capture access.

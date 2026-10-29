@@ -1,5 +1,7 @@
 # Proposal: a temporal arbiter for RGB and thermal VO
 
+**Input audit completed:** [saved health fields and causal-use limits](arbiter-input-audit-2026-10-28.md) are now inventoried on 217 EXP033 pair records. Counts, coverage and raw temporal uncertainty are present; online unfilled motion snapshots and optimizer convergence telemetry are not. Next implementation is a read-only event recorder; no gate has been fitted.
+
 2026-10-28 America/New_York. User proposed an agent/elector layer after CATS
 access approval. Status: concrete research proposal, not an implemented,
 trained or validated selector. The original estimators/defaults are unchanged.
