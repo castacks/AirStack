@@ -927,3 +927,9 @@ verified proxy losses separately, preserving missing/tie/decisive and matched
 populations. `validate_arbiter_quality.py` independently reconstructs raw geometry,
 prefix provenance, preferences and statistics. No fitted/adopted gate. See
 [EXP078](../../../experiments/EXP-078-arbiter-quality-signals.md).
+
+Saved optimizer diagnostics: `audit_optimizer_factors.py` reconstructs unrobust,
+undamped fixed-landmark residual/information summaries at pre-write native poses;
+`validate_optimizer_factors.py` independently checks factors and finite differences.
+See [EXP079](../../../experiments/EXP-079-optimizer-factor-audit.md). These are not
+calibrated pose covariance or convergence telemetry.
