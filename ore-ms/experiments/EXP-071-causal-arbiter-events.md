@@ -1,5 +1,7 @@
 # EXP-071: pre-refinement arbiter event recorder
 
+**Follow-up:** [EXP-072](EXP-072-paired-arbiter-events.md) adds the thermal counterpart and a verified paired event contract, preserving each expert's actual sensor interval and camera frame.
+
 2026-10-29 America/New_York. Base `d3500af07`, branch `ore_ms`.
 
 An opt-in recorder now exposes pair health and raw camera motion result

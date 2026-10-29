@@ -2,6 +2,8 @@
 
 ## Causal arbiter event recording (EXP-071)
 
+The [EXP-072 paired contract](../../../experiments/EXP-072-paired-arbiter-events.md) now joins verified RGB/thermal captures while keeping actual intervals and camera frames separate. `pair_arbiter_events.py` creates the table; `validate_paired_arbiter_events.py` checks it against the original manifest/journals. These separate replays do not establish concurrent availability or a common-body pose target.
+
 `run_td3_execution_v3.py` adds opt-in `--record-arbiter-events` to the bounded v2 execution path. The JSONL journal records health, optimizer submissions/returns, raw camera motion writebacks and refinement boundaries without polling extra optimizer results. Recording is off by default; v2 and original algorithms are unchanged. See [EXP-071](../../../experiments/EXP-071-causal-arbiter-events.md) for the event schema and commands. Twenty focused tests pass; a fresh20-frameRGB GPU control preserves533 arrays across23NPZ files bitwise. This is numerical-preservation evidence, not gate or pose-accuracy validation.
 
 ## Stereo image consistency without a pose reference (EXP-029)
