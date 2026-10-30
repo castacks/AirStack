@@ -974,3 +974,7 @@ Huber objective and explicit best-state/status contract.
 `validate_solver_repair.py` checks independent projection/retraction/objectives.
 See [EXP083](../../../experiments/EXP-083-weighted-solver-repair.md).
 No production optimizer/default is replaced.
+
+## Arbiter motion output admission
+
+`arbiter_motion_output.py` adds a separate opt-in output boundary to existing advice. Exact native/requested endpoints, controller receipt/deadline and verified frame evidence are required; otherwise motion is null with an explicit abstention reason. See [contract and validation](../../../docs/research/arbiter-motion-output-2026-10-30.md). This does not implement asynchronous transport or a trained quality gate.
