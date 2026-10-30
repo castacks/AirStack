@@ -1,5 +1,9 @@
 # OSMO + Box staging
 
+## Supported daytime solver replication (EXP-086)
+
+`vo_solver_day_replication.py` binds unchanged100-frame inference to the existing day middle window. Day evaluation and validation use the validated EXP077 nominal-body/SLAM proxy and actual variable camera offsets. `validate_vo_solver_numerics_v2.py` adds documented cancellation-aware gradient checks while retaining strict component exceptions; supplementary native replay verifies all1980cost/H/g states exactly. See [EXP-086](../../../experiments/EXP-086-solver-day-replication.md) for results and the post-inference audit refinement. Defaults unchanged.
+
 ## Frozen collapse replication (EXP-085)
 
 `vo_solver_replication.py` freezes/runs the existing middle100-frame window. `run_td3_solver_replication.py` delegates the unchanged EXP084 adapter/run function with an explicit100-frame bound. Versioned evaluation/audit retain all99slots per arm/camera, unsupported motions and stale/terminal distinctions. See [EXP-085](../../../experiments/EXP-085-solver-collapse-replication.md) for controls, results and commands. RGB tracking remains97/99unsupported; defaults unchanged.
