@@ -1,5 +1,7 @@
 # Proposal: a temporal arbiter for RGB and thermal VO
 
+**Current status, 2026-10-30 UTC:** availability/history controls and three solver replications are complete. Quality selection remains unresolved. The [decision/headroom audit](solver-decision-and-selection-headroom-2026-10-30.md) separates numerical repair, availability and conditional pose opportunity; the [flow-closure protocol](flow-cycle-quality-protocol-2026-10-30.md) declares the next unexecuted quality-signal experiment. Original defaults remain unchanged. Earlier next-step notes below are historical.
+
 **Paired input update, 2026-10-29:** [EXP-072](../../experiments/EXP-072-paired-arbiter-events.md) captures the existing early-window thermal counterpart and joins19 verified RGB/thermal intervals. Both camera-local event streams are available;offsets and separate-replay timing remain explicit. The next step is a shared chronological replay and advisory availability rule; no gate is trained or pose gain established.
 
 **2026-10-29 implementation update:** the [opt-in causal event recorder](../../experiments/EXP-071-causal-arbiter-events.md) is implemented and passes state/CPU/native GPU preservation controls. It records motion result commits before refinement and labels submission/availability stages. No arbiter has been trained; paired expert intervals and the comparison target remain next.
