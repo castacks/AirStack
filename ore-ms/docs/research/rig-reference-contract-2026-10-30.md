@@ -130,6 +130,18 @@ sources/parameters are frozen before accessing its scientific payload.
 
 ## Focused source request — draft only
 
+**Connected-source follow-up, 2026-10-30:** bounded Drive keyword/filename
+searches for MACT/MACT_Offroad, NovAtel, gps_frame, Yamaha, MSA and calibration,
+plus owner/topic mail searches, did not identify the missing recording-specific
+configuration or checkpoint split list. Broad matches were general documents,
+public papers or unrelated mail metadata, not new provenance evidence. The
+project Box folder lists nine recording archives and backups; no archive payload
+was opened in this search. These bounded results do not prove that the records
+are absent from the accounts or original bags. Search queries/counts and scope
+are preserved in `results/source-provenance-search/run-001/search.json`.
+The next missing input on this path is an owner reply or actual repository/config
+pointer. Repeating image experiments cannot establish the missing provenance.
+
 The following is ready to copy into existing owner discussions; no message was
 sent and no remote-account action is required for this source reconstruction.
 
