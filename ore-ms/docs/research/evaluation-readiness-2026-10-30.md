@@ -1,5 +1,7 @@
 # Reference, frame and recording evaluation readiness
 
+**Source-contract follow-up:** [Reconstructed rig paths and prospective specification](rig-reference-contract-2026-10-30.md) verify all six nominal matrices exactly, identify the missing gps_frame path and provide a focused unsent source request. Physical evidence and a complete future-method/test freeze remain pending.
+
 2026-10-30, America/New_York. Branch `ore_ms`, base `112586732`.
 After the negative [EXP087 flow-closure probe](../../experiments/EXP-087-flow-cycle-quality.md),
 the existing data support reproducible offline proxy comparisons and availability
