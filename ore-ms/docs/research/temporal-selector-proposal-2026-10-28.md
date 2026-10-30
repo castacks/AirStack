@@ -1,5 +1,7 @@
 # Proposal: a temporal arbiter for RGB and thermal VO
 
+**Latest execution update, 2026-10-30 America/New_York:** [EXP087](../../experiments/EXP-087-flow-cycle-quality.md) completes the declared flow-closure probe. Exact forward controls pass; closure matches thermal-only at night but worsens day translation/rotation proxy RMSE versus RGB-only. No scalar adopted. Current next boundary is reference/common-frame and recording-level evaluation readiness; statements below about the unexecuted flow probe are the historical declaration.
+
 **Current status, 2026-10-30 UTC:** availability/history controls and three solver replications are complete. Quality selection remains unresolved. The [decision/headroom audit](solver-decision-and-selection-headroom-2026-10-30.md) separates numerical repair, availability and conditional pose opportunity; the [flow-closure protocol](flow-cycle-quality-protocol-2026-10-30.md) declares the next unexecuted quality-signal experiment. Original defaults remain unchanged. Earlier next-step notes below are historical.
 
 **Paired input update, 2026-10-29:** [EXP-072](../../experiments/EXP-072-paired-arbiter-events.md) captures the existing early-window thermal counterpart and joins19 verified RGB/thermal intervals. Both camera-local event streams are available;offsets and separate-replay timing remain explicit. The next step is a shared chronological replay and advisory availability rule; no gate is trained or pose gain established.

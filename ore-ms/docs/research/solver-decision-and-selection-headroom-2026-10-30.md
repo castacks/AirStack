@@ -1,5 +1,7 @@
 # Solver decision and camera-selection opportunity
 
+**Latest execution update, 2026-10-30 America/New_York:** [EXP087](../../experiments/EXP-087-flow-cycle-quality.md) completes the declared flow-closure probe. Exact forward controls pass; closure matches thermal-only at night but worsens day translation/rotation proxy RMSE versus RGB-only. No scalar adopted. Current next boundary is reference/common-frame and recording-level evaluation readiness; statements below about the unexecuted flow probe are the historical declaration.
+
 2026-10-30 UTC. Branch `ore_ms`, base `a177ba60c`.
 
 Keep the weighted-Huber repair experimental. It fixes an identified numerical

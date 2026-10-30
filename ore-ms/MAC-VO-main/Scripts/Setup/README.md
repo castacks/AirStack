@@ -1,5 +1,9 @@
 # OSMO + Box staging
 
+## Frozen flow-closure quality probe (EXP-087)
+
+`flow_cycle_experiment.py` freezes six native frontend captures and gates reverse inference with bitwise forward endpoint controls. `flow_cycle_sampling.py` provides tested research bilinear sampling. `predict_flow_cycle.py` saves guarded label-free choices before `evaluate_flow_cycle.py` opens proxy losses; `validate_flow_cycle.py` independently checks every cached-corner sample, mask, action and matched loss. See [EXP-087](../../../experiments/EXP-087-flow-cycle-quality.md) for commands, negative day result and scope. Original estimators/defaults unchanged.
+
 ## Supported daytime solver replication (EXP-086)
 
 `vo_solver_day_replication.py` binds unchanged100-frame inference to the existing day middle window. Day evaluation and validation use the validated EXP077 nominal-body/SLAM proxy and actual variable camera offsets. `validate_vo_solver_numerics_v2.py` adds documented cancellation-aware gradient checks while retaining strict component exceptions; supplementary native replay verifies all1980cost/H/g states exactly. See [EXP-086](../../../experiments/EXP-086-solver-day-replication.md) for results and the post-inference audit refinement. Defaults unchanged.

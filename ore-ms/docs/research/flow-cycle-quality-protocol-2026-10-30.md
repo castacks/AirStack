@@ -1,5 +1,7 @@
 # Fixed protocol: temporal flow closure as camera-quality evidence
 
+**Execution update, 2026-10-30 America/New_York:** [EXP087](../../experiments/EXP-087-flow-cycle-quality.md) completes the unchanged protocol. All forward controls pass; closure matches thermal-only at night but worsens both daytime losses versus RGB-only. No scalar adopted. The status and plan below are the original pre-inference declaration.
+
 2026-10-30 UTC. Branch `ore_ms`, base `a177ba60c`.
 Status: declared, unexecuted. No new signal results or quality gate are claimed.
 
