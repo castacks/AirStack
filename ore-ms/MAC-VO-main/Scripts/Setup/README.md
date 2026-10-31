@@ -1021,3 +1021,18 @@ checks source prefixes, all 16 fits, predictions, all matched populations and
 semantic mutations. See [EXP091](../../../experiments/EXP-091-temporal-gate-development.md).
 The combined primary and all three controls fail the declared development
 improvement diagnostic. These remain research artifacts; defaults are unchanged.
+
+## Opt-in predecessor-state evidence
+
+`predecessor_state.validate_predecessor` checks scoped controller-prefix evidence
+for the exact parent snapshot of a chosen child first write. Ordinary parents
+need supported processing health and a matching earlier committed pose/job;
+roots need a separate explicit documented initialization record. A pass emits no
+motion or expert choice and is not physical admission. This module is not wired
+into existing defaults. See the [contract and replay](../../../docs/research/predecessor-state-contract-2026-10-31.md).
+
+`python -m Scripts.Setup.replay_predecessor_state` runs the frozen six-journal
+metadata comparison at the recorded source layout; output files are exclusive
+and require the preserved declaration. `python -m Scripts.Setup.validate_predecessor_state_replay` independently checks source
+bindings and all counts without importing the validator/replay. Real roots
+remain unproven because no initialization record is supplied.
