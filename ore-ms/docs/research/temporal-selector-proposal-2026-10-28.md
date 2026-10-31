@@ -1,5 +1,7 @@
 # Proposal: a temporal arbiter for RGB and thermal VO
 
+**2026-10-31 draft-method follow-up:** [Concrete temporal quality-gate design and data adequacy](temporal-quality-gate-design-2026-10-31.md) specifies a fixed joint current/two-lag candidate and controls without fitting. Existing two-recording data are highly concentrated; a third already-exposed development recording has a bounded collection plan. The exposure ledger and all physical/prospective qualifications remain in force; no reserve is assigned or opened.
+
 **Readiness follow-up, 2026-10-30:** [Reference/frame and recording audit](evaluation-readiness-2026-10-30.md) is complete. Known-window proxy evaluation is reproducible; physical common-frame/online interval and prospective held-out claims remain pending. See the source requirements and split contract before further fitting.
 
 **Latest execution update, 2026-10-30 America/New_York:** [EXP087](../../experiments/EXP-087-flow-cycle-quality.md) completes the declared flow-closure probe. Exact forward controls pass; closure matches thermal-only at night but worsens day translation/rotation proxy RMSE versus RGB-only. No scalar adopted. Current next boundary is reference/common-frame and recording-level evaluation readiness; statements below about the unexecuted flow probe are the historical declaration.
