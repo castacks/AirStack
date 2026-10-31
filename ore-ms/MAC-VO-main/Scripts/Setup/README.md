@@ -978,3 +978,7 @@ No production optimizer/default is replaced.
 ## Arbiter motion output admission
 
 `arbiter_motion_output.py` adds a separate opt-in output boundary to existing advice. Exact native/requested endpoints, controller receipt/deadline and verified frame evidence are required; otherwise motion is null with an explicit abstention reason. See [contract and validation](../../../docs/research/arbiter-motion-output-2026-10-30.md). This does not implement asynchronous transport or a trained quality gate.
+
+## Exact-interval motion composition
+
+`arbiter_motion_chain.compose` joins a unique endpoint-contiguous path of already-admitted motions with matching frame and documented acquisition clock, available by a controller deadline. Gaps and ambiguous paths return null motion. See [contract and validation](../../../docs/research/arbiter-exact-chain-2026-10-30.md).
