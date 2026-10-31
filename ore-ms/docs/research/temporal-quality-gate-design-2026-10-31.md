@@ -210,3 +210,24 @@ draft, feasibility input/proof snapshots and output, arithmetic-check scripts an
 results, notebook and incremental Git history based on `ca3238af5`. No scientific
 image archives, checkpoints or credentials are included. This is a design record,
 not a completed prospective experimental freeze.
+
+## Subsequent execution: EXP090 and EXP091
+
+The collection proposal above is retained as the historical draft.
+[EXP090](../../experiments/EXP-090-third-recording-shared-capture.md) subsequently
+restored and captured exactly the three stated windows with fresh-control parity,
+expanding the complete eligible population to 161 rows across three recordings.
+[EXP091](../../experiments/EXP-091-temporal-gate-development.md) then froze the
+feature/label ledger and fixed development declaration before fitting the four
+specified families with three recording-excluded folds and full-development
+artifacts. All 16 fits converged, but the primary combined gate and every control
+failed the consistent-improvement diagnostic. The combined model worsened both
+day recordings against RGB/raw fallback and retained the dominant night RGB
+outlier. Coverage was preserved. No parameter search, reserve access, production
+adoption or prospective validation followed from this negative result.
+
+Recovery: `ore_ms:ore-ms/backups/2026-10-31-exp-091`; all numerical inputs, fits,
+locked predictions, scores and independent audit are saved. The next useful step
+is an evidence synthesis of the fixed history rule and failed learned gate,
+including the limits of the nominal-body recorded-SLAM proxy, before proposing
+more model capacity or assigning another recording to a test.

@@ -998,3 +998,26 @@ No production optimizer/default is replaced.
 ## Third-recording shared capture
 
 `validate_third_recording_capture.py --root <ore-ms> --run <shared-run> --plan <capture-plan.json> --manifest <prepared-manifest.json>` binds the existing independent timeline audit to the exact frozen20-frame EXP023day windows. [EXP090](../../../experiments/EXP-090-third-recording-shared-capture.md) preserves the collection driver, fresh-control parity and conditional annotation workflow. No gate is fitted or production default changed.
+
+## Fixed temporal quality-gate development comparison
+
+`temporal_quality_gate.py` provides observed-prefix features, fixed cost-sensitive
+logistic fitting and a pure margin/fallback selector. The comparison driver uses
+three whole-recording exclusions; all-development artifacts are saved separately.
+Run the phases separately, in order, so predictions are frozen before scoring:
+
+```bash
+python -m Scripts.Setup.run_temporal_gate_development prepare --root /workspace/ore-ms --output /workspace/ore-ms/results/temporal-gate-development/run-001
+python -m Scripts.Setup.run_temporal_gate_development fit --root /workspace/ore-ms --output /workspace/ore-ms/results/temporal-gate-development/run-001
+python -m Scripts.Setup.run_temporal_gate_development predict --root /workspace/ore-ms --output /workspace/ore-ms/results/temporal-gate-development/run-001
+python -m Scripts.Setup.run_temporal_gate_development score --root /workspace/ore-ms --output /workspace/ore-ms/results/temporal-gate-development/run-001
+python -m Scripts.Setup.validate_temporal_gate_development --root /workspace/ore-ms --run /workspace/ore-ms/results/temporal-gate-development/run-001 --output /workspace/ore-ms/results/temporal-gate-development/run-001/validation.json
+```
+
+A fresh run directory must already contain the reviewed `declaration.md`; outputs
+are exclusive writes. Restore the exact EXP089/EXP090 metadata inputs first.
+The standard-library auditor imports no feature, fitting or scoring code and
+checks source prefixes, all 16 fits, predictions, all matched populations and
+semantic mutations. See [EXP091](../../../experiments/EXP-091-temporal-gate-development.md).
+The combined primary and all three controls fail the declared development
+improvement diagnostic. These remain research artifacts; defaults are unchanged.
