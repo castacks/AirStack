@@ -990,3 +990,7 @@ No production optimizer/default is replaced.
 ## Shared-prefix model pipeline
 
 `prefix_interval_model.py` streams existing shared-controller prefixes into the unchanged EXP088 projection and original availability/history rules. `evaluate_prefix_interval_model.py` separates preparation/prediction/scoring; `validate_prefix_interval_model.py` independently audits prefixes, models and matched populations. See [EXP089](../../../experiments/EXP-089-prefix-model-pipeline.md). Outputs remain unverified research projections, with original defaults unchanged.
+
+## Recording exposure ledger
+
+`audit_recording_exposure.py` verifies pinned historical-note evidence, reconciles a saved Box filename inventory and diagnoses proposed whole-recording partition leakage through explicit aliases. See [dated ledger and limits](../../../docs/research/recording-exposure-ledger-2026-10-31.md). Reported reserves are not a completed test freeze or verified checkpoint holdout.

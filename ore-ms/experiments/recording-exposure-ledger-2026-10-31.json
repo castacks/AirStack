@@ -1,0 +1,576 @@
+{
+  "schema_version": 1,
+  "as_of": "2026-10-31",
+  "source_commit": "0106e156d999089464954870bb68c5ffeccec17e",
+  "scope": "20 named entities in this project history; not a census of all available recordings or CATS scenes",
+  "partition_unit": "whole temporal recording; whole static scene for CATS",
+  "checkpoint": {
+    "name": "MACT_Offroad.pth",
+    "sha256": "eed20722b73c80f016c4646741def4e4e5e2999feaf2c2715c5a6293dc35287a",
+    "training_membership": "unknown",
+    "evidence": [
+      {
+        "source": "replies",
+        "quote": "| Thermal checkpoint training | Geethika does not know the recordings used for MACT_Offroad.pth and identifies Yifei Liu as the likely source | Training/finetuning split remains unknown. Previously unused-by-us recordings are not established training-held-out data. Ask about 20251027 membership and the exact checkpoint/split/recipe before generalization claims. |"
+      }
+    ]
+  },
+  "sources": {
+    "staging": {
+      "repository_path": "DATA_STAGING.md",
+      "commit": "0106e156d999089464954870bb68c5ffeccec17e",
+      "sha256": "315ccaaeb7925662d438461ff72e996765cc8c7a6fb30baa75ee192d694da13b",
+      "snapshot_relative": "results/recording-exposure-ledger/run-001/source-snapshots/staging.txt"
+    },
+    "handoff": {
+      "repository_path": "MS_RESEARCH_HANDOFF.md",
+      "commit": "0106e156d999089464954870bb68c5ffeccec17e",
+      "sha256": "9106ea8571c19fd8ea255ee39d67e9ffe922e75f83af05974aff2cf19f2002f4",
+      "snapshot_relative": "results/recording-exposure-ledger/run-001/source-snapshots/handoff.txt"
+    },
+    "exp013": {
+      "repository_path": "experiments/EXP-013-separate-clip-validation.md",
+      "commit": "0106e156d999089464954870bb68c5ffeccec17e",
+      "sha256": "89821446b0fe058e6303ed6c6d5606291adecf4ea82509ff8c2e2d5727847877",
+      "snapshot_relative": "results/recording-exposure-ledger/run-001/source-snapshots/exp013.txt"
+    },
+    "exp025": {
+      "repository_path": "experiments/EXP-025-salon-so-day-validation.md",
+      "commit": "0106e156d999089464954870bb68c5ffeccec17e",
+      "sha256": "e8f95d3f8ddb901f315443f8d81808e69200f895acc15678d7c4c061dc6da5c5",
+      "snapshot_relative": "results/recording-exposure-ledger/run-001/source-snapshots/exp025.txt"
+    },
+    "exp031": {
+      "repository_path": "experiments/EXP-031-new-night-validation.md",
+      "commit": "0106e156d999089464954870bb68c5ffeccec17e",
+      "sha256": "328a2f56f92bba10953a0ccb3e5b73ae4bb3232e669b5b867a0bf6d1985ec52b",
+      "snapshot_relative": "results/recording-exposure-ledger/run-001/source-snapshots/exp031.txt"
+    },
+    "exp035": {
+      "repository_path": "experiments/EXP-035-waypoint-skip2-readiness.md",
+      "commit": "0106e156d999089464954870bb68c5ffeccec17e",
+      "sha256": "2ca43a32d7e005f91c4c14ac68cba7fa5970e4aac2dc053ecd4a087125bbfc87",
+      "snapshot_relative": "results/recording-exposure-ledger/run-001/source-snapshots/exp035.txt"
+    },
+    "exp036": {
+      "repository_path": "experiments/EXP-036-night-batch-screen.md",
+      "commit": "0106e156d999089464954870bb68c5ffeccec17e",
+      "sha256": "9c952e6ab83b1c281ccfbe48e5892f8b0d47eb04c4f0a69c3c87f02b8d9b5490",
+      "snapshot_relative": "results/recording-exposure-ledger/run-001/source-snapshots/exp036.txt"
+    },
+    "exp040": {
+      "repository_path": "experiments/EXP-040-public-data-audit.md",
+      "commit": "0106e156d999089464954870bb68c5ffeccec17e",
+      "sha256": "331d17068f37059c02d9f681829aef959b8381e92d908f2608efeaf411b5f9c4",
+      "snapshot_relative": "results/recording-exposure-ledger/run-001/source-snapshots/exp040.txt"
+    },
+    "exp041": {
+      "repository_path": "experiments/EXP-041-ms2-night-pilot.md",
+      "commit": "0106e156d999089464954870bb68c5ffeccec17e",
+      "sha256": "0d823cbd03906c013d991a01115b30e4b89573dfe83f7cf289fb37fdbec68207",
+      "snapshot_relative": "results/recording-exposure-ledger/run-001/source-snapshots/exp041.txt"
+    },
+    "exp048": {
+      "repository_path": "experiments/EXP-048-ms2-day-replication.md",
+      "commit": "0106e156d999089464954870bb68c5ffeccec17e",
+      "sha256": "444da8882ebcd97ca8dba41f5a341059c9121e5d659b9795f3f3813c3f67a393",
+      "snapshot_relative": "results/recording-exposure-ledger/run-001/source-snapshots/exp048.txt"
+    },
+    "exp054": {
+      "repository_path": "experiments/EXP-054-ms2-rain-replication.md",
+      "commit": "0106e156d999089464954870bb68c5ffeccec17e",
+      "sha256": "13f9175f4043cb9a14ede4aeb6364e6fd00cfd0eef8cb568ae68796dc1eacc6f",
+      "snapshot_relative": "results/recording-exposure-ledger/run-001/source-snapshots/exp054.txt"
+    },
+    "exp063": {
+      "repository_path": "experiments/EXP-063-ms2-unexamined-recording.md",
+      "commit": "0106e156d999089464954870bb68c5ffeccec17e",
+      "sha256": "18bae7d8afd5da0a8121ed44b72d5c27a9ab2bb22bc58549516a6126e3f0fba1",
+      "snapshot_relative": "results/recording-exposure-ledger/run-001/source-snapshots/exp063.txt"
+    },
+    "exp064": {
+      "repository_path": "experiments/EXP-064-ms2-frozen-suite.md",
+      "commit": "0106e156d999089464954870bb68c5ffeccec17e",
+      "sha256": "0cb9a565c36823a45175ace875238c7261c73c335017ee944ebb78bd4106d751",
+      "snapshot_relative": "results/recording-exposure-ledger/run-001/source-snapshots/exp064.txt"
+    },
+    "cats": {
+      "repository_path": "docs/research/cats-intake-2026-10-28.md",
+      "commit": "0106e156d999089464954870bb68c5ffeccec17e",
+      "sha256": "b47e61be746a683298db4d1ff09aa65b77be84fccf492e7c0187017367a75dae",
+      "snapshot_relative": "results/recording-exposure-ledger/run-001/source-snapshots/cats.txt"
+    },
+    "replies": {
+      "repository_path": "docs/research/source-replies-2026-10-22.md",
+      "commit": "0106e156d999089464954870bb68c5ffeccec17e",
+      "sha256": "22075e055ee72fa24eb43ee37e48967b4b062a58be5b280b6007ae43a9e1698a",
+      "snapshot_relative": "results/recording-exposure-ledger/run-001/source-snapshots/replies.txt"
+    }
+  },
+  "records": [
+    {
+      "id": "td3/20251027/1_salon_mac_cov_day",
+      "dataset": "td3",
+      "aliases": [
+        "1_salon_mac_cov_day",
+        "1_salon_mac_cov_day.zip",
+        "20251027/1_salon_mac_cov_day"
+      ],
+      "exposure_status": "development_exposed",
+      "image_observation": "observed",
+      "reference_observation": "not_classified_here",
+      "unit_kind": "temporal_recording",
+      "MACT_Offroad_training_membership": "unknown",
+      "evidence": [
+        {
+          "source": "staging",
+          "quote": "`1_salon_mac_cov_day.zip` is staged from Box and extracted under"
+        }
+      ],
+      "scope_note": "All windows of this recording share exposure, including unprocessed portions."
+    },
+    {
+      "id": "td3/20251027/night_thermal_so_salon2",
+      "dataset": "td3",
+      "aliases": [
+        "night_thermal_so_salon2",
+        "night_thermal_so_salon2.zip",
+        "20251027/night_thermal_so_salon2"
+      ],
+      "exposure_status": "development_exposed",
+      "image_observation": "observed",
+      "reference_observation": "not_classified_here",
+      "unit_kind": "temporal_recording",
+      "MACT_Offroad_training_membership": "unknown",
+      "evidence": [
+        {
+          "source": "exp013",
+          "quote": "The user staged `night_thermal_so_salon2.zip` in Box folder `428559630945`"
+        }
+      ],
+      "scope_note": "All windows of this recording share exposure, including unprocessed portions."
+    },
+    {
+      "id": "td3/20251027/0_salon_so_day",
+      "dataset": "td3",
+      "aliases": [
+        "0_salon_so_day",
+        "0_salon_so_day.zip",
+        "20251027/0_salon_so_day"
+      ],
+      "exposure_status": "development_exposed",
+      "image_observation": "observed",
+      "reference_observation": "not_classified_here",
+      "unit_kind": "temporal_recording",
+      "MACT_Offroad_training_membership": "unknown",
+      "evidence": [
+        {
+          "source": "exp025",
+          "quote": "# EXP-025: Additional `0_salon_so_day` recording"
+        }
+      ],
+      "scope_note": "All windows of this recording share exposure, including unprocessed portions."
+    },
+    {
+      "id": "td3/20251027/night_mac_salon_warehousefig8",
+      "dataset": "td3",
+      "aliases": [
+        "night_mac_salon_warehousefig8",
+        "night_mac_salon_warehousefig8.zip",
+        "20251027/night_mac_salon_warehousefig8"
+      ],
+      "exposure_status": "development_exposed",
+      "image_observation": "observed",
+      "reference_observation": "not_classified_here",
+      "unit_kind": "temporal_recording",
+      "MACT_Offroad_training_membership": "unknown",
+      "evidence": [
+        {
+          "source": "exp031",
+          "quote": "Date: 2026-10-22; acquisition began 2026-10-21 EDT. Branch `ore_ms`, base `859a58b44` plus frozen new source. **On the newly supplied `night_mac_salon_warehousefig8`, all three MSA-thermal20-frame runs complete without interpolation. RGB completes early but retains zero matches in middle and late; independent LK also supplies zero support in those two RGB windows. Thermal uncertainty/disagreement association is near zero early, negative middle and positive late. Fresh data reveals a useful availability contrast without establishing physical uncertainty calibration or a fusion rule.**"
+        }
+      ],
+      "scope_note": "All windows of this recording share exposure, including unprocessed portions."
+    },
+    {
+      "id": "td3/20251027/night_so_waypoint_skip2",
+      "dataset": "td3",
+      "aliases": [
+        "night_so_waypoint_skip2",
+        "night_so_waypoint_skip2.zip",
+        "20251027/night_so_waypoint_skip2"
+      ],
+      "exposure_status": "development_exposed",
+      "image_observation": "observed",
+      "reference_observation": "not_classified_here",
+      "unit_kind": "temporal_recording",
+      "MACT_Offroad_training_membership": "unknown",
+      "evidence": [
+        {
+          "source": "exp035",
+          "quote": "Box night_so_waypoint_skip2.zip, ID2543529906738,20,327,244,796bytes;54,855 safe unique ZIP entries under the expected root. Use bounded range reads; whole-ZIP SHA is not verified. Selected103 metadata/text members and360 images pass member CRC and SHA;12 extra RGB scout frames also pass CRC/SHA. No point clouds/model files are downloaded. Data resides under data/tartandrive3/20251027/night_so_waypoint_skip2."
+        }
+      ],
+      "scope_note": "All windows of this recording share exposure, including unprocessed portions."
+    },
+    {
+      "id": "td3/20251027/night_macthermal_salon_redcourse_waypointskip1",
+      "dataset": "td3",
+      "aliases": [
+        "night_macthermal_salon_redcourse_waypointskip1",
+        "night_macthermal_salon_redcourse_waypointskip1.zip",
+        "20251027/night_macthermal_salon_redcourse_waypointskip1"
+      ],
+      "exposure_status": "development_exposed",
+      "image_observation": "observed",
+      "reference_observation": "not_classified_here",
+      "unit_kind": "temporal_recording",
+      "MACT_Offroad_training_membership": "unknown",
+      "evidence": [
+        {
+          "source": "handoff",
+          "quote": "`night_macthermal_salon_redcourse_waypointskip1`,"
+        },
+        {
+          "source": "exp036",
+          "quote": "Recorded: 2026-10-22T22:26:57.192147-04:00. Branch `ore_ms`; starting commit `9e40ba724` plus recorded acquisition/analysis sources. **All four newly available archives were screened. Most sampled RGB is very dark; redcourse-waypointskip1 has a brief visibly illuminated late window and the strongest sampled RGB support. It is a candidate for bounded follow-up, not established sustained VO availability or a completed cross-modal error comparison.**"
+        }
+      ],
+      "scope_note": "Fixed source-image/LK screening is exposure even without neural inference."
+    },
+    {
+      "id": "td3/20251027/night_teleop_so_salon_fig8",
+      "dataset": "td3",
+      "aliases": [
+        "night_teleop_so_salon_fig8",
+        "night_teleop_so_salon_fig8.zip",
+        "20251027/night_teleop_so_salon_fig8"
+      ],
+      "exposure_status": "development_exposed",
+      "image_observation": "observed",
+      "reference_observation": "not_classified_here",
+      "unit_kind": "temporal_recording",
+      "MACT_Offroad_training_membership": "unknown",
+      "evidence": [
+        {
+          "source": "handoff",
+          "quote": "`night_teleop_so_salon_fig8`, `night_thermal_so_salon`, and"
+        },
+        {
+          "source": "exp036",
+          "quote": "Recorded: 2026-10-22T22:26:57.192147-04:00. Branch `ore_ms`; starting commit `9e40ba724` plus recorded acquisition/analysis sources. **All four newly available archives were screened. Most sampled RGB is very dark; redcourse-waypointskip1 has a brief visibly illuminated late window and the strongest sampled RGB support. It is a candidate for bounded follow-up, not established sustained VO availability or a completed cross-modal error comparison.**"
+        }
+      ],
+      "scope_note": "Fixed source-image/LK screening is exposure even without neural inference."
+    },
+    {
+      "id": "td3/20251027/night_thermal_so_salon",
+      "dataset": "td3",
+      "aliases": [
+        "night_thermal_so_salon",
+        "night_thermal_so_salon.zip",
+        "20251027/night_thermal_so_salon"
+      ],
+      "exposure_status": "development_exposed",
+      "image_observation": "observed",
+      "reference_observation": "not_classified_here",
+      "unit_kind": "temporal_recording",
+      "MACT_Offroad_training_membership": "unknown",
+      "evidence": [
+        {
+          "source": "handoff",
+          "quote": "`night_teleop_so_salon_fig8`, `night_thermal_so_salon`, and"
+        },
+        {
+          "source": "exp036",
+          "quote": "Recorded: 2026-10-22T22:26:57.192147-04:00. Branch `ore_ms`; starting commit `9e40ba724` plus recorded acquisition/analysis sources. **All four newly available archives were screened. Most sampled RGB is very dark; redcourse-waypointskip1 has a brief visibly illuminated late window and the strongest sampled RGB support. It is a candidate for bounded follow-up, not established sustained VO availability or a completed cross-modal error comparison.**"
+        }
+      ],
+      "scope_note": "Fixed source-image/LK screening is exposure even without neural inference."
+    },
+    {
+      "id": "td3/20251027/night_thermal_so_salon3",
+      "dataset": "td3",
+      "aliases": [
+        "night_thermal_so_salon3",
+        "night_thermal_so_salon3.zip",
+        "20251027/night_thermal_so_salon3"
+      ],
+      "exposure_status": "development_exposed",
+      "image_observation": "observed",
+      "reference_observation": "not_classified_here",
+      "unit_kind": "temporal_recording",
+      "MACT_Offroad_training_membership": "unknown",
+      "evidence": [
+        {
+          "source": "handoff",
+          "quote": "`night_thermal_so_salon3`. Presence is verified; their image readiness is not."
+        },
+        {
+          "source": "exp036",
+          "quote": "Recorded: 2026-10-22T22:26:57.192147-04:00. Branch `ore_ms`; starting commit `9e40ba724` plus recorded acquisition/analysis sources. **All four newly available archives were screened. Most sampled RGB is very dark; redcourse-waypointskip1 has a brief visibly illuminated late window and the strongest sampled RGB support. It is a candidate for bounded follow-up, not established sustained VO availability or a completed cross-modal error comparison.**"
+        }
+      ],
+      "scope_note": "Fixed source-image/LK screening is exposure even without neural inference."
+    },
+    {
+      "id": "ms2/_2021-08-06-11-23-45",
+      "dataset": "ms2",
+      "aliases": [
+        "_2021-08-06-11-23-45"
+      ],
+      "exposure_status": "development_exposed",
+      "image_observation": "observed",
+      "reference_observation": "observed_depth_or_pose",
+      "unit_kind": "temporal_recording",
+      "MACT_Offroad_training_membership": "unknown",
+      "evidence": [
+        {
+          "source": "exp048",
+          "quote": "Before inspecting day model outcomes, use EXP040's fixed first lexical official day-test sequence `_2021-08-06-11-23-45`, IDs000000\u2013000019. Preserve all20 IDs with no quality/outcome substitution. This is a distinct recording from night `_2021-08-13-21-18-04`; the80 day source-image hashes have zero overlap with the night pilot. It remains previously known metadata and unknown checkpoint-training membership, not verified training-held-out evaluation."
+        },
+        {
+          "source": "exp048",
+          "quote": "Source RGB uint8 at384\u00d71224\u00d73 and thermal uint16 at256\u00d7640 match the adapter contract. Depth remains uint16/256meters with zero invalid. The decoded day/night calibration dictionaries are exactly equal; identity stereo rotations and horizontal baseline conventions remain unchanged. All40 day pilot pose matrices pass the existing1e-5 rigidity screen without correction or use as `gt_pose`."
+        }
+      ],
+      "scope_note": "Previously prospective captures become development-exposed for future methods; whole recording is the partition unit."
+    },
+    {
+      "id": "ms2/_2021-08-13-21-18-04",
+      "dataset": "ms2",
+      "aliases": [
+        "_2021-08-13-21-18-04"
+      ],
+      "exposure_status": "development_exposed",
+      "image_observation": "observed",
+      "reference_observation": "observed_depth_or_pose",
+      "unit_kind": "temporal_recording",
+      "MACT_Offroad_training_membership": "unknown",
+      "evidence": [
+        {
+          "source": "exp041",
+          "quote": "Choose `_2021-08-13-21-18-04`, the first lexical sequence in the official night test split, before inspecting its pixels or model errors. EXP-040 recovered small day/night/rain odometry archives and verified download access. Sequential bzip2 image/depth archives could not supply a complete pilot through small prefixes. Acquire only this night sequence; do not acquire full day/rain image datasets."
+        },
+        {
+          "source": "exp041",
+          "quote": "RGB is uint8 BGR 1224x384; thermal is **raw uint16** 640x256. Preserve thermal precision. Source previews use per-image p0.5\u201399.5 thermal contrast only for display; that rendering is not a model preprocessing choice. RGB previews retain their original values and show a lit road. This establishes visual content, not tracking or MAC accuracy."
+        }
+      ],
+      "scope_note": "Previously prospective captures become development-exposed for future methods; whole recording is the partition unit."
+    },
+    {
+      "id": "ms2/_2021-08-06-16-19-00",
+      "dataset": "ms2",
+      "aliases": [
+        "_2021-08-06-16-19-00"
+      ],
+      "exposure_status": "development_exposed",
+      "image_observation": "observed",
+      "reference_observation": "observed_depth_or_pose",
+      "unit_kind": "temporal_recording",
+      "MACT_Offroad_training_membership": "unknown",
+      "evidence": [
+        {
+          "source": "exp054",
+          "quote": "Before seeing rain images or model outcomes,freeze `_2021-08-06-16-19-00`,original source IDs000000\u2013000019. Use all20 provided stereo-ID pairs for both cameras with no outcome/quality/timing-based replacement. Existing EXP040 access pointers work under exact HTTP206 range and bzip2-signature checks. Do not execute source all-sequence download scripts."
+        },
+        {
+          "source": "exp054",
+          "quote": "The full camera metadata has11,868 rows per stereo stream. Selected source tensors preserve native RGB uint8 at384\u00d71224\u00d73,raw thermal uint16 at256\u00d7640,and the explicit unchanged thermal preprocessing recipe. Calibration matches the earlier day/night decoded dictionaries exactly. The80 image hashes have zero overlap with the four earlier windows. All40 selected pose matrices pass the unchanged rigidity screen;they are not assigned as physical `gt_pose`."
+        }
+      ],
+      "scope_note": "Previously prospective captures become development-exposed for future methods; whole recording is the partition unit."
+    },
+    {
+      "id": "ms2/_2021-08-06-16-45-28",
+      "dataset": "ms2",
+      "aliases": [
+        "_2021-08-06-16-45-28"
+      ],
+      "exposure_status": "development_exposed",
+      "image_observation": "observed",
+      "reference_observation": "observed_depth_or_pose",
+      "unit_kind": "temporal_recording",
+      "MACT_Offroad_training_membership": "unknown",
+      "evidence": [
+        {
+          "source": "exp063",
+          "quote": "The pinned official [rainy test list](https://github.com/UkcheolShin/MS2-MultiSpectralStereoDataset/blob/0bb0fc1a544d8ad58c7fda5bc025cb0cbb400284/MS2dataset/test_rainy_list.txt), together with day/night lists, defines the candidate pool. Exclude the three scientifically examined development recordings and select the first remaining sequence lexicographically: `_2021-08-06-16-45-28`. Freeze originalIDs000000\u2013000019 before viewing new pixels or scores. No image-quality, timing or outcome replacement. The label is official split metadata, not verification of rainfall or a causal weather variable. Source access uses the user-supplied EXP040 download scripts; their hashes and split hashes are preserved."
+        },
+        {
+          "source": "exp063",
+          "quote": "All80 new camera file hashes are distinct from the240 recorded development camera hashes, including right images. This checks byte overlap, not physical scene independence. Full27.61GB transport archives stay local and are excluded from recovery; bounded original source pixels and all saved frontend fields are preserved."
+        }
+      ],
+      "scope_note": "Previously prospective captures become development-exposed for future methods; whole recording is the partition unit."
+    },
+    {
+      "id": "ms2/_2021-08-13-15-46-56",
+      "dataset": "ms2",
+      "aliases": [
+        "_2021-08-13-15-46-56"
+      ],
+      "exposure_status": "development_exposed",
+      "image_observation": "observed",
+      "reference_observation": "observed_depth_or_pose",
+      "unit_kind": "temporal_recording",
+      "MACT_Offroad_training_membership": "unknown",
+      "evidence": [
+        {
+          "source": "exp064",
+          "quote": "| day | _2021-08-13-15-46-56 | 20/20 | 48270 | 48026 | 0 | 244 | 0 |"
+        },
+        {
+          "source": "exp064",
+          "quote": "The first three development captures remain the sole training set (60frames/133,441both-valid pairs). EXP063\u2019s new capture and these three new captures were not added to training. Two official test captures remain unexamined:day `_2021-08-13-16-31-10`,night `_2021-08-13-22-16-02`. These suite captures now count as examined. Split labels do not establish weather/illumination causality; checkpoint network-training membership remains unknown. This is three distinct captures within a shared collection/rig/reference pipeline, not three independent physical-error datasets."
+        }
+      ],
+      "scope_note": "Previously prospective captures become development-exposed for future methods; whole recording is the partition unit."
+    },
+    {
+      "id": "ms2/_2021-08-13-22-03-03",
+      "dataset": "ms2",
+      "aliases": [
+        "_2021-08-13-22-03-03"
+      ],
+      "exposure_status": "development_exposed",
+      "image_observation": "observed",
+      "reference_observation": "observed_depth_or_pose",
+      "unit_kind": "temporal_recording",
+      "MACT_Offroad_training_membership": "unknown",
+      "evidence": [
+        {
+          "source": "exp064",
+          "quote": "| night | _2021-08-13-22-03-03 | 20/20 | 24387 | 24387 | 0 | 0 | 0 |"
+        },
+        {
+          "source": "exp064",
+          "quote": "The first three development captures remain the sole training set (60frames/133,441both-valid pairs). EXP063\u2019s new capture and these three new captures were not added to training. Two official test captures remain unexamined:day `_2021-08-13-16-31-10`,night `_2021-08-13-22-16-02`. These suite captures now count as examined. Split labels do not establish weather/illumination causality; checkpoint network-training membership remains unknown. This is three distinct captures within a shared collection/rig/reference pipeline, not three independent physical-error datasets."
+        }
+      ],
+      "scope_note": "Previously prospective captures become development-exposed for future methods; whole recording is the partition unit."
+    },
+    {
+      "id": "ms2/_2021-08-06-16-59-13",
+      "dataset": "ms2",
+      "aliases": [
+        "_2021-08-06-16-59-13"
+      ],
+      "exposure_status": "development_exposed",
+      "image_observation": "observed",
+      "reference_observation": "observed_depth_or_pose",
+      "unit_kind": "temporal_recording",
+      "MACT_Offroad_training_membership": "unknown",
+      "evidence": [
+        {
+          "source": "exp064",
+          "quote": "| rainy | _2021-08-06-16-59-13 | 20/20 | 12838 | 11872 | 0 | 966 | 0 |"
+        },
+        {
+          "source": "exp064",
+          "quote": "The first three development captures remain the sole training set (60frames/133,441both-valid pairs). EXP063\u2019s new capture and these three new captures were not added to training. Two official test captures remain unexamined:day `_2021-08-13-16-31-10`,night `_2021-08-13-22-16-02`. These suite captures now count as examined. Split labels do not establish weather/illumination causality; checkpoint network-training membership remains unknown. This is three distinct captures within a shared collection/rig/reference pipeline, not three independent physical-error datasets."
+        }
+      ],
+      "scope_note": "Previously prospective captures become development-exposed for future methods; whole recording is the partition unit."
+    },
+    {
+      "id": "ms2/_2021-08-13-16-31-10",
+      "dataset": "ms2",
+      "aliases": [
+        "_2021-08-13-16-31-10"
+      ],
+      "exposure_status": "reported_reserved",
+      "image_observation": "reported_unexamined",
+      "reference_observation": "not_established_by_recording",
+      "unit_kind": "temporal_recording",
+      "MACT_Offroad_training_membership": "unknown",
+      "evidence": [
+        {
+          "source": "exp064",
+          "quote": "The first three development captures remain the sole training set (60frames/133,441both-valid pairs). EXP063\u2019s new capture and these three new captures were not added to training. Two official test captures remain unexamined:day `_2021-08-13-16-31-10`,night `_2021-08-13-22-16-02`. These suite captures now count as examined. Split labels do not establish weather/illumination causality; checkpoint network-training membership remains unknown. This is three distinct captures within a shared collection/rig/reference pipeline, not three independent physical-error datasets."
+        },
+        {
+          "source": "exp040",
+          "quote": "Downloaded all three small odometry archives (2,302,619/4,066,785/4,655,533 bytes for day/night/rain) and only first8MiB of each selected sync/depth archive. Prefixes contain RGB-right images or RGB intensity, not complete paired RGB/thermal/depth. Thus the scout is not a paired evaluation. The fixed night sync/depth archives total39,732,010,515 bytes; full acquisition is a separately documented continuation. No day/rain image bulk acquisition."
+        }
+      ],
+      "scope_note": "Prior notes report these captures unexamined. Archive staging alone does not prove or disprove per-record reference inspection; neither a completed test freeze nor independently certified non-access is asserted."
+    },
+    {
+      "id": "ms2/_2021-08-13-22-16-02",
+      "dataset": "ms2",
+      "aliases": [
+        "_2021-08-13-22-16-02"
+      ],
+      "exposure_status": "reported_reserved",
+      "image_observation": "reported_unexamined",
+      "reference_observation": "not_established_by_recording",
+      "unit_kind": "temporal_recording",
+      "MACT_Offroad_training_membership": "unknown",
+      "evidence": [
+        {
+          "source": "exp064",
+          "quote": "The first three development captures remain the sole training set (60frames/133,441both-valid pairs). EXP063\u2019s new capture and these three new captures were not added to training. Two official test captures remain unexamined:day `_2021-08-13-16-31-10`,night `_2021-08-13-22-16-02`. These suite captures now count as examined. Split labels do not establish weather/illumination causality; checkpoint network-training membership remains unknown. This is three distinct captures within a shared collection/rig/reference pipeline, not three independent physical-error datasets."
+        },
+        {
+          "source": "exp040",
+          "quote": "Downloaded all three small odometry archives (2,302,619/4,066,785/4,655,533 bytes for day/night/rain) and only first8MiB of each selected sync/depth archive. Prefixes contain RGB-right images or RGB intensity, not complete paired RGB/thermal/depth. Thus the scout is not a paired evaluation. The fixed night sync/depth archives total39,732,010,515 bytes; full acquisition is a separately documented continuation. No day/rain image bulk acquisition."
+        }
+      ],
+      "scope_note": "Prior notes report these captures unexamined. Archive staging alone does not prove or disprove per-record reference inspection; neither a completed test freeze nor independently certified non-access is asserted."
+    },
+    {
+      "id": "cats/v2/OUTDOOR/CARS/scene1",
+      "dataset": "cats",
+      "aliases": [
+        "OUTDOOR/CARS/scene1/"
+      ],
+      "exposure_status": "development_exposed",
+      "image_observation": "observed",
+      "reference_observation": "observed",
+      "unit_kind": "static_scene",
+      "MACT_Offroad_training_membership": "unknown",
+      "evidence": [
+        {
+          "source": "cats",
+          "quote": "first lexicographic indexed outdoor scene: `OUTDOOR/CARS/scene1/`. Its selected"
+        },
+        {
+          "source": "cats",
+          "quote": "This scene is now inspected development material; it must not later be labelled"
+        }
+      ],
+      "scope_note": "Other scenes and alternate release versions are unclassified here. A static scene cannot validate temporal VO selection."
+    },
+    {
+      "id": "sthereo/Valley/Evening",
+      "dataset": "sthereo",
+      "aliases": [
+        "STheReO Valley Evening"
+      ],
+      "exposure_status": "development_exposed",
+      "image_observation": "not_obtained_in_cited_audit",
+      "reference_observation": "observed",
+      "unit_kind": "temporal_recording",
+      "MACT_Offroad_training_membership": "unknown",
+      "evidence": [
+        {
+          "source": "exp040",
+          "quote": "## Actual STheReO Valley Evening metadata"
+        },
+        {
+          "source": "exp040",
+          "quote": "Both local/global pose CSVs have 1,362 finite seven-column rows, identical strictly increasing timestamps and identical final three angle columns. Duration is 349.773665428 s. Median/p90/p99/max reference gap is 0.201269626/0.399049759/0.5997750284/7.399873495 s; 464 gaps exceed 0.25 s. Do not interpolate indiscriminately across these gaps. Angle units/order and camera/body transform remain unverified. The paper describes LiDAR/IMU with RTK GPS reference estimation; this is not error-free camera ground truth."
+        }
+      ],
+      "scope_note": "Reference poses were inspected even though no valid image samples were obtained in EXP040; image access is not rechecked here."
+    }
+  ],
+  "limitations": [
+    "Project exposure is distinct from checkpoint training overlap.",
+    "Reported-reserved is a candidate status, not an executable method/test freeze or verified absence of all historical access.",
+    "Unlisted records and scenes are unknown; do not infer unused from absence.",
+    "No scientific payloads opened or future test IDs assigned by this ledger."
+  ]
+}
