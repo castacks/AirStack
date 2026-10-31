@@ -986,3 +986,7 @@ No production optimizer/default is replaced.
 ## Experimental interval motion model
 
 `causal_interval_model.py` provides a fixed stationary-body-twist projection; `evaluate_interval_model.py` freezes predictions before separate saved-report scoring and `validate_interval_model.py` independently recomputes matrix/scalar results. See [EXP088](../../../experiments/EXP-088-causal-interval-model.md). Model projections retain unverified admission flags and do not change the existing layer defaults.
+
+## Shared-prefix model pipeline
+
+`prefix_interval_model.py` streams existing shared-controller prefixes into the unchanged EXP088 projection and original availability/history rules. `evaluate_prefix_interval_model.py` separates preparation/prediction/scoring; `validate_prefix_interval_model.py` independently audits prefixes, models and matched populations. See [EXP089](../../../experiments/EXP-089-prefix-model-pipeline.md). Outputs remain unverified research projections, with original defaults unchanged.
