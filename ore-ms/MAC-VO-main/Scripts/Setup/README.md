@@ -994,3 +994,7 @@ No production optimizer/default is replaced.
 ## Recording exposure ledger
 
 `audit_recording_exposure.py` verifies pinned historical-note evidence, reconciles a saved Box filename inventory and diagnoses proposed whole-recording partition leakage through explicit aliases. See [dated ledger and limits](../../../docs/research/recording-exposure-ledger-2026-10-31.md). Reported reserves are not a completed test freeze or verified checkpoint holdout.
+
+## Third-recording shared capture
+
+`validate_third_recording_capture.py --root <ore-ms> --run <shared-run> --plan <capture-plan.json> --manifest <prepared-manifest.json>` binds the existing independent timeline audit to the exact frozen20-frame EXP023day windows. [EXP090](../../../experiments/EXP-090-third-recording-shared-capture.md) preserves the collection driver, fresh-control parity and conditional annotation workflow. No gate is fitted or production default changed.

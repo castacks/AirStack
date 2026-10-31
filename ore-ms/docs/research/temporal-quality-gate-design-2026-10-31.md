@@ -1,5 +1,7 @@
 # Temporal quality gate: a concrete development design
 
+**Collection completed,2026-10-31:** [EXP090](../../experiments/EXP-090-third-recording-shared-capture.md) executes the bounded third-development-recording collection described below. Three shared captures and six fresh controls pass, adding48complete-history rows; the development index is now161rows across3recordings. The gate remains unfitted, the reserve IDs remain unassigned, and the candidate is not a complete prospective freeze. The collection section below is the original plan and now has executed recovery/runtime/output evidence.
+
 2026-10-31 America/New_York; branch `ore_ms`, design base `ca3238af5`.
 
 **Status: draft candidate, not fitted and not a complete prospective freeze.**
