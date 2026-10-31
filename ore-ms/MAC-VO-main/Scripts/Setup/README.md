@@ -982,3 +982,7 @@ No production optimizer/default is replaced.
 ## Exact-interval motion composition
 
 `arbiter_motion_chain.compose` joins a unique endpoint-contiguous path of already-admitted motions with matching frame and documented acquisition clock, available by a controller deadline. Gaps and ambiguous paths return null motion. See [contract and validation](../../../docs/research/arbiter-exact-chain-2026-10-30.md).
+
+## Experimental interval motion model
+
+`causal_interval_model.py` provides a fixed stationary-body-twist projection; `evaluate_interval_model.py` freezes predictions before separate saved-report scoring and `validate_interval_model.py` independently recomputes matrix/scalar results. See [EXP088](../../../experiments/EXP-088-causal-interval-model.md). Model projections retain unverified admission flags and do not change the existing layer defaults.
