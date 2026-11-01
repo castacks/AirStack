@@ -100,7 +100,9 @@ controller binding, unchanged protected source hashes, zero observer errors,
 and exclusive new output directories. Check missing/late/duplicate/pose/scope
 corruptions are rejected. Stop on any mismatch; do not tune, choose a different
 window or overwrite history. Pin/check the declared runtime before any inference;
-if unavailable, record a separately frozen runtime amendment first. This protocol
-has not been executed and no real historical root is newly proven.
+if unavailable, record a separately frozen runtime amendment first. At declaration this protocol
+was unexecuted. [EXP092](../../experiments/EXP-092-root-initialization-capture.md)
+now records the completed capture under its frozen runtime amendment; no real
+historical root is newly proven.
 
 Recovery: `ore_ms:ore-ms/backups/2026-11-01-root-initialization-witness`.
