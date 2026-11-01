@@ -31,7 +31,7 @@ Passing establishes these recorded evidence bindings only. It does not certify o
 
 ## Explicit root initialization
 
-Graph parent zero is a distinct case. Index zero or an identity pose alone never passes. An explicit initialization envelope must match the scope/camera/controller clock and arrive before the child write, without reusing an existing worker-envelope journal ordinal. Its event must contain:
+Graph parent zero is a distinct case. Index zero or an identity pose alone never passes. An explicit initialization envelope must match the scope/camera/controller clock and arrive before the child write. Originally it required a separate noncolliding journal ordinal. The [2026-11-01 opt-in witness](root-initialization-witness-2026-11-01.md) additionally permits the identical initialization envelope already bound to the supplied prefix; differing ordinal collisions and multiple root records reject. Its event must contain:
 
 - `kind=graph_root_initialized`, `documented=True` (a real boolean), and a nonempty `evidence_ref`;
 - exact `frame_idx=0` and `time_ns` matching the child’s native start;

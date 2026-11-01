@@ -19,6 +19,9 @@ from Scripts.Setup.td3_tracking_report import tracking_report
 
 
 def run(args, modality):
+    root_witness = getattr(args, 'record_root_initialization', False)
+    if root_witness and not getattr(args, 'record_arbiter_events', False):
+        raise ValueError('root initialization requires arbiter event recording')
     torch.manual_seed(0); np.random.seed(0)
     output = args.output / modality
     output.mkdir(parents=True, exist_ok=False)
@@ -56,7 +59,8 @@ def run(args, modality):
             recorder = UncertaintyRecorder(system, output / "uncertainty")
         if getattr(args, "record_arbiter_events", False):
             from Scripts.Setup.arbiter_event_recorder import ArbiterEventRecorder
-            event_recorder = ArbiterEventRecorder(system, output / 'arbiter-events', modality)
+            event_recorder = ArbiterEventRecorder(system, output / 'arbiter-events', modality,
+                record_root_initialization=root_witness)
         first_depth = system.Frontend.estimate_depth(sequence[0].stereo)
         depth = first_depth.depth.detach().cpu().numpy()
         covariance = first_depth.cov.detach().cpu().numpy()
@@ -129,6 +133,7 @@ if __name__ == "__main__":
     parser.add_argument("--modality", choices=["rgb", "thermal"], required=True)
     parser.add_argument("--record-uncertainty", action="store_true", help="Save raw variance and floor diagnostics")
     parser.add_argument("--record-arbiter-events", action="store_true", help="Observe health/motion result availability before refinement")
+    parser.add_argument("--record-root-initialization", action="store_true", help="Opt-in actual graph-root witness; requires --record-arbiter-events")
     parser.add_argument("--frames", type=int, default=10)
     parser.add_argument("--start", type=int, default=0, help="Start row in the paired manifest")
     parser.add_argument("--acknowledge-provisional-geometry", action="store_true")

@@ -1,5 +1,16 @@
 # OSMO + Box staging
 
+## Opt-in graph-root initialization witness (2026-11-01)
+
+`ArbiterEventRecorder(..., record_root_initialization=True)` observes successful
+empty-to-one initialization. The v3 runner exposes `--record-root-initialization`
+with `--record-arbiter-events`; shared replay accepts the root flag and journals
+controller receipts. Defaults remain off. Explicitly pass the scoped root journal
+envelope to `validate_predecessor`; exact binding is required, and no motion is
+admitted. Historical missing roots stay unproven. See the
+[root contract and frozen future capture](../../../docs/research/root-initialization-witness-2026-11-01.md).
+
+
 ## Frozen flow-closure quality probe (EXP-087)
 
 `flow_cycle_experiment.py` freezes six native frontend captures and gates reverse inference with bitwise forward endpoint controls. `flow_cycle_sampling.py` provides tested research bilinear sampling. `predict_flow_cycle.py` saves guarded label-free choices before `evaluate_flow_cycle.py` opens proxy losses; `validate_flow_cycle.py` independently checks every cached-corner sample, mask, action and matched loss. See [EXP-087](../../../experiments/EXP-087-flow-cycle-quality.md) for commands, negative day result and scope. Original estimators/defaults unchanged.

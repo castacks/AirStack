@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "status": "FROZEN_NOT_EXECUTED",
+  "created_at": "2026-11-01",
+  "base_commit": "d029f723505e0e6d3873aade6a91439f46a4e9c8",
+  "purpose": "root-witness preservation only; no scoring, training or physical-motion admission",
+  "source_sha256": {
+    "ore-ms/MAC-VO-main/Odometry/MACVO.py": "568c8219ffa910332dad0812f951c42ae2f11f7ca615131e0e46bae19964df32",
+    "ore-ms/MAC-VO-main/Scripts/Setup/arbiter_event_recorder.py": "328cbb59d3b7dbd51e96b412ed0981ae68844f552ef237a2b5edefc9a8ef27be",
+    "ore-ms/MAC-VO-main/Scripts/Setup/predecessor_state.py": "148bb5c84bb9d49f22be2eb9610e39e9a547088fc89af0437a6270f927a3ae58",
+    "ore-ms/MAC-VO-main/Scripts/Setup/run_td3_execution_v3.py": "519a11e8337692884967ba370ef8ed0b653c1b03643706b0e214670ae4ac1c34",
+    "ore-ms/MAC-VO-main/Scripts/Setup/shared_arbiter_replay.py": "1ec4ce67a511ccefb76cc37f84c876b27160180b46e19edbde8571fe7c76485e",
+    "ore-ms/MAC-VO-main/Scripts/UnitTest/test_root_initialization_witness.py": "7ad8c5d5f63ca84f494644a6ddeced8185f457c128484ca4a1ac67ab4066d79c"
+  },
+  "input": {
+    "recording": "td3/20251027/1_salon_mac_cov_day",
+    "window": "EXP090/day-original",
+    "start": 0,
+    "frames": 20,
+    "cameras": [
+      "rgb",
+      "thermal"
+    ],
+    "backup": "ore_ms:ore-ms/backups/2026-10-31-exp-090",
+    "backup_manifest_sha256": "3be60ac1863b3263397bac99989e6178b5987462dbc7a611e0508bf96620b656",
+    "archive": {
+      "bytes": 157916038,
+      "sha256": "c3420b785f41e044f66548b119e34df9e0545ea19f76e045b696c2c1abb18706"
+    },
+    "prepared_manifest": {
+      "path": "ore-ms/results/msa-replay/prepared-001/datasets/day-original/manifest.json",
+      "sha256": "97e6e8867935e57a3ce1c4a3722e5707d775e89ad8023140e5a21b522acf13a0"
+    },
+    "require_member_hash_verification": true,
+    "require_checkpoint_and_config_hashes_from_EXP090": true
+  },
+  "runtime": {
+    "required_historical_image_id": "sha256:af124653ef9cd76660bb8a91f5ae609d6488d41fc78269fe03b3f484c5d35fd1",
+    "unavailable_action": "stop; freeze a documented runtime amendment before inference",
+    "seed": 0
+  },
+  "arms": [
+    {
+      "name": "control",
+      "record_root_initialization": false
+    },
+    {
+      "name": "witness",
+      "record_root_initialization": true
+    }
+  ],
+  "controller": "unchanged shared_arbiter_replay schedule; pair i after group i+2; final decision before drain",
+  "checks": [
+    "exclusive outputs; inputs/runtime/source hashes verified before and after",
+    "all original saved numerical arrays bitwise equal per camera",
+    "all original event payloads equal after mapping sequence/clock metadata; retain new roots separately",
+    "exactly one root per camera; zero observer errors",
+    "bind copied initial timestamp/pose to first-write parent and controller prefix",
+    "audit each original deadline/prefix; compare advice/availability explicitly",
+    "missing/late/duplicate/changed-pose/changed-scope mutations reject"
+  ],
+  "forbidden": [
+    "historical journal backfill",
+    "reserved or new recordings",
+    "reference/proxy scoring",
+    "gate fitting",
+    "automatic motion admission",
+    "parameter or outcome-based window changes"
+  ]
+}

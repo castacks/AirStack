@@ -27,6 +27,7 @@ def validate_predecessor(*, scope_id, camera, clock_id, deadline_ns, child,
     Root evidence uses the same envelope with event.kind=graph_root_initialized,
     frame_idx=0, time_ns, pose_camera_map_xyzw, documented=True, evidence_ref.
     It must be supplied explicitly; no initialization is inferred from a pose.
+    It may be an exactly bound journal entry or a separate noncolliding envelope.
     """
     out = {'schema_version': 1, 'status': 'REJECT_PREDECESSOR_EVIDENCE',
            'reason': 'invalid_input', 'scope_id': scope_id, 'camera': camera,
@@ -107,8 +108,13 @@ def validate_predecessor(*, scope_id, camera, clock_id, deadline_ns, child,
             if root_initialization is None:
                 return reject('missing_root_initialization')
             root = root_initialization; event = root['event']
-            if any(e['sequence'] == root['sequence'] for e in observed_events):
+            bound_roots = [e for e in observed_events if e['sequence'] == root['sequence']]
+            if bound_roots and (len(bound_roots) != 1 or bound_roots[0] != root):
                 return reject('root_journal_sequence_conflict')
+            journal_roots = [e for e in observed_events
+                             if e['event']['kind'] == 'graph_root_initialized']
+            if journal_roots and (len(journal_roots) != 1 or journal_roots[0] != root):
+                return reject('ambiguous_root_initialization')
             if root['scope_id'] != scope_id or root['camera'] != camera:
                 return reject('root_scope_mismatch')
             if root['clock_id'] != clock_id:

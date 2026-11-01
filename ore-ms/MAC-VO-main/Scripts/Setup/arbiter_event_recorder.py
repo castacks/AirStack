@@ -64,7 +64,12 @@ class ArbiterEventRecorder:
     flow. Attach before the first frame; supported optimizer schema is one
     from_idx/frame_idx per submission. No body-frame conversion is inferred.
     """
-    def __init__(self, system, output, modality, clock=time.monotonic_ns):
+    def __init__(self, system, output, modality, clock=time.monotonic_ns, *,
+                 record_root_initialization=False):
+        if type(record_root_initialization) is not bool:
+            raise TypeError('record_root_initialization must be boolean')
+        if record_root_initialization and not callable(getattr(system, 'initialize', None)):
+            raise TypeError('root observation requires initialize')
         self.system, self.output, self.modality, self.clock = system, Path(output), modality, clock
         self.output.mkdir(parents=True, exist_ok=False)
         self.events, self.errors, self.originals = [], [], []
@@ -83,6 +88,34 @@ class ArbiterEventRecorder:
         self._wrap(system.KeypointSelector, 'select_point', self._select)
         self._wrap(system.OutlierFilter, 'filter', self._filter)
         self._wrap(system.MapRefiner, 'elaborate_map', self._refine)
+        if record_root_initialization:
+            self._wrap(system, 'initialize', self._initialize)
+
+    def _initialize(self, original, frame0):
+        # Observe the actual call, never infer initialization at attachment time.
+        before = self._observe('root_frame_count', lambda: len(array(
+            self.system.graph.frames.data['time_ns'].tensor)))
+        returned = original(frame0)  # Preserve exceptions and the return object.
+        def observe():
+            graph = self.system.graph
+            times = array(graph.frames.data['time_ns'].tensor).reshape(-1)
+            if before != 0 or len(times) != 1:
+                raise ValueError('root requires an observed empty-to-one initialization')
+            timestamp = times[0]
+            if (not np.issubdtype(times.dtype, np.integer) or
+                    isinstance(frame0.stereo.frame_ns, (bool, np.bool_)) or
+                    not isinstance(frame0.stereo.frame_ns, (int, np.integer)) or
+                    int(timestamp) < 0 or int(timestamp) != int(frame0.stereo.frame_ns)):
+                raise ValueError('root sensor timestamp must match exactly')
+            pose = array(graph.frames.data['pose'][0]).reshape(-1)
+            relative_pose(pose, pose)  # Validate copied pose, without normalizing stored values.
+            self._emit('graph_root_initialized', frame_idx=0, time_ns=int(timestamp),
+                pose_camera_map_xyzw=pose, documented=True,
+                evidence_ref='Odometry/MACVO.py:MACVO.initialize/root-v1',
+                initialization_observation='successful_initialize_empty_to_one',
+                physical_motion_admitted=False)
+        self._observe('root_initialization', observe)
+        return returned
 
     def _wrap(self, obj, name, handler):
         original = getattr(obj, name)

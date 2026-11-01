@@ -109,6 +109,8 @@ def run(args):
     options = dict(dataset=str(args.dataset),manifest=str(args.manifest),output=str(args.output),
         frames=args.frames,start=args.start,acknowledge_provisional_geometry=True,
         record_uncertainty=True,record_arbiter_events=True)
+    if getattr(args, 'record_root_initialization', False):
+        options['record_root_initialization'] = True
     protocol = {'schema_version':1,'mode':'offline_serial_sensor_ordered', 'input_rows':rows,
         'deadline_policy':'pair i after group i+2; last pair at final frame boundary before optimizer drain',
         'priority':['rgb','thermal'],'tie_break':'fixed preference, not quality ranking',
@@ -117,6 +119,8 @@ def run(args):
         'source_sha256':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in
             (Path(__file__),Path(__file__).with_name('pair_arbiter_events.py'),
              Path(__file__).with_name('run_td3_execution_v3.py'),Path(__file__).with_name('arbiter_event_recorder.py'))}}
+    if getattr(args, 'record_root_initialization', False):
+        protocol['record_root_initialization'] = True
     (args.output/'protocol.json').write_text(json.dumps(protocol,indent=2)+'\n')
     ctx = mp.get_context('spawn')
     processes, pipes, events, decisions = {}, {}, {c:[] for c in CAMERAS}, []
@@ -203,4 +207,5 @@ if __name__ == '__main__':
     p.add_argument('--start',type=int,default=0)
     p.add_argument('--timeout-seconds',type=float,default=300)
     p.add_argument('--acknowledge-provisional-geometry',action='store_true')
+    p.add_argument('--record-root-initialization',action='store_true')
     run(p.parse_args())
