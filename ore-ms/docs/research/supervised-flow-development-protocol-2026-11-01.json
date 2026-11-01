@@ -1,0 +1,719 @@
+{
+  "schema_version": 1,
+  "status": "FROZEN_BEFORE_DECODED_PAYLOAD_ACCESS",
+  "created_at_utc": "2026-11-01T23:28:34.206815+00:00",
+  "base_commit": "4a491ac70898ff6a5cefc2ed903ff53f427201cf",
+  "purpose": "bounded RGB synthetic provided-flow development ingestion;no fit or independenttest",
+  "cases": [
+    {
+      "environment": "abandonedfactory",
+      "trajectory": "P000",
+      "partition": "train",
+      "pairs": 16,
+      "recording_id": "tartanair-v1/abandonedfactory/Easy/P000"
+    },
+    {
+      "environment": "amusement",
+      "trajectory": "P001",
+      "partition": "validation",
+      "pairs": 4,
+      "recording_id": "tartanair-v1/amusement/Easy/P001"
+    }
+  ],
+  "archives": [
+    {
+      "environment": "abandonedfactory",
+      "kind": "image_left",
+      "public_url": "https://huggingface.co/datasets/theairlabcmu/tartanair/resolve/65e00180ea952475878a748543e11e9ec20beaac/abandonedfactory/Easy/image_left.zip",
+      "repository_revision": "65e00180ea952475878a748543e11e9ec20beaac",
+      "archive_size": 7074777614,
+      "archive_lfs_sha256_asserted_not_recomputed": "8a46d32d9ebf42667f913d64de340499b5bcb9e9c428d2df7f6c3443f8867976",
+      "metadata_bytes": 1982647,
+      "selected_members": [
+        {
+          "name": "abandonedfactory/Easy/P000/image_left/000000_left.png",
+          "size": 923627,
+          "compressed_size": 404048,
+          "crc32": 1600216110,
+          "header_offset": 4042697350,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/image_left/000001_left.png",
+          "size": 923627,
+          "compressed_size": 390669,
+          "crc32": 3566617474,
+          "header_offset": 3912095907,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/image_left/000002_left.png",
+          "size": 923627,
+          "compressed_size": 500834,
+          "crc32": 494914476,
+          "header_offset": 3725206558,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/image_left/000003_left.png",
+          "size": 923627,
+          "compressed_size": 512400,
+          "crc32": 512325913,
+          "header_offset": 3692847608,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/image_left/000004_left.png",
+          "size": 923627,
+          "compressed_size": 522071,
+          "crc32": 1003492248,
+          "header_offset": 3574401337,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/image_left/000005_left.png",
+          "size": 923627,
+          "compressed_size": 533727,
+          "crc32": 1614910823,
+          "header_offset": 4321866607,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/image_left/000006_left.png",
+          "size": 923627,
+          "compressed_size": 554867,
+          "crc32": 2840670386,
+          "header_offset": 4312605248,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/image_left/000007_left.png",
+          "size": 923627,
+          "compressed_size": 570571,
+          "crc32": 4235582701,
+          "header_offset": 3553161211,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/image_left/000008_left.png",
+          "size": 923627,
+          "compressed_size": 579276,
+          "crc32": 2542192699,
+          "header_offset": 4165059019,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/image_left/000009_left.png",
+          "size": 923627,
+          "compressed_size": 585015,
+          "crc32": 4223975867,
+          "header_offset": 3566945647,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/image_left/000010_left.png",
+          "size": 923627,
+          "compressed_size": 593036,
+          "crc32": 1365870907,
+          "header_offset": 3922397855,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/image_left/000011_left.png",
+          "size": 923627,
+          "compressed_size": 592204,
+          "crc32": 1081015449,
+          "header_offset": 4289298290,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/image_left/000012_left.png",
+          "size": 923627,
+          "compressed_size": 596423,
+          "crc32": 3050303931,
+          "header_offset": 3811408069,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/image_left/000013_left.png",
+          "size": 923627,
+          "compressed_size": 604722,
+          "crc32": 2891739450,
+          "header_offset": 4161322699,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/image_left/000014_left.png",
+          "size": 923627,
+          "compressed_size": 611955,
+          "crc32": 1852238780,
+          "header_offset": 3963613305,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/image_left/000015_left.png",
+          "size": 923627,
+          "compressed_size": 615829,
+          "crc32": 2684304735,
+          "header_offset": 4223954344,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/image_left/000016_left.png",
+          "size": 923627,
+          "compressed_size": 620110,
+          "crc32": 1029941635,
+          "header_offset": 3630373613,
+          "method": 8,
+          "flags": 0
+        }
+      ],
+      "index_relative": "results/supervised-flow-development/run-001/abandonedfactory-image_left-index.json",
+      "index_sha256": "8c44b6afa16dcdefaebc62722be266594ee41eef343c4aa7039ffa5614541c5c"
+    },
+    {
+      "environment": "abandonedfactory",
+      "kind": "flow_flow",
+      "public_url": "https://huggingface.co/datasets/theairlabcmu/tartanair/resolve/65e00180ea952475878a748543e11e9ec20beaac/abandonedfactory/Easy/flow_flow.zip",
+      "repository_revision": "65e00180ea952475878a748543e11e9ec20beaac",
+      "archive_size": 34137856465,
+      "archive_lfs_sha256_asserted_not_recomputed": "3135272602d34d50f6e7dccc55a5bb10c294624a7923c50df537201acd175037",
+      "metadata_bytes": 2087925,
+      "selected_members": [
+        {
+          "name": "abandonedfactory/Easy/P000/flow/000000_000001_flow.npy",
+          "size": 2457728,
+          "compressed_size": 2155159,
+          "crc32": 3818548476,
+          "header_offset": 20283785488,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/flow/000001_000002_flow.npy",
+          "size": 2457728,
+          "compressed_size": 2159571,
+          "crc32": 2380575998,
+          "header_offset": 20577617177,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/flow/000002_000003_flow.npy",
+          "size": 2457728,
+          "compressed_size": 2167681,
+          "crc32": 3724215201,
+          "header_offset": 18047043640,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/flow/000003_000004_flow.npy",
+          "size": 2457728,
+          "compressed_size": 2168881,
+          "crc32": 188720312,
+          "header_offset": 21447825139,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/flow/000004_000005_flow.npy",
+          "size": 2457728,
+          "compressed_size": 2174619,
+          "crc32": 1842375632,
+          "header_offset": 18897802496,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/flow/000005_000006_flow.npy",
+          "size": 2457728,
+          "compressed_size": 2177248,
+          "crc32": 1787141940,
+          "header_offset": 21665067133,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/flow/000006_000007_flow.npy",
+          "size": 2457728,
+          "compressed_size": 2178606,
+          "crc32": 2463237707,
+          "header_offset": 19208275939,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/flow/000007_000008_flow.npy",
+          "size": 2457728,
+          "compressed_size": 2182305,
+          "crc32": 595063696,
+          "header_offset": 20835292858,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/flow/000008_000009_flow.npy",
+          "size": 2457728,
+          "compressed_size": 2181635,
+          "crc32": 3649684839,
+          "header_offset": 22055454115,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/flow/000009_000010_flow.npy",
+          "size": 2457728,
+          "compressed_size": 2182068,
+          "crc32": 3742385258,
+          "header_offset": 20218030262,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/flow/000010_000011_flow.npy",
+          "size": 2457728,
+          "compressed_size": 2185553,
+          "crc32": 3143835741,
+          "header_offset": 19896978785,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/flow/000011_000012_flow.npy",
+          "size": 2457728,
+          "compressed_size": 2193002,
+          "crc32": 2072413890,
+          "header_offset": 18961677914,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/flow/000012_000013_flow.npy",
+          "size": 2457728,
+          "compressed_size": 2198384,
+          "crc32": 3742692156,
+          "header_offset": 21944992012,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/flow/000013_000014_flow.npy",
+          "size": 2457728,
+          "compressed_size": 2200718,
+          "crc32": 1409327478,
+          "header_offset": 18754622274,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/flow/000014_000015_flow.npy",
+          "size": 2457728,
+          "compressed_size": 2205571,
+          "crc32": 1225464888,
+          "header_offset": 22037927754,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/flow/000015_000016_flow.npy",
+          "size": 2457728,
+          "compressed_size": 2205387,
+          "crc32": 3494332747,
+          "header_offset": 19462523810,
+          "method": 8,
+          "flags": 0
+        }
+      ],
+      "index_relative": "results/supervised-flow-development/run-001/abandonedfactory-flow_flow-index.json",
+      "index_sha256": "a97f77fac5a83268fe3ff8bac5057f39bdac3247aa71de41f00096d7a80140c5"
+    },
+    {
+      "environment": "abandonedfactory",
+      "kind": "flow_mask",
+      "public_url": "https://huggingface.co/datasets/theairlabcmu/tartanair/resolve/65e00180ea952475878a748543e11e9ec20beaac/abandonedfactory/Easy/flow_mask.zip",
+      "repository_revision": "65e00180ea952475878a748543e11e9ec20beaac",
+      "archive_size": 61432337,
+      "archive_lfs_sha256_asserted_not_recomputed": "796126be01b23510ef7e75ed5e1baa30d5f32fc0802033272e9207b37c54214f",
+      "metadata_bytes": 1924933,
+      "selected_members": [
+        {
+          "name": "abandonedfactory/Easy/P000/flow/000000_000001_mask.npy",
+          "size": 307328,
+          "compressed_size": 1543,
+          "crc32": 1566145636,
+          "header_offset": 34120437,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/flow/000001_000002_mask.npy",
+          "size": 307328,
+          "compressed_size": 1546,
+          "crc32": 3695581686,
+          "header_offset": 35847249,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/flow/000002_000003_mask.npy",
+          "size": 307328,
+          "compressed_size": 1487,
+          "crc32": 3912646381,
+          "header_offset": 38348229,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/flow/000003_000004_mask.npy",
+          "size": 307328,
+          "compressed_size": 1417,
+          "crc32": 2423515239,
+          "header_offset": 33740732,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/flow/000004_000005_mask.npy",
+          "size": 307328,
+          "compressed_size": 1498,
+          "crc32": 105310983,
+          "header_offset": 38052986,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/flow/000005_000006_mask.npy",
+          "size": 307328,
+          "compressed_size": 1449,
+          "crc32": 1117489094,
+          "header_offset": 37200084,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/flow/000006_000007_mask.npy",
+          "size": 307328,
+          "compressed_size": 1379,
+          "crc32": 3875740826,
+          "header_offset": 31227160,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/flow/000007_000008_mask.npy",
+          "size": 307328,
+          "compressed_size": 1307,
+          "crc32": 1884018336,
+          "header_offset": 31302873,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/flow/000008_000009_mask.npy",
+          "size": 307328,
+          "compressed_size": 1258,
+          "crc32": 2840202918,
+          "header_offset": 31822266,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/flow/000009_000010_mask.npy",
+          "size": 307328,
+          "compressed_size": 1258,
+          "crc32": 3364010589,
+          "header_offset": 32429635,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/flow/000010_000011_mask.npy",
+          "size": 307328,
+          "compressed_size": 1228,
+          "crc32": 1024112069,
+          "header_offset": 31407224,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/flow/000011_000012_mask.npy",
+          "size": 307328,
+          "compressed_size": 1691,
+          "crc32": 2702526703,
+          "header_offset": 32236077,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/flow/000012_000013_mask.npy",
+          "size": 307328,
+          "compressed_size": 1659,
+          "crc32": 1836369407,
+          "header_offset": 34427951,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/flow/000013_000014_mask.npy",
+          "size": 307328,
+          "compressed_size": 1561,
+          "crc32": 2476488892,
+          "header_offset": 37966907,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/flow/000014_000015_mask.npy",
+          "size": 307328,
+          "compressed_size": 1477,
+          "crc32": 2795843649,
+          "header_offset": 36298910,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "abandonedfactory/Easy/P000/flow/000015_000016_mask.npy",
+          "size": 307328,
+          "compressed_size": 1423,
+          "crc32": 2998885149,
+          "header_offset": 33789448,
+          "method": 8,
+          "flags": 0
+        }
+      ],
+      "index_relative": "results/supervised-flow-development/run-001/abandonedfactory-flow_mask-index.json",
+      "index_sha256": "6032c33f79111c089b8bdea4f970b77a8f0ed42a0128032a1699f0b82d28b4a3"
+    },
+    {
+      "environment": "amusement",
+      "kind": "image_left",
+      "public_url": "https://huggingface.co/datasets/theairlabcmu/tartanair/resolve/65e00180ea952475878a748543e11e9ec20beaac/amusement/Easy/image_left.zip",
+      "repository_revision": "65e00180ea952475878a748543e11e9ec20beaac",
+      "archive_size": 5186300920,
+      "archive_lfs_sha256_asserted_not_recomputed": "32afe5f7996dbd6e116192e32a239b46540c44ca83a48b1dc59c28f6b92fa447",
+      "metadata_bytes": 918465,
+      "selected_members": [
+        {
+          "name": "amusement/Easy/P001/image_left/000000_left.png",
+          "size": 923627,
+          "compressed_size": 672062,
+          "crc32": 1930025415,
+          "header_offset": 2050865760,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "amusement/Easy/P001/image_left/000001_left.png",
+          "size": 923627,
+          "compressed_size": 677440,
+          "crc32": 1383019549,
+          "header_offset": 1992051813,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "amusement/Easy/P001/image_left/000002_left.png",
+          "size": 923627,
+          "compressed_size": 682681,
+          "crc32": 2463652470,
+          "header_offset": 1890410720,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "amusement/Easy/P001/image_left/000003_left.png",
+          "size": 923627,
+          "compressed_size": 688392,
+          "crc32": 1096233438,
+          "header_offset": 1876681117,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "amusement/Easy/P001/image_left/000004_left.png",
+          "size": 923627,
+          "compressed_size": 694383,
+          "crc32": 1551520416,
+          "header_offset": 1819560606,
+          "method": 8,
+          "flags": 0
+        }
+      ],
+      "index_relative": "results/supervised-flow-development/run-001/amusement-image_left-index.json",
+      "index_sha256": "3931a4a78d6b2f688e711d283155e2ea4553b94565267e2559f45863b96e75d9"
+    },
+    {
+      "environment": "amusement",
+      "kind": "flow_flow",
+      "public_url": "https://huggingface.co/datasets/theairlabcmu/tartanair/resolve/65e00180ea952475878a748543e11e9ec20beaac/amusement/Easy/flow_flow.zip",
+      "repository_revision": "65e00180ea952475878a748543e11e9ec20beaac",
+      "archive_size": 17067711364,
+      "archive_lfs_sha256_asserted_not_recomputed": "bece8c1400e4df8f25a1725328f3232aa5955f4f610799ae3a4d48693489b43c",
+      "metadata_bytes": 978706,
+      "selected_members": [
+        {
+          "name": "amusement/Easy/P001/flow/000000_000001_flow.npy",
+          "size": 2457728,
+          "compressed_size": 2217647,
+          "crc32": 38280253,
+          "header_offset": 7067034392,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "amusement/Easy/P001/flow/000001_000002_flow.npy",
+          "size": 2457728,
+          "compressed_size": 2217636,
+          "crc32": 3406696842,
+          "header_offset": 7148732415,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "amusement/Easy/P001/flow/000002_000003_flow.npy",
+          "size": 2457728,
+          "compressed_size": 2220421,
+          "crc32": 2653537442,
+          "header_offset": 6264623154,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "amusement/Easy/P001/flow/000003_000004_flow.npy",
+          "size": 2457728,
+          "compressed_size": 2223145,
+          "crc32": 1268049439,
+          "header_offset": 7413748019,
+          "method": 8,
+          "flags": 0
+        }
+      ],
+      "index_relative": "results/supervised-flow-development/run-001/amusement-flow_flow-index.json",
+      "index_sha256": "bc9422b05ca7630d254997f03aa590bf95f25764dd9e3f2f52264019005071d2"
+    },
+    {
+      "environment": "amusement",
+      "kind": "flow_mask",
+      "public_url": "https://huggingface.co/datasets/theairlabcmu/tartanair/resolve/65e00180ea952475878a748543e11e9ec20beaac/amusement/Easy/flow_mask.zip",
+      "repository_revision": "65e00180ea952475878a748543e11e9ec20beaac",
+      "archive_size": 126200126,
+      "archive_lfs_sha256_asserted_not_recomputed": "5dd44990b6a5dfd0e1caabf577e000c9c826fa081e00f871323bf04eca1e1904",
+      "metadata_bytes": 908882,
+      "selected_members": [
+        {
+          "name": "amusement/Easy/P001/flow/000000_000001_mask.npy",
+          "size": 307328,
+          "compressed_size": 18046,
+          "crc32": 1012882699,
+          "header_offset": 50815449,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "amusement/Easy/P001/flow/000001_000002_mask.npy",
+          "size": 307328,
+          "compressed_size": 17262,
+          "crc32": 451914727,
+          "header_offset": 54139243,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "amusement/Easy/P001/flow/000002_000003_mask.npy",
+          "size": 307328,
+          "compressed_size": 17670,
+          "crc32": 447080838,
+          "header_offset": 58157874,
+          "method": 8,
+          "flags": 0
+        },
+        {
+          "name": "amusement/Easy/P001/flow/000003_000004_mask.npy",
+          "size": 307328,
+          "compressed_size": 18002,
+          "crc32": 242633572,
+          "header_offset": 50259270,
+          "method": 8,
+          "flags": 0
+        }
+      ],
+      "index_relative": "results/supervised-flow-development/run-001/amusement-flow_mask-index.json",
+      "index_sha256": "eb82207e43abcb1ba57327568bb6aa267c125d65f5b7b4ed37f302c7250573ed"
+    }
+  ],
+  "raw_root_relative": "data/tartanair-v1-development/run-001/source",
+  "source_sha256": {
+    "Scripts/Setup/remote_zip.py": "cc677f046b67934cf0f317bb0577a03a2ce537f2c1f59d07f5913ee8d1e9ddf5",
+    "Scripts/Setup/prepare_tartanair_flow.py": "73d2b110ebc7e680f4ac1fce0db3be9ff62b68ccc9ced50dae36b2c62069a5e5",
+    "Scripts/UnitTest/test_supervised_flow_preparation.py": "96a7f3b189d821f958a1730d24d8340a8a2014e3a19f2c7840143adc7240d1df"
+  },
+  "evidence_sha256": {
+    "results/supervised-flow-development/run-001/source-evidence/tools-commit.txt": "4c111f023743798e08f2ef56a97fda26d913fcf5a60641e09e60d16fb256f40b",
+    "results/supervised-flow-development/run-001/source-evidence/amusement-tree.json": "ffac03dd114245ba556a78ed6ee89ccdd8642d4566f323b3c7e9155cb54c35c8",
+    "results/supervised-flow-development/run-001/source-evidence/abandonedfactory-tree.json": "7af1c91410f6ca16d045ae676f9dc40eab7fd923319bc6cdb53452f7b0f4f229",
+    "results/supervised-flow-development/run-001/source-evidence/data-type.txt": "9b7bdd6095b01b60ab193ed0dfaf1989c463d73f5ff03b41507963fa4937b9aa",
+    "results/supervised-flow-development/run-001/source-evidence/azure-sample.html": "88261a721aa03e88de0716eda6d1f5a96dd0a09d72477120771d5d7c1fa90826",
+    "results/supervised-flow-development/run-001/source-evidence/download_training.py": "635454e0ea850c033fa6aa82168c6186823a1a7b9497d29f59c89cc88ee45983",
+    "results/supervised-flow-development/run-001/source-evidence/tools-readme.txt": "7a600a0c0dd799f1002eb7e48eed31e5d208873bca425b2974c57cd15867f98b",
+    "results/supervised-flow-development/run-001/source-evidence/license.txt": "824cfff48c0fcec3583c0abef024b0d38fa8e87c0fd1ae013ee7f475a863a7f6",
+    "results/supervised-flow-development/run-001/source-evidence/hf-info.txt": "296ce4213e4091414911c8eef33f861634eb91b752feb192426118c6a9e2a723",
+    "results/supervised-flow-development/run-001/abandonedfactory-image_left-index.json": "8c44b6afa16dcdefaebc62722be266594ee41eef343c4aa7039ffa5614541c5c",
+    "results/supervised-flow-development/run-001/abandonedfactory-flow_flow-index.json": "a97f77fac5a83268fe3ff8bac5057f39bdac3247aa71de41f00096d7a80140c5",
+    "results/supervised-flow-development/run-001/abandonedfactory-flow_mask-index.json": "6032c33f79111c089b8bdea4f970b77a8f0ed42a0128032a1699f0b82d28b4a3",
+    "results/supervised-flow-development/run-001/amusement-image_left-index.json": "3931a4a78d6b2f688e711d283155e2ea4553b94565267e2559f45863b96e75d9",
+    "results/supervised-flow-development/run-001/amusement-flow_flow-index.json": "bc9422b05ca7630d254997f03aa590bf95f25764dd9e3f2f52264019005071d2",
+    "results/supervised-flow-development/run-001/amusement-flow_mask-index.json": "eb82207e43abcb1ba57327568bb6aa267c125d65f5b7b4ed37f302c7250573ed"
+  },
+  "driver_sha256": "a3bf78e0a3b9d37d997c55892841d71d03a870726ca86aca320698e7ed1f3419",
+  "max_transfer_bytes": 134217728,
+  "sampling": "exact first16/4adjacent pairs;no image/label/model error filtering;different whole trajectories/environments",
+  "recipe": {
+    "image": "OpenCVuint8BGRdecode\u2192RGB\u2192float32/255\u2192CHW",
+    "flow": "providedfloat32HWCuv\u2192CHW;nativepixelunits;first\u2192second",
+    "valid_mask": "provideduint8mask==0;Truevalid",
+    "resize": false,
+    "crop": false,
+    "augmentation": false,
+    "expected_size": [
+      480,
+      640
+    ]
+  },
+  "future_fit_options": {
+    "seed": 0,
+    "steps": 16,
+    "checkpoint_interval": 8,
+    "lr": 1e-05,
+    "betas": [
+      0.9,
+      0.999
+    ],
+    "eps": 1e-08,
+    "weight_decay": 0.0,
+    "clip_norm": 1.0,
+    "gamma": 0.85,
+    "max_flow": 400.0
+  },
+  "initialization_sha256": "bec6edd7e195bab863132f1e9659cdd26e6eaeae7cfd24a626828de294cf5b3a",
+  "base_training_membership": "unknown",
+  "license_evidence": "HFdatasetcard declaresbsd-3-clause;officialdownloaderselectsthisrepo;retainnotice/attribution",
+  "failure_policy": "preserve failures;networktransport exact-source retries allowed with explicit logs;no content/threshold/window retune",
+  "whole_archive_sha256": "asserted by pinnedHFmetadata,not recomputed;HTTPSexactranges+frozencentralentries+ZIPCRC+extractedSHA256 verified"
+}
