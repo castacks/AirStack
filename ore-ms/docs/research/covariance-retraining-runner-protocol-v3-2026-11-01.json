@@ -1,0 +1,24 @@
+{
+  "created_at_utc": "2026-11-01T22:45:25.551379+00:00",
+  "status": "FROZEN_BEFORE_REAL_BACKEND_SMOKE",
+  "source_sha256": {
+    "Train/MatchingNet/retraining_manifest.py": "facd32b1b87ca70501fb7f12eac31c3c4cce15986044e8bb157519b6282b6f6c",
+    "Train/MatchingNet/retraining_runner.py": "bd26d5418896c635829e79b5f2f008d052832dfef3ece05c178b797994163b5b",
+    "Scripts/UnitTest/test_covariance_retraining_runner.py": "7577d853f337ec09eb5b99b2c8461c1fa514585ac73544e3f6da59bc375e31ca"
+  },
+  "initialization_sha256": "bec6edd7e195bab863132f1e9659cdd26e6eaeae7cfd24a626828de294cf5b3a",
+  "gpu_image_id": "sha256:8f7bf1c66f251755fe796a0ebd281b2131d870bc1f936c5585dcc28e08569a33",
+  "smoke": {
+    "inputs": "seed0CUDAuniform[1,3,64,64],twoimages",
+    "targets": "syntheticzero2Dflow,allvalid",
+    "gamma": 0.85,
+    "max_flow": 400.0,
+    "deterministic_algorithms": true,
+    "optimizer_steps": 0,
+    "failure_policy": "retainfirstattempt;no input/threshold retuning",
+    "purpose": "actual strict model loading/recurrent-output-mode/mean-preservation/finite-covariance-only-backward;not training or calibration"
+  },
+  "smoke_script_sha256": "ec460008e350f15ccaab2a334dbb94b44961e842deb9d6103e056c13de5ce299",
+  "supersedes_sha256": "5ad7a90c4d9b6add4344918b1a7d89092b1d6cb06b7105d3d756103dc0369440",
+  "amendment": "Keep v1 failure/v2 passing frozen-control proof. Add CUDA synthetic-fixture resume test and preserve pre-existing pending files on atomic-save collision. No model,input,target,threshold or frozen-control changes;repeat smoke against final source."
+}

@@ -91,6 +91,21 @@ def test_exact_resume_including_optimizer_rng_and_validation(corpus):
     assert original==stitched
 
 
+@pytest.mark.skipif(not torch.cuda.is_available(), reason='CUDA resume gate')
+def test_cuda_resume_preserves_model_optimizer_and_dropout_rng(corpus):
+    root, path, _ = corpus
+    for name, resume, stop in [('gpu-full',None,None), ('gpu-part',None,2),
+                               ('gpu-resume',root/'gpu-part/step-00000002.pt',None)]:
+        train(root,path,root/name,device='cuda',resume=resume,stop_after=stop,model_factory=fixture_factory)
+    a=torch.load(root/'gpu-full/step-00000004.pt',weights_only=True,map_location='cpu')
+    b=torch.load(root/'gpu-resume/step-00000004.pt',weights_only=True,map_location='cpu')
+    for key in a['model']:assert torch.equal(a['model'][key],b['model'][key]),key
+    for key,state in a['optimizer']['state'].items():
+        for field,value in state.items():assert torch.equal(value,b['optimizer']['state'][key][field])
+    assert all(torch.equal(x,y) for x,y in zip(a['rng']['cuda'],b['rng']['cuda']))
+    assert (root/'gpu-full/steps.jsonl').read_text()==(root/'gpu-part/steps.jsonl').read_text()+(root/'gpu-resume/steps.jsonl').read_text()
+
+
 def test_decoder_modes_and_trainables_are_explicit():
     model=FixtureModel();names=configure(model)
     assert names and not model.training and model.memory_decoder.training
@@ -153,6 +168,9 @@ def test_existing_output_and_checkpoint_never_overwritten(corpus):
     destination=root/'exclusive.pt';atomic_save({'value':1},destination)
     with pytest.raises(FileExistsError):atomic_save({'value':2},destination)
     assert torch.load(destination,weights_only=True)['value']==1
+    pending=root/'untouched.pending';pending.write_text('keep unrelated pending file')
+    with pytest.raises(FileExistsError):atomic_save({'value':3},root/'untouched.pt')
+    assert pending.read_text()=='keep unrelated pending file'
 
 
 def test_nonfinite_gradient_prevents_optimizer_update(corpus,monkeypatch):

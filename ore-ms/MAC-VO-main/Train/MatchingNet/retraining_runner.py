@@ -91,8 +91,10 @@ def atomic_save(payload, path):
     if path.exists():
         raise FileExistsError(path)
     temporary = path.with_suffix('.pending')
+    created = False
     try:
         with temporary.open('xb') as stream:
+            created = True
             torch.save(payload, stream); stream.flush(); os.fsync(stream.fileno())
         # Same-directory hard link publishes atomically and refuses overwrite.
         os.link(temporary, path)
@@ -100,7 +102,8 @@ def atomic_save(payload, path):
         try: os.fsync(descriptor)
         finally: os.close(descriptor)
     finally:
-        temporary.unlink(missing_ok=True)
+        if created:
+            temporary.unlink(missing_ok=True)
 
 
 def train(root, manifest_path, output, *, device='cuda', resume=None, stop_after=None,
