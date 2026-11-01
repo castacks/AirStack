@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "task": "dense_temporal_flow_covariance",
+  "contract_id": "diagonal-log-std-fixed-mean-nll-v1",
+  "modality": "rgb",
+  "ledger": {
+    "path": "experiments/recording-exposure-ledger-2026-10-31.json",
+    "sha256": "4d4efb87366e553c5080d38e36ec14b46499468f5319eb0d74d0e6d52303cdcf"
+  },
+  "architecture": {
+    "path": "experiments/covariance-retraining-architecture-2026-11-01.json",
+    "sha256": "6c2b31582d257d485774792bf46dcc87850130822ffd04f217e76de9a8632d13"
+  },
+  "initialization": {
+    "kind": "checkpoint_finetune",
+    "training_membership": "unknown",
+    "file": {
+      "path": "models/macslam/MACVO_FrontendCov.pth",
+      "sha256": "bec6edd7e195bab863132f1e9659cdd26e6eaeae7cfd24a626828de294cf5b3a"
+    }
+  },
+  "input_recipe": null,
+  "recordings": [],
+  "samples": [],
+  "optimization": {
+    "seed": null,
+    "steps": null,
+    "checkpoint_interval": null,
+    "lr": null,
+    "betas": null,
+    "eps": null,
+    "weight_decay": null,
+    "clip_norm": null,
+    "gamma": null,
+    "max_flow": null
+  }
+}
