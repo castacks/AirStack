@@ -1,0 +1,24 @@
+{
+  "created_at_utc": "2026-11-01T22:41:17.050848+00:00",
+  "status": "FROZEN_BEFORE_REAL_BACKEND_SMOKE",
+  "source_sha256": {
+    "Train/MatchingNet/retraining_manifest.py": "facd32b1b87ca70501fb7f12eac31c3c4cce15986044e8bb157519b6282b6f6c",
+    "Train/MatchingNet/retraining_runner.py": "ea9ea6f94bcde27264c758d867d0bf27143b16edf9a78f0401e6b83843b07b90",
+    "Scripts/UnitTest/test_covariance_retraining_runner.py": "cf66dc58571cc1b61f122c38b63c57c462a92e47eced45eb01b5574f25ea2591"
+  },
+  "initialization_sha256": "bec6edd7e195bab863132f1e9659cdd26e6eaeae7cfd24a626828de294cf5b3a",
+  "gpu_image_id": "sha256:8f7bf1c66f251755fe796a0ebd281b2131d870bc1f936c5585dcc28e08569a33",
+  "smoke": {
+    "inputs": "seed0CUDAuniform[1,3,64,64],twoimages",
+    "targets": "syntheticzero2Dflow,allvalid",
+    "gamma": 0.85,
+    "max_flow": 400.0,
+    "deterministic_algorithms": true,
+    "optimizer_steps": 0,
+    "failure_policy": "retainfirstattempt;no input/threshold retuning",
+    "purpose": "actual strict model loading/recurrent-output-mode/mean-preservation/finite-covariance-only-backward;not training or calibration"
+  },
+  "smoke_script_sha256": "9729e06e73adf81a3c8bc28129149d838ed875ccce25a72492b6a801ecfc3d88",
+  "supersedes_sha256": "27e878418af7f3f1845d967f3403f00fcaf01b5f620a7c5f213627f5d925ed23",
+  "amendment": "Retain first failed mean comparison. Baseline must freeze identical parameters before eval/train mode comparison; unchanged inputs,target,determinism,zero-tolerance assertion. Extend engine runtime identity to dependency/Python/cuDNN versions. No scientific fitting or optimizer step."
+}

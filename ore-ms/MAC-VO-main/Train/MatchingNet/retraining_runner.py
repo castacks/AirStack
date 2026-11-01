@@ -2,10 +2,12 @@
 import argparse
 import datetime
 import hashlib
+import importlib.metadata
 import json
 import os
 from pathlib import Path
 import random
+import platform
 
 import numpy as np
 import torch
@@ -123,8 +125,14 @@ def train(root, manifest_path, output, *, device='cuda', resume=None, stop_after
     torch.backends.cudnn.benchmark = False
     random.seed(options['seed']); np.random.seed(options['seed']); torch.manual_seed(options['seed'])
     if device == 'cuda': torch.cuda.manual_seed_all(options['seed'])
+    dependencies = {}
+    for package in ('timm', 'einops', 'yacs'):
+        try: dependencies[package] = importlib.metadata.version(package)
+        except importlib.metadata.PackageNotFoundError: dependencies[package] = None
     identity = {'manifest_sha256': sha256(manifest_path), 'source_sha256': source_identity(model_factory),
                 'torch': str(torch.__version__), 'numpy': np.__version__, 'device': device,
+                'python': platform.python_version(), 'dependencies': dependencies,
+                'cuda_version': torch.version.cuda, 'cudnn_version': torch.backends.cudnn.version(),
                 'gpu': torch.cuda.get_device_name(0) if device == 'cuda' else None,
                 'backend': model_factory.__module__ + '.' + model_factory.__qualname__,
                 'ordering': 'manifest_order_cyclic_batch1', 'scheduler': 'constant_lr',
