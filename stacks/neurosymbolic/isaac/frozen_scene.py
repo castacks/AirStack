@@ -51,6 +51,23 @@ class FrozenScene(PegasusApp):
         refs.ClearReferences()
         refs.AddReference(self.env_url, Sdf.Path("/World"))
         wait_for_stage(stage)
+        # A scene whose layer metadata names `frozen_colliders` (a regex over prim paths) gets colliders only on the
+        # meshes it matches: scene_prep's default (every mesh) left DisasterWorld Earthquake/Urban (176k meshes)
+        # cooking colliders on one core with the sim clock stopped. pegasus_app imports add_colliders after this hook.
+        keep = (Sdf.Layer.FindOrOpen(self.env_url) or Sdf.Layer.CreateAnonymous()).customLayerData.get("frozen_colliders")
+        if keep:
+            import re
+            import scene_prep
+            from pxr import Usd, UsdGeom, UsdPhysics
+
+            def add_colliders(prim, rx=re.compile(keep)):
+                n = 0
+                for p in Usd.PrimRange(prim):
+                    if p.IsA(UsdGeom.Mesh) and rx.search(str(p.GetPath())) and not p.HasAPI(UsdPhysics.CollisionAPI):
+                        UsdPhysics.CollisionAPI.Apply(p)
+                        n += 1
+                print(f"[frozen_scene] colliders on {n} meshes matching {keep!r} only")
+            scene_prep.add_colliders = add_colliders
 
     def run(self):
         # the render products exist only once their graphs have ticked: play a few frames first
