@@ -1,0 +1,189 @@
+{
+  "schema_version": 1,
+  "status": "ADAPTER_VERIFIED_OTHER_REQUIREMENTS_PENDING",
+  "created_at_utc": "2026-11-01T20:51:33.812482+00:00",
+  "source_commit": "0ca24bac51841bcfb6bc26cc6dfc60f956935c52",
+  "scope": {
+    "claim": "prospective_project_benchmark_if_eligible; unknown network overlap must stay explicit",
+    "physical_motion_output": false,
+    "production_adoption": false,
+    "test_scope": "first100providedgroups from each whole-recording partition; no full-recording performance claim"
+  },
+  "method": {
+    "name": "state_evidence_shadow_v1",
+    "parameters_frozen": true,
+    "code_sha256": {
+      "ore-ms/MAC-VO-main/Scripts/Setup/state_evidence_shadow.py": "1aca1f0eaceec3bcbca726e832f802c6aefc405959197d89d4fb0af717d74f22",
+      "ore-ms/MAC-VO-main/Scripts/Setup/predecessor_state.py": "148bb5c84bb9d49f22be2eb9610e39e9a547088fc89af0437a6270f927a3ae58",
+      "ore-ms/MAC-VO-main/Scripts/Setup/shared_arbiter_replay.py": "1ec4ce67a511ccefb76cc37f84c876b27160180b46e19edbde8571fe7c76485e",
+      "ore-ms/MAC-VO-main/Scripts/Setup/pair_arbiter_events.py": "3d8dc9e4dfc252381e5dc610a0e03a856bcdd2c59f96674cddeda576e7acd8d9",
+      "ore-ms/MAC-VO-main/Scripts/Setup/arbiter_history.py": "dddae09ae2edf5e10823be92002c5245a23dad8adddc8426e687ed5e48fb5055",
+      "ore-ms/MAC-VO-main/Scripts/Setup/prefix_interval_model.py": "786445d345976f4014ba680791592686d08fdab1d85466ca901fd9b65e1cbecc",
+      "ore-ms/MAC-VO-main/Scripts/Setup/causal_interval_model.py": "0eccaed29cf9a8888f2dfd81c1f7ef3610f82d55d04329e34946560f9e335303",
+      "ore-ms/MAC-VO-main/Scripts/Setup/arbiter_motion_output.py": "fc3bb65241d74fbf69f68b2db493bdf31bdf0aeefaa44f2aebe8f2931603724c",
+      "ore-ms/MAC-VO-main/Scripts/Setup/prospective_recording_contract.py": "208dbc16ead10b3b33fa32eba9169401bd5cf9b11995e791523a5e831d87fd0f",
+      "ore-ms/MAC-VO-main/DataLoader/Dataset/MS2.py": "22723f8de483a284088289e9b50333c931e243edf6312b531206cc0576fb57af",
+      "ore-ms/MAC-VO-main/Scripts/Setup/ms2_frontend_smoke.py": "e2c906455a8859e0c32125f04c8cc94de3ad93f9a9a9af100ada86cf8e511ad7",
+      "ore-ms/MAC-VO-main/Config/Experiment/MACVO/MACVO_Performant.yaml": "aacf06b15b95afc031538414e104be039d3bbdb4c8d9dbe1a7d41a18480ff92c",
+      "ore-ms/MAC-VO-main/Scripts/Setup/ms2_execution_adapter.py": "17f0543da24a729b8180ec4419219dea5a1989f4ac4283409029695f8d0f89f6",
+      "ore-ms/MAC-VO-main/Scripts/Setup/run_ms2_execution.py": "c566e991fe489697305d493e99a9a24bae269a2d60c4d536b5224e0df5c84d42",
+      "ore-ms/MAC-VO-main/Scripts/Setup/ms2_shared_arbiter_replay.py": "0a2d1a98d8e606593db4ab2d905251ad2f134e63b2cb18b67b9ec781a6a2ee07"
+    },
+    "runtime_image_id": "sha256:8f7bf1c66f251755fe796a0ebd281b2131d870bc1f936c5585dcc28e08569a33",
+    "checkpoint_sha256": {
+      "rgb": "bec6edd7e195bab863132f1e9659cdd26e6eaeae7cfd24a626828de294cf5b3a",
+      "thermal": "eed20722b73c80f016c4646741def4e4e5e2999feaf2c2715c5a6293dc35287a"
+    },
+    "seed": 0,
+    "fit_performed": false,
+    "root_witness_enabled": true,
+    "eligibility": "unchanged raw availability AND exact received-child predecessor evidence pass",
+    "choice": "fixed RGB preference;sole eligible fallback;noneABSTAIN",
+    "interval_model": "stationary_body_twist_v1;one native duration;commonRGBinterval"
+  },
+  "methods": [
+    "raw",
+    "history",
+    "shadow",
+    "rgb_only",
+    "thermal_only"
+  ],
+  "decision_policy": "group_lag_one_final_before_drain",
+  "live_latency_claim": false,
+  "partitions": {
+    "development": [
+      "td3/20251027/1_salon_mac_cov_day",
+      "td3/20251027/night_thermal_so_salon2",
+      "td3/20251027/0_salon_so_day",
+      "td3/20251027/night_mac_salon_warehousefig8",
+      "td3/20251027/night_so_waypoint_skip2",
+      "td3/20251027/night_macthermal_salon_redcourse_waypointskip1",
+      "td3/20251027/night_teleop_so_salon_fig8",
+      "td3/20251027/night_thermal_so_salon",
+      "td3/20251027/night_thermal_so_salon3",
+      "ms2/_2021-08-06-11-23-45",
+      "ms2/_2021-08-13-21-18-04",
+      "ms2/_2021-08-06-16-19-00",
+      "ms2/_2021-08-06-16-45-28",
+      "ms2/_2021-08-13-15-46-56",
+      "ms2/_2021-08-13-22-03-03",
+      "ms2/_2021-08-06-16-59-13",
+      "cats/v2/OUTDOOR/CARS/scene1",
+      "sthereo/Valley/Evening"
+    ],
+    "validation": [],
+    "test": []
+  },
+  "candidate_test_records": [
+    {
+      "recording_id": "ms2/_2021-08-13-16-31-10",
+      "assignment": "conditional_candidate_only",
+      "project_exposure": {
+        "pixels": "reported_unexamined",
+        "references": "not_established_by_recording",
+        "evidence_ref": null
+      },
+      "training_membership": "unknown"
+    },
+    {
+      "recording_id": "ms2/_2021-08-13-22-16-02",
+      "assignment": "conditional_candidate_only",
+      "project_exposure": {
+        "pixels": "reported_unexamined",
+        "references": "not_established_by_recording",
+        "evidence_ref": null
+      },
+      "training_membership": "unknown"
+    }
+  ],
+  "sampling": {
+    "frames_per_record": 100,
+    "start": 0,
+    "rule": "first_100_official_paired_groups_no_outcome_filter",
+    "selection_metadata_only": true,
+    "partition_unit": "whole temporal recording;all modalities/windows remain together",
+    "insufficient_length": "report metadata ineligible before outcomes;no substitute window"
+  },
+  "adapter": {
+    "dataset": "ms2",
+    "entrypoint": "Scripts.Setup.ms2_shared_arbiter_replay",
+    "preservation_verified": true,
+    "evidence_ref": "ore-ms/results/ms2-temporal-adapter/run-001/validation.json",
+    "existing_support": "native-preserving opt-in standalone/shared temporal adapter;four frozen20-frame development-pilot attempts;bitwise arrays/legacy events and root/controller audits pass",
+    "required_before_test": "development-only temporal execution/streamed-root/control-array preservation on already-exposed MS2;freeze adapter source/image/commands",
+    "verification_scope": "already-exposed20-group pilot only;future first100/recording input/calibration qualification remains separate",
+    "torch_threads": 1,
+    "opencv_threads": 1
+  },
+  "reference": {
+    "benchmark_target_verified": false,
+    "evidence_ref": null,
+    "physical_independent_pose_verified": false,
+    "physical_evidence_ref": null,
+    "required_before_test": "source-backed common-frame relative-pose target and native/common timestamp binding for temporal MS2;validate interpretation on exposed data without choosing from test errors",
+    "scope": "provided-reference benchmark may be qualified; exact exposure semantics/physical rig verification are not universal prerequisites for narrower benchmark"
+  },
+  "checkpoint_membership": {
+    "rgb": {
+      "status": "unknown",
+      "evidence_ref": null,
+      "unknown_restricts": "network-training-held-out claim only; does not alone block scoped project benchmark"
+    },
+    "thermal": {
+      "status": "unknown",
+      "evidence_ref": null,
+      "unknown_restricts": "network-training-held-out claim only; does not alone block scoped project benchmark"
+    }
+  },
+  "test_input_metadata": {
+    "frozen": false,
+    "manifest_ref": null,
+    "required": "exact official pairedIDs/timestamps/calibration/preprocessing/runtime/adapter sources and metadata-only archive/member manifest before payload access"
+  },
+  "evidence_files": {
+    "ore-ms/experiments/recording-exposure-ledger-2026-10-31.json": "4d4efb87366e553c5080d38e36ec14b46499468f5319eb0d74d0e6d52303cdcf",
+    "ore-ms/results/prospective-recording-validation/run-001/exposure-audit.json": "b5fe46dcbe51e88c7b83f0de0d68a2e479b5d31116043d39834e13f969f1ebe2",
+    "ore-ms/results/prospective-recording-validation/run-001/connected-search.json": "a6506d116a1daedaed471479328eda24b8b9db412b40d27dcf83049174ea061c",
+    "ore-ms/results/state-evidence-shadow/run-001/validation.json": "eb432e9f3b7937d95ed0870d671679ec9fbcfdb2e907f4128c8ef33d97c4c0d0",
+    "ore-ms/docs/research/rig-reference-contract-2026-10-30.md": "06c2b163b8bfe8b37f64ff848e83f85844f8dd604dd07ad6b929201e28d7bd2b",
+    "ore-ms/docs/research/ms2-calibration-protocol-2026-10-28.md": "569a6a28caa980f81703afa098f0e66c2bf28788c9f6b8fdadf434dcb7a91bc5",
+    "ore-ms/experiments/EXP-043-ms2-mac-adapter.md": "3972cc1ebbfbc72510d6a05b85079702466f049672b3c1e3e466295a3a05a22d",
+    "ore-ms/experiments/EXP-044-ms2-frontend-smoke.md": "1e55d2cdb4e78f5ababb93ec6573999ad44be312538c9d575e1663a92912b8d9",
+    "ore-ms/results/ms2-temporal-adapter/run-001/validation.json": "c63490e9e40b3eed4289a09be232f95fb35bdf3114b81948ed498606a1e6ad7d",
+    "ore-ms/results/ms2-temporal-adapter/run-001/capture-plan.json": "5687a63ca68700fa696752707a85e0f5dd96bf9164d378319f2b694355bb4dca",
+    "ore-ms/results/ms2-temporal-adapter/run-001/input-parity.json": "4231b1b73ef7e07a5a1cb9fced54221cae0da51358f3045dd5910dc2da401cb9",
+    "ore-ms/results/ms2-temporal-adapter/run-001/execution.json": "97c2d34e9b324bcd45bc432da007e4ae52973f0b4396ba4af2b5dd71dede83e3",
+    "ore-ms/results/ms2-temporal-adapter/run-001/state-coverage/protocol.json": "2b78a402b0e8609284985f6ba678e2a03f2e80abddb80cdde2b82fb13e7d6754",
+    "ore-ms/results/ms2-temporal-adapter/run-001/state-coverage/results.json": "53ce833a49a46fede9566f1408ddfb09afd6282d60865a65c28f842323f5fae6",
+    "ore-ms/docs/research/ms2-temporal-adapter-protocol-2026-11-01.json": "f32e35d1849b3d86a83e82574d363ae51572933aa09e442185796c563a6a5e36"
+  },
+  "metrics": {
+    "primary": "translation norm of inv(reference_delta)@predicted_delta in metres",
+    "secondary": "SO3geodesic degrees;coverage;state violation counts",
+    "reference_no_fit": true,
+    "report": "per-record own support,all10exactmatched comparisons and pair IDs,common raw/history/shadow cohorts;macro-average per-record summaries;all missing/late/unsupported/root cases",
+    "no_oracle_predictor": true
+  },
+  "decision_criteria": {
+    "state_contract": "zero shadow selections without valid bound evidence;explicit initialization distinct from nonroot recovery",
+    "quality_superiority": "strictly lower matched translation RMSE than each fixed-camera/raw/history baseline on every test recording;empty/tied comparisons do not pass",
+    "coverage": "shadow coverage at least raw fallback for each full declared population",
+    "rotation": "report separately;regression prevents unqualified overall-improvement claim",
+    "weaker_results": "describe as narrower benchmark/state-contract/coverage result;never relax primary criterion after outcomes",
+    "few_recordings": "descriptive outcomes;no population significance claim"
+  },
+  "execution_rules": [
+    "no payload/test execution while readiness incomplete",
+    "metadata-only candidate selection; no support/error-based window filtering",
+    "lock projections/actions before reference scoring",
+    "one declared execution per recording;preserve failures/no outcome retries",
+    "debugging/test-informed amendments consume prospective status for later methods",
+    "no automatic adoption;physical claims need separate reference/frame/clock evidence",
+    "if prior exposure cannot be established, any later reuse must explicitly declare exploratory/uncertain-exposure scope instead of calling it prospective"
+  ],
+  "supersedes": {
+    "plan_relative": "ore-ms/experiments/prospective-state-shadow-evaluation-2026-11-01.json",
+    "sha256": "0cd54ab843d67215bd4425d4ac7a9a29301edbfb327da297808fb3424c6bae64",
+    "amendment": "development-only MS2 adapter preservation;no new test qualification or assignment"
+  }
+}
