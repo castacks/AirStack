@@ -1,0 +1,221 @@
+{
+  "schema_version": 1,
+  "task": "dense_temporal_flow_covariance",
+  "contract_id": "diagonal-log-std-fixed-mean-nll-v1",
+  "modality": "rgb",
+  "ledger": {
+    "path": "experiments/recording-exposure-ledger-2026-11-01-tartanair-development.json",
+    "sha256": "42a2188279dbd12f6547dbd3bb6ec820768dd375a74c77025c1a936b0bdfaa8c"
+  },
+  "architecture": {
+    "path": "experiments/covariance-retraining-architecture-2026-11-01.json",
+    "sha256": "6c2b31582d257d485774792bf46dcc87850130822ffd04f217e76de9a8632d13"
+  },
+  "initialization": {
+    "kind": "checkpoint_finetune",
+    "training_membership": "unknown",
+    "file": {
+      "path": "models/macslam/MACVO_FrontendCov.pth",
+      "sha256": "bec6edd7e195bab863132f1e9659cdd26e6eaeae7cfd24a626828de294cf5b3a"
+    }
+  },
+  "input_recipe": {
+    "path": "experiments/covariance-retraining-tartanair-recipe-2026-11-01.json",
+    "sha256": "81548cbcd3d0d6df9f3c9dc718c8d8fe8d8e8792432b78a91d4932e6eed2405e"
+  },
+  "recordings": [
+    {
+      "id": "tartanair-v1/abandonedfactory/Easy/P000",
+      "label_kind": "provided_dense_temporal_flow",
+      "label_evidence": {
+        "path": "results/supervised-flow-development/run-001/abandonedfactory-label-evidence.json",
+        "sha256": "50844a0c55310999d1c21b36e2f4dd6f364b7be08a5475a3700113ac79d85bbe"
+      }
+    },
+    {
+      "id": "tartanair-v1/amusement/Easy/P001",
+      "label_kind": "provided_dense_temporal_flow",
+      "label_evidence": {
+        "path": "results/supervised-flow-development/run-001/amusement-label-evidence.json",
+        "sha256": "a0f00ef3fae9867e3691f6667ac58578b4ae623955a691d56832ade3d890f6b0"
+      }
+    }
+  ],
+  "samples": [
+    {
+      "recording_id": "tartanair-v1/abandonedfactory/Easy/P000",
+      "partition": "train",
+      "file": {
+        "path": "data/tartanair-v1-development/run-001/prepared/abandonedfactory/P000/000000_000001.npz",
+        "sha256": "b2759e33f42dbaf5ebb3506a627be1dd43989eef0636e0cc6a34236a9160ca81"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/abandonedfactory/Easy/P000",
+      "partition": "train",
+      "file": {
+        "path": "data/tartanair-v1-development/run-001/prepared/abandonedfactory/P000/000001_000002.npz",
+        "sha256": "13b38d9aaf19d5191a05093bb624a437f8cd95f1702dfaf4116d003646e9bf18"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/abandonedfactory/Easy/P000",
+      "partition": "train",
+      "file": {
+        "path": "data/tartanair-v1-development/run-001/prepared/abandonedfactory/P000/000002_000003.npz",
+        "sha256": "22680bda18a55be6ffb42408e6eeb2e04317f0eeddd59837f95c12dc24b06190"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/abandonedfactory/Easy/P000",
+      "partition": "train",
+      "file": {
+        "path": "data/tartanair-v1-development/run-001/prepared/abandonedfactory/P000/000003_000004.npz",
+        "sha256": "fc9ea23be679034fe7411998dae499aecb002074d0f9aff6f84bc6189de7653d"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/abandonedfactory/Easy/P000",
+      "partition": "train",
+      "file": {
+        "path": "data/tartanair-v1-development/run-001/prepared/abandonedfactory/P000/000004_000005.npz",
+        "sha256": "b3a604a7128cb6e8bd7f33df34800fc7532ae8c96ac44653271c99bec326e50a"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/abandonedfactory/Easy/P000",
+      "partition": "train",
+      "file": {
+        "path": "data/tartanair-v1-development/run-001/prepared/abandonedfactory/P000/000005_000006.npz",
+        "sha256": "40bc87b37a18343b76251c5bb58babd3829f21eed1b7acd64f0518035e053a9b"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/abandonedfactory/Easy/P000",
+      "partition": "train",
+      "file": {
+        "path": "data/tartanair-v1-development/run-001/prepared/abandonedfactory/P000/000006_000007.npz",
+        "sha256": "b6371124f9ef2da5f979bfcf0580505ed8a893bc525e5f530f16f1944e70a80c"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/abandonedfactory/Easy/P000",
+      "partition": "train",
+      "file": {
+        "path": "data/tartanair-v1-development/run-001/prepared/abandonedfactory/P000/000007_000008.npz",
+        "sha256": "7beb39b1c1a7fc29783bbd32ee3fbdc925687e2a21bea71fe587f315ba6e3e97"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/abandonedfactory/Easy/P000",
+      "partition": "train",
+      "file": {
+        "path": "data/tartanair-v1-development/run-001/prepared/abandonedfactory/P000/000008_000009.npz",
+        "sha256": "8026e28882b5faead3b8e602e02e3433562b92efa9ba15c0846ef49c073ae4b8"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/abandonedfactory/Easy/P000",
+      "partition": "train",
+      "file": {
+        "path": "data/tartanair-v1-development/run-001/prepared/abandonedfactory/P000/000009_000010.npz",
+        "sha256": "e151401e78539f33993b9830b87379ead8b9f66489836aacdb88759f828da9c3"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/abandonedfactory/Easy/P000",
+      "partition": "train",
+      "file": {
+        "path": "data/tartanair-v1-development/run-001/prepared/abandonedfactory/P000/000010_000011.npz",
+        "sha256": "63036784b762a9a78820acbe01205f38094ce7a8d654b9b7136e62fcaea1437a"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/abandonedfactory/Easy/P000",
+      "partition": "train",
+      "file": {
+        "path": "data/tartanair-v1-development/run-001/prepared/abandonedfactory/P000/000011_000012.npz",
+        "sha256": "b32d4128eb55c930653b34e719c33dbbe36f372d59546efdb748e881b83ec408"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/abandonedfactory/Easy/P000",
+      "partition": "train",
+      "file": {
+        "path": "data/tartanair-v1-development/run-001/prepared/abandonedfactory/P000/000012_000013.npz",
+        "sha256": "46002a42af083962b5b9029e60f83a0b6dbf904b0fd946920834891c8705a925"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/abandonedfactory/Easy/P000",
+      "partition": "train",
+      "file": {
+        "path": "data/tartanair-v1-development/run-001/prepared/abandonedfactory/P000/000013_000014.npz",
+        "sha256": "92918b8443f872632c7f1c5fe5cb1af12d88b927c67812c9cfe0c7ba6d1bbe88"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/abandonedfactory/Easy/P000",
+      "partition": "train",
+      "file": {
+        "path": "data/tartanair-v1-development/run-001/prepared/abandonedfactory/P000/000014_000015.npz",
+        "sha256": "d9753698703f1fb1f5f896c118e9acdcc6fd30b5b4bdbaa5ab696df372c0a3d5"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/abandonedfactory/Easy/P000",
+      "partition": "train",
+      "file": {
+        "path": "data/tartanair-v1-development/run-001/prepared/abandonedfactory/P000/000015_000016.npz",
+        "sha256": "aa5499794c83841cb2d0fb977b386573ea8cef8357fda6045841ececcb0b9352"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/amusement/Easy/P001",
+      "partition": "validation",
+      "file": {
+        "path": "data/tartanair-v1-development/run-001/prepared/amusement/P001/000000_000001.npz",
+        "sha256": "00941d5ff7cd1e96c62280d75725a8e4603e7b8517de92b3a0ff49e633004d2f"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/amusement/Easy/P001",
+      "partition": "validation",
+      "file": {
+        "path": "data/tartanair-v1-development/run-001/prepared/amusement/P001/000001_000002.npz",
+        "sha256": "82f9f255be533544b7e3470bee3cbdd95fdd87d3ff950da84f0c2a956fece5c9"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/amusement/Easy/P001",
+      "partition": "validation",
+      "file": {
+        "path": "data/tartanair-v1-development/run-001/prepared/amusement/P001/000002_000003.npz",
+        "sha256": "6cf69df4b5130d2873cf37882556c1653fb15c19730d61711a4878eb124b18eb"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/amusement/Easy/P001",
+      "partition": "validation",
+      "file": {
+        "path": "data/tartanair-v1-development/run-001/prepared/amusement/P001/000003_000004.npz",
+        "sha256": "aaee309ea295904c46af122f0dd99f012bf4bcd3e72a83f03161008c4c599cda"
+      }
+    }
+  ],
+  "optimization": {
+    "seed": 0,
+    "steps": 16,
+    "checkpoint_interval": 8,
+    "lr": 1e-05,
+    "betas": [
+      0.9,
+      0.999
+    ],
+    "eps": 1e-08,
+    "weight_decay": 0.0,
+    "clip_norm": 1.0,
+    "gamma": 0.85,
+    "max_flow": 400.0
+  }
+}
