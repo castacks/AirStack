@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "status": "FROZEN_BEFORE_NUMERICAL_GATE",
+  "created_at_utc": "2026-11-01T21:54:11.166785+00:00",
+  "source_commit": "273de5b83144c07af1af4a0f38d3eca9c1c745a4",
+  "contract_id": "diagonal-log-std-fixed-mean-nll-v1",
+  "formula": "sum_i gamma**(T-i-1) * mean_valid_components(0.5*(detached_squared_flow_residual*exp(-2*raw)+2*raw));variance=exp(2raw)",
+  "scope": "software/numerical prerequisite;fixed-mean covariance head objective;no model/dataset forward,optimizer step,fitting,checkpoint replacement,calibration or historical recipe claim",
+  "mask": "explicit boolean AND both GTcomponents finite AND GTnorm<max_flow;all-invalid raises;nonfinite predicted/raw valid entries raise",
+  "precision": "minimumFP32;retainFP64;no clamp or epsilon;reject unrepresentable variance,precision,NLL or raw-output gradient;trainer must separately check all parameter gradients",
+  "numeric_cases": 64,
+  "random_seed": 0,
+  "cpu_dtype": "float64",
+  "cuda_dtype": "float32",
+  "cpu_tolerance": {
+    "rtol": 2e-10,
+    "atol": 2e-11
+  },
+  "cuda_tolerance": {
+    "rtol": 2e-05,
+    "atol": 2e-06
+  },
+  "finite_difference": {
+    "step": 1e-05,
+    "rtol": 2e-07,
+    "atol": 2e-09
+  },
+  "runtime_images": {
+    "cpu": "sha256:6f8c1a104929edf2f56a9ae26cc01596cd040baf51743f2d5950b71e392b3bf4",
+    "gpu": "sha256:8f7bf1c66f251755fe796a0ebd281b2131d870bc1f936c5585dcc28e08569a33"
+  },
+  "source_sha256": {
+    "ore-ms/MAC-VO-main/Train/MatchingNet/covariance_contract.py": "2581a1f6c3bc2ccf8a4db886f7bbda5e6582e55e020958673ada1945b7bb3d53",
+    "ore-ms/MAC-VO-main/Scripts/Setup/validate_covariance_training_contract.py": "64089fec9ef5cba703f5b8236e20468fa4060bdced6145ef7ad01e2823db61bd",
+    "ore-ms/MAC-VO-main/Scripts/UnitTest/test_covariance_training_contract.py": "87785cd7f5e2f0e50cf1208a57a9cc42370508b9e5596c3871827b7ecd591aca"
+  },
+  "protected_source_count": 588,
+  "checkpoint_controls_sha256": {
+    "models/macslam/MACVO_FrontendCov.pth": "bec6edd7e195bab863132f1e9659cdd26e6eaeae7cfd24a626828de294cf5b3a",
+    "models/macslam/MACT_Offroad.pth": "eed20722b73c80f016c4646741def4e4e5e2999feaf2c2715c5a6293dc35287a"
+  },
+  "next_required": "known initialization/data lineage,recording train/validation splits,exact supervised task/preprocessing,and separate opt-in runner with resume/finite-gradient/data provenance checks"
+}
