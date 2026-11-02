@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "status": "DESIGN_ONLY_NO_MODEL_TRAINING",
+  "client_date": "2026-11-02",
+  "created_at_utc": "2026-11-02T06:01:59.982674+00:00",
+  "source_commit": "2066d225fe9d355b2567ed2973fb6e155242d58d",
+  "contract_id": "final-trace-fixed-mean-risk-score-v1",
+  "formula": ".5*(s/v+log(v));s=sum(fixed_mean_error^2);v=sum(exp(2raw));mean over valid pixels",
+  "interpretation": "strictly consistent score for conditional mean squared endpoint error; not a2D Gaussian likelihood or direct pairwise loss",
+  "identifiability": "only trace identified; axis allocation unconstrained; zero conditional error has infimum at v->0",
+  "support": "unchanged diagonal-contract admission;FP32 minimum;finite/support/output-gradient checks;finalstage only",
+  "new_source_sha256": {
+    "MAC-VO-main/Train/MatchingNet/trace_risk_contract.py": "067c18d2cda1196fb32d0861f9b5a420012286d90a237d5028a1d3aff6ec94f4",
+    "MAC-VO-main/Scripts/UnitTest/test_trace_risk_contract.py": "8f35025cea2b4797969a1ef8cd1bdda8c127338a9703c7fcd4d36c153dbe428f"
+  },
+  "future_comparison": {
+    "training_manifest": {
+      "path": "experiments/covariance-coverage-broad-2026-11-01.json",
+      "sha256": "f6d0c9c4110240748c40d4c4fe70d1c10bfe8b668ce33dd51beb98c1dbc13d7f"
+    },
+    "arms": [
+      "recurrent_diagonal_nll",
+      "final_diagonal_nll",
+      "final_trace_risk_score"
+    ],
+    "trainable_prefix": "memory_decoder.cov_update.",
+    "initialization": {
+      "kind": "checkpoint_finetune",
+      "training_membership": "unknown",
+      "file": {
+        "path": "models/macslam/MACVO_FrontendCov.pth",
+        "sha256": "bec6edd7e195bab863132f1e9659cdd26e6eaeae7cfd24a626828de294cf5b3a"
+      }
+    },
+    "optimization": {
+      "seed": 0,
+      "steps": 48,
+      "checkpoint_interval": 24,
+      "lr": 1e-05,
+      "betas": [
+        0.9,
+        0.999
+      ],
+      "eps": 1e-08,
+      "weight_decay": 0.0,
+      "clip_norm": 1.0,
+      "gamma": 0.85,
+      "max_flow": 400.0
+    },
+    "training_pairs": 48,
+    "training_order": "unchanged broad manifest roundrobin; one pass48updates",
+    "validation": "all EXP102/10336 observed development pairs; office16,japanesealley16,amusement4; no tuning/early stopping/model selection",
+    "primary": "two-added-record macro withinpair MSE at50percent retention, trace-ranked; compare finaltrace vs finaldiagonal",
+    "secondary": [
+      "all fixed retention curves and random/oracle",
+      "all perrecord/group recurrent and final diagonal NLL",
+      "joint coverage .5,.8,.9,.95,.99",
+      "standardized bias/secondmoments",
+      "training objective and gradients",
+      "state/frozenmean/resume audit"
+    ],
+    "interpretation_gate": "ranking gain with coverage/NLL cost reported as tradeoff; no claim of dominance unless primary improves with no degradation in any declared record95coverage/finalNLL",
+    "execution_gate": "separate source/runtime/CLI/resumeidentity freeze and validation before model training; no launch in this stage",
+    "future_test_requirement": "separate not-yet-scored recording evidence; unknown basepretraining prohibits training-heldout claims"
+  },
+  "optimizer_steps_on_models": 0,
+  "candidate_promoted": false,
+  "reserves_accessed": false,
+  "failure_policy": "retain failed tests; no metric/record/threshold/hyperparameter changes based on evaluation outcomes"
+}
