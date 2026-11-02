@@ -1,0 +1,63 @@
+{
+  "models": {
+    "baseline": {
+      "path": "models/macslam/MACVO_FrontendCov.pth",
+      "sha256": "bec6edd7e195bab863132f1e9659cdd26e6eaeae7cfd24a626828de294cf5b3a"
+    },
+    "full_block": {
+      "path": "results/training-coverage-comparison/run-001/broad/step-00000048.pt",
+      "sha256": "23712ed47fac43b4b3a364c7f2174003311f11233e25708a88e5c628d81e7c38"
+    },
+    "last_layer": {
+      "path": "results/final-layer-adaptation/run-001/last_layer/step-00000048.pt",
+      "sha256": "4c6186a07b7a47a650737405462476168f58913b994626c522206bbdb96367db"
+    }
+  },
+  "evaluation_manifest": {
+    "path": "experiments/frozen-multirecord-evaluation-2026-11-01.json",
+    "sha256": "2e7e381557c9398b65be4973306a04a9f5c2b7971727eb3c0b628738c8f3df18"
+  },
+  "training_manifest_relative": "experiments/covariance-coverage-broad-2026-11-01.json",
+  "runtime_image_id": "sha256:8f7bf1c66f251755fe796a0ebd281b2131d870bc1f936c5585dcc28e08569a33",
+  "schema_version": 1,
+  "status": "FROZEN_BEFORE_CALIBRATION_RANKING_OUTCOMES",
+  "created_at_utc": "2026-11-02T05:03:03.144610+00:00",
+  "source_commit": "48333b736b5575b82247706a253d45b353f0ad90",
+  "prior_evaluation": "results/frozen-multirecord-evaluation/run-001/evaluation.json",
+  "coverage_levels": [
+    0.5,
+    0.8,
+    0.9,
+    0.95,
+    0.99
+  ],
+  "retained_fractions": [
+    0.1,
+    0.25,
+    0.5,
+    0.75,
+    1.0
+  ],
+  "stage": "final",
+  "support": "EXP102 identical valid mask + finite flow + norm(flow)<400",
+  "variance": "exp(2raw)",
+  "joint_ellipse": "sum(error^2 / variance) <= -2log(1-p)",
+  "ranking": "ascending trace variance within each pair; flat valid-pixel index resolves ties",
+  "risk": "mean squared endpoint error, pixel^2; k=max(1,floor(fraction*N))",
+  "random": "full-pair mean squared error, expected selection risk",
+  "oracle": "ascending actual squared endpoint error; same tie policy",
+  "aggregation": "pool pixel counts/sums within each recording, then equal-record macro; new_only/legacy_only/all_three",
+  "primary_ranking": "new_only macro MSE at50percent retention vs random expectation",
+  "primary_calibration": "joint95percent coverage",
+  "optimizer_steps": 0,
+  "candidate_promoted": false,
+  "scope": "observed synthetic RGB development recordings; unknown base pretraining overlap",
+  "prior_evaluation_sha256": "53327e80546c813a8c23cd818221cf118e9fed7e7223f7c8b5cfc584fb239e52",
+  "source_file_count": 599,
+  "retained_private_protocol_sha256": "934834d9b7277c8467e48fa37ceb7a2da6d6ba759b824358b27259b33be6f722",
+  "execution_script_sha256": {
+    "capture.py": "1a2d5e6794f8d8bab45b896b78dd0b54d475593df11dbe91e43d45088636a9ab",
+    "metrics.py": "e9f9635af7cb6e0a4fecc77ec122a60ed72edf5efbeaf347568a70dc1ca08625"
+  },
+  "source_hash_map_sha256": "4baf030bbfe49821e8e7e50b516f59d564a3c15d017ff873661225d4b5aff204"
+}
