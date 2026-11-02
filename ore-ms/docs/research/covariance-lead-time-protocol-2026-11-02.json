@@ -1,0 +1,50 @@
+{
+  "date": "2026-11-02",
+  "parent_commit": "a2c5d8801",
+  "kind": "retrospective exploratory saved-output lead diagnostic",
+  "sources": {
+    "results/long-night-validation/angular-001/analysis.json": "56a1b10b354bf6b525571a1935924ebaf250a054600546595ba23e4c170a5074",
+    "results/long-night-validation/angular-001/plan.json": "e3061ab86f622b3b7ba6f185d9f66bbbaa6aa41e28e344ade83fbc15ef1b0e45",
+    "results/temporal-gate-development/run-001/features.json": "e4a4d7cf3883c0eda886b3d2e9d6517c77aa22842588322919d3d8a1a7c8062b",
+    "results/temporal-gate-development/run-001/labels.json": "96a7d3358dffdfd9879047f96d3327db870daaf94beef68241772e0354fee1e4"
+  },
+  "horizons_seconds": [
+    0,
+    0.1,
+    0.5,
+    1.0
+  ],
+  "matching": "Within the same case/window, target ordinal > origin, target interval start >= origin end; nearest start to origin end + horizon, ties earlier; absolute start error <= 0.05 seconds. No resampling, gap bridging between windows, or target reuse deduplication. Report realized start/end leads.",
+  "minimum_correlation_n": 8,
+  "long_night": {
+    "population": "all for variance_rad2 and source_std; lk_valid for disagreement_rad",
+    "predictors": [
+      "log current full-grid median variance",
+      "log current LK-supported median disagreement",
+      "current source texture std"
+    ],
+    "targets": [
+      "log future full-grid median variance",
+      "log future LK-supported median disagreement"
+    ],
+    "controls": "Covariance carry-forward absolute log error versus zero-change is reported directly; disagreement persistence is an oracle diagnostic requiring LK, not deployable independent ground truth. No p-values or effective-independent-sample claims.",
+    "reporting": "Each of six modality-window cases separately; correlation masks finite per comparison. Log requires strictly positive. Preserve tiny-support RGB counts."
+  },
+  "gate": {
+    "population": "274 original decisions. Temporal matching performed before any feature/label eligibility. Future-relative-quality comparisons require origin eligible and target both-supported with both finite proxy losses; current proxy labels also finite for matched oracle comparison.",
+    "current": "lag0 log_median_trace RGB minus thermal; raw pixel units retained, score is not calibrated cross-camera risk.",
+    "history": "fixed arithmetic mean of all three lag trace gaps (log domain), no fitting",
+    "targets": [
+      "future RGB squared translation proxy loss minus thermal squared translation proxy loss",
+      "future RGB squared rotation proxy loss minus thermal squared rotation proxy loss"
+    ],
+    "controls": "current respective squared-loss gap -> future gap is an oracle persistence diagnostic, unavailable online as physical truth",
+    "reporting": "Each recording/window separately; no pooled window correlation or architecture selection"
+  },
+  "timing_limit": "Observation-interval times, not measured neural completion/deadline times. Gate common intervals do not certify physical exposure or compute latency. No achieved pre-inference latency claim.",
+  "inference_calls": 0,
+  "optimizer_steps": 0,
+  "new_raw_payloads": 0,
+  "reserve_access": false,
+  "candidate_promoted": false
+}
