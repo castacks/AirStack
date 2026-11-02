@@ -1,0 +1,352 @@
+{
+  "schema_version": 1,
+  "task": "frozen_covariance_recording_evaluation",
+  "models": {
+    "baseline": {
+      "path": "models/macslam/MACVO_FrontendCov.pth",
+      "sha256": "bec6edd7e195bab863132f1e9659cdd26e6eaeae7cfd24a626828de294cf5b3a"
+    },
+    "full_block": {
+      "path": "results/training-coverage-comparison/run-001/broad/step-00000048.pt",
+      "sha256": "23712ed47fac43b4b3a364c7f2174003311f11233e25708a88e5c628d81e7c38"
+    },
+    "last_layer": {
+      "path": "results/final-layer-adaptation/run-001/last_layer/step-00000048.pt",
+      "sha256": "4c6186a07b7a47a650737405462476168f58913b994626c522206bbdb96367db"
+    }
+  },
+  "ledger": {
+    "path": "experiments/recording-exposure-ledger-2026-11-01-frozen-evaluation.json",
+    "sha256": "09d257bd7c978d6be55fa46207697bf9e24620c608172f4ac47592e70c4f73bf"
+  },
+  "recipe": {
+    "path": "experiments/frozen-multirecord-recipe-2026-11-01.json",
+    "sha256": "ed694191d4047aeffbf68252fdbd7130936621cf852f8c0e1c6fc5da5dade2dd"
+  },
+  "source_protocol": {
+    "path": "results/frozen-multirecord-evaluation/run-001/data-protocol.json",
+    "sha256": "179167602bd9bb4692f0ec617796943446ad896c3640a6a03696a62484cd5275"
+  },
+  "records": [
+    {
+      "recording_id": "tartanair-v1/office/Easy/P000",
+      "cohort": "new_only",
+      "pairs": 16,
+      "label_evidence": {
+        "path": "results/frozen-multirecord-evaluation/run-001/office-label-evidence.json",
+        "sha256": "aed3701c5c4a423cdbc70c332458b2aa0b24aa3529c2ff1535a1b13ecf9a2fb0"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/japanesealley/Easy/P001",
+      "cohort": "new_only",
+      "pairs": 16,
+      "label_evidence": {
+        "path": "results/frozen-multirecord-evaluation/run-001/japanesealley-label-evidence.json",
+        "sha256": "b52bd0a5222cf88c1dad2fb9fff76bae733116cc0cb2ce0becb5e56275c9bc93"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/amusement/Easy/P001",
+      "cohort": "legacy_only",
+      "pairs": 4,
+      "label_evidence": {
+        "path": "results/supervised-flow-development/run-001/amusement-label-evidence.json",
+        "sha256": "a0f00ef3fae9867e3691f6667ac58578b4ae623955a691d56832ade3d890f6b0"
+      }
+    }
+  ],
+  "samples": [
+    {
+      "recording_id": "tartanair-v1/office/Easy/P000",
+      "cohort": "new_only",
+      "file": {
+        "path": "data/tartanair-frozen-evaluation/run-001/prepared/office/P000/000000_000001.npz",
+        "sha256": "a8a4c5f44f23da421bfbab69205d57e3e916ac87a4adb586deda36ac344fad0d"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/office/Easy/P000",
+      "cohort": "new_only",
+      "file": {
+        "path": "data/tartanair-frozen-evaluation/run-001/prepared/office/P000/000001_000002.npz",
+        "sha256": "e9b7119b0c3da252a2a8380d15878b8d0dde8aa5d107c46525ab1334370bd2bf"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/office/Easy/P000",
+      "cohort": "new_only",
+      "file": {
+        "path": "data/tartanair-frozen-evaluation/run-001/prepared/office/P000/000002_000003.npz",
+        "sha256": "0edd8b4f0ba8a47bc55f544272f57ddb21754190bff84f6901c6395a35e43f36"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/office/Easy/P000",
+      "cohort": "new_only",
+      "file": {
+        "path": "data/tartanair-frozen-evaluation/run-001/prepared/office/P000/000003_000004.npz",
+        "sha256": "8c7f9588fed2fa3c79f974732f95bf84549231ec899c650771c5406a3b1e0c11"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/office/Easy/P000",
+      "cohort": "new_only",
+      "file": {
+        "path": "data/tartanair-frozen-evaluation/run-001/prepared/office/P000/000004_000005.npz",
+        "sha256": "a6f1765e60af7db8fe9daf2980b181bb646639c3b455032395cfc492442f07d6"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/office/Easy/P000",
+      "cohort": "new_only",
+      "file": {
+        "path": "data/tartanair-frozen-evaluation/run-001/prepared/office/P000/000005_000006.npz",
+        "sha256": "7d35c1aa0b8c396c683c8f5c58f7b3c03b7f3b2d85393ad0192b0f4081fc4255"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/office/Easy/P000",
+      "cohort": "new_only",
+      "file": {
+        "path": "data/tartanair-frozen-evaluation/run-001/prepared/office/P000/000006_000007.npz",
+        "sha256": "63ec883ec24d8d0f73e5fac9e9e282b07f39c83cde0d5c7d5ae504c95c8851b3"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/office/Easy/P000",
+      "cohort": "new_only",
+      "file": {
+        "path": "data/tartanair-frozen-evaluation/run-001/prepared/office/P000/000007_000008.npz",
+        "sha256": "3408e972ce0518f7d166fb1c74cf594bbe89a95f031314caeb563555e6e6daf3"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/office/Easy/P000",
+      "cohort": "new_only",
+      "file": {
+        "path": "data/tartanair-frozen-evaluation/run-001/prepared/office/P000/000008_000009.npz",
+        "sha256": "d52ffebe9294334fc451820c610b9ddba09f96c8d512c3a5fb51fef9a2bc7c65"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/office/Easy/P000",
+      "cohort": "new_only",
+      "file": {
+        "path": "data/tartanair-frozen-evaluation/run-001/prepared/office/P000/000009_000010.npz",
+        "sha256": "05c8a9c084365841ffeffa92249760616e6b23f3fe7ce670aa10c4cf8d99442e"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/office/Easy/P000",
+      "cohort": "new_only",
+      "file": {
+        "path": "data/tartanair-frozen-evaluation/run-001/prepared/office/P000/000010_000011.npz",
+        "sha256": "7e931df86889f8bc2fbfa15bbedd7f0f0309e122791bb8c5341e653126ac81ed"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/office/Easy/P000",
+      "cohort": "new_only",
+      "file": {
+        "path": "data/tartanair-frozen-evaluation/run-001/prepared/office/P000/000011_000012.npz",
+        "sha256": "bbc3940b180527103068dc5c41e20e5e473bcbb5f6a0c7023bf73441ec296253"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/office/Easy/P000",
+      "cohort": "new_only",
+      "file": {
+        "path": "data/tartanair-frozen-evaluation/run-001/prepared/office/P000/000012_000013.npz",
+        "sha256": "0a880a1ada5fbf3c54441f4d5cd3d10cfe2739ea7d40e1ec31a7dab2c36ba024"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/office/Easy/P000",
+      "cohort": "new_only",
+      "file": {
+        "path": "data/tartanair-frozen-evaluation/run-001/prepared/office/P000/000013_000014.npz",
+        "sha256": "cb7d9fe90a9f5c6d6dd922886cb9e95a70e623578b13f75b709a78d8a80b6c75"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/office/Easy/P000",
+      "cohort": "new_only",
+      "file": {
+        "path": "data/tartanair-frozen-evaluation/run-001/prepared/office/P000/000014_000015.npz",
+        "sha256": "4dece330019fdfd582cccbaf1854d9018729dc5c4faf52b1fdc8653669e2f0e8"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/office/Easy/P000",
+      "cohort": "new_only",
+      "file": {
+        "path": "data/tartanair-frozen-evaluation/run-001/prepared/office/P000/000015_000016.npz",
+        "sha256": "d7331e3c46bac1cf6ab6bac466183f3877fcce099973c8da86093a984c639075"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/japanesealley/Easy/P001",
+      "cohort": "new_only",
+      "file": {
+        "path": "data/tartanair-frozen-evaluation/run-001/prepared/japanesealley/P001/000000_000001.npz",
+        "sha256": "2bd72d013a1b522b6347dd1dd36da726c8195fedd8c6c3da7ac82ec508373bbf"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/japanesealley/Easy/P001",
+      "cohort": "new_only",
+      "file": {
+        "path": "data/tartanair-frozen-evaluation/run-001/prepared/japanesealley/P001/000001_000002.npz",
+        "sha256": "ccf689c67e317f731b88990c4fc87d7baa460f8bf71f282df3694f09ffa369e0"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/japanesealley/Easy/P001",
+      "cohort": "new_only",
+      "file": {
+        "path": "data/tartanair-frozen-evaluation/run-001/prepared/japanesealley/P001/000002_000003.npz",
+        "sha256": "a2c181b2d83f86373390cd0cb906efb4b789111377f49db065f9912322fc9230"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/japanesealley/Easy/P001",
+      "cohort": "new_only",
+      "file": {
+        "path": "data/tartanair-frozen-evaluation/run-001/prepared/japanesealley/P001/000003_000004.npz",
+        "sha256": "43bcbb1a12a05af6180bd4d096abf99b64a127616191866da13b1b9528941499"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/japanesealley/Easy/P001",
+      "cohort": "new_only",
+      "file": {
+        "path": "data/tartanair-frozen-evaluation/run-001/prepared/japanesealley/P001/000004_000005.npz",
+        "sha256": "dc0b5847b16e39dcc48d4fe5d603966b6b9fc332e2712400af35a14a89def562"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/japanesealley/Easy/P001",
+      "cohort": "new_only",
+      "file": {
+        "path": "data/tartanair-frozen-evaluation/run-001/prepared/japanesealley/P001/000005_000006.npz",
+        "sha256": "e45612f205ef3421378e590562326cd1c1905bffbfe670540a9b58a57708f28c"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/japanesealley/Easy/P001",
+      "cohort": "new_only",
+      "file": {
+        "path": "data/tartanair-frozen-evaluation/run-001/prepared/japanesealley/P001/000006_000007.npz",
+        "sha256": "3c1647060d412bf290b01f71a9edbb72ea35c96375bea8c38bc3bff4582b58f6"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/japanesealley/Easy/P001",
+      "cohort": "new_only",
+      "file": {
+        "path": "data/tartanair-frozen-evaluation/run-001/prepared/japanesealley/P001/000007_000008.npz",
+        "sha256": "35bba4b95244ec8b5ef13148ecae29ce908954700eb743cacaf31f510347a0f5"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/japanesealley/Easy/P001",
+      "cohort": "new_only",
+      "file": {
+        "path": "data/tartanair-frozen-evaluation/run-001/prepared/japanesealley/P001/000008_000009.npz",
+        "sha256": "12687b6d79868ffc0e3c2b39a770e37058f161c6eed0afbc3e5d0e9329d8f5e1"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/japanesealley/Easy/P001",
+      "cohort": "new_only",
+      "file": {
+        "path": "data/tartanair-frozen-evaluation/run-001/prepared/japanesealley/P001/000009_000010.npz",
+        "sha256": "28bbe230f8f0bf8ed402fc591d9fccd28dc52f4f9b249f1bfa8d8e2e31e40bec"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/japanesealley/Easy/P001",
+      "cohort": "new_only",
+      "file": {
+        "path": "data/tartanair-frozen-evaluation/run-001/prepared/japanesealley/P001/000010_000011.npz",
+        "sha256": "2b292935cff55ad24ab6ec61b4103a08ae85258b706740b6548a950a619c353d"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/japanesealley/Easy/P001",
+      "cohort": "new_only",
+      "file": {
+        "path": "data/tartanair-frozen-evaluation/run-001/prepared/japanesealley/P001/000011_000012.npz",
+        "sha256": "1065baee063c0d4c755a47e16c7bdc887345af504ce9f33ed139a20b72dc4c1d"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/japanesealley/Easy/P001",
+      "cohort": "new_only",
+      "file": {
+        "path": "data/tartanair-frozen-evaluation/run-001/prepared/japanesealley/P001/000012_000013.npz",
+        "sha256": "04ee6867286791033ade25aff8b8c9994a7ae91c416b43af4861ba4cce2de697"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/japanesealley/Easy/P001",
+      "cohort": "new_only",
+      "file": {
+        "path": "data/tartanair-frozen-evaluation/run-001/prepared/japanesealley/P001/000013_000014.npz",
+        "sha256": "2d0931e236af19e8911c9ca1ce47241e0ceb0dec96b47ae365dac47e0d4116d3"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/japanesealley/Easy/P001",
+      "cohort": "new_only",
+      "file": {
+        "path": "data/tartanair-frozen-evaluation/run-001/prepared/japanesealley/P001/000014_000015.npz",
+        "sha256": "1d0e7bda9337aff00324c795dfac9a0d5cc79d8bb49dacc9ec8625765fdb010f"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/japanesealley/Easy/P001",
+      "cohort": "new_only",
+      "file": {
+        "path": "data/tartanair-frozen-evaluation/run-001/prepared/japanesealley/P001/000015_000016.npz",
+        "sha256": "f43ba0857ae9c41ebf8c60d7855a95dd5ed78c6e9ed785447aa018e14f028cf0"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/amusement/Easy/P001",
+      "cohort": "legacy_only",
+      "file": {
+        "path": "data/tartanair-v1-development/run-001/prepared/amusement/P001/000000_000001.npz",
+        "sha256": "00941d5ff7cd1e96c62280d75725a8e4603e7b8517de92b3a0ff49e633004d2f"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/amusement/Easy/P001",
+      "cohort": "legacy_only",
+      "file": {
+        "path": "data/tartanair-v1-development/run-001/prepared/amusement/P001/000001_000002.npz",
+        "sha256": "82f9f255be533544b7e3470bee3cbdd95fdd87d3ff950da84f0c2a956fece5c9"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/amusement/Easy/P001",
+      "cohort": "legacy_only",
+      "file": {
+        "path": "data/tartanair-v1-development/run-001/prepared/amusement/P001/000002_000003.npz",
+        "sha256": "6cf69df4b5130d2873cf37882556c1653fb15c19730d61711a4878eb124b18eb"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/amusement/Easy/P001",
+      "cohort": "legacy_only",
+      "file": {
+        "path": "data/tartanair-v1-development/run-001/prepared/amusement/P001/000003_000004.npz",
+        "sha256": "aaee309ea295904c46af122f0dd99f012bf4bcd3e72a83f03161008c4c599cda"
+      }
+    }
+  ],
+  "optimizer_steps": 0,
+  "training_assignment_created": false,
+  "base_pretraining_membership": "unknown"
+}

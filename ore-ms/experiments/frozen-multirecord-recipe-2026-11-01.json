@@ -1,0 +1,12 @@
+{
+  "name": "unchangedtartanair-v1nativeRGBunit/forwardflow/source-mask0valid",
+  "original_recipe": {
+    "path": "experiments/covariance-coverage-recipe-2026-11-01.json",
+    "sha256": "a72b8dec3470dce7f88a8938092a68f59d5d1e9c80f5c8a378abdbe3afa5c220"
+  },
+  "frozen_evaluation_protocol": {
+    "path": "results/frozen-multirecord-evaluation/run-001/data-protocol.json",
+    "sha256": "179167602bd9bb4692f0ec617796943446ad896c3640a6a03696a62484cd5275"
+  },
+  "transforms_changed": false
+}
