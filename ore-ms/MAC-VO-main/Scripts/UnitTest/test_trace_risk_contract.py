@@ -118,5 +118,6 @@ def test_zero_error_has_no_positive_finite_optimum():
 
 def test_trace_sum_overflow_rejected_even_when_axis_variances_finite():
     # Both axis variances fitFP32, their sum does not; common diagonal score fits.
-    mean,target,raw,mask=fixture(torch.float32);raw=torch.full_like(raw,44.)
+    mean,target,raw,mask=fixture(torch.float32)
+    raw=torch.full_like(raw,.5*math.log(torch.finfo(torch.float32).max*.75))
     with pytest.raises(ValueError,match='trace'):score(mean,target,raw,mask)

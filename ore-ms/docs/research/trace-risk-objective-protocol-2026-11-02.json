@@ -11,7 +11,7 @@
   "support": "unchanged diagonal-contract admission;FP32 minimum;finite/support/output-gradient checks;finalstage only",
   "new_source_sha256": {
     "MAC-VO-main/Train/MatchingNet/trace_risk_contract.py": "067c18d2cda1196fb32d0861f9b5a420012286d90a237d5028a1d3aff6ec94f4",
-    "MAC-VO-main/Scripts/UnitTest/test_trace_risk_contract.py": "8f35025cea2b4797969a1ef8cd1bdda8c127338a9703c7fcd4d36c153dbe428f"
+    "MAC-VO-main/Scripts/UnitTest/test_trace_risk_contract.py": "d928c74ab0d50c52ed66b1e8ab6ba79db11ea60aad8e6a8f2bf13038cec1bde7"
   },
   "future_comparison": {
     "training_manifest": {
@@ -66,5 +66,12 @@
   "optimizer_steps_on_models": 0,
   "candidate_promoted": false,
   "reserves_accessed": false,
-  "failure_policy": "retain failed tests; no metric/record/threshold/hyperparameter changes based on evaluation outcomes"
+  "failure_policy": "retain failed tests; no metric/record/threshold/hyperparameter changes based on evaluation outcomes",
+  "fixture_amendment": {
+    "created_at_utc": "2026-11-02T06:02:40.848090+00:00",
+    "initial_contract_commit": "882e8707c",
+    "first_test_result": "1failed99passed1CUDA-onlyskip",
+    "reason": "raw44 gives finite trace inFP32; overflowfixture corrected to peraxisvariance=.75*FP32max so total1.5*max overflows",
+    "objective_or_comparison_changed": false
+  }
 }
