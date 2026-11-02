@@ -32,8 +32,8 @@
   },
   "gate": {
     "population": "274 original decisions. Temporal matching performed before any feature/label eligibility. Future-relative-quality comparisons require origin eligible and target both-supported with both finite proxy losses; current proxy labels also finite for matched oracle comparison.",
-    "current": "lag0 log_median_trace RGB minus thermal; raw pixel units retained, score is not calibrated cross-camera risk.",
-    "history": "fixed arithmetic mean of all three lag trace gaps (log domain), no fitting",
+    "current": "lag0 log1p(median trace) RGB minus thermal, exactly the inherited EXP091 transform; raw pixel units retained, not calibrated cross-camera risk.",
+    "history": "fixed arithmetic mean of all three lag log1p trace gaps, no fitting",
     "targets": [
       "future RGB squared translation proxy loss minus thermal squared translation proxy loss",
       "future RGB squared rotation proxy loss minus thermal squared rotation proxy loss"
@@ -46,5 +46,6 @@
   "optimizer_steps": 0,
   "new_raw_payloads": 0,
   "reserve_access": false,
-  "candidate_promoted": false
+  "candidate_promoted": false,
+  "pre_execution_clarification": "Source inspection confirms EXP091 feature named log_median_trace actually uses log1p. Preserve its exact coordinates. No new outcome calculation had run at clarification."
 }
