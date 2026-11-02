@@ -1,0 +1,1137 @@
+{
+  "schema_version": 1,
+  "task": "frozen_covariance_recording_evaluation",
+  "models": {
+    "baseline": {
+      "path": "models/macslam/MACVO_FrontendCov.pth",
+      "sha256": "bec6edd7e195bab863132f1e9659cdd26e6eaeae7cfd24a626828de294cf5b3a"
+    },
+    "recurrent_diagonal_nll": {
+      "path": "results/objective-comparison/run-001/recurrent_diagonal_nll/step-00000048.pt",
+      "sha256": "23712ed47fac43b4b3a364c7f2174003311f11233e25708a88e5c628d81e7c38"
+    },
+    "final_diagonal_nll": {
+      "path": "results/objective-comparison/run-001/final_diagonal_nll/step-00000048.pt",
+      "sha256": "1960daff412b8520a7731b63955c7ea1b378aea77dbd1dbf6d1b2dbb3801554f"
+    },
+    "final_trace_risk_score": {
+      "path": "results/objective-comparison/run-001/final_trace_risk_score/step-00000048.pt",
+      "sha256": "13817a36d150e1776c436f894f06d3850c2533f225d108a55eef90a3e2bf8818"
+    }
+  },
+  "ledger": {
+    "path": "experiments/recording-exposure-ledger-2026-11-02-expanded-fixed-models.json",
+    "sha256": "01e31e3f16dca987a2c6e77f0a8bd79f11f48121df5e5b13958863e830f794e1"
+  },
+  "recipe": {
+    "path": "experiments/expanded-fixed-model-recipe-2026-11-02.json",
+    "sha256": "d99bb978679a11e964b760074257870bc0e702eae8003042ce9e9960d8b8052a"
+  },
+  "source_protocol": {
+    "path": "results/expanded-fixed-model-evaluation/run-001/data-protocol.json",
+    "sha256": "abfea1df2427db1a64ca84c4f36390f9597741c776ed75981ed2fafcacce94a8"
+  },
+  "records": [
+    {
+      "recording_id": "tartanair-v1/neighborhood/Easy/P000",
+      "cohort": "expanded_only",
+      "pairs": 16,
+      "label_evidence": {
+        "path": "results/expanded-fixed-model-evaluation/run-001/neighborhood-label-evidence.json",
+        "sha256": "5e1def40e5f984632a7ff8b87473a3acccef61a89e10a8a596b1161ec4144e5a"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/ocean/Easy/P000",
+      "cohort": "expanded_only",
+      "pairs": 16,
+      "label_evidence": {
+        "path": "results/expanded-fixed-model-evaluation/run-001/ocean-label-evidence.json",
+        "sha256": "6bc192234db5bae3e1c8af272c8ffd86a69e3dfb11009147e97baf856446b448"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/office2/Easy/P000",
+      "cohort": "expanded_only",
+      "pairs": 16,
+      "label_evidence": {
+        "path": "results/expanded-fixed-model-evaluation/run-001/office2-label-evidence.json",
+        "sha256": "58442ee8ad51d60600eec7ddc24e2fb42b7328582e66029525bcb1b5c545de96"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/oldtown/Easy/P000",
+      "cohort": "expanded_only",
+      "pairs": 16,
+      "label_evidence": {
+        "path": "results/expanded-fixed-model-evaluation/run-001/oldtown-label-evidence.json",
+        "sha256": "51efea2f8eb0b4a2091ac611b4fd039fea46ab5bf779cd0133acf0dad6650062"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasidetown/Easy/P000",
+      "cohort": "expanded_only",
+      "pairs": 16,
+      "label_evidence": {
+        "path": "results/expanded-fixed-model-evaluation/run-001/seasidetown-label-evidence.json",
+        "sha256": "dc6e8dcb736301ea6537d350ae33d39cc2a8a620e5a70183811db3ca06a30c2a"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasonsforest/Easy/P001",
+      "cohort": "expanded_only",
+      "pairs": 16,
+      "label_evidence": {
+        "path": "results/expanded-fixed-model-evaluation/run-001/seasonsforest-label-evidence.json",
+        "sha256": "749cd1f73869be9891a5c0f30f44cd6309b32de172519bc6e97eeb719cc969d6"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/soulcity/Easy/P000",
+      "cohort": "expanded_only",
+      "pairs": 16,
+      "label_evidence": {
+        "path": "results/expanded-fixed-model-evaluation/run-001/soulcity-label-evidence.json",
+        "sha256": "005a4991963ac9b0ce5e78b5aca0972b14c92307539d9ad530cde07c17867257"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/westerndesert/Easy/P001",
+      "cohort": "expanded_only",
+      "pairs": 16,
+      "label_evidence": {
+        "path": "results/expanded-fixed-model-evaluation/run-001/westerndesert-label-evidence.json",
+        "sha256": "80e782f78063291c9480577b2c18bece052fa9bb68f2367fe031d05758d6335a"
+      }
+    }
+  ],
+  "samples": [
+    {
+      "recording_id": "tartanair-v1/neighborhood/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/neighborhood/P000/000000_000001.npz",
+        "sha256": "dbcc2f931564bdb09696829d062a375e4e57c6a27e38e4f1e568803eeded45df"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/neighborhood/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/neighborhood/P000/000001_000002.npz",
+        "sha256": "9480e5a9c633804af8f1b57e50d1f64c6221f1c173980ec281d69614f7d80e08"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/neighborhood/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/neighborhood/P000/000002_000003.npz",
+        "sha256": "818943ac03ba43f95a2185c896664aa0f95787cbbc41080261d0e3faaed49917"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/neighborhood/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/neighborhood/P000/000003_000004.npz",
+        "sha256": "6f1ef5798893d5bd55fcd2e48703a9250da16be29b43188bbde809254ebf9177"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/neighborhood/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/neighborhood/P000/000004_000005.npz",
+        "sha256": "a08b2d0dd9c3926a3cbf648770099cb300f162070ea4b2a42937fd54dd3ae353"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/neighborhood/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/neighborhood/P000/000005_000006.npz",
+        "sha256": "a31851b5f38f570fad0b6ca7cbb25934d55adf354f1f186a673112b7c5dd28e0"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/neighborhood/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/neighborhood/P000/000006_000007.npz",
+        "sha256": "98877650ff553d8818f8d3234a90729d06b0601f6764b504c0353907a6994675"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/neighborhood/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/neighborhood/P000/000007_000008.npz",
+        "sha256": "3962c0582c0436c0103449791ff8fcfee439dcab7a9d975c0ca73c35e4a6685b"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/neighborhood/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/neighborhood/P000/000008_000009.npz",
+        "sha256": "4e897382a40c12e3e04e746f565638b4aa83f9a9ea3fe32ae91ceecf6d311eaf"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/neighborhood/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/neighborhood/P000/000009_000010.npz",
+        "sha256": "a810701360d87bb8f6c21b630742b7865ba1157e90476477d6c14d21343cf502"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/neighborhood/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/neighborhood/P000/000010_000011.npz",
+        "sha256": "e75a1ffb1b34fad1c0ec341b976e700b2030f682b979093f769601f1257bfb64"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/neighborhood/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/neighborhood/P000/000011_000012.npz",
+        "sha256": "fa42f9f20fb0bf1d9e13c46bd0bdc69ed6a130c74c9721b786c59af6c2ed9e2e"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/neighborhood/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/neighborhood/P000/000012_000013.npz",
+        "sha256": "29e0fdf959507de749fa0b67b4df192255755a5e0dff30506a0b0cd3ae446e56"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/neighborhood/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/neighborhood/P000/000013_000014.npz",
+        "sha256": "fef6df659f25e64615a2167fb5e60279d26d1c995a91b5ba5b6ddbcd8a93c1d4"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/neighborhood/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/neighborhood/P000/000014_000015.npz",
+        "sha256": "9076cb875426d63bfbc633f373c920ba6f37adf2b03a3dca90b648ccbdad711f"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/neighborhood/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/neighborhood/P000/000015_000016.npz",
+        "sha256": "71fa58cd1c03ddf5b8f1f885b55ccb8c8c7394d8953f52ae8042b2e546e8a9ff"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/ocean/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/ocean/P000/000000_000001.npz",
+        "sha256": "3a198bb92b0bba382c3ca547317e5830be3d414fa7ffc4c73994389573df8e26"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/ocean/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/ocean/P000/000001_000002.npz",
+        "sha256": "d1742861b30c9672315433c69ace829b1f44bb391e251efa927a22c1cd953afe"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/ocean/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/ocean/P000/000002_000003.npz",
+        "sha256": "a6f90b0f2eaac042173e71a049f8f4e025169e6668938c16055220fa416e7ea1"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/ocean/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/ocean/P000/000003_000004.npz",
+        "sha256": "4d29bf08d1b1013ba238c290ffb1053f27267cfa8ecd496d3cf301012dd6cc07"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/ocean/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/ocean/P000/000004_000005.npz",
+        "sha256": "6a5aa962a65b9a7ab9e1b7fae625a7b7cf694810bb4abdb4a46c230d7e96b9f5"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/ocean/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/ocean/P000/000005_000006.npz",
+        "sha256": "9d6360e067d872188628ef21d59cf7ef79df95cced720325db94338e950f02fa"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/ocean/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/ocean/P000/000006_000007.npz",
+        "sha256": "9f083b7055ac8139c657ef9f9e7ce8521d9b57b80c9a060705d3c43f3a29e648"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/ocean/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/ocean/P000/000007_000008.npz",
+        "sha256": "fc012bf2f05f05e2d265670014461150bd845b46419163342ae1e2f594155f8b"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/ocean/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/ocean/P000/000008_000009.npz",
+        "sha256": "c84d5d4266c3d1332b27cca4ffcaf73bd3b29deb7a9f2e950e995941f9b67111"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/ocean/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/ocean/P000/000009_000010.npz",
+        "sha256": "24e4a985de6942ccc8730f012a80489a47ac8cee83ba52d1d633ac9f325ddb3d"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/ocean/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/ocean/P000/000010_000011.npz",
+        "sha256": "8a5be87d04a0b70f58860b4f636d6d5467905e1662c83264f85027f388caf037"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/ocean/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/ocean/P000/000011_000012.npz",
+        "sha256": "8f2c054568dd73302e74212fa081791f6e30bc2cf704afc1576c4b43abf95d8c"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/ocean/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/ocean/P000/000012_000013.npz",
+        "sha256": "a89a6b68da756f627f7330468b7d6c6860c7a3f22cc7e3f31ee254f7d11d3e5e"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/ocean/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/ocean/P000/000013_000014.npz",
+        "sha256": "4ea0a19dd9d49d5f3a11fdfb6225c088b5369355a5e6b14b7b09f55311d12c3c"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/ocean/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/ocean/P000/000014_000015.npz",
+        "sha256": "b40a34dfdbc5e6df4b1cf614b886a1ee56c93a3fad5cc5adbdab0d6d2bd463d5"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/ocean/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/ocean/P000/000015_000016.npz",
+        "sha256": "c870138330c1401ed14ee59196c17970774b0807adfe8be3955d67a7a38d5f6f"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/office2/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/office2/P000/000000_000001.npz",
+        "sha256": "c983a46f676de40224cbc509dbf275266e2538f29c155012ef563607e5372dc1"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/office2/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/office2/P000/000001_000002.npz",
+        "sha256": "24c65e6131dd72a07caca6b082bb022b371d3297bb90fb8c54fcd6158d58d6ce"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/office2/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/office2/P000/000002_000003.npz",
+        "sha256": "41575e7aff185bd6ad5898f6dc1c081f4a227635289a6e311e4175bdab7cc91e"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/office2/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/office2/P000/000003_000004.npz",
+        "sha256": "ee5bade4668563c022b45297f544ac0fc96c16c86cc05af92c41df2884dfd546"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/office2/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/office2/P000/000004_000005.npz",
+        "sha256": "ce54a9dfe9f8e093ae1066958ea75f7dfb869ca729bdf939added3a4bdfb7875"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/office2/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/office2/P000/000005_000006.npz",
+        "sha256": "9e4c62de437512cd894157a3c808cad257965fbac42ccec8a8d1276a8821588e"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/office2/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/office2/P000/000006_000007.npz",
+        "sha256": "390d8800da5111278fd9f933684de033f2c90904ba29b63b1e5ad8a8f3a22439"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/office2/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/office2/P000/000007_000008.npz",
+        "sha256": "27778c402780cf22c3c462fb5d2533f52fd7d2bf41816cbc9682c410dfeabfc0"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/office2/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/office2/P000/000008_000009.npz",
+        "sha256": "ba6c5acb4d58b565c59ac1ee1f01f46d79b62fe087208267a3818c2c3a5be18e"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/office2/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/office2/P000/000009_000010.npz",
+        "sha256": "eeae4ce98acdb3e104a928be04de4036f3528c6b82c9493856628413c77e0477"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/office2/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/office2/P000/000010_000011.npz",
+        "sha256": "c116901f108b0b8a07a88a9c9d0c03753a744103bdd22492c65647459107b372"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/office2/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/office2/P000/000011_000012.npz",
+        "sha256": "9934cdda5ab629086da82723347ff704dab70059e2fdcd1861707c16313cdea9"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/office2/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/office2/P000/000012_000013.npz",
+        "sha256": "574ebb09688f75c06a0d385db04ab3f07e37839efe193802beea2f87bd7344b0"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/office2/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/office2/P000/000013_000014.npz",
+        "sha256": "02c164129d802710c0aff057687f2f1444ffa731b3eddb789b9f69fdd0c23dc0"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/office2/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/office2/P000/000014_000015.npz",
+        "sha256": "5bff07ac6bb1ea8356a05ac51ac5635f67ecb368f8bd6706045de29b17778e02"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/office2/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/office2/P000/000015_000016.npz",
+        "sha256": "6db7c65f2c3d2526e7f055915fcd1fd9ed8097ec3efc7319f4f31426a6ec479b"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/oldtown/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/oldtown/P000/000000_000001.npz",
+        "sha256": "beb25ccff34d6c89c7610bf72d584a19ce6dba1ee76c31df89d0483ece053686"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/oldtown/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/oldtown/P000/000001_000002.npz",
+        "sha256": "6380445ce730c644c8f45e59edb3cdc82a19cf66a8a884d48d4dcf56672257ea"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/oldtown/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/oldtown/P000/000002_000003.npz",
+        "sha256": "e4f66d2b760d94f0d893ac3a8db4f965d5cabf9443bbd057a2dc59e413c6de99"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/oldtown/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/oldtown/P000/000003_000004.npz",
+        "sha256": "98cdc484af20dbc8bca47da14ef2c410497f92365b111bb4cf78d41cf8ae32a2"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/oldtown/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/oldtown/P000/000004_000005.npz",
+        "sha256": "2064b104a1dd24fd31d00cc429aa525e3c25549fd24a2166c626c33b98d5bfff"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/oldtown/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/oldtown/P000/000005_000006.npz",
+        "sha256": "8497c6d8584d0fa0f43ea0a73ede87aaf61852aa24ce8cde381b00ee3b96edf8"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/oldtown/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/oldtown/P000/000006_000007.npz",
+        "sha256": "3170185bf43f925fd58c261bb28e1062b9908a96f76a4fe747e9ad011ec05ca1"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/oldtown/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/oldtown/P000/000007_000008.npz",
+        "sha256": "e7624688e8a517cd2327870f547130a0f1258d5a0b41107f3394cca92df694e6"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/oldtown/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/oldtown/P000/000008_000009.npz",
+        "sha256": "6b03790d6a977df47cfb3f271200ca342b615c07d4a4e93443edc255822e5371"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/oldtown/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/oldtown/P000/000009_000010.npz",
+        "sha256": "238c5535721f6a8af7355f0458f923b11f627ecf0bfe7fb7175c9c25bba50cff"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/oldtown/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/oldtown/P000/000010_000011.npz",
+        "sha256": "a3647d8c363a25274c6d4fd915c750e4bc82e4cd7b927b43d2529b56facc1bb0"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/oldtown/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/oldtown/P000/000011_000012.npz",
+        "sha256": "53c7133024112a56ca534c7e635d7da87c2acfc316ebf6c566b2b043d4c78fc2"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/oldtown/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/oldtown/P000/000012_000013.npz",
+        "sha256": "35941bccc09face7afa936b1ba92c27631eca06f56dacd78130658bafeb25842"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/oldtown/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/oldtown/P000/000013_000014.npz",
+        "sha256": "bcab1892992aa1a196d83a8e9f4c24845c84a4dc42330095cfde3dc6222fef97"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/oldtown/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/oldtown/P000/000014_000015.npz",
+        "sha256": "d06a861d51e67a0ec6611ff9da545782bef03a4f8cd5b9c981400fac572d43ae"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/oldtown/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/oldtown/P000/000015_000016.npz",
+        "sha256": "59f7bc2740b3bf0684db2b14c2f0a20792fd064366ef96cc8cbefd3821831ffb"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasidetown/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/seasidetown/P000/000000_000001.npz",
+        "sha256": "4a9e7007610f1ca1064ec5577c613a62ff934392b46de4b25bdeae5c004095e9"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasidetown/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/seasidetown/P000/000001_000002.npz",
+        "sha256": "c08e30ab1ecd2290c3ab2b01df39fda388a577a878496e269512776e3f85968f"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasidetown/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/seasidetown/P000/000002_000003.npz",
+        "sha256": "a269ee29f5595a546afd45e5a38390db8e8bf035527ad84b67d0faf904f3f697"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasidetown/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/seasidetown/P000/000003_000004.npz",
+        "sha256": "ba0f7e4b4ba73f017a10ba1087d350f046ddea54d659353acbdbe97d2b0890da"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasidetown/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/seasidetown/P000/000004_000005.npz",
+        "sha256": "86e0abe1de425e4558bd0016fbf3cb64bd2945ab0a589b0d2a0357990e0f2674"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasidetown/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/seasidetown/P000/000005_000006.npz",
+        "sha256": "40d2d7aadd720139c7cf21bae4895df8f1bf58d59fd9bb9f97bb79245119ce6f"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasidetown/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/seasidetown/P000/000006_000007.npz",
+        "sha256": "d8c627088319fcf6b0707ebe785e00be854415f4a83d5deb2d9280d9a3a59fc3"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasidetown/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/seasidetown/P000/000007_000008.npz",
+        "sha256": "26a7058755f1ff782634419b0fa8d7f991e840c5f4e992103f2888b7cb356a8d"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasidetown/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/seasidetown/P000/000008_000009.npz",
+        "sha256": "8b48c349d7e687ca7bcfc2ad3b1a95cacd1b741219387de71cfabb6c2d8a674d"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasidetown/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/seasidetown/P000/000009_000010.npz",
+        "sha256": "99dd6b26302e9dd3319b3e08edabba0def4c43528cea57d28d551ef60e87c2d1"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasidetown/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/seasidetown/P000/000010_000011.npz",
+        "sha256": "b23f8dddf7f12db6750ecfe2257e96b8a07b4f876d9b0622ee6985e395cc21f7"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasidetown/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/seasidetown/P000/000011_000012.npz",
+        "sha256": "84cf91d84d721ab0e7943fc5a9db86d07ef64b9bfae4aeb9afa5fdb004099ab2"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasidetown/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/seasidetown/P000/000012_000013.npz",
+        "sha256": "ee7d5501a5a0b87bbb1e7b48898ba15968f7a7816336a1473d23ccc75e327c58"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasidetown/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/seasidetown/P000/000013_000014.npz",
+        "sha256": "dfc16254e5aa45eaf97e2f7446a3dbbeccd3b3ec22b592f4e560f1d533139004"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasidetown/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/seasidetown/P000/000014_000015.npz",
+        "sha256": "d1c8e0f9d6b628fc36c95d171da7b9bce469eff3305199574f1b4441d7f2bd1b"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasidetown/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/seasidetown/P000/000015_000016.npz",
+        "sha256": "defb13db13895d676496b71263957889b88241c93421e9376d6ab2a292b7713b"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasonsforest/Easy/P001",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/seasonsforest/P001/000000_000001.npz",
+        "sha256": "6aa8082684070c61a201d8d1556a3ad276ef64a497ddb3b27f3008c736f003ba"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasonsforest/Easy/P001",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/seasonsforest/P001/000001_000002.npz",
+        "sha256": "4a6abafb350c15643f5964958130506b7b4f1d8ed59f1906b9e041d2e9d23560"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasonsforest/Easy/P001",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/seasonsforest/P001/000002_000003.npz",
+        "sha256": "c4032f26cf9080493d13c795e31f808192b058d9704b5af98e5bad40022579f0"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasonsforest/Easy/P001",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/seasonsforest/P001/000003_000004.npz",
+        "sha256": "0204328584e8db5bd3f480fea1c92fdb8dbf76a9df1d711f08d9e7e7e824d2fe"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasonsforest/Easy/P001",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/seasonsforest/P001/000004_000005.npz",
+        "sha256": "c222dab22a6b03cce99e574cdbf2a37a0a969f4a9520ae20070e06f7140fcf8e"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasonsforest/Easy/P001",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/seasonsforest/P001/000005_000006.npz",
+        "sha256": "0740327f341054ac7e954cdaf689d693e43ce11e85ded0296483efe1ec05358c"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasonsforest/Easy/P001",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/seasonsforest/P001/000006_000007.npz",
+        "sha256": "bb6ff8dcbf8d6183c1edbe1622e338473a477f0600f4434e28d1020bac9bf792"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasonsforest/Easy/P001",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/seasonsforest/P001/000007_000008.npz",
+        "sha256": "b6bb5425f2d9b08df795532f784478a69e19a3a0f142329f8d480ae7eabe824e"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasonsforest/Easy/P001",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/seasonsforest/P001/000008_000009.npz",
+        "sha256": "c9ea1a8d1301b97f0694d30fc0bdc97f2a86613a300044af7effe3cefa73e4fc"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasonsforest/Easy/P001",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/seasonsforest/P001/000009_000010.npz",
+        "sha256": "13aac767215ac31e804ccb5c351ffae0254b8eb441b94cfa3effeb68c721fa14"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasonsforest/Easy/P001",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/seasonsforest/P001/000010_000011.npz",
+        "sha256": "09ac2a02714c9a122ac78f9f16df10772c954e698ede24a64b39f6f0e591bc19"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasonsforest/Easy/P001",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/seasonsforest/P001/000011_000012.npz",
+        "sha256": "fd841d8eaac8d0825daa498714dfed038d4d157aa9dc1e5fb2289e387b07a2d2"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasonsforest/Easy/P001",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/seasonsforest/P001/000012_000013.npz",
+        "sha256": "138d206cf5c277e659a609fdb01aaedb1f2e175c7c27c9511ed49f2d935e8e84"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasonsforest/Easy/P001",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/seasonsforest/P001/000013_000014.npz",
+        "sha256": "df9fc4c0a68971eca8b2136c75a44b546dca3ea363920c3460cd1ead0443a9a6"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasonsforest/Easy/P001",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/seasonsforest/P001/000014_000015.npz",
+        "sha256": "dd658b91f1f72d68fbc770b66ebc23b188be1975d3d6a5ea43e04d1581e39a09"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/seasonsforest/Easy/P001",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/seasonsforest/P001/000015_000016.npz",
+        "sha256": "e3be964b9b27222a766cd4c5bf1d00b216c83fc4ce63164a7f3db678aa905bd1"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/soulcity/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/soulcity/P000/000000_000001.npz",
+        "sha256": "928c00dccdd2320eb0bf0b9e32fefabce49699f0f683d0e70a467e84173cdae8"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/soulcity/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/soulcity/P000/000001_000002.npz",
+        "sha256": "3f018c10cbfc1a391162605ac51427ddaa2a0a80f2b38247fcf0be428b0a4b97"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/soulcity/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/soulcity/P000/000002_000003.npz",
+        "sha256": "27238a22a159bb9aa7225cf4371dc05ded75cb6860dada68f492aa2bf4c03cd5"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/soulcity/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/soulcity/P000/000003_000004.npz",
+        "sha256": "55cb399028f6f40bc9facdd9699d3837993d20a8a4a0295016b8e30a875e3367"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/soulcity/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/soulcity/P000/000004_000005.npz",
+        "sha256": "36c70ac1fd9046c6f168582ef4d8672a744f9d1f140e1434a85c0f4f501c539b"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/soulcity/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/soulcity/P000/000005_000006.npz",
+        "sha256": "e4266dfa7401036aed672b4ab3a78ef5b35e979bb1975a800c7c30c77278a744"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/soulcity/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/soulcity/P000/000006_000007.npz",
+        "sha256": "d41a1cac11c703dfdc397ba9be805f84e341bf97e318c8e38cac175605574c9d"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/soulcity/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/soulcity/P000/000007_000008.npz",
+        "sha256": "d838a5f9a6f246513cb92df173a48704b7d1bb700e795a6a79925d9845927723"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/soulcity/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/soulcity/P000/000008_000009.npz",
+        "sha256": "370cd29e6af068f2c5671db90dc1d43ed72781595a2019000406fb10a532d47c"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/soulcity/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/soulcity/P000/000009_000010.npz",
+        "sha256": "0a72c9062b11754d87bba4b2accb7005aed2092ad04f89f7bdea82d2d4e6444c"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/soulcity/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/soulcity/P000/000010_000011.npz",
+        "sha256": "529ef39bfb17d1dfea55d15fea5630d02a9c8dba8c9ffeea1693cde0503aa9f4"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/soulcity/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/soulcity/P000/000011_000012.npz",
+        "sha256": "75c59334bc3ca23ead455267598ee028668a563243eff60c017ad52b1e291f7e"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/soulcity/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/soulcity/P000/000012_000013.npz",
+        "sha256": "3514c89b732d912340402978c718d2183bf298a52b7c13da51b0609e25939f12"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/soulcity/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/soulcity/P000/000013_000014.npz",
+        "sha256": "921352054b8b0c7d1d10ed789bd5469fa05b43e8363de8edd2af9df7da10ae8a"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/soulcity/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/soulcity/P000/000014_000015.npz",
+        "sha256": "c3cb0be53089a7890cccc56b8880ef17d05872927cd1c4594b4d438bc1cb6e6c"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/soulcity/Easy/P000",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/soulcity/P000/000015_000016.npz",
+        "sha256": "fac1aaa6d0ba00ae1611e21ebc39237336aae3ce68d71e90c9faf6e0e78acba7"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/westerndesert/Easy/P001",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/westerndesert/P001/000000_000001.npz",
+        "sha256": "079752a02e504e26e5359f6d62eca4036b845748c9e348389b9c8e8d905b381d"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/westerndesert/Easy/P001",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/westerndesert/P001/000001_000002.npz",
+        "sha256": "374ca5eb136f7e0f9719f03fc7865e93ce3ea32c1958aee7b36950f02b644674"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/westerndesert/Easy/P001",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/westerndesert/P001/000002_000003.npz",
+        "sha256": "e6913cf5263bd474bc4c32664f9fb69e79c3507bbfacf11b03ad4d377abb3318"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/westerndesert/Easy/P001",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/westerndesert/P001/000003_000004.npz",
+        "sha256": "5a0ad899040a8ac174a3c53492d8a453a5228fdde58c93a4a3d03b44ba5afe6c"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/westerndesert/Easy/P001",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/westerndesert/P001/000004_000005.npz",
+        "sha256": "a1ebb3c1787702a7a23d9e703c37c1e0605ebe9836e6a28f01a6d970856aedbb"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/westerndesert/Easy/P001",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/westerndesert/P001/000005_000006.npz",
+        "sha256": "99511bcbb1c831f39d0f1f45339b36145d55bf286b82d943e9abae2a2b336afe"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/westerndesert/Easy/P001",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/westerndesert/P001/000006_000007.npz",
+        "sha256": "74757874fcda559e08a5d1c63ca98d50b2c7d1b7c9a201e70828dafdf79badbc"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/westerndesert/Easy/P001",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/westerndesert/P001/000007_000008.npz",
+        "sha256": "cef1eb3d424bd7885b1ccab27f96b877bcaa1d3b1d8b80d64ceb150cfdc4fddb"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/westerndesert/Easy/P001",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/westerndesert/P001/000008_000009.npz",
+        "sha256": "60ef92c5cc94d198dc213be7c7365fa7d9dfdd189563b9a1c3af0b153aefb5f0"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/westerndesert/Easy/P001",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/westerndesert/P001/000009_000010.npz",
+        "sha256": "de01bc8c014bca8d61f0a24a3891403d7eddf961e2490176ddb44e062a560194"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/westerndesert/Easy/P001",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/westerndesert/P001/000010_000011.npz",
+        "sha256": "da32d43fc07d00efe7c01630197fd42f955016cbf3f97307311b1e4db3e647aa"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/westerndesert/Easy/P001",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/westerndesert/P001/000011_000012.npz",
+        "sha256": "4b230ec208dbcca8c09ad9adfec78ad80a74ecc117f078ee69bf6cab0337d977"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/westerndesert/Easy/P001",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/westerndesert/P001/000012_000013.npz",
+        "sha256": "f7cc01b268dd9174499741c22320eba3d2502f7bdf8c974b3fefbee47345dc6e"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/westerndesert/Easy/P001",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/westerndesert/P001/000013_000014.npz",
+        "sha256": "80e90c38a0f0f62458832deb97af0fbb1037ed78d565df196681336242eda697"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/westerndesert/Easy/P001",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/westerndesert/P001/000014_000015.npz",
+        "sha256": "74f7057602533bb4d07c84b14e3dda620a733831588aa49086f8b445ce2a9bff"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/westerndesert/Easy/P001",
+      "cohort": "expanded_only",
+      "file": {
+        "path": "data/tartanair-expanded-evaluation/run-001/prepared/westerndesert/P001/000015_000016.npz",
+        "sha256": "514172f091a58638df4b0e0521fabd73ca94f545020f845335e897a7de6bcbd1"
+      }
+    }
+  ],
+  "optimizer_steps": 0,
+  "training_assignment_created": false,
+  "base_pretraining_membership": "unknown"
+}
