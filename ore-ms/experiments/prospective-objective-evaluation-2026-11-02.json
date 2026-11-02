@@ -1,0 +1,315 @@
+{
+  "schema_version": 1,
+  "task": "frozen_covariance_recording_evaluation",
+  "models": {
+    "baseline": {
+      "path": "models/macslam/MACVO_FrontendCov.pth",
+      "sha256": "bec6edd7e195bab863132f1e9659cdd26e6eaeae7cfd24a626828de294cf5b3a"
+    },
+    "recurrent_diagonal_nll": {
+      "path": "results/objective-comparison/run-001/recurrent_diagonal_nll/step-00000048.pt",
+      "sha256": "23712ed47fac43b4b3a364c7f2174003311f11233e25708a88e5c628d81e7c38"
+    },
+    "final_diagonal_nll": {
+      "path": "results/objective-comparison/run-001/final_diagonal_nll/step-00000048.pt",
+      "sha256": "1960daff412b8520a7731b63955c7ea1b378aea77dbd1dbf6d1b2dbb3801554f"
+    },
+    "final_trace_risk_score": {
+      "path": "results/objective-comparison/run-001/final_trace_risk_score/step-00000048.pt",
+      "sha256": "13817a36d150e1776c436f894f06d3850c2533f225d108a55eef90a3e2bf8818"
+    }
+  },
+  "ledger": {
+    "path": "experiments/recording-exposure-ledger-2026-11-02-prospective-objectives.json",
+    "sha256": "b7219f4166744a61de94708e7fa2268bdab056227e539cb8422e9d483743e0b3"
+  },
+  "recipe": {
+    "path": "experiments/prospective-objective-recipe-2026-11-02.json",
+    "sha256": "72c8de172028fbbfbe8f4b7b6c88a01a9eb65aaeebf9efd2333b8b129ee9f6e4"
+  },
+  "source_protocol": {
+    "path": "results/prospective-objective-evaluation/run-001/data-protocol.json",
+    "sha256": "eae477e62bb320a34f823b52b1342286624df862e69e5eb30812865207b1db70"
+  },
+  "records": [
+    {
+      "recording_id": "tartanair-v1/carwelding/Easy/P001",
+      "cohort": "prospective_only",
+      "pairs": 16,
+      "label_evidence": {
+        "path": "results/prospective-objective-evaluation/run-001/carwelding-label-evidence.json",
+        "sha256": "1fb533f387485929ae81d08d552402cbfa38ae07b8c3c38ba427695582aba116"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/endofworld/Easy/P000",
+      "cohort": "prospective_only",
+      "pairs": 16,
+      "label_evidence": {
+        "path": "results/prospective-objective-evaluation/run-001/endofworld-label-evidence.json",
+        "sha256": "648dc97f2c14787aa5f38bde23e80b8e9afe818e4909075c5001bf8fe52d3be9"
+      }
+    }
+  ],
+  "samples": [
+    {
+      "recording_id": "tartanair-v1/carwelding/Easy/P001",
+      "cohort": "prospective_only",
+      "file": {
+        "path": "data/tartanair-prospective-evaluation/run-001/prepared/carwelding/P001/000000_000001.npz",
+        "sha256": "0d05bba9b8470ddb72982be5424758533b344ddb68e23309776b3d423852919b"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/carwelding/Easy/P001",
+      "cohort": "prospective_only",
+      "file": {
+        "path": "data/tartanair-prospective-evaluation/run-001/prepared/carwelding/P001/000001_000002.npz",
+        "sha256": "2671a222bcb63891e4a8fc756db754ab6bdcbe46698fe18dadf040e9e26c09d8"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/carwelding/Easy/P001",
+      "cohort": "prospective_only",
+      "file": {
+        "path": "data/tartanair-prospective-evaluation/run-001/prepared/carwelding/P001/000002_000003.npz",
+        "sha256": "82df6dc49120ca9123f6353912265d4ec234d4f51aedfe964e6762a38f5419b5"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/carwelding/Easy/P001",
+      "cohort": "prospective_only",
+      "file": {
+        "path": "data/tartanair-prospective-evaluation/run-001/prepared/carwelding/P001/000003_000004.npz",
+        "sha256": "447de9604a6e89e3f67998cbba3db3c501acf631f8ff2dee414b2335b6cf6e18"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/carwelding/Easy/P001",
+      "cohort": "prospective_only",
+      "file": {
+        "path": "data/tartanair-prospective-evaluation/run-001/prepared/carwelding/P001/000004_000005.npz",
+        "sha256": "97dfec82bda9794feb3765ea1d7e6c7b506d5cfdbfa311fd45f3c05bc1401ee2"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/carwelding/Easy/P001",
+      "cohort": "prospective_only",
+      "file": {
+        "path": "data/tartanair-prospective-evaluation/run-001/prepared/carwelding/P001/000005_000006.npz",
+        "sha256": "e30410008038c29d21929abf4b633c052169576a55413edbde7a1dde659f37e8"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/carwelding/Easy/P001",
+      "cohort": "prospective_only",
+      "file": {
+        "path": "data/tartanair-prospective-evaluation/run-001/prepared/carwelding/P001/000006_000007.npz",
+        "sha256": "40202bd1b1ed58d7f000e2565e93c80d9f2c576dd5f69697ce0723a3407a6413"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/carwelding/Easy/P001",
+      "cohort": "prospective_only",
+      "file": {
+        "path": "data/tartanair-prospective-evaluation/run-001/prepared/carwelding/P001/000007_000008.npz",
+        "sha256": "83d63d4fb5b43243427a876fcc1e0fe97b3474d3d77983a23f3c489b6f6daf39"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/carwelding/Easy/P001",
+      "cohort": "prospective_only",
+      "file": {
+        "path": "data/tartanair-prospective-evaluation/run-001/prepared/carwelding/P001/000008_000009.npz",
+        "sha256": "768e1bbb9c0ee8823f2c72ca417b4dd936a8d7b8c54c2dacf69c5702f65384be"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/carwelding/Easy/P001",
+      "cohort": "prospective_only",
+      "file": {
+        "path": "data/tartanair-prospective-evaluation/run-001/prepared/carwelding/P001/000009_000010.npz",
+        "sha256": "d324c643d42633062c99f926527ce0a5cb7d593feb5c4d98eaca34a85bd54167"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/carwelding/Easy/P001",
+      "cohort": "prospective_only",
+      "file": {
+        "path": "data/tartanair-prospective-evaluation/run-001/prepared/carwelding/P001/000010_000011.npz",
+        "sha256": "06fe96d7d2d2f62a7d13f0184ed128ccc6c2de678f401fe45b0993314861d253"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/carwelding/Easy/P001",
+      "cohort": "prospective_only",
+      "file": {
+        "path": "data/tartanair-prospective-evaluation/run-001/prepared/carwelding/P001/000011_000012.npz",
+        "sha256": "1a97c602dff909a2d69fb77c3500c6862e9ae54e34ae5e57845ea88c671f6861"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/carwelding/Easy/P001",
+      "cohort": "prospective_only",
+      "file": {
+        "path": "data/tartanair-prospective-evaluation/run-001/prepared/carwelding/P001/000012_000013.npz",
+        "sha256": "126bbc776d1b00fb35bfc2ed3afbc172ce49f8882ef18f51ac75066597612d01"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/carwelding/Easy/P001",
+      "cohort": "prospective_only",
+      "file": {
+        "path": "data/tartanair-prospective-evaluation/run-001/prepared/carwelding/P001/000013_000014.npz",
+        "sha256": "1b4b09defd76cea1bac89c967d719cd19f919bcdebc2fc486dcd7488ae402c21"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/carwelding/Easy/P001",
+      "cohort": "prospective_only",
+      "file": {
+        "path": "data/tartanair-prospective-evaluation/run-001/prepared/carwelding/P001/000014_000015.npz",
+        "sha256": "e828c53ae094ceb181538017b28fa419194f0f4479d3a0933a2f7357e6922b39"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/carwelding/Easy/P001",
+      "cohort": "prospective_only",
+      "file": {
+        "path": "data/tartanair-prospective-evaluation/run-001/prepared/carwelding/P001/000015_000016.npz",
+        "sha256": "489a5ab4be79c89cb9f26142ee1cc35586fcc1f30c8ac0c8c1365dad87535a87"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/endofworld/Easy/P000",
+      "cohort": "prospective_only",
+      "file": {
+        "path": "data/tartanair-prospective-evaluation/run-001/prepared/endofworld/P000/000000_000001.npz",
+        "sha256": "6982dc278ce17df4c5ee2e840d49ffba9f6ec88a7a68458216b40e0d1665b93f"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/endofworld/Easy/P000",
+      "cohort": "prospective_only",
+      "file": {
+        "path": "data/tartanair-prospective-evaluation/run-001/prepared/endofworld/P000/000001_000002.npz",
+        "sha256": "11ba79111ad7de36cc5bc065ee1cebbf136e32823de745550900543ea05cba7d"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/endofworld/Easy/P000",
+      "cohort": "prospective_only",
+      "file": {
+        "path": "data/tartanair-prospective-evaluation/run-001/prepared/endofworld/P000/000002_000003.npz",
+        "sha256": "75ee8b696ea2c2c47f272d4ad7b83168bf54284adec07a30f96cfe767d917498"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/endofworld/Easy/P000",
+      "cohort": "prospective_only",
+      "file": {
+        "path": "data/tartanair-prospective-evaluation/run-001/prepared/endofworld/P000/000003_000004.npz",
+        "sha256": "a67c13541f1b3c65625fbc1b42788174c003809a52540b25602011267ab7ec62"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/endofworld/Easy/P000",
+      "cohort": "prospective_only",
+      "file": {
+        "path": "data/tartanair-prospective-evaluation/run-001/prepared/endofworld/P000/000004_000005.npz",
+        "sha256": "78cfae6eee110142131a418246ebabf8d5499a8892f8d9c358cbc6d57462d860"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/endofworld/Easy/P000",
+      "cohort": "prospective_only",
+      "file": {
+        "path": "data/tartanair-prospective-evaluation/run-001/prepared/endofworld/P000/000005_000006.npz",
+        "sha256": "2c2115542fd68b67315b3c5fa6461fa2676d71801d0b19ad59bb1c560e459e37"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/endofworld/Easy/P000",
+      "cohort": "prospective_only",
+      "file": {
+        "path": "data/tartanair-prospective-evaluation/run-001/prepared/endofworld/P000/000006_000007.npz",
+        "sha256": "ded6e8c67fbfbb440825fe97f181e4748357fadd66ef087489c42117487bc74f"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/endofworld/Easy/P000",
+      "cohort": "prospective_only",
+      "file": {
+        "path": "data/tartanair-prospective-evaluation/run-001/prepared/endofworld/P000/000007_000008.npz",
+        "sha256": "e1d643d04f56d3ca4140445b2552d476960152c447143804ab55766252cf1dd7"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/endofworld/Easy/P000",
+      "cohort": "prospective_only",
+      "file": {
+        "path": "data/tartanair-prospective-evaluation/run-001/prepared/endofworld/P000/000008_000009.npz",
+        "sha256": "e47fbbab5661836d15b195fa7851f58c8fd0cc40874aa4e5f0c2c93aeb783ce4"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/endofworld/Easy/P000",
+      "cohort": "prospective_only",
+      "file": {
+        "path": "data/tartanair-prospective-evaluation/run-001/prepared/endofworld/P000/000009_000010.npz",
+        "sha256": "28f0b9edbc3fcdd111767820ab712a0a5f8b139f2a89ffa3d1850481c96eea97"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/endofworld/Easy/P000",
+      "cohort": "prospective_only",
+      "file": {
+        "path": "data/tartanair-prospective-evaluation/run-001/prepared/endofworld/P000/000010_000011.npz",
+        "sha256": "42685619ffa7e9fbd3ae44719e599ee5a9f46201dece6bfb2569334b1d4f92b9"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/endofworld/Easy/P000",
+      "cohort": "prospective_only",
+      "file": {
+        "path": "data/tartanair-prospective-evaluation/run-001/prepared/endofworld/P000/000011_000012.npz",
+        "sha256": "7e2cedb9d5acb588ecebc9922ddc10c67b1fd8e5bf80ee93e960fb72df5372ac"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/endofworld/Easy/P000",
+      "cohort": "prospective_only",
+      "file": {
+        "path": "data/tartanair-prospective-evaluation/run-001/prepared/endofworld/P000/000012_000013.npz",
+        "sha256": "64fbd3bf59d12ff6f9662a3d1368ffc5d84c2f130a331d5a11ab9ad639705220"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/endofworld/Easy/P000",
+      "cohort": "prospective_only",
+      "file": {
+        "path": "data/tartanair-prospective-evaluation/run-001/prepared/endofworld/P000/000013_000014.npz",
+        "sha256": "c5b91c0ba7afc3753c45d8a1691c3993da9ec2ebc13b176e648298dfc4f13f50"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/endofworld/Easy/P000",
+      "cohort": "prospective_only",
+      "file": {
+        "path": "data/tartanair-prospective-evaluation/run-001/prepared/endofworld/P000/000014_000015.npz",
+        "sha256": "068ba8b685a163f619b9048725a082884f7489380d006187d700feacb4b0da24"
+      }
+    },
+    {
+      "recording_id": "tartanair-v1/endofworld/Easy/P000",
+      "cohort": "prospective_only",
+      "file": {
+        "path": "data/tartanair-prospective-evaluation/run-001/prepared/endofworld/P000/000015_000016.npz",
+        "sha256": "a6ec2be70fbad4522d12a246eb313234615c86afedbcef6c7292f7fb497c0033"
+      }
+    }
+  ],
+  "optimizer_steps": 0,
+  "training_assignment_created": false,
+  "base_pretraining_membership": "unknown"
+}
