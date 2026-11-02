@@ -1,5 +1,8 @@
 # MS Research Handoff — Cross-Modal Geometric Uncertainty for RGB–Thermal Visual Odometry
 
+2026-11-02 — [User research steering](docs/research/research-steering-2026-11-02.md): RGB–thermal uncertainty/comparability and shared-estimation improvement remain primary; MAC-VO/MACThermal are testbeds, eventual other-sensor generalization is explicit. LSTM covariance memory, agent and layer are user-suggested potentials, not grounded/selected directions or build instructions. Next define a specific observed RGB–thermal failure, unresolved explanation, common target/baseline and falsifiable experiment that adds beyond prior mass/channel/solver/temporal controls. Choose architecture only from that evidence. No new inference/fit/data/reserve/default changes.
+
+
 2026-11-02 — [EXP109 saved selection exchanges](docs/research/selection-exchange-findings-2026-11-02.md): freezed1c46c69d; posthoc196savedpairs/13records/3adaptations/5retentions,zero newpayload/inference/fit. Expanded8rec50%replaces3.001%retainedmass; MSEdelta+0.113487=tail1%+0.002228+other99%+0.111259px². Westerndesert3.570%replacement,entrant/exits error²101.372/77.170;Neighborhood/Ocean/Office2zero tailentrants/exits. All784uniformfactor2 fullorders/cutoffs unchanged, so scalarcalibrationcannotrepairwithinpairrank; spatialscoredepartures/completecohorts/cancellationretained. Independent74256checks/4mutationrejections,214sourcepins unchanged,firstattempts pass,ledger36unchanged. Keeporiginalrankingreference; potential calibration-onlycoverage/NLL baseline needs separatefit/exposure/evalcontract,not fittedhere. Descriptiveaccounting notcausalmechanism/thermal/physical/generalization;prior7MS² gaps/reserves unchanged. Recovery: backups/2026-11-02-selection-exchange-diagnostic.
 
 
