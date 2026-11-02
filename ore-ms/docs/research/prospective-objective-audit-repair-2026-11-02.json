@@ -1,0 +1,23 @@
+{
+  "status": "FROZEN_AUDIT_NUMERICAL_REPAIR_BEFORE_SECOND_AUDIT",
+  "created_at_utc": "2026-11-02T18:19:51.373827+00:00",
+  "failed_auditor_sha256": "00942d12f5a378be8ca076b2a152701f507cff7fe2085d7b7c696d3202105a6a",
+  "failed_log": {
+    "path": "results/prospective-objective-evaluation/run-001/evaluation-audit.log",
+    "sha256": "81db8a280a8244e3fd19e0a41dde4ddd31e1ccbb4c1f4d8b2c510ead6718bc6c"
+  },
+  "new_auditor_sha256": "394af44ad80562b1301787a145fd9110f3febc01de760372caf21c0d2a033f5d",
+  "reason": "np.sum over signed normalized residual columns has different addition order from strided2D axis-sum producer; strict relative/absolute2e-12 rawsumcheck fails under cancellation",
+  "replacement_check": "math.fsum of independentfloat64 normalized residual components, compare producer signed sum against gamma_(N-1)*sum(abs(z))+u*abs(fsum(z)), u=eps64/2, gamma_k=k*u/(1-k*u); no fixed statistical tolerance chosen from model outcome",
+  "unchanged_checks": "all exact input/support/state/mean/coverage/risk/oracle/population/aggregation checks; all other2e-12 checks unchanged",
+  "frozen_evaluation_outputs": {
+    "results/prospective-objective-evaluation/run-001/evaluation.json": "3e876319c6d0d27f563be7ce4c3d0166a0893340670a2c8023f2b71d96370b0a",
+    "results/prospective-objective-evaluation/run-001/capture.json": "0c86895d4fcb1857cb9975bf819a73c0573039f9aa89a7e0e6e24c8578ee8a88",
+    "results/prospective-objective-evaluation/run-001/metrics.json": "c57b4a238dc5f2017700c0cd6b8158753afadd4a75b68005125386576b455924",
+    "results/prospective-objective-evaluation/run-001/micro.json": "dad01885838f5a3c20334b0cdc597aa6081df31dc68fcd5bd309dde3bc898ada",
+    "results/prospective-objective-evaluation/run-001/evaluation-execution.json": "b24f0f7d78a1bde801c0f8976ad57e7531cbf199257d41ef82fe950df9f528c8"
+  },
+  "new_inference_or_optimization": false,
+  "metric_data_model_changes": false,
+  "failure_retained": true
+}
