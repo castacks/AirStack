@@ -6,11 +6,11 @@
   "source_commit": "2066d225fe9d355b2567ed2973fb6e155242d58d",
   "contract_id": "final-trace-fixed-mean-risk-score-v1",
   "formula": ".5*(s/v+log(v));s=sum(fixed_mean_error^2);v=sum(exp(2raw));mean over valid pixels",
-  "interpretation": "strictly consistent score for conditional mean squared endpoint error; not a2D Gaussian likelihood or direct pairwise loss",
+  "interpretation": "strictly consistent score for conditional mean squared endpoint error; equivalent to percomponent isotropic2D Gaussian NLL with covariance(v/2)I up toconstant; not original diagonal NLL or direct pairwise loss",
   "identifiability": "only trace identified; axis allocation unconstrained; zero conditional error has infimum at v->0",
   "support": "unchanged diagonal-contract admission;FP32 minimum;finite/support/output-gradient checks;finalstage only",
   "new_source_sha256": {
-    "MAC-VO-main/Train/MatchingNet/trace_risk_contract.py": "067c18d2cda1196fb32d0861f9b5a420012286d90a237d5028a1d3aff6ec94f4",
+    "MAC-VO-main/Train/MatchingNet/trace_risk_contract.py": "b7909271a213ccda927644b05e8b548c8c589819763b5b4f0743ea931180351c",
     "MAC-VO-main/Scripts/UnitTest/test_trace_risk_contract.py": "d928c74ab0d50c52ed66b1e8ab6ba79db11ea60aad8e6a8f2bf13038cec1bde7"
   },
   "future_comparison": {
@@ -73,5 +73,6 @@
     "first_test_result": "1failed99passed1CUDA-onlyskip",
     "reason": "raw44 gives finite trace inFP32; overflowfixture corrected to peraxisvariance=.75*FP32max so total1.5*max overflows",
     "objective_or_comparison_changed": false
-  }
+  },
+  "interpretation_clarification": "Analytic identity: mean-component isotropic Gaussian NLL=.5*(s/v+log(v/2)); score differs by constant .5log2. Documentation-only correction; no objective/value/gradient/test changes."
 }

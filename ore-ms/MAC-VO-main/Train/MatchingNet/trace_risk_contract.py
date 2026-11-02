@@ -1,7 +1,8 @@
 """Experimental final-stage trace risk score, independent of trainer defaults.
 
 Predicts the conditional mean squared endpoint error through total variance.
-This is a scalar mean-risk score, not a two-dimensional Gaussian likelihood.
+This scalar mean-risk score equals per-component isotropic Gaussian NLL with
+covariance (trace/2)*I, up to a constant; it is not the original diagonal NLL.
 It does not identify directional variance and does not guarantee better ranking.
 """
 from dataclasses import dataclass
