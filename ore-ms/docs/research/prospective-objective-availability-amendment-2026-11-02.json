@@ -1,0 +1,19 @@
+{
+  "status": "FROZEN_AVAILABILITY_AMENDMENT_BEFORE_PAYLOADS",
+  "created_at_utc": "2026-11-02T18:11:09.762207+00:00",
+  "original_selection_commit": "3fb980635",
+  "original_selection_protocol_sha256": "c75cf804dbe039da3a6cb0931a6f84b867981be243e1beaa20f19493c463a344",
+  "original_declaration_outcome": "ABORTED_METADATA_ONLY; Carwelding P000 missing; no decoded/member payloads or model scores",
+  "failure_evidence_sha256": {
+    "results/prospective-objective-metadata/attempt-001/metadata-range-requests.jsonl": "c89397511230bc6bcd7f339c3b73c2b70dbf429228963aadbb56f4e7c18d4a4d",
+    "results/prospective-objective-metadata/attempt-001/carwelding-image_left-index.json": "448c6b119e27b0503c4f04d8c530638915a1de42d44c76babc03d3f5ae8fd7bc",
+    "results/prospective-objective-metadata/attempt-001/carwelding-tree.json": "c04ed6098b6574a156bf7337959b50fe98cf82ce5a7cd15fe552391fc3f99bff",
+    "results/prospective-objective-metadata/attempt-001/failure.log": "16c98f9aa360b08cf1ca8ea9f3b0843919af309ab271603b623a390258168d1c",
+    "results/prospective-objective-metadata/attempt-001/selection-protocol.json": "c75cf804dbe039da3a6cb0931a6f84b867981be243e1beaa20f19493c463a344"
+  },
+  "reason": "fixedP000 unavailable and initialscript assumed combinedflow.zip; correct to mirrored flow_flow.zip/flow_mask.zip, same2environments/models/metrics/support",
+  "new_selection_rule": "same frozen2environmentfamilies; Easy lexically first trajectory whose ZIP central entries contain all first17leftimages+16providedflow+16masks; metadata-only availability choice; exact selection/data protocol committed before member payloads; abort if decoded values unsupported; no later substitution",
+  "metadata_script_sha256": "73fcc984c39a6133e236f2b31f83a627c3c9bad2356143edb1e8de83a717467e",
+  "changes_to_models_metrics_optimization": false,
+  "protected_reserves_accessed": false
+}
