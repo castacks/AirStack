@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "status": "FROZEN_BEFORE_RUNNER_VERIFICATION",
+  "created_at_utc": "2026-11-02T06:47:16.291034+00:00",
+  "client_date": "2026-11-02",
+  "source_commit": "a8dde9404375ea46d57116c1dcba31f18a83877e",
+  "models": {
+    "baseline": {
+      "path": "models/macslam/MACVO_FrontendCov.pth",
+      "sha256": "bec6edd7e195bab863132f1e9659cdd26e6eaeae7cfd24a626828de294cf5b3a"
+    },
+    "full_block": {
+      "path": "results/training-coverage-comparison/run-001/broad/step-00000048.pt",
+      "sha256": "23712ed47fac43b4b3a364c7f2174003311f11233e25708a88e5c628d81e7c38"
+    },
+    "last_layer": {
+      "path": "results/final-layer-adaptation/run-001/last_layer/step-00000048.pt",
+      "sha256": "4c6186a07b7a47a650737405462476168f58913b994626c522206bbdb96367db"
+    }
+  },
+  "new_source_sha256": {
+    "MAC-VO-main/Train/MatchingNet/objective_retraining.py": "db776668289b10c97f1849ab56da3f8f68a735d4323525316b555c1943e61db1",
+    "MAC-VO-main/Scripts/UnitTest/test_objective_retraining.py": "5f7fe6619842dc779ddebf8d48967ae5544ae353e8cf71a119f8eef38a3c746d"
+  },
+  "design_protocol": {
+    "path": "docs/research/trace-risk-objective-protocol-2026-11-02.json",
+    "sha256": "a677fe243136991069f1b7226910aec6c1289c72f91f94a94a449bc6bed0f3d4"
+  },
+  "cpu_image": "sha256:6f8c1a104929edf2f56a9ae26cc01596cd040baf51743f2d5950b71e392b3bf4",
+  "gpu_image": "sha256:8f7bf1c66f251755fe796a0ebd281b2131d870bc1f936c5585dcc28e08569a33",
+  "scope": "synthetic CPU/CUDA resume/identity verification and prepared commands only; no real-model training",
+  "model_training_steps": 0,
+  "production_adoption": false,
+  "old_source_file_count": 601,
+  "retained_private_protocol_sha256": "7f0e0a4cadd5b0b6986ed248413d39871f4b489c03a133f854674e29450412c7",
+  "checkpoint_identity": "selected objective ID in semantic sourceidentity key + both wrapper/trace sourceSHA; exact engine comparison rejects all six cross-objective directions",
+  "sidecar_semantics": "validation_nll legacyfield is selected objective score;CLI validation_objective alias;support2N;no crossobjective scorecomparison"
+}
