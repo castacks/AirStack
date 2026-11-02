@@ -55,4 +55,4 @@ else:
  p=json.loads(EXECUTION.read_text());validate(p)
  assert not subprocess.check_output(['git','status','--porcelain','--',str(EXECUTION),str(ROOT/'tools')],cwd=ROOT,text=True).strip()
  write(OUT/'protocol.json',p);write(OUT/'produced-model-pins.json',p['models'])
- commands(p,[('evaluate',True),('metrics',False),('micro',False),('summary',False),('plot',False),('audit',False)],'evaluation')
+ commands(p,[('evaluate',True),('metrics',False),('micro',False),('summary',False),('audit',False)],'evaluation')
