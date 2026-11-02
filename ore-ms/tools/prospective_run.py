@@ -47,6 +47,7 @@ elif args.action=='freeze':
  manifest=ROOT/p['prepared_manifest_relative'];data=json.loads(manifest.read_text());assert len(data['samples'])==32 and data['optimizer_steps']==0
  pins={str(DECLARATION.relative_to(ROOT)):sha(DECLARATION),'tools/prospective_run.py':sha(__file__),p['prepared_manifest_relative']:sha(manifest)}
  pin_walk(data,pins)
+ for script in (ROOT/'tools').glob('prospective_*.py'):pins[str(script.relative_to(ROOT))]=sha(script)
  for f in [OUT/'data-validation.json',OUT/'audit-data.json',OUT/'acquisition.json',ROOT/'results/objective-comparison/run-001/evaluation.json']:pins[str(f.relative_to(ROOT))]=sha(f)
  p.update(status='FROZEN_NATIVE_EXECUTION_BEFORE_MODEL_SCORES',source_commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),evaluation_manifest={'path':p['prepared_manifest_relative'],'sha256':sha(manifest)},execution_pins=pins)
  validate(p);write(EXECUTION,p);print('FROZEN',len(pins),'execution pins')
@@ -54,4 +55,4 @@ else:
  p=json.loads(EXECUTION.read_text());validate(p)
  assert not subprocess.check_output(['git','status','--porcelain','--',str(EXECUTION),str(ROOT/'tools')],cwd=ROOT,text=True).strip()
  write(OUT/'protocol.json',p);write(OUT/'produced-model-pins.json',p['models'])
- commands(p,[('evaluate',True),('metrics',False),('audit',False)],'evaluation')
+ commands(p,[('evaluate',True),('metrics',False),('micro',False),('audit',False)],'evaluation')
