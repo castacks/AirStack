@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "name": "tartanair-v1-native-rgb-forward-flow-coverage-v1",
+  "protocol": {
+    "path": "results/supervised-flow-development/run-001/protocol.json",
+    "sha256": "ce80601fcf57b9a2057424c987471993464702ad9df3cb6a5268a34b950febe6"
+  },
+  "decode": {
+    "image": "OpenCVuint8BGRdecode\u2192RGB\u2192float32/255\u2192CHW",
+    "flow": "providedfloat32HWCuv\u2192CHW;nativepixelunits;first\u2192second",
+    "valid_mask": "provideduint8mask==0;Truevalid",
+    "resize": false,
+    "crop": false,
+    "augmentation": false,
+    "expected_size": [
+      480,
+      640
+    ]
+  },
+  "target": "provided first-to-second left-camera (u,v) flow in native image pixels;not a pose/depth-derived project proxy",
+  "sources": {
+    "tools": "https://github.com/castacks/tartanair_tools/blob/841584a8a1ebbdcc832430212609d48b6b624443/data_type.md",
+    "mask_polarity": "https://learn.microsoft.com/en-us/azure/open-datasets/dataset-tartanair-simulation"
+  },
+  "data_license_assertion": "HFAirLabdatasetmetadata declaresbsd-3-clause;notice and attribution retained",
+  "no_model_outcome_selection": true,
+  "coverage_protocol": {
+    "path": "results/training-coverage-comparison/run-001/data-protocol.json",
+    "sha256": "e35e09637a6fa707c18098f8e1706a21874591602333d5846c90c61af87933f3"
+  },
+  "preprocessing_changed": false
+}
