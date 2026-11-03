@@ -235,6 +235,12 @@ def main():
             cost=read(OUT/'captures'/arm/'experts'/c/'native-cost.json')
             calls+=sum(e['kind']=='frontend_pair' for e in cost['frontend_calls']);ns+=sum(e['duration_ns'] for e in cost['native_phases'] if e['kind']=='run')
         assert calls==g['cost']['total_pair_calls'] and math.isclose(ns/1e9,g['cost']['total_run_seconds'],rel_tol=1e-12);checks+=2
+        first_release=next(e['controller_monotonic_ns'] for e in log if e['kind']=='release')
+        last_group=max(e['controller_monotonic_ns'] for e in log if e['kind']=='group_complete')
+        assert g['cost']['controller_processing_seconds']==(last_group-first_release)/1e9;checks+=1
+        for camera in CAMERAS:
+            assert g['cost']['decode_invocations'][camera]==len([e for e in log if e['kind'] in ['release','catchup_release'] and e['camera']==camera])+1
+            assert g['cost']['buffered_decode_invocations'][camera]==sum(e['kind']=='catchup_release' and e['camera']==camera for e in log);checks+=2
         for metric in ['translation_m','rotation_deg']:
             vals=[r['selected_loss'][metric] for r in rr if r['pair'] in both];summary=g['matched_proxy'][metric];assert len(vals)==summary['count']
             if vals:assert math.isclose(math.sqrt(math.fsum(x*x for x in vals)/len(vals)),summary['rmse'],abs_tol=1e-12,rel_tol=1e-12)

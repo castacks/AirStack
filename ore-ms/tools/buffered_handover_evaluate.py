@@ -133,6 +133,11 @@ def predict():
         base=OUT/'captures'/arm;timeline,decisions,count=replay(w,base);checks+=count
         stats=costs(base)
         stats['requested_inputs']={c:sum(e['kind'] in ['release','transport_drop'] and e['camera']==c and e['source']>0 for e in timeline) for c in ['rgb','thermal']}
+        first_release=next(e['controller_monotonic_ns'] for e in timeline if e['kind']=='release')
+        last_group=max(e['controller_monotonic_ns'] for e in timeline if e['kind']=='group_complete')
+        stats['controller_processing_seconds']=(last_group-first_release)/1e9
+        stats['decode_invocations']={c:stats[c]['frames']+1 for c in ['rgb','thermal']}
+        stats['buffered_decode_invocations']={c:sum(e['kind']=='catchup_release' and e['camera']==c for e in timeline) for c in ['rgb','thermal']}
         stats['historical_inputs']={c:sum(e['kind']=='catchup_release' and e['camera']==c for e in timeline) for c in ['rgb','thermal']}
         stats['transport_drops']={c:sum(e['kind']=='transport_drop' and e['camera']==c for e in timeline) for c in ['rgb','thermal']}
         result={'cost':stats,'actions_all':dict(collections.Counter(d['action'] for d in decisions.values()))}
