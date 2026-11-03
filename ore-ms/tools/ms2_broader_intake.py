@@ -1,6 +1,6 @@
 """Frozen, bounded MS² archive intake. Run in Docker with isolated indexed_bzip2."""
 from pathlib import Path
-import argparse, hashlib, io, json, tarfile, time, urllib.request
+import argparse, bisect, concurrent.futures, hashlib, io, json, tarfile, time, urllib.request
 ROOT=Path(__file__).resolve().parents[1]
 OUT=ROOT/'results/ms2-broader-range/run-001'
 PLAN=ROOT/'experiments/ms2-broader-range-2026-11-02.json'
@@ -67,6 +67,19 @@ def acquire(recording):
  names={f'{seq}/{c}/img_{s}/{stem}.png' for case in cases for c in ['rgb','thr'] for s in ['left','right'] for stem in case['stems']}
  selected=sorted([index[n] for n in names],key=lambda m:m['offset_data']);reader=RangeReader(first['archive_url'],first['archive_bytes'],OUT/'compressed-ranges'/recording);members=[];overlap=0
  offsets={int(k):v for k,v in read(base/'archives/sync_data-block-offsets.json').items()}
+ # Pre-fetch independently addressed compressed chunks; decoder still validates TAR
+ # headers and can fetch any additional required chunk through the same strict reader.
+ ordered=sorted((v,k) for k,v in offsets.items());uncompressed=[v for v,k in ordered];chunks=set()
+ for m in selected:
+  a=max(0,bisect.bisect_right(uncompressed,m['offset_data']-512)-1);b=min(len(ordered)-1,bisect.bisect_left(uncompressed,m['offset_data']+m['size'])+1)
+  chunks.update(range((ordered[a][1]//8)//reader.block,((ordered[b][1]+7)//8)//reader.block+1))
+ def fetch(chunk):
+  local=RangeReader(reader.url,reader.length,reader.cache);local.seek(chunk*local.block);local.read(min(local.block,local.length-local.tell()))
+ pending=[i for i in sorted(chunks) if not (reader.cache/f'{i*reader.block}-{min((i+1)*reader.block,reader.length)-1}.bin').exists()]
+ print(recording,'prefetch',len(pending),'of',len(chunks),'compressed chunks',flush=True)
+ with concurrent.futures.ThreadPoolExecutor(max_workers=12) as pool:
+  for n,_ in enumerate(pool.map(fetch,pending)):
+   if n%100==0:print(recording,'prefetched',n,'/',len(pending),flush=True)
  with indexed_bzip2.open(reader,parallelization=1) as stream:
   stream.set_block_offsets(offsets)
   for i,m in enumerate(selected):
