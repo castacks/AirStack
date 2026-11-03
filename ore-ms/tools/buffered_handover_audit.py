@@ -166,8 +166,11 @@ def main():
     for arm,log in logs.items():
         report=read(OUT/'captures'/arm/'retained-inputs.json');entries={c:{} for c in CAMERAS};total=peak=0;metadata={}
         assert len(report['arrivals'])==200
+        expected_order=[(e['camera'],e['source']) for e in log if e['kind'] in ['release','skip_release','transport_drop']]
+        assert [(r['camera'],r['source']) for r in report['arrivals']]==expected_order
+        latest={c:-1 for c in CAMERAS}
         for row in report['arrivals']:
-            c=row['camera'];source=row['source']
+            c=row['camera'];source=row['source'];assert source==latest[c]+1;latest[c]=source;checks+=1
             expired=[j for j in entries[c] if j<source-1]
             assert expired==row['expired_sources']
             for j in expired:del entries[c][j]
