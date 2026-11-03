@@ -1047,3 +1047,8 @@ metadata comparison at the recorded source layout; output files are exclusive
 and require the preserved declaration. `python -m Scripts.Setup.validate_predecessor_state_replay` independently checks source
 bindings and all counts without importing the validator/replay. Real roots
 remain unproven because no initialization record is supplied.
+
+
+### Past-only future sensor-risk probe (EXP115)
+
+`future_sensor_risk.py` contains pure three-slot feature construction, a fixed analytical ridge and label-free prediction. `tools/past_only_sensor_risk.py` freezes saved EXP112–114 inputs, audits original-rig timing, constructs strictly pre-target features and excludes each full recording before fitting. Run its `freeze`, `prepare`, `train_predict` stages, then `past_only_sensor_risk_score.py`, the independent audits and plot, in the pinned Docker runtime. Outputs are exclusive: preserve existing results before rerunning in an isolated copy. The [frozen protocol](../../../docs/research/past-only-sensor-risk-protocol-2026-11-03.md) specifies exact features, leads, masks and validation. This is an exposed-data development diagnostic; it does not modify native inference or implement sensor skipping.

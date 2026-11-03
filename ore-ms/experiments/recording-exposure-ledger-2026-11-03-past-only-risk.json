@@ -1,0 +1,65 @@
+{
+  "client_date": "2026-11-03",
+  "experiment": "EXP115",
+  "scope": "saved-output supervised selector probe only; no new source exposure",
+  "records": [
+    {
+      "recording_id": "ms2/_2021-08-06-11-23-45",
+      "use": "held out for own predictions; training target source for other record folds",
+      "base_checkpoint_training_membership": "unknown",
+      "native_checkpoint_finetuning": false,
+      "new_images_decoded": false,
+      "prospective_unseen_claim": false
+    },
+    {
+      "recording_id": "ms2/_2021-08-06-16-19-00",
+      "use": "held out for own predictions; training target source for other record folds",
+      "base_checkpoint_training_membership": "unknown",
+      "native_checkpoint_finetuning": false,
+      "new_images_decoded": false,
+      "prospective_unseen_claim": false
+    },
+    {
+      "recording_id": "ms2/_2021-08-13-21-18-04",
+      "use": "held out for own predictions; training target source for other record folds",
+      "base_checkpoint_training_membership": "unknown",
+      "native_checkpoint_finetuning": false,
+      "new_images_decoded": false,
+      "prospective_unseen_claim": false
+    },
+    {
+      "recording_id": "td3/20251027/0_salon_so_day",
+      "use": "held out for own predictions; training target source for other record folds",
+      "base_checkpoint_training_membership": "unknown",
+      "native_checkpoint_finetuning": false,
+      "new_images_decoded": false,
+      "prospective_unseen_claim": false
+    },
+    {
+      "recording_id": "td3/20251027/1_salon_mac_cov_day",
+      "use": "held out for own predictions; training target source for other record folds",
+      "base_checkpoint_training_membership": "unknown",
+      "native_checkpoint_finetuning": false,
+      "new_images_decoded": false,
+      "prospective_unseen_claim": false
+    },
+    {
+      "recording_id": "td3/20251027/night_mac_salon_warehousefig8",
+      "use": "held out for own predictions; training target source for other record folds",
+      "base_checkpoint_training_membership": "unknown",
+      "native_checkpoint_finetuning": false,
+      "new_images_decoded": false,
+      "prospective_unseen_claim": false
+    },
+    {
+      "recording_id": "td3/20251027/night_thermal_so_salon2",
+      "use": "held out for own predictions; training target source for other record folds",
+      "base_checkpoint_training_membership": "unknown",
+      "native_checkpoint_finetuning": false,
+      "new_images_decoded": false,
+      "prospective_unseen_claim": false
+    }
+  ],
+  "reserved_recordings_opened": false,
+  "model_adopted": false
+}
