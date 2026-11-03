@@ -49,7 +49,7 @@ raw/history and both fixed experts remain controls. This does not substitute for
 a future measurement-level fusion experiment.
 
 Historical causal health events have native covariance quantiles, support and image
-coverage but no initial pose-information matrix. Final tensor maps are not assumed
+coverage but no returned-pose information matrix. Final tensor maps are not assumed
 to prove what geometric evidence was available at an earlier controller receipt.
 Therefore new geometry observation must first preserve native execution. Add it
 opt-in in research instrumentation; preserve default output and production behavior.
