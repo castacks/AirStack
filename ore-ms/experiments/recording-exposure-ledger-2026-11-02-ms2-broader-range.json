@@ -1,0 +1,93 @@
+{
+  "as_of": "2026-11-02",
+  "experiment": "EXP114",
+  "prior_ledger": "recording-exposure-ledger-2026-11-02-prospective-objectives.json",
+  "partition_unit": "whole temporal recording",
+  "records": [
+    {
+      "recording_id": "ms2/_2021-08-06-11-23-45",
+      "condition": "day",
+      "prior_exposure": "already exposed by MS2 scout and original first-20 pilots; development data",
+      "new_exposure": "three fixed 100-group windows from chronological thirds",
+      "windows": [
+        {
+          "case": "day-early",
+          "start": 1,
+          "frames": 100
+        },
+        {
+          "case": "day-middle",
+          "start": 1937,
+          "frames": 100
+        },
+        {
+          "case": "day-late",
+          "start": 3874,
+          "frames": 100
+        }
+      ],
+      "checkpoint_training_membership": "unknown",
+      "training_this_experiment": false,
+      "held_out_claim": false
+    },
+    {
+      "recording_id": "ms2/_2021-08-13-21-18-04",
+      "condition": "night",
+      "prior_exposure": "already exposed by MS2 scout and original first-20 pilots; development data",
+      "new_exposure": "three fixed 100-group windows from chronological thirds",
+      "windows": [
+        {
+          "case": "night-early",
+          "start": 1,
+          "frames": 100
+        },
+        {
+          "case": "night-middle",
+          "start": 3378,
+          "frames": 100
+        },
+        {
+          "case": "night-late",
+          "start": 6755,
+          "frames": 100
+        }
+      ],
+      "checkpoint_training_membership": "unknown",
+      "training_this_experiment": false,
+      "held_out_claim": false
+    },
+    {
+      "recording_id": "ms2/_2021-08-06-16-19-00",
+      "condition": "rain",
+      "prior_exposure": "already exposed by MS2 scout and original first-20 pilots; development data",
+      "new_exposure": "three fixed 100-group windows from chronological thirds",
+      "windows": [
+        {
+          "case": "rain-early",
+          "start": 1,
+          "frames": 100
+        },
+        {
+          "case": "rain-middle",
+          "start": 3957,
+          "frames": 100
+        },
+        {
+          "case": "rain-late",
+          "start": 7913,
+          "frames": 100
+        }
+      ],
+      "checkpoint_training_membership": "unknown",
+      "training_this_experiment": false,
+      "held_out_claim": false
+    }
+  ],
+  "reserves_untouched": [
+    "_2021-08-13-16-31-10",
+    "_2021-08-13-22-16-02"
+  ],
+  "source_groups_selected": 900,
+  "previously_unseen_by_us_not_asserted": true,
+  "selection_uses_outcomes": false
+}
