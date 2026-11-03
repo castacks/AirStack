@@ -1,0 +1,762 @@
+{
+  "source": "results/readiness-continuation/run-001/captures/readiness_probe/timeline.jsonl",
+  "source_sha256": "25e3e4cbf6b61e3e022590d9f627234240df976bfbed4f694731e065e6a70e9a",
+  "scope": "fixed exposed request/action mechanism fixture; no reference labels",
+  "decisions": [
+    {
+      "pair": 0,
+      "action": "ABSTAIN",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 1,
+      "action": "ABSTAIN",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 2,
+      "action": "THERMAL",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 3,
+      "action": "THERMAL",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 4,
+      "action": "THERMAL",
+      "requests": [
+        "thermal"
+      ]
+    },
+    {
+      "pair": 5,
+      "action": "THERMAL",
+      "requests": [
+        "thermal"
+      ]
+    },
+    {
+      "pair": 6,
+      "action": "THERMAL",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 7,
+      "action": "THERMAL",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 8,
+      "action": "THERMAL",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 9,
+      "action": "THERMAL",
+      "requests": [
+        "thermal"
+      ]
+    },
+    {
+      "pair": 10,
+      "action": "THERMAL",
+      "requests": [
+        "thermal"
+      ]
+    },
+    {
+      "pair": 11,
+      "action": "THERMAL",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 12,
+      "action": "THERMAL",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 13,
+      "action": "THERMAL",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 14,
+      "action": "THERMAL",
+      "requests": [
+        "thermal"
+      ]
+    },
+    {
+      "pair": 15,
+      "action": "THERMAL",
+      "requests": [
+        "thermal"
+      ]
+    },
+    {
+      "pair": 16,
+      "action": "THERMAL",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 17,
+      "action": "THERMAL",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 18,
+      "action": "THERMAL",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 19,
+      "action": "THERMAL",
+      "requests": [
+        "thermal"
+      ]
+    },
+    {
+      "pair": 20,
+      "action": "THERMAL",
+      "requests": [
+        "thermal"
+      ]
+    },
+    {
+      "pair": 21,
+      "action": "THERMAL",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 22,
+      "action": "THERMAL",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 23,
+      "action": "THERMAL",
+      "requests": [
+        "thermal"
+      ]
+    },
+    {
+      "pair": 24,
+      "action": "THERMAL",
+      "requests": [
+        "thermal"
+      ]
+    },
+    {
+      "pair": 25,
+      "action": "THERMAL",
+      "requests": [
+        "thermal"
+      ]
+    },
+    {
+      "pair": 26,
+      "action": "THERMAL",
+      "requests": [
+        "thermal"
+      ]
+    },
+    {
+      "pair": 27,
+      "action": "THERMAL",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 28,
+      "action": "THERMAL",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 29,
+      "action": "THERMAL",
+      "requests": [
+        "thermal"
+      ]
+    },
+    {
+      "pair": 30,
+      "action": "THERMAL",
+      "requests": [
+        "thermal"
+      ]
+    },
+    {
+      "pair": 31,
+      "action": "THERMAL",
+      "requests": [
+        "thermal"
+      ]
+    },
+    {
+      "pair": 32,
+      "action": "THERMAL",
+      "requests": [
+        "thermal"
+      ]
+    },
+    {
+      "pair": 33,
+      "action": "THERMAL",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 34,
+      "action": "THERMAL",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 35,
+      "action": "THERMAL",
+      "requests": [
+        "thermal"
+      ]
+    },
+    {
+      "pair": 36,
+      "action": "THERMAL",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 37,
+      "action": "THERMAL",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 38,
+      "action": "THERMAL",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 39,
+      "action": "THERMAL",
+      "requests": [
+        "thermal"
+      ]
+    },
+    {
+      "pair": 40,
+      "action": "THERMAL",
+      "requests": [
+        "thermal"
+      ]
+    },
+    {
+      "pair": 41,
+      "action": "THERMAL",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 42,
+      "action": "THERMAL",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 43,
+      "action": "THERMAL",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 44,
+      "action": "THERMAL",
+      "requests": [
+        "thermal"
+      ]
+    },
+    {
+      "pair": 45,
+      "action": "THERMAL",
+      "requests": [
+        "thermal"
+      ]
+    },
+    {
+      "pair": 46,
+      "action": "THERMAL",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 47,
+      "action": "THERMAL",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 48,
+      "action": "THERMAL",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 49,
+      "action": "THERMAL",
+      "requests": [
+        "thermal"
+      ]
+    },
+    {
+      "pair": 50,
+      "action": "RGB",
+      "requests": [
+        "rgb"
+      ]
+    },
+    {
+      "pair": 51,
+      "action": "RGB",
+      "requests": [
+        "rgb"
+      ]
+    },
+    {
+      "pair": 52,
+      "action": "RGB",
+      "requests": [
+        "rgb"
+      ]
+    },
+    {
+      "pair": 53,
+      "action": "RGB",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 54,
+      "action": "RGB",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 55,
+      "action": "RGB",
+      "requests": [
+        "rgb"
+      ]
+    },
+    {
+      "pair": 56,
+      "action": "RGB",
+      "requests": [
+        "rgb"
+      ]
+    },
+    {
+      "pair": 57,
+      "action": "RGB",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 58,
+      "action": "RGB",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 59,
+      "action": "RGB",
+      "requests": [
+        "rgb"
+      ]
+    },
+    {
+      "pair": 60,
+      "action": "RGB",
+      "requests": [
+        "rgb"
+      ]
+    },
+    {
+      "pair": 61,
+      "action": "RGB",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 62,
+      "action": "RGB",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 63,
+      "action": "RGB",
+      "requests": [
+        "rgb"
+      ]
+    },
+    {
+      "pair": 64,
+      "action": "RGB",
+      "requests": [
+        "rgb"
+      ]
+    },
+    {
+      "pair": 65,
+      "action": "RGB",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 66,
+      "action": "RGB",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 67,
+      "action": "RGB",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 68,
+      "action": "RGB",
+      "requests": [
+        "rgb"
+      ]
+    },
+    {
+      "pair": 69,
+      "action": "RGB",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 70,
+      "action": "RGB",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 71,
+      "action": "RGB",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 72,
+      "action": "RGB",
+      "requests": [
+        "rgb"
+      ]
+    },
+    {
+      "pair": 73,
+      "action": "RGB",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 74,
+      "action": "RGB",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 75,
+      "action": "ABSTAIN",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 76,
+      "action": "ABSTAIN",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 77,
+      "action": "ABSTAIN",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 78,
+      "action": "ABSTAIN",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 79,
+      "action": "ABSTAIN",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 80,
+      "action": "ABSTAIN",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 81,
+      "action": "RGB",
+      "requests": [
+        "rgb"
+      ]
+    },
+    {
+      "pair": 82,
+      "action": "RGB",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 83,
+      "action": "RGB",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 84,
+      "action": "RGB",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 85,
+      "action": "RGB",
+      "requests": [
+        "rgb"
+      ]
+    },
+    {
+      "pair": 86,
+      "action": "RGB",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 87,
+      "action": "RGB",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 88,
+      "action": "RGB",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 89,
+      "action": "RGB",
+      "requests": [
+        "rgb"
+      ]
+    },
+    {
+      "pair": 90,
+      "action": "RGB",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 91,
+      "action": "RGB",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 92,
+      "action": "RGB",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 93,
+      "action": "RGB",
+      "requests": [
+        "rgb"
+      ]
+    },
+    {
+      "pair": 94,
+      "action": "RGB",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 95,
+      "action": "RGB",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 96,
+      "action": "RGB",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 97,
+      "action": "RGB",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    },
+    {
+      "pair": 98,
+      "action": "RGB",
+      "requests": [
+        "rgb",
+        "thermal"
+      ]
+    }
+  ]
+}
