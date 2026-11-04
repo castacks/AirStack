@@ -1,3 +1,10 @@
+EXP125 (2026-11-03): [night-condition transfer](docs/research/night-transfer-findings-2026-11-03.md)
+executionPASS, research superiorityFAIL. Unchanged candidate
+67/95selected with137calls; native fixedthermal
+71/95 with83calls.
+Previously inspected night recording; conditional exact-cost readouts separate
+from native fixed controls. No pose accuracy/generalization/default adoption.
+
 EXP124 (2026-11-03): [leased native handover](docs/research/leased-handover-findings-2026-11-03.md)
 passes the frozen synthetic contract: 85/95 selected deliveries,
 141 vs158 full-read calls;

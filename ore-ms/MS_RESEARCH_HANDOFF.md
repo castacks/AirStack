@@ -1502,3 +1502,38 @@ primary141calls,85/95selected,4/4episodes. Additional8calls restore alternate
 readiness, not selected-delivery superiority here.2MiBdiagnostic139calls,84/95,
 5unavailable,4/4later returns;missedRGB50 causes49→51handover gap. Controller51.592s
 for9.900s source span: not livecadence.
+
+2026-11-03 — [EXP125 night transfer](experiments/EXP-125-night-transfer.md):
+freeze02bfb3a44,parent680a2da7c. Sole exposed prepared100nightwindow fromEXP119,
+RGB945–1044/night_mac_salon_warehousefig8 vsdevelopment0_salon_so_day;0imagehash
+overlap, previously inspected health,not blindholdout/illuminationcausality.
+Exact unchanged EXP1244MiBstore+2MiBarena/clock/readiness/query/solver/weights;
+same relative syntheticoutages.6freshdual captures:unpertfull,pertfull,original,
+candidate,fixedRGB,fixedthermal.2conditional constant-choice readouts share exact
+candidate nativehistories/cost,not independent runs or standalone schedulers.
+ExecutionPASS;researchsuperiorityFAIL. Candidate67/95,
+137calls;nativefixedthermal71/95,
+83calls. All95slots and4censoredreturn
+populations retained;native support not guaranteed by transportreturn.
+54484independentchecks,5226raw arraybyte controls,
+1403pins;unchanged65previous native tests,not newtests. No pose labels,
+newdata,reserve,training,default adoption. Scoped encodedcapacity notRSS/livecadence.
+Retain failedresearchcriteria without tuning. Next evidence needs useful changing
+alternate and predeclared controls/reference/deadline semantics;natural sustained
+transitions and independent poses strengthen broadclaims. Backup backups/2026-11-03-night-transfer;
+prerequisitesEXP124implementation/EXP119night controls and inherited images/runtime.
+
+EXP125 diagnosis: fixedthermal71/95,83calls;candidate67/95,137calls;original67/95,
+130calls. Same3/4returned-adjacent episodes original/candidate. Matchedthermal71/95
+on exactcandidate137calls;matchedRGB1/95. Pairordinals2,65,66,80 arecandidateABSTAIN
+butthermaloutputeligiblebyoriginalgroups4,67,68,82; notfuturedataatdecisiontime.
+15overlayextras do not equal7netextra calls dueownfeedback/clock schedules.
+Preserve negative transfer; no tuning/winneradoption. Originalfrozen audit failed
+strictfloataggregation equality (~1e-14s); v2isclose1e-12 scalar-only amendment
+preservesoriginal/logs/capture/scores, hashlocked audit-amendment.json. Final audit
+54484checks,5226raw arraybytecontrols,1403pins.
+
+EXP125 commitment qualification:candidate4unavailable+24abstentions(4opportunity,
+20none) vsfixedthermal24unavailable+0abstentions. More delivered intervals/fewer
+calls doesnotmean everymetric better. No retrospective combined utility or
+pose-risk weighting introduced to rescue failedresearchgate.

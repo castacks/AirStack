@@ -49,3 +49,13 @@ processing is51.592 seconds for a9.900-second source span; live cadence is not
 established. Next research tests should address independent-condition utility
 with fixed-camera and matched-cost controls rather than treating more checks on
 this synthetic interval as generalization evidence.
+
+[EXP125 night transfer](../../experiments/EXP-125-night-transfer.md) does not show
+adaptive superiority. Unchanged candidate67/95deliveries with137calls versus
+fixed thermal71/95with83calls; conditional always-thermal71/95on the same137calls.
+Original sparse67/95with130calls and the same3/4return-episode readiness. Four
+candidate abstentions have eligible thermal output by the original deadline;
+that later output is not assumed available at decision time. This separates
+implementation feasibility from missing research utility. Night recording was
+previously inspected and has0imagehash overlap with developmentday; not blindholdout
+or illumination causality. No policy tuning/adoption follows this failure.
