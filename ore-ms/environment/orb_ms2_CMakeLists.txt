@@ -5,6 +5,8 @@ find_package(OpenCV 4 REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(Pangolin REQUIRED)
 add_executable(orb_ms2_runner orb_ms2_runner.cc)
+# ORB and bundled g2o use -march=native. Match their Eigen alignment ABI.
+target_compile_options(orb_ms2_runner PRIVATE -march=native)
 target_include_directories(orb_ms2_runner PRIVATE /opt/ORB_SLAM3
   /opt/ORB_SLAM3/include /opt/ORB_SLAM3/include/CameraModels
   /opt/ORB_SLAM3/Thirdparty/Sophus ${EIGEN3_INCLUDE_DIR} ${Pangolin_INCLUDE_DIRS})
