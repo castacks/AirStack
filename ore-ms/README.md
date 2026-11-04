@@ -1,3 +1,9 @@
+EXP126 (2026-11-03): [decision timing/headroom audit](docs/research/decision-headroom-findings-2026-11-03.md)
+finds0night availability headroom above thermal on retained histories; day candidate
+85/95 versusconditional ceiling87/95. Preselection predicts before target motion
+exists; final completed-motion selection is a different contract.8tests/33,874
+checks/8mutations; no new policy/inference. Next exposed-data/target adequacy audit.
+
 EXP125 (2026-11-03): [night-condition transfer](docs/research/night-transfer-findings-2026-11-03.md)
 executionPASS, research superiorityFAIL. Unchanged candidate
 67/95selected with137calls; native fixedthermal

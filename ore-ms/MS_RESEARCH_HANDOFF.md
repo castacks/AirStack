@@ -1537,3 +1537,26 @@ EXP125 commitment qualification:candidate4unavailable+24abstentions(4opportunity
 20none) vsfixedthermal24unavailable+0abstentions. More delivered intervals/fewer
 calls doesnotmean everymetric better. No retrospective combined utility or
 pose-risk weighting introduced to rescue failedresearchgate.
+
+2026-11-03 — [EXP126 decision/headroom](experiments/EXP-126-decision-headroom.md):
+freeze9c6118ebb,parent9d778e7d1. Retrospective8histories760slots fromEXP124day
+full/original/candidate andEXP125nightfull/original/candidate/fixedRGB/fixedthermal.
+Nightfull/original/candidate allunion71=thermal71;RGB1overlaps,0RGB-only:zero
+conditional availability headroom overthermal,selected67. Dayfullunion88,R/T71/71;
+originalunion87,R/T42/46;candidateunion87,R/T48/53,selected85. Sparseconditional
+constant readouts constrained byswitching-requesthistory,not standalone fixed
+schedulers. Candidate loses2day(pair49wrongcamera+pair80abstain) and4night
+abstains(pair2/65/66/80) withon-time outputs arrivingafterdecision.0current-target
+eligiblemotions atallpreselectionclocks (1520camera-targets). Request admission
+prediction isdifferent from finalcompleted-motionselection. Controller journals
+preselection/expertevents,notselected-motionpublishing; unavailable selection is
+notwrongposepublication andsupportnotaccuracy. No retrospectivefailurepenalties,
+newpolicy/clock/solver/inference/pose labels/reserve/default adoption.8semantic
+tests,33874independentchecks,8mutationrejections,48direct+1403inheritedpins;
+alloriginalmasks/outcomes unchanged,EXP125failure/precision amendment preserved.
+Decision:keepcandidatefrozen, no selectorfit onzero-headroomnight. Next audit
+alreadyexposed dense traces fornatural complementary availability and inventory
+independent commonframe/timestamp/reference evidence;checklocal/Box first,keep
+reservedclosed,markdiscoveryconditions exposed. Establish admission and final
+motionvalidation contracts before newqualityselector. Backup backups/2026-11-03-decision-headroom;
+prerequisites EXP124/125lockedruns and inherited assets.

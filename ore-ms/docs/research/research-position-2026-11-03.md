@@ -59,3 +59,15 @@ that later output is not assumed available at decision time. This separates
 implementation feasibility from missing research utility. Night recording was
 previously inspected and has0imagehash overlap with developmentday; not blindholdout
 or illumination causality. No policy tuning/adoption follows this failure.
+
+[EXP126 decision-clock/headroom audit](../../experiments/EXP-126-decision-headroom.md)
+sharpens the decision after failed transfer. Night's full-read and sparse executed
+histories have no RGB-only eligible interval: union71=thermal71. No camera-choice
+rule on those same outputs can strictly beat thermal for availability. Daycandidate
+has only2remaining readout slots (85vs87), and its constant readout48/53counts are
+constrained by its switching schedule. The current controller predicts an expert
+before target motion exists; the original completed-motion selection proposal
+uses a different decision clock/information set. Counts of unavailable preselection
+are not measured erroneous pose publication or downstream risk. Keep mechanism
+frozen; prioritize exposed-data/target adequacy and explicit final-output contract
+before another selector fit. No new inference/policy, no change to EXP125 failure.
