@@ -1,3 +1,7 @@
+EXP138: [Conditional common-time motion model](docs/research/common-time-model-findings-2026-11-04.md).
+105 tests pass; explicit clock/motion assumptions preserve original times and horizon gaps.
+Model accuracy and physical synchronization remain unestablished; benchmark stays unready.
+
 EXP137: [DROID longer exposed prefixes](docs/research/droid-longer-prefix-findings-2026-11-04.md).
 All six fixed101-frame runs initialize, returning606/606finite offline poses;
 first20inputs/frontend traces stay exact. 82tests/13,874audit checks pass. No
