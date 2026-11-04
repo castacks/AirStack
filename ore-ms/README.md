@@ -1,3 +1,9 @@
+EXP135: [selected-motion trajectory publisher](docs/research/selected-motion-publisher-findings-2026-11-04.md).
+Exact source-time/frame integration and segment breaks implemented; 50 tests,
+2,505 independent checks/24 mutations and two analytic scorer checks pass.
+Provided frame convention verified; unequal RGB/thermal intervals remain refused.
+Cross-stream clock/time transport and full benchmark remain pending.
+
 EXP134: [ORB stereo/MS² development adapter](docs/research/orb-ms2-development-findings-2026-11-04.md).
 Six day/night/rain RGB/thermal runs each complete 20/20 frames; 27 tests and 2,628
 independent checks pass. Three failed startup/ABI attempts remain retained.

@@ -1,0 +1,11 @@
+{
+  "phase": "post-replay analytic integration only; no real reference data",
+  "source_sha256": {
+    "tools/tests/test_selected_motion_metrics.py": "0147bfa8ced5338f889d5c3297fd6de462f7b323669f0e4e72e107f60316a4d2",
+    "tools/selected_motion_trajectory.py": "277a3dd3aa53dfe035a4caa23b059c2f55610ebe52ded29f0fa40d73fd5b6437",
+    "tools/independent_benchmark_metrics_v2.py": "57cb78a2bd5f95472206fa59a3218723d153f38921906b41963a6fc7e88c6ae6"
+  },
+  "publisher_freeze": "c7a6714d1",
+  "runtime_image": "sha256:77c286e47ceda719c8bc24be21dace0acdc4164217b28cb52529a47cf1d1fa31",
+  "reference_payload_access": false
+}
