@@ -1,0 +1,99 @@
+{
+  "date": "2026-11-04",
+  "parent_commit": "a00a87918",
+  "windows": [
+    {
+      "case": "night_thermal_so_salon/early",
+      "clip": "night_thermal_so_salon",
+      "dataset": "results/provided-export-survey/run-001/prepared/night_thermal_so_salon/0"
+    },
+    {
+      "case": "night_thermal_so_salon/late",
+      "clip": "night_thermal_so_salon",
+      "dataset": "results/provided-export-survey/run-001/prepared/night_thermal_so_salon/2"
+    },
+    {
+      "case": "night_thermal_so_salon3/middle",
+      "clip": "night_thermal_so_salon3",
+      "dataset": "results/provided-export-survey/run-001/prepared/night_thermal_so_salon3/1"
+    },
+    {
+      "case": "night_thermal_so_salon3/late",
+      "clip": "night_thermal_so_salon3",
+      "dataset": "results/provided-export-survey/run-001/prepared/night_thermal_so_salon3/2"
+    }
+  ],
+  "sha256": {
+    "tools/rotation_signal_audit.py": "ef82ddeeb35012a048e90309be78cac0b1762c2bd4e5cef8e37dde2b949a0783",
+    "tools/rotation_signal_audit_check.py": "6e48db6f984cd588584bfd211383852f60d277c31f33710031a009c4f522cd62",
+    "docs/research/rotation-signal-audit-protocol-2026-11-04.md": "66ed291ca28d93116be2a9cff8bea3f0e8b647abceed2acf3184e219081c7d98",
+    "results/provided-quality-headroom/run-001/scores.json": "8d34b19c71fa3e93d381b686789123e96287187be1f5516cfc1c065bb79ac39d",
+    "results/provided-quality-headroom/run-001/audit.json": "841ef5895d7b5eb6440e840d64f02d4e8c02ff5ad190ccd83b22f7ec62ba65f6",
+    "results/provided-quality-headroom/run-001/prediction-lock.json": "028b27e8e4ca71b6701ef6f87590213d7f8b390418dfd7f55a2bf06d4b6e7523",
+    "results/provided-export-survey/run-001/native-survey.json": "66c727e0725de15541d840ad96d4e4282c9424078d241f6f231c4dd6edc831bc",
+    "results/provided-export-survey/run-001/native-audit.json": "c89a94c2816fbb05eb9a81bc135ac352259a6893c7c5998ef40c99d23b74751b",
+    "results/provided-export-survey/run-001/captures/night_thermal_so_salon/early/timeline.jsonl": "88fac71081ca1a0935ef1434c586a769d49f300f171c48b6de4cd80a968c7341",
+    "results/provided-export-survey/run-001/prepared/night_thermal_so_salon/0/sensors/multisense_left_rect_color_camera_info/data.yaml": "c01865e507f788e10d3031d0a2543aa993555be6c41c49d298c5c15c8646acac",
+    "results/provided-export-survey/run-001/prepared/night_thermal_so_salon/0/sensors/thermal_left_processed_camera_info/data.yaml": "b12e4705c3a9e0b43034fa18f2825c86ffcd58fafc2b25cc6497fa7c39af5d8f",
+    "results/provided-export-survey/run-001/captures/night_thermal_so_salon/late/timeline.jsonl": "44c098b8dc58e0d061f2ef001d4e2b0511e608c80ec662d1af9f49b9d0f676af",
+    "results/provided-export-survey/run-001/prepared/night_thermal_so_salon/2/sensors/multisense_left_rect_color_camera_info/data.yaml": "c01865e507f788e10d3031d0a2543aa993555be6c41c49d298c5c15c8646acac",
+    "results/provided-export-survey/run-001/prepared/night_thermal_so_salon/2/sensors/thermal_left_processed_camera_info/data.yaml": "b12e4705c3a9e0b43034fa18f2825c86ffcd58fafc2b25cc6497fa7c39af5d8f",
+    "results/provided-export-survey/run-001/captures/night_thermal_so_salon3/middle/timeline.jsonl": "a5f509357c7bef63ab8debdd53112b0e7f72a3e3041a20da9a8100db98e80e05",
+    "results/provided-export-survey/run-001/prepared/night_thermal_so_salon3/1/sensors/multisense_left_rect_color_camera_info/data.yaml": "c01865e507f788e10d3031d0a2543aa993555be6c41c49d298c5c15c8646acac",
+    "results/provided-export-survey/run-001/prepared/night_thermal_so_salon3/1/sensors/thermal_left_processed_camera_info/data.yaml": "b12e4705c3a9e0b43034fa18f2825c86ffcd58fafc2b25cc6497fa7c39af5d8f",
+    "results/provided-export-survey/run-001/captures/night_thermal_so_salon3/late/timeline.jsonl": "7a77850969b3acd8822e2dd0eca1e422c958bba79d033914f30b9932ad8d49f9",
+    "results/provided-export-survey/run-001/prepared/night_thermal_so_salon3/2/sensors/multisense_left_rect_color_camera_info/data.yaml": "c01865e507f788e10d3031d0a2543aa993555be6c41c49d298c5c15c8646acac",
+    "results/provided-export-survey/run-001/prepared/night_thermal_so_salon3/2/sensors/thermal_left_processed_camera_info/data.yaml": "b12e4705c3a9e0b43034fa18f2825c86ffcd58fafc2b25cc6497fa7c39af5d8f"
+  },
+  "features": [
+    "log_angular_q10_ratio",
+    "log_angular_q50_ratio",
+    "log_angular_q90_ratio",
+    "retention_fraction_difference",
+    "occupancy_fraction_difference",
+    "log_inbound_ratio"
+  ],
+  "ridge_columns": {
+    "ridge_uncertainty": [
+      0,
+      1,
+      2
+    ],
+    "ridge_health": [
+      3,
+      4,
+      5
+    ],
+    "ridge_combined": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "lambda": 1.0,
+  "primary": "ridge_combined",
+  "methods": [
+    "fixed_rgb",
+    "fixed_thermal",
+    "training_best_fixed",
+    "raw_uncertainty",
+    "angular_uncertainty",
+    "retention",
+    "occupancy",
+    "ridge_uncertainty",
+    "ridge_health",
+    "ridge_combined"
+  ],
+  "fold_unit": "complete_recording",
+  "development_exposed": true,
+  "prior_reference_outcomes_inspected": true,
+  "expected_rows": 323,
+  "availability_rows": 380,
+  "decision": "completed-output at existing group i+2 decision; both experts already executed",
+  "physical_ground_truth": false,
+  "reserved_payload_access": false,
+  "runtime_image": "sha256:44ff9a1e6fa95d220437714e5be9b94f0f73c8eaebd4fcae3f843ceea14bef09"
+}
