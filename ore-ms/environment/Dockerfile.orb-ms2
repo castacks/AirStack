@@ -22,6 +22,11 @@ RUN git clone https://github.com/UZ-SLAMLab/ORB_SLAM3.git /opt/ORB_SLAM3 \
     && tar -xzf /opt/ORB_SLAM3/Vocabulary/ORBvoc.txt.tar.gz -C /opt/ORB_SLAM3/Vocabulary
 RUN cmake -S /opt/ORB_SLAM3 -B /opt/ORB_SLAM3/build -DCMAKE_BUILD_TYPE=Release \
     && cmake --build /opt/ORB_SLAM3/build --target ORB_SLAM3 -j8
+COPY orb_rectified_logging.patch /opt/ore-ms-adapter/orb_rectified_logging.patch
+# The pinned settings printer dereferences an uninitialized second-camera
+# pointer in Rectified mode. Guard only that diagnostic block, not the estimator.
+RUN git -C /opt/ORB_SLAM3 apply /opt/ore-ms-adapter/orb_rectified_logging.patch \
+    && cmake --build /opt/ORB_SLAM3/build --target ORB_SLAM3 -j8
 COPY orb_ms2_runner.cc /opt/ore-ms-adapter/orb_ms2_runner.cc
 COPY orb_ms2_CMakeLists.txt /opt/ore-ms-adapter/CMakeLists.txt
 RUN cmake -S /opt/ore-ms-adapter -B /opt/ore-ms-adapter/build -DCMAKE_BUILD_TYPE=Release \

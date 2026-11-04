@@ -248,6 +248,9 @@ def run(directory, timeout=300):
                 'vocabulary_sha256': sha(vocabulary),
                 'library_sha256': sha('/opt/ORB_SLAM3/lib/libORB_SLAM3.so'),
                 'plan_sha256': sha(directory / 'plan.json'), 'orb_revision': revision}
+    upstream_diff = subprocess.check_output(['git', '-C', '/opt/ORB_SLAM3', 'diff'], text=True)
+    identity['upstream_patch'] = upstream_diff
+    identity['upstream_patch_sha256'] = hashlib.sha256(upstream_diff.encode()).hexdigest()
     write(directory / 'execution-lock.json', identity)
     start = time.monotonic_ns()
     with (directory / 'native.log').open('x') as stream:
