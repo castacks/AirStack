@@ -1089,6 +1089,8 @@ class SemanticSearchTaskNode(Node):
                 '-p', 'use_sim_time:=true',
                 '-p', f'share_rays:={os.getenv("RAVEN_SHARE_RAYS", "true").strip().lower()}',
                 '-p', f'share_bbs:={os.getenv("RAVEN_SHARE_BBS", "true").strip().lower()}',
+                '-p', f'semantic_map_sharing:={os.getenv("RAVEN_SEMANTIC_MAP_SHARING", "false").strip().lower()}',
+                '-p', f'semantic_map_voxel_size:={float(os.getenv("RAVEN_SEMANTIC_MAP_VOXEL_SIZE", "0.5"))}',
                 '-p', f'assignment_mode:={os.getenv("RAVEN_ASSIGNMENT_MODE", "auction").strip().lower()}',
                 '-p', f'use_shared_completion:={os.getenv("RAVEN_USE_SHARED_COMPLETION", "true").strip().lower()}',
                 '-p', f'use_peer_allocation_state:={os.getenv("RAVEN_USE_PEER_ALLOCATION_STATE", "true").strip().lower()}',

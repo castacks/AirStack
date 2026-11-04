@@ -10,7 +10,9 @@ from rclpy.qos import (DurabilityPolicy, HistoryPolicy, QoSProfile,
                        ReliabilityPolicy)
 from geometry_msgs.msg import PolygonStamped
 from nav_msgs.msg import Odometry, Path
-from sensor_msgs.msg import NavSatFix, PointCloud2
+from sensor_msgs.msg import NavSatFix, PointCloud2, PointField
+from std_msgs.msg import Header
+from rclpy.serialization import deserialize_message
 from sensor_msgs_py import point_cloud2
 from std_msgs.msg import String, Empty
 from geometry_msgs.msg import Point, PoseStamped
@@ -21,6 +23,8 @@ from rcl_interfaces.msg import SetParametersResult
 from coordination_bringup.frame_utils import gps_to_enu, dir_to_quat
 from coordination_msgs.msg import PeerProfile as PeerProfileMsg
 from coordination_msgs.msg import CoverageGrid
+from coordination_msgs.msg import SemanticVoxelMap
+from raven_nav.semantic_map import SemanticMapFusion
 from airstack_msgs.msg import BidVector
 
 from raven_nav.behavior_manager import BehaviorManager
@@ -512,6 +516,16 @@ class RavenNavNode(Node):
             'debug_auction', True).value)
         self._share_rays = bool(self.declare_parameter('share_rays', True).value)
         self._share_bbs = bool(self.declare_parameter('share_bbs', True).value)
+        self._semantic_map_sharing = bool(self.declare_parameter(
+            'semantic_map_sharing', False).value)
+        self._semantic_fusion = SemanticMapFusion(float(self.declare_parameter(
+            'semantic_map_voxel_size', 0.5).value))
+        self._own_semantic_snapshot = None
+        self._semantic_source_stamp = 0
+        self._semantic_map_pub = (self.create_publisher(
+            SemanticVoxelMap, f'{self._prefix}/raven_nav/semantic_voxel_map', 1)
+            if self._semantic_map_sharing else None)
+        self._semantic_map_rejections = 0
         self._use_shared_completion = bool(self.declare_parameter(
             'use_shared_completion', True).value)
         self._use_peer_allocation_state = bool(self.declare_parameter(
@@ -528,6 +542,7 @@ class RavenNavNode(Node):
         self.get_logger().info(
             f'[auction] mode={self._assignment_mode} L={self._bundle_len} '
             f'share_rays={self._share_rays} share_bbs={self._share_bbs} '
+            f'semantic_map_sharing={self._semantic_map_sharing} '
             f'use_shared_completion={self._use_shared_completion} '
             f'use_peer_allocation_state={self._use_peer_allocation_state} '
             f'associate_bbs={self._associate_bbs} '
@@ -1047,6 +1062,9 @@ class RavenNavNode(Node):
         out: list = []
         for name, entries in self._peer_state.peer_confirmed_targets.items():
             for pct in entries:
+                if (getattr(self, '_semantic_map_sharing', False)
+                        and str(pct.status).lower() != 'visited'):
+                    continue  # map mode derives every unfinished BB locally
                 if float(np.asarray(pct.center, dtype=float)[2]) < self._MIN_BB_CENTER_Z:
                     # underground (rayfronts mapping error) — drop it
                     self._record_dropped_bb(
@@ -1139,6 +1157,8 @@ class RavenNavNode(Node):
             ]
         else:
             own_world = own_cts
+        if getattr(self, '_semantic_map_sharing', False):
+            own_world = [ct for ct in own_world if str(ct.status).lower() == 'visited']
         self._confirmed_targets_pub.publish(
             String(data=confirmed_targets_to_json(own_world)))
 
@@ -1431,7 +1451,8 @@ class RavenNavNode(Node):
             known_bbs.append((i, ct.label, np.concatenate([c, size])))
             items.append((ct.label, c, size, 'bb-observing', None, None,
                           float(getattr(ct, 'confidence', 0.0)),
-                          None if self._share_bbs else ct.source_ids))
+                          None if (self._share_bbs or getattr(self, '_semantic_map_sharing', False))
+                          else ct.source_ids))
         # 2. Accumulate current rays into persistent memory, then emit each lead
         # directly as a ray task (origin + bearing). No triangulation: it only
         # confirms rays against a BB, which the BB-prune already handles.
@@ -2329,12 +2350,16 @@ class RavenNavNode(Node):
         sim_fields = sorted([f for f in msg_field_names if f.startswith('sim_')],
                             key=lambda s: int(s.split('_', 1)[1]))
         if not sim_fields:
+            if self._semantic_map_sharing:
+                return  # retain accumulated peer/own evidence on an empty update
             self._vox_xyz = None
             self._vox_scores = None
             return
         fields = ('x', 'y', 'z') + tuple(sim_fields)
         pts = list(point_cloud2.read_points(msg, field_names=fields, skip_nans=True))
         if not pts:
+            if self._semantic_map_sharing:
+                return
             self._vox_xyz = None
             self._vox_scores = None
             return
@@ -2345,6 +2370,77 @@ class RavenNavNode(Node):
         flu_xyz = np.stack([rdf_xyz[:, 2], -rdf_xyz[:, 0], -rdf_xyz[:, 1]], axis=1)
         self._vox_xyz = flu_xyz
         self._vox_scores = sim_all
+        if self._semantic_map_sharing:
+            self._semantic_source_stamp += 1
+            self._own_semantic_snapshot = (flu_xyz.copy(), sim_all.copy(),
+                                           self._semantic_source_stamp)
+            self._refresh_semantic_map(publish=True)
+
+    def _refresh_semantic_map(self, publish=False):
+        """Fuse in world XY / AGL Z; expose results in this robot's map frame.
+
+        Only raw own snapshots are transmitted: never recirculate fused evidence.
+        """
+        if self._boot_enu is None:
+            return
+        if self._own_semantic_snapshot is None:
+            # A robot with no own semantic observations can still discover and
+            # bid on targets reconstructed entirely from another robot's map.
+            fused_xyz, fused_scores = self._semantic_fusion.arrays()
+            if fused_xyz is not None:
+                self._vox_xyz = fused_xyz.copy()
+                self._vox_xyz[:, :2] -= self._boot_enu[:2]
+                self._vox_scores = fused_scores
+            return
+        xyz, scores, version = self._own_semantic_snapshot
+        labels = list(self._query_labels)
+        if scores.shape[1] != len(labels):
+            self.get_logger().error('semantic map vocabulary does not match score columns',
+                                    throttle_duration_sec=10.0)
+            return
+        world = xyz.copy()
+        world[:, :2] += self._boot_enu[:2]
+        self._semantic_fusion.update(self._robot_name, world, scores, labels, version)
+        if publish:
+            msg = SemanticVoxelMap()
+            msg.labels = labels
+            msg.voxel_size = self._semantic_fusion.resolution
+            header = Header(stamp=self.get_clock().now().to_msg(), frame_id='world_xy_agl')
+            matrix = np.ascontiguousarray(np.c_[world, scores], dtype='<f4')
+            names = ['x', 'y', 'z'] + [f'sim_{i}' for i in range(len(labels))]
+            # Packed float32 array avoids Python per-voxel/per-channel objects.
+            msg.cloud = PointCloud2(header=header, height=1, width=len(matrix),
+                fields=[PointField(name=n, offset=4*i, datatype=PointField.FLOAT32, count=1)
+                        for i, n in enumerate(names)], is_bigendian=False,
+                point_step=4*len(names), row_step=4*len(names)*len(matrix),
+                data=matrix.tobytes(), is_dense=True)
+            self._semantic_map_pub.publish(msg)
+        fused_xyz, fused_scores = self._semantic_fusion.arrays()
+        if fused_xyz is not None:
+            self._vox_xyz = fused_xyz.copy()
+            self._vox_xyz[:, :2] -= self._boot_enu[:2]
+            self._vox_scores = fused_scores
+
+    def _accept_semantic_map(self, profile):
+        for payload in profile.payloads:
+            if payload.payload_name != 'semantic_voxel_map':
+                continue
+            try:
+                msg = deserialize_message(bytes(payload.payload_data), SemanticVoxelMap)
+                if (msg.cloud.header.frame_id != 'world_xy_agl'
+                        or list(msg.labels) != list(self._query_labels)
+                        or not np.isclose(msg.voxel_size, self._semantic_fusion.resolution)):
+                    raise ValueError('incompatible semantic map frame, vocabulary or resolution')
+                fields = ('x', 'y', 'z') + tuple(f'sim_{i}' for i in range(len(msg.labels)))
+                data = point_cloud2.read_points_numpy(msg.cloud, field_names=fields, skip_nans=True)
+                stamp = msg.cloud.header.stamp
+                version = stamp.sec * 1_000_000_000 + stamp.nanosec
+                self._semantic_fusion.update(profile.robot_name, data[:, :3], data[:, 3:],
+                                              msg.labels, version)
+                self._refresh_semantic_map()
+            except (ValueError, TypeError, RuntimeError) as exc:
+                self._semantic_map_rejections += 1
+                self.get_logger().error(f'rejected semantic map: {exc}', throttle_duration_sec=10.0)
 
     def _frontiers_cb(self, msg: PointCloud2):
         """(N, 6) float32: [x, y, z, empty_cnt, unobserved_cnt, occupied_cnt].
@@ -2401,6 +2497,9 @@ class RavenNavNode(Node):
                 self._query_labels = targets[:]
                 self._vox_xyz = None
                 self._vox_scores = None
+                if self._semantic_map_sharing:
+                    self._semantic_fusion = SemanticMapFusion(self._semantic_fusion.resolution)
+                    self._own_semantic_snapshot = None
                 self._ray_origins = None
                 self._ray_dirs = None
                 self._ray_scores = None
@@ -2451,6 +2550,8 @@ class RavenNavNode(Node):
         new_peer = msg.robot_name not in self._peer_state.peer_last_seen
         now_sec = self.get_clock().now().nanoseconds * 1e-9
         self._peer_state.update(msg, self._boot_enu, self._alt_ground, now_sec)
+        if self._semantic_map_sharing:
+            self._accept_semantic_map(msg)
         if new_peer and self._debug_coord:
             wp = self._peer_state.peer_waypoints.get(msg.robot_name)
             pos = self._peer_state.peer_positions.get(msg.robot_name)
@@ -2997,6 +3098,11 @@ class RavenNavNode(Node):
                        ts=round(now, 2))
             dbg.setdefault('params', {}).update(
                 share_rays=self._share_rays, share_bbs=self._share_bbs,
+                semantic_map_sharing=self._semantic_map_sharing,
+                semantic_map_sources=len(self._semantic_fusion.sources),
+                semantic_map_rejections=self._semantic_map_rejections,
+                semantic_map_cells_by_source={name: len(data[0])
+                                              for name, data in self._semantic_fusion.sources.items()},
                 assignment_mode=self._assignment_mode, bundle_len=self._bundle_len,
                 ray_penalty=self._ray_cost_penalty,
                 distance_weight=self._distance_cost_weight,

@@ -10,6 +10,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/PeerProfilePayload.msg"
   "msg/PeerProfile.msg"
   "msg/CoverageGrid.msg"
+  "msg/SemanticVoxelMap.msg"
   DEPENDENCIES geometry_msgs sensor_msgs
 )
 

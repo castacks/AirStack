@@ -15,6 +15,9 @@ import yaml
 import rclpy
 from rclpy.node import Node
 from rclpy.clock import ROSClock
+from rclpy.serialization import serialize_message
+from rosgraph_msgs.msg import Clock
+from coordination_bringup.bandwidth import BandwidthRecorder, completed_only_payload
 from rclpy.qos import (
     QoSDurabilityPolicy,
     QoSHistoryPolicy,
@@ -110,6 +113,12 @@ class GossipNode(Node):
         self._payload_min_interval: dict[str, float] = {}  # topic → min send interval s (0 = every tick)
         self._payload_last_sent: dict[str, tuple] = {}  # topic → (content_key, last_monotonic_s)
         self._payload_subs: list = []
+        self._semantic_map_sharing = os.getenv('RAVEN_SEMANTIC_MAP_SHARING', 'false').lower() == 'true'
+        self._bandwidth = (BandwidthRecorder(f'/tmp/gossip_bandwidth_{self._robot_name}.jsonl', self._robot_name)
+                           if os.getenv('GOSSIP_MEASURE_BYTES', 'false').lower() == 'true' else None)
+        self._sim_ns = None
+        if self._bandwidth:
+            self._clock_sub = self.create_subscription(Clock, '/clock', self._on_sim_clock, SENSOR_QOS)
 
         self._coverage_topic = None
 
@@ -189,6 +198,8 @@ class GossipNode(Node):
             return
 
         for entry in cfg.get("payload_topics") or []:
+            if entry.get('enabled_env') and os.getenv(entry['enabled_env'], 'false').lower() != 'true':
+                continue
             topic_template = entry.get("topic", "")
             type_str = entry.get("type", "")
             if not topic_template or not type_str:
@@ -252,6 +263,7 @@ class GossipNode(Node):
     def _on_peer_msg(self, msg: PeerProfileMsg) -> None:
         if msg.robot_name == self._robot_name:
             return  # discard own messages echoed back from the gossip domain
+        self._record_bytes('rx', msg)
 
         if self._boot_pos is not None:
             own = gps_to_enu(self._profile.gps_fix.latitude,
@@ -278,6 +290,7 @@ class GossipNode(Node):
             relay.relay_lon = self._profile.gps_fix.longitude
             relay.relay_alt = self._profile.gps_fix.altitude
             self._gossip_pub.publish(relay)
+            self._record_bytes('tx', relay)
 
     def _drain_peer_inbox(self) -> None:
         with self._peer_inbox_lock:
@@ -371,6 +384,8 @@ class GossipNode(Node):
             for topic, entry in self._payload_cache.items():
                 if entry is not None:
                     msg, stamp = entry
+                    if self._semantic_map_sharing:
+                        msg = completed_only_payload(self._payload_names.get(topic, ''), msg)
                     interval = self._payload_min_interval.get(topic, 0.0)
                     if interval > 0.0 and not self._payload_due(topic, msg, interval):
                         continue
@@ -391,7 +406,17 @@ class GossipNode(Node):
 
         # Current ROS clock, not MAVROS GPS stamp: receivers dedup/order on it.
         self._profile.gps_fix.header.stamp = self.get_clock().now().to_msg()
-        self._gossip_pub.publish(self._profile.to_ros_msg())
+        out = self._profile.to_ros_msg()
+        self._gossip_pub.publish(out)
+        self._record_bytes('tx', out)
+
+    def _on_sim_clock(self, msg):
+        self._sim_ns = msg.clock.sec * 1_000_000_000 + msg.clock.nanosec
+
+    def _record_bytes(self, direction, msg):
+        if self._bandwidth is not None:
+            self._bandwidth.record(direction, msg, len(serialize_message(msg)),
+                                   self._sim_ns, self.get_clock().now().nanoseconds)
 
     def _attach_coverage(self, msg, stamp, bx, by):
         out = CoverageGrid()

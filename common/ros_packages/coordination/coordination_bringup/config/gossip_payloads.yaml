@@ -26,6 +26,12 @@
 
 payload_topics:
 
+  # Opt-in map-sharing ablation. Raven publishes only when enabled; global XY,
+  # AGL Z already encoded by Raven, so no additional gossip transform is used.
+  - topic: "/{robot_name}/raven_nav/semantic_voxel_map"
+    type: "coordination_msgs/msg/SemanticVoxelMap"
+    enabled_env: "RAVEN_SEMANTIC_MAP_SHARING"
+
   # ── Rayfronts + Raven ──────────────────────────────────────────────────────
   # Filtered semantic rays (raven_nav) — peer robots consume this as
   # filtered_rays/transposed to avoid revisiting already-explored areas.

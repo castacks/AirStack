@@ -43,6 +43,9 @@ raven_nav:
     # Independent switches for allocated-task and peer-destination cost sums.
     task_repulsion: true
     destination_repulsion: true
+    # Opt-in full query-semantic map exchange; unfinished BBs stay local.
+    semantic_map_sharing: false
+    semantic_map_voxel_size: 0.5
     # Max tasks per robot in the consensus bundle (head executed, tail reserved
     # + replanned each tick). 1 = single-target.
     bundle_len: 3

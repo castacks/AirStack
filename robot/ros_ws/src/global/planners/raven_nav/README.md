@@ -51,6 +51,60 @@ single-robot L1 scoring but does not consider peer allocation or ownership.
 It disables target-level peer yielding while preserving shared perception,
 completed-target filtering, frontier behavior and navigation safety.
 
+## Full semantic map versus BB sharing
+
+`RAVEN_SEMANTIC_MAP_SHARING=true` replaces unfinished-BB transport with full
+sender-owned query-semantic voxel snapshots. Set `RAVEN_SHARE_BBS=false` in
+this mode; map-derived tasks remain eligible for every robot. The original
+mode remains the default. Both modes retain rays, completed targets, auction
+costs and frontier coordination.
+
+```mermaid
+flowchart LR
+  Own[Own Rayfronts full semantic cloud] --> Wire[Own snapshot over gossip]
+  Own --> Fuse[Source-aware world-grid accumulation]
+  Peer[Received peer semantic snapshots] --> Fuse
+  Fuse --> Cluster[Existing voxel clustering and BB generation]
+  Cluster --> Auction[Existing auction and navigation]
+  Done[Shared completed BBs] --> Auction
+```
+
+The new `coordination_msgs/msg/SemanticVoxelMap` carries all mapped voxel XYZ
+and all configured query/background float32 score channels, plus explicit
+ordered labels and voxel size. It is a query-semantic map, **not** RGB and not
+Rayfronts' latent feature embeddings for arbitrary future language queries.
+Coordinates are global ENU XY with AGL Z (`world_xy_agl`); receivers subtract
+their own boot XY before navigation. This intentionally follows Raven's BB
+convention, rather than the raw-cloud gossip MSL-Z transform.
+
+Each source contributes at most one latest vector per 0.5 m world-grid cell.
+Previously seen cells persist; overlaps average positions and scores across
+sources. Repeated snapshots do not increase evidence weight. Vocabulary,
+frame and resolution mismatches are rejected. Only the sender's own raw map
+is transmitted, never the fused union, preventing evidence recirculation.
+`RAVEN_SEMANTIC_MAP_VOXEL_SIZE` must match Rayfronts `mapping.vox_size` (0.5 m
+in the experiment config). This fusion and fresh BB clustering can change
+behavior; equivalent performance is a hypothesis tested by the experiment.
+
+No unvisited BB geometry is sent in either `confirmed_targets` **or** the
+visualization `auction_table` payload in map mode. Completed/visited BBs are
+still shared. Local auction traces retain the full table for analysis.
+
+Set `GOSSIP_MEASURE_BYTES=true` in both modes to save
+`/tmp/gossip_bandwidth_<robot>.jsonl`, collected with each trial's logs.
+Counters record actual application publish/receive events, per-payload
+serialized byte counts, whole-PeerProfile CDR bytes, simulation time and wall
+time. RX includes messages before application dedup/range rejection. TX is
+counted once per publisher, not multiplied by fleet size; relay transmissions
+are counted and identified separately. These counters exclude DDS/TCP/IP and
+Ethernet headers, retransmissions, and GCS/local registry traffic.
+
+Run `python3 osmo/workspace/summarize_gossip_bytes.py <iteration-dir>` after
+results arrive. It uses each robot's own `mission_start_ts` for a 300-second
+window. Compare map versus BB payload bytes as well as total TX, RX, and
+wall-clock Mbit/s. Both fresh eight-scene missions use identical starts and
+full original bidding costs, with `GOSSIP_MEASURE_BYTES=true`.
+
 ## Bidding cost ablations
 
 The October 28 repulsion missions independently disable the two additive sums:
