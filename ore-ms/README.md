@@ -1,3 +1,8 @@
+EXP134: [ORB stereo/MS² development adapter](docs/research/orb-ms2-development-findings-2026-11-04.md).
+Six day/night/rain RGB/thermal runs each complete 20/20 frames; 27 tests and 2,628
+independent checks pass. Three failed startup/ABI attempts remain retained.
+Camera-local engineering smoke only; common-frame publisher and full benchmark remain pending.
+
 EXP133: [independent benchmark preparation](docs/research/independent-benchmark-readiness-2026-11-04.md).
 Protocol and common scorer prepared; 41 analytic checks/22 mutations pass.
 Actual benchmark execution awaits external stereo adapters/builds and a verified
