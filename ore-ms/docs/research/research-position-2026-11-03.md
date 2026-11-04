@@ -143,3 +143,23 @@ plusEXP130ancestry. Bothnativeexperts alreadyexecuted,notpreinput scheduler or
 compute reduction. No new inference/reference/reserve/policy/adoption/retuning.
 Next sufficiencyaudit existing savedday/nightcaptures for unchanged-rule transfer,
 recipe-separated and bothmetrics; physicalreference/clock/mounting stillunverified.
+
+
+EXP132 (2026-11-04), pre-extractionfreeze57a852bd8:
+[unchanged signal transfer](signal-transfer-findings-2026-11-04.md).
+All9TD3windowsEXP112/113,4additionalexposedrecords,295core/171joint,0exclusions/
+fallbacks. RecipeoriginalRGB+EXP023MSAthermal, separatefromarchiveprovidedexports.
+9sourcefiles recovered fromSHAverified153MBEXP113Boxpacket tonewsubtree;prior
+outputs untouched.2701sufficiency+2979auditchecks/6mutations pass;firstcoreaudit
+ModuleNotFoundError retained, unchangedsource rerunwithPYTHONPATHpasses.
+No newinference/fitting/reserve/threshold/policy/adoption.13frozenreadouts.
+RotationRGB0.420089deg,T0.442255,raw0.178943,angular0.151686,oracle0.126388.
+TranslationRGB0.040137m,T0.044622,raw0.032869,angular0.033210. Neitherfixedrule
+beats recordingbestfixedrotation. Recording-levelhindsightfixed0.130997 explains
+98.431%pooledoracleheadroom. Knownmiddle/96 RGB50.187674deg vsT1.337599;
+contributes118.465%/106.434%raw/angular netgainvsRGB,other170collectivelylose.
+Combined trainedsalon3 mean0.203429deg;trainedsalonalwaysT0.442255,transferunstable.
+ReferenceSLAM/clock/mounting/overlap limitations persist. This repeats knownfailure
+response/condition differences,notbroadadaptive superiority. Nextfreeze independent
+benchmarkprotocol/baselines,officialmetrics/trainingprovenance/recipequalification;
+no furtherretuning ontheseexposedwindows asgeneralizationevidence.

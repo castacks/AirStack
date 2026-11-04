@@ -1,3 +1,10 @@
+EXP132: [unchanged signal transfer](docs/research/signal-transfer-findings-2026-11-04.md).
+All 171 joint intervals scored across four additional exposed recordings.
+Pooled rotation gains are dominated by the known middle/96 failure; neither
+uncertainty rule beats the best fixed camera within a recording. No refitting or
+policy adoption. Sufficiency and independent audits pass; the initial audit
+import-path failure and its corrected execution are retained.
+
 EXP131: [rotation signal audit](docs/research/rotation-signal-audit-findings-2026-11-04.md).
 Primary recording-disjoint combinedridge selects thermal323/323:0learnedbenefit.
 Fixeduncertainty rules reduce rotation~5–6% but worsen translation~62–77%;
