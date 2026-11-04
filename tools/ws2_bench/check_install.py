@@ -22,6 +22,9 @@ def docker(*args):
 
 
 def check_install(planner):
+    if os.environ.get('WS2_EXECUTION_BACKEND','local')=='osmo':
+        from osmo_backend import preflight
+        return preflight(planner)
     adapter = get_adapter(planner)
     errors = []
     warnings = []
@@ -71,7 +74,34 @@ def check_install(planner):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--planner', required=True, choices=sorted(REGISTRY))
+    parser.add_argument('--execution-backend', choices=['local', 'osmo'],
+                        default=os.environ.get('WS2_EXECUTION_BACKEND', 'local'))
+    parser.add_argument('--osmo-config', help='Your local OSMO configuration YAML')
+    parser.add_argument('--check-accounts', action='store_true',
+                        help='Also check saved OSMO/provider logins; no job or LLM request')
+    parser.add_argument('--provider', choices=['codex', 'claude'],
+                        help='Optional LLM account to check with --check-accounts')
     args = parser.parse_args()
+    os.environ['WS2_EXECUTION_BACKEND'] = args.execution_backend
+    if args.osmo_config:
+        os.environ['WS2_OSMO_CONFIG'] = str(Path(args.osmo_config).expanduser().resolve())
     result = check_install(args.planner)
+    if args.check_accounts:
+        try:
+            if args.execution_backend == 'osmo':
+                from osmo_backend import Client, load_settings
+                Client().check_access(load_settings())
+            if args.provider:
+                if args.provider == 'codex':
+                    from codex_provider import CodexSubscriptionProvider
+                    provider = CodexSubscriptionProvider()
+                else:
+                    from claude_provider import ClaudeSubscriptionProvider
+                    provider = ClaudeSubscriptionProvider()
+                provider.check_auth()
+            result['accounts_checked'] = True
+        except (OSError, ValueError, RuntimeError, subprocess.TimeoutExpired) as exc:
+            result['errors'].append(str(exc))
+            result['ok'] = False
     print(json.dumps(result, indent=2))
     sys.exit(0 if result['ok'] else 1)

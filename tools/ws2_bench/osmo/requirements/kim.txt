@@ -1,0 +1,6 @@
+# Explicit CPU inference; Isaac still uses the remote GPU. TF's published GPU
+# wheels fail on Blackwell sm_120. Preserve the local TF graph/checkpoint version.
+tensorflow-cpu==2.15.0
+h5py==3.10.0
+numpy==1.26.4
+opencv-python==4.9.0.80

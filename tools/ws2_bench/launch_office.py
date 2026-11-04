@@ -15,9 +15,21 @@ os.environ["PX4_PHYSICS_HZ"] = "200"
 os.environ["PX4_RENDERING_HZ"] = "30"
 from isaacsim import SimulationApp
 HEADLESS=os.environ.get('WS2_HEADLESS','1')!='0'
-app = SimulationApp({"headless": HEADLESS, "width": 1280, "height": 720,
-                     "window_width": 1440, "window_height": 900,
-                     "renderer": "RaytracedLighting"})
+app_config = {"headless": HEADLESS, "width": 1280, "height": 720,
+              "window_width": 1440, "window_height": 900,
+              "renderer": "RaytracedLighting"}
+if os.environ.get('WS2_REMOTE_TASK') == '1':
+    # Kit sees the host's cores, but OSMO enforces a much smaller CPU quota.
+    # Leave capacity for ROS/PX4 and avoid the default 32-thread worker pools.
+    threads = 4
+    try:
+        quota, period = Path('/sys/fs/cgroup/cpu.max').read_text().split()
+        if quota != 'max':
+            threads = max(1, min(threads, int(quota) // int(period) - 1))
+    except (OSError, ValueError, ZeroDivisionError):
+        pass
+    app_config['limit_cpu_threads'] = threads
+app = SimulationApp(app_config)
 import numpy as np
 import omni.usd
 import omni.timeline
@@ -186,6 +198,7 @@ def apply_condition(raw):
 apply_condition(episode.get('condition',{"name":"Office clean", "layout":"furnished_a"}))
 iris = "/isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
 graph=spawn_px4_multirotor_node(drone_prim="/World/base_link",usd_file=iris,robot_name="robot_1",vehicle_id=1,domain_id=1,
+                              px4_dir=os.environ.get('WS2_PX4_DIR','~/PX4-Autopilot'),
                               init_pos=episode.get('spawn',[-4.,0.,.07]),init_orient=[0.,0.,0.,1.])
 add_zed_stereo_camera_subgraph(parent_graph_handle=graph,drone_prim="/World/base_link",robot_name="robot_1",camera_name="ZEDCamera",
                               camera_offset=[.2,0.,-.05],camera_rotation_offset=[0.,episode.get('camera_pitch_deg',0.),0.])
@@ -208,7 +221,7 @@ last_status=0.
 camera_mode="follow"
 operator_paused=False
 telemetry=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-telemetry_target=(socket.gethostbyname("robot-desktop"),9877)
+telemetry_target=(socket.gethostbyname(os.environ.get('WS2_GT_HOST','robot-desktop')),9877)
 telemetry_registered=False
 guard=None
 last_preview=0.

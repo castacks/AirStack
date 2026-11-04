@@ -12,6 +12,7 @@ import uuid
 import random
 import fcntl
 import yaml
+import runtime_process
 from conditions import validate,sensor_parameters
 
 HERE=Path(__file__).resolve().parent
@@ -36,6 +37,7 @@ def scene_command(payload, timeout=30):
 
 
 def bridge_url():
+    if runtime_process.enabled():return 'http://127.0.0.1:8765'
     address=subprocess.check_output(["docker","inspect","airstack-robot-desktop-1","--format","{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}"],text=True).strip()
     return f"http://{address}:8765"
 
@@ -59,12 +61,15 @@ def apply(c,url):
             if state["sim_time"]-settled_at>=.5:break
         time.sleep(.05)
     else:raise TimeoutError("scene did not settle")
-    subprocess.run(["docker","cp",str(HERE/"ros_control.py"),"airstack-robot-desktop-1:/tmp/ws2_ros_control.py"],check=True,capture_output=True)
+    if not runtime_process.enabled():
+        subprocess.run(["docker","cp",str(HERE/"ros_control.py"),"airstack-robot-desktop-1:/tmp/ws2_ros_control.py"],check=True,capture_output=True)
     # Always clear prior schedules when applying a legacy condition. The bridge
     # resets its mission anchor and queues atomically with these parameters.
     parameters={'rgb_noise_schedule_json':'{}','sensor_delay_schedule_json':'{}',**sensor_parameters(c)}
-    subprocess.run(["docker","exec","airstack-robot-desktop-1","bash","-lc",
-                    'sws && python3 /tmp/ws2_ros_control.py "$1"',"ws2",json.dumps(parameters)],check=True,capture_output=True,text=True)
+    argv=(runtime_process.ros_argv('python3 "$1" "$2"',HERE/'ros_control.py',json.dumps(parameters))
+          if runtime_process.enabled() else ["docker","exec","airstack-robot-desktop-1","bash","-lc",
+                    'sws && python3 /tmp/ws2_ros_control.py "$1"',"ws2",json.dumps(parameters)])
+    subprocess.run(argv,check=True,capture_output=True,text=True,timeout=40)
     deadline=time.monotonic()+30
     while time.monotonic()<deadline:
         try:

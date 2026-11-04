@@ -66,10 +66,67 @@ def test_installation_failure_returns_actionable_error_without_launch(server, mo
     assert not (root/'dashboard_campaign.log').exists()
 
 
+def test_single_remote_flight_accepts_web_controls_without_campaign(server,monkeypatch):
+    base,root=server
+    control=root/'flight/operator_control.json';control.parent.mkdir()
+    dashboard.atomic(control,{'action':'run'})
+    dashboard.atomic(root/'remote_live.json',{'active':True,'run_id':'single',
+        'control_path':str(control),'local_output':str(control.parent)})
+    dashboard.atomic(root/'live_campaign.json',{'output':str(root/'campaigns/old'),'phase':'complete'})
+    for action in ('pause','run','stop'):
+        code,body=request(base,'/control',{'action':action})
+        assert code==200 and json.loads(body)['requested']==action
+        assert json.loads(control.read_text())['action']==action
+    _,body=request(base,'/state');state=json.loads(body)
+    assert state['campaign'] is None and state['analysis'] is None
+    assert state['control']=={'action':'stop'}
+    monkeypatch.setenv('WS2_EXECUTION_BACKEND','osmo')
+    dashboard.atomic(root/'remote_live.json',{'active':False,
+        'control_path':str(control),'local_output':str(control.parent)})
+    assert json.loads(request(base,'/state')[1])['campaign'] is None
+    dashboard.atomic(root/'remote_live.json',{'active':True,'control_path':str(root.parent/'outside.json')})
+    assert request(base,'/control',{'action':'stop'})[0]==400
+
+
 def test_spawn_permission_error_is_json_not_dropped_connection(server, monkeypatch):
     monkeypatch.setattr(dashboard,'adaptive_command',lambda p,o:['/definitely/missing/ws2-python'])
     code,body=request(server[0],'/start/adaptive',{'planner':'kim'})
     assert code==500 and 'Cannot start campaign' in json.loads(body)['error']
+
+
+def test_new_campaign_is_visible_after_completed_remote_cli_flight(server, monkeypatch):
+    base,root=server
+    monkeypatch.setenv('WS2_EXECUTION_BACKEND','osmo')
+    single=root/'episodes/old'
+    dashboard.atomic(root/'remote_live.json',{'active':False,'local_output':str(single),
+        'control_path':str(single/'operator_control.json')})
+    current=root/'campaigns/new'
+    dashboard.atomic(root/'dashboard_launch.json',{'output':str(current),'planner':'kim',
+        'started_at':time.time()+1,'status':'failed','exit_code':1})
+    _,body=request(base,'/state');state=json.loads(body)
+    assert state['campaign']['output']==str(current)
+    assert state['launch']['exit_code']==1
+    assert dashboard.campaign_root()==current
+
+
+def test_remote_camera_keeps_legacy_preferences_out_of_public_api(server, monkeypatch):
+    import osmo_transport
+    root=dashboard.RUNTIME
+    dashboard.atomic(root/'view_settings.json',{'mode':'follow','distance':1.7,
+        'height':.85,'azimuth':180.,'relative_heading':True})
+    dashboard.atomic(root/'remote_live.json',{'active':True,'run_id':'camera-test'})
+    sent=[]
+    def remote(session,path,payload):
+        assert path=='/view'
+        if set(payload)-{'mode','distance','height','azimuth'}:
+            raise ValueError('Remote camera rejects legacy local fields')
+        sent.append(payload)
+        return b'{}'
+    monkeypatch.setattr(osmo_transport,'request',remote)
+    code,body=request(server[0],'/view',{'distance':3.5})
+    assert code==200 and json.loads(body)['ok']
+    assert sent[0]['distance']==3.5
+    assert dashboard.read_json(root/'view_settings.json')['relative_heading'] is True
 
 
 def test_exit_status_survives_viewer_restart_and_new_cli_wins(tmp_path, monkeypatch):

@@ -72,6 +72,7 @@ el('total').textContent=a.budget?a.completed+' flown + '+(a.skipped_attacks||0)+
 const phases={startup:'Starting simulator',takeoff:'Taking off',model_loading:'Loading model',planner:'Flying',cleanup:'Finishing flight / landing',paused:'Paused',preflight:'Preparing'};
 el('phase').textContent=paused?'Paused':a.phase==='complete'?'Campaign complete':a.phase==='stopped'?'Campaign stopped':a.phase==='running'?'Round '+(e.directory?.match(/round_(\d+)/)?.[1]||a.decision?.round||'—')+' · '+(trial.role||e.directory?.split('/').at(-2)||trial.name||'')+' · '+(phases[e.phase]||'Preparing'):a.phase==='reviewing_results'?'Results → next configuration':a.phase==='trial_complete'?trial.role+' · '+trial.result?.outcome:target?'Ready to start':'Select a target model';
 if(requested==='stop'&&d.running)el('phase').textContent='Stopping / landing…';
+if(d.execution?.backend==='osmo'&&d.running&&e.phase?.startsWith('osmo_'))el('phase').textContent='OSMO: '+e.phase.replace('osmo_','').replaceAll('_',' ')+(d.execution.workflow_id?' · '+d.execution.workflow_id:'');
 if(a.phase==='analyzing_results')el('phase').textContent='LLM is interpreting the results';
 if(a.phase==='quota_wait')el('phase').textContent='Waiting for quota reset';
 if(a.phase==='agent_stopped')el('phase').textContent='Agent stopped with unused budget';

@@ -1,0 +1,18 @@
+# Copy into your own ignored runtime directory; credential names refer to your account.
+# See README image validation status before selecting a model.
+pool: adversialai
+platform: rtxpro5000
+data_credential: dsta-adv
+registry_credential: airlab-harbor-cred
+output_uri: s3://adversialai_osmo_dataset/ws2/episodes
+images:
+  mononav: airlab-docker.andrew.cmu.edu/adversialai/ws2-mononav@sha256:003429388f95d6d2e9520843778458b22c40a5fd26c6afa57007dcfcddf361ac
+  kim: airlab-docker.andrew.cmu.edu/adversialai/ws2-kim@sha256:0d0b428e73ab5abdcc3206d8b379edcb0f04dca8f24e06ce649d123042a7ad5d
+  pulp_dronet: airlab-docker.andrew.cmu.edu/adversialai/ws2-pulp@sha256:5451ebd7edfff6541d6bc44d2d36faac4339d2f15c1db80e76639f3cd4459fde
+cpu: 6
+memory_gib: 48
+storage_gib: 80
+exec_minutes: 90
+queue_minutes: 60
+port: 8894
+poll_seconds: 5

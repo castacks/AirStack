@@ -59,6 +59,8 @@ def clean_indices(directory, minimum=2):
 
 def run(root, targets=TARGETS, shapes=SHAPES, tiers=TIERS, phase='all', config_path=None, clean_repeats=2):
     root=Path(root).resolve();root.relative_to(RUNTIME.resolve());root.mkdir(parents=True,exist_ok=True)
+    from episode import pin_execution
+    pin_execution(root, targets)
     plan=yaml.safe_load(Path(config_path or HERE/'scenarios/corridor_suite.yaml').read_text())
     if (root/'suite_config.json').exists() and json.loads((root/'suite_config.json').read_text())!=plan:
         raise ValueError('Suite configuration changed; use a new output directory')

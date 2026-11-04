@@ -2,6 +2,8 @@
 import argparse,datetime,fcntl,hashlib,json,math,os,re,shutil,subprocess,time,urllib.request
 from pathlib import Path
 import yaml
+import runtime_process
+import signal
 from conditions import validate
 from run_conditions import RUNTIME,HERE,bridge_url,apply,scene_command
 from ravi_metrics import summarize
@@ -79,8 +81,14 @@ def cmd(argv,log=None,timeout=45,check=True,env=None):
         with log.open('a') as f:f.write('$ '+repr(argv)+'\n'+r.stdout+'\n')
     if check and r.returncode:raise RuntimeError(f'{argv[0]} exited {r.returncode}: {r.stdout[-1500:]}')
     return r.stdout
-def robot(shell,*args,**kwargs):return cmd(['docker','exec',ROBOT,'bash','-lc',shell,'ws2',*args],**kwargs)
+def robot(shell,*args,**kwargs):
+    argv=runtime_process.ros_argv(shell,*args) if runtime_process.enabled() else ['docker','exec',ROBOT,'bash','-lc',shell,'ws2',*args]
+    return cmd(argv,**kwargs)
+def copy_to_robot(source,destination,log):
+    if runtime_process.enabled():shutil.copyfile(source,destination)
+    else:cmd(['docker','cp',str(source),ROBOT+':'+destination],log)
 def stop_owned(log):
+    if runtime_process.enabled():runtime_process.stop_all();return
     running=cmd(['docker','ps','--format','{{.Names}}']).splitlines()
     owned=[x for x in ['ws2-episode-worker','collision-avoidance-airstack','mononav-airstack','isaac-sim',ROBOT] if x in running]
     if owned:cmd(['docker','stop','--timeout','3',*owned],log,timeout=30,check=False)
@@ -91,6 +99,29 @@ def action(name,out,height=1.2):
     marker=CONTAINER_RUNTIME+'/'+str(out.relative_to(RUNTIME.resolve()))+'/capture_events.jsonl'
     return robot('sws && python3 -u /tmp/ws2_flight_action.py "$1" --height "$2" --event-file "$3"',
                  name,str(height),marker,log=out/(name+'.log'),timeout=140)
+
+def pin_execution(root, planners):
+    """Prevent resuming a campaign across execution backends or remote images."""
+    root = Path(root)
+    backend = os.environ.get('WS2_EXECUTION_BACKEND', 'local')
+    identity = {'backend': backend}
+    if backend == 'osmo':
+        from osmo_backend import load_settings, target_image
+        settings = load_settings()
+        identity.update(images={p: target_image(settings, p) for p in sorted(planners)},
+                        **{k: settings[k] for k in ('pool', 'platform', 'cpu', 'memory_gib', 'storage_gib')})
+    elif backend != 'local':
+        raise ValueError('Campaigns must run on the local controller with local/osmo execution')
+    marker = root / 'execution.json'
+    if marker.exists():
+        if json.loads(marker.read_text()) != identity:
+            raise ValueError('Execution backend/image/resources changed; use a new campaign directory')
+    elif any((root / name).exists() for name in ('config.json', 'suite_config.json')):
+        if backend != 'local':
+            raise ValueError('Legacy campaign has no OSMO execution identity; use a new directory')
+    else:
+        atomic(marker, identity)
+
 
 def worker_command(c,run_id=''):
     adapter=get_adapter(c['planner']);repo=adapter.repository
@@ -117,10 +148,14 @@ def worker_command(c,run_id=''):
     if c.get('diagnostic_depth_source')=='ground-truth':
         arguments[arguments.index('--depth-source')+1]='ground-truth'
     command += arguments
+    if runtime_process.enabled():
+        command=['/opt/ws2/model/bin/python','-u',str(HERE/'osmo/model_entry.py'),'--headless','--execute',
+                 '--server','http://127.0.0.1:8765',*arguments]
     return command
 
 def verify_runtime_mounts():
     """Refuse to start an isolated checkout against another checkout's containers."""
+    if runtime_process.enabled():runtime_process.verify();return
     requirements=[('isaac-sim','/isaac-sim/AirStack/tools/ws2_bench',HERE),
                   ('isaac-sim','/isaac-sim/AirStack/robot/ros_ws/ws2_runtime',RUNTIME),
                   (ROBOT,CONTAINER_RUNTIME,RUNTIME)]
@@ -138,6 +173,13 @@ def verify_runtime_mounts():
             raise RuntimeError(f'{container} uses {actual}, but this bench uses {expected.resolve()}; no container was started')
 
 def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag=True,control_path=None,record_video=False):
+    backend=os.environ.get('WS2_EXECUTION_BACKEND','local')
+    if backend=='osmo':
+        if wait_for_recording:raise ValueError('Interactive recording confirmation is local-only; use record_video for OSMO')
+        from osmo_backend import run_remote_episode
+        return run_remote_episode(raw,output,camera=camera,record_bag=record_bag,
+                                  control_path=control_path,record_video=record_video)
+    if backend not in ('local','process'):raise ValueError('Unknown execution backend: '+backend)
     c=resolved(raw);verify_runtime_mounts();out=Path(output).resolve()
     # Artifact/bag paths must remain inside the shared runtime mount.
     out.relative_to(RUNTIME.resolve());out.mkdir(parents=True,exist_ok=False)
@@ -175,14 +217,18 @@ def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag
         if choice!='pause':return False
         previous_phase=phase
         worker_paused=worker is not None and worker.poll() is None
-        if worker_paused:cmd(['docker','pause','ws2-episode-worker'],log)
+        if worker_paused:
+            if runtime_process.enabled():runtime_process.signal_group(worker,signal.SIGSTOP)
+            else:cmd(['docker','pause','ws2-episode-worker'],log)
         if sim_ready:scene_command({'paused':True})
         phase='paused';event('paused')
         try:
             while request(control_path)=='pause':time.sleep(.2)
         finally:
             if sim_ready:scene_command({'paused':False})
-            if worker_paused:cmd(['docker','unpause','ws2-episode-worker'],log,check=False)
+            if worker_paused:
+                if runtime_process.enabled():runtime_process.signal_group(worker,signal.SIGCONT)
+                else:cmd(['docker','unpause','ws2-episode-worker'],log,check=False)
             phase=previous_phase;event('resumed')
         if request(control_path)=='stop':raise UserStop('operator requested stop')
         return True
@@ -193,9 +239,13 @@ def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag
             shutil.move(RUNTIME/'flight_guard.json',out/'previous_guard.json')
         for f in ['scene_status.json','scene_reply.json','scene_command.json']:(RUNTIME/f).unlink(missing_ok=True)
         provenance={};adapter=get_adapter(c['planner'])
-        for name,repo in {'AirStack':HERE.parents[1],adapter.name:adapter.repository}.items():
-            provenance[name]={'head':cmd(['git','-C',str(repo),'rev-parse','HEAD']).strip(),
-                              'diff_sha256':hashlib.sha256(cmd(['git','-C',str(repo),'diff']).encode()).hexdigest()}
+        if runtime_process.enabled():
+            provenance['task_image']=runtime_process.image_manifest()
+            provenance['execution_backend']='osmo_process'
+        else:
+            for name,repo in {'AirStack':HERE.parents[1],adapter.name:adapter.repository}.items():
+                provenance[name]={'head':cmd(['git','-C',str(repo),'rev-parse','HEAD']).strip(),
+                                  'diff_sha256':hashlib.sha256(cmd(['git','-C',str(repo),'diff']).encode()).hexdigest()}
         adapter=get_adapter(c['planner'])
         provenance['model_adapter']=adapter.describe()
         provenance['effective_input']={'frame_rate_hz':c.get('input_rate_hz',adapter.frame_rate),
@@ -204,8 +254,9 @@ def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag
         # Include wrapper sources even before a commit; git diff omits new files.
         provenance['worker_sources']={str(p.relative_to(adapter.repository)):sha256_file(p)
             for pattern in ('*.py','airstack_integration/*.py') for p in adapter.repository.glob(pattern)}
-        provenance['worker_image']=json.loads(cmd(['docker','image','inspect',adapter.image]))[0]['Id']
-        provenance['runtime_images']={name:json.loads(cmd(['docker','inspect',name]))[0]['Image'] for name in ['isaac-sim',ROBOT]}
+        if not runtime_process.enabled():
+            provenance['worker_image']=json.loads(cmd(['docker','image','inspect',adapter.image]))[0]['Id']
+            provenance['runtime_images']={name:json.loads(cmd(['docker','inspect',name]))[0]['Image'] for name in ['isaac-sim',ROBOT]}
         provenance['runtime_sources']={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in HERE.glob('*.py')}
         control_launch=HERE.parents[1]/'robot/ros_ws/src/local/local_bringup/launch/local.launch.xml'
         provenance['control_launch_sha256']=sha256_file(control_launch)
@@ -216,7 +267,10 @@ def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag
         model_files=[p for pattern in adapter.weight_patterns for p in adapter.repository.glob(pattern)]
         if adapter.weight_patterns and not model_files:raise ValueError('Adapter weight files are missing')
         provenance['model_weights']={str(p.relative_to(adapter.repository)):sha256_file(p) for p in model_files}
-        if adapter.torch_cache:
+        if adapter.torch_cache and runtime_process.enabled():
+            checkpoint=Path(os.environ.get('TORCH_HOME','/opt/ws2/torch'))/'hub/checkpoints/ZoeD_M12_N.pt'
+            provenance['model_weights']={checkpoint.name:sha256_file(checkpoint)}
+        elif adapter.torch_cache:
             hash_code="import hashlib,json,pathlib; p=pathlib.Path('/cache/hub/checkpoints/ZoeD_M12_N.pt'); h=hashlib.sha256(); f=p.open('rb'); [h.update(b) for b in iter(lambda:f.read(1048576),b'')]; print(json.dumps({p.name:h.hexdigest()}))"
             provenance['model_weights']=json.loads(cmd(['docker','run','--rm','--network','none','-v','mononav-torch-cache:/cache:ro',
                 '--entrypoint','python',adapter.image,'-c',hash_code],log,timeout=30))
@@ -227,8 +281,13 @@ def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag
         env=os.environ.copy();env.update(WS2_CONTROL_MODE='bench',WS2_EPISODE_CONFIG='/isaac-sim/AirStack/robot/ros_ws/ws2_runtime/episode.json',
             WS2_FRAME_RATE=str(c.get('input_rate_hz',adapter.frame_rate)),WS2_MIN_TRACKING_SPEED=str(adapter.min_tracking_speed),
             WS2_PATCH_TEXTURE='/isaac-sim/AirStack/tools/ws2_bench/assets/learned_patch.png',WS2_PATCH_KIND='Rui learned FCRN patch')
-        phase='startup';event('starting_simulator');cmd(['bash',str(HERE/'start_existing.sh')],log,timeout=60,env=env)
-        url=bridge_url();deadline=time.monotonic()+180;previous=None;ready_count=0
+        phase='startup';event('starting_simulator')
+        if runtime_process.enabled():runtime_process.start_stack(c,RUNTIME,env)
+        else:cmd(['bash',str(HERE/'start_existing.sh')],log,timeout=60,env=env)
+        # A fresh remote Kit/RTX process can spend several minutes initializing
+        # before its cameras publish. This is a wall-time startup allowance;
+        # mission timeout and all evaluated flight timing remain simulation time.
+        url=bridge_url();deadline=time.monotonic()+(600 if runtime_process.enabled() else 180);previous=None;ready_count=0
         while time.monotonic()<deadline:
             if request(control_path)=='stop':raise UserStop('operator requested stop during startup')
             try:
@@ -247,7 +306,8 @@ def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag
         event('ready',scene=s)
         operator_check(True)
         if c['fault']=='bridge_unavailable':
-            robot("pkill -TERM -f '^/usr/bin/python3 /root/AirStack/robot/ros_ws/install/mononav_bridge/lib/mononav_bridge/mononav_bridge_node'",log=log)
+            if runtime_process.enabled():runtime_process.stop_process(runtime_process.PROCESSES['bridge'])
+            else:robot("pkill -TERM -f '^/usr/bin/python3 /root/AirStack/robot/ros_ws/install/mononav_bridge/lib/mononav_bridge/mononav_bridge_node'",log=log)
             try:health(url)
             except OSError:raise RuntimeError('injected unavailable bridge detected before takeoff')
             raise RuntimeError('bridge fault injection did not stop bridge')
@@ -258,7 +318,7 @@ def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag
         if wait_for_recording:
             event('waiting_for_recording')
             input('READY ON GROUND. Start your screen recording, then press Enter here to record bag and take off: ')
-        cmd(['docker','cp',str(HERE/'flight_action.py'),ROBOT+':/tmp/ws2_flight_action.py'],log)
+        copy_to_robot(HERE/'flight_action.py','/tmp/ws2_flight_action.py',log)
         phase='recording';relative=out.relative_to(RUNTIME.resolve());bagpath=CONTAINER_RUNTIME+'/'+str(relative)+'/bag'
         topics=['/clock','/tf','/tf_static','/ws2/ground_truth/pose','/ws2/ground_truth/oracle',
                 '/robot_1/odometry_conversion/odometry','/robot_1/sensors/front_stereo/left/image_rect',
@@ -268,8 +328,10 @@ def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag
                 '/vision_planner/planner_input/compressed','/vision_planner/input_metadata']
         if record_bag:
             baglog=(out/'bag.log').open('w')
-            bag=subprocess.Popen(['docker','exec',ROBOT,'bash','-lc',
-                    'sws && echo $$ > /tmp/ws2_episode_bag.pid && exec ros2 bag record --use-sim-time --storage mcap --storage-preset-profile zstd_fast -o "$1" "${@:2}"','ws2',bagpath,*topics],stdout=baglog,stderr=subprocess.STDOUT)
+            shell='sws && echo $$ > /tmp/ws2_episode_bag.pid && exec ros2 bag record --use-sim-time --storage mcap --storage-preset-profile zstd_fast -o "$1" "${@:2}"'
+            argv=runtime_process.ros_argv(shell,bagpath,*topics) if runtime_process.enabled() else ['docker','exec',ROBOT,'bash','-lc',shell,'ws2',bagpath,*topics]
+            bag=subprocess.Popen(argv,stdout=baglog,stderr=subprocess.STDOUT,start_new_session=runtime_process.enabled())
+            if runtime_process.enabled():runtime_process.PROCESSES['bag']=bag
             deadline=time.monotonic()+20
             while not list((out/'bag').glob('*.mcap')):
                 if bag.poll() is not None:raise RuntimeError('bag recorder exited')
@@ -303,11 +365,17 @@ def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag
                                   'mode':c['mission_mode'],'duration_s':c['timeout'],'takeoff_sim_time':s['sim_time']})
         phase='model_loading';event('loading_model')
         workerlog=(out/'worker.log').open('w');argv=worker_command(c,str(out));atomic(out/'worker_command.json',argv)
-        worker=subprocess.Popen(argv,stdout=workerlog,stderr=subprocess.STDOUT)
-        phase='planner';deadline=time.monotonic()+120;lastsim=s['sim_time'];last_advance=time.monotonic();last_command=None
+        worker_options={'cwd':str(adapter.repository),'env':runtime_process.worker_env(RUNTIME,str(out)),
+                        'start_new_session':True} if runtime_process.enabled() else {}
+        worker=subprocess.Popen(argv,stdout=workerlog,stderr=subprocess.STDOUT,**worker_options)
+        if runtime_process.enabled():runtime_process.PROCESSES['worker']=worker
+        # Fresh GPU tasks can compile model/TSDF kernels on their first frame.
+        # Keep this wall-clock allowance separate from the sim-time mission budget.
+        model_startup_s=600 if runtime_process.enabled() else 120
+        phase='planner';deadline=time.monotonic()+model_startup_s;lastsim=s['sim_time'];last_advance=time.monotonic();last_command=None
         while True:
             if operator_check(True):
-                last_advance=time.monotonic();deadline=time.monotonic()+120
+                last_advance=time.monotonic();deadline=time.monotonic()+model_startup_s
             s=state();h=health(url);t=s['sim_time'];oracle=s['oracle']
             diagnostic.capture(s,h)
             if mission_start is not None:
@@ -392,7 +460,9 @@ def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag
         if video is not None and (result['outcome']=='collision' or (RUNTIME/'flight_guard.json').exists()):
             result['video']=video.stop('flight_terminated');video=None
         if worker is not None:
-            try:cmd(['docker','stop','--timeout','3','ws2-episode-worker'],log,check=False);worker.wait(timeout=10)
+            try:
+                if runtime_process.enabled():runtime_process.stop_process(worker)
+                else:cmd(['docker','stop','--timeout','3','ws2-episode-worker'],log,check=False);worker.wait(timeout=10)
             except Exception as exc:cleanup.append(str(exc))
         if airborne and result['outcome']!='collision' and not (RUNTIME/'flight_guard.json').exists():
             try:action('pause',out);action('land',out);event('landed',scene=state())
@@ -405,7 +475,7 @@ def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag
                 bag.wait(timeout=25)
                 if not (out/'bag/metadata.yaml').exists():cleanup.append('bag metadata missing')
                 elif airborne:
-                    cmd(['docker','cp',str(HERE/'verify_bag.py'),ROBOT+':/tmp/ws2_verify_bag.py'],log)
+                    copy_to_robot(HERE/'verify_bag.py','/tmp/ws2_verify_bag.py',log)
                     robot('sws && python3 /tmp/ws2_verify_bag.py "$1"',bagpath,log=log,timeout=60)
             except Exception as exc:cleanup.append('bag stop: '+str(exc))
         for f in ['simulation_gt.log','robot_gt.log','bridge_gt.log','scene_status.json','flight_guard.json']:
@@ -433,7 +503,11 @@ if __name__=='__main__':
     p.add_argument('--camera',choices=['overview','follow'],default='overview')
     p.add_argument('--no-bag',action='store_true',help='Keep metrics/diagnostics/previews without a large ROS bag')
     p.add_argument('--record-video',action='store_true',help='Equal-sized simulator/inference MP4 from takeoff command to flight end')
-    a=p.parse_args();c=resolved(yaml.safe_load(a.scenario.read_text()))
+    p.add_argument('--execution-backend',choices=['local','osmo'],default=os.environ.get('WS2_EXECUTION_BACKEND','local'))
+    p.add_argument('--osmo-config',type=Path)
+    a=p.parse_args();os.environ['WS2_EXECUTION_BACKEND']=a.execution_backend
+    if a.osmo_config:os.environ['WS2_OSMO_CONFIG']=str(a.osmo_config.resolve())
+    c=resolved(yaml.safe_load(a.scenario.read_text()))
     if a.resolve_only:print(yaml.safe_dump(c,sort_keys=False))
     else:
         output=a.output or RUNTIME/'episodes'/datetime.datetime.now().strftime('%Y%m%d_%H%M%S')

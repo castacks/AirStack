@@ -1,10 +1,47 @@
 # Adaptive corridor testing
 
-Run from the AirStack checkout used by the existing simulator/robot containers.
-Install the three target workers as described in their repositories and authenticate
-with the official Codex CLI (`codex login`) or Claude CLI
-(`claude auth login --claudeai`). Authentication stays with the selected CLI;
-the bench never reads or exports OAuth credentials.
+Run from your own AirStack checkout. Choose the [local Docker runtime](README.md)
+or [remote OSMO runtime](osmo/README.md). The campaign and LLM run on your
+computer in both modes; the execution backend only changes where flights run.
+
+## Sign in with your own account
+
+Install the selected official CLI, then authenticate as the **same OS user**
+that starts the viewer/campaign. Use your own ChatGPT account with Codex access
+or your own invited Claude Team/Enterprise account with Claude Code access:
+
+```bash
+# Codex
+npm install -g @openai/codex
+codex login
+codex login status
+
+# Or Claude Code: install using https://code.claude.com/docs/en/setup
+claude auth login --claudeai
+claude auth status
+```
+
+Do not copy another person's login files, share a home directory, run the viewer
+with `sudo`, or place tokens in Git/YAML/images. The bench calls `codex exec`
+or `claude -p` using that user's saved official login. API-key/provider conflicts
+fail visibly rather than switching billing. Random/Search requires no LLM login.
+Usage counts against the signed-in account's limits; model availability and
+Claude Code access depend on that person's plan/organization permissions.
+References: [Codex authentication](https://developers.openai.com/codex/auth),
+[Codex non-interactive execution](https://developers.openai.com/codex/noninteractive),
+[Claude authentication](https://code.claude.com/docs/en/authentication).
+
+Check your selected account without making an LLM request or starting a job:
+
+```bash
+.venv-ws2/bin/python tools/ws2_bench/check_install.py --planner pulp_dronet \
+  --execution-backend osmo --osmo-config robot/ros_ws/ws2_runtime/osmo.yaml \
+  --check-accounts --provider codex
+```
+
+Use `--provider claude` for Claude; for local flights use `--execution-backend
+local` and omit `--osmo-config`. This verifies authentication, not model access
+or quota for a future inference request.
 
 ## Run one target
 
@@ -16,9 +53,15 @@ python3 tools/ws2_bench/agent_campaign.py \
   --infrastructure-retries 0 --clean-failure-policy record --review-seconds 0
 ```
 
+For OSMO, prefix that command with `WS2_EXECUTION_BACKEND=osmo
+WS2_OSMO_CONFIG="$PWD/robot/ros_ws/ws2_runtime/osmo.yaml"`. For local flights,
+use `WS2_EXECUTION_BACKEND=local`. The selected provider never runs inside the
+GPU job. Use a new campaign directory when changing backend or runtime image.
+
 `--planner`: `mononav`, `kim`, `pulp_dronet`. One target per campaign.
 `--provider codex`: saved ChatGPT subscription, default `gpt-6-astra` / `high`.
-`--provider claude`: saved Claude subscription. The viewer exposes both choices.
+`--provider claude`: saved Claude subscription, default `sonnet`;
+use `WS2_CLAUDE_MODEL` to select an available model. The viewer exposes both choices.
 Optional Codex settings: `WS2_CODEX_MODEL`, `WS2_CODEX_EFFORT`,
 `WS2_CODEX_TIMEOUT_S` (default600s). API-key/provider environment conflicts are
 rejected instead of silently switching billing. Keep tokens out of YAML/Git.
@@ -29,8 +72,9 @@ Run the account watcher independently of flights:
 python3 tools/ws2_bench/codex_quota.py --watch --interval 30
 ```
 
-At weekly remaining<=1%, it sends three user-authorized Slack messages through
-`~/notify_slack.py`; each Codex call also checks quota. No new calls start at low
+At weekly remaining<=1%, it stops new Codex calls. If you have configured your
+own optional `~/notify_slack.py`, it also sends three notifications through that
+helper; no author-specific webhook is shipped. Each Codex call checks quota. No new calls start at low
 or unknown quota. Reset and resume the same campaign, or start a new campaign
 with Claude. Provider changes never rewrite the original campaign identity.
 `--policy`: `random`, `search`, `agent_search`. Search is a local heuristic,
@@ -39,7 +83,11 @@ single-factor isolation and scalar bisection; Claude chooses its follow-ups. Sea
 clean control; it does not try to fix clean failures by lowering attack settings.
 
 The budget counts reserved clean/attack slots. Twelve slots permit six pairs.
-A failed clean control skips its attack twin; the skipped slot is **not reused**.
+Standard corridor campaigns skip the attack twin after a failed clean control;
+the unused slot is not reassigned. `record` continues to the next configuration,
+while `halt` stops the campaign. The separately configured matched pilot runs
+both flights even after a model clean failure, excluding invalid clean pairs
+from attack attribution. Infrastructure failures are not model failures.
 Actual executed flights and reserved slots are reported separately. No model failure
 is automatically retried. Rerun the same command to resume without repeating saved
 flights; changed configuration is rejected. Use a fresh directory for a changed study.

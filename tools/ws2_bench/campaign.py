@@ -58,6 +58,8 @@ def verdict(clean,attacked):
 def run_campaign(output,backend,budget,seed,planners,retries=1,matrix=False,profile='sensors',difficulty=None):
     root=Path(output).resolve();root.relative_to(RUNTIME.resolve());root.mkdir(parents=True,exist_ok=True)
     lock=(root/'campaign.lock').open('w');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+    from episode import pin_execution
+    pin_execution(root, planners)
     config={'backend':backend,'flight_budget':budget,'seed':seed,'planners':planners,'infrastructure_retries':retries,
             'patch_policy':PATCH_POLICY}
     if matrix:config['matrix']=True

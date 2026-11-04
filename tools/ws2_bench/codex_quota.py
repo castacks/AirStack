@@ -1,4 +1,4 @@
-"""Read official Codex subscription quota and notify Mason at <=1% weekly left.
+"""Read the signed-in Codex account's quota and notify at <=1% weekly left.
 
 No tokens or credential files are read. The official app-server owns login and
 contacts account/rateLimits/read. This does not start a model turn. Missing or

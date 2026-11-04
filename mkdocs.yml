@@ -85,6 +85,7 @@ nav:
           - Spawning Drones: docs/simulation/isaac_sim/spawning_drones.md
           - Overhead Camera: docs/simulation/isaac_sim/overhead_camera.md
           - WS2 Installation and Usage: tools/ws2_bench/README.md
+          - WS2 OSMO Execution: tools/ws2_bench/osmo/README.md
           - WS2 Agent Configuration: tools/ws2_bench/CORRIDOR_AGENT.md
           - WS2 Model Adapters: tools/ws2_bench/MODEL_ADAPTERS.md
           - PULP-DroNet v3: tools/ws2_bench/planners/pulp_dronet/README.md

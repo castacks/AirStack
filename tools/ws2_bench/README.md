@@ -4,6 +4,12 @@ Runs MonoNav, Kim/FCRN and PULP-DroNet v3 through the same AirStack/PX4
 execution and evaluation path. Office supports feedback/random/search;
 corridors support fixed suites and optional Claude/Codex experiment selection.
 
+Choose **local** or **OSMO** execution. The instructions below install the local
+Docker/GPU runtime. For remote jobs, follow [OSMO setup](osmo/README.md) instead:
+the viewer/campaign/LLM stays on your computer, and each flight runs in its own
+GPU task. Published task images remove the need for local Isaac/ROS, model
+checkpoints or a GPU. Both modes use the same target settings and evaluator.
+
 ## Installation
 
 Requirements: Linux, NVIDIA GPU/driver, Docker Compose/NVIDIA Container Toolkit,
@@ -21,7 +27,7 @@ docker login airlab-docker.andrew.cmu.edu
 Install/build the selected workers using their own READMEs:
 [MonoNav](https://github.com/engcang/MonoNav),
 [Kim](https://github.com/engcang/Collision-avoidance),
-[PULP](https://github.com/engcang/pulp-dronet/blob/master/README_AIRSTACK.md).
+[PULP](https://github.com/engcang/pulp-dronet).
 The expected images are `mononav-demo:1.0`,
 `collision-avoidance-airstack:1.0`, and `pulp-dronet-airstack:1.0`.
 
@@ -55,7 +61,7 @@ avoids a root-owned top-level directory on a new checkout.
 Check the selected target without starting any simulator or flight:
 
 ```bash
-.venv-ws2/bin/python tools/ws2_bench/check_install.py --planner pulp_dronet
+.venv-ws2/bin/python tools/ws2_bench/check_install.py --planner pulp_dronet --execution-backend local
 ```
 
 Replace `pulp_dronet` with `mononav` or `kim`. Fix every reported missing item.
@@ -69,7 +75,7 @@ Use the venv Python below, or an existing Python with those dependencies.
 Start the viewer in one terminal:
 
 ```bash
-.venv-ws2/bin/python tools/ws2_bench/dashboard.py --port 8892
+.venv-ws2/bin/python tools/ws2_bench/dashboard.py --execution-backend local --port 8892
 ```
 
 Open **http://127.0.0.1:8892**. Simulator and actual model inference appear side
@@ -80,7 +86,9 @@ retries to **0**. Click **Start tests**. This uses generated corridors, requires
 no Office assets and does not require an LLM login. Simulator startup and model
 loading take time; open **Startup / campaign log** to see progress or errors.
 For agent decisions, select **LLM-guided tests** and authenticate the selected
-Claude/Codex CLI first ([setup and configuration](CORRIDOR_AGENT.md)).
+Claude/Codex CLI with **your own account**, as the same OS user running the
+viewer ([setup and configuration](CORRIDOR_AGENT.md)). No account belonging to
+the repository author is needed. The LLM stays local in both execution modes.
 **Basic feedback** uses Office and requires its separately downloaded assets.
 
 If nothing starts, copy the error shown in the web page and the startup log:

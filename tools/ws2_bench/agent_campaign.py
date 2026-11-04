@@ -177,6 +177,8 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
         config['llm_report'] = bool(llm_report)
     if action_space!='corridor':resolved({"planner": planner, **config["mission"]})
     config_path = root / "config.json"
+    from episode import pin_execution
+    pin_execution(root, [planner])
     from campaign_versions import apply as pin_versions, KEYS as VERSION_KEYS
     previous = _load_json(config_path) if config_path.exists() else None
     config = pin_versions(config, previous,
