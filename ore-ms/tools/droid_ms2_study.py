@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import subprocess
 
-from droid_ms2_development import SETTINGS,sha,read,write,ROOT
+from droid_ms2_development import SETTINGS,sha,read,write,ROOT,model_geometry
 
 PLAN=ROOT/'experiments/droid-ms2-development-2026-11-04.json'
 OUT=ROOT/'results/droid-ms2-development/run-001'
@@ -58,19 +58,43 @@ def freeze(runtime):
     print('FROZEN',len(plan['source_sha256']),'pins;',len(runs),'native runs')
 
 
-def verify():
-    plan=read(PLAN)
-    if sha(PLAN)!=sha(OUT/'plan.json'):raise ValueError('plan changed')
+def verify(protocol=PLAN):
+    protocol=Path(protocol);plan=read(protocol)
+    out=ROOT/plan.get('output','results/droid-ms2-development/run-001')
+    if sha(protocol)!=sha(out/'plan.json'):raise ValueError('plan changed')
     for path,expected in plan['source_sha256'].items():
         if sha(ROOT/path)!=expected:raise ValueError('changed frozen source/input '+path)
     return plan
 
 
+def amend(runtime):
+    p=read(PLAN)
+    allowed={'tools/droid_ms2_development.py','tools/droid_ms2_study.py','tools/droid_ms2_audit.py','tools/tests/test_droid_ms2_development.py'}
+    for path,digest in p['source_sha256'].items():
+        if path not in allowed and sha(ROOT/path)!=digest:raise ValueError('unexpected changed prerequisite '+path)
+    p['amendment_of_sha256']=sha(PLAN)
+    p['amendment_reason']='Retain full-resolution int32 correlation failures. Use native demo196608pixel area cap, no upsampling; scale intrinsics by precrop resize dimensions. Guard missing initialization before offline backend; do not alter warmup/motion thresholds or admit filled uninitialized poses.'
+    p['runtime_image']=runtime;p['output']='results/droid-ms2-development/run-002'
+    p['resize_or_crop']=True;p['uninitialized_backend_guard']=True
+    for case in p['runs']:
+        geometry=model_geometry(case['shape']);case['source_shape']=case['shape']
+        case['source_intrinsics']=case['intrinsics'];sx,sy=geometry['scale_xy']
+        case['intrinsics']=[value*scale for value,scale in zip(case['source_intrinsics'],[sx,sy,sx,sy])]
+        case['shape']=geometry['shape'];case['image_geometry']=geometry
+    p['source_sha256']={path:sha(ROOT/path) for path in p['source_sha256']}
+    for path in ['results/droid-ms2-development/run-001/audit.json','experiments/droid-stereo-contract-2026-11-04-v2.json','results/droid-ms2-development/preflight-002/stereo-contract.json']:
+        p['source_sha256'][path]=sha(ROOT/path)
+    if not read(ROOT/'results/droid-ms2-development/preflight-002/stereo-contract.json')['pass']:raise ValueError('renewed geometry contract failed')
+    out=ROOT/p['output'];out.mkdir(parents=True,exist_ok=False)
+    write(ROOT/'experiments/droid-ms2-development-2026-11-04-v2.json',p);write(out/'plan.json',p)
+    print('AMENDED',len(p['source_sha256']),'pins; original runs/outputs retained')
+
+
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action',choices=['freeze','verify']);parser.add_argument('--runtime')
+    parser.add_argument('action',choices=['freeze','verify','amend']);parser.add_argument('--runtime');parser.add_argument('--protocol',type=Path,default=PLAN)
     args=parser.parse_args()
-    if args.action=='freeze':
+    if args.action in ('freeze','amend'):
         if not args.runtime or not args.runtime.startswith('sha256:'):raise ValueError('exact runtime digest required')
-        freeze(args.runtime)
-    else:verify();print('All frozen source/input hashes unchanged')
+        (freeze if args.action=='freeze' else amend)(args.runtime)
+    else:verify(args.protocol);print('All frozen source/input hashes unchanged')

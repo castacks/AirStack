@@ -72,16 +72,24 @@ def check_output(value,source,case,vectors,matrices):
     return count
 
 
-def main(output):
-    p=read(PLAN);checks=0;mutations=[];summary=[]
-    assert sha(PLAN)==sha(OUT/'plan.json')
+def main(output,protocol=PLAN):
+    protocol=Path(protocol);p=read(protocol);out=ROOT/p.get('output','results/droid-ms2-development/run-001')
+    checks=0;mutations=[];summary=[]
+    assert sha(protocol)==sha(out/'plan.json')
     for path,digest in p['source_sha256'].items():assert sha(ROOT/path)==digest,path
     for case in p['runs']:
         source=read(ROOT/case['manifest']);calibration=read(ROOT/case['calibration'])
         m='rgb' if case['modality']=='rgb' else 'thr';k=np.asarray(calibration['K_'+m+'L']['values'])
         assert case['baseline_m']==-calibration['T_'+m+'R']['values'][0][0]/1000
-        assert case['intrinsics']==[k[0,0],k[1,1],k[0,2],k[1,2]]
-        directory=OUT/case['case'];value=read(directory/'estimate.json');execution=read(directory/'execution-lock.json')
+        raw_k=[k[0,0],k[1,1],k[0,2],k[1,2]]
+        if 'image_geometry' in case:
+            assert case['source_intrinsics']==raw_k
+            h0,w0=case['source_shape'];scale=min(1.,np.sqrt(196608/(h0*w0)))
+            h1,w1=int(h0*scale),int(w0*scale);final=[h1-h1%8,w1-w1%8]
+            assert case['shape']==final and case['image_geometry']['resize_shape']==[h1,w1]
+            assert np.allclose(case['intrinsics'],[raw_k[0]*w1/w0,raw_k[1]*h1/h0,raw_k[2]*w1/w0,raw_k[3]*h1/h0],rtol=0,atol=1e-10)
+        else:assert case['intrinsics']==raw_k
+        directory=out/case['case'];value=read(directory/'estimate.json');execution=read(directory/'execution-lock.json')
         assert execution['runtime_image']==p['runtime_image'] and execution['settings']['stereo'] is True
         assert execution['settings']['image_size']==case['shape']
         assert execution['metric_translation_factor']==case['baseline_m']/.1
@@ -116,6 +124,9 @@ def main(output):
                 assert sha(path)==p['source_sha256'][str(path.relative_to(ROOT))]
                 raw=cv2.imread(str(path),cv2.IMREAD_UNCHANGED)
                 if raw.ndim==2:raw=np.tile(raw[...,None],(1,1,3))
+                if 'image_geometry' in case:
+                    if [h0,w0]!=[h1,w1]:raw=cv2.resize(raw,(w1,h1),interpolation=cv2.INTER_LINEAR)
+                    raw=raw[:final[0],:final[1]].copy()
                 parts.append(raw)
             expected=np.transpose(np.asarray(parts),(0,3,1,2)).astype(np.float32)
             assert row['image_shape']==list(expected.shape)
@@ -150,5 +161,5 @@ def main(output):
 
 
 if __name__=='__main__':
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--output',type=Path,required=True)
-    args=parser.parse_args();main(args.output)
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--output',type=Path,required=True);parser.add_argument('--protocol',type=Path,default=PLAN)
+    args=parser.parse_args();main(args.output,args.protocol)

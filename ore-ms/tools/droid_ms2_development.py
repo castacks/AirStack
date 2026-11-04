@@ -51,6 +51,31 @@ def canonical_pair(directory,stem,shape):
     return np.stack(images,axis=0)
 
 
+def model_geometry(shape):
+    height,width=shape
+    if any(type(v) is not int or v<=0 for v in shape):raise ValueError('positive integer image dimensions required')
+    scale=min(1.,np.sqrt((384*512)/(height*width)))
+    resized=[int(height*scale),int(width*scale)]
+    final=[v-v%8 for v in resized]
+    if min(final)<8:raise ValueError('image too small for native8x feature grid')
+    if 48*(final[0]//8*final[1]//8)**2>=2**31:
+        raise ValueError('native32-bit correlation capacity exceeded')
+    return {'source_shape':list(shape),'resize_shape':resized,'shape':final,
+            'scale_xy':[resized[1]/width,resized[0]/height],'crop_origin_xy':[0,0]}
+
+
+def transform_pair(images,geometry):
+    result=[]
+    for image in images:
+        if list(image.shape[:2])!=geometry['source_shape']:raise ValueError('source geometry mismatch')
+        height,width=geometry['resize_shape']
+        if [height,width]!=geometry['source_shape']:
+            image=cv2.resize(image,(width,height),interpolation=cv2.INTER_LINEAR)
+        final_height,final_width=geometry['shape']
+        result.append(image[:final_height,:final_width].copy())
+    return np.stack(result)
+
+
 def metric_poses(native_matrices,baseline_m,initialized):
     if (type(baseline_m) not in (int,float) or not np.isfinite(baseline_m) or baseline_m<=0
             or type(initialized) is not bool):
@@ -122,7 +147,8 @@ def execute(protocol,case_id,output):
     begin=time.monotonic_ns();torch.cuda.reset_peak_memory_stats()
     def stream(phase):
         for index,(stamp,row) in enumerate(zip(stamps,source['records'])):
-            raw=canonical_pair(ROOT/case['canonical'],row['stem'],shape)
+            raw=canonical_pair(ROOT/case['canonical'],row['stem'],case.get('source_shape',shape))
+            if 'image_geometry' in case:raw=transform_pair(raw,case['image_geometry'])
             tensor=torch.from_numpy(raw).permute(0,3,1,2).float()
             input_reads.append({'phase':phase,'source_index':index,'native_time':float(stamp),
                 'image_shape':list(tensor.shape),'image_tensor_sha256':hashlib.sha256(tensor.numpy().tobytes()).hexdigest(),
@@ -144,8 +170,12 @@ def execute(protocol,case_id,output):
                 calls.append(row);journal.write(json.dumps(row)+'\n');journal.flush()
             initialized=bool(native.frontend.is_initialized)
             keyframes=native.video.tstamp[:native.video.counter.value].cpu().tolist()
-            vectors=native.terminate(stream('filler'))
+            if plan.get('uninitialized_backend_guard') and not initialized:
+                failure='frontend_not_initialized; offline backend deliberately skipped'
+                vectors=None
+            else:vectors=native.terminate(stream('filler'))
             torch.cuda.synchronize()
+            if vectors is None:raise RuntimeError(failure)
             if vectors.shape!=(len(times),7):raise ValueError('native terminate output count/shape mismatch')
             # terminate() already inverts T_camera_from_world. Do not invert twice.
             mask=valid_native_vectors(vectors);vector_valid=mask.tolist()
@@ -163,6 +193,7 @@ def execute(protocol,case_id,output):
     result={'time_ns':times,'right_time_ns':right,'source_ids':[r['stem'] for r in source['records']],
         'poses':poses,'segments':segments,'pose_rejection_reasons':reasons,
         'terminal_success':success,'native_execution_completed':completed,
+        'backend_skipped_for_uninitialized':bool(plan.get('uninitialized_backend_guard') and not initialized and len(calls)==len(times)),
         'frontend_initialized':initialized,'failure':failure,
         'source_frames':len(times),'native_track_calls_returned':len(calls),
         'finite_admitted_pose_frames':sum(p is not None for p in poses),

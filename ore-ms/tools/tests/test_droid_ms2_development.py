@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from droid_ms2_development import native_times,metric_poses,canonical_pair,valid_native_vectors
+from droid_ms2_development import native_times,metric_poses,canonical_pair,valid_native_vectors,model_geometry,transform_pair
 
 
 def test_source_clock_is_relative_before_float_conversion():
@@ -62,3 +62,29 @@ def test_canonical_thermal_replicates_channels_without_resizing(tmp_path):
     for side in range(2):
         for channel in range(3):np.testing.assert_array_equal(images[side,:,:,channel],raw)
     with pytest.raises(ValueError):canonical_pair(tmp_path,'000000',[8,8])
+
+
+def test_native_area_cap_bounds_correlation_capacity_without_upsampling_thermal():
+    rgb=model_geometry([384,1224]);thermal=model_geometry([256,640])
+    assert rgb['shape']==[248,784] and rgb['resize_shape']==[248,791]
+    assert 48*(248//8*784//8)**2<2**31
+    assert thermal['shape']==thermal['resize_shape']==thermal['source_shape']==[256,640]
+
+
+def test_intrinsics_scale_uses_precrop_size_and_crop_is_left_aligned():
+    geometry=model_geometry([384,1224]);sx,sy=geometry['scale_xy']
+    k=np.array([764.,764.,579.,153.]);scaled=k*np.array([sx,sy,sx,sy])
+    point=np.array([.4,-.3,2.])
+    uv=k[:2]*point[:2]/point[2]+k[2:]
+    transformed=scaled[:2]*point[:2]/point[2]+scaled[2:]
+    np.testing.assert_allclose(transformed,uv*np.array([sx,sy]))
+    assert sx==791/1224 and sx!=784/1224 and geometry['crop_origin_xy']==[0,0]
+
+
+def test_spatial_transform_matches_native_resize_crop_and_preserves_source_bytes():
+    image=np.arange(384*1224*3,dtype=np.uint32).reshape(384,1224,3).astype(np.uint8)
+    original=image.copy();geometry=model_geometry([384,1224])
+    actual=transform_pair(np.stack([image,image]),geometry)
+    expected=cv2.resize(image,(791,248),interpolation=cv2.INTER_LINEAR)[:248,:784]
+    np.testing.assert_array_equal(actual[0],expected)
+    np.testing.assert_array_equal(image,original)
