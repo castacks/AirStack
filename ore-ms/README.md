@@ -1,3 +1,8 @@
+EXP123 (2026-11-03): [retention capacity replay](docs/research/retention-capacity-findings-2026-11-03.md)
+passes 30 actual-byte storage cases: 2 MiB loses the recorded catch-up predecessor,
+4/8 MiB retain it. 58 tests / 60,342 audit checks. No native delivery or total
+memory claim; next worker leases and bounded IPC. Production defaults unchanged.
+
 # MS project: RGB–thermal geometric uncertainty
 
 2026-11-03 — [EXP122 buffered handover](experiments/EXP-122-buffered-handover.md): one retained RGB input repairs target51 in both the paired failing trace and live candidate. The frozen contract passes: 85/95 deliveries, adjacent output after all four returns, 141 native pair calls versus full-read158. Actual encoded retention, decode/call accounting and original deadlines are explicit. All 52 tests, 48,655 audit checks and 8,918 byte-level array controls pass. Experimental synthetic buffer model; production defaults remain unchanged.
