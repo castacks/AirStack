@@ -1,0 +1,150 @@
+{
+  "date": "2026-11-04",
+  "parent_commit": "7071ee4d2e5686d6e27bd618307270a3b30417fe",
+  "source_sha256": {
+    "tools/selected_motion_study.py": "e54b392d87a1fb0242e8c2aae5e86016632f69de0cbdf28ee1bca7d10e2e0a20",
+    "tools/selected_motion_trajectory.py": "277a3dd3aa53dfe035a4caa23b059c2f55610ebe52ded29f0fa40d73fd5b6437",
+    "tools/selected_motion_study_audit.py": "7613945e872a5c6473d0db65f55e483472ae351368a8343d154f136b527aee23",
+    "tools/tests/test_selected_motion_trajectory.py": "1d0b3976632b74f9a60c58bb4f5ea231bbd0041ac2b869abc7f6d88acb2fc363",
+    "results/selected-motion-publisher/source-001/MS2_dataset.py": "299250fcdc33548b6cab3bf585d3f5b205af3635eb038e7e113fee73447de9a1",
+    "experiments/independent-benchmark-2026-11-04.json": "19edf913daf442c2e120d78feafc92fef6bd99ccc02876d023ca6b735730bdf7",
+    "results/orb-ms2-development/run-004/audit.json": "1e2dded3fc4d69d16fe401756b07ba1209c5314ff7c7bbd81389758b69d676c1",
+    "results/ms2-timestamp-semantics/source-protocol-input-manifest.json": "885f228ce64e0dbf19294bfc327a28d5aadb7a4823d5c8f4f1b1a7edd554b3f8",
+    "results/ms2-night-pilot/calibration.json": "2e9a8095c7cbd1b80cb3b0ace554ad51099883e7dec4e3d3c9a458f5f3e7b695",
+    "results/orb-ms2-development/run-004/night-rgb/estimate.json": "6b381c10b775ec4fb5d1d0b7717f2a169a99183d83fb195e2a98aee73c1e1a7e",
+    "results/orb-ms2-development/run-004/night-thr/estimate.json": "251a67750e5f7c527edf896b725ea3160428b387ead42085bab42ba0c9b58153",
+    "results/ms2-day-replication/source-manifest.json": "2c39d591c8e5797ec81665cced31d0a93b1dc6d92eaa69a0de0d4e815ddfc229",
+    "results/ms2-day-replication/calibration.json": "2e9a8095c7cbd1b80cb3b0ace554ad51099883e7dec4e3d3c9a458f5f3e7b695",
+    "results/orb-ms2-development/run-004/day-rgb/estimate.json": "85442d9d169e7f7f4cfa9534b5848d4ed3d117dae297f64a4f84d5f8b8f49161",
+    "results/orb-ms2-development/run-004/day-thr/estimate.json": "a959e08c67c549d0e0614881fa7a81b20513d5cf26a9f873654d98b2011c61c0",
+    "results/ms2-rain-replication/source-manifest.json": "72cf20b297f6f780c2b97007c141704150ba5b0cdbebe9b937ee1d7b463ac2fa",
+    "results/ms2-rain-replication/calibration.json": "2e9a8095c7cbd1b80cb3b0ace554ad51099883e7dec4e3d3c9a458f5f3e7b695",
+    "results/orb-ms2-development/run-004/rain-rgb/estimate.json": "ef3bfea0d8447ccbd1971bb902215ed17e85e77d6f4dc410179bd18f39b84d2b",
+    "results/orb-ms2-development/run-004/rain-thr/estimate.json": "16e72a1418788b64ac152a6dc81eed9c42b5831ec422bc38152ed69994515522"
+  },
+  "cases": [
+    {
+      "condition": "night",
+      "recording": "ms2/_2021-08-13-21-18-04",
+      "manifest": "results/ms2-timestamp-semantics/source-protocol-input-manifest.json",
+      "manifest_sha256": "885f228ce64e0dbf19294bfc327a28d5aadb7a4823d5c8f4f1b1a7edd554b3f8",
+      "calibration": "results/ms2-night-pilot/calibration.json",
+      "calibration_sha256": "2e9a8095c7cbd1b80cb3b0ace554ad51099883e7dec4e3d3c9a458f5f3e7b695",
+      "stems": [
+        "000000",
+        "000001",
+        "000002",
+        "000003",
+        "000004",
+        "000005",
+        "000006",
+        "000007",
+        "000008",
+        "000009",
+        "000010",
+        "000011",
+        "000012",
+        "000013",
+        "000014",
+        "000015",
+        "000016",
+        "000017",
+        "000018",
+        "000019"
+      ],
+      "estimates": {
+        "rgb": "results/orb-ms2-development/run-004/night-rgb/estimate.json",
+        "thermal": "results/orb-ms2-development/run-004/night-thr/estimate.json"
+      }
+    },
+    {
+      "condition": "day",
+      "recording": "ms2/_2021-08-06-11-23-45",
+      "manifest": "results/ms2-day-replication/source-manifest.json",
+      "manifest_sha256": "2c39d591c8e5797ec81665cced31d0a93b1dc6d92eaa69a0de0d4e815ddfc229",
+      "calibration": "results/ms2-day-replication/calibration.json",
+      "calibration_sha256": "2e9a8095c7cbd1b80cb3b0ace554ad51099883e7dec4e3d3c9a458f5f3e7b695",
+      "stems": [
+        "000000",
+        "000001",
+        "000002",
+        "000003",
+        "000004",
+        "000005",
+        "000006",
+        "000007",
+        "000008",
+        "000009",
+        "000010",
+        "000011",
+        "000012",
+        "000013",
+        "000014",
+        "000015",
+        "000016",
+        "000017",
+        "000018",
+        "000019"
+      ],
+      "estimates": {
+        "rgb": "results/orb-ms2-development/run-004/day-rgb/estimate.json",
+        "thermal": "results/orb-ms2-development/run-004/day-thr/estimate.json"
+      }
+    },
+    {
+      "condition": "rain",
+      "recording": "ms2/_2021-08-06-16-19-00",
+      "manifest": "results/ms2-rain-replication/source-manifest.json",
+      "manifest_sha256": "72cf20b297f6f780c2b97007c141704150ba5b0cdbebe9b937ee1d7b463ac2fa",
+      "calibration": "results/ms2-rain-replication/calibration.json",
+      "calibration_sha256": "2e9a8095c7cbd1b80cb3b0ace554ad51099883e7dec4e3d3c9a458f5f3e7b695",
+      "stems": [
+        "000000",
+        "000001",
+        "000002",
+        "000003",
+        "000004",
+        "000005",
+        "000006",
+        "000007",
+        "000008",
+        "000009",
+        "000010",
+        "000011",
+        "000012",
+        "000013",
+        "000014",
+        "000015",
+        "000016",
+        "000017",
+        "000018",
+        "000019"
+      ],
+      "estimates": {
+        "rgb": "results/orb-ms2-development/run-004/rain-rgb/estimate.json",
+        "thermal": "results/orb-ms2-development/run-004/rain-thr/estimate.json"
+      }
+    }
+  ],
+  "ms2_source_revision": "0bb0fc1a544d8ad58c7fda5bc025cb0cbb400284",
+  "runtime_image": "sha256:1542a9a2fe4f645aa7b3db1d4d002c0a0b5941a91db105c5587db62b68bd8445",
+  "source_frames_per_case": 20,
+  "modes": [
+    "rgb_ownclock",
+    "thermal_ownclock",
+    "thermal_on_rgb_target",
+    "rgb_breaks"
+  ],
+  "fixed_break_controls": {
+    "abstain_edge": 6,
+    "late_edge": 10,
+    "reset_edge": 14
+  },
+  "matrix_reconstruction_atol": 2e-05,
+  "max_source_gap_ns": 150000000,
+  "reference_scoring": false,
+  "new_native_inference": false,
+  "protected_payload_access": false,
+  "benchmark_execution_ready": false,
+  "scope": "exact-native publisher engineering; no model-based time transport"
+}
