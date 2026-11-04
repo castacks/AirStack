@@ -1,3 +1,8 @@
+EXP137: [DROID longer exposed prefixes](docs/research/droid-longer-prefix-findings-2026-11-04.md).
+All six fixed101-frame runs initialize, returning606/606finite offline poses;
+first20inputs/frontend traces stay exact. 82tests/13,874audit checks pass. No
+accuracy claim; next common-target-time qualification and recording-level comparison.
+
 EXP136: [DROID stereo metric contract](docs/research/droid-ms2-development-findings-2026-11-04.md).
 Pinned baseline builds; 72 tests/23 CPU-CUDA checks and 1,818 independent checks pass.
 All six bounded cases process20/20 frames, but only daythermal initializes; other
