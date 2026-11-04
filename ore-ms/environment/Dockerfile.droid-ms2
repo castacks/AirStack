@@ -1,0 +1,21 @@
+ARG DROID_BASE=pytorch/pytorch:2.8.0-cuda12.8-cudnn9-devel@sha256:a7103283ea7113e10ae5d014bd2342acebda0bc53164b2f7b1dd6eb7a766bdb6
+FROM ${DROID_BASE}
+ENV DEBIAN_FRONTEND=noninteractive MAX_JOBS=4 TORCH_CUDA_ARCH_LIST=12.0 FORCE_CUDA=1
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git libglib2.0-0 libgl1 build-essential ninja-build \
+    && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir numpy==1.26.4 scipy==1.15.3 \
+    opencv-python-headless==4.11.0.86 matplotlib==3.10.1 tqdm==4.67.1 pytest==8.3.5
+RUN git clone --recursive https://github.com/princeton-vl/DROID-SLAM.git /opt/DROID-SLAM \
+    && git -C /opt/DROID-SLAM checkout --detach 2dfd39f0dcad44012ca7bbb8aa70b55edbfa9c99 \
+    && git -C /opt/DROID-SLAM submodule update --init --recursive
+COPY prepare_droid_build.py /opt/ore-ms-build/prepare_droid_build.py
+RUN python /opt/ore-ms-build/prepare_droid_build.py
+RUN pip install --no-cache-dir --no-build-isolation --no-deps -v /opt/DROID-SLAM/thirdparty/lietorch
+RUN pip install --no-cache-dir --no-build-isolation --no-deps -v /opt/DROID-SLAM/thirdparty/pytorch_scatter
+RUN pip install --no-cache-dir --no-build-isolation --no-deps -v /opt/DROID-SLAM \
+    && pip freeze > /opt/ore-ms-build/packages.txt \
+    && git -C /opt/DROID-SLAM diff > /opt/ore-ms-build/droid.patch \
+    && git -C /opt/DROID-SLAM/thirdparty/lietorch diff > /opt/ore-ms-build/lietorch.patch
+ENV OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
+WORKDIR /workspace

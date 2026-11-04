@@ -1,0 +1,15 @@
+{
+  "phase": "before any native model smoke",
+  "runtime_image": "sha256:d3cf8a41dd8090c8939cd840b4735d526cec9a54e48ac36d506f91d13ee56e1c",
+  "source_sha256": {
+    "tools/droid_stereo_contract.py": "efe261e203a42976823f563ec51f85ff4c5388e70eaffa67c84439f8de4e4017",
+    "tools/droid_ms2_development.py": "a4e3c86a3cd3bda44753c9007e389621b9c0ff3cd48aa89fe29c3a861f98fadf",
+    "environment/Dockerfile.droid-ms2": "735bd79ad53004318520b89fcc64c52f45573fdf110c8d98a1b95bc96ed586ca",
+    "environment/prepare_droid_build.py": "5d79834cb1566abf5bb17a7809ad1a4ed77d556095083cf5c32828296503ae4c"
+  },
+  "projection_atol_px": 2e-05,
+  "cuda_ba_atol": 3e-05,
+  "internal_baseline": 0.1,
+  "reference_used": false,
+  "weights_or_images_used": false
+}
