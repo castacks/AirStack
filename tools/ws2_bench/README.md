@@ -10,6 +10,44 @@ the viewer/campaign/LLM stays on your computer, and each flight runs in its own
 GPU task. Published task images remove the need for local Isaac/ROS, model
 checkpoints or a GPU. Both modes use the same target settings and evaluator.
 
+## Use only the corridor scenes
+
+For other tasks, share exported USD files and their textures. The recipient
+opens a `.usda` file in Isaac Sim (**File → Open**), or references it in an
+existing stage, and adds their own robot, sensors, physics scene and task.
+No bench, ROS, PX4, obstacle-avoidance model or LLM setup is needed to load them.
+
+To generate the files, clone this branch (submodules are unnecessary for this
+export) and run from the `AirStack/` directory using a separate Python environment:
+
+```bash
+python3 -m venv /tmp/ws2-scene-export
+/tmp/ws2-scene-export/bin/pip install usd-core numpy Pillow PyYAML
+/tmp/ws2-scene-export/bin/python tools/ws2_bench/export_corridors.py \
+  --output /tmp/ws2-corridor-scenes
+```
+
+This creates all **12 scenes**: L (`elbow`), curved (`curve`), zigzag and U
+(`u_obstacles`), each with easy/medium/hard layouts. To export a subset, add
+`--shapes elbow u_obstacles --tiers medium`. Use a new output directory each time.
+Share the **whole output folder**, including `textures/`; copying just a USD
+file loses its materials. Generated assets belong outside Git.
+
+Scenes contain the same walls, obstacles, floor, ceiling, static collision
+shapes, materials and lighting as the fixed corridor suite. They are Z-up,
+in metres, with `/World` as the default reference prim. The accompanying JSON
+provides exact geometry and a reference route; its spawn height is specific
+to the original Iris setup, so adapt the height for a different robot.
+`bundle_manifest.json` records source/asset hashes and each layout's identity.
+These are environment assets; they do not include robot or physics-scene setup.
+
+The exporter uses `scenarios/corridor_suite.yaml` for map, lighting and seed.
+Use `--config path/to/suite.yaml` or `--seed 42` to change those inputs.
+The defaults reproduce the fixed-suite layouts, not every agent-generated layout.
+Scene construction lives in `corridors.py` and `corridor_scene.py`; the exporter
+uses them directly without invoking the test runner. Generation needs no GPU
+or Isaac installation; rendering requires an application such as Isaac Sim.
+
 ## Installation
 
 Requirements: Linux, NVIDIA GPU/driver, Docker Compose/NVIDIA Container Toolkit,

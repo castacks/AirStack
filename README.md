@@ -19,6 +19,9 @@ Model setup: [MonoNav](https://github.com/engcang/MonoNav),
 With published OSMO images, colleagues do not need to build the models or
 install a local GPU/Isaac/ROS environment.
 
+For other simulation tasks, use [the corridor scenes on their own](tools/ws2_bench/README.md#use-only-the-corridor-scenes).
+Export portable USD scenes and textures without installing or running the bench.
+
 Use `tools/ws2_bench/scenarios/corridor_{mononav,kim,pulp}.yaml` for target
 settings and `tools/ws2_bench/scenarios/corridor_suite.yaml` for fixed-suite
 maps and conditions. OSMO resources/image digests belong in an ignored local
