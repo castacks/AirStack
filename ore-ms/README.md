@@ -1,3 +1,8 @@
+EXP136: [DROID stereo metric contract](docs/research/droid-ms2-development-findings-2026-11-04.md).
+Pinned baseline builds; 72 tests/23 CPU-CUDA checks and 1,818 independent checks pass.
+All six bounded cases process20/20 frames, but only daythermal initializes; other
+five retain null outputs. Next longer exposed prefixes and common-time qualification.
+
 EXP135: [selected-motion trajectory publisher](docs/research/selected-motion-publisher-findings-2026-11-04.md).
 Exact source-time/frame integration and segment breaks implemented; 50 tests,
 2,505 independent checks/24 mutations and two analytic scorer checks pass.
