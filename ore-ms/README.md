@@ -1,3 +1,9 @@
+EXP130: [provided-export quality headroom](docs/research/provided-quality-headroom-findings-2026-11-04.md).
+All323matchedintervals score against recorded SLAM. Retrospective rotation oracle:
+28.71% below pooledbestfixed,21.45% below per-windowbestfixed. Translation gain
+0.134% (0.170mm/interval). No causal selector or physicalaccuracy established.
+Next freeze rotation-focused uncertainty/health signal audit with explicit timing.
+
 EXP129 outcome: [provided-export survey](docs/research/provided-export-survey-findings-2026-11-04.md)
 finds323jointly supported intervals among380;thermalcovers380,so0availability
 headroom. All8nativeexperts return. Next source-backed provided-reference quality

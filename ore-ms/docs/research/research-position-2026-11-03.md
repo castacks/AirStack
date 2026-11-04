@@ -110,3 +110,20 @@ reference exports buttheir payload/quality/coverage wasnotread here. This opens
 an existing-data path to a separatelyfrozenqualifiedquality-headroom study with
 source-backed frame/time/reference interpretation,not an availabilityselector
 win or physical accuracy assertion. EXP128strictinputfailure remainsfailed.
+
+
+EXP130 (2026-11-04), pre-posefreeze6324a366f:
+[qualified provided-SLAM quality headroom](provided-quality-headroom-findings-2026-11-04.md).
+All323jointEXP129rows score,0excluded,380coveragepopulation preserved. Nominal
+body transforms/actualprovidedR/stationarytwist predictions locked before pose
+payload. Bothsourceframes sensor_init->vehicle; large reference gaps elsewhere,
+all scoredendpoint brackets<=150ms. Source posesZIPCRC/SHA;nofit/alignment.
+Rotation RGBmean0.25021140deg,T0.23224070,oracle0.16556426:28.710% belowpooled
+bestfixed;21.447% belowper-windowbestfixed0.21076723. Translation gain0.134%,
+0.00017044m/interval,RGBwins59/T264;rotationRGB108/T215. Separate metric targets.
+5245independentchecks+8nominalgraphchecks+5semanticcases pass;2780pins unchanged.
+No native inference/policy/reservechange. RecordedSLAM dependencies,physical
+mounting/clock and trainingoverlap unresolved;MSAproducer failure remainsfailed.
+This supports rotation-complementarity investigation,not learnedselection,
+sparsecompute savings or independentphysicalaccuracy. Next freeze causal
+uncertainty/healthsignal audit with explicit completed-output vs pre-input timing.
