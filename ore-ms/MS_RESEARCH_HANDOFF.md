@@ -1560,3 +1560,42 @@ independent commonframe/timestamp/reference evidence;checklocal/Box first,keep
 reservedclosed,markdiscoveryconditions exposed. Establish admission and final
 motionvalidation contracts before newqualityselector. Backup backups/2026-11-03-decision-headroom;
 prerequisites EXP124/125lockedruns and inherited assets.
+
+2026-11-03 — [EXP127 exposed data adequacy](experiments/EXP-127-exposed-data-adequacy.md):
+freeze383d21147,parent8e7ac9588. Exact18EXP117densewindows/7records,1150corepairs,
+36healthtraces. Allwindows+records0headroom abovebetterfixedcamera. TD3R171/T295
+of295;MS2R855/T837 of855;commonprojectedT829retainedseparately(8transport exclusions).
+18False→True returns,17TrueFalseTrue triples,0sustained>=3eachphase;notnatural
+transportfaultlabels. No crosswindowstitching/domainpooling toinventadaptivity.
+Boxroot9knownexposedTD3ZIPs,151backupentries atmetadata snapshot,7selectedfolders;
+4oldmetadata archives+10selectedcontract/exposure/owner members archive/memberSHA
+verified andstagednewevidence,notoldpaths. Restoredrigphysical_body_verifiedfalse,
+independentGTfalse,gps_framepathmissing,notassumedIMU. GNSSorigin/axes/time/quality
+unresolved;13fieldexportomitsquality. MS2temporaladapterverified/latestv2status
+ADAPTER_VERIFIED_OTHER_REQUIREMENTS_PENDING,notoldadaptergap. Unknowntraining
+restrictsnetworkheldoutclaims,notblanketprovidedbenchmarkveto. Existingqualified
+referencecomparisons remainpossible;physicaltargetnotestablishedbyscoped evidence.
+TwoMS2reservesclosed,nonew assignment/payload/pixels/poseerrorlabels/inference/
+policy/default/clockfit/messages.8semantic tests,35873independentchecks,9mutation
+rejections,64direct+35inheritedpins. Draftfocusedrequest+18window recorded source
+metadata generated,not sent. Additionalusefulevidence:rig/GNSSquality/config/time
+forselectedexposedintervals,authoritativeMS2reference/exportconventions,or metadata
+forseparate naturallycomplementary temporalcondition withreferenceprovenance.
+Do not treat0availabilityheadroom as0accuracyheadroom;priorEXP114thermal134/852
+lowertranslationproxy cases remainqualifieddiscovery evidence. Mechanismfrozen;
+separateadmission/finalvalidatedmotioncontract before qualitymethodtest,whole
+recordpartition beforeconfirmationpayload andpreserveexposureunknowns.
+Backup backups/2026-11-03-exposed-data-adequacy;EXP117/112/113/114dense prerequisites.
+
+EXP127 post-core metadata supplement, declaredbefore directory outcomes:5BoxTD3
+archives outside4native-auditedTD3records remain projectdevelopment-exposed but
+unassessednativeavailability. redcourse_waypointskip1,night_so_waypoint_skip2,
+night_teleop_so_salon_fig8,night_thermal_so_salon,night_thermal_so_salon3. Readonly
+ZIPfooters/ZIP64/CD,16MiBcap each,no member payload. All5indexed274633names from
+40898365rangebytes;independentzipfilemetadata reader823993checks. All5GNSS/IMU/TF
+exports22contextpaths each,0explicitquality-nameleads under fixedterms;notabsence
+proofinsidegenericfiles/originalbags,GQ7TFnotNovAtelRTK. Core18windows1150pairs/
+metrics/64pins unchanged. Separate source/plan/intake locks, partialnotfullarchive
+SHA. No additional imageupload needed forbounded existing-source development
+survey;choose positions beforecontent/outcomes anddo notpromoteexposedrecordsto
+blindtest. Referenceprovenance remainsseparate. Request draftupdated,nothing sent.

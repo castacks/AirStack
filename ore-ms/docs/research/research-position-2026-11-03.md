@@ -71,3 +71,24 @@ uses a different decision clock/information set. Counts of unavailable preselect
 are not measured erroneous pose publication or downstream risk. Keep mechanism
 frozen; prioritize exposed-data/target adequacy and explicit final-output contract
 before another selector fit. No new inference/policy, no change to EXP125 failure.
+
+[EXP127 exposed-data adequacy](../../experiments/EXP-127-exposed-data-adequacy.md)
+confirms the limit across18natural dense windows from7exposed recordings:allhave
+zeroavailability headroom overtheirbestfixedcamera;thermalcovers295/295TD3 and
+RGB855/855MS2.18healthreturns exist,none has>=3healthy/failed/returned phases.
+The reference audit/restoredBoxevidence preservesnativeMS2adapterverification,
+qualifiedprovided-referencecomparison feasibility,unresolvedphysicalrig/GNSSquality/
+time andunknowntraining,withoutturningunknowntraininginto a universalbenchmark
+blocker. Reserves remainclosed. The useful nextinputs are targeted reference
+provenance/quality or separate complementary temporalrecordingmetadata;request
+is drafted,not sent. No availabilityselectorfit is justified bythissaturated
+cohort;the original accuracy/uncertainty question still needs its own declared
+reference/interval/final-output contract and recording-level test evidence.
+
+EXP127 also indexes five additional already exposed Box TD3archives outside the
+native cohort, using40.9MBof bounded directory metadata with no image/pose-member
+payload. All haveGNSS/IMU/TFexports butno explicitquality-namedstreams under the
+fixedterms. Their nativecomplementarity remainsunknown; this is a concrete existing
+source pool for a predeclared development survey,not evidence that all existing
+data are exhausted. No further imageupload or reservedrecordopening is necessary
+to begin that narrower survey. Referenceprovenance/quality is still a separate gap.

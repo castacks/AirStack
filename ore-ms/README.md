@@ -1,3 +1,9 @@
+EXP127 (2026-11-03): [exposed-data adequacy](docs/research/exposed-data-adequacy-findings-2026-11-03.md)
+finds0natural availability headroom in all18windows/7records:thermal295/295TD3,
+RGB855/855MS2. No sustained3phase recovery. Reference/rig/quality qualifications
+remain;MS2native adapter verified. Minimal evidence request drafted,not sent.
+8tests/35,873checks/9semanticmutations. No new policy/inference/reserve access.
+
 EXP126 (2026-11-03): [decision timing/headroom audit](docs/research/decision-headroom-findings-2026-11-03.md)
 finds0night availability headroom above thermal on retained histories; day candidate
 85/95 versusconditional ceiling87/95. Preselection predicts before target motion
