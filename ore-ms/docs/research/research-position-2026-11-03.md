@@ -163,3 +163,25 @@ ReferenceSLAM/clock/mounting/overlap limitations persist. This repeats knownfail
 response/condition differences,notbroadadaptive superiority. Nextfreeze independent
 benchmarkprotocol/baselines,officialmetrics/trainingprovenance/recipequalification;
 no furtherretuning ontheseexposedwindows asgeneralizationevidence.
+
+
+EXP133 (2026-11-04): [independent benchmark preparation](independent-benchmark-readiness-2026-11-04.md).
+Spec7a24ae69c,strict output timestamp v2amendment731a5a62d;41analyticchecks/22mutations,
+no benchmarkpayload/inference/outcome/reserveassignment/messages. FinaltwoMS²reserves
+remainclosed,candidateonly,activevalidation/testempty. Fullrecording/equalrecordweight,
+noSim3scale,explicitcoverage/failure/RPE1s andATE,rotation/translation separate.
+12methodmodes:matched dense-dual selector controls vsseparatepublishedstereocontext.
+Officialheads pinned:MACVO8683b532d6f6e8981f6b1a646fb5f52f02c1ea61;
+ORB4452a3c4ab75b1cde34e5505a36ec3f9edcdc4c4;DROID2dfd39f0dcad44012ca7bbb8aa70b55edbfa9c99;
+MS²0bb0fc1a544d8ad58c7fda5bc025cb0cbb400284. ORB loopClosing0 verified.
+DROIDEuRoC example1.10translation+correct_scaleTrue/internal0.1baseline cannotblindly
+porttoMS²;derivecalibrationscale andverifyCPU/CUDA paths,commonprimaryscoresunscaled.
+LocalDPVOmonocular excludedfrommetricstereo. ConfiguredORB/DROID builds/assets absent;
+Tartanpose/depth absent;nativeRGB/thermal checkpoints present. Publisher composing
+selectedmotiontrajectory absent. Existing100-frameadapter proof notfullrecordingproof.
+ReadinessSPECIFICATION_FROZEN_EXECUTION_NOT_READY,26directpins+modelhashes;v2source
+amendmentseparate,originalscorer/resultsretained. No superiorcandidate/adoption.
+Next buildpinnedORB inisolatedruntime,canonicalMS² adapter anddevelopment-onlysmoke;
+complete referencefree trajectorypublisher/commonframe/timeproof,thenDROIDmetricstereo.
+Afterdevelopmentclosure create explicitseparateexecutionfreeze beforeprotectedpayload.
+Unknowntrainoverlapdisclosed,notblanketvetoqualifiedprovidedreferencebenchmark.

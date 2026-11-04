@@ -1,3 +1,9 @@
+EXP133: [independent benchmark preparation](docs/research/independent-benchmark-readiness-2026-11-04.md).
+Protocol and common scorer prepared; 41 analytic checks/22 mutations pass.
+Actual benchmark execution awaits external stereo adapters/builds and a verified
+selected-motion trajectory publisher. Final reserves remain closed. Next: pinned
+ORB-SLAM3 development adapter, then common-frame/scale proofs and DROID.
+
 EXP132: [unchanged signal transfer](docs/research/signal-transfer-findings-2026-11-04.md).
 All 171 joint intervals scored across four additional exposed recordings.
 Pooled rotation gains are dominated by the known middle/96 failure; neither
