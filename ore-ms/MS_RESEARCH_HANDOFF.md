@@ -1599,3 +1599,38 @@ metrics/64pins unchanged. Separate source/plan/intake locks, partialnotfullarchi
 SHA. No additional imageupload needed forbounded existing-source development
 survey;choose positions beforecontent/outcomes anddo notpromoteexposedrecordsto
 blindtest. Referenceprovenance remainsseparate. Request draftupdated,nothing sent.
+
+2026-11-04 — EXP128/129five-recording survey. Initial sampling92fe7d815/stage2a221d0b81;
+EXP128inherited2msstereo30mscross/150msgaps,first100perelapsedthird/allfourstreams.
+Strictpairedgroupcounts510/184/515/1009/3237acrossfivearchives;4of15thirdsqualify:
+salon earlyRGB250–349,late856–955;salon3middle1912–2011,late4034–4133.11ineligible
+thirds preserved,3records nativeunmeasured.8tests/5723preflightchecks,45initial/
+562stage2pins.2400selectedPNGmembers ZIPCRC/SHA verified. OldEXP023archive+11cal/
+producer membersSHAverified. Originalproducer exactcontrolFAILfirstthermalinput;
+partialprep/logpreserved,no retry. Retrospectiveall800fixedthermaldiagnostics:
+0originalexact,0frozenMSAtargetexact,oldgrayMAE~0.04–0.19,replicated3ch;causeunresolved,
+no tolerance/recipechange orMSAnativeexecution. No preprocessing-successclaim.
+SeparateEXP129providedexport freeze126b4fe35before nativeoutcomes,afterinputinspection:
+copyexactprovideduint8images+exportedcamera-info,noMSAregeneration/clockfit/newwindow.
+Same releasedweights/native dense geometry_support_replay/strict terminalzero-match
+retention contract.4dualcaptures complete,0nativeFAILEDzero-match outcomes,
+380core slots,8healthseries,0windows withpositiveconditionalheadroom.
+6457inputchecks (1600sourceimages+16infofiles),4756independentnativechecks,
+2169sourcepins. MSAcandidateunchangedandnotvalidated;no poses/reserves/
+training/policy/default changes. Rawadvisorycompleted-outputcontractnotpreinputcache.
+No poolingasprovidedwithMSAcohorts/whole-recordingcoverage/physicalqualityclaim.
+Sourceproducer/config/library/raw-association and timestamp meaning questions
+prepared locally,not sent. Referenceframe/GNSSquality requirements separate.
+Combined backup backups/2026-11-04-five-recording-survey;models/compilerEXP112,
+base runtimeEXP106,oldcalibrationEXP023,archiveindexesEXP127.
+
+EXP129 concrete outcome:RGB323/380,T380/380,union380,0headroom each4windows and
+2sampledrecords. Joint323=95salonearly+38salonlate+95salon3middle+95salon3late.
+All8nativePASS_EXECUTION_ONLY;0native terminalzero-match failures,no retries.
+RGBsalonlate starts59unsupported then40supported,nothealthy-failed-returned;
+other7seriesfullysupported. Largerjointdevelopmentpool supportsnextqualified
+quality-headroomquestion,not adaptiveavailabilitybenefit. PriorZIPindexhasSO
+info/data/interp/timestampsandNovAtelinfoforbothrecords;no referencepayload read.
+Next verifyprovided-reference/frame/timecontract thenfreezequalityheadroom audit
+on323joint outputs withmatchedsupport,not anotheravailabilityfit. Physical and
+networkheldoutclaimsremainunsupported;EXP128MSAinputfailure unchanged.

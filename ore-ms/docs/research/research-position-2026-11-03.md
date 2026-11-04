@@ -92,3 +92,21 @@ fixedterms. Their nativecomplementarity remainsunknown; this is a concrete exist
 source pool for a predeclared development survey,not evidence that all existing
 data are exhausted. No further imageupload or reservedrecordopening is necessary
 to begin that narrower survey. Referenceprovenance/quality is still a separate gap.
+
+2026-11-04 follow-up: [EXP128/129](../../experiments/EXP-129-provided-export-survey.md)
+retain the5recordingsurvey's4/15metadataeligiblewindows. The plannedMSAinputcontract
+fails exactproducer replay onall800thermalinputs;noMSAnativeexecution orcriterion
+relaxation. A separately frozen exactprovided-exportbenchmark runs4dualcaptures
+withunchangedestimatorweights,380core slots,0windows positiveconditionalheadroom,
+and0strictnativezero-matchfailures retained. This separates sourceprovenance
+failurefromnativeasprovidedavailability anddoesnotvalidateMSAcandidatetransfer,
+qualityselection orphysicalaccuracy. Three unqualifiedrecordings remainunknown.
+No source questions sent, newinputrecipefit,policychange orreserveaccess.
+
+EXP129 adds323jointly supported native intervals from4fixed windows/2sampled
+recordings (providedarchive inputs,notMSAregeneration). Thermal covers380/380,
+soavailabilityheadroomremains0;all8expertsreturn. Source directory listsSO/GNSS
+reference exports buttheir payload/quality/coverage wasnotread here. This opens
+an existing-data path to a separatelyfrozenqualifiedquality-headroom study with
+source-backed frame/time/reference interpretation,not an availabilityselector
+win or physical accuracy assertion. EXP128strictinputfailure remainsfailed.

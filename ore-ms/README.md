@@ -1,3 +1,14 @@
+EXP129 outcome: [provided-export survey](docs/research/provided-export-survey-findings-2026-11-04.md)
+finds323jointly supported intervals among380;thermalcovers380,so0availability
+headroom. All8nativeexperts return. Next source-backed provided-reference quality
+headroom on thisdevelopmentpool. EXP128MSAinputcontrolfailure remainsfailed.
+
+EXP128/129 (2026-11-04): [five-recording survey](docs/research/provided-export-survey-findings-2026-11-04.md).
+4/15thirds metadataqualify;strict MSAproducer inputcontrolfails0/800exact,noMSAnative.
+Separateprovidedexport arm:380guardedslots,0windows positiveconditionalheadroom,
+0strictnativezero-matchfailures retained.1600sourceimages/16camera-info exact.
+No candidatechange/poseaccuracy/reserveaccess. Source questions drafted,not sent.
+
 EXP127 (2026-11-03): [exposed-data adequacy](docs/research/exposed-data-adequacy-findings-2026-11-03.md)
 finds0natural availability headroom in all18windows/7records:thermal295/295TD3,
 RGB855/855MS2. No sustained3phase recovery. Reference/rig/quality qualifications
