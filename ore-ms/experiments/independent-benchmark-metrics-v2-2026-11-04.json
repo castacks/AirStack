@@ -1,0 +1,14 @@
+{
+  "date": "2026-11-04",
+  "parent_specification_sha256": "19edf913daf442c2e120d78feafc92fef6bd99ccc02876d023ca6b735730bdf7",
+  "original_scorer_sha256": "d4e98b233c895b579e70b345bd2230cd673e484bf5fa66a138c70a81d03a7b14",
+  "active_future_scorer": "tools/independent_benchmark_metrics_v2.py",
+  "reason": "strict output timestamps; floats and bool equality must not pass",
+  "parameters_changed": false,
+  "benchmark_outcomes_read": false,
+  "sha256": {
+    "tools/independent_benchmark_metrics_v2.py": "57cb78a2bd5f95472206fa59a3218723d153f38921906b41963a6fc7e88c6ae6",
+    "tools/independent_benchmark_check_v2.py": "648f677962ffb3adcc812055f116fefd343ffb1367416aa05387fb10d7cd0d7a",
+    "docs/research/independent-benchmark-metrics-amendment-2026-11-04.md": "414f82ee005a28374cb9ff759884fea4ed7d7b291dcc1b2723107b7469fa46b6"
+  }
+}

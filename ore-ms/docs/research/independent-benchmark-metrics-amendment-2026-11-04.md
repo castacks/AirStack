@@ -1,0 +1,5 @@
+# EXP133 strict timestamp amendment
+
+2026-11-04, before any real benchmark payload/inference/scoring. Original protocol and scorer remain frozen at7a24ae69c with their passing38-case analytic audit. Review then found that the original scorer checked the reference timestamp types and numerical output equality, but Python considers equal-valued floats and False/0 equal. This violates the protocol's exact integer output timestamp requirement.
+
+New `independent_benchmark_metrics_v2.py` adds strict estimator timestamp type validation. No metric formula, pairing, threshold, alignment or sample selection changes. A separate frozen amendment and test runner rerun the original analytic suite in memory against v2, then prove that the old scorer accepts the two problematic representations and v2 rejects them. Old source/results remain untouched. Future execution manifests must bind v2 and this amendment; the original preparation manifest stays valid as ancestry, not an execution permit. No protected data or benchmark outcomes are used.
