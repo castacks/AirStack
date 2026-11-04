@@ -9,6 +9,7 @@ import hashlib
 import json
 from pathlib import Path
 import shutil
+import re
 import subprocess
 import time
 
@@ -231,6 +232,13 @@ def publish(plan, journal, returncode):
             'scope': 'received camera-local development output; no final benchmark scoring'}
 
 
+def validate_build_flags(flags):
+    for component, value in flags.items():
+        standards = re.findall(r'-std=(?:gnu\+\+|c\+\+)(\d+)', value)
+        if not standards or standards[-1] != '11' or '-march=native' not in value:
+            raise ValueError('incompatible Eigen build ABI: ' + component)
+
+
 def run(directory, timeout=300):
     directory = Path(directory).resolve()
     plan = json.loads((directory / 'plan.json').read_text())
@@ -242,6 +250,12 @@ def run(directory, timeout=300):
     revision = subprocess.check_output(['git', '-C', '/opt/ORB_SLAM3', 'rev-parse', 'HEAD'], text=True).strip()
     if revision != ORB_REVISION:
         raise ValueError('wrong ORB revision')
+    flag_paths = {
+        'orb': '/opt/ORB_SLAM3/build/CMakeFiles/ORB_SLAM3.dir/flags.make',
+        'g2o': '/opt/ORB_SLAM3/Thirdparty/g2o/build/CMakeFiles/g2o.dir/flags.make',
+        'adapter': '/opt/ore-ms-adapter/build/CMakeFiles/orb_ms2_runner.dir/flags.make'}
+    flags = {name: Path(path).read_text() for name, path in flag_paths.items()}
+    validate_build_flags(flags)
     command = [str(runner), str(vocabulary), str(directory / 'settings.yaml'),
                str(directory / 'inputs.tsv'), str(directory / 'native.jsonl'), str(plan['seed']), '1']
     identity = {'command': command, 'runner_sha256': sha(runner),
@@ -251,6 +265,7 @@ def run(directory, timeout=300):
     upstream_diff = subprocess.check_output(['git', '-C', '/opt/ORB_SLAM3', 'diff'], text=True)
     identity['upstream_patch'] = upstream_diff
     identity['upstream_patch_sha256'] = hashlib.sha256(upstream_diff.encode()).hexdigest()
+    identity['compile_flags'] = flags
     write(directory / 'execution-lock.json', identity)
     start = time.monotonic_ns()
     with (directory / 'native.log').open('x') as stream:

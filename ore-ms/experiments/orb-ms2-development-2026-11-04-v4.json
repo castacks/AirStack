@@ -1,0 +1,139 @@
+{
+  "date": "2026-11-04",
+  "phase": "exposed_development_adapter_smoke",
+  "parent_commit": "fce01fa352055339fc55bafd6a9b530ff2349325",
+  "runtime_image": "sha256:1542a9a2fe4f645aa7b3db1d4d002c0a0b5941a91db105c5587db62b68bd8445",
+  "source_sha256": {
+    "tools/orb_ms2_development.py": "3c351603b2f6c34da1d17694ea65f75e908d34c57ace77ba32a3bcfe35ac236c",
+    "tools/orb_ms2_development_audit.py": "718c9f7b626724cc4899f69342022c7f1d18dfeefcbf28d7df9165c3865c4984",
+    "tools/tests/test_orb_ms2_development.py": "8d4094d691c54a2f6e510afa2c69ad7d76859d976793bb6a8529d4bb25d62e4f",
+    "environment/Dockerfile.orb-ms2": "157c2683a5afbc1129efa32ccf9d3cd11d5f32edc46eaac43b46e7b972d9dd50",
+    "environment/orb_ms2_runner.cc": "76b9339c52819fe8706c95b4d5c7a0fb83be379c15dd4fd56e7bb81372b3d699",
+    "environment/orb_ms2_CMakeLists.txt": "21071979fc52fbfcba4127327a82962b50cf113f372dd9bc35715817e71237a6",
+    "MAC-VO-main/DataLoader/Dataset/MS2.py": "22723f8de483a284088289e9b50333c931e243edf6312b531206cc0576fb57af",
+    "experiments/independent-benchmark-2026-11-04.json": "19edf913daf442c2e120d78feafc92fef6bd99ccc02876d023ca6b735730bdf7",
+    "environment/orb_rectified_logging.patch": "53dff1af4245e1d499b0bbb87dfa75419b6336832767cbb6d4114b647db24d21"
+  },
+  "cases": [
+    {
+      "condition": "night",
+      "recording": "ms2/_2021-08-13-21-18-04",
+      "manifest": "results/ms2-timestamp-semantics/source-protocol-input-manifest.json",
+      "manifest_sha256": "885f228ce64e0dbf19294bfc327a28d5aadb7a4823d5c8f4f1b1a7edd554b3f8",
+      "calibration": "results/ms2-night-pilot/calibration.json",
+      "calibration_sha256": "2e9a8095c7cbd1b80cb3b0ace554ad51099883e7dec4e3d3c9a458f5f3e7b695",
+      "stems": [
+        "000000",
+        "000001",
+        "000002",
+        "000003",
+        "000004",
+        "000005",
+        "000006",
+        "000007",
+        "000008",
+        "000009",
+        "000010",
+        "000011",
+        "000012",
+        "000013",
+        "000014",
+        "000015",
+        "000016",
+        "000017",
+        "000018",
+        "000019"
+      ]
+    },
+    {
+      "condition": "day",
+      "recording": "ms2/_2021-08-06-11-23-45",
+      "manifest": "results/ms2-day-replication/source-manifest.json",
+      "manifest_sha256": "2c39d591c8e5797ec81665cced31d0a93b1dc6d92eaa69a0de0d4e815ddfc229",
+      "calibration": "results/ms2-day-replication/calibration.json",
+      "calibration_sha256": "2e9a8095c7cbd1b80cb3b0ace554ad51099883e7dec4e3d3c9a458f5f3e7b695",
+      "stems": [
+        "000000",
+        "000001",
+        "000002",
+        "000003",
+        "000004",
+        "000005",
+        "000006",
+        "000007",
+        "000008",
+        "000009",
+        "000010",
+        "000011",
+        "000012",
+        "000013",
+        "000014",
+        "000015",
+        "000016",
+        "000017",
+        "000018",
+        "000019"
+      ]
+    },
+    {
+      "condition": "rain",
+      "recording": "ms2/_2021-08-06-16-19-00",
+      "manifest": "results/ms2-rain-replication/source-manifest.json",
+      "manifest_sha256": "72cf20b297f6f780c2b97007c141704150ba5b0cdbebe9b937ee1d7b463ac2fa",
+      "calibration": "results/ms2-rain-replication/calibration.json",
+      "calibration_sha256": "2e9a8095c7cbd1b80cb3b0ace554ad51099883e7dec4e3d3c9a458f5f3e7b695",
+      "stems": [
+        "000000",
+        "000001",
+        "000002",
+        "000003",
+        "000004",
+        "000005",
+        "000006",
+        "000007",
+        "000008",
+        "000009",
+        "000010",
+        "000011",
+        "000012",
+        "000013",
+        "000014",
+        "000015",
+        "000016",
+        "000017",
+        "000018",
+        "000019"
+      ]
+    }
+  ],
+  "exposed_recordings": [
+    "ms2/_2021-08-13-21-18-04",
+    "ms2/_2021-08-06-11-23-45",
+    "ms2/_2021-08-06-16-19-00"
+  ],
+  "seed": 0,
+  "modalities": [
+    "rgb",
+    "thr"
+  ],
+  "output": "results/orb-ms2-development/run-004",
+  "protected_payload_access": false,
+  "reference_scoring": false,
+  "benchmark_execution_ready": false,
+  "policy": "all first20 archived exposed stems; no outcome-selected exclusions or retries",
+  "success_criteria": [
+    "complete all20 source calls per modality/case",
+    "exact source and right timestamps",
+    "native b and bf agree with provided calibration within float32 tolerance",
+    "preserve failed poses as null and segment breaks",
+    "independent audit and analytic tests pass"
+  ],
+  "not_claimed": [
+    "physical accuracy",
+    "common thermal-to-RGB frame proof",
+    "whole-recording benchmark readiness",
+    "seed-repeat determinism"
+  ],
+  "amendment_of_sha256": "534d5be1bccd08bbaa4d0889438f5fb208400f87b01855b47de9454e2e7571c3",
+  "amendment_reason": "Run-003 retained the same after-frame0 heap abort. Core backtrace identifies graph deletion; standalone g2o defaulted to C++17 while ORB compiled as C++11. Independent compiler probe shows Eigen CXX17 over-aligned allocation flag1 vs0. Pin standalone g2o and wrapper C++11, retain -march=native, reject mismatched compiler flags before invocation. No native estimator code/input/parameter/budget changes."
+}

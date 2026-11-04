@@ -13,6 +13,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import orb_ms2_development as adapter
 
 
+def test_matching_cpp11_native_build_flags():
+    adapter.validate_build_flags({'orb': '-std=c++11 -march=native',
+                                 'g2o': '-march=native -std=gnu++11'})
+
+
+@pytest.mark.parametrize('flags', ['-march=native', '-std=gnu++17 -march=native',
+                                  '-std=c++11', '-std=c++11 -std=gnu++17 -march=native'])
+def test_mismatched_eigen_build_abi_rejected(flags):
+    with pytest.raises(ValueError, match='Eigen build ABI'):
+        adapter.validate_build_flags({'g2o': flags})
+
+
 def plan():
     return {'time_ns': [10**18 + i * 100_000_000 for i in range(5)],
             'right_time_ns': [10**18 + i * 100_000_000 + 9 for i in range(5)], 'modality': 'rgb'}

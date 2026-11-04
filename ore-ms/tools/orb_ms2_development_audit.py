@@ -56,6 +56,7 @@ def audit(root, protocol, output):
             check(len(estimate['poses']) == len(estimate['segments']) == len(times), 'all source slots retained')
             previous_segment = None
             previous_map = None
+            closed_segments = set()
             for index, row in enumerate(source['records']):
                 check(plan['stems'][index] == row['stem'], 'official source stem')
                 for side in ('left', 'right'):
@@ -86,12 +87,17 @@ def audit(root, protocol, output):
                 segment = estimate['segments'][index]
                 if n is None or n['T_camera_from_world'] is None:
                     check(pose is None and segment is None, 'failed/missing output remains null')
+                    if previous_segment is not None:
+                        closed_segments.add(previous_segment)
                     previous_segment = None
                 else:
                     check(n['state'] == 2, 'only tracking-OK poses admitted')
                     inverse = np.linalg.inv(np.asarray(n['T_camera_from_world']))
                     check(np.allclose(pose, inverse, rtol=0, atol=1e-5), 'independent Tcw inverse')
                     check(type(segment) is int, 'valid segment identity')
+                    check(segment not in closed_segments, 'closed segment never resumes')
+                    if previous_segment is not None and previous_segment != segment:
+                        closed_segments.add(previous_segment)
                     if previous_segment is not None and n['map_id'] == previous_map and times[index]-times[index-1] <= 150_000_000:
                         check(segment == previous_segment, 'within-map continuity')
                     elif index and estimate['poses'][index-1] is not None:
