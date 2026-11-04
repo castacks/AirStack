@@ -1,3 +1,9 @@
+EXP131: [rotation signal audit](docs/research/rotation-signal-audit-findings-2026-11-04.md).
+Primary recording-disjoint combinedridge selects thermal323/323:0learnedbenefit.
+Fixeduncertainty rules reduce rotation~5–6% but worsen translation~62–77%;
+retention signalconstant.5744checks/10semanticmutations pass. Completed-output
+arbitration only,both experts executed;developmentSLAMproxy,noadoption.
+
 EXP130: [provided-export quality headroom](docs/research/provided-quality-headroom-findings-2026-11-04.md).
 All323matchedintervals score against recorded SLAM. Retrospective rotation oracle:
 28.71% below pooledbestfixed,21.45% below per-windowbestfixed. Translation gain

@@ -1651,3 +1651,19 @@ mounting/clock and trainingoverlap unresolved;MSAproducer failure remainsfailed.
 This supports rotation-complementarity investigation,not learnedselection,
 sparsecompute savings or independentphysicalaccuracy. Next freeze causal
 uncertainty/healthsignal audit with explicit completed-output vs pre-input timing.
+
+
+EXP131 (2026-11-04), prefeaturefreeze6c7ddefc3:
+[completed-output rotation signal audit](docs/research/rotation-signal-audit-findings-2026-11-04.md).
+323matchedrows,0invalid; sixfixed uncertainty/healthfeatures,lambda1ridge,
+trainonlyscaling,two complete-recording-disjoint folds. Referenceoutcomes already
+exposed;notblind. Primarycombinedridge anduncertainty-only selectthermal323/323,
+matchingfixedT0.232241deg,0learnedbenefit. Raw/approxangularfixed rules rotation
+0.217604/0.220639deg (~6.3%/~5.0% reduction),translation0.205861/0.225521m
+vsT0.127102m (~62%/~77% worse). Gainsconfinedsalon3;angularlatewindowworse.
+Retentionfractiondifference identicallyzero; all10prespecifiedmethods reported.
+5744checks/10mutations (labelpoisoning,timing,interval,fallback) pass;20directpins
+plusEXP130ancestry. Bothnativeexperts alreadyexecuted,notpreinput scheduler or
+compute reduction. No new inference/reference/reserve/policy/adoption/retuning.
+Next sufficiencyaudit existing savedday/nightcaptures for unchanged-rule transfer,
+recipe-separated and bothmetrics; physicalreference/clock/mounting stillunverified.
