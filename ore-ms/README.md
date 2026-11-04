@@ -1,3 +1,10 @@
+EXP124 (2026-11-03): [leased native handover](docs/research/leased-handover-findings-2026-11-03.md)
+passes the frozen synthetic contract: 85/95 selected deliveries,
+141 vs158 full-read calls;
+explicit4MiB store+2MiB shared lease.65tests/62,697auditchecks.
+[Research connection](docs/research/research-position-2026-11-03.md): health-driven
+scheduling feasibility; uncertainty calibration/general accuracy remain unproven.
+
 EXP123 (2026-11-03): [retention capacity replay](docs/research/retention-capacity-findings-2026-11-03.md)
 passes 30 actual-byte storage cases: 2 MiB loses the recorded catch-up predecessor,
 4/8 MiB retain it. 58 tests / 60,342 audit checks. No native delivery or total

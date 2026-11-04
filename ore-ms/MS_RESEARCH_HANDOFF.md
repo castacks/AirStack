@@ -1476,3 +1476,29 @@ reference labels,new data,reserve,default adoption. Plot arrival-order coordinat
 correction retained. Next explicit worker lease ownership and bounded IPC/backpressure,
 then separate native queue/deadline validation; existing exposed images suffice.
 Backup backups/2026-11-03-retention-capacity;prerequisite EXP122 and its inherited inputs.
+
+2026-11-03 — [EXP124 leased handover](experiments/EXP-124-leased-handover.md):
+freeze46062ec77,parentcb7f703e1. Six dual native captures use4MiB primary store,
+2MiB shared handover arena, one global lease/command credit, matching token/camera/
+source/group ACK after worker drops views/mapping. No encoded bytes in bounded
+control messages.2MiB live diagnostic retained. Primary contractPASSES:
+85/95eligible,4unavailable,
+141calls vsfull158,
+all4return episodes counted in findings.65tests,62697independent checks,
+8944raw array-byte controls,992pins. Maxstep505B,
+maxmessage891B. Bounds exclude staged input/Python/control/kernel/current
+file decode/tensors/GPU/RSS/OS cache. Serialoffline backpressure/source-group
+deadlines do not establish acquisition cadence. No pose labels/training/reserve/
+newdata/default adoption. Research contribution being tested is health/history
+scheduling feasibility, not calibrated cross-camera uncertainty or physical
+accuracy superiority. Next evidence: separately predeclared independent condition,
+fixed-camera/matched-cost controls and explicit reference/acquisition semantics.
+Existing exposed inputs suffice for software;natural sustained transitions and
+independent pose references strengthen broader claims. Backup backups/2026-11-03-leased-handover;
+prerequisites EXP123/EXP122 and inherited originalinputs/runtime.
+
+EXP124 tradeoff: original sparse133calls,85/95selected,1/4returned-adjacent episodes;
+primary141calls,85/95selected,4/4episodes. Additional8calls restore alternate
+readiness, not selected-delivery superiority here.2MiBdiagnostic139calls,84/95,
+5unavailable,4/4later returns;missedRGB50 causes49→51handover gap. Controller51.592s
+for9.900s source span: not livecadence.
