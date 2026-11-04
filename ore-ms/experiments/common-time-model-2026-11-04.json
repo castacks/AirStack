@@ -1,0 +1,85 @@
+{
+  "date": "2026-11-04",
+  "parent_commit": "c10eedb744d3cd5e5401f65288b270898face426",
+  "runtime_image": "sha256:d3cf8a41dd8090c8939cd840b4735d526cec9a54e48ac36d506f91d13ee56e1c",
+  "cases": [
+    {
+      "condition": "night",
+      "recording": "ms2/_2021-08-13-21-18-04",
+      "manifest": "results/droid-longer-prefix/run-001/night-source-manifest.json",
+      "calibration": "results/ms2-night-pilot/calibration.json",
+      "estimates": {
+        "rgb": "results/droid-longer-prefix/run-001/captures/night-rgb/estimate.json",
+        "thermal": "results/droid-longer-prefix/run-001/captures/night-thermal/estimate.json"
+      }
+    },
+    {
+      "condition": "day",
+      "recording": "ms2/_2021-08-06-11-23-45",
+      "manifest": "results/droid-longer-prefix/run-001/day-source-manifest.json",
+      "calibration": "results/ms2-day-replication/calibration.json",
+      "estimates": {
+        "rgb": "results/droid-longer-prefix/run-001/captures/day-rgb/estimate.json",
+        "thermal": "results/droid-longer-prefix/run-001/captures/day-thermal/estimate.json"
+      }
+    },
+    {
+      "condition": "rain",
+      "recording": "ms2/_2021-08-06-16-19-00",
+      "manifest": "results/droid-longer-prefix/run-001/rain-source-manifest.json",
+      "calibration": "results/ms2-rain-replication/calibration.json",
+      "estimates": {
+        "rgb": "results/droid-longer-prefix/run-001/captures/rain-rgb/estimate.json",
+        "thermal": "results/droid-longer-prefix/run-001/captures/rain-thermal/estimate.json"
+      }
+    }
+  ],
+  "modes": [
+    "fixed_rgb",
+    "fixed_thermal",
+    "condition_prior",
+    "alternating_control"
+  ],
+  "condition_prior": {
+    "day": "rgb",
+    "night": "thermal",
+    "rain": "rgb"
+  },
+  "association": "same original ordinal adjacent stems only; no time search",
+  "target": "original rgb left timestamps",
+  "frames": 101,
+  "clock_contract": "explicit provided-ns identity assumption; zero offset, unit rate",
+  "horizon": "one native duration outside either native endpoint",
+  "coarse_fine": "all 99 coarse i->i+2 predictions transported to own i->i+1",
+  "audit_matrix_atol": 2e-08,
+  "no_fitted_parameters": true,
+  "reference_scoring": false,
+  "protected_payload_access": false,
+  "new_native_inference": false,
+  "benchmark_execution_ready": false,
+  "source_sha256": {
+    "tools/common_time_study.py": "b72a567971a27da265ee868eb279147b750330a37fb697f81b13f5e80be81a6d",
+    "tools/common_time_model.py": "535c2f0919297aaee8ba871202bbccc49d8c7078847bcc3e6a3a21df4c47ca90",
+    "tools/common_time_audit.py": "67cfe7a0686d4d2cf009fa1d2fc5bad0aa9c86643d0dcce96fbc84ae09e5c5b6",
+    "tools/tests/test_common_time_model.py": "7e75e12521ee695d8e716d7784c35c3b602955992d06d66b6d3b0427b00a6335",
+    "tools/selected_motion_study.py": "e54b392d87a1fb0242e8c2aae5e86016632f69de0cbdf28ee1bca7d10e2e0a20",
+    "tools/selected_motion_trajectory.py": "277a3dd3aa53dfe035a4caa23b059c2f55610ebe52ded29f0fa40d73fd5b6437",
+    "MAC-VO-main/Scripts/Setup/causal_interval_model.py": "0eccaed29cf9a8888f2dfd81c1f7ef3610f82d55d04329e34946560f9e335303",
+    "results/selected-motion-publisher/source-001/MS2_dataset.py": "299250fcdc33548b6cab3bf585d3f5b205af3635eb038e7e113fee73447de9a1",
+    "experiments/independent-benchmark-2026-11-04.json": "19edf913daf442c2e120d78feafc92fef6bd99ccc02876d023ca6b735730bdf7",
+    "experiments/droid-longer-prefix-2026-11-04.json": "10558f261295e27183590af39d047421a932c90218d2da685454b92416c55e02",
+    "results/droid-longer-prefix/run-001/audit.json": "e755f3e7c9e732f949804287cbe2c78ba0879a5ec9862c9638953fead80cb3b5",
+    "results/droid-longer-prefix/run-001/night-source-manifest.json": "c02f1d9400d7ad5f212e8217a2487dd2542b5f39756c2b3639ae9499c9ba8630",
+    "results/ms2-night-pilot/calibration.json": "2e9a8095c7cbd1b80cb3b0ace554ad51099883e7dec4e3d3c9a458f5f3e7b695",
+    "results/droid-longer-prefix/run-001/captures/night-rgb/estimate.json": "797776a28cea645b22afc21ca6110c0442efd41ff8172ce74225fea88906899c",
+    "results/droid-longer-prefix/run-001/captures/night-thermal/estimate.json": "da160e874e3de440af38b940000a49f338d000436a756944fbdbe9a207867855",
+    "results/droid-longer-prefix/run-001/day-source-manifest.json": "2c5ba839436d7c7d819ddd4a2734eff843d9bcf0f0a85c000191278cc4a2197a",
+    "results/ms2-day-replication/calibration.json": "2e9a8095c7cbd1b80cb3b0ace554ad51099883e7dec4e3d3c9a458f5f3e7b695",
+    "results/droid-longer-prefix/run-001/captures/day-rgb/estimate.json": "2ad832f55e5f71baf1e044efca3329cbcbae948c20e45c70e0fcba1b6ba4f1c5",
+    "results/droid-longer-prefix/run-001/captures/day-thermal/estimate.json": "4324d7ff5b3c7c1e0fd5ad69be2e6f9c6203361eee0fbfdf914d1477f5ea3006",
+    "results/droid-longer-prefix/run-001/rain-source-manifest.json": "98490cf99fd9d46fd922c58fd53b8069ab1ea59ab5fb5e8f2293b1eac1f740ca",
+    "results/ms2-rain-replication/calibration.json": "2e9a8095c7cbd1b80cb3b0ace554ad51099883e7dec4e3d3c9a458f5f3e7b695",
+    "results/droid-longer-prefix/run-001/captures/rain-rgb/estimate.json": "fc4c1808805acca950c23c15a42d69c018d44b038f0f982fdc67158478c0df4f",
+    "results/droid-longer-prefix/run-001/captures/rain-thermal/estimate.json": "0c044bebfe814de8e195608c4a67ffa7cb08a7dc7c494f37d64a491cdceddd28"
+  }
+}
