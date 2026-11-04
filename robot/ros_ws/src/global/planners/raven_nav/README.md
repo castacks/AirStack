@@ -99,8 +99,10 @@ counted once per publisher, not multiplied by fleet size; relay transmissions
 are counted and identified separately. These counters exclude DDS/TCP/IP and
 Ethernet headers, retransmissions, and GCS/local registry traffic.
 
-Run `python3 osmo/workspace/summarize_gossip_bytes.py <iteration-dir>` after
-results arrive. It uses each robot's own `mission_start_ts` for a 300-second
+The mission runner saves `gossip_bandwidth_summary.json` automatically after
+collecting the logs. To regenerate it, run
+`python3 osmo/workspace/summarize_gossip_bytes.py <iteration-dir>`. It uses each
+robot's own `mission_start_ts` for a 300-second
 window. Compare map versus BB payload bytes as well as total TX, RX, and
 wall-clock Mbit/s. Both fresh eight-scene missions use identical starts and
 full original bidding costs, with `GOSSIP_MEASURE_BYTES=true`.

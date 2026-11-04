@@ -1590,6 +1590,17 @@ def run_iteration(stack, mission, iter_dir):
             # Metrics live in the robot ./cache mount, not the bag staging dir —
             # collect them before down() so osmo:fetch includes them.
             snapshot_raven_results(iter_dir / "raven_results")
+            if stack.env.get('GOSSIP_MEASURE_BYTES', 'false').lower() == 'true':
+                try:
+                    from summarize_gossip_bytes import summarize
+                    byte_summary = summarize(iter_dir)
+                    write_json(iter_dir / 'gossip_bandwidth_summary.json', byte_summary)
+                    summary['gossip_bandwidth'] = byte_summary['fleet']
+                except Exception as e:
+                    summary['gossip_bandwidth_error'] = str(e)
+                    log(f'WARN: bandwidth summary failed: {e}')
+                    if summary.get('status') == 'passed':
+                        summary['status'] = 'failed'
         stack.down()
         summary["duration_s"] = round(time.time() - t0, 2)
         write_json(iter_dir / "iteration.json", summary)
