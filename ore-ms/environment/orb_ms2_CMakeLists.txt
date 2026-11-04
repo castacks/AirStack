@@ -1,0 +1,12 @@
+cmake_minimum_required(VERSION 3.16)
+project(ore_ms_orb_adapter LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 14)
+find_package(OpenCV 4 REQUIRED)
+find_package(Eigen3 REQUIRED)
+find_package(Pangolin REQUIRED)
+add_executable(orb_ms2_runner orb_ms2_runner.cc)
+target_include_directories(orb_ms2_runner PRIVATE /opt/ORB_SLAM3
+  /opt/ORB_SLAM3/include /opt/ORB_SLAM3/include/CameraModels
+  /opt/ORB_SLAM3/Thirdparty/Sophus ${EIGEN3_INCLUDE_DIR} ${Pangolin_INCLUDE_DIRS})
+target_link_libraries(orb_ms2_runner PRIVATE /opt/ORB_SLAM3/lib/libORB_SLAM3.so
+  ${OpenCV_LIBS} ${Pangolin_LIBRARIES})
