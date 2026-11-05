@@ -1,0 +1,15 @@
+{
+  "declared_at_utc": "2026-11-05T17:25:21.187927+00:00",
+  "study_sha256": "3de7e5a48e315e27191d52bb36c7f2407f17975f6290e57ca5162a29636ec512",
+  "auditor_sha256": "961919629d7c79aa55883edc86add89ae16f0b8a8c6c168b7947878ab8a6f1eb",
+  "test_sha256": "0ba36cedb0728179821a51e1a94316bc4e6bf117e036bfdd70db476f2ae89583",
+  "failed_original_check_sha256": "635e98515b7bcf9bbdabd119ca6b9f00b1707a85d5c61d00340382b9dbdf4c30",
+  "reason": "Preserve original general-matrix-inverse check failure. The pinned original publisher uses R transpose and -R transpose t for accepted near-rigid native float matrices. V2 independently checks that explicit rigid-block convention plus unchanged 1e-5 native rigidity rule, without increasing output comparison tolerance. No inference, prediction or scoring change.",
+  "original_auditor_retained": true,
+  "declared_before_any_ORB_reference_score": true,
+  "native_run_settings_changed": false,
+  "rotation_admission_tolerance": 1e-05,
+  "pose_comparison_atol": 1e-05,
+  "physical_sync_verified": false,
+  "benchmark_execution_ready": false
+}
