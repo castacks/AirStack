@@ -77,3 +77,21 @@ def test_actual_allocation_must_match_policy():
     class Base:
         def __init__(self):self.video=SimpleNamespace(poses=SimpleNamespace(shape=(1024,7)))
     with pytest.raises(ValueError):b.guarded_class(Base,b.Guard(2048))()
+
+
+@pytest.mark.parametrize('fails',[False,True])
+def test_upstream_named_super_constructor_and_restore(fails):
+    module=SimpleNamespace()
+    class Base:
+        def __init__(self):
+            super(module.Droid,self).__init__()
+            if fails:raise RuntimeError('constructor failure')
+            self.video=SimpleNamespace(counter=SimpleNamespace(value=1),poses=SimpleNamespace(shape=(2048,7)))
+    module.Droid=Base;old=b.native.SETTINGS
+    if fails:
+        with pytest.raises(RuntimeError):
+            with b.bounded_context(module,policy(),{'case':'day-rgb'}):module.Droid()
+    else:
+        with b.bounded_context(module,policy(),{'case':'day-rgb'}):
+            wrapped=module.Droid;module.Droid();assert module.Droid is wrapped
+    assert module.Droid is Base and b.native.SETTINGS is old

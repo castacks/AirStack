@@ -7,6 +7,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 OUT=ROOT/'results/bounded-full-record'
 PREFIX=ROOT/'experiments/droid-bounded-prefix-2026-11-04.json'
+ACTIVE_PREFIX=ROOT/'experiments/droid-bounded-prefix-2026-11-04-v2.json'
 
 
 def read(p):return json.loads(Path(p).read_text())
@@ -88,12 +89,12 @@ def prepare(case_id):
 
 
 def full_freeze():
- prefix=read(PREFIX);intake=read(ROOT/'experiments/full-record-intake-2026-11-04.json');plans=[]
+ prefix=read(ACTIVE_PREFIX);intake=read(ROOT/'experiments/full-record-intake-2026-11-04.json');plans=[]
  for old in prefix['runs']:
   case=deepcopy(old);dest=OUT/'canonical'/case['case'];manifest=OUT/'manifests'/(case['condition']+'.json')
   source=read(manifest);case.update(manifest=str(manifest.relative_to(ROOT)),canonical=str(dest.relative_to(ROOT)),source_frames=len(source['records']))
   files=[manifest,ROOT/'models/droid/droid.pth',ROOT/'tools/droid_ms2_development.py',ROOT/'tools/droid_bounded_worker.py',
-  Path(__file__),ROOT/case['calibration'],dest/'plan.json',ROOT/'experiments/full-record-intake-2026-11-04.json',PREFIX]
+  Path(__file__),ROOT/case['calibration'],dest/'plan.json',ROOT/'experiments/full-record-intake-2026-11-04.json',ACTIVE_PREFIX]
   for side in ['left','right']:files.extend(dest/side/(r['stem']+'.png') for r in source['records'])
   p={k:deepcopy(prefix[k]) for k in ['runtime_image','weights','resize_or_crop','uninitialized_backend_guard',
   'internal_stereo_baseline','native_time_unit_ns','metric_translation_rule','settings','bounded_capacity','native_source_sha256']}

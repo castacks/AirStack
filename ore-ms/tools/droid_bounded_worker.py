@@ -64,10 +64,17 @@ class Guard:
             raise NativeCapacityExceeded('insufficient reserved filler capacity')
 
 
-def guarded_class(base,guard):
+def guarded_class(base,guard,module=None):
     class BoundedDroid(base):
         def __init__(self,*args,**kwargs):
-            super().__init__(*args,**kwargs);guard.phase='ready'
+            # Pinned upstream uses super(Droid,self), resolving its module global.
+            # Keep that name bound to the original class during construction.
+            previous=module.Droid if module is not None else None
+            if module is not None:module.Droid=base
+            try:super().__init__(*args,**kwargs)
+            finally:
+                if module is not None:module.Droid=previous
+            guard.phase='ready'
             if int(self.video.poses.shape[0])!=guard.slots:raise ValueError('actual native allocation differs')
         def track(self,*args,**kwargs):
             guard.before_track(self.video.counter.value)
@@ -84,7 +91,7 @@ def guarded_class(base,guard):
 def bounded_context(module,plan,case):
     settings=settings_for(plan,case);guard=Guard(settings['buffer'])
     old_class,old_settings=module.Droid,native.SETTINGS
-    module.Droid=guarded_class(old_class,guard);native.SETTINGS=settings
+    module.Droid=guarded_class(old_class,guard,module);native.SETTINGS=settings
     try:yield guard
     finally:module.Droid=old_class;native.SETTINGS=old_settings
 
