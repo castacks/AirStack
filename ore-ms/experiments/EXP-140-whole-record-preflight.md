@@ -20,7 +20,8 @@ impossibility; no impossible allocation or full-record tracking attempted.
 Initial auditor's unsupported allocator-rounding upper bound fails; separate v2
 removes only that bound, original failure retained. Exact tensor formula and measured
 probe unchanged.252,888independent checks/6mutation rejections pass;1,250preflight/
-28parentpins unchanged. No weights/images/tracking/backend in GPUprobes. No new
+28parentpins unchanged. No weights/decoded-native-image-inputs/tracking/backend in GPUprobes; rawPNGs
+are hash-read for source integrity (clarified separately, originalprobeunchanged). No new
 images/native inference/scoring/training/reserves/default adoption. Physical clocks/
 calibration and offline availability limitations remain; EXP133unready.
 

@@ -66,8 +66,12 @@ identity. A remote archive cannot be assumed unchanged because an old index exis
 ## Exact native state storage and measured CUDA probes
 
 Use the unchanged EXP136 runtime and its pinned official native `DepthVideo` source.
-Do not load weights, read images, call tracking or run the backend/filler. Allocate
+Do not load weights, decode images, call tracking or run the backend/filler. Allocate
 only native stereo state at buffers 64 and 128 for RGB 248×784 and thermal 256×640.
+The source-pin check hash-reads all 1,212 raw PNG files for integrity; it does not
+decode them or feed them to the native state object. The original report field
+`images_read: false` denotes no decoded/native image inputs, not absence of PNG
+filesystem reads; the saved provenance clarification makes that distinction explicit.
 Both geometries retain the prior crop/intrinsics contract; no threshold or model
 setting is modified. All 12 persistent tensors are inventoried from actual objects.
 
