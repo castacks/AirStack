@@ -1,0 +1,54 @@
+{
+  "date": "2026-11-04 America/New_York",
+  "runs": [
+    {
+      "case": "night-rgb",
+      "protocol": "results/bounded-full-record/protocols-v3/night-rgb.json",
+      "sha256": "18a29de72c3ec6dd62f261940b6eb40d12d2f2deb2feb022da04bf57c2e403ea",
+      "source_frames": 10131
+    },
+    {
+      "case": "night-thermal",
+      "protocol": "results/bounded-full-record/protocols-v3/night-thermal.json",
+      "sha256": "9d5145eb2b1c0638a6745c9eee97f2bcfcdcb21566077d3824ee3d5a76b5b2f1",
+      "source_frames": 10131
+    }
+  ],
+  "original_case_decisions": [
+    {
+      "case": "night-rgb",
+      "original_estimate_sha256": "3c2c882583afe7dd0425466cd46cd155b188c8f54df6fedb8242eaa9b5d7575e",
+      "eligible_capacity_only": true
+    },
+    {
+      "case": "night-thermal",
+      "original_estimate_sha256": "84730d2aaf8cd9f029215452c48ea8b5185eebc4477d9c05dff8eeff3daf07b6",
+      "eligible_capacity_only": true
+    },
+    {
+      "case": "day-rgb",
+      "original_estimate_sha256": "86f2c781a12f4d69b6043b9705b56c735833a302e44ecfaa1c65b120dd9729b5",
+      "eligible_capacity_only": false
+    },
+    {
+      "case": "day-thermal",
+      "original_estimate_sha256": "2efa969bd69019260955c02f7b986e48fd62873ca2aacbbbaf800567286e4a1b",
+      "eligible_capacity_only": false
+    },
+    {
+      "case": "rain-rgb",
+      "original_estimate_sha256": "e4444aec0dd778e21a2af21a1f1792f676a9d644d279cba4aa66e0ee7b71f306",
+      "eligible_capacity_only": false
+    },
+    {
+      "case": "rain-thermal",
+      "original_estimate_sha256": "f8d227cf630aeaca3c637f4566641ddc7cee7cd85d58d2006d97698542120f3d",
+      "eligible_capacity_only": false
+    }
+  ],
+  "eligibility": "NativeCapacityExceeded only, one retry, no pose quality/reference selection",
+  "all_original_attempts_retained": true,
+  "declaration_sha256": "bef6a6f4fb3a1632639b5e296d2579be4549c53214fa226fd62cbf7fcca75e98",
+  "reference_scoring": false,
+  "benchmark_execution_ready": false
+}
