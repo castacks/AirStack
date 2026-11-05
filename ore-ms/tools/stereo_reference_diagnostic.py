@@ -30,7 +30,7 @@ def freeze():
  pins={}
  def add(p):
   p=local(p);pins[str(p.relative_to(ROOT))]=sha(p)
- for p in [Path(__file__),ROOT/'tools/stereo_reference_audit.py',ROOT/'tools/tests/test_stereo_reference_diagnostic.py',ROOT/'docs/research/stereo-reference-diagnostic-protocol-2026-11-05.md',PRIOR/'source-manifest.json',PRIOR/'prediction-lock.json',PRIOR/'study-lock.json',PRIOR/'summary.json',ROOT/'MAC-VO-main/DataLoader/Dataset/MS2.py',ROOT/'tools/orb_ms2_development.py',ROOT/'results/ms2-night-pilot/calibration.json',ROOT/'results/provided-reference-full-record/run-001/reference-lock.json']:
+ for p in [Path(__file__),ROOT/'tools/stereo_reference_audit.py',ROOT/'tools/stereo_reference_replay.py',OUT/'producer-replay.json',ROOT/'tools/tests/test_stereo_reference_diagnostic.py',ROOT/'docs/research/stereo-reference-diagnostic-protocol-2026-11-05.md',PRIOR/'source-manifest.json',PRIOR/'prediction-lock.json',PRIOR/'study-lock.json',PRIOR/'summary.json',ROOT/'MAC-VO-main/DataLoader/Dataset/MS2.py',ROOT/'tools/orb_ms2_development.py',ROOT/'results/ms2-night-pilot/calibration.json',ROOT/'results/provided-reference-full-record/run-001/reference-lock.json']:
   add(p)
  for p in (ROOT/'results/provided-reference-full-record/run-001/source-001').glob('*'):add(p)
  locked=read(PRIOR/'prediction-lock.json')
@@ -107,8 +107,9 @@ def extract(left,right):
 
 def run():
  p=verify();cv2.setNumThreads(1);cv2.setRNGSeed(0)
- from orb_ms2_development import thermal_function
- replay=thermal_function();source=read(PRIOR/'source-manifest.json');cal=read(ROOT/'results/ms2-night-pilot/calibration.json')
+ replay=read(OUT/'producer-replay.json');replayed={(x['modality'],x['index'],x['side']):x for x in replay['images']}
+ if replay['passed'] is not True or replay['opencv']!='4.6.0':raise ValueError('original producer runtime required')
+ source=read(PRIOR/'source-manifest.json');cal=read(ROOT/'results/ms2-night-pilot/calibration.json')
  report=[];motion=[];images=[];clocks=[]
  for mode,m in [('rgb','rgb'),('thermal','thr')]:
   rows=source['records'];d=PRIOR/'captures'/(mode+'-paired');plan=read(d/'plan.json');proto=read(PRIOR/'protocols'/('droid-'+mode+'.json'))['runs'][0]
@@ -131,8 +132,8 @@ def run():
    row=rows[i];pair=[];intensity=[]
    for side in ['left','right']:
     raw=cv2.imread(str(ROOT/row['cameras'][m][side]['path']),cv2.IMREAD_UNCHANGED);item=prepared[row['stem']+'.png:'+side];image=cv2.imread(str(local(item['path'])),cv2.IMREAD_UNCHANGED)
-    expected=raw if m=='rgb' else replay(raw)
-    if not np.array_equal(image,expected):raise ValueError('canonical producer replay')
+    record=replayed[(mode,i,side)]
+    if record['exact'] is not True or record['raw_sha256']!=row['cameras'][m][side]['sha256'] or record['canonical_sha256']!=item['sha256'] or record['pixel_sha256']!=hashlib.sha256(image.tobytes()).hexdigest():raise ValueError('original-runtime producer replay binding')
     pair.append(cv2.cvtColor(image,cv2.COLOR_BGR2GRAY) if m=='rgb' else image);intensity.append(dict(side=side,raw_dtype=str(raw.dtype),raw_shape=list(raw.shape),canonical_shape=list(image.shape),mean=float(image.mean()),std=float(image.std()),min=int(image.min()),max=int(image.max())))
    nl,nr,matches=extract(*pair)
    images.append(dict(modality=mode,index=i,stem=row['stem'],fx=float(k[0,0]),features_left=nl,features_right=nr,intensity=intensity,matches=matches,summary=match_summary(matches,float(k[0,0]))))

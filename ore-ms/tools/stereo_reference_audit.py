@@ -56,6 +56,7 @@ def audit():
  plan=read(ROOT/'experiments/stereo-reference-diagnostic-2026-11-05.json')
  for n,h in plan['source_sha256'].items():need(sha(ROOT/n)==h,'source pin '+n)
  source=read(PRIOR/'source-manifest.json');need(len(source['records'])==2000,'fixed prefix2000')
+ replay=read(OUT/'producer-replay.json');need(replay['passed'] is True and replay['opencv']=='4.6.0' and len(replay['images'])==80,'original producer replay80images')
  summary=read(OUT/'summary.json');qualifiers(summary);motion=read(OUT/'motion.json');images=read(OUT/'images.json');clocks=read(OUT/'clocks.json');contract=read(OUT/'contract.json');cal=read(ROOT/'results/ms2-night-pilot/calibration.json')
  need(len(motion['runs'])==6 and len(images['runs'])==40 and len(clocks['runs'])==2,'all declared populations')
  need(images['native_tracker_correspondences'] is False and images['physical_rectification_verified'] is False,'generic matches qualifier')
