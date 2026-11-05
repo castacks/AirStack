@@ -19,3 +19,8 @@ def test_malformed_stereo_rejected(features):
 
 def test_omitted_feature_rejected():
  with pytest.raises(ValueError):frame_stats(dict(index=0,N=1,right_keypoints=1,close_depth_m=4,features=[]))
+
+
+def test_cleared_frame_is_unavailable_not_zero_features():
+ s=frame_stats(dict(index=7,available=False,reason='native_frame_empty_after_return',features=[]))
+ assert s['index']==7 and s['features'] is None and s['accepted'] is None

@@ -13,3 +13,16 @@ Lock all predictions before reference scoring. Use unchanged received/final publ
 Summarize all per-frame native acceptance, disparity/depth distributions and close/far counts under native threshold; separately flag current map-associated accepted features. Four fixed500-source bins. Same-run approximately1s received/final motion ratios use unchanged metric support. Stratify by sign of recorded right-minus-left at pair start, keep empty cohorts; describe Spearman ratio versus start-frame stereo acceptance/count, median disparity/depth and signed recorded delta. Overlapping intervals and scene/motion confounding forbid causal/statistical-generalization claims. Ratios/correlations are descriptive, never fitted/applied scale/time corrections. No true-depth, physical clock/calibration, heldout/full-record/online/adaptive/EXP133 promotion.
 
 Independent validation checks all native source/frame/feature arrays, fixed populations, float32 depth/disparity/calibration conventions, summary/stratum calculations, raw final factors/official exports and original metrics. Reject semantic corruptions. Save source/runtime/input/prediction hashes, build/integration/native failures, findings/figure, git bundle and exact derived runtime; verify archive members and Box download.
+
+Amendment after initial run-001 instrumentation failure: source CreateMapInAtlas
+assigns default Frame, whose scalar fields are uninitialized. Initial observed RGB
+stops at source179; retain all four initial arms/raw outputs/freeze dc5f6da01.
+Guard constructed mvKeys.empty() before reading any frame scalars. Export the
+source slot with available=false/reason=native_frame_empty_after_return and no
+features, not a zero-feature observation. All frame summaries retain missing
+populations; scalar statistics/correlations exclude only unavailable measurements
+and report counts. New run-002 freezes the guard/audit/analysis before a complete
+four-arm recapture, independent of reference outcomes. No matcher/estimator/input/
+threshold/metric change; original scientific namespace remains untouched. Two
+new20-source observed integrations may compare first-five geometry values to
+original integration outputs before the amended freeze.

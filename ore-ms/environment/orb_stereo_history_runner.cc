@@ -124,12 +124,20 @@ int main(int argc, char** argv) {
             // mCurrentFrame is owned by this synchronous tracking thread. Do not
             // dereference shared MapPoint geometry; pointer presence is enough.
             const auto& frame=slam.ExportTracker()->mCurrentFrame;
+            // A map reset assigns a default Frame; its scalar fields are
+            // uninitialized. Inspect constructed vectors before any scalars.
+            if(frame.mvKeys.empty()) {
+                stereo<<"{\"index\":"<<i<<",\"source_id\":\""<<row.stem<<"\",\"time_ns\":"<<row.left_ns
+                      <<",\"right_time_ns\":"<<row.right_ns<<",\"state\":"<<state
+                      <<",\"available\":false,\"reason\":\"native_frame_empty_after_return\",\"features\":[]}\n";
+                stereo.flush();continue;
+            }
             if(frame.Nleft!=-1 || frame.N<0 || frame.mvKeys.size()!=static_cast<size_t>(frame.N)
                 || frame.mvuRight.size()!=static_cast<size_t>(frame.N) || frame.mvDepth.size()!=static_cast<size_t>(frame.N))
                 throw std::runtime_error("nonparallel native rectified stereo arrays");
             stereo<<"{\"index\":"<<i<<",\"source_id\":\""<<row.stem<<"\",\"time_ns\":"<<row.left_ns
                   <<",\"right_time_ns\":"<<row.right_ns<<",\"native_time\":"<<frame.mTimeStamp
-                  <<",\"native_frame_id\":"<<frame.mnId<<",\"state\":"<<state<<",\"N\":"<<frame.N
+                  <<",\"available\":true,\"native_frame_id\":"<<frame.mnId<<",\"state\":"<<state<<",\"N\":"<<frame.N
                   <<",\"right_keypoints\":"<<frame.mvKeysRight.size()<<",\"bf\":"<<frame.mbf
                   <<",\"baseline_m\":"<<frame.mb<<",\"close_depth_m\":"<<frame.mThDepth
                   <<",\"map_array_size\":"<<frame.mvpMapPoints.size()<<",\"outlier_array_size\":"<<frame.mvbOutlier.size()

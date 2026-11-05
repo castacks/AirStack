@@ -4,7 +4,7 @@ from pathlib import Path
 from copy import deepcopy
 import numpy as np
 ROOT=Path(__file__).resolve().parents[1]
-OUT=ROOT/'results/native-stereo-history/run-001'
+OUT=ROOT/'results/native-stereo-history/run-002'
 PRIOR=ROOT/'results/orb-finalization/run-001'
 PLAN=ROOT/'experiments/native-stereo-history-2026-11-05.json'
 BASE='sha256:1542a9a2fe4f645aa7b3db1d4d002c0a0b5941a91db105c5587db62b68bd8445'
@@ -101,6 +101,9 @@ def run_arm(mode,arm,namespace=OUT):
  print('FINISHED',mode,arm,'supported',sum(v is not None for v in received['poses']),'terminal',received['terminal_success'],flush=True)
 
 def frame_stats(row):
+ if row.get('available') is False:
+  if row['features'] or row.get('reason')!='native_frame_empty_after_return':raise ValueError('unavailable native frame contract')
+  return dict(index=row['index'],**{k:None for k in ['features','right_features','accepted','acceptance','median_disparity_px','median_depth_m','close','far','associated_accepted','flagged_outlier_accepted','missing_map_flags','missing_outlier_flags']})
  features=np.asarray([v[:5] for v in row['features']],dtype=float).reshape(-1,5)
  if len(features)!=row['N']:raise ValueError('native feature population')
  z=features[:,4];u=features[:,3];valid=z>0
@@ -113,9 +116,10 @@ def frame_stats(row):
 
 def lock():
  verify();pins={}
- for d in (OUT/'captures').iterdir():
-  for f in d.iterdir():
-   if f.is_file():pins[str(f.relative_to(ROOT))]=sha(f)
+ for namespace in [OUT,OUT.with_name('run-001')]:
+  for d in (namespace/'captures').iterdir():
+   for f in d.iterdir():
+    if f.is_file():pins[str(f.relative_to(ROOT))]=sha(f)
  write(OUT/'prediction-lock.json',dict(source_sha256=pins,study_sha256=sha(PLAN),all_four_attempts_retained=True,new_reference_scores_read=False))
 
 def analyze():
@@ -147,7 +151,7 @@ def analyze():
   if len(frames)!=2000:raise ValueError('all native stereo source slots required')
   bins=[]
   for a,b in PARAMS['bins']:
-   cohort=frames[a:b];bins.append(dict(start=a,end_exclusive=b,frames=b-a,accepted=stats([v['accepted'] for v in cohort]),acceptance=stats([v['acceptance'] for v in cohort if v['acceptance'] is not None]),median_disparity_px=stats([v['median_disparity_px'] for v in cohort if v['median_disparity_px'] is not None]),median_depth_m=stats([v['median_depth_m'] for v in cohort if v['median_depth_m'] is not None]),final_motion=summarize([r for r in motions['final']['rows'] if a<=r['indices'][0]<b])))
+   cohort=frames[a:b];bins.append(dict(start=a,end_exclusive=b,frames=b-a,available_frames=sum(v['features'] is not None for v in cohort),accepted=stats([v['accepted'] for v in cohort if v['accepted'] is not None]),acceptance=stats([v['acceptance'] for v in cohort if v['acceptance'] is not None]),median_disparity_px=stats([v['median_disparity_px'] for v in cohort if v['median_disparity_px'] is not None]),median_depth_m=stats([v['median_depth_m'] for v in cohort if v['median_depth_m'] is not None]),final_motion=summarize([r for r in motions['final']['rows'] if a<=r['indices'][0]<b])))
   times=received['time_ns'];right=read(d/'plan.json')['right_time_ns'];delta=[r-l for r,l in zip(right,times)];strata=[]
   for label in ['negative','zero','positive']:
    pairs=[r for r in motions['final']['rows'] if ('negative' if delta[r['indices'][0]]<0 else 'positive' if delta[r['indices'][0]]>0 else 'zero')==label];strata.append(dict(recorded_delta_sign=label,motion=summarize(pairs)))
@@ -158,7 +162,7 @@ def analyze():
    result=spearmanr(xs,ys).statistic if len(set(xs))>1 and len(set(ys))>1 else None
    correlations[key]=dict(pairs=len(cohort),rho=float(result) if result is not None and np.isfinite(result) else None,causal=False)
   write(OUT/'analysis'/mode/'frames.json',dict(rows=frames));write(OUT/'analysis'/mode/'motion.json',motions)
-  summaries.append(dict(modality=mode,source_frames=2000,observed_pose_frames=sum(v is not None for v in received['poses']),common_pose_frames=sum(mask),scores=scores,frame_summary={key:stats([v[key] for v in frames if v[key] is not None]) for key in ['features','right_features','accepted','acceptance','median_disparity_px','median_depth_m','close','far','associated_accepted','flagged_outlier_accepted']},total_features=sum(v['features'] for v in frames),total_accepted=sum(v['accepted'] for v in frames),bins=bins,recorded_sign_strata=strata,spearman=correlations,motion_summary={k:v['summary'] for k,v in motions.items()}))
+  summaries.append(dict(modality=mode,source_frames=2000,observed_pose_frames=sum(v is not None for v in received['poses']),common_pose_frames=sum(mask),scores=scores,frame_summary={key:stats([v[key] for v in frames if v[key] is not None]) for key in ['features','right_features','accepted','acceptance','median_disparity_px','median_depth_m','close','far','associated_accepted','flagged_outlier_accepted']},stereo_available_frames=sum(v['features'] is not None for v in frames),unavailable_source_indices=[v['index'] for v in frames if v['features'] is None],total_features=sum(v['features'] or 0 for v in frames),total_accepted=sum(v['accepted'] or 0 for v in frames),bins=bins,recorded_sign_strata=strata,spearman=correlations,motion_summary={k:v['summary'] for k,v in motions.items()}))
  write(OUT/'summary.json',dict(runs=summaries,physical_sync_verified=False,benchmark_execution_ready=False,scale_fitted=False,time_fitted=False,causal_attribution=False))
  verify();print('ANALYZED BOTH CAMERAS')
 

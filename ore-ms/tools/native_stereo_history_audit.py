@@ -7,7 +7,7 @@ from scipy.stats import rankdata
 import orb_finalization_audit as finalaudit
 import provided_reference_full_record_audit as metric
 import stereo_reference_audit as decomposition
-ROOT=Path(__file__).resolve().parents[1];OUT=ROOT/'results/native-stereo-history/run-001';PLAN=ROOT/'experiments/native-stereo-history-2026-11-05.json';COUNT=0
+ROOT=Path(__file__).resolve().parents[1];OUT=ROOT/'results/native-stereo-history/run-002';PLAN=ROOT/'experiments/native-stereo-history-2026-11-05.json';COUNT=0
 
 def read(p):return json.loads(Path(p).read_text())
 def sha(p):
@@ -23,6 +23,9 @@ def close(a,b,label):
 def native_frame(row,plan,index):
  need(row['index']==index and row['source_id']==plan['stems'][index],'native stereo source identity')
  need(row['time_ns']==plan['time_ns'][index] and row['right_time_ns']==plan['right_time_ns'][index],'native stereo integer clocks')
+ if row.get('available') is False:
+  need(row['features']==[] and row['reason']=='native_frame_empty_after_return','explicit unavailable post-return frame')
+  return dict(index=index,**{k:None for k in ['features','right_features','accepted','acceptance','median_disparity_px','median_depth_m','close','far','associated_accepted','flagged_outlier_accepted','missing_map_flags','missing_outlier_flags']})
  need(row['native_time']==(plan['time_ns'][index]-plan['time_ns'][0])*1e-9,'native frame exact elapsed clock')
  f=np.asarray([v[:5] for v in row['features']],float).reshape(-1,5)
  need(len(f)==row['N'] and row['N']>=0,'all native feature slots')
@@ -59,7 +62,8 @@ def audit():
    for i,line in enumerate(f):
     want=native_frame(json.loads(line),plan,i);need(want==saved[i],'independent all-feature frame summary');frames.append(want)
   need(len(frames)==len(saved)==2000,'all native stereo frames')
-  need(entry['total_features']==sum(r['features'] for r in frames) and entry['total_accepted']==sum(r['accepted'] for r in frames),'full feature totals')
+  need(entry['total_features']==sum(r['features'] or 0 for r in frames) and entry['total_accepted']==sum(r['accepted'] or 0 for r in frames),'full feature totals')
+  need(entry['stereo_available_frames']==sum(v['features'] is not None for v in frames) and entry['unavailable_source_indices']==[v['index'] for v in frames if v['features'] is None],'unavailable source frames explicit')
   for key,s in entry['frame_summary'].items():decomposition.check_stats(s,[v[key] for v in frames if v[key] is not None])
   report=finalaudit.export_audit(d);report['modality']=mode;reports.append(report)
   reflock=read(ROOT/'results/provided-reference-full-record/run-001/reference-lock.json')
@@ -98,6 +102,7 @@ def audit():
    decomposition.check_summary(motion['summary'],motion['rows']);need(entry['motion_summary'][name]==motion['summary'],'summary motion binding')
   for b in entry['bins']:
    a,end=b['start'],b['end_exclusive'];need([a,end] in [[0,500],[500,1000],[1000,1500],[1500,2000]],'fixed bins')
+   need(b['available_frames']==sum(v['features'] is not None for v in frames[a:end]),'bin available population')
    for key in ['accepted','acceptance','median_disparity_px','median_depth_m']:decomposition.check_stats(b[key],[v[key] for v in frames[a:end] if v[key] is not None])
    decomposition.check_summary(b['final_motion'],[r for r in motions['final']['rows'] if a<=r['indices'][0]<end])
   delta=[r-l for r,l in zip(plan['right_time_ns'],plan['time_ns'])]
