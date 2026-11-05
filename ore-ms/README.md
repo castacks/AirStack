@@ -1,3 +1,8 @@
+EXP142: [Full-record provided-reference scores](docs/research/provided-reference-full-record-findings-2026-11-05.md).
+Six saved DROID streams / 55,618 poses; RGB SE3 ATE is lower in day/night/rain,
+while thermal slightly lowers day translation RPE. Fifteen tests and 379,949 audit
+checks pass. Provided-camera development proxy only; no physical/adaptive claim.
+
 EXP141: [Complete-record bounded DROID engineering](docs/research/bounded-full-record-findings-2026-11-04.md).
 All 111,236 raw images acquired; latest declared attempts complete 6/6 streams,
 with 55,618/55,618 finite offline poses. 139 tests pass; prior night capacity/backend
