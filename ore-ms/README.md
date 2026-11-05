@@ -1,3 +1,7 @@
+EXP140: [Whole-record source and capacity preflight](docs/research/whole-record-preflight-findings-2026-11-04.md).
+27,809 original groups inventoried; 26,906 still need image acquisition after prior recovery.
+Unchanged DROID night/rain allocation exceeds GPU memory. 252,888 audit checks pass; full runs pending.
+
 EXP139: [MS² source-clock evidence audit](docs/research/ms2-clock-evidence-findings-2026-11-04.md).
 Hardware synchronization architecture is documented; export timestamp semantics remain unresolved.
 2,698 scalar checks pass. Clock assumptions remain explicit; benchmark stays unready.
