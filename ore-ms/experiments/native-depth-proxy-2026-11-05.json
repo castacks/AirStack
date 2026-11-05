@@ -1,0 +1,584 @@
+{
+  "parent": "9fb25b7b4b1a55328bce7cb77ad25118831ca79d",
+  "parameters": {
+    "indices": [
+      0,
+      100,
+      200,
+      300,
+      400,
+      500,
+      600,
+      700,
+      800,
+      900,
+      1000,
+      1100,
+      1200,
+      1300,
+      1400,
+      1500,
+      1600,
+      1700,
+      1800,
+      1900
+    ],
+    "depth_product": "depth",
+    "units_per_metre": 256,
+    "rounding": "floor(x+0.5)",
+    "compressed_budget_bytes": 1073741824,
+    "prefetch_workers": 4
+  },
+  "members": [
+    {
+      "modality": "rgb",
+      "index": 0,
+      "shape": [
+        384,
+        1224
+      ],
+      "name": "_2021-08-13-21-18-04/rgb/depth/000000.png",
+      "size": 37988,
+      "offset": 7999726592,
+      "offset_data": 7999727104,
+      "regular": true
+    },
+    {
+      "modality": "rgb",
+      "index": 100,
+      "shape": [
+        384,
+        1224
+      ],
+      "name": "_2021-08-13-21-18-04/rgb/depth/000100.png",
+      "size": 37906,
+      "offset": 7983356928,
+      "offset_data": 7983357440,
+      "regular": true
+    },
+    {
+      "modality": "rgb",
+      "index": 200,
+      "shape": [
+        384,
+        1224
+      ],
+      "name": "_2021-08-13-21-18-04/rgb/depth/000200.png",
+      "size": 35810,
+      "offset": 8127708672,
+      "offset_data": 8127709184,
+      "regular": true
+    },
+    {
+      "modality": "rgb",
+      "index": 300,
+      "shape": [
+        384,
+        1224
+      ],
+      "name": "_2021-08-13-21-18-04/rgb/depth/000300.png",
+      "size": 33186,
+      "offset": 8194640896,
+      "offset_data": 8194641408,
+      "regular": true
+    },
+    {
+      "modality": "rgb",
+      "index": 400,
+      "shape": [
+        384,
+        1224
+      ],
+      "name": "_2021-08-13-21-18-04/rgb/depth/000400.png",
+      "size": 36316,
+      "offset": 7993047552,
+      "offset_data": 7993048064,
+      "regular": true
+    },
+    {
+      "modality": "rgb",
+      "index": 500,
+      "shape": [
+        384,
+        1224
+      ],
+      "name": "_2021-08-13-21-18-04/rgb/depth/000500.png",
+      "size": 37603,
+      "offset": 7947297280,
+      "offset_data": 7947297792,
+      "regular": true
+    },
+    {
+      "modality": "rgb",
+      "index": 600,
+      "shape": [
+        384,
+        1224
+      ],
+      "name": "_2021-08-13-21-18-04/rgb/depth/000600.png",
+      "size": 34859,
+      "offset": 8086548480,
+      "offset_data": 8086548992,
+      "regular": true
+    },
+    {
+      "modality": "rgb",
+      "index": 700,
+      "shape": [
+        384,
+        1224
+      ],
+      "name": "_2021-08-13-21-18-04/rgb/depth/000700.png",
+      "size": 36787,
+      "offset": 8052557824,
+      "offset_data": 8052558336,
+      "regular": true
+    },
+    {
+      "modality": "rgb",
+      "index": 800,
+      "shape": [
+        384,
+        1224
+      ],
+      "name": "_2021-08-13-21-18-04/rgb/depth/000800.png",
+      "size": 36190,
+      "offset": 8170408960,
+      "offset_data": 8170409472,
+      "regular": true
+    },
+    {
+      "modality": "rgb",
+      "index": 900,
+      "shape": [
+        384,
+        1224
+      ],
+      "name": "_2021-08-13-21-18-04/rgb/depth/000900.png",
+      "size": 38928,
+      "offset": 8046483968,
+      "offset_data": 8046484480,
+      "regular": true
+    },
+    {
+      "modality": "rgb",
+      "index": 1000,
+      "shape": [
+        384,
+        1224
+      ],
+      "name": "_2021-08-13-21-18-04/rgb/depth/001000.png",
+      "size": 38958,
+      "offset": 8035224064,
+      "offset_data": 8035224576,
+      "regular": true
+    },
+    {
+      "modality": "rgb",
+      "index": 1100,
+      "shape": [
+        384,
+        1224
+      ],
+      "name": "_2021-08-13-21-18-04/rgb/depth/001100.png",
+      "size": 39437,
+      "offset": 8138592768,
+      "offset_data": 8138593280,
+      "regular": true
+    },
+    {
+      "modality": "rgb",
+      "index": 1200,
+      "shape": [
+        384,
+        1224
+      ],
+      "name": "_2021-08-13-21-18-04/rgb/depth/001200.png",
+      "size": 36804,
+      "offset": 7989999616,
+      "offset_data": 7990000128,
+      "regular": true
+    },
+    {
+      "modality": "rgb",
+      "index": 1300,
+      "shape": [
+        384,
+        1224
+      ],
+      "name": "_2021-08-13-21-18-04/rgb/depth/001300.png",
+      "size": 35598,
+      "offset": 8209467904,
+      "offset_data": 8209468416,
+      "regular": true
+    },
+    {
+      "modality": "rgb",
+      "index": 1400,
+      "shape": [
+        384,
+        1224
+      ],
+      "name": "_2021-08-13-21-18-04/rgb/depth/001400.png",
+      "size": 30893,
+      "offset": 8172173312,
+      "offset_data": 8172173824,
+      "regular": true
+    },
+    {
+      "modality": "rgb",
+      "index": 1500,
+      "shape": [
+        384,
+        1224
+      ],
+      "name": "_2021-08-13-21-18-04/rgb/depth/001500.png",
+      "size": 35787,
+      "offset": 7993776128,
+      "offset_data": 7993776640,
+      "regular": true
+    },
+    {
+      "modality": "rgb",
+      "index": 1600,
+      "shape": [
+        384,
+        1224
+      ],
+      "name": "_2021-08-13-21-18-04/rgb/depth/001600.png",
+      "size": 32472,
+      "offset": 8143403520,
+      "offset_data": 8143404032,
+      "regular": true
+    },
+    {
+      "modality": "rgb",
+      "index": 1700,
+      "shape": [
+        384,
+        1224
+      ],
+      "name": "_2021-08-13-21-18-04/rgb/depth/001700.png",
+      "size": 35603,
+      "offset": 8049571840,
+      "offset_data": 8049572352,
+      "regular": true
+    },
+    {
+      "modality": "rgb",
+      "index": 1800,
+      "shape": [
+        384,
+        1224
+      ],
+      "name": "_2021-08-13-21-18-04/rgb/depth/001800.png",
+      "size": 36639,
+      "offset": 8186519552,
+      "offset_data": 8186520064,
+      "regular": true
+    },
+    {
+      "modality": "rgb",
+      "index": 1900,
+      "shape": [
+        384,
+        1224
+      ],
+      "name": "_2021-08-13-21-18-04/rgb/depth/001900.png",
+      "size": 34836,
+      "offset": 8001894912,
+      "offset_data": 8001895424,
+      "regular": true
+    },
+    {
+      "modality": "thermal",
+      "index": 0,
+      "shape": [
+        256,
+        640
+      ],
+      "name": "_2021-08-13-21-18-04/thr/depth/000000.png",
+      "size": 29654,
+      "offset": 19931438592,
+      "offset_data": 19931439104,
+      "regular": true
+    },
+    {
+      "modality": "thermal",
+      "index": 100,
+      "shape": [
+        256,
+        640
+      ],
+      "name": "_2021-08-13-21-18-04/thr/depth/000100.png",
+      "size": 29928,
+      "offset": 19918190080,
+      "offset_data": 19918190592,
+      "regular": true
+    },
+    {
+      "modality": "thermal",
+      "index": 200,
+      "shape": [
+        256,
+        640
+      ],
+      "name": "_2021-08-13-21-18-04/thr/depth/000200.png",
+      "size": 28207,
+      "offset": 20035445248,
+      "offset_data": 20035445760,
+      "regular": true
+    },
+    {
+      "modality": "thermal",
+      "index": 300,
+      "shape": [
+        256,
+        640
+      ],
+      "name": "_2021-08-13-21-18-04/thr/depth/000300.png",
+      "size": 26695,
+      "offset": 20089761792,
+      "offset_data": 20089762304,
+      "regular": true
+    },
+    {
+      "modality": "thermal",
+      "index": 400,
+      "shape": [
+        256,
+        640
+      ],
+      "name": "_2021-08-13-21-18-04/thr/depth/000400.png",
+      "size": 28988,
+      "offset": 19926058496,
+      "offset_data": 19926059008,
+      "regular": true
+    },
+    {
+      "modality": "thermal",
+      "index": 500,
+      "shape": [
+        256,
+        640
+      ],
+      "name": "_2021-08-13-21-18-04/thr/depth/000500.png",
+      "size": 29940,
+      "offset": 19888881152,
+      "offset_data": 19888881664,
+      "regular": true
+    },
+    {
+      "modality": "thermal",
+      "index": 600,
+      "shape": [
+        256,
+        640
+      ],
+      "name": "_2021-08-13-21-18-04/thr/depth/000600.png",
+      "size": 28740,
+      "offset": 20001965568,
+      "offset_data": 20001966080,
+      "regular": true
+    },
+    {
+      "modality": "thermal",
+      "index": 700,
+      "shape": [
+        256,
+        640
+      ],
+      "name": "_2021-08-13-21-18-04/thr/depth/000700.png",
+      "size": 29991,
+      "offset": 19974396928,
+      "offset_data": 19974397440,
+      "regular": true
+    },
+    {
+      "modality": "thermal",
+      "index": 800,
+      "shape": [
+        256,
+        640
+      ],
+      "name": "_2021-08-13-21-18-04/thr/depth/000800.png",
+      "size": 28406,
+      "offset": 20070141440,
+      "offset_data": 20070141952,
+      "regular": true
+    },
+    {
+      "modality": "thermal",
+      "index": 900,
+      "shape": [
+        256,
+        640
+      ],
+      "name": "_2021-08-13-21-18-04/thr/depth/000900.png",
+      "size": 29558,
+      "offset": 19969466368,
+      "offset_data": 19969466880,
+      "regular": true
+    },
+    {
+      "modality": "thermal",
+      "index": 1000,
+      "shape": [
+        256,
+        640
+      ],
+      "name": "_2021-08-13-21-18-04/thr/depth/001000.png",
+      "size": 29504,
+      "offset": 19960315392,
+      "offset_data": 19960315904,
+      "regular": true
+    },
+    {
+      "modality": "thermal",
+      "index": 1100,
+      "shape": [
+        256,
+        640
+      ],
+      "name": "_2021-08-13-21-18-04/thr/depth/001100.png",
+      "size": 30122,
+      "offset": 20044284416,
+      "offset_data": 20044284928,
+      "regular": true
+    },
+    {
+      "modality": "thermal",
+      "index": 1200,
+      "shape": [
+        256,
+        640
+      ],
+      "name": "_2021-08-13-21-18-04/thr/depth/001200.png",
+      "size": 29656,
+      "offset": 19923585024,
+      "offset_data": 19923585536,
+      "regular": true
+    },
+    {
+      "modality": "thermal",
+      "index": 1300,
+      "shape": [
+        256,
+        640
+      ],
+      "name": "_2021-08-13-21-18-04/thr/depth/001300.png",
+      "size": 27499,
+      "offset": 20101834240,
+      "offset_data": 20101834752,
+      "regular": true
+    },
+    {
+      "modality": "thermal",
+      "index": 1400,
+      "shape": [
+        256,
+        640
+      ],
+      "name": "_2021-08-13-21-18-04/thr/depth/001400.png",
+      "size": 25389,
+      "offset": 20071566848,
+      "offset_data": 20071567360,
+      "regular": true
+    },
+    {
+      "modality": "thermal",
+      "index": 1500,
+      "shape": [
+        256,
+        640
+      ],
+      "name": "_2021-08-13-21-18-04/thr/depth/001500.png",
+      "size": 29396,
+      "offset": 19926636544,
+      "offset_data": 19926637056,
+      "regular": true
+    },
+    {
+      "modality": "thermal",
+      "index": 1600,
+      "shape": [
+        256,
+        640
+      ],
+      "name": "_2021-08-13-21-18-04/thr/depth/001600.png",
+      "size": 26646,
+      "offset": 20048198144,
+      "offset_data": 20048198656,
+      "regular": true
+    },
+    {
+      "modality": "thermal",
+      "index": 1700,
+      "shape": [
+        256,
+        640
+      ],
+      "name": "_2021-08-13-21-18-04/thr/depth/001700.png",
+      "size": 29193,
+      "offset": 19971969536,
+      "offset_data": 19971970048,
+      "regular": true
+    },
+    {
+      "modality": "thermal",
+      "index": 1800,
+      "shape": [
+        256,
+        640
+      ],
+      "name": "_2021-08-13-21-18-04/thr/depth/001800.png",
+      "size": 29451,
+      "offset": 20083169280,
+      "offset_data": 20083169792,
+      "regular": true
+    },
+    {
+      "modality": "thermal",
+      "index": 1900,
+      "shape": [
+        256,
+        640
+      ],
+      "name": "_2021-08-13-21-18-04/thr/depth/001900.png",
+      "size": 28537,
+      "offset": 19933207040,
+      "offset_data": 19933207552,
+      "regular": true
+    }
+  ],
+  "archive_url": "https://dl.dropboxusercontent.com/s/64yripmlcmpu0uq/_2021-08-13-21-18-04.tar.bz2",
+  "archive_bytes": 20010206049,
+  "historical_full_archive_sha256": "aacb1b86860a7b24747c75b2d38066adfcb61f4bd4bfad8453f6433d721916ef",
+  "source_sha256": {
+    "results/ms2-night-pilot/archive-manifest.json": "9485dc11995b3b339146711fd9f0ba9b2c82247212bd7e208da141d23fcb067c",
+    "results/ms2-night-pilot/proj_depth-tar-index.json": "ab85ef9595b931a358644362d2d96607536befa0ed902d2a7cd90d60a127c85c",
+    "results/ms2-night-pilot/archives/proj_depth-block-offsets.json": "3794be3ed6bf3a8c4f950f7e37c2886f365b1513603976e3c07ef8baccc97972",
+    "results/public-data-audit/ms2-access.json": "f2d04ca3d81a4ca3eeda21d0f86f624dd29ef57245690e188d021decefaf1d71",
+    "results/native-depth-proxy/run-001/native-selected.json": "361eb3ce2dc6686ea8b320c5f057ac878323f7bd5450e430f64afa916d66b0d6",
+    "results/native-depth-proxy/run-001/source/data-format.html": "78ea469a7b68f5fd43e1ce0049ec9eb70f9dd2c7f0a8b745a17c8aa4a5410139",
+    "results/native-depth-proxy/run-001/source/qualification.json": "d3faa946274ad1b9497f386b92c80a6b53667051fe5ae7fe668f31051500218a",
+    "tools/native_depth_proxy.py": "53e06ae18713f042a4445fdc88f8bbb58c3bfe34310844f2b611b064bc3f1d52",
+    "tools/native_depth_proxy_audit.py": "6a342b22c9f2e0991c94adf24491d8c349529094314fb586d697950ce608e5d1",
+    "tools/tests/test_native_depth_proxy.py": "4ebf17d220e401a9000de389a0a0302e523906df4cd9b2c56c857ce23fc87910",
+    "tools/ms2_broader_intake.py": "236124e865973d857eecaf91681f6af23cb5beea00a3b548fc96867ef22cb765",
+    "tools/full_record_intake.py": "d4c899fff9c1c9db9e119590ebceba68cedc80cde8c8a3025834ced8037ba988",
+    "docs/research/native-depth-proxy-protocol-2026-11-05.md": "7c1d2c450cd8c3371787cc0a9c6e9ae16773dfe41aa15f9b25f59f3f5bc4c90c",
+    "results/native-stereo-history/run-002/source-manifest.json": "dee7199e7d96090da72461a6ab0e8d4dbb3287737a8b5b3c4359d53000e93b0d",
+    "results/bounded-full-record/source-001/wheels/indexed_bzip2-1.6.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl": "ed432e053af992afe7bab2efcc0700d67ff4df00c99163f0987940c7f7328151",
+    "results/native-stereo-history/run-002/captures/rgb-paired/native.jsonl.stereo.jsonl": "7d2b1fa03a28c1967d46e1604b736e473b096a00f2ee38208bd6f4ccace3bb21",
+    "results/native-stereo-history/run-002/captures/thermal-paired/native.jsonl.stereo.jsonl": "59d948cc694e8c47828aa3a52e7a583254fb3b8c786df08c91ec0202a729d334",
+    "results/ms2-night-pilot/pilot/proj_depth/_2021-08-13-21-18-04/rgb/depth/000000.png": "0d00c5ae640313d5bc0344d9a7d78946a3de0cad06716baeabb65ab7c27ceb2a",
+    "results/ms2-night-pilot/pilot/proj_depth/_2021-08-13-21-18-04/thr/depth/000000.png": "0271e3a78dbe1c84c6f7f7009a221954332dd6ac58fa074d4ced033fa91c43d0"
+  },
+  "runtime": "sha256:d3cf8a41dd8090c8939cd840b4735d526cec9a54e48ac36d506f91d13ee56e1c",
+  "physical_reference_qualified": false,
+  "physical_sync_verified": false,
+  "benchmark_execution_ready": false,
+  "scale_fitted": false,
+  "time_fitted": false
+}

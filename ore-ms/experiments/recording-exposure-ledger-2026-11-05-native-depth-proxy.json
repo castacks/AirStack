@@ -1,0 +1,33 @@
+{
+  "recording": "ms2/_2021-08-13-21-18-04",
+  "development": true,
+  "reference_product": "single-scan projected depth",
+  "source_indices": [
+    0,
+    100,
+    200,
+    300,
+    400,
+    500,
+    600,
+    700,
+    800,
+    900,
+    1000,
+    1100,
+    1200,
+    1300,
+    1400,
+    1500,
+    1600,
+    1700,
+    1800,
+    1900
+  ],
+  "camera_members": 40,
+  "reserves_unchanged": true,
+  "active_test": [],
+  "active_validation": [],
+  "new_reference_values_read": false,
+  "study_sha256": "5c7b2f2d92371a7dd0ef7a326f67d540b9645bc0dd76a0b00489979063960aea"
+}
