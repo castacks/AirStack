@@ -1,0 +1,18 @@
+{
+  "date": "2026-11-04 America/New_York",
+  "reason": "Strict exact prefix trace equality fails for rain. Repeated unchanged original128slot adapter also differs on same saved inputs. Exact rain tracking repeatability is not established. Preserve/report all differences; require unchanged-baseline repeat with exact inputs before accepting divergence as an engineering limitation. No claim that allocation has no numerical effect. No native/input/model/settings/threshold change or reference scoring.",
+  "original_strict_failure_retained": true,
+  "source_sha256": {
+    "tools/droid_bounded_audit_v2.py": "855a140c1998120ddd4839bb942d409540d8bf52ed630cb90523aff17b4ad4d2",
+    "results/bounded-full-record/reference-repeat/rain-rgb/estimate.json": "5b4386b1695a2703cf134ef95e963564331c81cc077d8f8535fc798d03aa1792",
+    "results/bounded-full-record/reference-repeat/rain-rgb/tracking.jsonl": "a2c344aa0388399f3dee09cdf8a888f90c6cfbdd2418c04dec2c6df829355414",
+    "results/bounded-full-record/reference-repeat/rain-rgb/input-reads.json": "d062cc9d1b694a51a1ffa86d6b3107c2c25db6e0de120d50a472848a9bfe0378",
+    "results/bounded-full-record/reference-repeat/rain-rgb/execution-lock.json": "3cf53f64ea1dd615ec8f17586322b073613e6239c17c9245613a0f428624ab9d",
+    "results/bounded-full-record/reference-repeat/rain-thermal/estimate.json": "012db3a6371ed1370b75e120a3e8ebb779ca3f523196ca875034984a2865743b",
+    "results/bounded-full-record/reference-repeat/rain-thermal/tracking.jsonl": "a0048b4a905a84222dce03d6bc54c2f3d762c2120a0d46b61a1ae738185ed499",
+    "results/bounded-full-record/reference-repeat/rain-thermal/input-reads.json": "845cad921520a781a082ec845173337adfc3685f4b8b53d4aa2ec45ab1f28e93",
+    "results/bounded-full-record/reference-repeat/rain-thermal/execution-lock.json": "c3ca1686bad2eb8f04e5e25d238ac2458db225f008ce607f774b8d389d14ba26"
+  },
+  "full_record_runs_started": false,
+  "benchmark_execution_ready": false
+}
