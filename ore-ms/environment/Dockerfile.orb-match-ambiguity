@@ -1,0 +1,6 @@
+# Exact EXP146-v2 image83739d72791f required.
+FROM ore-ms:orb-stereo-history-exp146-v2
+COPY orb_match_ambiguity_runner.cc /opt/ore-ms-ambiguity/orb_match_ambiguity_runner.cc
+COPY orb_match_ambiguity_CMakeLists.txt /opt/ore-ms-ambiguity/CMakeLists.txt
+RUN cmake -S /opt/ore-ms-ambiguity -B /opt/ore-ms-ambiguity/build -DCMAKE_BUILD_TYPE=Release \
+    && cmake --build /opt/ore-ms-ambiguity/build -j2

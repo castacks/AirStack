@@ -1,0 +1,14 @@
+cmake_minimum_required(VERSION 3.16)
+project(ore_ms_orb_adapter LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 11)
+find_package(OpenCV 4 REQUIRED)
+find_package(Eigen3 REQUIRED)
+find_package(Pangolin REQUIRED)
+add_executable(orb_match_ambiguity_runner orb_match_ambiguity_runner.cc)
+# ORB and bundled g2o use -march=native. Match their Eigen alignment ABI.
+target_compile_options(orb_match_ambiguity_runner PRIVATE -march=native)
+target_include_directories(orb_match_ambiguity_runner PRIVATE /opt/ORB_SLAM3
+  /opt/ORB_SLAM3/include /opt/ORB_SLAM3/include/CameraModels
+  /opt/ORB_SLAM3/Thirdparty/Sophus ${EIGEN3_INCLUDE_DIR} ${Pangolin_INCLUDE_DIRS})
+target_link_libraries(orb_match_ambiguity_runner PRIVATE /opt/ORB_SLAM3/lib/libORB_SLAM3.so
+  /opt/ORB_SLAM3/Thirdparty/DBoW2/lib/libDBoW2.so ${OpenCV_LIBS} ${Pangolin_LIBRARIES})
