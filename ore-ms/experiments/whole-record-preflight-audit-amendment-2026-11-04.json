@@ -1,0 +1,10 @@
+{
+  "date": "2026-11-04 America/New_York",
+  "original_freeze": "b3602c826",
+  "protocol_sha256": "84785b991aff2fe69956c2c945aafcc413902575c08e27e180810414516c90df",
+  "auditor_sha256": "825e5a5538e66f66cb472b6ddd7dfd7cc1bedf7e77d202b63438130aceead815",
+  "reason": "Initial auditor imposed unsupported 512-byte-per-tensor upper bound on CUDA allocator rounding. RGB measured allocation exceeds this bound, while all native tensor storage sizes match exactly. Remove that unsupported upper bound; require allocated bytes to contain all exact persistent storage. Allocator totals remain measured evidence, not fitted limits.",
+  "original_failed_audit_retained": true,
+  "native_code_or_probe_or_input_changed": false,
+  "capacity_lower_bound_formula_changed": false
+}
