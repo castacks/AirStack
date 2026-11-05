@@ -1,3 +1,8 @@
+EXP141: [Complete-record bounded DROID engineering](docs/research/bounded-full-record-findings-2026-11-04.md).
+All 111,236 raw images acquired; latest declared attempts complete 6/6 streams,
+with 55,618/55,618 finite offline poses. 139 tests pass; prior night capacity/backend
+failures are retained. Physical timing and trajectory accuracy remain unverified.
+
 EXP140: [Whole-record source and capacity preflight](docs/research/whole-record-preflight-findings-2026-11-04.md).
 27,809 original groups inventoried; 26,906 still need image acquisition after prior recovery.
 Unchanged DROID night/rain allocation exceeds GPU memory. 252,888 audit checks pass; full runs pending.
