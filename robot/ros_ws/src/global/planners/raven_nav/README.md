@@ -53,23 +53,23 @@ completed-target filtering, frontier behavior and navigation safety.
 
 ## Full semantic map versus BB sharing
 
-`RAVEN_SEMANTIC_MAP_SHARING=true` replaces unfinished-BB transport with full
-sender-owned query-semantic voxel snapshots. Set `RAVEN_SHARE_BBS=false` in
+`RAVEN_SEMANTIC_MAP_SHARING=true` replaces unfinished-BB transport with
+sender-owned query-semantic voxel updates. Set `RAVEN_SHARE_BBS=false` in
 this mode; map-derived tasks remain eligible for every robot. The original
 mode remains the default. Both modes retain rays, completed targets, auction
 costs and frontier coordination.
 
 ```mermaid
 flowchart LR
-  Own[Own Rayfronts full semantic cloud] --> Wire[Own snapshot over gossip]
+  Own[Own Rayfronts full semantic cloud] --> Wire[Initial map and acknowledged voxel updates]
   Own --> Fuse[Source-aware world-grid accumulation]
-  Peer[Received peer semantic snapshots] --> Fuse
+  Peer[Received peer semantic updates] --> Fuse
   Fuse --> Cluster[Existing voxel clustering and BB generation]
   Cluster --> Auction[Existing auction and navigation]
   Done[Shared completed BBs] --> Auction
 ```
 
-The new `coordination_msgs/msg/SemanticVoxelMap` carries all mapped voxel XYZ
+The new `coordination_msgs/msg/SemanticVoxelMap` carries voxel XYZ
 and all configured query/background float32 score channels, plus explicit
 ordered labels and voxel size. It is a query-semantic map, **not** RGB and not
 Rayfronts' latent feature embeddings for arbitrary future language queries.
@@ -86,6 +86,25 @@ is transmitted, never the fused union, preventing evidence recirculation.
 in the experiment config). This fusion and fresh BB clustering can change
 behavior; equivalent performance is a hypothesis tested by the experiment.
 
+Small range-filtered gossip profiles advertise each robot's TCP endpoint.
+Bulk maps are **not** embedded in PeerProfile: best-effort DDS delivery of
+growing multi-MiB profiles stopped updating some peers in the first attempt.
+Independent per-peer stream workers send an initial map, then lossless deltas
+relative to that peer's acknowledged state. The ACK is issued only after the
+receiving Raven planner has fused the update, so late startup or a planner
+restart cannot silently discard a base map. Changed and new cells carry full
+float32 score vectors with no value thresholding or compression. Unchanged
+cells stay at the receiver. A failed ACK, missing base or new endpoint session
+forces a full resync. Latest-snapshot backpressure bounds queue growth.
+This direct stream is used for the full-comms, same-workflow comparison.
+Local delivery into Raven uses reliable KEEP_ALL QoS to avoid dropping deltas
+between the transport receiver and the fusion callback.
+
+Runtime checks require multiple updates from both peers, fresh maps (at most
+15 wall seconds old) during at least 70% of post-warmup auction ticks, and
+fresh fleet maps near the end. Merely receiving the initial small maps is
+insufficient. Traces save per-peer update counts, cell counts and ages.
+
 No unvisited BB geometry is sent in either `confirmed_targets` **or** the
 visualization `auction_table` payload in map mode. Completed/visited BBs are
 still shared. Local auction traces retain the full table for analysis.
@@ -96,7 +115,12 @@ Counters record actual application publish/receive events, per-payload
 serialized byte counts, whole-PeerProfile CDR bytes, simulation time and wall
 time. RX includes messages before application dedup/range rejection. TX is
 counted once per publisher, not multiplied by fleet size; relay transmissions
-are counted and identified separately. These counters exclude DDS/TCP/IP and
+are counted and identified separately. Direct map streams instead count every
+actual per-peer send/receive, including retries/partial transfers, and identify
+the transport. Compare fleet **received** application bytes for consistent
+fan-out accounting across DDS and TCP; do not multiply DDS TX counts and call
+them measured wire traffic. Stream prefix bytes and incomplete transfer counts
+are recorded separately. These counters exclude DDS/TCP/IP and
 Ethernet headers, retransmissions, and GCS/local registry traffic.
 
 The mission runner saves `gossip_bandwidth_summary.json` automatically after

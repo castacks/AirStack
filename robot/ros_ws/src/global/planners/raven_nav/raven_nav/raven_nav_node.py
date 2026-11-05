@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import time
 from types import SimpleNamespace
 import numpy as np
 
@@ -526,6 +527,14 @@ class RavenNavNode(Node):
             SemanticVoxelMap, f'{self._prefix}/raven_nav/semantic_voxel_map', 1)
             if self._semantic_map_sharing else None)
         self._semantic_map_rejections = 0
+        self._semantic_map_received_at = {}
+        self._semantic_map_updates = {}
+        if self._semantic_map_sharing:
+            self._semantic_map_ack_pub = self.create_publisher(String,
+                f'{self._prefix}/coordination/semantic_voxel_map_ack', 10)
+            self.create_subscription(SemanticVoxelMap,
+                f'{self._prefix}/coordination/semantic_voxel_maps', self._on_stream_semantic_map,
+                QoSProfile(history=HistoryPolicy.KEEP_ALL, reliability=ReliabilityPolicy.RELIABLE))
         self._use_shared_completion = bool(self.declare_parameter(
             'use_shared_completion', True).value)
         self._use_peer_allocation_state = bool(self.declare_parameter(
@@ -2403,6 +2412,7 @@ class RavenNavNode(Node):
         self._semantic_fusion.update(self._robot_name, world, scores, labels, version)
         if publish:
             msg = SemanticVoxelMap()
+            msg.source_robot = self._robot_name
             msg.labels = labels
             msg.voxel_size = self._semantic_fusion.resolution
             header = Header(stamp=self.get_clock().now().to_msg(), frame_id='world_xy_agl')
@@ -2441,6 +2451,30 @@ class RavenNavNode(Node):
             except (ValueError, TypeError, RuntimeError) as exc:
                 self._semantic_map_rejections += 1
                 self.get_logger().error(f'rejected semantic map: {exc}', throttle_duration_sec=10.0)
+
+    def _on_stream_semantic_map(self, msg):
+        if self._boot_enu is None or msg.source_robot == self._robot_name:
+            return
+        try:
+            if msg.is_delta and self._semantic_fusion.versions.get(msg.source_robot, -1) < msg.base_revision:
+                return  # no ACK: reliable sender will resynchronize with a full map
+            if (msg.cloud.header.frame_id != 'world_xy_agl'
+                    or list(msg.labels) != list(self._query_labels)
+                    or not np.isclose(msg.voxel_size, self._semantic_fusion.resolution)):
+                raise ValueError('incompatible semantic map frame, vocabulary or resolution')
+            fields = ('x', 'y', 'z') + tuple(f'sim_{i}' for i in range(len(msg.labels)))
+            data = point_cloud2.read_points_numpy(msg.cloud, field_names=fields, skip_nans=True)
+            stamp = msg.cloud.header.stamp
+            version = stamp.sec * 1_000_000_000 + stamp.nanosec
+            if self._semantic_fusion.update(msg.source_robot, data[:, :3], data[:, 3:], msg.labels, version):
+                self._semantic_map_received_at[msg.source_robot] = time.monotonic()
+                self._semantic_map_updates[msg.source_robot] = self._semantic_map_updates.get(msg.source_robot, 0) + 1
+                self._refresh_semantic_map()
+            self._semantic_map_ack_pub.publish(String(data=json.dumps(
+                {'source_robot': msg.source_robot, 'revision': version})))
+        except (ValueError, TypeError, RuntimeError) as exc:
+            self._semantic_map_rejections += 1
+            self.get_logger().error(f'rejected semantic map update: {exc}', throttle_duration_sec=10.0)
 
     def _frontiers_cb(self, msg: PointCloud2):
         """(N, 6) float32: [x, y, z, empty_cnt, unobserved_cnt, occupied_cnt].
@@ -2500,6 +2534,8 @@ class RavenNavNode(Node):
                 if self._semantic_map_sharing:
                     self._semantic_fusion = SemanticMapFusion(self._semantic_fusion.resolution)
                     self._own_semantic_snapshot = None
+                    self._semantic_map_received_at.clear()
+                    self._semantic_map_updates.clear()
                 self._ray_origins = None
                 self._ray_dirs = None
                 self._ray_scores = None
@@ -3101,6 +3137,9 @@ class RavenNavNode(Node):
                 semantic_map_sharing=self._semantic_map_sharing,
                 semantic_map_sources=len(self._semantic_fusion.sources),
                 semantic_map_rejections=self._semantic_map_rejections,
+                semantic_map_peer_updates=dict(self._semantic_map_updates),
+                semantic_map_peer_age_wall_s={name: round(time.monotonic()-t, 3)
+                                               for name, t in self._semantic_map_received_at.items()},
                 semantic_map_cells_by_source={name: len(data[0])
                                               for name, data in self._semantic_fusion.sources.items()},
                 assignment_mode=self._assignment_mode, bundle_len=self._bundle_len,

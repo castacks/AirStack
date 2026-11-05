@@ -115,6 +115,7 @@ def test_live_gossip_transports_large_map_and_records_exact_payload_bytes(monkey
     from builtin_interfaces.msg import Time
     monkeypatch.setenv('RAVEN_SEMANTIC_MAP_SHARING', 'true')
     monkeypatch.setenv('GOSSIP_MEASURE_BYTES', 'true')
+    monkeypatch.setenv('RAVEN_MAP_STREAM_PORT', '0')
     from coordination_bringup.gossip_node import GossipNode
     rclpy.init(args=[])
     nodes = []
@@ -131,6 +132,20 @@ def test_live_gossip_transports_large_map_and_records_exact_payload_bytes(monkey
             executor.add_node(n)
             nodes.append(n)
         n = nodes[0]
+        maps = []
+        from raven_nav.raven_nav_node import RavenNavNode
+        planner = S(_boot_enu=np.zeros(3), _own_semantic_snapshot=None,
+                    _robot_name='robot_82', _query_labels=[f'label{i}' for i in range(40)],
+                    _semantic_fusion=SemanticMapFusion(), _semantic_map_received_at={},
+                    _semantic_map_updates={}, _semantic_map_rejections=0,
+                    _semantic_map_ack_pub=nodes[1].create_publisher(String,
+                        '/robot_82/coordination/semantic_voxel_map_ack', 10),
+                    get_logger=lambda: S(error=lambda *a,**kw: pytest.fail(str(a))))
+        planner._refresh_semantic_map = lambda: RavenNavNode._refresh_semantic_map(planner)
+        def receive_map(msg):
+            RavenNavNode._on_stream_semantic_map(planner, msg)
+            maps.append(msg)
+        nodes[1].create_subscription(SemanticVoxelMap, '/robot_82/coordination/semantic_voxel_maps', receive_map, 10)
         pub = n.create_publisher(SemanticVoxelMap, '/robot_81/raven_nav/semantic_voxel_map', 1)
         boxpub = n.create_publisher(String, '/robot_81/raven_nav/confirmed_targets', 1)
         clockpub = n.create_publisher(Clock, '/clock', 1)
@@ -139,7 +154,7 @@ def test_live_gossip_transports_large_map_and_records_exact_payload_bytes(monkey
         matrix[:, 2] = 5
         matrix[:, 3:] = .025
         names = ['x', 'y', 'z'] + [f'sim_{i}' for i in range(40)]
-        msg = SemanticVoxelMap(labels=[f'label{i}' for i in range(40)], voxel_size=.5,
+        msg = SemanticVoxelMap(source_robot='robot_81', labels=[f'label{i}' for i in range(40)], voxel_size=.5,
             cloud=PointCloud2(header=Header(stamp=Time(sec=42), frame_id='world_xy_agl'),
                 height=1, width=len(matrix), point_step=172, row_step=172*len(matrix),
                 fields=[PointField(name=name, offset=i*4, datatype=7, count=1)
@@ -154,17 +169,19 @@ def test_live_gossip_transports_large_map_and_records_exact_payload_bytes(monkey
             if nodes[1]._registry.get('robot_81') is not None:
                 from coordination_bringup.peer_profile import PeerProfile
                 received = PeerProfile.from_ros_msg(nodes[1]._registry['robot_81'])
-                cloud = received.get_payload_by_name('semantic_voxel_map')
+                assert received.get_payload_by_name('semantic_voxel_map') is None
+                cloud = next((m for m in maps if not m.is_delta), None)
                 if cloud is not None:
                     assert bytes(cloud.cloud.data) == matrix.tobytes()
                     boxes = received.get_payload_by_name('confirmed_targets')
                     assert json.loads(boxes.data) == [{'status': 'visited'}]
                     lines = Path('/tmp/gossip_bandwidth_robot_81.jsonl').read_text().splitlines()
-                    assert any(json.loads(line)['payload_bytes'].get('semantic_voxel_map') == len(serialize_message(msg))
-                               for line in lines)
-                    break
+                    if any(json.loads(line)['payload_bytes'].get('semantic_voxel_map') == len(serialize_message(msg))
+                           for line in lines):
+                        assert planner._semantic_map_updates['robot_81'] >= 1
+                        break
         else:
-            pytest.fail('full semantic map was not delivered through live gossip')
+            pytest.fail('semantic map was not delivered through the live stream')
     finally:
         for n in nodes:
             executor.remove_node(n)

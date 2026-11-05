@@ -15,7 +15,12 @@ import yaml
 import rclpy
 from rclpy.node import Node
 from rclpy.clock import ROSClock
-from rclpy.serialization import serialize_message
+from rclpy.serialization import serialize_message, deserialize_message
+from std_msgs.msg import String
+from coordination_msgs.msg import SemanticVoxelMap
+from coordination_bringup.map_stream import MapStream
+from coordination_bringup.semantic_delta import encode_delta
+import json
 from rosgraph_msgs.msg import Clock
 from coordination_bringup.bandwidth import BandwidthRecorder, completed_only_payload
 from rclpy.qos import (
@@ -117,6 +122,18 @@ class GossipNode(Node):
         self._bandwidth = (BandwidthRecorder(f'/tmp/gossip_bandwidth_{self._robot_name}.jsonl', self._robot_name)
                            if os.getenv('GOSSIP_MEASURE_BYTES', 'false').lower() == 'true' else None)
         self._sim_ns = None
+        self._map_stream = None
+        self._map_stream_revisions = {}
+        self._map_fusion_acks = {}
+        self._map_ack_condition = threading.Condition()
+        if self._semantic_map_sharing:
+            self._map_ack_sub = self.create_subscription(String,
+                f'/{self._robot_name}/coordination/semantic_voxel_map_ack', self._on_map_fusion_ack, 10)
+            self._map_rx_pub = self.create_publisher(
+                SemanticVoxelMap, f'/{self._robot_name}/coordination/semantic_voxel_maps',
+                QoSProfile(history=QoSHistoryPolicy.KEEP_ALL, reliability=QoSReliabilityPolicy.RELIABLE))
+            self._map_stream = MapStream(self._receive_stream_map, self._record_map_bytes,
+                self._map_peer_allowed, port=int(os.getenv('RAVEN_MAP_STREAM_PORT', '17877')), encode=encode_delta)
         if self._bandwidth:
             self._clock_sub = self.create_subscription(Clock, '/clock', self._on_sim_clock, SENSOR_QOS)
 
@@ -233,6 +250,9 @@ class GossipNode(Node):
 
             def _make_callback(t):
                 def cb(msg):
+                    if self._payload_names[t] == 'semantic_voxel_map' and self._map_stream:
+                        self._map_stream.snapshot(serialize_message(msg))
+                        return
                     stamp = getattr(getattr(msg, 'header', None), 'stamp', None)
                     if stamp is None:
                         stamp = self.get_clock().now().to_msg()
@@ -278,6 +298,13 @@ class GossipNode(Node):
             return
         self._seen_stamp_ns[msg.robot_name] = stamp_ns
         self._peer_last_rx[msg.robot_name] = time.monotonic()
+        if self._map_stream:
+            endpoint = PeerProfile.from_ros_msg(msg).get_payload_by_name('semantic_map_endpoint')
+            if endpoint is not None:
+                try:
+                    self._map_stream.peer(msg.robot_name, json.loads(endpoint.data))
+                except (ValueError, TypeError, KeyError):
+                    self.get_logger().warn('invalid semantic map endpoint', throttle_duration_sec=10)
 
         with self._peer_inbox_lock:
             self._peer_inbox[msg.robot_name] = msg
@@ -353,6 +380,8 @@ class GossipNode(Node):
                 for n in sorted(self._peer_last_rx))
             self.get_logger().info(f"[gossip] heartbeat {own_s} {peers}")
             self._diag(f"HB {own_s} {peers} matched_writers={matched}")
+            if self._map_stream:
+                self._diag(f'MAPSTREAM endpoint={self._map_stream.endpoint()} errors={self._map_stream._last_error}')
 
     def _publish_tick(self) -> None:
         self._publish_own()
@@ -376,12 +405,17 @@ class GossipNode(Node):
 
     def _publish_own(self) -> None:
         self._profile.clear_payloads()
+        if self._map_stream:
+            self._profile.add_payload(String(data=json.dumps(self._map_stream.endpoint())),
+                                      name='semantic_map_endpoint')
         if self._boot_pos is not None:
             bx, by, bz = self._boot_pos
             # PX4/MAVROS odom frame is ENU-aligned regardless of drone heading —
             # only translation is needed; rotation would incorrectly rotate payloads.
             q = (0.0, 0.0, 0.0, 1.0)
             for topic, entry in self._payload_cache.items():
+                if self._payload_names[topic] == 'semantic_voxel_map' and self._map_stream:
+                    continue  # bulk maps never enter/coalesce on gossip
                 if entry is not None:
                     msg, stamp = entry
                     if self._semantic_map_sharing:
@@ -412,6 +446,47 @@ class GossipNode(Node):
 
     def _on_sim_clock(self, msg):
         self._sim_ns = msg.clock.sec * 1_000_000_000 + msg.clock.nanosec
+
+    def _map_peer_allowed(self, name):
+        return time.monotonic() - getattr(self, '_peer_last_rx', {}).get(name, float('-inf')) < 15
+
+    def _receive_stream_map(self, data):
+        msg = deserialize_message(data, SemanticVoxelMap)
+        if not self._map_peer_allowed(msg.source_robot):
+            raise ValueError('map source has no fresh accepted gossip profile')
+        if msg.is_delta and self._map_stream_revisions.get(msg.source_robot, -1) < msg.base_revision:
+            raise ValueError('missing base map; sender must retry a full snapshot')
+        self._map_rx_pub.publish(msg)
+        revision = msg.cloud.header.stamp.sec * 1_000_000_000 + msg.cloud.header.stamp.nanosec
+        # ACK only after Raven has fused it, not merely after local DDS write.
+        # A late-starting/restarted planner therefore triggers a full resync.
+        with self._map_ack_condition:
+            fused = self._map_ack_condition.wait_for(
+                lambda: self._map_fusion_acks.get(msg.source_robot, -1) >= revision, timeout=5)
+        if not fused:
+            raise ValueError('local planner did not acknowledge map fusion')
+        self._map_stream_revisions[msg.source_robot] = max(revision, self._map_stream_revisions.get(msg.source_robot, -1))
+        return msg.source_robot
+
+    def _on_map_fusion_ack(self, msg):
+        try:
+            ack = json.loads(msg.data)
+            name, revision = str(ack['source_robot']), int(ack['revision'])
+            with self._map_ack_condition:
+                self._map_fusion_acks[name] = max(revision, self._map_fusion_acks.get(name, -1))
+                self._map_ack_condition.notify_all()
+        except (ValueError, TypeError, KeyError):
+            self.get_logger().warn('invalid map fusion acknowledgement', throttle_duration_sec=10)
+
+    def _record_map_bytes(self, direction, peer, payload_bytes, stream_bytes, complete):
+        if self._bandwidth:
+            self._bandwidth.record_map(direction, peer, payload_bytes, stream_bytes, complete,
+                                       self._sim_ns, self.get_clock().now().nanoseconds)
+
+    def destroy_node(self):
+        if self._map_stream:
+            self._map_stream.close()
+        return super().destroy_node()
 
     def _record_bytes(self, direction, msg):
         if self._bandwidth is not None:

@@ -9,9 +9,11 @@
 
   <depend>rclpy</depend>
   <depend>rosgraph_msgs</depend>
+  <exec_depend>python3-numpy</exec_depend>
   <depend>nav_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>sensor_msgs</depend>
+  <exec_depend>sensor_msgs_py</exec_depend>
   <depend>coordination_msgs</depend>
   <exec_depend>airstack_msgs</exec_depend>
 

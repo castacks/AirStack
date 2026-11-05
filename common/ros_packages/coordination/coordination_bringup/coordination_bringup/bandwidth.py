@@ -6,6 +6,7 @@ are counted separately, before range filtering and application deduplication.
 """
 import json
 import time
+import threading
 
 
 def payload_sizes(msg):
@@ -33,12 +34,24 @@ class BandwidthRecorder:
     def __init__(self, path, robot):
         self.robot = robot
         self.file = open(path, 'a', buffering=1)
+        self._lock = threading.Lock()
+
+    def _write(self, row):
+        with self._lock:
+            self.file.write(json.dumps(row) + '\n')
 
     def record(self, direction, msg, serialized_bytes, sim_ns, ros_ns):
-        self.file.write(json.dumps(dict(
+        self._write(dict(
             direction=direction, robot=self.robot, source=msg.robot_name,
             wall_ns=time.time_ns(), sim_ns=sim_ns, ros_ns=ros_ns,
             source_stamp_ns=(msg.gps_fix.header.stamp.sec * 1_000_000_000
                              + msg.gps_fix.header.stamp.nanosec),
             source_kind=int(msg.source), relay_hops=int(msg.relay_hops),
-            cdr_bytes=serialized_bytes, payload_bytes=payload_sizes(msg))) + '\n')
+            transport='dds_gossip', cdr_bytes=serialized_bytes, payload_bytes=payload_sizes(msg)))
+
+    def record_map(self, direction, peer, payload_bytes, stream_bytes, complete, sim_ns, ros_ns):
+        self._write(dict(direction=direction, robot=self.robot, source=(self.robot if direction == 'tx' else peer),
+            peer=peer, wall_ns=time.time_ns(), sim_ns=sim_ns, ros_ns=ros_ns,
+            source_stamp_ns=0, source_kind=0, relay_hops=0, transport='tcp_map',
+            cdr_bytes=payload_bytes, payload_bytes={'semantic_voxel_map': payload_bytes},
+            stream_bytes=stream_bytes, complete=complete))

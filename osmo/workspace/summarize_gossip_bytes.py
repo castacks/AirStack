@@ -29,10 +29,16 @@ def summarize(run, duration=300):
             if row['sim_ns'] is None or not start <= row['sim_ns'] <= start + duration * 1e9:
                 continue
             d = directions.setdefault(row['direction'], dict(messages=0, cdr_bytes=0,
-                payload_bytes=collections.Counter(), first_wall_ns=row['wall_ns'], last_wall_ns=row['wall_ns']))
+                payload_bytes=collections.Counter(), by_transport={}, first_wall_ns=row['wall_ns'], last_wall_ns=row['wall_ns']))
             d['messages'] += 1
             d['cdr_bytes'] += row['cdr_bytes']
             d['payload_bytes'].update(row['payload_bytes'])
+            transport = d['by_transport'].setdefault(row.get('transport', 'dds_gossip'),
+                dict(messages=0, cdr_bytes=0, stream_bytes=0, incomplete_transfers=0))
+            transport['messages'] += 1
+            transport['cdr_bytes'] += row['cdr_bytes']
+            transport['stream_bytes'] += row.get('stream_bytes', 0)
+            transport['incomplete_transfers'] += int(row.get('complete') is False)
             d['last_wall_ns'] = row['wall_ns']
         if not directions.get('tx', {}).get('messages'):
             raise ValueError(f'{robot}: no TX measurements in the search window')
