@@ -1,0 +1,20 @@
+{
+  "date_started": "2026-11-04 America/New_York",
+  "reason": "AllnightRGBtracking completed but backend pools unused4096slot fmaps, giving3185573888elements above2147483647nativeaccessor limit. Thermal fullallocation2684354560also exceedslimit. No resource increase: compact only unused feature tail after alltracking, retain active+17reserve rows bitwise.",
+  "eligibility": "Only completed4096attempt with offline packed32 numel error and allsourcecallsreturned; active+17mustfit32bit",
+  "tracking_state_or_source_removed": false,
+  "native_code_or_math_or_threshold_changed": false,
+  "same_initial_slots": 4096,
+  "native_gpu_correlation_contract": "bitwise equal for all preservedactive/reserveindices at31x98and32x80 grids",
+  "one_corrected_attempt_per_eligible_case": true,
+  "all_prior_failed_attempts_retained": true,
+  "source_sha256": {
+    "tools/droid_bounded_worker_v4.py": "dc71685c3875927662ae7350f553f6d50631d4cfbd1f1500ced9e1a940a82724",
+    "tools/tests/test_droid_bounded_worker_v4.py": "eeadefad2817c1438d41f506f7112e93f6bb357c4b5ae1b9035748e6b26b4eb2",
+    "tools/droid_feature_compaction_contract.py": "35abe8a2010ebb4c0e9b2dbae281fe82ad2e9c2ec50098b159bfee30fb5fe35d",
+    "results/bounded-full-record/feature-compaction-contract.json": "bb89096949b0ecb1b130d332790ba14dd1f04ee0d10eb123621db5a779953d65",
+    "results/bounded-full-record/captures-v3/night-rgb/estimate.json": "813eed93d85ca9aafbaf338aaf969a3f37409ab2bb4778811fe5b76cb31bb693"
+  },
+  "reference_scoring": false,
+  "benchmark_execution_ready": false
+}
