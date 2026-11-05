@@ -1,0 +1,54 @@
+{
+  "runs": [
+    {
+      "case": "night-rgb",
+      "protocol": "results/bounded-full-record/protocols/night-rgb.json",
+      "sha256": "a83c72e468b65f22c7db770692192b7a085f59edf925d48596e12aefc8a8d1b7",
+      "source_frames": 10131
+    },
+    {
+      "case": "night-thermal",
+      "protocol": "results/bounded-full-record/protocols/night-thermal.json",
+      "sha256": "1093414826b46d3169dd1a3946bfbe0878a4381d740f036c03e3b22d8b42008f",
+      "source_frames": 10131
+    },
+    {
+      "case": "day-rgb",
+      "protocol": "results/bounded-full-record/protocols/day-rgb.json",
+      "sha256": "4b13800e0fa9efabf1a1f6b135395398358c70e77c63820ac6c82db18c66a7f7",
+      "source_frames": 5810
+    },
+    {
+      "case": "day-thermal",
+      "protocol": "results/bounded-full-record/protocols/day-thermal.json",
+      "sha256": "7283fbddb68456d218b58f01d9117c15c67835032e8bffcc3a25e8f2f66d8da3",
+      "source_frames": 5810
+    },
+    {
+      "case": "rain-rgb",
+      "protocol": "results/bounded-full-record/protocols/rain-rgb.json",
+      "sha256": "074b3bc2fc1e86e4387c90f91567cbc7dd1bdfd5c3e901f53a23d82db0428fa8",
+      "source_frames": 11868
+    },
+    {
+      "case": "rain-thermal",
+      "protocol": "results/bounded-full-record/protocols/rain-thermal.json",
+      "sha256": "3c26e7fc40c26d64d3d9e344fd78fbe0f3eb7d1f1e5979293be5ffc493652386",
+      "source_frames": 11868
+    }
+  ],
+  "all_recordings_and_modalities_retained": true,
+  "source_groups": 27809,
+  "capacity": {
+    "mode": "quarter_memory_persistent_state_cap",
+    "preflight_gpu_total_bytes": 50752389120,
+    "worst_state_bytes_per_slot": 4496290,
+    "slots": 2048,
+    "reserved_slots": 17,
+    "scope": "persistent-state cap only; backend workspace/complete run peak unproven"
+  },
+  "full_protocols_frozen_before_any_full_native_run": true,
+  "reference_scoring": false,
+  "physical_sync_verified": false,
+  "benchmark_execution_ready": false
+}
