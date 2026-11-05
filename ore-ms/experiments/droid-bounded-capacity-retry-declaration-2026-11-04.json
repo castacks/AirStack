@@ -1,0 +1,19 @@
+{
+  "date": "2026-11-04 America/New_York",
+  "reason": "Initial2048slotnightRGBcapacityabort atsource7876 with2031keyframes; actualCUDApeak11924051968bytes versusdevice50752389120. Qualifyhalf-memorypersistent-statebudget giving4096slots. This is resource engineering, not trajectory quality selection or tuning.",
+  "original_six2048_attempts_retained_and_continued": true,
+  "retry_eligibility": "Only completed original attempts with explicit NativeCapacityExceeded failure; no selection using pose quality, accuracy or reference data",
+  "max_resource_retries_per_eligible_case": 1,
+  "new_slots": 4096,
+  "guard_limit": 4079,
+  "reserve": 17,
+  "source_model_motion_thresholds_changed": false,
+  "backend_workspace_feasibility": "unproven; failures remain outcomes, no automatic further capacity increase",
+  "source_sha256": {
+    "tools/droid_bounded_worker_v3.py": "0e3f434725449393aaa8d011dddcdd4d8bb86214e8f69a010c9f3fc7ca9246c1",
+    "tools/tests/test_droid_bounded_worker_v3.py": "f86f21bcad7aab9beb4035ca27710bc83e1045f2bf21d372603171317f65d65f",
+    "results/bounded-full-record/captures/night-rgb/estimate.json": "3c2c882583afe7dd0425466cd46cd155b188c8f54df6fedb8242eaa9b5d7575e"
+  },
+  "reference_scoring": false,
+  "benchmark_execution_ready": false
+}
