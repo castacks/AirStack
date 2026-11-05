@@ -1,3 +1,10 @@
+EXP143: [Full-record ORB support and matched errors](docs/research/orb-full-record-findings-2026-11-05.md).
+All six native streams complete. Thermal has higher pose availability/fewer map
+segments in all three conditions, but higher translation RPE. All ORB trajectories
+break; matched-support DROID has lower translation/rotation RPE in all six cases.
+48 tests, 818,793 native/metric and 153,030 matched metric checks pass. Conditional
+development evidence; CPU received versus GPU offline scope remains explicit.
+
 EXP142: [Full-record provided-reference scores](docs/research/provided-reference-full-record-findings-2026-11-05.md).
 Six saved DROID streams / 55,618 poses; RGB SE3 ATE is lower in day/night/rain,
 while thermal slightly lowers day translation RPE. Fifteen tests and 379,949 audit
