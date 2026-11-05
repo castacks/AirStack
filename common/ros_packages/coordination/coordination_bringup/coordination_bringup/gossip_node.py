@@ -20,6 +20,7 @@ from std_msgs.msg import String
 from coordination_msgs.msg import SemanticVoxelMap
 from coordination_bringup.map_stream import MapStream
 from coordination_bringup.semantic_delta import encode_delta
+from coordination_bringup.map_snapshot import read_snapshot, write_received_snapshot
 import json
 from rosgraph_msgs.msg import Clock
 from coordination_bringup.bandwidth import BandwidthRecorder, completed_only_payload
@@ -124,16 +125,15 @@ class GossipNode(Node):
         self._sim_ns = None
         self._map_stream = None
         self._map_stream_revisions = {}
+        self._map_file_revision = None
         self._map_fusion_acks = {}
         self._map_ack_condition = threading.Condition()
         if self._semantic_map_sharing:
             self._map_ack_sub = self.create_subscription(String,
                 f'/{self._robot_name}/coordination/semantic_voxel_map_ack', self._on_map_fusion_ack, 10)
-            self._map_rx_pub = self.create_publisher(
-                SemanticVoxelMap, f'/{self._robot_name}/coordination/semantic_voxel_maps',
-                QoSProfile(history=QoSHistoryPolicy.KEEP_ALL, reliability=QoSReliabilityPolicy.RELIABLE))
             self._map_stream = MapStream(self._receive_stream_map, self._record_map_bytes,
                 self._map_peer_allowed, port=int(os.getenv('RAVEN_MAP_STREAM_PORT', '17877')), encode=encode_delta)
+            self._map_poll_timer = self.create_timer(.5, self._poll_map_snapshot, clock=ROSClock())
         if self._bandwidth:
             self._clock_sub = self.create_subscription(Clock, '/clock', self._on_sim_clock, SENSOR_QOS)
 
@@ -228,6 +228,8 @@ class GossipNode(Node):
             # required when the segment is ambiguous (e.g. '.../voxels_sim/all').
             self._payload_names[topic] = (
                 entry.get("name") or topic_template.rstrip("/").split("/")[-1])
+            if self._payload_names[topic] == 'semantic_voxel_map' and self._map_stream:
+                continue  # read atomic local file; never subscribe to the full map over DDS
             if self._payload_names[topic] == "explored_area_coverage":
                 self._coverage_topic = topic
             # Payloads already in the local map ENU frame need translation only
@@ -381,7 +383,10 @@ class GossipNode(Node):
             self.get_logger().info(f"[gossip] heartbeat {own_s} {peers}")
             self._diag(f"HB {own_s} {peers} matched_writers={matched}")
             if self._map_stream:
-                self._diag(f'MAPSTREAM endpoint={self._map_stream.endpoint()} errors={self._map_stream._last_error}')
+                self._diag(f'MAPSTREAM endpoint={self._map_stream.endpoint()} '
+                           f'local_revision={self._map_stream._revision} '
+                           f'snapshot_bytes={len(self._map_stream._snapshot or b"")} '
+                           f'errors={self._map_stream._last_error}')
 
     def _publish_tick(self) -> None:
         self._publish_own()
@@ -450,13 +455,24 @@ class GossipNode(Node):
     def _map_peer_allowed(self, name):
         return time.monotonic() - getattr(self, '_peer_last_rx', {}).get(name, float('-inf')) < 15
 
+    def _poll_map_snapshot(self):
+        try:
+            data, version = read_snapshot(self._robot_name, self._map_file_revision)
+            if data is not None:
+                self._map_stream.snapshot(data)
+                self._map_file_revision = version
+        except FileNotFoundError:
+            pass  # Raven has not started / produced its first map yet
+        except OSError as exc:
+            self.get_logger().error(f'local semantic snapshot read failed: {exc}', throttle_duration_sec=10)
+
     def _receive_stream_map(self, data):
         msg = deserialize_message(data, SemanticVoxelMap)
         if not self._map_peer_allowed(msg.source_robot):
             raise ValueError('map source has no fresh accepted gossip profile')
         if msg.is_delta and self._map_stream_revisions.get(msg.source_robot, -1) < msg.base_revision:
             raise ValueError('missing base map; sender must retry a full snapshot')
-        self._map_rx_pub.publish(msg)
+        write_received_snapshot(self._robot_name, msg.source_robot, data)
         revision = msg.cloud.header.stamp.sec * 1_000_000_000 + msg.cloud.header.stamp.nanosec
         # ACK only after Raven has fused it, not merely after local DDS write.
         # A late-starting/restarted planner therefore triggers a full resync.

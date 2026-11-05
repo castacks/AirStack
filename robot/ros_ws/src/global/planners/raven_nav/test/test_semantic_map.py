@@ -102,7 +102,7 @@ def test_map_mode_gossip_excludes_unvisited_bb_channels():
     assert sizes['auction_table'] == len(serialize_message(filtered))
 
 
-def test_live_gossip_transports_large_map_and_records_exact_payload_bytes(monkeypatch):
+def test_live_gossip_transports_large_map_and_records_exact_payload_bytes(monkeypatch, tmp_path):
     import time
     import rclpy
     from rclpy.executors import SingleThreadedExecutor
@@ -116,6 +116,8 @@ def test_live_gossip_transports_large_map_and_records_exact_payload_bytes(monkey
     monkeypatch.setenv('RAVEN_SEMANTIC_MAP_SHARING', 'true')
     monkeypatch.setenv('GOSSIP_MEASURE_BYTES', 'true')
     monkeypatch.setenv('RAVEN_MAP_STREAM_PORT', '0')
+    monkeypatch.setenv('RAVEN_MAP_SNAPSHOT_DIR', str(tmp_path))
+    from coordination_bringup.map_snapshot import write_snapshot
     from coordination_bringup.gossip_node import GossipNode
     rclpy.init(args=[])
     nodes = []
@@ -138,6 +140,7 @@ def test_live_gossip_transports_large_map_and_records_exact_payload_bytes(monkey
                     _robot_name='robot_82', _query_labels=[f'label{i}' for i in range(40)],
                     _semantic_fusion=SemanticMapFusion(), _semantic_map_received_at={},
                     _semantic_map_updates={}, _semantic_map_rejections=0,
+                    _semantic_map_received_files={},
                     _semantic_map_ack_pub=nodes[1].create_publisher(String,
                         '/robot_82/coordination/semantic_voxel_map_ack', 10),
                     get_logger=lambda: S(error=lambda *a,**kw: pytest.fail(str(a))))
@@ -145,8 +148,8 @@ def test_live_gossip_transports_large_map_and_records_exact_payload_bytes(monkey
         def receive_map(msg):
             RavenNavNode._on_stream_semantic_map(planner, msg)
             maps.append(msg)
-        nodes[1].create_subscription(SemanticVoxelMap, '/robot_82/coordination/semantic_voxel_maps', receive_map, 10)
-        pub = n.create_publisher(SemanticVoxelMap, '/robot_81/raven_nav/semantic_voxel_map', 1)
+        planner._on_stream_semantic_map = receive_map
+        nodes[1].create_timer(.05, lambda: RavenNavNode._poll_stream_semantic_maps(planner))
         boxpub = n.create_publisher(String, '/robot_81/raven_nav/confirmed_targets', 1)
         clockpub = n.create_publisher(Clock, '/clock', 1)
         matrix = np.zeros((10000, 43), dtype='<f4')
@@ -161,7 +164,7 @@ def test_live_gossip_transports_large_map_and_records_exact_payload_bytes(monkey
                         for i, name in enumerate(names)], data=matrix.tobytes(), is_dense=True))
         deadline = time.monotonic() + 12
         while time.monotonic() < deadline:
-            pub.publish(msg)
+            write_snapshot('robot_81', serialize_message(msg))
             boxpub.publish(String(data='[{"status":"observing"},{"status":"visited"}]'))
             clockpub.publish(Clock(clock=Time(sec=42)))
             for _ in range(10):

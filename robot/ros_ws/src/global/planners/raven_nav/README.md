@@ -97,8 +97,14 @@ float32 score vectors with no value thresholding or compression. Unchanged
 cells stay at the receiver. A failed ACK, missing base or new endpoint session
 forces a full resync. Latest-snapshot backpressure bounds queue growth.
 This direct stream is used for the full-comms, same-workflow comparison.
-Local delivery into Raven uses reliable KEEP_ALL QoS to avoid dropping deltas
-between the transport receiver and the fusion callback.
+Large local DDS messages also stopped advancing in the first stream attempt.
+Both local handoffs therefore use bounded atomic files in the container's
+`/tmp`: Raven replaces its latest full snapshot, and the receiver replaces one
+update file per peer. The sender polls for changed snapshots; Raven polls for
+received updates and sends a small ROS fusion ACK. Network updates never
+advance until that ACK, preventing an unread delta from being overwritten.
+The full debug map topic is published only when a local subscriber requests
+it; neither inter-robot nor local map delivery depends on that topic.
 
 Runtime checks require multiple updates from both peers, fresh maps (at most
 15 wall seconds old) during at least 70% of post-warmup auction ticks, and

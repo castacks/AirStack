@@ -26,8 +26,9 @@
 
 payload_topics:
 
-  # Opt-in map-sharing ablation. This subscription feeds the dedicated reliable
-  # map-update stream, NOT the PeerProfile payload. Global XY / AGL Z is already
+  # Opt-in map-sharing ablation. This registration selects atomic local snapshots
+  # for the dedicated map-update stream, NOT a DDS reader or PeerProfile payload.
+  # Global XY / AGL Z is already
   # encoded by Raven; only a small stream endpoint is advertised over gossip.
   - topic: "/{robot_name}/raven_nav/semantic_voxel_map"
     type: "coordination_msgs/msg/SemanticVoxelMap"

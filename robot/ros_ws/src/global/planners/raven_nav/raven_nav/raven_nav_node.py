@@ -13,7 +13,9 @@ from geometry_msgs.msg import PolygonStamped
 from nav_msgs.msg import Odometry, Path
 from sensor_msgs.msg import NavSatFix, PointCloud2, PointField
 from std_msgs.msg import Header
-from rclpy.serialization import deserialize_message
+from rclpy.serialization import deserialize_message, serialize_message
+from coordination_bringup.map_snapshot import write_snapshot, received_snapshots
+from rclpy.clock import ROSClock
 from sensor_msgs_py import point_cloud2
 from std_msgs.msg import String, Empty
 from geometry_msgs.msg import Point, PoseStamped
@@ -529,12 +531,11 @@ class RavenNavNode(Node):
         self._semantic_map_rejections = 0
         self._semantic_map_received_at = {}
         self._semantic_map_updates = {}
+        self._semantic_map_received_files = {}
         if self._semantic_map_sharing:
             self._semantic_map_ack_pub = self.create_publisher(String,
                 f'{self._prefix}/coordination/semantic_voxel_map_ack', 10)
-            self.create_subscription(SemanticVoxelMap,
-                f'{self._prefix}/coordination/semantic_voxel_maps', self._on_stream_semantic_map,
-                QoSProfile(history=HistoryPolicy.KEEP_ALL, reliability=ReliabilityPolicy.RELIABLE))
+            self.create_timer(.2, self._poll_stream_semantic_maps, clock=ROSClock())
         self._use_shared_completion = bool(self.declare_parameter(
             'use_shared_completion', True).value)
         self._use_peer_allocation_state = bool(self.declare_parameter(
@@ -2424,7 +2425,11 @@ class RavenNavNode(Node):
                         for i, n in enumerate(names)], is_bigendian=False,
                 point_step=4*len(names), row_step=4*len(names)*len(matrix),
                 data=matrix.tobytes(), is_dense=True)
-            self._semantic_map_pub.publish(msg)
+            write_snapshot(self._robot_name, serialize_message(msg))
+            # Optional local debugging only; the bulk sender reads the atomic
+            # snapshot, so a lossy large-message DDS reader cannot stall it.
+            if getattr(self._semantic_map_pub, 'get_subscription_count', lambda: 1)() > 0:
+                self._semantic_map_pub.publish(msg)
         fused_xyz, fused_scores = self._semantic_fusion.arrays()
         if fused_xyz is not None:
             self._vox_xyz = fused_xyz.copy()
@@ -2475,6 +2480,14 @@ class RavenNavNode(Node):
         except (ValueError, TypeError, RuntimeError) as exc:
             self._semantic_map_rejections += 1
             self.get_logger().error(f'rejected semantic map update: {exc}', throttle_duration_sec=10.0)
+
+    def _poll_stream_semantic_maps(self):
+        if self._boot_enu is None:
+            return
+        for source, data, version in received_snapshots(self._robot_name, self._semantic_map_received_files):
+            msg = deserialize_message(data, SemanticVoxelMap)
+            self._on_stream_semantic_map(msg)
+            self._semantic_map_received_files[source] = version
 
     def _frontiers_cb(self, msg: PointCloud2):
         """(N, 6) float32: [x, y, z, empty_cnt, unobserved_cnt, occupied_cnt].
@@ -2536,6 +2549,7 @@ class RavenNavNode(Node):
                     self._own_semantic_snapshot = None
                     self._semantic_map_received_at.clear()
                     self._semantic_map_updates.clear()
+                    self._semantic_map_received_files.clear()
                 self._ray_origins = None
                 self._ray_dirs = None
                 self._ray_scores = None
