@@ -1,0 +1,85 @@
+{
+  "parent": "89574849b402e15220396ccc4a9be2e1054c3e43",
+  "parameters": {
+    "source_groups": 2000,
+    "seed": 0,
+    "threads": 1,
+    "timeout_seconds": 3600,
+    "bins": [
+      [
+        0,
+        500
+      ],
+      [
+        500,
+        1000
+      ],
+      [
+        1000,
+        1500
+      ],
+      [
+        1500,
+        2000
+      ]
+    ],
+    "depth_rtol": 2e-05,
+    "depth_atol_m": 2e-05,
+    "coordinate_ulp_multiplier": 4,
+    "arms": [
+      "control",
+      "paired"
+    ]
+  },
+  "source_groups": 2000,
+  "base_runtime": "sha256:1542a9a2fe4f645aa7b3db1d4d002c0a0b5941a91db105c5587db62b68bd8445",
+  "observed_runtime": "sha256:d0396dde5d4e84434399d3d8c6d007f0e335701449bb3382824f251715d59433",
+  "parent_runtime": "sha256:38b15cbcaf5d9f292d5279b4583f124e893003df26bfc93de16898f4d9abd688",
+  "score_runtime": "sha256:d3cf8a41dd8090c8939cd840b4735d526cec9a54e48ac36d506f91d13ee56e1c",
+  "source_sha256": {
+    "tools/native_stereo_history.py": "03c67d68b87430946b65a967f601403e1c67332e6c490e563eadf0c434bbd1d3",
+    "tools/native_stereo_history_audit.py": "37b24249b9ea6c9639a32f37f06daafe753d74bfe5573637d20d60422a6df32f",
+    "tools/tests/test_native_stereo_history.py": "76087d0f81de2d8689f0b5b85ac78b928b0055ca9cba9ec791276a985ced6150",
+    "environment/orb_stereo_history_runner.cc": "42500d4b941b7ee881d521739f78725fa7026c3a85e4e8dfbc557e8568df9638",
+    "environment/orb_stereo_history_CMakeLists.txt": "f6d82cca7ebc906229d339c5b2d0f7c9d569d7ad4f70f1cfd9bc6a104e1723a8",
+    "environment/Dockerfile.orb-stereo-history": "ea3ba55c12d9cc7120d3775f992dc7003e1a3a37783ebd6a3a025cb786ac0bac",
+    "docs/research/native-stereo-history-protocol-2026-11-05.md": "437184f411962b2e528feefa6fab1456eb261b1aa9f0267e951547c8dcd0ef29",
+    "results/native-stereo-history/run-001/source-manifest.json": "dee7199e7d96090da72461a6ab0e8d4dbb3287737a8b5b3c4359d53000e93b0d",
+    "results/native-stereo-history/run-001/runtime-identity.json": "2b539475f0fcf9e80fed327114becbf668ee9b63879573a1c92fef0798526fd2",
+    "tools/orb_finalization.py": "88930559df923ccd32c852b23c525493b0f9709b294820f96456f1e24389c90e",
+    "tools/orb_finalization_audit.py": "33fed443737bc412120a2db27585d45d08087a34421def1287bbf282b0edb30d",
+    "tools/tests/test_orb_finalization.py": "81a2dec4243ffb660c6b840fa8f05661ee6fcab66eb536ea54e2fb71aa199368",
+    "docs/research/orb-finalization-protocol-2026-11-05.md": "5fff63a7fe214651400680ffc0b2929069c9058e0d61953266c956377e434e7f",
+    "tools/orb_ms2_development.py": "3c351603b2f6c34da1d17694ea65f75e908d34c57ace77ba32a3bcfe35ac236c",
+    "tools/orb_full_record.py": "646ca226240ce58382483da83f2d151b1df85465c655a3a0c966b64da03a5f61",
+    "tools/independent_benchmark_metrics_v2.py": "57cb78a2bd5f95472206fa59a3218723d153f38921906b41963a6fc7e88c6ae6",
+    "tools/provided_reference_full_record_audit.py": "e2dc1b8e22166e04eb211056863c2bf53102a40b7c29aae491b83dec42ece663",
+    "tools/droid_ms2_development.py": "bb9bed1b43ec3facba1952e84ec3ac5dd2e8e61c7b4d7910fdad865663614153",
+    "tools/droid_bounded_worker.py": "bc984e2c8cc1cd8273b65302eccaae52876dbd777201bcb020b1d253cd1b4c69",
+    "environment/orb_finalized_CMakeLists.txt": "f5f78372307056bb620c664dd9a0b72ab0ce115b85b930294c7fd8990f0e04b8",
+    "environment/orb_finalized_runner.cc": "b95aeac73b73e98eef8a18e66130455b37284f35c18c05b1e1f86c1e7e4e2a94",
+    "environment/add_orb_export_accessors.py": "ca4a496c0a0f14d471a8544bca8ed5f245ceef6afa2906c3c085464370c416d1",
+    "environment/Dockerfile.orb-finalized": "73fd4c28b52d1d2b008ac32b7ffffc394b55598d5068786d78881076bdf46bce",
+    "tools/stereo_reference_diagnostic.py": "ebc95b9766c4d1c62119b42fc461229a92ce1e03e2688ff5b073e58c0e8be2db",
+    "tools/stereo_reference_audit.py": "03039892bd02f0d9b26902a9bd6ce467cfab924db7bc3886766fd3516d85784c",
+    "results/ms2-night-pilot/calibration.json": "2e9a8095c7cbd1b80cb3b0ace554ad51099883e7dec4e3d3c9a458f5f3e7b695",
+    "results/provided-reference-full-record/run-001/reference-lock.json": "d0d6c165e78f6b45ae9dd77f0345ec71688975c6fe8aa57105774c3baa1439da",
+    "results/native-stereo-history/run-001/captures/rgb-paired/plan.json": "cf4dca63cb1cb8c068d487558f7e7a46597a1b3b780b4f9c670cfc82fe33e305",
+    "results/native-stereo-history/run-001/captures/rgb-paired/settings.yaml": "6d81ba6ba6e44de3fa835845c0e7eefb56e88c28f45bb2a17cbad606f3e4c50d",
+    "results/native-stereo-history/run-001/captures/rgb-paired/inputs.tsv": "1c33eda2b1dae94cd7c45e5ab7dbc77975d3cc7b0eca1639863f8eef8704079e",
+    "results/native-stereo-history/run-001/captures/thermal-control/plan.json": "f10d0f452fb9cea79bd3181cdd212dec3533786af15bd3918407c3c6810f1b7e",
+    "results/native-stereo-history/run-001/captures/thermal-control/settings.yaml": "287401251e13495d64cc28ed776865ff07671f0075d70f2d6265a0b2640b2c21",
+    "results/native-stereo-history/run-001/captures/thermal-control/inputs.tsv": "d592d52f32eb807ee52756ba337c8d58e55b06cf61b5319d4993c22bfa52a8b9",
+    "results/native-stereo-history/run-001/captures/rgb-control/plan.json": "6582f03c9cc69dfdd33451897f0781a6d19bbfcb41c4db9032abe0c7470bef80",
+    "results/native-stereo-history/run-001/captures/rgb-control/settings.yaml": "6d81ba6ba6e44de3fa835845c0e7eefb56e88c28f45bb2a17cbad606f3e4c50d",
+    "results/native-stereo-history/run-001/captures/rgb-control/inputs.tsv": "1c33eda2b1dae94cd7c45e5ab7dbc77975d3cc7b0eca1639863f8eef8704079e",
+    "results/native-stereo-history/run-001/captures/thermal-paired/plan.json": "6ad1207dc6fc1a1effaafd1f9008a3ed1971c3181dce8ead7c7f9c197d14d71f",
+    "results/native-stereo-history/run-001/captures/thermal-paired/settings.yaml": "287401251e13495d64cc28ed776865ff07671f0075d70f2d6265a0b2640b2c21",
+    "results/native-stereo-history/run-001/captures/thermal-paired/inputs.tsv": "d592d52f32eb807ee52756ba337c8d58e55b06cf61b5319d4993c22bfa52a8b9"
+  },
+  "physical_sync_verified": false,
+  "benchmark_execution_ready": false,
+  "scale_fitted": false,
+  "time_fitted": false,
+  "reference_outcomes_previously_exposed": true
+}

@@ -1,0 +1,6 @@
+# Local tag must resolve to exact EXP144 image38b15cbcaf5d.
+FROM ore-ms:orb-finalized-exp144
+COPY orb_stereo_history_runner.cc /opt/ore-ms-stereo-adapter/orb_stereo_history_runner.cc
+COPY orb_stereo_history_CMakeLists.txt /opt/ore-ms-stereo-adapter/CMakeLists.txt
+RUN cmake -S /opt/ore-ms-stereo-adapter -B /opt/ore-ms-stereo-adapter/build -DCMAKE_BUILD_TYPE=Release \
+    && cmake --build /opt/ore-ms-stereo-adapter/build -j2
