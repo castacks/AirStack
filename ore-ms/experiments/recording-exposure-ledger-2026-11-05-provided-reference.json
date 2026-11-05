@@ -1,0 +1,12 @@
+{
+  "development": [
+    "_2021-08-06-11-23-45",
+    "_2021-08-13-21-18-04",
+    "_2021-08-06-16-19-00"
+  ],
+  "reference_access": "complete RGB/thermal provided odometry of these three existing development records",
+  "active_validation": [],
+  "active_test": [],
+  "reserves_unchanged": true,
+  "plan_sha256": "814284d42605080d3bdad5048ca09e2219360c33cfb93d4b1a3455834b251574"
+}
