@@ -1,0 +1,9 @@
+# Local tag must resolve to the exact saved EXP134 image ID before building.
+# sha256:1542a9a2fe4f645aa7b3db1d4d002c0a0b5941a91db105c5587db62b68bd8445
+FROM ore-ms-orb-exp134:1542a9a2fe4f
+COPY add_orb_export_accessors.py /opt/ore-ms-final-adapter/add_orb_export_accessors.py
+RUN python3 /opt/ore-ms-final-adapter/add_orb_export_accessors.py
+COPY orb_finalized_runner.cc /opt/ore-ms-final-adapter/orb_finalized_runner.cc
+COPY orb_finalized_CMakeLists.txt /opt/ore-ms-final-adapter/CMakeLists.txt
+RUN cmake -S /opt/ore-ms-final-adapter -B /opt/ore-ms-final-adapter/build -DCMAKE_BUILD_TYPE=Release \
+    && cmake --build /opt/ore-ms-final-adapter/build -j2
