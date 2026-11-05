@@ -1,3 +1,7 @@
+EXP139: [MS² source-clock evidence audit](docs/research/ms2-clock-evidence-findings-2026-11-04.md).
+Hardware synchronization architecture is documented; export timestamp semantics remain unresolved.
+2,698 scalar checks pass. Clock assumptions remain explicit; benchmark stays unready.
+
 EXP138: [Conditional common-time motion model](docs/research/common-time-model-findings-2026-11-04.md).
 105 tests pass; explicit clock/motion assumptions preserve original times and horizon gaps.
 Model accuracy and physical synchronization remain unestablished; benchmark stays unready.
