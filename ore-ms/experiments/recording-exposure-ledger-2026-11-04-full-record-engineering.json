@@ -1,0 +1,25 @@
+{
+  "scope": "prospective additional visual frame exposure in three already development-exposed records; no new recording assignments",
+  "recordings": [
+    {
+      "recording": "ms2/_2021-08-06-11-23-45",
+      "original_stems": "000000 through 005809",
+      "groups": 5810
+    },
+    {
+      "recording": "ms2/_2021-08-13-21-18-04",
+      "original_stems": "000000 through 010130",
+      "groups": 10131
+    },
+    {
+      "recording": "ms2/_2021-08-06-16-19-00",
+      "original_stems": "000000 through 011867",
+      "groups": 11868
+    }
+  ],
+  "active_test": [],
+  "active_validation": [],
+  "reported_reserves_unchanged": true,
+  "new_reference_values_accessed": false,
+  "intake_plan_sha256": "6a54af1d052fe2bfa13fbd34fe7d55b21e8fd49deb2e3027bb872cb35e7548c6"
+}
