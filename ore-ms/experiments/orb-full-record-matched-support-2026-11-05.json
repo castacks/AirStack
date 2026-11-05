@@ -1,0 +1,14 @@
+{
+  "date": "2026-11-05 America/New_York",
+  "declared_at_utc": "2026-11-05T17:21:41.203576+00:00",
+  "parent_freeze_commit": "37932ff0e",
+  "study_sha256": "3de7e5a48e315e27191d52bb36c7f2407f17975f6290e57ca5162a29636ec512",
+  "source_sha256": "3a99c31771dcb336cfb2658fe266622d3869ff4505294db00bd53575c3b08cd9",
+  "test_sha256": "2ab3a3fe13772b3085d286c7e39f0dde2bd6ab8a4c19eae1da2d367cb6c9efb2",
+  "scope": "Supplemental matched-support diagnostic, declared while native inference is in progress, before any ORB reference score; references/DROID results already exposed development data",
+  "policy": "For every case, mask DROID poses and label diagnostic fragments identically to ORB received-output support/map boundaries; preserve all native originals and full DROID scores. Reuse unchanged v2 scorer; require exact identical source/RPE populations; independently verify metrics. Do not rank fragmented runs as complete wins.",
+  "native_run_settings_changed": false,
+  "case_or_outcome_selection": false,
+  "physical_sync_verified": false,
+  "benchmark_execution_ready": false
+}
