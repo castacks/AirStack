@@ -1,0 +1,32 @@
+{
+  "runs": [
+    {
+      "case": "night-rgb",
+      "protocol": "results/bounded-full-record/protocols-v4/night-rgb.json",
+      "sha256": "314c8b81a0278ef0188df2672299de10d5c62744cdb5ebcb4995aad88804a133",
+      "source_frames": 10131
+    },
+    {
+      "case": "night-thermal",
+      "protocol": "results/bounded-full-record/protocols-v4/night-thermal.json",
+      "sha256": "74c9ed313edd6067a37db5d0c64bb72c4abbdb8a2f2bbf13ec0c1864353c0784",
+      "source_frames": 10131
+    }
+  ],
+  "decisions": [
+    {
+      "case": "night-rgb",
+      "failed_estimate_sha256": "813eed93d85ca9aafbaf338aaf969a3f37409ab2bb4778811fe5b76cb31bb693",
+      "packed32_layout_failure": true
+    },
+    {
+      "case": "night-thermal",
+      "failed_estimate_sha256": "e5e9319be973963a43a7df3980a661121c9266882ac811af4c5f857ffe6fc909",
+      "packed32_layout_failure": true
+    }
+  ],
+  "scope": "one compatibility correction at same4096allocation for unused-padding packed32 failure; not model/quality selection",
+  "original_and_resource_attempts_retained": true,
+  "reference_scoring": false,
+  "benchmark_execution_ready": false
+}
