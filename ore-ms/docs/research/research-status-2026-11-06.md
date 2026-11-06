@@ -1,5 +1,7 @@
 # RGB–thermal VO research status
 
+Current client-local status after EXP152: [2026-11-05 America/New_York](research-status-2026-11-05.md). This filename and the EXP151 snapshot below retain the earlier host-UTC date.
+
 2026-11-06 UTC, after EXP151. [Latest findings](cross-recording-stereo-depth-findings-2026-11-06.md).
 
 Recoverable RGB/thermal ORB and DROID full-record development baselines exist. Thermal tracking support is generally more continuous, while its translation error remains higher. The initialized native constructor repair in EXP150 removes a demonstrated memory-dependence bug and leaves the exposed night travel shortfall near 0.61.

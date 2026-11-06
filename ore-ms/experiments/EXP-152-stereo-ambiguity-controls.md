@@ -1,0 +1,3 @@
+# EXP152: fixed depth/location controls for native patch ambiguity
+
+2026-11-05 America/New_York — [EXP152 fixed patch-gap controls](../docs/research/stereo-ambiguity-controls-findings-2026-11-05.md): freeze 7d6941e1a; primary 30-point joint controls unsupported in all images. At the predeclared 10-point sensitivity, thermal all-primary joint coefficients day −0.066791 (8/15 negative) / night −0.043283 (8/14); median retained points 32.1%/33.3% in defined images. Cue remains weak and support-sensitive; no confidence policy, correction or default promotion. Four tests, 115,338 audit checks / six corruptions pass; all 80 source cases / 960 controlled rows retained. Backup backups/2026-11-05-stereo-ambiguity-controls-exp152.
