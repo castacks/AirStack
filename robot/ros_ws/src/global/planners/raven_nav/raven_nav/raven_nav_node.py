@@ -28,6 +28,7 @@ from coordination_msgs.msg import PeerProfile as PeerProfileMsg
 from coordination_msgs.msg import CoverageGrid
 from coordination_msgs.msg import SemanticVoxelMap
 from raven_nav.semantic_map import SemanticMapFusion
+from raven_nav.feature_map import feature_snapshot_path, query_features
 from airstack_msgs.msg import BidVector
 
 from raven_nav.behavior_manager import BehaviorManager
@@ -523,6 +524,14 @@ class RavenNavNode(Node):
             'semantic_map_sharing', False).value)
         self._semantic_fusion = SemanticMapFusion(float(self.declare_parameter(
             'semantic_map_voxel_size', 0.5).value))
+        self._reusable_feature_map = os.getenv('RAVEN_REUSABLE_FEATURE_MAP', 'false').lower() == 'true'
+        if self._reusable_feature_map and not self._semantic_map_sharing:
+            raise ValueError('reusable features require semantic_map_sharing')
+        self._semantic_feature_labels = None
+        self._feature_file_version = None
+        self._feature_reference_error = None
+        self._feature_queries = None
+        self._feature_probability = True
         self._own_semantic_snapshot = None
         self._semantic_source_stamp = 0
         self._semantic_map_pub = (self.create_publisher(
@@ -536,6 +545,8 @@ class RavenNavNode(Node):
             self._semantic_map_ack_pub = self.create_publisher(String,
                 f'{self._prefix}/coordination/semantic_voxel_map_ack', 10)
             self.create_timer(.2, self._poll_stream_semantic_maps, clock=ROSClock())
+            if self._reusable_feature_map:
+                self.create_timer(.5, self._poll_own_feature_map, clock=ROSClock())
         self._use_shared_completion = bool(self.declare_parameter(
             'use_shared_completion', True).value)
         self._use_peer_allocation_state = bool(self.declare_parameter(
@@ -715,6 +726,8 @@ class RavenNavNode(Node):
 
     def _ray_all_cb(self, msg: PointCloud2):
         """Ray PointCloud2 fields: x,y,z,theta,phi,sim_0,sim_1,..."""
+        if getattr(self, '_reusable_feature_map', False):
+            return  # BBs must come from fused reusable features, never local score clouds
         Q = len(self._query_labels)
         if Q == 0:
             return
@@ -2386,6 +2399,45 @@ class RavenNavNode(Node):
                                            self._semantic_source_stamp)
             self._refresh_semantic_map(publish=True)
 
+    def _poll_own_feature_map(self):
+        if self._boot_enu is None:
+            return
+        path = feature_snapshot_path(self._robot_name)
+        try:
+            with path.open('rb') as stream:
+                stat = os.fstat(stream.fileno())
+                version = (stat.st_ino, stat.st_mtime_ns, stat.st_size)
+                if version == self._feature_file_version:
+                    return
+                with np.load(stream, allow_pickle=False) as data:
+                    labels = list(data['query_labels'])
+                    if not all(label in labels for label in self._query_labels):
+                        return  # mapper is still initializing its query set
+                    self._feature_queries = data['query_features'][[labels.index(q) for q in self._query_labels]]
+                    self._feature_probability = bool(data['probability'])
+                    self._feature_reference_error = float(data['reference_error'])
+                    if self._feature_reference_error > .002:
+                        raise ValueError('RayFronts / feature reconstruction parity failed')
+                    space = str(data['feature_space'])
+                    features = data['features']
+                    channel_labels = ['rgb_r', 'rgb_g', 'rgb_b', 'observation_count'] + [
+                        f'feature:{space}:{i}' for i in range(features.shape[1])]
+                    if self._semantic_feature_labels is not None and channel_labels != self._semantic_feature_labels:
+                        raise ValueError('reusable encoder feature space changed during search')
+                    self._semantic_feature_labels = channel_labels
+                    rdf = data['xyz']
+                    xyz = np.stack([rdf[:, 2], -rdf[:, 0], -rdf[:, 1]], axis=1)
+                    values = np.ascontiguousarray(np.c_[data['rgb'], data['counts'], features], dtype=np.float32)
+            self._semantic_source_stamp += 1
+            self._own_semantic_snapshot = (xyz, values, self._semantic_source_stamp)
+            self._refresh_semantic_map(publish=True)
+            self._feature_file_version = version
+        except FileNotFoundError:
+            pass
+        except (ValueError, OSError) as exc:
+            self._semantic_map_rejections += 1
+            self.get_logger().error(f'reusable map export rejected: {exc}', throttle_duration_sec=10.)
+
     def _refresh_semantic_map(self, publish=False):
         """Fuse in world XY / AGL Z; expose results in this robot's map frame.
 
@@ -2400,10 +2452,11 @@ class RavenNavNode(Node):
             if fused_xyz is not None:
                 self._vox_xyz = fused_xyz.copy()
                 self._vox_xyz[:, :2] -= self._boot_enu[:2]
-                self._vox_scores = fused_scores
+                self._vox_scores = (query_features(fused_scores[:, 4:], self._feature_queries, self._feature_probability)
+                    if getattr(self, '_reusable_feature_map', False) else fused_scores)
             return
         xyz, scores, version = self._own_semantic_snapshot
-        labels = list(self._query_labels)
+        labels = getattr(self, '_semantic_feature_labels', None) or list(self._query_labels)
         if scores.shape[1] != len(labels):
             self.get_logger().error('semantic map vocabulary does not match score columns',
                                     throttle_duration_sec=10.0)
@@ -2434,7 +2487,8 @@ class RavenNavNode(Node):
         if fused_xyz is not None:
             self._vox_xyz = fused_xyz.copy()
             self._vox_xyz[:, :2] -= self._boot_enu[:2]
-            self._vox_scores = fused_scores
+            self._vox_scores = (query_features(fused_scores[:, 4:], self._feature_queries, self._feature_probability)
+                    if getattr(self, '_reusable_feature_map', False) else fused_scores)
 
     def _accept_semantic_map(self, profile):
         for payload in profile.payloads:
@@ -2443,7 +2497,7 @@ class RavenNavNode(Node):
             try:
                 msg = deserialize_message(bytes(payload.payload_data), SemanticVoxelMap)
                 if (msg.cloud.header.frame_id != 'world_xy_agl'
-                        or list(msg.labels) != list(self._query_labels)
+                        or list(msg.labels) != (getattr(self, '_semantic_feature_labels', None) or list(self._query_labels))
                         or not np.isclose(msg.voxel_size, self._semantic_fusion.resolution)):
                     raise ValueError('incompatible semantic map frame, vocabulary or resolution')
                 fields = ('x', 'y', 'z') + tuple(f'sim_{i}' for i in range(len(msg.labels)))
@@ -2460,11 +2514,14 @@ class RavenNavNode(Node):
     def _on_stream_semantic_map(self, msg):
         if self._boot_enu is None or msg.source_robot == self._robot_name:
             return
+        if (getattr(self, '_reusable_feature_map', False)
+                and getattr(self, '_semantic_feature_labels', None) is None):
+            return  # local encoder/query metadata not ready; no ACK, full retry
         try:
             if msg.is_delta and self._semantic_fusion.versions.get(msg.source_robot, -1) < msg.base_revision:
                 return  # no ACK: reliable sender will resynchronize with a full map
             if (msg.cloud.header.frame_id != 'world_xy_agl'
-                    or list(msg.labels) != list(self._query_labels)
+                    or list(msg.labels) != (getattr(self, '_semantic_feature_labels', None) or list(self._query_labels))
                     or not np.isclose(msg.voxel_size, self._semantic_fusion.resolution)):
                 raise ValueError('incompatible semantic map frame, vocabulary or resolution')
             fields = ('x', 'y', 'z') + tuple(f'sim_{i}' for i in range(len(msg.labels)))
@@ -3149,6 +3206,9 @@ class RavenNavNode(Node):
             dbg.setdefault('params', {}).update(
                 share_rays=self._share_rays, share_bbs=self._share_bbs,
                 semantic_map_sharing=self._semantic_map_sharing,
+                reusable_feature_map=self._reusable_feature_map,
+                feature_dimension=(len(self._semantic_feature_labels)-4 if self._semantic_feature_labels else 0),
+                feature_reference_error=self._feature_reference_error,
                 semantic_map_sources=len(self._semantic_fusion.sources),
                 semantic_map_rejections=self._semantic_map_rejections,
                 semantic_map_peer_updates=dict(self._semantic_map_updates),

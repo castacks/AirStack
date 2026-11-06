@@ -2,6 +2,7 @@
   <arg name="config_name" default="low_memory"/>
   <arg name="dataset"     default="ros2isaacsim"/>
   <arg name="query_period" default="10"/>
+  <arg name="query_compressed" default="$(env RAYFRONTS_QUERY_COMPRESSED True)"/>
   <!-- False publishes raw cosine similarities instead of a softmax over the
        query set. Raw scores are vocabulary-independent: adding or removing a
        background query leaves the other columns untouched, so a recorded run
@@ -46,7 +47,7 @@
     raven_nav_node and semantic_search_task subscribe to.
   -->
   <executable
-    cmd="python3 -m rayfronts.mapping_server
+    cmd="python3 $(find-pkg-prefix perception_bringup)/lib/perception_bringup/rayfronts_feature_server.py
          --config-name $(var config_name)
          dataset=$(var dataset)
          dataset.rgb_topic=/robot_$(env ROS_DOMAIN_ID)/sensors/front_stereo/left/image_rect
@@ -60,6 +61,7 @@
          querying.text_query_mode=prompts
          querying.query_file=null
          querying.compute_prob=$(var compute_prob)
+         querying.compressed=$(var query_compressed)
          querying.period=$(var query_period)"
     cwd="/opt/rayfronts"
     output="screen">

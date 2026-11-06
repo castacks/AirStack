@@ -476,9 +476,10 @@ class GossipNode(Node):
         revision = msg.cloud.header.stamp.sec * 1_000_000_000 + msg.cloud.header.stamp.nanosec
         # ACK only after Raven has fused it, not merely after local DDS write.
         # A late-starting/restarted planner therefore triggers a full resync.
+        ack_timeout = 20 if os.getenv('RAVEN_REUSABLE_FEATURE_MAP', 'false').lower() == 'true' else 5
         with self._map_ack_condition:
             fused = self._map_ack_condition.wait_for(
-                lambda: self._map_fusion_acks.get(msg.source_robot, -1) >= revision, timeout=5)
+                lambda: self._map_fusion_acks.get(msg.source_robot, -1) >= revision, timeout=ack_timeout)
         if not fused:
             raise ValueError('local planner did not acknowledge map fusion')
         self._map_stream_revisions[msg.source_robot] = max(revision, self._map_stream_revisions.get(msg.source_robot, -1))

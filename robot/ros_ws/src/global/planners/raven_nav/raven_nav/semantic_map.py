@@ -49,10 +49,16 @@ class SemanticMapFusion:
             if not self.sources:
                 return None, None
             keys = np.concatenate([s[0] for s in self.sources.values()])
-            values = np.concatenate([s[1] for s in self.sources.values()])
+            sources = list(self.sources.values())
             _, inverse, count = np.unique(keys, axis=0, return_inverse=True, return_counts=True)
-            total = np.zeros((len(count), values.shape[1]), dtype=np.float64)
-            np.add.at(total, inverse, values)
+            total = np.zeros((len(count), sources[0][1].shape[1]), dtype=np.float64)
+            # Each source contains unique cells, so ordinary indexed addition
+            # is correct within a source and avoids a huge concatenated feature
+            # matrix plus slow scalar np.add.at for full encoder dimensions.
+            offset = 0
+            for _, values, _ in sources:
+                total[inverse[offset:offset+len(values)]] += values
+                offset += len(values)
             merged = (total / count[:, None]).astype(np.float32)
             self._cached = merged[:, :3], merged[:, 3:]
         return self._cached

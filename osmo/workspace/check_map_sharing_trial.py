@@ -2,6 +2,7 @@
 """Post-search check, run in every robot container for the map/BB comparison."""
 import json
 import os
+import shutil
 from pathlib import Path
 
 root = Path('/root/.cache/raven_results')
@@ -11,6 +12,13 @@ expected = int(os.environ.get('NUM_ROBOTS', '3'))
 rows = [json.loads(line) for line in (root / f'{robot}_auction_solve.jsonl').read_text().splitlines()]
 assert rows, 'missing auction trace'
 assert all(bool(r['params']['semantic_map_sharing']) == mode for r in rows), 'wrong sharing mode'
+if os.getenv('RAVEN_REUSABLE_FEATURE_MAP', 'false').lower() == 'true':
+    assert all(r['params'].get('reusable_feature_map') for r in rows), 'wrong map representation'
+    assert max(r['params'].get('feature_dimension', 0) for r in rows) >= 100, 'missing full reusable features'
+    errors = [r['params']['feature_reference_error'] for r in rows if r['params'].get('feature_reference_error') is not None]
+    assert errors and max(errors) <= .002, 'feature scoring parity was not verified'
+    # Preserve the full reusable source maps, not just their mission queries.
+    shutil.copyfile(f'/tmp/rayfronts_features_{robot}.npz', root / f'{robot}_reusable_features.npz')
 if mode:
     assert all(r['params']['semantic_map_rejections'] == 0 for r in rows), 'rejected semantic map'
     assert any(sum(n > 0 for n in r['params']['semantic_map_cells_by_source'].values()) >= expected

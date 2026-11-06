@@ -338,3 +338,50 @@ node-level yielding gates and bundle limits 1/3/6/12. Run with the package on
 
 The full matched experiment and analysis definitions are in
 `docs/experiments/raven_bundle_study_20261014.md` at the repository root.
+
+
+### Reusable feature-map experiment
+
+Set `RAVEN_REUSABLE_FEATURE_MAP=true`, `RAVEN_SEMANTIC_MAP_SHARING=true`,
+`RAVEN_SHARE_BBS=false` and `RAYFRONTS_QUERY_COMPRESSED=False`. The original
+score-map mode above remains separately selectable. For a matched BB control,
+keep `RAYFRONTS_QUERY_COMPRESSED=False` but disable both map-sharing flags and
+enable BB sharing. This makes both modes use the same RayFronts query operation.
+
+```mermaid
+flowchart LR
+  Native[Own stored PCA voxel features] --> Decode[Decompress and align to shared language feature space]
+  Decode --> Export[XYZ + RGB + count + all float32 feature channels]
+  Export --> Delta[Initial map then acknowledged changed-cell updates]
+  Export --> Fusion[Accumulate source-aware features on common world grid]
+  Delta --> Peer[Peer feature map] --> Fusion
+  Fusion --> Query[Cosine similarity and softmax with local text embeddings]
+  Query --> BB[Existing BB clustering and auction]
+```
+
+Each robot fits a different PCA basis online. Never average or exchange bare PCA
+coefficients as though they share a basis. The adapter reconstructs the stored
+features and applies the original encoder language projection, then transmits
+**every dimension** of the resulting reusable language feature vector as float32,
+plus XYZ, RGB and observation count. It applies no additional PCA, quantization,
+query selection or thresholding. The original local map's PCA approximation still
+exists; reconstruction cannot restore information that local mapping discarded.
+These vectors support arbitrary future language queries with the same encoder;
+this is not transmission of model weights, raw images, occupancy/free-space VDB,
+or every GPU allocation. Features are fused before computing query scores.
+RGB/count are retained as map attributes; independent source contributions are
+averaged once per cell, rather than counted repeatedly on retransmission.
+
+The AirStack `rayfronts_feature_server.py` adapter wraps upstream MappingServer
+without modifying the RayFronts submodule. Atomic local exports are handed to
+Raven, which sends only its own source map through the existing acknowledged
+TCP delta transport. Query vectors are generated locally, never sent as the map.
+An encoder-config fingerprint and full channel schema prevent incompatible
+feature-space fusion. Runtime exports independently reproduce the first 64
+actual RayFronts voxel-query results; an absolute score error above 0.002 aborts
+instead of silently using a different semantic operation. Auction traces record
+representation, dimension and parity error. The end-of-trial checker archives
+`robot_N_reusable_features.npz` alongside metrics, preserving all source feature
+vectors and query metadata for offline fusion and new queries. Network counters
+continue to count actual delivered application bytes, including full-map resyncs.
+The frontier protocol is unchanged in both modes.
