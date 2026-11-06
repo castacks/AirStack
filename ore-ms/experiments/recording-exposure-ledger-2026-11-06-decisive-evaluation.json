@@ -1,0 +1,30 @@
+{
+  "at_utc": "2026-11-06T06:09:35.489378+00:00",
+  "execution_freeze_commit": "3ec9ed240",
+  "scope": "whole recordings; qualified project-unexamined within audited recorded lineage; unknown checkpoint training overlap",
+  "active_test": [
+    "_2021-08-13-16-31-10",
+    "_2021-08-13-22-16-02"
+  ],
+  "recordings": [
+    {
+      "recording": "_2021-08-13-16-31-10",
+      "condition": "day",
+      "partition": "fixed evaluation",
+      "visual_access": "intake authorized and in progress",
+      "odometry_access": "prohibited until global prediction lock",
+      "future_retuning": "recordings must be treated as exposed after this attempt"
+    },
+    {
+      "recording": "_2021-08-13-22-16-02",
+      "condition": "night",
+      "partition": "fixed evaluation",
+      "visual_access": "intake authorized and in progress",
+      "odometry_access": "prohibited until global prediction lock",
+      "future_retuning": "recordings must be treated as exposed after this attempt"
+    }
+  ],
+  "historical_ledgers_unchanged": true,
+  "checkpoint_training_overlap": "unknown",
+  "physical_clock_verified": false
+}
