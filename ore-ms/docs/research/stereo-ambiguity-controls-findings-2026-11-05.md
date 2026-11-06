@@ -1,5 +1,7 @@
 # Fixed depth/location controls weaken the patch-gap evidence
 
+**Subsequent research decision: this candidate branch is closed for confidence-policy development.** [Evidence and stopping rules](research-decision-2026-11-05.md). The results below remain unchanged.
+
 2026-11-05 America/New_York. EXP152; parent EXP151/6b984d4ef. Freeze **7d6941e1a** precedes all controlled outcomes. [Protocol](stereo-ambiguity-controls-protocol-2026-11-05.md). EXP151's 2026-11-06 UTC filenames are retained; current user-facing date follows the client timezone.
 
 The existing evidence does not support promoting patch gap to a reliability policy. **No image supports joint depth/location conditioning at the primary 30-point stratum minimum.** The predeclared 10-point sensitivity produces small thermal all-primary within-bin coefficients: median **−0.066791 day** and **−0.043283 night**, negative in **8/15** and **8/14** defined images. It retains a median **32.1%** and **33.3%** of points in those defined images. These are sparse, support-sensitive descriptive results, without a robust joint-control demonstration.

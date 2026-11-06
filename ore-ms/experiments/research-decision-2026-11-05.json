@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "date": "2026-11-05 America/New_York",
+  "kind": "research_decision_and_single_unexecuted_test",
+  "not_new_empirical_experiment": true,
+  "base_commit": "0cff9bb86501537bfa567ad71a08adb56e20063d",
+  "branch_dispositions": {
+    "patch_gap": "CLOSED_INSUFFICIENT_EVIDENCE",
+    "thermal_bias_microdiagnostics": "PARKED",
+    "retuning_exposed_windows": "CLOSED_FOR_VALIDATION",
+    "fusion_implementation": "DEFERRED_UNTIL_SIGNAL_GATE"
+  },
+  "fixed_expert_assets_expected": {
+    "models/macslam/MACVO_FrontendCov.pth": "bec6edd7e195bab863132f1e9659cdd26e6eaeae7cfd24a626828de294cf5b3a",
+    "models/macslam/MACT_Offroad.pth": "eed20722b73c80f016c4646741def4e4e5e2999feaf2c2715c5a6293dc35287a"
+  },
+  "primary_candidate": {
+    "name": "EXP131 angular_uncertainty unchanged",
+    "source": "tools/rotation_signal_audit.py",
+    "source_sha256": "ef82ddeeb35012a048e90309be78cac0b1762c2bd4e5cef8e37dde2b949a0783",
+    "function": "fixed_choices",
+    "trained_new_model": false,
+    "seed": 0,
+    "training_allowed": false
+  },
+  "baselines": [
+    "always_rgb",
+    "always_thermal",
+    "metadata_day_rgb_night_thermal"
+  ],
+  "diagnostic_only": [
+    "raw_uncertainty",
+    "per_recording_hindsight_best_fixed",
+    "per_interval_oracle"
+  ],
+  "evaluation": {
+    "unit": "whole_recording",
+    "minimum_separate_recordings": 2,
+    "active_test": [],
+    "reported_conditional_candidates": [
+      "ms2/_2021-08-13-16-31-10",
+      "ms2/_2021-08-13-22-16-02"
+    ],
+    "minimum_joint_reference_intervals_per_recording": 1000,
+    "minimum_coverage": 0.95,
+    "rotation_headroom_fraction_each_recording": 0.1,
+    "minimum_candidate_rotation_improvement_each_recording": 0.05,
+    "maximum_translation_increase_each_baseline": 0.05,
+    "no_coverage_loss": true,
+    "reference_qualifier": "qualified nominal common-interval common-frame provided/reference proxy; not physical truth",
+    "prediction_lock_precedes_new_reference_values": true
+  },
+  "execution": {
+    "status": "UNEXECUTED_NOT_READY",
+    "current_stop": "STOP_NOT_EXECUTABLE_CURRENT_INPUTS",
+    "new_data_access": false,
+    "new_inference": false,
+    "new_scores": false,
+    "maximum_existing_asset_recovery_hours": 4,
+    "new_adapters_or_features_allowed": false
+  },
+  "possible_outcomes": [
+    "STOP_NOT_EXECUTABLE_CURRENT_INPUTS",
+    "STOP_INSUFFICIENT_EVALUATION",
+    "STOP_NO_PRACTICAL_HEADROOM",
+    "STOP_NO_SIGNAL_FOR_CURRENT_RULE",
+    "PASS_LIMITED_BENCHMARK_SIGNAL"
+  ],
+  "inventory_path": "results/research-decision/run-001/inventory.json",
+  "inventory_sha256": "09d083e964da29beaf150548280f14ea1d6582301a709c24e60f1c33b7e9905b",
+  "evidence_sha256": {
+    "docs/research/provided-quality-headroom-findings-2026-11-04.md": "e3046d9656ede47ef23e84fa38d9de78a3eb28c9ffd217761cc3683780d3d7c1",
+    "docs/research/rotation-signal-audit-findings-2026-11-04.md": "553589d9e416fd6e917efb7f42cac82b587bfa90c9ed293ae3596c6ebd4ebf9f",
+    "docs/research/signal-transfer-findings-2026-11-04.md": "7e44a56e3db79f756893aa163fa8b776957e278c6b5c65f08c9d276ae35de91c",
+    "docs/research/bounded-full-record-findings-2026-11-04.md": "39308e4a10682b3f7a188b5b405a63c747a5c634df86d6c7aedb41f929b9847e",
+    "docs/research/orb-full-record-findings-2026-11-05.md": "2d355ae89a5a11483d77035604cb4bde203000b330b33002f55c177178739724",
+    "docs/research/orb-finalization-findings-2026-11-05.md": "a706072b994d19aede846432156c852c856e0eeb80d1bcdc065142b2d7767920",
+    "docs/research/stereo-baseline-initialization-findings-2026-11-05.md": "26d114b9093324f77253116cbd7b509766f926a83ae50836ccf55a9d56408ee4",
+    "docs/research/cross-recording-stereo-depth-findings-2026-11-06.md": "c1ce86e796f6b06e0e8dabbdcf5bf5380c2da9c6ff5efb973b93009a30da3ed3",
+    "docs/research/stereo-ambiguity-controls-findings-2026-11-05.md": "4d433c1a0d835750e231d97c20e73da3f805abb2cc11e215af74913844ab69c9",
+    "experiments/independent-benchmark-2026-11-04.json": "19edf913daf442c2e120d78feafc92fef6bd99ccc02876d023ca6b735730bdf7",
+    "experiments/recording-exposure-ledger-2026-11-01-coverage-development.json": "177be6e42c51a3917e3fc98570ae273c68f2673503cbf454d1fc5ee780b1121c",
+    "docs/research/selected-motion-publisher-findings-2026-11-04.md": "5d490dbcdfb5925acd9dae8a54ece4f53214e89f94b1bce96ec9b7b03ac3d866",
+    "tools/rotation_signal_audit.py": "ef82ddeeb35012a048e90309be78cac0b1762c2bd4e5cef8e37dde2b949a0783",
+    "MAC-VO-main/Scripts/Setup/ms2_execution_adapter.py": "17f0543da24a729b8180ec4419219dea5a1989f4ac4283409029695f8d0f89f6"
+  }
+}
