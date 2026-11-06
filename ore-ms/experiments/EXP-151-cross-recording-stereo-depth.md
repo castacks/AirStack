@@ -1,0 +1,3 @@
+# EXP151: initialized depth and ambiguity across day/night
+
+2026-11-06 UTC — [EXP151 initialized day/night depth](../docs/research/cross-recording-stereo-depth-findings-2026-11-06.md): freeze 14159db76; thermal native/projected depth ratios day 0.865507 / night 0.826784, consistent 0.871988 / 0.874161. Thermal patch-gap/AbsRel median rho day −0.114880 (15/20 negative), night −0.191699 (17/20); descriptor cues weak/inconsistent. All 80pairs/two-pass geometry exact, 2,938 native-cost targets exact, 160 pair calls; no trajectories/fit/selector/default/physical promotion. Three tests, 1,434,047 audit checks / 7 corruptions pass. Backup backups/2026-11-06-cross-recording-stereo-depth-exp151.
