@@ -1,13 +1,9 @@
 # RGB–thermal VO research status
 
-Current client-local status after EXP152: [2026-11-05 America/New_York](research-status-2026-11-05.md). This filename and the EXP151 snapshot below retain the earlier host-UTC date.
+2026-11-06 America/New_York. [Asset recovery milestone](bounded-asset-recovery-2026-11-06.md) · [Research decision](research-decision-2026-11-05.md) · [Single-test contract](decisive-uncertainty-test-2026-11-05.md).
 
-2026-11-06 UTC, after EXP151. [Latest findings](cross-recording-stereo-depth-findings-2026-11-06.md).
+The original MAC/MACT checkpoints and exact historical compiler runtime are restored. One unchanged 20-frame night development capture per camera completes with source-clock poses, positive covariance summaries and native motion receipts on all 19 transition pairs. No estimator code, dependency, recipe, threshold or model changed. This resolves the missing-local-assets issue and establishes a working two-expert uncertainty pipeline.
 
-Recoverable RGB/thermal ORB and DROID full-record development baselines exist. Thermal tracking support is generally more continuous, while its translation error remains higher. The initialized native constructor repair in EXP150 removes a demonstrated memory-dependence bug and leaves the exposed night travel shortfall near 0.61.
+The decisive evaluation is still unexecuted. Source-specific compatibility with its qualified nominal common-interval/common-frame target and an explicit verified fresh partition/execution lock remain pending. No reserve payload was opened, and no new accuracy or selector result was computed. Camera-local execution does not prove physical calibration, cross-camera timing or generalization.
 
-EXP151 extends native depth diagnosis to day: thermal native/projected-LiDAR depth ratio 0.865507 day versus 0.826784 night; reference-only consistent subsets 0.871988/0.874161. The projected reference remains sparse and physically unqualified. This pattern extends across two exposed recordings, without identifying a cause or correction.
-
-Patch-gap/error association is modest and weaker in day: median within-image rho −0.114880 versus −0.191699 night, negative 15/20 and17/20. Descriptor cues are weak/inconsistent. All 80pairs have identical two-pass geometry and 2,938 native-cost reconstructions pass. No calibrated confidence, selector or fusion improvement is validated.
-
-Next test fixed depth/spatial confounders before a confidence policy, and continue acquisition/export timing, visibility and calibration provenance work. Defaults/reserves/EXP133 physical/online gates remain unchanged; no scale/time fit or learned/adaptive promotion.
+The research decision remains: close patch-gap confidence development, park symptom-led thermal-bias micro-diagnostics, and use one fixed uncertainty-value test with explicit headroom/accuracy/translation/coverage stopping rules. No new branch, model search or diagnostic series is opened by recovery success.

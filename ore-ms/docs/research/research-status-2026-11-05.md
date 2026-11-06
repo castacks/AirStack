@@ -1,5 +1,7 @@
 # RGB–thermal VO research status
 
+Current asset availability is updated in [2026-11-06 recovery](bounded-asset-recovery-2026-11-06.md): both checkpoints/runtime and the development smoke now pass. The missing-assets statements below describe the earlier inventory; the research closure decisions and unexecuted evaluation status remain.
+
 2026-11-05 America/New_York, after the research decision following EXP152.
 
 **Current decision: close patch-gap confidence development; park the thermal-bias diagnostic chain.** [Evidence and decision](research-decision-2026-11-05.md) · [One bounded test](decisive-uncertainty-test-2026-11-05.md).
