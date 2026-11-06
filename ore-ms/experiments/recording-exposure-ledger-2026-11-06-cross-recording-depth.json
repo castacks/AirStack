@@ -1,0 +1,33 @@
+{
+  "recordings": [
+    "_2021-08-06-11-23-45",
+    "_2021-08-13-21-18-04"
+  ],
+  "development_exposed": true,
+  "indices": [
+    0,
+    100,
+    200,
+    300,
+    400,
+    500,
+    600,
+    700,
+    800,
+    900,
+    1000,
+    1100,
+    1200,
+    1300,
+    1400,
+    1500,
+    1600,
+    1700,
+    1800,
+    1900
+  ],
+  "new_day_depth_maps": 40,
+  "night_maps_previously_exposed": 40,
+  "reserves_unchanged": true,
+  "new_numeric_depth_read": false
+}
