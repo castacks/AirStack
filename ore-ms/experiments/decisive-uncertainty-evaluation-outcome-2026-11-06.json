@@ -1,0 +1,187 @@
+{
+  "completed_at_utc": "2026-11-06T07:58:40.625283+00:00",
+  "status": "STOP_INSUFFICIENT_EVALUATION",
+  "records": {
+    "day": {
+      "expected_intervals": 5694,
+      "matched_intervals": 5416,
+      "coverage": 0.9511766772040745,
+      "means": {
+        "rgb": {
+          "rotation_deg": 0.046486479282694476,
+          "translation_m": 0.1670955882452951
+        },
+        "thermal": {
+          "rotation_deg": 0.1316207058123153,
+          "translation_m": 0.4550332528775098
+        },
+        "metadata": {
+          "rotation_deg": 0.046486479282694476,
+          "translation_m": 0.1670955882452951
+        },
+        "angular": {
+          "rotation_deg": 0.046486479282694476,
+          "translation_m": 0.1670955882452951
+        },
+        "raw_uncertainty": {
+          "rotation_deg": 0.04818322737387339,
+          "translation_m": 0.1731928852390934
+        }
+      },
+      "rotation_oracle_mean_deg": 0.042283896638032135,
+      "sufficient": true,
+      "headroom": false,
+      "rotation_gates": {
+        "rgb": false,
+        "thermal": true,
+        "metadata": false
+      },
+      "translation_gates": {
+        "rgb": true,
+        "thermal": true,
+        "metadata": true
+      },
+      "no_coverage_loss": true,
+      "candidate_pass": false
+    },
+    "night": {
+      "expected_intervals": 5233,
+      "matched_intervals": 4693,
+      "coverage": 0.8968087139308236,
+      "means": {
+        "rgb": {
+          "rotation_deg": 0.05048132021011858,
+          "translation_m": 0.1582976060080817
+        },
+        "thermal": {
+          "rotation_deg": 0.1494510672524618,
+          "translation_m": 0.6037363936223554
+        },
+        "metadata": {
+          "rotation_deg": 0.1494510672524618,
+          "translation_m": 0.6037363936223554
+        },
+        "angular": {
+          "rotation_deg": 0.051147586119773686,
+          "translation_m": 0.1658732047787912
+        },
+        "raw_uncertainty": {
+          "rotation_deg": 0.0560898495020603,
+          "translation_m": 0.20577049928831675
+        }
+      },
+      "rotation_oracle_mean_deg": 0.04432429117114311,
+      "sufficient": false,
+      "headroom": true,
+      "rotation_gates": {
+        "rgb": false,
+        "thermal": true,
+        "metadata": true
+      },
+      "translation_gates": {
+        "rgb": true,
+        "thermal": true,
+        "metadata": true
+      },
+      "no_coverage_loss": true,
+      "candidate_pass": false
+    }
+  },
+  "plan_sha256": "50b685909215eed5a45cd6c125493db58b7e249244da9eb049ab179c3c35cb66",
+  "prediction_lock_sha256": "f76019d2e9408e5cbab3c2120ef06366bf81e1b19c4fcb3f29e79a2a66b02954",
+  "scope": "two whole recordings; nominal provided reference proxy; unknown checkpoint training overlap; no physical synchronization or online scheduling claim",
+  "independent_mean_reduction_passed": true,
+  "reported_at_utc": "2026-11-06T08:00:42.813025+00:00",
+  "execution_freeze_commit": "3ec9ed240",
+  "native": [
+    {
+      "condition": "day",
+      "expert": "rgb",
+      "frames": 5695,
+      "native_unsupported_transitions": 0,
+      "observer_errors": 0,
+      "elapsed_seconds": 2250.612391
+    },
+    {
+      "condition": "day",
+      "expert": "thermal",
+      "frames": 5695,
+      "native_unsupported_transitions": 240,
+      "observer_errors": 0,
+      "elapsed_seconds": 837.294704
+    },
+    {
+      "condition": "night",
+      "expert": "rgb",
+      "frames": 5234,
+      "native_unsupported_transitions": 3,
+      "observer_errors": 0,
+      "elapsed_seconds": 2108.795355
+    },
+    {
+      "condition": "night",
+      "expert": "thermal",
+      "frames": 5234,
+      "native_unsupported_transitions": 493,
+      "observer_errors": 0,
+      "elapsed_seconds": 726.858061
+    }
+  ],
+  "descriptive_readouts": {
+    "day": {
+      "rotation_oracle_headroom_fraction": 0.09040440810984018,
+      "angular_rotation_change_vs_rgb_fraction": 0.0,
+      "angular_translation_change_vs_rgb_fraction": 0.0,
+      "matched_angular_choices": {
+        "rgb": 5416
+      },
+      "all_axis_angular_choices": {
+        "rgb": 5693,
+        "ABSTAIN": 1
+      },
+      "invalid_feature_intervals": 75,
+      "exclusion_reason_counts": {
+        "thermal: horizon_exceeded": 33,
+        "thermal: missing_or_ambiguous_first_motion": 240,
+        "invalid_reference_endpoint": 4,
+        "rgb: source_motion_not_pair_processing": 1,
+        "thermal: source_motion_not_pair_processing": 1
+      },
+      "invalid_reference_poses": 2
+    },
+    "night": {
+      "rotation_oracle_headroom_fraction": 0.12196648212344774,
+      "angular_rotation_change_vs_rgb_fraction": 0.01319826634648047,
+      "angular_translation_change_vs_rgb_fraction": 0.047856685655263353,
+      "matched_angular_choices": {
+        "rgb": 4642,
+        "thermal": 51
+      },
+      "all_axis_angular_choices": {
+        "rgb": 5178,
+        "ABSTAIN": 3,
+        "thermal": 52
+      },
+      "invalid_feature_intervals": 149,
+      "exclusion_reason_counts": {
+        "thermal: horizon_exceeded": 45,
+        "thermal: missing_or_ambiguous_first_motion": 493,
+        "rgb: missing_or_ambiguous_first_motion": 3,
+        "rgb: source_motion_not_pair_processing": 1,
+        "thermal: source_motion_not_pair_processing": 1
+      },
+      "invalid_reference_poses": 0
+    }
+  },
+  "independent_audit_checks": 41248,
+  "disposition": "STOP this fixed-rule evaluation route; no validated adaptive-method benefit; no threshold change, quality rerun, substitute rule or promotion; report coverage/method findings with scoped limitations",
+  "scientific_rule_formally_rejected": false,
+  "two_record_primary_evaluation_sufficient": false,
+  "future_retuning_must_treat_both_recordings_as_exposed": true,
+  "evidence_sha256": {
+    "results/decisive-uncertainty-evaluation/run-001/decision.json": "0739fa6e8d85b6f6d39c823bc46ef27fe4c7491291d4401d8cddc512bc9dae88",
+    "results/decisive-uncertainty-evaluation/run-001/prediction-lock.json": "f76019d2e9408e5cbab3c2120ef06366bf81e1b19c4fcb3f29e79a2a66b02954",
+    "results/decisive-uncertainty-evaluation/run-001/validation/independent-decision-check.json": "878a07f3af127f162935d85e7f784a1366f678a324d8247e9fb43e16023676f7",
+    "results/decisive-uncertainty-evaluation/run-001/validation/execution-provenance-check.json": "d98675ad90cff804873ea0e10551a792894edff35f286b6d02889ce26168a820"
+  }
+}
