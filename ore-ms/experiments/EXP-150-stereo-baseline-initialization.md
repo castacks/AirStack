@@ -1,0 +1,3 @@
+# EXP150: stereo baseline initialization repair and controls
+
+2026-11-05 — [EXP150 stereo baseline initialization repair](../docs/research/stereo-baseline-initialization-findings-2026-11-05.md): freeze 5a41bc175; original/rebuild native libraries byte-identical. Storage probe original/rebuild accepted 512/512/0, repaired 512/512/512 with identical all-feature geometry. Six full captures/12,000 native calls and 80 integration calls complete. Repaired thermal common final travel/reference 0.613906, translation RPE 2.8326 m (RGB 0.6435 m). Three tests, 40,093,761 audit checks/4 corruptions pass. No causal accuracy claim, physical qualification, selector, reserve/default/EXP133 promotion. Backup backups/2026-11-05-stereo-baseline-initialization-exp150.
