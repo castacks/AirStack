@@ -1,0 +1,102 @@
+{
+  "parent": "ed971d3cb70446f6884bb1745732fd9d5088dbd2",
+  "parameters": {
+    "arms": [
+      "original",
+      "rebuilt",
+      "fixed"
+    ],
+    "source_groups": 2000,
+    "seed": 0,
+    "threads": 1,
+    "timeout_seconds": 3600,
+    "bins": [
+      [
+        0,
+        500
+      ],
+      [
+        500,
+        1000
+      ],
+      [
+        1000,
+        1500
+      ],
+      [
+        1500,
+        2000
+      ]
+    ]
+  },
+  "source_sha256": {
+    "tools/stereo_baseline_initialization.py": "b9466fef6cb0f45d34c8d28231290b6c64c0a97a0fdac47a9243bbc86f2faca1",
+    "tools/stereo_baseline_initialization_audit.py": "f2f0361f8f6ee67729c4a6264a21b054799c0b394974c3c6706de5561f58f5ea",
+    "tools/tests/test_stereo_baseline_initialization.py": "c1b95646036d9c061b1ffeead00459ddf81dc59060cda1909f812b03667b9964",
+    "environment/patch_orb_stereo_baseline.py": "5a23630bb053a208fbbbeb45dceae8362dc779f848699c56db097ef4168b0dbb",
+    "environment/orb_initialization_probe.cc": "f3fe0ac2ebbafd8e9b18425bfbdb05b57ad9354f1b5ce091b5625d10e842af4b",
+    "environment/orb_initialization_probe_CMakeLists.txt": "bb8714a81d4aaf2e8c0afb61672ee18fcd3c2c3d12a6f4cd4488a1b73db14703",
+    "environment/Dockerfile.orb-baseline-initialization": "93e434d2fac507660fddf27a7511102acf34e75bf2ad29f63d414992aa43482c",
+    "docs/research/stereo-baseline-initialization-protocol-2026-11-05.md": "fd63cccc0ce7ef08de59ed65414a60d545c4a831d3414a3afb9c18e81f5abb85",
+    "results/stereo-baseline-initialization/run-001/source-manifest.json": "5b2c0dfaf78eca1998014828de18c11fc16844fc338410ba8dbb5c59473e84a6",
+    "results/stereo-baseline-initialization/run-001/runtime-identities.json": "0f199489496e07ce99bc42eb242cdb5652827f9ee695b74b50b62fed6004785b",
+    "results/stereo-baseline-initialization/run-001/probe-validation.json": "1891c80bba0b7f72452856b0536101d409ced6325676828608bde8869c763666",
+    "results/provided-reference-full-record/run-001/reference-lock.json": "d0d6c165e78f6b45ae9dd77f0345ec71688975c6fe8aa57105774c3baa1439da",
+    "tools/stereo_baseline_initialization_plot.py": "7135322891297a984b116a1e10e85497d10530779355b2ad3f387734a6fffd36",
+    "results/stereo-baseline-initialization/integration-001/independent-audit.json": "908cb6652b5304be21daec7c2644b3a30d4864c4a2f39a4953b3d33cadaf123a",
+    "results/stereo-baseline-initialization/run-001/probes/driver.json": "5b52f4549c42e2d219ff77545e8429b01c8e5be5d020c512678d7bcb59ee1abf",
+    "results/stereo-baseline-initialization/run-001/probes/fixed-0.json": "a6f5725a588158914599bf1a73c8ce98dfbe465ed0abcc8b9d15cb672d5979f0",
+    "results/stereo-baseline-initialization/run-001/probes/fixed-63.json": "ecfdaacc86f88b26df997a542bf4fcb759cd333630ab50795a52c44c154684c2",
+    "results/stereo-baseline-initialization/run-001/probes/fixed-85.json": "89746bf6bfafbd94d95317d8661d6aeb2ec19e79eed515f2f1d4d1c6de682137",
+    "results/stereo-baseline-initialization/run-001/probes/original-0.json": "a6f5725a588158914599bf1a73c8ce98dfbe465ed0abcc8b9d15cb672d5979f0",
+    "results/stereo-baseline-initialization/run-001/probes/original-63.json": "ecfdaacc86f88b26df997a542bf4fcb759cd333630ab50795a52c44c154684c2",
+    "results/stereo-baseline-initialization/run-001/probes/original-85.json": "571da00a18c4d62a53bdcee8a6bfcd17ed04f6322a16f4d02e7013be2f5aa1b0",
+    "results/stereo-baseline-initialization/run-001/probes/rebuilt-0.json": "a6f5725a588158914599bf1a73c8ce98dfbe465ed0abcc8b9d15cb672d5979f0",
+    "results/stereo-baseline-initialization/run-001/probes/rebuilt-63.json": "ecfdaacc86f88b26df997a542bf4fcb759cd333630ab50795a52c44c154684c2",
+    "results/stereo-baseline-initialization/run-001/probes/rebuilt-85.json": "571da00a18c4d62a53bdcee8a6bfcd17ed04f6322a16f4d02e7013be2f5aa1b0",
+    "results/stereo-baseline-initialization/run-001/validation/audit_exp150_integration.py": "fa68f1256751f7b5b405193d01e8d707416a3ea1215c7256e61d3e92b900dfa8",
+    "results/stereo-baseline-initialization/run-001/validation/collect_exp149_identity.py": "643a6e4a19fe8e6fe3c4edf75e534cc18bd3cc00769b3325949e9f090ea10a77",
+    "results/stereo-baseline-initialization/run-001/validation/preflight_exp150.py": "5a30c0094c58ef4b2800b395abe245e785504d4609839533ce61e1b5999a395e",
+    "results/stereo-baseline-initialization/run-001/validation/run_exp150.py": "eec5ecb91beb2631a8cbc02472e0312f07f23d006616117a069993bd80f2f752",
+    "tools/orb_ms2_development.py": "3c351603b2f6c34da1d17694ea65f75e908d34c57ace77ba32a3bcfe35ac236c",
+    "tools/orb_full_record.py": "646ca226240ce58382483da83f2d151b1df85465c655a3a0c966b64da03a5f61",
+    "tools/orb_finalization.py": "88930559df923ccd32c852b23c525493b0f9709b294820f96456f1e24389c90e",
+    "tools/orb_finalization_audit.py": "33fed443737bc412120a2db27585d45d08087a34421def1287bbf282b0edb30d",
+    "tools/independent_benchmark_metrics_v2.py": "57cb78a2bd5f95472206fa59a3218723d153f38921906b41963a6fc7e88c6ae6",
+    "tools/provided_reference_full_record_audit.py": "e2dc1b8e22166e04eb211056863c2bf53102a40b7c29aae491b83dec42ece663",
+    "tools/native_stereo_history.py": "dd7284a5715a774ba324da2c43d610f4fc472964f6e2c88c06c0a039bf383e8a",
+    "tools/native_stereo_history_audit.py": "70028c73aa0348db216621b00660ad3b312d95c177a3d77ea5ff0f62dd8e88c5",
+    "tools/stereo_reference_diagnostic.py": "ebc95b9766c4d1c62119b42fc461229a92ce1e03e2688ff5b073e58c0e8be2db",
+    "tools/stereo_reference_audit.py": "03039892bd02f0d9b26902a9bd6ce467cfab924db7bc3886766fd3516d85784c",
+    "results/stereo-baseline-initialization/run-001/captures/rgb-original/plan.json": "392fbe33b4af67b7eff86c81f26c4d75e2f788028cd7eb951c81673b6e3c5420",
+    "results/stereo-baseline-initialization/run-001/captures/rgb-original/settings.yaml": "6d81ba6ba6e44de3fa835845c0e7eefb56e88c28f45bb2a17cbad606f3e4c50d",
+    "results/stereo-baseline-initialization/run-001/captures/rgb-original/inputs.tsv": "1c33eda2b1dae94cd7c45e5ab7dbc77975d3cc7b0eca1639863f8eef8704079e",
+    "results/stereo-baseline-initialization/run-001/captures/thermal-fixed/plan.json": "ce67c2e680e2d6a86abd51ea2494714cb1072811c2e1ff0e80b3130be63c7580",
+    "results/stereo-baseline-initialization/run-001/captures/thermal-fixed/settings.yaml": "287401251e13495d64cc28ed776865ff07671f0075d70f2d6265a0b2640b2c21",
+    "results/stereo-baseline-initialization/run-001/captures/thermal-fixed/inputs.tsv": "d592d52f32eb807ee52756ba337c8d58e55b06cf61b5319d4993c22bfa52a8b9",
+    "results/stereo-baseline-initialization/run-001/captures/rgb-rebuilt/plan.json": "352a0e5b35343ef36f34225523598d6d59450b136c108615e537255154c16c6c",
+    "results/stereo-baseline-initialization/run-001/captures/rgb-rebuilt/settings.yaml": "6d81ba6ba6e44de3fa835845c0e7eefb56e88c28f45bb2a17cbad606f3e4c50d",
+    "results/stereo-baseline-initialization/run-001/captures/rgb-rebuilt/inputs.tsv": "1c33eda2b1dae94cd7c45e5ab7dbc77975d3cc7b0eca1639863f8eef8704079e",
+    "results/stereo-baseline-initialization/run-001/captures/rgb-fixed/plan.json": "d4e36d1340dbb963b60fa232ff8256dab3230530e36ab403da0a642e97d2b26a",
+    "results/stereo-baseline-initialization/run-001/captures/rgb-fixed/settings.yaml": "6d81ba6ba6e44de3fa835845c0e7eefb56e88c28f45bb2a17cbad606f3e4c50d",
+    "results/stereo-baseline-initialization/run-001/captures/rgb-fixed/inputs.tsv": "1c33eda2b1dae94cd7c45e5ab7dbc77975d3cc7b0eca1639863f8eef8704079e",
+    "results/stereo-baseline-initialization/run-001/captures/thermal-original/plan.json": "3161bebe90f92e0ef462b275b7dc238180100614f6aee2a6a92b54604dd80564",
+    "results/stereo-baseline-initialization/run-001/captures/thermal-original/settings.yaml": "287401251e13495d64cc28ed776865ff07671f0075d70f2d6265a0b2640b2c21",
+    "results/stereo-baseline-initialization/run-001/captures/thermal-original/inputs.tsv": "d592d52f32eb807ee52756ba337c8d58e55b06cf61b5319d4993c22bfa52a8b9",
+    "results/stereo-baseline-initialization/run-001/captures/thermal-rebuilt/plan.json": "05c34d43858e35de7df506d24bcafad18b6784397248c2be8384299964a30562",
+    "results/stereo-baseline-initialization/run-001/captures/thermal-rebuilt/settings.yaml": "287401251e13495d64cc28ed776865ff07671f0075d70f2d6265a0b2640b2c21",
+    "results/stereo-baseline-initialization/run-001/captures/thermal-rebuilt/inputs.tsv": "d592d52f32eb807ee52756ba337c8d58e55b06cf61b5319d4993c22bfa52a8b9"
+  },
+  "runtimes": {
+    "original": "sha256:83739d72791f554a61e063c7868fe982a687c89e121129a2bc8d3819a532e50a",
+    "rebuilt": "sha256:318f767294a57244aeb8a61e83c1e7ec93a630b32e268c01fed75999d581aa3c",
+    "fixed": "sha256:2c11cea0a6c780977e1e7abd47429987947864d66861797ec094d3908c69a986"
+  },
+  "score_runtime": "sha256:d3cf8a41dd8090c8939cd840b4735d526cec9a54e48ac36d506f91d13ee56e1c",
+  "physical_sync_verified": false,
+  "benchmark_execution_ready": false,
+  "scale_fitted": false,
+  "time_fitted": false,
+  "reference_outcomes_previously_exposed": true,
+  "default_runtime_changed": false
+}

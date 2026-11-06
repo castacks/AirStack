@@ -1,0 +1,16 @@
+FROM ore-ms:orb-stereo-history-exp146-v2
+ARG APPLY_FIX=0
+COPY patch_orb_stereo_baseline.py /opt/ore-ms-baseline-init/patch.py
+RUN python3 /opt/ore-ms-baseline-init/patch.py ${APPLY_FIX}
+# ORB's generated clean target also deletes the externally built g2o library.
+# Restore the exact inherited dependency bytes rather than rebuilding dependencies.
+RUN cp /opt/ORB_SLAM3/Thirdparty/g2o/lib/libg2o.so /tmp/libg2o.so \
+    && cp /opt/ORB_SLAM3/Thirdparty/DBoW2/lib/libDBoW2.so /tmp/libDBoW2.so \
+    && cmake --build /opt/ORB_SLAM3/build --target clean \
+    && cp /tmp/libg2o.so /opt/ORB_SLAM3/Thirdparty/g2o/lib/libg2o.so \
+    && cp /tmp/libDBoW2.so /opt/ORB_SLAM3/Thirdparty/DBoW2/lib/libDBoW2.so \
+    && cmake --build /opt/ORB_SLAM3/build --target ORB_SLAM3 -j2
+COPY orb_initialization_probe.cc /opt/ore-ms-init-probe/orb_initialization_probe.cc
+COPY orb_initialization_probe_CMakeLists.txt /opt/ore-ms-init-probe/CMakeLists.txt
+RUN cmake -S /opt/ore-ms-init-probe -B /opt/ore-ms-init-probe/build -DCMAKE_BUILD_TYPE=Release \
+    && cmake --build /opt/ore-ms-init-probe/build -j2
