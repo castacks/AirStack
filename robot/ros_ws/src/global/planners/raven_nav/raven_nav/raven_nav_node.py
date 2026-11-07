@@ -726,8 +726,6 @@ class RavenNavNode(Node):
 
     def _ray_all_cb(self, msg: PointCloud2):
         """Ray PointCloud2 fields: x,y,z,theta,phi,sim_0,sim_1,..."""
-        if getattr(self, '_reusable_feature_map', False):
-            return  # BBs must come from fused reusable features, never local score clouds
         Q = len(self._query_labels)
         if Q == 0:
             return
@@ -2366,6 +2364,8 @@ class RavenNavNode(Node):
 
     def _vox_all_cb(self, msg: PointCloud2):
         """Voxel PointCloud2 fields: x,y,z,sim_0,sim_1,..."""
+        if getattr(self, '_reusable_feature_map', False):
+            return  # BBs must come from fused reusable features, never local score clouds
         Q = len(self._query_labels)
         if Q == 0:
             return

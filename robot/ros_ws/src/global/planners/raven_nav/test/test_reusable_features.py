@@ -144,3 +144,29 @@ def test_late_feature_encoder_does_not_falsely_reject_peer():
            _semantic_feature_labels=None,_semantic_map_rejections=0)
     RavenNavNode._on_stream_semantic_map(node,S(source_robot='robot_2'))
     assert node._semantic_map_rejections == 0
+
+
+def test_reusable_mode_keeps_rays_and_ignores_only_voxel_score_cloud():
+    from raven_nav.raven_nav_node import RavenNavNode
+    from sensor_msgs.msg import PointCloud2, PointField
+    from std_msgs.msg import Header
+    fields=['x','y','z','theta','phi','sim_0','sim_1']
+    values=np.array([[1,2,3,0,90,.8,.2]],dtype='<f4')
+    cloud=PointCloud2(header=Header(),height=1,width=1,
+        fields=[PointField(name=f,offset=i*4,datatype=PointField.FLOAT32,count=1) for i,f in enumerate(fields)],
+        point_step=28,row_step=28,data=values.tobytes(),is_dense=True)
+    shared=[]
+    node=S(_reusable_feature_map=True,_query_labels=['car','wall'],
+           _detected_query_labels=['car','wall'],_vox_xyz='existing fused geometry',
+           _vox_scores='existing fused feature scores',_own_semantic_snapshot='own full features')
+    node._publish_shared_rays=lambda *args:shared.append(args)
+    # A real score cloud arrives before/after the feature export. It must not
+    # contaminate the feature schema or invoke feature scoring on query columns.
+    RavenNavNode._vox_all_cb(node,cloud)
+    assert node._own_semantic_snapshot == 'own full features'
+    assert node._vox_scores == 'existing fused feature scores'
+    # Rays are still an independent, enabled input to the original auction.
+    RavenNavNode._ray_all_cb(node,cloud)
+    assert len(shared)==1
+    np.testing.assert_allclose(node._ray_origins,[[3,-1,-2]])
+    np.testing.assert_allclose(node._ray_scores,[[.8,.2]])
