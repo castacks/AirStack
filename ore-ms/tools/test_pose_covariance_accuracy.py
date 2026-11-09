@@ -5,13 +5,20 @@ from pathlib import Path
 import numpy as np
 
 from pose_covariance_replay import exp_se3, log_se3, skew
-from pose_covariance_accuracy import block_isotropic, combine, mapping, project
+from pose_covariance_accuracy import block_isotropic, combine, completed_receipt_valid, mapping, project
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'MAC-VO-main'))
 from Scripts.Setup.causal_interval_model import project as old_project
 
 
 class AccuracyControlsTests(unittest.TestCase):
+    def test_completed_terminal_write_is_eligible_but_gap_is_not(self):
+        motion = dict(stage='termination', original_need_interp=False, time0_ns=100, time1_ns=200)
+        self.assertTrue(completed_receipt_valid({}, motion, [100, 200]))
+        self.assertFalse(completed_receipt_valid({}, motion, [110, 200]))
+        self.assertFalse(completed_receipt_valid({}, {**motion, 'original_need_interp': True}, [100, 200]))
+        self.assertFalse(completed_receipt_valid(None, motion, [100, 200]))
+
     def test_existing_common_interval_mean_is_preserved(self):
         t = exp_se3([.2, -.1, .05, -.02, .03, .01])
         frame = exp_se3([.5, .2, -.1, .1, -.2, .3])

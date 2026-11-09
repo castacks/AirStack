@@ -137,6 +137,14 @@ def choice_prediction(experts, choice):
             'strategy': 'chosen_camera' if selected else 'unavailable', 'camera': selected}
 
 
+def completed_receipt_valid(health, motion, native):
+    """Completed-output accuracy accepts explicitly labelled final writes too."""
+    return (health is not None and motion is not None
+            and motion['stage'] in ('pair_processing', 'termination')
+            and motion['original_need_interp'] is False
+            and [motion['time0_ns'], motion['time1_ns']] == native)
+
+
 def predictions(source_path, calibration_path, capture, replay_paths, official_loader, groups=600):
     source, calibration = read(source_path), read(calibration_path)
     if len(source['records']) < groups or groups < 2:
@@ -183,13 +191,14 @@ def predictions(source_path, calibration_path, capture, replay_paths, official_l
             assert r['from_idx'] == i and r['frame_idx'] == i+1
             assert [r['source_time_ns'], r['target_time_ns']] == native
             replay_states[mode] = r['status']
-            valid = (h is not None and m is not None and m['stage'] == 'pair_processing'
-                     and m['original_need_interp'] is False and [m['time0_ns'], m['time1_ns']] == native)
+            valid = completed_receipt_valid(h, m, native)
             if not valid:
-                natives[mode] = replayed[mode] = {'valid': False, 'reason': 'missing_unsupported_or_nonprocessing_native',
+                natives[mode] = replayed[mode] = {'valid': False, 'reason': 'missing_unsupported_or_invalid_native',
                                                'transform': None, 'covariance': None}
                 continue
             natives[mode] = project(pose_xyzw(m['derived_camera_delta_xyzw']), None, frames[mode], native, common)
+            natives[mode]['source_write_stage'] = m['stage']
+            natives[mode]['native_event_sequence'] = m['sequence']
             if r['status'] in ('converged', 'iteration_limit', 'line_search_stalled'):
                 cov = np.asarray(r['covariance']) if r['covariance'] is not None else None
                 replayed[mode] = project(np.asarray(r['transform']), cov, frames[mode], native, common)
@@ -215,6 +224,7 @@ def predictions(source_path, calibration_path, capture, replay_paths, official_l
             'recording': source['sequence'], 'groups': groups, 'rows': rows, 'input_sha256': pins,
             'reference_used': False, 'runtime_metrics': False,
             'scope': 'development_nominal_RGB_optical_common_intervals_no_physical_frame_clock_claim',
+            'completed_output_policy': 'include supported exact first writes from pair_processing or termination; no online timeliness claim',
             'native_backend': 'existing_covariance_weighted_disp_Huber_not_unweighted',
             'replay_backend': 'separate_Gaussian_3D_registration_not_native_pose_covariance_export',
             'fallback': 'equal available replay means if either covariance unavailable; sole mean if one available',
