@@ -76,3 +76,20 @@ def export_feature_snapshot(server, reference):
     temporary.replace(path)
     print(f'[reusable-map] voxels={len(features)} dim={features.shape[1]} '
           f'bytes={path.stat().st_size} score_error={error:.6g}', flush=True)
+
+
+def install_empty_occupancy_guard(mapper_class):
+    """An empty depth update has no active frontier bbox, rather than crashing.
+
+    RayFronts accum_occ_voxels returns None for an empty pending batch, while
+    process_posed_rgbd unconditionally reads its .shape. Preserve nonempty
+    results exactly and let the existing zero-row check skip frontier updates.
+    """
+    original = mapper_class.accum_occ_voxels
+    def accum_occ_voxels(self):
+        result = original(self)
+        if result is None:
+            import torch
+            return torch.empty((0, 3), device=self.device, dtype=torch.float32)
+        return result
+    mapper_class.accum_occ_voxels = accum_occ_voxels

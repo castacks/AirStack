@@ -385,3 +385,10 @@ representation, dimension and parity error. The end-of-trial checker archives
 vectors and query metadata for offline fusion and new queries. Network counters
 continue to count actual delivered application bytes, including full-map resyncs.
 The frontier protocol is unchanged in both modes.
+
+
+The adapter also normalizes an empty `accum_occ_voxels()` result from `None` to
+an empty `(0,3)` tensor. RayFronts otherwise reads `.shape` on `None` when a frame
+produces no occupancy updates and terminates mapping. Nonempty updates are
+unchanged; the existing zero-row check skips frontier recomputation for that
+batch. This applies to both comparison modes and does not create map evidence.

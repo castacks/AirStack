@@ -170,3 +170,19 @@ def test_reusable_mode_keeps_rays_and_ignores_only_voxel_score_cloud():
     assert len(shared)==1
     np.testing.assert_allclose(node._ray_origins,[[3,-1,-2]])
     np.testing.assert_allclose(node._ray_scores,[[.8,.2]])
+
+
+def test_empty_occupancy_batch_keeps_mapper_alive_without_changing_nonempty():
+    import torch
+    from raven_nav.feature_map import install_empty_occupancy_guard
+    class Mapper:
+        device='cpu'
+        def accum_occ_voxels(self):
+            return self.next_update
+    install_empty_occupancy_guard(Mapper)
+    mapper=Mapper();mapper.next_update=None
+    assert mapper.accum_occ_voxels().shape == (0,3)
+    # This is the actual caller's conditional that previously crashed.
+    assert not (mapper.accum_occ_voxels().shape[0] > 0)
+    mapper.next_update=torch.tensor([[1.,2.,3.]])
+    assert mapper.accum_occ_voxels() is mapper.next_update

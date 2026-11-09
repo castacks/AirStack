@@ -5,6 +5,9 @@ import sys
 # Match `python -m rayfronts.mapping_server`: launch cwd is /opt/rayfronts.
 sys.path.insert(0, os.getcwd())
 from rayfronts.mapping_server import MappingServer, main
+from rayfronts.mapping.semantic_ray_frontiers_map import SemanticRayFrontiersMap
+from raven_nav.feature_map import install_empty_occupancy_guard
+install_empty_occupancy_guard(SemanticRayFrontiersMap)
 
 # Both matched modes use float32 cosine/softmax, matching the CPU fused-map
 # query. Feature extraction/alignment remains the original mixed-precision path.
