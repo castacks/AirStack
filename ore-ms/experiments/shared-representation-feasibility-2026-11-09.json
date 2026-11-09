@@ -1,0 +1,43 @@
+{
+  "date": "2026-11-09",
+  "scope": "Read-only compatibility assessment; no model/dataset payload download or execution",
+  "decision": "REFERENCE_ONLY_NO_INTEGRATION_NOW",
+  "repositories": {
+    "tartanmatch": {
+      "commit": "b3f65ffdf9723a028d82f36ab0beb8457d0def72",
+      "files": {
+        "README.md": "dcfd0a1328aa96e3ec05d96494ec8960b6745c912d997ad7ae865edaaae66d49",
+        "LICENSE": "6f9b42c14ba58af7f4b97029da2ce8b8d96d11177c3f0ed30e9e2b5e3baaa897",
+        "pyproject.toml": "abbfbe7f493b05cc7e8e37ff6fba1ce3a6eb6925d7ee28e13e8fdd9bde171d34",
+        "tartanmatch/model.py": "980dc09441b20aaaa56f49e97dc305fa1fd1afe376c4386fa514037b9b41eca2",
+        "tartanmatch/config.py": "9bdd521eaf83766d7942e90cb74cc2db5f00f0da4999170e45b3e01fcf75d21e",
+        "tartanmatch/preprocess/resize.py": "d7e8af90a8cf091ae28c2118d3753e954d9df35a0a86cf29c250353f759f88a7"
+      }
+    },
+    "cmrw": {
+      "commit": "7b1f7b2f6d91e2bfad718d719ecac6dd6db87fa4",
+      "files": {
+        "README.md": "7b9e389fef2a687c886d36b19aa615fdd2203db9b8f9cdcc881859b69ee1ccc8"
+      }
+    }
+  },
+  "checkpoint_metadata": {
+    "provider": "theairlabcmu/TartanMatch",
+    "revision": "27662ae4c0438fd901cbc80836f027b1985385f6",
+    "gated": false,
+    "filename": "tartanmatch_v1.safetensors",
+    "head_status": 200,
+    "head_content_length": 1713083888,
+    "payload_downloaded": false
+  },
+  "host_modules": {
+    "torch": false,
+    "numpy": false,
+    "safetensors": false,
+    "huggingface_hub": false
+  },
+  "local_project_payload_directories": {
+    "data": false,
+    "results": false
+  }
+}
