@@ -1,5 +1,7 @@
 # MS Research Handoff — Cross-Modal Geometric Uncertainty for RGB–Thermal Visual Odometry
 
+2026-11-09 America/New_York — [Concise progress and next steps](docs/research/progress-and-next-steps-2026-11-09.md): shareable brief of completed work, positive within-camera evidence, final evaluation limits and the next research decision. No new results or experiments.
+
 2026-11-09 America/New_York — [Shared-representation scope decision](docs/research/shared-representation-feasibility-2026-11-09.md): TartanMatch code/checkpoint metadata accessible; CMRW repository currently README-only. No demonstrated link from matcher replacement to the original relative-error-prediction gap. Keep as related work; no matcher integration/training now. Next main deliverable is the existing characterization and supervisor-facing research decision. Source hashes recorded; no new inference or data/model payload download.
 
 2026-11-09 America/New_York — [Shared sensor representations: reading note and proposed direction](docs/research/shared-sensor-representations-2026-11-09.md): verified references for joint embeddings, shared/private features and RGB–thermal dense correspondence (ImageBind, CMC, DSN, CVPR2025 spatial correspondence and the October2026 TartanMatch preprint). Proposed next step is implementation/data compatibility assessment; no training or evaluation executed. The prior angular-rule stop remains unchanged.
