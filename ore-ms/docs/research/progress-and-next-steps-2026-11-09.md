@@ -32,14 +32,12 @@ The formal outcome is **STOP_INSUFFICIENT_EVALUATION**, because night coverage f
 
 Errors use supplied/recorded reference proxies and documented nominal frame/time assumptions. Physical synchronization and frame truth, checkpoint training overlap, generalization and downstream adaptive VO benefit remain unverified. The final selector runs both experts and establishes no compute saving.
 
-## What is next
+## Current implementation progress and next steps
 
-This is a weekly progress brief, not the endpoint of the study. The next technical experiment is [geometry-aware RGB–thermal motion uncertainty](next-experiment-pose-covariance-2026-11-09.md), building on MAC-VO/MACThermal and MAC-I².
+The [pose-covariance prototype](pose-covariance-prototype-findings-2026-11-09.md) is implemented. It uses saved feature geometry and both endpoint covariances;15 numerical tests and160 synthetic trials pass. On the first600groups of the planned day/night records,2,292/2,396 camera intervals converge;58 hit the fixed solver cap and46 lack a native first motion write. Independent numerical checks pass. No new frontend inference or reference-error scoring occurred. These counts establish numerical feasibility and expose an availability issue; they do not demonstrate improved VO.
 
-1. **Recover and pin a bounded development cohort.** Use the first 600 original groups from each specified day/night/rain recording, checking saved paired 3D covariances before requesting any new capture.
-2. **Build the feature-to-motion covariance bridge.** Verify the registration solve and SE(3) covariance transport. Compare equal weighting, block-isotropic pose covariance and full pose covariance on the same replayed motions; retain native single-camera and scalar-selector controls.
-3. **Measure and choose the next mechanism.** Report per-recording rotation/translation error, coverage and calibration. A useful gain motivates recording-separated replication and later VO integration; biased means or poor covariance calibration motivate a targeted frontend or uncertainty-learning experiment.
+Next: finish common-frame covariance transport and equal/scalar/full combination; account for capped/missing outputs in coverage; recover/capture the exact continuous rain prefix; then freeze predictions and score the original accuracy/calibration question. Existing short rain windows will not replace the declared600-group stream.
 
-Implementation and execution are pending. Existing scalar-test outcomes remain unchanged. Shared representations and IMU fusion remain credible future directions; this first experiment isolates the visual uncertainty-to-motion mechanism rather than changing all components together.
+This is a weekly progress update, not the endpoint of the research. Calibration, MACThermal frontend improvements, shared representations and IMU fusion remain available next hypotheses, chosen from the measured failure mode rather than all changed at once.
 
-*This brief synthesizes completed records; it introduces no new empirical result. Source through project commit `4f642ec45`.*
+*Updated with numerical implementation/preflight results through `6308b61f3`; reference-error results retain their original source records. No new adaptive-accuracy claim.*

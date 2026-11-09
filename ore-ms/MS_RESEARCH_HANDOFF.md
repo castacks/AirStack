@@ -1,5 +1,7 @@
 # MS Research Handoff — Cross-Modal Geometric Uncertainty for RGB–Thermal Visual Odometry
 
+2026-11-09 America/New_York — [Pose-covariance prototype and preflight](docs/research/pose-covariance-prototype-findings-2026-11-09.md): implemented two-endpoint Gaussian registration, full covariance derivatives and local covariance primitives. Fifteen numerical tests /160synthetic trials pass; amended20-group smoke converges38/38. Planned day/night600-group prefixes:2292converged/58capped/46missing-native of2396; independent13752direction checks pass. No new inference or reference scoring; full fusion/rain/calibration comparison remains pending.
+
 2026-11-09 America/New_York — [Next experiment: geometry-aware motion uncertainty](docs/research/next-experiment-pose-covariance-2026-11-09.md): user clarified the brief is a weekly progress update, not the research endpoint. Defined a MAC-I²-inspired pose-covariance bridge for frozen RGB/thermal frontends, with equal/scalar/full covariance controls and a three-recording development comparison. Design only; no new inference/results. Supersedes the recommendation to defer all method development; previous scalar-test outcomes remain intact.
 
 2026-11-09 America/New_York — [Concise progress and next steps](docs/research/progress-and-next-steps-2026-11-09.md): shareable brief of completed work, positive within-camera evidence, final evaluation limits and the next research decision. No new results or experiments.
