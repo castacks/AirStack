@@ -34,12 +34,12 @@ Errors use supplied/recorded reference proxies and documented nominal frame/time
 
 ## What is next
 
-1. **Finish the characterization deliverable.** Use this brief and the [detailed report](characterization-report-2026-11-09.md) for advisor discussion: positive ranking evidence, cross-camera counterexamples, failed gates and scope limitations. This is the immediate deliverable, requiring no new runs.
-2. **Choose one justified next hypothesis.** A candidate is whether local RGB–thermal correspondence features add predictive value for relative geometric error beyond uncertainty and simple context. First identify the existing reliability failure it would address and a defensible error target. Otherwise retain the completed characterization as the current research outcome.
-3. **Keep any future experiment bounded.** Use an existing pretrained model, fixed baselines, recording-separated evaluation and a stopping rule. Do not begin representation training, replace the VO frontend or reopen the parked diagnostic chains without evidence that doing so answers the main question.
+This is a weekly progress brief, not the endpoint of the study. The next technical experiment is [geometry-aware RGB–thermal motion uncertainty](next-experiment-pose-covariance-2026-11-09.md), building on MAC-VO/MACThermal and MAC-I².
 
-Shared-space literature is relevant background: ImageBind for semantic alignment; TartanMatch and self-supervised cross-modal correspondence for geometry. Our [compatibility check](shared-representation-feasibility-2026-11-09.md) found accessible TartanMatch code/checkpoint metadata, but no demonstrated reliability-prediction benefit. A common embedding does not automatically calibrate uncertainty.
+1. **Recover and pin a bounded development cohort.** Use the first 600 original groups from each specified day/night/rain recording, checking saved paired 3D covariances before requesting any new capture.
+2. **Build the feature-to-motion covariance bridge.** Verify the registration solve and SE(3) covariance transport. Compare equal weighting, block-isotropic pose covariance and full pose covariance on the same replayed motions; retain native single-camera and scalar-selector controls.
+3. **Measure and choose the next mechanism.** Report per-recording rotation/translation error, coverage and calibration. A useful gain motivates recording-separated replication and later VO integration; biased means or poor covariance calibration motivate a targeted frontend or uncertainty-learning experiment.
 
-**Decision for the next discussion:** retain the main RGB–thermal reliability question, accept the current fixed-rule result, and decide whether a narrowly specified representation-based hypothesis merits a separate experiment. No broader model-development project is currently started.
+Implementation and execution are pending. Existing scalar-test outcomes remain unchanged. Shared representations and IMU fusion remain credible future directions; this first experiment isolates the visual uncertainty-to-motion mechanism rather than changing all components together.
 
 *This brief synthesizes completed records; it introduces no new empirical result. Source through project commit `4f642ec45`.*

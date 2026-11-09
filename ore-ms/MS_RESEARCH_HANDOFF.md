@@ -1,5 +1,7 @@
 # MS Research Handoff — Cross-Modal Geometric Uncertainty for RGB–Thermal Visual Odometry
 
+2026-11-09 America/New_York — [Next experiment: geometry-aware motion uncertainty](docs/research/next-experiment-pose-covariance-2026-11-09.md): user clarified the brief is a weekly progress update, not the research endpoint. Defined a MAC-I²-inspired pose-covariance bridge for frozen RGB/thermal frontends, with equal/scalar/full covariance controls and a three-recording development comparison. Design only; no new inference/results. Supersedes the recommendation to defer all method development; previous scalar-test outcomes remain intact.
+
 2026-11-09 America/New_York — [Concise progress and next steps](docs/research/progress-and-next-steps-2026-11-09.md): shareable brief of completed work, positive within-camera evidence, final evaluation limits and the next research decision. No new results or experiments.
 
 2026-11-09 America/New_York — [Shared-representation scope decision](docs/research/shared-representation-feasibility-2026-11-09.md): TartanMatch code/checkpoint metadata accessible; CMRW repository currently README-only. No demonstrated link from matcher replacement to the original relative-error-prediction gap. Keep as related work; no matcher integration/training now. Next main deliverable is the existing characterization and supervisor-facing research decision. Source hashes recorded; no new inference or data/model payload download.
