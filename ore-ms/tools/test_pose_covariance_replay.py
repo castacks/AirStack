@@ -5,7 +5,7 @@ import numpy as np
 
 from pose_covariance_replay import (
     covariance_intersection, exp_se3, gaussian_model, information_inverse,
-    log_se3, register, skew, transport_covariance, validate_data,
+    log_se3, objective_change, register, skew, transport_covariance, validate_data,
 )
 
 
@@ -44,6 +44,28 @@ class NumericalTests(unittest.TestCase):
         self.assertGreater(np.linalg.norm(g[3:]), .01)
         self.assertGreater(np.linalg.norm(h-hm), .01)
         np.testing.assert_allclose(h[:3], hm[:3], atol=1e-8)
+
+    def test_stable_objective_change_matches_direct_gaussian(self):
+        p, q, cs, ct, t = fixture()
+        step = np.array([.001, -.003, .004, -.002, .001, -.004])
+        expected = gaussian_model(exp_se3(step)@t, p, q, cs, ct)[0]-gaussian_model(t, p, q, cs, ct)[0]
+        self.assertAlmostEqual(objective_change(t, step, p, q, cs, ct), expected, places=9)
+
+    def test_stable_loss_preserves_sub_ulp_decrease(self):
+        q = np.array([[3., 1, 2], [3., 2, 1], [2., 1, 3]])
+        p = q.copy()
+        p[:, 0] -= 1e-7
+        # Large irreducible y residual makes direct total-loss subtraction fail.
+        p[:, 1] -= 1e6
+        cov = np.tile(np.eye(3)/2, (3, 1, 1))
+        step = np.array([-1e-7, 0, 0, 0, 0, 0])
+        residual = q-p
+        expected = np.sum(step[0]*residual[:, 0]+.5*step[0]**2)
+        stable = objective_change(np.eye(4), step, p, q, cov, cov)
+        self.assertLess(stable, 0)
+        self.assertAlmostEqual(stable, expected, delta=1e-27)
+        direct = gaussian_model(exp_se3(step), p, q, cov, cov)[0]-gaussian_model(np.eye(4), p, q, cov, cov)[0]
+        self.assertEqual(direct, 0)
 
     def test_noiseless_isotropic_solution(self):
         p, q, cs, ct, truth = fixture()

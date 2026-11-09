@@ -116,6 +116,35 @@ def information_inverse(h):
     return np.linalg.solve(h, np.eye(6))
 
 
+def objective_change(t, step, source, target, source_cov, target_cov):
+    """Evaluate NLL(T_new)-NLL(T) without subtracting large total losses.
+
+    Delta-inverse identity and log1p of whitened covariance increments retain
+    small decreases close to stationarity. The objective itself is unchanged.
+    """
+    rmat = t[:3, :3]
+    q = target@rmat.T+t[:3, 3]
+    r = q-source
+    b = rmat@target_cov@rmat.T
+    c = source_cov+b
+    change = exp_se3(step)
+    u = change[:3, :3]-np.eye(3)
+    dr = q@u.T+change[:3, 3]
+    dc = u@b+b@u.T+u@b@u.T
+    zold = np.linalg.solve(c, r[..., None])[..., 0]
+    znew = np.linalg.solve(c+dc, r[..., None])[..., 0]
+    zd = np.linalg.solve(c+dc, dr[..., None])[..., 0]
+    quadratic = (2*np.sum(dr*znew)+np.sum(dr*zd)
+                 - np.einsum('ni,nij,nj->', znew, dc, zold))
+    chol = np.linalg.cholesky(c)
+    whitened = np.linalg.solve(chol, dc)
+    whitened = np.linalg.solve(chol, whitened.transpose(0, 2, 1)).transpose(0, 2, 1)
+    eig = np.linalg.eigvalsh((whitened+whitened.transpose(0, 2, 1))/2)
+    if np.any(eig <= -1):
+        raise ValueError('covariance-change determinant numerically invalid')
+    return float(.5*(quadratic+np.log1p(eig).sum()))
+
+
 def register(source, target, source_cov, target_cov, initial=None, max_iterations=100,
              score_tolerance=1e-6):
     """Fisher scoring with Armijo backtracking on the exact declared NLL.
@@ -153,10 +182,11 @@ def register(source, target, source_cov, target_cov, initial=None, max_iteration
         for line in range(25):
             alpha = .5**line
             trial = exp_se3(alpha*direction) @ t
-            trial_cost = gaussian_model(trial, *data)[0]
-            if np.isfinite(trial_cost) and trial_cost <= cost + 1e-4*alpha*(g@direction):
+            delta = objective_change(t, alpha*direction, *data)
+            if np.isfinite(delta) and delta <= 1e-4*alpha*(g@direction):
                 t, accepted = trial, True
                 history[-1]['accepted_step_scale'] = alpha
+                history[-1]['stable_nll_change'] = delta
                 break
         if not accepted:
             status = 'line_search_stalled'

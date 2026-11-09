@@ -1,0 +1,33 @@
+{
+  "created_at": "2026-11-09 America/New_York",
+  "stage": "pre_outcome_camera_local_smoke",
+  "source_recording": "_2021-08-13-21-18-04",
+  "source_groups": [
+    0,
+    19
+  ],
+  "purpose": "verify_both_endpoint_covariance_replay_not_the_three_record_600_group_comparison",
+  "objective": "0.5 sum(r^T C^-1 r + logdet C), r=R q+t-p, C=Cs+R Ct R^T",
+  "derivatives": "exact_left_gradient_including_covariance_derivatives;expected_Fisher_and_mean_only_information",
+  "tangent": "left_SE3_translation_first_metres_radians",
+  "solver": {
+    "max_iterations": 100,
+    "score_tolerance": 1e-06,
+    "backtracking_scales": "0.5^k k=0..24",
+    "armijo": 0.0001,
+    "no_pseudoinverse_or_jitter": true
+  },
+  "mean_initialization": "first_committed_relative_camera_pose_before_refinement",
+  "rules": "all19adjacent_slots_per_camera_including_explicit_terminal_stage;no_reference_labels;no_frontend_updates;retain_failures",
+  "runtime_image": "sha256:40838ec9ce83b7f6d05b90b000aa2f0a76f2ddbbf21b180dba717707e220a2fe",
+  "pins": {
+    "tools/pose_covariance_replay.py": "0d9a9833ab1a06ff5bf3d71eed8bf555aa7ff98a0d2b622c1d52b4273676f5fa",
+    "tools/test_pose_covariance_replay.py": "779198afa6cdb2c6c889a27c2367252b71adcfe85b646aa9181bf8a3ad564224",
+    "results/pose-covariance/recovery-smoke/snapshot/ore-ms/results/bounded-asset-recovery/run-001/captures/rgb/tensor-map.npz": "2c3c8dded23e353b58b88d1fdaea076a536fa10d653a12412f0e6d3b15cb7a39",
+    "results/pose-covariance/recovery-smoke/snapshot/ore-ms/results/bounded-asset-recovery/run-001/captures/rgb/arbiter-events/events.jsonl": "7e60e06ab841c459c7fcb1edde18fa4b475ff6c9d30a6e68f7dc5c7d3adb3707",
+    "results/pose-covariance/recovery-smoke/snapshot/ore-ms/results/bounded-asset-recovery/run-001/captures/thermal/tensor-map.npz": "f90baa1ed3e2a1ea401b260cb7ab9d5b1ac1ce0466d2eaba179dbba325271db1",
+    "results/pose-covariance/recovery-smoke/snapshot/ore-ms/results/bounded-asset-recovery/run-001/captures/thermal/arbiter-events/events.jsonl": "94a0899b81731f2a2f72e18b3008fc6ef157bbbea4262721f093f95d6296e7e6"
+  },
+  "amendment": "v2: stable analytic NLL differences for Armijo, avoiding subtraction of large loss totals; objective, inputs, tolerance, budgets unchanged. Initial run retains three RGB line-search stalls with score norms1.18e-6,2.47e-6,8.59e-6; no reference labels read. Separate synthetic sub-ULP regression passes before rerun.",
+  "previous_freeze_sha256": "800f560cba536c0a8d3e8845a2cac18345979fd414bb66085740948025e73737"
+}
