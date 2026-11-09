@@ -1,0 +1,41 @@
+{
+  "created_at": "2026-11-09 America/New_York",
+  "stage": "pre_outcome_day_night_600_group_solver_preflight",
+  "source_groups": [
+    0,
+    599
+  ],
+  "purpose": "exercise_the_verified_replay_on_planned_day_night_prefixes_no_reference_scoring_or_fusion_yet",
+  "objective": "0.5 sum(r^T C^-1 r + logdet C), r=R q+t-p, C=Cs+R Ct R^T",
+  "derivatives": "exact_left_gradient_including_covariance_derivatives;expected_Fisher_and_mean_only_information",
+  "tangent": "left_SE3_translation_first_metres_radians",
+  "solver": {
+    "max_iterations": 100,
+    "score_tolerance": 1e-06,
+    "backtracking_scales": "0.5^k k=0..24",
+    "armijo": 0.0001,
+    "no_pseudoinverse_or_jitter": true
+  },
+  "mean_initialization": "first_committed_relative_camera_pose_before_refinement",
+  "rules": "all19adjacent_slots_per_camera_including_explicit_terminal_stage;no_reference_labels;no_frontend_updates;retain_failures",
+  "runtime_image": "sha256:40838ec9ce83b7f6d05b90b000aa2f0a76f2ddbbf21b180dba717707e220a2fe",
+  "pins": {
+    "tools/pose_covariance_replay.py": "c302f71b700b0a57b886dd3da9df8c2540e0399d2a330af44367afc1788a69e7",
+    "tools/test_pose_covariance_replay.py": "a450efadbc6297fb2bab4e496db2801f21ffe3089a0def99340569b574e55865",
+    "tools/validate_pose_covariance_smoke.py": "b422779ca3c149cd2cad60597fd884ce960f7f5cb714af92b52a82a16a54e39d",
+    "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/rgb/tensor-map.npz": "96fe6361646446f6cc93a60fb59b25f842c9d8d1af7eaee059b55a90125929d9",
+    "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/thermal/tensor-map.npz": "8196f9453ed5102de3de28129d14828dd7ae5764c99edad4345ac5871395f955",
+    "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/rgb/tensor-map.npz": "aff44b451466b3c2b8e30dbbd17583dfbd3f4fbe3b80e5d6ea76562467fa0bf6",
+    "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/thermal/tensor-map.npz": "37ad66a13a3f49f77afb129d9add42decb5ca33af264ad7df07c54092aed2d54",
+    "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/rgb/arbiter-events/events.jsonl": "c631276f902bf9bbf01dd2fa917876ab8689d7106721113d874c8f63b9bf5f6b",
+    "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/thermal/arbiter-events/events.jsonl": "7d093f69e12e6e2cf44c606c559a43998bd8fc1cc7601ef83aaf5d68c9908a89",
+    "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/rgb/arbiter-events/events.jsonl": "1cd542ec801f74b515c98e228c0cc9aff01f5b231e9b2242cdd871fa1a8e6334",
+    "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/thermal/arbiter-events/events.jsonl": "aca4e9fe5048c1991cf686acc71d7fd248fcd1c003cd7fab437cfb13a0aa9021"
+  },
+  "amendment": "v3: exact group-prefix option, required-field loading only, independent derivative/information auditor. Numerical objective and stopping rules unchanged. Rain600 capture remains pending; no three-record scientific comparison claim.",
+  "previous_freeze_sha256": "800f560cba536c0a8d3e8845a2cac18345979fd414bb66085740948025e73737",
+  "source_recordings": {
+    "day": "_2021-08-13-16-31-10",
+    "night": "_2021-08-13-22-16-02"
+  }
+}

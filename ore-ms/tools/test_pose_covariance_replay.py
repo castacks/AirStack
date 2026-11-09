@@ -1,11 +1,14 @@
 """Numerical model checks, not empirical camera calibration tests."""
 import unittest
+import json
+from pathlib import Path
+import tempfile
 
 import numpy as np
 
 from pose_covariance_replay import (
     covariance_intersection, exp_se3, gaussian_model, information_inverse,
-    log_se3, objective_change, register, skew, transport_covariance, validate_data,
+    log_se3, objective_change, register, replay_capture, skew, transport_covariance, validate_data,
 )
 
 
@@ -20,6 +23,37 @@ def fixture(n=24, seed=7):
 
 
 class NumericalTests(unittest.TestCase):
+    def test_replay_preserves_original_prefix_and_terminal_stage(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root/'arbiter-events').mkdir()
+            uv = np.array([[10, 10], [20, 10], [10, 20], [20, 20]], dtype=float)
+            arrays = {'frames//K': np.tile([[100., 0, 15], [0, 100, 15], [0, 0, 1]], (3, 1, 1)),
+                      'frames//time_ns': np.array([1000, 2000, 3000], dtype=np.int64),
+                      'edge/match2frame1/mapping': np.repeat([0, 1], 4),
+                      'edge/match2frame2/mapping': np.repeat([1, 2], 4)}
+            for side in [1, 2]:
+                arrays[f'match//pixel{side}_uv'] = np.tile(uv, (2, 1))
+                arrays[f'match//pixel{side}_d'] = np.tile([2, 3, 4, 3], 2)[:, None]
+                arrays[f'match//obs{side}_covTc'] = np.tile(np.eye(3)*1e-4, (8, 1, 1))
+            np.savez(root/'tensor-map.npz', **arrays)
+            events = [{'kind': 'motion_result_written', 'first_write_for_submission': True,
+                       'from_idx': i, 'frame_idx': i+1, 'time0_ns': 1000*(i+1),
+                       'time1_ns': 1000*(i+2), 'original_need_interp': False,
+                       'stage': 'pair_processing' if i == 0 else 'termination', 'sequence': i,
+                       'derived_camera_delta_xyzw': [0, 0, 0, 0, 0, 0, 1]} for i in range(2)]
+            (root/'arbiter-events/events.jsonl').write_text('\n'.join(json.dumps(e) for e in events))
+            short = replay_capture(root, root/'short.json', max_groups=2)
+            all_rows = replay_capture(root, root/'all.json')
+            self.assertEqual(len(short['rows']), 1)
+            self.assertEqual(short['total_source_groups'], 3)
+            self.assertEqual(all_rows['rows'][-1]['native_write_stage'], 'termination')
+            self.assertEqual(all_rows['status_counts'], {'converged': 2})
+            with self.assertRaises(ValueError):
+                replay_capture(root, root/'too-long.json', max_groups=4)
+            with self.assertRaises(FileExistsError):
+                replay_capture(root, root/'short.json', max_groups=2)
+
     def test_se3_roundtrip_translation_first(self):
         for scale in [0, 1e-9, .001, .3, 1]:
             x = scale*np.array([.1, -.3, .4, -.1, .5, .7])

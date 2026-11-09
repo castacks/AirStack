@@ -271,15 +271,20 @@ def json_safe(value):
     return value
 
 
-def replay_capture(capture, output):
+def replay_capture(capture, output, max_groups=None):
     """Label-free local smoke, includes all native adjacent and terminal slots."""
     capture, output = Path(capture), Path(output)
+    if max_groups is not None and (not isinstance(max_groups, int) or max_groups < 2):
+        raise ValueError('group prefix must be an integer >=2')
     if output.exists():
         raise FileExistsError(output)
     paths = [capture/'tensor-map.npz', capture/'arbiter-events/events.jsonl']
     pins = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
     with np.load(paths[0], allow_pickle=False) as z:
-        saved = {k: z[k] for k in z.files}
+        names = ['frames//K', 'frames//time_ns', 'edge/match2frame1/mapping', 'edge/match2frame2/mapping']
+        names += [f'match//{field}' for field in ('pixel1_uv', 'pixel2_uv', 'pixel1_d', 'pixel2_d',
+                                                'obs1_covTc', 'obs2_covTc')]
+        saved = {k: z[k] for k in names}
     events = [json.loads(x) for x in paths[1].read_text().splitlines()]
     writes = {}
     for e in events:
@@ -290,7 +295,10 @@ def replay_capture(capture, output):
             writes[key] = e
     rows = []
     times = saved['frames//time_ns'].reshape(-1)
-    for parent in range(len(times)-1):
+    if max_groups is not None and max_groups > len(times):
+        raise ValueError('requested prefix is larger than original source axis')
+    count = len(times) if max_groups is None else max_groups
+    for parent in range(count-1):
         target = parent+1
         mask = ((saved['edge/match2frame1/mapping'] == parent)
                 & (saved['edge/match2frame2/mapping'] == target))
@@ -325,6 +333,7 @@ def replay_capture(capture, output):
     assert all(hashlib.sha256(p.read_bytes()).hexdigest() == pins[str(p)] for p in paths)
     report = {'created_at': datetime.now(ZoneInfo('America/New_York')).isoformat(),
               'input_sha256': pins, 'rows': rows, 'reference_labels_read': False,
+              'total_source_groups': len(times), 'group_prefix': count,
               'frontend_inference_calls': 0, 'scope': 'camera_local_development_solver_smoke_no_accuracy_or_fusion_claim',
               'status_counts': {s: sum(r['status'] == s for r in rows) for s in sorted({r['status'] for r in rows})}}
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -337,5 +346,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--capture', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--groups', type=int, help='exact original source prefix; never support-selected')
     args = parser.parse_args()
-    print(json.dumps(replay_capture(args.capture, args.output)['status_counts']))
+    print(json.dumps(replay_capture(args.capture, args.output, args.groups)['status_counts']))
