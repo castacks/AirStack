@@ -472,7 +472,13 @@ class GossipNode(Node):
             raise ValueError('map source has no fresh accepted gossip profile')
         if msg.is_delta and self._map_stream_revisions.get(msg.source_robot, -1) < msg.base_revision:
             raise ValueError('missing base map; sender must retry a full snapshot')
-        write_received_snapshot(self._robot_name, msg.source_robot, data)
+        if msg.representation == 'native_pca_v1':
+            if os.getenv('RAVEN_NATIVE_COMPRESSED_MAP', 'false').lower() != 'true':
+                raise ValueError('native map received by a non-native experiment')
+            from coordination_bringup.map_snapshot import write_native_received_snapshot
+            write_native_received_snapshot(self._robot_name, msg.source_robot, data)
+        else:
+            write_received_snapshot(self._robot_name, msg.source_robot, data)
         revision = msg.cloud.header.stamp.sec * 1_000_000_000 + msg.cloud.header.stamp.nanosec
         # ACK only after Raven has fused it, not merely after local DDS write.
         # A late-starting/restarted planner therefore triggers a full resync.

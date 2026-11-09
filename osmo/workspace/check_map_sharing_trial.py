@@ -19,6 +19,11 @@ if os.getenv('RAVEN_REUSABLE_FEATURE_MAP', 'false').lower() == 'true':
     assert errors and max(errors) <= .002, 'feature scoring parity was not verified'
     # Preserve the full reusable source maps, not just their mission queries.
     shutil.copyfile(f'/tmp/rayfronts_features_{robot}.npz', root / f'{robot}_reusable_features.npz')
+if os.getenv('RAVEN_NATIVE_COMPRESSED_MAP', 'false').lower() == 'true':
+    assert all(r['params'].get('native_compressed_map') for r in rows), 'native transport not active'
+    assert max(r['params'].get('native_dimension', 0) for r in rows) == 100, 'wrong native PCA dimension'
+    errors = [r['params']['native_reference_error'] for r in rows if r['params'].get('native_reference_error') is not None]
+    assert errors and max(errors) <= .002, 'native decode parity was not verified'
 if mode:
     assert all(r['params']['semantic_map_rejections'] == 0 for r in rows), 'rejected semantic map'
     assert any(sum(n > 0 for n in r['params']['semantic_map_cells_by_source'].values()) >= expected

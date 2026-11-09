@@ -21,9 +21,11 @@ def encode_delta(data, previous):
     key_dtype = np.dtype([('x', '<i8'), ('y', '<i8'), ('z', '<i8')])
     keys = np.ascontiguousarray(unique).view(key_dtype).reshape(-1)
     revision = msg.cloud.header.stamp.sec * 1_000_000_000 + msg.cloud.header.stamp.nanosec
-    state = (keys, matrix, tuple(msg.labels), float(msg.voxel_size), revision)
+    schema = (msg.representation, msg.feature_space, msg.basis_id,
+              msg.basis_rows, msg.basis_cols, msg.decoded_dimension)
+    state = (keys, matrix, tuple(msg.labels), float(msg.voxel_size), revision, schema)
     changed = np.ones(len(keys), dtype=bool)
-    if previous is not None and previous[2:4] == state[2:4]:
+    if previous is not None and previous[2:4] == state[2:4] and previous[5:] == state[5:]:
         old_keys, old_matrix = previous[:2]
         idx = np.searchsorted(old_keys, keys)
         valid = np.flatnonzero(idx < len(old_keys))
@@ -31,6 +33,8 @@ def encode_delta(data, previous):
         changed[valid] = np.any(matrix[valid] != old_matrix[idx[valid]], axis=1)
         msg.is_delta = True
         msg.base_revision = previous[4]
+        if msg.representation == 'native_pca_v1':
+            msg.pca_basis = []  # cached by this recipient after the ACKed full map
     else:
         msg.is_delta = False
         msg.base_revision = 0

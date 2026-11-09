@@ -392,3 +392,44 @@ an empty `(0,3)` tensor. RayFronts otherwise reads `.shape` on `None` when a fra
 produces no occupancy updates and terminates mapping. Nonempty updates are
 unchanged; the existing zero-row check skips frontier recomputation for that
 batch. This applies to both comparison modes and does not create map evidence.
+
+### Native PCA coefficient transport
+
+`RAVEN_NATIVE_COMPRESSED_MAP=true` (together with reusable feature mode) changes
+only the network representation. Raven still fuses and queries the expanded,
+common language feature vectors locally. Every mapped voxel sends XYZ, RGB,
+observation count and the mapper's 100 stored float32 PCA coefficients.
+Initial/full-resync messages also contain that source's float32 PCA basis,
+its dimensions and content fingerprint; acknowledged deltas omit the basis.
+Changing the basis/schema forces a full resync. Basis and resync bytes are
+included in the application-byte ledger, rather than treated as free setup.
+
+```mermaid
+flowchart LR
+  Source[Own native PCA voxel coefficients] --> TCP[Coefficients + initial source basis]
+  TCP --> Receiver[Existing receiver RayFronts process]
+  Receiver --> Reconstruct[Source coefficients times source basis transpose]
+  Reconstruct --> Project[Existing encoder language projection]
+  Project --> Atomic[Expanded local atomic handoff]
+  Atomic --> Fusion[Raven source-aware fusion and query scoring]
+  Fusion --> ACK[Fusion ACK advances sender delta base]
+```
+
+Each receiver uses **the sender's basis**, never its own independently fitted
+basis. Reconstruction uses the exact `PcaCompressor.decompress` operation in
+this RayFronts version (`Y @ basis.T`, with no mean offset). The existing local
+encoder applies its original language projection on the already allocated GPU;
+no encoder weights are transmitted and no second model is loaded into Raven.
+Model/config fingerprint, coefficient dimensions and basis fingerprint are
+validated before decoding. A missing basis prevents ACK and triggers resync.
+Native buffers and decoded buffers are separate per-source atomic files.
+
+Source-side checks reconstruct a sample through this same native decoder and
+compare query scores with actual RayFronts results (maximum absolute error
+0.002), in addition to the existing expanded-feature parity check. Trials record
+native mode, 100-D coefficient dimension and native parity error in auction
+traces. Full source archives contain coefficients, basis and expanded features,
+allowing offline verification and arbitrary new text queries. Local expansion,
+model weights, temporary files and GPU memory are not counted as network data.
+This reuses the native map's existing PCA approximation; it introduces no new
+quantization, dimensionality reduction or voxel selection.

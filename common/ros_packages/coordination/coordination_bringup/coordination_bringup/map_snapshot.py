@@ -50,3 +50,20 @@ def received_snapshots(robot, previous):
         data, version = _read(path, previous.get(source))
         if data is not None:
             yield source, data, version
+
+
+def write_native_received_snapshot(robot, source, data):
+    if not source.replace('_', '').isalnum():
+        raise ValueError('invalid map source name')
+    path = snapshot_path(robot).with_name(f'raven_native_map_{robot}_from_{source}.cdr')
+    _write(path, data)
+
+
+def native_received_snapshots(robot, previous):
+    parent = snapshot_path(robot).parent
+    prefix = f'raven_native_map_{robot}_from_'
+    for path in parent.glob(prefix+'*.cdr'):
+        source = path.name[len(prefix):-4]
+        data, version = _read(path, previous.get(source))
+        if data is not None:
+            yield source, data, version

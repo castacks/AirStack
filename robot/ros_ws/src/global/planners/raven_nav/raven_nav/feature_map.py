@@ -1,7 +1,8 @@
 """Reusable, common-language-space voxel features and arbitrary-query scoring.
 
-Native RayFronts PCA bases are fitted independently. Decompress before sending;
-never fuse PCA coefficients from different robots. No new lossy compression is
+Native RayFronts PCA bases are fitted independently. Expanded transport decodes
+before sending; native transport sends the basis and decodes at the receiver.
+Never fuse PCA coefficients from different robots. No new lossy compression is
 applied. RGB/count accompany every voxel; scores are computed only after fusion.
 """
 import hashlib
@@ -65,6 +66,22 @@ def export_feature_snapshot(server, reference):
     space = hashlib.sha256(config.encode()).hexdigest()[:20]
     robot = os.environ['ROBOT_NAME']
     path = feature_snapshot_path(robot)
+    native = {}
+    if os.getenv('RAVEN_NATIVE_COMPRESSED_MAP', 'false').lower() == 'true':
+        from raven_nav.native_map import basis_fingerprint, project_native, start_native_ingress
+        if mapper.feat_compressor is None or getattr(mapper.feat_compressor, 'basis', None) is None:
+            raise ValueError('native map mode requires the mapper PCA basis')
+        coefficients = mapper.global_vox_feat.float().cpu().numpy()
+        basis = mapper.feat_compressor.basis.float().cpu().numpy()
+        restored = project_native(server, coefficients[:n], basis)
+        native_error = float(np.max(np.abs(query_features(restored, queries,
+            bool(server.cfg.querying.compute_prob)) - expected)))
+        if not np.isfinite(native_error) or native_error > .002:
+            raise ValueError(f'native feature decoding differs from RayFronts: {native_error}')
+        native = dict(native_coefficients=coefficients, native_basis=basis,
+                      native_basis_id=np.asarray(basis_fingerprint(basis)),
+                      native_reference_error=np.asarray(native_error))
+        start_native_ingress(server, space, features.shape[1])
     temporary = path.with_suffix(f'.{os.getpid()}.tmp')
     with temporary.open('wb') as stream:
         np.savez(stream, xyz=mapper.global_vox_xyz.float().cpu().numpy(),
@@ -72,7 +89,7 @@ def export_feature_snapshot(server, reference):
                  counts=mapper.global_vox_cnt.float().cpu().numpy(),
                  query_labels=np.asarray(labels), query_features=queries,
                  feature_space=np.asarray(space), probability=np.asarray(bool(server.cfg.querying.compute_prob)),
-                 reference_error=np.asarray(error))
+                 reference_error=np.asarray(error), **native)
     temporary.replace(path)
     print(f'[reusable-map] voxels={len(features)} dim={features.shape[1]} '
           f'bytes={path.stat().st_size} score_error={error:.6g}', flush=True)

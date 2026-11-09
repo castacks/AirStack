@@ -9,3 +9,12 @@ uint64 base_revision
 string[] labels
 float32 voxel_size
 sensor_msgs/PointCloud2 cloud
+# Empty representation means the existing expanded/score cloud. Native PCA
+# maps carry RGB/count + coefficients in cloud; basis is sent on full resyncs.
+string representation
+string feature_space
+string basis_id
+uint32 basis_rows
+uint32 basis_cols
+uint32 decoded_dimension
+float32[] pca_basis

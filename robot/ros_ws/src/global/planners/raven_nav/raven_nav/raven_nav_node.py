@@ -527,6 +527,11 @@ class RavenNavNode(Node):
         self._reusable_feature_map = os.getenv('RAVEN_REUSABLE_FEATURE_MAP', 'false').lower() == 'true'
         if self._reusable_feature_map and not self._semantic_map_sharing:
             raise ValueError('reusable features require semantic_map_sharing')
+        self._native_compressed_map = os.getenv('RAVEN_NATIVE_COMPRESSED_MAP', 'false').lower() == 'true'
+        if self._native_compressed_map and not self._reusable_feature_map:
+            raise ValueError('native PCA transport requires reusable feature mode')
+        self._native_wire_snapshot = None
+        self._native_reference_error = None
         self._semantic_feature_labels = None
         self._feature_file_version = None
         self._feature_reference_error = None
@@ -2428,6 +2433,14 @@ class RavenNavNode(Node):
                     rdf = data['xyz']
                     xyz = np.stack([rdf[:, 2], -rdf[:, 0], -rdf[:, 1]], axis=1)
                     values = np.ascontiguousarray(np.c_[data['rgb'], data['counts'], features], dtype=np.float32)
+                    if self._native_compressed_map:
+                        self._native_reference_error = float(data['native_reference_error'])
+                        if self._native_reference_error > .002:
+                            raise ValueError('native reconstruction parity failed')
+                        self._native_wire_snapshot = dict(
+                            values=np.ascontiguousarray(np.c_[data['rgb'], data['counts'], data['native_coefficients']], dtype=np.float32),
+                            basis=data['native_basis'], basis_id=str(data['native_basis_id']),
+                            space=space, decoded_dimension=features.shape[1])
             self._semantic_source_stamp += 1
             self._own_semantic_snapshot = (xyz, values, self._semantic_source_stamp)
             self._refresh_semantic_map(publish=True)
@@ -2470,7 +2483,20 @@ class RavenNavNode(Node):
             msg.labels = labels
             msg.voxel_size = self._semantic_fusion.resolution
             header = Header(stamp=self.get_clock().now().to_msg(), frame_id='world_xy_agl')
-            matrix = np.ascontiguousarray(np.c_[world, scores], dtype='<f4')
+            wire_values = scores
+            if getattr(self, '_native_compressed_map', False):
+                native = self._native_wire_snapshot
+                wire_values = native['values']
+                msg.representation = 'native_pca_v1'
+                msg.feature_space = native['space']
+                msg.basis_id = native['basis_id']
+                msg.basis_rows, msg.basis_cols = native['basis'].shape
+                msg.decoded_dimension = native['decoded_dimension']
+                msg.pca_basis = native['basis'].astype(np.float32).reshape(-1).tolist()
+                labels = ['rgb_r', 'rgb_g', 'rgb_b', 'observation_count'] + [
+                    f'pca:{native["space"]}:{i}' for i in range(msg.basis_cols)]
+                msg.labels = labels
+            matrix = np.ascontiguousarray(np.c_[world, wire_values], dtype='<f4')
             names = ['x', 'y', 'z'] + [f'sim_{i}' for i in range(len(labels))]
             # Packed float32 array avoids Python per-voxel/per-channel objects.
             msg.cloud = PointCloud2(header=header, height=1, width=len(matrix),
@@ -3209,6 +3235,9 @@ class RavenNavNode(Node):
                 reusable_feature_map=self._reusable_feature_map,
                 feature_dimension=(len(self._semantic_feature_labels)-4 if self._semantic_feature_labels else 0),
                 feature_reference_error=self._feature_reference_error,
+                native_compressed_map=self._native_compressed_map,
+                native_dimension=(self._native_wire_snapshot['basis'].shape[1] if self._native_wire_snapshot else 0),
+                native_reference_error=self._native_reference_error,
                 semantic_map_sources=len(self._semantic_fusion.sources),
                 semantic_map_rejections=self._semantic_map_rejections,
                 semantic_map_peer_updates=dict(self._semantic_map_updates),
