@@ -1,7 +1,7 @@
 # Next experiment: geometry-aware RGB–thermal motion uncertainty
 
 **Design, 9 November 2026 · branch `ore-ms-orb-development` · base `5bea798bf`.**
-**Status: experiment defined; implementation, asset recovery and execution freeze pending. No new scientific results.**
+**Updated status: executed as the [three-record accuracy comparison](pose-covariance-accuracy-findings-2026-11-09.md). Runtime is excluded by user instruction. MACThermal already performs covariance-aware pose estimation; the new Gaussian replay is a backend variant, not a missing native capability. The original design below is retained with this clarification.**
 
 ## Question and motivation
 
@@ -51,7 +51,7 @@ Initial budget: at most **3,600 expert-frame calls** if cached fields are insuff
 
 ## Measurements and decision
 
-**Primary endpoint:** relative rotation error on identical common-reference intervals, using the existing nominal/provided-reference contract. Report per recording and equal-recording mean. Translation error, joint/native/output coverage, unsupported transitions, tails, numerical failures, extra runtime and memory are mandatory companion results. Per-step results do not automatically establish trajectory VO improvement.
+**Primary endpoint:** relative rotation error on identical common-reference intervals, using the existing nominal/provided-reference contract. Report per recording and equal-recording mean. Translation error, joint/native/output coverage, unsupported transitions, tails and numerical failures are mandatory companion results. Runtime/memory performance are excluded by the user’s later accuracy-only scope. Per-step results do not automatically establish trajectory VO improvement.
 
 **Uncertainty endpoints:** rotation and translation calibration separately, proper Gaussian scores where their covariance assumptions are valid, empirical coverage, and whether predicted relative risk chooses the lower-error camera better than angular trace and simple support/context controls. Reference noise and biases limit absolute calibration claims. Lock predictions/covariances before joining reference labels.
 

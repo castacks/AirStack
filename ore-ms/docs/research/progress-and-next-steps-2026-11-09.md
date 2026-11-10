@@ -1,43 +1,36 @@
-# RGB–Thermal Visual Odometry: Progress and Next Steps
+# RGB–Thermal Visual Odometry: Weekly Progress
 
-**Progress brief · 9 November 2026**
+**9 November 2026 · focus: error and accuracy**
 
-## Research question
+## Main question
 
-Can RGB and thermal uncertainty predict which sensor provides more reliable geometric measurements, and can that information improve visual odometry (VO)?
+Can RGB and thermal uncertainty predict relative geometric reliability and improve visual odometry? MACThermal already propagates feature uncertainty into covariance-weighted pose estimation. Propagation alone is not a new contribution; improved cross-sensor accuracy is the target.
 
-**Current conclusion:** the study establishes useful within-camera uncertainty ranking and a reproducible evaluation workflow. The tested cross-camera selection rules have not demonstrated reliable improvement over simple camera baselines. This limits the current method; it does not disprove the broader research hypothesis.
+## Completed work
 
-## Work completed and findings
+- Reproduced RGB/thermal pipelines and recorded uncertainty, motion, support and failures. Existing within-camera tests show controlled selective-risk median reductions of about9–37%against matched random under supplied-reference assumptions.
+- Tested scalar cross-camera rules and recording transfer. Results depend strongly on recording; the previous whole-record angular-rule test stopped for insufficient joint evaluation coverage and showed no matched benefit over RGB. This does not rule out stronger uncertainty models or fusion.
+- Implemented a separate Gaussian3D replay backend, local pose covariance propagation and equal/scalar/full covariance combination controls. Preserved unchanged native MAC/MACT estimates as baselines.
+- Completed the new three-record development comparison: first 600 groups each of day, night and rain. Reused cached day/night outputs; recovered the continuous rain input and ran both original experts for 600 frames each. Locked all ten methods before reference scoring. No training or runtime benchmarking.
 
-| Work completed | Main finding |
-|---|---|
-| Reproduced RGB/thermal pipelines and recorded uncertainty, support, motion and failures. | Established a repeatable basis for comparing sensor reliability. |
-| Evaluated within-camera uncertainty against supplied geometric references. | At fixed coverage, controlled mean-L2 selective-risk median reductions were about **9–37% versus matched random** on the examined windows. Ranking usefulness does not establish calibrated covariance or cross-camera comparability. |
-| Tested cross-camera selection and recording transfer. | Results depend on recording and baseline. Large pooled improvements can be dominated by one known RGB-collapse interval; they did not establish consistent recording-level superiority. |
-| Executed full-record baseline comparisons. | Thermal ORB had higher tracking coverage but higher translation RPE in day, night and rain. Tracking continuity and accuracy are separate outcomes. |
-| Completed the frozen day/night uncertainty-selection evaluation. | All four continuous native runs completed. The evaluation stopped under its predeclared coverage gate; matched comparisons also showed no benefit over RGB. |
+## Latest accuracy result
 
-Sources: [within-camera results](ms2-findings-2026-10-26.md), [transfer analysis](signal-transfer-findings-2026-11-04.md), [ORB comparison](orb-full-record-findings-2026-11-05.md), [final evaluation](decisive-uncertainty-findings-2026-11-06.md).
+**The new replay/full-covariance variant does not beat native RGB.** Mean relative errors below use identical intervals for each pair of methods:
 
-## Final evaluation: what the stop means
+| Recording | Intervals | Native RGB rotation /translation | Replay +full covariance rotation /translation |
+|---|---:|---:|---:|
+| Day |599|0.017523deg /0.046604m|0.038433deg /0.057849m|
+| Night |598|0.030350deg /0.077280m|0.360826deg /0.351439m|
+| Rain |599|0.041860deg /0.231334m|0.092440deg /0.320584m|
 
-| Measure | Day | Night | Predeclared requirement |
-|---|---:|---:|---|
-| Joint reference-qualified coverage | 95.12% | 89.68% | At least 95% per recording |
-| Rotation oracle headroom | 9.04% | 12.20% | At least 10% per recording |
-| Angular rule versus RGB, matched rotation error | Equal | 1.32% worse | At least 5% improvement against every declared baseline |
+Full covariance improves over equal fusion of the replayed poses, but the replay backend itself weakens the estimates. On common support, its single-camera RGB and thermal results are worse than their native counterparts. Equal fallback when a replay covariance is missing adds substantial night error. These effects are separated in the [complete findings](pose-covariance-accuracy-findings-2026-11-09.md); an improvement over the weakened replay baseline is not reported as a system gain.
 
-The formal outcome is **STOP_INSUFFICIENT_EVALUATION**, because night coverage fails. Day also lacks the required oracle headroom. Available matched results do not support the intended adaptive benefit. We retain those outcomes rather than relax thresholds or tune on the evaluation recordings. Both recordings are now development-exposed.
+31 numerical/scoring tests and independent combination/error reconstruction pass. Missing estimates, capped solves, fallback decisions and source denominators remain explicit. Scores use provided RGB reference products and the existing nominal frame/time model; physical ground truth and new-record generalization are not established. Per-interval errors are not full-trajectory accuracy.
 
-Errors use supplied/recorded reference proxies and documented nominal frame/time assumptions. Physical synchronization and frame truth, checkpoint training overlap, generalization and downstream adaptive VO benefit remain unverified. The final selector runs both experts and establishes no compute saving.
+## Next technical step
 
-## Current implementation progress and next steps
+1. **Retain the native pose backend.** The replay variant is not an accuracy improvement and should not replace it.
+2. **Change weighting independently of pose estimation.** Test a native-compatible uncertainty/readout or calibration model with fixed native means, strong RGB/thermal/fixed-fusion controls and an explicit missing-covariance fallback. Freeze that new comparison before scoring.
+3. **Choose later improvements from the observed limitation.** Native thermal frontend/normalization or covariance learning, shared representations and IMU fusion remain credible routes. Each should address a named error mechanism rather than changing all components simultaneously.
 
-The [pose-covariance prototype](pose-covariance-prototype-findings-2026-11-09.md) is implemented. It uses saved feature geometry and both endpoint covariances;15 numerical tests and160 synthetic trials pass. On the first600groups of the planned day/night records,2,292/2,396 camera intervals converge;58 hit the fixed solver cap and46 lack a native first motion write. Independent numerical checks pass. No new frontend inference or reference-error scoring occurred. These counts establish numerical feasibility and expose an availability issue; they do not demonstrate improved VO.
-
-Next: finish common-frame covariance transport and equal/scalar/full combination; account for capped/missing outputs in coverage; recover/capture the exact continuous rain prefix; then freeze predictions and score the original accuracy/calibration question. Existing short rain windows will not replace the declared600-group stream.
-
-This is a weekly progress update, not the endpoint of the research. Calibration, MACThermal frontend improvements, shared representations and IMU fusion remain available next hypotheses, chosen from the measured failure mode rather than all changed at once.
-
-*Updated with numerical implementation/preflight results through `6308b61f3`; reference-error results retain their original source records. No new adaptive-accuracy claim.*
+The weekly brief records progress; it is not the endpoint of the research. The latest negative result applies to the tested backend/fusion variant, not to all RGB–thermal fusion.

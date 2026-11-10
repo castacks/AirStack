@@ -1,0 +1,156 @@
+{
+  "equal_record_common_all": {
+    "native_rgb": {
+      "rotation_deg": 0.029797661337110398,
+      "translation_m": 0.11770314840278823
+    },
+    "native_thermal": {
+      "rotation_deg": 0.1302832767379717,
+      "translation_m": 0.37224308288191205
+    },
+    "native_equal": {
+      "rotation_deg": 0.0715243668394663,
+      "translation_m": 0.22108747839277323
+    },
+    "native_angular": {
+      "rotation_deg": 0.029803269940576596,
+      "translation_m": 0.1175902604717292
+    },
+    "replay_rgb": {
+      "rotation_deg": 0.0552975814906854,
+      "translation_m": 0.15156308263943066
+    },
+    "replay_thermal": {
+      "rotation_deg": 1.5842278622019006,
+      "translation_m": 1.5550668707935218
+    },
+    "replay_equal": {
+      "rotation_deg": 0.7996450277507886,
+      "translation_m": 0.8228811457538292
+    },
+    "replay_angular": {
+      "rotation_deg": 0.05526130788494466,
+      "translation_m": 0.15150217466395496
+    },
+    "replay_scalar": {
+      "rotation_deg": 0.17286718325640485,
+      "translation_m": 0.24898815452368536
+    },
+    "replay_full": {
+      "rotation_deg": 0.1724617924091734,
+      "translation_m": 0.24868100556592643
+    }
+  },
+  "development_decision": {
+    "best_fixed": "native_rgb",
+    "rotation_gain_vs_replay_equal": 0.7843270621037094,
+    "rotation_gain_vs_best_fixed": -4.7877626857375954,
+    "rotation_improved_vs_best_fixed_records": 0,
+    "translation_increase_vs_best_fixed": {
+      "day": 0.24603314409098642,
+      "night": 3.8193698563658565,
+      "rain": 0.3734828286879619
+    },
+    "coverage_matches_replay_equal": true,
+    "status": "DO_NOT_ADOPT_THIS_BACKEND_AND_FUSION_VARIANT",
+    "runtime_metrics": false
+  },
+  "conditions": {
+    "day": {
+      "expected_intervals": 599,
+      "reference_qualified_intervals": 599,
+      "common_all_count": 590,
+      "prediction_coverage": {
+        "native_rgb": 599,
+        "native_thermal": 590,
+        "native_equal": 599,
+        "native_angular": 599,
+        "replay_rgb": 599,
+        "replay_thermal": 590,
+        "replay_equal": 599,
+        "replay_angular": 599,
+        "replay_scalar": 599,
+        "replay_full": 599
+      },
+      "full_strategies": {
+        "full_local_ci": 587,
+        "sole_camera": 9,
+        "equal_missing_covariance": 3
+      }
+    },
+    "night": {
+      "expected_intervals": 599,
+      "reference_qualified_intervals": 599,
+      "common_all_count": 551,
+      "prediction_coverage": {
+        "native_rgb": 598,
+        "native_thermal": 551,
+        "native_equal": 598,
+        "native_angular": 598,
+        "replay_rgb": 598,
+        "replay_thermal": 551,
+        "replay_equal": 598,
+        "replay_angular": 598,
+        "replay_scalar": 598,
+        "replay_full": 598
+      },
+      "full_strategies": {
+        "full_local_ci": 497,
+        "sole_camera": 47,
+        "equal_missing_covariance": 54,
+        "unavailable": 1
+      }
+    },
+    "rain": {
+      "expected_intervals": 599,
+      "reference_qualified_intervals": 599,
+      "common_all_count": 594,
+      "prediction_coverage": {
+        "native_rgb": 599,
+        "native_thermal": 594,
+        "native_equal": 599,
+        "native_angular": 599,
+        "replay_rgb": 599,
+        "replay_thermal": 594,
+        "replay_equal": 599,
+        "replay_angular": 599,
+        "replay_scalar": 599,
+        "replay_full": 599
+      },
+      "full_strategies": {
+        "full_local_ci": 589,
+        "sole_camera": 5,
+        "equal_missing_covariance": 5
+      }
+    }
+  },
+  "prediction_lock_sha256": "7b3a10b18db55fc9e55deac8dc34e54d21c597fb496547ccabe501a307992080",
+  "audits": {
+    "day": {
+      "recording": "_2021-08-13-16-31-10",
+      "status": "PASS",
+      "combination_checks": 2372,
+      "error_component_checks": 11944,
+      "common_rows": 590,
+      "producer_or_scorer_imported": false
+    },
+    "night": {
+      "recording": "_2021-08-13-22-16-02",
+      "status": "PASS",
+      "combination_checks": 2192,
+      "error_component_checks": 11772,
+      "common_rows": 551,
+      "producer_or_scorer_imported": false
+    },
+    "rain": {
+      "recording": "_2021-08-06-16-19-00",
+      "status": "PASS",
+      "combination_checks": 2376,
+      "error_component_checks": 11960,
+      "common_rows": 594,
+      "producer_or_scorer_imported": false
+    }
+  },
+  "development_exposed": true,
+  "new_neural_frame_calls": 1200
+}
