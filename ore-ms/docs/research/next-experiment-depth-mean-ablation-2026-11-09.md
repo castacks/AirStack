@@ -1,6 +1,6 @@
 # Next experiment: depth mean versus covariance in thermal motion error
 
-9 November 2026, America/New_York. **Design only; not executed.** Decision follows the duplication/error-mechanism review. Runtime remains excluded.
+9 November 2026, America/New_York. **Four-arm experiment not executed: the [bounded preflight](depth-mean-ablation-preflight-findings-2026-11-09.md) reproduces all120native poses exactly, but its matching depth-input gate fails.** Decision follows the duplication/error-mechanism review. Runtime remains excluded.
 
 ## Question
 
