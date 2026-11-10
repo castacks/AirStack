@@ -1,5 +1,7 @@
 # Thermal stereo mean adaptation: trained and evaluated
 
+**Subsequent update:** the [training-only descent control](mean-descent-contract-findings-2026-11-10.md) confirms the shared-gradient mismatch on training examples and verifies a different final-output residual parameterization. Its three updates decrease training loss; no new rain/VO evaluation is claimed. The original run and results below remain unchanged.
+
 10 November 2026, America/New_York. Branch `ore-ms-orb-development`; experiment freeze `f650b660f`.
 
 **The controlled run is complete. This configuration does not provide an accuracy improvement, and it does not establish training descent.** It changes predicted stereo means, unlike the earlier covariance-only adaptations. A fixed final checkpoint was evaluated regardless of outcome; no learning-rate, parameter-scope or checkpoint search followed the rain results.

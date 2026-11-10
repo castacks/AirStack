@@ -1,0 +1,253 @@
+{
+  "recorded_at": "2026-11-10T08:34:40.310652-05:00",
+  "status": "PASS_TRAINING_DESCENT_CONTRACT_ONLY",
+  "freeze": "743ab87e4",
+  "original_shared_head_full_forward_gradient_mismatch_observed": true,
+  "shared_probe": {
+    "strict_fp32_tf32_disabled": true,
+    "rows": [
+      {
+        "condition": "day",
+        "source_id": "000000",
+        "loss": 1.5010993480682373,
+        "autograd_directional_derivative": -12.062097549438477,
+        "probes": [
+          {
+            "epsilon": 0.001,
+            "loss_minus": 1.4993045330047607,
+            "loss_plus": 1.503087043762207,
+            "central_directional_derivative": 1.8912553787231445
+          },
+          {
+            "epsilon": 0.0001,
+            "loss_minus": 1.5009231567382812,
+            "loss_plus": 1.501275897026062,
+            "central_directional_derivative": 1.7637014389038086
+          }
+        ],
+        "parameters_restored_exactly": true
+      },
+      {
+        "condition": "night",
+        "source_id": "000000",
+        "loss": 1.921358585357666,
+        "autograd_directional_derivative": -6.738562107086182,
+        "probes": [
+          {
+            "epsilon": 0.001,
+            "loss_minus": 1.922157645225525,
+            "loss_plus": 1.920818567276001,
+            "central_directional_derivative": -0.6695389747619629
+          },
+          {
+            "epsilon": 0.0001,
+            "loss_minus": 1.92143976688385,
+            "loss_plus": 1.9212740659713745,
+            "central_directional_derivative": -0.8285045623779297
+          }
+        ],
+        "parameters_restored_exactly": true
+      }
+    ],
+    "optimizer_steps": 0,
+    "excluded_record_reads": 0,
+    "scope": "diagnostic; native coordinate detach remains unchanged"
+  },
+  "corrected_model": "frozen-decoder final horizontal residual with frozen native convex upsampling; different parameterization, no recurrence feedback",
+  "trainable_scalars": 2305,
+  "training_frames": 40,
+  "training_label_pixels": 342569,
+  "zero_residual_identity_frames": 40,
+  "full_backbone_state_unchanged": true,
+  "finite_difference": {
+    "status": "PASS",
+    "dtype": "float64",
+    "training_frames": 40,
+    "initial_loss": 1.7177471450011659,
+    "restored_loss": 1.7177471450011659,
+    "probes": [
+      {
+        "epsilon": 0.0001,
+        "loss_minus": 1.7186639581232137,
+        "loss_plus": 1.7168310235884683,
+        "central_derivative": -9.164672673727114,
+        "autograd_derivative": -9.164673938080044,
+        "pass": true
+      },
+      {
+        "epsilon": 1e-05,
+        "loss_minus": 1.7178387951990768,
+        "loss_plus": 1.7176555017205997,
+        "central_derivative": -9.164673923856004,
+        "autograd_derivative": -9.164673938080044,
+        "pass": true
+      }
+    ],
+    "optimizer_steps": 0
+  },
+  "descent_control": {
+    "status": "PASS_TRAINING_DESCENT_ONLY",
+    "steps": [
+      {
+        "before": 1.7177472189068794,
+        "after": 1.7086172327399254,
+        "gradient_norm": 9.164674758911133,
+        "trials": [
+          {
+            "step_size": 0.001,
+            "loss": 1.7086172327399254,
+            "armijo_threshold": 1.7177463024394035,
+            "accepted": true
+          }
+        ]
+      },
+      {
+        "before": 1.7086172327399254,
+        "after": 1.699557263404131,
+        "gradient_norm": 9.095094680786133,
+        "trials": [
+          {
+            "step_size": 0.001,
+            "loss": 1.699557263404131,
+            "armijo_threshold": 1.7086163232304572,
+            "accepted": true
+          }
+        ]
+      },
+      {
+        "before": 1.699557263404131,
+        "after": 1.6905680410563946,
+        "gradient_norm": 9.024727821350098,
+        "trials": [
+          {
+            "step_size": 0.001,
+            "loss": 1.6905680410563946,
+            "armijo_threshold": 1.6995563609313489,
+            "accepted": true
+          }
+        ]
+      }
+    ],
+    "initial_loss": 1.7177472189068794,
+    "final_loss": 1.6905680410563946,
+    "training_frames": 40,
+    "excluded_record_evaluation": false,
+    "artifact_sha256": "4def840cfdd5333eae208615fb395fc18d7579d8920d5f8850882841eb7c3e03",
+    "previous_checkpoint_sha256": "6051cbbdb195f0ec109df542fd6a42bee922372dfe33b9dd5f5ec61ec5a22580",
+    "scope": "three training-only contract updates; no accuracy or deployment claim"
+  },
+  "relative_training_objective_reduction_percent": 1.5822571302301913,
+  "tests_passed": 5,
+  "independent_audit": {
+    "status": "PASS",
+    "producer_or_scorer_imported": false,
+    "frozen_hashes_verified": 225,
+    "training_caches_verified": 40,
+    "training_label_pixels": 342569,
+    "independent_analytic_gradient_norm": 9.164673938080043,
+    "finite_difference_scales_verified": 2,
+    "accepted_step_conditions_verified": 3,
+    "initial_loss_independent_fp64": 1.7177471450011659,
+    "final_loss_independent_fp64": 1.6905680217744425,
+    "maximum_final_prediction_discrepancy_px": 1.925051783757681e-06,
+    "previous_checkpoint_unchanged": true,
+    "excluded_record_evaluated": false
+  },
+  "audit_source_sha256": "3a438fee527200437859300fe344bd808e5d7479144aad73f724e799db601f9b",
+  "new_excluded_record_evaluation": false,
+  "new_native_vo_runs": 0,
+  "new_data_acquired": false,
+  "runtime_metrics": false,
+  "model_promoted": false,
+  "previous_candidate_unchanged": true,
+  "limits": "Two shared-gradient probe frames and three training-control updates; no accuracy/generalization/nativeupstreambug/completecausal attribution claim",
+  "artifact_sha256": {
+    "results/mean-descent-contract/run-001/audit.json": "879238f5d6bd78979cdd665ff76bcd6e6a7ba6a7c2f99073e6e6f79548bcfce1",
+    "results/mean-descent-contract/run-001/cache/day-000000.npz": "ae6eab5d055656b3412f18349d53e41a61c962a96f58df67f65d8a8578ac7b73",
+    "results/mean-descent-contract/run-001/cache/day-000001.npz": "8d1ccabb541176ff6d96dd7d08812ae736c0c673dc35090ab91fa6283216a09d",
+    "results/mean-descent-contract/run-001/cache/day-000002.npz": "83d12697c9767e6913e12b3769181eaf8c632b63af3d535b87bdbd28b963eeda",
+    "results/mean-descent-contract/run-001/cache/day-000003.npz": "2df62e50e350468fb85ab0cc7b477c327fe2164a094ae1b4d578e1daffe75f5b",
+    "results/mean-descent-contract/run-001/cache/day-000004.npz": "5a2dcd48404a3fc3025e538067816d9d1d8e44e20047726890caeef07c7be97c",
+    "results/mean-descent-contract/run-001/cache/day-000005.npz": "9c8718b1516a4036df7c598b05b005af1c1feca81b38664c3a00355c43366be2",
+    "results/mean-descent-contract/run-001/cache/day-000006.npz": "c60701d2901796532e635f4556ced2e58b1b210c7e7984d773afae4d66d92740",
+    "results/mean-descent-contract/run-001/cache/day-000007.npz": "f57edabc4fd328fa8c6078467a4f539e6ae783de56a7d05fb960f72a7e04847e",
+    "results/mean-descent-contract/run-001/cache/day-000008.npz": "ab0697528d2f435b3576494778a12bbe1bf63fd06f36d40a25f5f0eb8df71303",
+    "results/mean-descent-contract/run-001/cache/day-000009.npz": "6a3469e6ba9a4b688797213a30eb5b027178f9a13a521195fa3ed117c738fcc9",
+    "results/mean-descent-contract/run-001/cache/day-000010.npz": "28702deeb10972a08194f96eb8e8a80c99671c37ec500775d93bff2f031ead80",
+    "results/mean-descent-contract/run-001/cache/day-000011.npz": "8d78b5ba518aa7ea6cc2786b016f493df032fcfd9ec4968690b58a1c0228a4eb",
+    "results/mean-descent-contract/run-001/cache/day-000012.npz": "dfe5a6dccd4baed83a5fd823510828d4eba8cfb4e28fe87a26b66cae3accdbe7",
+    "results/mean-descent-contract/run-001/cache/day-000013.npz": "0314c19d3382c9784bc4ded3d8d6ba18d302606c77f2d6419d2e9c00f62a5d1c",
+    "results/mean-descent-contract/run-001/cache/day-000014.npz": "89c9282bbafc0f50c6434e1293fdd510431aa336323e4db60c088977d3a7e350",
+    "results/mean-descent-contract/run-001/cache/day-000015.npz": "dcb3b47b5593e70884127da26b0b1ec64953d9bd6009c991e7655977f55e6046",
+    "results/mean-descent-contract/run-001/cache/day-000016.npz": "4b9a778cc816ce3ede31471bfa34389d4c43a29251dd9cebfff5935f5370b3aa",
+    "results/mean-descent-contract/run-001/cache/day-000017.npz": "1b5e0c1c8967c8b6381ccfc3cc3464a8f103d3188df85a4c12d43b314d137d63",
+    "results/mean-descent-contract/run-001/cache/day-000018.npz": "2b98ebf18c743918fc6d76ff27b7c0ea9e29ce72bb21126f4b8de2c0a9dee27b",
+    "results/mean-descent-contract/run-001/cache/day-000019.npz": "66a77eafe7c77a6598a465bd52cd6831e9057593d1ea9f2bd157c57f1f45b0ec",
+    "results/mean-descent-contract/run-001/cache/night-000000.npz": "9a7d3aeeebf9db9df6f6900c4e12dc038cc0229267689bcacff253129ce3e9e7",
+    "results/mean-descent-contract/run-001/cache/night-000001.npz": "9b3c975c5e32fbbad0468a6488012465bbb41ae8c9e52cb81ef0024944b88433",
+    "results/mean-descent-contract/run-001/cache/night-000002.npz": "288ce9166029e5d83a32a5c7849f9d4f8f296f2c970dc1903507bf917fd68d32",
+    "results/mean-descent-contract/run-001/cache/night-000003.npz": "b43c6aceff7738551e907a7222735f3da69cf1c36c1272bb8880453ae04d9e3c",
+    "results/mean-descent-contract/run-001/cache/night-000004.npz": "b7094f4c18e86b71d45b7d9b94372bd414e7adab3f2e1dca2e61de955945d5b7",
+    "results/mean-descent-contract/run-001/cache/night-000005.npz": "b87d4e3836ed0e15970db292b6fa03b23f0f11a97bce1f745b48027dc7abc81e",
+    "results/mean-descent-contract/run-001/cache/night-000006.npz": "8c672b95e59afb23fe251172e672f5813a45f9c54553d1dd35966b09c49771d9",
+    "results/mean-descent-contract/run-001/cache/night-000007.npz": "3afdf1b5a57a45e0e99c34423c9d7bc5b6d11d693cc2ace3a8b00017ae0a94f6",
+    "results/mean-descent-contract/run-001/cache/night-000008.npz": "b45ea313cc757849cbc915ea13bb16a4082b9367ac2372db82921452babc62ac",
+    "results/mean-descent-contract/run-001/cache/night-000009.npz": "4d0009cfc6cc08254e72c9c528f84d90eb3ddc15372f9861ca8c52479abba58f",
+    "results/mean-descent-contract/run-001/cache/night-000010.npz": "ce299d6988096ee5f2a7d6335eb9c81098ecc860fc09bc49d25d81ce07292465",
+    "results/mean-descent-contract/run-001/cache/night-000011.npz": "c67168fea3472f884a6c7512116bc7ce53ceceb7136cc007d0ef3622e6185062",
+    "results/mean-descent-contract/run-001/cache/night-000012.npz": "5708c1874bff1c03498c4530a74acc8fb64c19b80917e1f0ef691eef49db598e",
+    "results/mean-descent-contract/run-001/cache/night-000013.npz": "3529880c4041345d3b22ea7205e8ea84b7dbbaf5b2951a7a54c3e2e81ddf27f0",
+    "results/mean-descent-contract/run-001/cache/night-000014.npz": "a5b3fba7783b8e37f1479e358079dd0ca3384d6fe906d70bc0a73103d9d1c467",
+    "results/mean-descent-contract/run-001/cache/night-000015.npz": "2615838bd478983c176cd05105a01abe761ae7fe505fda984f2a3208480932dc",
+    "results/mean-descent-contract/run-001/cache/night-000016.npz": "bfcf905d6d4fd938f0e04394ae2d7294eecbbf16e0d353eaa012e44ae98d6e88",
+    "results/mean-descent-contract/run-001/cache/night-000017.npz": "9d3cf54b12d9f1fdce08347ae347fe6d298b6491e8f9e0909066a8eb7ead5ef2",
+    "results/mean-descent-contract/run-001/cache/night-000018.npz": "08d1237d5d912169f7892e2e4121aaa6bf4bf27236485ff276b06d250ca6be59",
+    "results/mean-descent-contract/run-001/cache/night-000019.npz": "058f236cef137511ee437b6b5af7bde12e499bb448d99d0d351ee1cff622597d",
+    "results/mean-descent-contract/run-001/cache-lock.json": "8cc7b2ff3b1a8cb541656654a9ba3460f13c3c18f3ff3d25c4850b422c4636bd",
+    "results/mean-descent-contract/run-001/descent-steps.jsonl": "1b22b5413d468915f7cb9a8a026442a16caf7ee44413afe851d0032b7874da9d",
+    "results/mean-descent-contract/run-001/descent.json": "1a07d519abb6cf7637bec7879f22064c9849a0c7ef9a7d4cd9227aece04727d2",
+    "results/mean-descent-contract/run-001/finite-difference.json": "38df11d4d3ccc4421ddebf70c2dee75a4a9f3da886b1c2de41fbfbadf45d4b94",
+    "results/mean-descent-contract/run-001/shared-probe.json": "7ea8a56077f05a1ce8675898d05367f52ae232c28b1f05c0afcdd53e10361b17",
+    "results/mean-descent-contract/run-001/training-control-residual.pth": "4def840cfdd5333eae208615fb395fc18d7579d8920d5f8850882841eb7c3e03",
+    "results/mean-descent-contract/run-001/training-predictions/day-000000.npz": "9a16e9d7bd140802ab41edd179b517d99e7f6d797e90a71108d4b5dbab747ee5",
+    "results/mean-descent-contract/run-001/training-predictions/day-000001.npz": "33b314bea4e1273773cff46742b0876b129da8278f9a59e960139ce9d57f8bf9",
+    "results/mean-descent-contract/run-001/training-predictions/day-000002.npz": "d8522b35501eb782ad8b5415a66cea1983fdecc22abb001ea2e602c83397500e",
+    "results/mean-descent-contract/run-001/training-predictions/day-000003.npz": "e1569fb34c0753fc09617b44a08fd8f8594ca85250d415096ebc86d67ddc12a1",
+    "results/mean-descent-contract/run-001/training-predictions/day-000004.npz": "a37d44d434c2fb9de12a7d16bb789a56be7a84874bbc17d03405352a86d21605",
+    "results/mean-descent-contract/run-001/training-predictions/day-000005.npz": "88d7d526522624c2cb9786bf77c9fbb655a5cb271ba66c23b01da5810acfa67e",
+    "results/mean-descent-contract/run-001/training-predictions/day-000006.npz": "ce7277e845210c26a517982f9b1655f0a8641d5177159edf0bc8e63ae72061c0",
+    "results/mean-descent-contract/run-001/training-predictions/day-000007.npz": "8e36efb9dfb9d41cd7676e817b3f0d69858ee94ad02953f118da542c7d1a436f",
+    "results/mean-descent-contract/run-001/training-predictions/day-000008.npz": "f9a60910d8b46dc388e74235959db7b6d1a2f9412566062a5da5154a5b173b32",
+    "results/mean-descent-contract/run-001/training-predictions/day-000009.npz": "dc8c2eb43e79c3cf2e5c968240eafb16479aa5319cc71093794287f86060fe97",
+    "results/mean-descent-contract/run-001/training-predictions/day-000010.npz": "017714b0240042998596c03ecb9043dfa55ec6c851fda208cc76a7c2984d5f37",
+    "results/mean-descent-contract/run-001/training-predictions/day-000011.npz": "2eb5174892200b9a78162756d7dd27ef31a2bb9b63370266d85fce5592cbd7be",
+    "results/mean-descent-contract/run-001/training-predictions/day-000012.npz": "53f2105d5e6d80b217a3bc25ef236bbc25cc5c2b71de9cea0470124aff8cc34b",
+    "results/mean-descent-contract/run-001/training-predictions/day-000013.npz": "1ac29af08e0a386d8edd93bae8e753db31b8983f2a7d81217bb9d0e4d51d0468",
+    "results/mean-descent-contract/run-001/training-predictions/day-000014.npz": "e643fe1570a34ca623d42b6436381e514a6519940c7c2d9bd7e07e55df8e3e61",
+    "results/mean-descent-contract/run-001/training-predictions/day-000015.npz": "3bb47390c2a7e1f34e5419bb657af2734bb162f075eb3d0dcdc899675e7454ff",
+    "results/mean-descent-contract/run-001/training-predictions/day-000016.npz": "20605a33695e655fb0bf980984f8b7f49e6fa4ecc1acaad69912fd3f9a52a7c8",
+    "results/mean-descent-contract/run-001/training-predictions/day-000017.npz": "4dbe5b05b30579eb85a53b1ea8a2a498cee86413c91224c0c74ea94d4547b55b",
+    "results/mean-descent-contract/run-001/training-predictions/day-000018.npz": "8c9836a7dc4242993ab8f97a60663f7b9da65a84eb99cfac44f3e480b9f9d87d",
+    "results/mean-descent-contract/run-001/training-predictions/day-000019.npz": "5e37f50ba2964b218771073a6f2c2f7207535a84bcd0060dc1e0587b0dc27ac2",
+    "results/mean-descent-contract/run-001/training-predictions/night-000000.npz": "f6f0b8da460adf80a7ff62174e06e069a1b2b3f65767e0acfe3118a5979a5f1c",
+    "results/mean-descent-contract/run-001/training-predictions/night-000001.npz": "4bfb064d1946851a8f6597ddd76fa956dd6d50d483ef7f80658e3c07effdee41",
+    "results/mean-descent-contract/run-001/training-predictions/night-000002.npz": "293d2591649ac95df25ba71940e737d4f92e41eeb35dd1826ed6e9888e0e41f6",
+    "results/mean-descent-contract/run-001/training-predictions/night-000003.npz": "f0354ca174ffc665c795600f0f23ba09fb5d9f07ef8df600f4d782b907101e11",
+    "results/mean-descent-contract/run-001/training-predictions/night-000004.npz": "0c2b3655da4429f226cde56f019077c54265e78ad11fb945b08caba1be221241",
+    "results/mean-descent-contract/run-001/training-predictions/night-000005.npz": "4be063a079785f82bbeea59d6ec520be64f9fa200158fcee11b2e29aad0904ac",
+    "results/mean-descent-contract/run-001/training-predictions/night-000006.npz": "c16227a5f9b30d7ad524e62c3cd63774c7ff59e0f052d5483af405e5665685f0",
+    "results/mean-descent-contract/run-001/training-predictions/night-000007.npz": "9af232e5affdba94fe217f5594a2705eef2286d05227733eaac9fb8d7a637d5a",
+    "results/mean-descent-contract/run-001/training-predictions/night-000008.npz": "1a10cf32282e0ee63c71164cca28080b7b413d639d36ea01cfa701ace27e57b4",
+    "results/mean-descent-contract/run-001/training-predictions/night-000009.npz": "dfb7db38b023d2ace7b0e6081e8bc28eb70709b73c6b37a734c6fc9d3f7def76",
+    "results/mean-descent-contract/run-001/training-predictions/night-000010.npz": "86104e112d1b284402376b31ffc11933378e8897a0cc09a2cfc63faa62da541c",
+    "results/mean-descent-contract/run-001/training-predictions/night-000011.npz": "d96a384ff9fb69c588da47c2b8a7b7c8b459d3322b82db39e853489f1150cfcb",
+    "results/mean-descent-contract/run-001/training-predictions/night-000012.npz": "fa3edc4b0d6e1f18d1d4d63a93551e1c1caf124f243f99a9bcc79693c0751c7b",
+    "results/mean-descent-contract/run-001/training-predictions/night-000013.npz": "b9e8c3b9d7f6d346fa94dfa28214dfaa14e77de0c9df06c9083dc11fe6619a4e",
+    "results/mean-descent-contract/run-001/training-predictions/night-000014.npz": "35ea985daf403a44b47f2d9a5d183f01cb51f90e7e3586259cffd981f4e480cd",
+    "results/mean-descent-contract/run-001/training-predictions/night-000015.npz": "41699a382ba61d8c6e026b2dbade54d5aee89144c2d951f5edd9192c6bbb187d",
+    "results/mean-descent-contract/run-001/training-predictions/night-000016.npz": "7967d4ff0401e7f90726da3321a06169c066b2ea81018ecdfea03c9f9378898a",
+    "results/mean-descent-contract/run-001/training-predictions/night-000017.npz": "db34481a2d20c8d7e4fcf6ab15110d72606c488f42a55f5bca8c0615c5caef07",
+    "results/mean-descent-contract/run-001/training-predictions/night-000018.npz": "f572c41ce2e5f40d596a0483449ded8dabc3d19a23121beb742cf63656fd2e28",
+    "results/mean-descent-contract/run-001/training-predictions/night-000019.npz": "41afdc4773c2172068fda60f947c713eb86feb27c336686785ba33f5a90ebf10"
+  }
+}
