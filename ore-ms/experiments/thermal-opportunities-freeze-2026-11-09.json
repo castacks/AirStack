@@ -1,0 +1,50 @@
+{
+  "date": "2026-11-09 America/New_York",
+  "base_commit": "cfad795ee",
+  "development_exposed": true,
+  "cases": {
+    "day": {
+      "references": "results/pose-covariance/accuracy-001/references/day"
+    },
+    "night": {
+      "references": "results/pose-covariance/accuracy-001/references/night"
+    },
+    "rain": {
+      "references": "results/pose-covariance/accuracy-001/references/rain"
+    }
+  },
+  "pins": {
+    "tools/thermal_opportunities.py": "dd6446e5f3c2c40b6acc8af84fedc660c460c53f6b333d935802dedaa7d1c0f5",
+    "tools/test_thermal_opportunities.py": "f0c081f859686aa858afb45e88ab6deee5eedc81ab46e86d6d873d6b7e4f7505",
+    "tools/native_information_weights.py": "3ca414cf506ad025a6a641a2665e26bd81183253cdbcfe929486f83017dbe8dc",
+    "tools/run_native_information_weights.py": "4e74bca7db597566f95d8cf02c9cd875f27951ced6d1eed3953d32bb47228d04",
+    "tools/pose_covariance_replay.py": "c302f71b700b0a57b886dd3da9df8c2540e0399d2a330af44367afc1788a69e7",
+    "tools/score_pose_covariance_accuracy.py": "95184902f413a5bd0c3e2a275dbf7ddfda308de95323a871d93376261a426015",
+    "tools/pose_covariance_accuracy.py": "55349f546ca409b9c2706ed59a4a6dd30793c9f9e0ee37ba541aff8b7e548a00",
+    "results/native-information-weights/run-001/raw/day.json": "ace6921c378969a716a6089972bf3636f1c117318c04ddc02a8a8c4475cf1957",
+    "results/native-information-weights/run-001/scores-day.json": "7ae3c0c4bdce957a120e251f4872bb23c6a39f1d119345a11e50f3b67062f6f5",
+    "results/pose-covariance/accuracy-001/references/day/reference-lock.json": "421ca3d1a7561c71cb4308193e3af400ce3882b9b54616d64f4131e407d44f4c",
+    "results/native-information-weights/run-001/raw/night.json": "447b3fa7d257972a0a26430a96c0d1334a675951720f962ca1e0f397c1f8de14",
+    "results/native-information-weights/run-001/scores-night.json": "c095da708eb00f5f329ddf68327a5a120f8408cc6a248509faa9e6a426f7a19e",
+    "results/pose-covariance/accuracy-001/references/night/reference-lock.json": "5648f8bff1ed02a3a90a6eaedc9b2f8ea9ac087b2340fe038973a0f4c3b53e2c",
+    "results/native-information-weights/run-001/raw/rain.json": "101ca69c643bd87e36fde9743683195cbf102598e29c77e59d307d45a46d6893",
+    "results/native-information-weights/run-001/scores-rain.json": "c71883e9ac04e32dda5eeb438fe5e7a831cbe9e1e1bcdc288f49a6979772f1c6",
+    "results/pose-covariance/accuracy-001/references/rain/reference-lock.json": "efc5c02adad4451d2b54cf07de407c317b9fcd0e14bb507c574ee595329537f7"
+  },
+  "primary": "recording_excluded_ridge_rotation_selection",
+  "features": "six log thermal/RGB ratios: factors, residual MSE, translation/rotation covariance traces and marginal condition numbers; log1p relative-pose rotation(rad)/translation(m) disagreement",
+  "fit": "target RGB-minus-thermal rotation error(deg); equal-record weighted ridge(lambda=1), training-only weighted standardization, unpenalized intercept, thermal iff predicted gain>0; no tuning",
+  "controls": [
+    "rgb",
+    "thermal",
+    "training_best_fixed",
+    "rotation_oracle",
+    "translation_oracle",
+    "joint_oracle"
+  ],
+  "oracle_status": "diagnostic_reference_dependent_bound_only",
+  "runtime_metrics": false,
+  "new_frontend_optimizer_calls": 0,
+  "prediction_policy": "sole camera retained; neither unavailable; missing cues RGB; all predictions locked before scoring",
+  "diagnostic": "wins tolerance1e-12; Pareto categories; contiguous pair/source runs and summed interval durations; both metrics for each oracle; paired/own support"
+}
