@@ -1,0 +1,256 @@
+{
+  "status": "NO_ACCURACY_GAIN_FOR_PRIMARY_CAL_FULL",
+  "primary": "cal_full",
+  "development_exposed": true,
+  "runtime_metrics": false,
+  "native_means_changed": false,
+  "common_support": {
+    "day": 590,
+    "night": 551,
+    "rain": 594
+  },
+  "equal_record_common_mean": {
+    "native_rgb": {
+      "rotation_deg": 0.029797661337110398,
+      "translation_m": 0.11770314840278823
+    },
+    "native_thermal": {
+      "rotation_deg": 0.1302832767379717,
+      "translation_m": 0.37224308288191205
+    },
+    "native_equal": {
+      "rotation_deg": 0.0715243668394663,
+      "translation_m": 0.22108747839277323
+    },
+    "native_angular": {
+      "rotation_deg": 0.029803269940576596,
+      "translation_m": 0.1175902604717292
+    },
+    "raw_scalar": {
+      "rotation_deg": 0.029964131594900856,
+      "translation_m": 0.11768584335941316
+    },
+    "raw_full": {
+      "rotation_deg": 0.029860377762700632,
+      "translation_m": 0.11767852590619683
+    },
+    "cal_scalar": {
+      "rotation_deg": 0.032811266483468125,
+      "translation_m": 0.11825321443442122
+    },
+    "cal_full": {
+      "rotation_deg": 0.032464281535056955,
+      "translation_m": 0.1221142588141433
+    },
+    "train_best_fixed": {
+      "rotation_deg": 0.029797661337110398,
+      "translation_m": 0.11770314840278823
+    }
+  },
+  "primary_pairwise_rgb": {
+    "day": {
+      "count": 599,
+      "metrics": {
+        "cal_full": {
+          "rotation_deg": {
+            "count": 599,
+            "mean": 0.022992743763008618,
+            "median": 0.014621577729313039,
+            "rmse": 0.03196622268553568,
+            "p95": 0.0704918683219031,
+            "maximum": 0.15196265289703434
+          },
+          "translation_m": {
+            "count": 599,
+            "mean": 0.04813718855608888,
+            "median": 0.03447590978853072,
+            "rmse": 0.08451395887933866,
+            "p95": 0.12447319650379694,
+            "maximum": 0.9466130790539619
+          }
+        },
+        "native_rgb": {
+          "rotation_deg": {
+            "count": 599,
+            "mean": 0.017523118731718686,
+            "median": 0.004614839535370315,
+            "rmse": 0.028727361576179264,
+            "p95": 0.06578185731694952,
+            "maximum": 0.15196265289703434
+          },
+          "translation_m": {
+            "count": 599,
+            "mean": 0.04660355858121198,
+            "median": 0.03339142197431046,
+            "rmse": 0.08348114394905887,
+            "p95": 0.12019008153847272,
+            "maximum": 0.9466130790539619
+          }
+        }
+      }
+    },
+    "night": {
+      "count": 598,
+      "metrics": {
+        "cal_full": {
+          "rotation_deg": {
+            "count": 598,
+            "mean": 0.031403529331176426,
+            "median": 0.027211626064804588,
+            "rmse": 0.037528316184096085,
+            "p95": 0.07189030939987019,
+            "maximum": 0.12968474207246944
+          },
+          "translation_m": {
+            "count": 598,
+            "mean": 0.0882286499599817,
+            "median": 0.07168192695302072,
+            "rmse": 0.12267907799520623,
+            "p95": 0.173814298124894,
+            "maximum": 0.972350369336366
+          }
+        },
+        "native_rgb": {
+          "rotation_deg": {
+            "count": 598,
+            "mean": 0.030349721540479217,
+            "median": 0.02638559270516476,
+            "rmse": 0.03641101110664881,
+            "p95": 0.06942831963264244,
+            "maximum": 0.12968474207246944
+          },
+          "translation_m": {
+            "count": 598,
+            "mean": 0.07728002290874757,
+            "median": 0.07017323037381254,
+            "rmse": 0.08749337029144434,
+            "p95": 0.15426822092069314,
+            "maximum": 0.2656596708689418
+          }
+        }
+      }
+    },
+    "rain": {
+      "count": 599,
+      "metrics": {
+        "cal_full": {
+          "rotation_deg": {
+            "count": 599,
+            "mean": 0.043152272505401885,
+            "median": 0.02755596328941856,
+            "rmse": 0.06354042639263506,
+            "p95": 0.12771591484321956,
+            "maximum": 0.32617376517422025
+          },
+          "translation_m": {
+            "count": 599,
+            "mean": 0.23112913649039715,
+            "median": 0.058359306017407096,
+            "rmse": 0.40626452139742253,
+            "p95": 1.0385088512942624,
+            "maximum": 1.4223144284535167
+          }
+        },
+        "native_rgb": {
+          "rotation_deg": {
+            "count": 599,
+            "mean": 0.041860046247839594,
+            "median": 0.02630829446565341,
+            "rmse": 0.06322637677476531,
+            "p95": 0.12771591484321956,
+            "maximum": 0.32617376517422025
+          },
+          "translation_m": {
+            "count": 599,
+            "mean": 0.23133364709459006,
+            "median": 0.05870899627989222,
+            "rmse": 0.4063225390175593,
+            "p95": 1.0385088512942624,
+            "maximum": 1.4223144284535167
+          }
+        }
+      }
+    }
+  },
+  "coverage": {
+    "day": {
+      "native_rgb": 599,
+      "native_thermal": 590,
+      "native_equal": 599,
+      "native_angular": 599,
+      "raw_scalar": 599,
+      "raw_full": 599,
+      "cal_scalar": 599,
+      "cal_full": 599,
+      "train_best_fixed": 599
+    },
+    "night": {
+      "native_rgb": 598,
+      "native_thermal": 551,
+      "native_equal": 598,
+      "native_angular": 598,
+      "raw_scalar": 598,
+      "raw_full": 598,
+      "cal_scalar": 598,
+      "cal_full": 598,
+      "train_best_fixed": 598
+    },
+    "rain": {
+      "native_rgb": 599,
+      "native_thermal": 594,
+      "native_equal": 599,
+      "native_angular": 599,
+      "raw_scalar": 599,
+      "raw_full": 599,
+      "cal_scalar": 599,
+      "cal_full": 599,
+      "train_best_fixed": 599
+    }
+  },
+  "audits": {
+    "day": {
+      "status": "PASS",
+      "condition": "day",
+      "native_mean_slots_preserved": 1198,
+      "combination_checks": 2360,
+      "error_component_checks": 10764,
+      "fold_scales_independently_verified": true,
+      "producer_or_scorer_imported": false
+    },
+    "night": {
+      "status": "PASS",
+      "condition": "night",
+      "native_mean_slots_preserved": 1198,
+      "combination_checks": 2204,
+      "error_component_checks": 10670,
+      "fold_scales_independently_verified": true,
+      "producer_or_scorer_imported": false
+    },
+    "rain": {
+      "status": "PASS",
+      "condition": "rain",
+      "native_mean_slots_preserved": 1198,
+      "combination_checks": 2376,
+      "error_component_checks": 10772,
+      "fold_scales_independently_verified": true,
+      "producer_or_scorer_imported": false
+    }
+  },
+  "tests_passed": 39,
+  "artifact_sha256": {
+    "results/native-information-weights/run-001/audit-day.json": "0bd6b5255b27a066d929818f95701366833f1db4400b2f3d07f33ea3b1f5012c",
+    "results/native-information-weights/run-001/audit-night.json": "99662ff311d1b818184c6deca1c2bf67a9a5f1296d35b7762756d5e8fc387f65",
+    "results/native-information-weights/run-001/audit-rain.json": "8d2520bd54191ff645ea142a885699dceccb4b60c7f9794ce005969e61baf521",
+    "results/native-information-weights/run-001/prediction-lock.json": "88dc5d7c379249562ef51d72954fea88b5433abf8ac79f53fed890091c8133ee",
+    "results/native-information-weights/run-001/predictions/day.json": "60c4e3c5ef3b722123f40d1a10f08262da9580a4a0ea707dab30cd9742b96f0c",
+    "results/native-information-weights/run-001/predictions/night.json": "c149609b761f59991e27a7c769bed2162bbd4fa867eee61d41486ab76f0c5d6c",
+    "results/native-information-weights/run-001/predictions/rain.json": "54ee1efb31eca352a79172d3435cbb24b84d2302c28f2973c17c9e1ff5ee3bda",
+    "results/native-information-weights/run-001/raw/day.json": "ace6921c378969a716a6089972bf3636f1c117318c04ddc02a8a8c4475cf1957",
+    "results/native-information-weights/run-001/raw/night.json": "447b3fa7d257972a0a26430a96c0d1334a675951720f962ca1e0f397c1f8de14",
+    "results/native-information-weights/run-001/raw/rain.json": "101ca69c643bd87e36fde9743683195cbf102598e29c77e59d307d45a46d6893",
+    "results/native-information-weights/run-001/raw-lock.json": "cb05b3aad2926b77e92ceaccdefe2a3112a95f070df9dd5e094de74e3c753267",
+    "results/native-information-weights/run-001/scores-day.json": "7ae3c0c4bdce957a120e251f4872bb23c6a39f1d119345a11e50f3b67062f6f5",
+    "results/native-information-weights/run-001/scores-night.json": "c095da708eb00f5f329ddf68327a5a120f8408cc6a248509faa9e6a426f7a19e",
+    "results/native-information-weights/run-001/scores-rain.json": "c71883e9ac04e32dda5eeb438fe5e7a831cbe9e1e1bcdc288f49a6979772f1c6"
+  }
+}

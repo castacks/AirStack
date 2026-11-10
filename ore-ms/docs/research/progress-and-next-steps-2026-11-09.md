@@ -2,35 +2,24 @@
 
 **9 November 2026 · focus: error and accuracy**
 
-## Main question
+Can RGB and thermal uncertainty predict relative geometric reliability and improve visual odometry? MACThermal already propagates uncertainty into pose estimation; the target is better cross-sensor accuracy.
 
-Can RGB and thermal uncertainty predict relative geometric reliability and improve visual odometry? MACThermal already propagates feature uncertainty into covariance-weighted pose estimation. Propagation alone is not a new contribution; improved cross-sensor accuracy is the target.
+Completed work:
 
-## Completed work
+- Reproduced RGB/thermal pipelines and captured motion, uncertainty, support and failures. Earlier within-camera tests showed controlled selective-risk median reductions of about 9–37% against matched random under supplied-reference assumptions. Cross-camera transfer remains recording-dependent.
+- Completed a three-record day/night/rain comparison, using the first 600 source groups each. Recovered rain inputs and ran both original experts for 600 frames. A separate Gaussian 3D replay/full-covariance variant weakened native poses and did not beat RGB. Kept the native backend.
+- Completed the follow-up isolating weights: preserved native means exactly, reconstructed conditional local information matrices, and tested raw/calibrated scalar/full combination with native RGB/thermal, equal/angular and training-best-fixed controls. Each calibration fold used only the other two recordings; predictions were locked before scoring. No runtime benchmarking.
 
-- Reproduced RGB/thermal pipelines and recorded uncertainty, motion, support and failures. Existing within-camera tests show controlled selective-risk median reductions of about9–37%against matched random under supplied-reference assumptions.
-- Tested scalar cross-camera rules and recording transfer. Results depend strongly on recording; the previous whole-record angular-rule test stopped for insufficient joint evaluation coverage and showed no matched benefit over RGB. This does not rule out stronger uncertainty models or fusion.
-- Implemented a separate Gaussian3D replay backend, local pose covariance propagation and equal/scalar/full covariance combination controls. Preserved unchanged native MAC/MACT estimates as baselines.
-- Completed the new three-record development comparison: first 600 groups each of day, night and rain. Reused cached day/night outputs; recovered the continuous rain input and ran both original experts for 600 frames each. Locked all ten methods before reference scoring. No training or runtime benchmarking.
+Latest result: **the calibrated full-matrix combination does not improve accuracy.** Mean relative errors use identical intervals for each RGB/combination pair:
 
-## Latest accuracy result
-
-**The new replay/full-covariance variant does not beat native RGB.** Mean relative errors below use identical intervals for each pair of methods:
-
-| Recording | Intervals | Native RGB rotation /translation | Replay +full covariance rotation /translation |
+| Recording | Intervals | RGB rotation / translation | Calibrated full rotation / translation |
 |---|---:|---:|---:|
-| Day |599|0.017523deg /0.046604m|0.038433deg /0.057849m|
-| Night |598|0.030350deg /0.077280m|0.360826deg /0.351439m|
-| Rain |599|0.041860deg /0.231334m|0.092440deg /0.320584m|
+| Day | 599 | 0.017523 deg / 0.046604 m | 0.022993 deg / 0.048137 m |
+| Night | 598 | 0.030350 deg / 0.077280 m | 0.031404 deg / 0.088229 m |
+| Rain | 599 | 0.041860 deg / 0.231334 m | 0.043152 deg / 0.231129 m |
 
-Full covariance improves over equal fusion of the replayed poses, but the replay backend itself weakens the estimates. On common support, its single-camera RGB and thermal results are worse than their native counterparts. Equal fallback when a replay covariance is missing adds substantial night error. These effects are separated in the [complete findings](pose-covariance-accuracy-findings-2026-11-09.md); an improvement over the weakened replay baseline is not reported as a system gain.
+On all-method common support (590/551/594 intervals), equal-record mean rotation/translation error increases by 8.95%/3.75% against RGB. Raw weighting remains close to RGB; global scale calibration worsens both aggregate metrics. Training-best-fixed selects RGB in every fold. Coverage is preserved, so this result is not explained by discarded intervals or the prior replay fallback.
 
-31 numerical/scoring tests and independent combination/error reconstruction pass. Missing estimates, capped solves, fallback decisions and source denominators remain explicit. Scores use provided RGB reference products and the existing nominal frame/time model; physical ground truth and new-record generalization are not established. Per-interval errors are not full-trajectory accuracy.
+39 tests and three independent audits pass. The readout is an inverse conditional information approximation, not a calibrated native pose posterior. These are exposed development prefixes with supplied RGB references and nominal alignment; unseen-record generalization, physical ground truth and full-trajectory accuracy remain unestablished. [Detailed findings and all controls](native-information-weights-findings-2026-11-09.md).
 
-## Next technical step
-
-1. **Retain the native pose backend.** The replay variant is not an accuracy improvement and should not replace it.
-2. **Change weighting independently of pose estimation.** Test a native-compatible uncertainty/readout or calibration model with fixed native means, strong RGB/thermal/fixed-fusion controls and an explicit missing-covariance fallback. Freeze that new comparison before scoring.
-3. **Choose later improvements from the observed limitation.** Native thermal frontend/normalization or covariance learning, shared representations and IMU fusion remain credible routes. Each should address a named error mechanism rather than changing all components simultaneously.
-
-The weekly brief records progress; it is not the endpoint of the research. The latest negative result applies to the tested backend/fusion variant, not to all RGB–thermal fusion.
+Next: quantify where thermal actually beats RGB, including joint gains, tradeoffs and contiguous opportunities. Use an oracle bound only to measure available headroom, then test whether existing geometry/support/residual cues predict those opportunities across recordings. This will distinguish weak reliability cues from weak expert estimates and guide targeted thermal frontend, covariance or shared-representation changes. Retain native poses initially and assess full trajectories after a credible interval gain. The tested global-weight model has not helped; broader RGB–thermal research remains open.
