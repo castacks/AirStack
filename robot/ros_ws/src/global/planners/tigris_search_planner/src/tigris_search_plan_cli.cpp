@@ -114,7 +114,8 @@ int main(int argc, char** argv) {
             const SweepKinematics k = sweepKinematics(cam);
             std::cout << std::fixed << std::setprecision(1) << "tigris_search_plan: gimbal actuation ON - "
                       << "cross-track sweep +-" << cam.sweepAmplitude / kDeg << " deg at "
-                      << cam.sweepRate / kDeg << " deg/s (period " << 4.0 * cam.sweepAmplitude / cam.sweepRate
+                      << cam.sweepRate / kDeg << (cam.sweepSinusoid ? " deg/s peak, sinusoid (period " : " deg/s (period ")
+                      << cam.sweepPeriod()
                       << " s), peak gimbal axis rate " << k.peakAxisRate / kDeg << " deg/s\n";
             if (k.peakAxisRate > sc.gimbalSlewRate + 1e-9) {
                 std::cerr << "warning: the sweep needs " << k.peakAxisRate / kDeg << " deg/s on an earth-frame "

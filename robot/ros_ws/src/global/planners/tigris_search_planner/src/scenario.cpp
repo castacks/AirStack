@@ -161,6 +161,18 @@ Scenario parseScenario(const std::string& jsonText) {
             if (!(s.gimbal.amplitude > 0.0) || !(s.gimbal.amplitude < kPi / 2.0)) {
                 throw std::runtime_error("scenario airstack.gimbal_actuation.sweep_amplitude_deg must be in (0, 90)");
             }
+            const std::string wf = ga["sweep_waveform"].text("triangle");
+            if (wf == "sinusoid" || wf == "sine") {
+                s.gimbal.sinusoid = true;
+                s.gimbal.freq = ga["sweep_freq_hz"].num(s.gimbal.rate / (2.0 * kPi * s.gimbal.amplitude));
+                if (!(s.gimbal.freq > 0.0) || !std::isfinite(s.gimbal.freq)) {
+                    throw std::runtime_error("scenario airstack.gimbal_actuation.sweep_freq_hz must be > 0");
+                }
+                s.gimbal.rate = 2.0 * kPi * s.gimbal.freq * s.gimbal.amplitude;  // peak |dphi/dt|
+            } else if (wf != "triangle") {
+                throw std::runtime_error("scenario airstack.gimbal_actuation.sweep_waveform must be 'triangle' or "
+                                         "'sinusoid' (got '" + wf + "')");
+            }
         }
     }
     const J::Value& simG = sc["airstack"]["sim_gimbal"];

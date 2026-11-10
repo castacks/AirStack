@@ -56,6 +56,12 @@ struct GimbalActuation {
     bool   enabled = false;
     double rate = 0.5235987755982988;       ///< [rad/s] constant cross-track angular speed (30 deg/s)
     double amplitude = 0.7853981633974483;  ///< [rad] half-travel of the sweep (45 deg)
+    /// Waveform (airstack.gimbal_actuation.sweep_waveform): "triangle" (default, the original: constant
+    /// |dphi/dt| = rate) or "sinusoid": phi(t) = amplitude sin(2 pi freq t), the curve planner's sweep shape.
+    /// For the sinusoid `rate` is the PEAK |dphi/dt|, so freq = rate / (2 pi amplitude) unless
+    /// sweep_freq_hz sets it (then the peak rate is 2 pi freq amplitude).
+    bool   sinusoid = false;
+    double freq = 0.0;                      ///< [Hz] sinusoid only
 };
 
 struct AgentSpec {

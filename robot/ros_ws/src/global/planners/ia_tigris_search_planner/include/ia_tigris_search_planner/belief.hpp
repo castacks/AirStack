@@ -66,10 +66,14 @@ struct Camera {
     double tilt = 0.5235987755982988;  ///< forward tilt from nadir [rad]
     // gimbal actuation: the cross-track axis sweeps -sweepAmplitude .. +sweepAmplitude
     bool   sweep = false;
-    double sweepRate = 0.0;            ///< [rad/s] constant cross-track angular speed
+    double sweepRate = 0.0;            ///< [rad/s] triangle: constant |dphi/dt|; sinusoid: its peak
     double sweepAmplitude = 0.0;       ///< [rad]
-    /// Cross-track angle (+ right) at planned track time t [s]: a triangle wave at constant
-    /// |dphi/dt| = sweepRate, phi(0) = 0 moving right, period 4 A / rate. 0 without actuation.
+    bool   sweepSinusoid = false;      ///< waveform: false = triangle (original), true = sinusoid
+    double sweepFreq = 0.0;            ///< [Hz] sinusoid only
+    /// Cross-track angle (+ right) at planned track time t [s], phi(0) = 0 moving right; 0 without
+    /// actuation. Triangle: constant |dphi/dt| = sweepRate, period 4 A / rate. Sinusoid:
+    /// A sin(2 pi sweepFreq t), period 1 / sweepFreq (peak |dphi/dt| = sweepRate).
+    double sweepPeriod() const;
     double phiAt(double t) const;
 };
 

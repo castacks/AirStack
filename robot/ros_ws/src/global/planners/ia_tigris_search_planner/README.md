@@ -148,6 +148,22 @@ Other runs, all at the mission seed:
 - The Python reward mirror is not duplicated: `scripts/analyze_tigris_run.py` reads IA-TIGRIS runs
   (`ia_tigris_replans.json`) with `tigris_search_planner.rewards`.
 
+## Performance switches (results unchanged)
+
+Two speed-ups that leave the algorithm and every output bit-identical (2026-11-03; see
+`test/test_ia_tigris_core.cpp` `Perf.*`). They matter for the iteration-bounded benchmark arms
+(`max_iterations`), where long budgets took hours. In the wall-time-bounded node a faster solve simply
+draws more samples in the same `planning_time_s`, as on a faster CPU.
+
+| `--set` key (CLI) | Default | |
+|---|---|---|
+| `reuse_recycle_rewards` | `true` | When a solve recycles from the SAME root, with the same budget and look time, on a bit-identical planning belief (the ~`extend_dist / (speed * replan_period)` solves spent on one committed edge), the stored rewards are kept instead of re-scoring the whole tree; only the re-ordering runs. `false` = always re-score. |
+| `eval_threads` | `1` | Threads that score the near-node extensions of a sample. Each candidate's reward reads only its existing parent chain and the belief, so they are scored first (in parallel); prune and insertion stay sequential in the original order. Counts against the machine's cores: keep `workers * eval_threads <= cores` in `run_benchmark.py` (pass it in an arm's `tigris_set`). |
+
+Measured on the `ia_tigris_det_60dps_it150` arm (2-core machine; tracks byte-identical to the
+previous build, residuals equal to `bench/wide900_entropy`): s0000 (400 s) 91 -> 87 s, 55 s with 2
+threads; s0004 (1000 s) 436 -> 365 s; s0064 (1500 s) 781 -> 617 s, 390 s with 2 threads.
+
 ## Tests
 
 `test/test_ia_tigris_core.cpp` (gtest) covers:
@@ -159,3 +175,5 @@ Other runs, all at the mission seed:
   the tail, track untouched when the tail is kept;
 - recycling the root keeps the whole tree;
 - `recycle_tree: false`.
+- the two performance switches give bit-identical tracks (both reward modes, sweep on and off,
+  1 / 3 / 4 threads, reuse on and off), and the reward reuse is used only when nothing changed.

@@ -577,3 +577,90 @@ TEST(GimbalSweep, SweepAwareTreeRewardsAndOffIsUnchanged) {
         }
     }
 }
+
+// ---- [perf] the two speed-ups must not change a single bit of the result -----------------------
+namespace {
+std::vector<TrackSample> sortie(TigrisParams tp, bool sweep) {
+    const Scenario sc = scenario();
+    HorizonParams hp = unitHorizon();
+    hp.initialPlanningTime = 600.0;
+    hp.replanPlanningTime = 600.0;
+    hp.commitMarginTime = -598.0;  // the it150 arm's commit distance (lookahead + 2 s), iteration-bounded
+    Camera cam;
+    if (sweep) {
+        cam.sweep = true;
+        cam.sweepRate = 60.0 * kPi / 180.0;
+        cam.sweepAmplitude = 45.0 * kPi / 180.0;
+    }
+    RecedingHorizon rh(sc, 0, cam, tp, hp);
+    EXPECT_TRUE(rh.start(defaultStartPose(sc, 0, hp)));
+    double t = 0.0, since = 0.0, last = 0.0;
+    for (int guard = 0; guard < 100000; ++guard) {
+        const double prog = std::min(sc.speed * t, rh.totalArc());
+        const bool atEnd = prog >= rh.totalArc() - 1e-6;
+        if (rh.due(prog, since) || (atEnd && !rh.exhausted())) {
+            rh.replan(prog, rh.plannedLooks(last, prog), "period");
+            last = prog;
+            since = 0.0;
+            if (atEnd && rh.exhausted()) break;
+            continue;
+        }
+        if (atEnd) break;
+        t += 0.1;
+        since += 0.1;
+    }
+    return rh.track();
+}
+void expectSameTrack(const std::vector<TrackSample>& a, const std::vector<TrackSample>& b) {
+    ASSERT_EQ(a.size(), b.size());
+    for (std::size_t k = 0; k < a.size(); ++k) {
+        ASSERT_EQ(a[k].x, b[k].x) << k;  // exact: bit-identical, not just close
+        ASSERT_EQ(a[k].y, b[k].y) << k;
+        ASSERT_EQ(a[k].yaw, b[k].yaw) << k;
+        ASSERT_EQ(a[k].phi, b[k].phi) << k;
+    }
+}
+}  // namespace
+
+TEST(Perf, ParallelScoringAndRewardReuseAreBitIdentical) {
+    for (const RewardMode mode : {RewardMode::MATCHED, RewardMode::ORIGINAL}) {
+        for (const bool sweep : {false, true}) {
+            TigrisParams ref = unitParams();
+            ref.maxIterations = 150;
+            ref.reward.mode = mode;
+            ref.evalThreads = 1;
+            ref.reuseRecycleRewards = false;  // the original code path
+            const auto base = sortie(ref, sweep);
+            ASSERT_GT(base.size(), 10u);
+            for (const int threads : {1, 3, 4}) {
+                for (const bool reuse : {false, true}) {
+                    TigrisParams tp = ref;
+                    tp.evalThreads = threads;
+                    tp.reuseRecycleRewards = reuse;
+                    SCOPED_TRACE(std::string(mode == RewardMode::MATCHED ? "matched" : "original") +
+                                 (sweep ? " swept" : " fixed") + " threads " + std::to_string(threads) +
+                                 (reuse ? " reuse" : ""));
+                    expectSameTrack(base, sortie(tp, sweep));
+                }
+            }
+        }
+    }
+}
+
+TEST(Perf, RewardReuseIsUsedOnContinuationSolves) {
+    const Scenario sc = scenario();
+    const PlanningGrid g(sc, 4.0, 0.01);
+    PlannerSetup su;
+    su.altitude = sc.altitude;
+    su.xMin = sc.xMin; su.xMax = sc.xMax; su.yMin = sc.yMin; su.yMax = sc.yMax;
+    TigrisParams tp = unitParams();
+    tp.maxIterations = 200;
+    tp.reward.mode = RewardMode::MATCHED;
+    const BeliefState b = BeliefState::fromGrid(g);
+    IaTigrisPlanner p(g, su, tp);
+    ASSERT_TRUE(p.plan({-90, -90, kPi / 4}, 150.0, 60.0, b).improved());
+    EXPECT_TRUE(p.replanFrom(0, 150.0, 60.0, b, 1, 0.0).recycleSkippedEval);   // same root, budget, belief
+    BeliefState b2 = b;
+    b2.residual[0] *= 0.5;                                                    // the belief changed
+    EXPECT_FALSE(p.replanFrom(0, 150.0, 60.0, b2, 2, 0.0).recycleSkippedEval);
+}

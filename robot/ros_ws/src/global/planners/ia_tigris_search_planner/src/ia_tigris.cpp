@@ -10,6 +10,11 @@
 #include <random>
 #include <stdexcept>
 #include <unordered_map>
+#include <atomic>
+#include <condition_variable>
+#include <functional>
+#include <mutex>
+#include <thread>
 
 namespace ia_tigris_search {
 namespace {
@@ -80,6 +85,76 @@ private:
     std::unordered_map<long long, std::vector<int>> m_;
 };
 
+
+// [perf] Runs f(i, evaluator, chainBuf) for i in [0, n): inline with eval_ when eval_threads <= 1
+// or n is small, else on a persistent worker pool, each worker with its own evaluator.
+struct IaTigrisPlanner::Pool {
+    std::vector<std::thread> threads;
+    std::mutex m;
+    std::condition_variable cvWork, cvDone;
+    std::function<void(std::size_t, RewardEvaluator&, std::vector<int>&)> job;
+    std::size_t n = 0;
+    std::atomic<std::size_t> next{0};
+    int busy = 0;
+    unsigned generation = 0;
+    bool stop = false;
+    std::vector<std::unique_ptr<RewardEvaluator>> evs;
+    std::vector<std::vector<int>> chains;
+    ~Pool() {
+        {
+            std::lock_guard<std::mutex> lk(m);
+            stop = true;
+        }
+        cvWork.notify_all();
+        for (auto& t : threads) t.join();
+    }
+};
+
+void IaTigrisPlanner::runParallel(std::size_t n,
+                                  const std::function<void(std::size_t, RewardEvaluator&, std::vector<int>&)>& f) {
+    const int nt = p_.evalThreads;
+    if (nt <= 1 || n < 4) {
+        for (std::size_t i = 0; i < n; ++i) f(i, eval_, chainBuf_);
+        return;
+    }
+    if (!pool_) {
+        pool_ = std::make_unique<Pool>();
+        Pool* P = pool_.get();
+        for (int t = 0; t < nt; ++t) {
+            P->evs.push_back(std::make_unique<RewardEvaluator>(g_, s_.det, p_.reward));
+            P->chains.emplace_back();
+        }
+        for (int t = 1; t < nt; ++t) {  // worker 0 is the calling thread
+            P->threads.emplace_back([P, t]() {
+                unsigned seen = 0;
+                for (;;) {
+                    std::unique_lock<std::mutex> lk(P->m);
+                    P->cvWork.wait(lk, [&] { return P->stop || P->generation != seen; });
+                    if (P->stop) return;
+                    seen = P->generation;
+                    lk.unlock();
+                    for (std::size_t i; (i = P->next.fetch_add(1)) < P->n;) P->job(i, *P->evs[t], P->chains[t]);
+                    lk.lock();
+                    if (--P->busy == 0) P->cvDone.notify_one();
+                }
+            });
+        }
+    }
+    Pool* P = pool_.get();
+    {
+        std::lock_guard<std::mutex> lk(P->m);
+        P->job = f;
+        P->n = n;
+        P->next = 0;
+        P->busy = static_cast<int>(P->threads.size());
+        ++P->generation;
+    }
+    P->cvWork.notify_all();
+    for (std::size_t i; (i = P->next.fetch_add(1)) < n;) f(i, *P->evs[0], P->chains[0]);
+    std::unique_lock<std::mutex> lk(P->m);
+    P->cvDone.wait(lk, [&] { return P->busy == 0; });
+}
+
 IaTigrisPlanner::IaTigrisPlanner(const PlanningGrid& grid, const PlannerSetup& setup, const TigrisParams& params)
     : g_(grid), s_(setup), p_(params), eval_(grid, setup.det, params.reward),
       hash_(std::make_unique<NodeHash>(std::max(10.0, params.extendRadius))) {}
@@ -106,6 +181,11 @@ std::vector<Look> IaTigrisPlanner::edgeLooks(const DubinsPath& edge, double len,
 }
 
 void IaTigrisPlanner::tigrisGain(const std::vector<const TreeNode*>& chain, double startTime) {
+    tigrisGainWith(eval_, chain, startTime);
+}
+
+void IaTigrisPlanner::tigrisGainWith(RewardEvaluator& ev, const std::vector<const TreeNode*>& chain,
+                                     double startTime) const {
     // SearchMap::search_information_gain_with_hashmaps, root -> leaf: for every node FIRST the
     // straight part of the edge that ends at it (estimate_edge_belief_and_reward_with_hashmap,
     // on the parent's belief), THEN its own footprint (estimate_belief_and_reward_with_hashmap,
@@ -115,7 +195,7 @@ void IaTigrisPlanner::tigrisGain(const std::vector<const TreeNode*>& chain, doub
     for (const TreeNode* n : chain) {
         if (n->hasEdge) {
             if (!cam.sweep) {
-                eval_.tigrisEdge(n->edgeStart.x, n->edgeStart.y, n->edgeEnd.x, n->edgeEnd.y, n->edgeStart.yaw,
+                ev.tigrisEdge(n->edgeStart.x, n->edgeStart.y, n->edgeEnd.x, n->edgeEnd.y, n->edgeStart.yaw,
                                  s_.altitude, cam);
             } else {
                 // swept camera: the swath is the union of the footprints along the straight part
@@ -129,10 +209,10 @@ void IaTigrisPlanner::tigrisGain(const std::vector<const TreeNode*>& chain, doub
                     const Pose2 q = n->edge.sample(sv);
                     poses.push_back({q.x, q.y, q.yaw, cam.phiAt(tEdge + sv / s_.speed)});
                 }
-                eval_.tigrisEdgeSwept(poses, s_.altitude, cam);
+                ev.tigrisEdgeSwept(poses, s_.altitude, cam);
             }
         }
-        eval_.tigrisNode(n->pose.x, n->pose.y, s_.altitude, n->pose.yaw, cam,
+        ev.tigrisNode(n->pose.x, n->pose.y, s_.altitude, n->pose.yaw, cam,
                          cam.phiAt(startTime + n->arc / s_.speed));
     }
 }
@@ -156,31 +236,36 @@ PathReward IaTigrisPlanner::scorePath(const std::vector<TreeNode>& path, const B
 
 // SearchMap::search_information_gain_with_hashmaps: replay the ancestors' local updates
 // over the base belief, then evaluate only this node's own looks on top.
-double IaTigrisPlanner::evaluate(TreeNode& n, NodeData& d) {
+double IaTigrisPlanner::evaluate(TreeNode& n, NodeData& d) { return evaluateWith(eval_, chainBuf_, n, d); }
+
+// [perf] The same evaluation on a given evaluator / chain buffer: it only READS the tree (the
+// node's ancestors) and the belief, so evaluations of different candidates can run in parallel.
+double IaTigrisPlanner::evaluateWith(RewardEvaluator& ev, std::vector<int>& chainBuf, TreeNode& n,
+                                     NodeData& d) const {
     const bool original = p_.reward.mode == RewardMode::ORIGINAL;
-    eval_.begin(*belief_);
-    chainBuf_.clear();
-    for (int q = n.parent; q >= 0; q = nodes_[static_cast<std::size_t>(q)].parent) chainBuf_.push_back(q);
-    for (auto it = chainBuf_.rbegin(); it != chainBuf_.rend(); ++it) {
+    ev.begin(*belief_);
+    chainBuf.clear();
+    for (int q = n.parent; q >= 0; q = nodes_[static_cast<std::size_t>(q)].parent) chainBuf.push_back(q);
+    for (auto it = chainBuf.rbegin(); it != chainBuf.rend(); ++it) {
         const NodeData& a = data_[static_cast<std::size_t>(*it)];
         if (original) {
-            for (const auto& u : a.dPres) eval_.seedPresence(u.first, u.second);
+            for (const auto& u : a.dPres) ev.seedPresence(u.first, u.second);
         } else {
-            for (const auto& u : a.dRes) eval_.seedResidual(u.first, u.second);
+            for (const auto& u : a.dRes) ev.seedResidual(u.first, u.second);
         }
     }
-    eval_.markDelta();
+    ev.markDelta();
     double inc;
     if (original) {
         const std::vector<const TreeNode*> self{&n};
-        tigrisGain(self, startTime_);
-        inc = eval_.reward().original;
-        eval_.delta(&d.dPres, nullptr);
+        tigrisGainWith(ev, self, startTime_);
+        inc = ev.reward().original;
+        ev.delta(&d.dPres, nullptr);
         d.dRes.clear();
     } else {
-        eval_.pass(d.looks, false, true);
-        inc = eval_.reward().matched;
-        eval_.delta(nullptr, &d.dRes);
+        ev.pass(d.looks, false, true);
+        inc = ev.reward().matched;
+        ev.delta(nullptr, &d.dRes);
         d.dPres.clear();
     }
     return (n.parent >= 0 ? nodes_[static_cast<std::size_t>(n.parent)].info : 0.0) + inc;
@@ -383,8 +468,17 @@ void IaTigrisPlanner::recycle(int newRoot, double budget, PlanResult* res) {
     nodes_.swap(nn);
     data_.swap(nd);
     // every reward again, root to leaf, on the updated belief (UPDATESUBTREE); the best node is
-    // updated with a strict > as each child is re-added
-    for (std::size_t i = 0; i < nodes_.size(); ++i) nodes_[i].info = evaluate(nodes_[i], data_[i]);
+    // updated with a strict > as each child is re-added.
+    // [perf] Skipped when the solve continues from the SAME root, with the same budget and look
+    // times, on a bit-identical planning belief: every reward and local update would come out
+    // exactly as stored (same chain, same inputs), so only the re-ordering above is needed.
+    const bool same = p_.reuseRecycleRewards && newRoot == 0 && evalCacheValid_ && budget == evalBudget_ &&
+                      startTime_ == evalStartTime_ && belief_->residual == evalResidual_ &&
+                      belief_->presence == evalPresence_;
+    if (!same) {
+        for (std::size_t i = 0; i < nodes_.size(); ++i) nodes_[i].info = evaluate(nodes_[i], data_[i]);
+    }
+    res->recycleSkippedEval = same;
     rebuildHash();
     best_ = 0;
     for (std::size_t i = 1; i < nodes_.size(); ++i) {
@@ -402,6 +496,7 @@ void IaTigrisPlanner::recycle(int newRoot, double budget, PlanResult* res) {
 // The TIGRIS main loop with IA-TIGRIS's near-node loop (Tigris::replan_loop /
 // extend_neighbors_towards_node).
 void IaTigrisPlanner::grow(double budget, double timeLimit, int replanIndex, PlanResult* res) {
+    budgetCur_ = budget;
     const bool original = p_.reward.mode == RewardMode::ORIGINAL;
     std::mt19937_64 rng(p_.seed * 1000003ULL + static_cast<std::uint64_t>(replanIndex) * 7919ULL + 17ULL);
     std::uniform_real_distribution<double> uPsi(0.0, 2.0 * kPi);
@@ -460,17 +555,38 @@ void IaTigrisPlanner::grow(double budget, double timeLimit, int replanIndex, Pla
         // sample itself was pruned: it is still the target pose)
         hash_->within(mPose.x, mPose.y, p_.extendRadius,
                       [&](int idx) { return dist(nodes_[static_cast<std::size_t>(idx)].pose, mPose); }, nearNodes);
+        // [perf] Two phases with the SAME result as the one-by-one loop: every candidate's steer,
+        // looks and reward depend only on its (pre-existing) parent chain and the belief, never on
+        // the candidates added before it, so they are computed first (in parallel when
+        // eval_threads > 1); then the prune test / insertion runs sequentially in the original order.
+        cand_.clear();
         for (const int q : nearNodes) {
             if (q == nearest || q == mIdx || nodes_[static_cast<std::size_t>(q)].closed) continue;
             if (dist(nodes_[static_cast<std::size_t>(q)].pose, mPose) < 1e-6) continue;  // colocated
-            TreeNode a;
-            if (!steer(q, mPose, budget, &a)) continue;
-            if (a.edgeLen < 0.01) continue;
-            NodeData ad;
+            cand_.push_back(q);
+        }
+        if (candN_.size() < cand_.size()) {
+            candN_.resize(cand_.size());
+            candD_.resize(cand_.size());
+            candOk_.resize(cand_.size());
+        }
+        auto prepare = [&](std::size_t i, RewardEvaluator& ev, std::vector<int>& chain) {
+            TreeNode& a = candN_[i];
+            NodeData& ad = candD_[i];
+            a = TreeNode();
+            ad = NodeData();
+            candOk_[i] = 0;
+            if (!steer(cand_[i], mPose, budget, &a)) return;
+            if (a.edgeLen < 0.01) return;
             if (!original) ad.looks = edgeLooks(a.edge, a.edgeLen, tEdge(a));
-            a.info = evaluate(a, ad);
-            if (!pruned(a)) {
-                consider(addNode(std::move(a), std::move(ad)));
+            a.info = evaluateWith(ev, chain, a, ad);
+            candOk_[i] = 1;
+        };
+        runParallel(cand_.size(), prepare);
+        for (std::size_t i = 0; i < cand_.size(); ++i) {
+            if (!candOk_[i]) continue;
+            if (!pruned(candN_[i])) {
+                consider(addNode(std::move(candN_[i]), std::move(candD_[i])));
             } else {
                 ++res->nodesPruned;
             }
@@ -479,6 +595,12 @@ void IaTigrisPlanner::grow(double budget, double timeLimit, int replanIndex, Pla
 }
 
 void IaTigrisPlanner::finish(PlanResult* res) {
+    // [perf] the inputs every stored reward was computed on (see recycle)
+    evalCacheValid_ = true;
+    evalBudget_ = budgetCur_;
+    evalStartTime_ = startTime_;
+    evalResidual_ = belief_->residual;
+    evalPresence_ = belief_->presence;
     // the best path is still the plan we are flying (then the track is not revised)
     res->keptTail = tailEnd_ >= 0 && best_ == tailEnd_;
     lastPath_.clear();

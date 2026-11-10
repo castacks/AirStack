@@ -50,6 +50,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -70,6 +71,8 @@ struct TigrisParams {
     bool   informedSampler = true;
     bool   recycleTree = true;    ///< IA-TIGRIS tree recycling (false = a fresh tree every solve)
     int    maxIterations = 0;     ///< > 0: stop after this many samples (deterministic runs)
+    bool   reuseRecycleRewards = true;  ///< [perf] skip re-scoring an unchanged recycled tree (same result either way)
+    int    evalThreads = 1;       ///< [perf] threads scoring the near-node extensions (same result for any value)
     std::uint64_t seed = 21;
     RewardParams reward;
 };
@@ -115,6 +118,7 @@ struct PlanResult {
     double recycleSeconds = 0.0;  ///< re-rooting + recomputing every reward on the new belief
     double tailInfo = 0.0;        ///< active-mode reward of the previous plan's tail in the recycled tree
     bool keptTail = false;        ///< the best path IS the previous plan's tail (track not revised)
+    bool recycleSkippedEval = false;  ///< [perf] recycling reused the stored rewards (same root and belief)
     bool improved() const { return path.size() > 1; }
 };
 
@@ -149,6 +153,7 @@ public:
     PathReward scorePath(const std::vector<TreeNode>& path, const BeliefState& belief, double startTime = 0.0);
     /// ORIGINAL reward of a node chain the TIGRIS way (MapRepresentation::informationGain).
     void tigrisGain(const std::vector<const TreeNode*>& chain, double startTime = 0.0);
+    void tigrisGainWith(RewardEvaluator& ev, const std::vector<const TreeNode*>& chain, double startTime) const;
 
     const TigrisParams& params() const { return p_; }
     const PlannerSetup& setup() const { return s_; }
@@ -166,6 +171,14 @@ private:
     /// Reward of `n` (whose parent is a tree node) on the belief at the end of its chain;
     /// fills its local updates. Returns the node's active-mode reward from the root.
     double evaluate(TreeNode& n, NodeData& d);
+    double evaluateWith(RewardEvaluator& ev, std::vector<int>& chainBuf, TreeNode& n, NodeData& d) const;
+    struct Pool;
+    void runParallel(std::size_t n, const std::function<void(std::size_t, RewardEvaluator&, std::vector<int>&)>& f);
+    std::unique_ptr<Pool> pool_;
+    std::vector<int> cand_;
+    std::vector<TreeNode> candN_;
+    std::vector<NodeData> candD_;
+    std::vector<char> candOk_;
     bool steer(int from, const Pose2& target, double budget, TreeNode* out) const;
     bool pruned(const TreeNode& n);
     int addNode(TreeNode&& n, NodeData&& d);
@@ -194,6 +207,10 @@ private:
     int tailEnd_ = -1;        ///< the previous plan's last node in the recycled tree (-1: none)
     double tailInfo_ = 0.0;
     std::vector<int> chainBuf_, nearBuf_;
+    // [perf] inputs of the stored rewards (recycle skips re-evaluating when they are unchanged)
+    bool evalCacheValid_ = false;
+    double evalBudget_ = 0.0, evalStartTime_ = 0.0, budgetCur_ = 0.0;
+    std::vector<double> evalResidual_, evalPresence_;
 };
 
 }  // namespace ia_tigris_search

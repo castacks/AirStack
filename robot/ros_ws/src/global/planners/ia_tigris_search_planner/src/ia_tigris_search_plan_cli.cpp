@@ -76,6 +76,8 @@ void applySet(const std::string& kv, TigrisParams& tp, HorizonParams& hp, Camera
     else if (k == "max_iterations") tp.maxIterations = static_cast<int>(d());
     else if (k == "seed") tp.seed = static_cast<std::uint64_t>(d());
     else if (k == "recycle_tree") tp.recycleTree = toBool(v);
+    else if (k == "reuse_recycle_rewards") tp.reuseRecycleRewards = toBool(v);
+    else if (k == "eval_threads") tp.evalThreads = static_cast<int>(d());
     else throw std::runtime_error("unknown --set key '" + k + "'");
 }
 
@@ -118,7 +120,8 @@ int main(int argc, char** argv) {
             const SweepKinematics k = sweepKinematics(cam);
             std::cout << std::fixed << std::setprecision(1) << "ia_tigris_search_plan: gimbal actuation ON - "
                       << "cross-track sweep +-" << cam.sweepAmplitude / kDeg << " deg at "
-                      << cam.sweepRate / kDeg << " deg/s (period " << 4.0 * cam.sweepAmplitude / cam.sweepRate
+                      << cam.sweepRate / kDeg << (cam.sweepSinusoid ? " deg/s peak, sinusoid (period " : " deg/s (period ")
+                      << cam.sweepPeriod()
                       << " s), peak gimbal axis rate " << k.peakAxisRate / kDeg << " deg/s\n";
             if (k.peakAxisRate > sc.gimbalSlewRate + 1e-9) {
                 std::cerr << "warning: the sweep needs " << k.peakAxisRate / kDeg << " deg/s on an earth-frame "

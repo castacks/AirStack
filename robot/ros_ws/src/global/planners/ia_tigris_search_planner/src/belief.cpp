@@ -28,6 +28,7 @@ const char* toString(RewardMode m) { return m == RewardMode::ORIGINAL ? "origina
 
 double Camera::phiAt(double t) const {
     if (!sweep || !(sweepRate > 0.0) || !(sweepAmplitude > 0.0)) return 0.0;
+    if (sweepSinusoid) return sweepAmplitude * std::sin(6.283185307179586 * sweepFreq * t);  // 2 pi f t
     // triangle wave of slope +-sweepRate: 0 -> +A -> 0 -> -A -> 0 over 4 A / rate
     const double A = sweepAmplitude;
     double u = std::fmod(sweepRate * t, 4.0 * A);
@@ -44,7 +45,15 @@ Camera cameraFromScenario(const Scenario& sc) {
     cam.sweep = sc.gimbal.enabled;
     cam.sweepRate = sc.gimbal.enabled ? sc.gimbal.rate : 0.0;
     cam.sweepAmplitude = sc.gimbal.enabled ? sc.gimbal.amplitude : 0.0;
+    cam.sweepSinusoid = sc.gimbal.enabled && sc.gimbal.sinusoid;
+    cam.sweepFreq = cam.sweepSinusoid ? sc.gimbal.freq : 0.0;
     return cam;
+}
+
+double Camera::sweepPeriod() const {
+    if (!sweep) return 0.0;
+    if (sweepSinusoid) return sweepFreq > 0.0 ? 1.0 / sweepFreq : 0.0;
+    return sweepRate > 0.0 ? 4.0 * sweepAmplitude / sweepRate : 0.0;
 }
 
 SweepKinematics sweepKinematics(const Camera& cam) {

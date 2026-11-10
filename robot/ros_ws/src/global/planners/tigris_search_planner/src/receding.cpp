@@ -362,6 +362,10 @@ J::Object tigrisBlock(const RecedingHorizon& rh, const TrackMeta& meta) {
         ga["enabled"] = J::Value(cam.sweep);
         ga["sweep_rate_deg_s"] = J::Value(cam.sweepRate * 180.0 / kPi);
         ga["sweep_amplitude_deg"] = J::Value(cam.sweepAmplitude * 180.0 / kPi);
+        if (cam.sweepSinusoid) {  // absent = triangle, so triangle plans stay byte-identical
+            ga["sweep_waveform"] = J::Value(std::string("sinusoid"));
+            ga["sweep_freq_hz"] = J::Value(cam.sweepFreq);
+        }
         o["gimbal_actuation"] = J::Value(std::move(ga));
     }
     o["receding"] = J::Value(hp.receding);
