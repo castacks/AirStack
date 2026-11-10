@@ -1,25 +1,31 @@
 # RGB–Thermal Visual Odometry: Weekly Progress
 
-**9 November 2026 · focus: error and accuracy**
+**9 November 2026 · error and accuracy**
 
-Can RGB and thermal uncertainty predict relative geometric reliability and improve visual odometry? MACThermal already propagates uncertainty into pose estimation; the target is better cross-sensor accuracy.
+The research question is whether RGB/thermal uncertainty can predict relative geometric reliability and improve visual odometry. MACThermal already propagates uncertainty into pose estimation; improved cross-sensor accuracy is the target.
 
 Completed work:
 
-- Reproduced RGB/thermal pipelines and captured motion, uncertainty, support and failures. Earlier within-camera tests showed controlled selective-risk median reductions of about 9–37% against matched random under supplied-reference assumptions. Cross-camera transfer remains recording-dependent.
-- Completed a three-record day/night/rain comparison, using the first 600 source groups each. Recovered rain inputs and ran both original experts for 600 frames. A separate Gaussian 3D replay/full-covariance variant weakened native poses and did not beat RGB. Kept the native backend.
-- Completed the follow-up isolating weights: preserved native means exactly, reconstructed conditional local information matrices, and tested raw/calibrated scalar/full combination with native RGB/thermal, equal/angular and training-best-fixed controls. Each calibration fold used only the other two recordings; predictions were locked before scoring. No runtime benchmarking.
+- Reproduced native RGB/thermal pipelines and captured motion, uncertainty, support and failures. Earlier within-camera tests showed controlled selective-risk median reductions around 9–37% against matched random under supplied-reference assumptions; cross-camera transfer remains recording-dependent.
+- Compared day/night/rain prefixes of 600 source groups each. A separate Gaussian 3D replay backend weakened native estimates, so retained the native backend. A follow-up preserved native means exactly and tested raw/calibrated information-based weighting. The primary calibration increased equal-record mean rotation/translation error by 8.95%/3.75% against RGB on shared support; coverage was preserved.
+- Completed the next experiment: measured native thermal accuracy opportunities and tested one frozen recording-excluded cue model. No new inference or runtime benchmarking.
 
-Latest result: **the calibrated full-matrix combination does not improve accuracy.** Mean relative errors use identical intervals for each RGB/combination pair:
+**The latest finding is a rotation–translation tradeoff.** Thermal beats RGB on translation in 361 of 1,735 paired intervals, on rotation in 103, and on both in only 21. Rain includes a 43-interval translation-win run spanning 4.33 seconds; rotation wins are brief and sparse.
 
-| Recording | Intervals | RGB rotation / translation | Calibrated full rotation / translation |
-|---|---:|---:|---:|
-| Day | 599 | 0.017523 deg / 0.046604 m | 0.022993 deg / 0.048137 m |
-| Night | 598 | 0.030350 deg / 0.077280 m | 0.031404 deg / 0.088229 m |
-| Rain | 599 | 0.041860 deg / 0.231334 m | 0.043152 deg / 0.231129 m |
+Equal-record mean relative errors on paired support (day 590 / night 551 / rain 594 intervals):
 
-On all-method common support (590/551/594 intervals), equal-record mean rotation/translation error increases by 8.95%/3.75% against RGB. Raw weighting remains close to RGB; global scale calibration worsens both aggregate metrics. Training-best-fixed selects RGB in every fold. Coverage is preserved, so this result is not explained by discarded intervals or the prior replay fallback.
+| Method or diagnostic | Rotation (deg) | Translation (m) |
+|---|---:|---:|
+| Native RGB | 0.029798 | 0.117703 |
+| Perfect rotation-based whole-pose selection | 0.028797 | 0.129877 |
+| Perfect translation-based whole-pose selection | 0.036161 | 0.105974 |
+| Perfect selection requiring neither metric to worsen | 0.029611 | 0.116351 |
+| Reference-free cue model | 0.030879 | 0.117730 |
 
-39 tests and three independent audits pass. The readout is an inverse conditional information approximation, not a calibrated native pose posterior. These are exposed development prefixes with supplied RGB references and nominal alignment; unseen-record generalization, physical ground truth and full-trajectory accuracy remain unestablished. [Detailed findings and all controls](native-information-weights-findings-2026-11-09.md).
+The oracles use reference errors and are diagnostic bounds on complete-pose selection, not deployable results. Translation-based selection has about 10% translation headroom but raises rotation error about 21%. The cue model used support/residual/geometry/disagreement features, trained on the other two recordings with no parameter search. It increased rotation error 3.63%; retain RGB as the baseline. All three folds chose RGB as training-best-fixed.
 
-Next: quantify where thermal actually beats RGB, including joint gains, tradeoffs and contiguous opportunities. Use an oracle bound only to measure available headroom, then test whether existing geometry/support/residual cues predict those opportunities across recordings. This will distinguish weak reliability cues from weak expert estimates and guide targeted thermal frontend, covariance or shared-representation changes. Retain native poses initially and assess full trajectories after a credible interval gain. The tested global-weight model has not helped; broader RGB–thermal research remains open.
+Seven new tests and an independent audit pass, checking 7,062 native error components, 1,797 selections, all three fits and 285 winning runs. Previous 39-test weighting verification remains intact. Native availability is preserved, including the one unavailable night interval. [Detailed findings](thermal-opportunities-findings-2026-11-09.md).
+
+**Next:** test translation-specific prediction/fusion while keeping native RGB orientation. Target the observed translation opportunities, then evaluate trajectories and new recordings if an interval gain appears. Thermal depth/frontend and shared-representation improvements remain options when tied to the identified errors.
+
+All results use exposed development prefixes, provided RGB references and nominal alignment. Physical ground truth, unseen-record transfer and full-trajectory accuracy remain unestablished. These outcomes narrow the next experiment; they do not close broader RGB–thermal research.
