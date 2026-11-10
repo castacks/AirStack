@@ -1,0 +1,54 @@
+{
+  "created_at": "2026-11-09 America/New_York",
+  "base_commit": "2d1746c2d",
+  "primary": "ridge_blend",
+  "development_exposed": true,
+  "cases": {
+    "day": {
+      "references": "results/pose-covariance/accuracy-001/references/day"
+    },
+    "night": {
+      "references": "results/pose-covariance/accuracy-001/references/night"
+    },
+    "rain": {
+      "references": "results/pose-covariance/accuracy-001/references/rain"
+    }
+  },
+  "pins": {
+    "tools/translation_fusion.py": "ed795ea3754f4cc770471e6bf178c835b0bf01223e2386f88840c759ddba59da",
+    "tools/test_translation_fusion.py": "3a5ca6972c35e0909e523e7833a642ed396ae3fff45187ad5d1001abc5a75f2b",
+    "tools/thermal_opportunities.py": "dd6446e5f3c2c40b6acc8af84fedc660c460c53f6b333d935802dedaa7d1c0f5",
+    "tools/native_information_weights.py": "3ca414cf506ad025a6a641a2665e26bd81183253cdbcfe929486f83017dbe8dc",
+    "tools/run_native_information_weights.py": "4e74bca7db597566f95d8cf02c9cd875f27951ced6d1eed3953d32bb47228d04",
+    "tools/pose_covariance_accuracy.py": "55349f546ca409b9c2706ed59a4a6dd30793c9f9e0ee37ba541aff8b7e548a00",
+    "tools/pose_covariance_replay.py": "c302f71b700b0a57b886dd3da9df8c2540e0399d2a330af44367afc1788a69e7",
+    "tools/score_pose_covariance_accuracy.py": "95184902f413a5bd0c3e2a275dbf7ddfda308de95323a871d93376261a426015",
+    "results/native-information-weights/run-001/raw/day.json": "ace6921c378969a716a6089972bf3636f1c117318c04ddc02a8a8c4475cf1957",
+    "results/pose-covariance/accuracy-001/references/day/reference-lock.json": "421ca3d1a7561c71cb4308193e3af400ce3882b9b54616d64f4131e407d44f4c",
+    "results/native-information-weights/run-001/raw/night.json": "447b3fa7d257972a0a26430a96c0d1334a675951720f962ca1e0f397c1f8de14",
+    "results/pose-covariance/accuracy-001/references/night/reference-lock.json": "5648f8bff1ed02a3a90a6eaedc9b2f8ea9ac087b2340fe038973a0f4c3b53e2c",
+    "results/native-information-weights/run-001/raw/rain.json": "101ca69c643bd87e36fde9743683195cbf102598e29c77e59d307d45a46d6893",
+    "results/pose-covariance/accuracy-001/references/rain/reference-lock.json": "efc5c02adad4451d2b54cf07de407c317b9fcd0e14bb507c574ee595329537f7"
+  },
+  "component_convention": "retain native RGB3x3 orientation and homogeneous row, blend native common-frame group-matrix translation in metres t=(1-alpha)*t_rgb+alpha*t_thermal",
+  "features": "unchanged thermal_opportunities.FEATURES, eight reference-free support/residual/information/disagreement cues",
+  "primary_fit": "equal-record weighted squared translation vector error of an unconstrained linear alpha(z), lambda1 slope penalty, intercept unpenalized; training-only weighted mean/std; alpha clipped[0,1] at application",
+  "secondary_fit": "ridge of RGB-minus-thermal translation error metres; same standardization/lambda1; select thermal translation iff predictedgain>0",
+  "controls": [
+    "rgb",
+    "thermal",
+    "thermal_translation",
+    "equal_translation",
+    "train_constant",
+    "train_best_fixed",
+    "ridge_select"
+  ],
+  "constant_fit": "analytic equal-record squared-vector translation-risk optimum clipped[0,1]",
+  "best_fixed_fit": "equal-record mean translation error, tieRGB; retaining RGB orientation",
+  "missing_policy": "sole camera retained, neither unavailable, missing cues adaptive methods use RGB",
+  "primary_assessment": "translation mean/RMSE/p95 perrecord and equalrecord vsRGB and trainingconstant, paired and own support, report all regressions; rotation exact copied for RGBavailable; no aggregate-only adoption",
+  "oracle": "perinterval optimal convextranslation alpha diagnostic only after prediction lock",
+  "runtime_metrics": false,
+  "new_frontend_optimizer_calls": 0,
+  "training_labels": "other2records only, held references and all prior score reads blocked; all three predictions locked before scoring; already exposed development data"
+}
