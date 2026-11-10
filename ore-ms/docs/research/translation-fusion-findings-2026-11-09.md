@@ -68,6 +68,8 @@ These are per-interval errors against supplied RGB reference products under nomi
 
 ## Next technical step
 
+**Superseded by the subsequent [repetition review](fusion-mechanism-review-2026-11-09.md): another directional/confidence variant is deferred. The proposal below records the original interpretation. The current next experiment is the matched depth-mean/covariance ablation.**
+
 Investigate which **directional** properties distinguish helpful and harmful translation corrections: error-vector alignment for diagnosis, then reference-free covariance projected along RGB–thermal translation disagreement and residual consistency as candidate predictors. The tested trace/condition/norm features summarize magnitude and discard much directional structure. That observation motivates the next test; it does not yet prove direction is the missing predictor.
 
 Keep this model frozen. First check the candidate geometry on the existing exposed intervals with recording-excluded assessment, rather than tune the current weights. A credible translation gain should precede trajectory evaluation and new-record tests. If geometry cues cannot distinguish the useful corrections, use the identified segments to choose a specific depth/frontend or shared-representation change. RGB remains the executable accuracy baseline.

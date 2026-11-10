@@ -1,0 +1,237 @@
+{
+  "recorded_at": "2026-11-09T21:53:50.059003-05:00",
+  "base": "c81383882",
+  "analysis_commit": "cbe284d5a",
+  "diagnostic_only": true,
+  "development_exposed": true,
+  "tests_passed": 4,
+  "audit": {
+    "status": "PASS",
+    "scalar_checks": 60,
+    "records": 3,
+    "producer_imported": false,
+    "source_hashes_verified": true
+  },
+  "decision": "DEFER_FURTHER_WEIGHT_VARIANT; DESIGN_DEPTH_MEAN_X_COVARIANCE_ERROR_SOURCE_ABLATION",
+  "next_experiment_executed": false,
+  "history_search_scope": "EXP-*.md and docs/research/*.md; selected relevant record excerpts reviewed, not a claim of exhaustive implementation novelty",
+  "evidence_sha256": {
+    "experiments/EXP-008-backend-ablation.md": "905a39a3e1a83fe39d170b1b42f95baaecb4016ecaa6906ff53e618bae297834",
+    "experiments/EXP-009-weight-ablation.md": "8084f68986fd2db1660d1165834ea427745b2a0ca98296be04594df0c2d2de45",
+    "experiments/EXP-059-ms2-score-failure-diagnosis.md": "c449aebd3b4404116536b3210dbddd199d8546b8441e5a92899ca6dd7f9dba98",
+    "experiments/EXP-066-ms2-disparity-diagnostics.md": "8c0c78b7707c56dbc2d7369cf7cdaec026a69f19b0296b563c290dcb55582997",
+    "experiments/EXP-070-ms2-bias-scale-calibration.md": "44253e4459a1c85bad586c6546d04cc5c617251d218f19c215375129d47c4a17",
+    "experiments/EXP-079-optimizer-factor-audit.md": "24b69ee592d081ad3a2d7c0061e41f55f940b769f406d2dd1d88f478463dd18b",
+    "experiments/EXP-080-factor-proxy-comparison.md": "fa5588fa54bdeccc04985dad29545273011b65babc50fc42129f60c059abe176",
+    "experiments/EXP-081-factor-geometry-audit.md": "0877899e947355d74c73669d7288296b6224fcb20aa9f6b5bfb2e346e3f0f7be",
+    "experiments/EXP-082-robust-solver-contract.md": "68962110cecde135f13b57553e3224f3ccbc6972e544cefe2078ba6d0f2fda2a",
+    "experiments/EXP-083-weighted-solver-repair.md": "4abd5cf6207095e6c83dfc67f9ef232aad37f646ba7007c14f757cd890c4ad96",
+    "experiments/EXP-087-flow-cycle-quality.md": "af62893bf2a0fe02a89046e1e199dd450af87ec6d2abb50ab538009ae9456950",
+    "experiments/EXP-095-covariance-training-contract.md": "b3f0a8a33dcff9d8e5c380b3f3ddeed5d3f97338349248916f6596673c9bae83",
+    "experiments/EXP-101-final-layer-adaptation.md": "3ac075930d53188e75c8524d47f16c9452debc671789b9340fddb0a83a07ed2a",
+    "experiments/EXP-109-selection-exchange-diagnostic.md": "e901ec77bddf394988fc248380871e59b1529ab85665f70171a0e7654a68d42e",
+    "experiments/EXP-150-stereo-baseline-initialization.md": "8578ac05ba6c9c363273f9427d00fa0e6848fdd473ecf6d069c812f336bd6694",
+    "experiments/EXP-151-cross-recording-stereo-depth.md": "7b64d413cb2063217e9c40e8e6309bbc4fbea7d7e60ceca2c8570454fdeeb8ff",
+    "docs/research/pose-covariance-accuracy-findings-2026-11-09.md": "b3cc295a589ba685faec7e0cb89a0d17dd88e686b29858476fc5ad9176c640c8",
+    "docs/research/native-information-weights-findings-2026-11-09.md": "546e1043ac0eab1e62cc1a9ce115ff43e041d51e9d17672fb39083baa13c998c",
+    "docs/research/thermal-opportunities-findings-2026-11-09.md": "b1a99ed110caad9fac0025826cf5c8dfcbb8ca010b22f7bfc36b9951739716e5",
+    "docs/research/translation-fusion-findings-2026-11-09.md": "b4a34585d6cdab028ccdca1ddf78e78238064afeef5b9fd51abe1beb58a0d637"
+  },
+  "source_sha256": {
+    "results/native-information-weights/run-001/raw/day.json": "ace6921c378969a716a6089972bf3636f1c117318c04ddc02a8a8c4475cf1957",
+    "results/translation-fusion/run-001/scores-day.json": "cf519fa4f7bbb9650b4a48e61e0d920c7735d58f44f3877614e5433edbabf242",
+    "results/native-information-weights/run-001/raw/night.json": "447b3fa7d257972a0a26430a96c0d1334a675951720f962ca1e0f397c1f8de14",
+    "results/translation-fusion/run-001/scores-night.json": "56c7fccbccecd3516e64c1e2c93dd1d3f7939e1758601ec3fa16a2da3ea7d027",
+    "results/native-information-weights/run-001/raw/rain.json": "101ca69c643bd87e36fde9743683195cbf102598e29c77e59d307d45a46d6893",
+    "results/translation-fusion/run-001/scores-rain.json": "2cea242336f195be00a442eb7ef854215684c3f9f91c834200e0fcaf11ff8744"
+  },
+  "conditions": {
+    "day": {
+      "paired_intervals": 590,
+      "nonzero_reference_motion": 590,
+      "cameras": {
+        "rgb": {
+          "mean_error_m": [
+            -0.003952207575734691,
+            0.019772947825903355,
+            0.013984420872323905
+          ],
+          "mean_norm_error_m": 0.04629698307289717,
+          "mse_m2": 0.0069773490249407325,
+          "mean_error_squared_m2": 0.0006021534375818794,
+          "centered_mse_m2": 0.0063751955873588536,
+          "bias_share_mse": 0.08630117762913461,
+          "motion_axis_mean_error_m": -0.0017919150412371088,
+          "motion_axis_mse_m2": 0.006223496207011903,
+          "perpendicular_mse_m2": 0.0007538528179288295,
+          "motion_axis_share_on_nonzero_motion": 0.8919571293862237,
+          "median_translation_norm_over_reference": 1.0364449084495408
+        },
+        "thermal": {
+          "mean_error_m": [
+            -0.020603689087996993,
+            0.00547685470844002,
+            -0.1145208577569223
+          ],
+          "mean_norm_error_m": 0.13632138789579307,
+          "mse_m2": 0.05531643571861283,
+          "mean_error_squared_m2": 0.01356953480291344,
+          "centered_mse_m2": 0.04174690091569935,
+          "bias_share_mse": 0.24530746832532402,
+          "motion_axis_mean_error_m": -0.12991707767313365,
+          "motion_axis_mse_m2": 0.05313610309923484,
+          "perpendicular_mse_m2": 0.0021803326193779956,
+          "motion_axis_share_on_nonzero_motion": 0.9605843617533666,
+          "median_translation_norm_over_reference": 0.6731157113934656
+        }
+      },
+      "cross_error_second_moment_m2": -0.00018892339751925197,
+      "mean_error_dot_product_m2": -0.0014117842550306397,
+      "centered_cross_error_m2": 0.001222860857511391,
+      "centered_error_cosine_aggregate": 0.07495803044209248,
+      "opposed_error_vectors": 256,
+      "risk_polynomial": {
+        "A_m2": 0.0069773490249407325,
+        "B_m2": -0.007166272422459985,
+        "D_m2": 0.06267163153859207,
+        "B_mean_error_term_m2": -0.0020139376926125254,
+        "B_centered_term_m2": -0.005152334729847463
+      },
+      "same_record_oracle_constant": {
+        "alpha": 0.11434635171492422,
+        "mean_translation_error_m": 0.04206651335195284,
+        "mse_m2": 0.006157911918037162
+      },
+      "per_interval_oracle": {
+        "mean_translation_error_m": 0.034141532804869625,
+        "mse_m2": 0.0037301912633500947
+      }
+    },
+    "night": {
+      "paired_intervals": 551,
+      "nonzero_reference_motion": 551,
+      "cameras": {
+        "rgb": {
+          "mean_error_m": [
+            -0.04181216567941916,
+            -0.004575897248374712,
+            0.031413786299388034
+          ],
+          "mean_norm_error_m": 0.07747026841065185,
+          "mse_m2": 0.007756260182726325,
+          "mean_error_squared_m2": 0.0027560220040945002,
+          "centered_mse_m2": 0.005000238178631824,
+          "bias_share_mse": 0.35532872017784206,
+          "motion_axis_mean_error_m": 0.025258430415815922,
+          "motion_axis_mse_m2": 0.0038629380231592417,
+          "perpendicular_mse_m2": 0.0038933221595670833,
+          "motion_axis_share_on_nonzero_motion": 0.4980413152929353,
+          "median_translation_norm_over_reference": 1.033718723955914
+        },
+        "thermal": {
+          "mean_error_m": [
+            -0.013122016246196256,
+            -0.03511001501647218,
+            -0.5917757019255648
+          ],
+          "mean_norm_error_m": 0.6164141718445976,
+          "mse_m2": 0.7354359198664385,
+          "mean_error_squared_m2": 0.3516033818543173,
+          "centered_mse_m2": 0.3838325380121205,
+          "bias_share_mse": 0.478088399487166,
+          "motion_axis_mean_error_m": -0.5951452267277417,
+          "motion_axis_mse_m2": 0.6543770584608494,
+          "perpendicular_mse_m2": 0.08105886140558904,
+          "motion_axis_share_on_nonzero_motion": 0.8897812042953925,
+          "median_translation_norm_over_reference": 0.4435330974523647
+        }
+      },
+      "cross_error_second_moment_m2": -0.022961874635090543,
+      "mean_error_dot_product_m2": -0.017880595699021787,
+      "centered_cross_error_m2": -0.00508127893606874,
+      "centered_error_cosine_aggregate": -0.11598632719737677,
+      "opposed_error_vectors": 345,
+      "risk_polynomial": {
+        "A_m2": 0.007756260182726325,
+        "B_m2": -0.030718134817816864,
+        "D_m2": 0.7891159293193459,
+        "B_mean_error_term_m2": -0.020636617703116308,
+        "B_centered_term_m2": -0.010081517114700565
+      },
+      "same_record_oracle_constant": {
+        "alpha": 0.03892727757290728,
+        "mean_translation_error_m": 0.07108257898452959,
+        "mse_m2": 0.0065604868221511795
+      },
+      "per_interval_oracle": {
+        "mean_translation_error_m": 0.056665799605516085,
+        "mse_m2": 0.004324566944686302
+      }
+    },
+    "rain": {
+      "paired_intervals": 594,
+      "nonzero_reference_motion": 593,
+      "cameras": {
+        "rgb": {
+          "mean_error_m": [
+            -0.012603213932439185,
+            -0.017910112109889905,
+            -0.20489389302314387
+          ],
+          "mean_norm_error_m": 0.22934219372481565,
+          "mse_m2": 0.16281756865545494,
+          "mean_error_squared_m2": 0.042461120515395176,
+          "centered_mse_m2": 0.12035644814005979,
+          "bias_share_mse": 0.26078955032947904,
+          "motion_axis_mean_error_m": -0.2075750541222646,
+          "motion_axis_mse_m2": 0.15993166660138763,
+          "perpendicular_mse_m2": 0.0031604678424848264,
+          "motion_axis_share_on_nonzero_motion": 0.9806215802297168,
+          "median_translation_norm_over_reference": 0.8046826699822714
+        },
+        "thermal": {
+          "mean_error_m": [
+            -0.017777610422766345,
+            -0.03766751938481334,
+            -0.35512817183584594
+          ],
+          "mean_norm_error_m": 0.3639936889053455,
+          "mse_m2": 0.2641969233902522,
+          "mean_error_squared_m2": 0.12785090388041906,
+          "centered_mse_m2": 0.13634601950983313,
+          "bias_share_mse": 0.4839227582206442,
+          "motion_axis_mean_error_m": -0.35887992417294656,
+          "motion_axis_mse_m2": 0.2590924583284789,
+          "perpendicular_mse_m2": 0.005549990226497661,
+          "motion_axis_share_on_nonzero_motion": 0.9790283446332885,
+          "median_translation_norm_over_reference": 0.4502620226869714
+        }
+      },
+      "cross_error_second_moment_m2": 0.15159979422725722,
+      "mean_error_dot_product_m2": 0.07366227817208762,
+      "centered_cross_error_m2": 0.07793751605516964,
+      "centered_error_cosine_aggregate": 0.6084020196985528,
+      "opposed_error_vectors": 100,
+      "risk_polynomial": {
+        "A_m2": 0.16281756865545494,
+        "B_m2": -0.01121777442819771,
+        "D_m2": 0.12381490359119268,
+        "B_mean_error_term_m2": 0.03120115765669246,
+        "B_centered_term_m2": -0.04241893208489014
+      },
+      "same_record_oracle_constant": {
+        "alpha": 0.09060116434154106,
+        "mean_translation_error_m": 0.23409107184534958,
+        "mse_m2": 0.16180122523093945
+      },
+      "per_interval_oracle": {
+        "mean_translation_error_m": 0.19353912221174796,
+        "mse_m2": 0.11906823348996037
+      }
+    }
+  },
+  "artifact_sha256": {
+    "results/fusion-mechanism-review/run-001/audit.json": "db3bab9f4e4bbe3d414ffabd8edd2075c70bf36ce051b77a9894ceec4427e9a9",
+    "results/fusion-mechanism-review/run-001/decomposition.json": "697566d5d0489389dceb67220386081a002832d718e11724f7325632e43a5259"
+  }
+}
