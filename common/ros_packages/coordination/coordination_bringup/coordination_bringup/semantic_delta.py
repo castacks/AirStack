@@ -33,8 +33,9 @@ def encode_delta(data, previous):
         changed[valid] = np.any(matrix[valid] != old_matrix[idx[valid]], axis=1)
         msg.is_delta = True
         msg.base_revision = previous[4]
-        if msg.representation == 'native_pca_v1':
+        if msg.representation in ('native_pca_v1', 'wire_pca_v1'):
             msg.pca_basis = []  # cached by this recipient after the ACKed full map
+            msg.pca_mean = []
     else:
         msg.is_delta = False
         msg.base_revision = 0

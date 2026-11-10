@@ -18,3 +18,5 @@ uint32 basis_rows
 uint32 basis_cols
 uint32 decoded_dimension
 float32[] pca_basis
+# Centering offset for wire_pca_v1; empty for the native mapper codec.
+float32[] pca_mean

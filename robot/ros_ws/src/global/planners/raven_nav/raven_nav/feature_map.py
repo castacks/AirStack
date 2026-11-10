@@ -2,8 +2,8 @@
 
 Native RayFronts PCA bases are fitted independently. Expanded transport decodes
 before sending; native transport sends the basis and decodes at the receiver.
-Never fuse PCA coefficients from different robots. No new lossy compression is
-applied. RGB/count accompany every voxel; scores are computed only after fusion.
+Never fuse PCA coefficients from different robots. Wire-only mode instead
+introduces explicitly lossy centered PCA without changing the local mapper. RGB/count accompany every voxel; scores are computed only after fusion.
 """
 import hashlib
 import os
@@ -67,7 +67,31 @@ def export_feature_snapshot(server, reference):
     robot = os.environ['ROBOT_NAME']
     path = feature_snapshot_path(robot)
     native = {}
-    if os.getenv('RAVEN_NATIVE_COMPRESSED_MAP', 'false').lower() == 'true':
+    if os.getenv('RAVEN_WIRE_PCA_MAP', 'false').lower() == 'true':
+        from raven_nav.wire_pca import WirePCA, project_wire, wire_fingerprint
+        from raven_nav.native_map import start_native_ingress
+        if mapper.feat_compressor is not None:
+            raise ValueError('wire-only experiment requires uncompressed local mapper')
+        if not hasattr(server, '_wire_pca'):
+            server._wire_pca = WirePCA(100)
+        codec = server._wire_pca
+        coefficients = codec.encode(features, mapper.device)
+        if coefficients is None:
+            return  # insufficient initial voxels for a fixed 100-D fit
+        restored = project_wire(server, coefficients[:n], codec.basis, codec.mean)
+        # Distortion is measured, not rejected: PCA sharing is deliberately lossy.
+        distortion = float(np.max(np.abs(query_features(restored, queries,
+            bool(server.cfg.querying.compute_prob)) - expected)))
+        rmse = float(np.sqrt(np.mean((restored-features[:n])**2)))
+        if not np.isfinite(distortion) or not np.isfinite(rmse):
+            raise ValueError('nonfinite wire PCA reconstruction')
+        native = dict(native_coefficients=coefficients, native_basis=codec.basis,
+            native_basis_id=np.asarray(wire_fingerprint(codec.basis,codec.mean)),
+            native_reference_error=np.asarray(distortion), wire_pca_mean=codec.mean,
+            wire_pca_rmse=np.asarray(rmse), wire_pca_fit_voxels=np.asarray(codec.fit_voxels),
+            local_mapper_pca=np.asarray(False))
+        start_native_ingress(server, space, features.shape[1])
+    elif os.getenv('RAVEN_NATIVE_COMPRESSED_MAP', 'false').lower() == 'true':
         from raven_nav.native_map import basis_fingerprint, project_native, start_native_ingress
         if mapper.feat_compressor is None or getattr(mapper.feat_compressor, 'basis', None) is None:
             raise ValueError('native map mode requires the mapper PCA basis')

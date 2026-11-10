@@ -527,7 +527,10 @@ class RavenNavNode(Node):
         self._reusable_feature_map = os.getenv('RAVEN_REUSABLE_FEATURE_MAP', 'false').lower() == 'true'
         if self._reusable_feature_map and not self._semantic_map_sharing:
             raise ValueError('reusable features require semantic_map_sharing')
-        self._native_compressed_map = os.getenv('RAVEN_NATIVE_COMPRESSED_MAP', 'false').lower() == 'true'
+        self._wire_pca_map = os.getenv('RAVEN_WIRE_PCA_MAP', 'false').lower() == 'true'
+        self._native_compressed_map = os.getenv('RAVEN_NATIVE_COMPRESSED_MAP', 'false').lower() == 'true' or self._wire_pca_map
+        self._wire_pca_rmse = None
+        self._wire_pca_fit_voxels = 0
         if self._native_compressed_map and not self._reusable_feature_map:
             raise ValueError('native PCA transport requires reusable feature mode')
         self._native_wire_snapshot = None
@@ -2435,12 +2438,18 @@ class RavenNavNode(Node):
                     values = np.ascontiguousarray(np.c_[data['rgb'], data['counts'], features], dtype=np.float32)
                     if self._native_compressed_map:
                         self._native_reference_error = float(data['native_reference_error'])
-                        if self._native_reference_error > .002:
+                        if not getattr(self, '_wire_pca_map', False) and self._native_reference_error > .002:
                             raise ValueError('native reconstruction parity failed')
+                        if getattr(self, '_wire_pca_map', False):
+                            if bool(data['local_mapper_pca']):
+                                raise ValueError('wire-only experiment changed local mapping')
+                            self._wire_pca_rmse = float(data['wire_pca_rmse'])
+                            self._wire_pca_fit_voxels = int(data['wire_pca_fit_voxels'])
                         self._native_wire_snapshot = dict(
                             values=np.ascontiguousarray(np.c_[data['rgb'], data['counts'], data['native_coefficients']], dtype=np.float32),
                             basis=data['native_basis'], basis_id=str(data['native_basis_id']),
-                            space=space, decoded_dimension=features.shape[1])
+                            space=space, decoded_dimension=features.shape[1],
+                            mean=data['wire_pca_mean'] if getattr(self, '_wire_pca_map', False) else None)
             self._semantic_source_stamp += 1
             self._own_semantic_snapshot = (xyz, values, self._semantic_source_stamp)
             self._refresh_semantic_map(publish=True)
@@ -2487,7 +2496,9 @@ class RavenNavNode(Node):
             if getattr(self, '_native_compressed_map', False):
                 native = self._native_wire_snapshot
                 wire_values = native['values']
-                msg.representation = 'native_pca_v1'
+                msg.representation = 'wire_pca_v1' if getattr(self, '_wire_pca_map', False) else 'native_pca_v1'
+                if getattr(self, '_wire_pca_map', False):
+                    msg.pca_mean = native['mean'].astype(np.float32).tolist()
                 msg.feature_space = native['space']
                 msg.basis_id = native['basis_id']
                 msg.basis_rows, msg.basis_cols = native['basis'].shape
@@ -3235,7 +3246,11 @@ class RavenNavNode(Node):
                 reusable_feature_map=self._reusable_feature_map,
                 feature_dimension=(len(self._semantic_feature_labels)-4 if self._semantic_feature_labels else 0),
                 feature_reference_error=self._feature_reference_error,
-                native_compressed_map=self._native_compressed_map,
+                native_compressed_map=self._native_compressed_map and not self._wire_pca_map,
+                wire_pca_map=self._wire_pca_map,
+                wire_pca_query_distortion=self._native_reference_error if self._wire_pca_map else None,
+                wire_pca_feature_rmse=self._wire_pca_rmse,
+                wire_pca_fit_voxels=self._wire_pca_fit_voxels,
                 native_dimension=(self._native_wire_snapshot['basis'].shape[1] if self._native_wire_snapshot else 0),
                 native_reference_error=self._native_reference_error,
                 semantic_map_sources=len(self._semantic_fusion.sources),

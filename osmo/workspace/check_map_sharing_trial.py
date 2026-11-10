@@ -24,6 +24,15 @@ if os.getenv('RAVEN_NATIVE_COMPRESSED_MAP', 'false').lower() == 'true':
     assert max(r['params'].get('native_dimension', 0) for r in rows) == 100, 'wrong native PCA dimension'
     errors = [r['params']['native_reference_error'] for r in rows if r['params'].get('native_reference_error') is not None]
     assert errors and max(errors) <= .002, 'native decode parity was not verified'
+if os.getenv('RAVEN_WIRE_PCA_MAP', 'false').lower() == 'true':
+    import numpy as np
+    assert all(r['params'].get('wire_pca_map') for r in rows), 'wire PCA not active'
+    assert max(r['params'].get('native_dimension', 0) for r in rows) == 100, 'wrong wire dimension'
+    with np.load(f'/tmp/rayfronts_features_{robot}.npz', allow_pickle=False) as source:
+        assert not bool(source['local_mapper_pca']), 'local mapping PCA was enabled'
+        assert source['native_coefficients'].shape[1] == 100
+        assert source['features'].shape[1] > 100
+        assert np.isfinite(source['native_reference_error']), 'missing lossy distortion measurement'
 if mode:
     assert all(r['params']['semantic_map_rejections'] == 0 for r in rows), 'rejected semantic map'
     assert any(sum(n > 0 for n in r['params']['semantic_map_cells_by_source'].values()) >= expected

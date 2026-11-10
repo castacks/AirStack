@@ -45,26 +45,33 @@ def project_native(server, coefficients, basis):
 
 
 class NativeFeatureDecoder:
-    def __init__(self, feature_space, dimension, project):
+    def __init__(self, feature_space, dimension, project, wire_project=None):
         self.space, self.dimension, self.project = feature_space, dimension, project
         self.bases = {}
+        self.wire_project = wire_project or (lambda c,b,m: c@b.T+m)
 
     def decode(self, msg):
         from coordination_msgs.msg import SemanticVoxelMap
         from sensor_msgs.msg import PointCloud2, PointField
         from sensor_msgs_py import point_cloud2
-        if (msg.representation != 'native_pca_v1' or msg.feature_space != self.space
+        if (msg.representation not in ('native_pca_v1', 'wire_pca_v1') or msg.feature_space != self.space
                 or msg.decoded_dimension != self.dimension or msg.basis_cols == 0):
             raise ValueError('incompatible native feature representation')
-        basis = None
+        basis = mean = None
         if len(msg.pca_basis):
             if len(msg.pca_basis) != msg.basis_rows * msg.basis_cols:
                 raise ValueError('incomplete source PCA basis')
             basis = np.asarray(msg.pca_basis, dtype=np.float32).reshape(msg.basis_rows, msg.basis_cols)
-            if basis_fingerprint(basis) != msg.basis_id:
+            if msg.representation == 'wire_pca_v1':
+                from raven_nav.wire_pca import wire_fingerprint
+                mean = np.asarray(msg.pca_mean,dtype=np.float32)
+                if mean.shape != (msg.basis_rows,) or wire_fingerprint(basis,mean) != msg.basis_id:
+                    raise ValueError('wire PCA basis/mean fingerprint mismatch')
+            elif basis_fingerprint(basis) != msg.basis_id:
                 raise ValueError('source PCA basis fingerprint mismatch')
         elif msg.source_robot in self.bases and self.bases[msg.source_robot][0] == msg.basis_id:
             basis = self.bases[msg.source_robot][1]
+            mean = self.bases[msg.source_robot][2]
         if basis is None or (not msg.is_delta and not len(msg.pca_basis)):
             raise ValueError('missing source PCA basis; full resync required')
         expected = ['rgb_r', 'rgb_g', 'rgb_b', 'observation_count'] + [
@@ -73,7 +80,12 @@ class NativeFeatureDecoder:
             raise ValueError('native coefficient channel schema mismatch')
         names = ['x','y','z'] + [f'sim_{i}' for i in range(len(msg.labels))]
         values = point_cloud2.read_points_numpy(msg.cloud, field_names=names, skip_nans=True)
-        features = self.project(values[:,7:], basis)
+        if msg.representation == 'wire_pca_v1':
+            if mean is None or msg.basis_rows != self.dimension:
+                raise ValueError('missing wire PCA mean or incompatible language feature space')
+            features = self.wire_project(values[:,7:], basis, mean)
+        else:
+            features = self.project(values[:,7:], basis)
         if features.shape != (len(values), self.dimension) or not np.isfinite(features).all():
             raise ValueError('decoded native features have wrong shape or nonfinite values')
         matrix = np.ascontiguousarray(np.c_[values[:,:7], features], dtype='<f4')
@@ -85,7 +97,7 @@ class NativeFeatureDecoder:
                 fields=[PointField(name=f,offset=i*4,datatype=PointField.FLOAT32,count=1) for i,f in enumerate(fields)],
                 point_step=4*len(fields),row_step=4*len(fields)*len(matrix),
                 data=matrix.tobytes(),is_bigendian=False,is_dense=True))
-        self.bases[msg.source_robot] = (msg.basis_id, basis)
+        self.bases[msg.source_robot] = (msg.basis_id, basis, mean)
         return out
 
 
@@ -97,7 +109,9 @@ def start_native_ingress(server, space, dimension):
     if getattr(server, '_native_ingress_thread', None) is not None:
         return
     robot = os.environ['ROBOT_NAME']
-    decoder = NativeFeatureDecoder(space, dimension, lambda c,b: project_native(server,c,b))
+    from raven_nav.wire_pca import project_wire
+    decoder = NativeFeatureDecoder(space, dimension, lambda c,b: project_native(server,c,b),
+                                   lambda c,b,m: project_wire(server,c,b,m))
     previous = {}
     def run():
         while server.status.name not in ('CLOSING','CLOSED'):

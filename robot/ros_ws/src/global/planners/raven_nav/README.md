@@ -455,3 +455,44 @@ communication ablation. Keep these experiment definitions separate. Transport
 unit/integration tests use synthetic bases and verify the protocol, not runtime
 compression configuration. The expanded maps remain reusable features rather
 than query-score vectors regardless of whether local PCA is enabled.
+
+### Wire-only 100-D PCA experiment
+
+Set `RAVEN_WIRE_PCA_MAP=true`, `RAVEN_NATIVE_COMPRESSED_MAP=false`,
+`RAVEN_REUSABLE_FEATURE_MAP=true`, `RAVEN_SEMANTIC_MAP_SHARING=true`,
+`RAVEN_SHARE_BBS=false`, and `RAYFRONTS_QUERY_COMPRESSED=False`.
+This is a **lossy communication ablation**, not transmission of an existing
+compressed local map. The deployed mapper must retain `feat_compressor=None`;
+exports fail if local mapping PCA is accidentally enabled.
+
+Fit a centered rank-100 PCA once per sender/trial on its first feature map with
+at least 100 voxels. Use all available voxel semantics/background without query
+or BB filtering; if there are more than 20,000 voxels, select 20,000 evenly spaced
+indices. Fix seed 17 inside a restored RNG scope and keep the fitted basis and
+mean unchanged for the trial. Encode each language-aligned full feature as
+`(feature - mean) @ basis`. Neither mapper tensors nor its RNG sequence are
+changed. Each robot's own evidence remains full precision; only received peer
+maps are reconstructed approximations.
+
+`wire_pca_v1` transmits XYZ/RGB/count plus 100 float32 coefficients. The initial
+map/full resync includes the source basis and centering mean; later deltas omit
+both. The fingerprint covers both, and a change forces full resync. Existing
+receiver RayFronts reconstructs `coefficients @ basis.T + mean` directly in the
+common language space; it **does not** apply the native encoder projection again.
+Only then does Raven fuse sources, compute query scores and produce BBs. There
+is no second local model, BB transport, voxel downsampling or query-score map.
+
+Runtime traces record `wire_pca_map`, `native_dimension`, first-fit voxel count,
+feature reconstruction RMSE and query-score distortion. Loss/distortion is
+recorded rather than rejected: this lossy protocol intentionally differs from
+full-feature scores. The independent full local-map query parity check remains
+strict (0.002 maximum absolute error), and map freshness/fleet completeness checks
+are unchanged. Source archives contain full features, coefficients, basis, mean
+and loss measurements. Network ledgers include basis/mean, retries and resyncs.
+
+The matched setup is 3 robots, full comms, original s1 starts, 300 simulated
+seconds, unchanged rays/completion/auction logic. Eight trials are split 3/3/2
+with 2-hour workflow timeouts. Semantic-search relay startup grace is 60 wall
+seconds to avoid the 15-second startup-loss failure; the simulated search budget
+and trial quality requirements are unchanged. Verification must use the exact
+`vraven-multi-0.19.0-alpha.1` deployment image, not the newer PCA-enabled image.

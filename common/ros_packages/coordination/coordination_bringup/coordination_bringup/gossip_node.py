@@ -472,8 +472,9 @@ class GossipNode(Node):
             raise ValueError('map source has no fresh accepted gossip profile')
         if msg.is_delta and self._map_stream_revisions.get(msg.source_robot, -1) < msg.base_revision:
             raise ValueError('missing base map; sender must retry a full snapshot')
-        if msg.representation == 'native_pca_v1':
-            if os.getenv('RAVEN_NATIVE_COMPRESSED_MAP', 'false').lower() != 'true':
+        if msg.representation in ('native_pca_v1', 'wire_pca_v1'):
+            mode_env = 'RAVEN_WIRE_PCA_MAP' if msg.representation == 'wire_pca_v1' else 'RAVEN_NATIVE_COMPRESSED_MAP'
+            if os.getenv(mode_env, 'false').lower() != 'true':
                 raise ValueError('native map received by a non-native experiment')
             from coordination_bringup.map_snapshot import write_native_received_snapshot
             write_native_received_snapshot(self._robot_name, msg.source_robot, data)
