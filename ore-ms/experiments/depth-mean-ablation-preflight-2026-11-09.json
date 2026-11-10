@@ -1,0 +1,3758 @@
+{
+  "base": "3089b40ea",
+  "scope": "one bounded first20pair nativeparity and exact source/target depth qualification, no ablation without labels",
+  "runtime_image": "sha256:44ff9a1e6fa95d220437714e5be9b94f0f73c8eaebd4fcae3f843ceea14bef09",
+  "parity_tolerance": {
+    "translation_m": 0.001,
+    "rotation_deg": 0.01
+  },
+  "cases": [
+    {
+      "condition": "day",
+      "camera": "rgb",
+      "pair_ordinal": 0,
+      "source_ids": [
+        "000000",
+        "000001"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/rgb",
+      "initial_pose_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "recorded_native_pose_xyzw": [
+        0.8437705770540675,
+        0.0009646636715508242,
+        0.07641574464633952,
+        0.0002561851812897473,
+        -0.0010684032260160966,
+        0.0009071868541140597,
+        0.9999989849473404
+      ],
+      "motion_event_sequence": 6
+    },
+    {
+      "condition": "day",
+      "camera": "rgb",
+      "pair_ordinal": 1,
+      "source_ids": [
+        "000001",
+        "000002"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/rgb",
+      "initial_pose_xyzw": [
+        0.8437705636024475,
+        0.000964663689956069,
+        0.07641574740409851,
+        0.00025618518702685833,
+        -0.0010684032458811998,
+        0.0009071868262253702,
+        0.9999989867210388
+      ],
+      "recorded_native_pose_xyzw": [
+        2.5557507889188305,
+        0.04509412921703071,
+        0.2257412724634245,
+        0.0015947370790681784,
+        -0.0019956055385880462,
+        0.001709101018637923,
+        0.9999952784354919
+      ],
+      "motion_event_sequence": 11
+    },
+    {
+      "condition": "day",
+      "camera": "rgb",
+      "pair_ordinal": 2,
+      "source_ids": [
+        "000002",
+        "000003"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/rgb",
+      "initial_pose_xyzw": [
+        2.555750846862793,
+        0.04509412869811058,
+        0.22574126720428467,
+        0.0015947370557114482,
+        -0.0019956056494265795,
+        0.0017091010231524706,
+        0.9999952912330627
+      ],
+      "recorded_native_pose_xyzw": [
+        3.3981697774375412,
+        0.050359883692698594,
+        0.3008953519879027,
+        0.0009712155704687128,
+        -0.0017498920133065025,
+        0.0022644382934167632,
+        0.9999954480297717
+      ],
+      "motion_event_sequence": 16
+    },
+    {
+      "condition": "day",
+      "camera": "rgb",
+      "pair_ordinal": 3,
+      "source_ids": [
+        "000003",
+        "000004"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/rgb",
+      "initial_pose_xyzw": [
+        3.398169755935669,
+        0.05035988241434097,
+        0.3008953630924225,
+        0.0009712155442684889,
+        -0.001749892020598054,
+        0.002264438197016716,
+        0.9999954700469971
+      ],
+      "recorded_native_pose_xyzw": [
+        5.136146029729968,
+        0.07794537444870572,
+        0.44748901219062753,
+        0.0003870660544765798,
+        -0.000780618217448755,
+        0.003458558915219471,
+        0.9999936761609454
+      ],
+      "motion_event_sequence": 21
+    },
+    {
+      "condition": "day",
+      "camera": "rgb",
+      "pair_ordinal": 4,
+      "source_ids": [
+        "000004",
+        "000005"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/rgb",
+      "initial_pose_xyzw": [
+        5.136146068572998,
+        0.07794537395238876,
+        0.44748902320861816,
+        0.0003870660439133644,
+        -0.0007806182256899774,
+        0.00345855881460011,
+        0.9999936819076538
+      ],
+      "recorded_native_pose_xyzw": [
+        5.982856316988934,
+        0.09242900651672811,
+        0.5217561610694749,
+        0.00039197676993681487,
+        -0.0008805888094142836,
+        0.004100558923113941,
+        0.9999911704626767
+      ],
+      "motion_event_sequence": 26
+    },
+    {
+      "condition": "day",
+      "camera": "rgb",
+      "pair_ordinal": 5,
+      "source_ids": [
+        "000005",
+        "000006"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/rgb",
+      "initial_pose_xyzw": [
+        5.982856273651123,
+        0.09242900460958481,
+        0.5217561721801758,
+        0.00039197676233015954,
+        -0.0008805888355709612,
+        0.004100558813661337,
+        0.9999911785125732
+      ],
+      "recorded_native_pose_xyzw": [
+        7.758647370594917,
+        0.13217665403151801,
+        0.675659090118269,
+        -8.974544477296847e-05,
+        -0.0014896183388868143,
+        0.005320685137167503,
+        0.9999847819145331
+      ],
+      "motion_event_sequence": 31
+    },
+    {
+      "condition": "day",
+      "camera": "rgb",
+      "pair_ordinal": 6,
+      "source_ids": [
+        "000006",
+        "000007"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/rgb",
+      "initial_pose_xyzw": [
+        7.758647441864014,
+        0.13217665255069733,
+        0.6756590604782104,
+        -8.974544471129775e-05,
+        -0.0014896183274686337,
+        0.005320684984326363,
+        0.9999848008155823
+      ],
+      "recorded_native_pose_xyzw": [
+        8.613976383093432,
+        0.14886362550719345,
+        0.7502684351238704,
+        0.00040495523964128796,
+        -0.0018780586336274736,
+        0.006059318391032512,
+        0.9999798658650819
+      ],
+      "motion_event_sequence": 36
+    },
+    {
+      "condition": "day",
+      "camera": "rgb",
+      "pair_ordinal": 7,
+      "source_ids": [
+        "000007",
+        "000008"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/rgb",
+      "initial_pose_xyzw": [
+        8.61397647857666,
+        0.14886362850666046,
+        0.7502684593200684,
+        0.000404955237172544,
+        -0.001878058654256165,
+        0.0060593183152377605,
+        0.9999798536300659
+      ],
+      "recorded_native_pose_xyzw": [
+        10.36311894498726,
+        0.20304298073658825,
+        0.901399819812188,
+        0.001549617551937128,
+        -0.0028075403219594195,
+        0.007473595498861853,
+        0.9999669873903888
+      ],
+      "motion_event_sequence": 41
+    },
+    {
+      "condition": "day",
+      "camera": "rgb",
+      "pair_ordinal": 8,
+      "source_ids": [
+        "000008",
+        "000009"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/rgb",
+      "initial_pose_xyzw": [
+        10.363119125366211,
+        0.20304298400878906,
+        0.9013997912406921,
+        0.0015496175037696958,
+        -0.0028075403533875942,
+        0.007473595440387726,
+        0.9999669790267944
+      ],
+      "recorded_native_pose_xyzw": [
+        11.217176307942278,
+        0.22429741473395742,
+        0.9711938509946498,
+        0.0017174140854953935,
+        -0.0029600818297329527,
+        0.008223514476883662,
+        0.9999603790071353
+      ],
+      "motion_event_sequence": 46
+    },
+    {
+      "condition": "day",
+      "camera": "rgb",
+      "pair_ordinal": 9,
+      "source_ids": [
+        "000009",
+        "000010"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/rgb",
+      "initial_pose_xyzw": [
+        11.21717643737793,
+        0.2242974191904068,
+        0.9711938500404358,
+        0.0017174141248688102,
+        -0.002960081910714507,
+        0.008223514072597027,
+        0.9999603629112244
+      ],
+      "recorded_native_pose_xyzw": [
+        12.954768479264901,
+        0.2848254497097154,
+        1.113220523914348,
+        0.0016698145980245031,
+        -0.0013575558775489854,
+        0.009927849129613848,
+        0.9999484345436769
+      ],
+      "motion_event_sequence": 51
+    },
+    {
+      "condition": "day",
+      "camera": "rgb",
+      "pair_ordinal": 10,
+      "source_ids": [
+        "000010",
+        "000011"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/rgb",
+      "initial_pose_xyzw": [
+        12.954768180847168,
+        0.2848254442214966,
+        1.1132205724716187,
+        0.0016698145773261786,
+        -0.0013575558550655842,
+        0.009927849285304546,
+        0.9999484419822693
+      ],
+      "recorded_native_pose_xyzw": [
+        13.805268419800775,
+        0.31162545326920643,
+        1.1818191217242373,
+        0.0016530784707193657,
+        -0.00030867211482632327,
+        0.010963645561785541,
+        0.9999385234012713
+      ],
+      "motion_event_sequence": 56
+    },
+    {
+      "condition": "day",
+      "camera": "rgb",
+      "pair_ordinal": 11,
+      "source_ids": [
+        "000011",
+        "000012"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/rgb",
+      "initial_pose_xyzw": [
+        13.805268287658691,
+        0.3116254508495331,
+        1.1818190813064575,
+        0.0016530784778296947,
+        -0.0003086721117142588,
+        0.01096364576369524,
+        0.9999385476112366
+      ],
+      "recorded_native_pose_xyzw": [
+        15.534362545054027,
+        0.38384122202638477,
+        1.3197427302059292,
+        0.0025326064488764228,
+        0.0006087829123291409,
+        0.013228280009520602,
+        0.9999091740604035
+      ],
+      "motion_event_sequence": 61
+    },
+    {
+      "condition": "day",
+      "camera": "rgb",
+      "pair_ordinal": 12,
+      "source_ids": [
+        "000012",
+        "000013"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/rgb",
+      "initial_pose_xyzw": [
+        15.53436279296875,
+        0.38384121656417847,
+        1.3197426795959473,
+        0.002532606478780508,
+        0.000608782924246043,
+        0.0132282804697752,
+        0.9999091625213623
+      ],
+      "recorded_native_pose_xyzw": [
+        16.376662083148112,
+        0.41764891034569823,
+        1.3893010511464365,
+        0.0025821815203722126,
+        3.780267963816486e-06,
+        0.014374862921251714,
+        0.9998933948431125
+      ],
+      "motion_event_sequence": 66
+    },
+    {
+      "condition": "day",
+      "camera": "rgb",
+      "pair_ordinal": 13,
+      "source_ids": [
+        "000013",
+        "000014"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/rgb",
+      "initial_pose_xyzw": [
+        16.37666130065918,
+        0.41764891147613525,
+        1.389301061630249,
+        0.002582181477919221,
+        3.780267888942035e-06,
+        0.014374863356351852,
+        0.9998933672904968
+      ],
+      "recorded_native_pose_xyzw": [
+        18.07850333755502,
+        0.4950430822522313,
+        1.528602097291495,
+        0.003398485189550152,
+        -0.002113530248862406,
+        0.01651343397885292,
+        0.9998556596379533
+      ],
+      "motion_event_sequence": 71
+    },
+    {
+      "condition": "day",
+      "camera": "rgb",
+      "pair_ordinal": 14,
+      "source_ids": [
+        "000014",
+        "000015"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/rgb",
+      "initial_pose_xyzw": [
+        18.078502655029297,
+        0.4950430691242218,
+        1.528602123260498,
+        0.0033984852489084005,
+        -0.0021135301794856787,
+        0.016513433307409286,
+        0.999855637550354
+      ],
+      "recorded_native_pose_xyzw": [
+        18.92051640663239,
+        0.5319525711275053,
+        1.6014153805914466,
+        0.0030897074034572005,
+        -0.003162885691808486,
+        0.01747809289461927,
+        0.9998374729243032
+      ],
+      "motion_event_sequence": 76
+    },
+    {
+      "condition": "day",
+      "camera": "rgb",
+      "pair_ordinal": 15,
+      "source_ids": [
+        "000015",
+        "000016"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/rgb",
+      "initial_pose_xyzw": [
+        18.920516967773438,
+        0.5319525599479675,
+        1.6014153957366943,
+        0.0030897073447704315,
+        -0.003162885783240199,
+        0.0174780935049057,
+        0.9998374581336975
+      ],
+      "recorded_native_pose_xyzw": [
+        20.61287403208326,
+        0.6190709311977357,
+        1.7533234733764647,
+        0.002006686120644085,
+        -0.0043447427862539955,
+        0.019210649016680115,
+        0.9998039927721163
+      ],
+      "motion_event_sequence": 81
+    },
+    {
+      "condition": "day",
+      "camera": "rgb",
+      "pair_ordinal": 16,
+      "source_ids": [
+        "000016",
+        "000017"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/rgb",
+      "initial_pose_xyzw": [
+        20.61287498474121,
+        0.6190709471702576,
+        1.7533234357833862,
+        0.002006686059758067,
+        -0.0043447427451610565,
+        0.01921064965426922,
+        0.9998040199279785
+      ],
+      "recorded_native_pose_xyzw": [
+        21.43206279480815,
+        0.6657609619372434,
+        1.820286342082495,
+        0.0009266477590704346,
+        -0.0043741783794721475,
+        0.019787543443499863,
+        0.9997942247856084
+      ],
+      "motion_event_sequence": 86
+    },
+    {
+      "condition": "day",
+      "camera": "rgb",
+      "pair_ordinal": 17,
+      "source_ids": [
+        "000017",
+        "000018"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/rgb",
+      "initial_pose_xyzw": [
+        21.43206214904785,
+        0.6657609343528748,
+        1.8202863931655884,
+        0.0009266477427445352,
+        -0.004374178592115641,
+        0.019787542521953583,
+        0.9997942447662354
+      ],
+      "recorded_native_pose_xyzw": [
+        23.17521476230754,
+        0.7588186083030998,
+        1.9759728435535249,
+        -0.0005899292838238285,
+        -0.003667782719225159,
+        0.021254661206792383,
+        0.9997672276842687
+      ],
+      "motion_event_sequence": 91
+    },
+    {
+      "condition": "day",
+      "camera": "rgb",
+      "pair_ordinal": 18,
+      "source_ids": [
+        "000018",
+        "000019"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/rgb",
+      "initial_pose_xyzw": [
+        23.175214767456055,
+        0.7588186264038086,
+        1.9759728908538818,
+        -0.0005899292882531881,
+        -0.003667782759293914,
+        0.021254660561680794,
+        0.9997672438621521
+      ],
+      "recorded_native_pose_xyzw": [
+        24.030225236879826,
+        0.8012245263574721,
+        2.047267818205588,
+        -0.0017392222022335768,
+        -0.0028207939341477555,
+        0.02200316574477355,
+        0.9997524603956576
+      ],
+      "motion_event_sequence": 96
+    },
+    {
+      "condition": "day",
+      "camera": "rgb",
+      "pair_ordinal": 19,
+      "source_ids": [
+        "000019",
+        "000020"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/rgb",
+      "initial_pose_xyzw": [
+        24.03022575378418,
+        0.8012245297431946,
+        2.0472679138183594,
+        -0.0017392222071066499,
+        -0.002820794004946947,
+        0.022003166377544403,
+        0.9997524619102478
+      ],
+      "recorded_native_pose_xyzw": [
+        25.771822692771913,
+        0.9020975022427072,
+        2.187136226904946,
+        -0.003429188446072639,
+        0.0006035623976365066,
+        0.023325759442290178,
+        0.9997219070943766
+      ],
+      "motion_event_sequence": 101
+    },
+    {
+      "condition": "day",
+      "camera": "thermal",
+      "pair_ordinal": 0,
+      "source_ids": [
+        "000000",
+        "000001"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/thermal",
+      "initial_pose_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "recorded_native_pose_xyzw": [
+        0.46398540614839784,
+        -0.05182909248586939,
+        -0.03827408250149103,
+        0.0006993684425358457,
+        -0.0005594822394470515,
+        0.001644738575094716,
+        0.999998246347675
+      ],
+      "motion_event_sequence": 6
+    },
+    {
+      "condition": "day",
+      "camera": "thermal",
+      "pair_ordinal": 1,
+      "source_ids": [
+        "000001",
+        "000002"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/thermal",
+      "initial_pose_xyzw": [
+        0.463985413312912,
+        -0.05182909220457077,
+        -0.03827408328652382,
+        0.0006993684219196439,
+        -0.0005594822578132153,
+        0.001644738600589335,
+        0.9999982714653015
+      ],
+      "recorded_native_pose_xyzw": [
+        1.7207743270603042,
+        -0.059837640496847526,
+        -0.11304432041217202,
+        0.005348888057443344,
+        -0.0007601542636919671,
+        0.0019017971078334887,
+        0.9999836223484092
+      ],
+      "motion_event_sequence": 11
+    },
+    {
+      "condition": "day",
+      "camera": "thermal",
+      "pair_ordinal": 2,
+      "source_ids": [
+        "000002",
+        "000003"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/thermal",
+      "initial_pose_xyzw": [
+        1.7207742929458618,
+        -0.05983763933181763,
+        -0.11304432153701782,
+        0.005348888225853443,
+        -0.0007601542747579515,
+        0.001901797135360539,
+        0.9999836087226868
+      ],
+      "recorded_native_pose_xyzw": [
+        2.2226171792912717,
+        -0.1010706937826075,
+        -0.1563496716905203,
+        0.005599736700468291,
+        -0.001059367906038995,
+        0.002675704408445796,
+        0.9999801919441246
+      ],
+      "motion_event_sequence": 16
+    },
+    {
+      "condition": "day",
+      "camera": "thermal",
+      "pair_ordinal": 3,
+      "source_ids": [
+        "000003",
+        "000004"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/thermal",
+      "initial_pose_xyzw": [
+        2.2226171493530273,
+        -0.10107069462537766,
+        -0.15634967386722565,
+        0.005599736701697111,
+        -0.001059367903508246,
+        0.00267570442520082,
+        0.9999802112579346
+      ],
+      "recorded_native_pose_xyzw": [
+        3.1779400565194718,
+        -0.14035787062032,
+        -0.4066236572561129,
+        -0.00501678612528174,
+        -0.0006322772871940923,
+        0.006591281604978421,
+        0.9999655237568572
+      ],
+      "motion_event_sequence": 21
+    },
+    {
+      "condition": "day",
+      "camera": "thermal",
+      "pair_ordinal": 4,
+      "source_ids": [
+        "000004",
+        "000005"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/thermal",
+      "initial_pose_xyzw": [
+        3.1779401302337646,
+        -0.1403578668832779,
+        -0.4066236615180969,
+        -0.00501678604632616,
+        -0.0006322772824205458,
+        0.00659128138795495,
+        0.9999655485153198
+      ],
+      "recorded_native_pose_xyzw": [
+        3.6883987828341147,
+        -0.1812361950791901,
+        -0.46053653491120566,
+        -0.0037694536462058088,
+        -0.0010301278326658367,
+        0.0072635851969792935,
+        0.9999660401786751
+      ],
+      "motion_event_sequence": 26
+    },
+    {
+      "condition": "day",
+      "camera": "thermal",
+      "pair_ordinal": 5,
+      "source_ids": [
+        "000005",
+        "000006"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/thermal",
+      "initial_pose_xyzw": [
+        3.688398838043213,
+        -0.18123619258403778,
+        -0.46053653955459595,
+        -0.00376945361495018,
+        -0.0010301278671249747,
+        0.007263584993779659,
+        0.999966025352478
+      ],
+      "recorded_native_pose_xyzw": [
+        5.1342893186882295,
+        -0.12706635714288841,
+        -0.6062146282116221,
+        -0.0027422324676842397,
+        -0.0018453987782699717,
+        0.007795009407504126,
+        0.9999641963405259
+      ],
+      "motion_event_sequence": 31
+    },
+    {
+      "condition": "day",
+      "camera": "thermal",
+      "pair_ordinal": 6,
+      "source_ids": [
+        "000006",
+        "000007"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/thermal",
+      "initial_pose_xyzw": [
+        5.134289264678955,
+        -0.12706635892391205,
+        -0.6062146425247192,
+        -0.002742232521995902,
+        -0.0018453988013789058,
+        0.007795009296387434,
+        0.99996417760849
+      ],
+      "recorded_native_pose_xyzw": [
+        5.711440651100978,
+        -0.18982278749621365,
+        -0.6714543116138244,
+        -0.000549834359351332,
+        -0.0024701058372397907,
+        0.00914375663985172,
+        0.9999550149781422
+      ],
+      "motion_event_sequence": 36
+    },
+    {
+      "condition": "day",
+      "camera": "thermal",
+      "pair_ordinal": 7,
+      "source_ids": [
+        "000007",
+        "000008"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/thermal",
+      "initial_pose_xyzw": [
+        5.711440563201904,
+        -0.18982279300689697,
+        -0.6714543104171753,
+        -0.000549834338016808,
+        -0.0024701058864593506,
+        0.009143756702542305,
+        0.9999549984931946
+      ],
+      "recorded_native_pose_xyzw": [
+        6.6913967152663165,
+        -0.22994623911248913,
+        -0.7303423877101117,
+        0.004071498874074338,
+        -0.004010917873554939,
+        0.010914103505676561,
+        0.9999241115296938
+      ],
+      "motion_event_sequence": 41
+    },
+    {
+      "condition": "day",
+      "camera": "thermal",
+      "pair_ordinal": 8,
+      "source_ids": [
+        "000008",
+        "000009"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/thermal",
+      "initial_pose_xyzw": [
+        6.691396713256836,
+        -0.22994624078273773,
+        -0.7303423881530762,
+        0.00407149875536561,
+        -0.0040109180845320225,
+        0.010914103128015995,
+        0.9999241232872009
+      ],
+      "recorded_native_pose_xyzw": [
+        7.205586833655375,
+        -0.29049560345944686,
+        -0.7804876578074228,
+        0.004589098415752805,
+        -0.0040865338326901025,
+        0.012778445758279099,
+        0.9998994880915429
+      ],
+      "motion_event_sequence": 46
+    },
+    {
+      "condition": "day",
+      "camera": "thermal",
+      "pair_ordinal": 9,
+      "source_ids": [
+        "000009",
+        "000010"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/thermal",
+      "initial_pose_xyzw": [
+        7.205586910247803,
+        -0.2904956042766571,
+        -0.7804876565933228,
+        0.004589098505675793,
+        -0.004086534027010202,
+        0.012778446078300476,
+        0.9998995065689087
+      ],
+      "recorded_native_pose_xyzw": [
+        8.394686164488364,
+        -0.3410300114536268,
+        -0.9154523691437401,
+        0.0044290521889888395,
+        -0.00248057812427178,
+        0.015809796759403943,
+        0.999862166531805
+      ],
+      "motion_event_sequence": 51
+    },
+    {
+      "condition": "day",
+      "camera": "thermal",
+      "pair_ordinal": 10,
+      "source_ids": [
+        "000010",
+        "000011"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/thermal",
+      "initial_pose_xyzw": [
+        8.394685745239258,
+        -0.3410300016403198,
+        -0.9154523611068726,
+        0.004429052118211985,
+        -0.0024805781431496143,
+        0.0158097967505455,
+        0.9998621940612793
+      ],
+      "recorded_native_pose_xyzw": [
+        9.02337335748452,
+        -0.3475815835221454,
+        -0.9825780339445039,
+        0.0052277335740060155,
+        -0.0012190952332979945,
+        0.017041325130728893,
+        0.9998404394718193
+      ],
+      "motion_event_sequence": 56
+    },
+    {
+      "condition": "day",
+      "camera": "thermal",
+      "pair_ordinal": 11,
+      "source_ids": [
+        "000011",
+        "000012"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/thermal",
+      "initial_pose_xyzw": [
+        9.0233736038208,
+        -0.3475815951824188,
+        -0.9825780391693115,
+        0.00522773340344429,
+        -0.0012190951965749264,
+        0.017041325569152832,
+        0.9998404383659363
+      ],
+      "recorded_native_pose_xyzw": [
+        10.163571527649042,
+        -0.3838699012211516,
+        -1.0958892909935187,
+        0.007317902764149603,
+        -0.000775772642727593,
+        0.020131373305999935,
+        0.9997703229458921
+      ],
+      "motion_event_sequence": 61
+    },
+    {
+      "condition": "day",
+      "camera": "thermal",
+      "pair_ordinal": 12,
+      "source_ids": [
+        "000012",
+        "000013"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/thermal",
+      "initial_pose_xyzw": [
+        10.16357135772705,
+        -0.38386988639831543,
+        -1.0958893299102783,
+        0.007317902985960245,
+        -0.0007757726707495749,
+        0.020131373777985573,
+        0.9997703433036804
+      ],
+      "recorded_native_pose_xyzw": [
+        10.676337198915196,
+        -0.3990509389173714,
+        -1.164461434406468,
+        0.008279764782718834,
+        -0.002096944717541117,
+        0.021770453734982414,
+        0.9997265929989376
+      ],
+      "motion_event_sequence": 66
+    },
+    {
+      "condition": "day",
+      "camera": "thermal",
+      "pair_ordinal": 13,
+      "source_ids": [
+        "000013",
+        "000014"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/thermal",
+      "initial_pose_xyzw": [
+        10.676337242126465,
+        -0.3990509510040283,
+        -1.1644614934921265,
+        0.008279765024781227,
+        -0.002096944721415639,
+        0.021770453080534935,
+        0.9997265934944153
+      ],
+      "recorded_native_pose_xyzw": [
+        11.77537259164731,
+        -0.39552402318799357,
+        -1.2317364582745822,
+        0.012751892131602481,
+        -0.004224366258605191,
+        0.023743432102668608,
+        0.9996279105057403
+      ],
+      "motion_event_sequence": 71
+    },
+    {
+      "condition": "day",
+      "camera": "thermal",
+      "pair_ordinal": 14,
+      "source_ids": [
+        "000014",
+        "000015"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/thermal",
+      "initial_pose_xyzw": [
+        11.775372505187988,
+        -0.3955240249633789,
+        -1.231736421585083,
+        0.01275189220905304,
+        -0.004224366042762995,
+        0.023743432015180588,
+        0.9996278882026672
+      ],
+      "recorded_native_pose_xyzw": [
+        12.267429930654995,
+        -0.3977596214956421,
+        -1.274512241434582,
+        0.013836402045033197,
+        -0.004880681079504171,
+        0.024806963885032347,
+        0.999584648208051
+      ],
+      "motion_event_sequence": 76
+    },
+    {
+      "condition": "day",
+      "camera": "thermal",
+      "pair_ordinal": 15,
+      "source_ids": [
+        "000015",
+        "000016"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/thermal",
+      "initial_pose_xyzw": [
+        12.267430305480957,
+        -0.3977596163749695,
+        -1.2745122909545898,
+        0.01383640244603157,
+        -0.0048806811682879925,
+        0.02480696327984333,
+        0.9995846748352051
+      ],
+      "recorded_native_pose_xyzw": [
+        13.378476419614842,
+        -0.39850198790359576,
+        -1.342194429686723,
+        0.017652613089333812,
+        -0.0062965743301606324,
+        0.026368144048374717,
+        0.999476680096215
+      ],
+      "motion_event_sequence": 81
+    },
+    {
+      "condition": "day",
+      "camera": "thermal",
+      "pair_ordinal": 16,
+      "source_ids": [
+        "000016",
+        "000017"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/thermal",
+      "initial_pose_xyzw": [
+        13.3784761428833,
+        -0.398501992225647,
+        -1.3421944379806519,
+        0.017652612179517746,
+        -0.006296574138104916,
+        0.026368144899606705,
+        0.9994766712188721
+      ],
+      "recorded_native_pose_xyzw": [
+        13.862944272476312,
+        -0.3754215997444867,
+        -1.401946945505616,
+        0.016567621518973612,
+        -0.006397029025250687,
+        0.02770134887199485,
+        0.999458545486689
+      ],
+      "motion_event_sequence": 86
+    },
+    {
+      "condition": "day",
+      "camera": "thermal",
+      "pair_ordinal": 17,
+      "source_ids": [
+        "000017",
+        "000018"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/thermal",
+      "initial_pose_xyzw": [
+        13.862944602966309,
+        -0.3754216134548187,
+        -1.4019469022750854,
+        0.016567621380090714,
+        -0.006397028919309378,
+        0.027701348066329956,
+        0.9994585514068604
+      ],
+      "recorded_native_pose_xyzw": [
+        14.918855082074401,
+        -0.38784071199982534,
+        -1.4650156749965104,
+        0.01854424624200509,
+        -0.004993837991842789,
+        0.029802738385100277,
+        0.9993713714232343
+      ],
+      "motion_event_sequence": 91
+    },
+    {
+      "condition": "day",
+      "camera": "thermal",
+      "pair_ordinal": 18,
+      "source_ids": [
+        "000018",
+        "000019"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/thermal",
+      "initial_pose_xyzw": [
+        14.918854713439941,
+        -0.38784071803092957,
+        -1.4650156497955322,
+        0.01854424551129341,
+        -0.004993837792426348,
+        0.02980273775756359,
+        0.999371349811554
+      ],
+      "recorded_native_pose_xyzw": [
+        15.464656889690986,
+        -0.3975570609974072,
+        -1.525515761298434,
+        0.018447977327292853,
+        -0.004740563086034673,
+        0.0307824228870305,
+        0.9993446688179493
+      ],
+      "motion_event_sequence": 96
+    },
+    {
+      "condition": "day",
+      "camera": "thermal",
+      "pair_ordinal": 19,
+      "source_ids": [
+        "000019",
+        "000020"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/thermal",
+      "initial_pose_xyzw": [
+        15.464656829833984,
+        -0.3975570499897003,
+        -1.5255157947540283,
+        0.01844797655940056,
+        -0.004740563221275806,
+        0.030782422050833702,
+        0.9993446469306946
+      ],
+      "recorded_native_pose_xyzw": [
+        16.616203015001,
+        -0.37019219999454456,
+        -1.6380472494576477,
+        0.01847798055418322,
+        -0.0012125113989531644,
+        0.03268784205674598,
+        0.9992940911801498
+      ],
+      "motion_event_sequence": 101
+    },
+    {
+      "condition": "night",
+      "camera": "rgb",
+      "pair_ordinal": 0,
+      "source_ids": [
+        "000000",
+        "000001"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/rgb",
+      "initial_pose_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "recorded_native_pose_xyzw": [
+        0.21580817092362817,
+        0.0016252176370438736,
+        0.02004530173487286,
+        -5.526781385427796e-05,
+        -3.251568504571324e-05,
+        0.0005723011262736637,
+        0.9999998341797964
+      ],
+      "motion_event_sequence": 6
+    },
+    {
+      "condition": "night",
+      "camera": "rgb",
+      "pair_ordinal": 1,
+      "source_ids": [
+        "000001",
+        "000002"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/rgb",
+      "initial_pose_xyzw": [
+        0.21580816805362701,
+        0.0016252176137641072,
+        0.02004530094563961,
+        -5.52678138774354e-05,
+        -3.251568341511302e-05,
+        0.0005723010981455445,
+        0.9999998211860657
+      ],
+      "recorded_native_pose_xyzw": [
+        0.6335519944986391,
+        0.009628134882482882,
+        0.05443648023214193,
+        -0.00045856903274466053,
+        0.00027279928112290827,
+        0.001674949138576891,
+        0.9999984419252296
+      ],
+      "motion_event_sequence": 11
+    },
+    {
+      "condition": "night",
+      "camera": "rgb",
+      "pair_ordinal": 2,
+      "source_ids": [
+        "000002",
+        "000003"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/rgb",
+      "initial_pose_xyzw": [
+        0.6335520148277283,
+        0.009628134779632092,
+        0.05443647876381874,
+        -0.00045856903307139874,
+        0.0002727992832660675,
+        0.0016749491915106773,
+        0.9999984502792358
+      ],
+      "recorded_native_pose_xyzw": [
+        0.8346587467156217,
+        0.01490446233131907,
+        0.0703818456499274,
+        -0.00034675122307714943,
+        0.00032900855640256046,
+        0.0021403719639886266,
+        0.9999975905198415
+      ],
+      "motion_event_sequence": 16
+    },
+    {
+      "condition": "night",
+      "camera": "rgb",
+      "pair_ordinal": 3,
+      "source_ids": [
+        "000003",
+        "000004"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/rgb",
+      "initial_pose_xyzw": [
+        0.8346587419509888,
+        0.014904462732374668,
+        0.07038184255361557,
+        -0.0003467512142378837,
+        0.00032900855876505375,
+        0.002140372060239315,
+        0.999997615814209
+      ],
+      "recorded_native_pose_xyzw": [
+        1.2119665292092827,
+        0.023908272278345293,
+        0.10000258829787677,
+        -3.599932648143969e-05,
+        0.00019697312430085653,
+        0.0031099801794958856,
+        0.9999951646076175
+      ],
+      "motion_event_sequence": 21
+    },
+    {
+      "condition": "night",
+      "camera": "rgb",
+      "pair_ordinal": 4,
+      "source_ids": [
+        "000004",
+        "000005"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/rgb",
+      "initial_pose_xyzw": [
+        1.2119665145874023,
+        0.02390827238559723,
+        0.10000258684158325,
+        -3.599932824727148e-05,
+        0.00019697312382049859,
+        0.0031099801417440176,
+        0.9999951720237732
+      ],
+      "recorded_native_pose_xyzw": [
+        1.3941929799067636,
+        0.03041138469820212,
+        0.11355113919944528,
+        -1.4644705748243167e-05,
+        0.00025060121324196134,
+        0.003528626752788276,
+        0.9999937709403532
+      ],
+      "motion_event_sequence": 26
+    },
+    {
+      "condition": "night",
+      "camera": "rgb",
+      "pair_ordinal": 5,
+      "source_ids": [
+        "000005",
+        "000006"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/rgb",
+      "initial_pose_xyzw": [
+        1.3941929340362549,
+        0.030411384999752045,
+        0.11355113983154297,
+        -1.4644705515820533e-05,
+        0.0002506012097001076,
+        0.0035286268685013056,
+        0.9999937415122986
+      ],
+      "recorded_native_pose_xyzw": [
+        1.747649636741873,
+        0.042514466119199575,
+        0.13905831177032024,
+        -0.0005022509274709393,
+        0.0005576872157972172,
+        0.004456140679169166,
+        0.999989788360861
+      ],
+      "motion_event_sequence": 31
+    },
+    {
+      "condition": "night",
+      "camera": "rgb",
+      "pair_ordinal": 6,
+      "source_ids": [
+        "000006",
+        "000007"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/rgb",
+      "initial_pose_xyzw": [
+        1.7476496696472168,
+        0.04251446574926376,
+        0.13905830681324005,
+        -0.0005022509139962494,
+        0.0005576871917583048,
+        0.0044561405666172504,
+        0.9999898076057434
+      ],
+      "recorded_native_pose_xyzw": [
+        1.9179254227331797,
+        0.04808510384940331,
+        0.1495942032242561,
+        -0.0006095089679454408,
+        0.0005319600124277785,
+        0.004826569315815731,
+        0.9999880426890666
+      ],
+      "motion_event_sequence": 36
+    },
+    {
+      "condition": "night",
+      "camera": "rgb",
+      "pair_ordinal": 7,
+      "source_ids": [
+        "000007",
+        "000008"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/rgb",
+      "initial_pose_xyzw": [
+        1.917925477027893,
+        0.048085104674100876,
+        0.14959420263767242,
+        -0.0006095089484006166,
+        0.0005319599877111614,
+        0.004826569464057684,
+        0.9999880194664001
+      ],
+      "recorded_native_pose_xyzw": [
+        2.244350278048342,
+        0.06071762589520993,
+        0.17435395871661527,
+        -0.0005226675682262633,
+        0.0004601795100865158,
+        0.005587630895810974,
+        0.9999841412573058
+      ],
+      "motion_event_sequence": 41
+    },
+    {
+      "condition": "night",
+      "camera": "rgb",
+      "pair_ordinal": 8,
+      "source_ids": [
+        "000008",
+        "000009"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/rgb",
+      "initial_pose_xyzw": [
+        2.2443501949310303,
+        0.0607176274061203,
+        0.1743539571762085,
+        -0.0005226675420999527,
+        0.00046017952263355255,
+        0.005587630905210972,
+        0.9999841451644897
+      ],
+      "recorded_native_pose_xyzw": [
+        2.3961792040564966,
+        0.06697758018165148,
+        0.18509845428873942,
+        -0.0003465849243225729,
+        0.0005064463361121195,
+        0.005973992604432649,
+        0.9999819658120846
+      ],
+      "motion_event_sequence": 46
+    },
+    {
+      "condition": "night",
+      "camera": "rgb",
+      "pair_ordinal": 9,
+      "source_ids": [
+        "000009",
+        "000010"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/rgb",
+      "initial_pose_xyzw": [
+        2.39617919921875,
+        0.06697758287191391,
+        0.18509845435619354,
+        -0.0003465849149506539,
+        0.0005064463475719094,
+        0.00597399240359664,
+        0.9999819397926331
+      ],
+      "recorded_native_pose_xyzw": [
+        2.6844118497263225,
+        0.08086254911549326,
+        0.20518874985961652,
+        -0.00013215875896662873,
+        0.0008755890742258106,
+        0.006719389825554108,
+        0.9999770051275627
+      ],
+      "motion_event_sequence": 51
+    },
+    {
+      "condition": "night",
+      "camera": "rgb",
+      "pair_ordinal": 10,
+      "source_ids": [
+        "000010",
+        "000011"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/rgb",
+      "initial_pose_xyzw": [
+        2.6844117641448975,
+        0.08086255192756653,
+        0.20518875122070312,
+        -0.00013215876242611557,
+        0.000875589088536799,
+        0.00671938993036747,
+        0.9999769926071167
+      ],
+      "recorded_native_pose_xyzw": [
+        2.824298694546814,
+        0.08629816841652392,
+        0.21517221250629617,
+        -2.9800621310144757e-05,
+        0.0008936121725146154,
+        0.007033580947022149,
+        0.9999748243706305
+      ],
+      "motion_event_sequence": 56
+    },
+    {
+      "condition": "night",
+      "camera": "rgb",
+      "pair_ordinal": 11,
+      "source_ids": [
+        "000011",
+        "000012"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/rgb",
+      "initial_pose_xyzw": [
+        2.824298620223999,
+        0.08629816770553589,
+        0.21517221629619598,
+        -2.9800621632602997e-05,
+        0.0008936121594160795,
+        0.007033580914139748,
+        0.9999748468399048
+      ],
+      "recorded_native_pose_xyzw": [
+        3.082465022122239,
+        0.09653843388382,
+        0.23555716704208446,
+        -0.0003510642851727691,
+        0.0007596232641569706,
+        0.007569686420940771,
+        0.9999709818677682
+      ],
+      "motion_event_sequence": 61
+    },
+    {
+      "condition": "night",
+      "camera": "rgb",
+      "pair_ordinal": 12,
+      "source_ids": [
+        "000012",
+        "000013"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/rgb",
+      "initial_pose_xyzw": [
+        3.0824649333953857,
+        0.09653843194246292,
+        0.2355571687221527,
+        -0.0003510642854962498,
+        0.0007596232462674379,
+        0.007569686509668827,
+        0.9999709725379944
+      ],
+      "recorded_native_pose_xyzw": [
+        3.205919451162039,
+        0.10474114438290945,
+        0.24450402410249983,
+        -0.000375543310002973,
+        0.0007281798710401347,
+        0.007831124989131584,
+        0.999968973793062
+      ],
+      "motion_event_sequence": 66
+    },
+    {
+      "condition": "night",
+      "camera": "rgb",
+      "pair_ordinal": 13,
+      "source_ids": [
+        "000013",
+        "000014"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/rgb",
+      "initial_pose_xyzw": [
+        3.2059195041656494,
+        0.10474114120006561,
+        0.24450401961803436,
+        -0.0003755433135665953,
+        0.0007281798752956092,
+        0.00783112458884716,
+        0.999968945980072
+      ],
+      "recorded_native_pose_xyzw": [
+        3.4263282296810655,
+        0.11614155152817279,
+        0.25972184751929106,
+        -0.00023496152959241425,
+        0.000613792412278147,
+        0.008334436599860691,
+        0.9999649973544326
+      ],
+      "motion_event_sequence": 71
+    },
+    {
+      "condition": "night",
+      "camera": "rgb",
+      "pair_ordinal": 14,
+      "source_ids": [
+        "000014",
+        "000015"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/rgb",
+      "initial_pose_xyzw": [
+        3.426328182220459,
+        0.11614155024290085,
+        0.2597218453884125,
+        -0.00023496152425650507,
+        0.0006137923919595778,
+        0.00833443645387888,
+        0.9999650120735168
+      ],
+      "recorded_native_pose_xyzw": [
+        3.5243452278355063,
+        0.12241559765538565,
+        0.26562460667148485,
+        -1.844565165475517e-05,
+        0.0005637888773474995,
+        0.008494065803408049,
+        0.9999637257411881
+      ],
+      "motion_event_sequence": 76
+    },
+    {
+      "condition": "night",
+      "camera": "rgb",
+      "pair_ordinal": 15,
+      "source_ids": [
+        "000015",
+        "000016"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/rgb",
+      "initial_pose_xyzw": [
+        3.5243451595306396,
+        0.12241559475660324,
+        0.26562461256980896,
+        -1.8445651221554726e-05,
+        0.00056378886802122,
+        0.008494066074490547,
+        0.9999637007713318
+      ],
+      "recorded_native_pose_xyzw": [
+        3.7105537454360027,
+        0.13085702558194978,
+        0.27629311436814585,
+        0.00010529486409993825,
+        0.0008368505387814516,
+        0.008884936750190654,
+        0.9999601075593053
+      ],
+      "motion_event_sequence": 81
+    },
+    {
+      "condition": "night",
+      "camera": "rgb",
+      "pair_ordinal": 16,
+      "source_ids": [
+        "000016",
+        "000017"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/rgb",
+      "initial_pose_xyzw": [
+        3.7105536460876465,
+        0.13085702061653137,
+        0.2762931287288666,
+        0.0001052948646247387,
+        0.0008368505514226854,
+        0.008884936571121216,
+        0.9999601244926453
+      ],
+      "recorded_native_pose_xyzw": [
+        3.7907302500763898,
+        0.13165766982174476,
+        0.28213181686829414,
+        -7.654687204689552e-05,
+        0.0010371802205520432,
+        0.009159658471220784,
+        0.9999574606619676
+      ],
+      "motion_event_sequence": 86
+    },
+    {
+      "condition": "night",
+      "camera": "rgb",
+      "pair_ordinal": 17,
+      "source_ids": [
+        "000017",
+        "000018"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/rgb",
+      "initial_pose_xyzw": [
+        3.7907302379608154,
+        0.131657674908638,
+        0.2821318209171295,
+        -7.654687215108424e-05,
+        0.0010371801909059286,
+        0.00915965810418129,
+        0.9999574422836304
+      ],
+      "recorded_native_pose_xyzw": [
+        3.9470286093545623,
+        0.13833768128478482,
+        0.2924769217357846,
+        -0.0004585259373189168,
+        0.0010896588436707228,
+        0.00947547006694369,
+        0.9999543415485325
+      ],
+      "motion_event_sequence": 91
+    },
+    {
+      "condition": "night",
+      "camera": "rgb",
+      "pair_ordinal": 18,
+      "source_ids": [
+        "000018",
+        "000019"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/rgb",
+      "initial_pose_xyzw": [
+        3.947028636932373,
+        0.13833768665790558,
+        0.29247692227363586,
+        -0.0004585259302984923,
+        0.001089658821001649,
+        0.009475470520555973,
+        0.999954342842102
+      ],
+      "recorded_native_pose_xyzw": [
+        4.01982858255631,
+        0.13942609179580487,
+        0.3006025889596698,
+        -0.000617240760248918,
+        0.0010714170703175143,
+        0.009612509688305624,
+        0.9999529692188207
+      ],
+      "motion_event_sequence": 96
+    },
+    {
+      "condition": "night",
+      "camera": "rgb",
+      "pair_ordinal": 19,
+      "source_ids": [
+        "000019",
+        "000020"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/rgb",
+      "initial_pose_xyzw": [
+        4.019828796386719,
+        0.1394260972738266,
+        0.30060258507728577,
+        -0.0006172407884150743,
+        0.0010714171221479774,
+        0.009612509980797768,
+        0.9999529719352722
+      ],
+      "recorded_native_pose_xyzw": [
+        4.14363063311231,
+        0.14487438448357162,
+        0.3082489136044049,
+        -0.0004818344967956492,
+        0.0011052435632208045,
+        0.009942001997303246,
+        0.9999497878491819
+      ],
+      "motion_event_sequence": 101
+    },
+    {
+      "condition": "night",
+      "camera": "thermal",
+      "pair_ordinal": 0,
+      "source_ids": [
+        "000000",
+        "000001"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/thermal",
+      "initial_pose_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "recorded_native_pose_xyzw": [
+        0.17901885650199234,
+        0.007249287700343212,
+        -0.02559758907533757,
+        0.00043340454589998247,
+        -8.891115903356975e-05,
+        0.0006375975161693442,
+        0.9999996988623112
+      ],
+      "motion_event_sequence": 6
+    },
+    {
+      "condition": "night",
+      "camera": "thermal",
+      "pair_ordinal": 1,
+      "source_ids": [
+        "000001",
+        "000002"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/thermal",
+      "initial_pose_xyzw": [
+        0.17901885509490967,
+        0.00724928779527545,
+        -0.0255975890904665,
+        0.0004334045515861362,
+        -8.891116158338264e-05,
+        0.0006375975208356977,
+        0.9999997019767761
+      ],
+      "recorded_native_pose_xyzw": [
+        0.4553119062993606,
+        0.008647016349096455,
+        -0.0858106920256153,
+        0.00125459409958464,
+        -0.00019179490768870302,
+        0.0016176515452727548,
+        0.99999788931816
+      ],
+      "motion_event_sequence": 11
+    },
+    {
+      "condition": "night",
+      "camera": "thermal",
+      "pair_ordinal": 2,
+      "source_ids": [
+        "000002",
+        "000003"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/thermal",
+      "initial_pose_xyzw": [
+        0.4553118944168091,
+        0.008647016249597073,
+        -0.08581069111824036,
+        0.001254594069905579,
+        -0.0001917949120979756,
+        0.001617651549167931,
+        0.9999979138374329
+      ],
+      "recorded_native_pose_xyzw": [
+        0.629052556831272,
+        0.015107063633343201,
+        -0.10702926203905574,
+        0.0015571196620145025,
+        2.0213891915732505e-05,
+        0.0021235556452233214,
+        0.9999965603683341
+      ],
+      "motion_event_sequence": 16
+    },
+    {
+      "condition": "night",
+      "camera": "thermal",
+      "pair_ordinal": 3,
+      "source_ids": [
+        "000003",
+        "000004"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/thermal",
+      "initial_pose_xyzw": [
+        0.6290525794029236,
+        0.015107063576579094,
+        -0.1070292592048645,
+        0.001557119656354189,
+        2.0213892639731057e-05,
+        0.0021235556341707706,
+        0.999996542930603
+      ],
+      "recorded_native_pose_xyzw": [
+        0.8779161893303333,
+        0.013820086836037034,
+        -0.1630589942557192,
+        0.0025229782856346834,
+        -0.0006158523604521744,
+        0.003003569243699651,
+        0.9999921271040856
+      ],
+      "motion_event_sequence": 21
+    },
+    {
+      "condition": "night",
+      "camera": "thermal",
+      "pair_ordinal": 4,
+      "source_ids": [
+        "000004",
+        "000005"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/thermal",
+      "initial_pose_xyzw": [
+        0.8779162168502808,
+        0.013820086605846882,
+        -0.16305899620056152,
+        0.0025229782331734896,
+        -0.0006158523610793054,
+        0.003003569319844246,
+        0.9999921321868896
+      ],
+      "recorded_native_pose_xyzw": [
+        1.0391220915860606,
+        0.021943417492865477,
+        -0.1893248811459784,
+        0.0028699366718170556,
+        -0.0006432413809779456,
+        0.003520600814343994,
+        0.9999894927605842
+      ],
+      "motion_event_sequence": 26
+    },
+    {
+      "condition": "night",
+      "camera": "thermal",
+      "pair_ordinal": 5,
+      "source_ids": [
+        "000005",
+        "000006"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/thermal",
+      "initial_pose_xyzw": [
+        1.0391221046447754,
+        0.02194341830909252,
+        -0.18932488560676575,
+        0.0028699366375803947,
+        -0.0006432413938455284,
+        0.0035206007305532694,
+        0.9999895095825195
+      ],
+      "recorded_native_pose_xyzw": [
+        1.2656460204248683,
+        0.018285152892071218,
+        -0.22808855405514097,
+        0.0029901180506373306,
+        -0.00047529769710060496,
+        0.004579349685408069,
+        0.9999849634084444
+      ],
+      "motion_event_sequence": 31
+    },
+    {
+      "condition": "night",
+      "camera": "thermal",
+      "pair_ordinal": 6,
+      "source_ids": [
+        "000006",
+        "000007"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/thermal",
+      "initial_pose_xyzw": [
+        1.265645980834961,
+        0.018285153433680534,
+        -0.22808855772018433,
+        0.002990117995068431,
+        -0.00047529771109111607,
+        0.004579349886626005,
+        0.9999849796295166
+      ],
+      "recorded_native_pose_xyzw": [
+        1.388438181242771,
+        0.015596003416296054,
+        -0.2508023676463169,
+        0.0030684871214926375,
+        -0.0005508304348409359,
+        0.005253165527775748,
+        0.9999813907609094
+      ],
+      "motion_event_sequence": 36
+    },
+    {
+      "condition": "night",
+      "camera": "thermal",
+      "pair_ordinal": 7,
+      "source_ids": [
+        "000007",
+        "000008"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/thermal",
+      "initial_pose_xyzw": [
+        1.3884382247924805,
+        0.015596003271639347,
+        -0.2508023679256439,
+        0.003068487159907818,
+        -0.0005508304457180202,
+        0.005253165494650602,
+        0.9999814033508301
+      ],
+      "recorded_native_pose_xyzw": [
+        1.5876224592486874,
+        -0.005633915227329402,
+        -0.28802031420998114,
+        0.0037222316952652146,
+        -0.0008141453549923604,
+        0.006224032743115912,
+        0.999973432345981
+      ],
+      "motion_event_sequence": 41
+    },
+    {
+      "condition": "night",
+      "camera": "thermal",
+      "pair_ordinal": 8,
+      "source_ids": [
+        "000008",
+        "000009"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/thermal",
+      "initial_pose_xyzw": [
+        1.5876224040985107,
+        -0.005633915308862925,
+        -0.2880203127861023,
+        0.003722231602296233,
+        -0.0008141453727148473,
+        0.006224032957106829,
+        0.9999734163284302
+      ],
+      "recorded_native_pose_xyzw": [
+        1.707289882660259,
+        0.003175100986969448,
+        -0.30957945231815653,
+        0.004109444444442142,
+        -0.0007847195347737216,
+        0.006671414794045566,
+        0.9999690388691284
+      ],
+      "motion_event_sequence": 46
+    },
+    {
+      "condition": "night",
+      "camera": "thermal",
+      "pair_ordinal": 9,
+      "source_ids": [
+        "000009",
+        "000010"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/thermal",
+      "initial_pose_xyzw": [
+        1.7072899341583252,
+        0.0031751010101288557,
+        -0.309579461812973,
+        0.004109444562345743,
+        -0.0007847195374779403,
+        0.006671414710581303,
+        0.9999690651893616
+      ],
+      "recorded_native_pose_xyzw": [
+        1.8871239478016457,
+        -0.009911492578847735,
+        -0.3390095859648693,
+        0.004606628357519218,
+        -0.0005014619717890344,
+        0.007607319564202778,
+        0.9999603985305641
+      ],
+      "motion_event_sequence": 51
+    },
+    {
+      "condition": "night",
+      "camera": "thermal",
+      "pair_ordinal": 10,
+      "source_ids": [
+        "000010",
+        "000011"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/thermal",
+      "initial_pose_xyzw": [
+        1.887123942375183,
+        -0.009911492466926575,
+        -0.3390095829963684,
+        0.0046066283248364925,
+        -0.0005014619673602283,
+        0.007607319392263889,
+        0.9999604225158691
+      ],
+      "recorded_native_pose_xyzw": [
+        1.9930630292964924,
+        -0.0018548892664518096,
+        -0.3532105057089906,
+        0.004870194698987783,
+        -0.0004540875811717566,
+        0.007899294857884294,
+        0.9999569323445322
+      ],
+      "motion_event_sequence": 56
+    },
+    {
+      "condition": "night",
+      "camera": "thermal",
+      "pair_ordinal": 11,
+      "source_ids": [
+        "000011",
+        "000012"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/thermal",
+      "initial_pose_xyzw": [
+        1.993062973022461,
+        -0.0018548892112448812,
+        -0.3532105088233948,
+        0.004870194476097822,
+        -0.00045408756705000997,
+        0.00789929460734129,
+        0.9999569058418274
+      ],
+      "recorded_native_pose_xyzw": [
+        2.1516374139404575,
+        -0.012705908232860517,
+        -0.38738264822475976,
+        0.005220347821972469,
+        -0.0008621835014288875,
+        0.008589092246507963,
+        0.9999491834530477
+      ],
+      "motion_event_sequence": 61
+    },
+    {
+      "condition": "night",
+      "camera": "thermal",
+      "pair_ordinal": 12,
+      "source_ids": [
+        "000012",
+        "000013"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/thermal",
+      "initial_pose_xyzw": [
+        2.151637315750122,
+        -0.0127059081569314,
+        -0.3873826563358307,
+        0.005220348015427589,
+        -0.0008621835149824619,
+        0.008589092642068863,
+        0.9999491572380066
+      ],
+      "recorded_native_pose_xyzw": [
+        2.231266110083356,
+        -0.01134990673402253,
+        -0.4063218316636228,
+        0.0051727016971344665,
+        -0.00100913033766935,
+        0.009032670574746162,
+        0.9999453588284869
+      ],
+      "motion_event_sequence": 66
+    },
+    {
+      "condition": "night",
+      "camera": "thermal",
+      "pair_ordinal": 13,
+      "source_ids": [
+        "000013",
+        "000014"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/thermal",
+      "initial_pose_xyzw": [
+        2.2312660217285156,
+        -0.011349907144904137,
+        -0.40632182359695435,
+        0.0051727015525102615,
+        -0.001009130384773016,
+        0.00903267040848732,
+        0.999945342540741
+      ],
+      "recorded_native_pose_xyzw": [
+        2.3558045671044674,
+        -0.0253569970378804,
+        -0.42857651398619817,
+        0.005675540511598678,
+        -0.0012728167905247559,
+        0.009782854833553855,
+        0.9999352560629805
+      ],
+      "motion_event_sequence": 71
+    },
+    {
+      "condition": "night",
+      "camera": "thermal",
+      "pair_ordinal": 14,
+      "source_ids": [
+        "000014",
+        "000015"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/thermal",
+      "initial_pose_xyzw": [
+        2.355804681777954,
+        -0.025356996804475784,
+        -0.4285764992237091,
+        0.005675540305674076,
+        -0.0012728167930617929,
+        0.009782854467630386,
+        0.9999352693557739
+      ],
+      "recorded_native_pose_xyzw": [
+        2.435378977841854,
+        -0.018482491100505722,
+        -0.44171303462990463,
+        0.0058242230796097935,
+        -0.0012415444808749358,
+        0.010039970427355263,
+        0.9999319051566086
+      ],
+      "motion_event_sequence": 76
+    },
+    {
+      "condition": "night",
+      "camera": "thermal",
+      "pair_ordinal": 15,
+      "source_ids": [
+        "000015",
+        "000016"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/thermal",
+      "initial_pose_xyzw": [
+        2.4353790283203125,
+        -0.018482491374015808,
+        -0.44171303510665894,
+        0.005824223160743713,
+        -0.0012415444944053888,
+        0.01003997027873993,
+        0.9999319314956665
+      ],
+      "recorded_native_pose_xyzw": [
+        2.548176531193785,
+        -0.0263643045112978,
+        -0.46106952514769867,
+        0.006313669712946325,
+        -0.0009232510581415194,
+        0.010684892303486501,
+        0.9999226219536752
+      ],
+      "motion_event_sequence": 81
+    },
+    {
+      "condition": "night",
+      "camera": "thermal",
+      "pair_ordinal": 16,
+      "source_ids": [
+        "000016",
+        "000017"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/thermal",
+      "initial_pose_xyzw": [
+        2.5481765270233154,
+        -0.02636430412530899,
+        -0.4610695242881775,
+        0.006313669495284557,
+        -0.0009232510346919298,
+        0.010684892535209656,
+        0.9999226331710815
+      ],
+      "recorded_native_pose_xyzw": [
+        2.6019823116360303,
+        -0.021015853700304593,
+        -0.4738647327850917,
+        0.005922997504343354,
+        -0.0006069802806575927,
+        0.011092588600919464,
+        0.9999208259781772
+      ],
+      "motion_event_sequence": 86
+    },
+    {
+      "condition": "night",
+      "camera": "thermal",
+      "pair_ordinal": 17,
+      "source_ids": [
+        "000017",
+        "000018"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/thermal",
+      "initial_pose_xyzw": [
+        2.601982355117798,
+        -0.02101585455238819,
+        -0.47386473417282104,
+        0.005922997370362282,
+        -0.0006069802911952138,
+        0.011092588305473328,
+        0.9999208450317383
+      ],
+      "recorded_native_pose_xyzw": [
+        2.711960050095429,
+        -0.03068907591231903,
+        -0.4943631836514541,
+        0.005839248857215971,
+        -0.0004706644177480896,
+        0.011782508245922774,
+        0.9999135194177778
+      ],
+      "motion_event_sequence": 91
+    },
+    {
+      "condition": "night",
+      "camera": "thermal",
+      "pair_ordinal": 18,
+      "source_ids": [
+        "000018",
+        "000019"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/thermal",
+      "initial_pose_xyzw": [
+        2.7119600772857666,
+        -0.030689075589179993,
+        -0.4943631887435913,
+        0.005839248653501272,
+        -0.0004706644103862345,
+        0.011782508343458176,
+        0.9999135136604309
+      ],
+      "recorded_native_pose_xyzw": [
+        2.76041756381852,
+        -0.025296436866575067,
+        -0.5058628454801906,
+        0.005585204092043313,
+        -0.000579392648685552,
+        0.01206843384576544,
+        0.9999114977623551
+      ],
+      "motion_event_sequence": 96
+    },
+    {
+      "condition": "night",
+      "camera": "thermal",
+      "pair_ordinal": 19,
+      "source_ids": [
+        "000019",
+        "000020"
+      ],
+      "expert_relative": "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/thermal",
+      "initial_pose_xyzw": [
+        2.7604174613952637,
+        -0.025296436622738838,
+        -0.505862832069397,
+        0.005585203878581524,
+        -0.0005793926538899541,
+        0.012068433687090874,
+        0.9999114871025085
+      ],
+      "recorded_native_pose_xyzw": [
+        2.8245826217358436,
+        -0.0270221773999762,
+        -0.5199512009698273,
+        0.0057306719560390445,
+        -0.0008497626553060744,
+        0.01262970065161661,
+        0.9999035389942541
+      ],
+      "motion_event_sequence": 101
+    },
+    {
+      "condition": "rain",
+      "camera": "rgb",
+      "pair_ordinal": 0,
+      "source_ids": [
+        "000000",
+        "000001"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/rgb",
+      "initial_pose_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "recorded_native_pose_xyzw": [
+        0.7533149151316686,
+        0.0008872565909077289,
+        0.05758898109659197,
+        -2.363195391438687e-05,
+        0.0009580877846821685,
+        -0.00022964738883904864,
+        0.9999995143855844
+      ],
+      "motion_event_sequence": 6
+    },
+    {
+      "condition": "rain",
+      "camera": "rgb",
+      "pair_ordinal": 1,
+      "source_ids": [
+        "000001",
+        "000002"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/rgb",
+      "initial_pose_xyzw": [
+        0.7533149123191833,
+        0.0008872565813362598,
+        0.057588979601860046,
+        -2.3631953808944672e-05,
+        0.0009580877958796918,
+        -0.00022964738309383392,
+        0.9999995231628418
+      ],
+      "recorded_native_pose_xyzw": [
+        1.1243292580216218,
+        0.030756062302445646,
+        0.03385341889620375,
+        0.0004063957411454778,
+        0.0007236992442954102,
+        -0.0006921661486973434,
+        0.999999424781061
+      ],
+      "motion_event_sequence": 11
+    },
+    {
+      "condition": "rain",
+      "camera": "rgb",
+      "pair_ordinal": 2,
+      "source_ids": [
+        "000002",
+        "000003"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/rgb",
+      "initial_pose_xyzw": [
+        1.1243292093276978,
+        0.030756061896681786,
+        0.03385341912508011,
+        0.00040639573126100004,
+        0.0007236992241814733,
+        -0.0006921661552041769,
+        0.9999994039535522
+      ],
+      "recorded_native_pose_xyzw": [
+        1.9243180846404244,
+        0.008308677678975009,
+        0.014471562753772857,
+        0.0006051345766215524,
+        -0.0004192850718651512,
+        -0.0011821554569702427,
+        0.9999990182095944
+      ],
+      "motion_event_sequence": 16
+    },
+    {
+      "condition": "rain",
+      "camera": "rgb",
+      "pair_ordinal": 3,
+      "source_ids": [
+        "000003",
+        "000004"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/rgb",
+      "initial_pose_xyzw": [
+        1.9243180751800537,
+        0.008308677934110165,
+        0.014471562579274178,
+        0.0006051345844753087,
+        -0.0004192850610706955,
+        -0.0011821554508060217,
+        0.9999990463256836
+      ],
+      "recorded_native_pose_xyzw": [
+        2.655523471519462,
+        0.003658975533384804,
+        0.06979999812684355,
+        0.00026561960029905404,
+        -0.0007636415620408022,
+        -0.001481805372064836,
+        0.9999985913401311
+      ],
+      "motion_event_sequence": 21
+    },
+    {
+      "condition": "rain",
+      "camera": "rgb",
+      "pair_ordinal": 4,
+      "source_ids": [
+        "000004",
+        "000005"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/rgb",
+      "initial_pose_xyzw": [
+        2.6555235385894775,
+        0.003658975474536419,
+        0.0697999969124794,
+        0.00026561960112303495,
+        -0.0007636415539309382,
+        -0.0014818053459748626,
+        0.9999985694885254
+      ],
+      "recorded_native_pose_xyzw": [
+        3.284535199306189,
+        0.07717562062420222,
+        0.02458118193762178,
+        0.0006807637268829455,
+        -0.0009049350148271726,
+        -0.0018618905685842417,
+        0.9999976197197942
+      ],
+      "motion_event_sequence": 26
+    },
+    {
+      "condition": "rain",
+      "camera": "rgb",
+      "pair_ordinal": 5,
+      "source_ids": [
+        "000005",
+        "000006"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/rgb",
+      "initial_pose_xyzw": [
+        3.2845351696014404,
+        0.07717561721801758,
+        0.0245811827480793,
+        0.0006807637400925159,
+        -0.0009049350046552718,
+        -0.0018618905451148748,
+        0.999997615814209
+      ],
+      "recorded_native_pose_xyzw": [
+        3.938762948968383,
+        0.08387554599600106,
+        0.06505220333555631,
+        0.0007280201086475212,
+        -0.0007886208910904833,
+        -0.0020298083128642377,
+        0.9999973542760806
+      ],
+      "motion_event_sequence": 31
+    },
+    {
+      "condition": "rain",
+      "camera": "rgb",
+      "pair_ordinal": 6,
+      "source_ids": [
+        "000006",
+        "000007"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/rgb",
+      "initial_pose_xyzw": [
+        3.938762903213501,
+        0.08387554436922073,
+        0.06505220383405685,
+        0.0007280200952664018,
+        -0.0007886209059506655,
+        -0.0020298082381486893,
+        0.9999973773956299
+      ],
+      "recorded_native_pose_xyzw": [
+        4.0125951505540725,
+        0.10700440465881575,
+        0.01627561947760945,
+        0.000651340333142247,
+        -0.0004871978260281379,
+        -0.0023240234742453194,
+        0.9999969820778227
+      ],
+      "motion_event_sequence": 36
+    },
+    {
+      "condition": "rain",
+      "camera": "rgb",
+      "pair_ordinal": 7,
+      "source_ids": [
+        "000007",
+        "000008"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/rgb",
+      "initial_pose_xyzw": [
+        4.012595176696777,
+        0.10700440406799316,
+        0.016275620087981224,
+        0.0006513403495773673,
+        -0.00048719783080741763,
+        -0.0023240235168486834,
+        0.9999969601631165
+      ],
+      "recorded_native_pose_xyzw": [
+        4.5429975272159915,
+        0.11912724450511758,
+        0.03206699542906685,
+        0.000785199074352993,
+        -9.311908647910704e-05,
+        -0.002480823026335106,
+        0.9999966016617855
+      ],
+      "motion_event_sequence": 41
+    },
+    {
+      "condition": "rain",
+      "camera": "rgb",
+      "pair_ordinal": 8,
+      "source_ids": [
+        "000008",
+        "000009"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/rgb",
+      "initial_pose_xyzw": [
+        4.542997360229492,
+        0.11912724375724792,
+        0.03206699714064598,
+        0.0007851990521885455,
+        -9.311908797826618e-05,
+        -0.002480823080986738,
+        0.9999966025352478
+      ],
+      "recorded_native_pose_xyzw": [
+        4.700928317913278,
+        0.12916545937284665,
+        0.029272873783963187,
+        0.0007876363245438306,
+        5.559871552210339e-05,
+        -0.0027561284588362867,
+        0.9999958825253408
+      ],
+      "motion_event_sequence": 46
+    },
+    {
+      "condition": "rain",
+      "camera": "rgb",
+      "pair_ordinal": 9,
+      "source_ids": [
+        "000009",
+        "000010"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/rgb",
+      "initial_pose_xyzw": [
+        4.700928211212158,
+        0.12916545569896698,
+        0.02927287295460701,
+        0.0007876363233663142,
+        5.559871715377085e-05,
+        -0.002756128553301096,
+        0.9999958872795105
+      ],
+      "recorded_native_pose_xyzw": [
+        5.209891775359675,
+        0.08553382567720481,
+        0.05282802435670297,
+        0.0008875669366814551,
+        -7.892516513152962e-05,
+        -0.0028993915628845127,
+        0.9999953968929308
+      ],
+      "motion_event_sequence": 51
+    },
+    {
+      "condition": "rain",
+      "camera": "rgb",
+      "pair_ordinal": 10,
+      "source_ids": [
+        "000010",
+        "000011"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/rgb",
+      "initial_pose_xyzw": [
+        5.2098917961120605,
+        0.08553382754325867,
+        0.052828025072813034,
+        0.0008875669445842505,
+        -7.892516441643238e-05,
+        -0.0028993915766477585,
+        0.9999954104423523
+      ],
+      "recorded_native_pose_xyzw": [
+        5.41539762057148,
+        0.09463651101601216,
+        0.054431308532519485,
+        0.0006126011677278505,
+        -0.00047243119341920984,
+        -0.0031992823479189032,
+        0.999994593736678
+      ],
+      "motion_event_sequence": 56
+    },
+    {
+      "condition": "rain",
+      "camera": "rgb",
+      "pair_ordinal": 11,
+      "source_ids": [
+        "000011",
+        "000012"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/rgb",
+      "initial_pose_xyzw": [
+        5.415397644042969,
+        0.09463650733232498,
+        0.054431308060884476,
+        0.0006126011721789837,
+        -0.000472431187517941,
+        -0.0031992823351174593,
+        0.9999945759773254
+      ],
+      "recorded_native_pose_xyzw": [
+        5.861122893715552,
+        0.03886196730584668,
+        0.06627843705883542,
+        0.0008872231253404845,
+        -0.000724393011632149,
+        -0.00329966796124553,
+        0.9999938930534475
+      ],
+      "motion_event_sequence": 61
+    },
+    {
+      "condition": "rain",
+      "camera": "rgb",
+      "pair_ordinal": 12,
+      "source_ids": [
+        "000012",
+        "000013"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/rgb",
+      "initial_pose_xyzw": [
+        5.861123085021973,
+        0.038861967623233795,
+        0.06627843528985977,
+        0.0008872231119312346,
+        -0.0007243930012919009,
+        -0.003299667965620756,
+        0.9999939203262329
+      ],
+      "recorded_native_pose_xyzw": [
+        6.113205399177418,
+        0.016452907033099554,
+        0.033448186225925734,
+        0.001188093992094268,
+        -0.0009973819530101225,
+        -0.003368907839651547,
+        0.9999931422415135
+      ],
+      "motion_event_sequence": 66
+    },
+    {
+      "condition": "rain",
+      "camera": "rgb",
+      "pair_ordinal": 13,
+      "source_ids": [
+        "000013",
+        "000014"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/rgb",
+      "initial_pose_xyzw": [
+        6.113205432891846,
+        0.016452906653285027,
+        0.03344818577170372,
+        0.0011880940292030573,
+        -0.0009973819833248854,
+        -0.003368907840922475,
+        0.9999931454658508
+      ],
+      "recorded_native_pose_xyzw": [
+        6.810661827415933,
+        0.004287560259566947,
+        0.08672380738544774,
+        0.0012291901102115452,
+        -0.0010304074639674245,
+        -0.003428086959848003,
+        0.9999928611889675
+      ],
+      "motion_event_sequence": 71
+    },
+    {
+      "condition": "rain",
+      "camera": "rgb",
+      "pair_ordinal": 14,
+      "source_ids": [
+        "000014",
+        "000015"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/rgb",
+      "initial_pose_xyzw": [
+        6.810661792755127,
+        0.004287560470402241,
+        0.08672380447387695,
+        0.001229190151207149,
+        -0.001030407496728003,
+        -0.003428086871281266,
+        0.999992847442627
+      ],
+      "recorded_native_pose_xyzw": [
+        7.0030712749150785,
+        0.0020260625366118105,
+        0.09400727499080413,
+        0.0012992863616053919,
+        -0.0011358338646231625,
+        -0.003527311094428789,
+        0.9999922995587884
+      ],
+      "motion_event_sequence": 76
+    },
+    {
+      "condition": "rain",
+      "camera": "rgb",
+      "pair_ordinal": 15,
+      "source_ids": [
+        "000015",
+        "000016"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/rgb",
+      "initial_pose_xyzw": [
+        7.003071308135986,
+        0.002026062458753586,
+        0.09400727599859238,
+        0.0012992863776162267,
+        -0.0011358339106664062,
+        -0.0035273111425340176,
+        0.999992311000824
+      ],
+      "recorded_native_pose_xyzw": [
+        7.44974828509293,
+        -0.023609219670923415,
+        0.10955921045421985,
+        0.0013588429031911346,
+        -0.0010272056219890514,
+        -0.003636143017688951,
+        0.9999919595211552
+      ],
+      "motion_event_sequence": 81
+    },
+    {
+      "condition": "rain",
+      "camera": "rgb",
+      "pair_ordinal": 16,
+      "source_ids": [
+        "000016",
+        "000017"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/rgb",
+      "initial_pose_xyzw": [
+        7.449748516082764,
+        -0.02360921911895275,
+        0.10955920815467834,
+        0.0013588429428637028,
+        -0.001027205609716475,
+        -0.003636142937466502,
+        0.9999919533729553
+      ],
+      "recorded_native_pose_xyzw": [
+        7.726417139660573,
+        -0.02120871019621085,
+        0.1112292008226163,
+        0.0013151127447982413,
+        -0.000566462237436717,
+        -0.003699194098394909,
+        0.9999921477259974
+      ],
+      "motion_event_sequence": 86
+    },
+    {
+      "condition": "rain",
+      "camera": "rgb",
+      "pair_ordinal": 17,
+      "source_ids": [
+        "000017",
+        "000018"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/rgb",
+      "initial_pose_xyzw": [
+        7.726417064666748,
+        -0.021208710968494415,
+        0.11122920364141464,
+        0.001315112691372633,
+        -0.0005664622294716537,
+        -0.003699194174259901,
+        0.9999921321868896
+      ],
+      "recorded_native_pose_xyzw": [
+        8.291592491727002,
+        -0.031177442090795416,
+        0.14276614403718774,
+        0.001009649500557606,
+        -0.0005898891197872858,
+        -0.0038255557701945887,
+        0.9999919982859007
+      ],
+      "motion_event_sequence": 91
+    },
+    {
+      "condition": "rain",
+      "camera": "rgb",
+      "pair_ordinal": 18,
+      "source_ids": [
+        "000018",
+        "000019"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/rgb",
+      "initial_pose_xyzw": [
+        8.291592597961426,
+        -0.031177442520856857,
+        0.14276614785194397,
+        0.0010096494806930423,
+        -0.0005898891249671578,
+        -0.0038255557883530855,
+        0.9999920129776001
+      ],
+      "recorded_native_pose_xyzw": [
+        8.362838437143651,
+        -0.012908330626181616,
+        0.1450842581362069,
+        0.0008075600382186973,
+        -0.0007997913785320195,
+        -0.0038771720771854515,
+        0.9999918519540838
+      ],
+      "motion_event_sequence": 96
+    },
+    {
+      "condition": "rain",
+      "camera": "rgb",
+      "pair_ordinal": 19,
+      "source_ids": [
+        "000019",
+        "000020"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/rgb",
+      "initial_pose_xyzw": [
+        8.362838745117188,
+        -0.0129083301872015,
+        0.14508426189422607,
+        0.0008075600489974022,
+        -0.0007997913635335863,
+        -0.003877172013744712,
+        0.9999918341636658
+      ],
+      "recorded_native_pose_xyzw": [
+        8.854828556107705,
+        -0.04646392752767997,
+        0.17307773148021988,
+        0.0008886520370862827,
+        -0.0009739568511738285,
+        -0.0039531405357802404,
+        0.9999913134931764
+      ],
+      "motion_event_sequence": 101
+    },
+    {
+      "condition": "rain",
+      "camera": "thermal",
+      "pair_ordinal": 0,
+      "source_ids": [
+        "000000",
+        "000001"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/thermal",
+      "initial_pose_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "recorded_native_pose_xyzw": [
+        -0.0795852040108728,
+        0.4066424879903754,
+        0.19333021841320014,
+        0.0015779876886488622,
+        0.0016076728881770836,
+        -0.003774934296070601,
+        0.9999903375602182
+      ],
+      "motion_event_sequence": 6
+    },
+    {
+      "condition": "rain",
+      "camera": "thermal",
+      "pair_ordinal": 1,
+      "source_ids": [
+        "000001",
+        "000002"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/thermal",
+      "initial_pose_xyzw": [
+        -0.07958520203828812,
+        0.40664249658584595,
+        0.19333021342754364,
+        0.0015779876848682761,
+        0.0016076728934422135,
+        -0.0037749342154711485,
+        0.9999903440475464
+      ],
+      "recorded_native_pose_xyzw": [
+        0.08708111105207993,
+        0.4601044540218767,
+        0.12232660440741602,
+        0.0015525453238086245,
+        -0.00020345122197934203,
+        -0.004223453250009966,
+        0.9999898617622031
+      ],
+      "motion_event_sequence": 11
+    },
+    {
+      "condition": "rain",
+      "camera": "thermal",
+      "pair_ordinal": 2,
+      "source_ids": [
+        "000002",
+        "000003"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/thermal",
+      "initial_pose_xyzw": [
+        0.08708111196756363,
+        0.46010446548461914,
+        0.12232660502195358,
+        0.0015525453491136432,
+        -0.00020345122902654111,
+        -0.004223453346639872,
+        0.9999898672103882
+      ],
+      "recorded_native_pose_xyzw": [
+        0.13821482291207887,
+        0.5628414847727029,
+        0.0914873698513222,
+        0.001437480521999501,
+        -0.0013347675821398716,
+        -0.005252858340465898,
+        0.9999842915744177
+      ],
+      "motion_event_sequence": 16
+    },
+    {
+      "condition": "rain",
+      "camera": "thermal",
+      "pair_ordinal": 3,
+      "source_ids": [
+        "000003",
+        "000004"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/thermal",
+      "initial_pose_xyzw": [
+        0.1382148265838623,
+        0.5628414750099182,
+        0.09148737043142319,
+        0.0014374805614352226,
+        -0.0013347675558179617,
+        -0.005252858158200979,
+        0.9999842643737793
+      ],
+      "recorded_native_pose_xyzw": [
+        0.32405891161793415,
+        0.5161533173739387,
+        0.042277531596611934,
+        0.0010285536499369244,
+        -0.0016008213300910225,
+        -0.005090861789171695,
+        0.9999852159124615
+      ],
+      "motion_event_sequence": 21
+    },
+    {
+      "condition": "rain",
+      "camera": "thermal",
+      "pair_ordinal": 4,
+      "source_ids": [
+        "000004",
+        "000005"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/thermal",
+      "initial_pose_xyzw": [
+        0.3240589201450348,
+        0.5161533355712891,
+        0.04227752983570099,
+        0.001028553699143231,
+        -0.0016008213860914111,
+        -0.005090861581265926,
+        0.9999852180480957
+      ],
+      "recorded_native_pose_xyzw": [
+        0.3816008909382428,
+        0.5655383322693394,
+        0.007290695844273129,
+        0.001487749243489798,
+        -0.002196690216422091,
+        -0.005861645404643674,
+        0.9999792877882978
+      ],
+      "motion_event_sequence": 26
+    },
+    {
+      "condition": "rain",
+      "camera": "thermal",
+      "pair_ordinal": 5,
+      "source_ids": [
+        "000005",
+        "000006"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/thermal",
+      "initial_pose_xyzw": [
+        0.38160088658332825,
+        0.5655383467674255,
+        0.007290695793926716,
+        0.0014877492794767022,
+        -0.0021966903004795313,
+        -0.0058616455644369125,
+        0.9999793171882629
+      ],
+      "recorded_native_pose_xyzw": [
+        0.5859790144322493,
+        0.48116184443638876,
+        -0.046159010507990095,
+        0.0015561617667830697,
+        -0.002040525822846945,
+        -0.005000839895101992,
+        0.999984219252728
+      ],
+      "motion_event_sequence": 31
+    },
+    {
+      "condition": "rain",
+      "camera": "thermal",
+      "pair_ordinal": 6,
+      "source_ids": [
+        "000006",
+        "000007"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/thermal",
+      "initial_pose_xyzw": [
+        0.5859789848327637,
+        0.48116183280944824,
+        -0.046159010380506516,
+        0.001556161791086197,
+        -0.002040525898337364,
+        -0.005000839941203594,
+        0.9999842047691345
+      ],
+      "recorded_native_pose_xyzw": [
+        0.5965686100169791,
+        0.5364110176475426,
+        -0.024591309797015674,
+        0.0012752969535593016,
+        -0.0011760961190680768,
+        -0.005471889843263004,
+        0.9999835260695443
+      ],
+      "motion_event_sequence": 36
+    },
+    {
+      "condition": "rain",
+      "camera": "thermal",
+      "pair_ordinal": 7,
+      "source_ids": [
+        "000007",
+        "000008"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/thermal",
+      "initial_pose_xyzw": [
+        0.5965685844421387,
+        0.5364110469818115,
+        -0.02459130994975567,
+        0.0012752969050779939,
+        -0.0011760961497202516,
+        -0.005471889860928059,
+        0.999983549118042
+      ],
+      "recorded_native_pose_xyzw": [
+        0.672181319139148,
+        0.5989050486803553,
+        -0.07273806442267773,
+        0.001157550050840503,
+        -0.0013595338713631524,
+        -0.005976399384402918,
+        0.9999805718440965
+      ],
+      "motion_event_sequence": 41
+    },
+    {
+      "condition": "rain",
+      "camera": "thermal",
+      "pair_ordinal": 8,
+      "source_ids": [
+        "000008",
+        "000009"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/thermal",
+      "initial_pose_xyzw": [
+        0.6721813082695007,
+        0.5989050269126892,
+        -0.07273806631565094,
+        0.0011575500248000026,
+        -0.0013595338677987456,
+        -0.005976399406790733,
+        0.9999805688858032
+      ],
+      "recorded_native_pose_xyzw": [
+        0.8112232205289935,
+        0.6127574080260622,
+        -0.12103619291392449,
+        0.001271031839227468,
+        -0.001676422123848527,
+        -0.0066462458734090025,
+        0.9999757223333765
+      ],
+      "motion_event_sequence": 46
+    },
+    {
+      "condition": "rain",
+      "camera": "thermal",
+      "pair_ordinal": 9,
+      "source_ids": [
+        "000009",
+        "000010"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/thermal",
+      "initial_pose_xyzw": [
+        0.8112232089042664,
+        0.6127573847770691,
+        -0.12103619426488876,
+        0.0012710317969322205,
+        -0.0016764220781624317,
+        -0.006646245718002319,
+        0.9999757409095764
+      ],
+      "recorded_native_pose_xyzw": [
+        1.1078154572449725,
+        0.6113659747385305,
+        -0.17072645134785341,
+        0.0007693038435108313,
+        -0.001541119347323113,
+        -0.006539512987555514,
+        0.9999771741371163
+      ],
+      "motion_event_sequence": 51
+    },
+    {
+      "condition": "rain",
+      "camera": "thermal",
+      "pair_ordinal": 10,
+      "source_ids": [
+        "000010",
+        "000011"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/thermal",
+      "initial_pose_xyzw": [
+        1.1078155040740967,
+        0.6113659739494324,
+        -0.1707264482975006,
+        0.0007693038205616176,
+        -0.0015411193016916513,
+        -0.006539512891322374,
+        0.999977171421051
+      ],
+      "recorded_native_pose_xyzw": [
+        1.2568588264053535,
+        0.6173067740490742,
+        -0.2233771559001476,
+        0.0006609232598057276,
+        -0.0027168077489505777,
+        -0.006708267070796457,
+        0.999973628031349
+      ],
+      "motion_event_sequence": 56
+    },
+    {
+      "condition": "rain",
+      "camera": "thermal",
+      "pair_ordinal": 11,
+      "source_ids": [
+        "000011",
+        "000012"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/thermal",
+      "initial_pose_xyzw": [
+        1.2568588256835938,
+        0.6173067688941956,
+        -0.22337715327739716,
+        0.0006609232514165342,
+        -0.002716807648539543,
+        -0.006708267144858837,
+        0.9999736547470093
+      ],
+      "recorded_native_pose_xyzw": [
+        1.4606378464938579,
+        0.6105634386710905,
+        -0.28735940562909035,
+        0.0006349737972998861,
+        -0.0032486230960364895,
+        -0.006769920900489955,
+        0.999971669762088
+      ],
+      "motion_event_sequence": 61
+    },
+    {
+      "condition": "rain",
+      "camera": "thermal",
+      "pair_ordinal": 12,
+      "source_ids": [
+        "000012",
+        "000013"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/thermal",
+      "initial_pose_xyzw": [
+        1.4606378078460693,
+        0.6105634570121765,
+        -0.28735941648483276,
+        0.0006349738105200231,
+        -0.0032486231066286564,
+        -0.006769920699298382,
+        0.9999716877937317
+      ],
+      "recorded_native_pose_xyzw": [
+        1.6271797374591794,
+        0.5690955120718331,
+        -0.3385118414519094,
+        0.0011599944188234446,
+        -0.0037129736992237853,
+        -0.00677939661671344,
+        0.9999695360259325
+      ],
+      "motion_event_sequence": 66
+    },
+    {
+      "condition": "rain",
+      "camera": "thermal",
+      "pair_ordinal": 13,
+      "source_ids": [
+        "000013",
+        "000014"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/thermal",
+      "initial_pose_xyzw": [
+        1.627179741859436,
+        0.5690954923629761,
+        -0.3385118544101715,
+        0.0011599943973124027,
+        -0.003712973790243268,
+        -0.006779396440833807,
+        0.9999695420265198
+      ],
+      "recorded_native_pose_xyzw": [
+        1.8077899150097518,
+        0.5415381034803234,
+        -0.39536766744824925,
+        0.0008678843779813552,
+        -0.003684939573080759,
+        -0.006548950056135406,
+        0.9999714776974453
+      ],
+      "motion_event_sequence": 71
+    },
+    {
+      "condition": "rain",
+      "camera": "thermal",
+      "pair_ordinal": 14,
+      "source_ids": [
+        "000014",
+        "000015"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/thermal",
+      "initial_pose_xyzw": [
+        1.807789921760559,
+        0.5415381193161011,
+        -0.39536768198013306,
+        0.0008678843732923269,
+        -0.00368493958376348,
+        -0.006548949982970953,
+        0.9999714493751526
+      ],
+      "recorded_native_pose_xyzw": [
+        2.0235086297427234,
+        0.5096790213884859,
+        -0.4392079407708488,
+        0.001235784595278917,
+        -0.003498862431068983,
+        -0.006465947398103402,
+        0.9999722709339051
+      ],
+      "motion_event_sequence": 76
+    },
+    {
+      "condition": "rain",
+      "camera": "thermal",
+      "pair_ordinal": 15,
+      "source_ids": [
+        "000015",
+        "000016"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/thermal",
+      "initial_pose_xyzw": [
+        2.0235085487365723,
+        0.5096790194511414,
+        -0.43920794129371643,
+        0.0012357846135273576,
+        -0.003498862497508526,
+        -0.00646594725549221,
+        0.9999722838401794
+      ],
+      "recorded_native_pose_xyzw": [
+        2.235368429627276,
+        0.38532435971927237,
+        -0.5143186150587633,
+        0.0008333362389036081,
+        -0.004237783225478992,
+        -0.005647744926887288,
+        0.9999747976054847
+      ],
+      "motion_event_sequence": 81
+    },
+    {
+      "condition": "rain",
+      "camera": "thermal",
+      "pair_ordinal": 16,
+      "source_ids": [
+        "000016",
+        "000017"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/thermal",
+      "initial_pose_xyzw": [
+        2.235368490219116,
+        0.3853243589401245,
+        -0.514318585395813,
+        0.0008333362638950348,
+        -0.004237783141434193,
+        -0.005647744983434677,
+        0.99997478723526
+      ],
+      "recorded_native_pose_xyzw": [
+        2.4778328440257233,
+        0.3994055693315907,
+        -0.5394537479350516,
+        0.0007565451942098752,
+        -0.0033905353620554963,
+        -0.005735197376738082,
+        0.9999775821513507
+      ],
+      "motion_event_sequence": 86
+    },
+    {
+      "condition": "rain",
+      "camera": "thermal",
+      "pair_ordinal": 17,
+      "source_ids": [
+        "000017",
+        "000018"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/thermal",
+      "initial_pose_xyzw": [
+        2.477832794189453,
+        0.3994055688381195,
+        -0.5394537448883057,
+        0.0007565451669506729,
+        -0.003390535246580839,
+        -0.0057351975701749325,
+        0.9999775886535645
+      ],
+      "recorded_native_pose_xyzw": [
+        2.5692324547582532,
+        0.3991605937523017,
+        -0.612482645772028,
+        2.6860436344401177e-05,
+        -0.004126962174544545,
+        -0.005685125216297093,
+        0.9999753922989383
+      ],
+      "motion_event_sequence": 91
+    },
+    {
+      "condition": "rain",
+      "camera": "thermal",
+      "pair_ordinal": 18,
+      "source_ids": [
+        "000018",
+        "000019"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/thermal",
+      "initial_pose_xyzw": [
+        2.56923246383667,
+        0.39916059374809265,
+        -0.6124826669692993,
+        2.686043626454193e-05,
+        -0.004126962274312973,
+        -0.005685125011950731,
+        0.9999753832817078
+      ],
+      "recorded_native_pose_xyzw": [
+        2.676748939299644,
+        0.4151358103756459,
+        -0.6431438046461804,
+        -0.0002164319343429704,
+        -0.004313153546633098,
+        -0.005655657865920616,
+        0.999974741557356
+      ],
+      "motion_event_sequence": 96
+    },
+    {
+      "condition": "rain",
+      "camera": "thermal",
+      "pair_ordinal": 19,
+      "source_ids": [
+        "000019",
+        "000020"
+      ],
+      "expert_relative": "results/pose-covariance/accuracy-001/rain/captures/thermal",
+      "initial_pose_xyzw": [
+        2.6767489910125732,
+        0.41513580083847046,
+        -0.6431438326835632,
+        -0.0002164319303119555,
+        -0.004313153680413961,
+        -0.0056556579656898975,
+        0.9999747276306152
+      ],
+      "recorded_native_pose_xyzw": [
+        3.039080213706497,
+        0.5158589761221235,
+        -0.7300545810341863,
+        -0.0005357940579318169,
+        -0.0045932281741803615,
+        -0.007127966681974016,
+        0.9999639492376942
+      ],
+      "motion_event_sequence": 101
+    }
+  ],
+  "unavailable_native_slots": [],
+  "expected_native_slots": 120,
+  "label_coverage": {
+    "day": {
+      "sequence": "_2021-08-13-16-31-10",
+      "source_stems": [
+        "000000",
+        "000001",
+        "000002",
+        "000003",
+        "000004",
+        "000005",
+        "000006",
+        "000007",
+        "000008",
+        "000009",
+        "000010",
+        "000011",
+        "000012",
+        "000013",
+        "000014",
+        "000015",
+        "000016",
+        "000017",
+        "000018",
+        "000019",
+        "000020"
+      ],
+      "expected_own_camera_maps": 42,
+      "available_exact_maps": [],
+      "missing_exact_maps": [
+        "_2021-08-13-16-31-10/rgb/depth/000000.png",
+        "_2021-08-13-16-31-10/rgb/depth/000001.png",
+        "_2021-08-13-16-31-10/rgb/depth/000002.png",
+        "_2021-08-13-16-31-10/rgb/depth/000003.png",
+        "_2021-08-13-16-31-10/rgb/depth/000004.png",
+        "_2021-08-13-16-31-10/rgb/depth/000005.png",
+        "_2021-08-13-16-31-10/rgb/depth/000006.png",
+        "_2021-08-13-16-31-10/rgb/depth/000007.png",
+        "_2021-08-13-16-31-10/rgb/depth/000008.png",
+        "_2021-08-13-16-31-10/rgb/depth/000009.png",
+        "_2021-08-13-16-31-10/rgb/depth/000010.png",
+        "_2021-08-13-16-31-10/rgb/depth/000011.png",
+        "_2021-08-13-16-31-10/rgb/depth/000012.png",
+        "_2021-08-13-16-31-10/rgb/depth/000013.png",
+        "_2021-08-13-16-31-10/rgb/depth/000014.png",
+        "_2021-08-13-16-31-10/rgb/depth/000015.png",
+        "_2021-08-13-16-31-10/rgb/depth/000016.png",
+        "_2021-08-13-16-31-10/rgb/depth/000017.png",
+        "_2021-08-13-16-31-10/rgb/depth/000018.png",
+        "_2021-08-13-16-31-10/rgb/depth/000019.png",
+        "_2021-08-13-16-31-10/rgb/depth/000020.png",
+        "_2021-08-13-16-31-10/thr/depth/000000.png",
+        "_2021-08-13-16-31-10/thr/depth/000001.png",
+        "_2021-08-13-16-31-10/thr/depth/000002.png",
+        "_2021-08-13-16-31-10/thr/depth/000003.png",
+        "_2021-08-13-16-31-10/thr/depth/000004.png",
+        "_2021-08-13-16-31-10/thr/depth/000005.png",
+        "_2021-08-13-16-31-10/thr/depth/000006.png",
+        "_2021-08-13-16-31-10/thr/depth/000007.png",
+        "_2021-08-13-16-31-10/thr/depth/000008.png",
+        "_2021-08-13-16-31-10/thr/depth/000009.png",
+        "_2021-08-13-16-31-10/thr/depth/000010.png",
+        "_2021-08-13-16-31-10/thr/depth/000011.png",
+        "_2021-08-13-16-31-10/thr/depth/000012.png",
+        "_2021-08-13-16-31-10/thr/depth/000013.png",
+        "_2021-08-13-16-31-10/thr/depth/000014.png",
+        "_2021-08-13-16-31-10/thr/depth/000015.png",
+        "_2021-08-13-16-31-10/thr/depth/000016.png",
+        "_2021-08-13-16-31-10/thr/depth/000017.png",
+        "_2021-08-13-16-31-10/thr/depth/000018.png",
+        "_2021-08-13-16-31-10/thr/depth/000019.png",
+        "_2021-08-13-16-31-10/thr/depth/000020.png"
+      ]
+    },
+    "night": {
+      "sequence": "_2021-08-13-22-16-02",
+      "source_stems": [
+        "000000",
+        "000001",
+        "000002",
+        "000003",
+        "000004",
+        "000005",
+        "000006",
+        "000007",
+        "000008",
+        "000009",
+        "000010",
+        "000011",
+        "000012",
+        "000013",
+        "000014",
+        "000015",
+        "000016",
+        "000017",
+        "000018",
+        "000019",
+        "000020"
+      ],
+      "expected_own_camera_maps": 42,
+      "available_exact_maps": [],
+      "missing_exact_maps": [
+        "_2021-08-13-22-16-02/rgb/depth/000000.png",
+        "_2021-08-13-22-16-02/rgb/depth/000001.png",
+        "_2021-08-13-22-16-02/rgb/depth/000002.png",
+        "_2021-08-13-22-16-02/rgb/depth/000003.png",
+        "_2021-08-13-22-16-02/rgb/depth/000004.png",
+        "_2021-08-13-22-16-02/rgb/depth/000005.png",
+        "_2021-08-13-22-16-02/rgb/depth/000006.png",
+        "_2021-08-13-22-16-02/rgb/depth/000007.png",
+        "_2021-08-13-22-16-02/rgb/depth/000008.png",
+        "_2021-08-13-22-16-02/rgb/depth/000009.png",
+        "_2021-08-13-22-16-02/rgb/depth/000010.png",
+        "_2021-08-13-22-16-02/rgb/depth/000011.png",
+        "_2021-08-13-22-16-02/rgb/depth/000012.png",
+        "_2021-08-13-22-16-02/rgb/depth/000013.png",
+        "_2021-08-13-22-16-02/rgb/depth/000014.png",
+        "_2021-08-13-22-16-02/rgb/depth/000015.png",
+        "_2021-08-13-22-16-02/rgb/depth/000016.png",
+        "_2021-08-13-22-16-02/rgb/depth/000017.png",
+        "_2021-08-13-22-16-02/rgb/depth/000018.png",
+        "_2021-08-13-22-16-02/rgb/depth/000019.png",
+        "_2021-08-13-22-16-02/rgb/depth/000020.png",
+        "_2021-08-13-22-16-02/thr/depth/000000.png",
+        "_2021-08-13-22-16-02/thr/depth/000001.png",
+        "_2021-08-13-22-16-02/thr/depth/000002.png",
+        "_2021-08-13-22-16-02/thr/depth/000003.png",
+        "_2021-08-13-22-16-02/thr/depth/000004.png",
+        "_2021-08-13-22-16-02/thr/depth/000005.png",
+        "_2021-08-13-22-16-02/thr/depth/000006.png",
+        "_2021-08-13-22-16-02/thr/depth/000007.png",
+        "_2021-08-13-22-16-02/thr/depth/000008.png",
+        "_2021-08-13-22-16-02/thr/depth/000009.png",
+        "_2021-08-13-22-16-02/thr/depth/000010.png",
+        "_2021-08-13-22-16-02/thr/depth/000011.png",
+        "_2021-08-13-22-16-02/thr/depth/000012.png",
+        "_2021-08-13-22-16-02/thr/depth/000013.png",
+        "_2021-08-13-22-16-02/thr/depth/000014.png",
+        "_2021-08-13-22-16-02/thr/depth/000015.png",
+        "_2021-08-13-22-16-02/thr/depth/000016.png",
+        "_2021-08-13-22-16-02/thr/depth/000017.png",
+        "_2021-08-13-22-16-02/thr/depth/000018.png",
+        "_2021-08-13-22-16-02/thr/depth/000019.png",
+        "_2021-08-13-22-16-02/thr/depth/000020.png"
+      ]
+    },
+    "rain": {
+      "sequence": "_2021-08-06-16-19-00",
+      "source_stems": [
+        "000000",
+        "000001",
+        "000002",
+        "000003",
+        "000004",
+        "000005",
+        "000006",
+        "000007",
+        "000008",
+        "000009",
+        "000010",
+        "000011",
+        "000012",
+        "000013",
+        "000014",
+        "000015",
+        "000016",
+        "000017",
+        "000018",
+        "000019",
+        "000020"
+      ],
+      "expected_own_camera_maps": 42,
+      "available_exact_maps": [],
+      "missing_exact_maps": [
+        "_2021-08-06-16-19-00/rgb/depth/000000.png",
+        "_2021-08-06-16-19-00/rgb/depth/000001.png",
+        "_2021-08-06-16-19-00/rgb/depth/000002.png",
+        "_2021-08-06-16-19-00/rgb/depth/000003.png",
+        "_2021-08-06-16-19-00/rgb/depth/000004.png",
+        "_2021-08-06-16-19-00/rgb/depth/000005.png",
+        "_2021-08-06-16-19-00/rgb/depth/000006.png",
+        "_2021-08-06-16-19-00/rgb/depth/000007.png",
+        "_2021-08-06-16-19-00/rgb/depth/000008.png",
+        "_2021-08-06-16-19-00/rgb/depth/000009.png",
+        "_2021-08-06-16-19-00/rgb/depth/000010.png",
+        "_2021-08-06-16-19-00/rgb/depth/000011.png",
+        "_2021-08-06-16-19-00/rgb/depth/000012.png",
+        "_2021-08-06-16-19-00/rgb/depth/000013.png",
+        "_2021-08-06-16-19-00/rgb/depth/000014.png",
+        "_2021-08-06-16-19-00/rgb/depth/000015.png",
+        "_2021-08-06-16-19-00/rgb/depth/000016.png",
+        "_2021-08-06-16-19-00/rgb/depth/000017.png",
+        "_2021-08-06-16-19-00/rgb/depth/000018.png",
+        "_2021-08-06-16-19-00/rgb/depth/000019.png",
+        "_2021-08-06-16-19-00/rgb/depth/000020.png",
+        "_2021-08-06-16-19-00/thr/depth/000000.png",
+        "_2021-08-06-16-19-00/thr/depth/000001.png",
+        "_2021-08-06-16-19-00/thr/depth/000002.png",
+        "_2021-08-06-16-19-00/thr/depth/000003.png",
+        "_2021-08-06-16-19-00/thr/depth/000004.png",
+        "_2021-08-06-16-19-00/thr/depth/000005.png",
+        "_2021-08-06-16-19-00/thr/depth/000006.png",
+        "_2021-08-06-16-19-00/thr/depth/000007.png",
+        "_2021-08-06-16-19-00/thr/depth/000008.png",
+        "_2021-08-06-16-19-00/thr/depth/000009.png",
+        "_2021-08-06-16-19-00/thr/depth/000010.png",
+        "_2021-08-06-16-19-00/thr/depth/000011.png",
+        "_2021-08-06-16-19-00/thr/depth/000012.png",
+        "_2021-08-06-16-19-00/thr/depth/000013.png",
+        "_2021-08-06-16-19-00/thr/depth/000014.png",
+        "_2021-08-06-16-19-00/thr/depth/000015.png",
+        "_2021-08-06-16-19-00/thr/depth/000016.png",
+        "_2021-08-06-16-19-00/thr/depth/000017.png",
+        "_2021-08-06-16-19-00/thr/depth/000018.png",
+        "_2021-08-06-16-19-00/thr/depth/000019.png",
+        "_2021-08-06-16-19-00/thr/depth/000020.png"
+      ]
+    }
+  },
+  "label_gate_pass": false,
+  "inventoried_prior_depth_sequences": [
+    "_2021-08-06-11-23-45",
+    "_2021-08-13-21-18-04"
+  ],
+  "inventoried_backups": [
+    "ore_ms:ore-ms/backups/2026-11-05-native-depth-proxy-exp147",
+    "ore_ms:ore-ms/backups/2026-11-06-cross-recording-stereo-depth-exp151"
+  ],
+  "large_depth_archives_downloaded": false,
+  "new_frontend_calls": 0,
+  "runtime_metrics": false,
+  "depth_changing_arm_policy": "not executed unless exact own-camera source/target labels and unchanged replay qualify; no substitution or new data acquisition",
+  "pins": {
+    "MAC-VO-main/Module/Optimization/PyposeOptimizers.py": "a7cad0728b18f77dbe96544841e27156b521663122fc1f8d9c66474cea13f10f",
+    "MAC-VO-main/Module/Optimization/TwoFramePGO/Graphs.py": "f79bca297d7c249cc761bd44e3ba2152154057637c223310b022933f11a49208",
+    "MAC-VO-main/Module/Optimization/TwoFramePGO/Optimizer.py": "d2bd3eedf0b110b6e6ecb0404c6267bcd696004b05ddad6ef08ba268ab27d32e",
+    "MAC-VO-main/Scripts/Setup/solver_contract_probe.py": "98dc840d46a2e9a37ccf3700374866807fdb5e890eda0403fa5aa1be72a65d32",
+    "MAC-VO-main/Scripts/Setup/solver_repair_experiment.py": "7c54bf223cb4987351e15d3228355ece4e05bf1813e49bdac98f04dfefdc4fd2",
+    "MAC-VO-main/Scripts/Setup/weighted_huber_research.py": "9399dea263d8052967ee770ec97eb449381f0cde8b44b53105dbb2b17e00323c",
+    "MAC-VO-main/Utility/Point.py": "62e929e2e13c6183195623caea2947783b189dc486748ebb45802b5e0ec3fd03",
+    "results/depth-mean-ablation/preflight-001/exp147-manifest.json": "08b3252f7fe6043fc6a3064bc2972401100608e51cfc9368d2ca55207d119f7a",
+    "results/depth-mean-ablation/preflight-001/exp151-manifest.json": "485cc2c0510b1191256320ab962a94f86084db678286dba6f126a3efeeaec3cb",
+    "results/pose-covariance/accuracy-001/rain/captures/rgb/arbiter-events/events.jsonl": "dcad3800df91e43e7284ceed5f13df08b8557c11f90691e4c8e640c257929c55",
+    "results/pose-covariance/accuracy-001/rain/captures/rgb/effective-config.json": "47654b2def3a6fd0e16fed659b3060e46b70e05f653e29fdca5c229214c87e79",
+    "results/pose-covariance/accuracy-001/rain/captures/rgb/tensor-map.npz": "d39d4133b65f98c2cfe03227f97d5bd4c8265c7f8c0dd435e5efc6b4925de112",
+    "results/pose-covariance/accuracy-001/rain/captures/thermal/arbiter-events/events.jsonl": "57c3ae1063a91420f74be685650796ecc3320e165b90dd9aef970c67e9d806b6",
+    "results/pose-covariance/accuracy-001/rain/captures/thermal/effective-config.json": "deef13b2d0ed00c0ee3513e59dbdaa96698200244ce99a5992508f6d2533279c",
+    "results/pose-covariance/accuracy-001/rain/captures/thermal/tensor-map.npz": "066b6e9a06e0ecddfdfce81cc99afc69688776d2c1d42884b3139189833c2bc4",
+    "results/pose-covariance/accuracy-001/rain/source-manifest.json": "64e2f433eb3feaa091d93d6184cf527e7fa2a2e55ab2283746b68dec979da494",
+    "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/rgb/arbiter-events/events.jsonl": "1cd542ec801f74b515c98e228c0cc9aff01f5b231e9b2242cdd871fa1a8e6334",
+    "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/rgb/effective-config.json": "47654b2def3a6fd0e16fed659b3060e46b70e05f653e29fdca5c229214c87e79",
+    "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/rgb/tensor-map.npz": "aff44b451466b3c2b8e30dbbd17583dfbd3f4fbe3b80e5d6ea76562467fa0bf6",
+    "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/thermal/arbiter-events/events.jsonl": "aca4e9fe5048c1991cf686acc71d7fd248fcd1c003cd7fab437cfb13a0aa9021",
+    "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/thermal/effective-config.json": "deef13b2d0ed00c0ee3513e59dbdaa96698200244ce99a5992508f6d2533279c",
+    "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/day/thermal/tensor-map.npz": "37ad66a13a3f49f77afb129d9add42decb5ca33af264ad7df07c54092aed2d54",
+    "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/rgb/arbiter-events/events.jsonl": "c631276f902bf9bbf01dd2fa917876ab8689d7106721113d874c8f63b9bf5f6b",
+    "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/rgb/effective-config.json": "47654b2def3a6fd0e16fed659b3060e46b70e05f653e29fdca5c229214c87e79",
+    "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/rgb/tensor-map.npz": "96fe6361646446f6cc93a60fb59b25f842c9d8d1af7eaee059b55a90125929d9",
+    "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/thermal/arbiter-events/events.jsonl": "7d093f69e12e6e2cf44c606c559a43998bd8fc1cc7601ef83aaf5d68c9908a89",
+    "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/thermal/effective-config.json": "deef13b2d0ed00c0ee3513e59dbdaa96698200244ce99a5992508f6d2533279c",
+    "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/captures/night/thermal/tensor-map.npz": "8196f9453ed5102de3de28129d14828dd7ae5764c99edad4345ac5871395f955",
+    "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/inputs/day/source-manifest.json": "1fa0d0d182c8fb994dd8c6a05fe6bb6d9c21b021c26e788097ab595b4aed5dcc",
+    "results/pose-covariance/cohort-preflight/snapshot/ore-ms/results/decisive-uncertainty-evaluation/run-001/inputs/night/source-manifest.json": "6d8299ac3a9826b4a3a9c9bd03445a796c1570563901538386f0ccab78129f8d",
+    "tools/depth_mean_ablation_preflight.py": "6375fd8bc766c80fa73f6350c0b81bb4c3ed57d838650de77d27a909f72cce2a",
+    "tools/test_depth_mean_ablation_preflight.py": "a09cb61e0834e3666d3a9a3a1141dd250b94a24902cb3574604ba3208cc117da"
+  }
+}
