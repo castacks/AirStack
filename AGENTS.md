@@ -10,6 +10,15 @@ This file provides guidance to AI coding agents (OpenHands, Claude Code, etc.) w
 
 **Primary Goal:** Enable agents to understand the architecture, implement new algorithms/modules, and integrate them correctly into the layered autonomy stack.
 
+## RAVEN ablation branch policy
+
+Keep all RAVEN-Multi ablations on **`multi-raven`**. Do not create `codex/...`
+or per-ablation branches for this project. Implement variants as runtime
+parameters/environment switches, preserving the original behavior when disabled.
+Push and submit RAVEN OSMO missions from `multi-raven`; do not submit branch names
+that are being retired. The consolidated switch reference is in
+[`raven_nav/README.md`](robot/ros_ws/src/global/planners/raven_nav/README.md#enabling-ablations-on-multi-raven).
+
 ## Repository Purpose
 
 AirStack provides a complete end-to-end system for autonomous drone operations including:

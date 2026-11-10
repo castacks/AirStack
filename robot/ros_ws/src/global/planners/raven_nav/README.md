@@ -13,6 +13,63 @@ flowchart LR
   Behavior --> Navigation[Navigation goals and local planning]
 ```
 
+## Enabling ablations on multi-raven
+
+All variants live together on **`multi-raven`**. Select them with mission `env`
+settings (or the corresponding ROS parameters), not separate source branches.
+The Compose defaults keep ordinary RAVEN allocation/sharing enabled and the map
+transport experiments disabled. Combine switches where appropriate; map codecs
+are mutually exclusive and require the mode settings documented below.
+
+| Ablation | Mission environment / goal setting |
+|---|---|
+| No shared rays | `RAVEN_SHARE_RAYS=false` |
+| No shared unfinished BBs | `RAVEN_SHARE_BBS=false` |
+| Neither rays nor unfinished BBs | Set both sharing flags above to `false` |
+| Local completed-target list | `RAVEN_USE_SHARED_COMPLETION=false` |
+| Ignore peer positions/selections | `RAVEN_USE_PEER_ALLOCATION_STATE=false` |
+| No auction / independent greedy | `RAVEN_ASSIGNMENT_MODE=independent_greedy`; action goal `bundle_len: 1` |
+| Bundle length | Action goal `bundle_len: 1`, `3`, `6`, or `12`, with `RAVEN_ASSIGNMENT_MODE=auction` |
+| No BB–BB association | `RAVEN_ASSOCIATE_BBS=false` |
+| No ray–BB association | `RAVEN_ASSOCIATE_RAY_BBS=false` |
+| No ray–ray association | `RAVEN_ASSOCIATE_RAYS=false` |
+| No ray-uncertainty penalty | `RAVEN_RAY_COST_PENALTY=0.0` |
+| No incumbent retention, including bearing persistence | `RAVEN_COMMIT_SWITCH_MARGIN_M=0.0`, `RAVEN_RAY_BEARING_PERSISTENCE=false` |
+| Auction retention alone off | `RAVEN_COMMIT_SWITCH_MARGIN_M=0.0` (bearing persistence independently selectable) |
+| No travel-distance cost | `RAVEN_DISTANCE_COST_WEIGHT=0.0` |
+| No task repulsion | `RAVEN_TASK_REPULSION=false` |
+| No destination repulsion | `RAVEN_DESTINATION_REPULSION=false` |
+| Neither repulsion term | Set both repulsion flags above to `false` |
+| Query-score map sharing | `RAVEN_SEMANTIC_MAP_SHARING=true`, `RAVEN_SHARE_BBS=false` |
+| Expanded reusable features | Above map settings plus `RAVEN_REUSABLE_FEATURE_MAP=true`, `RAYFRONTS_QUERY_COMPRESSED=False` |
+| Wire-only PCA100 sharing | Above reusable settings plus `RAVEN_WIRE_PCA_MAP=true`, `RAVEN_NATIVE_COMPRESSED_MAP=false`; local mapper stays uncompressed |
+| Bandwidth measurement | `GOSSIP_MEASURE_BYTES=true` |
+
+For example, omit ray penalty and retention together without changing branches:
+
+```yaml
+env:
+  RAVEN_RAY_COST_PENALTY: '0.0'
+  RAVEN_COMMIT_SWITCH_MARGIN_M: '0.0'
+  RAVEN_RAY_BEARING_PERSISTENCE: 'false'
+```
+
+The original cost defaults are ray penalty `50.0`, distance weight `1.0`,
+retention margin `8.0`, bearing persistence `true`, and both repulsion terms
+`true`. Original sharing/completion/peer-state/association switches are `true`;
+map-sharing and compressed-transport modes default to `false`. Standard matched
+ablation missions use `bundle_len: 3`. Restore these values (or remove overrides)
+to return to the original configuration. Native-coefficient transport is also
+implemented, but requires an actually PCA-enabled mapper; the deployed image has
+PCA disabled, so it must not be substituted for the wire-only experiment.
+
+Submit from this consolidated branch:
+
+```bash
+bash ./airstack.sh osmo:mission osmo/missions/<mission>.yaml \
+  --branch multi-raven --pool dsta --priority HIGH
+```
+
 ## Allocation parameters
 
 | ROS parameter | Default | Meaning |
