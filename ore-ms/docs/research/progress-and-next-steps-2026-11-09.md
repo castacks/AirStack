@@ -6,26 +6,25 @@ The research question is whether RGB/thermal uncertainty can predict relative ge
 
 Completed work:
 
-- Reproduced native RGB/thermal pipelines and captured motion, uncertainty, support and failures. Earlier within-camera tests showed controlled selective-risk median reductions around 9–37% against matched random under supplied-reference assumptions; cross-camera transfer remains recording-dependent.
-- Compared day/night/rain prefixes of 600 source groups each. A separate Gaussian 3D replay backend weakened native estimates, so retained the native backend. A follow-up preserved native means exactly and tested raw/calibrated information-based weighting. The primary calibration increased equal-record mean rotation/translation error by 8.95%/3.75% against RGB on shared support; coverage was preserved.
-- Completed the next experiment: measured native thermal accuracy opportunities and tested one frozen recording-excluded cue model. No new inference or runtime benchmarking.
+- Reproduced native pipelines and captured motion, uncertainty, support and failures. Earlier within-camera tests showed controlled selective-risk median reductions around 9–37% against matched random under supplied-reference assumptions; cross-camera transfer remains recording-dependent.
+- Compared day/night/rain prefixes of 600 source groups each. A Gaussian 3D replay backend weakened native estimates, so retained native poses. Fixed-native information calibration increased equal-record mean rotation/translation error by 8.95%/3.75% against RGB.
+- Measured thermal opportunities: 361 translation wins, 103 rotation wins and 21 joint wins among 1,735 paired intervals. Perfect translation-based whole-pose selection offered about 10% translation gain but raised rotation error about 21%.
+- Completed the next test: translation-only selection/fusion with native RGB orientation copied exactly. No new inference or runtime benchmarking.
 
-**The latest finding is a rotation–translation tradeoff.** Thermal beats RGB on translation in 361 of 1,735 paired intervals, on rotation in 103, and on both in only 21. Rain includes a 43-interval translation-win run spanning 4.33 seconds; rotation wins are brief and sparse.
+**Latest method result:** the primary learned translation blend improves day, but worsens night and rain. Mean translation errors on identical RGB/primary intervals:
 
-Equal-record mean relative errors on paired support (day 590 / night 551 / rain 594 intervals):
+| Recording | Intervals | RGB (m) | Training constant blend (m) | Learned blend (m) |
+|---|---:|---:|---:|---:|
+| Day | 599 | 0.046604 | 0.043912 | 0.043270 |
+| Night | 598 | 0.077280 | 0.079463 | 0.079815 |
+| Rain | 599 | 0.231334 | 0.232760 | 0.233570 |
 
-| Method or diagnostic | Rotation (deg) | Translation (m) |
-|---|---:|---:|
-| Native RGB | 0.029798 | 0.117703 |
-| Perfect rotation-based whole-pose selection | 0.028797 | 0.129877 |
-| Perfect translation-based whole-pose selection | 0.036161 | 0.105974 |
-| Perfect selection requiring neither metric to worsen | 0.029611 | 0.116351 |
-| Reference-free cue model | 0.030879 | 0.117730 |
+On all-method paired support (590/551/594 intervals), equal-record mean translation error rises **0.46%** versus RGB. RGB rotation and availability are unchanged. Training-best-fixed selects RGB in every fold; the learned blend also trails the constant control overall. No adaptive method is adopted.
 
-The oracles use reference errors and are diagnostic bounds on complete-pose selection, not deployable results. Translation-based selection has about 10% translation headroom but raises rotation error about 21%. The cue model used support/residual/geometry/disagreement features, trained on the other two recordings with no parameter search. It increased rotation error 3.63%; retain RGB as the baseline. All three folds chose RGB as training-best-fixed.
+**Useful new finding:** perfect reference-based convex translation blending offers **19.47%** mean translation reduction with RGB rotation preserved. This oracle is a diagnostic bound, not an executable result. It shows fusion opportunity beyond choosing whole poses. The learned model assigns some thermal weight everywhere, while the oracle rejects thermal entirely on over half of rain's paired intervals.
 
-Seven new tests and an independent audit pass, checking 7,062 native error components, 1,797 selections, all three fits and 285 winning runs. Previous 39-test weighting verification remains intact. Native availability is preserved, including the one unavailable night interval. [Detailed findings](thermal-opportunities-findings-2026-11-09.md).
+Seven tests and an independent audit pass: three reconstructed fits, 10,410 paired component geometries, 28,614 error components and 1,735 oracle optima. Models used only the other two recordings and were locked before scoring. [Detailed findings and controls](translation-fusion-findings-2026-11-09.md).
 
-**Next:** test translation-specific prediction/fusion while keeping native RGB orientation. Target the observed translation opportunities, then evaluate trajectories and new recordings if an interval gain appears. Thermal depth/frontend and shared-representation improvements remain options when tied to the identified errors.
+**Next:** test directional geometry and residual consistency to distinguish helpful from harmful translation corrections. Covariance projected along RGB–thermal disagreement is a concrete candidate; existing trace/norm summaries discard directional information. Keep current weights frozen. If an interval gain transfers, evaluate trajectories and new recordings; otherwise target a named thermal depth/frontend or shared-representation mechanism.
 
-All results use exposed development prefixes, provided RGB references and nominal alignment. Physical ground truth, unseen-record transfer and full-trajectory accuracy remain unestablished. These outcomes narrow the next experiment; they do not close broader RGB–thermal research.
+All results use exposed development prefixes, supplied RGB references and nominal alignment. Physical ground truth, unseen-record transfer and full-trajectory improvement remain unestablished. The tested models have not provided a cross-record gain; broader fusion research remains open.
