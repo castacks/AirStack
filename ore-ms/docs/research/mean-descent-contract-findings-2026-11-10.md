@@ -67,3 +67,7 @@ See the [protocol](../../experiments/mean-descent-contract-freeze-2026-11-10.jso
 ## Next step
 
 The descent prerequisite now passes for this explicit final-output adapter. The next experiment can use a fixed training budget and the same record-separated stereo/native-VO controls, with the final adapter locked before any new rain scoring. Keep uncertainty and temporal-flow branches frozen. These remain exposed development recordings; a positive result would still need broader/fresh-record assessment. No further fit or accuracy evaluation occurred in this pass.
+
+## Subsequent fixed-budget result
+
+The [40-update fit and accuracy test](final-residual-fit-findings-2026-11-10.md) is complete: training descends 17.65%, VO means improve modestly against thermal, depth worsens and RGB remains better. The predeclared rule fails; close this recipe without retuning. This subsequent evaluation does not alter the training-only scope or artifacts above.

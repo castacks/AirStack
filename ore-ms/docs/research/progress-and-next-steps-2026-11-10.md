@@ -2,28 +2,29 @@
 
 **10 November 2026 · error and accuracy**
 
-The objective is better RGB–thermal visual odometry. MACThermal already propagates uncertainty; improved geometric accuracy is the target.
+The objective is better RGB–thermal visual odometry. Earlier uncertainty calibration, sensor selection and translation-fusion experiments did not consistently beat RGB. A reference-assisted depth ablation was parked because recovered sparse maps lacked joint support at native track endpoints.
 
-Earlier covariance calibration, sensor selection and translation-fusion variants did not consistently beat RGB. A repetition review deferred more confidence variants. A reference-assisted depth ablation was parked because recovered LiDAR maps lacked joint support at native track endpoints.
+We completed two mean-changing fits. The first updated the decoder's shared horizontal head, but training loss worsened and rain accuracy did not improve. Numerical probes showed a mismatch between its truncated recurrent gradient and recomputed forwards. A separate final-output residual then passed gradient and descent checks.
 
-We then completed a mean-changing experiment: 40 fixed updates on 20 day and 20 night frames, followed by a separate 20-frame rain evaluation. Only 2,305 horizontal mean-head scalars changed; uncertainty parameters and temporal-flow outputs stayed original. Rain stereo AbsRel worsened 0.1792 → 0.1827. VO changes were tiny and mixed, and training loss itself worsened 1.7177 → 1.7235. No accuracy gain or model promotion was established.
+**Latest: the verified residual completed a fixed 40-update fit and accuracy evaluation.** It starts at zero, adds 2,305 trainable scalars after the frozen decoder and uses the same 20 day + 20 night training frames. Training loss falls **1.71775 → 1.41456 (−17.65%)**. The final checkpoint was locked before any rain scoring, with no checkpoint or budget search.
 
-**Latest progress: a training-only correction now passes its descent checks.** The shared mean head is reused throughout a recurrent decoder whose coordinates are deliberately detached between iterations. On training day frame 0, autograd predicts descent while recomputed forwards move uphill at two tested scales, even with TF32 disabled. Night agrees in sign but differs substantially in derivative magnitude. This does not establish an upstream bug or completely explain the failed fit.
+On the same 20-frame exposed rain recording:
 
-Tested a narrow alternative: freeze the complete decoder and add a zero-initialized horizontal residual only to its final output. Features and native upsampling weights remain frozen; the correction has 2,305 scalars and no recurrence feedback. Zero residual exactly preserves all 40 training-frame baseline outputs.
+| Accuracy metric | Original thermal | Fitted residual | RGB |
+|---|---:|---:|---:|
+| Stereo signed-flow MAE, px | 2.1903 | 2.1343 | — |
+| Stereo depth AbsRel | 0.1792 | 0.2069 | — |
+| Stereo mean per-frame depth RMSE, m | 6.9581 | 12.8433 | — |
+| VO translation mean, m | 0.9600 | 0.9308 | 0.6700 |
+| VO translation RMSE, m | 1.0490 | 1.0305 | 0.8674 |
+| VO rotation mean, deg | 0.07527 | 0.06763 | 0.03128 |
 
-The 40-frame objective gradient matches FP64 finite differences at both declared scales. Three objective-checked, full-batch training updates produce monotonic decrease:
+VO scores use 18 identical eligible motion intervals. Translation/rotation means improve **3.04%/10.15%** over thermal. Depth accuracy worsens, translation p95 rises 0.64%, and RGB remains better. Coverage is unchanged. All four native arms complete 20 frames; the zero-residual control reproduces all original pose/time arrays exactly.
 
-| Update | Training loss before → after |
-|---|---:|
-| 1 | 1.717747 → 1.708617 |
-| 2 | 1.708617 → 1.699557 |
-| 3 | 1.699557 → 1.690568 |
+**Decision:** the fit learns, but misses the predeclared accuracy rule. Close this adapter recipe without further tuning; retain the original models. This bounded negative/mixed result does not close the broader study.
 
-That is a **1.58% training-objective reduction**. It establishes descent for this parameterization; rain and VO accuracy have not been re-evaluated. The old checkpoint/results remain unchanged. Both the adapter and optimizer differ from the old run, so this does not isolate the cause of its failure.
+Nine tests and an amended independent audit pass: 358 frozen hashes, 40 final training predictions, 200 stereo metrics and 73 mapped motions. Auditor-only variable/call-count fixes and a precision-aware residual check are documented. An independent FP64 residual confirms the depth degradation. [Detailed findings](final-residual-fit-findings-2026-11-10.md).
 
-Five tests and independent audit pass: 225 source/input hashes, 40 training caches, an analytic convolution/upsampling gradient, both finite-difference scales and all three acceptance conditions. [Detailed findings](mean-descent-contract-findings-2026-11-10.md).
+**Next:** choose one materially different correspondence/representation intervention, with a direct correspondence measurement and downstream motion accuracy endpoint. Review prior experiments before implementation. No further training-budget or rain-checkpoint search for this recipe.
 
-**Next:** a fixed-budget fit of the verified final-output adapter, followed by the existing record-separated stereo and native VO controls. Lock the final adapter before new evaluation; keep uncertainty and temporal flow fixed. No training-budget or checkpoint search against rain scores.
-
-All data remain exposed development recordings with supplied references and nominal alignment. Training descent is not a generalization or deployment result. No new data acquisition, rain evaluation, runtime benchmarking or default change occurred in this continuation.
+These remain previously exposed development prefixes with supplied references and nominal alignment. No fresh-record/generalization, full-trajectory or runtime claim is made.

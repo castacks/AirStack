@@ -1,0 +1,10 @@
+{
+  "date": "2026-11-10",
+  "frozen_protocol_sha256": "1f74ec686663797ed777a5d96613d66fb834f36c69902fb287e58b793be3b8cb",
+  "frozen_auditor_sha256": "832fd04449fac60df3b3fd7aed1e6f0f0f27c9b64c04b0ab77d279fb2bf7de11",
+  "auditor": "tools/audit_final_residual_fit_v2.py",
+  "auditor_sha256": "8fa7c565c1c93f7580e6c79bc088d84ea6196a39b314c49e039b033d3754bbba",
+  "reason": "Auditor-only corrections: alias the NumPy prediction function to avoid collision with a local stereo path; require the frozen native call pattern [1,1]+[2]*19 (first-depth capture, initialization,19 temporal pairs); replace the overly strict residual-only rain FP32 comparison with a TF32 input/weight rounding and FP32 accumulation bound, retaining original stereo/motion metric checks and strict training tolerances. Independently recompute FP64 residual depth metrics to check precision sensitivity. No producer/scorer/output/checkpoint/selection changes. Failed logs and initial auditor source are retained.",
+  "producer_scorer_training_evaluation_changes": false,
+  "checkpoint_sha256": "b6ae2bd21b35eedd2b43d33f5f89abde54022b44493c46b419b3fbe4e72b7259"
+}
