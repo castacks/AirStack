@@ -359,13 +359,13 @@ flowchart LR
   Query --> BB[Existing BB clustering and auction]
 ```
 
-Each robot fits a different PCA basis online. Never average or exchange bare PCA
+When PCA is enabled, each robot fits a different basis online. Never average or exchange bare PCA
 coefficients as though they share a basis. The adapter reconstructs the stored
 features and applies the original encoder language projection, then transmits
 **every dimension** of the resulting reusable language feature vector as float32,
 plus XYZ, RGB and observation count. It applies no additional PCA, quantization,
-query selection or thresholding. The original local map's PCA approximation still
-exists; reconstruction cannot restore information that local mapping discarded.
+query selection or thresholding. If local mapping uses PCA, its original approximation still exists;
+reconstruction cannot restore information that local mapping discarded.
 These vectors support arbitrary future language queries with the same encoder;
 this is not transmission of model weights, raw images, occupancy/free-space VDB,
 or every GPU allocation. Features are fused before computing query scores.
@@ -433,3 +433,25 @@ allowing offline verification and arbitrary new text queries. Local expansion,
 model weights, temporary files and GPU memory are not counted as network data.
 This reuses the native map's existing PCA approximation; it introduces no new
 quantization, dimensionality reduction or voxel selection.
+
+
+#### Deployment verification: PCA is disabled in the current mission image
+
+The deployed image selected by `.env`,
+`airlab-docker.andrew.cmu.edu/airstack/airstack:vraven-multi-0.19.0-alpha.1_robot-x86-64_dev`,
+has the `override feat_compressor: pca` line **commented out** in its baked
+`/opt/rayfronts/rayfronts/configs/low_memory.yaml`. Its mapper has no fitted PCA
+basis. The checkout's `common/rayfronts_configs/low_memory.yaml` and newer
+`v0.21.0-dev.15` image enable PCA, so testing against those does not establish
+that the deployed mission uses compression. Inspect the exact image chosen by
+the mission before assuming a native representation or changing an experiment.
+
+Consequently, native-PCA mode as implemented requires explicit PCA enablement
+and correctly rejects this deployment with `native map mode requires the mapper
+PCA basis`. The prior expanded-feature runs did **not** establish an existing
+100-D native map or lossless 11.5x opportunity. Enabling PCA in local mapping
+changes its evidence; compressing only the network updates is a distinct lossy
+communication ablation. Keep these experiment definitions separate. Transport
+unit/integration tests use synthetic bases and verify the protocol, not runtime
+compression configuration. The expanded maps remain reusable features rather
+than query-score vectors regardless of whether local PCA is enabled.
