@@ -1,5 +1,7 @@
 # Next experiment: depth mean versus covariance in thermal motion error
 
+**Continuation update:** [Exact rain maps were recovered](depth-label-retrieval-findings-2026-11-09.md), but none of 38 map-complete native pair problems has sufficient joint depth support. The four-arm assay is parked for this packet; the previous retrieval continuation below is superseded.
+
 9 November 2026, America/New_York. **Four-arm experiment not executed: the [bounded preflight](depth-mean-ablation-preflight-findings-2026-11-09.md) reproduces all120native poses exactly, but its matching depth-input gate fails.** Decision follows the duplication/error-mechanism review. Runtime remains excluded.
 
 ## Question

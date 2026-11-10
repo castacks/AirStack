@@ -2,29 +2,28 @@
 
 **9 November 2026 · error and accuracy**
 
-The goal is better RGB–thermal visual odometry through useful geometric reliability. MACThermal already propagates uncertainty into pose estimation; propagation itself is not a new contribution.
+The goal is improved RGB–thermal visual odometry. MACThermal already propagates uncertainty into pose estimation; propagation itself is not a new contribution.
 
-Completed accuracy work:
+Completed method work:
 
-- Reproduced native pipelines and captured motion, uncertainty, support and failures. Earlier within-camera tests showed controlled selective-risk median reductions around 9–37% against matched random under supplied-reference assumptions; cross-camera transfer remains inconsistent.
-- Compared day/night/rain prefixes of 600 source groups. A Gaussian replay backend weakened native poses. Fixed-native information calibration increased equal-record mean rotation/translation error by 8.95%/3.75% against RGB.
-- Isolated translation fusion with exact RGB orientation. The learned blend improves day but worsens night/rain; aggregate mean translation error rises 0.46%, with availability unchanged. Reference-dependent optimal convex blending offers 19.47% translation headroom; the learned model does not recover it.
-- Reviewed repetition: residual/conditioning rules, geometry diagnostics, bias/scale calibration, covariance adaptation and full-matrix weighting have substantial prior coverage. Deferred another confidence variant. Thermal translation error is89–98%along reference motion, with short motion magnitudes; this does not prove depth is the cause.
+- Reproduced native pipelines and captured motion, uncertainty, support and failures. Earlier within-camera selective-risk tests showed controlled median reductions around 9–37% against matched random under supplied-reference assumptions; cross-camera transfer remains inconsistent.
+- Compared day/night/rain prefixes of 600 source groups. A Gaussian replay backend weakened native poses. Fixed-native information calibration increased aggregate mean rotation/translation error by 8.95%/3.75% against RGB.
+- Translation-only fusion preserves RGB rotation and coverage, but its learned blend improves day and worsens night/rain: aggregate mean translation error increases 0.46%. Reference-dependent optimal convex blending offers 19.47% translation headroom; the learned model does not recover it.
+- Reviewed repetition. Residual/conditioning rules, geometry diagnostics, bias/scale calibration and covariance adaptation have substantial prior coverage. Deferred another confidence variant. Thermal motion error lies predominantly along the motion direction, without establishing its physical cause.
 
-**Latest execution:** completed the bounded preflight for the depth-mean × covariance ablation. All120unchanged native pair solves reproduce saved parameter arrays exactly:
+**Latest progress:** completed 120 unchanged native pair solves with exact saved-parameter parity. Continued the depth-mean/covariance ablation preflight by finding an older exact-record rain backup and recovering 40 single-scan projected depth maps. All 80 source-image hashes match the current capture.
 
-| Recording | RGB/thermal pair solves | Exact matches |
-|---|---:|---:|
-| Day |40|40|
-| Night |40|40|
-| Rain |40|40|
+The recovered maps revealed a support limitation:
 
-This establishes replay parity, not convergence or a new accuracy gain. The intended four-arm comparison changes original/reference-assisted depth means and native/fixed covariance separately. Reference-assisted means are diagnostic input, not a deployable method.
+| Rain camera | Pairs with both endpoint maps | Native factors | Factors with depth at both native endpoints | Eligible pose problems |
+|---|---:|---:|---:|---:|
+| RGB |19|3,736|0|0|
+| Thermal |19|1,187|1|0|
 
-**The four-arm test has not run.** It requires126exact own-camera depth maps for the three current recordings. The two inspected depth-reference backup manifests contain0matching maps: their labels belong to different recordings and are sampled every100frames. Those labels cannot substitute for consecutive source/target depths. Only manifests were retrieved; no large archive download, new dataset, training or additional model experiment followed.
+At least three suitable correspondences and full geometric rank are required. Two additional pair slots remain missing frame 20 labels. Three sampling tests and an independent 54-hash/40-map/80-image/9,846-endpoint audit pass.
 
-Two focused tests and an independent audit pass, checking32source hashes,120native event/parameter identities and all missing-map paths. [Preflight findings and exact input list](depth-mean-ablation-preflight-findings-2026-11-09.md).
+**The four-arm experiment remains unexecuted.** Restoring these exact maps was useful, but they cannot support the declared native-correspondence intervention. Park that assay for this packet; further downloads, hole filling or reduced qualification would add work without preserving the test. The earlier depth-mean-versus-weight question remains unanswered. [Recovery and support findings](depth-label-retrieval-findings-2026-11-09.md).
 
-**Next required step:** targeted recovery of the listed RGB/thermal depth maps for IDs000000–000020in each exact sequence. Reuse the qualified replay, qualify label/pixel semantics and matched factor support, then freeze and run the four arms. Do not repeat the history review or substitute another weighting variant. This input dependency leaves the depth-mean hypothesis unanswered.
+Next substantial method work should change the estimated means/frontend under a feasible sparse-supervision and VO-evaluation contract, rather than repeat confidence weighting or disparity-error surveys. Sparse valid depth pixels can supervise stereo means without requiring both native track endpoints to have LiDAR labels. Matched native controls and recording separation are necessary; no such training run or accuracy gain is claimed yet.
 
-All accuracy findings use exposed development data, supplied references and nominal alignment. Physical ground truth, unseen-record transfer and full-trajectory improvement remain unestablished. No runtime benchmarking; RGB remains the executable accuracy baseline.
+All results use exposed development data, supplied references and nominal alignment. Physical ground truth, unseen-record transfer and full-trajectory improvement remain unestablished. No new frontend inference or runtime benchmarking in this continuation; RGB remains the executable accuracy baseline.

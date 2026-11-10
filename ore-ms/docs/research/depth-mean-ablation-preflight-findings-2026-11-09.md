@@ -1,5 +1,7 @@
 # Depth-mean ablation: bounded preflight
 
+**Continuation update:** [Exact rain maps were recovered](depth-label-retrieval-findings-2026-11-09.md), but none of 38 map-complete native pair problems has sufficient joint depth support. The four-arm assay is parked for this packet; the previous retrieval continuation below is superseded.
+
 9 November 2026, America/New_York. Branch `ore-ms-orb-development`; freeze `ecc4c930e`.
 
 **Native replay passes; the four-arm experiment has not run.** Exact source/target depth maps for the selected packet are absent locally and from the two inventoried depth-reference backups. No mean-changing arm, covariance-control arm, training run or accuracy comparison is substituted for the missing inputs.
