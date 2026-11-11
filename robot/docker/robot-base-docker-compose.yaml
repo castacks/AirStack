@@ -14,6 +14,7 @@ services:
       - RECORD_BAGS=${RECORD_BAGS}
       # docker compose interpolation to env variables
       - AUTONOMY_ROLE=${AUTONOMY_ROLE:-full}
+      - GOSSIP_STALL_DUMP_S=${GOSSIP_STALL_DUMP_S:-0}
       - FRONTIER_ONLY_BASELINE=${FRONTIER_ONLY_BASELINE:-false}
       - VLFM_BASELINE=${VLFM_BASELINE:-false}
       - VLFM_USE_VOXEL_TARGETS=${VLFM_USE_VOXEL_TARGETS:-false}

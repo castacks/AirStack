@@ -560,3 +560,10 @@ can allocate an intermediate proportional to voxels × queries × feature
 dimensions (observed 19 GiB allocation failures on the deployed image).
 Batching retains every voxel and the same per-voxel query softmax; it changes
 neither the local map nor the wire PCA basis. Freshness checks remain strict.
+
+Set `GOSSIP_STALL_DUMP_S=30` for a diagnostic Python stack dump if the gossip
+executor stops publishing for 30 wall seconds. Normal publish ticks rearm the
+timeout; a stalled callback is captured in the existing collected
+`gossip_robot_N.log`, even when its ROS watchdog timer cannot run. The default
+is 0 (disabled). This does not restart nodes, change transport or payloads,
+relax freshness checks, or modify planner behavior.

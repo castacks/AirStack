@@ -6,6 +6,7 @@ unaffected by sim time). A new waypoint triggers an immediate extra publish.
 """
 
 import copy
+import faulthandler
 import os
 import threading
 import time
@@ -187,6 +188,8 @@ class GossipNode(Node):
             self._diag_file = open(f"/tmp/gossip_{self._robot_name}.log", "a", buffering=1)
         except Exception:
             self._diag_file = None
+        self._stall_dump_timeout = float(os.getenv('GOSSIP_STALL_DUMP_S', '0'))
+        self._arm_stall_dump()
         self._watchdog_timer = self.create_timer(2.0, self._peer_watchdog, clock=ROSClock())
 
         # Record the comms-model configuration up front so a run's radius / relay
@@ -194,7 +197,7 @@ class GossipNode(Node):
         # the hardcoded comms_model.py source and is lost once the run is over.
         self._diag(f"CONFIG comms_range_m={COMMS_RANGE_M:.1f} max_relay_hops={MAX_RELAY_HOPS} "
                    f"num_robots={os.environ.get('NUM_ROBOTS', '?')} robot={self._robot_name} "
-                   f"publish_rate={publish_rate:.2f}")
+                   f"publish_rate={publish_rate:.2f} stall_dump_s={self._stall_dump_timeout}")
 
         self.get_logger().info(
             f"GossipNode started for '{self._robot_name}' "
@@ -389,7 +392,19 @@ class GossipNode(Node):
                            f'errors={self._map_stream._last_error}')
 
     def _publish_tick(self) -> None:
+        self._arm_stall_dump()
         self._publish_own()
+
+    def _arm_stall_dump(self):
+        """Optional diagnostic independent of the potentially blocked ROS executor.
+
+        Each normal publish tick rearms the wall-clock timeout. A blocked
+        callback then dumps all Python stacks into the collected gossip log;
+        it neither restarts the node nor changes traffic or freshness rules.
+        """
+        if self._stall_dump_timeout > 0 and self._diag_file is not None:
+            faulthandler.dump_traceback_later(
+                self._stall_dump_timeout, repeat=True, file=self._diag_file)
 
     def _payload_due(self, topic, msg, interval) -> bool:
         """Throttle + on-change gate: attach only if the payload content changed
@@ -508,6 +523,8 @@ class GossipNode(Node):
                                        self._sim_ns, self.get_clock().now().nanoseconds)
 
     def destroy_node(self):
+        if self._stall_dump_timeout > 0:
+            faulthandler.cancel_dump_traceback_later()
         if self._map_stream:
             self._map_stream.close()
         return super().destroy_node()
