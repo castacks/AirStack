@@ -9,7 +9,10 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(builtin_interfaces REQUIRED)
+find_package(geometry_msgs REQUIRED)
 find_package(mav_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
@@ -21,9 +24,14 @@ find_package(airstack_common REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/TrackingPointState.msg"
+  DEPENDENCIES builtin_interfaces geometry_msgs
+)
 
-add_executable(pid_path_tracker src/pid_path_tracker.cpp)
-ament_target_dependencies(pid_path_tracker
+add_executable(pid_path_tracker_node src/pid_path_tracker.cpp)
+set_target_properties(pid_path_tracker_node PROPERTIES OUTPUT_NAME pid_path_tracker)
+ament_target_dependencies(pid_path_tracker_node
   rclcpp
   std_msgs
   mav_msgs
@@ -39,6 +47,8 @@ add_executable(pid_path_tracker_cmd_vel src/pid_path_tracker_cmd_vel.cpp)
 ament_target_dependencies(pid_path_tracker_cmd_vel
   rclcpp
   std_msgs
+  builtin_interfaces
+  geometry_msgs
   mav_msgs
   nav_msgs
   pid_controller_msgs
@@ -46,6 +56,8 @@ ament_target_dependencies(pid_path_tracker_cmd_vel
   trajectory_msgs
   tf2
   tf2_ros)
+rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
+target_link_libraries(pid_path_tracker_cmd_vel "${cpp_typesupport_target}")
 
 add_executable(pid_path_tracker_cmd_vel_stamped src/pid_path_tracker_cmd_vel_stamped.cpp)
 ament_target_dependencies(pid_path_tracker_cmd_vel_stamped
@@ -73,7 +85,7 @@ ament_target_dependencies(pid_path_tracker_px4
   tf2_ros)
 
 install(TARGETS
-  pid_path_tracker
+  pid_path_tracker_node
   pid_path_tracker_cmd_vel
   pid_path_tracker_cmd_vel_stamped
   pid_path_tracker_px4
@@ -92,4 +104,5 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
+ament_export_dependencies(rosidl_default_runtime)
 ament_package()

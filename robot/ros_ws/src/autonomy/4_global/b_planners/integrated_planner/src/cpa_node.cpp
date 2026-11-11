@@ -187,6 +187,8 @@ void CpaNode::goal_pose_callback(const geometry_msgs::msg::Pose::SharedPtr msg)
     curr_goal_yaw_ = yaw;
 
     status_ = PlannerStatus::NEW_GOAL;
+
+    current_path_with_yaw_.clear();
 }
 
 void CpaNode::generate_plan()
@@ -218,14 +220,14 @@ void CpaNode::generate_plan()
     kino_astar_planner_.reset();
     RCLCPP_INFO(node_handle_->get_logger(), "Kino Astar Reset");
     int plan_result;
-    plan_result = kino_astar_planner_.search(start_point, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(),
+    plan_result = kino_astar_planner_.search(start_point, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), new_start_yaw_,
                                              curr_goal_xyz_, Eigen::Vector3d::Zero(), true);
     RCLCPP_INFO(node_handle_->get_logger(), "Kino Astar finish");
     if (plan_result == KinodynamicAstar::NO_PATH)
     {
         RCLCPP_WARN(node_handle_->get_logger(), "Kino search fail");
         kino_astar_planner_.reset();
-        plan_result = kino_astar_planner_.search(start_point, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(),
+        plan_result = kino_astar_planner_.search(start_point, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), new_start_yaw_,
                                                  curr_goal_xyz_, Eigen::Vector3d::Zero(), false);
         if (plan_result == KinodynamicAstar::NO_PATH)
         {
@@ -269,23 +271,15 @@ void CpaNode::planYaw(double dt)
         FullPathNode node;
         node.state = generated_path_[i];
 
-        // --- Lookahead Logic ---
-        size_t next_idx = std::min(i + lookahead_idx_step, generated_path_.size() - 1);
+        Eigen::Vector3d vel = node.state.segment(3, 3);
 
-        Eigen::Vector3d curr_pos = node.state.head(3);
-        Eigen::Vector3d next_pos = generated_path_[next_idx].head(3);
-        Eigen::Vector3d dir_vec = next_pos - curr_pos;
+        double target_yaw = last_yaw;
+        if (vel.head(2).norm() > 1e-3)
+        {
+            target_yaw = std::atan2(vel.y(), vel.x());
+        }
 
-        // --- Yaw Calculation ---
-        if (dir_vec.head(2).norm() > 0.0001)
-        {
-            double target_yaw = std::atan2(dir_vec.y(), dir_vec.x());
-            node.yaw = unwrappingYaw(last_yaw, target_yaw);
-        }
-        else
-        {
-            node.yaw = last_yaw;
-        }
+        node.yaw = unwrappingYaw(last_yaw, target_yaw);
 
         last_yaw = node.yaw;
         generated_path_with_yaw_.push_back(node);
@@ -311,18 +305,19 @@ bool CpaNode::generate_replan(const FullPathNode &start_node)
     Eigen::Vector3d start_pos = start_node.state.head(3);
     Eigen::Vector3d start_vel = start_node.state.segment(3, 3);
     Eigen::Vector3d start_acc = start_node.state.tail(3);
+    double start_yaw = start_node.yaw;
 
     kino_astar_planner_.reset();
 
     int plan_result;
-    plan_result = kino_astar_planner_.search(start_pos, start_vel, start_acc,
+    plan_result = kino_astar_planner_.search(start_pos, start_vel, start_acc, start_yaw,
                                              curr_goal_xyz_, Eigen::Vector3d::Zero(), true);
 
     if (plan_result == KinodynamicAstar::NO_PATH)
     {
         RCLCPP_WARN(node_handle_->get_logger(), "Replan: Kino search fail");
         kino_astar_planner_.reset();
-        plan_result = kino_astar_planner_.search(start_pos, start_vel, start_acc,
+        plan_result = kino_astar_planner_.search(start_pos, start_vel, start_acc, start_yaw,
                                                  curr_goal_xyz_, Eigen::Vector3d::Zero(), false);
         if (plan_result == KinodynamicAstar::NO_PATH)
         {
@@ -473,6 +468,10 @@ bool CpaNode::check_local_path_free()
 {
     double check_horizon = traj_horizon_;
 
+    // map lock and accessor for fast check
+    std::shared_lock<std::shared_mutex> map_lock(map_manager_->get_map_mutex());
+    openvdb::Int32Grid::ConstAccessor inf_acc = map_manager_->get_inflated_accessor();
+
     for (size_t i = 0; i < current_path_with_yaw_.size(); ++i)
     {
         double time_from_start = i * delta_t_;
@@ -483,15 +482,17 @@ bool CpaNode::check_local_path_free()
         }
 
         const auto &pt = current_path_with_yaw_[i];
-        double sq_dist;
-        bool is_observed = map_manager_->query_sqdist_at_world(pt.state.head(3), sq_dist);
+        // double sq_dist;
+        // bool is_observed = map_manager_->query_sqdist_at_world(pt.state.head(3), sq_dist);
+        // if (is_observed && sq_dist <= safe_sq_idx_dist_)
 
-        if (is_observed && sq_dist <= safe_sq_idx_dist_)
+        int inflate_val = 0;
+        bool is_inflated = map_manager_->query_is_inflated_at_world(pt.state.head(3), inflate_val, inf_acc);
+        if (is_inflated && inflate_val > 0)
         {
             RCLCPP_WARN(node_handle_->get_logger(), "Collision detected at index %ld (t=%.2f)", i, time_from_start);
-            RCLCPP_WARN_STREAM(node_handle_->get_logger(), "Point: " << pt.state.head(3).transpose());
-            RCLCPP_WARN_STREAM(node_handle_->get_logger(), "DistSq: " << sq_dist << " <= SafeSq: " << safe_sq_idx_dist_);
-
+            // RCLCPP_WARN_STREAM(node_handle_->get_logger(), "Point: " << pt.state.head(3).transpose());
+            // RCLCPP_WARN_STREAM(node_handle_->get_logger(), "DistSq: " << sq_dist << " <= SafeSq: " << safe_sq_idx_dist_);
             return false;
         }
     }

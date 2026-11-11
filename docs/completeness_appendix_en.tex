@@ -1,0 +1,448 @@
+\documentclass[11pt]{article}
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{bm}
+\usepackage{hyperref}
+\usepackage{enumitem}
+
+\title{Conditional Completeness of Recursive Observation-Guided Planning}
+\author{}
+\date{}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+
+\begin{document}
+\maketitle
+
+This appendix presents a formalization and a conditional completeness proof for the recursive observation-guided planning framework. The goal is not to establish global optimality, but rather to show that, on the finite induced search instance actually solved by the planner at each replanning cycle, if there exists an optimistic guidance skeleton that can be cleared by a finite sequence of sensing actions, then the method will not chase invalid viewpoints, invalid subgoals, or invalid guidance paths forever. Instead, it will eliminate them by successive refutation and eventually converge to an executable solution.
+
+\section{Notation and Discrete Environment}
+
+Consider a voxel graph at fixed resolution
+\[
+G=(V,E),
+\]
+where $V$ is the set of voxel states and $E$ is the 26-neighborhood adjacency relation.
+
+At any planning step, the environment belief partitions $V$ into
+\[
+V = F \cup U \cup O,
+\]
+where:
+\begin{itemize}[leftmargin=2em]
+    \item $F$ is the set of known free voxels,
+    \item $U$ is the set of unknown voxels,
+    \item $O$ is the set of known occupied voxels.
+\end{itemize}
+
+We further define:
+\begin{itemize}[leftmargin=2em]
+    \item $O^{+}\subseteq V$: the occupied-inflated obstacle set,
+    \item $\Phi\subseteq V$: the frontier-inflated uncertified set.
+\end{itemize}
+
+Here, $O^{+}$ constrains optimistic guidance search, whereas $\Phi$ constrains certified motion and local safety certification.
+
+\subsection{Finite Induced Search Subgraph}
+
+We do not assume that the global voxel graph $G$ is finite. Instead, the completeness result is stated with respect to the induced search subgraph actually solved by the planner during a replanning cycle. Let
+\[
+D\subseteq V
+\]
+denote the vertex set of this induced search subgraph.
+
+The set $D$ is induced by the currently available map, obstacle inflation, planning range, and task-relevant search region. We only assume that this induced search subgraph is finite, i.e., $D$ is a finite voxel set.
+
+Accordingly, all global guidance, local viewpoint, connect, and recursive subgoal-guidance searches are defined on this finite discrete search instance.
+
+\section{Base Search Graphs}
+
+\subsection{Base Optimistic Guidance Graph}
+
+Define the base optimistic guidance graph as
+\[
+G^{\mathrm{opt}}_0 := G[D\setminus O^{+}].
+\]
+
+Thus, global guidance avoids occupied inflation but is still allowed to traverse frontier-inflated regions.
+
+\subsection{Certified Connect Graph}
+
+Define the graph used by certified motion and connect as
+\[
+G^{\mathrm{cert}} := G[D\setminus (O^{+}\cup \Phi)].
+\]
+
+Hence, certified reachability means reachability in $G^{\mathrm{cert}}$, i.e., along a path that avoids both occupied inflation and frontier inflation.
+
+\section{Guidance Path, Hitpoint, and Local Observation Obligations}
+
+\subsection{Guidance Path}
+
+Given the current robot state $x$ and goal $g$, global A* searches on
+\[
+G^{\mathrm{opt}}_0
+\]
+and returns an optimistic guidance path
+\[
+\gamma=(p_0,p_1,\dots,p_m), \qquad p_0=x,\ p_m=g.
+\]
+
+\subsection{Hitpoint}
+
+For any guidance path $\gamma$, define its hitpoint
+\[
+h(\gamma)
+\]
+as the first location along $\gamma$ whose local safety volume has not yet been certified in $G^{\mathrm{cert}}$.
+
+Equivalently, the guidance path may traverse frontier-inflated regions, and the hitpoint is the earliest position on that path that still requires active observation for safety certification.
+
+\subsection{Residual Observation Obligation Set}
+
+For any hitpoint $h$, define
+\[
+\Omega(h)\subseteq U
+\]
+as the set of all unknown voxels inside the local inflated safety box around $h$ that must be resolved by sensing.
+
+At planning step $t$, let
+\[
+\Omega_t(h)\subseteq \Omega(h)
+\]
+denote the residual unresolved obligation set.
+
+If
+\[
+\Omega_t(h)=\emptyset,
+\]
+then all local safety obligations of the hitpoint have been discharged.
+
+\section{Observation Obligations and Observation Viewpoints}
+
+We treat \texttt{observe unknown} as the general case and \texttt{fov clear} as its special case.
+
+\subsection{Observation Obligation \texorpdfstring{$\tau$}{tau}}
+
+For any hitpoint $h$ and residual obligation set $\Omega_t(h)$, define an observation obligation
+\[
+\tau \subseteq \Omega_t(h).
+\]
+
+This set represents the subset of unknowns that one observation branch is intended to resolve.
+
+Typically:
+\begin{itemize}[leftmargin=2em]
+    \item in the general \texttt{observe unknown} case,
+    \[
+    \tau=\{u\},
+    \]
+    i.e., the branch is responsible for a single target unknown voxel;
+    \item in the \texttt{fov clear} case,
+    \[
+    \tau=\Omega_t(h),
+    \]
+    i.e., the branch is responsible for certifying the entire residual safety box.
+\end{itemize}
+
+Therefore, \texttt{fov clear} is a special case of the observation process.
+
+\subsection{Observation Branch}
+
+Given a hitpoint $h$ and an observation obligation $\tau\subseteq \Omega_t(h)$, if a viewpoint $v$ is searched to observe $\tau$, then we denote the corresponding observation branch by
+\[
+b=(\tau,v).
+\]
+
+The viewpoint $v$ is therefore searched for the specific obligation $\tau$, preserving the obligation-to-viewpoint correspondence.
+
+\subsection{Observation Success Predicate}
+
+After the robot executes viewpoint $v$ and acquires a real observation, define the binary predicate
+\[
+\mathrm{ObsSucc}(\tau,v)\in\{0,1\},
+\]
+with the following meaning:
+\begin{itemize}[leftmargin=2em]
+    \item $\mathrm{ObsSucc}(\tau,v)=1$: the branch successfully fulfills its assigned observation obligation $\tau$;
+    \item $\mathrm{ObsSucc}(\tau,v)=0$: the branch fails to fulfill $\tau$.
+\end{itemize}
+
+Thus, for the validity of a branch, we only care whether viewpoint $v$ fulfills its assigned obligation $\tau$, not whether it incidentally observes other unknowns in $\Omega_t(h)$.
+
+\section{Certified / Contaminated Reachability and Observation Refutation}
+
+\subsection{Certified Viewpoint}
+
+For an observation branch
+\[
+b=(\tau,v)
+\]
+associated with hitpoint $h$, if $v$ is reachable from the current certified anchor in
+\[
+G^{\mathrm{cert}},
+\]
+then $v$ is called a certified viewpoint.
+
+\subsection{Contaminated Viewpoint}
+
+If viewpoint $v$ is reachable only in the optimistic sense, but reaching it from the current certified region requires traversing unknown or frontier-inflated space, then $v$ is called a contaminated viewpoint. Such a viewpoint induces a recursive subgoal.
+
+\subsection{Observation Refutation}
+
+A viewpoint being certified only means that its approach path is feasible in $G^{\mathrm{cert}}$; it does not guarantee that the observation obligation $\tau$ will be successfully fulfilled once the robot reaches $v$. Since planning typically treats unknown space as visually transparent, a certified viewpoint may still fail at execution time because newly revealed occlusion prevents it from fulfilling any part of its assigned obligation.
+
+If
+\[
+\mathrm{ObsSucc}(\tau,v)=0,
+\]
+then the branch
+\[
+b=(\tau,v)
+\]
+is said to be observation-refuted.
+
+Hence, certified viewpoints may also be invalid.
+
+\section{Subgoals, Ancestor Exclusion, and Interface Hitpoints}
+
+\subsection{Subgoal Node}
+
+Each contaminated viewpoint induces a recursive subgoal, denoted by $S$.
+
+\subsection{Ancestor Hitpoint Set}
+
+Define
+\[
+A(S)
+\]
+as the ancestor hitpoint set of subgoal $S$, i.e., the set of all hitpoints that have already appeared along the recursion chain from the root to $S$.
+
+\subsection{Subgoal Guidance Graph}
+
+When optimistic guidance is searched for subgoal $S$, it is not searched on the original guidance graph, but on
+\[
+G^{\mathrm{opt}}_S := G\big[D\setminus (O^{+}\cup A(S))\big].
+\]
+
+This means that:
+\begin{itemize}[leftmargin=2em]
+    \item occupied inflation blocks subgoal guidance;
+    \item all ancestor hitpoints are also treated as obstacles.
+\end{itemize}
+
+This ancestor-exclusion rule prevents descendant subgoals from repeatedly returning to hitpoints that were already encountered by their ancestors, thereby avoiding infinite loops.
+
+\subsection{Interface Hitpoint Set}
+
+For any subgoal $S$, define
+\[
+I(S)\subseteq D
+\]
+as its interface hitpoint set, with the following property:
+
+if a descendant guidance path starting from $S$ can still make progress in
+\[
+G^{\mathrm{opt}}_S,
+\]
+then its earliest unresolved hitpoint must belong to $I(S)$.
+
+In other words, $I(S)$ is the set of all candidate earliest hitpoints that may arise as the next unresolved obligation for descendants of $S$ within the current finite induced search subgraph.
+
+Since $I(S)\subseteq D$ and $D$ is finite, $I(S)$ is finite. This finiteness comes from the fact that the actually solved discrete search instance is finite, rather than from any assumption that the global workspace is finite.
+
+\section{Valid Branches, Unclearable Hitpoints, and Invalid Guidance Paths}
+
+\subsection{Valid Observation Branch}
+
+For a current hitpoint $h$ and its residual obligation set $\Omega_t(h)$, an observation branch
+\[
+b=(\tau,v)
+\]
+is called valid if and only if, after a finite amount of execution and recursive refinement, it yields
+\[
+\Omega_{t'}(h)\subsetneq \Omega_t(h)
+\]
+for some finite $t'>t$, i.e., it strictly reduces the residual observation obligations of $h$.
+
+Importantly, a valid branch need not clear all obligations in one step; it only needs to make strict progress on $\Omega_t(h)$.
+
+\subsection{Invalid Observation Branch}
+
+An observation branch
+\[
+b=(\tau,v)
+\]
+is called invalid if it does not strictly reduce $\Omega_t(h)$. Such failure can arise in two ways:
+\begin{enumerate}[leftmargin=2em]
+    \item \textbf{Reachability invalid}: a contaminated branch unfolds into a recursive subgoal whose guidance does not exist, or whose descendants all fail;
+    \item \textbf{Observation invalid}: a certified or contaminated branch is executed, but
+    \[
+    \mathrm{ObsSucc}(\tau,v)=0,
+    \]
+    and therefore does not truly reduce $\Omega_t(h)$.
+\end{enumerate}
+
+\subsection{Clearable and Unclearable Hitpoints}
+
+A hitpoint $h$ is called clearable if there exists a finite set of valid observation branches
+\[
+b_1,b_2,\dots,b_K
+\]
+such that the associated obligations satisfy
+\[
+\tau_1\cup\tau_2\cup\cdots\cup\tau_K=\Omega_t(h),
+\]
+and for all $i=1,\dots,K$,
+\[
+\mathrm{ObsSucc}(\tau_i,v_i)=1,
+\]
+so that after sequential execution,
+\[
+\Omega_{t_K}(h)=\emptyset.
+\]
+
+Otherwise, $h$ is called unclearable.
+
+\subsection{Rejection Set \texorpdfstring{$H_{\mathrm{rej}}$}{Hrej} and Invalid Guidance Paths}
+
+Define
+\[
+H_{\mathrm{rej}}
+\]
+as the dynamically maintained set of hitpoints that have already been proven unclearable.
+
+If the earliest unresolved hitpoint
+\[
+h(\gamma)
+\]
+of a guidance path $\gamma$ is proven unclearable, then $\gamma$ is called an invalid guidance path, and this hitpoint is added to $H_{\mathrm{rej}}$. Subsequent global replanning then uses the updated optimistic graph
+\[
+G^{\mathrm{opt}}(H_{\mathrm{rej}})
+:= G\big[D\setminus (O^{+}\cup H_{\mathrm{rej}})\big].
+\]
+
+Thus, $H_{\mathrm{rej}}$ is not given a priori; it is accumulated dynamically from hitpoints that have been proven unclearable during execution.
+
+\section{Basic Lemmas}
+
+\begin{lemma}
+For any fixed hitpoint $h$, the number of candidate observation branches in the current finite induced search subgraph $D$ is finite.
+\end{lemma}
+
+\noindent\textbf{Proof.}
+Local viewpoint search is performed on a fixed-resolution finite discrete subgraph $D$, and therefore the number of reachable search states is finite. For any given $h$ and any decomposition of its residual obligations, the number of candidate observation branches is finite. \qed
+
+\begin{lemma}
+For any subgoal $S$, its interface hitpoint set $I(S)$ is finite.
+\end{lemma}
+
+\noindent\textbf{Proof.}
+By definition, $I(S)\subseteq D$. Since $D$ is the vertex set of the finite induced search subgraph actually solved by the planner in the current replanning cycle, $I(S)$ is finite. \qed
+
+\begin{lemma}
+For any subgoal $S$ induced by a contaminated viewpoint, if a descendant guidance path can still make progress, then its earliest unresolved hitpoint must belong to
+\[
+I(S)\setminus A(S).
+\]
+Therefore, the recursion depth of any invalid contaminated branch is finite.
+\end{lemma}
+
+\noindent\textbf{Proof sketch.}
+Every deeper recursive level introduces a new hitpoint that cannot belong to the current ancestor set $A(S)$. Hence $A(S)$ strictly grows and consumes one previously unused element of $I(S)$. By the previous lemma, $I(S)$ is finite, so this process cannot continue indefinitely. After finitely many levels, either a valid branch is found or no further guidance exists, and the branch is refuted. \qed
+
+\begin{lemma}
+Any invalid observation branch is eventually refuted, given unbounded planning time.
+\end{lemma}
+
+\noindent\textbf{Proof sketch.}
+\begin{itemize}[leftmargin=2em]
+    \item For a certified branch, if
+    \[
+    \mathrm{ObsSucc}(\tau,v)=0,
+    \]
+    then it is explicitly refuted by observation validation;
+    \item For a contaminated branch, if its descendant guidance does not exist or all descendants fail, then by the previous lemma its recursive depth is finite, and it is eventually declared failed.
+\end{itemize}
+\qed
+
+\begin{lemma}
+If all observation branches of a hitpoint are refuted, then that hitpoint is unclearable.
+\end{lemma}
+
+\noindent\textbf{Proof sketch.}
+By completeness of local viewpoint search, all potential certified and contaminated candidates for the hitpoint are eventually enumerated. If all of them are refuted, then no finite branch sequence can reduce $\Omega_t(h)$ to the empty set. Hence the hitpoint is unclearable. \qed
+
+\begin{lemma}
+If the earliest unresolved hitpoint of a guidance path is unclearable, then the guidance path is invalid.
+\end{lemma}
+
+\noindent\textbf{Proof sketch.}
+The first unresolved obligation of the path cannot be discharged by any observation or recursive subgoal refinement. Therefore the path cannot be executed successfully and is invalid. \qed
+
+\section{Main Theorem}
+
+\begin{theorem}
+Assume that:
+\begin{enumerate}[leftmargin=2em]
+    \item global optimistic guidance A* is complete on
+    \[
+    G^{\mathrm{opt}}(H_{\mathrm{rej}});
+    \]
+    \item local target-centric viewpoint search is complete for every hitpoint;
+    \item certified connect A* is complete on
+    \[
+    G^{\mathrm{cert}};
+    \]
+    \item for every subgoal, subgoal guidance A* is complete on
+    \[
+    G^{\mathrm{opt}}_S;
+    \]
+    \item recursive refinement always enforces ancestor hitpoint exclusion;
+    \item planning is performed on the finite induced search subgraph $D$ actually solved by the planner;
+    \item map updates are correct and monotone;
+    \item execution-time observation validation is performed, so that any observation branch that does not truly reduce $\Omega_t(h)$ is eventually refuted;
+    \item there exists at least one optimistic guidance path from the current state to the goal such that every hitpoint on that path is clearable.
+\end{enumerate}
+Then, given unbounded planning time, the method will eventually refute all invalid observation branches, all unclearable hitpoints, and all invalid guidance paths, and will find a valid recursive sensing-and-motion execution sequence to the goal.
+\end{theorem}
+
+\section{Proof of the Main Theorem}
+
+The proof proceeds by hierarchical refutation along the chain
+\[
+\text{branch} \rightarrow \text{hitpoint} \rightarrow \text{guidance path}.
+\]
+
+\subsection*{Step 1: Local branch enumeration is finite and complete}
+
+By Lemma 1, the number of candidate observation branches for any hitpoint is finite. By Assumption 2, local viewpoint search is complete, so all such branches are eventually enumerated.
+
+\subsection*{Step 2: All invalid branches are eventually refuted}
+
+By Lemma 4, every invalid observation branch is eventually refuted. For certified branches, this follows from execution-time observation validation; for contaminated branches, it follows from finite-depth recursive failure under finite interfaces and ancestor exclusion.
+
+\subsection*{Step 3: All unclearable hitpoints are eventually identified}
+
+If all branches of a hitpoint are eventually refuted, then by Lemma 5 the hitpoint is unclearable.
+
+\subsection*{Step 4: All invalid guidance paths are eventually eliminated}
+
+If the earliest unresolved hitpoint of a guidance path is unclearable, then by Lemma 6 the guidance path is invalid. The corresponding hitpoint is then inserted into $H_{\mathrm{rej}}$, and future global replanning excludes it.
+
+\subsection*{Step 5: A correct guidance skeleton is eventually selected}
+
+By Assumption 9, there exists at least one optimistic guidance path whose every hitpoint is clearable. By the previous steps, all incorrect branches, incorrect hitpoints, and invalid guidance paths are gradually eliminated. By Assumption 1, global optimistic guidance A* remains complete on the remaining admissible guidance space, and therefore must eventually return this clearable guidance skeleton, or an equivalent one.
+
+\subsection*{Step 6: Following the correct guidance skeleton eventually reaches the goal}
+
+For any hitpoint $h$ on this correct guidance skeleton, because $h$ is clearable, there exists a finite set of valid branches that progressively reduce and finally discharge $\Omega_t(h)$. Since all invalid sibling branches are eventually removed and the total number of candidates is finite, these valid branches must eventually be executed. Thus the hitpoint is cleared, the earliest unresolved hitpoint advances forward along the guidance skeleton, and by repeating the same argument over the entire skeleton, the planner eventually reaches the goal.
+
+Therefore, the theorem holds. \qed
+
+\section{Discussion}
+
+Theorem 1 does not establish global optimality, nor does it require the first selected viewpoint to be correct. Instead, it captures the property that is most relevant for the proposed full-3D FOV-constrained recursive planner: as long as there exists an optimistic guidance skeleton that can be progressively cleared by a finite sequence of observation or FOV-clear actions, the method will not pursue invalid viewpoints or invalid subgoals forever, but will converge to an executable sensing-and-motion solution by successive observation refutation, subgoal failure, and guidance replanning.
+
+\end{document}

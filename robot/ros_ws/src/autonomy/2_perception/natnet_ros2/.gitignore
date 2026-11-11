@@ -1,0 +1,10 @@
+.vscode/
+build/
+deps/NatNetSDK/*
+!deps/NatNetSDK/.gitkeep
+whiteboard/*
+config/*
+!config/initiate.yaml
+!config/conf_autogen.yaml
+test.*
+CITATION.cff

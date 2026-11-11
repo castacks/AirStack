@@ -38,6 +38,9 @@ public:
     PathNode *parent;
     char node_state;
 
+    // for CPA planner
+    double yaw;
+
     /* -------------------- */
     PathNode()
     {
@@ -171,7 +174,16 @@ private:
     void stateTransit(Eigen::Matrix<double, 6, 1> &state0,
                       Eigen::Matrix<double, 6, 1> &state1, Eigen::Vector3d um,
                       double tau);
-    
+
+    // perception aware check
+    double MAX_SENSING_DIST = 4.0;
+    double TAN_HALF_HFOV = 0.9;
+    double TAN_HALF_VFOV = 0.8;
+    double MAX_YAW_RATE = 1.3;
+    inline bool isVisibleFromHistory(const Eigen::Vector3d &pro_pos,
+                                     const Eigen::Vector3d &past_pos,
+                                     double past_yaw);
+
     rclcpp::Node::SharedPtr node_handle_;
 
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr tree_pub_;
@@ -193,10 +205,9 @@ public:
     void setParam(std::shared_ptr<rclcpp::Node> node);
     void init(const std::shared_ptr<VDBMap> &map, double safe_robot_r);
     void reset();
-    int search(Eigen::Vector3d start_pt, Eigen::Vector3d start_vel,
-               Eigen::Vector3d start_acc, Eigen::Vector3d end_pt,
-               Eigen::Vector3d end_vel, bool init, bool dynamic = false,
-               double time_start = -1.0);
+    int search(Eigen::Vector3d start_pt, Eigen::Vector3d start_vel, Eigen::Vector3d start_acc, double start_yaw,
+               Eigen::Vector3d end_pt, Eigen::Vector3d end_vel,
+               bool init, bool dynamic = false, double time_start = -1.0);
 
     void setEnvironment(const std::shared_ptr<VDBMap> &map);
 

@@ -9,7 +9,6 @@ Panels:
         - /Sensors1
         - /Local1
         - /Global1
-        - /Global1/OCC Grid1
       Splitter Ratio: 0.48674243688583374
     Tree Height: 677
   - Class: rviz_common/Selection
@@ -320,8 +319,8 @@ Visualization Manager:
         - Alpha: 1
           Autocompute Intensity Bounds: true
           Autocompute Value Bounds:
-            Max Value: 9.100000381469727
-            Min Value: 0.8999999761581421
+            Max Value: 10
+            Min Value: -0.10000000149011612
             Value: true
           Axis: Z
           Channel Name: intensity
@@ -412,7 +411,7 @@ Visualization Manager:
           Use rainbow: true
           Value: false
         - Class: rviz_default_plugins/MarkerArray
-          Enabled: true
+          Enabled: false
           Name: Shortened Astar
           Namespaces:
             {}
@@ -422,7 +421,7 @@ Visualization Manager:
             History Policy: Keep Last
             Reliability Policy: Reliable
             Value: /smoothed_plan_vis
-          Value: true
+          Value: false
         - Class: rviz_default_plugins/MarkerArray
           Enabled: false
           Name: Raw Astar
@@ -435,21 +434,55 @@ Visualization Manager:
             Reliability Policy: Reliable
             Value: /astar_plan_vis
           Value: false
+        - Class: rviz_default_plugins/Marker
+          Enabled: true
+          Name: KinoAstar
+          Namespaces:
+            {}
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /kino_astar_tree
+          Value: true
+        - Alpha: 1
+          Autocompute Intensity Bounds: true
+          Autocompute Value Bounds:
+            Max Value: 10.199999809265137
+            Min Value: -0.30000001192092896
+            Value: true
+          Axis: Z
+          Channel Name: intensity
+          Class: rviz_default_plugins/PointCloud2
+          Color: 255; 255; 255
+          Color Transformer: AxisColor
+          Decay Time: 0
+          Enabled: false
+          Invert Rainbow: false
+          Max Color: 255; 255; 255
+          Max Intensity: 178
+          Min Color: 0; 0; 0
+          Min Intensity: 1
+          Name: Inflated Grid
+          Position Transformer: XYZ
+          Selectable: true
+          Size (Pixels): 3
+          Size (m): 0.10000000149011612
+          Style: Boxes
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /inflated_grid
+          Use Fixed Frame: true
+          Use rainbow: true
+          Value: false
       Enabled: true
       Name: Global
-    - Class: rviz_default_plugins/Marker
-      Enabled: true
-      Name: Marker
-      Namespaces:
-        {}
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        Filter size: 10
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /kino_astar_tree
-      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -496,25 +529,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 13.007780075073242
+      Distance: 14.081221580505371
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.07915237545967102
-        Y: -0.5032504796981812
-        Z: -0.5763290524482727
+        X: 0.4050634503364563
+        Y: 0.858201801776886
+        Z: -0.21604099869728088
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.6947972178459167
+      Pitch: 0.4097972512245178
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 2.3303966522216797
+      Yaw: 2.115396022796631
     Saved: ~
 Window Geometry:
   Displays:

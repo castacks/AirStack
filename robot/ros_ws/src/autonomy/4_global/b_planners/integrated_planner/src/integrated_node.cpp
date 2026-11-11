@@ -266,9 +266,13 @@ void PlannerNode::generate_plan()
         // if (vp.pos_.z() < 0.0 || vp.pos_.z() > 8.0 ||
         //     vp.pos_.y() < 0.0 || vp.pos_.y() > 25.0 ||
         //     vp.pos_.x() > 31.5 || vp.pos_.x() < -2.5)
-        // {
-        //     continue;
-        // }
+
+        // exploration bound for novare usd
+        if (vp.pos_.z() < 0.0 || vp.pos_.z() > 10.0 ||
+            vp.pos_.y() > 10.0 || vp.pos_.y() < -5.0)
+        {
+            continue;
+        }
 
         geometry_msgs::msg::Pose pose;
 
@@ -314,9 +318,12 @@ void PlannerNode::generate_plan()
         // if (vp.pos_.z() < 0.0 || vp.pos_.z() > 8.0 ||
         //     vp.pos_.y() < 0.0 || vp.pos_.y() > 25.0 ||
         //     vp.pos_.x() > 31.5 || vp.pos_.x() < -2.5)
-        // {
-        //     continue;
-        // }
+
+        if (vp.pos_.z() < 0.0 || vp.pos_.z() > 10.0 ||
+            vp.pos_.y() > 10.0 || vp.pos_.y() < -5.0)
+        {
+            continue;
+        }
         openvdb::Vec3d goal_world(vp.pos_.x(), vp.pos_.y(), vp.pos_.z());
         openvdb::Coord goal_coord(openvdb::Coord::round(tf->worldToIndex(goal_world)));
 

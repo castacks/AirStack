@@ -22,7 +22,14 @@
     sensor_range: 10.0
     hit_thickness: 1
 
-    safe_robot_r: 0.4
+    safe_robot_r: 0.5
+    safe_robot_radius_xy: 0.7
+    safe_robot_height_z: 0.2
+
+    enable_dist_map: false
+    enable_frontier_map: false
+    enable_frontier_cluster: false
+    enable_inflated_map: true
 
     vdbedt_version: 1
     max_update_dist: 20.0

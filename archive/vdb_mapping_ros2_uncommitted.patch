@@ -1,0 +1,102 @@
+diff --git a/vdb_mapping_ros2/include/vdb_mapping_ros2/VDBMappingROS2.hpp b/vdb_mapping_ros2/include/vdb_mapping_ros2/VDBMappingROS2.hpp
+index 68bba48..96746fe 100644
+--- a/vdb_mapping_ros2/include/vdb_mapping_ros2/VDBMappingROS2.hpp
++++ b/vdb_mapping_ros2/include/vdb_mapping_ros2/VDBMappingROS2.hpp
+@@ -56,6 +56,11 @@
+ 
+ #include <vdb_mapping_ros2/VDBMappingTools.hpp>
+ 
++// For publishing raw vdb grid 
++#include <std_msgs/msg/byte_multi_array.hpp>
++#include <openvdb/io/Stream.h>
++#include <sstream>
++
+ struct RemoteSource
+ {
+   rclcpp::Subscription<vdb_mapping_interfaces::msg::UpdateGrid>::SharedPtr map_update_sub;
+@@ -277,6 +282,10 @@ private:
+   /*!
+    * \brief Publisher for the point cloud
+    */
++  rclcpp::Publisher<std_msgs::msg::ByteMultiArray>::SharedPtr m_vdb_grid_pub;
++  /*!
++   * \brief Publisher for the vdb grid
++   */
+   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr m_pointcloud_pub;
+   /*!
+    * \brief Publisher for map updates
+@@ -374,6 +383,10 @@ private:
+   /*!
+    * \brief Specifies whether a pointcloud should be published or not
+    */
++  bool m_publish_vdb_grid;
++  /*!
++   * \brief Specifies whether the raw vdbgrid structure should be published or not
++   */
+   bool m_publish_pointcloud;
+   /*!
+    * \brief Specifies whether the map should be published as markers or not
+diff --git a/vdb_mapping_ros2/include/vdb_mapping_ros2/VDBMappingROS2_impl.hpp b/vdb_mapping_ros2/include/vdb_mapping_ros2/VDBMappingROS2_impl.hpp
+index bf43238..14b84e1 100644
+--- a/vdb_mapping_ros2/include/vdb_mapping_ros2/VDBMappingROS2_impl.hpp
++++ b/vdb_mapping_ros2/include/vdb_mapping_ros2/VDBMappingROS2_impl.hpp
+@@ -56,6 +56,8 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2(const rclcpp::NodeOptions& options)
+   // Configuring the VDB map
+   m_vdb_map->setConfig(m_config);
+ 
++  this->declare_parameter<bool>("publish_vdb_grid", false);
++  this->get_parameter("publish_vdb_grid", m_publish_vdb_grid);
+   this->declare_parameter<bool>("publish_pointcloud", true);
+   this->get_parameter("publish_pointcloud", m_publish_pointcloud);
+   this->declare_parameter<bool>("publish_vis_marker", true);
+@@ -267,6 +269,8 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2(const rclcpp::NodeOptions& options)
+     this->create_publisher<sensor_msgs::msg::PointCloud2>("~/vdb_map_pointcloud", 1);
+   m_visualization_marker_pub =
+     this->create_publisher<visualization_msgs::msg::Marker>("~/vdb_map_visualization", 1);
++  m_vdb_grid_pub = 
++    this->create_publisher<std_msgs::msg::ByteMultiArray>("~/vdb_grid", 1);
+ 
+   m_occupancy_grid_service = this->create_service<vdb_mapping_interfaces::srv::GetOccGrid>(
+     "~/get_occupancy_grid", std::bind(&VDBMappingROS2::occGridGenCallback, this, _1, _2));
+@@ -767,7 +771,7 @@ void VDBMappingROS2<VDBMappingT>::publishUpdates(typename VDBMappingT::UpdateGri
+ template <typename VDBMappingT>
+ void VDBMappingROS2<VDBMappingT>::publishMap() const
+ {
+-  if (!(m_publish_pointcloud || m_publish_vis_marker))
++  if (!(m_publish_pointcloud || m_publish_vis_marker || m_publish_vdb_grid))
+   {
+     return;
+   }
+@@ -777,7 +781,9 @@ void VDBMappingROS2<VDBMappingT>::publishMap() const
+   bool publish_pointcloud;
+   publish_pointcloud =
+     (m_publish_pointcloud && this->count_subscribers("~/vdb_map_pointcloud") > 0);
+-
++  bool publish_vdb_grid;
++  publish_vdb_grid = 
++    (m_publish_vdb_grid && this->count_subscribers("~/vdb_grid") > 0);
+   visualization_msgs::msg::Marker visualization_marker_msg;
+   sensor_msgs::msg::PointCloud2 cloud_msg;
+   VDBMappingTools<VDBMappingT>::createMappingOutput(m_vdb_map->getGrid(),
+@@ -798,4 +804,21 @@ void VDBMappingROS2<VDBMappingT>::publishMap() const
+     cloud_msg.header.stamp = this->now();
+     m_pointcloud_pub->publish(cloud_msg);
+   }
++  if (publish_vdb_grid)
++  {
++    openvdb::GridBase::Ptr grid = m_vdb_map->getGrid();
++
++    std::ostringstream oss(std::ios::binary);
++    openvdb::io::Stream out_stream(oss);
++
++    std::vector<openvdb::GridBase::Ptr> grids = {grid};
++    out_stream.write(grids);
++
++    const std::string raw_data = oss.str();
++    std::vector<uint8_t> buffer(raw_data.begin(), raw_data.end());
++    std_msgs::msg::ByteMultiArray msg;
++    msg.data = buffer;
++
++    m_vdb_grid_pub->publish(msg);
++  }
+ }

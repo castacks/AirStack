@@ -18,6 +18,7 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include <pid_controller_msgs/msg/pid_info.hpp>
+#include <pid_path_tracker/msg/tracking_point_state.hpp>
 #include <std_msgs/msg/empty.hpp>
 #include <trajectory_msgs/msg/multi_dof_joint_trajectory.hpp>
 
@@ -170,6 +171,8 @@ private:
     bool have_ref_;
     nav_msgs::msg::Odometry current_ref_;
     nav_msgs::msg::Odometry last_ref_;
+    builtin_interfaces::msg::Duration current_ref_time_from_start_;
+    builtin_interfaces::msg::Time current_traj_stamp_;
 
     geometry_msgs::msg::PoseStamped current_ref_pose_stamped_;
 
@@ -195,6 +198,7 @@ private:
 
     // publishers
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr tracking_point_pub;
+    rclcpp::Publisher<pid_path_tracker::msg::TrackingPointState>::SharedPtr tracking_point_state_pub;
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr tracking_point_odom_pub;
     rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr command_pub;
 
@@ -233,11 +237,13 @@ public:
 
         command_pub = this->create_publisher<geometry_msgs::msg::Twist>("command", 1);
         tracking_point_pub = this->create_publisher<geometry_msgs::msg::PoseStamped>("/tracking_point", 1);
+        tracking_point_state_pub = this->create_publisher<pid_path_tracker::msg::TrackingPointState>(
+            "/tracking_point_state", 1);
 
         tracking_point_odom_pub = this->create_publisher<nav_msgs::msg::Odometry>("/tracking_point_odom", 1);
 
         this->declare_parameter("yaw_p", 1.0);
-        this->declare_parameter("yaw_rate_max", 0.35);
+        this->declare_parameter("yaw_rate_max", 1.5);
 
         this->get_parameter("yaw_p", yaw_p_);
         this->get_parameter("yaw_rate_max", yaw_rate_max_);
@@ -273,6 +279,7 @@ public:
         traj_points_.clear();
         traj_waiting_times_.clear();
         traj_header_ = msg->header;
+        current_traj_stamp_ = msg->header.stamp;
 
         const auto &pts = msg->points;
         const std::size_t n = pts.size();
@@ -303,10 +310,12 @@ public:
             {
                 if (!same_ref_point_already(tp_msg))
                 {
-                    setTrackingPoint(tp_msg);
+                    setTrackingPoint(tp_msg, first_pt.time_from_start);
                 }
                 else
                 {
+                    setTrackingPoint(tp_msg, first_pt.time_from_start);
+
                     Eigen::Vector3d p1(current_ref_.pose.pose.position.x,
                                        current_ref_.pose.pose.position.y,
                                        current_ref_.pose.pose.position.z);
@@ -423,7 +432,7 @@ public:
             if (convertTrajPointToTrackingPoint(pt, traj_header_, tp_msg))
             {
                 last_ref_ = current_ref_;
-                setTrackingPoint(tp_msg);
+                setTrackingPoint(tp_msg, pt.time_from_start);
             }
             else
             {
@@ -475,9 +484,11 @@ public:
         return true;
     }
 
-    void setTrackingPoint(const nav_msgs::msg::Odometry &msg)
+    void setTrackingPoint(const nav_msgs::msg::Odometry &msg,
+                          const builtin_interfaces::msg::Duration &time_from_start)
     {
         current_ref_ = msg;
+        current_ref_time_from_start_ = time_from_start;
 
         have_ref_ = true;
 
@@ -587,7 +598,7 @@ public:
                 if (convertTrajPointToTrackingPoint(pt, traj_header_, tp_msg))
                 {
                     last_ref_ = current_ref_;
-                    setTrackingPoint(tp_msg);
+                    setTrackingPoint(tp_msg, pt.time_from_start);
                 }
                 else
                 {
@@ -657,6 +668,12 @@ public:
         {
             // tracking_point_odom_pub->publish(current_ref_);
             tracking_point_pub->publish(current_ref_pose_stamped_);
+
+            pid_path_tracker::msg::TrackingPointState state_msg;
+            state_msg.pose = current_ref_pose_stamped_;
+            state_msg.time_from_start = current_ref_time_from_start_;
+            state_msg.trajectory_stamp = current_traj_stamp_;
+            tracking_point_state_pub->publish(state_msg);
         }
     }
 

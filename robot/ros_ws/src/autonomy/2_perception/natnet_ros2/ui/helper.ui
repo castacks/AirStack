@@ -1,0 +1,5650 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>natnet_helper</class>
+ <widget class="QWidget" name="natnet_helper">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>731</width>
+    <height>724</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Natnet Helper</string>
+  </property>
+  <widget class="QWidget" name="verticalLayoutWidget">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>731</width>
+     <height>721</height>
+    </rect>
+   </property>
+   <layout class="QVBoxLayout" name="verticalLayout">
+    <item>
+     <widget class="QTabWidget" name="tabWidget">
+      <property name="currentIndex">
+       <number>0</number>
+      </property>
+      <widget class="QWidget" name="control_tab">
+       <attribute name="title">
+        <string>Control</string>
+       </attribute>
+       <widget class="QGroupBox" name="ros_network">
+        <property name="geometry">
+         <rect>
+          <x>400</x>
+          <y>30</y>
+          <width>271</width>
+          <height>61</height>
+         </rect>
+        </property>
+        <property name="font">
+         <font>
+          <weight>75</weight>
+          <bold>true</bold>
+         </font>
+        </property>
+        <property name="title">
+         <string>   ROS network</string>
+        </property>
+        <widget class="QLabel" name="label_13">
+         <property name="geometry">
+          <rect>
+           <x>30</x>
+           <y>30</y>
+           <width>91</width>
+           <height>17</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>50</weight>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>Domain ID</string>
+         </property>
+        </widget>
+        <widget class="QSpinBox" name="domain_id_spin">
+         <property name="geometry">
+          <rect>
+           <x>120</x>
+           <y>30</y>
+           <width>48</width>
+           <height>26</height>
+          </rect>
+         </property>
+         <property name="maximum">
+          <number>232</number>
+         </property>
+        </widget>
+       </widget>
+       <widget class="QGroupBox" name="connection_settings">
+        <property name="geometry">
+         <rect>
+          <x>0</x>
+          <y>150</y>
+          <width>381</width>
+          <height>191</height>
+         </rect>
+        </property>
+        <property name="font">
+         <font>
+          <weight>75</weight>
+          <bold>true</bold>
+         </font>
+        </property>
+        <property name="title">
+         <string>  Connection settings</string>
+        </property>
+        <widget class="QLabel" name="label_5">
+         <property name="geometry">
+          <rect>
+           <x>10</x>
+           <y>30</y>
+           <width>71</width>
+           <height>17</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>50</weight>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>Server IP </string>
+         </property>
+        </widget>
+        <widget class="QLabel" name="label_6">
+         <property name="geometry">
+          <rect>
+           <x>10</x>
+           <y>60</y>
+           <width>67</width>
+           <height>17</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>50</weight>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>Client IP</string>
+         </property>
+        </widget>
+        <widget class="QLabel" name="label_7">
+         <property name="geometry">
+          <rect>
+           <x>10</x>
+           <y>90</y>
+           <width>81</width>
+           <height>17</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>50</weight>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>Server type</string>
+         </property>
+        </widget>
+        <widget class="QLabel" name="label_8">
+         <property name="geometry">
+          <rect>
+           <x>10</x>
+           <y>120</y>
+           <width>131</width>
+           <height>17</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>50</weight>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>Multicast address</string>
+         </property>
+        </widget>
+        <widget class="QLabel" name="label_9">
+         <property name="geometry">
+          <rect>
+           <x>10</x>
+           <y>150</y>
+           <width>111</width>
+           <height>17</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>50</weight>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>Command port</string>
+         </property>
+        </widget>
+        <widget class="QLabel" name="label_10">
+         <property name="geometry">
+          <rect>
+           <x>210</x>
+           <y>150</y>
+           <width>71</width>
+           <height>17</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>50</weight>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>Data port</string>
+         </property>
+        </widget>
+        <widget class="QLineEdit" name="textServerIP">
+         <property name="geometry">
+          <rect>
+           <x>90</x>
+           <y>30</y>
+           <width>201</width>
+           <height>25</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>50</weight>
+           <bold>false</bold>
+          </font>
+         </property>
+        </widget>
+        <widget class="QLineEdit" name="textClientIP">
+         <property name="geometry">
+          <rect>
+           <x>90</x>
+           <y>60</y>
+           <width>201</width>
+           <height>25</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>50</weight>
+           <bold>false</bold>
+          </font>
+         </property>
+        </widget>
+        <widget class="QRadioButton" name="multicast_radio">
+         <property name="geometry">
+          <rect>
+           <x>100</x>
+           <y>90</y>
+           <width>112</width>
+           <height>23</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>50</weight>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>Multicast</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+        <widget class="QRadioButton" name="unicast_radio">
+         <property name="geometry">
+          <rect>
+           <x>220</x>
+           <y>90</y>
+           <width>112</width>
+           <height>23</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>50</weight>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>Unicast</string>
+         </property>
+        </widget>
+        <widget class="QLineEdit" name="textMulticastAddr">
+         <property name="geometry">
+          <rect>
+           <x>150</x>
+           <y>120</y>
+           <width>141</width>
+           <height>25</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>50</weight>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="inputMask">
+          <string/>
+         </property>
+         <property name="text">
+          <string>239.255.42.99</string>
+         </property>
+         <property name="maxLength">
+          <number>32767</number>
+         </property>
+         <property name="echoMode">
+          <enum>QLineEdit::Normal</enum>
+         </property>
+         <property name="readOnly">
+          <bool>false</bool>
+         </property>
+         <property name="cursorMoveStyle">
+          <enum>Qt::LogicalMoveStyle</enum>
+         </property>
+         <property name="clearButtonEnabled">
+          <bool>false</bool>
+         </property>
+        </widget>
+        <widget class="QLineEdit" name="textCommandPort">
+         <property name="geometry">
+          <rect>
+           <x>120</x>
+           <y>150</y>
+           <width>71</width>
+           <height>25</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>50</weight>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>1510</string>
+         </property>
+        </widget>
+        <widget class="QLineEdit" name="textDataPort">
+         <property name="geometry">
+          <rect>
+           <x>280</x>
+           <y>150</y>
+           <width>71</width>
+           <height>25</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>50</weight>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>1511</string>
+         </property>
+        </widget>
+        <widget class="QSpinBox" name="client_ip_spin">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+         <property name="geometry">
+          <rect>
+           <x>290</x>
+           <y>60</y>
+           <width>41</width>
+           <height>26</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>50</weight>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="readOnly">
+          <bool>false</bool>
+         </property>
+         <property name="minimum">
+          <number>0</number>
+         </property>
+        </widget>
+       </widget>
+       <widget class="QGroupBox" name="publisher_setting">
+        <property name="geometry">
+         <rect>
+          <x>0</x>
+          <y>370</y>
+          <width>381</width>
+          <height>171</height>
+         </rect>
+        </property>
+        <property name="font">
+         <font>
+          <weight>75</weight>
+          <bold>true</bold>
+         </font>
+        </property>
+        <property name="title">
+         <string>   Publisher settings</string>
+        </property>
+        <widget class="QCheckBox" name="pub_rb">
+         <property name="geometry">
+          <rect>
+           <x>10</x>
+           <y>20</y>
+           <width>351</width>
+           <height>23</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>50</weight>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>publish rigid body</string>
+         </property>
+        </widget>
+        <widget class="QCheckBox" name="pub_rbm">
+         <property name="geometry">
+          <rect>
+           <x>10</x>
+           <y>50</y>
+           <width>351</width>
+           <height>23</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>50</weight>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>publish rigid body markers</string>
+         </property>
+        </widget>
+        <widget class="QCheckBox" name="pub_im">
+         <property name="geometry">
+          <rect>
+           <x>10</x>
+           <y>80</y>
+           <width>351</width>
+           <height>23</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>50</weight>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>publish individual markers</string>
+         </property>
+        </widget>
+        <widget class="QCheckBox" name="pub_pc">
+         <property name="geometry">
+          <rect>
+           <x>10</x>
+           <y>110</y>
+           <width>351</width>
+           <height>23</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>50</weight>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>publish as pointcloud</string>
+         </property>
+        </widget>
+        <widget class="QCheckBox" name="pub_rbwmc">
+         <property name="geometry">
+          <rect>
+           <x>10</x>
+           <y>140</y>
+           <width>351</width>
+           <height>23</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>50</weight>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>publish body with marker config</string>
+         </property>
+        </widget>
+       </widget>
+       <widget class="QGroupBox" name="logging_settings">
+        <property name="geometry">
+         <rect>
+          <x>390</x>
+          <y>120</y>
+          <width>321</width>
+          <height>61</height>
+         </rect>
+        </property>
+        <property name="font">
+         <font>
+          <weight>75</weight>
+          <bold>true</bold>
+         </font>
+        </property>
+        <property name="title">
+         <string>   Logging settings</string>
+        </property>
+        <widget class="QCheckBox" name="log_internal">
+         <property name="geometry">
+          <rect>
+           <x>10</x>
+           <y>30</y>
+           <width>92</width>
+           <height>23</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>50</weight>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>Internal</string>
+         </property>
+        </widget>
+        <widget class="QCheckBox" name="log_frames">
+         <property name="geometry">
+          <rect>
+           <x>120</x>
+           <y>30</y>
+           <width>92</width>
+           <height>23</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>50</weight>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>Frames</string>
+         </property>
+        </widget>
+        <widget class="QCheckBox" name="log_latencies">
+         <property name="geometry">
+          <rect>
+           <x>230</x>
+           <y>30</y>
+           <width>92</width>
+           <height>23</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>50</weight>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>Latencies</string>
+         </property>
+        </widget>
+       </widget>
+       <widget class="QPushButton" name="start_node">
+        <property name="geometry">
+         <rect>
+          <x>290</x>
+          <y>580</y>
+          <width>89</width>
+          <height>25</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Start</string>
+        </property>
+       </widget>
+       <widget class="QScrollArea" name="outputBox_scroll">
+        <property name="geometry">
+         <rect>
+          <x>390</x>
+          <y>210</y>
+          <width>341</width>
+          <height>451</height>
+         </rect>
+        </property>
+        <property name="widgetResizable">
+         <bool>true</bool>
+        </property>
+        <widget class="QWidget" name="scrollAreaWidgetContents_2">
+         <property name="geometry">
+          <rect>
+           <x>0</x>
+           <y>0</y>
+           <width>339</width>
+           <height>449</height>
+          </rect>
+         </property>
+         <widget class="QTextEdit" name="outputBox">
+          <property name="geometry">
+           <rect>
+            <x>0</x>
+            <y>0</y>
+            <width>331</width>
+            <height>451</height>
+           </rect>
+          </property>
+          <property name="readOnly">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </widget>
+       </widget>
+       <widget class="QGroupBox" name="parameters">
+        <property name="geometry">
+         <rect>
+          <x>0</x>
+          <y>30</y>
+          <width>271</width>
+          <height>91</height>
+         </rect>
+        </property>
+        <property name="font">
+         <font>
+          <weight>75</weight>
+          <bold>true</bold>
+         </font>
+        </property>
+        <property name="title">
+         <string> Parameters</string>
+        </property>
+        <widget class="QLabel" name="label_11">
+         <property name="geometry">
+          <rect>
+           <x>10</x>
+           <y>30</y>
+           <width>131</width>
+           <height>17</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>50</weight>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>Word frame name</string>
+         </property>
+        </widget>
+        <widget class="QLineEdit" name="textFrameName">
+         <property name="geometry">
+          <rect>
+           <x>140</x>
+           <y>30</y>
+           <width>121</width>
+           <height>25</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>50</weight>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string notr="true">world</string>
+         </property>
+        </widget>
+        <widget class="QLabel" name="label_12">
+         <property name="geometry">
+          <rect>
+           <x>10</x>
+           <y>60</y>
+           <width>131</width>
+           <height>17</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>50</weight>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>node name</string>
+         </property>
+        </widget>
+        <widget class="QLineEdit" name="textNodeName">
+         <property name="geometry">
+          <rect>
+           <x>140</x>
+           <y>60</y>
+           <width>121</width>
+           <height>25</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>50</weight>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string notr="true">natnet_ros</string>
+         </property>
+        </widget>
+       </widget>
+       <widget class="QPushButton" name="stop_node">
+        <property name="geometry">
+         <rect>
+          <x>290</x>
+          <y>610</y>
+          <width>89</width>
+          <height>25</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Stop</string>
+        </property>
+       </widget>
+      </widget>
+      <widget class="QWidget" name="marker_name_tab">
+       <attribute name="title">
+        <string>Single marker naming</string>
+       </attribute>
+       <widget class="QWidget" name="verticalLayoutWidget_2">
+        <property name="geometry">
+         <rect>
+          <x>9</x>
+          <y>-1</y>
+          <width>711</width>
+          <height>691</height>
+         </rect>
+        </property>
+        <layout class="QVBoxLayout" name="verticalLayout_2">
+         <item>
+          <widget class="QScrollArea" name="scrollArea">
+           <property name="widgetResizable">
+            <bool>true</bool>
+           </property>
+           <widget class="QWidget" name="scrollAreaWidgetContents">
+            <property name="geometry">
+             <rect>
+              <x>0</x>
+              <y>0</y>
+              <width>707</width>
+              <height>687</height>
+             </rect>
+            </property>
+            <widget class="QWidget" name="widget" native="true">
+             <property name="geometry">
+              <rect>
+               <x>-1</x>
+               <y>19</y>
+               <width>351</width>
+               <height>601</height>
+              </rect>
+             </property>
+             <widget class="QGroupBox" name="markerBox_1">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>-20</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_1">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_1">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_1">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_1">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_1">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>  1</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_2">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>10</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_2">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_2">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_2">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_2">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_2">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>  2</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_3">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>40</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_3">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_3">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_3">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_3">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_3">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>  3</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_4">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>70</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_4">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_4">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_4">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_4">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_4">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>  4</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_5">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>100</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_5">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_5">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_5">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_5">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_5">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>  5</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_6">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>130</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_6">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_6">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_6">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_6">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_6">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>  6</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_7">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>160</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_7">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_7">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_7">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_7">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_7">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>  7</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_8">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>190</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_8">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_8">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_8">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_8">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_8">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>  8</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_9">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>220</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_9">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_9">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_9">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_9">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_9">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>  9</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_10">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>250</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_10">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_10">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_10">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_10">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_10">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string> 10</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_11">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>280</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_11">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_11">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_11">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_11">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_11">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string> 11</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_12">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>310</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_12">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_12">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_12">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_12">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_12">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string> 12</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_13">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>340</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_13">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_13">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_13">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_13">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_13">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string> 13</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_14">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>370</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_14">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_14">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_14">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_14">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_14">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string> 14</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_15">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>400</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_15">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_15">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_15">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_15">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_15">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string> 15</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_16">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>430</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_16">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_16">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_16">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_16">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_16">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string> 16</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_17">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>460</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_17">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_17">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_17">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_17">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_17">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string> 17</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_18">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>490</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_18">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_18">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_18">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_18">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_18">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string> 18</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_19">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>520</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_19">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_19">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_19">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_19">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_19">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string> 19</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_20">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>550</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_20">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_20">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_20">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_20">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_20">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string> 20</string>
+               </property>
+              </widget>
+             </widget>
+            </widget>
+            <widget class="Line" name="line">
+             <property name="geometry">
+              <rect>
+               <x>340</x>
+               <y>0</y>
+               <width>20</width>
+               <height>621</height>
+              </rect>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Plain</enum>
+             </property>
+             <property name="orientation">
+              <enum>Qt::Vertical</enum>
+             </property>
+            </widget>
+            <widget class="QPushButton" name="push_refresh">
+             <property name="geometry">
+              <rect>
+               <x>490</x>
+               <y>650</y>
+               <width>89</width>
+               <height>25</height>
+              </rect>
+             </property>
+             <property name="text">
+              <string>Refresh</string>
+             </property>
+            </widget>
+            <widget class="QPushButton" name="push_ok">
+             <property name="geometry">
+              <rect>
+               <x>600</x>
+               <y>650</y>
+               <width>89</width>
+               <height>25</height>
+              </rect>
+             </property>
+             <property name="text">
+              <string>OK</string>
+             </property>
+            </widget>
+            <widget class="QWidget" name="widget_2" native="true">
+             <property name="geometry">
+              <rect>
+               <x>360</x>
+               <y>20</y>
+               <width>351</width>
+               <height>601</height>
+              </rect>
+             </property>
+             <widget class="QGroupBox" name="markerBox_21">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>-20</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_21">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_21">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_21">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_21">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_21">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string> 21</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_22">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>10</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_22">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_22">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_22">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_22">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_22">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string> 22</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_23">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>40</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_23">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_23">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_23">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_23">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_23">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string> 23</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_24">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>70</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_24">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_24">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_24">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_24">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_24">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string> 24</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_25">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>100</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_25">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_25">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_25">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_25">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_25">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string> 25</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_26">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>130</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_26">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_26">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_26">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_26">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_26">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string> 26</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_27">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>160</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_27">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_27">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_27">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_27">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_27">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string> 27</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_28">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>190</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_28">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_28">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_28">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_28">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_28">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string> 28</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_29">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>220</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_29">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_29">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_29">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_29">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_29">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string> 29</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_30">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>250</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_30">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_30">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_30">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_30">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_30">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string> 30</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_31">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>280</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_31">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_31">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_31">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_31">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_31">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string> 31</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_32">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>310</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_32">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_32">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_32">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_32">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_32">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string> 32</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_33">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>340</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_33">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_33">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_33">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_33">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_33">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string> 33</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_34">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>370</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_34">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_34">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_34">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_34">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_34">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string> 34</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_35">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>400</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_35">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_35">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_35">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_35">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_35">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string> 35</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_36">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>430</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_36">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_36">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_36">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_36">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_36">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string> 36</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_37">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>460</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_37">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_37">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_37">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_37">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_37">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string> 37</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_38">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>490</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_38">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_38">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_38">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_38">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_38">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string> 38</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_39">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>520</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_39">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_39">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_39">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_39">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_39">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string> 39</string>
+               </property>
+              </widget>
+             </widget>
+             <widget class="QGroupBox" name="markerBox_40">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>550</y>
+                <width>341</width>
+                <height>41</height>
+               </rect>
+              </property>
+              <property name="title">
+               <string notr="true"/>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <widget class="QLCDNumber" name="X_40">
+               <property name="geometry">
+                <rect>
+                 <x>30</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Y_40">
+               <property name="geometry">
+                <rect>
+                 <x>90</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLCDNumber" name="Z_40">
+               <property name="geometry">
+                <rect>
+                 <x>150</x>
+                 <y>20</y>
+                 <width>51</width>
+                 <height>23</height>
+                </rect>
+               </property>
+               <property name="smallDecimalPoint">
+                <bool>true</bool>
+               </property>
+               <property name="segmentStyle">
+                <enum>QLCDNumber::Flat</enum>
+               </property>
+               <property name="value" stdset="0">
+                <double>99999.000000000000000</double>
+               </property>
+              </widget>
+              <widget class="QLineEdit" name="name_40">
+               <property name="geometry">
+                <rect>
+                 <x>220</x>
+                 <y>20</y>
+                 <width>121</width>
+                 <height>25</height>
+                </rect>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+              <widget class="QLabel" name="srn_40">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="geometry">
+                <rect>
+                 <x>0</x>
+                 <y>20</y>
+                 <width>21</width>
+                 <height>17</height>
+                </rect>
+               </property>
+               <property name="font">
+                <font>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string> 40</string>
+               </property>
+              </widget>
+             </widget>
+            </widget>
+            <widget class="QLabel" name="label_14">
+             <property name="geometry">
+              <rect>
+               <x>10</x>
+               <y>630</y>
+               <width>111</width>
+               <height>21</height>
+              </rect>
+             </property>
+             <property name="font">
+              <font>
+               <weight>50</weight>
+               <bold>false</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>Message Type</string>
+             </property>
+            </widget>
+            <widget class="QSpinBox" name="msg_type_spin">
+             <property name="enabled">
+              <bool>true</bool>
+             </property>
+             <property name="geometry">
+              <rect>
+               <x>310</x>
+               <y>630</y>
+               <width>41</width>
+               <height>26</height>
+              </rect>
+             </property>
+             <property name="font">
+              <font>
+               <weight>50</weight>
+               <bold>false</bold>
+              </font>
+             </property>
+             <property name="readOnly">
+              <bool>false</bool>
+             </property>
+             <property name="minimum">
+              <number>1</number>
+             </property>
+             <property name="maximum">
+              <number>2</number>
+             </property>
+            </widget>
+            <widget class="QLineEdit" name="textMsgType">
+             <property name="geometry">
+              <rect>
+               <x>110</x>
+               <y>630</y>
+               <width>201</width>
+               <height>25</height>
+              </rect>
+             </property>
+             <property name="font">
+              <font>
+               <weight>50</weight>
+               <bold>false</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>PoseStamped</string>
+             </property>
+             <property name="readOnly">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </widget>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+       <widget class="QGroupBox" name="groupBox_Fix">
+        <property name="geometry">
+         <rect>
+          <x>10</x>
+          <y>-20</y>
+          <width>341</width>
+          <height>41</height>
+         </rect>
+        </property>
+        <property name="title">
+         <string/>
+        </property>
+        <widget class="QLabel" name="label">
+         <property name="geometry">
+          <rect>
+           <x>30</x>
+           <y>20</y>
+           <width>41</width>
+           <height>17</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>     X</string>
+         </property>
+        </widget>
+        <widget class="QLabel" name="label_2">
+         <property name="geometry">
+          <rect>
+           <x>90</x>
+           <y>20</y>
+           <width>41</width>
+           <height>17</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>     Y</string>
+         </property>
+        </widget>
+        <widget class="QLabel" name="label_3">
+         <property name="geometry">
+          <rect>
+           <x>150</x>
+           <y>20</y>
+           <width>41</width>
+           <height>17</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>     Z</string>
+         </property>
+        </widget>
+        <widget class="QLabel" name="label_4">
+         <property name="geometry">
+          <rect>
+           <x>250</x>
+           <y>20</y>
+           <width>41</width>
+           <height>17</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>Name</string>
+         </property>
+        </widget>
+       </widget>
+       <widget class="QGroupBox" name="groupBox_Fix_2">
+        <property name="geometry">
+         <rect>
+          <x>360</x>
+          <y>-20</y>
+          <width>361</width>
+          <height>41</height>
+         </rect>
+        </property>
+        <property name="title">
+         <string/>
+        </property>
+        <widget class="QLabel" name="label_15">
+         <property name="geometry">
+          <rect>
+           <x>40</x>
+           <y>20</y>
+           <width>41</width>
+           <height>17</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>     X</string>
+         </property>
+        </widget>
+        <widget class="QLabel" name="label_16">
+         <property name="geometry">
+          <rect>
+           <x>100</x>
+           <y>20</y>
+           <width>41</width>
+           <height>17</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>     Y</string>
+         </property>
+        </widget>
+        <widget class="QLabel" name="label_17">
+         <property name="geometry">
+          <rect>
+           <x>160</x>
+           <y>20</y>
+           <width>41</width>
+           <height>17</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>     Z</string>
+         </property>
+        </widget>
+        <widget class="QLabel" name="label_18">
+         <property name="geometry">
+          <rect>
+           <x>260</x>
+           <y>20</y>
+           <width>41</width>
+           <height>17</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>Name</string>
+         </property>
+        </widget>
+       </widget>
+      </widget>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

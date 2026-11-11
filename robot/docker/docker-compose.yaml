@@ -30,6 +30,7 @@ services:
       fi;
       sleep infinity"
     # assumes you're connected to work internet, so creates a network to isolate from other developers on your work internet
+    # network_mode: host
     networks:
       - airstack_network
     # allow scaling multiple robots on the same machine

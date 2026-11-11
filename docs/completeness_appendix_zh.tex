@@ -1,0 +1,448 @@
+\documentclass[11pt]{ctexart}
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{bm}
+\usepackage{hyperref}
+\usepackage{enumitem}
+
+\title{递归观测引导规划的条件完备性}
+\author{}
+\date{}
+
+\newtheorem{theorem}{定理}
+\newtheorem{lemma}{引理}
+
+\begin{document}
+\maketitle
+
+本附录给出递归 observation-guided planning 框架的形式化定义与条件完备性证明。证明目标并非全局最优性，而是说明：在每次重规划周期内由 planner 实际求解的有限离散搜索实例上，只要存在一条可被有限感知动作逐段清理的 optimistic guidance skeleton，则该方法不会无限追逐错误 viewpoint、错误 subgoal 或错误 guidance path，而会通过逐层 refutation 最终收敛到一条可执行解。
+
+\section{记号与离散环境}
+
+考虑固定分辨率下的三维体素图
+\[
+G=(V,E),
+\]
+其中 $V$ 为体素节点集合，$E$ 为 26 邻接边集合。
+
+在任意规划时刻，环境信念将 $V$ 划分为
+\[
+V = F \cup U \cup O,
+\]
+其中：
+\begin{itemize}[leftmargin=2em]
+    \item $F$：已知 free 体素集合；
+    \item $U$：unknown 体素集合；
+    \item $O$：已知 occupied 体素集合。
+\end{itemize}
+
+进一步定义：
+\begin{itemize}[leftmargin=2em]
+    \item $O^{+}\subseteq V$：occupied inflation 后的障碍集合；
+    \item $\Phi\subseteq V$：frontier inflation 后的未认证危险集合。
+\end{itemize}
+
+其中 $O^{+}$ 用于约束 optimistic guidance 搜索，$\Phi$ 用于约束 certified free 运动与局部安全认证。
+
+\subsection{有限诱导搜索子图}
+
+我们不要求全局体素图 $G$ 有限。本文的完整性结论相对于每次重规划周期内 planner 实际求解的诱导搜索子图成立。记该子图的节点集为
+\[
+D\subseteq V.
+\]
+
+这里 $D$ 由当前可用地图、障碍膨胀、规划范围以及任务相关搜索域共同诱导。我们只要求该诱导搜索子图有限，即 $D$ 为有限体素集合。
+
+因此，后续所有全局 guidance、局部 viewpoint、connect 以及递归 subgoal guidance 搜索，都在该有限离散子图上定义与讨论。
+
+\section{基础搜索图}
+
+\subsection{基础 optimistic guidance 图}
+
+定义不带拒绝集合的基础 optimistic guidance 图为
+\[
+G^{\mathrm{opt}}_0 := G[D\setminus O^{+}].
+\]
+
+因此，global guidance 会避开 occupied inflation，但允许穿过 frontier-inflated 区域。
+
+\subsection{Certified connect 图}
+
+定义 certified 运动与 connect 所用的图为
+\[
+G^{\mathrm{cert}}
+:= G[D\setminus (O^{+}\cup \Phi)].
+\]
+
+因此，所谓 certified reachable 意味着在 $G^{\mathrm{cert}}$ 上存在路径，即该路径完全避开 occupied inflation 与 frontier inflation。
+
+\section{Guidance path、hitpoint 与局部观测义务}
+
+\subsection{Guidance path}
+
+给定当前飞机状态 $x$ 与目标 $g$，全局 A* 在
+\[
+G^{\mathrm{opt}}_0
+\]
+上搜索得到一条 optimistic guidance path
+\[
+\gamma=(p_0,p_1,\dots,p_m), \qquad p_0=x,\ p_m=g.
+\]
+
+\subsection{Hitpoint}
+
+对任意 guidance path $\gamma$，定义其 hitpoint
+\[
+h(\gamma)
+\]
+为沿 $\gamma$ 从前往后扫描时，第一个其局部安全体积尚未在 $G^{\mathrm{cert}}$ 中被认证通过的位置。
+
+换言之，guidance path 允许穿过 frontier-inflated 区域，而 hitpoint 表示 guidance 上最早一个仍需通过主动观测进行安全认证的位置。
+
+\subsection{剩余观测义务集合}
+
+对任意 hitpoint $h$，定义
+\[
+\Omega(h)\subseteq U
+\]
+为 $h$ 的局部 inflation safety box 内所有必须通过感知消解的不确定体素集合。
+
+在规划时刻 $t$，定义其剩余未消解义务为
+\[
+\Omega_t(h)\subseteq \Omega(h).
+\]
+
+若
+\[
+\Omega_t(h)=\emptyset,
+\]
+则表示该 hitpoint 的局部安全义务已全部满足。
+
+\section{观测义务与 Observation Viewpoint}
+
+本文将 observe unknown 视为一般情形，将 fov clear 视为其特例。
+
+\subsection{观测义务 $\tau$}
+
+对任意 hitpoint $h$ 及其剩余义务集合 $\Omega_t(h)$，定义一个观测义务
+\[
+\tau \subseteq \Omega_t(h).
+\]
+
+它表示当前这一条 observation branch 试图解决的 unknown 子集。
+
+典型地：
+\begin{itemize}[leftmargin=2em]
+    \item 在一般 observe unknown 情形下，
+    \[
+    \tau=\{u\},
+    \]
+    即当前 branch 针对单个 unknown voxel；
+    \item 在 fov clear 情形下，
+    \[
+    \tau=\Omega_t(h),
+    \]
+    即当前 branch 试图一次性认证整个剩余安全盒。
+\end{itemize}
+
+因此 fov clear 是 observation 过程的特例。
+
+\subsection{Observation branch}
+
+给定 hitpoint $h$ 及观测义务 $\tau\subseteq \Omega_t(h)$，若某个 viewpoint $v$ 被搜索用来观测 $\tau$，则记这一 observation branch 为
+\[
+b=(\tau,v).
+\]
+
+这里 viewpoint $v$ 是围绕观测义务 $\tau$ 搜索得到的，因此保留了义务 $\tau$ 到 viewpoint $v$ 的对应关系。
+
+\subsection{观测成功判定}
+
+当飞机真实执行到 viewpoint $v$ 并进行观测后，定义二值谓词
+\[
+\mathrm{ObsSucc}(\tau,v)\in\{0,1\},
+\]
+其含义为：
+\begin{itemize}[leftmargin=2em]
+    \item $\mathrm{ObsSucc}(\tau,v)=1$：该 branch 成功完成了其被分配的观测义务 $\tau$；
+    \item $\mathrm{ObsSucc}(\tau,v)=0$：该 branch 未能完成义务 $\tau$。
+\end{itemize}
+
+因此，对某个 observation branch 是否有效，我们只关心它是否完成了自己的义务 $\tau$，而不关心它是否顺带观测到了 $\Omega_t(h)$ 中的其它 unknown。
+
+\section{Certified / Contaminated 与 Observation Refutation}
+
+\subsection{Certified viewpoint}
+
+对某个 hitpoint $h$ 的 observation branch
+\[
+b=(\tau,v),
+\]
+若从当前 certified anchor 到 $v$ 在
+\[
+G^{\mathrm{cert}}
+\]
+上存在路径，则称该 branch 的 viewpoint $v$ 为 certified viewpoint。
+
+\subsection{Contaminated viewpoint}
+
+若 viewpoint $v$ 在 optimistic 意义下可达，但从当前 certified 区域到 $v$ 必须经过 unknown 或 frontier-inflated 区域，则称其为 contaminated viewpoint。该 viewpoint 会诱导一个递归 subgoal。
+
+\subsection{Observation refutation}
+
+一个 viewpoint 被判为 certified，仅意味着其到达路径在 $G^{\mathrm{cert}}$ 上可行，并不保证到达后一定能够成功完成针对 $\tau$ 的观测义务。由于规划时通常将 unknown 视为视觉可穿透，因此执行到 certified viewpoint 后，可能会因新显露的遮挡而无法真实解决任何属于 $\tau$ 的义务。
+
+若执行到 viewpoint $v$ 后
+\[
+\mathrm{ObsSucc}(\tau,v)=0,
+\]
+则称该 branch
+\[
+b=(\tau,v)
+\]
+被 observation refutation。
+
+因此，certified viewpoint 也可能是无效的。
+
+\section{Subgoal、祖先排除与接口集合}
+
+\subsection{Subgoal 节点}
+
+每个 contaminated viewpoint 会诱导一个递归 subgoal，记为 $S$。
+
+\subsection{祖先 hitpoint 集合}
+
+定义
+\[
+A(S)
+\]
+为 subgoal $S$ 的祖先 hitpoint 集合，即从 root 到当前 $S$ 的递归链上，所有已经出现过的 hitpoints 所组成的集合。
+
+\subsection{Subgoal guidance 图}
+
+当对 subgoal $S$ 搜索其 optimistic guidance 时，并不是在原始 guidance 图上进行，而是在
+\[
+G^{\mathrm{opt}}_S
+:= G\big[D\setminus (O^{+}\cup A(S))\big]
+\]
+上进行。
+
+这意味着：
+\begin{itemize}[leftmargin=2em]
+    \item occupied inflation 会阻挡 guidance；
+    \item 所有祖先层级已出现过的 hitpoints 也会被视为 obstacle。
+\end{itemize}
+
+该 ancestor exclusion 规则用于防止后代 subgoal 反复回到祖先已失败或未解决的 hitpoint，从而形成无限循环。
+
+\subsection{接口 hitpoint 集合}
+
+对任意 subgoal $S$，定义
+\[
+I(S)\subseteq D
+\]
+为其接口 hitpoint 集合，满足以下性质：
+
+若某条从 $S$ 出发的 descendant guidance 在
+\[
+G^{\mathrm{opt}}_S
+\]
+上仍然能够继续推进，则其 earliest unresolved hitpoint 必属于 $I(S)$。
+
+换言之，$I(S)$ 表示在当前有限诱导搜索子图内，所有可能成为该 subgoal 后续“下一步未解决义务”的 earliest hitpoint 候选集合。
+
+由于 $I(S)\subseteq D$ 且 $D$ 有限，因此 $I(S)$ 也是有限集合。这一有限性来自当前实际求解的离散搜索实例有限，而不是来自全局工作空间有限。
+
+\section{Valid Branch、Unclearable Hitpoint 与 Invalid Guidance Path}
+
+\subsection{Valid observation branch}
+
+对当前 hitpoint $h$ 及其剩余义务集合 $\Omega_t(h)$，称一个 observation branch
+\[
+b=(\tau,v)
+\]
+是 valid 的，当且仅当在有限步的执行与递归 refinement 后，它能够使
+\[
+\Omega_{t'}(h)\subsetneq \Omega_t(h)
+\]
+对某个有限时刻 $t'>t$ 成立，即严格减少该 hitpoint 的剩余观测义务。
+
+需要强调的是，valid branch 不要求一次性清空全部义务，只要求对 $\Omega_t(h)$ 产生严格进展。
+
+\subsection{Invalid observation branch}
+
+若某个 observation branch
+\[
+b=(\tau,v)
+\]
+最终不能使 $\Omega_t(h)$ 严格减少，则称其为 invalid。其失效可能来自两类原因：
+\begin{enumerate}[leftmargin=2em]
+    \item \textbf{Reachability invalid}：contaminated branch 递归展开后，其后续 guidance 不存在，或其所有后代分支全部失败；
+    \item \textbf{Observation invalid}：certified 或 contaminated branch 虽然执行了，但
+    \[
+    \mathrm{ObsSucc}(\tau,v)=0,
+    \]
+    从而没有真实减少 $\Omega_t(h)$，因此被 observation refutation。
+\end{enumerate}
+
+\subsection{Clearable 与 unclearable hitpoint}
+
+称 hitpoint $h$ 是 clearable 的，如果存在有限个 valid observation branches
+\[
+b_1,b_2,\dots,b_K
+\]
+使得这些 branch 所对应的观测义务满足
+\[
+\tau_1\cup\tau_2\cup\cdots\cup\tau_K=\Omega_t(h),
+\]
+且对所有 $i=1,\dots,K$ 都有
+\[
+\mathrm{ObsSucc}(\tau_i,v_i)=1,
+\]
+从而顺序执行后最终有
+\[
+\Omega_{t_K}(h)=\emptyset.
+\]
+
+否则称 $h$ 为 unclearable。
+
+\subsection{拒绝集合 $H_{\mathrm{rej}}$ 与 Invalid guidance path}
+
+定义
+\[
+H_{\mathrm{rej}}
+\]
+为算法运行过程中动态维护的、已被证明 unclearable 的 hitpoint 集合。
+
+若某条 guidance path $\gamma$ 的 earliest unresolved hitpoint
+\[
+h(\gamma)
+\]
+被证明是 unclearable，则称该 guidance path 为 invalid guidance path，并将该 hitpoint 加入 $H_{\mathrm{rej}}$。在后续全局重规划中，相应的 optimistic guidance 图更新为
+\[
+G^{\mathrm{opt}}(H_{\mathrm{rej}})
+:= G\big[D\setminus (O^{+}\cup H_{\mathrm{rej}})\big].
+\]
+
+因此，$H_{\mathrm{rej}}$ 不是先验给定的，而是在算法执行过程中由已被证明 unclearable 的 hitpoints 动态累积得到。
+
+\section{基本引理}
+
+\begin{lemma}
+对任意固定 hitpoint $h$，其在当前有限诱导搜索子图 $D$ 上的 candidate observation branches 数目有限。
+\end{lemma}
+
+\noindent\textbf{证明：}
+局部 viewpoint 搜索在固定分辨率和有限离散子图 $D$ 上进行，因此可访问状态数有限。对给定 $h$ 与其剩余义务分解，候选 observation branches 数目有限。∎
+
+\begin{lemma}
+对任意 subgoal $S$，其接口 hitpoint 集合 $I(S)$ 是有限的。
+\end{lemma}
+
+\noindent\textbf{证明：}
+由定义，$I(S)\subseteq D$。而 $D$ 是当前规划周期内 planner 实际求解的有限诱导搜索子图的节点集，因此 $I(S)$ 也有限。∎
+
+\begin{lemma}
+对任意 contaminated viewpoint 所诱导的 subgoal $S$，若其 descendant guidance 仍想继续推进，则其 earliest unresolved hitpoint 必属于
+\[
+I(S)\setminus A(S).
+\]
+因此，任意无效 contaminated branch 的递归深度有限。
+\end{lemma}
+
+\noindent\textbf{证明思路：}
+每深入一层递归，新的 hitpoint 必须不属于已有祖先集合 $A(S)$，从而 $A(S)$ 严格增大，并消耗掉 $I(S)$ 中一个此前未使用的元素。由上一个引理，$I(S)$ 有限，因此这种消耗不可能无限持续。经过有限层后，要么出现 valid branch，要么 guidance 不再存在，该分支被 refute。∎
+
+\begin{lemma}
+对任意 observation branch，若其为 invalid，则给定无限规划时间，该 branch 最终会被明确剔除。
+\end{lemma}
+
+\noindent\textbf{证明思路：}
+\begin{itemize}[leftmargin=2em]
+    \item 对 certified branch，若执行后
+    \[
+    \mathrm{ObsSucc}(\tau,v)=0,
+    \]
+    则由 observation refutation 明确剔除；
+    \item 对 contaminated branch，若后续 guidance 不存在，或其所有后代 branches 全部失败，则由上一引理知其递归深度有限，因此最终也会被判失败。∎
+\end{itemize}
+
+\begin{lemma}
+若某 hitpoint 的所有 observation branches 都被 refute，则该 hitpoint 为 unclearable。
+\end{lemma}
+
+\noindent\textbf{证明思路：}
+由局部 viewpoint 搜索完备性，任意 hitpoint 的所有潜在 certified / contaminated candidates 最终都会被枚举到。若这些 branches 全部被 refute，则不存在任何有限 branch 序列能够使 $\Omega_t(h)$ 严格递减直至为空，因此该 hitpoint 为 unclearable。∎
+
+\begin{lemma}
+若某 guidance path 的 earliest unresolved hitpoint unclearable，则该 guidance path invalid。
+\end{lemma}
+
+\noindent\textbf{证明思路：}
+该 path 的首个未解决义务无法通过任何 observation / subgoal refinement 被真正清理，因此该 path 不可能成功执行，故为 invalid guidance path。∎
+
+\section{主定理}
+
+\begin{theorem}
+假设：
+\begin{enumerate}[leftmargin=2em]
+    \item 全局 optimistic guidance A* 在
+    \[
+    G^{\mathrm{opt}}(H_{\mathrm{rej}})
+    \]
+    上是完备的；
+    \item 对任意 hitpoint，局部 target-centric viewpoint 搜索是完备的；
+    \item certified connect A* 在
+    \[
+    G^{\mathrm{cert}}
+    \]
+    上是完备的；
+    \item 对任意 subgoal，subgoal guidance A* 在
+    \[
+    G^{\mathrm{opt}}_S
+    \]
+    上是完备的；
+    \item 递归 refinement 始终施加 ancestor hitpoint exclusion；
+    \item 当前规划相对于 planner 实际求解的有限诱导搜索子图 $D$ 进行；
+    \item 地图更新正确且单调；
+    \item 执行后进行 observation validation，因此任何不能真实减少 $\Omega_t(h)$ 的 observation branch 最终都会被 refute；
+    \item 存在至少一条从当前状态到目标的 optimistic guidance path，使得该路径上的每个 hitpoint 都是 clearable 的。
+\end{enumerate}
+则：给定无限规划时间，本文方法最终将剔除所有 invalid observation branches、unclearable hitpoints 和 invalid guidance paths，并找到一条有效的感知-运动递归执行序列到达目标。
+\end{theorem}
+
+\section{定理证明}
+
+我们按照 “branch $\rightarrow$ hitpoint $\rightarrow$ guidance path” 的逐级 refutation 结构来证明。
+
+\subsection*{第一步：局部 branch 枚举有限且完备}
+
+由引理 1，任意 hitpoint 的 candidate observation branches 数目有限；由假设 2，局部 viewpoint 搜索又是完备的，因此这些 branches 最终都会被枚举到。
+
+\subsection*{第二步：所有 invalid branches 最终都会被剔除}
+
+由引理 4，任意 invalid observation branch 最终都会被 refute。对 certified branches，这来自执行后的 observation validation；对 contaminated branches，这来自有限接口与 ancestor exclusion 约束下的有限深度递归失败。
+
+\subsection*{第三步：所有 unclearable hitpoints 最终都会被识别}
+
+若某个 hitpoint 的所有 branches 最终都被 refute，则由引理 5 可知该 hitpoint unclearable。
+
+\subsection*{第四步：所有 invalid guidance paths 最终都会被排除}
+
+若某条 guidance path 的 earliest unresolved hitpoint 是一个 unclearable hitpoint，则由引理 6，该 guidance path 必为 invalid。于是该 hitpoint 被加入 $H_{\mathrm{rej}}$，该 guidance path 在未来全局重规划中被排除。
+
+\subsection*{第五步：最终必然轮到一条正确 guidance skeleton}
+
+由假设 9，至少存在一条其所有 hitpoints 都 clearable 的 optimistic guidance path。由前几步知，所有错误 branches、错误 hitpoints 和错误 guidance paths 都会被逐步剔除。再由假设 1，全局 optimistic guidance A* 在剩余 admissible guidance 空间上是完备的，因此它最终必然返回这条或某条等价的 clearable guidance skeleton。
+
+\subsection*{第六步：沿正确 guidance skeleton 必然到达目标}
+
+对该正确 guidance skeleton 上的任意 hitpoint $h$，由于 $h$ 是 clearable 的，存在有限个 valid branches 能使其剩余义务集合 $\Omega_t(h)$ 逐步严格减少并最终清空。由于无效 siblings 最终都会被剔除，而总候选数有限，因此这些 valid branches 最终必然会被依次执行到。于是该 hitpoint 被清理完成，guidance 的 earliest unresolved hitpoint 向前推进。沿整条 guidance skeleton 重复此过程，最终到达目标。
+
+故定理成立。∎
+
+\section{讨论}
+
+定理 1 证明的不是全局最优性，也不是第一次 viewpoint 选择即为正确解。它刻画的是 full-3D FOV-constrained recursive planner 的一个更关键性质：只要存在一条可被有限 observation / FOV-clear 动作逐段清理的 optimistic guidance skeleton，则算法不会无限追逐错误 viewpoint 或错误 subgoal，而会通过 observation refutation、subgoal failure 和 guidance replanning 的逐层排错机制，最终收敛到一条可执行的感知-运动解。
+
+\end{document}

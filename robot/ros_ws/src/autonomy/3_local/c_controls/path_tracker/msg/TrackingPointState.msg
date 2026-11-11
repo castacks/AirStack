@@ -1,0 +1,3 @@
+geometry_msgs/PoseStamped pose
+builtin_interfaces/Duration time_from_start
+builtin_interfaces/Time trajectory_stamp

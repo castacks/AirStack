@@ -35,7 +35,7 @@ KinodynamicAstar::~KinodynamicAstar()
     }
 }
 
-int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, Eigen::Vector3d start_a,
+int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, Eigen::Vector3d start_a, double start_yaw,
                              Eigen::Vector3d end_pt, Eigen::Vector3d end_v, bool init, bool dynamic, double time_start)
 {
     std::cout << "start searching \n";
@@ -48,6 +48,9 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
     cur_node->state.tail(3) = start_v;
     cur_node->index = posToIndex(start_pt);
     cur_node->g_score = 0.0;
+
+    // for CPA planner
+    cur_node->yaw = start_yaw;
 
     Eigen::VectorXd end_state(6);
     Eigen::Vector3i end_index;
@@ -76,6 +79,10 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
     PathNodePtr terminate_node = NULL;
     bool init_search = init;
     const int tolerance = ceil(1 / resolution_);
+
+    // Get map lock and accessor for quicker query
+    std::shared_lock<std::shared_mutex> map_lock(map_manager_->get_map_mutex());
+    openvdb::Int32Grid::ConstAccessor inf_acc = map_manager_->get_inflated_accessor();
 
     while (!open_set_.empty())
     {
@@ -175,6 +182,33 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
                 pro_t = cur_node->time + tau;
 
                 Eigen::Vector3d pro_pos = pro_state.head(3);
+                Eigen::Vector3d pro_v = pro_state.tail(3);
+
+                double pro_yaw;
+                if (pro_v.head(2).norm() > 1e-3)
+                {
+                    pro_yaw = std::atan2(pro_v(1), pro_v(0));
+                }
+                else
+                {
+                    pro_yaw = cur_node->yaw;
+                }
+
+                double delta_yaw = pro_yaw - cur_node->yaw;
+
+                while (delta_yaw > M_PI)
+                    delta_yaw -= 2.0 * M_PI;
+                while (delta_yaw < -M_PI)
+                    delta_yaw += 2.0 * M_PI;
+
+                // yaw rate
+                double yaw_rate = std::abs(delta_yaw) / tau;
+
+                if ((pro_v.head(2).norm() > 0.1) && (yaw_rate > MAX_YAW_RATE))
+                {
+                    // if (init_search) std::cout << "yaw rate exceeded" << std::endl;
+                    continue;
+                }
 
                 // Check if in close set
                 Eigen::Vector3i pro_id = posToIndex(pro_pos);
@@ -188,7 +222,6 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
                 }
 
                 // Check maximal velocity
-                Eigen::Vector3d pro_v = pro_state.tail(3);
                 if (fabs(pro_v(0)) > max_vel_ || fabs(pro_v(1)) > max_vel_ || fabs(pro_v(2)) > max_vel_)
                 {
                     if (init_search)
@@ -208,7 +241,8 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
 
                 // Check safety
                 Eigen::Vector3d pos;
-                double temp_sq_dist = -1.0;
+                // double temp_sq_dist = -1.0;
+                int inflate_val = 0;
                 Eigen::Matrix<double, 6, 1> xt;
                 bool is_occ = false;
                 for (int k = 1; k <= check_num_; ++k)
@@ -217,8 +251,11 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
                     stateTransit(cur_state, xt, um, dt);
                     pos = xt.head(3);
 
-                    bool is_known = map_manager_->query_sqdist_at_world(pos, temp_sq_dist);
-                    if (is_known && temp_sq_dist < safe_sq_index_dist_)
+                    // bool is_known = map_manager_->query_sqdist_at_world(pos, temp_sq_dist);
+                    // if (is_known && temp_sq_dist < safe_sq_index_dist_)
+
+                    bool is_inflated = map_manager_->query_is_inflated_at_world(pos, inflate_val, inf_acc);
+                    if (is_inflated && inflate_val > 0)
                     {
                         // std::cout << "discard node at coord " << pos.transpose() << "\n";
                         is_occ = true;
@@ -229,6 +266,29 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
                 {
                     if (init_search)
                         std::cout << "safe" << std::endl;
+                    continue;
+                }
+
+                // Past visibility check
+                bool satisfy_visibility = false;
+                PathNodePtr check_node = cur_node;
+
+                while (check_node != NULL)
+                {
+                    Eigen::Vector3d past_pos = check_node->state.head(3);
+                    double past_yaw = check_node->yaw;
+
+                    if (isVisibleFromHistory(pro_pos, past_pos, past_yaw))
+                    {
+                        satisfy_visibility = true;
+                        break;
+                    }
+                    check_node = check_node->parent;
+                }
+
+                // No previous pose saw this
+                if (!satisfy_visibility)
+                {
                     continue;
                 }
 
@@ -266,6 +326,7 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
                         pro_node = path_node_pool_[use_node_num_];
                         pro_node->index = pro_id;
                         pro_node->state = pro_state;
+                        pro_node->yaw = pro_yaw;
                         pro_node->f_score = tmp_f_score;
                         pro_node->g_score = tmp_g_score;
                         pro_node->input = um;
@@ -299,6 +360,7 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
                         {
                             // pro_node->index = pro_id;
                             pro_node->state = pro_state;
+                            pro_node->yaw = pro_yaw;
                             pro_node->f_score = tmp_f_score;
                             pro_node->g_score = tmp_g_score;
                             pro_node->input = um;
@@ -335,7 +397,7 @@ void KinodynamicAstar::setParam(std::shared_ptr<rclcpp::Node> node)
     time_resolution_ = node->declare_parameter<double>("search.time_resolution", 0.8);
     lambda_heu_ = node->declare_parameter<double>("search.lambda_heu", 1.0);
     allocate_num_ = node->declare_parameter<int>("search.allocate_num", 100000);
-    check_num_ = node->declare_parameter<int>("search.check_num", 5);
+    check_num_ = node->declare_parameter<int>("search.check_num", 12);
     optimistic_ = node->declare_parameter<bool>("search.optimistic", true);
 
     tie_breaker_ = 1.0 + 1.0 / 10000;
@@ -348,7 +410,7 @@ void KinodynamicAstar::setParam(std::shared_ptr<rclcpp::Node> node)
 
     tree_pub_ = node->create_publisher<visualization_msgs::msg::Marker>("/kino_astar_tree", 10);
     path_pub_ = node->create_publisher<visualization_msgs::msg::Marker>("/kino_astar_path", 10);
-    
+
     node_handle_ = node;
 }
 
@@ -429,10 +491,13 @@ bool KinodynamicAstar::computeShotTraj(Eigen::VectorXd state1, Eigen::VectorXd s
     VectorXd poly1d, t, polyv, polya;
     Vector3i index;
 
-    double temp_sq_dist=-1.0;
+    // double temp_sq_dist = -1.0;
 
     Eigen::MatrixXd Tm(4, 4);
     Tm << 0, 1, 0, 0, 0, 0, 2, 0, 0, 0, 0, 3, 0, 0, 0, 0;
+
+    // map lock and acc for quick query
+    openvdb::Int32Grid::ConstAccessor inf_acc = map_manager_->get_inflated_accessor();
 
     /* ---------- forward checking of trajectory ---------- */
     double t_delta = t_d / 10;
@@ -456,9 +521,13 @@ bool KinodynamicAstar::computeShotTraj(Eigen::VectorXd state1, Eigen::VectorXd s
             }
         }
 
-        bool is_known = map_manager_->query_sqdist_at_world(coord, temp_sq_dist);
+        // bool is_known = map_manager_->query_sqdist_at_world(coord, temp_sq_dist);
+        // if (is_known && temp_sq_dist < safe_sq_index_dist_)
 
-        if (is_known && temp_sq_dist < safe_sq_index_dist_)
+        int inflate_val = 0;
+        bool is_inflated = map_manager_->query_is_inflated_at_world(coord, inflate_val, inf_acc);
+
+        if (is_inflated && inflate_val > 0)
         {
             return false;
         }
@@ -795,10 +864,55 @@ void KinodynamicAstar::stateTransit(Eigen::Matrix<double, 6, 1> &state0, Eigen::
     state1 = phi_ * state0 + integral;
 }
 
+inline bool KinodynamicAstar::isVisibleFromHistory(const Eigen::Vector3d &pro_pos,
+                                                   const Eigen::Vector3d &past_pos,
+                                                   double past_yaw)
+{
+    Eigen::Vector3d dir_vec = pro_pos - past_pos;
+    double dist = dir_vec.norm();
+
+    if (dist > MAX_SENSING_DIST || dist < 1e-4)
+    {
+        return false;
+    }
+
+    // X
+    Eigen::Vector3d cam_x(std::cos(past_yaw), std::sin(past_yaw), 0.0);
+    // Y
+    Eigen::Vector3d cam_y(-std::sin(past_yaw), std::cos(past_yaw), 0.0);
+    // Z
+    Eigen::Vector3d cam_z(0.0, 0.0, 1.0);
+
+    // Projection
+    double dx = dir_vec.dot(cam_x);
+    double dy = dir_vec.dot(cam_y);
+    double dz = dir_vec.dot(cam_z);
+
+    // Must be in front of the camera
+    if (dx <= 0.0)
+    {
+        return false;
+    }
+
+    // Within the horizon FOV
+    if (std::abs(dy) > dx * TAN_HALF_HFOV)
+    {
+        return false;
+    }
+    // Within the vertical FOV
+    if (std::abs(dz) > dx * TAN_HALF_VFOV)
+    {
+        return false;
+    }
+
+    return true;
+}
+
 void KinodynamicAstar::publishDebugVis()
 {
     // Tree
-    if (tree_pub_->get_subscription_count() > 0) {
+    if (tree_pub_->get_subscription_count() > 0)
+    {
         visualization_msgs::msg::Marker tree_mk;
         tree_mk.header.frame_id = "world";
         tree_mk.header.stamp = node_handle_->now();
@@ -806,18 +920,26 @@ void KinodynamicAstar::publishDebugVis()
         tree_mk.id = 0;
         tree_mk.type = visualization_msgs::msg::Marker::LINE_LIST;
         tree_mk.action = visualization_msgs::msg::Marker::ADD;
-        
+
         tree_mk.scale.x = 0.02;
         tree_mk.color.a = 0.3;
-        tree_mk.color.r = 0.0; tree_mk.color.g = 1.0; tree_mk.color.b = 1.0;
+        tree_mk.color.r = 0.0;
+        tree_mk.color.g = 1.0;
+        tree_mk.color.b = 1.0;
 
         tree_mk.points.reserve(use_node_num_ * 2);
-        for (int i = 0; i < use_node_num_; ++i) {
+        for (int i = 0; i < use_node_num_; ++i)
+        {
             PathNodePtr node = path_node_pool_[i];
-            if (node->parent != nullptr) {
+            if (node->parent != nullptr)
+            {
                 geometry_msgs::msg::Point p1, p2;
-                p1.x = node->state(0); p1.y = node->state(1); p1.z = node->state(2);
-                p2.x = node->parent->state(0); p2.y = node->parent->state(1); p2.z = node->parent->state(2);
+                p1.x = node->state(0);
+                p1.y = node->state(1);
+                p1.z = node->state(2);
+                p2.x = node->parent->state(0);
+                p2.y = node->parent->state(1);
+                p2.z = node->parent->state(2);
                 tree_mk.points.push_back(p1);
                 tree_mk.points.push_back(p2);
             }
@@ -826,7 +948,8 @@ void KinodynamicAstar::publishDebugVis()
     }
 
     // Path
-    if (path_pub_->get_subscription_count() > 0 && !path_nodes_.empty()) {
+    if (path_pub_->get_subscription_count() > 0 && !path_nodes_.empty())
+    {
         visualization_msgs::msg::Marker path_mk;
         path_mk.header.frame_id = "world";
         path_mk.header.stamp = node_handle_->now();
@@ -834,15 +957,20 @@ void KinodynamicAstar::publishDebugVis()
         path_mk.id = 1;
         path_mk.type = visualization_msgs::msg::Marker::LINE_STRIP;
         path_mk.action = visualization_msgs::msg::Marker::ADD;
-        
+
         path_mk.scale.x = 0.07;
         path_mk.color.a = 1.0;
-        path_mk.color.r = 1.0; path_mk.color.g = 0.5; path_mk.color.b = 0.0;
+        path_mk.color.r = 1.0;
+        path_mk.color.g = 0.5;
+        path_mk.color.b = 0.0;
 
         path_mk.points.reserve(path_nodes_.size());
-        for (const auto& node : path_nodes_) {
+        for (const auto &node : path_nodes_)
+        {
             geometry_msgs::msg::Point pt;
-            pt.x = node->state(0); pt.y = node->state(1); pt.z = node->state(2);
+            pt.x = node->state(0);
+            pt.y = node->state(1);
+            pt.z = node->state(2);
             path_mk.points.push_back(pt);
         }
         path_pub_->publish(path_mk);
