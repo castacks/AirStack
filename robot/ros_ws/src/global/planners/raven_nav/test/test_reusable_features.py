@@ -9,6 +9,30 @@ from raven_nav.feature_map import query_features, export_feature_snapshot, featu
 from raven_nav.semantic_map import SemanticMapFusion
 
 
+@pytest.mark.parametrize('softmax', [False, True])
+@pytest.mark.parametrize('chunk_size', [1, 13, 4096])
+def test_chunked_mapper_query_matches_deployed_rayfronts(softmax, chunk_size):
+    torch = pytest.importorskip('torch')
+    from rayfronts.utils import compute_cos_sim
+    from raven_nav.feature_map import torch_query_features
+    generator = torch.Generator().manual_seed(41)
+    features = torch.randn(57, 1152, generator=generator).half()
+    queries = torch.randn(7, 1152, generator=generator).half()
+    original_features, original_queries = features.clone(), queries.clone()
+    expected = compute_cos_sim(queries.float(), features.float(), softmax)
+    actual = torch_query_features(queries, features, softmax, chunk_size)
+    torch.testing.assert_close(actual, expected, atol=5e-6, rtol=1e-5)
+    assert actual.dtype == torch.float32
+    torch.testing.assert_close(features, original_features)
+    torch.testing.assert_close(queries, original_queries)
+
+
+def test_chunked_mapper_query_empty_voxels():
+    torch = pytest.importorskip('torch')
+    from raven_nav.feature_map import torch_query_features
+    assert torch_query_features(torch.ones(7, 1152), torch.empty(0, 1152)).shape == (0, 7)
+
+
 def test_arbitrary_query_not_present_when_map_was_created():
     # All feature channels survive fusion; a new query requires no new map.
     f = SemanticMapFusion()

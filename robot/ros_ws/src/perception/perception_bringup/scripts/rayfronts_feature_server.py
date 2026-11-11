@@ -13,10 +13,8 @@ install_empty_occupancy_guard(SemanticRayFrontiersMap)
 # query. Feature extraction/alignment remains the original mixed-precision path.
 if os.getenv('RAYFRONTS_QUERY_COMPRESSED', 'True').lower() == 'false':
     import rayfronts.mapping.semantic_ray_frontiers_map as mapper_module
-    from rayfronts.utils import compute_cos_sim
-    def float_query(q, features, softmax=False):
-        return compute_cos_sim(q.float(), features.float(), softmax=softmax)
-    mapper_module.compute_cos_sim = float_query
+    from raven_nav.feature_map import torch_query_features
+    mapper_module.compute_cos_sim = torch_query_features
 
 if os.getenv('RAVEN_REUSABLE_FEATURE_MAP', 'false').lower() == 'true':
     from raven_nav.feature_map import export_feature_snapshot

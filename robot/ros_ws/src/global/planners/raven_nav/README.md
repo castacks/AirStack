@@ -553,3 +553,10 @@ with 2-hour workflow timeouts. Semantic-search relay startup grace is 60 wall
 seconds to avoid the 15-second startup-loss failure; the simulated search budget
 and trial quality requirements are unchanged. Verification must use the exact
 `vraven-multi-0.19.0-alpha.1` deployment image, not the newer PCA-enabled image.
+
+Uncompressed semantic scoring in the adapter uses float32 normalized 2-D
+matrix multiplication in 4096-voxel batches. The upstream broadcasted matmul
+can allocate an intermediate proportional to voxels × queries × feature
+dimensions (observed 19 GiB allocation failures on the deployed image).
+Batching retains every voxel and the same per-voxel query softmax; it changes
+neither the local map nor the wire PCA basis. Freshness checks remain strict.

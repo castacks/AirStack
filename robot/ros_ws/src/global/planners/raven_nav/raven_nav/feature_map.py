@@ -15,6 +15,31 @@ def feature_snapshot_path(robot):
     return Path(os.getenv('RAVEN_MAP_SNAPSHOT_DIR', '/tmp')) / f'rayfronts_features_{robot}.npz'
 
 
+def torch_query_features(queries, features, softmax=False, chunk_size=4096):
+    """RayFronts-compatible M x N scores without broadcasted M x N x D work.
+
+    Keep normalization and softmax in float32, with softmax across queries for
+    each voxel. Chunking only the voxel axis preserves that distribution.
+    """
+    import torch
+    if (queries.ndim != 2 or features.ndim != 2
+            or queries.shape[1] != features.shape[1]):
+        raise ValueError('incompatible reusable map / query feature dimensions')
+    if chunk_size <= 0:
+        raise ValueError('chunk_size must be positive')
+    q = queries.float()
+    q = q / q.norm(dim=-1, keepdim=True)
+    out = torch.empty((len(features), len(q)), device=features.device, dtype=torch.float32)
+    for start in range(0, len(features), chunk_size):
+        f = features[start:start+chunk_size].float()
+        f = f / f.norm(dim=-1, keepdim=True)
+        scores = f @ q.T
+        if softmax:
+            scores = torch.softmax(100 * scores, dim=-1)
+        out[start:start+len(f)] = scores
+    return out
+
+
 def query_features(features, queries, probability=True, chunk_size=4096):
     features = np.asarray(features, dtype=np.float32)
     queries = np.asarray(queries, dtype=np.float32)
