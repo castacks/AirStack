@@ -20,7 +20,7 @@
          (see compose files) for the SHM part; TCP needs nothing special. -->
     <participant profile_name="large_data_profile" is_default_profile="true">
         <rtps>
-            <builtinTransports max_msg_size="65500" sockets_size="16MB" non_blocking="true" tcp_negotiation_timeout="50">LARGE_DATA</builtinTransports>
+            <builtinTransports max_msg_size="65500" sockets_size="16MB" non_blocking="true" tcp_negotiation_timeout="0">LARGE_DATA</builtinTransports>
         </rtps>
     </participant>
 </profiles>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+    <!-- Opt-in robot profile for diagnosed TCP publication backpressure.
+         Keep LARGE_DATA interoperability and existing topic QoS. In Fast DDS
+         2.14.6 a zero negotiation timeout skips waiting for unopened logical
+         ports; reliable writers retry through their existing protocol. -->
+    <participant profile_name="large_data_profile" is_default_profile="true">
+        <rtps>
+            <builtinTransports max_msg_size="65500" sockets_size="16MB" non_blocking="true" tcp_negotiation_timeout="0">LARGE_DATA</builtinTransports>
+        </rtps>
+    </participant>
+</profiles>

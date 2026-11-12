@@ -508,6 +508,16 @@ same native wait while60State and598odom messages arrived over30s, and ARM
 succeeded both before and after the poll. Thus the wait was not sufficient to
 explain R2's missing outputs; disabling the plugin is not a demonstrated fix.
 
+Mission509 instead captured robot3's MAVROS receive thread blocked publishing
+GPS_RAW_INT in RTPSWriter::send_nts, with an async writer in TCP socket send/poll.
+Its odometry-conversion and takeoff processes also had DDS event threads in TCP
+send. Simulator-only or gossip-only transport settings cannot fix those robot
+participants. The optional `ROBOT_FASTDDS_PROFILE=fastdds_nonblocking.xml` selects
+nonblocking LARGE_DATA options in the robot's mounted XML. Keep the original
+profile as default and validate actual-image transport delivery under backpressure.
+Fast DDS2.14.6's zero TCP negotiation timeout skips the logical-port wait;50ms
+waits can still block a nonblocking-send participant during startup negotiation.
+
 For startup TF failures, compare message arrival times with header timestamps.
 Mission507 robot2 continued publishing2733 distinct odometry positions during a
 195.1s takeoff window, but every header stamp stayed112.009997496. Thus a positive
@@ -526,7 +536,7 @@ is detached and running. Normal future-wait capture and forced attached-timeout
 detach were validated with an exact0.19robot-image target. An attachment briefly
 pauses that PID: use it for an already invalid/stalled trial, not healthy scoring.
 
-## RayFronts missing query labels
+## Simulator transport stalls
 
 Isaac transport stalls can stop the global clock while the process stays alive.
 Mission508's main native stack blocked in RTPSWriter/send and rmw_publish for a
@@ -538,6 +548,8 @@ did not fix it because of the explicit XML participant profile. The opt-in
 `ISAAC_FASTDDS_PROFILE=fastdds_nonblocking.xml` puts options in XML; maximum
 publication duration became0.65s and healthy clock arrival age stayed<0.1s in
 the same test. This does not prove a fix for a separate MAVROS output failure.
+
+## RayFronts missing query labels
 
 In the vraven-multi-0.19.0-alpha.1 image, `Ros2MessagingService` receives text
 queries with RELIABLE KEEP_LAST depth 5 on a SingleThreadedExecutor, and encodes

@@ -446,15 +446,30 @@ The frontier protocol is unchanged in both modes.
 For diagnosed Isaac ROS publication stalls, the optional Compose selector
 `ISAAC_FASTDDS_PROFILE=fastdds_nonblocking.xml` configures the simulator's default
 participant with nonblocking LARGE_DATA sends, 65500-byte fragments, 16MB socket
-buffers and a 50ms TCP negotiation timeout. The default selector remains
+buffers and zero TCP negotiation wait. The default selector remains
 `fastdds.xml`, preserving original behavior. An environment-only transport
 override did not prevent backpressure stalls with the existing explicit XML
 profile; the options must be in the selected XML. A deployment-image test paused
 one receiver for25s: the original profile blocked publication for25.0s, while
 the XML variant kept publishing to an unchanged LARGE_DATA healthy receiver
 (maximum publish call0.65s). This addresses the captured simulator transport
-stall; it does not establish a fix for a separate MAVROS startup failure.
+stall; it does not establish a fix for every MAVROS startup failure. The initial
+variant used50ms negotiation wait; mission509 captured that wait holding the
+writer mutex during very slow startup. In an exact-image late-reader/reconnect
+fixture, zero wait reduced the maximum publish call from1.00s to0.031s while
+both original-profile readers continued receiving images and clocks. This
+fixture did not reproduce the full sustained simulation slowdown.
 QoS, message content, local maps and strict freshness checks are unchanged.
+
+For diagnosed robot-side TCP publication stalls,
+`ROBOT_FASTDDS_PROFILE=fastdds_nonblocking.xml` selects the corresponding profile
+from `common/` for robot containers. The default remains `fastdds.xml`.
+Mission509's robot3 MAVROS capture showed a TCP socket send blocking the writer
+mutex, with its MAVLink receive thread waiting in GPS publication. The robot
+profile uses nonblocking LARGE_DATA sends and zero TCP negotiation wait; the
+simulator selector above is separate. This preserves topic QoS and message
+contents. A transport fixture can establish delivery and bounded publication
+under backpressure; it does not establish that every flight startup fault is fixed.
 
 In reusable-feature mode, SemanticSearchTask checks the mapper's exported query
 labels after the initial query burst. It resends one missing label every five
