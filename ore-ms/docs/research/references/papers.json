@@ -127,13 +127,18 @@
         {
           "source_note": "docs/research/thermal-sfm-reproduction-findings-2026-11-12.md",
           "inspection": "Full two-sequence outdoor reproduction, unchanged author depth control and saved-output metric audit complete. Paper/README/source padding differences retained. No historical runtime equivalence or certified checkpoint loss-variant claim."
+        },
+        {
+          "source_note": "docs/research/ms2-depth-transfer-findings-2026-11-12.md",
+          "inspection": "60 fixed MS2 first-prefix frames; original checkpoint/preprocessing versus fresh strict-FP32 MACT, common support and equal median scaling; all recording gates fail. Does not reject thermal depth learning or alter earlier ViViD reproduction."
         }
       ],
-      "local_status": "Executed full outdoor source protocol on modern runtime: close depth headline agreement, strict all-column/pose table match fails; no MS2 transfer claim.",
+      "local_status": "ViViD source-protocol reproduction has close headline agreement; fixed original-input MS2 transfer fails all three gates with severe known clipping. No model promotion.",
       "decision_notes": [
         "docs/research/thermal-sfm-reproduction-2026-11-12.md",
         "docs/research/thermal-sfm-execution-plan-2026-11-12.md",
-        "docs/research/thermal-sfm-reproduction-findings-2026-11-12.md"
+        "docs/research/thermal-sfm-reproduction-findings-2026-11-12.md",
+        "docs/research/ms2-depth-transfer-findings-2026-11-12.md"
       ],
       "authors": [
         "Ukcheol Shin",
@@ -165,6 +170,12 @@
         "rmse": 4.696681199939486,
         "runtime_image_id": "sha256:fd7be8a3b1fe788972c54cabb5ee79433c30a53ab9951f49cf8c442f0753cf0a",
         "local_notes": "docs/research/thermal-sfm-reproduction-findings-2026-11-12.md"
+      },
+      "ms2_transfer": {
+        "frames": 60,
+        "gate": "CLOSE_THIS_CHECKPOINT_TRANSFER_CONFIGURATION_NO_RETUNING",
+        "source_input_clipping_known_before_inference": true,
+        "direct_causal_clipping_ablation_performed": false
       }
     },
     {
@@ -515,6 +526,59 @@
         {
           "source_note": "docs/research/thermal-sfm-execution-plan-2026-11-12.md",
           "inspection": "Dependency citation/provenance only; not a new algorithm justification."
+        }
+      ],
+      "historical_citations": []
+    },
+    {
+      "id": "ms2-2023",
+      "title": "Deep Depth Estimation From Thermal Image",
+      "url": "https://openaccess.thecvf.com/content/CVPR2023/papers/Shin_Deep_Depth_Estimation_From_Thermal_Image_CVPR_2023_paper.pdf",
+      "authors": [
+        "Ukcheol Shin",
+        "Jinsun Park",
+        "In So Kweon"
+      ],
+      "year": "2023",
+      "venue_or_version": "CVPR 2023",
+      "code": "https://github.com/UkcheolShin/MS2-MultiSpectralStereoDataset/tree/0bb0fc1a544d8ad58c7fda5bc025cb0cbb400284",
+      "inspection": "Official source README, raw-image/depth loader, demo and radiometric utility inspected. CVF HTML fetch blocked in this pass; no new full-paper methods reading.",
+      "local_status": "Source default-code/depth convention used in fixed MS2 transfer gate; no full dataset/model benchmark reproduction.",
+      "updated": "2026-11-12",
+      "decision_notes": [
+        "docs/research/ms2-depth-transfer-plan-2026-11-12.md",
+        "docs/research/ms2-depth-transfer-findings-2026-11-12.md"
+      ],
+      "reading_history": [
+        {
+          "source_note": "docs/research/ms2-depth-transfer-plan-2026-11-12.md",
+          "inspection": "Official source README, raw-image/depth loader, demo and radiometric utility inspected. CVF HTML fetch blocked in this pass; no new full-paper methods reading."
+        }
+      ],
+      "historical_citations": []
+    },
+    {
+      "id": "ms2-extended",
+      "title": "Deep Depth Estimation from Thermal Image: Dataset, Benchmark, and Challenges",
+      "url": "https://arxiv.org/abs/2503.22060v1",
+      "authors": [
+        "Ukcheol Shin",
+        "Jinsun Park"
+      ],
+      "year": "2025",
+      "venue_or_version": "arXiv 2503.22060v1; do not infer final publication venue",
+      "code": "https://github.com/UkcheolShin/SupDepth4Thermal/tree/f6725678f9b5dba669ea1f0739506a613f2fb2fb",
+      "inspection": "Primary arXiv metadata/abstract, source utility, transforms and dataset loader inspected; no full-paper reading or benchmark-model run.",
+      "local_status": "Corroborating nominal camera formula and warning that parameters are camera-dependent. New benchmark preprocessing/weights not adopted. Repository citation uses Analysis in its title; primary preprint uses Challenges.",
+      "updated": "2026-11-12",
+      "decision_notes": [
+        "docs/research/ms2-depth-transfer-plan-2026-11-12.md",
+        "docs/research/ms2-depth-transfer-findings-2026-11-12.md"
+      ],
+      "reading_history": [
+        {
+          "source_note": "docs/research/ms2-depth-transfer-plan-2026-11-12.md",
+          "inspection": "Primary arXiv metadata/abstract, source utility, transforms and dataset loader inspected; no full-paper reading or benchmark-model run."
         }
       ],
       "historical_citations": []

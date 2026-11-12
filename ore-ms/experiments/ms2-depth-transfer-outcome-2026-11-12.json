@@ -1,0 +1,1547 @@
+{
+  "summary": {
+    "records": {
+      "day": {
+        "rows": [
+          {
+            "source_id": "000000",
+            "reference_pixels": 6883,
+            "baseline_pixels": 6883,
+            "candidate_pixels": 6883,
+            "common_pixels": 6883,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.1596073905361102,
+                "abs_rel": 0.12478676555111834,
+                "rmse": 9.101052282053049
+              },
+              "mono": {
+                "scale": 13.271822494866697,
+                "abs_rel": 0.5291814582587826,
+                "rmse": 13.168927898315626
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.1735157192927795,
+                "rmse": 10.211738591980998
+              }
+            }
+          },
+          {
+            "source_id": "000001",
+            "reference_pixels": 7217,
+            "baseline_pixels": 7217,
+            "candidate_pixels": 7217,
+            "common_pixels": 7217,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.1803473031430294,
+                "abs_rel": 0.1273950252332466,
+                "rmse": 8.850251588683985
+              },
+              "mono": {
+                "scale": 13.336647655272918,
+                "abs_rel": 0.5433767536579189,
+                "rmse": 12.973353972450594
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.16431190552023475,
+                "rmse": 10.003452200977499
+              }
+            }
+          },
+          {
+            "source_id": "000002",
+            "reference_pixels": 6998,
+            "baseline_pixels": 6998,
+            "candidate_pixels": 6998,
+            "common_pixels": 6998,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.1809822049200096,
+                "abs_rel": 0.13469084475147833,
+                "rmse": 9.052543102582357
+              },
+              "mono": {
+                "scale": 13.165512510286469,
+                "abs_rel": 0.5306835158341536,
+                "rmse": 13.158491539201417
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.16786735084876242,
+                "rmse": 10.230675254006712
+              }
+            }
+          },
+          {
+            "source_id": "000003",
+            "reference_pixels": 7221,
+            "baseline_pixels": 7221,
+            "candidate_pixels": 7221,
+            "common_pixels": 7221,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.217651572819645,
+                "abs_rel": 0.15192733903521904,
+                "rmse": 8.69751477366149
+              },
+              "mono": {
+                "scale": 12.956302907966053,
+                "abs_rel": 0.5183279423524325,
+                "rmse": 12.937510259929976
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.16387719892374,
+                "rmse": 10.013300595226658
+              }
+            }
+          },
+          {
+            "source_id": "000004",
+            "reference_pixels": 7078,
+            "baseline_pixels": 7078,
+            "candidate_pixels": 7078,
+            "common_pixels": 7078,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.1360790243022525,
+                "abs_rel": 0.12941741598451814,
+                "rmse": 9.152966560828004
+              },
+              "mono": {
+                "scale": 12.923371321616322,
+                "abs_rel": 0.5170397648084935,
+                "rmse": 13.027569223786463
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.15759200200485254,
+                "rmse": 10.040507692919249
+              }
+            }
+          },
+          {
+            "source_id": "000005",
+            "reference_pixels": 7447,
+            "baseline_pixels": 7447,
+            "candidate_pixels": 7447,
+            "common_pixels": 7447,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.1830138634437122,
+                "abs_rel": 0.14597871266232101,
+                "rmse": 8.690929303502575
+              },
+              "mono": {
+                "scale": 12.560212580404233,
+                "abs_rel": 0.4973630658188685,
+                "rmse": 12.47710860454814
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.15008435257567618,
+                "rmse": 9.742073815918866
+              }
+            }
+          },
+          {
+            "source_id": "000006",
+            "reference_pixels": 7337,
+            "baseline_pixels": 7337,
+            "candidate_pixels": 7337,
+            "common_pixels": 7337,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.1521928678187352,
+                "abs_rel": 0.12603832622899425,
+                "rmse": 8.84195626649606
+              },
+              "mono": {
+                "scale": 12.442863662380066,
+                "abs_rel": 0.49180614777185944,
+                "rmse": 12.425419986824252
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.15726208663051622,
+                "rmse": 9.815505758516514
+              }
+            }
+          },
+          {
+            "source_id": "000007",
+            "reference_pixels": 7775,
+            "baseline_pixels": 7775,
+            "candidate_pixels": 7775,
+            "common_pixels": 7775,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.2412355155271688,
+                "abs_rel": 0.16078672027903526,
+                "rmse": 8.279478219025608
+              },
+              "mono": {
+                "scale": 12.312091109419379,
+                "abs_rel": 0.4925061020797644,
+                "rmse": 12.023677690091013
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.16146168889292753,
+                "rmse": 9.655428218749027
+              }
+            }
+          },
+          {
+            "source_id": "000008",
+            "reference_pixels": 7573,
+            "baseline_pixels": 7573,
+            "candidate_pixels": 7573,
+            "common_pixels": 7573,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.184879152105001,
+                "abs_rel": 0.1411999032908533,
+                "rmse": 8.933259821941407
+              },
+              "mono": {
+                "scale": 12.159392610433375,
+                "abs_rel": 0.491674687731426,
+                "rmse": 12.275717129489777
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.1614291583771859,
+                "rmse": 10.083655957451068
+              }
+            }
+          },
+          {
+            "source_id": "000009",
+            "reference_pixels": 8101,
+            "baseline_pixels": 8101,
+            "candidate_pixels": 8101,
+            "common_pixels": 8101,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.1091718720023733,
+                "abs_rel": 0.12174039415715471,
+                "rmse": 9.52989145507689
+              },
+              "mono": {
+                "scale": 11.041466264082725,
+                "abs_rel": 0.4367038083404499,
+                "rmse": 12.301251886254088
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.15808224414638747,
+                "rmse": 10.272907607089737
+              }
+            }
+          },
+          {
+            "source_id": "000010",
+            "reference_pixels": 7768,
+            "baseline_pixels": 7768,
+            "candidate_pixels": 7768,
+            "common_pixels": 7768,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.1807643441063727,
+                "abs_rel": 0.1338545283586477,
+                "rmse": 9.486227169337697
+              },
+              "mono": {
+                "scale": 12.06849625020878,
+                "abs_rel": 0.4955526184442314,
+                "rmse": 12.537230887745414
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.16544895534333995,
+                "rmse": 10.673669236607314
+              }
+            }
+          },
+          {
+            "source_id": "000011",
+            "reference_pixels": 8195,
+            "baseline_pixels": 8195,
+            "candidate_pixels": 8195,
+            "common_pixels": 8195,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.2110305969710877,
+                "abs_rel": 0.14539629946351135,
+                "rmse": 9.124946975350955
+              },
+              "mono": {
+                "scale": 12.12573856481939,
+                "abs_rel": 0.5096131034485971,
+                "rmse": 12.267667206257904
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.16571839167566355,
+                "rmse": 10.458192440000753
+              }
+            }
+          },
+          {
+            "source_id": "000012",
+            "reference_pixels": 7949,
+            "baseline_pixels": 7949,
+            "candidate_pixels": 7949,
+            "common_pixels": 7949,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.1225513874504658,
+                "abs_rel": 0.12447728642623108,
+                "rmse": 10.084461432866378
+              },
+              "mono": {
+                "scale": 12.136131510996604,
+                "abs_rel": 0.5183095907615227,
+                "rmse": 12.78556103907499
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.16662681067726423,
+                "rmse": 10.99619803271009
+              }
+            }
+          },
+          {
+            "source_id": "000013",
+            "reference_pixels": 8165,
+            "baseline_pixels": 8165,
+            "candidate_pixels": 8165,
+            "common_pixels": 8165,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.1515082975517754,
+                "abs_rel": 0.12901571885609525,
+                "rmse": 9.579066433894692
+              },
+              "mono": {
+                "scale": 12.313631514571004,
+                "abs_rel": 0.5353661314230166,
+                "rmse": 12.621176444675141
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.16471888211391691,
+                "rmse": 10.649137390436517
+              }
+            }
+          },
+          {
+            "source_id": "000014",
+            "reference_pixels": 7892,
+            "baseline_pixels": 7892,
+            "candidate_pixels": 7892,
+            "common_pixels": 7892,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.1426518233617904,
+                "abs_rel": 0.1270915198167245,
+                "rmse": 9.481972933190912
+              },
+              "mono": {
+                "scale": 12.647607069066682,
+                "abs_rel": 0.5322443447880352,
+                "rmse": 12.793714856215441
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.16804208884391628,
+                "rmse": 10.53807748739516
+              }
+            }
+          },
+          {
+            "source_id": "000015",
+            "reference_pixels": 8200,
+            "baseline_pixels": 8200,
+            "candidate_pixels": 8200,
+            "common_pixels": 8200,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.1675637360446,
+                "abs_rel": 0.1373530675465825,
+                "rmse": 9.41745816037142
+              },
+              "mono": {
+                "scale": 12.882392083009448,
+                "abs_rel": 0.5369316770588334,
+                "rmse": 12.751512002321702
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.16667143896262548,
+                "rmse": 10.61453337706164
+              }
+            }
+          },
+          {
+            "source_id": "000016",
+            "reference_pixels": 7937,
+            "baseline_pixels": 7937,
+            "candidate_pixels": 7937,
+            "common_pixels": 7937,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.1916970316182496,
+                "abs_rel": 0.13962214038138357,
+                "rmse": 9.407229881208503
+              },
+              "mono": {
+                "scale": 13.61942622644625,
+                "abs_rel": 0.5585165640316083,
+                "rmse": 13.135681173540778
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.16381087706843447,
+                "rmse": 10.82071385319457
+              }
+            }
+          },
+          {
+            "source_id": "000017",
+            "reference_pixels": 8261,
+            "baseline_pixels": 8261,
+            "candidate_pixels": 8261,
+            "common_pixels": 8261,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.1916544597793748,
+                "abs_rel": 0.13434975792382314,
+                "rmse": 9.078778561048312
+              },
+              "mono": {
+                "scale": 13.37209594964084,
+                "abs_rel": 0.5329838131354825,
+                "rmse": 12.764382857822662
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.1685832294331574,
+                "rmse": 10.49219069644723
+              }
+            }
+          },
+          {
+            "source_id": "000018",
+            "reference_pixels": 8058,
+            "baseline_pixels": 8058,
+            "candidate_pixels": 8058,
+            "common_pixels": 8058,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.1975230598430509,
+                "abs_rel": 0.1370028725109015,
+                "rmse": 9.55733677493087
+              },
+              "mono": {
+                "scale": 13.760969432902252,
+                "abs_rel": 0.538461987871882,
+                "rmse": 13.380786710624783
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.1704565244614147,
+                "rmse": 11.003508944501926
+              }
+            }
+          },
+          {
+            "source_id": "000019",
+            "reference_pixels": 8378,
+            "baseline_pixels": 8378,
+            "candidate_pixels": 8378,
+            "common_pixels": 8378,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.176847172229579,
+                "abs_rel": 0.1347506495463054,
+                "rmse": 9.611551205907409
+              },
+              "mono": {
+                "scale": 13.509105683418397,
+                "abs_rel": 0.5216016465847645,
+                "rmse": 13.281500168771007
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.16269292100063482,
+                "rmse": 10.91370602691039
+              }
+            }
+          }
+        ],
+        "checks": {
+          "all20frames_scored": true,
+          "no_support_loss": true,
+          "abs_rel_improves": false,
+          "rmse_improves": false
+        },
+        "pass": false,
+        "equal_frame_metrics": {
+          "mact": {
+            "abs_rel": 0.1353437644002073,
+            "rmse": 9.19794364509793
+          },
+          "mono": {
+            "abs_rel": 0.5164122362101061,
+            "rmse": 12.754412076897058
+          },
+          "unscaled_mact": {
+            "abs_rel": 0.1639126913396715,
+            "rmse": 10.361458658905097
+          }
+        }
+      },
+      "night": {
+        "rows": [
+          {
+            "source_id": "000000",
+            "reference_pixels": 9318,
+            "baseline_pixels": 9318,
+            "candidate_pixels": 9318,
+            "common_pixels": 9318,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.0624420235759653,
+                "abs_rel": 0.19772447855078248,
+                "rmse": 8.617648129342289
+              },
+              "mono": {
+                "scale": 14.691975557495581,
+                "abs_rel": 0.8021538085615985,
+                "rmse": 15.03510388326657
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.20314004035143027,
+                "rmse": 9.19790238505362
+              }
+            }
+          },
+          {
+            "source_id": "000001",
+            "reference_pixels": 9386,
+            "baseline_pixels": 9386,
+            "candidate_pixels": 9386,
+            "common_pixels": 9386,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 0.9450587717888207,
+                "abs_rel": 0.27380880641765565,
+                "rmse": 9.88473153457481
+              },
+              "mono": {
+                "scale": 14.808000737752153,
+                "abs_rel": 0.8086226519765771,
+                "rmse": 15.14424299802
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.25504901067646946,
+                "rmse": 9.362505939197742
+              }
+            }
+          },
+          {
+            "source_id": "000002",
+            "reference_pixels": 9268,
+            "baseline_pixels": 9268,
+            "candidate_pixels": 9268,
+            "common_pixels": 9268,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.0695556970905014,
+                "abs_rel": 0.19605590052405475,
+                "rmse": 8.620333597133202
+              },
+              "mono": {
+                "scale": 14.802073321183862,
+                "abs_rel": 0.8092884918932101,
+                "rmse": 15.1806087453721
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.2020854030500663,
+                "rmse": 9.269690156672064
+              }
+            }
+          },
+          {
+            "source_id": "000003",
+            "reference_pixels": 9356,
+            "baseline_pixels": 9356,
+            "candidate_pixels": 9356,
+            "common_pixels": 9356,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.1170349642194974,
+                "abs_rel": 0.18798870982804036,
+                "rmse": 8.184966340809586
+              },
+              "mono": {
+                "scale": 14.746360817919392,
+                "abs_rel": 0.8047070604795119,
+                "rmse": 15.144539525093721
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.18992964604865847,
+                "rmse": 9.25134133423739
+              }
+            }
+          },
+          {
+            "source_id": "000004",
+            "reference_pixels": 9393,
+            "baseline_pixels": 9393,
+            "candidate_pixels": 9393,
+            "common_pixels": 9393,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.095112133025645,
+                "abs_rel": 0.19192452769652046,
+                "rmse": 8.55513936588848
+              },
+              "mono": {
+                "scale": 14.823929880427327,
+                "abs_rel": 0.8089272013298804,
+                "rmse": 15.22929400886315
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.19295826163544785,
+                "rmse": 9.428097513066035
+              }
+            }
+          },
+          {
+            "source_id": "000005",
+            "reference_pixels": 9263,
+            "baseline_pixels": 9263,
+            "candidate_pixels": 9263,
+            "common_pixels": 9263,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.1041605660317595,
+                "abs_rel": 0.192419788016043,
+                "rmse": 8.391558073399832
+              },
+              "mono": {
+                "scale": 14.658698266982316,
+                "abs_rel": 0.799689934416684,
+                "rmse": 15.061736254861195
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.18949193847224519,
+                "rmse": 9.322306934360208
+              }
+            }
+          },
+          {
+            "source_id": "000006",
+            "reference_pixels": 9404,
+            "baseline_pixels": 9404,
+            "candidate_pixels": 9404,
+            "common_pixels": 9404,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.1127261887672542,
+                "abs_rel": 0.2020793730656551,
+                "rmse": 8.40018561148809
+              },
+              "mono": {
+                "scale": 14.75882908829793,
+                "abs_rel": 0.8041661423237239,
+                "rmse": 15.148883889369957
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.19884574120833348,
+                "rmse": 9.409016403670595
+              }
+            }
+          },
+          {
+            "source_id": "000007",
+            "reference_pixels": 9305,
+            "baseline_pixels": 9305,
+            "candidate_pixels": 9305,
+            "common_pixels": 9305,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.1334490705278106,
+                "abs_rel": 0.18450239172585778,
+                "rmse": 8.056874608747048
+              },
+              "mono": {
+                "scale": 14.765372434242352,
+                "abs_rel": 0.8067191107686269,
+                "rmse": 15.080124954044384
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.18699943996989807,
+                "rmse": 9.255371129467088
+              }
+            }
+          },
+          {
+            "source_id": "000008",
+            "reference_pixels": 9388,
+            "baseline_pixels": 9388,
+            "candidate_pixels": 9388,
+            "common_pixels": 9388,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.1269559757426304,
+                "abs_rel": 0.18907246972430944,
+                "rmse": 8.121036800138924
+              },
+              "mono": {
+                "scale": 14.77931541868875,
+                "abs_rel": 0.8062768164022641,
+                "rmse": 15.113043847725908
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.19034859664247433,
+                "rmse": 9.276809088781254
+              }
+            }
+          },
+          {
+            "source_id": "000009",
+            "reference_pixels": 9343,
+            "baseline_pixels": 9343,
+            "candidate_pixels": 9343,
+            "common_pixels": 9343,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.085561031953861,
+                "abs_rel": 0.2100559335541129,
+                "rmse": 9.213478754552913
+              },
+              "mono": {
+                "scale": 14.819971228535124,
+                "abs_rel": 0.8075632726638853,
+                "rmse": 15.18131750712006
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.20940336648165148,
+                "rmse": 9.808781013851242
+              }
+            }
+          },
+          {
+            "source_id": "000010",
+            "reference_pixels": 9305,
+            "baseline_pixels": 9305,
+            "candidate_pixels": 9305,
+            "common_pixels": 9305,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.1147858600270435,
+                "abs_rel": 0.19327998500997567,
+                "rmse": 8.149711817170846
+              },
+              "mono": {
+                "scale": 14.737983616918754,
+                "abs_rel": 0.8036797626154898,
+                "rmse": 14.948887491250463
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.19265323865879733,
+                "rmse": 9.129184915392775
+              }
+            }
+          },
+          {
+            "source_id": "000011",
+            "reference_pixels": 9307,
+            "baseline_pixels": 9307,
+            "candidate_pixels": 9307,
+            "common_pixels": 9307,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.1552331363118429,
+                "abs_rel": 0.20779676639304928,
+                "rmse": 7.892138771236416
+              },
+              "mono": {
+                "scale": 14.764969108803642,
+                "abs_rel": 0.8051585638587081,
+                "rmse": 15.05904194835773
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.19895511792205178,
+                "rmse": 9.197987538456866
+              }
+            }
+          },
+          {
+            "source_id": "000012",
+            "reference_pixels": 9365,
+            "baseline_pixels": 9365,
+            "candidate_pixels": 9365,
+            "common_pixels": 9365,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.1699861495295205,
+                "abs_rel": 0.20620767313190905,
+                "rmse": 7.798112051059558
+              },
+              "mono": {
+                "scale": 14.81232246877901,
+                "abs_rel": 0.8107041549173133,
+                "rmse": 15.174738861009075
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.19178351628952045,
+                "rmse": 9.21637665105825
+              }
+            }
+          },
+          {
+            "source_id": "000013",
+            "reference_pixels": 9336,
+            "baseline_pixels": 9336,
+            "candidate_pixels": 9336,
+            "common_pixels": 9336,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.1138133718293266,
+                "abs_rel": 0.20238785311061022,
+                "rmse": 8.260191505111049
+              },
+              "mono": {
+                "scale": 14.797969765769343,
+                "abs_rel": 0.8111949914766644,
+                "rmse": 15.178653371885094
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.19926574070753175,
+                "rmse": 9.272007556868067
+              }
+            }
+          },
+          {
+            "source_id": "000014",
+            "reference_pixels": 9343,
+            "baseline_pixels": 9343,
+            "candidate_pixels": 9343,
+            "common_pixels": 9343,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.086649501264324,
+                "abs_rel": 0.21279640064589786,
+                "rmse": 8.527824233672721
+              },
+              "mono": {
+                "scale": 14.736026073189434,
+                "abs_rel": 0.8019409386111191,
+                "rmse": 15.090038665402073
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.21070623910372094,
+                "rmse": 9.289819611430115
+              }
+            }
+          },
+          {
+            "source_id": "000015",
+            "reference_pixels": 9388,
+            "baseline_pixels": 9388,
+            "candidate_pixels": 9388,
+            "common_pixels": 9388,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.0011693416797254,
+                "abs_rel": 0.23475797373156201,
+                "rmse": 9.384248085500289
+              },
+              "mono": {
+                "scale": 14.724045840623432,
+                "abs_rel": 0.8037870579448415,
+                "rmse": 15.151961640709995
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.23501640863909304,
+                "rmse": 9.395288672354791
+              }
+            }
+          },
+          {
+            "source_id": "000016",
+            "reference_pixels": 9361,
+            "baseline_pixels": 9361,
+            "candidate_pixels": 9361,
+            "common_pixels": 9361,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.0988871530878543,
+                "abs_rel": 0.1994561401984266,
+                "rmse": 8.360971261775614
+              },
+              "mono": {
+                "scale": 14.653537154380695,
+                "abs_rel": 0.7998440630072271,
+                "rmse": 15.087424504652965
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.1959880054207446,
+                "rmse": 9.244519007546344
+              }
+            }
+          },
+          {
+            "source_id": "000017",
+            "reference_pixels": 9393,
+            "baseline_pixels": 9393,
+            "candidate_pixels": 9393,
+            "common_pixels": 9393,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.0480042976653792,
+                "abs_rel": 0.21045035984168145,
+                "rmse": 8.814009360265434
+              },
+              "mono": {
+                "scale": 14.6522944943083,
+                "abs_rel": 0.8013312697842014,
+                "rmse": 15.075989023445734
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.21640672996710714,
+                "rmse": 9.263763563916143
+              }
+            }
+          },
+          {
+            "source_id": "000018",
+            "reference_pixels": 9398,
+            "baseline_pixels": 9398,
+            "candidate_pixels": 9398,
+            "common_pixels": 9398,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.1524950731926809,
+                "abs_rel": 0.20106989926162225,
+                "rmse": 8.078664254470299
+              },
+              "mono": {
+                "scale": 14.749814131396903,
+                "abs_rel": 0.8039138369239262,
+                "rmse": 15.122390376249434
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.19621757845728133,
+                "rmse": 9.438635585498043
+              }
+            }
+          },
+          {
+            "source_id": "000019",
+            "reference_pixels": 9394,
+            "baseline_pixels": 9394,
+            "candidate_pixels": 9394,
+            "common_pixels": 9394,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.089681671965823,
+                "abs_rel": 0.20029901165282987,
+                "rmse": 8.407189480447272
+              },
+              "mono": {
+                "scale": 14.652504091039992,
+                "abs_rel": 0.8031596249745343,
+                "rmse": 15.007675896396847
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.20317269869225704,
+                "rmse": 9.243115834108455
+              }
+            }
+          }
+        ],
+        "checks": {
+          "all20frames_scored": true,
+          "no_support_loss": true,
+          "abs_rel_improves": false,
+          "rmse_improves": false
+        },
+        "pass": false,
+        "equal_frame_metrics": {
+          "mact": {
+            "abs_rel": 0.20470672210402982,
+            "rmse": 8.485950681839233
+          },
+          "mono": {
+            "abs_rel": 0.8051414377464992,
+            "rmse": 15.110784869654825
+          },
+          "unscaled_mact": {
+            "abs_rel": 0.20292083591973903,
+            "rmse": 9.313626041749355
+          }
+        }
+      },
+      "rain": {
+        "rows": [
+          {
+            "source_id": "000000",
+            "reference_pixels": 6237,
+            "baseline_pixels": 6237,
+            "candidate_pixels": 6237,
+            "common_pixels": 6237,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 0.9706716019774212,
+                "abs_rel": 0.20411305127143614,
+                "rmse": 6.62664154556536
+              },
+              "mono": {
+                "scale": 9.527144080646087,
+                "abs_rel": 0.368059800237914,
+                "rmse": 8.250772839556738
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.19942685341026548,
+                "rmse": 6.697793286031864
+              }
+            }
+          },
+          {
+            "source_id": "000001",
+            "reference_pixels": 5828,
+            "baseline_pixels": 5828,
+            "candidate_pixels": 5828,
+            "common_pixels": 5828,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.1315215737988573,
+                "abs_rel": 0.24467387874572227,
+                "rmse": 7.225016176132669
+              },
+              "mono": {
+                "scale": 10.36584961783017,
+                "abs_rel": 0.41797418977911766,
+                "rmse": 8.117540414742432
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.19152479724935012,
+                "rmse": 6.700344246825916
+              }
+            }
+          },
+          {
+            "source_id": "000002",
+            "reference_pixels": 6620,
+            "baseline_pixels": 6620,
+            "candidate_pixels": 6620,
+            "common_pixels": 6620,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.0370895363250203,
+                "abs_rel": 0.1428319389793625,
+                "rmse": 6.164324252929145
+              },
+              "mono": {
+                "scale": 9.698917676443715,
+                "abs_rel": 0.3234178870929949,
+                "rmse": 7.914658157324597
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.1493989391382927,
+                "rmse": 6.088820680651012
+              }
+            }
+          },
+          {
+            "source_id": "000003",
+            "reference_pixels": 5737,
+            "baseline_pixels": 5737,
+            "candidate_pixels": 5737,
+            "common_pixels": 5737,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.035702327753725,
+                "abs_rel": 0.15962826488552284,
+                "rmse": 6.339144857574458
+              },
+              "mono": {
+                "scale": 10.257667171766123,
+                "abs_rel": 0.34292199958072644,
+                "rmse": 8.091576452924297
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.1538560560928371,
+                "rmse": 6.269266657247309
+              }
+            }
+          },
+          {
+            "source_id": "000004",
+            "reference_pixels": 6639,
+            "baseline_pixels": 6639,
+            "candidate_pixels": 6639,
+            "common_pixels": 6639,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 0.9692577520113836,
+                "abs_rel": 0.17459310247749374,
+                "rmse": 6.350771713750437
+              },
+              "mono": {
+                "scale": 10.149893113231386,
+                "abs_rel": 0.336740949503763,
+                "rmse": 7.599615866851669
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.17613901225605846,
+                "rmse": 6.4455667365716645
+              }
+            }
+          },
+          {
+            "source_id": "000005",
+            "reference_pixels": 5661,
+            "baseline_pixels": 5661,
+            "candidate_pixels": 5661,
+            "common_pixels": 5661,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 0.9588486783487493,
+                "abs_rel": 0.20163620956234965,
+                "rmse": 6.543854043075162
+              },
+              "mono": {
+                "scale": 10.268627148704308,
+                "abs_rel": 0.33906753073527574,
+                "rmse": 8.014136658858373
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.19495903950098317,
+                "rmse": 6.677838902914301
+              }
+            }
+          },
+          {
+            "source_id": "000006",
+            "reference_pixels": 6589,
+            "baseline_pixels": 6589,
+            "candidate_pixels": 6589,
+            "common_pixels": 6589,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 0.9013452719715429,
+                "abs_rel": 0.23372407591192215,
+                "rmse": 6.212161244850358
+              },
+              "mono": {
+                "scale": 9.6851207034198,
+                "abs_rel": 0.32123741669957456,
+                "rmse": 8.092673390403691
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.21557402790393967,
+                "rmse": 6.328683814121098
+              }
+            }
+          },
+          {
+            "source_id": "000007",
+            "reference_pixels": 5587,
+            "baseline_pixels": 5587,
+            "candidate_pixels": 5587,
+            "common_pixels": 5587,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.0554023892309834,
+                "abs_rel": 0.15135511507554078,
+                "rmse": 5.884865454788896
+              },
+              "mono": {
+                "scale": 10.480255188383966,
+                "abs_rel": 0.34743266331462297,
+                "rmse": 8.147683183524471
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.14967007346620917,
+                "rmse": 5.816220012172251
+              }
+            }
+          },
+          {
+            "source_id": "000008",
+            "reference_pixels": 6434,
+            "baseline_pixels": 6434,
+            "candidate_pixels": 6434,
+            "common_pixels": 6434,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 0.9487826623531331,
+                "abs_rel": 0.1712343758233684,
+                "rmse": 6.640438080651718
+              },
+              "mono": {
+                "scale": 9.66032257792818,
+                "abs_rel": 0.32045450030470485,
+                "rmse": 8.344581992799093
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.16280343193490382,
+                "rmse": 6.745731156653677
+              }
+            }
+          },
+          {
+            "source_id": "000009",
+            "reference_pixels": 5939,
+            "baseline_pixels": 5939,
+            "candidate_pixels": 5939,
+            "common_pixels": 5939,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 0.9127134250835115,
+                "abs_rel": 0.2495818260338348,
+                "rmse": 7.523434534145734
+              },
+              "mono": {
+                "scale": 10.611352633546376,
+                "abs_rel": 0.35749248010457113,
+                "rmse": 8.755539679780007
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.2529688710879453,
+                "rmse": 7.858126264093484
+              }
+            }
+          },
+          {
+            "source_id": "000010",
+            "reference_pixels": 6726,
+            "baseline_pixels": 6726,
+            "candidate_pixels": 6726,
+            "common_pixels": 6726,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 0.9264484493134955,
+                "abs_rel": 0.2127374843477807,
+                "rmse": 7.475983710471771
+              },
+              "mono": {
+                "scale": 9.753399945271811,
+                "abs_rel": 0.3276635658938176,
+                "rmse": 8.412188318552017
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.2006841632793702,
+                "rmse": 7.7869769571819685
+              }
+            }
+          },
+          {
+            "source_id": "000011",
+            "reference_pixels": 5711,
+            "baseline_pixels": 5711,
+            "candidate_pixels": 5711,
+            "common_pixels": 5711,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 0.9399010134338911,
+                "abs_rel": 0.21076496059872446,
+                "rmse": 6.646310887084064
+              },
+              "mono": {
+                "scale": 10.431410698123544,
+                "abs_rel": 0.34951965835939613,
+                "rmse": 8.99169374030307
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.20850704487031127,
+                "rmse": 6.730900812339712
+              }
+            }
+          },
+          {
+            "source_id": "000012",
+            "reference_pixels": 6673,
+            "baseline_pixels": 6673,
+            "candidate_pixels": 6673,
+            "common_pixels": 6673,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.0048673776393189,
+                "abs_rel": 0.1419856455975542,
+                "rmse": 7.782253322774718
+              },
+              "mono": {
+                "scale": 9.630374794800327,
+                "abs_rel": 0.32715547638270503,
+                "rmse": 9.115568245855124
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.14283667688855145,
+                "rmse": 7.767182008083042
+              }
+            }
+          },
+          {
+            "source_id": "000013",
+            "reference_pixels": 5779,
+            "baseline_pixels": 5779,
+            "candidate_pixels": 5779,
+            "common_pixels": 5779,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.0483475150848411,
+                "abs_rel": 0.14626126682690982,
+                "rmse": 5.533404212722852
+              },
+              "mono": {
+                "scale": 10.42678244717521,
+                "abs_rel": 0.3513764101500167,
+                "rmse": 8.937110550062906
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.14023498435239815,
+                "rmse": 5.597474297718762
+              }
+            }
+          },
+          {
+            "source_id": "000014",
+            "reference_pixels": 6783,
+            "baseline_pixels": 6783,
+            "candidate_pixels": 6783,
+            "common_pixels": 6783,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 0.8892412737827143,
+                "abs_rel": 0.2011587401709918,
+                "rmse": 6.211482609143846
+              },
+              "mono": {
+                "scale": 9.706467142275674,
+                "abs_rel": 0.33061507078747193,
+                "rmse": 8.97868287142722
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.18480986136279315,
+                "rmse": 6.025853115021552
+              }
+            }
+          },
+          {
+            "source_id": "000015",
+            "reference_pixels": 5752,
+            "baseline_pixels": 5752,
+            "candidate_pixels": 5752,
+            "common_pixels": 5752,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 0.909304975279773,
+                "abs_rel": 0.22119311861565163,
+                "rmse": 6.268603440858582
+              },
+              "mono": {
+                "scale": 10.517279085907017,
+                "abs_rel": 0.35674686567017994,
+                "rmse": 9.517357395560277
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.21544695419726836,
+                "rmse": 6.016392198321617
+              }
+            }
+          },
+          {
+            "source_id": "000016",
+            "reference_pixels": 6683,
+            "baseline_pixels": 6683,
+            "candidate_pixels": 6683,
+            "common_pixels": 6683,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 0.9243206659042997,
+                "abs_rel": 0.20155277419272427,
+                "rmse": 6.0086201803405315
+              },
+              "mono": {
+                "scale": 9.734861518199999,
+                "abs_rel": 0.33109056747300225,
+                "rmse": 8.932715709555739
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.18802793402551188,
+                "rmse": 5.89712235994443
+              }
+            }
+          },
+          {
+            "source_id": "000017",
+            "reference_pixels": 5688,
+            "baseline_pixels": 5688,
+            "candidate_pixels": 5688,
+            "common_pixels": 5688,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 0.9538761453106002,
+                "abs_rel": 0.1965648873221879,
+                "rmse": 5.831985698051962
+              },
+              "mono": {
+                "scale": 10.64069695949519,
+                "abs_rel": 0.35969311207568017,
+                "rmse": 9.196974511646728
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.19521974978338455,
+                "rmse": 5.698411416898654
+              }
+            }
+          },
+          {
+            "source_id": "000018",
+            "reference_pixels": 6226,
+            "baseline_pixels": 6226,
+            "candidate_pixels": 6226,
+            "common_pixels": 6226,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 0.9044383896395707,
+                "abs_rel": 0.19682854012982073,
+                "rmse": 5.851572689625922
+              },
+              "mono": {
+                "scale": 9.728408519399654,
+                "abs_rel": 0.33153309920390667,
+                "rmse": 9.298548114580877
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.17879610459075684,
+                "rmse": 5.582925395536878
+              }
+            }
+          },
+          {
+            "source_id": "000019",
+            "reference_pixels": 5579,
+            "baseline_pixels": 5579,
+            "candidate_pixels": 5579,
+            "common_pixels": 5579,
+            "candidate_preserves_baseline_support": true,
+            "metrics": {
+              "mact": {
+                "scale": 1.025734597704126,
+                "abs_rel": 0.15573290382574637,
+                "rmse": 5.7589138363854815
+              },
+              "mono": {
+                "scale": 10.690830866771362,
+                "abs_rel": 0.3614720145061959,
+                "rmse": 9.492967935386993
+              },
+              "unscaled_mact": {
+                "abs_rel": 0.15559851362282534,
+                "rmse": 5.829120616117558
+              }
+            }
+          }
+        ],
+        "checks": {
+          "all20frames_scored": true,
+          "no_support_loss": true,
+          "abs_rel_improves": false,
+          "rmse_improves": false
+        },
+        "pass": false,
+        "equal_frame_metrics": {
+          "mact": {
+            "abs_rel": 0.19090760801973228,
+            "rmse": 6.443989124546183
+          },
+          "mono": {
+            "abs_rel": 0.3450832628927819,
+            "rmse": 8.610129301484815
+          },
+          "unscaled_mact": {
+            "abs_rel": 0.18282415445069783,
+            "rmse": 6.4280375467223365
+          }
+        }
+      }
+    },
+    "decision": "CLOSE_THIS_CHECKPOINT_TRANSFER_CONFIGURATION_NO_RETUNING",
+    "scope": "Both models individually median-scaled on identical reference-supported pixels; depth structure only; exposed development data"
+  },
+  "input_gate": {
+    "status": "PASS_NOMINAL_SOURCE_CONVENTION_ONLY",
+    "same_default_coefficients_and_function_AST": true,
+    "roundtrip_checks": 18,
+    "raw_code_association_evidence": "Official MS2 demo.py applies Raw2Celsius directly to tgt_image; loader reads native float codes without normalization. GT loader divides depth PNG by256.",
+    "not_established": "Independent physical radiometric calibration, same camera operating settings, model-training overlap or metric scale.",
+    "source_sha256": {
+      "official_ms2": "8094e7f257a8b84ffb4eb705a1ca1f3d46907f6362c78093db453ff65d8b5dd7",
+      "author_vivid": "fc3f0b2457172a38c6e7839d1f20c134cabee3c1c73185e4ff1496b847c635f2",
+      "supervised_benchmark": "e2425f54c8da58b08788f388fe9192a1b5aa3d506e44a8f178fcfe20a5c038ce"
+    }
+  },
+  "audit": {
+    "status": "PASS",
+    "checks": 738,
+    "recording_pass": {
+      "day": false,
+      "night": false,
+      "rain": false
+    },
+    "auditor_sha256": "2c2c44620f3d632dc8a03f5d0761f3618d7ac0ba7ab34fb37429546bb2e4b65b",
+    "source": "Independent NumPy width interpolation and scalar metric reconstruction; shared raw data/OpenCV PNG decoder, no network rerun"
+  },
+  "tests_passed": 6
+}

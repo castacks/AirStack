@@ -132,6 +132,7 @@
       "docs/research/shared-sensor-representations-2026-11-09.md"
     ],
     "https://openaccess.thecvf.com/content/CVPR2023/papers/Shin_Deep_Depth_Estimation_From_Thermal_Image_CVPR_2023_paper.pdf": [
+      "docs/research/references/papers.json",
       "experiments/EXP-042-ms2-timestamp-semantics.md"
     ],
     "https://openaccess.thecvf.com/content/CVPR2025/papers/Shrivastava_Self-Supervised_Spatial_Correspondence_Across_Modalities_CVPR_2025_paper.pdf": [
@@ -183,6 +184,9 @@
       "docs/research/references/papers.json"
     ],
     "https://arxiv.org/abs/1806.01260v4": [
+      "docs/research/references/papers.json"
+    ],
+    "https://arxiv.org/abs/2503.22060v1": [
       "docs/research/references/papers.json"
     ]
   }

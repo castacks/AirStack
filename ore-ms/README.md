@@ -1,3 +1,5 @@
+2026-11-12 — [Fixed MS² depth transfer](docs/research/ms2-depth-transfer-findings-2026-11-12.md): all 60 frame pairs complete; median-scaled monocular errors exceed fresh MACT in day/night/rain, with no support loss. Source clip saturation was known before inference; all gates fail without retuning. Six tests and independent 738-check audit pass. Working paper library updated to 22 records.
+
 2026-11-12 — [ThermalSfMLearner-MS outdoor reproduction](docs/research/thermal-sfm-reproduction-findings-2026-11-12.md): author assets received; all 2,019 depth frames and 2,011 pose snippets complete. Pooled AbsRel 0.145709 / RMSE 4.696681 closely match paper 0.146 / 4.697; strict all-column/pose table match fails. Metric audits and full-author-script controls pass. Source/model/runtime pins and 20 working references retained; no MS² transfer claim.
 
 2026-11-12 — [Living paper library](docs/research/references/README.md) records reading levels, code pins and experiment links. [ThermalSfMLearner-MS intake](docs/research/thermal-sfm-reproduction-2026-11-12.md) pins author code; source-protocol reproduction awaits author checkpoint/processed-data access and has not run.
