@@ -81,7 +81,7 @@ def run(kind,scene):
     if kind=='depth':
         script=AUTHOR/'test_disp.py'
         args=['--pretrained-dispnet',str(ASSETS/'dispnet_disp_model_best.pth.tar'),
-              '--dataset-dir',str(ASSETS/'prepared'/scene)]
+              '--dataset-dir',str(ASSETS/'prepared'/scene)+'/']
     else:
         script=AUTHOR/'test_pose.py'
         args=['--pretrained-posenet',str(ASSETS/'exp_pose_pose_model_best.pth.tar'),

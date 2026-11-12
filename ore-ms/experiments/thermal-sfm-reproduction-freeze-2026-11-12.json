@@ -8189,9 +8189,11 @@
     "assets/dispnet_disp_model_best.pth.tar": "7bd81d3d3f844b648d90db197dfbeac2bcbce5b8fa63b26bb5da123c37e98b86",
     "assets/exp_pose_pose_model_best.pth.tar": "b095e34e31097b0eba6c35cd17dbd339d3fd749c6d0b6e1902a1ec86811ab0bb",
     "assets/calibration.tar": "0a6f4aa9279b1cfc38ecc00949f0d8120f7d8dc6e6d0d2c63a3d1a4914f4a2b4",
-    "workspace/tools/thermal_sfm_reproduction.py": "05cd0d1a4bda204aaf1e9153c74e745cefc0dab5853e9f27f7d48018b30d522b",
+    "workspace/tools/thermal_sfm_reproduction.py": "36c9deca58aab1abac6fc2588287d073eb35d55cce27b9bfc4341a2f7c509804",
     "workspace/tools/thermal_sfm_metrics.py": "424c68129064cece5dfdd3d192b5e9894eae71517053d0cd0d29a9eb1d301757",
     "workspace/environment/Dockerfile.thermal-sfm": "5693965f539ff1f595cda19c34dbd3bc4fc7dad6e0bc34f5abc171bbfed87039",
     "workspace/docs/research/thermal-sfm-execution-plan-2026-11-12.md": "72219eb153de1224991bac1905338f0afdf348768b5188a0b852d748c885dd5a"
-  }
+  },
+  "superseded_initial_freeze_sha256": "25a827b90bc59f6f376860e6902544f5b49c88d7dd4ce34d393182f774143e99",
+  "amendment": "Before first model forward: append the author-script trailing dataset directory slash. Original failed attempt retained; no prediction/scientific setting changed."
 }
