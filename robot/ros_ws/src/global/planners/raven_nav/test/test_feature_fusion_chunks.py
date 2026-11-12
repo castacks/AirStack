@@ -1,4 +1,4 @@
-"""Full feature fusion must remain bit-identical across channel chunks."""
+"""Full feature fusion must remain bit-identical across bounded chunks."""
 import numpy as np
 import pytest
 from raven_nav.semantic_map import SemanticMapFusion
@@ -32,3 +32,20 @@ def test_full_feature_fusion_exact_after_updates_and_pruning(dimensions):
             np.testing.assert_array_equal(actual[0], expected[0])
             np.testing.assert_array_equal(actual[1], expected[1])
             assert fusion.arrays() is actual
+
+
+def test_wide_feature_fusion_crosses_row_boundaries_with_sparse_overlap():
+    rng = np.random.default_rng(511)
+    fusion = SemanticMapFusion(.5)
+    labels = [f'f{i}' for i in range(1156)]
+    for stamp in [1, 2]:
+        for source in ['r1', 'r2', 'r3']:
+            cells = rng.choice(7000, 1800, replace=False)
+            xyz = np.c_[cells * .5, np.zeros((len(cells), 2))].astype(np.float32)
+            values = rng.normal(size=(len(cells), len(labels))).astype(np.float32)
+            fusion.update(source, xyz, values, labels, stamp)
+        assert len(fusion.arrays()[0]) > 2048
+        expected = original_arrays(fusion)
+        actual = fusion.arrays()
+        np.testing.assert_array_equal(actual[0], expected[0])
+        np.testing.assert_array_equal(actual[1], expected[1])

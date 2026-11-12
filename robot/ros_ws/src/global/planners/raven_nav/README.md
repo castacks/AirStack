@@ -633,7 +633,13 @@ final history snapshot can lose. Both options default off. They change no scores
 freshness timestamps, acceptance checks, map content, starts, or planner settings.
 
 Full-feature fusion accumulates in float64 and divides by source counts before
-casting to float32, processing 64 channels at a time to bound temporary memory.
+casting to float32, processing 1024 grid cells at a time to bound temporary memory.
+Sorted per-source cell indices allow contiguous full-feature row slices instead
+of repeatedly copying narrow channel slices. On three saved DowntownWest maps
+(82–94k cells each), exact deployment-image assembly fell from3.65s to1.05s
+with an identical SHA256 of all fused feature values. These are saved own maps,
+not captured decoded peer messages; they establish the assembly improvement,
+not a complete flight freshness result.
 All feature channels and source votes are retained; regression tests compare
 bit-for-bit with the previous full-width accumulator, including overlapping
 cells and pruned source snapshots.
