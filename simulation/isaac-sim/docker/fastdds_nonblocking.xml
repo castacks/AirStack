@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles" >
+    <!-- Opt-in profile: bounded non-blocking TCP sends prevent a stalled reader
+         from blocking Isaac's synchronous OmniGraph ROS publication. XML options
+         are required: changing only FASTDDS_BUILTIN_TRANSPORTS did not override
+         the explicit default participant profile in deployment-image tests.
+         LARGE_DATA builtin mode: UDP multicast for discovery, TCP (+ SHM
+         between same-version participants) for user data. Chosen because:
+         - large image messages (~600KB/frame) over UDP lose whole frames to
+           socket-buffer overflow crossing the docker bridge (kernel caps not
+           raisable on OSMO pods), and RELIABLE writers then retransmit-storm
+           (observed ~570MB/s on the bridge for ~47MB/s of payload);
+         - SHM alone can't cover the Isaac path: the isaacsim.ros2.bridge
+           ships its own Fast DDS whose SHM segments are incompatible with
+           the ROS Jazzy Fast DDS in the other containers. RTPS-over-TCP is
+           version-interoperable.
+         Requires every stack container to bind-mount the same host /dev/shm
+         (see compose files) for the SHM part; TCP needs nothing special. -->
+    <participant profile_name="large_data_profile" is_default_profile="true">
+        <rtps>
+            <builtinTransports max_msg_size="65500" sockets_size="16MB" non_blocking="true" tcp_negotiation_timeout="50">LARGE_DATA</builtinTransports>
+        </rtps>
+    </participant>
+</profiles>

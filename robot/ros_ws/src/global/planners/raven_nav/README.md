@@ -443,6 +443,19 @@ vectors and query metadata for offline fusion and new queries. Network counters
 continue to count actual delivered application bytes, including full-map resyncs.
 The frontier protocol is unchanged in both modes.
 
+For diagnosed Isaac ROS publication stalls, the optional Compose selector
+`ISAAC_FASTDDS_PROFILE=fastdds_nonblocking.xml` configures the simulator's default
+participant with nonblocking LARGE_DATA sends, 65500-byte fragments, 16MB socket
+buffers and a 50ms TCP negotiation timeout. The default selector remains
+`fastdds.xml`, preserving original behavior. An environment-only transport
+override did not prevent backpressure stalls with the existing explicit XML
+profile; the options must be in the selected XML. A deployment-image test paused
+one receiver for25s: the original profile blocked publication for25.0s, while
+the XML variant kept publishing to an unchanged LARGE_DATA healthy receiver
+(maximum publish call0.65s). This addresses the captured simulator transport
+stall; it does not establish a fix for a separate MAVROS startup failure.
+QoS, message content, local maps and strict freshness checks are unchanged.
+
 In reusable-feature mode, SemanticSearchTask checks the mapper's exported query
 labels after the initial query burst. It resends one missing label every five
 wall seconds until the complete configured vocabulary is acknowledged. This
