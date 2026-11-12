@@ -500,6 +500,17 @@ enabling it fixes missing GPS, stale odometry, or a stalled simulator.
 
 ## RayFronts missing query labels
 
+For startup TF failures, compare message arrival times with header timestamps.
+Mission507 robot2 continued publishing2733 distinct odometry positions during a
+195.1s takeoff window, but every header stamp stayed112.009997496. Thus a positive
+topic rate does not establish fresh state. Both odometry conversion restamp flags
+are false; do not hide upstream stale stamps by restamping. Optional
+`STARTUP_DIAGNOSTICS=true` records clock/raw and converted odometry/MAVROS
+State/safety arrivals and stamp ages to automatically collected JSONL. It is an
+independent observer, not proof of another node's internal clock or ARM wait
+stack. The0.19deploymentimage lacks gdb by default; prepare native capture tools
+before relying on them during a short-lived failure.
+
 In the vraven-multi-0.19.0-alpha.1 image, `Ros2MessagingService` receives text
 queries with RELIABLE KEEP_LAST depth 5 on a SingleThreadedExecutor, and encodes
 inside that callback. Reliability does not prevent an unread query from being

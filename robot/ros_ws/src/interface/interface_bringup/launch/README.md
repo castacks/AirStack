@@ -9,6 +9,18 @@ This directory contains both XML and Python versions of the interface launch fil
 
 ## Python Launch File Features
 
+Set `STARTUP_DIAGNOSTICS=true` to launch an independent read-only recorder in
+each robot container (default `false`). It writes one wall-time JSON record per
+second to `/tmp/raven_startup_<robot>.jsonl`, collected by OSMO's periodic and
+final log snapshots. It observes `/clock`, raw MAVROS and converted odometry,
+MAVROS State and the state-estimate safety flag. Counts, arrival age and time
+since the source stamp changed distinguish stopped delivery from continuing
+messages with frozen timestamps. XYZ and connected/armed/mode are preserved.
+The recorder never restamps data, changes safety flags, sends commands or
+attaches a debugger. Its own wall loop continues when simulation time pauses.
+An independent observer cannot prove another node's internal clock or where a
+service future is blocked; native process traces are still needed for that.
+
 The Python launch file (`interface.launch.py`) implements the same functionality as the XML version but with the following enhancements:
 
 ### Dynamic FCU URL Calculation

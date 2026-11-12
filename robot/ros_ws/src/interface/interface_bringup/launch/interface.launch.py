@@ -46,6 +46,12 @@ def launch_setup(context, *args, **kwargs):
     )
 
     actions = []
+    if os.getenv('STARTUP_DIAGNOSTICS', 'false').lower() == 'true':
+        actions.append(Node(
+            package='interface_bringup', executable='startup_diagnostics.py',
+            namespace='interface', output='screen',
+            parameters=[{'use_sim_time': False}],
+        ))
 
     # --- MAVROS (skipped in simple sim) -------------------------------------
     if sim_type != 'simple':

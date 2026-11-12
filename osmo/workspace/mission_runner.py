@@ -1108,6 +1108,7 @@ CONTROL_STACK_GLOBS = ("droan_gl*", "droan_local_planner*", "trajectory_controll
 # and the GCS relay/gossip/ddsrouter. lvlm_* is the FPV+LVLM baseline node's
 # stdout (model load, planned actions, NavigateTask sends, errors).
 TEE_LOG_GLOBS = ("/tmp/rayfronts_*.log", "/tmp/raven_*.log", "/tmp/lvlm_*.log",
+                 "/tmp/raven_startup_*.jsonl",
                  "/tmp/gossip_*.log", "/tmp/gossip_bandwidth_*.jsonl",
                  "/tmp/ddsrouter_*.log", "/tmp/relay_*.log")
 
