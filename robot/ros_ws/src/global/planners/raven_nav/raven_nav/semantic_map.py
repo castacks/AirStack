@@ -27,19 +27,30 @@ class SemanticMapFusion:
         if self.sources and labels != next(iter(self.sources.values()))[2]:
             raise ValueError('semantic map vocabulary/order differs from local queries')
         valid = np.isfinite(xyz).all(axis=1) & np.isfinite(scores).all(axis=1)
-        xyz, scores = xyz[valid], scores[valid]
+        if not valid.all():
+            xyz, scores = xyz[valid], scores[valid]
         keys = np.floor(xyz.astype(np.float64) / self.resolution).astype(np.int64)
         # Earlier cells persist when Rayfronts prunes its current snapshot.
         old = self.sources.get(source)
+        old_len = len(old[0]) if old is not None else 0
         if old is not None:
             keys = np.concatenate([old[0], keys])
-            values = np.concatenate([old[1], np.c_[xyz, scores]])
-        else:
-            values = np.c_[xyz, scores]
         # Last observation wins within one source (including duplicate cells).
         _, reverse_idx = np.unique(keys[::-1], axis=0, return_index=True)
         idx = len(keys) - 1 - reverse_idx
-        self.sources[source] = (keys[idx], values[idx], labels)
+        # Select winning rows before copying the wide feature matrix. Full
+        # snapshots usually replace almost every old row; concatenating both
+        # matrices first copies hundreds of MB that are immediately discarded.
+        # The selected keys/order and float32 values are exactly the same.
+        values = np.empty((len(idx), 3 + len(labels)), dtype=np.float32)
+        old_rows = np.flatnonzero(idx < old_len)
+        new_rows = np.flatnonzero(idx >= old_len)
+        if len(old_rows):
+            values[old_rows] = old[1][idx[old_rows]]
+        new_idx = idx[new_rows] - old_len
+        values[new_rows, :3] = xyz[new_idx]
+        values[new_rows, 3:] = scores[new_idx]
+        self.sources[source] = (keys[idx], values, labels)
         self.versions[source] = stamp
         self._cached = None
         return True

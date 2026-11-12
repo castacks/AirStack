@@ -561,6 +561,12 @@ dimensions (observed 19 GiB allocation failures on the deployed image).
 Batching retains every voxel and the same per-voxel query softmax; it changes
 neither the local map nor the wire PCA basis. Freshness checks remain strict.
 
+Source refreshes select the latest row of each source/cell before copying the
+wide feature matrix. This preserves pruned cells and last-observation ordering
+without first concatenating old and new full matrices. All finite checks,
+float32 values, source weights, and fused output remain identical; the source
+arrays retain their own copies even when every input row is finite.
+
 `GOSSIP_BUILTIN_TRANSPORTS=LARGE_DATA?max_msg_size=65500&sockets_size=16MB&non_blocking=true&tcp_negotiation_timeout=50` opts the gossip
 node and dedicated robot/GCS gossip DDS bridges into nonblocking socket sends.
 The default inherits the existing `LARGE_DATA` setting. Other DDS routers, local
