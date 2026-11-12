@@ -357,6 +357,16 @@ and cleanup removes only that helper and verifies that the target is detached.
 Attachment briefly pauses the selected process, so use it to diagnose an
 already invalid/stalled trial rather than during healthy measurements.
 
+For an instrumented mission, `OSMO_CAPTURE_STARTUP_STACKS=true` verifies the
+debugger image before readiness/flight and automatically captures MAVROS,
+robot-interface, odometry-conversion and takeoff-task stacks after an iteration
+has failed, before recordings stop or containers are removed. Passed or stopped
+iterations are never attached. `OSMO_NATIVE_DEBUGGER_IMAGE` can select a local
+image; otherwise the running Isaac container's image is used. Images are never
+pulled by the capture helper. This is disabled by default. Combine it with
+`STARTUP_DIAGNOSTICS=true` and raw odometry, `/clock`, MAVROS State and safety
+topics in `record.robot_topics` to preserve timestamp/command context.
+
 ## Out of scope (followups)
 
 - **OSMO-native split** — three separate OSMO tasks for `isaac-sim` /

@@ -1531,6 +1531,56 @@ def transport_snapshot_loop(iter_dir, stop_event, interval_s=5):
         stop_event.wait(interval_s)
 
 
+def prepare_native_debugger(stack):
+    """Verify optional capture tools before flight, without altering a robot."""
+    if stack.env.get('OSMO_CAPTURE_STARTUP_STACKS', 'false').lower() != 'true':
+        return None
+    image = stack.env.get('OSMO_NATIVE_DEBUGGER_IMAGE')
+    if not image:
+        simulators = list_containers('isaac-sim')
+        if not simulators:
+            raise RuntimeError('Native capture requested but no Isaac debugger image found')
+        result = sh(['docker', 'inspect', '-f', '{{.Config.Image}}', simulators[0]], 10)
+        image = result.stdout.strip() if result.returncode == 0 else ''
+    if not image:
+        raise RuntimeError('Cannot resolve native debugger image')
+    result = sh(['docker', 'run', '--rm', '--pull=never', '--cap-add=SYS_PTRACE',
+                 '--entrypoint=/bin/sh', image, '-c',
+                 'test -x /usr/bin/gdb && test -x /usr/bin/timeout'], 30)
+    if result.returncode:
+        raise RuntimeError('Native debugger preflight failed: ' + result.stderr[-1000:])
+    return image
+
+
+def capture_startup_failure_native(summary, dest_dir, image):
+    """Attach only after a failed iteration, before recorders or stack stop."""
+    if not image or summary.get('status') not in ('failed', 'error'):
+        return
+    from capture_robot_native_stack import capture
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    discover = '''import os,json
+names={'mavros_node','robot_interface_node','takeoff_landing_task','odometry_conversion'}
+found=[]
+for pid in os.listdir('/proc'):
+ if not pid.isdigit(): continue
+ try:
+  name=os.path.basename(os.readlink('/proc/'+pid+'/exe'))
+  if name in names: found.append([int(pid),name])
+ except OSError: pass
+print(json.dumps(found))'''
+    for robot in robot_containers():
+        try:
+            result = docker_exec(robot, 'python3 -c ' + shlex.quote(discover), 10)
+            processes = json.loads(result.stdout)
+            for pid, name in processes:
+                try:
+                    capture(robot, pid, image, dest_dir / f'{robot}_{name}_{pid}.log')
+                except Exception as exc:
+                    log(f'WARN: native capture {robot}/{name}/{pid}: {exc}')
+        except Exception as exc:
+            log(f'WARN: native process discovery {robot}: {exc}')
+
+
 def run_iteration(stack, mission, iter_dir):
     """One full up → ready → record → steps → collect → down cycle.
     Returns the iteration summary dict; never raises (failures are data)."""
@@ -1538,6 +1588,7 @@ def run_iteration(stack, mission, iter_dir):
     recorder = None
     container = None
     snap_stop = None
+    native_debugger_image = None
     t0 = time.time()
     try:
         # `airstack status`; if a stack is already up (baked entrypoint on a
@@ -1547,6 +1598,7 @@ def run_iteration(stack, mission, iter_dir):
         stack.ensure_down()
         containers = stack.up()
         container = containers[0]
+        native_debugger_image = prepare_native_debugger(stack)
         if stack.env.get('OSMO_CAPTURE_SIM_CONSOLE', 'false').lower() == 'true':
             start_simulator_console_capture()
         summary["up_duration_s"] = round(time.time() - t0, 2)
@@ -1602,6 +1654,11 @@ def run_iteration(stack, mission, iter_dir):
     finally:
         if snap_stop is not None:
             snap_stop.set()
+        try:
+            capture_startup_failure_native(
+                summary, iter_dir / 'logs' / 'native', native_debugger_image)
+        except Exception as exc:
+            log(f'WARN: native failure diagnostics: {exc}')
         # Artifact collection happens even on failure — a failed flight's
         # bag is usually the most interesting one.
         if recorder is not None:

@@ -32,7 +32,7 @@ def capture(container, pid, image, output, timeout_s=8):
     if int(before['TracerPid']) or before['State'].strip().startswith(('T', 't')):
         raise RuntimeError('Target is already traced or stopped; refusing to attach')
     helper = 'raven-stack-' + uuid.uuid4().hex[:12]
-    command = ['docker', 'run', '--rm', '--name', helper,
+    command = ['docker', 'run', '--rm', '--pull=never', '--name', helper,
                '--pid=container:' + container, '--cap-add=SYS_PTRACE',
                '--security-opt=seccomp=unconfined', '--entrypoint=/usr/bin/timeout',
                image, '--signal=TERM', '--kill-after=2s', str(timeout_s) + 's',
