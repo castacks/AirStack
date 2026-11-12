@@ -21,6 +21,7 @@
 #pragma once
 
 #include <atomic>
+#include <cstdint>
 #include <deque>
 #include <mutex>
 #include <string>
@@ -32,6 +33,8 @@
 #include <airstack_msgs/srv/trajectory_mode.hpp>
 #include <mavros_msgs/msg/extended_state.hpp>
 #include <nav_msgs/msg/odometry.hpp>
+#include <chrono>
+#include <mavros_msgs/msg/state.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <std_msgs/msg/bool.hpp>
@@ -52,6 +55,7 @@ public:
 
 private:
   // parameters
+  double takeoff_control_confirmation_s_;  // zero preserves the original handshake
   double default_takeoff_velocity_;
   double default_landing_velocity_;
   double takeoff_acceptance_distance_;
@@ -83,6 +87,13 @@ private:
 
   // landed state from mavros
   std::atomic<uint8_t> landed_state_{0};  // mavros_msgs::msg::ExtendedState::LANDED_STATE_UNDEFINED
+
+  std::mutex fcu_state_mutex_;
+  mavros_msgs::msg::State fcu_state_;
+  std::chrono::steady_clock::time_point fcu_state_received_at_;
+  uint64_t fcu_state_generation_{0};
+  bool confirmed_takeoff_control(uint64_t after_generation);
+  rclcpp::Subscription<mavros_msgs::msg::State>::SharedPtr fcu_state_sub_;
 
   // task exclusion
   std::atomic<bool> task_active_{false};

@@ -23,10 +23,19 @@
 #include <airstack_common/ros2_helper.hpp>
 #include <std_msgs/msg/float32.hpp>
 #include <thread>
+#include <cmath>
+#include <stdexcept>
 
 TakeoffLandingTaskNode::TakeoffLandingTaskNode()
 : rclcpp::Node("takeoff_landing_task")
 {
+  // Optional confirmation uses actual FCU telemetry, not MAVROS mode_sent.
+  // mode_sent only acknowledges sending SET_MODE; it does not confirm entry.
+  takeoff_control_confirmation_s_ =
+    airstack::get_param(this, "takeoff_control_confirmation_s", 0.0);
+  if (!std::isfinite(takeoff_control_confirmation_s_) || takeoff_control_confirmation_s_ < 0.0) {
+    throw std::invalid_argument("takeoff_control_confirmation_s must be finite and nonnegative");
+  }
   // parameters
   default_takeoff_velocity_ = airstack::get_param(this, "takeoff_velocity", 1.0);
   default_landing_velocity_ = airstack::get_param(this, "landing_velocity", 0.3);
@@ -44,6 +53,21 @@ TakeoffLandingTaskNode::TakeoffLandingTaskNode()
   // subscribers
   auto sensor_qos = rclcpp::QoS(1);
   sensor_qos.reliability(rclcpp::ReliabilityPolicy::BestEffort);
+
+  if (takeoff_control_confirmation_s_ > 0.0) {
+    fcu_state_sub_ = this->create_subscription<mavros_msgs::msg::State>(
+      "fcu_state", sensor_qos, [this](mavros_msgs::msg::State::SharedPtr msg) {
+        std::lock_guard<std::mutex> lock(fcu_state_mutex_);
+        if (fcu_state_generation_ == 0 || msg->armed != fcu_state_.armed ||
+            msg->mode != fcu_state_.mode || msg->connected != fcu_state_.connected) {
+          RCLCPP_INFO(this->get_logger(), "Takeoff FCU: connected=%d armed=%d mode=%s",
+            msg->connected, msg->armed, msg->mode.c_str());
+        }
+        fcu_state_ = *msg;
+        fcu_state_received_at_ = std::chrono::steady_clock::now();
+        ++fcu_state_generation_;
+      });
+  }
 
   robot_odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
     "odometry", sensor_qos,
@@ -172,6 +196,15 @@ bool TakeoffLandingTaskNode::send_robot_command(uint8_t command)
   return future.get()->success;
 }
 
+bool TakeoffLandingTaskNode::confirmed_takeoff_control(uint64_t after_generation)
+{
+  std::lock_guard<std::mutex> lock(fcu_state_mutex_);
+  return fcu_state_generation_ > after_generation && fcu_state_.connected &&
+    fcu_state_.armed && (fcu_state_.mode == "OFFBOARD" || fcu_state_.mode == "GUIDED") &&
+    std::chrono::duration<double>(std::chrono::steady_clock::now() -
+      fcu_state_received_at_).count() <= takeoff_control_confirmation_s_;
+}
+
 // ─────────────────────────── TakeoffTask ──────────────────────────────────────
 
 rclcpp_action::GoalResponse TakeoffLandingTaskNode::takeoff_handle_goal(
@@ -236,6 +269,12 @@ void TakeoffLandingTaskNode::takeoff_execute(std::shared_ptr<TakeoffGoalHandle> 
     wait_rate.sleep();
   }
 
+  uint64_t confirmation_after_generation = 0;
+  if (takeoff_control_confirmation_s_ > 0.0) {
+    std::lock_guard<std::mutex> lock(fcu_state_mutex_);
+    confirmation_after_generation = fcu_state_generation_;
+  }
+
   // arm the robot
   if (!is_armed_) {
     RCLCPP_INFO(this->get_logger(), "TakeoffTask: arming robot");
@@ -257,6 +296,32 @@ void TakeoffLandingTaskNode::takeoff_execute(std::shared_ptr<TakeoffGoalHandle> 
       result->success = false;
       result->message = "failed to request offboard control";
       goal_handle->abort(result);
+      task_active_ = false;
+      return;
+    }
+  }
+
+  if (takeoff_control_confirmation_s_ > 0.0) {
+    const auto deadline = std::chrono::steady_clock::now() +
+      std::chrono::duration<double>(takeoff_control_confirmation_s_);
+    while (rclcpp::ok() && !cancel_requested_ && !state_estimate_timed_out_ &&
+           !confirmed_takeoff_control(confirmation_after_generation) &&
+           std::chrono::steady_clock::now() < deadline) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    if (cancel_requested_ || state_estimate_timed_out_ ||
+        !confirmed_takeoff_control(confirmation_after_generation)) {
+      set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE);
+      result->success = false;
+      result->message = cancel_requested_ ? "canceled while confirming FCU control" :
+        (state_estimate_timed_out_ ? "state estimate timed out before ascent" :
+         "armed offboard control not confirmed before ascent");
+      RCLCPP_WARN(this->get_logger(), "TakeoffTask: %s", result->message.c_str());
+      if (cancel_requested_) {
+        goal_handle->canceled(result);
+      } else {
+        goal_handle->abort(result);
+      }
       task_active_ = false;
       return;
     }
@@ -323,6 +388,18 @@ void TakeoffLandingTaskNode::takeoff_execute(std::shared_ptr<TakeoffGoalHandle> 
       result->success = false;
       result->message = "canceled";
       goal_handle->canceled(result);
+      task_active_ = false;
+      return;
+    }
+
+    if (takeoff_control_confirmation_s_ > 0.0 &&
+        (state_estimate_timed_out_ || !confirmed_takeoff_control(confirmation_after_generation))) {
+      set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE);
+      result->success = false;
+      result->message = state_estimate_timed_out_ ? "state estimate timed out during ascent" :
+        "armed offboard control lost during ascent";
+      RCLCPP_WARN(this->get_logger(), "TakeoffTask: %s", result->message.c_str());
+      goal_handle->abort(result);
       task_active_ = false;
       return;
     }

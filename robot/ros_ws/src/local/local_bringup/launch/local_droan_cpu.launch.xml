@@ -18,6 +18,8 @@
     <!-- Takeoff/Landing Task Action Servers -->
     <node pkg="takeoff_landing_planner" exec="takeoff_landing_task"
           namespace="takeoff_landing_planner" output="screen">
+        <param name="takeoff_control_confirmation_s" value="$(env TAKEOFF_CONTROL_CONFIRMATION_S 0.0)" />
+        <remap from="fcu_state" to="/$(env ROBOT_NAME)/interface/mavros/state" />
         <param from="$(find-pkg-share takeoff_landing_planner)/config/takeoff_landing_planner.yaml"
             allow_substs="true" />
         <remap from="trajectory_override"

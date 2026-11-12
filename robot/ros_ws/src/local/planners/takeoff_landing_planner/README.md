@@ -101,12 +101,33 @@ The TakeoffLandingPlanner provides ROS 2 action servers for takeoff and landing 
 | `landing_velocity`                     | float | 0.3     | Default descent velocity in m/s                               |
 | `takeoff_acceptance_distance`          | float | 0.3     | Distance threshold to consider target altitude reached (m)    |
 | `takeoff_acceptance_time`              | float | 1.0     | Time that must be spent within acceptance distance (s)        |
+| `takeoff_control_confirmation_s`       | float | 0.0     | Optional wall-time FCU confirmation deadline and maximum telemetry age; zero preserves the original handshake |
 | `landing_stationary_distance`          | float | 0.02    | Max movement to consider the drone stationary on landing (m)  |
 | `landing_acceptance_time`              | float | 5.0     | Time the drone must remain stationary to confirm landing (s)  |
 | `landing_tracking_point_ahead_time`    | float | 5.0     | Lookahead time for the landing tracking point                 |
 | `takeoff_path_roll`                    | float | 0.0     | Roll offset for the takeoff trajectory (degrees)              |
 | `takeoff_path_pitch`                   | float | 0.0     | Pitch offset for the takeoff trajectory (degrees)             |
 | `takeoff_path_relative_to_orientation` | bool  | false   | Apply roll/pitch relative to the robot's current orientation  |
+
+When `takeoff_control_confirmation_s` is positive, takeoff waits for a new,
+connected, armed MAVROS `State` reporting `OFFBOARD` or `GUIDED` before entering
+trajectory tracking. A successful mode service response only acknowledges sending
+the mode command. The guard aborts on confirmation timeout, stale/lost FCU control,
+or a state-estimate timeout during ascent, and honors cancellation while waiting.
+It does not resend commands or change altitude, speed, or acceptance thresholds.
+
+Both local bringup variants expose this through `TAKEOFF_CONTROL_CONFIRMATION_S`
+(default `0.0`) and remap `fcu_state` to
+`/$(env ROBOT_NAME)/interface/mavros/state`. A standalone task node must supply that
+remapping explicitly. Choose a positive deadline longer than the expected FCU
+state publication interval and scheduling delay.
+
+The ROS integration checks in `test/scripts/test_takeoff_control_confirmation.py`
+run against the built C++ executable using fake FCU telemetry and acknowledged
+command services. After sourcing the workspace, set `TAKEOFF_TASK_EXECUTABLE` to
+the installed `takeoff_landing_task` binary and run the file with pytest. These
+checks verify the handshake and action outcomes; they do not establish simulated
+or physical flight performance.
 
 ## Dependencies
 

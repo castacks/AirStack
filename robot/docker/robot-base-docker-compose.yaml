@@ -14,6 +14,7 @@ services:
       - RECORD_BAGS=${RECORD_BAGS}
       # docker compose interpolation to env variables
       - AUTONOMY_ROLE=${AUTONOMY_ROLE:-full}
+      - TAKEOFF_CONTROL_CONFIRMATION_S=${TAKEOFF_CONTROL_CONFIRMATION_S:-0.0}
       - GOSSIP_STALL_DUMP_S=${GOSSIP_STALL_DUMP_S:-0}
       - RAVEN_MAP_PROFILE=${RAVEN_MAP_PROFILE:-false}
       - FRONTIER_ONLY_BASELINE=${FRONTIER_ONLY_BASELINE:-false}

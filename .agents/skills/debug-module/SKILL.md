@@ -486,6 +486,18 @@ Verify: Node now appears in ros2 node list ✓
 Solution: Added scipy dependency
 ```
 
+## Takeoff acknowledgement versus flight-controller state
+
+MAVROS `SetMode.Response.mode_sent` means the mode command was recognized and
+sent, not that the FCU entered that mode. For a ground-level takeoff timeout,
+preserve `/{robot}/interface/mavros/state` (`connected`, `armed`, `mode`) alongside
+actual odometry and the state-estimate safety flag. A task log saying
+"ascending" is not evidence of physical ascent. The optional
+`TAKEOFF_CONTROL_CONFIRMATION_S` guard in local bringup (default `0.0`) requires
+fresh armed OFFBOARD/GUIDED telemetry; its fake-FCU action tests verify the
+handshake, not a particular simulator failure's root cause. Do not infer that
+enabling it fixes missing GPS, stale odometry, or a stalled simulator.
+
 ## References
 
 - **ROS 2 Debugging:**
