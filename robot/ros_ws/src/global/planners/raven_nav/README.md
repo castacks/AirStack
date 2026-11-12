@@ -574,3 +574,15 @@ RAVEN log. `OSMO_CAPTURE_SIM_CONSOLE=true` in a mission preserves continuous Isa
 tmux output as `logs/isaac-sim_console_full.log`, including freeze onset that a
 final history snapshot can lose. Both options default off. They change no scores,
 freshness timestamps, acceptance checks, map content, starts, or planner settings.
+
+Full-feature fusion accumulates in float64 and divides by source counts before
+casting to float32, processing 64 channels at a time to bound temporary memory.
+All feature channels and source votes are retained; regression tests compare
+bit-for-bit with the previous full-width accumulator, including overlapping
+cells and pruned source snapshots.
+
+For run validation, check movement from recorded odometry bags, not auction
+poses alone: a stale planner odometry subscription can leave auction positions
+almost fixed while the physical robot moves. A missing boot GPS also blocks
+map participation even when mapper exports are healthy. Neither condition is
+proof of wire-PCA encoding failure; inspect source, receiver, and timing evidence.

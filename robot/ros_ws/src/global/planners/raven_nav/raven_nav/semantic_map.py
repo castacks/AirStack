@@ -51,14 +51,18 @@ class SemanticMapFusion:
             keys = np.concatenate([s[0] for s in self.sources.values()])
             sources = list(self.sources.values())
             _, inverse, count = np.unique(keys, axis=0, return_inverse=True, return_counts=True)
-            total = np.zeros((len(count), sources[0][1].shape[1]), dtype=np.float64)
-            # Each source contains unique cells, so ordinary indexed addition
-            # is correct within a source and avoids a huge concatenated feature
-            # matrix plus slow scalar np.add.at for full encoder dimensions.
-            offset = 0
-            for _, values, _ in sources:
-                total[inverse[offset:offset+len(values)]] += values
-                offset += len(values)
-            merged = (total / count[:, None]).astype(np.float32)
+            columns = sources[0][1].shape[1]
+            merged = np.empty((len(count), columns), dtype=np.float32)
+            # Keep the same source order and float64 sum/division, but bound
+            # temporary indexed copies to 64 channels. Full 1152D feature maps
+            # otherwise allocate several full-map float64 matrices per update.
+            for start in range(0, columns, 64):
+                end = min(start + 64, columns)
+                total = np.zeros((len(count), end - start), dtype=np.float64)
+                offset = 0
+                for _, values, _ in sources:
+                    total[inverse[offset:offset+len(values)]] += values[:, start:end]
+                    offset += len(values)
+                merged[:, start:end] = total / count[:, None]
             self._cached = merged[:, :3], merged[:, 3:]
         return self._cached
