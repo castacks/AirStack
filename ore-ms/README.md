@@ -1,3 +1,5 @@
+2026-11-12 — [Living paper library](docs/research/references/README.md) records reading levels, code pins and experiment links. [ThermalSfMLearner-MS intake](docs/research/thermal-sfm-reproduction-2026-11-12.md) pins author code; source-protocol reproduction awaits author checkpoint/processed-data access and has not run.
+
 2026-11-12 — [Completed raw thermal native refinement](docs/research/radiometric-native-findings-2026-11-12.md): exact-runtime three-record parity passes 7,839 arrays; all12 native arms/1,200 frames complete. Refinement worsens translation on every recording, with unchanged thermal coverage; all gates fail. Independent1,332-check audit passes. CLOSE_THIS_CONFIGURATION_NO_RETUNING.
 
 2026-11-12 — [Opt-in sparse raw-thermal hook](docs/research/radiometric-native-hook-2026-11-12.md) implemented with pinned-source instrumentation, original-endpoint retention on rejection and exact raw-image lookup. CPU checks pass; native runtime parity and accuracy comparison remain unexecuted.

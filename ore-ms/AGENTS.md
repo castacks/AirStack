@@ -20,3 +20,7 @@ across sessions.
 
 Current synthesis: `docs/research/progress-and-next-steps-2026-11-12.md` and
 `docs/research/research-direction-literature-2026-11-12.md`.
+
+## Living paper references
+
+Maintain `docs/research/references/README.md`, `papers.json` and `papers.bib` whenever a paper informs a proposal, implementation or experiment. Keep stable paper IDs, primary URLs/versions, reading depth/date, code/checkpoint pins, limitations and linked local decisions/results. Preserve historical reading events. Add cited historical sources from `citation-index.json` to the curated registry before relying on them; a citation is not proof of reading. Never describe a mechanism prototype as an author-system reproduction.

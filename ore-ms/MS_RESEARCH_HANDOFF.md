@@ -1,5 +1,7 @@
 # MS Research Handoff — Cross-Modal Geometric Uncertainty for RGB–Thermal Visual Odometry
 
+2026-11-12 — [Living paper library](docs/research/references/README.md):16curated records plus39historical primary-source URLs, reading histories and minimal BibTeX. [ThermalSfMLearner-MS reproduction intake](docs/research/thermal-sfm-reproduction-2026-11-12.md): author code pinned d2ab0fc5; pretrained models/processed ViViD require author link. NOT_REPRODUCED_ASSETS_REQUIRED; no training/inference.
+
 2026-11-12 — [Completed raw thermal native refinement](docs/research/radiometric-native-findings-2026-11-12.md): exact-runtime three-record parity passes 7,839 arrays; all12 native arms/1,200 frames complete. Refinement worsens translation on every recording, with unchanged thermal coverage; all gates fail. Independent1,332-check audit passes. CLOSE_THIS_CONFIGURATION_NO_RETUNING.
 
 2026-11-12 America/New_York — [Raw thermal tracking feasibility](docs/research/radiometric-tracking-preflight-2026-11-12.md): original-MAC initialization, native uint16 patches, fixed first pair of day/night/rain; 1,755 attempts, 16 new/64 total tests, 15,008 independent cost checks. Mechanics only; no motion/reference scoring or accuracy advancement. Sparse integration and covariance/rejection controls remain prerequisites.

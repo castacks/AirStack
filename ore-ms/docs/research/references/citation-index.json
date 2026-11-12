@@ -1,0 +1,159 @@
+{
+  "scope": "Historical primary-source URL inventory only; titles/versions/relevance not fully audited. Retains links beyond the curated working set.",
+  "sources": {
+    "https://arxiv.org/abs/1903.01534": [
+      "docs/research/research-steering-2026-11-02.md"
+    ],
+    "https://arxiv.org/abs/1909.07231": [
+      "docs/research/research-steering-2026-11-02.md"
+    ],
+    "https://arxiv.org/abs/2003.01060": [
+      "docs/research/research-direction-literature-2026-11-12.md",
+      "experiments/research-direction-literature-2026-11-12.json"
+    ],
+    "https://arxiv.org/abs/2012.03455": [
+      "docs/research/research-direction-literature-2026-11-12.md",
+      "experiments/research-direction-literature-2026-11-12.json"
+    ],
+    "https://arxiv.org/abs/2103.00760": [
+      "docs/research/research-direction-literature-2026-11-12.md",
+      "experiments/research-direction-literature-2026-11-12.json"
+    ],
+    "https://arxiv.org/abs/2108.10869": [
+      "docs/research/research-direction-literature-2026-11-12.md",
+      "experiments/research-direction-literature-2026-11-12.json"
+    ],
+    "https://arxiv.org/abs/2204.02256": [
+      "docs/research/progress-and-next-steps-2026-11-12.md"
+    ],
+    "https://arxiv.org/abs/2304.00152": [
+      "docs/research/uncertainty-method-papers-2026-10-27.md"
+    ],
+    "https://arxiv.org/abs/2305.09527": [
+      "docs/research/progress-and-next-steps-2026-11-12.md"
+    ],
+    "https://arxiv.org/abs/2409.09479": [
+      "MS_RESEARCH_HANDOFF.md",
+      "docs/research/next-experiment-pose-covariance-2026-11-09.md"
+    ],
+    "https://arxiv.org/abs/2506.03148": [
+      "docs/research/research-direction-literature-2026-11-12.md",
+      "docs/research/shared-sensor-representations-2026-11-09.md",
+      "experiments/research-direction-literature-2026-11-12.json"
+    ],
+    "https://arxiv.org/abs/2608.24544": [
+      "docs/research/research-direction-literature-2026-11-12.md",
+      "experiments/research-direction-literature-2026-11-12.json"
+    ],
+    "https://arxiv.org/abs/2609.07116": [
+      "MS_RESEARCH_HANDOFF.md",
+      "docs/research/research-direction-literature-2026-11-12.md"
+    ],
+    "https://arxiv.org/abs/2610.14513": [
+      "docs/research/research-direction-literature-2026-11-12.md",
+      "docs/research/shared-sensor-representations-2026-11-09.md",
+      "experiments/research-direction-literature-2026-11-12.json"
+    ],
+    "https://arxiv.org/html/1905.11659": [
+      "docs/research/uncertainty-method-papers-2026-10-27.md"
+    ],
+    "https://arxiv.org/html/2012.03455v1": [
+      "docs/research/radiometric-tracking-preflight-2026-11-12.md"
+    ],
+    "https://arxiv.org/html/2204.02256v1": [
+      "docs/research/bearing-rotation-assay-findings-2026-11-12.md",
+      "docs/research/bearing-rotation-preflight-findings-2026-11-12.md",
+      "docs/research/bearing-rotation-transfer-findings-2026-11-12.md",
+      "docs/research/research-direction-literature-2026-11-12.md",
+      "docs/research/unweighted-longer-findings-2026-11-12.md",
+      "experiments/bearing-rotation-assay-protocol-2026-11-12.json",
+      "experiments/research-direction-literature-2026-11-12.json"
+    ],
+    "https://arxiv.org/html/2305.09527v2": [
+      "docs/research/bearing-rotation-assay-findings-2026-11-12.md",
+      "docs/research/bearing-rotation-preflight-findings-2026-11-12.md",
+      "docs/research/bearing-rotation-transfer-findings-2026-11-12.md",
+      "docs/research/research-direction-literature-2026-11-12.md",
+      "experiments/bearing-rotation-assay-protocol-2026-11-12.json",
+      "experiments/research-direction-literature-2026-11-12.json"
+    ],
+    "https://arxiv.org/html/2402.01913v1": [
+      "docs/research/dataset-provenance-2026-10-20.md"
+    ],
+    "https://arxiv.org/html/2402.01913v1#S3.SS3.SSS3": [
+      "docs/research/filtered-odometry-provenance-2026-10-21.md"
+    ],
+    "https://arxiv.org/html/2409.09479v2": [
+      "docs/research/literature-2026-10-20.md",
+      "docs/research/temporal-selector-proposal-2026-10-28.md",
+      "docs/research/uncertainty-training-semantics-2026-10-28.md",
+      "experiments/EXP-016-temporal-context.md"
+    ],
+    "https://arxiv.org/html/2501.19274v1": [
+      "docs/research/dataset-provenance-2026-10-20.md"
+    ],
+    "https://arxiv.org/html/2503.22060v1#S3.SS1": [
+      "docs/research/ms2-clock-evidence-findings-2026-11-04.md",
+      "experiments/EXP-042-ms2-timestamp-semantics.md"
+    ],
+    "https://arxiv.org/html/2608.24544v1": [
+      "docs/research/radiometric-tracking-preflight-2026-11-12.md"
+    ],
+    "https://arxiv.org/html/2609.07116": [
+      "docs/research/next-experiment-pose-covariance-2026-11-09.md"
+    ],
+    "https://arxiv.org/html/2610.14513v1": [
+      "docs/research/shared-representation-feasibility-2026-11-09.md"
+    ],
+    "https://doi.org/10.3390/s22155540": [
+      "docs/research/uncertainty-method-papers-2026-10-27.md"
+    ],
+    "https://ieeexplore.ieee.org/document/10803066/": [
+      "docs/research/radiometric-tracking-preflight-2026-11-12.md",
+      "docs/research/research-direction-literature-2026-11-12.md",
+      "experiments/research-direction-literature-2026-11-12.json"
+    ],
+    "https://openaccess.thecvf.com/content/CVPR2023/html/Chen_Learning_the_Distribution_of_Errors_in_Stereo_Matching_for_Joint_CVPR_2023_paper.html": [
+      "docs/research/uncertainty-method-papers-2026-10-27.md"
+    ],
+    "https://openaccess.thecvf.com/content/CVPR2023/html/Girdhar_ImageBind_One_Embedding_Space_To_Bind_Them_All_CVPR_2023_paper.html": [
+      "docs/research/shared-sensor-representations-2026-11-09.md"
+    ],
+    "https://openaccess.thecvf.com/content/CVPR2023/papers/Shin_Deep_Depth_Estimation_From_Thermal_Image_CVPR_2023_paper.pdf": [
+      "experiments/EXP-042-ms2-timestamp-semantics.md"
+    ],
+    "https://openaccess.thecvf.com/content/CVPR2025/papers/Shrivastava_Self-Supervised_Spatial_Correspondence_Across_Modalities_CVPR_2025_paper.pdf": [
+      "docs/research/shared-sensor-representations-2026-11-09.md"
+    ],
+    "https://openaccess.thecvf.com/content_cvpr_2017/html/Treible_CATS_A_Color_CVPR_2017_paper.html": [
+      "docs/research/cats-intake-2026-10-28.md"
+    ],
+    "https://openaccess.thecvf.com/content_cvpr_2017/papers/Treible_CATS_A_Color_CVPR_2017_paper.pdf": [
+      "docs/research/external-validation-options-2026-10-25.md"
+    ],
+    "https://proceedings.neurips.cc/paper/2016/hash/45fbc6d3e05ebd93369ce542e8f2322d-Abstract.html": [
+      "docs/research/shared-sensor-representations-2026-11-09.md"
+    ],
+    "https://publications.ri.cmu.edu/3d-thermal-perception-for-autonomous-navigation-in-visually-degraded-unstructured-environments": [
+      "docs/research/next-experiment-pose-covariance-2026-11-09.md",
+      "docs/research/research-direction-literature-2026-11-12.md",
+      "experiments/research-direction-literature-2026-11-12.json"
+    ],
+    "https://publications.ri.cmu.edu/learned-metrics-aware-covariance-for-visual-inertial-fusion": [
+      "MS_RESEARCH_HANDOFF.md",
+      "docs/research/research-steering-2026-11-02.md"
+    ],
+    "https://publications.ri.cmu.edu/storage/publications/2025/12/YifeiLiu_CMU_MSR_Thesis_ThermalOffroadAutonomy.pdf": [
+      "docs/research/dataset-provenance-2026-10-20.md",
+      "docs/research/literature-2026-10-20.md",
+      "docs/research/temporal-selector-proposal-2026-10-28.md",
+      "docs/research/uncertainty-training-semantics-2026-10-28.md",
+      "experiments/EXP-016-temporal-context.md",
+      "experiments/EXP-017-thermal-provenance.md",
+      "experiments/EXP-043-ms2-mac-adapter.md"
+    ],
+    "https://www.ecva.net/papers/eccv_2020/papers_ECCV/html/1453_ECCV_2020_paper.php": [
+      "docs/research/shared-sensor-representations-2026-11-09.md"
+    ]
+  }
+}

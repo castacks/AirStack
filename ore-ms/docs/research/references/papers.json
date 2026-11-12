@@ -1,0 +1,403 @@
+{
+  "updated": "2026-11-12",
+  "scope": "Living working references. Citation presence is not evidence of reading or reproduction. Unresolved historical links remain in citation-index.json; promote to reviewed entries only after checking metadata and relevance.",
+  "papers": [
+    {
+      "id": "pnec",
+      "title": "The Probabilistic Normal Epipolar Constraint for Frame-To-Frame Rotation Optimization under Uncertain Feature Positions",
+      "venue_or_version": "CVPR 2022",
+      "url": "https://arxiv.org/html/2204.02256v1",
+      "inspection": "Method/optimization/singularities inspected; see historical registry.",
+      "code": "https://github.com/tum-vision/pnec/tree/51dc8ddfa93a9622efcaf534908a2b30928a2e04",
+      "reading_history": [
+        {
+          "source_note": "experiments/research-direction-literature-2026-11-12.json",
+          "inspection": "Method, optimization algorithm, singularities and appendix limitations inspected"
+        }
+      ],
+      "local_status": "Equation-level local prototype only; fixed covariance/rotation routes closed without promotion.",
+      "decision_notes": [
+        "docs/research/bearing-rotation-transfer-findings-2026-11-12.md"
+      ],
+      "updated": "2026-11-12",
+      "historical_citations": [
+        "docs/research/bearing-rotation-assay-findings-2026-11-12.md",
+        "docs/research/bearing-rotation-preflight-findings-2026-11-12.md",
+        "docs/research/bearing-rotation-transfer-findings-2026-11-12.md",
+        "docs/research/progress-and-next-steps-2026-11-12.md",
+        "docs/research/research-direction-literature-2026-11-12.md",
+        "docs/research/unweighted-longer-findings-2026-11-12.md",
+        "experiments/bearing-rotation-assay-protocol-2026-11-12.json",
+        "experiments/research-direction-literature-2026-11-12.json"
+      ]
+    },
+    {
+      "id": "dnls",
+      "title": "Learning Correspondence Uncertainty via Differentiable Nonlinear Least Squares",
+      "venue_or_version": "CVPR 2023",
+      "url": "https://arxiv.org/html/2305.09527v2",
+      "inspection": "Method/self-supervision/limitations inspected in earlier review; abstract rechecked.",
+      "code": "https://github.com/DominikMuhle/dnls_covs/tree/73d2e5c8dcd9afe2e6a82db3425d7d2704c54ae0",
+      "reading_history": [
+        {
+          "source_note": "experiments/research-direction-literature-2026-11-12.json",
+          "inspection": "Method, self-supervised learning and limitations inspected"
+        }
+      ],
+      "local_status": "No official optimizer or learning-system reproduction; conditional flow covariance is not symmetric endpoint covariance.",
+      "decision_notes": [
+        "docs/research/research-direction-literature-2026-11-12.md"
+      ],
+      "updated": "2026-11-12",
+      "historical_citations": [
+        "docs/research/bearing-rotation-assay-findings-2026-11-12.md",
+        "docs/research/bearing-rotation-preflight-findings-2026-11-12.md",
+        "docs/research/bearing-rotation-transfer-findings-2026-11-12.md",
+        "docs/research/progress-and-next-steps-2026-11-12.md",
+        "docs/research/research-direction-literature-2026-11-12.md",
+        "experiments/bearing-rotation-assay-protocol-2026-11-12.json",
+        "experiments/research-direction-literature-2026-11-12.json"
+      ]
+    },
+    {
+      "id": "self-tio",
+      "title": "Self-TIO: Thermal-Inertial Odometry via Self-Supervised 16-Bit Feature Extractor and Tracker",
+      "venue_or_version": "RA-L 2025",
+      "url": "https://ieeexplore.ieee.org/document/10803066/",
+      "inspection": "Publisher abstract and author dataset repository availability statement inspected; full article not read.",
+      "code": null,
+      "reading_history": [
+        {
+          "source_note": "experiments/research-direction-literature-2026-11-12.json",
+          "inspection": "Publisher abstract/metadata; full page blocked by browser verification; no full-paper or code audit"
+        }
+      ],
+      "local_status": "Authors do not release code/networks per repository; local prototype is not Self-TIO.",
+      "decision_notes": [
+        "docs/research/radiometric-tracking-preflight-2026-11-12.md"
+      ],
+      "availability_source": "https://github.com/junwoonlee/self-tio-dataset",
+      "updated": "2026-11-12",
+      "historical_citations": [
+        "docs/research/radiometric-tracking-preflight-2026-11-12.md",
+        "docs/research/research-direction-literature-2026-11-12.md",
+        "experiments/research-direction-literature-2026-11-12.json"
+      ]
+    },
+    {
+      "id": "tp-tio",
+      "title": "TP-TIO: A Robust Thermal-Inertial Odometry with Deep ThermalPoint",
+      "venue_or_version": "IROS 2020",
+      "url": "https://arxiv.org/abs/2012.03455",
+      "inspection": "Tracking section III-C inspected on 2026-11-12; full system not reproduced.",
+      "code": null,
+      "reading_history": [
+        {
+          "source_note": "experiments/research-direction-literature-2026-11-12.json",
+          "inspection": "Author abstract; not full method reproduction"
+        }
+      ],
+      "local_status": "Inspired translation-only patch prototype; exact local raw-refinement configuration failed; this does not reject TP-TIO.",
+      "decision_notes": [
+        "docs/research/radiometric-native-findings-2026-11-12.md"
+      ],
+      "updated": "2026-11-12",
+      "historical_citations": [
+        "docs/research/radiometric-tracking-preflight-2026-11-12.md",
+        "docs/research/research-direction-literature-2026-11-12.md",
+        "experiments/research-direction-literature-2026-11-12.json"
+      ]
+    },
+    {
+      "id": "thermal-sfm",
+      "title": "Self-Supervised Depth and Ego-Motion Estimation for Monocular Thermal Video Using Multi-Spectral Consistency Loss",
+      "venue_or_version": "arXiv 2103.00760v3",
+      "url": "https://arxiv.org/abs/2103.00760",
+      "inspection": "Method III-B/C and implementation/evaluation IV inspected; exact author code scripts, preprocessing and scale evaluation inspected.",
+      "code": "https://github.com/UkcheolShin/ThermalSfMLearner-MS/tree/d2ab0fc5e92972e248b641572f4b595dd67af83d",
+      "reading_history": [
+        {
+          "source_note": "experiments/research-direction-literature-2026-11-12.json",
+          "inspection": "Author abstract and method scope; no code/runtime assessment"
+        }
+      ],
+      "local_status": "Reproduction pending author checkpoint and processed ViViD data; not executed.",
+      "decision_notes": [
+        "docs/research/thermal-sfm-reproduction-2026-11-12.md"
+      ],
+      "authors": [
+        "Ukcheol Shin",
+        "Kyunghyun Lee",
+        "Seokju Lee",
+        "In So Kweon"
+      ],
+      "updated": "2026-11-12",
+      "historical_citations": [
+        "docs/research/research-direction-literature-2026-11-12.md",
+        "experiments/research-direction-literature-2026-11-12.json"
+      ]
+    },
+    {
+      "id": "d3vo",
+      "title": "D3VO: Deep Depth, Deep Pose and Deep Uncertainty for Monocular Visual Odometry",
+      "venue_or_version": "CVPR 2020",
+      "url": "https://arxiv.org/abs/2003.01060",
+      "inspection": "Author abstract; no implementation audit",
+      "code": null,
+      "reading_history": [
+        {
+          "source_note": "experiments/research-direction-literature-2026-11-12.json",
+          "inspection": "Author abstract; no implementation audit"
+        }
+      ],
+      "local_status": "See historical notes; no new reproduction asserted",
+      "decision_notes": [
+        "docs/research/research-direction-literature-2026-11-12.md"
+      ],
+      "updated": "2026-11-12",
+      "historical_citations": [
+        "docs/research/research-direction-literature-2026-11-12.md",
+        "experiments/research-direction-literature-2026-11-12.json"
+      ]
+    },
+    {
+      "id": "droid",
+      "title": "DROID-SLAM: Deep Visual SLAM for Monocular, Stereo, and RGB-D Cameras",
+      "venue_or_version": "NeurIPS 2021",
+      "url": "https://arxiv.org/abs/2108.10869",
+      "inspection": "Author abstract/proceedings method description; existing project baseline reports reviewed",
+      "code": null,
+      "reading_history": [
+        {
+          "source_note": "experiments/research-direction-literature-2026-11-12.json",
+          "inspection": "Author abstract/proceedings method description; existing project baseline reports reviewed"
+        }
+      ],
+      "local_status": "See historical notes; no new reproduction asserted",
+      "decision_notes": [
+        "docs/research/research-direction-literature-2026-11-12.md"
+      ],
+      "updated": "2026-11-12",
+      "historical_citations": [
+        "docs/research/research-direction-literature-2026-11-12.md",
+        "experiments/research-direction-literature-2026-11-12.json"
+      ]
+    },
+    {
+      "id": "maci2",
+      "title": "MAC-I²: Learned Metrics-Aware Covariance for Robust Visual-Inertial Fusion in Initialization and Calibration",
+      "venue_or_version": "arXiv 2609.07116",
+      "url": "https://mac-i2.github.io/",
+      "inspection": "Author project method description and abstract; no new code audit",
+      "code": null,
+      "reading_history": [
+        {
+          "source_note": "experiments/research-direction-literature-2026-11-12.json",
+          "inspection": "Author project method description and abstract; no new code audit"
+        }
+      ],
+      "local_status": "See historical notes; no new reproduction asserted",
+      "decision_notes": [
+        "docs/research/research-direction-literature-2026-11-12.md"
+      ],
+      "updated": "2026-11-12",
+      "historical_citations": []
+    },
+    {
+      "id": "cmrw",
+      "title": "Self-Supervised Spatial Correspondence Across Modalities",
+      "venue_or_version": "CVPR 2025",
+      "url": "https://arxiv.org/abs/2506.03148",
+      "inspection": "Author abstract; earlier local feasibility review consulted",
+      "code": "https://github.com/ayshrv/cmrw",
+      "reading_history": [
+        {
+          "source_note": "experiments/research-direction-literature-2026-11-12.json",
+          "inspection": "Author abstract; earlier local feasibility review consulted"
+        }
+      ],
+      "local_status": "See historical notes; no new reproduction asserted",
+      "decision_notes": [
+        "docs/research/research-direction-literature-2026-11-12.md"
+      ],
+      "updated": "2026-11-12",
+      "historical_citations": [
+        "docs/research/research-direction-literature-2026-11-12.md",
+        "docs/research/shared-sensor-representations-2026-11-09.md",
+        "experiments/research-direction-literature-2026-11-12.json"
+      ]
+    },
+    {
+      "id": "tartanmatch",
+      "title": "TartanMatch: Towards Universal Dense Correspondence Across Modalities",
+      "venue_or_version": "arXiv 2610.14513",
+      "url": "https://arxiv.org/abs/2610.14513",
+      "inspection": "Released code/checkpoint executed in prior native pilot.",
+      "code": "https://github.com/castacks/tartanmatch/tree/b3f65ffdf9723a028d82f36ab0beb8457d0def72",
+      "reading_history": [
+        {
+          "source_note": "experiments/research-direction-literature-2026-11-12.json",
+          "inspection": "Author abstract plus exact released source inspected/executed in preceding pilot"
+        }
+      ],
+      "local_status": "Pretrained matcher executed; fixed replacement/native and longer rotation configurations failed their gates.",
+      "decision_notes": [
+        "docs/research/thermal-matcher-pilot-findings-2026-11-12.md",
+        "docs/research/unweighted-longer-findings-2026-11-12.md"
+      ],
+      "updated": "2026-11-12",
+      "historical_citations": [
+        "docs/research/research-direction-literature-2026-11-12.md",
+        "docs/research/shared-representation-feasibility-2026-11-09.md",
+        "docs/research/shared-sensor-representations-2026-11-09.md",
+        "experiments/research-direction-literature-2026-11-12.json"
+      ]
+    },
+    {
+      "id": "macthermal",
+      "title": "3D Thermal Perception for Autonomous Navigation in Visually Degraded, Unstructured Environments",
+      "venue_or_version": "CMU MS thesis 2025",
+      "url": "https://publications.ri.cmu.edu/3d-thermal-perception-for-autonomous-navigation-in-visually-degraded-unstructured-environments",
+      "inspection": "Institutional author abstract and indexed Chapter 3 excerpt; full thesis not parsed",
+      "code": null,
+      "reading_history": [
+        {
+          "source_note": "experiments/research-direction-literature-2026-11-12.json",
+          "inspection": "Institutional author abstract and indexed Chapter 3 excerpt; full thesis not parsed"
+        },
+        {
+          "source_note": "docs/research/literature-2026-10-20.md",
+          "inspection": "October note records method sections and full-PDF parsing; later November review was narrower. Preserve both accounts.",
+          "pdf_sha256": "91d680477b21d2292e81877df8ed05dfef0dbe829784857baa1581add645d6a4"
+        }
+      ],
+      "local_status": "See historical notes; no new reproduction asserted",
+      "decision_notes": [
+        "docs/research/research-direction-literature-2026-11-12.md"
+      ],
+      "updated": "2026-11-12",
+      "historical_citations": [
+        "docs/research/next-experiment-pose-covariance-2026-11-09.md",
+        "docs/research/research-direction-literature-2026-11-12.md",
+        "experiments/research-direction-literature-2026-11-12.json"
+      ]
+    },
+    {
+      "id": "kltnet",
+      "title": "KLTNet: Learning Sparse Feature Tracking for Robust and Accurate Monocular Visual-Inertial Odometry",
+      "venue_or_version": "arXiv 2608.24544",
+      "url": "https://arxiv.org/abs/2608.24544",
+      "inspection": "Sections III-A/B inspected 2026-11-12; official code/checkpoints not established.",
+      "code": null,
+      "reading_history": [
+        {
+          "source_note": "experiments/research-direction-literature-2026-11-12.json",
+          "inspection": "Author abstract; code/checkpoint availability not established"
+        }
+      ],
+      "local_status": "Mechanism inspiration only; no learned triplet tracker reproduction.",
+      "decision_notes": [
+        "docs/research/radiometric-tracking-preflight-2026-11-12.md"
+      ],
+      "updated": "2026-11-12",
+      "historical_citations": [
+        "docs/research/radiometric-tracking-preflight-2026-11-12.md",
+        "docs/research/research-direction-literature-2026-11-12.md",
+        "experiments/research-direction-literature-2026-11-12.json"
+      ]
+    },
+    {
+      "id": "macvo",
+      "title": "MAC-VO: Metrics-aware Covariance for Learning-based Stereo Visual Odometry",
+      "url": "https://arxiv.org/html/2409.09479v2",
+      "inspection": "Historical reading note retained; not freshly reverified in this pass",
+      "code": null,
+      "prior_note": "docs/research/literature-2026-10-20.md",
+      "reading_history": [
+        {
+          "source_note": "docs/research/literature-2026-10-20.md",
+          "inspection": "Historical reading note retained; not freshly reverified in this pass"
+        }
+      ],
+      "local_status": "See historical notes; no new reproduction asserted",
+      "decision_notes": [
+        "docs/research/literature-2026-10-20.md"
+      ],
+      "updated": "2026-11-12",
+      "historical_citations": [
+        "MS_RESEARCH_HANDOFF.md",
+        "docs/research/literature-2026-10-20.md",
+        "docs/research/next-experiment-pose-covariance-2026-11-09.md",
+        "docs/research/temporal-selector-proposal-2026-10-28.md",
+        "docs/research/uncertainty-training-semantics-2026-10-28.md",
+        "experiments/EXP-016-temporal-context.md"
+      ]
+    },
+    {
+      "id": "imagebind",
+      "title": "ImageBind: One Embedding Space To Bind Them All",
+      "url": "https://openaccess.thecvf.com/content/CVPR2023/html/Girdhar_ImageBind_One_Embedding_Space_To_Bind_Them_All_CVPR_2023_paper.html",
+      "inspection": "Historical reading note retained; not freshly reverified in this pass",
+      "code": null,
+      "prior_note": "docs/research/shared-sensor-representations-2026-11-09.md",
+      "reading_history": [
+        {
+          "source_note": "docs/research/shared-sensor-representations-2026-11-09.md",
+          "inspection": "Historical reading note retained; not freshly reverified in this pass"
+        }
+      ],
+      "local_status": "See historical notes; no new reproduction asserted",
+      "decision_notes": [
+        "docs/research/shared-sensor-representations-2026-11-09.md"
+      ],
+      "updated": "2026-11-12",
+      "historical_citations": [
+        "docs/research/shared-sensor-representations-2026-11-09.md"
+      ]
+    },
+    {
+      "id": "cmc",
+      "title": "Contrastive Multiview Coding",
+      "url": "https://www.ecva.net/papers/eccv_2020/papers_ECCV/html/1453_ECCV_2020_paper.php",
+      "inspection": "Historical reading note retained; not freshly reverified in this pass",
+      "code": null,
+      "prior_note": "docs/research/shared-sensor-representations-2026-11-09.md",
+      "reading_history": [
+        {
+          "source_note": "docs/research/shared-sensor-representations-2026-11-09.md",
+          "inspection": "Historical reading note retained; not freshly reverified in this pass"
+        }
+      ],
+      "local_status": "See historical notes; no new reproduction asserted",
+      "decision_notes": [
+        "docs/research/shared-sensor-representations-2026-11-09.md"
+      ],
+      "updated": "2026-11-12",
+      "historical_citations": [
+        "docs/research/shared-sensor-representations-2026-11-09.md"
+      ]
+    },
+    {
+      "id": "dsn",
+      "title": "Domain Separation Networks",
+      "url": "https://proceedings.neurips.cc/paper/2016/hash/45fbc6d3e05ebd93369ce542e8f2322d-Abstract.html",
+      "inspection": "Historical reading note retained; not freshly reverified in this pass",
+      "code": null,
+      "prior_note": "docs/research/shared-sensor-representations-2026-11-09.md",
+      "reading_history": [
+        {
+          "source_note": "docs/research/shared-sensor-representations-2026-11-09.md",
+          "inspection": "Historical reading note retained; not freshly reverified in this pass"
+        }
+      ],
+      "local_status": "See historical notes; no new reproduction asserted",
+      "decision_notes": [
+        "docs/research/shared-sensor-representations-2026-11-09.md"
+      ],
+      "updated": "2026-11-12",
+      "historical_citations": [
+        "docs/research/shared-sensor-representations-2026-11-09.md"
+      ]
+    }
+  ]
+}

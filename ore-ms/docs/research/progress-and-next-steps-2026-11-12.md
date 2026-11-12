@@ -1,5 +1,7 @@
 # RGB–Thermal Visual Odometry: Progress and Direction
 
+**Current next work:** [published thermal baseline reproduction intake](thermal-sfm-reproduction-2026-11-12.md), pending author model/processed-ViViD link. Source is pinned; no published result reproduced yet. Keep the [living paper library](references/README.md) updated for every paper used.
+
 **Latest: [native raw thermal refinement](radiometric-native-findings-2026-11-12.md) is complete.** All three recording gates fail: translation mean/RMSE worsen, thermal coverage is unchanged, RGB remains better. The exact configuration is closed without retuning. All1,200frames,7,839parity arrays and1,332independent audit checks pass. The feasibility and hook milestones below are historical, not pending accuracy evidence.
 
 **12 November 2026 · accuracy and literature-informed next work**
