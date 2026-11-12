@@ -1,5 +1,9 @@
 # MS Research Handoff — Cross-Modal Geometric Uncertainty for RGB–Thermal Visual Odometry
 
+2026-11-12 America/New_York — [Raw thermal tracking feasibility](docs/research/radiometric-tracking-preflight-2026-11-12.md): original-MAC initialization, native uint16 patches, fixed first pair of day/night/rain; 1,755 attempts, 16 new/64 total tests, 15,008 independent cost checks. Mechanics only; no motion/reference scoring or accuracy advancement. Sparse integration and covariance/rejection controls remain prerequisites.
+
+Recovered November 12 accuracy work and the paper-first guidance are committed at `dc96e91c5`. Read the [current progress brief](docs/research/progress-and-next-steps-2026-11-12.md): the longer unweighted route failed all recording gates and is closed without retuning. Older next-step proposals below are historical.
+
 2026-11-10 America/New_York — [Final-output residual fit](docs/research/final-residual-fit-findings-2026-11-10.md): fixed 40-update day/night fit descends 17.65%. Rain VO translation/rotation means improve 3.04%/10.15% against thermal, but depth AbsRel worsens 15.47%, translation p95 worsens and RGB remains better. Predeclared advancement rule fails; close this recipe without retuning or promotion. Nine tests and amended independent audit of 358 hashes, 200 stereo metrics and 73 motions pass; zero-control poses/times exact. [Weekly brief](docs/research/progress-and-next-steps-2026-11-10.md).
 
 

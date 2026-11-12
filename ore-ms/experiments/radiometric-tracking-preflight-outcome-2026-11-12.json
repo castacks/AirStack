@@ -1,0 +1,102 @@
+{
+  "summary": {
+    "freeze_sha256": "36dd3aa008d528e76902ed81b851f1a3413e317c54ba3625c728f5fc4bc45738",
+    "cases": {
+      "day": {
+        "attempts": 585,
+        "status_counts": {
+          "OK": 524,
+          "NOT_CONVERGED": 5,
+          "CORRECTION_LIMIT": 6,
+          "BORDER": 50
+        },
+        "input_dtypes": [
+          "uint16",
+          "uint16"
+        ],
+        "input_shape": [
+          256,
+          640
+        ],
+        "pose_reference_values_read": false
+      },
+      "night": {
+        "attempts": 585,
+        "status_counts": {
+          "OK": 581,
+          "NOT_CONVERGED": 4
+        },
+        "input_dtypes": [
+          "uint16",
+          "uint16"
+        ],
+        "input_shape": [
+          256,
+          640
+        ],
+        "pose_reference_values_read": false
+      },
+      "rain": {
+        "attempts": 585,
+        "status_counts": {
+          "OK": 473,
+          "CORRECTION_LIMIT": 82,
+          "NOT_CONVERGED": 1,
+          "BORDER": 29
+        },
+        "input_dtypes": [
+          "uint16",
+          "uint16"
+        ],
+        "input_shape": [
+          256,
+          640
+        ],
+        "pose_reference_values_read": false
+      }
+    },
+    "decision": "MECHANICS_ONLY_NO_ACCURACY_ADVANCEMENT",
+    "neural_calls": 0,
+    "pose_solves": 0,
+    "reference_values_read": false,
+    "limitations": "No visibility labels, flow truth, motion accuracy or calibrated covariance. No production hook."
+  },
+  "audit": {
+    "status": "PASS_MECHANICS_ONLY",
+    "checks": 15008,
+    "cases": {
+      "day": {
+        "OK": 524,
+        "NOT_CONVERGED": 5,
+        "CORRECTION_LIMIT": 6,
+        "BORDER": 50
+      },
+      "night": {
+        "OK": 581,
+        "NOT_CONVERGED": 4
+      },
+      "rain": {
+        "OK": 473,
+        "CORRECTION_LIMIT": 82,
+        "NOT_CONVERGED": 1,
+        "BORDER": 29
+      }
+    },
+    "auditor_sha256": "4ae58ce2f4404fdb7f956aefe4e7684e42a7b24770fceebf3bcf1a2533ab7f24",
+    "pose_reference_values_read": false,
+    "does_not_verify": "physical correspondence, optimizer correctness, or motion improvement"
+  },
+  "validation": {
+    "run_at_America_New_York": "2026-11-12T08:51:28.581444-05:00",
+    "branch": "ore-ms-orb-development",
+    "scientific_commit": "e9ac9f1b9",
+    "python": "3.12.3 (main, Mar 23 2026, 19:04:32) [GCC 13.3.0]",
+    "numpy": "2.5.4",
+    "scipy": "1.18.1",
+    "opencv": "5.0.0",
+    "pytest": "9.2.0",
+    "tests_passed": 64,
+    "new_tests_passed": 16,
+    "audit_checks": 15008
+  }
+}

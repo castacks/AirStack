@@ -2,7 +2,14 @@
 
 **12 November 2026 · accuracy and literature-informed next work**
 
-**Latest: the [100-frame unweighted test](unweighted-longer-findings-2026-11-12.md)
+**Continuation: [raw thermal tracking feasibility](radiometric-tracking-preflight-2026-11-12.md)**
+uses original MAC endpoints and native uint16 images. All 1,755 fixed first-pair
+attempts complete, 16 new/64 total tests and a 15,008-check cost audit pass.
+This is mechanics only: no motion or correspondence-accuracy gain is established.
+The next native experiment requires a sparse integration hook and explicit
+covariance/rejection controls; the closed rotation routes remain closed.
+
+**Latest completed accuracy experiment: the [100-frame unweighted test](unweighted-longer-findings-2026-11-12.md)
 closes the remaining route.** The candidate is frozen thermal replacement flow
 plus unweighted NEC, tested against fresh nativeRGB and thermal controls.
 On the added80intervals per recording, day loses to RGB, night loses to both,
@@ -58,7 +65,7 @@ without parameter searches. This does not close thermal correspondence or
 uncertainty learning. Reusing the old flow covariance with a new matcher was
 an explicit experimental control, not calibrated uncertainty for that matcher.
 
-**Recommended direction:** test the rotation objective on fixed correspondences
+**Earlier recommendation (now executed and closed below):** test the rotation objective on fixed correspondences
 before another model fit. [PNEC](https://arxiv.org/abs/2204.02256) offers a
 bearing-space uncertainty model that avoids stereo feature depths;
 [DNLS](https://arxiv.org/abs/2305.09527) connects correspondence uncertainty

@@ -93,3 +93,37 @@ claim of improvement over RGB also requires beating RGB per recording. Patch
 cost and accepted counts cannot replace those endpoints. Independent real
 flow error remains unavailable; synthetic truth establishes only mechanical
 correctness. No new image upload is needed for this preflight.
+
+## Completed mechanics result
+
+Scientific code/input freeze: `e9ac9f1b9`, before the first real-data patch fit.
+All 1,755 attempts completed once, with no parameter changes or retries.
+
+| First pair | Total | Accepted local fit | Border | Correction limit | Not converged |
+|---|---:|---:|---:|---:|---:|
+| Day |585|524|50|6|5|
+| Night |585|581|0|0|4|
+| Rain |585|473|29|82|1|
+
+Rain's 82 correction-limit cases are retained explicitly. These counts establish
+execution and rejection behavior only; neither acceptance nor residual reduction
+identifies true visible correspondences. No pose/reference scores were read or
+computed, and no original model or production path changed.
+
+The independent NumPy bilinear sampler reconstructs initial costs and accepted
+final costs, endpoint corrections, bounds, frozen hashes and all status counts:
+15,008 checks pass. It does not re-run the optimizer or establish motion truth.
+The full available CPU numerical/mapping/decision suite passes 64 tests, including
+16 new tests. Neural frontend tests were not rerun. Host versions are recorded
+in the local result inventory; this is not the prior CUDA scientific runtime.
+
+**Decision: MECHANICS_ONLY_NO_ACCURACY_ADVANCEMENT.** Raw-image access and local
+refinement are mechanically feasible. A native-motion comparison remains
+unexecuted and requires the explicit sparse hook, passthrough parity and a
+predeclared covariance/rejection control. The current candidate must not be
+promoted on these counts. No automatic threshold, patch-size or scene search
+follows. This leaves the previous negative results and stopping rules intact.
+
+Code: `radiometric_tracking.py`, `preflight_radiometric_tracking.py`,
+`test_radiometric_tracking.py`, `audit_radiometric_tracking.py` under `tools/`.
+Results: `results/radiometric-tracking-preflight/run-001/`.
