@@ -1,0 +1,13 @@
+{
+  "date": "2026-11-12",
+  "freeze_commit": "8cb397ee9",
+  "status": "STOP_THIS_STRICT_SHARED_INTERVAL_CONFIGURATION",
+  "geometry_compatible": true,
+  "exact_common_intervals": 0,
+  "attempted_intervals": 19,
+  "source_or_model_changed": false,
+  "new_training_or_scoring": false,
+  "no_followup_clock_search": true,
+  "decision_note": "docs/research/shared-motion-input-contract-findings-2026-11-12.md",
+  "report_sha256": "9012dec5d14f06c57e3c8b795f80549f8ff3a58443412cb2d8927f01c9f76a84"
+}

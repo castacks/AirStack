@@ -21,7 +21,10 @@ across sessions.
 Latest numerical resolution: `docs/research/shared-motion-stationarity-findings-2026-11-12.md`.
 Saved gradient disagreement is resolved by independent high-precision stationarity
 checks; original failed audit remains historical. No prototype/tolerance changes.
-Real-data shared-interval/rig feasibility remains required before training.
+Latest input decision: `docs/research/shared-motion-input-contract-findings-2026-11-12.md`.
+Direct strict-interval binding is closed: nominal geometry passes,0/19 recorded
+night intervals match. No repeated clock searches or automatic training. A
+supplied-pair nominal benchmark requires a distinct explicit protocol.
 Research decision: `docs/research/multisensor-research-reset-2026-11-12.md`.
 Current synthesis: `docs/research/progress-and-next-steps-2026-11-12.md`.
 The older research-direction literature note is historical; its rotation and

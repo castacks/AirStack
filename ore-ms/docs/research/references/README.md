@@ -1,5 +1,8 @@
 # Working paper references
 
+Latest source use: [bounded real-input contract](../shared-motion-input-contract-findings-2026-11-12.md). Official MS² data-format/setup pages rechecked; no new full-paper reading, model reproduction or physical synchronization claim.
+
+
 Latest numerical finding: [shared-motion stationarity audit](../shared-motion-stationarity-findings-2026-11-12.md) resolves the saved gradient discrepancy without prototype/tolerance changes. DNLS remains inspiration only; no new paper or official-system reproduction.
 
 

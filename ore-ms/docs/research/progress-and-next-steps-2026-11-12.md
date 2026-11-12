@@ -1,5 +1,8 @@
 # RGB–Thermal Visual Odometry: Progress and Direction
 
+**Latest bounded decision:** [real-input contract check](shared-motion-input-contract-findings-2026-11-12.md) closes direct strict-interval binding for the existing night prefix. Geometry is nominally compatible, but0/19 recorded intervals have shared endpoints. No clock-fitting/search, new capture or training follows. This does not invalidate published same-ID benchmark experiments; that separate modeling assumption needs an explicit new adapter/control protocol.
+
+
 **Latest:** [stationarity audit resolves the saved gradient disagreement](shared-motion-stationarity-findings-2026-11-12.md). Independent80-digit derivatives and high-precision central difference pass unchanged tolerances. The earlier failed float64 audit remains historical: its plus fit stopped before adequate stationarity. Prototype and inputs unchanged. Real-data timing/rig feasibility remains unresolved; no training or VO improvement claim.
 
 

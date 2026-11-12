@@ -1,3 +1,5 @@
+2026-11-12 — [Bounded shared-motion input check](docs/research/shared-motion-input-contract-findings-2026-11-12.md): one exposed night prefix,20 groups. Nominal geometry matches;0/19 recorded intervals share RGB/thermal endpoints. Close direct strict-interval binding; no clock search, dataset switch or training. Published supplied-pair benchmark convention remains a separate possible scope.
+
 2026-11-12 — [Shared-motion stationarity audit](docs/research/shared-motion-stationarity-findings-2026-11-12.md): saved gradient discrepancy resolved. Independent80-digit full-Hessian derivatives agree with all six stored probes; high-precision failed-probe finite difference passes unchanged tolerances. Original audit stopped before sufficient stationarity. No prototype change, training or VO claim.
 
 2026-11-12 — [Shared-motion feasibility](docs/research/shared-motion-feasibility-findings-2026-11-12.md): synthetic suite16/16 and near-degenerate rejection pass; independent SciPy audit6/7 fails one gradient probe. STOP_GRADIENT_QUALIFICATION_INCOMPLETE_NO_TRAINING. No tolerance changes, real-data training or VO accuracy claim.

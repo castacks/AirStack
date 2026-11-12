@@ -571,12 +571,18 @@
       "updated": "2026-11-12",
       "decision_notes": [
         "docs/research/ms2-depth-transfer-plan-2026-11-12.md",
-        "docs/research/ms2-depth-transfer-findings-2026-11-12.md"
+        "docs/research/ms2-depth-transfer-findings-2026-11-12.md",
+        "docs/research/shared-motion-input-contract-findings-2026-11-12.md"
       ],
       "reading_history": [
         {
           "source_note": "docs/research/ms2-depth-transfer-plan-2026-11-12.md",
           "inspection": "Official source README, raw-image/depth loader, demo and radiometric utility inspected. CVF HTML fetch blocked in this pass; no new full-paper methods reading."
+        },
+        {
+          "date": "2026-11-12",
+          "source_note": "docs/research/shared-motion-input-contract-findings-2026-11-12.md",
+          "inspection": "Official MS2 dataset data-format/setup pages rechecked for geometry and declared synchronization; no new full-paper reading or acquisition-code audit. Recorded timestamps are not promoted to verified exposure times."
         }
       ],
       "historical_citations": []
@@ -597,12 +603,18 @@
       "updated": "2026-11-12",
       "decision_notes": [
         "docs/research/ms2-depth-transfer-plan-2026-11-12.md",
-        "docs/research/ms2-depth-transfer-findings-2026-11-12.md"
+        "docs/research/ms2-depth-transfer-findings-2026-11-12.md",
+        "docs/research/shared-motion-input-contract-findings-2026-11-12.md"
       ],
       "reading_history": [
         {
           "source_note": "docs/research/ms2-depth-transfer-plan-2026-11-12.md",
           "inspection": "Primary arXiv metadata/abstract, source utility, transforms and dataset loader inspected; no full-paper reading or benchmark-model run."
+        },
+        {
+          "date": "2026-11-12",
+          "source_note": "docs/research/shared-motion-input-contract-findings-2026-11-12.md",
+          "inspection": "Official MS2 dataset data-format/setup pages rechecked for geometry and declared synchronization; no new full-paper reading or acquisition-code audit. Recorded timestamps are not promoted to verified exposure times."
         }
       ],
       "historical_citations": []
