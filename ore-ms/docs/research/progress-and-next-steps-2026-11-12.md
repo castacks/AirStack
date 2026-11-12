@@ -1,5 +1,8 @@
 # RGB–Thermal Visual Odometry: Progress and Direction
 
+**Latest executed result:** [shared-motion feasibility](shared-motion-feasibility-findings-2026-11-12.md) completes the bounded synthetic test. Main16/16 and near-degenerate rejection pass, but independent audit6/7 fails a gradient probe. Qualification is incomplete; no training or tolerance changes. This supersedes earlier pending-feasibility statements below. No real-data accuracy benefit is established.
+
+
 **Authoritative current direction:** [multi-sensor research reset](multisensor-research-reset-2026-11-12.md). ACVNet is deferred. The selected hypothesis concerns learning measurement influence through a shared RGB–thermal metric-motion objective, with fixed frontend means. Immediate work is finite numerical and temporal feasibility; no training, new accuracy result or novelty claim. Reading history and pinned DNLS source inspection are recorded in the working library. Earlier next-step statements below are historical.
 
 

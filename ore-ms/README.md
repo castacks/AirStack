@@ -1,3 +1,5 @@
+2026-11-12 — [Shared-motion feasibility](docs/research/shared-motion-feasibility-findings-2026-11-12.md): synthetic suite16/16 and near-degenerate rejection pass; independent SciPy audit6/7 fails one gradient probe. STOP_GRADIENT_QUALIFICATION_INCOMPLETE_NO_TRAINING. No tolerance changes, real-data training or VO accuracy claim.
+
 2026-11-12 — [Multi-sensor research reset](docs/research/multisensor-research-reset-2026-11-12.md): defer ACVNet; target measurement weights learned through a shared RGB–thermal metric-motion objective. Paper/source and prior-experiment review complete; numerical/temporal feasibility precedes training. No new accuracy result.
 
 2026-11-12 — [Fixed MS² depth transfer](docs/research/ms2-depth-transfer-findings-2026-11-12.md): all 60 frame pairs complete; median-scaled monocular errors exceed fresh MACT in day/night/rain, with no support loss. Source clip saturation was known before inference; all gates fail without retuning. Six tests and independent 738-check audit pass. Working paper library updated to 22 records.

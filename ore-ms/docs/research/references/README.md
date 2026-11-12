@@ -1,5 +1,8 @@
 # Working paper references
 
+Latest implementation/result: [shared-motion feasibility](../shared-motion-feasibility-findings-2026-11-12.md). DNLS-inspired synthetic prototype only; independent gradient audit fails one check. No official-system reproduction, training or calibration claim.
+
+
 Latest decision: [multi-sensor research reset](../multisensor-research-reset-2026-11-12.md). MAC-VO, MAC-I² and DNLS reading/source events updated; no new paper added. Shared motion utility and covariance calibration remain separate claims.
 
 

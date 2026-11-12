@@ -50,10 +50,11 @@
           "inspection": "Rechecked v2 supervised/cycle/anchor objectives, scale ambiguity and limitations; inspected pinned official README and active Theseus optimizer/backward-mode construction. No execution."
         }
       ],
-      "local_status": "No official optimizer or learning-system reproduction; conditional flow covariance is not symmetric endpoint covariance.",
+      "local_status": "Official system not reproduced. Synthetic shared-stereo differentiable prototype is DNLS-inspired only; main suite passes but independent gradient audit fails one probe. No training/calibration/VO benefit claim.",
       "decision_notes": [
         "docs/research/research-direction-literature-2026-11-12.md",
-        "docs/research/multisensor-research-reset-2026-11-12.md"
+        "docs/research/multisensor-research-reset-2026-11-12.md",
+        "docs/research/shared-motion-feasibility-findings-2026-11-12.md"
       ],
       "updated": "2026-11-12",
       "historical_citations": [
@@ -383,7 +384,8 @@
       "local_status": "See historical notes; no new reproduction asserted",
       "decision_notes": [
         "docs/research/literature-2026-10-20.md",
-        "docs/research/multisensor-research-reset-2026-11-12.md"
+        "docs/research/multisensor-research-reset-2026-11-12.md",
+        "docs/research/shared-motion-feasibility-findings-2026-11-12.md"
       ],
       "updated": "2026-11-12",
       "historical_citations": [

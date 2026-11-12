@@ -1,0 +1,22 @@
+{
+  "date": "2026-11-12",
+  "status": "STOP_GRADIENT_QUALIFICATION_INCOMPLETE_NO_TRAINING",
+  "prototype_suite_pass": true,
+  "prototype_cases": 16,
+  "near_degenerate_pass": true,
+  "independent_audit_pass": false,
+  "independent_checks": 7,
+  "independent_checks_passed": 6,
+  "same_solver_gradient_probes": 12,
+  "same_solver_gradient_max_abs_error": 1.381397200675514e-13,
+  "new_real_data_access": false,
+  "new_training": false,
+  "vo_accuracy_claim": false,
+  "failure_cause": "Unresolved. One independent SciPy re-optimization finite-difference gradient differs beyond frozen tolerance; no attribution to either implementation is established.",
+  "artifact_sha256": {
+    "fixed-inputs.npz": "2cdb21ac1481f4b487dfdbd81a0a9c4ca0c373bd672b4ead65deb912849726c4",
+    "independent-audit.json": "c19bfabd78a3182b2307f2c5800f9b9d1d67094e0fcb243d9a62faa1667b2188",
+    "near-degenerate.json": "5d1a3f40b42b074b38de0f6589c9449a4c12470618c4b031d3f07f65eb0a84f8",
+    "report.json": "7423e34162940d276c8bd04d9fa45bd34bbc59c6e8d6b5da353efa4eea434f30"
+  }
+}
