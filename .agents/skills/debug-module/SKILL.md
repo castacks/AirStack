@@ -549,6 +549,14 @@ did not fix it because of the explicit XML participant profile. The opt-in
 publication duration became0.65s and healthy clock arrival age stayed<0.1s in
 the same test. This does not prove a fix for a separate MAVROS output failure.
 
+When preserving live byte ledgers, rename probe copies or store them outside the
+iteration tree. Mission512's unchanged scientific checker passed, but recursive
+postprocessing counted the diagnostic prefix copies as duplicate ledgers and
+marked the workflow failed. Keep originals and the failure record; validate
+byte-prefix identity before reconstructing counters from the complete canonical
+`logs/airstack-robot-desktop-N/gossip_bandwidth_robot_N.jsonl` files exactly once.
+The summarizer rejects divergent duplicates rather than choosing by score or size.
+
 ## RayFronts missing query labels
 
 In the vraven-multi-0.19.0-alpha.1 image, `Ros2MessagingService` receives text

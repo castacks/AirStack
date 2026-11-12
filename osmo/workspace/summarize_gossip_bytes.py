@@ -5,11 +5,29 @@ Usage: python3 osmo/workspace/summarize_gossip_bytes.py <iteration-dir>
 Writes gossip_bandwidth_summary.json next to iteration.json. Sum TX once
 across robots for publisher traffic; sum RX separately for actual receptions.
 Neither is an Ethernet/RTPS packet capture or a claim about retransmissions.
+Final logs/airstack-robot-desktop-N ledgers take precedence only when every
+additional diagnostic copy is an exact byte prefix; divergent copies fail.
 """
 import argparse
 import collections
 import json
 from pathlib import Path
+
+
+def select_ledger(run, robot):
+    """Use the final collected ledger, validating any diagnostic prefix copies."""
+    files = sorted(Path(run).rglob(f'gossip_bandwidth_{robot}.jsonl'))
+    if len(files) == 1:
+        return files[0]
+    number = robot.removeprefix('robot_')
+    canonical = Path(run) / 'logs' / f'airstack-robot-desktop-{number}' / f'gossip_bandwidth_{robot}.jsonl'
+    if canonical not in files:
+        raise ValueError(f'{robot}: expected one byte ledger, found {len(files)}')
+    complete = canonical.read_bytes()
+    for path in files:
+        if path != canonical and not complete.startswith(path.read_bytes()):
+            raise ValueError(f'{robot}: divergent duplicate byte ledger: {path}')
+    return canonical
 
 
 def summarize(run, duration=300):
@@ -20,11 +38,9 @@ def summarize(run, duration=300):
             continue
         robot = result.stem
         start = json.loads(result.read_text())['mission_start_ts'] * 1e9
-        files = list(run.rglob(f'gossip_bandwidth_{robot}.jsonl'))
-        if len(files) != 1:
-            raise ValueError(f'{robot}: expected one byte ledger, found {len(files)}')
+        ledger = select_ledger(run, robot)
         directions = {}
-        for line in files[0].read_text().splitlines():
+        for line in ledger.read_text().splitlines():
             row = json.loads(line)
             if row['sim_ns'] is None or not start <= row['sim_ns'] <= start + duration * 1e9:
                 continue
