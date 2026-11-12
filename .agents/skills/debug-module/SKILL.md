@@ -520,6 +520,17 @@ pauses that PID: use it for an already invalid/stalled trial, not healthy scorin
 
 ## RayFronts missing query labels
 
+Isaac transport stalls can stop the global clock while the process stays alive.
+Mission508's main native stack blocked in RTPSWriter/send and rmw_publish for a
+recoverable200s gap. Its mapped library was Jazzy Fast DDS2.14.6, despite an old
+comment claiming a different bundled DDS. Exact-image CPU backpressure tests
+with the actual XML and a paused reader reproduced25s blocked publication and
+stopped clock delivery to a healthy reader. Environment-only LARGE_DATA options
+did not fix it because of the explicit XML participant profile. The opt-in
+`ISAAC_FASTDDS_PROFILE=fastdds_nonblocking.xml` puts options in XML; maximum
+publication duration became0.65s and healthy clock arrival age stayed<0.1s in
+the same test. This does not prove a fix for a separate MAVROS output failure.
+
 In the vraven-multi-0.19.0-alpha.1 image, `Ros2MessagingService` receives text
 queries with RELIABLE KEEP_LAST depth 5 on a SingleThreadedExecutor, and encodes
 inside that callback. Reliability does not prevent an unread query from being
