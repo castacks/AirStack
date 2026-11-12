@@ -75,7 +75,7 @@ def verify():
 
 
 def run(kind,scene):
-    verify();compatibility();os.chdir(AUTHOR)
+    verify();compatibility();os.chdir(AUTHOR);sys.path.insert(0,str(AUTHOR))
     dest=OUT/scene/kind;assert not dest.exists(),'Refuse existing scientific output'
     dest.mkdir(parents=True)
     if kind=='depth':
