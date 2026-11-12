@@ -337,6 +337,26 @@ If you see Isaac Sim's "Login Required" popup at startup:
    the workspace and `docker compose --profile isaac-sim-livestream
    restart isaac-sim-livestream`.
 
+## Native stack capture for a stalled robot process
+
+`workspace/capture_robot_native_stack.py` runs a temporary debugger container in
+the selected robot's PID namespace. Supply an already available image containing
+`/usr/bin/gdb` and `/usr/bin/timeout`; no debugger is installed in the robot.
+Run from the OSMO workspace, using the PID as seen inside the robot container:
+
+```bash
+python3 osmo/workspace/capture_robot_native_stack.py \
+  airstack-robot-desktop-2 1234 /tmp/robot2_stack.log \
+  --debugger-image <image-with-gdb> --timeout 8
+```
+
+The log includes all native thread stacks; adjacent `.log.json` records the
+target state before and after attachment, exit code and elapsed time. Target
+libraries resolve through `/proc/<pid>/root`. The helper has a bounded lifetime,
+and cleanup removes only that helper and verifies that the target is detached.
+Attachment briefly pauses the selected process, so use it to diagnose an
+already invalid/stalled trial rather than during healthy measurements.
+
 ## Out of scope (followups)
 
 - **OSMO-native split** — three separate OSMO tasks for `isaac-sim` /

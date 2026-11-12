@@ -498,7 +498,7 @@ fresh armed OFFBOARD/GUIDED telemetry; its fake-FCU action tests verify the
 handshake, not a particular simulator failure's root cause. Do not infer that
 enabling it fixes missing GPS, stale odometry, or a stalled simulator.
 
-## RayFronts missing query labels
+## Startup telemetry freshness
 
 For startup TF failures, compare message arrival times with header timestamps.
 Mission507 robot2 continued publishing2733 distinct odometry positions during a
@@ -509,7 +509,16 @@ are false; do not hide upstream stale stamps by restamping. Optional
 State/safety arrivals and stamp ages to automatically collected JSONL. It is an
 independent observer, not proof of another node's internal clock or ARM wait
 stack. The0.19deploymentimage lacks gdb by default; prepare native capture tools
-before relying on them during a short-lived failure.
+before relying on them during a short-lived failure. A separate debugger image
+can join the selected robot's PID namespace with SYS_PTRACE and resolve target
+libraries through `/proc/<pid>/root`; use
+`osmo/workspace/capture_robot_native_stack.py` with an image containing gdb.
+The tool applies a deadline, removes only its own helper and verifies the target
+is detached and running. Normal future-wait capture and forced attached-timeout
+detach were validated with an exact0.19robot-image target. An attachment briefly
+pauses that PID: use it for an already invalid/stalled trial, not healthy scoring.
+
+## RayFronts missing query labels
 
 In the vraven-multi-0.19.0-alpha.1 image, `Ros2MessagingService` receives text
 queries with RELIABLE KEEP_LAST depth 5 on a SingleThreadedExecutor, and encodes
