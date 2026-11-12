@@ -1,8 +1,8 @@
 # Working paper references
 
-Updated 12 November 2026. This is the living entry point; dated reviews remain historical evidence.
+Updated 12 November 2026. Living entry point; dated reviews remain historical.
 
-Use `papers.json` for reading levels, source/code pins, local status and decision-note links. `papers.bib` is a minimal citation export; missing authors/venues are intentionally not invented. `citation-index.json` retains historical primary-source links, including papers awaiting metadata review. Citation presence is not full-paper reading.
+Reading depth, code/checkpoint pins and linked experiment decisions are in `papers.json`. `papers.bib` is a minimal citation export with no invented metadata. `citation-index.json` retains historical primary-source links pending review. Citation presence does not mean full-paper reading.
 
 | Key | Paper | Current use / status |
 |---|---|---|
@@ -10,7 +10,7 @@ Use `papers.json` for reading levels, source/code pins, local status and decisio
 | `dnls` | [Learning Correspondence Uncertainty via Differentiable Nonlinear Least Squares](https://arxiv.org/html/2305.09527v2) | No official optimizer or learning-system reproduction; conditional flow covariance is not symmetric endpoint covariance. |
 | `self-tio` | [Self-TIO: Thermal-Inertial Odometry via Self-Supervised 16-Bit Feature Extractor and Tracker](https://ieeexplore.ieee.org/document/10803066/) | Authors do not release code/networks per repository; local prototype is not Self-TIO. |
 | `tp-tio` | [TP-TIO: A Robust Thermal-Inertial Odometry with Deep ThermalPoint](https://arxiv.org/abs/2012.03455) | Inspired translation-only patch prototype; exact local raw-refinement configuration failed; this does not reject TP-TIO. |
-| `thermal-sfm` | [Self-Supervised Depth and Ego-Motion Estimation for Monocular Thermal Video Using Multi-Spectral Consistency Loss](https://arxiv.org/abs/2103.00760) | Reproduction pending author checkpoint and processed ViViD data; not executed. |
+| `thermal-sfm` | [Self-Supervised Depth and Ego-Motion Estimation for Monocular Thermal Video Using Multi-Spectral Consistency Loss](https://arxiv.org/abs/2103.00760) | Executed full outdoor source protocol on modern runtime: close depth headline agreement, strict all-column/pose table match fails; no MS2 transfer claim. |
 | `d3vo` | [D3VO: Deep Depth, Deep Pose and Deep Uncertainty for Monocular Visual Odometry](https://arxiv.org/abs/2003.01060) | See historical notes; no new reproduction asserted |
 | `droid` | [DROID-SLAM: Deep Visual SLAM for Monocular, Stereo, and RGB-D Cameras](https://arxiv.org/abs/2108.10869) | See historical notes; no new reproduction asserted |
 | `maci2` | [MAC-I²: Learned Metrics-Aware Covariance for Robust Visual-Inertial Fusion in Initialization and Calibration](https://mac-i2.github.io/) | See historical notes; no new reproduction asserted |
@@ -22,7 +22,11 @@ Use `papers.json` for reading levels, source/code pins, local status and decisio
 | `imagebind` | [ImageBind: One Embedding Space To Bind Them All](https://openaccess.thecvf.com/content/CVPR2023/html/Girdhar_ImageBind_One_Embedding_Space_To_Bind_Them_All_CVPR_2023_paper.html) | See historical notes; no new reproduction asserted |
 | `cmc` | [Contrastive Multiview Coding](https://www.ecva.net/papers/eccv_2020/papers_ECCV/html/1453_ECCV_2020_paper.php) | See historical notes; no new reproduction asserted |
 | `dsn` | [Domain Separation Networks](https://proceedings.neurips.cc/paper/2016/hash/45fbc6d3e05ebd93369ce542e8f2322d-Abstract.html) | See historical notes; no new reproduction asserted |
+| `vivid-2019` | [ViViD : Vision for Visibility Dataset](https://arxiv.org/html/2103.00760v3) | Data source used for author-protocol reproduction. Do not identify it as the later ViViD++ driving cohort. |
+| `vivid-plusplus` | [ViViD++: Vision for Visibility Dataset](https://arxiv.org/abs/2204.06183) | Dataset-version distinction only. No ViViD++ payload used; author project states it extends the2019 predecessor. |
+| `resnet` | [Deep Residual Learning for Image Recognition](https://arxiv.org/abs/1512.03385) | Architecture provenance: ResNet18 in author thermal depth/pose checkpoints; no original ResNet benchmark reproduction. |
+| `monodepth2` | [Digging Into Self-Supervised Monocular Depth Estimation](https://arxiv.org/abs/1806.01260v4) | Code provenance: author encoder/pose modules credit Monodepth2; no Monodepth2 baseline run. |
 
-For every new paper used: record its stable ID/URL/version, reading depth and date, code commit/checkpoint hash when used, assumptions and limitations, and links to the proposal/experiment it informed. Update the local result/status after execution; distinguish author claims, our hypothesis, our prototype and an actual reproduction. Add a new dated reading event rather than erasing prior scope. Do not archive full copyrighted paper text in Git or Box.
+For every paper used, record its stable ID/URL/version, reading date/depth, author claims versus local interpretation, code/checkpoint pins, limitations and linked decisions/results. Preserve historical reading events. No full copyrighted paper text goes into Git or Box.
 
-Current baseline feasibility: [ThermalSfMLearner-MS](../thermal-sfm-reproduction-2026-11-12.md).
+Completed reproduction: [findings and limits](../thermal-sfm-reproduction-findings-2026-11-12.md); [frozen plan](../thermal-sfm-execution-plan-2026-11-12.md). ViViD 2019 and ViViD++ are separate records.

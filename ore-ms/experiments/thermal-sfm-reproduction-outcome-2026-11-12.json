@@ -1,0 +1,166 @@
+{
+  "summary": {
+    "status": "MODERN_RUNTIME_SOURCE_PROTOCOL_EXECUTED",
+    "reports": {
+      "outdoor_robust_night1": {
+        "frames": 989,
+        "depth": {
+          "abs_rel": 0.1431100536244924,
+          "sq_rel": 0.7469555817051567,
+          "rmse": 4.367245709325782,
+          "rmse_log": 0.1768220077975952,
+          "log10": 0.06077824019620462,
+          "a1": 0.7992072301941565,
+          "a2": 0.9818036960379809,
+          "a3": 0.9964740741713719
+        },
+        "pose": {
+          "allocated_rows": 989,
+          "actual_snippets": 985,
+          "unused_zero_rows": 4,
+          "source_mean": [
+            0.05613294616341591,
+            0.028710613027215004
+          ],
+          "source_std": [
+            0.03090074099600315,
+            0.014373373240232468
+          ],
+          "valid_mean": [
+            0.05636089116783231,
+            0.028827201781915314
+          ],
+          "valid_std": [
+            0.030755258240374058,
+            0.014285370066782902
+          ]
+        }
+      },
+      "outdoor_robust_night2": {
+        "frames": 1030,
+        "depth": {
+          "abs_rel": 0.14820474748156984,
+          "sq_rel": 0.9933088751440604,
+          "rmse": 5.01300323898507,
+          "rmse_log": 0.19147782066641417,
+          "log10": 0.06171070825478956,
+          "a1": 0.801735830947781,
+          "a2": 0.9644731879209522,
+          "a3": 0.9908050011133658
+        },
+        "pose": {
+          "allocated_rows": 1030,
+          "actual_snippets": 1026,
+          "unused_zero_rows": 4,
+          "source_mean": [
+            0.0595199353992939,
+            0.02741193026304245
+          ],
+          "source_std": [
+            0.03157373517751694,
+            0.01238937210291624
+          ],
+          "valid_mean": [
+            0.059751987467728876,
+            0.02751880636826887
+          ],
+          "valid_std": [
+            0.031415313550755185,
+            0.012294471203080326
+          ]
+        }
+      }
+    },
+    "primary_pooled_depth": {
+      "abs_rel": 0.14570912973781075,
+      "sq_rel": 0.8726335867780001,
+      "rmse": 4.696681199939486,
+      "rmse_log": 0.18429872263409025,
+      "log10": 0.06125394207849411,
+      "a1": 0.8004972048232963,
+      "a2": 0.9729624759485607,
+      "a3": 0.9935819764746179
+    },
+    "secondary_sequence_macro_depth": {
+      "abs_rel": 0.1456574005530311,
+      "sq_rel": 0.8701322284246086,
+      "rmse": 4.690124474155426,
+      "rmse_log": 0.18414991423200466,
+      "log10": 0.061244474225497086,
+      "a1": 0.8004715305709688,
+      "a2": 0.9731384419794665,
+      "a3": 0.9936395376423688
+    },
+    "paper_depth_checks": {
+      "abs_rel": true,
+      "sq_rel": true,
+      "rmse": true,
+      "rmse_log": true,
+      "a1": false,
+      "a2": true,
+      "a3": false
+    },
+    "paper_pose_checks": {
+      "outdoor_robust_night1": {
+        "source_mean": false,
+        "source_std": false
+      },
+      "outdoor_robust_night2": {
+        "source_mean": false,
+        "source_std": true
+      }
+    },
+    "paper_rounded_targets_all_match": false,
+    "auditor_sha256": "424c68129064cece5dfdd3d192b5e9894eae71517053d0cd0d29a9eb1d301757",
+    "depth_metric_checks": 16152,
+    "pose_metric_checks": 4022,
+    "scope": "Per-image median-scaled depth and per-snippet reference-scaled pose; not unscaled metric stereo VO or independent model-training split qualification"
+  },
+  "author_controls": {
+    "status": "PASS",
+    "checks": 2043,
+    "reports": {
+      "outdoor_robust_night1": {
+        "full_author_depth_eval_rounded_metrics_match": true,
+        "author_depth_ratios_match": true,
+        "original_pose_log_mean_std_match": true
+      },
+      "outdoor_robust_night2": {
+        "full_author_depth_eval_rounded_metrics_match": true,
+        "author_depth_ratios_match": true,
+        "original_pose_log_mean_std_match": true
+      }
+    }
+  },
+  "assets": [
+    {
+      "id": "1DdZoFTIeDNUGISQURnczD4QhFNelppqp",
+      "name": "VIVID_RGBT_outdoor.tar",
+      "size_bytes": 26515486720,
+      "sha256": "72343582618186c9909ca5d47e40ff10e7916a00cc1227f2d44515c880671050",
+      "url": "https://drive.google.com/file/d/1DdZoFTIeDNUGISQURnczD4QhFNelppqp/view"
+    },
+    {
+      "id": "1STG1gRcnbwSoOtYKLnr4p9GsJlglpSdD",
+      "name": "dispnet_disp_model_best.pth.tar",
+      "size_bytes": 59415316,
+      "sha256": "7bd81d3d3f844b648d90db197dfbeac2bcbce5b8fa63b26bb5da123c37e98b86",
+      "url": "https://drive.google.com/file/d/1STG1gRcnbwSoOtYKLnr4p9GsJlglpSdD/view"
+    },
+    {
+      "id": "1iFGnLbor7z5_E35E4BjmV_3kgk01Q72a",
+      "name": "exp_pose_pose_model_best.pth.tar",
+      "size_bytes": 52062685,
+      "sha256": "b095e34e31097b0eba6c35cd17dbd339d3fd749c6d0b6e1902a1ec86811ab0bb",
+      "url": "https://drive.google.com/file/d/1iFGnLbor7z5_E35E4BjmV_3kgk01Q72a/view"
+    },
+    {
+      "id": "1k81xGW_MefQzeK5nluTRyt6jJ4Eeu3PP",
+      "name": "calibration.tar",
+      "size_bytes": 10240,
+      "sha256": "0a6f4aa9279b1cfc38ecc00949f0d8120f7d8dc6e6d0d2c63a3d1a4914f4a2b4",
+      "url": "https://drive.google.com/file/d/1k81xGW_MefQzeK5nluTRyt6jJ4Eeu3PP/view"
+    }
+  ],
+  "decision": "EXECUTED_CLOSE_AGREEMENT_NOT_EXACT_TABLE_MATCH"
+}

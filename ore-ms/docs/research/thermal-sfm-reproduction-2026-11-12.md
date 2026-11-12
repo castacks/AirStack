@@ -1,5 +1,9 @@
 # ThermalSfMLearner-MS: reproduction intake
 
+**Completed:** see the [outdoor reproduction findings](thermal-sfm-reproduction-findings-2026-11-12.md). Author assets are accessible and the full modern-runtime attempt is audited. The original blocked intake below is retained as history.
+
+**Update:** author Drive assets supplied and verified locally; original asset-access block is resolved. See the [frozen execution plan](thermal-sfm-execution-plan-2026-11-12.md). The dated intake below records the earlier unavailable-assets state.
+
 12 November 2026. **NOT_REPRODUCED_ASSETS_REQUIRED.** User approved checking a
 published thermal-specific baseline before another local intervention. Working
 reference: `thermal-sfm` in [the living library](references/README.md).

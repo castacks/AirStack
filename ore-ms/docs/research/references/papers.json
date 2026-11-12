@@ -119,11 +119,21 @@
         {
           "source_note": "experiments/research-direction-literature-2026-11-12.json",
           "inspection": "Author abstract and method scope; no code/runtime assessment"
+        },
+        {
+          "source_note": "docs/research/thermal-sfm-execution-plan-2026-11-12.md",
+          "inspection": "Paper method, TableI/II/III, author preprocessing, checkpoint state layouts and original evaluators inspected. User-provided author assets staged; reproduction running under frozen modern runtime. README/paper pose-target and source padding discrepancies recorded before outputs."
+        },
+        {
+          "source_note": "docs/research/thermal-sfm-reproduction-findings-2026-11-12.md",
+          "inspection": "Full two-sequence outdoor reproduction, unchanged author depth control and saved-output metric audit complete. Paper/README/source padding differences retained. No historical runtime equivalence or certified checkpoint loss-variant claim."
         }
       ],
-      "local_status": "Reproduction pending author checkpoint and processed ViViD data; not executed.",
+      "local_status": "Executed full outdoor source protocol on modern runtime: close depth headline agreement, strict all-column/pose table match fails; no MS2 transfer claim.",
       "decision_notes": [
-        "docs/research/thermal-sfm-reproduction-2026-11-12.md"
+        "docs/research/thermal-sfm-reproduction-2026-11-12.md",
+        "docs/research/thermal-sfm-execution-plan-2026-11-12.md",
+        "docs/research/thermal-sfm-reproduction-findings-2026-11-12.md"
       ],
       "authors": [
         "Ukcheol Shin",
@@ -135,7 +145,27 @@
       "historical_citations": [
         "docs/research/research-direction-literature-2026-11-12.md",
         "experiments/research-direction-literature-2026-11-12.json"
-      ]
+      ],
+      "asset_provenance": "results/thermal-sfm-reproduction/intake/asset-provenance.json (Box-backed local artifact)",
+      "asset_links": {
+        "data_folder": "https://drive.google.com/drive/folders/1Y9ClXaGIhMjBpVls2dQKbZrsDKM2Kzsg",
+        "model_folder": "https://drive.google.com/drive/folders/1b5q6oP6h5iWZe92c6lrawLrzd4ksygs3"
+      },
+      "checkpoint_sha256": {
+        "outdoor_depth": "7bd81d3d3f844b648d90db197dfbeac2bcbce5b8fa63b26bb5da123c37e98b86",
+        "outdoor_pose": "b095e34e31097b0eba6c35cd17dbd339d3fd749c6d0b6e1902a1ec86811ab0bb"
+      },
+      "reproduction": {
+        "date": "2026-11-12",
+        "frames": 2019,
+        "actual_pose_snippets": 2011,
+        "source_pose_allocated_rows": 2019,
+        "result": "EXECUTED_CLOSE_AGREEMENT_NOT_EXACT_TABLE_MATCH",
+        "abs_rel": 0.14570912973781075,
+        "rmse": 4.696681199939486,
+        "runtime_image_id": "sha256:fd7be8a3b1fe788972c54cabb5ee79433c30a53ab9951f49cf8c442f0753cf0a",
+        "local_notes": "docs/research/thermal-sfm-reproduction-findings-2026-11-12.md"
+      }
     },
     {
       "id": "d3vo",
@@ -398,6 +428,96 @@
       "historical_citations": [
         "docs/research/shared-sensor-representations-2026-11-09.md"
       ]
+    },
+    {
+      "id": "vivid-2019",
+      "title": "ViViD : Vision for Visibility Dataset",
+      "url": "https://arxiv.org/html/2103.00760v3",
+      "venue_or_version": "ICRA workshop 2019; original dataset citation in thermal-sfm reference27",
+      "inspection": "Citation and source-protocol provenance inspected; original workshop manuscript not read.",
+      "local_status": "Data source used for author-protocol reproduction. Do not identify it as the later ViViD++ driving cohort.",
+      "updated": "2026-11-12",
+      "code": null,
+      "decision_notes": [
+        "docs/research/thermal-sfm-execution-plan-2026-11-12.md"
+      ],
+      "reading_history": [
+        {
+          "source_note": "docs/research/thermal-sfm-execution-plan-2026-11-12.md",
+          "inspection": "Citation and source-protocol provenance inspected; original workshop manuscript not read."
+        }
+      ],
+      "historical_citations": []
+    },
+    {
+      "id": "vivid-plusplus",
+      "title": "ViViD++: Vision for Visibility Dataset",
+      "url": "https://arxiv.org/abs/2204.06183",
+      "inspection": "Author project about page and abstract metadata inspected; full method not read.",
+      "local_status": "Dataset-version distinction only. No ViViD++ payload used; author project states it extends the2019 predecessor.",
+      "availability_source": "https://visibilitydataset.github.io/1_about.html",
+      "updated": "2026-11-12",
+      "code": null,
+      "decision_notes": [
+        "docs/research/thermal-sfm-execution-plan-2026-11-12.md"
+      ],
+      "reading_history": [
+        {
+          "source_note": "docs/research/thermal-sfm-execution-plan-2026-11-12.md",
+          "inspection": "Author project about page and abstract metadata inspected; full method not read."
+        }
+      ],
+      "historical_citations": []
+    },
+    {
+      "id": "resnet",
+      "title": "Deep Residual Learning for Image Recognition",
+      "url": "https://arxiv.org/abs/1512.03385",
+      "authors": [
+        "Kaiming He",
+        "Xiangyu Zhang",
+        "Shaoqing Ren",
+        "Jian Sun"
+      ],
+      "updated": "2026-11-12",
+      "inspection": "Primary arXiv metadata/abstract checked; architecture/code attribution inspected in the pinned ThermalSfMLearner-MS source. No new full methods reading.",
+      "code": null,
+      "local_status": "Architecture provenance: ResNet18 in author thermal depth/pose checkpoints; no original ResNet benchmark reproduction.",
+      "decision_notes": [
+        "docs/research/thermal-sfm-execution-plan-2026-11-12.md"
+      ],
+      "reading_history": [
+        {
+          "source_note": "docs/research/thermal-sfm-execution-plan-2026-11-12.md",
+          "inspection": "Dependency citation/provenance only; not a new algorithm justification."
+        }
+      ],
+      "historical_citations": []
+    },
+    {
+      "id": "monodepth2",
+      "title": "Digging Into Self-Supervised Monocular Depth Estimation",
+      "url": "https://arxiv.org/abs/1806.01260v4",
+      "authors": [
+        "Clément Godard",
+        "Oisin Mac Aodha",
+        "Michael Firman",
+        "Gabriel Brostow"
+      ],
+      "updated": "2026-11-12",
+      "inspection": "Primary arXiv metadata/abstract checked; architecture/code attribution inspected in the pinned ThermalSfMLearner-MS source. No new full methods reading.",
+      "code": null,
+      "local_status": "Code provenance: author encoder/pose modules credit Monodepth2; no Monodepth2 baseline run.",
+      "decision_notes": [
+        "docs/research/thermal-sfm-execution-plan-2026-11-12.md"
+      ],
+      "reading_history": [
+        {
+          "source_note": "docs/research/thermal-sfm-execution-plan-2026-11-12.md",
+          "inspection": "Dependency citation/provenance only; not a new algorithm justification."
+        }
+      ],
+      "historical_citations": []
     }
   ]
 }

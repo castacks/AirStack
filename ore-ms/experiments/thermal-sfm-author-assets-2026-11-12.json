@@ -1,0 +1,35 @@
+{
+  "assets": [
+    {
+      "id": "1DdZoFTIeDNUGISQURnczD4QhFNelppqp",
+      "name": "VIVID_RGBT_outdoor.tar",
+      "size_bytes": 26515486720,
+      "sha256": "72343582618186c9909ca5d47e40ff10e7916a00cc1227f2d44515c880671050",
+      "url": "https://drive.google.com/file/d/1DdZoFTIeDNUGISQURnczD4QhFNelppqp/view"
+    },
+    {
+      "id": "1STG1gRcnbwSoOtYKLnr4p9GsJlglpSdD",
+      "name": "dispnet_disp_model_best.pth.tar",
+      "size_bytes": 59415316,
+      "sha256": "7bd81d3d3f844b648d90db197dfbeac2bcbce5b8fa63b26bb5da123c37e98b86",
+      "url": "https://drive.google.com/file/d/1STG1gRcnbwSoOtYKLnr4p9GsJlglpSdD/view"
+    },
+    {
+      "id": "1iFGnLbor7z5_E35E4BjmV_3kgk01Q72a",
+      "name": "exp_pose_pose_model_best.pth.tar",
+      "size_bytes": 52062685,
+      "sha256": "b095e34e31097b0eba6c35cd17dbd339d3fd749c6d0b6e1902a1ec86811ab0bb",
+      "url": "https://drive.google.com/file/d/1iFGnLbor7z5_E35E4BjmV_3kgk01Q72a/view"
+    },
+    {
+      "id": "1k81xGW_MefQzeK5nluTRyt6jJ4Eeu3PP",
+      "name": "calibration.tar",
+      "size_bytes": 10240,
+      "sha256": "0a6f4aa9279b1cfc38ecc00949f0d8120f7d8dc6e6d0d2c63a3d1a4914f4a2b4",
+      "url": "https://drive.google.com/file/d/1k81xGW_MefQzeK5nluTRyt6jJ4Eeu3PP/view"
+    }
+  ],
+  "full_regular_archive_members_hashed": 46819,
+  "publisher_checksum_available": false,
+  "source": "user supplied author Drive links"
+}
