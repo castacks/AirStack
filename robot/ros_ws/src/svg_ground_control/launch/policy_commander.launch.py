@@ -14,6 +14,8 @@ def _launch_setup(context, *args, **kwargs):
     namespace = LaunchConfiguration('namespace')
     debug_topic_prefix = LaunchConfiguration(
         'debug_topic_prefix').perform(context).strip()
+    hot_swap = LaunchConfiguration(
+        'enable_policy_hot_swap').perform(context).strip().lower()
     params = [config]
     if model_path:
         params.append({'model_path': model_path})
@@ -21,6 +23,8 @@ def _launch_setup(context, *args, **kwargs):
         params.append({'policy_type': policy_type})
     if debug_topic_prefix:
         params.append({'debug_topic_prefix': debug_topic_prefix})
+    if hot_swap:
+        params.append({'enable_policy_hot_swap': hot_swap == 'true'})
     return [
         Node(
             package='svg_ground_control',
@@ -54,5 +58,9 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'debug_topic_prefix', default_value='',
             description='Debug topic prefix override'),
+        DeclareLaunchArgument(
+            'enable_policy_hot_swap', default_value='',
+            description='true: accept online policy-memory updates on '
+                        '<debug_topic_prefix>/load_policy (overrides YAML when non-empty)'),
         OpaqueFunction(function=_launch_setup),
     ])

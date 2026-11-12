@@ -22,7 +22,7 @@ from rclpy.qos import (
     QoSProfile,
     ReliabilityPolicy,
 )
-from std_msgs.msg import Float32MultiArray
+from std_msgs.msg import Float32MultiArray, String
 from std_srvs.srv import Trigger
 from px4_msgs.msg import OffboardControlMode, TrajectorySetpoint
 
@@ -34,6 +34,7 @@ from drone_soccer.deploy.observation import (
 from drone_soccer.deploy.waypoint import compute_abs_waypoint
 
 from svg_ground_control.ball_state import BallStateTracker
+from svg_ground_control.policy_hot_swap import PolicyHotSwap
 from svg_ground_control.trajectory_commander_core import clamp_position, vector3
 
 
@@ -355,6 +356,9 @@ class PolicyCommander(Node):
         self.declare_parameter('velocity_filter_alpha', 0.4)
         self.declare_parameter('publish_debug', True)
         self.declare_parameter('debug_topic_prefix', '/policy_commander')
+        # Accept new checkpoints on <debug_topic_prefix>/load_policy and swap them in
+        # between ticks (online policy-memory updates); off keeps the policy fixed.
+        self.declare_parameter('enable_policy_hot_swap', False)
 
         self.drone = str(self.get_parameter('drone').value)
         ball_name = str(self.get_parameter('ball_name').value)
@@ -499,6 +503,7 @@ class PolicyCommander(Node):
 
         self.create_service(Trigger, '~/start', self._handle_start)
         self.create_service(Trigger, '~/stop', self._handle_stop)
+        self._setup_policy_hot_swap(prefix, model_path)
 
         policy_dt = float(self.get_parameter('policy_dt').value)
         if policy_dt <= 0.0:
@@ -676,7 +681,51 @@ class PolicyCommander(Node):
         setpoint.yawspeed = float('nan')
         self.trajectory_pub.publish(setpoint)
 
+    def _setup_policy_hot_swap(self, prefix: str, model_path: str) -> None:
+        """Subscribe to load requests and latch the active checkpoint path, if enabled."""
+        self._hot_swap = None
+        if not bool(self.get_parameter('enable_policy_hot_swap').value):
+            return
+        self._hot_swap = PolicyHotSwap(lambda path: load_policy_checkpoint(
+            path, self.action_low, self.action_high, self.policy_type)[0])
+        latched = QoSProfile(
+            depth=1,
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+            history=HistoryPolicy.KEEP_LAST,
+        )
+        self.active_policy_pub = self.create_publisher(
+            String, f'{prefix}/active_policy', latched)
+        self.create_subscription(
+            String, f'{prefix}/load_policy', self._load_policy_cb, 10)
+        self._publish_active_policy(model_path)
+        self.get_logger().info(
+            f'Policy hot swap enabled on {prefix}/load_policy')
+
+    def _load_policy_cb(self, msg: String) -> None:
+        self.get_logger().info(f'Loading requested policy {msg.data}')
+        self._hot_swap.request(msg.data)
+
+    def _publish_active_policy(self, path: str) -> None:
+        msg = String()
+        msg.data = path
+        self.active_policy_pub.publish(msg)
+
+    def _adopt_loaded_policy(self) -> None:
+        """Swap in a policy loaded since the last tick and announce it."""
+        if self._hot_swap is None:
+            return
+        for error in self._hot_swap.take_errors():
+            self.get_logger().error(f'Policy load failed, keeping current: {error}')
+        loaded = self._hot_swap.take_ready()
+        if loaded is None:
+            return
+        self.policy = loaded.policy
+        self._publish_active_policy(loaded.path)
+        self.get_logger().info(f'Swapped in policy {loaded.path}')
+
     def _policy_tick(self) -> None:
+        self._adopt_loaded_policy()
         if not self.running:
             self._publish_goal()
             if self._last_waypoint is not None:
