@@ -1,0 +1,34 @@
+{
+  "date": "2026-11-12",
+  "status": "FROZEN_BEFORE_EXECUTION",
+  "scope": "Resolve one saved RGB-noise gradient audit discrepancy. No prototype change, training or real-data access.",
+  "decimal_precision": 80,
+  "max_newton_steps": 8,
+  "root_tolerance": "1e-60",
+  "stationarity_limit": "1e-45",
+  "gradient_rtol": 0.005,
+  "gradient_atol": 2e-08,
+  "fd_step": "1e-4",
+  "failed_row": 5,
+  "failed_channel": 2,
+  "replay_atol": 1e-15,
+  "accounting_atol": "1e-18",
+  "packet": "results/shared-motion-feasibility/run-001/fixed-inputs.npz",
+  "old_report": "results/shared-motion-feasibility/run-001/report.json",
+  "old_audit": "results/shared-motion-feasibility/run-001/independent-audit.json",
+  "input_sha256": {
+    "results/shared-motion-feasibility/run-001/fixed-inputs.npz": "2cdb21ac1481f4b487dfdbd81a0a9c4ca0c373bd672b4ead65deb912849726c4",
+    "results/shared-motion-feasibility/run-001/report.json": "7423e34162940d276c8bd04d9fa45bd34bbc59c6e8d6b5da353efa4eea434f30",
+    "results/shared-motion-feasibility/run-001/independent-audit.json": "c19bfabd78a3182b2307f2c5800f9b9d1d67094e0fcb243d9a62faa1667b2188",
+    "experiments/shared-motion-feasibility-freeze-2026-11-12.json": "eb7cd8ce6798ea9ddd78777d5422a2be72bbf76f9b8088b2d71e4d8dce7e6232",
+    "experiments/shared-motion-feasibility-supplement-2026-11-12.json": "3e9f4696e746ad9d37bf7aa6195a6a14bc6092d168045aeb9b8fc92e63a069f9"
+  },
+  "source_sha256": {
+    "tools/audit_shared_motion_stationarity.py": "6199ed464253698e559d389dadcf5df3789630091fd33f3b15ecf49c2e1b6dee",
+    "tools/shared_motion_feasibility.py": "5786ccc1181f20c00a90ed28905e9f8ff06d560a71e31508a8c7f1883fd792cf",
+    "tools/audit_shared_motion_feasibility.py": "965ec8dcbb3ef78a39074140e7ad127ab896c7e516b27c2246793930cf0d9dfa"
+  },
+  "runtime_image": "sha256:fd7be8a3b1fe788972c54cabb5ee79433c30a53ab9951f49cf8c442f0753cf0a",
+  "runtime_mpmath": "1.3.0",
+  "stop_rule": "One unchanged packet; exact Hessian, base and failed +/- stationarity solves only. Retain failures; no tolerance or parameter sweep."
+}
