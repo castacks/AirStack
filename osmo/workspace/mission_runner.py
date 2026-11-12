@@ -1189,6 +1189,18 @@ def snapshot_raven_results(dest_dir):
         f"→ {dest_dir}")
 
 
+def start_simulator_console_capture():
+    """Preserve freeze onset before PX4 timeouts overwrite tmux history."""
+    for name in list_containers():
+        if not name.startswith('isaac-sim'):
+            continue
+        result = docker_exec(name,
+            "tmux capture-pane -p -t isaac -S -2000 > /tmp/osmo_isaac_console.log && "
+            "tmux pipe-pane -o -t isaac 'cat >> /tmp/osmo_isaac_console.log'", timeout=15)
+        if result.returncode:
+            log(f'WARN: continuous simulator console capture failed for {name}')
+
+
 def snapshot_simulator_logs(dest_dir):
     """Isaac runs inside tmux; docker logs alone misses its startup exceptions."""
     dest_dir.mkdir(parents=True, exist_ok=True)
@@ -1198,6 +1210,12 @@ def snapshot_simulator_logs(dest_dir):
         r = docker_exec(name, "tmux capture-pane -p -t isaac -S -2000", timeout=15)
         (dest_dir / f"{name}_console.log").write_text(
             (r.stdout or "") + (r.stderr or ""), encoding="utf-8")
+        # Optional continuous log is copied as a file, avoiding large stdout.
+        captured = docker_exec(name, 'test -f /tmp/osmo_isaac_console.log', timeout=15)
+        if captured.returncode == 0:
+            docker_exec(name, 'tmux pipe-pane -t isaac', timeout=15)
+            sh(['docker', 'cp', f'{name}:/tmp/osmo_isaac_console.log',
+                str(dest_dir / f'{name}_console_full.log')], timeout=60)
         r = sh(["docker", "top", name, "-eo", "pid,args"], timeout=15)
         (dest_dir / f"{name}_processes.log").write_text(
             (r.stdout or "") + (r.stderr or ""), encoding="utf-8")
@@ -1525,6 +1543,8 @@ def run_iteration(stack, mission, iter_dir):
         stack.ensure_down()
         containers = stack.up()
         container = containers[0]
+        if stack.env.get('OSMO_CAPTURE_SIM_CONSOLE', 'false').lower() == 'true':
+            start_simulator_console_capture()
         summary["up_duration_s"] = round(time.time() - t0, 2)
 
         snap_stop = threading.Event()

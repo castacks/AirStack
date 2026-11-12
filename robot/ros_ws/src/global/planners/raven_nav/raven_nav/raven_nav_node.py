@@ -28,6 +28,7 @@ from coordination_msgs.msg import PeerProfile as PeerProfileMsg
 from coordination_msgs.msg import CoverageGrid
 from coordination_msgs.msg import SemanticVoxelMap
 from raven_nav.semantic_map import SemanticMapFusion
+from raven_nav.map_diagnostics import profile_map_stage
 from raven_nav.feature_map import feature_snapshot_path, query_features
 from airstack_msgs.msg import BidVector
 
@@ -2407,6 +2408,7 @@ class RavenNavNode(Node):
                                            self._semantic_source_stamp)
             self._refresh_semantic_map(publish=True)
 
+    @profile_map_stage
     def _poll_own_feature_map(self):
         if self._boot_enu is None:
             return
@@ -2460,6 +2462,7 @@ class RavenNavNode(Node):
             self._semantic_map_rejections += 1
             self.get_logger().error(f'reusable map export rejected: {exc}', throttle_duration_sec=10.)
 
+    @profile_map_stage
     def _refresh_semantic_map(self, publish=False):
         """Fuse in world XY / AGL Z; expose results in this robot's map frame.
 
@@ -2548,6 +2551,7 @@ class RavenNavNode(Node):
                 self._semantic_map_rejections += 1
                 self.get_logger().error(f'rejected semantic map: {exc}', throttle_duration_sec=10.0)
 
+    @profile_map_stage
     def _on_stream_semantic_map(self, msg):
         if self._boot_enu is None or msg.source_robot == self._robot_name:
             return

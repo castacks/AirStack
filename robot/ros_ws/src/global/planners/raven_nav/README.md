@@ -567,3 +567,10 @@ timeout; a stalled callback is captured in the existing collected
 `gossip_robot_N.log`, even when its ROS watchdog timer cannot run. The default
 is 0 (disabled). This does not restart nodes, change transport or payloads,
 relax freshness checks, or modify planner behavior.
+
+For map-transport timing diagnosis, `RAVEN_MAP_PROFILE=true` logs wall time for
+own-snapshot polling, fusion/query refresh, and peer integration in the existing
+RAVEN log. `OSMO_CAPTURE_SIM_CONSOLE=true` in a mission preserves continuous Isaac
+tmux output as `logs/isaac-sim_console_full.log`, including freeze onset that a
+final history snapshot can lose. Both options default off. They change no scores,
+freshness timestamps, acceptance checks, map content, starts, or planner settings.
