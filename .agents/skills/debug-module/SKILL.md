@@ -500,6 +500,14 @@ enabling it fixes missing GPS, stale odometry, or a stalled simulator.
 
 ## Startup telemetry freshness
 
+Do not infer that a MAVROS plugin future wait caused fleet telemetry loss from
+one native stack alone. In508, plugin offsets0x4988d7/0x49f92c mapped (via EH-frame
+boundaries, cmd/command string and MAV_CMD410) to home-position polling. An actual
+MAVROS2.14.0/exact0.19image fixture with synthetic MAVLink FCU reproduced that
+same native wait while60State and598odom messages arrived over30s, and ARM
+succeeded both before and after the poll. Thus the wait was not sufficient to
+explain R2's missing outputs; disabling the plugin is not a demonstrated fix.
+
 For startup TF failures, compare message arrival times with header timestamps.
 Mission507 robot2 continued publishing2733 distinct odometry positions during a
 195.1s takeoff window, but every header stamp stayed112.009997496. Thus a positive
