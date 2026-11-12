@@ -62,6 +62,7 @@ services:
       # uses the same transports; a LARGE_DATA participant and a default
       # (UDP) participant in different containers share no data channel.
       - FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATA
+      - GOSSIP_BUILTIN_TRANSPORTS=${GOSSIP_BUILTIN_TRANSPORTS:-LARGE_DATA}
     volumes:
       # shared /dev/shm: required for Fast DDS shared-memory transport
       # across containers (see common/fastdds.xml)

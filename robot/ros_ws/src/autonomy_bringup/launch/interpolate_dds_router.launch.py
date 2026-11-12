@@ -213,6 +213,10 @@ def launch_dds_router(context, *args, **kwargs):
 
     # Load, inherit (extends:), and deep-merge all config files into one dict
     merged_data = _load_and_merge_config(config_file)
+    # Only the dedicated gossip bridge opts into this transport override.
+    # Do not pass a shared launch argument: include arguments leak across routers.
+    gossip_only = merged_data.get('allowlist') == [{'name': 'rt/gossip/peers'}]
+    builtin_transports = os.environ.get('GOSSIP_BUILTIN_TRANSPORTS') if gossip_only else None
 
     # Serialize back to a YAML string so token substitution can be applied uniformly
     content = yaml.dump(merged_data, default_flow_style=False, allow_unicode=True)
@@ -260,6 +264,8 @@ def launch_dds_router(context, *args, **kwargs):
                  f"2>&1 | tee -a '{log_path}'"],
             env={
                 **os.environ,
+                **({'FASTDDS_BUILTIN_TRANSPORTS': builtin_transports}
+                   if builtin_transports else {}),
                 # ddsrouter is installed under /usr/local and needs its runtime libs.
                 # Scope this path to ddsrouter only to avoid perturbing ROS 2 RMW loading.
                 'LD_LIBRARY_PATH': '/usr/local/lib:' + os.environ.get('LD_LIBRARY_PATH', ''),

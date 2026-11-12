@@ -16,6 +16,8 @@
 
   <!-- Gossip node -->
   <node pkg="coordination_bringup" exec="gossip_node" name="gossip_node" output="screen">
+    <!-- Scope the optional gossip transport override to this process. -->
+    <env name="FASTDDS_BUILTIN_TRANSPORTS" value="$(env GOSSIP_BUILTIN_TRANSPORTS $(env FASTDDS_BUILTIN_TRANSPORTS DEFAULT))" />
     <param name="robot_name"            value="$(env ROBOT_NAME)" />
     <param name="publish_rate"          value="$(var publish_rate)" />
     <param name="payload_topics_config" value="$(find-pkg-share coordination_bringup)/config/gossip_payloads.yaml" />

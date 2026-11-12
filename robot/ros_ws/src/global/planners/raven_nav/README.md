@@ -561,6 +561,19 @@ dimensions (observed 19 GiB allocation failures on the deployed image).
 Batching retains every voxel and the same per-voxel query softmax; it changes
 neither the local map nor the wire PCA basis. Freshness checks remain strict.
 
+`GOSSIP_BUILTIN_TRANSPORTS=LARGE_DATA?max_msg_size=65500&sockets_size=16MB&non_blocking=true&tcp_negotiation_timeout=50` opts the gossip
+node and dedicated robot/GCS gossip DDS bridges into nonblocking socket sends.
+The default inherits the existing `LARGE_DATA` setting. Other DDS routers, local
+mapper configuration, and the application TCP map stream retain their existing
+settings. PeerProfile contents, relay rules, QoS, application-byte accounting,
+and freshness checks are unchanged. A full Fast DDS TCP send buffer can block
+the gossip executor even with BEST_EFFORT QoS. Nonblocking sends retain that
+loss-tolerant policy without waiting for socket space; verify delivered peer
+updates and application counters rather than interpreting a returned publish as
+delivery. Switching only gossip to UDP or DEFAULT is incompatible with the
+existing LARGE_DATA receivers' endpoint discovery; test local registry and GCS
+receivers as well as cross-robot traffic before deploying a transport change.
+
 Set `GOSSIP_STALL_DUMP_S=30` for a diagnostic Python stack dump if the gossip
 executor stops publishing for 30 wall seconds. Normal publish ticks rearm the
 timeout; a stalled callback is captured in the existing collected

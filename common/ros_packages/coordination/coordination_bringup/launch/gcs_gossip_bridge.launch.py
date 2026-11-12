@@ -22,6 +22,8 @@ def generate_launch_description():
                  f"2>&1 | tee -a /tmp/ddsrouter_gcs_gossip.log"],
             env={
                 **os.environ,
+                **({'FASTDDS_BUILTIN_TRANSPORTS': os.environ['GOSSIP_BUILTIN_TRANSPORTS']}
+                   if os.environ.get('GOSSIP_BUILTIN_TRANSPORTS') else {}),
                 # ddsrouter runtime libs are installed under /usr/local/lib.
                 # Scope this path to ddsrouter to avoid changing ROS 2 RMW resolution.
                 'LD_LIBRARY_PATH': '/usr/local/lib:' + os.environ.get('LD_LIBRARY_PATH', ''),
