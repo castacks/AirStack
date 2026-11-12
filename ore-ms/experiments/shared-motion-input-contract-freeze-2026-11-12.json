@@ -1,0 +1,51 @@
+{
+  "date": "2026-11-12",
+  "status": "FROZEN_BEFORE_METADATA_CALCULATION",
+  "manifest": "results/unweighted-longer/run-001/inputs/night/source-manifest.json",
+  "paired": "results/unweighted-longer/run-001/inputs/night/paired-manifest.json",
+  "calibration": "results/ms2-night-pilot/calibration.json",
+  "sequence": "_2021-08-13-21-18-04",
+  "frames": 20,
+  "stems": [
+    "000000",
+    "000001",
+    "000002",
+    "000003",
+    "000004",
+    "000005",
+    "000006",
+    "000007",
+    "000008",
+    "000009",
+    "000010",
+    "000011",
+    "000012",
+    "000013",
+    "000014",
+    "000015",
+    "000016",
+    "000017",
+    "000018",
+    "000019"
+  ],
+  "rotation_tolerance": 1e-10,
+  "source_sha256": {
+    "tools/check_shared_motion_input_contract.py": "62df1f80cdaff6271faaa66b17d82ac93912bf8a2a457df10f0b6ff3e817cf00",
+    "tools/shared_motion_feasibility.py": "5786ccc1181f20c00a90ed28905e9f8ff06d560a71e31508a8c7f1883fd792cf",
+    "MAC-VO-main/DataLoader/Dataset/MS2.py": "22723f8de483a284088289e9b50333c931e243edf6312b531206cc0576fb57af",
+    "MAC-VO-main/Scripts/Setup/ms2_execution_adapter.py": "17f0543da24a729b8180ec4419219dea5a1989f4ac4283409029695f8d0f89f6"
+  },
+  "input_sha256": {
+    "results/unweighted-longer/run-001/inputs/night/source-manifest.json": "098441602615063d6061423665ab842ba66183b9d1256194b523926681ae7258",
+    "results/unweighted-longer/run-001/inputs/night/paired-manifest.json": "bfc1438ffa07f2457902ba2f4cb3aaba834888eb5f89eb3338bbfc8a36b67a86",
+    "results/ms2-night-pilot/calibration.json": "2e9a8095c7cbd1b80cb3b0ace554ad51099883e7dec4e3d3c9a458f5f3e7b695",
+    "docs/research/ms2-clock-evidence-findings-2026-11-04.md": "71716ab6a9150a3dc4090b380feee146a7259526f6d2cb5b117208389e87b487"
+  },
+  "selection": "First20 already-exposed night stems, chosen before this calculation; prior clock review already reported the first101 groups. Confirmatory compatibility check, not a new timing discovery.",
+  "stop_rule": "One prefix only. No clock fit, nearest pairing, new payload, reference transport, trajectory model, training or dataset switch. Stop strict shared-interval configuration if endpoint equality or documented temporal compatibility is missing.",
+  "paper_sources": [
+    "https://sites.google.com/view/multi-spectral-stereo-dataset/data-format",
+    "https://sites.google.com/view/multi-spectral-stereo-dataset/setup"
+  ],
+  "source_review": "Official pages document rectified/synchronized data, calibration and sensor setup. They do not newly resolve the exported-clock semantics already left open by EXP139."
+}
