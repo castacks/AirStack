@@ -22,6 +22,7 @@ from std_msgs.msg import String, Empty
 from action_msgs.srv import CancelGoal
 from task_msgs.action import SemanticSearchTask, NavigateTask
 from airstack_msgs.msg import TrajectoryXYZVYaw, WaypointXYZVYaw
+from semantic_search_task.query_delivery import QueryDelivery
 
 # ── ANSI / ROS log stripping ──────────────────────────────────────────────────
 
@@ -1213,6 +1214,9 @@ class SemanticSearchTaskNode(Node):
             best_conf = 0.0
             rayfronts_ready = False
             prev_rf_sub_count = 0
+            query_delivery = (QueryDelivery(robot_name, all_queries)
+                              if os.getenv('RAVEN_REUSABLE_FEATURE_MAP', 'false').lower() == 'true'
+                              else None)
             mapping_started = False
             navigation_started = False
             raven_published_waypoint = False
@@ -1457,6 +1461,14 @@ class SemanticSearchTaskNode(Node):
                     last_rf_status = f'Queries sent: {", ".join(all_queries)}'
                     self.get_logger().info(
                         f'Queries sent to rayfronts: {all_queries}')
+                    if query_delivery is not None:
+                        query_delivery.sent(time.monotonic())
+                elif rf_sub_count > 0 and query_delivery is not None:
+                    missing = query_delivery.missing_query(time.monotonic())
+                    if missing is not None:
+                        self._text_query_pub.publish(String(data=missing))
+                        self.get_logger().warn(
+                            f'Retrying unacknowledged RayFronts query: {missing!r}')
                 if rf_sub_count == 0 and prev_rf_sub_count > 0:
                     rayfronts_ready = False
                     self.get_logger().info('rayfronts subscriber lost — will resend on reconnect')

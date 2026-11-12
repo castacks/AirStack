@@ -498,6 +498,21 @@ fresh armed OFFBOARD/GUIDED telemetry; its fake-FCU action tests verify the
 handshake, not a particular simulator failure's root cause. Do not infer that
 enabling it fixes missing GPS, stale odometry, or a stalled simulator.
 
+## RayFronts missing query labels
+
+In the vraven-multi-0.19.0-alpha.1 image, `Ros2MessagingService` receives text
+queries with RELIABLE KEEP_LAST depth 5 on a SingleThreadedExecutor, and encodes
+inside that callback. Reliability does not prevent an unread query from being
+overwritten by later history entries. Compare the task's "Queries sent" list,
+mapper "Received queries" callbacks and atomic snapshot `query_labels`; a log
+saying all queries were published is not an acknowledgement. Mission506 had
+44/45 labels on robot1 (missing sidewalk) and45/45 on robots2/3. Real upstream
+receiver/add_queries tests with a synthetic slow encoder reproduced23/45 after
+the original burst, then recovered45 unique columns by resending only absent
+labels. Reusable-feature SemanticSearchTask now checks snapshot acknowledgements
+every5 wall seconds. Preserve complete-label and score-parity gates; never
+accept a partial vocabulary or substitute query vectors from another robot.
+
 ## References
 
 - **ROS 2 Debugging:**

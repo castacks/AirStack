@@ -443,6 +443,16 @@ vectors and query metadata for offline fusion and new queries. Network counters
 continue to count actual delivered application bytes, including full-map resyncs.
 The frontier protocol is unchanged in both modes.
 
+In reusable-feature mode, SemanticSearchTask checks the mapper's exported query
+labels after the initial query burst. It resends one missing label every five
+wall seconds until the complete configured vocabulary is acknowledged. This
+recovers queries overwritten in RayFronts' depth-five receive history while its
+single receive callback encodes earlier labels. Upstream deduplication prevents
+duplicate feature columns. The original query set, initial publication order,
+search budget, scoring and strict complete-label/parity checks are unchanged.
+When reusable-feature mode is disabled, query publication retains its original
+behavior.
+
 
 The adapter also normalizes an empty `accum_occ_voxels()` result from `None` to
 an empty `(0,3)` tensor. RayFronts otherwise reads `.shape` on `None` when a frame
