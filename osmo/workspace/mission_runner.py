@@ -1201,7 +1201,7 @@ def start_simulator_console_capture():
             log(f'WARN: continuous simulator console capture failed for {name}')
 
 
-def snapshot_simulator_logs(dest_dir):
+def snapshot_simulator_logs(dest_dir, *, stop_capture=False):
     """Isaac runs inside tmux; docker logs alone misses its startup exceptions."""
     dest_dir.mkdir(parents=True, exist_ok=True)
     for name in list_containers(all_states=True):
@@ -1213,7 +1213,10 @@ def snapshot_simulator_logs(dest_dir):
         # Optional continuous log is copied as a file, avoiding large stdout.
         captured = docker_exec(name, 'test -f /tmp/osmo_isaac_console.log', timeout=15)
         if captured.returncode == 0:
-            docker_exec(name, 'tmux pipe-pane -t isaac', timeout=15)
+            # Periodic snapshots must leave the live stream attached.
+            # Only final collection closes the pipe before copying the full log.
+            if stop_capture:
+                docker_exec(name, 'tmux pipe-pane -t isaac', timeout=15)
             sh(['docker', 'cp', f'{name}:/tmp/osmo_isaac_console.log',
                 str(dest_dir / f'{name}_console_full.log')], timeout=60)
         r = sh(["docker", "top", name, "-eo", "pid,args"], timeout=15)
@@ -1605,7 +1608,7 @@ def run_iteration(stack, mission, iter_dir):
             recorder.collect(iter_dir / "bags")
         if container is not None or list_containers("airstack", all_states=True):
             snapshot_container_logs(iter_dir / "logs")
-            snapshot_simulator_logs(iter_dir / "logs")
+            snapshot_simulator_logs(iter_dir / "logs", stop_capture=True)
             snapshot_task_logs(iter_dir / "logs")
             # Metrics live in the robot ./cache mount, not the bag staging dir —
             # collect them before down() so osmo:fetch includes them.
