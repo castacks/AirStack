@@ -1,0 +1,40 @@
+# Online policy-memory learner for drone_3 (svg_ground_control/online_memory_learner.py).
+#
+# Run beside the policy commander started with hot swap enabled:
+#   ros2 launch svg_ground_control policy_commander.launch.py enable_policy_hot_swap:=true
+#   ros2 launch svg_ground_control online_memory_learner.launch.py
+#
+# Each round buffers min_kept_chunks filtered 3 s chunks (60 = 30 s of chunk starts) of the
+# active policy, fine-tunes it toward the policy memory's action deltas, saves the update
+# under output_root/<session>/update_<n>/ and hot-swaps it into the commander.
+
+/**/online_memory_learner:
+  ros__parameters:
+    drone: "drone_3"
+    ball_name: "VolleyBall"
+    pose_topic_template: "/{name}/pose"
+    trajectory_setpoint_topic_template: "/{name}/fmu/in/trajectory_setpoint"
+    commander_prefix: "/policy_commander"
+    # Policy memory: the training run whose checkpoints and final policy define the deltas,
+    # and its memory folder (policy_chunks/ with observations, centroids_k16.npz).
+    run_dir: "/root/drone_soccer/logs/motor_dynamics_scratch_20261108"
+    memory_dir: "/root/drone_soccer/logs/motor_dynamics_scratch_20261108/analysis/policy_memory_20261112"
+    # Today's barrier polygon in drone_soccer BallResidualConfig.barrier_corners_xy ("" = none).
+    barrier_dataset: "data_20261112"
+    # /root/drone_soccer is mounted read-only; /bags is AirStack/robot/bags on the host.
+    output_root: "/bags/online_memory"
+    min_kept_chunks: 60
+    top_k: 8
+    sim_chunks: 2048
+    alpha: 0.3
+    real_loss_share: 0.25
+    epochs: 5
+    learning_rate: 0.0001
+    check_period_s: 2.0
+    # Samples within this long of a swap are skipped so none of the old policy's ticks leak in.
+    settle_s: 0.5
+    swap_retry_s: 5.0
+    # Torch CPU threads for the update; the rest stay with the commander's control loop.
+    torch_threads: 4
+    # 0 = keep updating every round.
+    max_updates: 0

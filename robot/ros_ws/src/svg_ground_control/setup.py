@@ -36,6 +36,7 @@ setup(
             'keyboard_teleop = svg_ground_control.keyboard_teleop:main',
             'trajectory_commander = svg_ground_control.trajectory_commander:main',
             'policy_commander = svg_ground_control.policy_commander:main',
+            'online_memory_learner = svg_ground_control.online_memory_learner:main',
         ],
     },
 )

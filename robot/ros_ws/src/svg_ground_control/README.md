@@ -228,6 +228,37 @@ See [experiment.md](experiment.md) (topic table) and
 [QUICK_REFERENCE §4](../../../../.codex/skills/yutong-fly-starling/QUICK_REFERENCE.md)
 for disarmed checks and flight sequence.
 
+### Online policy-memory updates (`online_memory_learner`)
+
+`online_memory_learner` improves the flying policy in rounds with drone_soccer's
+policy-memory fine-tune (`drone_soccer/policy_memory/online.py`):
+
+1. It buffers the live flight of the active policy (mocap poses, commander goal,
+   `<prefix>/action` ticks, PX4 setpoints) from 0.5 s after the commander announces
+   that policy on `<prefix>/active_policy`.
+2. Every 2 s it cuts the buffer into 3 s chunks with the offline `real-chunks` filters
+   (tracking loss, goal switch, landed, idle, barrier margin) plus a pause filter
+   (chunks need policy ticks throughout). When `min_kept_chunks` pass (60 = 30 s),
+   it fine-tunes the active checkpoint in a background thread (about 3-5 s on CPU);
+   samples arriving meanwhile are dropped.
+3. It saves `policy.zip`, `update.json`, `real_chunks.npz` and `flight_states.npz` under
+   `output_root/<session>/update_<n>/` and publishes the policy path on
+   `<prefix>/load_policy`. The commander loads it off its control loop, swaps it in at
+   the start of a tick and announces it, which starts the next round with an empty buffer.
+
+```bash
+ros2 launch svg_ground_control policy_commander.launch.py enable_policy_hot_swap:=true
+ros2 launch svg_ground_control online_memory_learner.launch.py
+```
+
+Without `enable_policy_hot_swap:=true` the commander ignores load requests and the
+learner keeps re-sending its first update. Set `run_dir` / `memory_dir` in
+`config/drone_soccer/online_memory_learner_drone3.yaml` to the training run whose
+policy memory should drive the updates, and `barrier_dataset` to the day's barrier
+polygon in drone_soccer's `BallResidualConfig`. The commander must keep
+`publish_debug: true` (the learner counts policy ticks on `<prefix>/action`).
+Updated policies have not been evaluated in sim; watch the first swaps closely.
+
 ## Safety notes
 
 - Teleop drones are CBF-exempt by design — the autonomous drones do the
