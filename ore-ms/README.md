@@ -1,3 +1,5 @@
+2026-11-12 — Active research continues on `ore-ms-orb-development` in `ore-ms/`. This `ore_ms` branch is the earlier baseline; read the development branch README and latest research handoff before continuing.
+
 # MS project: RGB–thermal geometric uncertainty
 
 2026-11-03 — [EXP122 buffered handover](experiments/EXP-122-buffered-handover.md): one retained RGB input repairs target51 in both the paired failing trace and live candidate. The frozen contract passes: 85/95 deliveries, adjacent output after all four returns, 141 native pair calls versus full-read158. Actual encoded retention, decode/call accounting and original deadlines are explicit. All 52 tests, 48,655 audit checks and 8,918 byte-level array controls pass. Experimental synthetic buffer model; production defaults remain unchanged.
