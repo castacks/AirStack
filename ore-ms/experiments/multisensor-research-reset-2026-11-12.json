@@ -1,0 +1,35 @@
+{
+  "date": "2026-11-12",
+  "branch": "ore-ms-orb-development",
+  "status": "REVIEW_COMPLETE_FEASIBILITY_DESIGNED_NOT_EXECUTED",
+  "decision_note": "docs/research/multisensor-research-reset-2026-11-12.md",
+  "hypothesis": "Learning per-measurement influence through shared RGB-thermal metric pose optimization improves motion beyond native RGB and fixed-weight shared controls.",
+  "deferred": [
+    "ACVNet standalone thermal depth comparison"
+  ],
+  "closed_configurations_reopened": false,
+  "new_inference_training_scoring_or_reserve_access": false,
+  "dnls_author_source": {
+    "commit": "73d2e5c8dcd9afe2e6a82db3425d7d2704c54ae0",
+    "url": "https://github.com/DominikMuhle/dnls_covs",
+    "inspected": [
+      "README.md",
+      "scripts/covpred/model/optimization/theseus/optimization_layer.py"
+    ],
+    "execution": false
+  },
+  "reviewed_local_sources_sha256": {
+    "docs/research/fusion-mechanism-review-2026-11-09.md": "6318f66de1d19b07e27612fc2fc7a9f9aad575a3fe4279dfe24d8a4fe57b937a",
+    "docs/research/objective-comparison-findings-2026-11-02.md": "1d5b14012ebb28395924a1aa3ea1c5391764c556bbad55b108b43e595997c777",
+    "docs/research/native-information-weights-findings-2026-11-09.md": "546e1043ac0eab1e62cc1a9ce115ff43e041d51e9d17672fb39083baa13c998c",
+    "docs/research/thermal-opportunities-findings-2026-11-09.md": "b1a99ed110caad9fac0025826cf5c8dfcbb8ca010b22f7bfc36b9951739716e5",
+    "docs/research/bearing-rotation-transfer-findings-2026-11-12.md": "c0f57c093ca897919f3629207155db43b4de9e4c72fa228d68d9c4e58db34431",
+    "docs/research/unweighted-longer-findings-2026-11-12.md": "83e9da970607008a8c47965904c868791bef5b6dd9cf4546f499f852219f9081",
+    "docs/research/radiometric-native-findings-2026-11-12.md": "1a6d6192e646a6a55a71c27346a93738c4e2094f9484950d19b79172b9cccb59",
+    "docs/research/ms2-depth-transfer-findings-2026-11-12.md": "f211c44895d2e98762d217f83246284c31abc8b6fa803e8e6a80b97ba565658c",
+    "MAC-VO-main/Module/Optimization/TwoFramePGO/Graphs.py": "f79bca297d7c249cc761bd44e3ba2152154057637c223310b022933f11a49208",
+    "MAC-VO-main/Module/Optimization/TwoFramePGO/Optimizer.py": "d2bd3eedf0b110b6e6ecb0404c6267bcd696004b05ddad6ef08ba268ab27d32e",
+    "docs/research/rig-reference-contract-2026-10-30.md": "06c2b163b8bfe8b37f64ff848e83f85844f8dd604dd07ad6b929201e28d7bd2b"
+  },
+  "execution_freeze": null
+}

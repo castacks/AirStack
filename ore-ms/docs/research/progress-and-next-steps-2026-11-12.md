@@ -1,5 +1,8 @@
 # RGB–Thermal Visual Odometry: Progress and Direction
 
+**Authoritative current direction:** [multi-sensor research reset](multisensor-research-reset-2026-11-12.md). ACVNet is deferred. The selected hypothesis concerns learning measurement influence through a shared RGB–thermal metric-motion objective, with fixed frontend means. Immediate work is finite numerical and temporal feasibility; no training, new accuracy result or novelty claim. Reading history and pinned DNLS source inspection are recorded in the working library. Earlier next-step statements below are historical.
+
+
 **Latest:** [MS² original-input checkpoint transfer](ms2-depth-transfer-findings-2026-11-12.md) fails all three recording gates. Close this exact configuration without a clipping/resolution/model sweep. Earlier ViViD reproduction remains valid as its own source-protocol result; no metric-scale or VO advancement follows. The [working library](references/README.md) has 22 curated records.
 
 **Current result:** [author thermal baseline reproduction completed](thermal-sfm-reproduction-findings-2026-11-12.md). The asset-access block is resolved. Depth headline agreement is close, but strict table reproduction is not achieved. Preserve source/README/paper differences, monocular reference scaling and unknown checkpoint-loss metadata; no automatic MS² integration follows. The [paper library](references/README.md) now has 20 curated records. Earlier pending-assets statements below are historical.

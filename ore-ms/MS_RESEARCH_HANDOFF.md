@@ -1,3 +1,5 @@
+2026-11-12 — [Current research decision](docs/research/multisensor-research-reset-2026-11-12.md): ACVNet deferred. Next is bounded shared-motion learning feasibility. DNLS does not guarantee calibrated cross-modal covariance; native detached covariance path needs a separate gradient contract. No new inference/training/scoring; closed configurations remain closed.
+
 # MS Research Handoff — Cross-Modal Geometric Uncertainty for RGB–Thermal Visual Odometry
 
 2026-11-12 — [Fixed MS² depth transfer](docs/research/ms2-depth-transfer-findings-2026-11-12.md): all 60 frame pairs complete; median-scaled monocular errors exceed fresh MACT in day/night/rain, with no support loss. Source clip saturation was known before inference; all gates fail without retuning. Six tests and independent 738-check audit pass. Working paper library updated to 22 records.

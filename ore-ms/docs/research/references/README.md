@@ -1,5 +1,8 @@
 # Working paper references
 
+Latest decision: [multi-sensor research reset](../multisensor-research-reset-2026-11-12.md). MAC-VO, MAC-I² and DNLS reading/source events updated; no new paper added. Shared motion utility and covariance calibration remain separate claims.
+
+
 Updated 12 November 2026. Living entry point; dated reviews remain historical.
 
 Reading depth, code/checkpoint pins and linked local decisions are in `papers.json`. `papers.bib` is a minimal citation export with no invented metadata. `citation-index.json` retains primary-source links pending review; citation presence does not mean full-paper reading.

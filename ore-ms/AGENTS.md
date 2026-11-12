@@ -18,8 +18,10 @@ across sessions.
 - Read the latest dated progress brief and its linked decision note before
   resuming an older experiment's proposed next step.
 
-Current synthesis: `docs/research/progress-and-next-steps-2026-11-12.md` and
-`docs/research/research-direction-literature-2026-11-12.md`.
+Current decision: `docs/research/multisensor-research-reset-2026-11-12.md`.
+Current synthesis: `docs/research/progress-and-next-steps-2026-11-12.md`.
+The older research-direction literature note is historical; its rotation and
+tracking follow-ups have already been executed and closed.
 
 ## Living paper references
 

@@ -17,7 +17,8 @@
       ],
       "local_status": "Equation-level local prototype only; fixed covariance/rotation routes closed without promotion.",
       "decision_notes": [
-        "docs/research/bearing-rotation-transfer-findings-2026-11-12.md"
+        "docs/research/bearing-rotation-transfer-findings-2026-11-12.md",
+        "docs/research/multisensor-research-reset-2026-11-12.md"
       ],
       "updated": "2026-11-12",
       "historical_citations": [
@@ -36,17 +37,23 @@
       "title": "Learning Correspondence Uncertainty via Differentiable Nonlinear Least Squares",
       "venue_or_version": "CVPR 2023",
       "url": "https://arxiv.org/html/2305.09527v2",
-      "inspection": "Method/self-supervision/limitations inspected in earlier review; abstract rechecked.",
+      "inspection": "Rechecked v2 supervised/cycle/anchor objectives, scale ambiguity and limitations; inspected pinned official README and active Theseus optimizer/backward-mode construction. No execution.",
       "code": "https://github.com/DominikMuhle/dnls_covs/tree/73d2e5c8dcd9afe2e6a82db3425d7d2704c54ae0",
       "reading_history": [
         {
           "source_note": "experiments/research-direction-literature-2026-11-12.json",
           "inspection": "Method, self-supervised learning and limitations inspected"
+        },
+        {
+          "date": "2026-11-12",
+          "source_note": "docs/research/multisensor-research-reset-2026-11-12.md",
+          "inspection": "Rechecked v2 supervised/cycle/anchor objectives, scale ambiguity and limitations; inspected pinned official README and active Theseus optimizer/backward-mode construction. No execution."
         }
       ],
       "local_status": "No official optimizer or learning-system reproduction; conditional flow covariance is not symmetric endpoint covariance.",
       "decision_notes": [
-        "docs/research/research-direction-literature-2026-11-12.md"
+        "docs/research/research-direction-literature-2026-11-12.md",
+        "docs/research/multisensor-research-reset-2026-11-12.md"
       ],
       "updated": "2026-11-12",
       "historical_citations": [
@@ -229,20 +236,27 @@
       "title": "MAC-I²: Learned Metrics-Aware Covariance for Robust Visual-Inertial Fusion in Initialization and Calibration",
       "venue_or_version": "arXiv 2609.07116",
       "url": "https://mac-i2.github.io/",
-      "inspection": "Author project method description and abstract; no new code audit",
+      "inspection": "Inspected v1 IV-C–E: visual/inertial joint objective uses visual relative-pose factors. No official code execution or full-paper reproduction.",
       "code": null,
       "reading_history": [
         {
           "source_note": "experiments/research-direction-literature-2026-11-12.json",
           "inspection": "Author project method description and abstract; no new code audit"
+        },
+        {
+          "date": "2026-11-12",
+          "source_note": "docs/research/multisensor-research-reset-2026-11-12.md",
+          "inspection": "Inspected v1 IV-C–E: visual/inertial joint objective uses visual relative-pose factors. No official code execution or full-paper reproduction."
         }
       ],
       "local_status": "See historical notes; no new reproduction asserted",
       "decision_notes": [
-        "docs/research/research-direction-literature-2026-11-12.md"
+        "docs/research/research-direction-literature-2026-11-12.md",
+        "docs/research/multisensor-research-reset-2026-11-12.md"
       ],
       "updated": "2026-11-12",
-      "historical_citations": []
+      "historical_citations": [],
+      "primary_preprint_url": "https://arxiv.org/html/2609.07116v1"
     },
     {
       "id": "cmrw",
@@ -314,7 +328,8 @@
       ],
       "local_status": "See historical notes; no new reproduction asserted",
       "decision_notes": [
-        "docs/research/research-direction-literature-2026-11-12.md"
+        "docs/research/research-direction-literature-2026-11-12.md",
+        "docs/research/multisensor-research-reset-2026-11-12.md"
       ],
       "updated": "2026-11-12",
       "historical_citations": [
@@ -351,18 +366,24 @@
       "id": "macvo",
       "title": "MAC-VO: Metrics-aware Covariance for Learning-based Stereo Visual Odometry",
       "url": "https://arxiv.org/html/2409.09479v2",
-      "inspection": "Historical reading note retained; not freshly reverified in this pass",
+      "inspection": "Rechecked v2 III-A uncertainty NLL, III-B selection and III-C geometry-aware covariance; inspected local two-frame graph/optimizer. No new reproduction.",
       "code": null,
       "prior_note": "docs/research/literature-2026-10-20.md",
       "reading_history": [
         {
           "source_note": "docs/research/literature-2026-10-20.md",
           "inspection": "Historical reading note retained; not freshly reverified in this pass"
+        },
+        {
+          "date": "2026-11-12",
+          "source_note": "docs/research/multisensor-research-reset-2026-11-12.md",
+          "inspection": "Rechecked v2 III-A uncertainty NLL, III-B selection and III-C geometry-aware covariance; inspected local two-frame graph/optimizer. No new reproduction."
         }
       ],
       "local_status": "See historical notes; no new reproduction asserted",
       "decision_notes": [
-        "docs/research/literature-2026-10-20.md"
+        "docs/research/literature-2026-10-20.md",
+        "docs/research/multisensor-research-reset-2026-11-12.md"
       ],
       "updated": "2026-11-12",
       "historical_citations": [
