@@ -1,5 +1,8 @@
 # RGB–Thermal Visual Odometry: Progress and Direction
 
+**Latest:** [stationarity audit resolves the saved gradient disagreement](shared-motion-stationarity-findings-2026-11-12.md). Independent80-digit derivatives and high-precision central difference pass unchanged tolerances. The earlier failed float64 audit remains historical: its plus fit stopped before adequate stationarity. Prototype and inputs unchanged. Real-data timing/rig feasibility remains unresolved; no training or VO improvement claim.
+
+
 **Latest executed result:** [shared-motion feasibility](shared-motion-feasibility-findings-2026-11-12.md) completes the bounded synthetic test. Main16/16 and near-degenerate rejection pass, but independent audit6/7 fails a gradient probe. Qualification is incomplete; no training or tolerance changes. This supersedes earlier pending-feasibility statements below. No real-data accuracy benefit is established.
 
 

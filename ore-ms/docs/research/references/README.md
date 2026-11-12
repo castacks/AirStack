@@ -1,5 +1,8 @@
 # Working paper references
 
+Latest numerical finding: [shared-motion stationarity audit](../shared-motion-stationarity-findings-2026-11-12.md) resolves the saved gradient discrepancy without prototype/tolerance changes. DNLS remains inspiration only; no new paper or official-system reproduction.
+
+
 Latest implementation/result: [shared-motion feasibility](../shared-motion-feasibility-findings-2026-11-12.md). DNLS-inspired synthetic prototype only; independent gradient audit fails one check. No official-system reproduction, training or calibration claim.
 
 

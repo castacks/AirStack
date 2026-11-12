@@ -18,8 +18,10 @@ across sessions.
 - Read the latest dated progress brief and its linked decision note before
   resuming an older experiment's proposed next step.
 
-Latest executed feasibility: `docs/research/shared-motion-feasibility-findings-2026-11-12.md`.
-Independent gradient audit fails one check: no training or tolerance rescue.
+Latest numerical resolution: `docs/research/shared-motion-stationarity-findings-2026-11-12.md`.
+Saved gradient disagreement is resolved by independent high-precision stationarity
+checks; original failed audit remains historical. No prototype/tolerance changes.
+Real-data shared-interval/rig feasibility remains required before training.
 Research decision: `docs/research/multisensor-research-reset-2026-11-12.md`.
 Current synthesis: `docs/research/progress-and-next-steps-2026-11-12.md`.
 The older research-direction literature note is historical; its rotation and

@@ -1,0 +1,18 @@
+{
+  "date": "2026-11-12",
+  "status": "SAVED_PACKET_GRADIENT_DISCREPANCY_RESOLVED",
+  "freeze_commit": "426be5d2b",
+  "pass": true,
+  "cause": "Old float64 SciPy plus-perturbation fit terminates on cost change before sufficient stationarity for outer finite differences. Unequal plus/minus pose-loss errors account for derivative mismatch.",
+  "unchanged_derivative_rtol": 0.005,
+  "unchanged_derivative_atol": 2e-08,
+  "independent_probes": 6,
+  "new_training": false,
+  "real_data_temporal_contract_qualified": false,
+  "vo_accuracy_claim": false,
+  "decision_note": "docs/research/shared-motion-stationarity-findings-2026-11-12.md",
+  "artifact_sha256": {
+    "results/shared-motion-stationarity/run-001/report.json": "6f4535d3fd8cedc0a1817715b11e40f140b74b09bff5fd25ef993c2f83b3fb21",
+    "results/shared-motion-stationarity/run-001/stationarity-progress.json": "851c98177a92da1226d038740fe675e6ff472105ec03441e36ebdca7ef305c79"
+  }
+}

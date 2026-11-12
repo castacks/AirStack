@@ -1,3 +1,5 @@
+2026-11-12 — [Shared-motion stationarity audit](docs/research/shared-motion-stationarity-findings-2026-11-12.md): saved gradient discrepancy resolved. Independent80-digit full-Hessian derivatives agree with all six stored probes; high-precision failed-probe finite difference passes unchanged tolerances. Original audit stopped before sufficient stationarity. No prototype change, training or VO claim.
+
 2026-11-12 — [Shared-motion feasibility](docs/research/shared-motion-feasibility-findings-2026-11-12.md): synthetic suite16/16 and near-degenerate rejection pass; independent SciPy audit6/7 fails one gradient probe. STOP_GRADIENT_QUALIFICATION_INCOMPLETE_NO_TRAINING. No tolerance changes, real-data training or VO accuracy claim.
 
 2026-11-12 — [Multi-sensor research reset](docs/research/multisensor-research-reset-2026-11-12.md): defer ACVNet; target measurement weights learned through a shared RGB–thermal metric-motion objective. Paper/source and prior-experiment review complete; numerical/temporal feasibility precedes training. No new accuracy result.

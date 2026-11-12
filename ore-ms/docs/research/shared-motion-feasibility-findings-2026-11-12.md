@@ -1,5 +1,7 @@
 # Shared RGB–thermal motion differentiation: qualification incomplete
 
+**Subsequent resolution:** [independent stationarity audit](shared-motion-stationarity-findings-2026-11-12.md) explains the failed gradient check and passes unchanged tolerances. This report retains the original outcome; no old result is overwritten.
+
 12 November 2026. Branch `ore-ms-orb-development`. Main execution freeze
 `1b95a8990`; independent-audit/near-degenerate supplement freeze `1d58df579`.
 
