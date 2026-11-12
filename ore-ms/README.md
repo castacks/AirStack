@@ -1,3 +1,5 @@
+2026-11-12 — [Completed raw thermal native refinement](docs/research/radiometric-native-findings-2026-11-12.md): exact-runtime three-record parity passes 7,839 arrays; all12 native arms/1,200 frames complete. Refinement worsens translation on every recording, with unchanged thermal coverage; all gates fail. Independent1,332-check audit passes. CLOSE_THIS_CONFIGURATION_NO_RETUNING.
+
 2026-11-12 — [Opt-in sparse raw-thermal hook](docs/research/radiometric-native-hook-2026-11-12.md) implemented with pinned-source instrumentation, original-endpoint retention on rejection and exact raw-image lookup. CPU checks pass; native runtime parity and accuracy comparison remain unexecuted.
 
 2026-11-12 America/New_York — [Raw thermal tracking feasibility](docs/research/radiometric-tracking-preflight-2026-11-12.md): original-MAC initialization, native uint16 patches, fixed first pair of day/night/rain; 1,755 attempts, 16 new/64 total tests, 15,008 independent cost checks. Mechanics only; no motion/reference scoring or accuracy advancement. Sparse integration and covariance/rejection controls remain prerequisites.
