@@ -1,0 +1,5 @@
+# Isolated compatibility runtime; never replace the frozen MAC runtime.
+# Before build verify local tag ID is 44ff9a1e6fa95d220437714e5be9b94f0f73c8eaebd4fcae3f843ceea14bef09.
+ARG BASE_IMAGE=ore-ms:geometry-compiler
+FROM ${BASE_IMAGE}
+RUN python -m pip install --no-cache-dir --no-deps scikit-image==0.25.2 imageio==2.37.0 path==16.16.0 Pebble==5.1.1 lazy-loader==0.4 tifffile==2025.5.10
