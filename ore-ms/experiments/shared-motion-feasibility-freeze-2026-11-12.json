@@ -1,0 +1,50 @@
+{
+  "date": "2026-11-12",
+  "status": "FROZEN_BEFORE_EXECUTION",
+  "seed": 17,
+  "points_per_camera": 12,
+  "dtype": "float64",
+  "device": "cpu",
+  "threads": 1,
+  "runtime_image": "sha256:fd7be8a3b1fe788972c54cabb5ee79433c30a53ab9951f49cf8c442f0753cf0a",
+  "solver": {
+    "iterations": 12,
+    "damping": 1e-08,
+    "rank_ratio": 1e-10
+  },
+  "tolerances": {
+    "recovery_abs": 1e-07,
+    "equivariance_abs": 2e-07,
+    "fd_step": 0.0001,
+    "jacobian_rtol": 1e-06,
+    "jacobian_atol": 1e-06,
+    "gradient_rtol": 0.005,
+    "gradient_atol": 2e-08,
+    "nonzero_gradient": 1e-12,
+    "independent_pose_abs": 2e-06
+  },
+  "cases": [
+    "noiseless_recovery",
+    "rgb_anisotropic_error",
+    "thermal_anisotropic_error",
+    "duplicate_all_observations",
+    "modality_order",
+    "body_coordinate_change",
+    "measurement_jacobian",
+    "pose_gradient_rgb_noise",
+    "pose_gradient_thermal_noise",
+    "global_weight_gauge",
+    "degenerate_geometry",
+    "nonfinite_observation",
+    "nonfinite_logvariance",
+    "asynchronous_intervals",
+    "behind_camera",
+    "independent_scipy_pose"
+  ],
+  "source_sha256": {
+    "tools/shared_motion_feasibility.py": "5786ccc1181f20c00a90ed28905e9f8ff06d560a71e31508a8c7f1883fd792cf",
+    "tools/run_shared_motion_feasibility.py": "61e4c818d1a88278745f75a7bce6602aa798fbe0303e0fc89ed22cc448bf4eb0"
+  },
+  "stop_rule": "One fixed suite. Any failed case means no training under this implementation; retain failures, no parameter sweep.",
+  "scope": "Conditional synthetic stereo measurement mechanics. Optical XYZ; exact identical intervals required; frozen source body points; no landmark uncertainty; no learned head or real-data accuracy."
+}
