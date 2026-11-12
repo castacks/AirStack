@@ -1,0 +1,189 @@
+{
+  "decision": "STOP_TRANSFER_PROMOTION_NO_RETUNING",
+  "recording_gates": {
+    "day": true,
+    "night": false
+  },
+  "recordings": {
+    "day": {
+      "solver_calls": 114,
+      "solver_status": {
+        "CONVERGED": 114
+      },
+      "primary": {
+        "decision": "RAIN_DEVELOPMENT_GATE_PASS",
+        "checks": {
+          "nonempty_matched_support": true,
+          "no_NEC_coverage_loss": true,
+          "improves_NEC_mean": true,
+          "not_worse_native_mean": true,
+          "improves_NEC_rmse": true,
+          "not_worse_native_rmse": true
+        },
+        "matched_pair_ids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18
+        ],
+        "matched_rotation_deg": {
+          "original/NEC": {
+            "count": 19,
+            "mean": 0.03764522663936121,
+            "rmse": 0.04479056428906088,
+            "median": 0.025964787493362743,
+            "p95": 0.07799317314689352,
+            "maximum": 0.08958833064529553
+          },
+          "original/PNEC_original_pixel_covariance": {
+            "count": 19,
+            "mean": 0.0353453034019592,
+            "rmse": 0.03936299536875878,
+            "median": 0.029302191683242416,
+            "p95": 0.06318506893403618,
+            "maximum": 0.06769900622895815
+          },
+          "native": {
+            "count": 19,
+            "mean": 0.053820521158072725,
+            "rmse": 0.05996140851799905,
+            "median": 0.04437741784230208,
+            "p95": 0.10066597867234116,
+            "maximum": 0.10939690822286958
+          }
+        }
+      },
+      "coverage": {
+        "original/NEC": 19,
+        "original/PNEC_unit_pixel_covariance": 19,
+        "original/PNEC_original_pixel_covariance": 19,
+        "replacement/NEC": 19,
+        "replacement/PNEC_unit_pixel_covariance": 19,
+        "replacement/PNEC_original_pixel_covariance": 19,
+        "native": 19
+      },
+      "scores_sha256": "95a62d086e6c975f049a365c13ed82f74d2fd72db575b27079cceea3ac46b1b7"
+    },
+    "night": {
+      "solver_calls": 114,
+      "solver_status": {
+        "CONVERGED": 113,
+        "DEGENERATE_GEOMETRY": 1
+      },
+      "primary": {
+        "decision": "STOP_THIS_PROTOTYPE_CONFIGURATION",
+        "checks": {
+          "nonempty_matched_support": true,
+          "no_NEC_coverage_loss": true,
+          "improves_NEC_mean": false,
+          "not_worse_native_mean": false,
+          "improves_NEC_rmse": false,
+          "not_worse_native_rmse": false
+        },
+        "matched_pair_ids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18
+        ],
+        "matched_rotation_deg": {
+          "original/NEC": {
+            "count": 19,
+            "mean": 0.022463843546839505,
+            "rmse": 0.02419037343544439,
+            "median": 0.01996107751721588,
+            "p95": 0.03957893849522913,
+            "maximum": 0.04331445583379427
+          },
+          "original/PNEC_original_pixel_covariance": {
+            "count": 19,
+            "mean": 0.040595829764262625,
+            "rmse": 0.051115382656778986,
+            "median": 0.02907005155304669,
+            "p95": 0.10691939180108835,
+            "maximum": 0.11441159052588322
+          },
+          "native": {
+            "count": 19,
+            "mean": 0.01984405243814575,
+            "rmse": 0.02065047350646674,
+            "median": 0.018112814843494723,
+            "p95": 0.028878892084348736,
+            "maximum": 0.03577072367702462
+          }
+        }
+      },
+      "coverage": {
+        "original/NEC": 19,
+        "original/PNEC_unit_pixel_covariance": 18,
+        "original/PNEC_original_pixel_covariance": 19,
+        "replacement/NEC": 19,
+        "replacement/PNEC_unit_pixel_covariance": 19,
+        "replacement/PNEC_original_pixel_covariance": 19,
+        "native": 19
+      },
+      "scores_sha256": "1b6b69d24584985e0ac66c5bd5aa00d7f344b19ac867a3b13e40cdd3dde59414"
+    }
+  },
+  "tests": 39,
+  "audit": {
+    "status": "PASS",
+    "recordings": {
+      "day": {
+        "retained_slots": 114,
+        "reconstructed_costs": 114,
+        "mapped_motion_errors": 114,
+        "primary_matched_intervals": 19,
+        "primary_gate_pass": true
+      },
+      "night": {
+        "retained_slots": 114,
+        "reconstructed_costs": 114,
+        "mapped_motion_errors": 113,
+        "primary_matched_intervals": 19,
+        "primary_gate_pass": false
+      }
+    },
+    "retained_slots": 228,
+    "reconstructed_costs": 228,
+    "mapped_motion_errors": 227,
+    "scope": "Independent saved objective/mapping/metric/coverage/decision checks; shared reference serialization qualification and calibration lookup; no neural or optimizer rerun"
+  },
+  "reference_scope": "Previously exposed first20 stereo pilots with provided RGB poses, nominal frame and clock conversion; no held-out claim",
+  "training_steps": 0,
+  "native_thermal_frames": 40,
+  "original_pair_calls": 38,
+  "replacement_matcher_calls": 38,
+  "next": "Close fixed covariance promotion; preserve secondary correspondence/geometry control as a separately testable hypothesis. No automatic fitting or night retuning.",
+  "freeze_sha256": "e2722ee77c3416d2f3af64f61f9f0f15db36bc67cd65cc3859af4496ea70a948"
+}

@@ -1,0 +1,34 @@
+{
+  "status": "NUMERICAL_AND_INPUT_PREPARATION_PASS",
+  "numerical_tests": 17,
+  "mapping_tests": 4,
+  "recovered_pairs": 19,
+  "exact_original_flow_parity_pairs": 19,
+  "source_grid_per_pair": 585,
+  "finite_spd_covariance_matrices": 11115,
+  "common_finite_inbound_observations": 10198,
+  "source_images_verified": 40,
+  "neural_pair_calls": 19,
+  "initial_depth_calls": 2,
+  "real_candidate_pose_solves": 0,
+  "real_candidate_accuracy_scores": 0,
+  "reference_value_access": "none; inherited reference files hashed for integrity only",
+  "next": "Implement and test common geometric filter/scorer, execution-code freeze, then single114-solve rain assay",
+  "source_sha256": {
+    "tools/bearing_rotation.py": "42fa590e116d59cc0152c4ef1a428c11ed8ff70b643c7f8fe0a3fe5c141ae31b",
+    "tools/test_bearing_rotation.py": "c52236578bf5ade354f07f0d58ccabdbc50334dfc800d7ccd6c4bb3e3fece908",
+    "tools/test_bearing_rotation_mapping.py": "00662ba1d5be763993a6777a989688b125fdfdb87a0f0a2ab41336ba524488b1",
+    "tools/prepare_bearing_rotation.py": "2309ea2386e80fb38cdf51efdb49e8d4053b6c27927e7246e96fc6561e7a8139",
+    "tools/audit_bearing_rotation_preflight.py": "36e94ee7fdb6ae805056f0a022e7fcd08bb4ff12b4e0bd8023fe301b03808d1b"
+  },
+  "audit": {
+    "status": "PASS_SAVED_INPUT_AUDIT",
+    "source_and_packet_hashes": 29,
+    "covariance_matrices_finite_spd": 11115,
+    "common_grid_observations": 10198,
+    "packets": 19,
+    "scope": "Cached endpoint sampling, support masks, saved covariance SPD/schema and hashes; not a neural covariance rerun or calibration test",
+    "real_pose_solves": 0,
+    "real_reference_scores": 0
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "decision": "RAIN_DEVELOPMENT_GATE_PASS",
+  "primary": {
+    "decision": "RAIN_DEVELOPMENT_GATE_PASS",
+    "checks": {
+      "nonempty_matched_support": true,
+      "no_NEC_coverage_loss": true,
+      "improves_NEC_mean": true,
+      "not_worse_native_mean": true,
+      "improves_NEC_rmse": true,
+      "not_worse_native_rmse": true
+    },
+    "matched_pair_ids": [
+      0,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18
+    ],
+    "matched_rotation_deg": {
+      "original/NEC": {
+        "count": 18,
+        "mean": 0.07670270992417207,
+        "rmse": 0.08008922839870664,
+        "median": 0.07403518838111903,
+        "p95": 0.11468688489118052,
+        "maximum": 0.12776879695306692
+      },
+      "original/PNEC_original_pixel_covariance": {
+        "count": 18,
+        "mean": 0.056580940688648794,
+        "rmse": 0.059518792473932845,
+        "median": 0.0498110761613559,
+        "p95": 0.09465581843022834,
+        "maximum": 0.1016614784706324
+      },
+      "native": {
+        "count": 18,
+        "mean": 0.07527015091383868,
+        "rmse": 0.09538018086579429,
+        "median": 0.052832964297289245,
+        "p95": 0.18067191842325062,
+        "maximum": 0.2699008663064862
+      }
+    }
+  },
+  "coverage": {
+    "original/NEC": 18,
+    "original/PNEC_unit_pixel_covariance": 18,
+    "original/PNEC_original_pixel_covariance": 18,
+    "replacement/NEC": 18,
+    "replacement/PNEC_unit_pixel_covariance": 18,
+    "replacement/PNEC_original_pixel_covariance": 18,
+    "native": 18
+  },
+  "solver_calls": 114,
+  "solver_statuses": {
+    "CONVERGED": 114
+  },
+  "observations_after_shared_geometric_filter": 8990,
+  "tests": 31,
+  "audit": {
+    "status": "PASS",
+    "retained_method_slots": 114,
+    "saved_objective_costs": 114,
+    "independent_motion_mappings_and_errors": 108,
+    "aggregate_values": 108,
+    "scope": "Independent saved cost/mapping/error/statistic/decision audit; common calibration loader reused; no network or optimizer rerun, no physical-reference certification"
+  },
+  "neural_calls": 0,
+  "training_steps": 0,
+  "scope": "Rotation-only exposed-rain development result, not gain over RGB or full metric VO",
+  "next": "Freeze identical existing exposed day/night inputs and assay before candidate execution; no tuning or automatic training",
+  "artifact_sha256": {
+    "prediction-lock.json": "aa416cba870bac3b95036c8cd6ef4058faaecdddd63a72f863a82d40d027218a",
+    "predictions.json": "878e9f70da5f28aed92b72f2c50967027a9556f1820ef76c80d8dfbf118caf36",
+    "scores.json": "68e7d9ade807cd190f1a14862ffc2401f9ea280ae02a85efdb06f87e8e93c3f7",
+    "audit.json": "5063a0454a07544fc857db44090b914af18583f7c4272114f6f38b58aa8efff0"
+  },
+  "execution_freeze_sha256": "8620c3c4f4de9f2f51a854259b9be9903c717c55c8b82b563624aa222fb3a305"
+}

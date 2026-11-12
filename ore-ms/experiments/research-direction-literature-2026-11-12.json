@@ -1,0 +1,117 @@
+{
+  "date": "2026-11-12",
+  "scope": "Targeted primary-source literature review and local evidence synthesis, not systematic review or new experiment",
+  "papers": [
+    {
+      "id": "pnec",
+      "title": "The Probabilistic Normal Epipolar Constraint for Frame-To-Frame Rotation Optimization under Uncertain Feature Positions",
+      "venue_or_version": "CVPR 2022",
+      "url": "https://arxiv.org/html/2204.02256v1",
+      "inspection": "Method, optimization algorithm, singularities and appendix limitations inspected",
+      "code": "https://github.com/tum-vision/pnec/tree/51dc8ddfa93a9622efcaf534908a2b30928a2e04"
+    },
+    {
+      "id": "dnls",
+      "title": "Learning Correspondence Uncertainty via Differentiable Nonlinear Least Squares",
+      "venue_or_version": "CVPR 2023",
+      "url": "https://arxiv.org/html/2305.09527v2",
+      "inspection": "Method, self-supervised learning and limitations inspected",
+      "code": "https://github.com/DominikMuhle/dnls_covs/tree/73d2e5c8dcd9afe2e6a82db3425d7d2704c54ae0"
+    },
+    {
+      "id": "self-tio",
+      "title": "Self-TIO: Thermal-Inertial Odometry via Self-Supervised 16-Bit Feature Extractor and Tracker",
+      "venue_or_version": "RA-L 2025",
+      "url": "https://ieeexplore.ieee.org/document/10803066/",
+      "inspection": "Publisher abstract/metadata; full page blocked by browser verification; no full-paper or code audit",
+      "code": null
+    },
+    {
+      "id": "tp-tio",
+      "title": "TP-TIO: A Robust Thermal-Inertial Odometry with Deep ThermalPoint",
+      "venue_or_version": "IROS 2020",
+      "url": "https://arxiv.org/abs/2012.03455",
+      "inspection": "Author abstract; not full method reproduction",
+      "code": null
+    },
+    {
+      "id": "thermal-sfm",
+      "title": "Self-Supervised Depth and Ego-Motion Estimation for Monocular Thermal Video Using Multi-Spectral Consistency Loss",
+      "venue_or_version": "arXiv 2103.00760v3",
+      "url": "https://arxiv.org/abs/2103.00760",
+      "inspection": "Author abstract and method scope; no code/runtime assessment",
+      "code": null
+    },
+    {
+      "id": "d3vo",
+      "title": "D3VO: Deep Depth, Deep Pose and Deep Uncertainty for Monocular Visual Odometry",
+      "venue_or_version": "CVPR 2020",
+      "url": "https://arxiv.org/abs/2003.01060",
+      "inspection": "Author abstract; no implementation audit",
+      "code": null
+    },
+    {
+      "id": "droid",
+      "title": "DROID-SLAM: Deep Visual SLAM for Monocular, Stereo, and RGB-D Cameras",
+      "venue_or_version": "NeurIPS 2021",
+      "url": "https://arxiv.org/abs/2108.10869",
+      "inspection": "Author abstract/proceedings method description; existing project baseline reports reviewed",
+      "code": null
+    },
+    {
+      "id": "maci2",
+      "title": "MAC-I²: Learned Metrics-Aware Covariance for Robust Visual-Inertial Fusion in Initialization and Calibration",
+      "venue_or_version": "arXiv 2609.07116",
+      "url": "https://mac-i2.github.io/",
+      "inspection": "Author project method description and abstract; no new code audit",
+      "code": null
+    },
+    {
+      "id": "cmrw",
+      "title": "Self-Supervised Spatial Correspondence Across Modalities",
+      "venue_or_version": "CVPR 2025",
+      "url": "https://arxiv.org/abs/2506.03148",
+      "inspection": "Author abstract; earlier local feasibility review consulted",
+      "code": "https://github.com/ayshrv/cmrw"
+    },
+    {
+      "id": "tartanmatch",
+      "title": "TartanMatch: Towards Universal Dense Correspondence Across Modalities",
+      "venue_or_version": "arXiv 2610.14513",
+      "url": "https://arxiv.org/abs/2610.14513",
+      "inspection": "Author abstract plus exact released source inspected/executed in preceding pilot",
+      "code": "https://github.com/castacks/tartanmatch/tree/b3f65ffdf9723a028d82f36ab0beb8457d0def72"
+    },
+    {
+      "id": "macthermal",
+      "title": "3D Thermal Perception for Autonomous Navigation in Visually Degraded, Unstructured Environments",
+      "venue_or_version": "CMU MS thesis 2025",
+      "url": "https://publications.ri.cmu.edu/3d-thermal-perception-for-autonomous-navigation-in-visually-degraded-unstructured-environments",
+      "inspection": "Institutional author abstract and indexed Chapter 3 excerpt; full thesis not parsed",
+      "code": null
+    },
+    {
+      "id": "kltnet",
+      "title": "KLTNet: Learning Sparse Feature Tracking for Robust and Accurate Monocular Visual-Inertial Odometry",
+      "venue_or_version": "arXiv 2608.24544",
+      "url": "https://arxiv.org/abs/2608.24544",
+      "inspection": "Author abstract; code/checkpoint availability not established",
+      "code": null
+    }
+  ],
+  "reviewed_local_sha256": {
+    "docs/research/final-residual-fit-findings-2026-11-10.md": "4be4edeb290e08df410465184b2344a847e67d46a855579bdef391368e84645f",
+    "docs/research/thermal-matcher-pilot-findings-2026-11-12.md": "a51bbd01a3961e43875b5fa6d25bd9daaddecd73362f0917643e221de438eb05",
+    "docs/research/fusion-mechanism-review-2026-11-09.md": "6318f66de1d19b07e27612fc2fc7a9f9aad575a3fe4279dfe24d8a4fe57b937a",
+    "docs/research/shared-representation-feasibility-2026-11-09.md": "156055f010475576b80edafaf664cbe02499f9ef93c36dacb2b7e881b3878e4e",
+    "docs/research/native-information-weights-findings-2026-11-09.md": "546e1043ac0eab1e62cc1a9ce115ff43e041d51e9d17672fb39083baa13c998c",
+    "experiments/EXP-015-night-geometry.md": "e91fec89fc20de7819431ec8c6a8d3ecaedbce2f1841b15cf5ab97b17203bd95",
+    "experiments/EXP-027-night-low-motion.md": "e5f0607d007fee4adfa99994c177d9e25c7e2c3581d09f8c2a3403150a1d643c",
+    "experiments/EXP-030-temporal-angular-consistency.md": "b23f2bc241afbb37c91bbfd7664fb7e262ad25a47896d59f0e55732f82fe2792",
+    "experiments/EXP-083-weighted-solver-repair.md": "4abd5cf6207095e6c83dfc67f9ef232aad37f646ba7007c14f757cd890c4ad96",
+    "experiments/EXP-086-solver-day-replication.md": "14385362ce5260f6f74abfbd3630ac6c3c5bf39f8de11aac1119ae571c724e2e"
+  },
+  "new_neural_calls": 0,
+  "new_training_steps": 0,
+  "research_recommendation": "PNEC/NEC bearing-space rotation objective comparison before any DNLS covariance training; thermal-specific hybrid tracking retained as alternative, not concurrent integration"
+}

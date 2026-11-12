@@ -1,0 +1,19 @@
+{
+  "decision": "STOP_CURRENT_TEMPORAL_MATCHER_PILOT",
+  "scope": "Inspected MS2 loader, native solver interface and final-residual recovery manifest only; not all Box packets or publisher assets.",
+  "reason": "No established direct temporal correspondence error/visibility target in inspected evidence. Depth and nominal pose projection alone do not certify visible point identity.",
+  "inventory_counts": {
+    "archive_members": 256,
+    "external_frozen_inputs": 236
+  },
+  "source_sha256": {
+    "MAC-VO-main/Module/Frontend/Matching.py": "c22110c75cb481b0fae0d21e2866a29093933b8e232f2edfb744000a9777e9ed",
+    "MAC-VO-main/Module/Frontend/Frontend.py": "90587c1ab5f312e5ca7ab4b2beb53239fa6eb6a89834c25f9a519f52aa4363a6",
+    "MAC-VO-main/Odometry/MACVO.py": "568c8219ffa910332dad0812f951c42ae2f11f7ca615131e0e46bae19964df32",
+    "MAC-VO-main/DataLoader/Dataset/MS2.py": "22723f8de483a284088289e9b50333c931e243edf6312b531206cc0576fb57af",
+    "MAC-VO-main/DataLoader/Interface.py": "be7669febda60bb0e5c94d01c68ec0730500c450202a283691e7ce567f260365",
+    "docs/research/depth-label-retrieval-findings-2026-11-09.md": "c3cefe67eb3a7dc8982d31d23c512329099a551846451d2dfa7157fce972d043",
+    "results/continuation-2026-11-12/recovery/manifest.json": "df86ef04adbba716df485266d1b55c123be5e84a29bb40891944253473d42d12"
+  },
+  "verification": "Static source and inventory inspection; no runtime or scientific tests executed."
+}
