@@ -13,7 +13,10 @@
   ros__parameters:
     drone: "drone_3"
     ball_name: "VolleyBall"
-    model_path: "/root/drone_soccer/drone_soccer/saved_policies/motor_dynamics.zip"
+    model_path: "/root/drone_soccer/drone_soccer/saved_policies/motor_dynamics_full.zip"
+    # "standard" PPO checkpoint, or "residual" for a drone_soccer
+    # ResidualActorCriticPolicy checkpoint (see policy_commander_drone3_residual.yaml).
+    policy_type: "standard"
     # Random ball goals used by the planar policy observation. One goal is
     # sampled uniformly inside this ENU rectangle. When the drone comes within
     # goal_arrival_radius, a new goal is sampled. /policy_commander/start also
@@ -36,7 +39,7 @@
     action_high: [3.0, 3.0, 1.5]
     # XY waypoints clamp only after the drone enters this distance from a
     # horizontal fence face. Altitude always remains clamped.
-    bounds_min: [-4.7, -6.0, 0.5]
+    bounds_min: [-4.7, -5.5, 0.5]
     bounds_max: [5.0, 5.0, 1.5]
     geofence_buffer_m: 0.5
     odom_topic_template: "/{name}/odometry_conversion/odometry"

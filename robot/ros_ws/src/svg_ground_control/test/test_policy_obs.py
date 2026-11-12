@@ -15,6 +15,7 @@ from svg_ground_control.policy_commander import (
     compute_bounded_waypoint,
     compute_goal_reference,
     enu_waypoint_to_ned,
+    load_policy_checkpoint,
 )
 
 
@@ -207,3 +208,116 @@ def test_policy_waypoint_rejects_invalid_geofence_buffer() -> None:
             bounds_max=np.ones(3, dtype=np.float32),
             geofence_buffer_m=-0.1,
         )
+
+
+_ACTION_LOW = np.array([-3.0, -3.0, 0.5], dtype=np.float32)
+_ACTION_HIGH = np.array([3.0, 3.0, 1.5], dtype=np.float32)
+
+
+def _save_ppo(tmp_path, policy_class, name: str) -> tuple[str, object]:
+    """Save an untrained PPO with ``policy_class`` and return (path, model)."""
+    gymnasium = pytest.importorskip('gymnasium')
+    stable_baselines3 = pytest.importorskip('stable_baselines3')
+    import torch
+
+    class _Env(gymnasium.Env):
+        observation_space = gymnasium.spaces.Box(
+            -np.inf, np.inf, shape=(OBS_DIM,), dtype=np.float32)
+        action_space = gymnasium.spaces.Box(
+            _ACTION_LOW, _ACTION_HIGH, dtype=np.float32)
+
+        def reset(self, *, seed=None, options=None):
+            return np.zeros(OBS_DIM, dtype=np.float32), {}
+
+        def step(self, action):
+            return np.zeros(OBS_DIM, dtype=np.float32), 0.0, True, False, {}
+
+    model = stable_baselines3.PPO(
+        policy_class, _Env(), n_steps=8, batch_size=8, device='cpu', seed=0)
+    with torch.no_grad():
+        # Non-zero, distinct weights everywhere so base and residual both
+        # contribute and a mis-load would change the action.
+        for index, parameter in enumerate(model.policy.parameters()):
+            parameter.copy_(torch.randn_like(parameter) * 0.3 + 0.01 * index)
+        for parameter in getattr(model.policy, 'base_actor', torch.nn.Module()).parameters():
+            parameter.copy_(torch.randn_like(parameter) * 0.3)
+    path = tmp_path / name
+    model.save(path)
+    return str(path), model
+
+
+def _residual_class():
+    pytest.importorskip('stable_baselines3')
+    from drone_soccer.residual_policy import ResidualActorCriticPolicy
+    return ResidualActorCriticPolicy
+
+
+def _observations() -> np.ndarray:
+    return np.random.default_rng(0).normal(size=(5, OBS_DIM)).astype(np.float32)
+
+
+def _force_numpy2_compat_path(monkeypatch) -> None:
+    """Make PPO.load fail as it does on a NumPy 2 archive under NumPy 1."""
+    from stable_baselines3 import PPO
+
+    def _fail(*_args, **_kwargs):
+        raise ModuleNotFoundError("No module named 'numpy._core'", name='numpy._core')
+
+    monkeypatch.setattr(PPO, 'load', _fail)
+
+
+@pytest.mark.parametrize('compat', [False, True])
+def test_residual_checkpoint_loads_and_matches_training_actions(
+    tmp_path, monkeypatch, compat: bool,
+) -> None:
+    path, model = _save_ppo(tmp_path, _residual_class(), 'residual.zip')
+    observations = _observations()
+    expected, _ = model.predict(observations, deterministic=True)
+    if compat:
+        _force_numpy2_compat_path(monkeypatch)
+
+    policy, used_compat = load_policy_checkpoint(
+        path, _ACTION_LOW, _ACTION_HIGH, 'residual')
+
+    assert used_compat is compat
+    actions, _ = policy.predict(observations, deterministic=True)
+    np.testing.assert_allclose(actions, expected, rtol=1e-6, atol=1e-6)
+
+
+@pytest.mark.parametrize('compat', [False, True])
+def test_standard_checkpoint_still_loads(tmp_path, monkeypatch, compat: bool) -> None:
+    path, model = _save_ppo(tmp_path, 'MlpPolicy', 'standard.zip')
+    observations = _observations()
+    expected, _ = model.predict(observations, deterministic=True)
+    if compat:
+        _force_numpy2_compat_path(monkeypatch)
+
+    policy, used_compat = load_policy_checkpoint(path, _ACTION_LOW, _ACTION_HIGH)
+
+    assert used_compat is compat
+    actions, _ = policy.predict(observations, deterministic=True)
+    np.testing.assert_allclose(actions, expected, rtol=1e-6, atol=1e-6)
+
+
+@pytest.mark.parametrize('compat', [False, True])
+@pytest.mark.parametrize(
+    ('saved_type', 'configured_type'),
+    [('residual', 'standard'), ('standard', 'residual')],
+)
+def test_policy_type_mismatch_is_rejected(
+    tmp_path, monkeypatch, compat: bool, saved_type: str, configured_type: str,
+) -> None:
+    policy_class = _residual_class() if saved_type == 'residual' else 'MlpPolicy'
+    path, _ = _save_ppo(tmp_path, policy_class, f'{saved_type}.zip')
+    if compat:
+        _force_numpy2_compat_path(monkeypatch)
+
+    with pytest.raises(ValueError, match=f'policy_type={configured_type!r}'):
+        load_policy_checkpoint(path, _ACTION_LOW, _ACTION_HIGH, configured_type)
+
+
+def test_unknown_policy_type_is_rejected(tmp_path) -> None:
+    pytest.importorskip('stable_baselines3')
+    with pytest.raises(ValueError, match='policy_type must be one of'):
+        load_policy_checkpoint(
+            str(tmp_path / 'unused.zip'), _ACTION_LOW, _ACTION_HIGH, 'bogus')

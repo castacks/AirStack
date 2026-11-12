@@ -1,0 +1,65 @@
+# Drone-soccer residual-policy inference on Starling hardware (direct PX4 setpoints).
+#
+# Same as policy_commander_drone3.yaml, but runs a residual policy checkpoint
+# trained with `train_sb3 --residual-base-model-path` (drone_soccer
+# ResidualActorCriticPolicy: frozen base actor + learned action residual).
+# drone_soccer/residual_policy.py must be importable (drone_soccer is mounted
+# on PYTHONPATH in the robot container).
+#
+# Prerequisites (separate terminals):
+#   - natnet_ros2, real_interfaces, mocap_bridge (see swarm_real_single_goal_drone3.yaml
+#     mocap_bridge section; set extra_body_names for the ball)
+# Do NOT run swarm_commander or trajectory_commander concurrently.
+#
+# Launch:
+#   ros2 launch svg_ground_control policy_commander.launch.py \
+#     config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/drone_soccer/policy_commander_drone3_residual.yaml
+#
+# Or with any config: policy_type:=residual model_path:=/path/to/residual.zip
+
+/**/policy_commander:
+  ros__parameters:
+    drone: "drone_3"
+    ball_name: "VolleyBall"
+    model_path: "/root/drone_soccer/drone_soccer/saved_policies/motor_dynamics_state_residual_respol.zip"
+    # Frozen base actor + learned additive action residual; the base weights
+    # are stored inside the .zip, so no separate base checkpoint is needed.
+    policy_type: "residual"
+    # Random ball goals used by the planar policy observation. One goal is
+    # sampled uniformly inside this ENU rectangle. When the drone comes within
+    # goal_arrival_radius, a new goal is sampled. /policy_commander/start also
+    # starts with a fresh goal.
+    target_x: 0.0
+    target_y: 0.0
+    goal_trajectory: "random"
+    goal_radius: 1.5
+    goal_period_s: 32.0
+    goal_phase_rad: 0.0
+    goal_rotation_rad: 1.5707963267948966
+    goal_spawn_min_xy: [-2.0, -2.0]
+    goal_spawn_max_xy: [2.0, 2.0]
+    goal_arrival_radius: 0.3
+    # Set >= 0 for repeatable tests; -1 draws nondeterministically.
+    goal_random_seed: 0
+    policy_dt: 0.1
+    deterministic: true
+    action_low: [-3.0, -3.0, 0.5]
+    action_high: [3.0, 3.0, 1.5]
+    # XY waypoints clamp only after the drone enters this distance from a
+    # horizontal fence face. Altitude always remains clamped.
+    bounds_min: [-4.3, -5.5, 0.5]
+    bounds_max: [5.0, 5.0, 1.5]
+    geofence_buffer_m: 0.5
+    odom_topic_template: "/{name}/odometry_conversion/odometry"
+    ball_odom_topic_template: "/{name}/mocap_odometry"
+    ball_pose_topic_template: "/{name}/pose"
+    trajectory_setpoint_topic_template: "/{name}/fmu/in/trajectory_setpoint"
+    offboard_control_mode_topic_template: "/{name}/fmu/in/offboard_control_mode"
+    state_timeout_s: 0.5
+    velocity_filter_alpha: 0.4
+    publish_debug: true
+    debug_topic_prefix: "/policy_commander"
+
+# Mocap bridge params for PPO: use the mocap_bridge section in
+# swarm_real_single_goal_drone3.yaml or
+# trajectory_commander_drone3_fmu_hover.yaml (SoccerBall mocap odometry).

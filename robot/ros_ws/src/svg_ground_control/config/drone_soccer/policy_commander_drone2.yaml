@@ -14,6 +14,9 @@
     drone: "drone_2"
     ball_name: "VolleyBall"
     model_path: "/root/drone_soccer/drone_soccer/saved_policies/train_tune_dynamic.zip"
+    # "standard" PPO checkpoint, or "residual" for a drone_soccer
+    # ResidualActorCriticPolicy checkpoint (see policy_commander_drone3_residual.yaml).
+    policy_type: "standard"
     # Soccer goal used by the policy observation: ENU (x, y, z) = (0, -8, 0).
     # The current policy observation is planar, so only x/y are consumed.
     target_x: -2.0

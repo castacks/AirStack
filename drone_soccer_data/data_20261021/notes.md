@@ -1,0 +1,4 @@
+- /bags/drone_3_VolleyBall_20261021_172515: Finetuned policy run, ball escapes barrier a few times
+- /bags/drone_3_VolleyBall_20261021_173322: calibration file, ball is placed near edges of barrier to chart out its dimensions
+- /bags/drone_3_VolleyBall_20261021_182545: Next iteration of training, only exited barrier at end
+- /bags/drone_3_VolleyBall_20261021_190003: Next iteration of training, didn't get to goal and ended up exiting barrier a couple times

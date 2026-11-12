@@ -10,12 +10,15 @@ from launch_ros.substitutions import FindPackageShare
 def _launch_setup(context, *args, **kwargs):
     config = LaunchConfiguration('config')
     model_path = LaunchConfiguration('model_path').perform(context).strip()
+    policy_type = LaunchConfiguration('policy_type').perform(context).strip()
     namespace = LaunchConfiguration('namespace')
     debug_topic_prefix = LaunchConfiguration(
         'debug_topic_prefix').perform(context).strip()
     params = [config]
     if model_path:
         params.append({'model_path': model_path})
+    if policy_type:
+        params.append({'policy_type': policy_type})
     if debug_topic_prefix:
         params.append({'debug_topic_prefix': debug_topic_prefix})
     return [
@@ -42,6 +45,9 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'model_path', default_value='',
             description='SB3 checkpoint .zip (overrides YAML when non-empty)'),
+        DeclareLaunchArgument(
+            'policy_type', default_value='',
+            description='standard or residual (overrides YAML when non-empty)'),
         DeclareLaunchArgument(
             'namespace', default_value='',
             description='ROS namespace used to isolate this commander'),

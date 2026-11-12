@@ -1,4 +1,8 @@
-"""Run a trained drone_soccer PPO checkpoint on live mocap + PX4 odometry."""
+"""Run a trained drone_soccer PPO checkpoint on live mocap + PX4 odometry.
+
+Supports standard PPO checkpoints and drone_soccer residual-policy checkpoints
+(``policy_type: residual``), whose archive includes the frozen base actor.
+"""
 
 from __future__ import annotations
 
@@ -194,10 +198,37 @@ def compute_bounded_waypoint(
     return waypoint
 
 
+POLICY_TYPES = ('standard', 'residual')
+
+
+def _policy_class_for_type(policy_type: str) -> type:
+    """Return the SB3 policy class a ``policy_type`` parameter names.
+
+    Args:
+        policy_type: ``standard`` for a plain PPO ``ActorCriticPolicy`` or
+            ``residual`` for drone_soccer's ``ResidualActorCriticPolicy``
+            (a frozen base actor plus a learned additive action residual).
+
+    Returns:
+        The policy class.
+    """
+    if policy_type == 'standard':
+        from stable_baselines3.common.policies import ActorCriticPolicy
+        return ActorCriticPolicy
+    if policy_type == 'residual':
+        # Imported only on demand so standard checkpoints still deploy against
+        # drone_soccer checkouts that predate the residual policy.
+        from drone_soccer.residual_policy import ResidualActorCriticPolicy
+        return ResidualActorCriticPolicy
+    raise ValueError(
+        f'policy_type must be one of {POLICY_TYPES}, got {policy_type!r}')
+
+
 def load_policy_checkpoint(
     model_path: str,
     action_low: np.ndarray,
     action_high: np.ndarray,
+    policy_type: str = 'standard',
 ) -> tuple[Any, bool]:
     """Load an SB3 PPO checkpoint, including NumPy 2 to NumPy 1 compatibility.
 
@@ -205,6 +236,10 @@ def load_policy_checkpoint(
         model_path: Path to the Stable-Baselines3 PPO archive.
         action_low: Lower bounds for the three policy actions.
         action_high: Upper bounds for the three policy actions.
+        policy_type: ``standard`` or ``residual``; must match the policy
+            class the checkpoint was trained with. A residual checkpoint
+            stores its frozen base actor inside the archive, so it is
+            self-contained.
 
     Returns:
         The object exposing ``predict`` and whether the weight-only
@@ -212,18 +247,30 @@ def load_policy_checkpoint(
     """
     from stable_baselines3 import PPO
 
+    policy_class = _policy_class_for_type(policy_type)
+
     try:
-        return PPO.load(model_path, device='cpu'), False
+        model = PPO.load(model_path, device='cpu')
     except ModuleNotFoundError as exc:
         if not exc.name or not exc.name.startswith('numpy._core'):
             raise
+    else:
+        # The archive pickles its own policy class, so PPO.load succeeds for
+        # either type. Check it agrees with the configuration (exact type: the
+        # residual policy subclasses ActorCriticPolicy).
+        if type(model.policy) is not policy_class:
+            raise ValueError(
+                f'{model_path} contains a {type(model.policy).__name__}, but '
+                f'policy_type={policy_type!r} expects '
+                f'{policy_class.__name__}')
+        return model, False
 
-    # safe.zip was saved under NumPy 2, whose pickle module names cannot be
-    # resolved by AirStack's NumPy 1.26. Rebuild the archive's standard
-    # ActorCriticPolicy and load its state dict without unpickling SB3 metadata.
+    # Archives saved under NumPy 2 pickle module names that AirStack's
+    # NumPy 1.x cannot resolve. Rebuild the configured policy class and load
+    # its state dict without unpickling SB3 metadata. This assumes SB3's
+    # default MLP (net_arch [64, 64], Tanh), which drone_soccer trains with.
     import torch
     from gymnasium.spaces import Box
-    from stable_baselines3.common.policies import ActorCriticPolicy
 
     observation_space = Box(
         low=-np.inf,
@@ -236,7 +283,7 @@ def load_policy_checkpoint(
         high=np.asarray(action_high, dtype=np.float32),
         dtype=np.float32,
     )
-    policy = ActorCriticPolicy(
+    policy = policy_class(
         observation_space,
         action_space,
         lr_schedule=lambda _: 0.0,
@@ -249,7 +296,15 @@ def load_policy_checkpoint(
         map_location='cpu',
         weights_only=True,
     )
-    policy.load_state_dict(state_dict)
+    try:
+        policy.load_state_dict(state_dict)
+    except RuntimeError as exc:
+        has_base_actor = any(key.startswith('base_actor.') for key in state_dict)
+        raise ValueError(
+            f'Could not load {model_path} as policy_type={policy_type!r}; '
+            'the checkpoint looks like a '
+            f'{"residual" if has_base_actor else "standard"} policy. '
+            f'Underlying error: {exc}') from exc
     policy.eval()
     return policy, True
 
@@ -261,6 +316,9 @@ class PolicyCommander(Node):
         self.declare_parameter('drone', 'drone_3')
         self.declare_parameter('ball_name', 'SoccerBall')
         self.declare_parameter('model_path', '')
+        # 'standard' (plain PPO) or 'residual' (drone_soccer
+        # ResidualActorCriticPolicy: frozen base actor + learned residual).
+        self.declare_parameter('policy_type', 'standard')
         self.declare_parameter('target_x', 3.0)
         self.declare_parameter('target_y', 0.0)
         self.declare_parameter('goal_trajectory', 'fixed')
@@ -305,6 +363,12 @@ class PolicyCommander(Node):
             raise ValueError('model_path parameter is required (path to SB3 .zip)')
         if not Path(model_path).is_file():
             raise FileNotFoundError(f'model_path not found: {model_path}')
+        self.policy_type = str(
+            self.get_parameter('policy_type').value).strip().lower()
+        if self.policy_type not in POLICY_TYPES:
+            raise ValueError(
+                f'policy_type must be one of {POLICY_TYPES}, got '
+                f'{self.policy_type!r}')
 
         self.goal_center_xy = np.array([
             float(self.get_parameter('target_x').value),
@@ -366,11 +430,13 @@ class PolicyCommander(Node):
             velocity_alpha=float(self.get_parameter('velocity_filter_alpha').value))
         self._ball_from_odom = False
 
-        self.get_logger().info(f'Loading PPO from {model_path}')
+        self.get_logger().info(
+            f'Loading {self.policy_type} PPO policy from {model_path}')
         self.policy, used_compat_loader = load_policy_checkpoint(
             model_path,
             self.action_low,
             self.action_high,
+            self.policy_type,
         )
         if used_compat_loader:
             self.get_logger().warn(
@@ -444,6 +510,7 @@ class PolicyCommander(Node):
             f'odom={odom_topic} ball_odom={ball_odom_topic} '
             f'trajectory_out={trajectory_topic} '
             f'offboard_out={offboard_mode_topic} obs_dim={OBS_DIM} '
+            f'policy_type={self.policy_type} '
             f'goal={self.goal_trajectory} goal_topic={self.goal_topic} '
             f'center={self.goal_center_xy.tolist()} '
             f'radius={self.goal_radius:.3f}m period={self.goal_period_s:.3f}s '
