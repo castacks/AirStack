@@ -1,0 +1,16 @@
+{
+  "date": "2026-11-12",
+  "status": "FROZEN_BEFORE_SUPPLEMENT_EXECUTION",
+  "reason": "Initial suite covers exact degeneracy. Add the explicitly requested near-degenerate case without changing or rerunning that passed suite. Independently audit saved RGB-noise packet via SciPy.",
+  "landmark_spread_m": 1e-09,
+  "seed": 23,
+  "rank_ratio": 1e-10,
+  "source_sha256": {
+    "tools/check_shared_motion_near_degenerate.py": "58706ef0cd929d57369effbfc701898247265c103e1b5334b33323b17d9a0b33",
+    "tools/audit_shared_motion_feasibility.py": "965ec8dcbb3ef78a39074140e7ad127ab896c7e516b27c2246793930cf0d9dfa",
+    "tools/shared_motion_feasibility.py": "5786ccc1181f20c00a90ed28905e9f8ff06d560a71e31508a8c7f1883fd792cf",
+    "tools/run_shared_motion_feasibility.py": "61e4c818d1a88278745f75a7bce6602aa798fbe0303e0fc89ed22cc448bf4eb0"
+  },
+  "audit_gradient_rtol": 0.005,
+  "audit_gradient_atol": 2e-08
+}
