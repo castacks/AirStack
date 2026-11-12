@@ -1,0 +1,62 @@
+{
+  "scope": "mechanical feasibility only; no motion/flow accuracy claim",
+  "initialization": "original MAC flow; replacement flow never used",
+  "all_grid_points": 585,
+  "case_selection": "first adjacent pair of each existing development prefix",
+  "radius": 7,
+  "max_correction_px": 2.0,
+  "max_nfev": 30,
+  "minimum_raw_std": 1.0,
+  "minimum_singular_ratio": 0.001,
+  "no_parameter_search": true,
+  "cases": {
+    "day": {
+      "sequence": "_2021-08-06-11-23-45",
+      "images": [
+        "results/ms2-day-replication/pilot/sync_data/_2021-08-06-11-23-45/thr/img_left/000000.png",
+        "results/ms2-broader-range/run-001/source/_2021-08-06-11-23-45/thr/img_left/000001.png"
+      ],
+      "packet": "results/unweighted-longer/run-001/inputs/day/packets/000.npz",
+      "pair": 0
+    },
+    "night": {
+      "sequence": "_2021-08-13-21-18-04",
+      "images": [
+        "results/ms2-night-pilot/pilot/sync_data/_2021-08-13-21-18-04/thr/img_left/000000.png",
+        "results/ms2-broader-range/run-001/source/_2021-08-13-21-18-04/thr/img_left/000001.png"
+      ],
+      "packet": "results/unweighted-longer/run-001/inputs/night/packets/000.npz",
+      "pair": 0
+    },
+    "rain": {
+      "sequence": "_2021-08-06-16-19-00",
+      "images": [
+        "results/pose-covariance/accuracy-001/rain/raw/_2021-08-06-16-19-00/thr/img_left/000000.png",
+        "results/ms2-broader-range/run-001/source/_2021-08-06-16-19-00/thr/img_left/000001.png"
+      ],
+      "packet": "results/unweighted-longer/run-001/inputs/rain/packets/000.npz",
+      "pair": 0
+    }
+  },
+  "pins": {
+    "tools/preflight_radiometric_tracking.py": "e692c0765f64c0b44620d69840372413b9665930ec8235b44b63c039659633c5",
+    "tools/radiometric_tracking.py": "e91ef9fc328db35941434b12d49cc6a7f78f8dc48c507d348d0e9b42e06ab517",
+    "tools/test_radiometric_tracking.py": "e2efd766edcf7ccd1327c5cc7ff183dcc0dcfac7dca8a081d828948218b35663",
+    "results/ms2-day-replication/pilot/sync_data/_2021-08-06-11-23-45/thr/img_left/000000.png": "a578455da87261c9207517891acac26bc6ff58ca9a5158e82f27ad7b778e6899",
+    "results/ms2-broader-range/run-001/source/_2021-08-06-11-23-45/thr/img_left/000001.png": "b5d8fbab974dcf52d95c319c983342013d7642e029f75a3eadd5a65dfd7d71e9",
+    "results/unweighted-longer/run-001/inputs/day/source-manifest.json": "2f6630b8327fc12a5a8c7411346666521de78aa5266f8506088d529f3c98ae67",
+    "results/unweighted-longer/run-001/inputs/day/acquisition.json": "12be2b4a42c8c3cf80b5b4d259389857b33a5230cebd6b282bfa55895b716b95",
+    "results/unweighted-longer/run-001/inputs/day/packets/000.npz": "43c1dcb20ea18d5f6ce3c5029f3217e4b637f483761e2e997b592b5bdb0ff040",
+    "results/ms2-night-pilot/pilot/sync_data/_2021-08-13-21-18-04/thr/img_left/000000.png": "099d086bd6b05cd626319f5ce68b39c92c0c460b4c65d22eb21c34a660b2f11c",
+    "results/ms2-broader-range/run-001/source/_2021-08-13-21-18-04/thr/img_left/000001.png": "9c59815ae674badc1885918f04060a2922ae48247c6463ff97c7af1debf4ae40",
+    "results/unweighted-longer/run-001/inputs/night/source-manifest.json": "098441602615063d6061423665ab842ba66183b9d1256194b523926681ae7258",
+    "results/unweighted-longer/run-001/inputs/night/acquisition.json": "24ef0064a14af52b26aba148e50c8df024c5c9b67edaa73ced5c607c9ea60aaf",
+    "results/unweighted-longer/run-001/inputs/night/packets/000.npz": "43cbcd90ab2eac2d2c01e371f1e88ba3b557fed2ec89995a4126c5685cdbf838",
+    "results/pose-covariance/accuracy-001/rain/raw/_2021-08-06-16-19-00/thr/img_left/000000.png": "046771165b4d7fffbb1fe0ed63a50a076a486ee09462804ab662dc6e4f4fb748",
+    "results/ms2-broader-range/run-001/source/_2021-08-06-16-19-00/thr/img_left/000001.png": "3969f940fdf4110992115e29fea6f185ce6d93d496a778d52ea280d217acffbd",
+    "results/unweighted-longer/run-001/inputs/rain/source-manifest.json": "4f008fc7203fd73b197557477f2d14f9acac666cb4de672cdbaa21d78569a7a6",
+    "results/unweighted-longer/run-001/inputs/rain/acquisition.json": "f9edbbd4a447700876bc19b97b595cda4d3e5cc7354bafa73fa8a44d9f7248e2",
+    "results/unweighted-longer/run-001/inputs/rain/packets/000.npz": "c2c215655174d58124882e29e9e85716440bdf4684af38056fc3ed1ff8c313b1"
+  },
+  "decision_rule": "Stop at mechanics; no accuracy advancement from fit residuals or support counts."
+}
