@@ -184,9 +184,11 @@ bringup() {
     fi
 
     step "safe_teleop on $drone"
-    # max_speed_mps 2.0: full stick = 2 m/s (the node's own default is a
-    # conservative 1.0). The config's teleop/cbf caps are 2.0 to match.
-    rtmux teleop "cd $WS && source install/setup.bash && ros2 run svg_ground_control safe_teleop --ros-args -p drone:=$drone -p max_speed_mps:=2.0 2>&1 | tee /tmp/teleop.log"
+    # The config's safe_teleop block supplies the input device
+    # (teleop_controller: dragonrise_usb on the bench) and the speeds
+    # (max_speed_mps 2.0 here, = the commander's teleop/cbf caps). Without it
+    # the node would fall back to xbox_usb and its own 1.0 m/s default.
+    rtmux teleop "cd $WS && source install/setup.bash && ros2 run svg_ground_control safe_teleop --ros-args --params-file $SHARE/config/$config -p drone:=$drone 2>&1 | tee /tmp/teleop.log"
     sleep 3
     grn "    driving $drone"
 
@@ -302,7 +304,10 @@ bringup_real() {
     fi
 
     step "safe_teleop on $drone"
-    rtmux teleop "cd $WS && source install/setup.bash && ros2 run svg_ground_control safe_teleop --ros-args -p drone:=$drone 2>&1 | tee /tmp/teleop.log"
+    # Same config as the commander: teleop_controller and the first-flight
+    # caps (max_speed_mps 0.7, max_climb_speed_mps 0.5) come from its
+    # safe_teleop block.
+    rtmux teleop "cd $WS && source install/setup.bash && ros2 run svg_ground_control safe_teleop --ros-args --params-file $SHARE/config/$config -p drone:=$drone 2>&1 | tee /tmp/teleop.log"
     sleep 3
     grn "    driving $drone"
 
