@@ -249,12 +249,19 @@
           "date": "2026-11-12",
           "source_note": "docs/research/multisensor-research-reset-2026-11-12.md",
           "inspection": "Inspected v1 IV-C–E: visual/inertial joint objective uses visual relative-pose factors. No official code execution or full-paper reproduction."
+        },
+        {
+          "date": "2026-11-12",
+          "source_note": "docs/research/published-covariance-claims-2026-11-12.md",
+          "inspection": "Rechecked IV-A,VI and TableIII learned/identity visual+IMU covariance ablation; initialization/calibration task, not thermal nighttime fusion."
         }
       ],
       "local_status": "See historical notes; no new reproduction asserted",
       "decision_notes": [
         "docs/research/research-direction-literature-2026-11-12.md",
-        "docs/research/multisensor-research-reset-2026-11-12.md"
+        "docs/research/multisensor-research-reset-2026-11-12.md",
+        "docs/research/published-covariance-claims-2026-11-12.md",
+        "docs/research/research-relevance-and-prior-art-2026-11-12.md"
       ],
       "updated": "2026-11-12",
       "historical_citations": [],
@@ -315,7 +322,7 @@
       "title": "3D Thermal Perception for Autonomous Navigation in Visually Degraded, Unstructured Environments",
       "venue_or_version": "CMU MS thesis 2025",
       "url": "https://publications.ri.cmu.edu/3d-thermal-perception-for-autonomous-navigation-in-visually-degraded-unstructured-environments",
-      "inspection": "Institutional author abstract and indexed Chapter 3 excerpt; full thesis not parsed",
+      "inspection": "Directly read thesis PDF extracted text sections3.3–3.5/Table3.1 and common-SuperOdometry autonomy comparison setup; no full-thesis/figure reanalysis or isolated covariance pose ablation established.",
       "code": null,
       "reading_history": [
         {
@@ -326,12 +333,19 @@
           "source_note": "docs/research/literature-2026-10-20.md",
           "inspection": "October note records method sections and full-PDF parsing; later November review was narrower. Preserve both accounts.",
           "pdf_sha256": "91d680477b21d2292e81877df8ed05dfef0dbe829784857baa1581add645d6a4"
+        },
+        {
+          "date": "2026-11-12",
+          "source_note": "docs/research/published-covariance-claims-2026-11-12.md",
+          "inspection": "Directly read thesis PDF extracted text sections3.3–3.5/Table3.1 and common-SuperOdometry autonomy comparison setup; no full-thesis/figure reanalysis or isolated covariance pose ablation established."
         }
       ],
       "local_status": "See historical notes; no new reproduction asserted",
       "decision_notes": [
         "docs/research/research-direction-literature-2026-11-12.md",
-        "docs/research/multisensor-research-reset-2026-11-12.md"
+        "docs/research/multisensor-research-reset-2026-11-12.md",
+        "docs/research/published-covariance-claims-2026-11-12.md",
+        "docs/research/research-relevance-and-prior-art-2026-11-12.md"
       ],
       "updated": "2026-11-12",
       "historical_citations": [
@@ -618,6 +632,96 @@
         }
       ],
       "historical_citations": []
+    },
+    {
+      "id": "mso-airlab-primary-summary",
+      "title": "MSO: uncertainty-driven multispectral-inertial odometry (primary project/defense descriptions)",
+      "venue_or_version": "AirLab institutional project page and Shibo Zhao CMU thesis-defense abstract; MSO paper publication status not verified",
+      "url": "https://theairlab.org/offroad/",
+      "primary_additional_url": "https://www.ri.cmu.edu/event/unlock-robust-spatial-perception-towards-resilient-state-estimation-and-mapping-for-long-term-autonomy/",
+      "inspection": "Primary descriptions directly read: RGB/thermal adaptive state estimation and photometric-Hessian per-feature covariance weighting. Full MSO paper/code and calibration ablations not inspected.",
+      "code": null,
+      "local_status": "Direct application overlap; superseded for method depth by mso-thesis-2026. Original summary reading event retained.",
+      "reading_history": [
+        {
+          "date": "2026-11-12",
+          "source_note": "docs/research/research-relevance-and-prior-art-2026-11-12.md",
+          "inspection": "Primary descriptions directly read: RGB/thermal adaptive state estimation and photometric-Hessian per-feature covariance weighting. Full MSO paper/code and calibration ablations not inspected."
+        }
+      ],
+      "decision_notes": [
+        "docs/research/research-relevance-and-prior-art-2026-11-12.md",
+        "docs/research/mso-method-overlap-review-2026-11-12.md"
+      ],
+      "updated": "2026-11-12"
+    },
+    {
+      "id": "balanced-covariance-2021",
+      "title": "Unsupervised Balanced Covariance Learning for Visual-Inertial Sensor Fusion",
+      "venue_or_version": "IEEE Robotics and Automation Letters6(2),819–826,2021; DOI10.1109/LRA.2021.3051571",
+      "url": "https://ieeexplore.ieee.org/abstract/document/9324985",
+      "inspection": "Publisher abstract via search result inspected. Direct full-page/article access failed. No full-method, code or RGB–thermal applicability verification.",
+      "code": null,
+      "local_status": "Prior covariance balancing across sensors in VI setting; not evidence of an exact RGB–thermal calibration solution.",
+      "reading_history": [
+        {
+          "date": "2026-11-12",
+          "source_note": "docs/research/research-relevance-and-prior-art-2026-11-12.md",
+          "inspection": "Publisher abstract via search result inspected. Direct full-page/article access failed. No full-method, code or RGB–thermal applicability verification."
+        }
+      ],
+      "decision_notes": [
+        "docs/research/research-relevance-and-prior-art-2026-11-12.md"
+      ],
+      "updated": "2026-11-12"
+    },
+    {
+      "id": "mso-thesis-2026",
+      "title": "Resilient Spatial Perception for Autonomous Robots",
+      "author": "Shibo Zhao",
+      "venue_or_version": "CMU PhD thesis, CMU-RI-TR-26-26, April 2026; Chapter5 MSO source marked under review2025",
+      "url": "https://publications.ri.cmu.edu/resilient-spatial-perception-for-autonomous-robots",
+      "primary_additional_url": "https://drive.google.com/file/d/1wNZVMuBtNxPvYy2CtGa4e7UJEC2ZMz1B/view",
+      "inspection": "Complete Chapter5 methods/evaluation/limitations, printed pp68–84 (PDF69–85), equations5.2–5.10, tables5.1–5.5; relevant Chapter7 sections7.3.1/7.4.2. Not full-thesis reading.",
+      "code": null,
+      "related_code_inspection": {
+        "url": "https://github.com/superxslam/SuperOdom",
+        "commit": "f10e65cd50007767b22e4c401689665e20d827d6",
+        "depth": "ros2 README and complete117-entry tree only; slim LiDAR/IMU release, not verified MSO implementation"
+      },
+      "source_sha256": "bd872e8c7ed112c6be8ee5b98d8a80ad7d0853aca09b5f8f8f76e09d91324d0e",
+      "local_status": "RGB/thermal covariance-weighted adaptive sliding-window BA established. Chapter5 explicitly limits uncertainty to image space; statistical cross-modal calibration/error-ranking not demonstrated there. Later manuscript and exact MSO code unresolved; no novelty or reproduction claim.",
+      "reading_history": [
+        {
+          "date": "2026-11-12",
+          "source_note": "docs/research/mso-method-overlap-review-2026-11-12.md",
+          "inspection": "Full relevant MSO chapter and selected related Chapter7 sections, including methods and evaluation; author/institutional title-page metadata verified."
+        }
+      ],
+      "decision_notes": [
+        "docs/research/mso-method-overlap-review-2026-11-12.md"
+      ],
+      "updated": "2026-11-12"
+    },
+    {
+      "id": "mso-dfr-2026-listing",
+      "title": "MSO: Uncertainty-Aware Multi-Spectral Inertial Odometry for Extreme Environments",
+      "venue_or_version": "Accepted submission17, IROS2026 DFR non-archival workshop; submission type and manuscript content unverified",
+      "url": "https://jonasfrey96.github.io/data_in_field_robotics/",
+      "inspection": "Organizer accepted-submission listing and submission policy only; manuscript not obtained, OpenReview API403. Do not transfer thesis conclusions to this version.",
+      "code": null,
+      "local_status": "Later-version evidence unresolved; title/authors differ from older homepage entry.",
+      "reading_history": [
+        {
+          "date": "2026-11-12",
+          "source_note": "docs/research/mso-method-overlap-review-2026-11-12.md",
+          "inspection": "Workshop listing and policy only; no method reading."
+        }
+      ],
+      "decision_notes": [
+        "docs/research/mso-method-overlap-review-2026-11-12.md"
+      ],
+      "updated": "2026-11-12"
     }
   ]
 }

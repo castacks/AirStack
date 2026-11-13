@@ -44,3 +44,13 @@ Reading depth, code/checkpoint pins and linked local decisions are in `papers.js
 For every paper used, record stable ID/URL/version, reading date/depth, author claims versus local interpretation, code/checkpoint pins, limitations and linked decisions/results. Preserve prior reading events. Full copyrighted paper text is excluded from Git and Box.
 
 Latest: [fixed MS² transfer findings](../ms2-depth-transfer-findings-2026-11-12.md); [ViViD reproduction](../thermal-sfm-reproduction-findings-2026-11-12.md).
+
+2026-11-12: [Published covariance claims](../published-covariance-claims-2026-11-12.md) records direct MACThermal Chapter3/Table3.1 reading and MAC-I² covariance ablations; distinguishes author results from local RGB–thermal extensions.
+
+2026-11-12: [Relevance/prior-art check](../research-relevance-and-prior-art-2026-11-12.md) adds primary MSO project/defense descriptions and abstract-only balanced-covariance2021 reading. Exact cross-modal calibration novelty is not established. Existing EXP009 and nominal thermal fixed/cov controls acknowledged.
+
+2026-11-12: [MSO full-method overlap review](../mso-method-overlap-review-2026-11-12.md)
+adds `mso-thesis-2026`: complete Chapter5 read, including explicit image-space-only
+uncertainty limitation. `mso-dfr-2026-listing` records a later accepted workshop
+submission with manuscript/code unresolved. Historical project-summary reading
+retained; no verified MSO reproduction or universal novelty claim.

@@ -33,3 +33,14 @@ tracking follow-ups have already been executed and closed.
 ## Living paper references
 
 Maintain `docs/research/references/README.md`, `papers.json` and `papers.bib` whenever a paper informs a proposal, implementation or experiment. Keep stable paper IDs, primary URLs/versions, reading depth/date, code/checkpoint pins, limitations and linked local decisions/results. Preserve historical reading events. Add cited historical sources from `citation-index.json` to the curated registry before relying on them; a citation is not proof of reading. Never describe a mechanism prototype as an author-system reproduction.
+
+Prior-art/inventory correction: `docs/research/research-relevance-and-prior-art-2026-11-12.md`. Basic thermal covariance weighting is established by MACThermal; MSO is direct RGB–thermal uncertainty-weighted factor-graph prior work (full paper/code novelty gap unverified). EXP009 and nominal `thermal_fixed`/`thermal_cov` already isolate weighting on saved inputs with mixed metrics. Do not present those controls as entirely untested or an automatically novel direction. Original contribution target remains cross-modal comparability/predictive reliability, not generic covariance weighting.
+
+Latest prior-art depth: `docs/research/mso-method-overlap-review-2026-11-12.md`.
+Full MSO thesis Chapter5 now read: RGB/thermal image-covariance-weighted sliding-window
+BA and dynamic factor removal are established overlap. Chapter5 explicitly excludes
+depth/landmark/pose uncertainty; statistical cross-modal calibration/ranking not
+demonstrated there. Later IROS2026 DFR submission manuscript and exact MSO code remain
+unverified. Existing EXP060/061/069/070 already study relative errors, coverage/NLL
+and recording exclusion; do not rediscover them or equate improved NLL with fusion
+benefit. No new experiment selected; contribution novelty remains unresolved.
