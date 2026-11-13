@@ -161,7 +161,8 @@ class LedController(Node):
         self.create_subscription(String, '/svg/led_command', self.led_command_callback, 10)
 
         self.create_timer(0.02, self.poll_socket)
-        self.create_timer(1.0 / max(0.1, float(self.get_parameter('resend_hz').value)), self.resend)
+        self.resend_hz = max(0.1, float(self.get_parameter('resend_hz').value))
+        self.create_timer(1.0 / self.resend_hz, self.resend)
         self.create_timer(1.0, self.housekeeping)
         self.start_time = time.time()
         self.get_logger().info(
@@ -297,7 +298,9 @@ class LedController(Node):
         now = time.time()
         for d in self.drones.values():
             eff = self.effective(d, now)
-            if eff != d.last_sent or now - d.last_send_time > 0.5 / max(0.1, 1.0):
+            # Keep-alive on every resend tick; 0.9 of the period absorbs
+            # timer jitter, so a tick landing a hair early still sends.
+            if eff != d.last_sent or now - d.last_send_time >= 0.9 / self.resend_hz:
                 self.send(d, *eff)
 
     def housekeeping(self):
