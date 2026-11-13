@@ -235,3 +235,18 @@ def test_twin_pid_scan_matches_only_node_processes(tmp_path, monkeypatch):
     monkeypatch.setattr(builtins, "open", lambda f, *a, **k: real_open(
         str(fake) + f[len("/proc"):] if str(f).startswith("/proc/") else f, *a, **k))
     assert SwarmCommander.twin_pids() == [100]
+
+
+def test_empty_status_topic_starts_without_twin_takeover():
+    """status_topic '' (status off) used to crash at start-up: the twin-status
+    subscription was created with an empty topic name."""
+    node = make(drone_names=["drone_1"], scenario="hover",
+                hover_positions=[0.0, 0.0, 1.0], status_topic="", takeover_twins=True)
+    try:
+        assert node.status_pub is None                   # status is off
+        assert not hasattr(node, "_takeover_timer")     # takeover needs the status
+        # the graph-based twin check still guards takeoff/start
+        node.check_duplicate_commander()
+        assert node.duplicate_commander is False
+    finally:
+        node.destroy_node()

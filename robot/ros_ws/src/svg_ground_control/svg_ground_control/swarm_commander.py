@@ -978,11 +978,20 @@ class SwarmCommander(Node):
         self.create_timer(1.0, self.check_duplicate_commander)
         # Take over from twin processes once their status has had time to
         # arrive (status_rate_hz is a few Hz): see takeover_twins().
+        # The twins' status snapshots are the only way to tell an idle twin
+        # from one with drones in the air, so the takeover needs status_topic.
+        # (The 1 Hz duplicate check above uses the node graph and always runs.)
         self._twin_snapshots = {}
-        self.create_subscription(String, str(self.get_parameter('status_topic').value),
-                                 self._on_twin_status, 10)
         if bool(self.get_parameter('takeover_twins').value):
-            self._takeover_timer = self.create_timer(2.0, self.takeover_twins)
+            if self.status_topic:
+                self.create_subscription(String, self.status_topic,
+                                         self._on_twin_status, 10)
+                self._takeover_timer = self.create_timer(2.0, self.takeover_twins)
+            else:
+                self.get_logger().warn(
+                    'takeover_twins needs status_topic (empty): twin commanders '
+                    'will NOT be killed; takeoff/start are still refused while '
+                    'one is running')
         if hasattr(self, 'add_post_set_parameters_callback'):   # rclpy >= Iron
             self.add_post_set_parameters_callback(self._apply_parameters)
         else:
