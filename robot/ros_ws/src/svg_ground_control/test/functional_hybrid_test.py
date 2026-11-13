@@ -10,9 +10,11 @@ Run against a live commander launched with hybrid_squeeze.yaml
     python3 test/functional_hybrid_test.py
 
 Verifies the per-drone command ROUTING: the two holders (mode 'real') must
-be commanded on /{name}/fmu/velocity_command and serviced on
-/{name}/fmu/robot_command, while the intruder (mode 'sim') is commanded on
-/{name}/interface/velocity_command. Each fake drone ONLY subscribes to its
+be commanded on /{name}/fmu/trajectory_command (real_command_mode
+"trajectory", the default: reference point + velocity, tracked here like PX4
+offboard) and serviced on /{name}/fmu/robot_command, while the intruder
+(mode 'sim') is commanded on /{name}/interface/velocity_command and serviced
+on /{name}/interface/robot_command. Each fake drone ONLY subscribes to its
 expected topic — if the commander routed to the wrong one, the drone gets no
 command, never moves, and the test fails. Also checks the squeeze still
 works (intruder crosses, holders yield, barrier respected).
@@ -27,10 +29,12 @@ from rclpy.node import Node
 from geometry_msgs.msg import TwistStamped
 from nav_msgs.msg import Odometry
 from std_srvs.srv import Trigger
+from trajectory_msgs.msg import MultiDOFJointTrajectory
 from airstack_msgs.srv import RobotCommand
 
-# name -> (mode, command-topic-namespace). Holders real, intruder sim.
-MODES = {'drone_1': 'fmu', 'drone_2': 'fmu', 'drone_3': 'interface'}
+# name -> drone_modes entry in hybrid_squeeze.yaml. Holders real, intruder sim.
+MODES = {'drone_1': 'real', 'drone_2': 'real', 'drone_3': 'sim'}
+NS = {'real': 'fmu', 'sim': 'interface'}
 OFFSETS = {'drone_1': np.array([0.0, 0.0, 0.0]),     # real holders, mocap-anchored
            'drone_2': np.array([0.0, 0.0, 0.0]),
            'drone_3': np.array([2.0, 0.0, 0.0])}     # sim intruder, SITL spawn x=+2
@@ -41,21 +45,30 @@ HOLDER_POSTS = np.array([[0.0, -0.69, 1.2], [0.0, 0.69, 1.2]])
 INTRUDER_START = np.array([1.5, 0.0, 1.2])
 SAFETY_RADIUS = 0.55
 DT = 0.02
+POS_GAIN = 0.95     # PX4-like position correction on the trajectory reference
 
 
 class FakeDrone:
     def __init__(self, node, name):
         self.name = name
-        self.ns = MODES[name]
+        self.mode = MODES[name]
+        self.ns = NS[self.mode]
         self.position = GROUND[name].copy()
         self.cmd = np.zeros(3)
+        self.ref = None
+        self.vel_ff = np.zeros(3)
         self.cmd_count = 0
         self.commands_received = []
         self.odom_pub = node.create_publisher(
             Odometry, f'/{name}/odometry_conversion/odometry', 10)
         # Subscribe ONLY to the topic the drone's mode should produce.
-        node.create_subscription(
-            TwistStamped, f'/{name}/{self.ns}/velocity_command', self.cmd_cb, 10)
+        if self.mode == 'real':
+            node.create_subscription(
+                MultiDOFJointTrajectory, f'/{name}/fmu/trajectory_command',
+                self.traj_cb, 10)
+        else:
+            node.create_subscription(
+                TwistStamped, f'/{name}/interface/velocity_command', self.cmd_cb, 10)
         node.create_service(
             RobotCommand, f'/{name}/{self.ns}/robot_command', self.srv_cb)
 
@@ -64,12 +77,21 @@ class FakeDrone:
                              msg.twist.linear.z])
         self.cmd_count += 1
 
+    def traj_cb(self, msg):
+        pt = msg.points[0]
+        t, v = pt.transforms[0].translation, pt.velocities[0].linear
+        self.ref = np.array([t.x, t.y, t.z]) + OFFSETS[self.name]   # local -> world
+        self.vel_ff = np.array([v.x, v.y, v.z])
+        self.cmd_count += 1
+
     def srv_cb(self, req, res):
         self.commands_received.append(req.command)
         res.success = True
         return res
 
     def step(self, node):
+        if self.mode == 'real' and self.ref is not None:
+            self.cmd = self.vel_ff + POS_GAIN * (self.ref - self.position)
         self.position = self.position + self.cmd * DT
         self.position[2] = max(self.position[2], 0.0)
         local = self.position - OFFSETS[self.name]
@@ -120,8 +142,8 @@ def main():
     # Routing proof: every drone moved, so each received commands on its
     # mode-specific topic (it subscribes to no other).
     for n in MODES:
-        assert drones[n].cmd_count > 0, f'{n} got no commands on /{n}/{MODES[n]}/'
-        assert drones[n].commands_received, f'{n} got no robot_command on /{n}/{MODES[n]}/'
+        assert drones[n].cmd_count > 0, f'{n} got no commands on /{n}/{drones[n].ns}/'
+        assert drones[n].commands_received, f'{n} got no robot_command on /{n}/{drones[n].ns}/'
     print('  -> holders commanded on /fmu/, intruder on /interface/ (all moved)')
 
     print('TEST 2: start -> intruder crosses, holders yield, barrier holds')
