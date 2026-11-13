@@ -1,3 +1,31 @@
+# MS research handoff
+
+Current decision, 13 November 2026, America/New_York:
+[bound the research direction before Spring](docs/research/research-scope-decision-2026-11-13.md).
+The user wants a defensible contribution and a finite path to it, without an
+open-ended sequence of tuning experiments. The completed work supports useful
+characterization, but the mechanism behind the observed failures and the
+incremental contribution remain unresolved. No new experiment is selected.
+
+Read the [contribution statement](docs/research/contribution-statement-2026-11-13.md)
+for evidence and claim boundaries, and the [MSO review](docs/research/mso-method-overlap-review-2026-11-12.md)
+for established overlap and unavailable later-version/code evidence. The original
+research question below remains the objective; generic covariance weighting is
+already established prior work.
+
+## Historical progress and original plan
+
+The entries below preserve prior decisions and publication-time status. Older
+“next steps,” pending claims and untouched-recording counts may be superseded by
+later execution notes. Use the current decision above before resuming a proposal.
+The [README](README.md) is the repository entry point, not a second progress log.
+
+2026-11-12 — [Persistent tracks and five-frame geometry](docs/research/persistent-tracks-windowed-geometry-findings-2026-11-12.md): new replay produces17,870 seed tracks; all120camera-windows admitted. Off/on234arrays/2,980events exact; covariance-stage auditor correction retained. All240window attempts run; shared variable-depth method fails all3recording gates against matched RGB-only and originalRGB-cov, with240/240primary intervals. Independent7,123,339checks/4,563costs/240derivatives pass. Close exact configuration without retuning; no physical/fresh-test claim.
+
+2026-11-12 — [Five-frame track admission](docs/research/windowed-track-admission-findings-2026-11-12.md): all88,680 landmark IDs have one two-frame edge; zero3-frame tracks and0/120 admitted camera-windows. Independent178,138 assertions pass. Stop this saved-track configuration; no window solver, new matching/training or pose scoring. Shared-window hypothesis remains untested.
+
+2026-11-12 — [Task-trained shared weights](docs/research/shared-weight-learning-findings-2026-11-12.md): all six fixed40-update heads complete; all297 nominal intervals/method retained. Learned joint fails all three recording gates against equally trained RGB-only and original RGB-cov. Six tests,594 zero-head parity outputs,24 derivative checks, independent13,180 checks/594 costs and four semantic corruptions pass. Close this exact learned recipe without retuning; no physical/fresh-test/calibration claim.
+
 2026-11-12 — [Current input decision](docs/research/shared-motion-input-contract-findings-2026-11-12.md): freeze8cb397ee9. One exposed night prefix confirms nominal spatial compatibility but0/19 equal recorded intervals and unverified clock semantics. STOP_THIS_STRICT_SHARED_INTERVAL_CONFIGURATION. Do not reopen clock searches or automatically build asynchronous estimation/train. Same-ID nominal benchmark would require a distinct explicit adapter/control protocol, not silent guard removal.
 
 2026-11-12 — [Saved gradient disagreement resolved](docs/research/shared-motion-stationarity-findings-2026-11-12.md): freeze426be5d2b; independent80-digit stationarity/full-Hessian audit passes six stored probes and failed-probe finite difference. Original SciPy plus fit ftol-stopped with exact gradient1.361e-5; unequal loss errors explain mismatch. Old source/failed output unchanged. Next prerequisite is actual shared-interval/rig feasibility, not automatic training.
@@ -6,7 +34,7 @@
 
 2026-11-12 — [Current research decision](docs/research/multisensor-research-reset-2026-11-12.md): ACVNet deferred. Next is bounded shared-motion learning feasibility. DNLS does not guarantee calibrated cross-modal covariance; native detached covariance path needs a separate gradient contract. No new inference/training/scoring; closed configurations remain closed.
 
-# MS Research Handoff — Cross-Modal Geometric Uncertainty for RGB–Thermal Visual Odometry
+## Original project handoff — cross-modal geometric uncertainty
 
 2026-11-12 — [Fixed MS² depth transfer](docs/research/ms2-depth-transfer-findings-2026-11-12.md): all 60 frame pairs complete; median-scaled monocular errors exceed fresh MACT in day/night/rain, with no support loss. Source clip saturation was known before inference; all gates fail without retuning. Six tests and independent 738-check audit pass. Working paper library updated to 22 records.
 

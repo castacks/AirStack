@@ -51,3 +51,10 @@ statistical fit and downstream pose utility. No validated new fusion method or
 verified novelty. Cohorts/targets differ; do not infer a causal chain across
 experiments. Old unexamined-recording counts are historical: November6 whole-record
 execution exposed its two candidates. No new experiment selected.
+
+Research scope and documentation convention: see `docs/research/research-scope-decision-2026-11-13.md`.
+The user wants a finite contribution decision before more experiment variants;
+prepare one question, controls, evidence threshold and stopping rule for advisor
+discussion. No time budget/advisor approval is assumed. Keep README as an entry
+point, handoff as current research context, and detailed evidence in dated notes;
+do not duplicate progress logs. README_HISTORY.md is an immutable historical snapshot.
