@@ -44,3 +44,10 @@ demonstrated there. Later IROS2026 DFR submission manuscript and exact MSO code 
 unverified. Existing EXP060/061/069/070 already study relative errors, coverage/NLL
 and recording exclusion; do not rediscover them or equate improved NLL with fusion
 benefit. No new experiment selected; contribution novelty remains unresolved.
+
+Latest contribution draft: `docs/research/contribution-statement-2026-11-13.md`.
+Proposed empirical characterization of uncertainty ranking, cross-camera selection,
+statistical fit and downstream pose utility. No validated new fusion method or
+verified novelty. Cohorts/targets differ; do not infer a causal chain across
+experiments. Old unexamined-recording counts are historical: November6 whole-record
+execution exposed its two candidates. No new experiment selected.
