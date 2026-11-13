@@ -72,7 +72,7 @@ Five executables (`robot/ros_ws/src/svg_ground_control/svg_ground_control/`):
 | `scenarios.py` | (library) | Nominal-velocity policies: `hover`, `goal`, `random_walk`, `random_goals`, `head_on`, `antipodal`, `squeeze`. Pure NumPy, ported from `~/drone_soccer`. |
 | `trajectory.py` | (library) | The go-to-goal law: PX4-style braking law + acceleration-limited reference profile (`goal_accel_mps2`, `goal_settle_s`). See [C1](#c1-single-drone-goal-goal_singleyaml). |
 | `cbf_filter.py` | (library) | The velocity-CBF collision filter (`filter_velocities`), a verbatim port of `drone_soccer/cbf.py`. |
-| `mocap_bridge.py` | `mocap_bridge` | Hardware only: `/{name}/pose` (mocap) → `/{name}/fmu/visual_odometry_in` for the PX4 EKF. |
+| `mocap_bridge.py` | `mocap_bridge` | Hardware only: `/{name}/pose` (mocap) → `/{name}/fmu/in/vehicle_visual_odometry` (`px4_msgs/VehicleOdometry`, straight to the PX4 EKF2; `px4_vio_mode: direct`, every config). |
 | `safe_teleop/` | `safe_teleop` | Gamepad teleop for one `teleop_drones` drone: `/joy` → altitude-held ENU velocity on the teleop topic. Device = `teleop_controller` (`xbox_usb`; registry `safe_teleop/controllers.py`). See [teleop.md](teleop.md). |
 
 **Data flow inside `swarm_commander` each tick:**
@@ -135,13 +135,14 @@ For each drone `{name}` (e.g. `drone_1`):
 |---|---|---|---|
 | `/{name}/odometry_conversion/odometry` | in | `nav_msgs/Odometry` | from interface layer → commander & RViz |
 | `/{name}/interface/velocity_command` (sim) | out | `geometry_msgs/TwistStamped` | commander → MAVROS interface |
-| `/{name}/fmu/velocity_command` (real) | out | `geometry_msgs/TwistStamped` | commander → px4_interface |
+| `/{name}/fmu/trajectory_command` (real) | out | `trajectory_msgs/MultiDOFJointTrajectory` | commander → px4_interface: reference point + velocity + acceleration (`real_command_mode: trajectory`, the default) |
+| `/{name}/fmu/velocity_command` (real, legacy) | out | `geometry_msgs/TwistStamped` | commander → px4_interface, only with `real_command_mode: velocity` |
 | `/{name}/interface/robot_command` or `/{name}/fmu/robot_command` | call | `airstack_msgs/srv/RobotCommand` | commander → arm/offboard/disarm |
 | `/svg/{name}/teleop_command` | in | `geometry_msgs/TwistStamped` | safe_teleop → commander (teleop drones) |
 | `/svg/{name}/goal_command` | in | `geometry_msgs/PoseStamped` | you → commander (`goal` scenario) |
 | `/svg/{name}/speed_command` | in | `std_msgs/Float32` | you → commander (`goal` scenario) |
 | `/{name}/pose` | in | `geometry_msgs/PoseStamped` | mocap → mocap_bridge (hardware) |
-| `/{name}/fmu/visual_odometry_in` | out | `nav_msgs/Odometry` | mocap_bridge → px4_interface (hardware) |
+| `/{name}/fmu/in/vehicle_visual_odometry` | out | `px4_msgs/VehicleOdometry` | mocap_bridge → PX4 EKF2 over uXRCE-DDS (hardware; `px4_vio_mode: direct`). `via_interface` mode publishes `nav_msgs/Odometry` on `/{name}/fmu/visual_odometry_in` instead; no config uses it |
 | `/svg/viz/markers` | out | `visualization_msgs/MarkerArray` | commander → RViz (all drones, world frame) |
 | `/swarm_commander/{takeoff,start,hold,land,reset_fence}` | call | `std_srvs/Trigger` | you → commander |
 
@@ -1840,10 +1841,10 @@ come up before starting a test.
 | commander rejects config: `"X" is in both external_drones and cbf_exempt_drones` | external drones are never commanded, so they can't be "exempt" — remove the name from one of the two lists |
 | Isaac avatar (real drone) doesn't appear / doesn't move | (a) launch Isaac with a **GUI** viewport (`ISAAC_SIM_HEADLESS=false`) and `DRONE_MODES` listing that drone as `real`; (b) the avatar tracks `…/odometry_conversion/odometry` — confirm it's flowing (`ros2 topic hz`); (c) domain: the script sets `ROS_DOMAIN_ID=SVG_DOMAIN_ID`, so the drone must publish on that domain; (d) **true hardware**: the real drone's odometry is on a host-network container while Isaac is on the bridge network — DDS must cross them (run Isaac with host networking or a discovery server). Pure-sim dry-run: publish a synthetic odom or run that drone as a throwaway SITL |
 | `start` says "not all drones holding yet" | drones still converging to takeoff targets; retry after a few seconds |
-| takeoff & land work but the drone **won't move to a goal** | goal-seeking needs a SUCCESSFUL `/start` (takeoff/land don't). Re-run `/start` and read the response: "not all drones holding yet" → loosen `arrival_threshold_m` or wait; "geofence breached" → `~/reset_fence` + widen fence. Then confirm motion with `ros2 topic echo /<name>/fmu/velocity_command` and that the goal arrived (`ros2 topic echo /svg/<name>/goal_command --once`). The velocity path itself is fine — that's what takeoff used |
+| takeoff & land work but the drone **won't move to a goal** | goal-seeking needs a SUCCESSFUL `/start` (takeoff/land don't). Re-run `/start` and read the response: "not all drones holding yet" → loosen `arrival_threshold_m` or wait; "geofence breached" → `~/reset_fence` + widen fence. Then confirm motion with `ros2 topic echo /<name>/fmu/trajectory_command` (sim drones: `/<name>/interface/velocity_command`) and that the goal arrived (`ros2 topic echo /svg/<name>/goal_command --once`). The command path itself is fine — that's what takeoff used |
 | `start` says "geofence breached" | a drone left the box; `ros2 service call /swarm_commander/reset_fence std_srvs/srv/Trigger` after recovering |
 | drones fly right *shapes* in wrong *places*; intruder misses the gap | per-drone PX4 local origins: `drone_position_offsets` must equal the sim spawn positions (`x = 2*(i-1) - (N-1)` → `[-2,0,0, 0,0,0, 2,0,0]` for 3). Zeros only for mocap-anchored hardware |
-| hybrid: a "real" drone never moves | nothing is consuming `/{name}/fmu/velocity_command` — real-mode drones need px4_interface up (Part B); validate the routing first with `functional_hybrid_test.py` |
+| hybrid: a "real" drone never moves | nothing is consuming `/{name}/fmu/trajectory_command` — real-mode drones need px4_interface up (Part B), built with trajectory_command support; validate the routing first with `functional_hybrid_test.py` |
 | teleop: `pad: NO /joy` although the pad **is** plugged in | the container cannot see the device. `ls /dev/input/js0` on the host, then `docker exec airstack-robot-desktop-1 ls /dev/input/js0` — `privileged` populates `/dev` only at container start, so a pad plugged in afterwards is invisible. `robot-base-docker-compose.yaml` bind-mounts `/dev/input`; a container created before that needs **recreating** (`AUTOLAUNCH=false airstack up robot-desktop`), not restarting. Confirm with `ros2 run joy joy_enumerate_devices` (SDL's `Failed loading udev_device_get_action` line is harmless). |
 | teleop: `REFUSING TO COMMAND: forward (axis 4) rests at +1.00` | wrong `teleop_controller` for this pad: that axis is an analog trigger, which rests at full scale and would command full speed untouched. The bench pad is `dragonrise_usb` (right stick on axes 2/3), an Xbox pad is `xbox_usb` (3/4). Check with `ros2 run svg_ground_control joy_map`. |
 | teleop: sticks move the wrong drone axis (but nothing is refused) | a rearranged stick layout is not detectable automatically — only a resting trigger is. Verify each direction on the ground against the printed `cmd vx/vy/vz`, then fix the profile's axis numbers in `safe_teleop/controllers.py` (or override `forward_axis` etc. in the config's `safe_teleop` block). |

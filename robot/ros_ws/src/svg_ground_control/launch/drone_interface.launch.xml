@@ -19,7 +19,10 @@
                                                    commander's default for real drones)
          /<drone_name>/fmu/velocity_command        TwistStamped in (real_command_mode: velocity)
          /<drone_name>/fmu/robot_command           RobotCommand srv
-         /<drone_name>/fmu/visual_odometry_in      Odometry in (mocap)
+         /<drone_name>/fmu/visual_odometry_in      Odometry in (mocap_bridge
+                                                   px4_vio_mode: via_interface only;
+                                                   the default direct mode publishes
+                                                   /fmu/in/vehicle_visual_odometry)
          /<drone_name>/odometry_conversion/odometry  Odometry out (ENU)
        ==================================================================== -->
   <arg name="drone_name" />

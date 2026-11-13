@@ -14,7 +14,8 @@ Starling 2 Max airframe).
  OptiTrack Motive ──▶ natnet_ros2 ──▶ /{name}/pose   (hardware only)
                                           │
                           ┌───────────────▼────────────────────────────┐
-                          │ mocap_bridge → /{name}/fmu/visual_odometry │
+                          │ mocap_bridge →                             │
+                          │   /{name}/fmu/in/vehicle_visual_odometry   │
                           └────────────────────────────────────────────┘
                           ┌────────────────────────────────────────────┐
  /{name}/odometry_        │ swarm_commander  (20 Hz)                   │
