@@ -29,7 +29,6 @@ Frame conversion (px4_vio_frame):
 Hardware only: in simulation PX4 SITL estimates its own state.
 """
 
-import math
 
 import numpy as np
 import rclpy

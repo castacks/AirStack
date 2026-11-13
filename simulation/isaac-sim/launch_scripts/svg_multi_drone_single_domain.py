@@ -25,7 +25,6 @@ Env:
    (ISAAC_SIM_HEADLESS=false) and ROS_DOMAIN_ID matching the drones to see it.
 """
 
-import asyncio
 import os
 import sys
 import time

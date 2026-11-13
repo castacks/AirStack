@@ -46,7 +46,6 @@ import numpy as np
 DEFAULT_ACCEL = 3.0                  # m/s^2, PX4's MPC_ACC_HOR default
 DEFAULT_SETTLE = 0.3                 # s, exponential tail of the reference
 DEFAULT_VELOCITY_ONLY_SETTLE = 1.0   # s, same law at the drone, lag absorbed
-DEFAULT_LEAD = 2.0                   # m, reference leash (PX4: MPC_XY_ERR_MAX)
 REATTACH_TOL = 0.05                  # m/s, applied != reference -> re-attach
 
 
