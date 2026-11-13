@@ -1492,6 +1492,14 @@ class SwarmCommander(Node):
     # ------------------------------------------------------------------
 
     def handle_takeoff(self, request, response):
+        # Refuse BEFORE touching any drone: a twin commander is publishing
+        # setpoints for the same drones, and a drone switched to ARMING here
+        # would be armed by the next tick even though the reply says REFUSED.
+        if self.duplicate_commander:
+            response.success = False
+            response.message = ('REFUSED: another swarm_commander is running '
+                                '(ros2 node list) — kill it first')
+            return self._record_command('takeoff', response)
         now = self.get_clock().now()
         # A new sortie has not run the planner yet.
         self.mission_ever_started = False
@@ -1519,11 +1527,6 @@ class SwarmCommander(Node):
                 'takeoff: goals reset to the takeoff points ('
                 + ', '.join(f'{d.name} {d.takeoff_target.round(2).tolist()}'
                             for d in self.drones if d.name in started) + ')')
-        if self.duplicate_commander:
-            response.success = False
-            response.message = ('REFUSED: another swarm_commander is running '
-                                '(ros2 node list) — kill it first')
-            return self._record_command('takeoff', response)
         response.success = bool(started)
         response.message = ('takeoff: ' + ', '.join(started)) if started \
             else 'no drone eligible for takeoff (missing odometry or not IDLE)'

@@ -193,6 +193,30 @@ def test_takeoff_resets_stored_goals_and_goals_accepted_before_start():
         node.destroy_node()
 
 
+def test_takeoff_refused_by_twin_leaves_every_drone_idle():
+    """A REFUSED takeoff must not arm anything (it used to set ARMING first)."""
+    from std_srvs.srv import Trigger
+    from svg_ground_control.swarm_commander import FlightState
+    node = make(drone_names=["drone_1", "drone_2"], drone_modes="real,real",
+                scenario="goal", hover_positions=[0.0, 0.0, 1.0, 1.0, 0.0, 1.0])
+    try:
+        for d in node.drones:
+            d.position = np.array([0.0, 0.0, 0.05])
+        node.mission_ever_started = True
+        node.duplicate_commander = True
+        res = node.handle_takeoff(Trigger.Request(), Trigger.Response())
+        assert not res.success and "REFUSED" in res.message
+        assert all(d.state == FlightState.IDLE for d in node.drones)
+        assert node.mission_ever_started          # nothing reset by a refusal
+        # once the twin is gone the same call goes through
+        node.duplicate_commander = False
+        res = node.handle_takeoff(Trigger.Request(), Trigger.Response())
+        assert res.success
+        assert all(d.state == FlightState.ARMING for d in node.drones)
+    finally:
+        node.destroy_node()
+
+
 def test_twin_pid_scan_matches_only_node_processes(tmp_path, monkeypatch):
     import os
     from svg_ground_control.swarm_commander import SwarmCommander
