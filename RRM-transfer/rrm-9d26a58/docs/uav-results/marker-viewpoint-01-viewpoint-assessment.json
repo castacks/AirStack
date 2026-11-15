@@ -1,0 +1,49 @@
+{
+  "verdict": "PASS",
+  "scope": "one static red-fixture resolution-seeking viewpoint; oracle depth, not semantic information gain",
+  "checks": {
+    "complete_flight": true,
+    "evidence_case_bound": true,
+    "raw_observations_match": true,
+    "exact_fresh_pairs": true,
+    "policy_source_matches": true,
+    "policy_transform_and_goal_bound": true,
+    "measured_resolution_gain": true,
+    "measured_standoff": true,
+    "physical_viewpoint_motion": true,
+    "observed_navigation_and_recovery": true
+  },
+  "metrics": {
+    "bbox_area_ratio": 1.4074074074074074,
+    "before_surface_depth_z_m": 3.4654202461242676,
+    "after_surface_depth_z_m": 2.9043588638305664,
+    "optical_depth_reduction_m": 0.5610613822937012,
+    "planned_translation_m": 0.635471358297362,
+    "physical_capture_displacement_m": 0.55496156383079,
+    "physical_capture_speeds_m_s": [
+      0.017552988651753667,
+      0.022910636246248988
+    ]
+  },
+  "errors": [],
+  "raw_sha256": {
+    "marker-before-00.png": "1b5d4f5489e1c8fe3ff8af47aa6ef231f6039ca78f350ffb92764047f656f8fa",
+    "marker-before-00.npz": "77cbe0932b865931e5c0c530be9269616765e5b73989466ea92e61e3d2df1107",
+    "marker-before-01.png": "abda4f01e5ac6862d33c4c00efdfa11813b410f705a15b608e348ed088c5c85e",
+    "marker-before-01.npz": "963f3d05b05ceae47e101852753c9ef299857d86084ef1560d1ca2b39a60ec66",
+    "marker-before-02.png": "103424175659e4e02cdf7577da41e439f9d5c98ff8f10b2bb874b9f06dbe9c0b",
+    "marker-before-02.npz": "8450aec6f042bcea3212cda90b468203c8db1667804217fde81b80840d5ac48d",
+    "marker-after-00.png": "1912e40032d01ae2bf93a7715dfc1308af23e62f8074ce11f6b4923266cd7b8c",
+    "marker-after-00.npz": "27948c528fa182a67981c23777b49d6207489f82246a824c0e0381f210158e53",
+    "marker-after-01.png": "d94bf8dfeeefd9ef72f8ba444c4a7500aed3f5391645f4da9bb8cbf2559fed00",
+    "marker-after-01.npz": "8beeff3245e81f82638b947e5f08be5be5f1475e614ee1cd2eca188dc3e11153",
+    "marker-after-02.png": "3e98879d18b50d7dd3c49946f4f81a4ae4c6568d8ceb6c4bbfaf25d528e6af6f",
+    "marker-after-02.npz": "83211f0c31fbebdfdd34e921f4405e49d36ac815e147218ed4a8ba8f22d6feb8"
+  },
+  "assessor_sha256": "73f480e7c31b3749837b3f853ba2eae284adad8e534d3b35d7285098ee75cca8",
+  "input_sha256": {
+    "events": "43bde4011f36d4fec67558b9d35a70c67b5490e8dee7076e3ca78e9e51d9d6d2",
+    "truth": "8e93baf1d3c0c263c08b6ea150df5b9757f53920332b85e956ef1b4dacc47649",
+    "contact_assessment": "9f267532383dca247f08736eee9eda9fe94626ac87033403c614f9eaf0c94d67"
+  }
+}

@@ -34,6 +34,10 @@ understanding, visual grounding or a controlled model benchmark.
 
 ## Start here
 
+For the November UAV simulation campaign, start with [UAV current status](docs/uav-current-status.md), [task dispositions](docs/uav-task-campaign.md), and [physical dynamics](docs/uav-physics-evidence.md). Cosmos is deferred; passing claims are limited to the stated bounded episodes.
+Optional UAV component cases use pytest/OpenCV/NumPy in robot Docker; they are separate from the minimal core unittest runner, with explicit skips when optional dependencies are absent.
+
+
 For the next OSMO submission, an optional
 [editable-worker setup](../../osmo/cosmos-worker/README.md#editable-development-worker)
 supports explicit source releases and child-only restarts. It is development-only,

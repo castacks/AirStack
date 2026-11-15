@@ -8,6 +8,270 @@ steps aligned with RRM's overall purpose. Requirements/contracts and verified
 evidence govern the work; the roadmap is revisable. Historical phase/gate numbers
 below retain their original meanings and then-current scope.
 
+## CURRENT: saved checkpoint; resume later — 2026-11-15
+
+User requested documentation update and commit before usage runs out. No active
+flight/pending goal remains. Leave Isaac/PX4 running for viewer use, disarmed/on
+ground. Every future restart must recheck AirStack readiness, ROS clock alignment,
+PX4 state and Kit signaling; a running container is insufficient. Current case
+pre/postflight all7ready gates pass (23s/13s); TCP49100 listener/reachability checked.
+Browser/media rendering remains unverified. One GPU; Cosmos/Gazebo deferred.
+
+New027case: `--marker-viewpoint` selects one horizontal move from3exact fresh
+RGB/depth/K observations plus optical-to-map TF at the selected image stamp.
+Static red fixture/oracle depth, bbox-resolution proxy; not general recognition,
+object-center/world localization or semantic information gain. Planned.635471m,
+PhysX capture displacement.554962m; raw recomputation proves area ratio1.407407,
+optical surface depth3.465420→2.904359m, fixedK. Full contact/envelope/navigation/
+LAND/disarm acceptancePASS; no pending goals. 3974contact headers,0unknown or
+undeclared; max truthgap.37478s. No geometry/mass/solver/backend gate change.
+
+Current006–037 counts:4PASS,11NOT DEMONSTRATED,8NOT IMPLEMENTED,9NOT TESTED.
+19public attempts:13completed procedures,3incomplete airborne recoveries,
+3blocked beforeflight; mixed cases/source versions, not success-rate evidence.
+Optional evaluator/perception/viewpoint suites82PASS; actual-driver3handoff
+contractsPASS. Watchdog package7CTest checksPASS; historical planner broad lint
+failures remain open. Dependency-light unittest imports verified with4explicit
+skips when optional pytest/NumPy/OpenCV absent; no dependency added to core.
+
+Resume with [UAV status](docs/uav-current-status.md), [matrix](docs/uav-task-campaign.md),
+[CSV](docs/uav-campaign.csv), [physics](docs/uav-physics-evidence.md), and
+[perception](docs/uav-marker-perception.md). Raw evidence remains local and outside
+Git; compact acceptance JSON is versioned. Preserve historical failures/old-source
+qualifications. Next: controlled ambiguity/occlusion/depth-loss abstention or mode
+authority/escalation contracts; declare any new physical case before flight.
+
+## Earlier checkpoint: automatic source-stale PAUSE physically demonstrated — 2026-11-15
+
+User requires readiness, simulator/ROS-clock alignment, PX4 state and Kit/WebRTC
+signaling checks after restarts, and leaving Isaac running for the viewer. Current
+scene remains running; pre/postflight all7AirStack gates pass, streaming server
+startup and TCP49100 listener/reachability confirmed. Browser/media rendering is
+not directly verified. PX4 disarmed/on ground; temporary monitor stopped.
+
+New monitor contract: source/receipt age1ROS-second, future tolerance0.1s,
+finite state/valid quaternion, backwards source/clock handling; advancing-stamp
+receipt2wall-second deadline and0.25wall-second health timer. PAUSE requires a
+positive reply, response deadline0.75wall-seconds, retry interval1wall-second;
+unacknowledged intervention blocks readiness/resume. No automatic LAND or exclusive
+control-mode arbitration. Full package:7CTest checks PASS (colcon aggregate0fail,
+2skip). Updated evaluators52PASS; actual-driver normal/fallback/delayed handoff
+contracts allPASS. Earlier mock-concurrency/PEP257 failures preserved and corrected.
+
+Automatic-fault-stop-01: private relay stamps odometry10s old into a dedicated
+instance of the installed monitor; main PX4/controller/safety state stays genuine.
+No manual PAUSE. Actual stale-source detection/false→true ack and physical braking
+PASS: speed at fault injection.313968m/s, max extra travel.140849m, stop criterion
+3.049703wall-seconds including1s dwell. Detection reason received+0.022525s,
+new ack+0.271338s (receipt times). Supervisor canceled NavigateTask and performed
+normal LAND/disarm; no autonomous landing claim. All7body contacts/health/truth
+coverage pass:3672positive-count headers,0unknown/undeclared, max truthgap.16736s.
+Whole-flight sim/wall ratio.7161; clocks remain distinct. Final complete-record
+snapshots hash exact live-stream prefixes; further truth disabled, viewer retained.
+
+Final stop assessment uses injection-specific labels; earlier output inherited
+operator-PAUSE labels and is retained with its original assessor snapshot. Same
+measurements/verdict. Source-specific one-case evidence, not repeatability.
+Capability006–037 counts:3PASS,11NOT DEMONSTRATED,8NOT IMPLEMENTED,10NOT TESTED.
+18public attempts:12completed procedures,3incomplete airborne recoveries,
+3blocked beforeflight. Historical no-separation flights remain unqualified.
+Start with [current status](docs/uav-current-status.md), [physics](docs/uav-physics-evidence.md)
+and [campaign review](docs/uav-campaign-review.md). No commit/push, external backup,
+Cosmos or second simulator. Next priorities: exclusive mode authority and fault
+escalation contract, not more repeats of the same passing flight.
+
+## Earlier continuation: watchdog source/ack contract and viewer — 2026-11-15
+
+User requests that every restart also be checked for simulator/ROS-clock alignment,
+PX4 state, AirStack readiness and WebRTC signaling. Leave Isaac running for their
+viewer after work; do not infer a running container means Kit/PX4 or streaming is
+ready. After latest restoration all7ready gates passed; PX4 disarmed/grounded,
+monitor healthy/PAUSE acknowledged and TCP49100 reachable. Browser rendering is
+not directly observed.
+
+Watchdog now validates source clock/stamps, finite state and quaternion norm,
+with separate steady receipt deadline and wall health timer. PAUSE acknowledgement,
+bounded retries and pending readiness interlocks implemented. Actual binary
+DDS197 contract passed; full package check caught a PEP257 docstring issue,
+corrected with final rerun in progress. No new source-qualified flight yet.
+Prior physical qualifications retain their old source scope. See module README
+for exact parameters, endpoint semantics and limitations. No model or second
+simulator is involved.
+
+## CURRENT: separation-qualified takeoff and supervisory stop — 2026-11-15
+
+Separation-vertical-02 and separated-stop-01 both pass their bounded physical,
+contact, terminal-action and fresh ground/disarm checks. Moving stop: real monitor
+PAUSE at physical.30999m/s, max extra displacement.151776m, stable stop1.83266wall
+seconds including1s dwell. NavigateCANCELED; normalLAND/disarm. Contact policyv2
+passes:3995headers,0unknown/undeclared, all7bodies; max truthgap.17206s. No geometry,
+mass, solver or backend guard thresholds changed. Historical no-separation flights
+remain unqualified. Total17public attempts:11completed procedures,3incomplete
+flights with recovery,3blocked beforeflight; different scenarios, not successrate.
+
+Watchdog fault-limits probe on DDS90 confirms silence detection and rearming after
+fresh receipts, but continuous10second-old messages stay healthy. Rejecting mock
+PAUSE service got only1request during3second outage. No acknowledged intervention
+or physical fault recovery claim. No production safety logic changed for this test.
+Relative-localization diagnostic uses156preflight-only registration pairs, then
+1166held-out pairs:RMSE.02677m,max.05345m, final.01910m; notSLAM qualification.
+
+Latest campaign counts006–037:2PASS,12NOT DEMONSTRATED,8NOT IMPLEMENTED,
+10NOT TESTED. PASS scopes:017bounded takeoff and032bounded operator intervention.
+No general robustness, docking, autonomous fault recovery or learning claim.
+Simulators stopped after verified ground/disarm; noGazebo orCosmos started.
+See [current status](docs/uav-current-status.md) and [physics evidence](docs/uav-physics-evidence.md).
+
+## Earlier checkpoint: one separation-qualified vertical episode — 2026-11-15
+
+Start with [UAV current status](docs/uav-current-status.md) for this campaign.
+Separation-vertical-02 passes the predeclared bounded takeoff/hover/land case:
+independent PhysX, all7body contact reporting, full source-stable health history,
+body landing support, fresh disarmed/ON_GROUND and no pending goals. Max physical
+z2.08534m, radius.14528m, speed.45958m/s; max truth gap.17794wall seconds.
+3707contact headers paired,1866proximity,0unknown/undeclared. Camera/floor
+proximity requires strictly positive gap and zero impulse near ground only;
+body/floor numerical penetration tolerance1mm. No geometry/mass/solver changes.
+Old records without separation remain unqualified; no retroactive pass.
+
+First separation attempt blocked before arm. Pending action acknowledgement
+race fixed in probe; normal cancellation, publicLAND fallback and delayed
+admission before mock arm all pass isolated actual-client tests. Combined
+suite45passes. Backend admission/readback deadlines unchanged. One fresh
+vertical attempt then completed; no endless retries. Total16public attempts,
+10completed procedures,3incomplete airborne recoveries,3blocked beforeflight;
+different cases/source versions, not a success-rate estimate. Next work can
+qualify moving supervisory stop with the new separation stream.
+
+## HISTORICAL: collider-specific qualification held — 2026-11-15
+
+Moving supervised-stop-02 completed the real monitor PAUSE, physical braking,
+public cancellation and landing/disarm protocol after health cadence correction.
+Independent speed at PAUSE0.30116m/s, maximum extra displacement0.10400m,
+stop latency3.28488wall seconds including1s dwell. Old producer field stopping_distance_m
+was endpoint displacement0.01733m, NOT maximum excursion; future labels corrected.
+
+CRITICAL qualification correction: permissive contact evaluator allowed any UAV
+body vs floor. Strict collider audit finds ZEDCamera descendant mesh contacts with
+/World/stage/GroundPlane/CollisionPlane near support/touchdown (1385unexpected
+headers in stop trial,1381 in vertical contact trial). Retained camera impulses
+are ALL ZERO. Therefore strict body-only contact policy FAILS, but actual impact/
+penetration is UNKNOWN because old reporter did not record separation. Earlier
+contact PASS assessments are retained but superseded; do not advertise them as
+current full-flight safety qualification or silently waive sensor contacts.
+
+No more flights until this is understood. Current work is PASSIVE scene diagnostic:
+contact recorder now logs separation/position/normal and live body mass/inertia /
+collider metadata. Camera spawn code intends no camera colliders but only calls
+removeCollider on the referenced root; descendant mesh reporting needs inspection.
+Do not remove geometry merely to make tests pass. Grounded/disarmed was confirmed
+before resetting. Current scene uses the new local diagnostic contact directory;
+read the latest local lab record and status before any new simulator change.
+
+Health monitor change: health_publish_period_s default0.25 simulated seconds,
+state-loss threshold unchanged1s. Native parameter declaration makes.25 visible;
+live startup confirms period.250/state timeout1.000. Isolated actual binary test
+passes maximum healthy interval.25091wall seconds; invalid periods rejected.
+All probe2-wall-second freshness and flight limits remain. New safety recovery
+waits for prior task terminal confirmation; otherwise existing public RobotCommand
+LAND contains the aircraft. Isolated cancellation and unresponsive-cancellation
+fallback contracts pass. Full contact/stop evaluator set16tests passes.
+
+## Contact evidence continuation — 2026-11-15
+
+New observation-only uav_contact_capture.py hooks into the marker scene with
+UAV_CONTACT_DIR. Confirmed seven spawned rigid bodies and actual floor reports.
+Two support actor paths: /World/stage/Environment/Geometry and
+/World/stage/GroundPlane/CollisionPlane. Authored Iris body mass1.5kg is not
+measured gross flying mass; ZED/Lidar/rotor link contributions remain unknown.
+
+Contact-vertical-01 completed and landed/disarmed. Independent assessment records
+all physical/landing/contact criteria observed met but NOT DEMONSTRATED overall:
+status-history capture began12.64s late. No retrospective threshold relaxation.
+Six offline assessor tests pass, including late status/source changes/record limits
+blocking PASS and midair contact overriding action success.
+
+One instrumentation repeat is underway: marker scene session-03, contact logger
+source SHA2566de9614e14df55d69aa2b50483ba4fe57d4784c762b72e3b0a4e9b4a333c536a.
+Host uav_contact_status.py started BEFORE scene/flight, writes bounded180s status
+history. New physical capture ID vertical_contact_truth_02. Reconcile readiness,
+flight outcome and final disarm before further simulator changes. Preserve source
+and all local evidence; no backup/push claim. Contact directories are exclusive:
+never restart with a previously used UAV_CONTACT_DIR. Reporter cap30000headers;
+limit/error/gap blocks complete-evidence claims. See assess_uav_contacts.py.
+
+## Unattended UAV task execution — 2026-11-15
+
+User explicitly authorized simulation-only unattended arming, flight, stop, reset
+and landing through supported controls, with existing safety gates preserved.
+Focus shifted to developing UAV task execution, evaluating physical behavior and
+recording dynamics; missing historical campaign CSV/SIM-025/F6 files are not a
+prerequisite. Cosmos remains deferred; one RTX PRO 5000 GPU is in use.
+
+New source and current findings: [execution tools/results](docs/uav-task-execution.md)
+and [006–037 capability matrix](docs/uav-task-campaign.md). Work is uncommitted;
+no push, model loading or real-aircraft execution was performed. Local raw records
+are under AirStack `robot/bags/uav-campaign-20261115-*` and local lab journals;
+these are not a verified external backup. Preserve/export them before expiry.
+
+Completed simulation components: bounded takeoff/hover/land with independent
+PhysX capture, 0.75 m inspection viewpoint and camera capture, five-leg 0.75 m
+survey route with five settled images, and existing fixed-circle trajectory.
+Survey-01/02 failed to complete and recovered; survey-03 completed after a narrow
+planner state-history change. Do not discard the failures or claim general
+coverage, obstacle avoidance, semantic inspection or collision qualification.
+Circle raw reference-to-PhysX RMSE about0.172m (receipt/frame limitations apply).
+No independent contact reports were captured; no whole-capability safety PASS.
+
+Actual safety monitor passed isolated DDS-domain88 timeout/mode-request tests;
+actual probe passed domain89 mock guard→cancel→LAND→observed-disarm contract test.
+Offline evaluator11tests pass inside Docker using actual RRM package. Planner
+build and all18 functional/GPU regressions pass; broader colcon package checks
+report98 lint/style failures and13skips, so the package suite is not clean.
+
+Planner change: only lookahead/tracking subscription depth10→1 in droan_gl_node.cpp;
+source-age0.5s, collision/visibility and admission checks remain. Motivation:
+Survey-02 rejected source age0.54s despite receipt age0.075s; independent incoming
+reference stream was fresh at rest, suggesting possible internal queue backlog,
+not proven sole root cause. Original source and failed attempts preserved locally.
+
+Startup guard initially latched NOT_READY before simulator readiness; grounded
+robot restart initialized it. Abort containment left PX4 in disarmed LAND;
+ordinary grounded AUTO.LOITER restored preflight OK. Never force arming around
+these guards. Host airstack CLI dry-run is broken (_env_value missing/empty config);
+that invalid launch was not executed. Simulator restarts reused verified existing
+launcher flags after disarm; no concurrent simulators or driver changes.
+
+Current continuation: restricted red-fixture RGB/simulated-depth perception.
+New uav_marker_qualification.py scene reuses PegasusApp, with static red/blue
+collidable fixtures outside the flight envelope. Detector/capture do not read its
+independent fixture manifest or dispatch flight. Exact-stamp passive RGB/depth/
+calibration: initial20frames19OBSERVED/1AMBIGUOUS; after observed-pixel correction,
+20/20OBSERVED; earlier empty-scene image returns ABSENT. All13 detector tests pass.
+This is restricted marker detection with oracle-like simulated surface depth,
+not general detection, stereo-depth accuracy, object-center/world grounding or
+learned reasoning. The concurrent-perception inspection flight completed, landed and disarmed.
+Its saved image has an exact-stamp OBSERVED RGB/depth/calibration record at
+157.099996488s, optical surface z2.72554m. The2,000-frame development flight
+capture retained2,000 OBSERVED pairs; no held-out accuracy claim. Current scene
+is uav_marker_qualification.py, one drone, simulator kept running after landing.
+
+## Session scope — 2026-11-15
+
+User launched this OSMO session with **one GPU** and explicitly deferred use of
+Cosmos for now. Hardware inspection reports one NVIDIA RTX PRO 5000 Blackwell
+with 48,935 MiB total VRAM. Do not treat the previous handoff's Cosmos dev-worker
+build, publication or deployment steps as the immediate next task; leave model
+loading/inference and worker deployment deferred unless the user changes scope.
+This is a session resource/scope note, not a change to the architecture or a claim
+that any deployment prerequisite has been completed.
+
+Onboarding reviewed AirStack agent guidance, RRM prototype guidance and current
+SCRUM-8 architecture/contracts/status, roadmap, latest handoff and recent commits.
+Checkout: `ore_proj`, HEAD `07ff1dcbb`; latest implementation `e0f4d784c`.
+Existing evidence still does not establish integrated learned task completion or
+cross-embodiment performance. No model or simulation was started for onboarding.
+
 ## Workflow-expiry handoff — 2026-10-15 19:53 UTC
 
 User has little workflow time/Codex usage remaining; stop experiments and preserve

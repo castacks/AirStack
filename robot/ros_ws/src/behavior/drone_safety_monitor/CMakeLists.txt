@@ -33,6 +33,11 @@ install(DIRECTORY launch
   DESTINATION share/${PROJECT_NAME})
 
 if(BUILD_TESTING)
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  add_test(NAME isolated_watchdog_contract
+    COMMAND ${CMAKE_COMMAND} -E env ROS_DOMAIN_ID=197 ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/test/isolated_watchdog.py)
+  set_tests_properties(isolated_watchdog_contract PROPERTIES TIMEOUT 120 RUN_SERIAL TRUE)
   find_package(ament_lint_auto REQUIRED)
   set(ament_cmake_copyright_FOUND TRUE)
   set(ament_cmake_cpplint_FOUND TRUE)

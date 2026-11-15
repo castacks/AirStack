@@ -1,0 +1,16 @@
+{
+  "planned_translation_m": 0.635471358297362,
+  "physical_capture_displacement_m": 0.55496156383079,
+  "difference_of_magnitudes_m": 0.08050979446657203,
+  "observed_bbox_area_ratio": 1.4074074074074074,
+  "pinhole_area_ratio_from_measured_median_depths": 1.423676324335488,
+  "policy_predicted_area_ratio": 1.4999999999999998,
+  "optical_axis_map": [
+    0.9999629864235973,
+    0.007917856184957606,
+    0.0033665020771007637
+  ],
+  "approximate_pinhole_horizontal_fov_deg": 105.04764446205108,
+  "approximate_pinhole_vertical_fov_deg": 78.37503886969041,
+  "scope": "single static-fixture diagnostic; difference of lengths is not registered vector tracking error, model parameters not identified"
+}

@@ -121,10 +121,10 @@ public:
     caminfo_sub_ = create_subscription<sensor_msgs::msg::CameraInfo>("camera_info", 10,
                                                                      std::bind(&DisparityExpanderNode::onCameraInfo,
                                                                                this, std::placeholders::_1));
-    look_ahead_sub = create_subscription<airstack_msgs::msg::Odometry>("look_ahead", 10,
+    look_ahead_sub = create_subscription<airstack_msgs::msg::Odometry>("look_ahead", 1,
                                                                        std::bind(&DisparityExpanderNode::look_ahead_callback,
                                                                                  this, std::placeholders::_1));
-    tracking_point_sub = create_subscription<airstack_msgs::msg::Odometry>("tracking_point", 10,
+    tracking_point_sub = create_subscription<airstack_msgs::msg::Odometry>("tracking_point", 1,
                                                                            std::bind(&DisparityExpanderNode::tracking_point_callback,
                                                                                      this, std::placeholders::_1));
     robot_odometry_sub_ = create_subscription<nav_msgs::msg::Odometry>(

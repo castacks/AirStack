@@ -42,6 +42,14 @@ This modularity enables rapid iteration, large-scale simulation generation, and 
 
 Together, these features make Isaac Sim a comprehensive platform for robotics simulation, bridging the gap between visual realism, physical accuracy, and ROS 2-based autonomy stacks.
 
+## Bounded UAV task fixtures
+
+The optional `uav_marker_qualification.py` launcher adds static red/blue visual
+fixtures to the default one-drone environment through the shared PegasusApp.
+It sends no flight commands. See the [restricted marker-perception scope](../../../RRM-transfer/rrm-9d26a58/docs/uav-marker-perception.md)
+and [bounded task execution](../../../RRM-transfer/rrm-9d26a58/docs/uav-task-execution.md)
+for sensor provenance, physical limits and evaluation gaps.
+
 ## Optional bounded physics diagnostics
 
 The existing `rrm_office_visual_eval.py` launcher selects the Office marker fixture

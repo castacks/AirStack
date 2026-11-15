@@ -1,0 +1,50 @@
+{
+  "verdict": "PASS",
+  "scope": "one bounded vertical procedure, default marker scene, receipt-paired PhysX evidence; not broad autonomy qualification",
+  "checks": {
+    "procedure_completed": true,
+    "final_fresh_disarmed_grounded": true,
+    "physical_takeoff": true,
+    "physical_hover": true,
+    "physical_envelope": true,
+    "physical_landing": true,
+    "expected_landing_contacts": true,
+    "contact_stream_complete": true,
+    "no_unexpected_contacts": true,
+    "truth_complete": true
+  },
+  "ground_reference_m": [
+    -0.0037754520308226347,
+    -5.08101838931907e-05,
+    0.0617503859102726
+  ],
+  "max_horizontal_radius_m": 0.6292727586311954,
+  "max_physical_speed_m_s": 0.4597424992185366,
+  "min_physical_z_m": 0.06174962967634201,
+  "max_physical_z_m": 2.0932209491729736,
+  "observed_hover_span_wall_s": 7.8557727336883545,
+  "positive_contact_headers": 3974,
+  "contact_headers_by_phase": {
+    "preflight": 1092,
+    "takeoff": 741,
+    "land": 2141
+  },
+  "unpaired_contact_headers": 0,
+  "contact_policy": "uav-floor-contacts-v2: body penetration tolerance1mm, camera strictly separated/zero impulse near floor only",
+  "proximity_headers": 2110,
+  "unknown_contact_headers": 0,
+  "unexpected_contacts": [],
+  "source_hashes": [
+    "cae5ae8f268499781c6ab1d1e42539fb65317fcd26b3df2112a40e5daea2c38b"
+  ],
+  "status_samples": 61,
+  "max_truth_receipt_gap_s": 0.37477564811706543,
+  "collision": false,
+  "assessor_sha256": "74708697389bc7337d33579ad1ed29fd02f393beb484301cec7e0bfbaf95b734",
+  "input_sha256": {
+    "events": "43bde4011f36d4fec67558b9d35a70c67b5490e8dee7076e3ca78e9e51d9d6d2",
+    "truth": "8e93baf1d3c0c263c08b6ea150df5b9757f53920332b85e956ef1b4dacc47649",
+    "contacts": "55f221fd74c9fda7c708ec0e6489fb3fc9c14bc28602212b81b3cab8272ed5c3",
+    "status_history": "9b25d951d85e73395a1b38460ebc640842e9ed436e6fc89df555ad4f029087ed"
+  }
+}
