@@ -94,6 +94,16 @@
           "date": "2026-11-15",
           "source_note": "docs/research/covariance-shape-scale-findings-2026-11-15.md",
           "inspection": "Fresh targeted section5 passage on demonstrated VO benefits versus unguaranteed calibration/absolute noise-scale ambiguity. No new author-code reading or execution."
+        },
+        {
+          "date": "2026-11-14",
+          "source_note": "docs/research/local-relationship-layer-contract-2026-11-14.md",
+          "inspection": "Interface design cites existing source reviews; no new full-method reading or author reproduction."
+        },
+        {
+          "date": "2026-11-14",
+          "source_note": "docs/research/local-relationship-learning-findings-2026-11-14.md",
+          "inspection": "Local learning execution/provenance update only; prior primary reading retained, no fresh author-method reading or reproduction."
         }
       ],
       "local_status": "Official system not reproduced. DNLS-inspired synthetic shared-stereo prototype; independent80-digit stationarity audit resolves one saved gradient discrepancy. No training, calibration or VO benefit claim.",
@@ -110,7 +120,9 @@
         "docs/research/selection-policy-contract-findings-2026-11-14.md",
         "docs/research/selection-corpus-cache-findings-2026-11-14.md",
         "docs/research/selection-policy-learning-findings-2026-11-14.md",
-        "docs/research/covariance-shape-scale-findings-2026-11-15.md"
+        "docs/research/covariance-shape-scale-findings-2026-11-15.md",
+        "docs/research/local-relationship-layer-contract-2026-11-14.md",
+        "docs/research/local-relationship-learning-findings-2026-11-14.md"
       ],
       "updated": "2026-11-14",
       "historical_citations": [
@@ -187,13 +199,19 @@
           "date": "2026-11-14",
           "source_note": "docs/research/expanded-vo-thermal-literature-2026-11-14.md",
           "inspection": "Fresh primary abstract recheck for expanded VO/thermal reference map; no new full-method/code review or execution. Historical deeper reviews and completed local experiments remain authoritative."
+        },
+        {
+          "date": "2026-11-14",
+          "source_note": "docs/research/thermal-structure-intake-2026-11-14.md",
+          "inspection": "Fresh primary abstract check: thermal representation and radiometric/edge tracking overlap; no full-method/code review."
         }
       ],
       "local_status": "Inspired translation-only patch prototype; exact local raw-refinement configuration failed; this does not reject TP-TIO.",
       "decision_notes": [
         "docs/research/radiometric-native-findings-2026-11-12.md",
         "docs/research/continuity-feasibility-findings-2026-11-14.md",
-        "docs/research/expanded-vo-thermal-literature-2026-11-14.md"
+        "docs/research/expanded-vo-thermal-literature-2026-11-14.md",
+        "docs/research/thermal-structure-intake-2026-11-14.md"
       ],
       "updated": "2026-11-12",
       "historical_citations": [
@@ -350,7 +368,7 @@
     },
     {
       "id": "maci2",
-      "title": "MAC-I²: Learned Metrics-Aware Covariance for Robust Visual-Inertial Fusion in Initialization and Calibration",
+      "title": "MAC-I\u00b2: Learned Metrics-Aware Covariance for Robust Visual-Inertial Fusion in Initialization and Calibration",
       "venue_or_version": "arXiv 2609.07116",
       "url": "https://mac-i2.github.io/",
       "inspection": "Fresh targetedIV-A,AppendixB-A/B-B/E/F andofficialprojectpage: stationary inverse-GN local approximation; covariance generalization/pose benefit already evaluated. No author code or figure reanalysis. Classical-regeneration question is distinct and not a demonstrated paper failure.",
@@ -363,7 +381,7 @@
         {
           "date": "2026-11-12",
           "source_note": "docs/research/multisensor-research-reset-2026-11-12.md",
-          "inspection": "Inspected v1 IV-C–E: visual/inertial joint objective uses visual relative-pose factors. No official code execution or full-paper reproduction."
+          "inspection": "Inspected v1 IV-C\u2013E: visual/inertial joint objective uses visual relative-pose factors. No official code execution or full-paper reproduction."
         },
         {
           "date": "2026-11-12",
@@ -388,7 +406,7 @@
         {
           "date": "2026-11-14",
           "source_note": "docs/research/paired-frontend-assessment-findings-2026-11-14.md",
-          "inspection": "Execution/provenance update, no fresh paper reading. Strict MACT checkpoint and native frontend/NoDepth selection/covariance source used with explicit optical IRLS harness; 128 paired trials per exposed thermal pair, 780 converged fits, 13,883 audit checks. Query-reselection sensitivity under half-LSB perturbations, not physical calibration or full native VO/MAC-I² reproduction."
+          "inspection": "Execution/provenance update, no fresh paper reading. Strict MACT checkpoint and native frontend/NoDepth selection/covariance source used with explicit optical IRLS harness; 128 paired trials per exposed thermal pair, 780 converged fits, 13,883 audit checks. Query-reselection sensitivity under half-LSB perturbations, not physical calibration or full native VO/MAC-I\u00b2 reproduction."
         },
         {
           "date": "2026-11-14",
@@ -398,7 +416,7 @@
         {
           "date": "2026-11-14",
           "source_note": "docs/research/known-pose-estimator-findings-2026-11-14.md",
-          "inspection": "Execution update only, no fresh paper reading. Unchanged native thermal frontend/selection/covariance with explicit IRLS harness, six artificial exact-pose scenes. All1560fits converge,31,999audit checks. One scene improves translation/rotation RMSE despite increased spread; no full author benchmark/nativeVO/MAC-I² reproduction or new selector/physical calibration claim."
+          "inspection": "Execution update only, no fresh paper reading. Unchanged native thermal frontend/selection/covariance with explicit IRLS harness, six artificial exact-pose scenes. All1560fits converge,31,999audit checks. One scene improves translation/rotation RMSE despite increased spread; no full author benchmark/nativeVO/MAC-I\u00b2 reproduction or new selector/physical calibration claim."
         },
         {
           "date": "2026-11-14",
@@ -419,6 +437,11 @@
           "date": "2026-11-14",
           "source_note": "docs/research/selection-policy-learning-findings-2026-11-14.md",
           "inspection": "Execution/synthesis update only, no fresh paper reading. Frozen threefold/threeutility-control64update comparison complete;576updates/12144converged fits/109916audit checks. Gate0/3folds; positive night pose-vs-match objective comparison retained; weight-only/native context stronger. Local8parameter adapter is not an author-system reproduction, physical transfer result or new policy-gradient theory."
+        },
+        {
+          "date": "2026-11-14",
+          "source_note": "docs/research/rgb-thermal-architecture-and-contribution-reset-2026-11-14.md",
+          "inspection": "Architecture/scope clarification using previously inspected sources; no fresh paper reading or author-code reproduction."
         }
       ],
       "local_status": "See historical notes; no new reproduction asserted",
@@ -440,7 +463,8 @@
         "docs/research/selection-policy-learning-findings-2026-11-14.md",
         "docs/research/cross-match-covariance-findings-2026-11-15.md",
         "docs/research/covariance-transfer-findings-2026-11-15.md",
-        "docs/research/covariance-shape-scale-findings-2026-11-15.md"
+        "docs/research/covariance-shape-scale-findings-2026-11-15.md",
+        "docs/research/rgb-thermal-architecture-and-contribution-reset-2026-11-14.md"
       ],
       "updated": "2026-11-14",
       "historical_citations": [],
@@ -527,7 +551,7 @@
       "title": "3D Thermal Perception for Autonomous Navigation in Visually Degraded, Unstructured Environments",
       "venue_or_version": "CMU MS thesis 2025",
       "url": "https://publications.ri.cmu.edu/3d-thermal-perception-for-autonomous-navigation-in-visually-degraded-unstructured-environments",
-      "inspection": "Directly read thesis PDF extracted text sections3.3–3.5/Table3.1 and common-SuperOdometry autonomy comparison setup; no full-thesis/figure reanalysis or isolated covariance pose ablation established.",
+      "inspection": "Directly read thesis PDF extracted text sections3.3\u20133.5/Table3.1 and common-SuperOdometry autonomy comparison setup; no full-thesis/figure reanalysis or isolated covariance pose ablation established.",
       "code": null,
       "reading_history": [
         {
@@ -542,7 +566,7 @@
         {
           "date": "2026-11-12",
           "source_note": "docs/research/published-covariance-claims-2026-11-12.md",
-          "inspection": "Directly read thesis PDF extracted text sections3.3–3.5/Table3.1 and common-SuperOdometry autonomy comparison setup; no full-thesis/figure reanalysis or isolated covariance pose ablation established."
+          "inspection": "Directly read thesis PDF extracted text sections3.3\u20133.5/Table3.1 and common-SuperOdometry autonomy comparison setup; no full-thesis/figure reanalysis or isolated covariance pose ablation established."
         },
         {
           "date": "2026-11-13",
@@ -552,7 +576,7 @@
         {
           "date": "2026-11-13",
           "source_note": "docs/research/feature-selection-next-decision-2026-11-13.md",
-          "inspection": "Targeted local thesis3.1–3.3 re-read: dynamic-range/gamma augmentation, depth and camera-motion synthesis with z-buffer/visibility mask, FlowFormer and covariance training. No new full-thesis reading or training."
+          "inspection": "Targeted local thesis3.1\u20133.3 re-read: dynamic-range/gamma augmentation, depth and camera-motion synthesis with z-buffer/visibility mask, FlowFormer and covariance training. No new full-thesis reading or training."
         },
         {
           "date": "2026-11-13",
@@ -562,7 +586,7 @@
         {
           "date": "2026-11-14",
           "source_note": "docs/research/paired-frontend-assessment-findings-2026-11-14.md",
-          "inspection": "Execution/provenance update, no fresh paper reading. Strict MACT checkpoint and native frontend/NoDepth selection/covariance source used with explicit optical IRLS harness; 128 paired trials per exposed thermal pair, 780 converged fits, 13,883 audit checks. Query-reselection sensitivity under half-LSB perturbations, not physical calibration or full native VO/MAC-I² reproduction."
+          "inspection": "Execution/provenance update, no fresh paper reading. Strict MACT checkpoint and native frontend/NoDepth selection/covariance source used with explicit optical IRLS harness; 128 paired trials per exposed thermal pair, 780 converged fits, 13,883 audit checks. Query-reselection sensitivity under half-LSB perturbations, not physical calibration or full native VO/MAC-I\u00b2 reproduction."
         },
         {
           "date": "2026-11-14",
@@ -572,7 +596,7 @@
         {
           "date": "2026-11-14",
           "source_note": "docs/research/known-pose-estimator-findings-2026-11-14.md",
-          "inspection": "Execution update only, no fresh paper reading. Unchanged native thermal frontend/selection/covariance with explicit IRLS harness, six artificial exact-pose scenes. All1560fits converge,31,999audit checks. One scene improves translation/rotation RMSE despite increased spread; no full author benchmark/nativeVO/MAC-I² reproduction or new selector/physical calibration claim."
+          "inspection": "Execution update only, no fresh paper reading. Unchanged native thermal frontend/selection/covariance with explicit IRLS harness, six artificial exact-pose scenes. All1560fits converge,31,999audit checks. One scene improves translation/rotation RMSE despite increased spread; no full author benchmark/nativeVO/MAC-I\u00b2 reproduction or new selector/physical calibration claim."
         },
         {
           "date": "2026-11-14",
@@ -632,12 +656,17 @@
         {
           "date": "2026-11-14",
           "source_note": "docs/research/active-perception-motion-decision-2026-11-14.md",
-          "inspection": "Cached Chapter6 printedpp62–63 reread: existing planner uses map cost/uncertainty; explicit active perception/resource allocation future directions. No new thesis code/system execution."
+          "inspection": "Cached Chapter6 printedpp62\u201363 reread: existing planner uses map cost/uncertainty; explicit active perception/resource allocation future directions. No new thesis code/system execution."
         },
         {
           "date": "2026-11-15",
           "source_note": "docs/research/active-motion-estimator-findings-2026-11-15.md",
           "inspection": "No fresh primary-source/code review; reuses prior targeted source review for completed matched-motion image/native-estimator assay. No author planner reproduction."
+        },
+        {
+          "date": "2026-11-14",
+          "source_note": "docs/research/rgb-thermal-architecture-and-contribution-reset-2026-11-14.md",
+          "inspection": "Architecture/scope clarification using previously inspected sources; no fresh paper reading or author-code reproduction."
         }
       ],
       "local_status": "See historical notes; no new reproduction asserted",
@@ -665,7 +694,8 @@
         "docs/research/sensor-image-adapter-findings-2026-11-14.md",
         "docs/research/sensor-estimator-findings-2026-11-14.md",
         "docs/research/active-perception-motion-decision-2026-11-14.md",
-        "docs/research/active-motion-estimator-findings-2026-11-15.md"
+        "docs/research/active-motion-estimator-findings-2026-11-15.md",
+        "docs/research/rgb-thermal-architecture-and-contribution-reset-2026-11-14.md"
       ],
       "updated": "2026-11-14",
       "historical_citations": [
@@ -743,7 +773,7 @@
         {
           "date": "2026-11-14",
           "source_note": "docs/research/paired-frontend-assessment-findings-2026-11-14.md",
-          "inspection": "Execution/provenance update, no fresh paper reading. Strict MACT checkpoint and native frontend/NoDepth selection/covariance source used with explicit optical IRLS harness; 128 paired trials per exposed thermal pair, 780 converged fits, 13,883 audit checks. Query-reselection sensitivity under half-LSB perturbations, not physical calibration or full native VO/MAC-I² reproduction."
+          "inspection": "Execution/provenance update, no fresh paper reading. Strict MACT checkpoint and native frontend/NoDepth selection/covariance source used with explicit optical IRLS harness; 128 paired trials per exposed thermal pair, 780 converged fits, 13,883 audit checks. Query-reselection sensitivity under half-LSB perturbations, not physical calibration or full native VO/MAC-I\u00b2 reproduction."
         },
         {
           "date": "2026-11-14",
@@ -753,7 +783,7 @@
         {
           "date": "2026-11-14",
           "source_note": "docs/research/known-pose-estimator-findings-2026-11-14.md",
-          "inspection": "Execution update only, no fresh paper reading. Unchanged native thermal frontend/selection/covariance with explicit IRLS harness, six artificial exact-pose scenes. All1560fits converge,31,999audit checks. One scene improves translation/rotation RMSE despite increased spread; no full author benchmark/nativeVO/MAC-I² reproduction or new selector/physical calibration claim."
+          "inspection": "Execution update only, no fresh paper reading. Unchanged native thermal frontend/selection/covariance with explicit IRLS harness, six artificial exact-pose scenes. All1560fits converge,31,999audit checks. One scene improves translation/rotation RMSE despite increased spread; no full author benchmark/nativeVO/MAC-I\u00b2 reproduction or new selector/physical calibration claim."
         },
         {
           "date": "2026-11-14",
@@ -793,7 +823,7 @@
         {
           "date": "2026-11-14",
           "source_note": "docs/research/anchor-validity-findings-2026-11-14.md",
-          "inspection": "Execution update, no fresh paper reading: native uncertainty selector proposes44–94queries for positives, zero for all24constructed negatives in both directions;72attempts/24converged fits/48pre-fit abstentions. Controlled association test, not physical place calibration or full native system."
+          "inspection": "Execution update, no fresh paper reading: native uncertainty selector proposes44\u201394queries for positives, zero for all24constructed negatives in both directions;72attempts/24converged fits/48pre-fit abstentions. Controlled association test, not physical place calibration or full native system."
         },
         {
           "date": "2026-11-14",
@@ -804,6 +834,31 @@
           "date": "2026-11-14",
           "source_note": "docs/research/sensor-estimator-findings-2026-11-14.md",
           "inspection": "Frozen execution update, no fresh reading. Native selector/covariance bodies and released frontend in fixed optical IRLS harness,36batches/72converged fits/1841audit checks. Matching-covariance crop and timestamp pose error differ under four synthetic sensor controls; no published bug or full native VO/calibration claim."
+        },
+        {
+          "date": "2026-11-14",
+          "source_note": "docs/research/rgb-thermal-architecture-and-contribution-reset-2026-11-14.md",
+          "inspection": "Architecture/scope clarification using previously inspected sources; no fresh paper reading or author-code reproduction."
+        },
+        {
+          "date": "2026-11-15",
+          "source_note": "docs/research/native-thermal-constraints-findings-2026-11-15.md",
+          "inspection": "Executed local native disparity graph/Jacobian and LM bodies, source-pinned saved-input replay with calibrated thermal residual extension. Prior paper reading retained; no fresh full-paper read or author full-pipeline reproduction."
+        },
+        {
+          "date": "2026-11-15",
+          "source_note": "docs/research/native-pose-feedback-findings-2026-11-15.md",
+          "inspection": "Continued engineering from prior native-factor/source review: sequential point registration, static initialization and float32 pose feedback on cached measurements. No fresh paper reading or complete author-system reproduction."
+        },
+        {
+          "date": "2026-11-15",
+          "source_note": "docs/research/fixed-rotation-recording-transfer-findings-2026-11-15.md",
+          "inspection": "Unchanged local candidate evaluated on two other historically exposed prefixes. Prior source reading reused; no new paper reading or author-system reproduction."
+        },
+        {
+          "date": "2026-11-15",
+          "source_note": "docs/research/fixed-rotation-continuation-findings-2026-11-15.md",
+          "inspection": "Unchanged local candidate continuation; original method reading retained. No new paper read or author-system reproduction; qualified night incremental thermal benefit absent, day gate fails."
         }
       ],
       "local_status": "See historical notes; no new reproduction asserted",
@@ -835,9 +890,14 @@
         "docs/research/sensor-estimator-findings-2026-11-14.md",
         "docs/research/cross-match-covariance-findings-2026-11-15.md",
         "docs/research/covariance-transfer-findings-2026-11-15.md",
-        "docs/research/covariance-shape-scale-findings-2026-11-15.md"
+        "docs/research/covariance-shape-scale-findings-2026-11-15.md",
+        "docs/research/rgb-thermal-architecture-and-contribution-reset-2026-11-14.md",
+        "docs/research/native-thermal-constraints-findings-2026-11-15.md",
+        "docs/research/native-pose-feedback-findings-2026-11-15.md",
+        "docs/research/fixed-rotation-recording-transfer-findings-2026-11-15.md",
+        "docs/research/fixed-rotation-continuation-findings-2026-11-15.md"
       ],
-      "updated": "2026-11-14",
+      "updated": "2026-11-15",
       "historical_citations": [
         "MS_RESEARCH_HANDOFF.md",
         "docs/research/literature-2026-10-20.md",
@@ -983,7 +1043,7 @@
       "title": "Digging Into Self-Supervised Monocular Depth Estimation",
       "url": "https://arxiv.org/abs/1806.01260v4",
       "authors": [
-        "Clément Godard",
+        "Cl\u00e9ment Godard",
         "Oisin Mac Aodha",
         "Michael Firman",
         "Gabriel Brostow"
@@ -1105,16 +1165,16 @@
     {
       "id": "balanced-covariance-2021",
       "title": "Unsupervised Balanced Covariance Learning for Visual-Inertial Sensor Fusion",
-      "venue_or_version": "IEEE Robotics and Automation Letters6(2),819–826,2021; DOI10.1109/LRA.2021.3051571",
+      "venue_or_version": "IEEE Robotics and Automation Letters6(2),819\u2013826,2021; DOI10.1109/LRA.2021.3051571",
       "url": "https://ieeexplore.ieee.org/abstract/document/9324985",
-      "inspection": "Publisher abstract via search result inspected. Direct full-page/article access failed. No full-method, code or RGB–thermal applicability verification.",
+      "inspection": "Publisher abstract via search result inspected. Direct full-page/article access failed. No full-method, code or RGB\u2013thermal applicability verification.",
       "code": null,
-      "local_status": "Prior covariance balancing across sensors in VI setting; not evidence of an exact RGB–thermal calibration solution.",
+      "local_status": "Prior covariance balancing across sensors in VI setting; not evidence of an exact RGB\u2013thermal calibration solution.",
       "reading_history": [
         {
           "date": "2026-11-12",
           "source_note": "docs/research/research-relevance-and-prior-art-2026-11-12.md",
-          "inspection": "Publisher abstract via search result inspected. Direct full-page/article access failed. No full-method, code or RGB–thermal applicability verification."
+          "inspection": "Publisher abstract via search result inspected. Direct full-page/article access failed. No full-method, code or RGB\u2013thermal applicability verification."
         }
       ],
       "decision_notes": [
@@ -1129,7 +1189,7 @@
       "venue_or_version": "CMU PhD thesis, CMU-RI-TR-26-26, April 2026; Chapter5 MSO source marked under review2025",
       "url": "https://publications.ri.cmu.edu/resilient-spatial-perception-for-autonomous-robots",
       "primary_additional_url": "https://drive.google.com/file/d/1wNZVMuBtNxPvYy2CtGa4e7UJEC2ZMz1B/view",
-      "inspection": "Complete Chapter5 methods/evaluation/limitations, printed pp68–84 (PDF69–85), equations5.2–5.10, tables5.1–5.5; relevant Chapter7 sections7.3.1/7.4.2. Not full-thesis reading.",
+      "inspection": "Complete Chapter5 methods/evaluation/limitations, printed pp68\u201384 (PDF69\u201385), equations5.2\u20135.10, tables5.1\u20135.5; relevant Chapter7 sections7.3.1/7.4.2. Not full-thesis reading.",
       "code": null,
       "related_code_inspection": {
         "url": "https://github.com/superxslam/SuperOdom",
@@ -1148,13 +1208,37 @@
           "date": "2026-11-13",
           "source_note": "docs/research/contribution-decision-2026-11-13.md",
           "inspection": "Bounded availability recheck: author MSO entry, DFR organizer listing/policy, linked OpenReview loading/verification and API403, related SuperOdom README scope. No new manuscript/full-paper or implementation reading; prior thesis inspection retained."
+        },
+        {
+          "date": "2026-11-14",
+          "source_note": "docs/research/local-relationship-layer-contract-2026-11-14.md",
+          "inspection": "Interface design cites existing source reviews; no new full-method reading or author reproduction."
+        },
+        {
+          "date": "2026-11-14",
+          "source_note": "docs/research/local-relationship-learning-findings-2026-11-14.md",
+          "inspection": "Local learning execution/provenance update only; prior primary reading retained, no fresh author-method reading or reproduction."
+        },
+        {
+          "date": "2026-11-15",
+          "source_note": "docs/research/native-thermal-constraints-findings-2026-11-15.md",
+          "inspection": "Reused completed Chapter5 review to identify shared RGB/thermal factor graphs as prior art. No fresh manuscript or implementation read; local native MAC-VO extension is not MSO reproduction."
+        },
+        {
+          "date": "2026-11-15",
+          "source_note": "docs/research/native-pose-feedback-findings-2026-11-15.md",
+          "inspection": "Continued engineering from prior native-factor/source review: sequential point registration, static initialization and float32 pose feedback on cached measurements. No fresh paper reading or complete author-system reproduction."
         }
       ],
       "decision_notes": [
         "docs/research/mso-method-overlap-review-2026-11-12.md",
-        "docs/research/contribution-decision-2026-11-13.md"
+        "docs/research/contribution-decision-2026-11-13.md",
+        "docs/research/local-relationship-layer-contract-2026-11-14.md",
+        "docs/research/local-relationship-learning-findings-2026-11-14.md",
+        "docs/research/native-thermal-constraints-findings-2026-11-15.md",
+        "docs/research/native-pose-feedback-findings-2026-11-15.md"
       ],
-      "updated": "2026-11-13"
+      "updated": "2026-11-15"
     },
     {
       "id": "mso-dfr-2026-listing",
@@ -1264,17 +1348,23 @@
           "date": "2026-11-13",
           "source_note": "docs/research/feature-selection-next-decision-2026-11-13.md",
           "inspection": "Author project page/GF_ORB_SLAM README rechecked. Separate IROS2018 Good Feature Selection preprint added as its own registry entry; do not conflate it with TRO2020 Matching."
+        },
+        {
+          "date": "2026-11-14",
+          "source_note": "docs/research/local-thermal-geometry-findings-2026-11-14.md",
+          "inspection": "Fresh primary abstract/search abstract recheck only. Standard max-logDet overlap retained; local controlled RGB/thermal factor-subset comparison, not author reproduction."
         }
       ],
       "decision_notes": [
         "docs/research/gap-shortlist-2026-11-13.md",
-        "docs/research/feature-selection-next-decision-2026-11-13.md"
+        "docs/research/feature-selection-next-decision-2026-11-13.md",
+        "docs/research/local-thermal-geometry-findings-2026-11-14.md"
       ],
       "updated": "2026-11-13"
     },
     {
       "id": "u2flow",
-      "title": "U²Flow: Uncertainty-Aware Unsupervised Optical Flow Estimation",
+      "title": "U\u00b2Flow: Uncertainty-Aware Unsupervised Optical Flow Estimation",
       "url": "https://arxiv.org/html/2604.10056v1",
       "venue_or_version": "CVPR2026/arXiv2604.10056v1",
       "inspection": "Targeted3.3,A.2,B.4 and pinned trainer/loss/requirements/README. Augmentation discrepancy target and detach control inspected; no model/checkpoint execution.",
@@ -1391,13 +1481,13 @@
       "url": "https://arxiv.org/pdf/1905.07807",
       "doi": "10.1109/IROS.2018.8593641",
       "code": "https://github.com/ivalab/GF_ORB_SLAM",
-      "inspection": "Targeted sectionsII–IV/Algorithm1 and paper context; not full-paper/figure evaluation or code-body/benchmark reproduction.",
+      "inspection": "Targeted sectionsII\u2013IV/Algorithm1 and paper context; not full-paper/figure evaluation or code-body/benchmark reproduction.",
       "local_status": "Prior-art baseline: Max-logDet spectral row-block selection and bias/variance distinction already established. Proposed stereo3D residual exhaustive-greedy control differs from author combined-Jacobian/stochastic ORB integration.",
       "reading_history": [
         {
           "date": "2026-11-13",
           "source_note": "docs/research/feature-selection-next-decision-2026-11-13.md",
-          "inspection": "Primary arXiv PDF targeted II–IV/Algorithm1; primary author project page/repository metadata corroborate title/venue; paper inference not reproduced."
+          "inspection": "Primary arXiv PDF targeted II\u2013IV/Algorithm1; primary author project page/repository metadata corroborate title/venue; paper inference not reproduced."
         },
         {
           "date": "2026-11-13",
@@ -1417,7 +1507,7 @@
         {
           "date": "2026-11-14",
           "source_note": "docs/research/known-pose-estimator-findings-2026-11-14.md",
-          "inspection": "Execution update only, no fresh paper reading. Unchanged native thermal frontend/selection/covariance with explicit IRLS harness, six artificial exact-pose scenes. All1560fits converge,31,999audit checks. One scene improves translation/rotation RMSE despite increased spread; no full author benchmark/nativeVO/MAC-I² reproduction or new selector/physical calibration claim."
+          "inspection": "Execution update only, no fresh paper reading. Unchanged native thermal frontend/selection/covariance with explicit IRLS harness, six artificial exact-pose scenes. All1560fits converge,31,999audit checks. One scene improves translation/rotation RMSE despite increased spread; no full author benchmark/nativeVO/MAC-I\u00b2 reproduction or new selector/physical calibration claim."
         },
         {
           "date": "2026-11-14",
@@ -1428,6 +1518,11 @@
           "date": "2026-11-14",
           "source_note": "docs/research/selection-policy-learning-findings-2026-11-14.md",
           "inspection": "Execution/synthesis update only, no fresh paper reading. Frozen threefold/threeutility-control64update comparison complete;576updates/12144converged fits/109916audit checks. Gate0/3folds; positive night pose-vs-match objective comparison retained; weight-only/native context stronger. Local8parameter adapter is not an author-system reproduction, physical transfer result or new policy-gradient theory."
+        },
+        {
+          "date": "2026-11-14",
+          "source_note": "docs/research/local-thermal-geometry-findings-2026-11-14.md",
+          "inspection": "Fresh primary abstract/search abstract recheck only. Standard max-logDet overlap retained; local controlled RGB/thermal factor-subset comparison, not author reproduction."
         }
       ],
       "decision_notes": [
@@ -1438,7 +1533,8 @@
         "docs/research/known-pose-thermal-replay-next-2026-11-14.md",
         "docs/research/known-pose-estimator-findings-2026-11-14.md",
         "docs/research/selection-task-method-decision-2026-11-14.md",
-        "docs/research/selection-policy-learning-findings-2026-11-14.md"
+        "docs/research/selection-policy-learning-findings-2026-11-14.md",
+        "docs/research/local-thermal-geometry-findings-2026-11-14.md"
       ],
       "updated": "2026-11-14"
     },
@@ -1501,7 +1597,7 @@
         {
           "date": "2026-11-15",
           "source_note": "docs/research/cross-match-covariance-findings-2026-11-15.md",
-          "inspection": "Fresh targeted III-A–C equations14–18 cross-residual covariance/white-noise reduction/correlated plane-resolution model. Not asserted as a thermal sensor model; no author execution."
+          "inspection": "Fresh targeted III-A\u2013C equations14\u201318 cross-residual covariance/white-noise reduction/correlated plane-resolution model. Not asserted as a thermal sensor model; no author execution."
         }
       ],
       "decision_notes": [
@@ -1543,21 +1639,21 @@
       "authors": [
         "Jerome Revaud",
         "Philippe Weinzaepfel",
-        "César De Souza",
+        "C\u00e9sar De Souza",
         "Martin Humenberger"
       ],
       "year": "2019",
       "venue_or_version": "Published NeurIPS2019 proceedings version",
       "url": "https://proceedings.neurips.cc/paper_files/paper/2019/file/3198dfd0aef271d22f7bcddd6f12f5cb-Paper.pdf",
       "code": "https://github.com/naver/r2d2",
-      "inspection": "Targeted introduction/3.1–3.2, not full paper, figures, official-code inspection or execution.",
+      "inspection": "Targeted introduction/3.1\u20133.2, not full paper, figures, official-code inspection or execution.",
       "local_status": "Prior art for repeatability/reliability learning and known-transform supervision. No R2D2 reproduction or new repeatability-head claim.",
       "updated": "2026-11-14",
       "reading_history": [
         {
           "date": "2026-11-14",
           "source_note": "docs/research/known-pose-thermal-replay-next-2026-11-14.md",
-          "inspection": "Targeted introduction/3.1–3.2, not full paper, figures, official-code inspection or execution."
+          "inspection": "Targeted introduction/3.1\u20133.2, not full paper, figures, official-code inspection or execution."
         },
         {
           "date": "2026-11-14",
@@ -1641,7 +1737,7 @@
       "id": "disk-2020",
       "title": "DISK: Learning local features with policy gradient",
       "authors": [
-        "Michał J. Tyszkiewicz",
+        "Micha\u0142 J. Tyszkiewicz",
         "Pascal Fua",
         "Eduard Trulls"
       ],
@@ -1704,12 +1800,24 @@
           "date": "2026-11-15",
           "source_note": "docs/research/covariance-transfer-findings-2026-11-15.md",
           "inspection": "Fresh targeted v1 II-C/III full-covariance Gaussian NLL, fixed-zero-mean versus bias correction, LL/LDL parameterizations and selected IV-A/IV-C evaluation context. No author implementation identified in inspected paper links or executed; not a full-paper/system reproduction."
+        },
+        {
+          "date": "2026-11-14",
+          "source_note": "docs/research/local-relationship-layer-contract-2026-11-14.md",
+          "inspection": "Interface design cites existing source reviews; no new full-method reading or author reproduction."
+        },
+        {
+          "date": "2026-11-14",
+          "source_note": "docs/research/local-relationship-learning-findings-2026-11-14.md",
+          "inspection": "Local learning execution/provenance update only; prior primary reading retained, no fresh author-method reading or reproduction."
         }
       ],
       "decision_notes": [
         "docs/research/selection-task-method-decision-2026-11-14.md",
         "docs/research/covariance-transfer-findings-2026-11-15.md",
-        "docs/research/covariance-shape-scale-findings-2026-11-15.md"
+        "docs/research/covariance-shape-scale-findings-2026-11-15.md",
+        "docs/research/local-relationship-layer-contract-2026-11-14.md",
+        "docs/research/local-relationship-learning-findings-2026-11-14.md"
       ]
     },
     {
@@ -1800,10 +1908,16 @@
           "date": "2026-11-14",
           "source_note": "docs/research/expanded-vo-thermal-literature-2026-11-14.md",
           "inspection": "Primary abstract only; edge representation/ADT-KLT/inertial window. Code unchecked."
+        },
+        {
+          "date": "2026-11-14",
+          "source_note": "docs/research/thermal-structure-intake-2026-11-14.md",
+          "inspection": "Fresh primary abstract check: thermal representation and radiometric/edge tracking overlap; no full-method/code review."
         }
       ],
       "decision_notes": [
-        "docs/research/expanded-vo-thermal-literature-2026-11-14.md"
+        "docs/research/expanded-vo-thermal-literature-2026-11-14.md",
+        "docs/research/thermal-structure-intake-2026-11-14.md"
       ],
       "local_status": "Literature/source intake only; no author-system reproduction",
       "updated": "2026-11-14"
@@ -1813,12 +1927,12 @@
       "title": "TRGS-SLAM: IMU-Aided Gaussian Splatting SLAM for Blurry, Rolling Shutter, and Noisy Thermal Images",
       "venue_or_version": "arXiv2603.20443v1,2026preprint",
       "url": "https://arxiv.org/html/2603.20443v1",
-      "inspection": "Targeted3.5keyframes,3.6mapping/relocalization,4.1–4.2/K limitations, project/README/pseudo-GT description and source sampling/selection/SSIM rollback. No full-system/source/runtime/dataset reproduction.",
+      "inspection": "Targeted3.5keyframes,3.6mapping/relocalization,4.1\u20134.2/K limitations, project/README/pseudo-GT description and source sampling/selection/SSIM rollback. No full-system/source/runtime/dataset reproduction.",
       "reading_history": [
         {
           "date": "2026-11-14",
           "source_note": "docs/research/expanded-vo-thermal-literature-2026-11-14.md",
-          "inspection": "Targeted3.5keyframes,3.6mapping/relocalization,4.1–4.2/K limitations, project/README/pseudo-GT description and source sampling/selection/SSIM rollback. No full-system/source/runtime/dataset reproduction."
+          "inspection": "Targeted3.5keyframes,3.6mapping/relocalization,4.1\u20134.2/K limitations, project/README/pseudo-GT description and source sampling/selection/SSIM rollback. No full-system/source/runtime/dataset reproduction."
         },
         {
           "date": "2026-11-14",
@@ -1828,7 +1942,7 @@
         {
           "date": "2026-11-14",
           "source_note": "docs/research/sensor-time-contract-decision-2026-11-14.md",
-          "inspection": "Fresh targeted3.1–3.3 image formation, and five pinned renderer/FPN/dataset files. Readout/time-constant/finite-history/downsampling contracts inspected read-only.25quad/expm mathematical identity checks, not author renderer execution, image simulation or learned performance."
+          "inspection": "Fresh targeted3.1\u20133.3 image formation, and five pinned renderer/FPN/dataset files. Readout/time-constant/finite-history/downsampling contracts inspected read-only.25quad/expm mathematical identity checks, not author renderer execution, image simulation or learned performance."
         },
         {
           "date": "2026-11-14",
@@ -1879,10 +1993,10 @@
     {
       "id": "trnerf",
       "title": "TRNeRF: Restoring Blurry Rolling Shutter and Noisy Thermal Images with Neural Radiance Fields",
-      "venue_or_version": "WACV2025,pp7969–7979",
+      "venue_or_version": "WACV2025,pp7969\u20137979",
       "url": "https://openaccess.thecvf.com/content/WACV2025/html/Carmichael_TRNeRF_Restoring_Blurry_Rolling_Shutter_and_Noisy_Thermal_Images_with_WACV_2025_paper.html",
       "code": "https://github.com/umautobots/trnerf",
-      "inspection": "Official project rendering/evaluation overview and indexed image-model passage; full CVF PDF fetch403. No fresh full-paper reading/code execution; relevant model also read directly in TRGS3.1–3.3 and pinned renderer.",
+      "inspection": "Official project rendering/evaluation overview and indexed image-model passage; full CVF PDF fetch403. No fresh full-paper reading/code execution; relevant model also read directly in TRGS3.1\u20133.3 and pinned renderer.",
       "reading_history": [
         {
           "date": "2026-11-14",
@@ -1954,12 +2068,12 @@
       "venue_or_version": "2020; inspected arXiv:2008.03324v1",
       "url": "https://arxiv.org/html/2008.03324v1",
       "code": "https://github.com/uzh-rpg/rpg_information_field/tree/76d7b834128bd3488d1aae3888a79f3d5216a4ab",
-      "inspection": "Targeted III–V bearing-information/noise/visibility; README and info_utils header/body statically inspected; not complete field/GP/planner reproduction.",
+      "inspection": "Targeted III\u2013V bearing-information/noise/visibility; README and info_utils header/body statically inspected; not complete field/GP/planner reproduction.",
       "reading_history": [
         {
           "date": "2026-11-14",
           "source_note": "docs/research/active-perception-motion-decision-2026-11-14.md",
-          "inspection": "Targeted III–V bearing-information/noise/visibility; README and info_utils header/body statically inspected; not complete field/GP/planner reproduction."
+          "inspection": "Targeted III\u2013V bearing-information/noise/visibility; README and info_utils header/body statically inspected; not complete field/GP/planner reproduction."
         },
         {
           "date": "2026-11-15",
@@ -2049,6 +2163,168 @@
         "docs/research/covariance-transfer-findings-2026-11-15.md"
       ],
       "local_status": "Prior-art boundary for fixed-query cross-match covariance attribution, not a new formula or ICP reproduction.",
+      "updated": "2026-11-15"
+    },
+    {
+      "id": "cross-spectral-slam-handover-2013",
+      "title": "Cross-spectral visual simultaneous localization and mapping (SLAM) with sensor handover",
+      "venue_or_version": "Robotics and Autonomous Systems 61(2), 2013; online 2012",
+      "url": "https://breckon.org/toby/publications/papers/magnabosco13slam.pdf",
+      "inspection": "Targeted full-paper sections4.3/5.4: shared EKF state with encoder/GPS aids, contiguous optical observation suppression/restoration; no code execution.",
+      "code": null,
+      "reading_history": [
+        {
+          "date": "2026-11-14",
+          "source_note": "docs/research/rgb-thermal-handover-prior-art-decision-2026-11-14.md",
+          "inspection": "Primary author-hosted indexed abstract/introduction inspected; full handover method/code not reviewed."
+        },
+        {
+          "date": "2026-11-14",
+          "source_note": "docs/research/rgb-thermal-handover-mechanism-comparison-2026-11-14.md",
+          "inspection": "Targeted full-paper sections4.3/5.4: shared EKF state with encoder/GPS aids, contiguous optical observation suppression/restoration; no code execution."
+        }
+      ],
+      "local_status": "Prior-art comparator only; not reproduced. See handover decision for scope and limitations.",
+      "decision_notes": [
+        "docs/research/rgb-thermal-handover-prior-art-decision-2026-11-14.md",
+        "docs/research/rgb-thermal-handover-mechanism-comparison-2026-11-14.md"
+      ],
+      "updated": "2026-11-14"
+    },
+    {
+      "id": "adaptive-rgb-thermal-mr-2026",
+      "title": "Robustness Enhancement of Self-Localization for Drone-View Mixed Reality via Adaptive RGB-Thermal Integration",
+      "venue_or_version": "Technologies 14(1), 74, 2026",
+      "url": "https://www.mdpi.com/2227-7080/14/1/74",
+      "inspection": "Targeted sections 3\u20136: dual tracking, spatial-inlier gating, frame conversion, Lerp/SLERP and thermal fallback. No code execution.",
+      "code": null,
+      "reading_history": [
+        {
+          "date": "2026-11-14",
+          "source_note": "docs/research/rgb-thermal-handover-prior-art-decision-2026-11-14.md",
+          "inspection": "Targeted sections 3\u20136: dual tracking, spatial-inlier gating, frame conversion, Lerp/SLERP and thermal fallback. No code execution."
+        }
+      ],
+      "local_status": "Prior-art comparator only; not reproduced. See handover decision for scope and limitations.",
+      "decision_notes": [
+        "docs/research/rgb-thermal-handover-prior-art-decision-2026-11-14.md"
+      ],
+      "updated": "2026-11-14"
+    },
+    {
+      "id": "visual-selective-vio-2022",
+      "title": "Efficient Deep Visual and Inertial Odometry with Adaptive Visual Modality Selection",
+      "venue_or_version": "ECCV 2022",
+      "url": "https://arxiv.org/abs/2205.06187",
+      "inspection": "Targeted figure2/sections3.1\u20133.2: adjacent image pairs; IMU-driven LSTM retained with zero visual padding; no code execution.",
+      "code": null,
+      "reading_history": [
+        {
+          "date": "2026-11-14",
+          "source_note": "docs/research/rgb-thermal-handover-prior-art-decision-2026-11-14.md",
+          "inspection": "Primary abstract inspected; adaptive visual feature-extractor deactivation; no full method/code review."
+        },
+        {
+          "date": "2026-11-14",
+          "source_note": "docs/research/rgb-thermal-handover-mechanism-comparison-2026-11-14.md",
+          "inspection": "Targeted figure2/sections3.1\u20133.2: adjacent image pairs; IMU-driven LSTM retained with zero visual padding; no code execution."
+        }
+      ],
+      "local_status": "Prior-art comparator only; not reproduced. See handover decision for scope and limitations.",
+      "decision_notes": [
+        "docs/research/rgb-thermal-handover-prior-art-decision-2026-11-14.md",
+        "docs/research/rgb-thermal-handover-mechanism-comparison-2026-11-14.md"
+      ],
+      "updated": "2026-11-14"
+    },
+    {
+      "id": "dual-agent-cost-aware-vio-2026",
+      "title": "Dual-Agent Reinforcement Learning for Adaptive and Cost-Aware Visual-Inertial Odometry",
+      "venue_or_version": "CVPR 2026; arXiv:2511.21083v2",
+      "url": "https://arxiv.org/html/2511.21083v2",
+      "inspection": "Targeted sections3.2\u20133.6: fused IMU propagation and selectively invoked pose/patch VO backend. Queue/reset/retention semantics unresolved; no code execution.",
+      "code": null,
+      "reading_history": [
+        {
+          "date": "2026-11-14",
+          "source_note": "docs/research/rgb-thermal-handover-prior-art-decision-2026-11-14.md",
+          "inspection": "Targeted sections 3.2\u20133.4: IMU-only complete-VO scheduling and separate adaptive fusion. No code execution."
+        },
+        {
+          "date": "2026-11-14",
+          "source_note": "docs/research/rgb-thermal-handover-mechanism-comparison-2026-11-14.md",
+          "inspection": "Targeted sections3.2\u20133.6: fused IMU propagation and selectively invoked pose/patch VO backend. Queue/reset/retention semantics unresolved; no code execution."
+        }
+      ],
+      "local_status": "Prior-art comparator only; not reproduced. See handover decision for scope and limitations.",
+      "decision_notes": [
+        "docs/research/rgb-thermal-handover-prior-art-decision-2026-11-14.md",
+        "docs/research/rgb-thermal-handover-mechanism-comparison-2026-11-14.md"
+      ],
+      "updated": "2026-11-14"
+    },
+    {
+      "id": "sfvo-2026",
+      "title": "SFVO: Decoupled Confidence-Guided Stereo-Flow Visual Odometry with Bidirectional PnP",
+      "venue_or_version": "arXiv2609.21754v1,18September2026",
+      "url": "https://arxiv.org/html/2609.21754v1",
+      "inspection": "Targeted III-C/D and IV-C: separate learned confidence, alternating bearing-based rotation/translation solves, component ablation. No full-paper or code reproduction.",
+      "code": null,
+      "local_status": "Prior-art comparator only. Paper promises code; bounded title/GitHub search did not identify a verified author release. Our fixed-R native disparity baseline is not SFVO.",
+      "reading_history": [
+        {
+          "date": "2026-11-15",
+          "source_note": "docs/research/component-constrained-native-findings-2026-11-15.md",
+          "inspection": "Targeted methods/ablation reading; reading-payload hash in results/component-constrained-native/source-review/sources.json."
+        },
+        {
+          "date": "2026-11-15",
+          "source_note": "docs/research/fixed-rotation-recording-transfer-findings-2026-11-15.md",
+          "inspection": "Unchanged local candidate evaluated on two other historically exposed prefixes. Prior source reading reused; no new paper reading or author-system reproduction."
+        },
+        {
+          "date": "2026-11-15",
+          "source_note": "docs/research/fixed-rotation-continuation-findings-2026-11-15.md",
+          "inspection": "Unchanged local candidate continuation; original method reading retained. No new paper read or author-system reproduction; qualified night incremental thermal benefit absent, day gate fails."
+        }
+      ],
+      "decision_notes": [
+        "docs/research/component-constrained-native-findings-2026-11-15.md",
+        "docs/research/fixed-rotation-recording-transfer-findings-2026-11-15.md",
+        "docs/research/fixed-rotation-continuation-findings-2026-11-15.md"
+      ],
+      "updated": "2026-11-15"
+    },
+    {
+      "id": "flow-decoupled-reprojection-2016",
+      "title": "Flow-Decoupled Normalized Reprojection Error for Visual Odometry",
+      "venue_or_version": "2016 author PDF",
+      "url": "https://www.cvlibs.net/projects/autonomous_vision_survey/literature/Buczko2016ITSC.pdf",
+      "inspection": "Introduction and rotation-compensated-flow rationale inspected; two-stage decoupling is prior art. Not full-method/code review.",
+      "code": null,
+      "local_status": "Prior-art context only, not reproduced.",
+      "reading_history": [
+        {
+          "date": "2026-11-15",
+          "source_note": "docs/research/component-constrained-native-findings-2026-11-15.md",
+          "inspection": "Targeted introduction and rotation-compensated-flow rationale; source hash recorded."
+        },
+        {
+          "date": "2026-11-15",
+          "source_note": "docs/research/fixed-rotation-recording-transfer-findings-2026-11-15.md",
+          "inspection": "Unchanged local candidate evaluated on two other historically exposed prefixes. Prior source reading reused; no new paper reading or author-system reproduction."
+        },
+        {
+          "date": "2026-11-15",
+          "source_note": "docs/research/fixed-rotation-continuation-findings-2026-11-15.md",
+          "inspection": "Unchanged local candidate continuation; original method reading retained. No new paper read or author-system reproduction; qualified night incremental thermal benefit absent, day gate fails."
+        }
+      ],
+      "decision_notes": [
+        "docs/research/component-constrained-native-findings-2026-11-15.md",
+        "docs/research/fixed-rotation-recording-transfer-findings-2026-11-15.md",
+        "docs/research/fixed-rotation-continuation-findings-2026-11-15.md"
+      ],
       "updated": "2026-11-15"
     }
   ]

@@ -1,3 +1,13 @@
+Latest: [longer frozen continuation](../fixed-rotation-continuation-findings-2026-11-15.md). Prior source reading reused; no new paper read. Qualifiednight doesnotbeatmatchedRGBrefinement;daynativecontrolgatefails. Preserve shortpositivecases withoutgeneralthermalornewdecouplingnoveltyclaim.
+
+Latest: [unchanged two-recording transfer](../fixed-rotation-recording-transfer-findings-2026-11-15.md). Prior MAC-VO/SFVO/Buczko reading retained; no new source reading/reproduction. Day/night short-prefix gains over both controls with exact RGB rotation; earlier rain negative remains.
+
+Latest: [fixed-rotation measurement translation](../component-constrained-native-findings-2026-11-15.md). SFVOv1 targetedIII-C/D+IV-C and Buczko2016 introduction/rotation-compensation rationale added (61entries); no author code reproduction or verified new decoupling novelty. Scoped day accuracy gain over both native and RGB-only reoptimization.
+
+Latest: [native pose-feedback replay](../native-pose-feedback-findings-2026-11-15.md). Prior MAC-VO/MSO reading reused; state feedback qualified on cached measurements, not new paper reading or full author-system reproduction. Same mixed fixed-weight results persist.
+
+Latest: [native optimizer thermal extension](../native-thermal-constraints-findings-2026-11-15.md). Source-pinned native MAC-VO disparity/LM replay and calibrated thermal-factor prototype; MSO shared-state fusion overlap retained. Prior paper reading reused; no new full-paper reading or MSO reproduction.
+
 Latest: [fixed-prediction shape/scale diagnostic](../covariance-shape-scale-findings-2026-11-15.md). All30oldcovariances preserved; evaluation-error-informed scalarprofiles separate NLLshape andscale. Commonshape modestly helpsday/rainvsnative,hurtsnight;pooled comparisons differ.42mechanics/1192auditchecks. DNLS5scale/calibration passage rechecked;55references unchanged. Oracleonly,no correctedpredictor/coverage/poses.
 
 Latest: [recording-excluded covariance prediction](../covariance-transfer-findings-2026-11-15.md). Five-parameter common-image-mode baseline beats train scalar/independent controls5/6scenes,allthree fittedcontrols2/6;recordingaveragesday/rainpositive,nightnegative. Testscalaroraclebetterallrecordingaverages anddaycontainmentlow.117mechanics/2108auditchecks;no pose/inference rerun or physicalcalibration/newalgorithm. Deeper-DICE targetedreading refreshed;55entries unchanged.
@@ -128,3 +138,17 @@ retained; no verified MSO reproduction or universal novelty claim.
 2026-11-14: [Sensor image adapter qualified](../sensor-image-adapter-findings-2026-11-14.md):9cases/144views, four image controls/common pose time,64node integration,7229checks and explicit reference precision supplement. No native estimator result or physical camera calibration.
 
 2026-11-14: [Four-arm sensor estimator comparison](../sensor-estimator-findings-2026-11-14.md):36dense batches/72converged fits,1841audit checks. Memory/combined matching covariance decreases in all6moving cases while pose-error effects are mixed, including same-ID controls. Existing estimator availability retained; no physical calibration, new method or author-system reproduction.
+
+2026-11-14: [RGB–thermal handover overlap decision](../rgb-thermal-handover-prior-art-decision-2026-11-14.md) records direct optical/thermal handover and adaptive dual-tracking prior art, related selective-compute VIO, reading depth, and the EXP125–127 correction. Broad handover/scheduling novelty is unsupported; no new run selected.
+
+2026-11-14: [Handover mechanism comparison](../rgb-thermal-handover-mechanism-comparison-2026-11-14.md) deepens source reading; treat buffering as engineering, research priority not established.
+
+2026-11-14: [Thermal structure intake](../thermal-structure-intake-2026-11-14.md): raw60frame descriptors and TP-TIO/ETIO abstract-level overlap. No pose gain claimed.
+
+2026-11-14: [Local thermal geometry](../local-thermal-geometry-findings-2026-11-14.md) applies established information selection; positive translation tradeoffs, worse rotation, no new algorithm claim.
+
+2026-11-14: [Architecture and contribution reset](../rgb-thermal-architecture-and-contribution-reset-2026-11-14.md) distinguishes thermal-stereo MACThermal, RGB-stereo MAC-VO, visual–inertial systems and the proposed local RGB–thermal relationship layer. Existing reading retained; no fresh source review.
+
+2026-11-14: [Local relationship-layer contract](../local-relationship-layer-contract-2026-11-14.md): shared-backend candidate and24input cache; existing DNLS/Deeper-DICE/MSO overlap retained, no trained model or novelty claim.
+
+2026-11-14: [Completed local relationship learning](../local-relationship-learning-findings-2026-11-14.md):18models, positive thermal-weighted translation cases, no demonstrated richer-layer increment; existing prior-art reading retained.

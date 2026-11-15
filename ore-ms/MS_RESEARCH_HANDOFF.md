@@ -1,3 +1,140 @@
+# Resume here: optimization-budget control
+
+Checkpoint15November2026. Next is the [three-arm RGB optimization control](docs/research/next-optimization-budget-control-2026-11-15.md): nativeRGB, extra full-poseRGB solve, and extra fixed-rotation translation solve. **Not run yet.** Keep identical measurements/initialization, freeze the protocol, record actual solver time and T/R accuracy. This separates the rotation constraint from extra optimization; no new thermal gate or weight tuning.
+
+Qualified long-night evidence: native33.482921m,RGB-refinement31.131610m,thermal31.276695m. Short day/night transfer gains remain; daycontinuation has one native reproduction failure and stays diagnostic. Latest complete evidence packet is `ore_ms:ore-ms/backups/2026-11-15-fixed-rotation-continuation`.
+
+## Measurement-time review completed
+
+The [source review](docs/research/measurement-time-contract-review-2026-11-15.md)
+confirms the official loaders use supplied indices and the repository revisions
+are unchanged. Physical exposure/clock semantics remain unresolved. Recorded
+interval differences and the duration probe do not prove exposure mismatch.
+Continue only with an explicit supplied-pair assumption for nominal benchmark
+claims; do not apply a duration correction or repeat the closed clock search.
+
+## Longer continuation limits the thermal benefit claim
+
+The [next600intervalcheck](docs/research/fixed-rotation-continuation-findings-2026-11-15.md)
+on originalcandidate recordings shows qualifiednightthermal31.276695m vsRGB-only
+31.131610m(+0.466%),despitebeatingnative33.482921m. Dayhasone2.944mmnative-reproduction
+failureagainstfrozen1mmbound; itsnumbersarediagnosticonly andthermalalso trails
+RGB-onlyonnewspan. Samecandidate/prefixstates,no retuning.28946structuralchecks
+pass,butdayaccuracygatefails. Shorttransfergainsremain; no persistentthermal
+improvementovermatchedRGBcontrol established. Notlongertransferprefixrecords.
+
+## Unchanged recording transfer: day and night gains
+
+The [two-recording transfer](docs/research/fixed-rotation-recording-transfer-findings-2026-11-15.md)
+keeps the candidate unchanged. On other100-group day/night records, positionRMSE
+improves8.507%/1.031%versusnative and6.401%/2.857%versusRGB-onlyrefinement.
+Rotation exact,99/99coverageallarms;2453auditchecks pass. Bothprefixes previously
+exposed and≈10seconds; no blind/long-run generalization claim. Prior rainthermal
+regression remains. Preservecandidatewithoutretuning; transfer adds evidence,
+notnewR/Tdecouplingnovelty or fullfrontend/runtime qualification.
+
+## Fixed-rotation translation baseline: scoped day improvement
+
+The [measurement-level translation test](docs/research/component-constrained-native-findings-2026-11-15.md)
+keeps native RGB rotation exactly. Day position RMSE11.115217→11.037059m(-0.703%);
+RGB-only reoptimization reaches11.074827m, so thermal adds0.341%improvement beyond
+thatcontrol. All6dayblocks beatbothcontrols;4/5night and1/6raincompleteblocks do.
+Rain's fullpath gain againstnative comesfromRGBreoptimization:thermal is0.247%
+worse thanthatcontrol.10922checks pass. Existing-family applicationablation,
+notnewconfidence/decouplingnovelty; SFVO/Buczkoprimarysources added toregistry.
+Preserve this candidate for separately frozen validation; no weight/window tuning.
+
+## Native pose feedback completed
+
+The [feedback replay](docs/research/native-pose-feedback-findings-2026-11-15.md)
+now carries each arm's own float32 pose through source-point registration and
+next initialization. Day position improves0.91% with orientation cost7.32%;rain
+worsens7.91%/2.74%;nightgap247persists. Same4of17complete fixedblocks improveboth.
+10884checks pass. This closes the fixed-weight recipe's state-integration check;
+no weight tuning or default replacement. Cached measurements, not new inference.
+
+## Native optimizer thermal baseline executed
+
+The [native thermal-factor comparison](docs/research/native-thermal-constraints-findings-2026-11-15.md)
+preserves RGB graph/solver bodies and reproduces all1796native motions. Day
+position RMSE improves0.91% with orientation cost7.32%; rain worsens7.90%/2.95%.
+Four of17complete fixed blocks improve both metrics; all18blocks retained.
+3697independent checks pass. Saved-input optimizer replay, not frontend/feedback
+VO integration or validated replacement. No weight search or timing correction.
+
+## Native pipeline control completed
+
+The [longer native control](docs/research/longer-native-control-findings-2026-11-15.md)
+shows native MAC-VO beats the current fused replay on both day path metrics.
+Rain position improvement over native is already present in RGB-only replay;
+thermal slightly worsens it. No overall pipeline improvement is established.
+Keep native MAC-VO as the application control; retain same-backend comparisons
+for attributing thermal effects. No new inference, training or timing correction.
+
+## Current interpretation priority: measurement-time contract
+
+15 November2026 America/New_York — [Fixed-group diagnosis](docs/research/fixed-group-diagnosis-findings-2026-11-15.md).
+RecordedRGB/thermalintervals differ substantially in the same-IDnominalbenchmark.
+A fixedreference-assisted durationprobe sharplyreduces several localizedgroups'
+projectiondisagreement,includingphotometricallyconsistentharmfulmatches. This
+quantifies acomparisonconfound,notphysicalclockqualificationoradeployablefix.
+Priorfusion/learningnumbers remainunchanged, butcannotisolate sensor/environment
+quality. Establishmeasurementtime/exposurecontract before anotherphysically
+interpretedfusionrun; do notreopenfailedoffsetsearch ortrainanotherweighthead.
+
+## Latest dynamic contribution evidence
+
+15 November2026 America/New_York — [Time-resolved evidence and local interventions](docs/research/dynamic-thermal-evidence-findings-2026-11-15.md).
+Specificthermalmeasurementgroups nowlocalized: removingoneharmfuldaycell flips
+thermalregressionintogain;beyond same-count randomcontrols. Usefulgroupsalso
+localized;somebroadenacceptedRGBsupport. This iswithin-estimatorattribution,
+notphysicalenvironmentalcause or deployablepredictor. Originalimages,time-traces,
+allcells,neutralcases andlongerrecordcorroboration retained. No newfusionmodel.
+Nextunresolvedquestionisactualmatching/depthreliability ofthesefixedgroups.
+
+## Latest longer validation
+
+15 November2026 America/New_York — [Fixedthermal600groupvalidation](docs/research/longer-fixed-thermal-findings-2026-11-15.md).
+Samefixedgate0.1andbackend: longerdaypositionRMSEimproves0.69%withorientationcost;
+rainworsens0.42%;nightcannotformcontinuouspathbecausepair247missingbothsensors.
+Day/nightrecordingsdifferfromshortstudy;allalreadyexposed. All18fixedblocksretained,
+17complete;scopedpositivecasesremain,butno broadimprovementornewmethodselected.
+Readthisfollow-upalongsidepositive shorttrajectoryresults below.
+
+## Latest trajectory endpoint
+
+14 November2026 America/New_York — [Saved-increment trajectory check](docs/research/fixed-thermal-trajectory-findings-2026-11-14.md).
+Fixedthermalprecision0.1improves short-prefix positionRMSE by8.8%day/7.5%night,
+with orientation costs; rainposition worsens≈0.3%. Learnedfull remains close to
+simple weighting. This adds an accumulated-path endpoint, not new training or
+freshvalidation. Preserve the consolidated weighting decision below; no new
+weighting variant or longer-run experiment selected.
+
+## Current consolidated decision
+
+14 November2026 America/New_York — [RGB–thermal weighting consolidation](docs/research/rgb-thermal-weighting-consolidation-2026-11-14.md).
+The latest local relationship layer is a completed input/model ablation of the
+already tested learned-weighting direction. Conservative thermal weighting has
+scoped benefits; richer learned weighting has not established added value over
+simple controls. Preserve both findings. No further weighting variant or new
+experiment is selected. Read the consolidation before older next-step proposals.
+
+## Current architecture and research framing
+
+14 November 2026, America/New_York — [RGB–thermal architecture and contribution reset](docs/research/rgb-thermal-architecture-and-contribution-reset-2026-11-14.md).
+MACThermal is thermal stereo VO, not an existing RGB–thermal fusion system.
+Our proposed layer would learn sensor-conditioned incremental thermal utility
+alongside an RGB MAC-VO branch. A shared-backend local gate has now been
+implemented and tested; its incremental value over simple weighting was not established. Recent studies are local RGB–thermal extensions, not original
+MACThermal RGB–thermal fusion evaluations; they have not used IMU fusion.
+Accuracy/trajectory benefit or matched-accuracy measured compute reduction is
+the intended outcome. Existing empirical reports remain supporting evidence.
+The [local relationship learning comparison](docs/research/local-relationship-learning-findings-2026-11-14.md)
+is now complete:18models/720updates; scoped translation gains are matched by
+simple thermal weighting, with no demonstrated richer-model increment. See the
+reset and this completed evidence before choosing a new run. This framing supersedes older direction
+recommendations below without reopening completed configurations.
+
 2026-11-15 UTC — [Fixed-prediction shape/scale diagnostic](docs/research/covariance-shape-scale-findings-2026-11-15.md):all30locked oldcovariances profiledwithTEST-error-informed one-scalar oracle,notnewpredictor/calibration. AnalyticNLL gap=oracleshape gap+3(beta−1−logbeta)scale-excess difference. Common−nativeoracleshape day/night/rain−0.029853/+0.066061/−0.037088nats;commonoriginalscalepenalty1.159674/0.173329/0.368752. Common−pooledshape+0.073191/−0.009324/−0.014217:old daywinwas scaleadvantagewithworseshape;rainretainssmallshapeadvantage;nightlosstopooledincludesworsescale.4/6commonshapevsnative positives(one~0.000049natnegligible),nightbothnegative.42mechanics/25pins/1192independentphysical-tangent/originalreceipt/1Dopt checks pass,noamendments. Predictions/containment/poses unchanged,no training/scale-predictor rescue. DNLS5reread,55refs;scale notsoleissue,genericprofilingprioralgebra. Broaderoriginalgaps open.
 
 2026-11-15 UTC — [Covariance prediction transfer complete](docs/research/covariance-transfer-findings-2026-11-15.md):3recording-excluded DEVELOPMENT folds on6previouslyexposedscenes×128savedfixed-IDtrials;notfresh/network-heldout/physicaltransfer. Four image-error modes(flowu/v,source/targetdisparity),5positivecoefficients forsharedvsindependentfamilies, trainMLEscalar andpooledfullshape controls. Sixoptimizerfitsconverge19–79iterations,all30covarianceslockbeforescore. Commonbeats scalar/independent5/6scenes,all3fittedpredictivecontrols2/6;recordingNLLcommon−scalar day/night/rain−0.110945/+0.043947/−0.098903nats. Oracletestscalarbeatscommonall3averages;common95%baselinecontainment60.16/99.22/99.22%. No meanfit/testcentering;zero-meanbaseline-relativetargetincludes secondmoment,notphysicaltrueposeerror.117mechanics/2108independentauditchecks,firstpassnoamendments. Cov-onlypredictionsleaveallposes/accuracyunchanged;no newneural/posefits. Closeexact4mode/5paramrecipewithpositive/mixedcases,no rank/mode/scale/optimizerrescue. DeeperDICE reread,55refs.

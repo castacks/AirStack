@@ -1,5 +1,11 @@
 # Proposed contribution: limits of RGB–thermal uncertainty transfer
 
+**Framing update, 14 November 2026:** The [architecture and contribution reset](rgb-thermal-architecture-and-contribution-reset-2026-11-14.md)
+records the current proposed RGB–thermal relationship-layer objective. This dated
+statement remains the historical empirical contribution draft; it is supporting
+analysis, not the sole intended outcome or an established new fusion method.
+
+
 13 November 2026, UTC. Evidence synthesis only. No new inference, scoring,
 training, experiment selection or claim of established publication novelty.
 
