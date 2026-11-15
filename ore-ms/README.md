@@ -1,8 +1,9 @@
 # RGB–thermal geometric uncertainty research
 
-This project studies whether RGB and thermal geometric uncertainties are
-comparable, predict relative geometric reliability, and can improve visual
-odometry. A distinct contribution and consistent adaptive pose improvement
+This project studies geometric uncertainty in visual and thermal estimation,
+including matching supervision, selection, continuity and sensor transfer. Its
+initial RGB–thermal question asks whether the modalities' uncertainties are
+comparable and predict relative geometric reliability. A distinct contribution and consistent adaptive pose improvement
 have not yet been established.
 
 Start with the [research handoff](MS_RESEARCH_HANDOFF.md) for current context
@@ -10,6 +11,36 @@ and the original research question. The [scope decision](docs/research/research-
 records the requirement for a bounded, evidence-backed direction before further
 experiments. The [contribution draft](docs/research/contribution-statement-2026-11-13.md)
 separates supported findings from claims that remain unverified.
+
+The [current contribution decision](docs/research/contribution-synthesis-decision-2026-11-14.md)
+connects the completed studies to the original papers' remaining gaps. The
+[updated technical report](docs/research/uncertainty-interfaces-report-draft-2026-11-13.md)
+collects supported findings and their limits.
+
+The [sensor-transfer inventory](docs/research/sensor-transfer-readiness-2026-11-14.md)
+records current input availability, preprocessing and the claims supported by
+nominal references versus qualified physical sensor evidence.
+
+The [active-perception motion decision](docs/research/active-perception-motion-decision-2026-11-14.md)
+selects matched acquisition histories as a controlled question. The
+[completed estimator comparison](docs/research/active-motion-estimator-findings-2026-11-15.md)
+finds small, mixed timing effects; no planning policy is validated.
+
+The [cross-match covariance study](docs/research/cross-match-covariance-findings-2026-11-15.md)
+uses saved trials to separate within-match variation from cross-match dependence,
+with no new inference or covariance correction.
+
+The [recording-excluded covariance comparison](docs/research/covariance-transfer-findings-2026-11-15.md)
+finds partial predictive gains beyond a fitted scalar, with mixed transfer and
+containment; it changes no pose estimate.
+
+The [shape/scale diagnostic](docs/research/covariance-shape-scale-findings-2026-11-15.md)
+interprets those fixed predictions using an explicitly test-informed oracle;
+no predictive result or uncertainty interval is replaced.
+
+Raw experiment outputs are kept outside Git. The
+[verified backup index](docs/research/artifact-backup-index-2026-11-15.json)
+records Box artifact locations and readback checksums.
 
 ## Where to find things
 

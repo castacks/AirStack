@@ -1,0 +1,189 @@
+{
+  "created_utc": "2026-11-14T22:36:48.797544+00:00",
+  "baseline": "a79658f6341194b0954852226f200313ccdf5408",
+  "protocol_path": "/root/AirStack/ore-ms/experiments/sensor-estimator-freeze-2026-11-14.json",
+  "status": "FROZEN_AFTER_MECHANICS_BEFORE36LEARNED_BATCHES",
+  "pins": {
+    "/root/AirStack/ore-ms/MAC-VO-main/Module/Network/FlowFormer/core/twins.py": "1e3c510bf3d7fd4ef19d341c363bd62b00fdfa467dd54188066c07328ce00aff",
+    "/root/AirStack/ore-ms/MAC-VO-main/Module/Network/FlowFormer/core/gru.py": "f28abf2bfa18682da5d9b7435c74f3bcb382d3afa7288b4b8c8e47d14f0e156d",
+    "/root/AirStack/ore-ms/MAC-VO-main/Module/Network/FlowFormer/core/utils.py": "b7227e169f054a581e504d76cbe1384a127559a53f72a12aa5c32ac6a5a1dae8",
+    "/root/AirStack/ore-ms/MAC-VO-main/Module/Network/FlowFormer/core/encoder.py": "5f74dbb12e16ce2369a9e97deba8f1457c09121d074876e51a71a96e1ce9a8a1",
+    "/root/AirStack/ore-ms/MAC-VO-main/Module/Network/FlowFormer/core/decoder.py": "e421260b28e0d216ff2275a231413dad1585cc5aae65f9828076ec372882e8fd",
+    "/root/AirStack/ore-ms/MAC-VO-main/Module/Network/FlowFormer/core/gma.py": "6e833f4368ca7ad1b9627609cf7120a88667f6cfd83cfb089bd9ef9b7402faac",
+    "/root/AirStack/ore-ms/MAC-VO-main/Module/Network/FlowFormer/core/twins_svt.py": "76f611823b1353600007fe1498486d529e0a8db1efb070e503913eaf1fc3588d",
+    "/root/AirStack/ore-ms/MAC-VO-main/Module/Network/FlowFormer/core/__init__.py": "6e6aee64bd715cae9c94457a1ccc88ee3f4c758f19c3077e2acfd9ac6b04e833",
+    "/root/AirStack/ore-ms/MAC-VO-main/Module/Network/FlowFormer/core/transformer.py": "46b657414a0b905df79c5435dc112284e0d2f097be2a0651bdec71b4545ee6e5",
+    "/root/AirStack/ore-ms/MAC-VO-main/Module/Network/FlowFormer/core/attention.py": "843f0d43857628712fc10945dbf58d50f4890718f42d2fa4964dc69c70016937",
+    "/root/AirStack/ore-ms/MAC-VO-main/Module/Network/FlowFormer/configs/submission.py": "e994e79964a79a8ec7028e9302b5395da4efe43709ff2b1ad3084092d0713928",
+    "/root/AirStack/ore-ms/MAC-VO-main/Module/Network/FlowFormer/core/Twins/svt_large.py": "53c2a8ab9ad62f0fc183c25f2217c40343bef4128b00e5c2903cbbda173cac24",
+    "/root/AirStack/ore-ms/MAC-VO-main/Module/Network/FlowFormerCov/covhead.py": "fdbca80d78357e022f9b3dec4da449293aec979245f7b278547e63e62b0f9965",
+    "/root/AirStack/ore-ms/MAC-VO-main/Module/Network/FlowFormerCov/__init__.py": "93fd1568ecb1df72dc2d4714b2f9053af28b6381cd02f4325b117f1f67358c17",
+    "/root/AirStack/ore-ms/MAC-VO-main/Module/Network/FlowFormerCov/flownet.py": "3a1f85c686082b57aceb6043c58d169befca70eb11083d9b28177935c05c9add",
+    "/root/AirStack/ore-ms/MAC-VO-main/Module/Network/FlowFormerCov/checkpoint.py": "f7fddbf620a98ec7972743632cf35ab6c5c84c5691f3a9fa0fea61d49ac52b84",
+    "/root/AirStack/ore-ms/tools/qualify_native_frontend.py": "98b9dcac39d86105973413d1da832bd618be4314a2f5bafcf91e33cc44ecfb93",
+    "/root/AirStack/ore-ms/MAC-VO-main/DataLoader/Dataset/MS2.py": "22723f8de483a284088289e9b50333c931e243edf6312b531206cc0576fb57af",
+    "/root/ore-ms-native-qualification/MACT_Offroad.pth": "eed20722b73c80f016c4646741def4e4e5e2999feaf2c2715c5a6293dc35287a",
+    "/root/AirStack/ore-ms/results/paired-frontend-qualification/inputs/day/000000-left.png": "a578455da87261c9207517891acac26bc6ff58ca9a5158e82f27ad7b778e6899",
+    "/root/AirStack/ore-ms/results/paired-frontend-qualification/inputs/day/000000-right.png": "1399ed3ecae0c8ed9195e57118906da4b743fc6b50e583769bc1419f618bf663",
+    "/root/AirStack/ore-ms/results/paired-frontend-qualification/inputs/day/000001-left.png": "b5d8fbab974dcf52d95c319c983342013d7642e029f75a3eadd5a65dfd7d71e9",
+    "/root/AirStack/ore-ms/results/paired-frontend-qualification/inputs/day/000001-right.png": "53cf0e18ca0fd2bec5006fec6eeea8c853ca5ebeefd8a11d42ca5cef5d9bcbb0",
+    "/root/AirStack/ore-ms/results/paired-frontend-qualification/inputs/night/000000-left.png": "099d086bd6b05cd626319f5ce68b39c92c0c460b4c65d22eb21c34a660b2f11c",
+    "/root/AirStack/ore-ms/results/paired-frontend-qualification/inputs/night/000000-right.png": "1418c3f47a6ff0565cc01caf537947c9b807522886133ae7e724adcde3c63ca5",
+    "/root/AirStack/ore-ms/results/paired-frontend-qualification/inputs/night/000001-left.png": "9c59815ae674badc1885918f04060a2922ae48247c6463ff97c7af1debf4ae40",
+    "/root/AirStack/ore-ms/results/paired-frontend-qualification/inputs/night/000001-right.png": "f88494960bc749147d5be762e8294ce41ce9410e414d3b38d3c1ee4c8cff76e8",
+    "/root/AirStack/ore-ms/results/paired-frontend-qualification/inputs/rain/000000-left.png": "046771165b4d7fffbb1fe0ed63a50a076a486ee09462804ab662dc6e4f4fb748",
+    "/root/AirStack/ore-ms/results/paired-frontend-qualification/inputs/rain/000000-right.png": "0031607737f175b17651b541f6572b24ad825c2100122c02e2b0e2789bc54fe7",
+    "/root/AirStack/ore-ms/results/paired-frontend-qualification/inputs/rain/000001-left.png": "3969f940fdf4110992115e29fea6f185ce6d93d496a778d52ea280d217acffbd",
+    "/root/AirStack/ore-ms/results/paired-frontend-qualification/inputs/rain/000001-right.png": "6069c8e561dd9bafaedf32b0a0ef21e5eded81ddc68aa6da8b97e366211d5e2d",
+    "/root/AirStack/ore-ms/tools/paired_frontend_assessment.py": "f226c6d2a6cd008475028a9b28cf9b1fb667ceff5f2cf86420edb6edeb32fc52",
+    "/root/AirStack/ore-ms/tools/qualify_paired_frontend.py": "b8d071100071b3e4ff36aca7dd5ba98afda25a81bd6cdd04114abe3cf42e5a6d",
+    "/root/AirStack/ore-ms/tools/pose_covariance_replay.py": "c302f71b700b0a57b886dd3da9df8c2540e0399d2a330af44367afc1788a69e7",
+    "/root/AirStack/ore-ms/environment/native-thermal-frontend-qualified-requirements.txt": "76b536974cd1d5f0ce6c052f84493000f526e799b6f360b97cc6374810a38eaa",
+    "/root/AirStack/ore-ms/results/paired-frontend-qualification/shared-mechanics-qualification.json": "9afd0bdf344bc7ef24f8fc3c028f2d5f4a6adcfc0c271630ba1ee3a61a31ec66",
+    "/root/AirStack/ore-ms/results/paired-frontend-qualification/run-001/qualification.json": "d58d8fb3fc64c2322f042d421e570bf52cdb902d314ee9a0a3b762081675b83b",
+    "/root/AirStack/ore-ms/MAC-VO-main/Module/KeypointSelector.py": "48b0c8e77b83c7005bf8b0b87cbb54241156d7e049928b864a11d14fb5d496f0",
+    "/root/AirStack/ore-ms/MAC-VO-main/Module/Covariance/Project2to3.py": "e23b5022f7fa426bbad6191ec689248b02e6d55bd03fe3b4199ed6c154295139",
+    "/root/AirStack/ore-ms/MAC-VO-main/Utility/Math.py": "b063f424cb9883fe58bb335f6e2a309b4675c584b694fb1d677a2db7e2d22874",
+    "/root/AirStack/ore-ms/results/known-pose-thermal-renderer/run-001/inventory.json": "fdd4d0d9c63f308a10fe0b593e17286c8e5db36608dbf236229f262dcd1a57cd",
+    "/root/AirStack/ore-ms/results/known-pose-estimator-qualification/run-001/interface-qualification.json": "6910ccbdc7a9e78704e27aa11a4c3ec32ef7d9df6125f749344cff387038641e",
+    "/root/AirStack/ore-ms/experiments/known-pose-thermal-renderer-freeze-2026-11-14.json": "dc1f260da21928933854c42be5749e1e5a317787c2279e31ff41bc37a9aab834",
+    "/root/AirStack/ore-ms/results/known-pose-thermal-renderer/run-001/independent-audit.json": "800b38d6503a4c107adce95ea3911862a25eb1867478bb308ca120d0a4987a72",
+    "/root/AirStack/ore-ms/tools/known_pose_estimator_assessment.py": "a959ad82c74123bfa4f788fcbc747c27559d71714a57fa6657def56196ba847b",
+    "/root/AirStack/ore-ms/tools/audit_known_pose_estimator.py": "ed0e14f897680a41d195106223cde4c8dd072dd28f36f63ea36662b38475f267",
+    "/root/AirStack/ore-ms/tools/audit_paired_frontend.py": "fc5a50a0568cc258105ab273e6e6ccbba13c880e5212061213409727cd36916b",
+    "/root/AirStack/ore-ms/results/known-pose-thermal-renderer/run-001/day-plane4m.npz": "17170846b429a3440a7296902fee5e60df771eea7b1bfd127fbf8109422bf6e6",
+    "/root/AirStack/ore-ms/results/known-pose-thermal-renderer/run-001/day-two-depths.npz": "b055178828fb770f73b170accdcc96e9cfc619a700a4d089890dd973a138a9cf",
+    "/root/AirStack/ore-ms/results/known-pose-thermal-renderer/run-001/night-plane4m.npz": "c72ecae5da0fe549e1a74125ce524b21b08c438872a0905ca51e83b330e6b953",
+    "/root/AirStack/ore-ms/results/known-pose-thermal-renderer/run-001/night-two-depths.npz": "0b3dea52a3b9de6fd01df05071bc974e2c907286092ddf671c937cd298d2f624",
+    "/root/AirStack/ore-ms/results/known-pose-thermal-renderer/run-001/rain-plane4m.npz": "48f88e013131aaa83f4716e39f68ea80e90fc83d437a58c5468b0864efdac7cc",
+    "/root/AirStack/ore-ms/results/known-pose-thermal-renderer/run-001/rain-two-depths.npz": "5d03b47d51f7662d42ea8682f7fc6e52fa00f17d471da0dccc8fa2e606fda1fd",
+    "/root/AirStack/ore-ms/tools/continuity_sequence.py": "1c1ff715b1c4d0218907dfe32d234a49c82ab7b67fc45570da0f02b529d6230c",
+    "/root/AirStack/ore-ms/tools/audit_continuity_sequence.py": "02bccd8dd2a0b825d74880218c2f6a777ae26d7fe025f7784a59b163705f96b2",
+    "/root/AirStack/ore-ms/tools/render_known_pose_thermal.py": "c6495d8ee69aafe096a4e4ce522fefaa47f42d2029b77e93d436b613f12e5117",
+    "/root/AirStack/ore-ms/experiments/continuity-sequence-render-freeze-2026-11-14.json": "0bac8d4d3a8aa586c36e55402be780237eaab83b0e46b3a99dd2d303c79dacc7",
+    "/root/AirStack/ore-ms/results/continuity-sequence/render-001/inventory.json": "cf1d8fe30c9617da79395e67289db0151d12769f3f7ce384300f64adf39e0f39",
+    "/root/AirStack/ore-ms/results/continuity-sequence/render-audit-001.json": "3a80ec6e83f3790f74717e7277bef9e29c20f8d7ea34ab6b44c963f9f3a66651",
+    "/root/AirStack/ore-ms/results/continuity-sequence/render-001/day-plane4m.npz": "c87ef829a1535d6289b756dda9eaf425c0e6b58948c316be241c1546c650d76e",
+    "/root/AirStack/ore-ms/results/continuity-sequence/render-001/day-two-depths.npz": "5c64f1bf2ea6a99d7edda1487eafc335a7e824761add70c6980ac972cc80c6cf",
+    "/root/AirStack/ore-ms/results/continuity-sequence/render-001/night-plane4m.npz": "4d68908687f6d54a5c0c4894d7ff9b878984745684d7420799e7e22be9d5218d",
+    "/root/AirStack/ore-ms/results/continuity-sequence/render-001/night-two-depths.npz": "8167d0136ab27171e9fdd6f92b216c358f3a5da4b86fea8ab3ba51df75d1a907",
+    "/root/AirStack/ore-ms/results/continuity-sequence/render-001/rain-plane4m.npz": "6df1bcb890ed56a6aa7e0b70d6269097a5a2811907f1f131e891199ac96d722f",
+    "/root/AirStack/ore-ms/results/continuity-sequence/render-001/rain-two-depths.npz": "a96531b05bd0500c683d996599b1d683427a346dddee14dccf04bb4e86dba155",
+    "/root/AirStack/ore-ms/tools/sensor_estimator_comparison.py": "889596a0009f4c74183d9f939c1b3de40b6f4e72cd90626cec368cc552bf1f88",
+    "/root/AirStack/ore-ms/tools/audit_sensor_estimator_comparison.py": "134c67b271b49e02a586d5cbe38748ca5ef1e6805c5ef3c6b546afbe267629c7",
+    "/root/AirStack/ore-ms/experiments/continuity-sequence-estimator-freeze-2026-11-14.json": "da0d6571403f2fe3846ab02d05ea2a25f742f19d8848cbb760b3d03c8bcfae2f",
+    "/root/AirStack/ore-ms/experiments/sensor-image-adapter-freeze-002-2026-11-14.json": "4797450127971aee2a941fa49a3e1f1b25f4c6e80499b61675354c2ddfc50c07",
+    "/root/AirStack/ore-ms/results/sensor-image-adapter/render-002/artifact-lock.json": "4386f875fc6b28f9e54aa7addde68991aa516e1006a6e93e2b32ef80d0f728c9",
+    "/root/AirStack/ore-ms/results/sensor-image-adapter/render-002/inventory.json": "e5a367b00ca2ba4f848dc0b7aadd744a3049b7ed148ee1925c8c81f02fd564cc",
+    "/root/AirStack/ore-ms/results/sensor-image-adapter/audit-001.json": "701430a18b748c8c3bc703f44ac7c9f9dd37617e10625115210a7b2c3c577429",
+    "/root/AirStack/ore-ms/results/sensor-image-adapter/reference-precision.json": "5b6f8e0d6ebdaba193e8aa59f5711d76479cc8371b8e8875ebbe509b5e411f85",
+    "ore-ms/results/sensor-image-adapter/render-002/day-stationary.npz": "ac29d7b01492e096032e9b4203139ad6c72d6aa578fee44d40b26d9d548a7e37",
+    "ore-ms/results/sensor-image-adapter/render-002/night-stationary.npz": "7d1050d17f531246ab3cd7db59846e3ad57c922b2882befb01974281a85a5697",
+    "ore-ms/results/sensor-image-adapter/render-002/rain-stationary.npz": "a20fbb7b6305886c058bcd5d6fefae64f1eefa41b714d86a7a693dd108dd4007",
+    "ore-ms/results/sensor-image-adapter/render-002/day-twist.npz": "801407c9e98450ecc79b5bb5be2f711da796c6f8619e9b73dd72154177252497",
+    "ore-ms/results/sensor-image-adapter/render-002/night-twist.npz": "d2a6190d9bc2903d5c50112a1599a9bcde552b8fc5414f3879f8574b61a0229a",
+    "ore-ms/results/sensor-image-adapter/render-002/rain-twist.npz": "5cfb1cbc945a39f04ba42bdbf6d549ba8bc5e02b754f1ecdaffe45eb083723e1",
+    "ore-ms/results/sensor-image-adapter/render-002/day-accelerating.npz": "01cf41b9d8f38900f089ecbd8011fa2c5d1d81a12afb7341a7e5305d1d68d624",
+    "ore-ms/results/sensor-image-adapter/render-002/night-accelerating.npz": "130cab6781d5a4a6443ba71658bf7c15dc2c163c5f144a67b20cdb154e930113",
+    "ore-ms/results/sensor-image-adapter/render-002/rain-accelerating.npz": "0339337ba2b07b1fb6644925c7e9ca3ade4e768357219f7b9ae460e2a8919daf",
+    "/root/AirStack/ore-ms/experiments/sensor-estimator-design-freeze-2026-11-14.json": "283c279d3063c78f914fca93c662c6b02b9b788ab4e1f091aedf4b5682809f0b",
+    "/root/AirStack/ore-ms/results/sensor-estimator-comparison/qualification.json": "202649bf9412ca4f776884d6856579bdda4d4827ce85b2c2796908c07e0ee433"
+  },
+  "checkpoint": "/root/ore-ms-native-qualification/MACT_Offroad.pth",
+  "K": [
+    [
+      387.78695052062903,
+      0.0,
+      300.8201370239258
+    ],
+    [
+      0.0,
+      387.78695052062903,
+      151.62576293945312
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "baseline_m": 0.3038995142414822,
+  "textures": {
+    "day": "/root/AirStack/ore-ms/results/paired-frontend-qualification/inputs/day/000000-left.png",
+    "night": "/root/AirStack/ore-ms/results/paired-frontend-qualification/inputs/night/000000-left.png",
+    "rain": "/root/AirStack/ore-ms/results/paired-frontend-qualification/inputs/rain/000000-left.png"
+  },
+  "scenes": [
+    {
+      "id": "plane4m",
+      "depths_m": [
+        4.0
+      ],
+      "near_halfplane": false
+    },
+    {
+      "id": "two-depths",
+      "depths_m": [
+        4.0,
+        8.0
+      ],
+      "near_halfplane": true
+    }
+  ],
+  "yaw_per_frame_deg": 0.15,
+  "center_increment_m": [
+    0.01,
+    0,
+    0.03
+  ],
+  "frames": 10,
+  "withheld_frames": [
+    3,
+    4,
+    5
+  ],
+  "postgap_frames": [
+    6,
+    7,
+    8,
+    9
+  ],
+  "solver": {
+    "max_iterations": 100,
+    "score_tolerance": 1e-06,
+    "rank_ratio": 1e-10,
+    "line_search_steps": 25,
+    "armijo": 0.0001
+  },
+  "selection_seed": 20261114,
+  "render_output": "/root/AirStack/ore-ms/results/continuity-sequence/render-001",
+  "inventory": "/root/AirStack/ore-ms/results/sensor-image-adapter/render-002/inventory.json",
+  "capture_output": "/root/AirStack/ore-ms/results/sensor-estimator-comparison/capture-001",
+  "score_output": "/root/AirStack/ore-ms/results/sensor-estimator-comparison/scoring-001",
+  "arms": [
+    "sharp",
+    "memory",
+    "rolling",
+    "combined"
+  ],
+  "assessment": "All6scenes and all4postgap slots, separate errors/availability. No new-method advancement gate. Preserve all72planned edge attempts including6identity nulls. No tuning or retry after outcome inspection. Local restart has no world-frame error; its error is explicitly within-frame relative motion.",
+  "scope": "Native frontend/selection/covariance plus existing fixed optical IRLS pair harness and explicit pose chains; not full nativeVO, ORB-SLAM3 integration, sensor simulation or physical recovery.",
+  "runtime": {
+    "PYTHONPATH": "/root/ore-ms-native-qualification/python:/root/ore-ms-u2flow-qualification/python:/root/AirStack/ore-ms/tools",
+    "OPENBLAS_NUM_THREADS": "1",
+    "CUBLAS_WORKSPACE_CONFIG": ":4096:8",
+    "note": "First render wrapper omitted secondary qualified cv2/scipy path and failed at import before rendering. Correct combined existing runtime used for rendering/audit and bound here before learned inference; no source or numerical change."
+  },
+  "minimum_points": 10,
+  "query_modes": [
+    "regenerated",
+    "common_ids"
+  ],
+  "planned_dense_batches": 36,
+  "planned_pose_attempts": 72,
+  "support_rule": "AND across image arms/stereo/time pixel coordinates from qualified renderer,31x31minimum erosion plus32pixelborder; require both native source query and predicted target floor coordinates in same safe mask. No image masking/network input changes. Synthetic known-boundary eligibility, not deployable native policy.",
+  "common_query_rule": "Start from accepted sharp primary packet IDs regardless of solve success. Sequentially retain IDs eligible/finite under all4dense fields without pose truth. Shared ordered set for all4secondaryfits; if below10retain all4unavailable. No query replenishment.",
+  "primary": "Complete pose error/availability for native reselection under4image controls at same center-readout reference-time true pose. All9cases/36primaryattempts, no new-method advancement gate.",
+  "secondary": "Same-ID control36attempts, fixed-safe-mask median temporal covariance trace and separate translation/rotation information std proxies; not physical calibration or confidence coverage. Stationary arms must repeat input/dense/pose outputs exactly, without requiring learned zero-motion estimate to be identity.",
+  "stopping": "One fixed execution, no source/texture/motion/severity/timing/solver/budget/covariance/head/gate rescue. Preserve all successes and failures; common-ID mode is a declared control, never a replacement winning primary."
+}

@@ -1,0 +1,781 @@
+{
+  "created_utc": "2026-11-14T03:41:55.474033+00:00",
+  "baseline": "a79658f6341194b0954852226f200313ccdf5408",
+  "branch": "ore-ms-orb-development",
+  "status": "FROZEN_BEFORE_REAL_SELECTION_OR_POSE_OUTCOMES",
+  "pins": {
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/persistent-track-replay/run-001/day/off/rgb/tensor-map.npz": "dd657d3834d25323f22592195bb84375fcedeca72a01b5df97749fdfdb1516a8",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/persistent-track-replay/run-001/day/off/thermal/tensor-map.npz": "adb927db1880312178a775e43464cfc34d0dbb7aa104b743d0da9a76cc39dc2f",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/persistent-track-replay/run-001/night/off/rgb/tensor-map.npz": "74c6e0a9e761a24845d9a08663b7dae00ec4b22af04c37b1758c9c5670a25905",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/persistent-track-replay/run-001/night/off/thermal/tensor-map.npz": "6fd5bee795adb213267371a102db4447d279be42a47f05fee36a2d5569286f9c",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/persistent-track-replay/run-001/rain/off/rgb/tensor-map.npz": "6dd655a843d970510cf9d47bb923d2e052c811a0b70fc339951e074d61e9a0c2",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/persistent-track-replay/run-001/rain/off/thermal/tensor-map.npz": "b3562815595d4cb6e234902b85acde5e513a642476422be9813333ff687af9a5",
+    "/root/AirStack/ore-ms/MAC-VO-main/Module/KeypointSelector.py": "48b0c8e77b83c7005bf8b0b87cbb54241156d7e049928b864a11d14fb5d496f0",
+    "/root/AirStack/ore-ms/MAC-VO-main/Odometry/MACVO.py": "568c8219ffa910332dad0812f951c42ae2f11f7ca615131e0e46bae19964df32",
+    "/root/AirStack/ore-ms/MAC-VO-main/Module/Optimization/TwoFramePGO/Graphs.py": "f79bca297d7c249cc761bd44e3ba2152154057637c223310b022933f11a49208",
+    "/root/AirStack/ore-ms/MAC-VO-main/Utility/Point.py": "62e929e2e13c6183195623caea2947783b189dc486748ebb45802b5e0ec3fd03",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/tools/persistent_track_capture.py": "cb53ae1e121dd44f12820206bed18446de6202535f5a98eafde9fd910b47c872",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/tools/persistent_tracks.py": "9801409f46c549dc3ad401c7207ae613763e70fa119b8a5c3326d5b944ddd0e7",
+    "/root/AirStack/ore-ms/tools/feature_selection_comparison.py": "5b8a3f2e31210f74f87ed40a4f5e4a393cfc5fe2b5800ca95d47db546dd1a95d",
+    "/root/AirStack/ore-ms/tools/qualify_feature_selection.py": "4c8e21223eb5e740845520e7d180a26d2e04357feed3b6d86330c919fbee1479",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000000.txt": "38febd82b7ab4fec01363505237f1cb14eefb03f251958b39a4c4d888204bd04",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000001.txt": "847d22146094c5f294bb9f90c0520fa100eb876c57d7b8abc138fcac4e3073e9",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000002.txt": "ea13515504a4c1d88f00e38c56a6c5955b2479a450376a020c7da7fb6f6257bc",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000003.txt": "385b9b4a2fd9a695079e18c77f639084dae0872fa0c42767d88f53888afe5720",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000004.txt": "3c70465a27e432aa32efc40a433f0c4b0cb39d0ad098e510e01f0487a0cb9fec",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000005.txt": "37bd79676fdd27aac5f8ce9e4e8dbfe57da54d818104f5b5a3c7cf90e42cc152",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000006.txt": "0a00066c5560a3daef207376536e847dae1ba8c32bbd0242ff1ce0646aa68ac1",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000007.txt": "49b480f94372284cdcb05e7c1a75f3b22d73086aff71a0714d168030a879bb52",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000008.txt": "57a373862e7adcd027df15d7b2360c8af2da4f2fba08ce252d3c4792b5a6fa68",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000009.txt": "d91e8507f50cf495256582e818fc2f56cc6982ced366560109844e89239b1c57",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000010.txt": "651cbd17d7066493b95b9ecc65709782eff93d75f85aef58c5d84e9ab481a1c6",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000011.txt": "740d253374b3f6cff4d70c4a07cc22d9f84fed872263170f5be87cc929bcee4d",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000012.txt": "81e7b495f99821ba628d9f72589779a978f034f48914f5fbfdce587ace69f610",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000013.txt": "73484ef718245ea86228a2da4d1bf823147ce0df483ebff7b1ed37873e9e5903",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000014.txt": "167dd0321c238684d02742c15c01c37061d4c569d8acf0b94b8f82fb5ea1e441",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000015.txt": "e6f2d28abdc3ccb5de44287cebb3ed0a1c7802b8fe9b166bbb0385df4912d07b",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000016.txt": "8f0830afa264b47f0968e1ca7eeddd483eb6842381820d612750128b6bef138d",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000017.txt": "e358331a2c9bb7a08d06e177a14fa4cf4d69445726a6e76c3625c74d8d5310be",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000018.txt": "709df06092c9449b6375f5a04e6be90d772d4f678ee19a3d73f83572453d4b12",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000019.txt": "478e26c1403152348fb730e8c42780f6c407afae95d0279d2bd5a43fcd27d8f4",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000000.txt": "77f4b202dbe26adb61902b18bfe8e655825dd14e95eb90ef17d4611ad191f4c4",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000001.txt": "41347fd7a15c1cae3790373c5e56fc10415ed66900ca17afadeb68f5b30290b5",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000002.txt": "a89459aea42def688d668680eb39680e692a839dbc5b1d19dd03dd2e2eda861e",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000003.txt": "07a17a0bcdddb03db78d17f35597fd85c75d653dd7c9d42f738d9047f0b4cff7",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000004.txt": "38b24f81a4e6c69c0e4e446cd65970adebbd59a9d5f9c38e37385efcfa15b95f",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000005.txt": "4849af478a1e9f4388b955c04afb4338a1feb3731a70c2161533296fb5325a5b",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000006.txt": "2ac5e439be83b45ade8fa079b7e067073d0370320650e7b0a5e91738e6fcec08",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000007.txt": "1383c5da949d8a9bf99e4afcd4c6c7bd6ad24eb4552b7c5a533c302d0c50b15b",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000008.txt": "2bc7aad12c73a3e0b720d7a216fe8366ffa1bc65254375d7037fc50107a9c711",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000009.txt": "0654b97f8e49142a9c6d111af8b6915e99573a3bf76f8cebe6cd66d90d0b3d85",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000010.txt": "4eaa282b303036e30b17730528faeeb9bde7803647520d352280d07c0d8439c1",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000011.txt": "190e2c931c158468bc630bbe64b466fb513ffeed2c2ba9cbc025f6ff1cd11e41",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000012.txt": "998f4f0ff72f67d26f3e1589bc274e3801d0b87451d6381798e869e60af5e9c4",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000013.txt": "131dd41892e376f0e9a40d842c8c2b4a18f88115bbac74fa0397f0d3b434bb44",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000014.txt": "21e41734621f9fa2d91c8d58f4a657ffee4a36a8f251e2cee935fd9085f8d539",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000015.txt": "265f1acfca4813b7548256c7a36fcb08a3d14a768330859b4b6e6cd4f2495691",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000016.txt": "03b9fd9a7fd4b83383628029cf3a4111da6b2f4e28e78f3dc706ae20d5610c1d",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000017.txt": "79e9731fbd17f3d520128f62061f9458f53933a6694bd305395f61085f139d0e",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000018.txt": "680b7659cb3dc2d00f808a97b06f1b50425d588fb4b1d9ba1304e5649bce6923",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000019.txt": "a7435703b17c660eed5f02ab4ebd395b9264238d504f04d1145120c147745d88",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000000.txt": "ef098940cd05a68d4222c9ae728262b29579df347824ec3a1a2b3d42d6209de7",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000001.txt": "9c627abd2b970b6154fa5e2ec02f811aeafbf0e3ca263939050f4630aa15113b",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000002.txt": "b3e6b5defa8c1c7f7d8d122814f813a2e27671c74a7bb87d991ea34bec4f808b",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000003.txt": "2ea515f4b79bb05ef42848f7fb80658dc32420bb0a7715f856f6b35b025b0a7c",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000004.txt": "5a833259ca458dbea0c718d15b0e2a738f85d4e4bb6829706894bb04c9dc51b5",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000005.txt": "c989cf3f535b89687c84405aaad8be21bfe41c53e69bb52fbe54883bce601cbc",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000006.txt": "933e2c642681abf40466b9108118c0ad0c23370ce4e6df0a44315ab8537ddca9",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000007.txt": "3af3592109f28bd881d2e583ccfbdc9d091846042c51bb512ca7dc3d177a1e3f",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000008.txt": "17840dc55e55e271d3ec8673e26b631fa3af5ce60a55fb1487698cc342b78f74",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000009.txt": "d20ea1ac47289961737c31e2396b8436dffb5b9b7566928161eb8374dbd7eaa0",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000010.txt": "d3fea99f34c394dd293341299b8f4ea6acd7db0b638882c7738f4bb66741cd77",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000011.txt": "ac8bcf39d64f6090be8fc96d276da1c702994c563696417625a01991c6db2d74",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000012.txt": "7d76a277cf843b503429ccdc695da4ca79fea66a9e368d25a5c6b8f1952fbef0",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000013.txt": "97d17bbf6feb32d3782f64289215df0cc973455b159711d209474bf5f8fab9b6",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000014.txt": "46e4b58e9c0f220e647993d06bff3ef584b592e6263d04edbfd89bf30924dfc9",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000015.txt": "d4fa1622ab33c8b2f15db870fc5aa514008754c64213ae92fa3ac7a3fa2428fe",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000016.txt": "84e2e464768fcca54c22b28bd2608ba1aeaa65fc07073ae5e4f895622835b77d",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000017.txt": "b9b3855fe83e2e314737c2555790d01b0591d12f01f281a889a00bff6767f88c",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000018.txt": "d9301a79eedeb6e29fcb35ea6793e7134b8d8b0221bd967c724ca8ab23f50540",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000019.txt": "f5c589fc2c7806e3d417be67acc308857fbd50a2c77dcf5eddf9c8be9e988c2a",
+    "/root/AirStack/ore-ms/experiments/feature-selection-design-2026-11-13.json": "11b133f0f49e5e8a9c287dcdef3a082f5a86ff8b0f7977e7467a521dd1b6b9b5",
+    "/root/AirStack/ore-ms/results/feature-selection-intake/inventory.json": "8a8417ab888e0627164435ba485ec742ac3d62175f2bf33ac4e07d1f80f7fd82",
+    "/root/AirStack/ore-ms/results/feature-selection/qualification.json": "91f57546c81fab9ffe1a518c65a4d03ac3fc28eddbe7868be5e19b2c39b2329a",
+    "/root/AirStack/ore-ms/results/natural-flow-geometry/conventions/qualification.json": "c54110596acc0687de90631e6289eb9265054a12d2368739a9437dcfeaf52b35",
+    "/root/AirStack/ore-ms/environment/u2flow-thermal-assay-qualified-requirements.txt": "e7afb7eaaf4b9b477b72c0da20254c8897d6b6ee6eb89e8c4e3a972c5b93467c",
+    "/root/AirStack/ore-ms/results/natural-flow-geometry/conventions/MS2_dataset.py": "299250fcdc33548b6cab3bf585d3f5b205af3635eb038e7e113fee73447de9a1",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/ms2-day-replication/calibration.json": "2e9a8095c7cbd1b80cb3b0ace554ad51099883e7dec4e3d3c9a458f5f3e7b695",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/ms2-night-pilot/calibration.json": "2e9a8095c7cbd1b80cb3b0ace554ad51099883e7dec4e3d3c9a458f5f3e7b695",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/pose-covariance/accuracy-001/rain/calibration.json": "55b784b3af63f07060b4ff7afe44a5dcbdea8cddfcd24205c7229f9f60076c6b"
+  },
+  "streams": [
+    {
+      "condition": "day",
+      "camera": "rgb",
+      "graph_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/persistent-track-replay/run-001/day/off/rgb/tensor-map.npz",
+      "graph_sha256": "dd657d3834d25323f22592195bb84375fcedeca72a01b5df97749fdfdb1516a8",
+      "graph_matches_all99pairs": 19176,
+      "first19_pool_points": 3707,
+      "first19_pool_min": 191,
+      "first19_pool_max": 199,
+      "pairs_with_more_than128": 19,
+      "schema": {
+        "match//pixel1_uv": {
+          "shape": [
+            19176,
+            2
+          ],
+          "dtype": "float32"
+        },
+        "match//pixel2_uv": {
+          "shape": [
+            19176,
+            2
+          ],
+          "dtype": "float32"
+        },
+        "match//pixel1_d": {
+          "shape": [
+            19176,
+            1
+          ],
+          "dtype": "float32"
+        },
+        "match//pixel2_d": {
+          "shape": [
+            19176,
+            1
+          ],
+          "dtype": "float32"
+        },
+        "match//obs1_covTc": {
+          "shape": [
+            19176,
+            3,
+            3
+          ],
+          "dtype": "float64"
+        },
+        "match//obs2_covTc": {
+          "shape": [
+            19176,
+            3,
+            3
+          ],
+          "dtype": "float64"
+        },
+        "edge/match2frame1/mapping": {
+          "shape": [
+            19176
+          ],
+          "dtype": "int64"
+        },
+        "edge/match2frame2/mapping": {
+          "shape": [
+            19176
+          ],
+          "dtype": "int64"
+        },
+        "frames//K": {
+          "shape": [
+            100,
+            3,
+            3
+          ],
+          "dtype": "float32"
+        },
+        "frames//time_ns": {
+          "shape": [
+            100
+          ],
+          "dtype": "int64"
+        }
+      },
+      "unselected_dense_candidate_maps_saved": false
+    },
+    {
+      "condition": "day",
+      "camera": "thermal",
+      "graph_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/persistent-track-replay/run-001/day/off/thermal/tensor-map.npz",
+      "graph_sha256": "adb927db1880312178a775e43464cfc34d0dbb7aa104b743d0da9a76cc39dc2f",
+      "graph_matches_all99pairs": 10885,
+      "first19_pool_points": 2192,
+      "first19_pool_min": 76,
+      "first19_pool_max": 180,
+      "pairs_with_more_than128": 3,
+      "schema": {
+        "match//pixel1_uv": {
+          "shape": [
+            10885,
+            2
+          ],
+          "dtype": "float32"
+        },
+        "match//pixel2_uv": {
+          "shape": [
+            10885,
+            2
+          ],
+          "dtype": "float32"
+        },
+        "match//pixel1_d": {
+          "shape": [
+            10885,
+            1
+          ],
+          "dtype": "float32"
+        },
+        "match//pixel2_d": {
+          "shape": [
+            10885,
+            1
+          ],
+          "dtype": "float32"
+        },
+        "match//obs1_covTc": {
+          "shape": [
+            10885,
+            3,
+            3
+          ],
+          "dtype": "float64"
+        },
+        "match//obs2_covTc": {
+          "shape": [
+            10885,
+            3,
+            3
+          ],
+          "dtype": "float64"
+        },
+        "edge/match2frame1/mapping": {
+          "shape": [
+            10885
+          ],
+          "dtype": "int64"
+        },
+        "edge/match2frame2/mapping": {
+          "shape": [
+            10885
+          ],
+          "dtype": "int64"
+        },
+        "frames//K": {
+          "shape": [
+            100,
+            3,
+            3
+          ],
+          "dtype": "float32"
+        },
+        "frames//time_ns": {
+          "shape": [
+            100
+          ],
+          "dtype": "int64"
+        }
+      },
+      "unselected_dense_candidate_maps_saved": false
+    },
+    {
+      "condition": "night",
+      "camera": "rgb",
+      "graph_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/persistent-track-replay/run-001/night/off/rgb/tensor-map.npz",
+      "graph_sha256": "74c6e0a9e761a24845d9a08663b7dae00ec4b22af04c37b1758c9c5670a25905",
+      "graph_matches_all99pairs": 19126,
+      "first19_pool_points": 3799,
+      "first19_pool_min": 199,
+      "first19_pool_max": 200,
+      "pairs_with_more_than128": 19,
+      "schema": {
+        "match//pixel1_uv": {
+          "shape": [
+            19126,
+            2
+          ],
+          "dtype": "float32"
+        },
+        "match//pixel2_uv": {
+          "shape": [
+            19126,
+            2
+          ],
+          "dtype": "float32"
+        },
+        "match//pixel1_d": {
+          "shape": [
+            19126,
+            1
+          ],
+          "dtype": "float32"
+        },
+        "match//pixel2_d": {
+          "shape": [
+            19126,
+            1
+          ],
+          "dtype": "float32"
+        },
+        "match//obs1_covTc": {
+          "shape": [
+            19126,
+            3,
+            3
+          ],
+          "dtype": "float64"
+        },
+        "match//obs2_covTc": {
+          "shape": [
+            19126,
+            3,
+            3
+          ],
+          "dtype": "float64"
+        },
+        "edge/match2frame1/mapping": {
+          "shape": [
+            19126
+          ],
+          "dtype": "int64"
+        },
+        "edge/match2frame2/mapping": {
+          "shape": [
+            19126
+          ],
+          "dtype": "int64"
+        },
+        "frames//K": {
+          "shape": [
+            100,
+            3,
+            3
+          ],
+          "dtype": "float32"
+        },
+        "frames//time_ns": {
+          "shape": [
+            100
+          ],
+          "dtype": "int64"
+        }
+      },
+      "unselected_dense_candidate_maps_saved": false
+    },
+    {
+      "condition": "night",
+      "camera": "thermal",
+      "graph_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/persistent-track-replay/run-001/night/off/thermal/tensor-map.npz",
+      "graph_sha256": "6fd5bee795adb213267371a102db4447d279be42a47f05fee36a2d5569286f9c",
+      "graph_matches_all99pairs": 12977,
+      "first19_pool_points": 1366,
+      "first19_pool_min": 40,
+      "first19_pool_max": 128,
+      "pairs_with_more_than128": 0,
+      "schema": {
+        "match//pixel1_uv": {
+          "shape": [
+            12977,
+            2
+          ],
+          "dtype": "float32"
+        },
+        "match//pixel2_uv": {
+          "shape": [
+            12977,
+            2
+          ],
+          "dtype": "float32"
+        },
+        "match//pixel1_d": {
+          "shape": [
+            12977,
+            1
+          ],
+          "dtype": "float32"
+        },
+        "match//pixel2_d": {
+          "shape": [
+            12977,
+            1
+          ],
+          "dtype": "float32"
+        },
+        "match//obs1_covTc": {
+          "shape": [
+            12977,
+            3,
+            3
+          ],
+          "dtype": "float64"
+        },
+        "match//obs2_covTc": {
+          "shape": [
+            12977,
+            3,
+            3
+          ],
+          "dtype": "float64"
+        },
+        "edge/match2frame1/mapping": {
+          "shape": [
+            12977
+          ],
+          "dtype": "int64"
+        },
+        "edge/match2frame2/mapping": {
+          "shape": [
+            12977
+          ],
+          "dtype": "int64"
+        },
+        "frames//K": {
+          "shape": [
+            100,
+            3,
+            3
+          ],
+          "dtype": "float32"
+        },
+        "frames//time_ns": {
+          "shape": [
+            100
+          ],
+          "dtype": "int64"
+        }
+      },
+      "unselected_dense_candidate_maps_saved": false
+    },
+    {
+      "condition": "rain",
+      "camera": "rgb",
+      "graph_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/persistent-track-replay/run-001/rain/off/rgb/tensor-map.npz",
+      "graph_sha256": "6dd655a843d970510cf9d47bb923d2e052c811a0b70fc339951e074d61e9a0c2",
+      "graph_matches_all99pairs": 19336,
+      "first19_pool_points": 3736,
+      "first19_pool_min": 193,
+      "first19_pool_max": 200,
+      "pairs_with_more_than128": 19,
+      "schema": {
+        "match//pixel1_uv": {
+          "shape": [
+            19336,
+            2
+          ],
+          "dtype": "float32"
+        },
+        "match//pixel2_uv": {
+          "shape": [
+            19336,
+            2
+          ],
+          "dtype": "float32"
+        },
+        "match//pixel1_d": {
+          "shape": [
+            19336,
+            1
+          ],
+          "dtype": "float32"
+        },
+        "match//pixel2_d": {
+          "shape": [
+            19336,
+            1
+          ],
+          "dtype": "float32"
+        },
+        "match//obs1_covTc": {
+          "shape": [
+            19336,
+            3,
+            3
+          ],
+          "dtype": "float64"
+        },
+        "match//obs2_covTc": {
+          "shape": [
+            19336,
+            3,
+            3
+          ],
+          "dtype": "float64"
+        },
+        "edge/match2frame1/mapping": {
+          "shape": [
+            19336
+          ],
+          "dtype": "int64"
+        },
+        "edge/match2frame2/mapping": {
+          "shape": [
+            19336
+          ],
+          "dtype": "int64"
+        },
+        "frames//K": {
+          "shape": [
+            100,
+            3,
+            3
+          ],
+          "dtype": "float32"
+        },
+        "frames//time_ns": {
+          "shape": [
+            100
+          ],
+          "dtype": "int64"
+        }
+      },
+      "unselected_dense_candidate_maps_saved": false
+    },
+    {
+      "condition": "rain",
+      "camera": "thermal",
+      "graph_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/persistent-track-replay/run-001/rain/off/thermal/tensor-map.npz",
+      "graph_sha256": "b3562815595d4cb6e234902b85acde5e513a642476422be9813333ff687af9a5",
+      "graph_matches_all99pairs": 7180,
+      "first19_pool_points": 1187,
+      "first19_pool_min": 23,
+      "first19_pool_max": 101,
+      "pairs_with_more_than128": 0,
+      "schema": {
+        "match//pixel1_uv": {
+          "shape": [
+            7180,
+            2
+          ],
+          "dtype": "float32"
+        },
+        "match//pixel2_uv": {
+          "shape": [
+            7180,
+            2
+          ],
+          "dtype": "float32"
+        },
+        "match//pixel1_d": {
+          "shape": [
+            7180,
+            1
+          ],
+          "dtype": "float32"
+        },
+        "match//pixel2_d": {
+          "shape": [
+            7180,
+            1
+          ],
+          "dtype": "float32"
+        },
+        "match//obs1_covTc": {
+          "shape": [
+            7180,
+            3,
+            3
+          ],
+          "dtype": "float64"
+        },
+        "match//obs2_covTc": {
+          "shape": [
+            7180,
+            3,
+            3
+          ],
+          "dtype": "float64"
+        },
+        "edge/match2frame1/mapping": {
+          "shape": [
+            7180
+          ],
+          "dtype": "int64"
+        },
+        "edge/match2frame2/mapping": {
+          "shape": [
+            7180
+          ],
+          "dtype": "int64"
+        },
+        "frames//K": {
+          "shape": [
+            100,
+            3,
+            3
+          ],
+          "dtype": "float32"
+        },
+        "frames//time_ns": {
+          "shape": [
+            100
+          ],
+          "dtype": "int64"
+        }
+      },
+      "unselected_dense_candidate_maps_saved": false
+    }
+  ],
+  "seeds": [
+    20261113,
+    20261114,
+    20261115,
+    20261116
+  ],
+  "budget": 32,
+  "solver": {
+    "max_iterations": 100,
+    "gradient_relative": 1e-09,
+    "rank_ratio": 1e-12,
+    "line_search_steps": 24,
+    "armijo": 0.0001
+  },
+  "image_shapes": {
+    "rgb": [
+      384,
+      1224
+    ],
+    "thermal": [
+      256,
+      640
+    ]
+  },
+  "references": {
+    "day": [
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000000.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000001.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000002.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000003.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000004.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000005.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000006.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000007.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000008.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000009.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000010.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000011.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000012.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000013.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000014.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000015.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000016.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000017.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000018.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000019.txt"
+    ],
+    "night": [
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000000.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000001.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000002.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000003.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000004.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000005.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000006.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000007.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000008.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000009.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000010.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000011.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000012.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000013.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000014.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000015.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000016.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000017.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000018.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000019.txt"
+    ],
+    "rain": [
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000000.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000001.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000002.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000003.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000004.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000005.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000006.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000007.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000008.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000009.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000010.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000011.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000012.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000013.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000014.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000015.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000016.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000017.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000018.txt",
+      "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000019.txt"
+    ]
+  },
+  "thermal_from_rgb": {
+    "day": [
+      [
+        0.9999466448601759,
+        0.010098502640098742,
+        -0.0021743222634525816,
+        0.011462406463630266
+      ],
+      [
+        -0.01032257249933242,
+        0.9847905833312119,
+        -0.17343861011656986,
+        0.32977505372782673
+      ],
+      [
+        0.00038978182801826025,
+        0.1734518008744776,
+        0.9848422822175777,
+        0.5682267582227879
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "night": [
+      [
+        0.9999466448601759,
+        0.010098502640098742,
+        -0.0021743222634525816,
+        0.011462406463630266
+      ],
+      [
+        -0.01032257249933242,
+        0.9847905833312119,
+        -0.17343861011656986,
+        0.32977505372782673
+      ],
+      [
+        0.00038978182801826025,
+        0.1734518008744776,
+        0.9848422822175777,
+        0.5682267582227879
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "rain": [
+      [
+        0.9999466448601759,
+        0.010098502640098742,
+        -0.0021743222634525816,
+        0.011462406463630266
+      ],
+      [
+        -0.01032257249933242,
+        0.9847905833312119,
+        -0.17343861011656986,
+        0.32977505372782673
+      ],
+      [
+        0.00038978182801826025,
+        0.1734518008744776,
+        0.9848422822175777,
+        0.5682267582227879
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ]
+  },
+  "expected_camera_pairs": 114,
+  "expected_fits": 1254,
+  "runtime": "Python3.12.3 / NumPy1.26.4 / SciPy1.13.1; OPENBLAS_NUM_THREADS=1 CPUfloat64",
+  "subset_order": "Sort selected local factor indices before fitting; k=N yields exact full-pool parity.",
+  "selection": "Uniform without replacement; spatial4x4 fixed seeded cell order/within-cell permutation roundrobin; reliability trace(S) ties nativeID; exhaustive greedy logdet(lambdaI+sum AiTAi),lambda=1e-6trace(Hall)/6 at identity, unit normalization by full-pool median source depth.",
+  "solver_objective": "Sum ||chol(C0+C1)^-1(R X1+t-X0)||^2 with optical basis; covariance fixed at identity for all iterations; no robust kernel/ridge/floors or source/target crosscovariance.",
+  "update": "left rotation retraction Rnew=Exp(w)R,tnew=Exp(w)t+L*dv; identity initialization; gradient stop only; rank checked before gradient; failed states retained but unavailable for accuracy.",
+  "primary_aggregation": "Six camera/recording streams separate. Matched population per comparison: information AND ALL FOUR control seeds converged. Compute each seed mean/RMSE on identical pair IDs, then arithmetic mean across four seed statistics. Candidate must improve translation mean and RMSE >=5%, no worse rotation mean/RMSE, successful-pair coverage >=each control seed; both uniform/spatial must pass in all6streams. Empty matched set fails.",
+  "secondary": "Own-support perseed/reliability/allpool context; all114slots and1254fit receipts, selection time/infoeigenvalues descriptive. No significance/generalization claim.",
+  "scope": "Already accepted native matches, exposed first19 camera-local pairs. Thermal supplied reference is same-ID RGB relative motion conjugated by fixed nominal rig; no physical timing/visibility claim.",
+  "lock_rule": "All subset IDs and estimates locked globally before reference-value parsing.",
+  "stopping": "One comparison. No budget/ridge/seed/solver/residual retuning based on real outcomes; fixed configuration closure only, not all original-paper gaps."
+}

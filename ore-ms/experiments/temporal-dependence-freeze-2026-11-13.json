@@ -1,0 +1,24 @@
+{
+  "created": "2026-11-13 America/New_York",
+  "git_head": "a79658f6341194b0954852226f200313ccdf5408",
+  "scope": "Synthetic linearized four-pose stereo-track-inspired image observations; exact known covariance oracle, not learned or real-data VO",
+  "source_sha256": "1cde950cc88c1246867098b885388f18402b0229acf91003181b143aa2e2ae80",
+  "seed": 20261113,
+  "trials": 4096,
+  "landmarks": 24,
+  "poses": 4,
+  "dtype": "float64",
+  "cases": [
+    "independent",
+    "independent_increments",
+    "correlated_increments",
+    "bias_control"
+  ],
+  "thresholds": {
+    "coverage_low": 0.93,
+    "coverage_high": 0.97,
+    "minimum_analytic_gain": 0.01,
+    "bias_mean_error_bound": 0.01
+  },
+  "stopping": "One attempt, preserve all cases. Passing qualifies only known-noise linear mechanics, not promotion to real-data training."
+}

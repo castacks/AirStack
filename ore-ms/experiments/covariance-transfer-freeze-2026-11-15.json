@@ -1,0 +1,88 @@
+{
+  "created_utc": "2026-11-15T00:34:14.518624+00:00",
+  "baseline": "a79658f6341194b0954852226f200313ccdf5408",
+  "protocol_path": "/root/AirStack/ore-ms/experiments/covariance-transfer-freeze-2026-11-15.json",
+  "predictions": "/root/AirStack/ore-ms/results/known-pose-estimator-assessment/run-001/predictions.json",
+  "K": [
+    [
+      387.78695052062903,
+      0.0,
+      300.8201370239258
+    ],
+    [
+      0.0,
+      387.78695052062903,
+      151.62576293945312
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "baseline_m": 0.3038995142414822,
+  "scenes": [
+    "day-plane4m",
+    "day-two-depths",
+    "night-plane4m",
+    "night-two-depths",
+    "rain-plane4m",
+    "rain-two-depths"
+  ],
+  "index": "/root/AirStack/ore-ms/results/covariance-transfer/features-001/index.json",
+  "training_output": "/root/AirStack/ore-ms/results/covariance-transfer/training-001",
+  "score_output": "/root/AirStack/ore-ms/results/covariance-transfer/scoring-001",
+  "initial_mode_variance_px2": 0.0001,
+  "log_bounds": [
+    -30.0,
+    10.0
+  ],
+  "optimizer": {
+    "maxiter": 200,
+    "ftol": 1e-12,
+    "gtol": 1e-07
+  },
+  "pins": {
+    "/root/AirStack/ore-ms/tools/covariance_transfer.py": "adc1dcaead93db8cc37fa156a6f4c1ae20d120c2a56b90a2e9f818f08d6dea4e",
+    "/root/AirStack/ore-ms/tools/audit_covariance_transfer.py": "16a96051083324c9292c7aa3072106d8947283afd73dcbf5638d841c3fee58e7",
+    "/root/AirStack/ore-ms/tools/cross_match_covariance.py": "c79f318e2332470c883a46698648d3cad402cf58689969465ab904d78aff6a0f",
+    "/root/AirStack/ore-ms/tools/pose_covariance_replay.py": "c302f71b700b0a57b886dd3da9df8c2540e0399d2a330af44367afc1788a69e7",
+    "/root/AirStack/ore-ms/tools/qualify_native_frontend.py": "98b9dcac39d86105973413d1da832bd618be4314a2f5bafcf91e33cc44ecfb93",
+    "/root/AirStack/ore-ms/results/known-pose-estimator-assessment/run-001/predictions.json": "88e908cc1f47b1ba2831a34f77c77a3a9239ff7f6cb88d16480c64077ad19b80",
+    "/root/AirStack/ore-ms/results/cross-match-covariance/audit-001.json": "db561ee0d75bb571e435f8ef129142bb06df5411d82d96f9380158336cc6d586",
+    "/root/AirStack/ore-ms/experiments/cross-match-covariance-freeze-2026-11-15.json": "163eeea0ae85449769dc132a852dde0417616e35c2ea4b46fe3b0d67a2a04957",
+    "/root/AirStack/ore-ms/results/known-pose-estimator-assessment/run-001/packets/day-plane4m-000/fixed_ids.npz": "44e786b5e62d98e16a0670b4a99008c78d8ddf0e7b0c7074a789f88b6dcec4f3",
+    "/root/AirStack/ore-ms/results/known-pose-estimator-assessment/run-001/packets/day-two-depths-000/fixed_ids.npz": "333a4c80bcc91656295bb7e2f1ca99ce373c4b5fdd26545a9d39e2e2e444102e",
+    "/root/AirStack/ore-ms/results/known-pose-estimator-assessment/run-001/packets/night-plane4m-000/fixed_ids.npz": "2c74912bb15cdbe995c65dd5ca92bed3476f45f33f66aa4195720dc75f71872e",
+    "/root/AirStack/ore-ms/results/known-pose-estimator-assessment/run-001/packets/night-two-depths-000/fixed_ids.npz": "1fec1e52d54940b3258428616fe29af5083c17724d4c795c08bd9a8033c5d02c",
+    "/root/AirStack/ore-ms/results/known-pose-estimator-assessment/run-001/packets/rain-plane4m-000/fixed_ids.npz": "f2552876ddee8398ed613a9f849ff634dbfdb7830824489914f7a750850d7b97",
+    "/root/AirStack/ore-ms/results/known-pose-estimator-assessment/run-001/packets/rain-two-depths-000/fixed_ids.npz": "97fa1048c55a3f7f97a1ce674026489930ba18ab636267140a59c33575c1a357",
+    "/root/AirStack/ore-ms/results/cross-match-covariance/run-001/rain-two-depths.npz": "f33e08fcc452a0027badfa43af67cab36ccad13f5ca990a82dd1b3c59d38994f",
+    "/root/AirStack/ore-ms/results/cross-match-covariance/run-001/day-plane4m.npz": "10c8cbfaf91aa2a50e2cb5c2a45230bc365da1842ac8896409328d852d7630b1",
+    "/root/AirStack/ore-ms/results/cross-match-covariance/run-001/night-two-depths.npz": "315aae862231531f3bea418679a19def74a4e475c84a809d97a21911a7c3a8be",
+    "/root/AirStack/ore-ms/results/cross-match-covariance/run-001/day-two-depths.npz": "1e323d6a8bbcbf82bd20cf9eaef6a1c232e710d02ced331eac54457ecf068801",
+    "/root/AirStack/ore-ms/results/cross-match-covariance/run-001/rain-plane4m.npz": "6c3bab2148c4085f968e2dc237d3d5cc3cbb0cfe4e015a9051e04ea9dd3266d4",
+    "/root/AirStack/ore-ms/results/cross-match-covariance/run-001/night-plane4m.npz": "abf15c9db685f8fee09d5af469a761474294fc2d0633a2f0972e96df590d4c7a",
+    "/root/AirStack/ore-ms/experiments/covariance-transfer-design-2026-11-15.json": "8eca8fd2dd2da61088f219ea83c23e12e5204cc65f718bdd839ba6a883745825",
+    "/root/AirStack/ore-ms/docs/research/covariance-transfer-design-2026-11-15.md": "05828104510f93521890b2c5f0c2aad698891788e733bc6486af6104e5cad762",
+    "/root/AirStack/ore-ms/results/covariance-transfer/mechanics-001.json": "be2579dd43c9ea525c645a8dec24262f7cd9784864ed5b30c1c13cc995c73f78",
+    "/root/AirStack/ore-ms/results/covariance-transfer/features-001/rain-two-depths.npz": "6b43052cdcafc53122b0d8c9b5fcec43cc71bcc386ba1ab3ac1dc1a9c5662aff",
+    "/root/AirStack/ore-ms/results/covariance-transfer/features-001/day-plane4m.npz": "54a3df84046eddee27cff5529eeabb65d859e6e632997e980b918160594d8265",
+    "/root/AirStack/ore-ms/results/covariance-transfer/features-001/night-two-depths.npz": "c815993efbde1c0a32b9f2e2707bcde2a8debe5f5f98b55461c667167714c266",
+    "/root/AirStack/ore-ms/results/covariance-transfer/features-001/day-two-depths.npz": "efd1e3d03bc0ad0fb3b66ee858f0484460b77e47a9d0ceb43afbc4b9fbfdd300",
+    "/root/AirStack/ore-ms/results/covariance-transfer/features-001/rain-plane4m.npz": "a94bd4f4b944ec72c2ac47a1227098b69b3419e5a78eef6ecdd868783c71a6a9",
+    "/root/AirStack/ore-ms/results/covariance-transfer/features-001/night-plane4m.npz": "8eaff5e5f3e8c299509974990bc1e5a8cea947da07e9b236cae8ed521dc5980d",
+    "/root/AirStack/ore-ms/results/covariance-transfer/features-001/index.json": "ceb2b431c9f75a6d637be287739ba7d6a0fef26a4ff0e590740ec68c01c12888"
+  },
+  "scope": "Recording-excluded DEVELOPMENT on6previouslyexposedscenes. Fixed zero-mean baseline-relative perturbation prediction, not trueposeerror or physicalnoise. All3fold models lockbefore evaluation scoring.",
+  "controls": [
+    "native",
+    "train_scalar",
+    "5parameter_independentblock_modes",
+    "5parameter_common_modes",
+    "train_pooledfullshape"
+  ],
+  "secondary": "testMLEscalar oracle diagnostic only, never predictive or modelselection",
+  "stop": "Fixedsingleinitialization/200iterations, no mode/rank/seed/noise/optimizer/covariancefloor rescue. All statuses and per-record endpoints retained; no pooled-only promotion.",
+  "status": "FROZEN_AFTER117CHECKS_BEFOREANY_COVARIANCE_FITTING"
+}

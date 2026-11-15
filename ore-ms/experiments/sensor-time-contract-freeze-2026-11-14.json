@@ -1,0 +1,18 @@
+{
+  "created_utc": "2026-11-14T21:45:15.396234+00:00",
+  "baseline": "a79658f6341194b0954852226f200313ccdf5408",
+  "status": "FROZEN_BEFORE_MATH_QUALIFICATION",
+  "protocol_path": "/root/AirStack/ore-ms/experiments/sensor-time-contract-freeze-2026-11-14.json",
+  "pins": {
+    "/root/ore-ms-sensor-model-review/src/trgs_slam/renderer/renderer.py": "226a6e7d18e7b0e811c6c13653e08ae649cb34c39e5cc8b57a5782084dbe632c",
+    "/root/ore-ms-sensor-model-review/src/trgs_slam/renderer/fpn.py": "a6379bb2479623dac424dfae89bb25e24fa2df24c7ab4a09779fa17e5e4baa4c",
+    "/root/ore-ms-sensor-model-review/src/trgs_slam/datasets/trnerf_dataset.py": "95c7ab319e32feca60885e65bdd4f453b2599a3b5ba38788cb829f6cee11849d",
+    "/root/ore-ms-sensor-model-review/src/trgs_slam/datasets/dataset_configs.py": "fd4d1d306778a8428c98a6088fdb124010c19a99de1cb5a48e9b9e6a94bbc901",
+    "/root/ore-ms-sensor-model-review/src/trgs_slam/datasets/base_dataset.py": "6b0229b4575790781823254cec572453457bdb36dd8f412de2c3a3f20bb62f6e",
+    "/root/AirStack/ore-ms/tools/qualify_sensor_time_contract.py": "60210c45ef49bb2ce0f240d5f87e30d78b5f8582127001053c14cc4f415efe58"
+  },
+  "dataset_source": "/root/ore-ms-sensor-model-review/src/trgs_slam/datasets/trnerf_dataset.py",
+  "source_repo": "https://github.com/umautobots/trgs_slam",
+  "source_commit": "07ba901afb9d9296f2e4399240d9fd4dc6d2398c",
+  "scope": "Source/math feasibility only, no neural inference/new image dataset, calibration fit or prior recipe rescue. Published source constants are not measured MS2 parameters. Independent quad/expm identities rtol1e-9/atol1e-10."
+}

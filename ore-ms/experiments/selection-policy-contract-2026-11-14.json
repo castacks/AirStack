@@ -1,0 +1,6452 @@
+{
+  "created_utc": "2026-11-14T18:38:50.353564+00:00",
+  "baseline": "a79658f6341194b0954852226f200313ccdf5408",
+  "status": "DESIGN_AND_MECHANICS_FREEZE_NO_CORPUS_RENDERING_OR_TRAINING",
+  "seed": 2026111405,
+  "K": [
+    [
+      387.78695052062903,
+      0.0,
+      300.8201370239258
+    ],
+    [
+      0.0,
+      387.78695052062903,
+      151.62576293945312
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "baseline_m": 0.3038995142414822,
+  "textures": [
+    {
+      "id": "day-000000",
+      "group": "day",
+      "frame": 0,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000000.png",
+      "sha256": "a578455da87261c9207517891acac26bc6ff58ca9a5158e82f27ad7b778e6899"
+    },
+    {
+      "id": "day-000001",
+      "group": "day",
+      "frame": 1,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000001.png",
+      "sha256": "b5d8fbab974dcf52d95c319c983342013d7642e029f75a3eadd5a65dfd7d71e9"
+    },
+    {
+      "id": "day-000002",
+      "group": "day",
+      "frame": 2,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000002.png",
+      "sha256": "32403f6f98f12efda4c164373d4554aeb974f4370f38949649cd23ae696e4afc"
+    },
+    {
+      "id": "day-000003",
+      "group": "day",
+      "frame": 3,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000003.png",
+      "sha256": "53cde1ef5adba3dc8747ef5ca1380ce1a7d9878cdca874ad26a2e5a8dd9fd312"
+    },
+    {
+      "id": "day-000004",
+      "group": "day",
+      "frame": 4,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000004.png",
+      "sha256": "a1d0d538d6d34795b33c6989cd962bb8f3c6f8287f19aba2f4edfc4ac61706ef"
+    },
+    {
+      "id": "day-000005",
+      "group": "day",
+      "frame": 5,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000005.png",
+      "sha256": "f2bf4c7fee6514c2ac958a24c5ef9066efcb27191227baceec61f1e1f71012c4"
+    },
+    {
+      "id": "day-000006",
+      "group": "day",
+      "frame": 6,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000006.png",
+      "sha256": "705c5d860fa498ae31fde07182210841c95e95a17aca60ef9a112b2d1e537803"
+    },
+    {
+      "id": "day-000007",
+      "group": "day",
+      "frame": 7,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000007.png",
+      "sha256": "aa3606fefb38bc2a44a0e15a1f3fc3ad925e5680be2362520526d2cfa60fb7dd"
+    },
+    {
+      "id": "day-000008",
+      "group": "day",
+      "frame": 8,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000008.png",
+      "sha256": "a48da3d7442b65304d2f0504f9a61561e1a1aea9694c6e9d5fcd81283af7886a"
+    },
+    {
+      "id": "day-000009",
+      "group": "day",
+      "frame": 9,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000009.png",
+      "sha256": "e2ebaf67e5068dd5c33de714e7a7c53cd0815b4ff550c5b32e378eaf0ba5ec7e"
+    },
+    {
+      "id": "day-000010",
+      "group": "day",
+      "frame": 10,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000010.png",
+      "sha256": "c68af10acee8923b94d90f0196fa6fe22eb6932228df00dd9ce9530fe34f61d9"
+    },
+    {
+      "id": "day-000011",
+      "group": "day",
+      "frame": 11,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000011.png",
+      "sha256": "f0ef6f17b500668ba691c273d05405c48f965aa3fc536fe3ad634a8aa884624f"
+    },
+    {
+      "id": "day-000012",
+      "group": "day",
+      "frame": 12,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000012.png",
+      "sha256": "b2eef89a42712c811b17ec880847e7871a2fd2f6e7a9d091a2687259ea52978e"
+    },
+    {
+      "id": "day-000013",
+      "group": "day",
+      "frame": 13,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000013.png",
+      "sha256": "f04b65501bff3ec51a54cb9f41480e9672a44218c8d6f54ee65b4f9d66f3b959"
+    },
+    {
+      "id": "day-000014",
+      "group": "day",
+      "frame": 14,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000014.png",
+      "sha256": "8ada87aa9c5989371e686297ed4f92fe975f1f59a837b81a784096fcf984e6f9"
+    },
+    {
+      "id": "day-000015",
+      "group": "day",
+      "frame": 15,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000015.png",
+      "sha256": "6f363fcfd6b8df5283e33bee19ee7fe2cd92f7d354530fbf4fd22435f71c35d1"
+    },
+    {
+      "id": "day-000016",
+      "group": "day",
+      "frame": 16,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000016.png",
+      "sha256": "f7c848c4293fd51579afa737927d8af05b492ed655fda5a9b922be0f0549e23c"
+    },
+    {
+      "id": "day-000017",
+      "group": "day",
+      "frame": 17,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000017.png",
+      "sha256": "6c1a6a2bc529d4b398b0b4d06c604008cc6807e99125cf3333c6426f2b79ac7a"
+    },
+    {
+      "id": "day-000018",
+      "group": "day",
+      "frame": 18,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000018.png",
+      "sha256": "fc4ca25f38c296d235e6e8a8b2dbf272f9056c4341178559a4ca66e7d166c98d"
+    },
+    {
+      "id": "day-000019",
+      "group": "day",
+      "frame": 19,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000019.png",
+      "sha256": "51ce45431903171d7bb6a4e642c62725fe8b9308864e39219877d5ed60134e8e"
+    },
+    {
+      "id": "night-000000",
+      "group": "night",
+      "frame": 0,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000000.png",
+      "sha256": "099d086bd6b05cd626319f5ce68b39c92c0c460b4c65d22eb21c34a660b2f11c"
+    },
+    {
+      "id": "night-000001",
+      "group": "night",
+      "frame": 1,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000001.png",
+      "sha256": "9c59815ae674badc1885918f04060a2922ae48247c6463ff97c7af1debf4ae40"
+    },
+    {
+      "id": "night-000002",
+      "group": "night",
+      "frame": 2,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000002.png",
+      "sha256": "6186591371234c11c43993500b0cea8c068a98a60c9a267460daf77f6298de0b"
+    },
+    {
+      "id": "night-000003",
+      "group": "night",
+      "frame": 3,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000003.png",
+      "sha256": "2ba12dd1c77b8fb662d8a7969a457393a7b535f4eb42430d6fffccba3e76f8e9"
+    },
+    {
+      "id": "night-000004",
+      "group": "night",
+      "frame": 4,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000004.png",
+      "sha256": "73b73a5b7a528fb627b8465c79dcc8e683cc9da90bcb2176e0a2727bb38c7933"
+    },
+    {
+      "id": "night-000005",
+      "group": "night",
+      "frame": 5,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000005.png",
+      "sha256": "fb78f3b5f3246fa2fae3c2c857c75081fccfbeca1b7b3162fe481e17ed498a6d"
+    },
+    {
+      "id": "night-000006",
+      "group": "night",
+      "frame": 6,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000006.png",
+      "sha256": "d87582ba8ac94956ab478f5d2952db4a0e84e1bd44f92efc56daad397fa13733"
+    },
+    {
+      "id": "night-000007",
+      "group": "night",
+      "frame": 7,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000007.png",
+      "sha256": "393d7adbb642501f21154c81fcdcd7c804d0d5ae1e028154e2bc31a5943b47b2"
+    },
+    {
+      "id": "night-000008",
+      "group": "night",
+      "frame": 8,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000008.png",
+      "sha256": "227e292457c7d22215061ae89001ce1dbd1cef6498cdee45999083ff694582f0"
+    },
+    {
+      "id": "night-000009",
+      "group": "night",
+      "frame": 9,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000009.png",
+      "sha256": "a4585df10fd8458899042b4fc43a32095b3d6a931753dba7cdb80de450ceceea"
+    },
+    {
+      "id": "night-000010",
+      "group": "night",
+      "frame": 10,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000010.png",
+      "sha256": "7435e3f14e2ed6cfc9366bb0158c5a30e5692a2e5f4e18c405a18cc746464c79"
+    },
+    {
+      "id": "night-000011",
+      "group": "night",
+      "frame": 11,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000011.png",
+      "sha256": "b47d21b568cd5a6d6e2de879856f7d4536edae282e05c8fa4393d432958e7c80"
+    },
+    {
+      "id": "night-000012",
+      "group": "night",
+      "frame": 12,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000012.png",
+      "sha256": "6fcbf17fed45f190d11bc9b8d1ccc4799b6ae9649cca8ffdcf978f56414e5d70"
+    },
+    {
+      "id": "night-000013",
+      "group": "night",
+      "frame": 13,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000013.png",
+      "sha256": "ba153d3ed1b78d1486065e7ca324ce2ca0fb25a8af84e88ac58822654378f53d"
+    },
+    {
+      "id": "night-000014",
+      "group": "night",
+      "frame": 14,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000014.png",
+      "sha256": "25f0ed4e846dce9d9f7a5e547573322e1b143e080060744025a59ae59dc66d63"
+    },
+    {
+      "id": "night-000015",
+      "group": "night",
+      "frame": 15,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000015.png",
+      "sha256": "6b82fe61cf2db27fffce39610a6b8a7192722a21d2693d059ba930a2d5e41351"
+    },
+    {
+      "id": "night-000016",
+      "group": "night",
+      "frame": 16,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000016.png",
+      "sha256": "d1e59cfcfbcaa9c6232b0281540ad4fcef5c8021487bef84e85006502f97fdfd"
+    },
+    {
+      "id": "night-000017",
+      "group": "night",
+      "frame": 17,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000017.png",
+      "sha256": "6abea3bf508fdeb0dfaecb12c843b95930247ad4d4ab917d05bbe790c571bcf3"
+    },
+    {
+      "id": "night-000018",
+      "group": "night",
+      "frame": 18,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000018.png",
+      "sha256": "204601ff3882d869993fbf3ca39ad80330c600645fb0b7dfb4cfbbc7f55e5a00"
+    },
+    {
+      "id": "night-000019",
+      "group": "night",
+      "frame": 19,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000019.png",
+      "sha256": "690fe8687cf93bba90927cf5c34393d74fbd835653540fd19ebaed7dad3eb63a"
+    },
+    {
+      "id": "rain-000000",
+      "group": "rain",
+      "frame": 0,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000000.png",
+      "sha256": "046771165b4d7fffbb1fe0ed63a50a076a486ee09462804ab662dc6e4f4fb748"
+    },
+    {
+      "id": "rain-000001",
+      "group": "rain",
+      "frame": 1,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000001.png",
+      "sha256": "3969f940fdf4110992115e29fea6f185ce6d93d496a778d52ea280d217acffbd"
+    },
+    {
+      "id": "rain-000002",
+      "group": "rain",
+      "frame": 2,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000002.png",
+      "sha256": "4270242a7df1880164455fbd61650c068d55c5accb27fb7eebf504d477a97b81"
+    },
+    {
+      "id": "rain-000003",
+      "group": "rain",
+      "frame": 3,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000003.png",
+      "sha256": "83658c3bf4daab1a68a398ef39678904a8e824000585d077a6fc4399e7b41d6c"
+    },
+    {
+      "id": "rain-000004",
+      "group": "rain",
+      "frame": 4,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000004.png",
+      "sha256": "4993176b2e2ffcbe457d5dab5ff658b79d134f21eb666b5e81ab12ab5c394d0a"
+    },
+    {
+      "id": "rain-000005",
+      "group": "rain",
+      "frame": 5,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000005.png",
+      "sha256": "0f2632f06ddb2f12bf02064a5633afa83736070521f9cefc79e2ea2da047a2ae"
+    },
+    {
+      "id": "rain-000006",
+      "group": "rain",
+      "frame": 6,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000006.png",
+      "sha256": "645d8a0e292e8a9073328d1971530762d6eb32d4992200c5a129b1101406755e"
+    },
+    {
+      "id": "rain-000007",
+      "group": "rain",
+      "frame": 7,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000007.png",
+      "sha256": "9f040b68a84f717bb085c17670744999d3b3ff1148da469d834ed1df931d2632"
+    },
+    {
+      "id": "rain-000008",
+      "group": "rain",
+      "frame": 8,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000008.png",
+      "sha256": "12167d5314aa6e9a266b2bf8eb327b803267424daae6c6bd783520a005868434"
+    },
+    {
+      "id": "rain-000009",
+      "group": "rain",
+      "frame": 9,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000009.png",
+      "sha256": "0d3be5de8c658849a16b3ca1129967d3db2d5dee5beb842a85d53a75b87a866d"
+    },
+    {
+      "id": "rain-000010",
+      "group": "rain",
+      "frame": 10,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000010.png",
+      "sha256": "7d7669d106655b2a9751b1923a7bbe755e767a3710d8007d5bbcd1de1433e148"
+    },
+    {
+      "id": "rain-000011",
+      "group": "rain",
+      "frame": 11,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000011.png",
+      "sha256": "785766fda752f886a6bec756ec4f4d77fdcb91b6aba3481b3abb9f3baae37d88"
+    },
+    {
+      "id": "rain-000012",
+      "group": "rain",
+      "frame": 12,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000012.png",
+      "sha256": "3b26ff5a74aaa69bad56aa06acb71a9454a949f0098eee422da7db2689f095f2"
+    },
+    {
+      "id": "rain-000013",
+      "group": "rain",
+      "frame": 13,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000013.png",
+      "sha256": "928a08d965e3eda5fdc57a3229ba84aa1b5fe4d880f9081aa922ee89d033285c"
+    },
+    {
+      "id": "rain-000014",
+      "group": "rain",
+      "frame": 14,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000014.png",
+      "sha256": "b22380ed02bdb6ae315da2e3e44c4a85a26d49941248b93d6e1431e8234fd589"
+    },
+    {
+      "id": "rain-000015",
+      "group": "rain",
+      "frame": 15,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000015.png",
+      "sha256": "a6cba9e929dd384b5ec920db83eee308b9afc37e97a3e2708fa00d1a30295898"
+    },
+    {
+      "id": "rain-000016",
+      "group": "rain",
+      "frame": 16,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000016.png",
+      "sha256": "79c8e09145193658afa51946cc247aba421b701af0a2eec4caa674508abbe56d"
+    },
+    {
+      "id": "rain-000017",
+      "group": "rain",
+      "frame": 17,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000017.png",
+      "sha256": "eec4405f11393513950ea56792cbdfa17f4d7260d6837017c423ed831ec5d9fe"
+    },
+    {
+      "id": "rain-000018",
+      "group": "rain",
+      "frame": 18,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000018.png",
+      "sha256": "1f3020bcb89ac2c04ae9ed4db033db3dc23786da8a280311ad19af4f0149c2ab"
+    },
+    {
+      "id": "rain-000019",
+      "group": "rain",
+      "frame": 19,
+      "path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000019.png",
+      "sha256": "a47304661d7e50482e8093086e96668892b2172a2c4f55e6af638593a63ef9e6"
+    }
+  ],
+  "geometries": [
+    {
+      "id": "train-g0",
+      "partition": "train",
+      "depths_m": [
+        3.0,
+        6.0
+      ],
+      "near_normal_xy": [
+        1.0,
+        0.0
+      ],
+      "near_offset_m": -0.2
+    },
+    {
+      "id": "train-g1",
+      "partition": "train",
+      "depths_m": [
+        5.0,
+        10.0
+      ],
+      "near_normal_xy": [
+        0.0,
+        1.0
+      ],
+      "near_offset_m": 0.3
+    },
+    {
+      "id": "eval-g0",
+      "partition": "evaluation",
+      "depths_m": [
+        4.0,
+        9.0
+      ],
+      "near_normal_xy": [
+        0.7071067811865476,
+        0.7071067811865476
+      ],
+      "near_offset_m": 0.1
+    },
+    {
+      "id": "eval-g1",
+      "partition": "evaluation",
+      "depths_m": [
+        3.5,
+        7.0
+      ],
+      "near_normal_xy": [
+        0.7071067811865476,
+        -0.7071067811865476
+      ],
+      "near_offset_m": -0.15
+    }
+  ],
+  "motions": [
+    {
+      "id": "train-m0",
+      "partition": "train",
+      "rotvec_deg": [
+        0.3,
+        -0.4,
+        0.2
+      ],
+      "translation_m": [
+        0.04,
+        -0.02,
+        0.08
+      ]
+    },
+    {
+      "id": "train-m1",
+      "partition": "train",
+      "rotvec_deg": [
+        -0.4,
+        0.2,
+        -0.3
+      ],
+      "translation_m": [
+        -0.03,
+        0.01,
+        0.06
+      ]
+    },
+    {
+      "id": "train-m2",
+      "partition": "train",
+      "rotvec_deg": [
+        0.2,
+        0.4,
+        -0.2
+      ],
+      "translation_m": [
+        0.02,
+        0.03,
+        -0.05
+      ]
+    },
+    {
+      "id": "eval-m0",
+      "partition": "evaluation",
+      "rotvec_deg": [
+        -0.25,
+        -0.35,
+        0.4
+      ],
+      "translation_m": [
+        -0.02,
+        -0.03,
+        0.09
+      ]
+    },
+    {
+      "id": "eval-m1",
+      "partition": "evaluation",
+      "rotvec_deg": [
+        0.45,
+        -0.15,
+        -0.3
+      ],
+      "translation_m": [
+        0.05,
+        0.02,
+        -0.04
+      ]
+    }
+  ],
+  "scenes": [
+    {
+      "id": "day-000000__train-g0__train-m0",
+      "texture_id": "day-000000",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000000__train-g0__train-m1",
+      "texture_id": "day-000000",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000000__train-g0__train-m2",
+      "texture_id": "day-000000",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000000__train-g1__train-m0",
+      "texture_id": "day-000000",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000000__train-g1__train-m1",
+      "texture_id": "day-000000",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000000__train-g1__train-m2",
+      "texture_id": "day-000000",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000000__eval-g0__eval-m0",
+      "texture_id": "day-000000",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000000__eval-g0__eval-m1",
+      "texture_id": "day-000000",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000000__eval-g1__eval-m0",
+      "texture_id": "day-000000",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000000__eval-g1__eval-m1",
+      "texture_id": "day-000000",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000001__train-g0__train-m0",
+      "texture_id": "day-000001",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000001__train-g0__train-m1",
+      "texture_id": "day-000001",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000001__train-g0__train-m2",
+      "texture_id": "day-000001",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000001__train-g1__train-m0",
+      "texture_id": "day-000001",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000001__train-g1__train-m1",
+      "texture_id": "day-000001",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000001__train-g1__train-m2",
+      "texture_id": "day-000001",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000001__eval-g0__eval-m0",
+      "texture_id": "day-000001",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000001__eval-g0__eval-m1",
+      "texture_id": "day-000001",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000001__eval-g1__eval-m0",
+      "texture_id": "day-000001",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000001__eval-g1__eval-m1",
+      "texture_id": "day-000001",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000002__train-g0__train-m0",
+      "texture_id": "day-000002",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000002__train-g0__train-m1",
+      "texture_id": "day-000002",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000002__train-g0__train-m2",
+      "texture_id": "day-000002",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000002__train-g1__train-m0",
+      "texture_id": "day-000002",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000002__train-g1__train-m1",
+      "texture_id": "day-000002",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000002__train-g1__train-m2",
+      "texture_id": "day-000002",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000002__eval-g0__eval-m0",
+      "texture_id": "day-000002",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000002__eval-g0__eval-m1",
+      "texture_id": "day-000002",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000002__eval-g1__eval-m0",
+      "texture_id": "day-000002",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000002__eval-g1__eval-m1",
+      "texture_id": "day-000002",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000003__train-g0__train-m0",
+      "texture_id": "day-000003",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000003__train-g0__train-m1",
+      "texture_id": "day-000003",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000003__train-g0__train-m2",
+      "texture_id": "day-000003",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000003__train-g1__train-m0",
+      "texture_id": "day-000003",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000003__train-g1__train-m1",
+      "texture_id": "day-000003",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000003__train-g1__train-m2",
+      "texture_id": "day-000003",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000003__eval-g0__eval-m0",
+      "texture_id": "day-000003",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000003__eval-g0__eval-m1",
+      "texture_id": "day-000003",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000003__eval-g1__eval-m0",
+      "texture_id": "day-000003",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000003__eval-g1__eval-m1",
+      "texture_id": "day-000003",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000004__train-g0__train-m0",
+      "texture_id": "day-000004",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000004__train-g0__train-m1",
+      "texture_id": "day-000004",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000004__train-g0__train-m2",
+      "texture_id": "day-000004",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000004__train-g1__train-m0",
+      "texture_id": "day-000004",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000004__train-g1__train-m1",
+      "texture_id": "day-000004",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000004__train-g1__train-m2",
+      "texture_id": "day-000004",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000004__eval-g0__eval-m0",
+      "texture_id": "day-000004",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000004__eval-g0__eval-m1",
+      "texture_id": "day-000004",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000004__eval-g1__eval-m0",
+      "texture_id": "day-000004",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000004__eval-g1__eval-m1",
+      "texture_id": "day-000004",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000005__train-g0__train-m0",
+      "texture_id": "day-000005",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000005__train-g0__train-m1",
+      "texture_id": "day-000005",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000005__train-g0__train-m2",
+      "texture_id": "day-000005",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000005__train-g1__train-m0",
+      "texture_id": "day-000005",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000005__train-g1__train-m1",
+      "texture_id": "day-000005",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000005__train-g1__train-m2",
+      "texture_id": "day-000005",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000005__eval-g0__eval-m0",
+      "texture_id": "day-000005",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000005__eval-g0__eval-m1",
+      "texture_id": "day-000005",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000005__eval-g1__eval-m0",
+      "texture_id": "day-000005",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000005__eval-g1__eval-m1",
+      "texture_id": "day-000005",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000006__train-g0__train-m0",
+      "texture_id": "day-000006",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000006__train-g0__train-m1",
+      "texture_id": "day-000006",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000006__train-g0__train-m2",
+      "texture_id": "day-000006",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000006__train-g1__train-m0",
+      "texture_id": "day-000006",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000006__train-g1__train-m1",
+      "texture_id": "day-000006",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000006__train-g1__train-m2",
+      "texture_id": "day-000006",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000006__eval-g0__eval-m0",
+      "texture_id": "day-000006",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000006__eval-g0__eval-m1",
+      "texture_id": "day-000006",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000006__eval-g1__eval-m0",
+      "texture_id": "day-000006",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000006__eval-g1__eval-m1",
+      "texture_id": "day-000006",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000007__train-g0__train-m0",
+      "texture_id": "day-000007",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000007__train-g0__train-m1",
+      "texture_id": "day-000007",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000007__train-g0__train-m2",
+      "texture_id": "day-000007",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000007__train-g1__train-m0",
+      "texture_id": "day-000007",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000007__train-g1__train-m1",
+      "texture_id": "day-000007",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000007__train-g1__train-m2",
+      "texture_id": "day-000007",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000007__eval-g0__eval-m0",
+      "texture_id": "day-000007",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000007__eval-g0__eval-m1",
+      "texture_id": "day-000007",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000007__eval-g1__eval-m0",
+      "texture_id": "day-000007",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000007__eval-g1__eval-m1",
+      "texture_id": "day-000007",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000008__train-g0__train-m0",
+      "texture_id": "day-000008",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000008__train-g0__train-m1",
+      "texture_id": "day-000008",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000008__train-g0__train-m2",
+      "texture_id": "day-000008",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000008__train-g1__train-m0",
+      "texture_id": "day-000008",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000008__train-g1__train-m1",
+      "texture_id": "day-000008",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000008__train-g1__train-m2",
+      "texture_id": "day-000008",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000008__eval-g0__eval-m0",
+      "texture_id": "day-000008",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000008__eval-g0__eval-m1",
+      "texture_id": "day-000008",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000008__eval-g1__eval-m0",
+      "texture_id": "day-000008",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000008__eval-g1__eval-m1",
+      "texture_id": "day-000008",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000009__train-g0__train-m0",
+      "texture_id": "day-000009",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000009__train-g0__train-m1",
+      "texture_id": "day-000009",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000009__train-g0__train-m2",
+      "texture_id": "day-000009",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000009__train-g1__train-m0",
+      "texture_id": "day-000009",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000009__train-g1__train-m1",
+      "texture_id": "day-000009",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000009__train-g1__train-m2",
+      "texture_id": "day-000009",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000009__eval-g0__eval-m0",
+      "texture_id": "day-000009",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000009__eval-g0__eval-m1",
+      "texture_id": "day-000009",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000009__eval-g1__eval-m0",
+      "texture_id": "day-000009",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000009__eval-g1__eval-m1",
+      "texture_id": "day-000009",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000010__train-g0__train-m0",
+      "texture_id": "day-000010",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000010__train-g0__train-m1",
+      "texture_id": "day-000010",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000010__train-g0__train-m2",
+      "texture_id": "day-000010",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000010__train-g1__train-m0",
+      "texture_id": "day-000010",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000010__train-g1__train-m1",
+      "texture_id": "day-000010",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000010__train-g1__train-m2",
+      "texture_id": "day-000010",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000010__eval-g0__eval-m0",
+      "texture_id": "day-000010",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000010__eval-g0__eval-m1",
+      "texture_id": "day-000010",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000010__eval-g1__eval-m0",
+      "texture_id": "day-000010",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000010__eval-g1__eval-m1",
+      "texture_id": "day-000010",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000011__train-g0__train-m0",
+      "texture_id": "day-000011",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000011__train-g0__train-m1",
+      "texture_id": "day-000011",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000011__train-g0__train-m2",
+      "texture_id": "day-000011",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000011__train-g1__train-m0",
+      "texture_id": "day-000011",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000011__train-g1__train-m1",
+      "texture_id": "day-000011",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000011__train-g1__train-m2",
+      "texture_id": "day-000011",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000011__eval-g0__eval-m0",
+      "texture_id": "day-000011",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000011__eval-g0__eval-m1",
+      "texture_id": "day-000011",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000011__eval-g1__eval-m0",
+      "texture_id": "day-000011",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000011__eval-g1__eval-m1",
+      "texture_id": "day-000011",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000012__train-g0__train-m0",
+      "texture_id": "day-000012",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000012__train-g0__train-m1",
+      "texture_id": "day-000012",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000012__train-g0__train-m2",
+      "texture_id": "day-000012",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000012__train-g1__train-m0",
+      "texture_id": "day-000012",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000012__train-g1__train-m1",
+      "texture_id": "day-000012",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000012__train-g1__train-m2",
+      "texture_id": "day-000012",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000012__eval-g0__eval-m0",
+      "texture_id": "day-000012",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000012__eval-g0__eval-m1",
+      "texture_id": "day-000012",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000012__eval-g1__eval-m0",
+      "texture_id": "day-000012",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000012__eval-g1__eval-m1",
+      "texture_id": "day-000012",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000013__train-g0__train-m0",
+      "texture_id": "day-000013",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000013__train-g0__train-m1",
+      "texture_id": "day-000013",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000013__train-g0__train-m2",
+      "texture_id": "day-000013",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000013__train-g1__train-m0",
+      "texture_id": "day-000013",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000013__train-g1__train-m1",
+      "texture_id": "day-000013",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000013__train-g1__train-m2",
+      "texture_id": "day-000013",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000013__eval-g0__eval-m0",
+      "texture_id": "day-000013",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000013__eval-g0__eval-m1",
+      "texture_id": "day-000013",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000013__eval-g1__eval-m0",
+      "texture_id": "day-000013",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000013__eval-g1__eval-m1",
+      "texture_id": "day-000013",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000014__train-g0__train-m0",
+      "texture_id": "day-000014",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000014__train-g0__train-m1",
+      "texture_id": "day-000014",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000014__train-g0__train-m2",
+      "texture_id": "day-000014",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000014__train-g1__train-m0",
+      "texture_id": "day-000014",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000014__train-g1__train-m1",
+      "texture_id": "day-000014",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000014__train-g1__train-m2",
+      "texture_id": "day-000014",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000014__eval-g0__eval-m0",
+      "texture_id": "day-000014",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000014__eval-g0__eval-m1",
+      "texture_id": "day-000014",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000014__eval-g1__eval-m0",
+      "texture_id": "day-000014",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000014__eval-g1__eval-m1",
+      "texture_id": "day-000014",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000015__train-g0__train-m0",
+      "texture_id": "day-000015",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000015__train-g0__train-m1",
+      "texture_id": "day-000015",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000015__train-g0__train-m2",
+      "texture_id": "day-000015",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000015__train-g1__train-m0",
+      "texture_id": "day-000015",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000015__train-g1__train-m1",
+      "texture_id": "day-000015",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000015__train-g1__train-m2",
+      "texture_id": "day-000015",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000015__eval-g0__eval-m0",
+      "texture_id": "day-000015",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000015__eval-g0__eval-m1",
+      "texture_id": "day-000015",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000015__eval-g1__eval-m0",
+      "texture_id": "day-000015",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000015__eval-g1__eval-m1",
+      "texture_id": "day-000015",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000016__train-g0__train-m0",
+      "texture_id": "day-000016",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000016__train-g0__train-m1",
+      "texture_id": "day-000016",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000016__train-g0__train-m2",
+      "texture_id": "day-000016",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000016__train-g1__train-m0",
+      "texture_id": "day-000016",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000016__train-g1__train-m1",
+      "texture_id": "day-000016",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000016__train-g1__train-m2",
+      "texture_id": "day-000016",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000016__eval-g0__eval-m0",
+      "texture_id": "day-000016",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000016__eval-g0__eval-m1",
+      "texture_id": "day-000016",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000016__eval-g1__eval-m0",
+      "texture_id": "day-000016",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000016__eval-g1__eval-m1",
+      "texture_id": "day-000016",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000017__train-g0__train-m0",
+      "texture_id": "day-000017",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000017__train-g0__train-m1",
+      "texture_id": "day-000017",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000017__train-g0__train-m2",
+      "texture_id": "day-000017",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000017__train-g1__train-m0",
+      "texture_id": "day-000017",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000017__train-g1__train-m1",
+      "texture_id": "day-000017",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000017__train-g1__train-m2",
+      "texture_id": "day-000017",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000017__eval-g0__eval-m0",
+      "texture_id": "day-000017",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000017__eval-g0__eval-m1",
+      "texture_id": "day-000017",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000017__eval-g1__eval-m0",
+      "texture_id": "day-000017",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000017__eval-g1__eval-m1",
+      "texture_id": "day-000017",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000018__train-g0__train-m0",
+      "texture_id": "day-000018",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000018__train-g0__train-m1",
+      "texture_id": "day-000018",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000018__train-g0__train-m2",
+      "texture_id": "day-000018",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000018__train-g1__train-m0",
+      "texture_id": "day-000018",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000018__train-g1__train-m1",
+      "texture_id": "day-000018",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000018__train-g1__train-m2",
+      "texture_id": "day-000018",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000018__eval-g0__eval-m0",
+      "texture_id": "day-000018",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000018__eval-g0__eval-m1",
+      "texture_id": "day-000018",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000018__eval-g1__eval-m0",
+      "texture_id": "day-000018",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000018__eval-g1__eval-m1",
+      "texture_id": "day-000018",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000019__train-g0__train-m0",
+      "texture_id": "day-000019",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000019__train-g0__train-m1",
+      "texture_id": "day-000019",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000019__train-g0__train-m2",
+      "texture_id": "day-000019",
+      "group": "day",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000019__train-g1__train-m0",
+      "texture_id": "day-000019",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "day-000019__train-g1__train-m1",
+      "texture_id": "day-000019",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "day-000019__train-g1__train-m2",
+      "texture_id": "day-000019",
+      "group": "day",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "day-000019__eval-g0__eval-m0",
+      "texture_id": "day-000019",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000019__eval-g0__eval-m1",
+      "texture_id": "day-000019",
+      "group": "day",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000019__eval-g1__eval-m0",
+      "texture_id": "day-000019",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "day-000019__eval-g1__eval-m1",
+      "texture_id": "day-000019",
+      "group": "day",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000000__train-g0__train-m0",
+      "texture_id": "night-000000",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000000__train-g0__train-m1",
+      "texture_id": "night-000000",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000000__train-g0__train-m2",
+      "texture_id": "night-000000",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000000__train-g1__train-m0",
+      "texture_id": "night-000000",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000000__train-g1__train-m1",
+      "texture_id": "night-000000",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000000__train-g1__train-m2",
+      "texture_id": "night-000000",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000000__eval-g0__eval-m0",
+      "texture_id": "night-000000",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000000__eval-g0__eval-m1",
+      "texture_id": "night-000000",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000000__eval-g1__eval-m0",
+      "texture_id": "night-000000",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000000__eval-g1__eval-m1",
+      "texture_id": "night-000000",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000001__train-g0__train-m0",
+      "texture_id": "night-000001",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000001__train-g0__train-m1",
+      "texture_id": "night-000001",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000001__train-g0__train-m2",
+      "texture_id": "night-000001",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000001__train-g1__train-m0",
+      "texture_id": "night-000001",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000001__train-g1__train-m1",
+      "texture_id": "night-000001",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000001__train-g1__train-m2",
+      "texture_id": "night-000001",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000001__eval-g0__eval-m0",
+      "texture_id": "night-000001",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000001__eval-g0__eval-m1",
+      "texture_id": "night-000001",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000001__eval-g1__eval-m0",
+      "texture_id": "night-000001",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000001__eval-g1__eval-m1",
+      "texture_id": "night-000001",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000002__train-g0__train-m0",
+      "texture_id": "night-000002",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000002__train-g0__train-m1",
+      "texture_id": "night-000002",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000002__train-g0__train-m2",
+      "texture_id": "night-000002",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000002__train-g1__train-m0",
+      "texture_id": "night-000002",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000002__train-g1__train-m1",
+      "texture_id": "night-000002",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000002__train-g1__train-m2",
+      "texture_id": "night-000002",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000002__eval-g0__eval-m0",
+      "texture_id": "night-000002",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000002__eval-g0__eval-m1",
+      "texture_id": "night-000002",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000002__eval-g1__eval-m0",
+      "texture_id": "night-000002",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000002__eval-g1__eval-m1",
+      "texture_id": "night-000002",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000003__train-g0__train-m0",
+      "texture_id": "night-000003",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000003__train-g0__train-m1",
+      "texture_id": "night-000003",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000003__train-g0__train-m2",
+      "texture_id": "night-000003",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000003__train-g1__train-m0",
+      "texture_id": "night-000003",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000003__train-g1__train-m1",
+      "texture_id": "night-000003",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000003__train-g1__train-m2",
+      "texture_id": "night-000003",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000003__eval-g0__eval-m0",
+      "texture_id": "night-000003",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000003__eval-g0__eval-m1",
+      "texture_id": "night-000003",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000003__eval-g1__eval-m0",
+      "texture_id": "night-000003",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000003__eval-g1__eval-m1",
+      "texture_id": "night-000003",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000004__train-g0__train-m0",
+      "texture_id": "night-000004",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000004__train-g0__train-m1",
+      "texture_id": "night-000004",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000004__train-g0__train-m2",
+      "texture_id": "night-000004",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000004__train-g1__train-m0",
+      "texture_id": "night-000004",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000004__train-g1__train-m1",
+      "texture_id": "night-000004",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000004__train-g1__train-m2",
+      "texture_id": "night-000004",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000004__eval-g0__eval-m0",
+      "texture_id": "night-000004",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000004__eval-g0__eval-m1",
+      "texture_id": "night-000004",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000004__eval-g1__eval-m0",
+      "texture_id": "night-000004",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000004__eval-g1__eval-m1",
+      "texture_id": "night-000004",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000005__train-g0__train-m0",
+      "texture_id": "night-000005",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000005__train-g0__train-m1",
+      "texture_id": "night-000005",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000005__train-g0__train-m2",
+      "texture_id": "night-000005",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000005__train-g1__train-m0",
+      "texture_id": "night-000005",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000005__train-g1__train-m1",
+      "texture_id": "night-000005",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000005__train-g1__train-m2",
+      "texture_id": "night-000005",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000005__eval-g0__eval-m0",
+      "texture_id": "night-000005",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000005__eval-g0__eval-m1",
+      "texture_id": "night-000005",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000005__eval-g1__eval-m0",
+      "texture_id": "night-000005",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000005__eval-g1__eval-m1",
+      "texture_id": "night-000005",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000006__train-g0__train-m0",
+      "texture_id": "night-000006",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000006__train-g0__train-m1",
+      "texture_id": "night-000006",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000006__train-g0__train-m2",
+      "texture_id": "night-000006",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000006__train-g1__train-m0",
+      "texture_id": "night-000006",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000006__train-g1__train-m1",
+      "texture_id": "night-000006",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000006__train-g1__train-m2",
+      "texture_id": "night-000006",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000006__eval-g0__eval-m0",
+      "texture_id": "night-000006",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000006__eval-g0__eval-m1",
+      "texture_id": "night-000006",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000006__eval-g1__eval-m0",
+      "texture_id": "night-000006",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000006__eval-g1__eval-m1",
+      "texture_id": "night-000006",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000007__train-g0__train-m0",
+      "texture_id": "night-000007",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000007__train-g0__train-m1",
+      "texture_id": "night-000007",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000007__train-g0__train-m2",
+      "texture_id": "night-000007",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000007__train-g1__train-m0",
+      "texture_id": "night-000007",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000007__train-g1__train-m1",
+      "texture_id": "night-000007",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000007__train-g1__train-m2",
+      "texture_id": "night-000007",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000007__eval-g0__eval-m0",
+      "texture_id": "night-000007",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000007__eval-g0__eval-m1",
+      "texture_id": "night-000007",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000007__eval-g1__eval-m0",
+      "texture_id": "night-000007",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000007__eval-g1__eval-m1",
+      "texture_id": "night-000007",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000008__train-g0__train-m0",
+      "texture_id": "night-000008",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000008__train-g0__train-m1",
+      "texture_id": "night-000008",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000008__train-g0__train-m2",
+      "texture_id": "night-000008",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000008__train-g1__train-m0",
+      "texture_id": "night-000008",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000008__train-g1__train-m1",
+      "texture_id": "night-000008",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000008__train-g1__train-m2",
+      "texture_id": "night-000008",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000008__eval-g0__eval-m0",
+      "texture_id": "night-000008",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000008__eval-g0__eval-m1",
+      "texture_id": "night-000008",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000008__eval-g1__eval-m0",
+      "texture_id": "night-000008",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000008__eval-g1__eval-m1",
+      "texture_id": "night-000008",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000009__train-g0__train-m0",
+      "texture_id": "night-000009",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000009__train-g0__train-m1",
+      "texture_id": "night-000009",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000009__train-g0__train-m2",
+      "texture_id": "night-000009",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000009__train-g1__train-m0",
+      "texture_id": "night-000009",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000009__train-g1__train-m1",
+      "texture_id": "night-000009",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000009__train-g1__train-m2",
+      "texture_id": "night-000009",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000009__eval-g0__eval-m0",
+      "texture_id": "night-000009",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000009__eval-g0__eval-m1",
+      "texture_id": "night-000009",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000009__eval-g1__eval-m0",
+      "texture_id": "night-000009",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000009__eval-g1__eval-m1",
+      "texture_id": "night-000009",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000010__train-g0__train-m0",
+      "texture_id": "night-000010",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000010__train-g0__train-m1",
+      "texture_id": "night-000010",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000010__train-g0__train-m2",
+      "texture_id": "night-000010",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000010__train-g1__train-m0",
+      "texture_id": "night-000010",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000010__train-g1__train-m1",
+      "texture_id": "night-000010",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000010__train-g1__train-m2",
+      "texture_id": "night-000010",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000010__eval-g0__eval-m0",
+      "texture_id": "night-000010",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000010__eval-g0__eval-m1",
+      "texture_id": "night-000010",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000010__eval-g1__eval-m0",
+      "texture_id": "night-000010",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000010__eval-g1__eval-m1",
+      "texture_id": "night-000010",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000011__train-g0__train-m0",
+      "texture_id": "night-000011",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000011__train-g0__train-m1",
+      "texture_id": "night-000011",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000011__train-g0__train-m2",
+      "texture_id": "night-000011",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000011__train-g1__train-m0",
+      "texture_id": "night-000011",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000011__train-g1__train-m1",
+      "texture_id": "night-000011",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000011__train-g1__train-m2",
+      "texture_id": "night-000011",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000011__eval-g0__eval-m0",
+      "texture_id": "night-000011",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000011__eval-g0__eval-m1",
+      "texture_id": "night-000011",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000011__eval-g1__eval-m0",
+      "texture_id": "night-000011",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000011__eval-g1__eval-m1",
+      "texture_id": "night-000011",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000012__train-g0__train-m0",
+      "texture_id": "night-000012",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000012__train-g0__train-m1",
+      "texture_id": "night-000012",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000012__train-g0__train-m2",
+      "texture_id": "night-000012",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000012__train-g1__train-m0",
+      "texture_id": "night-000012",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000012__train-g1__train-m1",
+      "texture_id": "night-000012",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000012__train-g1__train-m2",
+      "texture_id": "night-000012",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000012__eval-g0__eval-m0",
+      "texture_id": "night-000012",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000012__eval-g0__eval-m1",
+      "texture_id": "night-000012",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000012__eval-g1__eval-m0",
+      "texture_id": "night-000012",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000012__eval-g1__eval-m1",
+      "texture_id": "night-000012",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000013__train-g0__train-m0",
+      "texture_id": "night-000013",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000013__train-g0__train-m1",
+      "texture_id": "night-000013",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000013__train-g0__train-m2",
+      "texture_id": "night-000013",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000013__train-g1__train-m0",
+      "texture_id": "night-000013",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000013__train-g1__train-m1",
+      "texture_id": "night-000013",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000013__train-g1__train-m2",
+      "texture_id": "night-000013",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000013__eval-g0__eval-m0",
+      "texture_id": "night-000013",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000013__eval-g0__eval-m1",
+      "texture_id": "night-000013",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000013__eval-g1__eval-m0",
+      "texture_id": "night-000013",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000013__eval-g1__eval-m1",
+      "texture_id": "night-000013",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000014__train-g0__train-m0",
+      "texture_id": "night-000014",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000014__train-g0__train-m1",
+      "texture_id": "night-000014",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000014__train-g0__train-m2",
+      "texture_id": "night-000014",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000014__train-g1__train-m0",
+      "texture_id": "night-000014",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000014__train-g1__train-m1",
+      "texture_id": "night-000014",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000014__train-g1__train-m2",
+      "texture_id": "night-000014",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000014__eval-g0__eval-m0",
+      "texture_id": "night-000014",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000014__eval-g0__eval-m1",
+      "texture_id": "night-000014",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000014__eval-g1__eval-m0",
+      "texture_id": "night-000014",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000014__eval-g1__eval-m1",
+      "texture_id": "night-000014",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000015__train-g0__train-m0",
+      "texture_id": "night-000015",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000015__train-g0__train-m1",
+      "texture_id": "night-000015",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000015__train-g0__train-m2",
+      "texture_id": "night-000015",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000015__train-g1__train-m0",
+      "texture_id": "night-000015",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000015__train-g1__train-m1",
+      "texture_id": "night-000015",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000015__train-g1__train-m2",
+      "texture_id": "night-000015",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000015__eval-g0__eval-m0",
+      "texture_id": "night-000015",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000015__eval-g0__eval-m1",
+      "texture_id": "night-000015",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000015__eval-g1__eval-m0",
+      "texture_id": "night-000015",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000015__eval-g1__eval-m1",
+      "texture_id": "night-000015",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000016__train-g0__train-m0",
+      "texture_id": "night-000016",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000016__train-g0__train-m1",
+      "texture_id": "night-000016",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000016__train-g0__train-m2",
+      "texture_id": "night-000016",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000016__train-g1__train-m0",
+      "texture_id": "night-000016",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000016__train-g1__train-m1",
+      "texture_id": "night-000016",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000016__train-g1__train-m2",
+      "texture_id": "night-000016",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000016__eval-g0__eval-m0",
+      "texture_id": "night-000016",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000016__eval-g0__eval-m1",
+      "texture_id": "night-000016",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000016__eval-g1__eval-m0",
+      "texture_id": "night-000016",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000016__eval-g1__eval-m1",
+      "texture_id": "night-000016",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000017__train-g0__train-m0",
+      "texture_id": "night-000017",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000017__train-g0__train-m1",
+      "texture_id": "night-000017",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000017__train-g0__train-m2",
+      "texture_id": "night-000017",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000017__train-g1__train-m0",
+      "texture_id": "night-000017",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000017__train-g1__train-m1",
+      "texture_id": "night-000017",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000017__train-g1__train-m2",
+      "texture_id": "night-000017",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000017__eval-g0__eval-m0",
+      "texture_id": "night-000017",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000017__eval-g0__eval-m1",
+      "texture_id": "night-000017",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000017__eval-g1__eval-m0",
+      "texture_id": "night-000017",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000017__eval-g1__eval-m1",
+      "texture_id": "night-000017",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000018__train-g0__train-m0",
+      "texture_id": "night-000018",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000018__train-g0__train-m1",
+      "texture_id": "night-000018",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000018__train-g0__train-m2",
+      "texture_id": "night-000018",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000018__train-g1__train-m0",
+      "texture_id": "night-000018",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000018__train-g1__train-m1",
+      "texture_id": "night-000018",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000018__train-g1__train-m2",
+      "texture_id": "night-000018",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000018__eval-g0__eval-m0",
+      "texture_id": "night-000018",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000018__eval-g0__eval-m1",
+      "texture_id": "night-000018",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000018__eval-g1__eval-m0",
+      "texture_id": "night-000018",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000018__eval-g1__eval-m1",
+      "texture_id": "night-000018",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000019__train-g0__train-m0",
+      "texture_id": "night-000019",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000019__train-g0__train-m1",
+      "texture_id": "night-000019",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000019__train-g0__train-m2",
+      "texture_id": "night-000019",
+      "group": "night",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000019__train-g1__train-m0",
+      "texture_id": "night-000019",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "night-000019__train-g1__train-m1",
+      "texture_id": "night-000019",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "night-000019__train-g1__train-m2",
+      "texture_id": "night-000019",
+      "group": "night",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "night-000019__eval-g0__eval-m0",
+      "texture_id": "night-000019",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000019__eval-g0__eval-m1",
+      "texture_id": "night-000019",
+      "group": "night",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000019__eval-g1__eval-m0",
+      "texture_id": "night-000019",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "night-000019__eval-g1__eval-m1",
+      "texture_id": "night-000019",
+      "group": "night",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000000__train-g0__train-m0",
+      "texture_id": "rain-000000",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000000__train-g0__train-m1",
+      "texture_id": "rain-000000",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000000__train-g0__train-m2",
+      "texture_id": "rain-000000",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000000__train-g1__train-m0",
+      "texture_id": "rain-000000",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000000__train-g1__train-m1",
+      "texture_id": "rain-000000",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000000__train-g1__train-m2",
+      "texture_id": "rain-000000",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000000__eval-g0__eval-m0",
+      "texture_id": "rain-000000",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000000__eval-g0__eval-m1",
+      "texture_id": "rain-000000",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000000__eval-g1__eval-m0",
+      "texture_id": "rain-000000",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000000__eval-g1__eval-m1",
+      "texture_id": "rain-000000",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000001__train-g0__train-m0",
+      "texture_id": "rain-000001",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000001__train-g0__train-m1",
+      "texture_id": "rain-000001",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000001__train-g0__train-m2",
+      "texture_id": "rain-000001",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000001__train-g1__train-m0",
+      "texture_id": "rain-000001",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000001__train-g1__train-m1",
+      "texture_id": "rain-000001",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000001__train-g1__train-m2",
+      "texture_id": "rain-000001",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000001__eval-g0__eval-m0",
+      "texture_id": "rain-000001",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000001__eval-g0__eval-m1",
+      "texture_id": "rain-000001",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000001__eval-g1__eval-m0",
+      "texture_id": "rain-000001",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000001__eval-g1__eval-m1",
+      "texture_id": "rain-000001",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000002__train-g0__train-m0",
+      "texture_id": "rain-000002",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000002__train-g0__train-m1",
+      "texture_id": "rain-000002",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000002__train-g0__train-m2",
+      "texture_id": "rain-000002",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000002__train-g1__train-m0",
+      "texture_id": "rain-000002",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000002__train-g1__train-m1",
+      "texture_id": "rain-000002",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000002__train-g1__train-m2",
+      "texture_id": "rain-000002",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000002__eval-g0__eval-m0",
+      "texture_id": "rain-000002",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000002__eval-g0__eval-m1",
+      "texture_id": "rain-000002",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000002__eval-g1__eval-m0",
+      "texture_id": "rain-000002",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000002__eval-g1__eval-m1",
+      "texture_id": "rain-000002",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000003__train-g0__train-m0",
+      "texture_id": "rain-000003",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000003__train-g0__train-m1",
+      "texture_id": "rain-000003",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000003__train-g0__train-m2",
+      "texture_id": "rain-000003",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000003__train-g1__train-m0",
+      "texture_id": "rain-000003",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000003__train-g1__train-m1",
+      "texture_id": "rain-000003",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000003__train-g1__train-m2",
+      "texture_id": "rain-000003",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000003__eval-g0__eval-m0",
+      "texture_id": "rain-000003",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000003__eval-g0__eval-m1",
+      "texture_id": "rain-000003",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000003__eval-g1__eval-m0",
+      "texture_id": "rain-000003",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000003__eval-g1__eval-m1",
+      "texture_id": "rain-000003",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000004__train-g0__train-m0",
+      "texture_id": "rain-000004",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000004__train-g0__train-m1",
+      "texture_id": "rain-000004",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000004__train-g0__train-m2",
+      "texture_id": "rain-000004",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000004__train-g1__train-m0",
+      "texture_id": "rain-000004",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000004__train-g1__train-m1",
+      "texture_id": "rain-000004",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000004__train-g1__train-m2",
+      "texture_id": "rain-000004",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000004__eval-g0__eval-m0",
+      "texture_id": "rain-000004",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000004__eval-g0__eval-m1",
+      "texture_id": "rain-000004",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000004__eval-g1__eval-m0",
+      "texture_id": "rain-000004",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000004__eval-g1__eval-m1",
+      "texture_id": "rain-000004",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000005__train-g0__train-m0",
+      "texture_id": "rain-000005",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000005__train-g0__train-m1",
+      "texture_id": "rain-000005",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000005__train-g0__train-m2",
+      "texture_id": "rain-000005",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000005__train-g1__train-m0",
+      "texture_id": "rain-000005",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000005__train-g1__train-m1",
+      "texture_id": "rain-000005",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000005__train-g1__train-m2",
+      "texture_id": "rain-000005",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000005__eval-g0__eval-m0",
+      "texture_id": "rain-000005",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000005__eval-g0__eval-m1",
+      "texture_id": "rain-000005",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000005__eval-g1__eval-m0",
+      "texture_id": "rain-000005",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000005__eval-g1__eval-m1",
+      "texture_id": "rain-000005",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000006__train-g0__train-m0",
+      "texture_id": "rain-000006",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000006__train-g0__train-m1",
+      "texture_id": "rain-000006",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000006__train-g0__train-m2",
+      "texture_id": "rain-000006",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000006__train-g1__train-m0",
+      "texture_id": "rain-000006",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000006__train-g1__train-m1",
+      "texture_id": "rain-000006",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000006__train-g1__train-m2",
+      "texture_id": "rain-000006",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000006__eval-g0__eval-m0",
+      "texture_id": "rain-000006",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000006__eval-g0__eval-m1",
+      "texture_id": "rain-000006",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000006__eval-g1__eval-m0",
+      "texture_id": "rain-000006",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000006__eval-g1__eval-m1",
+      "texture_id": "rain-000006",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000007__train-g0__train-m0",
+      "texture_id": "rain-000007",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000007__train-g0__train-m1",
+      "texture_id": "rain-000007",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000007__train-g0__train-m2",
+      "texture_id": "rain-000007",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000007__train-g1__train-m0",
+      "texture_id": "rain-000007",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000007__train-g1__train-m1",
+      "texture_id": "rain-000007",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000007__train-g1__train-m2",
+      "texture_id": "rain-000007",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000007__eval-g0__eval-m0",
+      "texture_id": "rain-000007",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000007__eval-g0__eval-m1",
+      "texture_id": "rain-000007",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000007__eval-g1__eval-m0",
+      "texture_id": "rain-000007",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000007__eval-g1__eval-m1",
+      "texture_id": "rain-000007",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000008__train-g0__train-m0",
+      "texture_id": "rain-000008",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000008__train-g0__train-m1",
+      "texture_id": "rain-000008",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000008__train-g0__train-m2",
+      "texture_id": "rain-000008",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000008__train-g1__train-m0",
+      "texture_id": "rain-000008",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000008__train-g1__train-m1",
+      "texture_id": "rain-000008",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000008__train-g1__train-m2",
+      "texture_id": "rain-000008",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000008__eval-g0__eval-m0",
+      "texture_id": "rain-000008",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000008__eval-g0__eval-m1",
+      "texture_id": "rain-000008",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000008__eval-g1__eval-m0",
+      "texture_id": "rain-000008",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000008__eval-g1__eval-m1",
+      "texture_id": "rain-000008",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000009__train-g0__train-m0",
+      "texture_id": "rain-000009",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000009__train-g0__train-m1",
+      "texture_id": "rain-000009",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000009__train-g0__train-m2",
+      "texture_id": "rain-000009",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000009__train-g1__train-m0",
+      "texture_id": "rain-000009",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000009__train-g1__train-m1",
+      "texture_id": "rain-000009",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000009__train-g1__train-m2",
+      "texture_id": "rain-000009",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000009__eval-g0__eval-m0",
+      "texture_id": "rain-000009",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000009__eval-g0__eval-m1",
+      "texture_id": "rain-000009",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000009__eval-g1__eval-m0",
+      "texture_id": "rain-000009",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000009__eval-g1__eval-m1",
+      "texture_id": "rain-000009",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000010__train-g0__train-m0",
+      "texture_id": "rain-000010",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000010__train-g0__train-m1",
+      "texture_id": "rain-000010",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000010__train-g0__train-m2",
+      "texture_id": "rain-000010",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000010__train-g1__train-m0",
+      "texture_id": "rain-000010",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000010__train-g1__train-m1",
+      "texture_id": "rain-000010",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000010__train-g1__train-m2",
+      "texture_id": "rain-000010",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000010__eval-g0__eval-m0",
+      "texture_id": "rain-000010",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000010__eval-g0__eval-m1",
+      "texture_id": "rain-000010",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000010__eval-g1__eval-m0",
+      "texture_id": "rain-000010",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000010__eval-g1__eval-m1",
+      "texture_id": "rain-000010",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000011__train-g0__train-m0",
+      "texture_id": "rain-000011",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000011__train-g0__train-m1",
+      "texture_id": "rain-000011",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000011__train-g0__train-m2",
+      "texture_id": "rain-000011",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000011__train-g1__train-m0",
+      "texture_id": "rain-000011",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000011__train-g1__train-m1",
+      "texture_id": "rain-000011",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000011__train-g1__train-m2",
+      "texture_id": "rain-000011",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000011__eval-g0__eval-m0",
+      "texture_id": "rain-000011",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000011__eval-g0__eval-m1",
+      "texture_id": "rain-000011",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000011__eval-g1__eval-m0",
+      "texture_id": "rain-000011",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000011__eval-g1__eval-m1",
+      "texture_id": "rain-000011",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000012__train-g0__train-m0",
+      "texture_id": "rain-000012",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000012__train-g0__train-m1",
+      "texture_id": "rain-000012",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000012__train-g0__train-m2",
+      "texture_id": "rain-000012",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000012__train-g1__train-m0",
+      "texture_id": "rain-000012",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000012__train-g1__train-m1",
+      "texture_id": "rain-000012",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000012__train-g1__train-m2",
+      "texture_id": "rain-000012",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000012__eval-g0__eval-m0",
+      "texture_id": "rain-000012",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000012__eval-g0__eval-m1",
+      "texture_id": "rain-000012",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000012__eval-g1__eval-m0",
+      "texture_id": "rain-000012",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000012__eval-g1__eval-m1",
+      "texture_id": "rain-000012",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000013__train-g0__train-m0",
+      "texture_id": "rain-000013",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000013__train-g0__train-m1",
+      "texture_id": "rain-000013",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000013__train-g0__train-m2",
+      "texture_id": "rain-000013",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000013__train-g1__train-m0",
+      "texture_id": "rain-000013",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000013__train-g1__train-m1",
+      "texture_id": "rain-000013",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000013__train-g1__train-m2",
+      "texture_id": "rain-000013",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000013__eval-g0__eval-m0",
+      "texture_id": "rain-000013",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000013__eval-g0__eval-m1",
+      "texture_id": "rain-000013",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000013__eval-g1__eval-m0",
+      "texture_id": "rain-000013",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000013__eval-g1__eval-m1",
+      "texture_id": "rain-000013",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000014__train-g0__train-m0",
+      "texture_id": "rain-000014",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000014__train-g0__train-m1",
+      "texture_id": "rain-000014",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000014__train-g0__train-m2",
+      "texture_id": "rain-000014",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000014__train-g1__train-m0",
+      "texture_id": "rain-000014",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000014__train-g1__train-m1",
+      "texture_id": "rain-000014",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000014__train-g1__train-m2",
+      "texture_id": "rain-000014",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000014__eval-g0__eval-m0",
+      "texture_id": "rain-000014",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000014__eval-g0__eval-m1",
+      "texture_id": "rain-000014",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000014__eval-g1__eval-m0",
+      "texture_id": "rain-000014",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000014__eval-g1__eval-m1",
+      "texture_id": "rain-000014",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000015__train-g0__train-m0",
+      "texture_id": "rain-000015",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000015__train-g0__train-m1",
+      "texture_id": "rain-000015",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000015__train-g0__train-m2",
+      "texture_id": "rain-000015",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000015__train-g1__train-m0",
+      "texture_id": "rain-000015",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000015__train-g1__train-m1",
+      "texture_id": "rain-000015",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000015__train-g1__train-m2",
+      "texture_id": "rain-000015",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000015__eval-g0__eval-m0",
+      "texture_id": "rain-000015",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000015__eval-g0__eval-m1",
+      "texture_id": "rain-000015",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000015__eval-g1__eval-m0",
+      "texture_id": "rain-000015",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000015__eval-g1__eval-m1",
+      "texture_id": "rain-000015",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000016__train-g0__train-m0",
+      "texture_id": "rain-000016",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000016__train-g0__train-m1",
+      "texture_id": "rain-000016",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000016__train-g0__train-m2",
+      "texture_id": "rain-000016",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000016__train-g1__train-m0",
+      "texture_id": "rain-000016",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000016__train-g1__train-m1",
+      "texture_id": "rain-000016",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000016__train-g1__train-m2",
+      "texture_id": "rain-000016",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000016__eval-g0__eval-m0",
+      "texture_id": "rain-000016",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000016__eval-g0__eval-m1",
+      "texture_id": "rain-000016",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000016__eval-g1__eval-m0",
+      "texture_id": "rain-000016",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000016__eval-g1__eval-m1",
+      "texture_id": "rain-000016",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000017__train-g0__train-m0",
+      "texture_id": "rain-000017",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000017__train-g0__train-m1",
+      "texture_id": "rain-000017",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000017__train-g0__train-m2",
+      "texture_id": "rain-000017",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000017__train-g1__train-m0",
+      "texture_id": "rain-000017",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000017__train-g1__train-m1",
+      "texture_id": "rain-000017",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000017__train-g1__train-m2",
+      "texture_id": "rain-000017",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000017__eval-g0__eval-m0",
+      "texture_id": "rain-000017",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000017__eval-g0__eval-m1",
+      "texture_id": "rain-000017",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000017__eval-g1__eval-m0",
+      "texture_id": "rain-000017",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000017__eval-g1__eval-m1",
+      "texture_id": "rain-000017",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000018__train-g0__train-m0",
+      "texture_id": "rain-000018",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000018__train-g0__train-m1",
+      "texture_id": "rain-000018",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000018__train-g0__train-m2",
+      "texture_id": "rain-000018",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000018__train-g1__train-m0",
+      "texture_id": "rain-000018",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000018__train-g1__train-m1",
+      "texture_id": "rain-000018",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000018__train-g1__train-m2",
+      "texture_id": "rain-000018",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000018__eval-g0__eval-m0",
+      "texture_id": "rain-000018",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000018__eval-g0__eval-m1",
+      "texture_id": "rain-000018",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000018__eval-g1__eval-m0",
+      "texture_id": "rain-000018",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000018__eval-g1__eval-m1",
+      "texture_id": "rain-000018",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000019__train-g0__train-m0",
+      "texture_id": "rain-000019",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000019__train-g0__train-m1",
+      "texture_id": "rain-000019",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000019__train-g0__train-m2",
+      "texture_id": "rain-000019",
+      "group": "rain",
+      "geometry_id": "train-g0",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000019__train-g1__train-m0",
+      "texture_id": "rain-000019",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m0",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000019__train-g1__train-m1",
+      "texture_id": "rain-000019",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m1",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000019__train-g1__train-m2",
+      "texture_id": "rain-000019",
+      "group": "rain",
+      "geometry_id": "train-g1",
+      "motion_id": "train-m2",
+      "partition": "train"
+    },
+    {
+      "id": "rain-000019__eval-g0__eval-m0",
+      "texture_id": "rain-000019",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000019__eval-g0__eval-m1",
+      "texture_id": "rain-000019",
+      "group": "rain",
+      "geometry_id": "eval-g0",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000019__eval-g1__eval-m0",
+      "texture_id": "rain-000019",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m0",
+      "partition": "evaluation"
+    },
+    {
+      "id": "rain-000019__eval-g1__eval-m1",
+      "texture_id": "rain-000019",
+      "group": "rain",
+      "geometry_id": "eval-g1",
+      "motion_id": "eval-m1",
+      "partition": "evaluation"
+    }
+  ],
+  "folds": [
+    {
+      "excluded_group": "day",
+      "training_scene_ids": [
+        "night-000000__train-g0__train-m0",
+        "night-000000__train-g0__train-m1",
+        "night-000000__train-g0__train-m2",
+        "night-000000__train-g1__train-m0",
+        "night-000000__train-g1__train-m1",
+        "night-000000__train-g1__train-m2",
+        "night-000001__train-g0__train-m0",
+        "night-000001__train-g0__train-m1",
+        "night-000001__train-g0__train-m2",
+        "night-000001__train-g1__train-m0",
+        "night-000001__train-g1__train-m1",
+        "night-000001__train-g1__train-m2",
+        "night-000002__train-g0__train-m0",
+        "night-000002__train-g0__train-m1",
+        "night-000002__train-g0__train-m2",
+        "night-000002__train-g1__train-m0",
+        "night-000002__train-g1__train-m1",
+        "night-000002__train-g1__train-m2",
+        "night-000003__train-g0__train-m0",
+        "night-000003__train-g0__train-m1",
+        "night-000003__train-g0__train-m2",
+        "night-000003__train-g1__train-m0",
+        "night-000003__train-g1__train-m1",
+        "night-000003__train-g1__train-m2",
+        "night-000004__train-g0__train-m0",
+        "night-000004__train-g0__train-m1",
+        "night-000004__train-g0__train-m2",
+        "night-000004__train-g1__train-m0",
+        "night-000004__train-g1__train-m1",
+        "night-000004__train-g1__train-m2",
+        "night-000005__train-g0__train-m0",
+        "night-000005__train-g0__train-m1",
+        "night-000005__train-g0__train-m2",
+        "night-000005__train-g1__train-m0",
+        "night-000005__train-g1__train-m1",
+        "night-000005__train-g1__train-m2",
+        "night-000006__train-g0__train-m0",
+        "night-000006__train-g0__train-m1",
+        "night-000006__train-g0__train-m2",
+        "night-000006__train-g1__train-m0",
+        "night-000006__train-g1__train-m1",
+        "night-000006__train-g1__train-m2",
+        "night-000007__train-g0__train-m0",
+        "night-000007__train-g0__train-m1",
+        "night-000007__train-g0__train-m2",
+        "night-000007__train-g1__train-m0",
+        "night-000007__train-g1__train-m1",
+        "night-000007__train-g1__train-m2",
+        "night-000008__train-g0__train-m0",
+        "night-000008__train-g0__train-m1",
+        "night-000008__train-g0__train-m2",
+        "night-000008__train-g1__train-m0",
+        "night-000008__train-g1__train-m1",
+        "night-000008__train-g1__train-m2",
+        "night-000009__train-g0__train-m0",
+        "night-000009__train-g0__train-m1",
+        "night-000009__train-g0__train-m2",
+        "night-000009__train-g1__train-m0",
+        "night-000009__train-g1__train-m1",
+        "night-000009__train-g1__train-m2",
+        "night-000010__train-g0__train-m0",
+        "night-000010__train-g0__train-m1",
+        "night-000010__train-g0__train-m2",
+        "night-000010__train-g1__train-m0",
+        "night-000010__train-g1__train-m1",
+        "night-000010__train-g1__train-m2",
+        "night-000011__train-g0__train-m0",
+        "night-000011__train-g0__train-m1",
+        "night-000011__train-g0__train-m2",
+        "night-000011__train-g1__train-m0",
+        "night-000011__train-g1__train-m1",
+        "night-000011__train-g1__train-m2",
+        "night-000012__train-g0__train-m0",
+        "night-000012__train-g0__train-m1",
+        "night-000012__train-g0__train-m2",
+        "night-000012__train-g1__train-m0",
+        "night-000012__train-g1__train-m1",
+        "night-000012__train-g1__train-m2",
+        "night-000013__train-g0__train-m0",
+        "night-000013__train-g0__train-m1",
+        "night-000013__train-g0__train-m2",
+        "night-000013__train-g1__train-m0",
+        "night-000013__train-g1__train-m1",
+        "night-000013__train-g1__train-m2",
+        "night-000014__train-g0__train-m0",
+        "night-000014__train-g0__train-m1",
+        "night-000014__train-g0__train-m2",
+        "night-000014__train-g1__train-m0",
+        "night-000014__train-g1__train-m1",
+        "night-000014__train-g1__train-m2",
+        "night-000015__train-g0__train-m0",
+        "night-000015__train-g0__train-m1",
+        "night-000015__train-g0__train-m2",
+        "night-000015__train-g1__train-m0",
+        "night-000015__train-g1__train-m1",
+        "night-000015__train-g1__train-m2",
+        "night-000016__train-g0__train-m0",
+        "night-000016__train-g0__train-m1",
+        "night-000016__train-g0__train-m2",
+        "night-000016__train-g1__train-m0",
+        "night-000016__train-g1__train-m1",
+        "night-000016__train-g1__train-m2",
+        "night-000017__train-g0__train-m0",
+        "night-000017__train-g0__train-m1",
+        "night-000017__train-g0__train-m2",
+        "night-000017__train-g1__train-m0",
+        "night-000017__train-g1__train-m1",
+        "night-000017__train-g1__train-m2",
+        "night-000018__train-g0__train-m0",
+        "night-000018__train-g0__train-m1",
+        "night-000018__train-g0__train-m2",
+        "night-000018__train-g1__train-m0",
+        "night-000018__train-g1__train-m1",
+        "night-000018__train-g1__train-m2",
+        "night-000019__train-g0__train-m0",
+        "night-000019__train-g0__train-m1",
+        "night-000019__train-g0__train-m2",
+        "night-000019__train-g1__train-m0",
+        "night-000019__train-g1__train-m1",
+        "night-000019__train-g1__train-m2",
+        "rain-000000__train-g0__train-m0",
+        "rain-000000__train-g0__train-m1",
+        "rain-000000__train-g0__train-m2",
+        "rain-000000__train-g1__train-m0",
+        "rain-000000__train-g1__train-m1",
+        "rain-000000__train-g1__train-m2",
+        "rain-000001__train-g0__train-m0",
+        "rain-000001__train-g0__train-m1",
+        "rain-000001__train-g0__train-m2",
+        "rain-000001__train-g1__train-m0",
+        "rain-000001__train-g1__train-m1",
+        "rain-000001__train-g1__train-m2",
+        "rain-000002__train-g0__train-m0",
+        "rain-000002__train-g0__train-m1",
+        "rain-000002__train-g0__train-m2",
+        "rain-000002__train-g1__train-m0",
+        "rain-000002__train-g1__train-m1",
+        "rain-000002__train-g1__train-m2",
+        "rain-000003__train-g0__train-m0",
+        "rain-000003__train-g0__train-m1",
+        "rain-000003__train-g0__train-m2",
+        "rain-000003__train-g1__train-m0",
+        "rain-000003__train-g1__train-m1",
+        "rain-000003__train-g1__train-m2",
+        "rain-000004__train-g0__train-m0",
+        "rain-000004__train-g0__train-m1",
+        "rain-000004__train-g0__train-m2",
+        "rain-000004__train-g1__train-m0",
+        "rain-000004__train-g1__train-m1",
+        "rain-000004__train-g1__train-m2",
+        "rain-000005__train-g0__train-m0",
+        "rain-000005__train-g0__train-m1",
+        "rain-000005__train-g0__train-m2",
+        "rain-000005__train-g1__train-m0",
+        "rain-000005__train-g1__train-m1",
+        "rain-000005__train-g1__train-m2",
+        "rain-000006__train-g0__train-m0",
+        "rain-000006__train-g0__train-m1",
+        "rain-000006__train-g0__train-m2",
+        "rain-000006__train-g1__train-m0",
+        "rain-000006__train-g1__train-m1",
+        "rain-000006__train-g1__train-m2",
+        "rain-000007__train-g0__train-m0",
+        "rain-000007__train-g0__train-m1",
+        "rain-000007__train-g0__train-m2",
+        "rain-000007__train-g1__train-m0",
+        "rain-000007__train-g1__train-m1",
+        "rain-000007__train-g1__train-m2",
+        "rain-000008__train-g0__train-m0",
+        "rain-000008__train-g0__train-m1",
+        "rain-000008__train-g0__train-m2",
+        "rain-000008__train-g1__train-m0",
+        "rain-000008__train-g1__train-m1",
+        "rain-000008__train-g1__train-m2",
+        "rain-000009__train-g0__train-m0",
+        "rain-000009__train-g0__train-m1",
+        "rain-000009__train-g0__train-m2",
+        "rain-000009__train-g1__train-m0",
+        "rain-000009__train-g1__train-m1",
+        "rain-000009__train-g1__train-m2",
+        "rain-000010__train-g0__train-m0",
+        "rain-000010__train-g0__train-m1",
+        "rain-000010__train-g0__train-m2",
+        "rain-000010__train-g1__train-m0",
+        "rain-000010__train-g1__train-m1",
+        "rain-000010__train-g1__train-m2",
+        "rain-000011__train-g0__train-m0",
+        "rain-000011__train-g0__train-m1",
+        "rain-000011__train-g0__train-m2",
+        "rain-000011__train-g1__train-m0",
+        "rain-000011__train-g1__train-m1",
+        "rain-000011__train-g1__train-m2",
+        "rain-000012__train-g0__train-m0",
+        "rain-000012__train-g0__train-m1",
+        "rain-000012__train-g0__train-m2",
+        "rain-000012__train-g1__train-m0",
+        "rain-000012__train-g1__train-m1",
+        "rain-000012__train-g1__train-m2",
+        "rain-000013__train-g0__train-m0",
+        "rain-000013__train-g0__train-m1",
+        "rain-000013__train-g0__train-m2",
+        "rain-000013__train-g1__train-m0",
+        "rain-000013__train-g1__train-m1",
+        "rain-000013__train-g1__train-m2",
+        "rain-000014__train-g0__train-m0",
+        "rain-000014__train-g0__train-m1",
+        "rain-000014__train-g0__train-m2",
+        "rain-000014__train-g1__train-m0",
+        "rain-000014__train-g1__train-m1",
+        "rain-000014__train-g1__train-m2",
+        "rain-000015__train-g0__train-m0",
+        "rain-000015__train-g0__train-m1",
+        "rain-000015__train-g0__train-m2",
+        "rain-000015__train-g1__train-m0",
+        "rain-000015__train-g1__train-m1",
+        "rain-000015__train-g1__train-m2",
+        "rain-000016__train-g0__train-m0",
+        "rain-000016__train-g0__train-m1",
+        "rain-000016__train-g0__train-m2",
+        "rain-000016__train-g1__train-m0",
+        "rain-000016__train-g1__train-m1",
+        "rain-000016__train-g1__train-m2",
+        "rain-000017__train-g0__train-m0",
+        "rain-000017__train-g0__train-m1",
+        "rain-000017__train-g0__train-m2",
+        "rain-000017__train-g1__train-m0",
+        "rain-000017__train-g1__train-m1",
+        "rain-000017__train-g1__train-m2",
+        "rain-000018__train-g0__train-m0",
+        "rain-000018__train-g0__train-m1",
+        "rain-000018__train-g0__train-m2",
+        "rain-000018__train-g1__train-m0",
+        "rain-000018__train-g1__train-m1",
+        "rain-000018__train-g1__train-m2",
+        "rain-000019__train-g0__train-m0",
+        "rain-000019__train-g0__train-m1",
+        "rain-000019__train-g0__train-m2",
+        "rain-000019__train-g1__train-m0",
+        "rain-000019__train-g1__train-m1",
+        "rain-000019__train-g1__train-m2"
+      ],
+      "evaluation_scene_ids": [
+        "day-000000__eval-g0__eval-m0",
+        "day-000000__eval-g0__eval-m1",
+        "day-000000__eval-g1__eval-m0",
+        "day-000000__eval-g1__eval-m1",
+        "day-000001__eval-g0__eval-m0",
+        "day-000001__eval-g0__eval-m1",
+        "day-000001__eval-g1__eval-m0",
+        "day-000001__eval-g1__eval-m1",
+        "day-000002__eval-g0__eval-m0",
+        "day-000002__eval-g0__eval-m1",
+        "day-000002__eval-g1__eval-m0",
+        "day-000002__eval-g1__eval-m1",
+        "day-000003__eval-g0__eval-m0",
+        "day-000003__eval-g0__eval-m1",
+        "day-000003__eval-g1__eval-m0",
+        "day-000003__eval-g1__eval-m1",
+        "day-000004__eval-g0__eval-m0",
+        "day-000004__eval-g0__eval-m1",
+        "day-000004__eval-g1__eval-m0",
+        "day-000004__eval-g1__eval-m1",
+        "day-000005__eval-g0__eval-m0",
+        "day-000005__eval-g0__eval-m1",
+        "day-000005__eval-g1__eval-m0",
+        "day-000005__eval-g1__eval-m1",
+        "day-000006__eval-g0__eval-m0",
+        "day-000006__eval-g0__eval-m1",
+        "day-000006__eval-g1__eval-m0",
+        "day-000006__eval-g1__eval-m1",
+        "day-000007__eval-g0__eval-m0",
+        "day-000007__eval-g0__eval-m1",
+        "day-000007__eval-g1__eval-m0",
+        "day-000007__eval-g1__eval-m1",
+        "day-000008__eval-g0__eval-m0",
+        "day-000008__eval-g0__eval-m1",
+        "day-000008__eval-g1__eval-m0",
+        "day-000008__eval-g1__eval-m1",
+        "day-000009__eval-g0__eval-m0",
+        "day-000009__eval-g0__eval-m1",
+        "day-000009__eval-g1__eval-m0",
+        "day-000009__eval-g1__eval-m1",
+        "day-000010__eval-g0__eval-m0",
+        "day-000010__eval-g0__eval-m1",
+        "day-000010__eval-g1__eval-m0",
+        "day-000010__eval-g1__eval-m1",
+        "day-000011__eval-g0__eval-m0",
+        "day-000011__eval-g0__eval-m1",
+        "day-000011__eval-g1__eval-m0",
+        "day-000011__eval-g1__eval-m1",
+        "day-000012__eval-g0__eval-m0",
+        "day-000012__eval-g0__eval-m1",
+        "day-000012__eval-g1__eval-m0",
+        "day-000012__eval-g1__eval-m1",
+        "day-000013__eval-g0__eval-m0",
+        "day-000013__eval-g0__eval-m1",
+        "day-000013__eval-g1__eval-m0",
+        "day-000013__eval-g1__eval-m1",
+        "day-000014__eval-g0__eval-m0",
+        "day-000014__eval-g0__eval-m1",
+        "day-000014__eval-g1__eval-m0",
+        "day-000014__eval-g1__eval-m1",
+        "day-000015__eval-g0__eval-m0",
+        "day-000015__eval-g0__eval-m1",
+        "day-000015__eval-g1__eval-m0",
+        "day-000015__eval-g1__eval-m1",
+        "day-000016__eval-g0__eval-m0",
+        "day-000016__eval-g0__eval-m1",
+        "day-000016__eval-g1__eval-m0",
+        "day-000016__eval-g1__eval-m1",
+        "day-000017__eval-g0__eval-m0",
+        "day-000017__eval-g0__eval-m1",
+        "day-000017__eval-g1__eval-m0",
+        "day-000017__eval-g1__eval-m1",
+        "day-000018__eval-g0__eval-m0",
+        "day-000018__eval-g0__eval-m1",
+        "day-000018__eval-g1__eval-m0",
+        "day-000018__eval-g1__eval-m1",
+        "day-000019__eval-g0__eval-m0",
+        "day-000019__eval-g0__eval-m1",
+        "day-000019__eval-g1__eval-m0",
+        "day-000019__eval-g1__eval-m1"
+      ]
+    },
+    {
+      "excluded_group": "night",
+      "training_scene_ids": [
+        "day-000000__train-g0__train-m0",
+        "day-000000__train-g0__train-m1",
+        "day-000000__train-g0__train-m2",
+        "day-000000__train-g1__train-m0",
+        "day-000000__train-g1__train-m1",
+        "day-000000__train-g1__train-m2",
+        "day-000001__train-g0__train-m0",
+        "day-000001__train-g0__train-m1",
+        "day-000001__train-g0__train-m2",
+        "day-000001__train-g1__train-m0",
+        "day-000001__train-g1__train-m1",
+        "day-000001__train-g1__train-m2",
+        "day-000002__train-g0__train-m0",
+        "day-000002__train-g0__train-m1",
+        "day-000002__train-g0__train-m2",
+        "day-000002__train-g1__train-m0",
+        "day-000002__train-g1__train-m1",
+        "day-000002__train-g1__train-m2",
+        "day-000003__train-g0__train-m0",
+        "day-000003__train-g0__train-m1",
+        "day-000003__train-g0__train-m2",
+        "day-000003__train-g1__train-m0",
+        "day-000003__train-g1__train-m1",
+        "day-000003__train-g1__train-m2",
+        "day-000004__train-g0__train-m0",
+        "day-000004__train-g0__train-m1",
+        "day-000004__train-g0__train-m2",
+        "day-000004__train-g1__train-m0",
+        "day-000004__train-g1__train-m1",
+        "day-000004__train-g1__train-m2",
+        "day-000005__train-g0__train-m0",
+        "day-000005__train-g0__train-m1",
+        "day-000005__train-g0__train-m2",
+        "day-000005__train-g1__train-m0",
+        "day-000005__train-g1__train-m1",
+        "day-000005__train-g1__train-m2",
+        "day-000006__train-g0__train-m0",
+        "day-000006__train-g0__train-m1",
+        "day-000006__train-g0__train-m2",
+        "day-000006__train-g1__train-m0",
+        "day-000006__train-g1__train-m1",
+        "day-000006__train-g1__train-m2",
+        "day-000007__train-g0__train-m0",
+        "day-000007__train-g0__train-m1",
+        "day-000007__train-g0__train-m2",
+        "day-000007__train-g1__train-m0",
+        "day-000007__train-g1__train-m1",
+        "day-000007__train-g1__train-m2",
+        "day-000008__train-g0__train-m0",
+        "day-000008__train-g0__train-m1",
+        "day-000008__train-g0__train-m2",
+        "day-000008__train-g1__train-m0",
+        "day-000008__train-g1__train-m1",
+        "day-000008__train-g1__train-m2",
+        "day-000009__train-g0__train-m0",
+        "day-000009__train-g0__train-m1",
+        "day-000009__train-g0__train-m2",
+        "day-000009__train-g1__train-m0",
+        "day-000009__train-g1__train-m1",
+        "day-000009__train-g1__train-m2",
+        "day-000010__train-g0__train-m0",
+        "day-000010__train-g0__train-m1",
+        "day-000010__train-g0__train-m2",
+        "day-000010__train-g1__train-m0",
+        "day-000010__train-g1__train-m1",
+        "day-000010__train-g1__train-m2",
+        "day-000011__train-g0__train-m0",
+        "day-000011__train-g0__train-m1",
+        "day-000011__train-g0__train-m2",
+        "day-000011__train-g1__train-m0",
+        "day-000011__train-g1__train-m1",
+        "day-000011__train-g1__train-m2",
+        "day-000012__train-g0__train-m0",
+        "day-000012__train-g0__train-m1",
+        "day-000012__train-g0__train-m2",
+        "day-000012__train-g1__train-m0",
+        "day-000012__train-g1__train-m1",
+        "day-000012__train-g1__train-m2",
+        "day-000013__train-g0__train-m0",
+        "day-000013__train-g0__train-m1",
+        "day-000013__train-g0__train-m2",
+        "day-000013__train-g1__train-m0",
+        "day-000013__train-g1__train-m1",
+        "day-000013__train-g1__train-m2",
+        "day-000014__train-g0__train-m0",
+        "day-000014__train-g0__train-m1",
+        "day-000014__train-g0__train-m2",
+        "day-000014__train-g1__train-m0",
+        "day-000014__train-g1__train-m1",
+        "day-000014__train-g1__train-m2",
+        "day-000015__train-g0__train-m0",
+        "day-000015__train-g0__train-m1",
+        "day-000015__train-g0__train-m2",
+        "day-000015__train-g1__train-m0",
+        "day-000015__train-g1__train-m1",
+        "day-000015__train-g1__train-m2",
+        "day-000016__train-g0__train-m0",
+        "day-000016__train-g0__train-m1",
+        "day-000016__train-g0__train-m2",
+        "day-000016__train-g1__train-m0",
+        "day-000016__train-g1__train-m1",
+        "day-000016__train-g1__train-m2",
+        "day-000017__train-g0__train-m0",
+        "day-000017__train-g0__train-m1",
+        "day-000017__train-g0__train-m2",
+        "day-000017__train-g1__train-m0",
+        "day-000017__train-g1__train-m1",
+        "day-000017__train-g1__train-m2",
+        "day-000018__train-g0__train-m0",
+        "day-000018__train-g0__train-m1",
+        "day-000018__train-g0__train-m2",
+        "day-000018__train-g1__train-m0",
+        "day-000018__train-g1__train-m1",
+        "day-000018__train-g1__train-m2",
+        "day-000019__train-g0__train-m0",
+        "day-000019__train-g0__train-m1",
+        "day-000019__train-g0__train-m2",
+        "day-000019__train-g1__train-m0",
+        "day-000019__train-g1__train-m1",
+        "day-000019__train-g1__train-m2",
+        "rain-000000__train-g0__train-m0",
+        "rain-000000__train-g0__train-m1",
+        "rain-000000__train-g0__train-m2",
+        "rain-000000__train-g1__train-m0",
+        "rain-000000__train-g1__train-m1",
+        "rain-000000__train-g1__train-m2",
+        "rain-000001__train-g0__train-m0",
+        "rain-000001__train-g0__train-m1",
+        "rain-000001__train-g0__train-m2",
+        "rain-000001__train-g1__train-m0",
+        "rain-000001__train-g1__train-m1",
+        "rain-000001__train-g1__train-m2",
+        "rain-000002__train-g0__train-m0",
+        "rain-000002__train-g0__train-m1",
+        "rain-000002__train-g0__train-m2",
+        "rain-000002__train-g1__train-m0",
+        "rain-000002__train-g1__train-m1",
+        "rain-000002__train-g1__train-m2",
+        "rain-000003__train-g0__train-m0",
+        "rain-000003__train-g0__train-m1",
+        "rain-000003__train-g0__train-m2",
+        "rain-000003__train-g1__train-m0",
+        "rain-000003__train-g1__train-m1",
+        "rain-000003__train-g1__train-m2",
+        "rain-000004__train-g0__train-m0",
+        "rain-000004__train-g0__train-m1",
+        "rain-000004__train-g0__train-m2",
+        "rain-000004__train-g1__train-m0",
+        "rain-000004__train-g1__train-m1",
+        "rain-000004__train-g1__train-m2",
+        "rain-000005__train-g0__train-m0",
+        "rain-000005__train-g0__train-m1",
+        "rain-000005__train-g0__train-m2",
+        "rain-000005__train-g1__train-m0",
+        "rain-000005__train-g1__train-m1",
+        "rain-000005__train-g1__train-m2",
+        "rain-000006__train-g0__train-m0",
+        "rain-000006__train-g0__train-m1",
+        "rain-000006__train-g0__train-m2",
+        "rain-000006__train-g1__train-m0",
+        "rain-000006__train-g1__train-m1",
+        "rain-000006__train-g1__train-m2",
+        "rain-000007__train-g0__train-m0",
+        "rain-000007__train-g0__train-m1",
+        "rain-000007__train-g0__train-m2",
+        "rain-000007__train-g1__train-m0",
+        "rain-000007__train-g1__train-m1",
+        "rain-000007__train-g1__train-m2",
+        "rain-000008__train-g0__train-m0",
+        "rain-000008__train-g0__train-m1",
+        "rain-000008__train-g0__train-m2",
+        "rain-000008__train-g1__train-m0",
+        "rain-000008__train-g1__train-m1",
+        "rain-000008__train-g1__train-m2",
+        "rain-000009__train-g0__train-m0",
+        "rain-000009__train-g0__train-m1",
+        "rain-000009__train-g0__train-m2",
+        "rain-000009__train-g1__train-m0",
+        "rain-000009__train-g1__train-m1",
+        "rain-000009__train-g1__train-m2",
+        "rain-000010__train-g0__train-m0",
+        "rain-000010__train-g0__train-m1",
+        "rain-000010__train-g0__train-m2",
+        "rain-000010__train-g1__train-m0",
+        "rain-000010__train-g1__train-m1",
+        "rain-000010__train-g1__train-m2",
+        "rain-000011__train-g0__train-m0",
+        "rain-000011__train-g0__train-m1",
+        "rain-000011__train-g0__train-m2",
+        "rain-000011__train-g1__train-m0",
+        "rain-000011__train-g1__train-m1",
+        "rain-000011__train-g1__train-m2",
+        "rain-000012__train-g0__train-m0",
+        "rain-000012__train-g0__train-m1",
+        "rain-000012__train-g0__train-m2",
+        "rain-000012__train-g1__train-m0",
+        "rain-000012__train-g1__train-m1",
+        "rain-000012__train-g1__train-m2",
+        "rain-000013__train-g0__train-m0",
+        "rain-000013__train-g0__train-m1",
+        "rain-000013__train-g0__train-m2",
+        "rain-000013__train-g1__train-m0",
+        "rain-000013__train-g1__train-m1",
+        "rain-000013__train-g1__train-m2",
+        "rain-000014__train-g0__train-m0",
+        "rain-000014__train-g0__train-m1",
+        "rain-000014__train-g0__train-m2",
+        "rain-000014__train-g1__train-m0",
+        "rain-000014__train-g1__train-m1",
+        "rain-000014__train-g1__train-m2",
+        "rain-000015__train-g0__train-m0",
+        "rain-000015__train-g0__train-m1",
+        "rain-000015__train-g0__train-m2",
+        "rain-000015__train-g1__train-m0",
+        "rain-000015__train-g1__train-m1",
+        "rain-000015__train-g1__train-m2",
+        "rain-000016__train-g0__train-m0",
+        "rain-000016__train-g0__train-m1",
+        "rain-000016__train-g0__train-m2",
+        "rain-000016__train-g1__train-m0",
+        "rain-000016__train-g1__train-m1",
+        "rain-000016__train-g1__train-m2",
+        "rain-000017__train-g0__train-m0",
+        "rain-000017__train-g0__train-m1",
+        "rain-000017__train-g0__train-m2",
+        "rain-000017__train-g1__train-m0",
+        "rain-000017__train-g1__train-m1",
+        "rain-000017__train-g1__train-m2",
+        "rain-000018__train-g0__train-m0",
+        "rain-000018__train-g0__train-m1",
+        "rain-000018__train-g0__train-m2",
+        "rain-000018__train-g1__train-m0",
+        "rain-000018__train-g1__train-m1",
+        "rain-000018__train-g1__train-m2",
+        "rain-000019__train-g0__train-m0",
+        "rain-000019__train-g0__train-m1",
+        "rain-000019__train-g0__train-m2",
+        "rain-000019__train-g1__train-m0",
+        "rain-000019__train-g1__train-m1",
+        "rain-000019__train-g1__train-m2"
+      ],
+      "evaluation_scene_ids": [
+        "night-000000__eval-g0__eval-m0",
+        "night-000000__eval-g0__eval-m1",
+        "night-000000__eval-g1__eval-m0",
+        "night-000000__eval-g1__eval-m1",
+        "night-000001__eval-g0__eval-m0",
+        "night-000001__eval-g0__eval-m1",
+        "night-000001__eval-g1__eval-m0",
+        "night-000001__eval-g1__eval-m1",
+        "night-000002__eval-g0__eval-m0",
+        "night-000002__eval-g0__eval-m1",
+        "night-000002__eval-g1__eval-m0",
+        "night-000002__eval-g1__eval-m1",
+        "night-000003__eval-g0__eval-m0",
+        "night-000003__eval-g0__eval-m1",
+        "night-000003__eval-g1__eval-m0",
+        "night-000003__eval-g1__eval-m1",
+        "night-000004__eval-g0__eval-m0",
+        "night-000004__eval-g0__eval-m1",
+        "night-000004__eval-g1__eval-m0",
+        "night-000004__eval-g1__eval-m1",
+        "night-000005__eval-g0__eval-m0",
+        "night-000005__eval-g0__eval-m1",
+        "night-000005__eval-g1__eval-m0",
+        "night-000005__eval-g1__eval-m1",
+        "night-000006__eval-g0__eval-m0",
+        "night-000006__eval-g0__eval-m1",
+        "night-000006__eval-g1__eval-m0",
+        "night-000006__eval-g1__eval-m1",
+        "night-000007__eval-g0__eval-m0",
+        "night-000007__eval-g0__eval-m1",
+        "night-000007__eval-g1__eval-m0",
+        "night-000007__eval-g1__eval-m1",
+        "night-000008__eval-g0__eval-m0",
+        "night-000008__eval-g0__eval-m1",
+        "night-000008__eval-g1__eval-m0",
+        "night-000008__eval-g1__eval-m1",
+        "night-000009__eval-g0__eval-m0",
+        "night-000009__eval-g0__eval-m1",
+        "night-000009__eval-g1__eval-m0",
+        "night-000009__eval-g1__eval-m1",
+        "night-000010__eval-g0__eval-m0",
+        "night-000010__eval-g0__eval-m1",
+        "night-000010__eval-g1__eval-m0",
+        "night-000010__eval-g1__eval-m1",
+        "night-000011__eval-g0__eval-m0",
+        "night-000011__eval-g0__eval-m1",
+        "night-000011__eval-g1__eval-m0",
+        "night-000011__eval-g1__eval-m1",
+        "night-000012__eval-g0__eval-m0",
+        "night-000012__eval-g0__eval-m1",
+        "night-000012__eval-g1__eval-m0",
+        "night-000012__eval-g1__eval-m1",
+        "night-000013__eval-g0__eval-m0",
+        "night-000013__eval-g0__eval-m1",
+        "night-000013__eval-g1__eval-m0",
+        "night-000013__eval-g1__eval-m1",
+        "night-000014__eval-g0__eval-m0",
+        "night-000014__eval-g0__eval-m1",
+        "night-000014__eval-g1__eval-m0",
+        "night-000014__eval-g1__eval-m1",
+        "night-000015__eval-g0__eval-m0",
+        "night-000015__eval-g0__eval-m1",
+        "night-000015__eval-g1__eval-m0",
+        "night-000015__eval-g1__eval-m1",
+        "night-000016__eval-g0__eval-m0",
+        "night-000016__eval-g0__eval-m1",
+        "night-000016__eval-g1__eval-m0",
+        "night-000016__eval-g1__eval-m1",
+        "night-000017__eval-g0__eval-m0",
+        "night-000017__eval-g0__eval-m1",
+        "night-000017__eval-g1__eval-m0",
+        "night-000017__eval-g1__eval-m1",
+        "night-000018__eval-g0__eval-m0",
+        "night-000018__eval-g0__eval-m1",
+        "night-000018__eval-g1__eval-m0",
+        "night-000018__eval-g1__eval-m1",
+        "night-000019__eval-g0__eval-m0",
+        "night-000019__eval-g0__eval-m1",
+        "night-000019__eval-g1__eval-m0",
+        "night-000019__eval-g1__eval-m1"
+      ]
+    },
+    {
+      "excluded_group": "rain",
+      "training_scene_ids": [
+        "day-000000__train-g0__train-m0",
+        "day-000000__train-g0__train-m1",
+        "day-000000__train-g0__train-m2",
+        "day-000000__train-g1__train-m0",
+        "day-000000__train-g1__train-m1",
+        "day-000000__train-g1__train-m2",
+        "day-000001__train-g0__train-m0",
+        "day-000001__train-g0__train-m1",
+        "day-000001__train-g0__train-m2",
+        "day-000001__train-g1__train-m0",
+        "day-000001__train-g1__train-m1",
+        "day-000001__train-g1__train-m2",
+        "day-000002__train-g0__train-m0",
+        "day-000002__train-g0__train-m1",
+        "day-000002__train-g0__train-m2",
+        "day-000002__train-g1__train-m0",
+        "day-000002__train-g1__train-m1",
+        "day-000002__train-g1__train-m2",
+        "day-000003__train-g0__train-m0",
+        "day-000003__train-g0__train-m1",
+        "day-000003__train-g0__train-m2",
+        "day-000003__train-g1__train-m0",
+        "day-000003__train-g1__train-m1",
+        "day-000003__train-g1__train-m2",
+        "day-000004__train-g0__train-m0",
+        "day-000004__train-g0__train-m1",
+        "day-000004__train-g0__train-m2",
+        "day-000004__train-g1__train-m0",
+        "day-000004__train-g1__train-m1",
+        "day-000004__train-g1__train-m2",
+        "day-000005__train-g0__train-m0",
+        "day-000005__train-g0__train-m1",
+        "day-000005__train-g0__train-m2",
+        "day-000005__train-g1__train-m0",
+        "day-000005__train-g1__train-m1",
+        "day-000005__train-g1__train-m2",
+        "day-000006__train-g0__train-m0",
+        "day-000006__train-g0__train-m1",
+        "day-000006__train-g0__train-m2",
+        "day-000006__train-g1__train-m0",
+        "day-000006__train-g1__train-m1",
+        "day-000006__train-g1__train-m2",
+        "day-000007__train-g0__train-m0",
+        "day-000007__train-g0__train-m1",
+        "day-000007__train-g0__train-m2",
+        "day-000007__train-g1__train-m0",
+        "day-000007__train-g1__train-m1",
+        "day-000007__train-g1__train-m2",
+        "day-000008__train-g0__train-m0",
+        "day-000008__train-g0__train-m1",
+        "day-000008__train-g0__train-m2",
+        "day-000008__train-g1__train-m0",
+        "day-000008__train-g1__train-m1",
+        "day-000008__train-g1__train-m2",
+        "day-000009__train-g0__train-m0",
+        "day-000009__train-g0__train-m1",
+        "day-000009__train-g0__train-m2",
+        "day-000009__train-g1__train-m0",
+        "day-000009__train-g1__train-m1",
+        "day-000009__train-g1__train-m2",
+        "day-000010__train-g0__train-m0",
+        "day-000010__train-g0__train-m1",
+        "day-000010__train-g0__train-m2",
+        "day-000010__train-g1__train-m0",
+        "day-000010__train-g1__train-m1",
+        "day-000010__train-g1__train-m2",
+        "day-000011__train-g0__train-m0",
+        "day-000011__train-g0__train-m1",
+        "day-000011__train-g0__train-m2",
+        "day-000011__train-g1__train-m0",
+        "day-000011__train-g1__train-m1",
+        "day-000011__train-g1__train-m2",
+        "day-000012__train-g0__train-m0",
+        "day-000012__train-g0__train-m1",
+        "day-000012__train-g0__train-m2",
+        "day-000012__train-g1__train-m0",
+        "day-000012__train-g1__train-m1",
+        "day-000012__train-g1__train-m2",
+        "day-000013__train-g0__train-m0",
+        "day-000013__train-g0__train-m1",
+        "day-000013__train-g0__train-m2",
+        "day-000013__train-g1__train-m0",
+        "day-000013__train-g1__train-m1",
+        "day-000013__train-g1__train-m2",
+        "day-000014__train-g0__train-m0",
+        "day-000014__train-g0__train-m1",
+        "day-000014__train-g0__train-m2",
+        "day-000014__train-g1__train-m0",
+        "day-000014__train-g1__train-m1",
+        "day-000014__train-g1__train-m2",
+        "day-000015__train-g0__train-m0",
+        "day-000015__train-g0__train-m1",
+        "day-000015__train-g0__train-m2",
+        "day-000015__train-g1__train-m0",
+        "day-000015__train-g1__train-m1",
+        "day-000015__train-g1__train-m2",
+        "day-000016__train-g0__train-m0",
+        "day-000016__train-g0__train-m1",
+        "day-000016__train-g0__train-m2",
+        "day-000016__train-g1__train-m0",
+        "day-000016__train-g1__train-m1",
+        "day-000016__train-g1__train-m2",
+        "day-000017__train-g0__train-m0",
+        "day-000017__train-g0__train-m1",
+        "day-000017__train-g0__train-m2",
+        "day-000017__train-g1__train-m0",
+        "day-000017__train-g1__train-m1",
+        "day-000017__train-g1__train-m2",
+        "day-000018__train-g0__train-m0",
+        "day-000018__train-g0__train-m1",
+        "day-000018__train-g0__train-m2",
+        "day-000018__train-g1__train-m0",
+        "day-000018__train-g1__train-m1",
+        "day-000018__train-g1__train-m2",
+        "day-000019__train-g0__train-m0",
+        "day-000019__train-g0__train-m1",
+        "day-000019__train-g0__train-m2",
+        "day-000019__train-g1__train-m0",
+        "day-000019__train-g1__train-m1",
+        "day-000019__train-g1__train-m2",
+        "night-000000__train-g0__train-m0",
+        "night-000000__train-g0__train-m1",
+        "night-000000__train-g0__train-m2",
+        "night-000000__train-g1__train-m0",
+        "night-000000__train-g1__train-m1",
+        "night-000000__train-g1__train-m2",
+        "night-000001__train-g0__train-m0",
+        "night-000001__train-g0__train-m1",
+        "night-000001__train-g0__train-m2",
+        "night-000001__train-g1__train-m0",
+        "night-000001__train-g1__train-m1",
+        "night-000001__train-g1__train-m2",
+        "night-000002__train-g0__train-m0",
+        "night-000002__train-g0__train-m1",
+        "night-000002__train-g0__train-m2",
+        "night-000002__train-g1__train-m0",
+        "night-000002__train-g1__train-m1",
+        "night-000002__train-g1__train-m2",
+        "night-000003__train-g0__train-m0",
+        "night-000003__train-g0__train-m1",
+        "night-000003__train-g0__train-m2",
+        "night-000003__train-g1__train-m0",
+        "night-000003__train-g1__train-m1",
+        "night-000003__train-g1__train-m2",
+        "night-000004__train-g0__train-m0",
+        "night-000004__train-g0__train-m1",
+        "night-000004__train-g0__train-m2",
+        "night-000004__train-g1__train-m0",
+        "night-000004__train-g1__train-m1",
+        "night-000004__train-g1__train-m2",
+        "night-000005__train-g0__train-m0",
+        "night-000005__train-g0__train-m1",
+        "night-000005__train-g0__train-m2",
+        "night-000005__train-g1__train-m0",
+        "night-000005__train-g1__train-m1",
+        "night-000005__train-g1__train-m2",
+        "night-000006__train-g0__train-m0",
+        "night-000006__train-g0__train-m1",
+        "night-000006__train-g0__train-m2",
+        "night-000006__train-g1__train-m0",
+        "night-000006__train-g1__train-m1",
+        "night-000006__train-g1__train-m2",
+        "night-000007__train-g0__train-m0",
+        "night-000007__train-g0__train-m1",
+        "night-000007__train-g0__train-m2",
+        "night-000007__train-g1__train-m0",
+        "night-000007__train-g1__train-m1",
+        "night-000007__train-g1__train-m2",
+        "night-000008__train-g0__train-m0",
+        "night-000008__train-g0__train-m1",
+        "night-000008__train-g0__train-m2",
+        "night-000008__train-g1__train-m0",
+        "night-000008__train-g1__train-m1",
+        "night-000008__train-g1__train-m2",
+        "night-000009__train-g0__train-m0",
+        "night-000009__train-g0__train-m1",
+        "night-000009__train-g0__train-m2",
+        "night-000009__train-g1__train-m0",
+        "night-000009__train-g1__train-m1",
+        "night-000009__train-g1__train-m2",
+        "night-000010__train-g0__train-m0",
+        "night-000010__train-g0__train-m1",
+        "night-000010__train-g0__train-m2",
+        "night-000010__train-g1__train-m0",
+        "night-000010__train-g1__train-m1",
+        "night-000010__train-g1__train-m2",
+        "night-000011__train-g0__train-m0",
+        "night-000011__train-g0__train-m1",
+        "night-000011__train-g0__train-m2",
+        "night-000011__train-g1__train-m0",
+        "night-000011__train-g1__train-m1",
+        "night-000011__train-g1__train-m2",
+        "night-000012__train-g0__train-m0",
+        "night-000012__train-g0__train-m1",
+        "night-000012__train-g0__train-m2",
+        "night-000012__train-g1__train-m0",
+        "night-000012__train-g1__train-m1",
+        "night-000012__train-g1__train-m2",
+        "night-000013__train-g0__train-m0",
+        "night-000013__train-g0__train-m1",
+        "night-000013__train-g0__train-m2",
+        "night-000013__train-g1__train-m0",
+        "night-000013__train-g1__train-m1",
+        "night-000013__train-g1__train-m2",
+        "night-000014__train-g0__train-m0",
+        "night-000014__train-g0__train-m1",
+        "night-000014__train-g0__train-m2",
+        "night-000014__train-g1__train-m0",
+        "night-000014__train-g1__train-m1",
+        "night-000014__train-g1__train-m2",
+        "night-000015__train-g0__train-m0",
+        "night-000015__train-g0__train-m1",
+        "night-000015__train-g0__train-m2",
+        "night-000015__train-g1__train-m0",
+        "night-000015__train-g1__train-m1",
+        "night-000015__train-g1__train-m2",
+        "night-000016__train-g0__train-m0",
+        "night-000016__train-g0__train-m1",
+        "night-000016__train-g0__train-m2",
+        "night-000016__train-g1__train-m0",
+        "night-000016__train-g1__train-m1",
+        "night-000016__train-g1__train-m2",
+        "night-000017__train-g0__train-m0",
+        "night-000017__train-g0__train-m1",
+        "night-000017__train-g0__train-m2",
+        "night-000017__train-g1__train-m0",
+        "night-000017__train-g1__train-m1",
+        "night-000017__train-g1__train-m2",
+        "night-000018__train-g0__train-m0",
+        "night-000018__train-g0__train-m1",
+        "night-000018__train-g0__train-m2",
+        "night-000018__train-g1__train-m0",
+        "night-000018__train-g1__train-m1",
+        "night-000018__train-g1__train-m2",
+        "night-000019__train-g0__train-m0",
+        "night-000019__train-g0__train-m1",
+        "night-000019__train-g0__train-m2",
+        "night-000019__train-g1__train-m0",
+        "night-000019__train-g1__train-m1",
+        "night-000019__train-g1__train-m2"
+      ],
+      "evaluation_scene_ids": [
+        "rain-000000__eval-g0__eval-m0",
+        "rain-000000__eval-g0__eval-m1",
+        "rain-000000__eval-g1__eval-m0",
+        "rain-000000__eval-g1__eval-m1",
+        "rain-000001__eval-g0__eval-m0",
+        "rain-000001__eval-g0__eval-m1",
+        "rain-000001__eval-g1__eval-m0",
+        "rain-000001__eval-g1__eval-m1",
+        "rain-000002__eval-g0__eval-m0",
+        "rain-000002__eval-g0__eval-m1",
+        "rain-000002__eval-g1__eval-m0",
+        "rain-000002__eval-g1__eval-m1",
+        "rain-000003__eval-g0__eval-m0",
+        "rain-000003__eval-g0__eval-m1",
+        "rain-000003__eval-g1__eval-m0",
+        "rain-000003__eval-g1__eval-m1",
+        "rain-000004__eval-g0__eval-m0",
+        "rain-000004__eval-g0__eval-m1",
+        "rain-000004__eval-g1__eval-m0",
+        "rain-000004__eval-g1__eval-m1",
+        "rain-000005__eval-g0__eval-m0",
+        "rain-000005__eval-g0__eval-m1",
+        "rain-000005__eval-g1__eval-m0",
+        "rain-000005__eval-g1__eval-m1",
+        "rain-000006__eval-g0__eval-m0",
+        "rain-000006__eval-g0__eval-m1",
+        "rain-000006__eval-g1__eval-m0",
+        "rain-000006__eval-g1__eval-m1",
+        "rain-000007__eval-g0__eval-m0",
+        "rain-000007__eval-g0__eval-m1",
+        "rain-000007__eval-g1__eval-m0",
+        "rain-000007__eval-g1__eval-m1",
+        "rain-000008__eval-g0__eval-m0",
+        "rain-000008__eval-g0__eval-m1",
+        "rain-000008__eval-g1__eval-m0",
+        "rain-000008__eval-g1__eval-m1",
+        "rain-000009__eval-g0__eval-m0",
+        "rain-000009__eval-g0__eval-m1",
+        "rain-000009__eval-g1__eval-m0",
+        "rain-000009__eval-g1__eval-m1",
+        "rain-000010__eval-g0__eval-m0",
+        "rain-000010__eval-g0__eval-m1",
+        "rain-000010__eval-g1__eval-m0",
+        "rain-000010__eval-g1__eval-m1",
+        "rain-000011__eval-g0__eval-m0",
+        "rain-000011__eval-g0__eval-m1",
+        "rain-000011__eval-g1__eval-m0",
+        "rain-000011__eval-g1__eval-m1",
+        "rain-000012__eval-g0__eval-m0",
+        "rain-000012__eval-g0__eval-m1",
+        "rain-000012__eval-g1__eval-m0",
+        "rain-000012__eval-g1__eval-m1",
+        "rain-000013__eval-g0__eval-m0",
+        "rain-000013__eval-g0__eval-m1",
+        "rain-000013__eval-g1__eval-m0",
+        "rain-000013__eval-g1__eval-m1",
+        "rain-000014__eval-g0__eval-m0",
+        "rain-000014__eval-g0__eval-m1",
+        "rain-000014__eval-g1__eval-m0",
+        "rain-000014__eval-g1__eval-m1",
+        "rain-000015__eval-g0__eval-m0",
+        "rain-000015__eval-g0__eval-m1",
+        "rain-000015__eval-g1__eval-m0",
+        "rain-000015__eval-g1__eval-m1",
+        "rain-000016__eval-g0__eval-m0",
+        "rain-000016__eval-g0__eval-m1",
+        "rain-000016__eval-g1__eval-m0",
+        "rain-000016__eval-g1__eval-m1",
+        "rain-000017__eval-g0__eval-m0",
+        "rain-000017__eval-g0__eval-m1",
+        "rain-000017__eval-g1__eval-m0",
+        "rain-000017__eval-g1__eval-m1",
+        "rain-000018__eval-g0__eval-m0",
+        "rain-000018__eval-g0__eval-m1",
+        "rain-000018__eval-g1__eval-m0",
+        "rain-000018__eval-g1__eval-m1",
+        "rain-000019__eval-g0__eval-m0",
+        "rain-000019__eval-g0__eval-m1",
+        "rain-000019__eval-g1__eval-m0",
+        "rain-000019__eval-g1__eval-m1"
+      ]
+    }
+  ],
+  "prior_renderer_inventory": "/root/AirStack/ore-ms/results/known-pose-thermal-renderer/run-001/inventory.json",
+  "solver": {
+    "max_iterations": 100,
+    "score_tolerance": 1e-06,
+    "rank_ratio": 1e-10,
+    "line_search_steps": 25,
+    "armijo": 0.0001
+  },
+  "query_budget": 32,
+  "candidate_pool": "Unchanged native NoDepth requested200 + original target range/covariance/finite-positive mean/SPD checks; canonical row order source(v,u). No reference mask filters pool. k=min(32,N), unavailable if original whole packet unavailable. Native full-pool context retains variable count. This is selection inside the native accepted/capped pool, not recovering NMS-rejected pixels.",
+  "features": [
+    "(u-cx)/fx",
+    "(v-cy)/fy",
+    "log(z0/1m)",
+    "log(z1/1m)",
+    "log(trace(C0)/1m\u00b2)",
+    "log(trace(C1)/1m\u00b2)",
+    "log((flow_var_u+flow_var_v)/1px\u00b2)",
+    "log1p(norm(flow)/1px)"
+  ],
+  "adapter": {
+    "parameters": 8,
+    "bias": false,
+    "initial_theta": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "normalization": "Mean/population std from training-fold eligible candidate features only; exactly constant std->1; no label/evaluation input.",
+    "policy": "Ordered Plackett-Luce without replacement. Score-function expectation, four samples, leave-one-out other-sample loss baseline.",
+    "primary_deployment": "Stable top32 logits, ties canonical(v,u).",
+    "stochastic_context_seeds": [
+      2026111405,
+      2026111406,
+      2026111407,
+      2026111408
+    ],
+    "weight_control": "Same8features/parameters, fixed first uniform-seed subset; positive normalized exp(logit) utility weights mean1, applied by dividing both endpoint covariance arrays for the objective only. Not statistical covariance reestimation."
+  },
+  "training": {
+    "updates": 64,
+    "scenes_per_update": 2,
+    "subsets_per_scene": 4,
+    "optimizer": "Adam FP64",
+    "learning_rate": 0.01,
+    "betas": [
+      0.9,
+      0.999
+    ],
+    "epsilon": 1e-08,
+    "gradient_norm_clip": 1.0,
+    "early_stopping": false,
+    "model_selection": "Final update only; no evaluation-guided checkpoint/feature/epoch selection. Same minibatch scene order across matched learned controls.",
+    "pose_loss": "Successful:1-exp(-[norm(Log(T_est*Ttrue^-1)translation/.01m)^2+norm(Log rotation/rad(.1deg))^2]); failed:1. Failure is never rewarded below a successful bounded task loss.",
+    "match_loss": "1-mean(exp(-squared forward true pixel reprojection error/(2*1px\u00b2))) across selected queries, reward0 for analytically known occluded/outside-FOV/atlas points. Unknown reference support is distinct, never labeled correct by model consistency. Qualify support masks before use.",
+    "weight_gradient": "Central finite differences theta step1e-3, same input subset/order and original solver; base and16perturbation losses retained. Weight-only derivative qualification on real native caches required before training.",
+    "failure_handling": "Every attempted subset/fit retained; no replacement samples or reference-based pruning. Empty/invalid packet or failed fit maps to bounded loss1; evaluation includes availability and matched populations.",
+    "field_caching": "Native model unchanged/eval, one3pair batch per planned scene, no image-noise ensemble; no query/covariance/solver training. Actual fit/inference costs reported per arm."
+  },
+  "information_control": "Existing greedy Max-logDet with selector-only ridge1e-6*trace(full H)/6 and full-pool depth-length scale; ridge never added to pose solver. Baseline does not become a new method.",
+  "arms": [
+    "native_context",
+    "uniform32",
+    "information32",
+    "pose_weight_only32",
+    "match_reward_policy32",
+    "pose_reward_policy32"
+  ],
+  "evaluation": "All80evaluation scenes/fold, deterministic policy topk primary and4seed stochastic context; per group/geometry/motion translation+rotation mean/RMSE, every attempted availability/status, full and common populations. Utility weights not certified measurement variances. No pooled-only/variance-only win.",
+  "advancement": "On each excluded recording, deterministic pose-reward must reduce translation mean and RMSE at least5% relative to BOTH trained match-reward and weight-only, with no rotation mean/RMSE or availability regression; retain uniform/information/native context. Otherwise close exact recipe without tuning. Development gate, not significance/publication proof.",
+  "pins": {
+    "/root/AirStack/ore-ms/tools/selection_policy_contract.py": "aafbe1746250a1e7c1c649b76b24615c34a5c0edfa8190e0e3339f34a57192aa",
+    "/root/AirStack/ore-ms/tools/qualify_selection_policy_contract.py": "1b20d939bd73d5861927d99b038e5ead6ebf51fa10148de2bb0277dae8106ba4",
+    "/root/AirStack/ore-ms/tools/paired_frontend_assessment.py": "f226c6d2a6cd008475028a9b28cf9b1fb667ceff5f2cf86420edb6edeb32fc52",
+    "/root/AirStack/ore-ms/tools/pose_covariance_replay.py": "c302f71b700b0a57b886dd3da9df8c2540e0399d2a330af44367afc1788a69e7",
+    "/root/AirStack/ore-ms/tools/qualify_native_frontend.py": "98b9dcac39d86105973413d1da832bd618be4314a2f5bafcf91e33cc44ecfb93",
+    "/root/AirStack/ore-ms/tools/feature_selection_comparison.py": "5b8a3f2e31210f74f87ed40a4f5e4a393cfc5fe2b5800ca95d47db546dd1a95d",
+    "/root/AirStack/ore-ms/results/known-pose-thermal-renderer/run-001/inventory.json": "fdd4d0d9c63f308a10fe0b593e17286c8e5db36608dbf236229f262dcd1a57cd",
+    "/root/AirStack/ore-ms/docs/research/selection-task-method-decision-2026-11-14.md": "1def89721e6331d84e58a171077105988a81a4902f4428fc83a89f414147844c",
+    "/root/AirStack/ore-ms/results/known-pose-thermal-renderer/run-001/day-two-depths.npz": "b055178828fb770f73b170accdcc96e9cfc619a700a4d089890dd973a138a9cf",
+    "/root/AirStack/ore-ms/results/known-pose-thermal-renderer/run-001/night-two-depths.npz": "0b3dea52a3b9de6fd01df05071bc974e2c907286092ddf671c937cd298d2f624",
+    "/root/AirStack/ore-ms/results/known-pose-thermal-renderer/run-001/rain-two-depths.npz": "5d03b47d51f7662d42ea8682f7fc6e52fa00f17d471da0dccc8fa2e606fda1fd"
+  },
+  "scope": "600planned artificial scenes, not yet materialized. 360train-profile/240evaluation-profile; three folds each240train/80eval. All existing textures development-exposed; grouping/motion/geometry exclusion does not make a fresh real-world test. Old six fixed-motion diagnostic scenes not used as independent validation.",
+  "remaining_before_training": [
+    "Materialize/audit generalized renderer, reference/visibility and exact planned scene/split IDs",
+    "Native scene inference/candidate packets and training-only feature normalization cache lock",
+    "Weight-only derivative/interface qualification with original solve failures retained",
+    "Bind separate training/numeric source/input/runtime freeze; no geometry/feature/loss/budget tuning from new scores"
+  ]
+}

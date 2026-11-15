@@ -1,0 +1,8 @@
+{
+  "created_utc": "2026-11-14T19:40:22.005792+00:00",
+  "training_freeze": "ore-ms/experiments/selection-policy-training-freeze-2026-11-14.json",
+  "auditor": "/root/AirStack/ore-ms/tools/audit_selection_policy_learning.py",
+  "auditor_sha256": "ea41e0454ed0f2c6ff2fac8542c3191966d43b4f9b35908662428e52ec49c50d",
+  "status": "FROZEN_BEFORE_EVALUATION_PREDICTIONS_AND_SCORE_INSPECTION",
+  "tolerances": "NumPyAdam/loss/gradient rtol1e-8 atol1e-10; original fit covariance rtol2e-5 atol1e-8, score rtol2e-3 atol1e-7 and stationarity original1e-6 plus prior audit allowance; analyticLog arrays rtol3e-5 atol1e-9. No outcome tuning."
+}

@@ -1,0 +1,61 @@
+{
+  "created_utc": "2026-11-14T23:58:49.104191+00:00",
+  "baseline": "a79658f6341194b0954852226f200313ccdf5408",
+  "protocol_path": "/root/AirStack/ore-ms/experiments/active-motion-image-freeze-2026-11-14.json",
+  "K": [
+    [
+      387.78695052062903,
+      0.0,
+      300.8201370239258
+    ],
+    [
+      0.0,
+      387.78695052062903,
+      151.62576293945312
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "baseline_m": 0.3038995142414822,
+  "shape": [
+    256,
+    640
+  ],
+  "plane_depth_m": 4.0,
+  "textures": {
+    "day": "/root/AirStack/ore-ms/results/paired-frontend-qualification/inputs/day/000000-left.png",
+    "night": "/root/AirStack/ore-ms/results/paired-frontend-qualification/inputs/night/000000-left.png",
+    "rain": "/root/AirStack/ore-ms/results/paired-frontend-qualification/inputs/rain/000000-left.png"
+  },
+  "betas": [
+    -2,
+    0,
+    2
+  ],
+  "distance_m": 0.04,
+  "horizon_s": 0.2,
+  "tau_s": 0.008,
+  "max_code": 0.5,
+  "rms_code": 0.05,
+  "grids": [
+    64,
+    128
+  ],
+  "history": "Entire causal history:integrate0..H plus exactconstant stationaryprehistory tail; no eight-tau truncation",
+  "pins": {
+    "/root/AirStack/ore-ms/tools/active_motion_assessment.py": "4782de13fa52b04b52c88a356a248991297a55556decf7cda194dbbe2b672276",
+    "/root/AirStack/ore-ms/tools/audit_active_motion_assessment.py": "acdb94bbfe07e000f0d116278706dbf81be5eb01c2200e9595890ed050841ca2",
+    "/root/AirStack/ore-ms/tools/qualify_native_frontend.py": "98b9dcac39d86105973413d1da832bd618be4314a2f5bafcf91e33cc44ecfb93",
+    "/root/AirStack/ore-ms/MAC-VO-main/DataLoader/Dataset/MS2.py": "22723f8de483a284088289e9b50333c931e243edf6312b531206cc0576fb57af",
+    "/root/AirStack/ore-ms/results/active-motion-contract/freeze.json": "86ce9698e66182c8a39a52357ddbb38c0591b214bdff6a4b70ee5d15ac695fde",
+    "/root/AirStack/ore-ms/results/active-motion-contract/qualification.json": "30b7778700bc1c7ec0ff358cdaac1716d68db86530a8adff3ea86788871828e6",
+    "/root/AirStack/ore-ms/results/paired-frontend-qualification/inputs/day/000000-left.png": "a578455da87261c9207517891acac26bc6ff58ca9a5158e82f27ad7b778e6899",
+    "/root/AirStack/ore-ms/results/paired-frontend-qualification/inputs/night/000000-left.png": "099d086bd6b05cd626319f5ce68b39c92c0c460b4c65d22eb21c34a660b2f11c",
+    "/root/AirStack/ore-ms/results/paired-frontend-qualification/inputs/rain/000000-left.png": "046771165b4d7fffbb1fe0ed63a50a076a486ee09462804ab662dc6e4f4fb748"
+  },
+  "stop": "One64/128pair; require max<=.5/RMS<=.05code before inference, sampled independent integrals<=.5code. No profile/grid/texture/tolerance rescue. Source images and all sharpimages exactnull acrossschedules.",
+  "scope": "9cases72views, virtualtemporalprofile; prepared thermal radianceproxy not realcamera calibration; no exact blurredpixel flow labels."
+}

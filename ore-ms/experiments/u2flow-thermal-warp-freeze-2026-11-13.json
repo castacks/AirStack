@@ -1,0 +1,490 @@
+{
+  "created": "2026-11-13 America/New_York",
+  "baseline": "a79658f63",
+  "project_root": "/root/AirStack/ore-ms",
+  "source_root": "/root/ore-ms-u2flow-qualification/source",
+  "source_sha256": {
+    "/root/ore-ms-u2flow-qualification/source/README.md": "d556b26186add07988ad44d3327bcf5bc2545469804faec30ab11484bb671665",
+    "/root/ore-ms-u2flow-qualification/source/requirements.txt": "714f396d54205505fd8d820fbc3a00ee5f556a43749ec49feadb23adae251ca4",
+    "/root/ore-ms-u2flow-qualification/source/train_sintel.py": "b9a405818801060e5c5a5d9f02d47c6662f8b8b3e26e4ef0fad32b9459bac7f7",
+    "/root/ore-ms-u2flow-qualification/source/evaluate.py": "83bd59ab1a42255480cd14d332cd636d60e7c669d7d8aaa4a66e213be71418a7",
+    "/root/ore-ms-u2flow-qualification/source/train_fusion_sintel.py": "b722ade53ededecc0175d17c2df2de240fa393c4526c566a74a625f2f184e34b",
+    "/root/ore-ms-u2flow-qualification/source/train_fusion_sintel_test.py": "f77368a5dbec18356995cf16757afc1e2f09602185dbbe027ce199075ca15d2f",
+    "/root/ore-ms-u2flow-qualification/source/train_kitti.sh": "611784e2efb02c55320781a0a9e90ae80ed80400754cfc1a3da5d9c04de2c809",
+    "/root/ore-ms-u2flow-qualification/source/train_fusion_kitti.py": "d69a8c46d6074d862877a21f787d12726873afec079796c6fc861eaa32b1521f",
+    "/root/ore-ms-u2flow-qualification/source/train.py": "6ba7cdb55d8272e0e5a4dd047bfac8cfca72962129572bda424b53385ab3f9b8",
+    "/root/ore-ms-u2flow-qualification/source/train_fusion_kitti_test.py": "483902100eafc98a4af225bf8ff6022e1e86bcd8b65afbdc19ab2938baa7b4b9",
+    "/root/ore-ms-u2flow-qualification/source/train_sintel.sh": "ed9c936d629adbbfab5f885a32844fd6ba93f0bbf5cc634fa225d5c8f9402be2",
+    "/root/ore-ms-u2flow-qualification/source/core/flow_datasets_sintel.py": "97659d8ead211bda1a23cc54e332f3781345cf9a42c35c7926f88275ce931912",
+    "/root/ore-ms-u2flow-qualification/source/core/flow_datasets.py": "9c1b7dfd4dc351f8ef4b4a70d10fa898344132b93f4b25b807c9d71e39d4bf5f",
+    "/root/ore-ms-u2flow-qualification/source/core/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/root/ore-ms-u2flow-qualification/source/spring/evaluate_spring_submission.py": "992549a6ad42dcc72e41db147751e17fa42b99166da0f80826b739750e251125",
+    "/root/ore-ms-u2flow-qualification/source/configs/KITTI_MV.py": "7965a3768ea53f963660dfa4acd1987d17faf195c882adfa081b5ed5aac3a5d9",
+    "/root/ore-ms-u2flow-qualification/source/configs/S_R.py": "e416175ffb82a9274902e12b8b05a2a2b34d526e47bd23366fc9668b16e17b17",
+    "/root/ore-ms-u2flow-qualification/source/configs/S_M.py": "e2f033cbcf0ad96edb90e2c56451b8638bdb63f1232eaafe1e1b73edd537eadd",
+    "/root/ore-ms-u2flow-qualification/source/configs/KITTI_Raw.py": "2ed1491e8d8f957f132d736591efdc755d175cc8f0262c7c279ef4597eb30abf",
+    "/root/ore-ms-u2flow-qualification/source/core/Networks/extractor.py": "475a9f05577081a4c4f2c2b384b12d171ac4b0ebdd2b4cbb2a2e1fba347c5326",
+    "/root/ore-ms-u2flow-qualification/source/core/Networks/update.py": "b082d1a238115162acd59a26fc0b7b7d5e1bb6b96a034bb6520e2ba7e7447d00",
+    "/root/ore-ms-u2flow-qualification/source/core/Networks/raft_2f_u.py": "f36a9797eeb204b735f388bd453a1e42100fb417be8dd84eaaa3b1d9ab4bc19a",
+    "/root/ore-ms-u2flow-qualification/source/core/Networks/__init__.py": "cf266afa2363b41f6ce6a0a5deff8f85bc1245ab1536d1dcb15b5b1e85b68171",
+    "/root/ore-ms-u2flow-qualification/source/core/Networks/corr.py": "0cf534e8620ae222c47a33620bd0eb35ccd5a9c57d8fe06347d8940b066cfc10",
+    "/root/ore-ms-u2flow-qualification/source/core/optimizer/__init__.py": "7f5b22be0e47f53430521ca28178e968f0cc8ca551c3ae4fe40469d84c3ccfa2",
+    "/root/ore-ms-u2flow-qualification/source/core/losses/get_loss.py": "9850ad236633dacffaa4dbbe1d5322a201c8ed9e7355781979a57c3063cbf847",
+    "/root/ore-ms-u2flow-qualification/source/core/losses/flow_loss.py": "0c16764514c40ef37c19192502f740275b80c4df29241c019eadc838224b2e04",
+    "/root/ore-ms-u2flow-qualification/source/core/losses/loss_blocks.py": "a96cd24ce7eadc1a9e9d67184f42b9a3f9404e602a667960756786920d8b916a",
+    "/root/ore-ms-u2flow-qualification/source/core/utils/logger.py": "769916fb5e1eb3d31372cd5bffc2da045a4aaf8addb3cf7c4312cf2fb42fa40d",
+    "/root/ore-ms-u2flow-qualification/source/core/utils/utils.py": "59e2a87f9ac9e9dc98f156e84a4ce8e07c0c0e3dd68346004b030a0c352adea5",
+    "/root/ore-ms-u2flow-qualification/source/core/utils/frame_utils.py": "b21ebfd1b08bb9cfc500d5a7512d5205ce526b458457baa41676a350d05477a3",
+    "/root/ore-ms-u2flow-qualification/source/core/utils/flow_viz.py": "7cc259f685f638fbd7a64d5ba2b63dea3d4a6e1d8f6b9c53b52e7d9c1b8b97a3",
+    "/root/ore-ms-u2flow-qualification/source/core/utils/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/root/ore-ms-u2flow-qualification/source/core/utils/flow_utils.py": "dc64e1fe96b7698b49c5a9604ca9245388c937b01a26d658bbd029b79c50efc2",
+    "/root/ore-ms-u2flow-qualification/source/core/utils/warp_utils.py": "1c00eea9c231911d0769e8c614999fc1cfd5ea7696455982ff5223e72a69b5f7",
+    "/root/ore-ms-u2flow-qualification/source/core/utils/misc.py": "f82a5d06723c4a9178d8ef7e90e177c84b0fe5be516226806df734cba452b513",
+    "/root/ore-ms-u2flow-qualification/source/core/utils/transforms/sep_transforms.py": "1f4098e528351d23db77850f7235ff238a59c571bb24b85b7e8e24b5cb14ef2a",
+    "/root/ore-ms-u2flow-qualification/source/core/utils/transforms/co_transforms.py": "eecd7ff646c5c7cc965153214febb5ab45ca868b7a153eef011701ffd3747903",
+    "/root/ore-ms-u2flow-qualification/source/core/utils/transforms/obj_cache_sem.py": "356fc9acd9b258a17ac6866cedb56d191b22b11097f2a50996a8145134484d92",
+    "/root/ore-ms-u2flow-qualification/source/core/utils/transforms/ar_transforms/interpolation.py": "e5e32a60ca181b49f572eac85d6188705584390cae17d2f3351b03efcb54ec82",
+    "/root/ore-ms-u2flow-qualification/source/core/utils/transforms/ar_transforms/ap_transforms.py": "635a4bb2a23212e6ae8ad6e3fa3f1611283ceb2331eb772260c711e1c3a5648f",
+    "/root/ore-ms-u2flow-qualification/source/core/utils/transforms/ar_transforms/sp_transfroms.py": "11ad9ade735f541a23537dc308dd29b91835e02bc2f941cc14d2761dd763168d",
+    "/root/AirStack/ore-ms/tools/u2flow_thermal_warp.py": "47074821b1ec4d1519104b2c3d3f5a06b23b1e5e9067d528d08c36b0e32414d6",
+    "/root/AirStack/ore-ms/MAC-VO-main/DataLoader/Dataset/MS2.py": "22723f8de483a284088289e9b50333c931e243edf6312b531206cc0576fb57af"
+  },
+  "checkpoint": "/root/ore-ms-u2flow-qualification/sintel.pth",
+  "checkpoint_sha256": "b3dd6d382fdcfb079716fd89a4033a16540a5f59dcd4e3550ff6bc4b7a68f752",
+  "inputs": [
+    {
+      "condition": "day",
+      "stem": "000000",
+      "sha256": "a578455da87261c9207517891acac26bc6ff58ca9a5158e82f27ad7b778e6899",
+      "original_path": "results/ms2-day-replication/pilot/sync_data/_2021-08-06-11-23-45/thr/img_left/000000.png",
+      "path": "results/u2flow-thermal-warp/inputs/day/000000.png"
+    },
+    {
+      "condition": "day",
+      "stem": "000001",
+      "sha256": "b5d8fbab974dcf52d95c319c983342013d7642e029f75a3eadd5a65dfd7d71e9",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-11-23-45/thr/img_left/000001.png",
+      "path": "results/u2flow-thermal-warp/inputs/day/000001.png"
+    },
+    {
+      "condition": "day",
+      "stem": "000002",
+      "sha256": "32403f6f98f12efda4c164373d4554aeb974f4370f38949649cd23ae696e4afc",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-11-23-45/thr/img_left/000002.png",
+      "path": "results/u2flow-thermal-warp/inputs/day/000002.png"
+    },
+    {
+      "condition": "day",
+      "stem": "000003",
+      "sha256": "53cde1ef5adba3dc8747ef5ca1380ce1a7d9878cdca874ad26a2e5a8dd9fd312",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-11-23-45/thr/img_left/000003.png",
+      "path": "results/u2flow-thermal-warp/inputs/day/000003.png"
+    },
+    {
+      "condition": "day",
+      "stem": "000004",
+      "sha256": "a1d0d538d6d34795b33c6989cd962bb8f3c6f8287f19aba2f4edfc4ac61706ef",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-11-23-45/thr/img_left/000004.png",
+      "path": "results/u2flow-thermal-warp/inputs/day/000004.png"
+    },
+    {
+      "condition": "day",
+      "stem": "000005",
+      "sha256": "f2bf4c7fee6514c2ac958a24c5ef9066efcb27191227baceec61f1e1f71012c4",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-11-23-45/thr/img_left/000005.png",
+      "path": "results/u2flow-thermal-warp/inputs/day/000005.png"
+    },
+    {
+      "condition": "day",
+      "stem": "000006",
+      "sha256": "705c5d860fa498ae31fde07182210841c95e95a17aca60ef9a112b2d1e537803",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-11-23-45/thr/img_left/000006.png",
+      "path": "results/u2flow-thermal-warp/inputs/day/000006.png"
+    },
+    {
+      "condition": "day",
+      "stem": "000007",
+      "sha256": "aa3606fefb38bc2a44a0e15a1f3fc3ad925e5680be2362520526d2cfa60fb7dd",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-11-23-45/thr/img_left/000007.png",
+      "path": "results/u2flow-thermal-warp/inputs/day/000007.png"
+    },
+    {
+      "condition": "day",
+      "stem": "000008",
+      "sha256": "a48da3d7442b65304d2f0504f9a61561e1a1aea9694c6e9d5fcd81283af7886a",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-11-23-45/thr/img_left/000008.png",
+      "path": "results/u2flow-thermal-warp/inputs/day/000008.png"
+    },
+    {
+      "condition": "day",
+      "stem": "000009",
+      "sha256": "e2ebaf67e5068dd5c33de714e7a7c53cd0815b4ff550c5b32e378eaf0ba5ec7e",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-11-23-45/thr/img_left/000009.png",
+      "path": "results/u2flow-thermal-warp/inputs/day/000009.png"
+    },
+    {
+      "condition": "day",
+      "stem": "000010",
+      "sha256": "c68af10acee8923b94d90f0196fa6fe22eb6932228df00dd9ce9530fe34f61d9",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-11-23-45/thr/img_left/000010.png",
+      "path": "results/u2flow-thermal-warp/inputs/day/000010.png"
+    },
+    {
+      "condition": "day",
+      "stem": "000011",
+      "sha256": "f0ef6f17b500668ba691c273d05405c48f965aa3fc536fe3ad634a8aa884624f",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-11-23-45/thr/img_left/000011.png",
+      "path": "results/u2flow-thermal-warp/inputs/day/000011.png"
+    },
+    {
+      "condition": "day",
+      "stem": "000012",
+      "sha256": "b2eef89a42712c811b17ec880847e7871a2fd2f6e7a9d091a2687259ea52978e",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-11-23-45/thr/img_left/000012.png",
+      "path": "results/u2flow-thermal-warp/inputs/day/000012.png"
+    },
+    {
+      "condition": "day",
+      "stem": "000013",
+      "sha256": "f04b65501bff3ec51a54cb9f41480e9672a44218c8d6f54ee65b4f9d66f3b959",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-11-23-45/thr/img_left/000013.png",
+      "path": "results/u2flow-thermal-warp/inputs/day/000013.png"
+    },
+    {
+      "condition": "day",
+      "stem": "000014",
+      "sha256": "8ada87aa9c5989371e686297ed4f92fe975f1f59a837b81a784096fcf984e6f9",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-11-23-45/thr/img_left/000014.png",
+      "path": "results/u2flow-thermal-warp/inputs/day/000014.png"
+    },
+    {
+      "condition": "day",
+      "stem": "000015",
+      "sha256": "6f363fcfd6b8df5283e33bee19ee7fe2cd92f7d354530fbf4fd22435f71c35d1",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-11-23-45/thr/img_left/000015.png",
+      "path": "results/u2flow-thermal-warp/inputs/day/000015.png"
+    },
+    {
+      "condition": "day",
+      "stem": "000016",
+      "sha256": "f7c848c4293fd51579afa737927d8af05b492ed655fda5a9b922be0f0549e23c",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-11-23-45/thr/img_left/000016.png",
+      "path": "results/u2flow-thermal-warp/inputs/day/000016.png"
+    },
+    {
+      "condition": "day",
+      "stem": "000017",
+      "sha256": "6c1a6a2bc529d4b398b0b4d06c604008cc6807e99125cf3333c6426f2b79ac7a",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-11-23-45/thr/img_left/000017.png",
+      "path": "results/u2flow-thermal-warp/inputs/day/000017.png"
+    },
+    {
+      "condition": "day",
+      "stem": "000018",
+      "sha256": "fc4ca25f38c296d235e6e8a8b2dbf272f9056c4341178559a4ca66e7d166c98d",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-11-23-45/thr/img_left/000018.png",
+      "path": "results/u2flow-thermal-warp/inputs/day/000018.png"
+    },
+    {
+      "condition": "day",
+      "stem": "000019",
+      "sha256": "51ce45431903171d7bb6a4e642c62725fe8b9308864e39219877d5ed60134e8e",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-11-23-45/thr/img_left/000019.png",
+      "path": "results/u2flow-thermal-warp/inputs/day/000019.png"
+    },
+    {
+      "condition": "night",
+      "stem": "000000",
+      "sha256": "099d086bd6b05cd626319f5ce68b39c92c0c460b4c65d22eb21c34a660b2f11c",
+      "original_path": "results/ms2-night-pilot/pilot/sync_data/_2021-08-13-21-18-04/thr/img_left/000000.png",
+      "path": "results/u2flow-thermal-warp/inputs/night/000000.png"
+    },
+    {
+      "condition": "night",
+      "stem": "000001",
+      "sha256": "9c59815ae674badc1885918f04060a2922ae48247c6463ff97c7af1debf4ae40",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-13-21-18-04/thr/img_left/000001.png",
+      "path": "results/u2flow-thermal-warp/inputs/night/000001.png"
+    },
+    {
+      "condition": "night",
+      "stem": "000002",
+      "sha256": "6186591371234c11c43993500b0cea8c068a98a60c9a267460daf77f6298de0b",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-13-21-18-04/thr/img_left/000002.png",
+      "path": "results/u2flow-thermal-warp/inputs/night/000002.png"
+    },
+    {
+      "condition": "night",
+      "stem": "000003",
+      "sha256": "2ba12dd1c77b8fb662d8a7969a457393a7b535f4eb42430d6fffccba3e76f8e9",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-13-21-18-04/thr/img_left/000003.png",
+      "path": "results/u2flow-thermal-warp/inputs/night/000003.png"
+    },
+    {
+      "condition": "night",
+      "stem": "000004",
+      "sha256": "73b73a5b7a528fb627b8465c79dcc8e683cc9da90bcb2176e0a2727bb38c7933",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-13-21-18-04/thr/img_left/000004.png",
+      "path": "results/u2flow-thermal-warp/inputs/night/000004.png"
+    },
+    {
+      "condition": "night",
+      "stem": "000005",
+      "sha256": "fb78f3b5f3246fa2fae3c2c857c75081fccfbeca1b7b3162fe481e17ed498a6d",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-13-21-18-04/thr/img_left/000005.png",
+      "path": "results/u2flow-thermal-warp/inputs/night/000005.png"
+    },
+    {
+      "condition": "night",
+      "stem": "000006",
+      "sha256": "d87582ba8ac94956ab478f5d2952db4a0e84e1bd44f92efc56daad397fa13733",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-13-21-18-04/thr/img_left/000006.png",
+      "path": "results/u2flow-thermal-warp/inputs/night/000006.png"
+    },
+    {
+      "condition": "night",
+      "stem": "000007",
+      "sha256": "393d7adbb642501f21154c81fcdcd7c804d0d5ae1e028154e2bc31a5943b47b2",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-13-21-18-04/thr/img_left/000007.png",
+      "path": "results/u2flow-thermal-warp/inputs/night/000007.png"
+    },
+    {
+      "condition": "night",
+      "stem": "000008",
+      "sha256": "227e292457c7d22215061ae89001ce1dbd1cef6498cdee45999083ff694582f0",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-13-21-18-04/thr/img_left/000008.png",
+      "path": "results/u2flow-thermal-warp/inputs/night/000008.png"
+    },
+    {
+      "condition": "night",
+      "stem": "000009",
+      "sha256": "a4585df10fd8458899042b4fc43a32095b3d6a931753dba7cdb80de450ceceea",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-13-21-18-04/thr/img_left/000009.png",
+      "path": "results/u2flow-thermal-warp/inputs/night/000009.png"
+    },
+    {
+      "condition": "night",
+      "stem": "000010",
+      "sha256": "7435e3f14e2ed6cfc9366bb0158c5a30e5692a2e5f4e18c405a18cc746464c79",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-13-21-18-04/thr/img_left/000010.png",
+      "path": "results/u2flow-thermal-warp/inputs/night/000010.png"
+    },
+    {
+      "condition": "night",
+      "stem": "000011",
+      "sha256": "b47d21b568cd5a6d6e2de879856f7d4536edae282e05c8fa4393d432958e7c80",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-13-21-18-04/thr/img_left/000011.png",
+      "path": "results/u2flow-thermal-warp/inputs/night/000011.png"
+    },
+    {
+      "condition": "night",
+      "stem": "000012",
+      "sha256": "6fcbf17fed45f190d11bc9b8d1ccc4799b6ae9649cca8ffdcf978f56414e5d70",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-13-21-18-04/thr/img_left/000012.png",
+      "path": "results/u2flow-thermal-warp/inputs/night/000012.png"
+    },
+    {
+      "condition": "night",
+      "stem": "000013",
+      "sha256": "ba153d3ed1b78d1486065e7ca324ce2ca0fb25a8af84e88ac58822654378f53d",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-13-21-18-04/thr/img_left/000013.png",
+      "path": "results/u2flow-thermal-warp/inputs/night/000013.png"
+    },
+    {
+      "condition": "night",
+      "stem": "000014",
+      "sha256": "25f0ed4e846dce9d9f7a5e547573322e1b143e080060744025a59ae59dc66d63",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-13-21-18-04/thr/img_left/000014.png",
+      "path": "results/u2flow-thermal-warp/inputs/night/000014.png"
+    },
+    {
+      "condition": "night",
+      "stem": "000015",
+      "sha256": "6b82fe61cf2db27fffce39610a6b8a7192722a21d2693d059ba930a2d5e41351",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-13-21-18-04/thr/img_left/000015.png",
+      "path": "results/u2flow-thermal-warp/inputs/night/000015.png"
+    },
+    {
+      "condition": "night",
+      "stem": "000016",
+      "sha256": "d1e59cfcfbcaa9c6232b0281540ad4fcef5c8021487bef84e85006502f97fdfd",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-13-21-18-04/thr/img_left/000016.png",
+      "path": "results/u2flow-thermal-warp/inputs/night/000016.png"
+    },
+    {
+      "condition": "night",
+      "stem": "000017",
+      "sha256": "6abea3bf508fdeb0dfaecb12c843b95930247ad4d4ab917d05bbe790c571bcf3",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-13-21-18-04/thr/img_left/000017.png",
+      "path": "results/u2flow-thermal-warp/inputs/night/000017.png"
+    },
+    {
+      "condition": "night",
+      "stem": "000018",
+      "sha256": "204601ff3882d869993fbf3ca39ad80330c600645fb0b7dfb4cfbbc7f55e5a00",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-13-21-18-04/thr/img_left/000018.png",
+      "path": "results/u2flow-thermal-warp/inputs/night/000018.png"
+    },
+    {
+      "condition": "night",
+      "stem": "000019",
+      "sha256": "690fe8687cf93bba90927cf5c34393d74fbd835653540fd19ebaed7dad3eb63a",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-13-21-18-04/thr/img_left/000019.png",
+      "path": "results/u2flow-thermal-warp/inputs/night/000019.png"
+    },
+    {
+      "condition": "rain",
+      "stem": "000000",
+      "sha256": "046771165b4d7fffbb1fe0ed63a50a076a486ee09462804ab662dc6e4f4fb748",
+      "original_path": "results/pose-covariance/accuracy-001/rain/raw/_2021-08-06-16-19-00/thr/img_left/000000.png",
+      "path": "results/u2flow-thermal-warp/inputs/rain/000000.png"
+    },
+    {
+      "condition": "rain",
+      "stem": "000001",
+      "sha256": "3969f940fdf4110992115e29fea6f185ce6d93d496a778d52ea280d217acffbd",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-16-19-00/thr/img_left/000001.png",
+      "path": "results/u2flow-thermal-warp/inputs/rain/000001.png"
+    },
+    {
+      "condition": "rain",
+      "stem": "000002",
+      "sha256": "4270242a7df1880164455fbd61650c068d55c5accb27fb7eebf504d477a97b81",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-16-19-00/thr/img_left/000002.png",
+      "path": "results/u2flow-thermal-warp/inputs/rain/000002.png"
+    },
+    {
+      "condition": "rain",
+      "stem": "000003",
+      "sha256": "83658c3bf4daab1a68a398ef39678904a8e824000585d077a6fc4399e7b41d6c",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-16-19-00/thr/img_left/000003.png",
+      "path": "results/u2flow-thermal-warp/inputs/rain/000003.png"
+    },
+    {
+      "condition": "rain",
+      "stem": "000004",
+      "sha256": "4993176b2e2ffcbe457d5dab5ff658b79d134f21eb666b5e81ab12ab5c394d0a",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-16-19-00/thr/img_left/000004.png",
+      "path": "results/u2flow-thermal-warp/inputs/rain/000004.png"
+    },
+    {
+      "condition": "rain",
+      "stem": "000005",
+      "sha256": "0f2632f06ddb2f12bf02064a5633afa83736070521f9cefc79e2ea2da047a2ae",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-16-19-00/thr/img_left/000005.png",
+      "path": "results/u2flow-thermal-warp/inputs/rain/000005.png"
+    },
+    {
+      "condition": "rain",
+      "stem": "000006",
+      "sha256": "645d8a0e292e8a9073328d1971530762d6eb32d4992200c5a129b1101406755e",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-16-19-00/thr/img_left/000006.png",
+      "path": "results/u2flow-thermal-warp/inputs/rain/000006.png"
+    },
+    {
+      "condition": "rain",
+      "stem": "000007",
+      "sha256": "9f040b68a84f717bb085c17670744999d3b3ff1148da469d834ed1df931d2632",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-16-19-00/thr/img_left/000007.png",
+      "path": "results/u2flow-thermal-warp/inputs/rain/000007.png"
+    },
+    {
+      "condition": "rain",
+      "stem": "000008",
+      "sha256": "12167d5314aa6e9a266b2bf8eb327b803267424daae6c6bd783520a005868434",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-16-19-00/thr/img_left/000008.png",
+      "path": "results/u2flow-thermal-warp/inputs/rain/000008.png"
+    },
+    {
+      "condition": "rain",
+      "stem": "000009",
+      "sha256": "0d3be5de8c658849a16b3ca1129967d3db2d5dee5beb842a85d53a75b87a866d",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-16-19-00/thr/img_left/000009.png",
+      "path": "results/u2flow-thermal-warp/inputs/rain/000009.png"
+    },
+    {
+      "condition": "rain",
+      "stem": "000010",
+      "sha256": "7d7669d106655b2a9751b1923a7bbe755e767a3710d8007d5bbcd1de1433e148",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-16-19-00/thr/img_left/000010.png",
+      "path": "results/u2flow-thermal-warp/inputs/rain/000010.png"
+    },
+    {
+      "condition": "rain",
+      "stem": "000011",
+      "sha256": "785766fda752f886a6bec756ec4f4d77fdcb91b6aba3481b3abb9f3baae37d88",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-16-19-00/thr/img_left/000011.png",
+      "path": "results/u2flow-thermal-warp/inputs/rain/000011.png"
+    },
+    {
+      "condition": "rain",
+      "stem": "000012",
+      "sha256": "3b26ff5a74aaa69bad56aa06acb71a9454a949f0098eee422da7db2689f095f2",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-16-19-00/thr/img_left/000012.png",
+      "path": "results/u2flow-thermal-warp/inputs/rain/000012.png"
+    },
+    {
+      "condition": "rain",
+      "stem": "000013",
+      "sha256": "928a08d965e3eda5fdc57a3229ba84aa1b5fe4d880f9081aa922ee89d033285c",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-16-19-00/thr/img_left/000013.png",
+      "path": "results/u2flow-thermal-warp/inputs/rain/000013.png"
+    },
+    {
+      "condition": "rain",
+      "stem": "000014",
+      "sha256": "b22380ed02bdb6ae315da2e3e44c4a85a26d49941248b93d6e1431e8234fd589",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-16-19-00/thr/img_left/000014.png",
+      "path": "results/u2flow-thermal-warp/inputs/rain/000014.png"
+    },
+    {
+      "condition": "rain",
+      "stem": "000015",
+      "sha256": "a6cba9e929dd384b5ec920db83eee308b9afc37e97a3e2708fa00d1a30295898",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-16-19-00/thr/img_left/000015.png",
+      "path": "results/u2flow-thermal-warp/inputs/rain/000015.png"
+    },
+    {
+      "condition": "rain",
+      "stem": "000016",
+      "sha256": "79c8e09145193658afa51946cc247aba421b701af0a2eec4caa674508abbe56d",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-16-19-00/thr/img_left/000016.png",
+      "path": "results/u2flow-thermal-warp/inputs/rain/000016.png"
+    },
+    {
+      "condition": "rain",
+      "stem": "000017",
+      "sha256": "eec4405f11393513950ea56792cbdfa17f4d7260d6837017c423ed831ec5d9fe",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-16-19-00/thr/img_left/000017.png",
+      "path": "results/u2flow-thermal-warp/inputs/rain/000017.png"
+    },
+    {
+      "condition": "rain",
+      "stem": "000018",
+      "sha256": "1f3020bcb89ac2c04ae9ed4db033db3dc23786da8a280311ad19af4f0149c2ab",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-16-19-00/thr/img_left/000018.png",
+      "path": "results/u2flow-thermal-warp/inputs/rain/000018.png"
+    },
+    {
+      "condition": "rain",
+      "stem": "000019",
+      "sha256": "a47304661d7e50482e8093086e96668892b2172a2c4f55e6af638593a63ef9e6",
+      "original_path": "results/ms2-broader-range/run-001/source/_2021-08-06-16-19-00/thr/img_left/000019.png",
+      "path": "results/u2flow-thermal-warp/inputs/rain/000019.png"
+    }
+  ],
+  "preprocess_source": "/root/AirStack/ore-ms/MAC-VO-main/DataLoader/Dataset/MS2.py",
+  "preparation": "Exactthermal_producer_replayAST,then128x320INTER_AREA, uint8/255,replicate3channels; no further normalization",
+  "cases": [
+    "identity",
+    "shift4minus3",
+    "identity_gamma1.6",
+    "shift4minus3_gamma1.6"
+  ],
+  "seed": 20261113,
+  "inferences": 240,
+  "runtime": "QualifiedCPUFP32singlethread12iterations; OpenCV4.10.0 added; no source changes",
+  "geometry": "Integer knownwarp at evaluation128x320coordinates; source-conditioned masks, same mask for each clean/gamma pair",
+  "scoring": "Equal-frame EPEmean/RMSE,1px/3pxsuccess,finitecoverage,alpha/EPE Spearman,AUSEfixed20retentions1..0.05normalizedfullEPE; disagreement/EPE Spearman and EPE>1px with disagreement<0.1px counts. No heldout/naturalflow/VO or calibrated covariance claim.",
+  "stopping": "One descriptive240prediction attempt; no learning/promotion, no outcome-selected masks, transforms or checkpoints."
+}

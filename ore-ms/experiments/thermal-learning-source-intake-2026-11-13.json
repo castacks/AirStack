@@ -1,0 +1,39 @@
+{
+  "date": "2026-11-13 America/New_York",
+  "repos": [
+    {
+      "repo": "cv-stuttgart/Sun-RAFT",
+      "commit": "912e2b44c600fc733363b57a8852e9e1801e4c1f",
+      "tree_entries": 32,
+      "files": {
+        "README.md": "4ab875ea38390fc2a61238ee2b73d5807bdefdebd51c3a959c09d570bdf679f9",
+        "core/losses/flow_loss.py": "a9768820a9046cad738d644937307a3776810bd3dff38d779acf3987dd81cf89",
+        "core/losses/loss_blocks.py": "763fd7d0583d38bf35ab07b5c214e451b86f1ea135a55518384c1d4b558b859e",
+        "core/utils/ar_augmentor.py": "7c1584be36b3e9caa841680ddb047aeb1e26c0217cf739a8375aad5d1d3b524f",
+        "core/utils/augmentor_un.py": "aaef8f60f9a4b35e1e9129e4935280c4fc5cd909074fb73983652e298583b62f",
+        "requirements.txt": "88976d4d9d777d92d81875ab5be3aa8087155ac0c07d47139cc4c555b9529ac2"
+      },
+      "execution": "Not imported/executed; no checkpoints downloaded"
+    },
+    {
+      "repo": "sunzunyi/U2FLOW",
+      "commit": "152bb38d90621c34902943763c00a77ecef8725f",
+      "tree_entries": 53,
+      "files": {
+        "README.md": "d556b26186add07988ad44d3327bcf5bc2545469804faec30ab11484bb671665",
+        "core/losses/flow_loss.py": "0c16764514c40ef37c19192502f740275b80c4df29241c019eadc838224b2e04",
+        "core/losses/get_loss.py": "9850ad236633dacffaa4dbbe1d5322a201c8ed9e7355781979a57c3063cbf847",
+        "core/losses/loss_blocks.py": "a96cd24ce7eadc1a9e9d67184f42b9a3f9404e602a667960756786920d8b916a",
+        "requirements.txt": "714f396d54205505fd8d820fbc3a00ee5f556a43749ec49feadb23adae251ca4",
+        "train.py": "6ba7cdb55d8272e0e5a4dd047bfac8cfca72962129572bda424b53385ab3f9b8"
+      },
+      "execution": "Not imported/executed; no checkpoints downloaded"
+    }
+  ],
+  "tartanmatch_tree": {
+    "commit": "b3f65ffdf9723a028d82f36ab0beb8457d0def72",
+    "entries": 42,
+    "depth": "Tree only this pass; prior model source reading historical."
+  },
+  "scope": "Source intake/proposed controlled warp assay; not an executable scientific freeze, training or reproduction."
+}

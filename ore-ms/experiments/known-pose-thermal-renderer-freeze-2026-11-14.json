@@ -1,0 +1,70 @@
+{
+  "created_utc": "2026-11-14T16:26:01.921723+00:00",
+  "baseline": "a79658f6341194b0954852226f200313ccdf5408",
+  "status": "FROZEN_BEFORE_RENDERING_NO_MODEL_EXECUTION",
+  "K": [
+    [
+      387.78695052062903,
+      0.0,
+      300.8201370239258
+    ],
+    [
+      0.0,
+      387.78695052062903,
+      151.62576293945312
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "baseline_m": 0.3038995142414822,
+  "shape": [
+    256,
+    640
+  ],
+  "yaw_deg": 0.5,
+  "translation_m": [
+    0.03,
+    0.0,
+    0.1
+  ],
+  "scenes": [
+    {
+      "id": "plane4m",
+      "depths_m": [
+        4.0
+      ],
+      "near_halfplane": false
+    },
+    {
+      "id": "two-depths",
+      "depths_m": [
+        4.0,
+        8.0
+      ],
+      "near_halfplane": true
+    }
+  ],
+  "textures": {
+    "day": "/root/AirStack/ore-ms/results/paired-frontend-qualification/inputs/day/000000-left.png",
+    "night": "/root/AirStack/ore-ms/results/paired-frontend-qualification/inputs/night/000000-left.png",
+    "rain": "/root/AirStack/ore-ms/results/paired-frontend-qualification/inputs/rain/000000-left.png"
+  },
+  "preparation_source": "/root/AirStack/ore-ms/MAC-VO-main/DataLoader/Dataset/MS2.py",
+  "pins": {
+    "/root/AirStack/ore-ms/results/paired-frontend-qualification/inputs/day/000000-left.png": "a578455da87261c9207517891acac26bc6ff58ca9a5158e82f27ad7b778e6899",
+    "/root/AirStack/ore-ms/results/paired-frontend-qualification/inputs/night/000000-left.png": "099d086bd6b05cd626319f5ce68b39c92c0c460b4c65d22eb21c34a660b2f11c",
+    "/root/AirStack/ore-ms/results/paired-frontend-qualification/inputs/rain/000000-left.png": "046771165b4d7fffbb1fe0ed63a50a076a486ee09462804ab662dc6e4f4fb748",
+    "/root/AirStack/ore-ms/tools/render_known_pose_thermal.py": "c6495d8ee69aafe096a4e4ce522fefaa47f42d2029b77e93d436b613f12e5117",
+    "/root/AirStack/ore-ms/tools/audit_known_pose_thermal.py": "322c8e76bd261caa89c4a180fcf803d7cf6d39c97ae8333260acdde80fc294a5",
+    "/root/AirStack/ore-ms/tools/qualify_native_frontend.py": "98b9dcac39d86105973413d1da832bd618be4314a2f5bafcf91e33cc44ecfb93",
+    "/root/AirStack/ore-ms/MAC-VO-main/DataLoader/Dataset/MS2.py": "22723f8de483a284088289e9b50333c931e243edf6312b531206cc0576fb57af"
+  },
+  "rendering": "Ray-plane closest intersection, front plane exists at X<=0, background infinite. Canonical-left planar atlas; bilinear gray interpolation; zero outside atlas; coordinates within1e-9pixel of atlas boundary snapped. Round to8bit after interpolation; store continuous samples and uint8 views.",
+  "qualification": "Independent inverse-K rays/Rodrigues pose/plane visibility/projective identities; geometry rtol1e-10 atol1e-10. Continuous sampling atol2e-6; exact producer quantization plus independent <=1code differences restricted to half-code ties <1e-8.",
+  "scope": "Six artificial stereo-motion scenes with existing thermal textures; not physical thermal sensor model or natural pose ground truth. No learned predictions in this qualification.",
+  "next_numeric_freeze_required": true,
+  "no_tuning": "Do not change geometry/texture/pose after model predictions. Later error-vs-variance comparison requires separate numeric freeze and unchanged native estimator controls."
+}

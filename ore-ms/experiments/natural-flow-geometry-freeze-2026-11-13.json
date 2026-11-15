@@ -1,0 +1,2765 @@
+{
+  "created_utc": "2026-11-14T03:18:13.093729+00:00",
+  "baseline": "a79658f6341194b0954852226f200313ccdf5408",
+  "branch": "ore-ms-orb-development",
+  "source_root": "/root/ore-ms-u2flow-qualification/source",
+  "checkpoint": "/root/ore-ms-u2flow-qualification/sintel.pth",
+  "checkpoint_sha256": "b3dd6d382fdcfb079716fd89a4033a16540a5f59dcd4e3550ff6bc4b7a68f752",
+  "preprocess_source": "/root/AirStack/ore-ms/MAC-VO-main/DataLoader/Dataset/MS2.py",
+  "seed": 20261113,
+  "pins": {
+    "/root/ore-ms-u2flow-qualification/source/README.md": "d556b26186add07988ad44d3327bcf5bc2545469804faec30ab11484bb671665",
+    "/root/ore-ms-u2flow-qualification/source/requirements.txt": "714f396d54205505fd8d820fbc3a00ee5f556a43749ec49feadb23adae251ca4",
+    "/root/ore-ms-u2flow-qualification/source/train_sintel.py": "b9a405818801060e5c5a5d9f02d47c6662f8b8b3e26e4ef0fad32b9459bac7f7",
+    "/root/ore-ms-u2flow-qualification/source/evaluate.py": "83bd59ab1a42255480cd14d332cd636d60e7c669d7d8aaa4a66e213be71418a7",
+    "/root/ore-ms-u2flow-qualification/source/train_fusion_sintel.py": "b722ade53ededecc0175d17c2df2de240fa393c4526c566a74a625f2f184e34b",
+    "/root/ore-ms-u2flow-qualification/source/train_fusion_sintel_test.py": "f77368a5dbec18356995cf16757afc1e2f09602185dbbe027ce199075ca15d2f",
+    "/root/ore-ms-u2flow-qualification/source/train_kitti.sh": "611784e2efb02c55320781a0a9e90ae80ed80400754cfc1a3da5d9c04de2c809",
+    "/root/ore-ms-u2flow-qualification/source/train_fusion_kitti.py": "d69a8c46d6074d862877a21f787d12726873afec079796c6fc861eaa32b1521f",
+    "/root/ore-ms-u2flow-qualification/source/train.py": "6ba7cdb55d8272e0e5a4dd047bfac8cfca72962129572bda424b53385ab3f9b8",
+    "/root/ore-ms-u2flow-qualification/source/train_fusion_kitti_test.py": "483902100eafc98a4af225bf8ff6022e1e86bcd8b65afbdc19ab2938baa7b4b9",
+    "/root/ore-ms-u2flow-qualification/source/train_sintel.sh": "ed9c936d629adbbfab5f885a32844fd6ba93f0bbf5cc634fa225d5c8f9402be2",
+    "/root/ore-ms-u2flow-qualification/source/core/flow_datasets_sintel.py": "97659d8ead211bda1a23cc54e332f3781345cf9a42c35c7926f88275ce931912",
+    "/root/ore-ms-u2flow-qualification/source/core/flow_datasets.py": "9c1b7dfd4dc351f8ef4b4a70d10fa898344132b93f4b25b807c9d71e39d4bf5f",
+    "/root/ore-ms-u2flow-qualification/source/core/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/root/ore-ms-u2flow-qualification/source/spring/evaluate_spring_submission.py": "992549a6ad42dcc72e41db147751e17fa42b99166da0f80826b739750e251125",
+    "/root/ore-ms-u2flow-qualification/source/configs/KITTI_MV.py": "7965a3768ea53f963660dfa4acd1987d17faf195c882adfa081b5ed5aac3a5d9",
+    "/root/ore-ms-u2flow-qualification/source/configs/S_R.py": "e416175ffb82a9274902e12b8b05a2a2b34d526e47bd23366fc9668b16e17b17",
+    "/root/ore-ms-u2flow-qualification/source/configs/S_M.py": "e2f033cbcf0ad96edb90e2c56451b8638bdb63f1232eaafe1e1b73edd537eadd",
+    "/root/ore-ms-u2flow-qualification/source/configs/KITTI_Raw.py": "2ed1491e8d8f957f132d736591efdc755d175cc8f0262c7c279ef4597eb30abf",
+    "/root/ore-ms-u2flow-qualification/source/core/Networks/extractor.py": "475a9f05577081a4c4f2c2b384b12d171ac4b0ebdd2b4cbb2a2e1fba347c5326",
+    "/root/ore-ms-u2flow-qualification/source/core/Networks/update.py": "b082d1a238115162acd59a26fc0b7b7d5e1bb6b96a034bb6520e2ba7e7447d00",
+    "/root/ore-ms-u2flow-qualification/source/core/Networks/raft_2f_u.py": "f36a9797eeb204b735f388bd453a1e42100fb417be8dd84eaaa3b1d9ab4bc19a",
+    "/root/ore-ms-u2flow-qualification/source/core/Networks/__init__.py": "cf266afa2363b41f6ce6a0a5deff8f85bc1245ab1536d1dcb15b5b1e85b68171",
+    "/root/ore-ms-u2flow-qualification/source/core/Networks/corr.py": "0cf534e8620ae222c47a33620bd0eb35ccd5a9c57d8fe06347d8940b066cfc10",
+    "/root/ore-ms-u2flow-qualification/source/core/optimizer/__init__.py": "7f5b22be0e47f53430521ca28178e968f0cc8ca551c3ae4fe40469d84c3ccfa2",
+    "/root/ore-ms-u2flow-qualification/source/core/losses/get_loss.py": "9850ad236633dacffaa4dbbe1d5322a201c8ed9e7355781979a57c3063cbf847",
+    "/root/ore-ms-u2flow-qualification/source/core/losses/flow_loss.py": "0c16764514c40ef37c19192502f740275b80c4df29241c019eadc838224b2e04",
+    "/root/ore-ms-u2flow-qualification/source/core/losses/loss_blocks.py": "a96cd24ce7eadc1a9e9d67184f42b9a3f9404e602a667960756786920d8b916a",
+    "/root/ore-ms-u2flow-qualification/source/core/utils/logger.py": "769916fb5e1eb3d31372cd5bffc2da045a4aaf8addb3cf7c4312cf2fb42fa40d",
+    "/root/ore-ms-u2flow-qualification/source/core/utils/utils.py": "59e2a87f9ac9e9dc98f156e84a4ce8e07c0c0e3dd68346004b030a0c352adea5",
+    "/root/ore-ms-u2flow-qualification/source/core/utils/frame_utils.py": "b21ebfd1b08bb9cfc500d5a7512d5205ce526b458457baa41676a350d05477a3",
+    "/root/ore-ms-u2flow-qualification/source/core/utils/flow_viz.py": "7cc259f685f638fbd7a64d5ba2b63dea3d4a6e1d8f6b9c53b52e7d9c1b8b97a3",
+    "/root/ore-ms-u2flow-qualification/source/core/utils/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/root/ore-ms-u2flow-qualification/source/core/utils/flow_utils.py": "dc64e1fe96b7698b49c5a9604ca9245388c937b01a26d658bbd029b79c50efc2",
+    "/root/ore-ms-u2flow-qualification/source/core/utils/warp_utils.py": "1c00eea9c231911d0769e8c614999fc1cfd5ea7696455982ff5223e72a69b5f7",
+    "/root/ore-ms-u2flow-qualification/source/core/utils/misc.py": "f82a5d06723c4a9178d8ef7e90e177c84b0fe5be516226806df734cba452b513",
+    "/root/ore-ms-u2flow-qualification/source/core/utils/transforms/sep_transforms.py": "1f4098e528351d23db77850f7235ff238a59c571bb24b85b7e8e24b5cb14ef2a",
+    "/root/ore-ms-u2flow-qualification/source/core/utils/transforms/co_transforms.py": "eecd7ff646c5c7cc965153214febb5ab45ca868b7a153eef011701ffd3747903",
+    "/root/ore-ms-u2flow-qualification/source/core/utils/transforms/obj_cache_sem.py": "356fc9acd9b258a17ac6866cedb56d191b22b11097f2a50996a8145134484d92",
+    "/root/ore-ms-u2flow-qualification/source/core/utils/transforms/ar_transforms/interpolation.py": "e5e32a60ca181b49f572eac85d6188705584390cae17d2f3351b03efcb54ec82",
+    "/root/ore-ms-u2flow-qualification/source/core/utils/transforms/ar_transforms/ap_transforms.py": "635a4bb2a23212e6ae8ad6e3fa3f1611283ceb2331eb772260c711e1c3a5648f",
+    "/root/ore-ms-u2flow-qualification/source/core/utils/transforms/ar_transforms/sp_transfroms.py": "11ad9ade735f541a23537dc308dd29b91835e02bc2f941cc14d2761dd763168d",
+    "/root/AirStack/ore-ms/tools/u2flow_thermal_warp.py": "47074821b1ec4d1519104b2c3d3f5a06b23b1e5e9067d528d08c36b0e32414d6",
+    "/root/AirStack/ore-ms/MAC-VO-main/DataLoader/Dataset/MS2.py": "22723f8de483a284088289e9b50333c931e243edf6312b531206cc0576fb57af",
+    "/root/AirStack/ore-ms/results/natural-flow-geometry/conventions/MS2_dataset.py": "299250fcdc33548b6cab3bf585d3f5b205af3635eb038e7e113fee73447de9a1",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/ms2-day-replication/calibration.json": "2e9a8095c7cbd1b80cb3b0ace554ad51099883e7dec4e3d3c9a458f5f3e7b695",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/ms2-night-pilot/calibration.json": "2e9a8095c7cbd1b80cb3b0ace554ad51099883e7dec4e3d3c9a458f5f3e7b695",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/pose-covariance/accuracy-001/rain/calibration.json": "55b784b3af63f07060b4ff7afe44a5dcbdea8cddfcd24205c7229f9f60076c6b",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000000.png": "a578455da87261c9207517891acac26bc6ff58ca9a5158e82f27ad7b778e6899",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000000.png": "561a4e440b39907a5b107ef7d27c2dafbba0bcda7bed1bd0ef473e7119cf15d0",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000000.txt": "38febd82b7ab4fec01363505237f1cb14eefb03f251958b39a4c4d888204bd04",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000001.png": "b5d8fbab974dcf52d95c319c983342013d7642e029f75a3eadd5a65dfd7d71e9",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000001.png": "2edc3998486c603fdebabfb7bc151a07a1a57533d6286f9afddbe8eeeded9f43",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000001.txt": "847d22146094c5f294bb9f90c0520fa100eb876c57d7b8abc138fcac4e3073e9",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000002.png": "32403f6f98f12efda4c164373d4554aeb974f4370f38949649cd23ae696e4afc",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000002.png": "bca186bff7f8cb92dd59dad475b83e8af7c8a64445548190bd78d11d4553e525",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000002.txt": "ea13515504a4c1d88f00e38c56a6c5955b2479a450376a020c7da7fb6f6257bc",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000003.png": "53cde1ef5adba3dc8747ef5ca1380ce1a7d9878cdca874ad26a2e5a8dd9fd312",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000003.png": "24dbac9745d15a6bbd62dbba13d3c2947f65ccabca42af10b7527fec91dfb733",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000003.txt": "385b9b4a2fd9a695079e18c77f639084dae0872fa0c42767d88f53888afe5720",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000004.png": "a1d0d538d6d34795b33c6989cd962bb8f3c6f8287f19aba2f4edfc4ac61706ef",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000004.png": "9ad6a6f1df80bce44edb85d3e57e0b718c592de128e0602ff3935f4db073c619",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000004.txt": "3c70465a27e432aa32efc40a433f0c4b0cb39d0ad098e510e01f0487a0cb9fec",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000005.png": "f2bf4c7fee6514c2ac958a24c5ef9066efcb27191227baceec61f1e1f71012c4",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000005.png": "5771e6a48fd8c898fc3c5647f37e37724368eaead6493eb850ad6231f2e2b383",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000005.txt": "37bd79676fdd27aac5f8ce9e4e8dbfe57da54d818104f5b5a3c7cf90e42cc152",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000006.png": "705c5d860fa498ae31fde07182210841c95e95a17aca60ef9a112b2d1e537803",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000006.png": "757a655350eb7e894b3fc8d1024e0f7b2b4bd240c8615d99dddf830eecc74b79",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000006.txt": "0a00066c5560a3daef207376536e847dae1ba8c32bbd0242ff1ce0646aa68ac1",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000007.png": "aa3606fefb38bc2a44a0e15a1f3fc3ad925e5680be2362520526d2cfa60fb7dd",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000007.png": "3a0194b4b35aa8cf289d219ac6fd66c31b84f6550a5f7c175a686b73ff1f8f12",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000007.txt": "49b480f94372284cdcb05e7c1a75f3b22d73086aff71a0714d168030a879bb52",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000008.png": "a48da3d7442b65304d2f0504f9a61561e1a1aea9694c6e9d5fcd81283af7886a",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000008.png": "6e27340e2445bfcffea08c441a4634a95a3b9743230a2bf8d2a2b471cc97c204",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000008.txt": "57a373862e7adcd027df15d7b2360c8af2da4f2fba08ce252d3c4792b5a6fa68",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000009.png": "e2ebaf67e5068dd5c33de714e7a7c53cd0815b4ff550c5b32e378eaf0ba5ec7e",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000009.png": "54c9577cfb59803998136dd14e1b096767cd78828e764136bb3c80bebe66dd47",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000009.txt": "d91e8507f50cf495256582e818fc2f56cc6982ced366560109844e89239b1c57",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000010.png": "c68af10acee8923b94d90f0196fa6fe22eb6932228df00dd9ce9530fe34f61d9",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000010.png": "81a98c0b0a2f82b9f1c8d8f06947583e7019085afd199402577fbab50dcadd49",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000010.txt": "651cbd17d7066493b95b9ecc65709782eff93d75f85aef58c5d84e9ab481a1c6",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000011.png": "f0ef6f17b500668ba691c273d05405c48f965aa3fc536fe3ad634a8aa884624f",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000011.png": "ece2cd4ca18d2dbd158cfbdfee2f59619df81898351723cf813996e27e545a42",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000011.txt": "740d253374b3f6cff4d70c4a07cc22d9f84fed872263170f5be87cc929bcee4d",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000012.png": "b2eef89a42712c811b17ec880847e7871a2fd2f6e7a9d091a2687259ea52978e",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000012.png": "2831888d5825472c540c15e94de59786950040ac61e5c639bb55e77ede412a4a",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000012.txt": "81e7b495f99821ba628d9f72589779a978f034f48914f5fbfdce587ace69f610",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000013.png": "f04b65501bff3ec51a54cb9f41480e9672a44218c8d6f54ee65b4f9d66f3b959",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000013.png": "12027eb02e4523151d4e4bf44746b38cbe9f3ca4bc4841c1d1cc604a2b535be1",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000013.txt": "73484ef718245ea86228a2da4d1bf823147ce0df483ebff7b1ed37873e9e5903",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000014.png": "8ada87aa9c5989371e686297ed4f92fe975f1f59a837b81a784096fcf984e6f9",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000014.png": "eab4a9690a6ae8ad836464488a7bd312039ab2386d10f1c0aca808b3f0b4ffa3",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000014.txt": "167dd0321c238684d02742c15c01c37061d4c569d8acf0b94b8f82fb5ea1e441",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000015.png": "6f363fcfd6b8df5283e33bee19ee7fe2cd92f7d354530fbf4fd22435f71c35d1",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000015.png": "efe6fa117c92f7a8cdfc4f5ceee5e0b0729867246b00a0652c2077f747b20441",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000015.txt": "e6f2d28abdc3ccb5de44287cebb3ed0a1c7802b8fe9b166bbb0385df4912d07b",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000016.png": "f7c848c4293fd51579afa737927d8af05b492ed655fda5a9b922be0f0549e23c",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000016.png": "4cb93fa46cb60f2a0f9e00851f6cac77dc89ccae65620ac4c50e55f09e247afa",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000016.txt": "8f0830afa264b47f0968e1ca7eeddd483eb6842381820d612750128b6bef138d",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000017.png": "6c1a6a2bc529d4b398b0b4d06c604008cc6807e99125cf3333c6426f2b79ac7a",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000017.png": "6919a48054546289df7305c9dc65d76862372b22be208c18f6a2a3412bc39a88",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000017.txt": "e358331a2c9bb7a08d06e177a14fa4cf4d69445726a6e76c3625c74d8d5310be",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000018.png": "fc4ca25f38c296d235e6e8a8b2dbf272f9056c4341178559a4ca66e7d166c98d",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000018.png": "26f83cbc4e5dcf8f02d77a2bd857f54b19ba3c0c8b470eb4202d142873de8e9f",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000018.txt": "709df06092c9449b6375f5a04e6be90d772d4f678ee19a3d73f83572453d4b12",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000019.png": "51ce45431903171d7bb6a4e642c62725fe8b9308864e39219877d5ed60134e8e",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000019.png": "a76aa17621db09a485c47036cc21e297337d5290ec7dea2ca8db6cab5aa76c2a",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000019.txt": "478e26c1403152348fb730e8c42780f6c407afae95d0279d2bd5a43fcd27d8f4",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000000.png": "099d086bd6b05cd626319f5ce68b39c92c0c460b4c65d22eb21c34a660b2f11c",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000000.png": "0271e3a78dbe1c84c6f7f7009a221954332dd6ac58fa074d4ced033fa91c43d0",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000000.txt": "77f4b202dbe26adb61902b18bfe8e655825dd14e95eb90ef17d4611ad191f4c4",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000001.png": "9c59815ae674badc1885918f04060a2922ae48247c6463ff97c7af1debf4ae40",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000001.png": "9c06c3635435eff6f56dcb1dcb3f31ca7eea4292c4b8b4c88a606c3e0f247591",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000001.txt": "41347fd7a15c1cae3790373c5e56fc10415ed66900ca17afadeb68f5b30290b5",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000002.png": "6186591371234c11c43993500b0cea8c068a98a60c9a267460daf77f6298de0b",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000002.png": "5c602184e2ee658fb86eba7200e29c8263c9be00cc88bc64b631bd17f2435614",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000002.txt": "a89459aea42def688d668680eb39680e692a839dbc5b1d19dd03dd2e2eda861e",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000003.png": "2ba12dd1c77b8fb662d8a7969a457393a7b535f4eb42430d6fffccba3e76f8e9",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000003.png": "d52de010e5da7e0a9d96c3bb26befa8645328a3555bad36b7612c5b336ca50e8",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000003.txt": "07a17a0bcdddb03db78d17f35597fd85c75d653dd7c9d42f738d9047f0b4cff7",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000004.png": "73b73a5b7a528fb627b8465c79dcc8e683cc9da90bcb2176e0a2727bb38c7933",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000004.png": "503c332557028c6a7bbc4ada406e397dbfd9ec78f70972c5978508cb26771733",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000004.txt": "38b24f81a4e6c69c0e4e446cd65970adebbd59a9d5f9c38e37385efcfa15b95f",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000005.png": "fb78f3b5f3246fa2fae3c2c857c75081fccfbeca1b7b3162fe481e17ed498a6d",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000005.png": "87246822374404f0011fa31b51e41d6049a957aafdb64a4dbd927625c34c5641",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000005.txt": "4849af478a1e9f4388b955c04afb4338a1feb3731a70c2161533296fb5325a5b",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000006.png": "d87582ba8ac94956ab478f5d2952db4a0e84e1bd44f92efc56daad397fa13733",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000006.png": "e57e52aa143689f80ed87dc5d077ac396f043d6077d8f5985dce791feb96f5f7",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000006.txt": "2ac5e439be83b45ade8fa079b7e067073d0370320650e7b0a5e91738e6fcec08",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000007.png": "393d7adbb642501f21154c81fcdcd7c804d0d5ae1e028154e2bc31a5943b47b2",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000007.png": "234b530e0a3f94c7e89e0032e2fcd87a3c6a3ca97326e5f3b5d82d8142710281",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000007.txt": "1383c5da949d8a9bf99e4afcd4c6c7bd6ad24eb4552b7c5a533c302d0c50b15b",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000008.png": "227e292457c7d22215061ae89001ce1dbd1cef6498cdee45999083ff694582f0",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000008.png": "6e77741c22179c17ebfd829f1cf037833d4120f49fa667894fbbf49d059095ad",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000008.txt": "2bc7aad12c73a3e0b720d7a216fe8366ffa1bc65254375d7037fc50107a9c711",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000009.png": "a4585df10fd8458899042b4fc43a32095b3d6a931753dba7cdb80de450ceceea",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000009.png": "3261cf107ac44fea2e13650516b75357e9cd50063bab1cbc1d6ec7e8198793c6",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000009.txt": "0654b97f8e49142a9c6d111af8b6915e99573a3bf76f8cebe6cd66d90d0b3d85",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000010.png": "7435e3f14e2ed6cfc9366bb0158c5a30e5692a2e5f4e18c405a18cc746464c79",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000010.png": "f724a08a683e49dab389ab1cf0b9785030f459092c4ab77e4676821df9ac82be",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000010.txt": "4eaa282b303036e30b17730528faeeb9bde7803647520d352280d07c0d8439c1",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000011.png": "b47d21b568cd5a6d6e2de879856f7d4536edae282e05c8fa4393d432958e7c80",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000011.png": "deb3d1d08bbd1969c11aff7dac15754ed233cf6cbfc797e6f26d03d02196c74c",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000011.txt": "190e2c931c158468bc630bbe64b466fb513ffeed2c2ba9cbc025f6ff1cd11e41",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000012.png": "6fcbf17fed45f190d11bc9b8d1ccc4799b6ae9649cca8ffdcf978f56414e5d70",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000012.png": "032910de1e3d2eb728d60b721c19732fef9c355320f08a03f4ac1c93f9d2af28",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000012.txt": "998f4f0ff72f67d26f3e1589bc274e3801d0b87451d6381798e869e60af5e9c4",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000013.png": "ba153d3ed1b78d1486065e7ca324ce2ca0fb25a8af84e88ac58822654378f53d",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000013.png": "7be8c82572292ec338d489fd78265f464af1a107dbc73e89bfb502d66071c9df",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000013.txt": "131dd41892e376f0e9a40d842c8c2b4a18f88115bbac74fa0397f0d3b434bb44",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000014.png": "25f0ed4e846dce9d9f7a5e547573322e1b143e080060744025a59ae59dc66d63",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000014.png": "4ca306952128294eed364109368d2169c4d61e9ce624185a178de11f2580ffd2",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000014.txt": "21e41734621f9fa2d91c8d58f4a657ffee4a36a8f251e2cee935fd9085f8d539",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000015.png": "6b82fe61cf2db27fffce39610a6b8a7192722a21d2693d059ba930a2d5e41351",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000015.png": "0216961688bb31a2d28ba9f92552f4698be12ece0e1ff76246a788f1a7e1ba13",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000015.txt": "265f1acfca4813b7548256c7a36fcb08a3d14a768330859b4b6e6cd4f2495691",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000016.png": "d1e59cfcfbcaa9c6232b0281540ad4fcef5c8021487bef84e85006502f97fdfd",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000016.png": "9cb2346e335a5fd3a805ea3474f248a19720e8e488885acfeebaa5a1bb6d1f40",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000016.txt": "03b9fd9a7fd4b83383628029cf3a4111da6b2f4e28e78f3dc706ae20d5610c1d",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000017.png": "6abea3bf508fdeb0dfaecb12c843b95930247ad4d4ab917d05bbe790c571bcf3",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000017.png": "a99aa00f7b0fd662fa9c877f598c11902c319a6c5be34e4ffcac32c6894a1341",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000017.txt": "79e9731fbd17f3d520128f62061f9458f53933a6694bd305395f61085f139d0e",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000018.png": "204601ff3882d869993fbf3ca39ad80330c600645fb0b7dfb4cfbbc7f55e5a00",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000018.png": "008cf66954385ed594cb93353541918d2c1fff370550bb6c81a9588420fe2657",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000018.txt": "680b7659cb3dc2d00f808a97b06f1b50425d588fb4b1d9ba1304e5649bce6923",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000019.png": "690fe8687cf93bba90927cf5c34393d74fbd835653540fd19ebaed7dad3eb63a",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000019.png": "c013daff30d8bd00e3de5b9b46335b0ca12d58e55a335ca401c4ed48d1f64fc3",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000019.txt": "a7435703b17c660eed5f02ab4ebd395b9264238d504f04d1145120c147745d88",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000000.png": "046771165b4d7fffbb1fe0ed63a50a076a486ee09462804ab662dc6e4f4fb748",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000000.png": "37a58924322a864ba21558571fe578cca81ae0dc744c7d7a2adb808a43f5ac02",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000000.txt": "ef098940cd05a68d4222c9ae728262b29579df347824ec3a1a2b3d42d6209de7",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000001.png": "3969f940fdf4110992115e29fea6f185ce6d93d496a778d52ea280d217acffbd",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000001.png": "ed4fef67fc20bb80a6c581f7457246f9b6efded8fd876b5132c07035bd0a8b42",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000001.txt": "9c627abd2b970b6154fa5e2ec02f811aeafbf0e3ca263939050f4630aa15113b",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000002.png": "4270242a7df1880164455fbd61650c068d55c5accb27fb7eebf504d477a97b81",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000002.png": "7589814f58e24d84f8adfba419a442e9a9c096a6991569f57d93eae61218924e",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000002.txt": "b3e6b5defa8c1c7f7d8d122814f813a2e27671c74a7bb87d991ea34bec4f808b",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000003.png": "83658c3bf4daab1a68a398ef39678904a8e824000585d077a6fc4399e7b41d6c",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000003.png": "226c59ce0fa1fbccf6ebf481082524e925bf09064d45c57ef7054b6239b1fafd",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000003.txt": "2ea515f4b79bb05ef42848f7fb80658dc32420bb0a7715f856f6b35b025b0a7c",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000004.png": "4993176b2e2ffcbe457d5dab5ff658b79d134f21eb666b5e81ab12ab5c394d0a",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000004.png": "9a160913ed509fe629db624ca83221d6709b8e56254c21abc4abb180568a5700",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000004.txt": "5a833259ca458dbea0c718d15b0e2a738f85d4e4bb6829706894bb04c9dc51b5",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000005.png": "0f2632f06ddb2f12bf02064a5633afa83736070521f9cefc79e2ea2da047a2ae",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000005.png": "1fb4ecf5eff7d4110f5e76e09db43fc1de01407c9fa91e9d67d2db254375212e",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000005.txt": "c989cf3f535b89687c84405aaad8be21bfe41c53e69bb52fbe54883bce601cbc",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000006.png": "645d8a0e292e8a9073328d1971530762d6eb32d4992200c5a129b1101406755e",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000006.png": "ee604790a38b1ae64d0b9eb8bcbc599ae2af25c33c3daf39704676564774534e",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000006.txt": "933e2c642681abf40466b9108118c0ad0c23370ce4e6df0a44315ab8537ddca9",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000007.png": "9f040b68a84f717bb085c17670744999d3b3ff1148da469d834ed1df931d2632",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000007.png": "8e99a1d11d21ee187e845d550ef0db5ddc4a564bf91a844fb306dcfecf5f6d95",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000007.txt": "3af3592109f28bd881d2e583ccfbdc9d091846042c51bb512ca7dc3d177a1e3f",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000008.png": "12167d5314aa6e9a266b2bf8eb327b803267424daae6c6bd783520a005868434",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000008.png": "55541fbdf0eb1b5b2d53d384b977357f9e0bbc96859027088c85217ad950631b",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000008.txt": "17840dc55e55e271d3ec8673e26b631fa3af5ce60a55fb1487698cc342b78f74",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000009.png": "0d3be5de8c658849a16b3ca1129967d3db2d5dee5beb842a85d53a75b87a866d",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000009.png": "84710235be17d619049630462e84ef6e4da7125612fe0adc9d227166b68f9499",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000009.txt": "d20ea1ac47289961737c31e2396b8436dffb5b9b7566928161eb8374dbd7eaa0",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000010.png": "7d7669d106655b2a9751b1923a7bbe755e767a3710d8007d5bbcd1de1433e148",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000010.png": "52c1f022c9ef16efb1ca998ecab61018292aa1d8d2af11a67eb844a3c56b5d85",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000010.txt": "d3fea99f34c394dd293341299b8f4ea6acd7db0b638882c7738f4bb66741cd77",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000011.png": "785766fda752f886a6bec756ec4f4d77fdcb91b6aba3481b3abb9f3baae37d88",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000011.png": "4763e81c8d2b7c5f203b814c0b07c504ad5b99d947b7f7a164088efe00800784",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000011.txt": "ac8bcf39d64f6090be8fc96d276da1c702994c563696417625a01991c6db2d74",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000012.png": "3b26ff5a74aaa69bad56aa06acb71a9454a949f0098eee422da7db2689f095f2",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000012.png": "201a4b50d7751ab8a99cadbfc582c052b035851bc46e73d9c6a73f41a791ae7c",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000012.txt": "7d76a277cf843b503429ccdc695da4ca79fea66a9e368d25a5c6b8f1952fbef0",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000013.png": "928a08d965e3eda5fdc57a3229ba84aa1b5fe4d880f9081aa922ee89d033285c",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000013.png": "4ac31ae29cbd4f8dd0911c2711128adc311894cc4b06580a397324872d82e7e1",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000013.txt": "97d17bbf6feb32d3782f64289215df0cc973455b159711d209474bf5f8fab9b6",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000014.png": "b22380ed02bdb6ae315da2e3e44c4a85a26d49941248b93d6e1431e8234fd589",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000014.png": "9df84e9caeab2b757ec8749c2c2186ec636da73f8f0951a63ba22e1c221ff01c",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000014.txt": "46e4b58e9c0f220e647993d06bff3ef584b592e6263d04edbfd89bf30924dfc9",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000015.png": "a6cba9e929dd384b5ec920db83eee308b9afc37e97a3e2708fa00d1a30295898",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000015.png": "82062658c28fa8f0be70d53a968dc9b6211ffdc3bd00f5720502db87d6637599",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000015.txt": "d4fa1622ab33c8b2f15db870fc5aa514008754c64213ae92fa3ac7a3fa2428fe",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000016.png": "79c8e09145193658afa51946cc247aba421b701af0a2eec4caa674508abbe56d",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000016.png": "5efe2c396709804217b270411546a6d330aeb0166e44ac0359943d40da8175f9",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000016.txt": "84e2e464768fcca54c22b28bd2608ba1aeaa65fc07073ae5e4f895622835b77d",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000017.png": "eec4405f11393513950ea56792cbdfa17f4d7260d6837017c423ed831ec5d9fe",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000017.png": "c48afac9ae33e5968787cc9b1bd676d0e7c05abd9fca45f5c5a6443dbf8ed062",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000017.txt": "b9b3855fe83e2e314737c2555790d01b0591d12f01f281a889a00bff6767f88c",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000018.png": "1f3020bcb89ac2c04ae9ed4db033db3dc23786da8a280311ad19af4f0149c2ab",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000018.png": "05c5a459acfca802235cbea24459b077ad3e598f493cb035f0ed19ff101d2a4d",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000018.txt": "d9301a79eedeb6e29fcb35ea6793e7134b8d8b0221bd967c724ca8ab23f50540",
+    "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000019.png": "a47304661d7e50482e8093086e96668892b2172a2c4f55e6af638593a63ef9e6",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000019.png": "ba2b55629719fa05aaf60f701a3d984986d371c4ee7a03fa6b2c90adc760346e",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000019.txt": "f5c589fc2c7806e3d417be67acc308857fbd50a2c77dcf5eddf9c8be9e988c2a",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/unweighted-longer/run-001/inputs/day/source-manifest.json": "2f6630b8327fc12a5a8c7411346666521de78aa5266f8506088d529f3c98ae67",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/unweighted-longer/run-001/inputs/night/source-manifest.json": "098441602615063d6061423665ab842ba66183b9d1256194b523926681ae7258",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/unweighted-longer/run-001/inputs/rain/source-manifest.json": "4f008fc7203fd73b197557477f2d14f9acac666cb4de672cdbaa21d78569a7a6",
+    "/root/AirStack/ore-ms/tools/natural_flow_geometry.py": "5b9fd7503fc5040b878c9148bd3d49daeb8dc375f6b231fcb6f7180b925faca5",
+    "/root/AirStack/ore-ms/tools/qualify_natural_flow_geometry.py": "60989bf6641b31b332bec915e950aa18068a39682ea159fe4ccac9bcebb070bd",
+    "/root/AirStack/ore-ms/results/natural-flow-geometry/conventions/qualification.json": "c54110596acc0687de90631e6289eb9265054a12d2368739a9437dcfeaf52b35",
+    "/root/AirStack/ore-ms/environment/u2flow-thermal-assay-qualified-requirements.txt": "e7afb7eaaf4b9b477b72c0da20254c8897d6b6ee6eb89e8c4e3a972c5b93467c",
+    "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/metadata.json": "be2ac27e96302b5b53d48ac1f75879b233093c80fe19b57cf197d629e4b0b1c1",
+    "/root/ore-ms-u2flow-qualification/sintel.pth": "b3dd6d382fdcfb079716fd89a4033a16540a5f59dcd4e3550ff6bc4b7a68f752"
+  },
+  "inputs": [
+    {
+      "condition": "day",
+      "sequence": "_2021-08-06-11-23-45",
+      "stem": "000000",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000000.png",
+      "depth_sha256": "561a4e440b39907a5b107ef7d27c2dafbba0bcda7bed1bd0ef473e7119cf15d0",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000000.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000000.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "38febd82b7ab4fec01363505237f1cb14eefb03f251958b39a4c4d888204bd04"
+    },
+    {
+      "condition": "day",
+      "sequence": "_2021-08-06-11-23-45",
+      "stem": "000001",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000001.png",
+      "depth_sha256": "2edc3998486c603fdebabfb7bc151a07a1a57533d6286f9afddbe8eeeded9f43",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000001.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000001.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "847d22146094c5f294bb9f90c0520fa100eb876c57d7b8abc138fcac4e3073e9"
+    },
+    {
+      "condition": "day",
+      "sequence": "_2021-08-06-11-23-45",
+      "stem": "000002",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000002.png",
+      "depth_sha256": "bca186bff7f8cb92dd59dad475b83e8af7c8a64445548190bd78d11d4553e525",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000002.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000002.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "ea13515504a4c1d88f00e38c56a6c5955b2479a450376a020c7da7fb6f6257bc"
+    },
+    {
+      "condition": "day",
+      "sequence": "_2021-08-06-11-23-45",
+      "stem": "000003",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000003.png",
+      "depth_sha256": "24dbac9745d15a6bbd62dbba13d3c2947f65ccabca42af10b7527fec91dfb733",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000003.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000003.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "385b9b4a2fd9a695079e18c77f639084dae0872fa0c42767d88f53888afe5720"
+    },
+    {
+      "condition": "day",
+      "sequence": "_2021-08-06-11-23-45",
+      "stem": "000004",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000004.png",
+      "depth_sha256": "9ad6a6f1df80bce44edb85d3e57e0b718c592de128e0602ff3935f4db073c619",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000004.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000004.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "3c70465a27e432aa32efc40a433f0c4b0cb39d0ad098e510e01f0487a0cb9fec"
+    },
+    {
+      "condition": "day",
+      "sequence": "_2021-08-06-11-23-45",
+      "stem": "000005",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000005.png",
+      "depth_sha256": "5771e6a48fd8c898fc3c5647f37e37724368eaead6493eb850ad6231f2e2b383",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000005.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000005.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "37bd79676fdd27aac5f8ce9e4e8dbfe57da54d818104f5b5a3c7cf90e42cc152"
+    },
+    {
+      "condition": "day",
+      "sequence": "_2021-08-06-11-23-45",
+      "stem": "000006",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000006.png",
+      "depth_sha256": "757a655350eb7e894b3fc8d1024e0f7b2b4bd240c8615d99dddf830eecc74b79",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000006.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000006.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "0a00066c5560a3daef207376536e847dae1ba8c32bbd0242ff1ce0646aa68ac1"
+    },
+    {
+      "condition": "day",
+      "sequence": "_2021-08-06-11-23-45",
+      "stem": "000007",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000007.png",
+      "depth_sha256": "3a0194b4b35aa8cf289d219ac6fd66c31b84f6550a5f7c175a686b73ff1f8f12",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000007.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000007.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "49b480f94372284cdcb05e7c1a75f3b22d73086aff71a0714d168030a879bb52"
+    },
+    {
+      "condition": "day",
+      "sequence": "_2021-08-06-11-23-45",
+      "stem": "000008",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000008.png",
+      "depth_sha256": "6e27340e2445bfcffea08c441a4634a95a3b9743230a2bf8d2a2b471cc97c204",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000008.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000008.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "57a373862e7adcd027df15d7b2360c8af2da4f2fba08ce252d3c4792b5a6fa68"
+    },
+    {
+      "condition": "day",
+      "sequence": "_2021-08-06-11-23-45",
+      "stem": "000009",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000009.png",
+      "depth_sha256": "54c9577cfb59803998136dd14e1b096767cd78828e764136bb3c80bebe66dd47",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000009.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000009.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "d91e8507f50cf495256582e818fc2f56cc6982ced366560109844e89239b1c57"
+    },
+    {
+      "condition": "day",
+      "sequence": "_2021-08-06-11-23-45",
+      "stem": "000010",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000010.png",
+      "depth_sha256": "81a98c0b0a2f82b9f1c8d8f06947583e7019085afd199402577fbab50dcadd49",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000010.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000010.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "651cbd17d7066493b95b9ecc65709782eff93d75f85aef58c5d84e9ab481a1c6"
+    },
+    {
+      "condition": "day",
+      "sequence": "_2021-08-06-11-23-45",
+      "stem": "000011",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000011.png",
+      "depth_sha256": "ece2cd4ca18d2dbd158cfbdfee2f59619df81898351723cf813996e27e545a42",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000011.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000011.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "740d253374b3f6cff4d70c4a07cc22d9f84fed872263170f5be87cc929bcee4d"
+    },
+    {
+      "condition": "day",
+      "sequence": "_2021-08-06-11-23-45",
+      "stem": "000012",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000012.png",
+      "depth_sha256": "2831888d5825472c540c15e94de59786950040ac61e5c639bb55e77ede412a4a",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000012.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000012.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "81e7b495f99821ba628d9f72589779a978f034f48914f5fbfdce587ace69f610"
+    },
+    {
+      "condition": "day",
+      "sequence": "_2021-08-06-11-23-45",
+      "stem": "000013",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000013.png",
+      "depth_sha256": "12027eb02e4523151d4e4bf44746b38cbe9f3ca4bc4841c1d1cc604a2b535be1",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000013.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000013.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "73484ef718245ea86228a2da4d1bf823147ce0df483ebff7b1ed37873e9e5903"
+    },
+    {
+      "condition": "day",
+      "sequence": "_2021-08-06-11-23-45",
+      "stem": "000014",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000014.png",
+      "depth_sha256": "eab4a9690a6ae8ad836464488a7bd312039ab2386d10f1c0aca808b3f0b4ffa3",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000014.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000014.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "167dd0321c238684d02742c15c01c37061d4c569d8acf0b94b8f82fb5ea1e441"
+    },
+    {
+      "condition": "day",
+      "sequence": "_2021-08-06-11-23-45",
+      "stem": "000015",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000015.png",
+      "depth_sha256": "efe6fa117c92f7a8cdfc4f5ceee5e0b0729867246b00a0652c2077f747b20441",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000015.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000015.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "e6f2d28abdc3ccb5de44287cebb3ed0a1c7802b8fe9b166bbb0385df4912d07b"
+    },
+    {
+      "condition": "day",
+      "sequence": "_2021-08-06-11-23-45",
+      "stem": "000016",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000016.png",
+      "depth_sha256": "4cb93fa46cb60f2a0f9e00851f6cac77dc89ccae65620ac4c50e55f09e247afa",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000016.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000016.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "8f0830afa264b47f0968e1ca7eeddd483eb6842381820d612750128b6bef138d"
+    },
+    {
+      "condition": "day",
+      "sequence": "_2021-08-06-11-23-45",
+      "stem": "000017",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000017.png",
+      "depth_sha256": "6919a48054546289df7305c9dc65d76862372b22be208c18f6a2a3412bc39a88",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000017.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000017.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "e358331a2c9bb7a08d06e177a14fa4cf4d69445726a6e76c3625c74d8d5310be"
+    },
+    {
+      "condition": "day",
+      "sequence": "_2021-08-06-11-23-45",
+      "stem": "000018",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000018.png",
+      "depth_sha256": "26f83cbc4e5dcf8f02d77a2bd857f54b19ba3c0c8b470eb4202d142873de8e9f",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000018.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000018.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "709df06092c9449b6375f5a04e6be90d772d4f678ee19a3d73f83572453d4b12"
+    },
+    {
+      "condition": "day",
+      "sequence": "_2021-08-06-11-23-45",
+      "stem": "000019",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/day/000019.png",
+      "depth_sha256": "a76aa17621db09a485c47036cc21e297337d5290ec7dea2ca8db6cab5aa76c2a",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/day/000019.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-11-23-45/rgb/000019.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "478e26c1403152348fb730e8c42780f6c407afae95d0279d2bd5a43fcd27d8f4"
+    },
+    {
+      "condition": "night",
+      "sequence": "_2021-08-13-21-18-04",
+      "stem": "000000",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000000.png",
+      "depth_sha256": "0271e3a78dbe1c84c6f7f7009a221954332dd6ac58fa074d4ced033fa91c43d0",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000000.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000000.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "77f4b202dbe26adb61902b18bfe8e655825dd14e95eb90ef17d4611ad191f4c4"
+    },
+    {
+      "condition": "night",
+      "sequence": "_2021-08-13-21-18-04",
+      "stem": "000001",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000001.png",
+      "depth_sha256": "9c06c3635435eff6f56dcb1dcb3f31ca7eea4292c4b8b4c88a606c3e0f247591",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000001.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000001.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "41347fd7a15c1cae3790373c5e56fc10415ed66900ca17afadeb68f5b30290b5"
+    },
+    {
+      "condition": "night",
+      "sequence": "_2021-08-13-21-18-04",
+      "stem": "000002",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000002.png",
+      "depth_sha256": "5c602184e2ee658fb86eba7200e29c8263c9be00cc88bc64b631bd17f2435614",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000002.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000002.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "a89459aea42def688d668680eb39680e692a839dbc5b1d19dd03dd2e2eda861e"
+    },
+    {
+      "condition": "night",
+      "sequence": "_2021-08-13-21-18-04",
+      "stem": "000003",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000003.png",
+      "depth_sha256": "d52de010e5da7e0a9d96c3bb26befa8645328a3555bad36b7612c5b336ca50e8",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000003.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000003.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "07a17a0bcdddb03db78d17f35597fd85c75d653dd7c9d42f738d9047f0b4cff7"
+    },
+    {
+      "condition": "night",
+      "sequence": "_2021-08-13-21-18-04",
+      "stem": "000004",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000004.png",
+      "depth_sha256": "503c332557028c6a7bbc4ada406e397dbfd9ec78f70972c5978508cb26771733",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000004.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000004.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "38b24f81a4e6c69c0e4e446cd65970adebbd59a9d5f9c38e37385efcfa15b95f"
+    },
+    {
+      "condition": "night",
+      "sequence": "_2021-08-13-21-18-04",
+      "stem": "000005",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000005.png",
+      "depth_sha256": "87246822374404f0011fa31b51e41d6049a957aafdb64a4dbd927625c34c5641",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000005.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000005.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "4849af478a1e9f4388b955c04afb4338a1feb3731a70c2161533296fb5325a5b"
+    },
+    {
+      "condition": "night",
+      "sequence": "_2021-08-13-21-18-04",
+      "stem": "000006",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000006.png",
+      "depth_sha256": "e57e52aa143689f80ed87dc5d077ac396f043d6077d8f5985dce791feb96f5f7",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000006.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000006.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "2ac5e439be83b45ade8fa079b7e067073d0370320650e7b0a5e91738e6fcec08"
+    },
+    {
+      "condition": "night",
+      "sequence": "_2021-08-13-21-18-04",
+      "stem": "000007",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000007.png",
+      "depth_sha256": "234b530e0a3f94c7e89e0032e2fcd87a3c6a3ca97326e5f3b5d82d8142710281",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000007.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000007.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "1383c5da949d8a9bf99e4afcd4c6c7bd6ad24eb4552b7c5a533c302d0c50b15b"
+    },
+    {
+      "condition": "night",
+      "sequence": "_2021-08-13-21-18-04",
+      "stem": "000008",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000008.png",
+      "depth_sha256": "6e77741c22179c17ebfd829f1cf037833d4120f49fa667894fbbf49d059095ad",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000008.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000008.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "2bc7aad12c73a3e0b720d7a216fe8366ffa1bc65254375d7037fc50107a9c711"
+    },
+    {
+      "condition": "night",
+      "sequence": "_2021-08-13-21-18-04",
+      "stem": "000009",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000009.png",
+      "depth_sha256": "3261cf107ac44fea2e13650516b75357e9cd50063bab1cbc1d6ec7e8198793c6",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000009.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000009.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "0654b97f8e49142a9c6d111af8b6915e99573a3bf76f8cebe6cd66d90d0b3d85"
+    },
+    {
+      "condition": "night",
+      "sequence": "_2021-08-13-21-18-04",
+      "stem": "000010",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000010.png",
+      "depth_sha256": "f724a08a683e49dab389ab1cf0b9785030f459092c4ab77e4676821df9ac82be",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000010.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000010.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "4eaa282b303036e30b17730528faeeb9bde7803647520d352280d07c0d8439c1"
+    },
+    {
+      "condition": "night",
+      "sequence": "_2021-08-13-21-18-04",
+      "stem": "000011",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000011.png",
+      "depth_sha256": "deb3d1d08bbd1969c11aff7dac15754ed233cf6cbfc797e6f26d03d02196c74c",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000011.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000011.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "190e2c931c158468bc630bbe64b466fb513ffeed2c2ba9cbc025f6ff1cd11e41"
+    },
+    {
+      "condition": "night",
+      "sequence": "_2021-08-13-21-18-04",
+      "stem": "000012",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000012.png",
+      "depth_sha256": "032910de1e3d2eb728d60b721c19732fef9c355320f08a03f4ac1c93f9d2af28",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000012.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000012.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "998f4f0ff72f67d26f3e1589bc274e3801d0b87451d6381798e869e60af5e9c4"
+    },
+    {
+      "condition": "night",
+      "sequence": "_2021-08-13-21-18-04",
+      "stem": "000013",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000013.png",
+      "depth_sha256": "7be8c82572292ec338d489fd78265f464af1a107dbc73e89bfb502d66071c9df",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000013.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000013.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "131dd41892e376f0e9a40d842c8c2b4a18f88115bbac74fa0397f0d3b434bb44"
+    },
+    {
+      "condition": "night",
+      "sequence": "_2021-08-13-21-18-04",
+      "stem": "000014",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000014.png",
+      "depth_sha256": "4ca306952128294eed364109368d2169c4d61e9ce624185a178de11f2580ffd2",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000014.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000014.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "21e41734621f9fa2d91c8d58f4a657ffee4a36a8f251e2cee935fd9085f8d539"
+    },
+    {
+      "condition": "night",
+      "sequence": "_2021-08-13-21-18-04",
+      "stem": "000015",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000015.png",
+      "depth_sha256": "0216961688bb31a2d28ba9f92552f4698be12ece0e1ff76246a788f1a7e1ba13",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000015.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000015.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "265f1acfca4813b7548256c7a36fcb08a3d14a768330859b4b6e6cd4f2495691"
+    },
+    {
+      "condition": "night",
+      "sequence": "_2021-08-13-21-18-04",
+      "stem": "000016",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000016.png",
+      "depth_sha256": "9cb2346e335a5fd3a805ea3474f248a19720e8e488885acfeebaa5a1bb6d1f40",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000016.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000016.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "03b9fd9a7fd4b83383628029cf3a4111da6b2f4e28e78f3dc706ae20d5610c1d"
+    },
+    {
+      "condition": "night",
+      "sequence": "_2021-08-13-21-18-04",
+      "stem": "000017",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000017.png",
+      "depth_sha256": "a99aa00f7b0fd662fa9c877f598c11902c319a6c5be34e4ffcac32c6894a1341",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000017.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000017.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "79e9731fbd17f3d520128f62061f9458f53933a6694bd305395f61085f139d0e"
+    },
+    {
+      "condition": "night",
+      "sequence": "_2021-08-13-21-18-04",
+      "stem": "000018",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000018.png",
+      "depth_sha256": "008cf66954385ed594cb93353541918d2c1fff370550bb6c81a9588420fe2657",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000018.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000018.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "680b7659cb3dc2d00f808a97b06f1b50425d588fb4b1d9ba1304e5649bce6923"
+    },
+    {
+      "condition": "night",
+      "sequence": "_2021-08-13-21-18-04",
+      "stem": "000019",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/night/000019.png",
+      "depth_sha256": "c013daff30d8bd00e3de5b9b46335b0ca12d58e55a335ca401c4ed48d1f64fc3",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/night/000019.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-13-21-18-04/rgb/000019.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "a7435703b17c660eed5f02ab4ebd395b9264238d504f04d1145120c147745d88"
+    },
+    {
+      "condition": "rain",
+      "sequence": "_2021-08-06-16-19-00",
+      "stem": "000000",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000000.png",
+      "depth_sha256": "37a58924322a864ba21558571fe578cca81ae0dc744c7d7a2adb808a43f5ac02",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000000.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000000.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "ef098940cd05a68d4222c9ae728262b29579df347824ec3a1a2b3d42d6209de7"
+    },
+    {
+      "condition": "rain",
+      "sequence": "_2021-08-06-16-19-00",
+      "stem": "000001",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000001.png",
+      "depth_sha256": "ed4fef67fc20bb80a6c581f7457246f9b6efded8fd876b5132c07035bd0a8b42",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000001.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000001.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "9c627abd2b970b6154fa5e2ec02f811aeafbf0e3ca263939050f4630aa15113b"
+    },
+    {
+      "condition": "rain",
+      "sequence": "_2021-08-06-16-19-00",
+      "stem": "000002",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000002.png",
+      "depth_sha256": "7589814f58e24d84f8adfba419a442e9a9c096a6991569f57d93eae61218924e",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000002.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000002.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "b3e6b5defa8c1c7f7d8d122814f813a2e27671c74a7bb87d991ea34bec4f808b"
+    },
+    {
+      "condition": "rain",
+      "sequence": "_2021-08-06-16-19-00",
+      "stem": "000003",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000003.png",
+      "depth_sha256": "226c59ce0fa1fbccf6ebf481082524e925bf09064d45c57ef7054b6239b1fafd",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000003.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000003.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "2ea515f4b79bb05ef42848f7fb80658dc32420bb0a7715f856f6b35b025b0a7c"
+    },
+    {
+      "condition": "rain",
+      "sequence": "_2021-08-06-16-19-00",
+      "stem": "000004",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000004.png",
+      "depth_sha256": "9a160913ed509fe629db624ca83221d6709b8e56254c21abc4abb180568a5700",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000004.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000004.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "5a833259ca458dbea0c718d15b0e2a738f85d4e4bb6829706894bb04c9dc51b5"
+    },
+    {
+      "condition": "rain",
+      "sequence": "_2021-08-06-16-19-00",
+      "stem": "000005",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000005.png",
+      "depth_sha256": "1fb4ecf5eff7d4110f5e76e09db43fc1de01407c9fa91e9d67d2db254375212e",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000005.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000005.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "c989cf3f535b89687c84405aaad8be21bfe41c53e69bb52fbe54883bce601cbc"
+    },
+    {
+      "condition": "rain",
+      "sequence": "_2021-08-06-16-19-00",
+      "stem": "000006",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000006.png",
+      "depth_sha256": "ee604790a38b1ae64d0b9eb8bcbc599ae2af25c33c3daf39704676564774534e",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000006.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000006.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "933e2c642681abf40466b9108118c0ad0c23370ce4e6df0a44315ab8537ddca9"
+    },
+    {
+      "condition": "rain",
+      "sequence": "_2021-08-06-16-19-00",
+      "stem": "000007",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000007.png",
+      "depth_sha256": "8e99a1d11d21ee187e845d550ef0db5ddc4a564bf91a844fb306dcfecf5f6d95",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000007.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000007.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "3af3592109f28bd881d2e583ccfbdc9d091846042c51bb512ca7dc3d177a1e3f"
+    },
+    {
+      "condition": "rain",
+      "sequence": "_2021-08-06-16-19-00",
+      "stem": "000008",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000008.png",
+      "depth_sha256": "55541fbdf0eb1b5b2d53d384b977357f9e0bbc96859027088c85217ad950631b",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000008.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000008.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "17840dc55e55e271d3ec8673e26b631fa3af5ce60a55fb1487698cc342b78f74"
+    },
+    {
+      "condition": "rain",
+      "sequence": "_2021-08-06-16-19-00",
+      "stem": "000009",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000009.png",
+      "depth_sha256": "84710235be17d619049630462e84ef6e4da7125612fe0adc9d227166b68f9499",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000009.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000009.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "d20ea1ac47289961737c31e2396b8436dffb5b9b7566928161eb8374dbd7eaa0"
+    },
+    {
+      "condition": "rain",
+      "sequence": "_2021-08-06-16-19-00",
+      "stem": "000010",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000010.png",
+      "depth_sha256": "52c1f022c9ef16efb1ca998ecab61018292aa1d8d2af11a67eb844a3c56b5d85",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000010.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000010.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "d3fea99f34c394dd293341299b8f4ea6acd7db0b638882c7738f4bb66741cd77"
+    },
+    {
+      "condition": "rain",
+      "sequence": "_2021-08-06-16-19-00",
+      "stem": "000011",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000011.png",
+      "depth_sha256": "4763e81c8d2b7c5f203b814c0b07c504ad5b99d947b7f7a164088efe00800784",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000011.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000011.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "ac8bcf39d64f6090be8fc96d276da1c702994c563696417625a01991c6db2d74"
+    },
+    {
+      "condition": "rain",
+      "sequence": "_2021-08-06-16-19-00",
+      "stem": "000012",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000012.png",
+      "depth_sha256": "201a4b50d7751ab8a99cadbfc582c052b035851bc46e73d9c6a73f41a791ae7c",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000012.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000012.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "7d76a277cf843b503429ccdc695da4ca79fea66a9e368d25a5c6b8f1952fbef0"
+    },
+    {
+      "condition": "rain",
+      "sequence": "_2021-08-06-16-19-00",
+      "stem": "000013",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000013.png",
+      "depth_sha256": "4ac31ae29cbd4f8dd0911c2711128adc311894cc4b06580a397324872d82e7e1",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000013.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000013.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "97d17bbf6feb32d3782f64289215df0cc973455b159711d209474bf5f8fab9b6"
+    },
+    {
+      "condition": "rain",
+      "sequence": "_2021-08-06-16-19-00",
+      "stem": "000014",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000014.png",
+      "depth_sha256": "9df84e9caeab2b757ec8749c2c2186ec636da73f8f0951a63ba22e1c221ff01c",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000014.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000014.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "46e4b58e9c0f220e647993d06bff3ef584b592e6263d04edbfd89bf30924dfc9"
+    },
+    {
+      "condition": "rain",
+      "sequence": "_2021-08-06-16-19-00",
+      "stem": "000015",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000015.png",
+      "depth_sha256": "82062658c28fa8f0be70d53a968dc9b6211ffdc3bd00f5720502db87d6637599",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000015.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000015.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "d4fa1622ab33c8b2f15db870fc5aa514008754c64213ae92fa3ac7a3fa2428fe"
+    },
+    {
+      "condition": "rain",
+      "sequence": "_2021-08-06-16-19-00",
+      "stem": "000016",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000016.png",
+      "depth_sha256": "5efe2c396709804217b270411546a6d330aeb0166e44ac0359943d40da8175f9",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000016.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000016.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "84e2e464768fcca54c22b28bd2608ba1aeaa65fc07073ae5e4f895622835b77d"
+    },
+    {
+      "condition": "rain",
+      "sequence": "_2021-08-06-16-19-00",
+      "stem": "000017",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000017.png",
+      "depth_sha256": "c48afac9ae33e5968787cc9b1bd676d0e7c05abd9fca45f5c5a6443dbf8ed062",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000017.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000017.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "b9b3855fe83e2e314737c2555790d01b0591d12f01f281a889a00bff6767f88c"
+    },
+    {
+      "condition": "rain",
+      "sequence": "_2021-08-06-16-19-00",
+      "stem": "000018",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000018.png",
+      "depth_sha256": "05c5a459acfca802235cbea24459b077ad3e598f493cb035f0ed19ff101d2a4d",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000018.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000018.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "d9301a79eedeb6e29fcb35ea6793e7134b8d8b0221bd967c724ca8ab23f50540"
+    },
+    {
+      "condition": "rain",
+      "sequence": "_2021-08-06-16-19-00",
+      "stem": "000019",
+      "depth_path": "/root/AirStack/ore-ms/results/natural-flow-reference-intake/inputs/rain/000019.png",
+      "depth_sha256": "ba2b55629719fa05aaf60f701a3d984986d371c4ee7a03fa6b2c90adc760346e",
+      "raw_path": "/root/AirStack/ore-ms/results/u2flow-thermal-warp/inputs/rain/000019.png",
+      "K": [
+        [
+          387.78695052062903,
+          0.0,
+          300.8201370239258
+        ],
+        [
+          0.0,
+          387.78695052062903,
+          151.62576293945312
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rgb_pose_path": "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/provided-reference-full-record/run-001/reference/_2021-08-06-16-19-00/rgb/000019.txt",
+      "rgb_pose_available": true,
+      "rgb_pose_sha256": "f5c589fc2c7806e3d417be67acc308857fbd50a2c77dcf5eddf9c8be9e988c2a"
+    }
+  ],
+  "pairs": [
+    {
+      "condition": "day",
+      "source": "000000",
+      "target": "000001",
+      "rgb_recorded_interval_ns": [
+        1628216626854444036,
+        1628216626987762764
+      ],
+      "thermal_recorded_interval_ns": [
+        1628216626880721333,
+        1628216626953154150
+      ]
+    },
+    {
+      "condition": "day",
+      "source": "000001",
+      "target": "000002",
+      "rgb_recorded_interval_ns": [
+        1628216626987762764,
+        1628216627054422628
+      ],
+      "thermal_recorded_interval_ns": [
+        1628216626953154150,
+        1628216627083541145
+      ]
+    },
+    {
+      "condition": "day",
+      "source": "000002",
+      "target": "000003",
+      "rgb_recorded_interval_ns": [
+        1628216627054422628,
+        1628216627187735084
+      ],
+      "thermal_recorded_interval_ns": [
+        1628216627083541145,
+        1628216627155928660
+      ]
+    },
+    {
+      "condition": "day",
+      "source": "000003",
+      "target": "000004",
+      "rgb_recorded_interval_ns": [
+        1628216627187735084,
+        1628216627254394412
+      ],
+      "thermal_recorded_interval_ns": [
+        1628216627155928660,
+        1628216627281919072
+      ]
+    },
+    {
+      "condition": "day",
+      "source": "000004",
+      "target": "000005",
+      "rgb_recorded_interval_ns": [
+        1628216627254394412,
+        1628216627387713764
+      ],
+      "thermal_recorded_interval_ns": [
+        1628216627281919072,
+        1628216627354442194
+      ]
+    },
+    {
+      "condition": "day",
+      "source": "000005",
+      "target": "000006",
+      "rgb_recorded_interval_ns": [
+        1628216627387713764,
+        1628216627454372252
+      ],
+      "thermal_recorded_interval_ns": [
+        1628216627354442194,
+        1628216627487707609
+      ]
+    },
+    {
+      "condition": "day",
+      "source": "000006",
+      "target": "000007",
+      "rgb_recorded_interval_ns": [
+        1628216627454372252,
+        1628216627587690764
+      ],
+      "thermal_recorded_interval_ns": [
+        1628216627487707609,
+        1628216627552811037
+      ]
+    },
+    {
+      "condition": "day",
+      "source": "000007",
+      "target": "000008",
+      "rgb_recorded_interval_ns": [
+        1628216627587690764,
+        1628216627654350196
+      ],
+      "thermal_recorded_interval_ns": [
+        1628216627552811037,
+        1628216627685606383
+      ]
+    },
+    {
+      "condition": "day",
+      "source": "000008",
+      "target": "000009",
+      "rgb_recorded_interval_ns": [
+        1628216627654350196,
+        1628216627787663764
+      ],
+      "thermal_recorded_interval_ns": [
+        1628216627685606383,
+        1628216627751160335
+      ]
+    },
+    {
+      "condition": "day",
+      "source": "000009",
+      "target": "000010",
+      "rgb_recorded_interval_ns": [
+        1628216627787663764,
+        1628216627854322684
+      ],
+      "thermal_recorded_interval_ns": [
+        1628216627751160335,
+        1628216627887530833
+      ]
+    },
+    {
+      "condition": "day",
+      "source": "000010",
+      "target": "000011",
+      "rgb_recorded_interval_ns": [
+        1628216627854322684,
+        1628216627987641196
+      ],
+      "thermal_recorded_interval_ns": [
+        1628216627887530833,
+        1628216627954056653
+      ]
+    },
+    {
+      "condition": "day",
+      "source": "000011",
+      "target": "000012",
+      "rgb_recorded_interval_ns": [
+        1628216627987641196,
+        1628216628054300252
+      ],
+      "thermal_recorded_interval_ns": [
+        1628216627954056653,
+        1628216628080318753
+      ]
+    },
+    {
+      "condition": "day",
+      "source": "000012",
+      "target": "000013",
+      "rgb_recorded_interval_ns": [
+        1628216628054300252,
+        1628216628187618820
+      ],
+      "thermal_recorded_interval_ns": [
+        1628216628080318753,
+        1628216628152666946
+      ]
+    },
+    {
+      "condition": "day",
+      "source": "000013",
+      "target": "000014",
+      "rgb_recorded_interval_ns": [
+        1628216628187618820,
+        1628216628254278628
+      ],
+      "thermal_recorded_interval_ns": [
+        1628216628152666946,
+        1628216628282885060
+      ]
+    },
+    {
+      "condition": "day",
+      "source": "000014",
+      "target": "000015",
+      "rgb_recorded_interval_ns": [
+        1628216628254278628,
+        1628216628387591764
+      ],
+      "thermal_recorded_interval_ns": [
+        1628216628282885060,
+        1628216628355316868
+      ]
+    },
+    {
+      "condition": "day",
+      "source": "000015",
+      "target": "000016",
+      "rgb_recorded_interval_ns": [
+        1628216628387591764,
+        1628216628454251436
+      ],
+      "thermal_recorded_interval_ns": [
+        1628216628355316868,
+        1628216628481450218
+      ]
+    },
+    {
+      "condition": "day",
+      "source": "000016",
+      "target": "000017",
+      "rgb_recorded_interval_ns": [
+        1628216628454251436,
+        1628216628587569524
+      ],
+      "thermal_recorded_interval_ns": [
+        1628216628481450218,
+        1628216628553842757
+      ]
+    },
+    {
+      "condition": "day",
+      "source": "000017",
+      "target": "000018",
+      "rgb_recorded_interval_ns": [
+        1628216628587569524,
+        1628216628654228628
+      ],
+      "thermal_recorded_interval_ns": [
+        1628216628553842757,
+        1628216628684199589
+      ]
+    },
+    {
+      "condition": "day",
+      "source": "000018",
+      "target": "000019",
+      "rgb_recorded_interval_ns": [
+        1628216628654228628,
+        1628216628787547252
+      ],
+      "thermal_recorded_interval_ns": [
+        1628216628684199589,
+        1628216628756567159
+      ]
+    },
+    {
+      "condition": "night",
+      "source": "000000",
+      "target": "000001",
+      "rgb_recorded_interval_ns": [
+        1628857086260566695,
+        1628857086393885559
+      ],
+      "thermal_recorded_interval_ns": [
+        1628857086255983714,
+        1628857086382129372
+      ]
+    },
+    {
+      "condition": "night",
+      "source": "000001",
+      "target": "000002",
+      "rgb_recorded_interval_ns": [
+        1628857086393885559,
+        1628857086460544775
+      ],
+      "thermal_recorded_interval_ns": [
+        1628857086382129372,
+        1628857086454543964
+      ]
+    },
+    {
+      "condition": "night",
+      "source": "000002",
+      "target": "000003",
+      "rgb_recorded_interval_ns": [
+        1628857086460544775,
+        1628857086593862879
+      ],
+      "thermal_recorded_interval_ns": [
+        1628857086454543964,
+        1628857086589452734
+      ]
+    },
+    {
+      "condition": "night",
+      "source": "000003",
+      "target": "000004",
+      "rgb_recorded_interval_ns": [
+        1628857086593862879,
+        1628857086660522775
+      ],
+      "thermal_recorded_interval_ns": [
+        1628857086589452734,
+        1628857086657549192
+      ]
+    },
+    {
+      "condition": "night",
+      "source": "000004",
+      "target": "000005",
+      "rgb_recorded_interval_ns": [
+        1628857086660522775,
+        1628857086793835855
+      ],
+      "thermal_recorded_interval_ns": [
+        1628857086657549192,
+        1628857086783693920
+      ]
+    },
+    {
+      "condition": "night",
+      "source": "000005",
+      "target": "000006",
+      "rgb_recorded_interval_ns": [
+        1628857086793835855,
+        1628857086860494695
+      ],
+      "thermal_recorded_interval_ns": [
+        1628857086783693920,
+        1628857086856113328
+      ]
+    },
+    {
+      "condition": "night",
+      "source": "000006",
+      "target": "000007",
+      "rgb_recorded_interval_ns": [
+        1628857086860494695,
+        1628857086993813719
+      ],
+      "thermal_recorded_interval_ns": [
+        1628857086856113328,
+        1628857087000646042
+      ]
+    },
+    {
+      "condition": "night",
+      "source": "000007",
+      "target": "000008",
+      "rgb_recorded_interval_ns": [
+        1628857086993813719,
+        1628857087060472719
+      ],
+      "thermal_recorded_interval_ns": [
+        1628857087000646042,
+        1628857087058950318
+      ]
+    },
+    {
+      "condition": "night",
+      "source": "000008",
+      "target": "000009",
+      "rgb_recorded_interval_ns": [
+        1628857087060472719,
+        1628857087193791775
+      ],
+      "thermal_recorded_interval_ns": [
+        1628857087058950318,
+        1628857087185249790
+      ]
+    },
+    {
+      "condition": "night",
+      "source": "000009",
+      "target": "000010",
+      "rgb_recorded_interval_ns": [
+        1628857087193791775,
+        1628857087260445663
+      ],
+      "thermal_recorded_interval_ns": [
+        1628857087185249790,
+        1628857087257693534
+      ]
+    },
+    {
+      "condition": "night",
+      "source": "000010",
+      "target": "000011",
+      "rgb_recorded_interval_ns": [
+        1628857087260445663,
+        1628857087393763743
+      ],
+      "thermal_recorded_interval_ns": [
+        1628857087257693534,
+        1628857087402327974
+      ]
+    },
+    {
+      "condition": "night",
+      "source": "000011",
+      "target": "000012",
+      "rgb_recorded_interval_ns": [
+        1628857087393763743,
+        1628857087460422583
+      ],
+      "thermal_recorded_interval_ns": [
+        1628857087402327974,
+        1628857087460546138
+      ]
+    },
+    {
+      "condition": "night",
+      "source": "000012",
+      "target": "000013",
+      "rgb_recorded_interval_ns": [
+        1628857087460422583,
+        1628857087593741831
+      ],
+      "thermal_recorded_interval_ns": [
+        1628857087460546138,
+        1628857087586873589
+      ]
+    },
+    {
+      "condition": "night",
+      "source": "000013",
+      "target": "000014",
+      "rgb_recorded_interval_ns": [
+        1628857087593741831,
+        1628857087660400855
+      ],
+      "thermal_recorded_interval_ns": [
+        1628857087586873589,
+        1628857087659366931
+      ]
+    },
+    {
+      "condition": "night",
+      "source": "000014",
+      "target": "000015",
+      "rgb_recorded_interval_ns": [
+        1628857087660400855,
+        1628857087793714231
+      ],
+      "thermal_recorded_interval_ns": [
+        1628857087659366931,
+        1628857087792723419
+      ]
+    },
+    {
+      "condition": "night",
+      "source": "000015",
+      "target": "000016",
+      "rgb_recorded_interval_ns": [
+        1628857087793714231,
+        1628857087860373775
+      ],
+      "thermal_recorded_interval_ns": [
+        1628857087792723419,
+        1628857087857825889
+      ]
+    },
+    {
+      "condition": "night",
+      "source": "000016",
+      "target": "000017",
+      "rgb_recorded_interval_ns": [
+        1628857087860373775,
+        1628857087993691855
+      ],
+      "thermal_recorded_interval_ns": [
+        1628857087857825889,
+        1628857087990828478
+      ]
+    },
+    {
+      "condition": "night",
+      "source": "000017",
+      "target": "000018",
+      "rgb_recorded_interval_ns": [
+        1628857087993691855,
+        1628857088060351447
+      ],
+      "thermal_recorded_interval_ns": [
+        1628857087990828478,
+        1628857088120915253
+      ]
+    },
+    {
+      "condition": "night",
+      "source": "000018",
+      "target": "000019",
+      "rgb_recorded_interval_ns": [
+        1628857088060351447,
+        1628857088193664423
+      ],
+      "thermal_recorded_interval_ns": [
+        1628857088120915253,
+        1628857088201071321
+      ]
+    },
+    {
+      "condition": "rain",
+      "source": "000000",
+      "target": "000001",
+      "rgb_recorded_interval_ns": [
+        1628234341464591807,
+        1628234341531250967
+      ],
+      "thermal_recorded_interval_ns": [
+        1628234341461939809,
+        1628234341592787743
+      ]
+    },
+    {
+      "condition": "rain",
+      "source": "000001",
+      "target": "000002",
+      "rgb_recorded_interval_ns": [
+        1628234341531250967,
+        1628234341664568855
+      ],
+      "thermal_recorded_interval_ns": [
+        1628234341592787743,
+        1628234341653992109
+      ]
+    },
+    {
+      "condition": "rain",
+      "source": "000002",
+      "target": "000003",
+      "rgb_recorded_interval_ns": [
+        1628234341664568855,
+        1628234341797892887
+      ],
+      "thermal_recorded_interval_ns": [
+        1628234341653992109,
+        1628234341795310185
+      ]
+    },
+    {
+      "condition": "rain",
+      "source": "000003",
+      "target": "000004",
+      "rgb_recorded_interval_ns": [
+        1628234341797892887,
+        1628234341864557807
+      ],
+      "thermal_recorded_interval_ns": [
+        1628234341795310185,
+        1628234341856251616
+      ]
+    },
+    {
+      "condition": "rain",
+      "source": "000004",
+      "target": "000005",
+      "rgb_recorded_interval_ns": [
+        1628234341864557807,
+        1628234341997876023
+      ],
+      "thermal_recorded_interval_ns": [
+        1628234341856251616,
+        1628234341993927876
+      ]
+    },
+    {
+      "condition": "rain",
+      "source": "000005",
+      "target": "000006",
+      "rgb_recorded_interval_ns": [
+        1628234341997876023,
+        1628234342064535455
+      ],
+      "thermal_recorded_interval_ns": [
+        1628234341993927876,
+        1628234342053627350
+      ]
+    },
+    {
+      "condition": "rain",
+      "source": "000006",
+      "target": "000007",
+      "rgb_recorded_interval_ns": [
+        1628234342064535455,
+        1628234342197848887
+      ],
+      "thermal_recorded_interval_ns": [
+        1628234342053627350,
+        1628234342196467598
+      ]
+    },
+    {
+      "condition": "rain",
+      "source": "000007",
+      "target": "000008",
+      "rgb_recorded_interval_ns": [
+        1628234342197848887,
+        1628234342264507831
+      ],
+      "thermal_recorded_interval_ns": [
+        1628234342196467598,
+        1628234342257434246
+      ]
+    },
+    {
+      "condition": "rain",
+      "source": "000008",
+      "target": "000009",
+      "rgb_recorded_interval_ns": [
+        1628234342264507831,
+        1628234342397826991
+      ],
+      "thermal_recorded_interval_ns": [
+        1628234342257434246,
+        1628234342394963105
+      ]
+    },
+    {
+      "condition": "rain",
+      "source": "000009",
+      "target": "000010",
+      "rgb_recorded_interval_ns": [
+        1628234342397826991,
+        1628234342464485991
+      ],
+      "thermal_recorded_interval_ns": [
+        1628234342394963105,
+        1628234342454698257
+      ]
+    },
+    {
+      "condition": "rain",
+      "source": "000010",
+      "target": "000011",
+      "rgb_recorded_interval_ns": [
+        1628234342464485991,
+        1628234342597803967
+      ],
+      "thermal_recorded_interval_ns": [
+        1628234342454698257,
+        1628234342597591596
+      ]
+    },
+    {
+      "condition": "rain",
+      "source": "000011",
+      "target": "000012",
+      "rgb_recorded_interval_ns": [
+        1628234342597803967,
+        1628234342664463991
+      ],
+      "thermal_recorded_interval_ns": [
+        1628234342597591596,
+        1628234342658483481
+      ]
+    },
+    {
+      "condition": "rain",
+      "source": "000012",
+      "target": "000013",
+      "rgb_recorded_interval_ns": [
+        1628234342664463991,
+        1628234342797776967
+      ],
+      "thermal_recorded_interval_ns": [
+        1628234342658483481,
+        1628234342796122467
+      ]
+    },
+    {
+      "condition": "rain",
+      "source": "000013",
+      "target": "000014",
+      "rgb_recorded_interval_ns": [
+        1628234342797776967,
+        1628234342864435943
+      ],
+      "thermal_recorded_interval_ns": [
+        1628234342796122467,
+        1628234342854352285
+      ]
+    },
+    {
+      "condition": "rain",
+      "source": "000014",
+      "target": "000015",
+      "rgb_recorded_interval_ns": [
+        1628234342864435943,
+        1628234342997754831
+      ],
+      "thermal_recorded_interval_ns": [
+        1628234342854352285,
+        1628234342998857884
+      ]
+    },
+    {
+      "condition": "rain",
+      "source": "000015",
+      "target": "000016",
+      "rgb_recorded_interval_ns": [
+        1628234342997754831,
+        1628234343064413943
+      ],
+      "thermal_recorded_interval_ns": [
+        1628234342998857884,
+        1628234343059859023
+      ]
+    },
+    {
+      "condition": "rain",
+      "source": "000016",
+      "target": "000017",
+      "rgb_recorded_interval_ns": [
+        1628234343064413943,
+        1628234343197732991
+      ],
+      "thermal_recorded_interval_ns": [
+        1628234343059859023,
+        1628234343197398003
+      ]
+    },
+    {
+      "condition": "rain",
+      "source": "000017",
+      "target": "000018",
+      "rgb_recorded_interval_ns": [
+        1628234343197732991,
+        1628234343264386287
+      ],
+      "thermal_recorded_interval_ns": [
+        1628234343197398003,
+        1628234343255569172
+      ]
+    },
+    {
+      "condition": "rain",
+      "source": "000018",
+      "target": "000019",
+      "rgb_recorded_interval_ns": [
+        1628234343264386287,
+        1628234343397704695
+      ],
+      "thermal_recorded_interval_ns": [
+        1628234343255569172,
+        1628234343395598180
+      ]
+    }
+  ],
+  "thermal_from_rgb": {
+    "day": [
+      [
+        0.9999466448601759,
+        0.010098502640098742,
+        -0.0021743222634525816,
+        0.011462406463630266
+      ],
+      [
+        -0.01032257249933242,
+        0.9847905833312119,
+        -0.17343861011656986,
+        0.32977505372782673
+      ],
+      [
+        0.00038978182801826025,
+        0.1734518008744776,
+        0.9848422822175777,
+        0.5682267582227879
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "night": [
+      [
+        0.9999466448601759,
+        0.010098502640098742,
+        -0.0021743222634525816,
+        0.011462406463630266
+      ],
+      [
+        -0.01032257249933242,
+        0.9847905833312119,
+        -0.17343861011656986,
+        0.32977505372782673
+      ],
+      [
+        0.00038978182801826025,
+        0.1734518008744776,
+        0.9848422822175777,
+        0.5682267582227879
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "rain": [
+      [
+        0.9999466448601759,
+        0.010098502640098742,
+        -0.0021743222634525816,
+        0.011462406463630266
+      ],
+      [
+        -0.01032257249933242,
+        0.9847905833312119,
+        -0.17343861011656986,
+        0.32977505372782673
+      ],
+      [
+        0.00038978182801826025,
+        0.1734518008744776,
+        0.9848422822175777,
+        0.5682267582227879
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ]
+  },
+  "runtime": "Python3.12.3 / Torch2.7.1+cpu / NumPy1.26.4 / OpenCV4.10.0 / CPUFP32 deterministic singlethread 12iterations",
+  "hypothesis": "Describe natural thermal correspondence prediction against supplied nominal static geometry; do not infer true flow error from disagreement.",
+  "arms": [
+    "clean",
+    "target_gamma1.6"
+  ],
+  "support": "Three fixed tiers in natural-flow-reference-contract-2026-11-13.md. Nearest rounded target cell collisions resolved by projected depth then source flat order. Backward projection uses rounded target pixel center and its own supplied depth.",
+  "sampling_amendment_before_execution": "Geometry tier support retained; only bilinear-sampleable source coords within [0,319]x[0,127] scored. Source-halfcoords=(native+.5)/2-.5; displacement=(target-source)/2; border exclusions explicit per tier. No flow/depth extrapolation.",
+  "empty_support": "Keep all57pair slots; null metrics and valid-pair denominators; no omission.",
+  "stopping": "One fixed114forward capture, then independent geometry diagnostic; no training/parameter or severity search/method promotion. Physical timing and visible-point identity unverified.",
+  "prediction_lock": "Before pose-value parsing or geometry endpoints; check hashes before/after."
+}

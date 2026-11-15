@@ -1,0 +1,24 @@
+{
+  "created_utc": "2026-11-14T18:41:08.660520+00:00",
+  "status": "DESIGN_BOUND_MECHANICS_PASS_DATA_AND_NATIVE_CACHE_PENDING",
+  "mechanics_protocol": "/root/AirStack/ore-ms/experiments/selection-policy-contract-2026-11-14.json",
+  "mechanics_protocol_sha256": "115259776a466859d5b5d95fd0635ef434cfdb66f0f63ef5bea2b99b8317bbe0",
+  "mechanics_qualification": "/root/AirStack/ore-ms/results/selection-policy-contract/run-001/qualification.json",
+  "mechanics_qualification_sha256": "4562163502e668c789164ffb554e2d3001187986e513acbf86cfe9e1bf3e3ddb",
+  "corpus_manifest": "/root/AirStack/ore-ms/experiments/selection-policy-contract-2026-11-14.json",
+  "execution_clarifications": {
+    "subset_fit_order": "Retain sampled order for PL log probability; sort chosen rows by canonical(v,u) before each pose fit/reward sum, so floating point row order is not a learned action.",
+    "source_atlas_support": "Exact source/target canvas/atlas support and geometric visibility supply reward labels only, never candidate masks, input features or inference-time policy decisions. Qualify all emitted masks when materializing.",
+    "train_scene_schedule": "For each fold and control, PCG64 seed2026111405 mixed with excluded recording ID produces epoch permutations over the same sorted240training IDs, consumed cyclically for64updates of2scenes. Final theta only.",
+    "policy_eval": "Stable top-k is primary. Four seeded stochastic contexts remain separate from deterministic results; never select best seed.",
+    "scope_of_advancement": "The frozen5percent gate vs pose-weight and match-reward controls advances only the restricted learning-target hypothesis. System-level improvement additionally needs native/information accuracy-availability-cost comparison; context is not silently excluded.",
+    "no_new_data_claim": "Every original texture is development-exposed. Motion/geometry and group exclusion are procedural separation, not an untouched real-world cohort.",
+    "weight_control_normalization": "Compute and normalize positive utility weights over the fixed selected subset only, mean1, avoiding a global objective-scale change induced by unselected candidates."
+  },
+  "remaining_before_training": [
+    "Materialize/audit generalized renderer, reference/visibility and exact planned scene/split IDs",
+    "Native scene inference/candidate packets and training-only feature normalization cache lock",
+    "Weight-only derivative/interface qualification with original solve failures retained",
+    "Bind separate training/numeric source/input/runtime freeze; no geometry/feature/loss/budget tuning from new scores"
+  ]
+}

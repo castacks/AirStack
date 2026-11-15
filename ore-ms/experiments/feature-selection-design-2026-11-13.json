@@ -1,0 +1,46 @@
+{
+  "created_utc": "2026-11-14T03:33:57.358485+00:00",
+  "status": "DESIGN_NOT_EXECUTION_FREEZE",
+  "inventory_sha256": "8a8417ab888e0627164435ba485ec742ac3d62175f2bf33ac4e07d1f80f7fd82",
+  "decision_note": "docs/research/feature-selection-next-decision-2026-11-13.md",
+  "population": "19adjacent pairs x3records x2cameras=114slots; exposed development",
+  "budget": 32,
+  "budget_rule": "min(32,N); all114slots retained",
+  "budget_amendment": "Initial speculative128 replaced by32 using only native pool counts, not subset/pose outcomes. 113/114pools reduce.",
+  "seeds": [
+    20261113,
+    20261114,
+    20261115,
+    20261116
+  ],
+  "runs_per_pair": 11,
+  "expected_fits": 1254,
+  "arms": [
+    "uniform_4seeds",
+    "spatial4x4_4seeds",
+    "minimum_trace_covariance",
+    "greedy_regularized_max_logdet",
+    "all_pool_context"
+  ],
+  "source_input_pins": {
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/persistent-track-replay/run-001/day/off/rgb/tensor-map.npz": "dd657d3834d25323f22592195bb84375fcedeca72a01b5df97749fdfdb1516a8",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/persistent-track-replay/run-001/day/off/thermal/tensor-map.npz": "adb927db1880312178a775e43464cfc34d0dbb7aa104b743d0da9a76cc39dc2f",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/persistent-track-replay/run-001/night/off/rgb/tensor-map.npz": "74c6e0a9e761a24845d9a08663b7dae00ec4b22af04c37b1758c9c5670a25905",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/persistent-track-replay/run-001/night/off/thermal/tensor-map.npz": "6fd5bee795adb213267371a102db4447d279be42a47f05fee36a2d5569286f9c",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/persistent-track-replay/run-001/rain/off/rgb/tensor-map.npz": "6dd655a843d970510cf9d47bb923d2e052c811a0b70fc339951e074d61e9a0c2",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/results/persistent-track-replay/run-001/rain/off/thermal/tensor-map.npz": "b3562815595d4cb6e234902b85acde5e513a642476422be9813333ff687af9a5",
+    "/root/AirStack/ore-ms/MAC-VO-main/Module/KeypointSelector.py": "48b0c8e77b83c7005bf8b0b87cbb54241156d7e049928b864a11d14fb5d496f0",
+    "/root/AirStack/ore-ms/MAC-VO-main/Odometry/MACVO.py": "568c8219ffa910332dad0812f951c42ae2f11f7ca615131e0e46bae19964df32",
+    "/root/AirStack/ore-ms/MAC-VO-main/Module/Optimization/TwoFramePGO/Graphs.py": "f79bca297d7c249cc761bd44e3ba2152154057637c223310b022933f11a49208",
+    "/root/AirStack/ore-ms/MAC-VO-main/Utility/Point.py": "62e929e2e13c6183195623caea2947783b189dc486748ebb45802b5e0ec3fd03",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/tools/persistent_track_capture.py": "cb53ae1e121dd44f12820206bed18446de6202535f5a98eafde9fd910b47c872",
+    "/root/ore-ms-evidence-recovery/persistent-window/extracted/ore-ms/tools/persistent_tracks.py": "9801409f46c549dc3ad401c7207ae613763e70fa119b8a5c3326d5b944ddd0e7"
+  },
+  "pending_before_execution": [
+    "finite/SPD and basis checks",
+    "known-transform/Jacobian/selection mechanics qualification",
+    "single fixed solver convergence/failure specification",
+    "numeric freeze including actual source hashes and aggregation before all selection/pose outcomes"
+  ],
+  "no_new_selector_or_pose_run": true
+}

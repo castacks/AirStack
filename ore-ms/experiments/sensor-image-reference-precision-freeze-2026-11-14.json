@@ -1,0 +1,14 @@
+{
+  "created_utc": "2026-11-14T22:12:44.138395+00:00",
+  "render_protocol": "/root/AirStack/ore-ms/experiments/sensor-image-adapter-freeze-002-2026-11-14.json",
+  "render_folder": "/root/AirStack/ore-ms/results/sensor-image-adapter/render-002",
+  "reference_error_code_max": 0.001,
+  "reason": "Original passing audit reports scipy roundoff at requested1e-9reference tolerance. Preserve diagnostics and verify estimated reference error against unchanged0.5code image bound; no numerical/data changes.",
+  "pins": {
+    "/root/AirStack/ore-ms/experiments/sensor-image-adapter-freeze-002-2026-11-14.json": "4797450127971aee2a941fa49a3e1f1b25f4c6e80499b61675354c2ddfc50c07",
+    "/root/AirStack/ore-ms/tools/audit_sensor_quadrature_precision.py": "4211261636409f1060cfd836a6eb4f40e0ea821a0b3fef4a3a7d776a4c4c3940",
+    "/root/AirStack/ore-ms/tools/audit_sensor_image_adapter.py": "cce675ee4ae50f4e449a5ec9752de17f9cbc335217204b6f72b63c4fded686dc",
+    "/root/AirStack/ore-ms/results/sensor-image-adapter/render-002/artifact-lock.json": "4386f875fc6b28f9e54aa7addde68991aa516e1006a6e93e2b32ef80d0f728c9",
+    "/root/AirStack/ore-ms/results/sensor-image-adapter/audit-001.json": "701430a18b748c8c3bc703f44ac7c9f9dd37617e10625115210a7b2c3c577429"
+  }
+}

@@ -1,0 +1,309 @@
+{
+  "created_utc": "2026-11-15T00:59:28.040611+00:00",
+  "baseline": "a79658f6341194b0954852226f200313ccdf5408",
+  "branch": "ore-ms-orb-development",
+  "scope": "Verified Box research backup locations/checksums from readback receipts with explicit remote path and successful status. Not an exhaustive backup census. Raw results, datasets, checkpoints and local notebook remain outside Git. Remote paths contain no authorization credentials. Validation depth varies by receipt and is not scientific ground truth.",
+  "backups": [
+    {
+      "remote": "ore_ms:backups/2026-11-15-active-motion-assessment/active-motion-assessment.tar.gz",
+      "verified_utc": "2026-11-15T00:05:28.649721+00:00",
+      "receipt_sha256": "ded157cfc113efe701b5c750552d9d0b1f130afc35ee010f6db29e41b00b6ad3",
+      "sha256": "675335e8619f22a1395305f332b3564edae93e8d3209b0829f5629cc4739ac87",
+      "bytes": 267856046,
+      "members": 174,
+      "all_member_hashes_verified": true
+    },
+    {
+      "remote": "ore_ms:backups/2026-11-14-active-motion-contract/active-motion-contract.tar.gz",
+      "verified_utc": "2026-11-14T23:35:14.673439+00:00",
+      "receipt_sha256": "fd7bc6cfe99fbfcd5712fc2d69e5ec4bdaca7662c74a98919094daf2c8ac8596",
+      "sha256": "c97a283b3895d5e9ee792aee8ba6acf049ca7e17ea18aef9dd6755c6a22b084f",
+      "bytes": 166775,
+      "members": 15,
+      "all_member_hashes_verified": true
+    },
+    {
+      "remote": "ore_ms:backups/2026-11-14-anchor-validity/anchor-validity.tar.gz",
+      "verified_utc": "2026-11-14T21:37:12.032223+00:00",
+      "receipt_sha256": "9d1fb2213431704e706993e54caf09908095008ac7657d3657577103b528edec",
+      "sha256": "0e04f51a802e2e2095ed02470b90536ad7ef29bfe54cfdf633d1b9afeee26882",
+      "bytes": 504781319,
+      "members": 225
+    },
+    {
+      "remote": "ore_ms:backups/2026-11-14-continuity-feasibility/continuity-feasibility.tar.gz",
+      "verified_utc": "2026-11-14T20:39:23.367557+00:00",
+      "receipt_sha256": "4601a7ca3415b16982081a07ee2f69c8b1fdff2922dd9b6204a74e65a69b3e64",
+      "sha256": "95f4968e4f0ba0a4f33b6ca56ab5d15e0bca957c87a54f9cb4529f291a5f23b8"
+    },
+    {
+      "remote": "ore_ms:backups/2026-11-14-continuity-sequence/continuity-sequence.tar.gz",
+      "verified_utc": "2026-11-14T20:51:10.267749+00:00",
+      "receipt_sha256": "170ad2dde11a262c20f36f523f417a3cc75867f383c856b33db0ed6399fa94e4",
+      "sha256": "8d82fa7330de28b8602eb049ee71d98c2e7de41f8d2cf00697d0fb0634dc7972",
+      "bytes": 505022887,
+      "members": 249
+    },
+    {
+      "remote": "ore_ms:backups/2026-11-14-contribution-synthesis/contribution-synthesis.tar.gz",
+      "verified_utc": "2026-11-14T23:03:37.804785+00:00",
+      "receipt_sha256": "87dd6057ccf05317e0b0d7e6cef581cb25525fa6416e63e504868c3dc4fa8e8f",
+      "sha256": "2d4a1ef95c0d7063a3771b75d3c7a3235343ef3f880f159269a6c6b07496d176",
+      "bytes": 197653,
+      "members": 24,
+      "all_member_hashes_verified": true
+    },
+    {
+      "remote": "ore_ms:backups/2026-11-15-covariance-shape-scale/covariance-shape-scale.tar.gz",
+      "verified_utc": "2026-11-15T00:54:37.425833+00:00",
+      "receipt_sha256": "bffc2eb1228371bf76251cc454678e3060ad952f6e574c9071553b64417da1e5",
+      "sha256": "0f853f5c82b0a4f3a9ead562c30ceaf90549d00ad6c4b80de2d666cc86d5b9c5",
+      "bytes": 6362602,
+      "members": 46,
+      "all_member_hashes_verified": true
+    },
+    {
+      "remote": "ore_ms:backups/2026-11-15-covariance-transfer/covariance-transfer.tar.gz",
+      "verified_utc": "2026-11-15T00:40:33.441292+00:00",
+      "receipt_sha256": "ae872d077210fc853794423b5241c7697a255c56069617fd49c69259c98b7a86",
+      "sha256": "1dcf971ea0a57be67b69fb766e1ea9c2db3c9c9374f9e026f9e9d95722c781d8",
+      "bytes": 6507913,
+      "members": 53,
+      "all_member_hashes_verified": true
+    },
+    {
+      "remote": "ore_ms:backups/2026-11-15-cross-match-covariance/cross-match-covariance.tar.gz",
+      "verified_utc": "2026-11-15T00:19:54.060866+00:00",
+      "receipt_sha256": "51e531f13550abc971fa05f9dd5314bd1822efa6d786d528784908b248016044",
+      "sha256": "c8e335fbb604e7f621cb85c5f9b3a7453aa245a437c113099179ef98ed6c2f0e",
+      "bytes": 12831177,
+      "members": 815,
+      "all_member_hashes_verified": true,
+      "manifest_bytes_verified": true
+    },
+    {
+      "remote": "ore_ms:backups/2026-11-14-expanded-literature/expanded-literature.tar.gz",
+      "verified_utc": "2026-11-14T21:20:03.256465+00:00",
+      "receipt_sha256": "d45cdc6bab6daed03c2f3d9b2ebd799cfa5da277473381fb4ce2d615d91338ee",
+      "sha256": "feca77d17848f713821d6399dcb74b861a9ccc346146bf3ad32664b0dd963b19"
+    },
+    {
+      "remote": "ore_ms:backups/2026-11-14-known-pose-estimator-assessment/",
+      "verified_utc": "2026-11-14T18:06:28.336238+00:00",
+      "receipt_sha256": "cdd8b61e42df9f698dd58b4ab832566b6567254f8b12624a37b32c1e6ae6811f",
+      "member_count": 2486,
+      "status": "PASS",
+      "files": [
+        {
+          "name": "manifest.json",
+          "bytes": 871475,
+          "sha256": "f730ac3b6ec9ea3e01658228f4ad7b2e0b0852e48a08bacf7087685bca5635e3",
+          "status": "FULL_REMOTE_STREAM_MATCH"
+        },
+        {
+          "name": "known-pose-estimator-assessment.tar",
+          "bytes": 5497108480,
+          "sha256": "4c3d26726d0c95c96ec4a2fae5bfbed837f0b93728ef645dbadfcc3f0e117721",
+          "status": "FULL_REMOTE_STREAM_MATCH"
+        }
+      ]
+    },
+    {
+      "remote": "ore_ms:backups/2026-11-14-known-pose-thermal-target/",
+      "verified_utc": "2026-11-14T16:29:46.630836+00:00",
+      "receipt_sha256": "652c6e10e19a03f8ed26e9d6b71296733c28c4ae82cecdfbe04a480e95f7ac36",
+      "member_count": 98,
+      "status": "PASS",
+      "files": [
+        {
+          "name": "manifest.json",
+          "bytes": 28850,
+          "sha256": "34a3129d8cfc452088eacf5ba4c22b62c38eef2b26fa28ff9728888b7eb4b175",
+          "status": "FULL_REMOTE_STREAM_MATCH"
+        },
+        {
+          "name": "known-pose-thermal-target.tar",
+          "bytes": 67450880,
+          "sha256": "f4ebc739801e5f23ff537f4f8de95310e72f004a33a95f87b185a3b1d76da540",
+          "status": "FULL_REMOTE_STREAM_MATCH"
+        }
+      ]
+    },
+    {
+      "remote": "ore_ms:backups/2026-11-14-matched-reference-paths/matched-reference-paths.tar.gz",
+      "verified_utc": "2026-11-14T21:10:20.122557+00:00",
+      "receipt_sha256": "e7291dacb4a0dbcf8be70396a8e2a464774306835dc276dfd0a875177e313ac2",
+      "sha256": "f1df991335286852a3cdd3863b5951356622d94238ea550c006d0fd7f7610706",
+      "bytes": 82019845,
+      "members": 53
+    },
+    {
+      "remote": "ore_ms:backups/2026-11-14-paired-frontend-assessment/",
+      "verified_utc": "2026-11-14T06:47:13.372820+00:00",
+      "receipt_sha256": "10a27cbfe23350557278dec20bb38fe4fe94b18015630af8c5c6de86025e8662",
+      "member_count": 1300,
+      "status": "PASS",
+      "files": [
+        {
+          "name": "manifest.json",
+          "bytes": 418258,
+          "sha256": "34a7d0b715f3cc73f8d8e42d4ff362e5686544404f4f9847c837e1462ce4804d",
+          "status": "FULL_REMOTE_STREAM_MATCH"
+        },
+        {
+          "name": "paired-frontend-assessment.tar",
+          "bytes": 2873466880,
+          "sha256": "6486cfdbdd04b526ffad493ca99261109b64a03585c7e79a693c957d91b0fc69",
+          "status": "FULL_REMOTE_STREAM_MATCH"
+        }
+      ]
+    },
+    {
+      "remote": "ore_ms:backups/2026-11-14-selection-corpus-native-cache/",
+      "verified_utc": "2026-11-14T19:28:09.857053+00:00",
+      "receipt_sha256": "31e6b74631f4f9b8394d275f26f8e2e46bfd30b536b69e3c5d0e6b0b911fab68",
+      "member_count": 3170,
+      "status": "PASS",
+      "files": [
+        {
+          "name": "manifest.json",
+          "bytes": 1073140,
+          "sha256": "15a7ef44300b5517f77ecf1c1e4e94807a68df0413710d260d28745b078e6c28",
+          "status": "FULL_REMOTE_STREAM_MATCH"
+        },
+        {
+          "name": "selection-corpus-native-cache.tar",
+          "bytes": 8432271360,
+          "sha256": "48bed52661cfff964f356eaa5d2165c7726b8a1309ce82f8c8e9002aee42d3ad",
+          "status": "FULL_REMOTE_STREAM_MATCH"
+        }
+      ]
+    },
+    {
+      "remote": "ore_ms:backups/2026-11-14-selection-measurement-replay/",
+      "verified_utc": "2026-11-14T06:58:02.411895+00:00",
+      "receipt_sha256": "ce765b839c7cffa37b0b9d561b8f3033892d83bb33b624307a5e5b702c45539c",
+      "member_count": 524,
+      "status": "PASS",
+      "files": [
+        {
+          "name": "manifest.json",
+          "bytes": 162754,
+          "sha256": "73186828ab13f2678da3520bac3e1712748ace3a11193534c3ee7703e1640fcf",
+          "status": "FULL_REMOTE_STREAM_MATCH"
+        },
+        {
+          "name": "selection-measurement-replay.tar",
+          "bytes": 45363200,
+          "sha256": "855d8fbdd06d81474d35e7801d6f7c61aab3fe93d536656fc722509537eb8e99",
+          "status": "FULL_REMOTE_STREAM_MATCH"
+        }
+      ]
+    },
+    {
+      "remote": "ore_ms:backups/2026-11-14-selection-policy-contract/",
+      "verified_utc": "2026-11-14T18:47:15.358956+00:00",
+      "receipt_sha256": "f020dec614654964ff497ec077f392b909a8dd1014df6cc82c4c5926b20e5cb6",
+      "member_count": 157,
+      "status": "PASS",
+      "files": [
+        {
+          "name": "manifest.json",
+          "bytes": 45466,
+          "sha256": "be95208757a83815862d6c235adb3d729bd67d94f765eecc54cd67e6d1c5fe22",
+          "status": "FULL_REMOTE_STREAM_MATCH"
+        },
+        {
+          "name": "selection-policy-contract.tar",
+          "bytes": 42332160,
+          "sha256": "20df8b8e0d1bb7af2799311c2b2d5b48dfef82eeaf2f888016d33081ed4e575d",
+          "status": "FULL_REMOTE_STREAM_MATCH"
+        }
+      ]
+    },
+    {
+      "remote": "ore_ms:backups/2026-11-14-selection-policy-learning/",
+      "verified_utc": "2026-11-14T19:55:13.319840+00:00",
+      "receipt_sha256": "7a8ba3428d533548c5fd23457d4f1e6c5739e854ba5d11ffdbc485298766d339",
+      "member_count": 139,
+      "status": "PASS",
+      "files": [
+        {
+          "name": "manifest.json",
+          "bytes": 41592,
+          "sha256": "19ac8e127e2d86f1ca60e790b014eec1be8381fe78519330435c227b4674228a",
+          "status": "FULL_REMOTE_STREAM_MATCH"
+        },
+        {
+          "name": "selection-policy-learning.tar",
+          "bytes": 47144960,
+          "sha256": "f011a72f4cc3ce2729c249f7ff1de6d8627dc7d2a76f1691ad757b3f428fd854",
+          "status": "FULL_REMOTE_STREAM_MATCH"
+        }
+      ]
+    },
+    {
+      "remote": "ore_ms:backups/2026-11-14-selection-task-method-intake/",
+      "verified_utc": "2026-11-14T18:28:03.511770+00:00",
+      "receipt_sha256": "ba78b768611e381cf468cf4ee5b2f8f25ffb18c2032223ecf8ba6754e0ea168a",
+      "member_count": 102,
+      "status": "PASS",
+      "files": [
+        {
+          "name": "manifest.json",
+          "bytes": 29624,
+          "sha256": "4acc76f138f59a6bb7895d2ca08da09449f250b563af46c7936acd47a49f0bb2",
+          "status": "FULL_REMOTE_STREAM_MATCH"
+        },
+        {
+          "name": "selection-task-method-intake.tar",
+          "bytes": 1884160,
+          "sha256": "3c913fd7dff5dac9eebcb0a75f8ec6c058c8e478ea90f6e77c30e09e1e8ecc2a",
+          "status": "FULL_REMOTE_STREAM_MATCH"
+        }
+      ]
+    },
+    {
+      "remote": "ore_ms:backups/2026-11-14-sensor-estimator-comparison/sensor-estimator-comparison.tar.gz",
+      "verified_utc": "2026-11-14T22:49:53.523590+00:00",
+      "receipt_sha256": "5717bb6ebffde0626464cb6b4a2005a109c90f750a50f68fcb97282c5b46de1c",
+      "sha256": "6817542aacd6f583019d3d2b3466fd382f60227220ce36ae4cf3b41372fc79ab",
+      "bytes": 317873750,
+      "members": 232
+    },
+    {
+      "remote": "ore_ms:backups/2026-11-14-sensor-image-adapter/sensor-image-adapter.tar.gz",
+      "verified_utc": "2026-11-14T22:21:35.001775+00:00",
+      "receipt_sha256": "02a64632db30a65af4d6704477183f330243fd5d281d8b30f6209a379b553cd9",
+      "sha256": "f1b77bc6dcb3ba9dd0b323d74760e70d37cf32fa2b3cf54f402b0845a5f692cf",
+      "bytes": 272133130,
+      "members": 54
+    },
+    {
+      "remote": "ore_ms:backups/2026-11-14-sensor-time-contract/sensor-time-contract.tar.gz",
+      "verified_utc": "2026-11-14T21:49:07.909055+00:00",
+      "receipt_sha256": "2746eda8b2ca1195577b71c5637a614f12eacced2f0fc4247af504db833434ef",
+      "sha256": "26cc864161c3abbe5d95f30675bcface1e6de47122ed078d310520b262d50652",
+      "bytes": 148640,
+      "members": 10
+    },
+    {
+      "remote": "ore_ms:backups/2026-11-14-sensor-transfer-intake/sensor-transfer-intake.tar.gz",
+      "verified_utc": "2026-11-14T23:17:05.561480+00:00",
+      "receipt_sha256": "480b5e860e1ac430d79fd1595cf5992e1cda413e4c7a5ccd58a9cfdee008c201",
+      "sha256": "64f92b71a1321d9875f504c615313b7ffa427e243aa81f01e278f6371df63bb7",
+      "bytes": 309553,
+      "members": 30,
+      "all_member_hashes_verified": true
+    }
+  ],
+  "other_receipts_not_normalized": [
+    "ore-ms-feature-selection-backup",
+    "ore-ms-feature-selection-intake-backup",
+    "ore-ms-natural-flow-geometry-backup",
+    "ore-ms-natural-flow-reference-backup",
+    "ore-ms-pose-posterior-intake-backup",
+    "ore-ms-residual-conditioning-review-backup",
+    "ore-ms-shortlist-contribution-backup"
+  ]
+}
