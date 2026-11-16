@@ -2,6 +2,15 @@ FROM osrf/ros:jazzy-desktop-full
 
 SHELL ["/bin/bash", "-c"]
 
+# Pin MAVROS to 2.14.0. From 2.15.0 MAVROS creates its plugin nodes without the global remaps,
+# so their topics and services move under .../mavros/mavros/. Same snapshot pin as robot/docker/Dockerfile.robot.
+RUN curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&options=mr&search=0x4B63CF8FDE49746E98FA01DDAD19BAB3CBF125EA" \
+    -o /usr/share/keyrings/ros-snapshots.asc \
+  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-snapshots.asc] http://snapshots.ros.org/jazzy/2026-06-18/ubuntu noble main" \
+    > /etc/apt/sources.list.d/ros2-snapshot-2026-06-18.list \
+  && printf 'Package: ros-jazzy-mavros ros-jazzy-mavros-extras ros-jazzy-mavros-msgs ros-jazzy-libmavconn\nPin: version 2.14.0-1*\nPin-Priority: 1001\n\nPackage: ros-jazzy-mavlink\nPin: version 2026.3.3-1*\nPin-Priority: 1001\n' \
+    > /etc/apt/preferences.d/mavros
+
 # Install system dependencies
 RUN apt-get -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true update && \
     apt-get -o APT::Get::AllowUnauthenticated=true install -y \

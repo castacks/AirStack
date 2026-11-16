@@ -21,6 +21,23 @@ its own notes. -->
 
 - Nothing yet.
 
+## 0.20.9 — 2026-11-16
+
+- **Fixed: MAVROS is pinned to 2.14.0 in the robot and GCS images.** The images
+  installed MAVROS unpinned. MAVROS 2.15.0 (tagged 2026-08-08) creates its
+  plugin nodes with `use_global_arguments(false)`, so they no longer inherit
+  the process-global namespace remap and every plugin topic and service moves
+  from `.../interface/mavros/<name>` to `.../interface/mavros/mavros/<name>`.
+  It reached the public ROS 2 Jazzy apt repository at the 2026-09-11 sync (as
+  2.15.1); apt now serves 2.16.0. Images built since about 2026-09-11 therefore
+  have the moved topics, and nothing in the stack that reads `mavros/state`,
+  `mavros/set_mode`, `mavros/cmd/arming`, `mavros/setpoint_raw/*` or
+  `mavros/local_position/odom` finds a publisher or service. The runtime stages
+  of `Dockerfile.robot` and `Dockerfile.gcs` now add the ROS snapshot of
+  2026-06-18 and pin `mavros`, `mavros-extras`, `mavros-msgs` and `libmavconn`
+  to 2.14.0 and `mavlink` to 2026.3.3. Removing the pin needs the remaps fixed
+  for 2.15 and later.
+
 ## 0.20.8 — 2026-09-04
 
 - **Docs builds no longer copy AirSim scene binaries.** The `same-dir`
