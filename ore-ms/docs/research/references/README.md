@@ -1,3 +1,13 @@
+Latest: [unchanged FlashLight comparison](../flashlight-transfer-findings-2026-11-16.md). Prior SubT-MRS/MAC-VO/thermal source reading reused; no new paper reading or author-system reproduction. Learned RGB-first has no moving-cohort gain; SIFT favors thermal, preserving frontend dependence. Small-rotation additions, failed calls, identity control and projected costs are retained. Lit samples do not establish zero illumination.
+
+Current deployment characterization: [selected accessible smoke/lighting data](../rgb-thermal-deployment-data-2026-11-16.md). New SubT-MRS, NGCLAB and M2P2 entries record abstract/project/data-format reading plus bounded payload checks, not full author-system reproduction. This user-selected characterization does not require a new algorithm. The earlier novelty gate below is historical for that distinct objective.
+
+Duplicate-work/prior-art check: [Gascola,TP-TIO and ARC](../smoke-darkness-readiness-2026-11-15.md#duplicate-work-check-and-additional-prior-art). SyntheticGascola training and a radiometric prototype are not real-smoke or fullTP-TIO reproductions; ARC abstract-only.
+
+Smoke/darkness evidence: [asset assessment](../smoke-darkness-readiness-2026-11-15.md) and [completed learned control](../smokeseer-learned-findings-2026-11-16.md). Existing learned matching largely removes the SIFTsynthetic gap; prior source reading reused, exact checkpoints/source/runtime qualified. CleanFicusregression retained; no training, physical smoke VO, author-system reproduction or new-method claim.
+
+Historical new-method contribution decision: [baseline-first gate and natural-transition inventory](../contribution-go-no-go-2026-11-15.md#natural-transition-readiness-16november). Cross-spectral public listings and small sidecars verified; adverse bags not in the inspected share. No ROS1reproduction;2022recovery remains abstract-only.
+
 Latest: [longer frozen continuation](../fixed-rotation-continuation-findings-2026-11-15.md). Prior source reading reused; no new paper read. Qualifiednight doesnotbeatmatchedRGBrefinement;daynativecontrolgatefails. Preserve shortpositivecases withoutgeneralthermalornewdecouplingnoveltyclaim.
 
 Latest: [unchanged two-recording transfer](../fixed-rotation-recording-transfer-findings-2026-11-15.md). Prior MAC-VO/SFVO/Buczko reading retained; no new source reading/reproduction. Day/night short-prefix gains over both controls with exact RGB rotation; earlier rain negative remains.

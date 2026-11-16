@@ -238,6 +238,10 @@ nav:
           - System Test Suite: tests/README.md
           - CI/CD Orchestrator Runbook: tests/ci-cd-orchestrator.md
           - OSMO Lab Admin Guide: osmo/README.md
+      - RGB–Thermal Research:
+          - Overview: ore-ms/README.md
+          - Current Handoff: ore-ms/MS_RESEARCH_HANDOFF.md
+          - Research & Experiment Index: ore-ms/docs/research/INDEX.md
       - AI Agent Guide: docs/development/advanced/ai_agent_guide.md
   - Release Notes: docs/release_notes/index.md
   - About: docs/about.md

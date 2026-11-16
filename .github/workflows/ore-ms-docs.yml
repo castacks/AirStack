@@ -1,0 +1,24 @@
+name: ore-ms documentation
+
+on:
+  push:
+    branches: [ore-ms-orb-development, ore_ms]
+    paths: ['ore-ms/**', '.github/workflows/ore-ms-docs.yml']
+  pull_request:
+    paths: ['ore-ms/**', '.github/workflows/ore-ms-docs.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  research-docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check research documentation
+        run: python3 ore-ms/maintenance/check_docs.py

@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-15",
+  "updated": "2026-11-16",
   "scope": "Living working references. Citation presence is not evidence of reading or reproduction. Unresolved historical links remain in citation-index.json; promote to reviewed entries only after checking metadata and relevance.",
   "papers": [
     {
@@ -204,6 +204,16 @@
           "date": "2026-11-14",
           "source_note": "docs/research/thermal-structure-intake-2026-11-14.md",
           "inspection": "Fresh primary abstract check: thermal representation and radiometric/edge tracking overlap; no full-method/code review."
+        },
+        {
+          "date": "2026-11-15",
+          "source_note": "docs/research/smoke-darkness-readiness-2026-11-15.md",
+          "inspection": "Institutional abstract rechecked for smoke evaluation; local prior sectionIII-C reading and radiometric prototype distinguished from full author reproduction. No new code/full method review."
+        },
+        {
+          "date": "2026-11-16",
+          "source_note": "docs/research/rgb-thermal-deployment-data-2026-11-16.md",
+          "inspection": "Official project and public Drive dataset listing checked; one thermal ZIP and separately named RGB corridor folder do not establish paired recording/condition/reference. No new full-paper reading or reproduction."
         }
       ],
       "local_status": "Inspired translation-only patch prototype; exact local raw-refinement configuration failed; this does not reject TP-TIO.",
@@ -211,9 +221,11 @@
         "docs/research/radiometric-native-findings-2026-11-12.md",
         "docs/research/continuity-feasibility-findings-2026-11-14.md",
         "docs/research/expanded-vo-thermal-literature-2026-11-14.md",
-        "docs/research/thermal-structure-intake-2026-11-14.md"
+        "docs/research/thermal-structure-intake-2026-11-14.md",
+        "docs/research/smoke-darkness-readiness-2026-11-15.md",
+        "docs/research/rgb-thermal-deployment-data-2026-11-16.md"
       ],
-      "updated": "2026-11-12",
+      "updated": "2026-11-16",
       "historical_citations": [
         "docs/research/radiometric-tracking-preflight-2026-11-12.md",
         "docs/research/research-direction-literature-2026-11-12.md",
@@ -667,9 +679,29 @@
           "date": "2026-11-14",
           "source_note": "docs/research/rgb-thermal-architecture-and-contribution-reset-2026-11-14.md",
           "inspection": "Architecture/scope clarification using previously inspected sources; no fresh paper reading or author-code reproduction."
+        },
+        {
+          "date": "2026-11-15",
+          "source_note": "docs/research/smoke-darkness-readiness-2026-11-15.md",
+          "inspection": "Institutional abstract rechecked for complete-darkness deployment; existing method/thesis reading retained. No new full-thesis reading or field reproduction."
+        },
+        {
+          "date": "2026-11-15",
+          "source_note": "docs/research/smokeseer-relative-pose-findings-2026-11-15.md",
+          "inspection": "Institutional abstract rechecked for existing normalization/geometry-augmentation correspondence mechanism; earlier local geometry-free temporal checkpoint qualification/source reused as frontend-only feasibility evidence. No new full-thesis reading, synthetic learned-model predictions, training or author-system reproduction."
+        },
+        {
+          "date": "2026-11-16",
+          "source_note": "docs/research/smokeseer-learned-findings-2026-11-16.md",
+          "inspection": "Prior paper reading reused; local native FlowFormerCov/config/checkpoint loading source inspected and pinned. Both existing RGB/thermal checkpoints qualified at800x800FP32 and batch2; full3465pair monocular frontend/common-backend control executed and audited. No new full-paper reading, training, complete native stereoVO or author-system reproduction. Thermal strict; RGBonly the previously audited unused-key/fixed-buffer migration."
+        },
+        {
+          "date": "2026-11-16",
+          "source_note": "docs/research/flashlight-transfer-findings-2026-11-16.md",
+          "inspection": "Prior paper/source reading reused for unchanged native temporal matcher and RGB-first transfer on qualified FlashLight export; no fresh paper reading or full stereo/inertial author-system reproduction. Positive SIFT/negative learned moving comparisons and nominal-reference/cost/condition limits preserved."
         }
       ],
-      "local_status": "See historical notes; no new reproduction asserted",
+      "local_status": "See historical notes; no new reproduction asserted Additional2026-11-16synthetic frontend control: smokyRGB97.92%/thermal98.53%primary,217shared SIFTfailures\u21922with learned frontends; cleanFicusregression retained. No new method or physical smoke VO.",
       "decision_notes": [
         "docs/research/research-direction-literature-2026-11-12.md",
         "docs/research/multisensor-research-reset-2026-11-12.md",
@@ -695,9 +727,13 @@
         "docs/research/sensor-estimator-findings-2026-11-14.md",
         "docs/research/active-perception-motion-decision-2026-11-14.md",
         "docs/research/active-motion-estimator-findings-2026-11-15.md",
-        "docs/research/rgb-thermal-architecture-and-contribution-reset-2026-11-14.md"
+        "docs/research/rgb-thermal-architecture-and-contribution-reset-2026-11-14.md",
+        "docs/research/smoke-darkness-readiness-2026-11-15.md",
+        "docs/research/smokeseer-relative-pose-findings-2026-11-15.md",
+        "docs/research/smokeseer-learned-findings-2026-11-16.md",
+        "docs/research/flashlight-transfer-findings-2026-11-16.md"
       ],
-      "updated": "2026-11-14",
+      "updated": "2026-11-16",
       "historical_citations": [
         "docs/research/next-experiment-pose-covariance-2026-11-09.md",
         "docs/research/research-direction-literature-2026-11-12.md",
@@ -859,9 +895,19 @@
           "date": "2026-11-15",
           "source_note": "docs/research/fixed-rotation-continuation-findings-2026-11-15.md",
           "inspection": "Unchanged local candidate continuation; original method reading retained. No new paper read or author-system reproduction; qualified night incremental thermal benefit absent, day gate fails."
+        },
+        {
+          "date": "2026-11-16",
+          "source_note": "docs/research/smokeseer-learned-findings-2026-11-16.md",
+          "inspection": "Prior paper reading reused; local native FlowFormerCov/config/checkpoint loading source inspected and pinned. Both existing RGB/thermal checkpoints qualified at800x800FP32 and batch2; full3465pair monocular frontend/common-backend control executed and audited. No new full-paper reading, training, complete native stereoVO or author-system reproduction. Thermal strict; RGBonly the previously audited unused-key/fixed-buffer migration."
+        },
+        {
+          "date": "2026-11-16",
+          "source_note": "docs/research/flashlight-transfer-findings-2026-11-16.md",
+          "inspection": "Prior paper/source reading reused for unchanged native temporal matcher and RGB-first transfer on qualified FlashLight export; no fresh paper reading or full stereo/inertial author-system reproduction. Positive SIFT/negative learned moving comparisons and nominal-reference/cost/condition limits preserved."
         }
       ],
-      "local_status": "See historical notes; no new reproduction asserted",
+      "local_status": "See historical notes; no new reproduction asserted Additional2026-11-16synthetic frontend control: smokyRGB97.92%/thermal98.53%primary,217shared SIFTfailures\u21922with learned frontends; cleanFicusregression retained. No new method or physical smoke VO.",
       "decision_notes": [
         "docs/research/literature-2026-10-20.md",
         "docs/research/multisensor-research-reset-2026-11-12.md",
@@ -895,9 +941,11 @@
         "docs/research/native-thermal-constraints-findings-2026-11-15.md",
         "docs/research/native-pose-feedback-findings-2026-11-15.md",
         "docs/research/fixed-rotation-recording-transfer-findings-2026-11-15.md",
-        "docs/research/fixed-rotation-continuation-findings-2026-11-15.md"
+        "docs/research/fixed-rotation-continuation-findings-2026-11-15.md",
+        "docs/research/smokeseer-learned-findings-2026-11-16.md",
+        "docs/research/flashlight-transfer-findings-2026-11-16.md"
       ],
-      "updated": "2026-11-15",
+      "updated": "2026-11-16",
       "historical_citations": [
         "MS_RESEARCH_HANDOFF.md",
         "docs/research/literature-2026-10-20.md",
@@ -1228,6 +1276,11 @@
           "date": "2026-11-15",
           "source_note": "docs/research/native-pose-feedback-findings-2026-11-15.md",
           "inspection": "Continued engineering from prior native-factor/source review: sequential point registration, static initialization and float32 pose feedback on cached measurements. No fresh paper reading or complete author-system reproduction."
+        },
+        {
+          "date": "2026-11-16",
+          "source_note": "docs/research/rgb-thermal-deployment-data-2026-11-16.md",
+          "inspection": "Institutional abstract/project trail screened for dataset discovery, leading to SubT-MRS public releases. No new full-thesis reading or author-system reproduction."
         }
       ],
       "decision_notes": [
@@ -1236,9 +1289,10 @@
         "docs/research/local-relationship-layer-contract-2026-11-14.md",
         "docs/research/local-relationship-learning-findings-2026-11-14.md",
         "docs/research/native-thermal-constraints-findings-2026-11-15.md",
-        "docs/research/native-pose-feedback-findings-2026-11-15.md"
+        "docs/research/native-pose-feedback-findings-2026-11-15.md",
+        "docs/research/rgb-thermal-deployment-data-2026-11-16.md"
       ],
-      "updated": "2026-11-15"
+      "updated": "2026-11-16"
     },
     {
       "id": "mso-dfr-2026-listing",
@@ -2326,6 +2380,273 @@
         "docs/research/fixed-rotation-continuation-findings-2026-11-15.md"
       ],
       "updated": "2026-11-15"
+    },
+    {
+      "id": "cross-spectral-stereo-inertial-2026",
+      "title": "Cross-Spectral Stereo Inertial Odometry",
+      "authors": [
+        "Seungsang Yun",
+        "Hyunsoo Jang",
+        "Tai Hyoung Rhee",
+        "Hyunho Song",
+        "Hyeonjae Gil",
+        "Ayoung Kim"
+      ],
+      "venue_or_version": "arXiv2606.29757v1; author release README reports IEEE RA-L2026, publisher metadata not independently verified",
+      "url": "https://arxiv.org/html/2606.29757v1",
+      "code": "https://github.com/seungsang07/cross-spectral-stereo-inertial-odometry/tree/fd4d81d7dd61cd50bda8571b38da0f6e8f90d5b6",
+      "inspection": "Targeted paperIII-IV and README; complete NucMonitor.cpp/header; targeted VioBackend active-camera branch and FrameIngestor paths. No full-paper/figure review, full backend audit, build or reproduction.",
+      "local_status": "Readiness intake complete: public listings expose one day control, not the intended adverse-sequence bags; four-camera/LiDARcalibration and2358-row supplied reference downloaded/hash verified. Pose-frame/time/referencequality and full bag/weight/runtime remain unqualified. Prior-art mechanisms retained; no new-method or reproduced failure claim.",
+      "reading_history": [
+        {
+          "date": "2026-11-15",
+          "source_note": "docs/research/contribution-go-no-go-2026-11-15.md",
+          "inspection": "Targeted paperIII-IV and README; complete NucMonitor.cpp/header; targeted VioBackend active-camera branch and FrameIngestor paths. No full-paper/figure review, full backend audit, build or reproduction."
+        },
+        {
+          "date": "2026-11-16",
+          "source_note": "docs/research/contribution-go-no-go-2026-11-15.md",
+          "inspection": "Targeted IV-A/TableI reference/sensor/sequence setup rechecked; pinned release calibration, NUCclock and launch contract inspected. Anonymous public-browser listings verified: one well-lit day bag plus calibration/reference, one matcher weight; adverse sequences not listed. Small sidecars downloaded/hash verified and numerically parsed. No full-paper/figure review, bag/weight integrity, ROS1build, odometry run or author-system reproduction."
+        }
+      ],
+      "decision_notes": [
+        "docs/research/contribution-go-no-go-2026-11-15.md"
+      ],
+      "updated": "2026-11-16"
+    },
+    {
+      "id": "multispectral-failure-recovery-2022",
+      "title": "Robust Multispectral Visual-Inertial Navigation With Visual Odometry Failure Recovery",
+      "authors": [
+        "Axel Beauvisage",
+        "Kenan Ah\u0131ska",
+        "Nabil Aouf"
+      ],
+      "venue_or_version": "IEEE TITS23(7),9089\u20139101,2022, institutional metadata",
+      "url": "https://open.metu.edu.tr/handle/11511/117644",
+      "doi": "10.1109/TITS.2021.3090675",
+      "code": null,
+      "inspection": "Institutional abstract/metadata only. No full paper, code inspection or reproduction.",
+      "local_status": "Broad recovery overlap; cannot infer detailed method limitations from abstract.",
+      "reading_history": [
+        {
+          "date": "2026-11-15",
+          "source_note": "docs/research/contribution-go-no-go-2026-11-15.md",
+          "inspection": "Institutional abstract/metadata only. No full paper, code inspection or reproduction."
+        }
+      ],
+      "decision_notes": [
+        "docs/research/contribution-go-no-go-2026-11-15.md"
+      ],
+      "updated": "2026-11-15"
+    },
+    {
+      "id": "smokeseer-2025",
+      "title": "SmokeSeer: 3D Gaussian Splatting for Smoke Removal and Scene Reconstruction",
+      "url": "https://arxiv.org/html/2509.17329v1",
+      "primary_additional_url": "https://publications.ri.cmu.edu/smokeseer-3d-gaussian-splatting-for-smoke-removal-and-scene-reconstruction",
+      "venue_or_version": "arXiv2509.17329v1; project lists3DV2026; linked2025MSthesis distinct source",
+      "code": "https://github.com/cmu-ci-lab/SmokeSeer/tree/3fb5c0b45c9446343d62e560e6cab6b536171927",
+      "inspection": "Targeted paper3.5,4.1,Appendix8; institutional thesis abstract; pinned README and pose-loader branches. Drive metadata listings only; no full-paper/thesis/figure review, archive download, build or execution. Follow-up: all40synthetic camera JSONs and20sampled image headers inspected; see reading history.",
+      "local_status": "Fixed synthetic SIFT diagnostic complete: clean RGB90.04%primary vs smoky RGB49.44%all ten; thermal73.61%vs smoky RGB44.74%in nine matched-camera scenes.8/9matched scenes favor thermal, Hotdog negative retained. No physical smoke VO, metric trajectory or new-method gain; clean-camera binding follows loader assumption.56558independent audit checks pass.",
+      "reading_history": [
+        {
+          "date": "2026-11-15",
+          "source_note": "docs/research/smoke-darkness-readiness-2026-11-15.md",
+          "inspection": "Targeted paper3.5,4.1,Appendix8; institutional thesis abstract; pinned README and pose-loader branches. Drive metadata listings only; no full-paper/thesis/figure review, archive download, build or execution."
+        },
+        {
+          "date": "2026-11-15",
+          "source_note": "docs/research/smoke-darkness-readiness-2026-11-15.md",
+          "inspection": "Bounded public ZIP intake: all40camera JSONs CRC/SHA verified,3330pose/path assignments audited,20sampled PNG IHDRs checked; pinned synthetic loader inspected. No full archive integrity, complete image decode, model execution or VO score."
+        },
+        {
+          "date": "2026-11-15",
+          "source_note": "docs/research/smokeseer-relative-pose-protocol-2026-11-15.md",
+          "inspection": "Rechecked paper section4.1 and pinned synthetic loader _gt counterpart, axis conversion and alpha handling. Full public ZIP downloaded for selected train-image qualification. Supplied clean-camera equivalence remains loader-based assumption, not independent render provenance; no author-system reproduction."
+        },
+        {
+          "date": "2026-11-15",
+          "source_note": "docs/research/smokeseer-relative-pose-findings-2026-11-15.md",
+          "inspection": "Prior paper/pinned-loader reading reused; actual restored OpenCV5.0.0 SIFT/E/recoverPose API inspected. Fixed classical monocular three-arm diagnostic executed on all3495selected images/3465arm-pairs and independently audited. Not SmokeSeer reconstruction or author-system reproduction; no new full-paper reading or training."
+        }
+      ],
+      "decision_notes": [
+        "docs/research/smoke-darkness-readiness-2026-11-15.md",
+        "docs/research/smokeseer-relative-pose-protocol-2026-11-15.md",
+        "docs/research/smokeseer-relative-pose-findings-2026-11-15.md"
+      ],
+      "updated": "2026-11-15"
+    },
+    {
+      "id": "firestereo-2025",
+      "title": "FIReStereo: Forest InfraRed Stereo Dataset for UAS Depth Perception in Visually Degraded Environments",
+      "url": "https://arxiv.org/html/2409.07715v1",
+      "primary_additional_url": "https://firestereo.github.io/",
+      "venue_or_version": "Targeted arXivv1; author release lists RA-L2025",
+      "code": "https://github.com/firestereo/FIReStereo/tree/54cb48b606e4f5b84219931ca6322a70264367ce",
+      "inspection": "PaperIII-C/D and release README,data description,manifest,downloader,calibration. HEAD/range ZIP-directory checks and two text members; no images decoded or model executed.",
+      "local_status": "Gascola1pixels/runtime qualification passes, but smoke label is NOT verified: paperGascola-1isday and exportcounts differ. Need sequence-condition and P1/P2/time contract. No VOor smoke accuracy claim.",
+      "reading_history": [
+        {
+          "date": "2026-11-15",
+          "source_note": "docs/research/smoke-darkness-readiness-2026-11-15.md",
+          "inspection": "PaperIII-C/D and release README,data description,manifest,downloader,calibration. HEAD/range ZIP-directory checks and two text members; no images decoded or model executed."
+        },
+        {
+          "date": "2026-11-15",
+          "source_note": "docs/research/smoke-darkness-readiness-2026-11-15.md",
+          "inspection": "FullGascola1input extraction/CRC/5670image decode, source calibration/timestamp issues10/11read. ExactMACTGPUruntime restored and two geometry-free frontend calls pass; fullVO not launched. No calibration, tracking or depth-accuracy qualification."
+        },
+        {
+          "date": "2026-11-15",
+          "source_note": "docs/research/smoke-darkness-readiness-2026-11-15.md",
+          "inspection": "PaperTableIIIcondition labels rechecked;12release commits and sole calibration revision inspected; maintainer issue1/2/7/10/11comments read. Corrected unsupported Gascola1smoke assumption; export identity/time/rectification mapping unresolved. No further inference or outreach."
+        }
+      ],
+      "decision_notes": [
+        "docs/research/smoke-darkness-readiness-2026-11-15.md"
+      ],
+      "updated": "2026-11-15"
+    },
+    {
+      "id": "arc-thesis-2022",
+      "title": "AdveRsarial Calibration between Modalities",
+      "author": "Yutian Lei",
+      "venue_or_version": "CMU-RI-TR-22-78, MSthesis,December2022",
+      "url": "https://publications.ri.cmu.edu/adversarial-calibration-between-modalities",
+      "inspection": "Institutional abstract and metadata only; no full thesis, code audit or reproduction.",
+      "code": null,
+      "local_status": "Learned target-input adapter to pretrained source networks; not geometric camera calibration. VO/correspondence preservation and performance unverified. No prior local execution found.",
+      "reading_history": [
+        {
+          "date": "2026-11-15",
+          "source_note": "docs/research/smoke-darkness-readiness-2026-11-15.md",
+          "inspection": "Institutional abstract/metadata only; thermal adaptation overlap identified, no VO claim."
+        }
+      ],
+      "decision_notes": [
+        "docs/research/smoke-darkness-readiness-2026-11-15.md"
+      ],
+      "updated": "2026-11-15"
+    },
+    {
+      "id": "subt-mrs-2024",
+      "title": "SubT-MRS Dataset: Pushing SLAM Towards All-weather Environments",
+      "author": "Shibo Zhao and others",
+      "venue_or_version": "CVPR 2024",
+      "url": "https://arxiv.org/abs/2307.07607",
+      "code": "https://superodometry.com/datasets",
+      "inspection": "Primary abstract/project and release format/metadata; actual ZIP indexes, timestamp lists, selected image members, full smoke/FlashLight reference ZIPs and smoke calibration checked. Exported integrated-odometry provenance/frame not independently qualified; no author-system reproduction.",
+      "local_status": "Nominal declared IMU-frame relative-pose characterization completed on exposed real SmokeRoom, zero new inference/fitting; not independent physical truth or full stateful VO.",
+      "reading_history": [
+        {
+          "date": "2026-11-16",
+          "source_note": "docs/research/rgb-thermal-deployment-data-2026-11-16.md",
+          "inspection": "Primary abstract/project and release format/metadata; actual ZIP indexes, timestamp lists, selected image members, full smoke/FlashLight reference ZIPs and smoke calibration checked. Exported integrated-odometry provenance/frame not independently qualified; no author-system reproduction."
+        },
+        {
+          "date": "2026-11-16",
+          "source_note": "docs/research/deployment-characterization-findings-2026-11-16.md",
+          "inspection": "Targeted ground-truth-trajectory generation passage: map constraints fused with visual/LiDAR odometry and IMU; no claim of purely independent LiDAR truth. Full SmokeRoom image intake and reference-free matching study use actual released calibration; supplied trajectory frame remains unqualified for our pose scoring. Camodocal sphere-lift/project formulas inspected as an input-adapter dependency, not a new method/full model-paper review.",
+          "source_code": "https://github.com/hengli/camodocal/blob/2eb3a660ffb31d4f630966817d1fa9543999fa41/src/camera_models/CataCamera.cc"
+        },
+        {
+          "date": "2026-11-16",
+          "source_note": "docs/research/deployment-spatial-support-findings-2026-11-16.md",
+          "inspection": "No fresh paper/source reading. Prior camera/projection/reference contracts reused for cached spatial/temporal characterization; zero new inference. Independent projection/mask/window audits do not certify physical match or pose truth."
+        },
+        {
+          "date": "2026-11-16",
+          "source_note": "docs/research/smoke-reference-pose-findings-2026-11-16.md",
+          "inspection": "Fresh official sensor-fusion IMU-pose convention, hardware and selected maintainer issues at challenge source commit864e5279d4588f6dd3ac2fcd1b4f6fb62cfb5c1e; full raw sensor ZIP/header/gray-input binding and supplied CSV consistency checked. No-fit gyro frame check supports observed motion. Nominal supplied-reference full relative R/t-direction comparison completed; fused-reference dependence and origin metrology remain qualified. Prior paper ground-truth-generation passage reused, no new full-paper or author-system reproduction."
+        },
+        {
+          "date": "2026-11-16",
+          "source_note": "docs/research/smoke-rgb-first-findings-2026-11-16.md",
+          "inspection": "Prior dataset/project/frame source reading reused for fixed cached RGB-first fallback; no fresh paper reading or author-system reproduction. Nominal supplied-reference pair proposals, incorrect additions and projected matching costs retained."
+        },
+        {
+          "date": "2026-11-16",
+          "source_note": "docs/research/flashlight-qualification-findings-2026-11-16.md",
+          "inspection": "Rechecked official dataset FlashLight SP1 row, own released intrinsics/extrinsics and fusion-track IMU trajectory convention; full exported images/IMU/reference input audit. No new full-paper reading or author-system reproduction. March export differs from linked July raw bag; observed samples lit, no zero-lux claim."
+        },
+        {
+          "date": "2026-11-16",
+          "source_note": "docs/research/flashlight-transfer-findings-2026-11-16.md",
+          "inspection": "Prior paper/source reading reused for unchanged native temporal matcher and RGB-first transfer on qualified FlashLight export; no fresh paper reading or full stereo/inertial author-system reproduction. Positive SIFT/negative learned moving comparisons and nominal-reference/cost/condition limits preserved."
+        }
+      ],
+      "decision_notes": [
+        "docs/research/rgb-thermal-deployment-data-2026-11-16.md",
+        "docs/research/deployment-characterization-findings-2026-11-16.md",
+        "docs/research/deployment-spatial-support-findings-2026-11-16.md",
+        "docs/research/smoke-reference-pose-findings-2026-11-16.md",
+        "docs/research/flashlight-qualification-findings-2026-11-16.md",
+        "docs/research/flashlight-transfer-findings-2026-11-16.md"
+      ],
+      "updated": "2026-11-16"
+    },
+    {
+      "id": "ngclab-multispectral-2021",
+      "title": "A Multi-spectral Dataset for Evaluating Motion Estimation Systems",
+      "author": "Weichen Dai and Yu Zhang and Shenzhou Chen and Donglei Sun and Da Kong",
+      "venue_or_version": "2021 revised arXiv version; ICRA 2021 dataset",
+      "url": "https://arxiv.org/abs/2007.00622",
+      "code": "https://github.com/NGCLAB/multi-spectral-dataset",
+      "inspection": "Primary abstract, official data/calibration documentation and bounded ROSbag header/full index checks for desk1 halfsphere bright/changing/dim; calibration ZIP downloaded. No full bag/image decoding, mocap camera-frame qualification or author-system reproduction.",
+      "local_status": "Real-data deployment characterization: frontend availability only; physical pose accuracy/reference binding remains qualified. See latest findings.",
+      "reading_history": [
+        {
+          "date": "2026-11-16",
+          "source_note": "docs/research/rgb-thermal-deployment-data-2026-11-16.md",
+          "inspection": "Primary abstract, official data/calibration documentation and bounded ROSbag header/full index checks for desk1 halfsphere bright/changing/dim; calibration ZIP downloaded. No full bag/image decoding, mocap camera-frame qualification or author-system reproduction."
+        },
+        {
+          "date": "2026-11-16",
+          "source_note": "docs/research/deployment-characterization-findings-2026-11-16.md",
+          "inspection": "Targeted paper III/IV camera/mocap and synchronization sections, author extractor callbacks and launch config at pinned commit, plus public calibration/time/world-axis issues. Full three selected bags decoded; frozen SIFT/learned frontend study completed. Raw-mocap camera reference interpretation fails the bright pose sanity check, so no accuracy/trajectory ranking is promoted. Not full author-system reproduction.",
+          "source_code": "https://github.com/weichnn/bag_extractor/tree/6d4bf30ac28d69e9e28f8f634185e0829f39ab9b"
+        },
+        {
+          "date": "2026-11-16",
+          "source_note": "docs/research/deployment-spatial-support-findings-2026-11-16.md",
+          "inspection": "No fresh paper/source reading. Prior camera/projection/reference contracts reused for cached spatial/temporal characterization; zero new inference. Independent projection/mask/window audits do not certify physical match or pose truth."
+        },
+        {
+          "date": "2026-11-16",
+          "source_note": "docs/research/reference-contract-findings-2026-11-16.md",
+          "inspection": "Fresh official Kalibr report summary/configuration, raw calibration ZIP metadata/CRC, actual camera+IMU bag index and pinned extractor callbacks. No mocap-body\u2192camera edge established. Prior paper rack/timing passages reused; no fresh full-paper reading or author-system reproduction. Audited scalar angular-motion amount uses rigid-frame invariance, no fitted extrinsic/clock or new inference."
+        }
+      ],
+      "decision_notes": [
+        "docs/research/rgb-thermal-deployment-data-2026-11-16.md",
+        "docs/research/deployment-characterization-findings-2026-11-16.md",
+        "docs/research/deployment-spatial-support-findings-2026-11-16.md",
+        "docs/research/reference-contract-findings-2026-11-16.md"
+      ],
+      "updated": "2026-11-16"
+    },
+    {
+      "id": "m2p2-2024",
+      "title": "M2P2: A Multi-Modal Passive Perception Dataset for Off-Road Mobility in Extreme Low-Light Conditions",
+      "author": "Aniket Datar and others",
+      "venue_or_version": "arXiv 2410.01105; 2024 preprint, revised 2025",
+      "url": "https://arxiv.org/abs/2410.01105",
+      "code": "https://github.com/RobotiXX/M2P2",
+      "inspection": "Primary abstract/project, Dataverse V4.1 catalog and actual public night-bag header/full index checked. No independent trajectory reference or per-chunk zero-lux qualification; no full author-system reproduction.",
+      "local_status": "Deployment characterization data selected; bounded access/payload qualification only, no new accuracy results. See dated assessment for outstanding reference/calibration contracts.",
+      "reading_history": [
+        {
+          "date": "2026-11-16",
+          "source_note": "docs/research/rgb-thermal-deployment-data-2026-11-16.md",
+          "inspection": "Primary abstract/project, Dataverse V4.1 catalog and actual public night-bag header/full index checked. No independent trajectory reference or per-chunk zero-lux qualification; no full author-system reproduction."
+        }
+      ],
+      "decision_notes": [
+        "docs/research/rgb-thermal-deployment-data-2026-11-16.md"
+      ],
+      "updated": "2026-11-16"
     }
   ]
 }
