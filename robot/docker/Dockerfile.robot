@@ -251,6 +251,10 @@ RUN python3 -m pip install --no-cache-dir --break-system-packages --ignore-insta
   "setuptools==79.0.1" \
   wheel
 
+# Add the ROS snapshot to pin MAVROS to 2.14
+RUN curl -sSL "https://keyserver.ubuntu.com/pks/lookup?op=get&options=mr&search=0x4B63CF8FDE49746E98FA01DDAD19BAB3CBF125EA" -o /usr/share/keyrings/ros-snapshots.asc \
+  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-snapshots.asc] http://snapshots.ros.org/${ROS_DISTRO}/2026-06-18/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" > /etc/apt/sources.list.d/ros2-snapshot.list
+
 # Install runtime ROS2 packages. ros-dev-tools pulls in the compile toolchain
 # (cmake, build-essential) — deliberate, since `bws` builds in-container.
 # (ros-*-grid-map pulls CGAL in as a transitive dependency where it needs it.)
@@ -258,8 +262,9 @@ RUN python3 -m pip install --no-cache-dir --break-system-packages --ignore-insta
 # own); per-robot Foxglove returns later as an opt-in stack include.
 RUN apt update -y && apt install -y --no-install-recommends \
   ros-dev-tools \
-  ros-${ROS_DISTRO}-mavros \
-  ros-${ROS_DISTRO}-mavros-extras \
+  ros-${ROS_DISTRO}-mavros=2.14.0-1* \
+  ros-${ROS_DISTRO}-mavros-extras=2.14.0-1* \
+  ros-${ROS_DISTRO}-mavros-msgs=2.14.0-1* ros-${ROS_DISTRO}-libmavconn=2.14.0-1* ros-${ROS_DISTRO}-mavlink=2026.3.3-1* \
   ros-${ROS_DISTRO}-tf2* \
   ros-${ROS_DISTRO}-stereo-image-proc \
   ros-${ROS_DISTRO}-image-view \

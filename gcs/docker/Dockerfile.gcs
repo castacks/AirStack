@@ -2,13 +2,18 @@ FROM osrf/ros:jazzy-desktop-full
 
 SHELL ["/bin/bash", "-c"]
 
+# Add the ROS snapshot to pin MAVROS to 2.14
+RUN curl -sSL "https://keyserver.ubuntu.com/pks/lookup?op=get&options=mr&search=0x4B63CF8FDE49746E98FA01DDAD19BAB3CBF125EA" -o /usr/share/keyrings/ros-snapshots.asc \
+  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-snapshots.asc] http://snapshots.ros.org/jazzy/2026-06-18/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" > /etc/apt/sources.list.d/ros2-snapshot.list
+
 # Install system dependencies
 RUN apt-get -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true update && \
     apt-get -o APT::Get::AllowUnauthenticated=true install -y \
     vim nano emacs wget curl tree sshpass \
     iperf3 iftop iputils-ping net-tools htop \
     cmake build-essential less jq python3-pip tmux gdb \
-    ros-dev-tools ros-jazzy-mavros ros-jazzy-tf2* ros-jazzy-stereo-image-proc \
+    ros-dev-tools ros-jazzy-mavros=2.14.0-1* ros-jazzy-tf2* ros-jazzy-stereo-image-proc \
+    ros-jazzy-mavros-msgs=2.14.0-1* ros-jazzy-libmavconn=2.14.0-1* ros-jazzy-mavlink=2026.3.3-1* \
     ros-jazzy-image-view ros-jazzy-topic-tools ros-jazzy-grid-map \
     ros-jazzy-domain-bridge ros-jazzy-ros2cli python3-colcon-common-extensions \
     libglib2.0-dev libcgal-dev openssh-server \
