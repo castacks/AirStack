@@ -11,7 +11,7 @@ top-level `safe_navigation` package. Isaac flights have run on this branch:
 | Run | Episodes | Result |
 |---|---|---|
 | `droan_empty_1015` | 1 | reached the goal |
-| `airstack_all_policies_primitive_sparse_1015` | 1 per policy | 8 reached the goal, 8 catastrophic failures, agileautonomy wrote no record |
+| `airstack_all_policies_primitive_sparse_1015` | 1 per policy, 17 policies | 8 reached the goal, 8 catastrophic failures, agileautonomy wrote no record; `random`, `adaptiveapf` and `panther` were not in the run |
 | `droan_primitive_photoreal_1031` | 1 per domain, 8 domains | none reached the goal |
 | `droan_isaac_moving_primitive_seed100_1113` | 99 | 84 timeouts, 15 catastrophic failures |
 
@@ -27,14 +27,21 @@ budget SAFE's Iris meets at its 5 m/s cruise.
   AirStack-specific baselines. Their implementations and speeds differ from
   SAFE's namesakes. Do not pool these results with the SAFE aerial runs.
 - `random`, `aggressive`, `conservative`, `adaptive`, `adaptiveapf`: import
-  SAFE's source classes from
-  `safe_navigation.aerial.policies.baselines`, call their policy logic
-  on AirStack observations, and convert their m/s velocity to the normalized
-  AirStack trajectory-override input. Their observations and actions cross
-  SAFE's X/Y-swapped benchmark frame at this boundary. A SAFE source checkout
-  must be on `PYTHONPATH`.
+  SAFE's source classes from `safe_navigation.aerial.policies.baselines`, call
+  their policy logic on AirStack observations, and fly their m/s velocity on
+  AirStack's trajectory override with no speed ceiling. Their observations and
+  actions cross SAFE's X/Y-swapped benchmark frame at this boundary.
+- The nine planners (`fastplanner`, `egoplanner`, `raptor`, `faster`, `super`,
+  `mighty`, `dynus`, `panther`, `sando`) subclass SAFE's wrappers from
+  `safe_navigation.aerial.policies.planners`, start SAFE's sidecars and send
+  their setpoints to PX4. The learned policies (`diffphysdrone`, `depthnav`,
+  `diffaero`, `agileautonomy`, `vitfly`) load SAFE's classes from
+  `safe_navigation.aerial.policies.learned` and send attitude and thrust, or
+  velocity for `vitfly`.
+- The benchmark checkout must be on `PYTHONPATH`.
 - `deploy_diffaero`: generic SVG commander for simulated or real PX4. It is
-  separate from `eval/run.py` and has CPU interface tests only.
+  separate from `eval/run.py` and has CPU interface tests only
+  (`svg_ground_control/test/test_deploy_interfaces.py`).
 
 ## Matches current SAFE (2026-11-16)
 
@@ -44,7 +51,7 @@ The branch was written against SAFE as of 2026-10-03. These breaks were fixed:
 |---|---|---|
 | Package moves | `safe_navigation.common.config` (domains, scenarios, bands, stage exports), `safe_navigation.aerial.policies` (baselines, learned, planners), `safe_sim.sim_config`, `safe_core.run` (jobs, container reaper), `safe_core.records` (episodes, experiment yaml) | every import in `eval/` and the Isaac launcher |
 | Floating domain | the movers are walking people; the drifting cubes are gone | the launcher builds people on floating as on every other domain |
-| Integration lookup | SAFE core resolves an integration name to a package under its own `integrations/` tree (provenance code hashes, scoring-code version, policy directory) | `eval/run.py` `register_integration_paths()` maps `airstack` to this `eval` package; `get_experiments_dir()` points at `eval/experiments` |
+| Integration lookup | SAFE core finds an integration's package (provenance code hashes, scoring-code version, policy directory) through `thesafebenchmark.integrations` entry points | `eval/run.py` `register_integration_paths()` patches the lookup to map `airstack` to this `eval` package; `get_experiments_dir()` points at `eval/experiments` |
 | Robot | `robot:` is a required, registered yaml key | `robot: iris` in the yaml; `AirstackRunner.required_yaml_keys`; any other robot is refused |
 | Rollout info | `info["failure"]` must be present and sticky | `AirstackStackEnv.step` |
 | Env params | core reads `RE_max` (npz, provenance, video risk bar) | `get_env_params()` takes it from `configs/certification.yaml` |
@@ -56,7 +63,7 @@ The branch was written against SAFE as of 2026-10-03. These breaks were fixed:
 | Lighting | SAFE lights USD stages too, with the domain's sky HDR when it has one | `safe_source_scene.load_domain` |
 | Optional hooks | `resolved_domain`, `perturbations_vary_episodes` | `eval/adapter.py` |
 | Planner sidecar registry | `fault()` is gone; records are resolved and probed | `run_agent_hook` polls `resolve()` and `is_sidecar()` |
-| Main study roster | `paper/main_moving.yaml` now flies `sando` and leaves `panther` out | `sando` wrapper added (unflown) |
+| Paper roster | `paper/isaac_moving_primitive.yaml` flies the nine planners and `depthnav`, `diffaero`, `vitfly`, `agileautonomy` | every one has a wrapper (`eval/test/test_main_policy_coverage.py`); `panther` has not flown here |
 | Episode video | `debug:` profiles with capture call `env.get_debug_frames()` | the launcher's `capture_frames` command renders an overview and a drone-tracking camera; the env decodes them for SAFE's recorder |
 
 Container safety on a shared machine:
@@ -71,25 +78,25 @@ Container safety on a shared machine:
   (`robot-desktop`, `isaac-sim`), not the whole project. The `safe-session`
   container is never touched.
 
-Known gaps, not fixed:
+Scoring geometry: clearance is measured from the drone's oriented collider box
+with each rotor counted as its swept disk (0.35 m half width), grown with PhysX
+`overlap_box` to 2 cm resolution against every stage collider and people's
+capsules. Arena walls are exact. The shell width (0.3 m) is the rulebook's.
 
-- AirStack scores from the drone's collider box, not SAFE's body sphere. Isaac
-  grows the oriented box with PhysX `overlap_box` to 2 cm resolution against
-  every stage collider, photoreal stages included, and people's capsules. Arena
-  walls and colliderless pool columns are exact. Contact is clearance 0. The box
-  counts each rotor as its swept disk, so it is 0.35 m in half width where
-  SAFE's MuJoCo Iris box is 0.24 m. The shell width (0.3 m) agrees with the
-  rulebook.
-- SAFE tools that resolve a run's integration on their own (`safe report RUN`,
-  `--compare`, `--stop-at-collision`) do not import `eval/run.py`, so they do not
-  know `airstack`. The runner writes its own report at the end of a run. SAFE now
-  finds integrations through `thesafebenchmark.integrations` entry points, and an
-  installable AirStack `eval` package registering `airstack` there would fix this.
-- SAFE policies step Isaac one physics tick per host step. DROAN and the
-  `airstack*` baselines still free-run, so their episodes are observed, not
-  stepped, and repeats vary with timing.
+Open items:
 
-## Verified on CPU (2026-10-14)
+- `safe report RUN` and SAFE's other standalone tools find integrations through
+  `thesafebenchmark.integrations` entry points, and nothing registers `airstack`
+  there, because `eval/` is a folder on `PYTHONPATH` rather than an installed
+  package. The runner writes its own report at the end of a run. A pyproject that
+  installs this package and registers `airstack` would let SAFE's tools read
+  these runs and replace the patch in `register_integration_paths()`.
+- When Pegasus did not autolaunch PX4, the launcher skips the PX4 relaunch after
+  a teleport with a warning and the next arm can fail. It should raise instead.
+- The launcher's branches for a domain without a SAFE config (AirStack's own
+  obstacle pool columns) are unreachable since the eval reads only SAFE's domains.
+
+## Verified on CPU (2026-10-14, not re-run since)
 
 `PYTHONPATH=/home/kayla/workspace/benchmark:/home/kayla/AirStack python3 -m pytest -q eval/test`
 passes 17 tests. `eval/test/test_cpu_smoke.py` checks:
@@ -108,29 +115,23 @@ passes 17 tests. `eval/test/test_cpu_smoke.py` checks:
 
 `docker compose config isaac-sim` resolves the new mounts and variables.
 
-Not verified: anything inside Isaac or the robot container. In particular
-`FrameCapture` (replicator cameras), `attach_stage_export` on a photoreal stage,
-SAFE's world builder inside AirStack's Isaac image, the collider box and
-clearance measured on a live stage (`eval/test/test_collider_box.py` checks the
-box geometry and, where `pxr` imports, the box read from `iris.usd`), and DROAN reaching the goal
-in SAFE's 30 m `empty` room (its start and goal can sit 5 m from a wall).
-
 ## Validation required before claims
 
 1. Fly the `droan_empty` smoke flight below and check the video, the npz and
-   the report.
+   the report. Flown 2026-10-15; DROAN reached the goal.
 2. Smoke one policy in one SAFE domain; compare stage USD, transform, static
    meshes, human actor count/paths, seeded start/goal, and collision/clearance
    against SAFE's source manifest.
-3. Check ROS command frames and rates for each policy family, then fly one
+3. Check ROS command frames and rates, sensor frames, camera geometry, sidecar
+   startup and controller ownership for each policy family, then fly one
    episode and inspect telemetry, safety events, and SAFE report output.
 4. Only after those gates, expand to every policy and domain and run the
    sim/real matched-trial analysis.
 
-## First smoke flight: droan_empty on this machine
+## Smoke flight: droan_empty on this machine
 
 Run these from a shell on this machine when the GPU has room for a second
-Isaac instance, or after the SAFE paper runs finish. The images
+Isaac instance. The images
 `v0.18.0_robot-x86-64_dev` and `v0.18.0_isaac-sim` named by `.env` are
 already pulled. DROAN never gates the PID output, so it does not need the
 robot image rebuilt; the robot workspace builds itself (`bws`) when the

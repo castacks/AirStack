@@ -26,7 +26,7 @@ agents:
   - sando
 env_domains:
   - primitive_sparse
-# Moving obstacles are SAFE's walking people, as in SAFE's main_moving study.
+# Moving obstacles are SAFE's walking people, as in SAFE's paper moving studies.
 humans: true
 simple: true
 num_scenarios:     1

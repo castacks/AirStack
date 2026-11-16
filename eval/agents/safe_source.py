@@ -1,9 +1,9 @@
 """Run SAFE's own velocity baselines through AirStack's trajectory interface.
 
 The policy code is imported from a SAFE source checkout; it is never copied
-into AirStack. Its output is in m/s, while AirstackStackEnv accepts a velocity
-normalized by its configured max speed. This preserves the policy's requested
-velocity until AirStack's controller clamps it.
+into AirStack. Its m/s output is divided by the env's max speed, which
+AirstackStackEnv multiplies back, so the commanded speed reaches the
+trajectory controller unchanged.
 """
 
 from __future__ import annotations

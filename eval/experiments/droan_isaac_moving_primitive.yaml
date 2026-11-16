@@ -1,7 +1,7 @@
 # DROAN through the full AirStack stack on SAFE's paper/isaac_moving_primitive.yaml grid:
 # 2 domains x 6 scenarios x 10 perturbations x 1 episode = 120 episodes with walking people.
 # Live capture is off: filming every tick slows Isaac to about 0.1x real time, at which PX4
-# loses control. Videos are drawn afterwards by SAFE's replay renderer from the records.
+# loses control, so this run writes no episode video.
 # Run (from the AirStack root):
 #   PYTHONPATH=/home/kayla/workspace/benchmark:/home/kayla/AirStack \
 #   python3 eval/run.py --config eval/experiments/droan_isaac_moving_primitive.yaml -y --headless

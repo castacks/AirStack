@@ -1,8 +1,4 @@
-"""Domain registry for AirStack × S.A.F.E.
-
-Maps domain names to AirStack scene configurations (USD paths from Isaac Sim Nucleus,
-obstacle counts, flight height).  One entry per scene from AirStack's simulation/isaac-sim/
-that you want to evaluate.
+"""SAFE's Isaac domain registry in AirStack coordinates.
 
 switch_domain() updates a live AirstackEnv when the benchmark moves to a new domain.
 """
@@ -39,13 +35,6 @@ class AirstackDomainCfg:
     outdoor: bool = False
 
 
-_REGISTRY: dict[str, AirstackDomainCfg] = {}
-
-
-def register_domain(cfg: AirstackDomainCfg) -> None:
-    _REGISTRY[cfg.domain] = cfg
-
-
 def get_domain_registry(sim_backend: str | None = None) -> dict[str, AirstackDomainCfg]:
     """Project SAFE's canonical Isaac domain registry into AirStack coordinates.
 
@@ -55,8 +44,6 @@ def get_domain_registry(sim_backend: str | None = None) -> dict[str, AirstackDom
     """
     if sim_backend not in (None, 'isaac'):
         return {}
-    if __import__('os').environ.get('AIRSTACK_SAFE_LEGACY_DOMAINS') == '1':
-        return dict(_REGISTRY)
     try:
         import safe_navigation.common.config.domains_isaac  # noqa: F401
         from safe_navigation.common.config.domains import (
@@ -107,76 +94,3 @@ def switch_domain(env, domain_cfg: AirstackDomainCfg) -> None:
     print(f"[airstack.environment_config] Switching to domain '{domain_cfg.domain}' "
           f"(stack restart on next reset)...", flush=True)
     env._apply_domain_cfg(domain_cfg)
-
-
-# ── Domain registrations ──────────────────────────────────────────────────────
-# These mirror AirStack's existing Isaac Sim launch scripts.
-# USD paths match what Pegasus / AirStack's warehouse_px4_pegasus_launch_script.py uses.
-
-register_domain(AirstackDomainCfg(
-    domain="warehouse",
-    usd_path="/Isaac/Environments/Simple_Warehouse/full_warehouse.usd",
-    dynamic_obstacle_usd="/Isaac/People/Characters/male_adult_construction_05/male_adult_construction_05.usd",
-    flight_z=1.5,
-    stage_scale=0.01,
-    origin_x=-10.0,
-    origin_y=-10.0,
-    num_dynamic_obstacles=30,
-    num_static_cylinders=8,
-    dynamic_obstacle_speed=0.9,
-))
-
-register_domain(AirstackDomainCfg(
-    domain="hospital",
-    usd_path="/Isaac/Environments/Hospital/hospital.usd",
-    dynamic_obstacle_usd="/Isaac/People/Characters/female_adult_police_01/female_adult_police_01.usd",
-    flight_z=1.5,
-    origin_x=-10.0,
-    origin_y=-10.0,
-    num_dynamic_obstacles=25,
-    num_static_cylinders=8,
-    dynamic_obstacle_speed=0.75,
-))
-
-register_domain(AirstackDomainCfg(
-    domain="office",
-    usd_path="/Isaac/Environments/Office/office.usd",
-    dynamic_obstacle_usd="/Isaac/People/Characters/male_adult_business_02/male_adult_business_02.usd",
-    flight_z=1.5,
-    origin_x=-10.0,
-    origin_y=-10.0,
-    num_dynamic_obstacles=20,
-    num_static_cylinders=6,
-    dynamic_obstacle_speed=0.75,
-))
-
-register_domain(AirstackDomainCfg(
-    domain="outdoor",
-    usd_path="/Isaac/Environments/Outdoor/Rivermark/rivermark_community.usd",
-    dynamic_obstacle_usd="/Isaac/People/Characters/male_adult_business_02/male_adult_business_02.usd",
-    flight_z=2.5,
-    size_x=40.0,
-    size_y=40.0,
-    origin_x=-20.0,
-    origin_y=-20.0,
-    num_dynamic_obstacles=40,
-    num_static_cylinders=12,
-    dynamic_obstacle_speed=0.9,
-    outdoor=True,
-))
-
-# Sanity-check domain: no obstacles, just the goal. Flight altitude clears the
-# stack planner's 2 m obstacle inflation of the floor, and the arena is wide
-# enough that its 7 s trajectory horizon clears the wall inflation past a goal.
-register_domain(AirstackDomainCfg(
-    domain="empty",
-    usd_path=None,
-    flight_z=2.5,
-    size_x=30.0,
-    size_y=30.0,
-    origin_x=-15.0,
-    origin_y=-15.0,
-    num_static_cylinders=0,
-    num_dynamic_obstacles=0,
-    dynamic_obstacle_speed=0.0,
-))
