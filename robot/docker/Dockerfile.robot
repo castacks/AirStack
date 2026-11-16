@@ -251,15 +251,10 @@ RUN python3 -m pip install --no-cache-dir --break-system-packages --ignore-insta
   "setuptools==79.0.1" \
   wheel
 
-# Pin MAVROS to 2.14.0. From 2.15.0 MAVROS creates its plugin nodes without the global remaps,
-# so their topics and services move under .../mavros/mavros/. packages.ros.org keeps only the newest
-# build; the ROS snapshot of 2026-06-18 serves 2.14.0 for amd64 and arm64.
-RUN curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&options=mr&search=0x4B63CF8FDE49746E98FA01DDAD19BAB3CBF125EA" \
-    -o /usr/share/keyrings/ros-snapshots.asc \
-  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-snapshots.asc] http://snapshots.ros.org/${ROS_DISTRO}/2026-06-18/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" \
-    > /etc/apt/sources.list.d/ros2-snapshot-2026-06-18.list \
-  && printf 'Package: ros-%s-mavros ros-%s-mavros-extras ros-%s-mavros-msgs ros-%s-libmavconn\nPin: version 2.14.0-1*\nPin-Priority: 1001\n\nPackage: ros-%s-mavlink\nPin: version 2026.3.3-1*\nPin-Priority: 1001\n' \
-    "${ROS_DISTRO}" "${ROS_DISTRO}" "${ROS_DISTRO}" "${ROS_DISTRO}" "${ROS_DISTRO}" > /etc/apt/preferences.d/mavros
+# Pinned to the ROS snapshot of 2026-06-18: MAVROS 2.15+ moves its topics under mavros/mavros
+# (see the 0.20.9 release notes). Unpin once the stack handles that.
+RUN curl -sSL "https://keyserver.ubuntu.com/pks/lookup?op=get&options=mr&search=0x4B63CF8FDE49746E98FA01DDAD19BAB3CBF125EA" -o /usr/share/keyrings/ros-snapshots.asc \
+  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-snapshots.asc] http://snapshots.ros.org/${ROS_DISTRO}/2026-06-18/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" > /etc/apt/sources.list.d/ros2-snapshot.list
 
 # Install runtime ROS2 packages. ros-dev-tools pulls in the compile toolchain
 # (cmake, build-essential) — deliberate, since `bws` builds in-container.
@@ -268,8 +263,9 @@ RUN curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&options=mr&search
 # own); per-robot Foxglove returns later as an opt-in stack include.
 RUN apt update -y && apt install -y --no-install-recommends \
   ros-dev-tools \
-  ros-${ROS_DISTRO}-mavros \
-  ros-${ROS_DISTRO}-mavros-extras \
+  ros-${ROS_DISTRO}-mavros=2.14.0-1* \
+  ros-${ROS_DISTRO}-mavros-extras=2.14.0-1* \
+  ros-${ROS_DISTRO}-mavros-msgs=2.14.0-1* ros-${ROS_DISTRO}-libmavconn=2.14.0-1* ros-${ROS_DISTRO}-mavlink=2026.3.3-1* \
   ros-${ROS_DISTRO}-tf2* \
   ros-${ROS_DISTRO}-stereo-image-proc \
   ros-${ROS_DISTRO}-image-view \
