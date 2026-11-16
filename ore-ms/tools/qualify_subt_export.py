@@ -14,7 +14,8 @@ ROOT=Path(__file__).resolve().parents[1]
 
 def run(config):
  cfg=read(config);out=ROOT/cfg['output'];data=ROOT/cfg['gray_output'];out.mkdir(exist_ok=True);cv2.setNumThreads(1)
- pins={p:sha(ROOT/p) for p in [cfg['archive'],cfg['reference_archive'],cfg['intrinsics'],cfg['extrinsics'],cfg['protocol'],str(Path(__file__).relative_to(ROOT)),'tools/deployment_lighting.py','tools/smokeseer_preflight.py',str(Path(config).resolve().relative_to(ROOT))]}
+ reference_available=bool(cfg.get('reference_archive'))
+ pins={p:sha(ROOT/p) for p in [cfg['archive'],cfg.get('reference_archive'),cfg['intrinsics'],cfg['extrinsics'],cfg['protocol'],str(Path(__file__).relative_to(ROOT)),'tools/deployment_lighting.py','tools/smokeseer_preflight.py',str(Path(config).resolve().relative_to(ROOT))] if p}
  write(out/'input-freeze.json',{'pins':pins,'new_inference_calls':0,'scope':'Nominal export/reference qualification; no raw image-header binding'})
  archive=ROOT/cfg['archive'];intr=yaml.safe_load((ROOT/cfg['intrinsics']).read_text());extr=yaml.safe_load((ROOT/cfg['extrinsics']).read_text());cal={};projection=[]
  for arm in ['rgb','thermal']:
@@ -41,13 +42,18 @@ def run(config):
  write(out/'images.json',frames)
  def parse(b):return [{k.strip():v.strip() for k,v in row.items()} for row in csv.DictReader(io.StringIO(b.decode()))]
  imu=parse(imu_bytes)
- with zipfile.ZipFile(ROOT/cfg['reference_archive']) as z:
-  ref=parse(z.read(next(n for n in z.namelist() if n.endswith('odometry_data.csv'))));other=parse(z.read(next(n for n in z.namelist() if n.endswith('imu_data.csv'))))
+ ref=[];other=[]
+ if reference_available:
+  with zipfile.ZipFile(ROOT/cfg['reference_archive']) as z:
+   ref=parse(z.read(next(n for n in z.namelist() if n.endswith('odometry_data.csv'))));other=parse(z.read(next(n for n in z.namelist() if n.endswith('imu_data.csv'))))
+  assert len(ref)>=2,'A supplied reference archive must contain at least two poses'
  def imu_map(rows):
-  t=np.array([int(r['timestamp']) for r in rows],np.int64);assert np.all(np.diff(t)>0);v=np.array([[float(r[k]) for k in ['q_x','q_y','q_z','q_w','ang_vel_x','ang_vel_y','ang_vel_z','lin_acc_x','lin_acc_y','lin_acc_z']] for r in rows]);assert np.isfinite(v).all() and np.max(abs(np.linalg.norm(v[:,:4],axis=1)-1))<1e-3;return t,v
+  t=np.array([int(r['timestamp']) for r in rows],np.int64);assert np.all(np.diff(t)>0);v=np.array([[float(r[k]) for k in ['q_x','q_y','q_z','q_w','ang_vel_x','ang_vel_y','ang_vel_z','lin_acc_x','lin_acc_y','lin_acc_z']] for r in rows]).reshape(-1,10);assert np.isfinite(v).all() and (not len(v) or np.max(abs(np.linalg.norm(v[:,:4],axis=1)-1))<1e-3);return t,v
+ assert len(imu)>=2,'Export IMU is required even without reference poses'
  it,iv=imu_map(imu);ot,ov=imu_map(other);ii={int(t):j for j,t in enumerate(it)};oi={int(t):j for j,t in enumerate(ot)};shared=sorted(set(ii)&set(oi));different=[t for t in shared if not np.array_equal(iv[ii[t]],ov[oi[t]])];binding={'export_rows':len(it),'reference_rows':len(ot),'shared':len(shared),'different_numeric_rows':different,'export_only_times':sorted(set(ii)-set(oi)),'reference_only_times':sorted(set(oi)-set(ii))};write(out/'imu-binding.json',binding)
- rt=np.array([int(r['timestamp']) for r in ref],np.int64);pos=np.array([[float(r[k]) for k in ['x','y','z']] for r in ref]);q=np.array([[float(r[k]) for k in ['q_x','q_y','q_z','q_w']] for r in ref]);assert np.all(np.diff(rt)>0) and np.isfinite(pos).all() and np.isfinite(q).all() and np.max(abs(np.linalg.norm(q,axis=1)-1))<1e-3;origin=int(rt[0]);slerp=Slerp((rt-origin)*1e-9,Rotation.from_quat(q));np.savez_compressed(out/'reference.npz',time_ns=rt,position=pos,quaternion_xyzw=q);np.savez_compressed(out/'export-imu.npz',time_ns=it,values=iv)
+ rt=np.array([int(r['timestamp']) for r in ref],np.int64);pos=np.array([[float(r[k]) for k in ['x','y','z']] for r in ref]).reshape(-1,3);q=np.array([[float(r[k]) for k in ['q_x','q_y','q_z','q_w']] for r in ref]).reshape(-1,4);assert np.all(np.diff(rt)>0) and np.isfinite(pos).all() and np.isfinite(q).all() and (not len(q) or np.max(abs(np.linalg.norm(q,axis=1)-1))<1e-3);origin=int(rt[0]) if reference_available else 0;slerp=Slerp((rt-origin)*1e-9,Rotation.from_quat(q)) if reference_available else None;np.savez_compressed(out/'reference.npz',time_ns=rt,position=pos,quaternion_xyzw=q);np.savez_compressed(out/'export-imu.npz',time_ns=it,values=iv)
  def pose(t):
+  if not reference_available:return None
   j=int(np.searchsorted(rt,t))
   if t<int(rt[0]) or j==len(rt):return None
   if rt[j]==t:r=Rotation.from_quat(q[j]).as_matrix();p=pos[j]
@@ -64,7 +70,7 @@ def run(config):
    intervals.append(v)
  write(out/'intervals.json',intervals);by={(r['arm'],r['index']):r for r in intervals};common=[i for i in range(len(anchors)) if all(by[a,i]['reference_supported'] for a in ['rgb','thermal'])];moving=[i for i in common if all(by[a,i]['reference_rotation_deg']>=2 for a in ['rgb','thermal'])];translation=[i for i in common if all(by[a,i]['translation_m']>=.01 for a in ['rgb','thermal'])];write(out/'population.json',{'common_reference':common,'paired_rotation_ge2deg':moving,'translation_ge1cm_both':translation})
  gyro=[]
- for i,t0 in enumerate(range(origin,int(rt[-1])-500_000_000+1,500_000_000)):
+ for i,t0 in enumerate(range(origin,int(rt[-1])-500_000_000+1,500_000_000) if reference_available else []):
   t1=t0+500_000_000;j0=int(np.searchsorted(it,t0,side='right')-1);j1=int(np.searchsorted(it,t1,side='left'));v={'index':i,'t0_ns':t0,'t1_ns':t1}
   if j0<0 or j1>=len(it):v['supported']=False;gyro.append(v);continue
   gaps=np.diff(it[j0:j1+1]);v['max_imu_gap_ns']=int(gaps.max());v['supported']=bool(gaps.max()<=20_000_000)
@@ -74,7 +80,7 @@ def run(config):
    j=int(np.searchsorted(it,a,side='right')-1);r=r@Rotation.from_rotvec(iv[j,4:7]*((b-a)*1e-9)).as_matrix()
   rr=slerp((np.array([t0-origin,t1-origin]))*1e-9).as_matrix();truth=rr[0].T@rr[1];v.update(reference_rotation_deg=float(np.degrees(Rotation.from_matrix(truth).magnitude())),gyro_error_deg=float(np.degrees(Rotation.from_matrix(r.T@truth).magnitude())),reference_rotvec=Rotation.from_matrix(truth).as_rotvec().tolist());gyro.append(v)
  write(out/'gyro-comparison.json',gyro);gm=[g for g in gyro if g['supported'] and g['reference_rotation_deg']>=2];err=[g['gyro_error_deg'] for g in gm];med=float(np.median(err)) if err else None;p95=float(np.percentile(err,95)) if err else None;consistent=len(gm)>=20 and med<=.2 and p95<=.5
- result={'decoded_images':len(frames),'images_by_arm':{a:len(times[a]) for a in times},'anchors':len(anchors),'input_qualified':sum(r['qualified'] for r in intervals),'unsupported_inputs':[{k:r[k] for k in ['arm','index','anchor_errors_ns']} for r in intervals if not r['qualified']],'reference_poses':len(rt),'reference_max_gap_ns':int(np.diff(rt).max()),'common_reference_anchors':len(common),'paired_moving_anchors':len(moving),'translation_anchors':len(translation),'gyro_intervals':len(gyro),'gyro_unsupported':sum(not g['supported'] for g in gyro),'gyro_moving_intervals':len(gm),'gyro_moving_median_deg':med,'gyro_moving_p95_deg':p95,'observed_axes_time_consistency_pass':bool(consistent),'reference_rotvec_rms':np.sqrt(np.mean(np.array([g['reference_rotvec'] for g in gm])**2,axis=0)).tolist() if gm else None,'export_imu_equal_all_shared':not different,'new_inference_calls':0,'physical_image_header_binding':False,'independent_reference_truth':False}
+ result={'decoded_images':len(frames),'images_by_arm':{a:len(times[a]) for a in times},'anchors':len(anchors),'input_qualified':sum(r['qualified'] for r in intervals),'unsupported_inputs':[{k:r[k] for k in ['arm','index','anchor_errors_ns']} for r in intervals if not r['qualified']],'reference_poses':len(rt),'reference_max_gap_ns':int(np.diff(rt).max()) if reference_available else None,'common_reference_anchors':len(common),'paired_moving_anchors':len(moving),'translation_anchors':len(translation),'gyro_intervals':len(gyro),'gyro_unsupported':sum(not g['supported'] for g in gyro),'gyro_moving_intervals':len(gm),'gyro_moving_median_deg':med,'gyro_moving_p95_deg':p95,'observed_axes_time_consistency_pass':bool(consistent),'reference_rotvec_rms':np.sqrt(np.mean(np.array([g['reference_rotvec'] for g in gm])**2,axis=0)).tolist() if gm else None,'reference_available':reference_available,'export_imu_equal_all_shared':not different if reference_available else None,'new_inference_calls':0,'physical_image_header_binding':False,'independent_reference_truth':False}
  write(out/'qualification.json',result)
  for p,h in pins.items():assert sha(ROOT/p)==h,p
  write(out/'completion.json',{'pins':{str(p.relative_to(ROOT)):sha(p) for p in out.iterdir() if p.is_file() and p.name!='completion.json' and p.suffix not in ['.log']},'input_freeze_sha256':sha(out/'input-freeze.json'),'new_inference_calls':0});print(json.dumps(result,indent=2),flush=True)

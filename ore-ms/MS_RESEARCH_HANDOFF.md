@@ -1,8 +1,8 @@
 # Current research handoff
 
-16 November 2026. End-of-session checkpoint; user is stopping for the night.
-Branch `ore-ms-orb-development`; research builds on baseline `16b60bef6`. Start with the
-[completed FlashLight transfer](docs/research/flashlight-transfer-findings-2026-11-16.md)
+16 November 2026. Resumed checkpoint: paired fixed-priority replay complete.
+Branch `ore-ms-orb-development`; latest committed base `a41fb5640`. Start with the
+[completed paired priority comparison](docs/research/paired-priority-findings-2026-11-16.md)
 and [research index](docs/research/INDEX.md). Historical proposed next steps do not
 supersede this page.
 
@@ -97,10 +97,12 @@ control outperforms thermal backup on these low-motion gaps. Whole projected
 matching overhead3.3%. SIFT instead favors thermal during motion:≤5°17.2%RGB,
 57.3%thermal,38.0%fallback; preserve frontend dependence and incorrect additions.
 
-Resume here: qualify actual OutdoorNight images, dates, own calibration and references
-over the full span before matching. Reuse generic `qualify_subt_export.py` and
-`subt_export_comparison.py` with configuration; no copied path-only runners or
-selector/model rescue. Do not reopen closed NGCLAB/SNU searches.
+[Paired priorities](docs/research/paired-priority-findings-2026-11-16.md): learned
+SmokeRoom thermal-first121/195 versusRGB-first155/192 moving1°/5°; joint256vs356/483.
+FlashLight thermal-first79/134 versus176/185; joint305vs452/519. No universal swap.
+Oracle beyond better order: Smoke23/22moving,28joint; Flash2/3moving,6joint.
+12verified tests/71,732audit checks pass; no inference/fitted gate or pooled targets.
+Next: fixed Smoke failure-stratum characterization, Flash control; review old cue nulls.
 
 ## Prior evidence and closed routes
 

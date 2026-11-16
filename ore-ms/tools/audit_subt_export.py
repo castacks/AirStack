@@ -24,6 +24,40 @@ def slerp(a,b,w):
  theta=np.arccos(np.clip(dot,-1,1));return (np.sin((1-w)*theta)*a+np.sin(w*theta)*b)/np.sin(theta)
 def angle(q):return float(np.degrees(2*np.arctan2(np.linalg.norm(q[:3]),abs(q[3]))))
 def parse(b):return [{k.strip():v.strip() for k,v in r.items()} for r in csv.DictReader(io.StringIO(b.decode()))]
+def audit_without_reference(out,report,images,intervals,ts,cal,extr,raw_imu):
+ """Audit missing labels explicitly; never derive reference from export IMU."""
+ check(report['reference_available'] is False,'reference unavailable')
+ check(report['reference_poses']==0 and report['reference_max_gap_ns'] is None,'no reference count/gaps')
+ check(report['export_imu_equal_all_shared'] is None,'no unperformed IMU comparison claim')
+ check(report['observed_axes_time_consistency_pass'] is False,'no reference consistency certification')
+ check(report['gyro_moving_median_deg'] is None and report['gyro_moving_p95_deg'] is None,'no gyro/reference errors')
+ check(report['gyro_intervals']==report['gyro_moving_intervals']==0 and read(out/'gyro-comparison.json')==[],'no gyro reference comparisons')
+ ref=np.load(out/'reference.npz');check(ref['time_ns'].shape==(0,) and ref['position'].shape==(0,3) and ref['quaternion_xyzw'].shape==(0,4),'empty reference arrays')
+ stamps=np.array([int(r['timestamp']) for r in raw_imu],np.int64);values=np.array([[float(r[k]) for k in ['q_x','q_y','q_z','q_w','ang_vel_x','ang_vel_y','ang_vel_z','lin_acc_x','lin_acc_y','lin_acc_z']] for r in raw_imu])
+ check(len(stamps)>=2 and np.all(np.diff(stamps)>0) and np.isfinite(values).all(),'valid export IMU')
+ check(np.max(abs(np.linalg.norm(values[:,:4],axis=1)-1))<.001,'export quaternion norms')
+ saved=np.load(out/'export-imu.npz');check(np.array_equal(saved['time_ns'],stamps) and np.array_equal(saved['values'],values),'export IMU archive binding')
+ binding=read(out/'imu-binding.json');check(binding=={'export_rows':len(stamps),'reference_rows':0,'shared':0,'different_numeric_rows':[],'export_only_times':stamps.tolist(),'reference_only_times':[]},'missing reference-side IMU membership')
+ for arm in ts:
+  source=np.array(extr[arm+'_camera_to_imu']['data']).reshape(4,4);eff=np.array(cal[arm]['effective_camera_to_imu'])
+  check(np.array_equal(source,np.array(cal[arm]['source_matrix'])),'source extrinsics')
+  check(np.linalg.norm(eff[:3,:3]-source[:3,:3])<1e-5 and np.linalg.det(eff[:3,:3])>0 and np.allclose(eff[:3,:3].T@eff[:3,:3],np.eye(3),atol=1e-12),'effective SO3')
+  check(np.array_equal(eff[:3,3],source[:3,3]) and np.array_equal(eff[3],[0,0,0,1]),'camera origin preserved')
+ anchors=list(range(ts['rgb'][0],ts['rgb'][-1]-500_000_000+1,500_000_000));lookup={(r['arm'],r['index']):r for r in images};keys=set()
+ for r in intervals:
+  key=(r['arm'],r['index']);check(key not in keys,'unique interval');keys.add(key);arm=r['arm'];a=anchors[r['index']];ids=[]
+  for target in [a,a+500_000_000]:
+   j=int(np.searchsorted(ts[arm],target));ids.append(min([v for v in [j-1,j] if 0<=v<len(ts[arm])],key=lambda v:(abs(ts[arm][v]-target),v)))
+  times=[ts[arm][j] for j in ids];errors=[v-t for v,t in zip(times,[a,a+500_000_000])]
+  check(r['anchor_ns']==a and r['times_ns']==times and r['anchor_errors_ns']==errors and r['source']==lookup[arm,ids[0]]['path'] and r['target']==lookup[arm,ids[1]]['path'],'input endpoints')
+  check(r['qualified']==(max(abs(e) for e in errors)<=25_000_000 and ids[1]>ids[0]),'input gate')
+  check(r['reference_supported'] is False and not any(k in r for k in ['target_from_source','translation_m','reference_rotation_deg']),'no invented pose labels')
+ check(keys=={(a,i) for a in ts for i in range(len(anchors))},'all sensor intervals')
+ check(len(anchors)==report['anchors'] and sum(r['qualified'] for r in intervals)==report['input_qualified'],'whole-span summary')
+ check(report['common_reference_anchors']==report['paired_moving_anchors']==report['translation_anchors']==0,'empty accuracy cohorts')
+ check(read(out/'population.json')=={'common_reference':[],'paired_rotation_ge2deg':[],'translation_ge1cm_both':[]},'no reference cohorts')
+ result={'status':'pass','checks':checks,'images_redecoded':len(images),'intervals':len(intervals),'reference_available':False,'new_inference_calls':0,'auditor_sha256':digest(Path(__file__)),'scope':'Independent full image/gray/timestamp/IMU/calibration/input binding and missing-reference audit; no pose accuracy certification'}
+ (out/'audit.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result,indent=2))
 def main(config):
  cfg=read(config);out=ROOT/cfg['output'];freeze=read(out/'input-freeze.json');report=read(out/'qualification.json')
  for p,h in freeze['pins'].items():check(digest(ROOT/p)==h,'frozen '+p)
@@ -50,6 +84,9 @@ def main(config):
    global checks
    checks+=n
  check(len(images)==sum(len(t) for t in ts.values())==report['decoded_images'],'complete decodes')
+ if not cfg.get('reference_archive'):
+  audit_without_reference(out,report,images,intervals,ts,cal,extr,raw_imu)
+  return
  with zipfile.ZipFile(ROOT/cfg['reference_archive']) as z:
   refs=parse(z.read(next(n for n in z.namelist() if n.endswith('odometry_data.csv'))));other=parse(z.read(next(n for n in z.namelist() if n.endswith('imu_data.csv'))))
  def values(rows):return np.array([[float(r[k]) for k in ['q_x','q_y','q_z','q_w','ang_vel_x','ang_vel_y','ang_vel_z','lin_acc_x','lin_acc_y','lin_acc_z']] for r in rows])

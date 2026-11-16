@@ -8,6 +8,12 @@ protocols can contain proposed follow-ups that later findings have already close
 
 | Topic | Entry point |
 |---|---|
+| Paired fixed priorities and remaining selection ceiling | [Completed cross-record replay](paired-priority-findings-2026-11-16.md) · [Protocol](paired-priority-protocol-2026-11-16.md) |
+| Paired multi-record evidence restoration | [Completed full paired replay and historical parity](multirecord-restoration-findings-2026-11-16.md) · [Protocol](multirecord-restoration-protocol-2026-11-16.md) |
+| Fixed camera priority and selection headroom | [Completed OutdoorNight replay and historical bounds](camera-priority-findings-2026-11-16.md) · [Protocol](camera-priority-protocol-2026-11-16.md) |
+| OutdoorNight raw provenance and gyro consistency | [Completed nominal angular diagnostic and reference-readiness check](outdoornight-gyro-findings-2026-11-16.md) · [Protocol](outdoornight-gyro-protocol-2026-11-16.md) |
+| OutdoorNight reference-free matching | [Completed availability/cost comparison](outdoornight-matching-findings-2026-11-16.md) · [Protocol](outdoornight-matching-protocol-2026-11-16.md) |
+| OutdoorNight full-export input qualification | [Completed input-only qualification and missing reference](outdoornight-qualification-findings-2026-11-16.md) · [Protocol](outdoornight-qualification-protocol-2026-11-16.md) |
 | FlashLight unchanged matching/fallback transfer | [Completed comparison](flashlight-transfer-findings-2026-11-16.md) · [Protocol](flashlight-transfer-protocol-2026-11-16.md) |
 | FlashLight independent recording intake | [Completed qualification](flashlight-qualification-findings-2026-11-16.md) · [Protocol](flashlight-qualification-protocol-2026-11-16.md) |
 | SmokeRoom fixed RGB-first fallback | [Completed replay](smoke-rgb-first-findings-2026-11-16.md) · [Protocol](smoke-rgb-first-protocol-2026-11-16.md) |

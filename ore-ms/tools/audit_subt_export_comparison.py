@@ -15,7 +15,68 @@ def check(v,label):
 def angle(r):
  v=np.array([r[2,1]-r[1,2],r[0,2]-r[2,0],r[1,0]-r[0,1]])/2
  return float(np.degrees(np.arctan2(np.linalg.norm(v),(np.trace(r)-1)/2)))
+def audit_reference_free(config):
+ cfg=read(config);out=ROOT/cfg['output'];parent=ROOT/cfg['qualification'];freeze=read(out/'execution-freeze.json');plock=read(out/'prediction-lock.json');dlock=read(out/'decision-lock.json');done=read(out/'completion.json')
+ for p,h in freeze['pins'].items():check(sha(ROOT/p)==h,'frozen '+p)
+ for name,key,lock in [('predictions.jsonl','predictions_sha256',plock),('decisions.json','decisions_sha256',dlock),('summary.json','summary_sha256',done)]:check(sha(out/name)==lock[key],'locked '+name)
+ check(done['reference_available'] is False and done['pose_accuracy'] is None,'unavailable accuracy')
+ check(not dlock['reference_errors_used_for_selection'] and not plock['scoring_started'] and not dlock['scoring_started'],'no reference routing')
+ check(plock['model_states_unchanged'] and read(out/'qualification.json')['model_states_unchanged'],'model preservation')
+ intervals=read(parent/'intervals.json');refs={(r['arm'],r['index']):r for r in intervals};cal=read(parent/'calibration.json');population=read(parent/'population.json');check(all(not r['reference_supported'] for r in intervals) and all(not ids for ids in population.values()),'no reference cohorts')
+ n=read(out/'input-freeze.json')['anchors'];raw=[json.loads(line) for line in (out/'predictions.jsonl').read_text().splitlines()];pred={(r['frontend'],r['arm'],r['index']):r for r in raw};expected={(f,a,i) for f in ['sift','learned'] for a in ['rgb','thermal'] for i in range(n)}
+ check(len(raw)==len(pred)==4*n and set(pred)==expected,'complete predictions')
+ inputs=read(out/'matcher-inputs.json');check(len(inputs)==2*n and {(r['arm'],r['index']) for r in inputs}==set(refs),'complete matcher population')
+ for r in inputs:check(set(r)=={'arm','index','anchor_ns','source','target','times_ns','qualified'} and all(r[k]==refs[r['arm'],r['index']][k] for k in r),'matcher-only input binding')
+ for (f,a,i),p in pred.items():
+  check(p['qualified']==refs[a,i]['qualified'] and (p['status']=='input_unsupported')==(not p['qualified']),'unsupported status')
+  check(math.isfinite(p['seconds']) and p['seconds']>=0,'finite time')
+  if p['qualified']:check(len(p['points0'])==len(p['points1'])==p['matches'],'match arrays')
+  if p['status']=='ok':
+   r=np.array(p['R']);t=np.array(p['t']);check(r.shape==(3,3) and t.shape==(3,) and np.isfinite(r).all() and np.isfinite(t).all() and np.linalg.norm(r.T@r-np.eye(3))<1e-6 and abs(np.linalg.det(r)-1)<1e-6 and abs(np.linalg.norm(t)-1)<1e-6,'proper proposal')
+   check(p['cheirality_inliers']>=8 and len(p['pose_mask'])==p['matches'] and np.count_nonzero(p['pose_mask'])==p['cheirality_inliers'],'cheirality gate')
+ decisions=read(out/'decisions.json');dmap={(d['frontend'],d['index']):d for d in decisions};check(len(decisions)==len(dmap)==2*n and set(dmap)=={(f,i) for f in ['sift','learned'] for i in range(n)},'complete decisions')
+ for (f,i),d in dmap.items():
+  rgb,thermal=[pred[f,a,i] for a in ['rgb','thermal']];request=rgb['status']!='ok' and refs['thermal',i]['qualified'];selected='rgb' if rgb['status']=='ok' else 'thermal' if request and thermal['status']=='ok' else None
+  check(d['thermal_requested']==request and d['policies']=={'rgb':'rgb' if rgb['status']=='ok' else None,'thermal':'thermal' if thermal['status']=='ok' else None,'rgb_first':selected},'status-only routing')
+  proposal=d['selected_proposal']
+  if selected is None:check(proposal is None,'abstention');continue
+  p=pred[f,selected,i];meta=refs[selected,i];r=np.array(cal[selected]['effective_camera_to_imu'])[:3,:3]
+  check(proposal['sensor']==selected and proposal['source']==meta['source'] and proposal['target']==meta['target'] and proposal['times_ns']==meta['times_ns'],'selected sensor/time binding')
+  check(np.allclose(proposal['R_imu'],r@np.array(p['R'])@r.T,atol=1e-12) and proposal['translation_direction_camera_target']==p['t'] and proposal['metric_body_translation'] is None,'rotation axes and camera-origin translation')
+ summary=read(out/'summary.json');check(summary['reference_available'] is False and summary['pose_accuracy'] is None,'summary has no accuracy claim');cohorts={'all_declared':range(n),**{'third'+str(j+1):[i for i in range(n) if i*3//n==j] for j in range(3)}}
+ def quantiles(values):
+  values=sorted(values);result=[]
+  if not values:return None
+  for q in [0,.25,.5,.75,1]:
+   x=q*(len(values)-1);lo=math.floor(x);hi=math.ceil(x);result.append(values[lo]*(hi-x)+values[hi]*(x-lo) if hi!=lo else values[lo])
+  return result
+ for f in ['sift','learned']:
+  for name,ids in cohorts.items():
+   ids=list(ids);rows=[dmap[f,i] for i in ids];entry=summary['frontends'][f][name]
+   for policy in ['rgb','thermal','rgb_first']:
+    record=entry[policy];selected=[d for d in rows if d['policies'][policy]];run=longest=0
+    for i in ids:
+     run=0 if dmap[f,i]['policies'][policy] else run+1;longest=max(run,longest)
+    check(record['anchors']==len(ids) and record['outputs']==len(selected) and record['longest_no_output_run_anchors']==longest and record['pose_accuracy'] is None,'availability and missing runs')
+    check(record['availability'] is None if not ids else abs(record['availability']-len(selected)/len(ids))<1e-12,'availability fraction')
+    used=[]
+    for d in rows:
+     arms=[policy] if policy!='rgb_first' else ['rgb']+(['thermal'] if d['thermal_requested'] else [])
+     used.extend(pred[f,a,d['index']] for a in arms if pred[f,a,d['index']]['qualified'])
+    check(record['matcher_calls']==len(used) and abs(record['projected_seconds']-math.fsum(r['seconds'] for r in used))<1e-8,'call and projected time accounting')
+   added=entry['added'];attempts=sum(d['thermal_requested'] for d in rows);outputs=sum(d['policies']['rgb_first']=='thermal' for d in rows)
+   check(added=={'attempts':attempts,'outputs':outputs,'failed_attempts':attempts-outputs,'correctness':None},'unsupported correctness and all attempts')
+   check(entry['rgb_first']['outputs']==entry['rgb']['outputs']+outputs==sum(pred[f,'rgb',i]['status']=='ok' or pred[f,'thermal',i]['status']=='ok' for i in ids),'mechanical status union')
+   for arm in ['rgb','thermal']:
+    sensor=entry['sensors'][arm];rr=[pred[f,arm,i] for i in ids];supported=[p for p in rr if p['qualified']];statuses={s:sum(p['status']==s for p in rr) for s in {p['status'] for p in rr}}
+    check(sensor['statuses']==statuses and sensor['supported_calls']==len(supported),'sensor failure distribution')
+    for key,values in [('matches_quantiles',[p['matches'] for p in supported]),('cheirality_inliers_quantiles',[p.get('cheirality_inliers',0) for p in supported])]:
+     expected_q=quantiles(values);check(sensor[key] is None if expected_q is None else np.allclose(sensor[key],expected_q,atol=1e-9),'independent match/support quantiles')
+ result={'status':'pass','checks':checks,'prediction_rows':len(raw),'decision_rows':len(decisions),'auditor_sha256':sha(__file__),'reference_available':False,'scope':'Independent full-population/proposal/routing/frame/time/status/availability/run/call/cost audit; no motion correctness or stateful recovery certification'}
+ (out/'audit.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result,indent=2))
 def main(config):
+ if read(config).get('reference_free'):
+  return audit_reference_free(config)
  cfg=read(config);out=ROOT/cfg['output'];parent=ROOT/cfg['qualification'];freeze=read(out/'execution-freeze.json');plock=read(out/'prediction-lock.json');dlock=read(out/'decision-lock.json');completion=read(out/'completion.json')
  for p,h in freeze['pins'].items():check(sha(ROOT/p)==h,'frozen '+p)
  for name,key,lock in [('predictions.jsonl','predictions_sha256',plock),('decisions.json','decisions_sha256',dlock),('scores.json','scores_sha256',completion),('summary.json','summary_sha256',completion)]:check(sha(out/name)==lock[key],'locked '+name)

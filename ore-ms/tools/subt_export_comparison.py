@@ -4,6 +4,7 @@ Adds calibration adapter, matcher-only inputs and separate prediction/selection/
 score locks; existing frozen smoke and lighting runners are never modified.
 """
 import argparse,json,hashlib,time,math
+from collections import Counter
 from pathlib import Path
 import numpy as np,cv2,yaml
 from scipy.spatial.transform import Rotation
@@ -12,9 +13,34 @@ from smoke_rgb_first_fallback import choose
 ROOT=Path(__file__).resolve().parents[1]
 read,write,sha=base.read,base.write,base.sha
 
+def support_summary(raw,decisions,n):
+ """Reference-free output support and cost, never accuracy success counts."""
+ pred={(r['frontend'],r['arm'],r['index']):r for r in raw};result={}
+ cohorts={'all_declared':list(range(n)),**{'third'+str(j+1):[i for i in range(n) if i*3//n==j] for j in range(3)}}
+ for frontend in ['sift','learned']:
+  result[frontend]={}
+  for name,ids in cohorts.items():
+   group=[d for d in decisions if d['frontend']==frontend and d['index'] in ids];entry={}
+   for policy in ['rgb','thermal','rgb_first']:
+    calls=0;seconds=[];run=longest=0;outputs=0
+    for d in group:
+     selected=d['policies'][policy];outputs+=selected is not None;run=0 if selected else run+1;longest=max(longest,run)
+     arms=[policy] if policy!='rgb_first' else ['rgb','thermal'] if d['thermal_requested'] else ['rgb']
+     for arm in arms:
+      row=pred[frontend,arm,d['index']]
+      if row['qualified']:calls+=1;seconds.append(row['seconds'])
+    entry[policy]={'anchors':len(group),'outputs':outputs,'availability':outputs/len(group) if group else None,'longest_no_output_run_anchors':longest,'matcher_calls':calls,'projected_seconds':math.fsum(seconds),'pose_accuracy':None}
+   entry['added']={'attempts':sum(d['thermal_requested'] for d in group),'outputs':sum(d['policies']['rgb_first']=='thermal' for d in group),'failed_attempts':sum(d['thermal_requested'] and d['policies']['rgb_first'] is None for d in group),'correctness':None}
+   entry['sensors']={}
+   for arm in ['rgb','thermal']:
+    rows=[pred[frontend,arm,i] for i in ids];supported=[r for r in rows if r['qualified']]
+    entry['sensors'][arm]={'statuses':dict(Counter(r['status'] for r in rows)),'supported_calls':len(supported),'matches_quantiles':np.percentile([r['matches'] for r in supported],[0,25,50,75,100]).tolist() if supported else None,'cheirality_inliers_quantiles':np.percentile([r.get('cheirality_inliers',0) for r in supported],[0,25,50,75,100]).tolist() if supported else None}
+   result[frontend][name]=entry
+ return {'reference_available':False,'pose_accuracy':None,'scope':'Reference-free supported pair proposals and projected matching cost; no motion accuracy or stateful recovery claim','frontends':result}
+
 class Comparison:
  def __init__(self,config):
-  self.config=Path(config).resolve();self.cfg=read(self.config);self.out=ROOT/self.cfg['output'];self.parent=ROOT/self.cfg['qualification'];self.cameras=yaml.safe_load((self.parent/'intrinsics.yaml').read_text())
+  self.config=Path(config).resolve();self.cfg=read(self.config);self.out=ROOT/self.cfg['output'];self.parent=ROOT/self.cfg['qualification'];self.cameras=yaml.safe_load((ROOT/self.cfg['intrinsics'] if 'intrinsics' in self.cfg else self.parent/'intrinsics.yaml').read_text())
  def camera(self,arm):
   c=self.cameras[arm+'_camera'];p=c['projection_parameters'];k=np.array([[p.get('fx',p.get('gamma1')),0,p.get('cx',p.get('u0'))],[0,p.get('fy',p.get('gamma2')),p.get('cy',p.get('v0'))],[0,0,1.]]);d=np.array([c['distortion_parameters'][x] for x in ['k1','k2','p1','p2']]);v=np.array([[400.,0,c['image_width']/2],[0,400.,c['image_height']/2],[0,0,1.]]);return k,d,c.get('mirror_parameters',{}).get('xi',0),v
  def lift(self,points,arm):
@@ -29,7 +55,12 @@ class Comparison:
   return plan
  def weights(self,arm):return ROOT/('models/macslam/MACVO_FrontendCov.pth' if arm=='rgb' else 'models/macslam/MACT_Offroad.pth')
  def freeze(self):
-  self.out.mkdir(exist_ok=True);assert read(self.parent/'audit.json')['status']=='pass';report=read(self.parent/'qualification.json');assert report['observed_axes_time_consistency_pass'] and report['export_imu_equal_all_shared'];pins={}
+  self.out.mkdir(exist_ok=True);assert read(self.parent/'audit.json')['status']=='pass';report=read(self.parent/'qualification.json');pins={}
+  if self.cfg.get('reference_free'):
+   assert report['reference_available'] is False and report['reference_poses']==0
+   assert all(not row['reference_supported'] for row in read(self.parent/'intervals.json'))
+   assert all(not ids for ids in read(self.parent/'population.json').values())
+  else:assert report['observed_axes_time_consistency_pass'] and report['export_imu_equal_all_shared']
   for name in ['input-freeze.json','completion.json']:
    for p,h in read(self.parent/name)['pins'].items():assert sha(ROOT/p)==h,p;pins[p]=h
   frames=read(self.parent/'images.json')
@@ -38,6 +69,8 @@ class Comparison:
   write(self.out/'matcher-inputs.json',inputs)
   files=[self.config,Path(__file__),ROOT/self.cfg['protocol'],ROOT/'tools/deployment_lighting.py',ROOT/'tools/smokeseer_sift.py',ROOT/'tools/smokeseer_preflight.py',ROOT/'tools/qualify_native_frontend.py',ROOT/'tools/smoke_rgb_first_fallback.py',ROOT/'tools/deployment_smoke_frontend.py',ROOT/'MAC-VO-main/Scripts/Setup/compare_factor_proxy.py',self.parent/'images.json',self.parent/'intervals.json',self.parent/'population.json',self.parent/'calibration.json',self.parent/'audit.json',self.out/'matcher-inputs.json',self.weights('rgb'),self.weights('thermal')]
   for folder in ['FlowFormer','FlowFormerCov']:files.extend((ROOT/'MAC-VO-main/Module/Network'/folder).rglob('*.py'))
+  if 'intrinsics' in self.cfg:files.append(ROOT/self.cfg['intrinsics'])
+  files.append(ROOT/'results/deployment-data-search/smoke_intrinsics.yaml')
   pins.update({str(p.relative_to(ROOT)):sha(p) for p in files});write(self.out/'input-freeze.json',{'pins':pins,'anchors':report['anchors'],'expected_prediction_rows':2*len(inputs),'gray_images':len(frames),'runtime_image':'sha256:44ff9a1e6fa95d220437714e5be9b94f0f73c8eaebd4fcae3f843ceea14bef09'});print('Full span frozen',len(inputs),'sensor intervals;',len(frames),'images',flush=True)
  def qualify(self):
   import torch
@@ -96,6 +129,12 @@ class Comparison:
     decisions.append(r)
   write(self.out/'decisions.json',decisions);write(self.out/'decision-lock.json',{'rows':len(decisions),'decisions_sha256':sha(self.out/'decisions.json'),'reference_errors_used_for_selection':False,'scoring_started':False});print('Choices locked',len(decisions),flush=True)
  def score(self):
+  if self.cfg.get('reference_free'):
+   self.verify();assert sha(self.out/'predictions.jsonl')==read(self.out/'prediction-lock.json')['predictions_sha256'];assert sha(self.out/'decisions.json')==read(self.out/'decision-lock.json')['decisions_sha256']
+   raw=[json.loads(line) for line in (self.out/'predictions.jsonl').read_text().splitlines()];decisions=read(self.out/'decisions.json');n=read(self.out/'input-freeze.json')['anchors'];assert len(raw)==4*n and len(decisions)==2*n
+   assert all(not r['reference_supported'] for r in read(self.parent/'intervals.json'))
+   summary=support_summary(raw,decisions,n);write(self.out/'summary.json',summary);write(self.out/'completion.json',{'prediction_rows':len(raw),'decision_rows':len(decisions),'summary_sha256':sha(self.out/'summary.json'),'reference_available':False,'pose_accuracy':None,'scope':summary['scope']});print('Reference-free summary complete',len(raw),flush=True)
+   return
   self.verify();assert sha(self.out/'decisions.json')==read(self.out/'decision-lock.json')['decisions_sha256'];raw=[json.loads(s) for s in (self.out/'predictions.jsonl').read_text().splitlines()];assert sha(self.out/'predictions.jsonl')==read(self.out/'prediction-lock.json')['predictions_sha256'];refs={(r['arm'],r['index']):r for r in read(self.parent/'intervals.json')};pop=read(self.parent/'population.json');common=set(pop['common_reference']);trans=set(pop['translation_ge1cm_both']);scores=[]
   for p in raw:
    i,a=p['index'],p['arm'];ref=refs[a,i];s={k:p[k] for k in ['frontend','arm','index','status']};s.update(R_error=None,t_error=None,R1=False,R5=False,joint=False,reference_rotation_deg=ref.get('reference_rotation_deg'))
