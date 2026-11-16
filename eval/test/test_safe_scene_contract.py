@@ -11,9 +11,9 @@ from eval.sim.safe_source_scene import sample_scenario
 
 
 def test_main_procedural_domains_come_from_safe_registry():
-    from safe_core.utils.benchmark_io import experiment_config_path
+    from safe_core.records.experiment_yaml import experiment_config_path
     experiments = (Path(safe_core.__file__).resolve().parent.parent
-                   / 'integrations' / 'navigation' / 'aerial' / 'experiments')
+                   / 'safe_navigation' / 'aerial' / 'experiments')
     main = yaml.safe_load(Path(experiment_config_path(
         'isaac_moving_primitive', str(experiments))).read_text())
     domains = get_domain_registry()
@@ -27,8 +27,8 @@ def test_main_procedural_domains_come_from_safe_registry():
 
 
 def test_source_scenario_seed_and_goal_distance():
-    import integrations.navigation.common.config.domains_isaac  # noqa: F401
-    from integrations.navigation.common.config.domains import (
+    import safe_navigation.common.config.domains_isaac  # noqa: F401
+    from safe_navigation.common.config.domains import (
         get_domain_registry as safe_domains, scale_procedural_domains)
 
     scale_procedural_domains(60, sim_backend='isaac')

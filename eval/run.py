@@ -104,6 +104,9 @@ class AirstackRunner(BaseRunner):
                             help=argparse.SUPPRESS)
         parser.add_argument("--goal-distance", type=float, default=None,
                             dest="goal_distance", help=argparse.SUPPRESS)
+        # Every episode starts with the drone turned toward the goal, so runs record
+        # face_goal true and a resume finds the same value here.
+        parser.set_defaults(face_goal=True)
 
     def available_domains(self, args) -> list[str]:
         from .sim.environment_config import get_domain_registry
@@ -111,14 +114,14 @@ class AirstackRunner(BaseRunner):
 
     def validate(self, args: argparse.Namespace) -> int:
         # Importing SAFE's robot registry makes `robot:` a required, checked yaml key.
-        import integrations.navigation.common.config.robot_spec  # noqa: F401
+        import safe_navigation.common.config.robot_spec  # noqa: F401
         robot = getattr(args, "robot", None)
         if robot is not None and robot != self.ROBOT:
             raise SystemExit(
                 f"[validate] robot: {robot!r} cannot fly here; AirStack's Isaac bring-up "
                 f"spawns the Pegasus {self.ROBOT}, so set robot: {self.ROBOT}.")
-        import integrations.navigation.common.config.domains_isaac  # noqa: F401
-        from integrations.navigation.common.config.domains import scale_procedural_domains
+        import safe_navigation.common.config.domains_isaac  # noqa: F401
+        from safe_navigation.common.config.domains import scale_procedural_domains
         scale_procedural_domains(getattr(args, 'goal_distance', None), sim_backend='isaac')
         from .sim.environment_config import get_domain_registry
         available = list(get_domain_registry())
@@ -134,7 +137,7 @@ class AirstackRunner(BaseRunner):
                     list(getattr(args, "agents", None) or []))
         from .agents.agents import is_safe_policy
         if any(is_safe_policy(name) for name in selected):
-            from safe_isaac.sim_config import PHYSICS_DT
+            from safe_sim.sim_config import PHYSICS_DT
             if args.env_dt is not None and abs(args.env_dt - PHYSICS_DT) > 1e-9:
                 raise SystemExit(
                     f"[validate] SAFE Isaac policies call act() once per Isaac physics "
@@ -170,10 +173,10 @@ class AirstackRunner(BaseRunner):
             return
         import subprocess
         from pathlib import Path
-        from integrations.navigation.aerial.policies.planners import sidecar_registry
+        from safe_navigation.aerial.policies.planners import sidecar_registry
         from safe_core.core.records import rulebook
-        from safe_core.utils.benchmark_utils import SIDECAR_VARS
-        from safe_core.utils.container_reaper import hook_owner_env
+        from safe_core.run.jobs import SIDECAR_VARS
+        from safe_core.run.container_reaper import hook_owner_env
         from safe_core.utils.plumbing import (
             MAP_ARENA_EXTENT_FALLBACK_M, MAP_MARGIN_M,
             MAP_Z_ABOVE_M, MAP_Z_BELOW_M,

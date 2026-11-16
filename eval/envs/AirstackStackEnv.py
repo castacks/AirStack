@@ -317,7 +317,10 @@ class AirstackStackEnv(BaseEnvBackend):
             }))
 
         # 3. Take off through the stack's own action server, then fly the run-up
-        #    to the start on the trajectory controller.
+        #    to the start on the trajectory controller. A planner that keeps state across
+        #    episodes is started afresh first, so every episode begins as the first one does.
+        if self.agent_profile.get("restart_planner_each_episode"):
+            self.stack.restart_droan()
         self.stack.takeoff(self.flight_z, self.takeoff_velocity)
         self._airborne = True
         self._measure_ros_offset()
@@ -592,7 +595,7 @@ class AirstackStackEnv(BaseEnvBackend):
             self.stack.bridge.publish_setpoint(
                 hover, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], 0.0, None)
             return
-        from integrations.navigation.aerial.envs.setpoint import parse
+        from safe_navigation.aerial.envs.setpoint import parse
 
         sp = parse(action)
         ros_pos = self._world_to_ros(sp.position)

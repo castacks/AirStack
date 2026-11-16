@@ -2,7 +2,7 @@
 
 Implements the BaseTaskAdapter contract for the AirStack integration.
 Safety level-set functions follow the point-obstacle path of SAFE's
-integrations/navigation/aerial/adapter.py (centre distance minus contact radius),
+safe_navigation/aerial/adapter.py (centre distance minus contact radius),
 since the task structure is the same: aerial navigation among dynamic and static
 obstacles.
 
@@ -59,7 +59,7 @@ class Adapter(BaseTaskAdapter):
     @staticmethod
     def _body_radius() -> float:
         """The flown robot's body radius from SAFE's robot registry."""
-        import integrations.navigation.common.config.robot_spec  # noqa: F401
+        import safe_navigation.common.config.robot_spec  # noqa: F401
         from safe_core.core.robot_spec import get_active_robot
         return float(get_active_robot().body_radius)
 
@@ -277,6 +277,16 @@ class Adapter(BaseTaskAdapter):
     def l_unsafe(self, state: Any) -> float:
         return self.l_failure(state) - self._band()
 
+    @property
+    def risk_latency(self) -> float:
+        from safe_core.core.records import rulebook
+        return rulebook().risk_latency_s
+
+    @property
+    def risk_deceleration(self) -> float:
+        from safe_core.core.records import rulebook
+        return rulebook().risk_deceleration_m_s2
+
     # ------------------------------------------------------------------
     # 5) Episode context extraction
     # ------------------------------------------------------------------
@@ -383,9 +393,16 @@ class Adapter(BaseTaskAdapter):
         }
 
     def trajectory_arrays(self, rollout_buffer: Dict[str, Any]) -> Dict[str, Any]:
-        """SAFE's navigation npz schema, which replay and rescore read."""
-        from safe_core.utils.benchmark_io import navigation_trajectory_arrays
-        return navigation_trajectory_arrays(rollout_buffer)
+        """SAFE's navigation npz schema, which replay and rescore read. The measured box clearance
+        is written as SAFE's physx_clearance, a centre clearance, so SAFE's replay renderer
+        colours the trail by this integration's l_failure."""
+        from safe_core.records.episodes import navigation_trajectory_arrays
+        out = navigation_trajectory_arrays(rollout_buffer)
+        trace = rollout_buffer["evaluator_state_trace"]
+        if trace and "body_clearance" in trace[0]:
+            out["physx_clearance"] = (np.asarray([s.get("body_clearance", np.inf) for s in trace],
+                                                 dtype=np.float32) + self._body_radius())
+        return out
 
     # ------------------------------------------------------------------
     # 6) Taxonomy + cost

@@ -53,7 +53,7 @@ def _load_args(monkeypatch, *extra):
 
 
 def test_droan_empty_loads_and_validates(monkeypatch):
-    from safe_core.utils.benchmark_io import REQUIRED_YAML_KEYS, check_experiment_yaml
+    from safe_core.records.experiment_yaml import REQUIRED_YAML_KEYS, check_experiment_yaml
     from eval.run import AirstackRunner
 
     assert check_experiment_yaml(
@@ -69,8 +69,8 @@ def test_droan_empty_loads_and_validates(monkeypatch):
 
 def _build(monkeypatch):
     from safe_core.core.robot_spec import set_active_robot
-    from safe_core.utils.benchmark_utils import (build_agents_from_classes,
-                                                 discover_policies, validate_agents_built)
+    from safe_core.run.policies import (build_agents_from_classes,
+                                        discover_policies, validate_agents_built)
 
     runner, args, max_steps = _load_args(monkeypatch)
     runner._configure_runtime(args)
@@ -100,8 +100,8 @@ def test_adapter_and_droan_agent_build(monkeypatch):
 # ── stand-in stack: the Isaac ScenarioManager and robot bridge, on CPU ─────────
 
 def _safe_empty_cfg():
-    import integrations.navigation.common.config.domains_isaac  # noqa: F401
-    from integrations.navigation.common.config.domains import get_domain_registry
+    import safe_navigation.common.config.domains_isaac  # noqa: F401
+    from safe_navigation.common.config.domains import get_domain_registry
     return get_domain_registry("isaac")["empty"]
 
 
@@ -235,7 +235,7 @@ def test_droan_empty_entry_point_writes_episode_and_video(tmp_path):
     stack: SAFE's real rollout, simple-mode scoring, npz record, episodes.csv, report
     and the composite episode video, in the layout the owner's run writes."""
     import subprocess
-    from safe_core.utils.benchmark_io import load_episode_record
+    from safe_core.records.episodes import load_episode_record
 
     run_dir = tmp_path / "runs" / "airstack" / "droan_empty_0000"
     run_dir.mkdir(parents=True)

@@ -60,12 +60,12 @@ class _SafeVelocity(Policy):
             source_root = Path(safe_core.__file__).resolve().parent.parent
             if str(source_root) not in sys.path:
                 sys.path.insert(0, str(source_root))
-            from integrations.navigation.aerial.policies import baselines
+            from safe_navigation.aerial.policies import baselines
         except ImportError as exc:
             raise RuntimeError(
                 'SAFE aerial policy source is unavailable. Install SAFE from its '
                 'source checkout or add the checkout to PYTHONPATH; the safe_core '
-                'wheel alone does not include integrations/navigation.'
+                'wheel alone does not include safe_navigation.'
             ) from exc
         self._source = getattr(baselines, self.source_name)()
         self._source.reset()

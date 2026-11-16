@@ -3,14 +3,14 @@ import pytest
 
 from eval.agents import safe_source as air
 from eval.agents.safe_source import _swap_xy, _to_safe_benchmark_frame
-from integrations.navigation.aerial.policies.baselines import (
+from safe_navigation.aerial.policies.baselines import (
     Aggressive, Conservative, AdaptiveApf)
 
 
 @pytest.fixture(autouse=True)
 def _iris():
     # SAFE's oracles size the drone body from the run's robot.
-    import integrations.navigation.common.config.robot_spec  # noqa: F401
+    import safe_navigation.common.config.robot_spec  # noqa: F401
     from safe_core.core.robot_spec import set_active_robot
     set_active_robot('iris')
     yield

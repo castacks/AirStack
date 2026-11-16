@@ -65,6 +65,7 @@ PROFILES: dict[str, dict] = {
         "control_mode": "stack",
         "agent_env": {"AUTONOMY_ROLE": "full"},
         "post_up_cmds": [],
+        "restart_planner_each_episode": True,
     },
     # AirStack's own velocity baselines fly through the trajectory controller; the local
     # planner's own output is unused (it has no global plan to follow).
@@ -118,7 +119,7 @@ def get_profile(agent_name: str | None) -> dict:
         if str(root) not in sys.path:
             sys.path.insert(0, str(root))
         module = importlib.import_module(
-            f"integrations.navigation.aerial.policies.learned.{wrapper.source_module}")
+            f"safe_navigation.aerial.policies.learned.{wrapper.source_module}")
         source = getattr(module, wrapper.source_class)
         profile["agent_env"].update(getattr(source, "pov_env", {}))
         camera_hz = profile["agent_env"].get("SAFE_POV_HZ")

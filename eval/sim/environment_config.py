@@ -58,8 +58,8 @@ def get_domain_registry(sim_backend: str | None = None) -> dict[str, AirstackDom
     if __import__('os').environ.get('AIRSTACK_SAFE_LEGACY_DOMAINS') == '1':
         return dict(_REGISTRY)
     try:
-        import integrations.navigation.common.config.domains_isaac  # noqa: F401
-        from integrations.navigation.common.config.domains import (
+        import safe_navigation.common.config.domains_isaac  # noqa: F401
+        from safe_navigation.common.config.domains import (
             get_domain_registry as source_registry)
     except ImportError as exc:
         raise RuntimeError('AirStack SAFE domains require the SAFE source checkout') from exc

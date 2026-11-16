@@ -665,7 +665,8 @@ class ScenarioManager:
                       else len(self.pool.static_ops))
         if len(static) > max_static:
             raise ValueError(f"{len(static)} static > pool {max_static}")
-        max_dynamic = self.humans.n if self.humans is not None else len(self.pool.dynamic_ops)
+        max_dynamic = (self.humans.n if self.humans is not None
+                       else len(self.pool.dynamic_ops))
         if len(dyn) > max_dynamic:
             raise ValueError(f"{len(dyn)} dynamic > pool {max_dynamic}")
 
@@ -686,9 +687,11 @@ class ScenarioManager:
             for i, prim in enumerate(self.safe_static_prims):
                 if i < len(static):
                     pos = static[i].astype(np.float32).copy()
+                    # The layout's z is the base height above the ground, which lifts
+                    # floating obstacles off it, as SAFE's _to_isaac_on_ground keeps it.
                     ground = gm.ground_at(float(pos[0]), float(pos[1])) if gm else None
-                    pos[2] = (float(ground) if ground is not None
-                              else float(self.safe_cfg.origin_z))
+                    pos[2] += (float(ground) if ground is not None
+                               else float(self.safe_cfg.origin_z))
                 else:
                     pos = np.array([0.0, 0.0, -100.0], dtype=np.float32)
                 prim.set_world_poses(positions=pos.reshape(1, 3))
@@ -862,8 +865,11 @@ class ScenarioManager:
         self.pool._place(self.pool.dynamic_ops, self.dyn_positions[: self.n_active_dyn])
 
     def _dynamic_radius(self) -> float:
-        """Collision radius of every moving obstacle: the walker capsule with people, else the pool cylinder."""
-        return float(self.humans.CAPSULE_RADIUS if self.humans is not None else self.obstacle_radius)
+        """Collision radius of every moving obstacle: the walker capsule with people, else the
+        pool cylinder."""
+        if self.humans is not None:
+            return float(self.humans.CAPSULE_RADIUS)
+        return float(self.obstacle_radius)
 
     def _dynamic_targets(self) -> np.ndarray:
         """The waypoint each active mover is walking toward, in Isaac world XY at the mover's height."""
@@ -978,7 +984,7 @@ class ScenarioManager:
         """(clearance, what) from the drone's collider box to the nearest surface: every PhysX
         collider by growing the box until it touches, then the arena walls and colliderless
         pool columns exactly."""
-        from safe_isaac.sim_config import CLEARANCE_SEARCH_REACH_M
+        from safe_navigation.common.config.run_settings import CLEARANCE_SEARCH_REACH_M
         reach = float(CLEARANCE_SEARCH_REACH_M)
         hit = self._box_hit(0.0, pos, quat_wxyz)
         if hit is not None:
@@ -1126,7 +1132,7 @@ class SafeEvalApp:
             }
             paths = safe_cfg.static_obstacle_prim_paths or []
             if paths:
-                from integrations.navigation.common.config.scenarios import (
+                from safe_navigation.common.config.scenarios import (
                     _read_obstacle_positions_from_stage,
                     _read_obstacle_aabbs_from_stage,
                 )
@@ -1147,6 +1153,12 @@ class SafeEvalApp:
             CONFIG['spawn'] = [(CONFIG['arena'][0] + CONFIG['arena'][2]) / 2,
                                (CONFIG['arena'][1] + CONFIG['arena'][3]) / 2]
             CONFIG['spawn_z'] = float(safe_cfg.origin_z) + 0.07
+            if safe_cfg.usd_path:
+                # A stage's box centre can sit inside or under its terrain, where the vehicle
+                # never settles and PX4's EKF never converges.
+                from eval.sim.safe_source_scene import stage_spawn
+                sx, sy, gz = stage_spawn(safe_cfg, CONFIG['spawn'])
+                CONFIG['spawn'], CONFIG['spawn_z'] = [sx, sy], gz + 0.07
             CONFIG['max_dynamic'] = int(safe_cfg.num_dynamic_obstacles)
             CONFIG['max_static'] = int(safe_cfg.num_static_cylinders)
             if CONFIG.get('humans') and safe_cfg.num_dynamic_obstacles:

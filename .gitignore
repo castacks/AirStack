@@ -104,6 +104,7 @@ bags/
 # SAFE eval run outputs (local artifacts, not tracked)
 eval/runs/
 runs/airstack/
+runs/history/
 replay.mp4
 
 # Local-only: uXRCE agent build clone and ModalAI LED reference workspace

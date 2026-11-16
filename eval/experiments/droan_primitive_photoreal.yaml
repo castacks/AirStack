@@ -22,9 +22,10 @@ env_domains:
 humans: true
 simple: false
 num_scenarios:     1
-num_perturbations: 10
+num_perturbations: 1
 max_episodes:      1
 max_episode_time:  60
+goal_distance:     60
 # One host step per Isaac physics tick (1/60 s), the resolution SAFE's own runs score at.
 env_dt: 0.016666666666666666
 keep_up: true

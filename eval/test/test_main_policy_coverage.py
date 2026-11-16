@@ -5,14 +5,14 @@ from pathlib import Path
 import safe_core
 import yaml
 
-from safe_core.utils.benchmark_io import experiment_config_path
-from safe_core.utils.benchmark_utils import discover_policies
+from safe_core.records.experiment_yaml import experiment_config_path
+from safe_core.run.policies import discover_policies
 from eval.agents.agents import get_profile
 
 
 def test_safe_main_study_policies_have_source_adapters():
     safe_root = Path(safe_core.__file__).resolve().parent.parent
-    experiments = safe_root / 'integrations' / 'navigation' / 'aerial' / 'experiments'
+    experiments = safe_root / 'safe_navigation' / 'aerial' / 'experiments'
     config = yaml.safe_load(Path(experiment_config_path(
         'isaac_moving_primitive', str(experiments))).read_text())
     source_names = config['agents']

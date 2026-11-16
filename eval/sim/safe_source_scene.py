@@ -12,8 +12,8 @@ def load_domain(name: str, goal_distance: float | None = None):
     """Build SAFE domain `name` on the live stage the way SAFE's SimulatorManager does,
     attaching a photoreal stage's export (ground map, occupancy, density bands)."""
     # Importing the registrations fills SAFE's canonical Isaac registry.
-    import integrations.navigation.common.config.domains_isaac  # noqa: F401
-    from integrations.navigation.common.config.domains import (
+    import safe_navigation.common.config.domains_isaac  # noqa: F401
+    from safe_navigation.common.config.domains import (
         get_domain_registry, scale_procedural_domains, sky_files)
     scale_procedural_domains(goal_distance, sim_backend='isaac')
     from safe_isaac.world_builder import (
@@ -33,7 +33,7 @@ def load_domain(name: str, goal_distance: float | None = None):
         setup_lighting(cfg.size_x, cfg.size_y, sky_hdr=sky[0] if sky else None)
     if cfg.usd_path:
         stage_url = load_environment_usd(cfg, env_prefix=prefix)
-        from integrations.navigation.common.config.stage_occupancy import attach_stage_export
+        from safe_navigation.common.config.stage_occupancy import attach_stage_export
         attach_stage_export(cfg, stage_url)
     else:
         add_ground_collider(prefix, cfg)
@@ -48,6 +48,22 @@ def load_domain(name: str, goal_distance: float | None = None):
             if cfg.wall_x is not None:
                 spawn_blocker_wall(cfg.wall_x, cfg.size_y, env_prefix=prefix)
     return cfg
+
+
+def stage_spawn(cfg, near_xy):
+    """Isaac-world (x, y, ground z) of the walkable cell nearest `near_xy` with 1 m of free
+    air over its ground, for a staged domain whose export is attached."""
+    import numpy as np
+    gm, occ = cfg._ground_map, cfg._occupancy
+    rows, cols = np.nonzero(cfg._walkable_region)
+    xs = gm.x0 + (cols + 0.5) * gm.cell
+    ys = gm.y0 + (rows + 0.5) * gm.cell
+    for i in np.argsort(np.hypot(xs - near_xy[0], ys - near_xy[1])):
+        z = float(gm.ground[rows[i], cols[i]])
+        if np.isfinite(z) and not occ.solid_near((xs[i], ys[i], z + 1.0), 0.7, floor_z=z):
+            return float(xs[i]), float(ys[i]), z
+    raise RuntimeError(f"domain {cfg.domain!r}: no walkable cell of its stage export has 1 m "
+                       "of free air over its ground to spawn the drone on")
 
 
 def create_humans(cfg, *, seed: int = 0):
@@ -90,12 +106,13 @@ def sample_scenario(cfg, *, seed: int, goal_distance: float | None,
 
     import numpy as np
 
-    from integrations.navigation.common.config.scenarios import (
+    from safe_navigation.common.config.scenarios import (
         configure_scenario, goal_flight_z, perturb_scenario)
-    from integrations.navigation.common.config.scenario_bands import scenario_difficulty
-    from safe_isaac import sim_config
+    from safe_navigation.common.config.scenario_bands import scenario_difficulty
+    from safe_navigation.common.config import run_settings
+    from safe_sim import sim_config
 
-    sim_config.USE_HUMANS = bool(humans)
+    run_settings.USE_HUMANS = bool(humans)
     sim = SimpleNamespace(
         _env_obstacle_prim_paths=cfg.static_obstacle_prim_paths,
         _world_offset_isaac=(0.0, 0.0),
@@ -107,6 +124,8 @@ def sample_scenario(cfg, *, seed: int, goal_distance: float | None,
         size_x=float(cfg.size_x),
         size_y=float(cfg.size_y),
         np_random=np.random.default_rng(int(seed)),
+        # SAFE's placement repair seeds its streams from the scenario seed, as its envs set it.
+        _scenario_seed=int(seed),
         goal_distance=goal_distance,
         agent_radius=float(agent_radius),
         obstacle_radius=float(obstacle_radius),

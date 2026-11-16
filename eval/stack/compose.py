@@ -60,8 +60,7 @@ class StackHandle:
         from pathlib import Path
         import safe_core
         root = Path(safe_core.__file__).resolve().parent.parent
-        required = (root / "integrations" / "navigation" / "common" / "config"
-                    / "domains_isaac.py")
+        required = root / "safe_navigation" / "common" / "config" / "domains_isaac.py"
         if not required.is_file():
             raise RuntimeError(
                 "AirStack-native SAFE worlds need a SAFE source checkout, not the "
@@ -74,7 +73,7 @@ class StackHandle:
     def _safe_assets_root() -> str:
         """Host folder of SAFE's baked stages, stage exports, skies and UrbanVerse cities,
         which the Isaac container mounts read-only at the same path."""
-        from integrations.navigation.common.config.domains_isaac import BAKED_DIR
+        from safe_navigation.common.config.domains_isaac import BAKED_DIR
         return os.path.dirname(os.path.abspath(BAKED_DIR))
 
     def _env_for(self, safe_eval_config: dict, agent_env: dict) -> dict:
@@ -249,3 +248,49 @@ class StackHandle:
     def set_pid_output(self, enabled: bool) -> None:
         """Give external SAFE setpoints exclusive PX4 control after AirStack takeoff."""
         self.bridge.set_pid_output(enabled)
+
+    # Re-executes the running droan_gl_node with its own arguments, environment and folder,
+    # without a shell, so its `~/navigate_task` remap reaches the node unexpanded.
+    _RESTART_DROAN = r'''python3 - <<'PY'
+import os, signal, subprocess, sys, time
+
+def running(p):
+    # A node killed earlier stays a zombie until the launch process reaps it.
+    try:
+        return open(f"/proc/{p}/status").read().split("State:")[1].split()[0] != "Z"
+    except (OSError, IndexError):
+        return False
+
+def stop(p):
+    os.kill(p, signal.SIGINT)
+    for _ in range(50):
+        if not running(p):
+            return
+        time.sleep(0.1)
+    os.kill(p, signal.SIGKILL)
+
+pids = [int(p) for p in subprocess.run(["pgrep", "-x", "droan_gl_node"], capture_output=True,
+                                       text=True).stdout.split() if running(p)]
+if len(pids) != 1:
+    sys.exit(f"expected one running droan_gl_node, found {len(pids)}")
+pid = pids[0]
+argv = open(f"/proc/{pid}/cmdline", "rb").read().split(b"\0")[:-1]
+env = dict(kv.split(b"=", 1) for kv in open(f"/proc/{pid}/environ", "rb").read().split(b"\0") if b"=" in kv)
+cwd = os.readlink(f"/proc/{pid}/cwd")
+stop(pid)
+log = open("/tmp/droan_gl_node.log", "ab")
+subprocess.Popen(argv, env=env, cwd=cwd, stdout=log, stderr=log, stdin=subprocess.DEVNULL,
+                 start_new_session=True)
+PY'''
+
+    def restart_droan(self, timeout: float = 90.0) -> None:
+        """Start DROAN's node afresh and wait for its navigate server. Its obstacle map and stuck
+        history otherwise carry into the next episode, and its clear_map does not clear the map."""
+        ros.docker_exec(self.container, self._RESTART_DROAN, timeout=30.0, check=True)
+
+        def serving():
+            out = ros.ros2_exec(self.container, f"ros2 action info /{ROBOT}/tasks/navigate",
+                                domain_id=ROBOT_DOMAIN, timeout=20.0).stdout
+            return "Action servers: 1" in out
+
+        ros.wait_until(serving, timeout, desc="DROAN's navigate server after its restart")

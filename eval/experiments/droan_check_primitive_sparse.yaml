@@ -1,0 +1,26 @@
+# One DROAN episode through the full AirStack stack on primitive_sparse with SAFE's walking
+# people, at the settings of SAFE's paper/isaac_moving_primitive.yaml, filmed live.
+# Run (from the AirStack root):
+#   PYTHONPATH=/home/kayla/workspace/benchmark-code_cleanup:/home/kayla/AirStack \
+#   python3 eval/run.py --config eval/experiments/droan_check_primitive_sparse.yaml -y --headless
+experiment_tag: droan_check_primitive_sparse
+robot: iris
+benchmark_seed: 100
+agents:
+  - droan
+env_domains:
+  - primitive_sparse
+humans: true
+simple: false
+num_scenarios:     1
+num_perturbations: 1
+max_episodes:      1
+max_episode_time:  60
+goal_distance:     60
+# One host step per Isaac physics tick (1/60 s), the resolution SAFE's own runs score at.
+env_dt: 0.016666666666666666
+keep_up: true
+workers: 1
+debug:   quiet
+# The post-run replay stage has no AirStack renderer; the video comes from live capture.
+save_videos: none
