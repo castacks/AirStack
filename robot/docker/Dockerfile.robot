@@ -251,7 +251,7 @@ RUN python3 -m pip install --no-cache-dir --break-system-packages --ignore-insta
   "setuptools==79.0.1" \
   wheel
 
-# Pin MAVROS to 2.14
+# Add the ROS snapshot to pin MAVROS to 2.14
 RUN curl -sSL "https://keyserver.ubuntu.com/pks/lookup?op=get&options=mr&search=0x4B63CF8FDE49746E98FA01DDAD19BAB3CBF125EA" -o /usr/share/keyrings/ros-snapshots.asc \
   && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-snapshots.asc] http://snapshots.ros.org/${ROS_DISTRO}/2026-06-18/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" > /etc/apt/sources.list.d/ros2-snapshot.list
 
