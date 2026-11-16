@@ -15,9 +15,11 @@ top-level `safe_navigation` package. Isaac flights have run on this branch:
 | `droan_primitive_photoreal_1031` | 1 per domain, 8 domains | none reached the goal |
 | `droan_isaac_moving_primitive_seed100_1113` | 99 | 84 timeouts, 15 catastrophic failures |
 
-DROAN's timeouts follow from its speed. AirStack's `droan.yaml` sets `max_velocity: 1.0`,
-DROAN flies at a median 0.91 m/s, and SAFE's paper grid gives 60 s for a 60 m goal, a
-budget SAFE's Iris meets at its 5 m/s cruise.
+DROAN's timeouts follow from its speed. AirStack runs DROAN as `droan_gl` (the CPU
+`droan_local_planner` and its `droan.yaml` are commented out of `local.launch.xml`), whose
+candidate trajectories head out at a fixed 1 m/s written in `droan_gl/src/gl_interface.cpp`.
+DROAN flies at a median 0.91 m/s, and SAFE's paper grid gives 60 s for a 60 m goal, a budget
+SAFE's Iris meets at its 5 m/s cruise.
 
 ## What actually runs today
 

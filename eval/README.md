@@ -102,8 +102,9 @@ selectable names. Learned profiles read each source policy's camera contract and
 the AirStack Isaac launcher. Planner profiles enable RTX lidar where their source sensor
 contract requires it.
 
-DROAN flies at its own `max_velocity: 1.0` m/s from AirStack's `droan.yaml`, which cannot
-cover SAFE's 60 m paper goal inside its 60 s budget.
+AirStack runs DROAN as `droan_gl`, whose candidate trajectories head out at a fixed 1 m/s
+written in `droan_gl/src/gl_interface.cpp` (it has no speed parameter), which cannot cover
+SAFE's 60 m paper goal inside its 60 s budget.
 
 ## Domains
 
