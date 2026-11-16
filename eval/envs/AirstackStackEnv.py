@@ -556,7 +556,7 @@ class AirstackStackEnv(BaseEnvBackend):
         if state is None:
             return
         norm = float(np.linalg.norm(action))
-        speed = float(np.clip(norm, 0.0, 1.0) * self.max_speed)
+        speed = float(norm * self.max_speed)
         current = np.asarray(state["drone_pos"], dtype=np.float64)
         if self._velocity_ref is None:
             self._velocity_ref = current.copy()

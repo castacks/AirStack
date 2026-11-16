@@ -5,8 +5,8 @@ named SAFE aerial worlds, with SAFE's walking humans and scenario protocol.
 The existing SAFE aerial run remains the reference. Changing to AirStack's
 control path is a new experiment, even when the names and seeds match.
 
-Last updated 2026-11-16 against SAFE `code_cleanup` at 82af3f0, where the navigation
-task is the top-level `safe_navigation` package. Isaac flights have run on this branch:
+Last updated 2026-11-16 against SAFE at 82af3f0, where the navigation task is the
+top-level `safe_navigation` package. Isaac flights have run on this branch:
 
 | Run | Episodes | Result |
 |---|---|---|
@@ -91,7 +91,7 @@ Known gaps, not fixed:
 
 ## Verified on CPU (2026-10-14)
 
-`PYTHONPATH=/home/kayla/workspace/benchmark-code_cleanup:/home/kayla/AirStack python3 -m pytest -q eval/test`
+`PYTHONPATH=/home/kayla/workspace/benchmark:/home/kayla/AirStack python3 -m pytest -q eval/test`
 passes 17 tests. `eval/test/test_cpu_smoke.py` checks:
 
 - every `eval` module imports, and the rclpy container bridge and the Isaac
@@ -148,7 +148,7 @@ cd /home/kayla/AirStack && airstack image-pull
 #    with the SAFE eval launcher, waits for PX4, EKF and the ScenarioManager,
 #    then flies one episode.
 cd /home/kayla/AirStack
-export PYTHONPATH=/home/kayla/workspace/benchmark-code_cleanup:/home/kayla/AirStack
+export PYTHONPATH=/home/kayla/workspace/benchmark:/home/kayla/AirStack
 python3 eval/run.py --config eval/experiments/droan_empty.yaml -y --headless
 #    (`airstack safe --config eval/experiments/droan_empty.yaml -y --headless`
 #    is the same entry point.)

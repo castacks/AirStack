@@ -1,7 +1,7 @@
 # One DROAN episode through the full AirStack stack on primitive_sparse with SAFE's walking
 # people, at the settings of SAFE's paper/isaac_moving_primitive.yaml, filmed live.
 # Run (from the AirStack root):
-#   PYTHONPATH=/home/kayla/workspace/benchmark-code_cleanup:/home/kayla/AirStack \
+#   PYTHONPATH=/home/kayla/workspace/benchmark:/home/kayla/AirStack \
 #   python3 eval/run.py --config eval/experiments/droan_check_primitive_sparse.yaml -y --headless
 experiment_tag: droan_check_primitive_sparse
 robot: iris

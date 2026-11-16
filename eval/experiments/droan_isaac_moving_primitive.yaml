@@ -3,7 +3,7 @@
 # Live capture is off: filming every tick slows Isaac to about 0.1x real time, at which PX4
 # loses control. Videos are drawn afterwards by SAFE's replay renderer from the records.
 # Run (from the AirStack root):
-#   PYTHONPATH=/home/kayla/workspace/benchmark-code_cleanup:/home/kayla/AirStack \
+#   PYTHONPATH=/home/kayla/workspace/benchmark:/home/kayla/AirStack \
 #   python3 eval/run.py --config eval/experiments/droan_isaac_moving_primitive.yaml -y --headless
 experiment_tag: droan_isaac_moving_primitive_seed100
 robot: iris

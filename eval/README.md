@@ -160,10 +160,13 @@ slows Isaac to about 0.1x real time, where PX4 loses control, so long runs use
 - **Frames**: goals published to the stack are converted from Isaac world to
   the stack's local frame using a measured (ground truth − EKF) offset; EKF
   drift during long episodes shifts goal placement accordingly.
-- **Crash recovery**: after a collision the harness lands/disarms/teleports;
-  if PX4 refuses to re-arm after a hard crash the run needs a stack restart.
+- **Crash recovery**: after a collision the harness lands, disarms and teleports,
+  and the launcher relaunches PX4 so its EKF starts at the new pose. When Pegasus
+  did not autolaunch PX4 it cannot be relaunched, the arm can fail, and the run
+  needs a stack restart.
 - **Scene-mesh obstacles**: shelves, walls and other stage meshes with PhysX
   colliders are scored, on photoreal stages too. A stage floor counts as an
   obstacle unless its prim path names it ground, floor, plane, terrain, road or
   pavement.
-- Non-warehouse Nucleus domains have untuned arena origins/scales.
+- The legacy AirStack domains behind `AIRSTACK_SAFE_LEGACY_DOMAINS=1` other than
+  warehouse have untuned arena origins and scales. SAFE's domains are unaffected.
