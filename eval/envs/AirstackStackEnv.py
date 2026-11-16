@@ -35,7 +35,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 
 from safe_core.core.env_backend import BaseEnvBackend
-from safe_core.utils import config, console
+from safe_core.utils import console
 
 from ..sim import scenario_config
 from ..stack.compose import StackHandle
@@ -124,7 +124,6 @@ class AirstackStackEnv(BaseEnvBackend):
         self._scenario_index: int | None = None
         self._scenario_difficulty: dict | None = None
         self._collided = False
-        self._traj_risk: list = []
         self._dynamic_obstacle_velocities = np.zeros((0, 3), dtype=np.float32)
         self._initial_dynamic_obstacle_velocities = np.zeros((0, 3), dtype=np.float32)
         # Collider radii the ScenarioManager placed, set from its reply on every reset.
@@ -138,8 +137,6 @@ class AirstackStackEnv(BaseEnvBackend):
         self._start = np.zeros(3, dtype=np.float32)
         self._step_count = 0
         self._last_obs: dict | None = None
-        # Frames reset rendered for the recorder warm-up, served until the first step.
-        self._warm_frames: dict | None = None
         # World position a velocity policy's commands have integrated to this episode.
         self._velocity_ref: np.ndarray | None = None
         self._last_state_t = 0.0
@@ -330,11 +327,6 @@ class AirstackStackEnv(BaseEnvBackend):
         if self.agent_profile.get("control_mode", "stack") == "stack":
             self._send_navigate_goal()
 
-        # Recorder warm-up renders happen here, before the episode's first state, so the
-        # policy's first step is not measured across them.
-        self._warm_frames = None
-        if config.debug.capture_video:
-            self._warm_frames = self._warm_capture()
         # The people walked during takeoff and the run-up, so they go back to the scenario's
         # sampled start poses as the episode begins.
         self._set_collider_radii(scenario.command("restart_movers"))
@@ -354,7 +346,6 @@ class AirstackStackEnv(BaseEnvBackend):
         self._episode_start_t = self._last_state_t
         self._step_count = 0
         self._collided = False
-        self._traj_risk = []
         self._velocity_ref = None
         obs = self._build_obs(state)
         self._last_obs = obs
@@ -509,7 +500,6 @@ class AirstackStackEnv(BaseEnvBackend):
                 self._external_control_active = False
             raise
 
-        self._warm_frames = None
         if self.host_steps:
             self.stack.scenario.command("advance", {"ticks": 1})
         target_t = self._last_state_t + self.dt - self.TICK_TOLERANCE_S
@@ -700,53 +690,6 @@ class AirstackStackEnv(BaseEnvBackend):
             "num_static_cylinders": self.num_static_cylinders,
             "agent_profile": self.agent_profile.get("name", "unknown"),
         }
-
-    # ── debug video (SAFE's EpisodeRecorder, on when the debug profile captures) ──
-
-    def set_viz_risk(self, l_failure: float, l_unsafe: float) -> None:
-        self._traj_risk.append((float(l_failure), float(l_unsafe)))
-
-    @staticmethod
-    def _decode_frame(encoded):
-        import base64
-        import zlib
-        if not encoded:
-            return None
-        raw = zlib.decompress(base64.b64decode(encoded["rgb_zlib_b64"]))
-        return np.frombuffer(raw, dtype=np.uint8).reshape(encoded["shape"])
-
-    # The four views of SAFE's episode composite, all captured inside Isaac.
-    CAPTURE_VIEWS = ("overview", "tracking", "side", "fpv")
-
-    def get_debug_frames(self) -> Dict[str, Any]:
-        """The Isaac overview, tracking, side and first-person frames, as SAFE's recorder views.
-        Before the first step it returns the frames reset rendered, without a new render."""
-        if self._warm_frames is not None:
-            return dict(self._warm_frames)
-        frames = self.stack.scenario.command("capture_frames", timeout=60)
-        return {key: self._decode_frame(frames.get(key)) for key in self.CAPTURE_VIEWS}
-
-    # Capture requests the warm-up spends waiting for fresh render products to fill.
-    CAPTURE_WARMUP_TRIES = 30
-
-    def get_frame(self):
-        """Renderer warm-up for SAFE's recorder; returns the overview frame."""
-        frames = self._warm_frames if self._warm_frames is not None else self._warm_capture()
-        return frames["overview"]
-
-    def _warm_capture(self) -> Dict[str, Any]:
-        """Build the Isaac capture cameras and wait until both views return frames, so SAFE's
-        recorder writes the composite. A camera that never fills stops the flight instead
-        of flying unfilmed."""
-        frames = {}
-        for _ in range(self.CAPTURE_WARMUP_TRIES):
-            frames = self.get_debug_frames()
-            if all(frames.get(k) is not None for k in self.CAPTURE_VIEWS):
-                return frames
-        missing = [k for k in self.CAPTURE_VIEWS if frames.get(k) is None]
-        raise RuntimeError(
-            f"Isaac capture camera(s) {missing} returned no frame after "
-            f"{self.CAPTURE_WARMUP_TRIES} renders; the episode video cannot be recorded")
 
     def get_runtime_state(self) -> Dict[str, Any]:
         s = self.stack.scenario.latest_state() if self.stack.scenario else None

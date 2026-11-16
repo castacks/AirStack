@@ -31,5 +31,5 @@ env_dt: 0.016666666666666666
 keep_up: true
 workers: 1
 debug:   default
-# The post-run replay stage has no AirStack renderer; the video comes from live capture.
+# Videos come from SAFE's replay renderer after the run, not yet hooked up for AirStack.
 save_videos: none

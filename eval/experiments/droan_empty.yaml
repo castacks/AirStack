@@ -1,5 +1,4 @@
-# First DROAN episode through the stack-driven env: one flight in SAFE's empty arena,
-# recorded on video by SAFE's episode recorder (debug: default captures every episode).
+# First DROAN episode through the stack-driven env: one flight in SAFE's empty arena.
 # Run (from the AirStack root):
 #   PYTHONPATH=/home/kayla/workspace/benchmark:/home/kayla/AirStack \
 #   python3 eval/run.py --config eval/experiments/droan_empty.yaml -y --headless
@@ -21,5 +20,5 @@ env_dt: 0.5
 keep_up: true
 workers: 1
 debug:   default
-# The post-run replay stage has no AirStack renderer; the video comes from live capture.
+# Videos come from SAFE's replay renderer after the run, not yet hooked up for AirStack.
 save_videos: none

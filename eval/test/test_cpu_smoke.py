@@ -1,18 +1,16 @@
 """CPU smoke of the droan_empty experiment against the current SAFE checkout: every eval
 module imports, the yaml loads and validates, the adapter and the droan policy build, and
-one episode flown by a stand-in stack goes through SAFE's real rollout, scoring, npz,
-episodes.csv and episode-video path. No Docker, Isaac or ROS is touched."""
+one episode flown by a stand-in stack goes through SAFE's real rollout, scoring, npz and
+episodes.csv path. No Docker, Isaac or ROS is touched."""
 
 from __future__ import annotations
 
-import base64
 import glob
 import importlib
 import os
 import pkgutil
 import py_compile
 import sys
-import zlib
 from pathlib import Path
 
 import numpy as np
@@ -61,10 +59,6 @@ def test_droan_empty_loads_and_validates(monkeypatch):
     _, args, max_steps = _load_args(monkeypatch)
     assert args.robot == "iris" and args.agents == ["droan"] and args.domains == ["empty"]
     assert max_steps == int(args.max_episode_time / args.env_dt)
-    # debug: default turns on SAFE's live episode capture, the smoke flight's video.
-    from safe_core.utils.debug_config import DebugConfig
-    dbg = DebugConfig.from_args(args)
-    assert dbg.capture_video and dbg.video_save == "all"
 
 
 def _build(monkeypatch):
@@ -113,7 +107,6 @@ class _FakeScenario:
         self.t = 0.0
         self.pos = np.zeros(3)
         self.target = None
-        self.capture_built = 0
         self.static_radii = []
         self.alive = True
 
@@ -159,15 +152,6 @@ class _FakeScenario:
         if cmd == "reset_vehicle":
             self.pos = np.asarray(args["pos"], dtype=float)
             return {}
-        if cmd == "capture_frames":
-            # Fresh render products come back empty for a few renders, as in Isaac.
-            self.capture_built += 1
-            if self.capture_built < 4:
-                return {} if self.capture_built == 1 else {"overview": None, "tracking": None}
-            rgb = np.full((64, 64, 3), 90, dtype=np.uint8)
-            enc = {"shape": [64, 64, 3],
-                   "rgb_zlib_b64": base64.b64encode(zlib.compress(rgb.tobytes())).decode()}
-            return {"overview": enc, "tracking": enc}
         return {}
 
     def wait_state(self, timeout=60.0):
@@ -230,10 +214,10 @@ def run_entry_point_as_pool_worker(argv):
     AirstackRunner().main()
 
 
-def test_droan_empty_entry_point_writes_episode_and_video(tmp_path):
+def test_droan_empty_entry_point_writes_episode(tmp_path):
     """`eval/run.py --config droan_empty.yaml` as the pool's worker child, with a stand-in
-    stack: SAFE's real rollout, simple-mode scoring, npz record, episodes.csv, report
-    and the composite episode video, in the layout the owner's run writes."""
+    stack: SAFE's real rollout, simple-mode scoring, npz record, episodes.csv and report,
+    in the layout the owner's run writes."""
     import subprocess
     from safe_core.records.episodes import load_episode_record
 
@@ -258,6 +242,3 @@ def test_droan_empty_entry_point_writes_episode_and_video(tmp_path):
     assert record["nominal_outcome"] == "task_completed"
     assert (run_dir / "meta" / "episodes.csv").is_file()
     assert (run_dir / "report.html").is_file()
-    videos = glob.glob(str(run_dir / "raw" / "empty" / "scenario_1" / "perturbation_1"
-                           / "ep1_*" / "*.mp4"))
-    assert [os.path.basename(v) for v in videos] == ["episode_composite.mp4"], videos

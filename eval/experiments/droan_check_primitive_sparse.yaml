@@ -1,5 +1,5 @@
 # One DROAN episode through the full AirStack stack on primitive_sparse with SAFE's walking
-# people, at the settings of SAFE's paper/isaac_moving_primitive.yaml, filmed live.
+# people, at the settings of SAFE's paper/isaac_moving_primitive.yaml.
 # Run (from the AirStack root):
 #   PYTHONPATH=/home/kayla/workspace/benchmark:/home/kayla/AirStack \
 #   python3 eval/run.py --config eval/experiments/droan_check_primitive_sparse.yaml -y --headless
@@ -22,5 +22,5 @@ env_dt: 0.016666666666666666
 keep_up: true
 workers: 1
 debug:   quiet
-# The post-run replay stage has no AirStack renderer; the video comes from live capture.
+# Videos come from SAFE's replay renderer after the run, not yet hooked up for AirStack.
 save_videos: none

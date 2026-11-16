@@ -66,7 +66,7 @@ The branch was written against SAFE as of 2026-10-03. These breaks were fixed:
 | Optional hooks | `resolved_domain`, `perturbations_vary_episodes` | `eval/adapter.py` |
 | Planner sidecar registry | `fault()` is gone; records are resolved and probed | `run_agent_hook` polls `resolve()` and `is_sidecar()` |
 | Paper roster | `paper/isaac_moving_primitive.yaml` flies the nine planners and `depthnav`, `diffaero`, `vitfly`, `agileautonomy` | every one has a wrapper (`eval/test/test_main_policy_coverage.py`); `panther` has not flown here |
-| Episode video | `debug:` profiles with capture call `env.get_debug_frames()` | the launcher's `capture_frames` command renders an overview and a drone-tracking camera; the env decodes them for SAFE's recorder |
+| Episode video | SAFE's replay renderer draws episode videos from the npz after a run | not yet; AirStack records no video until the hand-off below is built |
 
 Container safety on a shared machine:
 
@@ -87,6 +87,11 @@ capsules. Arena walls are exact. The shell width (0.3 m) is the rulebook's.
 
 Open items:
 
+- Episode video goes through SAFE's replay renderer only. `AirstackRunner` does not yet
+  hand a finished run to it, SAFE's renderer finds policy classes only in SAFE's own
+  aerial policies folder, and the `droan` class declares `full_state`, which draws no
+  sensor panel, where its real input is the ZED stereo disparity.
+
 - `safe report RUN` and SAFE's other standalone tools find integrations through
   `thesafebenchmark.integrations` entry points, and nothing registers `airstack`
   there, because `eval/` is a folder on `PYTHONPATH` rather than an installed
@@ -98,22 +103,19 @@ Open items:
 - The launcher's branches for a domain without a SAFE config (AirStack's own
   obstacle pool columns) are unreachable since the eval reads only SAFE's domains.
 
-## Verified on CPU (2026-10-14, not re-run since)
+## CPU tests
 
 `PYTHONPATH=/home/kayla/workspace/benchmark:/home/kayla/AirStack python3 -m pytest -q eval/test`
-passes 17 tests. `eval/test/test_cpu_smoke.py` checks:
+runs them; they were last run on 2026-10-14. `eval/test/test_cpu_smoke.py` checks:
 
 - every `eval` module imports, and the rclpy container bridge and the Isaac
   launcher compile;
 - `droan_empty.yaml` passes SAFE's loader, required keys and run validation;
-  `debug: default` turns live video capture on;
 - the adapter, the `droan` policy and `AirstackStackEnv` construct;
 - `eval/run.py --config droan_empty.yaml` runs as SAFE's job pool runs its
   worker child, with a stand-in for the stack (SAFE's real scenario sampler for
-  `empty`, no Docker, render products that stay empty for the first renders):
-  SAFE's rollout, simple-mode scoring, `trajectories/ep1.npz` with its record,
-  `meta/episodes.csv`, `report.html` and
-  `ep1_task_completed/episode_composite.mp4`, with the per-step risk bar fed.
+  `empty`, no Docker): SAFE's rollout, simple-mode scoring, `trajectories/ep1.npz`
+  with its record, `meta/episodes.csv` and `report.html`.
 
 `docker compose config isaac-sim` resolves the new mounts and variables.
 
@@ -161,9 +163,6 @@ python3 eval/run.py --config eval/experiments/droan_empty.yaml -y --headless
 COMPOSE_PROFILES=desktop,isaac-sim airstack down robot-desktop isaac-sim
 ```
 
-If an Isaac capture camera never returns a frame, the flight stops with an error
-naming the camera rather than flying without video.
-
 Where the results land (the date is the run's `MMDD`; a second run the same day
 gets a letter suffix):
 
@@ -173,14 +172,9 @@ gets a letter suffix):
 | Report | `.../droan_empty_<MMDD>/report.html` |
 | Episode table | `.../droan_empty_<MMDD>/meta/episodes.csv` |
 | Trajectory and record | `.../droan_empty_<MMDD>/raw/empty/scenario_1/perturbation_1/trajectories/ep1.npz` |
-| Episode video | `.../droan_empty_<MMDD>/raw/empty/scenario_1/perturbation_1/ep1_<outcome>/episode_composite.mp4` |
-
-The video is the overview and the drone-tracking view side by side, at 2 frames
-per second (one per 0.5 s `env_dt` step), covering the episode from the goal
-handoff to the end.
 
 Expected time: 3 to 10 minutes for Isaac and PX4 to boot (the readiness wait
 allows 10), up to 3 for EKF convergence, about 1 for land, teleport, takeoff and
 run-up, then the flight itself (at most 90 s of sim time, longer in wall time if
-Isaac runs below real time), plus about a minute for the video and report. Plan
-on 10 to 20 minutes.
+Isaac runs below real time), plus about a minute for the report. Plan on 10 to
+20 minutes.

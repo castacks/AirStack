@@ -140,11 +140,8 @@ radius.
 `runs/airstack/<experiment_tag>_<MMDD>/` under the working directory, in SAFE's
 `RunLayout`: `report.html`, `meta/episodes.csv`, and per episode
 `raw/<domain>/scenario_N/perturbation_M/trajectories/epT.npz` in SAFE's navigation schema.
-Episode video comes only from live capture: a `debug:` profile that captures (`default`)
-makes the Isaac launcher render an overview and a drone-tracking camera, written to
-`raw/<domain>/scenario_N/perturbation_M/epT_<outcome>/episode_composite.mp4`. Live capture
-slows Isaac to about 0.1x real time, where PX4 loses control, so long runs use
-`debug: quiet` with `save_videos: none` and have no video.
+Episode videos are drawn after the run by SAFE's replay renderer from these records. That
+hand-off is not built yet (see [PORT_STATUS.md](PORT_STATUS.md)), so runs record no video.
 
 ## Notes
 
