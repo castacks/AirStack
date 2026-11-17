@@ -112,7 +112,10 @@ def _integer(value: Any) -> bool:
 
 
 def _number(value: Any) -> bool:
-    return type(value) in {int, float} and math.isfinite(value)
+    try:
+        return type(value) in {int, float} and math.isfinite(value)
+    except OverflowError:
+        return False
 
 
 def _rate(numerator: int, denominator: int) -> dict[str, Any]:
@@ -1102,8 +1105,33 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
         if observed is not None and (observed.dispatch_id != dispatch_id
                                      or observed.generation != generation):
             findings.append(f"stop_state_scope_mismatch:sequence={sequence}")
+        window = safe.get("observation_window")
+        window_valid = bool(
+            isinstance(window, dict)
+            and set(window) == {"clock", "started_s", "finished_s", "proof_checked_s", "max_age_s"}
+            and window.get("clock") == "process_monotonic/v1"
+            and all(_number(window.get(key)) for key in
+                    ("started_s", "finished_s", "proof_checked_s", "max_age_s"))
+            and 0 <= window["started_s"] <= window["finished_s"] <= window["proof_checked_s"]
+            and limits is not None and window["max_age_s"] == limits.stop_s
+            and _number(cancel.get("monotonic_time_s"))
+            and _number(safe.get("monotonic_time_s"))
+            # Trace envelope timestamps are rounded to microseconds.
+            and cancel["monotonic_time_s"]-1e-6 <= window["started_s"]
+            and window["proof_checked_s"] <= safe["monotonic_time_s"]+1e-6
+        )
+        if not window_valid:
+            findings.append(f"invalid_stop_observation_window:sequence={sequence}")
+        evidence_fresh = bool(
+            window_valid and observed is not None
+            and window["started_s"] <= observed.observed_at_monotonic <= window["finished_s"]
+            and window["proof_checked_s"]-observed.observed_at_monotonic <= window["max_age_s"]
+        )
+        if type(safe.get("evidence_fresh")) is not bool \
+                or safe["evidence_fresh"] != evidence_fresh:
+            findings.append(f"stop_freshness_mismatch:sequence={sequence}")
         confirmed = bool(safe.get("pending_execution") is False
-                         and cancel["acknowledged"] and observed is not None
+                         and cancel["acknowledged"] and observed is not None and evidence_fresh
                          and observed.dispatch_id == dispatch_id
                          and observed.generation == generation
                          and observed.motion_stopped and not observed.active_motion_command

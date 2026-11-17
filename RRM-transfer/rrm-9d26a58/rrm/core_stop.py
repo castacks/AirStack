@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import time
 from dataclasses import asdict, dataclass
 from threading import Lock
 from typing import Callable, Literal, Protocol
@@ -26,16 +27,24 @@ class StopStateEvidence:
     evidence_kind: Literal["synthetic_mock", "adapter_report"]
 
     def __post_init__(self) -> None:
-        if not self.dispatch_id.strip() or not self.controller_mode.strip():
+        if not isinstance(self.dispatch_id, str) or not self.dispatch_id.strip() \
+                or not isinstance(self.controller_mode, str) or not self.controller_mode.strip():
             raise ValueError("stop evidence identity is required")
+        try:
+            valid_clock = (type(self.observed_at_monotonic) in {int, float}
+                           and math.isfinite(self.observed_at_monotonic)
+                           and self.observed_at_monotonic >= 0)
+        except OverflowError:
+            valid_clock = False
         if type(self.generation) is not int or self.generation < 0 \
                 or type(self.observed_t) is not int or self.observed_t < 0 \
-                or not math.isfinite(self.observed_at_monotonic):
+                or not valid_clock:
             raise ValueError("invalid stop evidence clock or generation")
         if any(type(value) is not bool for value in (
                 self.motion_stopped, self.active_motion_command, self.safe_condition_met)):
             raise ValueError("invalid stop evidence truth value")
-        if self.evidence_kind not in {"synthetic_mock", "adapter_report"}:
+        if not isinstance(self.evidence_kind, str) \
+                or self.evidence_kind not in {"synthetic_mock", "adapter_report"}:
             raise ValueError("invalid stop evidence kind")
 
 
@@ -130,6 +139,7 @@ class CoreStopSupervisor:
                 acknowledged = False
             record("stop_cancel", acknowledged=acknowledged, deadline=cancel_deadline)
             safe_deadline = None
+            observation_started = time.monotonic()
             try:
                 safe_state = bounded_call(
                     "observe_safe_state", self.limits.stop_s,
@@ -139,13 +149,20 @@ class CoreStopSupervisor:
                 safe_state = None
             except Exception:
                 safe_state = None
+            observation_finished = time.monotonic()
             if not isinstance(safe_state, StopStateEvidence) \
                     or safe_state.dispatch_id != dispatch_id \
                     or safe_state.generation != generation:
                 safe_state = None
             execution_pending = pending()
+            proof_checked = time.monotonic()
+            evidence_fresh = bool(
+                safe_state is not None
+                and observation_started <= safe_state.observed_at_monotonic <= observation_finished
+                and proof_checked-safe_state.observed_at_monotonic <= self.limits.stop_s
+            )
             confirmed = bool(
-                not execution_pending and acknowledged and safe_state is not None
+                not execution_pending and acknowledged and safe_state is not None and evidence_fresh
                 and safe_state.motion_stopped
                 and not safe_state.active_motion_command
                 and safe_state.safe_condition_met
@@ -154,7 +171,13 @@ class CoreStopSupervisor:
             status = "SAFE_CONFIRMED_MOCK" if confirmed else "SAFE_UNCONFIRMED"
             record("stop_safe_state", evidence=(asdict(safe_state)
                                                 if safe_state is not None else None),
-                   status=status, pending_execution=execution_pending, deadline=safe_deadline)
+                   status=status, pending_execution=execution_pending, deadline=safe_deadline,
+                   evidence_fresh=evidence_fresh,
+                   observation_window=dict(clock="process_monotonic/v1",
+                                           started_s=observation_started,
+                                           finished_s=observation_finished,
+                                           proof_checked_s=proof_checked,
+                                           max_age_s=self.limits.stop_s))
             self._outcome = StopOutcome(
                 intervention_id, dispatch_id, reason, generation, acknowledged,
                 safe_state, status, trace_complete, execution_pending,

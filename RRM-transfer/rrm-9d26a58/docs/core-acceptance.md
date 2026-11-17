@@ -4,6 +4,46 @@ This campaign qualifies **mock component behavior and the measurement instrument
 not integrated SIL, learned reasoning, perception, physical stopping, or comparative
 robot performance. It does not expand RRM-EM or change live-motion authority.
 
+## Mock stop-evidence freshness — 2026-11-17
+
+Current source requires a same-process monotonic observation window for every
+`stop_safe_state` event. A matching dispatch/generation and positive safe-state
+Booleans are insufficient: the sample timestamp must lie inside the recorded
+observation call window and be no older than the configured stop callback budget
+at proof check. Old/future samples remain recorded with `evidence_fresh=false` and
+`SAFE_UNCONFIRMED`; callback acceptance is not safe-state confirmation.
+
+Replay independently checks window clock, ordering, configured budget, trace-time
+bounds and the freshness verdict before reconstructing stop status. Trace envelope
+times are rounded to microseconds, so only their bounding comparisons use a1µs
+rounding tolerance; the actual sample/window and age checks have no added slack.
+Malformed stop identities/timestamps and oversized window fields are rejected without
+turning invalid input into a confirmation or crashing replay.
+
+Baseline tests reproduced stale10-second and future10-second synthetic samples
+incorrectly earning `SAFE_CONFIRMED_MOCK`. The new checks close this mock reporting
+gap; they do not establish physical stopping, remote-clock synchronization or
+authenticated observations. Existing `adapter_report` evidence still cannot earn
+the mock-only confirmed status. Source-pinned older reports retain their original
+scope; current replay does not upgrade old stop records lacking window/freshness
+evidence. Use their original reader for historical reconstruction.
+
+Proof age is sampled after the pending-execution check, not merely when the
+observation callback returns. A slow later status query cannot silently turn an
+old sample into a fresh confirmation. The observation window and proof-check
+instant are separate recorded bounds. Pending-status callback liveness remains
+a separate concern from this timestamp check.
+
+The [November 17 development record](core-results/stop-freshness-20261117.json)
+retains source hashes and all17campaign attempts:17/17authored expectation matches,
+16/17complete/replay-qualified attempts, and the intentional evidence-write-loss
+case still UNKNOWN. Only3/17verified goal outcomes were true; expected refusals and
+aborts are not goal achievement. Focused core60tests and full-dependency core659
+tests pass. This is one fixed mock campaign with no resampling, not learned reasoning
+or comparative performance evidence. Raw campaign files remain local.
+
+## Export
+
 After the standard CPU bootstrap, export to a new directory:
 
 ```bash

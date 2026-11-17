@@ -3,12 +3,18 @@
 import copy
 import json
 import tempfile
+import time
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 from rrm.benchmark import (MOCK_CAPABILITIES, MOCK_NUMERIC_PROFILE,
                            SyntheticApprovalProvider, mock_admission, mock_permission)
 from rrm.benchmark_evidence import replay_trace
+from rrm.core_stop import StopStateEvidence
+from rrm.core_stop import CoreStopSupervisor
+from rrm.core_deadlines import CoreCallLimits
+from rrm.contracts import AdmissionGuard
 from rrm.benchmark_labels import EvaluationLabels, FailureKind, SafetyLabel, TerminalLabel
 from rrm.loop import run
 from rrm.policy import MockPolicy
@@ -44,7 +50,39 @@ class NoCancelWorld(MockWorld):
         return None
 
 
+class StaleSafeWorld(MockWorld):
+    def observe_safe_state(self, dispatch_id, generation):
+        evidence = super().observe_safe_state(dispatch_id, generation)
+        return replace(evidence, observed_at_monotonic=time.monotonic()-10.)
+
+
+class FutureSafeWorld(MockWorld):
+    def observe_safe_state(self, dispatch_id, generation):
+        evidence = super().observe_safe_state(dispatch_id, generation)
+        return replace(evidence, observed_at_monotonic=time.monotonic()+10.)
+
+
 class CoreStopEvidenceTests(unittest.TestCase):
+    def test_proof_age_includes_later_pending_execution_check(self):
+        class StoppedWorld:
+            def cancel_dispatch(self, dispatch_id, generation):
+                return True
+
+            def observe_safe_state(self, dispatch_id, generation):
+                return StopStateEvidence(dispatch_id, generation, 1, time.monotonic(),
+                                         True, False, True, 'MOCK_HOLD', 'synthetic_mock')
+
+        def slow_pending():
+            time.sleep(.08)
+            return False
+
+        supervisor = CoreStopSupervisor(AdmissionGuard(), CoreCallLimits(stop_s=.04))
+        supervisor.bind(StoppedWorld(), Tracer(None, {}))
+        outcome = supervisor.request_stop(dispatch_id='d', reason='operator_stop',
+                                          pending_execution=slow_pending)
+        self.assertEqual(outcome.status, 'SAFE_UNCONFIRMED')
+        self.assertIsNotNone(outcome.safe_state)
+
     def _episode(self, world_type=MockWorld):
         task = Task(id="c08-mock", mission="pick cup",
                     goal=_p("holding", "$self", "obj_cup"), expect_abort=True)
@@ -88,6 +126,71 @@ class CoreStopEvidenceTests(unittest.TestCase):
                          "SAFE_UNCONFIRMED")
         self.assertEqual(len([e for e in events if e["kind"] == "apply"]), 1)
         self.assertTrue(replay.valid, replay.findings)
+
+    def test_old_or_future_safe_evidence_cannot_confirm_stop(self):
+        for world_type in (StaleSafeWorld, FutureSafeWorld):
+            with self.subTest(world=world_type.__name__):
+                _, events, replay, policy = self._episode(world_type)
+                self.assertEqual(policy.outcome.status, 'SAFE_UNCONFIRMED')
+                self.assertIsNotNone(policy.outcome.safe_state)
+                safe = next(event for event in events if event['kind'] == 'stop_safe_state')
+                self.assertIs(safe['evidence_fresh'], False)
+                self.assertTrue(replay.valid, replay.findings)
+
+    def test_stop_evidence_rejects_invalid_identity_and_clock_types(self):
+        good = dict(dispatch_id='dispatch', generation=1, observed_t=2,
+                    observed_at_monotonic=10., motion_stopped=True,
+                    active_motion_command=False, safe_condition_met=True,
+                    controller_mode='MOCK_HOLD', evidence_kind='synthetic_mock')
+        cases = [('dispatch_id', None), ('controller_mode', 1), ('evidence_kind', []),
+                 ('generation', True), ('observed_t', False)]
+        cases += [('observed_at_monotonic', value) for value in
+                  (None, True, '10', -1., float('nan'), float('inf'), 10**1000)]
+        for field, value in cases:
+            with self.subTest(field=field, type=type(value).__name__):
+                with self.assertRaises(ValueError):
+                    StopStateEvidence(**{**good, field: value})
+
+    def test_replay_independently_rejects_freshness_tampering(self):
+        _, original, replay, _ = self._episode()
+        self.assertTrue(replay.valid, replay.findings)
+        with tempfile.TemporaryDirectory() as directory:
+            for case in ('old_sample', 'future_sample', 'false_verdict', 'missing_window',
+                         'wrong_clock', 'wrong_budget', 'reversed_window', 'bool_window',
+                         'overflow_window', 'invalid_identity', 'proof_before_observation',
+                         'future_proof'):
+                with self.subTest(case=case):
+                    events = copy.deepcopy(original)
+                    safe = next(event for event in events if event['kind'] == 'stop_safe_state')
+                    window = safe['observation_window']
+                    if case == 'old_sample':
+                        safe['evidence']['observed_at_monotonic'] -= 10.
+                    elif case == 'future_sample':
+                        safe['evidence']['observed_at_monotonic'] += 10.
+                    elif case == 'false_verdict':
+                        safe['evidence_fresh'] = False
+                    elif case == 'missing_window':
+                        safe.pop('observation_window')
+                    elif case == 'wrong_clock':
+                        window['clock'] = 'unrelated_clock'
+                    elif case == 'wrong_budget':
+                        window['max_age_s'] *= 2
+                    elif case == 'reversed_window':
+                        window['started_s'] = window['finished_s']+1.
+                    elif case == 'bool_window':
+                        window['started_s'] = True
+                    elif case == 'overflow_window':
+                        window['finished_s'] = 10**1000
+                    elif case == 'proof_before_observation':
+                        window['proof_checked_s'] = window['started_s']-1.
+                    elif case == 'future_proof':
+                        window['proof_checked_s'] = safe['monotonic_time_s']+1.
+                    else:
+                        safe['evidence']['controller_mode'] = None
+                    path = Path(directory)/(case+'.jsonl')
+                    path.write_text(''.join(json.dumps(event)+'\n' for event in events))
+                    result = replay_trace(path, expected_task_id='c08-mock')
+                    self.assertFalse(result.valid, result.findings)
 
     def test_replay_rejects_stop_tampering(self):
         _, original, replay, _ = self._episode()

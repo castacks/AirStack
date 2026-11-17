@@ -124,6 +124,28 @@ issue, not a camera result. No motion, scene mutation, model inference or live
 control-binary replacement. Current status page now explicitly separates November17
 source/passive continuation from the historical November15 physical checkpoint.
 
+Core C08 follow-up:baseline MockWorld variants with otherwise matching safe-state
+evidence stamped10seconds old/future both incorrectly earned SAFE_CONFIRMED_MOCK.
+CoreStopSupervisor now records same-process observation start/end, later proof-check
+instant and declared maximum age. Only samples acquired in that window and still
+fresh after pending-execution checking may confirm. Stale/future samples remain
+recorded with evidence_fresh=false and SAFE_UNCONFIRMED. Replay independently checks
+all timing bounds/verdicts; malformed identities/clocks and oversized window numbers
+are rejected without crashing. Twelve replay-tamper subcases plus slow post-observe
+pending-check regression pass. Older stop records lacking freshness evidence need
+their original source-pinned reader; no silent upgrade of historical claims.
+
+Validation:60focused core/deadline/stop testsPASS,659full optional-dependency unittest
+PASS,final7stop methodsPASS. An earlier minimal662test run had21explicit skips and
+zero failures/errors; it preceded the final proof-age-after-pending refinement.
+One frozen17-case mock acceptance run:17expectation matches,16complete/replay-qualified,
+intentional evidence-write loss retainedUNKNOWN;3verified goal outcomes, not17task
+successes. Verification valid/source unchanged; no repeated campaign for a better
+rate. Compact source-hashed record:`docs/core-results/stop-freshness-20261117.json`.
+Raw campaign remains local. No flight, scene change, live deployment or learned-model
+execution. Next concrete audit:pending-status callbacks themselves are currently
+unbounded and can delay mock cancellation despite admission already being latched.
+
 ## Earlier saved checkpoint; resume later — 2026-11-15
 
 User requested documentation update and commit before usage runs out. No active

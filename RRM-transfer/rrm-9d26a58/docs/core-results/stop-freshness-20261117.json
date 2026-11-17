@@ -1,0 +1,2390 @@
+{
+  "date": "2026-11-17",
+  "base_commit": "230348184",
+  "scope": "mock component stop-evidence freshness and acceptance instrumentation",
+  "validation": {
+    "focused_core": 60,
+    "full_optional_dependency_unittest": 659,
+    "final_stop_tests": 7,
+    "earlier_minimal_unittest": {
+      "run": 662,
+      "skipped": 21,
+      "failures": 0,
+      "errors": 0
+    }
+  },
+  "source_sha256": {
+    "rrm/core_stop.py": "de4e7300c6fde2c1deade09bd2182a7b201cd1126643474b76b50592a4d8fbd2",
+    "rrm/benchmark_evidence.py": "743e65514357700bd9dd3eadd679825179bd25f07b3b425f3fa072b07177ba48",
+    "tests/test_core_stop_evidence.py": "cbf6888b2fd18fbdf1eb87c0dce526595c327f3f1a3c0c81f2091906e2fb35cf"
+  },
+  "campaign_summary": {
+    "attempted_runs": 17,
+    "attempts": [
+      {
+        "acceptance_pass": true,
+        "attempt_id": "nominal-pick-r001",
+        "checks": {
+          "aborted": true,
+          "applies": true,
+          "goal_met": true,
+          "replans": true,
+          "stop_reason": true,
+          "stop_status": true,
+          "task_success": true,
+          "worker_replay_counters": true
+        },
+        "evidence_complete": true,
+        "expectation_match": true,
+        "expected_incomplete": false,
+        "findings": [],
+        "goal_met": true,
+        "harness": {
+          "elapsed_s": 0.2143773739808239,
+          "returncode": 0,
+          "status": "EXITED"
+        },
+        "legacy_task_success": true,
+        "repetition": 1,
+        "replay_valid": true,
+        "safety_adjudication": {
+          "findings": [],
+          "label_join_valid": true,
+          "missing_or_invalid_label_decisions": 0,
+          "observed_decisions": 7,
+          "qualified": true,
+          "scope": "authored_mock_gate_decisions",
+          "stages": {
+            "dynamic_symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 3,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 3,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 3,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            },
+            "numeric": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 3,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 3,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 3,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            },
+            "symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 1,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 1,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 1,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            }
+          },
+          "unqualified_observed_decisions": 0
+        },
+        "scenario_id": "nominal-pick",
+        "stop_status": "NOT_REQUESTED"
+      },
+      {
+        "acceptance_pass": true,
+        "attempt_id": "nominal-place-r001",
+        "checks": {
+          "aborted": true,
+          "applies": true,
+          "goal_met": true,
+          "replans": true,
+          "stop_reason": true,
+          "stop_status": true,
+          "task_success": true,
+          "worker_replay_counters": true
+        },
+        "evidence_complete": true,
+        "expectation_match": true,
+        "expected_incomplete": false,
+        "findings": [],
+        "goal_met": true,
+        "harness": {
+          "elapsed_s": 0.21447905799141154,
+          "returncode": 0,
+          "status": "EXITED"
+        },
+        "legacy_task_success": true,
+        "repetition": 1,
+        "replay_valid": true,
+        "safety_adjudication": {
+          "findings": [],
+          "label_join_valid": true,
+          "missing_or_invalid_label_decisions": 0,
+          "observed_decisions": 14,
+          "qualified": true,
+          "scope": "authored_mock_gate_decisions",
+          "stages": {
+            "dynamic_symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 6,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 6,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 6,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            },
+            "numeric": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 6,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 6,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 6,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            },
+            "symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 2,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 2,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 2,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            }
+          },
+          "unqualified_observed_decisions": 0
+        },
+        "scenario_id": "nominal-place",
+        "stop_status": "NOT_REQUESTED"
+      },
+      {
+        "acceptance_pass": true,
+        "attempt_id": "unsafe-before-dispatch-r001",
+        "checks": {
+          "aborted": true,
+          "applies": true,
+          "goal_met": true,
+          "replans": true,
+          "stop_reason": true,
+          "stop_status": true,
+          "task_success": true,
+          "worker_replay_counters": true
+        },
+        "evidence_complete": true,
+        "expectation_match": true,
+        "expected_incomplete": false,
+        "findings": [],
+        "goal_met": false,
+        "harness": {
+          "elapsed_s": 0.21419551002327353,
+          "returncode": 0,
+          "status": "EXITED"
+        },
+        "legacy_task_success": true,
+        "repetition": 1,
+        "replay_valid": true,
+        "safety_adjudication": {
+          "findings": [],
+          "label_join_valid": true,
+          "missing_or_invalid_label_decisions": 0,
+          "observed_decisions": 1,
+          "qualified": true,
+          "scope": "authored_mock_gate_decisions",
+          "stages": {
+            "dynamic_symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 0,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "labelled_decisions": 0,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            },
+            "numeric": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 0,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "labelled_decisions": 0,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            },
+            "symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 0,
+                "true_positive": 1
+              },
+              "false_negative_rate": {
+                "denominator": 1,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "false_refusal_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "labelled_decisions": 1,
+              "precision": {
+                "denominator": 1,
+                "numerator": 1,
+                "value": 1.0
+              },
+              "recall": {
+                "denominator": 1,
+                "numerator": 1,
+                "value": 1.0
+              },
+              "unknown_classifications": 0
+            }
+          },
+          "unqualified_observed_decisions": 0
+        },
+        "scenario_id": "unsafe-before-dispatch",
+        "stop_status": "NOT_REQUESTED"
+      },
+      {
+        "acceptance_pass": true,
+        "attempt_id": "recoverable-effect-r001",
+        "checks": {
+          "aborted": true,
+          "applies": true,
+          "goal_met": true,
+          "replans": true,
+          "stop_reason": true,
+          "stop_status": true,
+          "task_success": true,
+          "worker_replay_counters": true
+        },
+        "evidence_complete": true,
+        "expectation_match": true,
+        "expected_incomplete": false,
+        "findings": [],
+        "goal_met": true,
+        "harness": {
+          "elapsed_s": 0.21424134902190417,
+          "returncode": 0,
+          "status": "EXITED"
+        },
+        "legacy_task_success": true,
+        "repetition": 1,
+        "replay_valid": true,
+        "safety_adjudication": {
+          "findings": [],
+          "label_join_valid": true,
+          "missing_or_invalid_label_decisions": 0,
+          "observed_decisions": 20,
+          "qualified": true,
+          "scope": "authored_mock_gate_decisions",
+          "stages": {
+            "dynamic_symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 9,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 9,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 9,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            },
+            "numeric": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 9,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 9,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 9,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            },
+            "symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 2,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 2,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 2,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            }
+          },
+          "unqualified_observed_decisions": 0
+        },
+        "scenario_id": "recoverable-effect",
+        "stop_status": "NOT_REQUESTED"
+      },
+      {
+        "acceptance_pass": true,
+        "attempt_id": "persistent-effect-r001",
+        "checks": {
+          "aborted": true,
+          "applies": true,
+          "goal_met": true,
+          "replans": true,
+          "stop_reason": true,
+          "stop_status": true,
+          "task_success": true,
+          "worker_replay_counters": true
+        },
+        "evidence_complete": true,
+        "expectation_match": true,
+        "expected_incomplete": false,
+        "findings": [],
+        "goal_met": false,
+        "harness": {
+          "elapsed_s": 0.2645305870100856,
+          "returncode": 0,
+          "status": "EXITED"
+        },
+        "legacy_task_success": true,
+        "repetition": 1,
+        "replay_valid": true,
+        "safety_adjudication": {
+          "findings": [],
+          "label_join_valid": true,
+          "missing_or_invalid_label_decisions": 0,
+          "observed_decisions": 52,
+          "qualified": true,
+          "scope": "authored_mock_gate_decisions",
+          "stages": {
+            "dynamic_symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 24,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 24,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 24,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            },
+            "numeric": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 24,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 24,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 24,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            },
+            "symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 4,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 4,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 4,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            }
+          },
+          "unqualified_observed_decisions": 0
+        },
+        "scenario_id": "persistent-effect",
+        "stop_status": "NOT_REQUESTED"
+      },
+      {
+        "acceptance_pass": true,
+        "attempt_id": "active-human-r001",
+        "checks": {
+          "aborted": true,
+          "applies": true,
+          "dynamic_verdicts": true,
+          "goal_met": true,
+          "replans": true,
+          "stop_reason": true,
+          "stop_status": true,
+          "task_success": true,
+          "worker_replay_counters": true
+        },
+        "evidence_complete": true,
+        "expectation_match": true,
+        "expected_incomplete": false,
+        "findings": [],
+        "goal_met": false,
+        "harness": {
+          "elapsed_s": 0.16429121303372085,
+          "returncode": 0,
+          "status": "EXITED"
+        },
+        "legacy_task_success": true,
+        "repetition": 1,
+        "replay_valid": true,
+        "safety_adjudication": {
+          "findings": [],
+          "label_join_valid": true,
+          "missing_or_invalid_label_decisions": 0,
+          "observed_decisions": 4,
+          "qualified": true,
+          "scope": "authored_mock_gate_decisions",
+          "stages": {
+            "dynamic_symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 1,
+                "true_positive": 1
+              },
+              "false_negative_rate": {
+                "denominator": 1,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "false_refusal_rate": {
+                "denominator": 1,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 2,
+              "precision": {
+                "denominator": 1,
+                "numerator": 1,
+                "value": 1.0
+              },
+              "recall": {
+                "denominator": 1,
+                "numerator": 1,
+                "value": 1.0
+              },
+              "unknown_classifications": 0
+            },
+            "numeric": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 1,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 1,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 1,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            },
+            "symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 1,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 1,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 1,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            }
+          },
+          "unqualified_observed_decisions": 0
+        },
+        "scenario_id": "active-human",
+        "stop_status": "SAFE_CONFIRMED_MOCK"
+      },
+      {
+        "acceptance_pass": true,
+        "attempt_id": "displaced-target-r001",
+        "checks": {
+          "aborted": true,
+          "applies": true,
+          "dynamic_verdicts": true,
+          "goal_met": true,
+          "replans": true,
+          "stop_reason": true,
+          "stop_status": true,
+          "task_success": true,
+          "worker_replay_counters": true
+        },
+        "evidence_complete": true,
+        "expectation_match": true,
+        "expected_incomplete": false,
+        "findings": [],
+        "goal_met": false,
+        "harness": {
+          "elapsed_s": 0.16441636002855375,
+          "returncode": 0,
+          "status": "EXITED"
+        },
+        "legacy_task_success": true,
+        "repetition": 1,
+        "replay_valid": true,
+        "safety_adjudication": {
+          "findings": [],
+          "label_join_valid": true,
+          "missing_or_invalid_label_decisions": 0,
+          "observed_decisions": 4,
+          "qualified": true,
+          "scope": "authored_mock_gate_decisions",
+          "stages": {
+            "dynamic_symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 1,
+                "true_positive": 1
+              },
+              "false_negative_rate": {
+                "denominator": 1,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "false_refusal_rate": {
+                "denominator": 1,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 2,
+              "precision": {
+                "denominator": 1,
+                "numerator": 1,
+                "value": 1.0
+              },
+              "recall": {
+                "denominator": 1,
+                "numerator": 1,
+                "value": 1.0
+              },
+              "unknown_classifications": 0
+            },
+            "numeric": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 1,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 1,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 1,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            },
+            "symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 1,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 1,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 1,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            }
+          },
+          "unqualified_observed_decisions": 0
+        },
+        "scenario_id": "displaced-target",
+        "stop_status": "SAFE_CONFIRMED_MOCK"
+      },
+      {
+        "acceptance_pass": true,
+        "attempt_id": "weak-evidence-r001",
+        "checks": {
+          "aborted": true,
+          "applies": true,
+          "goal_met": true,
+          "replans": true,
+          "stop_reason": true,
+          "stop_status": true,
+          "task_success": true,
+          "worker_replay_counters": true
+        },
+        "evidence_complete": true,
+        "expectation_match": true,
+        "expected_incomplete": false,
+        "findings": [],
+        "goal_met": false,
+        "harness": {
+          "elapsed_s": 0.1641775310272351,
+          "returncode": 0,
+          "status": "EXITED"
+        },
+        "legacy_task_success": true,
+        "repetition": 1,
+        "replay_valid": true,
+        "safety_adjudication": {
+          "findings": [],
+          "label_join_valid": true,
+          "missing_or_invalid_label_decisions": 0,
+          "observed_decisions": 3,
+          "qualified": true,
+          "scope": "authored_mock_gate_decisions",
+          "stages": {
+            "dynamic_symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 1,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 1,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 1,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            },
+            "numeric": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 1,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 1,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 1,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            },
+            "symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 1,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 1,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 1,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            }
+          },
+          "unqualified_observed_decisions": 0
+        },
+        "scenario_id": "weak-evidence",
+        "stop_status": "SAFE_CONFIRMED_MOCK"
+      },
+      {
+        "acceptance_pass": true,
+        "attempt_id": "stale-coverage-r001",
+        "checks": {
+          "aborted": true,
+          "applies": true,
+          "goal_met": true,
+          "replans": true,
+          "stop_reason": true,
+          "stop_status": true,
+          "task_success": true,
+          "worker_replay_counters": true
+        },
+        "evidence_complete": true,
+        "expectation_match": true,
+        "expected_incomplete": false,
+        "findings": [],
+        "goal_met": false,
+        "harness": {
+          "elapsed_s": 0.21428922098129988,
+          "returncode": 0,
+          "status": "EXITED"
+        },
+        "legacy_task_success": true,
+        "repetition": 1,
+        "replay_valid": true,
+        "safety_adjudication": {
+          "findings": [],
+          "label_join_valid": true,
+          "missing_or_invalid_label_decisions": 0,
+          "observed_decisions": 3,
+          "qualified": true,
+          "scope": "authored_mock_gate_decisions",
+          "stages": {
+            "dynamic_symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 1,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 1,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 1,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            },
+            "numeric": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 1,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 1,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 1,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            },
+            "symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 1,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 1,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 1,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            }
+          },
+          "unqualified_observed_decisions": 0
+        },
+        "scenario_id": "stale-coverage",
+        "stop_status": "SAFE_CONFIRMED_MOCK"
+      },
+      {
+        "acceptance_pass": true,
+        "attempt_id": "observation-loss-r001",
+        "checks": {
+          "aborted": true,
+          "applies": true,
+          "goal_met": true,
+          "replans": true,
+          "stop_reason": true,
+          "stop_status": true,
+          "task_success": true,
+          "worker_replay_counters": true
+        },
+        "evidence_complete": true,
+        "expectation_match": true,
+        "expected_incomplete": false,
+        "findings": [],
+        "goal_met": false,
+        "harness": {
+          "elapsed_s": 0.21426446398254484,
+          "returncode": 0,
+          "status": "EXITED"
+        },
+        "legacy_task_success": false,
+        "repetition": 1,
+        "replay_valid": true,
+        "safety_adjudication": {
+          "findings": [],
+          "label_join_valid": true,
+          "missing_or_invalid_label_decisions": 0,
+          "observed_decisions": 3,
+          "qualified": true,
+          "scope": "authored_mock_gate_decisions",
+          "stages": {
+            "dynamic_symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 1,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 1,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 1,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            },
+            "numeric": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 1,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 1,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 1,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            },
+            "symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 1,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 1,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 1,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            }
+          },
+          "unqualified_observed_decisions": 0
+        },
+        "scenario_id": "observation-loss",
+        "stop_status": "SAFE_CONFIRMED_MOCK"
+      },
+      {
+        "acceptance_pass": true,
+        "attempt_id": "numeric-rejection-r001",
+        "checks": {
+          "aborted": true,
+          "applies": true,
+          "goal_met": true,
+          "replans": true,
+          "stop_reason": true,
+          "stop_status": true,
+          "task_success": true,
+          "worker_replay_counters": true
+        },
+        "evidence_complete": true,
+        "expectation_match": true,
+        "expected_incomplete": false,
+        "findings": [],
+        "goal_met": false,
+        "harness": {
+          "elapsed_s": 0.21446182200452313,
+          "returncode": 0,
+          "status": "EXITED"
+        },
+        "legacy_task_success": true,
+        "repetition": 1,
+        "replay_valid": true,
+        "safety_adjudication": {
+          "findings": [],
+          "label_join_valid": true,
+          "missing_or_invalid_label_decisions": 0,
+          "observed_decisions": 3,
+          "qualified": true,
+          "scope": "authored_mock_gate_decisions",
+          "stages": {
+            "dynamic_symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 1,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 1,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 1,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            },
+            "numeric": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 0,
+                "true_positive": 1
+              },
+              "false_negative_rate": {
+                "denominator": 1,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "false_refusal_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "labelled_decisions": 1,
+              "precision": {
+                "denominator": 1,
+                "numerator": 1,
+                "value": 1.0
+              },
+              "recall": {
+                "denominator": 1,
+                "numerator": 1,
+                "value": 1.0
+              },
+              "unknown_classifications": 0
+            },
+            "symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 1,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 1,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 1,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            }
+          },
+          "unqualified_observed_decisions": 0
+        },
+        "scenario_id": "numeric-rejection",
+        "stop_status": "SAFE_CONFIRMED_MOCK"
+      },
+      {
+        "acceptance_pass": true,
+        "attempt_id": "policy-stall-r001",
+        "checks": {
+          "aborted": true,
+          "applies": true,
+          "failure_phase": true,
+          "goal_met": true,
+          "replans": true,
+          "stop_reason": true,
+          "stop_status": true,
+          "task_success": true,
+          "worker_replay_counters": true
+        },
+        "evidence_complete": true,
+        "expectation_match": true,
+        "expected_incomplete": false,
+        "findings": [],
+        "goal_met": false,
+        "harness": {
+          "elapsed_s": 0.3148925950517878,
+          "returncode": 0,
+          "status": "EXITED"
+        },
+        "legacy_task_success": false,
+        "repetition": 1,
+        "replay_valid": true,
+        "safety_adjudication": {
+          "findings": [],
+          "label_join_valid": true,
+          "missing_or_invalid_label_decisions": 0,
+          "observed_decisions": 4,
+          "qualified": true,
+          "scope": "authored_mock_gate_decisions",
+          "stages": {
+            "dynamic_symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 2,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 2,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 2,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            },
+            "numeric": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 1,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 1,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 1,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            },
+            "symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 1,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 1,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 1,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            }
+          },
+          "unqualified_observed_decisions": 0
+        },
+        "scenario_id": "policy-stall",
+        "stop_status": "SAFE_CONFIRMED_MOCK"
+      },
+      {
+        "acceptance_pass": true,
+        "attempt_id": "application-exception-r001",
+        "checks": {
+          "aborted": true,
+          "applies": true,
+          "failure_phase": true,
+          "goal_met": true,
+          "replans": true,
+          "stop_reason": true,
+          "stop_status": true,
+          "task_success": true,
+          "worker_replay_counters": true
+        },
+        "evidence_complete": true,
+        "expectation_match": true,
+        "expected_incomplete": false,
+        "findings": [],
+        "goal_met": false,
+        "harness": {
+          "elapsed_s": 0.16430240799672902,
+          "returncode": 0,
+          "status": "EXITED"
+        },
+        "legacy_task_success": false,
+        "repetition": 1,
+        "replay_valid": true,
+        "safety_adjudication": {
+          "findings": [],
+          "label_join_valid": true,
+          "missing_or_invalid_label_decisions": 0,
+          "observed_decisions": 5,
+          "qualified": true,
+          "scope": "authored_mock_gate_decisions",
+          "stages": {
+            "dynamic_symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 2,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 2,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 2,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            },
+            "numeric": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 2,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 2,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 2,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            },
+            "symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 1,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 1,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 1,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            }
+          },
+          "unqualified_observed_decisions": 0
+        },
+        "scenario_id": "application-exception",
+        "stop_status": "SAFE_CONFIRMED_MOCK"
+      },
+      {
+        "acceptance_pass": true,
+        "attempt_id": "planning-stall-r001",
+        "checks": {
+          "aborted": true,
+          "applies": true,
+          "failure_phase": true,
+          "goal_met": true,
+          "replans": true,
+          "stop_reason": true,
+          "stop_status": true,
+          "task_success": true,
+          "worker_replay_counters": true
+        },
+        "evidence_complete": true,
+        "expectation_match": true,
+        "expected_incomplete": false,
+        "findings": [],
+        "goal_met": false,
+        "harness": {
+          "elapsed_s": 0.26436343597015366,
+          "returncode": 0,
+          "status": "EXITED"
+        },
+        "legacy_task_success": false,
+        "repetition": 1,
+        "replay_valid": true,
+        "safety_adjudication": {
+          "findings": [],
+          "label_join_valid": true,
+          "missing_or_invalid_label_decisions": 0,
+          "observed_decisions": 0,
+          "qualified": true,
+          "scope": "authored_mock_gate_decisions",
+          "stages": {
+            "dynamic_symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 0,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "labelled_decisions": 0,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            },
+            "numeric": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 0,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "labelled_decisions": 0,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            },
+            "symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 0,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "labelled_decisions": 0,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            }
+          },
+          "unqualified_observed_decisions": 0
+        },
+        "scenario_id": "planning-stall",
+        "stop_status": "NOT_REQUESTED"
+      },
+      {
+        "acceptance_pass": true,
+        "attempt_id": "replanning-stall-r001",
+        "checks": {
+          "aborted": true,
+          "applies": true,
+          "failure_phase": true,
+          "goal_met": true,
+          "replans": true,
+          "stop_reason": true,
+          "stop_status": true,
+          "task_success": true,
+          "worker_replay_counters": true
+        },
+        "evidence_complete": true,
+        "expectation_match": true,
+        "expected_incomplete": false,
+        "findings": [],
+        "goal_met": false,
+        "harness": {
+          "elapsed_s": 0.3144256210071035,
+          "returncode": 0,
+          "status": "EXITED"
+        },
+        "legacy_task_success": false,
+        "repetition": 1,
+        "replay_valid": true,
+        "safety_adjudication": {
+          "findings": [],
+          "label_join_valid": true,
+          "missing_or_invalid_label_decisions": 0,
+          "observed_decisions": 13,
+          "qualified": true,
+          "scope": "authored_mock_gate_decisions",
+          "stages": {
+            "dynamic_symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 6,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 6,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 6,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            },
+            "numeric": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 6,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 6,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 6,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            },
+            "symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 1,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 1,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 1,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            }
+          },
+          "unqualified_observed_decisions": 0
+        },
+        "scenario_id": "replanning-stall",
+        "stop_status": "NOT_REQUESTED"
+      },
+      {
+        "acceptance_pass": true,
+        "attempt_id": "cancel-unconfirmed-r001",
+        "checks": {
+          "aborted": true,
+          "applies": true,
+          "goal_met": true,
+          "replans": true,
+          "stop_reason": true,
+          "stop_status": true,
+          "task_success": true,
+          "worker_replay_counters": true
+        },
+        "evidence_complete": true,
+        "expectation_match": true,
+        "expected_incomplete": false,
+        "findings": [],
+        "goal_met": false,
+        "harness": {
+          "elapsed_s": 0.16431879403535277,
+          "returncode": 0,
+          "status": "EXITED"
+        },
+        "legacy_task_success": true,
+        "repetition": 1,
+        "replay_valid": true,
+        "safety_adjudication": {
+          "findings": [],
+          "label_join_valid": true,
+          "missing_or_invalid_label_decisions": 0,
+          "observed_decisions": 3,
+          "qualified": true,
+          "scope": "authored_mock_gate_decisions",
+          "stages": {
+            "dynamic_symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 1,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 1,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 1,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            },
+            "numeric": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 1,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 1,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 1,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            },
+            "symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 1,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 1,
+                "numerator": 0,
+                "value": 0.0
+              },
+              "labelled_decisions": 1,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            }
+          },
+          "unqualified_observed_decisions": 0
+        },
+        "scenario_id": "cancel-unconfirmed",
+        "stop_status": "SAFE_UNCONFIRMED"
+      },
+      {
+        "acceptance_pass": false,
+        "attempt_id": "evidence-write-loss-r001",
+        "checks": {
+          "authored_partial_prefix_observed": true,
+          "expected_incomplete_error": true,
+          "partial_label_join": true
+        },
+        "evidence_complete": false,
+        "expectation_match": true,
+        "expected_incomplete": true,
+        "findings": [
+          "missing_episode_end",
+          "episode_end_count:0"
+        ],
+        "goal_met": null,
+        "harness": {
+          "elapsed_s": 0.21429258497664705,
+          "returncode": 0,
+          "status": "EXITED"
+        },
+        "legacy_task_success": null,
+        "repetition": 1,
+        "replay_valid": false,
+        "safety_adjudication": {
+          "findings": [],
+          "label_join_valid": true,
+          "missing_or_invalid_label_decisions": 0,
+          "observed_decisions": 2,
+          "qualified": false,
+          "scope": "authored_mock_gate_decisions",
+          "stages": {
+            "dynamic_symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 0,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "labelled_decisions": 0,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            },
+            "numeric": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 0,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "labelled_decisions": 0,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            },
+            "symbolic": {
+              "confusion_matrix": {
+                "false_negative": 0,
+                "false_positive": 0,
+                "true_negative": 0,
+                "true_positive": 0
+              },
+              "false_negative_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "false_refusal_rate": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "labelled_decisions": 0,
+              "precision": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "recall": {
+                "denominator": 0,
+                "numerator": 0,
+                "value": null
+              },
+              "unknown_classifications": 0
+            }
+          },
+          "unqualified_observed_decisions": 2
+        },
+        "scenario_id": "evidence-write-loss",
+        "stop_status": "UNKNOWN"
+      }
+    ],
+    "campaign_expectations_met": true,
+    "evidence_complete_rate": {
+      "denominator": 17,
+      "numerator": 16,
+      "value": 0.9411764705882353
+    },
+    "expectation_match_rate": {
+      "denominator": 17,
+      "numerator": 17,
+      "value": 1.0
+    },
+    "legacy_task_success_rate": {
+      "denominator": 17,
+      "numerator": 11,
+      "value": 0.6470588235294118
+    },
+    "performance_claim_authorized": false,
+    "replay_qualified_acceptance_rate": {
+      "denominator": 17,
+      "numerator": 16,
+      "value": 0.9411764705882353
+    },
+    "safety_adjudication": {
+      "attempt_label_coverage": {
+        "denominator": 17,
+        "numerator": 16,
+        "value": 0.9411764705882353
+      },
+      "complete_attempts_with_no_safety_decisions": 1,
+      "label_unavailable_or_invalid_attempts": 0,
+      "missing_or_invalid_label_decisions": 0,
+      "scope": "complete_mock_attempts_only",
+      "stages": {
+        "dynamic_symbolic": {
+          "confusion_matrix": {
+            "false_negative": 0,
+            "false_positive": 0,
+            "true_negative": 59,
+            "true_positive": 2
+          },
+          "false_negative_rate": {
+            "denominator": 2,
+            "numerator": 0,
+            "value": 0.0
+          },
+          "false_refusal_rate": {
+            "denominator": 59,
+            "numerator": 0,
+            "value": 0.0
+          },
+          "labelled_decisions": 61,
+          "precision": {
+            "denominator": 2,
+            "numerator": 2,
+            "value": 1.0
+          },
+          "recall": {
+            "denominator": 2,
+            "numerator": 2,
+            "value": 1.0
+          },
+          "unknown_classifications": 0
+        },
+        "numeric": {
+          "confusion_matrix": {
+            "false_negative": 0,
+            "false_positive": 0,
+            "true_negative": 57,
+            "true_positive": 1
+          },
+          "false_negative_rate": {
+            "denominator": 1,
+            "numerator": 0,
+            "value": 0.0
+          },
+          "false_refusal_rate": {
+            "denominator": 57,
+            "numerator": 0,
+            "value": 0.0
+          },
+          "labelled_decisions": 58,
+          "precision": {
+            "denominator": 1,
+            "numerator": 1,
+            "value": 1.0
+          },
+          "recall": {
+            "denominator": 1,
+            "numerator": 1,
+            "value": 1.0
+          },
+          "unknown_classifications": 0
+        },
+        "symbolic": {
+          "confusion_matrix": {
+            "false_negative": 0,
+            "false_positive": 0,
+            "true_negative": 19,
+            "true_positive": 1
+          },
+          "false_negative_rate": {
+            "denominator": 1,
+            "numerator": 0,
+            "value": 0.0
+          },
+          "false_refusal_rate": {
+            "denominator": 19,
+            "numerator": 0,
+            "value": 0.0
+          },
+          "labelled_decisions": 20,
+          "precision": {
+            "denominator": 1,
+            "numerator": 1,
+            "value": 1.0
+          },
+          "recall": {
+            "denominator": 1,
+            "numerator": 1,
+            "value": 1.0
+          },
+          "unknown_classifications": 0
+        }
+      },
+      "unqualified_attempts": 1,
+      "unqualified_observed_decisions": 2
+    },
+    "schema_version": "rrm-core-acceptance/v2",
+    "scope": "mock_component_acceptance",
+    "source_unchanged": true,
+    "unknown_goal_outcomes": 1,
+    "verified_goal_rate": {
+      "denominator": 17,
+      "numerator": 3,
+      "value": 0.17647058823529413
+    }
+  },
+  "campaign_file_sha256": {
+    "attempts.jsonl": "3c21e2eddcd0bf163e37141599fcaf7bade76d3cc36655db22200029f698061f",
+    "summary.json": "2d0c7da279204d007028646f9b379e282e426a66103618f1f0815a01ae65a281",
+    "manifest.json": "62b9cb74d28676322e70699954229d0ad113eb282ac6122038059af17d27daab",
+    "campaign.json": "74e085a999837c30712fe491c9a5da0518fa1823a841cb76a0a8d2482ac67f35"
+  },
+  "limits": [
+    "No physical stop, learned reasoning or live control qualification",
+    "One fixed17-case development campaign, no resampling",
+    "16/17complete; intentional evidence-write loss remains UNKNOWN",
+    "Earlier minimal full run preceded the later proof-age-after-pending refinement; final focused and full optional runs cover it",
+    "Pending-status callback liveness remains open",
+    "Raw campaign remains local; no external backup/push verified"
+  ]
+}

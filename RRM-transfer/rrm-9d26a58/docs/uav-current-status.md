@@ -17,8 +17,8 @@ scene switch, model launch or live control-binary replacement has occurred.
   modes cannot replace it. Actual isolated reference test measures0.0m excursion
   against0.410m baseline. After separate mechanical lint cleanup, package7/7CTest
   pass. Both packages have aggregate zero errors/failures and two skips each.
-- Core test fixture corrected without weakening LAND admission. Full-dependency
-  unittest651/651pass; minimal Pydantic-only run655tests,634pass/21explicit skips.
+- Core test fixture corrected without weakening LAND admission. Latest full-dependency
+  unittest659/659pass; minimal Pydantic-only configurations also pass with explicit skips.
   Optional worker YAML inspection runs when PyYAML exists and skips otherwise.
 - Fresh passive camera capture:20exact-header triples classified ABSENT; a saved
   frame was inspected. This is detector output on the current view, not scene-wide
