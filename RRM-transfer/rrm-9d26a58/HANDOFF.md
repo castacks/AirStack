@@ -8,7 +8,51 @@ steps aligned with RRM's overall purpose. Requirements/contracts and verified
 evidence govern the work; the roadmap is revisable. Historical phase/gate numbers
 below retain their original meanings and then-current scope.
 
-## CURRENT: saved checkpoint; resume later — 2026-11-15
+## CURRENT: autonomous development continuation — 2026-11-17
+
+User authorized sustained autonomous work and requested discrepancies be recorded
+while useful progress continues. Branch `ore_proj`, base `1b0515ebe`. No flights,
+scene switches, service calls to the aircraft, model launches or live binary
+replacement in this increment. Existing robot/Isaac/GCS containers remain running;
+their uptime is not fresh readiness or grounded-state proof.
+
+Restored-host discrepancies: old UAV raw images/truth/contact records are absent
+from checked host artifact directories; only older hand reports remain in the
+RRM-local artifact directory. Isaac's current process runs the default launch
+script, not the November marker fixture. Historical physical results therefore
+remain historical; do not claim raw reproduction from this workspace.
+
+Added a no-ROS synthetic calibrated marker intervention campaign, 13/13 expected
+dispositions, with raw PNG/NPZ, source snapshots and 29 checked SHA256 records in
+local notebook artifacts. Compact report is versioned at
+`docs/uav-results/marker-abstention-synthetic-20261117.json`. Duplicate/split regions,
+absent/full cover, insufficient/invalid depth and cropped target propagate no-goal
+outcomes. Partial connected occlusion explicitly remains OBSERVED/SELECTED; this
+is a retained visibility/identity limitation, not successful occlusion detection.
+Repeated observations qualify disposition propagation only. No general perception,
+physical sensor-fault handling or learned-reasoning claim.
+
+Viewpoint policy now fails closed on malformed container/field shapes and supports
+tuple/list payloads consistently. Detector and nominal geometry remain unchanged;
+old flight source hashes do not match this new policy implicitly. Focused detector,
+policy, persisted campaign and existing assessor regressions:47 PASS in robot Docker.
+Complete core unittest run:650 tests, one existing missing-armed LAND-fixture error,
+649 otherwise successful. This reproduces the documented October fixture issue.
+Earlier broad runs used an incomplete copied repo layout and failed from missing
+fixtures/scripts/catalog; those failed logs are preserved, not product regressions.
+Validation used a disposable source tree and isolated Python environment in /tmp.
+Pydantic was absent from default container Python; installed only into temporary
+dependencies, then a no-pip/system-site-packages venv for standalone subprocesses.
+Copied missing static scenes.yaml into the robot container for read-only console
+tests; no scene was loaded or selected by that copy.
+
+Next investigation: monitor drive_pause currently waits on an unresolved operator
+resume/rewind RPC before dispatching PAUSE. Reproduce with isolated actual binary
+and mock controller before repair. Integer-mode service lacks controller-side
+generation/authority fencing; a local scheduling fix cannot establish exclusive
+authority or cancel a remotely queued request. Keep physical stopping unqualified.
+
+## Earlier saved checkpoint; resume later — 2026-11-15
 
 User requested documentation update and commit before usage runs out. No active
 flight/pending goal remains. Leave Isaac/PX4 running for viewer use, disarmed/on

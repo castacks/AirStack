@@ -5,6 +5,7 @@ approximation do not establish semantic information gain or object localization.
 """
 import math
 import statistics
+from collections.abc import Mapping
 
 
 def optical_forward_in_map(quaternion_xyzw):
@@ -25,11 +26,11 @@ def select_viewpoint(observations, image_size, optical_axis_map):
     def abstain(reason):
         return dict(status='ABSTAIN', reason=reason, delta_map_m=None)
 
-    if len(observations) != 3:
+    if not isinstance(observations, (list, tuple)) or len(observations) != 3:
         return abstain('requires_three_observations')
-    if len(image_size) != 2 or any(type(v) is not int or v <= 16 for v in image_size):
+    if not isinstance(image_size, (list, tuple)) or len(image_size) != 2 or any(type(v) is not int or v <= 16 for v in image_size):
         return abstain('invalid_image_size')
-    if len(optical_axis_map) != 3 or not all(
+    if not isinstance(optical_axis_map, (list, tuple)) or len(optical_axis_map) != 3 or not all(
         isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
         for v in optical_axis_map
     ):
@@ -39,19 +40,21 @@ def select_viewpoint(observations, image_size, optical_axis_map):
     areas = []
     depths = []
     for observation in observations:
+        if not isinstance(observation, Mapping):
+            return abstain('invalid_observation')
         if observation.get('status') != 'OBSERVED':
             return abstain('unobserved_or_ambiguous_target')
         box = observation.get('bbox_xywh', [])
         point = observation.get('surface_point_optical_m', [])
         depth = observation.get('surface_depth_z_m')
-        if len(box) != 4 or any(type(v) is not int for v in box):
+        if not isinstance(box, (list, tuple)) or len(box) != 4 or any(type(v) is not int for v in box):
             return abstain('invalid_bbox')
         x, y, width, height = box
         if width < 3 or height < 3 or x < 8 or y < 8 or x+width > image_size[0]-8 or y+height > image_size[1]-8:
             return abstain('cropped_or_small_target')
-        if len(point) != 3 or not all(
+        if not isinstance(point, (list, tuple)) or len(point) != 3 or not all(
             isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
-            for v in point+[depth]
+            for v in (*point, depth)
         ) or not 0 < depth < 20 or abs(point[2]-depth) > 1e-6:
             return abstain('invalid_surface_range')
         if max(abs(point[0]/depth), abs(point[1]/depth)) > .5:
